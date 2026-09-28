@@ -123,6 +123,15 @@ function idFor(key: string): string {
   return createHash('sha256').update(key).digest('hex').slice(0, 16)
 }
 
+/**
+ * Story 157: the same id a loose-file entry gets at discovery time (`idFor(pathKey(absolutePath))`
+ * above), exposed so the rename guard/apply path can compute a renamed file's id without re-running
+ * discovery.
+ */
+export function demoIdForPath(absolutePath: string): string {
+  return idFor(pathKey(absolutePath))
+}
+
 interface Entry extends DiscoveredDemoFile {
   _instIndex: number
   _gameDirOrder: number

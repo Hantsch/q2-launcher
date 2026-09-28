@@ -87,6 +87,7 @@ describe('replays module', () => {
       'listFilter.write',
       'demos.reveal',
       'demos.copyPath',
+      'demo.rename',
     ])
   })
 
@@ -518,6 +519,7 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.sidecarRead]: { demoId: 'nope' },
         [REPLAYS_HANDLERS.demosReveal]: { demoId: 'nope' },
         [REPLAYS_HANDLERS.demosCopyPath]: { demoId: 'nope' },
+        [REPLAYS_HANDLERS.demoRename]: { id: 'nope', name: 'renamed' },
         [REPLAYS_HANDLERS.listGetSort]: undefined,
         [REPLAYS_HANDLERS.listSetSort]: { sort: null },
         [REPLAYS_HANDLERS.listGetFilter]: undefined,

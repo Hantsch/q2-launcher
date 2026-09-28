@@ -1,5 +1,5 @@
 import { resolveEffectiveValues, type ResolveEffectiveValuesInputs } from '@shared/demos/effective-values'
-import type { DemoRow } from '@shared/modules/replays'
+import type { DemoRow, DiscoveredDemo } from '@shared/modules/replays'
 import type { SidecarReadResult } from './demo-editor-store'
 
 /**
@@ -8,7 +8,7 @@ import type { SidecarReadResult } from './demo-editor-store'
  * `index.read` - so a notes save updates the row's name/mod/favourite in place, without a rescan.
  * The header shape here must stay in step with that file's `headerFromRow`.
  */
-export function rowWithSidecar(row: DemoRow, sidecar: SidecarReadResult): DemoRow {
+export function rowWithSidecar(row: DiscoveredDemo, sidecar: SidecarReadResult): DemoRow {
   const header =
     row.readable && row.gameDir !== null
       ? ({

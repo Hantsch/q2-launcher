@@ -70,6 +70,9 @@ export const REPLAYS_HANDLERS = {
   demosReveal: 'demos.reveal',
   /** Story 156: copies a demo's resolved absolute path to the clipboard. */
   demosCopyPath: 'demos.copyPath',
+  /** Story 157: renames a demo (and its sidecar, if any) to a new stem, id-addressed - main resolves
+   * the id to the real path itself. Resolves to `Outcome<{ demo: DiscoveredDemo }>`. */
+  demoRename: 'demo.rename',
 } as const
 
 /**
@@ -388,6 +391,11 @@ export const replaysDemoFileActionSchema = z.object({ demoId: replaysDemoIdSchem
  * action ran and, on refusal, why - mirrors `ExtraFoldersResult`'s ok/refusal union shape above. */
 export type DemoFileActionResult = { ok: true } | { ok: false; reason: 'unknownDemo' | 'fileMissing' }
 
+/** `demo.rename`'s payload (story 157): the demo id plus the new name STEM - never a path; main
+ * validates the stem itself (`validateDemoRename`) and resolves the id to the real file. `.strict()`
+ * for the same reason as `replaysDemoFileActionSchema` above. */
+export const replaysDemoRenameSchema = z.object({ id: replaysDemoIdSchema, name: z.string().max(255) }).strict()
+
 /** `sidecar.write`'s payload: the demo id plus the full replacement set of sidecar fields, and -
  * only when replacing a broken sidecar the user has confirmed - the fingerprint a previous
  * `needsConfirmation` response reported for that file (story 147). */
@@ -449,6 +457,7 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.listSetFilter]: listSetFilterInputSchema,
   [REPLAYS_HANDLERS.demosReveal]: replaysDemoFileActionSchema,
   [REPLAYS_HANDLERS.demosCopyPath]: replaysDemoFileActionSchema,
+  [REPLAYS_HANDLERS.demoRename]: replaysDemoRenameSchema,
 }
 
 /**

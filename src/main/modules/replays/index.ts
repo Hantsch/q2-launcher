@@ -17,6 +17,7 @@ import {
   nameTemplatesResetSchema,
   nameTemplatesUpdateSchema,
   replaysDemoFileActionSchema,
+  replaysDemoRenameSchema,
   replaysNoInputSchema,
   replaysSidecarReadSchema,
   replaysSidecarWriteSchema,
@@ -27,11 +28,13 @@ import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harn
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../downloads/7za-path'
+import { createDemoRename } from './demo-rename'
 import { composeDemoRows } from './demo-rows'
 import { discoverDemos, type DiscoverContext } from './discovery'
 import { addExtraFolder, removeExtraFolder } from './extra-folders'
 import { createDemoFileActions } from './file-actions'
 import { ReplaysIndexCache } from './index-cache'
+import { createPlaybackSessions } from './playback-sessions'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
 import { createSidecarStore } from './sidecar-store'
 import {
@@ -192,6 +195,19 @@ export const replaysModule: MainModule = {
       },
     })
 
+    // Story 157: demo rename - id + stem in, main resolves the path and validates the stem itself.
+    // `playbackSessions` stays empty until playback registers into it (story 159).
+    const playbackSessions = createPlaybackSessions()
+    const demoRename = createDemoRename({
+      scan: scanService,
+      sidecars: sidecarStore,
+      sessions: playbackSessions,
+      nameMatcher: () => {
+        const { templates, fingerprint } = currentNameTemplates(app)
+        return nameMatcherFor(templates, fingerprint)
+      },
+    })
+
     handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())
     handle(REPLAYS_HANDLERS.scanStart, replaysNoInputSchema, () => scanService.start())
     // Story 150 D2: `index.read` now answers composed rows - each demo plus its sidecar and
@@ -217,6 +233,9 @@ export const replaysModule: MainModule = {
     )
     handle(REPLAYS_HANDLERS.demosCopyPath, replaysDemoFileActionSchema, (payload) =>
       demoFileActions.copyPath(payload.demoId),
+    )
+    handle(REPLAYS_HANDLERS.demoRename, replaysDemoRenameSchema, (payload) =>
+      demoRename.rename(payload.id, payload.name),
     )
 
     handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))

@@ -1097,6 +1097,30 @@
       "fileMissing": "This demo's file is no longer on disk — rescan to update the list.",
       "unknownDemo": "This demo is no longer in the list — rescan to update it."
     },
+    "rename": {
+      "title": "Rename demo",
+      "label": "Name",
+      "error": {
+        "empty": "Enter a name.",
+        "separator": "Can't contain / or \\.",
+        "dotDot": "Can't contain \"..\".",
+        "invalidChar": "Can't contain \"{{char}}\".",
+        "trailingDotOrSpace": "Can't end with a dot or space.",
+        "reserved": "\"{{name}}\" is a reserved name on Windows.",
+        "tooLong": "At most {{max}} characters.",
+        "unknownDemo": "This demo is no longer in the index.",
+        "archiveEntry": "Demos inside an archive can't be renamed.",
+        "playing": "Cannot rename while playing.",
+        "scanning": "Can't rename while a scan is running.",
+        "demoMissing": "The file is no longer on disk.",
+        "exists": "\"{{name}}\" already exists.",
+        "sidecarExists": "\"{{name}}\" already exists.",
+        "sidecarBroken": "Fix or replace this demo's notes file first.",
+        "renameFailed": "Rename failed ({{code}}).",
+        "notWritable": "{{folder}} isn't writable.",
+        "rollbackFailed": "Rename failed and couldn't be fully undone — check {{demo}} and {{sidecar}}."
+      }
+    },
     "list": {
       "label": "Demos",
       "loading": "Looking for demos…",

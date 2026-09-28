@@ -17,6 +17,9 @@ export interface DemoDetailPanelProps {
   onClose: () => void
   /** Patches this row's `sidecar` part in the view's list after a save - never a rescan. */
   onRowPatched: RowPatcher
+  /** Story 157 D4: a rename swapped this row's id (and file name) out from under the selection -
+   * threaded straight through to `DemoFileActions`/`RenameDemoDialog`. */
+  onRenamed: (oldId: string, newRow: DemoRow) => void
   /** Every other demo's sidecar tags, threaded down to the notes editor's tag-suggestion input. */
   otherDemosTags?: string[][]
 }
@@ -66,6 +69,7 @@ export function DemoDetailPanel({
   row,
   onClose,
   onRowPatched,
+  onRenamed,
   otherDemosTags = NO_OTHER_TAGS,
 }: DemoDetailPanelProps) {
   const { t, i18n } = useTranslation()
@@ -87,7 +91,11 @@ export function DemoDetailPanel({
   return (
     <section aria-labelledby="replays-detail-title" data-testid="replays-detail">
       <div className="sticky top-0 z-10 flex h-9 items-center justify-between gap-2 border-b border-line bg-panel px-4">
-        <h2 id="replays-detail-title" className="min-w-0 truncate text-sm font-medium text-ink">
+        <h2
+          id="replays-detail-title"
+          data-testid="replays-detail-title"
+          className="min-w-0 truncate text-sm font-medium text-ink"
+        >
           {title}
         </h2>
         <IconButton
@@ -123,7 +131,7 @@ export function DemoDetailPanel({
         </div>
 
         <div data-testid="replays-detail-file-actions">
-          <DemoFileActions demoId={row.id} />
+          <DemoFileActions demo={row} onRenamed={onRenamed} />
         </div>
 
         {liveSidecar !== null && liveSidecar.state === 'error' && (

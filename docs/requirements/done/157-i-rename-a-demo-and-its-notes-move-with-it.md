@@ -1,7 +1,7 @@
 ---
 id: 157
 title: I rename a demo and its notes move with it
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -17,19 +17,19 @@ The rename target is the second renderer-supplied value that touches the filesys
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The user renames a demo from its detail view; the demo file and, if present, its
+- [x] **AC1** — The user renames a demo from its detail view; the demo file and, if present, its
       sidecar (`<new name>.json`) are both renamed.
-- [ ] **AC2** — If either rename fails, both files end up with their original names, and the user
+- [x] **AC2** — If either rename fails, both files end up with their original names, and the user
       sees the reason.
-- [ ] **AC3** — The new name is validated in main: no path separators, no `..`, no characters or
+- [x] **AC3** — The new name is validated in main: no path separators, no `..`, no characters or
       reserved names invalid on Windows, a length cap; the demo's extension (incl. `.gz`) is kept.
-- [ ] **AC4** — A name that already exists in the folder (for the demo or its sidecar) is rejected
+- [x] **AC4** — A name that already exists in the folder (for the demo or its sidecar) is rejected
       with its reason; nothing is overwritten.
-- [ ] **AC5** — After a rename the list shows the demo under its new name without losing its parsed
+- [x] **AC5** — After a rename the list shows the demo under its new name without losing its parsed
       facts or selection.
-- [ ] **AC6** — Renaming the demo that is currently playing is blocked, with the reason shown to the
+- [x] **AC6** — Renaming the demo that is currently playing is blocked, with the reason shown to the
       user.
-- [ ] **AC7** — When the renamed name no longer matches the autorecord pattern that produced the old
+- [x] **AC7** — When the renamed name no longer matches the autorecord pattern that produced the old
       name facts (date, players), those facts are written into the sidecar at rename time so they
       are not lost.
 
@@ -248,29 +248,80 @@ Order: D1 → D2 → D3 → D4. See `## Decisions (Sprint)` for every rule.
   `src/main/modules/replays/demo-rename.test.ts` › "renames a demo and its sidecar" and "renames
   a demo without a sidecar and creates none"
 - AC2 → unit `src/main/modules/replays/demo-rename.test.ts` › "a failed sidecar rename restores
-  both names and the original sidecar" and "a failed undo reports rollbackFailed"; renderer
-  `src/renderer/src/modules/replays/RenameDemoDialog.test.tsx` › "a failed rename shows its
-  reason"; the real-surface reason display is proven by the AC4 flow step (failure needs a
-  mid-operation filesystem fault the UI cannot trigger — see Decisions)
-- AC3 → unit `src/shared/replays/demo-rename.test.ts` › "rejects each invalid name with its
-  reason" and "keeps the demo's extension"; unit `demo-rename.test.ts` › "main rejects an invalid
-  name even without the dialog"; e2e `scripts/flows/replays-rename.mjs` › step "an invalid name
-  shows its reason and blocks saving"
+  both names and the original sidecar", "a failed undo reports rollbackFailed", "a failed sidecar
+  rename removes the sidecar step 1 created when there was none before", "a failed demo rename
+  undoes the preserved-facts sidecar write" (both sub-cases), "a transient error snapshotting an
+  existing sidecar aborts before anything is written"; renderer
+  `src/renderer/src/modules/replays/RenameDemoDialog.test.tsx` › "a failed outcome with
+  replays.rename.error.playing shows its text" and "...renameFailed shows its text"; the
+  real-surface reason display is proven by the AC4 flow step (failure needs a mid-operation
+  filesystem fault the UI cannot trigger — see Decisions)
+- AC3 → unit `src/shared/replays/demo-rename.test.ts` (one case per reason, extension-kept
+  cases); unit `demo-rename.test.ts` › "main rejects an invalid name even without the dialog";
+  e2e `scripts/flows/replays-rename.mjs` › step "an invalid name shows its reason and blocks
+  saving"
 - AC4 → e2e `scripts/flows/replays-rename.mjs` › step "a taken name is rejected and nothing is
-  overwritten"; unit `demo-rename.test.ts` › "rejects an existing demo name" and "rejects an
-  existing sidecar name even without an own sidecar"
+  overwritten"; unit `demo-rename.test.ts` › "an existing target name is refused", "an existing
+  target sidecar is refused even when the demo has none of its own", "target file byte-identical
+  after an exists rejection", "a case-only rename is not a collision"
 - AC5 → e2e `scripts/flows/replays-rename.mjs` › step "the renamed row keeps its facts and
-  selection"; unit `src/main/modules/replays/scan-service.test.ts` › "applyRename re-keys the row,
-  file map and cache"
-- AC6 → unit `demo-rename.test.ts` › "a playing demo is not renamed"; renderer
-  `RenameDemoDialog.test.tsx` › "shows Cannot rename while playing"; unit
-  `src/main/modules/replays/playback-sessions.test.ts` › "tracks playing demos"; e2e gap: no
-  playback trigger before [[159]], whose flow should add the step
+  selection"; unit `src/main/modules/replays/scan-service.test.ts` › "re-keys the row, file
+  lookup and cache to the new id/name, without touching disk"; unit `demo-rename.test.ts` › "a
+  scan swap before the index update still answers with the renamed row"
+- AC6 → unit `demo-rename.test.ts` › "a demo that is playing is refused"; renderer
+  `RenameDemoDialog.test.tsx` › "a failed outcome with replays.rename.error.playing shows its
+  text"; unit `src/main/modules/replays/playback-sessions.test.ts` › "isPlaying is false
+  initially, true after begin, false after end"; e2e gap: no playback trigger before [[159]],
+  whose flow should add the step
 - AC7 → e2e `scripts/flows/replays-rename.mjs` › step "the name date moves into the sidecar"
   (sidecar JSON has `date` and the original description; detail shows the date sourced from the
-  sidecar); unit `demo-rename.test.ts` › "preserves the name date in the sidecar", "preserves
-  name players as sides" and "a broken sidecar with facts to preserve blocks the rename"
+  sidecar); unit `demo-rename.test.ts` › "an autorecord-named demo renamed to a plain name keeps
+  its date in the sidecar", "a players-template demo renamed away keeps its players as sides",
+  "a broken sidecar with facts to preserve refuses the rename and touches nothing"
 
 ## Done
 
-<!-- Filled by /build 157. -->
+Implemented rename-with-rollback for a demo + its sidecar across 4 deliverables (shared
+validator, scan-index patch + playback registry, the rename service/handler, the renderer dialog
++ flow), then a review-fix cycle on the hard-tier findings below.
+
+Commit message:
+```
+157: I rename a demo and its notes move with it
+```
+
+Verification: narrow gate. `npm run build`, `npm run typecheck` green. `npx vitest run
+--changed HEAD` green (1771 tests, up from 1766 after the review-fix cycle added 5 rollback
+coverage cases). `npm run ui:flow -- replays-rename` green, all 5 steps passed (a first run
+failed at step 1 on a real bug — see Decisions — fixed before the narrow gate was called done).
+AC → test mapping verified as listed above; AC6's e2e gap is real and accepted (no playback
+trigger exists before story [[159]]), not silently dropped.
+
+Decisions made while building (verified against the plan + ACs):
+- The build's own e2e run surfaced three real bugs, fixed before verification could pass: a
+  flow selector scoped `demo-rename-save` under the dialog's content div when `Modal` renders
+  `footer` as a sibling (fixed the flow); `DemoDetailPanel`'s title `<h2>` had an `id` but no
+  matching `data-testid` (added it); and a genuine AC5 regression — renaming a demo that was
+  only visible via an active search-filter match caused it to immediately deselect once the
+  filter no longer matched the new name (fixed with a "pinned row id" in `ReplaysView.tsx` that
+  keeps the just-renamed row visible until the next explicit filter change, row click or panel
+  close).
+- The hard-tier (`story-review-hard`) review found and this cycle fixed three further issues in
+  `src/main/modules/replays/demo-rename.ts`: (1) a transient sidecar-read error (EBUSY/EPERM) was
+  indistinguishable from "no sidecar", risking the rollback's own cleanup deleting a real,
+  pre-existing sidecar on a later fault — now only ENOENT/ENOTDIR count as absence, anything else
+  aborts before any write; (2) a non-null assertion after `scan.applyRename` could crash the
+  renderer on a narrow scan-swap race (files already renamed on disk by that point) — now falls
+  back to a best-effort row instead of asserting; (3) two of the three rollback/undo code paths
+  had no test coverage (facts preserved + no original sidecar + step-2/step-3 failure) — 5 new
+  cases added.
+- Test-title wording in this file's `## Acceptance Tests` above was corrected to the tests'
+  actual names (the refine-time text was descriptive, not verbatim); no test itself was
+  weakened, retitled test coverage is identical or broader than planned.
+
+Gap carried forward (named, not silently dropped): AC2's "mid-operation filesystem fault" and
+AC6's "rename while playing" are unit-tested in main only, per the story's own Decisions — no
+real-UI trigger exists yet for either. Story [[159]] (S28, playback) should add the AC6 e2e step
+once playback lands.
+
+tiers: D 4 / hard 1 · review default+hard · cycles 2 · agents 11

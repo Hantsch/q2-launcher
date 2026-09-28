@@ -120,3 +120,27 @@
 - 2026-09-28 22:08 · 156 · review 1 · started
 - 2026-09-28 22:10 · 156 · review 1 · done
 - 2026-09-28 22:10 · 156 · story · done
+- 2026-09-28 22:11:06 · 157 · build · started
+- 2026-09-28 22:13 · 157 · D1 rename-name validator · started
+- 2026-09-28 22:14 · 157 · D1 rename-name validator · done
+- 2026-09-28 22:14 · 157 · D2 index patch + playing registry · started
+- 2026-09-28 22:16 · 157 · D2 index patch + playing registry · done
+- 2026-09-28 22:16 · 157 · D3 rename service + handler (hard) · started
+- 2026-09-28 22:24 · 157 · D3 rename service + handler (hard) · done
+- 2026-09-28 22:24 · 157 · D4 rename dialog + detail-panel trigger + flow · started
+- 2026-09-28 22:32 · 157 · D4 rename dialog + detail-panel trigger + flow · done
+- 2026-09-28 22:32 · 157 · verify · started
+- 2026-09-28 22:35 · 157 · verify · blocked: e2e replays-rename fails at step 1 (Save button state never resolves, demo-rename-save timeout)
+- 2026-09-28 22:35 · 157 · fix e2e replays-rename step 1 · started
+- 2026-09-28 22:45 · 157 · fix e2e replays-rename step 1 · done
+- 2026-09-28 22:45 · 157 · verify 2 (post-fix) · started
+- 2026-09-28 22:46 · 157 · verify 2 (post-fix) · done
+- 2026-09-28 22:46 · 157 · review 1 · started
+- 2026-09-28 22:51 · 157 · review 1 · done
+- 2026-09-28 22:51 · 157 · review 2 (hard) · started
+- 2026-09-28 22:55 · 157 · review 2 (hard) · done
+- 2026-09-28 22:55 · 157 · fix hard-review findings (sidecar-loss guard, rollback coverage, race crash) · started
+- 2026-09-28 22:58 · 157 · fix hard-review findings (sidecar-loss guard, rollback coverage, race crash) · done
+- 2026-09-28 22:58 · 157 · verify 3 (post-hard-review fix) · started
+- 2026-09-28 22:59 · 157 · verify 3 (post-hard-review fix) · done
+- 2026-09-28 23:00 · 157 · story · done

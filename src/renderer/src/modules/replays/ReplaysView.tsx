@@ -125,6 +125,11 @@ export function ReplaysView() {
   // instead of losing the last, still-debounced change.
   const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingFilterRef = useRef<DemoListFilter | null>(null)
+  // Story 157 D4: a rename can move the very row the active filter was matching on (e.g. a
+  // free-text search against the old file name) out from under itself. AC5 requires the renamed
+  // row to keep its selection regardless, so its new id is pinned into `visibleDemos` below until
+  // the user does something that supersedes the pin (picks a different filter, or another row).
+  const pinnedRowIdRef = useRef<string | null>(null)
 
   // Story 152 D3: loads the persisted list sort once on mount - a failed read or no value
   // persisted both fall back to `null`, the default favourites-first order.
@@ -178,6 +183,7 @@ export function ReplaysView() {
   }
 
   const handleFilterChange = (next: DemoListFilter): void => {
+    pinnedRowIdRef.current = null
     setFilter(next)
     pendingFilterRef.current = next
     if (filterDebounceRef.current !== null) clearTimeout(filterDebounceRef.current)
@@ -249,6 +255,15 @@ export function ReplaysView() {
     )
   }
 
+  // Story 157 D4: a rename swaps the row's id (and file name) out from under the selection - the
+  // list is patched in place (old id -> the freshly composed row) and the selection follows the
+  // new id, mirroring `handleRowPatched`'s "patch, never rescan" shape.
+  const handleRenamed = (oldId: string, newRow: DemoRow): void => {
+    setDemos((current) => (current === null ? current : current.map((d) => (d.id === oldId ? newRow : d))))
+    pinnedRowIdRef.current = newRow.id
+    selectDemo(newRow.id)
+  }
+
   const rowCount = demos?.length ?? 0
   const listState = deriveReplaysListState({ scanning, rowCount })
   const selected = demos?.find((demo) => demo.id === selectedId) ?? null
@@ -262,10 +277,18 @@ export function ReplaysView() {
   // Story 155: every demo's own sidecar tags, for the notes editor's tag-suggestion input -
   // `suggestTags` excludes the current draft's own tags itself, so duplicates here are harmless.
   const otherDemosTags = useMemo(() => (demos ?? []).map((demo) => demo.sidecar.values.tags ?? []), [demos])
-  const visibleDemos = useMemo(
-    () => filterDemos(sortedDemos, filter, demoFilterSubject, Date.now()),
-    [sortedDemos, filter],
-  )
+  const visibleDemos = useMemo(() => {
+    const filtered = filterDemos(sortedDemos, filter, demoFilterSubject, Date.now())
+    const pinnedId = pinnedRowIdRef.current
+    if (pinnedId === null || filtered.some((demo) => demo.id === pinnedId)) return filtered
+    const pinnedRow = sortedDemos.find((demo) => demo.id === pinnedId)
+    if (pinnedRow === undefined) return filtered
+    const visibleIds = new Set(filtered.map((demo) => demo.id))
+    visibleIds.add(pinnedId)
+    // Keep `sortedDemos`'s own order - the pinned row is inserted at its natural sorted position,
+    // not tacked onto the end.
+    return sortedDemos.filter((demo) => visibleIds.has(demo.id))
+  }, [sortedDemos, filter])
 
   // A row filtered out from under the current selection is deselected - mirrors `ServersView`'s
   // own filter-driven deselect.
@@ -348,7 +371,10 @@ export function ReplaysView() {
                 <VirtualDemoList
                   rows={visibleDemos}
                   selectedId={selectedId}
-                  onSelect={(id) => selectDemo(id)}
+                  onSelect={(id) => {
+                    if (id !== pinnedRowIdRef.current) pinnedRowIdRef.current = null
+                    selectDemo(id)
+                  }}
                   onRowPatched={handleRowPatched}
                   sort={sort}
                   onSort={handleSort}
@@ -360,8 +386,12 @@ export function ReplaysView() {
               <div className={DETAIL_PANE}>
                 <DemoDetailPanel
                   row={selected}
-                  onClose={closeDemo}
+                  onClose={() => {
+                    pinnedRowIdRef.current = null
+                    closeDemo()
+                  }}
                   onRowPatched={handleRowPatched}
+                  onRenamed={handleRenamed}
                   otherDemosTags={otherDemosTags}
                 />
               </div>

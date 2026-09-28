@@ -13,7 +13,7 @@ import {
 } from '@shared/modules/replays'
 import { SHIPPED_NAME_PATTERNS } from '@shared/replays/name-patterns'
 import { canonicalizePath } from '../../lib/fs-utils'
-import { discoverDemos } from './discovery'
+import { demoIdForPath, discoverDemos } from './discovery'
 import { REPLAYS_INDEX_CACHE_FILE, ReplaysIndexCache } from './index-cache'
 import {
   createReplaysScanService,
@@ -635,5 +635,77 @@ describe('header facts and duration on the index row (story 150 D1)', () => {
     const rows = await second.service.read()
     expect(rows).toHaveLength(1)
     expect(pickFacts(rows[0])).toEqual(EXPECTED)
+  })
+})
+
+describe('applyRename (story 157)', () => {
+  it('re-keys the row, file lookup and cache to the new id/name, without touching disk', async () => {
+    const dir = await demoFolder('demos', ['old.dm2'])
+    const h = harness([dir])
+
+    h.service.start()
+    await h.waitIdle(1)
+    const before = (await h.service.read())[0]
+    const oldId = before.id
+    expect(before.fileName).toBe('old.dm2')
+    expect(before.map).toBe('q2dm1')
+
+    const newAbsolutePath = join(dir, 'new.dm2')
+    const newId = demoIdForPath(newAbsolutePath)
+
+    const renamed = await h.service.applyRename(oldId, newAbsolutePath, 'new.dm2')
+
+    expect(renamed).toBeDefined()
+    expect(renamed!.id).toBe(newId)
+    expect(renamed!.fileName).toBe('new.dm2')
+    expect(renamed!.map).toBe('q2dm1')
+
+    const rows = await h.service.read()
+    expect(rows.map((r) => [r.id, r.fileName])).toEqual([[newId, 'new.dm2']])
+
+    expect(h.service.resolveFile(newId)).toEqual({ absolutePath: newAbsolutePath, archiveEntry: null })
+    expect(h.service.resolveFile(oldId)).toBeUndefined()
+
+    // A second service instance over the same cache file gets a hit under the new id.
+    const cacheContents = JSON.parse(await readFile(cacheFile, 'utf8')) as {
+      entries: Record<string, unknown>
+    }
+    expect(Object.keys(cacheContents.entries)).toEqual([newId])
+
+    const parse = vi.fn(async (): Promise<DemoHeaderFacts> => {
+      throw new Error('a cache hit must not be re-parsed')
+    })
+    const second = harness([dir], { parse })
+    const cachedRows = await second.service.read()
+    expect(cachedRows.map((r) => [r.id, r.fileName])).toEqual([[newId, 'new.dm2']])
+  })
+
+  it('returns undefined for an id the last successful scan never saw', async () => {
+    const dir = await demoFolder('demos', ['a.dm2'])
+    const h = harness([dir])
+
+    h.service.start()
+    await h.waitIdle(1)
+
+    expect(await h.service.applyRename('0000000000000000', join(dir, 'x.dm2'), 'x.dm2')).toBeUndefined()
+  })
+
+  it('isScanning reflects the running flag', async () => {
+    const dir = await demoFolder('demos', ['a.dm2'])
+    const gate = deferred()
+    const parse = vi.fn(async () => {
+      await gate.promise
+      return FACTS
+    })
+    const h = harness([dir], { parse })
+
+    expect(h.service.isScanning()).toBe(false)
+    h.service.start()
+    await vi.waitFor(() => expect(parse).toHaveBeenCalledTimes(1))
+    expect(h.service.isScanning()).toBe(true)
+
+    gate.release()
+    await h.waitIdle(1)
+    expect(h.service.isScanning()).toBe(false)
   })
 })

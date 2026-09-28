@@ -14,7 +14,7 @@ import {
 } from '@shared/modules/replays'
 import { compileNameTemplate, matchNameTemplate, type NameFacts } from '@shared/replays/name-template'
 import { readDemoDuration, readDemoHeader } from '../../lib/demo-bytes'
-import type { DiscoveredDemoFile } from './discovery'
+import { demoIdForPath, type DiscoveredDemoFile } from './discovery'
 import type { CachedDemo, ReplaysIndexCache } from './index-cache'
 import { runIncrementalScan, type IncrementalScanSource } from './incremental-scan'
 
@@ -105,6 +105,19 @@ export interface ReplaysScanService {
    * the id, same as any other id the index doesn't know about - never backfilled from the cache
    * (the cache does not retain `absolutePath`). */
   resolveFile: (id: string) => { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] } | undefined
+  /** Story 157: renames a demo's identity in place, without a re-scan. Looks the old id up in
+   * `fileById`; `undefined` (a no-op) when it is not known - no successful scan has seen it, or a
+   * later scan has already replaced it. Otherwise re-keys `snapshot`, `fileById` and `lastCache`
+   * (persisted via `cache.write`, same as a normal scan) to the new id/path/name, re-matching
+   * `nameFacts` against the current `nameMatcher()` since the name changed; every other parsed fact
+   * is carried over unchanged. Returns the updated row. */
+  applyRename: (
+    oldId: string,
+    newAbsolutePath: string,
+    newFileName: string,
+  ) => Promise<DiscoveredDemo | undefined>
+  /** Whether a scan is currently running - the same flag `overview()` reports as `scanning`. */
+  isScanning: () => boolean
 }
 
 /** Explicit field pick: `absolutePath`/`size`/`mtimeMs`/`birthtimeMs` never reach a row.
@@ -377,5 +390,49 @@ export function createReplaysScanService(options: CreateReplaysScanServiceOption
     return file ? { absolutePath: file.absolutePath, archiveEntry: file.archiveEntry } : undefined
   }
 
-  return { start, read, overview, resolveFile }
+  async function applyRename(
+    oldId: string,
+    newAbsolutePath: string,
+    newFileName: string,
+  ): Promise<DiscoveredDemo | undefined> {
+    const oldFile = fileById.get(oldId)
+    if (!oldFile) return undefined
+    if (snapshot === null) return undefined
+    const oldRowIndex = snapshot.findIndex((row) => row.id === oldId)
+    if (oldRowIndex === -1) return undefined
+
+    const newId = demoIdForPath(newAbsolutePath)
+    const matched = nameMatcher().match(newFileName)
+    const newRow = withNameFacts(
+      { ...snapshot[oldRowIndex], id: newId, fileName: newFileName },
+      matched,
+    )
+
+    snapshot = snapshot.map((row, i) => (i === oldRowIndex ? newRow : row))
+
+    fileById.delete(oldId)
+    fileById.set(newId, {
+      ...oldFile,
+      id: newId,
+      fileName: newFileName,
+      absolutePath: newAbsolutePath,
+    })
+
+    if (lastCache) {
+      const oldCached = lastCache.get(oldId)
+      if (oldCached) {
+        lastCache.delete(oldId)
+        lastCache.set(newId, { ...oldCached, parsed: newRow, name: matched ?? null })
+        await cache.write(lastCache)
+      }
+    }
+
+    return newRow
+  }
+
+  function isScanning(): boolean {
+    return running
+  }
+
+  return { start, read, overview, resolveFile, applyRename, isScanning }
 }

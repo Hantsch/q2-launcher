@@ -118,6 +118,18 @@ export function copyDemoPath(demoId: string): Promise<Outcome<DemoFileActionResu
 }
 
 /**
+ * Story 157 D4: the `demos.rename` handler's renderer-side transport - a demo id and the user's
+ * typed stem in, the freshly discovered demo out, nested `Outcome<Outcome<...>>` like
+ * `sidecarWrite` above (the module registry's own transport layer wraps the handler's domain
+ * `Outcome`), so this flattens the same way.
+ */
+export async function renameDemo(id: string, name: string): Promise<Outcome<{ demo: DiscoveredDemo }>> {
+  return flattenOutcome(
+    await callModule<Outcome<{ demo: DiscoveredDemo }>>('replays', REPLAYS_HANDLERS.demoRename, { id, name }),
+  )
+}
+
+/**
  * Story 144 D4: the index scan's renderer-side transport, mirroring `servers/client.ts`'s
  * `startScan`/`readScan`/`onScanChanged` triad. `scanStart` kicks off a background scan
  * (single-flight - `started: false` means one was already running); `indexRead` is a one-shot

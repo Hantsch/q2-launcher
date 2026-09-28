@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { DemoRow } from '@shared/modules/replays'
 import { initI18n } from '../../../i18n'
 
 /**
@@ -17,10 +18,14 @@ vi.hoisted(() => {
 
 const revealDemo = vi.fn()
 const copyDemoPath = vi.fn()
+const renameDemo = vi.fn()
+const sidecarRead = vi.fn()
 
 vi.mock('../client', () => ({
   revealDemo: (demoId: string) => revealDemo(demoId),
   copyDemoPath: (demoId: string) => copyDemoPath(demoId),
+  renameDemo: (...args: unknown[]) => renameDemo(...args),
+  sidecarRead: (...args: unknown[]) => sidecarRead(...args),
 }))
 
 let DemoFileActions: typeof import('./DemoFileActions').DemoFileActions
@@ -36,14 +41,18 @@ afterEach(() => {
   cleanup()
   revealDemo.mockReset()
   copyDemoPath.mockReset()
+  renameDemo.mockReset()
+  sidecarRead.mockReset()
   useLauncher.setState({ toasts: [] })
 })
+
+const BASE_DEMO = { id: 'demo-1', fileName: 'demo-1.dm2' } as unknown as DemoRow
 
 describe('DemoFileActions (story 156 D2)', () => {
   it('a successful copy shows the path-copied toast (AC2)', async () => {
     copyDemoPath.mockResolvedValue({ ok: true, value: { ok: true } })
 
-    render(createElement(DemoFileActions, { demoId: 'demo-1' }))
+    render(createElement(DemoFileActions, { demo: BASE_DEMO, onRenamed: vi.fn() }))
     screen.getByTestId('replays-demo-copy-path').click()
 
     await vi.waitFor(() => {
@@ -58,7 +67,7 @@ describe('DemoFileActions (story 156 D2)', () => {
   it('fileMissing shows a persistent inline alert (AC5)', async () => {
     copyDemoPath.mockResolvedValue({ ok: true, value: { ok: false, reason: 'fileMissing' } })
 
-    render(createElement(DemoFileActions, { demoId: 'demo-1' }))
+    render(createElement(DemoFileActions, { demo: BASE_DEMO, onRenamed: vi.fn() }))
     screen.getByTestId('replays-demo-copy-path').click()
 
     const alert = await screen.findByTestId('replays-demo-file-action-error')

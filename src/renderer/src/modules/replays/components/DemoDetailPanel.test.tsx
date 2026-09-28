@@ -25,6 +25,7 @@ vi.mock('../client', () => ({
   sidecarRead: (demoId: string) => sidecarRead(demoId),
   revealDemo: vi.fn(async () => ({ ok: true, value: { ok: true } })),
   copyDemoPath: vi.fn(async () => ({ ok: true, value: { ok: true } })),
+  renameDemo: vi.fn(async () => ({ ok: true, value: { ok: true } })),
 }))
 
 let DemoDetailPanel: typeof import('./DemoDetailPanel').DemoDetailPanel
@@ -70,7 +71,7 @@ const BASE_ROW: DemoRow = {
 }
 
 function renderPanel(row: DemoRow = BASE_ROW, onClose: () => void = () => {}) {
-  render(createElement(DemoDetailPanel, { row, onClose, onRowPatched: () => {} }))
+  render(createElement(DemoDetailPanel, { row, onClose, onRowPatched: () => {}, onRenamed: () => {} }))
 }
 
 describe('DemoDetailPanel', () => {

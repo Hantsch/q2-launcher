@@ -131,6 +131,10 @@ describe('sidecar read path never writes', () => {
         'src/main/modules/replays/sidecar-store.test.ts',
         'src/main/modules/replays/sidecar-guard.test.ts',
         'src/main/modules/replays/sidecar-readonly.test.ts',
+        // Story 157: rename merges name-derived facts into the sidecar before renaming it - a
+        // deliberate second writer, given the store by index.ts (it never constructs one itself).
+        'src/main/modules/replays/demo-rename.ts',
+        'src/main/modules/replays/demo-rename.test.ts',
       ])
 
       const importSpecifierRe = /from\s+['"]([^'"]*sidecar-store)['"]/g

@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { DemoRow } from '@shared/modules/replays'
 import type { LocalizedMessage } from '@shared/types'
 import { useLauncher } from '../../../store/useLauncher'
 import { Button } from '../../../components/ui/Button'
 import { copyDemoPath, revealDemo } from '../client'
+import { RenameDemoDialog } from '../RenameDemoDialog'
 
 export interface DemoFileActionsProps {
-  demoId: string
+  demo: DemoRow
+  onRenamed: (oldId: string, newRow: DemoRow) => void
 }
 
 /** One failed file action's message: either one of this module's own two i18n keys (a domain
@@ -22,10 +25,12 @@ type FileActionError = { kind: 'domain'; key: string } | { kind: 'transport'; me
  * `handleCopyAddress`); any failure - transport-level or a domain refusal - shows a persistent
  * inline alert instead, which stays until a new action is taken or `demoId` changes.
  */
-export function DemoFileActions({ demoId }: DemoFileActionsProps) {
+export function DemoFileActions({ demo, onRenamed }: DemoFileActionsProps) {
   const { t } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
   const [error, setError] = useState<FileActionError | null>(null)
+  const [renaming, setRenaming] = useState(false)
+  const demoId = demo.id
 
   useEffect(() => {
     setError(null)
@@ -66,11 +71,17 @@ export function DemoFileActions({ demoId }: DemoFileActionsProps) {
         <Button size="sm" onClick={() => void handleCopyPath()} data-testid="replays-demo-copy-path">
           {t('replays.fileActions.copyPath')}
         </Button>
+        <Button size="sm" onClick={() => setRenaming(true)} data-testid="demo-rename">
+          {t('replays.rename.title')}
+        </Button>
       </div>
       {error && (
         <p className="text-xs text-danger" role="alert" data-testid="replays-demo-file-action-error">
           {error.kind === 'domain' ? t(error.key) : t(error.message.key, error.message.params)}
         </p>
+      )}
+      {renaming && (
+        <RenameDemoDialog demo={demo} onClose={() => setRenaming(false)} onRenamed={onRenamed} />
       )}
     </div>
   )

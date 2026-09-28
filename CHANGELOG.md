@@ -40,6 +40,9 @@ version section when a release actually ships.
   a favourite star, right in its details panel. Saved next to the demo, no rescan needed.
 - You can now star/rate a demo right from the list, no need to open it.
 - Reveal a demo in the file manager or copy its path straight from the detail panel.
+- Rename a demo from its detail panel — its notes file moves right along with it, and if the old
+  name was giving away a date or the players, that's kept safe in the notes so renaming never
+  loses it.
 
 ## 0.5.0 — 2026-09-26
 
