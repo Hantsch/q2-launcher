@@ -19,40 +19,58 @@ export function getReplaysOverview(): Promise<Outcome<ReplaysOverview>> {
 }
 
 /**
- * Story 140 D3: the `nameTemplates.*` handlers' renderer-side transport. Every one of them resolves
- * to `Outcome<NameTemplatesView>` - main's own refusals (an invalid template, an unknown id, ...)
- * are `Outcome`'s own `{ ok: false; error }` here, not a nested domain result, since this module's
- * handlers never half-succeed the way `servers.sources.*`'s did.
+ * Story 140 D3: the `nameTemplates.*` handlers' renderer-side transport. Every one of them is a
+ * main handler that itself returns `Outcome<NameTemplatesView>` (its own refusal for an invalid
+ * template, an unknown id, ...) - and the module registry (`MainModuleRegistry.invoke`) always
+ * wraps a handler's return value in its own transport-level `ok(...)`, the same way it wraps
+ * `servers.sources.*`'s `MasterSourcesResult`. So what actually crosses IPC is a **nested**
+ * `Outcome<Outcome<NameTemplatesView>>`: the outer layer is transport (an unknown handler, a bad
+ * payload, a thrown exception), the inner layer is this module's own domain refusal. Fixed post-140:
+ * the original single-layer typing here let a real refusal's `entries` reach `SortableZone` as
+ * `undefined` (a nested `{ ok, value }` has no `entries` of its own), crashing the whole Settings
+ * view - `NameTemplatesList.tsx` unwraps both layers now, the same way
+ * `ServersSettingsSection.tsx`'s `mutate()` does for `MasterSourcesResult`.
  */
-export function listNameTemplates(): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesList)
+export function listNameTemplates(): Promise<Outcome<Outcome<NameTemplatesView>>> {
+  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesList)
 }
 
-export function addNameTemplate(template: string): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesAdd, { template })
+export function addNameTemplate(template: string): Promise<Outcome<Outcome<NameTemplatesView>>> {
+  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesAdd, {
+    template,
+  })
 }
 
-export function updateNameTemplate(id: string, template: string): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesUpdate, {
+export function updateNameTemplate(
+  id: string,
+  template: string,
+): Promise<Outcome<Outcome<NameTemplatesView>>> {
+  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesUpdate, {
     id,
     template,
   })
 }
 
-export function removeNameTemplate(id: string): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesRemove, { id })
+export function removeNameTemplate(id: string): Promise<Outcome<Outcome<NameTemplatesView>>> {
+  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesRemove, {
+    id,
+  })
 }
 
-export function reorderNameTemplates(ids: string[]): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesReorder, { ids })
+export function reorderNameTemplates(ids: string[]): Promise<Outcome<Outcome<NameTemplatesView>>> {
+  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesReorder, {
+    ids,
+  })
 }
 
-export function resetNameTemplate(id: string): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesReset, { id })
+export function resetNameTemplate(id: string): Promise<Outcome<Outcome<NameTemplatesView>>> {
+  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesReset, {
+    id,
+  })
 }
 
-export function restoreNameTemplates(): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesRestore)
+export function restoreNameTemplates(): Promise<Outcome<Outcome<NameTemplatesView>>> {
+  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesRestore)
 }
 
 /** Story 141 D4: every discovered demo across every known installation - the `ReplaysView`'s list. */

@@ -76,7 +76,7 @@ export function ReplaysView() {
         </Button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-stable p-5">
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-stable p-5" tabIndex={0}>
         {loading && (
           <p className="text-xs text-ink-muted" data-testid="replays-list-loading">
             {t('replays.list.loading')}

@@ -22,7 +22,10 @@ function defaultInvoke(
     return Promise.resolve(null as unknown as { ok: true; value: unknown })
   }
   if (payload?.type === 'nameTemplates.list') {
-    return Promise.resolve({ ok: true, value: { entries: [], canRestore: false } })
+    // The real handler itself returns `Outcome<NameTemplatesView>` (its own domain refusal), and
+    // the module registry wraps that in its own transport-level `ok(...)` on top - see client.ts's
+    // doc comment on `listNameTemplates`. This stub mirrors that nesting.
+    return Promise.resolve({ ok: true, value: { ok: true, value: { entries: [], canRestore: false } } })
   }
   if (payload?.type === 'extraFolders.list') {
     return Promise.resolve({ ok: true, value: NO_EXTRA_FOLDERS })

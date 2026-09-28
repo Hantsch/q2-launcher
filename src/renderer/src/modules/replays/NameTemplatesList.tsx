@@ -58,8 +58,16 @@ export function NameTemplatesList() {
     let cancelled = false
     void listNameTemplates().then((result) => {
       if (cancelled) return
-      if (result.ok) setView(result.value)
-      else setListError(result.error)
+      if (!result.ok) {
+        setListError(result.error)
+        return
+      }
+      const domain = result.value
+      if (!domain.ok) {
+        setListError(domain.error)
+        return
+      }
+      setView(domain.value)
     })
     return () => {
       cancelled = true
@@ -68,9 +76,12 @@ export function NameTemplatesList() {
 
   /** Every `nameTemplates.*` mutation goes through here: runs the action, and either applies main's
    * returned full view (success) or hands the refusal to whichever error slot the caller names -
-   * the add field's, the edit field's, or the list's own, depending which action failed. */
+   * the add field's, the edit field's, or the list's own, depending which action failed. Transport
+   * failure (`result.ok === false`) and this module's own domain refusal
+   * (`result.value.ok === false`) are two different shapes but both become the same error state -
+   * same two-layer unwrap `ServersSettingsSection.tsx`'s `mutate()` does for `MasterSourcesResult`. */
   const mutate = async (
-    action: () => Promise<Outcome<NameTemplatesView>>,
+    action: () => Promise<Outcome<Outcome<NameTemplatesView>>>,
     onError: (error: LocalizedMessage) => void,
   ): Promise<boolean> => {
     setSaving(true)
@@ -80,7 +91,12 @@ export function NameTemplatesList() {
       onError(result.error)
       return false
     }
-    setView(result.value)
+    const domain = result.value
+    if (!domain.ok) {
+      onError(domain.error)
+      return false
+    }
+    setView(domain.value)
     return true
   }
 

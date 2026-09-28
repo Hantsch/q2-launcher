@@ -16,13 +16,20 @@ import { initI18n } from '../../i18n'
  * distinct handlers through its own typed client).
  */
 
-const listNameTemplates = vi.fn<() => Promise<Outcome<NameTemplatesView>>>()
-const addNameTemplate = vi.fn<(template: string) => Promise<Outcome<NameTemplatesView>>>()
-const updateNameTemplate = vi.fn<(id: string, template: string) => Promise<Outcome<NameTemplatesView>>>()
-const removeNameTemplate = vi.fn<(id: string) => Promise<Outcome<NameTemplatesView>>>()
-const reorderNameTemplates = vi.fn<(ids: string[]) => Promise<Outcome<NameTemplatesView>>>()
-const resetNameTemplate = vi.fn<(id: string) => Promise<Outcome<NameTemplatesView>>>()
-const restoreNameTemplates = vi.fn<() => Promise<Outcome<NameTemplatesView>>>()
+const listNameTemplates = vi.fn<() => Promise<Outcome<Outcome<NameTemplatesView>>>>()
+const addNameTemplate = vi.fn<(template: string) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
+const updateNameTemplate =
+  vi.fn<(id: string, template: string) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
+const removeNameTemplate = vi.fn<(id: string) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
+const reorderNameTemplates = vi.fn<(ids: string[]) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
+const resetNameTemplate = vi.fn<(id: string) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
+const restoreNameTemplates = vi.fn<() => Promise<Outcome<Outcome<NameTemplatesView>>>>()
+
+/** Wraps a domain-level `Outcome<NameTemplatesView>` in the transport-level envelope every real
+ * `nameTemplates.*` call gets from `MainModuleRegistry.invoke()` - see `client.ts`'s doc comment. */
+function transportOk(domain: Outcome<NameTemplatesView>): Outcome<Outcome<NameTemplatesView>> {
+  return { ok: true, value: domain }
+}
 
 vi.mock('./client', () => ({
   listNameTemplates: () => listNameTemplates(),
@@ -71,10 +78,9 @@ function rowsLocator() {
 
 describe('rows render in list order with their origin badge', () => {
   it('shows the shipped entry then the user entry, each with its own badge', async () => {
-    listNameTemplates.mockResolvedValue({
-      ok: true,
-      value: { entries: [SHIPPED_ENTRY, USER_ENTRY], canRestore: false },
-    })
+    listNameTemplates.mockResolvedValue(
+      transportOk({ ok: true, value: { entries: [SHIPPED_ENTRY, USER_ENTRY], canRestore: false } }),
+    )
 
     render(createElement(NameTemplatesList))
 
@@ -91,7 +97,9 @@ describe('rows render in list order with their origin badge', () => {
 
 describe('an invalid template shows its reason next to the field and cannot be added', () => {
   it('rejects an unknown token and disables Add', async () => {
-    listNameTemplates.mockResolvedValue({ ok: true, value: { entries: [], canRestore: false } })
+    listNameTemplates.mockResolvedValue(
+      transportOk({ ok: true, value: { entries: [], canRestore: false } }),
+    )
 
     render(createElement(NameTemplatesList))
     await screen.findByTestId('replays-name-templates')
@@ -110,11 +118,12 @@ describe('an invalid template shows its reason next to the field and cannot be a
 
 describe("a main failure is shown in the field's reason slot", () => {
   it('renders the rejected outcome in the add field error slot', async () => {
-    listNameTemplates.mockResolvedValue({ ok: true, value: { entries: [], canRestore: false } })
-    addNameTemplate.mockResolvedValue({
-      ok: false,
-      error: { key: 'replays.nameTemplates.error.tooMany' },
-    })
+    listNameTemplates.mockResolvedValue(
+      transportOk({ ok: true, value: { entries: [], canRestore: false } }),
+    )
+    addNameTemplate.mockResolvedValue(
+      transportOk({ ok: false, error: { key: 'replays.nameTemplates.error.tooMany' } }),
+    )
 
     render(createElement(NameTemplatesList))
     await screen.findByTestId('replays-name-templates')
@@ -137,13 +146,15 @@ describe("a main failure is shown in the field's reason slot", () => {
 
 describe('every string comes from the replays block', () => {
   it('renders only i18n-sourced copy, aside from the templates’ own (data-driven) text', async () => {
-    listNameTemplates.mockResolvedValue({
-      ok: true,
-      value: {
-        entries: [{ ...SHIPPED_ENTRY, edited: true }, USER_ENTRY],
-        canRestore: true,
-      },
-    })
+    listNameTemplates.mockResolvedValue(
+      transportOk({
+        ok: true,
+        value: {
+          entries: [{ ...SHIPPED_ENTRY, edited: true }, USER_ENTRY],
+          canRestore: true,
+        },
+      }),
+    )
 
     const keyEcho: I18nInstance = createInstance()
     await keyEcho.init({ lng: 'en', resources: { en: { translation: {} } } })
