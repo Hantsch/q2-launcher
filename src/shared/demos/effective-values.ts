@@ -12,6 +12,7 @@ import type { SidecarFields } from '../replays/sidecar'
 import type { NameFacts } from '../replays/name-template'
 import type { Dm2Header, Dm2Unparsable } from './dm2-header'
 import type { Mvd2Header, Mvd2Unparsable } from './mvd2-header'
+import { resolveGamemode } from './gamemode'
 
 /** The sources a field's effective value can come from, ordered from most to least authoritative
  * (the order here is documentation only — actual precedence is encoded per-field by the rung
@@ -57,6 +58,9 @@ export interface ResolveEffectiveValuesInputs {
   header: Dm2Header | Dm2Unparsable | Mvd2Header | Mvd2Unparsable | null
   nameFacts: NameFacts | null
   fileTime: { birthtimeMs: number; mtimeMs: number }
+  /** The id of the shipped/user name pattern that matched this file, from `parseDemoName`, if any —
+   * used only for the gamemode heuristic. */
+  matchedPatternId?: string
 }
 
 export interface EffectiveSide {
@@ -104,7 +108,7 @@ function sidecarDateMs(sidecar: Partial<SidecarFields> | null): number | undefin
 }
 
 export function resolveEffectiveValues(inputs: ResolveEffectiveValuesInputs): EffectiveValues {
-  const { fileName, sidecar, nameFacts, fileTime } = inputs
+  const { fileName, sidecar, nameFacts, fileTime, matchedPatternId } = inputs
   const header = okHeader(inputs.header)
 
   const name = firstValue<string>([
@@ -123,8 +127,6 @@ export function resolveEffectiveValues(inputs: ResolveEffectiveValuesInputs): Ef
     { source: 'demo', value: header?.gameDir },
   ])
 
-  const gamemode = firstValue<string>([{ source: 'sidecar', value: sidecar?.gamemode }])
-
   const demoPlayers = header?.players
   const namePlayers = nameFacts?.players
   const sides = firstValue<EffectiveSide[]>([
@@ -138,6 +140,21 @@ export function resolveEffectiveValues(inputs: ResolveEffectiveValuesInputs): Ef
       value: namePlayers !== undefined && namePlayers.length > 0 ? [{ players: namePlayers }] : undefined,
     },
   ])
+
+  const playerCount =
+    sides.value !== null ? sides.value.reduce((sum, side) => sum + side.players.length, 0) : undefined
+
+  const gamemodeResult = resolveGamemode({
+    sidecar: sidecar?.gamemode,
+    nameFact: nameFacts?.gamemode,
+    gameDir: mod.value ?? undefined,
+    matchedPatternId,
+    playerCount,
+  })
+  const gamemode: Effective<string> =
+    gamemodeResult.source === 'none'
+      ? { value: null, source: null }
+      : { value: gamemodeResult.value as string, source: gamemodeResult.source }
 
   const date = firstValue<number>([
     { source: 'sidecar', value: sidecarDateMs(sidecar) },

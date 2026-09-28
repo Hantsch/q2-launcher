@@ -1,7 +1,7 @@
 ---
 id: 149
 title: a guessed gamemode says it is guessed
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -18,14 +18,14 @@ concept open point §17.5 and is fixed in this story.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The gamemode resolver applies sidecar → pattern → heuristic → unknown, as pure code
+- [x] **AC1** — The gamemode resolver applies sidecar → pattern → heuristic → unknown, as pure code
       with a unit test per rung.
-- [ ] **AC2** — The heuristic table decided in Q1 is implemented and documented in the concept
+- [x] **AC2** — The heuristic table decided in Q1 is implemented and documented in the concept
       (§17.5 resolved), each rule with a unit test.
-- [ ] **AC3** — A heuristic gamemode is shown as **guessed** — as visible text, distinct from a
+- [x] **AC3** — A heuristic gamemode is shown as **guessed** — as visible text, distinct from a
       sidecar or pattern value — in the row ([[150]]) and the detail view ([[155]]).
-- [ ] **AC4** — A demo no rule matches shows "unknown" gamemode, not an empty cell.
-- [ ] **AC5** — The gamemode filter ([[153]]) treats guessed and known values the same unless Q2
+- [x] **AC4** — A demo no rule matches shows "unknown" gamemode, not an empty cell.
+- [x] **AC5** — The gamemode filter ([[153]]) treats guessed and known values the same unless Q2
       decides otherwise.
 
 ## Open Questions
@@ -165,4 +165,50 @@ Order: D1 → D2. No IPC, no main, no renderer component changes.
 
 ## Done
 
-<!-- Filled by /build 149. -->
+Implemented the gamemode resolver as pure shared code: `src/shared/demos/gamemode.ts`
+(`resolveGamemode`, the ordered `GAMEMODE_HEURISTICS` table, `describeGamemode`,
+`gamemodeFilterMatches`/`gamemodeFilterOptions`, `GAMEMODE_I18N_KEYS`), wired into 148's
+`resolveEffectiveValues` gamemode field, plus the five `replays.gamemode.*` i18n strings.
+Concept `docs/concepts/demo-browser.md` §17 open point 5 resolved with the table.
+
+Commit message: `149: a guessed gamemode says it is guessed`
+
+Verification (narrow gate): `npm run build` green, `npm run typecheck` green, `npx vitest run
+--changed HEAD` green (95 files/772 tests), plus the cross-story regression sweep
+`src/main/modules/replays src/shared/modules/replays.test.ts src/shared/demos
+src/shared/replays` green (27 files/315 tests) per the sprint deviation. No e2e-story flow
+applies — this story has no UI/IPC surface (pure `src/shared` + i18n only).
+
+AC → test mapping, all passed: AC1 → `gamemode.test.ts` › "sidecar wins over name fact and
+heuristic", "name fact wins over heuristic", "heuristic applies when sidecar and name are
+empty", "no rung yields unknown"; `effective-values.test.ts` › ctf-game-dir-guesses test.
+AC2 → `gamemode.test.ts` › "ctf game dir guesses ctf", "exactly two players guesses duel",
+"OpenTDM pattern or opentdm dir guesses tdm", "ctf dir outranks two players", "two players
+outrank OpenTDM", "action dir alone guesses nothing"; concept §17.5 resolved. AC3 →
+`gamemode.test.ts` › "a guessed value carries the guessed marker", "sidecar and name values
+carry no guessed marker"; `gamemode-keys.test.ts` › "every gamemode key has visible text" —
+row/detail rendering itself is a named hand-off to [[150]]/[[155]] (S27), not built here, per
+the story's own AC3 surface-split decision. AC4 → `gamemode.test.ts` › unknown-label test;
+`gamemode-keys.test.ts` covers `replays.gamemode.unknown`. AC5 → `gamemode.test.ts` › "a
+guessed duel matches the duel filter by default", "excludeGuessed drops guessed rows",
+"unknown matches only any", "filter options merge guessed and known values".
+
+Review: clean-agent review 1 → PASS, no blocking findings. Two non-blocking notes: (1)
+`effective-values.ts` casts `gamemodeResult.value as string` relying on `resolveGamemode`'s
+unenforced value/source pairing invariant (true by inspection, not statically proven); (2)
+`en.json`'s `unknown`/`guessed` strings are lowercase while some other `Unknown` strings
+elsewhere are capitalised — this matches the story's own spec text verbatim, so left as-is.
+No fix cycle needed.
+
+Decisions (implementation detail, not in story spec): `ResolveEffectiveValuesInputs` gained
+an optional `matchedPatternId?: string` field (the id `parseDemoName` reports), consumed only
+by the gamemode rung; `NameFacts` gained an optional `gamemode?: string` field per the story's
+own note (no shipped pattern fills it yet); `resolveGamemode`'s `'none'` source maps to the
+existing `Effective<T>` convention `{ value: null, source: null }` rather than adding a
+`'none'` member to `ValueSource`; `OPENTDM_PATTERN_ID` exported from `name-patterns.ts` as the
+single source of truth for the OpenTDM id used by the heuristic table.
+
+No CHANGELOG entry — per the story's own decision, nothing user-visible changes until [[150]]
+renders the guessed marker.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 4

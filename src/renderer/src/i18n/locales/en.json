@@ -1124,6 +1124,13 @@
         "unknownVersion": "This notes file was written by a newer version of the launcher (version {{version}}) — some fields may not show.",
         "unreadable": "This notes file could not be read ({{code}})."
       }
+    },
+    "gamemode": {
+      "ctf": "CTF",
+      "tdm": "TDM",
+      "duel": "Duel",
+      "unknown": "unknown",
+      "guessed": "guessed"
     }
   },
 

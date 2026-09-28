@@ -136,6 +136,11 @@ describe('resolveEffectiveValues', () => {
     expect(noPlayers.sides).toEqual({ value: null, source: null })
   })
 
+  it('a demo with no reported gamemode but an effective ctf game dir is guessed as ctf', () => {
+    const guessed = resolveEffectiveValues(baseInputs({ header: header({ gameDir: 'ctf' }) }))
+    expect(guessed.gamemode).toEqual({ value: 'ctf', source: 'guessed' })
+  })
+
   it('the effective date is the sidecar override, else the name date, else the file time', () => {
     const sidecarDate = resolveEffectiveValues(
       baseInputs({ sidecar: { date: '2024-06-01T12:00:00.000Z' }, nameFacts: NAME_FACTS }),

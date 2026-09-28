@@ -630,7 +630,19 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
    `.mvd2` → 6201 frames, 10:20. Implementation: `src/main/lib/demo-bytes.ts`'s `readDemoDuration`
    (streams the file, gzip-transparent, same sniffing as the header readers), backed by
    `src/shared/demos/{dm2,mvd2}-frames.ts` and `frame-count.ts`.
-5. **Gamemode heuristic table** — which game dirs, pattern hits and player counts map to which mode.
+5. **Gamemode heuristic table** — **resolved** (story [[149]], `src/shared/demos/gamemode.ts`):
+   `resolveGamemode` tries, in order, a non-blank sidecar value, a non-blank name-fact value, then
+   the ordered `GAMEMODE_HEURISTICS` table (first match wins, all three rules yield
+   `source: 'guessed'`), else unknown. The table: (1) `gameDir` is `ctf` (case-insensitively) →
+   `ctf`; (2) exactly two known players → `duel`, checked before OpenTDM so a two-player OpenTDM
+   match still guesses `duel`; (3) the matched name pattern is the shipped OpenTDM pattern
+   (`OPENTDM_PATTERN_ID`, re-exported from `name-patterns.ts`) or `gameDir` is `opentdm` → `tdm`. A
+   sidecar/name value equal to a known id case-insensitively is normalised to that id; any other
+   value passes through as free text. `describeGamemode` turns the result into a label key (known
+   id or `unknown`) or literal text, plus a `guessedKey` marker present only for `source: 'guessed'`
+   — so a guessed value is visibly distinct from a reported one, per this story's title.
+   `gamemodeFilterMatches`/`gamemodeFilterOptions` give the demo browser's gamemode filter an
+   `excludeGuessed` toggle that drops guessed rows even under "any".
 6. **Date presets** — beyond "last 30 days" (today / 7 / 90 days / year?) and which date the filter
    uses when only file time is known.
 7. **Jump step sizes and speed steps** — placeholders (±10 s / ±60 s, 0.25×–4×) until decided.

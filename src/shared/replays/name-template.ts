@@ -103,6 +103,8 @@ export interface NameFacts {
   teamA?: string
   teamB?: string
   host?: string
+  /** No shipped pattern fills this; reserved for a future user-defined template token. */
+  gamemode?: string
 }
 
 export type NameTemplateMatch =

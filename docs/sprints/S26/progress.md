@@ -182,3 +182,13 @@
 - 2026-09-28 14:55 · 148 · review 1 · started
 - 2026-09-28 14:58 · 148 · review 1 · done
 - 2026-09-28 14:59 · 148 · story · done
+- 2026-09-28 14:59:51 · 149 · build · started
+- 2026-09-28 15:00 · 149 · D1 gamemode resolver, heuristic table, filter predicate · started
+- 2026-09-28 15:03 · 149 · D1 gamemode resolver, heuristic table, filter predicate · done
+- 2026-09-28 15:03 · 149 · D2 wire into effective-value resolver + i18n strings · started
+- 2026-09-28 15:05 · 149 · D2 wire into effective-value resolver + i18n strings · done
+- 2026-09-28 15:05 · 149 · verify · started
+- 2026-09-28 15:07 · 149 · verify · done
+- 2026-09-28 15:07 · 149 · review 1 · started
+- 2026-09-28 15:10 · 149 · review 1 · done (PASS, no blocking findings; 2 minor non-blocking notes)
+- 2026-09-28 15:11 · 149 · story · done
