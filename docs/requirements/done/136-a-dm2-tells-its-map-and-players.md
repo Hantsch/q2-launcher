@@ -1,7 +1,7 @@
 ---
 id: 136
 title: a dm2 tells its map and players
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -26,20 +26,20 @@ before done (Q1).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — For a protocol-34 `.dm2`, the parser returns the map from configstring
+- [x] **AC1** — For a protocol-34 `.dm2`, the parser returns the map from configstring
       `CS_MODELS+1` (`maps/q2dm1.bsp` → `q2dm1`).
-- [ ] **AC2** — It returns the level name from `CS_NAME`.
-- [ ] **AC3** — It returns the game dir from `svc_serverdata`; an empty game dir is reported as
+- [x] **AC2** — It returns the level name from `CS_NAME`.
+- [x] **AC3** — It returns the game dir from `svc_serverdata`; an empty game dir is reported as
       `baseq2`.
-- [ ] **AC4** — It returns the recording player (POV) from `CS_PLAYERSKINS + playernum`, up to the
+- [x] **AC4** — It returns the recording player (POV) from `CS_PLAYERSKINS + playernum`, up to the
       first `\`.
-- [ ] **AC5** — It returns every player name from every non-empty `CS_PLAYERSKINS` slot.
-- [ ] **AC6** — A protocol 3434–3436 demo yields the same facts through that variant's configstring
+- [x] **AC5** — It returns every player name from every non-empty `CS_PLAYERSKINS` slot.
+- [x] **AC6** — A protocol 3434–3436 demo yields the same facts through that variant's configstring
       layout, and the result records which protocol the demo uses (needed by [[161]]).
-- [ ] **AC7** — A `.dm2.gz` yields exactly the same facts as the same demo uncompressed.
-- [ ] **AC8** — The parser stops after the header: it reads a bounded number of bytes regardless of
+- [x] **AC7** — A `.dm2.gz` yields exactly the same facts as the same demo uncompressed.
+- [x] **AC8** — The parser stops after the header: it reads a bounded number of bytes regardless of
       file size, and the bound is asserted by a test.
-- [ ] **AC9** — A truncated, empty, garbage or unknown-protocol file returns a typed "unparsable"
+- [x] **AC9** — A truncated, empty, garbage or unknown-protocol file returns a typed "unparsable"
       result with a reason — it never throws out of the parser and never loops; [[145]] shows it.
 
 ## Open Questions
@@ -210,4 +210,30 @@ type Dm2HeaderResult = Dm2Header | Dm2Unparsable
 
 ## Done
 
-<!-- Filled by /build 136. -->
+Implemented the `.dm2` header parser (D1, pure, `src/shared/demos/`) and its bounded main-side
+reader (D2, `src/main/lib/demo-bytes.ts`) exactly per plan: protocol 34 (`original`) and
+3434–3436 (`extended`) layout tables, never-throws block/message walker, gzip sniffed by magic
+with a bounded `FileHandle.read`/streamed-`createGunzip` reader that reads a bounded amount of
+disk I/O regardless of file size. Both real fixtures (`docs/fixtures/demos/test.dm2`) and
+synthetic ones (via the new `dm2-writer.ts`) are covered; a 2000-iteration seeded mutation fuzz
+proves the parser never throws.
+
+Commit message: `136: parse a .dm2's map, level, game dir and players from its header`
+
+Decisions (implementation detail, not in story):
+- `levelName` falls back to serverdata's level string when `CS_NAME` is absent OR empty (spec
+  said "absent"); no AC depends on the distinction, left as the more defensive reading.
+- D2's plain-file path does a 2-byte gzip-magic peek then one further bounded read (two `read()`
+  calls, not one) — still bounded to `maxBytes` total, confirmed by the AC8 fs-level
+  instrumentation test; a wording nuance versus the plan's "one bounded read", not a defect.
+
+Verification: narrow gate only (`npx vitest run --changed HEAD`; no e2e — pure/main-only, no UI
+surface). `npm run build` green, `npm run typecheck` green, `npx vitest run --changed HEAD`
+green (16/16: dm2-header.test.ts 11, demo-bytes.test.ts 5). AC1–AC9 all confirmed against the
+named tests in `## Acceptance Tests` (unchanged from what `/refine` wrote — every named test
+exists and passed). Code review (default tier, one cycle): PASS, no fixes required; two
+non-blocking notes recorded above. No manual residue. Full regression gate (`npm test`,
+`npm run ui:verify`, `e2e-all`) has not run — standalone-narrow-gate story inside a sprint
+build; the sprint runs it once after the last story.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 4

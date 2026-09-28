@@ -12,3 +12,13 @@
 - 2026-09-28 08:52 · 135 · review 1 · started
 - 2026-09-28 08:54 · 135 · review 1 · done
 - 2026-09-28 08:55 · 135 · story · done
+- 2026-09-28 08:55:54 · 136 · build · started
+- 2026-09-28 08:56 · 136 · D1 pure parser + writer + tests · started
+- 2026-09-28 09:01 · 136 · D1 pure parser + writer + tests · done
+- 2026-09-28 09:01 · 136 · D2 bounded main reader + real-fixture tests · started
+- 2026-09-28 09:05 · 136 · D2 bounded main reader + real-fixture tests · done
+- 2026-09-28 09:05 · 136 · verify · started
+- 2026-09-28 09:06 · 136 · verify · done
+- 2026-09-28 09:06 · 136 · review 1 · started
+- 2026-09-28 09:08 · 136 · review 1 · done
+- 2026-09-28 09:09 · 136 · story · done
