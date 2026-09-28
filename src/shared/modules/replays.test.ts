@@ -1,0 +1,96 @@
+import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
+import { absolutePathSchema } from '../schemas'
+import { REPLAYS_HANDLERS, REPLAYS_HANDLER_SCHEMAS, REPLAYS_PATH_PAYLOAD_HANDLERS } from './replays'
+
+describe('replays module contract (story 135 D1)', () => {
+  it('every replays handler has a zod schema', () => {
+    for (const name of Object.values(REPLAYS_HANDLERS)) {
+      expect(REPLAYS_HANDLER_SCHEMAS[name]).toBeDefined()
+    }
+  })
+
+  it('no schema exists without a corresponding handler', () => {
+    const handlerNames = new Set<string>(Object.values(REPLAYS_HANDLERS))
+    for (const name of Object.keys(REPLAYS_HANDLER_SCHEMAS)) {
+      expect(handlerNames.has(name)).toBe(true)
+    }
+  })
+
+  it('the no-input overview handler accepts undefined', () => {
+    expect(
+      REPLAYS_HANDLER_SCHEMAS[REPLAYS_HANDLERS.overviewRead].safeParse(undefined).success,
+    ).toBe(true)
+  })
+})
+
+/**
+ * Walks a zod schema looking for a filesystem path: either `absolutePathSchema` itself, or an
+ * object key whose name matches /path|dir|folder|file/i. Unwraps optional/nullable/default
+ * wrappers and recurses into object shapes and arrays. Not a general zod introspector - just
+ * enough to prove no `replays` handler payload smuggles a renderer-supplied path (CLAUDE.md:
+ * "Paths from the renderer are never trusted").
+ */
+function findPathLeak(schema: z.ZodTypeAny, keyName?: string): string | undefined {
+  if ((schema as unknown) === (absolutePathSchema as unknown)) {
+    return keyName ? `key "${keyName}" uses absolutePathSchema` : 'schema is absolutePathSchema'
+  }
+
+  if (keyName && /path|dir|folder|file/i.test(keyName)) {
+    return `key "${keyName}" looks like a filesystem path`
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const def = (schema as any).def as Record<string, unknown> | undefined
+  if (!def) return undefined
+
+  // Unwrap optional/nullable/default (and any other single-inner-type wrapper).
+  if (def.innerType) {
+    return findPathLeak(def.innerType as z.ZodTypeAny, keyName)
+  }
+
+  if (def.type === 'object' && def.shape) {
+    for (const [key, value] of Object.entries(def.shape as Record<string, z.ZodTypeAny>)) {
+      const found = findPathLeak(value, key)
+      if (found) return found
+    }
+    return undefined
+  }
+
+  if (def.type === 'array' && def.element) {
+    return findPathLeak(def.element as z.ZodTypeAny, keyName)
+  }
+
+  if (def.type === 'union' && Array.isArray(def.options)) {
+    for (const option of def.options as z.ZodTypeAny[]) {
+      const found = findPathLeak(option, keyName)
+      if (found) return found
+    }
+    return undefined
+  }
+
+  return undefined
+}
+
+describe('no replays handler payload carries a filesystem path', () => {
+  it('REPLAYS_HANDLER_SCHEMAS is clean (empty of paths, as expected)', () => {
+    for (const [name, schema] of Object.entries(REPLAYS_HANDLER_SCHEMAS)) {
+      if (REPLAYS_PATH_PAYLOAD_HANDLERS.includes(name)) continue
+      expect(findPathLeak(schema)).toBeUndefined()
+    }
+  })
+
+  it('the walker itself is not vacuous: it flags a direct path-shaped key', () => {
+    const dirty = z.object({ demoPath: z.string() })
+    expect(findPathLeak(dirty)).toBeDefined()
+  })
+
+  it('the walker itself is not vacuous: it flags a nested absolutePathSchema', () => {
+    const dirty = z.object({
+      nested: z.object({
+        target: absolutePathSchema,
+      }),
+    })
+    expect(findPathLeak(dirty)).toBeDefined()
+  })
+})

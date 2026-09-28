@@ -3,6 +3,7 @@ import { configModule } from './config'
 import { downloadsModule } from './downloads'
 import { homeModule } from './home'
 import { libraryModule } from './library'
+import { replaysModule } from './replays'
 import { serversModule } from './servers'
 import type { MainModule } from './types'
 
@@ -22,6 +23,7 @@ const MODULES: readonly MainModule[] = [
   configModule,
   downloadsModule,
   serversModule,
+  replaysModule,
 ]
 
 export async function registerModules(app: AppContext): Promise<void> {

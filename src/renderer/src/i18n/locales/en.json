@@ -1005,6 +1005,26 @@
     }
   },
 
+  "replays": {
+    "module": {
+      "title": "Demos",
+      "description": "Browse, tag and watch your Quake II demos."
+    },
+    "planned": {
+      "intro": "A demo library is on the way: find, describe and play back every demo you've recorded.",
+      "highlight": {
+        "1": "Find every demo across installations and folders",
+        "2": "See map, players and length before playing",
+        "3": "Play and scrub a demo from the launcher"
+      }
+    },
+    "settings": {
+      "title": "Demos",
+      "description": "Where the launcher looks for demos and how it names them.",
+      "placeholder": "Demo folders and naming patterns will be set here."
+    }
+  },
+
   "config": {
     "title": "Config",
     "subtitle_one": "{{count}} profile",

@@ -12,6 +12,9 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Added
+- **Demos** now has its own home in the nav — not much to see yet, but it's there.
+
 
 ## 0.5.0 — 2026-09-26
 

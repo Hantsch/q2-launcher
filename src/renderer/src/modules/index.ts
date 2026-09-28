@@ -6,6 +6,7 @@ import { Dialogs as DownloadsBootstrapDialogs } from './downloads/bootstrap/Dial
 import { DownloadsSettingsSection } from './downloads/DownloadsSettingsSection'
 import { DownloadsView } from './downloads/DownloadsView'
 import { HomeView } from './home/HomeView'
+import { ReplaysSettingsSection } from './replays/ReplaysSettingsSection'
 import { ServersSettingsSection } from './servers/ServersSettingsSection'
 import { ServersView } from './servers/ServersView'
 
@@ -80,6 +81,18 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
   },
   // { id: 'mods',    View: ModsView },
   // { id: 'assets',  View: AssetsView },
+  {
+    // Story 135 D3: no `View` - the route falls back to the shell's `PlannedModuleView`
+    // (`MODULE_MANIFESTS`'s `replays` entry status is `'planned'`). Only a settings section, same
+    // shape story 106 D3 used for the servers module before it earned a real view.
+    id: 'replays',
+    settingsSection: {
+      titleKey: 'replays.settings.title',
+      descriptionKey: 'replays.settings.description',
+      order: 25,
+      Section: ReplaysSettingsSection,
+    },
+  },
 ]
 
 export function rendererModule(id: ModuleId): RendererModule | undefined {

@@ -27,3 +27,32 @@ describe('servers module manifest (story 106 D1)', () => {
     }
   })
 })
+
+describe('replays module manifest (story 135 D1)', () => {
+  it('replays is registered in ModuleId and MODULE_MANIFESTS with the decided route, nav slot, icon and status', () => {
+    const manifest = getModuleManifest('replays')
+    expect(manifest).toBeDefined()
+    expect(manifest?.route).toBe('/replays')
+    expect(manifest?.nav).toEqual({ section: 'primary', order: 25 })
+    expect(manifest?.icon).toBe('Film')
+    expect(manifest?.status).toBe('planned')
+
+    const primaryOrdered = MODULE_MANIFESTS.filter((m) => m.nav?.section === 'primary')
+      .slice()
+      .sort((a, b) => (a.nav?.order ?? 0) - (b.nav?.order ?? 0))
+      .map((m) => m.id)
+    const serversIndex = primaryOrdered.indexOf('servers')
+    const replaysIndex = primaryOrdered.indexOf('replays')
+    const configIndex = primaryOrdered.indexOf('config')
+    expect(replaysIndex).toBe(serversIndex + 1)
+    expect(configIndex).toBe(replaysIndex + 1)
+  })
+
+  it('the replays manifest declares exactly the mutates-installation and game-lifecycle capabilities', () => {
+    const manifest = getModuleManifest('replays')
+    expect(manifest?.capabilities).toEqual(
+      expect.arrayContaining(['mutates-installation', 'game-lifecycle']),
+    )
+    expect(manifest?.capabilities).toHaveLength(2)
+  })
+})

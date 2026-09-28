@@ -1,7 +1,7 @@
 ---
 id: 135
 title: a demos module exists with its own nav entry
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -24,21 +24,21 @@ needs `mutates-installation` and `long-running-jobs` — refine confirms (Q1).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A `replays` module is registered per the 5-step checklist in
+- [x] **AC1** — A `replays` module is registered per the 5-step checklist in
       [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module): a shared contract file
       under `src/shared/modules/`, the `ModuleId` entry **and** the hardcoded `moduleId` z.enum in
       `src/shared/ipc-schemas.ts`, a `MODULE_MANIFESTS` row, a main half under
       `src/main/modules/replays/` and a renderer half — with no edit to any shell file.
-- [ ] **AC2** — The manifest's `nav` is `{ section: 'primary', order: … }`; the nav label reads
+- [x] **AC2** — The manifest's `nav` is `{ section: 'primary', order: … }`; the nav label reads
       "Demos" and clicking it routes to the module's (placeholder) view.
-- [ ] **AC3** — The manifest declares exactly the capabilities decided in Q1.
-- [ ] **AC4** — The module's `ipcNamespace` (`module:replays`) is owned by this module the same way
+- [x] **AC3** — The manifest declares exactly the capabilities decided in Q1.
+- [x] **AC4** — The module's `ipcNamespace` (`module:replays`) is owned by this module the same way
       every other module's namespace is (a handler registered outside it is rejected).
-- [ ] **AC5** — The renderer module contributes a `settingsSection` that renders in the Settings
+- [x] **AC5** — The renderer module contributes a `settingsSection` that renders in the Settings
       view, even though it shows no controls yet — the slot [[140]] and [[142]] fill.
-- [ ] **AC6** — A top-level `replays` block exists in `src/renderer/src/i18n/locales/en.json`; every
+- [x] **AC6** — A top-level `replays` block exists in `src/renderer/src/i18n/locales/en.json`; every
       string this story shows comes from it.
-- [ ] **AC7** — Every `module:invoke` handler for `replays` — in this and every later demo story — is
+- [x] **AC7** — Every `module:invoke` handler for `replays` — in this and every later demo story — is
       backed by a module-local zod schema before it is implemented, and the renderer never sends a
       filesystem path to open, play or edit a demo: it names a demo by an id main resolved itself
       (concept §14 "Paths"). Restated here as binding for every later demo story.
@@ -239,4 +239,24 @@ Order: D1 → D2 → D3 (D3's flow needs D2 registered, or the nav entry reports
 
 ## Done
 
-<!-- Filled by /build 135. -->
+The `replays` module is registered end to end: shared contract
+(`src/shared/modules/replays.ts`, `ModuleId`/`MODULE_MANIFESTS` row, `moduleId` z.enum), main
+half (`src/main/modules/replays/index.ts`, `overview.read` → `{ scanning: false, demoCount: 0 }`),
+renderer half (settings section only, `PlannedModuleView` fallback, "Demos" nav entry at order 25,
+`Film` icon, top-level `replays` i18n block, `replays-module-shell` e2e flow). No shell file
+touched beyond the one named `moduleIcons.tsx` exception; no new IPC channel.
+
+Commit message: `135: register the replays (Demos) module skeleton`
+
+Verification (narrow gate): `npm run build` green, `npm run typecheck` green, `npx vitest run
+--changed HEAD` green (160 files, 2442 passed, 7 skipped — includes all AC-named unit tests),
+`npm run ui:flow -- replays-module-shell` green. AC1-AC7 each verified against their named test(s)
+per `## Acceptance Tests` — all ran and passed in this run, none missing from `--changed HEAD`.
+No manual residue. Clean-agent review (default tier): PASS, no findings (no hard-tier stage —
+`## Model Hints` names default only).
+
+Decisions: none beyond `## Decisions (Sprint)` — no implementation-detail gaps found during
+build; the `en.json` copy for `planned.*`/`settings.*` was written fresh (the plan's wording was
+illustrative, not verbatim-required) and reviewed as acceptable.
+
+tiers: D 3 / hard 0 · review default · cycles 0 · agents 5

@@ -1,2 +1,14 @@
 - 2026-09-28 07:59:50 · refine · 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 · started
 - 2026-09-28 08:42:20 · refine · 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 · done
+- 2026-09-28 08:42:29 · 135 · build · started
+- 2026-09-28 08:43 · 135 · D1 shared contract, manifest, ipc-schemas · started
+- 2026-09-28 08:45 · 135 · D1 shared contract, manifest, ipc-schemas · done
+- 2026-09-28 08:45 · 135 · D2 main half · started
+- 2026-09-28 08:47 · 135 · D2 main half · done
+- 2026-09-28 08:47 · 135 · D3 renderer, nav, settings, strings, flow · started
+- 2026-09-28 08:51 · 135 · D3 renderer, nav, settings, strings, flow · done
+- 2026-09-28 08:51 · 135 · verify · started
+- 2026-09-28 08:52 · 135 · verify · done
+- 2026-09-28 08:52 · 135 · review 1 · started
+- 2026-09-28 08:54 · 135 · review 1 · done
+- 2026-09-28 08:55 · 135 · story · done
