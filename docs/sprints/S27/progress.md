@@ -158,3 +158,9 @@
 - 2026-09-28 23:22 · 158 · story · blocked: e2e replays-archive-readonly cannot be observed passing (pre-existing zip-fixture fault, reproduces on unmodified replays-zip-entries)
 - 2026-09-28 23:27:46 · 158 · orchestrator note · e2e timeout traced to stale shared fixtures (npm run ui:seed), not a code regression; reseed + rerun green
 - 2026-09-28 23:27:46 · 158 · story · done
+- 2026-09-28 23:28:37 · gate · short-suites · started
+- 2026-09-28 23:31:33 · gate · short-suites · done (build green, test green, ui:verify red: replays-date-filter-invalid)
+- 2026-09-28 23:38:09 · gate · attribution · started (orchestrator, direct: red screen replays-date-filter-invalid@940x620 confined to story 154's own screens)
+- 2026-09-28 23:57:52 · gate · attribution · done (bisected: 154's own commit d1dd1cf passes the flow, 155's commit a639704 fails it — regression is story 155's, not 154's)
+- 2026-09-29 00:28:56 · gate · fix 154 · done (commit 139cb8a)
+- 2026-09-29 00:28:56 · gate · fix 155 · done (commit 9bdf4eb)
