@@ -108,6 +108,18 @@
 //                                    above, present whenever `scanState.sourceFailures.length > 0`)
 //   servers-list-source-failure-<sourceId> (ServersListStatus.tsx, one per failed source)
 //
+// Story 151 D4 adds the Demos view's own status-strip testids — read ReplaysListStatus.tsx before
+// changing these:
+//   replays-list-loading            (ReplaysListStatus.tsx, shown while a scan runs — carries
+//                                    numeric `data-scanned`/`data-total` attributes)
+//   replays-list-empty              (ReplaysListStatus.tsx, a finished scan with zero rows)
+//   replays-list-empty-settings     (ReplaysListStatus.tsx, the empty state's "open source
+//                                    settings" button)
+//   replays-list-source-errors      (ReplaysListStatus.tsx, container — independent of the two
+//                                    above, present whenever `progress.sourceErrors.length > 0`)
+//   replays-list-source-error       (ReplaysListStatus.tsx, one per failed source — carries a
+//                                    `data-reason` attribute)
+//
 // `config-save-expanded`/`config-discard-confirm` (D9) dirty the fixture profile via
 // RawFileTab.tsx's "Section header style" `<Select>`, not the "Start the file with `unbindall`"
 // checkbox `config-conflict-dialog` (D8) uses: all `populated`-variant screens share one Electron
@@ -122,7 +134,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from './harness.mjs'
-import { SERVERS_SCAN_SETTINGS_SEED } from './fixture.mjs'
+import { REPLAYS_FIXTURE_DEMOS, SERVERS_SCAN_SETTINGS_SEED } from './fixture.mjs'
 import {
   SERVERS_STUB_RESPONDERS,
   SERVERS_STUB_LIST_PORT,
@@ -1317,6 +1329,61 @@ export const SCREENS = [
       await click(page, 'nav-replays')
       await page
         .getByTestId('replays-demo-list')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'replays-list-loading',
+    variant: 'replays-list-loading',
+    viewports: BOTH_VIEWPORTS,
+    // Story 151 D4: the Demos view's loading strip mid-scan - `replays-list-loading`'s fixture seeds
+    // the plain `populated` demo set plus a harness-only scan hold (`writeReplaysListLoadingFixture`,
+    // `scripts/lib/fixture.mjs`), so the scan is still genuinely running long enough for this to be a
+    // real screenshot of it, not a race against an instant scan. Waits for the loading strip's own
+    // `data-total` to be a genuine positive count (`REPLAYS_FIXTURE_DEMOS.length`), the same
+    // discipline `servers-list-loading` above uses for `data-found`.
+    coldStart: true,
+    navigate: async (page) => {
+      await click(page, 'nav-replays')
+      await page.waitForFunction(
+        (expectedTotal) => {
+          const el = document.querySelector('[data-testid="replays-list-loading"]')
+          return el !== null && Number(el.getAttribute('data-total')) === expectedTotal
+        },
+        REPLAYS_FIXTURE_DEMOS.length,
+        { timeout: CLICK_TIMEOUT_MS },
+      )
+    },
+  },
+  {
+    id: 'replays-list-empty',
+    variant: 'empty',
+    viewports: BOTH_VIEWPORTS,
+    // Story 151 D4: the Demos view's empty state - the `empty` fixture variant seeds zero
+    // installations and no extra folders, so a scan genuinely finds nothing.
+    navigate: async (page) => {
+      await click(page, 'nav-replays')
+      await page
+        .getByTestId('replays-list-empty')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'replays-list-error',
+    variant: 'replays-list-error',
+    viewports: BOTH_VIEWPORTS,
+    // Story 151 D4: AC "a source failure never hides the rest of the list" - the fixture's two
+    // extra folders (one missing, one holding a broken archive - `writeReplaysListErrorFixture`,
+    // `scripts/lib/fixture.mjs`) both fail discovery, while the fixture's own installation-owned
+    // demos still scan cleanly. Waits for both the source-errors block and at least one real row.
+    navigate: async (page) => {
+      await click(page, 'nav-replays')
+      await page
+        .getByTestId('replays-list-source-errors')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-demo-row')
+        .first()
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },

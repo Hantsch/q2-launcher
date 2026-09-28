@@ -2,7 +2,11 @@
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { DemoRow as DemoRowData, ReplaysScanProgress } from '@shared/modules/replays'
+import type {
+  DemoRow as DemoRowData,
+  ReplaysScanProgress,
+  ReplaysSourceError,
+} from '@shared/modules/replays'
 import en from '../../i18n/locales/en.json'
 import { initI18n } from '../../i18n'
 
@@ -150,10 +154,17 @@ describe('ReplaysView (story 141 D4)', () => {
   })
 
   it('an empty discovery shows the empty line', async () => {
+    // Story 151 D3: `scanning` starts `true` on mount, so the empty state only shows once the
+    // mount's own scan has actually finished - push that here before asserting.
+    const progress = captureProgressListener()
     await renderView([])
+    progress.push({ running: false, sources: [], sourceErrors: [] })
+    await act(async () => {
+      await Promise.resolve()
+    })
 
     const empty = await screen.findByTestId('replays-list-empty')
-    expect(empty.textContent).toBe('No demos found.')
+    expect(empty.textContent).toContain('No demos found.')
     expect(screen.queryByTestId('replays-demo-list')).toBeNull()
   })
 
@@ -255,6 +266,13 @@ describe('ReplaysView - scan on open and refresh (story 144 D4)', () => {
     const progress = captureProgressListener()
     await renderView([DEMO])
 
+    // Story 151 D3: `scanning` starts `true` on mount - settle the mount's own scan first so the
+    // button starts from its idle state before this test drives a second round itself.
+    progress.push({ running: false, sources: [], sourceErrors: [] })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
     const button = screen.getByTestId('replays-refresh') as HTMLButtonElement
     expect(button.textContent).toBe('Refresh')
     expect(button.disabled).toBe(false)
@@ -262,11 +280,11 @@ describe('ReplaysView - scan on open and refresh (story 144 D4)', () => {
     fireEvent.click(button)
     expect(scanStartMock).toHaveBeenCalledTimes(2)
 
-    progress.push({ running: true, sources: [] })
+    progress.push({ running: true, sources: [], sourceErrors: [] })
     expect(button.disabled).toBe(true)
     expect(button.textContent).toBe('Scanning…')
 
-    progress.push({ running: false, sources: [] })
+    progress.push({ running: false, sources: [], sourceErrors: [] })
     await act(async () => {
       await Promise.resolve()
     })
@@ -293,7 +311,7 @@ describe('ReplaysView - scan on open and refresh (story 144 D4)', () => {
     expect(screen.getAllByTestId('replays-demo-row')).toHaveLength(2)
     expect(indexReadMock).toHaveBeenCalledTimes(1)
 
-    progress.push({ running: false, sources: [] })
+    progress.push({ running: false, sources: [], sourceErrors: [] })
     await act(async () => {
       await Promise.resolve()
       await Promise.resolve()
@@ -354,5 +372,56 @@ describe('ReplaysView - virtualised, selectable list with a detail shell (story 
     fireEvent.click(closeButton)
 
     expect(screen.queryByTestId('replays-demo-detail')).toBeNull()
+  })
+})
+
+describe('ReplaysListStatus wiring (story 151 D3)', () => {
+  it('an empty cache during a running scan shows loading, not empty', async () => {
+    const progress = captureProgressListener()
+    await renderView([])
+
+    progress.push({
+      running: true,
+      sources: [{ sourceKey: 'a', scanned: 1, total: 5 }],
+      sourceErrors: [],
+    })
+
+    expect(screen.getByTestId('replays-list-loading')).toBeTruthy()
+    expect(screen.queryByTestId('replays-list-empty')).toBeNull()
+  })
+
+  it('a finished scan with source errors lists each error next to the remaining demos', async () => {
+    const progress = captureProgressListener()
+    await renderView([DEMO])
+
+    const errors: ReplaysSourceError[] = [
+      {
+        source: {
+          kind: 'installation',
+          installationId: 'inst-1',
+          installationName: 'My Install',
+          gameDir: 'baseq2',
+        },
+        archiveName: null,
+        reason: 'missing',
+      },
+      {
+        source: { kind: 'extraFolder', path: 'C:\\Demos' },
+        archiveName: 'pack.zip',
+        reason: 'archive-unreadable',
+      },
+    ]
+
+    progress.push({ running: false, sources: [], sourceErrors: errors })
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    const rows = screen.getAllByTestId('replays-list-source-error')
+    expect(rows).toHaveLength(2)
+    expect(rows[0].getAttribute('data-reason')).toBe('missing')
+    expect(rows[1].getAttribute('data-reason')).toBe('archive-unreadable')
+
+    expect(screen.getAllByTestId('replays-demo-row')).toHaveLength(1)
   })
 })

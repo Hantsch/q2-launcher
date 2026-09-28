@@ -15,7 +15,7 @@ import { UI_HARNESS_ENV } from '../../lib/ui-harness'
 import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
-import { discoveryHomeDir, replaysModule } from './index'
+import { discoveryHomeDir, replaysModule, scanHoldMs } from './index'
 
 /**
  * `demos.list` calls `discoveryHomeDir()` with no overrides, which falls back to `userDataDir()` -
@@ -420,6 +420,46 @@ describe('replays module', () => {
         join(userData, 'harness-home'),
       )
       expect(discoveryHomeDir({ env: disabledEnv, userData, osHome })).toBe(osHome)
+    })
+  })
+
+  describe('scanHoldMs (story 151 D2)', () => {
+    let userData: string
+
+    beforeEach(async () => {
+      userData = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-scan-hold-'))
+    })
+
+    afterEach(async () => {
+      await rm(userData, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+    })
+
+    it('is 0 outside the harness, reads the file under it, and ignores garbage', async () => {
+      const harnessEnv = { [UI_HARNESS_ENV]: '1' }
+      const disabledEnv = {}
+      const holdFile = join(userData, 'harness-replays-scan-hold-ms')
+
+      // No file at all.
+      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(0)
+
+      await writeFile(holdFile, '250')
+      // Outside the harness, the file is never read.
+      expect(await scanHoldMs({ env: disabledEnv, userData })).toBe(0)
+      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(250)
+
+      // Garbage content reads back as 0.
+      await writeFile(holdFile, 'not-a-number')
+      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(0)
+
+      await writeFile(holdFile, '-5')
+      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(0)
+
+      await writeFile(holdFile, '0')
+      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(0)
+
+      // Clamped to the ceiling.
+      await writeFile(holdFile, '999999')
+      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(60_000)
     })
   })
 })

@@ -1078,9 +1078,22 @@
     "list": {
       "label": "Demos",
       "loading": "Looking for demos…",
+      "loadingProgress": "Reading demos… {{scanned}} of {{total}}",
       "empty": "No demos found.",
+      "openSettings": "Add a demo folder in Settings",
       "source": "{{installation}} · {{gameDir}}",
       "archiveSource": "{{base}} › {{archive}} › {{entry}}",
+      "sourceError": "Couldn't read {{source}}: {{reason}}",
+      "sourceErrorArchive": "{{base}} · {{archive}}",
+      "sourceErrorReason": {
+        "missing": "the folder no longer exists",
+        "notAFolder": "that path is not a folder",
+        "permissionDenied": "access was denied",
+        "unreadable": "the folder could not be read",
+        "extractor-missing": "the tool needed to open archives is missing",
+        "archive-unreadable": "the archive could not be opened",
+        "archive-too-large": "the archive is too large to scan"
+      },
       "refresh": "Refresh",
       "refreshing": "Scanning…"
     },

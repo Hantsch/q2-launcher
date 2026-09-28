@@ -7,9 +7,10 @@ import type {
   DemoSource,
   DiscoveredDemo,
   ReplaysExtraFolder,
+  ReplaysSourceError,
 } from '@shared/modules/replays'
 import type { Installation } from '@shared/types'
-import { canonicalizePath, listDir, pathKey } from '../../lib/fs-utils'
+import { canonicalizePath, listDir, listDirOrReason, pathKey } from '../../lib/fs-utils'
 import type { ZipDeps } from '../../lib/zip-entries'
 import { expandZip } from './zip-demos'
 
@@ -30,12 +31,6 @@ export interface DiscoverContext {
   platform: NodeJS.Platform
   homeDir: string
   zipDeps: ZipDeps
-}
-
-/** A single failed zip expansion, surfaced alongside `demos` for a later story to wire up. */
-export interface ArchiveError {
-  archivePath: string
-  code: string
 }
 
 /** A `DiscoveredDemo` plus the real filesystem path it was found at - main-only, never crosses IPC. */
@@ -83,20 +78,29 @@ async function findDemosDir(gameDirPath: string): Promise<string | null> {
 /**
  * Every recognised demo file directly inside `demosDir` - one level, never recursive - plus the
  * names of any `.zip` archives sitting alongside them (story 143 D3), read from the same listing.
+ * Story 151 D1: reports *why*, via `listDirOrReason`, when `demosDir` itself cannot be listed -
+ * distinct from a game dir simply having no `demos` folder at all (never an error, see
+ * `findDemosDir`).
  */
-async function scanDemosDir(demosDir: string): Promise<{
-  files: Array<{ fileName: string; format: DemoFormat; gzip: boolean }>
-  zipFiles: string[]
-}> {
-  const listing = await listDir(demosDir)
+async function scanDemosDir(demosDir: string): Promise<
+  | {
+      ok: true
+      files: Array<{ fileName: string; format: DemoFormat; gzip: boolean }>
+      zipFiles: string[]
+    }
+  | { ok: false; reason: ReplaysSourceError['reason'] }
+> {
+  const result = await listDirOrReason(demosDir)
+  if (!result.ok) return { ok: false, reason: result.reason }
+
   const files: Array<{ fileName: string; format: DemoFormat; gzip: boolean }> = []
   const zipFiles: string[] = []
-  for (const fileName of listing.files) {
+  for (const fileName of result.listing.files) {
     const recognised = recogniseDemoFile(fileName)
     if (recognised) files.push({ fileName, ...recognised })
     else if (fileName.toLowerCase().endsWith('.zip')) zipFiles.push(fileName)
   }
-  return { files, zipFiles }
+  return { ok: true, files, zipFiles }
 }
 
 /**
@@ -130,12 +134,12 @@ interface Entry extends DiscoveredDemoFile {
  * same `_instIndex`/`_gameDirOrder` its sibling loose-file entries from that same folder get.
  * Dedup is via `seenKeys` alone (`archivePath\0entryPath`) - no shadow-by-filename handling, that
  * only applies to loose demo files. A zip `expandZip` can't even list is recorded in
- * `archiveErrors` instead of contributing rows.
+ * `sourceErrors` (with the zip's own file name) instead of contributing rows.
  */
 async function expandZipsInto(
   entries: Entry[],
   seenKeys: Set<string>,
-  archiveErrors: ArchiveError[],
+  sourceErrors: ReplaysSourceError[],
   demosDir: string,
   zipFiles: string[],
   source: DemoSource,
@@ -154,7 +158,7 @@ async function expandZipsInto(
 
     const expanded = await expandZip(absoluteZipPath, source, mtimeMs, zipDeps)
     if (expanded.error) {
-      archiveErrors.push({ archivePath: expanded.error.archivePath, code: expanded.error.code })
+      sourceErrors.push({ source, archiveName: zipFileName, reason: expanded.error.code })
       continue
     }
 
@@ -178,24 +182,30 @@ async function expandZipsInto(
  * user-added extra demo folder (story 142 D3), for demo files. `installations`' order is
  * precedence order: the same resolved file reachable through two installations is only ever
  * reported once, under the first installation that finds it. Within one installation and game
- * dir, a write-dir file shadows a root-dir file of the same name. Unreadable or missing folders at
- * any level simply contribute nothing - this never throws for that reason.
+ * dir, a write-dir file shadows a root-dir file of the same name. This never throws: a game dir
+ * with no `demos` folder at all (or a write dir the engine never created) simply contributes
+ * nothing and is not an error (story 151 D1) - but a `demos` folder `findDemosDir` did find, or an
+ * extra folder, that then cannot be listed (permission denied, replaced by a file, etc.) is
+ * reported in `sourceErrors`, one entry per failing source, `archiveName: null`. A zip archive
+ * that cannot be expanded is reported the same way, `archiveName` set to that zip's file name,
+ * alongside its folder's other, loose demos still being listed normally.
  *
  * `extraFolders` are scanned after every installation: an extra folder whose canonical path is
  * the same as an installation's own `demos` folder (already scanned above) is skipped entirely -
- * its files are already reported once, under the richer `installation` source - and two extra-
- * folder rows pointing at the same real folder under different spellings still yield each demo
- * only once, via the same `seenKeys` dedup installation scanning uses.
+ * its files are already reported once, under the richer `installation` source, and no error is
+ * ever produced for it - and two extra-folder rows pointing at the same real folder under
+ * different spellings still yield each demo only once, via the same `seenKeys` dedup installation
+ * scanning uses.
  */
 export async function discoverDemos(
   installations: DiscoverableInstallation[],
   extraFolders: ReplaysExtraFolder[],
   ctx: DiscoverContext,
-): Promise<{ demos: DiscoveredDemoFile[]; archiveErrors: ArchiveError[] }> {
+): Promise<{ demos: DiscoveredDemoFile[]; sourceErrors: ReplaysSourceError[] }> {
   const seenKeys = new Set<string>()
   const canonicalInstallationDemosDirs = new Set<string>()
   const entries: Entry[] = []
-  const archiveErrors: ArchiveError[] = []
+  const sourceErrors: ReplaysSourceError[] = []
 
   for (let instIndex = 0; instIndex < installations.length; instIndex++) {
     const installation = installations[instIndex]
@@ -213,7 +223,21 @@ export async function discoverDemos(
       if (!demosDir) return
       const canonicalDemosDir = await canonicalizePath(demosDir)
       canonicalInstallationDemosDirs.add(pathKey(canonicalDemosDir))
-      const { files, zipFiles } = await scanDemosDir(demosDir)
+      const scanned = await scanDemosDir(demosDir)
+      if (!scanned.ok) {
+        sourceErrors.push({
+          source: {
+            kind: 'installation',
+            installationId: installation.id,
+            installationName: installation.name,
+            gameDir,
+          },
+          archiveName: null,
+          reason: scanned.reason,
+        })
+        return
+      }
+      const { files, zipFiles } = scanned
 
       for (const file of files) {
         const key = pathKey(join(canonicalDemosDir, file.fileName))
@@ -294,7 +318,7 @@ export async function discoverDemos(
       await expandZipsInto(
         entries,
         seenKeys,
-        archiveErrors,
+        sourceErrors,
         demosDir,
         zipFiles,
         { kind: 'installation', installationId: installation.id, installationName: installation.name, gameDir },
@@ -331,7 +355,16 @@ export async function discoverDemos(
     const key = pathKey(canonical)
     if (canonicalInstallationDemosDirs.has(key)) continue
 
-    const { files, zipFiles } = await scanDemosDir(canonical)
+    const scanned = await scanDemosDir(canonical)
+    if (!scanned.ok) {
+      sourceErrors.push({
+        source: { kind: 'extraFolder', path: canonical },
+        archiveName: null,
+        reason: scanned.reason,
+      })
+      continue
+    }
+    const { files, zipFiles } = scanned
     for (const file of files) {
       const fileKey = pathKey(join(canonical, file.fileName))
       if (seenKeys.has(fileKey)) continue
@@ -363,7 +396,7 @@ export async function discoverDemos(
     await expandZipsInto(
       entries,
       seenKeys,
-      archiveErrors,
+      sourceErrors,
       canonical,
       zipFiles,
       { kind: 'extraFolder', path: canonical },
@@ -382,6 +415,6 @@ export async function discoverDemos(
 
   return {
     demos: entries.map(({ _instIndex, _gameDirOrder, _key, ...rest }) => rest),
-    archiveErrors,
+    sourceErrors,
   }
 }

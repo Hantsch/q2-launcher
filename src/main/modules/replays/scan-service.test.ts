@@ -9,6 +9,7 @@ import {
   type DiscoveredDemo,
   type ReplaysExtraFolder,
   type ReplaysScanProgress,
+  type ReplaysSourceError,
 } from '@shared/modules/replays'
 import { SHIPPED_NAME_PATTERNS } from '@shared/replays/name-patterns'
 import { canonicalizePath } from '../../lib/fs-utils'
@@ -87,13 +88,11 @@ function harness(
     emit: (type, payload) => emitted.push({ type, payload }),
     cache: new ReplaysIndexCache({ filePath: cacheFile }),
     discover: async () =>
-      (
-        await discoverDemos([], extraFolders(dirs), {
-          platform: process.platform,
-          homeDir: root,
-          zipDeps: { extractorPath: '', extractorExists: false },
-        })
-      ).demos,
+      discoverDemos([], extraFolders(dirs), {
+        platform: process.platform,
+        homeDir: root,
+        zipDeps: { extractorPath: '', extractorExists: false },
+      }),
     parse: vi.fn(async () => FACTS),
     nameMatcher: () => ({ fingerprint: 'fp-1', match: () => null }),
     isGameRunning: () => false,
@@ -126,13 +125,11 @@ describe('replays scan service (story 144 D3)', () => {
       return FACTS
     })
     const discover = vi.fn(async () =>
-      (
-        await discoverDemos([], extraFolders([dir]), {
-          platform: process.platform,
-          homeDir: root,
-          zipDeps: { extractorPath: '', extractorExists: false },
-        })
-      ).demos,
+      discoverDemos([], extraFolders([dir]), {
+        platform: process.platform,
+        homeDir: root,
+        zipDeps: { extractorPath: '', extractorExists: false },
+      }),
     )
     const h = harness([dir], { parse, discover })
 
@@ -323,6 +320,129 @@ describe('replays scan service (story 144 D3)', () => {
     ).demos.find((d) => d.fileName === 'fresh.dm2')!.id
     expect(parse.mock.calls.map(([file]) => file.id)).not.toContain(freshId)
     expect(parse.mock.calls.map(([file]) => file.fileName)).toEqual(['old.dm2'])
+  })
+})
+
+describe('scan service source errors and scan hold (story 151 D2)', () => {
+  function errorFor(path: string, reason: ReplaysSourceError['reason'] = 'unreadable'): ReplaysSourceError {
+    return { source: { kind: 'extraFolder', path }, archiveName: null, reason }
+  }
+
+  it("the final push carries this scan's source errors", async () => {
+    const dir = await demoFolder('demos', ['a.dm2'])
+    const error = errorFor(dir)
+    const discover = vi.fn(async () => {
+      const { demos } = await discoverDemos([], extraFolders([dir]), {
+        platform: process.platform,
+        homeDir: root,
+        zipDeps: { extractorPath: '', extractorExists: false },
+      })
+      return { demos, sourceErrors: [error] }
+    })
+    const h = harness([dir], { discover })
+
+    h.service.start()
+    await h.waitIdle(1)
+
+    const last = h.progress().at(-1)!
+    expect(last.running).toBe(false)
+    expect(last.sourceErrors).toEqual([error])
+    for (const push of h.progress()) expect(replaysScanProgressSchema.safeParse(push).success).toBe(true)
+  })
+
+  it("running pushes carry the previous scan's source errors", async () => {
+    const dir = await demoFolder('demos', ['a.dm2', 'b.dm2'])
+    const error1 = errorFor(dir, 'unreadable')
+    const error2 = errorFor(dir, 'missing')
+    const gate = deferred()
+    let discoverCall = 0
+    const parse = vi.fn(async () => {
+      if (discoverCall === 2) await gate.promise
+      return FACTS
+    })
+    const discover = vi.fn(async () => {
+      discoverCall++
+      const { demos } = await discoverDemos([], extraFolders([dir]), {
+        platform: process.platform,
+        homeDir: root,
+        zipDeps: { extractorPath: '', extractorExists: false },
+      })
+      return { demos, sourceErrors: discoverCall === 1 ? [error1] : [error2] }
+    })
+    const h = harness([dir], { parse, discover })
+
+    h.service.start()
+    await h.waitIdle(1)
+    expect(h.progress().at(-1)!.sourceErrors).toEqual([error1])
+
+    const beforeSecond = h.progress().length
+    h.service.start()
+    await vi.waitFor(() => expect(h.progress().length).toBeGreaterThan(beforeSecond))
+    const midPushes = h.progress().slice(beforeSecond).filter((p) => p.running)
+    expect(midPushes.length).toBeGreaterThan(0)
+    for (const push of midPushes) expect(push.sourceErrors).toEqual([error1])
+
+    gate.release()
+    await h.waitIdle(2)
+    expect(h.progress().at(-1)!.sourceErrors).toEqual([error2])
+  })
+
+  it('a throwing scan keeps the previous source errors', async () => {
+    const dir = await demoFolder('demos', ['a.dm2'])
+    const error1 = errorFor(dir, 'unreadable')
+    let failing = false
+    let discoverCall = 0
+    const parse = vi.fn(async () => {
+      if (failing) throw new Error('parse exploded')
+      return FACTS
+    })
+    const discover = vi.fn(async () => {
+      discoverCall++
+      const { demos } = await discoverDemos([], extraFolders([dir]), {
+        platform: process.platform,
+        homeDir: root,
+        zipDeps: { extractorPath: '', extractorExists: false },
+      })
+      return { demos, sourceErrors: discoverCall === 1 ? [error1] : [errorFor(dir, 'missing')] }
+    })
+    const h = harness([dir], { parse, discover })
+
+    h.service.start()
+    await h.waitIdle(1)
+    expect(h.progress().at(-1)!.sourceErrors).toEqual([error1])
+
+    // A new file forces a parse, which now throws mid-scan.
+    await writeFile(join(dir, 'c.dm2'), 'demo c')
+    await utimes(join(dir, 'c.dm2'), HOUR_AGO_S, HOUR_AGO_S)
+    failing = true
+
+    h.service.start()
+    await h.waitIdle(2)
+
+    expect(h.progress().at(-1)!.sourceErrors).toEqual([error1])
+  })
+
+  it('holdAfterDiscovery runs after the totals push and before any parse', async () => {
+    const dir = await demoFolder('demos', ['a.dm2'])
+    const order: string[] = []
+    const parse = vi.fn(async () => {
+      order.push('parse')
+      return FACTS
+    })
+    const holdAfterDiscovery = vi.fn(async () => {
+      order.push('hold')
+    })
+    const h = harness([dir], { parse, holdAfterDiscovery })
+
+    h.service.start()
+    await h.waitIdle(1)
+
+    expect(holdAfterDiscovery).toHaveBeenCalledTimes(1)
+    expect(order[0]).toBe('hold')
+    expect(order.slice(1)).toEqual(['parse'])
+
+    const totalsPushIndex = h.progress().findIndex((p) => p.sources.length > 0)
+    expect(totalsPushIndex).toBeGreaterThanOrEqual(0)
   })
 })
 

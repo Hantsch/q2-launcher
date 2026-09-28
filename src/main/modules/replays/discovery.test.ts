@@ -393,3 +393,82 @@ describe('discoverDemos - extra folders (story 142 D3)', () => {
     expect(result.demos).toEqual([])
   })
 })
+
+describe('discoverDemos - per-source errors (story 151 D1)', () => {
+  it('a missing extra folder is reported and the other sources still list', async () => {
+    const root = join(dir, 'inst')
+    await writeDemo(join(root, 'baseq2', 'demos'), 'one.dm2')
+    const missing = join(dir, 'does-not-exist')
+
+    const result = await discoverDemos([installation({ rootPath: root })], [extraFolder(missing)], {
+      platform: 'win32',
+      homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
+    })
+
+    expect(result.demos.map((d) => d.fileName)).toEqual(['one.dm2'])
+    expect(result.sourceErrors).toEqual([
+      { source: { kind: 'extraFolder', path: missing }, archiveName: null, reason: 'missing' },
+    ])
+  })
+
+  it('a file where an extra folder should be is reported as notAFolder', async () => {
+    const extraAsFile = join(dir, 'extra-is-a-file')
+    await writeFile(extraAsFile, 'not a folder')
+
+    const result = await discoverDemos([], [extraFolder(extraAsFile)], {
+      platform: 'win32',
+      homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
+    })
+
+    expect(result.demos).toEqual([])
+    expect(result.sourceErrors).toEqual([
+      { source: { kind: 'extraFolder', path: extraAsFile }, archiveName: null, reason: 'notAFolder' },
+    ])
+  })
+
+  it('an installation game dir without a demos folder reports nothing', async () => {
+    const root = join(dir, 'inst')
+    await mkdir(join(root, 'baseq2'), { recursive: true })
+
+    const result = await discoverDemos([installation({ rootPath: root })], [], {
+      platform: 'win32',
+      homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
+    })
+
+    expect(result.demos).toEqual([])
+    expect(result.sourceErrors).toEqual([])
+  })
+
+  describe('a broken zip (story 143 D3 extractor)', () => {
+    const realBinary = resolveExtractorPath({ isPackaged: false })
+
+    it.skipIf(!realBinary.exists)(
+      'is reported with its archive name while its folder\'s loose demos still list',
+      async () => {
+        const root = join(dir, 'inst')
+        const demosDir = join(root, 'baseq2', 'demos')
+        await writeDemo(demosDir, 'loose.dm2')
+        await writeFile(join(demosDir, 'broken.zip'), 'not actually a zip')
+
+        const result = await discoverDemos([installation({ rootPath: root })], [], {
+          platform: 'win32',
+          homeDir: join(dir, 'home'),
+          zipDeps: { extractorPath: realBinary.path, extractorExists: true },
+        })
+
+        expect(result.demos.map((d) => d.fileName)).toEqual(['loose.dm2'])
+        expect(result.sourceErrors).toHaveLength(1)
+        expect(result.sourceErrors[0].archiveName).toBe('broken.zip')
+        expect(result.sourceErrors[0].source).toEqual({
+          kind: 'installation',
+          installationId: 'inst-1',
+          installationName: 'Installation One',
+          gameDir: 'baseq2',
+        })
+      },
+    )
+  })
+})

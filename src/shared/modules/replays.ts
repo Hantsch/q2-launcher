@@ -238,6 +238,36 @@ export const replaysScanStartResultSchema = z.object({ started: z.boolean() })
 export type ReplaysScanStartResult = z.infer<typeof replaysScanStartResultSchema>
 
 /**
+ * Story 151 D1: every distinct way one discovery source can fail to contribute what it should -
+ * an extra folder or an installation's `demos` folder that cannot be listed at all, or one zip
+ * archive within an otherwise-scannable folder that could not be expanded. `'extractor-missing'`,
+ * `'archive-unreadable'` and `'archive-too-large'` mirror `zip-demos.ts`'s own `ZipListError` codes
+ * one-for-one; the rest mirror `dirReadFailureReason`'s folder-level outcomes.
+ */
+export const replaysSourceErrorReasonSchema = z.enum([
+  'missing',
+  'notAFolder',
+  'permissionDenied',
+  'unreadable',
+  'extractor-missing',
+  'archive-unreadable',
+  'archive-too-large',
+])
+export type ReplaysSourceErrorReason = z.infer<typeof replaysSourceErrorReasonSchema>
+
+/**
+ * One reported discovery failure: which source it came from, the archive's file name when the
+ * failure is one zip within that source rather than the source's folder itself (`null` for a
+ * folder-level failure), and why.
+ */
+export const replaysSourceErrorSchema = z.object({
+  source: demoSourceSchema,
+  archiveName: z.string().min(1).nullable(),
+  reason: replaysSourceErrorReasonSchema,
+})
+export type ReplaysSourceError = z.infer<typeof replaysSourceErrorSchema>
+
+/**
  * Story 150 D2: a single effective field, mirroring `Effective<T>`
  * (`src/shared/demos/effective-values.ts`) - either a value plus the rung it came from, or both
  * null when no rung had one. `effectiveSchema` is generic so each field in `effectiveValuesSchema`
@@ -289,7 +319,9 @@ export type DemoRow = z.infer<typeof demoRowSchema>
  * row shape before the sidecar/effective-values composition existed). */
 export const replaysIndexReadResultSchema = z.array(demoRowSchema)
 
-/** `scan.progress`'s payload: per-source `scanned` / `total` counts, keyed by `demoSourceKey`. */
+/** `scan.progress`'s payload: per-source `scanned` / `total` counts, keyed by `demoSourceKey`, plus
+ * (story 151 D2) this scan's source errors so far - the previous scan's while one is still running,
+ * this scan's own once the final `running: false` push goes out. */
 export const replaysScanProgressSchema = z.object({
   running: z.boolean(),
   sources: z.array(
@@ -299,6 +331,7 @@ export const replaysScanProgressSchema = z.object({
       total: z.number().int().nonnegative(),
     }),
   ),
+  sourceErrors: z.array(replaysSourceErrorSchema),
 })
 export type ReplaysScanProgress = z.infer<typeof replaysScanProgressSchema>
 

@@ -16,3 +16,19 @@
 - 2026-09-28 18:22 · 150 · review 1 · started
 - 2026-09-28 18:25 · 150 · review 1 · done
 - 2026-09-28 18:26 · 150 · story · done
+- 2026-09-28 18:27:23 · 151 · build · started
+- 2026-09-28 18:27 · 151 · D1 discovery reports per-source errors · started
+- 2026-09-28 18:31 · 151 · D1 discovery reports per-source errors · done
+- 2026-09-28 18:31 · 151 · D2 scan service pushes source errors + harness scan hold · started
+- 2026-09-28 18:35 · 151 · D2 scan service pushes source errors + harness scan hold · done
+- 2026-09-28 18:35 · 151 · D3 renderer: the list says what its doing · started
+- 2026-09-28 18:39 · 151 · D3 renderer: the list says what its doing · done
+- 2026-09-28 18:39 · 151 · D4 surface proof: fixtures, screens, flows · started
+- 2026-09-28 18:46 · 151 · D4 surface proof: fixtures, screens, flows · done
+- 2026-09-28 18:46 · 151 · verify · started
+- 2026-09-28 18:49 · 151 · verify · blocked: replays-list-loading e2e flow red (data-total=0 instead of 5)
+- 2026-09-28 18:52 · 151 · verify · started
+- 2026-09-28 18:52 · 151 · verify · done
+- 2026-09-28 18:52 · 151 · review 1 · started
+- 2026-09-28 18:56 · 151 · review 1 · done
+- 2026-09-28 18:57 · 151 · story · done

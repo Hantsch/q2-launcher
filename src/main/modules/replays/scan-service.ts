@@ -10,6 +10,7 @@ import {
   type ReplaysOverview,
   type ReplaysScanProgress,
   type ReplaysScanStartResult,
+  type ReplaysSourceError,
 } from '@shared/modules/replays'
 import { compileNameTemplate, matchNameTemplate, type NameFacts } from '@shared/replays/name-template'
 import { readDemoDuration, readDemoHeader } from '../../lib/demo-bytes'
@@ -80,13 +81,17 @@ export interface CreateReplaysScanServiceOptions {
   emit: (type: string, payload: unknown) => void
   cache: Pick<ReplaysIndexCache, 'read' | 'write'>
   /** Runs discovery fresh; read at scan time, never captured once. */
-  discover: () => Promise<DiscoveredDemoFile[]>
+  discover: () => Promise<{ demos: DiscoveredDemoFile[]; sourceErrors: ReplaysSourceError[] }>
   /** Parses one changed/new demo's header - called only for cache misses. */
   parse: (file: ReplaysScanFile) => Promise<DemoHeaderFacts>
   /** The current naming templates' matcher and fingerprint, resolved once per scan. */
   nameMatcher: () => ReplaysNameMatcher
   /** Read once per scan, at its start - `app.launch.isRunning()` in production. */
   isGameRunning: () => boolean
+  /** Story 151 D2: awaited right after the post-discovery progress push (the one carrying the
+   * totals) and before the incremental scan itself - the harness's scan-hold seam
+   * (`scanHoldMs`/`index.ts`). Skipped entirely when absent. */
+  holdAfterDiscovery?: () => Promise<void>
   now?: () => number
   log?: ReplaysScanLog
 }
@@ -259,7 +264,7 @@ export function nameMatcherFor(templates: string[], fingerprint: string): Replay
 }
 
 export function createReplaysScanService(options: CreateReplaysScanServiceOptions): ReplaysScanService {
-  const { emit, cache, discover, parse, nameMatcher, isGameRunning, log } = options
+  const { emit, cache, discover, parse, nameMatcher, isGameRunning, holdAfterDiscovery, log } = options
   const now = options.now ?? Date.now
 
   let running = false
@@ -268,6 +273,11 @@ export function createReplaysScanService(options: CreateReplaysScanServiceOption
   let lastCache: Map<string, CachedDemo> | null = null
   /** The last successful scan's rows; `null` until this process's first scan succeeds. */
   let snapshot: DiscoveredDemo[] | null = null
+  /** Story 151 D2: the last successful scan's source errors - `[]` until any scan has succeeded.
+   * Every push while a scan runs carries this (still the *previous* scan's), swapped for this
+   * scan's own right after the snapshot swap, so the final `running: false` push carries the fresh
+   * set. A throwing scan leaves this untouched, same as `lastCache`/`snapshot`. */
+  let lastSourceErrors: ReplaysSourceError[] = []
   /** Story 146: `id -> file` for the last successful scan's rows - the sidecar store's only index
    * dependency (`resolveFile`), kept in lockstep with `snapshot`/`lastCache` and never populated on
    * a failed scan. */
@@ -282,6 +292,7 @@ export function createReplaysScanService(options: CreateReplaysScanServiceOption
       const payload: ReplaysScanProgress = {
         running: isRunning,
         sources: [...progress].map(([sourceKey, counts]) => ({ sourceKey, ...counts })),
+        sourceErrors: lastSourceErrors,
       }
       emit(REPLAYS_EVENTS.scanProgress, payload)
     }
@@ -292,11 +303,14 @@ export function createReplaysScanService(options: CreateReplaysScanServiceOption
 
       const previous = lastCache ?? (await loadCache())
       const names = nameMatcher()
-      const sources = groupSources(await statScanFiles(await discover()))
+      const discovered = await discover()
+      const sources = groupSources(await statScanFiles(discovered.demos))
       for (const source of sources) {
         progress.set(source.sourceKey, { scanned: 0, total: source.files.length })
       }
       emitProgress(true)
+
+      if (holdAfterDiscovery) await holdAfterDiscovery()
 
       const result = await runIncrementalScan<ReplaysScanFile>({
         sources,
@@ -321,6 +335,7 @@ export function createReplaysScanService(options: CreateReplaysScanServiceOption
       )
       for (const [id, entry] of result.entries) fileById.set(id, entry.file)
       lastCache = result.nextCache
+      lastSourceErrors = discovered.sourceErrors
       await cache.write(result.nextCache)
     } catch (error) {
       log?.warn('replays index scan failed; the previous index is kept', error)

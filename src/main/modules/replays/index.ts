@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { app as electronApp } from 'electron'
@@ -61,6 +62,42 @@ export function discoveryHomeDir({
   return osHome
 }
 
+export interface ScanHoldMsOptions {
+  /** Defaults to `process.env`; a parameter so a test never touches the real environment. */
+  env?: NodeJS.ProcessEnv
+  /** Defaults to `userDataDir()`; a parameter so a test never touches the real userData path. */
+  userData?: string
+}
+
+/** Upper bound `scanHoldMs` clamps a harness-provided value to - twice the harness's own default
+ * per-step timeout budget is not a concern here, this is just a sane ceiling so a stray huge number
+ * in the fixture file cannot wedge a scan indefinitely. */
+const SCAN_HOLD_MS_MAX = 60_000
+
+/**
+ * Story 151 D2: how long `runScan` pauses right after discovery (once the totals push has gone
+ * out) before the incremental scan proper starts - the UI-verification harness's seam for scripting
+ * a flow against the "scan is running" state instead of racing a scan that finishes near-instantly
+ * against fixture data. `0` (no hold) unless the UI harness gate is open and
+ * `<userData>/harness-replays-scan-hold-ms` exists and holds a positive integer; an unreadable file,
+ * non-numeric content, zero/negative or non-integer values all read back as `0`. Mirrors
+ * `discoveryHomeDir`'s own signature and harness gate exactly.
+ */
+export async function scanHoldMs({ env = process.env, userData = userDataDir() }: ScanHoldMsOptions = {}): Promise<number> {
+  if (!isUiHarnessEnabled({ env, isDev: false })) return 0
+  let raw: string
+  try {
+    raw = await readFile(join(userData, 'harness-replays-scan-hold-ms'), 'utf8')
+  } catch {
+    return 0
+  }
+  const trimmed = raw.trim()
+  if (!/^\d+$/.test(trimmed)) return 0
+  const value = Number.parseInt(trimmed, 10)
+  if (!Number.isSafeInteger(value) || value <= 0) return 0
+  return Math.min(value, SCAN_HOLD_MS_MAX)
+}
+
 /**
  * The replays module - story 135 D2 registered its main half with a single handler,
  * `overview.read`, answering a hardcoded zeroed overview. There is no demo scan yet: no
@@ -106,20 +143,20 @@ export const replaysModule: MainModule = {
     const scanService = createReplaysScanService({
       emit,
       cache: new ReplaysIndexCache({ log }),
-      discover: async () =>
-        (
-          await discoverDemos(
-            app.installations.list(),
-            app.state.replaysState().extraFolders,
-            discoveryContext(),
-          )
-        ).demos,
+      discover: () =>
+        discoverDemos(app.installations.list(), app.state.replaysState().extraFolders, discoveryContext()),
       parse: readDemoFacts,
       nameMatcher: () => {
         const { templates, fingerprint } = currentNameTemplates(app)
         return nameMatcherFor(templates, fingerprint)
       },
       isGameRunning: () => app.launch.isRunning(),
+      // Story 151 D2: the UI-verification harness's scan-hold seam - a no-op outside the harness
+      // (`scanHoldMs` answers `0` there, and the sleep is skipped entirely).
+      holdAfterDiscovery: async () => {
+        const ms = await scanHoldMs()
+        if (ms > 0) await new Promise((resolve) => setTimeout(resolve, ms))
+      },
       log,
     })
 

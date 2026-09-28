@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
-import type { DemoRow } from '@shared/modules/replays'
+import type { DemoRow, ReplaysScanProgress } from '@shared/modules/replays'
 import { Button, IconButton } from '../../components/ui/Button'
+import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
 import { VirtualDemoList } from './components/VirtualDemoList'
 import { indexRead, onScanProgress, scanStart } from './client'
+import { deriveReplaysListState } from './list-state'
+import { ReplaysListStatus } from './ReplaysListStatus'
+
+/** A scan that hasn't reported anything yet - the placeholder before the first `scan.progress`
+ * push arrives, so `ReplaysListStatus` always has something to render while `scanning` starts
+ * `true` on mount. */
+const IDLE_SCAN_PROGRESS: ReplaysScanProgress = {
+  running: false,
+  sources: [],
+  sourceErrors: [],
+}
 
 /**
  * Story 141 D4: a minimal Demos list view - just enough to make AC "every discovered demo across
@@ -27,8 +39,13 @@ import { indexRead, onScanProgress, scanStart } from './client'
  */
 export function ReplaysView() {
   const { t } = useTranslation()
+  const setRoute = useLauncher((state) => state.setRoute)
   const [demos, setDemos] = useState<DemoRow[] | null>(null)
-  const [scanning, setScanning] = useState(false)
+  // Story 151 D3: the view always calls `scanStart()` on mount, so it starts out assuming a scan
+  // is under way - flipped back to `false` only if that call itself resolves `ok: false` (refused
+  // outright, never even started). A real `scan.progress` push takes over from there.
+  const [scanning, setScanning] = useState(true)
+  const [progress, setProgress] = useState<ReplaysScanProgress>(IDLE_SCAN_PROGRESS)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const cancelledRef = useRef(false)
 
@@ -47,12 +64,16 @@ export function ReplaysView() {
       if (cancelledRef.current) return
       applyDemos(result.ok ? result.value : [])
     })
-    void scanStart()
-
-    const unsubscribe = onScanProgress((progress) => {
+    void scanStart().then((result) => {
       if (cancelledRef.current) return
-      setScanning(progress.running)
-      if (!progress.running) {
+      if (!result.ok) setScanning(false)
+    })
+
+    const unsubscribe = onScanProgress((next) => {
+      if (cancelledRef.current) return
+      setScanning(next.running)
+      setProgress(next)
+      if (!next.running) {
         void indexRead().then((result) => {
           if (cancelledRef.current) return
           applyDemos(result.ok ? result.value : [])
@@ -66,8 +87,22 @@ export function ReplaysView() {
     }
   }, [])
 
-  const loading = demos === null
-  const isEmpty = !loading && demos.length === 0
+  // Story 151 D3: mirrors `ServersView.tsx`'s `handleOpenSourceSettings` - the route change lands
+  // on the next render commit, so two rAFs (one for the commit, one for the browser's next paint)
+  // is the smallest wait that reliably sees `settings-section-replays` in the DOM before scrolling.
+  const handleOpenSettings = (): void => {
+    setRoute(ROUTE_SETTINGS)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document
+          .querySelector('[data-testid="settings-section-replays"]')
+          ?.scrollIntoView({ block: 'start' })
+      })
+    })
+  }
+
+  const rowCount = demos?.length ?? 0
+  const listState = deriveReplaysListState({ scanning, rowCount })
   const selected = demos?.find((demo) => demo.id === selectedId) ?? null
 
   return (
@@ -88,21 +123,13 @@ export function ReplaysView() {
         </Button>
       </header>
 
+      <ReplaysListStatus listState={listState} progress={progress} onOpenSettings={handleOpenSettings} />
+
       <div className="flex min-h-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col p-5">
-          {loading && (
-            <p className="text-xs text-ink-muted" data-testid="replays-list-loading">
-              {t('replays.list.loading')}
-            </p>
-          )}
-          {isEmpty && (
-            <p className="text-xs text-ink-muted" data-testid="replays-list-empty">
-              {t('replays.list.empty')}
-            </p>
-          )}
-          {!loading && !isEmpty && (
+          {rowCount > 0 && (
             <VirtualDemoList
-              rows={demos}
+              rows={demos ?? []}
               selectedId={selectedId}
               onSelect={(id) => setSelectedId(id)}
             />

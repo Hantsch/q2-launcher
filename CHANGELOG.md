@@ -26,6 +26,9 @@ version section when a release actually ships.
 - Each demo row now tells you what it actually is at a glance — map, mod, who played, when, how
   long, and whether it's a favourite — with clear badges for sidecar notes, archive entries and
   anything unreadable. Click a row to open its details.
+- The Demos list now shows live scan progress while it reads, an empty state with a link straight
+  into Settings, and calls out any demo folder or archive it couldn't read instead of quietly
+  skipping it.
 
 ## 0.5.0 — 2026-09-26
 

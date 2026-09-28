@@ -2380,6 +2380,79 @@ export function writeReplaysScaleFixture() {
   return { userDataDir, installations: 0, configProfiles: 0 }
 }
 
+// --- story 151 D4: the Demos view's own loading/empty/error status-strip screens -----------------
+
+/**
+ * Story 151 D4: `replays-list-loading`'s fixture - the plain `populated` install/demo set (so the
+ * loading strip's `data-total` is real, non-zero `REPLAYS_FIXTURE_DEMOS.length`), plus the harness's
+ * scan-hold seam (`scanHoldMs()`, `src/main/modules/replays/index.ts`) set to `holdMs` so the flow
+ * has a real window to assert the loading strip's numbers before the scan finishes on its own.
+ */
+export function writeReplaysListLoadingFixture({ holdMs = 15000 } = {}) {
+  const result = writePopulatedFixture({ variant: 'replays-list-loading' })
+  writeFileSync(join(result.userDataDir, 'harness-replays-scan-hold-ms'), String(holdMs), 'utf8')
+  return result
+}
+
+/**
+ * Story 151 D4: `replays-list-error`'s fixture - the plain `populated` install/demo set plus two
+ * extra folders registered under `replays.extraFolders`, each engineered to fail discovery in a
+ * distinct way (AC "a source failure never hides the rest of the list"):
+ *   - `replaysListErrorMissingFolderPath()` - never created, so `scanDemosDir` reports `'missing'`
+ *     (ENOENT) for the folder itself.
+ *   - `replaysListErrorBrokenArchiveFolderPath()` - a real, readable folder holding one file,
+ *     `broken.zip`, that is a few garbage bytes, never a real archive - it fails to expand whether
+ *     or not `resources/bin/7za.exe` happens to be vendored locally (`'extractor-missing'` without
+ *     it, `'archive-unreadable'` with it - both are one of `replaysSourceErrorReasonSchema`'s three
+ *     archive-only codes).
+ * Both folders live under THIS variant's own `variantUserDataDir()`, never under `gameRoot()` - the
+ * same discipline `writeReplaysRowsFixture()`/`writeReplaysScaleFixture()` follow above, for the
+ * same reason: `gameRoot()` is not variant-scoped, so anything written there would leak into every
+ * other variant/flow that reads the shared installation folders (see the regression note on
+ * `writeReplaysDemosFixture()`).
+ */
+export function replaysListErrorMissingFolderPath() {
+  return join(variantUserDataDir('replays-list-error'), 'missing-demos')
+}
+
+export function replaysListErrorBrokenArchiveFolderPath() {
+  return join(variantUserDataDir('replays-list-error'), 'broken-archive-demos')
+}
+
+export const REPLAYS_LIST_ERROR_BROKEN_ARCHIVE_NAME = 'broken.zip'
+
+export function writeReplaysListErrorFixture() {
+  const missingFolder = replaysListErrorMissingFolderPath()
+  const brokenArchiveFolder = replaysListErrorBrokenArchiveFolderPath()
+
+  const result = writePopulatedFixture({
+    variant: 'replays-list-error',
+    stateOverrides: {
+      replays: {
+        extraFolders: [
+          { id: 'fixture-replays-list-error-missing', path: missingFolder, addedAt: FIXED_TIMESTAMP },
+          {
+            id: 'fixture-replays-list-error-broken-archive',
+            path: brokenArchiveFolder,
+            addedAt: FIXED_TIMESTAMP,
+          },
+        ],
+      },
+    },
+  })
+
+  // `missingFolder` is deliberately never created.
+  rmDirBestEffort(brokenArchiveFolder)
+  mkdirSync(brokenArchiveFolder, { recursive: true })
+  writeFileSync(
+    join(brokenArchiveFolder, REPLAYS_LIST_ERROR_BROKEN_ARCHIVE_NAME),
+    'q2l-fixture-not-a-real-zip\n',
+    'utf8',
+  )
+
+  return result
+}
+
 /**
  * Deletes and rewrites the `populated` variant's userdata + game dirs - or, when `variant`/
  * `stateOverrides` are passed, a different variant that needs every one of those same side effects
@@ -2721,6 +2794,10 @@ export function writeFixture(variant) {
   // Story 150+ D5: the demos-list rows on a real surface - see each writer's own doc comment.
   if (variant === 'replays-rows') return writeReplaysRowsFixture()
   if (variant === 'replays-scale') return writeReplaysScaleFixture()
+  // Story 151 D4: the Demos view's own loading/error status-strip screens - see each writer's own
+  // doc comment.
+  if (variant === 'replays-list-loading') return writeReplaysListLoadingFixture()
+  if (variant === 'replays-list-error') return writeReplaysListErrorFixture()
   throw new Error(`unknown fixture variant: ${variant}`)
 }
 
@@ -2746,6 +2823,10 @@ export const FIXTURE_VARIANTS = [
   // `servers-scan` above - still listed here so `npm run ui:seed` writes it too.
   'replays-rows',
   'replays-scale',
+  // Story 151 D4: `replays-list-loading`/`replays-list-error`'s own screens (`screens.mjs`) reseed
+  // them.
+  'replays-list-loading',
+  'replays-list-error',
 ]
 
 // --- story 066 D8: the import-from-files flow's staged real-config corpus ---------------------

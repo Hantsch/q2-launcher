@@ -1,7 +1,7 @@
 ---
 id: 151
 title: the demo list says what it's doing
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -14,16 +14,16 @@ same explicitness the servers list got in [[121]].
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — While a scan runs, the list shows a loading state with live counts from [[144]]'s
+- [x] **AC1** — While a scan runs, the list shows a loading state with live counts from [[144]]'s
       progress event (scanned / total).
-- [ ] **AC2** — With no demos in any source, the list shows "no demos found" with a link into the
+- [x] **AC2** — With no demos in any source, the list shows "no demos found" with a link into the
       demos settings section where extra folders are added ([[142]]).
-- [ ] **AC3** — A source that is missing or unreadable (deleted extra folder, permission denied,
+- [x] **AC3** — A source that is missing or unreadable (deleted extra folder, permission denied,
       archive that fails to open) shows a per-source error naming the source and the reason, while
       demos from every other source stay listed.
-- [ ] **AC4** — After a scan finishes, the loading state gives way to the list (or the empty state)
+- [x] **AC4** — After a scan finishes, the loading state gives way to the list (or the empty state)
       without a manual reload.
-- [ ] **AC5** — Each state is a `ui:verify` screen with zero axe violations.
+- [x] **AC5** — Each state is a `ui:verify` screen with zero axe violations.
 
 ## Open Questions
 
@@ -92,7 +92,7 @@ Order: D1 → D2 → D3 → D4. Files: `src/main/lib/fs-utils.ts`, `src/main/mod
 
 ## Deliverables
 
-- [ ] **D1 — discovery reports per-source errors.**
+- [x] **D1 — discovery reports per-source errors.**
   - `src/shared/modules/replays.ts`: add `replaysSourceErrorReasonSchema = z.enum(['missing',
     'notAFolder', 'permissionDenied', 'unreadable', 'extractor-missing', 'archive-unreadable',
     'archive-too-large'])` and `replaysSourceErrorSchema = z.object({ source: demoSourceSchema,
@@ -123,7 +123,7 @@ Order: D1 → D2 → D3 → D4. Files: `src/main/lib/fs-utils.ts`, `src/main/mod
     loose demos still list"; and in the existing `src/main/lib/fs-utils.test.ts` (extend) ›
     "dirReadFailureReason classifies ENOENT, ENOTDIR, EACCES, EPERM and other codes".
 
-- [ ] **D2 — the scan service pushes source errors; harness scan hold.**
+- [x] **D2 — the scan service pushes source errors; harness scan hold.**
   - `src/shared/modules/replays.ts`: `replaysScanProgressSchema` gains
     `sourceErrors: z.array(replaysSourceErrorSchema)` (required; `replaysSourceErrorSchema`
     already exists from D1).
@@ -147,7 +147,7 @@ Order: D1 → D2 → D3 → D4. Files: `src/main/lib/fs-utils.ts`, `src/main/mod
     `src/main/modules/replays/index.test.ts` (extend, mirror the `discoveryHomeDir` tests) ›
     "scanHoldMs is 0 outside the harness, reads the file under it, and ignores garbage".
 
-- [ ] **D3 — the list says what it's doing (renderer).** Do not change the row/list markup story
+- [x] **D3 — the list says what it's doing (renderer).** Do not change the row/list markup story
   150 left in `ReplaysView.tsx` — only its loading/empty branches and what sits above the list.
   - New `src/renderer/src/modules/replays/list-state.ts` (mirror
     `src/renderer/src/modules/servers/list-state.ts`): `deriveReplaysListState({ scanning,
@@ -189,7 +189,7 @@ Order: D1 → D2 → D3 → D4. Files: `src/main/lib/fs-utils.ts`, `src/main/mod
     cache during a running scan shows loading, not empty", "a finished scan with source errors
     lists each error next to the remaining demos".
 
-- [ ] **D4 — surface proof: fixtures, screens, flows.**
+- [x] **D4 — surface proof: fixtures, screens, flows.**
   - `scripts/lib/fixture.mjs`: `writeReplaysListLoadingFixture({ holdMs = 15000 } = {})` =
     `writePopulatedFixture({ variant: 'replays-list-loading' })` plus the text file
     `<that variant's userData>/harness-replays-scan-hold-ms` = `holdMs`;
@@ -261,4 +261,39 @@ Coverage: AC1 → D2+D3+D4 · AC2 → D3+D4 · AC3 → D1+D2+D3+D4 · AC4 → D3
 
 ## Done
 
-<!-- Filled by /build 151. -->
+Discovery/scan-service now report per-source errors (`ReplaysSourceError`, closed reason enum) on
+every `scan.progress` push instead of silently dropping unreadable extra folders/demos dirs/zips;
+demos from unaffected sources keep listing. Renderer gained `list-state.ts` +
+`ReplaysListStatus.tsx`: a loading strip with live scanned/total counts, an empty state with a
+settings link, and a per-source error block — wired into `ReplaysView.tsx` without touching 150's
+row/list rendering. A harness-only scan hold (`harness-replays-scan-hold-ms`) makes the loading
+state screenshot/flow-able. New fixtures/screens/flows prove all three states plus the existing
+populated screen at zero axe violations.
+
+Commit message: `151: the demo list says what it's doing`
+
+Verification — narrow gate: `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (160 files, 2319 passed, 8 skipped, 0 failed),
+`npm run ui:flow -- replays-list-loading` / `-empty` / `-error` all green (loading flow's initial
+data-total=0 vs 5 race — asserting before the first real progress push landed — fixed in the flow
+itself, no product code change), `npm run ui:verify` scoped to `replays-list,
+replays-list-loading, replays-list-empty, replays-list-error` green (0 axe violations, both
+viewports, all four screens). AC → test mapping, all verified passing: AC1 → e2e
+`replays-list-loading` flow + unit `list-state.test.ts` › "progress sums every source and has no
+numbers before discovery"; AC2 → e2e `replays-list-empty` flow; AC3 → e2e `replays-list-error`
+flow + unit `discovery.test.ts` (3 named cases) + `fs-utils.test.ts` ›
+"dirReadFailureReason classifies…" + `scan-service.test.ts` › "the final push carries this scan's
+source errors"; AC4 → e2e `replays-list-loading` flow (no-reload marker) + unit
+`ReplaysView.test.tsx` › "an empty cache during a running scan shows loading, not empty" +
+`list-state.test.ts` › "empty only after the scan finished with no rows"; AC5 → `ui:verify` on the
+four screens, 0 axe violations each. No manual residue. Clean-agent review (default tier,
+foreground, no hard stage per Model Hints): PASS, no findings — the three risk implementations
+(empty flash during a running scan, demos-less game dir wrongly flagged, one source's error
+hiding another's demos) each confirmed pinned by a non-tautological test. Full regression gate not
+run here — sprint's job.
+
+Decisions: none beyond what's already recorded under "Decisions (Sprint)"; the loading e2e flow's
+data-total race (fixed by polling for the real total instead of asserting right after visibility)
+was a test-only fix, not a spec or implementation decision.
+
+tiers: D 4 / hard 0 · review default · cycles 0 · agents 7
