@@ -38,6 +38,21 @@ export const REPLAYS_HANDLERS = {
   extraFoldersAdd: 'extraFolders.add',
   /** Removes an extra demo folder by id; an unknown id is a no-op. */
   extraFoldersRemove: 'extraFolders.remove',
+  /** Starts a background index scan (story 144); resolves to `ReplaysScanStartResult` at once. */
+  scanStart: 'scan.start',
+  /** Resolves to the current index (story 144): the cached rows until this process's first scan
+   * finishes, the last successful scan's rows after that. Shape: `replaysIndexReadResultSchema`. */
+  indexRead: 'index.read',
+} as const
+
+/**
+ * Story 144: main -> renderer pushes of this module, delivered through the module event channel
+ * (same convention as `SERVERS_EVENTS`/`HOME_EVENTS`).
+ */
+export const REPLAYS_EVENTS = {
+  /** A `ReplaysScanProgress` - pushed when a scan starts, as it advances, and once when it ends
+   * (`running: false`, success or failure alike). */
+  scanProgress: 'scan.progress',
 } as const
 
 /**
@@ -146,6 +161,38 @@ export type DemoFormat = z.infer<typeof demoFormatSchema>
 export type DemoSource = z.infer<typeof demoSourceSchema>
 export type DiscoveredDemo = z.infer<typeof discoveredDemoSchema>
 
+/**
+ * Story 144: the scan-progress key of one `DemoSource` - one key per distinct source (an
+ * installation's game dir, or one extra folder), so the renderer can match a progress entry to the
+ * rows carrying that same `source`.
+ */
+export function demoSourceKey(source: DemoSource): string {
+  return source.kind === 'installation'
+    ? `installation:${source.installationId}:${source.gameDir}`
+    : `extraFolder:${source.path}`
+}
+
+/** `scan.start`'s result: `started: false` means a scan was already running (single-flight) -
+ * nothing new was kicked off. */
+export const replaysScanStartResultSchema = z.object({ started: z.boolean() })
+export type ReplaysScanStartResult = z.infer<typeof replaysScanStartResultSchema>
+
+/** `index.read`'s result - the same row shape `demos.list` answers with. */
+export const replaysIndexReadResultSchema = demosListResultSchema
+
+/** `scan.progress`'s payload: per-source `scanned` / `total` counts, keyed by `demoSourceKey`. */
+export const replaysScanProgressSchema = z.object({
+  running: z.boolean(),
+  sources: z.array(
+    z.object({
+      sourceKey: z.string(),
+      scanned: z.number().int().nonnegative(),
+      total: z.number().int().nonnegative(),
+    }),
+  ),
+})
+export type ReplaysScanProgress = z.infer<typeof replaysScanProgressSchema>
+
 /** `extraFolders.add`'s payload: a native-dialog-sourced absolute path (see
  * `REPLAYS_PATH_PAYLOAD_HANDLERS` below for why this is the one exception). */
 export const extraFoldersAddSchema = z.object({ path: absolutePathSchema })
@@ -183,6 +230,8 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.extraFoldersList]: replaysNoInputSchema,
   [REPLAYS_HANDLERS.extraFoldersAdd]: extraFoldersAddSchema,
   [REPLAYS_HANDLERS.extraFoldersRemove]: extraFoldersRemoveSchema,
+  [REPLAYS_HANDLERS.scanStart]: replaysNoInputSchema,
+  [REPLAYS_HANDLERS.indexRead]: replaysNoInputSchema,
 }
 
 /**

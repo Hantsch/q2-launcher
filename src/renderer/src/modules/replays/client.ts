@@ -1,13 +1,16 @@
 import {
+  REPLAYS_EVENTS,
   REPLAYS_HANDLERS,
   type DiscoveredDemo,
   type ExtraFoldersResult,
   type ReplaysExtraFolder,
   type ReplaysOverview,
+  type ReplaysScanProgress,
+  type ReplaysScanStartResult,
 } from '@shared/modules/replays'
 import type { NameTemplatesView } from '@shared/replays/name-templates'
 import type { Outcome } from '@shared/types'
-import { callModule } from '../moduleClient'
+import { callModule, onModuleEvent } from '../moduleClient'
 
 /** Typed client for the replays module's handlers (story 135 D3). One function per handler in its
  * contract - mirrors `modules/servers/client.ts`. */
@@ -74,4 +77,23 @@ export function addExtraFolder(path: string): Promise<Outcome<ExtraFoldersResult
 
 export function removeExtraFolder(id: string): Promise<Outcome<ExtraFoldersResult>> {
   return callModule<ExtraFoldersResult>('replays', REPLAYS_HANDLERS.extraFoldersRemove, { id })
+}
+
+/**
+ * Story 144 D4: the index scan's renderer-side transport, mirroring `servers/client.ts`'s
+ * `startScan`/`readScan`/`onScanChanged` triad. `scanStart` kicks off a background scan
+ * (single-flight - `started: false` means one was already running); `indexRead` is a one-shot
+ * catch-up read of the current index (cached rows before this process's first scan finishes, the
+ * last successful scan's rows after); `onScanProgress` subscribes to the scan's own push.
+ */
+export function scanStart(): Promise<Outcome<ReplaysScanStartResult>> {
+  return callModule<ReplaysScanStartResult>('replays', REPLAYS_HANDLERS.scanStart)
+}
+
+export function indexRead(): Promise<Outcome<DiscoveredDemo[]>> {
+  return callModule<DiscoveredDemo[]>('replays', REPLAYS_HANDLERS.indexRead)
+}
+
+export function onScanProgress(listener: (payload: ReplaysScanProgress) => void): () => void {
+  return onModuleEvent<ReplaysScanProgress>('replays', REPLAYS_EVENTS.scanProgress, listener)
 }

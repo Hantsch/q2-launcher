@@ -18,9 +18,12 @@ import { isUiHarnessEnabled } from '../../lib/ui-harness'
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../downloads/7za-path'
-import { discoverDemos } from './discovery'
+import { discoverDemos, type DiscoverContext } from './discovery'
 import { addExtraFolder, removeExtraFolder } from './extra-folders'
+import { ReplaysIndexCache } from './index-cache'
+import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
 import {
+  currentNameTemplates,
   nameTemplatesAdd,
   nameTemplatesList,
   nameTemplatesRemove,
@@ -73,15 +76,52 @@ export function discoveryHomeDir({
  * its real path (CLAUDE.md: "Paths from the renderer are never trusted"). `discoveryHomeDir` is the
  * one seam that decides which home dir the scan uses for Q2PRO's Linux write dir, redirected under
  * the UI harness so a scripted run never depends on the real operator's home directory.
+ *
+ * Story 144 D3 adds the index scan service (`scan-service.ts`): `scan.start` / `index.read`, the
+ * `scan.progress` push, and `overview.read` now answering the service's real `scanning` /
+ * `demoCount` instead of hardcoded zeros.
  */
 export const replaysModule: MainModule = {
   id: 'replays',
 
-  setup({ handle, app, log }) {
-    handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => ({
-      scanning: false,
-      demoCount: 0,
-    }))
+  setup({ handle, emit, app, log }) {
+    const discoveryContext = (): DiscoverContext => {
+      const extractor = resolveExtractorPath({
+        isPackaged: electronApp.isPackaged,
+        resourcesPath: process.resourcesPath,
+      })
+      return {
+        platform: process.platform,
+        homeDir: discoveryHomeDir(),
+        zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists },
+      }
+    }
+
+    // Story 144 D3: the index scan service. Everything it reads (installations, extra folders,
+    // name templates, launch phase) is read at scan time, never captured here.
+    const scanService = createReplaysScanService({
+      emit,
+      cache: new ReplaysIndexCache({ log }),
+      discover: async () =>
+        (
+          await discoverDemos(
+            app.installations.list(),
+            app.state.replaysState().extraFolders,
+            discoveryContext(),
+          )
+        ).demos,
+      parse: readDemoFacts,
+      nameMatcher: () => {
+        const { templates, fingerprint } = currentNameTemplates(app)
+        return nameMatcherFor(templates, fingerprint)
+      },
+      isGameRunning: () => app.launch.isRunning(),
+      log,
+    })
+
+    handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())
+    handle(REPLAYS_HANDLERS.scanStart, replaysNoInputSchema, () => scanService.start())
+    handle(REPLAYS_HANDLERS.indexRead, replaysNoInputSchema, () => scanService.read())
 
     handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))
     handle(REPLAYS_HANDLERS.nameTemplatesAdd, nameTemplatesAddSchema, (payload) =>
@@ -103,19 +143,13 @@ export const replaysModule: MainModule = {
       nameTemplatesRestore(app),
     )
 
+    // Left on fresh discovery (no header parse, no cache) on purpose: `index.read` is the cached,
+    // parsed view; switching this handler's callers over is the renderer's deliverable.
     handle(REPLAYS_HANDLERS.demosList, replaysNoInputSchema, async () => {
-      const extractor = resolveExtractorPath({
-        isPackaged: electronApp.isPackaged,
-        resourcesPath: process.resourcesPath,
-      })
       const { demos } = await discoverDemos(
         app.installations.list(),
         app.state.replaysState().extraFolders,
-        {
-          platform: process.platform,
-          homeDir: discoveryHomeDir(),
-          zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists },
-        },
+        discoveryContext(),
       )
       return demos.map((d) => ({
         id: d.id,

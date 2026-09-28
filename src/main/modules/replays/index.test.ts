@@ -71,6 +71,8 @@ describe('replays module', () => {
       'extraFolders.list',
       'extraFolders.add',
       'extraFolders.remove',
+      'scan.start',
+      'index.read',
     ])
   })
 

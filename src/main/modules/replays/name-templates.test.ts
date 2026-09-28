@@ -1,8 +1,8 @@
-import { rm } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { REPLAYS_HANDLERS } from '@shared/modules/replays'
 import { nameTemplatesFingerprint, type NameTemplatesView } from '@shared/replays/name-templates'
 import type { AppContext } from '../../context'
@@ -10,6 +10,17 @@ import { createFeatureGate } from '../../features/gate'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
 import { replaysModule } from './index'
+
+/**
+ * Story 144 D3 made module setup construct a `ReplaysIndexCache`, which resolves its file path
+ * through `userDataDir()` (`electron.app.getPath('userData')`) - mocked the same way
+ * `index.test.ts` and `index-cache.test.ts` do, a per-test temp folder standing in for userData.
+ */
+const userDataBox = vi.hoisted(() => ({ current: '' }))
+
+vi.mock('electron', () => ({
+  app: { getPath: () => userDataBox.current },
+}))
 
 /**
  * Story 140 D2: the `nameTemplates.*` handlers' round trip - a real `StateStore` over a temp file,
@@ -32,11 +43,14 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
   let filePath: string
   let state: StateStore
   let registry: MainModuleRegistry
+  let userDataDirPath: string
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-name-templates-${randomUUID()}.json`)
     state = new StateStore(filePath)
     await state.load()
+    userDataDirPath = await mkdtemp(join(tmpdir(), 'q2-launcher-name-templates-userdata-'))
+    userDataBox.current = userDataDirPath
     registry = new MainModuleRegistry()
     await registry.register(replaysModule, fakeAppContext(state))
   })
@@ -46,6 +60,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
     await rm(filePath, { force: true })
     await rm(`${filePath}.tmp`, { force: true })
     await rm(`${filePath}.bak`, { force: true })
+    await rm(userDataDirPath, { recursive: true, force: true })
   })
 
   /** Every handler's outcome is wrapped once by the registry (`ok(await handler(...))`) and, on

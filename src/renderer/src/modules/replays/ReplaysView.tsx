@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DiscoveredDemo } from '@shared/modules/replays'
-import { listDemos } from './client'
+import { Button } from '../../components/ui/Button'
+import { indexRead, onScanProgress, scanStart } from './client'
 
 /** The basename of an archive path, split on either separator - a small local helper since
  * `demo.archiveEntry.archivePath` may come from either platform's discovery run. */
@@ -15,21 +16,42 @@ function basename(path: string): string {
  * markup (the `h1`/status-line toolbar shape); everything else there (scan controls, sort, filter,
  * detail pane, tabs) is out of scope for this deliverable.
  *
- * Local `useState`/`useEffect` only, no Zustand store - a one-shot `listDemos()` on mount, same
- * "load once, no polling" discipline the rest of this module already follows.
+ * Story 144 D4: the index is read once on mount (cache-first - whatever `index.read` already has,
+ * rendered at once, even if it's a stale/previous-run snapshot) and a background scan is kicked off
+ * right behind it. `onScanProgress` is subscribed for the component's lifetime; only once a push
+ * reports `running: false` is the index re-read and the whole list swapped in one go - never a
+ * partial/incremental patch, matching the story's "single swap on completion" design. The refresh
+ * button re-triggers the same `scanStart()` and is disabled while the latest known progress says a
+ * scan is running.
  */
 export function ReplaysView() {
   const { t } = useTranslation()
   const [demos, setDemos] = useState<DiscoveredDemo[] | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const cancelledRef = useRef(false)
 
   useEffect(() => {
-    let cancelled = false
-    void listDemos().then((result) => {
-      if (cancelled) return
+    cancelledRef.current = false
+    void indexRead().then((result) => {
+      if (cancelledRef.current) return
       setDemos(result.ok ? result.value : [])
     })
+    void scanStart()
+
+    const unsubscribe = onScanProgress((progress) => {
+      if (cancelledRef.current) return
+      setScanning(progress.running)
+      if (!progress.running) {
+        void indexRead().then((result) => {
+          if (cancelledRef.current) return
+          setDemos(result.ok ? result.value : [])
+        })
+      }
+    })
+
     return () => {
-      cancelled = true
+      cancelledRef.current = true
+      unsubscribe()
     }
   }, [])
 
@@ -44,6 +66,14 @@ export function ReplaysView() {
             {t('replays.view.title')}
           </h1>
         </div>
+        <Button
+          variant="neutral"
+          onClick={() => void scanStart()}
+          disabled={scanning}
+          data-testid="replays-refresh"
+        >
+          {scanning ? t('replays.list.refreshing') : t('replays.list.refresh')}
+        </Button>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-stable p-5">

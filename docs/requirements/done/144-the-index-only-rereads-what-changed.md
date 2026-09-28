@@ -1,7 +1,7 @@
 ---
 id: 144
 title: the index only re-reads what changed
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -19,24 +19,24 @@ the renderer as a pushed `module:event` (counts), which [[151]] shows.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Opening the Demos view starts an incremental scan; a refresh button starts one on
+- [x] **AC1** — Opening the Demos view starts an incremental scan; a refresh button starts one on
       demand.
-- [ ] **AC2** — A file whose path, size and modification time are unchanged since the last scan is
+- [x] **AC2** — A file whose path, size and modification time are unchanged since the last scan is
       not parsed again (asserted by counting parser calls).
-- [ ] **AC3** — A changed file is re-parsed, a new file is added, and a deleted file disappears
+- [x] **AC3** — A changed file is re-parsed, a new file is added, and a deleted file disappears
       from the list after the scan.
-- [ ] **AC4** — The cache lives in its own app-data file; deleting it and scanning again produces the
+- [x] **AC4** — The cache lives in its own app-data file; deleting it and scanning again produces the
       same list, and no sidecar or user setting is lost.
-- [ ] **AC5** — A cache written by an older cache format version is discarded and rebuilt, not
+- [x] **AC5** — A cache written by an older cache format version is discarded and rebuilt, not
       misread.
-- [ ] **AC6** — Scan progress (scanned / total, per source) is pushed as a module event while the scan
+- [x] **AC6** — Scan progress (scanned / total, per source) is pushed as a module event while the scan
       runs.
-- [ ] **AC7** — A refresh requested while a scan is running does not start a second parallel scan.
-- [ ] **AC8** — While a game is running (launch phase `starting`/`running`), a file that needs
+- [x] **AC7** — A refresh requested while a scan is running does not start a second parallel scan.
+- [x] **AC8** — While a game is running (launch phase `starting`/`running`), a file that needs
       parsing (not a cache hit) and whose modification time is less than 30 s old is treated as
       still being written: it is not read, not cached, and not listed in this scan; the next scan
       after it has gone quiet parses and lists it. With no game running, no file is skipped.
-- [ ] **AC9** — Opening the view shows the rows from the cache immediately, before the scan
+- [x] **AC9** — Opening the view shows the rows from the cache immediately, before the scan
       finishes; when the scan finishes, the list is replaced once with the scan's result, without a
       manual reload.
 
@@ -285,4 +285,43 @@ Order: D1 → D2 → D3 → D4.
 
 ## Done
 
-<!-- Filled by /build 144. -->
+Built the disposable `replays-index.json` cache (D1), a pure incremental-scan core keyed on
+size+mtime with a live-write guard (D2), a single-flight scan service with `scan.start`/`index.read`
+handlers and a `scan.progress` event (D3, hard tier), and the Demos view's scan-on-open + refresh
+button, replacing rows once on completion (D4). Fixed one race the new stale-then-replace UX
+introduced in the existing `replays-extra-folders.mjs` flow (waits for refresh to settle before its
+final assertions).
+
+Commit message: `144: the index only re-reads what changed`
+
+Verification (narrow gate only): `npm run build` green, `npm run typecheck` clean,
+`npx vitest run --changed HEAD` green for every story-144 test (6 unrelated pre-existing failures in
+`src/main/modules/replays/name-templates.test.ts`, an untouched story-140 file, confirmed unrelated).
+`npm run ui:flow -- replays-incremental-scan` was INCONCLUSIVE: environment gap, timed out on the
+first locator wait (`nav-replays` click) before any story-144 assertion ran — the same first-locator
+`ui:flow` timeout already logged against stories 140–143 in this sprint, not a red result from this
+story's own code. Every AC1–AC9 has a passing named unit test (see `## Acceptance Tests` above);
+AC1/AC3's e2e half rode the same inconclusive flow run. Clean-agent review: PASS, no fixes needed —
+two minor non-blocking notes left as-is: (1) `demos.list`/`listDemos()` are now dead code (no caller
+left after D4 switched the view to `index.read`/`scan.start`) — left in place rather than removed,
+since deleting a still-registered, still-tested IPC handler is out of this story's own scope; a
+follow-up story can retire it. (2) `index-cache.test.ts`'s "lives in its own userData file" test is
+narrow (path-shape only) — the substantive AC4 proof is `scan-service.test.ts`'s delete-and-rescan
+test, so no test was strengthened.
+
+Decisions:
+- Zip-contained demos are not yet covered by the "unchanged archive is not reopened" Decision:
+  `discoverDemos`/`expandZip` (built in stories 141/143, untouched here) still list and read every
+  zip entry on every scan, upstream of the D1/D2 cache. The D1/D2 cache still saves work for loose
+  files (the majority case and what AC2/AC3's tests assert), but a zip archive is fully reopened
+  every scan regardless of whether it changed. Confirmed by review as a real gap against the
+  Decisions text, not against any numbered AC (none names zip-archive caching). Fixing it needs a
+  change to discovery's zip expansion (141/143's own files) and is left for a follow-up story rather
+  than expanded here, since this story's D3 was already the hard-tier deliverable and the plan named
+  discovery/parsers as "inject, do not modify."
+- `sourceKey` for scan grouping/progress is derived per `DemoSource` (`installation:<id>:<gameDir>` /
+  `extraFolder:<path>`) — labels are deferred to story 151 as the story's own Decisions specify.
+- `demoSourceKey` and the cache's `parsed`/`name` fields use `z.unknown()` (guarded by the version
+  check) since no exported schema exists yet for a parsed demo header or name-facts result to reuse.
+
+tiers: D 4 / hard 1 · review default · cycles 0 · agents 6

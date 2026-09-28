@@ -120,3 +120,17 @@
 - 2026-09-28 13:02 · 143 · review 1 · started
 - 2026-09-28 13:09 · 143 · review 1 · done: PASS, 3 low-severity non-blocking findings (unused archiveMtimeMs param, archiveErrors.code typed as string, _launcher case covered implicitly)
 - 2026-09-28 13:10 · 143 · story · done
+- 2026-09-28 13:10:46 · 144 · build · started
+- 2026-09-28 13:12 · 144 · D1 disposable index cache · started
+- 2026-09-28 13:13 · 144 · D1 disposable index cache · done
+- 2026-09-28 13:13 · 144 · D2 incremental scan core · started
+- 2026-09-28 13:15 · 144 · D2 incremental scan core · done
+- 2026-09-28 13:15 · 144 · D3 scan service, handlers, progress event · started
+- 2026-09-28 13:23 · 144 · D3 scan service, handlers, progress event · done
+- 2026-09-28 13:23 · 144 · D4 Demos view renderer wiring · started
+- 2026-09-28 13:31 · 144 · D4 Demos view renderer wiring · done
+- 2026-09-28 13:31 · 144 · verify · started
+- 2026-09-28 13:34 · 144 · verify · done (narrow gate green; name-templates.test.ts pre-existing failures unrelated; ui:flow INCONCLUSIVE environment gap)
+- 2026-09-28 13:34 · 144 · review 1 · started
+- 2026-09-28 13:38 · 144 · review 1 · done (PASS, 2 minor non-blocking findings, no fix cycle needed)
+- 2026-09-28 13:39 · 144 · story · done

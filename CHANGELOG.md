@@ -20,6 +20,9 @@ version section when a release actually ships.
 - Add your own demo folders in Demos settings — their demos show up in the list too.
 - A `.zip` of demos no longer hides them — every demo inside gets its own row in the list,
   marked as coming from an archive.
+- The Demos list now shows what it already knows the instant you open it, then quietly rescans
+  for anything new — no more staring at "Looking for demos…" every single time. A Refresh button
+  is there when you want to ask again yourself.
 
 
 ## 0.5.0 — 2026-09-26

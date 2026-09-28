@@ -63,6 +63,24 @@ async function openDemosView(page) {
   })
 }
 
+/**
+ * Story 144 D4: opening the Demos view now renders whatever `index.read` already has (possibly a
+ * stale snapshot from an earlier visit in this same app instance) before its own just-triggered
+ * scan replaces it. Waiting for `replays-refresh` to go back to its enabled "Refresh" label is the
+ * real signal that scan has finished and the list reflects the current on-disk state - a bare
+ * `.count()` right after `openDemosView` can otherwise race an in-flight scan.
+ */
+async function waitForDemosScanToFinish(page) {
+  const refreshButton = page.getByTestId('replays-refresh')
+  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const deadline = Date.now() + TIMEOUT_MS
+  while (Date.now() < deadline) {
+    if (!(await refreshButton.isDisabled())) return
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
+}
+
 export default async function replaysExtraFolders({ page, shot, step, variant }) {
   const userDataDir = variantUserDataDir(variant)
   const extraFolder = replaysExtraFolderFixturePath()
@@ -142,6 +160,7 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
   await rowForPath(page, extraFolder).waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   await openDemosView(page)
+  await waitForDemosScanToFinish(page)
   for (const fileName of ['a.dm2', 'B.MVD2']) {
     const count = await page
       .locator('[data-testid="replays-demo-row"]')

@@ -1,15 +1,19 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { DiscoveredDemo } from '@shared/modules/replays'
+import type { DiscoveredDemo, ReplaysScanProgress } from '@shared/modules/replays'
 import en from '../../i18n/locales/en.json'
 import { initI18n } from '../../i18n'
 
 /**
- * Story 141 D4. Mirrors `ServersView.test.tsx`'s convention: the module's own typed client
- * (`./client`) is stubbed directly via `vi.mock`, rather than going through `window.q2`'s
- * `invoke`/`on` plumbing.
+ * Story 141 D4, extended by story 144 D4. Mirrors `ServersView.test.tsx`'s convention: the module's
+ * own typed client (`./client`) is stubbed directly via `vi.mock`, rather than going through
+ * `window.q2`'s `invoke`/`on` plumbing.
+ *
+ * Story 144 D4: the view now reads the index (`indexRead`) instead of the one-shot `listDemos`,
+ * kicks off a background scan (`scanStart`) on mount, and subscribes to its progress
+ * (`onScanProgress`) for its lifetime - the mocks below cover all three.
  */
 vi.hoisted(() => {
   const invoke = vi.fn(() => Promise.resolve(undefined))
@@ -17,12 +21,16 @@ vi.hoisted(() => {
   ;(globalThis as unknown as { q2: unknown }).q2 = { invoke, on }
 })
 
-const { listDemosMock } = vi.hoisted(() => ({
-  listDemosMock: vi.fn(),
+const { indexReadMock, scanStartMock, onScanProgressMock } = vi.hoisted(() => ({
+  indexReadMock: vi.fn(),
+  scanStartMock: vi.fn(async () => ({ ok: true as const, value: { started: true } })),
+  onScanProgressMock: vi.fn((_listener: (progress: unknown) => void) => () => {}),
 }))
 
 vi.mock('./client', () => ({
-  listDemos: listDemosMock,
+  indexRead: indexReadMock,
+  scanStart: scanStartMock,
+  onScanProgress: onScanProgressMock,
 }))
 
 let ReplaysView: typeof import('./ReplaysView').ReplaysView
@@ -35,6 +43,7 @@ beforeAll(async () => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  onScanProgressMock.mockImplementation(() => () => {})
 })
 
 const DEMO: DiscoveredDemo = {
@@ -53,8 +62,26 @@ const DEMO: DiscoveredDemo = {
   unparsableReason: null,
 }
 
+/** Captures the listener `onScanProgress` was called with, so a test can push a progress payload
+ * as if main had emitted `scan.progress`. */
+function captureProgressListener(): { push: (progress: ReplaysScanProgress) => void } {
+  let listener: ((progress: ReplaysScanProgress) => void) | undefined
+  onScanProgressMock.mockImplementation((cb: (progress: ReplaysScanProgress) => void) => {
+    listener = cb
+    return () => {}
+  })
+  return {
+    push: (progress) => {
+      if (!listener) throw new Error('onScanProgress listener was never registered')
+      act(() => {
+        listener?.(progress)
+      })
+    },
+  }
+}
+
 async function renderView(demos: DiscoveredDemo[]): Promise<void> {
-  listDemosMock.mockResolvedValue({ ok: true, value: demos })
+  indexReadMock.mockResolvedValue({ ok: true, value: demos })
   render(createElement(ReplaysView))
   await act(async () => {
     await Promise.resolve()
@@ -122,7 +149,15 @@ describe('ReplaysView (story 141 D4)', () => {
     )
 
     // Every i18n key this view renders lives under the top-level `replays` block.
-    for (const key of ['replays.view.title', 'replays.list.label', 'replays.list.loading', 'replays.list.empty', 'replays.list.source']) {
+    for (const key of [
+      'replays.view.title',
+      'replays.list.label',
+      'replays.list.loading',
+      'replays.list.empty',
+      'replays.list.source',
+      'replays.list.refresh',
+      'replays.list.refreshing',
+    ]) {
       expect(key).toMatch(/^replays\./)
       expect(typeof stringAt(key)).toBe('string')
     }
@@ -160,9 +195,9 @@ describe('ReplaysView - archive-entry rows (story 143 D4)', () => {
 })
 
 describe('ReplaysView - loading state (story 141 D4)', () => {
-  it('shows the loading line before listDemos resolves', async () => {
+  it('shows the loading line before indexRead resolves', async () => {
     let resolve!: (value: { ok: true; value: DiscoveredDemo[] }) => void
-    listDemosMock.mockReturnValue(
+    indexReadMock.mockReturnValue(
       new Promise((r) => {
         resolve = r
       }),
@@ -177,5 +212,66 @@ describe('ReplaysView - loading state (story 141 D4)', () => {
       resolve({ ok: true, value: [] })
       await Promise.resolve()
     })
+  })
+})
+
+describe('ReplaysView - scan on open and refresh (story 144 D4)', () => {
+  it('mounting the view reads the index and starts a scan', async () => {
+    await renderView([])
+
+    expect(indexReadMock).toHaveBeenCalledTimes(1)
+    expect(scanStartMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('the refresh button starts a scan and is disabled while one runs', async () => {
+    const progress = captureProgressListener()
+    await renderView([DEMO])
+
+    const button = screen.getByTestId('replays-refresh') as HTMLButtonElement
+    expect(button.textContent).toBe('Refresh')
+    expect(button.disabled).toBe(false)
+
+    fireEvent.click(button)
+    expect(scanStartMock).toHaveBeenCalledTimes(2)
+
+    progress.push({ running: true, sources: [] })
+    expect(button.disabled).toBe(true)
+    expect(button.textContent).toBe('Scanning…')
+
+    progress.push({ running: false, sources: [] })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(button.disabled).toBe(false)
+    expect(button.textContent).toBe('Refresh')
+  })
+
+  it('cached rows render before the scan finishes and are replaced once when it finishes', async () => {
+    const progress = captureProgressListener()
+    const firstDemo = DEMO
+    const secondDemo: DiscoveredDemo = { ...DEMO, id: 'fedcba0123456789', fileName: 'second.dm2' }
+    const thirdDemo: DiscoveredDemo = { ...DEMO, id: '00ff00ff00ff00ff', fileName: 'third.dm2' }
+
+    indexReadMock
+      .mockResolvedValueOnce({ ok: true, value: [firstDemo, secondDemo] })
+      .mockResolvedValueOnce({ ok: true, value: [firstDemo, secondDemo, thirdDemo] })
+
+    render(createElement(ReplaysView))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getAllByTestId('replays-demo-row')).toHaveLength(2)
+    expect(indexReadMock).toHaveBeenCalledTimes(1)
+
+    progress.push({ running: false, sources: [] })
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getAllByTestId('replays-demo-row')).toHaveLength(3)
+    expect(indexReadMock).toHaveBeenCalledTimes(2)
   })
 })
