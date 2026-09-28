@@ -12,6 +12,7 @@ import {
 import { DEFAULT_DOWNLOADS_SETTINGS } from '@shared/modules/downloads'
 import type { DownloadDiagnostics } from '@shared/modules/downloads'
 import { DEFAULT_HOME_LAYOUT } from '@shared/modules/home'
+import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
 import {
   DEFAULT_MASTER_SOURCES,
   DEFAULT_SERVERS_STATE,
@@ -1541,6 +1542,7 @@ describe('parseReplaysState (story 140 D2)', () => {
     expect(result).toEqual({
       nameTemplates: { entries: [], removedShippedIds: [] },
       extraFolders: [],
+      listFilter: EMPTY_DEMO_LIST_FILTER,
     })
   })
 
@@ -1595,6 +1597,7 @@ describe('parseReplaysState (story 140 D2)', () => {
     expect(result).toEqual({
       nameTemplates: { entries: [], removedShippedIds: [] },
       extraFolders: [],
+      listFilter: EMPTY_DEMO_LIST_FILTER,
     })
   })
 
@@ -1640,5 +1643,46 @@ describe('parseReplaysState (story 140 D2)', () => {
     expect(missingDirection.listSort).toBeUndefined()
 
     expect(parseReplaysState(undefined).listSort).toBeUndefined()
+  })
+
+  // Story 153 D3.
+  it('the demo list filter round-trips through state.json', () => {
+    const base = {
+      nameTemplates: { entries: [], removedShippedIds: [] },
+      extraFolders: [],
+    }
+
+    const filter = { ...EMPTY_DEMO_LIST_FILTER, search: 'frag', favouritesOnly: true, tags: ['clutch'] }
+    const result = parseReplaysState({ ...base, listFilter: filter })
+
+    expect(result.listFilter).toEqual(filter)
+    expect(result.nameTemplates).toEqual(base.nameTemplates)
+    expect(result.extraFolders).toEqual([])
+  })
+
+  // Story 153 D3.
+  it('an invalid stored filter degrades to the empty filter', () => {
+    const base = {
+      nameTemplates: { entries: [], removedShippedIds: [] },
+      extraFolders: [],
+    }
+
+    const malformedShape = parseReplaysState({ ...base, listFilter: 'frag' })
+    expect(malformedShape.listFilter).toEqual(EMPTY_DEMO_LIST_FILTER)
+    expect(malformedShape.nameTemplates).toEqual(base.nameTemplates)
+
+    const malformedField = parseReplaysState({
+      ...base,
+      listFilter: { ...EMPTY_DEMO_LIST_FILTER, minRating: 99 },
+    })
+    expect(malformedField.listFilter).toEqual(EMPTY_DEMO_LIST_FILTER)
+
+    const unknownKey = parseReplaysState({
+      ...base,
+      listFilter: { ...EMPTY_DEMO_LIST_FILTER, bogus: true },
+    })
+    expect(unknownKey.listFilter).toEqual(EMPTY_DEMO_LIST_FILTER)
+
+    expect(parseReplaysState(undefined).listFilter).toEqual(EMPTY_DEMO_LIST_FILTER)
   })
 })

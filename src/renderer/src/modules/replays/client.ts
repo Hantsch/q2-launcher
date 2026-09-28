@@ -11,6 +11,7 @@ import {
 } from '@shared/modules/replays'
 import type { NameTemplatesView } from '@shared/replays/name-templates'
 import type { DemoListSort } from '@shared/replays/list-sort'
+import type { DemoListFilter } from '@shared/replays/list-filter'
 import type { Outcome } from '@shared/types'
 import { callModule, onModuleEvent } from '../moduleClient'
 
@@ -130,4 +131,18 @@ export function getListSort(): Promise<Outcome<DemoListSort | null>> {
 
 export function setListSort(sort: DemoListSort | null): Promise<Outcome<DemoListSort | null>> {
   return callModule<DemoListSort | null>('replays', REPLAYS_HANDLERS.listSetSort, { sort })
+}
+
+/**
+ * Story 153 D5: the persisted list-filter's renderer-side transport, mirroring `getListSort`/
+ * `setListSort` right above exactly. `getListFilter` resolves to the current `DemoListFilter`
+ * (`EMPTY_DEMO_LIST_FILTER` when nothing stored); `setListFilter` persists a full-replacement
+ * filter and resolves to what was actually persisted.
+ */
+export function getListFilter(): Promise<Outcome<DemoListFilter>> {
+  return callModule<DemoListFilter>('replays', REPLAYS_HANDLERS.listGetFilter)
+}
+
+export function setListFilter(filter: DemoListFilter): Promise<Outcome<DemoListFilter>> {
+  return callModule<DemoListFilter>('replays', REPLAYS_HANDLERS.listSetFilter, { filter })
 }

@@ -2443,6 +2443,165 @@ export function writeReplaysSortOrderFixture() {
   return { userDataDir, installations: 0, configProfiles: 0 }
 }
 
+// --- story 153 D5: the demo list's filter/search rail's own e2e fixture -------------------------
+
+/** `replays-filter-search`'s own fixture variant name, exported so the flow imports it rather than
+ * hardcoding the string a second time (same reasoning as `REPLAYS_SORT_ORDER_VARIANT` above). */
+export const REPLAYS_FILTER_VARIANT = 'filter-demos'
+
+/** `replays-filter-search`'s extra folder id/path, registered in its own `state.json` below - one
+ * folder scoped to this variant's own `variantUserDataDir()`, never `gameRoot()` (the regression
+ * note on `writeReplaysZipPackArchive()` above: writing demo fixtures into the shared installation
+ * folders leaks them into every other variant/flow that reads those same folders). */
+const REPLAYS_FILTER_FOLDER_ID = 'fixture-replays-filter-folder'
+export function replaysFilterFixturePath() {
+  return join(variantUserDataDir(REPLAYS_FILTER_VARIANT), 'filter-demos')
+}
+
+/** File names `scripts/flows/replays-filter-search.mjs` asserts against - exported so the flow
+ * never hand-types a second copy that could drift from what this fixture actually writes. */
+export const REPLAYS_FILTER_FAVOURITE_DEMO = 'filter-favourite.mvd2'
+export const REPLAYS_FILTER_NONFAV_DEMO = 'filter-nonfav.mvd2'
+export const REPLAYS_FILTER_HEADERONLY_DEMO = 'filter-headeronly.dm2'
+/** The user-defined `{p1}_vs_{p2}_{map}.mvd2` name template's own match (registered under
+ * `replays.nameTemplates` below) - `Zephyr`/`Rook` are its name-fact players. The name-fact `map`
+ * capture (`q2ctf5`) is immediately overridden by this same file's own sidecar `map` (below), so
+ * its effective map stays deterministic regardless of whatever this real demo's own embedded map
+ * happens to be. */
+export const REPLAYS_FILTER_NAMEFACT_DEMO = 'Zephyr_vs_Rook_q2ctf5.mvd2'
+
+/** The unique search terms each demo alone matches (AC1). */
+export const REPLAYS_FILTER_SIDECAR_NAME = 'CTF Grand Final'
+// Deliberately unrelated to `REPLAYS_FILTER_NAMEFACT_PLAYER` ('Zephyr') below - an earlier
+// 'zephyrgrove' picked here matched both demos under a substring search, since 'zephyrgrove'
+// contains 'zephyr'.
+export const REPLAYS_FILTER_DESCRIPTION_WORD = 'moonvale'
+export const REPLAYS_FILTER_SIDECAR_PLAYER = 'Tom'
+/** `test.dm2`'s own real header player (see `scan-service.test.ts`'s `EXPECTED.players`) - unique
+ * across this fixture because `REPLAYS_FILTER_HEADERONLY_DEMO` is the only row copied from
+ * `test.dm2`; every other row below copies the PFAU mvd2 fixture instead. */
+export const REPLAYS_FILTER_HEADER_PLAYER = 'WallFly'
+export const REPLAYS_FILTER_NAMEFACT_PLAYER = 'Zephyr'
+export const REPLAYS_FILTER_SHARED_MAP = 'q2ctf5'
+export const REPLAYS_FILTER_NONFAV_MAP = 'q2dm4'
+export const REPLAYS_FILTER_FAVOURITE_TAG = 'final'
+export const REPLAYS_FILTER_LAN_TAG = 'lan'
+export const REPLAYS_FILTER_FUN_TAG = 'fun'
+/** Known dropdown option sets (AC2) - deterministic from the sidecar overrides below plus the two
+ * real fixture files' own confirmed header facts (`zip-demos.test.ts`): both real files' `gameDir`
+ * is `'opentdm'`, which every un-overridden row's mod falls back to, and both report exactly two
+ * header players, so `resolveGamemode`'s "exactly two players" heuristic guesses `'duel'` for every
+ * un-overridden row (ahead of the looser opentdm/`'tdm'` rule - see `GAMEMODE_HEURISTICS`). The
+ * header-only demo's own real embedded map (`test.dm2`, never overridden - it has no sidecar) is
+ * `'q2rdm2'`. */
+export const REPLAYS_FILTER_MOD_OPTIONS = ['ctf', 'opentdm']
+export const REPLAYS_FILTER_GAMEMODE_OPTIONS = ['ctf', 'duel']
+export const REPLAYS_FILTER_HEADERONLY_MAP = 'q2rdm2'
+export const REPLAYS_FILTER_MAP_OPTIONS = [
+  REPLAYS_FILTER_SHARED_MAP,
+  REPLAYS_FILTER_NONFAV_MAP,
+  REPLAYS_FILTER_HEADERONLY_MAP,
+].sort((a, b) => a.localeCompare(b))
+
+const REPLAYS_FILTER_FAVOURITE_SIDECAR = {
+  schemaVersion: 1,
+  name: REPLAYS_FILTER_SIDECAR_NAME,
+  favourite: true,
+  rating: 9,
+  mod: 'ctf',
+  gamemode: 'ctf',
+  map: REPLAYS_FILTER_SHARED_MAP,
+  tags: [REPLAYS_FILTER_FAVOURITE_TAG, REPLAYS_FILTER_LAN_TAG],
+  sides: [{ team: 'Tom Team', players: [REPLAYS_FILTER_SIDECAR_PLAYER, 'Ally'] }],
+}
+const REPLAYS_FILTER_NONFAV_SIDECAR = {
+  schemaVersion: 1,
+  rating: 5,
+  map: REPLAYS_FILTER_NONFAV_MAP,
+  tags: [REPLAYS_FILTER_FUN_TAG],
+  description: `An epic comeback finish at ${REPLAYS_FILTER_DESCRIPTION_WORD}.`,
+}
+/** Deliberately just a `map` override - `REPLAYS_FILTER_NAMEFACT_DEMO` still counts as searchable
+ * only through its file name's own facts (name/tags/rating/favourite are all absent here), the
+ * sidecar's only job is pinning its effective map down for AC2/AC6's determinism. */
+const REPLAYS_FILTER_NAMEFACT_SIDECAR = {
+  schemaVersion: 1,
+  map: REPLAYS_FILTER_SHARED_MAP,
+}
+
+/** The sidecar file name for a demo file name - mirrors `sidecarFileName()`
+ * (`src/shared/replays/sidecar.ts`), same duplication reasoning as `sortOrderSidecarFileName()`
+ * above: this is plain Node ESM outside both TS projects. */
+function filterSidecarFileName(demoFileName) {
+  return `${demoFileName}.json`
+}
+
+/**
+ * Deletes and rewrites the `filter-demos` variant: an empty `state.json` (no installations - every
+ * row lives under one registered extra folder, same discipline as `writeReplaysSortOrderFixture()`
+ * above) carrying a user-defined name template (`{p1}_vs_{p2}_{map}.mvd2`) under
+ * `replays.nameTemplates`, so `REPLAYS_FILTER_NAMEFACT_DEMO`'s file name resolves name-fact
+ * players - plus that folder holding four demos: `docs/fixtures/demos/
+ * PFAU_20221127-053327_q2dm1.mvd2` copied three times (favourite, non-favourite, name-fact) and
+ * `docs/fixtures/demos/test.dm2` copied once, alone, as the header-only demo (its real header
+ * players, `WallFly[BZZZ]`/`sd.kgm/sauDove`, would stop being unique to that one demo if any other
+ * row shared its bytes).
+ */
+export function writeReplaysFilterFixture() {
+  const userDataDir = variantUserDataDir(REPLAYS_FILTER_VARIANT)
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [
+        { id: REPLAYS_FILTER_FOLDER_ID, path: replaysFilterFixturePath(), addedAt: FIXED_TIMESTAMP },
+      ],
+      nameTemplates: {
+        entries: [
+          { id: 'fixture-filter-namefact-template', kind: 'user', template: '{p1}_vs_{p2}_{map}.mvd2' },
+        ],
+        removedShippedIds: [],
+      },
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysFilterFixturePath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+
+  const mvd2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2')
+  const dm2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
+
+  const demos = [
+    [REPLAYS_FILTER_FAVOURITE_DEMO, mvd2Fixture, REPLAYS_FILTER_FAVOURITE_SIDECAR],
+    [REPLAYS_FILTER_NONFAV_DEMO, mvd2Fixture, REPLAYS_FILTER_NONFAV_SIDECAR],
+    [REPLAYS_FILTER_HEADERONLY_DEMO, dm2Fixture, null],
+    [REPLAYS_FILTER_NAMEFACT_DEMO, mvd2Fixture, REPLAYS_FILTER_NAMEFACT_SIDECAR],
+  ]
+  for (const [fileName, source, sidecar] of demos) {
+    copyFileSync(source, join(folder, fileName))
+    if (sidecar !== null) {
+      writeFileSync(
+        join(folder, filterSidecarFileName(fileName)),
+        JSON.stringify(sidecar, null, 2) + '\n',
+        'utf8',
+      )
+    }
+  }
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+/** Undoes `writeReplaysFilterFixture()` above - called from `replays-filter-search.mjs`'s own
+ * `teardown()` (never from `writePopulatedFixture()` - same discipline as
+ * `removeReplaysZipPackArchive()`). */
+export function removeReplaysFilterFixture() {
+  rmDirBestEffort(variantUserDataDir(REPLAYS_FILTER_VARIANT))
+}
+
 /** `replays-scale`'s extra folder id/path, registered in its own `state.json` below. */
 const REPLAYS_SCALE_FOLDER_ID = 'fixture-replays-scale-folder'
 function replaysScaleFolderPath() {

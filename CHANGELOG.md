@@ -31,6 +31,9 @@ version section when a release actually ships.
   skipping it.
 - The Demos list remembers favourites-first-then-newest by default, and you can now click any
   column header to sort by it instead — your choice is remembered next time you open Demos.
+- Demos now has a search and filter rail — find a demo by name, player, map, tag or description,
+  or narrow the list by mod, gamemode, map, favourites and rating. Your filter is remembered next
+  time you open Demos.
 
 ## 0.5.0 — 2026-09-26
 

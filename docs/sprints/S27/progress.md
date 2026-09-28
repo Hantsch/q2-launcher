@@ -45,3 +45,19 @@
 - 2026-09-28 19:16 · 152 · review 1 · started
 - 2026-09-28 19:18 · 152 · review 1 · done
 - 2026-09-28 19:19 · 152 · story · done
+- 2026-09-28 19:20:05 · 153 · build · started
+- 2026-09-28 19:20 · 153 · D1 row data (verify-or-add) · started
+- 2026-09-28 19:21 · 153 · D1 row data (verify-or-add) · done
+- 2026-09-28 19:22 · 153 · D2 filter engine + unit tests · started
+- 2026-09-28 19:24 · 153 · D2 filter engine + unit tests · done
+- 2026-09-28 19:24 · 153 · D3 persisted filter · started
+- 2026-09-28 19:28 · 153 · D3 persisted filter · done
+- 2026-09-28 19:28 · 153 · D4 filter rail component · started
+- 2026-09-28 19:30 · 153 · D4 filter rail component · done
+- 2026-09-28 19:30 · 153 · D5 wiring + e2e · started
+- 2026-09-28 19:52 · 153 · D5 wiring + e2e · done
+- 2026-09-28 19:52 · 153 · verify · started
+- 2026-09-28 19:55 · 153 · verify · done
+- 2026-09-28 19:55 · 153 · review 1 · started
+- 2026-09-28 19:59 · 153 · review 1 · done
+- 2026-09-28 20:00 · 153 · story · done

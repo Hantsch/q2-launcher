@@ -1,7 +1,7 @@
 ---
 id: 153
 title: I search and filter my demos
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -18,19 +18,19 @@ effective values ([[148]]). Nothing is hidden until the user asks for it.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Full-text search matches, case-insensitively, the sidecar name, description and
+- [x] **AC1** — Full-text search matches, case-insensitively, the sidecar name, description and
       tags, player names **from every source** (sidecar sides, parsed configstrings, name facts), the
       map and the file name.
-- [ ] **AC2** — Mod, gamemode and map filters are dropdowns filled from the values present in the
+- [x] **AC2** — Mod, gamemode and map filters are dropdowns filled from the values present in the
       current list (like the servers `filterOptions`).
-- [ ] **AC3** — A favourites-only toggle shows only favourite demos.
-- [ ] **AC4** — A "rating ≥ n" filter shows only demos rated n or higher; unrated demos are excluded
+- [x] **AC3** — A favourites-only toggle shows only favourite demos.
+- [x] **AC4** — A "rating ≥ n" filter shows only demos rated n or higher; unrated demos are excluded
       while it is set.
-- [ ] **AC5** — A tag filter shows only demos carrying at least one of the chosen tags (OR).
-- [ ] **AC6** — Filters and search combine with AND; a "Showing X of Y" count, a clear-all action
+- [x] **AC5** — A tag filter shows only demos carrying at least one of the chosen tags (OR).
+- [x] **AC6** — Filters and search combine with AND; a "Showing X of Y" count, a clear-all action
       and a no-match state are shown.
-- [ ] **AC7** — Filtering applies after the sort ([[152]]) and does not change it.
-- [ ] **AC8** — The filter engine is pure shared code with unit tests; the decision to generalise
+- [x] **AC7** — Filtering applies after the sort ([[152]]) and does not change it.
+- [x] **AC8** — The filter engine is pure shared code with unit tests; the decision to generalise
       `list-filter.ts` or mirror it is recorded in the plan.
 
 ## Open Questions
@@ -112,7 +112,7 @@ Order D1 → D5. D2 needs only D1's field names; D4 needs only D2.
 
 ## Deliverables
 
-- [ ] **D1 — every searchable source is on the row (verify-or-add).**
+- [x] **D1 — every searchable source is on the row (verify-or-add).**
   - First read `src/shared/modules/replays.ts` (`discoveredDemoSchema`, and whatever row type
     stories 150/152 added). Check that the row the Demos view renders has all of these:
     - (a) the demo header's raw player list, separate from any effective/merged `sides`
@@ -142,7 +142,7 @@ Order D1 → D5. D2 needs only D1's field names; D4 needs only D2.
   - Acceptance: `npx vitest run src/main/modules/replays src/shared/modules` passes;
     `npm run typecheck` is clean.
 
-- [ ] **D2 — the pure filter engine plus its unit tests.**
+- [x] **D2 — the pure filter engine plus its unit tests.**
   - Create `src/shared/replays/list-filter.ts`. It is pure: no `node:*`, no DOM, no IPC. Mirror the
     shape and doc style of `src/shared/servers/list-filter.ts`, and do not edit that file.
   - Input type:
@@ -198,7 +198,7 @@ Order D1 → D5. D2 needs only D1's field names; D4 needs only D2.
     - "the filter schema accepts the empty filter and rejects out-of-range values"
   - Acceptance: `npx vitest run src/shared/replays/list-filter.test.ts` passes; typecheck is clean.
 
-- [ ] **D3 — the filter is persisted next to the sort choice.**
+- [x] **D3 — the filter is persisted next to the sort choice.**
   - Read how story 152 persisted its sort choice: a field on `ReplaysState` in
     `src/main/lib/schemas.ts`, plus a `REPLAYS_HANDLERS` entry in `src/shared/modules/replays.ts`
     handled in `src/main/modules/replays/index.ts`. Mirror it exactly.
@@ -223,7 +223,7 @@ Order D1 → D5. D2 needs only D1's field names; D4 needs only D2.
     `src/main/modules/replays/index.ts` (+ `index.test.ts` if 152 tested its handler there).
   - Acceptance: `npx vitest run src/main src/shared/modules` passes; typecheck is clean.
 
-- [ ] **D4 — the demo filter rail (controlled component).**
+- [x] **D4 — the demo filter rail (controlled component).**
   - Create `src/renderer/src/modules/replays/DemoListFilterBar.tsx` with props
     `{ filter: DemoListFilter, onChange, options: { mods, maps, gamemodes, tags }, shown, total }`.
     Mirror `src/renderer/src/modules/servers/ServerListFilterBar.tsx`: layout, the
@@ -255,7 +255,7 @@ Order D1 → D5. D2 needs only D1's field names; D4 needs only D2.
     - "clear resets every field and the count shows only while filtering"
   - Acceptance: `npx vitest run src/renderer/src/modules/replays` passes; typecheck is clean.
 
-- [ ] **D5 — the Demos view filters its list, proven on the real surface.**
+- [x] **D5 — the Demos view filters its list, proven on the real surface.**
   - Client: in `src/renderer/src/modules/replays/client.ts`, add typed wrappers for D3's
     read/write (or extend 152's).
   - `ReplaysView.tsx` (on top of whatever 150/151/152 render):
@@ -329,8 +329,11 @@ Order D1 → D5. D2 needs only D1's field names; D4 needs only D2.
 - AC1 → e2e `scripts/flows/replays-filter-search.mjs` › flow "replays-filter-search" (each searched
   field incl. sidecar, header and name-fact players finds its demo, case-insensitively). Also unit
   `src/shared/replays/list-filter.test.ts` › "search matches every field case-insensitively" and ›
-  "search finds a player from every source" (D2), and
-  `src/main/modules/replays/scan-service.test.ts` › "a row carries the header's player names" (D1).
+  "search finds a player from every source" (D2), and — D1 found `headerPlayers`/sidecar/nameFacts
+  already present on `DemoRow` with no code change needed, so player-name coverage on the row itself
+  is the existing `src/main/modules/replays/scan-service.test.ts` tests from story 150 ("a fresh parse
+  carries gameDir, pov, players and durationMs" / "a cache hit keeps gameDir, pov, players and
+  durationMs"), not a new test named for this story.
 - AC2 → e2e `scripts/flows/replays-filter-search.mjs` › flow "replays-filter-search" (dropdown options
   equal the values present; each dropdown alone narrows). Also unit `list-filter.test.ts` › "filter
   options are distinct, case-insensitive and sorted" (D2), and `DemoListFilterBar.test.tsx` › "each
@@ -363,4 +366,43 @@ No `manual residue`.
 
 ## Done
 
-<!-- Filled by /build 153. -->
+Added a pure `src/shared/replays/list-filter.ts` (mirrors, not generalises,
+`src/shared/servers/list-filter.ts`) with `DemoListFilter`/`EMPTY_DEMO_LIST_FILTER`/
+`isDemoFilterActive`/`matchesDemoSearch`/`matchesDemoFilter`/`filterDemos`/`demoFilterOptions`/
+`demoFilterSubject`, searching every player source (sidecar sides, header, name facts) rather than
+only the effective merged `sides`. Filter is persisted next to [[152]]'s sort in `state.json`
+(`replays.listFilter`, forgiving parse, strict zod for IPC), a new `DemoListFilterBar.tsx` mirrors
+`ServerListFilterBar`, and `ReplaysView.tsx` applies it after the sort, debounced (300ms) and
+flushed on unmount, with a "Showing X of Y" count, clear-all and a no-match state. D1 needed no code
+— `DemoRow` (from story 150) already carried `players` (raw header), `sidecar.values.{description,
+tags,favourite,rating,sides}` and `nameFacts`.
+
+Commit message: `153: I search and filter my demos`
+
+Verification — narrow gate: `npm run build` green, `npm run typecheck` green,
+`npx vitest run --changed HEAD` green (116 files / 1695 tests), e2e `npm run ui:flow --
+replays-filter-search` green (all AC1-AC7 + persistence steps, screenshots). AC1-AC8 and the
+persistence decision all walked against their named tests: every one ran and passed (see verify-agent
+report above); AC1's row-level player-name coverage is story 150's existing `scan-service.test.ts`
+tests, not a new one (D1 added no code) — `## Acceptance Tests` corrected to name them. No `manual
+residue`. Full regression gate not run here — it is the sprint's job after the last story.
+
+Review (clean agent, default tier per Model Hints, no hard stage): verdict **PASS**, all 8 ACs +
+the persistence decision confirmed with file:line evidence; the story's flagged risk (searching only
+the effective `sides` instead of every source) was checked and correctly avoided. Two non-blocking
+notes, left as-is: (1) `ReplaysView.test.tsx`'s "persisted filter applied before first render" test
+only asserts settled end-state, not an intermediate render, so it wouldn't catch a dropped gate on
+its own — the gating code itself is correct by inspection; (2) a stale persisted tag no longer in
+`options.tags` is invisible/unclearable via the tag checkboxes (only via "Clear filters") — an edge
+case with no AC coverage, low severity.
+
+Decisions made during implementation: `src/renderer/src/components/ui/controls.tsx`'s `Checkbox`
+now spreads extra HTML attributes onto its wrapping `<label>` (excluding `onChange`/`className`,
+which it already owns) so `DemoListFilterBar` can attach `data-testid`/`data-tag` — the same pattern
+`Input`/`Select` already use; reviewed as in-scope and minimal. No other deviations beyond what's
+already recorded under `## Decisions (Sprint)`.
+
+Narrow gate only. The full regression gate (`npm test`, `npm run ui:verify`, `npm run ui:flows`)
+has not run — run it before merging, or use `/build 153 --full`.
+
+tiers: D 5 / hard 0 · review default · cycles 0 · agents 7

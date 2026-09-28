@@ -9,6 +9,7 @@ import {
   REPLAYS_SIDECAR_WRITING_HANDLERS,
 } from '@shared/modules/replays'
 import { getModuleManifest } from '@shared/types'
+import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
 import en from '../../../renderer/src/i18n/locales/en.json'
 import { canonicalizePath } from '../../lib/fs-utils'
 import { UI_HARNESS_ENV } from '../../lib/ui-harness'
@@ -40,7 +41,7 @@ function fakeAppContext(installations: unknown[] = []): AppContext {
   return {
     broadcast,
     installations: { list: () => installations },
-    state: { replaysState: () => ({ extraFolders: [] }) },
+    state: { replaysState: () => ({ extraFolders: [], listFilter: EMPTY_DEMO_LIST_FILTER }) },
   } as unknown as AppContext
 }
 
@@ -82,6 +83,8 @@ describe('replays module', () => {
       'sidecar.write',
       'list.getSort',
       'list.setSort',
+      'listFilter.read',
+      'listFilter.write',
     ])
   })
 
@@ -283,6 +286,62 @@ describe('replays module', () => {
     })
   })
 
+  /**
+   * Story 153 D3: the `listFilter.read`/`listFilter.write` handlers - same real-`StateStore`
+   * round-trip harness as the `list.*Sort handlers` block above.
+   */
+  describe('listFilter.* handlers (story 153 D3)', () => {
+    let filePath: string
+    let state: StateStore
+    let registry: MainModuleRegistry
+
+    beforeEach(async () => {
+      filePath = join(tmpdir(), `q2-launcher-replays-index-list-filter-${randomUUID()}.json`)
+      state = new StateStore(filePath)
+      await state.load()
+      registry = new MainModuleRegistry()
+      const appContext = {
+        broadcast: { emit: () => {} },
+        installations: { list: () => [] },
+        state,
+      } as unknown as AppContext
+      await registry.register(replaysModule, appContext)
+    })
+
+    afterEach(async () => {
+      await state.settle()
+      await rm(filePath, { force: true })
+      await rm(`${filePath}.tmp`, { force: true })
+      await rm(`${filePath}.bak`, { force: true })
+    })
+
+    function invoke(type: string, payload?: unknown): Promise<unknown> {
+      return registry.invoke({ moduleId: 'replays', type, payload })
+    }
+
+    it('listFilter.write persists the filter and listFilter.read returns it', async () => {
+      expect(await invoke(REPLAYS_HANDLERS.listGetFilter)).toEqual({
+        ok: true,
+        value: EMPTY_DEMO_LIST_FILTER,
+      })
+
+      const before = state.replaysState()
+
+      const filter = { ...EMPTY_DEMO_LIST_FILTER, search: 'frag', favouritesOnly: true }
+      const setOutcome = await invoke(REPLAYS_HANDLERS.listSetFilter, { filter })
+      expect(setOutcome).toEqual({ ok: true, value: filter })
+
+      expect(await invoke(REPLAYS_HANDLERS.listGetFilter)).toEqual({ ok: true, value: filter })
+
+      await state.settle()
+      const reloaded = new StateStore(filePath)
+      await reloaded.load()
+      expect(reloaded.replaysState().listFilter).toEqual(filter)
+      expect(reloaded.replaysState().extraFolders).toEqual(before.extraFolders)
+      expect(reloaded.replaysState().nameTemplates).toEqual(before.nameTemplates)
+    })
+  })
+
   describe('sidecar handlers (story 146)', () => {
     let dir: string
     let filePath: string
@@ -438,6 +497,8 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.sidecarRead]: { demoId: 'nope' },
         [REPLAYS_HANDLERS.listGetSort]: undefined,
         [REPLAYS_HANDLERS.listSetSort]: { sort: null },
+        [REPLAYS_HANDLERS.listGetFilter]: undefined,
+        [REPLAYS_HANDLERS.listSetFilter]: { filter: EMPTY_DEMO_LIST_FILTER },
       }
 
       const handlersToExercise = Object.values(REPLAYS_HANDLERS).filter(

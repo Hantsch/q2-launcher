@@ -64,6 +64,7 @@ import {
   type ReplaysExtraFolder,
 } from '@shared/modules/replays'
 import type { DemoListSort } from '@shared/replays/list-sort'
+import { EMPTY_DEMO_LIST_FILTER, demoListFilterSchema, type DemoListFilter } from '@shared/replays/list-filter'
 import {
   DEFAULT_NAME_TEMPLATES_STATE,
   type NameTemplatesState,
@@ -1481,6 +1482,10 @@ export interface ReplaysState {
   /** Story 152 D2: user-chosen demo list sort, same "additive, optional, no schema version bump"
    * precedent as `ServersState.listSort` (`servers.ts`). */
   listSort?: DemoListSort
+  /** Story 153 D3: the user's persisted demo list filter, beside `listSort` above. Unlike `listSort`
+   * this field is not optional - `EMPTY_DEMO_LIST_FILTER` (`@shared/replays/list-filter`) is itself
+   * the "no filter applied" value, so there is no absent-key state to model. */
+  listFilter: DemoListFilter
 }
 
 function cloneDefaultNameTemplatesState(): NameTemplatesState {
@@ -1584,7 +1589,14 @@ export function parseReplaysState(raw: unknown): ReplaysState {
   const listSortResult = demoListSortSchema.safeParse((raw as { listSort?: unknown } | null)?.listSort)
   const listSort: DemoListSort | undefined = listSortResult.success ? listSortResult.data : undefined
 
-  return { nameTemplates, extraFolders, ...(listSort ? { listSort } : {}) }
+  // Story 153 D3: `listFilter` is forgiving the same way, but - unlike `listSort` - it degrades to
+  // `EMPTY_DEMO_LIST_FILTER` rather than an absent key, since that value already means "no filter".
+  const listFilterResult = demoListFilterSchema.safeParse(
+    (raw as { listFilter?: unknown } | null)?.listFilter,
+  )
+  const listFilter: DemoListFilter = listFilterResult.success ? listFilterResult.data : EMPTY_DEMO_LIST_FILTER
+
+  return { nameTemplates, extraFolders, listFilter, ...(listSort ? { listSort } : {}) }
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

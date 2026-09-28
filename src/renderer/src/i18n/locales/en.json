@@ -1178,6 +1178,23 @@
         "desc": "descending"
       }
     },
+    "filter": {
+      "title": "Filters",
+      "search": "Search",
+      "searchPlaceholder": "Name, map or player…",
+      "any": "Any",
+      "mod": "Mod",
+      "gamemode": "Gamemode",
+      "map": "Map",
+      "favourites": "Favourites only",
+      "rating": "Minimum rating",
+      "ratingAtLeast": "At least {{n}}",
+      "tags": "Tags",
+      "noTags": "No tags yet.",
+      "clear": "Clear filters",
+      "count": "Showing {{shown}} of {{total}}",
+      "noMatch": "No demos match your filters."
+    },
     "format": {
       "dm2": "DM2",
       "mvd2": "MVD2",

@@ -7,6 +7,8 @@ import type {
   ReplaysScanProgress,
   ReplaysSourceError,
 } from '@shared/modules/replays'
+import { EMPTY_DEMO_LIST_FILTER, type DemoListFilter } from '@shared/replays/list-filter'
+import type { DemoListSort } from '@shared/replays/list-sort'
 import en from '../../i18n/locales/en.json'
 import { initI18n } from '../../i18n'
 
@@ -29,14 +31,29 @@ vi.hoisted(() => {
   ;(globalThis as unknown as { q2: unknown }).q2 = { invoke, on }
 })
 
-const { indexReadMock, scanStartMock, onScanProgressMock, getListSortMock, setListSortMock } = vi.hoisted(() => ({
+const {
+  indexReadMock,
+  scanStartMock,
+  onScanProgressMock,
+  getListSortMock,
+  setListSortMock,
+  getListFilterMock,
+  setListFilterMock,
+} = vi.hoisted(() => ({
   indexReadMock: vi.fn(),
   scanStartMock: vi.fn(async () => ({ ok: true as const, value: { started: true } })),
   onScanProgressMock: vi.fn((_listener: (progress: unknown) => void) => () => {}),
   // Story 152 D3: the persisted list-sort mocks - default to "no sort persisted" so every
   // pre-existing test in this file keeps seeing the default favourites-first order.
-  getListSortMock: vi.fn(async () => ({ ok: true as const, value: null })),
+  getListSortMock: vi.fn(async (): Promise<{ ok: true; value: DemoListSort | null }> => ({
+    ok: true,
+    value: null,
+  })),
   setListSortMock: vi.fn(async (sort: unknown) => ({ ok: true as const, value: sort })),
+  // Story 153 D5: the persisted list-filter mocks - default to "nothing persisted" so every
+  // pre-existing test in this file keeps seeing every row unfiltered.
+  getListFilterMock: vi.fn(async () => ({ ok: true as const, value: EMPTY_DEMO_LIST_FILTER })),
+  setListFilterMock: vi.fn(async (filter: DemoListFilter) => ({ ok: true as const, value: filter })),
 }))
 
 vi.mock('./client', () => ({
@@ -45,6 +62,8 @@ vi.mock('./client', () => ({
   onScanProgress: onScanProgressMock,
   getListSort: getListSortMock,
   setListSort: setListSortMock,
+  getListFilter: getListFilterMock,
+  setListFilter: setListFilterMock,
 }))
 
 let ReplaysView: typeof import('./ReplaysView').ReplaysView
@@ -429,5 +448,73 @@ describe('ReplaysListStatus wiring (story 151 D3)', () => {
     expect(rows[1].getAttribute('data-reason')).toBe('archive-unreadable')
 
     expect(screen.getAllByTestId('replays-demo-row')).toHaveLength(1)
+  })
+})
+
+describe('ReplaysView - filter (story 153 D5)', () => {
+  it('filtering narrows the rows without changing the sort', async () => {
+    const mapAscSort: DemoListSort = { column: 'map', direction: 'asc' }
+    getListSortMock.mockResolvedValueOnce({ ok: true, value: mapAscSort })
+    const demoA: DemoRowData = {
+      ...DEMO,
+      id: 'aaaaaaaaaaaaaaaa',
+      fileName: 'keep-a.dm2',
+      map: 'q2dm5',
+      effective: { ...DEMO.effective, map: { value: 'q2dm5', source: 'demo' } },
+    }
+    const demoB: DemoRowData = {
+      ...DEMO,
+      id: 'bbbbbbbbbbbbbbbb',
+      fileName: 'keep-b.dm2',
+      map: 'q2dm1',
+      effective: { ...DEMO.effective, map: { value: 'q2dm1', source: 'demo' } },
+    }
+    const demoC: DemoRowData = {
+      ...DEMO,
+      id: 'cccccccccccccccc',
+      fileName: 'skip-c.dm2',
+      map: 'q2dm9',
+      effective: { ...DEMO.effective, map: { value: 'q2dm9', source: 'demo' } },
+    }
+    await renderView([demoA, demoB, demoC])
+
+    expect(screen.getAllByTestId('replays-demo-row')).toHaveLength(3)
+
+    const search = screen.getByTestId('replays-filter-search') as HTMLInputElement
+    fireEvent.change(search, { target: { value: 'keep' } })
+
+    const rows = screen.getAllByTestId('replays-demo-row')
+    // Still sorted by map ascending (q2dm1 before q2dm5) - filtering only narrowed the set, the
+    // sort control's own choice (and the order it produces) is untouched.
+    expect(rows.map((row) => row.getAttribute('data-demo-id'))).toEqual([demoB.id, demoA.id])
+  })
+
+  it('a filter matching nothing shows the no-match state, not the empty state', async () => {
+    await renderView([DEMO])
+
+    const search = screen.getByTestId('replays-filter-search')
+    fireEvent.change(search, { target: { value: 'nonexistent-term-xyz' } })
+
+    expect(await screen.findByTestId('replays-filter-no-match')).toBeTruthy()
+    expect(screen.queryByTestId('replays-list-empty')).toBeNull()
+    expect(screen.queryByTestId('replays-demo-row')).toBeNull()
+
+    fireEvent.click(screen.getByTestId('replays-filter-no-match-clear'))
+    expect(await screen.findByTestId('replays-demo-row')).toBeTruthy()
+  })
+
+  it('the persisted filter is applied before the first rows render', async () => {
+    getListFilterMock.mockResolvedValueOnce({
+      ok: true,
+      value: { ...EMPTY_DEMO_LIST_FILTER, search: 'keep' },
+    })
+    const demoKeep: DemoRowData = { ...DEMO, id: '1111111111111111', fileName: 'keep-this.dm2' }
+    const demoDrop: DemoRowData = { ...DEMO, id: '2222222222222222', fileName: 'drop-this.dm2' }
+    await renderView([demoKeep, demoDrop])
+
+    const rows = screen.getAllByTestId('replays-demo-row')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].getAttribute('data-demo-id')).toBe(demoKeep.id)
+    expect((screen.getByTestId('replays-filter-search') as HTMLInputElement).value).toBe('keep')
   })
 })

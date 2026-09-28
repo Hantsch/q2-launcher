@@ -9,6 +9,7 @@ import { DEFAULT_SETTINGS, type Installation, type LauncherSettings } from '@sha
 import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
 import { DEFAULT_SERVERS_STATE, type ServersState } from '@shared/modules/servers'
 import { DEFAULT_NAME_TEMPLATES_STATE } from '@shared/replays/name-templates'
+import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
 import { JsonStore } from '../lib/json-store'
 import { pruneFailures } from '../modules/downloads/failure-log'
 import {
@@ -153,7 +154,11 @@ function defaults(): LauncherStateDocument {
     unlock: { codes: [] },
     // Same reasoning as `servers` above: a deep clone so nothing can mutate the shared
     // module-level `DEFAULT_NAME_TEMPLATES_STATE` constant for the rest of the process's lifetime.
-    replays: { nameTemplates: structuredClone(DEFAULT_NAME_TEMPLATES_STATE), extraFolders: [] },
+    replays: {
+      nameTemplates: structuredClone(DEFAULT_NAME_TEMPLATES_STATE),
+      extraFolders: [],
+      listFilter: { ...EMPTY_DEMO_LIST_FILTER },
+    },
   }
 }
 

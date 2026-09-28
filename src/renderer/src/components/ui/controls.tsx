@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useId,
+  type HTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -191,13 +192,14 @@ export function Checkbox({
   label,
   disabled,
   className,
+  ...rest
 }: {
   checked: boolean
   onChange: (next: boolean) => void
   label: ReactNode
   disabled?: boolean
   className?: string
-}) {
+} & Omit<HTMLAttributes<HTMLLabelElement>, 'onChange' | 'className'>) {
   return (
     <label
       className={cn(
@@ -205,6 +207,7 @@ export function Checkbox({
         disabled && 'pointer-events-none opacity-45',
         className,
       )}
+      {...rest}
     >
       <span
         className={cn(

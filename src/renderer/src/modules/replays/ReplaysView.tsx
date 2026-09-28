@@ -9,13 +9,33 @@ import {
   type DemoSortColumn,
   type DemoSortFields,
 } from '@shared/replays/list-sort'
+import {
+  demoFilterOptions,
+  demoFilterSubject,
+  filterDemos,
+  EMPTY_DEMO_LIST_FILTER,
+  type DemoListFilter,
+} from '@shared/replays/list-filter'
 import { Button, IconButton } from '../../components/ui/Button'
 import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
 import { VirtualDemoList } from './components/VirtualDemoList'
-import { getListSort, indexRead, onScanProgress, scanStart, setListSort } from './client'
+import { DemoListFilterBar } from './DemoListFilterBar'
+import {
+  getListFilter,
+  getListSort,
+  indexRead,
+  onScanProgress,
+  scanStart,
+  setListFilter,
+  setListSort,
+} from './client'
 import { deriveReplaysListState } from './list-state'
 import { sidesText } from './row-format'
 import { ReplaysListStatus } from './ReplaysListStatus'
+
+/** How long a filter change waits, un-typed, before it is persisted (story 153 D5) - mirrors the
+ * "debounce writes, flush on unmount" shape without pulling in a new dependency. */
+const FILTER_PERSIST_DEBOUNCE_MS = 300
 
 /** Story 152 D3: maps a `DemoRow` (150's row model) to the fields `sortDemoRows` needs - `players`
  * mirrors exactly what `DemoRow.tsx` shows for its sides cell (`sidesText`, no translated "+n"
@@ -72,7 +92,16 @@ export function ReplaysView() {
   const [progress, setProgress] = useState<ReplaysScanProgress>(IDLE_SCAN_PROGRESS)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [sort, setSort] = useState<DemoListSort | null>(null)
+  const [filter, setFilter] = useState<DemoListFilter>(EMPTY_DEMO_LIST_FILTER)
+  // Story 153 D5: rows only render once both the index (`demos !== null`) and the persisted filter
+  // have resolved - until then the view stays in 151's existing loading state.
+  const [filterLoaded, setFilterLoaded] = useState(false)
   const cancelledRef = useRef(false)
+  // Debounces `setListFilter` writes by 300ms - `filterDebounceRef` holds the pending timeout,
+  // `pendingFilterRef` the latest not-yet-persisted value, so an unmount can flush it immediately
+  // instead of losing the last, still-debounced change.
+  const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingFilterRef = useRef<DemoListFilter | null>(null)
 
   // Story 152 D3: loads the persisted list sort once on mount - a failed read or no value
   // persisted both fall back to `null`, the default favourites-first order.
@@ -87,12 +116,55 @@ export function ReplaysView() {
     }
   }, [])
 
+  // Story 153 D5: loads the persisted list filter once on mount, alongside the sort above - a
+  // failed read falls back to `EMPTY_DEMO_LIST_FILTER`, same "nothing restricts the list" default
+  // as `EMPTY_DEMO_LIST_FILTER` itself.
+  useEffect(() => {
+    let cancelled = false
+    void getListFilter().then((result) => {
+      if (cancelled) return
+      setFilter(result.ok ? result.value : EMPTY_DEMO_LIST_FILTER)
+      setFilterLoaded(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Story 153 D5: flushes a still-pending debounced write on unmount, so navigating away right
+  // after a filter change never drops it.
+  useEffect(() => {
+    return () => {
+      if (filterDebounceRef.current !== null) {
+        clearTimeout(filterDebounceRef.current)
+        filterDebounceRef.current = null
+        if (pendingFilterRef.current !== null) {
+          void setListFilter(pendingFilterRef.current)
+          pendingFilterRef.current = null
+        }
+      }
+    }
+  }, [])
+
   const handleSort = (column: DemoSortColumn): void => {
     const next = nextSort(sort, column)
     setSort(next)
     void setListSort(next).then((result) => {
       setSort(result.ok ? result.value : null)
     })
+  }
+
+  const handleFilterChange = (next: DemoListFilter): void => {
+    setFilter(next)
+    pendingFilterRef.current = next
+    if (filterDebounceRef.current !== null) clearTimeout(filterDebounceRef.current)
+    filterDebounceRef.current = setTimeout(() => {
+      filterDebounceRef.current = null
+      const toPersist = pendingFilterRef.current
+      pendingFilterRef.current = null
+      if (toPersist === null) return
+      void setListFilter(toPersist)
+    }, FILTER_PERSIST_DEBOUNCE_MS)
   }
 
   useEffect(() => {
@@ -151,6 +223,26 @@ export function ReplaysView() {
   const listState = deriveReplaysListState({ scanning, rowCount })
   const selected = demos?.find((demo) => demo.id === selectedId) ?? null
   const sortedDemos = useMemo(() => sortDemoRows(demos ?? [], sort, toSortFields), [demos, sort])
+  // Story 153 D5: filtered AFTER sort, never touching sort state itself - filtering only narrows
+  // the already-sorted list. Options are computed over the whole index, not the filtered subset.
+  const filterOptions = useMemo(
+    () => demoFilterOptions((demos ?? []).map(demoFilterSubject)),
+    [demos],
+  )
+  const visibleDemos = useMemo(
+    () => filterDemos(sortedDemos, filter, demoFilterSubject),
+    [sortedDemos, filter],
+  )
+
+  // A row filtered out from under the current selection is deselected - mirrors `ServersView`'s
+  // own filter-driven deselect.
+  useEffect(() => {
+    setSelectedId((current) => {
+      if (current === null) return current
+      return visibleDemos.some((demo) => demo.id === current) ? current : null
+    })
+  }, [visibleDemos])
+
   const sortCaption =
     sort === null
       ? t('replays.sort.current.default')
@@ -183,10 +275,39 @@ export function ReplaysView() {
       </p>
 
       <div className="flex min-h-0 flex-1">
+        <aside
+          className="w-56 shrink-0 overflow-y-auto border-r border-line bg-panel/60 p-4"
+          aria-label={t('replays.filter.title')}
+        >
+          <DemoListFilterBar
+            filter={filter}
+            onChange={handleFilterChange}
+            options={filterOptions}
+            shown={visibleDemos.length}
+            total={rowCount}
+          />
+        </aside>
+
         <div className="flex min-h-0 min-w-0 flex-1 flex-col p-5">
-          {rowCount > 0 && (
+          {demos !== null && filterLoaded && rowCount > 0 && visibleDemos.length === 0 && (
+            <div
+              className="flex flex-col items-center gap-3 px-6 py-12 text-center"
+              data-testid="replays-filter-no-match"
+            >
+              <p className="text-xs text-ink-muted">{t('replays.filter.noMatch')}</p>
+              <Button
+                variant="neutral"
+                size="sm"
+                onClick={() => handleFilterChange(EMPTY_DEMO_LIST_FILTER)}
+                data-testid="replays-filter-no-match-clear"
+              >
+                {t('replays.filter.clear')}
+              </Button>
+            </div>
+          )}
+          {demos !== null && filterLoaded && rowCount > 0 && visibleDemos.length > 0 && (
             <VirtualDemoList
-              rows={sortedDemos}
+              rows={visibleDemos}
               selectedId={selectedId}
               onSelect={(id) => setSelectedId(id)}
               sort={sort}

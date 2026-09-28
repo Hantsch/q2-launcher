@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { VALUE_SOURCES } from '../demos/effective-values'
 import { demoUnreadableSchema } from '../demos/readability'
+import { demoListFilterSchema } from '../replays/list-filter'
 import { DEMO_SORT_COLUMNS } from '../replays/list-sort'
 import type { NameFacts } from '../replays/name-template'
 import { sidecarFieldsSchema } from '../replays/sidecar'
@@ -59,6 +60,12 @@ export const REPLAYS_HANDLERS = {
    * persisted. */
   listGetSort: 'list.getSort',
   listSetSort: 'list.setSort',
+  /** Story 153 D3: the persisted list-filter handlers, mirroring `listGetSort`/`listSetSort` right
+   * above exactly. `listGetFilter` resolves to the current `DemoListFilter` (`EMPTY_DEMO_LIST_FILTER`
+   * when nothing stored); `listSetFilter` validates and persists a new one, resolving to what was
+   * actually persisted. */
+  listGetFilter: 'listFilter.read',
+  listSetFilter: 'listFilter.write',
 } as const
 
 /**
@@ -392,6 +399,12 @@ export const listGetSortInputSchema = replaysNoInputSchema
 /** `list.setSort`'s payload - a full sort or `null` to clear it back to the default order. */
 export const listSetSortInputSchema = z.object({ sort: demoListSortSchema.nullable() }).strict()
 
+/** `listFilter.read` takes no payload - same `z.void()` convention as `listGetSortInputSchema` above. */
+export const listGetFilterInputSchema = replaysNoInputSchema
+
+/** `listFilter.write`'s payload - a full replacement `DemoListFilter`. */
+export const listSetFilterInputSchema = z.object({ filter: demoListFilterSchema }).strict()
+
 /**
  * Every `replays` handler paired with its payload schema - proves AC9's "every new channel exists
  * in the shared contract with a zod payload schema before its handler" for this module's own
@@ -419,6 +432,8 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.sidecarWrite]: replaysSidecarWriteSchema,
   [REPLAYS_HANDLERS.listGetSort]: listGetSortInputSchema,
   [REPLAYS_HANDLERS.listSetSort]: listSetSortInputSchema,
+  [REPLAYS_HANDLERS.listGetFilter]: listGetFilterInputSchema,
+  [REPLAYS_HANDLERS.listSetFilter]: listSetFilterInputSchema,
 }
 
 /**

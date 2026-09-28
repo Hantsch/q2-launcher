@@ -7,7 +7,9 @@ import {
   REPLAYS_HANDLERS,
   extraFoldersAddSchema,
   extraFoldersRemoveSchema,
+  listGetFilterInputSchema,
   listGetSortInputSchema,
+  listSetFilterInputSchema,
   listSetSortInputSchema,
   nameTemplatesAddSchema,
   nameTemplatesRemoveSchema,
@@ -19,6 +21,7 @@ import {
   replaysSidecarWriteSchema,
   type ExtraFoldersResult,
 } from '@shared/modules/replays'
+import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
 import { isUiHarnessEnabled } from '../../lib/ui-harness'
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
@@ -289,6 +292,22 @@ export const replaysModule: MainModule = {
         return app.state.setReplaysState(withoutSort).listSort ?? null
       }
       return app.state.setReplaysState({ ...current, listSort: payload.sort }).listSort ?? null
+    })
+
+    /**
+     * Story 153 D3: the `listFilter.*` handlers - same read/replace/persist discipline as
+     * `listGetSort`/`listSetSort` right above. `listFilter` is never absent on `ReplaysState` (unlike
+     * `listSort`), so there is no clear-to-null case to model here.
+     */
+    handle(REPLAYS_HANDLERS.listGetFilter, listGetFilterInputSchema, () =>
+      app.state.replaysState().listFilter ?? EMPTY_DEMO_LIST_FILTER,
+    )
+    handle(REPLAYS_HANDLERS.listSetFilter, listSetFilterInputSchema, (payload) => {
+      const current = app.state.replaysState()
+      return (
+        app.state.setReplaysState({ ...current, listFilter: payload.filter }).listFilter ??
+        EMPTY_DEMO_LIST_FILTER
+      )
     })
 
     log.debug('replays module ready')
