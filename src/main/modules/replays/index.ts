@@ -1,18 +1,23 @@
+import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import {
   REPLAYS_HANDLERS,
+  extraFoldersAddSchema,
+  extraFoldersRemoveSchema,
   nameTemplatesAddSchema,
   nameTemplatesRemoveSchema,
   nameTemplatesReorderSchema,
   nameTemplatesResetSchema,
   nameTemplatesUpdateSchema,
   replaysNoInputSchema,
+  type ExtraFoldersResult,
 } from '@shared/modules/replays'
 import { isUiHarnessEnabled } from '../../lib/ui-harness'
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
 import { discoverDemos } from './discovery'
+import { addExtraFolder, removeExtraFolder } from './extra-folders'
 import {
   nameTemplatesAdd,
   nameTemplatesList,
@@ -97,10 +102,11 @@ export const replaysModule: MainModule = {
     )
 
     handle(REPLAYS_HANDLERS.demosList, replaysNoInputSchema, async () => {
-      const discovered = await discoverDemos(app.installations.list(), {
-        platform: process.platform,
-        homeDir: discoveryHomeDir(),
-      })
+      const discovered = await discoverDemos(
+        app.installations.list(),
+        app.state.replaysState().extraFolders,
+        { platform: process.platform, homeDir: discoveryHomeDir() },
+      )
       return discovered.map((d) => ({
         id: d.id,
         fileName: d.fileName,
@@ -108,6 +114,32 @@ export const replaysModule: MainModule = {
         gzip: d.gzip,
         source: d.source,
       }))
+    })
+
+    // Story 142 D2: the `extraFolders.*` handlers. `add`/`remove` mirror `servers/index.ts`'s
+    // `mutate()` pattern - read `replaysState()` once, run the op, on refusal return early without
+    // persisting, on success persist and return what `setReplaysState` actually stored (not the
+    // local candidate).
+    handle(REPLAYS_HANDLERS.extraFoldersList, replaysNoInputSchema, () =>
+      app.state.replaysState().extraFolders,
+    )
+    handle(REPLAYS_HANDLERS.extraFoldersAdd, extraFoldersAddSchema, async (payload) => {
+      const current = app.state.replaysState()
+      const result: ExtraFoldersResult = await addExtraFolder(
+        current.extraFolders,
+        payload.path,
+        new Date().toISOString(),
+        randomUUID(),
+      )
+      if (!result.ok) return result
+      const persisted = app.state.setReplaysState({ ...current, extraFolders: result.folders })
+      return { ok: true, folders: persisted.extraFolders } as ExtraFoldersResult
+    })
+    handle(REPLAYS_HANDLERS.extraFoldersRemove, extraFoldersRemoveSchema, (payload) => {
+      const current = app.state.replaysState()
+      const extraFolders = removeExtraFolder(current.extraFolders, payload.id)
+      const persisted = app.state.setReplaysState({ ...current, extraFolders })
+      return { ok: true, folders: persisted.extraFolders } as ExtraFoldersResult
     })
 
     log.debug('replays module ready')

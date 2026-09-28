@@ -57,7 +57,11 @@ import {
   type ServersState,
   type WatchlistEntry,
 } from '@shared/modules/servers'
-import { nameTemplateTextSchema } from '@shared/modules/replays'
+import {
+  nameTemplateTextSchema,
+  storedExtraFolderSchema,
+  type ReplaysExtraFolder,
+} from '@shared/modules/replays'
 import {
   DEFAULT_NAME_TEMPLATES_STATE,
   type NameTemplatesState,
@@ -80,6 +84,7 @@ import {
 // (`modules/downloads/failure-log.ts`) and `lib/renderer-source.ts` -> `modules/home/images/paths`.
 // That file is pure and imports nothing from `lib/`, so this cannot cycle.
 import { capServerHistory } from '../modules/servers/history-log'
+import { pathKey } from './fs-utils'
 
 /**
  * Runtime validation for everything that crosses a trust boundary: the state
@@ -1466,6 +1471,11 @@ export function parseUnlockState(raw: unknown): UnlockState {
  */
 export interface ReplaysState {
   nameTemplates: NameTemplatesState
+  /**
+   * Story 142 D1: user-added extra demo folders, additive to this same key (same "no
+   * `STATE_SCHEMA_VERSION` bump" precedent as `nameTemplates` above) - not a second top-level key.
+   */
+  extraFolders: ReplaysExtraFolder[]
 }
 
 function cloneDefaultNameTemplatesState(): NameTemplatesState {
@@ -1526,17 +1536,43 @@ function parseNameTemplatesState(raw: unknown): NameTemplatesState {
   return { entries, removedShippedIds }
 }
 
+const extraFoldersEnvelopeSchema = z.object({
+  extraFolders: z.array(z.unknown()).catch([]),
+})
+
+/**
+ * Story 142 D1: mirrors `parseNameTemplatesState`'s shape - a forgiving envelope parse (missing or
+ * non-array input degrades to `[]`), then row-level dropping via the shared
+ * `storedExtraFolderSchema` (one malformed row - e.g. a relative path or a missing field - costs
+ * only itself, its siblings survive), then dedupe-by-key on `pathKey(row.path)` (first occurrence
+ * wins, same convention as `dedupeByKey`'s other callers in this file) so the same folder can never
+ * appear twice under different casing/trailing-slash spellings. Pure and synchronous - no disk
+ * access, no `stat` call; whether a folder still exists is a scan-time concern, not a parse-time one.
+ */
+function parseExtraFolders(raw: unknown): ReplaysExtraFolder[] {
+  const envelope = extraFoldersEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
+  if (!envelope.success) return []
+
+  const rows = envelope.data.extraFolders
+    .map((row) => storedExtraFolderSchema.safeParse(row))
+    .filter((result): result is z.ZodSafeParseSuccess<ReplaysExtraFolder> => result.success)
+    .map((result) => result.data)
+
+  return dedupeByKey(rows, (row) => pathKey(row.path))
+}
+
 /**
  * Mirrors `parseServersState`'s/`parseUnlockState`'s shape exactly - `undefined`/missing input (a
- * `state.json` predating this story) degrades to the default, and the one nested collection
- * (`nameTemplates`) is parsed by its own forgiving parser above rather than inline here, since it
- * has its own envelope/row-level rules.
+ * `state.json` predating this story) degrades to the default, and each nested collection
+ * (`nameTemplates`, `extraFolders`) is parsed by its own forgiving parser above rather than inline
+ * here, since each has its own envelope/row-level rules.
  */
 export function parseReplaysState(raw: unknown): ReplaysState {
   const nameTemplates = parseNameTemplatesState(
     (raw as { nameTemplates?: unknown } | null | undefined)?.nameTemplates,
   )
-  return { nameTemplates }
+  const extraFolders = parseExtraFolders(raw)
+  return { nameTemplates, extraFolders }
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

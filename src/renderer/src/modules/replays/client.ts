@@ -1,4 +1,10 @@
-import { REPLAYS_HANDLERS, type DiscoveredDemo, type ReplaysOverview } from '@shared/modules/replays'
+import {
+  REPLAYS_HANDLERS,
+  type DiscoveredDemo,
+  type ExtraFoldersResult,
+  type ReplaysExtraFolder,
+  type ReplaysOverview,
+} from '@shared/modules/replays'
 import type { NameTemplatesView } from '@shared/replays/name-templates'
 import type { Outcome } from '@shared/types'
 import { callModule } from '../moduleClient'
@@ -49,4 +55,23 @@ export function restoreNameTemplates(): Promise<Outcome<NameTemplatesView>> {
 /** Story 141 D4: every discovered demo across every known installation - the `ReplaysView`'s list. */
 export function listDemos(): Promise<Outcome<DiscoveredDemo[]>> {
   return callModule<DiscoveredDemo[]>('replays', REPLAYS_HANDLERS.demosList)
+}
+
+/**
+ * Story 142 D4: the `extraFolders.*` handlers' renderer-side transport, mirroring
+ * `servers/client.ts`'s `listMasterSources`/`addMasterSource`/`removeMasterSource` exactly -
+ * `listExtraFolders` always succeeds and answers the list directly, `add`/`remove` resolve to an
+ * `ExtraFoldersResult` (its own ok/refusal union) at the domain level, nested under `Outcome`'s own
+ * transport-level ok/error.
+ */
+export function listExtraFolders(): Promise<Outcome<ReplaysExtraFolder[]>> {
+  return callModule<ReplaysExtraFolder[]>('replays', REPLAYS_HANDLERS.extraFoldersList)
+}
+
+export function addExtraFolder(path: string): Promise<Outcome<ExtraFoldersResult>> {
+  return callModule<ExtraFoldersResult>('replays', REPLAYS_HANDLERS.extraFoldersAdd, { path })
+}
+
+export function removeExtraFolder(id: string): Promise<Outcome<ExtraFoldersResult>> {
+  return callModule<ExtraFoldersResult>('replays', REPLAYS_HANDLERS.extraFoldersRemove, { id })
 }

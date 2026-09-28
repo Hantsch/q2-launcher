@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { absolutePathSchema } from '../schemas'
 
 /**
  * The replays module's contract.
@@ -31,6 +32,12 @@ export const REPLAYS_HANDLERS = {
   nameTemplatesRestore: 'nameTemplates.restore',
   /** Resolves to every discovered demo across every known installation (story 141). */
   demosList: 'demos.list',
+  /** Resolves to the current user-added extra demo folder list (story 142 D2). */
+  extraFoldersList: 'extraFolders.list',
+  /** Adds a user-picked extra demo folder; refuses on an invalid/unresolvable/duplicate path. */
+  extraFoldersAdd: 'extraFolders.add',
+  /** Removes an extra demo folder by id; an unknown id is a no-op. */
+  extraFoldersRemove: 'extraFolders.remove',
 } as const
 
 /**
@@ -86,12 +93,18 @@ export const demoFormatSchema = z.enum(['dm2', 'mvd2'])
  * resolve it back to a real file by id. `gameDir` is a short mod/game directory name (e.g.
  * "baseq2"), not a filesystem path.
  */
-export const demoSourceSchema = z.object({
-  kind: z.literal('installation'),
-  installationId: z.string().min(1),
-  installationName: z.string(),
-  gameDir: z.string().min(1),
-})
+export const demoSourceSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('installation'),
+    installationId: z.string().min(1),
+    installationName: z.string(),
+    gameDir: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal('extraFolder'),
+    path: z.string().min(1),
+  }),
+])
 
 /**
  * A demo main found during a scan. Identified by a content-derived id, never a filesystem path -
@@ -112,6 +125,22 @@ export type DemoFormat = z.infer<typeof demoFormatSchema>
 export type DemoSource = z.infer<typeof demoSourceSchema>
 export type DiscoveredDemo = z.infer<typeof discoveredDemoSchema>
 
+/** `extraFolders.add`'s payload: a native-dialog-sourced absolute path (see
+ * `REPLAYS_PATH_PAYLOAD_HANDLERS` below for why this is the one exception). */
+export const extraFoldersAddSchema = z.object({ path: absolutePathSchema })
+
+/** `extraFolders.remove`'s payload: the id of the row to drop. */
+export const extraFoldersRemoveSchema = z.object({ id: z.string().min(1) })
+
+/**
+ * `extraFolders.add`'s result: the reason a path was refused mirrors the ok/refusal union shape
+ * `MasterSourcesResult` uses in `servers.ts` - a returned value, not a thrown error, so the
+ * refusal reason survives the IPC boundary.
+ */
+export type ExtraFoldersResult =
+  | { ok: true; folders: ReplaysExtraFolder[] }
+  | { ok: false; reason: 'notAbsolute' | 'unresolvable' | 'notAFolder' | 'alreadyListed' }
+
 /**
  * Every `replays` handler paired with its payload schema - proves AC9's "every new channel exists
  * in the shared contract with a zod payload schema before its handler" for this module's own
@@ -130,6 +159,9 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.nameTemplatesReset]: nameTemplatesResetSchema,
   [REPLAYS_HANDLERS.nameTemplatesRestore]: replaysNoInputSchema,
   [REPLAYS_HANDLERS.demosList]: replaysNoInputSchema,
+  [REPLAYS_HANDLERS.extraFoldersList]: replaysNoInputSchema,
+  [REPLAYS_HANDLERS.extraFoldersAdd]: extraFoldersAddSchema,
+  [REPLAYS_HANDLERS.extraFoldersRemove]: extraFoldersRemoveSchema,
 }
 
 /**
@@ -139,5 +171,33 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
  * this list is an "add extra folder" action driven by a native folder-picker dialog, whose result
  * is canonicalised in main before it is trusted - never a free-typed or otherwise renderer-derived
  * path.
+ *
+ * Story 142 D2: `extraFolders.add` is that one exception - its `path` is sourced from a native
+ * folder-picker dialog and canonicalised in main (`isAbsolute` check, then `canonicalizePath` +
+ * `isDirectory`) before it is ever trusted or persisted.
  */
-export const REPLAYS_PATH_PAYLOAD_HANDLERS: readonly string[] = []
+export const REPLAYS_PATH_PAYLOAD_HANDLERS: readonly string[] = ['extraFolders.add']
+
+/**
+ * Story 142 D1: one user-added extra demo folder - a filesystem path the user picked via a native
+ * folder-picker dialog (never free-typed or otherwise renderer-derived, per
+ * `REPLAYS_PATH_PAYLOAD_HANDLERS`'s doc comment above), plus an id to name it by in IPC/UI and an
+ * ISO timestamp of when it was added. Lives in shared (not just `src/main/lib/schemas.ts`) because
+ * D2/D4's IPC contract needs the same row shape and validation.
+ */
+export interface ReplaysExtraFolder {
+  id: string
+  path: string
+  addedAt: string
+}
+
+/**
+ * One persisted extra-folder row, as it would be read back out of `state.json`. Reuses
+ * `absolutePathSchema` (non-empty, NUL-free) for `path` - the same primitive every other
+ * persisted/IPC path in this codebase validates against - rather than inventing a second one here.
+ */
+export const storedExtraFolderSchema = z.object({
+  id: z.string().min(1),
+  path: absolutePathSchema,
+  addedAt: z.string(),
+})

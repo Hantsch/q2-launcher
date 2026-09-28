@@ -64,10 +64,12 @@ export function ReplaysView() {
                   {demo.fileName}
                 </span>
                 <span className="text-xs text-ink-muted" data-testid="replays-demo-source">
-                  {t('replays.list.source', {
-                    installation: demo.source.installationName,
-                    gameDir: demo.source.gameDir,
-                  })}
+                  {demo.source.kind === 'installation'
+                    ? t('replays.list.source', {
+                        installation: demo.source.installationName,
+                        gameDir: demo.source.gameDir,
+                      })
+                    : t('replays.source.extraFolder', { path: demo.source.path })}
                 </span>
               </li>
             ))}

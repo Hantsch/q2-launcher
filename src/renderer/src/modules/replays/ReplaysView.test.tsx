@@ -82,6 +82,18 @@ describe('ReplaysView (story 141 D4)', () => {
     expect(source.textContent).toBe('My Install · baseq2')
   })
 
+  it('an extra-folder source renders as extra folder: <path>', async () => {
+    const demo: DiscoveredDemo = {
+      ...DEMO,
+      id: 'fedcba9876543210',
+      source: { kind: 'extraFolder', path: 'C:\\Demos' },
+    }
+    await renderView([demo])
+
+    const source = screen.getByTestId('replays-demo-source')
+    expect(source.textContent).toBe('extra folder: C:\\Demos')
+  })
+
   it('an empty discovery shows the empty line', async () => {
     await renderView([])
 
@@ -97,6 +109,7 @@ describe('ReplaysView (story 141 D4)', () => {
     expect(heading.textContent).toBe(stringAt('replays.view.title'))
 
     const source = screen.getByTestId('replays-demo-source')
+    if (DEMO.source.kind !== 'installation') throw new Error('expected an installation source')
     expect(source.textContent).toBe(
       // The raw file name is data, not i18n - excluded here; only the source template's rendering
       // is checked against the shared block.

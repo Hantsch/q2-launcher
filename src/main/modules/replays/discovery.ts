@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 import { NON_GAME_DIRS } from '@shared/constants'
-import type { DemoFormat, DiscoveredDemo } from '@shared/modules/replays'
+import type { DemoFormat, DiscoveredDemo, ReplaysExtraFolder } from '@shared/modules/replays'
 import type { Installation } from '@shared/types'
 import { canonicalizePath, listDir, pathKey } from '../../lib/fs-utils'
 
@@ -105,17 +105,26 @@ interface Entry extends DiscoveredDemoFile {
 }
 
 /**
- * Scans every installation's game dirs (and, where applicable, its write dir) for demo files.
- * `installations`' order is precedence order: the same resolved file reachable through two
- * installations is only ever reported once, under the first installation that finds it. Within one
- * installation and game dir, a write-dir file shadows a root-dir file of the same name. Unreadable
- * or missing folders at any level simply contribute nothing - this never throws for that reason.
+ * Scans every installation's game dirs (and, where applicable, its write dir), plus every
+ * user-added extra demo folder (story 142 D3), for demo files. `installations`' order is
+ * precedence order: the same resolved file reachable through two installations is only ever
+ * reported once, under the first installation that finds it. Within one installation and game
+ * dir, a write-dir file shadows a root-dir file of the same name. Unreadable or missing folders at
+ * any level simply contribute nothing - this never throws for that reason.
+ *
+ * `extraFolders` are scanned after every installation: an extra folder whose canonical path is
+ * the same as an installation's own `demos` folder (already scanned above) is skipped entirely -
+ * its files are already reported once, under the richer `installation` source - and two extra-
+ * folder rows pointing at the same real folder under different spellings still yield each demo
+ * only once, via the same `seenKeys` dedup installation scanning uses.
  */
 export async function discoverDemos(
   installations: DiscoverableInstallation[],
+  extraFolders: ReplaysExtraFolder[],
   ctx: DiscoverContext,
 ): Promise<DiscoveredDemoFile[]> {
   const seenKeys = new Set<string>()
+  const canonicalInstallationDemosDirs = new Set<string>()
   const entries: Entry[] = []
 
   for (let instIndex = 0; instIndex < installations.length; instIndex++) {
@@ -133,6 +142,7 @@ export async function discoverDemos(
       const demosDir = await findDemosDir(join(base, gameDir))
       if (!demosDir) return
       const canonicalDemosDir = await canonicalizePath(demosDir)
+      canonicalInstallationDemosDirs.add(pathKey(canonicalDemosDir))
       const files = await scanDemosDir(demosDir)
 
       for (const file of files) {
@@ -207,6 +217,31 @@ export async function discoverDemos(
 
     for (const { writeDir, gameDir } of writePairs) {
       await addFromDir(writeDir, gameDir, true)
+    }
+  }
+
+  for (let i = 0; i < extraFolders.length; i++) {
+    const row = extraFolders[i]
+    const canonical = await canonicalizePath(row.path)
+    const key = pathKey(canonical)
+    if (canonicalInstallationDemosDirs.has(key)) continue
+
+    const files = await scanDemosDir(canonical)
+    for (const file of files) {
+      const fileKey = pathKey(join(canonical, file.fileName))
+      if (seenKeys.has(fileKey)) continue
+      seenKeys.add(fileKey)
+      entries.push({
+        id: idFor(fileKey),
+        fileName: file.fileName,
+        format: file.format,
+        gzip: file.gzip,
+        source: { kind: 'extraFolder', path: canonical },
+        absolutePath: join(canonical, file.fileName),
+        _instIndex: installations.length + i,
+        _gameDirOrder: 0,
+        _key: fileKey,
+      })
     }
   }
 

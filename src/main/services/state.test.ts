@@ -374,6 +374,56 @@ describe('StateStore servers state (story 110 D3)', () => {
   })
 })
 
+describe('StateStore replays state (story 142 D1)', () => {
+  let filePath: string
+  let state: StateStore
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-replays-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+  })
+
+  afterEach(async () => {
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  it('replays state round-trips through state.json and touches no other key', async () => {
+    const before = await state.load()
+    const extraFolders = [
+      { id: 'f1', path: 'C:\\Demos\\Extra', addedAt: '2026-01-01T00:00:00.000Z' },
+    ]
+
+    state.setReplaysState({ ...state.replaysState(), extraFolders })
+    await state.settle()
+
+    const reloaded = new StateStore(filePath)
+    const after = await reloaded.load()
+
+    expect(reloaded.replaysState().extraFolders).toEqual(extraFolders)
+    // No other top-level key was touched by setting replays state.
+    expect({ ...after, replays: undefined }).toEqual({ ...before, replays: undefined })
+  })
+
+  it('a state.json without the replays key loads the default replays state, with no schema bump', async () => {
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        schemaVersion: STATE_SCHEMA_VERSION,
+      }),
+      'utf-8',
+    )
+
+    const reloaded = new StateStore(filePath)
+    const doc = await reloaded.load()
+
+    expect(reloaded.replaysState().extraFolders).toEqual([])
+    expect(doc.schemaVersion).toBe(STATE_SCHEMA_VERSION)
+  })
+})
+
 describe('StateStore downloadFailures (story 073 D1)', () => {
   let filePath: string
   let state: StateStore

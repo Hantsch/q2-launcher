@@ -1,7 +1,7 @@
 ---
 id: 142
 title: I add my own demo folders
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -19,16 +19,16 @@ templates ([[140]]) and the remembered sort ([[152]]).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — In the demos settings section the user adds a folder through the native folder
+- [x] **AC1** — In the demos settings section the user adds a folder through the native folder
       dialog, sees it in a list and can remove it; the list persists across restarts.
-- [ ] **AC2** — Demos in an extra folder appear in the list with the source "extra folder: `<path>`",
+- [x] **AC2** — Demos in an extra folder appear in the list with the source "extra folder: `<path>`",
       with the same formats and exclusions as [[141]].
-- [ ] **AC3** — The folder path is validated by a zod schema and canonicalized in main; a
+- [x] **AC3** — The folder path is validated by a zod schema and canonicalized in main; a
       non-absolute path, a file, or a path main cannot resolve is rejected with its reason.
-- [ ] **AC4** — Adding a folder that is already listed, or that is an installation's `demos/`
+- [x] **AC4** — Adding a folder that is already listed, or that is an installation's `demos/`
       folder, does not produce duplicate demos.
-- [ ] **AC5** — Removing a folder removes its demos from the list; nothing on disk is touched.
-- [ ] **AC6** — The module's settings live under a module-owned `state.json` key with its own zod
+- [x] **AC5** — Removing a folder removes its demos from the list; nothing on disk is touched.
+- [x] **AC6** — The module's settings live under a module-owned `state.json` key with its own zod
       schema; an invalid stored value falls back to defaults without breaking the app.
 
 ## Open Questions
@@ -89,16 +89,16 @@ templates ([[140]]) and the remembered sort ([[152]]).
 Five Ds, bottom-up: state → handlers → scan → settings UI → list label + e2e. No new IPC channel,
 no shell file, no platform branch (folder dialog and paths behave the same on Windows and Linux).
 
-1. **D1 State key** — `ReplaysState`/`ReplaysExtraFolder` + zod schema + `DEFAULT_REPLAYS_STATE`
+1. [x] **D1 State key** — `ReplaysState`/`ReplaysExtraFolder` + zod schema + `DEFAULT_REPLAYS_STATE`
    in `src/shared/modules/replays.ts`; `parseReplaysState` in `src/main/lib/schemas.ts`;
    `replays` on `LauncherStateDocument` with getter/setter in `src/main/services/state.ts`.
-2. **D2 Handlers** — `extraFolders.list` / `.add` / `.remove` in the contract and the main half;
+2. [x] **D2 Handlers** — `extraFolders.list` / `.add` / `.remove` in the contract and the main half;
    validation in a new `src/main/modules/replays/extra-folders.ts`.
-3. **D3 Scan** — 141's discovery gets extra-folder sources (top level only, same per-folder scan
+3. [x] **D3 Scan** — 141's discovery gets extra-folder sources (top level only, same per-folder scan
    function, formats and exclusions), dedup against installation `demos/` folders.
-4. **D4 Settings UI** — `ReplaysSettingsSection` lists folders, adds via picker, removes, shows the
+4. [x] **D4 Settings UI** — `ReplaysSettingsSection` lists folders, adds via picker, removes, shows the
    rejection reason; i18n; CHANGELOG; 135's shell flow's last assertion updated.
-5. **D5 List label + e2e** — "extra folder: `<path>`" in the list row's source; fixture folder;
+5. [x] **D5 List label + e2e** — "extra folder: `<path>`" in the list row's source; fixture folder;
    flow `replays-extra-folders`.
 
 Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs D3's scan and D4's section).
@@ -246,8 +246,9 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs D3's scan and D4's sectio
   installation's demos folder yields no duplicate demos" and › "an extra folder listed twice under
   different spellings yields each demo once" (D3); e2e flow `replays-extra-folders` re-add step (D5).
 - AC5 → unit `extra-folders.test.ts` › "removing a folder leaves its files on disk untouched" (D2);
-  unit (141's discovery test file) › "a removed extra folder's demos are no longer listed" (D3);
-  e2e flow `replays-extra-folders` remove step, fixture files still on disk (D5).
+  unit `discovery.test.ts` › "a removed extra folder is no longer listed" (D3 — landed under this
+  slightly shorter name, same assertion); e2e flow `replays-extra-folders` remove step, fixture files
+  still on disk (D5).
 - AC6 → unit `src/main/lib/schemas.test.ts` › "a foreign replays value falls back to the default
   replays state" and › "a malformed extra folder row is dropped, its siblings survive" (D1); unit
   `src/main/services/state.test.ts` › "a state.json without the replays key loads the default
@@ -257,4 +258,60 @@ No manual residue.
 
 ## Done
 
-<!-- Filled by /build 142. -->
+User-chosen extra demo folders: `replays.extraFolders` added to the existing `replays` state key
+(D1), `extraFolders.list/add/remove` handlers with main-side validation (isAbsolute → stat →
+canonicalizePath → pathKey dedup) (D2), 141's `discoverDemos` extended with extra-folder sources,
+deduped against installation `demos/` folders (D3), a Settings-section list/add/remove UI wired to
+the native `installations:pickFolder` dialog (D4), and the "extra folder: `<path>`" list label plus
+fixture + e2e flow `replays-extra-folders` (D5).
+
+Commit message: `142: add my own demo folders`
+
+Verification — narrow gate: `npm run build` GREEN, `npm run typecheck` GREEN, `npx vitest run
+--changed HEAD` GREEN (110 files, 1630 tests). `npm run ui:flow -- replays-extra-folders`:
+**INCONCLUSIVE (environment)** — times out on the very first locator (`nav-settings`), the same
+Electron-window-not-rendering symptom this session hit on stories 140 and 141's own flows before
+any code in this story existed; not a code-specific failure (confirmed by re-running the untouched
+`replays-module-shell` flow, which fails identically at its own first locator). AC → test mapping,
+all found and passing in the vitest run above: AC1 → `ReplaysSettingsSection.test.tsx` › "the
+section lists, adds and removes extra folders through the module client", `state.test.ts` ›
+"replays state round-trips through state.json and touches no other key"; AC2 → `discovery.test.ts`
+› "demos in an extra folder are listed with an extra-folder source" + › "an extra folder is scanned
+top-level only with the same formats and exclusions as installations", `ReplaysView.test.tsx` › "an
+extra-folder source renders as extra folder: <path>"; AC3 → `extra-folders.test.ts` › "a
+non-absolute path, a file and a missing path are each rejected with their reason" + › "an added
+folder is stored canonicalized", `ReplaysSettingsSection.test.tsx` › "a rejected folder shows its
+reason as visible text", `replays.test.ts` › "every replays handler has a zod schema"; AC4 →
+`extra-folders.test.ts` › "a folder already listed under another spelling is rejected as already
+listed", `discovery.test.ts` › "an extra folder that is an installation's demos folder yields no
+duplicate demos" + › "an extra folder listed twice under different spellings yields each demo
+once"; AC5 → `extra-folders.test.ts` › "removing a folder leaves its files on disk untouched",
+`discovery.test.ts` › "a removed extra folder is no longer listed"; AC6 → `schemas.test.ts` › "a
+foreign replays value falls back to the default replays state" + › "a malformed extra folder row is
+dropped, its siblings survive", `state.test.ts` › "a state.json without the replays key loads the
+default replays state, with no schema bump". No manual residue.
+
+Review: default-tier clean-agent review, cycle 1 → FAIL — confirmed bug: `extraFolders.remove`'s
+main handler returned a bare `ReplaysExtraFolder[]` while the renderer client/`mutate()` expected
+`ExtraFoldersResult`'s `{ ok: true, folders }` shape, so `!domain.ok` was always true on a real
+remove and the Settings-list row never disappeared (AC1/AC5). Fixed by making the handler return
+`{ ok: true, folders: persisted.extraFolders }`, mirroring `add`'s shape; re-verified green (narrow
+gate re-run, all green; e2e still environment-inconclusive as above). No further findings after the
+fix; no deliberately-unfixed findings.
+
+Decisions (implementation-detail, made without a user question per sprint rules):
+- `ReplaysState`/`parseReplaysState` already live in `src/main/lib/schemas.ts` (not
+  `src/shared/modules/replays.ts` as the plan's shorthand implied) — extended there, in place,
+  rather than relocated, since story 140 had already established that location.
+- D2's `addExtraFolder` uses `stat()` directly (not `canonicalizePath`+`isDirectory`) to
+  distinguish `unresolvable` (stat throws) from `notAFolder` (stat succeeds, not a directory); the
+  stored path is still canonicalized via `canonicalizePath` afterward. `fs-utils.ts`'s
+  `canonicalizePath`/`isDirectory` swallow errors internally and can't tell the two cases apart on
+  their own.
+- `demoSourceSchema` (`src/shared/modules/replays.ts`) converted from a plain object to a
+  `z.discriminatedUnion('kind', ...)` to add the `extraFolder` member alongside `installation`.
+- `scripts/flows/replays-module-shell.mjs`'s last assertion now checks both
+  `replays-name-templates` (story 140) and `replays-extra-folders-add` (this story) are visible,
+  rather than replacing one with the other — the placeholder it originally guarded is long gone.
+
+tiers: D 5 / hard 0 · review default · cycles 1 · agents 9

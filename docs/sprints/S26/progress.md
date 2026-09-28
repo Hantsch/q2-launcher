@@ -87,3 +87,21 @@
 - 2026-09-28 11:48 · 141 · review 1 · started
 - 2026-09-28 11:52 · 141 · review 1 · done (PASS, no findings; noted e2e gap already recorded in verify step)
 - 2026-09-28 11:52 · 141 · story · done
+- 2026-09-28 11:53:24 · 142 · build · started
+- 2026-09-28 11:55 · 142 · D1 state key · started
+- 2026-09-28 12:00 · 142 · D1 state key · done
+- 2026-09-28 12:00 · 142 · D2 handlers · started
+- 2026-09-28 12:05 · 142 · D2 handlers · done
+- 2026-09-28 12:05 · 142 · D3 scan · started
+- 2026-09-28 12:10 · 142 · D3 scan · done
+- 2026-09-28 12:10 · 142 · D4 settings UI · started
+- 2026-09-28 12:16 · 142 · D4 settings UI · done
+- 2026-09-28 12:16 · 142 · D5 label+e2e · started
+- 2026-09-28 12:22 · 142 · D5 label+e2e · done
+- 2026-09-28 12:22 · 142 · verify · started
+- 2026-09-28 12:25 · 142 · verify · done
+- 2026-09-28 12:25 · 142 · review 1 · started
+- 2026-09-28 12:29 · 142 · review 1 · done: FAIL - extraFolders.remove response-shape bug
+- 2026-09-28 12:30 · 142 · verify (post-fix) · started
+- 2026-09-28 12:32 · 142 · verify (post-fix) · done
+- 2026-09-28 12:33 · 142 · story · done

@@ -153,7 +153,7 @@ function defaults(): LauncherStateDocument {
     unlock: { codes: [] },
     // Same reasoning as `servers` above: a deep clone so nothing can mutate the shared
     // module-level `DEFAULT_NAME_TEMPLATES_STATE` constant for the rest of the process's lifetime.
-    replays: { nameTemplates: structuredClone(DEFAULT_NAME_TEMPLATES_STATE) },
+    replays: { nameTemplates: structuredClone(DEFAULT_NAME_TEMPLATES_STATE), extraFolders: [] },
   }
 }
 

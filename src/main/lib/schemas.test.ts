@@ -1538,7 +1538,10 @@ describe('installationSchema - checks severity: info (regression)', () => {
 describe('parseReplaysState (story 140 D2)', () => {
   it('a missing `replays` key yields the default, empty name-templates state', () => {
     const result = parseReplaysState(undefined)
-    expect(result).toEqual({ nameTemplates: { entries: [], removedShippedIds: [] } })
+    expect(result).toEqual({
+      nameTemplates: { entries: [], removedShippedIds: [] },
+      extraFolders: [],
+    })
   })
 
   it('a corrupt replays nameTemplates row is dropped, not the list', () => {
@@ -1585,5 +1588,26 @@ describe('parseReplaysState (story 140 D2)', () => {
       nameTemplates: { entries: [badOverride], removedShippedIds: [] },
     })
     expect(result.nameTemplates.entries).toEqual([])
+  })
+
+  it('a foreign replays value falls back to the default replays state', () => {
+    const result = parseReplaysState('not even an object')
+    expect(result).toEqual({
+      nameTemplates: { entries: [], removedShippedIds: [] },
+      extraFolders: [],
+    })
+  })
+
+  it('a malformed extra folder row is dropped, its siblings survive', () => {
+    const good = { id: 'f1', path: 'C:\\Demos\\Extra', addedAt: '2026-01-01T00:00:00.000Z' }
+    const emptyPath = { id: 'f2', path: '', addedAt: '2026-01-01T00:00:00.000Z' }
+    const missingField = { id: 'f3', path: 'C:\\Demos\\Other' }
+
+    const result = parseReplaysState({
+      nameTemplates: { entries: [], removedShippedIds: [] },
+      extraFolders: [good, emptyPath, missingField],
+    })
+
+    expect(result.extraFolders).toEqual([good])
   })
 })

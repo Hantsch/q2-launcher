@@ -1023,6 +1023,19 @@
       "description": "Where the launcher looks for demos and how it names them.",
       "placeholder": "Demo folders and naming patterns will be set here."
     },
+    "extraFolders": {
+      "heading": "Extra demo folders",
+      "empty": "No extra folders added yet.",
+      "add": "Add folder",
+      "remove": "Remove {{path}}",
+      "pickTitle": "Choose a demo folder",
+      "error": {
+        "notAbsolute": "That path isn't valid.",
+        "unresolvable": "That folder couldn't be found.",
+        "notAFolder": "That path isn't a folder.",
+        "alreadyListed": "That folder is already in the list."
+      }
+    },
     "nameTemplate": {
       "error": {
         "empty": "Enter a naming pattern.",
@@ -1067,6 +1080,9 @@
       "loading": "Looking for demos…",
       "empty": "No demos found.",
       "source": "{{installation}} · {{gameDir}}"
+    },
+    "source": {
+      "extraFolder": "extra folder: {{path}}"
     }
   },
 

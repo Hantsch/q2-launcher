@@ -12,9 +12,11 @@
 //                              contributed section, `settings-section-${id}`
 //   replays-name-templates    NameTemplatesList.tsx - story 140 D3's naming-pattern list, which
 //                              replaced this deliverable's placeholder paragraph
+//   replays-extra-folders-add ReplaysSettingsSection.tsx - story 142 D4's extra-demo-folders
+//                              "Add folder" button, a sibling block to the naming-pattern list
 //
 // Story [[142]] will later replace the planned-module placeholder view with a real route - when
-// it does, this flow's last assertion (`replays-name-templates`) must be updated to match.
+// it does, this flow's assertions above must be updated to match.
 
 const TIMEOUT_MS = 8_000
 
@@ -35,6 +37,10 @@ export default async function replaysModuleShell({ page, shot, step }) {
   const section = page.getByTestId('settings-section-replays')
   await section.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await section.getByTestId('replays-name-templates').waitFor({
+    state: 'visible',
+    timeout: TIMEOUT_MS,
+  })
+  await section.getByTestId('replays-extra-folders-add').waitFor({
     state: 'visible',
     timeout: TIMEOUT_MS,
   })

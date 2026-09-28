@@ -1,11 +1,14 @@
+import { randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { demosListResultSchema, REPLAYS_HANDLERS } from '@shared/modules/replays'
 import { getModuleManifest } from '@shared/types'
+import { canonicalizePath } from '../../lib/fs-utils'
 import { UI_HARNESS_ENV } from '../../lib/ui-harness'
 import type { AppContext } from '../../context'
+import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
 import { discoveryHomeDir, replaysModule } from './index'
 
@@ -32,6 +35,7 @@ function fakeAppContext(installations: unknown[] = []): AppContext {
   return {
     broadcast,
     installations: { list: () => installations },
+    state: { replaysState: () => ({ extraFolders: [] }) },
   } as unknown as AppContext
 }
 
@@ -64,6 +68,9 @@ describe('replays module', () => {
       'nameTemplates.reset',
       'nameTemplates.restore',
       'demos.list',
+      'extraFolders.list',
+      'extraFolders.add',
+      'extraFolders.remove',
     ])
   })
 
@@ -154,6 +161,52 @@ describe('replays module', () => {
       })
 
       expect(outcome).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+    })
+  })
+
+  describe('extraFolders.* handlers (story 142 D2)', () => {
+    let filePath: string
+    let state: StateStore
+    let dir: string
+
+    beforeEach(async () => {
+      filePath = join(tmpdir(), `q2-launcher-replays-index-state-${randomUUID()}.json`)
+      state = new StateStore(filePath)
+      await state.load()
+      dir = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-index-extra-'))
+    })
+
+    afterEach(async () => {
+      await rm(filePath, { force: true })
+      await rm(`${filePath}.tmp`, { force: true })
+      await rm(`${filePath}.bak`, { force: true })
+      await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+    })
+
+    it('extra folders added through the handler survive a new StateStore on the same file', async () => {
+      const appContext = {
+        broadcast: { emit: () => {} },
+        installations: { list: () => [] },
+        state,
+      } as unknown as AppContext
+
+      const registry = new MainModuleRegistry()
+      await registry.register(replaysModule, appContext)
+
+      const outcome = await registry.invoke({
+        moduleId: 'replays',
+        type: REPLAYS_HANDLERS.extraFoldersAdd,
+        payload: { path: dir },
+      })
+      expect(outcome.ok).toBe(true)
+      await state.settle()
+
+      const reloaded = new StateStore(filePath)
+      await reloaded.load()
+      const expectedCanonical = await canonicalizePath(dir)
+      expect(reloaded.replaysState().extraFolders).toEqual([
+        expect.objectContaining({ path: expectedCanonical }),
+      ])
     })
   })
 

@@ -2071,6 +2071,43 @@ export const REPLAYS_FIXTURE_DECOYS = [
 const REPLAYS_FIXTURE_DEMO_CONTENT = 'q2l-fixture-demo-placeholder\n'
 
 /**
+ * Story 142 D5: the real on-disk path of a folder a user could plausibly point `extraFolders.add`
+ * at - a sibling of the installations' own game dirs (`<gameRoot>/extra-demos`), deliberately NOT
+ * inside either installation's own root, so scanning it as an extra folder is a genuinely separate
+ * case from the installation-owned `demos/` folders `writeReplaysDemosFixture()` writes above.
+ * Exported so `scripts/flows/replays-extra-folders.mjs` imports the exact path rather than
+ * hand-typing a second copy.
+ */
+export function replaysExtraFolderFixturePath() {
+  return join(gameRoot(), 'extra-demos')
+}
+
+/** Placeholder bytes for `replaysExtraFolderFixturePath()`'s files - same convention as
+ * `REPLAYS_FIXTURE_DEMO_CONTENT` above. */
+const REPLAYS_EXTRA_FOLDER_DEMO_CONTENT = 'q2l-fixture-extra-folder-demo-placeholder\n'
+
+/**
+ * Writes `replaysExtraFolderFixturePath()`'s contents: two real, top-level demo files
+ * (`a.dm2`, `B.MVD2` - mixed case, proving `recogniseDemoFile`'s case-insensitive match) plus three
+ * decoys that must never appear in a scan of this folder - a `.dm2.json` sidecar, a nested
+ * `sub/deep.dm2` (this scan is top-level-only, same rule `scanDemosDir` enforces everywhere else),
+ * and nothing else needed since a wrong extension is already covered by `REPLAYS_FIXTURE_DECOYS`
+ * above. Called from `writePopulatedFixture()`, alongside `writeReplaysDemosFixture()` - this
+ * folder is written but never itself added to `replaysState().extraFolders`; the flow adds it live
+ * through the UI.
+ */
+function writeReplaysExtraFolderFixture() {
+  const folder = replaysExtraFolderFixturePath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+  writeFileSync(join(folder, 'a.dm2'), REPLAYS_EXTRA_FOLDER_DEMO_CONTENT, 'utf8')
+  writeFileSync(join(folder, 'B.MVD2'), REPLAYS_EXTRA_FOLDER_DEMO_CONTENT, 'utf8')
+  writeFileSync(join(folder, 'a.dm2.json'), '{}\n', 'utf8')
+  mkdirSync(join(folder, 'sub'), { recursive: true })
+  writeFileSync(join(folder, 'sub', 'deep.dm2'), REPLAYS_EXTRA_FOLDER_DEMO_CONTENT, 'utf8')
+}
+
+/**
  * Writes `REPLAYS_FIXTURE_DEMOS`' five real files under their installation/game-dir `demos/`
  * folders, plus `REPLAYS_FIXTURE_DECOYS`' four decoys next to the `INSTALL_ONE_ID` ones. Called from
  * `writePopulatedFixture()`, after that function's own install loop has already created both
@@ -2141,6 +2178,7 @@ export function writePopulatedFixture({ variant = 'populated', stateOverrides = 
   // Story 141 D5: the Demos view's discovered-list fixture - both installations' roots were just
   // (re)created by the loop above, so this only ever adds to them.
   writeReplaysDemosFixture()
+  writeReplaysExtraFolderFixture()
 
   // Story 094 D4: a sentinel file in a directory NEXT TO `INSTALL_REMOVE_DISK_ID`'s own root
   // (created just above, in the loop) - not inside it. `installation-remove-from-disk.mjs` deletes
