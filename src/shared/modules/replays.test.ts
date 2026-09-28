@@ -50,6 +50,9 @@ describe('replays module contract (story 135 D1)', () => {
         installationName: 'My Install',
         gameDir: 'baseq2',
       },
+      archiveEntry: null,
+      map: null,
+      unparsableReason: null,
     })
 
     const isSuspectKey = (key: string) => /path|dir$|folder/i.test(key) && key !== 'gameDir'

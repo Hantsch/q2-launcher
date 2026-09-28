@@ -88,6 +88,21 @@ export const nameTemplatesResetSchema = z.object({ id: z.string() })
 /** A demo's on-disk container format - never a factor a UI label should need beyond this enum. */
 export const demoFormatSchema = z.enum(['dm2', 'mvd2'])
 
+/** Every reason a demo row can fail to parse: the shared header parsers' reasons
+ * (kept in sync by hand with Dm2Unparsable/Mvd2Unparsable) plus story 143's zip-entry-only codes. */
+export const demoUnparsableReasonSchema = z.enum([
+  'empty',
+  'truncated',
+  'not-a-demo',
+  'unknown-protocol',
+  'header-too-large',
+  'unknown-version',
+  'unreadable',
+  'entry-too-large',
+  'encrypted',
+])
+export type DemoUnparsableReason = z.infer<typeof demoUnparsableReasonSchema>
+
 /**
  * Where a discovered demo came from: never a path, just enough to label it in the UI and let main
  * resolve it back to a real file by id. `gameDir` is a short mod/game directory name (e.g.
@@ -117,6 +132,12 @@ export const discoveredDemoSchema = z.object({
   format: demoFormatSchema,
   gzip: z.boolean(),
   source: demoSourceSchema,
+  /** Non-null when this row came from an entry inside a zip (story 143); null for a loose file. */
+  archiveEntry: z.object({ archivePath: z.string().min(1), entryPath: z.string().min(1) }).nullable(),
+  /** The map name parsed from the demo's own header, or null when unparsable/not yet parsed. */
+  map: z.string().nullable(),
+  /** Why the header couldn't be parsed, or null for a parseable row. */
+  unparsableReason: demoUnparsableReasonSchema.nullable(),
 })
 
 export const demosListResultSchema = z.array(discoveredDemoSchema)

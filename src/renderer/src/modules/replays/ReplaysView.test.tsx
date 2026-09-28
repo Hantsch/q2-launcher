@@ -48,6 +48,9 @@ const DEMO: DiscoveredDemo = {
     installationName: 'My Install',
     gameDir: 'baseq2',
   },
+  archiveEntry: null,
+  map: null,
+  unparsableReason: null,
 }
 
 async function renderView(demos: DiscoveredDemo[]): Promise<void> {
@@ -123,6 +126,36 @@ describe('ReplaysView (story 141 D4)', () => {
       expect(key).toMatch(/^replays\./)
       expect(typeof stringAt(key)).toBe('string')
     }
+  })
+})
+
+describe('ReplaysView - archive-entry rows (story 143 D4)', () => {
+  it('a row from inside a zip carries data-archive-entry, the archive source line and the map', async () => {
+    const demo: DiscoveredDemo = {
+      ...DEMO,
+      id: '00112233445566aa',
+      fileName: 'final.mvd2',
+      archiveEntry: { archivePath: 'C:\\Demos\\pack.zip', entryPath: 'sub/final.mvd2' },
+      map: 'q2dm1',
+    }
+    await renderView([demo])
+
+    const row = await screen.findByTestId('replays-demo-row')
+    expect(row.getAttribute('data-archive-entry')).toBe('true')
+
+    const source = screen.getByTestId('replays-demo-source')
+    expect(source.textContent).toBe('My Install · baseq2 › pack.zip › sub/final.mvd2')
+
+    const map = screen.getByTestId('replays-demo-map')
+    expect(map.textContent).toBe('q2dm1')
+  })
+
+  it('a loose row (archiveEntry null) has no data-archive-entry attribute and no map element', async () => {
+    await renderView([DEMO])
+
+    const row = await screen.findByTestId('replays-demo-row')
+    expect(row.getAttribute('data-archive-entry')).toBeNull()
+    expect(screen.queryByTestId('replays-demo-map')).toBeNull()
   })
 })
 

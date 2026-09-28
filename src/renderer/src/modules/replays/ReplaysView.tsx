@@ -3,6 +3,12 @@ import { useTranslation } from 'react-i18next'
 import type { DiscoveredDemo } from '@shared/modules/replays'
 import { listDemos } from './client'
 
+/** The basename of an archive path, split on either separator - a small local helper since
+ * `demo.archiveEntry.archivePath` may come from either platform's discovery run. */
+function basename(path: string): string {
+  return path.split(/[/\\]/).pop() ?? path
+}
+
 /**
  * Story 141 D4: a minimal Demos list view - just enough to make AC "every discovered demo across
  * every installation and mod is listed" provable on a real surface. Mirrors `ServersView`'s header
@@ -53,26 +59,44 @@ export function ReplaysView() {
         )}
         {!loading && !isEmpty && (
           <ul data-testid="replays-demo-list" aria-label={t('replays.list.label')}>
-            {demos.map((demo) => (
-              <li
-                key={demo.id}
-                data-testid="replays-demo-row"
-                data-demo-id={demo.id}
-                className="flex flex-col gap-0.5 border-b border-line py-2"
-              >
-                <span className="text-sm text-ink" data-testid="replays-demo-name">
-                  {demo.fileName}
-                </span>
-                <span className="text-xs text-ink-muted" data-testid="replays-demo-source">
-                  {demo.source.kind === 'installation'
-                    ? t('replays.list.source', {
-                        installation: demo.source.installationName,
-                        gameDir: demo.source.gameDir,
-                      })
-                    : t('replays.source.extraFolder', { path: demo.source.path })}
-                </span>
-              </li>
-            ))}
+            {demos.map((demo) => {
+              const baseSource =
+                demo.source.kind === 'installation'
+                  ? t('replays.list.source', {
+                      installation: demo.source.installationName,
+                      gameDir: demo.source.gameDir,
+                    })
+                  : t('replays.source.extraFolder', { path: demo.source.path })
+              const sourceText = demo.archiveEntry
+                ? t('replays.list.archiveSource', {
+                    base: baseSource,
+                    archive: basename(demo.archiveEntry.archivePath),
+                    entry: demo.archiveEntry.entryPath,
+                  })
+                : baseSource
+
+              return (
+                <li
+                  key={demo.id}
+                  data-testid="replays-demo-row"
+                  data-demo-id={demo.id}
+                  {...(demo.archiveEntry ? { 'data-archive-entry': 'true' } : {})}
+                  className="flex flex-col gap-0.5 border-b border-line py-2"
+                >
+                  <span className="text-sm text-ink" data-testid="replays-demo-name">
+                    {demo.fileName}
+                  </span>
+                  <span className="text-xs text-ink-muted" data-testid="replays-demo-source">
+                    {sourceText}
+                  </span>
+                  {demo.map !== null && (
+                    <span className="text-xs text-ink-muted" data-testid="replays-demo-map">
+                      {demo.map}
+                    </span>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>

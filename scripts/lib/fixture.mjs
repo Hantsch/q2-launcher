@@ -2131,6 +2131,31 @@ function writeReplaysDemosFixture() {
   mkdirSync(join(oneDemosDir, 'old'), { recursive: true })
   writeFileSync(join(oneDemosDir, 'old', 'nested.dm2'), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
   writeFileSync(join(oneDemosDir, 'readme.txt'), 'not a demo\n', 'utf8')
+
+  // Story 143 D4: a real zip archive holding two real demo entries (one nested a level deep) plus a
+  // non-demo file, built with the same vendored 7za the app itself spawns - only when that binary
+  // was actually vendored locally, same "skip the archive, never crash fixture generation" guard
+  // every other zip/extractor-dependent fixture in this file already follows.
+  if (vendoredExtractorExists()) {
+    const staging = join(bootstrapStagingDir(), 'replays-zip-pack')
+    rmSync(staging, { recursive: true, force: true })
+    mkdirSync(join(staging, 'sub'), { recursive: true })
+    copyFileSync(join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2'), join(staging, 'test.dm2'))
+    copyFileSync(
+      join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2'),
+      join(staging, 'sub', 'final.mvd2'),
+    )
+    writeFileSync(join(staging, 'readme.txt'), 'not a demo\n', 'utf8')
+
+    const archivePath = join(oneDemosDir, 'pack.zip')
+    // `7za a` APPENDS to an existing archive, so a stale one has to go first.
+    rmSync(archivePath, { force: true })
+    execFileSync(
+      vendoredSevenZaPath(),
+      ['a', '-tzip', '-mx1', '-bso0', '-bse0', '-bd', archivePath, 'test.dm2', 'sub', 'readme.txt'],
+      { cwd: staging, windowsHide: true },
+    )
+  }
 }
 
 /**

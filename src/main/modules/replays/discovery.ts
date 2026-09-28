@@ -1,9 +1,17 @@
 import { createHash } from 'node:crypto'
+import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { NON_GAME_DIRS } from '@shared/constants'
-import type { DemoFormat, DiscoveredDemo, ReplaysExtraFolder } from '@shared/modules/replays'
+import type {
+  DemoFormat,
+  DemoSource,
+  DiscoveredDemo,
+  ReplaysExtraFolder,
+} from '@shared/modules/replays'
 import type { Installation } from '@shared/types'
 import { canonicalizePath, listDir, pathKey } from '../../lib/fs-utils'
+import type { ZipDeps } from '../../lib/zip-entries'
+import { expandZip } from './zip-demos'
 
 /**
  * Story 141 D2: finds demo files already sitting on disk, across every known installation's game
@@ -21,6 +29,13 @@ export type DiscoverableInstallation = Pick<
 export interface DiscoverContext {
   platform: NodeJS.Platform
   homeDir: string
+  zipDeps: ZipDeps
+}
+
+/** A single failed zip expansion, surfaced alongside `demos` for a later story to wire up. */
+export interface ArchiveError {
+  archivePath: string
+  code: string
 }
 
 /** A `DiscoveredDemo` plus the real filesystem path it was found at - main-only, never crosses IPC. */
@@ -65,17 +80,23 @@ async function findDemosDir(gameDirPath: string): Promise<string | null> {
   return actual ? join(gameDirPath, actual) : null
 }
 
-/** Every recognised demo file directly inside `demosDir` - one level, never recursive. */
-async function scanDemosDir(
-  demosDir: string,
-): Promise<Array<{ fileName: string; format: DemoFormat; gzip: boolean }>> {
+/**
+ * Every recognised demo file directly inside `demosDir` - one level, never recursive - plus the
+ * names of any `.zip` archives sitting alongside them (story 143 D3), read from the same listing.
+ */
+async function scanDemosDir(demosDir: string): Promise<{
+  files: Array<{ fileName: string; format: DemoFormat; gzip: boolean }>
+  zipFiles: string[]
+}> {
   const listing = await listDir(demosDir)
-  const out: Array<{ fileName: string; format: DemoFormat; gzip: boolean }> = []
+  const files: Array<{ fileName: string; format: DemoFormat; gzip: boolean }> = []
+  const zipFiles: string[] = []
   for (const fileName of listing.files) {
     const recognised = recogniseDemoFile(fileName)
-    if (recognised) out.push({ fileName, ...recognised })
+    if (recognised) files.push({ fileName, ...recognised })
+    else if (fileName.toLowerCase().endsWith('.zip')) zipFiles.push(fileName)
   }
-  return out
+  return { files, zipFiles }
 }
 
 /**
@@ -105,6 +126,54 @@ interface Entry extends DiscoveredDemoFile {
 }
 
 /**
+ * Expands every zip archive found in one scanned folder into `entries`, tagging each row with the
+ * same `_instIndex`/`_gameDirOrder` its sibling loose-file entries from that same folder get.
+ * Dedup is via `seenKeys` alone (`archivePath\0entryPath`) - no shadow-by-filename handling, that
+ * only applies to loose demo files. A zip `expandZip` can't even list is recorded in
+ * `archiveErrors` instead of contributing rows.
+ */
+async function expandZipsInto(
+  entries: Entry[],
+  seenKeys: Set<string>,
+  archiveErrors: ArchiveError[],
+  demosDir: string,
+  zipFiles: string[],
+  source: DemoSource,
+  instIndex: number,
+  gameDirOrder: number,
+  zipDeps: ZipDeps,
+): Promise<void> {
+  for (const zipFileName of zipFiles) {
+    const absoluteZipPath = join(demosDir, zipFileName)
+    let mtimeMs = 0
+    try {
+      mtimeMs = (await stat(absoluteZipPath)).mtimeMs
+    } catch {
+      // Unreadable stat - expandZip will very likely fail to read it too; mtimeMs simply stays 0.
+    }
+
+    const expanded = await expandZip(absoluteZipPath, source, mtimeMs, zipDeps)
+    if (expanded.error) {
+      archiveErrors.push({ archivePath: expanded.error.archivePath, code: expanded.error.code })
+      continue
+    }
+
+    for (const row of expanded.rows) {
+      const key = pathKey(absoluteZipPath) + '\u0000' + row.archiveEntry!.entryPath
+      if (seenKeys.has(key)) continue
+      seenKeys.add(key)
+      entries.push({
+        ...row,
+        absolutePath: absoluteZipPath,
+        _instIndex: instIndex,
+        _gameDirOrder: gameDirOrder,
+        _key: key,
+      })
+    }
+  }
+}
+
+/**
  * Scans every installation's game dirs (and, where applicable, its write dir), plus every
  * user-added extra demo folder (story 142 D3), for demo files. `installations`' order is
  * precedence order: the same resolved file reachable through two installations is only ever
@@ -122,10 +191,11 @@ export async function discoverDemos(
   installations: DiscoverableInstallation[],
   extraFolders: ReplaysExtraFolder[],
   ctx: DiscoverContext,
-): Promise<DiscoveredDemoFile[]> {
+): Promise<{ demos: DiscoveredDemoFile[]; archiveErrors: ArchiveError[] }> {
   const seenKeys = new Set<string>()
   const canonicalInstallationDemosDirs = new Set<string>()
   const entries: Entry[] = []
+  const archiveErrors: ArchiveError[] = []
 
   for (let instIndex = 0; instIndex < installations.length; instIndex++) {
     const installation = installations[instIndex]
@@ -143,7 +213,7 @@ export async function discoverDemos(
       if (!demosDir) return
       const canonicalDemosDir = await canonicalizePath(demosDir)
       canonicalInstallationDemosDirs.add(pathKey(canonicalDemosDir))
-      const files = await scanDemosDir(demosDir)
+      const { files, zipFiles } = await scanDemosDir(demosDir)
 
       for (const file of files) {
         const key = pathKey(join(canonicalDemosDir, file.fileName))
@@ -161,6 +231,9 @@ export async function discoverDemos(
               id: idFor(key),
               format: file.format,
               gzip: file.gzip,
+              archiveEntry: null,
+              map: null,
+              unparsableReason: null,
               absolutePath: join(demosDir, file.fileName),
               _gameDirOrder: order,
               _key: key,
@@ -183,6 +256,9 @@ export async function discoverDemos(
             installationName: installation.name,
             gameDir,
           },
+          archiveEntry: null,
+          map: null,
+          unparsableReason: null,
           absolutePath: join(demosDir, file.fileName),
           _instIndex: instIndex,
           _gameDirOrder: order,
@@ -197,6 +273,19 @@ export async function discoverDemos(
           byFileName.set(file.fileName, entries.length - 1)
         }
       }
+
+      const order = gameDirOrder.get(gameDir) ?? Number.MAX_SAFE_INTEGER
+      await expandZipsInto(
+        entries,
+        seenKeys,
+        archiveErrors,
+        demosDir,
+        zipFiles,
+        { kind: 'installation', installationId: installation.id, installationName: installation.name, gameDir },
+        instIndex,
+        order,
+        ctx.zipDeps,
+      )
     }
 
     for (const gameDir of installation.gameDirs) {
@@ -226,7 +315,7 @@ export async function discoverDemos(
     const key = pathKey(canonical)
     if (canonicalInstallationDemosDirs.has(key)) continue
 
-    const files = await scanDemosDir(canonical)
+    const { files, zipFiles } = await scanDemosDir(canonical)
     for (const file of files) {
       const fileKey = pathKey(join(canonical, file.fileName))
       if (seenKeys.has(fileKey)) continue
@@ -237,12 +326,27 @@ export async function discoverDemos(
         format: file.format,
         gzip: file.gzip,
         source: { kind: 'extraFolder', path: canonical },
+        archiveEntry: null,
+        map: null,
+        unparsableReason: null,
         absolutePath: join(canonical, file.fileName),
         _instIndex: installations.length + i,
         _gameDirOrder: 0,
         _key: fileKey,
       })
     }
+
+    await expandZipsInto(
+      entries,
+      seenKeys,
+      archiveErrors,
+      canonical,
+      zipFiles,
+      { kind: 'extraFolder', path: canonical },
+      installations.length + i,
+      0,
+      ctx.zipDeps,
+    )
   }
 
   entries.sort(
@@ -252,5 +356,8 @@ export async function discoverDemos(
       a.fileName.localeCompare(b.fileName),
   )
 
-  return entries.map(({ _instIndex, _gameDirOrder, _key, ...rest }) => rest)
+  return {
+    demos: entries.map(({ _instIndex, _gameDirOrder, _key, ...rest }) => rest),
+    archiveErrors,
+  }
 }

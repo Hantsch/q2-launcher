@@ -1079,7 +1079,8 @@
       "label": "Demos",
       "loading": "Looking for demos…",
       "empty": "No demos found.",
-      "source": "{{installation}} · {{gameDir}}"
+      "source": "{{installation}} · {{gameDir}}",
+      "archiveSource": "{{base}} › {{archive}} › {{entry}}"
     },
     "source": {
       "extraFolder": "extra folder: {{path}}"

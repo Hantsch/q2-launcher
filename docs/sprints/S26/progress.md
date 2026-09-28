@@ -105,3 +105,18 @@
 - 2026-09-28 12:30 · 142 · verify (post-fix) · started
 - 2026-09-28 12:32 · 142 · verify (post-fix) · done
 - 2026-09-28 12:33 · 142 · story · done
+- 2026-09-28 12:34:28 · 143 · build · started
+- 2026-09-28 12:35 · 143 · D1 bounded 7za zip reader · started
+- 2026-09-28 12:39 · 143 · D1 bounded 7za zip reader · done
+- 2026-09-28 12:43 · 143 · D2 zip entry expansion · started
+- 2026-09-28 12:47 · 143 · D2 zip entry expansion · done
+- 2026-09-28 12:47 · 143 · D3 discovery expands zips · started
+- 2026-09-28 12:53 · 143 · D3 discovery expands zips · done
+- 2026-09-28 12:53 · 143 · D4 archive row on surface + flow · started
+- 2026-09-28 12:58 · 143 · D4 archive row on surface + flow · done
+- 2026-09-28 12:58 · 143 · verify · started
+- 2026-09-28 13:01 · 143 · verify · blocked: layering allowlist gap in replays/index.ts + stale fixture in shared/modules/replays.test.ts
+- 2026-09-28 13:02 · 143 · verify · done (build/typecheck/vitest green after 2 fixes; e2e ui:flow INCONCLUSIVE — first-nav-click timeout, environment gap confirmed pre-existing per 140-142)
+- 2026-09-28 13:02 · 143 · review 1 · started
+- 2026-09-28 13:09 · 143 · review 1 · done: PASS, 3 low-severity non-blocking findings (unused archiveMtimeMs param, archiveErrors.code typed as string, _launcher case covered implicitly)
+- 2026-09-28 13:10 · 143 · story · done

@@ -1,10 +1,16 @@
+import { execFileSync } from 'node:child_process'
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ReplaysExtraFolder } from '@shared/modules/replays'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { ZipDeps } from '../../lib/zip-entries'
+import { resolveExtractorPath } from '../downloads/7za-path'
 import type { DiscoverableInstallation } from './discovery'
 import { discoverDemos, effectiveWriteDirs, recogniseDemoFile } from './discovery'
+
+/** No zip fixtures in most tests here - `extractorExists: false` fails closed, harmlessly. */
+const ZIP_DEPS: ZipDeps = { extractorPath: 'unused', extractorExists: false }
 
 /**
  * Story 141 D2: `discoverDemos` scans real temp directories - mirrors `inspector.test.ts`'s
@@ -63,30 +69,30 @@ describe('recogniseDemoFile', () => {
 describe('effectiveWriteDirs', () => {
   it('yields ~/.q2pro only for a q2pro installation on linux', () => {
     const inst = installation({ engineKind: 'q2pro' })
-    expect(effectiveWriteDirs(inst, { platform: 'linux', homeDir: '/home/x' })).toEqual([
+    expect(effectiveWriteDirs(inst, { platform: 'linux', homeDir: '/home/x', zipDeps: ZIP_DEPS })).toEqual([
       join('/home/x', '.q2pro'),
     ])
   })
 
   it('honours recordedEngineKind as well as engineKind', () => {
     const inst = installation({ engineKind: 'unknown' as never, recordedEngineKind: 'q2pro' })
-    expect(effectiveWriteDirs(inst, { platform: 'linux', homeDir: '/home/x' })).toEqual([
+    expect(effectiveWriteDirs(inst, { platform: 'linux', homeDir: '/home/x', zipDeps: ZIP_DEPS })).toEqual([
       join('/home/x', '.q2pro'),
     ])
   })
 
   it('never reads writeDirPath', () => {
     const inst = installation({ engineKind: 'q2pro', writeDirPath: '/somewhere/else' })
-    const dirs = effectiveWriteDirs(inst, { platform: 'linux', homeDir: '/home/x' })
+    const dirs = effectiveWriteDirs(inst, { platform: 'linux', homeDir: '/home/x', zipDeps: ZIP_DEPS })
     expect(dirs).not.toContain('/somewhere/else')
   })
 
   it('yields nothing on windows, for r1q2, or without a homedir match', () => {
     expect(
-      effectiveWriteDirs(installation({ engineKind: 'q2pro' }), { platform: 'win32', homeDir: '/home/x' }),
+      effectiveWriteDirs(installation({ engineKind: 'q2pro' }), { platform: 'win32', homeDir: '/home/x', zipDeps: ZIP_DEPS }),
     ).toEqual([])
     expect(
-      effectiveWriteDirs(installation({ engineKind: 'r1q2' }), { platform: 'linux', homeDir: '/home/x' }),
+      effectiveWriteDirs(installation({ engineKind: 'r1q2' }), { platform: 'linux', homeDir: '/home/x', zipDeps: ZIP_DEPS }),
     ).toEqual([])
   })
 })
@@ -106,10 +112,10 @@ describe('discoverDemos', () => {
         installation({ id: 'b', rootPath: rootB, gameDirs: ['baseq2', 'ctf'] }),
       ],
       [],
-      { platform: 'win32', homeDir: join(dir, 'home') },
+      { platform: 'win32', homeDir: join(dir, 'home'), zipDeps: ZIP_DEPS },
     )
 
-    expect(result.map((d) => d.fileName).sort()).toEqual([
+    expect(result.demos.map((d) => d.fileName).sort()).toEqual([
       'four.mvd2.gz',
       'one.dm2',
       'three.dm2.gz',
@@ -125,9 +131,10 @@ describe('discoverDemos', () => {
     const result = await discoverDemos([installation({ rootPath: root })], [], {
       platform: 'win32',
       homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
     })
 
-    expect(result.map((d) => d.fileName).sort()).toEqual(['FINAL.DM2', 'Match.MVD2.GZ'])
+    expect(result.demos.map((d) => d.fileName).sort()).toEqual(['FINAL.DM2', 'Match.MVD2.GZ'])
   })
 
   it('sidecars, _launcher and subfolders are never listed', async () => {
@@ -142,9 +149,10 @@ describe('discoverDemos', () => {
     const result = await discoverDemos([installation({ rootPath: root })], [], {
       platform: 'win32',
       homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
     })
 
-    expect(result).toEqual([])
+    expect(result.demos).toEqual([])
   })
 
   it('a Q2PRO installation on Linux also yields demos from ~/.q2pro/<gamedir>/demos', async () => {
@@ -158,10 +166,10 @@ describe('discoverDemos', () => {
     const result = await discoverDemos(
       [installation({ rootPath: root, gameDirs: ['baseq2'], engineKind: 'q2pro' })],
       [],
-      { platform: 'linux', homeDir: home },
+      { platform: 'linux', homeDir: home, zipDeps: ZIP_DEPS },
     )
 
-    expect(result.map((d) => d.fileName).sort()).toEqual(['mod.dm2', 'root.dm2', 'writedir.dm2'])
+    expect(result.demos.map((d) => d.fileName).sort()).toEqual(['mod.dm2', 'root.dm2', 'writedir.dm2'])
   })
 
   it('no write dir is scanned on Windows, for r1q2, or from writeDirPath', async () => {
@@ -175,23 +183,23 @@ describe('discoverDemos', () => {
     const windowsResult = await discoverDemos(
       [installation({ rootPath: root, engineKind: 'q2pro' })],
       [],
-      { platform: 'win32', homeDir: home },
+      { platform: 'win32', homeDir: home, zipDeps: ZIP_DEPS },
     )
-    expect(windowsResult.map((d) => d.fileName)).toEqual(['root.dm2'])
+    expect(windowsResult.demos.map((d) => d.fileName)).toEqual(['root.dm2'])
 
     const r1q2Result = await discoverDemos(
       [installation({ rootPath: root, engineKind: 'r1q2' })],
       [],
-      { platform: 'linux', homeDir: home },
+      { platform: 'linux', homeDir: home, zipDeps: ZIP_DEPS },
     )
-    expect(r1q2Result.map((d) => d.fileName)).toEqual(['root.dm2'])
+    expect(r1q2Result.demos.map((d) => d.fileName)).toEqual(['root.dm2'])
 
     const writeDirPathResult = await discoverDemos(
       [installation({ rootPath: root, engineKind: 'r1q2', writeDirPath: elsewhere })],
       [],
-      { platform: 'win32', homeDir: home },
+      { platform: 'win32', homeDir: home, zipDeps: ZIP_DEPS },
     )
-    expect(writeDirPathResult.map((d) => d.fileName)).toEqual(['root.dm2'])
+    expect(writeDirPathResult.demos.map((d) => d.fileName)).toEqual(['root.dm2'])
   })
 
   it('a demo reachable through two paths is listed once', async () => {
@@ -210,10 +218,10 @@ describe('discoverDemos', () => {
     const result = await discoverDemos(
       [installation({ rootPath: root, engineKind: 'q2pro' })],
       [],
-      { platform: 'linux', homeDir: home },
+      { platform: 'linux', homeDir: home, zipDeps: ZIP_DEPS },
     )
 
-    expect(result.filter((d) => d.fileName === 'shared.dm2')).toHaveLength(1)
+    expect(result.demos.filter((d) => d.fileName === 'shared.dm2')).toHaveLength(1)
   })
 
   it('a write-dir demo shadows the same-named root demo', async () => {
@@ -225,10 +233,10 @@ describe('discoverDemos', () => {
     const result = await discoverDemos(
       [installation({ rootPath: root, engineKind: 'q2pro' })],
       [],
-      { platform: 'linux', homeDir: home },
+      { platform: 'linux', homeDir: home, zipDeps: ZIP_DEPS },
     )
 
-    const matches = result.filter((d) => d.fileName === 'x.dm2')
+    const matches = result.demos.filter((d) => d.fileName === 'x.dm2')
     expect(matches).toHaveLength(1)
     expect(matches[0].absolutePath).toBe(join(home, '.q2pro', 'baseq2', 'demos', 'x.dm2'))
   })
@@ -238,11 +246,11 @@ describe('discoverDemos', () => {
     await writeDemo(join(root, 'baseq2', 'demos'), 'one.dm2')
     await writeDemo(join(root, 'baseq2', 'demos'), 'two.dm2')
 
-    const ctx = { platform: 'win32' as const, homeDir: join(dir, 'home') }
+    const ctx = { platform: 'win32' as const, homeDir: join(dir, 'home'), zipDeps: ZIP_DEPS }
     const first = await discoverDemos([installation({ rootPath: root })], [], ctx)
     const second = await discoverDemos([installation({ rootPath: root })], [], ctx)
 
-    const idOf = (list: typeof first, name: string) => list.find((d) => d.fileName === name)?.id
+    const idOf = (list: typeof first, name: string) => list.demos.find((d) => d.fileName === name)?.id
     expect(idOf(first, 'one.dm2')).toBe(idOf(second, 'one.dm2'))
     expect(idOf(first, 'one.dm2')).not.toBe(idOf(first, 'two.dm2'))
   })
@@ -251,10 +259,44 @@ describe('discoverDemos', () => {
     const result = await discoverDemos(
       [installation({ rootPath: join(dir, 'does-not-exist') })],
       [],
-      { platform: 'win32', homeDir: join(dir, 'home') },
+      { platform: 'win32', homeDir: join(dir, 'home'), zipDeps: ZIP_DEPS },
     )
 
-    expect(result).toEqual([])
+    expect(result.demos).toEqual([])
+  })
+
+  describe('zip expansion (story 143 D3)', () => {
+    const realBinary = resolveExtractorPath({ isPackaged: false })
+
+    it.skipIf(!realBinary.exists)(
+      'a scanned folder expands its zips into entry rows',
+      async () => {
+        const root = join(dir, 'inst')
+        const demosDir = join(root, 'baseq2', 'demos')
+        await writeDemo(demosDir, 'loose.dm2')
+
+        const zipSrc = join(dir, 'zip-src')
+        await mkdir(zipSrc, { recursive: true })
+        await writeFile(join(zipSrc, 'a.dm2'), 'a-bytes')
+        await writeFile(join(zipSrc, 'b.mvd2'), 'b-bytes')
+        execFileSync(
+          realBinary.path,
+          ['a', '-tzip', '-y', '-spd', '--', join(demosDir, 'pack.zip'), 'a.dm2', 'b.mvd2'],
+          { cwd: zipSrc },
+        )
+
+        const result = await discoverDemos([installation({ rootPath: root })], [], {
+          platform: 'win32',
+          homeDir: join(dir, 'home'),
+          zipDeps: { extractorPath: realBinary.path, extractorExists: true },
+        })
+
+        expect(result.demos).toHaveLength(3)
+        const zipRows = result.demos.filter((d) => d.archiveEntry !== null)
+        expect(zipRows).toHaveLength(2)
+        expect(zipRows.map((d) => d.fileName).sort()).toEqual(['a.dm2', 'b.mvd2'])
+      },
+    )
   })
 })
 
@@ -266,11 +308,12 @@ describe('discoverDemos - extra folders (story 142 D3)', () => {
     const result = await discoverDemos([], [extraFolder(extra)], {
       platform: 'win32',
       homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
     })
 
-    expect(result).toHaveLength(1)
-    expect(result[0].fileName).toBe('one.dm2')
-    expect(result[0].source).toEqual({ kind: 'extraFolder', path: extra })
+    expect(result.demos).toHaveLength(1)
+    expect(result.demos[0].fileName).toBe('one.dm2')
+    expect(result.demos[0].source).toEqual({ kind: 'extraFolder', path: extra })
   })
 
   it('an extra folder is scanned top-level only with the same formats and exclusions as installations', async () => {
@@ -283,9 +326,10 @@ describe('discoverDemos - extra folders (story 142 D3)', () => {
     const result = await discoverDemos([], [extraFolder(extra)], {
       platform: 'win32',
       homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
     })
 
-    expect(result.map((d) => d.fileName)).toEqual(['FINAL.DM2'])
+    expect(result.demos.map((d) => d.fileName)).toEqual(['FINAL.DM2'])
   })
 
   it("an extra folder that is an installation's demos folder yields no duplicate demos", async () => {
@@ -296,10 +340,10 @@ describe('discoverDemos - extra folders (story 142 D3)', () => {
     const result = await discoverDemos(
       [installation({ rootPath: root })],
       [extraFolder(demosDir.toUpperCase())],
-      { platform: 'win32', homeDir: join(dir, 'home') },
+      { platform: 'win32', homeDir: join(dir, 'home'), zipDeps: ZIP_DEPS },
     )
 
-    const matches = result.filter((d) => d.fileName === 'shared.dm2')
+    const matches = result.demos.filter((d) => d.fileName === 'shared.dm2')
     expect(matches).toHaveLength(1)
     expect(matches[0].source.kind).toBe('installation')
   })
@@ -314,10 +358,10 @@ describe('discoverDemos - extra folders (story 142 D3)', () => {
         extraFolder(extra, { id: 'extra-1' }),
         extraFolder(`${extra.toUpperCase()}\\`, { id: 'extra-2' }),
       ],
-      { platform: 'win32', homeDir: join(dir, 'home') },
+      { platform: 'win32', homeDir: join(dir, 'home'), zipDeps: ZIP_DEPS },
     )
 
-    expect(result.filter((d) => d.fileName === 'one.dm2')).toHaveLength(1)
+    expect(result.demos.filter((d) => d.fileName === 'one.dm2')).toHaveLength(1)
   })
 
   it('a removed extra folder is no longer listed', async () => {
@@ -327,22 +371,25 @@ describe('discoverDemos - extra folders (story 142 D3)', () => {
     const withFolder = await discoverDemos([], [extraFolder(extra)], {
       platform: 'win32',
       homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
     })
-    expect(withFolder.map((d) => d.fileName)).toEqual(['one.dm2'])
+    expect(withFolder.demos.map((d) => d.fileName)).toEqual(['one.dm2'])
 
     const withoutFolder = await discoverDemos([], [], {
       platform: 'win32',
       homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
     })
-    expect(withoutFolder).toEqual([])
+    expect(withoutFolder.demos).toEqual([])
   })
 
   it('a missing extra folder does not fail the scan', async () => {
     const result = await discoverDemos([], [extraFolder(join(dir, 'does-not-exist'))], {
       platform: 'win32',
       homeDir: join(dir, 'home'),
+      zipDeps: ZIP_DEPS,
     })
 
-    expect(result).toEqual([])
+    expect(result.demos).toEqual([])
   })
 })

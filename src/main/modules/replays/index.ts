@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { app as electronApp } from 'electron'
 import {
   REPLAYS_HANDLERS,
   extraFoldersAddSchema,
@@ -16,6 +17,7 @@ import {
 import { isUiHarnessEnabled } from '../../lib/ui-harness'
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
+import { resolveExtractorPath } from '../downloads/7za-path'
 import { discoverDemos } from './discovery'
 import { addExtraFolder, removeExtraFolder } from './extra-folders'
 import {
@@ -102,17 +104,28 @@ export const replaysModule: MainModule = {
     )
 
     handle(REPLAYS_HANDLERS.demosList, replaysNoInputSchema, async () => {
-      const discovered = await discoverDemos(
+      const extractor = resolveExtractorPath({
+        isPackaged: electronApp.isPackaged,
+        resourcesPath: process.resourcesPath,
+      })
+      const { demos } = await discoverDemos(
         app.installations.list(),
         app.state.replaysState().extraFolders,
-        { platform: process.platform, homeDir: discoveryHomeDir() },
+        {
+          platform: process.platform,
+          homeDir: discoveryHomeDir(),
+          zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists },
+        },
       )
-      return discovered.map((d) => ({
+      return demos.map((d) => ({
         id: d.id,
         fileName: d.fileName,
         format: d.format,
         gzip: d.gzip,
         source: d.source,
+        archiveEntry: d.archiveEntry,
+        map: d.map,
+        unparsableReason: d.unparsableReason,
       }))
     })
 

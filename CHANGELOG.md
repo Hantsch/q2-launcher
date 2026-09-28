@@ -18,6 +18,8 @@ version section when a release actually ships.
   built-in ones.
 - The Demos view now lists demos found across every installation and game dir.
 - Add your own demo folders in Demos settings — their demos show up in the list too.
+- A `.zip` of demos no longer hides them — every demo inside gets its own row in the list,
+  marked as coming from an archive.
 
 
 ## 0.5.0 — 2026-09-26

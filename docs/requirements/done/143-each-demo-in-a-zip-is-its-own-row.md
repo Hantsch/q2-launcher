@@ -1,7 +1,7 @@
 ---
 id: 143
 title: each demo in a zip is its own row
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -19,17 +19,17 @@ which may or may not be the right tool for listing and reading entries (Q1).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A `.zip` in any scanned source contributes one row per `.dm2`, `.mvd2`, `.dm2.gz`
+- [x] **AC1** — A `.zip` in any scanned source contributes one row per `.dm2`, `.mvd2`, `.dm2.gz`
       and `.mvd2.gz` entry; other entries are ignored.
-- [ ] **AC2** — Each entry row is parsed like a loose file ([[136]]–[[139]]) and shows its source as
+- [x] **AC2** — Each entry row is parsed like a loose file ([[136]]–[[139]]) and shows its source as
       the archive plus the entry's path inside it.
-- [ ] **AC3** — Each entry row carries an "archive entry" marker ([[150]]).
-- [ ] **AC4** — The archive file is never modified by scanning (size, modification time and content
+- [x] **AC3** — Each entry row carries an "archive entry" marker ([[150]]).
+- [x] **AC4** — The archive file is never modified by scanning (size, modification time and content
       unchanged, asserted by a test).
-- [ ] **AC5** — Reading is bounded: an entry whose uncompressed size exceeds the cap decided in Q2,
+- [x] **AC5** — Reading is bounded: an entry whose uncompressed size exceeds the cap decided in Q2,
       or an archive that fails to open, is reported as unparsable/source error — never an
       unbounded read into memory.
-- [ ] **AC6** — Zips nested inside zips are not opened.
+- [x] **AC6** — Zips nested inside zips are not opened.
 
 ## Open Questions
 
@@ -226,4 +226,45 @@ that always run.
 
 ## Done
 
-<!-- Filled by /build 143. -->
+Built D1-D4 as planned: a bounded 7za zip reader (`src/main/lib/zip-entries.ts`), zip-entry
+expansion into parsed rows (`src/main/modules/replays/zip-demos.ts`), discovery wiring
+(`discovery.ts` scans top-level `.zip`s in every demos folder and merges rows/archive errors), and
+the real surface (archive-entry marker, source label, map display, `pack.zip` fixture, flow
+`replays-zip-entries`). Two post-verify fixes: the downloads-layering allowlist (D3 added a 7za
+path resolution to `replays/index.ts`) and a stale fixture in `shared/modules/replays.test.ts`.
+
+Commit message: `143: each demo in a zip is its own row`
+
+Verification: narrow gate — `npm run build`/`npm run typecheck` green; `npx vitest run --changed
+HEAD` green (1647 tests, 112 files) after the two post-verify fixes above; `npm run ui:flow --
+replays-zip-entries` INCONCLUSIVE — timed out on the first nav-click (`nav-replays`), the same
+generic first-locator harness gap already recorded pre-existing in stories 140-142 (not a
+zip/archive-specific assertion failure), so treated as an environment gap per this sprint's
+deviation, not a story blocker. AC1-AC6 and the D3-wiring test all found, ran and passed against
+their named/near-verbatim tests in `zip-entries.test.ts`, `zip-demos.test.ts` and
+`discovery.test.ts` (see progress trail for the full per-AC walk). Review: one default-tier pass,
+verdict PASS, 3 low-severity non-blocking findings (an unused `archiveMtimeMs` parameter in
+`expandZip` kept for forward-compat with a later story's file-time surfacing; `archiveErrors[].code`
+typed as bare `string` instead of the literal union; the `_launcher` non-expansion case is covered
+implicitly by `scanDemosDir`'s existing one-level-only listing rather than a literal named test) —
+none fixed, all accepted as-is, no re-verify cycle needed.
+
+Decisions:
+- `DiscoveredDemo` gains exactly three new fields: `archiveEntry`, `map`, `unparsableReason` (all
+  nullable). Duration/POV/players facts are parsed and compared in D2's own unit tests but not
+  added to the shared row type or surfaced in the UI — nothing in this story's ACs or flow needs
+  them, and story 145 ("a demo I cannot parse still shows up") is the natural place to wire full
+  unparsable-row UI and any further parsed facts.
+- The entry's own `Modified` timestamp / archive mtime ("file-time rung" in Decisions (Sprint)) is
+  read by `expandZip`'s signature (`archiveMtimeMs` parameter) but not stored anywhere — no
+  `DiscoveredDemo` field consumes it yet, so it is accepted and unused pending a story that
+  actually surfaces file time.
+- `discoverDemos` now returns `{ demos, archiveErrors }` instead of a bare array; `archiveErrors`
+  (archive-level `listZipEntries` failures) is not yet surfaced over IPC — no AC in this story
+  requires it, deferred to whichever story wires archive-level source errors into the UI.
+- `demoUnparsableReasonSchema` is a hand-maintained zod enum (not a derived TS union) covering both
+  header-parser reasons (`Dm2Unparsable`/`Mvd2Unparsable`) and the two zip-only codes
+  (`entry-too-large`, `encrypted`) plus `unreadable`; kept deliberately separate from the header
+  parsers' own reason types since the zip-only codes don't belong there.
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 8 (4 deliverable + 1 fix + 1 verify + 1 review, D1 dispatched once, no re-dispatches)
