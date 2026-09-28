@@ -19,7 +19,7 @@ The `replays` module exists with its nav entry and a main-side index that finds 
 - [x] 138 — a demo knows how long it is
 - [x] 139 — a file name gives away what it can
 - [x] 140 — I teach the browser a name pattern (e2e gap, see Notes)
-- [ ] 141 — demos are found in every installation and mod
+- [x] 141 — demos are found in every installation and mod (e2e gap, see Notes)
 - [ ] 142 — I add my own demo folders
 - [ ] 143 — each demo in a zip is its own row
 - [ ] 144 — the index only re-reads what changed
