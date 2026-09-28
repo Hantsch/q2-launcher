@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { absolutePathSchema } from '../schemas'
-import { REPLAYS_HANDLERS, REPLAYS_HANDLER_SCHEMAS, REPLAYS_PATH_PAYLOAD_HANDLERS } from './replays'
+import {
+  nameTemplateTextSchema,
+  REPLAYS_HANDLERS,
+  REPLAYS_HANDLER_SCHEMAS,
+  REPLAYS_PATH_PAYLOAD_HANDLERS,
+} from './replays'
 
 describe('replays module contract (story 135 D1)', () => {
   it('every replays handler has a zod schema', () => {
@@ -21,6 +26,15 @@ describe('replays module contract (story 135 D1)', () => {
     expect(
       REPLAYS_HANDLER_SCHEMAS[REPLAYS_HANDLERS.overviewRead].safeParse(undefined).success,
     ).toBe(true)
+  })
+
+  it('nameTemplateTextSchema enforces the length cap and printable characters', () => {
+    expect(nameTemplateTextSchema.safeParse('a'.repeat(129)).success).toBe(false)
+    expect(nameTemplateTextSchema.safeParse('a'.repeat(128)).success).toBe(true)
+    expect(nameTemplateTextSchema.safeParse('a\tb').success).toBe(false)
+    expect(nameTemplateTextSchema.safeParse('café').success).toBe(false)
+    expect(nameTemplateTextSchema.safeParse('a/b').success).toBe(false)
+    expect(nameTemplateTextSchema.safeParse('{date}_{map}').success).toBe(true)
   })
 })
 

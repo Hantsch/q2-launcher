@@ -10,12 +10,11 @@
 //                              "Demos" (`replays.module.title`)
 //   settings-section-replays  SettingsView.tsx - the shell's own Panel wrapper around the
 //                              contributed section, `settings-section-${id}`
-//   replays-settings-placeholder  ReplaysSettingsSection.tsx - this deliverable's only control:
-//                              the placeholder paragraph, `replays.settings.placeholder`
+//   replays-name-templates    NameTemplatesList.tsx - story 140 D3's naming-pattern list, which
+//                              replaced this deliverable's placeholder paragraph
 //
-// Stories [[140]]/[[142]] will later replace the planned-module placeholder view with a real
-// route and add real controls to the settings section - when they do, this flow's last
-// assertion (`replays-settings-placeholder`) must be updated to match.
+// Story [[142]] will later replace the planned-module placeholder view with a real route - when
+// it does, this flow's last assertion (`replays-name-templates`) must be updated to match.
 
 const TIMEOUT_MS = 8_000
 
@@ -35,7 +34,7 @@ export default async function replaysModuleShell({ page, shot, step }) {
   await page.getByTestId('nav-settings').click({ timeout: TIMEOUT_MS })
   const section = page.getByTestId('settings-section-replays')
   await section.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await section.getByTestId('replays-settings-placeholder').waitFor({
+  await section.getByTestId('replays-name-templates').waitFor({
     state: 'visible',
     timeout: TIMEOUT_MS,
   })

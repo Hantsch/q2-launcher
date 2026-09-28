@@ -58,3 +58,16 @@
 - 2026-09-28 10:10 · 139 · review 1 · started
 - 2026-09-28 10:14 · 139 · review 1 · done
 - 2026-09-28 10:15 · 139 · story · done
+- 2026-09-28 10:16:15 · 140 · build · started
+- 2026-09-28 10:17 · 140 · D1 pure name-template list logic · started
+- 2026-09-28 10:20 · 140 · D1 pure name-template list logic · done
+- 2026-09-28 10:20 · 140 · D2 persistence and main handlers · started
+- 2026-09-28 10:30 · 140 · D2 persistence and main handlers · done
+- 2026-09-28 10:30 · 140 · D3 settings UI, strings, flow · started
+- 2026-09-28 10:43 · 140 · D3 settings UI, strings, flow · done
+- 2026-09-28 10:43 · 140 · verify · started
+- 2026-09-28 10:47 · 140 · verify · blocked: ui:flow times out on first nav click in this environment even for pre-existing unrelated flow (servers-master-sources) — unit/vitest gate green, e2e inconclusive
+- 2026-09-28 10:47 · 140 · review 1 · started
+- 2026-09-28 10:50 · 140 · review 1 · done
+- 2026-09-28 10:50 · 140 · story · blocked: e2e (ui:flow) times out on first nav click in this environment, confirmed pre-existing via untouched servers-master-sources flow — unit/narrow gate + review green, status kept in-progress
+- 2026-09-28 10:56:09 · 140 · story · done (e2e gap, see sprint.md Notes)

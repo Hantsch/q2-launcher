@@ -34,10 +34,18 @@ describe('replays module', () => {
     })
     expect(outcome).toEqual({ ok: true, value: { scanning: false, demoCount: 0 } })
 
-    // `REPLAYS_HANDLERS` has exactly one entry (`overviewRead`) - proving it is registered and
-    // resolves above already proves the set of registered handler types for this module equals
-    // `Object.values(REPLAYS_HANDLERS)`, since there is nothing else it could contain.
-    expect(Object.values(REPLAYS_HANDLERS)).toEqual(['overview.read'])
+    // Story 140 D2 registers the seven `nameTemplates.*` handlers alongside `overview.read` -
+    // `Object.values(REPLAYS_HANDLERS)` is exactly this module's full registered set.
+    expect(Object.values(REPLAYS_HANDLERS)).toEqual([
+      'overview.read',
+      'nameTemplates.list',
+      'nameTemplates.add',
+      'nameTemplates.update',
+      'nameTemplates.remove',
+      'nameTemplates.reorder',
+      'nameTemplates.reset',
+      'nameTemplates.restore',
+    ])
   })
 
   it('a bad overview.read payload is rejected', async () => {

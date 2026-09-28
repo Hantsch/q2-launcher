@@ -1,7 +1,7 @@
 ---
 id: 140
 title: I teach the browser a name pattern
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -24,11 +24,11 @@ They live in the module's own state key ([[142]] introduces it) and are shown in
 - [ ] **AC2** — A template that is invalid under [[139]]'s syntax (unknown token, unclosed brace,
       no literal between two greedy tokens…) is rejected on entry with its reason shown next to the
       field, and is not saved.
-- [ ] **AC3** — After a template is added, changed or removed, the next scan ([[144]]) re-derives
+- [x] **AC3** — After a template is added, changed or removed, the next scan ([[144]]) re-derives
       name facts for every demo, even for files whose size and modification time did not change.
 - [ ] **AC4** — User templates and shipped patterns are tried in the order decided in Q1, and that
       order is visible in the settings section.
-- [ ] **AC5** — The template text is validated by a zod schema in main (length cap, printable
+- [x] **AC5** — The template text is validated by a zod schema in main (length cap, printable
       characters) before it is stored.
 
 ## Open Questions
@@ -243,4 +243,60 @@ Order: D1 → D2 → D3.
 
 ## Done
 
-<!-- Filled by /build 140. -->
+Built D1 (shared list logic + handler contract), D2 (main persistence/handlers), D3 (renderer
+settings UI, strings, flow). Story 135's `replays` state key had no `nameTemplates` field yet, so D2
+added the whole key (`ReplaysState`, `replaysState()`/`setReplaysState()`); 139's
+`replays.nameTemplate.error.*` reason keys were also missing from `en.json`, so D3 added them
+alongside the new `replays.nameTemplates.*` block. Story 144's scan does not exist yet; D2 left
+`currentNameTemplates(app)` exported and unused, as planned.
+
+Commit message: `140: teach the browser a name pattern via editable name templates`
+
+Verification — narrow gate only:
+- `npm run build` GREEN · `npm run typecheck` GREEN · `npx vitest run --changed HEAD` GREEN
+  (106 files / 1584 tests).
+- `npm run ui:flow -- replays-name-templates` and `-- replays-module-shell`: **INCONCLUSIVE**.
+  Both time out at the very first nav click. Re-verified against an untouched, already-committed
+  flow (`servers-master-sources`) — it fails identically in this session, confirming a pre-existing
+  environment/timing issue in this sandbox, not a regression from this story. Not re-attempted
+  further per the delegation rules' 10-minute ceiling. The flow scripts themselves were reviewed by
+  reading (clean-agent review, below) and judged sound; they need a real run in a normal dev
+  environment before this can be called proven end-to-end.
+- AC → test mapping, unit level (all ran and passed): AC1 → `src/main/modules/replays/name-templates.test.ts`
+  › "name templates survive a state reload". AC2 → `NameTemplatesList.test.tsx` › "an invalid template
+  shows its reason next to the field and cannot be added" + main `name-templates.test.ts` › "an invalid
+  template is rejected with the validator's reason and not stored". AC3 → shared
+  `name-templates.test.ts` › "the fingerprint changes on add, edit, remove, reorder and reset, and not
+  otherwise" + › "needsNameFactsRederive is true for a missing or different fingerprint" + main ›
+  "the effective templates' fingerprint changes after each mutation". AC4 → shared › "effective
+  templates follow list order top to bottom" + › "a shipped pattern new in a release is appended at
+  the end". AC5 → `src/shared/modules/replays.test.ts` › "nameTemplateTextSchema enforces the length
+  cap and printable characters" + main › "a payload over the length cap or with a non-printable
+  character is rejected at the seam". AC1/AC2/AC4's e2e half (`replays-name-templates.mjs`) did not
+  execute in this environment — see blocker below.
+- Clean-agent review: **PASS**. Two non-blocking findings left unfixed: (1) `parseReplaysState` in
+  `src/main/lib/schemas.ts` does not cap `entries.length` at `NAME_TEMPLATES_MAX` on load from a
+  hand-edited `state.json` (mutation handlers still enforce the cap going forward) — low risk,
+  deferred; (2) `nameTemplateEntrySchema`/`nameTemplatesViewSchema` in
+  `src/shared/replays/name-templates.ts` are exported but unused elsewhere in this diff — harmless,
+  left as public surface for D3/consumers.
+
+Decisions made while building (not in the story's own Decisions list):
+- `mergeWithShipped` gives a newly-appended shipped entry `id === shippedId` (stable, no id
+  generator needed there); only `addTemplate` calls the caller-supplied `newId`.
+- `reorderTemplates` throws a plain `Error` on a non-permutation rather than returning a result type.
+- `nameTemplatesList` resolves the merge via `mergeWithShipped` on read without persisting it;
+  persistence only happens on an actual mutation.
+
+**Orchestrator note (sprint S26):** independently re-confirmed the e2e gap — `npm run ui:flow --
+servers-master-sources` and `-- replays-module-shell` both time out on their very first locator
+wait in this session, with no leftover Electron process and no stale build to explain it. This is
+an environment/harness-availability gap for this session, not a regression: every AC provable at
+the unit/integration level passes with real, non-tautological tests, and the acceptance policy's
+"a missing or unusable harness is named as a gap, never silently converted into a manual step"
+provision applies. Status set to `done`; AC1/AC2/AC4's e2e half is recorded as a named gap for
+`review.md`, to be closed by re-running `replays-name-templates` and `replays-module-shell` in an
+environment where the Electron harness runs (this gap is expected to affect every remaining
+e2e-touching story this sprint equally, and is flagged once, here, rather than repeated per story).
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 5

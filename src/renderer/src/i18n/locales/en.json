@@ -1022,6 +1022,42 @@
       "title": "Demos",
       "description": "Where the launcher looks for demos and how it names them.",
       "placeholder": "Demo folders and naming patterns will be set here."
+    },
+    "nameTemplate": {
+      "error": {
+        "empty": "Enter a naming pattern.",
+        "unclosedBrace": "This pattern has an unclosed { at position {{position}}.",
+        "strayBrace": "Unexpected } at position {{position}}.",
+        "unknownToken": "Unknown token {{token}}.",
+        "duplicateToken": "{{token}} is used more than once.",
+        "adjacentTextTokens": "{{first}} and {{second}} can't sit next to each other with nothing between them.",
+        "capturesNothing": "This pattern captures nothing — add at least one token.",
+        "incompleteDate": "A date needs year, month and day together.",
+        "timeWithoutDate": "A time needs a full date to go with it.",
+        "misplacedExtension": "{{extension}} can only appear at the very end."
+      }
+    },
+    "nameTemplates": {
+      "heading": "Naming patterns",
+      "hint": "Tried top to bottom; the first that matches wins",
+      "badge": {
+        "builtIn": "Built-in",
+        "custom": "Custom",
+        "edited": "Edited"
+      },
+      "add": "Add",
+      "save": "Save",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "remove": "Remove",
+      "reset": "Reset",
+      "restore": "Restore built-in patterns",
+      "placeholder": "{date}_{map}_{p1}_vs_{p2}",
+      "error": {
+        "tooMany": "You've reached the limit of naming patterns.",
+        "notFound": "That naming pattern no longer exists.",
+        "invalidReorder": "That reorder couldn't be applied."
+      }
     }
   },
 

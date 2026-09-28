@@ -15,6 +15,20 @@ import { z } from 'zod'
 export const REPLAYS_HANDLERS = {
   /** Resolves to the current `ReplaysOverview` - cache-first, no network of its own. */
   overviewRead: 'overview.read',
+  /** Resolves to the current `NameTemplatesView` (story 140). */
+  nameTemplatesList: 'nameTemplates.list',
+  /** Appends a user template; payload carries the template text. */
+  nameTemplatesAdd: 'nameTemplates.add',
+  /** Updates a user template's text, or a shipped entry's override. */
+  nameTemplatesUpdate: 'nameTemplates.update',
+  /** Removes a template (a shipped one is tombstoned, not merged back in until restored). */
+  nameTemplatesRemove: 'nameTemplates.remove',
+  /** Reorders the whole list; payload is the full ordered id list. */
+  nameTemplatesReorder: 'nameTemplates.reorder',
+  /** Clears a shipped entry's override back to the shipped wording. */
+  nameTemplatesReset: 'nameTemplates.reset',
+  /** Clears every removed-shipped tombstone. */
+  nameTemplatesRestore: 'nameTemplates.restore',
 } as const
 
 /**
@@ -38,6 +52,31 @@ export const replaysOverviewSchema = z.object({
 })
 
 /**
+ * Text a user or shipped-override name template may hold: non-empty, capped so a template can't
+ * grow unbounded, printable ASCII only (keeps templates portable across the filesystems the
+ * resulting file names will land on), and never a path separator - a template names *pieces* of a
+ * file name via `{tokens}` and literals, never a directory to write into.
+ */
+export const nameTemplateTextSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(128)
+  .regex(/^[\x20-\x7E]+$/)
+  .refine((text) => !text.includes('/') && !text.includes('\\'), {
+    message: 'must not contain a path separator',
+  })
+
+/** Upper bound on how many name templates a single reorder payload may name. */
+export const NAME_TEMPLATES_MAX = 50
+
+export const nameTemplatesAddSchema = z.object({ template: nameTemplateTextSchema })
+export const nameTemplatesUpdateSchema = z.object({ id: z.string(), template: nameTemplateTextSchema })
+export const nameTemplatesRemoveSchema = z.object({ id: z.string() })
+export const nameTemplatesReorderSchema = z.object({ ids: z.array(z.string()).max(NAME_TEMPLATES_MAX) })
+export const nameTemplatesResetSchema = z.object({ id: z.string() })
+
+/**
  * Every `replays` handler paired with its payload schema - proves AC9's "every new channel exists
  * in the shared contract with a zod payload schema before its handler" for this module's own
  * handlers, and is what `replays.test.ts` iterates to check no handler is missing one.
@@ -47,6 +86,13 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   z.ZodTypeAny
 > = {
   [REPLAYS_HANDLERS.overviewRead]: replaysNoInputSchema,
+  [REPLAYS_HANDLERS.nameTemplatesList]: replaysNoInputSchema,
+  [REPLAYS_HANDLERS.nameTemplatesAdd]: nameTemplatesAddSchema,
+  [REPLAYS_HANDLERS.nameTemplatesUpdate]: nameTemplatesUpdateSchema,
+  [REPLAYS_HANDLERS.nameTemplatesRemove]: nameTemplatesRemoveSchema,
+  [REPLAYS_HANDLERS.nameTemplatesReorder]: nameTemplatesReorderSchema,
+  [REPLAYS_HANDLERS.nameTemplatesReset]: nameTemplatesResetSchema,
+  [REPLAYS_HANDLERS.nameTemplatesRestore]: replaysNoInputSchema,
 }
 
 /**

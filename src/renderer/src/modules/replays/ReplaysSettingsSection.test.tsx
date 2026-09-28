@@ -10,13 +10,20 @@ import { moduleIcon } from '../../components/shell/moduleIcons'
 import type { ReplaysSettingsSection as ReplaysSettingsSectionType } from './ReplaysSettingsSection'
 
 /**
- * Story 135 D3, mirrors `modules/servers/ServersSettingsSection.test.tsx`.
+ * Story 135 D3, mirrors `modules/servers/ServersSettingsSection.test.tsx`. Story 140 D3 extends the
+ * stub so it also answers `nameTemplates.list` - the section now renders `NameTemplatesList`, which
+ * fetches on mount.
  *
  * `../index` pulls in the renderer module registry, which needs `window.q2` stubbed at module
  * scope before it's imported, even though this file never calls `callModule` itself.
  */
 ;(globalThis as unknown as { q2: unknown }).q2 = {
-  invoke: vi.fn(() => Promise.resolve({ ok: true, value: { scanning: false, demoCount: 0 } })),
+  invoke: vi.fn((_channel: string, payload: { type?: string }) => {
+    if (payload?.type === 'nameTemplates.list') {
+      return Promise.resolve({ ok: true, value: { entries: [], canRestore: false } })
+    }
+    return Promise.resolve({ ok: true, value: { scanning: false, demoCount: 0 } })
+  }),
   on: vi.fn(() => () => {}),
 }
 
@@ -57,11 +64,11 @@ describe('replays module registration', () => {
     expect(manifest?.status).toBe('planned')
   })
 
-  it('the section renders its placeholder while it has no controls', async () => {
+  it('the section renders the naming-pattern list once it has loaded', async () => {
     render(createElement(ReplaysSettingsSection))
 
-    const placeholder = screen.getByTestId('replays-settings-placeholder')
-    expect(placeholder.textContent).toBe(en.replays.settings.placeholder)
+    const list = await screen.findByTestId('replays-name-templates')
+    expect(list).toBeDefined()
   })
 
   it('every string this story shows comes from the top-level replays block', async () => {
@@ -76,7 +83,6 @@ describe('replays module registration', () => {
       ...(manifest?.plannedHighlightKeys ?? []),
       module?.settingsSection?.titleKey,
       module?.settingsSection?.descriptionKey,
-      'replays.settings.placeholder',
     ]
 
     expect(keys.length).toBeGreaterThan(0)

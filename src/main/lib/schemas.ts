@@ -57,6 +57,12 @@ import {
   type ServersState,
   type WatchlistEntry,
 } from '@shared/modules/servers'
+import { nameTemplateTextSchema } from '@shared/modules/replays'
+import {
+  DEFAULT_NAME_TEMPLATES_STATE,
+  type NameTemplatesState,
+  type StoredNameTemplate,
+} from '@shared/replays/name-templates'
 import { parseServerAddress } from '@shared/servers/address'
 import { validateMasterSourceAddress } from '@shared/servers/master-source-address'
 import { engineKindSchema, settingsObjectSchema, sourceSchema } from '@shared/schemas'
@@ -1449,6 +1455,88 @@ export function parseUnlockState(raw: unknown): UnlockState {
     .map((result) => result.data)
 
   return { codes: dedupeByKey(rows, (row) => row.code).slice(0, MAX_UNLOCK_CODES) }
+}
+
+/**
+ * Story 140 D2: the replays module's own top-level `state.json` key - today just `nameTemplates`
+ * (`NameTemplatesState`, `src/shared/replays/name-templates.ts`). A new top-level key, same "no
+ * `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles`/`servers`/`unlock`
+ * above: it is purely additive, and a file written before this story simply lacks it and loads as
+ * `{ nameTemplates: DEFAULT_NAME_TEMPLATES_STATE }`.
+ */
+export interface ReplaysState {
+  nameTemplates: NameTemplatesState
+}
+
+function cloneDefaultNameTemplatesState(): NameTemplatesState {
+  return structuredClone(DEFAULT_NAME_TEMPLATES_STATE)
+}
+
+const storedNameTemplateSchema = z.discriminatedUnion('kind', [
+  z.object({
+    id: z.string().min(1),
+    kind: z.literal('shipped'),
+    shippedId: z.string().min(1),
+    template: z.string().nullable(),
+  }),
+  z.object({
+    id: z.string().min(1),
+    kind: z.literal('user'),
+    template: z.string(),
+  }),
+])
+
+/**
+ * One stored name-template row. Mirrors `parseServerSourceRow`'s two-step shape: a structural zod
+ * parse first, then a second, domain-specific check - here, that a non-null `template` is text
+ * `nameTemplateTextSchema` (story 140's shared validator) would actually accept, so a hand-edited or
+ * foreign `state.json` can never smuggle in a template the compiler/matcher would choke on. A
+ * `kind: 'shipped'` row with `template: null` (never edited) skips that check - there is no text to
+ * validate.
+ */
+function parseNameTemplateRow(raw: unknown): StoredNameTemplate | null {
+  const result = storedNameTemplateSchema.safeParse(raw)
+  if (!result.success) return null
+  if (result.data.template !== null && !nameTemplateTextSchema.safeParse(result.data.template).success) {
+    return null
+  }
+  return result.data
+}
+
+const nameTemplatesStateEnvelopeSchema = z.object({
+  entries: z.array(z.unknown()).catch([]),
+  removedShippedIds: z.array(z.unknown()).catch([]),
+})
+
+function parseNameTemplatesState(raw: unknown): NameTemplatesState {
+  const envelope = nameTemplatesStateEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
+  if (!envelope.success) return cloneDefaultNameTemplatesState()
+
+  const entries = dedupeByKey(
+    envelope.data.entries
+      .map(parseNameTemplateRow)
+      .filter((row): row is StoredNameTemplate => row !== null),
+    (row) => row.id,
+  )
+  const removedShippedIds = dedupeByKey(
+    envelope.data.removedShippedIds.filter((id): id is string => typeof id === 'string'),
+    (id) => id,
+  )
+
+  return { entries, removedShippedIds }
+}
+
+/**
+ * Mirrors `parseServersState`'s/`parseUnlockState`'s shape exactly - `undefined`/missing input (a
+ * `state.json` predating this story) degrades to the default, and the one nested collection
+ * (`nameTemplates`) is parsed by its own forgiving parser above rather than inline here, since it
+ * has its own envelope/row-level rules.
+ */
+export function parseReplaysState(raw: unknown): ReplaysState {
+  const nameTemplates = parseNameTemplatesState(
+    (raw as { nameTemplates?: unknown } | null | undefined)?.nameTemplates,
+  )
+  return { nameTemplates }
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

@@ -6,6 +6,7 @@ import {
   parseDownloadsSettings,
   parseHomeLayout,
   parseInstallation,
+  parseReplaysState,
   parseServersState,
 } from './schemas'
 import { DEFAULT_DOWNLOADS_SETTINGS } from '@shared/modules/downloads'
@@ -1527,5 +1528,62 @@ describe('installationSchema - checks severity: info (regression)', () => {
 
     expect(parsed).not.toBeNull()
     expect(parsed?.checks).toEqual([infoCheck])
+  })
+})
+
+/**
+ * Story 140 D2: `parseReplaysState`'s forgiving parse of the `replays` state key - mirrors
+ * `parseServersState`'s envelope/row-level-drop convention (see that describe block above).
+ */
+describe('parseReplaysState (story 140 D2)', () => {
+  it('a missing `replays` key yields the default, empty name-templates state', () => {
+    const result = parseReplaysState(undefined)
+    expect(result).toEqual({ nameTemplates: { entries: [], removedShippedIds: [] } })
+  })
+
+  it('a corrupt replays nameTemplates row is dropped, not the list', () => {
+    const validUser = { id: 'u1', kind: 'user', template: '{map}_{date}' }
+    const validShipped = { id: 's1', kind: 'shipped', shippedId: 'opentdm', template: null }
+    const malformedShape = { id: 'bad-shape', kind: 'user' } // missing `template`
+    const malformedText = { id: 'bad-text', kind: 'user', template: '{map}/{date}' } // path separator
+    const unknownKind = { id: 'bad-kind', kind: 'mystery', template: 'x' }
+
+    const result = parseReplaysState({
+      nameTemplates: {
+        entries: [validUser, validShipped, malformedShape, malformedText, unknownKind],
+        removedShippedIds: [],
+      },
+    })
+
+    expect(result.nameTemplates.entries).toEqual([validUser, validShipped])
+  })
+
+  it('an invalid envelope (not an object) falls back to the default state wholesale', () => {
+    const result = parseReplaysState({ nameTemplates: 'not an object' })
+    expect(result.nameTemplates).toEqual({ entries: [], removedShippedIds: [] })
+  })
+
+  it('duplicate entry ids are deduped, first occurrence wins', () => {
+    const first = { id: 'dup', kind: 'user', template: '{map}' }
+    const second = { id: 'dup', kind: 'user', template: '{host}' }
+
+    const result = parseReplaysState({
+      nameTemplates: { entries: [first, second], removedShippedIds: [] },
+    })
+
+    expect(result.nameTemplates.entries).toEqual([first])
+  })
+
+  it('a shipped entry whose override text is malformed is dropped', () => {
+    const badOverride = {
+      id: 's1',
+      kind: 'shipped',
+      shippedId: 'opentdm',
+      template: '{map}\\{date}',
+    }
+    const result = parseReplaysState({
+      nameTemplates: { entries: [badOverride], removedShippedIds: [] },
+    })
+    expect(result.nameTemplates.entries).toEqual([])
   })
 })

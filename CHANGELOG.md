@@ -14,6 +14,8 @@ version section when a release actually ships.
 
 ### Added
 - **Demos** now has its own home in the nav — not much to see yet, but it's there.
+- **Demos** — teach the demo browser your own file-naming patterns in Settings, alongside the
+  built-in ones.
 
 
 ## 0.5.0 — 2026-09-26
