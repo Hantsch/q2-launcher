@@ -2259,6 +2259,12 @@ function rowsSidecarFileName(demoFileName) {
   return `${demoFileName}.json`
 }
 
+/** Where `replays-rows`'s sidecar for `demoFileName` lives on disk - exported so
+ * `scripts/flows/replays-edit-sidecar.mjs` can read back what a real save wrote. */
+export function replaysRowsSidecarPath(demoFileName) {
+  return join(replaysRowsFolderPath(), rowsSidecarFileName(demoFileName))
+}
+
 /**
  * Deletes and rewrites the `replays-rows` variant: an empty `state.json` (no installations - every
  * row here lives under one registered extra folder instead), plus that folder holding:

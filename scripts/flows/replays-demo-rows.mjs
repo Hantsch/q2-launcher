@@ -19,9 +19,10 @@
 //   replays-marker-sidecar-error   DemoRow.tsx - a sidecar that failed to validate
 //   replays-marker-unreadable      DemoRow.tsx - `!row.readable`
 //   replays-marker-archive         DemoRow.tsx - an archive-entry row
-//   replays-demo-detail            ReplaysView.tsx - the side panel opened by clicking a row
-//   replays-demo-detail-title      ReplaysView.tsx - the panel's heading (the row's effective name)
-//   replays-demo-detail-close      ReplaysView.tsx - the panel's close IconButton
+//   replays-detail                  DemoDetailPanel.tsx - the side panel opened by clicking a row
+//                                   (story 155: its heading is the row's effective name, no separate
+//                                   title testid any more - assert against the panel's own text)
+//   replays-detail-close            DemoDetailPanel.tsx - the panel's close IconButton
 //   replays-refresh                ReplaysView.tsx - toggles back to "Refresh" once the scan settles
 
 import {
@@ -190,15 +191,15 @@ export default async function replaysDemoRows({ page, shot, step }) {
 
   step('clicking the sidecar\'d row opens the detail panel titled with its effective name, and closing hides it')
   await tdmRow.click({ timeout: TIMEOUT_MS })
-  const detail = page.getByTestId('replays-demo-detail')
+  const detail = page.getByTestId('replays-detail')
   await detail.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const detailTitle = await detail.getByTestId('replays-demo-detail-title').textContent()
-  if (detailTitle !== 'Fixture TDM Match') {
-    throw new Error(`replays-demo-rows: detail title expected "Fixture TDM Match", got "${detailTitle}"`)
+  const detailTitle = await detail.textContent()
+  if (!detailTitle.includes('Fixture TDM Match')) {
+    throw new Error(`replays-demo-rows: detail panel expected to mention "Fixture TDM Match", got "${detailTitle}"`)
   }
   await shot('replays-demo-rows-detail')
 
-  await detail.getByTestId('replays-demo-detail-close').click({ timeout: TIMEOUT_MS })
+  await detail.getByTestId('replays-detail-close').click({ timeout: TIMEOUT_MS })
   await detail.waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   await shot('replays-demo-rows')

@@ -1,9 +1,19 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { DemoRow as DemoRowData } from '@shared/modules/replays'
 import { initI18n } from '../../../i18n'
+
+// Story 155 D6: DemoRow's quick favourite/rating controls call the editor store, which calls
+// through `../client` - mirrors `DemoNotesEditor.test.tsx`'s stubbed-client idiom.
+const sidecarRead = vi.fn()
+const sidecarWrite = vi.fn()
+
+vi.mock('../client', () => ({
+  sidecarRead: (...args: unknown[]) => sidecarRead(...args),
+  sidecarWrite: (...args: unknown[]) => sidecarWrite(...args),
+}))
 
 let DemoRow: typeof import('./DemoRow').DemoRow
 
@@ -14,6 +24,8 @@ beforeAll(async () => {
 
 afterEach(() => {
   cleanup()
+  sidecarRead.mockReset()
+  sidecarWrite.mockReset()
 })
 
 /** A row with nothing known yet - every effective field unresolved, no sidecar, readable, not
@@ -138,12 +150,60 @@ describe('DemoRow', () => {
     expect(screen.getAllByText('–').length).toBeGreaterThan(0)
   })
 
+  it('the quick favourite/rating controls are disabled for an archive entry, with a reason', () => {
+    renderRow({
+      ...BASE_ROW,
+      archiveEntry: { archivePath: '/demos/pack.zip', entryPath: 'demo1.dm2' },
+    })
+    const favourite = screen.getByTestId('replays-row-favourite') as HTMLButtonElement
+    const rating = screen.getByTestId('replays-row-rating') as HTMLSelectElement
+    expect(favourite.disabled).toBe(true)
+    expect(rating.disabled).toBe(true)
+    const marker = screen.getByTestId('replays-marker-archive')
+    expect(favourite.getAttribute('aria-describedby')).toBe(marker.id)
+    expect(rating.getAttribute('aria-describedby')).toBe(marker.id)
+  })
+
+  it('clicking the quick favourite/rating controls never selects the row', () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: {} } })
+    sidecarWrite.mockResolvedValue({ ok: true, value: { status: 'saved', state: 'written' } })
+    let selectedId: string | undefined
+    renderRow(BASE_ROW, false, (id) => {
+      selectedId = id
+    })
+    fireEvent.click(screen.getByTestId('replays-row-favourite'))
+    fireEvent.change(screen.getByTestId('replays-row-rating'), { target: { value: '7' } })
+    expect(selectedId).toBeUndefined()
+  })
+
   it('Enter selects the row', () => {
     let selectedId: string | undefined
     renderRow(BASE_ROW, false, (id) => {
       selectedId = id
     })
-    fireEvent.keyDown(screen.getByTestId('replays-demo-row'), { key: 'Enter' })
+    // `role="button"`/`tabIndex`/`onKeyDown` live on the inner selectable subgrid, not the
+    // `replays-demo-row`-testid element (which is the outer div - see DemoRow.tsx's comment on
+    // why the two are split), so this must query the explicit `role="button"` element directly
+    // rather than by testid (the quick-favourite IconButton is also a native <button>, so a plain
+    // `getByRole('button')` would be ambiguous).
+    const rowContainer = screen.getByTestId('replays-demo-row')
+    const selectableRow = rowContainer.querySelector('[role="button"]') as HTMLElement
+    fireEvent.keyDown(selectableRow, { key: 'Enter' })
     expect(selectedId).toBe(BASE_ROW.id)
+  })
+
+  it('data-demo-id and data-archive-entry live on the replays-demo-row element, aria-pressed on the inner role=button', () => {
+    renderRow({
+      ...BASE_ROW,
+      archiveEntry: { archivePath: '/demos/pack.zip', entryPath: 'demo1.dm2' },
+    })
+    const rowEl = screen.getByTestId('replays-demo-row')
+    expect(rowEl.getAttribute('data-demo-id')).toBe(BASE_ROW.id)
+    expect(rowEl.getAttribute('data-archive-entry')).toBe('true')
+    expect(rowEl.getAttribute('role')).toBeNull()
+    const innerButton = rowEl.querySelector('[role="button"]') as HTMLElement
+    expect(innerButton).toBeTruthy()
+    expect(innerButton.getAttribute('aria-pressed')).toBe('false')
+    expect(rowEl.contains(innerButton)).toBe(true)
   })
 })

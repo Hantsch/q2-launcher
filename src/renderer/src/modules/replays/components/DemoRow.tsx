@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from 'react'
+import type { KeyboardEvent, MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Archive, FileWarning, Star, StickyNote, TriangleAlert } from 'lucide-react'
 import type { DemoRow as DemoRowData } from '@shared/modules/replays'
@@ -7,14 +7,21 @@ import { describeGamemode } from '@shared/demos/gamemode'
 import { formatDemoDuration } from '@shared/demos/duration-format'
 import { cn } from '../../../lib/cn'
 import { Badge } from '../../../components/ui/primitives'
+import { IconButton } from '../../../components/ui/Button'
 import { DEMO_LIST_GRID } from '../list-grid'
 import { formatDemoDate, formatLabel, sidesText } from '../row-format'
+import { useDemoEditorStore, type RowPatcher } from '../demo-editor-store'
 
 export interface DemoRowProps {
   row: DemoRowData
   selected: boolean
   onSelect: (id: string) => void
+  /** Patches this row's `sidecar` part in the view's list after a quick edit - same patcher the
+   * detail panel's own save uses (`ReplaysView`'s `handleRowPatched`). */
+  onRowPatched?: RowPatcher
 }
+
+const RATING_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1)
 
 /** The basename of an archive path, split on either separator - a demo may have been discovered on
  * either platform, so its stored path can carry either separator regardless of the host OS. */
@@ -42,8 +49,9 @@ function UnknownValue() {
  * name - status is never colour-only. Mirrors `../../servers/ServerRow.tsx`'s shape and
  * conventions.
  */
-export function DemoRow({ row, selected, onSelect }: DemoRowProps) {
+export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps) {
   const { t, i18n } = useTranslation()
+  const archiveMarkerId = `replays-marker-archive-${row.id}`
 
   const name = row.effective.name.value
   const gamemode = row.effective.gamemode
@@ -84,12 +92,16 @@ export function DemoRow({ row, selected, onSelect }: DemoRowProps) {
   }
 
   return (
+    // The favourite IconButton and rating select must not sit inside the row's own
+    // `role="button"` (axe `nested-interactive`), so the outer div owns the grid, the row's
+    // look and the plain click-to-select, and the selectable row is a full-width subgrid inside
+    // it - the quick controls (and the identity/status cells they used to share a flex row with)
+    // are its sibling, laid over the row's last column (the inner subgrid leaves that column an
+    // empty placeholder so the column count still lines up with `DemoListHeader`). Both controls
+    // already stop propagation, so clicking them never selects the row. Mirrors
+    // `../../servers/ServerRow.tsx`'s copy-address button.
     <div
-      role="button"
-      tabIndex={0}
       onClick={() => onSelect(row.id)}
-      onKeyDown={handleKeyDown}
-      aria-pressed={selected}
       data-testid="replays-demo-row"
       data-demo-id={row.id}
       {...(row.archiveEntry !== null ? { 'data-archive-entry': 'true' } : {})}
@@ -100,6 +112,13 @@ export function DemoRow({ row, selected, onSelect }: DemoRowProps) {
       )}
       style={{ minHeight: 56 }}
     >
+      <div
+        role="button"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        aria-pressed={selected}
+        className="col-span-full row-start-1 grid grid-cols-subgrid items-center"
+      >
       <div className="min-w-0">
         <p className="flex min-w-0 items-center gap-1.5 text-sm text-ink">
           <span className="min-w-0 flex-1 truncate" data-testid="replays-demo-name">
@@ -139,6 +158,7 @@ export function DemoRow({ row, selected, onSelect }: DemoRowProps) {
           )}
           {row.archiveEntry !== null && (
             <span
+              id={archiveMarkerId}
               data-testid="replays-marker-archive"
               className="inline-flex items-center gap-1 text-ink-muted"
             >
@@ -170,10 +190,16 @@ export function DemoRow({ row, selected, onSelect }: DemoRowProps) {
       <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-duration">
         {duration.kind === 'known' ? duration.text : <UnknownValue />}
       </span>
-      <span className="flex items-center justify-end gap-1.5">
+      {/* This column's real content (badges + quick controls) is the outer div's sibling below -
+          this placeholder just keeps the subgrid's column count lined up with the header. */}
+      <span aria-hidden="true" />
+      </div>
+
+      <span className="col-start-7 row-start-1 flex items-center justify-end gap-1.5">
         {favourite && (
           <span
             data-testid="replays-demo-favourite"
+            role="img"
             aria-label={t('replays.row.favourite')}
             className="inline-flex items-center"
           >
@@ -185,6 +211,48 @@ export function DemoRow({ row, selected, onSelect }: DemoRowProps) {
             {t('replays.row.ratingValue', { rating })}
           </span>
         )}
+        <IconButton
+          label={t('replays.row.quick.favouriteAriaLabel', { name: name ?? row.fileName })}
+          size="sm"
+          aria-pressed={favourite}
+          disabled={row.archiveEntry !== null}
+          aria-describedby={row.archiveEntry !== null ? archiveMarkerId : undefined}
+          data-testid="replays-row-favourite"
+          onClick={(event: MouseEvent) => {
+            event.stopPropagation()
+            void useDemoEditorStore
+              .getState()
+              .quickEdit(row.id, { favourite: !favourite }, onRowPatched ?? (() => {}))
+          }}
+        >
+          <Star
+            className={cn('size-3.5', favourite ? 'fill-flame-500 text-flame-500' : 'text-ink-muted')}
+            aria-hidden="true"
+          />
+        </IconButton>
+        <select
+          aria-label={t('replays.row.quick.ratingAriaLabel', { name: name ?? row.fileName })}
+          disabled={row.archiveEntry !== null}
+          aria-describedby={row.archiveEntry !== null ? archiveMarkerId : undefined}
+          data-testid="replays-row-rating"
+          value={rating !== undefined ? String(rating) : ''}
+          className="h-6 rounded-sm border border-line-strong bg-void/60 px-1 text-[11px] text-ink disabled:opacity-45"
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => {
+            event.stopPropagation()
+            const value = event.target.value
+            void useDemoEditorStore
+              .getState()
+              .quickEdit(row.id, { rating: value === '' ? null : Number(value) }, onRowPatched ?? (() => {}))
+          }}
+        >
+          <option value="">{t('replays.row.quick.noRating')}</option>
+          {RATING_OPTIONS.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
       </span>
     </div>
   )

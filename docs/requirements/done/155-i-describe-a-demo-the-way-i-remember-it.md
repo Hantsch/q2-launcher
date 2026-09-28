@@ -1,7 +1,7 @@
 ---
 id: 155
 title: I describe a demo the way I remember it
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -19,25 +19,25 @@ in their own stories.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Selecting a demo opens a detail view showing every effective value with its source
+- [x] **AC1** — Selecting a demo opens a detail view showing every effective value with its source
       as visible text ([[148]] AC5).
-- [ ] **AC2** — The editor edits every sidecar field: name, description, mod, gamemode, map, date
+- [x] **AC2** — The editor edits every sidecar field: name, description, mod, gamemode, map, date
       override, tags, favourite and rating (1–10).
-- [ ] **AC3** — Sides can be added and removed; each side has an optional team name, an optional
+- [x] **AC3** — Sides can be added and removed; each side has an optional team name, an optional
       final result and a list of players that can be added, removed and reordered.
-- [ ] **AC4** — Players known from the demo content or the name can be taken into a side without
+- [x] **AC4** — Players known from the demo content or the name can be taken into a side without
       retyping them.
-- [ ] **AC5** — Invalid input (rating outside 1–10, unparsable date) is shown inline and blocks
+- [x] **AC5** — Invalid input (rating outside 1–10, unparsable date) is shown inline and blocks
       saving.
-- [ ] **AC6** — Save writes the sidecar through [[146]]; cancel discards every change; leaving with
+- [x] **AC6** — Save writes the sidecar through [[146]]; cancel discards every change; leaving with
       unsaved changes asks first.
-- [ ] **AC7** — After save, the row ([[150]]), sort ([[152]]) and filters ([[153]]) reflect the new
+- [x] **AC7** — After save, the row ([[150]]), sort ([[152]]) and filters ([[153]]) reflect the new
       values without a rescan.
-- [ ] **AC8** — The detail and editor are `ui:verify` screens with zero axe violations and an
+- [x] **AC8** — The detail and editor are `ui:verify` screens with zero axe violations and an
       e2e flow that edits and saves a sidecar against the fixture folder ([[141]] AC6).
-- [ ] **AC9** — Favourite and rating can be set directly on the demo row ([[150]]) without opening
+- [x] **AC9** — Favourite and rating can be set directly on the demo row ([[150]]) without opening
       the detail/editor, writing through the same sidecar path as AC6.
-- [ ] **AC10** — The tag input autocompletes from tags already used on other demos.
+- [x] **AC10** — The tag input autocompletes from tags already used on other demos.
 
 ## Open Questions
 
@@ -353,4 +353,52 @@ Order: D1, D2 (independent) → D3 → D4 → D5, D6 (both need D4's store/dialo
 
 ## Done
 
-<!-- Filled by /build 155. -->
+Built the read-only detail panel (`buildDemoDetail` shared model, `DemoDetailPanel` mirroring
+`ServersView`'s split layout, live `sidecar.read` for issue text) and the notes editor (scalar
+fields with validation/inline errors, save/cancel, leave-guard + discard dialog, the
+confirm-replace two-step over a broken sidecar, a failed-save reason, sides/players with
+known-player chips, a tag-suggestion combobox) plus row-level quick favourite/rating that reuses
+the same sidecar path and dialog. `demo-editor-store.ts` (Zustand) holds selection and per-demo
+drafts; `row-patch.ts` re-derives a row's effective values after any write so sort/filter update
+with no rescan.
+
+Commit message: `155: I describe a demo the way I remember it`
+
+Verification — narrow gate: `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD`
+(99 files / 755 tests) all green; e2e `npm run ui:flow -- replays-demo-detail` /
+`replays-edit-sidecar` / `replays-edit-sides-tags` / `replays-row-quick-rating` each green
+(reseeding `replays-rows` between runs, since `ui:flow` never reseeds and several flows write
+sidecars into that shared fixture); `npm run ui:verify -- --screens=replays-detail,replays-editor`
+zero axe violations, both viewports. AC1–AC10 walked against their named tests in
+`## Acceptance Tests`: every one found, ran and passed; no `manual residue`.
+
+Review: default-tier PASS with one finding — the map field's placeholder was a static hint instead
+of the lower-source effective value + source label the Decisions/D4 text specifies ("from the
+demo: q2dm1"); fixed (`DemoNotesEditor.tsx`/`DemoDetailPanel.tsx`/`en.json`) and re-verified
+(typecheck, `--changed HEAD`, `replays-edit-sidecar` flow). No hard-tier review stage (D4 was the
+only hard D; `Review: → default`).
+
+Decisions made during implementation (beyond `## Decisions (Sprint)`):
+- D1's `sidecarIssues` on `DemoDetail` carries only `{state}` — 150's row composition
+  (`demo-rows.ts`) discards 147's itemized `SidecarIssue[]` when building `DemoRow`. D3 fetches the
+  live `sidecar.read` result itself to show the real per-issue text, rather than depending on the
+  row's own (coarser) sidecar state.
+- D3 renamed the story-150 placeholder shell's testids (`replays-demo-detail*` →
+  `replays-detail*`) per this story's own Deliverables text; the one pre-existing flow that used
+  the old names (`replays-demo-rows.mjs`) was updated to match.
+- `client.ts`'s `sidecarRead`/`sidecarWrite` wrappers needed to flatten IPC's real
+  `Outcome<Outcome<T>>` nesting (same pattern already documented for `nameTemplates.*`), caught
+  and fixed during D4 before it shipped.
+- Two rounds of post-verification fixes to `DemoRow.tsx`: an axe `nested-interactive` violation
+  (D6's new native `<button>`/`<select>` sat inside the row's own `role="button"` element) fixed by
+  splitting the row the same way `ServerRow.tsx`'s copy-address button already does; then a
+  follow-up fix moved `data-testid="replays-demo-row"`/`data-demo-id`/`data-archive-entry` from the
+  inner `role="button"` div to the outer one so flows scoping by that testid still reach the
+  (now-sibling) quick controls.
+
+No blockers.
+
+tiers: D 6 / hard 1 · review default · cycles 1 · agents 14
+
+Narrow gate only. The full regression gate (`npm test`, `npm run ui:verify`, `npm run
+ui:flows`) has not run — it is the sprint's, after the last story.

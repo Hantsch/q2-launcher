@@ -4,6 +4,7 @@ import type { DemoRow as DemoRowData } from '@shared/modules/replays'
 import type { DemoListSort, DemoSortColumn } from '@shared/replays/list-sort'
 import { DEMO_ROW_HEIGHT } from '../list-grid'
 import { visibleRange } from '../visible-range'
+import type { RowPatcher } from '../demo-editor-store'
 import { DemoListHeader } from './DemoListHeader'
 import { DemoRow } from './DemoRow'
 
@@ -11,6 +12,8 @@ export interface VirtualDemoListProps {
   rows: DemoRowData[]
   selectedId: string | null
   onSelect: (id: string) => void
+  /** Story 155 D6: forwarded straight to each `DemoRow` for its favourite/rating quick edit. */
+  onRowPatched?: RowPatcher
   /** The demos list's current column sort (story 152 D3), or `null` for the default
    * favourites-first order - forwarded straight through to `DemoListHeader`. */
   sort: DemoListSort | null
@@ -36,6 +39,7 @@ export function VirtualDemoList({
   rows,
   selectedId,
   onSelect,
+  onRowPatched,
   sort,
   onSort,
   overscan = 4,
@@ -84,7 +88,12 @@ export function VirtualDemoList({
         >
           {visibleRows.map((row, index) => (
             <li key={row.id} aria-setsize={rows.length} aria-posinset={start + index + 1}>
-              <DemoRow row={row} selected={row.id === selectedId} onSelect={onSelect} />
+              <DemoRow
+                row={row}
+                selected={row.id === selectedId}
+                onSelect={onSelect}
+                onRowPatched={onRowPatched}
+              />
             </li>
           ))}
         </ul>

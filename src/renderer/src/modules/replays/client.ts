@@ -8,8 +8,11 @@ import {
   type ReplaysOverview,
   type ReplaysScanProgress,
   type ReplaysScanStartResult,
+  type SidecarSaveResult,
+  type SidecarState,
 } from '@shared/modules/replays'
 import type { NameTemplatesView } from '@shared/replays/name-templates'
+import type { SidecarFields } from '@shared/replays/sidecar'
 import type { DemoListSort } from '@shared/replays/list-sort'
 import type { DemoListFilter } from '@shared/replays/list-filter'
 import type { Outcome } from '@shared/types'
@@ -139,6 +142,50 @@ export function setListSort(sort: DemoListSort | null): Promise<Outcome<DemoList
  * (`EMPTY_DEMO_LIST_FILTER` when nothing stored); `setListFilter` persists a full-replacement
  * filter and resolves to what was actually persisted.
  */
+/**
+ * Story 155 D1: the sidecar's renderer-side transport for a single demo, mirroring `indexRead`'s
+ * `callModule` pattern exactly. `sidecarRead` resolves to the current on-disk state (`'none'`/
+ * `'ok'`/`'error'` with itemized `issues`) plus whatever fields it could parse - this is the only
+ * place the detail panel can see specific sidecar issues, since `DemoRow.sidecar.state` (from
+ * `index.read`) drops them. `sidecarWrite` is unused by this read-only deliverable but added
+ * alongside it so the pair mirrors the shared contract 1:1.
+ */
+/** Collapses the registry's transport `Outcome` and the handler's own domain `Outcome` into one:
+ * a transport failure and a domain refusal (`replays.sidecar.error.*`) reach the caller the same way. */
+function flattenOutcome<T>(outcome: Outcome<Outcome<T>>): Outcome<T> {
+  return outcome.ok ? outcome.value : outcome
+}
+
+/** What actually crosses IPC for both sidecar handlers is a nested `Outcome<Outcome<T>>` (the
+ * module registry wraps the handler's own `Outcome` - see `listNameTemplates` above); story 155 D1
+ * typed it single-layer, which let `DemoDetailPanel` read `.state` off the inner Outcome and crash.
+ * Both wrappers flatten here, so callers only ever see one `Outcome`. */
+export async function sidecarRead(
+  demoId: string,
+): Promise<Outcome<{ state: SidecarState; values: Partial<SidecarFields> }>> {
+  return flattenOutcome(
+    await callModule<Outcome<{ state: SidecarState; values: Partial<SidecarFields> }>>(
+      'replays',
+      REPLAYS_HANDLERS.sidecarRead,
+      { demoId },
+    ),
+  )
+}
+
+export async function sidecarWrite(
+  demoId: string,
+  fields: Partial<SidecarFields>,
+  confirmReplace?: string,
+): Promise<Outcome<SidecarSaveResult>> {
+  return flattenOutcome(
+    await callModule<Outcome<SidecarSaveResult>>('replays', REPLAYS_HANDLERS.sidecarWrite, {
+      demoId,
+      fields,
+      confirmReplace,
+    }),
+  )
+}
+
 export function getListFilter(): Promise<Outcome<DemoListFilter>> {
   return callModule<DemoListFilter>('replays', REPLAYS_HANDLERS.listGetFilter)
 }

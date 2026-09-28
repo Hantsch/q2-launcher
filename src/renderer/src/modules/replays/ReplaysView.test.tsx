@@ -56,6 +56,8 @@ const {
   setListFilterMock: vi.fn(async (filter: DemoListFilter) => ({ ok: true as const, value: filter })),
 }))
 
+const sidecarReadMock = vi.fn(async () => ({ ok: true as const, value: { state: { state: 'none' as const }, values: {} } }))
+
 vi.mock('./client', () => ({
   indexRead: indexReadMock,
   scanStart: scanStartMock,
@@ -64,6 +66,7 @@ vi.mock('./client', () => ({
   setListSort: setListSortMock,
   getListFilter: getListFilterMock,
   setListFilter: setListFilterMock,
+  sidecarRead: sidecarReadMock,
 }))
 
 let ReplaysView: typeof import('./ReplaysView').ReplaysView
@@ -375,15 +378,14 @@ describe('ReplaysView - virtualised, selectable list with a detail shell (story 
     }
     await renderView([DEMO, secondDemo])
 
-    expect(screen.queryByTestId('replays-demo-detail')).toBeNull()
+    expect(screen.queryByTestId('replays-detail')).toBeNull()
 
     const [row] = screen.getAllByTestId('replays-demo-row')
     fireEvent.click(row)
 
-    const detail = await screen.findByTestId('replays-demo-detail')
+    const detail = await screen.findByTestId('replays-detail')
     expect(detail).toBeTruthy()
-    const title = screen.getByTestId('replays-demo-detail-title')
-    expect(title.textContent).toBe('ffa1_2026-01-02.dm2')
+    expect(detail.textContent).toContain('ffa1_2026-01-02.dm2')
   })
 
   it('closing the detail panel clears the selection', async () => {
@@ -391,12 +393,12 @@ describe('ReplaysView - virtualised, selectable list with a detail shell (story 
 
     const row = screen.getByTestId('replays-demo-row')
     fireEvent.click(row)
-    await screen.findByTestId('replays-demo-detail')
+    await screen.findByTestId('replays-detail')
 
-    const closeButton = screen.getByTestId('replays-demo-detail-close')
+    const closeButton = screen.getByTestId('replays-detail-close')
     fireEvent.click(closeButton)
 
-    expect(screen.queryByTestId('replays-demo-detail')).toBeNull()
+    expect(screen.queryByTestId('replays-detail')).toBeNull()
   })
 })
 

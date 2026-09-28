@@ -1153,6 +1153,61 @@
         "unreadable": "This notes file could not be read ({{code}})."
       }
     },
+    "editor": {
+      "section": "Your notes",
+      "field": {
+        "name": "Name",
+        "description": "Description",
+        "mod": "Mod",
+        "gamemode": "Game mode",
+        "map": "Map",
+        "date": "Date",
+        "favourite": "Favourite",
+        "rating": "Rating (1–10)",
+        "tags": "Tags"
+      },
+      "placeholder": {
+        "map": "e.g. q2dm1",
+        "mapFromSource": "{{source}}: {{value}}",
+        "date": "YYYY-MM-DD HH:MM"
+      },
+      "error": {
+        "rating": "Rating must be a whole number from 1 to 10.",
+        "date": "Enter a real date and time as YYYY-MM-DD HH:MM."
+      },
+      "saving": "Saving…",
+      "saveFailed": "Not saved: {{reason}}",
+      "discardDialog": {
+        "title": "Discard your unsaved notes?",
+        "body": "This demo's notes have changes you haven't saved. Discard them and move on?",
+        "keep": "Keep editing",
+        "confirm": "Discard changes"
+      },
+      "replaceDialog": {
+        "title": "Replace the broken notes file?",
+        "body": "The notes file {{fileName}} on disk has problems. Saving replaces it with your notes:",
+        "confirm": "Replace it"
+      },
+      "sides": {
+        "section": "Sides",
+        "addSide": "Add side",
+        "team": "Team name",
+        "result": "Result",
+        "removeSide": "Remove side",
+        "addPlayerPlaceholder": "Add a player…",
+        "movePlayerUp": "Move {{name}} up",
+        "movePlayerDown": "Move {{name}} down",
+        "removePlayer": "Remove {{name}}",
+        "knownPlayer": {
+          "fromDemo": "from the demo",
+          "fromFileName": "from the file name"
+        }
+      },
+      "tags": {
+        "placeholder": "Add a tag…",
+        "remove": "Remove tag {{tag}}"
+      }
+    },
     "gamemode": {
       "ctf": "CTF",
       "tdm": "TDM",
@@ -1164,7 +1219,12 @@
       "unknown": "Unknown",
       "morePlayers": "+{{count}}",
       "favourite": "Favourite",
-      "ratingValue": "{{rating}}/10"
+      "ratingValue": "{{rating}}/10",
+      "quick": {
+        "favouriteAriaLabel": "Toggle favourite for {{name}}",
+        "ratingAriaLabel": "Rating for {{name}}",
+        "noRating": "—"
+      }
     },
     "column": {
       "name": "Demo",
@@ -1224,7 +1284,27 @@
       "archive": "Inside an archive"
     },
     "detail": {
-      "close": "Close"
+      "close": "Close",
+      "knownSection": "What the browser knows",
+      "field": {
+        "name": "Name",
+        "map": "Map",
+        "mod": "Mod",
+        "gamemode": "Gamemode",
+        "sides": "Players",
+        "date": "Recorded",
+        "pov": "Point of view",
+        "host": "Host",
+        "description": "Description",
+        "tags": "Tags",
+        "favourite": "Favourite",
+        "rating": "Rating",
+        "fileName": "File name",
+        "format": "Format",
+        "duration": "Length",
+        "levelName": "Level name",
+        "source": "Source"
+      }
     }
   },
 

@@ -80,3 +80,31 @@
 - 2026-09-28 20:39 · 154 · review 2 · started
 - 2026-09-28 20:39 · 154 · review 2 · done (fixes applied and re-verified by the fix agent; no further findings)
 - 2026-09-28 20:40 · 154 · story · done
+- 2026-09-28 20:41:14 · 155 · build · started
+- 2026-09-28 20:43 · 155 · D1 demo detail model · started
+- 2026-09-28 20:43 · 155 · D2 sidecar draft model · started
+- 2026-09-28 20:47 · 155 · D1 demo detail model · done
+- 2026-09-28 20:47 · 155 · D2 sidecar draft model · done
+- 2026-09-28 20:47 · 155 · D3 detail side panel · started
+- 2026-09-28 20:55 · 155 · D3 detail side panel · done
+- 2026-09-28 20:55 · 155 · D4 notes editor core (hard) · started
+- 2026-09-28 21:07 · 155 · D4 notes editor core (hard) · done
+- 2026-09-28 21:07 · 155 · D5 sides players tags · started
+- 2026-09-28 21:16 · 155 · D5 sides players tags · done
+- 2026-09-28 21:16 · 155 · D6 row quick favourite rating · started
+- 2026-09-28 21:24 · 155 · D6 row quick favourite rating · done
+- 2026-09-28 21:24 · 155 · verify · started
+- 2026-09-28 21:29 · 155 · verify · blocked: nested-interactive axe violation + flow fixture-order collision
+- 2026-09-28 21:29 · 155 · fix nested-interactive row markup · started
+- 2026-09-28 21:34 · 155 · fix nested-interactive row markup · done
+- 2026-09-28 21:34 · 155 · verify 2 · started
+- 2026-09-28 21:38 · 155 · verify 2 · done
+- 2026-09-28 21:38 · 155 · verify 3 (final) · started
+- 2026-09-28 21:41 · 155 · verify 3 (final) · done
+- 2026-09-28 21:41 · 155 · review 1 · started
+- 2026-09-28 21:45 · 155 · review 1 · done
+- 2026-09-28 21:45 · 155 · fix map placeholder source hint · started
+- 2026-09-28 21:46 · 155 · fix map placeholder source hint · done
+- 2026-09-28 21:46 · 155 · verify 4 (post-fix) · started
+- 2026-09-28 21:48 · 155 · verify 4 (post-fix) · done
+- 2026-09-28 21:48 · 155 · story · done

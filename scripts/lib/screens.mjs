@@ -1322,6 +1322,47 @@ export const SCREENS = [
     },
   },
   {
+    id: 'replays-detail',
+    variant: 'replays-rows',
+    viewports: BOTH_VIEWPORTS,
+    // Story 155 D1: the read-only demo detail panel - `replays-rows`'s sidecar'd tdm row
+    // (`scripts/lib/fixture.mjs`'s `REPLAYS_ROWS_TDM_DEMO`) opened via a row click, `replays-detail`
+    // (`DemoDetailPanel.tsx`) is the panel this screen captures.
+    navigate: async (page) => {
+      await click(page, 'nav-replays')
+      await page
+        .getByTestId('replays-demo-list')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-demo-row')
+        .filter({ hasText: 'Fixture TDM Match' })
+        .click({ timeout: CLICK_TIMEOUT_MS })
+      await page.getByTestId('replays-detail').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
+    id: 'replays-editor',
+    variant: 'replays-rows',
+    viewports: BOTH_VIEWPORTS,
+    // Story 155: the demo notes editor (`DemoNotesEditor.tsx`) inside the detail panel - same path
+    // as `replays-detail`, then an out-of-range rating so the inline field error is on screen too.
+    navigate: async (page) => {
+      await click(page, 'nav-replays')
+      await page
+        .getByTestId('replays-demo-list')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-demo-row')
+        .filter({ hasText: 'Fixture TDM Match' })
+        .click({ timeout: CLICK_TIMEOUT_MS })
+      await page.getByTestId('replays-detail').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page.getByTestId('replays-editor-rating').fill('11', { timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-editor-error-rating')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
     id: 'replays-rows',
     variant: 'replays-rows',
     viewports: BOTH_VIEWPORTS,

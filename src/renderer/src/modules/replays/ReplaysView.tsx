@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
 import type { DemoRow, ReplaysScanProgress } from '@shared/modules/replays'
 import {
   nextSort,
@@ -16,10 +15,15 @@ import {
   EMPTY_DEMO_LIST_FILTER,
   type DemoListFilter,
 } from '@shared/replays/list-filter'
-import { Button, IconButton } from '../../components/ui/Button'
+import { Button } from '../../components/ui/Button'
+import { cn } from '../../lib/cn'
 import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
 import { VirtualDemoList } from './components/VirtualDemoList'
+import { DemoDetailPanel } from './components/DemoDetailPanel'
 import { DemoListFilterBar } from './DemoListFilterBar'
+import { useDemoEditorStore, type RowPatcher } from './demo-editor-store'
+import { ReplaceSidecarDialog } from './components/ReplaceSidecarDialog'
+import { rowWithSidecar } from './row-patch'
 import {
   getListFilter,
   getListSort,
@@ -32,6 +36,21 @@ import {
 import { deriveReplaysListState } from './list-state'
 import { sidesText } from './row-format'
 import { ReplaysListStatus } from './ReplaysListStatus'
+
+/** The list-beside-detail grid, mirroring `ServersView.tsx`'s own `detailSplit`/`DETAIL_PANE`
+ * (read there first before changing this) - one slot until a demo is selected, then a fixed
+ * 32rem detail pane beside it (or, below the `@4xl` container width, under it). */
+function detailSplit(detailOpen: boolean): string {
+  return cn(
+    'grid h-full',
+    detailOpen
+      ? 'grid-rows-[minmax(0,1fr)_minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_32rem] @4xl:grid-rows-1'
+      : 'grid-rows-1',
+  )
+}
+
+const DETAIL_PANE =
+  'min-h-0 overflow-y-auto border-t border-line bg-panel/40 @4xl:border-t-0 @4xl:border-l'
 
 /** How long a filter change waits, un-typed, before it is persisted (story 153 D5) - mirrors the
  * "debounce writes, flush on unmount" shape without pulling in a new dependency. */
@@ -90,7 +109,11 @@ export function ReplaysView() {
   // outright, never even started). A real `scan.progress` push takes over from there.
   const [scanning, setScanning] = useState(true)
   const [progress, setProgress] = useState<ReplaysScanProgress>(IDLE_SCAN_PROGRESS)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const selectedId = useDemoEditorStore((state) => state.selectedId)
+  const selectDemo = useDemoEditorStore((state) => state.select)
+  const closeDemo = useDemoEditorStore((state) => state.close)
+  const drafts = useDemoEditorStore((state) => state.drafts)
+  const cancelReplace = useDemoEditorStore((state) => state.cancelReplace)
   const [sort, setSort] = useState<DemoListSort | null>(null)
   const [filter, setFilter] = useState<DemoListFilter>(EMPTY_DEMO_LIST_FILTER)
   // Story 153 D5: rows only render once both the index (`demos !== null`) and the persisted filter
@@ -172,10 +195,7 @@ export function ReplaysView() {
 
     function applyDemos(next: DemoRow[]): void {
       setDemos(next)
-      setSelectedId((current) => {
-        if (current === null) return current
-        return next.some((demo) => demo.id === current) ? current : null
-      })
+      useDemoEditorStore.getState().deselectIfMissing(next.map((demo) => demo.id))
     }
 
     void indexRead().then((result) => {
@@ -219,6 +239,16 @@ export function ReplaysView() {
     })
   }
 
+  // Story 155: a notes save patches just that one row from its fresh `sidecar.read` - no rescan,
+  // no `index.read`, so the list keeps its place and no loading strip flashes.
+  const handleRowPatched: RowPatcher = (demoId, sidecar) => {
+    setDemos((current) =>
+      current === null
+        ? current
+        : current.map((demo) => (demo.id === demoId ? rowWithSidecar(demo, sidecar) : demo)),
+    )
+  }
+
   const rowCount = demos?.length ?? 0
   const listState = deriveReplaysListState({ scanning, rowCount })
   const selected = demos?.find((demo) => demo.id === selectedId) ?? null
@@ -229,6 +259,9 @@ export function ReplaysView() {
     () => demoFilterOptions((demos ?? []).map(demoFilterSubject)),
     [demos],
   )
+  // Story 155: every demo's own sidecar tags, for the notes editor's tag-suggestion input -
+  // `suggestTags` excludes the current draft's own tags itself, so duplicates here are harmless.
+  const otherDemosTags = useMemo(() => (demos ?? []).map((demo) => demo.sidecar.values.tags ?? []), [demos])
   const visibleDemos = useMemo(
     () => filterDemos(sortedDemos, filter, demoFilterSubject, Date.now()),
     [sortedDemos, filter],
@@ -237,11 +270,15 @@ export function ReplaysView() {
   // A row filtered out from under the current selection is deselected - mirrors `ServersView`'s
   // own filter-driven deselect.
   useEffect(() => {
-    setSelectedId((current) => {
-      if (current === null) return current
-      return visibleDemos.some((demo) => demo.id === current) ? current : null
-    })
+    useDemoEditorStore.getState().deselectIfMissing(visibleDemos.map((demo) => demo.id))
   }, [visibleDemos])
+
+  // Story 155 D6: a quick edit from the row (favourite/rating) reuses the very same
+  // `entry.replace`/`ReplaceSidecarDialog` mechanism the open editor's own Save uses - this only
+  // renders it for a demo whose panel isn't the one already showing it (`DemoNotesEditor` renders
+  // it itself when that demo is selected).
+  const rowReplaceId = Object.keys(drafts).find((id) => id !== selectedId && drafts[id]?.replace !== undefined)
+  const rowReplaceEntry = rowReplaceId !== undefined ? drafts[rowReplaceId] : undefined
 
   const sortCaption =
     sort === null
@@ -288,57 +325,63 @@ export function ReplaysView() {
           />
         </aside>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col p-5">
-          {demos !== null && filterLoaded && rowCount > 0 && visibleDemos.length === 0 && (
-            <div
-              className="flex flex-col items-center gap-3 px-6 py-12 text-center"
-              data-testid="replays-filter-no-match"
-            >
-              <p className="text-xs text-ink-muted">{t('replays.filter.noMatch')}</p>
-              <Button
-                variant="neutral"
-                size="sm"
-                onClick={() => handleFilterChange(EMPTY_DEMO_LIST_FILTER)}
-                data-testid="replays-filter-no-match-clear"
-              >
-                {t('replays.filter.clear')}
-              </Button>
+        <div className="@container min-h-0 min-w-0 flex-1">
+          <div className={detailSplit(selected !== null)}>
+            <div className="flex min-h-0 flex-col p-5">
+              {demos !== null && filterLoaded && rowCount > 0 && visibleDemos.length === 0 && (
+                <div
+                  className="flex flex-col items-center gap-3 px-6 py-12 text-center"
+                  data-testid="replays-filter-no-match"
+                >
+                  <p className="text-xs text-ink-muted">{t('replays.filter.noMatch')}</p>
+                  <Button
+                    variant="neutral"
+                    size="sm"
+                    onClick={() => handleFilterChange(EMPTY_DEMO_LIST_FILTER)}
+                    data-testid="replays-filter-no-match-clear"
+                  >
+                    {t('replays.filter.clear')}
+                  </Button>
+                </div>
+              )}
+              {demos !== null && filterLoaded && rowCount > 0 && visibleDemos.length > 0 && (
+                <VirtualDemoList
+                  rows={visibleDemos}
+                  selectedId={selectedId}
+                  onSelect={(id) => selectDemo(id)}
+                  onRowPatched={handleRowPatched}
+                  sort={sort}
+                  onSort={handleSort}
+                />
+              )}
             </div>
-          )}
-          {demos !== null && filterLoaded && rowCount > 0 && visibleDemos.length > 0 && (
-            <VirtualDemoList
-              rows={visibleDemos}
-              selectedId={selectedId}
-              onSelect={(id) => setSelectedId(id)}
-              sort={sort}
-              onSort={handleSort}
-            />
-          )}
-        </div>
 
-        {selected && (
-          <aside
-            data-testid="replays-demo-detail"
-            className="flex w-80 shrink-0 flex-col border-l border-line p-5"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <h2
-                className="min-w-0 truncate text-sm font-medium text-ink"
-                data-testid="replays-demo-detail-title"
-              >
-                {selected.effective.name.value ?? selected.fileName}
-              </h2>
-              <IconButton
-                label={t('replays.detail.close')}
-                onClick={() => setSelectedId(null)}
-                data-testid="replays-demo-detail-close"
-              >
-                <X className="size-4" aria-hidden="true" />
-              </IconButton>
-            </div>
-          </aside>
-        )}
+            {selected && (
+              <div className={DETAIL_PANE}>
+                <DemoDetailPanel
+                  row={selected}
+                  onClose={closeDemo}
+                  onRowPatched={handleRowPatched}
+                  otherDemosTags={otherDemosTags}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
+
+      {rowReplaceId !== undefined && rowReplaceEntry?.replace !== undefined && (
+        <ReplaceSidecarDialog
+          fileName={rowReplaceEntry.replace.fileName}
+          issues={rowReplaceEntry.replace.issues}
+          onConfirm={() =>
+            void useDemoEditorStore
+              .getState()
+              .quickEdit(rowReplaceId, rowReplaceEntry.pendingQuickEdit ?? {}, handleRowPatched)
+          }
+          onCancel={() => cancelReplace(rowReplaceId)}
+        />
+      )}
     </div>
   )
 }
