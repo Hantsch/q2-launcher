@@ -1,6 +1,6 @@
 ---
 sprint: S26
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S26
 milestone: 10.1–10.3 — Module & parsing, discovery & index, sidecar & precedence
 ---

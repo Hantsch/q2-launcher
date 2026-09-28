@@ -2,11 +2,14 @@
 
 ## Where we stand
 
-*As of 2026-09-27.* Phases 1–4 and 7–9 are done and merged into `dev`. Phase 10 (demo browser) is
-next: spike 133 ended in **go** for cfg polling on Windows (native helper 134 withdrawn), and its
-v1 stories 135–168 are drafted. Next step: `/sprint S26` (135–149), then S27 (150–158) and S28
-(159–168). Waiting on the user: the open questions of each sprint's stories before its start.
-Story 102 stays open and non-blocking.
+*As of 2026-09-28.* Phases 1–4 and 7–9 are done and merged into `dev`. Phase 10 (demo browser) is
+under way: S26 (milestones 10.1–10.3, stories 135–149) is done on `sprint/S26` — the `replays`
+module, dm2/MVD2 header + duration parsing, file-name patterns (shipped + user), discovery across
+installations/extra folders/zips, an incremental index, and the sidecar/precedence/gamemode data
+layer, all proven by tests. Next step: merge `sprint/S26` into `dev` (user's call), then
+`/sprint S27` (150–158, list/detail UI) and S28 (159–168, playback). Waiting on the user: the open
+questions of S27/S28's stories before each starts, same as S26's clarification round. Story 102
+stays open and non-blocking.
 
 ## Phase overview
 
@@ -21,7 +24,7 @@ Story 102 stays open and non-blocking.
 | 7 — Release & updates (beta rollout) | 1/1 | done |
 | 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
 | 9 — Game browser (server list, detail, watchlist, observing) | 7/7 | done |
-| 10 — Demo browser (library, metadata, remote-controlled playback) | 0/8 | planned |
+| 10 — Demo browser (library, metadata, remote-controlled playback) | 3/8 | in progress |
 
 ## Current phase
 
@@ -29,9 +32,9 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 10.1 | Module shell & parsing — dm2/MVD2 headers, duration, file-name patterns | planned | [S26](sprints/S26/sprint.md) | Stories 135–140; spike 133 (Windows control channel) done, go. |
-| 10.2 | Discovery & index — installations, extra folders, zips, incremental rescan | planned | S26 | Stories 141–145. |
-| 10.3 | Sidecar & precedence | planned | S26 | Stories 146–149. |
+| 10.1 | Module shell & parsing — dm2/MVD2 headers, duration, file-name patterns | done 2026-09-28 | [S26](sprints/S26/review.md) | Stories 135–140; spike 133 (Windows control channel) done, go. |
+| 10.2 | Discovery & index — installations, extra folders, zips, incremental rescan | done 2026-09-28 | S26 | Stories 141–145. |
+| 10.3 | Sidecar & precedence | done 2026-09-28 | S26 | Stories 146–149. |
 | 10.4 | Demo list — rows, states, order, search, filters | planned | [S27](sprints/S27/sprint.md) | Stories 150–154. |
 | 10.5 | Detail, edit & file actions | planned | S27 | Stories 155–158. |
 | 10.6 | Playback — Q2PRO, copy-in, r1q2 fallback, MVD2 | planned | [S28](sprints/S28/sprint.md) | Stories 159–162. |
@@ -49,6 +52,10 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 
 ## Follow-ups worth doing
 
+- `servers-sort-order`'s e2e flow reads rows via a `[data-testid^="servers-row-"]` selector that
+  also matches `ServerRow.tsx`'s `servers-row-copy-${address}` copy-address button (added on `dev`
+  before S26, commit `09c08e0`) — the flow now fails intermittently depending on render order.
+  Predates S26, not caused by it. [S26 review](../sprints/S26/review.md)
 - S25's `ui:flows` gate found only 2 of 71 flows failing (`home-dashboard-arrange`,
   `news-cover-template`, both pre-existing/environmental), not the 14 of 56 S23/S24 recorded as a
   pre-existing baseline. Whether that gap actually closed somewhere between S24 and S25, or the
