@@ -3,12 +3,10 @@
 ## Where we stand
 
 *As of 2026-09-29.* Phases 1–4 and 7–9 are done and merged into `dev`. Phase 10 (demo browser) is
-under way: S26 (milestones 10.1–10.3, stories 135–149) and S27 (milestones 10.4–10.5, stories
-150–158) are both done, on `sprint/S26` and `sprint/S27` respectively — the `replays` module now
-has its full list/search/filter/sort UI, a detail/notes editor, file actions (reveal/copy path/
-rename) and visible archive-entry read-only states, all proven by tests. Next step: merge both
-sprint branches into `dev` (user's call), then `/sprint S28` (159–168, playback). Waiting on the
-user: S28's stories' open questions before it starts, same as S26/S27's clarification rounds.
+feature-complete: S26–S28 (stories 135–168) are done on their sprint branches — S28 adds Q2PRO
+playback, copy-in, MVD2 seek, the timeline, console field, bindable demo actions and auto-record.
+Waiting on the user: merging the sprint branches into `dev`, and the manual residue in
+[S28 testplan](sprints/S28/testplan.md).
 Story 102 stays open and non-blocking.
 
 ## Phase overview
@@ -37,9 +35,9 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 | 10.3 | Sidecar & precedence | done 2026-09-28 | S26 | Stories 146–149. |
 | 10.4 | Demo list — rows, states, order, search, filters | done 2026-09-29 | [S27](sprints/S27/review.md) | Stories 150–154; 2 regressions found and fixed at the gate (152, 154). |
 | 10.5 | Detail, edit & file actions | done 2026-09-29 | S27 | Stories 155–158; 1 regression found and fixed at the gate (155); story 157's AC6 (rename while playing) is e2e-proven only once 159/S28 adds a real playback session. |
-| 10.6 | Playback — Q2PRO, copy-in, r1q2 fallback, MVD2 | planned | [S28](sprints/S28/sprint.md) | Stories 159–162. |
-| 10.7 | Timeline & binds | planned | S28 | Stories 163–167. |
-| 10.8 | Auto-record setting in the config profile | planned | S28 | Story 168. |
+| 10.6 | Playback — Q2PRO, copy-in, r1q2 fallback, MVD2 | done 2026-09-29 | [S28](sprints/S28/review.md) | Stories 159–162; r1q2 fallback cut to a Q2PRO-only guard. |
+| 10.7 | Timeline & binds | done 2026-09-29 | S28 | Stories 163–167. |
+| 10.8 | Auto-record setting in the config profile | done 2026-09-29 | S28 | Story 168. |
 
 ## Open / unprioritised
 
@@ -51,6 +49,9 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 | Two config decisions left open across the file-format rounds: the `alias cali "bind ..."` key-block-as-layer question (story 041), and bind grouping by keyboard region vs. category (story 040, decided category for now) | Never blocked anything; only relevant if a future story touches this area | Decide when a config story next needs it |
 
 ## Follow-ups worth doing
+
+- `servers-scan-settings` flaked once in S28's confirmation gate run; four pre-existing red flows (`replays-extra-folders`, `servers-filter-search`, `servers-master-sources`, `servers-sort-order`) still fail at the sprint base. [S28 review](sprints/S28/review.md)
+- Story 157's AC6 (rename while playing) can now get its real-playback e2e. [S28 review](sprints/S28/review.md)
 
 - `demo-editor-store.ts`'s `quickEdit` (fire-and-forget read-merge-write, no per-row queuing) can
   drop a field when a favourite toggle and a rating pick fire back-to-back on the same row —

@@ -1,6 +1,6 @@
 ---
 sprint: S28
-status: in-progress
+status: done
 branch: sprint/S28
 milestone: 10.6–10.8 — Playback, timeline & binds, auto-record
 ---
@@ -37,3 +37,22 @@ A demo plays in Q2PRO (copied in and cleaned up when it lives elsewhere; r1q2 fa
   times instead of once.
 - Numeric order is the build order; every `[[NNN]]` reference to a higher id is a "used later"
   mention, not a dependency.
+
+## Regression gate
+
+Ran on `sprint/S28` HEAD 9f0a558, then confirmed after fixes on 5647b5a.
+
+| Command | Result | Minutes |
+| --- | --- | --- |
+| `npm run build` | green | 0.1 |
+| `npm test` | green (5709 tests) | 0.4 |
+| `npm run ui:verify` | red: `config-care-clear` (both viewports) | 2.4 |
+| `npm run ui:flows` (9f0a558) | 94/100 | 35 |
+| `npm run ui:flows` (5647b5a, confirmation) | 95/100 | 35 |
+
+Failures and verdicts:
+
+- `care-duplicate-name`, `config-care-clear` (ui:verify) — story 167, 879c67d. Demo rows derived colliding alias names and the controls seed schema version was stale. Fixed in 89ef511.
+- `replays-archive-readonly` — story 159, c6069f9. The flow asserted Play enabled on an archive entry, but the fixture has no installation with the demo's mod, so Play is correctly disabled with its reason. Flow updated, fixed in 5647b5a.
+- `replays-extra-folders`, `servers-filter-search`, `servers-master-sources`, `servers-sort-order` — pre-existing (red at merge-base d910052).
+- `servers-scan-settings` — red only in the confirmation run, green in the first; unattributed (no second attribution per budget), reported as a flake.
