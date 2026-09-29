@@ -143,3 +143,9 @@
 - 2026-09-29 13:53 · 168 · review 1 · started
 - 2026-09-29 13:54 · 168 · review 1 · done
 - 2026-09-29 13:54 · 168 · story · done
+- 2026-09-29 13:54:54 · gate · short suites · started
+- 2026-09-29 14:00:50 · gate · short suites · done (ui:verify red: config-care-clear)
+- 2026-09-29 14:00:50 · gate · e2e-all · started
+- 2026-09-29 14:36:20 · gate · e2e-all · done (94/100, 2116s)
+- 2026-09-29 14:47:42 · gate · fix 167 · started
+2026-09-29 14:51:57 · gate · fix 167 · done

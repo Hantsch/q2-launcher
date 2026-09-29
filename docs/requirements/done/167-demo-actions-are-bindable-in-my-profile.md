@@ -216,5 +216,6 @@ Decisions:
 - Read-back test lives in `src/main/modules/config/round-trip.test.ts` (parser is main-only). q2pro r3834 source not fetchable; doc comment cites master and states the gap.
 - Reason text replaces the dash in the Options cell (truncated otherwise); fixture gained a 4th "Q2PRO Profile"; `controls-category-rename-reorder` expected rail extended by Demo playback.
 - Left unfixed (review): a conflict/layer marker wins over the reason on a disabled row with a conflicting key; speed rows' long command text truncates the name column; `alias-import.ts` unchanged (demo never a guess target).
+- Gate regression fix: demo rows were named by their raw command, so `seek -10`/`seek +10` (and 60) derived the same alias name and Care reported 3 duplicate-name rows (care-duplicate-name) - demo rows are now named by their label (`CatalogRow.name`); the `controls-seed` fixture schema mirror was still 2 so the v4 migration seeded demo rows into the Care-clear profile (config-care-clear) - now 4.
 
 tiers: D 5 / hard 1 · review default · cycles 1 · agents 8

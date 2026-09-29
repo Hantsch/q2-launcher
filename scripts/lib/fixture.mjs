@@ -1613,7 +1613,7 @@ bind s "+back" // note [q2l bogus]
 // touching `populated`/`empty` at all.
 /** Mirrors src/shared/constants.ts:14 (`STATE_SCHEMA_VERSION`), unlike the deliberately-stale
  * `STATE_SCHEMA_VERSION` above - see the comment block just above this constant. */
-const CONTROLS_SEED_SCHEMA_VERSION = 2
+const CONTROLS_SEED_SCHEMA_VERSION = 4
 
 /** Mirrors src/shared/modules/config.ts:146-150 (`TEMPLATE_ACTION_CATEGORIES`). */
 const TEMPLATE_CATEGORIES = [
