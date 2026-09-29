@@ -1,7 +1,7 @@
 ---
 sprint: S28
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress
+branch: sprint/S28
 milestone: 10.6–10.8 — Playback, timeline & binds, auto-record
 ---
 
