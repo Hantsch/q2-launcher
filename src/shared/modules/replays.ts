@@ -73,6 +73,9 @@ export const REPLAYS_HANDLERS = {
   /** Story 157: renames a demo (and its sidecar, if any) to a new stem, id-addressed - main resolves
    * the id to the real path itself. Resolves to `Outcome<{ demo: DiscoveredDemo }>`. */
   demoRename: 'demo.rename',
+  /** Story 159: plays a demo in Q2PRO (`+demo <file>`), id-addressed - main re-runs eligibility on its
+   * own data and resolves/contains the file itself. Resolves to `Outcome<void>`. */
+  demoPlay: 'demo.play',
 } as const
 
 /**
@@ -396,6 +399,13 @@ export type DemoFileActionResult = { ok: true } | { ok: false; reason: 'unknownD
  * for the same reason as `replaysDemoFileActionSchema` above. */
 export const replaysDemoRenameSchema = z.object({ id: replaysDemoIdSchema, name: z.string().max(255) }).strict()
 
+/** `demo.play`'s payload (story 159): the demo id plus the installation the renderer believes it is
+ * playing in - never a path. Main checks that id against its own eligible (active) installation and
+ * refuses a mismatch. `.strict()` for the same reason as `replaysDemoFileActionSchema` above. */
+export const replaysDemoPlaySchema = z
+  .object({ demoId: replaysDemoIdSchema, installationId: z.string().min(1).max(512) })
+  .strict()
+
 /** `sidecar.write`'s payload: the demo id plus the full replacement set of sidecar fields, and -
  * only when replacing a broken sidecar the user has confirmed - the fingerprint a previous
  * `needsConfirmation` response reported for that file (story 147). */
@@ -458,6 +468,7 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.demosReveal]: replaysDemoFileActionSchema,
   [REPLAYS_HANDLERS.demosCopyPath]: replaysDemoFileActionSchema,
   [REPLAYS_HANDLERS.demoRename]: replaysDemoRenameSchema,
+  [REPLAYS_HANDLERS.demoPlay]: replaysDemoPlaySchema,
 }
 
 /**

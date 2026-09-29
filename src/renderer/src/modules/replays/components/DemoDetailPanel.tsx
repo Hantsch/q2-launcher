@@ -9,6 +9,7 @@ import { sidecarRead } from '../client'
 import { sidesText, formatDemoDate } from '../row-format'
 import { ValueSourceLabel } from './ValueSourceLabel'
 import { DemoFileActions } from './DemoFileActions'
+import { DemoPlayAction } from './DemoPlayAction'
 import { DemoNotesEditor } from './DemoNotesEditor'
 import type { RowPatcher } from '../demo-editor-store'
 
@@ -129,6 +130,8 @@ export function DemoDetailPanel({
             ))}
           </dl>
         </div>
+
+        <DemoPlayAction demo={row} />
 
         <div data-testid="replays-detail-file-actions">
           <DemoFileActions demo={row} onRenamed={onRenamed} />

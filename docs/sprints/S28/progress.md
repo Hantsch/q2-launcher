@@ -1,1 +1,14 @@
 - 2026-09-29 09:48:21 · refine · 159-168 · started
+- 2026-09-29 09:55:51 · refine · 159-168 · done (took ~7 min)
+- 2026-09-29 09:55:51 · 159 · build · started
+- 2026-09-29 09:56 · 159 · D1 play-eligibility rule · started
+- 2026-09-29 09:57 · 159 · D1 play-eligibility rule · done
+- 2026-09-29 09:57 · 159 · D2 main demo.play handler · started
+- 2026-09-29 10:03 · 159 · D2 main demo.play handler · done
+- 2026-09-29 10:03 · 159 · D3 Play action, fixture, e2e flow · started
+- 2026-09-29 10:11 · 159 · D3 Play action, fixture, e2e flow · done
+- 2026-09-29 10:11 · 159 · verify · started
+- 2026-09-29 10:13 · 159 · verify · done
+- 2026-09-29 10:13 · 159 · review 1 · started
+- 2026-09-29 10:14 · 159 · review 1 · done
+- 2026-09-29 10:14 · 159 · story · done

@@ -113,6 +113,16 @@ export function revealDemo(demoId: string): Promise<Outcome<DemoFileActionResult
   return callModule<DemoFileActionResult>('replays', REPLAYS_HANDLERS.demosReveal, { demoId })
 }
 
+/** Story 159 D3: `demo.play` - plays one demo in the active Q2PRO installation. The handler itself
+ * returns an `Outcome<void>` (its own refusal keys), so the wire shape is nested like the
+ * `nameTemplates.*` handlers' above. */
+export function playDemo(payload: {
+  demoId: string
+  installationId: string
+}): Promise<Outcome<Outcome<void>>> {
+  return callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.demoPlay, payload)
+}
+
 export function copyDemoPath(demoId: string): Promise<Outcome<DemoFileActionResult>> {
   return callModule<DemoFileActionResult>('replays', REPLAYS_HANDLERS.demosCopyPath, { demoId })
 }

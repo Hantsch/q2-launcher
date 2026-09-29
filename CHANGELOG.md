@@ -13,6 +13,8 @@ version section when a release actually ships.
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
 ### Added
+- **Demos** — a Play button on every demo that can be played: it starts your Q2PRO with the right mod
+  and `+demo`, or tells you in plain words why it can't. No more typing console commands from memory.
 - **Demos** now has its own home in the nav — not much to see yet, but it's there.
 - **Demos** — teach the demo browser your own file-naming patterns in Settings, alongside the
   built-in ones.

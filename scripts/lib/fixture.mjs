@@ -3225,6 +3225,8 @@ export function writeFixture(variant) {
   // Story 150+ D5: the demos-list rows on a real surface - see each writer's own doc comment.
   if (variant === 'replays-rows') return writeReplaysRowsFixture()
   if (variant === 'replays-scale') return writeReplaysScaleFixture()
+  // Story 159 D3: demo playback in a stand-in Q2PRO - see `writeReplaysPlayFixture()`.
+  if (variant === 'replays-play') return writeReplaysPlayFixture()
   // Story 152 D3: `replays-sort-order` has no screen (only `scripts/flows/replays-sort-order.mjs`),
   // same reasoning as `replays-scale` above - still listed here so `npm run ui:seed` writes it too.
   if (variant === REPLAYS_SORT_ORDER_VARIANT) return writeReplaysSortOrderFixture()
@@ -3260,6 +3262,7 @@ export const FIXTURE_VARIANTS = [
   // `servers-scan` above - still listed here so `npm run ui:seed` writes it too.
   'replays-rows',
   'replays-scale',
+  'replays-play',
   'replays-sort-order',
   // Story 151 D4: `replays-list-loading`/`replays-list-error`'s own screens (`screens.mjs`) reseed
   // them.
@@ -3651,6 +3654,111 @@ export function writeJoinFixture({ servers, variant = 'servers-join' }) {
     executablePath: install.executablePath,
     spawnable: install.spawnable,
   }
+}
+
+// --- story 159 D3: `replays-play` - demos playable in a stand-in Q2PRO ---------------------------
+//
+// Two registered installations: the ACTIVE `q2pro` one (the same spawnable stand-in client as
+// `writeJoinInstallRoot()`, renamed `q2pro.exe`/`q2pro` so it classifies as q2pro; game dirs
+// `baseq2` + `ctf`) and a second, plain `r1q2` one. No real engine ever starts: the "client" is
+// 7za.exe / a shell script that exits by itself. Demos live under the q2pro install:
+// `baseq2/demos/play-base.dm2`, `ctf/demos/play-ctf.dm2` (header game dir patched to `ctf`) and
+// `baseq2/demos/play-tdm.dm2` (the unpatched fixture, header game dir `opentdm` - a mod no
+// installation has, so Play must say "Mod `opentdm` missing").
+export const REPLAYS_PLAY_Q2PRO_ID = 'fixture-replays-play-q2pro'
+export const REPLAYS_PLAY_R1Q2_ID = 'fixture-replays-play-r1q2'
+export const REPLAYS_PLAY_BASE_DEMO = 'play-base.dm2'
+export const REPLAYS_PLAY_CTF_DEMO = 'play-ctf.dm2'
+export const REPLAYS_PLAY_MISSING_MOD_DEMO = 'play-tdm.dm2'
+export const REPLAYS_PLAY_MISSING_MOD = 'opentdm'
+
+/** Returns `test.dm2` with its serverdata block's game dir rewritten to `gameDir` (block 0 =
+ * `int32 length`, then `svc_serverdata`: 1 + 4 + 4 + 1 bytes, then the null-terminated game dir). */
+function demoBytesWithGameDir(gameDir) {
+  const src = readFileSync(join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2'))
+  const blockLength = src.readUInt32LE(0)
+  const dirStart = 4 + 10
+  const dirEnd = src.indexOf(0, dirStart)
+  const patched = Buffer.concat([Buffer.from(gameDir, 'latin1'), Buffer.from([0])])
+  const out = Buffer.concat([src.subarray(0, dirStart), patched, src.subarray(dirEnd + 1)])
+  out.writeUInt32LE(blockLength - (dirEnd + 1 - dirStart) + patched.length, 0)
+  return out
+}
+
+export function replaysPlayInstallRoot() {
+  return join(gameRoot(), 'fixture-replays-play-q2pro-install')
+}
+
+export function writeReplaysPlayFixture() {
+  const userDataDir = variantUserDataDir('replays-play')
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  const root = replaysPlayInstallRoot()
+  rmDirBestEffort(root)
+  mkdirSync(join(root, 'baseq2', 'demos'), { recursive: true })
+  mkdirSync(join(root, 'ctf', 'demos'), { recursive: true })
+  writeFileSync(join(root, 'baseq2', 'pak0.pak'), 'not a real pak, just needs to exist')
+  const executablePath = join(root, process.platform === 'win32' ? 'q2pro.exe' : 'q2pro')
+  let spawnable = true
+  if (process.platform === 'win32') {
+    if (vendoredWindowsExtractorExists()) {
+      copyFileSync(vendoredWindowsExtractorPath(), executablePath)
+    } else {
+      writeFileSync(executablePath, 'placeholder - resources/bin/7za.exe was not vendored locally')
+      spawnable = false
+    }
+  } else {
+    writeFileSync(executablePath, LINUX_JOURNEY_SHELL_SCRIPT)
+    chmodSync(executablePath, 0o755)
+  }
+
+  writeFileSync(join(root, 'baseq2', 'demos', REPLAYS_PLAY_BASE_DEMO), demoBytesWithGameDir('baseq2'))
+  writeFileSync(join(root, 'ctf', 'demos', REPLAYS_PLAY_CTF_DEMO), demoBytesWithGameDir('ctf'))
+  copyFileSync(
+    join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2'),
+    join(root, 'baseq2', 'demos', REPLAYS_PLAY_MISSING_MOD_DEMO),
+  )
+
+  const r1q2Root = join(gameRoot(), 'fixture-replays-play-r1q2-install')
+  rmDirBestEffort(r1q2Root)
+  mkdirSync(join(r1q2Root, 'baseq2'), { recursive: true })
+  writeFileSync(join(r1q2Root, 'baseq2', 'pak0.pak'), 'not a real pak, just needs to exist')
+  const r1q2Exe = join(r1q2Root, process.platform === 'win32' ? 'r1q2.exe' : 'r1q2')
+  writeFileSync(r1q2Exe, 'placeholder - never launched by this flow')
+
+  const installation = (id, name, engineKind, rootPath, exe, gameDirs, sortOrder) => ({
+    id,
+    name,
+    rootPath,
+    engineKind,
+    executablePath: exe,
+    launchArgs: [],
+    activeGameDir: '',
+    detectedVersion: undefined,
+    source: 'manual',
+    status: 'ok',
+    checks: [],
+    gameDirs,
+    favorite: false,
+    sortOrder,
+    createdAt: FIXED_TIMESTAMP,
+    updatedAt: FIXED_TIMESTAMP,
+    lastValidatedAt: undefined,
+    lastPlayedAt: undefined,
+    totalPlaytimeSeconds: 0,
+  })
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    settings: { ...DEFAULT_SETTINGS, scanOnFirstRun: false, activeInstallationId: REPLAYS_PLAY_Q2PRO_ID },
+    installations: [
+      installation(REPLAYS_PLAY_Q2PRO_ID, 'Fixture Play Q2PRO', 'q2pro', root, executablePath, ['baseq2', 'ctf'], 0),
+      installation(REPLAYS_PLAY_R1Q2_ID, 'Fixture Play R1Q2', 'r1q2', r1q2Root, r1q2Exe, ['baseq2'], 1),
+    ],
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  return { userDataDir, installRoot: root, executablePath, spawnable }
 }
 
 /**

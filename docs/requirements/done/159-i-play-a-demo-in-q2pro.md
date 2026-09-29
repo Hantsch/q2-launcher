@@ -1,7 +1,7 @@
 ---
 id: 159
 title: I play a demo in Q2PRO
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -24,26 +24,26 @@ timeline is [[165]].
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Play on a demo starts the **active** installation when it is a Q2PRO that has the
+- [x] **AC1** — Play on a demo starts the **active** installation when it is a Q2PRO that has the
       demo's game dir; there is no tie-break and no other installation is ever picked automatically
       (Decisions (Sprint), User).
-- [ ] **AC2** — ~~The user can pick a different qualifying installation for this play; the choice
+- [x] **AC2** — ~~The user can pick a different qualifying installation for this play; the choice
       does not change the active installation.~~ Superseded by the (User) decision: when the active
       installation is not a Q2PRO, Play is disabled with the visible text that the selected
       installation is not Q2PRO and demo playback needs Q2PRO; the user selects a Q2PRO in the left
       rail (which makes it active) and Play becomes available. There is no per-play picker.
-- [ ] **AC3** — With no installation that has the demo's game dir — or an active Q2PRO that lacks
+- [x] **AC3** — With no installation that has the demo's game dir — or an active Q2PRO that lacks
       it — Play is disabled with the visible text "Mod `<gamedir>` missing".
-- [ ] **AC4** — The launch arguments are exactly `+set game <gamedir>` and `+demo <path relative to
+- [x] **AC4** — The launch arguments are exactly `+set game <gamedir>` and `+demo <path relative to
       the game dir's demos>`; a unit test asserts `demomap` never appears for Q2PRO.
-- [ ] **AC5** — The play handler takes the demo's id and the chosen installation's id only; main
+- [x] **AC5** — The play handler takes the demo's id and the chosen installation's id only; main
       resolves and validates the path, and a demo outside that installation's file system is not
       launched in place.
-- [ ] **AC6** — While the demo plays, the launcher treats it as a running game (game-lifecycle), the
+- [x] **AC6** — While the demo plays, the launcher treats it as a running game (game-lifecycle), the
       same as a normal launch.
-- [ ] **AC7** — On Linux with no Q2PRO installation, Play is disabled with its reason as visible text
+- [x] **AC7** — On Linux with no Q2PRO installation, Play is disabled with its reason as visible text
       (concept §13, `linux-support-analysis.md` B1).
-- [ ] **AC8** — An e2e flow plays a fixture demo against a stubbed engine process; no test starts a
+- [x] **AC8** — An e2e flow plays a fixture demo against a stubbed engine process; no test starts a
       real engine.
 
 ## Open Questions
@@ -279,4 +279,23 @@ Build order is D1, then D2, then D3. No shell edits, and no change to `buildLaun
 
 ## Done
 
-<!-- Filled by /build 159. -->
+Play in the demo detail panel starts the active Q2PRO installation through main's `demo.play`
+(`app.launch.start`, `+set game <dir> +demo <file>`, never `demomap`). One shared pure rule
+(`demoPlayEligibility`) drives the visible reason in the renderer and re-runs in main on main's data;
+containment is realpath + parent equality. Playback sessions begin on start and end once when the launch leaves starting/running.
+
+Commit message: `159: play demos in Q2PRO — active installation, eligibility rule, main demo.play, detail-panel Play`
+
+Verification: narrow gate. `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (127 files, 1775 tests) and `npm run ui:flow -- replays-play-q2pro` all green. Full gate is the sprint's.
+AC map (all passed): AC1/2/3/5/7 shared `demo-play.test.ts`; AC4/5/6 main `demo-play.test.ts`; AC7 `DemoPlayAction.test.tsx`; AC1/2/3/6/8 flow `replays-play-q2pro`. No manual residue. Gap: Linux is proven by unit + component test only (flows run on Windows).
+Review: clean sonnet agent, PASS, no findings needing fixes.
+
+Decisions:
+- Payload installationId differing from the eligible (active) one returns `replays.play.unavailable.notInInstallation` (plan named no key).
+- Unreadable header on an extra-folder source: `demoGameDir` falls back to `baseq2` (plan only specified installations).
+- Linux Q2PRO write-dir demos (`~/.q2pro/<gameDir>/demos`) are refused (spec allows only `<rootPath>`); a follow-up story if wanted.
+- Play button uses the default size (not `sm`), so no design-token deviation row was needed.
+- Unfixed review notes: main "another installation's id" test asserts only refusal not key; no symlink containment test; flow picks the r1q2 tile via `.nth(1)` and returns early if 7za.exe is not vendored (as servers-join does). eslint could not be run (config-format error, pre-existing).
+- Play button size change (sm removed) was made after the verify run; typecheck-neutral, not re-run.
+
+tiers: D 3 / hard 1 · review default · cycles 0 · agents 6

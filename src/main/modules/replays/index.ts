@@ -17,6 +17,7 @@ import {
   nameTemplatesResetSchema,
   nameTemplatesUpdateSchema,
   replaysDemoFileActionSchema,
+  replaysDemoPlaySchema,
   replaysDemoRenameSchema,
   replaysNoInputSchema,
   replaysSidecarReadSchema,
@@ -28,6 +29,7 @@ import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harn
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../downloads/7za-path'
+import { createDemoPlay } from './demo-play'
 import { createDemoRename } from './demo-rename'
 import { composeDemoRows } from './demo-rows'
 import { discoverDemos, type DiscoverContext } from './discovery'
@@ -196,7 +198,7 @@ export const replaysModule: MainModule = {
     })
 
     // Story 157: demo rename - id + stem in, main resolves the path and validates the stem itself.
-    // `playbackSessions` stays empty until playback registers into it (story 159).
+    // `playbackSessions` is filled by `demo.play` below (story 159).
     const playbackSessions = createPlaybackSessions()
     const demoRename = createDemoRename({
       scan: scanService,
@@ -206,6 +208,19 @@ export const replaysModule: MainModule = {
         const { templates, fingerprint } = currentNameTemplates(app)
         return nameMatcherFor(templates, fingerprint)
       },
+    })
+
+    // Story 159 D2: demo playback - id + installation id in, main re-runs eligibility on its own
+    // data, contains the file in that installation's demos folder, then starts the launch and
+    // registers the playback session the rename guard above checks.
+    const demoPlay = createDemoPlay({
+      readDemos: () => scanService.read(),
+      resolveFile: (id) => scanService.resolveFile(id),
+      installations: () => app.installations.list(),
+      activeInstallationId: () => app.state.settings().activeInstallationId,
+      platform: process.platform,
+      launch: app.launch,
+      sessions: playbackSessions,
     })
 
     handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())
@@ -236,6 +251,9 @@ export const replaysModule: MainModule = {
     )
     handle(REPLAYS_HANDLERS.demoRename, replaysDemoRenameSchema, (payload) =>
       demoRename.rename(payload.id, payload.name),
+    )
+    handle(REPLAYS_HANDLERS.demoPlay, replaysDemoPlaySchema, (payload) =>
+      demoPlay.play(payload.demoId, payload.installationId),
     )
 
     handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))

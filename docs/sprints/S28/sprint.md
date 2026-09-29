@@ -13,7 +13,7 @@ A demo plays in Q2PRO (copied in and cleaned up when it lives elsewhere; r1q2 fa
 
 ## Stories (in build order)
 
-- [ ] 159 — I play a demo in Q2PRO
+- [x] 159 — I play a demo in Q2PRO
 - [ ] 160 — a demo from elsewhere is copied in and cleaned up
 - [ ] 161 — without Q2PRO a demo still plays in r1q2  (scope cut by user: no r1q2 playback for now — refine decides what remains)
 - [ ] 162 — an mvd2 plays and seeks

@@ -1,0 +1,141 @@
+// @vitest-environment jsdom
+import { createElement } from 'react'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { DemoRow } from '@shared/modules/replays'
+import { initI18n } from '../../../i18n'
+
+/** Story 159 D3. Faked store + stubbed client, same idiom as `DemoFileActions.test.tsx`. */
+const invokeMock = vi.hoisted(() => vi.fn(async () => ({ ok: true as const, value: null })))
+vi.hoisted(() => {
+  ;(globalThis as unknown as { q2: unknown }).q2 = { invoke: invokeMock, on: vi.fn(() => () => {}) }
+})
+
+const playDemo = vi.fn()
+vi.mock('../client', () => ({ playDemo: (...args: unknown[]) => playDemo(...args) }))
+
+let DemoPlayAction: typeof import('./DemoPlayAction').DemoPlayAction
+let useLauncher: typeof import('../../../store/useLauncher').useLauncher
+
+beforeAll(async () => {
+  await initI18n('en')
+  ;({ DemoPlayAction } = await import('./DemoPlayAction'))
+  ;({ useLauncher } = await import('../../../store/useLauncher'))
+})
+
+afterEach(() => {
+  cleanup()
+  playDemo.mockReset()
+})
+
+function demo(over: Record<string, unknown> = {}): DemoRow {
+  return {
+    id: '0123456789abcdef',
+    fileName: 'a.dm2',
+    readable: true,
+    gameDir: 'baseq2',
+    archiveEntry: null,
+    source: { kind: 'installation', installationId: 'q', gameDir: 'baseq2' },
+    ...over,
+  } as unknown as DemoRow
+}
+
+function inst(id: string, engineKind: string, extra: Record<string, unknown> = {}) {
+  return { id, engineKind, gameDirs: ['baseq2'], runner: undefined, ...extra }
+}
+
+function setStore(opts: {
+  installations?: unknown[]
+  active?: string | null
+  platform?: string
+  phase?: string
+}) {
+  useLauncher.setState({
+    installations: (opts.installations ?? [inst('q', 'q2pro')]) as never,
+    settings: { ...useLauncher.getState().settings, activeInstallationId: opts.active ?? 'q' },
+    appInfo: { platform: opts.platform ?? 'win32' } as never,
+    launch: { phase: (opts.phase ?? 'idle') as never, installationId: null },
+  })
+}
+
+function reasonText(): string {
+  const reason = screen.getByTestId('replays-demo-play-reason')
+  const button = screen.getByTestId('replays-demo-play') as HTMLButtonElement
+  expect(button.disabled).toBe(true)
+  expect(button.getAttribute('aria-describedby')).toBe(reason.id)
+  return reason.textContent ?? ''
+}
+
+describe('DemoPlayAction (story 159 D3)', () => {
+  it('an eligible demo enables Play and sends only ids', async () => {
+    setStore({})
+    playDemo.mockResolvedValue({ ok: true, value: { ok: true, value: undefined } })
+    render(createElement(DemoPlayAction, { demo: demo() }))
+    const button = screen.getByTestId('replays-demo-play') as HTMLButtonElement
+    expect(button.disabled).toBe(false)
+    expect(screen.queryByTestId('replays-demo-play-reason')).toBeNull()
+    button.click()
+    await vi.waitFor(() =>
+      expect(playDemo).toHaveBeenCalledWith({ demoId: '0123456789abcdef', installationId: 'q' }),
+    )
+  })
+
+  it('a failure outcome shows an inline alert with the translated key', async () => {
+    setStore({})
+    playDemo.mockResolvedValue({
+      ok: true,
+      value: { ok: false, error: { key: 'replays.play.error.fileMissing' } },
+    })
+    render(createElement(DemoPlayAction, { demo: demo() }))
+    screen.getByTestId('replays-demo-play').click()
+    const alert = await screen.findByTestId('replays-demo-play-error')
+    expect(alert.getAttribute('role')).toBe('alert')
+    expect(alert.textContent).toContain('no longer on disk')
+  })
+
+  it('linux without a Q2PRO shows the reason as visible text', () => {
+    setStore({ platform: 'linux', installations: [inst('r', 'r1q2')], active: 'r' })
+    render(createElement(DemoPlayAction, { demo: demo() }))
+    expect(reasonText()).toContain('Not available on Linux')
+  })
+
+  it('a non-Q2PRO active installation shows the notQ2pro reason', () => {
+    setStore({ installations: [inst('q', 'q2pro'), inst('r', 'r1q2')], active: 'r' })
+    render(createElement(DemoPlayAction, { demo: demo() }))
+    expect(reasonText()).toContain('is not Q2PRO')
+  })
+
+  it('a mod no installation has shows the modMissing reason with the dir', () => {
+    setStore({})
+    render(createElement(DemoPlayAction, { demo: demo({ gameDir: 'opentdm' }) }))
+    expect(reasonText()).toContain('Mod `opentdm` missing')
+  })
+
+  it('a running game shows the gameRunning reason', () => {
+    setStore({ phase: 'running' })
+    render(createElement(DemoPlayAction, { demo: demo() }))
+    expect(reasonText()).toContain('already running')
+  })
+
+  it('a demo from another installation shows the notInInstallation reason', () => {
+    setStore({})
+    render(
+      createElement(DemoPlayAction, {
+        demo: demo({ source: { kind: 'installation', installationId: 'other', gameDir: 'baseq2' } }),
+      }),
+    )
+    expect(reasonText()).toContain("not in the selected installation")
+  })
+
+  it('an unsafe file name shows the unsafeName reason', () => {
+    setStore({})
+    render(createElement(DemoPlayAction, { demo: demo({ fileName: 'my demo.dm2' }) }))
+    expect(reasonText()).toContain('rename the demo')
+  })
+
+  it('a Steam-launched installation shows the needsDirectLaunch reason', () => {
+    setStore({ installations: [inst('q', 'q2pro', { runner: 'steam' })] })
+    render(createElement(DemoPlayAction, { demo: demo() }))
+    expect(reasonText()).toContain('direct launch')
+  })
+})

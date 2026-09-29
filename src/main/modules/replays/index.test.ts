@@ -90,6 +90,7 @@ describe('replays module', () => {
       'demos.reveal',
       'demos.copyPath',
       'demo.rename',
+      'demo.play',
     ])
   })
 
@@ -604,6 +605,7 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.demosReveal]: { demoId: 'nope' },
         [REPLAYS_HANDLERS.demosCopyPath]: { demoId: 'nope' },
         [REPLAYS_HANDLERS.demoRename]: { id: 'nope', name: 'renamed' },
+        [REPLAYS_HANDLERS.demoPlay]: { demoId: 'nope', installationId: 'nope' },
         [REPLAYS_HANDLERS.listGetSort]: undefined,
         [REPLAYS_HANDLERS.listSetSort]: { sort: null },
         [REPLAYS_HANDLERS.listGetFilter]: undefined,
