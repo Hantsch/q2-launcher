@@ -2,14 +2,14 @@
 
 ## Where we stand
 
-*As of 2026-09-28.* Phases 1–4 and 7–9 are done and merged into `dev`. Phase 10 (demo browser) is
-under way: S26 (milestones 10.1–10.3, stories 135–149) is done on `sprint/S26` — the `replays`
-module, dm2/MVD2 header + duration parsing, file-name patterns (shipped + user), discovery across
-installations/extra folders/zips, an incremental index, and the sidecar/precedence/gamemode data
-layer, all proven by tests. Next step: merge `sprint/S26` into `dev` (user's call), then
-`/sprint S27` (150–158, list/detail UI) and S28 (159–168, playback). Waiting on the user: the open
-questions of S27/S28's stories before each starts, same as S26's clarification round. Story 102
-stays open and non-blocking.
+*As of 2026-09-29.* Phases 1–4 and 7–9 are done and merged into `dev`. Phase 10 (demo browser) is
+under way: S26 (milestones 10.1–10.3, stories 135–149) and S27 (milestones 10.4–10.5, stories
+150–158) are both done, on `sprint/S26` and `sprint/S27` respectively — the `replays` module now
+has its full list/search/filter/sort UI, a detail/notes editor, file actions (reveal/copy path/
+rename) and visible archive-entry read-only states, all proven by tests. Next step: merge both
+sprint branches into `dev` (user's call), then `/sprint S28` (159–168, playback). Waiting on the
+user: S28's stories' open questions before it starts, same as S26/S27's clarification rounds.
+Story 102 stays open and non-blocking.
 
 ## Phase overview
 
@@ -24,7 +24,7 @@ stays open and non-blocking.
 | 7 — Release & updates (beta rollout) | 1/1 | done |
 | 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
 | 9 — Game browser (server list, detail, watchlist, observing) | 7/7 | done |
-| 10 — Demo browser (library, metadata, remote-controlled playback) | 3/8 | in progress |
+| 10 — Demo browser (library, metadata, remote-controlled playback) | 5/8 | in progress |
 
 ## Current phase
 
@@ -35,8 +35,8 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 | 10.1 | Module shell & parsing — dm2/MVD2 headers, duration, file-name patterns | done 2026-09-28 | [S26](sprints/S26/review.md) | Stories 135–140; spike 133 (Windows control channel) done, go. |
 | 10.2 | Discovery & index — installations, extra folders, zips, incremental rescan | done 2026-09-28 | S26 | Stories 141–145. |
 | 10.3 | Sidecar & precedence | done 2026-09-28 | S26 | Stories 146–149. |
-| 10.4 | Demo list — rows, states, order, search, filters | planned | [S27](sprints/S27/sprint.md) | Stories 150–154. |
-| 10.5 | Detail, edit & file actions | planned | S27 | Stories 155–158. |
+| 10.4 | Demo list — rows, states, order, search, filters | done 2026-09-29 | [S27](sprints/S27/review.md) | Stories 150–154; 2 regressions found and fixed at the gate (152, 154). |
+| 10.5 | Detail, edit & file actions | done 2026-09-29 | S27 | Stories 155–158; 1 regression found and fixed at the gate (155); story 157's AC6 (rename while playing) is e2e-proven only once 159/S28 adds a real playback session. |
 | 10.6 | Playback — Q2PRO, copy-in, r1q2 fallback, MVD2 | planned | [S28](sprints/S28/sprint.md) | Stories 159–162. |
 | 10.7 | Timeline & binds | planned | S28 | Stories 163–167. |
 | 10.8 | Auto-record setting in the config profile | planned | S28 | Story 168. |
@@ -52,10 +52,18 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 
 ## Follow-ups worth doing
 
+- `demo-editor-store.ts`'s `quickEdit` (fire-and-forget read-merge-write, no per-row queuing) can
+  drop a field when a favourite toggle and a rating pick fire back-to-back on the same row —
+  reproduced against unmodified code, so it predates S27's own regression and wasn't caused by it.
+  Worth its own story if `replays-row-quick-rating` starts flaking in CI. [S27 review](../sprints/S27/review.md)
 - `servers-sort-order`'s e2e flow reads rows via a `[data-testid^="servers-row-"]` selector that
   also matches `ServerRow.tsx`'s `servers-row-copy-${address}` copy-address button (added on `dev`
   before S26, commit `09c08e0`) — the flow now fails intermittently depending on render order.
-  Predates S26, not caused by it. [S26 review](../sprints/S26/review.md)
+  Predates S26, not caused by it; still failing as of S27. [S27 review](../sprints/S27/review.md)
+- `servers-filter-search`, `servers-master-sources` and `replays-extra-folders` all still fail
+  `ui:flows`, confirmed pre-existing again this sprint (reproduce at S27's merge-base with `dev`)
+  — none touched by any S26/S27 commit; worth a dedicated sweep rather than re-discovering them at
+  every future gate. [S27 review](../sprints/S27/review.md)
 - S25's `ui:flows` gate found only 2 of 71 flows failing (`home-dashboard-arrange`,
   `news-cover-template`, both pre-existing/environmental), not the 14 of 56 S23/S24 recorded as a
   pre-existing baseline. Whether that gap actually closed somewhere between S24 and S25, or the
