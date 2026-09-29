@@ -2,15 +2,11 @@
 
 ## Where we stand
 
-*As of 2026-09-29.* Phases 1–4 and 7–9 are done and merged into `dev`. Phase 10 (demo browser) is
-feature-complete: S26–S28 (stories 135–168) are done on their sprint branches — S28 adds Q2PRO
-playback, copy-in, MVD2 seek, the timeline, console field, bindable demo actions and auto-record.
-Waiting on the user: merging the sprint branches into `dev`, and the manual residue in
-[S28 testplan](sprints/S28/testplan.md).
-Live use of S28 showed fullscreen hides the timeline and in-game `quit`/binds do nothing on Windows;
-spike 169 found the cause (the control loop starves in-game commands) and a way to a windowed stage —
-milestone 10.9, sprint [S29](sprints/S29/sprint.md) (stories 170–174), is planned.
-Story 102 stays open and non-blocking.
+*As of 2026-09-29.* Phases 1–4 and 7–10 are done; 1–4 and 7–9 are merged into `dev`, Phase 10 (demo
+browser, S26–S29) sits on its sprint branches. S29 finished: the demo plays on a stage in the
+launcher, fullscreen is a choice with a way back, the timeline can stop it, the game console is quiet
+and an added server address is saved right away. Waiting on the user: merging the sprint branches
+into `dev` and the manual residue in the [S28](sprints/S28/testplan.md) and [S29](sprints/S29/testplan.md) testplans.
 
 ## Phase overview
 
@@ -25,7 +21,7 @@ Story 102 stays open and non-blocking.
 | 7 — Release & updates (beta rollout) | 1/1 | done |
 | 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
 | 9 — Game browser (server list, detail, watchlist, observing) | 7/7 | done |
-| 10 — Demo browser (library, metadata, remote-controlled playback) | 8/9 | in progress |
+| 10 — Demo browser (library, metadata, remote-controlled playback) | 9/9 | done |
 
 ## Current phase
 
@@ -41,7 +37,7 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 | 10.6 | Playback — Q2PRO, copy-in, r1q2 fallback, MVD2 | done 2026-09-29 | [S28](sprints/S28/review.md) | Stories 159–162; r1q2 fallback cut to a Q2PRO-only guard. |
 | 10.7 | Timeline & binds | done 2026-09-29 | S28 | Stories 163–167. |
 | 10.8 | Auto-record setting in the config profile | done 2026-09-29 | S28 | Story 168. |
-| 10.9 | Demo plays in the launcher — windowed stage, fullscreen by choice, stop, no console flood | planned | [S29](sprints/S29/sprint.md) | Spike 169 done (go); stories 170–174. |
+| 10.9 | Demo plays in the launcher — windowed stage, fullscreen by choice, stop, no console flood | done 2026-09-29 | [S29](sprints/S29/review.md) | Stories 170–175 (spike 169); 2 regressions found and fixed at the gate (173, 170). |
 
 ## Open / unprioritised
 
@@ -54,7 +50,10 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 
 ## Follow-ups worth doing
 
-- `servers-scan-settings` flaked once in S28's confirmation gate run; four pre-existing red flows (`replays-extra-folders`, `servers-filter-search`, `servers-master-sources`, `servers-sort-order`) still fail at the sprint base. [S28 review](sprints/S28/review.md)
+- Five flows are red at the sprint base and stay red after S29 (`replays-archive-readonly`, `replays-extra-folders`, `servers-filter-search`, `servers-master-sources`, `servers-sort-order`) — a dedicated sweep beats rediscovering them at every gate. [S29 review](sprints/S29/review.md)
+- Add `writeCatalogDefaults` to `captureBaseline` (`src/shared/config/profile-baseline.ts`): today a pending catalog-defaults toggle lands on disk with an address-book add. [S29 review](sprints/S29/review.md)
+- Stage cvar restore edges: a launcher quit while the game runs lets the stage values persist, and negative display origins (`+-X` in `vid_geometry`) are unverified against real Q2PRO. [S29 review](sprints/S29/review.md)
+- A stop whose kill succeeds but never yields an `exit` event leaves the UI on "Stopping…" (e.g. a Linux wine wrapper). [S29 review](sprints/S29/review.md)
 - Story 157's AC6 (rename while playing) can now get its real-playback e2e. [S28 review](sprints/S28/review.md)
 
 - `demo-editor-store.ts`'s `quickEdit` (fire-and-forget read-merge-write, no per-row queuing) can

@@ -115,3 +115,5 @@
 - 21:00:02 · gate · fix 170 (ui:verify replays-timeline@940x620) · started
 
 - 21:03:41 · gate · fix 170 (replays-timeline@940x620) · screens.mjs navigate waits for list OR timeline (stage mode hides list); ui:verify 114/0 axe, replays-stage+timeline flows, typecheck green
+- 21:03:49 · gate · e2e-all (confirmation) · started
+- 21:42:07 · gate · recorded (102/107, 5 pre-existing)

@@ -1,0 +1,9 @@
+# S29 — manual residue
+
+Needs a real Q2PRO installation (e.g. `C:\Games\Q2Pro`), the licensed Quake II data and a GPU; the stub engine opens no window and renders nothing. The spike tools in `spikes/169-windowed-stage/` (`harness.mjs`, `win-probe.ps1`) help measure window position and topmost state.
+
+1. **Stage placement (170 AC2).** Play a demo from the Demos view. Repeat at 100 % and 150 % display scaling, on a second monitor (also one left of the primary, i.e. a negative origin), and on Linux X11. Expected: the game's client area covers the stage picture exactly, borderless and topmost; on the negative-origin monitor `vid_geometry` (`+-X`) is honoured or the result is recorded as a follow-up.
+2. **Off-desktop park (171 AC2).** While a demo plays, minimize the launcher, then restore it. Expected: the game window is not visible on any monitor while parked (no clamp back onto a screen), and returns exactly onto the stage on restore.
+3. **Topmost against another program (171 AC3).** With a demo playing, bring another program (e.g. a browser) to the front, then click the launcher again. Expected: the game window stays behind the other program, and is on top of the launcher's stage again once the launcher is foreground.
+4. **Fullscreen steering (172 AC2).** Bind a demo action (e.g. jump +10) and "Back to window" in a Q2PRO profile, play a demo, press the fullscreen button. Press the bound jump key, type `quit` or a cvar in the game console, then press the "Back to window" key. Expected: binds and console work in fullscreen (the very first press right after the switch may be ignored), and the demo returns to the stage with the timeline steering again.
+5. **Quiet console and chat HUD (174 AC1).** Play a demo that contains chat lines. Expected: no notify lines at the top of the picture, the chat shows in the chat HUD. (The D1 probe already passed once against `C:\Games\Q2Pro`; this is the short re-check.)

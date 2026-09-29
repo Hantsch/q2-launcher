@@ -1,6 +1,6 @@
 ---
 sprint: S29
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S29
 milestone: 10.9 — Demo plays in the launcher (stage, fullscreen by choice, stop)
 ---
@@ -40,3 +40,14 @@ timeline can stop the demo; the game console is no longer flooded by the launche
   choices (stage layout, archived cvars, Wayland, queued presses, chat notify lines).
 - Real-window behaviour (DPI, topmost, focus) cannot be proven by the stub engine alone — expect
   manual residue in 170/171/172 against the real Q2PRO, as in 133/169.
+
+## Regression gate
+
+Ran on sprint/S29 at 8765ff7 (after two fix commits).
+
+- `npm run build` green (~5 s) · `npm test` green (~0.5 min, 405 files / 5842 tests) · `npm run ui:verify` green after fix (114 shots, 0 axe violations) · `npm run ui:flows` 102/107 in 38 min.
+- First pass at ea6136a was red: 9 flows + 1 ui:verify screen.
+  - `replays-stage`, `replays-stage-follow`, `replays-stage-overlays`, `replays-stage-view-leave` — story 173 (effb5ce): the Windows stage-hint paragraph resized the stage box after go-live. Fixed in 0acf61a.
+  - ui:verify `replays-timeline@940x620` — story 170 (ccaa984): screen definition stale against stage mode (list hidden). Fixed in 8765ff7.
+  - `replays-archive-readonly`, `replays-extra-folders`, `servers-filter-search`, `servers-master-sources`, `servers-sort-order` — pre-existing (also red at the sprint start a4a4145); not fixed here. (archive-readonly: judgement — the local installation is not Q2PRO.)
+- Confirmation run: only those 5 pre-existing flows remain red. No blocker.
