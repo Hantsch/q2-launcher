@@ -2743,16 +2743,45 @@ function replaysScaleFolderPath() {
 /** How many placeholder `.dm2` files `replays-scale` seeds - exported so
  * `scripts/flows/replays-list-scale.mjs` never hand-types this count a second time. */
 export const REPLAYS_SCALE_FILE_COUNT = 3000
-/** The last (highest-numbered) file's name - what the flow scrolls to the end of the list to find. */
-export const REPLAYS_SCALE_LAST_FILE_NAME = `scale-${String(REPLAYS_SCALE_FILE_COUNT).padStart(4, '0')}.dm2`
+
+/** Base instant for the deterministic per-file mtimes below - comfortably earlier than "now" for as
+ * long as this repo runs (see the birthtime note below), and distinct from other fixtures'
+ * `FIXED_TIMESTAMP` so nothing here can collide with another variant's files. */
+const REPLAYS_SCALE_BASE_TIMESTAMP_MS = Date.parse('2026-01-01T00:00:00.000Z')
+
+/**
+ * Regression note (sprint gate fix for story 152, "favourites first, then newest"): this used to be
+ * the *highest*-numbered file (`scale-3000.dm2`), which was correct only while the demos list had no
+ * default sort and rendered rows in raw scan order - scrolling a plain, unsorted list to the bottom
+ * reached whatever was written last. Once 152 shipped the default order (favourites first, then
+ * newest by effective date - `src/shared/replays/list-sort.ts`), the *newest* file sorts to the
+ * *top* of the list, not the bottom: these placeholder files have neither a sidecar nor a readable
+ * header, so their effective date always falls back to file time
+ * (`src/shared/demos/effective-values.ts`'s `effectiveFileTime`), and the highest-numbered file was
+ * also the most-recently-written one. The file reachable by scrolling to the *end* of the list under
+ * 152's "newest first" order is now the *oldest* one - file 1 - which is what this constant (and the
+ * flow that imports it) point at.
+ *
+ * The per-file mtimes below are deliberately backdated to strictly increasing, one-second-apart
+ * instants (`fs.utimesSync`, same idiom as `writeDownloadsCacheArchives()` above) rather than left
+ * at their incidental real write-time mtimes: writing 3 000 files in a tight loop clusters many of
+ * them into the same few-millisecond filesystem-timestamp bucket, which would make "which single
+ * file has the unique oldest date" a matter of FS timing rather than a deterministic fixture. Node's
+ * `utimesSync` only backdates atime/mtime, never birthtime, so each file's real (recent) birthtime
+ * stays later than every one of these synthetic, backdated mtimes - `effectiveFileTime` requires
+ * `birthtimeMs <= mtimeMs` to prefer birthtime, so it always falls back to the deterministic mtime
+ * set here.
+ */
+export const REPLAYS_SCALE_LAST_FILE_NAME = 'scale-0001.dm2'
 
 /**
  * Deletes and rewrites the `replays-scale` variant: an empty `state.json` (no installations), plus
  * one registered extra folder holding `REPLAYS_SCALE_FILE_COUNT` placeholder `.dm2` files
- * (`scale-0001.dm2` … `scale-3000.dm2`) - purely to prove the list virtualises rather than mounting
- * every row at once. Placeholder bytes only, same convention as `REPLAYS_FIXTURE_DEMO_CONTENT`
- * above - this variant never asserts on any row's parsed content, only on how many `DemoRow`s the
- * DOM holds and whether the last one is reachable by scrolling.
+ * (`scale-0001.dm2` … `scale-3000.dm2`), each with its own deterministic, strictly increasing mtime
+ * (oldest to newest) - purely to prove the list virtualises rather than mounting every row at once.
+ * Placeholder bytes only, same convention as `REPLAYS_FIXTURE_DEMO_CONTENT` above - this variant
+ * never asserts on any row's parsed content, only on how many `DemoRow`s the DOM holds and whether
+ * the one at the bottom of 152's default sort order is reachable by scrolling.
  */
 export function writeReplaysScaleFixture() {
   const userDataDir = variantUserDataDir('replays-scale')
@@ -2773,7 +2802,10 @@ export function writeReplaysScaleFixture() {
 
   for (let i = 1; i <= REPLAYS_SCALE_FILE_COUNT; i += 1) {
     const name = `scale-${String(i).padStart(4, '0')}.dm2`
-    writeFileSync(join(folder, name), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+    const filePath = join(folder, name)
+    writeFileSync(filePath, REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+    const mtime = new Date(REPLAYS_SCALE_BASE_TIMESTAMP_MS + i * 1000)
+    utimesSync(filePath, mtime, mtime)
   }
 
   return { userDataDir, installations: 0, configProfiles: 0 }

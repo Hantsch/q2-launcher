@@ -240,4 +240,23 @@ it is a coverage nicety, not a criterion gap. Also confirmed: the `findPathLeak`
 `src/shared/modules/replays.test.ts` (avoiding a false positive on the new `direction` field) is
 in-scope and consistent with that file's existing `gameDir` precedent.
 
+**Sprint gate regression fix (S27):** `scripts/flows/replays-list-scale.mjs` ([[150]]'s own scale
+flow) broke starting at this story's commit. [[150]]'s `replays-scale` fixture has no sidecars, so
+every row's effective date always fell back to real file-system mtime
+(`effectiveFileTime`/`src/shared/demos/effective-values.ts`); before this story the list rendered in
+raw scan order, so the highest-numbered, most-recently-written file (`scale-3000.dm2`) landed at the
+bottom, reachable by scrolling to the end. This story's default order (favourites first, then newest
+by effective date) sorts that same most-recently-written file to the *top* instead, so the flow's
+scroll-to-end assertion timed out waiting for a row that had moved out of view at the other end of
+the list — the flow's expectation of *which* file sits at the bottom was simply stale, not a defect
+in the sort itself. Fixed in `scripts/lib/fixture.mjs`'s `writeReplaysScaleFixture()`: each seeded
+file now gets a deterministic, strictly increasing mtime (`fs.utimesSync`, one second apart) instead
+of its incidental real write-time mtime — the tight write loop otherwise clusters many files into
+the same FS-timestamp bucket, which made "which single file is oldest" a timing accident rather than
+a fact the fixture could stand on. `REPLAYS_SCALE_LAST_FILE_NAME` now points at `scale-0001.dm2` (the
+deterministically oldest file, which sorts to the bottom under this story's default order) instead of
+`scale-3000.dm2`. No product code changed. `npm run ui:flow -- replays-list-scale` green ×3 after the
+fix; `replays-sort-order` and `replays-demo-rows` (the other two flows sharing this fixture module)
+re-verified green.
+
 tiers: D 3 / hard 0 · review default · cycles 0 · agents 5
