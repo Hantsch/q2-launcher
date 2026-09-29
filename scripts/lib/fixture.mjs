@@ -27,7 +27,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { deflateSync } from 'node:zlib'
+import { deflateSync, gzipSync } from 'node:zlib'
 import { assertInside, REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 import { variantUserDataDir } from './harness.mjs'
 // Story 121 D2: the three `servers-list*` screens' loopback stub ports/URL - imported here (not
@@ -3759,6 +3759,28 @@ export function writeReplaysPlayFixture(variant = 'replays-play') {
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
 
   return { userDataDir, installRoot: root, executablePath, spawnable }
+}
+
+// Story 162 D1: the `replays-play` install plus an `.mvd2` and an `.mvd2.gz` in its `baseq2/demos/`
+// (names reuse `REPLAYS_FIXTURE_DEMOS`' literals; the gz is the same PFAU fixture, gzipped here).
+export const REPLAYS_PLAY_MVD2_DEMO = 'team_q2dm3.mvd2'
+export const REPLAYS_PLAY_MVD2_GZ_DEMO = 'tourney.mvd2.gz'
+export const REPLAYS_PLAY_MVD2_GAME_DIR = 'opentdm'
+
+export function writeReplaysPlayMvd2Fixture(variant) {
+  const result = writeReplaysPlayFixture(variant)
+  // The PFAU recording's header names game dir `opentdm`, so the Q2PRO install must have that mod.
+  mkdirSync(join(result.installRoot, REPLAYS_PLAY_MVD2_GAME_DIR), { recursive: true })
+  writeFileSync(join(result.installRoot, REPLAYS_PLAY_MVD2_GAME_DIR, 'pak0.pak'), 'not a real pak, just needs to exist')
+  const statePath = join(result.userDataDir, STATE_FILE)
+  const state = JSON.parse(readFileSync(statePath, 'utf8'))
+  state.installations[0].gameDirs.push(REPLAYS_PLAY_MVD2_GAME_DIR)
+  writeJson(statePath, state)
+  const demosDir = join(result.installRoot, 'baseq2', 'demos')
+  const bytes = readFileSync(join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2'))
+  writeFileSync(join(demosDir, REPLAYS_PLAY_MVD2_DEMO), bytes)
+  writeFileSync(join(demosDir, REPLAYS_PLAY_MVD2_GZ_DEMO), gzipSync(bytes))
+  return result
 }
 
 // --- story 160 D3: the copy-in flows' fixture ----------------------------------------------------

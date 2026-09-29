@@ -1,7 +1,7 @@
 ---
 id: 162
 title: an mvd2 plays and seeks
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -16,13 +16,13 @@ playback outside v1 (§2).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Play on an `.mvd2` (and `.mvd2.gz`) starts Q2PRO with `+set game` and `+demo`, like
+- [x] **AC1** — Play on an `.mvd2` (and `.mvd2.gz`) starts Q2PRO with `+set game` and `+demo`, like
       [[159]].
-- [ ] **AC2** — Timeline seeking on an MVD2 uses the command decided in Q2, and a unit test pins the
+- [x] **AC2** — Timeline seeking on an MVD2 uses the command decided in Q2, and a unit test pins the
       command per format.
-- [ ] **AC3** — Which player is followed after the start is documented (Q1), and the detail view
+- [x] **AC3** — Which player is followed after the start is documented (Q1), and the detail view
       states it where it matters.
-- [ ] **AC4** — On r1q2, MVD2 stays disabled with its reason ([[161]] AC3).
+- [x] **AC4** — On r1q2, MVD2 stays disabled with its reason ([[161]] AC3).
 
 ## Open Questions
 
@@ -132,4 +132,22 @@ Review: → default
 
 ## Done
 
-<!-- Filled by /build 162. -->
+Server-side `.mvd2` / `.mvd2.gz` demos play through 159's format-agnostic path (no production change
+needed, pinned by tests). One pure `demoSeekCommand(format, target)` sends `seek` for both formats; the
+detail panel states, for MVD2 rows, that Q2PRO chooses the followed player. Concept §6.4/§17.9 corrected.
+
+Commit message: `162: mvd2 plays and seeks — play args pinned, demoSeekCommand (seek for dm2+mvd2), MVD2 detail note`
+
+Verification (narrow gate; full regression gate is the sprint's): `npm run build`, `npm run typecheck`,
+`npx vitest run --changed HEAD` (101 files / 777 tests), `npm run ui:flow -- replays-play-mvd2` — all green.
+AC1 -> flow replays-play-mvd2.mjs + demo-play.test.ts "keeps its full extension"; AC2 -> demo-control.test.ts;
+AC3 -> DemoDetailPanel.test.tsx + flow note step; AC4 -> demo-play.test.ts r1q2 case. All passed. No manual residue.
+Review (default tier): PASS, no findings.
+
+Decisions:
+- In-place play passes `+demo <fileName>` (relative to `demos/`, as 159's own flow asserts), not `demos/<file>`; kept 159's behaviour, full extension retained.
+- The fixture MVD2's header names gamedir `opentdm`, so the flow's Q2PRO fixture gains an `opentdm` game dir and asserts `+set game opentdm`.
+- The MVD2 note also shows when Play is disabled on r1q2 (it describes Q2PRO behaviour; harmless).
+- CHANGELOG entry added under Added.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 5

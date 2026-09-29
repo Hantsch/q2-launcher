@@ -17,6 +17,7 @@ version section when a release actually ships.
   launcher slips a temporary copy into your Q2PRO and tidies it away when the game ends.
 - **Demos** — a Play button on every demo that can be played: it starts your Q2PRO with the right mod
   and `+demo`, or tells you in plain words why it can't. No more typing console commands from memory.
+- **Demos** — server-side `.mvd2` demos (and `.mvd2.gz`) play like any other, with a note on who the camera follows.
 - **Demos** now has its own home in the nav — not much to see yet, but it's there.
 - **Demos** — teach the demo browser your own file-naming patterns in Settings, alongside the
   built-in ones.

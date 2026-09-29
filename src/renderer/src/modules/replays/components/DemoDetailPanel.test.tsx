@@ -112,6 +112,18 @@ describe('DemoDetailPanel', () => {
     expect(screen.getByTestId('replays-detail-sidecar-issues').textContent).toContain('valid JSON')
   })
 
+  it('an mvd2 row states who the camera follows; a dm2 row does not', () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
+    renderPanel({ ...BASE_ROW, fileName: 'team.mvd2', format: 'mvd2', gzip: false })
+    expect(screen.getByTestId('demo-detail-mvd2-note').textContent).toContain('cmd chase <player>')
+    cleanup()
+    renderPanel({ ...BASE_ROW, fileName: 'tourney.mvd2.gz', format: 'mvd2', gzip: true })
+    expect(screen.getByTestId('demo-detail-mvd2-note')).toBeTruthy()
+    cleanup()
+    renderPanel(BASE_ROW)
+    expect(screen.queryByTestId('demo-detail-mvd2-note')).toBeNull()
+  })
+
   it('close calls onClose', () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
     const onClose = vi.fn()

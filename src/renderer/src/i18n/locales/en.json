@@ -1341,6 +1341,7 @@
     "detail": {
       "close": "Close",
       "knownSection": "What the browser knows",
+      "mvd2Note": "Server-side demo with every player. Q2PRO chooses whom the camera follows — switch in game with invnext / invprev or cmd chase <player>.",
       "field": {
         "name": "Name",
         "map": "Map",

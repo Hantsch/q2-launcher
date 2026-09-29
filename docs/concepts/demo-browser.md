@@ -260,7 +260,7 @@ untested.
 
 `MVD2` magic, then `[uint16 LE length][data]` blocks, 0 = end; header `mvd_serverdata` (protocol
 37, version 2009–2012, gamedir), then configstrings. Only Q2PRO plays it; it is auto-detected by
-`demo`, and seeking uses `mvdseek`. [V]
+`demo`, and seeking uses `seek` (not `mvdseek`; spike 133). [V]
 
 ## 7. Where demos come from and how they are named
 
@@ -648,8 +648,10 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
 7. **Jump step sizes and speed steps** — placeholders (±10 s / ±60 s, 0.25×–4×) until decided.
 8. **Temporary copy cleanup** — exact rule after a crash (sweep `_launcher/` at startup? only files
    the launcher recorded?), and behaviour when the target is not writable.
-9. **MVD2 playback** — which player Q2PRO follows by default, whether the launcher offers a POV
-   choice, and `mvdseek` vs. `seek` on the timeline.
+9. **MVD2 playback** — **resolved** (story [[162]], `src/shared/replays/demo-control.ts`): the
+   launcher does not pick the followed player and offers no POV choice; Q2PRO's own in-game
+   controls (`cmd invnext` / `cmd invprev` / `cmd chase`) switch it. The timeline sends `seek` for
+   both formats (`mvdseek` is not used; spike 133).
 10. **Demo binds in r1q2 profiles** — seek does not exist in r1q2; hide those actions in r1q2
     profiles, or show them disabled with the reason?
 11. **Sidecar writes into read-only locations** (e.g. `Program Files` installations) — error only, or

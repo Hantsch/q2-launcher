@@ -115,6 +115,30 @@ describe('demoPlayEligibility', () => {
     expect(JSON.stringify(r)).not.toContain('demomap')
   })
 
+  it('an mvd2 / mvd2.gz keeps its full extension on +demo', () => {
+    for (const [fileName, gzip] of [
+      ['team_q2dm3.mvd2', false],
+      ['tourney.mvd2.gz', true],
+    ] as const) {
+      const r = run({ demo: demo({ fileName, format: 'mvd2', gzip }) })
+      expect(r.ok && r.inPlace, fileName).toBe(true)
+      expect(r.ok && r.extraArgs, fileName).toEqual(['+demo', fileName])
+    }
+  })
+
+  it('an mvd2 on an r1q2 active installation is disabled with the not-Q2PRO reason', () => {
+    for (const [fileName, gzip] of [
+      ['team_q2dm3.mvd2', false],
+      ['tourney.mvd2.gz', true],
+    ] as const) {
+      const r = run({
+        demo: demo({ fileName, format: 'mvd2', gzip }),
+        installations: [inst('a', 'r1q2', []), inst('b', 'q2pro', [])],
+      })
+      expect(keyOf(r), fileName).toBe(P + 'notQ2pro')
+    }
+  })
+
   it('demo args never contain demomap, for any engine and any demo shape', () => {
     const archivedGz = demo({
       fileName: 'run.dm2.gz',

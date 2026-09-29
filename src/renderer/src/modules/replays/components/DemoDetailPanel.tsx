@@ -131,6 +131,12 @@ export function DemoDetailPanel({
           </dl>
         </div>
 
+        {row.format === 'mvd2' && (
+          <p className="text-xs text-ink-muted" data-testid="demo-detail-mvd2-note">
+            {t('replays.detail.mvd2Note')}
+          </p>
+        )}
+
         <DemoPlayAction demo={row} />
 
         <div data-testid="replays-detail-file-actions">
