@@ -44,8 +44,10 @@ this module's 2D analyser.
   filters for mod, gamemode, map, date (presets + custom range), favourite, rating ≥ n, tags.
   Default order: **favourites on top, then newest**.
 - **Playback v1:** the real **Q2PRO**, started with `+demo`, **driven from a launcher timeline**
-  (play/pause, ±jump, click-to-seek, speed, position/duration, free console commands). In-game key
-  binds cover fullscreen; those binds live in the **config profile**, not in a launcher overlay.
+  (play/pause, ±jump, click-to-seek, speed, position/duration, free console commands). By default the
+  demo plays on a **stage** in the Demos view — a borderless Q2PRO window the launcher places over it
+  (spike [[169]]); **fullscreen is a deliberate choice**, steered there by in-game key binds that live
+  in the **config profile**, not in a launcher overlay.
 - **Windows remote channel is unproven** → first story is a spike; if it fails, a **native helper**
   is built. Linux uses stdin (verified in source).
 - **r1q2-only users** get a visible fallback without seeking. Linux has no r1q2 at all.
@@ -130,6 +132,8 @@ better at taking them apart over time, and the user can teach it patterns it doe
 - **Embedding the engine window inside the launcher** (`SetParent` / X11 reparenting).
   > Fragile on Windows (focus, DPI, exclusive fullscreen, input capture) and impossible on Wayland.
   > Same finding as the game browser's §14.3.
+  > The stage (§12.4) is not embedding: the game stays its own top-level window, the launcher only
+  > sets its position, size and topmost flag through console cvars.
 - **A WebAssembly Quake II engine inside the launcher.**
   > Researched (§9.2): Qwasm2/Yamagi has no seek, mods would have to be compiled to WASM, and it
   > bundles GPL code into the app. It solves nothing the native Q2PRO does not solve better.
@@ -159,7 +163,7 @@ better at taking them apart over time, and the user can teach it patterns it doe
 | Default sort | **Favourites on top, then newest** | Same pinning as server favourites |
 | Playback v1 | **Native Q2PRO + launcher timeline already in v1** | The "like YouTube" experience is the point |
 | Windows risk | **Spike first; if cfg-polling fails, build a native helper** | Windows is ~80% of users; the timeline must not be Linux-only |
-| Fullscreen | **Both:** launcher timeline **and** in-game key binds | Fullscreen covers the launcher |
+| Fullscreen | **Windowed stage by default; fullscreen only by choice**, steered there by in-game key binds, with a bindable way back (revised 2026-09-29 after live use, spike [[169]]) | Fullscreen covers the launcher, so the timeline was unusable |
 | Demo key binds | **Maintained in the config profile** (Controls tab), bound by the user | Visible and permanent instead of a launcher silently rebinding keys |
 | Timeline controls | Play/pause, ±jump, click-to-seek, **speed**, **position/duration**, **free console commands** | All picked |
 | Engine choice | **Auto:** a Q2PRO installation with the demo's game dir (active preferred), overridable; missing game dir → "mod X missing" | No dialog on every play |
@@ -433,6 +437,22 @@ fullscreen where the launcher is hidden. The user binds them there; the launcher
 on its own. Q2PRO's `scr_demobar` shows the position in-game. What a demo bind means in an r1q2
 profile is §17.10.
 
+On Windows the control loop (§12.3) starves every command appended to the engine's command buffer
+— typed console lines, key binds, menu actions — for as long as it runs (spike [[169]]). Binds and
+`quit` therefore only work while the loop is stopped, i.e. in fullscreen (§12.4). Linux (stdin, no
+loop) is not affected.
+
+### 12.4 The stage and fullscreen
+
+- **Stage (default):** Q2PRO starts with `vid_fullscreen 0`, `win_noborder 1`, `win_notitle 1`,
+  `win_alwaysontop 1`, `vid_geometry WxH+X+Y` over an area of the Demos view; live `vid_geometry`
+  / `win_alwaysontop` keep it in step with the launcher window. [V, spike 169] Stories [[170]], [[171]].
+- **Fullscreen (by choice):** a timeline button sends `vid_fullscreen 1` and stops the loop, so
+  binds and the console work; a bindable "back to window" action sends `vid_fullscreen 0` and re-arms
+  the loop. [V, spike 169] Story [[172]].
+- **Stop:** the timeline ends the demo itself ([[173]]); on the Windows stage the game's own console
+  does not reach the game and the launcher says so.
+
 ### 12.3 The channel
 
 - **Linux:** `+set sys_console 1`; commands go to stdin, position comes back on stdout. [V]
@@ -457,6 +477,7 @@ profile is §17.10.
 | Q2PRO playback | yes | only where a Q2PRO exists — see [linux-support-analysis.md](../linux-support-analysis.md) B1; otherwise Play disabled with the reason |
 | r1q2 fallback | yes | **not available** — no r1q2 on Linux; shown as "Not available on Linux: r1q2 is not supported" where the engine choice would appear |
 | Remote timeline | cfg polling (verified by spike 133; native helper not needed) | stdin (verified) |
+| Stage (placed borderless window) | yes (verified by spike 169) | X11 expected, unverified; Wayland cannot position windows — reason shown, normal window ([[170]] Q3) |
 | Q2PRO `homedir` = `~/.q2pro` | n/a | scanned as the write directory for distro/Flatpak builds |
 
 Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
@@ -550,6 +571,11 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
   native helper provides it.
 - DEMO-28 The demo actions are bindable in the config profile's Controls tab and work in fullscreen.
 - DEMO-29 Console-command input is validated in main as one printable line with a length cap.
+- DEMO-30 By default a demo plays on a stage in the Demos view, with the timeline usable beneath it.
+- DEMO-31 Fullscreen is a deliberate choice; in fullscreen binds and the console work, and a bindable
+  action returns to the stage.
+- DEMO-32 The timeline can end the demo.
+- DEMO-33 The launcher's control plumbing does not flood the game console.
 
 ## 16. Sources (research, 2026-09-26)
 

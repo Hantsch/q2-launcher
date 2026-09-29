@@ -7,6 +7,9 @@ feature-complete: S26–S28 (stories 135–168) are done on their sprint branche
 playback, copy-in, MVD2 seek, the timeline, console field, bindable demo actions and auto-record.
 Waiting on the user: merging the sprint branches into `dev`, and the manual residue in
 [S28 testplan](sprints/S28/testplan.md).
+Live use of S28 showed fullscreen hides the timeline and in-game `quit`/binds do nothing on Windows;
+spike 169 found the cause (the control loop starves in-game commands) and a way to a windowed stage —
+milestone 10.9, sprint [S29](sprints/S29/sprint.md) (stories 170–174), is planned.
 Story 102 stays open and non-blocking.
 
 ## Phase overview
@@ -22,7 +25,7 @@ Story 102 stays open and non-blocking.
 | 7 — Release & updates (beta rollout) | 1/1 | done |
 | 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
 | 9 — Game browser (server list, detail, watchlist, observing) | 7/7 | done |
-| 10 — Demo browser (library, metadata, remote-controlled playback) | 5/8 | in progress |
+| 10 — Demo browser (library, metadata, remote-controlled playback) | 8/9 | in progress |
 
 ## Current phase
 
@@ -38,6 +41,7 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 | 10.6 | Playback — Q2PRO, copy-in, r1q2 fallback, MVD2 | done 2026-09-29 | [S28](sprints/S28/review.md) | Stories 159–162; r1q2 fallback cut to a Q2PRO-only guard. |
 | 10.7 | Timeline & binds | done 2026-09-29 | S28 | Stories 163–167. |
 | 10.8 | Auto-record setting in the config profile | done 2026-09-29 | S28 | Story 168. |
+| 10.9 | Demo plays in the launcher — windowed stage, fullscreen by choice, stop, no console flood | planned | [S29](sprints/S29/sprint.md) | Spike 169 done (go); stories 170–174. |
 
 ## Open / unprioritised
 

@@ -175,8 +175,21 @@ function readServerInfoFields(
     maxclients: maxclients ?? existing?.maxclients,
     needpass,
     spectatorPass,
-    gamemode: deriveGamemode(serverinfo) ?? existing?.gamemode,
+    gamemode: readGamemode(serverinfo, existing),
   }
+}
+
+/** The dm/coop/ctf/teamplay flags only describe the game for the stock `baseq2` game. Every mod
+ * (RPG, bot, ...) runs `deathmatch 1` as its engine base, so on a mod the flags say nothing about
+ * what the mod actually is: the gamemode stays unknown (never guessed) until the mods feature can
+ * categorise known mods. A reply that names no game at all keeps the entry's previous value. */
+function readGamemode(
+  serverinfo: Record<string, string>,
+  existing: ServerListEntry | undefined,
+): ServerListEntry['gamemode'] {
+  if (typeof serverinfo.gamename !== 'string' || serverinfo.gamename.trim() === '') return existing?.gamemode
+  if (serverinfo.gamename.trim().toLowerCase() !== 'baseq2') return undefined
+  return deriveGamemode(serverinfo) ?? existing?.gamemode
 }
 
 /** Builds the refreshed `ServerListEntry` for one successful reply. `players` is the numeric count
