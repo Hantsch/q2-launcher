@@ -25,3 +25,19 @@
 - 17:37:46 · 170 · verify (re-run) · started
 - 17:40:50 · 170 · verify (re-run) · done (one flaky test fixed, narrow suite green)
 - 17:41:07 · 170 · story · done
+- 17:41:26 · 171 · build · started
+- 17:41:43 · 171 · D1 stage follower core · started
+- 17:43:11 · 171 · D1 stage follower core · done
+- 17:43:11 · 171 · D2 main wiring and real-window flow · started
+- 17:56:28 · 171 · D2 main wiring and real-window flow · done
+- 17:56:28 · 171 · D2b park-once fix · started
+- 17:58:04 · 171 · D2b park-once fix · done
+- 17:58:04 · 171 · D3 renderer stage reporter and view-leave flow · started
+- 18:01:25 · 171 · D3 renderer stage reporter and view-leave flow · done
+- 18:01:25 · 171 · D4 overlay occlusion and CHANGELOG · started
+- 18:06:42 · 171 · D4 overlay occlusion and CHANGELOG · done
+- 18:06:42 · 171 · verify · started
+- 18:10:06 · 171 · verify · done
+- 18:10:06 · 171 · review 1 · started
+- 18:11:55 · 171 · review 1 · done (PASS, minor findings documented)
+- 18:11:55 · 171 · story · done

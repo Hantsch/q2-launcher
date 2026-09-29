@@ -19,7 +19,7 @@ import {
   replaysDemoFileActionSchema,
   replaysDemoPlaySchema,
   replaysDemoRenameSchema,
-  replaysStageRectSchema,
+  replaysPlaybackStageSchema,
   replaysConsoleSendSchema,
   replaysNoInputSchema,
   replaysSidecarReadSchema,
@@ -42,6 +42,7 @@ import { createDemoFileActions } from './file-actions'
 import { ReplaysIndexCache } from './index-cache'
 import { createPlaybackControl } from './playback-control'
 import { stageAvailability, stageGeometry, type StageRect } from './stage'
+import { createStageFollowSessions, parkGeometryAt, virtualDesktopRightEdge } from './stage-follow-session'
 import { createPlaybackTimeline } from './playback-timeline'
 import { createPlaybackConsole } from './playback-console'
 import { createPlaybackSessions } from './playback-sessions'
@@ -242,6 +243,35 @@ export const replaysModule: MainModule = {
       .applyPending()
       .catch((error: unknown) => log.warn(`stage cvar restore at start failed: ${String(error)}`))
 
+    // Story 170 D2: the stage rect (CSS px) as the engine's physical `vid_geometry`. Story 171 D2: the
+    // follower passes the observer's content bounds (the last un-minimized ones) instead of asking.
+    const geometryAt = (rect: StageRect, bounds?: { x: number; y: number }): string | null => {
+      const win = app.getMainWindow()
+      if (!win) return null
+      const contentBounds = bounds ?? win.getContentBounds()
+      const toScreen = (dip: StageRect): StageRect => {
+        if (typeof screen.dipToScreenRect === 'function') return screen.dipToScreenRect(win, dip)
+        const scale = screen.getDisplayMatching(win.getContentBounds()).scaleFactor
+        return { x: dip.x * scale, y: dip.y * scale, width: dip.width * scale, height: dip.height * scale }
+      }
+      return stageGeometry(rect, { contentBounds, zoomFactor: win.webContents.getZoomFactor() }, toScreen)
+    }
+    // Story 171 D2: a follower per placed stage session, fed by the main window's events and
+    // `playback.stage`; it parks the game window beyond the virtual desktop's right edge.
+    const stageFollow = createStageFollowSessions({
+      window: app.mainWindow,
+      send: (line) => playbackControl.send(line),
+      computeGeometry: (rect, window) => geometryAt(rect, window.contentBounds) ?? '0x0+0+0',
+      parkGeometry: (geometry) =>
+        parkGeometryAt(
+          geometry,
+          virtualDesktopRightEdge(
+            screen.getAllDisplays(),
+            typeof screen.dipToScreenRect === 'function' ? (dip) => screen.dipToScreenRect(null, dip) : undefined,
+          ),
+        ),
+    })
+
     const demoPlay = createDemoPlay({
       readDemos: () => scanService.read(),
       resolveFile: (id) => scanService.resolveFile(id),
@@ -259,17 +289,8 @@ export const replaysModule: MainModule = {
           Q2L_UI_HARNESS: process.env['Q2L_UI_HARNESS'],
           Q2L_UI_SESSION_TYPE: process.env['Q2L_UI_SESSION_TYPE'],
         }),
-      toGeometry: (rect) => {
-        const win = app.getMainWindow()
-        if (!win) return null
-        const contentBounds = win.getContentBounds()
-        const toScreen = (dip: StageRect): StageRect => {
-          if (typeof screen.dipToScreenRect === 'function') return screen.dipToScreenRect(win, dip)
-          const scale = screen.getDisplayMatching(contentBounds).scaleFactor
-          return { x: dip.x * scale, y: dip.y * scale, width: dip.width * scale, height: dip.height * scale }
-        }
-        return stageGeometry(rect, { contentBounds, zoomFactor: win.webContents.getZoomFactor() }, toScreen)
-      },
+      toGeometry: (rect) => geometryAt(rect),
+      onStageSession: (start) => stageFollow.begin(start),
     })
 
     handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())
@@ -308,7 +329,7 @@ export const replaysModule: MainModule = {
       }),
     )
 
-    handle(REPLAYS_HANDLERS.playbackStage, replaysStageRectSchema, (rect) => demoPlay.restage(rect))
+    handle(REPLAYS_HANDLERS.playbackStage, replaysPlaybackStageSchema, (payload) => stageFollow.report(payload.rect))
 
     const playbackTimeline = createPlaybackTimeline({ playback: playbackControl })
     handle(REPLAYS_HANDLERS.playbackTimeline, timelineActionSchema, (payload) =>

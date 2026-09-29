@@ -108,6 +108,9 @@ export interface DemoPlayDeps {
   toGeometry: (rect: ReplaysStageRect) => string | null
   /** Story 170 D3: puts the stage's archived cvars back into the user's config after the session. */
   cvarRestore?: Pick<CvarRestore, 'snapshot' | 'restore'>
+  /** Story 171 D2: a session launched placed over the stage began (at `geometry`, for `rect`); the
+   * returned function runs once when that session ends. Never called for an unplaced play. */
+  onStageSession?: (start: { geometry: string; rect: ReplaysStageRect }) => () => void
 }
 
 /**
@@ -136,8 +139,6 @@ export interface DemoPlay {
     installationId: string,
     options?: { acknowledgeModMissing?: boolean; stage?: ReplaysStageRect },
   ) => Promise<Outcome<ReplaysDemoPlayResult>>
-  /** Story 170 D2: re-places the live session's window; a no-op unless it was launched placed. */
-  restage: (rect: ReplaysStageRect) => Outcome<void>
 }
 
 type Containment = 'contained' | 'outside' | 'missing'
@@ -248,6 +249,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
     // Story 170 D2: stage args sit right before `+demo`, after the channel's args; only when a rect came.
     let stageArgs: string[] = []
     let stageResult: ReplaysStageResult | null = null
+    let stageGeometry: string | null = null
     if (stage) {
       const availability = deps.stageAvailability()
       if (!availability.available) {
@@ -258,6 +260,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
         if (geometry !== null) {
           stageArgs = stageLaunchArgs(geometry)
           stageResult = { placed: true }
+          stageGeometry = geometry
         }
       }
     }
@@ -313,15 +316,16 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
     }
     if (copyPath !== null) onGameEnd(input.installationId, started.value.phase, () => void removeStagedCopy(copyPath))
     if (restoring) onGameEnd(input.installationId, started.value.phase, restoreCvars)
-    stagePlaced = stageResult?.placed === true
+    // Story 171 D2: only a placed session with a control channel is followed; ended with the session.
+    const endStage =
+      stage && stageGeometry !== null && deps.playback && deps.onStageSession
+        ? deps.onStageSession({ geometry: stageGeometry, rect: stage })
+        : null
     trackSession(demoId, () => {
-      stagePlaced = false
+      endStage?.()
     })
     return ok({ stage: stageResult })
   }
-
-  /** Story 170 D2: the live session was launched over the stage (cleared when it ends). */
-  let stagePlaced = false
 
   /**
    * One play at a time: a second (double-clicked) play of the same demo would stage over the first
@@ -339,13 +343,6 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       } finally {
         inFlight = false
       }
-    },
-    restage(rect) {
-      if (!stagePlaced || !deps.playback) return ok(undefined)
-      const geometry = deps.toGeometry(rect)
-      if (geometry === null) return ok(undefined)
-      deps.playback.send(`set vid_geometry ${geometry}`)
-      return ok(undefined)
     },
   }
 

@@ -19,6 +19,7 @@ import {
 } from './lib/renderer-source'
 import { parseWindowState } from './lib/schemas'
 import type { AppContext } from './context'
+import type { MainWindowEvent } from './main-window-observer'
 
 const log = scopedLogger('window')
 
@@ -109,7 +110,11 @@ export interface MainWindow {
   settle: () => Promise<void>
 }
 
-export async function createMainWindow(app: AppContext): Promise<MainWindow> {
+export async function createMainWindow(
+  app: AppContext,
+  /** Story 171 D2: receives the window events `AppContext.mainWindow` republishes to modules. */
+  onWindowEvent?: (event: MainWindowEvent) => void,
+): Promise<MainWindow> {
   const store = new JsonStore<WindowState>({
     filePath: windowStateFilePath(),
     defaults: defaultWindowState,
@@ -201,6 +206,16 @@ export async function createMainWindow(app: AppContext): Promise<MainWindow> {
   window.on('focus', emitChromeState)
   window.on('blur', emitChromeState)
   window.on('close', persistGeometry)
+
+  // --- story 171 D2: window events for AppContext.mainWindow ------------------
+  if (onWindowEvent) {
+    window.on('move', () => onWindowEvent('move'))
+    window.on('resize', () => onWindowEvent('resize'))
+    window.on('minimize', () => onWindowEvent('minimize'))
+    window.on('restore', () => onWindowEvent('restore'))
+    window.on('focus', () => onWindowEvent('focus'))
+    window.on('blur', () => onWindowEvent('blur'))
+  }
 
   // --- navigation hardening -------------------------------------------------
   // Nothing in the launcher should ever navigate the window or open a popup;

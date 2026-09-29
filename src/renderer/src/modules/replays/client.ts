@@ -131,8 +131,8 @@ export function playDemo(payload: {
 }
 
 /** Story 170 D5: re-places the running demo's window after the stage picture's box changed. */
-export function sendStageRect(rect: ReplaysStageRect): Promise<Outcome<Outcome<void>>> {
-  return callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackStage, rect)
+export function sendStageRect(rect: ReplaysStageRect | null): Promise<Outcome<Outcome<void>>> {
+  return callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackStage, { rect })
 }
 
 /** Story 165 D3: steers the running demo. Nested like `playDemo` (the handler answers its own

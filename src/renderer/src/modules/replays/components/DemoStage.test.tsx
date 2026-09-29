@@ -143,5 +143,31 @@ describe('DemoStage (story 170 D4)', () => {
       expect(client.sendStageRect).toHaveBeenCalledTimes(1)
       expect(client.sendStageRect).toHaveBeenCalledWith({ x: 10, y: 41, width: 800, height: 600 })
     })
+
+    it('reports null when unmounted during a live session, nothing when unmounted without one', () => {
+      setup()
+      const first = render(<DemoStage />)
+      first.unmount()
+      expect(client.sendStageRect).not.toHaveBeenCalled()
+
+      startSession()
+      const second = render(<DemoStage />)
+      vi.mocked(client.sendStageRect).mockClear()
+      second.unmount()
+      expect(client.sendStageRect).toHaveBeenCalledTimes(1)
+      expect(client.sendStageRect).toHaveBeenCalledWith(null)
+    })
+
+    it('reports the first real rect when mounted during a live session, one call per frame', () => {
+      setup()
+      startSession()
+      render(<DemoStage />)
+      expect(client.sendStageRect).toHaveBeenCalledTimes(1)
+      expect(client.sendStageRect).toHaveBeenCalledWith({ x: 10, y: 20, width: 800, height: 600 })
+      current = { ...current, y: 30 }
+      current = { ...current, y: 31 }
+      tick()
+      expect(client.sendStageRect).toHaveBeenCalledTimes(2)
+    })
   })
 })

@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '../../lib/cn'
+import { useOverlayRegistration } from '../../lib/overlay-registry'
 import { IconButton } from './Button'
 
 const FOCUSABLE =
@@ -56,6 +57,7 @@ export function Modal({
   const panelRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const previouslyFocused = useRef<HTMLElement | null>(null)
+  useOverlayRegistration(open, panelRef, true)
 
   useEffect(() => {
     if (!open) return

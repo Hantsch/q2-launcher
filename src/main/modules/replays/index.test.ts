@@ -655,7 +655,7 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.demoPlay]: { demoId: 'nope', installationId: 'nope' },
         [REPLAYS_HANDLERS.playbackTimeline]: { kind: 'togglePause' },
         [REPLAYS_HANDLERS.playbackConsoleSend]: { line: 'echo hi' },
-        [REPLAYS_HANDLERS.playbackStage]: { x: 0, y: 0, width: 640, height: 480 },
+        [REPLAYS_HANDLERS.playbackStage]: { rect: { x: 0, y: 0, width: 640, height: 480 } },
         [REPLAYS_HANDLERS.listGetSort]: undefined,
         [REPLAYS_HANDLERS.listSetSort]: { sort: null },
         [REPLAYS_HANDLERS.listGetFilter]: undefined,

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { REPLAYS_HANDLERS, REPLAYS_HANDLER_SCHEMAS, replaysDemoPlaySchema, replaysStageRectSchema } from '@shared/modules/replays'
+import {
+  REPLAYS_HANDLERS,
+  REPLAYS_HANDLER_SCHEMAS,
+  replaysDemoPlaySchema,
+  replaysPlaybackStageSchema,
+  replaysStageRectSchema,
+} from '@shared/modules/replays'
 import { normalWindowArgs, stageAvailability, stageGeometry, stageLaunchArgs } from './stage'
 
 const WAYLAND = { available: false, reason: { key: 'replays.stage.unavailable.wayland' } }
@@ -86,7 +92,7 @@ describe('stage rect schema', () => {
   const ok = { x: 0, y: 0, width: 640, height: 480 }
   it('accepts a whole-pixel rect and is registered for playback.stage', () => {
     expect(replaysStageRectSchema.safeParse(ok).success).toBe(true)
-    expect(REPLAYS_HANDLER_SCHEMAS[REPLAYS_HANDLERS.playbackStage]).toBe(replaysStageRectSchema)
+    expect(REPLAYS_HANDLER_SCHEMAS[REPLAYS_HANDLERS.playbackStage]).toBe(replaysPlaybackStageSchema)
     expect(replaysDemoPlaySchema.safeParse({ demoId: 'a', installationId: 'b', stage: ok }).success).toBe(true)
   })
 
@@ -103,6 +109,22 @@ describe('stage rect schema', () => {
     ]) {
       expect(replaysStageRectSchema.safeParse(bad).success).toBe(false)
       expect(replaysDemoPlaySchema.safeParse({ demoId: 'a', installationId: 'b', stage: bad }).success).toBe(false)
+      expect(replaysPlaybackStageSchema.safeParse({ rect: bad }).success).toBe(false)
+    }
+  })
+
+  it('playback.stage carries a rect or null, nothing else (story 171 D2)', () => {
+    expect(replaysPlaybackStageSchema.safeParse({ rect: ok }).success).toBe(true)
+    expect(replaysPlaybackStageSchema.safeParse({ rect: null }).success).toBe(true)
+    for (const bad of [
+      ok,
+      {},
+      { rect: undefined },
+      { rect: ok, extra: 1 },
+      { rect: { ...ok, x: Number.NaN } },
+      { rect: { ...ok, width: Number.POSITIVE_INFINITY } },
+    ]) {
+      expect(replaysPlaybackStageSchema.safeParse(bad).success).toBe(false)
     }
   })
 })

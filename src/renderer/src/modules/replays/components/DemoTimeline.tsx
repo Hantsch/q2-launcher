@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type MouseEvent } from 'react'
+import { useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pause, Play, RotateCcw, RotateCw } from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
@@ -12,6 +12,7 @@ import {
 } from '@shared/replays/timeline'
 import { IconButton } from '../../../components/ui/Button'
 import { Select } from '../../../components/ui/controls'
+import { useOverlayRegistration } from '../../../lib/overlay-registry'
 import { cn } from '../../../lib/cn'
 import { playbackTimeline } from '../client'
 import { usePlaybackStore } from '../playback-store'
@@ -31,6 +32,10 @@ export function DemoTimeline() {
   const session = usePlaybackStore((state) => state.session)
   const setSpeed = usePlaybackStore((state) => state.setSpeed)
   const [error, setError] = useState<LocalizedMessage | null>(null)
+  // The native speed popup paints above the page (and the game window): park the game while it is open.
+  const [speedOpen, setSpeedOpen] = useState(false)
+  const noElement = useRef<Element | null>(null)
+  useOverlayRegistration(speedOpen, noElement, true)
 
   if (session === null) return null
 
@@ -169,7 +174,13 @@ export function DemoTimeline() {
         <Select
           aria-label={t('replays.timeline.speed')}
           value={String(session.speed)}
+          onMouseDown={() => setSpeedOpen(true)}
+          onKeyDown={(event) => {
+            if ((event.altKey && event.key === 'ArrowDown') || event.key === 'F4') setSpeedOpen(true)
+          }}
+          onBlur={() => setSpeedOpen(false)}
           onChange={(event) => {
+            setSpeedOpen(false)
             const value = Number(event.target.value)
             setSpeed(value)
             void send({ kind: 'speed', value })

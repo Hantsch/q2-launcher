@@ -263,3 +263,4 @@ second roadmap.
 - 168 — my profile records every map on its own · S28 · Settings tab gets a composite autorecord switch writing r1q2 cl_autorecord or Q2PRO cl_beginmapcmd + com_time_format.
 - 169 — a spike proves a demo can play on the launcher's stage · — · go: Q2PRO runs borderless/topmost at a launcher-set vid_geometry, geometry/topmost/fullscreen switch live over the control loop; root cause of dead in-game quit/binds: the Windows control loop starves every appended command; follow-ups 170–174 (S29).
 - 170 — a demo plays on the launcher's stage · S29 · Demo playback launches Q2PRO borderless/topmost over a 4:3 stage in the Demos view, stage cvars restored line-exact after the session, Wayland shows a visible reason.
+- 171 — the stage follows the launcher · S29 · demo stage parks/places with the launcher's move, minimize, focus, view leave and overlays

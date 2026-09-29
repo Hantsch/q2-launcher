@@ -108,9 +108,11 @@ interface Setup {
   geometry?: string | null
   /** Story 170 D3 */
   cvarRestore?: { snapshot: (configPath: string) => Promise<void>; restore: () => Promise<void> }
+  /** Story 171 D2 */
+  onStageSession?: (start: { geometry: string; rect: { x: number; y: number; width: number; height: number } }) => () => void
 }
 
-function harness({ demos, files, active = 'q2pro-a', running = false, contextPlatform = 'win32', activeEngine = 'q2pro', platform = 'win32', playback, stageAvail = { available: true }, geometry = '800x600+10+20', cvarRestore }: Setup) {
+function harness({ demos, files, active = 'q2pro-a', running = false, contextPlatform = 'win32', activeEngine = 'q2pro', platform = 'win32', playback, stageAvail = { available: true }, geometry = '800x600+10+20', cvarRestore, onStageSession }: Setup) {
   const fake = fakeLaunch(running)
   const sessions = { begin: vi.fn(), end: vi.fn() }
   const installations = [
@@ -128,6 +130,7 @@ function harness({ demos, files, active = 'q2pro-a', running = false, contextPla
     stageAvailability: () => stageAvail,
     toGeometry: () => geometry,
     cvarRestore,
+    onStageSession,
     launch: fake.launch,
     sessions,
     discoveryContext: () => ({
@@ -136,7 +139,7 @@ function harness({ demos, files, active = 'q2pro-a', running = false, contextPla
       zipDeps: { extractorPath: join(tmp, 'no-7za.exe'), extractorExists: false },
     }),
   })
-  return { ...fake, sessions, installations, play: player.play, restage: player.restage }
+  return { ...fake, sessions, installations, play: player.play }
 }
 
 const CTF_DEMO = demo({
@@ -693,27 +696,35 @@ describe('demo.play on the stage (story 170 D2)', () => {
     expect(argsOf(h)[0]).toBe('+demo')
   })
 
-  it('playback.stage sends one set vid_geometry line when placed and nothing otherwise', async () => {
-    const idle = control()
-    const none = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: idle })
-    expect(none.restage(STAGE)).toEqual({ ok: true, value: undefined })
-    expect(idle.send).not.toHaveBeenCalled()
+  it('a stage session begins only for a placed play and ends exactly once with it (story 171 D2)', async () => {
+    const end = vi.fn()
+    const onStageSession = vi.fn(() => end)
 
-    const plain = control()
-    const unplaced = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: plain })
+    const unplaced = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: control(), onStageSession })
     await unplaced.play('base', 'q2pro-a')
-    expect(unplaced.restage(STAGE).ok).toBe(true)
-    expect(plain.send).not.toHaveBeenCalled()
+    unplaced.emit({ phase: 'exited', installationId: 'q2pro-a' })
+    const wayland = harness({
+      demos: [BASE_DEMO],
+      files: ctfFiles(),
+      playback: control(),
+      onStageSession,
+      stageAvail: { available: false, reason: { key: 'replays.stage.unavailable.wayland' } },
+    })
+    await wayland.play('base', 'q2pro-a', { stage: STAGE })
+    const noWindow = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: control(), onStageSession, geometry: null })
+    await noWindow.play('base', 'q2pro-a', { stage: STAGE })
+    const noChannel = harness({ demos: [BASE_DEMO], files: ctfFiles(), onStageSession })
+    await noChannel.play('base', 'q2pro-a', { stage: STAGE })
+    expect(onStageSession).not.toHaveBeenCalled()
 
-    const playback = control()
-    const placed = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback })
+    const placed = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: control(), onStageSession })
     await placed.play('base', 'q2pro-a', { stage: STAGE })
-    expect(placed.restage(STAGE)).toEqual({ ok: true, value: undefined })
-    expect(playback.send).toHaveBeenCalledTimes(1)
-    expect(playback.send).toHaveBeenCalledWith('set vid_geometry 800x600+10+20')
+    expect(onStageSession).toHaveBeenCalledTimes(1)
+    expect(onStageSession).toHaveBeenCalledWith({ geometry: '800x600+10+20', rect: STAGE })
+    expect(end).not.toHaveBeenCalled()
     placed.emit({ phase: 'exited', installationId: 'q2pro-a' })
-    placed.restage(STAGE)
-    expect(playback.send).toHaveBeenCalledTimes(1)
+    placed.emit({ phase: 'failed', installationId: 'q2pro-a' })
+    expect(end).toHaveBeenCalledTimes(1)
   })
 })
 

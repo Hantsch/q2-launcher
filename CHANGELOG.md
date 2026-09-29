@@ -56,6 +56,9 @@ version section when a release actually ships.
 - A demo inside a `.zip` now shows you plainly why you can't rename it or add notes to it, right
   there in its detail panel — reveal and copy path still work fine.
 
+### Changed
+- **Demos** — the demo stage now moves, hides and steps aside with the launcher: drag or resize the window and the game follows, leave the view and it parks, open a dialog or menu and it gets out of the way.
+
 ## 0.5.0 — 2026-09-26
 
 ### Added

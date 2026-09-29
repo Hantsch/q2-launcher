@@ -1,7 +1,7 @@
 ---
 id: 171
 title: the stage follows the launcher
-status: ready # draft -> ready -> in-progress -> done
+status: done
 created: 2026-09-29
 ---
 
@@ -19,16 +19,16 @@ the game window has no focus.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Moving or resizing the launcher window (incl. maximize/restore) repositions the game
+- [x] **AC1** — Moving or resizing the launcher window (incl. maximize/restore) repositions the game
       window onto the stage; the launcher coalesces geometry updates so a drag does not queue one
       command per pixel.
-- [ ] **AC2** — Minimizing the launcher hides the game window (or moves it out of sight); restoring
+- [x] **AC2** — Minimizing the launcher hides the game window (or moves it out of sight); restoring
       brings it back onto the stage.
-- [ ] **AC3** — When another program becomes the foreground window, the game window is no longer
+- [x] **AC3** — When another program becomes the foreground window, the game window is no longer
       topmost; when the launcher (or the game) is foreground again, it is.
-- [ ] **AC4** — Leaving the Demos view while a demo plays does not leave the game window covering the
+- [x] **AC4** — Leaving the Demos view while a demo plays does not leave the game window covering the
       other view; returning puts it back on the stage.
-- [ ] **AC5** — Launcher surfaces that open over the stage (dropdowns, dialogs, toasts) are never
+- [x] **AC5** — Launcher surfaces that open over the stage (dropdowns, dialogs, toasts) are never
       hidden behind the game window.
 
 ## Decisions (Sprint)
@@ -184,3 +184,19 @@ Order D1 → D2 → D3 → D4. No new user-visible strings (behaviour only; Wayl
   `scripts/flows/replays-stage-overlays.mjs` › "replays-stage-overlays".
 
 ## Done
+
+**Summary.** A per-session main-side stage follower (`stage-follow.ts`) turns launcher window events and the renderer's stage rect into at most two live commands: park the game window off-desktop immediately, place it after 250 ms quiet, and drop/restore `win_alwaysontop` on launcher blur/focus. Main observes the window through a read-only `mainWindow` observer seam; the renderer reports the stage rect (`playback.stage`, `null` when parked) via `useStageReport`; an overlay registry (Modal/Menu/Popover/HoverCard/Toasts/speed select) makes overlays park the game. Stub engine logs window commands to `Q2L_UI_ENGINE_WINDOW_LOG`.
+
+**Commit message:** `171: stage follows the launcher (park/place follower, window observer, playback.stage, overlay occlusion)`
+
+**Verification (narrow gate):** `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (89 files / 1445 tests) green; flows `replays-stage-follow`, `replays-stage-view-leave`, `replays-stage-overlays` plus regression `replays-console-command`, `replays-timeline`, `replays-stage` all OK. Full gate not run (sprint's). AC -> test: AC1 stage-follow unit + follow/view-leave flows; AC2, AC3 unit + follow flow; AC4 view-leave flow; AC5 overlay-registry unit + overlays flow — all ran and passed. Manual residue: AC2 real Q2PRO honours off-desktop `vid_geometry`; AC3 real OS topmost/z-order vs another program. Review: default stage, PASS, no fix cycle.
+
+**Decisions:**
+- D2 removed 170's `demoPlay.restage` (it would double-send beside the follower); its test became the session-lifecycle-hook test, covered by `stage-follow-session.test.ts`. A rect change now places after 250 ms, not at once (by design).
+- Follower parks once per drag (no repeat park lines while parked, even on diagonal drags); park Y is the stage Y at first park.
+- Follower uses the launch rect as stage until the renderer reports one; the stage reporter polls per animation frame (no ResizeObserver) and sends only on rounded-rect or occlusion change.
+- Overlay flow opens the Modal from the rail ("Add existing installation") because Demos hides list/detail while the stage shows. Restore check in the follow flow accepts extra park lines (harness window changes display/DPI on restore) and then requires exactly one matching placed line.
+- Deliberately unfixed review notes: overlay-registry unit tests cover only the store (Menu/Popover/HoverCard/Toasts registration untested; Modal and select covered by the flow); the speed select stays `always` after Escape/re-pick until blur (spec wording "until change/blur"); Alt+Down/F4 untested; narrow stale-desired-geometry edge in the follower after a busy failure.
+- CHANGELOG: added `### Changed` under Unreleased.
+
+tiers: D 5 / hard 1 · review default · cycles 0 · agents 8

@@ -84,7 +84,8 @@ export const REPLAYS_HANDLERS = {
    * again (`validateConsoleLine`) and resolves to `Outcome<void>`; a refused line or no live session
    * is a typed `replays.console.error.*` failure. */
   playbackConsoleSend: 'playback.consoleSend',
-  /** Story 170 D1: re-places the running demo's window over the launcher's stage rect. */
+  /** Story 170 D1: re-places the running demo's window over the launcher's stage rect; story 171 D2:
+   * `{ rect: null }` says there is no stage (the game window is parked off the desktop). */
   playbackStage: 'playback.stage',
 } as const
 
@@ -439,6 +440,10 @@ export const replaysStageRectSchema = z
   .strict()
 export type ReplaysStageRect = z.infer<typeof replaysStageRectSchema>
 
+/** Story 171 D2: `playback.stage`'s payload - where the stage is now, or `null` when there is none. */
+export const replaysPlaybackStageSchema = z.object({ rect: replaysStageRectSchema.nullable() }).strict()
+export type ReplaysPlaybackStagePayload = z.infer<typeof replaysPlaybackStageSchema>
+
 /** Story 170 D1: what `demo.play` reports about the stage - `null` when no rect was sent. */
 export type ReplaysStageResult = { placed: true } | { placed: false; reason: { key: string } }
 export interface ReplaysDemoPlayResult {
@@ -523,7 +528,7 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.demoRename]: replaysDemoRenameSchema,
   [REPLAYS_HANDLERS.demoPlay]: replaysDemoPlaySchema,
   [REPLAYS_HANDLERS.playbackTimeline]: timelineActionSchema,
-  [REPLAYS_HANDLERS.playbackStage]: replaysStageRectSchema,
+  [REPLAYS_HANDLERS.playbackStage]: replaysPlaybackStageSchema,
   [REPLAYS_HANDLERS.playbackConsoleSend]: replaysConsoleSendSchema,
 }
 

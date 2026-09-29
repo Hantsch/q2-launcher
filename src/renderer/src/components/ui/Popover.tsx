@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useOverlayRegistration } from '../../lib/overlay-registry'
 import { anchorRect } from '../../lib/anchor-rect'
 
 /** Matches the `w-80` below. Known up front so no measurement is needed. */
@@ -51,6 +52,7 @@ export function Popover({
   const previouslyFocused = useRef<HTMLElement | null>(null)
   const [placement, setPlacement] = useState<Placement | null>(null)
   const open = placement !== null
+  useOverlayRegistration(open, panelRef)
 
   const close = (): void => setPlacement(null)
 

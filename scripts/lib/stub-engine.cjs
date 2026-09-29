@@ -14,6 +14,9 @@
 // the demo length), the `timescale` cvar scales it, and reaching the end prints `Demo finished`.
 // Every steering command it executes (anything that is not console plumbing) is appended to the file
 // named by `Q2L_UI_ENGINE_COMMAND_LOG`, so a flow can assert on what the engine actually ran.
+// Story 171 D2: a `set vid_geometry …` / `set win_alwaysontop …` the launcher sends once the demo has
+// started (its stage follower - never the launch argv) is appended to `Q2L_UI_ENGINE_WINDOW_LOG`
+// instead; `set` never reaches the command log, so that log is unchanged.
 //
 // Lifetime: `stub-engine.json` next to this file (written by the fixture) gives `demoMs` and
 // `lifetimeMs`; the stub also exits when the file named by `Q2L_UI_ENGINE_QUIT_FILE` appears (a
@@ -45,6 +48,10 @@ const DEMO_MS = Number(config.demoMs) > 0 ? Number(config.demoMs) : 41000
 const LIFETIME_MS = Number(config.lifetimeMs) > 0 ? Number(config.lifetimeMs) : 400
 const COMMAND_LOG = process.env.Q2L_UI_ENGINE_COMMAND_LOG || ''
 const QUIT_FILE = process.env.Q2L_UI_ENGINE_QUIT_FILE || ''
+const WINDOW_LOG = process.env.Q2L_UI_ENGINE_WINDOW_LOG || ''
+const WINDOW_CVARS = new Set(['vid_geometry', 'win_alwaysontop'])
+/** Set once `demo` ran: the argv stage args come before it, the follower's lines after. */
+let demoStarted = false
 const startedAt = Date.now()
 
 const cvars = new Map([
@@ -120,6 +127,15 @@ function print(text) {
     } catch {
       // the launcher may be deleting the log at the same moment - the next line tries again
     }
+  }
+}
+
+function logWindow(tokens) {
+  if (!WINDOW_LOG || !demoStarted) return
+  try {
+    fs.appendFileSync(WINDOW_LOG, `${tokens.join(' ')}\n`)
+  } catch {
+    // a missing log dir only loses the record, never the command
   }
 }
 
@@ -274,7 +290,10 @@ function execLine(raw) {
   switch (cmd.toLowerCase()) {
     case 'set':
     case 'seta':
-      if (args.length >= 2) cvars.set(args[0], args[1])
+      if (args.length >= 2) {
+        if (WINDOW_CVARS.has(args[0])) logWindow(tokens)
+        cvars.set(args[0], args[1])
+      }
       return
     case 'alias':
       if (args.length >= 1) aliases.set(args[0], args.slice(1).join(' '))
@@ -292,6 +311,7 @@ function execLine(raw) {
       runIf(args)
       return
     case 'demo':
+      demoStarted = true
       startDemo(args[0])
       return
     case 'pause':

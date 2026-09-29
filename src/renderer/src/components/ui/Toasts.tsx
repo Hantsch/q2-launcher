@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from 'lucide-react'
 import type { ToastLevel, ToastMessage } from '@shared/types'
 import { cn } from '../../lib/cn'
+import { useOverlayRegistration } from '../../lib/overlay-registry'
 import { useLauncher } from '../../store/useLauncher'
 import { IconButton } from './Button'
 
@@ -15,11 +16,14 @@ const LEVEL_STYLES: Record<ToastLevel, { border: string; icon: typeof Info; text
 
 export function Toasts() {
   const toasts = useLauncher((state) => state.toasts)
+  const stackRef = useRef<HTMLDivElement>(null)
+  useOverlayRegistration(toasts.length > 0, stackRef)
 
   return (
     // Stacked above the action bar, not over it: at small window sizes a
     // bottom-right toast covered the PLAY button outright.
     <div
+      ref={stackRef}
       className="pointer-events-none fixed right-5 z-60 flex w-96 flex-col gap-2"
       style={{ bottom: 'calc(var(--actionbar-h) + 1.25rem)' }}
     >

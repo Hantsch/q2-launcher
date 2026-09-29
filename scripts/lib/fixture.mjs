@@ -3838,6 +3838,12 @@ export function replaysTimelineEngineFiles() {
   return { dir, commandLog: join(dir, 'commands.log'), quitFile: join(dir, 'quit') }
 }
 
+// Story 171 D2: where the stub engine records the stage follower's window lines (`Q2L_UI_ENGINE_WINDOW_LOG`).
+export function replaysStageFollowEngineFiles() {
+  const files = replaysTimelineEngineFiles()
+  return { ...files, windowLog: join(files.dir, 'window.log') }
+}
+
 export function writeReplaysTimelineFixture() {
   const files = replaysTimelineEngineFiles()
   rmDirBestEffort(files.dir)
