@@ -211,3 +211,4 @@ Decisions:
 - `useDemoStop` is imported into ActionBar by direct path (the renderer replays module has no index).
 - Deliberately unfixed: (4) if kill succeeds but no 'exit' ever arrives (e.g. a Linux wine wrapper), the UI stays on "Stopping..." — accepted `child.kill()` limitation per the plan; (5) an action-bar stop refusal is silent (the timeline shows the error); (6) hint-gone-in-fullscreen/after-finish is unit-tested only.
 tiers: D 4 / hard 1 · review default · cycles 1 · agents 8
+Regression (S29 gate): 173's Windows stage-hint paragraph grew the console field when the session went live, shrinking the stage picture box 401x301 -> 374x281 and re-placing the stage; fixed by rendering the hint in the console field's reserved min-h-4 reason line (ConsoleCommandField.tsx), so the box is identical before and after.

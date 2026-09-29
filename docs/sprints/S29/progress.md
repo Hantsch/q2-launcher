@@ -108,3 +108,7 @@
 - 2026-09-29 19:58 · 175 · review-fix 1 · started
 - 2026-09-29 19:59 · 175 · review-fix 1 · done (flow + config tests + typecheck + build green after last edit)
 - 2026-09-29 19:59 · 175 · story · done
+- 20:00:05 · gate · short suites · started
+- 20:03:25 · gate · e2e-all · started
+- 20:41:28 · gate · e2e-all · done (98/107, 9 failed) · attribution started
+- 20:59:45 · fix · 173 stage-hint regression: hint now uses the reserved console reason line; stage/follow/overlays/view-leave/stop/timeline/fullscreen flows green

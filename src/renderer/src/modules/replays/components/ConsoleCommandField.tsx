@@ -92,7 +92,9 @@ export function ConsoleCommandField() {
           </Button>
         </div>
       </Field>
-      {reason === null && <div className="min-h-4" aria-hidden="true" data-testid="replays-console-reason-slot" />}
+      {reason === null && !showStageHint && (
+        <div className="min-h-4" aria-hidden="true" data-testid="replays-console-reason-slot" />
+      )}
       {reason !== null && (
         <p
           id={reasonId}
@@ -103,8 +105,9 @@ export function ConsoleCommandField() {
           {reason}
         </p>
       )}
-      {showStageHint && (
-        <p className="text-xs text-ink-muted" data-testid="replays-console-stage-hint">
+      {/* The hint takes the reserved reason line (story 170: the stage box must not change size when the session goes live). */}
+      {showStageHint && reason === null && (
+        <p className="min-h-4 text-xs text-ink-muted" data-testid="replays-console-stage-hint">
           {t('replays.console.stageInputHint')}
         </p>
       )}
