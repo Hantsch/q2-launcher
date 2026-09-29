@@ -68,12 +68,17 @@ async function playAndCheck(page, logPath, fileName) {
     .filter((l) => l.includes('launching'))
     .pop()
   // Playback session (story 164): logfile setup / sys_console before +demo, polling loop after (Windows).
-  const expected =
+  // Story 172/174: the channel marks the session (`+set q2l_session 1`) and hides the notify lines
+  // for the chat HUD right after its setup args; stage args (when a window is known) follow, then +demo.
+  const head =
     process.platform === 'win32'
-      ? `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set logfile 2 +set logfile_flush 1 +set logfile_name q2l_demo.log +demo ${fileName} +exec q2l_loop.cfg`
-      : `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set sys_console 1 +demo ${fileName}`
-  if (!line || !line.trimEnd().endsWith(expected)) {
-    throw new Error(`replays-play-mvd2: expected launching line ending in ${expected}, got ${JSON.stringify(line)}`)
+      ? `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set logfile 2 +set logfile_flush 1 +set logfile_name q2l_demo.log`
+      : `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set sys_console 1`
+  const tail = process.platform === 'win32' ? `+demo ${fileName} +exec q2l_loop.cfg` : `+demo ${fileName}`
+  const trimmed = (line ?? '').trimEnd()
+  const session = `${head} +set q2l_session 1 +set con_notifylines 0 +set scr_chathud 1 `
+  if (!line || !trimmed.includes(session) || !trimmed.endsWith(` ${tail}`)) {
+    throw new Error(`replays-play-mvd2: expected launching line with ${session}... ${tail}, got ${JSON.stringify(line)}`)
   }
   if (line.includes('demomap')) throw new Error('replays-play-mvd2: launching line must not use demomap')
   // The stand-in exits on its own; wait for that so the next Play is not refused as "game running".

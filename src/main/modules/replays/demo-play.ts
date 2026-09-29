@@ -16,10 +16,14 @@ import { removeStagedCopy, stageDemo, stagedFileName } from './demo-staging'
 import { effectiveWriteDirs, type DiscoverableInstallation, type DiscoverContext } from './discovery'
 import type { PlaybackSession } from '../../services/playback-session'
 import type { PlaybackControl } from './playback-control'
-import { sessionConfigPath, type CvarRestore } from './session-cvar-restore'
+import { NOTIFY_SESSION_CVARS } from './playback-channel/protocol'
+import { STAGE_CVAR_NAMES, sessionConfigPath, type CvarRestore } from './session-cvar-restore'
 import { normalWindowArgs, stageLaunchArgs, type StageAvailability } from './stage'
 import type { EngineIo } from './playback-channel/types'
 import type { PlaybackSessions } from './playback-sessions'
+
+/** Every cvar a launch may override with `+set` and whose archived line is put back after the session. */
+export const SESSION_RESTORE_CVARS = [...STAGE_CVAR_NAMES, ...NOTIFY_SESSION_CVARS] as const
 
 /**
  * Story 159 D2: `demo.play` - the one path where a renderer-sent demo id becomes a spawned process.
@@ -283,11 +287,14 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       // `+demo` must precede the channel's `+exec` polling loop.
       input = { ...launchInput, extraArgs: [...argsBeforeDemo, ...withStage(launchInput.extraArgs ?? []), ...argsAfterDemo] }
     }
-    // Story 170 D3: only a play that received stage or normal-window args has its archived cvars put
+    // Story 170 D3 / 174 D3: only a play whose final args `+set` a restore cvar has its archived cvars put
     // back once the game has exited (the engine writes its config on the way out). The snapshot is
     // taken - and persisted - before the process is spawned. A failed restore keeps the pending
     // snapshot on disk, so the next launcher start tries again.
-    const cvarRestore = stageArgs.length > 0 && configPath !== null ? deps.cvarRestore : undefined
+    const overridesRestoreCvar = (input.extraArgs ?? []).some(
+      (arg, i, all) => i > 0 && all[i - 1] === '+set' && (SESSION_RESTORE_CVARS as readonly string[]).includes(arg),
+    )
+    const cvarRestore = overridesRestoreCvar && configPath !== null ? deps.cvarRestore : undefined
     const restoring = cvarRestore !== undefined
     const restoreCvars = (): void => {
       void cvarRestore?.restore().catch(() => undefined)

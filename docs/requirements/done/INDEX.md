@@ -266,3 +266,4 @@ second roadmap.
 - 171 — the stage follows the launcher · S29 · demo stage parks/places with the launcher's move, minimize, focus, view leave and overlays
 - 172 — I choose fullscreen and come back · S29 · fullscreen button, guarded demo actions, bindable back-to-window, v5 migration
 - 173 — I end the demo from the launcher · S29 · stop on timeline and action bar (quit, then terminate after 5 s), Windows stage hint that in-game typing does not reach the game
+- 174 — the game console is not flooded by the launcher · S29 · con_notifylines 0 + chat HUD session args, 200 ms Windows tick, notify cvars restored; probed on real Q2PRO

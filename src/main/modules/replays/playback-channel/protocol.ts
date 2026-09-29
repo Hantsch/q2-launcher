@@ -70,7 +70,13 @@ export function checkLine(line: string): Outcome<void> {
 /** The position + fullscreen poll: the game answers `POS <pos> FS <0|1>`. */
 export const POLL_LINE = 'echo POS $cl_demopos FS $vid_fullscreen'
 
-export function buildLoopCfg(waitFrames = 5): string[] {
+/**
+ * Frames the control loop waits between ticks. Spike 169 P7 measured ~65 command frames/s, so 13 is
+ * ~200 ms and caps the launcher's plumbing at ~10 lines/s.
+ */
+export const LOOP_WAIT_FRAMES = 13
+
+export function buildLoopCfg(waitFrames = LOOP_WAIT_FRAMES): string[] {
   return [
     // A (re)started loop is unarmed: back to window then cannot start a second loop while windowed.
     `set ${ARMPOS_CVAR} ""`,
@@ -162,6 +168,14 @@ export function buildStopFile(): string[] {
   return ['alias q2l_loop ""']
 }
 
+/** Cvars the session sets so the launcher's plumbing does not scroll over the demo. */
+export const NOTIFY_SESSION_CVARS = ['con_notifylines', 'scr_chathud'] as const
+
+/** Hide notify lines and show chat in the chat HUD, for this session only. */
+export function notifySessionArgs(): string[] {
+  return ['+set', 'con_notifylines', '0', '+set', 'scr_chathud', '1']
+}
+
 interface LaunchArgs {
   argsBeforeDemo: string[]
   argsAfterDemo: string[]
@@ -182,11 +196,15 @@ export function windowsLaunchArgs(): LaunchArgs {
       '+set',
       SESSION_CVAR,
       '1',
+      ...notifySessionArgs(),
     ],
     argsAfterDemo: ['+exec', LOOP_CFG_NAME],
   }
 }
 
 export function linuxLaunchArgs(): LaunchArgs {
-  return { argsBeforeDemo: ['+set', 'sys_console', '1', '+set', SESSION_CVAR, '1'], argsAfterDemo: [] }
+  return {
+    argsBeforeDemo: ['+set', 'sys_console', '1', '+set', SESSION_CVAR, '1', ...notifySessionArgs()],
+    argsAfterDemo: [],
+  }
 }

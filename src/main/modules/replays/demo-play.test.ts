@@ -777,6 +777,29 @@ describe('demo.play stage cvar restore (story 170 D3)', () => {
     expect(cvarRestore.restore).toHaveBeenCalledTimes(1)
   })
 
+  it('a channel playback without a stage rect is still snapshotted (story 174 D3)', async () => {
+    const cvarRestore = restorer()
+    const playback = {
+      prepare: vi.fn(async () => ({
+        argsBeforeDemo: ['+set', 'con_notifylines', '0', '+set', 'scr_chathud', '0'],
+        argsAfterDemo: ['+exec', 'after.cfg'],
+      })),
+      attach: vi.fn(async () => undefined),
+      cancel: vi.fn(async () => undefined),
+      send: vi.fn(),
+      currentFormat: vi.fn(() => null),
+      enterFullscreen: vi.fn(),
+      onDisplayChange: vi.fn(() => () => undefined),
+    } satisfies PlaybackControl
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), cvarRestore, playback })
+    expect((await h.play('base', 'q2pro-a')).ok).toBe(true)
+    expect(cvarRestore.snapshot).toHaveBeenCalledWith(join(q2proRoot, 'baseq2', 'q2config.cfg'))
+    expect(cvarRestore.snapshot.mock.invocationCallOrder[0]).toBeLessThan(h.launch.start.mock.invocationCallOrder[0] ?? 0)
+    expect(cvarRestore.restore).not.toHaveBeenCalled()
+    h.emit({ phase: 'exited', installationId: 'q2pro-a' })
+    expect(cvarRestore.restore).toHaveBeenCalledTimes(1)
+  })
+
   it('a launch that does not start restores right away', async () => {
     const cvarRestore = restorer()
     const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), cvarRestore })

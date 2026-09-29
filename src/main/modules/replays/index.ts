@@ -32,7 +32,7 @@ import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harn
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../downloads/7za-path'
-import { createDemoPlay, launcherSweepDirs } from './demo-play'
+import { SESSION_RESTORE_CVARS, createDemoPlay, launcherSweepDirs } from './demo-play'
 import { createDemoRename } from './demo-rename'
 import { sweepLauncherDirs } from './demo-staging'
 import { composeDemoRows } from './demo-rows'
@@ -48,7 +48,7 @@ import { createPlaybackConsole } from './playback-console'
 import { createPlaybackStop } from './playback-stop'
 import { createPlaybackSessions } from './playback-sessions'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
-import { SESSION_CVARS_PENDING_FILE, STAGE_CVAR_NAMES, createCvarRestore } from './session-cvar-restore'
+import { SESSION_CVARS_PENDING_FILE, createCvarRestore } from './session-cvar-restore'
 import { createSidecarStore } from './sidecar-store'
 import {
   currentNameTemplates,
@@ -237,7 +237,7 @@ export const replaysModule: MainModule = {
     // crashed launcher left behind is applied once here. Its operations are serialised, so a play
     // started meanwhile snapshots only after this has run.
     const cvarRestore = createCvarRestore({
-      names: STAGE_CVAR_NAMES,
+      names: SESSION_RESTORE_CVARS,
       pendingPath: join(userDataDir(), SESSION_CVARS_PENDING_FILE),
     })
     void cvarRestore

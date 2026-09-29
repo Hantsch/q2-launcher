@@ -81,3 +81,16 @@
 - 19:28:45 · 173 · review-fix 1 · started
 - 19:30:36 · 173 · review-fix 1 · done
 - 19:30:36 · 173 · story · done
+- 19:30:52 · 174 · build · started
+- 2026-09-29 19:31 · 174 · D1 chat HUD probe · started
+- 2026-09-29 19:33 · 174 · D1 chat HUD probe · done
+- 2026-09-29 19:33 · 174 · D2 protocol + args · started
+- 2026-09-29 19:34 · 174 · D2 protocol + args · done
+- 2026-09-29 19:34 · 174 · D3 restore wiring · started
+- 2026-09-29 19:35 · 174 · D3 restore wiring · done
+- 2026-09-29 19:35 · 174 · verify · started
+- 2026-09-29 19:37 · 174 · verify · blocked: replays-play-q2pro, replays-play-mvd2 (expected launch line order)
+- 2026-09-29 19:41 · 174 · verify · done (flow expectations fixed for 172 arg order; all green)
+- 2026-09-29 19:41 · 174 · review 1 · started
+- 2026-09-29 19:41 · 174 · review 1 · done (PASS, no fixes)
+- 2026-09-29 19:42 · 174 · story · done

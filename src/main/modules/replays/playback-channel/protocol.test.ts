@@ -11,6 +11,7 @@ import {
   buildStopFile,
   checkLine,
   encodeControlCommand,
+  LOOP_WAIT_FRAMES,
   linuxLaunchArgs,
   parseDemoPos,
   parseEngineLine,
@@ -112,7 +113,7 @@ describe('files and launch args', () => {
     expect(buildLoopCfg()).toEqual([
       'set q2l_armpos ""',
       'set q2l_seq 0',
-      'alias q2l_loop "exec q2l_ctl.cfg; wait 5; q2l_loop"',
+      'alias q2l_loop "exec q2l_ctl.cfg; wait 13; q2l_loop"',
       'q2l_loop',
     ])
     expect(buildLoopCfg(3)[2]).toContain('wait 3;')
@@ -128,6 +129,25 @@ describe('files and launch args', () => {
     expect(w.argsBeforeDemo).not.toContain('q2l_loop.cfg')
     expect(l.argsBeforeDemo).toEqual(expect.arrayContaining(['+set', 'sys_console', '1']))
     expect(l.argsAfterDemo).toEqual([])
+  })
+})
+
+describe('notify session', () => {
+  it('the loop ticks every LOOP_WAIT_FRAMES frames', () => {
+    expect(buildLoopCfg()[2]).toContain('wait 13;')
+    const ms = LOOP_WAIT_FRAMES * (1000 / 65)
+    expect(ms).toBeGreaterThanOrEqual(180)
+    expect(ms).toBeLessThanOrEqual(220)
+  })
+  it('both platforms hide notify lines and enable the chat HUD for the session', () => {
+    for (const args of [windowsLaunchArgs(), linuxLaunchArgs()]) {
+      for (const pair of [['con_notifylines', '0'], ['scr_chathud', '1']]) {
+        const at = args.argsBeforeDemo.indexOf(pair[0])
+        expect(at).toBeGreaterThan(0)
+        expect(args.argsBeforeDemo.slice(at - 1, at + 2)).toEqual(['+set', ...pair])
+        expect(args.argsAfterDemo).not.toContain(pair[0])
+      }
+    }
   })
 })
 

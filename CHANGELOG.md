@@ -12,6 +12,9 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Changed
+- **Demos** — the launcher's plumbing no longer scrolls over the demo, and chat shows in the game's chat HUD.
+
 ### Added
 - **Demos** — a Stop button on the timeline (and in the action bar) ends the demo and the game with one click. On Windows the stage now tells you why the game's own console stays quiet while it steers the demo.
 - **Demos** — a fullscreen button on the timeline: the demo goes fullscreen, you steer it with your keys and "Back to window" brings it home.

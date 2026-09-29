@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { NOTIFY_SESSION_CVARS } from './playback-channel/protocol'
 import { STAGE_CVAR_NAMES, createCvarRestore, nodeCvarRestoreFs, sessionConfigPath } from './session-cvar-restore'
 
 /** Story 170 D3: the stage cvars' snapshot/restore, against real files in a temp dir. */
@@ -110,6 +111,25 @@ describe('session cvar restore (story 170 D3)', () => {
     await writeFile(configPath, bytes('set vid_fullscreen "0"\r\n'))
     await next.applyPending()
     expect((await readBytes()).toString('latin1')).toBe('set vid_fullscreen "0"\r\n')
+  })
+
+  it('restores con_notifylines and scr_chathud like the stage cvars (story 174 D3)', async () => {
+    const kept = 'seta con_notifylines "4"\r\n'
+    const before = `// q2pro\r\nset name "Pl\xe4yer"\r\n${kept}set gl_swapinterval "1"\r\n`
+    await writeFile(configPath, bytes(before))
+    const cvars = createCvarRestore({ names: [...STAGE_CVAR_NAMES, ...NOTIFY_SESSION_CVARS], pendingPath })
+    await cvars.snapshot(configPath)
+    // The engine wrote the session values on exit; scr_chathud did not exist before.
+    await writeFile(
+      configPath,
+      bytes('// q2pro\r\nset name "Pl\xe4yer"\r\nset con_notifylines "0"\r\nset scr_chathud "0"\r\nset gl_swapinterval "1"\r\n'),
+    )
+    await cvars.restore()
+    const after = (await readBytes()).toString('latin1')
+    expect(after).toContain(kept)
+    expect(after).not.toContain('scr_chathud')
+    expect(after).not.toContain('con_notifylines "0"')
+    expect(after.replace(kept, '')).toBe(before.replace(kept, ''))
   })
 
   it('a pending snapshot never touches a cvar it does not own', async () => {

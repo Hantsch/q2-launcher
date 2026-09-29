@@ -1,7 +1,7 @@
 ---
 id: 174
 title: the game console is not flooded by the launcher
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-29
 ---
 
@@ -18,14 +18,14 @@ logfile is buffered — steady output is what keeps it flowing ([[169]] side fin
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — While a demo plays under the launcher's control, no launcher plumbing lines
+- [x] **AC1** — While a demo plays under the launcher's control, no launcher plumbing lines
       (`Execing q2l_…`, `POS …`, `ACK …`) appear in the notify lines over the picture.
-- [ ] **AC2** — The console scrollback is not flooded: either the plumbing lines do not reach it, or
+- [x] **AC2** — The console scrollback is not flooded: either the plumbing lines do not reach it, or
       their rate is reduced to a stated maximum per second (recorded decision).
-- [ ] **AC3** — Position updates still reach the timeline at least as often as today's
+- [x] **AC3** — Position updates still reach the timeline at least as often as today's
       `POSITION_PUSH_MS` (250 ms), and commands are still acknowledged — pinned by the existing
       channel tests plus a test for the new behaviour.
-- [ ] **AC4** — Any cvar the launcher changes for this (e.g. `con_notifytime`) is restored after the
+- [x] **AC4** — Any cvar the launcher changes for this (e.g. `con_notifytime`) is restored after the
       session and does not end up permanently in the user's config.
 
 ## Decisions (Sprint)
@@ -84,7 +84,7 @@ This builds after 170 (restore helper) and 172 (`q2l_session` arg, `FS` echo). 1
 
 ## Deliverables
 
-- [ ] **D1 — The chat HUD shows during demo playback (real-binary probe).**
+- [x] **D1 — The chat HUD shows during demo playback (real-binary probe).**
   Files: `spikes/174-chat-hud/probe.mjs` (new). Mirror `spikes/169-windowed-stage/harness.mjs`
   (launch, window capture) and its `win-probe.ps1`.
   - Launch `C:\Games\Q2Pro\q2pro.exe` windowed with these args:
@@ -105,7 +105,7 @@ This builds after 170 (restore helper) and 172 (`q2l_session` arg, `FS` echo). 1
     with no notify lines at the top.
   - Write the verdict, the demo used and the screenshot path into this story's `## Done`. If the
     probe fails, stop and report. Do not substitute another cvar; that is a binding user decision.
-- [ ] **D2 — The session hides notify lines, enables the chat HUD and ticks at ~200 ms.**
+- [x] **D2 — The session hides notify lines, enables the chat HUD and ticks at ~200 ms.**
   Files: `src/main/modules/replays/playback-channel/protocol.ts`, `protocol.test.ts`,
   `scripts/flows/replays-play-q2pro.mjs`, `scripts/flows/replays-play-mvd2.mjs`, `CHANGELOG.md`.
   - `protocol.ts`:
@@ -136,7 +136,7 @@ This builds after 170 (restore helper) and 172 (`q2l_session` arg, `FS` echo). 1
     ` +demo`, on both platform branches.
   - `CHANGELOG.md` gets a short, user-facing `### Changed` entry: the launcher's plumbing no longer
     scrolls over the demo, and chat shows in the chat HUD.
-- [ ] **D3 — The notify cvars are restored after the session.**
+- [x] **D3 — The notify cvars are restored after the session.**
   Files: `src/main/modules/replays/index.ts`, `src/main/modules/replays/demo-play.ts`,
   `src/main/modules/replays/demo-play.test.ts`, `src/main/modules/replays/session-cvar-restore.test.ts`.
   - It builds on two existing pieces:
@@ -186,3 +186,22 @@ This builds after 170 (restore helper) and 172 (`q2l_session` arg, `FS` echo). 1
   snapshot".
 
 ## Done
+
+The launcher-controlled session now sets `con_notifylines 0` + `scr_chathud 1` (both platforms), the Windows loop ticks every 13 frames (~200 ms, at most ~10 plumbing lines/s), and both cvars are snapshotted/restored through 170's helper for every channel playback.
+
+Commit message: `174: quiet game console (con_notifylines 0 + scr_chathud 1 session args, 200 ms Windows tick, notify cvars restored)`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (11 files / 146 tests); `npm run ui:flow -- replays-play-q2pro`, `replays-play-mvd2`, `replays-timeline` green after the last edit. No full gate (sprint runs it).
+- D1 probe: PASS against `C:\Games\Q2Pro` (`r3834`), demo `opentdm/demos/PFAU_20221127-053327_q2dm1.mvd2` with `+set game opentdm`, pre-existing `seta con_notifylines "4"` in q2config.cfg did not override the `+set`. Log `NL 0 CH 1`; screenshot `spikes/174-chat-hud/results/shot-16s.png` shows "lamb shanker: gl" in the chat HUD, no notify lines at top. q2config.cfg restored byte-exact, clean WM_CLOSE exit.
+- AC1: protocol.test "both platforms hide notify lines..." + flow replays-play-q2pro passed; real-picture check = the D1 probe (manual residue: stub engine renders nothing, CI has no Q2PRO).
+- AC2: protocol.test "the loop ticks every LOOP_WAIT_FRAMES frames" + "builds the loop and stop files" passed.
+- AC3: windows-channel.test and playback-control.test unchanged and green; flow replays-timeline green.
+- AC4: session-cvar-restore.test "restores con_notifylines and scr_chathud..." + demo-play.test "a channel playback without a stage rect is still snapshotted" / "a normal launch takes no snapshot" passed.
+- Review (default, 1 cycle): PASS, no fixes. Unfixed by choice: nothing tests the `index.ts` wiring of `SESSION_RESTORE_CVARS` as restore names (it is one shared constant with the snapshot condition in `demo-play.ts`).
+
+Decisions:
+- The plan's flow expectations were stale against 172/170: real launch order is `q2l_session 1`, notify `+set`s, stage args, `+demo`. Flows now check `head + q2l_session + notify` and `endsWith(+demo ...)` (mvd2 flow uses includes + endsWith because stage args sit between).
+- New loop test asserts `buildLoopCfg()[2]` (the alias line), not `[1]` (`set q2l_seq 0`).
+- `SESSION_RESTORE_CVARS = [...STAGE_CVAR_NAMES, ...NOTIFY_SESSION_CVARS]` lives in `demo-play.ts` (helper stays unchanged) and is what `index.ts` passes as names.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 5
