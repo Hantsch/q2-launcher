@@ -1,6 +1,6 @@
 import { realpath } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { DiscoveredDemo } from '@shared/modules/replays'
+import type { DemoFormat, DiscoveredDemo } from '@shared/modules/replays'
 import { DEMO_BASE_GAME_DIR, demoPlayEligibility } from '@shared/replays/demo-play'
 import {
   fail,
@@ -223,7 +223,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
     demoId: string,
     launchInput: LaunchInput,
     copyPath: string | null,
-    playbackInfo: { gameDirPath: string; durationMs: number | null },
+    playbackInfo: { gameDirPath: string; durationMs: number | null; format: DemoFormat },
   ): Promise<Outcome<void>> {
     const pipes = deps.platform !== 'win32'
     let input = launchInput
@@ -315,6 +315,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       const playbackInfo = {
         gameDirPath: join(installation.rootPath, target.gameDir),
         durationMs: demo.durationMs,
+        format: demo.format,
       }
 
       if (target.inPlaceArgs !== null && demo.source.kind === 'installation' && file.archiveEntry === null) {

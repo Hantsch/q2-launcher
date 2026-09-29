@@ -80,3 +80,23 @@
 - 2026-09-29 11:14 · 164 · verify 2 · started
 - 2026-09-29 11:15 · 164 · verify 2 · done
 - 2026-09-29 11:16 · 164 · story · done
+- 2026-09-29 11:16:27 · 165 · build · started
+- 2026-09-29 11:16 · 165 · D1 timeline core · started
+- 2026-09-29 11:17 · 165 · D1 timeline core · done
+- 2026-09-29 11:18 · 165 · D2 playback.timeline handler · started
+- 2026-09-29 11:20 · 165 · D2 playback.timeline handler · done
+- 2026-09-29 11:20 · 165 · D3 timeline strip · started
+- 2026-09-29 11:23 · 165 · D3 timeline strip · done
+- 2026-09-29 11:23 · 165 · D4 e2e against stub engine · started
+- 2026-09-29 11:42 · 165 · D4 e2e against stub engine · done
+- 2026-09-29 11:42 · 165 · D4 fix stale 159/162 flow launch-line expectations · started
+- 2026-09-29 11:44 · 165 · D4 fix stale 159/162 flow launch-line expectations · done
+- 2026-09-29 11:44 · 165 · verify · started
+- 2026-09-29 11:48 · 165 · verify · done
+- 2026-09-29 11:48 · 165 · review 1 · started
+- 2026-09-29 11:49 · 165 · review 1 · done
+- 2026-09-29 11:49 · 165 · review 1 fixes · started
+- 2026-09-29 11:52 · 165 · review 1 fixes · done
+- 2026-09-29 11:52 · 165 · verify 2 · started
+- 2026-09-29 11:52 · 165 · verify 2 · done
+- 2026-09-29 11:53 · 165 · story · done

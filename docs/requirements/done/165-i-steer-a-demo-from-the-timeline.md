@@ -1,7 +1,7 @@
 ---
 id: 165
 title: I steer a demo from the timeline
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -19,20 +19,20 @@ placeholders ±10 s / ±60 s and 0.25×–4× until decided.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — While a demo plays, the Demos view shows a timeline for that session; it disappears
+- [x] **AC1** — While a demo plays, the Demos view shows a timeline for that session; it disappears
       (or returns to idle) when the game exits.
-- [ ] **AC2** — Play/pause toggles the engine's pause state.
-- [ ] **AC3** — Jump back and jump forward move the playback by the step sizes decided in Q1.
-- [ ] **AC4** — Clicking a point on the timeline seeks to that position.
-- [ ] **AC5** — A speed control sets the engine's `timescale` in the steps decided in Q1, and shows
+- [x] **AC2** — Play/pause toggles the engine's pause state.
+- [x] **AC3** — Jump back and jump forward move the playback by the step sizes decided in Q1.
+- [x] **AC4** — Clicking a point on the timeline seeks to that position.
+- [x] **AC5** — A speed control sets the engine's `timescale` in the steps decided in Q1, and shows
       the current speed.
-- [ ] **AC6** — Current position and total duration are shown and the position advances while
+- [x] **AC6** — Current position and total duration are shown and the position advances while
       playing; the duration comes from [[138]], else from the engine.
-- [ ] **AC7** — Every control is keyboard operable with visible focus; a control that does not
+- [x] **AC7** — Every control is keyboard operable with visible focus; a control that does not
       apply (r1q2, [[161]]) is visible, disabled and says why. *(Refine: r1q2 playback is out of
       scope this sprint, so the applicable case is click-to-seek when no duration is known — see
       Decisions.)*
-- [ ] **AC8** — The timeline is a `ui:verify` screen with zero axe violations and an e2e flow drives
+- [x] **AC8** — The timeline is a `ui:verify` screen with zero axe violations and an e2e flow drives
       it against a stubbed engine; any sub-44px density gets a CLAUDE.md deviation row with the
       desktop-only rationale.
 
@@ -96,7 +96,7 @@ Builds on [[159]] (Play + stub engine process, its AC8), [[162]] (seek verb per 
 
 ## Deliverables
 
-- **D1 — timeline core (pure).** New `src/shared/replays/timeline.ts` + `timeline.test.ts` (mirror
+- [x] **D1 — timeline core (pure).** New `src/shared/replays/timeline.ts` + `timeline.test.ts` (mirror
   `src/shared/demos/duration-format.ts` + its test; shared = no node/DOM/electron). Exports:
   `JUMP_STEP_S = 10`, `PAGE_STEP_S = 60`, `SPEED_STEPS = [0.25, 0.5, 1, 2, 4]`;
   `timelineActionSchema` (zod discriminated union on `kind`: `togglePause` | `jump {deltaS: -60 |
@@ -110,7 +110,7 @@ Builds on [[159]] (Play + stub engine process, its AC8), [[162]] (seek verb per 
   else engine, else null), paused, ended}` with `paused` true after two consecutive samples with an
   unchanged position and false on any advance. Tests pin every command string and each rule
   (test names in `## Acceptance Tests`).
-- **D2 — `playback.timeline` handler.** Add `playbackTimeline: 'playback.timeline'` to
+- [x] **D2 — `playback.timeline` handler.** Add `playbackTimeline: 'playback.timeline'` to
   `REPLAYS_HANDLERS` and `timelineActionSchema` (D1) to the payload-schema map in
   `src/shared/modules/replays.ts`; register it in `src/main/modules/replays/index.ts` (mirror an
   existing `handle(...)` there; logic in new `src/main/modules/replays/playback-timeline.ts`): take
@@ -120,7 +120,7 @@ Builds on [[159]] (Play + stub engine process, its AC8), [[162]] (seek verb per 
   `src/main/modules/replays/playback-timeline.test.ts` (fake channel): each action reaches
   `sendCommand` as the exact D1 string; an `.mvd2` session uses 162's verb; no session rejects; an
   off-list speed and fractional seconds are refused by the schema.
-- **D3 — timeline strip.** `src/renderer/src/modules/replays/client.ts`: `playbackTimeline(action)`
+- [x] **D3 — timeline strip.** `src/renderer/src/modules/replays/client.ts`: `playbackTimeline(action)`
   plus wrappers for 164's position and session-ended events (mirror `onScanProgress`). New
   `src/renderer/src/modules/replays/playback-store.ts` + `.test.ts` (zustand; feeds events through
   D1's `reducePlaybackView`; known duration = the playing demo's [[138]] `durationMs`; last-set
@@ -140,7 +140,7 @@ Builds on [[159]] (Play + stub engine process, its AC8), [[162]] (seek verb per 
   row (36px transport IconButtons in `DemoTimeline.tsx`, desktop-only mouse-and-keyboard rationale,
   story 165). Component test: each control calls `playbackTimeline` with the right action; slider
   keys; the disabled-with-reason state; strip absent without a session.
-- **D4 — e2e against the stub engine.** Extend 159's stub engine process (the Node script 159 AC8
+- [x] **D4 — e2e against the stub engine.** Extend 159's stub engine process (the Node script 159 AC8
   launches in place of Q2PRO in the fixture) so it speaks 164's transport on the current platform the
   way the real engine does (Windows: re-reads the launcher's control file, honours the seq guard,
   appends `logfile_prefix`-stamped `POS m:ss.f` / `ACK N` lines to `<gamedir>/logs/<logfile_name>`;
@@ -183,4 +183,18 @@ Builds on [[159]] (Play + stub engine process, its AC8), [[162]] (seek verb per 
 
 ## Done
 
-<!-- Filled by /build 165. -->
+Timeline strip docked at the bottom of the Demos view while a Q2PRO demo session exists: play/pause, +-10 s, click/keyboard seek slider, speed 0.25x-4x, position/duration. Renderer sends typed actions (`playback.timeline`, zod-validated); main builds the command through 162's seek verb and 164's `sendCommand`. New Node stub engine (`scripts/lib/stub-engine.cjs`) speaks 164's real transport; flow `replays-timeline` and `ui:verify` screen `replays-timeline` (axe 0).
+
+Commit message: `165: demo timeline - play/pause, jump, seek bar, speed; playback.timeline channel; stub engine speaks 164 transport`
+
+Verification (narrow gate: `npx vitest run --changed HEAD`, `npm run ui:flow -- replays-timeline`, `npm run ui:verify`, build, typecheck; full gate is the sprint's): all green after review fixes. AC -> test as verified: AC1-AC7 flow `replays-timeline` (all 7 scenarios passed) + named unit/component tests; AC8 `ui:verify` 59/59 screens, 0 axe. No manual residue. `profiles.test.ts` "discard" failed once in a `--changed` run, passed 3x alone and in the rerun (flaky, untouched by this story).
+
+Decisions:
+- Pause inference = two consecutive unchanged steps (three samples), not two samples: at 0.25x with 250 ms pushes and 0.1 s resolution a single repeat is legitimate playing (review finding, fixed).
+- Speed/seek verb: no verb-only helper in 162, so verb = first word of `demoSeekCommand(format, ...)`; 164's `PlaybackControl.prepare` now takes the demo format and exposes `currentFormat()`.
+- Session starts when `demo.play` succeeds (only place that knows demo name + 138 duration).
+- Fixture demo duration is 41 s, not 138 ms-based; stub uses node.exe copied as `q2pro.exe`; Linux stdin/stdout branch of the stub is untested here.
+- Beyond plan: aria-label on ActionBar's game-dir Select (axe critical on this screen); `focus-visible:outline-solid` on the timeline speed select; 159/162 flows `replays-play-q2pro`/`-mvd2` updated to 164's launch-line shape (were red since 164; assertions kept full, per platform).
+- CHANGELOG entry added under Added.
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 8

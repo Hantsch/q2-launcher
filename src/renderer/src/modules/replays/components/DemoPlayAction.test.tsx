@@ -12,7 +12,11 @@ vi.hoisted(() => {
 })
 
 const playDemo = vi.fn()
-vi.mock('../client', () => ({ playDemo: (...args: unknown[]) => playDemo(...args) }))
+vi.mock('../client', () => ({
+  playDemo: (...args: unknown[]) => playDemo(...args),
+  onPlaybackPosition: () => () => {},
+  onPlaybackState: () => () => {},
+}))
 
 let DemoPlayAction: typeof import('./DemoPlayAction').DemoPlayAction
 let useLauncher: typeof import('../../../store/useLauncher').useLauncher

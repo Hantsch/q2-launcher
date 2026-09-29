@@ -5,6 +5,7 @@ import { demoListFilterSchema } from '../replays/list-filter'
 import { DEMO_SORT_COLUMNS } from '../replays/list-sort'
 import type { NameFacts } from '../replays/name-template'
 import { sidecarFieldsSchema } from '../replays/sidecar'
+import { timelineActionSchema } from '../replays/timeline'
 import { absolutePathSchema } from '../schemas'
 
 /**
@@ -76,6 +77,9 @@ export const REPLAYS_HANDLERS = {
   /** Story 159: plays a demo in Q2PRO (`+demo <file>`), id-addressed - main re-runs eligibility on its
    * own data and resolves/contains the file itself. Resolves to `Outcome<void>`. */
   demoPlay: 'demo.play',
+  /** Story 165 D2: steers the running demo (pause, jump, seek, speed) - a fixed action union, never
+   * console text. Resolves to `Outcome<void>`; no live session is the typed no-session error. */
+  playbackTimeline: 'playback.timeline',
 } as const
 
 /**
@@ -483,6 +487,7 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.demosCopyPath]: replaysDemoFileActionSchema,
   [REPLAYS_HANDLERS.demoRename]: replaysDemoRenameSchema,
   [REPLAYS_HANDLERS.demoPlay]: replaysDemoPlaySchema,
+  [REPLAYS_HANDLERS.playbackTimeline]: timelineActionSchema,
 }
 
 /**

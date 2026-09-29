@@ -67,7 +67,11 @@ async function playAndCheck(page, logPath, fileName) {
     .split(/\r?\n/)
     .filter((l) => l.includes('launching'))
     .pop()
-  const expected = `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +demo ${fileName}`
+  // Playback session (story 164): logfile setup / sys_console before +demo, polling loop after (Windows).
+  const expected =
+    process.platform === 'win32'
+      ? `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set logfile 2 +set logfile_flush 1 +set logfile_name q2l_demo.log +demo ${fileName} +exec q2l_loop.cfg`
+      : `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set sys_console 1 +demo ${fileName}`
   if (!line || !line.trimEnd().endsWith(expected)) {
     throw new Error(`replays-play-mvd2: expected launching line ending in ${expected}, got ${JSON.stringify(line)}`)
   }

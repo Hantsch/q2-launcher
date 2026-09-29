@@ -1,5 +1,6 @@
 import {
   REPLAYS_EVENTS,
+  type DemoFormat,
   type ReplaysPlaybackPosition,
   type ReplaysPlaybackState,
 } from '@shared/modules/replays'
@@ -43,17 +44,20 @@ export interface PlaybackPrepared {
 
 export interface PlaybackControl {
   /** Picks the channel; on Windows also starts it (writes its files) so they exist before the game is spawned. */
-  prepare(input: { gameDirPath: string; durationMs: number | null }): Promise<PlaybackPrepared>
+  prepare(input: { gameDirPath: string; durationMs: number | null; format: DemoFormat }): Promise<PlaybackPrepared>
   /** The game is up: start the channel on Linux (it needs the engine's pipes); Windows started in `prepare`. */
   attach(io?: EngineIo): Promise<void>
   /** Drops a prepared channel whose launch never started - no events. */
   cancel(): Promise<void>
   send(line: string): Outcome<void>
+  /** Format of the demo in the current session, or null with no live session (story 165 D2). */
+  currentFormat(): DemoFormat | null
 }
 
 interface Prepared {
   channel: PlaybackChannel
   durationMs: number | null
+  format: DemoFormat
   bindIo: (io: EngineIo | undefined) => void
   /** The channel was started in `prepare` (Windows): `attach` must not start it again. */
   startedEarly: boolean
@@ -114,7 +118,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
   }
 
   return {
-    async prepare({ gameDirPath, durationMs }) {
+    async prepare({ gameDirPath, durationMs, format }) {
       subscribe()
       if (prepared) void prepared.channel.close().catch(() => undefined)
       let channel: PlaybackChannel
@@ -133,7 +137,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
         channel = makeLinux({ io: lateIo, log })
       }
       const startedEarly = platform === 'win32'
-      prepared = { channel, durationMs, bindIo, startedEarly }
+      prepared = { channel, durationMs, format, bindIo, startedEarly }
       if (startedEarly) await channel.start()
       return { argsBeforeDemo: channel.argsBeforeDemo, argsAfterDemo: channel.argsAfterDemo }
     },
@@ -182,6 +186,10 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
     send(line) {
       if (!session || session.finished) return fail(NO_SESSION)
       return session.channel.send(line)
+    },
+
+    currentFormat() {
+      return session && !session.finished ? session.format : null
     },
   }
 }

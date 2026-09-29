@@ -6,6 +6,7 @@ import { demoPlayEligibility } from '@shared/replays/demo-play'
 import { useLauncher } from '../../../store/useLauncher'
 import { Button } from '../../../components/ui/Button'
 import { playDemo } from '../client'
+import { usePlaybackStore } from '../playback-store'
 
 export interface DemoPlayActionProps {
   demo: DemoRow
@@ -48,6 +49,7 @@ export function DemoPlayAction({ demo }: DemoPlayActionProps) {
       const result = await playDemo({ demoId: demo.id, installationId: eligibility.installationId })
       if (!result.ok) setError(result.error)
       else if (!result.value.ok) setError(result.value.error)
+      else usePlaybackStore.getState().beginSession(demo.fileName, demo.durationMs)
     } finally {
       setBusy(false)
     }

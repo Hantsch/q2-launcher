@@ -3227,6 +3227,8 @@ export function writeFixture(variant) {
   if (variant === 'replays-scale') return writeReplaysScaleFixture()
   // Story 159 D3: demo playback in a stand-in Q2PRO - see `writeReplaysPlayFixture()`.
   if (variant === 'replays-play') return writeReplaysPlayFixture()
+  // Story 165 D4: the same install with a long-lived stub engine - see `writeReplaysTimelineFixture()`.
+  if (variant === REPLAYS_TIMELINE_VARIANT) return writeReplaysTimelineFixture()
   // Story 152 D3: `replays-sort-order` has no screen (only `scripts/flows/replays-sort-order.mjs`),
   // same reasoning as `replays-scale` above - still listed here so `npm run ui:seed` writes it too.
   if (variant === REPLAYS_SORT_ORDER_VARIANT) return writeReplaysSortOrderFixture()
@@ -3263,6 +3265,7 @@ export const FIXTURE_VARIANTS = [
   'replays-rows',
   'replays-scale',
   'replays-play',
+  'replays-timeline',
   'replays-sort-order',
   // Story 151 D4: `replays-list-loading`/`replays-list-error`'s own screens (`screens.mjs`) reseed
   // them.
@@ -3661,7 +3664,8 @@ export function writeJoinFixture({ servers, variant = 'servers-join' }) {
 // Two registered installations: the ACTIVE `q2pro` one (the same spawnable stand-in client as
 // `writeJoinInstallRoot()`, renamed `q2pro.exe`/`q2pro` so it classifies as q2pro; game dirs
 // `baseq2` + `ctf`) and a second, plain `r1q2` one. No real engine ever starts: the "client" is
-// 7za.exe / a shell script that exits by itself. Demos live under the q2pro install:
+// `scripts/lib/stub-engine.cjs` (story 165 D4, `writeStubEngine()`), which speaks the playback
+// transport and exits by itself after 400 ms unless told otherwise. Demos live under the q2pro install:
 // `baseq2/demos/play-base.dm2`, `ctf/demos/play-ctf.dm2` (header game dir patched to `ctf`) and
 // `baseq2/demos/play-tdm.dm2` (the unpatched fixture, header game dir `opentdm` - a mod no
 // installation has, so Play must say "Mod `opentdm` missing").
@@ -3689,7 +3693,48 @@ export function replaysPlayInstallRoot() {
   return join(gameRoot(), 'fixture-replays-play-q2pro-install')
 }
 
-export function writeReplaysPlayFixture(variant = 'replays-play') {
+/** Every fixture demo derives from `docs/fixtures/demos/test.dm2`: 410 server frames = 41 s. */
+export const REPLAYS_PLAY_DEMO_MS = 41_000
+
+/** copyFileSync that waits out a previous run's stub still holding `dest` open (Windows locks it
+ * until the stub notices its launcher is gone, see `stub-engine.cjs`'s parent check). */
+function copyFileRetrying(src, dest) {
+  const deadline = Date.now() + 5_000
+  for (;;) {
+    try {
+      copyFileSync(src, dest)
+      return
+    } catch (err) {
+      if (Date.now() >= deadline || !['EBUSY', 'EPERM'].includes(err?.code)) throw err
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
+    }
+  }
+}
+
+/**
+ * Story 165 D4: installs `scripts/lib/stub-engine.cjs` - the stand-in Q2PRO that speaks story 164's
+ * playback transport - as `executablePath`. Windows: this node binary copied as `q2pro.exe` plus the
+ * script as `<root>/+set.js` (node resolves the launch's leading `+set` argument against the cwd, the
+ * install root). Elsewhere: a `#!/bin/sh` wrapper that execs node on the script with the real argv.
+ * `stub-engine.json` carries the demo length and how long the stub lives when nobody quits it
+ * (400 ms by default - the old stand-in's "exits by itself" behaviour the 159-162 flows rely on).
+ */
+function writeStubEngine(root, executablePath, { lifetimeMs = 400 } = {}) {
+  const script = join(REPO_ROOT, 'scripts', 'lib', 'stub-engine.cjs')
+  writeJson(join(root, 'stub-engine.json'), { demoMs: REPLAYS_PLAY_DEMO_MS, lifetimeMs })
+  if (process.platform === 'win32') {
+    copyFileRetrying(script, join(root, '+set.js'))
+    copyFileRetrying(process.execPath, executablePath)
+    return
+  }
+  const target = join(root, 'stub-engine.cjs')
+  copyFileSync(script, target)
+  const quote = (p) => `'${p.replace(/'/g, `'\\''`)}'`
+  writeFileSync(executablePath, `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(target)} "$@"\n`)
+  chmodSync(executablePath, 0o755)
+}
+
+export function writeReplaysPlayFixture(variant = 'replays-play', { engineLifetimeMs } = {}) {
   const userDataDir = variantUserDataDir(variant)
   rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
@@ -3700,18 +3745,8 @@ export function writeReplaysPlayFixture(variant = 'replays-play') {
   mkdirSync(join(root, 'ctf', 'demos'), { recursive: true })
   writeFileSync(join(root, 'baseq2', 'pak0.pak'), 'not a real pak, just needs to exist')
   const executablePath = join(root, process.platform === 'win32' ? 'q2pro.exe' : 'q2pro')
-  let spawnable = true
-  if (process.platform === 'win32') {
-    if (vendoredWindowsExtractorExists()) {
-      copyFileSync(vendoredWindowsExtractorPath(), executablePath)
-    } else {
-      writeFileSync(executablePath, 'placeholder - resources/bin/7za.exe was not vendored locally')
-      spawnable = false
-    }
-  } else {
-    writeFileSync(executablePath, LINUX_JOURNEY_SHELL_SCRIPT)
-    chmodSync(executablePath, 0o755)
-  }
+  const spawnable = true
+  writeStubEngine(root, executablePath, { lifetimeMs: engineLifetimeMs })
 
   writeFileSync(join(root, 'baseq2', 'demos', REPLAYS_PLAY_BASE_DEMO), demoBytesWithGameDir('baseq2'))
   writeFileSync(join(root, 'ctf', 'demos', REPLAYS_PLAY_CTF_DEMO), demoBytesWithGameDir('ctf'))
@@ -3759,6 +3794,29 @@ export function writeReplaysPlayFixture(variant = 'replays-play') {
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
 
   return { userDataDir, installRoot: root, executablePath, spawnable }
+}
+
+// Story 165 D4: `replays-timeline` - the `replays-play` install, but its stub engine stays up (two
+// minutes, or until the flow drops the quit file) so the timeline strip can be steered and screenshot.
+export const REPLAYS_TIMELINE_VARIANT = 'replays-timeline'
+const REPLAYS_TIMELINE_ENGINE_LIFETIME_MS = 120_000
+
+/** Where the flow's stub engine records executed commands and looks for its quit file - handed to
+ * it as `Q2L_UI_ENGINE_COMMAND_LOG` / `Q2L_UI_ENGINE_QUIT_FILE` by the flow's `setup()`. */
+export function replaysTimelineEngineFiles() {
+  const dir = join(UI_VERIFY_ROOT, 'fixture', 'replays-timeline-engine')
+  return { dir, commandLog: join(dir, 'commands.log'), quitFile: join(dir, 'quit') }
+}
+
+export function writeReplaysTimelineFixture() {
+  const files = replaysTimelineEngineFiles()
+  rmDirBestEffort(files.dir)
+  mkdirSync(files.dir, { recursive: true })
+  writeFileSync(files.commandLog, '')
+  return {
+    ...writeReplaysPlayFixture(REPLAYS_TIMELINE_VARIANT, { engineLifetimeMs: REPLAYS_TIMELINE_ENGINE_LIFETIME_MS }),
+    ...files,
+  }
 }
 
 // Story 162 D1: the `replays-play` install plus an `.mvd2` and an `.mvd2.gz` in its `baseq2/demos/`

@@ -87,7 +87,7 @@ afterEach(() => vi.useRealTimers())
 describe('playback control', () => {
   it('picks the Windows channel on win32 and the Linux channel on linux', async () => {
     const w = setup('win32')
-    expect(await w.control.prepare({ gameDirPath: 'C:/q2/baseq2', durationMs: null })).toEqual({
+    expect(await w.control.prepare({ gameDirPath: 'C:/q2/baseq2', durationMs: null, format: 'dm2' })).toEqual({
       argsBeforeDemo: ['+before-win'],
       argsAfterDemo: ['+after-win'],
     })
@@ -97,7 +97,7 @@ describe('playback control', () => {
     expect(w.win.channel.start).toHaveBeenCalledTimes(1)
 
     const l = setup('linux')
-    expect((await l.control.prepare({ gameDirPath: '/q2/baseq2', durationMs: null })).argsAfterDemo).toEqual(['+after-lin'])
+    expect((await l.control.prepare({ gameDirPath: '/q2/baseq2', durationMs: null, format: 'dm2' })).argsAfterDemo).toEqual(['+after-lin'])
     expect(l.makeLinux).toHaveBeenCalledTimes(1)
     expect(l.makeWindows).not.toHaveBeenCalled()
     expect(l.lin.channel.start).not.toHaveBeenCalled()
@@ -105,21 +105,21 @@ describe('playback control', () => {
 
   it('on win32 attach does not start the channel a second time', async () => {
     const t = setup('win32')
-    await t.control.prepare({ gameDirPath: 'g', durationMs: null })
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
     await t.control.attach()
     expect(t.win.channel.start).toHaveBeenCalledTimes(1)
   })
 
   it('on linux attach starts the channel once', async () => {
     const t = setup('linux')
-    await t.control.prepare({ gameDirPath: 'g', durationMs: null })
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
     await t.control.attach(IO)
     expect(t.lin.channel.start).toHaveBeenCalledTimes(1)
   })
 
   it('pushes playback.position every 250 ms while the demo plays', async () => {
     const t = setup('win32')
-    await t.control.prepare({ gameDirPath: 'g', durationMs: 90_000 })
+    await t.control.prepare({ gameDirPath: 'g', durationMs: 90_000, format: 'dm2' })
     await t.control.attach()
     expect(t.win.channel.start).toHaveBeenCalled()
     expect(t.events[0]).toEqual({ type: 'playback.state', payload: { state: 'playing' } })
@@ -134,7 +134,7 @@ describe('playback control', () => {
 
   it('finished stops the position pushes and refuses sends', async () => {
     const t = setup('win32')
-    await t.control.prepare({ gameDirPath: 'g', durationMs: null })
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
     await t.control.attach()
     vi.advanceTimersByTime(250)
     t.win.fireFinished()
@@ -148,7 +148,7 @@ describe('playback control', () => {
   it('game exit ends the session with a final playback.state ended, after the close settled', async () => {
     const t = setup('win32')
     t.win.state.deferClose = true
-    await t.control.prepare({ gameDirPath: 'g', durationMs: null })
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
     await t.control.attach()
     t.fl.exit('exited')
     expect(t.win.channel.close).toHaveBeenCalledTimes(1)
@@ -167,7 +167,7 @@ describe('playback control', () => {
   it('send without a session fails with replays.playback.error.noSession, and forwards with one', async () => {
     const t = setup('linux')
     expect(t.control.send('pause')).toEqual(NO_SESSION)
-    await t.control.prepare({ gameDirPath: 'g', durationMs: null })
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
     await t.control.attach(IO)
     expect(t.control.send('pause')).toEqual({ ok: true, value: undefined })
     expect(t.lin.channel.send).toHaveBeenCalledWith('pause')
@@ -175,7 +175,7 @@ describe('playback control', () => {
 
   it('launcher-quit release closes the channel before the session ends, then emits ended once', async () => {
     const t = setup('linux')
-    await t.control.prepare({ gameDirPath: 'g', durationMs: null })
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
     await t.control.attach(IO)
     t.fl.release()
     expect(t.lin.channel.close).toHaveBeenCalledTimes(1)
@@ -188,9 +188,36 @@ describe('playback control', () => {
     expect(endedCount(t.events)).toBe(1)
   })
 
+  it('currentFormat is null without a session', () => {
+    expect(setup('win32').control.currentFormat()).toBeNull()
+  })
+
+  it('currentFormat returns the prepared format while the session is live', async () => {
+    const t = setup('win32')
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'mvd2' })
+    await t.control.attach()
+    expect(t.control.currentFormat()).toBe('mvd2')
+  })
+
+  it('currentFormat is null after the session finished or was released', async () => {
+    const finished = setup('win32')
+    await finished.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'mvd2' })
+    await finished.control.attach()
+    finished.win.fireFinished()
+    expect(finished.control.currentFormat()).toBeNull()
+
+    const released = setup('linux')
+    await released.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'mvd2' })
+    await released.control.attach(IO)
+    expect(released.control.currentFormat()).toBe('mvd2')
+    released.fl.release()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(released.control.currentFormat()).toBeNull()
+  })
+
   it('cancel drops a prepared channel without events and closes it', async () => {
     const t = setup('win32')
-    await t.control.prepare({ gameDirPath: 'g', durationMs: null })
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
     await t.control.cancel()
     expect(t.win.channel.close).toHaveBeenCalledTimes(1)
     expect(t.events).toHaveLength(0)

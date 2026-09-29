@@ -522,6 +522,7 @@ describe('demo.play playback channel (story 164 D4)', () => {
       attach: vi.fn(async () => undefined),
       cancel: vi.fn(async () => undefined),
       send: vi.fn(),
+      currentFormat: vi.fn(() => null),
     } satisfies PlaybackControl
   }
 
@@ -534,6 +535,7 @@ describe('demo.play playback channel (story 164 D4)', () => {
       expect(playback.prepare).toHaveBeenCalledWith({
         gameDirPath: join(q2proRoot, 'baseq2'),
         durationMs: 61_000,
+        format: 'dm2',
       })
       const [input, options] = h.launch.start.mock.calls[0] as unknown as [LaunchInput, unknown]
       const args = input.extraArgs ?? []
@@ -550,6 +552,14 @@ describe('demo.play playback channel (story 164 D4)', () => {
       expect(playback.attach, platform).toHaveBeenCalledTimes(1)
       expect(playback.cancel, platform).not.toHaveBeenCalled()
     }
+  })
+
+  it('an mvd2 demo passes format mvd2 to prepare', async () => {
+    const playback = fakeControl()
+    const mvd = demo({ id: 'base', fileName: 'b.dm2', format: 'mvd2' })
+    const h = harness({ demos: [mvd], files: ctfFiles(), playback })
+    expect(await h.play('base', 'q2pro-a')).toEqual({ ok: true, value: undefined })
+    expect(playback.prepare).toHaveBeenCalledWith(expect.objectContaining({ format: 'mvd2' }))
   })
 
   it('a start that fails cancels the prepared channel and never attaches', async () => {

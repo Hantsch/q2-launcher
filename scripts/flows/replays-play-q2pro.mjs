@@ -94,8 +94,14 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
     .split(/\r?\n/)
     .filter((l) => l.includes('launching'))
     .pop()
-  if (!line || !line.trimEnd().endsWith(`+set game ctf +demo ${REPLAYS_PLAY_CTF_DEMO}`)) {
-    throw new Error(`replays-play-q2pro: unexpected launching line ${JSON.stringify(line)}`)
+  // Playback session (story 164): the channel's args wrap +demo - before it the logfile setup
+  // (Windows) or sys_console (Linux), after it the polling loop (Windows only).
+  const expected =
+    process.platform === 'win32'
+      ? `+set game ctf +set logfile 2 +set logfile_flush 1 +set logfile_name q2l_demo.log +demo ${REPLAYS_PLAY_CTF_DEMO} +exec q2l_loop.cfg`
+      : `+set game ctf +set sys_console 1 +demo ${REPLAYS_PLAY_CTF_DEMO}`
+  if (!line || !line.trimEnd().endsWith(expected)) {
+    throw new Error(`replays-play-q2pro: expected launching line ending in ${expected}, got ${JSON.stringify(line)}`)
   }
   if (line.includes('demomap')) throw new Error('replays-play-q2pro: launching line must not use demomap')
   await page.waitForFunction(() => (window.__q2lPhases ?? []).includes('running'), undefined, {

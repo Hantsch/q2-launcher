@@ -20,6 +20,7 @@ import { cn } from '../../lib/cn'
 import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
 import { VirtualDemoList } from './components/VirtualDemoList'
 import { DemoDetailPanel } from './components/DemoDetailPanel'
+import { DemoTimeline } from './components/DemoTimeline'
 import { DemoListFilterBar } from './DemoListFilterBar'
 import { useDemoEditorStore, type RowPatcher } from './demo-editor-store'
 import { ReplaceSidecarDialog } from './components/ReplaceSidecarDialog'
@@ -399,6 +400,8 @@ export function ReplaysView() {
           </div>
         </div>
       </div>
+
+      <DemoTimeline />
 
       {rowReplaceId !== undefined && rowReplaceEntry?.replace !== undefined && (
         <ReplaceSidecarDialog

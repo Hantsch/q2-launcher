@@ -1341,6 +1341,35 @@ export const SCREENS = [
     },
   },
   {
+    id: 'replays-timeline',
+    variant: 'replays-timeline',
+    viewports: BOTH_VIEWPORTS,
+    // Story 165 D4: the timeline strip (`DemoTimeline.tsx`) while the fixture's stub engine
+    // (`scripts/lib/stub-engine.cjs`, kept alive by `writeReplaysTimelineFixture()`) plays the ctf
+    // demo - Play is clicked for real and the strip waits for its first position. The second
+    // viewport shares the launch, so the demo is still playing there (Play is disabled meanwhile).
+    navigate: async (page) => {
+      await click(page, 'nav-replays')
+      await page
+        .getByTestId('replays-demo-list')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      if (!(await page.getByTestId('replays-timeline').isVisible())) {
+        await page
+          .getByTestId('replays-demo-row')
+          .filter({ hasText: 'play-ctf.dm2' })
+          .first()
+          .click({ timeout: CLICK_TIMEOUT_MS })
+        await click(page, 'replays-demo-play')
+      }
+      await page.getByTestId('replays-timeline').waitFor({ state: 'visible', timeout: 15_000 })
+      await page.waitForFunction(
+        () => Number(document.querySelector('[data-testid="replays-timeline-seek"]')?.getAttribute('aria-valuenow')) >= 1,
+        undefined,
+        { timeout: CLICK_TIMEOUT_MS },
+      )
+    },
+  },
+  {
     id: 'replays-editor',
     variant: 'replays-rows',
     viewports: BOTH_VIEWPORTS,

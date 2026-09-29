@@ -91,6 +91,7 @@ describe('replays module', () => {
       'demos.copyPath',
       'demo.rename',
       'demo.play',
+      'playback.timeline',
     ])
   })
 
@@ -650,6 +651,7 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.demosCopyPath]: { demoId: 'nope' },
         [REPLAYS_HANDLERS.demoRename]: { id: 'nope', name: 'renamed' },
         [REPLAYS_HANDLERS.demoPlay]: { demoId: 'nope', installationId: 'nope' },
+        [REPLAYS_HANDLERS.playbackTimeline]: { kind: 'togglePause' },
         [REPLAYS_HANDLERS.listGetSort]: undefined,
         [REPLAYS_HANDLERS.listSetSort]: { sort: null },
         [REPLAYS_HANDLERS.listGetFilter]: undefined,

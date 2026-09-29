@@ -7,6 +7,8 @@ import {
   type ExtraFoldersResult,
   type ReplaysExtraFolder,
   type ReplaysOverview,
+  type ReplaysPlaybackPosition,
+  type ReplaysPlaybackState,
   type ReplaysScanProgress,
   type ReplaysScanStartResult,
   type SidecarSaveResult,
@@ -16,6 +18,7 @@ import type { NameTemplatesView } from '@shared/replays/name-templates'
 import type { SidecarFields } from '@shared/replays/sidecar'
 import type { DemoListSort } from '@shared/replays/list-sort'
 import type { DemoListFilter } from '@shared/replays/list-filter'
+import type { TimelineAction } from '@shared/replays/timeline'
 import type { Outcome } from '@shared/types'
 import { callModule, onModuleEvent } from '../moduleClient'
 
@@ -121,6 +124,23 @@ export function playDemo(payload: {
   installationId: string
 }): Promise<Outcome<Outcome<void>>> {
   return callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.demoPlay, payload)
+}
+
+/** Story 165 D3: steers the running demo. Nested like `playDemo` (the handler answers its own
+ * `Outcome<void>`, e.g. the typed no-session error). */
+export function playbackTimeline(action: TimelineAction): Promise<Outcome<Outcome<void>>> {
+  return callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackTimeline, action)
+}
+
+/** Story 164 D4 events, mirroring `onScanProgress`. */
+export function onPlaybackPosition(
+  listener: (payload: ReplaysPlaybackPosition) => void,
+): () => void {
+  return onModuleEvent<ReplaysPlaybackPosition>('replays', REPLAYS_EVENTS.playbackPosition, listener)
+}
+
+export function onPlaybackState(listener: (payload: ReplaysPlaybackState) => void): () => void {
+  return onModuleEvent<ReplaysPlaybackState>('replays', REPLAYS_EVENTS.playbackState, listener)
 }
 
 export function copyDemoPath(demoId: string): Promise<Outcome<DemoFileActionResult>> {

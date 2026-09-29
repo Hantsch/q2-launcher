@@ -1090,6 +1090,23 @@
     "view": {
       "title": "Demos"
     },
+    "timeline": {
+      "label": "Demo playback",
+      "play": "Play",
+      "pause": "Pause",
+      "back": "Back 10 seconds",
+      "forward": "Forward 10 seconds",
+      "seek": "Seek",
+      "seekValueText": "{{position}} of {{duration}}",
+      "speed": "Playback speed",
+      "speedOption": "{{value}}x",
+      "statePlaying": "Playing",
+      "statePaused": "Paused",
+      "stateFinished": "Finished",
+      "error": "The demo could not be steered.",
+      "seekNeedsDuration": "Seeking by click needs the demo's length",
+      "durationUnknown": "--:--"
+    },
     "play": {
       "action": "Play",
       "unavailable": {

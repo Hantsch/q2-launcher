@@ -24,6 +24,7 @@ import {
   replaysSidecarWriteSchema,
   type ExtraFoldersResult,
 } from '@shared/modules/replays'
+import { timelineActionSchema } from '@shared/replays/timeline'
 import { EMPTY_DEMO_LIST_FILTER, normalizeDemoListFilter } from '@shared/replays/list-filter'
 import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harness'
 import { userDataDir } from '../../lib/paths'
@@ -38,6 +39,7 @@ import { addExtraFolder, removeExtraFolder } from './extra-folders'
 import { createDemoFileActions } from './file-actions'
 import { ReplaysIndexCache } from './index-cache'
 import { createPlaybackControl } from './playback-control'
+import { createPlaybackTimeline } from './playback-timeline'
 import { createPlaybackSessions } from './playback-sessions'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
 import { createSidecarStore } from './sidecar-store'
@@ -269,6 +271,11 @@ export const replaysModule: MainModule = {
     )
     handle(REPLAYS_HANDLERS.demoPlay, replaysDemoPlaySchema, (payload) =>
       demoPlay.play(payload.demoId, payload.installationId),
+    )
+
+    const playbackTimeline = createPlaybackTimeline({ playback: playbackControl })
+    handle(REPLAYS_HANDLERS.playbackTimeline, timelineActionSchema, (payload) =>
+      playbackTimeline.run(payload),
     )
 
     handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))

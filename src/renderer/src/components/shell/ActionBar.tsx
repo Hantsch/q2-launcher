@@ -208,6 +208,7 @@ function GameDirSelect({
       <span className="stencil text-[9px]">{t('dialog.gameDir.label')}</span>
       <Select
         className="h-6 w-44 py-0 text-xs"
+        aria-label={t('dialog.gameDir.label')}
         value={installation.activeGameDir}
         onChange={(event) => onChange(event.target.value)}
         options={[

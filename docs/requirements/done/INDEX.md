@@ -257,3 +257,4 @@ second roadmap.
 - 162 — an mvd2 plays and seeks · S28 · mvd2/mvd2.gz play in Q2PRO via 159's path, one seek command for dm2+mvd2, detail note on who is followed
 - 163 — a playback session keeps a line to the game · S28 · LaunchService opens stdin/stdout pipes for main-only playback sessions; normal launches unchanged, released on quit
 - 164 — the launcher speaks to a running demo · S28 · Q2PRO playback channel (Windows cfg polling, Linux stdin/stdout) with 250 ms position events, typed no-session error, cleanup on exit
+- 165 — I steer a demo from the timeline · S28 · Demos-view timeline strip (pause, ±10 s, seek bar, speed 0.25x-4x) over a typed playback.timeline channel; stub engine speaks 164's transport
