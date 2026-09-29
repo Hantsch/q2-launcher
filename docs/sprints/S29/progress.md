@@ -1,3 +1,27 @@
 - 16:29:52 · sprint · S29 · started
 - 16:35:23 · refine · 170 171 172 173 174 175 · started
 - 16:59:34 · refine · 174 · started (follow-up)
+- 17:04:34 · 170 · build · started
+- 17:04:54 · 170 · D1 stage contract and pure helpers · started
+- 17:06:30 · 170 · D1 stage contract and pure helpers · done
+- 17:06:30 · 170 · D2 main passes stage args · started
+- 17:08:42 · 170 · D2 main passes stage args · done
+- 17:08:42 · 170 · D3 cvar restore (hard) · started
+- 17:14:02 · 170 · D3 cvar restore (hard) · done
+- 17:14:02 · 170 · D4 renderer stage mode · started
+- 17:15:56 · 170 · D4 renderer stage mode · done
+- 17:15:56 · 170 · D5 play wiring and flows · started
+- 17:25:50 · 170 · D5 play wiring and flows · done
+- 17:25:50 · 170 · verify · started
+- 17:27:35 · 170 · verify · done
+- 17:27:35 · 170 · review 1 · started
+- 17:29:12 · 170 · review 1 · done (findings, fixing)
+- 17:29:12 · 170 · review-fix 1 · started
+- 17:31:36 · 170 · review-fix 1 · done
+- 17:31:36 · 170 · review 2 (hard) · started
+- 17:36:46 · 170 · review 2 (hard) · done (FAIL, fixing)
+- 17:36:46 · 170 · review-fix 2 · started
+- 17:37:46 · 170 · review-fix 2 · done
+- 17:37:46 · 170 · verify (re-run) · started
+- 17:40:50 · 170 · verify (re-run) · done (one flaky test fixed, narrow suite green)
+- 17:41:07 · 170 · story · done

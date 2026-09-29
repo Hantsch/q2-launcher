@@ -21,8 +21,25 @@ export interface PlaybackSession {
   speed: number
 }
 
+export interface StageRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 interface PlaybackStoreState {
   session: PlaybackSession | null
+  /** Story 170 D4: stage mode is on from the play click until the session ends. */
+  stageArmed: boolean
+  /** The stage picture's last measured rect in viewport CSS px, or null. */
+  stageRect: StageRect | null
+  /** Why the stage could not place the game window (an i18n key), or null. */
+  stageReason: { key: string } | null
+  armStage: () => void
+  disarmStage: () => void
+  setStageRect: (rect: StageRect | null) => void
+  setStageReason: (reason: { key: string } | null) => void
   beginSession: (demoName: string, knownDurationMs: number | null) => void
   endSession: () => void
   setSpeed: (speed: number) => void
@@ -39,6 +56,19 @@ function unsubscribeAll(): void {
 
 export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   session: null,
+  stageArmed: false,
+  stageRect: null,
+  stageReason: null,
+  armStage: () => set({ stageArmed: true }),
+  disarmStage: () => set({ stageArmed: false, stageRect: null, stageReason: null }),
+  setStageRect: (rect) =>
+    set((s) => {
+      const p = s.stageRect
+      if (p === rect) return s
+      if (p && rect && p.x === rect.x && p.y === rect.y && p.width === rect.width && p.height === rect.height) return s
+      return { stageRect: rect }
+    }),
+  setStageReason: (reason) => set({ stageReason: reason }),
   beginSession: (demoName, knownDurationMs) => {
     unsubscribeAll()
     set({ session: { demoName, knownDurationMs, view: null, speed: 1 } })
@@ -49,7 +79,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   },
   endSession: () => {
     unsubscribeAll()
-    set({ session: null })
+    set({ session: null, stageArmed: false, stageRect: null, stageReason: null })
   },
   setSpeed: (speed) =>
     set((s) => (s.session === null ? s : { session: { ...s.session, speed } })),

@@ -1090,6 +1090,12 @@
     "view": {
       "title": "Demos"
     },
+    "stage": {
+      "label": "The demo plays here",
+      "unavailable": {
+        "wayland": "Not available on Wayland: the launcher cannot place the game window, so the demo plays in its own window"
+      }
+    },
     "timeline": {
       "label": "Demo playback",
       "play": "Play",

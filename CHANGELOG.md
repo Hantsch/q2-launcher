@@ -13,6 +13,7 @@ version section when a release actually ships.
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
 ### Added
+- **Demos** — a demo now plays on the launcher's stage: the game window sits right over a 4:3 area of the Demos view, with the timeline and console field beneath it. On Wayland it plays in its own window and tells you why.
 - **Config** — a "record every map automatically" switch in Settings: turn it on and every map you play is recorded as a demo, on r1q2 and Q2PRO.
 - **Config** — a "Demo playback" category in the Controls tab: bind pause, jump and speed up/down to any key and steer a demo in fullscreen. Nothing is bound for you.
 - **Demos** — a console field next to the timeline: type `fov 110` or `cl_demosnaps` and it goes straight to the running demo.

@@ -17,7 +17,7 @@ timeline can stop the demo; the game console is no longer flooded by the launche
 ## Stories (in build order)
 
 - [x] 169 — a spike proves a demo can play on the launcher's stage (done before the sprint; go)
-- [ ] 170 — a demo plays on the launcher's stage
+- [x] 170 — a demo plays on the launcher's stage
 - [ ] 171 — the stage follows the launcher
 - [ ] 172 — I choose fullscreen and come back
 - [ ] 173 — I end the demo from the launcher

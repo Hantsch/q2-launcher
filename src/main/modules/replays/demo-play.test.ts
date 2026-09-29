@@ -10,6 +10,7 @@ import { canonicalizePath } from '../../lib/fs-utils'
 import { buildLaunchArgs } from '../../services/launch-plan'
 import { createDemoPlay, engineIoFromSession, launcherSweepDirs, type DemoPlayLaunch } from './demo-play'
 import type { PlaybackControl } from './playback-control'
+import type { StageAvailability } from './stage'
 import { LAUNCHER_DIR_NAME } from './demo-staging'
 
 /**
@@ -102,9 +103,14 @@ interface Setup {
   /** Story 164 D4: the platform `demo.play` runs on, and an optional playback control. */
   platform?: string
   playback?: PlaybackControl
+  /** Story 170 D2 */
+  stageAvail?: StageAvailability
+  geometry?: string | null
+  /** Story 170 D3 */
+  cvarRestore?: { snapshot: (configPath: string) => Promise<void>; restore: () => Promise<void> }
 }
 
-function harness({ demos, files, active = 'q2pro-a', running = false, contextPlatform = 'win32', activeEngine = 'q2pro', platform = 'win32', playback }: Setup) {
+function harness({ demos, files, active = 'q2pro-a', running = false, contextPlatform = 'win32', activeEngine = 'q2pro', platform = 'win32', playback, stageAvail = { available: true }, geometry = '800x600+10+20', cvarRestore }: Setup) {
   const fake = fakeLaunch(running)
   const sessions = { begin: vi.fn(), end: vi.fn() }
   const installations = [
@@ -119,6 +125,9 @@ function harness({ demos, files, active = 'q2pro-a', running = false, contextPla
     activeInstallationId: () => active,
     platform,
     playback,
+    stageAvailability: () => stageAvail,
+    toGeometry: () => geometry,
+    cvarRestore,
     launch: fake.launch,
     sessions,
     discoveryContext: () => ({
@@ -127,7 +136,7 @@ function harness({ demos, files, active = 'q2pro-a', running = false, contextPla
       zipDeps: { extractorPath: join(tmp, 'no-7za.exe'), extractorExists: false },
     }),
   })
-  return { ...fake, sessions, installations, play: player.play }
+  return { ...fake, sessions, installations, play: player.play, restage: player.restage }
 }
 
 const CTF_DEMO = demo({
@@ -186,7 +195,7 @@ describe('demo.play with a mod the installation does not list', () => {
     })
     expect(h.launch.start).not.toHaveBeenCalled()
 
-    expect(await h.play('tdm', 'q2pro-a', { acknowledgeModMissing: true })).toEqual({ ok: true, value: undefined })
+    expect(await h.play('tdm', 'q2pro-a', { acknowledgeModMissing: true })).toEqual({ ok: true, value: { stage: null } })
     expect(h.launch.start).toHaveBeenCalledWith(
       { installationId: 'q2pro-a', gameDir: 'opentdm', extraArgs: ['+demo', 'o.dm2'] },
     )
@@ -272,12 +281,12 @@ describe('demo.play (story 159 D2)', () => {
     const q2pro = h.installations[0]
     const engineDefaults = buildLaunchArgs(q2pro, { gameDir: 'baseq2' }).args
 
-    expect(await h.play('ctf', 'q2pro-a')).toEqual({ ok: true, value: undefined })
+    expect(await h.play('ctf', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
     const ctfArgs = buildLaunchArgs(q2pro, h.launch.start.mock.calls[0][0]).args
     expect(ctfArgs).toEqual([...engineDefaults, '+set', 'game', 'ctf', '+demo', 'x.dm2'])
 
     h.emit({ phase: 'exited', installationId: 'q2pro-a' })
-    expect(await h.play('base', 'q2pro-a')).toEqual({ ok: true, value: undefined })
+    expect(await h.play('base', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
     const baseArgs = buildLaunchArgs(q2pro, h.launch.start.mock.calls[1][0]).args
     expect(baseArgs).toEqual([...engineDefaults, '+demo', 'b.dm2'])
 
@@ -307,7 +316,7 @@ describe('demo.play (story 159 D2)', () => {
       demos: [demo({ id: 'evil', fileName: 'evil.dm2' })],
       files: { evil: { absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'), archiveEntry: null } },
     })
-    expect(await sibling.play('evil', 'q2pro-a')).toEqual({ ok: true, value: undefined })
+    expect(await sibling.play('evil', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
     expect(sibling.launch.start.mock.calls).toEqual([[stagedArgs]])
 
     // Another installation's id in the payload, for a demo that is eligible in the active one.
@@ -436,7 +445,7 @@ describe('demo.play from elsewhere (story 160 D2)', () => {
   it('the copy is removed when the game exits, fails or never starts', async () => {
     for (const end of ['exited', 'failed'] as const) {
       const h = harness({ demos: [ELSEWHERE], files: elsewhereFiles() })
-      expect(await h.play('away', 'q2pro-a')).toEqual({ ok: true, value: undefined })
+      expect(await h.play('away', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
       expect(h.launch.start.mock.calls[0][0].extraArgs).toEqual(['+demo', '_launcher/away.dm2'])
       expect(await readFile(copyPath(), 'utf8')).toBe('demo')
 
@@ -558,7 +567,7 @@ describe('demo.play playback channel (story 164 D4)', () => {
       const playback = fakeControl()
       const timed = demo({ id: 'base', fileName: 'b.dm2', durationMs: 61_000 })
       const h = harness({ demos: [timed], files: ctfFiles(), platform, playback })
-      expect(await h.play('base', 'q2pro-a')).toEqual({ ok: true, value: undefined })
+      expect(await h.play('base', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
       expect(playback.prepare).toHaveBeenCalledWith({
         gameDirPath: join(q2proRoot, 'baseq2'),
         durationMs: 61_000,
@@ -585,7 +594,7 @@ describe('demo.play playback channel (story 164 D4)', () => {
     const playback = fakeControl()
     const mvd = demo({ id: 'base', fileName: 'b.dm2', format: 'mvd2' })
     const h = harness({ demos: [mvd], files: ctfFiles(), playback })
-    expect(await h.play('base', 'q2pro-a')).toEqual({ ok: true, value: undefined })
+    expect(await h.play('base', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
     expect(playback.prepare).toHaveBeenCalledWith(expect.objectContaining({ format: 'mvd2' }))
   })
 
@@ -632,5 +641,132 @@ describe('demo.play playback channel (story 164 D4)', () => {
     expect(lines).toEqual(['one', 'two', 'three'])
     off()
     expect(stdout.size).toBe(0)
+  })
+})
+
+describe('demo.play on the stage (story 170 D2)', () => {
+  const STAGE = { x: 1, y: 2, width: 640, height: 360 }
+  const STAGE_ARGS = [
+    '+set', 'vid_fullscreen', '0', '+set', 'win_noborder', '1', '+set', 'win_notitle', '1',
+    '+set', 'win_alwaysontop', '1', '+set', 'win_noresize', '1', '+set', 'vid_geometry', '800x600+10+20',
+  ]
+  const argsOf = (h: ReturnType<typeof harness>): string[] =>
+    ((h.launch.start.mock.calls[0] as unknown as [LaunchInput])[0].extraArgs ?? [])
+  const control = () => ({
+    prepare: vi.fn(async () => ({ argsBeforeDemo: ['+before'], argsAfterDemo: ['+exec', 'after.cfg'] })),
+    attach: vi.fn(async () => undefined),
+    cancel: vi.fn(async () => undefined),
+    send: vi.fn(),
+    currentFormat: vi.fn(() => null),
+  }) satisfies PlaybackControl
+
+  it('stage args sit before +demo', async () => {
+    for (const platform of ['win32', 'linux']) {
+      const playback = control()
+      const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), platform, playback })
+      expect(await h.play('base', 'q2pro-a', { stage: STAGE })).toEqual({ ok: true, value: { stage: { placed: true } } })
+      const args = argsOf(h)
+      const demoAt = args.indexOf('+demo')
+      expect(args.slice(0, 1), platform).toEqual(['+before'])
+      expect(args.slice(demoAt - STAGE_ARGS.length, demoAt), platform).toEqual(STAGE_ARGS)
+      expect(demoAt, platform).toBeLessThan(args.indexOf('+exec'))
+    }
+  })
+
+  it('Wayland plays a normal window with the reason', async () => {
+    const reason = { key: 'replays.stage.unavailable.wayland' } as const
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), stageAvail: { available: false, reason } })
+    expect(await h.play('base', 'q2pro-a', { stage: STAGE })).toEqual({
+      ok: true,
+      value: { stage: { placed: false, reason } },
+    })
+    const args = argsOf(h)
+    expect(args.join(' ')).toContain('+set vid_fullscreen 0 +demo')
+    expect(args).not.toContain('vid_geometry')
+    expect(args).not.toContain('win_noborder')
+  })
+
+  it('no stage rect keeps the args as they are today', async () => {
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles() })
+    expect(await h.play('base', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
+    expect(argsOf(h)).not.toContain('vid_fullscreen')
+    expect(argsOf(h)[0]).toBe('+demo')
+  })
+
+  it('playback.stage sends one set vid_geometry line when placed and nothing otherwise', async () => {
+    const idle = control()
+    const none = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: idle })
+    expect(none.restage(STAGE)).toEqual({ ok: true, value: undefined })
+    expect(idle.send).not.toHaveBeenCalled()
+
+    const plain = control()
+    const unplaced = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback: plain })
+    await unplaced.play('base', 'q2pro-a')
+    expect(unplaced.restage(STAGE).ok).toBe(true)
+    expect(plain.send).not.toHaveBeenCalled()
+
+    const playback = control()
+    const placed = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback })
+    await placed.play('base', 'q2pro-a', { stage: STAGE })
+    expect(placed.restage(STAGE)).toEqual({ ok: true, value: undefined })
+    expect(playback.send).toHaveBeenCalledTimes(1)
+    expect(playback.send).toHaveBeenCalledWith('set vid_geometry 800x600+10+20')
+    placed.emit({ phase: 'exited', installationId: 'q2pro-a' })
+    placed.restage(STAGE)
+    expect(playback.send).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('demo.play stage cvar restore (story 170 D3)', () => {
+  const STAGE = { x: 1, y: 2, width: 640, height: 360 }
+  const restorer = () => ({ snapshot: vi.fn(async () => undefined), restore: vi.fn(async () => undefined) })
+
+  it('a normal launch takes no snapshot', async () => {
+    const cvarRestore = restorer()
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), cvarRestore })
+    expect((await h.play('base', 'q2pro-a')).ok).toBe(true)
+    h.emit({ phase: 'exited', installationId: 'q2pro-a' })
+    expect(cvarRestore.snapshot).not.toHaveBeenCalled()
+    expect(cvarRestore.restore).not.toHaveBeenCalled()
+  })
+
+  it('a stage launch snapshots before spawn and restores after exit', async () => {
+    const cvarRestore = restorer()
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), cvarRestore })
+    expect((await h.play('base', 'q2pro-a', { stage: STAGE })).ok).toBe(true)
+    expect(cvarRestore.snapshot).toHaveBeenCalledWith(join(q2proRoot, 'baseq2', 'q2config.cfg'))
+    expect(cvarRestore.snapshot.mock.invocationCallOrder[0]).toBeLessThan(h.launch.start.mock.invocationCallOrder[0] ?? 0)
+    expect(cvarRestore.restore).not.toHaveBeenCalled()
+    // Another installation's exit is not this session's end.
+    h.emit({ phase: 'exited', installationId: 'q2pro-other' })
+    expect(cvarRestore.restore).not.toHaveBeenCalled()
+    h.emit({ phase: 'exited', installationId: 'q2pro-a' })
+    h.emit({ phase: 'exited', installationId: 'q2pro-a' })
+    expect(cvarRestore.restore).toHaveBeenCalledTimes(1)
+  })
+
+  it('a normal-window launch (Wayland) snapshots too, into the Linux write dir', async () => {
+    const cvarRestore = restorer()
+    const reason = { key: 'replays.stage.unavailable.wayland' } as const
+    const h = harness({
+      demos: [BASE_DEMO],
+      files: ctfFiles(),
+      cvarRestore,
+      contextPlatform: 'linux',
+      stageAvail: { available: false, reason },
+    })
+    await h.play('base', 'q2pro-a', { stage: STAGE })
+    expect(cvarRestore.snapshot).toHaveBeenCalledWith(join(homeDir, '.q2pro', 'baseq2', 'q2config.cfg'))
+    h.emit({ phase: 'failed', installationId: 'q2pro-a' })
+    expect(cvarRestore.restore).toHaveBeenCalledTimes(1)
+  })
+
+  it('a launch that does not start restores right away', async () => {
+    const cvarRestore = restorer()
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), cvarRestore })
+    h.launch.start.mockImplementationOnce(async () => ({ ok: false, error: { key: 'launch.error.x' } }) as never)
+    expect((await h.play('base', 'q2pro-a', { stage: STAGE })).ok).toBe(false)
+    expect(cvarRestore.snapshot).toHaveBeenCalledTimes(1)
+    expect(cvarRestore.restore).toHaveBeenCalledTimes(1)
   })
 })

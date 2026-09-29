@@ -73,7 +73,7 @@ function reasonText(): string {
 describe('DemoPlayAction (story 159 D3)', () => {
   it('an eligible demo enables Play and sends only ids', async () => {
     setStore({})
-    playDemo.mockResolvedValue({ ok: true, value: { ok: true, value: undefined } })
+    playDemo.mockResolvedValue({ ok: true, value: { ok: true, value: { stage: null } } })
     render(createElement(DemoPlayAction, { demo: demo() }))
     const button = screen.getByTestId('replays-demo-play') as HTMLButtonElement
     expect(button.disabled).toBe(false)
@@ -82,6 +82,57 @@ describe('DemoPlayAction (story 159 D3)', () => {
     await vi.waitFor(() =>
       expect(playDemo).toHaveBeenCalledWith({ demoId: '0123456789abcdef', installationId: 'q' }),
     )
+  })
+
+  it('arms the stage, sends the measured rect and shows the placement reason', async () => {
+    setStore({})
+    const { usePlaybackStore } = await import('../playback-store')
+    usePlaybackStore.getState().disarmStage()
+    playDemo.mockImplementation(async () => {
+      expect(usePlaybackStore.getState().stageArmed).toBe(true)
+      return {
+        ok: true,
+        value: { ok: true, value: { stage: { placed: false, reason: { key: 'replays.stage.unavailable.wayland' } } } },
+      }
+    })
+    render(createElement(DemoPlayAction, { demo: demo() }))
+    usePlaybackStore.getState().setStageRect({ x: 1, y: 2, width: 800, height: 600 })
+    screen.getByTestId('replays-demo-play').click()
+    await vi.waitFor(() =>
+      expect(playDemo).toHaveBeenCalledWith({
+        demoId: '0123456789abcdef',
+        installationId: 'q',
+        stage: { x: 1, y: 2, width: 800, height: 600 },
+      }),
+    )
+    await vi.waitFor(() =>
+      expect(usePlaybackStore.getState().stageReason).toEqual({ key: 'replays.stage.unavailable.wayland' }),
+    )
+    usePlaybackStore.getState().endSession()
+  })
+
+  it('plays without a stage when the final rect is unusably small', async () => {
+    setStore({})
+    const { usePlaybackStore } = await import('../playback-store')
+    usePlaybackStore.getState().disarmStage()
+    playDemo.mockResolvedValue({ ok: true, value: { ok: true, value: { stage: null } } })
+    render(createElement(DemoPlayAction, { demo: demo() }))
+    usePlaybackStore.getState().setStageRect({ x: 0, y: 0, width: 2, height: 2 })
+    screen.getByTestId('replays-demo-play').click()
+    await vi.waitFor(() =>
+      expect(playDemo).toHaveBeenCalledWith({ demoId: '0123456789abcdef', installationId: 'q' }),
+    )
+    usePlaybackStore.getState().endSession()
+  })
+
+  it('a failure disarms the stage again', async () => {
+    setStore({})
+    const { usePlaybackStore } = await import('../playback-store')
+    playDemo.mockResolvedValue({ ok: true, value: { ok: false, error: { key: 'replays.play.error.fileMissing' } } })
+    render(createElement(DemoPlayAction, { demo: demo() }))
+    screen.getByTestId('replays-demo-play').click()
+    await screen.findByTestId('replays-demo-play-error')
+    expect(usePlaybackStore.getState().stageArmed).toBe(false)
   })
 
   it('a failure outcome shows an inline alert with the translated key', async () => {
@@ -111,7 +162,7 @@ describe('DemoPlayAction (story 159 D3)', () => {
 
   it('a mod the installation does not list shows a warning with the dir and a play-anyway button', async () => {
     setStore({})
-    playDemo.mockResolvedValue({ ok: true, value: { ok: true, value: undefined } })
+    playDemo.mockResolvedValue({ ok: true, value: { ok: true, value: { stage: null } } })
     render(createElement(DemoPlayAction, { demo: demo({ gameDir: 'opentdm' }) }))
     expect(reasonText()).toContain('Mod `opentdm` is not fully installed')
     screen.getByTestId('replays-demo-play-anyway').click()

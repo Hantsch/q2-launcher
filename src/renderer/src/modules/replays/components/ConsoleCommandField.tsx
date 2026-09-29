@@ -86,10 +86,11 @@ export function ConsoleCommandField() {
           </Button>
         </div>
       </Field>
+      {reason === null && <div className="min-h-4" aria-hidden="true" data-testid="replays-console-reason-slot" />}
       {reason !== null && (
         <p
           id={reasonId}
-          className={hasSession ? 'text-xs text-danger' : 'text-xs text-ink-muted'}
+          className={hasSession ? 'min-h-4 text-xs text-danger' : 'min-h-4 text-xs text-ink-muted'}
           role={hasSession ? 'alert' : undefined}
           data-testid="replays-console-reason"
         >

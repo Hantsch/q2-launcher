@@ -26,6 +26,11 @@ function installation(overrides: Partial<Installation> = {}): Installation {
 }
 
 describe('buildLaunchArgs', () => {
+  it('a normal launch carries no stage cvar', () => {
+    const joined = buildLaunchArgs(installation({ activeGameDir: 'ctf' })).args.join(' ')
+    for (const cvar of ['vid_fullscreen', 'vid_geometry', 'win_']) expect(joined).not.toContain(cvar)
+  })
+
   it('passes the engine default switches', () => {
     // r1q2 wants -nopathcheck; other engines declare none.
     expect(buildLaunchArgs(installation()).args).toEqual(['-nopathcheck'])

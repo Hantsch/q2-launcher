@@ -96,12 +96,19 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
     .pop()
   // Playback session (story 164): the channel's args wrap +demo - before it the logfile setup
   // (Windows) or sys_console (Linux), after it the polling loop (Windows only).
-  const expected =
-    process.platform === 'win32'
-      ? `+set game ctf +set logfile 2 +set logfile_flush 1 +set logfile_name q2l_demo.log +demo ${REPLAYS_PLAY_CTF_DEMO} +exec q2l_loop.cfg`
-      : `+set game ctf +set sys_console 1 +demo ${REPLAYS_PLAY_CTF_DEMO}`
-  if (!line || !line.trimEnd().endsWith(expected)) {
-    throw new Error(`replays-play-q2pro: expected launching line ending in ${expected}, got ${JSON.stringify(line)}`)
+  // Story 170: the stage args (borderless window at `vid_geometry`) come after the channel's setup
+  // args and before +demo.
+  const head = process.platform === 'win32' ? '+set logfile 2 +set logfile_flush 1 +set logfile_name q2l_demo.log' : '+set sys_console 1'
+  const tail = process.platform === 'win32' ? `+demo ${REPLAYS_PLAY_CTF_DEMO} +exec q2l_loop.cfg` : `+demo ${REPLAYS_PLAY_CTF_DEMO}`
+  const trimmed = (line ?? '').trimEnd()
+  const geometryAt = trimmed.search(/ \+set vid_geometry \d+x\d+\+-?\d+\+-?\d+ /)
+  const okOrder =
+    trimmed.includes(` +set game ctf ${head} +set vid_fullscreen 0 `) &&
+    geometryAt !== -1 &&
+    trimmed.endsWith(` ${tail}`) &&
+    trimmed.indexOf('+set vid_geometry') < trimmed.indexOf('+demo ')
+  if (!okOrder) {
+    throw new Error(`replays-play-q2pro: expected game, ${head}, stage args, then ${tail}; got ${JSON.stringify(line)}`)
   }
   if (line.includes('demomap')) throw new Error('replays-play-q2pro: launching line must not use demomap')
   await page.waitForFunction(() => (window.__q2lPhases ?? []).includes('running'), undefined, {
@@ -122,7 +129,7 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
     throw new Error('replays-play-q2pro: Play must be disabled for the missing-mod demo')
   }
   const modReason = (await page.getByTestId('replays-demo-play-reason').textContent()) ?? ''
-  if (!modReason.includes(`Mod \`${REPLAYS_PLAY_MISSING_MOD}\` missing`)) {
+  if (!modReason.includes(`Mod \`${REPLAYS_PLAY_MISSING_MOD}\` is not fully installed`)) {
     throw new Error(`replays-play-q2pro: expected the modMissing text, got ${JSON.stringify(modReason)}`)
   }
   await shot('play-mod-missing')

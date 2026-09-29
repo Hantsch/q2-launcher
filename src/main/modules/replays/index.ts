@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { app as electronApp, clipboard, shell } from 'electron'
+import { app as electronApp, clipboard, screen, shell } from 'electron'
 import {
   REPLAYS_HANDLERS,
   extraFoldersAddSchema,
@@ -19,6 +19,7 @@ import {
   replaysDemoFileActionSchema,
   replaysDemoPlaySchema,
   replaysDemoRenameSchema,
+  replaysStageRectSchema,
   replaysConsoleSendSchema,
   replaysNoInputSchema,
   replaysSidecarReadSchema,
@@ -40,10 +41,12 @@ import { addExtraFolder, removeExtraFolder } from './extra-folders'
 import { createDemoFileActions } from './file-actions'
 import { ReplaysIndexCache } from './index-cache'
 import { createPlaybackControl } from './playback-control'
+import { stageAvailability, stageGeometry, type StageRect } from './stage'
 import { createPlaybackTimeline } from './playback-timeline'
 import { createPlaybackConsole } from './playback-console'
 import { createPlaybackSessions } from './playback-sessions'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
+import { SESSION_CVARS_PENDING_FILE, STAGE_CVAR_NAMES, createCvarRestore } from './session-cvar-restore'
 import { createSidecarStore } from './sidecar-store'
 import {
   currentNameTemplates,
@@ -228,6 +231,16 @@ export const replaysModule: MainModule = {
     const startupSweep: Promise<void> = Promise.resolve()
       .then(() => sweepLauncherDirs(launcherSweepDirs(app.installations.list(), discoveryContext()), log))
       .catch((error: unknown) => log.warn(`demo staging sweep failed: ${String(error)}`))
+    // Story 170 D3: the stage's archived cvars are put back after each stage session; a snapshot a
+    // crashed launcher left behind is applied once here. Its operations are serialised, so a play
+    // started meanwhile snapshots only after this has run.
+    const cvarRestore = createCvarRestore({
+      names: STAGE_CVAR_NAMES,
+      pendingPath: join(userDataDir(), SESSION_CVARS_PENDING_FILE),
+    })
+    void cvarRestore
+      .applyPending()
+      .catch((error: unknown) => log.warn(`stage cvar restore at start failed: ${String(error)}`))
 
     const demoPlay = createDemoPlay({
       readDemos: () => scanService.read(),
@@ -240,6 +253,23 @@ export const replaysModule: MainModule = {
       discoveryContext,
       stagingReady: () => startupSweep,
       playback: playbackControl,
+      cvarRestore,
+      stageAvailability: () =>
+        stageAvailability(process.platform, process.env, {
+          Q2L_UI_HARNESS: process.env['Q2L_UI_HARNESS'],
+          Q2L_UI_SESSION_TYPE: process.env['Q2L_UI_SESSION_TYPE'],
+        }),
+      toGeometry: (rect) => {
+        const win = app.getMainWindow()
+        if (!win) return null
+        const contentBounds = win.getContentBounds()
+        const toScreen = (dip: StageRect): StageRect => {
+          if (typeof screen.dipToScreenRect === 'function') return screen.dipToScreenRect(win, dip)
+          const scale = screen.getDisplayMatching(contentBounds).scaleFactor
+          return { x: dip.x * scale, y: dip.y * scale, width: dip.width * scale, height: dip.height * scale }
+        }
+        return stageGeometry(rect, { contentBounds, zoomFactor: win.webContents.getZoomFactor() }, toScreen)
+      },
     })
 
     handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())
@@ -274,8 +304,11 @@ export const replaysModule: MainModule = {
     handle(REPLAYS_HANDLERS.demoPlay, replaysDemoPlaySchema, (payload) =>
       demoPlay.play(payload.demoId, payload.installationId, {
         acknowledgeModMissing: payload.acknowledgeModMissing === true,
+        stage: payload.stage,
       }),
     )
+
+    handle(REPLAYS_HANDLERS.playbackStage, replaysStageRectSchema, (rect) => demoPlay.restage(rect))
 
     const playbackTimeline = createPlaybackTimeline({ playback: playbackControl })
     handle(REPLAYS_HANDLERS.playbackTimeline, timelineActionSchema, (payload) =>

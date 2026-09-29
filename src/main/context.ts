@@ -77,6 +77,8 @@ export interface AppContext {
   broadcast: Broadcaster
   /** Story 066 D4: the config-file picker modules reach through `ModuleSetup.app`, never `dialog` directly. */
   dialog: DialogService
+  /** Story 170: the tracked main window (null before it exists) - for placing the game over the stage. */
+  getMainWindow: () => BrowserWindow | null
   /** Story 097: the update-check service - a shell service, not a module (it has no per-installation
    * data and nothing renderer-writable to validate), constructed here like `launch`/`jobs` above. */
   update: UpdateService
@@ -199,6 +201,7 @@ export async function createAppContext(options: {
     modules: new MainModuleRegistry(features),
     broadcast,
     dialog,
+    getMainWindow: options.getMainWindow,
     update,
     unlock,
     features,

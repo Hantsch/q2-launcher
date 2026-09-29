@@ -84,6 +84,8 @@ export const REPLAYS_HANDLERS = {
    * again (`validateConsoleLine`) and resolves to `Outcome<void>`; a refused line or no live session
    * is a typed `replays.console.error.*` failure. */
   playbackConsoleSend: 'playback.consoleSend',
+  /** Story 170 D1: re-places the running demo's window over the launcher's stage rect. */
+  playbackStage: 'playback.stage',
 } as const
 
 /**
@@ -425,6 +427,24 @@ export const replaysDemoRenameSchema = z.object({ id: replaysDemoIdSchema, name:
  * bounds the payload; main's `validateConsoleLine` is the authority (printable, one line, 255). */
 export const replaysConsoleSendSchema = z.object({ line: z.string().max(1024) }).strict()
 
+/** Story 170 D1: the launcher's stage as a rect in CSS pixels of the renderer's content area -
+ * integers only, origin non-negative, size 1-16384. `.strict()` so an extra key is refused. */
+export const replaysStageRectSchema = z
+  .object({
+    x: z.number().int().min(0).max(16384),
+    y: z.number().int().min(0).max(16384),
+    width: z.number().int().min(1).max(16384),
+    height: z.number().int().min(1).max(16384),
+  })
+  .strict()
+export type ReplaysStageRect = z.infer<typeof replaysStageRectSchema>
+
+/** Story 170 D1: what `demo.play` reports about the stage - `null` when no rect was sent. */
+export type ReplaysStageResult = { placed: true } | { placed: false; reason: { key: string } }
+export interface ReplaysDemoPlayResult {
+  stage: ReplaysStageResult | null
+}
+
 /** `demo.play`'s payload (story 159): the demo id plus the installation the renderer believes it is
  * playing in - never a path. Main checks that id against its own eligible (active) installation and
  * refuses a mismatch. `.strict()` for the same reason as `replaysDemoFileActionSchema` above. */
@@ -434,6 +454,8 @@ export const replaysDemoPlaySchema = z
     installationId: z.string().min(1).max(512),
     /** The user confirmed the "mod not fully installed" warning; main re-checks everything else. */
     acknowledgeModMissing: z.boolean().optional(),
+    /** Story 170: where the launcher's stage is; absent, the game opens in its own window. */
+    stage: replaysStageRectSchema.optional(),
   })
   .strict()
 
@@ -501,6 +523,7 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.demoRename]: replaysDemoRenameSchema,
   [REPLAYS_HANDLERS.demoPlay]: replaysDemoPlaySchema,
   [REPLAYS_HANDLERS.playbackTimeline]: timelineActionSchema,
+  [REPLAYS_HANDLERS.playbackStage]: replaysStageRectSchema,
   [REPLAYS_HANDLERS.playbackConsoleSend]: replaysConsoleSendSchema,
 }
 

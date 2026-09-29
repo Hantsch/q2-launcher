@@ -1,7 +1,7 @@
 ---
 id: 170
 title: a demo plays on the launcher's stage
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-29
 ---
 
@@ -21,18 +21,18 @@ These are session settings of a demo playback only; a normal game launch is unch
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — While a demo plays, the Demos view shows a stage area, and the timeline and console
+- [x] **AC1** — While a demo plays, the Demos view shows a stage area, and the timeline and console
       field are visible and operable below it.
-- [ ] **AC2** — A demo playback starts Q2PRO windowed, borderless and topmost, with its client area
+- [x] **AC2** — A demo playback starts Q2PRO windowed, borderless and topmost, with its client area
       covering the stage exactly (physical pixels, correct at display scaling other than 100 %).
-- [ ] **AC3** — The window parameters are passed only to demo playbacks; a normal launch's arguments
+- [x] **AC3** — The window parameters are passed only to demo playbacks; a normal launch's arguments
       are unchanged.
-- [ ] **AC4** — The window parameters do not end up permanently in the user's own config (Q2PRO
+- [x] **AC4** — The window parameters do not end up permanently in the user's own config (Q2PRO
       archives cvars on exit) — or the recorded decision states which ones do and why that is
       acceptable.
-- [ ] **AC5** — On a platform or session where the stage cannot position the window, the stage shows
+- [x] **AC5** — On a platform or session where the stage cannot position the window, the stage shows
       the reason as visible text (i18n key), and the demo still plays in a normal window.
-- [ ] **AC6** — Stage labels and reasons are i18n keys.
+- [x] **AC6** — Stage labels and reasons are i18n keys.
 
 ## Decisions (Sprint)
 
@@ -124,7 +124,7 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
 
 ## Deliverables
 
-- [ ] **D1 — Stage contract and pure helpers.**
+- [x] **D1 — Stage contract and pure helpers.**
   Files: `src/shared/modules/replays.ts`, `src/main/modules/replays/stage.ts` (new),
   `src/main/modules/replays/stage.test.ts` (new).
   - Add to `replaysDemoPlaySchema` (keep `.strict()`) an optional
@@ -153,7 +153,7 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
       origin offset, and with zoom ≠ 1.
     - Exact arg order.
     - The schema rejects a negative, fractional, zero-size or extra-key rect.
-- [ ] **D2 — Main passes stage args to demo playbacks only.**
+- [x] **D2 — Main passes stage args to demo playbacks only.**
   Files: `src/main/modules/replays/demo-play.ts`, `src/main/modules/replays/index.ts`,
   `src/main/modules/replays/demo-play.test.ts`, `src/main/services/launch-plan.test.ts`.
   Uses D1's `stage.ts` helpers and schema.
@@ -177,7 +177,7 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
     - `playback.stage` sends exactly one `set vid_geometry` line when placed and nothing otherwise.
   - Test in `launch-plan.test.ts`: "a normal launch carries no stage cvar". `buildLaunchArgs` for a
     plain launch contains none of `vid_fullscreen`, `vid_geometry` or `win_`.
-- [ ] **D3 — Archived stage cvars are restored after the session.**
+- [x] **D3 — Archived stage cvars are restored after the session.**
   Files: `src/main/modules/replays/session-cvar-restore.ts` (new), `session-cvar-restore.test.ts`
   (new), `src/main/modules/replays/demo-play.ts`, `src/main/modules/replays/index.ts`.
   - `createCvarRestore({ names, fs, pendingPath })`. `names` is `['vid_fullscreen', 'vid_geometry']`
@@ -206,7 +206,7 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
     - A missing file does nothing.
     - A pending snapshot is applied at start and then deleted.
     - A normal launch takes no snapshot.
-- [ ] **D4 — The Demos view has a stage mode.**
+- [x] **D4 — The Demos view has a stage mode.**
   Files: `src/renderer/src/modules/replays/playback-store.ts`, `ReplaysView.tsx`,
   `components/DemoStage.tsx` (new), `components/DemoStage.test.tsx` (new), `stage-fit.ts` (new, pure),
   `stage-fit.test.ts` (new), `src/renderer/src/i18n/locales/en.json`.
@@ -232,7 +232,7 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
   - Tests: `fitAspect` covers wide, tall and exact boxes. `DemoStage.test.tsx` covers stage mode
     hiding list/detail while keeping them mounted, the label and reason coming from i18n keys, and
     `stageRect` being written. Mirror `DemoTimeline.test.tsx`.
-- [ ] **D5 — Play launches onto the stage; flows.**
+- [x] **D5 — Play launches onto the stage; flows.**
   Files: `components/DemoPlayAction.tsx`, `components/DemoPlayAction.test.tsx`,
   `src/renderer/src/modules/replays/client.ts`, `components/DemoStage.tsx`,
   `scripts/flows/replays-stage.mjs` (new), `scripts/flows/replays-stage-unavailable.mjs` (new),
@@ -285,7 +285,7 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
   area landing on the stage, borderless and topmost, at 150 % scaling and on X11 — the stub engine
   opens no window and CI has no scaled display; check against `C:\Games\Q2Pro` as in spike 169.
 - AC3 → unit `src/main/services/launch-plan.test.ts` › "a normal launch carries no stage cvar"; unit
-  `src/main/modules/replays/demo-play.test.ts` › "no stage rect keeps today's args".
+  `src/main/modules/replays/demo-play.test.ts` › "no stage rect keeps the args as they are today".
 - AC4 → unit `src/main/modules/replays/session-cvar-restore.test.ts` › "restores vid_fullscreen and
   vid_geometry lines byte-exact", "removes a cvar that was absent before", "keeps the user's
   in-session changes", "applies a pending snapshot at start"; decision recorded (win_* not archived).
@@ -297,3 +297,18 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
   key".
 
 ## Done
+
+Demo playbacks now launch Q2PRO windowed, borderless and topmost onto a "stage" area of the Demos view (4:3 fit, timeline and console beneath). The renderer measures the stage rect, main converts it to physical pixels via `screen.dipToScreenRect` and adds the stage args before `+demo`; `playback.stage` re-places the window when the box changes. `vid_fullscreen`/`vid_geometry` are restored line-exact after the session (and at next start if pending). Wayland plays a normal window with a visible reason.
+
+Commit message: `170: demo plays on the launcher's stage (stage args, line-exact cvar restore, Demos stage mode)`
+
+Verification: narrow gate only — build, typecheck, `npx vitest run --changed HEAD` (1882 passed), flows `replays-stage`, `replays-stage-unavailable`, `replays-play-q2pro` green (`npm run ui:flow -- <name>`). Review: stage 1 (default) UNCLEAR, stage 2 (hard) FAIL, both fixed (2 cycles); no third re-review of the small cycle-2 fixes, each covered by a new test. AC → test: AC1 replays-stage + DemoStage.test + stage-fit.test; AC2 stage.test + demo-play.test + replays-stage; AC3 launch-plan.test + demo-play.test; AC4 session-cvar-restore.test; AC5 replays-stage-unavailable + stage.test + demo-play.test; AC6 DemoStage.test + stage.test — all passed. Manual residue: AC2 — real Q2PRO window client area on the stage, borderless/topmost, at 150 % scaling and on X11 (stub engine opens no window).
+
+Decisions (implementation):
+- Console field always reserves its reason line (`min-h-4`) so the stage box is identical before and after session start; DemoPlayAction waits up to 30 frames for a steady rect (skipped without ResizeObserver) and plays without `stage` if the rect is under 64 px.
+- `AppContext.getMainWindow` added so the replays module can reach the window for content bounds/zoom.
+- `snapshot()` never overwrites a still-pending snapshot (failed restore keeps the original lines).
+- `replays-play-q2pro` also updated for the current "is not fully installed" wording (stale since 18e77c0).
+- Open, accepted: (1) launcher quit while the game keeps running — next-start `applyPending` restores before the engine's write-on-exit, so the stage values can persist; (2) negative display origins are emitted as `+-X` in `vid_geometry` — Q2PRO's parsing is unverified (check with the real-window manual residue); (3) `toGeometry` in `index.ts` is an inline closure without a unit test; scaled/secondary-display behaviour rests on `stage.test.ts` with an injected `dipToScreen` and the manual check.
+
+tiers: D 5 / hard 1 · review default+hard · cycles 2 · agents 11

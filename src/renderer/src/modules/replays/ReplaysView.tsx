@@ -21,7 +21,9 @@ import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
 import { VirtualDemoList } from './components/VirtualDemoList'
 import { DemoDetailPanel } from './components/DemoDetailPanel'
 import { ConsoleCommandField } from './components/ConsoleCommandField'
+import { DemoStage } from './components/DemoStage'
 import { DemoTimeline } from './components/DemoTimeline'
+import { usePlaybackStore } from './playback-store'
 import { DemoListFilterBar } from './DemoListFilterBar'
 import { useDemoEditorStore, type RowPatcher } from './demo-editor-store'
 import { ReplaceSidecarDialog } from './components/ReplaceSidecarDialog'
@@ -111,6 +113,7 @@ export function ReplaysView() {
   // outright, never even started). A real `scan.progress` push takes over from there.
   const [scanning, setScanning] = useState(true)
   const [progress, setProgress] = useState<ReplaysScanProgress>(IDLE_SCAN_PROGRESS)
+  const stageMode = usePlaybackStore((state) => state.stageArmed || state.session !== null)
   const selectedId = useDemoEditorStore((state) => state.selectedId)
   const selectDemo = useDemoEditorStore((state) => state.select)
   const closeDemo = useDemoEditorStore((state) => state.close)
@@ -338,7 +341,10 @@ export function ReplaysView() {
 
       <div className="flex min-h-0 flex-1">
         <aside
-          className="w-56 shrink-0 overflow-y-auto border-r border-line bg-panel/60 p-4"
+          className={cn(
+            'w-56 shrink-0 overflow-y-auto border-r border-line bg-panel/60 p-4',
+            stageMode && 'hidden',
+          )}
           aria-label={t('replays.filter.title')}
         >
           <DemoListFilterBar
@@ -350,7 +356,11 @@ export function ReplaysView() {
           />
         </aside>
 
-        <div className="@container min-h-0 min-w-0 flex-1">
+        {stageMode && <DemoStage />}
+        <div
+          className={cn('@container min-h-0 min-w-0 flex-1', stageMode && 'hidden')}
+          data-testid="replays-list-detail"
+        >
           <div className={detailSplit(selected !== null)}>
             <div className="flex min-h-0 flex-col p-5">
               {demos !== null && filterLoaded && rowCount > 0 && visibleDemos.length === 0 && (
@@ -402,7 +412,9 @@ export function ReplaysView() {
         </div>
       </div>
 
-      <DemoTimeline />
+      <div className={cn(stageMode && 'h-28 shrink-0 overflow-hidden')} data-testid="replays-timeline-slot">
+        <DemoTimeline />
+      </div>
       <ConsoleCommandField />
 
       {rowReplaceId !== undefined && rowReplaceEntry?.replace !== undefined && (

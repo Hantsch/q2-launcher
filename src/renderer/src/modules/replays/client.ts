@@ -5,6 +5,8 @@ import {
   type DemoRow,
   type DiscoveredDemo,
   type ExtraFoldersResult,
+  type ReplaysDemoPlayResult,
+  type ReplaysStageRect,
   type ReplaysExtraFolder,
   type ReplaysOverview,
   type ReplaysPlaybackPosition,
@@ -123,8 +125,14 @@ export function playDemo(payload: {
   demoId: string
   installationId: string
   acknowledgeModMissing?: boolean
-}): Promise<Outcome<Outcome<void>>> {
-  return callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.demoPlay, payload)
+  stage?: ReplaysStageRect
+}): Promise<Outcome<Outcome<ReplaysDemoPlayResult>>> {
+  return callModule<Outcome<ReplaysDemoPlayResult>>('replays', REPLAYS_HANDLERS.demoPlay, payload)
+}
+
+/** Story 170 D5: re-places the running demo's window after the stage picture's box changed. */
+export function sendStageRect(rect: ReplaysStageRect): Promise<Outcome<Outcome<void>>> {
+  return callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackStage, rect)
 }
 
 /** Story 165 D3: steers the running demo. Nested like `playDemo` (the handler answers its own
