@@ -1,7 +1,7 @@
 ---
 id: 163
 title: a playback session keeps a line to the game
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -16,16 +16,16 @@ exactly as it is**.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A launch started as a demo playback session can be given stdin/stdout pipes; main
+- [x] **AC1** — A launch started as a demo playback session can be given stdin/stdout pipes; main
       holds them for the lifetime of the process.
-- [ ] **AC2** — Every other launch (Play from the library, Join/Spectate from the servers module)
+- [x] **AC2** — Every other launch (Play from the library, Join/Spectate from the servers module)
       still spawns with `stdio: 'ignore'`; the existing `launch.test.ts` assertion keeps passing and a
       new test pins the difference.
-- [ ] **AC3** — The session's stdout is drained continuously, so a chatty engine can never block on
+- [x] **AC3** — The session's stdout is drained continuously, so a chatty engine can never block on
       a full pipe.
-- [ ] **AC4** — When the game exits, the pipes are closed and the session ends; when the launcher
+- [x] **AC4** — When the game exits, the pipes are closed and the session ends; when the launcher
       exits, the game follows the rule decided in Q1.
-- [ ] **AC5** — Only one playback session exists at a time, consistent with the one-running-game
+- [x] **AC5** — Only one playback session exists at a time, consistent with the one-running-game
       rule of the game lifecycle.
 
 ## Open Questions
@@ -146,4 +146,31 @@ main-process unit tests against a mocked `spawn` with a fake child — no test s
 
 ## Done
 
-<!-- Filled by /build 163. -->
+Main-only playback plumbing: `LaunchService.start(input, { playback: true })` spawns with
+`stdio: ['pipe','pipe','ignore']` (not detached) and holds a `PlaybackSession` (new
+`playback-session.ts`, stdout drained from spawn, stdin errors logged). Normal launches keep their
+exact spawn options; `launch:start` cannot open a pipe. `before-quit` releases the session (ends
+stdin, destroys stdout, never kills). New i18n key `launch.error.playbackNeedsDirectLaunch`.
+
+Commit message: `163: playback session pipes in LaunchService — main-only, normal launches stay stdio ignore, released on quit`
+
+Verification (narrow gate): `npm run build` green, `npm run typecheck` green, `npx vitest run --changed HEAD`
+green (101 files / 795 tests). No e2e criterion is mapped; launch-related flows run additionally, all
+OK: `ui:flow` replays-play-q2pro, replays-play-mvd2, servers-join, servers-no-scan-while-playing,
+replays-copy-in. Full regression gate is the sprint's. Review (default, 1 cycle): PASS, no findings.
+AC -> test, all ran and passed: AC1 launch.test.ts "a playback launch spawns..." + playback-session.test.ts
+"write reaches the child's stdin..."; AC2 launch.test.ts "every launch without the playback option..."
++ ipc/launch.test.ts "launch:start never passes a playback option..."; AC3 playback-session.test.ts
+"stdout is drained..."; AC4 launch.test.ts "the session ends exactly once..." + "releasePlaybackSession
+closes the pipes..." + playback-session.test.ts "a write after the child's stdin broke..."; AC5
+launch.test.ts "a second launch while a playback session runs..." + "a playback launch through a Steam
+handoff is refused...". No manual residue. No changelog entry (no user-facing change).
+
+Decisions:
+- Spawn throw: the session is opened only after `spawn()` returns, so a throw leaves no session (getter stays `undefined`); tested.
+- Error listeners stay on both pipes after the session ends, so a late EPIPE never becomes an uncaught exception in main.
+- Broken stdin does not end the session; `write()` returns false and logs. `onEnd` registered after the end fires immediately.
+- Known trade-off: `releasePlaybackSession()` destroys stdout per the plan; on Linux an engine that does not ignore SIGPIPE could die on its next print after a launcher release. Follow-up for [[164]] if it matters (alternative: keep draining).
+
+tiers: D 2 / hard 1 · review default · cycles 1 · agents 4
+

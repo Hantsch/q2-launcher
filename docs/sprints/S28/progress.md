@@ -51,3 +51,13 @@
 - 2026-09-29 10:46 · 162 · review 1 · started
 - 2026-09-29 10:46 · 162 · review 1 · done
 - 2026-09-29 10:47 · 162 · story · done
+- 2026-09-29 10:47:21 · 163 · build · started
+- 2026-09-29 10:47 · 163 · D1 playback pipes in LaunchService · started
+- 2026-09-29 10:52 · 163 · D1 playback pipes in LaunchService · done
+- 2026-09-29 10:52 · 163 · D2 quit release + no pipe via launch:start · started
+- 2026-09-29 10:52 · 163 · D2 quit release + no pipe via launch:start · done
+- 2026-09-29 10:52 · 163 · verify · started
+- 2026-09-29 10:56 · 163 · verify · done
+- 2026-09-29 10:56 · 163 · review 1 · started
+- 2026-09-29 10:56 · 163 · review 1 · done
+- 2026-09-29 10:56 · 163 · story · done

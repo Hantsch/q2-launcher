@@ -17,7 +17,7 @@ A demo plays in Q2PRO (copied in and cleaned up when it lives elsewhere; r1q2 fa
 - [x] 160 — a demo from elsewhere is copied in and cleaned up
 - [x] 161 — without Q2PRO a demo still plays in r1q2  (scope cut by user: no r1q2 playback for now — refine decides what remains)
 - [x] 162 — an mvd2 plays and seeks
-- [ ] 163 — a playback session keeps a line to the game
+- [x] 163 — a playback session keeps a line to the game
 - [ ] 164 — the launcher speaks to a running demo
 - [ ] 165 — I steer a demo from the timeline
 - [ ] 166 — I send a console command to the running demo

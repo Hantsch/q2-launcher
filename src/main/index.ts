@@ -228,6 +228,8 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   // Geometry and state are written asynchronously; make sure they land.
   void Promise.all([mainWindow?.settle(), context?.state.settle()])
+  // The launcher lets go of any playback session's pipe; the game keeps running.
+  context?.launch.releasePlaybackSession()
 })
 
 process.on('uncaughtException', (error) => {

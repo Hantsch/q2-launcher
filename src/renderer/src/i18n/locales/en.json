@@ -2942,7 +2942,8 @@
       "installationBusy": "A job is writing files for this installation. It can be started once that job has finished.",
       "spawnFailed": "The game could not be started: {{path}}",
       "processError": "The game process reported an error: {{message}}",
-      "connectNeedsDirectLaunch": "This installation launches through Steam, which cannot join a server directly."
+      "connectNeedsDirectLaunch": "This installation launches through Steam, which cannot join a server directly.",
+      "playbackNeedsDirectLaunch": "This installation launches through Steam, which cannot play a demo directly."
     },
     "userinfo": {
       "reject": {

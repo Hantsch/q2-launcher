@@ -255,3 +255,4 @@ second roadmap.
 - 160 — a demo from elsewhere is copied in and cleaned up · S28 · demos from other installations, extra folders and zips play via a temporary `_launcher/` copy in Q2PRO that is removed on exit and swept at start; originals untouched
 - 161 — without Q2PRO a demo still plays in r1q2 · S28 · scope cut to Q2PRO only; main-side guard and regression tests pin non-q2pro refusal and no demomap
 - 162 — an mvd2 plays and seeks · S28 · mvd2/mvd2.gz play in Q2PRO via 159's path, one seek command for dm2+mvd2, detail note on who is followed
+- 163 — a playback session keeps a line to the game · S28 · LaunchService opens stdin/stdout pipes for main-only playback sessions; normal launches unchanged, released on quit

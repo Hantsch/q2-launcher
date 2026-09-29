@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { PassThrough } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CONNECT_CFG_NAME, renderConnectCfg } from '@shared/launch/userinfo'
 import {
@@ -616,6 +617,295 @@ describe('LaunchService join with a password', () => {
     expect(loggedText()).not.toContain(PASSWORD)
     // Without a connect the same installation still hands off as before.
     expect((await launch.plan({ installationId: INSTALLATION })).ok).toBe(true)
+  })
+})
+
+/**
+ * Story 163 D1. A playback launch keeps a line to the game: stdin and stdout piped, held as a
+ * `PlaybackSession` for exactly as long as the process lives. The fake child carries real
+ * `PassThrough` pipes, so what the game would read and print is real stream traffic; these run
+ * against a temp folder because the connect-cfg cleanup shares the same exit paths.
+ */
+describe('LaunchService playback session', () => {
+  const STEAM: DetectedRunner = {
+    kind: 'steam',
+    id: 'steam',
+    path: 'C:\\Program Files (x86)\\Steam\\steam.exe',
+    available: true,
+  }
+  let root: string
+  let cfg: string
+
+  type PipedChild = ReturnType<typeof fakeChild> & {
+    kill: ReturnType<typeof vi.fn>
+    stdin: PassThrough
+    stdout: PassThrough
+  }
+  const pipedChild = (): PipedChild => ({
+    ...fakeChild(),
+    kill: vi.fn(),
+    stdin: new PassThrough(),
+    stdout: new PassThrough(),
+  })
+  const listener = (child: { once: ReturnType<typeof vi.fn> }, event: string): ((...args: unknown[]) => void) =>
+    child.once.mock.calls.find((call) => call[0] === event)?.[1] as (...args: unknown[]) => void
+  const tempInstallation = (overrides: Record<string, unknown> = {}): Installation =>
+    ({ ...installation, rootPath: root, ...overrides }) as unknown as Installation
+  /** Everything the game has read from its stdin so far. */
+  const received = (stream: PassThrough): (() => string) => {
+    let text = ''
+    stream.on('data', (chunk: Buffer) => {
+      text += chunk.toString('utf8')
+    })
+    return () => text
+  }
+  const PLAY = { playback: true } as const
+  const passwordJoin: LaunchInput = {
+    installationId: INSTALLATION,
+    connect: '1.2.3.4:27910',
+    userinfo: { password: 'hunter2-secret' },
+  }
+
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), 'q2l-playback-'))
+    await mkdir(join(root, 'baseq2'))
+    cfg = join(root, 'baseq2', CONNECT_CFG_NAME)
+  })
+
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('a playback launch spawns with stdin and stdout piped and holds the session until the process exits', async () => {
+    const { launch } = service({ installation: tempInstallation() })
+    const child = pipedChild()
+    spawnMock.mockImplementation(() => child as never)
+
+    const started = await launch.start({ installationId: INSTALLATION }, PLAY)
+
+    expect(started.ok).toBe(true)
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    expect(spawnMock.mock.calls[0]?.[2]).toEqual({
+      cwd: root,
+      stdio: ['pipe', 'pipe', 'ignore'],
+      windowsHide: false,
+      detached: false,
+    })
+
+    const session = launch.getPlaybackSession()
+    if (!session) throw new Error('expected a playback session')
+    expect(session.installationId).toBe(INSTALLATION)
+    const gameReads = received(child.stdin)
+    const printed: string[] = []
+    session.onStdout((chunk) => printed.push(chunk.toString('utf8')))
+    const onEnd = vi.fn()
+    session.onEnd(onEnd)
+
+    listener(child, 'spawn')()
+    // Held through the whole run, both directions working.
+    expect(launch.getPlaybackSession()).toBe(session)
+    expect(session.write('demo_seek 90\n')).toBe(true)
+    child.stdout.write('Seeking to 1:30\n')
+    await vi.waitFor(() => expect(gameReads()).toBe('demo_seek 90\n'))
+    await vi.waitFor(() => expect(printed).toEqual(['Seeking to 1:30\n']))
+    expect(session.ended).toBe(false)
+
+    listener(child, 'exit')(0, null)
+
+    expect(launch.getPlaybackSession()).toBeUndefined()
+    expect(session.ended).toBe(true)
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(child.stdin.writableEnded).toBe(true)
+    expect(session.write('pause\n')).toBe(false)
+    expect(launch.getState().phase).toBe('exited')
+  })
+
+  it('every launch without the playback option spawns with stdio ignore, detached false', async () => {
+    const inputs: LaunchInput[] = [
+      { installationId: INSTALLATION },
+      { installationId: INSTALLATION, connect: '1.2.3.4:27910' },
+      { installationId: INSTALLATION, connect: '1.2.3.4:27910', spectate: true },
+    ]
+    for (const input of inputs) {
+      spawnMock.mockReset()
+      const { launch } = service({ installation: tempInstallation() })
+      spawnMock.mockImplementation(() => fakeChild() as never)
+
+      const started = await launch.start(input)
+
+      expect(started.ok).toBe(true)
+      expect(spawnMock).toHaveBeenCalledTimes(1)
+      expect(spawnMock.mock.calls[0]?.[2]).toEqual({
+        cwd: root,
+        stdio: 'ignore',
+        windowsHide: false,
+        detached: false,
+      })
+      expect(launch.getPlaybackSession()).toBeUndefined()
+    }
+  })
+
+  it('the session ends exactly once on exit, on process error and on spawn failure, and the connect cfg is still cleaned up', async () => {
+    // 1. exit - and a stray 'error' after it changes nothing.
+    {
+      const { launch } = service({ installation: tempInstallation() })
+      const child = pipedChild()
+      spawnMock.mockImplementation(() => child as never)
+
+      await launch.start(passwordJoin, PLAY)
+      expect(existsSync(cfg)).toBe(true)
+      const session = launch.getPlaybackSession()
+      const onEnd = vi.fn()
+      session?.onEnd(onEnd)
+      listener(child, 'spawn')()
+
+      listener(child, 'exit')(0, null)
+      listener(child, 'error')(new Error('late'))
+
+      expect(onEnd).toHaveBeenCalledTimes(1)
+      expect(session?.ended).toBe(true)
+      expect(launch.getPlaybackSession()).toBeUndefined()
+      await vi.waitFor(() => expect(existsSync(cfg)).toBe(false))
+    }
+
+    // 2. process error - and the 'exit' Node may still emit after it changes nothing.
+    {
+      const { launch } = service({ installation: tempInstallation() })
+      const child = pipedChild()
+      spawnMock.mockImplementation(() => child as never)
+
+      await launch.start(passwordJoin, PLAY)
+      expect(existsSync(cfg)).toBe(true)
+      const session = launch.getPlaybackSession()
+      const onEnd = vi.fn()
+      session?.onEnd(onEnd)
+
+      listener(child, 'error')(new Error('spawn r1q2.exe ENOENT'))
+      listener(child, 'exit')(null, null)
+
+      expect(onEnd).toHaveBeenCalledTimes(1)
+      expect(session?.ended).toBe(true)
+      expect(launch.getPlaybackSession()).toBeUndefined()
+      await vi.waitFor(() => expect(existsSync(cfg)).toBe(false))
+    }
+
+    // 3. spawn threw: no session is left behind, the cfg is gone, and the next playback launch
+    //    gets a fresh session of its own.
+    {
+      const { launch } = service({ installation: tempInstallation() })
+      spawnMock.mockImplementation(() => {
+        throw new Error('EACCES')
+      })
+
+      const result = await launch.start(passwordJoin, PLAY)
+
+      expect(result).toEqual({
+        ok: false,
+        error: { key: 'launch.error.spawnFailed', params: { path: installation.executablePath } },
+      })
+      expect(launch.getPlaybackSession()).toBeUndefined()
+      expect(existsSync(cfg)).toBe(false)
+
+      const child = pipedChild()
+      spawnMock.mockImplementation(() => child as never)
+      expect((await launch.start({ installationId: INSTALLATION }, PLAY)).ok).toBe(true)
+      expect(launch.getPlaybackSession()?.ended).toBe(false)
+    }
+  })
+
+  it('releasePlaybackSession closes the pipes and never kills the game', async () => {
+    // Built by hand rather than through `service()` so the test can see `recordPlaySession`.
+    const installations = fakeInstallations(tempInstallation())
+    const owned = new LaunchService({ installations, onStateChange: vi.fn() })
+    const child = pipedChild()
+    spawnMock.mockImplementation(() => child as never)
+
+    await owned.start({ installationId: INSTALLATION }, PLAY)
+    listener(child, 'spawn')()
+    const session = owned.getPlaybackSession()
+    const onEnd = vi.fn()
+    session?.onEnd(onEnd)
+
+    owned.releasePlaybackSession()
+    owned.releasePlaybackSession()
+
+    expect(child.kill).not.toHaveBeenCalled()
+    expect(child.stdin.writableEnded).toBe(true)
+    expect(child.stdout.destroyed).toBe(true)
+    expect(session?.ended).toBe(true)
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(owned.getPlaybackSession()).toBeUndefined()
+    // The game is still running, and its exit still arrives through the normal lifecycle.
+    expect(owned.isRunning()).toBe(true)
+    expect(owned.getState().phase).toBe('running')
+
+    listener(child, 'exit')(0, null)
+
+    expect(onEnd).toHaveBeenCalledTimes(1)
+    expect(owned.getState().phase).toBe('exited')
+    expect(installations.recordPlaySession).toHaveBeenCalledTimes(1)
+  })
+
+  it('a second launch while a playback session runs is refused and the first session keeps its pipes', async () => {
+    const { launch } = service({ installation: tempInstallation() })
+    const child = pipedChild()
+    spawnMock.mockImplementation(() => child as never)
+    const refused = { ok: false, error: { key: 'launch.error.alreadyRunning' } }
+
+    // Overlapping (a double-clicked Play) and after the first is running, with and without playback.
+    const [first, overlapping] = await Promise.all([
+      launch.start({ installationId: INSTALLATION }, PLAY),
+      launch.start({ installationId: INSTALLATION }, PLAY),
+    ])
+    expect(first.ok).toBe(true)
+    expect(overlapping).toEqual(refused)
+    const session = launch.getPlaybackSession()
+    if (!session) throw new Error('expected a playback session')
+    listener(child, 'spawn')()
+    expect(await launch.start({ installationId: INSTALLATION }, PLAY)).toEqual(refused)
+    expect(await launch.start({ installationId: INSTALLATION })).toEqual(refused)
+
+    expect(spawnMock).toHaveBeenCalledTimes(1)
+    expect(launch.getPlaybackSession()).toBe(session)
+    expect(session.ended).toBe(false)
+    const gameReads = received(child.stdin)
+    const printed: string[] = []
+    session.onStdout((chunk) => printed.push(chunk.toString('utf8')))
+    expect(session.write('pause\n')).toBe(true)
+    child.stdout.write('paused\n')
+    await vi.waitFor(() => expect(gameReads()).toBe('pause\n'))
+    await vi.waitFor(() => expect(printed).toEqual(['paused\n']))
+    expect(child.kill).not.toHaveBeenCalled()
+  })
+
+  it('a playback launch through a Steam handoff is refused without spawning', async () => {
+    restorePlatform = stubPlatform('win32')
+    const broadcast = vi.fn<(state: LaunchState) => void>()
+    const launch = new LaunchService({
+      installations: fakeInstallations(
+        tempInstallation({ runner: 'steam', steamAppId: '2320', steamClient: 3 }),
+      ),
+      onStateChange: broadcast,
+      detectRunners: () => Promise.resolve([NATIVE, STEAM]),
+    })
+
+    expect(await launch.start({ installationId: INSTALLATION }, PLAY)).toEqual({
+      ok: false,
+      error: { key: 'launch.error.playbackNeedsDirectLaunch' },
+    })
+    expect(spawnMock).not.toHaveBeenCalled()
+    expect(broadcast).not.toHaveBeenCalled()
+    expect(launch.getPlaybackSession()).toBeUndefined()
+
+    // Without the option the same installation still hands off as before, and a refused
+    // playback start did not block it.
+    spawnMock.mockImplementation(() => ({ once: vi.fn(), unref: vi.fn(), pid: 4242 }) as never)
+    expect((await launch.start({ installationId: INSTALLATION })).ok).toBe(true)
+    expect(spawnMock).toHaveBeenCalledWith(
+      STEAM.path,
+      [steamLaunchUrl('2320', 3)],
+      expect.objectContaining({ detached: true, stdio: 'ignore' }),
+    )
   })
 })
 
