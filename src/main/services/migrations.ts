@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
-import { allCatalogRows, commandsForRow, nameForCatalogRow } from '@shared/config/catalog-rows'
+import { allCatalogRows, buildDemoRows, commandsForRow, nameForCatalogRow } from '@shared/config/catalog-rows'
 import { findCvar } from '@shared/config/cvar-catalog'
 import {
   buildTemplateCvarSections,
@@ -78,7 +78,57 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       }
     },
   },
+  {
+    to: 4,
+    describe:
+      'add the demo playback category and its unbound demo rows to every profile that lacks them ' +
+      '(story 167 D3)',
+    apply: (doc) => {
+      const profiles = Array.isArray(doc.configProfiles) ? doc.configProfiles : []
+      return {
+        ...doc,
+        configProfiles: profiles.map((raw) => addDemoCategory(raw as Record<string, unknown>)),
+      }
+    },
+  },
 ]
+
+/**
+ * Story 167 D3: appends the `demo` category (only if no category has that id) and one unbound
+ * action per demo catalogue row the profile has no action for. Deliberately does NOT re-run
+ * `materialiseTemplateCategories`: that would also re-add a movement/weapons/drops category the
+ * user deleted. Existing categories/actions stay untouched; `binds` is never read or written, and
+ * the new actions carry `commands: []` and no keys, so nothing is bound. Idempotent (only-if-absent).
+ */
+function addDemoCategory(raw: Record<string, unknown>): Record<string, unknown> {
+  if (raw === null || typeof raw !== 'object') return raw
+  const categories = Array.isArray(raw.categories) ? [...(raw.categories as Record<string, unknown>[])] : []
+  const actions = Array.isArray(raw.actions) ? [...(raw.actions as Record<string, unknown>[])] : []
+
+  if (!categories.some((category) => category?.id === 'demo')) {
+    const template = TEMPLATE_ACTION_CATEGORIES.find((category) => category.id === 'demo')
+    if (template) categories.push({ id: template.id, name: template.label, nameKey: template.labelKey })
+  }
+
+  const existingCatalogIds = new Set(
+    actions
+      .map((action) => action?.catalogId)
+      .filter((catalogId): catalogId is string => typeof catalogId === 'string'),
+  )
+  for (const row of buildDemoRows()) {
+    if (existingCatalogIds.has(row.catalogId)) continue
+    actions.push({
+      id: randomUUID(),
+      categoryId: 'demo',
+      name: nameForCatalogRow(row),
+      kind: 'bind',
+      catalogId: row.catalogId,
+      commands: [],
+    })
+  }
+
+  return { ...raw, categories, actions, dirty: true }
+}
 
 /**
  * Story 052 D6: adds the three `TEMPLATE_ACTION_CATEGORIES` (movement/weapons/drops) to a profile's

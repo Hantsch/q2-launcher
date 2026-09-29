@@ -16,6 +16,7 @@ import {
 } from '@shared/config/alias-render'
 import { MAX_WAIT_FRAMES } from '@shared/config/engine-limits'
 import {
+  DEMO_ACTIONS,
   DROP_ACTIONS,
   MOVEMENT_ACTIONS,
   WEAPON_ACTIONS,
@@ -449,6 +450,11 @@ export function ActionEditor({
         id: `drop:${entry.id}`,
         labelKey: entry.labelKey,
         commands: entry.commands,
+      })),
+      ...DEMO_ACTIONS.map((entry) => ({
+        id: `demo:${entry.id}`,
+        labelKey: entry.labelKey,
+        commands: entry.commands ?? [entry.command],
       })),
     ],
     [],

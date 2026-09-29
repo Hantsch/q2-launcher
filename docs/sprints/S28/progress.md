@@ -114,3 +114,20 @@
 - 2026-09-29 12:05 · 166 · review 1 · started
 - 2026-09-29 12:09 · 166 · review 1 · done
 - 2026-09-29 12:09 · 166 · story · done
+- 2026-09-29 12:09:54 · 167 · build · started
+- 2026-09-29 12:10 · 167 · D1 demo actions in catalog · started
+- 2026-09-29 12:11 · 167 · D1 demo actions in catalog · done
+- 2026-09-29 12:11 · 167 · D2 speed up/down · started
+- 2026-09-29 13:01 · 167 · D2 speed up/down · done
+- 2026-09-29 13:01 · 167 · D3 demo migration · started
+- 2026-09-29 13:02 · 167 · D3 demo migration · done
+- 2026-09-29 13:02 · 167 · D4 controls tab · started
+- 2026-09-29 13:10 · 167 · D4 controls tab · done
+- 2026-09-29 13:10 · 167 · verify · started
+- 2026-09-29 13:16 · 167 · verify · blocked: 4 config flows red (controls-category-rename-reorder, drop-message-checkbox, raw-save-cascades, config-header-geometry) - fixing
+- 2026-09-29 13:16 · 167 · D5 fix flow fallout · started
+- 2026-09-29 13:21 · 167 · D5 fix flow fallout · done
+- 2026-09-29 13:21 · 167 · verify · done
+- 2026-09-29 13:21 · 167 · review 1 · started
+- 2026-09-29 13:22 · 167 · review 1 · done
+- 2026-09-29 13:24 · 167 · story · done

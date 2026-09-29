@@ -195,6 +195,7 @@ export function BindSlot({
   isPrimary = false,
   compactAdd = false,
   isConflicted = false,
+  disabled = false,
   onAssign,
   onAssignModifier,
   onReplace,
@@ -229,6 +230,12 @@ export function BindSlot({
    * until that exists no caller passes it and every slot renders unmarked.
    */
   isConflicted?: boolean
+  /**
+   * Story 167 D4: the row's action cannot work on the profile's assigned engine(s), so the slot
+   * takes no capture (mouse or keyboard). A bound key stays shown and is never removed by this.
+   * The reason is rendered as text by the row, not here.
+   */
+  disabled?: boolean
   /** Applies the captured key. Called only when nothing blocks it. */
   onAssign: (key: string) => void
   /**
@@ -500,6 +507,7 @@ export function BindSlot({
     if (isPrimary) slotClasses.push('is-primary-bound')
   }
   if (showConflict) slotClasses.push('is-conflict')
+  if (disabled) slotClasses.push('is-disabled')
 
   // The accessible name carries the *value*, because `aria-label` replaces the cell's text
   // content: without it a screen reader would announce "Primary" and never the key.
@@ -527,6 +535,8 @@ export function BindSlot({
                 { slot: label, value: valueText },
               )
         }
+        disabled={disabled}
+        aria-disabled={disabled || undefined}
         onClick={startCapture}
       >
         {capturing ? (

@@ -259,3 +259,4 @@ second roadmap.
 - 164 — the launcher speaks to a running demo · S28 · Q2PRO playback channel (Windows cfg polling, Linux stdin/stdout) with 250 ms position events, typed no-session error, cleanup on exit
 - 165 — I steer a demo from the timeline · S28 · Demos-view timeline strip (pause, ±10 s, seek bar, speed 0.25x-4x) over a typed playback.timeline channel; stub engine speaks 164's transport
 - 166 — I send a console command to the running demo · S28 · Console field under the timeline sends one validated printable line over 164's channel; Windows route gives each line its own command cfg so it cannot break out of the control file
+- 167 — demo actions are bindable in my profile · S28 · Demo playback category in the Controls tab (pause, jumps, speed steps) seeded unbound via template + migration v4; seek/speed rows disabled with visible reason in r1q2 profiles

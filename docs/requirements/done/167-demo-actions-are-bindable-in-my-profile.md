@@ -1,7 +1,7 @@
 ---
 id: 167
 title: demo actions are bindable in my profile
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -20,16 +20,16 @@ seek does not exist, is concept open point §17.10.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The Controls tab offers the demo actions (at least pause, jump back, jump forward,
+- [x] **AC1** — The Controls tab offers the demo actions (at least pause, jump back, jump forward,
       speed up, speed down) as bindable actions in their own category.
-- [ ] **AC2** — Binding one writes the corresponding engine command into the profile like every
+- [x] **AC2** — Binding one writes the corresponding engine command into the profile like every
       other bind, and a unit test pins each action's command text.
-- [ ] **AC3** — Relative speed steps work in-game with the same steps the timeline uses ([[165]]
+- [x] **AC3** — Relative speed steps work in-game with the same steps the timeline uses ([[165]]
       Q1).
-- [ ] **AC4** — No launcher code writes a demo bind into a profile without the user binding it.
-- [ ] **AC5** — In an r1q2 profile, seek-based actions follow the rule decided in Q1, and if shown
+- [x] **AC4** — No launcher code writes a demo bind into a profile without the user binding it.
+- [x] **AC5** — In an r1q2 profile, seek-based actions follow the rule decided in Q1, and if shown
       disabled, they carry the reason as visible text.
-- [ ] **AC6** — Labels and descriptions are i18n keys (`config.actionCatalog.*`), with the literal
+- [x] **AC6** — Labels and descriptions are i18n keys (`config.actionCatalog.*`), with the literal
       ASCII `label` the config writer needs.
 
 ## Open Questions
@@ -94,7 +94,7 @@ rows (unbound rows are written as the existing `//bind "…"` placeholder commen
 
 ## Deliverables
 
-- **D1 — demo actions in the catalog (shared).** Add `'demo'` to `ActionCategoryId` and a
+- [x] **D1 — demo actions in the catalog (shared).** Add `'demo'` to `ActionCategoryId` and a
   `DEMO_ACTIONS: Action[]` list in `src/shared/config/action-catalog.ts`: `pause` (`pause`),
   `jumpBack`/`jumpForward` (`seek -<s>` / `seek +<s>` with the short jump step) and, if the step
   constants define a long jump, `jumpBackLong`/`jumpForwardLong`. Jump seconds come from the shared
@@ -116,7 +116,7 @@ rows (unbound rows are written as the existing `//bind "…"` placeholder commen
   `src/shared/config/render.test.ts` › "the template
   seeds the demo category unbound and binds no demo command". Leave speed up/down to D2.
 
-- **D2 — speed up/down step through the timeline's speeds (shared).** New
+- [x] **D2 — speed up/down step through the timeline's speeds (shared).** New
   `src/shared/config/demo-speed.ts` exporting `speedUpCommand(steps)` / `speedDownCommand(steps)` over
   the speed steps from the shared step constants (see D1; e.g. `[0.25, 0.5, 1, 2, 4]`). Command text is
   a Q2PRO `if` chain in one bind body: speed up checks steps **descending**
@@ -136,7 +136,7 @@ rows (unbound rows are written as the existing `//bind "…"` placeholder commen
   asserting the same catalog row and command. If read-back splits the body at `;`, emit the command as
   a generated alias instead, mirroring the drop aliases in `src/shared/config/alias-render.ts`.
 
-- **D3 — existing profiles get the demo category (main).** New step in `MIGRATIONS`
+- [x] **D3 — existing profiles get the demo category (main).** New step in `MIGRATIONS`
   (`src/main/services/migrations.ts`) at the next free version (4 unless another S28 story took it;
   bump `STATE_SCHEMA_VERSION` in `src/shared/constants.ts`): append the `demo` category
   (`{ id, name: label, nameKey: labelKey }`) if no category with id `demo` exists, and one unbound
@@ -148,7 +148,7 @@ rows (unbound rows are written as the existing `//bind "…"` placeholder commen
   categories/actions untouched, a deleted movement category stays deleted) and › "the demo migration
   writes no bind" (no key, empty commands, `binds` unchanged).
 
-- **D4 — demo rows in the Controls tab, disabled with reason on r1q2 (renderer).** Register
+- [x] **D4 — demo rows in the Controls tab, disabled with reason on r1q2 (renderer).** Register
   `buildDemoRows()`/`DEMO_ACTIONS` in `src/renderer/src/modules/config/lib/controls-row-entries.ts`
   (`buildCatalogRowIndex`) and in `src/renderer/src/modules/config/components/ActionEditor.tsx`'s
   list enumeration. New pure `src/renderer/src/modules/config/lib/demo-action-availability.ts`:
@@ -188,7 +188,7 @@ rows (unbound rows are written as the existing `//bind "…"` placeholder commen
   e2e `scripts/flows/demo-actions-bind.mjs` › "demo-actions-bind" (bound key lands as
   `bind <key> "seek +<s>"` in the written file) (D1, D2, D4)
 - AC3 → unit `src/shared/config/demo-speed.test.ts` › "speed up and speed down move exactly one
-  timeline step per press" and › "a bound speed action survives write and read-back" (D2);
+  timeline step per press" and `src/main/modules/config/round-trip.test.ts` › "a bound speed action survives write and read-back" (D2; moved to main because the real cfg parser is main-only);
   manual residue: pressing the bound key inside a running Q2PRO demo — needs the licensed Quake II game
   data and a real engine, which CI and the flow fixture do not have.
 - AC4 → unit `src/shared/config/render.test.ts` › "the template seeds the demo category unbound and
@@ -203,4 +203,18 @@ rows (unbound rows are written as the existing `//bind "…"` placeholder commen
 
 ## Done
 
-<!-- Filled by /build 167. -->
+Adds a "Demo playback" template category (pause, jump ±10 s and ±60 s, speed up/down) to the config catalog, seeded unbound for new profiles and by state migration v4 for existing ones. Speed steps use a Q2PRO `if $timescale` chain over the timeline's `SPEED_STEPS`; the Controls tab disables seek and speed rows with visible reason text in r1q2-only profiles.
+
+Commit message: `167: demo actions bindable in profile - demo category (unbound), speed if-chain, migration v4, r1q2 disabled-with-reason`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (3534 passed), later full `npx vitest run` (5695 passed) green; flows `demo-actions-bind`, `controls-extra-keys`, `controls-drag-reorder`, `controls-subcategory`, `settings-section-rename-add-cvar`, `controls-category-rename-reorder`, `drop-message-checkbox`, `raw-save-cascades`, `config-header-geometry` green (last three only after `ui:seed`; first red was leftover state from back-to-back runs, not the story). Full gate is the sprint's. Review 1 (default): PASS.
+AC map: AC1 flow demo-actions-bind + render.test/migrations.test; AC2 action-catalog.test pinned commands + flow; AC3 demo-speed.test + round-trip.test (manual residue: pressing the key in a running Q2PRO demo); AC4 render.test + migrations.test no-bind; AC5 demo-action-availability.test + flow; AC6 action-catalog.test + comment-labels.test.
+
+Decisions:
+- Non-`+` binds go through the existing generated-alias path (`bind y "seek_10"` + `alias seek_10 seek +10`), so the flow resolves the bind via that alias, not a literal `bind y "seek +10"`.
+- Speed rows carry their four `if` checks as separate commands (`Action.commands`), like drop rows; alias names come out long/cut off but distinct and working.
+- Read-back test lives in `src/main/modules/config/round-trip.test.ts` (parser is main-only). q2pro r3834 source not fetchable; doc comment cites master and states the gap.
+- Reason text replaces the dash in the Options cell (truncated otherwise); fixture gained a 4th "Q2PRO Profile"; `controls-category-rename-reorder` expected rail extended by Demo playback.
+- Left unfixed (review): a conflict/layer marker wins over the reason on a disabled row with a conflicting key; speed rows' long command text truncates the name column; `alias-import.ts` unchanged (demo never a guess target).
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 8

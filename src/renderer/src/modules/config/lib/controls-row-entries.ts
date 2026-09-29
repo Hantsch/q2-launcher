@@ -23,11 +23,13 @@
  */
 
 import {
+  DEMO_ACTIONS,
   DROPPABLES,
   MOVEMENT_ACTIONS,
   WEAPON_ACTIONS,
   WEAPON_EXTRA_ACTIONS,
 } from '@shared/config/action-catalog'
+import { buildDemoRows } from '@shared/config/catalog-rows'
 import type { ConfigAction } from '@shared/modules/config'
 import { buildDropGroups, buildMovementRows, buildWeaponRows, type CatalogRow } from './catalog-binds'
 
@@ -74,6 +76,7 @@ function buildCatalogRowIndex(): ReadonlyMap<string, CatalogRowInfo> {
   pair(drops.weapon, DROPPABLES.filter((d) => d.kind === 'weapon'))
   pair(drops.ammo, DROPPABLES.filter((d) => d.kind === 'ammo'))
   pair(drops.misc, DROPPABLES.filter((d) => d.kind === 'powerup' || d.kind === 'tech'))
+  pair(buildDemoRows(), DEMO_ACTIONS)
 
   return index
 }

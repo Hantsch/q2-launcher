@@ -154,6 +154,7 @@ export const TEMPLATE_ACTION_CATEGORIES: readonly BuiltInActionCategory[] = [
   { id: 'movement', labelKey: 'config.controls.categories.movement', label: 'Movement' },
   { id: 'weapons', labelKey: 'config.controls.categories.weapons', label: 'Weapons' },
   { id: 'drops', labelKey: 'config.controls.categories.drops', label: 'Weapon dropping' },
+  { id: 'demo', labelKey: 'config.controls.categories.demo', label: 'Demo playback' },
 ]
 
 /**

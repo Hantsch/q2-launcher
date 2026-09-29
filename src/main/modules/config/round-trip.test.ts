@@ -4,7 +4,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
+import { STANDARD_TEMPLATE } from '@shared/modules/config'
+import { DEMO_ACTIONS } from '@shared/config/action-catalog'
 import { actionKeySlots } from '@shared/config/action-slots'
+import { bindValueFor } from '@shared/config/action-mirror'
+import { adoptRawBinds } from '@shared/config/bind-adoption'
+import { buildDemoRows } from '@shared/config/catalog-rows'
 import { aliasNameFor, derivedAliasName } from '@shared/config/alias-render'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import {
@@ -3463,5 +3468,76 @@ describe('story 059 D4: foreign and hand-moved cvar lines', () => {
     // And the degraded reading settles rather than drifting one section further on each reload.
     const second = await restoreFromText(rerendered)
     expect(normalize(second.rerendered)).toBe(normalize(rerendered))
+  })
+})
+
+// Story 167 D2. Lives here rather than in `src/shared/config/demo-speed.test.ts` because the real
+// read-back path (file on disk -> `readImportableConfig` -> `toRestoreInput`) is main-only; the
+// engine-order simulator stays in the shared test.
+describe('round-trip: a bound demo speed action (story 167 D2)', () => {
+  const speedIds = ['demoSpeedUp', 'demoSpeedDown'] as const
+
+  function speedAction(id: (typeof speedIds)[number], key: string): ConfigAction {
+    const row = buildDemoRows().find((candidate) => candidate.catalogId.endsWith(`:${id}`))!
+    // Shaped exactly like `bind-adoption.ts#materialise` / the Controls grid would bind it.
+    return {
+      id: `entry-${id}`,
+      categoryId: 'demo',
+      name: row.commands[0]!,
+      kind: 'bind',
+      catalogId: row.catalogId,
+      commands: row.commands.map((text) => ({ kind: 'raw', text })),
+      keys: [{ key }],
+    }
+  }
+
+  function speedProfile(): ConfigProfile {
+    const up = speedAction('demoSpeedUp', 'KP_PLUS')
+    const down = speedAction('demoSpeedDown', 'KP_MINUS')
+    return {
+      id: 'speed-profile',
+      name: 'Speed',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      cvars: {},
+      // What the action mirror writes for each slot: the key calls the generated alias.
+      binds: { KP_PLUS: bindValueFor(up), KP_MINUS: bindValueFor(down) },
+      assignments: [],
+      categories: STANDARD_TEMPLATE.categories.filter((category) => category.id === 'demo').map((c) => ({ ...c })),
+      actions: [up, down],
+    }
+  }
+
+  it('a bound speed action survives write and read-back', async () => {
+    const profile = speedProfile()
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    for (const original of profile.actions!) {
+      const back = profile2.actions!.filter((action) => action.catalogId === original.catalogId)
+      expect(back, `exactly one entry for ${original.catalogId}`).toHaveLength(1)
+      // Same row, same `if` checks in the same (engine execution) order.
+      expect(back[0]!.commands).toEqual(original.commands)
+      expect(slotsOf(back[0]!)).toEqual(slotsOf(original))
+    }
+    // The whole chain is written as one quoted alias body, `$timescale` verbatim inside it.
+    for (const { id, command } of DEMO_ACTIONS.filter((action) => action.commands)) {
+      expect(text1, id).toContain(`"${command}"`)
+    }
+    // A second pass is a fixed point, so nothing drifts on the next save either.
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
+  })
+
+  it('a hand-typed bind to the speed chain is adopted as the same catalogue row', async () => {
+    const command = DEMO_ACTIONS.find((action) => action.id === 'demoSpeedUp')!.command
+    const result = await reimport(`bind KP_PLUS "${command}"\n`)
+    expect(result.binds.KP_PLUS).toBe(command)
+
+    let next = 0
+    const adopted = adoptRawBinds({ binds: result.binds, actions: [] }, () => `adopted-${next++}`)
+    expect(adopted.adopted).toBe(1)
+    expect(adopted.actions).toHaveLength(1)
+    const expected = speedAction('demoSpeedUp', 'KP_PLUS')
+    expect(adopted.actions[0]!.catalogId).toBe(expected.catalogId)
+    expect(adopted.actions[0]!.commands).toEqual(expected.commands)
   })
 })

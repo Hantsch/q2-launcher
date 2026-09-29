@@ -117,9 +117,13 @@ describe('buildControlsRowEntries', () => {
     const movement = buildControlsRowEntries('movement', actions)
     const weapons = buildControlsRowEntries('weapons', actions)
     const drops = buildControlsRowEntries('drops', actions)
+    // Story 167 D4: the demo category's rows are catalogue rows too.
+    const demo = buildControlsRowEntries('demo', actions)
 
-    expect(movement.length + weapons.length + drops.length).toBe(STANDARD_TEMPLATE.actions.length)
-    expect([...movement, ...weapons, ...drops].every((entry) => entry.kind === 'catalog')).toBe(true)
+    expect(movement.length + weapons.length + drops.length + demo.length).toBe(
+      STANDARD_TEMPLATE.actions.length,
+    )
+    expect([...movement, ...weapons, ...drops, ...demo].every((entry) => entry.kind === 'catalog')).toBe(true)
   })
 })
 

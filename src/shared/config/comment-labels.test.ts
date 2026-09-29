@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
 import { TEMPLATE_ACTION_CATEGORIES } from '@shared/modules/config'
 import {
+  DEMO_ACTIONS,
   DROP_ACTIONS,
   DROPPABLES,
   MOVEMENT_ACTIONS,
@@ -150,6 +151,16 @@ describe('WEAPON_ACTIONS labels', () => {
 
 describe('WEAPON_EXTRA_ACTIONS labels', () => {
   it.each(WEAPON_EXTRA_ACTIONS.map((row) => [row.id, row.labelKey, row.label] as const))(
+    '%s: label is non-empty ASCII and matches en.json',
+    (_id, labelKey, label) => {
+      expect(label).toMatch(ASCII_PRINTABLE)
+      expect(label).toBe(stringAt(labelKey))
+    },
+  )
+})
+
+describe('DEMO_ACTIONS labels', () => {
+  it.each(DEMO_ACTIONS.map((row) => [row.id, row.labelKey, row.label] as const))(
     '%s: label is non-empty ASCII and matches en.json',
     (_id, labelKey, label) => {
       expect(label).toMatch(ASCII_PRINTABLE)

@@ -26,7 +26,10 @@
  * this story actually uses.
  */
 
-export type ActionCategoryId = 'movement' | 'weapons' | 'drops'
+import { speedDownCommand, speedDownCommands, speedUpCommand, speedUpCommands } from '@shared/config/demo-speed'
+import { JUMP_STEP_S, PAGE_STEP_S } from '@shared/replays/timeline'
+
+export type ActionCategoryId = 'movement' | 'weapons' | 'drops' | 'demo'
 
 export interface Action {
   id: string
@@ -34,6 +37,9 @@ export interface Action {
   /** Plain ASCII English text `labelKey` resolves to (story 040 D1) — see the file doc comment. */
   label: string
   command: string
+  /** Story 167 D2: when set, the row's separate console commands (rendered as one generated alias
+   * body, like a drop row's pair); `command` is then their `; `-joined text. */
+  commands?: string[]
   category: ActionCategoryId
   descriptionKey?: string
   /** `+commands` are press/release pairs: the engine fires `+x` on key down and `-x` on key
@@ -289,6 +295,72 @@ export const WEAPON_EXTRA_ACTIONS: Action[] = [
     label: 'Last weapon',
     command: 'weaplast',
     category: 'weapons',
+  },
+]
+
+/**
+ * Story 167 D1: demo-playback actions. `seek` is a Q2PRO verb, so these only work while a demo is
+ * playing; the jump seconds come from the timeline's own step constants (story 165), never copies.
+ */
+export const DEMO_ACTIONS: Action[] = [
+  {
+    id: 'demoPause',
+    labelKey: 'config.actionCatalog.demoPause.label',
+    label: 'Pause demo',
+    command: 'pause',
+    category: 'demo',
+    descriptionKey: 'config.actionCatalog.demoPause.description',
+  },
+  {
+    id: 'demoJumpBack',
+    labelKey: 'config.actionCatalog.demoJumpBack.label',
+    label: 'Demo jump back',
+    command: `seek -${JUMP_STEP_S}`,
+    category: 'demo',
+    descriptionKey: 'config.actionCatalog.demoJumpBack.description',
+  },
+  {
+    id: 'demoJumpForward',
+    labelKey: 'config.actionCatalog.demoJumpForward.label',
+    label: 'Demo jump forward',
+    command: `seek +${JUMP_STEP_S}`,
+    category: 'demo',
+    descriptionKey: 'config.actionCatalog.demoJumpForward.description',
+  },
+  {
+    id: 'demoJumpBackLong',
+    labelKey: 'config.actionCatalog.demoJumpBackLong.label',
+    label: 'Demo long jump back',
+    command: `seek -${PAGE_STEP_S}`,
+    category: 'demo',
+    descriptionKey: 'config.actionCatalog.demoJumpBackLong.description',
+  },
+  {
+    id: 'demoJumpForwardLong',
+    labelKey: 'config.actionCatalog.demoJumpForwardLong.label',
+    label: 'Demo long jump forward',
+    command: `seek +${PAGE_STEP_S}`,
+    category: 'demo',
+    descriptionKey: 'config.actionCatalog.demoJumpForwardLong.description',
+  },
+  // Story 167 D2: one timeline speed step per press, as a Q2PRO `if` chain (`demo-speed.ts`).
+  {
+    id: 'demoSpeedUp',
+    labelKey: 'config.actionCatalog.demoSpeedUp.label',
+    label: 'Demo speed up',
+    command: speedUpCommand(),
+    commands: speedUpCommands(),
+    category: 'demo',
+    descriptionKey: 'config.actionCatalog.demoSpeedUp.description',
+  },
+  {
+    id: 'demoSpeedDown',
+    labelKey: 'config.actionCatalog.demoSpeedDown.label',
+    label: 'Demo speed down',
+    command: speedDownCommand(),
+    commands: speedDownCommands(),
+    category: 'demo',
+    descriptionKey: 'config.actionCatalog.demoSpeedDown.description',
   },
 ]
 

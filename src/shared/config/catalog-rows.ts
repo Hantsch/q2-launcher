@@ -18,13 +18,20 @@
  */
 
 import type { ActionCategoryId, DroppableDef } from '@shared/config/action-catalog'
-import { DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
+import { DEMO_ACTIONS, DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
 import type { ConfigCommand } from '@shared/modules/config'
 
 /** Which catalogue family a row was built from - used only to namespace `catalogId`s so two
  * different families' entries (e.g. movement's `attack` and a droppable named `attack`) can
  * never collide. */
-export type CatalogRowKind = 'movement' | 'weaponUse' | 'weaponExtra' | 'dropWeapon' | 'dropAmmo' | 'dropMisc'
+export type CatalogRowKind =
+  | 'movement'
+  | 'weaponUse'
+  | 'weaponExtra'
+  | 'dropWeapon'
+  | 'dropAmmo'
+  | 'dropMisc'
+  | 'demo'
 
 /**
  * The three `CatalogRowKind`s that make a row a *drop* row (story 055). Typed as a set of plain
@@ -104,6 +111,16 @@ export function buildWeaponRows(): { useRows: CatalogRow[]; extraRows: CatalogRo
   }
 }
 
+/** One row per `DEMO_ACTIONS` entry (story 167) - no ammo choice, no message. */
+export function buildDemoRows(): CatalogRow[] {
+  return DEMO_ACTIONS.map((action) => ({
+    catalogId: makeCatalogId('demo', action.id),
+    categoryId: 'demo',
+    // Speed rows (D2) carry their `if` checks as separate commands, like a drop row's pair.
+    commands: action.commands ? [...action.commands] : [action.command],
+  }))
+}
+
 function dropRow(kind: CatalogRowKind, droppable: DroppableDef): CatalogRow {
   return {
     catalogId: makeCatalogId(kind, droppable.id),
@@ -140,7 +157,7 @@ export function buildDropGroups(): { weapon: CatalogRow[]; ammo: CatalogRow[]; m
 export function allCatalogRows(): CatalogRow[] {
   const { useRows, extraRows } = buildWeaponRows()
   const drops = buildDropGroups()
-  return [...buildMovementRows(), ...useRows, ...extraRows, ...drops.weapon, ...drops.ammo, ...drops.misc]
+  return [...buildMovementRows(), ...useRows, ...extraRows, ...drops.weapon, ...drops.ammo, ...drops.misc, ...buildDemoRows()]
 }
 
 /** Plain, non-translated, stable text for a catalogue row with no other display name yet - the

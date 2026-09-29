@@ -100,6 +100,11 @@ export interface ControlsRowProps {
    * it. Absent for a caller that has no drag wiring, in which case the cell stays the empty
    * placeholder it was in D3 and the column still does not reflow. */
   grip?: ReactNode
+  /** Story 167 D4: the row's action cannot work on the profile's assigned engine(s). Marks the row
+   * `aria-disabled` and disables its reset button (a reset would remove a key the user keeps
+   * seeing); the visible reason is passed in through `optionsCell`, and the slots are disabled by
+   * the caller. */
+  unavailable?: boolean
 }
 
 export function ControlsRow({
@@ -116,6 +121,7 @@ export function ControlsRow({
   rowRef,
   rowId,
   grip,
+  unavailable,
 }: ControlsRowProps) {
   const { t } = useTranslation()
   // A callback ref in state, not a `useRef`: the slots need to re-render once the host element
@@ -133,6 +139,7 @@ export function ControlsRow({
         role="row"
         ref={rowRef}
         data-row-id={rowId}
+        aria-disabled={unavailable || undefined}
         // Story 044 D6: not part of the Tab order - only ever focused programmatically by the
         // deep-link effect in `ControlsTab.tsx`, which still gets the app-wide `:focus-visible`
         // amber ring for free (`styles/index.css`).
@@ -162,7 +169,10 @@ export function ControlsRow({
           )}
         </span>
         <span role="cell">
-          <button type="button" className="ctrl-reset" aria-label={resetLabel} onClick={onReset}>
+          <button type="button" className="ctrl-reset" aria-label={resetLabel}
+            onClick={onReset}
+            disabled={unavailable}
+          >
             <RotateCcw className="size-3.5" />
           </button>
         </span>

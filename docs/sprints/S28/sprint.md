@@ -21,7 +21,7 @@ A demo plays in Q2PRO (copied in and cleaned up when it lives elsewhere; r1q2 fa
 - [x] 164 — the launcher speaks to a running demo
 - [x] 165 — I steer a demo from the timeline
 - [x] 166 — I send a console command to the running demo
-- [ ] 167 — demo actions are bindable in my profile
+- [x] 167 — demo actions are bindable in my profile
 - [ ] 168 — my profile records every map on its own
 
 ## Notes

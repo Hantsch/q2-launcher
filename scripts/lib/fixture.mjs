@@ -1310,7 +1310,21 @@ function populatedConfigProfiles() {
     unrecognized: [{ file: 'config.cfg', line: 42, text: 'seta cl_oddcvar "1"' }],
   }
 
-  return [plain, withLayers, withUnrecognized]
+  // Story 167 D4: the one profile assigned to a Q2PRO installation (`INSTALL_ENGINE_UPDATE_ID`), so
+  // `scripts/flows/demo-actions-bind.mjs` can prove the demo rows are bindable there. Plain Profile
+  // (both installations r1q2) is that flow's r1q2 case. No `categories`/`actions`: the state
+  // migration materialises them on load, like every other populated profile.
+  const withQ2pro = {
+    id: 'fixture-profile-q2pro',
+    name: 'Q2PRO Profile',
+    createdAt: FIXED_TIMESTAMP,
+    updatedAt: FIXED_TIMESTAMP,
+    cvars: {},
+    binds: {},
+    assignments: [{ installationId: INSTALL_ENGINE_UPDATE_ID, isDefault: true }],
+  }
+
+  return [plain, withLayers, withUnrecognized, withQ2pro]
 }
 
 // --- downloads.ts DownloadsSettings shape + archive-cache fixture ----------
