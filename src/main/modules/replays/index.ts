@@ -37,6 +37,7 @@ import { discoverDemos, type DiscoverContext } from './discovery'
 import { addExtraFolder, removeExtraFolder } from './extra-folders'
 import { createDemoFileActions } from './file-actions'
 import { ReplaysIndexCache } from './index-cache'
+import { createPlaybackControl } from './playback-control'
 import { createPlaybackSessions } from './playback-sessions'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
 import { createSidecarStore } from './sidecar-store'
@@ -201,6 +202,8 @@ export const replaysModule: MainModule = {
     // Story 157: demo rename - id + stem in, main resolves the path and validates the stem itself.
     // `playbackSessions` is filled by `demo.play` below (story 159).
     const playbackSessions = createPlaybackSessions()
+    // Story 164 D4: the running demo's control channel (position/state pushes, console lines).
+    const playbackControl = createPlaybackControl({ emit, launch: app.launch })
     const demoRename = createDemoRename({
       scan: scanService,
       sidecars: sidecarStore,
@@ -232,6 +235,7 @@ export const replaysModule: MainModule = {
       sessions: playbackSessions,
       discoveryContext,
       stagingReady: () => startupSweep,
+      playback: playbackControl,
     })
 
     handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())

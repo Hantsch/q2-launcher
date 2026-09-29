@@ -128,6 +128,7 @@ export class LaunchService {
   private startInFlight = false
   /** Story 163 D1: the running playback launch's pipes, if the running launch is one. */
   private playback: PlaybackSessionHandle | undefined
+  private readonly beforeReleaseListeners = new Set<() => void>()
 
   constructor(deps: LaunchDeps) {
     this.installations = deps.installations
@@ -256,6 +257,17 @@ export class LaunchService {
   }
 
   /**
+   * Story 164 D4: listeners called synchronously at the start of `releasePlaybackSession()`, before the
+   * session's stdin is ended, so a last console line can still be written. Errors are logged, never thrown.
+   */
+  onBeforePlaybackRelease(listener: () => void): () => void {
+    this.beforeReleaseListeners.add(listener)
+    return () => {
+      this.beforeReleaseListeners.delete(listener)
+    }
+  }
+
+  /**
    * Story 163 D1: lets go of the game's pipes - stdin ended, stdout closed, `onEnd` fired - and
    * leaves the game itself running. Never kills the process: that is the user's to close, and its
    * exit still arrives through the normal lifecycle (state, playtime). A no-op without a session.
@@ -263,6 +275,13 @@ export class LaunchService {
   releasePlaybackSession(): void {
     const handle = this.playback
     if (!handle) return
+    for (const listener of [...this.beforeReleaseListeners]) {
+      try {
+        listener()
+      } catch (error) {
+        log.error('an onBeforePlaybackRelease listener threw', error)
+      }
+    }
     this.playback = undefined
     handle.end()
   }

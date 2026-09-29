@@ -61,3 +61,22 @@
 - 2026-09-29 10:56 · 163 · review 1 · started
 - 2026-09-29 10:56 · 163 · review 1 · done
 - 2026-09-29 10:56 · 163 · story · done
+- 2026-09-29 10:57:07 · 164 · build · started
+- 2026-09-29 10:57 · 164 · story · started
+- 2026-09-29 10:57 · 164 · D1 Channel interface and Q2PRO protocol · started
+- 2026-09-29 10:59 · 164 · D1 Channel interface and Q2PRO protocol · done
+- 2026-09-29 10:59 · 164 · D2 Windows channel · started
+- 2026-09-29 10:59 · 164 · D3 Linux channel · started
+- 2026-09-29 11:05 · 164 · D2 Windows channel · done
+- 2026-09-29 11:05 · 164 · D3 Linux channel · done
+- 2026-09-29 11:05 · 164 · D4 PlaybackControl and wiring · started
+- 2026-09-29 11:10 · 164 · D4 PlaybackControl and wiring · done
+- 2026-09-29 11:10 · 164 · verify · started
+- 2026-09-29 11:11 · 164 · verify · done
+- 2026-09-29 11:11 · 164 · review 1 · started
+- 2026-09-29 11:13 · 164 · review 1 · done
+- 2026-09-29 11:13 · 164 · review 1 fixes · started
+- 2026-09-29 11:14 · 164 · review 1 fixes · done
+- 2026-09-29 11:14 · 164 · verify 2 · started
+- 2026-09-29 11:15 · 164 · verify 2 · done
+- 2026-09-29 11:16 · 164 · story · done

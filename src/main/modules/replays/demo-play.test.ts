@@ -8,7 +8,8 @@ import { replaysDemoPlaySchema, type DiscoveredDemo } from '@shared/modules/repl
 import { ok, type Installation, type LaunchInput, type LaunchState } from '@shared/types'
 import { canonicalizePath } from '../../lib/fs-utils'
 import { buildLaunchArgs } from '../../services/launch-plan'
-import { createDemoPlay, launcherSweepDirs, type DemoPlayLaunch } from './demo-play'
+import { createDemoPlay, engineIoFromSession, launcherSweepDirs, type DemoPlayLaunch } from './demo-play'
+import type { PlaybackControl } from './playback-control'
 import { LAUNCHER_DIR_NAME } from './demo-staging'
 
 /**
@@ -98,9 +99,12 @@ interface Setup {
   contextPlatform?: NodeJS.Platform
   /** Engine of the active installation (`q2pro-a`); defaults to q2pro. */
   activeEngine?: Installation['engineKind']
+  /** Story 164 D4: the platform `demo.play` runs on, and an optional playback control. */
+  platform?: string
+  playback?: PlaybackControl
 }
 
-function harness({ demos, files, active = 'q2pro-a', running = false, contextPlatform = 'win32', activeEngine = 'q2pro' }: Setup) {
+function harness({ demos, files, active = 'q2pro-a', running = false, contextPlatform = 'win32', activeEngine = 'q2pro', platform = 'win32', playback }: Setup) {
   const fake = fakeLaunch(running)
   const sessions = { begin: vi.fn(), end: vi.fn() }
   const installations = [
@@ -113,7 +117,8 @@ function harness({ demos, files, active = 'q2pro-a', running = false, contextPla
     resolveFile: (id) => files[id],
     installations: () => installations,
     activeInstallationId: () => active,
-    platform: 'win32',
+    platform,
+    playback,
     launch: fake.launch,
     sessions,
     discoveryContext: () => ({
@@ -507,5 +512,88 @@ describe('demo.play from elsewhere (story 160 D2)', () => {
       join(r1q2Root, 'baseq2', 'demos'),
       join(r1q2Root, 'ctf', 'demos'),
     ])
+  })
+})
+
+describe('demo.play playback channel (story 164 D4)', () => {
+  function fakeControl() {
+    return {
+      prepare: vi.fn(async () => ({ argsBeforeDemo: ['+before'], argsAfterDemo: ['+exec', 'after.cfg'] })),
+      attach: vi.fn(async () => undefined),
+      cancel: vi.fn(async () => undefined),
+      send: vi.fn(),
+    } satisfies PlaybackControl
+  }
+
+  it('channel args wrap +demo so +demo precedes +exec', async () => {
+    for (const platform of ['win32', 'linux']) {
+      const playback = fakeControl()
+      const timed = demo({ id: 'base', fileName: 'b.dm2', durationMs: 61_000 })
+      const h = harness({ demos: [timed], files: ctfFiles(), platform, playback })
+      expect(await h.play('base', 'q2pro-a')).toEqual({ ok: true, value: undefined })
+      expect(playback.prepare).toHaveBeenCalledWith({
+        gameDirPath: join(q2proRoot, 'baseq2'),
+        durationMs: 61_000,
+      })
+      const [input, options] = h.launch.start.mock.calls[0] as unknown as [LaunchInput, unknown]
+      const args = input.extraArgs ?? []
+      expect(args[0], platform).toBe('+before')
+      expect(args.indexOf('+demo'), platform).toBeGreaterThan(-1)
+      expect(args.indexOf('+demo'), platform).toBeLessThan(args.indexOf('+exec'))
+      expect(args.slice(-2), platform).toEqual(['+exec', 'after.cfg'])
+      // Windows needs no pipes; Linux runs the console over them.
+      expect(options, platform).toEqual(platform === 'linux' ? { playback: true } : undefined)
+      // The channel is prepared (on Windows: its files written) before the game is spawned.
+      expect(playback.prepare.mock.invocationCallOrder[0], platform).toBeLessThan(
+        h.launch.start.mock.invocationCallOrder[0],
+      )
+      expect(playback.attach, platform).toHaveBeenCalledTimes(1)
+      expect(playback.cancel, platform).not.toHaveBeenCalled()
+    }
+  })
+
+  it('a start that fails cancels the prepared channel and never attaches', async () => {
+    const playback = fakeControl()
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback })
+    h.launch.start.mockResolvedValueOnce({ ok: false, error: { key: 'launch.error.spawnFailed' } })
+    expect((await h.play('base', 'q2pro-a')).ok).toBe(false)
+    expect(playback.cancel).toHaveBeenCalledTimes(1)
+    expect(playback.attach).not.toHaveBeenCalled()
+  })
+
+  it('a prepare that throws cancels the channel and never starts the launch', async () => {
+    const playback = fakeControl()
+    playback.prepare.mockRejectedValueOnce(new Error('disk full'))
+    const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), playback })
+    await expect(h.play('base', 'q2pro-a')).rejects.toThrow('disk full')
+    expect(playback.cancel).toHaveBeenCalledTimes(1)
+    expect(h.launch.start).not.toHaveBeenCalled()
+  })
+
+  it('the Linux EngineIo adapter writes newline-terminated lines and splits stdout chunks into lines', () => {
+    const stdout = new Set<(chunk: Buffer) => void>()
+    const write = vi.fn(() => true)
+    const io = engineIoFromSession({
+      installationId: 'q2pro-a',
+      ended: false,
+      write,
+      onStdout: (l) => {
+        stdout.add(l)
+        return () => stdout.delete(l)
+      },
+      onEnd: () => () => undefined,
+    })
+    const lines: string[] = []
+    const off = io.onLine((l) => lines.push(l))
+    io.writeLine('demoseek 5')
+    expect(write).toHaveBeenCalledWith('demoseek 5\n')
+    const push = (text: string): void => stdout.forEach((l) => l(Buffer.from(text)))
+    push('one\r\ntw')
+    push('o\nthree')
+    expect(lines).toEqual(['one', 'two'])
+    push('\n')
+    expect(lines).toEqual(['one', 'two', 'three'])
+    off()
+    expect(stdout.size).toBe(0)
   })
 })

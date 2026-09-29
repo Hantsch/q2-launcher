@@ -256,3 +256,4 @@ second roadmap.
 - 161 — without Q2PRO a demo still plays in r1q2 · S28 · scope cut to Q2PRO only; main-side guard and regression tests pin non-q2pro refusal and no demomap
 - 162 — an mvd2 plays and seeks · S28 · mvd2/mvd2.gz play in Q2PRO via 159's path, one seek command for dm2+mvd2, detail note on who is followed
 - 163 — a playback session keeps a line to the game · S28 · LaunchService opens stdin/stdout pipes for main-only playback sessions; normal launches unchanged, released on quit
+- 164 — the launcher speaks to a running demo · S28 · Q2PRO playback channel (Windows cfg polling, Linux stdin/stdout) with 250 ms position events, typed no-session error, cleanup on exit

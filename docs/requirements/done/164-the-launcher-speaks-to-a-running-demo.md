@@ -1,7 +1,7 @@
 ---
 id: 164
 title: the launcher speaks to a running demo
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -46,17 +46,17 @@ Open items the spike left for this story to close:
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A main-side channel interface offers "send command" and a "position" stream for the
+- [x] **AC1** — A main-side channel interface offers "send command" and a "position" stream for the
       current playback session, with a Linux and a Windows implementation.
-- [ ] **AC2** — On Linux, a command reaches the engine via stdin and the position is parsed from
+- [x] **AC2** — On Linux, a command reaches the engine via stdin and the position is parsed from
       stdout.
-- [ ] **AC3** — On Windows, commands and position travel over the route [[133]] decided.
-- [ ] **AC4** — Position (and duration, where the engine reports it) is pushed to the renderer as a
+- [x] **AC3** — On Windows, commands and position travel over the route [[133]] decided.
+- [x] **AC4** — Position (and duration, where the engine reports it) is pushed to the renderer as a
       `module:event` at a steady interval while the demo plays.
-- [ ] **AC5** — When the game exits, the channel closes, the last event says the session ended, and
+- [x] **AC5** — When the game exits, the channel closes, the last event says the session ended, and
       any control/log files the channel created are removed.
-- [ ] **AC6** — A command sent while no session exists is rejected with a typed error.
-- [ ] **AC7** — The parsing of engine output into a position is pure code with unit tests fed from
+- [x] **AC6** — A command sent while no session exists is rejected with a typed error.
+- [x] **AC7** — The parsing of engine output into a position is pure code with unit tests fed from
       recorded output; both implementations are exercised against a stubbed engine in tests.
 
 ## Open Questions
@@ -149,7 +149,7 @@ Order D1 → D2 → D3 → D4 (D2/D3 independent after D1).
 
 ## Deliverables
 
-- [ ] **D1 — Channel interface and Q2PRO protocol (pure).** New
+- [x] **D1 — Channel interface and Q2PRO protocol (pure).** New
   `src/main/modules/replays/playback-channel/types.ts`: `PlaybackChannel` =
   `{ argsBeforeDemo: string[]; argsAfterDemo: string[]; start(): Promise<void>; send(line: string): Outcome<void>; latest(): { positionMs: number | null; finished: boolean }; onFinished(cb): () => void; close(): Promise<void> }`,
   plus `EngineIo = { writeLine(line: string): void; onLine(cb: (line: string) => void): () => void }`.
@@ -178,7 +178,7 @@ Order D1 → D2 → D3 → D4 (D2/D3 independent after D1).
   `say "x"`, `\u0007`; the control file with a pending command is exactly the guarded shape;
   `+demo` never appears in the args and `+exec q2l_loop.cfg` is only in `argsAfterDemo`.
 
-- [ ] **D2 — Windows channel (cfg polling).** New
+- [x] **D2 — Windows channel (cfg polling).** New
   `src/main/modules/replays/playback-channel/windows-channel.ts`:
   `createWindowsChannel({ gameDirPath, log })` implementing `PlaybackChannel` from `types.ts` with the
   builders/constants from `protocol.ts` (D1). `start()`: remove stale `q2l_*` files, write
@@ -203,7 +203,7 @@ Order D1 → D2 → D3 → D4 (D2/D3 independent after D1).
   created"; (d) stale files from a previous run are replaced and pre-existing log bytes are not
   parsed.
 
-- [ ] **D3 — Linux channel (stdin/stdout).** New
+- [x] **D3 — Linux channel (stdin/stdout).** New
   `src/main/modules/replays/playback-channel/linux-channel.ts`: `createLinuxChannel({ io, log })`
   implementing `PlaybackChannel` from `types.ts` over an `EngineIo` port (D1's `types.ts`), using
   `protocol.ts` (`parseEngineLine`, `checkLine`, `linuxLaunchArgs`, 100 ms poll constant). `start()`
@@ -211,12 +211,12 @@ Order D1 → D2 → D3 → D4 (D2/D3 independent after D1).
   `checkLine`, after finished → `replays.playback.error.noSession`, else `io.writeLine(line)`. On
   `Demo finished`: stop the poll, fire `onFinished`. `close()`: stop the timer, unsubscribe; creates
   no files. Tests in `linux-channel.test.ts` with an `EngineIo` built on two `PassThrough` streams and
-  fake timers: "a command reaches the engine's stdin and position is parsed from stdout" (written
+  fake timers: "a command reaches the engine stdin and position is parsed from stdout" (written
   text is `seek +10\n`; `POS 0:14.5` on stdout → `latest().positionMs === 14500`, also when a line
   arrives split in two chunks); the poll writes `echo POS $cl_demopos\n` every 100 ms; `Demo finished`
   stops the poll and rejects later sends; a line with `\n` is rejected and nothing is written.
 
-- [ ] **D4 — PlaybackControl and wiring.** New `src/main/modules/replays/playback-control.ts`:
+- [x] **D4 — PlaybackControl and wiring.** New `src/main/modules/replays/playback-control.ts`:
   `createPlaybackControl({ emit, launch, platform = process.platform, makeWindows, makeLinux })`
   with `prepare({ gameDirPath, durationMs })` → the channel's `argsBeforeDemo`/`argsAfterDemo` (picks
   `createWindowsChannel` on `win32`, `createLinuxChannel` on `linux`, from
@@ -255,7 +255,7 @@ Order D1 → D2 → D3 → D4 (D2/D3 independent after D1).
 - AC1 → unit `src/main/modules/replays/playback-control.test.ts` › "picks the Windows channel on
   win32 and the Linux channel on linux" (interface in D1's `types.ts`, implementations D2/D3)
 - AC2 → unit `src/main/modules/replays/playback-channel/linux-channel.test.ts` › "a command reaches
-  the engine's stdin and position is parsed from stdout"
+  the engine stdin and position is parsed from stdout"
 - AC3 → unit `src/main/modules/replays/playback-channel/windows-channel.test.ts` › "a command runs
   exactly once through the control file and position is read from the logfile"
 - AC4 → unit `src/main/modules/replays/playback-control.test.ts` › "pushes playback.position every
@@ -276,4 +276,17 @@ Order D1 → D2 → D3 → D4 (D2/D3 independent after D1).
 
 ## Done
 
-<!-- Filled by /build 164. -->
+Main-side playback channel for a running Q2PRO demo: pure protocol (`playback-channel/protocol.ts`), a Windows cfg-polling channel, a Linux stdin/stdout channel over an `EngineIo` port, and `PlaybackControl` (`playback-control.ts`) that owns the one current channel, pushes `playback.position` every 250 ms and `playback.state`, closes on game exit / launcher quit and rejects sends without a session. Wired into `demo-play.ts` (args wrap `+demo`, Linux-only pipes via `{ playback: true }`).
+
+Commit message: `164: playback channel - Q2PRO protocol, Windows cfg polling, Linux stdin/stdout, PlaybackControl with 250 ms position events`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (130 files / 1840 tests) all green, run twice (before and after review fixes). No e2e (story has none). Full gate pending (sprint's). Review (default tier, 1 cycle): PASS; findings fixed: Windows files now written in `prepare()` before the launch (race with `+exec q2l_loop.cfg`), Linux close write unconditional, exact `toEqual` on the checkLine failure.
+AC -> test (all passed): AC1/AC4/AC5/AC6 `playback-control.test.ts` (named tests; AC5 also `windows-channel.test.ts` "close removes ..."), AC2 `linux-channel.test.ts` "a command reaches the engine stdin and position is parsed from stdout" (story line's name corrected: no apostrophe), AC3 `windows-channel.test.ts` "a command runs exactly once ...", AC7 `protocol.test.ts` "classifies every line of the recorded Q2PRO logfile" + AC2/AC3 stubbed engines. Also `demo-play.test.ts` "channel args wrap +demo so +demo precedes +exec".
+Manual residue (real engine + GPU): send->ACK p95 vs 300 ms, CPU loop-on vs loop-off (<= 5 %), multi-map demo across a map change - not yet measured.
+
+Decisions:
+- Linux SIGPIPE on launcher quit: `LaunchService.onBeforePlaybackRelease` (new, synchronous, before `handle.end()`) lets the channel write `set sys_console 0` while stdin is still open, then close; it is a mitigation, not a guarantee, so the residual risk (an engine not ignoring SIGPIPE dying on a later print) is accepted - killing the game is the user's call. The write is unconditional on first close, also after `Demo finished`.
+- Windows: channel starts in `prepare()` (before spawn), not `attach()`; queue cap 8 counts the in-flight command; `removeStale` deletes `q2l_*` in the gamedir per spec; log reopen uses a `stat` on idle ticks (cheap, needed for truncate/replace). Untested: close-time EBUSY retry (Node cannot hold a Windows lock).
+- Pipes only when `platform !== 'win32'`; `PlaybackControl` subscribes to launch on first `prepare()` (fake launches in older tests lack the methods). Fixture is the real spike log with `spike133_ctl` renamed `q2l_ctl`.
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 8

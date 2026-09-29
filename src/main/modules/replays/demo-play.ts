@@ -14,6 +14,9 @@ import {
 import { isFile, listDir, pathKey } from '../../lib/fs-utils'
 import { removeStagedCopy, stageDemo, stagedFileName } from './demo-staging'
 import { effectiveWriteDirs, type DiscoverableInstallation, type DiscoverContext } from './discovery'
+import type { PlaybackSession } from '../../services/playback-session'
+import type { PlaybackControl } from './playback-control'
+import type { EngineIo } from './playback-channel/types'
 import type { PlaybackSessions } from './playback-sessions'
 
 /**
@@ -72,7 +75,9 @@ export function launcherSweepDirs(
 /** The slice of `LaunchService` this handler needs - a fake stands in for it in tests. */
 export interface DemoPlayLaunch {
   isRunning(): boolean
-  start(input: LaunchInput): Promise<Outcome<LaunchState>>
+  start(input: LaunchInput, options?: { playback?: true }): Promise<Outcome<LaunchState>>
+  /** Story 164 D4: the piped session of a `{ playback: true }` launch (Linux). */
+  getPlaybackSession?(): PlaybackSession | undefined
   onStateChange(listener: (state: LaunchState) => void): () => void
 }
 
@@ -93,6 +98,28 @@ export interface DemoPlayDeps {
    * play right after start can never have its fresh copy swept away under it.
    */
   stagingReady?: () => Promise<void>
+  /** Story 164 D4: the running demo's control channel; absent, a demo plays without one. */
+  playback?: PlaybackControl
+}
+
+/**
+ * Story 164 D4: the Linux `EngineIo` over a playback session's pipes - lines out with a newline, stdout
+ * chunks split into lines (an unterminated tail is held until its newline arrives).
+ */
+export function engineIoFromSession(session: PlaybackSession): EngineIo {
+  return {
+    writeLine: (line) => {
+      session.write(`${line}\n`)
+    },
+    onLine: (cb) => {
+      let tail = ''
+      return session.onStdout((chunk) => {
+        const parts = (tail + chunk.toString('utf8')).split(/\r?\n/)
+        tail = parts.pop() ?? ''
+        for (const line of parts) cb(line)
+      })
+    },
+  }
 }
 
 export interface DemoPlay {
@@ -192,17 +219,45 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
   }
 
   /** Starts the launch; `copyPath` (a staged copy, or null for an in-place play) is cleaned up on every end path. */
-  async function launch(demoId: string, input: LaunchInput, copyPath: string | null): Promise<Outcome<void>> {
+  async function launch(
+    demoId: string,
+    launchInput: LaunchInput,
+    copyPath: string | null,
+    playbackInfo: { gameDirPath: string; durationMs: number | null },
+  ): Promise<Outcome<void>> {
+    const pipes = deps.platform !== 'win32'
+    let input = launchInput
+    if (deps.playback) {
+      let prepared: Awaited<ReturnType<PlaybackControl['prepare']>>
+      try {
+        prepared = await deps.playback.prepare(playbackInfo)
+      } catch (error) {
+        await deps.playback.cancel()
+        if (copyPath !== null) await removeStagedCopy(copyPath)
+        throw error
+      }
+      const { argsBeforeDemo, argsAfterDemo } = prepared
+      // `+demo` must precede the channel's `+exec` polling loop.
+      input = { ...launchInput, extraArgs: [...argsBeforeDemo, ...(launchInput.extraArgs ?? []), ...argsAfterDemo] }
+    }
     let started: Outcome<LaunchState>
     try {
-      started = await deps.launch.start(input)
+      started = await (pipes && deps.playback
+        ? deps.launch.start(input, { playback: true })
+        : deps.launch.start(input))
     } catch (error) {
+      await deps.playback?.cancel()
       if (copyPath !== null) await removeStagedCopy(copyPath)
       throw error
     }
     if (!started.ok) {
+      await deps.playback?.cancel()
       if (copyPath !== null) await removeStagedCopy(copyPath)
       return started
+    }
+    if (deps.playback) {
+      const session = pipes ? deps.launch.getPlaybackSession?.() : undefined
+      void deps.playback.attach(session ? engineIoFromSession(session) : undefined)
     }
     if (copyPath !== null) trackCopy(input.installationId, copyPath, started.value.phase)
     trackSession(demoId)
@@ -257,6 +312,10 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
 
       const installation = installations.find((i) => i.id === target.installationId)
       if (!installation) return fail(WRONG_INSTALLATION)
+      const playbackInfo = {
+        gameDirPath: join(installation.rootPath, target.gameDir),
+        durationMs: demo.durationMs,
+      }
 
       if (target.inPlaceArgs !== null && demo.source.kind === 'installation' && file.archiveEntry === null) {
         const contained = await containment(file.absolutePath, join(installation.rootPath, demo.source.gameDir))
@@ -266,6 +325,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
             demoId,
             { installationId: target.installationId, gameDir: target.gameDir, extraArgs: target.inPlaceArgs },
             null,
+            playbackInfo,
           )
         }
       }
@@ -292,6 +352,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
           extraArgs: ['+demo', staged.value.relativePath],
         },
         staged.value.copyPath,
+        playbackInfo,
       )
     }
   }

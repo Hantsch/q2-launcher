@@ -1107,6 +1107,13 @@
         "archiveEntry": "Can't read this demo out of its archive ({{code}}). Nothing was started."
       }
     },
+    "playback": {
+      "error": {
+        "noSession": "No demo is playing, so there is nothing to control.",
+        "invalidCommand": "This command has characters the game console can't take.",
+        "busy": "The game is still working on earlier commands — try again in a moment."
+      }
+    },
     "fileActions": {
       "reveal": "Reveal in file manager",
       "copyPath": "Copy path",

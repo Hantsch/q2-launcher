@@ -86,7 +86,21 @@ export const REPLAYS_EVENTS = {
   /** A `ReplaysScanProgress` - pushed when a scan starts, as it advances, and once when it ends
    * (`running: false`, success or failure alike). */
   scanProgress: 'scan.progress',
+  /** Story 164 D4: a `ReplaysPlaybackPosition` - pushed every 250 ms while a demo plays. */
+  playbackPosition: 'playback.position',
+  /** Story 164 D4: a `ReplaysPlaybackState` - `playing` on attach, `finished` when the demo ends,
+   * `ended` (always last) once the game is gone or the launcher let go of it. */
+  playbackState: 'playback.state',
 } as const
+
+export interface ReplaysPlaybackPosition {
+  positionMs: number | null
+  durationMs: number | null
+}
+
+export interface ReplaysPlaybackState {
+  state: 'playing' | 'finished' | 'ended'
+}
 
 /**
  * `overview.read` takes no payload - same `z.void()` convention as

@@ -846,6 +846,26 @@ describe('LaunchService playback session', () => {
     expect(installations.recordPlaySession).toHaveBeenCalledTimes(1)
   })
 
+  it('onBeforePlaybackRelease runs before the session ends, survives a throwing listener, and unsubscribes', async () => {
+    const owned = new LaunchService({ installations: fakeInstallations(tempInstallation()), onStateChange: vi.fn() })
+    const child = pipedChild()
+    spawnMock.mockImplementation(() => child as never)
+    await owned.start({ installationId: INSTALLATION }, PLAY)
+    listener(child, 'spawn')()
+    const seen: boolean[] = []
+    owned.onBeforePlaybackRelease(() => {
+      throw new Error('boom')
+    })
+    owned.onBeforePlaybackRelease(() => seen.push(child.stdin.writableEnded))
+    const off = owned.onBeforePlaybackRelease(() => seen.push(true))
+    off()
+
+    owned.releasePlaybackSession()
+
+    expect(seen).toEqual([false])
+    expect(child.stdin.writableEnded).toBe(true)
+  })
+
   it('a second launch while a playback session runs is refused and the first session keeps its pipes', async () => {
     const { launch } = service({ installation: tempInstallation() })
     const child = pipedChild()
