@@ -429,7 +429,12 @@ export const replaysConsoleSendSchema = z.object({ line: z.string().max(1024) })
  * playing in - never a path. Main checks that id against its own eligible (active) installation and
  * refuses a mismatch. `.strict()` for the same reason as `replaysDemoFileActionSchema` above. */
 export const replaysDemoPlaySchema = z
-  .object({ demoId: replaysDemoIdSchema, installationId: z.string().min(1).max(512) })
+  .object({
+    demoId: replaysDemoIdSchema,
+    installationId: z.string().min(1).max(512),
+    /** The user confirmed the "mod not fully installed" warning; main re-checks everything else. */
+    acknowledgeModMissing: z.boolean().optional(),
+  })
   .strict()
 
 /** `sidecar.write`'s payload: the demo id plus the full replacement set of sidecar fields, and -

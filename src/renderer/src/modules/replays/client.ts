@@ -122,6 +122,7 @@ export function revealDemo(demoId: string): Promise<Outcome<DemoFileActionResult
 export function playDemo(payload: {
   demoId: string
   installationId: string
+  acknowledgeModMissing?: boolean
 }): Promise<Outcome<Outcome<void>>> {
   return callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.demoPlay, payload)
 }

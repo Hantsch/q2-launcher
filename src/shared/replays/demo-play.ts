@@ -35,7 +35,12 @@ export type DemoPlayEligibility =
       inPlace: boolean
       extraArgs: string[]
     }
-  | { ok: false; reason: DemoPlayReason }
+  | {
+      ok: false
+      reason: DemoPlayReason
+      /** A warning, not a blocker: playing is allowed once the user has acknowledged it (`acknowledgeModMissing`). */
+      acknowledgeable?: true
+    }
 
 export interface DemoPlayInput {
   demo: DiscoveredDemo
@@ -43,6 +48,8 @@ export interface DemoPlayInput {
   activeInstallationId: string | null
   platform: string
   gameRunning: boolean
+  /** The user has seen the "mod not fully installed" warning and plays anyway. */
+  acknowledgeModMissing?: boolean
 }
 
 const SAFE_FILE_NAME = /^[A-Za-z0-9_.-]+$/
@@ -86,15 +93,21 @@ export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
   if (platform === 'linux' && !installations.some((i) => i.engineKind === 'q2pro')) {
     return refuse('replays.play.unavailable.linuxNoQ2pro')
   }
-  if (!installations.some((i) => hasGameDir(i.gameDirs, gameDir))) {
-    return refuse('replays.play.unavailable.modMissing', { gameDir })
-  }
 
   const active = activeInstallationId === null ? undefined : installations.find((i) => i.id === activeInstallationId)
   if (!active || active.engineKind !== 'q2pro') return refuse('replays.play.unavailable.notQ2pro')
-  if (!hasGameDir(active.gameDirs, gameDir)) return refuse('replays.play.unavailable.modMissing', { gameDir })
   if (active.runner === STEAM_RUNNER_CHOICE) return refuse('replays.play.unavailable.needsDirectLaunch')
   if (gameRunning) return refuse('replays.play.unavailable.gameRunning')
+  // Last, and only a warning: a mod folder the inspector does not list (only demos, or files the
+  // server sent on connect) still plays - the user decides. Last so the warning is never shown for
+  // a demo that could not be played anyway.
+  if (!hasGameDir(active.gameDirs, gameDir) && !input.acknowledgeModMissing) {
+    return {
+      ok: false,
+      reason: { key: 'replays.play.unavailable.modMissing', params: { gameDir } },
+      acknowledgeable: true,
+    }
+  }
 
   // Story 160: a demo from elsewhere is playable through a temporary copy, so location never
   // refuses. Only a demo that sits in the active installation, with a name the console can take, is

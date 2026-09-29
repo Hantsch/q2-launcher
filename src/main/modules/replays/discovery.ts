@@ -337,13 +337,22 @@ export async function discoverDemos(
       )
     }
 
+    // A mod folder the client only ever recorded demos into (e.g. `opentdm/`) carries no paks or
+    // game library, so the inspector does not list it in `gameDirs` - but its `demos` are real.
+    const extraGameDirNames = new Set<string>()
+    const rootOnlyDirs: string[] = []
+    for (const gameDir of await writeDirGameDirs(installation.rootPath)) {
+      if (gameDirOrder.has(gameDir)) continue
+      rootOnlyDirs.push(gameDir)
+      extraGameDirNames.add(gameDir)
+    }
+
     for (const gameDir of installation.gameDirs) {
       await addFromDir(installation.rootPath, gameDir, false)
     }
 
     const writeDirs = effectiveWriteDirs(installation, ctx)
     const writePairs: Array<{ writeDir: string; gameDir: string }> = []
-    const extraGameDirNames = new Set<string>()
     for (const writeDir of writeDirs) {
       for (const gameDir of await writeDirGameDirs(writeDir)) {
         writePairs.push({ writeDir, gameDir })
@@ -352,6 +361,10 @@ export async function discoverDemos(
     }
     const orderedExtras = [...extraGameDirNames].sort((a, b) => a.localeCompare(b))
     orderedExtras.forEach((gameDir, i) => gameDirOrder.set(gameDir, installation.gameDirs.length + i))
+
+    for (const gameDir of rootOnlyDirs) {
+      await addFromDir(installation.rootPath, gameDir, false)
+    }
 
     for (const { writeDir, gameDir } of writePairs) {
       await addFromDir(writeDir, gameDir, true)

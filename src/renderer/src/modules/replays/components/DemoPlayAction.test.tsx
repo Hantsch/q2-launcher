@@ -109,10 +109,25 @@ describe('DemoPlayAction (story 159 D3)', () => {
     expect(reasonText()).toContain('is not Q2PRO')
   })
 
-  it('a mod no installation has shows the modMissing reason with the dir', () => {
+  it('a mod the installation does not list shows a warning with the dir and a play-anyway button', async () => {
     setStore({})
+    playDemo.mockResolvedValue({ ok: true, value: { ok: true, value: undefined } })
     render(createElement(DemoPlayAction, { demo: demo({ gameDir: 'opentdm' }) }))
-    expect(reasonText()).toContain('Mod `opentdm` missing')
+    expect(reasonText()).toContain('Mod `opentdm` is not fully installed')
+    screen.getByTestId('replays-demo-play-anyway').click()
+    await vi.waitFor(() =>
+      expect(playDemo).toHaveBeenCalledWith({
+        demoId: '0123456789abcdef',
+        installationId: 'q',
+        acknowledgeModMissing: true,
+      }),
+    )
+  })
+
+  it('no play-anyway button for a refusal that is not a warning', () => {
+    setStore({ phase: 'running' })
+    render(createElement(DemoPlayAction, { demo: demo({ gameDir: 'opentdm' }) }))
+    expect(screen.queryByTestId('replays-demo-play-anyway')).toBeNull()
   })
 
   it('a running game shows the gameRunning reason', () => {

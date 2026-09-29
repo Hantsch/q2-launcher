@@ -123,7 +123,11 @@ export function engineIoFromSession(session: PlaybackSession): EngineIo {
 }
 
 export interface DemoPlay {
-  play: (demoId: string, installationId: string) => Promise<Outcome<void>>
+  play: (
+    demoId: string,
+    installationId: string,
+    options?: { acknowledgeModMissing?: boolean },
+  ) => Promise<Outcome<void>>
 }
 
 type Containment = 'contained' | 'outside' | 'missing'
@@ -272,18 +276,22 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
   let inFlight = false
 
   return {
-    async play(demoId, installationId) {
+    async play(demoId, installationId, options) {
       if (inFlight) return fail('replays.play.unavailable.gameRunning')
       inFlight = true
       try {
-        return await playOnce(demoId, installationId)
+        return await playOnce(demoId, installationId, options?.acknowledgeModMissing === true)
       } finally {
         inFlight = false
       }
     },
   }
 
-  async function playOnce(demoId: string, installationId: string): Promise<Outcome<void>> {
+  async function playOnce(
+    demoId: string,
+    installationId: string,
+    acknowledgeModMissing: boolean,
+  ): Promise<Outcome<void>> {
     {
       const demo = (await deps.readDemos()).find((row) => row.id === demoId)
       const file = deps.resolveFile(demoId)
@@ -297,6 +305,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
         activeInstallationId,
         platform: deps.platform,
         gameRunning: deps.launch.isRunning(),
+        acknowledgeModMissing,
       })
 
       // Eligibility no longer cares where the demo is; whether it is a candidate for in-place play is

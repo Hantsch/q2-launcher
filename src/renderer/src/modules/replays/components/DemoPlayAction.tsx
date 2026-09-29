@@ -41,12 +41,28 @@ export function DemoPlayAction({ demo }: DemoPlayActionProps) {
   })
   const reasonId = 'replays-demo-play-reason'
 
-  async function handlePlay(): Promise<void> {
-    if (!eligibility.ok) return
+  const acknowledgeable = !eligibility.ok && eligibility.acknowledgeable === true
+
+  async function handlePlay(acknowledgeModMissing = false): Promise<void> {
+    const target = acknowledgeModMissing
+      ? demoPlayEligibility({
+          demo,
+          installations,
+          activeInstallationId,
+          platform,
+          gameRunning: launchPhase === 'starting' || launchPhase === 'running',
+          acknowledgeModMissing: true,
+        })
+      : eligibility
+    if (!target.ok) return
     setError(null)
     setBusy(true)
     try {
-      const result = await playDemo({ demoId: demo.id, installationId: eligibility.installationId })
+      const result = await playDemo({
+        demoId: demo.id,
+        installationId: target.installationId,
+        ...(acknowledgeModMissing ? { acknowledgeModMissing: true } : {}),
+      })
       if (!result.ok) setError(result.error)
       else if (!result.value.ok) setError(result.value.error)
       else usePlaybackStore.getState().beginSession(demo.fileName, demo.durationMs)
@@ -72,6 +88,18 @@ export function DemoPlayAction({ demo }: DemoPlayActionProps) {
         <p className="text-xs text-ink-dim" id={reasonId} data-testid="replays-demo-play-reason">
           {t(eligibility.reason.key, eligibility.reason.params)}
         </p>
+      )}
+      {acknowledgeable && (
+        <div>
+          <Button
+            variant="neutral"
+            onClick={() => void handlePlay(true)}
+            disabled={busy}
+            data-testid="replays-demo-play-anyway"
+          >
+            {t('replays.play.anyway')}
+          </Button>
+        </div>
       )}
       {error && (
         <p className="text-xs text-danger" role="alert" data-testid="replays-demo-play-error">

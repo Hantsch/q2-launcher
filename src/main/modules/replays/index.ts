@@ -272,7 +272,9 @@ export const replaysModule: MainModule = {
       demoRename.rename(payload.id, payload.name),
     )
     handle(REPLAYS_HANDLERS.demoPlay, replaysDemoPlaySchema, (payload) =>
-      demoPlay.play(payload.demoId, payload.installationId),
+      demoPlay.play(payload.demoId, payload.installationId, {
+        acknowledgeModMissing: payload.acknowledgeModMissing === true,
+      }),
     )
 
     const playbackTimeline = createPlaybackTimeline({ playback: playbackControl })

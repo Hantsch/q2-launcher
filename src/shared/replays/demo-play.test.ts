@@ -87,17 +87,35 @@ describe('demoPlayEligibility', () => {
     expect(keyOf(r)).toBe(P + 'notQ2pro')
   })
 
-  it('no installation with the game dir gives modMissing with the dir', () => {
+  it('no installation with the game dir gives an acknowledgeable modMissing warning with the dir', () => {
     const r = run({ demo: demo({ gameDir: 'zaero' }) })
-    expect(r).toEqual({ ok: false, reason: { key: P + 'modMissing', params: { gameDir: 'zaero' } } })
+    expect(r).toEqual({
+      ok: false,
+      reason: { key: P + 'modMissing', params: { gameDir: 'zaero' } },
+      acknowledgeable: true,
+    })
   })
 
-  it('an active installation lacking the game dir gives modMissing even if another has it', () => {
+  it('an active installation lacking the game dir warns even if another has it', () => {
     const r = run({
       demo: demo({ gameDir: 'rogue' }),
       installations: [inst('a', 'q2pro', []), inst('b', 'q2pro', ['rogue'])],
     })
-    expect(r).toEqual({ ok: false, reason: { key: P + 'modMissing', params: { gameDir: 'rogue' } } })
+    expect(r).toEqual({
+      ok: false,
+      reason: { key: P + 'modMissing', params: { gameDir: 'rogue' } },
+      acknowledgeable: true,
+    })
+  })
+
+  it('an acknowledged modMissing warning plays', () => {
+    const r = run({ demo: demo({ gameDir: 'zaero' }), acknowledgeModMissing: true })
+    expect(r.ok && r.gameDir).toBe('zaero')
+  })
+
+  it('the acknowledgement never lifts any other refusal', () => {
+    expect(keyOf(run({ gameRunning: true, acknowledgeModMissing: true }))).toBe(P + 'gameRunning')
+    expect(keyOf(run({ installations: [inst('a', 'r1q2')], acknowledgeModMissing: true }))).toBe(P + 'notQ2pro')
   })
 
   it('the game dir is matched case-insensitively and baseq2 always counts as present', () => {
@@ -235,9 +253,11 @@ describe('demoPlayEligibility', () => {
     expect(keyOf(run({ demo: bad, platform: 'linux', installations: [inst('a', 'r1q2')] }))).toBe(
       P + 'linuxNoQ2pro',
     )
-    expect(keyOf(run({ demo: bad, installations: [inst('a', 'r1q2')] }))).toBe(P + 'modMissing')
-    expect(keyOf(run({ gameRunning: true, installations: [inst('a', 'q2pro', [], 'steam')] }))).toBe(
+    expect(keyOf(run({ demo: bad, installations: [inst('a', 'r1q2')] }))).toBe(P + 'notQ2pro')
+    expect(keyOf(run({ demo: bad, gameRunning: true, installations: [inst('a', 'q2pro', [], 'steam')] }))).toBe(
       P + 'needsDirectLaunch',
     )
+    expect(keyOf(run({ demo: bad, gameRunning: true }))).toBe(P + 'gameRunning')
+    expect(keyOf(run({ demo: bad }))).toBe(P + 'modMissing')
   })
 })

@@ -166,6 +166,33 @@ function ctfFiles(): Setup['files'] {
   }
 }
 
+describe('demo.play with a mod the installation does not list', () => {
+  it('is refused as a warning until the user acknowledges it, then plays', async () => {
+    await mkdir(join(q2proRoot, 'opentdm', 'demos'), { recursive: true })
+    await writeFile(join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), 'demo')
+    const tdm = demo({
+      id: 'tdm',
+      fileName: 'o.dm2',
+      gameDir: 'opentdm',
+      source: { kind: 'installation', installationId: 'q2pro-a', installationName: 'Q2PRO', gameDir: 'opentdm' },
+    })
+    const h = harness({
+      demos: [tdm],
+      files: { tdm: { absolutePath: join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), archiveEntry: null } },
+    })
+    expect(await h.play('tdm', 'q2pro-a')).toEqual({
+      ok: false,
+      error: { key: 'replays.play.unavailable.modMissing', params: { gameDir: 'opentdm' } },
+    })
+    expect(h.launch.start).not.toHaveBeenCalled()
+
+    expect(await h.play('tdm', 'q2pro-a', { acknowledgeModMissing: true })).toEqual({ ok: true, value: undefined })
+    expect(h.launch.start).toHaveBeenCalledWith(
+      { installationId: 'q2pro-a', gameDir: 'opentdm', extraArgs: ['+demo', 'o.dm2'] },
+    )
+  })
+})
+
 describe('demo.play engine guard (story 161 D1)', () => {
   it('a non-Q2PRO installation never gets a demo launch', async () => {
     const others = engineKindSchema.options.filter((kind) => kind !== 'q2pro')
