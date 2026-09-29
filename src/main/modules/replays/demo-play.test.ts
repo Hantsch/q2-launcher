@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,7 +7,8 @@ import { replaysDemoPlaySchema, type DiscoveredDemo } from '@shared/modules/repl
 import { ok, type Installation, type LaunchInput, type LaunchState } from '@shared/types'
 import { canonicalizePath } from '../../lib/fs-utils'
 import { buildLaunchArgs } from '../../services/launch-plan'
-import { createDemoPlay, type DemoPlayLaunch } from './demo-play'
+import { createDemoPlay, launcherSweepDirs, type DemoPlayLaunch } from './demo-play'
+import { LAUNCHER_DIR_NAME } from './demo-staging'
 
 /**
  * Story 159 D2: `demo.play` in main. Real temp folders on disk (containment is a realpath question,
@@ -17,6 +19,7 @@ let tmp: string
 let q2proRoot: string
 let siblingRoot: string
 let r1q2Root: string
+let homeDir: string
 
 function installation(overrides: Partial<Installation>): Installation {
   return {
@@ -90,9 +93,11 @@ interface Setup {
   files: Record<string, { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] }>
   active?: string
   running?: boolean
+  /** Story 160: the staging context's platform - `linux` gives a Q2PRO installation a write dir. */
+  contextPlatform?: NodeJS.Platform
 }
 
-function harness({ demos, files, active = 'q2pro-a', running = false }: Setup) {
+function harness({ demos, files, active = 'q2pro-a', running = false, contextPlatform = 'win32' }: Setup) {
   const fake = fakeLaunch(running)
   const sessions = { begin: vi.fn(), end: vi.fn() }
   const installations = [
@@ -108,6 +113,11 @@ function harness({ demos, files, active = 'q2pro-a', running = false }: Setup) {
     platform: 'win32',
     launch: fake.launch,
     sessions,
+    discoveryContext: () => ({
+      platform: contextPlatform,
+      homeDir: homeDir,
+      zipDeps: { extractorPath: join(tmp, 'no-7za.exe'), extractorExists: false },
+    }),
   })
   return { ...fake, sessions, installations, play: player.play }
 }
@@ -125,6 +135,7 @@ beforeEach(async () => {
   q2proRoot = join(tmp, 'Quake2')
   siblingRoot = join(tmp, 'Quake2-other')
   r1q2Root = join(tmp, 'R1Q2')
+  homeDir = join(tmp, 'home')
   // `Demos` on purpose: the folder is found case-insensitively, as discovery does.
   await mkdir(join(q2proRoot, 'ctf', 'Demos'), { recursive: true })
   await mkdir(join(q2proRoot, 'baseq2', 'demos'), { recursive: true })
@@ -178,17 +189,18 @@ describe('demo.play (story 159 D2)', () => {
     })
   })
 
-  it("a demo outside the installation's demos folder is not launched", async () => {
+  // Story 160 D2 replaced 159's refusal of a demo from elsewhere with a staged copy: such a demo is
+  // still never played in place - it is launched only as `_launcher/<id><ext>`, never by its own name.
+  it("a demo outside the installation's demos folder is never played in place", async () => {
+    const stagedArgs = { installationId: 'q2pro-a', gameDir: 'baseq2', extraArgs: ['+demo', '_launcher/evil.dm2'] }
+
     // Sibling-prefix root: `<tmp>/Quake2-other` starts with `<tmp>/Quake2`, but it is not that folder.
     const sibling = harness({
       demos: [demo({ id: 'evil', fileName: 'evil.dm2' })],
       files: { evil: { absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'), archiveEntry: null } },
     })
-    expect(await sibling.play('evil', 'q2pro-a')).toEqual({
-      ok: false,
-      error: { key: 'replays.play.unavailable.notInInstallation' },
-    })
-    expect(sibling.launch.start).not.toHaveBeenCalled()
+    expect(await sibling.play('evil', 'q2pro-a')).toEqual({ ok: true, value: undefined })
+    expect(sibling.launch.start.mock.calls).toEqual([[stagedArgs]])
 
     // Another installation's id in the payload, for a demo that is eligible in the active one.
     const otherId = harness({ demos: [CTF_DEMO], files: ctfFiles() })
@@ -200,10 +212,11 @@ describe('demo.play (story 159 D2)', () => {
       demos: [demo({ id: 'evil', fileName: 'evil.dm2', source: { kind: 'installation', installationId: 'q2pro-other', installationName: 'Other', gameDir: 'baseq2' } })],
       files: { evil: { absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'), archiveEntry: null } },
     })
-    expect((await otherRow.play('evil', 'q2pro-a')).ok).toBe(false)
-    expect(otherRow.launch.start).not.toHaveBeenCalled()
+    expect((await otherRow.play('evil', 'q2pro-a')).ok).toBe(true)
+    expect(otherRow.launch.start.mock.calls).toEqual([[stagedArgs]])
 
-    // An archive entry - once as the row says it, once only in main's own resolved file record.
+    // An archive entry - once as the row says it, once only in main's own resolved file record. Both
+    // are staged from the archive (never played in place); with no extractor there, neither launches.
     const entry = { archivePath: join(q2proRoot, 'baseq2', 'demos', 'pack.zip'), entryPath: 'b.dm2' }
     const archiveRow = harness({
       demos: [demo({ id: 'base', fileName: 'b.dm2', archiveEntry: entry })],
@@ -235,7 +248,7 @@ describe('demo.play (story 159 D2)', () => {
     })
     expect(running.launch.start).not.toHaveBeenCalled()
 
-    for (const h of [sibling, otherId, otherRow, archiveRow, archiveFile, r1q2, running]) {
+    for (const h of [otherId, archiveRow, archiveFile, r1q2, running]) {
       expect(h.sessions.begin).not.toHaveBeenCalled()
     }
   })
@@ -296,5 +309,127 @@ describe('demo.play (story 159 D2)', () => {
     })
     expect(failing.sessions.begin).not.toHaveBeenCalled()
     expect(failing.launch.onStateChange).not.toHaveBeenCalled()
+  })
+})
+
+describe('demo.play from elsewhere (story 160 D2)', () => {
+  /** A demo from the sibling installation: not in place for `q2pro-a`, so it is played from a copy. */
+  const ELSEWHERE = demo({
+    id: 'away',
+    fileName: 'evil.dm2',
+    source: { kind: 'installation', installationId: 'q2pro-other', installationName: 'Other', gameDir: 'baseq2' },
+  })
+  const elsewhereFiles = (): Setup['files'] => ({
+    away: { absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'), archiveEntry: null },
+  })
+  const copyPath = (): string => join(q2proRoot, 'baseq2', 'demos', '_launcher', 'away.dm2')
+  const original = (): string => join(siblingRoot, 'baseq2', 'demos', 'evil.dm2')
+
+  it('the copy is removed when the game exits, fails or never starts', async () => {
+    for (const end of ['exited', 'failed'] as const) {
+      const h = harness({ demos: [ELSEWHERE], files: elsewhereFiles() })
+      expect(await h.play('away', 'q2pro-a')).toEqual({ ok: true, value: undefined })
+      expect(h.launch.start.mock.calls[0][0].extraArgs).toEqual(['+demo', '_launcher/away.dm2'])
+      expect(await readFile(copyPath(), 'utf8')).toBe('demo')
+
+      // Another installation's end, the running phase and an idle state leave the copy alone.
+      h.emit({ phase: end, installationId: 'q2pro-other' })
+      h.emit({ phase: 'running', installationId: 'q2pro-a' })
+      h.emit({ phase: 'idle', installationId: null })
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(existsSync(copyPath())).toBe(true)
+
+      h.emit({ phase: end, installationId: 'q2pro-a' })
+      await vi.waitFor(() => expect(existsSync(copyPath())).toBe(false))
+      expect(h.listenerCount()).toBe(0)
+      expect(existsSync(original())).toBe(true)
+    }
+
+    // The launch never starts: the copy is gone by the time `play` answers, and nothing is tracked.
+    const failing = harness({ demos: [ELSEWHERE], files: elsewhereFiles() })
+    failing.launch.start.mockResolvedValueOnce({ ok: false, error: { key: 'launch.error.executableMissing' } })
+    expect(await failing.play('away', 'q2pro-a')).toEqual({
+      ok: false,
+      error: { key: 'launch.error.executableMissing' },
+    })
+    expect(failing.launch.start).toHaveBeenCalledTimes(1)
+    expect(existsSync(copyPath())).toBe(false)
+    expect(failing.launch.onStateChange).not.toHaveBeenCalled()
+
+    // A game gone before `start()` resolved still has its copy removed.
+    const quick = harness({ demos: [ELSEWHERE], files: elsewhereFiles() })
+    quick.state.exitBeforeResolve = true
+    expect((await quick.play('away', 'q2pro-a')).ok).toBe(true)
+    await vi.waitFor(() => expect(existsSync(copyPath())).toBe(false))
+    expect(quick.listenerCount()).toBe(0)
+    expect(existsSync(original())).toBe(true)
+  })
+
+  it('an in-place play never deletes a file', async () => {
+    const inPlace = join(q2proRoot, 'ctf', 'Demos', 'x.dm2')
+    for (const end of ['exited', 'failed', 'start'] as const) {
+      const h = harness({ demos: [CTF_DEMO], files: ctfFiles() })
+      if (end === 'start') {
+        h.launch.start.mockResolvedValueOnce({ ok: false, error: { key: 'launch.error.executableMissing' } })
+      }
+      await h.play('ctf', 'q2pro-a')
+      expect(h.launch.start.mock.calls[0][0].extraArgs).toEqual(['+demo', 'x.dm2'])
+      if (end !== 'start') h.emit({ phase: end, installationId: 'q2pro-a' })
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      expect(await readFile(inPlace, 'utf8')).toBe('demo')
+      expect(existsSync(join(q2proRoot, 'ctf', 'Demos', '_launcher'))).toBe(false)
+      expect(existsSync(join(q2proRoot, 'ctf', 'demos', '_launcher'))).toBe(false)
+    }
+  })
+
+  it('a staging failure never calls launch', async () => {
+    // `_launcher` is a file here, so the one candidate folder (win32: no write dir) cannot be made.
+    await writeFile(join(q2proRoot, 'baseq2', 'demos', LAUNCHER_DIR_NAME), 'in the way')
+    const h = harness({ demos: [ELSEWHERE], files: elsewhereFiles() })
+    expect(await h.play('away', 'q2pro-a')).toEqual({
+      ok: false,
+      error: {
+        key: 'replays.play.error.copyDirNotWritable',
+        params: { path: join(q2proRoot, 'baseq2', 'demos', LAUNCHER_DIR_NAME) },
+      },
+    })
+    expect(h.launch.start).not.toHaveBeenCalled()
+    expect(h.sessions.begin).not.toHaveBeenCalled()
+
+    // A zip entry that cannot be read out of its archive is refused the same way, before any launch.
+    const entry = { archivePath: join(siblingRoot, 'baseq2', 'demos', 'pack.zip'), entryPath: 'evil.dm2' }
+    await writeFile(entry.archivePath, 'not really a zip')
+    const zip = harness({
+      demos: [{ ...ELSEWHERE, archiveEntry: entry }],
+      files: { away: { absolutePath: entry.archivePath, archiveEntry: entry } },
+    })
+    const zipOutcome = await zip.play('away', 'q2pro-a')
+    expect(zipOutcome.ok).toBe(false)
+    expect(!zipOutcome.ok && zipOutcome.error.key).toBe('replays.play.error.archiveEntry')
+    expect(zip.launch.start).not.toHaveBeenCalled()
+  })
+
+  it("a copy falls back to the Q2PRO write dir when the installation's folder is not writable", async () => {
+    await writeFile(join(q2proRoot, 'baseq2', 'demos', LAUNCHER_DIR_NAME), 'in the way')
+    const h = harness({ demos: [ELSEWHERE], files: elsewhereFiles(), contextPlatform: 'linux' })
+    expect((await h.play('away', 'q2pro-a')).ok).toBe(true)
+    expect(h.launch.start.mock.calls[0][0].extraArgs).toEqual(['+demo', '_launcher/away.dm2'])
+    const fallback = join(homeDir, '.q2pro', 'baseq2', 'demos', LAUNCHER_DIR_NAME, 'away.dm2')
+    expect(existsSync(fallback)).toBe(true)
+    h.emit({ phase: 'exited', installationId: 'q2pro-a' })
+    await vi.waitFor(() => expect(existsSync(fallback)).toBe(false))
+  })
+
+  it('the startup sweep covers every staging dir of every installation', () => {
+    const [q2pro, , r1q2] = harness({ demos: [], files: {} }).installations
+    const linux = { platform: 'linux' as const, homeDir, zipDeps: { extractorPath: '', extractorExists: false } }
+    expect(launcherSweepDirs([q2pro, r1q2], linux)).toEqual([
+      join(q2proRoot, 'baseq2', 'demos'),
+      join(homeDir, '.q2pro', 'baseq2', 'demos'),
+      join(q2proRoot, 'ctf', 'demos'),
+      join(homeDir, '.q2pro', 'ctf', 'demos'),
+      join(r1q2Root, 'baseq2', 'demos'),
+      join(r1q2Root, 'ctf', 'demos'),
+    ])
   })
 })

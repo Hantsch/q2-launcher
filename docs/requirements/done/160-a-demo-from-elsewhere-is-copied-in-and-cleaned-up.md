@@ -1,7 +1,7 @@
 ---
 id: 160
 title: a demo from elsewhere is copied in and cleaned up
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -19,20 +19,20 @@ up is concept open point §17.8.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Playing a demo that is not inside the chosen installation's `<gamedir>/demos/`
+- [x] **AC1** — Playing a demo that is not inside the chosen installation's `<gamedir>/demos/`
       copies it to `<gamedir>/demos/_launcher/` and plays the copy.
-- [ ] **AC2** — Playing a zip entry extracts just that entry to the same place and plays it.
-- [ ] **AC3** — ~~A `.gz` is decompressed into the copy only when the chosen engine cannot play it
+- [x] **AC2** — Playing a zip entry extracts just that entry to the same place and plays it.
+- [x] **AC3** — ~~A `.gz` is decompressed into the copy only when the chosen engine cannot play it
       (r1q2, [[161]]);~~ Q2PRO gets the `.gz` as-is — the copy is byte-identical and keeps its `.gz`
       extension. (Decompression cut with the r1q2 fallback — see Decisions (Sprint).)
-- [ ] **AC4** — The copy is removed after the game exits.
-- [ ] **AC5** — The original file (and archive) is unchanged afterwards — content and modification
+- [x] **AC4** — The copy is removed after the game exits.
+- [x] **AC5** — The original file (and archive) is unchanged afterwards — content and modification
       time, asserted by a test.
-- [ ] **AC6** — Leftovers from a session that did not end cleanly are removed at the next launcher
+- [x] **AC6** — Leftovers from a session that did not end cleanly are removed at the next launcher
       start by the rule decided in Q1.
-- [ ] **AC7** — If `_launcher/` cannot be created or written, Play fails with a visible, specific
+- [x] **AC7** — If `_launcher/` cannot be created or written, Play fails with a visible, specific
       reason and nothing is launched.
-- [ ] **AC8** — Two copies with the same file name from different sources never overwrite each other
+- [x] **AC8** — Two copies with the same file name from different sources never overwrite each other
       while one is playing.
 
 ## Open Questions
@@ -87,7 +87,7 @@ play/playback file(s) in the same folder, `src/renderer/src/i18n/locales/en.json
 
 ## Deliverables
 
-- **D1 — Staging core + unit tests.** New `src/main/modules/replays/demo-staging.ts` and
+- [x] **D1 — Staging core + unit tests.** New `src/main/modules/replays/demo-staging.ts` and
   `demo-staging.test.ts` (mirror the temp-dir style of `src/main/modules/replays/discovery.test.ts`;
   outcomes use `Outcome`/`fail` from `src/shared/types/common.ts`). Exports:
   - `LAUNCHER_DIR_NAME = '_launcher'`.
@@ -117,7 +117,7 @@ play/playback file(s) in the same folder, `src/renderer/src/i18n/locales/en.json
   staging B leaves A's copy intact; first candidate blocked (a *file* named `_launcher` in it) falls
   through to the second; all candidates blocked → `copyDirNotWritable`, nothing written; sweep
   removes `_launcher/` files and leaves `demos/*.dm2` and subfolders alone.
-- **D2 — Wire staging into play + cleanup + startup sweep.** Files: 159's play handler module in
+- [x] **D2 — Wire staging into play + cleanup + startup sweep.** Files: 159's play handler module in
   `src/main/modules/replays/` (the one that builds `+demo <relative path>` and today refuses a demo
   outside the chosen installation's demos folder), `src/main/modules/replays/index.ts` (module
   `setup`), `src/main/modules/replays/playback-sessions.ts` only if the copy path is tracked there,
@@ -139,7 +139,7 @@ play/playback file(s) in the same folder, `src/renderer/src/i18n/locales/en.json
   Tests: not-writable → fail key and launch never called; copy removed on `exited` and on `failed`
   and on start failure; in-place play → no file deleted; setup runs the sweep over all
   installations' dirs.
-- **D3 — E2E flows.** New `scripts/flows/replays-copy-in.mjs`, `replays-copy-in-sweep.mjs`,
+- [x] **D3 — E2E flows.** New `scripts/flows/replays-copy-in.mjs`, `replays-copy-in-sweep.mjs`,
   `replays-copy-in-not-writable.mjs`; fixture additions in `scripts/lib/fixture.mjs` only if a
   needed source is missing (existing: extra folder `replaysExtraFolderFixturePath()`, zip
   `writeReplaysZipPackArchive()`, decoy `_launcher/leftover.dm2` in `REPLAYS_FIXTURE_DECOYS`). Mirror
@@ -190,4 +190,19 @@ play/playback file(s) in the same folder, `src/renderer/src/i18n/locales/en.json
 
 ## Done
 
-<!-- Filled by /build 160. -->
+Playing a demo from another installation, an extra folder or a zip entry now stages a temporary copy in
+`<gamedir>/demos/_launcher/<id><ext>` (`.gz` copied as-is), launches `+demo _launcher/<name>` and removes
+the copy on exit/fail/start failure; leftovers are swept at launcher start. Originals are never touched.
+
+Commit message: `160: copy-in play for demos from elsewhere — _launcher staging, cleanup on exit, startup sweep`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (103 files / 801 tests) and `npm run ui:flow -- replays-copy-in|replays-copy-in-sweep|replays-copy-in-not-writable` all green; full regression gate is the sprint's. Review: default stage, PASS.
+AC → test (all ran and passed): AC1/2/5 unit `demo-staging.test.ts` + flow `replays-copy-in`; AC3 unit "a .gz is copied byte-identical…"; AC4 flow `replays-copy-in` + unit `demo-play.test.ts` "the copy is removed when the game exits, fails or never starts"; AC5 also "an in-place play never deletes a file"; AC6 flow `replays-copy-in-sweep` + unit sweep test; AC7 flow `replays-copy-in-not-writable` + unit + "a staging failure never calls launch"; AC8 unit "same file name from two sources…". No manual residue.
+
+Decisions:
+- Plan gap: the shared eligibility rule (`src/shared/replays/demo-play.ts`) still refused demos from elsewhere (`notInInstallation`), keeping Play disabled. Added D2b: rule now returns ok with `inPlace` flag; reason key removed; 159's refusal tests rewritten to assert the copy launch.
+- Additions in `demo-play.ts`: second play while one is in flight is refused as `gameRunning`; play awaits the startup sweep before staging; file-exists and console-safe staged-name checks.
+- D3 flows use a ~3 s lingering stub (`cmd.exe` copy on Windows, sleep script on Linux — Linux path unrun) via new `scripts/lib/replays-copy-in.mjs` and `writeReplaysCopyInFixture`.
+Unfixed review notes (accepted): zip unit tests use `it.skipIf` when the vendored 7za is missing (present here, flow throws instead of skipping); an extra folder that is itself an installation's `_launcher` dir is swept at start (Decision Q1); not-writable flow is Windows-shaped; `unsafeName` branch has no direct main test.
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 6

@@ -12,3 +12,18 @@
 - 2026-09-29 10:13 · 159 · review 1 · started
 - 2026-09-29 10:14 · 159 · review 1 · done
 - 2026-09-29 10:14 · 159 · story · done
+- 2026-09-29 10:14:49 · 160 · build · started
+- 2026-09-29 10:15 · 160 · D1 staging core + unit tests · started
+- 2026-09-29 10:16 · 160 · D1 staging core + unit tests · done
+- 2026-09-29 10:16 · 160 · D2 wire staging into play · started
+- 2026-09-29 10:23 · 160 · D2 wire staging into play · done
+- 2026-09-29 10:23 · 160 · D2b eligibility allows copy-in · started
+- 2026-09-29 10:24 · 160 · D2b eligibility allows copy-in · done
+- 2026-09-29 10:24 · 160 · D3 e2e flows · started
+- 2026-09-29 10:29 · 160 · D3 e2e flows · done
+- 2026-09-29 10:29 · 160 · verify · started
+- 2026-09-29 10:32 · 160 · verify · done
+- 2026-09-29 10:32 · 160 · review 1 · started
+- 2026-09-29 10:33 · 160 · review 1 · done
+- 2026-09-29 10:33 · 160 · story · done
+- 2026-09-29 10:33 · 160 · story · done

@@ -1098,12 +1098,13 @@
         "linuxNoQ2pro": "Not available on Linux: demo playback needs a Q2PRO installation",
         "needsDirectLaunch": "This installation launches through Steam — switch it to a direct launch to play demos.",
         "gameRunning": "A game is already running — quit it before playing a demo.",
-        "notInInstallation": "This demo is not in the selected installation's folders — pick the installation it belongs to in the left rail.",
         "unsafeName": "This file name has characters the game console can't take — rename the demo (letters, digits, dot, dash and underscore only)."
       },
       "error": {
         "notFound": "This demo is no longer in the list — rescan to update it.",
-        "fileMissing": "This demo's file is no longer on disk — rescan to update the list."
+        "fileMissing": "This demo's file is no longer on disk — rescan to update the list.",
+        "copyDirNotWritable": "Can't write a temporary copy to {{path}}. Nothing was started.",
+        "archiveEntry": "Can't read this demo out of its archive ({{code}}). Nothing was started."
       }
     },
     "fileActions": {

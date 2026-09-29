@@ -19,7 +19,6 @@ export type DemoPlayReasonKey =
   | 'replays.play.unavailable.notQ2pro'
   | 'replays.play.unavailable.needsDirectLaunch'
   | 'replays.play.unavailable.gameRunning'
-  | 'replays.play.unavailable.notInInstallation'
   | 'replays.play.unavailable.unsafeName'
 
 export interface DemoPlayReason {
@@ -28,7 +27,14 @@ export interface DemoPlayReason {
 }
 
 export type DemoPlayEligibility =
-  | { ok: true; installationId: string; gameDir: string; extraArgs: string[] }
+  | {
+      ok: true
+      installationId: string
+      gameDir: string
+      /** True when the demo may be played by its own name from the installation (`extraArgs`); else a copy is staged. */
+      inPlace: boolean
+      extraArgs: string[]
+    }
   | { ok: false; reason: DemoPlayReason }
 
 export interface DemoPlayInput {
@@ -90,16 +96,23 @@ export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
   if (active.runner === STEAM_RUNNER_CHOICE) return refuse('replays.play.unavailable.needsDirectLaunch')
   if (gameRunning) return refuse('replays.play.unavailable.gameRunning')
 
+  // Story 160: a demo from elsewhere is playable through a temporary copy, so location never
+  // refuses. Only a demo that sits in the active installation, with a name the console can take, is
+  // a candidate for in-place play (main still verifies containment itself); anything else is copied
+  // and the copy is named by demo id, so the original name is irrelevant there.
   const { source } = demo
-  if (
-    source.kind !== 'installation' ||
-    source.installationId !== active.id ||
-    demo.archiveEntry !== null ||
-    !(sameDir(source.gameDir, gameDir) || sameDir(source.gameDir, DEMO_BASE_GAME_DIR))
-  ) {
-    return refuse('replays.play.unavailable.notInInstallation')
-  }
-  if (!SAFE_FILE_NAME.test(demo.fileName)) return refuse('replays.play.unavailable.unsafeName')
+  const inPlace =
+    source.kind === 'installation' &&
+    source.installationId === active.id &&
+    demo.archiveEntry === null &&
+    (sameDir(source.gameDir, gameDir) || sameDir(source.gameDir, DEMO_BASE_GAME_DIR)) &&
+    SAFE_FILE_NAME.test(demo.fileName)
 
-  return { ok: true, installationId: active.id, gameDir, extraArgs: ['+demo', demo.fileName] }
+  return {
+    ok: true,
+    installationId: active.id,
+    gameDir,
+    inPlace,
+    extraArgs: inPlace ? ['+demo', demo.fileName] : [],
+  }
 }

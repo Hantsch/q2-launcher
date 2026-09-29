@@ -29,8 +29,9 @@ import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harn
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../downloads/7za-path'
-import { createDemoPlay } from './demo-play'
+import { createDemoPlay, launcherSweepDirs } from './demo-play'
 import { createDemoRename } from './demo-rename'
+import { sweepLauncherDirs } from './demo-staging'
 import { composeDemoRows } from './demo-rows'
 import { discoverDemos, type DiscoverContext } from './discovery'
 import { addExtraFolder, removeExtraFolder } from './extra-folders'
@@ -213,6 +214,14 @@ export const replaysModule: MainModule = {
     // Story 159 D2: demo playback - id + installation id in, main re-runs eligibility on its own
     // data, contains the file in that installation's demos folder, then starts the launch and
     // registers the playback session the rename guard above checks.
+    // Story 160 D2: a play from elsewhere stages a copy in `<gamedir>/demos/_launcher/` and removes
+    // it when the game ends; a copy the launcher could not remove (a crash, a hand-off) is swept here,
+    // fire-and-forget. Deferred to a microtask and fully caught, so nothing in it - not even a
+    // synchronous throw while listing installations - can block or break this module's start.
+    const startupSweep: Promise<void> = Promise.resolve()
+      .then(() => sweepLauncherDirs(launcherSweepDirs(app.installations.list(), discoveryContext()), log))
+      .catch((error: unknown) => log.warn(`demo staging sweep failed: ${String(error)}`))
+
     const demoPlay = createDemoPlay({
       readDemos: () => scanService.read(),
       resolveFile: (id) => scanService.resolveFile(id),
@@ -221,6 +230,8 @@ export const replaysModule: MainModule = {
       platform: process.platform,
       launch: app.launch,
       sessions: playbackSessions,
+      discoveryContext,
+      stagingReady: () => startupSweep,
     })
 
     handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, () => scanService.overview())

@@ -117,20 +117,26 @@ describe('DemoPlayAction (story 159 D3)', () => {
     expect(reasonText()).toContain('already running')
   })
 
-  it('a demo from another installation shows the notInInstallation reason', () => {
+  it('a demo from another installation, an extra folder or an archive is playable (via a copy)', () => {
     setStore({})
-    render(
-      createElement(DemoPlayAction, {
-        demo: demo({ source: { kind: 'installation', installationId: 'other', gameDir: 'baseq2' } }),
-      }),
-    )
-    expect(reasonText()).toContain("not in the selected installation")
+    const from = [
+      { source: { kind: 'installation', installationId: 'other', gameDir: 'baseq2' } },
+      { source: { kind: 'extraFolder', path: 'D:/demos' } },
+      { archiveEntry: { archivePath: 'x.zip', entryPath: 'a.dm2' } },
+    ]
+    for (const over of from) {
+      render(createElement(DemoPlayAction, { demo: demo(over) }))
+      expect((screen.getByTestId('replays-demo-play') as HTMLButtonElement).disabled).toBe(false)
+      expect(screen.queryByTestId('replays-demo-play-reason')).toBeNull()
+      cleanup()
+    }
   })
 
-  it('an unsafe file name shows the unsafeName reason', () => {
+  it('an unsafe file name stays playable (a copy is named by demo id)', () => {
     setStore({})
     render(createElement(DemoPlayAction, { demo: demo({ fileName: 'my demo.dm2' }) }))
-    expect(reasonText()).toContain('rename the demo')
+    expect((screen.getByTestId('replays-demo-play') as HTMLButtonElement).disabled).toBe(false)
+    expect(screen.queryByTestId('replays-demo-play-reason')).toBeNull()
   })
 
   it('a Steam-launched installation shows the needsDirectLaunch reason', () => {

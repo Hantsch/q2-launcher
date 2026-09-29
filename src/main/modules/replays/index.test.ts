@@ -182,6 +182,50 @@ describe('replays module', () => {
 
       expect(outcome).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
     })
+
+    // Story 160 D2: module setup sweeps leftover staged copies, fire-and-forget.
+    it('startup sweeps _launcher of every installation', async () => {
+      const rootA = join(dir, 'A')
+      const rootB = join(dir, 'B')
+      const staged = [
+        join(rootA, 'baseq2', 'demos', '_launcher', 'a.dm2'),
+        join(rootA, 'ctf', 'demos', '_launcher', 'b.mvd2.gz'),
+        join(rootB, 'baseq2', 'demos', '_launcher', 'c.dm2'),
+      ]
+      const kept = [join(rootA, 'baseq2', 'demos', 'mine.dm2'), join(rootA, 'baseq2', 'demos', '_launcher', 'sub', 'x.dm2')]
+      for (const file of [...staged, ...kept]) {
+        await mkdir(join(file, '..'), { recursive: true })
+        await writeFile(file, 'demo')
+      }
+      const installation = (id: string, rootPath: string, gameDirs: string[]) => ({
+        id,
+        name: id,
+        rootPath,
+        gameDirs,
+        engineKind: 'q2pro',
+        recordedEngineKind: undefined,
+        writeDirPath: undefined,
+      })
+
+      const registry = new MainModuleRegistry()
+      await registry.register(
+        replaysModule,
+        fakeAppContext([installation('a', rootA, ['baseq2', 'ctf']), installation('b', rootB, ['baseq2'])]),
+      )
+
+      await vi.waitFor(async () => {
+        expect((await readdir(join(rootA, 'baseq2', 'demos', '_launcher'))).sort()).toEqual(['sub'])
+        expect(await readdir(join(rootA, 'ctf', 'demos', '_launcher'))).toEqual([])
+        expect(await readdir(join(rootB, 'baseq2', 'demos', '_launcher'))).toEqual([])
+      })
+      for (const file of kept) expect(await readFile(file, 'utf8')).toBe('demo')
+
+      // A sweep that cannot even list the installations never breaks the module's start.
+      const broken = { ...fakeAppContext(), installations: { list: () => { throw new Error('boom') } } }
+      const second = new MainModuleRegistry()
+      await second.register(replaysModule, broken as unknown as AppContext)
+      expect(second.registered()).toContain('replays')
+    })
   })
 
   describe('extraFolders.* handlers (story 142 D2)', () => {

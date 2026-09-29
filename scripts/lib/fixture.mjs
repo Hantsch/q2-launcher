@@ -3689,8 +3689,8 @@ export function replaysPlayInstallRoot() {
   return join(gameRoot(), 'fixture-replays-play-q2pro-install')
 }
 
-export function writeReplaysPlayFixture() {
-  const userDataDir = variantUserDataDir('replays-play')
+export function writeReplaysPlayFixture(variant = 'replays-play') {
+  const userDataDir = variantUserDataDir(variant)
   rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
 
@@ -3759,6 +3759,79 @@ export function writeReplaysPlayFixture() {
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
 
   return { userDataDir, installRoot: root, executablePath, spawnable }
+}
+
+// --- story 160 D3: the copy-in flows' fixture ----------------------------------------------------
+//
+// The `replays-play` install plus (a) a stand-in client that LINGERS ~3s instead of exiting at once
+// - the copy under `demos/_launcher/` only exists while the game runs, so the flow needs a window
+// to see it in: off Windows a shell script that sleeps 3s; on Windows a copy of `cmd.exe` named
+// `q2pro.exe` whose installation `launchArgs` are `/d /c ping -n 4 127.0.0.1 >nul & rem`, so the
+// launcher's own trailing `+set game ... +demo _launcher/<id>` args land inside the `rem` comment
+// (still recorded in main.log's `launching` line); (b) an extra demo folder inside the variant's own
+// userData dir holding `copy-a.dm2` and, when 7za is vendored, `copy-pack.zip` with one entry; and
+// (c) optionally a `_launcher/leftover.dm2` (sweep flow) or a plain FILE named `_launcher` (the
+// not-writable flow).
+export const REPLAYS_COPY_IN_INPLACE_DEMO = REPLAYS_PLAY_BASE_DEMO
+export const REPLAYS_COPY_IN_EXTRA_DEMO = 'copy-a.dm2'
+export const REPLAYS_COPY_IN_ZIP = 'copy-pack.zip'
+export const REPLAYS_COPY_IN_ZIP_ENTRY = 'copy-entry.dm2'
+export const REPLAYS_COPY_IN_KEEP_DEMO = 'keep.dm2'
+
+export function replaysCopyInExtraFolder(variant) {
+  return join(variantUserDataDir(variant), 'copy-in-demos')
+}
+
+export function replaysCopyInDemosDir() {
+  return join(replaysPlayInstallRoot(), 'baseq2', 'demos')
+}
+
+/** `mode`: 'plain' | 'leftover' (seed `_launcher/leftover.dm2` + `keep.dm2`) | 'blocked' (`_launcher` is a file). */
+export function writeReplaysCopyInFixture(variant, mode = 'plain') {
+  const result = writeReplaysPlayFixture(variant)
+  const demosDir = replaysCopyInDemosDir()
+
+  if (process.platform === 'win32') {
+    copyFileSync(join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'cmd.exe'), result.executablePath)
+  } else {
+    writeFileSync(result.executablePath, '#!/bin/sh\nsleep 3\nexit 0\n')
+    chmodSync(result.executablePath, 0o755)
+  }
+
+  const folder = replaysCopyInExtraFolder(variant)
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+  writeFileSync(join(folder, REPLAYS_COPY_IN_EXTRA_DEMO), demoBytesWithGameDir('baseq2'))
+  if (vendoredExtractorExists()) {
+    const staging = join(bootstrapStagingDir(), `replays-copy-in-zip-${variant}`)
+    rmSync(staging, { recursive: true, force: true })
+    mkdirSync(staging, { recursive: true })
+    writeFileSync(join(staging, REPLAYS_COPY_IN_ZIP_ENTRY), demoBytesWithGameDir('baseq2'))
+    execFileSync(
+      vendoredSevenZaPath(),
+      ['a', '-tzip', '-mx1', '-bso0', '-bse0', '-bd', join(folder, REPLAYS_COPY_IN_ZIP), REPLAYS_COPY_IN_ZIP_ENTRY],
+      { cwd: staging, windowsHide: true },
+    )
+  }
+
+  const statePath = join(result.userDataDir, STATE_FILE)
+  const state = JSON.parse(readFileSync(statePath, 'utf8'))
+  if (process.platform === 'win32') {
+    state.installations[0].launchArgs = ['/d', '/c', 'ping', '-n', '4', '127.0.0.1', '>nul', '&', 'rem']
+  }
+  state.replays = {
+    extraFolders: [{ id: `fixture-${variant}-folder`, path: folder, addedAt: FIXED_TIMESTAMP }],
+  }
+  writeJson(statePath, state)
+
+  if (mode === 'leftover') {
+    mkdirSync(join(demosDir, '_launcher'), { recursive: true })
+    writeFileSync(join(demosDir, '_launcher', 'leftover.dm2'), 'q2l-fixture-leftover\n', 'utf8')
+    writeFileSync(join(demosDir, REPLAYS_COPY_IN_KEEP_DEMO), demoBytesWithGameDir('baseq2'))
+  } else if (mode === 'blocked') {
+    writeFileSync(join(demosDir, '_launcher'), 'a plain file where the directory should be\n', 'utf8')
+  }
+  return { ...result, extraFolder: folder }
 }
 
 /**
