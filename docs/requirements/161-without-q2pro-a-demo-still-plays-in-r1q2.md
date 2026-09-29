@@ -1,7 +1,7 @@
 ---
 id: 161
 title: without Q2PRO a demo still plays in r1q2
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -23,42 +23,82 @@ platform-parity rule).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — With no qualifying Q2PRO installation but a qualifying r1q2 one, Play launches r1q2
-      with `+demomap` and the demo's game dir.
-- [ ] **AC2** — During r1q2 playback the timeline offers play/pause and speed only; jump and seek are
-      visible, disabled, and the text "Seeking needs Q2PRO" is shown.
-- [ ] **AC3** — An MVD2 demo cannot be played on r1q2: the r1q2 choice is disabled with its reason.
-- [ ] **AC4** — A protocol 343x or oversized-packet demo cannot be played on r1q2: disabled with its
-      reason.
-- [ ] **AC5** — A `.gz` demo plays on r1q2 through [[160]]'s decompressed copy (or is disabled with
-      its reason, per Q2).
-- [ ] **AC6** — On Linux, the r1q2 fallback is shown as not available with the visible text "Not
-      available on Linux: r1q2 is not supported" wherever the engine choice appears.
-- [ ] **AC7** — The risk decided in Q1 is handled as decided and pinned by a test.
+> **Scope cut (Sprint S28, user decision below):** the launcher plays demos through Q2PRO only; the
+> r1q2 fallback described above is **out of scope** and stays in the concept (DEMO-24, DEMO-25) as
+> future work. The original AC1–AC7 (r1q2 `+demomap` launch, "Seeking needs Q2PRO", MVD2/343x/
+> oversized/`.gz` on r1q2, Linux r1q2 note, stufftext risk) are withdrawn. The visible reason for a
+> non-Q2PRO active installation is owned by [[159]]. What remains is the main-side guarantee that
+> the cut holds even when the renderer is bypassed.
+
+- [ ] **AC1** — The demo-play IPC handler refuses an installation whose `engineKind` is not
+      `q2pro` (r1q2 and every other kind): it returns a typed failure carrying an i18n key, and no
+      process is spawned — even when the renderer sends that installation's id directly.
+- [ ] **AC2** — The demo launch arguments never contain `demomap`, for any engine kind the builder
+      is called with.
 
 ## Open Questions
 
-- [ ] **Q1 — `demomap` and stufftext.** The concept rejects `demomap` on Q2PRO because it executes
+- [ ] ~~**Q1 — `demomap` and stufftext.** The concept rejects `demomap` on Q2PRO because it executes~~ answered → Decisions (Sprint)
       stufftext from the demo (§4) — r1q2's only route is `+demomap`. Accept the risk silently, warn
       before playing a demo from an extra folder/archive, or restrict the fallback to the user's own
       demos?
-- [ ] **Q2 — `.gz` on r1q2** — decompress into the copy (as AC5 assumes) or disable with reason?
+- [ ] ~~**Q2 — `.gz` on r1q2** — decompress into the copy (as AC5 assumes) or disable with reason?~~ answered → Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** demomap/stufftext and r1q2 fallback: For now the launcher plays demos through Q2PRO only. No r1q2 playback support: the r1q2 fallback of this story is out of scope. Where Play is unavailable for a non-Q2PRO installation, 159 owns the visible reason. Refine must reduce/cut this story accordingly and record what remains, if anything.
+
+- **Q2 (`.gz` on r1q2):** moot — no r1q2 playback exists after the user's cut, so there is nothing to decompress for; `.gz` handling on Q2PRO stays with [[160]].
+- **What remains:** a main-side guard + regression tests only (no UI), because CLAUDE.md says renderer input is never trusted — a disabled Play button in [[159]] does not stop an r1q2 id arriving over IPC, and `demomap` is the stufftext risk the concept (§4) rejects.
+- **Not dropped:** kept as a minimal scope-cut rather than dropped, because the guard is a real, testable negative behaviour that no other S28 story names ([[159]] AC4 pins `demomap` for Q2PRO only; AC5 validates the path, not the engine kind).
+- **Linux (old AC6):** withdrawn — with no r1q2 engine choice anywhere there is no place to show "Not available on Linux: r1q2 is not supported"; [[159]] AC7 covers Linux without Q2PRO.
+- **Timeline ([[165]]):** needs no r1q2 / no-seek mode; "Seeking needs Q2PRO" is not implemented this sprint.
+- **Failure key:** reuse [[159]]'s "demo playback needs Q2PRO" i18n key for the refusal rather than adding a second one, so the renderer shows one reason for one condition.
 
 ## Plan
 
-<!-- Filled by /refine 161, once the Open Questions above are resolved. -->
+Builds on [[159]] (built first): 159 adds the demo-play IPC channel, its main handler and the
+Q2PRO demo-args builder (`+set game` / `+demo`) under `src/main/modules/replays/`.
+
+1. In 159's main play handler, after resolving the installation by id, refuse unless
+   `installation.engineKind === 'q2pro'` — before any path resolution, copy ([[160]]) or spawn.
+   Return 159's typed failure shape with 159's "needs Q2PRO" i18n key.
+2. Tests next to the handler / args builder: every non-`q2pro` `engineKindSchema` value is refused
+   with no spawn; the args builder output never contains `demomap` for any engine kind.
+
+No renderer, IPC-contract, or locale change (159 owns the channel, the key and the visible reason).
 
 ## Deliverables
 
-<!-- Filled by /refine 161. -->
+- **D1 — main refuses non-Q2PRO demo playback, and `demomap` never appears.** Prerequisite: story
+  159 is built. Find its demo-play handler and demo-args builder (grep `src/main/modules/replays/`
+  for `'+demo'` and for the play channel's handler registration). In the handler, after the
+  installation is looked up by id and before any path resolution, temp copy or `LaunchService`
+  call, return 159's existing typed failure with its existing "demo playback needs Q2PRO" i18n key
+  when `installation.engineKind !== 'q2pro'` (if 159 already does exactly this, add only the
+  tests). Do not add an IPC channel, a schema, or a locale key. Tests, in the handler's and the
+  builder's existing `*.test.ts` files (mirror their fakes/fixtures):
+  - "a non-Q2PRO installation never gets a demo launch" — iterate every value of
+    `engineKindSchema.options` (`src/shared/schemas.ts`) except `q2pro`; each returns the failure
+    with the needs-Q2PRO key and the fake launcher/spawn is never called.
+  - "demo launch args never contain demomap" — call the builder with an installation of each
+    `engineKindSchema` value (and a gz/archived demo path if the builder accepts one); assert no
+    arg equals or contains `demomap` (case-insensitive).
+  Files: 159's play handler `.ts` + its `.test.ts`, 159's args-builder `.test.ts` (≤4 files).
 
 ## Model Hints
 
-<!-- Filled by /refine 161. -->
+- D1 → default.
+- Review: → default.
 
 ## Acceptance Tests
 
-<!-- Filled by /refine 161. -->
+- AC1 → unit, 159's demo-play handler test file under `src/main/modules/replays/` › "a non-Q2PRO
+  installation never gets a demo launch"
+- AC2 → unit, 159's demo-args builder test file under `src/main/modules/replays/` › "demo launch
+  args never contain demomap"
+- No e2e: neither criterion is a user action — the user-facing disabled Play with visible reason is
+  [[159]]'s e2e flow, and a bypassed renderer cannot be driven through the real surface.
 
 ## Done
 
