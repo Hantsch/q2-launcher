@@ -29,6 +29,7 @@ export const CONFIG_HANDLERS = {
   unassign: 'unassign',
   setDefault: 'setDefault',
   setCvars: 'setCvars',
+  commitCvars: 'commitCvars',
   setBinds: 'setBinds',
   setLayers: 'setLayers',
   setActions: 'setActions',
@@ -750,6 +751,20 @@ export interface SetProfileCvarsInput {
   profileId: string
   cvars: Record<string, string>
   cvarSections?: ConfigCvarSection[]
+}
+
+/**
+ * Story 175 D1: the `commitCvars` payload - the one writer that puts content on a profile's disk
+ * without `save`. Only the named cvars are committed: they are written into the profile's file on
+ * top of its last-saved baseline and merged into both the live record and the baseline, so any other
+ * pending (unsaved) edit stays exactly as unsaved as it was. Answers `Outcome<ConfigProfile>` (the
+ * committed profile), failing with `config.error.profileNotFound`, `config.error.commitNeedsSave`
+ * (a dirty profile with no baseline to write from), `config.error.commitConflict` (the file changed
+ * on disk or could not be read - never forced) or `config.error.writeFailed`.
+ */
+export interface CommitProfileCvarsInput {
+  profileId: string
+  cvars: Record<string, string>
 }
 
 export interface SetProfileBindsInput {

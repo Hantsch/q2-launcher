@@ -547,6 +547,54 @@ export class ProfilesStore {
   }
 
   /**
+   * Story 175 D1: records that `patch`'s cvars were just written into the profile's canonical file
+   * on top of its last-saved baseline (`index.ts`'s `commitCvars`), and that the file now holds
+   * exactly `fileHash`'s bytes, confirmed at `fileSeenAt`.
+   *
+   * The patch lands in BOTH the live record and the baseline, and nothing else moves: every other
+   * pending edit stays in the live record only, so it still reads as unsaved against the baseline
+   * (`diffProfileAgainstBaseline`) and `dirty` is left exactly as it was - a commit on a dirty
+   * profile does not make it clean, and one on a clean profile does not make it dirty.
+   *
+   * Deliberately NOT `markFileSeen` (above), although it records the same file facts: that method
+   * reseeds the whole baseline from the LIVE record, which on a dirty profile would absorb every
+   * pending edit into the baseline - they would silently stop reading as unsaved (a discard could no
+   * longer undo them, and the edited indicator would drop them) while the file still does not carry
+   * them. Here the baseline is patched, never reseeded.
+   *
+   * A profile without a baseline yet (persisted before story 049) gets one captured from its record
+   * first; the caller only lets that happen for a clean profile, whose record IS what the file says.
+   * `updatedAt` is bumped: unlike `markFileSeen`, this changes the profile's content. Throws on an
+   * unknown id, same as the other setters.
+   *
+   * Known limitation: `writeCatalogDefaults` is a render-relevant field that `captureBaseline` does
+   * not snapshot, so a pending catalog-defaults toggle is rendered from the live value and would
+   * land on disk with the commit. Follow-up: add the field to `captureBaseline` in
+   * `src/shared/config/profile-baseline.ts`.
+   */
+  commitSavedCvars(
+    profileId: string,
+    patch: Record<string, string>,
+    fileHash: string,
+    fileSeenAt: number,
+  ): ConfigProfile[] {
+    const current = this.find(profileId)
+    if (!current) throw new Error(`config profile not found: ${profileId}`)
+
+    const base = current.baseline ?? captureBaseline(adoptProfileBinds(current))
+    const next: ConfigProfile = {
+      ...current,
+      cvars: { ...current.cvars, ...patch },
+      baseline: { ...base, cvars: { ...base.cvars, ...patch } },
+      fileHash,
+      fileSeenAt,
+      fileState: 'unchanged',
+      updatedAt: new Date().toISOString(),
+    }
+    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+  }
+
+  /**
    * Story 043 D5: records `readFileState`'s classification as a display hint only, for the two
    * branches `refreshFromFiles` must never do anything else for:
    *

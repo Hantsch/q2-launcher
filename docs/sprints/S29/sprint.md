@@ -22,7 +22,7 @@ timeline can stop the demo; the game console is no longer flooded by the launche
 - [x] 172 — I choose fullscreen and come back
 - [x] 173 — I end the demo from the launcher
 - [x] 174 — the game console is not flooded by the launcher
-- [ ] 175 — an address I add is saved right away
+- [x] 175 — an address I add is saved right away
 
 ## Notes
 

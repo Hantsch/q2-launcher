@@ -1,7 +1,7 @@
 ---
 id: 175
 title: an address I add is saved right away
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-29
 ---
 
@@ -23,19 +23,19 @@ has no reason to look there.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — After confirming "Add to address book", the chosen `adrN` value is in the profile's
+- [x] **AC1** — After confirming "Add to address book", the chosen `adrN` value is in the profile's
       `.cfg` on disk (the Raw file tab shows it as `ON DISK`, with no "not in this file yet" notice for
       it).
-- [ ] **AC2** — The profile does not show "Unsaved changes" because of the address write, and the
+- [x] **AC2** — The profile does not show "Unsaved changes" because of the address write, and the
       Config view's unsaved counter does not include it.
-- [ ] **AC3** — If the profile already had *other* unsaved changes, only the address is written to
+- [x] **AC3** — If the profile already had *other* unsaved changes, only the address is written to
       disk; the other pending edits are neither saved nor lost and the profile still shows them as
       unsaved (Q1, decided).
-- [ ] **AC4** — If saving fails (e.g. the file is not writable), the dialog stays open and shows the
+- [x] **AC4** — If saving fails (e.g. the file is not writable), the dialog stays open and shows the
       error as text; the address is not reported as added and no half-written state remains.
-- [ ] **AC5** — The success toast says the address is saved to the profile (i18n key, `en` locale),
+- [x] **AC5** — The success toast says the address is saved to the profile (i18n key, `en` locale),
       not merely "written".
-- [ ] **AC6** — Story [[127]]'s ACs that this supersedes (AC4) are amended in place with a pointer
+- [x] **AC6** — Story [[127]]'s ACs that this supersedes (AC4) are amended in place with a pointer
       to this story, so the two documents do not contradict each other.
 
 ## Open Questions
@@ -300,3 +300,20 @@ Order: D1 → D2 → D3.
   else in 127 changes.
 
 ## Done
+
+**Summary.** New main-side config operation `commitCvars` writes only the chosen cvars into the profile's canonical `.cfg` (rendered from the baseline, sentinel-owned file name, atomic write), patches live + baseline cvars and hash in one store commit without touching `dirty`, then cascades installation copies. The address-book dialog now uses it, shows a `saved` toast and shows errors inline. `buildAddressBookCvars` removed; 127's AC4 amended; CHANGELOG entry added.
+
+**Commit message:** `175: address-book add is saved right away (config commitCvars writes only the address, dirty profile keeps its pending edits)`
+
+**Verification (narrow gate).** `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (133 files / 2223 tests); `npm run ui:flow -- servers-address-book` green, re-run after the last review fix together with `npx vitest run src/main/modules/config`, typecheck and build. `controls-extra-keys` (pre-existing red) not run. Full gate not run (sprint's job).
+- AC1 flow step 4 + unit "a clean profile gets the cvar on disk…" passed. AC2 flow steps 4/5 + same unit passed. AC3 flow step 5 + unit "a dirty profile writes only the committed cvar…" passed. AC4 component "a failed commit keeps the dialog open…" + units "a write failure…" and "a canonical file changed on disk…" passed (no e2e, per Decisions). AC5 component "a successful add toasts the saved key" passed. AC6 manual residue (docs only; reviewer confirmed the pointer in 127).
+- Review (default): FAIL in cycle 1 — vacuous `\s` in a template-literal regex in the flow's AC3 disk check, misplaced doc comment, missing clean-no-baseline test; all fixed (String.raw, comment moved, test "a clean profile without a baseline commits against its live fields and stays clean" added).
+
+**Decisions.**
+- Known limitation, documented in code comments: `writeCatalogDefaults` is not in `captureBaseline`, so a pending catalog-defaults toggle is rendered live and would land on disk with the commit. Follow-up: add the field to `src/shared/config/profile-baseline.ts`.
+- `canonicalFileNameFor` helper shared by `authoriseContentWrite` and the handler (directory surveyed twice, fail-safe).
+- Flow: the servers list toolbar trigger no longer exists, so "from the list" = row selected, detail-pane trigger.
+- `index.test.ts` mocks `./writer` with a delegating `writeTargetFile` spy to test write failure.
+- One unexplained flaky failure in 1 of 5 runs of `src/main/modules/config/index.test.ts` during D1 (test not captured); did not recur in 6 later runs.
+
+tiers: D 3 / hard 1 · review default · cycles 1 · agents 7

@@ -45,7 +45,7 @@ game-browser-owned notion of "this profile changed."
       contract has no cvar-write handler of its own for this.
 - [x] **AC4** — After the write, the profile shows exactly the same dirty/unsaved-changes state the
       config module already shows for a manual cvar edit made in the Settings tab — no separate
-      "written by the game browser" state exists.
+      "written by the game browser" state exists. — superseded by [[175]]: the address is now saved to disk right away and leaves the profile clean
 - [x] **AC5** — Switching the selected profile in the dialog re-reads and re-displays that profile's
       own nine slot values before a write is confirmed, rather than showing stale values from a
       previously selected profile.
@@ -93,7 +93,7 @@ user in the clarification round. -->
   toolbar action already exists. If [[125]] has already built a shared server-actions cluster by build
   time, the button joins that cluster instead.
 - **After success** the dialog closes and a success toast names the profile and slot. The profile's
-  unsaved state is left to the config module (AC4). The dialog adds no badge of its own.
+  unsaved state is left to the config module (AC4). The dialog adds no badge of its own. — superseded by [[175]]: the address is now saved to disk right away and leaves the profile clean
 - **No `ui:verify` registry entry.** The e2e flow's `shot` covers the dialog visually. The list and
   detail registry screens belong to [[121]]/[[122]], and no AC asks for one here.
 - **Platform parity:** nothing here is platform-specific (a cvar write into launcher state), so there

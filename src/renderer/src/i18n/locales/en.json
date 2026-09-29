@@ -968,7 +968,7 @@
       "cancel": "Cancel",
       "noProfiles": "Create a config profile first — there is nowhere to write this address to yet.",
       "loading": "Loading this profile's address book…",
-      "written": "Added to \"{{profile}}\"'s address book as {{slot}}."
+      "saved": "Saved to \"{{profile}}\"'s address book as {{slot}}."
     },
     "watchlist": {
       "title": "Watchlist",
@@ -1636,6 +1636,8 @@
       "profileNotFound": "That config profile no longer exists.",
       "notAssigned": "This profile is not assigned to that installation.",
       "writeFailed": "Could not write this profile's files to disk.",
+      "commitConflict": "This profile's file changed on disk since the launcher last read it. Open the profile in Config to resolve that first.",
+      "commitNeedsSave": "This profile has unsaved changes the launcher cannot keep apart from the address. Save or discard them in Config first.",
       "installationRunning": "This installation is currently running. Close the game first.",
       "fileNotFound": "That file could not be found on disk.",
       "openFailed": "Could not open that file: {{message}}",

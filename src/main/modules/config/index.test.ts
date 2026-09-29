@@ -34,6 +34,8 @@ import {
   validatePlayedMods,
 } from './index'
 import { syncProfile } from './sync'
+import { ownedProfileIdFromContent, writeTargetFile } from './writer'
+import { diffProfileAgainstBaseline } from '@shared/config/profile-diff'
 
 /**
  * Story 043 D5: `readFileState` is wrapped (delegating to the real implementation by default) so
@@ -45,6 +47,16 @@ import { syncProfile } from './sync'
 vi.mock('./file-source', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./file-source')>()
   return { ...actual, readFileState: vi.fn(actual.readFileState) }
+})
+
+/**
+ * Story 175 D1: `writeTargetFile` is wrapped the same way (delegating to the real writer by
+ * default) so `commitCvars`' write-failure branch can be exercised with `mockRejectedValueOnce`
+ * without touching any other test's real disk writes.
+ */
+vi.mock('./writer', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./writer')>()
+  return { ...actual, writeTargetFile: vi.fn(actual.writeTargetFile) }
 })
 
 /**
@@ -1547,6 +1559,194 @@ describe('story 043 D4: explicit save', () => {
 
     expect(result).toEqual({ ok: false, error: { key: 'config.error.profileNotFound' } })
     expect(await pathExists(canonicalPath('Profile.cfg'))).toBe(false)
+  })
+})
+
+describe('story 175: commitCvars', () => {
+  async function boot(
+    installations: Installation[] = [],
+  ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    const handlers = new Map<string, ModuleHandler>()
+    await configModule.setup({
+      handle: collectHandlers(handlers),
+      emit: () => {},
+      app: {
+        installations: {
+          find: (id: string) => installations.find((i) => i.id === id),
+          list: () => installations,
+        },
+        launch: { getState: () => idleState() },
+        state,
+      } as unknown as AppContext,
+      log,
+    })
+    return { handlers, state }
+  }
+
+  const canonicalPath = (fileName: string): string => join(userDataBox.current, fileName)
+  const copyPath = (fileName: string): string => join(dir, 'baseq2', fileName)
+  const ADDRESS = '203.0.113.7:27910'
+
+  async function save(handlers: Map<string, ModuleHandler>): Promise<Outcome<SaveProfileResult>> {
+    return (await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })) as Outcome<SaveProfileResult>
+  }
+
+  async function commit(
+    handlers: Map<string, ModuleHandler>,
+    cvars: Record<string, string> = { adr0: ADDRESS },
+  ): Promise<Outcome<ConfigProfile>> {
+    return (await handlers.get(CONFIG_HANDLERS.commitCvars)!({ profileId: 'p1', cvars })) as Outcome<ConfigProfile>
+  }
+
+  function only(state: StateStore): ConfigProfile {
+    return state.configProfiles().find((p) => p.id === 'p1')!
+  }
+
+  it('a clean profile gets the cvar on disk and in its installation copy and stays clean', async () => {
+    const { handlers, state } = await boot([installation()])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+
+    const result = await commit(handlers)
+
+    if (!result.ok) throw new Error(`expected the commit to succeed, got ${result.error}`)
+    expect(result.value.cvars.adr0).toBe(ADDRESS)
+    const onDisk = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    expect(onDisk).toContain('adr0')
+    expect(onDisk).toContain(ADDRESS)
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(onDisk)
+
+    const committed = only(state)
+    expect(committed.dirty).not.toBe(true)
+    expect(committed.cvars.adr0).toBe(ADDRESS)
+    expect(diffProfileAgainstBaseline(committed).count).toBe(0)
+    // The launcher's own commit is not later mistaken for an external edit: a save goes through.
+    const again = await save(handlers)
+    if (!again.ok) throw new Error('expected the follow-up save to answer')
+    expect(again.value.status).toBe('saved')
+  })
+
+  it('a dirty profile writes only the committed cvar: pending cvar and bind edits stay off disk and stay unsaved', async () => {
+    const { handlers, state } = await boot([installation()])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9.25' } })
+    await handlers.get(CONFIG_HANDLERS.setBinds)!({ profileId: 'p1', binds: { F5: 'say pendingbind' } })
+
+    const result = await commit(handlers)
+
+    if (!result.ok) throw new Error(`expected the commit to succeed, got ${result.error}`)
+    for (const path of [canonicalPath('Profile.cfg'), copyPath('Profile.cfg')]) {
+      const bytes = await readFile(path, 'latin1')
+      expect(bytes).toContain('adr0')
+      expect(bytes).toContain(ADDRESS)
+      expect(bytes).not.toContain('9.25')
+      expect(bytes).not.toContain('pendingbind')
+    }
+
+    const after = only(state)
+    expect(after.dirty).toBe(true)
+    expect(after.cvars.sensitivity).toBe('9.25')
+    expect(after.binds.F5).toBe('say pendingbind')
+    const diff = diffProfileAgainstBaseline(after)
+    expect(diff.count).toBe(2)
+    expect(diff.keys.cvars.has('sensitivity')).toBe(true)
+    expect(diff.keys.cvars.has('adr0')).toBe(false)
+    expect(diff.keys.binds.size).toBe(1)
+  })
+
+  it('a canonical file changed on disk is not overwritten and nothing changes', async () => {
+    const { handlers, state } = await boot([installation()])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+    const handEdited = `${await readFile(canonicalPath('Profile.cfg'), 'latin1')}// hand-edited\n`
+    await writeFile(canonicalPath('Profile.cfg'), handEdited, 'latin1')
+    const before = only(state)
+
+    const result = await commit(handlers)
+
+    expect(result).toEqual(fail('config.error.commitConflict'))
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(handEdited)
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).not.toContain(ADDRESS)
+    expect(only(state)).toEqual(before)
+  })
+
+  it('a write failure leaves the file and the profile record untouched', async () => {
+    const { handlers, state } = await boot([installation()])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    await save(handlers)
+    const fileBefore = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    const before = only(state)
+    vi.mocked(writeTargetFile).mockRejectedValueOnce(new Error('disk full'))
+
+    const result = await commit(handlers)
+
+    expect(result).toEqual(fail('config.error.writeFailed'))
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(fileBefore)
+    expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(fileBefore)
+    expect(only(state)).toEqual(before)
+  })
+
+  it('a clean profile without a baseline commits against its live fields and stays clean', async () => {
+    const { handlers, state } = await boot([installation()])
+    state.setConfigProfiles([profile()])
+    await state.settle()
+    expect(only(state).baseline).toBeUndefined()
+
+    const result = await commit(handlers)
+
+    if (!result.ok) throw new Error(`expected the commit to succeed, got ${result.error}`)
+    const onDisk = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    expect(onDisk).toContain(ADDRESS)
+    expect(onDisk).toContain('sensitivity')
+    const committed = only(state)
+    expect(committed.dirty).not.toBe(true)
+    expect(committed.baseline?.cvars.adr0).toBe(ADDRESS)
+    expect(committed.baseline?.cvars.sensitivity).toBe('3')
+    expect(diffProfileAgainstBaseline(committed).count).toBe(0)
+    // The file is exactly the live render: a plain save rewrites the same bytes.
+    const again = await save(handlers)
+    if (!again.ok) throw new Error('expected the follow-up save to answer')
+    expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(onDisk)
+  })
+
+  it('a dirty profile without a baseline is refused', async () => {
+    const { handlers, state } = await boot([installation()])
+    state.setConfigProfiles([profile({ dirty: true })])
+    await state.settle()
+    const before = only(state)
+
+    const result = await commit(handlers)
+
+    expect(result).toEqual(fail('config.error.commitNeedsSave'))
+    expect(await pathExists(canonicalPath('Profile.cfg'))).toBe(false)
+    expect(only(state)).toEqual(before)
+  })
+
+  it('a dirty rename writes to the file the profile still owns, not to a new name', async () => {
+    const { handlers, state } = await boot()
+    state.setConfigProfiles([profile({ assignments: [] })])
+    await state.settle()
+    await save(handlers)
+    await handlers.get(CONFIG_HANDLERS.rename)!({ id: 'p1', name: 'Renamed' })
+
+    const result = await commit(handlers)
+
+    if (!result.ok) throw new Error(`expected the commit to succeed, got ${result.error}`)
+    const owned = await readFile(canonicalPath('Profile.cfg'), 'latin1')
+    expect(ownedProfileIdFromContent(owned)).toBe('p1')
+    expect(owned).toContain(ADDRESS)
+    // The pending rename is not in the file either - it is still the user's to save.
+    expect(owned).not.toContain('Renamed')
+    expect(await pathExists(canonicalPath('Renamed.cfg'))).toBe(false)
+    expect(only(state).dirty).toBe(true)
+    expect(only(state).name).toBe('Renamed')
   })
 })
 

@@ -7,6 +7,7 @@ import {
   type CleanupRestoreResult,
   type CleanupScanInput,
   type CleanupScanResult,
+  type CommitProfileCvarsInput,
   type ConfigProfile,
   type CreateConfigProfileInput,
   type DiscardProfileInput,
@@ -81,6 +82,16 @@ export function updateProfileCvars(
   input: SetProfileCvarsInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setCvars, input)
+}
+
+/**
+ * Sets only the given cvars on a profile without a read-modify-write of the whole map; the main
+ * handler refuses (typed error keys) when the profile's file changed on disk or holds unsaved edits.
+ */
+export function commitProfileCvars(
+  input: CommitProfileCvarsInput,
+): Promise<Outcome<ConfigProfile>> {
+  return callModule<ConfigProfile>('config', CONFIG_HANDLERS.commitCvars, input)
 }
 
 /** Replaces a profile's binds map and returns the full, updated profile list. */

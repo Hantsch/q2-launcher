@@ -94,3 +94,17 @@
 - 2026-09-29 19:41 · 174 · review 1 · started
 - 2026-09-29 19:41 · 174 · review 1 · done (PASS, no fixes)
 - 2026-09-29 19:42 · 174 · story · done
+- 19:42:19 · 175 · build · started
+- 2026-09-29 19:42 · 175 · D1 commitCvars main · started
+- 2026-09-29 19:50 · 175 · D1 commitCvars main · done
+- 2026-09-29 19:50 · 175 · D2 dialog renderer · started
+- 2026-09-29 19:52 · 175 · D2 dialog renderer · done
+- 2026-09-29 19:52 · 175 · D3 e2e + docs · started
+- 2026-09-29 19:55 · 175 · D3 e2e + docs · done
+- 2026-09-29 19:55 · 175 · verify · started
+- 2026-09-29 19:56 · 175 · verify · done
+- 2026-09-29 19:56 · 175 · review 1 · started
+- 2026-09-29 19:58 · 175 · review 1 · done (FAIL: 1 vacuous flow assertion + 3 minor, fixing)
+- 2026-09-29 19:58 · 175 · review-fix 1 · started
+- 2026-09-29 19:59 · 175 · review-fix 1 · done (flow + config tests + typecheck + build green after last edit)
+- 2026-09-29 19:59 · 175 · story · done

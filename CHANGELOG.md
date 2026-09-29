@@ -12,6 +12,9 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Fixed
+- **Servers** — an address you add from the server browser now actually lands in the game's address book, right away, without leaving the profile marked as unsaved.
+
 ### Changed
 - **Demos** — the launcher's plumbing no longer scrolls over the demo, and chat shows in the game's chat HUD.
 
