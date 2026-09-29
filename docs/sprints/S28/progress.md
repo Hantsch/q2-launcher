@@ -27,3 +27,15 @@
 - 2026-09-29 10:33 · 160 · review 1 · done
 - 2026-09-29 10:33 · 160 · story · done
 - 2026-09-29 10:33 · 160 · story · done
+- 2026-09-29 10:34:17 · 161 · build · started
+- 2026-09-29 10:34 · 161 · D1 main refuses non-Q2PRO demo playback · started
+- 2026-09-29 10:35 · 161 · D1 main refuses non-Q2PRO demo playback · done
+- 2026-09-29 10:35 · 161 · verify · started
+- 2026-09-29 10:36 · 161 · verify · done
+- 2026-09-29 10:36 · 161 · review 1 · started
+- 2026-09-29 10:36 · 161 · review 1 · done
+- 2026-09-29 10:36 · 161 · D1-fix review finding AC2 builder coverage · started
+- 2026-09-29 10:37 · 161 · D1-fix review finding AC2 builder coverage · done
+- 2026-09-29 10:37 · 161 · verify · started
+- 2026-09-29 10:37 · 161 · verify · done
+- 2026-09-29 10:37 · 161 · story · done

@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { engineKindSchema } from '@shared/schemas'
 import { replaysDemoPlaySchema, type DiscoveredDemo } from '@shared/modules/replays'
 import { ok, type Installation, type LaunchInput, type LaunchState } from '@shared/types'
 import { canonicalizePath } from '../../lib/fs-utils'
@@ -95,13 +96,15 @@ interface Setup {
   running?: boolean
   /** Story 160: the staging context's platform - `linux` gives a Q2PRO installation a write dir. */
   contextPlatform?: NodeJS.Platform
+  /** Engine of the active installation (`q2pro-a`); defaults to q2pro. */
+  activeEngine?: Installation['engineKind']
 }
 
-function harness({ demos, files, active = 'q2pro-a', running = false, contextPlatform = 'win32' }: Setup) {
+function harness({ demos, files, active = 'q2pro-a', running = false, contextPlatform = 'win32', activeEngine = 'q2pro' }: Setup) {
   const fake = fakeLaunch(running)
   const sessions = { begin: vi.fn(), end: vi.fn() }
   const installations = [
-    installation({ id: 'q2pro-a', rootPath: q2proRoot }),
+    installation({ id: 'q2pro-a', rootPath: q2proRoot, engineKind: activeEngine }),
     installation({ id: 'q2pro-other', rootPath: siblingRoot }),
     installation({ id: 'r1q2-b', rootPath: r1q2Root, engineKind: 'r1q2' }),
   ]
@@ -157,6 +160,79 @@ function ctfFiles(): Setup['files'] {
     base: { absolutePath: join(q2proRoot, 'baseq2', 'demos', 'b.dm2'), archiveEntry: null },
   }
 }
+
+describe('demo.play engine guard (story 161 D1)', () => {
+  it('a non-Q2PRO installation never gets a demo launch', async () => {
+    const others = engineKindSchema.options.filter((kind) => kind !== 'q2pro')
+    expect(others.length).toBeGreaterThan(0)
+    for (const engineKind of others) {
+      // In place, and a demo from elsewhere (which would otherwise be copied into `_launcher`).
+      const outsider = demo({ id: 'evil', fileName: 'evil.dm2' })
+      const h = harness({
+        demos: [BASE_DEMO, outsider],
+        files: {
+          ...ctfFiles(),
+          evil: { absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'), archiveEntry: null },
+        },
+        activeEngine: engineKind,
+      })
+      for (const id of ['base', 'evil']) {
+        const result = await h.play(id, 'q2pro-a')
+        expect(result, engineKind).toEqual({ ok: false, error: { key: 'replays.play.unavailable.notQ2pro' } })
+      }
+      expect(h.launch.start, engineKind).not.toHaveBeenCalled()
+      expect(existsSync(join(q2proRoot, 'baseq2', 'demos', LAUNCHER_DIR_NAME)), engineKind).toBe(false)
+      expect(h.sessions.begin, engineKind).not.toHaveBeenCalled()
+    }
+  })
+
+  it('demo launch args never contain demomap', async () => {
+    for (const engineKind of engineKindSchema.options) {
+      const gz = demo({ id: 'gz', fileName: 'run.dm2.gz', gzip: true })
+      const h = harness({
+        demos: [BASE_DEMO, gz],
+        files: {
+          ...ctfFiles(),
+          gz: { absolutePath: join(q2proRoot, 'baseq2', 'demos', 'b.dm2'), archiveEntry: null },
+        },
+        activeEngine: engineKind,
+      })
+      for (const id of ['base', 'gz']) {
+        await h.play(id, 'q2pro-a')
+        h.emit({ phase: 'exited', installationId: 'q2pro-a' })
+      }
+      for (const [input] of h.launch.start.mock.calls) {
+        const args = buildLaunchArgs(h.installations[0], input).args
+        expect(args.some((a) => a.toLowerCase().includes('demomap')), engineKind).toBe(false)
+      }
+      expect(h.launch.start.mock.calls.length > 0, engineKind).toBe(engineKind === 'q2pro')
+    }
+  })
+
+  it('the real builder never emits demomap for any engine kind, plain or gz demo', async () => {
+    const gz = demo({ id: 'gz', fileName: 'run.dm2.gz', gzip: true })
+    const h = harness({
+      demos: [BASE_DEMO, gz],
+      files: {
+        ...ctfFiles(),
+        gz: { absolutePath: join(q2proRoot, 'baseq2', 'demos', 'b.dm2'), archiveEntry: null },
+      },
+    })
+    for (const id of ['base', 'gz']) {
+      await h.play(id, 'q2pro-a')
+      h.emit({ phase: 'exited', installationId: 'q2pro-a' })
+    }
+    const inputs = h.launch.start.mock.calls.map(([input]) => input)
+    expect(inputs).toHaveLength(2)
+    for (const engineKind of engineKindSchema.options) {
+      const installation = { ...h.installations[0], engineKind }
+      for (const input of inputs) {
+        const args = buildLaunchArgs(installation, input).args
+        expect(args.some((a) => a.toLowerCase().includes('demomap')), engineKind).toBe(false)
+      }
+    }
+  })
+})
 
 describe('demo.play (story 159 D2)', () => {
   it('a q2pro launch is exactly +set game and +demo, never demomap', async () => {

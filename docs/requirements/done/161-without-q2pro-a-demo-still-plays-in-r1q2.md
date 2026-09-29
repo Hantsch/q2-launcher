@@ -1,7 +1,7 @@
 ---
 id: 161
 title: without Q2PRO a demo still plays in r1q2
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -30,10 +30,10 @@ platform-parity rule).
 > non-Q2PRO active installation is owned by [[159]]. What remains is the main-side guarantee that
 > the cut holds even when the renderer is bypassed.
 
-- [ ] **AC1** — The demo-play IPC handler refuses an installation whose `engineKind` is not
+- [x] **AC1** — The demo-play IPC handler refuses an installation whose `engineKind` is not
       `q2pro` (r1q2 and every other kind): it returns a typed failure carrying an i18n key, and no
       process is spawned — even when the renderer sends that installation's id directly.
-- [ ] **AC2** — The demo launch arguments never contain `demomap`, for any engine kind the builder
+- [x] **AC2** — The demo launch arguments never contain `demomap`, for any engine kind the builder
       is called with.
 
 ## Open Questions
@@ -102,4 +102,19 @@ No renderer, IPC-contract, or locale change (159 owns the channel, the key and t
 
 ## Done
 
-<!-- Filled by /build 161. -->
+Main-side guard for the Q2PRO-only cut is pinned by tests. The guard already existed from 159 (`demoPlayEligibility`,
+`src/shared/replays/demo-play.ts`, called in `src/main/modules/replays/demo-play.ts` before containment, staging and launch),
+so no production code changed. New regression tests only.
+
+Commit: `161: pin main-side Q2PRO-only guard — non-q2pro demo.play refused, demomap never in launch args`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` 33/33 green. No e2e (neither AC is a user action).
+- AC1 -> `src/main/modules/replays/demo-play.test.ts` "a non-Q2PRO installation never gets a demo launch" (every non-q2pro engine kind, in-place and staged demo; no start, no `_launcher` dir, no session) passed.
+- AC2 -> same file "demo launch args never contain demomap" plus "the real builder never emits demomap for any engine kind, plain or gz demo" (real `buildLaunchArgs` per engine kind); shared test in `src/shared/replays/demo-play.test.ts` passed.
+- Review 1 (default): PASS; one finding (builder never called with non-q2pro kinds) fixed with the extra builder test.
+- No changelog entry (no user-facing change).
+
+Decisions:
+- Guard already existed in 159, so D1 added tests only, per D1's own allowance. Guard runs after the id-based demo lookup (no fs access) and before path resolution/copy/spawn.
+
+tiers: D 1 / hard 0 · review default · cycles 1 · agents 5

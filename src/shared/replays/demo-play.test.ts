@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { DiscoveredDemo } from '../modules/replays'
+import { engineKindSchema } from '../schemas'
 import { demoGameDir, demoPlayEligibility, type DemoPlayInput } from './demo-play'
 
 type Inst = DemoPlayInput['installations'][number]
@@ -112,6 +113,22 @@ describe('demoPlayEligibility', () => {
     const r = run({ demo: demo({ fileName: 'my-run_1.dm2.gz' }) })
     expect(r.ok && r.extraArgs).toEqual(['+demo', 'my-run_1.dm2.gz'])
     expect(JSON.stringify(r)).not.toContain('demomap')
+  })
+
+  it('demo args never contain demomap, for any engine and any demo shape', () => {
+    const archivedGz = demo({
+      fileName: 'run.dm2.gz',
+      gzip: true,
+      archiveEntry: { archivePath: 'x.zip', entryPath: 'run.dm2.gz' },
+    })
+    for (const engineKind of engineKindSchema.options) {
+      for (const d of [demo(), demo({ fileName: 'my-run_1.dm2.gz', gzip: true }), archivedGz]) {
+        const r = run({ demo: d, installations: [inst('a', engineKind, [])] })
+        expect(JSON.stringify(r).toLowerCase(), engineKind).not.toContain('demomap')
+        // Only Q2PRO is ever eligible, so no other engine gets any launch args at all.
+        expect(r.ok, engineKind).toBe(engineKind === 'q2pro')
+      }
+    }
   })
 
   it('a demo of another installation / extra folder / archive entry is playable, but not in place', () => {
