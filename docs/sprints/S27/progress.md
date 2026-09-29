@@ -164,3 +164,9 @@
 - 2026-09-28 23:57:52 · gate · attribution · done (bisected: 154's own commit d1dd1cf passes the flow, 155's commit a639704 fails it — regression is story 155's, not 154's)
 - 2026-09-29 00:28:56 · gate · fix 154 · done (commit 139cb8a)
 - 2026-09-29 00:28:56 · gate · fix 155 · done (commit 9bdf4eb)
+- 2026-09-29 00:32:15 · gate · e2e-all · started
+- 2026-09-29 01:03:39 · gate · e2e-all · done (86/91 passed, ~31 min; failed: replays-extra-folders, replays-list-scale, servers-filter-search, servers-master-sources, servers-sort-order)
+- 2026-09-29 08:03:28 · gate · attribution 2 · done (flaky-first + pre-existing checks: replays-extra-folders/servers-filter-search/servers-master-sources/servers-sort-order all pre-existing, unrelated to this sprint; replays-list-scale bisected to story 152, commit 3d360e3)
+- 2026-09-29 08:12:18 · gate · fix 152 · done (commit 53f775d)
+- 2026-09-29 08:13:16 · gate · e2e-all confirmation · started
+- 2026-09-29 08:45:07 · gate · e2e-all confirmation · done (87/91 passed, ~31 min; failed: replays-extra-folders, servers-filter-search, servers-master-sources, servers-sort-order — all confirmed pre-existing, unrelated to this sprint)
