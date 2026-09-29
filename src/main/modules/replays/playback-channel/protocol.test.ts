@@ -6,6 +6,7 @@ import {
   buildLoopCfg,
   buildStopFile,
   checkLine,
+  encodeControlCommand,
   linuxLaunchArgs,
   parseDemoPos,
   parseEngineLine,
@@ -57,8 +58,14 @@ describe('checkLine', () => {
   it('accepts console commands', () => {
     for (const l of ['seek +10', 'seek 50%', 'cmd chase 3', 'pause; timescale 2']) expect(checkLine(l).ok).toBe(true)
   })
-  it('rejects empty, newlines, quotes and control characters', () => {
-    for (const l of ['', 'a\nb', 'a\rb', 'say "x"', '\u0007', 'a\u007fb']) {
+  it('accepts quotes, semicolons and dollar signs as legal console syntax', () => {
+    for (const l of ['say "x"', 'bind x "+attack"', 'echo a; echo b', 'echo $cl_demopos // c']) {
+      expect(checkLine(l)).toEqual({ ok: true, value: undefined })
+    }
+  })
+
+  it('rejects empty, newlines and control characters', () => {
+    for (const l of ['', 'a\nb', 'a\rb', '\u0007', 'a\u007fb']) {
       expect(checkLine(l)).toEqual({ ok: false, error: { key: 'replays.playback.error.invalidCommand' } })
     }
   })
@@ -66,11 +73,26 @@ describe('checkLine', () => {
 
 describe('files and launch args', () => {
   it('builds the guarded control file', () => {
-    expect(buildControlFile({ seq: 4, line: 'seek +10' })).toEqual([
+    expect(buildControlFile(4)).toEqual([
       'echo POS $cl_demopos',
-      'if $q2l_seq != 4 then "seek +10; set q2l_seq 4; echo ACK 4"',
+      'if $q2l_seq != 4 then "exec q2l_cmd_4.cfg; set q2l_seq 4; echo ACK 4"',
     ])
     expect(buildControlFile(null)).toEqual(['echo POS $cl_demopos'])
+  })
+  it('a console line cannot break out of the control file', () => {
+    // The fixed template for seq N, spelled out: only N varies, never anything from the line.
+    const template = (n: number): string =>
+      `echo POS $cl_demopos\nif $q2l_seq != ${n} then "exec q2l_cmd_${n}.cfg; set q2l_seq ${n}; echo ACK ${n}"\n`
+    const hostile = ['say "x"; alias loop ""', 'a" ; set seq 99 ; "', 'echo //x', '$seq', '}']
+    for (const [i, line] of hostile.entries()) {
+      for (const seq of [1, i + 7, 1234]) {
+        const encoded = encodeControlCommand(seq, line)
+        expect(encoded.controlText).toBe(template(seq))
+        expect(encoded.controlText).not.toContain(line)
+        expect(encoded.commandFileName).toBe(`q2l_cmd_${seq}.cfg`)
+        expect(encoded.commandText).toBe(`${line}\n`)
+      }
+    }
   })
   it('builds the loop and stop files', () => {
     expect(buildLoopCfg()).toEqual([

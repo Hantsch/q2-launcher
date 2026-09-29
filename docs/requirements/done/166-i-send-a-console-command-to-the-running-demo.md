@@ -1,7 +1,7 @@
 ---
 id: 166
 title: I send a console command to the running demo
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -15,15 +15,15 @@ line with a length cap** before it goes anywhere (§12.3).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — While a demo plays, a command field next to the timeline sends the entered line to
+- [x] **AC1** — While a demo plays, a command field next to the timeline sends the entered line to
       the engine through [[164]]'s channel.
-- [ ] **AC2** — Main validates the line with a zod schema: exactly one line, printable characters
+- [x] **AC2** — Main validates the line with a zod schema: exactly one line, printable characters
       only, no control characters, length ≤ the cap decided in Q1.
-- [ ] **AC3** — A rejected line is not sent, and the user sees the reason next to the field.
-- [ ] **AC4** — On the Windows cfg-polling route, a line cannot break out of the control file's
+- [x] **AC3** — A rejected line is not sent, and the user sees the reason next to the field.
+- [x] **AC4** — On the Windows cfg-polling route, a line cannot break out of the control file's
       structure (e.g. terminate the polling alias); a unit test pins it.
-- [ ] **AC5** — Without a running session the field is disabled with its reason as visible text.
-- [ ] **AC6** — The field is keyboard operable (Enter sends) with visible focus.
+- [x] **AC5** — Without a running session the field is disabled with its reason as visible text.
+- [x] **AC6** — The field is keyboard operable (Enter sends) with visible focus.
 
 ## Open Questions
 
@@ -193,4 +193,21 @@ Linux needs no extra encoding: stdin gets `line + "\n"` and D1 already rejects e
 
 ## Done
 
-<!-- Filled by /build 166. -->
+Free console line, Q2PRO only, end to end: shared validator (`console-line.ts`), `playback.consoleSend`
+contract + main handler (re-validates, maps no-session), Windows route writes each command to its own
+`q2l_cmd_N.cfg` so the guard only holds fixed text, and a `ConsoleCommandField` under the timeline
+(always rendered, disabled with visible reason without a session) with an e2e flow.
+
+Commit: `166: console command field - consoleSend channel, shared line validator, Windows per-seq command cfg (no guard breakout)`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (134 files / 1841 tests, all named tests ran); `npm run ui:flow -- replays-console-command` green (`replays-timeline` also re-run green by D4 agent). Review 1 (default): PASS. Full gate pending (sprint).
+AC map: AC1 flow + playback-console "a valid line is sent once, trimmed"; AC2 console-line.test + playback-console "an invalid line never reaches..."; AC3 ConsoleCommandField "a rejected line..." + flow non-ASCII step; AC4 protocol.test "a console line cannot break out of the control file" + windows-channel.test "the command file is written before the control file and removed after ACK"; AC5 ConsoleCommandField "without a session..." + flow + playback-console noSession; AC6 flow keyboard step + ConsoleCommandField "Enter sends...". All passed. No manual residue.
+
+Decisions:
+- `checkLine` (164's transport guard, both channels) rejected `"`; relaxed it (D-B/D-C: safe now that the Windows line never enters a quoted string). Line breaks/control chars/empty still rejected there.
+- Field is its own always-rendered section after `DemoTimeline` in `ReplaysView.tsx`, not inside the timeline (keeps timeline's "absent before play" check; D-D).
+- Handler is synchronous (`PlaybackControl.send` is sync), not `Promise<Outcome>` as the plan sketched.
+- Review findings fixed: schema formatting/comment placement, weak reason assertion tightened to the exact nonAscii text. Left unfixed (minor): thrown IPC error maps to the noSession text; extra focus outline on the field (checked cosmetic); import order in `index.ts`; real Q2PRO `exec`-in-guard only proven against the stub engine.
+- CHANGELOG entry added under Unreleased/Added.
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 7

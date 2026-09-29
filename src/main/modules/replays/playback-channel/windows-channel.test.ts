@@ -18,6 +18,7 @@ import {
   buildControlFile,
   buildLoopCfg,
   buildStopFile,
+  commandCfgName,
   CONTROL_CFG_NAME,
   LOG_FILE_NAME,
   LOG_POLL_MS,
@@ -26,6 +27,27 @@ import {
 } from './protocol'
 import type { PlaybackChannel } from './types'
 import { createWindowsChannel } from './windows-channel'
+
+/**
+ * Records every completed rename (the channel's atomic write: a file becomes visible to the engine)
+ * and every delete, by file name, so a test can check the order the engine would see them in.
+ */
+const fsEvents = vi.hoisted(() => [] as string[])
+vi.mock('node:fs', async (importOriginal) => {
+  const real = await importOriginal<typeof import('node:fs')>()
+  const name = (p: unknown): string => String(p).split(/[\\/]/).pop() ?? ''
+  return {
+    ...real,
+    renameSync: (from: string, to: string) => {
+      real.renameSync(from, to)
+      fsEvents.push(`write ${name(to)}`)
+    },
+    unlinkSync: (p: string) => {
+      real.unlinkSync(p)
+      fsEvents.push(`delete ${name(p)}`)
+    },
+  }
+})
 
 /** Q2PRO's default `logfile_prefix`. */
 const PREFIX = '[2026-09-29 12:00] '
@@ -42,12 +64,12 @@ function formatDemoPos(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}.${Math.floor((ms % 1000) / 100)}`
 }
 
-const GUARD = /^if \$q2l_seq != (\d+) then "(.*); set q2l_seq (\d+); echo ACK (\d+)"$/
+const GUARD = /^if \$q2l_seq != (\d+) then "exec (q2l_cmd_\d+\.cfg); set q2l_seq (\d+); echo ACK (\d+)"$/
 
 /**
  * Stands in for Q2PRO running `q2l_loop`: every tick it re-execs the control file from disk,
- * evaluates the `$q2l_seq` guard against its own cvar, and appends its echoes to the logfile -
- * every third write cut mid-line and finished by the next one.
+ * evaluates the `$q2l_seq` guard against its own cvar, execs the command file the guard names, and
+ * appends its echoes to the logfile - every third write cut mid-line and finished by the next one.
  */
 function createFakeEngine(dir: string, opts: { ack?: boolean } = {}) {
   const controlPath = join(dir, CONTROL_CFG_NAME)
@@ -59,6 +81,8 @@ function createFakeEngine(dir: string, opts: { ack?: boolean } = {}) {
     executed: [] as string[],
     executions: new Map<number, number>(),
     evaluations: new Map<number, number>(),
+    /** Seqs whose guard fired while their command file was not on disk. */
+    missing: [] as number[],
     stopped: false,
   }
   let carry = ''
@@ -93,9 +117,18 @@ function createFakeEngine(dir: string, opts: { ack?: boolean } = {}) {
         state.evaluations.set(n, (state.evaluations.get(n) ?? 0) + 1)
         if (state.q2lSeq !== n) {
           state.executions.set(n, (state.executions.get(n) ?? 0) + 1)
-          state.executed.push(guard[2])
-          const seek = /^seek (\d+)$/.exec(guard[2])
-          if (seek) state.posMs = Number(seek[1]) * 1000
+          let command: string
+          try {
+            command = readFileSync(join(dir, guard[2]), 'utf8')
+          } catch {
+            command = '' // Q2PRO: "couldn't exec" - the command is lost, the guard still advances
+            state.missing.push(n)
+          }
+          for (const cmd of command.split(/\r?\n/).filter((l) => l.length > 0)) {
+            state.executed.push(cmd)
+            const seek = /^seek (\d+)$/.exec(cmd)
+            if (seek) state.posMs = Number(seek[1]) * 1000
+          }
           state.q2lSeq = Number(guard[3])
           if (opts.ack !== false) out.push(`ACK ${guard[4]}`)
         }
@@ -159,8 +192,71 @@ function makeChannel(): { ch: PlaybackChannel; log: Logger } {
 
 const controlFile = (): string => readFileSync(join(dir, CONTROL_CFG_NAME), 'utf8')
 const logPath = (): string => join(dir, 'logs', LOG_FILE_NAME)
+const commandFile = (seq: number): string => readFileSync(join(dir, commandCfgName(seq)), 'utf8')
+const commandFiles = (): string[] => readdirSync(dir).filter((n) => /^q2l_cmd_\d+\.cfg$/.test(n))
 
 describe('createWindowsChannel', () => {
+  it('the command file is written before the control file and removed after ACK', async () => {
+    const { ch } = makeChannel()
+    await ch.start()
+    mkdirSync(join(dir, 'logs'), { recursive: true })
+    fsEvents.length = 0
+
+    const line = 'say x; echo //y $q2l_seq'
+    expect(ch.send(line).ok).toBe(true)
+    // Nothing else becomes visible in between: the engine can only ever see the control file
+    // naming seq 1 once the command file it execs is complete on disk.
+    expect(fsEvents).toEqual([`write ${commandCfgName(1)}`, `write ${CONTROL_CFG_NAME}`])
+    expect(commandFile(1)).toBe(`${line}\n`)
+    expect(controlFile()).toBe(
+      `echo POS $cl_demopos\nif $q2l_seq != 1 then "exec q2l_cmd_1.cfg; set q2l_seq 1; echo ACK 1"\n`,
+    )
+
+    // Unacknowledged: the command file stays, however many polls pass.
+    vi.advanceTimersByTime(LOG_POLL_MS * 10)
+    expect(commandFiles()).toEqual([commandCfgName(1)])
+    expect(fsEvents).toHaveLength(2)
+
+    // Queued behind seq 1: its own file is not written before seq 1 is done.
+    expect(ch.send('seek 5').ok).toBe(true)
+    expect(fsEvents).toHaveLength(2)
+
+    appendFileSync(logPath(), `${PREFIX}ACK 1\n`)
+    vi.advanceTimersByTime(LOG_POLL_MS)
+    expect(fsEvents.slice(2)).toEqual([
+      `write ${commandCfgName(2)}`,
+      `write ${CONTROL_CFG_NAME}`,
+      `delete ${commandCfgName(1)}`,
+    ])
+    expect(commandFiles()).toEqual([commandCfgName(2)])
+    expect(commandFile(2)).toBe('seek 5\n')
+    expect(controlFile()).toBe(asFile(buildControlFile(2)))
+
+    appendFileSync(logPath(), `${PREFIX}ACK 2\n`)
+    vi.advanceTimersByTime(LOG_POLL_MS)
+    expect(fsEvents.slice(5)).toEqual([`write ${CONTROL_CFG_NAME}`, `delete ${commandCfgName(2)}`])
+    expect(commandFiles()).toEqual([])
+    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+  })
+
+  it('close removes command files that were never acknowledged', async () => {
+    const { ch } = makeChannel()
+    await ch.start()
+    const engine = createFakeEngine(dir, { ack: false })
+    engine.run()
+    expect(ch.send('first').ok).toBe(true)
+    expect(ch.send('second').ok).toBe(true)
+    vi.advanceTimersByTime(ACK_TIMEOUT_MS + 100)
+    engine.pause()
+    // A timed-out seq keeps its file until close; it is never reused, so it can never re-fire.
+    expect(commandFiles()).toEqual([commandCfgName(1), commandCfgName(2)])
+
+    await ch.close()
+    expect(commandFiles()).toEqual([])
+    expect(engine.state.executed).toEqual(['first', 'second'])
+    expect(engine.state.missing).toEqual([])
+  })
+
   it('a command runs exactly once through the control file and position is read from the logfile', async () => {
     const { ch } = makeChannel()
     await ch.start()
@@ -181,7 +277,9 @@ describe('createWindowsChannel', () => {
     ])
     // The engine re-execed each guarded file several times; the guard is what kept it to one run.
     for (const seq of [1, 2, 3]) expect(engine.state.evaluations.get(seq)).toBeGreaterThan(1)
+    expect(engine.state.missing).toEqual([])
     expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(commandFiles()).toEqual([])
 
     engine.pause()
     vi.advanceTimersByTime(LOG_POLL_MS)
@@ -194,7 +292,7 @@ describe('createWindowsChannel', () => {
     await ch.start()
     mkdirSync(join(dir, 'logs'), { recursive: true })
     expect(ch.send('pause').ok).toBe(true)
-    const guarded = asFile(buildControlFile({ seq: 1, line: 'pause' }))
+    const guarded = asFile(buildControlFile(1))
 
     appendFileSync(logPath(), `${PREFIX}POS 0:12.3\n${PREFIX}ACK 1`) // really "ACK 12", cut mid-line
     vi.advanceTimersByTime(LOG_POLL_MS)
@@ -204,10 +302,12 @@ describe('createWindowsChannel', () => {
     appendFileSync(logPath(), '2\n')
     vi.advanceTimersByTime(LOG_POLL_MS)
     expect(controlFile()).toBe(guarded)
+    expect(commandFile(1)).toBe('pause\n')
 
     appendFileSync(logPath(), `${PREFIX}ACK 1\n`)
     vi.advanceTimersByTime(LOG_POLL_MS)
     expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(commandFiles()).toEqual([])
   })
 
   it('reopens the log when the engine truncates or replaces it', async () => {
@@ -277,7 +377,8 @@ describe('createWindowsChannel', () => {
   })
 
   it('replaces stale files from a previous run and never parses pre-existing log bytes', async () => {
-    writeFileSync(join(dir, CONTROL_CFG_NAME), asFile(buildControlFile({ seq: 1, line: 'quit' })))
+    writeFileSync(join(dir, CONTROL_CFG_NAME), asFile(buildControlFile(1)))
+    writeFileSync(join(dir, commandCfgName(1)), 'quit\n')
     writeFileSync(join(dir, LOOP_CFG_NAME), 'garbage\n')
     writeFileSync(join(dir, `${CONTROL_CFG_NAME}.999.1.tmp`), 'half a file')
     writeFileSync(join(dir, 'autoexec.cfg'), 'bind x quit\n')
@@ -289,6 +390,7 @@ describe('createWindowsChannel', () => {
     expect(controlFile()).toBe(asFile(buildControlFile(null)))
     expect(readFileSync(join(dir, LOOP_CFG_NAME), 'utf8')).toBe(asFile(buildLoopCfg()))
     expect(existsSync(join(dir, `${CONTROL_CFG_NAME}.999.1.tmp`))).toBe(false)
+    expect(commandFiles()).toEqual([])
     expect(existsSync(join(dir, 'autoexec.cfg'))).toBe(true)
 
     const engine = createFakeEngine(dir, { ack: false })
@@ -301,7 +403,9 @@ describe('createWindowsChannel', () => {
     expect(ch.latest()).toEqual({ positionMs: engine.state.lastPosMs, finished: false })
     expect(ch.latest().positionMs).toBeLessThan(599_000)
     // The old "ACK 1" did not acknowledge this run's seq 1.
-    expect(controlFile()).toBe(asFile(buildControlFile({ seq: 1, line: 'pause' })))
+    expect(controlFile()).toBe(asFile(buildControlFile(1)))
+    // This run's seq 1 execs this run's line, not the old run's command file of the same name.
+    expect(engine.state.executed).toEqual(['pause'])
   })
 
   it(`refuses a send once ${QUEUE_CAP} commands are unacknowledged`, async () => {
@@ -309,7 +413,7 @@ describe('createWindowsChannel', () => {
     await ch.start()
     for (let i = 0; i < QUEUE_CAP; i++) expect(ch.send(`cmd${i}`).ok).toBe(true)
     expect(ch.send('one too many')).toEqual({ ok: false, error: { key: 'replays.playback.error.busy' } })
-    expect(ch.send('bad "quote"')).toEqual({ ok: false, error: { key: 'replays.playback.error.invalidCommand' } })
+    expect(ch.send('bad\nline')).toEqual({ ok: false, error: { key: 'replays.playback.error.invalidCommand' } })
   })
 
   it('an ACK timeout logs a warning and advances the queue', async () => {
@@ -321,11 +425,13 @@ describe('createWindowsChannel', () => {
     expect(ch.send('second').ok).toBe(true)
 
     vi.advanceTimersByTime(ACK_TIMEOUT_MS - 100)
-    expect(controlFile()).toBe(asFile(buildControlFile({ seq: 1, line: 'first' })))
+    expect(controlFile()).toBe(asFile(buildControlFile(1)))
+    expect(commandFile(1)).toBe('first\n')
     expect(log.warn).not.toHaveBeenCalled()
 
     vi.advanceTimersByTime(200)
-    expect(controlFile()).toBe(asFile(buildControlFile({ seq: 2, line: 'second' })))
+    expect(controlFile()).toBe(asFile(buildControlFile(2)))
+    expect(commandFile(2)).toBe('second\n')
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('seq 1'))
     vi.advanceTimersByTime(100)
     expect(engine.state.executed).toEqual(['first', 'second'])

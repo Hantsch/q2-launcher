@@ -80,6 +80,10 @@ export const REPLAYS_HANDLERS = {
   /** Story 165 D2: steers the running demo (pause, jump, seek, speed) - a fixed action union, never
    * console text. Resolves to `Outcome<void>`; no live session is the typed no-session error. */
   playbackTimeline: 'playback.timeline',
+  /** Story 166 D2: sends one user-typed console line to the running demo. Main validates the line
+   * again (`validateConsoleLine`) and resolves to `Outcome<void>`; a refused line or no live session
+   * is a typed `replays.console.error.*` failure. */
+  playbackConsoleSend: 'playback.consoleSend',
 } as const
 
 /**
@@ -417,6 +421,10 @@ export type DemoFileActionResult = { ok: true } | { ok: false; reason: 'unknownD
  * for the same reason as `replaysDemoFileActionSchema` above. */
 export const replaysDemoRenameSchema = z.object({ id: replaysDemoIdSchema, name: z.string().max(255) }).strict()
 
+/** `playback.consoleSend`'s payload (story 166): one free console line. The loose 1024 cap only
+ * bounds the payload; main's `validateConsoleLine` is the authority (printable, one line, 255). */
+export const replaysConsoleSendSchema = z.object({ line: z.string().max(1024) }).strict()
+
 /** `demo.play`'s payload (story 159): the demo id plus the installation the renderer believes it is
  * playing in - never a path. Main checks that id against its own eligible (active) installation and
  * refuses a mismatch. `.strict()` for the same reason as `replaysDemoFileActionSchema` above. */
@@ -488,6 +496,7 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.demoRename]: replaysDemoRenameSchema,
   [REPLAYS_HANDLERS.demoPlay]: replaysDemoPlaySchema,
   [REPLAYS_HANDLERS.playbackTimeline]: timelineActionSchema,
+  [REPLAYS_HANDLERS.playbackConsoleSend]: replaysConsoleSendSchema,
 }
 
 /**

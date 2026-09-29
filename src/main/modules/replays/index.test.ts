@@ -92,6 +92,7 @@ describe('replays module', () => {
       'demo.rename',
       'demo.play',
       'playback.timeline',
+      'playback.consoleSend',
     ])
   })
 
@@ -652,6 +653,7 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.demoRename]: { id: 'nope', name: 'renamed' },
         [REPLAYS_HANDLERS.demoPlay]: { demoId: 'nope', installationId: 'nope' },
         [REPLAYS_HANDLERS.playbackTimeline]: { kind: 'togglePause' },
+        [REPLAYS_HANDLERS.playbackConsoleSend]: { line: 'echo hi' },
         [REPLAYS_HANDLERS.listGetSort]: undefined,
         [REPLAYS_HANDLERS.listSetSort]: { sort: null },
         [REPLAYS_HANDLERS.listGetFilter]: undefined,

@@ -160,6 +160,15 @@ export async function renameDemo(id: string, name: string): Promise<Outcome<{ de
 }
 
 /**
+ * Story 166 D4: sends one console line to the running demo's engine. The module registry wraps the
+ * handler's own `Outcome`, so this flattens like `renameDemo` - a transport failure and a domain
+ * refusal (`replays.console.error.*`) reach the caller the same way.
+ */
+export async function consoleSend(line: string): Promise<Outcome<void>> {
+  return flattenOutcome(await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackConsoleSend, { line }))
+}
+
+/**
  * Story 144 D4: the index scan's renderer-side transport, mirroring `servers/client.ts`'s
  * `startScan`/`readScan`/`onScanChanged` triad. `scanStart` kicks off a background scan
  * (single-flight - `started: false` means one was already running); `indexRead` is a one-shot

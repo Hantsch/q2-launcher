@@ -20,6 +20,7 @@ import { cn } from '../../lib/cn'
 import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
 import { VirtualDemoList } from './components/VirtualDemoList'
 import { DemoDetailPanel } from './components/DemoDetailPanel'
+import { ConsoleCommandField } from './components/ConsoleCommandField'
 import { DemoTimeline } from './components/DemoTimeline'
 import { DemoListFilterBar } from './DemoListFilterBar'
 import { useDemoEditorStore, type RowPatcher } from './demo-editor-store'
@@ -402,6 +403,7 @@ export function ReplaysView() {
       </div>
 
       <DemoTimeline />
+      <ConsoleCommandField />
 
       {rowReplaceId !== undefined && rowReplaceEntry?.replace !== undefined && (
         <ReplaceSidecarDialog

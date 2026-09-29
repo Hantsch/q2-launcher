@@ -19,6 +19,7 @@ import {
   replaysDemoFileActionSchema,
   replaysDemoPlaySchema,
   replaysDemoRenameSchema,
+  replaysConsoleSendSchema,
   replaysNoInputSchema,
   replaysSidecarReadSchema,
   replaysSidecarWriteSchema,
@@ -40,6 +41,7 @@ import { createDemoFileActions } from './file-actions'
 import { ReplaysIndexCache } from './index-cache'
 import { createPlaybackControl } from './playback-control'
 import { createPlaybackTimeline } from './playback-timeline'
+import { createPlaybackConsole } from './playback-console'
 import { createPlaybackSessions } from './playback-sessions'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
 import { createSidecarStore } from './sidecar-store'
@@ -276,6 +278,10 @@ export const replaysModule: MainModule = {
     const playbackTimeline = createPlaybackTimeline({ playback: playbackControl })
     handle(REPLAYS_HANDLERS.playbackTimeline, timelineActionSchema, (payload) =>
       playbackTimeline.run(payload),
+    )
+    const playbackConsole = createPlaybackConsole({ playback: playbackControl })
+    handle(REPLAYS_HANDLERS.playbackConsoleSend, replaysConsoleSendSchema, (payload) =>
+      playbackConsole.send(payload.line),
     )
 
     handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))

@@ -13,6 +13,7 @@ version section when a release actually ships.
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
 ### Added
+- **Demos** — a console field next to the timeline: type `fov 110` or `cl_demosnaps` and it goes straight to the running demo.
 - **Demos** — a timeline under the demo list while it plays: pause, jump 10 s, click to seek, speed from 0.25× to 4×. Watch it like a video.
 - **Demos** — a demo from another installation, your own folders or even a `.zip` now plays too: the
   launcher slips a temporary copy into your Q2PRO and tidies it away when the game ends.

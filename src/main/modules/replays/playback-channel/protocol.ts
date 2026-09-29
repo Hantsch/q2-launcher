@@ -46,9 +46,13 @@ export function parseDemoPos(text: string): number | null {
   return seconds * 1000 + tenth * 100
 }
 
-/** A console line the launcher may hand to the game: non-empty, no control characters, no double quote. */
+/**
+ * A console line the launcher may hand to the game: non-empty, no control characters. `"`, `;`, `$`
+ * and `//` are legal console syntax - the line only ever sits alone in its own cfg (Windows) or on
+ * stdin (Linux), never inside a quoted string.
+ */
 export function checkLine(line: string): Outcome<void> {
-  if (line.length === 0 || line.includes('"')) return fail('replays.playback.error.invalidCommand')
+  if (line.length === 0) return fail('replays.playback.error.invalidCommand')
   for (let i = 0; i < line.length; i++) {
     const code = line.charCodeAt(i)
     if (code < 0x20 || code === 0x7f) return fail('replays.playback.error.invalidCommand')
@@ -64,14 +68,47 @@ export function buildLoopCfg(waitFrames = 5): string[] {
   ]
 }
 
-export function buildControlFile(pending: { seq: number; line: string } | null): string[] {
+/** Story 166 D3: the per-sequence cfg that holds command `seq`'s console line, beside the control file. */
+export function commandCfgName(seq: number): string {
+  return `q2l_cmd_${seq}.cfg`
+}
+
+/**
+ * The control file. Its guard holds only fixed text - it execs command `seq`'s own cfg - so no
+ * console line ever sits inside the guard's quoted string, where Q2's tokenizer (no escaping) would
+ * let a `"` in it close the string early.
+ */
+export function buildControlFile(seq: number | null): string[] {
   const lines = ['echo POS $cl_demopos']
-  if (pending) {
-    lines.push(
-      `if $q2l_seq != ${pending.seq} then "${pending.line}; set q2l_seq ${pending.seq}; echo ACK ${pending.seq}"`,
-    )
+  if (seq !== null) {
+    lines.push(`if $q2l_seq != ${seq} then "exec ${commandCfgName(seq)}; set q2l_seq ${seq}; echo ACK ${seq}"`)
   }
   return lines
+}
+
+export interface EncodedControlCommand {
+  /** Full content of the control file for this sequence: fixed text, never the line. */
+  controlText: string
+  commandFileName: string
+  /** Full content of the command file: the line alone, as its only line. */
+  commandText: string
+}
+
+/**
+ * Encodes command `seq` for the Windows file route. The command file must be on disk before the
+ * control file that execs it; `;`, `"`, `//` and `$` in the line only ever affect the line itself.
+ */
+export function encodeControlCommand(seq: number, line: string): EncodedControlCommand {
+  return {
+    controlText: toCfgText(buildControlFile(seq)),
+    commandFileName: commandCfgName(seq),
+    commandText: toCfgText([line]),
+  }
+}
+
+/** The on-disk form of a cfg: its lines, each ending in a newline. */
+export function toCfgText(lines: string[]): string {
+  return `${lines.join('\n')}\n`
 }
 
 export function buildStopFile(): string[] {

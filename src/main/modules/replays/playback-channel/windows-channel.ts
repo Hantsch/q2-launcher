@@ -19,12 +19,15 @@ import {
   buildLoopCfg,
   buildStopFile,
   checkLine,
+  commandCfgName,
   CONTROL_CFG_NAME,
+  encodeControlCommand,
   LOG_FILE_RELATIVE,
   LOG_POLL_MS,
   LOOP_CFG_NAME,
   parseEngineLine,
   QUEUE_CAP,
+  toCfgText,
   windowsLaunchArgs,
 } from './protocol'
 import type { PlaybackChannel } from './types'
@@ -34,6 +37,10 @@ import type { PlaybackChannel } from './types'
  * talks to it through files in the game dir: the engine re-executes `q2l_ctl.cfg` every loop tick
  * (the guard `if $q2l_seq != N` makes each command run once), and its answers (`POS`, `ACK`,
  * `Demo finished`) arrive in the dedicated logfile, which this channel tails.
+ *
+ * Story 166 D3: command N's console line lives alone in its own `q2l_cmd_N.cfg`, which the guard
+ * execs, so a free line never sits inside the guard's quoted string. That file is always on disk
+ * before the control file that names it, and is removed once its ACK is seen (or on close).
  *
  * Every file operation is synchronous so a poll tick can never interleave with another tick, a send
  * or close; nothing a timer runs can reject.
@@ -64,17 +71,22 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   let positionMs: number | null = null
   let nextSeq = 1
   let inFlight: { seq: number; sentAt: number } | null = null
-  /** Control-file content not yet on disk: a rename can lose a race with the engine's own read. */
-  let pendingControl: string[] | null = null
+  /**
+   * Content not yet on disk: a rename can lose a race with the engine's own read. `command` is the
+   * command file the control text execs; it is written first, and the control never without it.
+   */
+  let pending: { command: { path: string; text: string } | null; control: string } | null = null
+  /** Command files this session wrote and has not removed yet. */
+  const commandPaths = new Set<string>()
   let controlWriteFailing = false
   let tempCounter = 0
   let timer: ReturnType<typeof setInterval> | null = null
 
   /** Temp file in the same dir, then rename over the target: the engine never execs a half-written cfg. */
-  function writeAtomic(destPath: string, lines: string[]): void {
+  function writeAtomic(destPath: string, text: string): void {
     tempCounter += 1
     const tempPath = `${destPath}.${process.pid}.${tempCounter}.tmp`
-    writeFileSync(tempPath, `${lines.join('\n')}\n`, 'utf8')
+    writeFileSync(tempPath, text, 'utf8')
     try {
       renameSync(tempPath, destPath)
     } catch (err) {
@@ -83,16 +95,22 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     }
   }
 
-  function writeControl(lines: string[]): void {
-    pendingControl = lines
+  function writeControl(control: string, command: { path: string; text: string } | null = null): void {
+    pending = { command, control }
     flushControl()
   }
 
   function flushControl(): void {
-    if (!pendingControl) return
+    if (!pending) return
     try {
-      writeAtomic(controlPath, pendingControl)
-      pendingControl = null
+      if (pending.command) {
+        commandPaths.add(pending.command.path)
+        writeAtomic(pending.command.path, pending.command.text)
+        // On disk now: a retry after a failed control write must not rewrite it.
+        pending.command = null
+      }
+      writeAtomic(controlPath, pending.control)
+      pending = null
       controlWriteFailing = false
     } catch (err) {
       if (!controlWriteFailing) log.warn(`control file write failed, retrying on the next poll: ${describe(err)}`)
@@ -105,19 +123,31 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     const line = queue.shift()
     if (line === undefined) {
       inFlight = null
-      writeControl(buildControlFile(null))
+      writeControl(toCfgText(buildControlFile(null)))
       return
     }
     inFlight = { seq: nextSeq, sentAt: Date.now() }
     nextSeq += 1
-    writeControl(buildControlFile({ seq: inFlight.seq, line }))
+    const encoded = encodeControlCommand(inFlight.seq, line)
+    writeControl(encoded.controlText, { path: join(gameDirPath, encoded.commandFileName), text: encoded.commandText })
+  }
+
+  /** After its ACK: `$q2l_seq` already equals seq, so the guard can never exec this file again. */
+  function removeCommandFile(seq: number): void {
+    const path = join(gameDirPath, commandCfgName(seq))
+    const failure = removeFile(path)
+    if (failure) {
+      log.warn(`could not remove ${commandCfgName(seq)}, retrying on close: ${failure}`)
+      return
+    }
+    commandPaths.delete(path)
   }
 
   function finish(): void {
     finished = true
     queue.length = 0
     inFlight = null
-    writeControl(buildStopFile())
+    writeControl(toCfgText(buildStopFile()))
     for (const cb of [...listeners]) {
       try {
         cb()
@@ -135,8 +165,10 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       // Only the ACK of the command in flight counts: a late ACK of a timed-out seq must not
       // acknowledge its successor.
       if (finished || !inFlight || parsed.seq !== inFlight.seq) return
-      log.debug(`seq ${inFlight.seq} acknowledged after ${Date.now() - inFlight.sentAt} ms`)
+      const acked = inFlight.seq
+      log.debug(`seq ${acked} acknowledged after ${Date.now() - inFlight.sentAt} ms`)
       dispatchNext()
+      removeCommandFile(acked)
     } else if (parsed.kind === 'finished' && !finished) {
       finish()
     }
@@ -179,8 +211,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     async start() {
       if (started || closed) return
       removeStale()
-      writeAtomic(loopCfgPath, buildLoopCfg())
-      writeAtomic(controlPath, buildControlFile(null))
+      writeAtomic(loopCfgPath, toCfgText(buildLoopCfg()))
+      writeAtomic(controlPath, toCfgText(buildControlFile(null)))
       tail.startAtEnd()
       started = true
       timer = setInterval(tick, LOG_POLL_MS)
@@ -218,10 +250,12 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       listeners.clear()
       queue.length = 0
       inFlight = null
-      pendingControl = null
+      pending = null
       if (!started) return
       // The game may still hold a file for a moment after it exits (Windows locks): retry once.
-      const left = [controlPath, loopCfgPath, logPath].filter((p) => removeFile(p) !== null)
+      // Command files still here are the ones never acknowledged (timed out, or cut off by the end).
+      const left = [controlPath, loopCfgPath, logPath, ...commandPaths].filter((p) => removeFile(p) !== null)
+      commandPaths.clear()
       if (left.length === 0) return
       await new Promise((resolve) => setTimeout(resolve, CLOSE_RETRY_MS))
       for (const p of left) {

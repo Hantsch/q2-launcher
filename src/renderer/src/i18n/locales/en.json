@@ -1107,6 +1107,22 @@
       "seekNeedsDuration": "Seeking by click needs the demo's length",
       "durationUnknown": "--:--"
     },
+    "console": {
+      "label": "Console command",
+      "placeholder": "e.g. fov 110",
+      "send": "Send",
+      "disabled": {
+        "noSession": "Not available: no demo is playing"
+      },
+      "error": {
+        "empty": "Type a command first.",
+        "multiline": "A command must be a single line.",
+        "control": "The command contains control characters.",
+        "nonAscii": "Only plain ASCII characters are allowed.",
+        "tooLong": "The command is too long.",
+        "noSession": "No demo is playing, so there is nobody to send this to."
+      }
+    },
     "play": {
       "action": "Play",
       "unavailable": {
