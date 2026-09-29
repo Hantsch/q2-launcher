@@ -1102,6 +1102,8 @@
       "pause": "Pause",
       "back": "Back 10 seconds",
       "forward": "Forward 10 seconds",
+      "fullscreen": "Fullscreen",
+      "fullscreenKeys": "Fullscreen: steer the demo with your keys. Your \"Back to window\" key (Controls tab, Demo playback) returns it here.",
       "seek": "Seek",
       "seekValueText": "{{position}} of {{duration}}",
       "speed": "Playback speed",
@@ -1151,7 +1153,8 @@
       "error": {
         "noSession": "No demo is playing, so there is nothing to control.",
         "invalidCommand": "This command has characters the game console can't take.",
-        "busy": "The game is still working on earlier commands — try again in a moment."
+        "busy": "The game is still working on earlier commands — try again in a moment.",
+        "fullscreen": "The demo is in fullscreen — steer it with your keys."
       }
     },
     "fileActions": {
@@ -1983,6 +1986,10 @@
       "demoSpeedDown": {
         "label": "Demo speed down",
         "description": "Plays the demo one speed step slower, down to 0.25x. Only works while a demo is playing."
+      },
+      "demoBackToWindow": {
+        "label": "Back to window",
+        "description": "Leaves fullscreen and gives the launcher's timeline control again. Only works while the launcher plays a demo."
       },
       "blaster": { "label": "Blaster" },
       "shotgun": { "label": "Shotgun" },

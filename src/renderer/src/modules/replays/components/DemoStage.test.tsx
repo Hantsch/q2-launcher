@@ -20,6 +20,7 @@ vi.mock('../client', () => ({
   sendStageRect: vi.fn(async () => ({ ok: true, value: { ok: true, value: undefined } })),
   onPlaybackPosition: () => () => {},
   onPlaybackState: () => () => {},
+  onPlaybackDisplay: () => () => {},
 }))
 
 import * as client from '../client'

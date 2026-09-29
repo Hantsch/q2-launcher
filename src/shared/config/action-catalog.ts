@@ -26,7 +26,8 @@
  * this story actually uses.
  */
 
-import { speedDownCommand, speedDownCommands, speedUpCommand, speedUpCommands } from '@shared/config/demo-speed'
+import { speedDownCommands, speedUpCommands } from '@shared/config/demo-speed'
+import { BACK_TO_WINDOW_COMMAND, guardDemoCommand } from '@shared/replays/demo-guard'
 import { JUMP_STEP_S, PAGE_STEP_S } from '@shared/replays/timeline'
 
 export type ActionCategoryId = 'movement' | 'weapons' | 'drops' | 'demo'
@@ -300,14 +301,14 @@ export const WEAPON_EXTRA_ACTIONS: Action[] = [
 
 /**
  * Story 167 D1: demo-playback actions. `seek` is a Q2PRO verb, so these only work while a demo is
- * playing; the jump seconds come from the timeline's own step constants (story 165), never copies.
+ * playing; every command except `demoBackToWindow` runs behind `guardDemoCommand` (story 172 D1). The jump seconds come from the timeline's own step constants (story 165), never copies.
  */
 export const DEMO_ACTIONS: Action[] = [
   {
     id: 'demoPause',
     labelKey: 'config.actionCatalog.demoPause.label',
     label: 'Pause demo',
-    command: 'pause',
+    command: guardDemoCommand('pause'),
     category: 'demo',
     descriptionKey: 'config.actionCatalog.demoPause.description',
   },
@@ -315,7 +316,7 @@ export const DEMO_ACTIONS: Action[] = [
     id: 'demoJumpBack',
     labelKey: 'config.actionCatalog.demoJumpBack.label',
     label: 'Demo jump back',
-    command: `seek -${JUMP_STEP_S}`,
+    command: guardDemoCommand(`seek -${JUMP_STEP_S}`),
     category: 'demo',
     descriptionKey: 'config.actionCatalog.demoJumpBack.description',
   },
@@ -323,7 +324,7 @@ export const DEMO_ACTIONS: Action[] = [
     id: 'demoJumpForward',
     labelKey: 'config.actionCatalog.demoJumpForward.label',
     label: 'Demo jump forward',
-    command: `seek +${JUMP_STEP_S}`,
+    command: guardDemoCommand(`seek +${JUMP_STEP_S}`),
     category: 'demo',
     descriptionKey: 'config.actionCatalog.demoJumpForward.description',
   },
@@ -331,7 +332,7 @@ export const DEMO_ACTIONS: Action[] = [
     id: 'demoJumpBackLong',
     labelKey: 'config.actionCatalog.demoJumpBackLong.label',
     label: 'Demo long jump back',
-    command: `seek -${PAGE_STEP_S}`,
+    command: guardDemoCommand(`seek -${PAGE_STEP_S}`),
     category: 'demo',
     descriptionKey: 'config.actionCatalog.demoJumpBackLong.description',
   },
@@ -339,7 +340,7 @@ export const DEMO_ACTIONS: Action[] = [
     id: 'demoJumpForwardLong',
     labelKey: 'config.actionCatalog.demoJumpForwardLong.label',
     label: 'Demo long jump forward',
-    command: `seek +${PAGE_STEP_S}`,
+    command: guardDemoCommand(`seek +${PAGE_STEP_S}`),
     category: 'demo',
     descriptionKey: 'config.actionCatalog.demoJumpForwardLong.description',
   },
@@ -348,8 +349,8 @@ export const DEMO_ACTIONS: Action[] = [
     id: 'demoSpeedUp',
     labelKey: 'config.actionCatalog.demoSpeedUp.label',
     label: 'Demo speed up',
-    command: speedUpCommand(),
-    commands: speedUpCommands(),
+    command: speedUpCommands().map(guardDemoCommand).join('; '),
+    commands: speedUpCommands().map(guardDemoCommand),
     category: 'demo',
     descriptionKey: 'config.actionCatalog.demoSpeedUp.description',
   },
@@ -357,10 +358,19 @@ export const DEMO_ACTIONS: Action[] = [
     id: 'demoSpeedDown',
     labelKey: 'config.actionCatalog.demoSpeedDown.label',
     label: 'Demo speed down',
-    command: speedDownCommand(),
-    commands: speedDownCommands(),
+    command: speedDownCommands().map(guardDemoCommand).join('; '),
+    commands: speedDownCommands().map(guardDemoCommand),
     category: 'demo',
     descriptionKey: 'config.actionCatalog.demoSpeedDown.description',
+  },
+  // Story 172 D1: leaves fullscreen; unguarded here because `q2l_back.cfg` guards itself.
+  {
+    id: 'demoBackToWindow',
+    labelKey: 'config.actionCatalog.demoBackToWindow.label',
+    label: 'Back to window',
+    command: BACK_TO_WINDOW_COMMAND,
+    category: 'demo',
+    descriptionKey: 'config.actionCatalog.demoBackToWindow.description',
   },
 ]
 

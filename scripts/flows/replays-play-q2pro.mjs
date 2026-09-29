@@ -97,13 +97,14 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
   // Playback session (story 164): the channel's args wrap +demo - before it the logfile setup
   // (Windows) or sys_console (Linux), after it the polling loop (Windows only).
   // Story 170: the stage args (borderless window at `vid_geometry`) come after the channel's setup
-  // args and before +demo.
+  // args and before +demo. Story 172: the channel also marks the session (`+set q2l_session 1`) right
+  // after its setup args.
   const head = process.platform === 'win32' ? '+set logfile 2 +set logfile_flush 1 +set logfile_name q2l_demo.log' : '+set sys_console 1'
   const tail = process.platform === 'win32' ? `+demo ${REPLAYS_PLAY_CTF_DEMO} +exec q2l_loop.cfg` : `+demo ${REPLAYS_PLAY_CTF_DEMO}`
   const trimmed = (line ?? '').trimEnd()
   const geometryAt = trimmed.search(/ \+set vid_geometry \d+x\d+\+-?\d+\+-?\d+ /)
   const okOrder =
-    trimmed.includes(` +set game ctf ${head} +set vid_fullscreen 0 `) &&
+    trimmed.includes(` +set game ctf ${head} +set q2l_session 1 +set vid_fullscreen 0 `) &&
     geometryAt !== -1 &&
     trimmed.endsWith(` ${tail}`) &&
     trimmed.indexOf('+set vid_geometry') < trimmed.indexOf('+demo ')

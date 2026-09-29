@@ -15,10 +15,11 @@ export interface PlaybackTimeline {
 }
 
 export function createPlaybackTimeline(deps: {
-  playback: Pick<PlaybackControl, 'send' | 'currentFormat'>
+  playback: Pick<PlaybackControl, 'send' | 'currentFormat' | 'enterFullscreen'>
 }): PlaybackTimeline {
   return {
     run(action) {
+      if (action.kind === 'fullscreen') return deps.playback.enterFullscreen()
       const format = deps.playback.currentFormat()
       if (format === null) return fail(NO_SESSION)
       const seekVerb = demoSeekCommand(format, { kind: 'relative', seconds: 1 }).split(' ')[0]

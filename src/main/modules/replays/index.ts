@@ -272,6 +272,9 @@ export const replaysModule: MainModule = {
         ),
     })
 
+    // Story 172 D5: a fullscreen demo is not steered - the follower rests until it is back on the stage.
+    playbackControl.onDisplayChange((fullscreen) => stageFollow.setSuspended(fullscreen))
+
     const demoPlay = createDemoPlay({
       readDemos: () => scanService.read(),
       resolveFile: (id) => scanService.resolveFile(id),

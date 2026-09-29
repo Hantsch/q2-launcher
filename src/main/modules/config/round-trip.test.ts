@@ -3484,7 +3484,8 @@ describe('round-trip: a bound demo speed action (story 167 D2)', () => {
     return {
       id: `entry-${id}`,
       categoryId: 'demo',
-      name: row.commands[0]!,
+      // The catalogue label, as the Controls grid names a row (guarded command texts would slug alike).
+      name: row.name!,
       kind: 'bind',
       catalogId: row.catalogId,
       commands: row.commands.map((text) => ({ kind: 'raw', text })),
@@ -3540,6 +3541,43 @@ describe('round-trip: a bound demo speed action (story 167 D2)', () => {
     const expected = speedAction('demoSpeedUp', 'KP_PLUS')
     expect(adopted.actions[0]!.catalogId).toBe(expected.catalogId)
     expect(adopted.actions[0]!.commands).toEqual(expected.commands)
+  })
+})
+
+describe('round-trip: a guarded demo bind (story 172 D1)', () => {
+  it('a guarded demo bind survives write and read-back quoted', async () => {
+    const row = buildDemoRows().find((candidate) => candidate.catalogId.endsWith(':demoJumpForward'))!
+    const action: ConfigAction = {
+      id: 'entry-demoJumpForward',
+      categoryId: 'demo',
+      name: row.name!,
+      kind: 'bind',
+      catalogId: row.catalogId,
+      commands: row.commands.map((text) => ({ kind: 'raw', text })),
+      keys: [{ key: 'KP_RIGHTARROW' }],
+    }
+    const profile: ConfigProfile = {
+      id: 'guard-profile',
+      name: 'Guard',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      cvars: {},
+      binds: { KP_RIGHTARROW: bindValueFor(action) },
+      assignments: [],
+      categories: STANDARD_TEMPLATE.categories.filter((category) => category.id === 'demo').map((c) => ({ ...c })),
+      actions: [action],
+    }
+    const { profile2, text1 } = await reimportProfile(profile)
+
+    // The `$` bodies are quoted, so the engine stores them literally and expands them per press.
+    const line = text1.split(/\r?\n/).find((l) => l.includes('cl_demopos'))
+    expect(line).toMatch(/^alias \S+ "if x\$cl_demopos ne x\$q2l_armpos then seek \+10"/)
+
+    const back = profile2.actions!.filter((entry) => entry.catalogId === action.catalogId)
+    expect(back).toHaveLength(1)
+    expect(back[0]!.commands).toEqual(action.commands)
+    expect(slotsOf(back[0]!)).toEqual(slotsOf(action))
+    expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
   })
 })
 

@@ -185,13 +185,15 @@ function latin1ByteLength(text: string): number {
 }
 
 /**
- * Quoted as `alias <name> "<body>"` exactly when the body carries a `;`, so
- * `Cbuf_Execute` keeps the whole list as one command; a single-command body
- * needs no quotes. Identical rule to `alt-layers.ts#renderAliasLine`, and safe
+ * Quoted as `alias <name> "<body>"` exactly when the body carries a `;` (so
+ * `Cbuf_Execute` keeps the whole list as one command) or a `$` (story 172: an unquoted `$name` is
+ * expanded when the cfg line runs, which would bake the value into the alias instead of leaving it
+ * to expand when the alias runs); a plain single-command body needs no quotes. Differs from
+ * `alt-layers.ts#renderAliasLine` on purpose - that one keeps the `;`-only rule - and safe
  * to nest-free because `sanitizeCommand` has already dropped every `"`.
  */
 function renderAliasLine(name: string, body: string): string {
-  return body.includes(';') ? `alias ${name} "${body}"` : `alias ${name} ${body}`
+  return /[;$]/.test(body) ? `alias ${name} "${body}"` : `alias ${name} ${body}`
 }
 
 function makeAlias(name: string, body: string): GeneratedAlias {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ok } from '@shared/types'
 import type { MainWindowEvent, MainWindowObserver, MainWindowSnapshot } from '../../main-window-observer'
+import { STAGE_FOLLOW_QUIET_MS } from './stage-follow'
 import { createStageFollowSessions, parkGeometryAt, virtualDesktopRightEdge } from './stage-follow-session'
 
 const RECT = { x: 10, y: 20, width: 800, height: 600 }
@@ -66,6 +67,26 @@ describe('parkGeometryAt / virtualDesktopRightEdge', () => {
 describe('stage follow sessions', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
+
+  it('a suspended follower moves nothing (fullscreen demo) and re-places on resume', () => {
+    const { win, lines, sessions } = setup()
+    sessions.begin({ geometry: '800x600+10+20', rect: RECT })
+    win.fire('move')
+    vi.advanceTimersByTime(1000)
+    lines.length = 0
+    sessions.setSuspended(true)
+    win.set({ contentBounds: { x: 100, y: 100, width: 1280, height: 800 } })
+    win.fire('move')
+    win.fire('resize')
+    sessions.report({ ...RECT, x: 50 })
+    vi.advanceTimersByTime(2000)
+    expect(lines).toEqual([])
+    sessions.setSuspended(false)
+    // Resume re-feeds the follower (no timer needed to start it); it places the window where the moved
+    // stage + main window now are, once the quiet period passes.
+    vi.advanceTimersByTime(STAGE_FOLLOW_QUIET_MS)
+    expect(lines.some((l) => l.includes('800x600+150+120'))).toBe(true)
+  })
 
   it('without a session, window events and reports reach nothing', () => {
     const { win, lines, sessions } = setup()

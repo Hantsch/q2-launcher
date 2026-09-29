@@ -18,8 +18,9 @@ const NO_SESSION = { ok: false, error: { key: 'replays.playback.error.noSession'
 
 function setup(format: DemoFormat | null) {
   const send = vi.fn((): Outcome<void> => (format ? ok(undefined) : (NO_SESSION as Outcome<void>)))
-  const timeline = createPlaybackTimeline({ playback: { send, currentFormat: () => format } })
-  return { send, timeline }
+  const enterFullscreen = vi.fn((): Outcome<void> => ok(undefined))
+  const timeline = createPlaybackTimeline({ playback: { send, currentFormat: () => format, enterFullscreen } })
+  return { send, enterFullscreen, timeline }
 }
 
 describe('playback timeline', () => {
@@ -64,6 +65,13 @@ describe('playback timeline', () => {
   it('no session rejects with the typed no-session error and sends nothing', () => {
     const t = setup(null)
     expect(t.timeline.run({ kind: 'togglePause' })).toEqual(NO_SESSION)
+    expect(t.send).not.toHaveBeenCalled()
+  })
+
+  it('the fullscreen action enters fullscreen instead of sending a line', () => {
+    const t = setup('dm2')
+    expect(t.timeline.run({ kind: 'fullscreen' })).toEqual({ ok: true, value: undefined })
+    expect(t.enterFullscreen).toHaveBeenCalledTimes(1)
     expect(t.send).not.toHaveBeenCalled()
   })
 

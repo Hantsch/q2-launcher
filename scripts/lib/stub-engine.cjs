@@ -18,6 +18,11 @@
 // started (its stage follower - never the launch argv) is appended to `Q2L_UI_ENGINE_WINDOW_LOG`
 // instead; `set` never reaches the command log, so that log is unchanged.
 //
+// Story 172 D7: `vid_fullscreen` is a cvar (`$vid_fullscreen` echoes it, `q2l_session` / `q2l_armpos`
+// are plain cvars) and a bare `vid_fullscreen N` is appended to the command log. The file named by
+// `Q2L_UI_ENGINE_KEYS_FILE` is a key-press lever: when it appears each line is appended to the console
+// buffer (like a bind press - behind whatever is queued), then the file is deleted.
+//
 // Lifetime: `stub-engine.json` next to this file (written by the fixture) gives `demoMs` and
 // `lifetimeMs`; the stub also exits when the file named by `Q2L_UI_ENGINE_QUIT_FILE` appears (a
 // flow's "the game exits" lever), on `quit`, or when its parent (the launcher) is gone - so no run
@@ -48,6 +53,7 @@ const DEMO_MS = Number(config.demoMs) > 0 ? Number(config.demoMs) : 41000
 const LIFETIME_MS = Number(config.lifetimeMs) > 0 ? Number(config.lifetimeMs) : 400
 const COMMAND_LOG = process.env.Q2L_UI_ENGINE_COMMAND_LOG || ''
 const QUIT_FILE = process.env.Q2L_UI_ENGINE_QUIT_FILE || ''
+const KEYS_FILE = process.env.Q2L_UI_ENGINE_KEYS_FILE || ''
 const WINDOW_LOG = process.env.Q2L_UI_ENGINE_WINDOW_LOG || ''
 const WINDOW_CVARS = new Set(['vid_geometry', 'win_alwaysontop'])
 /** Set once `demo` ran: the argv stage args come before it, the follower's lines after. */
@@ -62,6 +68,7 @@ const cvars = new Map([
   ['sys_console', '0'],
   ['game', ''],
   ['timescale', '1'],
+  ['vid_fullscreen', '0'],
 ])
 const aliases = new Map()
 const demo = { playing: false, paused: false, posMs: 0 }
@@ -336,7 +343,7 @@ function execLine(raw) {
       print(`"${cmd}" is "${cvar(cmd)}"`)
       return
     }
-    if (cmd === 'timescale') logCommand(tokens)
+    if (cmd === 'timescale' || cmd === 'vid_fullscreen') logCommand(tokens)
     cvars.set(cmd, args[0])
     return
   }
@@ -370,6 +377,19 @@ function queueCommandLine(argv) {
   if (current) addText(current.join(' '))
 }
 
+/** The keys file's lines join the console buffer like bind presses, then the file is consumed. */
+function pressKeys() {
+  if (!KEYS_FILE || !fs.existsSync(KEYS_FILE)) return
+  let text
+  try {
+    text = fs.readFileSync(KEYS_FILE, 'utf8')
+    fs.unlinkSync(KEYS_FILE)
+  } catch {
+    return // mid-write: the next frame reads it
+  }
+  for (const line of text.split('\n')) if (line.trim() !== '') addText(line.trim())
+}
+
 let last = Date.now()
 function frame() {
   const now = Date.now()
@@ -383,6 +403,7 @@ function frame() {
       print('Demo finished')
     }
   }
+  pressKeys()
   runCbuf()
   if (QUIT_FILE && fs.existsSync(QUIT_FILE)) quit()
   if (now - startedAt >= LIFETIME_MS) quit()

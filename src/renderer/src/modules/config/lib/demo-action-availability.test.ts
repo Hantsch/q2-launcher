@@ -14,6 +14,8 @@ const EXPECTED_WITHOUT_Q2PRO: Record<string, string | undefined> = {
   demoJumpForwardLong: SEEK,
   demoSpeedUp: SPEED,
   demoSpeedDown: SPEED,
+  // Story 172 D1: demoBackToWindow is never gated by engine scope.
+  demoBackToWindow: undefined,
 }
 
 describe('demoActionUnavailableReason', () => {

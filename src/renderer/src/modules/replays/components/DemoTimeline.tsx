@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pause, Play, RotateCcw, RotateCw } from 'lucide-react'
+import { Maximize, Pause, Play, RotateCcw, RotateCw } from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
 import {
   JUMP_STEP_S,
@@ -44,6 +44,7 @@ export function DemoTimeline() {
   const hasDuration = durationMs !== null && durationMs > 0
   const positionMs = view?.positionMs ?? 0
   const paused = view?.paused ?? false
+  const fullscreen = session.fullscreen
   const ended = view?.ended ?? false
   const positionText = formatPlaybackPosition(positionMs)
   const durationText = hasDuration ? formatPlaybackPosition(durationMs) : t('replays.timeline.durationUnknown')
@@ -51,26 +52,34 @@ export function DemoTimeline() {
   const positionS = Math.min(durationS, Math.floor(positionMs / 1000))
   const fraction = hasDuration ? Math.min(1, positionMs / durationMs) : 0
 
-  async function send(action: TimelineAction): Promise<void> {
+  async function send(action: TimelineAction): Promise<boolean> {
     setError(null)
     try {
       const result = await playbackTimeline(action)
       if (!result.ok) setError(result.error)
       else if (!result.value.ok) setError(result.value.error)
+      else return true
     } catch {
       setError({ key: 'replays.timeline.error' })
     }
+    return false
+  }
+
+  async function enterFullscreen(): Promise<void> {
+    // A paused demo would sit frozen behind the fullscreen window with no visible way to resume.
+    if (paused && !(await send({ kind: 'togglePause' }))) return
+    await send({ kind: 'fullscreen' })
   }
 
   function handleSeekClick(event: MouseEvent<HTMLDivElement>): void {
-    if (!hasDuration) return
+    if (!hasDuration || fullscreen) return
     const rect = event.currentTarget.getBoundingClientRect()
     const clickFraction = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0
     void send({ kind: 'seekTo', seconds: seekSecondsForFraction(clickFraction, durationMs) })
   }
 
   function handleSeekKey(event: KeyboardEvent<HTMLDivElement>): void {
-    if (!hasDuration) return
+    if (!hasDuration || fullscreen) return
     let action: TimelineAction | null = null
     switch (event.key) {
       case 'ArrowLeft':
@@ -116,6 +125,7 @@ export function DemoTimeline() {
         <IconButton
           size="md"
           label={paused ? t('replays.timeline.play') : t('replays.timeline.pause')}
+          disabled={fullscreen}
           onClick={() => void send({ kind: 'togglePause' })}
           className={FOCUS_RING}
           data-testid="replays-timeline-toggle"
@@ -125,6 +135,7 @@ export function DemoTimeline() {
         <IconButton
           size="md"
           label={t('replays.timeline.back')}
+          disabled={fullscreen}
           onClick={() => void send({ kind: 'jump', deltaS: -JUMP_STEP_S })}
           className={FOCUS_RING}
           data-testid="replays-timeline-back"
@@ -134,6 +145,7 @@ export function DemoTimeline() {
         <IconButton
           size="md"
           label={t('replays.timeline.forward')}
+          disabled={fullscreen}
           onClick={() => void send({ kind: 'jump', deltaS: JUMP_STEP_S })}
           className={FOCUS_RING}
           data-testid="replays-timeline-forward"
@@ -151,27 +163,30 @@ export function DemoTimeline() {
             position: positionText,
             duration: durationText,
           })}
-          aria-disabled={!hasDuration}
+          aria-disabled={!hasDuration || fullscreen}
           onClick={handleSeekClick}
           onKeyDown={handleSeekKey}
           className={cn(
             'relative h-3 min-w-24 flex-1 rounded-sm border border-line-strong bg-raised',
-            hasDuration ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
+            hasDuration && !fullscreen ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
             FOCUS_RING,
           )}
           data-testid="replays-timeline-seek"
         >
           <div
             className="pointer-events-none h-full rounded-sm bg-flame-500"
-            style={{ width: `${fraction * 100}%` }}
+            style={{ width: `${fullscreen ? 0 : fraction * 100}%` }}
           />
         </div>
-        <span className="text-sm text-ink tabular-nums">
-          <span data-testid="replays-timeline-position">{positionText}</span>
-          {' / '}
-          <span data-testid="replays-timeline-duration">{durationText}</span>
-        </span>
+        {!fullscreen && (
+          <span className="text-sm text-ink tabular-nums">
+            <span data-testid="replays-timeline-position">{positionText}</span>
+            {' / '}
+            <span data-testid="replays-timeline-duration">{durationText}</span>
+          </span>
+        )}
         <Select
+          disabled={fullscreen}
           aria-label={t('replays.timeline.speed')}
           value={String(session.speed)}
           onMouseDown={() => setSpeedOpen(true)}
@@ -192,11 +207,26 @@ export function DemoTimeline() {
           className={cn('h-9 w-24', FOCUS_RING)}
           data-testid="replays-timeline-speed"
         />
+        <IconButton
+          size="md"
+          label={t('replays.timeline.fullscreen')}
+          disabled={ended || fullscreen}
+          onClick={() => void enterFullscreen()}
+          className={FOCUS_RING}
+          data-testid="replays-timeline-fullscreen"
+        >
+          <Maximize className="size-4" />
+        </IconButton>
         <span className="text-xs text-ink-muted" data-testid="replays-timeline-state">
           {stateText}
         </span>
       </div>
-      {!hasDuration && (
+      {fullscreen && (
+        <p className="text-xs text-ink-muted" data-testid="replays-timeline-keys">
+          {t('replays.timeline.fullscreenKeys')}
+        </p>
+      )}
+      {!hasDuration && !fullscreen && (
         <p className="text-xs text-ink-muted" data-testid="replays-timeline-seek-reason">
           {t('replays.timeline.seekNeedsDuration')}
         </p>

@@ -15,7 +15,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Logger } from '../../../lib/logger'
 import {
   ACK_TIMEOUT_MS,
+  BACK_TO_WINDOW_CFG,
+  buildBackToWindowCfg,
   buildControlFile,
+  buildEnterFullscreenLines,
   buildLoopCfg,
   buildStopFile,
   commandCfgName,
@@ -71,7 +74,7 @@ const GUARD = /^if \$q2l_seq != (\d+) then "exec (q2l_cmd_\d+\.cfg); set q2l_seq
  * evaluates the `$q2l_seq` guard against its own cvar, execs the command file the guard names, and
  * appends its echoes to the logfile - every third write cut mid-line and finished by the next one.
  */
-function createFakeEngine(dir: string, opts: { ack?: boolean } = {}) {
+function createFakeEngine(dir: string, opts: { ack?: boolean; buffered?: boolean } = {}) {
   const controlPath = join(dir, CONTROL_CFG_NAME)
   const logPath = join(dir, 'logs', LOG_FILE_NAME)
   const state = {
@@ -83,12 +86,18 @@ function createFakeEngine(dir: string, opts: { ack?: boolean } = {}) {
     evaluations: new Map<number, number>(),
     /** Seqs whose guard fired while their command file was not on disk. */
     missing: [] as number[],
+    /** `q2l_loop` no longer re-execs the control file. */
     stopped: false,
+    /** `$vid_fullscreen`. */
+    fullscreen: false,
   }
   let carry = ''
   let writes = 0
   let finishPending = false
   let paused = false
+  /** Story 172: a buffered logfile holds its lines back until `flush()`. */
+  let buffered = opts.buffered === true
+  let held = ''
 
   function append(text: string): void {
     if (text.length === 0) return
@@ -106,9 +115,11 @@ function createFakeEngine(dir: string, opts: { ack?: boolean } = {}) {
     }
     state.posMs += 100
     const out: string[] = []
+    // Redefining the loop alias takes effect on the loop's next call: this pass still runs through.
+    let loopRedefined = false
     for (const line of control.split(/\r?\n/)) {
-      if (line === 'echo POS $cl_demopos') {
-        out.push(`POS ${formatDemoPos(state.posMs)}`)
+      if (line === 'echo POS $cl_demopos FS $vid_fullscreen') {
+        out.push(`POS ${formatDemoPos(state.posMs)} FS ${state.fullscreen ? 1 : 0}`)
         state.lastPosMs = Math.floor(state.posMs / 100) * 100
       }
       const guard = GUARD.exec(line)
@@ -128,6 +139,8 @@ function createFakeEngine(dir: string, opts: { ack?: boolean } = {}) {
             state.executed.push(cmd)
             const seek = /^seek (\d+)$/.exec(cmd)
             if (seek) state.posMs = Number(seek[1]) * 1000
+            if (cmd === 'vid_fullscreen 1') state.fullscreen = true
+            if (cmd.startsWith('alias q2l_loop ') && !cmd.includes(`exec ${CONTROL_CFG_NAME}`)) loopRedefined = true
           }
           state.q2lSeq = Number(guard[3])
           if (opts.ack !== false) out.push(`ACK ${guard[4]}`)
@@ -135,13 +148,21 @@ function createFakeEngine(dir: string, opts: { ack?: boolean } = {}) {
       }
       if (line === 'alias q2l_loop ""') state.stopped = true
     }
+    if (loopRedefined) state.stopped = true
     if (finishPending) {
       out.push('Demo finished')
       finishPending = false
     }
     const payload = carry + out.map((l) => `${PREFIX}${l}\n`).join('')
     writes += 1
-    if (writes % 3 === 0) {
+    if (buffered) {
+      held += payload
+      carry = ''
+    } else if (state.stopped) {
+      // The last pass before the loop ends: nothing would ever finish a cut line.
+      append(payload)
+      carry = ''
+    } else if (writes % 3 === 0) {
       let cut = Math.floor(payload.length / 2)
       if (payload[cut - 1] === '\n') cut -= 1
       append(payload.slice(0, cut))
@@ -164,6 +185,30 @@ function createFakeEngine(dir: string, opts: { ack?: boolean } = {}) {
       paused = true
       append(carry)
       carry = ''
+    },
+    /** A buffered logfile finally writes out everything it held, in one go; later lines go straight out. */
+    flush: () => {
+      append(held)
+      held = ''
+      buffered = false
+    },
+    /**
+     * The user presses Back to window: `exec q2l_back.cfg` as the channel wrote it. (Its session and
+     * moved-position guards hold here: the demo runs inside a launcher playback and time went on.)
+     */
+    back: () => {
+      const cfg = readFileSync(join(dir, BACK_TO_WINDOW_CFG), 'utf8')
+      const go = /^alias q2l_back_go "(.*)"$/m.exec(cfg)
+      if (!go) throw new Error(`no q2l_back_go in ${BACK_TO_WINDOW_CFG}`)
+      for (const cmd of go[1]!.split(';').map((c) => c.trim())) {
+        if (cmd === 'vid_fullscreen 0') state.fullscreen = false
+        if (cmd !== `exec ${LOOP_CFG_NAME}`) continue
+        for (const line of readFileSync(join(dir, LOOP_CFG_NAME), 'utf8').split(/\r?\n/)) {
+          const set = /^set q2l_seq (\d+)$/.exec(line)
+          if (set) state.q2lSeq = Number(set[1])
+          if (line.startsWith('alias q2l_loop ') && line.includes(`exec ${CONTROL_CFG_NAME}`)) state.stopped = false
+        }
+      }
     },
   }
 }
@@ -209,7 +254,7 @@ describe('createWindowsChannel', () => {
     expect(fsEvents).toEqual([`write ${commandCfgName(1)}`, `write ${CONTROL_CFG_NAME}`])
     expect(commandFile(1)).toBe(`${line}\n`)
     expect(controlFile()).toBe(
-      `echo POS $cl_demopos\nif $q2l_seq != 1 then "exec q2l_cmd_1.cfg; set q2l_seq 1; echo ACK 1"\n`,
+      `echo POS $cl_demopos FS $vid_fullscreen\nif $q2l_seq != 1 then "exec q2l_cmd_1.cfg; set q2l_seq 1; echo ACK 1"\n`,
     )
 
     // Unacknowledged: the command file stays, however many polls pass.
@@ -380,6 +425,7 @@ describe('createWindowsChannel', () => {
     writeFileSync(join(dir, CONTROL_CFG_NAME), asFile(buildControlFile(1)))
     writeFileSync(join(dir, commandCfgName(1)), 'quit\n')
     writeFileSync(join(dir, LOOP_CFG_NAME), 'garbage\n')
+    writeFileSync(join(dir, BACK_TO_WINDOW_CFG), 'garbage\n')
     writeFileSync(join(dir, `${CONTROL_CFG_NAME}.999.1.tmp`), 'half a file')
     writeFileSync(join(dir, 'autoexec.cfg'), 'bind x quit\n')
     mkdirSync(join(dir, 'logs'), { recursive: true })
@@ -389,6 +435,7 @@ describe('createWindowsChannel', () => {
     await ch.start()
     expect(controlFile()).toBe(asFile(buildControlFile(null)))
     expect(readFileSync(join(dir, LOOP_CFG_NAME), 'utf8')).toBe(asFile(buildLoopCfg()))
+    expect(readFileSync(join(dir, BACK_TO_WINDOW_CFG), 'utf8')).toBe(asFile(buildBackToWindowCfg('win32')))
     expect(existsSync(join(dir, `${CONTROL_CFG_NAME}.999.1.tmp`))).toBe(false)
     expect(commandFiles()).toEqual([])
     expect(existsSync(join(dir, 'autoexec.cfg'))).toBe(true)
@@ -437,5 +484,194 @@ describe('createWindowsChannel', () => {
     expect(engine.state.executed).toEqual(['first', 'second'])
     expect(engine.state.executions.get(1)).toBe(1)
     expect(engine.state.evaluations.get(1)).toBeGreaterThan(100)
+  })
+})
+
+describe('createWindowsChannel fullscreen (story 172)', () => {
+  const SWITCH = buildEnterFullscreenLines({ switchMode: true })
+  const FOLLOW = buildEnterFullscreenLines({ switchMode: false })
+  const FULLSCREEN_ERROR = { ok: false, error: { key: 'replays.playback.error.fullscreen' } }
+  const switches = (executed: string[]): number => executed.filter((c) => c === 'vid_fullscreen 1').length
+
+  function withDisplayLog(ch: PlaybackChannel): ReturnType<typeof vi.fn> {
+    const onDisplay = vi.fn()
+    ch.onDisplayChange(onDisplay)
+    return onDisplay
+  }
+
+  it('fullscreen stops the loop and the switch runs exactly once', async () => {
+    const { ch, log } = makeChannel()
+    const onDisplay = withDisplayLog(ch)
+    await ch.start()
+    const engine = createFakeEngine(dir)
+    engine.run()
+    vi.advanceTimersByTime(200)
+
+    expect(ch.send('seek 10').ok).toBe(true)
+    expect(ch.enterFullscreen().ok).toBe(true)
+    expect(ch.enterFullscreen()).toEqual(FULLSCREEN_ERROR)
+    // Queued behind the switch: the loop is gone before it would run, so it is dropped.
+    expect(ch.send('seek 20').ok).toBe(true)
+    expect(ch.display()).toBe('stage')
+    vi.advanceTimersByTime(1000)
+
+    expect(engine.state.executed).toEqual(['seek 10', ...SWITCH])
+    expect(engine.state.fullscreen).toBe(true)
+    expect(engine.state.stopped).toBe(true)
+    expect(ch.display()).toBe('fullscreen')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen']])
+    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(commandFiles()).toEqual([])
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('dropping 1'))
+
+    // Back to window: `exec q2l_loop.cfg` resets q2l_seq to 0 and the loop re-execs the control file.
+    engine.back()
+    expect(engine.state.q2lSeq).toBe(0)
+    expect(engine.state.stopped).toBe(false)
+    vi.advanceTimersByTime(1000)
+    expect(ch.display()).toBe('stage')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen'], ['stage']])
+    expect(switches(engine.state.executed)).toBe(1)
+    expect(engine.state.executions.get(2)).toBe(1)
+    expect(engine.state.fullscreen).toBe(false)
+    expect(engine.state.stopped).toBe(false)
+
+    // The queue resumes with the next seq, which the reset q2l_seq 0 cannot match.
+    expect(ch.send('seek 30').ok).toBe(true)
+    vi.advanceTimersByTime(500)
+    expect(engine.state.executed).toEqual(['seek 10', ...SWITCH, 'seek 30'])
+    expect(engine.state.executions.get(3)).toBe(1)
+    expect(engine.state.executions.get(2)).toBe(1)
+    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+  })
+
+  it('the channel returns to the stage only on a fresh FS 0 sample', async () => {
+    const { ch } = makeChannel()
+    const onDisplay = withDisplayLog(ch)
+    await ch.start()
+    const engine = createFakeEngine(dir, { buffered: true })
+    engine.run()
+    vi.advanceTimersByTime(200)
+
+    expect(ch.enterFullscreen().ok).toBe(true)
+    // The log holds everything back: the switch runs, but neither its ACK nor any POS arrives.
+    vi.advanceTimersByTime(ACK_TIMEOUT_MS + 100)
+    expect(engine.state.stopped).toBe(true)
+    expect(ch.display()).toBe('fullscreen')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen']])
+    const positionAtSwitch = ch.latest().positionMs
+
+    // Late, in one flush: every pre-stop `POS … FS 0`, then the switch's ACK.
+    engine.flush()
+    const flushed = readFileSync(logPath(), 'utf8')
+    expect(flushed).toContain(' FS 0\n')
+    expect(flushed.endsWith(`${PREFIX}ACK 1\n`)).toBe(true)
+    vi.advanceTimersByTime(LOG_POLL_MS)
+    // Even later: stale lines of the other kinds.
+    appendFileSync(logPath(), `${PREFIX}POS 0:01.0 FS 1\n${PREFIX}ACK 1\n${PREFIX}POS 0:01.0\n`)
+    vi.advanceTimersByTime(LOG_POLL_MS * 3)
+    expect(ch.display()).toBe('fullscreen')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen']])
+    // Position lines update nothing while fullscreen.
+    expect(ch.latest().positionMs).toBe(positionAtSwitch)
+
+    engine.back()
+    vi.advanceTimersByTime(200)
+    expect(ch.display()).toBe('stage')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen'], ['stage']])
+    engine.pause()
+    vi.advanceTimersByTime(LOG_POLL_MS)
+    expect(ch.latest().positionMs).toBe(engine.state.lastPosMs)
+    expect(switches(engine.state.executed)).toBe(1)
+  })
+
+  it('a missing ACK still enters fullscreen after the timeout, and FS 0 samples bring it back', async () => {
+    const { ch, log } = makeChannel()
+    const onDisplay = withDisplayLog(ch)
+    await ch.start()
+    const engine = createFakeEngine(dir, { ack: false })
+    engine.run()
+    vi.advanceTimersByTime(200)
+
+    expect(ch.enterFullscreen().ok).toBe(true)
+    vi.advanceTimersByTime(ACK_TIMEOUT_MS - 100)
+    expect(engine.state.stopped).toBe(true)
+    // Entering still shows on the stage.
+    expect(ch.display()).toBe('stage')
+    expect(onDisplay).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(200)
+    expect(ch.display()).toBe('fullscreen')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen']])
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('fullscreen switch'))
+    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+
+    engine.back()
+    vi.advanceTimersByTime(200)
+    expect(ch.display()).toBe('stage')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen'], ['stage']])
+    expect(engine.state.executed).toEqual(SWITCH)
+    expect(ch.send('seek 5').ok).toBe(true)
+    vi.advanceTimersByTime(200)
+    expect(engine.state.executed).toEqual([...SWITCH, 'seek 5'])
+  })
+
+  it("an FS 1 sample on the stage follows the user's switch", async () => {
+    const { ch } = makeChannel()
+    const onDisplay = withDisplayLog(ch)
+    await ch.start()
+    const engine = createFakeEngine(dir)
+    engine.run()
+    vi.advanceTimersByTime(200)
+
+    engine.state.fullscreen = true // Alt+Enter in the game
+    vi.advanceTimersByTime(500)
+    // Only the loop is stopped: the mode is already fullscreen.
+    expect(engine.state.executed).toEqual(FOLLOW)
+    expect(switches(engine.state.executed)).toBe(0)
+    expect(engine.state.stopped).toBe(true)
+    expect(ch.display()).toBe('fullscreen')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen']])
+    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+
+    engine.back()
+    vi.advanceTimersByTime(500)
+    expect(ch.display()).toBe('stage')
+    expect(onDisplay.mock.calls).toEqual([['fullscreen'], ['stage']])
+    expect(engine.state.executions.get(1)).toBe(1)
+  })
+
+  it('sends in fullscreen fail with replays.playback.error.fullscreen', async () => {
+    const { ch } = makeChannel()
+    await ch.start()
+    const engine = createFakeEngine(dir)
+    engine.run()
+    const onFinished = vi.fn()
+    ch.onFinished(onFinished)
+    expect(ch.enterFullscreen().ok).toBe(true)
+    vi.advanceTimersByTime(500)
+    expect(ch.display()).toBe('fullscreen')
+
+    expect(ch.send('seek 5')).toEqual(FULLSCREEN_ERROR)
+    expect(ch.enterFullscreen()).toEqual(FULLSCREEN_ERROR)
+    vi.advanceTimersByTime(500)
+    expect(engine.state.executed).toEqual(SWITCH)
+    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(commandFiles()).toEqual([])
+
+    // The demo ending while fullscreen behaves as on the stage.
+    appendFileSync(logPath(), `${PREFIX}Demo finished\n`)
+    vi.advanceTimersByTime(LOG_POLL_MS)
+    expect(onFinished).toHaveBeenCalledTimes(1)
+    expect(controlFile()).toBe(asFile(buildStopFile()))
+    expect(ch.send('seek 5')).toEqual({ ok: false, error: { key: 'replays.playback.error.noSession' } })
+  })
+
+  it('close removes q2l_back.cfg', async () => {
+    const { ch } = makeChannel()
+    await ch.start()
+    expect(readFileSync(join(dir, BACK_TO_WINDOW_CFG), 'utf8')).toBe(asFile(buildBackToWindowCfg('win32')))
+    await ch.close()
+    expect(existsSync(join(dir, BACK_TO_WINDOW_CFG))).toBe(false)
   })
 })

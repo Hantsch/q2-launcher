@@ -91,7 +91,93 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       }
     },
   },
+  {
+    to: 5,
+    describe:
+      'add the unbound demo "Back to window" row and guard untouched demo commands ' +
+      '(story 172 D2)',
+    apply: (doc) => {
+      const profiles = Array.isArray(doc.configProfiles) ? doc.configProfiles : []
+      return {
+        ...doc,
+        configProfiles: profiles.map((raw) => addBackToWindowAndGuard(raw as Record<string, unknown>)),
+      }
+    },
+  },
 ]
+
+const GUARD_PREFIX = 'if x$cl_demopos ne x$q2l_armpos then '
+const guarded = (commands: string[]): string[] => commands.map((c) => GUARD_PREFIX + c)
+const SPEED_UP_OLD = [
+  'if $timescale == 2 then timescale 4',
+  'if $timescale == 1 then timescale 2',
+  'if $timescale == 0.5 then timescale 1',
+  'if $timescale == 0.25 then timescale 0.5',
+]
+const SPEED_DOWN_OLD = [
+  'if $timescale == 0.5 then timescale 0.25',
+  'if $timescale == 1 then timescale 0.5',
+  'if $timescale == 2 then timescale 1',
+  'if $timescale == 4 then timescale 2',
+]
+
+/**
+ * Story 172 D2, frozen: the pre-172 (unguarded) commands of each demo action, keyed by catalogId,
+ * with the guarded replacement. Hard-coded on purpose - never derived from the live catalogue, so a
+ * later catalogue change cannot make this step guard (or miss) different text. A row is rewritten
+ * only when its commands equal the old text exactly; an edited row is left alone.
+ */
+const DEMO_GUARD_TABLE: Record<string, { old: string[]; guarded: string[] }> = {
+  'demo:demoPause': { old: ['pause'], guarded: guarded(['pause']) },
+  'demo:demoJumpBack': { old: ['seek -10'], guarded: guarded(['seek -10']) },
+  'demo:demoJumpForward': { old: ['seek +10'], guarded: guarded(['seek +10']) },
+  'demo:demoJumpBackLong': { old: ['seek -60'], guarded: guarded(['seek -60']) },
+  'demo:demoJumpForwardLong': { old: ['seek +60'], guarded: guarded(['seek +60']) },
+  'demo:demoSpeedUp': { old: SPEED_UP_OLD, guarded: guarded(SPEED_UP_OLD) },
+  'demo:demoSpeedDown': { old: SPEED_DOWN_OLD, guarded: guarded(SPEED_DOWN_OLD) },
+}
+
+/**
+ * Story 172 D2: in a profile that has a `demo` category, appends the unbound `demoBackToWindow`
+ * row when absent and swaps untouched pre-172 demo commands for their guarded form. Never throws,
+ * never touches keys/binds, never re-adds a deleted category; `dirty` is set only on a change.
+ */
+function addBackToWindowAndGuard(raw: Record<string, unknown>): Record<string, unknown> {
+  try {
+    if (raw === null || typeof raw !== 'object') return raw
+    const categories = Array.isArray(raw.categories) ? (raw.categories as Record<string, unknown>[]) : []
+    if (!categories.some((category) => category?.id === 'demo')) return raw
+    if (!Array.isArray(raw.actions)) return raw
+    let changed = false
+    const actions = (raw.actions as Record<string, unknown>[]).map((action) => {
+      const entry = typeof action?.catalogId === 'string' ? DEMO_GUARD_TABLE[action.catalogId] : undefined
+      if (!entry || !Array.isArray(action.commands)) return action
+      const texts = (action.commands as unknown[]).map((c) =>
+        c !== null && typeof c === 'object' && (c as Record<string, unknown>).kind === 'raw'
+          ? (c as Record<string, unknown>).text
+          : undefined,
+      )
+      if (texts.length !== entry.old.length || !texts.every((t, i) => t === entry.old[i])) return action
+      changed = true
+      return { ...action, commands: entry.guarded.map((text) => ({ kind: 'raw', text })) }
+    })
+    const backRow = buildDemoRows().find((row) => row.catalogId === 'demo:demoBackToWindow')
+    if (backRow && !actions.some((action) => action?.catalogId === backRow.catalogId)) {
+      actions.push({
+        id: randomUUID(),
+        categoryId: 'demo',
+        name: nameForCatalogRow(backRow),
+        kind: 'bind',
+        catalogId: backRow.catalogId,
+        commands: [],
+      })
+      changed = true
+    }
+    return changed ? { ...raw, actions, dirty: true } : raw
+  } catch {
+    return raw
+  }
+}
 
 /**
  * Story 167 D3: appends the `demo` category (only if no category has that id) and one unbound

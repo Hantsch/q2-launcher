@@ -11,6 +11,7 @@ function fakeChannel(name: string, order: string[]) {
   const finished = new Set<() => void>()
   let closeResolve: (() => void) | null = null
   const state = { positionMs: 0 as number | null, deferClose: false }
+  const displayCbs = new Set<(d: 'stage' | 'fullscreen') => void>()
   const channel = {
     argsBeforeDemo: [`+before-${name}`],
     argsAfterDemo: [`+after-${name}`],
@@ -20,6 +21,12 @@ function fakeChannel(name: string, order: string[]) {
     onFinished: vi.fn((cb: () => void) => {
       finished.add(cb)
       return () => finished.delete(cb)
+    }),
+    enterFullscreen: vi.fn((): Outcome<void> => ok(undefined)),
+    display: vi.fn(() => 'stage' as const),
+    onDisplayChange: vi.fn((cb: (d: 'stage' | 'fullscreen') => void) => {
+      displayCbs.add(cb)
+      return () => displayCbs.delete(cb)
     }),
     close: vi.fn(() => {
       order.push('close')
@@ -32,6 +39,7 @@ function fakeChannel(name: string, order: string[]) {
   return {
     channel: channel as PlaybackChannel & typeof channel,
     state,
+    fireDisplay: (d: 'stage' | 'fullscreen') => displayCbs.forEach((cb) => cb(d)),
     fireFinished: () => finished.forEach((cb) => cb()),
     resolveClose: () => closeResolve?.(),
   }
@@ -213,6 +221,35 @@ describe('playback control', () => {
     released.fl.release()
     await vi.advanceTimersByTimeAsync(0)
     expect(released.control.currentFormat()).toBeNull()
+  })
+
+  it('a display change is pushed as playback.display and pauses position pushes while fullscreen', async () => {
+    const t = setup('win32')
+    await t.control.prepare({ gameDirPath: 'g', durationMs: 90_000, format: 'dm2' })
+    await t.control.attach()
+    const seen: boolean[] = []
+    t.control.onDisplayChange((f) => seen.push(f))
+    vi.advanceTimersByTime(500)
+    const before = positions(t.events).length
+    expect(before).toBeGreaterThan(0)
+    t.win.fireDisplay('fullscreen')
+    expect(t.events.at(-1)).toEqual({ type: 'playback.display', payload: { fullscreen: true } })
+    vi.advanceTimersByTime(2000)
+    expect(positions(t.events)).toHaveLength(before)
+    t.win.fireDisplay('stage')
+    expect(t.events.at(-1)).toEqual({ type: 'playback.display', payload: { fullscreen: false } })
+    vi.advanceTimersByTime(500)
+    expect(positions(t.events).length).toBeGreaterThan(before)
+    expect(seen).toEqual([true, false])
+  })
+
+  it('enterFullscreen goes to the channel, and is NO_SESSION without a session', async () => {
+    const t = setup('win32')
+    expect(t.control.enterFullscreen()).toEqual(NO_SESSION)
+    await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
+    await t.control.attach()
+    expect(t.control.enterFullscreen()).toEqual({ ok: true, value: undefined })
+    expect(t.win.channel.enterFullscreen).toHaveBeenCalledTimes(1)
   })
 
   it('cancel drops a prepared channel without events and closes it', async () => {

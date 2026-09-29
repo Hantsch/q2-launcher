@@ -1613,7 +1613,7 @@ bind s "+back" // note [q2l bogus]
 // touching `populated`/`empty` at all.
 /** Mirrors src/shared/constants.ts:14 (`STATE_SCHEMA_VERSION`), unlike the deliberately-stale
  * `STATE_SCHEMA_VERSION` above - see the comment block just above this constant. */
-const CONTROLS_SEED_SCHEMA_VERSION = 4
+const CONTROLS_SEED_SCHEMA_VERSION = 5
 
 /** Mirrors src/shared/modules/config.ts:146-150 (`TEMPLATE_ACTION_CATEGORIES`). */
 const TEMPLATE_CATEGORIES = [
@@ -3832,10 +3832,10 @@ export const REPLAYS_TIMELINE_VARIANT = 'replays-timeline'
 const REPLAYS_TIMELINE_ENGINE_LIFETIME_MS = 120_000
 
 /** Where the flow's stub engine records executed commands and looks for its quit file - handed to
- * it as `Q2L_UI_ENGINE_COMMAND_LOG` / `Q2L_UI_ENGINE_QUIT_FILE` by the flow's `setup()`. */
+ * it as `Q2L_UI_ENGINE_COMMAND_LOG` / `Q2L_UI_ENGINE_QUIT_FILE` (and, story 172, `Q2L_UI_ENGINE_KEYS_FILE`) by the flow's `setup()`. */
 export function replaysTimelineEngineFiles() {
   const dir = join(UI_VERIFY_ROOT, 'fixture', 'replays-timeline-engine')
-  return { dir, commandLog: join(dir, 'commands.log'), quitFile: join(dir, 'quit') }
+  return { dir, commandLog: join(dir, 'commands.log'), quitFile: join(dir, 'quit'), keysFile: join(dir, 'keys') }
 }
 
 // Story 171 D2: where the stub engine records the stage follower's window lines (`Q2L_UI_ENGINE_WINDOW_LOG`).

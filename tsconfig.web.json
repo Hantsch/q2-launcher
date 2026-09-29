@@ -20,10 +20,14 @@
   // Story 108 D1: `protocol.test.ts`'s purity sweep does the same thing over every non-test file
   // in `src/shared/servers/`, for the same reason - excluded here, typechecks under
   // `tsconfig.node.json` instead.
+  // Story 172 D1: `demo-guard.test.ts` drives the node-side command-buffer simulator
+  // (`src/test-support/q2-cbuf-sim.ts`), which only the node project includes - so it is excluded
+  // here and typechecks under `tsconfig.node.json` instead (`src/shared/**/*.ts` covers it there).
   "exclude": [
     "src/renderer/src/components/shell/shell-home-ownership.test.ts",
     "src/shared/servers/address.test.ts",
-    "src/shared/servers/protocol.test.ts"
+    "src/shared/servers/protocol.test.ts",
+    "src/shared/replays/demo-guard.test.ts"
   ],
   "compilerOptions": {
     "composite": true,

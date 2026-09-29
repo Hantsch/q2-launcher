@@ -38,6 +38,7 @@ describe('timelineActionSchema', () => {
       { kind: 'jump', deltaS: 60 },
       { kind: 'seekTo', seconds: 0 },
       { kind: 'seekTo', seconds: 754 },
+      { kind: 'fullscreen' },
       ...SPEED_STEPS.map((value) => ({ kind: 'speed', value }))
     ]) {
       expect(timelineActionSchema.safeParse(a).success).toBe(true)

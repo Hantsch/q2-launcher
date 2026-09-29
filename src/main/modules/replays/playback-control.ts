@@ -1,6 +1,7 @@
 import {
   REPLAYS_EVENTS,
   type DemoFormat,
+  type ReplaysPlaybackDisplay,
   type ReplaysPlaybackPosition,
   type ReplaysPlaybackState,
 } from '@shared/modules/replays'
@@ -34,7 +35,7 @@ export interface PlaybackControlDeps {
   launch: PlaybackControlLaunch
   platform?: string
   makeWindows?: (options: WindowsChannelOptions) => PlaybackChannel
-  makeLinux?: (deps: { io: EngineIo; log: ReturnType<typeof scopedLogger> }) => PlaybackChannel
+  makeLinux?: (deps: { io: EngineIo; log: ReturnType<typeof scopedLogger>; gameDirPath: string }) => PlaybackChannel
 }
 
 export interface PlaybackPrepared {
@@ -52,6 +53,10 @@ export interface PlaybackControl {
   send(line: string): Outcome<void>
   /** Format of the demo in the current session, or null with no live session (story 165 D2). */
   currentFormat(): DemoFormat | null
+  /** Story 172 D5: switch the running demo to fullscreen; no session is `NO_SESSION`. */
+  enterFullscreen(): Outcome<void>
+  /** Story 172 D5: the running demo went fullscreen (true) or came back to the stage (false). */
+  onDisplayChange(cb: (fullscreen: boolean) => void): () => void
 }
 
 interface Prepared {
@@ -67,6 +72,8 @@ interface Session extends Prepared {
   timer: ReturnType<typeof setInterval> | null
   finished: boolean
   offFinished: () => void
+  offDisplay: () => void
+  fullscreen: boolean
   ending: boolean
 }
 
@@ -76,9 +83,20 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
   const makeLinux = deps.makeLinux ?? createLinuxChannel
   let prepared: Prepared | null = null
   let session: Session | null = null
+  const displayListeners = new Set<(fullscreen: boolean) => void>()
 
   const pushState = (state: ReplaysPlaybackState['state']): void => {
     emit(REPLAYS_EVENTS.playbackState, { state } satisfies ReplaysPlaybackState)
+  }
+
+  const startTimer = (s: Session): void => {
+    s.timer = setInterval(() => {
+      const { positionMs } = s.channel.latest()
+      emit(REPLAYS_EVENTS.playbackPosition, {
+        positionMs,
+        durationMs: s.durationMs,
+      } satisfies ReplaysPlaybackPosition)
+    }, POSITION_PUSH_MS)
   }
 
   const stopTimer = (s: Session): void => {
@@ -92,6 +110,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
     s.ending = true
     stopTimer(s)
     s.offFinished()
+    s.offDisplay()
     if (session === s) session = null
     try {
       await s.channel.close()
@@ -134,7 +153,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
           writeLine: (line) => bound?.writeLine(line),
           onLine: (cb) => bound?.onLine(cb) ?? (() => undefined),
         }
-        channel = makeLinux({ io: lateIo, log })
+        channel = makeLinux({ io: lateIo, log, gameDirPath })
       }
       const startedEarly = platform === 'win32'
       prepared = { channel, durationMs, format, bindIo, startedEarly }
@@ -147,7 +166,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
       if (!p) return
       prepared = null
       p.bindIo(io)
-      const s: Session = { ...p, timer: null, finished: false, offFinished: () => undefined, ending: false }
+      const s: Session = { ...p, timer: null, finished: false, offFinished: () => undefined, offDisplay: () => undefined, fullscreen: false, ending: false }
       session = s
       try {
         if (!p.startedEarly) await p.channel.start()
@@ -162,14 +181,17 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
         stopTimer(s)
         pushState('finished')
       })
+      s.offDisplay = p.channel.onDisplayChange((display) => {
+        const fullscreen = display === 'fullscreen'
+        if (s.ending || s.fullscreen === fullscreen) return
+        s.fullscreen = fullscreen
+        emit(REPLAYS_EVENTS.playbackDisplay, { fullscreen } satisfies ReplaysPlaybackDisplay)
+        if (fullscreen) stopTimer(s)
+        else if (s.timer === null && !s.finished) startTimer(s)
+        for (const cb of [...displayListeners]) cb(fullscreen)
+      })
       pushState('playing')
-      s.timer = setInterval(() => {
-        const { positionMs } = s.channel.latest()
-        emit(REPLAYS_EVENTS.playbackPosition, {
-          positionMs,
-          durationMs: s.durationMs,
-        } satisfies ReplaysPlaybackPosition)
-      }, POSITION_PUSH_MS)
+      startTimer(s)
     },
 
     async cancel() {
@@ -186,6 +208,16 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
     send(line) {
       if (!session || session.finished) return fail(NO_SESSION)
       return session.channel.send(line)
+    },
+
+    enterFullscreen() {
+      if (!session || session.finished) return fail(NO_SESSION)
+      return session.channel.enterFullscreen()
+    },
+
+    onDisplayChange(cb) {
+      displayListeners.add(cb)
+      return () => displayListeners.delete(cb)
     },
 
     currentFormat() {

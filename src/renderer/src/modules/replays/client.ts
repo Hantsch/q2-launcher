@@ -10,6 +10,7 @@ import {
   type ReplaysExtraFolder,
   type ReplaysOverview,
   type ReplaysPlaybackPosition,
+  type ReplaysPlaybackDisplay,
   type ReplaysPlaybackState,
   type ReplaysScanProgress,
   type ReplaysScanStartResult,
@@ -150,6 +151,10 @@ export function onPlaybackPosition(
 
 export function onPlaybackState(listener: (payload: ReplaysPlaybackState) => void): () => void {
   return onModuleEvent<ReplaysPlaybackState>('replays', REPLAYS_EVENTS.playbackState, listener)
+}
+
+export function onPlaybackDisplay(listener: (payload: ReplaysPlaybackDisplay) => void): () => void {
+  return onModuleEvent<ReplaysPlaybackDisplay>('replays', REPLAYS_EVENTS.playbackDisplay, listener)
 }
 
 export function copyDemoPath(demoId: string): Promise<Outcome<DemoFileActionResult>> {

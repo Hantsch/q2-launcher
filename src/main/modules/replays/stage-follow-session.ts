@@ -41,6 +41,8 @@ export interface StageFollowSessions {
   begin(start: { geometry: string; rect: ReplaysStageRect }): () => void
   /** `playback.stage`: the stage moved (or is gone, `null`). */
   report(rect: ReplaysStageRect | null): Outcome<void>
+  /** Story 172 D5: while the demo is fullscreen the game window is not moved or resized. */
+  setSuspended(suspended: boolean): void
 }
 
 export interface StageFollowSessionsDeps {
@@ -57,7 +59,10 @@ export function createStageFollowSessions(deps: StageFollowSessionsDeps): StageF
   const create = deps.createFollower ?? createStageFollower
   let current: { follower: StageFollower; rect: ReplaysStageRect | null; unsubscribe: () => void } | null = null
 
+  let suspended = false
+
   const feed = (session: NonNullable<typeof current>, tick: boolean): void => {
+    if (suspended) return
     const snap = deps.window.snapshot()
     if (!snap) return
     const window: StageFollowWindow = {
@@ -71,6 +76,7 @@ export function createStageFollowSessions(deps: StageFollowSessionsDeps): StageF
 
   return {
     begin({ geometry, rect }) {
+      suspended = false
       current?.unsubscribe()
       current?.follower.dispose()
       const follower = create({
@@ -91,6 +97,11 @@ export function createStageFollowSessions(deps: StageFollowSessionsDeps): StageF
         session.unsubscribe()
         follower.dispose()
       }
+    },
+    setSuspended(value) {
+      if (suspended === value) return
+      suspended = value
+      if (!value && current) feed(current, false)
     },
     report(rect) {
       if (current) {

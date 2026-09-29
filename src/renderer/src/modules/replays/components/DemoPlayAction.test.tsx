@@ -16,6 +16,7 @@ vi.mock('../client', () => ({
   playDemo: (...args: unknown[]) => playDemo(...args),
   onPlaybackPosition: () => () => {},
   onPlaybackState: () => () => {},
+  onPlaybackDisplay: () => () => {},
 }))
 
 let DemoPlayAction: typeof import('./DemoPlayAction').DemoPlayAction

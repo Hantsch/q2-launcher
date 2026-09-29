@@ -41,3 +41,27 @@
 - 18:10:06 · 171 · review 1 · started
 - 18:11:55 · 171 · review 1 · done (PASS, minor findings documented)
 - 18:11:55 · 171 · story · done
+- 18:12:15 · 172 · build · started
+- 18:12:36 · 172 · D1 guarded demo actions · started
+- 18:18:58 · 172 · D1 guarded demo actions · done
+- 18:18:58 · 172 · D2 migration + bind flow · started
+- 18:22:32 · 172 · D2 migration + bind flow · done
+- 18:22:32 · 172 · D3 protocol · started
+- 18:25:47 · 172 · D3 protocol · done
+- 18:25:47 · 172 · D4 Windows channel (hard) · started
+- 18:34:22 · 172 · D4 Windows channel (hard) · done
+- 18:34:22 · 172 · D5 Linux channel + control + IPC · started
+- 18:37:40 · 172 · D5 Linux channel + control + IPC · done
+- 18:37:40 · 172 · D6 timeline UI · started
+- 18:39:25 · 172 · D6 timeline UI · done
+- 18:39:25 · 172 · D7 stub engine + fullscreen flow · started
+- 18:47:33 · 172 · D7 stub engine + fullscreen flow · done
+- 18:47:33 · 172 · verify · started
+- 18:53:26 · 172 · verify · done (replays-play-q2pro assertion updated for q2l_session, re-run green; all else green)
+- 18:53:26 · 172 · review 1 · started
+- 18:56:23 · 172 · review 1 · done (PASS with reservations; fixing findings 2,4,7)
+- 18:56:23 · 172 · review-fix 1 · started
+- 19:01:49 · 172 · review-fix 1 · done
+- 19:01:49 · 172 · verify (re-run) · started
+- 19:09:58 · 172 · verify (re-run) · done (controls-extra-keys red on bare HEAD too: keyboard-focus flake, pre-existing)
+- 19:10:11 · 172 · story · done

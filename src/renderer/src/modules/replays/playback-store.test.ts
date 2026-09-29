@@ -5,6 +5,7 @@ const handlers = vi.hoisted(() => ({
   state: null as null | ((s: { state: 'playing' | 'finished' | 'ended' }) => void),
   offPosition: vi.fn(),
   offState: vi.fn(),
+  display: null as null | ((p: { fullscreen: boolean }) => void),
 }))
 
 vi.mock('./client', () => ({
@@ -15,6 +16,10 @@ vi.mock('./client', () => ({
   onPlaybackState: (l: typeof handlers.state) => {
     handlers.state = l
     return handlers.offState
+  },
+  onPlaybackDisplay: (l: typeof handlers.display) => {
+    handlers.display = l
+    return () => {}
   },
 }))
 
@@ -36,7 +41,16 @@ describe('playback store (story 165 D3)', () => {
       knownDurationMs: 90_000,
       view: null,
       speed: 1,
+      fullscreen: false,
     })
+  })
+
+  it('applyDisplay flips the session fullscreen flag', () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    handlers.display?.({ fullscreen: true })
+    expect(usePlaybackStore.getState().session?.fullscreen).toBe(true)
+    handlers.display?.({ fullscreen: false })
+    expect(usePlaybackStore.getState().session?.fullscreen).toBe(false)
   })
 
   it('position events feed the reducer; the known duration wins, an unchanged position reads paused', () => {

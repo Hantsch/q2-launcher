@@ -3,6 +3,7 @@ import { CBUF_LINE_BYTES } from '@shared/config/engine-limits'
 import { SPEED_STEPS } from '@shared/replays/timeline'
 import { DEMO_ACTIONS } from './action-catalog'
 import { buildDemoRows } from './catalog-rows'
+import { guardDemoCommand } from '@shared/replays/demo-guard'
 import { speedDownCommand, speedDownCommands, speedUpCommand, speedUpCommands } from './demo-speed'
 
 /**
@@ -64,7 +65,9 @@ describe('demo speed commands (story 167 D2)', () => {
     const rows = Object.fromEntries(buildDemoRows().map((row) => [row.catalogId, row.commands]))
     for (const action of DEMO_ACTIONS.filter((a) => a.id.startsWith('demoSpeed'))) {
       const commands = rows[`demo:${action.id}`]
-      expect(commands, action.id).toEqual(action.id === 'demoSpeedUp' ? speedUpCommands() : speedDownCommands())
+      expect(commands, action.id).toEqual(
+        (action.id === 'demoSpeedUp' ? speedUpCommands() : speedDownCommands()).map(guardDemoCommand),
+      )
       expect(commands!.join('; ')).toBe(action.command)
     }
   })

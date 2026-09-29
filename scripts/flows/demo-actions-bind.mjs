@@ -29,6 +29,7 @@ const ROWS = [
   { name: 'Demo long jump forward', reason: 'Seeking needs Q2PRO' },
   { name: 'Demo speed up', reason: 'Speed steps need Q2PRO' },
   { name: 'Demo speed down', reason: 'Speed steps need Q2PRO' },
+  { name: 'Back to window', reason: null },
 ]
 
 /** The command `KEY` is bound to in `text`, following the one alias indirection the writer uses. */
@@ -36,12 +37,15 @@ function resolvedBind(text) {
   const bound = new RegExp(`^bind ${KEY} "([^"]*)"`, 'mi').exec(text)?.[1]
   if (bound === undefined) return undefined
   for (const line of text.split(/\r?\n/)) {
-    const m = /^alias (\S+) (.*?)\s*(?:\/\/.*)?$/.exec(line)
-    if (m && m[1] === bound) return m[2]
+    const m = /^alias (\S+)\s+(.*?)\s*(?:\/\/.*)?$/.exec(line)
+    if (m && m[1] === bound) return m[2].replace(/^"(.*)"$/, '$1')
   }
   return bound
 }
-const EXPECTED_COMMAND = `seek +${JUMP_STEP_S}`
+// Story 172 D1: every demo action but "Back to window" runs behind this guard.
+const GUARD = 'if x$cl_demopos ne x$q2l_armpos then '
+const EXPECTED_COMMAND = `${GUARD}seek +${JUMP_STEP_S}`
+const BACK_COMMAND = 'exec q2l_back.cfg'
 
 const rowFor = (page, name) =>
   page.locator('.ctrl-row').filter({ has: page.locator('.ctrl-label', { hasText: name }) })
@@ -75,7 +79,7 @@ export default async function demoActionsBind({ page, shot, step }) {
   step('open Q2PRO Profile > Controls > Demo playback')
   await openDemoCategory(page, 'Q2PRO Profile')
 
-  step('all seven demo rows are shown and none is marked unavailable')
+  step('all eight demo rows are shown and none is marked unavailable')
   for (const { name } of ROWS) {
     const row = rowFor(page, name)
     await row.first().waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -96,7 +100,6 @@ export default async function demoActionsBind({ page, shot, step }) {
   await page.getByTestId('config-save').click({ timeout: TIMEOUT_MS })
 
   const canonical = join(variantUserDataDir('populated'), Q2PRO_FILE)
-const EXPECTED_COMMAND = `seek +${JUMP_STEP_S}`
   try {
     step('the profile file on disk holds the seek bind')
     await waitForFile(canonical, (text) => resolvedBind(text) === EXPECTED_COMMAND, `bind ${KEY} -> "${EXPECTED_COMMAND}"`)
@@ -112,6 +115,28 @@ const EXPECTED_COMMAND = `seek +${JUMP_STEP_S}`
     }
   }
   step('the bind is gone from the file again')
+  await waitForFile(canonical, (text) => resolvedBind(text) === undefined, `bind ${KEY} removed`)
+
+  step('bind a key to Back to window and save')
+  const back = rowFor(page, 'Back to window')
+  await back.locator('.ctrl-keycell .ctrl-slot').first().click({ timeout: TIMEOUT_MS })
+  await page.keyboard.press(KEY)
+  await back.locator('.ctrl-keycell .ctrl-slot.is-bound').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('config-save').click({ timeout: TIMEOUT_MS })
+  try {
+    step('the profile file on disk holds the exec q2l_back.cfg bind')
+    await waitForFile(canonical, (text) => resolvedBind(text) === BACK_COMMAND, `bind ${KEY} -> "${BACK_COMMAND}"`)
+  } finally {
+    step('unbind Back to window and save back')
+    const slot = back.locator('.ctrl-keycell .ctrl-slot').first()
+    if ((await slot.getAttribute('class'))?.includes('is-bound')) {
+      await slot.click({ timeout: TIMEOUT_MS })
+      await page.keyboard.press('Delete')
+      await back.locator('.ctrl-keycell .ctrl-slot.is-bound').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+      await page.getByTestId('config-save').click({ timeout: TIMEOUT_MS })
+    }
+  }
+  step('the Back to window bind is gone from the file again')
   await waitForFile(canonical, (text) => resolvedBind(text) === undefined, `bind ${KEY} removed`)
 
   step('open Plain Profile (r1q2 only) > Controls > Demo playback')

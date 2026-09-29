@@ -14,6 +14,7 @@ vi.mock('../client', () => ({
   playbackTimeline: (...args: unknown[]) => playbackTimeline(...args),
   onPlaybackPosition: () => () => {},
   onPlaybackState: () => () => {},
+  onPlaybackDisplay: () => () => {},
 }))
 
 let DemoTimeline: typeof import('./DemoTimeline').DemoTimeline
@@ -152,5 +153,47 @@ describe('DemoTimeline (story 165 D3)', () => {
     playbackTimeline.mockRejectedValueOnce(new Error('boom'))
     fireEvent.click(testid('back'))
     await vi.waitFor(() => expect(screen.getByTestId('replays-timeline-error')).toBeTruthy())
+  })
+
+  it('the fullscreen button resumes a paused demo, then enters fullscreen', async () => {
+    begin(60_000, 1000)
+    render(createElement(DemoTimeline))
+    act(() => usePlaybackStore.getState().applyPosition(1000, null))
+    act(() => usePlaybackStore.getState().applyPosition(1000, null))
+    expect(testid('state').textContent).toBe('Paused')
+    fireEvent.click(testid('fullscreen'))
+    await vi.waitFor(() => expect(playbackTimeline).toHaveBeenCalledTimes(2))
+    expect(playbackTimeline.mock.calls.map((c) => c[0])).toEqual([
+      { kind: 'togglePause' },
+      { kind: 'fullscreen' },
+    ])
+  })
+
+  it('the fullscreen button enters fullscreen directly while playing and shows a refusal', async () => {
+    begin(60_000, 1000)
+    render(createElement(DemoTimeline))
+    playbackTimeline.mockResolvedValueOnce({
+      ok: true,
+      value: { ok: false, error: { key: 'replays.playback.error.fullscreen' } },
+    })
+    fireEvent.click(testid('fullscreen'))
+    expect((await screen.findByTestId('replays-timeline-error')).textContent).toBeTruthy()
+    expect(playbackTimeline.mock.calls.map((c) => c[0])).toEqual([{ kind: 'fullscreen' }])
+  })
+
+  it('in fullscreen the timeline shows the keys text and disables its controls', () => {
+    begin(60_000, 1000)
+    render(createElement(DemoTimeline))
+    act(() => usePlaybackStore.getState().applyDisplay({ fullscreen: true }))
+    expect(testid('keys').textContent).toContain('Back to window')
+    for (const id of ['toggle', 'back', 'forward', 'speed', 'fullscreen']) {
+      expect((testid(id) as HTMLButtonElement).disabled).toBe(true)
+    }
+    expect(testid('seek').getAttribute('aria-disabled')).toBe('true')
+    expect(screen.queryByTestId('replays-timeline-position')).toBeNull()
+    expect(screen.queryByTestId('replays-timeline-duration')).toBeNull()
+    act(() => usePlaybackStore.getState().applyDisplay({ fullscreen: false }))
+    expect(screen.queryByTestId('replays-timeline-keys')).toBeNull()
+    expect((testid('toggle') as HTMLButtonElement).disabled).toBe(false)
   })
 })

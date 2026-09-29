@@ -59,19 +59,22 @@ describe('DEMO_ACTIONS', () => {
     // Literal expectations: 10 and 60 are the timeline's JUMP_STEP_S / PAGE_STEP_S (story 165); if
     // those constants change, these strings must change on purpose.
     const commands = Object.fromEntries(DEMO_ACTIONS.map((a) => [a.id, a.command]))
+    const G = 'if x$cl_demopos ne x$q2l_armpos then '
     expect(commands).toEqual({
-      demoPause: 'pause',
-      demoJumpBack: 'seek -10',
-      demoJumpForward: 'seek +10',
-      demoJumpBackLong: 'seek -60',
-      demoJumpForwardLong: 'seek +60',
+      demoPause: `${G}pause`,
+      demoJumpBack: `${G}seek -10`,
+      demoJumpForward: `${G}seek +10`,
+      demoJumpBackLong: `${G}seek -60`,
+      demoJumpForwardLong: `${G}seek +60`,
       // Story 167 D2: SPEED_STEPS [0.25, 0.5, 1, 2, 4]; up checks descending, down ascending.
       demoSpeedUp:
-        'if $timescale == 2 then timescale 4; if $timescale == 1 then timescale 2; ' +
-        'if $timescale == 0.5 then timescale 1; if $timescale == 0.25 then timescale 0.5',
+        `${G}if $timescale == 2 then timescale 4; ${G}if $timescale == 1 then timescale 2; ` +
+        `${G}if $timescale == 0.5 then timescale 1; ${G}if $timescale == 0.25 then timescale 0.5`,
       demoSpeedDown:
-        'if $timescale == 0.5 then timescale 0.25; if $timescale == 1 then timescale 0.5; ' +
-        'if $timescale == 2 then timescale 1; if $timescale == 4 then timescale 2',
+        `${G}if $timescale == 0.5 then timescale 0.25; ${G}if $timescale == 1 then timescale 0.5; ` +
+        `${G}if $timescale == 2 then timescale 1; ${G}if $timescale == 4 then timescale 2`,
+      // Story 172 D1: unguarded - `q2l_back.cfg` guards itself.
+      demoBackToWindow: 'exec q2l_back.cfg',
     })
   })
 

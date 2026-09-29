@@ -1,7 +1,7 @@
 ---
 id: 172
 title: I choose fullscreen and come back
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-29
 ---
 
@@ -25,20 +25,20 @@ back-to-window action still apply.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The timeline has a fullscreen button; pressing it switches the running demo to
+- [x] **AC1** — The timeline has a fullscreen button; pressing it switches the running demo to
       fullscreen.
-- [ ] **AC2** — In fullscreen on Windows the control loop is stopped, so bound demo actions, typed
+- [x] **AC2** — In fullscreen on Windows the control loop is stopped, so bound demo actions, typed
       console commands and `quit` take effect in-game.
-- [ ] **AC3** — While in fullscreen the timeline shows that the demo is steered by keys (visible
+- [x] **AC3** — While in fullscreen the timeline shows that the demo is steered by keys (visible
       text, i18n key) instead of stale position/controls.
-- [ ] **AC4** — The Controls tab's "Demo playback" category offers a bindable "back to window"
+- [x] **AC4** — The Controls tab's "Demo playback" category offers a bindable "back to window"
       action; binding it writes its engine command into the profile like every other bind, pinned by
       a unit test; the launcher never binds it on its own.
-- [ ] **AC5** — Pressing the bound "back to window" key in fullscreen returns the demo to the stage
+- [x] **AC5** — Pressing the bound "back to window" key in fullscreen returns the demo to the stage
       geometry and the launcher regains control (position updates and timeline commands work again).
-- [ ] **AC6** — The "back to window" action outside a launcher-started demo playback is harmless (no
+- [x] **AC6** — The "back to window" action outside a launcher-started demo playback is harmless (no
       error dialog, no game-state change beyond an engine message).
-- [ ] **AC7** — Existing profiles get the new action (unbound) through a state migration, as [[167]]
+- [x] **AC7** — Existing profiles get the new action (unbound) through a state migration, as [[167]]
       did for the demo category.
 
 ## Decisions (Sprint)
@@ -127,7 +127,7 @@ alias-render}.ts`, `src/main/services/migrations.ts`, `src/main/modules/replays/
 
 ## Deliverables
 
-- [ ] **D1 — guarded demo actions and the back-to-window action (shared).** New
+- [x] **D1 — guarded demo actions and the back-to-window action (shared).** New
   `src/shared/replays/demo-guard.ts` (pure, no node/DOM): `ARMPOS_CVAR = 'q2l_armpos'`,
   `SESSION_CVAR = 'q2l_session'`, `BACK_TO_WINDOW_CFG = 'q2l_back.cfg'`,
   `guardDemoCommand(cmd) = \`if x$cl_demopos ne x$q2l_armpos then ${cmd}\``, and
@@ -160,7 +160,7 @@ alias-render}.ts`, `src/main/services/migrations.ts`, `src/main/modules/replays/
   row back); `render.test.ts` › "the template seeds the demo category unbound and binds no demo
   command" must still pass with the new row.
 
-- [ ] **D2 — existing profiles get the new row; the bind reaches the file (main + flow).** New step
+- [x] **D2 — existing profiles get the new row; the bind reaches the file (main + flow).** New step
   `to: 5` in `MIGRATIONS` (`src/main/services/migrations.ts`, mirror the `to: 4` demo step and its
   `addDemoCategory` helper; bump `STATE_SCHEMA_VERSION` to 5 in `src/shared/constants.ts`, and the
   schema mirror in `scripts/lib/fixture.mjs`/`controls-seed` fixture if they pin 4 — 167 hit that):
@@ -176,7 +176,7 @@ alias-render}.ts`, `src/main/services/migrations.ts`, `src/main/modules/replays/
   save, assert the written profile holds the bind resolving (through the generated alias, as the flow
   already resolves `seek`) to `exec q2l_back.cfg`, then unbind and save back.
 
-- [ ] **D3 — protocol for fullscreen (main, pure).** In
+- [x] **D3 — protocol for fullscreen (main, pure).** In
   `src/main/modules/replays/playback-channel/protocol.ts`: the control file's position line becomes
   `echo POS $cl_demopos FS $vid_fullscreen`; `parseEngineLine`'s `pos` kind gains
   `fullscreen: boolean | null` (`FS 1`/`FS 0`; `null` when absent, so old fixture lines still parse;
@@ -202,7 +202,7 @@ alias-render}.ts`, `src/main/services/migrations.ts`, `src/main/modules/replays/
   loop); › "a stale back-to-window press does not undo the switch"; parser cases for `FS` lines;
   `+set q2l_session 1` present in both platforms' `argsBeforeDemo`.
 
-- [ ] **D4 — Windows channel follows stage/fullscreen (main).** In
+- [x] **D4 — Windows channel follows stage/fullscreen (main).** In
   `src/main/modules/replays/playback-channel/windows-channel.ts` implement D3's interface additions
   with `protocol.ts` builders. `start()`/prepare also writes `q2l_back.cfg`
   (`buildBackToWindowCfg('win32')`) atomically next to the loop cfg; `close()` and stale cleanup
@@ -228,7 +228,7 @@ alias-render}.ts`, `src/main/services/migrations.ts`, `src/main/modules/replays/
   the stage follows the user's switch"; › "sends in fullscreen fail with
   replays.playback.error.fullscreen"; › close removes `q2l_back.cfg`.
 
-- [ ] **D5 — Linux channel, PlaybackControl, IPC (main + shared).** `linux-channel.ts`:
+- [x] **D5 — Linux channel, PlaybackControl, IPC (main + shared).** `linux-channel.ts`:
   `createLinuxChannel({ io, log, gameDirPath })` (pass `gameDirPath` from `playback-control.ts`'s
   `prepare`), writes `q2l_back.cfg` (`buildBackToWindowCfg('linux')` from `protocol.ts`) at `start()`
   and removes it at `close()`; `enterFullscreen()` writes `vid_fullscreen 1`; display follows every
@@ -247,7 +247,7 @@ alias-render}.ts`, `src/main/services/migrations.ts`, `src/main/modules/replays/
   fullscreen action enters fullscreen instead of sending a line"; `timeline.test.ts` schema accepts
   `{ kind: 'fullscreen' }`.
 
-- [ ] **D6 — fullscreen button and keys-steer text (renderer).** `src/renderer/src/modules/replays/
+- [x] **D6 — fullscreen button and keys-steer text (renderer).** `src/renderer/src/modules/replays/
   playback-store.ts`: session gains `fullscreen: boolean` (false at `beginSession`) and
   `applyDisplay(p)`; `client.ts` subscribes to `REPLAYS_EVENTS.playbackDisplay` next to
   `playbackState`. `components/DemoTimeline.tsx`: a fullscreen `IconButton` (`size="md"`, inline SVG
@@ -263,7 +263,7 @@ alias-render}.ts`, `src/main/services/migrations.ts`, `src/main/modules/replays/
   `DemoTimeline.test.tsx` › "the fullscreen button resumes a paused demo, then enters fullscreen" and
   › "in fullscreen the timeline shows the keys text and disables its controls".
 
-- [ ] **D7 — stub engine and the fullscreen flow (scripts).** `scripts/lib/stub-engine.cjs`:
+- [x] **D7 — stub engine and the fullscreen flow (scripts).** `scripts/lib/stub-engine.cjs`:
   `vid_fullscreen` as a cvar whose changes are written to the command log (`vid_fullscreen 1`),
   `ne`/`eq` already supported; a key-press file `Q2L_UI_ENGINE_KEYS_FILE` — when it appears, each line
   is **appended** (`addText`, like a bind press), then the file is deleted. `scripts/lib/fixture.mjs`:
@@ -312,3 +312,23 @@ alias-render}.ts`, `src/main/services/migrations.ts`, `src/main/modules/replays/
   ones" (D2)
 
 ## Done
+
+**Summary.** The timeline gets a fullscreen button; the guarded switch stops the Windows control loop so bound demo actions, console and `quit` work in-game. Demo actions are guarded by the `q2l_armpos` cvar (`ne` guard) so queued presses are ignored; a bindable "Back to window" action (`exec q2l_back.cfg`) restores the stage and re-arms the loop. State migration v5 adds the unbound row and upgrades untouched demo commands. The Windows and Linux channels track stage/fullscreen from `FS` samples; the stage follower (171) is suspended in fullscreen.
+
+**Commit message:** `172: fullscreen from the timeline, guarded demo actions, bindable back-to-window (v5 migration, FS-aware channels)`
+
+**Verification (narrow gate, twice, after the last edit).** typecheck, build, `npx vitest run --changed HEAD` (218 files, 3721 passed) green. Flows green: replays-fullscreen, replays-timeline, replays-play-q2pro, replays-stage-follow, replays-stage, replays-console-command, demo-actions-bind, controls-subcategory, controls-category-rename-reorder, settings-section-rename-add-cvar. Review: clean Sonnet agent, PASS with reservations, 1 fix cycle.
+AC -> test as verified: AC1 replays-fullscreen + DemoTimeline fullscreen test; AC2 windows-channel "fullscreen stops the loop..." + protocol "the switch arms the guard..." + flow; AC3 DemoTimeline keys-text test + flow; AC4 action-catalog pinned + migrations v5 row + demo-actions-bind; AC5 windows-channel "fresh FS 0 sample" + protocol "back to window leaves fullscreen..." + flow; AC6 protocol "outside a launcher playback is harmless" + demo-guard test; AC7 both v5 migration tests. All ran and passed.
+Manual residue: real key presses / typed console lines in a real Q2PRO fullscreen (synthetic keys do not reach Q2PRO, no licensed game data in CI).
+Pre-existing: flow `controls-extra-keys` is red (key-capture shows "y is already used"; keyboard-focus dependent) on bare HEAD as well, and passed once earlier in this build; not caused by 172.
+
+**Decisions.**
+- Review fix: q2l_loop.cfg now starts with `set q2l_armpos ""`, and the Windows back cfg additionally requires a non-empty armpos, so "Back to window" pressed while already windowed no longer starts a second loop chain. Linux cfg unchanged (no loop). Deviates from the D3 cfg text; pinned by "back to window while windowed does not start a second loop".
+- Stale FS 0 lines: on a timeout-entered fullscreen an FS 0 is ignored if the switch's ACK follows in the same read batch; FS 1 while entering counts only for our own switch (D4 extras).
+- Windows-channel sends while `entering` are accepted, then dropped and logged at fullscreen; the internal switch does not count against QUEUE_CAP.
+- Stage follower: `setSuspended` in stage-follow-session, re-places after the 250 ms quiet period on resume; the index.ts wiring has no unit test (inside the register function).
+- The fullscreen icon uses lucide `Maximize` instead of inline SVG (repo's icon convention); ConsoleCommandField is not visually disabled in fullscreen, it only gets the rejection error (timeline controls are disabled).
+- `flows/replays-play-q2pro.mjs` order assertion updated for `+set q2l_session 1`.
+- Unfixed review findings, accepted: a user Alt+Enter racing a queued button switch can drop the switch (narrow); stale-FS0 detection covers only one read batch; `demoActionUnavailableReason` still leaves guarded `pause` ungated on r1q2 (Q2PRO-only playback).
+
+tiers: D 7 / hard 1 · review default · cycles 1 · agents 12

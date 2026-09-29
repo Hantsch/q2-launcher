@@ -15,6 +15,7 @@ vi.mock('../client', () => ({
   playbackTimeline: vi.fn(),
   onPlaybackPosition: () => () => {},
   onPlaybackState: () => () => {},
+  onPlaybackDisplay: () => () => {},
 }))
 
 let ConsoleCommandField: typeof import('./ConsoleCommandField').ConsoleCommandField

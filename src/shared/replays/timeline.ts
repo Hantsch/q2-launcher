@@ -29,7 +29,9 @@ export const timelineActionSchema = z.discriminatedUnion('kind', [
     ])
   }),
   z.strictObject({ kind: z.literal('seekTo'), seconds: z.number().int().min(0) }),
-  z.strictObject({ kind: z.literal('speed'), value: speedSchema })
+  z.strictObject({ kind: z.literal('speed'), value: speedSchema }),
+  // Story 172: handled by the launcher (the channel switches the game), never a console line.
+  z.strictObject({ kind: z.literal('fullscreen') })
 ])
 
 export type TimelineAction = z.infer<typeof timelineActionSchema>
@@ -45,6 +47,8 @@ export function buildTimelineCommand(action: TimelineAction, seekVerb: string): 
       return `${seekVerb} ${action.seconds}`
     case 'speed':
       return `timescale ${action.value}`
+    case 'fullscreen':
+      throw new Error('fullscreen is not a console command')
   }
 }
 

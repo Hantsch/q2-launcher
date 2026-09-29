@@ -102,11 +102,17 @@ export const REPLAYS_EVENTS = {
   /** Story 164 D4: a `ReplaysPlaybackState` - `playing` on attach, `finished` when the demo ends,
    * `ended` (always last) once the game is gone or the launcher let go of it. */
   playbackState: 'playback.state',
+  /** Story 172 D5: a `ReplaysPlaybackDisplay` - pushed when the demo goes fullscreen or comes back. */
+  playbackDisplay: 'playback.display',
 } as const
 
 export interface ReplaysPlaybackPosition {
   positionMs: number | null
   durationMs: number | null
+}
+
+export interface ReplaysPlaybackDisplay {
+  fullscreen: boolean
 }
 
 export interface ReplaysPlaybackState {

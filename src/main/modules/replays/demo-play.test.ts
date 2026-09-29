@@ -562,6 +562,8 @@ describe('demo.play playback channel (story 164 D4)', () => {
       cancel: vi.fn(async () => undefined),
       send: vi.fn(),
       currentFormat: vi.fn(() => null),
+      enterFullscreen: vi.fn(),
+      onDisplayChange: vi.fn(() => () => undefined),
     } satisfies PlaybackControl
   }
 
@@ -661,6 +663,8 @@ describe('demo.play on the stage (story 170 D2)', () => {
     cancel: vi.fn(async () => undefined),
     send: vi.fn(),
     currentFormat: vi.fn(() => null),
+    enterFullscreen: vi.fn(),
+    onDisplayChange: vi.fn(() => () => undefined),
   }) satisfies PlaybackControl
 
   it('stage args sit before +demo', async () => {

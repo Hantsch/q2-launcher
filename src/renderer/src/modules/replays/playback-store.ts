@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { reducePlaybackView, type PlaybackView } from '@shared/replays/timeline'
-import { onPlaybackPosition, onPlaybackState } from './client'
+import { onPlaybackDisplay, onPlaybackPosition, onPlaybackState } from './client'
 
 /**
  * Story 165 D3: the renderer's view of the one running demo session.
@@ -19,6 +19,8 @@ export interface PlaybackSession {
   view: PlaybackView | null
   /** Last speed the user set; 1x at session start. Local only - the engine has no read-back. */
   speed: number
+  /** Story 172: the game window is fullscreen; the strip shows the keys text instead of stale position. */
+  fullscreen: boolean
 }
 
 export interface StageRect {
@@ -45,6 +47,7 @@ interface PlaybackStoreState {
   setSpeed: (speed: number) => void
   applyPosition: (positionMs: number | null, engineDurationMs: number | null) => void
   applyState: (state: 'playing' | 'finished' | 'ended') => void
+  applyDisplay: (p: { fullscreen: boolean }) => void
 }
 
 let unsubscribers: Array<() => void> = []
@@ -71,10 +74,11 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   setStageReason: (reason) => set({ stageReason: reason }),
   beginSession: (demoName, knownDurationMs) => {
     unsubscribeAll()
-    set({ session: { demoName, knownDurationMs, view: null, speed: 1 } })
+    set({ session: { demoName, knownDurationMs, view: null, speed: 1, fullscreen: false } })
     unsubscribers = [
       onPlaybackPosition((p) => get().applyPosition(p.positionMs, p.durationMs)),
       onPlaybackState((s) => get().applyState(s.state)),
+      onPlaybackDisplay((p) => get().applyDisplay(p)),
     ]
   },
   endSession: () => {
@@ -94,6 +98,12 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       })
       return { session: { ...s.session, view } }
     }),
+  applyDisplay: (p) =>
+    set((s) =>
+      s.session === null || s.session.fullscreen === p.fullscreen
+        ? s
+        : { session: { ...s.session, fullscreen: p.fullscreen } },
+    ),
   applyState: (state) => {
     if (state === 'ended') {
       get().endSession()
