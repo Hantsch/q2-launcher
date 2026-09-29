@@ -312,3 +312,5 @@ Decisions (implementation):
 - Open, accepted: (1) launcher quit while the game keeps running — next-start `applyPending` restores before the engine's write-on-exit, so the stage values can persist; (2) negative display origins are emitted as `+-X` in `vid_geometry` — Q2PRO's parsing is unverified (check with the real-window manual residue); (3) `toGeometry` in `index.ts` is an inline closure without a unit test; scaled/secondary-display behaviour rests on `stage.test.ts` with an injected `dipToScreen` and the manual check.
 
 tiers: D 5 / hard 1 · review default+hard · cycles 2 · agents 11
+
+- Sprint-gate regression: `replays-timeline@940x620` timed out waiting for the hidden Demos list (stage mode hides list/detail while a demo plays; second viewport shares the launch) - screen definition in `scripts/lib/screens.mjs` now accepts the list or the timeline strip as ready signal.

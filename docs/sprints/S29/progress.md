@@ -112,3 +112,6 @@
 - 20:03:25 · gate · e2e-all · started
 - 20:41:28 · gate · e2e-all · done (98/107, 9 failed) · attribution started
 - 20:59:45 · fix · 173 stage-hint regression: hint now uses the reserved console reason line; stage/follow/overlays/view-leave/stop/timeline/fullscreen flows green
+- 21:00:02 · gate · fix 170 (ui:verify replays-timeline@940x620) · started
+
+- 21:03:41 · gate · fix 170 (replays-timeline@940x620) · screens.mjs navigate waits for list OR timeline (stage mode hides list); ui:verify 114/0 axe, replays-stage+timeline flows, typecheck green

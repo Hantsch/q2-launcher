@@ -1350,8 +1350,12 @@ export const SCREENS = [
     // viewport shares the launch, so the demo is still playing there (Play is disabled meanwhile).
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      // Story 170: while a demo plays the Demos view is in stage mode - the list/detail are hidden
+      // (the second viewport shares the launch), so the timeline strip is the other ready signal.
       await page
         .getByTestId('replays-demo-list')
+        .or(page.getByTestId('replays-timeline'))
+        .first()
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
       if (!(await page.getByTestId('replays-timeline').isVisible())) {
         await page
