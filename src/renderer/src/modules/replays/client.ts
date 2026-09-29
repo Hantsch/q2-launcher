@@ -183,6 +183,14 @@ export async function consoleSend(line: string): Promise<Outcome<void>> {
 }
 
 /**
+ * Story 173 D1: ends the running demo (quit, then terminate - main owns the timeout). Flattens like
+ * `consoleSend`; no playback launch running is `replays.playback.error.noSession`.
+ */
+export async function playbackStop(): Promise<Outcome<void>> {
+  return flattenOutcome(await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackStop, undefined))
+}
+
+/**
  * Story 144 D4: the index scan's renderer-side transport, mirroring `servers/client.ts`'s
  * `startScan`/`readScan`/`onScanChanged` triad. `scanStart` kicks off a background scan
  * (single-flight - `started: false` means one was already running); `indexRead` is a one-shot

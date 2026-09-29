@@ -94,6 +94,7 @@ describe('replays module', () => {
       'playback.timeline',
       'playback.consoleSend',
       'playback.stage',
+      'playback.stop',
     ])
   })
 
@@ -473,7 +474,7 @@ describe('replays module', () => {
         broadcast: { emit: () => {} },
         installations: { list: () => [installation] },
         state,
-        launch: { isRunning: () => false },
+        launch: { isRunning: () => false, isPlaybackRunning: () => false },
       } as unknown as AppContext
 
       const registry = new MainModuleRegistry()
@@ -550,7 +551,7 @@ describe('replays module', () => {
         broadcast: { emit: () => {} },
         installations: { list: () => [installation] },
         state,
-        launch: { isRunning: () => false },
+        launch: { isRunning: () => false, isPlaybackRunning: () => false },
       } as unknown as AppContext
 
       const registry = new MainModuleRegistry()
@@ -620,7 +621,7 @@ describe('replays module', () => {
         broadcast: { emit: () => {} },
         installations: { list: () => [installation] },
         state,
-        launch: { isRunning: () => false },
+        launch: { isRunning: () => false, isPlaybackRunning: () => false },
       } as unknown as AppContext
 
       const registry = new MainModuleRegistry()
@@ -656,6 +657,7 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.playbackTimeline]: { kind: 'togglePause' },
         [REPLAYS_HANDLERS.playbackConsoleSend]: { line: 'echo hi' },
         [REPLAYS_HANDLERS.playbackStage]: { rect: { x: 0, y: 0, width: 640, height: 480 } },
+        [REPLAYS_HANDLERS.playbackStop]: undefined,
         [REPLAYS_HANDLERS.listGetSort]: undefined,
         [REPLAYS_HANDLERS.listSetSort]: { sort: null },
         [REPLAYS_HANDLERS.listGetFilter]: undefined,

@@ -295,6 +295,8 @@
       "update": "Update",
       "repair": "Repair",
       "running": "Running",
+      "stopDemo": "Stop demo",
+      "stopping": "Stopping…",
       "writeLocked": "Writing\u2026",
       "locate": "Locate folder\u2026",
       "revalidate": "Check again",
@@ -1103,6 +1105,8 @@
       "back": "Back 10 seconds",
       "forward": "Forward 10 seconds",
       "fullscreen": "Fullscreen",
+      "stop": "Stop demo",
+      "stopping": "Stopping…",
       "fullscreenKeys": "Fullscreen: steer the demo with your keys. Your \"Back to window\" key (Controls tab, Demo playback) returns it here.",
       "seek": "Seek",
       "seekValueText": "{{position}} of {{duration}}",
@@ -1119,6 +1123,7 @@
       "label": "Console command",
       "placeholder": "e.g. fov 110",
       "send": "Send",
+      "stageInputHint": "The game's own console and key binds do not reach the game while it plays on the stage. Use this console field, switch to fullscreen, or close the game window (Alt+F4).",
       "disabled": {
         "noSession": "Not available: no demo is playing"
       },

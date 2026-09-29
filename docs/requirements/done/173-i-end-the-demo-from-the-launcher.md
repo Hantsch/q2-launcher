@@ -1,7 +1,7 @@
 ---
 id: 173
 title: I end the demo from the launcher
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-29
 ---
 
@@ -19,16 +19,16 @@ game window (Alt+F4) works in both modes ([[169]] P11).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — While a demo plays, the timeline shows a stop button; pressing it ends the game
+- [x] **AC1** — While a demo plays, the timeline shows a stop button; pressing it ends the game
       (`quit` over [[164]]'s channel) and the timeline returns to its idle state.
-- [ ] **AC2** — If the game does not exit within a bounded time after the stop, the launcher ends the
+- [x] **AC2** — If the game does not exit within a bounded time after the stop, the launcher ends the
       process and still returns to idle.
-- [ ] **AC3** — Temporary playback files (copy-in [[160]], control/log files [[164]]) are cleaned up
+- [x] **AC3** — Temporary playback files (copy-in [[160]], control/log files [[164]]) are cleaned up
       the same way as after any other game exit.
-- [ ] **AC4** — On the windowed stage on Windows, the launcher states visibly (i18n text near the
+- [x] **AC4** — On the windowed stage on Windows, the launcher states visibly (i18n text near the
       console field or stage) that the game's own console and key binds do not reach the game there,
       and names the alternatives (the console field, fullscreen, Alt+F4).
-- [ ] **AC5** — On Linux (stdin channel, no loop) the AC4 hint is not shown, because in-game typing
+- [x] **AC5** — On Linux (stdin channel, no loop) the AC4 hint is not shown, because in-game typing
       works there.
 
 ## Decisions (Sprint)
@@ -200,3 +200,14 @@ Order D1 → D2 → D3 → D4. No shell edit beyond `ActionBar.tsx` (mandated by
   (no Linux e2e runner on the Windows gate machine; display condition, not a user action)
 
 ## Done
+Summary: `playback.stop` module handler (quit over the channel, terminate after 5 s or at once if quit is refused) with `LaunchService.terminatePlayback()`; stop buttons on the timeline and in the action bar ("Stopping..." state, no confirmation); Windows-only visible stage hint under the console field.
+Commit: `173: stop the demo from the launcher (playback.stop, timeline + action bar stop, Windows stage input hint)`
+Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (138 files, 1950 tests, re-run after the last edit); `npm run ui:flow -- replays-stop` OK after the last edit. Full gate is the sprint's.
+AC map (all ran and passed): AC1 flow steps "the stop button quits..." + "the action bar's Stop demo ends the demo" + playback-stop unit; AC2 flow "a game that ignores quit..." + unit timeout; AC3 same flow step (q2l_* files present while playing, gone after) + launch.test "a terminated playback launch ends in exited"; AC4 flow hint step + ConsoleCommandField "on Windows..."; AC5 ConsoleCommandField "on Linux...". No manual residue.
+Review: default stage, PASS; findings 1-3 fixed (launch-level tests for `demo: true`, flow step naming, files-present assertion), then re-verified.
+Decisions:
+- On Windows demo launches are not piped and never passed `playback: true`, so the child was never stored and stop answered NO_SESSION; added a main-only `{ demo: true }` launch option (set only by demo-play) that stores the child — a normal launch still stores nothing. demo-play.test call-arg assertions extended accordingly.
+- A refused-quit stop stays pending until the exit arrives; if terminate returns false, pending resets so a later stop can retry.
+- `useDemoStop` is imported into ActionBar by direct path (the renderer replays module has no index).
+- Deliberately unfixed: (4) if kill succeeds but no 'exit' ever arrives (e.g. a Linux wine wrapper), the UI stays on "Stopping..." — accepted `child.kill()` limitation per the plan; (5) an action-bar stop refusal is silent (the timeline shows the error); (6) hint-gone-in-fullscreen/after-finish is unit-tested only.
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 8

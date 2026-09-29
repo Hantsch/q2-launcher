@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { reducePlaybackView, type PlaybackView } from '@shared/replays/timeline'
-import { onPlaybackDisplay, onPlaybackPosition, onPlaybackState } from './client'
+import type { LocalizedMessage } from '@shared/types'
+import { onPlaybackDisplay, onPlaybackPosition, onPlaybackState, playbackStop } from './client'
 
 /**
  * Story 165 D3: the renderer's view of the one running demo session.
@@ -21,6 +22,8 @@ export interface PlaybackSession {
   speed: number
   /** Story 172: the game window is fullscreen; the strip shows the keys text instead of stale position. */
   fullscreen: boolean
+  /** Story 173: a stop was requested; the session still ends only on `state: ended`. */
+  stopping: boolean
 }
 
 export interface StageRect {
@@ -44,6 +47,8 @@ interface PlaybackStoreState {
   setStageReason: (reason: { key: string } | null) => void
   beginSession: (demoName: string, knownDurationMs: number | null) => void
   endSession: () => void
+  /** Asks main to end the demo; resolves to the refusal to show, or null when the request was accepted. */
+  requestStop: () => Promise<LocalizedMessage | null>
   setSpeed: (speed: number) => void
   applyPosition: (positionMs: number | null, engineDurationMs: number | null) => void
   applyState: (state: 'playing' | 'finished' | 'ended') => void
@@ -74,7 +79,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   setStageReason: (reason) => set({ stageReason: reason }),
   beginSession: (demoName, knownDurationMs) => {
     unsubscribeAll()
-    set({ session: { demoName, knownDurationMs, view: null, speed: 1, fullscreen: false } })
+    set({ session: { demoName, knownDurationMs, view: null, speed: 1, fullscreen: false, stopping: false } })
     unsubscribers = [
       onPlaybackPosition((p) => get().applyPosition(p.positionMs, p.durationMs)),
       onPlaybackState((s) => get().applyState(s.state)),
@@ -84,6 +89,20 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   endSession: () => {
     unsubscribeAll()
     set({ session: null, stageArmed: false, stageRect: null, stageReason: null })
+  },
+  requestStop: async () => {
+    const setStopping = (stopping: boolean): void =>
+      set((s) => (s.session === null ? s : { session: { ...s.session, stopping } }))
+    setStopping(true)
+    try {
+      const result = await playbackStop()
+      if (result.ok) return null
+      setStopping(false)
+      return result.error
+    } catch {
+      setStopping(false)
+      return { key: 'replays.timeline.error' }
+    }
   },
   setSpeed: (speed) =>
     set((s) => (s.session === null ? s : { session: { ...s.session, speed } })),

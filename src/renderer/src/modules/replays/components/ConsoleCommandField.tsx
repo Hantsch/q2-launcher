@@ -5,6 +5,7 @@ import { validateConsoleLine } from '@shared/replays/console-line'
 import { Button } from '../../../components/ui/Button'
 import { Field, Input } from '../../../components/ui/controls'
 import { consoleSend } from '../client'
+import { useLauncher } from '../../../store/useLauncher'
 import { usePlaybackStore } from '../playback-store'
 
 /**
@@ -17,6 +18,11 @@ export function ConsoleCommandField() {
   const { t } = useTranslation()
   const reasonId = useId()
   const hasSession = usePlaybackStore((state) => state.session !== null)
+  const platform = useLauncher((state) => state.appInfo?.platform ?? '')
+  const showStageHint = usePlaybackStore(
+    (state) =>
+      platform === 'win32' && state.session !== null && state.session.view?.ended !== true && !state.session.fullscreen,
+  )
   const [line, setLine] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<LocalizedMessage | null>(null)
@@ -95,6 +101,11 @@ export function ConsoleCommandField() {
           data-testid="replays-console-reason"
         >
           {reason}
+        </p>
+      )}
+      {showStageHint && (
+        <p className="text-xs text-ink-muted" data-testid="replays-console-stage-hint">
+          {t('replays.console.stageInputHint')}
         </p>
       )}
     </section>

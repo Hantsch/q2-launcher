@@ -201,6 +201,7 @@ describe('demo.play with a mod the installation does not list', () => {
     expect(await h.play('tdm', 'q2pro-a', { acknowledgeModMissing: true })).toEqual({ ok: true, value: { stage: null } })
     expect(h.launch.start).toHaveBeenCalledWith(
       { installationId: 'q2pro-a', gameDir: 'opentdm', extraArgs: ['+demo', 'o.dm2'] },
+      { demo: true },
     )
   })
 })
@@ -320,7 +321,7 @@ describe('demo.play (story 159 D2)', () => {
       files: { evil: { absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'), archiveEntry: null } },
     })
     expect(await sibling.play('evil', 'q2pro-a')).toEqual({ ok: true, value: { stage: null } })
-    expect(sibling.launch.start.mock.calls).toEqual([[stagedArgs]])
+    expect(sibling.launch.start.mock.calls).toEqual([[stagedArgs, { demo: true }]])
 
     // Another installation's id in the payload, for a demo that is eligible in the active one.
     const otherId = harness({ demos: [CTF_DEMO], files: ctfFiles() })
@@ -333,7 +334,7 @@ describe('demo.play (story 159 D2)', () => {
       files: { evil: { absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'), archiveEntry: null } },
     })
     expect((await otherRow.play('evil', 'q2pro-a')).ok).toBe(true)
-    expect(otherRow.launch.start.mock.calls).toEqual([[stagedArgs]])
+    expect(otherRow.launch.start.mock.calls).toEqual([[stagedArgs, { demo: true }]])
 
     // An archive entry - once as the row says it, once only in main's own resolved file record. Both
     // are staged from the archive (never played in place); with no extractor there, neither launches.
@@ -585,7 +586,7 @@ describe('demo.play playback channel (story 164 D4)', () => {
       expect(args.indexOf('+demo'), platform).toBeLessThan(args.indexOf('+exec'))
       expect(args.slice(-2), platform).toEqual(['+exec', 'after.cfg'])
       // Windows needs no pipes; Linux runs the console over them.
-      expect(options, platform).toEqual(platform === 'linux' ? { playback: true } : undefined)
+      expect(options, platform).toEqual(platform === 'linux' ? { playback: true } : { demo: true })
       // The channel is prepared (on Windows: its files written) before the game is spawned.
       expect(playback.prepare.mock.invocationCallOrder[0], platform).toBeLessThan(
         h.launch.start.mock.invocationCallOrder[0],

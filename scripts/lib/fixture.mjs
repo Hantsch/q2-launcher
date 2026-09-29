@@ -3835,7 +3835,7 @@ const REPLAYS_TIMELINE_ENGINE_LIFETIME_MS = 120_000
  * it as `Q2L_UI_ENGINE_COMMAND_LOG` / `Q2L_UI_ENGINE_QUIT_FILE` (and, story 172, `Q2L_UI_ENGINE_KEYS_FILE`) by the flow's `setup()`. */
 export function replaysTimelineEngineFiles() {
   const dir = join(UI_VERIFY_ROOT, 'fixture', 'replays-timeline-engine')
-  return { dir, commandLog: join(dir, 'commands.log'), quitFile: join(dir, 'quit'), keysFile: join(dir, 'keys') }
+  return { dir, commandLog: join(dir, 'commands.log'), quitFile: join(dir, 'quit'), ignoreQuitFile: join(dir, 'ignore-quit'), keysFile: join(dir, 'keys') }
 }
 
 // Story 171 D2: where the stub engine records the stage follower's window lines (`Q2L_UI_ENGINE_WINDOW_LOG`).

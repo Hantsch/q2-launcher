@@ -720,6 +720,103 @@ describe('LaunchService playback session', () => {
     expect(launch.getState().phase).toBe('exited')
   })
 
+  it("terminatePlayback kills only a playback launch's child", async () => {
+    // An ordinary launch's child is never kept, so it cannot be reached.
+    const { launch } = service({ installation: tempInstallation() })
+    const normal = pipedChild()
+    spawnMock.mockImplementation(() => normal as never)
+    await launch.start({ installationId: INSTALLATION })
+    listener(normal, 'spawn')()
+    expect(launch.isPlaybackRunning()).toBe(false)
+    expect(launch.terminatePlayback()).toBe(false)
+    expect(normal.kill).not.toHaveBeenCalled()
+    listener(normal, 'exit')(0, null)
+
+    const played = pipedChild()
+    spawnMock.mockImplementation(() => played as never)
+    await launch.start({ installationId: INSTALLATION }, PLAY)
+    listener(played, 'spawn')()
+    expect(launch.isPlaybackRunning()).toBe(true)
+    // Letting go of the pipes leaves the game running - and still stoppable.
+    launch.releasePlaybackSession()
+    expect(launch.isPlaybackRunning()).toBe(true)
+    expect(launch.terminatePlayback()).toBe(true)
+    expect(played.kill).toHaveBeenCalledTimes(1)
+
+    listener(played, 'exit')(null, 'SIGTERM')
+    expect(launch.isPlaybackRunning()).toBe(false)
+    expect(launch.terminatePlayback()).toBe(false)
+    expect(played.kill).toHaveBeenCalledTimes(1)
+
+    // A late event from the finished playback launch cannot forget a later launch's child.
+    const next = pipedChild()
+    spawnMock.mockImplementation(() => next as never)
+    await launch.start({ installationId: INSTALLATION }, PLAY)
+    listener(played, 'error')(new Error('late'))
+    expect(launch.isPlaybackRunning()).toBe(true)
+    listener(next, 'error')(new Error('spawn ENOENT'))
+    expect(launch.isPlaybackRunning()).toBe(false)
+    expect(next.kill).not.toHaveBeenCalled()
+  })
+
+  it("a { demo: true } launch's child is stored, so it can be checked and terminated", async () => {
+    const { launch } = service({ installation: tempInstallation() })
+    const child = pipedChild()
+    spawnMock.mockImplementation(() => child as never)
+    await launch.start({ installationId: INSTALLATION }, { demo: true })
+    listener(child, 'spawn')()
+
+    expect(launch.isPlaybackRunning()).toBe(true)
+    expect(launch.terminatePlayback()).toBe(true)
+    expect(child.kill).toHaveBeenCalledTimes(1)
+
+    listener(child, 'exit')(null, 'SIGTERM')
+    expect(launch.isPlaybackRunning()).toBe(false)
+    expect(launch.terminatePlayback()).toBe(false)
+    expect(child.kill).toHaveBeenCalledTimes(1)
+  })
+
+  it('a plain launch (no demo or playback option) is not stored and cannot be terminated', async () => {
+    const { launch } = service({ installation: tempInstallation() })
+    const child = pipedChild()
+    spawnMock.mockImplementation(() => child as never)
+    await launch.start({ installationId: INSTALLATION }, {})
+    listener(child, 'spawn')()
+
+    expect(launch.isPlaybackRunning()).toBe(false)
+    expect(launch.terminatePlayback()).toBe(false)
+    expect(child.kill).not.toHaveBeenCalled()
+  })
+
+  it('a terminated playback launch ends in exited, like any exit', async () => {
+    const installations = fakeInstallations(tempInstallation())
+    const broadcast = vi.fn<(state: LaunchState) => void>()
+    const launch = new LaunchService({
+      installations,
+      onStateChange: broadcast,
+      detectRunners: () => Promise.resolve([NATIVE]),
+    })
+    const child = pipedChild()
+    spawnMock.mockImplementation(() => child as never)
+    await launch.start({ installationId: INSTALLATION }, PLAY)
+    listener(child, 'spawn')()
+    const session = launch.getPlaybackSession()
+    if (!session) throw new Error('expected a playback session')
+    const observed: LaunchState[] = []
+    launch.onStateChange((state) => observed.push(state))
+
+    expect(launch.terminatePlayback()).toBe(true)
+    // The kill arrives as the launch's ordinary exit: one chain, nothing of its own.
+    listener(child, 'exit')(null, 'SIGTERM')
+
+    expect(observed.map((state) => state.phase)).toEqual(['exited'])
+    expect(launch.getState()).toMatchObject({ phase: 'exited', installationId: INSTALLATION, exitCode: null })
+    expect(session.ended).toBe(true)
+    expect(launch.getPlaybackSession()).toBeUndefined()
+    expect(installations.recordPlaySession).toHaveBeenCalledTimes(1)
+    expect(installations.recordPlaySession).toHaveBeenCalledWith(INSTALLATION, expect.any(Number))
+  })
+
   it('every launch without the playback option spawns with stdio ignore, detached false', async () => {
     const inputs: LaunchInput[] = [
       { installationId: INSTALLATION },

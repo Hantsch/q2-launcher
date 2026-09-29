@@ -53,6 +53,7 @@ const DEMO_MS = Number(config.demoMs) > 0 ? Number(config.demoMs) : 41000
 const LIFETIME_MS = Number(config.lifetimeMs) > 0 ? Number(config.lifetimeMs) : 400
 const COMMAND_LOG = process.env.Q2L_UI_ENGINE_COMMAND_LOG || ''
 const QUIT_FILE = process.env.Q2L_UI_ENGINE_QUIT_FILE || ''
+const IGNORE_QUIT_FILE = process.env.Q2L_UI_ENGINE_IGNORE_QUIT_FILE || ''
 const KEYS_FILE = process.env.Q2L_UI_ENGINE_KEYS_FILE || ''
 const WINDOW_LOG = process.env.Q2L_UI_ENGINE_WINDOW_LOG || ''
 const WINDOW_CVARS = new Set(['vid_geometry', 'win_alwaysontop'])
@@ -331,6 +332,8 @@ function execLine(raw) {
       return
     case 'quit':
       logCommand(tokens)
+      // Story 173: a game that ignores `quit` while this file exists (the launcher must terminate it).
+      if (IGNORE_QUIT_FILE && fs.existsSync(IGNORE_QUIT_FILE)) return
       quit()
       return
   }

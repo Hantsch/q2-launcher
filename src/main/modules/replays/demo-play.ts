@@ -77,7 +77,7 @@ export function launcherSweepDirs(
 /** The slice of `LaunchService` this handler needs - a fake stands in for it in tests. */
 export interface DemoPlayLaunch {
   isRunning(): boolean
-  start(input: LaunchInput, options?: { playback?: true }): Promise<Outcome<LaunchState>>
+  start(input: LaunchInput, options?: { playback?: true; demo?: true }): Promise<Outcome<LaunchState>>
   /** Story 164 D4: the piped session of a `{ playback: true }` launch (Linux). */
   getPlaybackSession?(): PlaybackSession | undefined
   onStateChange(listener: (state: LaunchState) => void): () => void
@@ -297,7 +297,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       if (cvarRestore && configPath !== null) await cvarRestore.snapshot(configPath)
       started = await (pipes && deps.playback
         ? deps.launch.start(input, { playback: true })
-        : deps.launch.start(input))
+        : deps.launch.start(input, { demo: true }))
     } catch (error) {
       await deps.playback?.cancel()
       if (copyPath !== null) await removeStagedCopy(copyPath)

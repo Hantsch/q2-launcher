@@ -21,6 +21,7 @@ import { Select } from '../ui/controls'
 import { StatusDot } from '../ui/primitives'
 import { useFixAction } from '../installations/ChecksList'
 import { EngineUpdateAction } from '../../modules/downloads/engine/EngineUpdateAction'
+import { useDemoStop } from '../../modules/replays/useDemoStop'
 
 /**
  * The bottom action bar: who is selected, what is happening, and the one button
@@ -41,8 +42,9 @@ export function ActionBar() {
   const updateInstallation = useLauncher((state) => state.updateInstallation)
   const openDialog = useLauncher((state) => state.openDialog)
   const runFix = useFixAction()
+  const demo = useDemoStop()
 
-  const action = resolvePrimaryAction(installation, job, launch)
+  const action = resolvePrimaryAction(installation, job, launch, demo)
 
   const onPrimary = (): void => {
     if (!installation) return
@@ -60,6 +62,9 @@ export function ActionBar() {
           view: 'repair',
           installationId: installation.id,
         })
+        return
+      case 'stop':
+        void demo.stop()
         return
       case 'busy':
         return
@@ -345,7 +350,7 @@ function LaunchReadout({
   )
 }
 
-type PrimaryActionKind = 'play' | 'locate' | 'repair' | 'busy'
+type PrimaryActionKind = 'play' | 'locate' | 'repair' | 'busy' | 'stop'
 
 interface PrimaryAction {
   kind: PrimaryActionKind
@@ -363,6 +368,7 @@ function resolvePrimaryAction(
   installation: Installation | null,
   job: Job | null,
   launch: LaunchState,
+  demo: { active: boolean; stopping: boolean },
 ): PrimaryAction {
   if (!installation) {
     return { kind: 'busy', labelKey: 'installation.action.play', tone: 'flame', disabled: true }
@@ -372,6 +378,17 @@ function resolvePrimaryAction(
     launch.installationId === installation.id &&
     (launch.phase === 'running' || launch.phase === 'starting')
   if (running) {
+    // Story 173 D3: during a demo session "Running" is the way out, not a dead end.
+    if (demo.active) {
+      return {
+        kind: 'stop',
+        labelKey: demo.stopping
+          ? 'installation.action.stopping'
+          : 'installation.action.stopDemo',
+        tone: 'danger',
+        disabled: demo.stopping,
+      }
+    }
     return {
       kind: 'busy',
       labelKey: 'installation.action.running',

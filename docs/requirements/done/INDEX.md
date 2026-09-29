@@ -265,3 +265,4 @@ second roadmap.
 - 170 — a demo plays on the launcher's stage · S29 · Demo playback launches Q2PRO borderless/topmost over a 4:3 stage in the Demos view, stage cvars restored line-exact after the session, Wayland shows a visible reason.
 - 171 — the stage follows the launcher · S29 · demo stage parks/places with the launcher's move, minimize, focus, view leave and overlays
 - 172 — I choose fullscreen and come back · S29 · fullscreen button, guarded demo actions, bindable back-to-window, v5 migration
+- 173 — I end the demo from the launcher · S29 · stop on timeline and action bar (quit, then terminate after 5 s), Windows stage hint that in-game typing does not reach the game

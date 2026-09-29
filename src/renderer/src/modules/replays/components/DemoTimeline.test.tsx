@@ -10,8 +10,10 @@ vi.hoisted(() => {
 })
 
 const playbackTimeline = vi.fn()
+const playbackStop = vi.fn()
 vi.mock('../client', () => ({
   playbackTimeline: (...args: unknown[]) => playbackTimeline(...args),
+  playbackStop: (...args: unknown[]) => playbackStop(...args),
   onPlaybackPosition: () => () => {},
   onPlaybackState: () => () => {},
   onPlaybackDisplay: () => () => {},
@@ -78,6 +80,27 @@ describe('DemoTimeline (story 165 D3)', () => {
       { kind: 'jump', deltaS: -10 },
       { kind: 'jump', deltaS: 10 },
     ])
+  })
+
+  it('the stop button calls stop without a confirmation', () => {
+    playbackStop.mockResolvedValue({ ok: true, value: undefined })
+    begin(60_000, 1000)
+    render(createElement(DemoTimeline))
+    expect(testid('stop').getAttribute('aria-label')).toBe('Stop demo')
+    fireEvent.click(testid('stop'))
+    expect(playbackStop).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('while stopping the stop button is disabled and says Stopping…', async () => {
+    playbackStop.mockReturnValue(new Promise(() => {}))
+    begin(60_000, 1000)
+    render(createElement(DemoTimeline))
+    fireEvent.click(testid('stop'))
+    await act(async () => {})
+    const stop = testid('stop') as HTMLButtonElement
+    expect(stop.disabled).toBe(true)
+    expect(stop.getAttribute('aria-label')).toBe('Stopping…')
   })
 
   it('the toggle label flips with the inferred paused state', () => {

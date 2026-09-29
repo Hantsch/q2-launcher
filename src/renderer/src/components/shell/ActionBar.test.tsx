@@ -6,6 +6,7 @@ import type { Installation, Job } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 import { initI18n } from '../../i18n'
 import { useLauncher } from '../../store/useLauncher'
+import { usePlaybackStore } from '../../modules/replays/playback-store'
 import { ActionBar } from './ActionBar'
 
 /**
@@ -65,6 +66,7 @@ beforeAll(async () => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  usePlaybackStore.setState({ session: null })
   useLauncher.setState({
     jobs: [],
     installations: [],
@@ -142,5 +144,50 @@ describe('ActionBar', () => {
       view: 'repair',
       installationId: 'inst-1',
     })
+  })
+
+  it('during a demo session Running becomes an enabled Stop demo', async () => {
+    useLauncher.setState({
+      installations: [makeInstallation()],
+      settings: { ...DEFAULT_SETTINGS, activeInstallationId: 'inst-1' },
+      jobs: [],
+      launch: { phase: 'running', installationId: 'inst-1', pid: 1 },
+    })
+    const requestStop = vi.fn(async () => null)
+    usePlaybackStore.setState({
+      requestStop,
+      session: {
+        demoName: 'a.dm2',
+        knownDurationMs: null,
+        view: null,
+        speed: 1,
+        fullscreen: false,
+        stopping: false,
+      },
+    })
+
+    render(createElement(ActionBar))
+
+    const button = await screen.findByTestId('actionbar-play')
+    expect(button.textContent).toContain('Stop demo')
+    expect(button.getAttribute('data-action')).toBe('stop')
+    expect(button.hasAttribute('disabled')).toBe(false)
+    fireEvent.click(button)
+    expect(requestStop).toHaveBeenCalledTimes(1)
+  })
+
+  it('a normal running game still shows a disabled Running', async () => {
+    useLauncher.setState({
+      installations: [makeInstallation()],
+      settings: { ...DEFAULT_SETTINGS, activeInstallationId: 'inst-1' },
+      jobs: [],
+      launch: { phase: 'running', installationId: 'inst-1', pid: 1 },
+    })
+
+    render(createElement(ActionBar))
+
+    const button = await screen.findByTestId('actionbar-play')
+    expect(button.textContent).toContain('Running')
+    expect(button.hasAttribute('disabled')).toBe(true)
   })
 })

@@ -87,6 +87,10 @@ export const REPLAYS_HANDLERS = {
   /** Story 170 D1: re-places the running demo's window over the launcher's stage rect; story 171 D2:
    * `{ rect: null }` says there is no stage (the game window is parked off the desktop). */
   playbackStage: 'playback.stage',
+  /** Story 173 D1: ends the running demo - asks the game to `quit`, and terminates it if it has not
+   * exited within main's timeout (or at once when the quit is refused). Resolves to `Outcome<void>`;
+   * no playback launch running is the typed no-session error. */
+  playbackStop: 'playback.stop',
 } as const
 
 /**
@@ -536,6 +540,7 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.playbackTimeline]: timelineActionSchema,
   [REPLAYS_HANDLERS.playbackStage]: replaysPlaybackStageSchema,
   [REPLAYS_HANDLERS.playbackConsoleSend]: replaysConsoleSendSchema,
+  [REPLAYS_HANDLERS.playbackStop]: replaysNoInputSchema,
 }
 
 /**

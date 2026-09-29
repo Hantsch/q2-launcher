@@ -45,6 +45,7 @@ import { stageAvailability, stageGeometry, type StageRect } from './stage'
 import { createStageFollowSessions, parkGeometryAt, virtualDesktopRightEdge } from './stage-follow-session'
 import { createPlaybackTimeline } from './playback-timeline'
 import { createPlaybackConsole } from './playback-console'
+import { createPlaybackStop } from './playback-stop'
 import { createPlaybackSessions } from './playback-sessions'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
 import { SESSION_CVARS_PENDING_FILE, STAGE_CVAR_NAMES, createCvarRestore } from './session-cvar-restore'
@@ -342,6 +343,8 @@ export const replaysModule: MainModule = {
     handle(REPLAYS_HANDLERS.playbackConsoleSend, replaysConsoleSendSchema, (payload) =>
       playbackConsole.send(payload.line),
     )
+    const playbackStop = createPlaybackStop({ playback: playbackControl, launch: app.launch })
+    handle(REPLAYS_HANDLERS.playbackStop, replaysNoInputSchema, () => playbackStop.stop())
 
     handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))
     handle(REPLAYS_HANDLERS.nameTemplatesAdd, nameTemplatesAddSchema, (payload) =>

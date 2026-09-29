@@ -20,11 +20,13 @@ vi.mock('../client', () => ({
 
 let ConsoleCommandField: typeof import('./ConsoleCommandField').ConsoleCommandField
 let usePlaybackStore: typeof import('../playback-store').usePlaybackStore
+let useLauncher: typeof import('../../../store/useLauncher').useLauncher
 
 beforeAll(async () => {
   await initI18n('en')
   ;({ ConsoleCommandField } = await import('./ConsoleCommandField'))
   ;({ usePlaybackStore } = await import('../playback-store'))
+  ;({ useLauncher } = await import('../../../store/useLauncher'))
 })
 
 beforeEach(() => {
@@ -33,6 +35,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  useLauncher.setState({ appInfo: null })
   usePlaybackStore.getState().endSession()
   consoleSend.mockReset()
 })
@@ -84,5 +87,40 @@ describe('ConsoleCommandField (story 166 D4)', () => {
     fireEvent.click(send())
     await waitFor(() => expect(screen.getByTestId('replays-console-reason')).toBeTruthy())
     expect(input().value).toBe('fov 110')
+  })
+
+  describe('stage input hint (story 173 D4)', () => {
+    const hint = (): HTMLElement | null => screen.queryByTestId('replays-console-stage-hint')
+    const platform = (p: string): void => useLauncher.setState({ appInfo: { platform: p } as never })
+
+    it('on Windows the stage hint names the alternatives', () => {
+      platform('win32')
+      begin()
+      render(createElement(ConsoleCommandField))
+      const text = hint()?.textContent ?? ''
+      expect(text).toContain('console field')
+      expect(text).toContain('fullscreen')
+      expect(text).toContain('Alt+F4')
+    })
+
+    it('on Linux the stage hint is not shown', () => {
+      platform('linux')
+      begin()
+      render(createElement(ConsoleCommandField))
+      expect(hint()).toBeNull()
+    })
+
+    it('the hint is gone once the demo finished or in fullscreen', () => {
+      platform('win32')
+      begin()
+      render(createElement(ConsoleCommandField))
+      expect(hint()).not.toBeNull()
+      act(() => usePlaybackStore.getState().applyDisplay({ fullscreen: true }))
+      expect(hint()).toBeNull()
+      act(() => usePlaybackStore.getState().applyDisplay({ fullscreen: false }))
+      expect(hint()).not.toBeNull()
+      act(() => usePlaybackStore.getState().applyState('finished'))
+      expect(hint()).toBeNull()
+    })
   })
 })

@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Maximize, Pause, Play, RotateCcw, RotateCw } from 'lucide-react'
+import { Maximize, Pause, Play, RotateCcw, RotateCw, Square } from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
 import {
   JUMP_STEP_S,
@@ -31,6 +31,7 @@ export function DemoTimeline() {
   const { t } = useTranslation()
   const session = usePlaybackStore((state) => state.session)
   const setSpeed = usePlaybackStore((state) => state.setSpeed)
+  const requestStop = usePlaybackStore((state) => state.requestStop)
   const [error, setError] = useState<LocalizedMessage | null>(null)
   // The native speed popup paints above the page (and the game window): park the game while it is open.
   const [speedOpen, setSpeedOpen] = useState(false)
@@ -63,6 +64,12 @@ export function DemoTimeline() {
       setError({ key: 'replays.timeline.error' })
     }
     return false
+  }
+
+  async function stop(): Promise<void> {
+    setError(null)
+    const refusal = await requestStop()
+    if (refusal) setError(refusal)
   }
 
   async function enterFullscreen(): Promise<void> {
@@ -216,6 +223,16 @@ export function DemoTimeline() {
           data-testid="replays-timeline-fullscreen"
         >
           <Maximize className="size-4" />
+        </IconButton>
+        <IconButton
+          size="md"
+          label={session.stopping ? t('replays.timeline.stopping') : t('replays.timeline.stop')}
+          disabled={session.stopping}
+          onClick={() => void stop()}
+          className={FOCUS_RING}
+          data-testid="replays-timeline-stop"
+        >
+          <Square className="size-4" />
         </IconButton>
         <span className="text-xs text-ink-muted" data-testid="replays-timeline-state">
           {stateText}

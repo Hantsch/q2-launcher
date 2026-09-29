@@ -128,6 +128,13 @@ export class LaunchService {
   private startInFlight = false
   /** Story 163 D1: the running playback launch's pipes, if the running launch is one. */
   private playback: PlaybackSessionHandle | undefined
+  /**
+   * Story 173 D1: the running playback launch's process - the only child this service ever keeps,
+   * so `terminatePlayback()` can never reach an ordinary Play/Join/Spectate. Cleared by that
+   * launch's own `'exit'`/`'error'` handler (identity-guarded), and deliberately *not* by
+   * `releasePlaybackSession()`: letting go of the pipes leaves the game running.
+   */
+  private playbackChild: ChildProcess | undefined
   private readonly beforeReleaseListeners = new Set<() => void>()
 
   constructor(deps: LaunchDeps) {
@@ -286,11 +293,30 @@ export class LaunchService {
     handle.end()
   }
 
+  /** Story 173 D1: a playback launch's process is running (whether or not its pipes are still held). */
+  isPlaybackRunning(): boolean {
+    return this.playbackChild !== undefined
+  }
+
+  /**
+   * Story 173 D1: terminates the running playback launch's process and returns `true`; kills
+   * nothing and returns `false` when no playback launch runs. There is no cleanup of its own here:
+   * the kill surfaces as that launch's ordinary `'exit'` (or `'error'`), so session end, connect-cfg
+   * removal, playtime and the `exited` state all run through the one existing exit chain.
+   */
+  terminatePlayback(): boolean {
+    const child = this.playbackChild
+    if (!child) return false
+    log.warn(`terminating the playback launch${child.pid !== undefined ? ` (pid ${String(child.pid)})` : ''}`)
+    child.kill()
+    return true
+  }
+
   /**
    * `options.playback` (story 163 D1) is main-only - deliberately not part of `LaunchInput` or its
    * schema, so the renderer cannot ask for piped stdio on an ordinary Play/Join/Spectate.
    */
-  async start(input: LaunchInput, options?: { playback?: true }): Promise<Outcome<LaunchState>> {
+  async start(input: LaunchInput, options?: { playback?: true; demo?: true }): Promise<Outcome<LaunchState>> {
     // Story 125 review fix: `phase` only becomes `'starting'` after the sweep, `plan()` and the
     // connect-cfg write have all been awaited, so on its own `isRunning()` would let a second,
     // overlapping `start()` (a double-clicked Join) through - and its sweep would delete this
@@ -316,14 +342,14 @@ export class LaunchService {
     // failed and a later one must not be blocked.
     this.startInFlight = true
     try {
-      return await this.startReserved(input, options?.playback === true)
+      return await this.startReserved(input, options?.playback === true, options?.demo === true)
     } finally {
       this.startInFlight = false
     }
   }
 
   /** `start()` past its guards, with the in-flight reservation held - see `startInFlight`. */
-  private async startReserved(input: LaunchInput, playback: boolean): Promise<Outcome<LaunchState>> {
+  private async startReserved(input: LaunchInput, playback: boolean, demo = false): Promise<Outcome<LaunchState>> {
     // Story 125: every launch counts, so an event arriving late from an earlier, already
     // finished launch can never remove the connect cfg this one is about to write.
     const launchSeq = ++this.launchSeq
@@ -442,6 +468,12 @@ export class LaunchService {
         ownSession.end()
       }
     }
+    // Story 173 D1: only a playback launch's child is kept, and only this launch may clear it.
+    // `demo` marks a demo launch without pipes (Windows channel): stoppable, but no piped stdio.
+    if (playback || demo) this.playbackChild = child
+    const forgetOwnChild = (): void => {
+      if (this.playbackChild === child) this.playbackChild = undefined
+    }
 
     child.once('spawn', () => {
       this.setState({
@@ -456,6 +488,7 @@ export class LaunchService {
     child.once('error', (error: Error) => {
       void removeOwnedCfg()
       endOwnSession()
+      forgetOwnChild()
       log.error('game process error', error)
       this.setState({
         phase: 'failed',
@@ -467,6 +500,7 @@ export class LaunchService {
     child.once('exit', (code) => {
       void removeOwnedCfg()
       endOwnSession()
+      forgetOwnChild()
       const seconds = (Date.now() - this.startedAtMs) / 1000
       this.installations.recordPlaySession(input.installationId, seconds)
       log.info(`game exited with code ${String(code)} after ${Math.round(seconds)}s`)

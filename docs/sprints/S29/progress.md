@@ -65,3 +65,19 @@
 - 19:01:49 · 172 · verify (re-run) · started
 - 19:09:58 · 172 · verify (re-run) · done (controls-extra-keys red on bare HEAD too: keyboard-focus flake, pre-existing)
 - 19:10:11 · 172 · story · done
+- 19:10:31 · 173 · build · started
+- 19:10:48 · 173 · D1 main stop (hard) · started
+- 19:14:17 · 173 · D1 main stop (hard) · done
+- 19:14:18 · 173 · D2 timeline stop + flow · started
+- 19:22:34 · 173 · D2 timeline stop + flow · done
+- 19:22:34 · 173 · D3 action bar stop · started
+- 19:24:40 · 173 · D3 action bar stop · done
+- 19:24:40 · 173 · D4 stage input hint · started
+- 19:25:57 · 173 · D4 stage input hint · done
+- 19:25:57 · 173 · verify · started
+- 19:27:21 · 173 · verify · done
+- 19:27:21 · 173 · review 1 · started
+- 19:28:45 · 173 · review 1 · done (PASS; fixing findings 1-3)
+- 19:28:45 · 173 · review-fix 1 · started
+- 19:30:36 · 173 · review-fix 1 · done
+- 19:30:36 · 173 · story · done
