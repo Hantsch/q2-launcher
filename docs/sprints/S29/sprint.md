@@ -1,7 +1,7 @@
 ---
 sprint: S29
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S29
 milestone: 10.9 — Demo plays in the launcher (stage, fullscreen by choice, stop)
 ---
 
