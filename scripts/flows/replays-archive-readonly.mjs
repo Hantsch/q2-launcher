@@ -94,13 +94,22 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
     throw new Error('replays-archive-readonly: copy-path must stay enabled for an archive entry')
   }
 
-  // Play ([[159]]/[[160]]) does not exist yet (built in S28) - this story must not add any lock on
-  // it, so the flow only asserts "enabled, if present" rather than requiring the control to exist.
+  // Play ([[159]]/[[160]]): being an archive entry never locks it (160 plays a zip entry through a
+  // temporary copy). In this populated fixture no installation has test.dm2's game dir
+  // (`opentdm`), so Play is present but disabled by the shared eligibility rule with its
+  // `modMissing` reason as VISIBLE text - the same state a loose opentdm demo gets here. The archive-entry-plays-when-eligible half lives in
+  // `replays-copy-in.mjs`.
   const playButton = page.getByTestId('replays-demo-play')
   if ((await playButton.count()) > 0) {
     const playDisabled = await playButton.getAttribute('disabled')
     if (playDisabled !== null) {
-      throw new Error('replays-archive-readonly: Play must stay enabled for an archive entry, if present')
+      const playReason = await page.getByTestId('replays-demo-play-reason').textContent()
+      if (!playReason || !/Mod `opentdm` missing/.test(playReason) || /archive/i.test(playReason)) {
+        throw new Error(
+          `replays-archive-readonly: Play is disabled for an archive entry, but its reason must be the ` +
+            `mod-missing one, not an archive lock - got ${JSON.stringify(playReason)}`,
+        )
+      }
     }
   }
 

@@ -298,4 +298,6 @@ Decisions:
 - Unfixed review notes: main "another installation's id" test asserts only refusal not key; no symlink containment test; flow picks the r1q2 tile via `.nth(1)` and returns early if 7za.exe is not vendored (as servers-join does). eslint could not be run (config-format error, pre-existing).
 - Play button size change (sm removed) was made after the verify run; typecheck-neutral, not re-run.
 
+- Sprint-gate regression: `replays-archive-readonly` asserted Play enabled on an archive entry, but the shared eligibility disables it (`modMissing` for the fixture demo's `opentdm` game dir); the product was right (archives never lock Play since 160), so the flow now requires Play, if disabled, to carry the visible `modMissing` reason and no archive lock.
+
 tiers: D 3 / hard 1 · review default · cycles 0 · agents 6
