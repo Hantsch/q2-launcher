@@ -8,12 +8,7 @@ import type { EngineKind } from '@shared/types/engine'
 import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Input, Switch } from '../../components/ui/controls'
-import {
-  DragHandle,
-  SortableItem,
-  SortableZone,
-  type SortableDropMeta,
-} from '../../components/dnd'
+import { DragHandle, SortableItem, SortableZone, type SortableDropMeta } from '../../components/dnd'
 import { cn } from '../../lib/cn'
 import { useLauncher } from '../../store/useLauncher'
 import { AddCvarDialog } from './components/AddCvarDialog'
@@ -48,7 +43,8 @@ import {
   type CvarRowEntry,
   type CvarSectionResult,
 } from './lib/cvar-rows'
-import { assignedEngineKinds } from './lib/engine-scope'
+import { assignedEngineKinds, engineScope } from './lib/engine-scope'
+import { AutorecordSetting } from './components/AutorecordSetting'
 import { useProfileChanges } from './lib/profile-changes'
 import { updateProfileCvars, updateProfileWriteCatalogDefaults } from './client'
 
@@ -360,6 +356,18 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
   }
 
   const sections = draft.cvarSections ?? []
+
+  const scopeStatus = useMemo(
+    () => engineScope(profile, installations).status,
+    [profile, installations],
+  )
+
+  // Story 168 D2: computed off `draft.cvars` (which already holds a pending debounced plain-row
+  // edit) and saved through `persistSections`, which cancels that debounce - so both Q2PRO cvars
+  // change in one save and a stale debounce can never overwrite the switch's result.
+  const handleAutorecordChange = (next: Record<string, string>): void => {
+    void persistSections(next, sections)
+  }
 
   const handleCreateSection = async (name: string): Promise<boolean> => {
     const section = createCvarSection(name)
@@ -861,6 +869,14 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
           hint={t('config.settings.header.writeCatalogDefaultsHint')}
         />
       </div>
+
+      <AutorecordSetting
+        cvars={draft.cvars}
+        engine={engine}
+        scopeStatus={scopeStatus}
+        disabled={saving}
+        onChange={handleAutorecordChange}
+      />
 
       {/*
         Story 054 D10: the one `DndContext` this tab drags inside (`SortableZone`, D1's single

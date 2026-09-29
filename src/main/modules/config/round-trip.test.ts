@@ -9,6 +9,7 @@ import { DEMO_ACTIONS } from '@shared/config/action-catalog'
 import { actionKeySlots } from '@shared/config/action-slots'
 import { bindValueFor } from '@shared/config/action-mirror'
 import { adoptRawBinds } from '@shared/config/bind-adoption'
+import { readAutorecord } from '@shared/config/autorecord'
 import { buildDemoRows } from '@shared/config/catalog-rows'
 import { aliasNameFor, derivedAliasName } from '@shared/config/alias-render'
 import { generateLayerAliases } from '@shared/config/alt-layers'
@@ -3539,5 +3540,36 @@ describe('round-trip: a bound demo speed action (story 167 D2)', () => {
     const expected = speedAction('demoSpeedUp', 'KP_PLUS')
     expect(adopted.actions[0]!.catalogId).toBe(expected.catalogId)
     expect(adopted.actions[0]!.commands).toEqual(expected.commands)
+  })
+})
+
+describe('story 168 D1: the Q2PRO autorecord recipe', () => {
+  it('a pasted q2pro autorecord recipe survives parse and render', async () => {
+    const recipe = 'record ${cl_mapname}_${com_date}_${com_time}'
+    const pasted = [
+      `set cl_beginmapcmd "${recipe}"`,
+      'set com_date_format %Y-%m-%d',
+      'set com_time_format %H-%M-%S',
+      '',
+    ].join('\n')
+    const result = await reimport(pasted)
+    expect(result.cvars['cl_beginmapcmd']).toBe(recipe)
+    expect(readAutorecord(result.cvars, 'q2pro')).toMatchObject({ kind: 'available', on: true })
+
+    const profile = buildFixtureProfile({
+      name: 'Story 168: pasted autorecord recipe',
+      actions: [],
+      cvars: result.cvars,
+    })
+    const text1 = renderProfileFile(profile)
+    expect(text1).toContain(`"${recipe}"`)
+    expect(text1).toContain('%H-%M-%S')
+
+    const { profile2 } = await reimportProfile(profile)
+    expect(readAutorecord(profile2.cvars, 'q2pro')).toMatchObject({ on: true })
+    expect(profile2.cvars['cl_beginmapcmd']).toBe(recipe)
+    const text2 = renderProfileFile(profile2)
+    expect(text2).toContain(`"${recipe}"`)
+    expect(normalize(text2)).toBe(normalize(text1))
   })
 })

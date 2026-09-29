@@ -2110,6 +2110,14 @@
         "writeCatalogDefaults": "Write unset catalogue defaults",
         "writeCatalogDefaultsHint": "Keeps every catalogue cvar this profile does not place in a section written to the file under Defaults."
       },
+      "autorecord": {
+        "label": "Record every map automatically",
+        "hint": "Starts a demo recording each time you enter a map.",
+        "caveatR1q2": "Rejoining the same map within one minute overwrites the earlier demo.",
+        "caveatQ2pro": "This also changes the console clock and any $com_time in your own binds. The command is added to any existing cl_beginmapcmd.",
+        "reasonEngine": "Not available on {{engine}}: it has no way to record every map automatically.",
+        "reasonNoEngine": "Not available: this profile has no r1q2 or Q2PRO installation assigned."
+      },
       "advanced": {
         "show": "{{count}} more…",
         "showAdvanced": "Show advanced",

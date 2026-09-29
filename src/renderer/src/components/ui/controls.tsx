@@ -146,12 +146,14 @@ export function Switch({
   label,
   hint,
   disabled,
+  testId,
 }: {
   checked: boolean
   onChange: (next: boolean) => void
   label: string
   hint?: string
   disabled?: boolean
+  testId?: string
 }) {
   const id = useId()
   return (
@@ -164,6 +166,7 @@ export function Switch({
       </div>
       <button
         id={id}
+        data-testid={testId}
         type="button"
         role="switch"
         aria-checked={checked}

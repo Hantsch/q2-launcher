@@ -1324,7 +1324,23 @@ function populatedConfigProfiles() {
     assignments: [{ installationId: INSTALL_ENGINE_UPDATE_ID, isDefault: true }],
   }
 
-  return [plain, withLayers, withUnrecognized, withQ2pro]
+  // Story 168 D3: assigned to one r1q2 (`INSTALL_DEMO_UPGRADE_ID`) and one healthy Q2PRO installation
+  // (`INSTALL_ENGINE_UPDATE_ID`) so `scripts/flows/autorecord-setting.mjs` can switch the engine
+  // scope. The existing `cl_beginmapcmd` proves the Q2PRO recipe chains after it, not over it.
+  const withAutorecord = {
+    id: 'fixture-profile-autorecord',
+    name: 'Autorecord Profile',
+    createdAt: FIXED_TIMESTAMP,
+    updatedAt: FIXED_TIMESTAMP,
+    cvars: { cl_beginmapcmd: 'echo welcome' },
+    binds: {},
+    assignments: [
+      { installationId: INSTALL_DEMO_UPGRADE_ID, isDefault: false },
+      { installationId: INSTALL_ENGINE_UPDATE_ID, isDefault: false },
+    ],
+  }
+
+  return [plain, withLayers, withUnrecognized, withQ2pro, withAutorecord]
 }
 
 // --- downloads.ts DownloadsSettings shape + archive-cache fixture ----------

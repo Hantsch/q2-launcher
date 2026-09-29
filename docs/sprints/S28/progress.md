@@ -131,3 +131,15 @@
 - 2026-09-29 13:21 · 167 · review 1 · started
 - 2026-09-29 13:22 · 167 · review 1 · done
 - 2026-09-29 13:24 · 167 · story · done
+- 2026-09-29 13:25:20 · 168 · build · started
+- 2026-09-29 13:25 · 168 · D1 autorecord recipes shared logic · started
+- 2026-09-29 13:27 · 168 · D1 autorecord recipes shared logic · done
+- 2026-09-29 13:27 · 168 · D2 autorecord switch settings tab · started
+- 2026-09-29 13:28 · 168 · D2 autorecord switch settings tab · done
+- 2026-09-29 13:28 · 168 · D3 fixture flow changelog · started
+- 2026-09-29 13:49 · 168 · D3 fixture flow changelog · done
+- 2026-09-29 13:49 · 168 · verify · started
+- 2026-09-29 13:53 · 168 · verify · done
+- 2026-09-29 13:53 · 168 · review 1 · started
+- 2026-09-29 13:54 · 168 · review 1 · done
+- 2026-09-29 13:54 · 168 · story · done

@@ -1,7 +1,7 @@
 ---
 id: 168
 title: my profile records every map on its own
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-27
 ---
 
@@ -38,22 +38,22 @@ Known caveats, which the setting states rather than hides:
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — An r1q2 profile shows the setting; turning it on writes `set cl_autorecord 1` into
+- [x] **AC1** — An r1q2 profile shows the setting; turning it on writes `set cl_autorecord 1` into
       the profile's config, turning it off removes it (or writes `0`, per the profile's baseline
       rules).
-- [ ] **AC2** — A Q2PRO profile shows the same setting; turning it on writes the `cl_beginmapcmd`
+- [x] **AC2** — A Q2PRO profile shows the same setting; turning it on writes the `cl_beginmapcmd`
       line with its quotes and `${…}` macros byte-for-byte as in the table above, plus
       `set com_time_format %H-%M-%S`.
-- [ ] **AC3** — Reading a Q2PRO config that already contains exactly the recipe (as a player
+- [x] **AC3** — Reading a Q2PRO config that already contains exactly the recipe (as a player
       would have pasted it) shows the setting as on, and a render round-trip leaves the lines
       unchanged.
-- [ ] **AC4** — A Q2PRO config whose `cl_beginmapcmd` holds something other than the recipe is
+- [x] **AC4** — A Q2PRO config whose `cl_beginmapcmd` holds something other than the recipe is
       handled as decided in Q1, and never loses the player's command without them seeing it.
-- [ ] **AC5** — On an engine that has neither mechanism (vanilla), the setting stays visible,
+- [x] **AC5** — On an engine that has neither mechanism (vanilla), the setting stays visible,
       disabled, with the reason as visible text — an i18n key like every other label.
-- [ ] **AC6** — The setting shows the engine-specific caveat (r1q2: same-minute overwrite;
+- [x] **AC6** — The setting shows the engine-specific caveat (r1q2: same-minute overwrite;
       Q2PRO: console clock / `$com_time`) as visible text.
-- [ ] **AC7** — The file name the setting produces on each engine matches [[139]]'s shipped
+- [x] **AC7** — The file name the setting produces on each engine matches [[139]]'s shipped
       pattern for that engine, and a test pins that link.
 
 ## Open Questions
@@ -277,4 +277,18 @@ saves.
 
 ## Done
 
-<!-- Filled by /build 168. -->
+Added the "Record every map automatically" composite switch to the Settings tab: pure recipe logic in `src/shared/config/autorecord.ts` (r1q2 `cl_autorecord`, Q2PRO `cl_beginmapcmd` append/remove + `com_time_format`), the `AutorecordSetting` component with per-engine caveats and disabled-with-visible-reason states, fixture profile "Autorecord Profile", flow `autorecord-setting` and a CHANGELOG line. No IPC, contract or state-schema change (no version bump).
+
+Commit message: `168: record every map automatically - autorecord setting (r1q2 cl_autorecord, Q2PRO cl_beginmapcmd), flow, fixture`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (104 files, 1027 tests); flows each after `ui:seed`, all OK: autorecord-setting, config-header-geometry, raw-save-cascades, settings-section-rename-add-cvar, controls-category-rename-reorder, drop-message-checkbox, demo-actions-bind, settings-downloads-section. Full gate pending (sprint's). Review 1 (default): PASS.
+AC -> test: AC1/AC2/AC4/AC6 flow autorecord-setting + the named autorecord.test.ts cases; AC3 round-trip.test.ts + autorecord.test.ts; AC5/AC6 AutorecordSetting.test.tsx; AC7 autorecord.test.ts - all ran and passed. No manual residue.
+
+Decisions:
+- The switch edits the profile draft like every Settings row; the .cfg reaches disk on the header Save (the flow clicks Save after each toggle). "Immediate" means non-debounced (`persistSections`), not auto-saved.
+- Fixture r1q2 assignment is `INSTALL_DEMO_UPGRADE_ID` (INSTALL_ONE/TWO resolve to engine unknown at runtime); Q2PRO is `INSTALL_ENGINE_UPDATE_ID`.
+- `Switch` in `controls.tsx` gained an optional `testId` prop (needed for the testid).
+- Component test uses react-dom `act` mounting (no RTL in this module tree).
+- Unfixed review notes: no component test for r1q2 with non-ok scope status (path shared with the untested-by-name no-engine branch); one prettier import reflow in SettingsTab.tsx; pre-existing `persistSections` in-flight edit race, not from this story.
+
+tiers: D 3 / hard 0 · review default · cycles 0 · agents 5
