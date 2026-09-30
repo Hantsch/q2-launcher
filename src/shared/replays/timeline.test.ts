@@ -156,6 +156,14 @@ describe('reducePlaybackView', () => {
     expect(v.paused).toBe(true)
   })
 
+  it("the engine's own pause state wins over a still position (Windows log bursts)", () => {
+    let v = reducePlaybackView(null, sample({ positionMs: 5000, enginePaused: false }))
+    for (let i = 0; i < 5; i++) v = reducePlaybackView(v, sample({ positionMs: 5000, enginePaused: false }))
+    expect(v.paused).toBe(false)
+    v = reducePlaybackView(v, sample({ positionMs: 5000, enginePaused: true }))
+    expect(v.paused).toBe(true)
+  })
+
   it('a single repeated sample followed by an advance never reads paused', () => {
     let v = reducePlaybackView(null, sample({ positionMs: 5000 }))
     v = reducePlaybackView(v, sample({ positionMs: 5000 }))

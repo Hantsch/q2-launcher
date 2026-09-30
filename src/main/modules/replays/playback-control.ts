@@ -91,10 +91,11 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
 
   const startTimer = (s: Session): void => {
     s.timer = setInterval(() => {
-      const { positionMs } = s.channel.latest()
+      const { positionMs, paused } = s.channel.latest()
       emit(REPLAYS_EVENTS.playbackPosition, {
         positionMs,
         durationMs: s.durationMs,
+        paused,
       } satisfies ReplaysPlaybackPosition)
     }, POSITION_PUSH_MS)
   }

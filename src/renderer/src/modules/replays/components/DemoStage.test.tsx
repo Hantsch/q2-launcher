@@ -59,7 +59,7 @@ describe('DemoStage (story 170 D4)', () => {
     expect(body.className).toContain('hidden')
     expect(body.isConnected).toBe(true)
     expect(screen.getByRole('complementary', { hidden: true }).className).toContain('hidden')
-    expect(screen.getByTestId('replays-timeline-slot').className).toContain('h-28')
+    expect(screen.getByTestId('replays-timeline-slot').className).toContain('h-32')
 
     act(() => usePlaybackStore.getState().disarmStage())
     expect(screen.queryByTestId('replays-stage')).toBeNull()

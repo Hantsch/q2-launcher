@@ -89,6 +89,7 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   let closed = false
   let finished = false
   let positionMs: number | null = null
+  let paused: boolean | null = null
   let nextSeq = 1
   let inFlight: { seq: number; sentAt: number; fullscreenSwitch: boolean } | null = null
   /** `entering`: the switch is queued or in flight; the demo still shows on the stage. */
@@ -234,10 +235,12 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
         mode = 'stage'
         unackedSwitchSeq = null
         positionMs = parsed.positionMs
+        paused = parsed.paused
         emitDisplay('stage')
         return
       }
       positionMs = parsed.positionMs
+      paused = parsed.paused
       if (finished || parsed.fullscreen !== true) return
       if (mode === 'stage') beginEntering(false)
       // An FS 1 while our own switch is pending means it ran; when the user switched, FS 1 is old news.
@@ -332,7 +335,7 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     },
 
     latest() {
-      return { positionMs, finished }
+      return { positionMs, paused, finished }
     },
 
     enterFullscreen(): Outcome<void> {

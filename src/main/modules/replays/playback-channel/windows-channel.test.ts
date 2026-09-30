@@ -118,8 +118,8 @@ function createFakeEngine(dir: string, opts: { ack?: boolean; buffered?: boolean
     // Redefining the loop alias takes effect on the loop's next call: this pass still runs through.
     let loopRedefined = false
     for (const line of control.split(/\r?\n/)) {
-      if (line === 'echo POS $cl_demopos FS $vid_fullscreen') {
-        out.push(`POS ${formatDemoPos(state.posMs)} FS ${state.fullscreen ? 1 : 0}`)
+      if (line === 'echo POS $cl_demopos FS $vid_fullscreen P $cl_paused') {
+        out.push(`POS ${formatDemoPos(state.posMs)} FS ${state.fullscreen ? 1 : 0} P 0`)
         state.lastPosMs = Math.floor(state.posMs / 100) * 100
       }
       const guard = GUARD.exec(line)
@@ -254,7 +254,7 @@ describe('createWindowsChannel', () => {
     expect(fsEvents).toEqual([`write ${commandCfgName(1)}`, `write ${CONTROL_CFG_NAME}`])
     expect(commandFile(1)).toBe(`${line}\n`)
     expect(controlFile()).toBe(
-      `echo POS $cl_demopos FS $vid_fullscreen\nif $q2l_seq != 1 then "exec q2l_cmd_1.cfg; set q2l_seq 1; echo ACK 1"\n`,
+      `echo POS $cl_demopos FS $vid_fullscreen P $cl_paused\nif $q2l_seq != 1 then "exec q2l_cmd_1.cfg; set q2l_seq 1; echo ACK 1"\n`,
     )
 
     // Unacknowledged: the command file stays, however many polls pass.
@@ -329,7 +329,7 @@ describe('createWindowsChannel', () => {
     engine.pause()
     vi.advanceTimersByTime(LOG_POLL_MS)
     expect(engine.state.lastPosMs).toBeGreaterThanOrEqual(30_000)
-    expect(ch.latest()).toEqual({ positionMs: engine.state.lastPosMs, finished: false })
+    expect(ch.latest()).toEqual({ positionMs: engine.state.lastPosMs, paused: false, finished: false })
   })
 
   it('does not act on a line until its newline arrives', async () => {
@@ -447,7 +447,7 @@ describe('createWindowsChannel', () => {
     engine.pause()
     vi.advanceTimersByTime(LOG_POLL_MS)
 
-    expect(ch.latest()).toEqual({ positionMs: engine.state.lastPosMs, finished: false })
+    expect(ch.latest()).toEqual({ positionMs: engine.state.lastPosMs, paused: false, finished: false })
     expect(ch.latest().positionMs).toBeLessThan(599_000)
     // The old "ACK 1" did not acknowledge this run's seq 1.
     expect(controlFile()).toBe(asFile(buildControlFile(1)))
@@ -564,7 +564,7 @@ describe('createWindowsChannel fullscreen (story 172)', () => {
     // Late, in one flush: every pre-stop `POS … FS 0`, then the switch's ACK.
     engine.flush()
     const flushed = readFileSync(logPath(), 'utf8')
-    expect(flushed).toContain(' FS 0\n')
+    expect(flushed).toContain(' FS 0 P 0\n')
     expect(flushed.endsWith(`${PREFIX}ACK 1\n`)).toBe(true)
     vi.advanceTimersByTime(LOG_POLL_MS)
     // Even later: stale lines of the other kinds.

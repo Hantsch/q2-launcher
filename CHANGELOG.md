@@ -13,9 +13,12 @@ version section when a release actually ships.
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
 ### Fixed
+- **Demos** — the play button no longer flickers between play and pause while a demo plays on Windows.
 - **Servers** — an address you add from the server browser now actually lands in the game's address book, right away, without leaving the profile marked as unsaved.
 
 ### Changed
+- **Demos** — while a demo plays on the stage, its details stay visible to the right of the picture, and the playback controls are larger, with the seek bar spanning the full width above them.
+- **Demos** — the game no longer captures the mouse while a demo plays in the launcher, so the controls are reachable without pressing Escape first.
 - **Demos** — the launcher's plumbing no longer scrolls over the demo, and chat shows in the game's chat HUD.
 
 ### Added

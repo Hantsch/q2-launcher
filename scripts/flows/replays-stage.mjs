@@ -1,5 +1,5 @@
 // Story 170 D5: e2e proof that Play launches the demo onto the launcher's stage. The stage picture is
-// a 4:3 box below which the timeline and the console field sit; the list and detail are hidden; the
+// a 4:3 box below which the timeline and the console field sit; the list is hidden, the detail of the playing demo sits right of the stage; the
 // game is launched with the stage args whose `vid_geometry` is the picture's box in physical screen
 // pixels; steering and console commands still reach the engine exactly once; when the game exits the
 // list is back. The "engine" is the fixture's stub (`scripts/lib/stub-engine.cjs`), as in
@@ -115,7 +115,9 @@ export default async function replaysStage({ page, app, step, shot }) {
     fail(`the picture box ${box.width}x${box.height} is not 4:3 within 1 px`)
   }
   if (await page.getByTestId('replays-demo-list').isVisible()) fail('the demo list must be hidden on the stage')
-  if (await page.getByTestId('replays-detail').isVisible()) fail('the detail must be hidden on the stage')
+  const dBox = (await page.getByTestId('replays-detail').isVisible()) ? await page.getByTestId('replays-detail').boundingBox() : null
+  if (!dBox) fail('the detail of the playing demo must stay visible beside the stage')
+  if (dBox.x < box.x + box.width - 1) fail(`the detail (x ${dBox.x}) must sit right of the picture (right ${box.x + box.width})`)
   const bottom = box.y + box.height
   const tBox = await timeline.boundingBox()
   const cBox = await page.getByTestId('replays-console-field').boundingBox()

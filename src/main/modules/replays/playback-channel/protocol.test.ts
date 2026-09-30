@@ -42,18 +42,27 @@ describe('parseEngineLine', () => {
   })
 
   it('reads an empty POS as null and a full one as milliseconds', () => {
-    expect(parseEngineLine('[2026-09-27 18:16] POS')).toEqual({ kind: 'pos', positionMs: null, fullscreen: null })
-    expect(parseEngineLine('[2026-09-27 18:36] POS 1:11.4')).toEqual({ kind: 'pos', positionMs: 71400, fullscreen: null })
-    expect(parseEngineLine('POS 1')).toEqual({ kind: 'pos', positionMs: null, fullscreen: null })
-    expect(parseEngineLine('POS 1:11.4 FS 1')).toEqual({ kind: 'pos', positionMs: 71400, fullscreen: true })
+    expect(parseEngineLine('[2026-09-27 18:16] POS')).toEqual({ kind: 'pos', positionMs: null, fullscreen: null, paused: null })
+    expect(parseEngineLine('[2026-09-27 18:36] POS 1:11.4')).toEqual({ kind: 'pos', positionMs: 71400, fullscreen: null, paused: null })
+    expect(parseEngineLine('POS 1')).toEqual({ kind: 'pos', positionMs: null, fullscreen: null, paused: null })
+    expect(parseEngineLine('POS 1:11.4 FS 1')).toEqual({ kind: 'pos', positionMs: 71400, fullscreen: true, paused: null })
     expect(parseEngineLine('[2026-09-27 18:36] POS 0:05.0 FS 0')).toEqual({
       kind: 'pos',
       positionMs: 5000,
       fullscreen: false,
+      paused: null,
     })
-    expect(parseEngineLine('POS FS 0')).toEqual({ kind: 'pos', positionMs: null, fullscreen: false })
-    expect(parseEngineLine('POS  FS 1')).toEqual({ kind: 'pos', positionMs: null, fullscreen: true })
-    expect(parseEngineLine('POS 1:11.4 FS')).toEqual({ kind: 'pos', positionMs: 71400, fullscreen: null })
+    expect(parseEngineLine('POS FS 0')).toEqual({ kind: 'pos', positionMs: null, fullscreen: false, paused: null })
+    expect(parseEngineLine('POS  FS 1')).toEqual({ kind: 'pos', positionMs: null, fullscreen: true, paused: null })
+    expect(parseEngineLine('POS 1:11.4 FS')).toEqual({ kind: 'pos', positionMs: 71400, fullscreen: null, paused: null })
+    expect(parseEngineLine('POS 0:08.8 FS 0 P 0')).toEqual({ kind: 'pos', positionMs: 8800, fullscreen: false, paused: false })
+    expect(parseEngineLine('[2026-09-30 06:10] POS 0:08.8 FS 0 P 2')).toEqual({
+      kind: 'pos',
+      positionMs: 8800,
+      fullscreen: false,
+      paused: true,
+    })
+    expect(parseEngineLine('POS 0:08.8 FS 1 P')).toEqual({ kind: 'pos', positionMs: 8800, fullscreen: true, paused: null })
     expect(parseEngineLine('[2026-09-27 18:22] ACK 3')).toEqual({ kind: 'ack', seq: 3 })
   })
 })
@@ -89,15 +98,15 @@ describe('checkLine', () => {
 describe('files and launch args', () => {
   it('builds the guarded control file', () => {
     expect(buildControlFile(4)).toEqual([
-      'echo POS $cl_demopos FS $vid_fullscreen',
+      'echo POS $cl_demopos FS $vid_fullscreen P $cl_paused',
       'if $q2l_seq != 4 then "exec q2l_cmd_4.cfg; set q2l_seq 4; echo ACK 4"',
     ])
-    expect(buildControlFile(null)).toEqual(['echo POS $cl_demopos FS $vid_fullscreen'])
+    expect(buildControlFile(null)).toEqual(['echo POS $cl_demopos FS $vid_fullscreen P $cl_paused'])
   })
   it('a console line cannot break out of the control file', () => {
     // The fixed template for seq N, spelled out: only N varies, never anything from the line.
     const template = (n: number): string =>
-      `echo POS $cl_demopos FS $vid_fullscreen\nif $q2l_seq != ${n} then "exec q2l_cmd_${n}.cfg; set q2l_seq ${n}; echo ACK ${n}"\n`
+      `echo POS $cl_demopos FS $vid_fullscreen P $cl_paused\nif $q2l_seq != ${n} then "exec q2l_cmd_${n}.cfg; set q2l_seq ${n}; echo ACK ${n}"\n`
     const hostile = ['say "x"; alias loop ""', 'a" ; set seq 99 ; "', 'echo //x', '$seq', '}']
     for (const [i, line] of hostile.entries()) {
       for (const seq of [1, i + 7, 1234]) {
@@ -147,6 +156,16 @@ describe('notify session', () => {
         expect(args.argsBeforeDemo.slice(at - 1, at + 2)).toEqual(['+set', ...pair])
         expect(args.argsAfterDemo).not.toContain(pair[0])
       }
+    }
+  })
+})
+
+describe('mouse session', () => {
+  it('both platforms set in_grab 2 so a playing demo does not grab the mouse', () => {
+    for (const args of [windowsLaunchArgs(), linuxLaunchArgs()]) {
+      const at = args.argsBeforeDemo.indexOf('in_grab')
+      expect(args.argsBeforeDemo.slice(at - 1, at + 2)).toEqual(['+set', 'in_grab', '2'])
+      expect(args.argsAfterDemo).not.toContain('in_grab')
     }
   })
 })

@@ -76,7 +76,7 @@ async function playAndCheck(page, logPath, fileName) {
       : `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set sys_console 1`
   const tail = process.platform === 'win32' ? `+demo ${fileName} +exec q2l_loop.cfg` : `+demo ${fileName}`
   const trimmed = (line ?? '').trimEnd()
-  const session = `${head} +set q2l_session 1 +set con_notifylines 0 +set scr_chathud 1 `
+  const session = `${head} +set q2l_session 1 +set con_notifylines 0 +set scr_chathud 1 +set in_grab 2 `
   if (!line || !trimmed.includes(session) || !trimmed.endsWith(` ${tail}`)) {
     throw new Error(`replays-play-mvd2: expected launching line with ${session}... ${tail}, got ${JSON.stringify(line)}`)
   }

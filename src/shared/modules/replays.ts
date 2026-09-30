@@ -113,6 +113,8 @@ export const REPLAYS_EVENTS = {
 export interface ReplaysPlaybackPosition {
   positionMs: number | null
   durationMs: number | null
+  /** The engine's own pause state; null when it did not report one (the view then infers it). */
+  paused: boolean | null
 }
 
 export interface ReplaysPlaybackDisplay {

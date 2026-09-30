@@ -16,14 +16,14 @@ import { removeStagedCopy, stageDemo, stagedFileName } from './demo-staging'
 import { effectiveWriteDirs, type DiscoverableInstallation, type DiscoverContext } from './discovery'
 import type { PlaybackSession } from '../../services/playback-session'
 import type { PlaybackControl } from './playback-control'
-import { NOTIFY_SESSION_CVARS } from './playback-channel/protocol'
+import { MOUSE_SESSION_CVARS, NOTIFY_SESSION_CVARS } from './playback-channel/protocol'
 import { STAGE_CVAR_NAMES, sessionConfigPath, type CvarRestore } from './session-cvar-restore'
 import { normalWindowArgs, stageLaunchArgs, type StageAvailability } from './stage'
 import type { EngineIo } from './playback-channel/types'
 import type { PlaybackSessions } from './playback-sessions'
 
 /** Every cvar a launch may override with `+set` and whose archived line is put back after the session. */
-export const SESSION_RESTORE_CVARS = [...STAGE_CVAR_NAMES, ...NOTIFY_SESSION_CVARS] as const
+export const SESSION_RESTORE_CVARS = [...STAGE_CVAR_NAMES, ...NOTIFY_SESSION_CVARS, ...MOUSE_SESSION_CVARS] as const
 
 /**
  * Story 159 D2: `demo.play` - the one path where a renderer-sent demo id becomes a spawned process.

@@ -104,7 +104,7 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
   const trimmed = (line ?? '').trimEnd()
   const geometryAt = trimmed.search(/ \+set vid_geometry \d+x\d+\+-?\d+\+-?\d+ /)
   const okOrder =
-    trimmed.includes(` +set game ctf ${head} +set q2l_session 1 +set con_notifylines 0 +set scr_chathud 1 +set vid_fullscreen 0 `) &&
+    trimmed.includes(` +set game ctf ${head} +set q2l_session 1 +set con_notifylines 0 +set scr_chathud 1 +set in_grab 2 +set vid_fullscreen 0 `) &&
     geometryAt !== -1 &&
     trimmed.endsWith(` ${tail}`) &&
     trimmed.indexOf('+set vid_geometry') < trimmed.indexOf('+demo ')

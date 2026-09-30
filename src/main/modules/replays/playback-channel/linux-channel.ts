@@ -35,6 +35,7 @@ export function createLinuxChannel(deps: {
   let unsubscribe: (() => void) | null = null
   let timer: ReturnType<typeof setInterval> | null = null
   let positionMs: number | null = null
+  let paused: boolean | null = null
   let finished = false
   let closed = false
   const finishedCbs = new Set<() => void>()
@@ -56,6 +57,7 @@ export function createLinuxChannel(deps: {
     const parsed = parseEngineLine(raw)
     if (parsed.kind === 'pos') {
       positionMs = parsed.positionMs
+      paused = parsed.paused
       if (!finished && parsed.fullscreen !== null) {
         const next = parsed.fullscreen ? 'fullscreen' : 'stage'
         if (next !== display) {
@@ -110,7 +112,7 @@ export function createLinuxChannel(deps: {
       safeWrite(line)
       return ok(undefined)
     },
-    latest: () => ({ positionMs, finished }),
+    latest: () => ({ positionMs, paused, finished }),
     onFinished(cb) {
       finishedCbs.add(cb)
       return () => finishedCbs.delete(cb)

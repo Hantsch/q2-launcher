@@ -67,7 +67,7 @@ describe('linux playback channel', () => {
     const ch = createLinuxChannel({ io, log, gameDirPath })
     await ch.start()
     vi.advanceTimersByTime(350)
-    expect(written.filter((w) => w === 'echo POS $cl_demopos FS $vid_fullscreen\n')).toHaveLength(3)
+    expect(written.filter((w) => w === 'echo POS $cl_demopos FS $vid_fullscreen P $cl_paused\n')).toHaveLength(3)
     await ch.close()
   })
 

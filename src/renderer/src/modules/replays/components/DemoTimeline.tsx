@@ -121,77 +121,90 @@ export function DemoTimeline() {
 
   return (
     <section
-      className="flex flex-col gap-1 border-t border-line bg-panel px-5 py-2"
+      className="flex flex-col gap-1 border-t border-line bg-panel px-5 pt-1 pb-2"
       aria-label={t('replays.timeline.label')}
       data-testid="replays-timeline"
     >
-      <div className="flex items-center gap-3">
-        <span className="max-w-64 truncate text-sm text-ink" title={session.demoName}>
-          {session.demoName}
-        </span>
+      {/* YouTube-style: the seek bar spans the full strip above the controls; the element itself is
+          a taller hit area around a thin track that thickens on hover. */}
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-label={t('replays.timeline.seek')}
+        aria-valuemin={0}
+        aria-valuemax={durationS}
+        aria-valuenow={positionS}
+        aria-valuetext={t('replays.timeline.seekValueText', {
+          position: positionText,
+          duration: durationText,
+        })}
+        aria-disabled={!hasDuration || fullscreen}
+        onClick={handleSeekClick}
+        onKeyDown={handleSeekKey}
+        className={cn(
+          'group relative flex h-5 items-center rounded-sm',
+          hasDuration && !fullscreen ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
+          FOCUS_RING,
+        )}
+        data-testid="replays-timeline-seek"
+      >
+        <div className="pointer-events-none relative h-1.5 w-full rounded-full bg-line-strong transition-[height] group-hover:h-2.5">
+          <div
+            className="h-full rounded-full bg-flame-500"
+            style={{ width: `${fullscreen ? 0 : fraction * 100}%` }}
+          />
+          {hasDuration && !fullscreen && (
+            <div
+              className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-flame-500 opacity-0 transition-opacity group-hover:opacity-100"
+              style={{ left: `${fraction * 100}%` }}
+            />
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1">
         <IconButton
-          size="md"
+          size="lg"
           label={paused ? t('replays.timeline.play') : t('replays.timeline.pause')}
           disabled={fullscreen}
           onClick={() => void send({ kind: 'togglePause' })}
           className={FOCUS_RING}
           data-testid="replays-timeline-toggle"
         >
-          {paused ? <Play className="size-4" /> : <Pause className="size-4" />}
+          {paused ? <Play className="size-7" /> : <Pause className="size-7" />}
         </IconButton>
         <IconButton
-          size="md"
+          size="lg"
           label={t('replays.timeline.back')}
           disabled={fullscreen}
           onClick={() => void send({ kind: 'jump', deltaS: -JUMP_STEP_S })}
           className={FOCUS_RING}
           data-testid="replays-timeline-back"
         >
-          <RotateCcw className="size-4" />
+          <RotateCcw className="size-6" />
         </IconButton>
         <IconButton
-          size="md"
+          size="lg"
           label={t('replays.timeline.forward')}
           disabled={fullscreen}
           onClick={() => void send({ kind: 'jump', deltaS: JUMP_STEP_S })}
           className={FOCUS_RING}
           data-testid="replays-timeline-forward"
         >
-          <RotateCw className="size-4" />
+          <RotateCw className="size-6" />
         </IconButton>
-        <div
-          role="slider"
-          tabIndex={0}
-          aria-label={t('replays.timeline.seek')}
-          aria-valuemin={0}
-          aria-valuemax={durationS}
-          aria-valuenow={positionS}
-          aria-valuetext={t('replays.timeline.seekValueText', {
-            position: positionText,
-            duration: durationText,
-          })}
-          aria-disabled={!hasDuration || fullscreen}
-          onClick={handleSeekClick}
-          onKeyDown={handleSeekKey}
-          className={cn(
-            'relative h-3 min-w-24 flex-1 rounded-sm border border-line-strong bg-raised',
-            hasDuration && !fullscreen ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
-            FOCUS_RING,
-          )}
-          data-testid="replays-timeline-seek"
-        >
-          <div
-            className="pointer-events-none h-full rounded-sm bg-flame-500"
-            style={{ width: `${fullscreen ? 0 : fraction * 100}%` }}
-          />
-        </div>
         {!fullscreen && (
-          <span className="text-sm text-ink tabular-nums">
+          <span className="ml-2 text-base text-ink tabular-nums">
             <span data-testid="replays-timeline-position">{positionText}</span>
             {' / '}
             <span data-testid="replays-timeline-duration">{durationText}</span>
           </span>
         )}
+        <span className="ml-4 min-w-0 flex-1 truncate text-sm text-ink-muted" title={session.demoName}>
+          {session.demoName}
+        </span>
+        <span className="mr-2 text-sm text-ink-muted" data-testid="replays-timeline-state">
+          {stateText}
+        </span>
         <Select
           disabled={fullscreen}
           aria-label={t('replays.timeline.speed')}
@@ -211,32 +224,29 @@ export function DemoTimeline() {
             value: String(step),
             label: t('replays.timeline.speedOption', { value: step }),
           }))}
-          className={cn('h-9 w-24', FOCUS_RING)}
+          className={cn('h-11! w-24', FOCUS_RING)}
           data-testid="replays-timeline-speed"
         />
         <IconButton
-          size="md"
+          size="lg"
           label={t('replays.timeline.fullscreen')}
           disabled={ended || fullscreen}
           onClick={() => void enterFullscreen()}
           className={FOCUS_RING}
           data-testid="replays-timeline-fullscreen"
         >
-          <Maximize className="size-4" />
+          <Maximize className="size-6" />
         </IconButton>
         <IconButton
-          size="md"
+          size="lg"
           label={session.stopping ? t('replays.timeline.stopping') : t('replays.timeline.stop')}
           disabled={session.stopping}
           onClick={() => void stop()}
           className={FOCUS_RING}
           data-testid="replays-timeline-stop"
         >
-          <Square className="size-4" />
+          <Square className="size-6" />
         </IconButton>
-        <span className="text-xs text-ink-muted" data-testid="replays-timeline-state">
-          {stateText}
-        </span>
       </div>
       {fullscreen && (
         <p className="text-xs text-ink-muted" data-testid="replays-timeline-keys">

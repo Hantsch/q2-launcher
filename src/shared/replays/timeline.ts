@@ -73,6 +73,8 @@ export type PlaybackSample = {
   engineDurationMs: number | null
   knownDurationMs: number | null
   ended: boolean
+  /** The engine's reported pause state; when present it wins over the still-position inference. */
+  enginePaused?: boolean | null
 }
 
 export type PlaybackView = {
@@ -100,7 +102,7 @@ export function reducePlaybackView(prev: PlaybackView | null, sample: PlaybackSa
   return {
     positionMs: sample.positionMs,
     durationMs: positive(sample.knownDurationMs) ?? positive(sample.engineDurationMs),
-    paused: stillCount >= STILL_SAMPLES_FOR_PAUSE,
+    paused: sample.enginePaused ?? stillCount >= STILL_SAMPLES_FOR_PAUSE,
     ended: sample.ended,
     stillCount
   }

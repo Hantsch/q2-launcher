@@ -43,18 +43,18 @@ import { ReplaysListStatus } from './ReplaysListStatus'
 
 /** The list-beside-detail grid, mirroring `ServersView.tsx`'s own `detailSplit`/`DETAIL_PANE`
  * (read there first before changing this) - one slot until a demo is selected, then a fixed
- * 32rem detail pane beside it (or, below the `@4xl` container width, under it). */
-function detailSplit(detailOpen: boolean): string {
+ * 32rem detail pane beside it (or, below the `@4xl` container width, under it). On the stage the
+ * list is hidden and the grid holds the detail pane alone, docked right of the stage. */
+function detailSplit(detailOpen: boolean, stageMode: boolean): string {
   return cn(
     'grid h-full',
-    detailOpen
+    detailOpen && !stageMode
       ? 'grid-rows-[minmax(0,1fr)_minmax(0,1fr)] @4xl:grid-cols-[minmax(0,1fr)_32rem] @4xl:grid-rows-1'
       : 'grid-rows-1',
   )
 }
 
-const DETAIL_PANE =
-  'min-h-0 overflow-y-auto border-t border-line bg-panel/40 @4xl:border-t-0 @4xl:border-l'
+const DETAIL_PANE = 'min-h-0 overflow-y-auto border-line bg-panel/40'
 
 /** How long a filter change waits, un-typed, before it is persisted (story 153 D5) - mirrors the
  * "debounce writes, flush on unmount" shape without pulling in a new dependency. */
@@ -358,11 +358,14 @@ export function ReplaysView() {
 
         {stageMode && <DemoStage />}
         <div
-          className={cn('@container min-h-0 min-w-0 flex-1', stageMode && 'hidden')}
+          className={cn(
+            '@container min-h-0 min-w-0',
+            !stageMode ? 'flex-1' : selected ? 'w-[32rem] shrink-0' : 'hidden',
+          )}
           data-testid="replays-list-detail"
         >
-          <div className={detailSplit(selected !== null)}>
-            <div className="flex min-h-0 flex-col p-5">
+          <div className={detailSplit(selected !== null, stageMode)}>
+            <div className={cn('flex min-h-0 flex-col p-5', stageMode && 'hidden')}>
               {demos !== null && filterLoaded && rowCount > 0 && visibleDemos.length === 0 && (
                 <div
                   className="flex flex-col items-center gap-3 px-6 py-12 text-center"
@@ -395,7 +398,7 @@ export function ReplaysView() {
             </div>
 
             {selected && (
-              <div className={DETAIL_PANE}>
+              <div className={cn(DETAIL_PANE, stageMode ? 'border-l' : 'border-t @4xl:border-t-0 @4xl:border-l')}>
                 <DemoDetailPanel
                   row={selected}
                   onClose={() => {
@@ -412,7 +415,7 @@ export function ReplaysView() {
         </div>
       </div>
 
-      <div className={cn(stageMode && 'h-28 shrink-0 overflow-hidden')} data-testid="replays-timeline-slot">
+      <div className={cn(stageMode && 'h-32 shrink-0 overflow-hidden')} data-testid="replays-timeline-slot">
         <DemoTimeline />
       </div>
       <ConsoleCommandField />

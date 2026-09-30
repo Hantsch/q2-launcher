@@ -173,7 +173,8 @@ function expandMacros(line) {
       continue
     }
     const name = m[2] ?? m[3]
-    out += name === 'cl_demopos' ? demoPos() : cvar(name)
+    // `$cl_paused` mirrors Q2PRO: 2 while a demo is paused, 0 otherwise.
+    out += name === 'cl_demopos' ? demoPos() : name === 'cl_paused' ? (demo.playing && demo.paused ? '2' : '0') : cvar(name)
     i += m[0].length - 1
   }
   return out

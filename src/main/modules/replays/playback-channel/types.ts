@@ -9,7 +9,8 @@ export interface PlaybackChannel {
   start(): Promise<void>
   /** Queue one console line for the game; refuses invalid lines and a full queue. */
   send(line: string): Outcome<void>
-  latest(): { positionMs: number | null; finished: boolean }
+  /** `paused` is the engine's own pause state, null when it did not report one. */
+  latest(): { positionMs: number | null; paused: boolean | null; finished: boolean }
   /** Subscribe to the demo finishing; returns the unsubscribe function. */
   onFinished(cb: () => void): () => void
   /** Story 172: switch the running demo to fullscreen; the launcher stops steering it. */

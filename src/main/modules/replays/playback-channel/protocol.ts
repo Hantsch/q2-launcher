@@ -19,7 +19,7 @@ export const ACK_TIMEOUT_MS = 2000
 export const QUEUE_CAP = 8
 
 export type EngineLine =
-  | { kind: 'pos'; positionMs: number | null; fullscreen: boolean | null }
+  | { kind: 'pos'; positionMs: number | null; fullscreen: boolean | null; paused: boolean | null }
   | { kind: 'ack'; seq: number }
   | { kind: 'finished' }
   | { kind: 'other' }
@@ -28,13 +28,16 @@ const LOG_PREFIX = /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}\] /
 
 export function parseEngineLine(raw: string): EngineLine {
   const line = raw.replace(LOG_PREFIX, '').replace(/[\r\n]+$/, '')
-  if (line === 'POS') return { kind: 'pos', positionMs: null, fullscreen: null }
+  if (line === 'POS') return { kind: 'pos', positionMs: null, fullscreen: null, paused: null }
   if (line.startsWith('POS ')) {
-    // `POS <pos> FS <0|1>`; the FS part is absent in older lines, `<pos>` is empty outside a demo.
-    const m = /^(.*?)\s*FS\s*(\S*)\s*$/.exec(line.slice(4))
+    // `POS <pos> FS <0|1> P <cl_paused>`; the FS and P parts are absent in older lines, `<pos>` is
+    // empty outside a demo. `cl_paused` is 0 while playing and non-zero (2 for a demo) when paused.
+    const m = /^(.*?)\s*FS\s*(\S*)(?:\s+P\s*(\S*))?\s*$/.exec(line.slice(4))
     const posText = (m ? m[1]! : line.slice(4)).trim()
     const fullscreen = m ? (m[2] === '1' ? true : m[2] === '0' ? false : null) : null
-    return { kind: 'pos', positionMs: parseDemoPos(posText), fullscreen }
+    const pausedText = m?.[3]
+    const paused = pausedText && /^\d+$/.test(pausedText) ? pausedText !== '0' : null
+    return { kind: 'pos', positionMs: parseDemoPos(posText), fullscreen, paused }
   }
   const ack = /^ACK (\d+)$/.exec(line)
   if (ack) return { kind: 'ack', seq: Number(ack[1]) }
@@ -67,8 +70,12 @@ export function checkLine(line: string): Outcome<void> {
   return ok(undefined)
 }
 
-/** The position + fullscreen poll: the game answers `POS <pos> FS <0|1>`. */
-export const POLL_LINE = 'echo POS $cl_demopos FS $vid_fullscreen'
+/**
+ * The position + fullscreen + pause poll: the game answers `POS <pos> FS <0|1> P <cl_paused>`. The
+ * pause state is read, not inferred from a still position: on Windows the buffered logfile delivers
+ * POS lines in bursts (~1.3 s apart at the 200 ms tick), so the position stands still between them.
+ */
+export const POLL_LINE = 'echo POS $cl_demopos FS $vid_fullscreen P $cl_paused'
 
 /**
  * Frames the control loop waits between ticks. Spike 169 P7 measured ~65 command frames/s, so 13 is
@@ -176,6 +183,17 @@ export function notifySessionArgs(): string[] {
   return ['+set', 'con_notifylines', '0', '+set', 'scr_chathud', '1']
 }
 
+/** Cvars the session sets so the mouse stays free for the launcher while a demo plays windowed. */
+export const MOUSE_SESSION_CVARS = ['in_grab'] as const
+
+/**
+ * `in_grab 2`: Q2PRO only hides the cursor over its window during demo playback instead of grabbing
+ * it, so the timeline beneath the stage is reachable without Escape. Fullscreen still grabs.
+ */
+export function mouseSessionArgs(): string[] {
+  return ['+set', 'in_grab', '2']
+}
+
 interface LaunchArgs {
   argsBeforeDemo: string[]
   argsAfterDemo: string[]
@@ -197,6 +215,7 @@ export function windowsLaunchArgs(): LaunchArgs {
       SESSION_CVAR,
       '1',
       ...notifySessionArgs(),
+      ...mouseSessionArgs(),
     ],
     argsAfterDemo: ['+exec', LOOP_CFG_NAME],
   }
@@ -204,7 +223,7 @@ export function windowsLaunchArgs(): LaunchArgs {
 
 export function linuxLaunchArgs(): LaunchArgs {
   return {
-    argsBeforeDemo: ['+set', 'sys_console', '1', '+set', SESSION_CVAR, '1', ...notifySessionArgs()],
+    argsBeforeDemo: ['+set', 'sys_console', '1', '+set', SESSION_CVAR, '1', ...notifySessionArgs(), ...mouseSessionArgs()],
     argsAfterDemo: [],
   }
 }

@@ -50,7 +50,7 @@ interface PlaybackStoreState {
   /** Asks main to end the demo; resolves to the refusal to show, or null when the request was accepted. */
   requestStop: () => Promise<LocalizedMessage | null>
   setSpeed: (speed: number) => void
-  applyPosition: (positionMs: number | null, engineDurationMs: number | null) => void
+  applyPosition: (positionMs: number | null, engineDurationMs: number | null, enginePaused?: boolean | null) => void
   applyState: (state: 'playing' | 'finished' | 'ended') => void
   applyDisplay: (p: { fullscreen: boolean }) => void
 }
@@ -81,7 +81,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     unsubscribeAll()
     set({ session: { demoName, knownDurationMs, view: null, speed: 1, fullscreen: false, stopping: false } })
     unsubscribers = [
-      onPlaybackPosition((p) => get().applyPosition(p.positionMs, p.durationMs)),
+      onPlaybackPosition((p) => get().applyPosition(p.positionMs, p.durationMs, p.paused)),
       onPlaybackState((s) => get().applyState(s.state)),
       onPlaybackDisplay((p) => get().applyDisplay(p)),
     ]
@@ -106,7 +106,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   },
   setSpeed: (speed) =>
     set((s) => (s.session === null ? s : { session: { ...s.session, speed } })),
-  applyPosition: (positionMs, engineDurationMs) =>
+  applyPosition: (positionMs, engineDurationMs, enginePaused = null) =>
     set((s) => {
       if (s.session === null || positionMs === null) return s
       const view = reducePlaybackView(s.session.view, {
@@ -114,6 +114,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         engineDurationMs,
         knownDurationMs: s.session.knownDurationMs,
         ended: s.session.view?.ended ?? false,
+        enginePaused,
       })
       return { session: { ...s.session, view } }
     }),
