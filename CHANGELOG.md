@@ -12,6 +12,9 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+
+## 0.6.0 — 2026-09-30
+
 ### Added
 - **Demos** — new Demos view: browse every demo from your installations, folders and `.zip` archives; search, filter, sort, rename, rate and favourite them.
 - **Demos** — play a demo inside the launcher, in cinema mode over the whole screen, or fullscreen, with a timeline (pause, seek, speed) and a console field. Cinema mode is not available on Wayland.
@@ -21,8 +24,8 @@ version section when a release actually ships.
 ### Fixed
 - **Servers** — an address you add from the server browser lands in the game's address book right away.
 
-## 0.5.0 — 2026-09-26
 
+## 0.5.0 — 2026-09-26
 ### Added
 - **Servers** — a full server browser: scan, filter and sort the list, see live status and
   full server rules, join or spectate in one click, keep a watchlist of players across servers,
