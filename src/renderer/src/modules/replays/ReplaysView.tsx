@@ -417,11 +417,7 @@ export function ReplaysView() {
         <ReplaceSidecarDialog
           fileName={rowReplaceEntry.replace.fileName}
           issues={rowReplaceEntry.replace.issues}
-          onConfirm={() =>
-            void useDemoEditorStore
-              .getState()
-              .quickEdit(rowReplaceId, rowReplaceEntry.pendingQuickEdit ?? {}, handleRowPatched)
-          }
+          onConfirm={() => void useDemoEditorStore.getState().confirmQuickEdit(rowReplaceId, handleRowPatched)}
           onCancel={() => cancelReplace(rowReplaceId)}
         />
       )}

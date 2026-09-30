@@ -101,6 +101,16 @@ describe('DemoListFilterBar - each control writes its own field (story 153 D4)',
     expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_DEMO_LIST_FILTER, minRating: null })
   })
 
+  it('the minimum-rating options are labelled in stars', () => {
+    renderBar(EMPTY_DEMO_LIST_FILTER, vi.fn())
+
+    const texts = Array.from(
+      (screen.getByTestId('replays-filter-rating') as HTMLSelectElement).options,
+    ).map((o) => o.textContent)
+    expect(texts).toContain('At least 1 star')
+    expect(texts).toContain('At least 7 stars')
+  })
+
   it('a selected mod/map not present in options still renders as the selected value', () => {
     const onChange = vi.fn()
     renderBar({ ...EMPTY_DEMO_LIST_FILTER, mod: 'vanished-mod' }, onChange)

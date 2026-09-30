@@ -1,18 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pencil, X } from 'lucide-react'
+import { Pencil, Star, X } from 'lucide-react'
 import type { DemoRow, SidecarState } from '@shared/modules/replays'
 import { buildDemoDetail, type DemoDetailField } from '@shared/replays/demo-detail'
 import type { SidecarSide } from '@shared/replays/sidecar'
 import { describeGamemode } from '@shared/demos/gamemode'
 import { IconButton } from '../../../components/ui/Button'
+import { cn } from '../../../lib/cn'
 import { sidecarRead } from '../client'
 import { sidesText, formatDemoDate } from '../row-format'
 import { DemoFileActions } from './DemoFileActions'
+import { StarRating } from './StarRating'
 import { DemoPlayAction } from './DemoPlayAction'
 import { DemoDetailEditor, DemoDetailNameInput } from './DemoDetailEditor'
 import { DiscardDemoNotesDialog } from './DiscardDemoNotesDialog'
-import { useDemoEditorStore, type RowPatcher } from '../demo-editor-store'
+import { effectiveQuickValues, useDemoEditorStore, type RowPatcher } from '../demo-editor-store'
 
 export interface DemoDetailPanelProps {
   row: DemoRow
@@ -94,6 +96,12 @@ export function DemoDetailPanel({
     (state) => state.editingId === row.id && state.drafts[row.id] !== undefined,
   )
   const pendingLeave = useDemoEditorStore((state) => state.pendingLeave)
+  const favourite = useDemoEditorStore(
+    (state) => effectiveQuickValues(state.quickPending[row.id], row.sidecar.values).favourite,
+  )
+  const rating = useDemoEditorStore(
+    (state) => effectiveQuickValues(state.quickPending[row.id], row.sidecar.values).rating,
+  )
   const { keepEditing, discardAndLeave } = useDemoEditorStore.getState()
   const archived = row.archiveEntry !== null
   const detail = buildDemoDetail(row, row.sidecar.values)
@@ -123,6 +131,22 @@ export function DemoDetailPanel({
               {title}
             </h2>
           )}
+          <IconButton
+            label={t('replays.detail.favourite.ariaLabel', { name: title })}
+            size="sm"
+            aria-pressed={favourite}
+            disabled={archived}
+            aria-describedby={archived ? 'replays-archive-readonly-edit' : undefined}
+            onClick={() => {
+              void useDemoEditorStore.getState().quickEdit(row.id, { favourite: !favourite }, onRowPatched)
+            }}
+            data-testid="replays-detail-favourite"
+          >
+            <Star
+              className={cn('size-3.5', favourite ? 'fill-flame-500 text-flame-500' : 'text-ink-muted')}
+              aria-hidden="true"
+            />
+          </IconButton>
           {!editing && <DemoFileActions demo={row} onRenamed={onRenamed} />}
           {!editing && (
             <IconButton
@@ -158,6 +182,20 @@ export function DemoDetailPanel({
       </div>
 
       <div className="space-y-4 p-4">
+        <div className="flex items-center gap-3">
+          <StarRating
+            label={t('replays.detail.rating.label')}
+            value={rating}
+            disabled={archived}
+            describedBy={archived ? 'replays-archive-readonly-edit' : undefined}
+            onChange={(value) => {
+              void useDemoEditorStore.getState().quickEdit(row.id, { rating: value }, onRowPatched)
+            }}
+          />
+          <span className="numeric text-sm text-ink-dim" data-testid="replays-detail-rating-value">
+            {rating === null ? t('replays.detail.rating.none') : t('replays.row.ratingValue', { rating })}
+          </span>
+        </div>
         {editing ? (
           <DemoDetailEditor
             row={row}

@@ -1403,7 +1403,7 @@ export const SCREENS = [
     variant: 'replays-rows',
     viewports: BOTH_VIEWPORTS,
     // Stories 155/178: the demo detail in edit mode (`DemoDetailEditor.tsx`) - same path as
-    // `replays-detail`, then Edit, then an out-of-range rating so the inline field error is on screen too.
+    // `replays-detail`, then Edit, then an impossible date so the inline field error is on screen too.
     navigate: async (page) => {
       await click(page, 'nav-replays')
       await page
@@ -1418,9 +1418,9 @@ export const SCREENS = [
       if ((await page.getByTestId('replays-editor-save').count()) === 0) {
         await click(page, 'replays-detail-edit')
       }
-      await page.getByTestId('replays-editor-rating').fill('11', { timeout: CLICK_TIMEOUT_MS })
+      await page.getByTestId('replays-editor-date').fill('2026-02-30 10:00', { timeout: CLICK_TIMEOUT_MS })
       await page
-        .getByTestId('replays-editor-error-rating')
+        .getByTestId('replays-editor-error-date')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },

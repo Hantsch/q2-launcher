@@ -14,7 +14,7 @@
 //   replays-detail-title              DemoDetailPanel.tsx - reading mode's name title
 //   replays-detail-field-<id>         DemoDetailPanel.tsx - one reading-mode fact
 //   replays-editor-<field>            DemoDetailEditor.tsx - one control per field (name in the header)
-//   replays-editor-error-<field>      DemoDetailEditor.tsx - inline rating/date error
+//   replays-editor-error-<field>      DemoDetailEditor.tsx - inline date error
 //   replays-editor-save / -cancel     DemoDetailEditor.tsx
 //   replays-discard-dialog / -keep / -confirm   DiscardDemoNotesDialog.tsx
 //   replays-filter-mod / -clear       DemoListFilterBar.tsx
@@ -91,9 +91,23 @@ export default async function replaysEditSidecar({ page, shot, step }) {
     throw new Error(`replays-edit-sidecar: no notes form may render before Edit, found ${editorBits} replays-editor-* elements`)
   }
 
+  step('the favourite is set with the header button before editing')
+  await page.getByTestId('replays-detail-favourite').click({ timeout: TIMEOUT_MS })
+  await page.waitForFunction(
+    () => document.querySelector('[data-testid="replays-detail-favourite"]')?.getAttribute('aria-pressed') === 'true',
+    undefined,
+    { timeout: TIMEOUT_MS },
+  )
+
   step('Edit turns the facts into inputs in place, the name in the header')
   await page.getByTestId('replays-detail-edit').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-editor').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  if (
+    (await page.getByTestId('replays-editor-favourite').count()) !== 0 ||
+    (await page.getByTestId('replays-editor-rating').count()) !== 0
+  ) {
+    throw new Error('replays-edit-sidecar: edit mode must offer neither a favourite nor a rating input')
+  }
   await page
     .getByTestId('replays-detail-header')
     .getByTestId('replays-editor-name')
@@ -120,6 +134,9 @@ export default async function replaysEditSidecar({ page, shot, step }) {
   const written = JSON.parse(savedText ?? '{}')
   if (written.name !== NAME || written.mod !== MOD) {
     throw new Error(`replays-edit-sidecar: sidecar expected name/mod ${NAME}/${MOD}, got ${JSON.stringify(written)}`)
+  }
+  if (written.favourite !== true) {
+    throw new Error(`replays-edit-sidecar: Save must keep the favourite set before editing, got ${JSON.stringify(written)}`)
   }
   if (typeof written.date !== 'string' || !written.date.startsWith('2030-06-15T20:30:00')) {
     throw new Error(`replays-edit-sidecar: sidecar date expected 2030-06-15T20:30:00 plus offset, got ${JSON.stringify(written.date)}`)

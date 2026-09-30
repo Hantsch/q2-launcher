@@ -11,7 +11,7 @@ import {
   type SidecarDraft,
 } from '@shared/replays/sidecar-draft'
 import { Button } from '../../../components/ui/Button'
-import { Checkbox, Input } from '../../../components/ui/controls'
+import { Input } from '../../../components/ui/controls'
 import { useDemoEditorStore, type RowPatcher } from '../demo-editor-store'
 import { ReplaceSidecarDialog } from './ReplaceSidecarDialog'
 import { SidesEditor } from './SidesEditor'
@@ -177,16 +177,6 @@ export function DemoDetailEditor({
                 onInputChange={setTagInputText}
               />
             </div>
-
-            <Checkbox
-              checked={draft.favourite}
-              disabled={saving}
-              onChange={(favourite) => set({ favourite })}
-              label={t('replays.detail.field.favourite')}
-              data-testid="replays-editor-favourite"
-            />
-
-            {textRow('rating', 3)}
           </div>
 
           {entry.saveError !== undefined && (
@@ -244,10 +234,10 @@ export function DemoDetailEditor({
     )
   }
 
-  function textRow(id: Exclude<PlaceholderFieldId, 'name'> | 'rating', maxLength: number) {
-    const error = id === 'rating' || id === 'date' ? errors[id] : undefined
+  function textRow(id: Exclude<PlaceholderFieldId, 'name'>, maxLength: number) {
+    const error = id === 'date' ? errors[id] : undefined
     const errorId = `replays-editor-error-${demoId}-${id}`
-    const label = id === 'rating' ? t('replays.editor.field.rating') : t(`replays.detail.field.${id}`)
+    const label = t(`replays.detail.field.${id}`)
     return factRow(
       id,
       <label htmlFor={controlId(id)} className="text-ink-muted">
@@ -257,8 +247,7 @@ export function DemoDetailEditor({
         id={controlId(id)}
         value={draft[id]}
         maxLength={maxLength}
-        inputMode={id === 'rating' ? 'numeric' : undefined}
-        placeholder={id === 'rating' ? undefined : editorPlaceholder(row, id, t)}
+        placeholder={editorPlaceholder(row, id, t)}
         disabled={saving}
         aria-invalid={error !== undefined}
         aria-describedby={error !== undefined ? errorId : undefined}

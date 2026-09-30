@@ -39,3 +39,23 @@
 - 2026-09-30 07:55 · 178 · review 1 · started
 - 2026-09-30 07:57 · 178 · review 1 · done
 - 2026-09-30 07:57 · 178 · story · done
+- 07:57:29 · 179 · build · started
+- 2026-09-30 07:57 · 179 · D1 serialize sidecar writes (store) · started
+- 2026-09-30 08:02 · 179 · D1 serialize sidecar writes (store) · done
+- 2026-09-30 08:02 · 179 · D2 header favourite toggle · started
+- 2026-09-30 08:06 · 179 · D2 header favourite toggle · done
+- 2026-09-30 08:06 · 179 · D3 star rating · started
+- 2026-09-30 08:12 · 179 · D3 star rating · done
+- 2026-09-30 08:12 · 179 · D4 edit mode drops favourite/rating · started
+- 2026-09-30 08:14 · 179 · D4 edit mode drops favourite/rating · done
+- 2026-09-30 08:14 · 179 · D5 filter labels in stars · started
+- 2026-09-30 08:14 · 179 · D5 filter labels in stars · done
+- 2026-09-30 08:14 · 179 · verify · started
+- 2026-09-30 08:17 · 179 · verify · done
+- 2026-09-30 08:17 · 179 · review 1 · started
+- 2026-09-30 08:19 · 179 · review 1 · done
+- 2026-09-30 08:19 · 179 · F1 review fixes (overlay flash, pendingQuickEdit) · started
+- 2026-09-30 08:21 · 179 · F1 review fixes (overlay flash, pendingQuickEdit) · done
+- 2026-09-30 08:21 · 179 · verify 2 · started
+- 2026-09-30 08:23 · 179 · verify 2 · done
+- 2026-09-30 08:23 · 179 · story · done

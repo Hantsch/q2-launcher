@@ -125,7 +125,7 @@ describe('DemoDetailEditor', () => {
 
   it('every editable field shows even when empty, laid out as the facts rows', () => {
     renderEditor()
-    for (const id of ['name', 'date', 'map', 'mod', 'gamemode', 'description', 'favourite', 'rating']) {
+    for (const id of ['name', 'date', 'map', 'mod', 'gamemode', 'description']) {
       expect(screen.getByTestId(`replays-editor-${id}`)).toBeTruthy()
     }
     expect(screen.getByTestId('replays-sides-add')).toBeTruthy()

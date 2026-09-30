@@ -215,6 +215,7 @@ describe('DemoDetailPanel', () => {
     expect(name.value).toBe('Grand final')
     expect(screen.queryByTestId('replays-detail-title')).toBeNull()
     expect(Array.from(header.querySelectorAll('button')).map((b) => b.getAttribute('data-testid'))).toEqual([
+      'replays-detail-favourite',
       'replays-detail-close',
     ])
 
@@ -225,7 +226,39 @@ describe('DemoDetailPanel', () => {
     expect((screen.getByTestId('replays-editor-gamemode') as HTMLInputElement).value).toBe('ctf')
     expect((screen.getByTestId('replays-editor-map') as HTMLInputElement).value).toBe('')
     expect((screen.getByTestId('replays-editor-map') as HTMLInputElement).placeholder).toBe('q2dm1')
-    expect((screen.getByTestId('replays-editor-rating') as HTMLInputElement).value).toBe('7')
+  })
+
+  it('edit mode shows no favourite or rating input', () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
+    useDemoEditorStore.getState().select(BASE_ROW.id)
+    renderPanel(BASE_ROW)
+    fireEvent.click(screen.getByTestId('replays-detail-edit'))
+
+    const editor = screen.getByTestId('replays-editor')
+    expect(screen.queryByTestId('replays-editor-favourite')).toBeNull()
+    expect(screen.queryByTestId('replays-editor-rating')).toBeNull()
+    expect(editor.querySelector('input[type="checkbox"]')).toBeNull()
+    expect(editor.textContent).not.toMatch(/favourite|rating/i)
+  })
+
+  it("saving edit mode keeps the demo's favourite and rating", async () => {
+    sidecarRead.mockResolvedValue({
+      ok: true,
+      value: { state: { state: 'ok' }, values: { favourite: true, rating: 6 } },
+    })
+    sidecarWrite.mockResolvedValue({ ok: true, value: { status: 'saved', state: 'written' } })
+    const row: DemoRow = { ...BASE_ROW, sidecar: { state: 'ok', values: { favourite: true, rating: 6 } } }
+    useDemoEditorStore.getState().select(row.id)
+    renderPanel(row)
+    fireEvent.click(screen.getByTestId('replays-detail-edit'))
+    fireEvent.change(screen.getByTestId('replays-editor-description'), { target: { value: 'Edited note' } })
+    fireEvent.click(screen.getByTestId('replays-editor-save'))
+
+    await waitFor(() => expect(sidecarWrite).toHaveBeenCalled())
+    const fields = sidecarWrite.mock.calls[0][1] as Record<string, unknown>
+    expect(fields.description).toBe('Edited note')
+    expect(fields.favourite).toBe(true)
+    expect(fields.rating).toBe(6)
   })
 
   it('Cancel restores the values and writes nothing', () => {
@@ -264,5 +297,36 @@ describe('DemoDetailPanel', () => {
     expect(useDemoEditorStore.getState().selectedId).toBeNull()
     expect(useDemoEditorStore.getState().drafts[BASE_ROW.id]).toBeUndefined()
     expect(sidecarWrite).not.toHaveBeenCalled()
+  })
+
+  it('the header favourite toggle reports aria-pressed and calls quickEdit with the flipped value', () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: {} } })
+    const quickEdit = vi.fn(async () => {})
+    useDemoEditorStore.setState({ quickEdit } as never)
+    renderPanel()
+    const toggle = screen.getByTestId('replays-detail-favourite')
+    expect(toggle.getAttribute('aria-pressed')).toBe('true')
+    expect(toggle.getAttribute('aria-label')).toBe('Favourite Grand final')
+    expect(toggle.querySelector('svg')?.getAttribute('class')).toContain('fill-flame-500')
+    fireEvent.click(toggle)
+    expect(quickEdit).toHaveBeenCalledWith(BASE_ROW.id, { favourite: false }, expect.any(Function))
+    cleanup()
+    renderPanel({ ...BASE_ROW, sidecar: { state: 'ok', values: {} } })
+    const off = screen.getByTestId('replays-detail-favourite')
+    expect(off.getAttribute('aria-pressed')).toBe('false')
+    expect(off.querySelector('svg')?.getAttribute('class')).not.toContain('fill-flame-500')
+    fireEvent.click(off)
+    expect(quickEdit).toHaveBeenLastCalledWith(BASE_ROW.id, { favourite: true }, expect.any(Function))
+  })
+
+  it("an archive entry's favourite toggle is disabled and described by the visible read-only reason", () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
+    renderPanel({ ...BASE_ROW, archiveEntry: { archivePath: 'pack.zip', entryPath: 'test.dm2' } } as DemoRow)
+    const toggle = screen.getByTestId('replays-detail-favourite') as HTMLButtonElement
+    expect(toggle.disabled).toBe(true)
+    const reason = screen.getByTestId('replays-archive-readonly-edit')
+    expect(reason.textContent).toContain('read-only')
+    expect(toggle.getAttribute('aria-describedby')).toBe(reason.id)
+    expect(screen.getAllByTestId('replays-archive-readonly-edit')).toHaveLength(1)
   })
 })

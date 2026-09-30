@@ -62,6 +62,12 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
     throw new Error('replays-archive-readonly: the Edit button must be disabled for an archive entry')
   }
 
+  for (const id of ['replays-detail-favourite', ...Array.from({ length: 10 }, (_, i) => `replays-detail-rating-star-${i + 1}`)]) {
+    if (!(await page.getByTestId(id).isDisabled())) {
+      throw new Error(`replays-archive-readonly: ${id} must be disabled for an archive entry`)
+    }
+  }
+
   const editNotice = page.getByTestId('replays-archive-readonly-edit')
   await editNotice.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const editNoticeText = await editNotice.textContent()

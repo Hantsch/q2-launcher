@@ -1268,8 +1268,6 @@
         "gamemode": "Game mode",
         "map": "Map",
         "date": "Date",
-        "favourite": "Favourite",
-        "rating": "Rating (1–10)",
         "tags": "Tags"
       },
       "placeholder": {
@@ -1366,7 +1364,8 @@
       "map": "Map",
       "favourites": "Favourites only",
       "rating": "Minimum rating",
-      "ratingAtLeast": "At least {{n}}",
+      "ratingAtLeast_one": "At least {{count}} star",
+      "ratingAtLeast_other": "At least {{count}} stars",
       "tags": "Tags",
       "noTags": "No tags yet.",
       "date": {
@@ -1388,6 +1387,15 @@
     },
     "detail": {
       "close": "Close",
+      "favourite": {
+        "ariaLabel": "Favourite {{name}}"
+      },
+      "rating": {
+        "label": "Rating",
+        "none": "Not rated",
+        "star_one": "{{count}} star",
+        "star_other": "{{count}} stars"
+      },
       "edit": "Edit",
       "mvd2Note": "Server-side demo with every player. Q2PRO chooses whom the camera follows — switch in game with invnext / invprev or cmd chase <player>.",
       "field": {

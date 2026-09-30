@@ -1,7 +1,7 @@
 ---
 id: 179
 title: I favourite and rate a demo with one click
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-30
 ---
 
@@ -24,22 +24,22 @@ the header this becomes easy to hit, so this story closes it.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The detail panel's header shows a favourite toggle button next to the title; its
+- [x] **AC1** — The detail panel's header shows a favourite toggle button next to the title; its
       pressed state is announced (`aria-pressed`) and visible without relying on colour alone.
-- [ ] **AC2** — Pressing it saves the favourite to the sidecar at once; the list row's favourite
+- [x] **AC2** — Pressing it saves the favourite to the sidecar at once; the list row's favourite
       star and the favourites-first order update without a rescan.
-- [ ] **AC3** — The detail panel shows the rating as a row of stars reflecting the saved rating; no
+- [x] **AC3** — The detail panel shows the rating as a row of stars reflecting the saved rating; no
       rating shows all stars empty.
-- [ ] **AC4** — Clicking a star saves that rating at once; clicking the star of the current rating
+- [x] **AC4** — Clicking a star saves that rating at once; clicking the star of the current rating
       clears it. The list row's rating updates without a rescan.
-- [ ] **AC5** — The star selector is keyboard-operable (arrow keys change, a key clears) and each
+- [x] **AC5** — The star selector is keyboard-operable (arrow keys change, a key clears) and each
       star has an accessible name stating the value it sets.
-- [ ] **AC6** — A favourite toggle and a rating pick fired back-to-back on the same demo both end
+- [x] **AC6** — A favourite toggle and a rating pick fired back-to-back on the same demo both end
       up in the sidecar (no lost write).
-- [ ] **AC7** — For an archive entry both controls stay visible, disabled, with the read-only reason
+- [x] **AC7** — For an archive entry both controls stay visible, disabled, with the read-only reason
       as visible text ([[158]]).
-- [ ] **AC8** — The favourite and rating inputs no longer appear in [[178]]'s edit mode.
-- [ ] **AC9** — The "Minimum rating" filter's options are labelled in stars ("At least 1 star",
+- [x] **AC8** — The favourite and rating inputs no longer appear in [[178]]'s edit mode.
+- [x] **AC9** — The "Minimum rating" filter's options are labelled in stars ("At least 1 star",
       "At least 7 stars", …) instead of bare numbers. *(Added in refine from the (User) decision
       below.)*
 
@@ -299,3 +299,33 @@ Coverage: AC1–2 → D2 (on D1) · AC3–5 → D3 · AC6 → D1 (+ D3 flow) · 
 AC9 → D5.
 
 ## Done
+
+Favourite is a one-click toggle in the detail header and the rating a 10-star radiogroup under it; both
+save at once through `quickEdit`. The store now serializes every sidecar write per demo (queue) with an
+optimistic `quickPending` overlay, which closes the S27 lost-write race. Edit mode no longer shows
+either input (they stay in `SidecarDraft`); the Minimum-rating filter options read "At least N star(s)".
+
+Commit message: `179: one-click favourite + 10-star rating in demo detail, per-demo sidecar write queue, star-labelled rating filter`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (829 tests)
+green; `npm run ui:flow -- replays-detail-quick-edit` and `replays-edit-sidecar` green (fresh seed each);
+review cycle 1 PASS, its two findings fixed and re-verified. No `e2e-all`/full gate (the sprint's).
+AC -> test: AC1-AC6 flow `replays-detail-quick-edit` + unit tests as mapped (DemoDetailPanel, StarRating,
+demo-editor-store) - all ran, passed; AC7 unit tests passed, flow `replays-archive-readonly` passes the
+extended step but is RED at the later step "reveal and copy-path stay enabled for an archive entry" (Play
+reason says "not Q2PRO" instead of mod-missing) - pre-existing, identical on stashed HEAD, not fixed here;
+AC8 flow `replays-edit-sidecar` + unit (in `DemoDetailPanel.test.tsx`, not DemoNotesEditor.test.tsx - 178
+replaced that file with `DemoDetailEditor`); AC9 `DemoListFilterBar.test.tsx`. No manual residue.
+
+Decisions:
+- D1 added `confirmQuickEdit` (ReplaysView confirm path): the old confirm called `quickEdit` while `replace`
+  was set, which the new merge-into-pending rule would have swallowed. `save` also folds `pendingQuickEdit`
+  into its write so a click made behind the editor's replace dialog is not lost.
+- Review finding: the overlay was cleared before the row patch rendered (stale flash, possible flaky star
+  clear) - overlay/tail clear now waits two macrotasks after the last queued write; relies on React's commit
+  preceding them (assumption, covered by store test + 3 green flow runs). Failed `save` now drops stale `pendingQuickEdit`.
+- Known minor, unfixed (spec-literal): while a replace dialog is open the controls show the old value.
+- `demo-detail.ts` had no favourite/rating fields; `replays.editor.error.rating` kept (used by shared validation).
+- Unrelated working-tree edits (docs/ROADMAP.md, docs/concepts/demo-browser.md) are not from this story.
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 10

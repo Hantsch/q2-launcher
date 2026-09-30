@@ -72,7 +72,7 @@ export function DemoListFilterBar({ filter, onChange, options, shown, total }: D
 
   const ratingOptions: SelectOption[] = [
     { value: '', label: t('replays.filter.any') },
-    ...RATINGS.map((n) => ({ value: String(n), label: t('replays.filter.ratingAtLeast', { n }) })),
+    ...RATINGS.map((n) => ({ value: String(n), label: t('replays.filter.ratingAtLeast', { count: n }) })),
   ]
 
   const active = isDemoFilterActive(filter)

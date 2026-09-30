@@ -12,7 +12,7 @@ vi.mock('./client', () => ({
   indexRead: (...args: unknown[]) => indexRead(...args),
 }))
 
-const { findRowReplaceId, useDemoEditorStore } = await import('./demo-editor-store')
+const { effectiveQuickValues, findRowReplaceId, useDemoEditorStore } = await import('./demo-editor-store')
 
 const A = 'aaaaaaaaaaaaaaaa'
 const B = 'bbbbbbbbbbbbbbbb'
@@ -26,7 +26,175 @@ beforeEach(() => {
   sidecarWrite.mockReset()
   scanStart.mockReset()
   indexRead.mockReset()
-  useDemoEditorStore.setState({ selectedId: null, editingId: null, drafts: {}, pendingLeave: null })
+  useDemoEditorStore.setState({ selectedId: null, editingId: null, drafts: {}, quickPending: {}, pendingLeave: null })
+})
+
+const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
+
+/**
+ * A fake on-disk sidecar. Reads answer at once with what is on disk; every write waits until the test
+ * releases it and only then lands on disk - so two writes that were not serialized would both have
+ * read the same, older file. `broken` makes an unconfirmed write answer `needsConfirmation`.
+ */
+function fakeSidecar(initial: Record<string, unknown>, options: { broken?: boolean } = {}) {
+  const disk = { values: { ...initial }, broken: options.broken ?? false }
+  const waiting: Array<() => void> = []
+  sidecarRead.mockImplementation(async () => ({
+    ok: true,
+    value: { state: { state: 'ok' }, values: structuredClone(disk.values) },
+  }))
+  sidecarWrite.mockImplementation(
+    (_id: string, fields: Record<string, unknown>, fingerprint?: string) =>
+      new Promise((resolve) => {
+        waiting.push(() => {
+          if (disk.broken && fingerprint === undefined) {
+            resolve({ ok: true, value: { status: 'needsConfirmation', fileName: 'a.dm2.json', issues: [], fingerprint: 'f1' } })
+            return
+          }
+          disk.broken = false
+          disk.values = structuredClone(fields)
+          resolve({ ok: true, value: { status: 'saved', state: 'written' } })
+        })
+      }),
+  )
+  /** Releases waiting writes one at a time until `promise` has settled. */
+  async function settle(promise: Promise<unknown>): Promise<void> {
+    let done = false
+    void promise.then(
+      () => (done = true),
+      () => (done = true),
+    )
+    for (let guard = 0; guard < 50; guard++) {
+      await flush()
+      if (done) break
+      waiting.shift()?.()
+    }
+    expect(done).toBe(true)
+  }
+  return { disk, waiting, settle }
+}
+
+describe('quick edits never lose a write (story 179)', () => {
+  it('a favourite toggle and a rating pick fired back-to-back both reach the sidecar', async () => {
+    const sidecar = fakeSidecar({ name: 'x' })
+    const favourite = store().quickEdit(A, { favourite: true }, vi.fn())
+    const rating = store().quickEdit(A, { rating: 7 }, vi.fn())
+
+    await sidecar.settle(Promise.all([favourite, rating]))
+
+    expect(sidecar.disk.values).toEqual({ name: 'x', favourite: true, rating: 7 })
+  })
+
+  it('a quick edit during an edit-mode save waits for it and is not dropped', async () => {
+    const sidecar = fakeSidecar({ name: 'Old' })
+    store().select(A)
+    store().startEdit(A, { name: 'Old' })
+    store().updateDraft(A, { name: 'New' })
+
+    const save = store().save(A, vi.fn())
+    const quick = store().quickEdit(A, { favourite: true }, vi.fn())
+    await sidecar.settle(Promise.all([save, quick]))
+
+    expect(sidecar.disk.values).toEqual({ name: 'New', favourite: true })
+    expect(store().drafts[A]?.saving).toBeFalsy()
+  })
+
+  it('a quick edit keeps an open draft\'s unsaved changes and patches only favourite and rating', async () => {
+    const sidecar = fakeSidecar({ name: 'Old' })
+    store().select(A)
+    store().startEdit(A, { name: 'Old' })
+    store().updateDraft(A, { name: 'Unsaved' })
+
+    await sidecar.settle(store().quickEdit(A, { favourite: true, rating: 5 }, vi.fn()))
+
+    const entry = store().drafts[A]!
+    expect(entry.draft).toMatchObject({ name: 'Unsaved', favourite: true, rating: '5' })
+    expect(entry.baseline).toMatchObject({ name: 'Old', favourite: true, rating: '5' })
+    expect(store().editingId).toBe(A)
+
+    // The edit-mode save afterwards writes the unsaved change without undoing the quick edit.
+    await sidecar.settle(store().save(A, vi.fn()))
+    expect(sidecar.disk.values).toEqual({ name: 'Unsaved', favourite: true, rating: 5 })
+  })
+
+  it('quick edits during a pending replace confirmation are merged into the retry', async () => {
+    const sidecar = fakeSidecar({}, { broken: true })
+    await sidecar.settle(store().quickEdit(A, { favourite: true }, vi.fn()))
+    expect(store().drafts[A]?.replace).toBeDefined()
+
+    // The dialog is open: this click must not write (and must not be lost).
+    await sidecar.settle(store().quickEdit(A, { rating: 3 }, vi.fn()))
+    expect(sidecarWrite).toHaveBeenCalledTimes(1)
+    expect(sidecar.disk.values).toEqual({})
+
+    const onRowPatched = vi.fn()
+    await sidecar.settle(store().confirmQuickEdit(A, onRowPatched))
+
+    expect(sidecarWrite).toHaveBeenLastCalledWith(A, { favourite: true, rating: 3 }, 'f1')
+    expect(sidecar.disk.values).toEqual({ favourite: true, rating: 3 })
+    expect(onRowPatched).toHaveBeenCalledWith(A, { state: { state: 'ok' }, values: { favourite: true, rating: 3 } })
+    expect(store().drafts[A]?.replace).toBeUndefined()
+  })
+
+  it('the optimistic overlay shows the patch at once and is cleared when the queue drains, also on failure', async () => {
+    const sidecar = fakeSidecar({ rating: 5 })
+    const row = { rating: 5 }
+    const favourite = store().quickEdit(A, { favourite: true }, vi.fn())
+    expect(effectiveQuickValues(store().quickPending[A], row)).toEqual({ favourite: true, rating: 5 })
+    const cleared = store().quickEdit(A, { rating: null }, vi.fn())
+    // `null` is a cleared rating, not "no overlay".
+    expect(effectiveQuickValues(store().quickPending[A], row)).toEqual({ favourite: true, rating: null })
+
+    await sidecar.settle(favourite)
+    expect(store().quickPending[A]).toBeDefined() // the rating pick is still queued
+    await sidecar.settle(cleared)
+    expect(store().quickPending[A]).toBeUndefined()
+    expect(sidecar.disk.values).toEqual({ favourite: true })
+
+    // A failed write drops the overlay too, so the row falls back to what is on disk.
+    sidecarWrite.mockResolvedValueOnce({ ok: false, error: { key: 'replays.sidecar.error.write' } })
+    const failing = store().quickEdit(A, { favourite: false }, vi.fn())
+    expect(effectiveQuickValues(store().quickPending[A], { favourite: true }).favourite).toBe(false)
+    await failing
+    expect(store().quickPending[A]).toBeUndefined()
+    expect(effectiveQuickValues(store().quickPending[A], { favourite: true }).favourite).toBe(true)
+  })
+
+  it('the overlay stays until the patched row has been handed to the view, and a newer edit keeps it', async () => {
+    const sidecar = fakeSidecar({})
+    const onRowPatched = vi.fn()
+    const first = store().quickEdit(A, { rating: 7 }, onRowPatched)
+    for (let guard = 0; guard < 20 && onRowPatched.mock.calls.length === 0; guard++) {
+      await flush()
+      sidecar.waiting.shift()?.()
+    }
+    expect(onRowPatched).toHaveBeenCalledTimes(1)
+    // Microtasks only - React has not had a macrotask to commit the row yet: the overlay must hold.
+    for (let i = 0; i < 10; i++) await Promise.resolve()
+    expect(store().quickPending[A]).toEqual({ rating: 7 })
+
+    // A newer edit arriving during the deferral must not have its overlay cleared by the older write.
+    const second = store().quickEdit(A, { favourite: true }, vi.fn())
+    await flush()
+    expect(store().quickPending[A]).toEqual({ rating: 7, favourite: true })
+    await sidecar.settle(Promise.all([first, second]))
+    expect(store().quickPending[A]).toBeUndefined()
+    expect(sidecar.disk.values).toEqual({ rating: 7, favourite: true })
+  })
+
+  it('a failed save drops quick edits merged for the replace dialog, so a retry cannot carry them', async () => {
+    const sidecar = fakeSidecar({}, { broken: true })
+    await sidecar.settle(store().quickEdit(A, { favourite: true }, vi.fn()))
+    expect(store().drafts[A]?.pendingQuickEdit).toEqual({ favourite: true })
+
+    // Dialog still open: the pending patch stays.
+    expect(store().drafts[A]?.replace).toBeDefined()
+
+    sidecarWrite.mockReset()
+    sidecarWrite.mockResolvedValueOnce({ ok: false, error: { key: 'replays.sidecar.error.write' } })
+    await store().save(A, vi.fn())
+    expect(store().drafts[A]?.pendingQuickEdit).toBeUndefined()
+  })
 })
 
 describe('demo-editor-store', () => {
