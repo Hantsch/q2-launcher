@@ -25,7 +25,7 @@ controls answer a click at once and reach the game faster on Windows.
 - [x] 180 — the action bar button speaks for the tab I'm on
 - [x] 181 — I join the selected server from the action bar
 - [x] 182 — a missing-mod warning is asked once
-- [ ] 183 — a spike finds where demo-control latency comes from
+- [x] 183 — a spike finds where demo-control latency comes from
 - [ ] 184 — the timeline answers my click at once
 - [ ] 185 — demo commands reach the game without waiting
 

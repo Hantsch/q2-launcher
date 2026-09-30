@@ -275,3 +275,4 @@ second roadmap.
 - 180 — The action bar button speaks for the tab I'm on · S30 · modules contribute the primary action (Demos: View, reason as visible text, mod-missing confirm); panel Play removed; flows migrated
 - 181 — I join the selected server from the action bar · S30 · action bar Join runs the full join flow for the selected server via useJoinFlow and the primary-action seam
 - 182 — A missing-mod warning is asked once · S30 · demo mod warning asks once with per-mod remembered answers and a Demos settings switch/forget
+- 183 — A spike finds where demo-control latency comes from · S30 · delay is the log flush, not the tick; recommended flush3 + multiseq at wait 13 (p95 ACK ≤ 350 ms target, measured 293); wait1 is a console flood

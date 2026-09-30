@@ -1,7 +1,7 @@
 ---
 id: 183
 title: A spike finds where demo-control latency comes from
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-30
 ---
 
@@ -23,21 +23,21 @@ This is a spike: its output is a `RESULT.md` with measurements and a go/no-go pe
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `spikes/183-control-latency/RESULT.md` states, for the current production settings on
+- [x] **AC1** — `spikes/183-control-latency/RESULT.md` states, for the current production settings on
       real Q2PRO (Windows), the measured time from "control file written" to (a) the command taking
       effect in the game and (b) its ACK being read by the launcher, p50 and p95.
-- [ ] **AC2** — The result states the measured interval between log flushes (POS/ACK arrival) at the
+- [x] **AC2** — The result states the measured interval between log flushes (POS/ACK arrival) at the
       current tick.
-- [ ] **AC3** — The result measures each candidate lever and gives a go/no-go per lever, at least:
+- [x] **AC3** — The result measures each candidate lever and gives a go/no-go per lever, at least:
       a shorter loop wait; forcing the log to flush every tick (e.g. `logfile` off/on, other
       `logfile_flush` values, padding the log output); dispatching the next command without waiting
       for the previous ACK (several sequences guarded in one control file, or queued lines coalesced
       into one command file).
-- [ ] **AC4** — For every lever it records the side effects: console/notify lines visible in the game,
+- [x] **AC4** — For every lever it records the side effects: console/notify lines visible in the game,
       whether in-game typing and binds are still starved as in [[169]], and CPU cost.
-- [ ] **AC5** — The result names the recommended combination and the target latency [[185]] will be
+- [x] **AC5** — The result names the recommended combination and the target latency [[185]] will be
       held to.
-- [ ] **AC6** — The result states whether the Linux channel (stdin/stdout, 100 ms poll) shows a
+- [x] **AC6** — The result states whether the Linux channel (stdin/stdout, 100 ms poll) shows a
       comparable delay, or explicitly records that Linux was not measured and why.
 
 ## Open Questions
@@ -100,7 +100,7 @@ unattended against `C:\Games\Q2Pro\q2pro.exe`, game `opentdm`. No `src/` change,
 
 ## Deliverables
 
-- [ ] **D1** — Harness `spikes/183-control-latency/harness.mjs` + `README.md` (mirror the shape of
+- [x] **D1** — Harness `spikes/183-control-latency/harness.mjs` + `README.md` (mirror the shape of
   `spikes/169-windowed-stage/harness.mjs` / `README.md`; reuse `spikes/169-windowed-stage/win-probe.ps1`
   by path and the PowerShell screenshot + `CloseMainWindow()` helpers from
   `spikes/174-chat-hud/probe.mjs`). Node ESM, node built-ins plus `jiti` only.
@@ -134,7 +134,7 @@ unattended against `C:\Games\Q2Pro\q2pro.exe`, game `opentdm`. No `src/` change,
   - Acceptance: `node spikes/183-control-latency/harness.mjs --config baseline --samples 5` runs
     unattended to a results JSON containing all fields above and leaves no `q2l_*`/marker files in
     the game dir. Files: `spikes/183-control-latency/harness.mjs`, `spikes/183-control-latency/README.md`.
-- [ ] **D2** — Run `--all` unattended (re-run a configuration once if the game fails to start) and
+- [x] **D2** — Run `--all` unattended (re-run a configuration once if the game fails to start) and
   write `spikes/183-control-latency/RESULT.md` (mirror `spikes/169-windowed-stage/RESULT.md`), every
   number citing its `results/*.json` file:
   - AC1: baseline table — control written → took effect, and → ACK read, p50/p95, split into tick
@@ -169,7 +169,7 @@ involved, so `ui:flow` does not apply.
 - AC1 → probe `node spikes/183-control-latency/harness.mjs --config baseline` › results JSON
   `baseline.effect.{p50,p95}` + `baseline.ack.{p50,p95}` → RESULT.md "AC1".
 - AC2 → probe same run › `baseline.flushIntervals.{p50,p95,max}` → RESULT.md "AC2".
-- AC3 → probe `node spikes/183-control-latency/harness.mjs --all` › one JSON section per lever
+- AC3 → probe `node spikes/183-control-latency/harness.mjs --config <name>` (one run per config; `--all` exceeds the 10-min call limit) › one JSON section per lever
   (`wait*`, `flush*`, `logtoggle`, `pad`, `multiseq`, `coalesce`, `fileack`, `combo-*`) → RESULT.md
   lever table with go/no-go.
 - AC4 → probe `--all` › per-config `sideEffects.{linesPerSec,starved,cpuDeltaPct,screenshot}` →
@@ -182,3 +182,15 @@ involved, so `ui:flow` does not apply.
   assessment). **manual residue** if not measured: no Linux Q2PRO on the unattended Windows machine.
 
 ## Done
+
+Spike finished; `spikes/183-control-latency/` holds the harness, README, RESULT.md and 16 results JSON+PNG pairs (15 planned configs + `combo-4`). No `src/` change, no CHANGELOG entry (spike, nothing user-facing).
+
+- **Headline:** production baseline measures effect p50/p95 117/209 ms but ACK read p50/p95 1277/1537 ms — the delay is the log flush (~1.3 s interval, 525-byte chunks), not the tick. Go: `flush3` (logfile_flush 3, ACK p95 254 ms, ~9 lines/s), `multiseq` for bursts (last ACK 940 vs 3750 ms), `fileack` as fallback. No-go: wait5/2/1 and combos 1-3 (wait1 ~91-101 lines/s vs the 10/s cap of 174/185), flush0, logtoggle, pad, coalesce. **Recommended: `combo-4` = flush3 + multiseq at wait 13; 185 target p95 control→ACK ≤ 350 ms at the 50 ms poll (measured 293), bursts of 3 ≤ ~350 ms, POS interval p95 ≤ 400 ms.** Wait1 (ACK p95 133 ms) is documented as the latency floor only.
+- **Commit message:** `183: spike — demo-control latency is the log flush; flush3 + multiseq at wait 13 measured p95 ≤ 293 ms, wait1 is a console flood`
+- **Verification (narrow gate):** `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` finds no tests (no `src/` change); ui:flow n/a (no renderer surface). AC walk by the harness runs + RESULT.md (~80 figures spot-checked against the JSONs, zero mismatches): AC1-AC5 PASS via `harness.mjs --config <name> --samples 30` per config; AC6 PASS as "not measured" (no Linux Q2PRO) + code assessment of `linux-channel.ts`.
+- **Review:** stage 1 PASS with findings (flush2 state check invalid — demo never played; CPU unusable; README), fixed; stage 2 (hard) FAIL on the recommendation (combo-1 at 91 lines/s breaks 174/185's line budget and AC4's "line count is the gate"; wrong claim that only fileack beat 300 ms; multiseq/coalesce judged on the wrong metric) — fixed by measuring `combo-4`, re-ranking and rewriting RESULT.md, then narrow gate re-run green.
+- **Decisions:** configs ran as one invocation each (`--all` would exceed the 10-min call ceiling; ~3 min per config), combos read earlier JSONs; CPU windows raised to 30 s (harness), yet CPU stays inconclusive in RESULT.md (bimodal, plausibly engine-fps-dependent, unproven); `combo-4` added in review cycle 2 because the data pointed to an in-budget combination nobody had measured; third review cycle not spent — the rewrite was re-verified by a number walk, not a fresh reviewer.
+- **Manual residue:** judge the per-config screenshots by eye (AC4 visible console/notify lines, esp. `combo-4` vs baseline); Linux delay not measured (AC6, no Linux Q2PRO on this machine); burst serialisation at production's 50 ms poll and wait2+flush3 not measured.
+- No q2pro.exe running, no `q2l_*`/`configs` leftovers in the game dir; `q2config.cfg` restored.
+
+tiers: D 2 / hard 1 · review default+hard · cycles 2 · agents 10
