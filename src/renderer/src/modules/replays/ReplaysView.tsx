@@ -308,13 +308,6 @@ export function ReplaysView() {
   const rowReplaceId = Object.keys(drafts).find((id) => id !== selectedId && drafts[id]?.replace !== undefined)
   const rowReplaceEntry = rowReplaceId !== undefined ? drafts[rowReplaceId] : undefined
 
-  const sortCaption =
-    sort === null
-      ? t('replays.sort.current.default')
-      : t('replays.sort.current.column', {
-          column: t(`replays.sort.column.${sort.column}`),
-          direction: t(`replays.sort.direction.${sort.direction}`),
-        })
 
   return (
     <div className="flex h-full flex-col">
@@ -335,9 +328,6 @@ export function ReplaysView() {
       </header>
 
       <ReplaysListStatus listState={listState} progress={progress} onOpenSettings={handleOpenSettings} />
-      <p className="px-5 pt-2 text-xs text-ink-muted" data-testid="replays-sort-current">
-        {sortCaption}
-      </p>
 
       <div className="flex min-h-0 flex-1">
         <aside
@@ -418,7 +408,7 @@ export function ReplaysView() {
       <div className={cn(stageMode && 'h-32 shrink-0 overflow-hidden')} data-testid="replays-timeline-slot">
         <DemoTimeline />
       </div>
-      <ConsoleCommandField />
+      {stageMode && <ConsoleCommandField />}
 
       {rowReplaceId !== undefined && rowReplaceEntry?.replace !== undefined && (
         <ReplaceSidecarDialog

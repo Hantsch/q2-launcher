@@ -42,12 +42,18 @@ export function DemoListHeader({ sort, onSort }: DemoListHeaderProps) {
             )}
           >
             {t(`replays.sort.column.${column}`)}
-            {isActive &&
-              (sort?.direction === 'asc' ? (
-                <ArrowUp className="size-3" aria-hidden="true" />
-              ) : (
-                <ArrowDown className="size-3" aria-hidden="true" />
-              ))}
+            {isActive && sort && (
+              <>
+                {sort.direction === 'asc' ? (
+                  <ArrowUp className="size-3" aria-hidden="true" />
+                ) : (
+                  <ArrowDown className="size-3" aria-hidden="true" />
+                )}
+                <span className="sr-only" data-testid="replays-sort-direction">
+                  {t(`replays.sort.direction.${sort.direction}`)}
+                </span>
+              </>
+            )}
           </button>
         )
       })}

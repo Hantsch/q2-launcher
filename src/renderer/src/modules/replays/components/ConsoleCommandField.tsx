@@ -9,15 +9,16 @@ import { useLauncher } from '../../../store/useLauncher'
 import { usePlaybackStore } from '../playback-store'
 
 /**
- * Story 166 D4: the one-line console field next to the timeline. It is always rendered; without a
- * demo session the input and Send are disabled and the reason is visible text. The shared validator
+ * Story 166 D4 / 176 D1: the one-line console field next to the timeline. It only shows while a demo
+ * plays: otherwise the band keeps its size (story 170: the stage box must not change when the session
+ * goes live) but is invisible, inert and names no reason. The shared validator
  * gives the immediate reason (an empty line just disables Send, no error); main's refusal shows in
  * the same slot and keeps the text. A successful send clears the field.
  */
 export function ConsoleCommandField() {
   const { t } = useTranslation()
   const reasonId = useId()
-  const hasSession = usePlaybackStore((state) => state.session !== null)
+  const live = usePlaybackStore((state) => state.session !== null && state.session.view?.ended !== true)
   const platform = useLauncher((state) => state.appInfo?.platform ?? '')
   const showStageHint = usePlaybackStore(
     (state) =>
@@ -29,14 +30,14 @@ export function ConsoleCommandField() {
 
   const validation = validateConsoleLine(line)
   const localReason = !validation.ok && validation.reason !== 'empty' ? validation.reason : null
-  const reason = !hasSession
-    ? t('replays.console.disabled.noSession')
+  const reason = !live
+    ? null
     : localReason !== null
       ? t(`replays.console.error.${localReason}`)
       : serverError
         ? t(serverError.key, serverError.params)
         : null
-  const canSend = hasSession && validation.ok && !submitting
+  const canSend = live && validation.ok && !submitting
 
   async function submit(): Promise<void> {
     if (!canSend) return
@@ -55,7 +56,9 @@ export function ConsoleCommandField() {
 
   return (
     <section
-      className="flex flex-col gap-1 border-t border-line bg-panel px-5 py-2"
+      className={`flex flex-col gap-1 border-t border-line bg-panel px-5 py-2${live ? '' : ' invisible'}`}
+      aria-hidden={live ? undefined : true}
+      inert={!live}
       aria-label={t('replays.console.label')}
       data-testid="replays-console-field"
     >
@@ -63,7 +66,7 @@ export function ConsoleCommandField() {
         <div className="flex items-center gap-2">
           <Input
             value={line}
-            disabled={!hasSession}
+            disabled={!live}
             placeholder={t('replays.console.placeholder')}
             autoComplete="off"
             spellCheck={false}
@@ -98,8 +101,8 @@ export function ConsoleCommandField() {
       {reason !== null && (
         <p
           id={reasonId}
-          className={hasSession ? 'min-h-4 text-xs text-danger' : 'min-h-4 text-xs text-ink-muted'}
-          role={hasSession ? 'alert' : undefined}
+          className="min-h-4 text-xs text-danger"
+          role="alert"
           data-testid="replays-console-reason"
         >
           {reason}

@@ -268,3 +268,4 @@ second roadmap.
 - 173 — I end the demo from the launcher · S29 · stop on timeline and action bar (quit, then terminate after 5 s), Windows stage hint that in-game typing does not reach the game
 - 174 — the game console is not flooded by the launcher · S29 · con_notifylines 0 + chat HUD session args, 200 ms Windows tick, notify cvars restored; probed on real Q2PRO
 - 175 — an address I add is saved right away · S29 · commitCvars writes only the address to the .cfg and installation copies, dirty profiles keep their pending edits, dialog shows saved toast or inline error
+- 176 — The Demos view shows only what helps right now · S30 · console field only appears while a demo plays, sort caption removed (header names the sort for screen readers)

@@ -119,6 +119,21 @@ async function waitForPressed(page, column, pressed) {
   )
 }
 
+async function assertNoSortCaption(page, label) {
+  const captions = await page.getByTestId('replays-sort-current').count()
+  const defaultText = await page.getByText('Favourites first, then newest').count()
+  if (captions !== 0 || defaultText !== 0) {
+    throw new Error(`expected no sort caption in ${label}, got ${captions} testid / ${defaultText} text matches`)
+  }
+}
+
+async function assertDirectionText(page, column, expected) {
+  const text = await page.getByTestId(`replays-sort-${column}`).getByTestId('replays-sort-direction').textContent()
+  if (text !== expected) {
+    throw new Error(`expected ${column} direction text "${expected}", got "${text}"`)
+  }
+}
+
 export default async function replaysSortOrder({ page, step, shot }) {
   step('navigate to Demos and wait for the scan to settle')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
@@ -138,10 +153,7 @@ export default async function replaysSortOrder({ page, step, shot }) {
     ],
     'the default',
   )
-  const currentDefault = await page.getByTestId('replays-sort-current').textContent()
-  if (currentDefault !== 'Favourites first, then newest') {
-    throw new Error(`expected the default sort-current text, got "${currentDefault}"`)
-  }
+  await assertNoSortCaption(page, 'the default order')
   await shot('default-order')
 
   step('clicking the map column sorts ascending across all rows - favourites are not re-pinned')
@@ -168,6 +180,8 @@ export default async function replaysSortOrder({ page, step, shot }) {
   if (!(newestNonFavIndex > Math.min(...favIndices) && newestNonFavIndex < Math.max(...favIndices))) {
     throw new Error('expected the newest non-favourite to sit between the two favourites under a map sort')
   }
+  await assertNoSortCaption(page, 'map ascending')
+  await assertDirectionText(page, 'map', 'ascending')
   await shot('map-ascending')
 
   step('clicking the map column again reverses to descending')
@@ -178,6 +192,7 @@ export default async function replaysSortOrder({ page, step, shot }) {
   )
   const descOrder = await rowOrder(page)
   assertOrder(descOrder, [...ascOrder].reverse(), 'map descending')
+  await assertDirectionText(page, 'map', 'descending')
   await shot('map-descending')
 
   step('clicking the date column twice proves both directions of a second column')

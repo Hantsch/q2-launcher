@@ -1,2 +1,12 @@
 - 06:53:34 · refine · 176 177 178 179 180 181 182 183 184 185 · started
 - 06:59:26 · refine · done
+- 06:59:26 · 176 · build · started
+- 2026-09-30 06:59 · 176 · D1 console field only while playing · started
+- 2026-09-30 07:02 · 176 · D1 console field only while playing · done
+- 2026-09-30 07:02 · 176 · D2 no sort caption · started
+- 2026-09-30 07:03 · 176 · D2 no sort caption · done
+- 2026-09-30 07:03 · 176 · verify · started
+- 2026-09-30 07:06 · 176 · verify · done
+- 2026-09-30 07:06 · 176 · review 1 · started
+- 2026-09-30 07:06 · 176 · review 1 · done
+- 2026-09-30 07:06 · 176 · story · done

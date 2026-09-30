@@ -66,16 +66,15 @@ export default async function replaysConsoleCommand({ page, step, shot }) {
   const sendButton = page.getByTestId('replays-console-send')
   const reason = page.getByTestId('replays-console-reason')
 
-  step('without a session the field is disabled and says why in visible text')
+  step('with no demo playing there is no console field and no no-session text')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForScan(page)
-  await page.getByTestId('replays-console-field').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  if (!(await input.isDisabled()) || !(await sendButton.isDisabled())) {
-    throw new Error('replays-console-command: input and Send must be disabled without a session')
+  if ((await page.getByTestId('replays-console-field').count()) !== 0) {
+    throw new Error('replays-console-command: there must be no console field without a session')
   }
-  if (!(await reason.isVisible()) || ((await reason.textContent()) ?? '').trim() === '') {
-    throw new Error('replays-console-command: the no-session reason must be visible text')
+  if ((await page.getByText('no demo is playing').count()) !== 0) {
+    throw new Error('replays-console-command: the no-session reason must not be rendered')
   }
   await shot('console-no-session')
 
@@ -108,4 +107,5 @@ export default async function replaysConsoleCommand({ page, step, shot }) {
   step('the game exits')
   writeFileSync(files.quitFile, '')
   await page.getByTestId('replays-timeline').waitFor({ state: 'detached', timeout: 10_000 })
+  await page.getByTestId('replays-console-field').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 }

@@ -18,7 +18,7 @@ controls answer a click at once and reach the game faster on Windows.
 
 ## Stories (in build order)
 
-- [ ] 176 — the Demos view shows only what helps right now
+- [x] 176 — the Demos view shows only what helps right now
 - [ ] 177 — the demo detail reads at a glance
 - [ ] 178 — I edit a demo's details where I read them
 - [ ] 179 — I favourite and rate a demo with one click

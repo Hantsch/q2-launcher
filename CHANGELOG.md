@@ -20,6 +20,7 @@ version section when a release actually ships.
 - **Demos** — while a demo plays on the stage, its details stay visible to the right of the picture, and the playback controls are larger, with the seek bar spanning the full width above them.
 - **Demos** — the game no longer captures the mouse while a demo plays in the launcher, so the controls are reachable without pressing Escape first.
 - **Demos** — the launcher's plumbing no longer scrolls over the demo, and chat shows in the game's chat HUD.
+- **Demos** — the console field only shows while a demo is playing, instead of sitting there disabled.
 
 ### Added
 - **Demos** — a Stop button on the timeline (and in the action bar) ends the demo and the game with one click. On Windows the stage now tells you why the game's own console stays quiet while it steers the demo.
@@ -69,6 +70,9 @@ version section when a release actually ships.
 
 ### Changed
 - **Demos** — the demo stage now moves, hides and steps aside with the launcher: drag or resize the window and the game follows, leave the view and it parks, open a dialog or menu and it gets out of the way.
+
+### Removed
+- **Demos** — the "Sorted by …" line above the list is gone; the column header already shows the sort.
 
 ## 0.5.0 — 2026-09-26
 

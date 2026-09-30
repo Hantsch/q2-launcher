@@ -1,7 +1,7 @@
 ---
 id: 176
 title: The Demos view shows only what helps right now
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-30
 ---
 
@@ -19,13 +19,13 @@ Both go: the console field appears only while a demo plays, the sort caption dis
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — With no demo playing, the Demos view shows no console command field and no
+- [x] **AC1** — With no demo playing, the Demos view shows no console command field and no
       "no demo is playing" text.
-- [ ] **AC2** — While a demo plays, the console command field is shown and sends a line exactly as
+- [x] **AC2** — While a demo plays, the console command field is shown and sends a line exactly as
       today ([[166]]); story [[173]]'s Windows stage hint is still shown next to it.
-- [ ] **AC3** — When the demo ends (finish, stop or game exit), the console command field disappears
+- [x] **AC3** — When the demo ends (finish, stop or game exit), the console command field disappears
       again.
-- [ ] **AC4** — The Demos view shows no sort caption under its header, neither for the default order
+- [x] **AC4** — The Demos view shows no sort caption under its header, neither for the default order
       nor for a column sort; the column headers still mark the active sort column and direction.
 
 ## Open Questions
@@ -158,3 +158,21 @@ Coverage gate: AC1 → D1 · AC2 → D1 · AC3 → D1 · AC4 → D2 — every cr
 named test.
 
 ## Done
+
+Demos view lost its permanent chrome: the console field now renders only in stage mode and is hidden
+(`invisible`, `aria-hidden`, `inert`) unless a session is live and not ended; the sort caption is gone and
+the active header button carries an sr-only direction text. Dead i18n keys removed, CHANGELOG lines added.
+
+Commit message: `176: console field only while a demo plays, drop sort caption`
+
+Verification (narrow gate): build, typecheck, `npx vitest run --changed HEAD` (102 files / 793 tests) and
+`npm run ui:flow -- {replays-console-command, replays-stop, replays-stage, replays-sort-order}` all green.
+AC1-AC4 -> the tests named in `## Acceptance Tests` ran and passed (unit ConsoleCommandField/DemoListHeader,
+the four flows). No manual residue. Review (default tier, 1 cycle): PASS.
+
+Decisions:
+- Unfixed cosmetic review note: two consecutive blank lines left in `ReplaysView.tsx` (~309) where `sortCaption` was — no behaviour impact.
+- CHANGELOG: Unreleased already had two `### Changed` headings; the D1 line sits in the first, `### Removed` was added after the last.
+- Review note accepted: `line`/`serverError` state persist in the hidden field after a finish; invisible since the reason text is suppressed when not live and a new demo remounts the field.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 4

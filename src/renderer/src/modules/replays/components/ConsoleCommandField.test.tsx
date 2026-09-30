@@ -71,12 +71,28 @@ describe('ConsoleCommandField (story 166 D4)', () => {
     await waitFor(() => expect(input().value).toBe(''))
   })
 
-  it('without a session the field is disabled with a visible reason', () => {
-    render(createElement(ConsoleCommandField))
-    expect(input().disabled).toBe(true)
-    expect(send().disabled).toBe(true)
-    expect(screen.getByTestId('replays-console-reason').textContent).toContain('no demo is playing')
+  it('without a session the field is hidden and names no reason', () => {
+    const { container } = render(createElement(ConsoleCommandField))
+    const section = screen.getByTestId('replays-console-field')
+    expect(section.getAttribute('aria-hidden')).toBe('true')
+    expect(section.hasAttribute('inert')).toBe(true)
+    expect(container.textContent).not.toContain('no demo is playing')
     expect(consoleSend).not.toHaveBeenCalled()
+  })
+
+  it('a finished demo hides the field', () => {
+    begin()
+    render(createElement(ConsoleCommandField))
+    act(() => usePlaybackStore.getState().applyState('finished'))
+    expect(screen.getByTestId('replays-console-field').getAttribute('aria-hidden')).toBe('true')
+  })
+
+  it('the field hides again when the session ends', () => {
+    begin()
+    render(createElement(ConsoleCommandField))
+    expect(screen.getByTestId('replays-console-field').getAttribute('aria-hidden')).toBeNull()
+    act(() => usePlaybackStore.getState().applyState('ended'))
+    expect(screen.getByTestId('replays-console-field').getAttribute('aria-hidden')).toBe('true')
   })
 
   it('a main failure keeps the text and shows the reason', async () => {
