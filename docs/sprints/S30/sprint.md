@@ -1,6 +1,6 @@
 ---
 sprint: S30
-status: in-progress # planned | in-progress | done
+status: done # planned | in-progress | done
 branch: sprint/S30 # set by /sprint
 milestone: 10.10 — Demo browser polish (lean detail, context-aware action bar)
 ---
@@ -49,3 +49,25 @@ controls answer a click at once and reach the game faster on Windows.
   and 184's "waiting for the game…" state is the fallback (inform instead of fix).
 - Every story's open questions go to the user in the clarification round — most are product
   choices (star scale, edit granularity, where the not-playable reason sits, remember scope).
+
+## Regression gate
+
+Ran on commit `852e616` (story 185, the last story commit).
+
+| Command | Minutes | Result |
+| --- | --- | --- |
+| `npm run build` | < 1 | green |
+| `npm test` | 0.7 | green — 5968 passed, 8 skipped |
+| `npm run ui:verify` | 2.2 | green — 60/60 screens, axe 0 violations |
+| `npm run ui:flows` (e2e-all) | 40 | 113 flows, 107 passed, 6 failed |
+
+Failures:
+
+- `replays-play-mvd2`, `replays-play-q2pro` → **story 185** (stale assertion on `logfile_flush 1` versus the
+  new `logfile_flush 3`). Fixed in commit `040bacf`: both flows re-run green individually and `npm test` green.
+  The 40-minute `ui:flows` suite was **not** re-run after the fix.
+- `replays-extra-folders`, `servers-filter-search`, `servers-master-sources`, `servers-sort-order` →
+  **pre-existing**: red at merge-base `759db2b` too; not fixed here. `replays-extra-folders` fails at an
+  earlier step at the merge-base than on HEAD, i.e. it is unstable.
+- `replays-archive-readonly` passed in the gate, although stories 178, 179 and 180 reported it red as
+  pre-existing in their narrow gates.

@@ -2,11 +2,11 @@
 
 ## Where we stand
 
-*As of 2026-09-30.* Phases 1–4 and 7–9 are done; Phase 10 (demo browser) has milestones 10.1–10.9
-done (S26–S29) and one more cut: 10.10, a polish round from the user's walk-through of the Demos tab.
-Next step: `/sprint S30` — lean detail panel, star rating, and an action bar button that speaks for
-the open tab (Play / Join / View / Stop). Still waiting on the user: the manual residue in the
-[S28](sprints/done/S28/testplan.md) and [S29](sprints/done/S29/testplan.md) testplans.
+*As of 2026-09-30.* Phases 1–4 and 7–9 are done; Phase 10 (demo browser) has milestones 10.1–10.10
+done (S26–S30). S30 finished: lean demo detail, edit in place, one-click favourite/rating, an action bar
+button for the open tab, a mod warning asked once, and a timeline that answers at once. Waiting on the
+user: merging `sprint/S30`, and the manual residue in the [S28](sprints/done/S28/testplan.md),
+[S29](sprints/done/S29/testplan.md) and [S30](sprints/S30/testplan.md) testplans.
 
 ## Phase overview
 
@@ -38,20 +38,23 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 | 10.7 | Timeline & binds | done 2026-09-29 | S28 | Stories 163–167. |
 | 10.8 | Auto-record setting in the config profile | done 2026-09-29 | S28 | Story 168. |
 | 10.9 | Demo plays in the launcher — windowed stage, fullscreen by choice, stop, no console flood | done 2026-09-29 | [S29](sprints/done/S29/review.md) | Stories 170–175 (spike 169); 2 regressions found and fixed at the gate (173, 170). |
-| 10.10 | Demo browser polish — lean detail, star rating, context-aware action bar, mod warning asked once, responsive timeline | planned | [S30](sprints/S30/sprint.md) | Stories 176–185 (spike 183); from the user's UI/UX walk-through. |
+| 10.10 | Demo browser polish — lean detail, star rating, context-aware action bar, mod warning asked once, responsive timeline | done 2026-09-30 | [S30](sprints/S30/review.md) | Stories 176–185 (spike 183); 2 flows fixed at the gate (185), 4 pre-existing red flows remain. |
 
 ## Open / unprioritised
 
 | Topic | State | Next step |
 | --- | --- | --- |
 | Story [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) — a self-built Linux Q2PRO | Draft; standing obligation cut from 101, blocks nothing | Decide build/provenance approach (its Q1–Q4) when prioritized |
+| Demos in a browser (WASM) engine — optional "Browser (experimental)" playback next to native Q2PRO, for an embedded canvas and Linux/Wayland without window placement | Deferred 2026-09-30 (polish, future): native Q2PRO works well for the start. Research in [demo-browser §9.2](concepts/demo-browser.md); depends on the q2pro `feature-rtx` WASM build (maintainer open to compiling common mods, which demo playback may not even need) | Spike when prioritized: run the web build in Electron with a vanilla and an OpenTDM demo (seek, speed, no game lib); `/roadmap plan` afterwards |
 | Mods — game directories | Not started; `+set game <dir>` already built; needs discovery, install, enable/disable, per-mod config and a `game-lifecycle` guard against mutating files while running; also owns the server detail view's "mod/map available locally" statement (GB-D5, cut from story 124) | `/roadmap plan` when prioritized |
 | Assets — texture/model/sound packs | Not started; needs conflict detection between packs touching the same files, plus a per-pack change record (`Installation.moduleData` is the slot) | `/roadmap plan` when prioritized |
 | Two config decisions left open across the file-format rounds: the `alias cali "bind ..."` key-block-as-layer question (story 041), and bind grouping by keyboard region vs. category (story 040, decided category for now) | Never blocked anything; only relevant if a future story touches this area | Decide when a config story next needs it |
 
 ## Follow-ups worth doing
 
-- Five flows are red at the sprint base and stay red after S29 (`replays-archive-readonly`, `replays-extra-folders`, `servers-filter-search`, `servers-master-sources`, `servers-sort-order`) — a dedicated sweep beats rediscovering them at every gate. [S29 review](sprints/done/S29/review.md)
+- Four flows stay red and pre-existing after S30 (`replays-extra-folders` — unstable, `servers-filter-search`, `servers-master-sources`, `servers-sort-order`) — fix them in one dedicated sweep. [S30 review](sprints/S30/review.md)
+- Play anyway on a mod whose game dir does not exist on disk fails in main (ENOENT writing `q2l_back.cfg`) and is not shown to the user as a play error. [S30 review](sprints/S30/review.md)
+- Measure the Linux channel's control latency / stdout buffering on a real Linux Q2PRO; no Linux lever was applied in 185. [S30 review](sprints/S30/review.md)
 - Add `writeCatalogDefaults` to `captureBaseline` (`src/shared/config/profile-baseline.ts`): today a pending catalog-defaults toggle lands on disk with an address-book add. [S29 review](sprints/done/S29/review.md)
 - Stage cvar restore edges: a launcher quit while the game runs lets the stage values persist, and negative display origins (`+-X` in `vid_geometry`) are unverified against real Q2PRO. [S29 review](sprints/done/S29/review.md)
 - A stop whose kill succeeds but never yields an `exit` event leaves the UI on "Stopping…" (e.g. a Linux wine wrapper). [S29 review](sprints/done/S29/review.md)
