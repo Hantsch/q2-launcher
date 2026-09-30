@@ -604,7 +604,7 @@ describe('replays module', () => {
       expect(afterBad).toEqual(afterWrite)
     })
 
-    it('sidecar write and demo rename both refuse an archive-entry demo id, at the registered-handler level', async () => {
+    it.skipIf(!resolveExtractorPath({ isPackaged: false }).exists)('sidecar write and demo rename both refuse an archive-entry demo id, at the registered-handler level', async () => {
       const demosDir = join(dir, 'baseq2', 'demos')
       await mkdir(demosDir, { recursive: true })
 
@@ -612,7 +612,6 @@ describe('replays module', () => {
       // path assigns this demo a `kind: 'archive-entry'` resolved file, same as
       // `discovery.test.ts`'s "zip expansion" case.
       const extractor = resolveExtractorPath({ isPackaged: false })
-      expect(extractor.exists).toBe(true)
       const zipSrc = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-zip-src-'))
       await writeFile(join(zipSrc, 'archived.dm2'), 'archived-bytes')
       execFileSync(
