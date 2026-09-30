@@ -46,8 +46,10 @@ this module's 2D analyser.
 - **Playback v1:** the real **Q2PRO**, started with `+demo`, **driven from a launcher timeline**
   (play/pause, ±jump, click-to-seek, speed, position/duration, free console commands). By default the
   demo plays on a **stage** in the Demos view — a borderless Q2PRO window the launcher places over it
-  (spike [[169]]); **fullscreen is a deliberate choice**, steered there by in-game key binds that live
-  in the **config profile**, not in a launcher overlay.
+  (spike [[169]]) — the **preview**. Two larger modes are a deliberate choice: **cinema mode**, the
+  demo over the whole display with the launcher's own controls laid over it like a video player
+  (spike [[186]], story [[187]]), and **fullscreen**, steered there by in-game key binds that live in
+  the **config profile**.
 - **Windows remote channel is unproven** → first story is a spike; if it fails, a **native helper**
   is built. Linux uses stdin (verified in source).
 - **r1q2-only users** get a visible fallback without seeking. Linux has no r1q2 at all.
@@ -164,7 +166,7 @@ better at taking them apart over time, and the user can teach it patterns it doe
 | Default sort | **Favourites on top, then newest** | Same pinning as server favourites |
 | Playback v1 | **Native Q2PRO + launcher timeline already in v1** | The "like YouTube" experience is the point |
 | Windows risk | **Spike first; if cfg-polling fails, build a native helper** | Windows is ~80% of users; the timeline must not be Linux-only |
-| Fullscreen | **Windowed stage by default; fullscreen only by choice**, steered there by in-game key binds, with a bindable way back (revised 2026-09-29 after live use, spike [[169]]) | Fullscreen covers the launcher, so the timeline was unusable |
+| Fullscreen | **Three modes: preview (windowed stage) by default; cinema mode (whole display + launcher overlay) and fullscreen (in-game keys only) by choice**, fullscreen with a bindable way back (revised 2026-09-29 after live use, spike [[169]]; cinema mode added 2026-09-30) | Fullscreen covers the launcher, so the timeline was unusable; cinema mode keeps the "like YouTube" control over the full picture |
 | Demo key binds | **Maintained in the config profile** (Controls tab), bound by the user | Visible and permanent instead of a launcher silently rebinding keys |
 | Timeline controls | Play/pause, ±jump, click-to-seek, **speed**, **position/duration**, **free console commands** | All picked |
 | Engine choice | **Auto:** a Q2PRO installation with the demo's game dir (active preferred), overridable; missing game dir → "mod X missing" | No dialog on every play |
@@ -474,11 +476,16 @@ On Windows the control loop (§12.3) starves every command appended to the engin
 `quit` therefore only work while the loop is stopped, i.e. in fullscreen (§12.4). Linux (stdin, no
 loop) is not affected.
 
-### 12.4 The stage and fullscreen
+### 12.4 Preview, cinema mode and fullscreen
 
-- **Stage (default):** Q2PRO starts with `vid_fullscreen 0`, `win_noborder 1`, `win_notitle 1`,
+- **Preview = the stage (default):** Q2PRO starts with `vid_fullscreen 0`, `win_noborder 1`, `win_notitle 1`,
   `win_alwaysontop 1`, `vid_geometry WxH+X+Y` over an area of the Demos view; live `vid_geometry`
   / `win_alwaysontop` keep it in step with the launcher window. [V, spike 169] Stories [[170]], [[171]].
+- **Cinema mode (by choice):** the stage stretched over the whole display the launcher is on
+  (still `vid_fullscreen 0`, so the loop keeps running and the launcher keeps control), plus a
+  transparent, frameless, always-on-top launcher window over it that takes all mouse and keyboard
+  input and shows the controls on mouse movement. Leaving returns to the preview. Unverified —
+  spike [[186]], story [[187]]. In-game keys do not reach the game on Windows here, as on the stage.
 - **Fullscreen (by choice):** a timeline button sends `vid_fullscreen 1` and stops the loop, so
   binds and the console work; a bindable "back to window" action sends `vid_fullscreen 0` and re-arms
   the loop. [V, spike 169] Story [[172]].
@@ -510,6 +517,7 @@ loop) is not affected.
 | r1q2 fallback | yes | **not available** — no r1q2 on Linux; shown as "Not available on Linux: r1q2 is not supported" where the engine choice would appear |
 | Remote timeline | cfg polling (verified by spike 133; native helper not needed) | stdin (verified) |
 | Stage (placed borderless window) | yes (verified by spike 169) | X11 expected, unverified; Wayland cannot position windows — reason shown, normal window ([[170]] Q3) |
+| Cinema mode (overlay over the game) | spike [[186]] | X11 per spike [[186]]; Wayland — no stage, so the control is disabled with its reason |
 | Q2PRO `homedir` = `~/.q2pro` | n/a | scanned as the write directory for distro/Flatpak builds |
 
 Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
@@ -608,6 +616,8 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
   action returns to the stage.
 - DEMO-32 The timeline can end the demo.
 - DEMO-33 The launcher's control plumbing does not flood the game console.
+- DEMO-34 Cinema mode is a deliberate choice: the demo fills the display and the launcher's own
+  controls lie over it, appear on mouse movement and fade out; leaving returns to the preview.
 
 ## 16. Sources (research, 2026-09-26)
 

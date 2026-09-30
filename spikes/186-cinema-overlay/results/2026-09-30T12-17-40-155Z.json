@@ -1,0 +1,754 @@
+{
+  "startedAt": "2026-09-30T12:17:40.155Z",
+  "electron": "43.4.0",
+  "args": {
+    "Q2PRO": "C:/Games/Q2Pro/q2pro.exe",
+    "GAME": "opentdm",
+    "DEMO": "test-demo-for-launcher.dm2"
+  },
+  "probes": {
+    "P1_gameGeometry": {
+      "asked": {
+        "x": 0,
+        "y": 0,
+        "w": 3840,
+        "h": 2160
+      },
+      "gameRect": {
+        "y": 0,
+        "w": 3840,
+        "h": 2160,
+        "x": 0
+      },
+      "rectEqualsDisplay": true,
+      "gameTopmost": true,
+      "gameCaptioned": false,
+      "taskbar": {
+        "hwnd": 65888,
+        "visible": true,
+        "window": {
+          "y": 2088,
+          "w": 3840,
+          "h": 72,
+          "x": 0
+        }
+      },
+      "taskbarPoint": {
+        "x": 1920,
+        "y": 2124,
+        "owner": {
+          "owner": "game",
+          "pid": 7404,
+          "class": "Quake 2 Pro",
+          "rootClass": "Quake 2 Pro"
+        }
+      },
+      "gameOwnsTaskbarBand": true,
+      "screenshot": "2026-09-30T12-17-40-155Z-P1-game.png"
+    },
+    "P2_overlayHitTest": {
+      "fullyTransparent": {
+        "overlayRect": {
+          "y": 0,
+          "w": 3840,
+          "h": 2160,
+          "x": 0
+        },
+        "hits": {
+          "centre": "overlay",
+          "topLeft": "overlay",
+          "topRight": "overlay",
+          "bottomLeft": "overlay",
+          "bottomRight": "overlay"
+        },
+        "rectEqualsDisplay": true,
+        "allOverlay": true,
+        "info": {
+          "foreground": true,
+          "topmost": true,
+          "captioned": false,
+          "iconic": false,
+          "visible": true,
+          "layered": false,
+          "window": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "hwnd": 22286250,
+          "transparentStyle": false
+        },
+        "screenshot": "2026-09-30T12-17-40-155Z-P2-transparent.png"
+      },
+      "rgba(0,0,0,0.01)": {
+        "overlayRect": {
+          "y": 0,
+          "w": 3840,
+          "h": 2160,
+          "x": 0
+        },
+        "hits": {
+          "centre": "overlay",
+          "topLeft": "overlay",
+          "topRight": "overlay",
+          "bottomLeft": "overlay",
+          "bottomRight": "overlay"
+        },
+        "rectEqualsDisplay": true,
+        "allOverlay": true,
+        "info": {
+          "foreground": true,
+          "topmost": true,
+          "captioned": false,
+          "iconic": false,
+          "visible": true,
+          "layered": false,
+          "window": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "hwnd": 26677564,
+          "transparentStyle": false
+        },
+        "screenshot": "2026-09-30T12-17-40-155Z-P2-dim.png"
+      },
+      "kept": "fullyTransparent"
+    },
+    "P3_perturbations": {
+      "steps": [
+        {
+          "label": "baseline",
+          "centreOwner": {
+            "owner": "overlay",
+            "pid": 49444,
+            "class": "Chrome_RenderWidgetHostHWND",
+            "rootClass": "Chrome_WidgetWin_1"
+          },
+          "foreground": {
+            "owner": "overlay",
+            "class": "Chrome_WidgetWin_1"
+          },
+          "gameIsForeground": false,
+          "gameIconic": false,
+          "gameRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "gameTopmost": true,
+          "overlayTopmost": true,
+          "overlayRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          }
+        },
+        {
+          "activated": {
+            "ok": true
+          },
+          "label": "afterOtherWindowTookFocus",
+          "centreOwner": {
+            "owner": "overlay",
+            "pid": 49444,
+            "class": "Chrome_RenderWidgetHostHWND",
+            "rootClass": "Chrome_WidgetWin_1"
+          },
+          "foreground": {
+            "owner": "other:26372",
+            "class": "Chrome_WidgetWin_1"
+          },
+          "gameIsForeground": false,
+          "gameIconic": false,
+          "gameRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "gameTopmost": true,
+          "overlayTopmost": true,
+          "overlayRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          }
+        },
+        {
+          "label": "afterOverlayRefocus",
+          "centreOwner": {
+            "owner": "overlay",
+            "pid": 49444,
+            "class": "Chrome_RenderWidgetHostHWND",
+            "rootClass": "Chrome_WidgetWin_1"
+          },
+          "foreground": {
+            "owner": "overlay",
+            "class": "Chrome_WidgetWin_1"
+          },
+          "gameIsForeground": false,
+          "gameIconic": false,
+          "gameRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "gameTopmost": true,
+          "overlayTopmost": true,
+          "overlayRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          }
+        },
+        {
+          "label": "afterAltTab",
+          "centreOwner": {
+            "owner": "overlay",
+            "pid": 49444,
+            "class": "Chrome_RenderWidgetHostHWND",
+            "rootClass": "Chrome_WidgetWin_1"
+          },
+          "foreground": {
+            "owner": "other:26372",
+            "class": "Chrome_WidgetWin_1"
+          },
+          "gameIsForeground": false,
+          "gameIconic": false,
+          "gameRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "gameTopmost": true,
+          "overlayTopmost": true,
+          "overlayRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          }
+        },
+        {
+          "label": "afterAltTab+overlayRefocus",
+          "centreOwner": {
+            "owner": "overlay",
+            "pid": 49444,
+            "class": "Chrome_RenderWidgetHostHWND",
+            "rootClass": "Chrome_WidgetWin_1"
+          },
+          "foreground": {
+            "owner": "other:26372",
+            "class": "Chrome_WidgetWin_1"
+          },
+          "gameIsForeground": false,
+          "gameIconic": false,
+          "gameRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "gameTopmost": true,
+          "overlayTopmost": true,
+          "overlayRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          }
+        },
+        {
+          "label": "afterLiveVidGeometry",
+          "centreOwner": {
+            "owner": "overlay",
+            "pid": 49444,
+            "class": "Chrome_RenderWidgetHostHWND",
+            "rootClass": "Chrome_WidgetWin_1"
+          },
+          "foreground": {
+            "owner": "other:26372",
+            "class": "Chrome_WidgetWin_1"
+          },
+          "gameIsForeground": false,
+          "gameIconic": false,
+          "gameRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "gameTopmost": true,
+          "overlayTopmost": true,
+          "overlayRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          }
+        },
+        {
+          "label": "afterWinAlwaysontop0",
+          "centreOwner": {
+            "owner": "overlay",
+            "pid": 49444,
+            "class": "Chrome_RenderWidgetHostHWND",
+            "rootClass": "Chrome_WidgetWin_1"
+          },
+          "foreground": {
+            "owner": "other:26372",
+            "class": "Chrome_WidgetWin_1"
+          },
+          "gameIsForeground": false,
+          "gameIconic": false,
+          "gameRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "gameTopmost": false,
+          "overlayTopmost": true,
+          "overlayRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          }
+        },
+        {
+          "label": "afterWinAlwaysontop1",
+          "centreOwner": {
+            "owner": "game",
+            "pid": 7404,
+            "class": "Quake 2 Pro",
+            "rootClass": "Quake 2 Pro"
+          },
+          "foreground": {
+            "owner": "other:26372",
+            "class": "Chrome_WidgetWin_1"
+          },
+          "gameIsForeground": false,
+          "gameIconic": false,
+          "gameRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "gameTopmost": true,
+          "overlayTopmost": true,
+          "overlayRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          }
+        },
+        {
+          "label": "afterFinalOverlayRefocus",
+          "centreOwner": {
+            "owner": "overlay",
+            "pid": 49444,
+            "class": "Chrome_RenderWidgetHostHWND",
+            "rootClass": "Chrome_WidgetWin_1"
+          },
+          "foreground": {
+            "owner": "other:26372",
+            "class": "Chrome_WidgetWin_1"
+          },
+          "gameIsForeground": false,
+          "gameIconic": false,
+          "gameRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "gameTopmost": true,
+          "overlayTopmost": true,
+          "overlayRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          }
+        }
+      ],
+      "demoRestart": {
+        "command": "demo test-demo-for-launcher.dm2",
+        "acked": true,
+        "ms": 263
+      },
+      "otherWindow": {
+        "hwnd": 133098,
+        "pid": 26372,
+        "name": "Code"
+      },
+      "geometryResend": {
+        "command": "set vid_geometry 3840x2160+0+0",
+        "acked": true,
+        "ms": 80
+      },
+      "alwaysOnTopOff": {
+        "command": "set win_alwaysontop 0",
+        "acked": true,
+        "ms": 127
+      },
+      "alwaysOnTopOn": {
+        "command": "set win_alwaysontop 1",
+        "acked": true,
+        "ms": 65
+      }
+    },
+    "P4_playback": {
+      "demoRestart": {
+        "command": "demo test-demo-for-launcher.dm2",
+        "acked": true,
+        "ms": 254
+      },
+      "overlayShownFocused": {
+        "barOpacity": 1,
+        "iconicSamples": "0/38",
+        "invisibleSamples": "0/38",
+        "posSamples": 138,
+        "demoSecondsPerWallSecond": 1.14,
+        "demoFrom": 0.3,
+        "demoTo": 11.8,
+        "longestGapMs": 276,
+        "fps": {
+          "samples": 138,
+          "mean": 59.4
+        }
+      },
+      "controlsFaded": {
+        "barOpacity": 0,
+        "iconicSamples": "0/38",
+        "invisibleSamples": "0/38",
+        "posSamples": 125,
+        "demoSecondsPerWallSecond": 1.03,
+        "demoFrom": 11.9,
+        "demoTo": 22.2,
+        "longestGapMs": 267,
+        "fps": {
+          "samples": 125,
+          "mean": 60
+        }
+      },
+      "controlsShownAgain": {
+        "barOpacity": 1,
+        "iconicSamples": "0/38",
+        "invisibleSamples": "0/38",
+        "posSamples": 126,
+        "demoSecondsPerWallSecond": 1.03,
+        "demoFrom": 22.3,
+        "demoTo": 32.7,
+        "longestGapMs": 284,
+        "fps": {
+          "samples": 126,
+          "mean": 60
+        }
+      },
+      "demoNote": "a rate near 0 with demoFrom==demoTo can mean the demo ended, not a stall - compare with the other phases"
+    },
+    "P5_input": {
+      "cursorBefore": {
+        "pos": {
+          "y": 1080,
+          "x": 1920
+        },
+        "flags": 1,
+        "clip": {
+          "y": 0,
+          "w": 3840,
+          "h": 2160,
+          "x": 0
+        },
+        "virtualScreen": {
+          "y": 0,
+          "w": 13440,
+          "h": 2747,
+          "x": -3840
+        },
+        "showing": true
+      },
+      "cursorOverGameArea": {
+        "pos": {
+          "y": 1080,
+          "x": 3071
+        },
+        "flags": 1,
+        "clip": {
+          "y": 0,
+          "w": 3840,
+          "h": 2160,
+          "x": 0
+        },
+        "virtualScreen": {
+          "y": 0,
+          "w": 13440,
+          "h": 2747,
+          "x": -3840
+        },
+        "showing": true
+      },
+      "cursorAfter": {
+        "pos": {
+          "y": 719,
+          "x": 1920
+        },
+        "flags": 1,
+        "clip": {
+          "y": 0,
+          "w": 8960,
+          "h": 2160,
+          "x": -2560
+        },
+        "virtualScreen": {
+          "y": 0,
+          "w": 13440,
+          "h": 2747,
+          "x": -3840
+        },
+        "showing": true
+      },
+      "overlayLogged": {
+        "mousemove": 7,
+        "mousedown": 1,
+        "keydown": 3,
+        "keys": [
+          "KeyA",
+          "KeyW",
+          "Space"
+        ],
+        "other": []
+      },
+      "cursorHidden": false,
+      "clipVsVirtualScreen": {
+        "clip": {
+          "y": 0,
+          "w": 8960,
+          "h": 2160,
+          "x": -2560
+        },
+        "virtualScreen": {
+          "y": 0,
+          "w": 13440,
+          "h": 2747,
+          "x": -3840
+        },
+        "clipIsFullVirtualScreen": false
+      },
+      "screenshot": "2026-09-30T12-17-40-155Z-P5-after-input.png"
+    },
+    "P6_displays": {
+      "displays": [
+        {
+          "id": 3433302936,
+          "primary": false,
+          "scaleFactor": 1,
+          "dipBounds": {
+            "x": 2560,
+            "y": 260,
+            "width": 2560,
+            "height": 1440
+          },
+          "physical": {
+            "x": 3840,
+            "y": 391,
+            "w": 2560,
+            "h": 1440
+          }
+        },
+        {
+          "id": 3416877928,
+          "primary": true,
+          "scaleFactor": 1.5,
+          "dipBounds": {
+            "x": 0,
+            "y": 0,
+            "width": 2560,
+            "height": 1440
+          },
+          "physical": {
+            "x": 0,
+            "y": 0,
+            "w": 3840,
+            "h": 2160
+          }
+        },
+        {
+          "id": 3690416217,
+          "primary": false,
+          "scaleFactor": 1,
+          "dipBounds": {
+            "x": -2560,
+            "y": 252,
+            "width": 2560,
+            "height": 1440
+          },
+          "physical": {
+            "x": -2560,
+            "y": 378,
+            "w": 2560,
+            "h": 1440
+          }
+        }
+      ],
+      "checks": [
+        {
+          "displayId": 3433302936,
+          "physical": {
+            "x": 3840,
+            "y": 391,
+            "w": 2560,
+            "h": 1440
+          },
+          "sent": true,
+          "gameRect": {
+            "y": 587,
+            "w": 3840,
+            "h": 2160,
+            "x": 5760
+          },
+          "rectEqualsDisplay": false
+        },
+        {
+          "displayId": 3416877928,
+          "physical": {
+            "x": 0,
+            "y": 0,
+            "w": 3840,
+            "h": 2160
+          },
+          "sent": true,
+          "gameRect": {
+            "y": 0,
+            "w": 3840,
+            "h": 2160,
+            "x": 0
+          },
+          "rectEqualsDisplay": true
+        },
+        {
+          "displayId": 3690416217,
+          "physical": {
+            "x": -2560,
+            "y": 378,
+            "w": 2560,
+            "h": 1440
+          },
+          "sent": true,
+          "gameRect": {
+            "y": 0,
+            "w": 2560,
+            "h": 1440,
+            "x": 0
+          },
+          "rectEqualsDisplay": false
+        }
+      ],
+      "notChecked": []
+    },
+    "shutdown": {
+      "wmClose": {
+        "ok": true
+      },
+      "exitedAfterWmClose": true
+    }
+  },
+  "launcherDisplayNote": "harness is standalone: the \"launcher display\" is the primary display",
+  "primary": {
+    "id": 3416877928,
+    "scaleFactor": 1.5,
+    "dipBounds": {
+      "x": 0,
+      "y": 0,
+      "width": 2560,
+      "height": 1440
+    },
+    "physical": {
+      "x": 0,
+      "y": 0,
+      "w": 3840,
+      "h": 2160
+    }
+  },
+  "gameArgs": [
+    "+set",
+    "game",
+    "opentdm",
+    "+set",
+    "logfile",
+    "2",
+    "+set",
+    "logfile_flush",
+    "3",
+    "+set",
+    "logfile_name",
+    "q2l_s186.log",
+    "+set",
+    "vid_fullscreen",
+    "0",
+    "+set",
+    "win_noborder",
+    "1",
+    "+set",
+    "win_notitle",
+    "1",
+    "+set",
+    "win_alwaysontop",
+    "1",
+    "+set",
+    "win_noresize",
+    "1",
+    "+set",
+    "vid_geometry",
+    "3840x2160+0+0",
+    "+set",
+    "net_clientport",
+    "27986",
+    "+demo",
+    "test-demo-for-launcher.dm2",
+    "+exec",
+    "q2l_s186_loop.cfg"
+  ],
+  "notableLines": [
+    "Logging console to logs/q2l_s186.log",
+    "\"0x00\" isn't a valid key",
+    "------- R_Init -------",
+    "Using video driver: win32wgl",
+    "Using GLSL rendering backend.",
+    "----------------------",
+    "------- S_Init -------",
+    "DirectSound initialized",
+    "sound sampling rate: 22050",
+    "Raw mouse initialized.",
+    "The Chastity Belt Duel  -  by JaLisK0",
+    "cl_maxfps value `120' is inexact and will be rounded to `125'.",
+    "(Set `cl_warn_on_fps_rounding' to `0' to disable this warning.)",
+    "====== Q2PRO initialized ======",
+    "",
+    "q2pro r3834~601a8df8, Dec 11 2025",
+    "https://github.com/skullernet/q2pro",
+    "Shutting down DirectSound",
+    "Closing console log."
+  ],
+  "overlayEventTotals": {
+    "ready": 3,
+    "focus": 8,
+    "mousemove": 12,
+    "blur": 2,
+    "keydown": 4,
+    "mousedown": 1
+  }
+}
