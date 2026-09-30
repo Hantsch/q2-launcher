@@ -604,6 +604,10 @@ describe('demo.play playback channel (story 164 D4)', () => {
       currentFormat: vi.fn(() => null),
       enterFullscreen: vi.fn(),
       onDisplayChange: vi.fn(() => () => undefined),
+      onStateChange: vi.fn(() => () => undefined),
+      display: vi.fn(() => ({ fullscreen: false, cinema: false, speed: 1, cinemaAvailability: { available: true as const } })),
+      emitDisplay: vi.fn(),
+      setSpeed: vi.fn(),
     } satisfies PlaybackControl
   }
 
@@ -705,6 +709,10 @@ describe('demo.play on the stage (story 170 D2)', () => {
     currentFormat: vi.fn(() => null),
     enterFullscreen: vi.fn(),
     onDisplayChange: vi.fn(() => () => undefined),
+    onStateChange: vi.fn(() => () => undefined),
+    display: vi.fn(() => ({ fullscreen: false, cinema: false, speed: 1, cinemaAvailability: { available: true as const } })),
+    emitDisplay: vi.fn(),
+    setSpeed: vi.fn(),
   }) satisfies PlaybackControl
 
   it('stage args sit before +demo', async () => {
@@ -829,6 +837,10 @@ describe('demo.play stage cvar restore (story 170 D3)', () => {
       currentFormat: vi.fn(() => null),
       enterFullscreen: vi.fn(),
       onDisplayChange: vi.fn(() => () => undefined),
+      onStateChange: vi.fn(() => () => undefined),
+      display: vi.fn(() => ({ fullscreen: false, cinema: false, speed: 1, cinemaAvailability: { available: true as const } })),
+      emitDisplay: vi.fn(),
+      setSpeed: vi.fn(),
     } satisfies PlaybackControl
     const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), cvarRestore, playback })
     expect((await h.play('base', 'q2pro-a')).ok).toBe(true)

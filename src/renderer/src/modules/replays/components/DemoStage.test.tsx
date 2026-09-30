@@ -21,6 +21,7 @@ vi.mock('../client', () => ({
   onPlaybackPosition: () => () => {},
   onPlaybackState: () => () => {},
   onPlaybackDisplay: () => () => {},
+  playbackDisplayRead: () => new Promise(() => {}),
 }))
 
 import * as client from '../client'

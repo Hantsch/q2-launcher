@@ -23,6 +23,8 @@ import {
   replaysDemoFileActionSchema,
   replaysDemoPlaySchema,
   replaysDemoRenameSchema,
+  replaysPlaybackCinemaSchema,
+  replaysPlaybackDisplayReadSchema,
   replaysPlaybackStageSchema,
   replaysConsoleSendSchema,
   replaysNoInputSchema,
@@ -44,6 +46,8 @@ import { discoverDemos, type DiscoverContext } from './discovery'
 import { addExtraFolder, removeExtraFolder } from './extra-folders'
 import { createDemoFileActions } from './file-actions'
 import { ReplaysIndexCache } from './index-cache'
+import { createCinemaController } from './cinema-controller'
+import { cinemaAvailability, displayGeometry, resolveOnPrimary } from './cinema'
 import { createPlaybackControl } from './playback-control'
 import { stageAvailability, stageGeometry, type StageRect } from './stage'
 import { createStageFollowSessions, parkGeometryAt, virtualDesktopRightEdge } from './stage-follow-session'
@@ -216,7 +220,13 @@ export const replaysModule: MainModule = {
     // `playbackSessions` is filled by `demo.play` below (story 159).
     const playbackSessions = createPlaybackSessions()
     // Story 164 D4: the running demo's control channel (position/state pushes, console lines).
-    const playbackControl = createPlaybackControl({ emit, launch: app.launch })
+    // Story 187 D5: the display event also carries cinema (read from the controller below, which only
+    // ever runs after setup) and whether cinema could run now.
+    const playbackControl = createPlaybackControl({
+      emit,
+      launch: app.launch,
+      cinema: () => ({ open: cinema.isOpen(), availability: currentCinemaAvailability() }),
+    })
     const demoRename = createDemoRename({
       scan: scanService,
       sidecars: sidecarStore,
@@ -261,6 +271,32 @@ export const replaysModule: MainModule = {
       }
       return stageGeometry(rect, { contentBounds, zoomFactor: win.webContents.getZoomFactor() }, toScreen)
     }
+    const currentStageAvailability = () =>
+      stageAvailability(process.platform, process.env, {
+        Q2L_UI_HARNESS: process.env['Q2L_UI_HARNESS'],
+        Q2L_UI_SESSION_TYPE: process.env['Q2L_UI_SESSION_TYPE'],
+      })
+    // Story 187 D5: cinema covers the primary display, so it is offered only while the launcher is on it
+    // (`Q2L_UI_CINEMA_DISPLAY` fakes that under the UI harness).
+    const onPrimaryDisplay = (): boolean => {
+      const win = app.getMainWindow()
+      const actual = win ? screen.getDisplayMatching(win.getBounds()).id === screen.getPrimaryDisplay().id : true
+      return resolveOnPrimary(actual, process.env)
+    }
+    const currentCinemaAvailability = () =>
+      cinemaAvailability({
+        stageReason: currentStageAvailability(),
+        onPrimary: onPrimaryDisplay(),
+        hasFollower: stageFollow.hasFollower(),
+      })
+    const primaryDisplayGeometry = (): string => {
+      const primary = screen.getPrimaryDisplay()
+      if (typeof screen.dipToScreenRect === 'function') return displayGeometry(screen.dipToScreenRect(null, primary.bounds))
+      const s = primary.scaleFactor
+      const b = primary.bounds
+      return displayGeometry({ x: b.x * s, y: b.y * s, width: b.width * s, height: b.height * s })
+    }
+
     // Story 171 D2: a follower per placed stage session, fed by the main window's events and
     // `playback.stage`; it parks the game window beyond the virtual desktop's right edge.
     const stageFollow = createStageFollowSessions({
@@ -277,8 +313,44 @@ export const replaysModule: MainModule = {
         ),
     })
 
+    // Story 187 D5: the one owner of the cinema overlay. Pin before open, close before unpin.
+    const cinema = createCinemaController({
+      availability: currentCinemaAvailability,
+      displayGeometry: primaryDisplayGeometry,
+      pin: (geometry) => stageFollow.pin(geometry),
+      window: app.cinemaWindow,
+      hasSession: () => playbackControl.currentFormat() !== null,
+      enterFullscreen: () => playbackControl.enterFullscreen(),
+      emitDisplay: () => playbackControl.emitDisplay(),
+    })
+
     // Story 172 D5: a fullscreen demo is not steered - the follower rests until it is back on the stage.
-    playbackControl.onDisplayChange((fullscreen) => stageFollow.setSuspended(fullscreen))
+    // Story 187 D5: back from a fullscreen entered in cinema, the controller unpins first, then the
+    // follower resumes, so the stage geometry and the focus-driven always-on-top are sent again.
+    playbackControl.onDisplayChange((fullscreen) => {
+      cinema.onDisplayChange(fullscreen)
+      stageFollow.setSuspended(fullscreen)
+    })
+    // Story 187 D5: availability follows the main window across displays - pushed only when it changes.
+    // Subscribed when the first demo plays, so a module that never plays never touches the window.
+    let lastAvailability: string | null = null
+    let watchingWindow = false
+    const watchAvailability = (): void => {
+      lastAvailability = JSON.stringify(currentCinemaAvailability())
+      if (watchingWindow) return
+      watchingWindow = true
+      app.mainWindow.on((event) => {
+        if (event !== 'move' && event !== 'resize' && event !== 'restore') return
+        const next = JSON.stringify(currentCinemaAvailability())
+        if (next === lastAvailability) return
+        lastAvailability = next
+        if (playbackControl.currentFormat() !== null) playbackControl.emitDisplay()
+      })
+    }
+    playbackControl.onStateChange((state) => {
+      if (state === 'playing') watchAvailability()
+      cinema.onPlaybackState(state)
+    })
 
     const demoPlay = createDemoPlay({
       readDemos: () => scanService.read(),
@@ -292,11 +364,7 @@ export const replaysModule: MainModule = {
       stagingReady: () => startupSweep,
       playback: playbackControl,
       cvarRestore,
-      stageAvailability: () =>
-        stageAvailability(process.platform, process.env, {
-          Q2L_UI_HARNESS: process.env['Q2L_UI_HARNESS'],
-          Q2L_UI_SESSION_TYPE: process.env['Q2L_UI_SESSION_TYPE'],
-        }),
+      stageAvailability: currentStageAvailability,
       toGeometry: (rect) => geometryAt(rect),
       onStageSession: (start) => stageFollow.begin(start),
     })
@@ -339,7 +407,15 @@ export const replaysModule: MainModule = {
 
     handle(REPLAYS_HANDLERS.playbackStage, replaysPlaybackStageSchema, (payload) => stageFollow.report(payload.rect))
 
-    const playbackTimeline = createPlaybackTimeline({ playback: playbackControl })
+    // Story 187 D5: fullscreen goes through the cinema controller, so leaving cinema for it keeps the pin.
+    const playbackTimeline = createPlaybackTimeline({
+      playback: {
+        send: (line) => playbackControl.send(line),
+        currentFormat: () => playbackControl.currentFormat(),
+        enterFullscreen: () => cinema.enterFullscreen(),
+        setSpeed: (speed) => playbackControl.setSpeed(speed),
+      },
+    })
     handle(REPLAYS_HANDLERS.playbackTimeline, timelineActionSchema, (payload) =>
       playbackTimeline.run(payload),
     )
@@ -349,6 +425,8 @@ export const replaysModule: MainModule = {
     )
     const playbackStop = createPlaybackStop({ playback: playbackControl, launch: app.launch })
     handle(REPLAYS_HANDLERS.playbackStop, replaysNoInputSchema, () => playbackStop.stop())
+    handle(REPLAYS_HANDLERS.playbackCinema, replaysPlaybackCinemaSchema, (payload) => cinema.set(payload.enter))
+    handle(REPLAYS_HANDLERS.playbackDisplayRead, replaysPlaybackDisplayReadSchema, () => playbackControl.display())
 
     handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))
     handle(REPLAYS_HANDLERS.nameTemplatesAdd, nameTemplatesAddSchema, (payload) =>

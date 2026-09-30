@@ -5,6 +5,7 @@ import {
   type ReplaysPlaybackPosition,
   type ReplaysPlaybackState,
 } from '@shared/modules/replays'
+import type { CinemaAvailability } from '@shared/replays/cinema'
 import { fail, type LaunchState, type Outcome } from '@shared/types'
 import { scopedLogger } from '../../lib/logger'
 import { createLinuxChannel } from './playback-channel/linux-channel'
@@ -36,6 +37,9 @@ export interface PlaybackControlDeps {
   platform?: string
   makeWindows?: (options: WindowsChannelOptions) => PlaybackChannel
   makeLinux?: (deps: { io: EngineIo; log: ReturnType<typeof scopedLogger>; gameDirPath: string }) => PlaybackChannel
+  /** Story 187 D5: whether the cinema overlay is open and whether cinema could run now - read each
+   * time a display event is built. Defaults to no cinema (tests that do not care). */
+  cinema?: () => { open: boolean; availability: CinemaAvailability }
 }
 
 export interface PlaybackPrepared {
@@ -57,6 +61,14 @@ export interface PlaybackControl {
   enterFullscreen(): Outcome<void>
   /** Story 172 D5: the running demo went fullscreen (true) or came back to the stage (false). */
   onDisplayChange(cb: (fullscreen: boolean) => void): () => void
+  /** Story 187 D5: every `playback.state` push (`playing`, `finished`, `ended`), after it went out. */
+  onStateChange(cb: (state: ReplaysPlaybackState['state']) => void): () => void
+  /** Story 187 D5: the display as a `playback.display` push would carry it now. */
+  display(): ReplaysPlaybackDisplay
+  /** Story 187 D5: pushes `playback.display` now (cinema entered/left, availability changed). */
+  emitDisplay(): void
+  /** Story 187 D5: a `speed` timeline action reached the game - main holds the speed. */
+  setSpeed(speed: number): void
 }
 
 interface Prepared {
@@ -75,6 +87,7 @@ interface Session extends Prepared {
   offDisplay: () => void
   fullscreen: boolean
   ending: boolean
+  speed: number
 }
 
 export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackControl {
@@ -84,9 +97,23 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
   let prepared: Prepared | null = null
   let session: Session | null = null
   const displayListeners = new Set<(fullscreen: boolean) => void>()
+  const stateListeners = new Set<(state: ReplaysPlaybackState['state']) => void>()
+  const cinema = deps.cinema ?? (() => ({ open: false, availability: { available: true } as CinemaAvailability }))
 
   const pushState = (state: ReplaysPlaybackState['state']): void => {
     emit(REPLAYS_EVENTS.playbackState, { state } satisfies ReplaysPlaybackState)
+    for (const cb of [...stateListeners]) cb(state)
+  }
+
+  const display = (): ReplaysPlaybackDisplay => {
+    const live = session && !session.ending ? session : null
+    const fullscreen = live?.fullscreen ?? false
+    const c = cinema()
+    return { fullscreen, cinema: !fullscreen && c.open, speed: live?.speed ?? 1, cinemaAvailability: c.availability }
+  }
+
+  const emitDisplay = (): void => {
+    emit(REPLAYS_EVENTS.playbackDisplay, display() satisfies ReplaysPlaybackDisplay)
   }
 
   const startTimer = (s: Session): void => {
@@ -167,7 +194,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
       if (!p) return
       prepared = null
       p.bindIo(io)
-      const s: Session = { ...p, timer: null, finished: false, offFinished: () => undefined, offDisplay: () => undefined, fullscreen: false, ending: false }
+      const s: Session = { ...p, timer: null, finished: false, offFinished: () => undefined, offDisplay: () => undefined, fullscreen: false, ending: false, speed: 1 }
       session = s
       try {
         if (!p.startedEarly) await p.channel.start()
@@ -186,7 +213,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
         const fullscreen = display === 'fullscreen'
         if (s.ending || s.fullscreen === fullscreen) return
         s.fullscreen = fullscreen
-        emit(REPLAYS_EVENTS.playbackDisplay, { fullscreen } satisfies ReplaysPlaybackDisplay)
+        emitDisplay()
         if (fullscreen) stopTimer(s)
         else if (s.timer === null && !s.finished) startTimer(s)
         for (const cb of [...displayListeners]) cb(fullscreen)
@@ -219,6 +246,20 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
     onDisplayChange(cb) {
       displayListeners.add(cb)
       return () => displayListeners.delete(cb)
+    },
+
+    onStateChange(cb) {
+      stateListeners.add(cb)
+      return () => stateListeners.delete(cb)
+    },
+
+    display,
+    emitDisplay,
+
+    setSpeed(speed) {
+      if (!session || session.ending || session.speed === speed) return
+      session.speed = speed
+      emitDisplay()
     },
 
     currentFormat() {

@@ -1,10 +1,14 @@
 import { create } from 'zustand'
 import { reducePlaybackView, type PlaybackView, type TimelineAction } from '@shared/replays/timeline'
 import type { LocalizedMessage } from '@shared/types'
+import type { CinemaAvailability } from '@shared/replays/cinema'
+import type { ReplaysPlaybackDisplay } from '@shared/modules/replays'
 import {
   onPlaybackDisplay,
   onPlaybackPosition,
   onPlaybackState,
+  playbackCinema,
+  playbackDisplayRead,
   playbackStop,
   playbackTimeline,
 } from './client'
@@ -31,6 +35,9 @@ import {
  * Position events that arrive without a session are ignored; the session ends on a `state: ended`
  * event (or an explicit `endSession`). Event subscriptions live exactly as long as the session.
  */
+/** Story 187 D6: how the running demo is shown. */
+export type PlaybackMode = 'preview' | 'cinema' | 'fullscreen'
+
 export interface PlaybackSession {
   demoName: string
   /** The playing demo's 138 `durationMs`; wins over the engine's own figure in the reducer. */
@@ -41,6 +48,10 @@ export interface PlaybackSession {
   speed: number
   /** Story 172: the game window is fullscreen; the strip shows the keys text instead of stale position. */
   fullscreen: boolean
+  /** Story 187 D6: preview (the stage), cinema (the overlay) or fullscreen, from the display event. */
+  mode: PlaybackMode
+  /** Story 187 D6: whether cinema can run now, and the reason key when it cannot. */
+  cinemaAvailability: CinemaAvailability
   /** Story 173: a stop was requested; the session still ends only on `state: ended`. */
   stopping: boolean
   /** Story 184 D2: the expected timeline - last readback plus commands still in flight. */
@@ -77,8 +88,14 @@ interface PlaybackStoreState {
   setSpeed: (speed: number) => void
   applyPosition: (positionMs: number | null, engineDurationMs: number | null, enginePaused?: boolean | null) => void
   applyState: (state: 'playing' | 'finished' | 'ended') => void
-  applyDisplay: (p: { fullscreen: boolean }) => void
+  /** Story 187 D6: asks main to enter or leave cinema; resolves to the refusal to show, or null. */
+  setCinema: (enter: boolean) => Promise<LocalizedMessage | null>
+  applyDisplay: (p: DisplayUpdate) => void
 }
+
+/** The display event; `cinema`, `speed` and `cinemaAvailability` are optional for older callers. */
+type DisplayUpdate = Pick<ReplaysPlaybackDisplay, 'fullscreen'> &
+  Partial<Omit<ReplaysPlaybackDisplay, 'fullscreen'>>
 
 let unsubscribers: Array<() => void> = []
 let timers = new Set<ReturnType<typeof setTimeout>>()
@@ -145,6 +162,8 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         view: null,
         speed: 1,
         fullscreen: false,
+        mode: 'preview',
+        cinemaAvailability: { available: true },
         stopping: false,
         optimistic,
         waiting: new Set(),
@@ -155,6 +174,12 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       onPlaybackState((s) => get().applyState(s.state)),
       onPlaybackDisplay((p) => get().applyDisplay(p)),
     ]
+    // The display event only fires on change; read the state the session starts in (cinema availability).
+    void playbackDisplayRead()
+      .then((result) => {
+        if (result.ok && get().session !== null) get().applyDisplay(result.value)
+      })
+      .catch(() => {})
   },
   endSession: () => {
     unsubscribeAll()
@@ -224,12 +249,34 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       const optimistic = applyReadback(s.session.optimistic, view, now)
       return { session: { ...s.session, view, optimistic, waiting: waiting(optimistic, now) } }
     }),
+  setCinema: async (enter) => {
+    try {
+      const result = await playbackCinema(enter)
+      return result.ok ? null : result.error
+    } catch {
+      return { key: 'replays.timeline.error' }
+    }
+  },
   applyDisplay: (p) =>
-    set((s) =>
-      s.session === null || s.session.fullscreen === p.fullscreen
-        ? s
-        : { session: { ...s.session, fullscreen: p.fullscreen } },
-    ),
+    set((s) => {
+      if (s.session === null) return s
+      const mode: PlaybackMode = p.fullscreen ? 'fullscreen' : p.cinema ? 'cinema' : 'preview'
+      const speed = p.speed ?? s.session.speed
+      const cinemaAvailability = p.cinemaAvailability ?? s.session.cinemaAvailability
+      const c = s.session
+      // The display event's speed is authoritative: the optimistic timeline (what the speed select shows)
+      // follows it unless a speed change of this window's own is still pending.
+      const followSpeed = c.optimistic.speed === null && c.optimistic.confirmed.speed !== speed
+      const same =
+        c.fullscreen === p.fullscreen &&
+        c.mode === mode &&
+        c.speed === speed &&
+        !followSpeed &&
+        JSON.stringify(c.cinemaAvailability) === JSON.stringify(cinemaAvailability)
+      if (same) return s
+      const optimistic = followSpeed ? { ...c.optimistic, confirmed: { ...c.optimistic.confirmed, speed } } : c.optimistic
+      return { session: { ...c, fullscreen: p.fullscreen, mode, speed, cinemaAvailability, optimistic } }
+    }),
   applyState: (state) => {
     if (state === 'ended') {
       get().endSession()

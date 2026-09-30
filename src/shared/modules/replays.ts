@@ -7,6 +7,7 @@ import type { NameFacts } from '../replays/name-template'
 import { sidecarFieldsSchema } from '../replays/sidecar'
 import { timelineActionSchema } from '../replays/timeline'
 import { absolutePathSchema } from '../schemas'
+import type { CinemaAvailability } from '../replays/cinema'
 
 /**
  * The replays module's contract.
@@ -97,6 +98,11 @@ export const REPLAYS_HANDLERS = {
    * exited within main's timeout (or at once when the quit is refused). Resolves to `Outcome<void>`;
    * no playback launch running is the typed no-session error. */
   playbackStop: 'playback.stop',
+  /** Story 187 D5: enters (`{ enter: true }`) or leaves cinema mode for the running demo. Resolves to
+   * `Outcome<void>`; entering while cinema is unavailable fails with its reason key. */
+  playbackCinema: 'playback.cinema',
+  /** Story 187 D5: the current `ReplaysPlaybackDisplay` (what the last `playback.display` push said). */
+  playbackDisplayRead: 'playback.display.read',
 } as const
 
 /**
@@ -123,8 +129,16 @@ export interface ReplaysPlaybackPosition {
   paused: boolean | null
 }
 
+/**
+ * Story 172 D5 / 187 D5: how the running demo is shown. The mode is `fullscreen` when the channel says
+ * so, else `cinema` while the overlay is open, else the stage preview. `speed` is held in main (the last
+ * accepted `speed` timeline action, 1 at session start); `cinemaAvailability` follows the main window.
+ */
 export interface ReplaysPlaybackDisplay {
   fullscreen: boolean
+  cinema: boolean
+  speed: number
+  cinemaAvailability: CinemaAvailability
 }
 
 export interface ReplaysPlaybackState {
@@ -462,6 +476,13 @@ export type ReplaysStageRect = z.infer<typeof replaysStageRectSchema>
 export const replaysPlaybackStageSchema = z.object({ rect: replaysStageRectSchema.nullable() }).strict()
 export type ReplaysPlaybackStagePayload = z.infer<typeof replaysPlaybackStageSchema>
 
+/** Story 187 D5: `playback.cinema`'s payload - enter (`true`) or leave (`false`) cinema mode. */
+export const replaysPlaybackCinemaSchema = z.object({ enter: z.boolean() }).strict()
+export type ReplaysPlaybackCinemaPayload = z.infer<typeof replaysPlaybackCinemaSchema>
+
+/** Story 187 D5: `playback.display.read` takes an empty object. */
+export const replaysPlaybackDisplayReadSchema = z.object({}).strict()
+
 /** Story 170 D1: what `demo.play` reports about the stage - `null` when no rect was sent. */
 export type ReplaysStageResult = { placed: true } | { placed: false; reason: { key: string } }
 export interface ReplaysDemoPlayResult {
@@ -574,6 +595,8 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.playbackStage]: replaysPlaybackStageSchema,
   [REPLAYS_HANDLERS.playbackConsoleSend]: replaysConsoleSendSchema,
   [REPLAYS_HANDLERS.playbackStop]: replaysNoInputSchema,
+  [REPLAYS_HANDLERS.playbackCinema]: replaysPlaybackCinemaSchema,
+  [REPLAYS_HANDLERS.playbackDisplayRead]: replaysPlaybackDisplayReadSchema,
 }
 
 /**

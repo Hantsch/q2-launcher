@@ -16,6 +16,7 @@ vi.mock('../client', () => ({
   onPlaybackPosition: () => () => {},
   onPlaybackState: () => () => {},
   onPlaybackDisplay: () => () => {},
+  playbackDisplayRead: () => new Promise(() => {}),
 }))
 
 let ConsoleCommandField: typeof import('./ConsoleCommandField').ConsoleCommandField

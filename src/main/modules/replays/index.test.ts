@@ -105,6 +105,8 @@ describe('replays module', () => {
       'playback.consoleSend',
       'playback.stage',
       'playback.stop',
+      'playback.cinema',
+      'playback.display.read',
     ])
   })
 
@@ -741,6 +743,8 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.playbackConsoleSend]: { line: 'echo hi' },
         [REPLAYS_HANDLERS.playbackStage]: { rect: { x: 0, y: 0, width: 640, height: 480 } },
         [REPLAYS_HANDLERS.playbackStop]: undefined,
+        [REPLAYS_HANDLERS.playbackCinema]: { enter: true },
+        [REPLAYS_HANDLERS.playbackDisplayRead]: {},
         [REPLAYS_HANDLERS.listGetSort]: undefined,
         [REPLAYS_HANDLERS.listSetSort]: { sort: null },
         [REPLAYS_HANDLERS.listGetFilter]: undefined,

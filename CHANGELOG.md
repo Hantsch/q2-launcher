@@ -12,6 +12,9 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Added
+- **Demos** — cinema mode: watch a demo across the whole screen with video-player controls that appear when you move the mouse and fade away when you stop. Pick Preview, Cinema or Fullscreen from the timeline; Esc leaves cinema mode. Available on the primary display (not on Wayland).
+
 ### Fixed
 - **Demos** — the play button no longer flickers between play and pause while a demo plays on Windows.
 - **Servers** — an address you add from the server browser now actually lands in the game's address book, right away, without leaving the profile marked as unsaved.

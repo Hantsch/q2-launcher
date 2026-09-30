@@ -647,13 +647,43 @@ async function settleExit(child, log, state, timeoutMs = 1000) {
 }
 
 /**
+ * Waits for the window whose URL contains `urlPart` (e.g. `cinema.html`, story 187's overlay) and
+ * attaches the same console / pageerror / CSP listeners the first window gets. Windows are picked by
+ * URL, never by position - the overlay and the launcher window coexist.
+ */
+export async function waitForWindow(app, urlPart, log, { timeoutMs = 10_000 } = {}) {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const page = app.windows().find((w) => w.url().includes(urlPart))
+    if (page) {
+      page.on('console', (message) => {
+        const location = message.location()
+        log?.messages.push({
+          type: message.type(),
+          text: message.text(),
+          location: location?.url ? `${location.url}:${location.lineNumber}` : '',
+        })
+      })
+      page.on('pageerror', (error) => log?.pageErrors.push(error.stack || String(error)))
+      await page.evaluate(installCspViolationListener).catch(() => {})
+      await page.addInitScript(installCspViolationListener)
+      await page.waitForLoadState('domcontentloaded')
+      return page
+    }
+    if (Date.now() >= deadline) throw new HarnessError(`no window with "${urlPart}" in its URL appeared`)
+    await new Promise((done) => setTimeout(done, 100))
+  }
+}
+
+/**
  * Resizes the app's single window. Callable more than once per launch — it
  * only touches the already-running app, it never relaunches.
  */
 export async function resize(app, { width, height }) {
   await app.evaluate(
     async ({ BrowserWindow, screen }, size) => {
-      const [window] = BrowserWindow.getAllWindows()
+      // Pick by URL: a cinema overlay (story 187) may be open and is not the launcher window.
+      const window = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('cinema.html'))
       if (!window) throw new Error('no BrowserWindow to resize')
       // A restored-maximized window would ignore setSize.
       if (window.isMaximized()) window.unmaximize()

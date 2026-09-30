@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BrowserWindow, app, protocol, screen, session } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import { createCinemaWindow } from './cinema-window'
 import { createAppContext, type AppContext } from './context'
 import { createMainWindowEvents } from './main-window-observer'
 import { registerAllIpc } from './ipc'
@@ -102,6 +103,7 @@ async function bootstrap(): Promise<void> {
     // than capturing today's (still-null) value.
     getMainWindow: () => mainWindow?.window ?? null,
     mainWindow: windowEvents.observer,
+    cinemaWindow: createCinemaWindow(),
   })
   registerAllIpc(context)
   mainWindow = await createMainWindow(context, windowEvents.notify)

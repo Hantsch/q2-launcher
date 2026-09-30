@@ -11,9 +11,12 @@ vi.hoisted(() => {
 
 const playbackTimeline = vi.fn()
 const playbackStop = vi.fn()
+const playbackCinema = vi.fn()
 vi.mock('../client', () => ({
   playbackTimeline: (...args: unknown[]) => playbackTimeline(...args),
   playbackStop: (...args: unknown[]) => playbackStop(...args),
+  playbackCinema: (...args: unknown[]) => playbackCinema(...args),
+  playbackDisplayRead: () => new Promise(() => {}),
   onPlaybackPosition: () => () => {},
   onPlaybackState: () => () => {},
   onPlaybackDisplay: () => () => {},
@@ -36,6 +39,7 @@ afterEach(() => {
   cleanup()
   usePlaybackStore.getState().endSession()
   playbackTimeline.mockReset()
+  playbackCinema.mockReset()
 })
 
 function begin(durationMs: number | null, positionMs?: number): void {
@@ -255,5 +259,45 @@ describe('DemoTimeline (story 184 D3)', () => {
     expect(testid('seek').getAttribute('aria-busy')).toBe('true')
     expect(testid('toggle').getAttribute('aria-busy')).toBeNull()
     expect(testid('toggle').getAttribute('aria-describedby')).toBeNull()
+  })
+})
+
+describe('DemoTimeline (story 187 D6)', () => {
+  it('the timeline offers preview, cinema and fullscreen with the current mode marked', async () => {
+    playbackCinema.mockResolvedValue({ ok: true, value: undefined })
+    begin(60_000, 1000)
+    render(createElement(DemoTimeline))
+    const group = screen.getByRole('radiogroup', { name: 'View mode' })
+    const radios = Array.from(group.querySelectorAll('[role="radio"]'))
+    expect(radios.map((r) => r.textContent)).toEqual(['Preview', 'Cinema', 'Fullscreen'])
+    expect(radios.map((r) => r.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false'])
+    expect(radios[0].querySelector('svg')).not.toBeNull()
+    fireEvent.click(testid('mode-cinema'))
+    expect(playbackCinema).toHaveBeenCalledWith(true)
+    act(() => usePlaybackStore.getState().applyDisplay({ fullscreen: false, cinema: true }))
+    expect(testid('mode-cinema').getAttribute('aria-checked')).toBe('true')
+    expect(testid('mode-preview').getAttribute('aria-checked')).toBe('false')
+    expect(testid('mode-cinema').querySelector('svg')).not.toBeNull()
+    fireEvent.click(testid('mode-preview'))
+    expect(playbackCinema).toHaveBeenLastCalledWith(false)
+    fireEvent.click(testid('fullscreen'))
+    await vi.waitFor(() => expect(playbackTimeline).toHaveBeenCalledWith({ kind: 'fullscreen' }))
+  })
+
+  it('cinema is disabled with its reason as visible text', () => {
+    begin(60_000, 1000)
+    render(createElement(DemoTimeline))
+    act(() =>
+      usePlaybackStore.getState().applyDisplay({
+        fullscreen: false,
+        cinema: false,
+        cinemaAvailability: { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } },
+      }),
+    )
+    const cinema = testid('mode-cinema')
+    expect(cinema.getAttribute('aria-disabled')).toBe('true')
+    expect(testid('cinema-reason').textContent).toContain('not on the primary display')
+    fireEvent.click(cinema)
+    expect(playbackCinema).not.toHaveBeenCalled()
   })
 })

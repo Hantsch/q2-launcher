@@ -87,6 +87,7 @@ vi.mock('./client', () => ({
   onPlaybackPosition: () => () => {},
   onPlaybackState: () => () => {},
   onPlaybackDisplay: () => () => {},
+  playbackDisplayRead: () => new Promise(() => {}),
 }))
 
 let ReplaysView: typeof import('./ReplaysView').ReplaysView

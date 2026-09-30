@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Maximize, Pause, Play, RotateCcw, RotateCw, Square } from 'lucide-react'
+import { Check, Pause, Play, RotateCcw, RotateCw, Square } from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
 import {
   JUMP_STEP_S,
@@ -14,7 +14,7 @@ import { IconButton } from '../../../components/ui/Button'
 import { Select } from '../../../components/ui/controls'
 import { useOverlayRegistration } from '../../../lib/overlay-registry'
 import { cn } from '../../../lib/cn'
-import { usePlaybackStore } from '../playback-store'
+import { usePlaybackStore, type PlaybackMode } from '../playback-store'
 import { createTimeline, expected, type ExpectedTimeline, type OptimisticTimeline } from '../optimistic-timeline'
 
 // `outline-solid` re-enables the outline style the shared Select's `focus:outline-none` switches off.
@@ -28,7 +28,7 @@ const FOCUS_RING =
  * Story 184 D3: the expected timeline at this instant. While the demo plays in the window the
  * position moves between readbacks, so the component re-renders once per animation frame.
  */
-function useExpectedTimeline(optimistic: OptimisticTimeline, running: boolean): ExpectedTimeline {
+export function useExpectedTimeline(optimistic: OptimisticTimeline, running: boolean): ExpectedTimeline {
   const [, setFrame] = useState(0)
   const now = Date.now()
   const current = expected(optimistic, now)
@@ -55,12 +55,14 @@ export function DemoTimeline() {
   const session = usePlaybackStore((state) => state.session)
   const sendTimeline = usePlaybackStore((state) => state.sendTimeline)
   const requestStop = usePlaybackStore((state) => state.requestStop)
+  const setCinema = usePlaybackStore((state) => state.setCinema)
   const [error, setError] = useState<LocalizedMessage | null>(null)
   // The native speed popup paints above the page (and the game window): park the game while it is open.
   const [speedOpen, setSpeedOpen] = useState(false)
   const noElement = useRef<Element | null>(null)
   useOverlayRegistration(speedOpen, noElement, true)
   const waitingId = useId()
+  const cinemaReasonId = useId()
   const optimistic = session?.optimistic
   const shown = useExpectedTimeline(
     optimistic ?? createEmpty,
@@ -76,6 +78,8 @@ export function DemoTimeline() {
   const positionMs = displayedMs
   const paused = shown.paused
   const fullscreen = session.fullscreen
+  const mode = session.mode
+  const cinemaReason = session.cinemaAvailability.available ? null : session.cinemaAvailability.reason
   const ended = view?.ended ?? false
   const positionText = formatPlaybackPosition(positionMs)
   const durationText = hasDuration ? formatPlaybackPosition(durationMs) : t('replays.timeline.durationUnknown')
@@ -110,6 +114,16 @@ export function DemoTimeline() {
     // A paused demo would sit frozen behind the fullscreen window with no visible way to resume.
     if (paused && !(await send({ kind: 'togglePause' }))) return
     await send({ kind: 'fullscreen' })
+  }
+
+  async function chooseMode(next: PlaybackMode): Promise<void> {
+    if (next === mode) return
+    if (next === 'fullscreen') return enterFullscreen()
+    setError(null)
+    // Preview while in fullscreen is the game's own "Back to window" key; the options are disabled then.
+    if (next === 'cinema' && cinemaReason !== null) return
+    const refusal = await setCinema(next === 'cinema')
+    if (refusal) setError(refusal)
   }
 
   function handleSeekClick(event: MouseEvent<HTMLDivElement>): void {
@@ -276,16 +290,43 @@ export function DemoTimeline() {
           data-testid="replays-timeline-speed"
           {...busy('speed')}
         />
-        <IconButton
-          size="lg"
-          label={t('replays.timeline.fullscreen')}
-          disabled={ended || fullscreen}
-          onClick={() => void enterFullscreen()}
-          className={FOCUS_RING}
-          data-testid="replays-timeline-fullscreen"
+        <div
+          role="radiogroup"
+          aria-label={t('replays.timeline.mode.label')}
+          className="flex h-11 items-stretch overflow-hidden rounded-md border border-line-strong"
+          data-testid="replays-timeline-mode"
         >
-          <Maximize className="size-6" />
-        </IconButton>
+          {(['preview', 'cinema', 'fullscreen'] as const).map((option) => {
+            const checked = mode === option
+            const blocked = option === 'cinema' ? cinemaReason !== null || fullscreen || ended : fullscreen || (option === 'fullscreen' && ended)
+            const testId = option === 'fullscreen' ? 'replays-timeline-fullscreen' : `replays-timeline-mode-${option}`
+            return (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={checked}
+                // Cinema stays focusable when unavailable so its reason is reachable; the rest are really disabled.
+                {...(option === 'cinema'
+                  ? { 'aria-disabled': blocked, 'aria-describedby': cinemaReason !== null ? cinemaReasonId : undefined }
+                  : { disabled: blocked })}
+                onClick={() => {
+                  if (!blocked) void chooseMode(option)
+                }}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 text-sm text-ink',
+                  checked ? 'bg-flame-500/15 font-semibold underline underline-offset-4' : 'hover:bg-hover',
+                  blocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+                  FOCUS_RING,
+                )}
+                data-testid={testId}
+              >
+                {checked && <Check className="size-4" aria-hidden="true" />}
+                {t(`replays.timeline.mode.${option}`)}
+              </button>
+            )
+          })}
+        </div>
         <IconButton
           size="lg"
           label={session.stopping ? t('replays.timeline.stopping') : t('replays.timeline.stop')}
@@ -300,6 +341,11 @@ export function DemoTimeline() {
       {fullscreen && (
         <p className="text-xs text-ink-muted" data-testid="replays-timeline-keys">
           {t('replays.timeline.fullscreenKeys')}
+        </p>
+      )}
+      {cinemaReason !== null && (
+        <p id={cinemaReasonId} className="text-xs text-ink-muted" data-testid="replays-timeline-cinema-reason">
+          {t(cinemaReason.key)}
         </p>
       )}
       {!hasDuration && !fullscreen && (

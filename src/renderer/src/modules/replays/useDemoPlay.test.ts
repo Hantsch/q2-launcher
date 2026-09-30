@@ -19,6 +19,7 @@ vi.mock('./client', () => ({
   onPlaybackPosition: () => () => {},
   onPlaybackState: () => () => {},
   onPlaybackDisplay: () => () => {},
+  playbackDisplayRead: () => new Promise(() => {}),
 }))
 
 let useDemoPlay: typeof import('./useDemoPlay').useDemoPlay

@@ -15,7 +15,7 @@ export interface PlaybackTimeline {
 }
 
 export function createPlaybackTimeline(deps: {
-  playback: Pick<PlaybackControl, 'send' | 'currentFormat' | 'enterFullscreen'>
+  playback: Pick<PlaybackControl, 'send' | 'currentFormat' | 'enterFullscreen'> & Partial<Pick<PlaybackControl, 'setSpeed'>>
 }): PlaybackTimeline {
   return {
     run(action) {
@@ -23,7 +23,10 @@ export function createPlaybackTimeline(deps: {
       const format = deps.playback.currentFormat()
       if (format === null) return fail(NO_SESSION)
       const seekVerb = demoSeekCommand(format, { kind: 'relative', seconds: 1 }).split(' ')[0]
-      return deps.playback.send(buildTimelineCommand(action, seekVerb))
+      const sent = deps.playback.send(buildTimelineCommand(action, seekVerb))
+      // Story 187 D5: main holds the speed, so the display event can carry it.
+      if (sent.ok && action.kind === 'speed') deps.playback.setSpeed?.(action.value)
+      return sent
     },
   }
 }

@@ -3,6 +3,7 @@ import { homedir } from 'node:os'
 import type { BrowserWindow } from 'electron'
 import { app as electronApp } from 'electron'
 import { stateFilePath, userDataDir } from './lib/paths'
+import type { CinemaWindow } from './cinema-window'
 import type { MainWindowObserver } from './main-window-observer'
 import { scopedLogger } from './lib/logger'
 import { UI_HARNESS_ENV } from './lib/ui-harness'
@@ -83,6 +84,9 @@ export interface AppContext {
   /** Story 171 D2: the main window's bounds/state and its move/resize/minimize/restore/focus/blur
    * events, read-only - how a module follows the window without touching the `BrowserWindow`. */
   mainWindow: MainWindowObserver
+  /** Story 187 D4: the cinema overlay window (open/close/isOpen/onClosed) - a shell service, modules
+   * never touch the BrowserWindow. */
+  cinemaWindow: CinemaWindow
   /** Story 097: the update-check service - a shell service, not a module (it has no per-installation
    * data and nothing renderer-writable to validate), constructed here like `launch`/`jobs` above. */
   update: UpdateService
@@ -108,6 +112,7 @@ export async function createAppContext(options: {
   getMainWindow: () => BrowserWindow | null
   /** Story 171 D2: fed by `window.ts` (via `index.ts`), which owns the window's event wiring. */
   mainWindow: MainWindowObserver
+  cinemaWindow: CinemaWindow
 }): Promise<AppContext> {
   const broadcast = new Broadcaster()
 
@@ -209,6 +214,7 @@ export async function createAppContext(options: {
     dialog,
     getMainWindow: options.getMainWindow,
     mainWindow: options.mainWindow,
+    cinemaWindow: options.cinemaWindow,
     update,
     unlock,
     features,

@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { app as electronApp, BrowserWindow, screen, shell } from 'electron'
+import { app as electronApp, BrowserWindow, screen } from 'electron'
 import {
   WINDOW_DEFAULT_HEIGHT,
   WINDOW_DEFAULT_WIDTH,
@@ -11,52 +11,23 @@ import { chromeState } from './lib/chrome-state'
 import { JsonStore } from './lib/json-store'
 import { scopedLogger } from './lib/logger'
 import { windowStateFilePath } from './lib/paths'
-import {
-  RENDERER_INDEX_URL,
-  RENDERER_ORIGIN,
-  resolveRendererSource,
-  type RendererSource,
-} from './lib/renderer-source'
+import { RENDERER_INDEX_URL } from './lib/renderer-source'
 import { parseWindowState } from './lib/schemas'
 import type { AppContext } from './context'
 import type { MainWindowEvent } from './main-window-observer'
+import {
+  hardenWebContents,
+  IS_UI_HARNESS,
+  IS_UI_HARNESS_OFFSCREEN,
+  OFFSCREEN_MARGIN,
+  RENDERER_SOURCE,
+  rendererWebPreferences,
+} from './window-shared'
 
 const log = scopedLogger('window')
 
 /** The launcher's chrome colour, so the first frame is not a white flash. */
 const BACKGROUND_COLOR = '#0b0b0d'
-
-/**
- * Set to `1` by the UI-verification harness (`scripts/lib/harness.mjs`'s
- * `childEnv()`) in the app's environment, never in a normal or packaged launch.
- *
- * Read once at module load — the environment cannot change under a running
- * process, and a single lookup keeps the two places that branch on it from
- * disagreeing. Matched strictly against `'1'` so a stray `Q2L_UI_HARNESS=0`
- * cannot switch the launcher into a window that refuses focus.
- */
-const IS_UI_HARNESS = process.env['Q2L_UI_HARNESS'] === '1'
-
-/**
- * A harness window is placed left of every display, so a run neither steals focus nor paints over
- * the desktop of whoever started it. Same size as always, so screenshots and geometry flows see
- * exactly the layout they did on screen. `Q2L_UI_VISIBLE=1` puts it back on screen for debugging.
- */
-const IS_UI_HARNESS_OFFSCREEN = IS_UI_HARNESS && process.env['Q2L_UI_VISIBLE'] !== '1'
-
-/** Gap between the offscreen window and the leftmost display, so no border pixel peeks in. */
-const OFFSCREEN_MARGIN = 100
-
-/**
- * Which document this window loads, and what `will-navigate` therefore has to allow. Derived from
- * the dev server being present rather than from `is.dev` — see the same derivation in `index.ts`,
- * which decides the matching CSP from it. `resolveRendererSource` is pure, so both agree; read
- * once at module load for the same reason as `IS_UI_HARNESS` above.
- */
-const RENDERER_SOURCE: RendererSource = resolveRendererSource({
-  isDev: Boolean(process.env['ELECTRON_RENDERER_URL']),
-  devServerUrl: process.env['ELECTRON_RENDERER_URL'],
-})
 
 /**
  * Build resources are not packed into the application automatically.
@@ -160,16 +131,7 @@ export async function createMainWindow(
     frame: false,
     autoHideMenuBar: true,
     title: 'Q2 Launcher',
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      webSecurity: true,
-      spellcheck: false,
-      // An offscreen window still has to keep rendering at full rate for screenshots and timers.
-      ...(IS_UI_HARNESS_OFFSCREEN ? { backgroundThrottling: false } : {}),
-    },
+    webPreferences: rendererWebPreferences(),
   })
 
   // --- geometry persistence -------------------------------------------------
@@ -220,25 +182,7 @@ export async function createMainWindow(
   // --- navigation hardening -------------------------------------------------
   // Nothing in the launcher should ever navigate the window or open a popup;
   // external links go to the user's browser instead.
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//i.test(url)) void shell.openExternal(url)
-    return { action: 'deny' }
-  })
-
-  window.webContents.on('will-navigate', (event, url) => {
-    // Our own content is the dev server in dev mode and `q2launcher://app/` otherwise — the
-    // trailing slash keeps a look-alike host such as `q2launcher://appx/` out. This is also what
-    // keeps a self-navigation to the same document alive: the harness's `page.reload()` and the
-    // ErrorBoundary's `location.reload()`.
-    const allowed =
-      RENDERER_SOURCE.kind === 'dev-server'
-        ? url.startsWith(RENDERER_SOURCE.url)
-        : url.startsWith(`${RENDERER_ORIGIN}/`)
-    if (!allowed) {
-      event.preventDefault()
-      log.warn(`blocked navigation to ${url}`)
-    }
-  })
+  hardenWebContents(window)
 
   window.once('ready-to-show', () => {
     // Skipped offscreen: maximize/fullscreen would pull the window back onto a display.

@@ -26,6 +26,12 @@ export interface StageFollowInput {
 
 export interface StageFollower {
   update(input: StageFollowInput): void
+  /**
+   * Story 187 D2: pin the game window to `geometry` (cinema). While pinned only that geometry is sent,
+   * the always-on-top flag is frozen and focus/blur/move inputs are ignored. `null` unpins and re-sends
+   * the current stage geometry.
+   */
+  pin(geometry: string | null): void
   dispose(): void
 }
 
@@ -58,6 +64,7 @@ export function createStageFollower(deps: StageFollowerDeps): StageFollower {
   let quietTimer: unknown = null
   let retryTimer: unknown = null
   let disposed = false
+  let pinned: string | null = null
 
   function clearQuiet(): void {
     if (quietTimer !== null) clearT(quietTimer)
@@ -77,7 +84,7 @@ export function createStageFollower(deps: StageFollowerDeps): StageFollower {
   function flush(): void {
     if (disposed) return
     let failed = false
-    if (desiredTop !== sentTop) {
+    if (pinned === null && desiredTop !== sentTop) {
       if (deps.send(`set win_alwaysontop ${desiredTop}`).ok) sentTop = desiredTop
       else failed = true
     }
@@ -101,6 +108,7 @@ export function createStageFollower(deps: StageFollowerDeps): StageFollower {
       const t = now()
       if (input.tick === true) lastTickAt = t
       if (input.stageRect !== null) placedGeo = deps.computeGeometry(input.stageRect, input.window)
+      if (pinned !== null) return
       desiredTop = input.window.focused ? 1 : 0
       const moving = t - lastTickAt < STAGE_FOLLOW_QUIET_MS
       const parked = input.stageRect === null || input.window.minimized
@@ -120,6 +128,14 @@ export function createStageFollower(deps: StageFollowerDeps): StageFollower {
         scheduleQuiet()
         // Not moving: the last desired geometry stands (the placed one only after the quiet timer).
       }
+      flush()
+    },
+    pin(geometry) {
+      if (disposed) return
+      clearQuiet()
+      pinned = geometry
+      desiredGeo = geometry ?? placedGeo
+      desiredIsPark = false
       flush()
     },
     dispose() {

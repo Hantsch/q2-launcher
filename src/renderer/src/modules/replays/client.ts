@@ -143,6 +143,16 @@ export function playbackTimeline(action: TimelineAction): Promise<Outcome<Outcom
   return callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackTimeline, action)
 }
 
+/** Story 187 D6: enters or leaves cinema mode. Flattens like `playbackStop`. */
+export async function playbackCinema(enter: boolean): Promise<Outcome<void>> {
+  return flattenOutcome(await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackCinema, { enter }))
+}
+
+/** Story 187 D6: the current display state, read once when a session begins. */
+export function playbackDisplayRead(): Promise<Outcome<ReplaysPlaybackDisplay>> {
+  return callModule<ReplaysPlaybackDisplay>('replays', REPLAYS_HANDLERS.playbackDisplayRead, {})
+}
+
 /** Story 164 D4 events, mirroring `onScanProgress`. */
 export function onPlaybackPosition(
   listener: (payload: ReplaysPlaybackPosition) => void,

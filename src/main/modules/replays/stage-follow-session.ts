@@ -43,6 +43,10 @@ export interface StageFollowSessions {
   report(rect: ReplaysStageRect | null): Outcome<void>
   /** Story 172 D5: while the demo is fullscreen the game window is not moved or resized. */
   setSuspended(suspended: boolean): void
+  /** Story 187 D2: pin the live session's game window to `geometry` (cinema); `null` unpins. */
+  pin(geometry: string | null): boolean
+  /** A follower exists (a placed stage session is live), so a pin can take effect. */
+  hasFollower(): boolean
 }
 
 export interface StageFollowSessionsDeps {
@@ -103,6 +107,12 @@ export function createStageFollowSessions(deps: StageFollowSessionsDeps): StageF
       suspended = value
       if (!value && current) feed(current, false)
     },
+    pin(geometry) {
+      if (!current) return false
+      current.follower.pin(geometry)
+      return true
+    },
+    hasFollower: () => current !== null,
     report(rect) {
       if (current) {
         current.rect = rect

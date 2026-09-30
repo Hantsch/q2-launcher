@@ -165,6 +165,8 @@ describe('ActionBar', () => {
         knownDurationMs: null,
         view: null,
         speed: 1,
+        mode: 'preview',
+        cinemaAvailability: { available: true },
         fullscreen: false,
         stopping: false,
         optimistic: createTimeline({ view: null }, 0),

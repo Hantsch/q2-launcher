@@ -5,11 +5,13 @@ const handlers = vi.hoisted(() => ({
   state: null as null | ((s: { state: 'playing' | 'finished' | 'ended' }) => void),
   offPosition: vi.fn(),
   offState: vi.fn(),
-  display: null as null | ((p: { fullscreen: boolean }) => void),
+  display: null as null | ((p: Record<string, unknown>) => void),
   timeline: vi.fn(),
 }))
 
 vi.mock('./client', () => ({
+  playbackCinema: vi.fn(),
+  playbackDisplayRead: () => new Promise(() => {}),
   playbackTimeline: (a: unknown) => handlers.timeline(a),
   onPlaybackPosition: (l: typeof handlers.position) => {
     handlers.position = l
@@ -59,6 +61,28 @@ describe('playback store (story 165 D3)', () => {
     expect(usePlaybackStore.getState().session?.fullscreen).toBe(true)
     handlers.display?.({ fullscreen: false })
     expect(usePlaybackStore.getState().session?.fullscreen).toBe(false)
+  })
+
+  it('the display event sets mode, speed and cinema availability', () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    expect(usePlaybackStore.getState().session).toMatchObject({ mode: 'preview', cinemaAvailability: { available: true } })
+    const off = { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } }
+    handlers.display?.({ fullscreen: false, cinema: true, speed: 2, cinemaAvailability: off })
+    expect(usePlaybackStore.getState().session).toMatchObject({ mode: 'cinema', speed: 2, cinemaAvailability: off })
+    handlers.display?.({ fullscreen: true, cinema: false, speed: 2, cinemaAvailability: { available: true } })
+    expect(usePlaybackStore.getState().session).toMatchObject({
+      mode: 'fullscreen',
+      fullscreen: true,
+      cinemaAvailability: { available: true },
+    })
+  })
+
+  it('a display event speed becomes the speed the timeline shows', () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    handlers.display?.({ fullscreen: false, cinema: true, speed: 2 })
+    const session = usePlaybackStore.getState().session!
+    expect(session.speed).toBe(2)
+    expect(expected(session.optimistic, Date.now()).speed).toBe(2)
   })
 
   it('position events feed the reducer; the known duration wins, an unchanged position reads paused', () => {

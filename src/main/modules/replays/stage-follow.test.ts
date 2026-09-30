@@ -108,4 +108,21 @@ describe('stage follower', () => {
     vi.advanceTimersByTime(1000)
     expect(lines).toEqual([])
   })
+
+  it('a pinned follower sends the pin geometry and never win_alwaysontop', () => {
+    const { lines, follower } = setup()
+    follower.pin('1920x1080+0+0')
+    follower.update({ stageRect: rect(50, 60), window: win({ focused: false }), tick: true })
+    follower.update({ stageRect: rect(70, 60), window: win({ focused: true }) })
+    vi.advanceTimersByTime(1000)
+    expect(lines).toEqual(['set vid_geometry 1920x1080+0+0'])
+  })
+
+  it('unpinning re-sends the stage geometry', () => {
+    const { lines, follower } = setup()
+    follower.update({ stageRect: rect(), window: win() })
+    follower.pin('1920x1080+0+0')
+    follower.pin(null)
+    expect(lines).toEqual(['set vid_geometry 1920x1080+0+0', 'set vid_geometry 800x600+10+20'])
+  })
 })

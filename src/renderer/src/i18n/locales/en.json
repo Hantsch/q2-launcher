@@ -1107,6 +1107,13 @@
         "wayland": "Not available on Wayland: the launcher cannot place the game window, so the demo plays in its own window"
       }
     },
+    "cinema": {
+      "unavailable": {
+        "notPrimaryDisplay": "Not available: the launcher is not on the primary display. Move it there to watch in cinema mode.",
+        "noStage": "Not available: this demo is not playing on the launcher's stage, so the game window cannot be moved under the overlay. Play it on the stage to watch in cinema mode.",
+        "fullscreen": "Not available: the demo is fullscreen. Go back to the window first."
+      }
+    },
     "timeline": {
       "label": "Demo playback",
       "play": "Play",
@@ -1114,8 +1121,20 @@
       "back": "Back 10 seconds",
       "forward": "Forward 10 seconds",
       "fullscreen": "Fullscreen",
+      "mode": {
+        "label": "View mode",
+        "preview": "Preview",
+        "cinema": "Cinema",
+        "fullscreen": "Fullscreen"
+      },
       "stop": "Stop demo",
       "stopping": "Stopping…",
+      "cinema": {
+        "label": "Cinema controls",
+        "leave": "Leave cinema mode",
+        "back60": "Back 60 seconds",
+        "forward60": "Forward 60 seconds"
+      },
       "fullscreenKeys": "Fullscreen: steer the demo with your keys. Your \"Back to window\" key (Controls tab, Demo playback) returns it here.",
       "seek": "Seek",
       "seekValueText": "{{position}} of {{duration}}",

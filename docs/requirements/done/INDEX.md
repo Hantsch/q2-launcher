@@ -279,3 +279,4 @@ second roadmap.
 - 184 — The timeline answers my click at once · S30 · optimistic expected state, projected position, waiting text after 1 s, refusal rollback; proven by unit tests and a stub-lever flow
 - 185 — Demo commands reach the game without waiting · S30 · logfile_flush 3 + pipelined multi-seq control file; real-Q2PRO control->ACK p95 227.6 ms (was 1545)
 - 186 — A spike proves a launcher overlay can sit over the game · S30 · go for Windows primary display: transparent topmost overlay covers borderless Q2PRO and takes mouse/keys; only live win_alwaysontop 1 raised the game; secondary-display live geometry and keyboard focus still open
+- 187 — I watch a demo in cinema mode · — · Preview/Cinema/Fullscreen switch on the timeline; cinema opens a transparent topmost launcher overlay over the primary display (pinned stage follower, idle-fade controls, video-player keys, Esc leaves); Wayland/secondary display disabled with visible reason
