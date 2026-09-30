@@ -220,3 +220,40 @@ describe('DemoTimeline (story 165 D3)', () => {
     expect((testid('toggle') as HTMLButtonElement).disabled).toBe(false)
   })
 })
+
+describe('DemoTimeline (story 184 D3)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('the toggle shows the expected state before any readback', () => {
+    playbackTimeline.mockReturnValue(new Promise(() => {}))
+    begin(60_000, 1000)
+    render(createElement(DemoTimeline))
+    expect(testid('toggle').getAttribute('aria-label')).toBe('Pause')
+    fireEvent.click(testid('toggle'))
+    expect(testid('toggle').getAttribute('aria-label')).toBe('Play')
+    expect(testid('state').textContent).toBe('Paused')
+  })
+
+  it('the waiting text names the affected control', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    playbackTimeline.mockReturnValue(new Promise(() => {}))
+    begin(60_000, 1000)
+    render(createElement(DemoTimeline))
+    fireEvent.click(testid('forward'))
+    expect(screen.queryByTestId('replays-timeline-waiting')).toBeNull()
+    act(() => {
+      vi.advanceTimersByTime(1100)
+    })
+    const waiting = testid('waiting')
+    expect(waiting.textContent).toBe('Waiting for the game… (seek)')
+    const forward = testid('forward')
+    expect(forward.getAttribute('aria-busy')).toBe('true')
+    expect(forward.getAttribute('aria-describedby')).toBe(waiting.id)
+    expect(testid('back').getAttribute('aria-busy')).toBe('true')
+    expect(testid('seek').getAttribute('aria-busy')).toBe('true')
+    expect(testid('toggle').getAttribute('aria-busy')).toBeNull()
+    expect(testid('toggle').getAttribute('aria-describedby')).toBeNull()
+  })
+})

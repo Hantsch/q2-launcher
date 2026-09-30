@@ -118,3 +118,19 @@
 - 2026-09-30 10:31 · 183 · verify (re-run after fixes) · started
 - 2026-09-30 10:32 · 183 · verify (re-run after fixes) · done
 - 2026-09-30 10:35 · 183 · story · done
+- 10:35:33 · 184 · build · started
+- 2026-09-30 10:35 · 184 · D1 optimistic-timeline core · started
+- 2026-09-30 10:41 · 184 · D1 optimistic-timeline core · done
+- 2026-09-30 10:41 · 184 · D2 store owns pending state · started
+- 2026-09-30 10:42 · 184 · D2 store owns pending state · done
+- 2026-09-30 10:42 · 184 · D3 strip renders expected state · started
+- 2026-09-30 10:43 · 184 · D3 strip renders expected state · done
+- 2026-09-30 10:43 · 184 · D4 real-surface proof · started
+- 2026-09-30 10:53 · 184 · D4 real-surface proof · partial (AC4 red), re-dispatching
+- 2026-09-30 10:53 · 184 · D4 real-surface proof (retry) · started
+- 2026-09-30 10:57 · 184 · D4 real-surface proof (retry) · done
+- 2026-09-30 10:57 · 184 · verify · started
+- 2026-09-30 10:59 · 184 · verify · done
+- 2026-09-30 10:59 · 184 · review 1 · started
+- 2026-09-30 11:00 · 184 · review 1 · done
+- 2026-09-30 11:00 · 184 · story · done

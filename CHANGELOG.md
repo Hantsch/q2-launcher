@@ -26,6 +26,7 @@ version section when a release actually ships.
 - **Demos** — favourite and a 10-star rating are one click each in the demo detail, no Edit button and no ceremony; and a quick favourite followed by a quick rating no longer lose one another.
 - **Demos** — View in the action bar now plays the selected demo, replacing the Play button in the demo detail; a demo whose mod is not fully installed asks before it plays.
 - **Demos** — the missing-mod warning asks once: tick "Don't ask again" and that mod plays straight away from then on. Settings has a switch to turn the warning off entirely and a button to forget the remembered mods.
+- **Demos** — the timeline answers your click at once: the play/pause button, the position and the speed follow what you asked for immediately, and say "Waiting for the game…" if the game takes over a second to catch up.
 
 ### Added
 - **Servers** — join the selected server straight from the big button.

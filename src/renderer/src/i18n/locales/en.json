@@ -1126,7 +1126,12 @@
       "stateFinished": "Finished",
       "error": "The demo could not be steered.",
       "seekNeedsDuration": "Seeking by click needs the demo's length",
-      "durationUnknown": "--:--"
+      "durationUnknown": "--:--",
+      "waiting": {
+        "pause": "Waiting for the game… (pause)",
+        "seek": "Waiting for the game… (seek)",
+        "speed": "Waiting for the game… (speed)"
+      }
     },
     "console": {
       "label": "Console command",

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { createTimeline } from '../../modules/replays/optimistic-timeline'
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -166,6 +167,8 @@ describe('ActionBar', () => {
         speed: 1,
         fullscreen: false,
         stopping: false,
+        optimistic: createTimeline({ view: null }, 0),
+        waiting: new Set(),
       },
     })
 

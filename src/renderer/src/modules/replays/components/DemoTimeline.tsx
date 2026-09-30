@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Maximize, Pause, Play, RotateCcw, RotateCw, Square } from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
@@ -14,12 +14,35 @@ import { IconButton } from '../../../components/ui/Button'
 import { Select } from '../../../components/ui/controls'
 import { useOverlayRegistration } from '../../../lib/overlay-registry'
 import { cn } from '../../../lib/cn'
-import { playbackTimeline } from '../client'
 import { usePlaybackStore } from '../playback-store'
+import { createTimeline, expected, type ExpectedTimeline, type OptimisticTimeline } from '../optimistic-timeline'
 
 // `outline-solid` re-enables the outline style the shared Select's `focus:outline-none` switches off.
+// Only read when there is no session, where the component renders nothing anyway.
+const createEmpty = createTimeline({ view: null }, 0)
+
 const FOCUS_RING =
   'focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flame-500'
+
+/**
+ * Story 184 D3: the expected timeline at this instant. While the demo plays in the window the
+ * position moves between readbacks, so the component re-renders once per animation frame.
+ */
+function useExpectedTimeline(optimistic: OptimisticTimeline, running: boolean): ExpectedTimeline {
+  const [, setFrame] = useState(0)
+  const now = Date.now()
+  const current = expected(optimistic, now)
+  const animate = running && !current.paused
+  useEffect(() => {
+    if (!animate) return
+    let handle = requestAnimationFrame(function tick() {
+      setFrame((n) => n + 1)
+      handle = requestAnimationFrame(tick)
+    })
+    return () => cancelAnimationFrame(handle)
+  }, [animate])
+  return current
+}
 
 /**
  * Story 165 D3: the timeline strip docked at the bottom of the Demos view while a demo session
@@ -30,21 +53,28 @@ const FOCUS_RING =
 export function DemoTimeline() {
   const { t } = useTranslation()
   const session = usePlaybackStore((state) => state.session)
-  const setSpeed = usePlaybackStore((state) => state.setSpeed)
+  const sendTimeline = usePlaybackStore((state) => state.sendTimeline)
   const requestStop = usePlaybackStore((state) => state.requestStop)
   const [error, setError] = useState<LocalizedMessage | null>(null)
   // The native speed popup paints above the page (and the game window): park the game while it is open.
   const [speedOpen, setSpeedOpen] = useState(false)
   const noElement = useRef<Element | null>(null)
   useOverlayRegistration(speedOpen, noElement, true)
+  const waitingId = useId()
+  const optimistic = session?.optimistic
+  const shown = useExpectedTimeline(
+    optimistic ?? createEmpty,
+    session !== null && !session.fullscreen && !(session.view?.ended ?? false)
+  )
 
   if (session === null) return null
 
   const view = session.view
   const durationMs = view?.durationMs ?? session.knownDurationMs
   const hasDuration = durationMs !== null && durationMs > 0
-  const positionMs = view?.positionMs ?? 0
-  const paused = view?.paused ?? false
+  const displayedMs = shown.positionMs
+  const positionMs = displayedMs
+  const paused = shown.paused
   const fullscreen = session.fullscreen
   const ended = view?.ended ?? false
   const positionText = formatPlaybackPosition(positionMs)
@@ -55,16 +85,20 @@ export function DemoTimeline() {
 
   async function send(action: TimelineAction): Promise<boolean> {
     setError(null)
-    try {
-      const result = await playbackTimeline(action)
-      if (!result.ok) setError(result.error)
-      else if (!result.value.ok) setError(result.value.error)
-      else return true
-    } catch {
-      setError({ key: 'replays.timeline.error' })
-    }
-    return false
+    const refusal = await sendTimeline(action)
+    if (refusal) setError(refusal)
+    return refusal === null
   }
+
+  const waitingChain = session.waiting.has('pause')
+    ? 'pause'
+    : session.waiting.has('position')
+      ? 'seek'
+      : session.waiting.has('speed')
+        ? 'speed'
+        : null
+  const busy = (chain: 'pause' | 'seek' | 'speed') =>
+    waitingChain === chain ? { 'aria-busy': true as const, 'aria-describedby': waitingId } : {}
 
   async function stop(): Promise<void> {
     setError(null)
@@ -147,6 +181,8 @@ export function DemoTimeline() {
           FOCUS_RING,
         )}
         data-testid="replays-timeline-seek"
+        data-position-ms={Math.round(displayedMs)}
+        {...busy('seek')}
       >
         <div className="pointer-events-none relative h-1.5 w-full rounded-full bg-line-strong transition-[height] group-hover:h-2.5">
           <div
@@ -169,6 +205,7 @@ export function DemoTimeline() {
           onClick={() => void send({ kind: 'togglePause' })}
           className={FOCUS_RING}
           data-testid="replays-timeline-toggle"
+          {...busy('pause')}
         >
           {paused ? <Play className="size-7" /> : <Pause className="size-7" />}
         </IconButton>
@@ -179,6 +216,7 @@ export function DemoTimeline() {
           onClick={() => void send({ kind: 'jump', deltaS: -JUMP_STEP_S })}
           className={FOCUS_RING}
           data-testid="replays-timeline-back"
+          {...busy('seek')}
         >
           <RotateCcw className="size-6" />
         </IconButton>
@@ -189,6 +227,7 @@ export function DemoTimeline() {
           onClick={() => void send({ kind: 'jump', deltaS: JUMP_STEP_S })}
           className={FOCUS_RING}
           data-testid="replays-timeline-forward"
+          {...busy('seek')}
         >
           <RotateCw className="size-6" />
         </IconButton>
@@ -202,13 +241,23 @@ export function DemoTimeline() {
         <span className="ml-4 min-w-0 flex-1 truncate text-sm text-ink-muted" title={session.demoName}>
           {session.demoName}
         </span>
-        <span className="mr-2 text-sm text-ink-muted" data-testid="replays-timeline-state">
-          {stateText}
-        </span>
+        {waitingChain === null ? (
+          <span className="mr-2 text-sm text-ink-muted" data-testid="replays-timeline-state">
+            {stateText}
+          </span>
+        ) : (
+          <span
+            id={waitingId}
+            className="mr-2 text-sm text-ink-muted"
+            data-testid="replays-timeline-waiting"
+          >
+            {t(`replays.timeline.waiting.${waitingChain}`)}
+          </span>
+        )}
         <Select
           disabled={fullscreen}
           aria-label={t('replays.timeline.speed')}
-          value={String(session.speed)}
+          value={String(shown.speed)}
           onMouseDown={() => setSpeedOpen(true)}
           onKeyDown={(event) => {
             if ((event.altKey && event.key === 'ArrowDown') || event.key === 'F4') setSpeedOpen(true)
@@ -217,7 +266,6 @@ export function DemoTimeline() {
           onChange={(event) => {
             setSpeedOpen(false)
             const value = Number(event.target.value)
-            setSpeed(value)
             void send({ kind: 'speed', value })
           }}
           options={SPEED_STEPS.map((step) => ({
@@ -226,6 +274,7 @@ export function DemoTimeline() {
           }))}
           className={cn('h-11! w-24', FOCUS_RING)}
           data-testid="replays-timeline-speed"
+          {...busy('speed')}
         />
         <IconButton
           size="lg"

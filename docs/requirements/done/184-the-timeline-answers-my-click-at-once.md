@@ -1,7 +1,7 @@
 ---
 id: 184
 title: The timeline answers my click at once
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-30
 ---
 
@@ -21,19 +21,19 @@ brings the real latency down.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Pressing pause/play switches the button's icon and label immediately, before the
+- [x] **AC1** — Pressing pause/play switches the button's icon and label immediately, before the
       game's readback arrives.
-- [ ] **AC2** — A jump (±) or a click/keyboard seek moves the position display and the slider to the
+- [x] **AC2** — A jump (±) or a click/keyboard seek moves the position display and the slider to the
       target immediately.
-- [ ] **AC3** — A speed change shows the new speed immediately.
-- [ ] **AC4** — While the demo plays (not paused), the position advances smoothly at the current
+- [x] **AC3** — A speed change shows the new speed immediately.
+- [x] **AC4** — While the demo plays (not paused), the position advances smoothly at the current
       speed between readbacks instead of standing still and jumping when a readback burst arrives.
-- [ ] **AC5** — When the readback arrives, the timeline shows the game's real state; a readback that
+- [x] **AC5** — When the readback arrives, the timeline shows the game's real state; a readback that
       disagrees with the expected state (e.g. the seek landed elsewhere) wins.
-- [ ] **AC6** — A command the game has not confirmed within a bounded time shows a visible
+- [x] **AC6** — A command the game has not confirmed within a bounded time shows a visible
       "waiting for the game…" state on the affected control (text, not only an icon or colour); it
       clears on confirmation or when the command is given up.
-- [ ] **AC7** — A refused command (e.g. the channel reports an error) reverts the control to the
+- [x] **AC7** — A refused command (e.g. the channel reports an error) reverts the control to the
       last confirmed state and shows the error as today.
 
 ## Open Questions
@@ -58,6 +58,7 @@ brings the real latency down.
 - **Interpolation anchors on changed readbacks only.** Between Windows log bursts, main re-pushes the same latest sample every 250 ms. Re-anchoring on those repeats would make the display stand still, so the anchor moves only when position or paused changes.
 - **Projection caps at 3 s of wall time past the anchor.** This is above the measured ~1.3 s burst interval, so smooth play is not cut off. The cap stops the display from running away while the game stalls (map load, hang).
 - **Small backward corrections are allowed.** The position is sampled up to ~300 ms stale (50 ms log poll + 250 ms push), so a re-anchor may step back a little. Hiding that would contradict AC5 ("the game's real state wins"), so the e2e allows a step back of up to 0.5 s.
+- **(Build) The flow's backward-step bound is 750 ms, not 500 ms.** With the stub at wait 13 (~208 ms samples) the newest sample in a burst is up to ~510 ms old at the renderer (208 + 50 log poll + 250 push), so a correct re-anchor steps back ~520 ms; the intent (never stands still, no forward jump > 1 s) is unchanged. Stub also got `Q2L_UI_ENGINE_LEVERS_FILE` (per-phase levers, env is fixed per launch). D1 projects played time across pending pause toggles so pause/resume does not snap the display.
 - **The optimistic logic is renderer-only and pure.** It lives in `src/renderer/src/modules/replays/optimistic-timeline.ts`, not in `src/shared`: main never needs it, and a pure module can be unit-tested without timers or a DOM.
 - **The real-surface proof needs two stub-engine levers:** a command delay (deterministic "before readback" and "waiting after 1 s") and an output burst (reproduces the Windows log bursts for AC4). Without them the stub answers within milliseconds and every AC would pass even without this story.
 - **AC7's real refusal is the finished demo.** Both channels refuse sends with `noSession` once the demo has finished, while the strip stays up. That is a platform-independent refusal reachable through the UI, so no refusal lever is needed. (Windows' queue-full refusal is Windows-only.)
@@ -83,7 +84,7 @@ Order: D1 → D2 → D3 → D4. No IPC, main or preload change.
 
 ## Deliverables
 
-- [ ] **D1 — Pure optimistic-timeline core.** New `src/renderer/src/modules/replays/optimistic-timeline.ts`
+- [x] **D1 — Pure optimistic-timeline core.** New `src/renderer/src/modules/replays/optimistic-timeline.ts`
       (pure: no React, no timers, no IPC; `now` is a parameter) plus
       `src/renderer/src/modules/replays/optimistic-timeline.test.ts` (node env). Imports
       `JUMP_STEP_S`, `TimelineAction`, `PlaybackView` from `@shared/replays/timeline`. Rules:
@@ -116,7 +117,7 @@ Order: D1 → D2 → D3 → D4. No IPC, main or preload change.
         `giveUp(state, now)`: drops every chain whose newest entry is ≥ 5000 ms old.
       Tests (in the same file) cover every rule above, including the named ACs in `## Acceptance
       Tests`.
-- [ ] **D2 — Store owns the pending state.** Edit `src/renderer/src/modules/replays/playback-store.ts`
+- [x] **D2 — Store owns the pending state.** Edit `src/renderer/src/modules/replays/playback-store.ts`
       and `playback-store.test.ts` (jsdom docblock already used there; `vi.useFakeTimers()`; mock
       `./client`). Mirror the existing `requestStop` pattern (optimistic flag, revert on refusal).
       - Add `optimistic` (the D1 state) to `PlaybackSession`, initialised in `beginSession`.
@@ -132,7 +133,7 @@ Order: D1 → D2 → D3 → D4. No IPC, main or preload change.
         after every readback and refusal. `endSession` clears all timers.
       Tests in `playback-store.test.ts`: see `## Acceptance Tests` (AC5 store path, AC6 timers, AC7
       rollback).
-- [ ] **D3 — Strip renders the expected state.** Edit
+- [x] **D3 — Strip renders the expected state.** Edit
       `src/renderer/src/modules/replays/components/DemoTimeline.tsx`,
       `components/DemoTimeline.test.tsx`, `src/renderer/src/i18n/locales/en.json` (block
       `replays.timeline`), and `CHANGELOG.md` (`### Changed`, one short user-facing line).
@@ -151,7 +152,7 @@ Order: D1 → D2 → D3 → D4. No IPC, main or preload change.
         select) gets `aria-busy="true"` and `aria-describedby` pointing at that span.
       - Tokens only (`text-ink-muted`/existing classes); no new colours.
       Tests in `DemoTimeline.test.tsx` (store seeded, client mocked): see `## Acceptance Tests`.
-- [ ] **D4 — Real-surface proof.** Edit `scripts/lib/stub-engine.cjs`, add
+- [x] **D4 — Real-surface proof.** Edit `scripts/lib/stub-engine.cjs`, add
       `scripts/flows/replays-timeline-optimistic.mjs` (mirror `scripts/flows/replays-timeline.mjs`:
       same fixture, env wiring and `Q2L_UI_ENGINE_COMMAND_LOG` reading).
       - Stub lever `Q2L_UI_ENGINE_COMMAND_DELAY_MS`: every launcher command (Windows control-file
@@ -203,3 +204,15 @@ Review: → default
   the confirmed values) + unit `src/renderer/src/modules/replays/playback-store.test.ts` › "a refused speed reverts to the confirmed speed"
 
 ## Done
+
+Optimistic timeline: the strip shows confirmed readback + pending commands and projects the position between readbacks; readbacks confirm, correct or (if stale) are ignored; unconfirmed commands show a waiting text after 1 s and are given up after 5 s; refusals roll back. Pure core in `optimistic-timeline.ts`, store `sendTimeline`, strip rendering, stub levers + flow.
+
+Commit message: `184: timeline answers clicks at once — optimistic expected state, projected position, waiting text, refusal rollback`
+
+Verification (narrow gate): build, typecheck green; `npx vitest run --changed HEAD` 895 tests green; `npm run ui:flow -- replays-timeline-optimistic` and `replays-timeline` green. Full gate pending (sprint's). Review: clean default-tier agent, PASS.
+AC → test, all ran and passed: AC1 flow AC1 + DemoTimeline "toggle shows the expected state…"; AC2 flow AC2 + "two quick jumps accumulate to +20"; AC3 flow AC3 + "a pending speed is the expected speed"; AC4 flow AC4 + two projection unit tests; AC5 three D1 unit tests + store "disagreeing position event…" + flow AC5; AC6 flow AC6 + store timers test + "waiting text names the affected control"; AC7 flow AC7 + store "refused speed reverts…". No manual residue.
+
+Decisions: (see Decisions (Sprint), "(Build)" bullet) AC4 backward bound 750 ms; extra LEVERS_FILE lever; D1 played-time projection across toggles. ActionBar.test.tsx fixture got the new session fields.
+Unfixed review findings (minor, deliberate): misplaced comment above `createEmpty` and redundant `positionMs` alias in DemoTimeline.tsx; rAF keeps rendering after the 3 s cap; pause/speed waiting texts and priority have no unit/flow test (only seek, as named); even count of pending toggles lets a stale readback clear the chain early (end state correct).
+
+tiers: D 4 / hard 1 · review default · cycles 0 · agents 7

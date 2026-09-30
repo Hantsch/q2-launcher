@@ -6,9 +6,11 @@ const handlers = vi.hoisted(() => ({
   offPosition: vi.fn(),
   offState: vi.fn(),
   display: null as null | ((p: { fullscreen: boolean }) => void),
+  timeline: vi.fn(),
 }))
 
 vi.mock('./client', () => ({
+  playbackTimeline: (a: unknown) => handlers.timeline(a),
   onPlaybackPosition: (l: typeof handlers.position) => {
     handlers.position = l
     return handlers.offPosition
@@ -24,11 +26,17 @@ vi.mock('./client', () => ({
 }))
 
 import { usePlaybackStore } from './playback-store'
+import { expected } from './optimistic-timeline'
+
+const okResult = { ok: true, value: { ok: true } }
+const refused = { ok: true, value: { ok: false, error: { key: 'replays.timeline.refused' } } }
 
 beforeEach(() => {
   usePlaybackStore.getState().endSession()
   handlers.offPosition.mockClear()
   handlers.offState.mockClear()
+  handlers.timeline.mockReset()
+  handlers.timeline.mockResolvedValue(okResult)
 })
 afterEach(() => usePlaybackStore.getState().endSession())
 
@@ -102,5 +110,75 @@ describe('playback store (story 165 D3)', () => {
     usePlaybackStore.getState().setSpeed(2)
     usePlaybackStore.getState().beginSession('b.dm2', null)
     expect(usePlaybackStore.getState().session?.speed).toBe(1)
+  })
+})
+
+describe('optimistic timeline in the store (story 184 D2)', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  const sess = () => usePlaybackStore.getState().session!
+  const now = () => Date.now()
+
+  it('a disagreeing position event replaces the expected position', async () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    handlers.position?.({ positionMs: 10_000, durationMs: 90_000 })
+    await usePlaybackStore.getState().sendTimeline({ kind: 'seekTo', seconds: 60 })
+    expect(expected(sess().optimistic, now()).positionMs).toBe(60_000)
+    handlers.position?.({ positionMs: 20_000, durationMs: 90_000 })
+    expect(expected(sess().optimistic, now()).positionMs).toBe(20_000)
+    expect(sess().optimistic.position).toHaveLength(0)
+  })
+
+  it('waiting appears after 1 s and clears on give-up after 5 s', async () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    handlers.position?.({ positionMs: 10_000, durationMs: 90_000 })
+    await usePlaybackStore.getState().sendTimeline({ kind: 'seekTo', seconds: 60 })
+    vi.advanceTimersByTime(999)
+    expect(sess().waiting.has('position')).toBe(false)
+    vi.advanceTimersByTime(1)
+    expect(sess().waiting.has('position')).toBe(true)
+    expect(sess().waiting.has('pause')).toBe(false)
+    vi.advanceTimersByTime(4000)
+    expect(sess().waiting.size).toBe(0)
+    expect(sess().optimistic.position).toHaveLength(0)
+  })
+
+  it('a refused speed reverts to the confirmed speed', async () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    handlers.timeline.mockResolvedValue(refused)
+    const error = await usePlaybackStore.getState().sendTimeline({ kind: 'speed', value: 4 })
+    expect(error).toEqual({ key: 'replays.timeline.refused' })
+    expect(expected(sess().optimistic, now()).speed).toBe(1)
+    expect(sess().speed).toBe(1)
+  })
+
+  it('a confirmed speed becomes the session speed', async () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    expect(await usePlaybackStore.getState().sendTimeline({ kind: 'speed', value: 2 })).toBeNull()
+    expect(expected(sess().optimistic, now()).speed).toBe(2)
+    expect(sess().speed).toBe(2)
+  })
+
+  it('a refused position jump reverts to the confirmed position; a throw reports the generic error', async () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    handlers.position?.({ positionMs: 10_000, durationMs: 90_000 })
+    handlers.timeline.mockResolvedValue({ ok: false, error: { key: 'replays.timeline.refused' } })
+    expect(await usePlaybackStore.getState().sendTimeline({ kind: 'jump', deltaS: 10 })).toEqual({
+      key: 'replays.timeline.refused',
+    })
+    expect(expected(sess().optimistic, now()).positionMs).toBe(10_000)
+    handlers.timeline.mockRejectedValue(new Error('boom'))
+    expect(await usePlaybackStore.getState().sendTimeline({ kind: 'jump', deltaS: 10 })).toEqual({
+      key: 'replays.timeline.error',
+    })
+    expect(expected(sess().optimistic, now()).positionMs).toBe(10_000)
+  })
+
+  it('fullscreen bypasses the chains', async () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    await usePlaybackStore.getState().sendTimeline({ kind: 'fullscreen' })
+    expect(handlers.timeline).toHaveBeenCalledWith({ kind: 'fullscreen' })
+    expect(sess().optimistic.nextId).toBe(1)
   })
 })

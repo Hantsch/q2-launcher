@@ -1,7 +1,26 @@
 import { create } from 'zustand'
-import { reducePlaybackView, type PlaybackView } from '@shared/replays/timeline'
+import { reducePlaybackView, type PlaybackView, type TimelineAction } from '@shared/replays/timeline'
 import type { LocalizedMessage } from '@shared/types'
-import { onPlaybackDisplay, onPlaybackPosition, onPlaybackState, playbackStop } from './client'
+import {
+  onPlaybackDisplay,
+  onPlaybackPosition,
+  onPlaybackState,
+  playbackStop,
+  playbackTimeline,
+} from './client'
+import {
+  applyReadback,
+  confirmSpeed,
+  createTimeline,
+  enqueue,
+  giveUp,
+  refuse,
+  waiting,
+  GIVE_UP_AFTER_MS,
+  WAITING_AFTER_MS,
+  type OptimisticTimeline,
+  type TimelineChain,
+} from './optimistic-timeline'
 
 /**
  * Story 165 D3: the renderer's view of the one running demo session.
@@ -24,6 +43,10 @@ export interface PlaybackSession {
   fullscreen: boolean
   /** Story 173: a stop was requested; the session still ends only on `state: ended`. */
   stopping: boolean
+  /** Story 184 D2: the expected timeline - last readback plus commands still in flight. */
+  optimistic: OptimisticTimeline
+  /** Story 184 D2: chains whose oldest pending command has waited over 1 s for its readback. */
+  waiting: ReadonlySet<TimelineChain>
 }
 
 export interface StageRect {
@@ -49,6 +72,8 @@ interface PlaybackStoreState {
   endSession: () => void
   /** Asks main to end the demo; resolves to the refusal to show, or null when the request was accepted. */
   requestStop: () => Promise<LocalizedMessage | null>
+  /** Story 184 D2: sends a timeline action optimistically; resolves to the refusal to show, or null. */
+  sendTimeline: (action: TimelineAction) => Promise<LocalizedMessage | null>
   setSpeed: (speed: number) => void
   applyPosition: (positionMs: number | null, engineDurationMs: number | null, enginePaused?: boolean | null) => void
   applyState: (state: 'playing' | 'finished' | 'ended') => void
@@ -56,10 +81,42 @@ interface PlaybackStoreState {
 }
 
 let unsubscribers: Array<() => void> = []
+let timers = new Set<ReturnType<typeof setTimeout>>()
+
+function clearTimers(): void {
+  for (const t of timers) clearTimeout(t)
+  timers = new Set()
+}
 
 function unsubscribeAll(): void {
   for (const off of unsubscribers) off()
   unsubscribers = []
+}
+
+type SetState = (fn: (s: PlaybackStoreState) => Partial<PlaybackStoreState>) => void
+
+/** Applies `fn` to the session's optimistic state and recomputes `waiting`. */
+function update(set: SetState, fn: (o: OptimisticTimeline) => OptimisticTimeline, dropStale = false): void {
+  set((s) => {
+    if (s.session === null) return s
+    const now = Date.now()
+    let optimistic = fn(s.session.optimistic)
+    if (dropStale) optimistic = giveUp(optimistic, now)
+    return { session: { ...s.session, optimistic, waiting: waiting(optimistic, now) } }
+  })
+}
+
+/** Re-evaluates `waiting` at +1 s and gives up stale chains at +5 s after a command was sent. */
+function scheduleReevaluation(set: SetState): void {
+  const at = (ms: number, dropStale: boolean): void => {
+    const t = setTimeout(() => {
+      timers.delete(t)
+      update(set, (o) => o, dropStale)
+    }, ms)
+    timers.add(t)
+  }
+  at(WAITING_AFTER_MS, false)
+  at(GIVE_UP_AFTER_MS, true)
 }
 
 export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
@@ -79,7 +136,20 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   setStageReason: (reason) => set({ stageReason: reason }),
   beginSession: (demoName, knownDurationMs) => {
     unsubscribeAll()
-    set({ session: { demoName, knownDurationMs, view: null, speed: 1, fullscreen: false, stopping: false } })
+    clearTimers()
+    const optimistic = createTimeline({ view: null, durationMs: knownDurationMs }, Date.now())
+    set({
+      session: {
+        demoName,
+        knownDurationMs,
+        view: null,
+        speed: 1,
+        fullscreen: false,
+        stopping: false,
+        optimistic,
+        waiting: new Set(),
+      },
+    })
     unsubscribers = [
       onPlaybackPosition((p) => get().applyPosition(p.positionMs, p.durationMs, p.paused)),
       onPlaybackState((s) => get().applyState(s.state)),
@@ -88,6 +158,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   },
   endSession: () => {
     unsubscribeAll()
+    clearTimers()
     set({ session: null, stageArmed: false, stageRect: null, stageReason: null })
   },
   requestStop: async () => {
@@ -104,6 +175,39 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       return { key: 'replays.timeline.error' }
     }
   },
+  sendTimeline: async (action) => {
+    // The game window is the launcher's to toggle; it has no chain and no readback.
+    if (action.kind === 'fullscreen') {
+      try {
+        const result = await playbackTimeline(action)
+        if (!result.ok) return result.error
+        return result.value.ok ? null : result.value.error
+      } catch {
+        return { key: 'replays.timeline.error' }
+      }
+    }
+    const current = get().session
+    if (current === null) return null
+    const { state, id } = enqueue(current.optimistic, action, Date.now())
+    update(set, () => state)
+    scheduleReevaluation(set)
+    const fail = (error: LocalizedMessage): LocalizedMessage => {
+      update(set, (o) => refuse(o, id))
+      return error
+    }
+    try {
+      const result = await playbackTimeline(action)
+      if (!result.ok) return fail(result.error)
+      if (!result.value.ok) return fail(result.value.error)
+    } catch {
+      return fail({ key: 'replays.timeline.error' })
+    }
+    if (action.kind === 'speed') {
+      update(set, (o) => confirmSpeed(o, id))
+      if (get().session !== null) get().setSpeed(action.value)
+    }
+    return null
+  },
   setSpeed: (speed) =>
     set((s) => (s.session === null ? s : { session: { ...s.session, speed } })),
   applyPosition: (positionMs, engineDurationMs, enginePaused = null) =>
@@ -116,7 +220,9 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         ended: s.session.view?.ended ?? false,
         enginePaused,
       })
-      return { session: { ...s.session, view } }
+      const now = Date.now()
+      const optimistic = applyReadback(s.session.optimistic, view, now)
+      return { session: { ...s.session, view, optimistic, waiting: waiting(optimistic, now) } }
     }),
   applyDisplay: (p) =>
     set((s) =>

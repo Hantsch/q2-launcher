@@ -23,6 +23,14 @@
 // `Q2L_UI_ENGINE_KEYS_FILE` is a key-press lever: when it appears each line is appended to the console
 // buffer (like a bind press - behind whatever is queued), then the file is deleted.
 //
+// Story 184 D4: two latency levers, both off when unset. `Q2L_UI_ENGINE_COMMAND_DELAY_MS=N` runs every
+// launcher command (Windows: the guarded control-file sequence incl. its `ACK` echo; Linux: the stdin
+// line) N ms after the stub first saw it - command-log line, state change and ACK all move together,
+// in order. `Q2L_UI_ENGINE_OUTPUT_BURST_MS=N` holds all output (logfile and stdout) and writes it in one
+// burst every N ms, modelling Q2PRO's buffered logfile. A launch cannot change its env per demo, so
+// `Q2L_UI_ENGINE_LEVERS_FILE` may name a JSON `{commandDelayMs, outputBurstMs}` read at stub start
+// (it wins over the env vars): a flow rewrites it between demos.
+//
 // Lifetime: `stub-engine.json` next to this file (written by the fixture) gives `demoMs` and
 // `lifetimeMs`; the stub also exits when the file named by `Q2L_UI_ENGINE_QUIT_FILE` appears (a
 // flow's "the game exits" lever), on `quit`, or when its parent (the launcher) is gone - so no run
@@ -56,6 +64,27 @@ const QUIT_FILE = process.env.Q2L_UI_ENGINE_QUIT_FILE || ''
 const IGNORE_QUIT_FILE = process.env.Q2L_UI_ENGINE_IGNORE_QUIT_FILE || ''
 const KEYS_FILE = process.env.Q2L_UI_ENGINE_KEYS_FILE || ''
 const WINDOW_LOG = process.env.Q2L_UI_ENGINE_WINDOW_LOG || ''
+function readLevers() {
+  let file = {}
+  const leversFile = process.env.Q2L_UI_ENGINE_LEVERS_FILE || ''
+  if (leversFile) {
+    try {
+      file = JSON.parse(fs.readFileSync(leversFile, 'utf8'))
+    } catch {
+      file = {}
+    }
+  }
+  const num = (v) => (Number(v) > 0 ? Number(v) : 0)
+  return {
+    commandDelayMs: num(file.commandDelayMs ?? process.env.Q2L_UI_ENGINE_COMMAND_DELAY_MS),
+    outputBurstMs: num(file.outputBurstMs ?? process.env.Q2L_UI_ENGINE_OUTPUT_BURST_MS),
+  }
+}
+const { commandDelayMs: COMMAND_DELAY_MS, outputBurstMs: OUTPUT_BURST_MS } = readLevers()
+/** Commands held back by COMMAND_DELAY_MS: `{ dueAt, text, front }`, in arrival order. */
+const delayed = []
+/** Output held back by OUTPUT_BURST_MS until the next burst. */
+const held = []
 const WINDOW_CVARS = new Set(['vid_geometry', 'win_alwaysontop'])
 /** Set once `demo` ran: the argv stage args come before it, the follower's lines after. */
 let demoStarted = false
@@ -124,17 +153,48 @@ function demoPos() {
 
 process.stdout.on('error', () => undefined)
 
-function print(text) {
-  if (cvar('sys_console') === '1') process.stdout.write(`${text}\n`)
-  if (Number(cvar('logfile')) > 0) {
-    const name = cvar('logfile_name')
-    const dir = path.join(gameDir(), 'logs')
+function emit(entry) {
+  if (entry.stdout !== null) process.stdout.write(entry.stdout)
+  if (entry.file !== null) {
     try {
-      fs.mkdirSync(dir, { recursive: true })
-      fs.appendFileSync(path.join(dir, name), `${stamp(cvar('logfile_prefix'), new Date())}${text}\n`)
+      fs.mkdirSync(path.dirname(entry.file), { recursive: true })
+      fs.appendFileSync(entry.file, entry.line)
     } catch {
       // the launcher may be deleting the log at the same moment - the next line tries again
     }
+  }
+}
+
+function print(text) {
+  const entry = { stdout: null, file: null, line: '' }
+  if (cvar('sys_console') === '1') entry.stdout = `${text}\n`
+  if (Number(cvar('logfile')) > 0) {
+    entry.file = path.join(gameDir(), 'logs', cvar('logfile_name'))
+    entry.line = `${stamp(cvar('logfile_prefix'), new Date())}${text}\n`
+  }
+  if (OUTPUT_BURST_MS > 0) held.push(entry)
+  else emit(entry)
+}
+
+function flushHeld() {
+  while (held.length > 0) emit(held.shift())
+}
+
+/** A launcher command: runs now, or after COMMAND_DELAY_MS (in arrival order). `front`: Cbuf_Insert. */
+function launcherCommand(text, front) {
+  if (COMMAND_DELAY_MS <= 0) {
+    if (front) insertText(text)
+    else addText(text)
+    return
+  }
+  delayed.push({ dueAt: Date.now() + COMMAND_DELAY_MS, text, front })
+}
+
+function releaseDelayed() {
+  while (delayed.length > 0 && delayed[0].dueAt <= Date.now()) {
+    const { text, front } = delayed.shift()
+    if (front) insertText(text)
+    else addText(text)
   }
 }
 
@@ -283,8 +343,20 @@ function runIf(args) {
   const thenPart = elseAt === -1 ? rest : rest.slice(0, elseAt)
   const elsePart = elseAt === -1 ? [] : rest.slice(elseAt + 1)
   const branch = compare(args[0], args[1], args[2]) ? thenPart : elsePart
-  if (branch.length > 0) insertText(branch.join(' '))
+  if (branch.length === 0) return
+  const text = branch.join(' ')
+  // The launcher's guarded command (`exec q2l_cmd_N.cfg; ...; echo ACK N`) is seen on every loop tick
+  // until it ran: only its first sighting is held back, the guard stays true meanwhile.
+  if (COMMAND_DELAY_MS > 0 && text.includes('q2l_cmd_')) {
+    if (!pendingGuards.has(text)) {
+      pendingGuards.add(text)
+      launcherCommand(text, true)
+    }
+    return
+  }
+  insertText(text)
 }
+const pendingGuards = new Set()
 
 function quit() {
   process.exit(0)
@@ -408,6 +480,7 @@ function frame() {
     }
   }
   pressKeys()
+  releaseDelayed()
   runCbuf()
   if (QUIT_FILE && fs.existsSync(QUIT_FILE)) quit()
   if (now - startedAt >= LIFETIME_MS) quit()
@@ -423,11 +496,12 @@ process.stdin.on('data', (chunk) => {
   const lines = pendingInput.split(/\r?\n/)
   pendingInput = lines.pop() ?? ''
   if (cvar('sys_console') !== '1') return
-  for (const line of lines) addText(line)
+  for (const line of lines) launcherCommand(line, false)
 })
 process.stdin.on('error', () => undefined)
 
 setInterval(frame, FRAME_MS)
+if (OUTPUT_BURST_MS > 0) setInterval(flushHeld, OUTPUT_BURST_MS)
 setInterval(() => {
   try {
     process.kill(process.ppid, 0)
