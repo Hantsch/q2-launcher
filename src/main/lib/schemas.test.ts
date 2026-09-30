@@ -1543,7 +1543,21 @@ describe('parseReplaysState (story 140 D2)', () => {
       nameTemplates: { entries: [], removedShippedIds: [] },
       extraFolders: [],
       listFilter: EMPTY_DEMO_LIST_FILTER,
+      modWarning: { enabled: true, trustedMods: [] },
     })
+  })
+
+  it('modWarning loads forgivingly and round-trips', () => {
+    expect(parseReplaysState({}).modWarning).toEqual({ enabled: true, trustedMods: [] })
+    expect(parseReplaysState({ modWarning: { enabled: 'no', trustedMods: 'x' } }).modWarning).toEqual({
+      enabled: true,
+      trustedMods: [],
+    })
+    const messy = parseReplaysState({
+      modWarning: { enabled: false, trustedMods: ['OpenTDM', 'opentdm', 5, '../x', '', 'ctf'] },
+    })
+    expect(messy.modWarning).toEqual({ enabled: false, trustedMods: ['opentdm', 'ctf'] })
+    expect(parseReplaysState(JSON.parse(JSON.stringify(messy)))).toEqual(messy)
   })
 
   it('a corrupt replays nameTemplates row is dropped, not the list', () => {
@@ -1598,6 +1612,7 @@ describe('parseReplaysState (story 140 D2)', () => {
       nameTemplates: { entries: [], removedShippedIds: [] },
       extraFolders: [],
       listFilter: EMPTY_DEMO_LIST_FILTER,
+      modWarning: { enabled: true, trustedMods: [] },
     })
   })
 

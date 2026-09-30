@@ -2,11 +2,19 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Trash2 } from 'lucide-react'
 import type { LocalizedMessage, Outcome } from '@shared/types'
-import type { ExtraFoldersResult, ReplaysExtraFolder } from '@shared/modules/replays'
+import type { ExtraFoldersResult, ReplaysExtraFolder, ReplaysModWarning } from '@shared/modules/replays'
 import { invoke } from '../../lib/bridge'
 import { Button, IconButton } from '../../components/ui/Button'
+import { Switch } from '../../components/ui/controls'
 import { SectionLabel } from '../../components/ui/primitives'
-import { addExtraFolder, listExtraFolders, removeExtraFolder } from './client'
+import {
+  addExtraFolder,
+  listExtraFolders,
+  readModWarning,
+  removeExtraFolder,
+  resetModWarningTrusted,
+  setModWarningEnabled,
+} from './client'
 import { NameTemplatesList } from './NameTemplatesList'
 
 /**
@@ -117,6 +125,76 @@ function ExtraFoldersList() {
 }
 
 /**
+ * Story 182 D3: the missing-mod warning's switch and its remembered mods, a sibling of
+ * `ExtraFoldersList` with the same discipline: every action re-renders from the handler's returned
+ * full state, never an optimistic local copy.
+ */
+function ModWarningSettings() {
+  const { t } = useTranslation()
+  const [state, setState] = useState<ReplaysModWarning | null>(null)
+  const [error, setError] = useState<LocalizedMessage | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void readModWarning().then((result) => {
+      if (cancelled) return
+      if (result.ok) setState(result.value)
+      else setError(result.error)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const mutate = async (action: () => Promise<Outcome<ReplaysModWarning>>): Promise<void> => {
+    setError(null)
+    setBusy(true)
+    const result = await action()
+    setBusy(false)
+    if (result.ok) setState(result.value)
+    else setError(result.error)
+  }
+
+  return (
+    <div className="space-y-3 border-t border-line pt-3">
+      <SectionLabel>{t('replays.modWarning.heading')}</SectionLabel>
+
+      {error && (
+        <p className="text-xs text-danger" role="alert" data-testid="replays-mod-warning-error">
+          {t(error.key, error.params)}
+        </p>
+      )}
+
+      <Switch
+        testId="replays-mod-warning-enabled"
+        label={t('replays.modWarning.enabled')}
+        checked={state?.enabled ?? true}
+        disabled={!state || busy}
+        onChange={(enabled) => void mutate(() => setModWarningEnabled(enabled))}
+      />
+
+      {state && (
+        <p className="text-xs text-ink-muted" data-testid="replays-mod-warning-trusted">
+          {state.trustedMods.length === 0
+            ? t('replays.modWarning.trustedEmpty')
+            : `${t('replays.modWarning.trustedHeading')}: ${state.trustedMods.join(', ')}`}
+        </p>
+      )}
+
+      <Button
+        variant="neutral"
+        onClick={() => void mutate(resetModWarningTrusted)}
+        disabled={!state || state.trustedMods.length === 0 || busy}
+        data-testid="replays-mod-warning-reset"
+      >
+        {t('replays.modWarning.reset')}
+      </Button>
+    </div>
+  )
+}
+
+/**
  * Story 135 D3: the replays module's Settings section - inner content only, the shell
  * (`SettingsView.tsx`) already wraps every contributed section in its own `Panel` + `SectionLabel`
  * chrome, same as `servers/ServersSettingsSection.tsx`.
@@ -133,6 +211,7 @@ export function ReplaysSettingsSection() {
     <>
       <NameTemplatesList />
       <ExtraFoldersList />
+      <ModWarningSettings />
     </>
   )
 }

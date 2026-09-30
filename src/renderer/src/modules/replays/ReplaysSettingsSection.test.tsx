@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { vi } from 'vitest'
 import { getModuleManifest } from '@shared/types'
@@ -26,6 +26,9 @@ function defaultInvoke(
     // the module registry wraps that in its own transport-level `ok(...)` on top - see client.ts's
     // doc comment on `listNameTemplates`. This stub mirrors that nesting.
     return Promise.resolve({ ok: true, value: { ok: true, value: { entries: [], canRestore: false } } })
+  }
+  if (payload?.type === 'modWarning.read') {
+    return Promise.resolve({ ok: true, value: { enabled: true, trustedMods: [] } })
   }
   if (payload?.type === 'extraFolders.list') {
     return Promise.resolve({ ok: true, value: NO_EXTRA_FOLDERS })
@@ -242,5 +245,60 @@ describe('replays extra folders', () => {
       ),
     ).toBe(false)
     expect(screen.getAllByTestId('replays-extra-folder-row')).toHaveLength(1)
+  })
+})
+
+/** Story 182 D3: the missing-mod warning's switch and reset. */
+describe('replays mod warning settings', () => {
+  it('mod warning switch and reset call their handlers and render the returned state', async () => {
+    const invoke = (globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }).q2.invoke
+    invoke.mockImplementation((channel: string, payload: { type?: string; payload?: { enabled: boolean } }) => {
+      if (payload?.type === 'modWarning.read') {
+        return Promise.resolve({ ok: true, value: { enabled: true, trustedMods: ['opentdm'] } })
+      }
+      if (payload?.type === 'modWarning.setEnabled') {
+        return Promise.resolve({
+          ok: true,
+          value: { enabled: payload.payload?.enabled, trustedMods: ['opentdm'] },
+        })
+      }
+      if (payload?.type === 'modWarning.resetTrusted') {
+        return Promise.resolve({ ok: true, value: { enabled: false, trustedMods: [] } })
+      }
+      return defaultInvoke(channel, payload)
+    })
+
+    render(createElement(ReplaysSettingsSection))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('replays-mod-warning-trusted').textContent).toContain('opentdm')
+    })
+    const reset = screen.getByTestId('replays-mod-warning-reset') as HTMLButtonElement
+    expect(reset.disabled).toBe(false)
+
+    const toggle = screen.getByTestId('replays-mod-warning-enabled')
+    expect(toggle?.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(toggle as Element)
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('replays-mod-warning-enabled').getAttribute('aria-checked'),
+      ).toBe('false')
+    })
+    expect(invoke).toHaveBeenCalledWith(
+      'module:invoke',
+      expect.objectContaining({ type: 'modWarning.setEnabled', payload: { enabled: false } }),
+    )
+
+    fireEvent.click(reset)
+    await waitFor(() => {
+      expect(screen.getByTestId('replays-mod-warning-trusted').textContent).toBe(
+        en.replays.modWarning.trustedEmpty,
+      )
+    })
+    expect((screen.getByTestId('replays-mod-warning-reset') as HTMLButtonElement).disabled).toBe(true)
+    expect(invoke).toHaveBeenCalledWith(
+      'module:invoke',
+      expect.objectContaining({ type: 'modWarning.resetTrusted' }),
+    )
   })
 })

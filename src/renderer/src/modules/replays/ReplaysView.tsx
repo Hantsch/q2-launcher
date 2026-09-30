@@ -35,10 +35,12 @@ import {
   getListFilter,
   getListSort,
   indexRead,
+  readModWarning,
   onScanProgress,
   scanStart,
   setListFilter,
   setListSort,
+  trustModWarningMod,
 } from './client'
 import { deriveReplaysListState } from './list-state'
 import { sidesText } from './row-format'
@@ -282,18 +284,31 @@ export function ReplaysView() {
   // identity), so `run` never changes; it reads the latest `play` - the one rendered for the
   // currently selected row - through a ref, never a stale closure over an earlier selection.
   const { eligibility, busy: playBusy, error: playError, play } = useDemoPlay(selected)
-  // Story 180 D3: a mod-missing refusal is a warning, not a wall - View stays enabled, the reason
-  // stays as the readout note, and `run` asks first (the dialog below) instead of playing.
+  // Story 180 D3 / 182 D2: a mod-missing refusal is a warning, not a wall - View stays enabled and
+  // `run` asks first (the dialog below, the warning's only place) unless the user switched the
+  // warning off or trusted this mod; the readout carries no permanent warning text.
   const askFirst = eligibility !== null && !eligibility.ok && eligibility.acknowledgeable === true
+  const modGameDir =
+    eligibility !== null && !eligibility.ok ? String(eligibility.reason.params?.gameDir ?? '') : ''
   const [confirmingModMissing, setConfirmingModMissing] = useState(false)
-  const playRef = useRef({ play, askFirst })
+  const playRef = useRef({ play, askFirst, modGameDir })
   useLayoutEffect(() => {
-    playRef.current = { play, askFirst }
+    playRef.current = { play, askFirst, modGameDir }
   })
   const runPlay = useCallback(() => {
     const latest = playRef.current
-    if (latest.askFirst) setConfirmingModMissing(true)
-    else void latest.play()
+    if (!latest.askFirst) {
+      void latest.play()
+      return
+    }
+    void readModWarning().then((result) => {
+      // A failed read falls back to asking.
+      if (result.ok && (!result.value.enabled || result.value.trustedMods.includes(latest.modGameDir.toLowerCase()))) {
+        void latest.play(true)
+      } else {
+        setConfirmingModMissing(true)
+      }
+    })
   }, [])
   const hasSelection = selected !== null
   const viewAction = useMemo<ContributedAction>(
@@ -301,7 +316,7 @@ export function ReplaysView() {
       id: 'view',
       labelKey: 'installation.action.view',
       disabled: !hasSelection || eligibility === null || (!eligibility.ok && !askFirst) || playBusy,
-      ...(hasSelection && eligibility !== null && !eligibility.ok ? { reason: eligibility.reason } : {}),
+      ...(hasSelection && eligibility !== null && !eligibility.ok && !askFirst ? { reason: eligibility.reason } : {}),
       ...(playError ? { error: playError } : {}),
       run: runPlay,
     }),
@@ -450,11 +465,15 @@ export function ReplaysView() {
 
       {confirmingModMissing && askFirst && eligibility !== null && !eligibility.ok && (
         <ModMissingConfirmDialog
-          gameDir={String(eligibility.reason.params?.gameDir ?? '')}
+          gameDir={modGameDir}
           onCancel={() => setConfirmingModMissing(false)}
-          onConfirm={() => {
+          onConfirm={(dontAskAgain) => {
             setConfirmingModMissing(false)
-            void play(true)
+            if (!dontAskAgain) {
+              void play(true)
+              return
+            }
+            void trustModWarningMod(modGameDir).finally(() => void play(true))
           }}
         />
       )}

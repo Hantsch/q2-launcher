@@ -158,6 +158,7 @@ function defaults(): LauncherStateDocument {
       nameTemplates: structuredClone(DEFAULT_NAME_TEMPLATES_STATE),
       extraFolders: [],
       listFilter: { ...EMPTY_DEMO_LIST_FILTER },
+      modWarning: { enabled: true, trustedMods: [] },
     },
   }
 }

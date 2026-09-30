@@ -11,6 +11,10 @@ import {
   listGetSortInputSchema,
   listSetFilterInputSchema,
   listSetSortInputSchema,
+  modWarningReadInputSchema,
+  modWarningResetTrustedInputSchema,
+  modWarningSetEnabledInputSchema,
+  modWarningTrustModInputSchema,
   nameTemplatesAddSchema,
   nameTemplatesRemoveSchema,
   nameTemplatesReorderSchema,
@@ -465,6 +469,37 @@ export const replaysModule: MainModule = {
           listFilter: normalizeDemoListFilter(payload.filter),
         }).listFilter ?? EMPTY_DEMO_LIST_FILTER
       )
+    })
+
+    // Story 182 D1: the `modWarning.*` handlers - same read/spread/persist discipline as `listFilter`;
+    // every one returns what `setReplaysState` actually persisted.
+    handle(REPLAYS_HANDLERS.modWarningRead, modWarningReadInputSchema, () =>
+      app.state.replaysState().modWarning,
+    )
+    handle(REPLAYS_HANDLERS.modWarningSetEnabled, modWarningSetEnabledInputSchema, (payload) => {
+      const current = app.state.replaysState()
+      return app.state.setReplaysState({
+        ...current,
+        modWarning: { ...current.modWarning, enabled: payload.enabled },
+      }).modWarning
+    })
+    handle(REPLAYS_HANDLERS.modWarningTrustMod, modWarningTrustModInputSchema, (payload) => {
+      const current = app.state.replaysState()
+      const dir = payload.gameDir.toLowerCase()
+      const trustedMods = current.modWarning.trustedMods.includes(dir)
+        ? current.modWarning.trustedMods
+        : [...current.modWarning.trustedMods, dir]
+      return app.state.setReplaysState({
+        ...current,
+        modWarning: { ...current.modWarning, trustedMods },
+      }).modWarning
+    })
+    handle(REPLAYS_HANDLERS.modWarningResetTrusted, modWarningResetTrustedInputSchema, () => {
+      const current = app.state.replaysState()
+      return app.state.setReplaysState({
+        ...current,
+        modWarning: { ...current.modWarning, trustedMods: [] },
+      }).modWarning
     })
 
     log.debug('replays module ready')

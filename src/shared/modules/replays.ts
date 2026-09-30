@@ -67,6 +67,12 @@ export const REPLAYS_HANDLERS = {
    * actually persisted. */
   listGetFilter: 'listFilter.read',
   listSetFilter: 'listFilter.write',
+  /** Story 182 D1: the missing-mod warning's persisted state. Every handler resolves to the full
+   * `ReplaysModWarning`. */
+  modWarningRead: 'modWarning.read',
+  modWarningSetEnabled: 'modWarning.setEnabled',
+  modWarningTrustMod: 'modWarning.trustMod',
+  modWarningResetTrusted: 'modWarning.resetTrusted',
   /** Story 156: reveals a demo's file in the OS file manager, resolved from its id in main. */
   demosReveal: 'demos.reveal',
   /** Story 156: copies a demo's resolved absolute path to the clipboard. */
@@ -506,6 +512,27 @@ export const listGetFilterInputSchema = replaysNoInputSchema
 /** `listFilter.write`'s payload - a full replacement `DemoListFilter`. */
 export const listSetFilterInputSchema = z.object({ filter: demoListFilterSchema }).strict()
 
+/** Story 182 D1: the missing-mod warning state as seen by the renderer. */
+export interface ReplaysModWarning {
+  enabled: boolean
+  trustedMods: string[]
+}
+
+export const modWarningReadInputSchema = replaysNoInputSchema
+export const modWarningResetTrustedInputSchema = replaysNoInputSchema
+export const modWarningSetEnabledInputSchema = z.object({ enabled: z.boolean() }).strict()
+/** `modWarning.trustMod`'s payload - a bare game dir name (never a path). */
+export const modWarningTrustModInputSchema = z
+  .object({
+    gameDir: z
+      .string()
+      .min(1)
+      .max(64)
+      .regex(/^[A-Za-z0-9_.-]+$/)
+      .refine((dir) => dir !== '.' && dir !== '..'),
+  })
+  .strict()
+
 /**
  * Every `replays` handler paired with its payload schema - proves AC9's "every new channel exists
  * in the shared contract with a zod payload schema before its handler" for this module's own
@@ -535,6 +562,10 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.listSetSort]: listSetSortInputSchema,
   [REPLAYS_HANDLERS.listGetFilter]: listGetFilterInputSchema,
   [REPLAYS_HANDLERS.listSetFilter]: listSetFilterInputSchema,
+  [REPLAYS_HANDLERS.modWarningRead]: modWarningReadInputSchema,
+  [REPLAYS_HANDLERS.modWarningSetEnabled]: modWarningSetEnabledInputSchema,
+  [REPLAYS_HANDLERS.modWarningTrustMod]: modWarningTrustModInputSchema,
+  [REPLAYS_HANDLERS.modWarningResetTrusted]: modWarningResetTrustedInputSchema,
   [REPLAYS_HANDLERS.demosReveal]: replaysDemoFileActionSchema,
   [REPLAYS_HANDLERS.demosCopyPath]: replaysDemoFileActionSchema,
   [REPLAYS_HANDLERS.demoRename]: replaysDemoRenameSchema,

@@ -43,7 +43,13 @@ function fakeAppContext(installations: unknown[] = []): AppContext {
   return {
     broadcast,
     installations: { list: () => installations },
-    state: { replaysState: () => ({ extraFolders: [], listFilter: EMPTY_DEMO_LIST_FILTER }) },
+    state: {
+      replaysState: () => ({
+        extraFolders: [],
+        listFilter: EMPTY_DEMO_LIST_FILTER,
+        modWarning: { enabled: true, trustedMods: [] },
+      }),
+    },
   } as unknown as AppContext
 }
 
@@ -87,6 +93,10 @@ describe('replays module', () => {
       'list.setSort',
       'listFilter.read',
       'listFilter.write',
+      'modWarning.read',
+      'modWarning.setEnabled',
+      'modWarning.trustMod',
+      'modWarning.resetTrusted',
       'demos.reveal',
       'demos.copyPath',
       'demo.rename',
@@ -415,6 +425,79 @@ describe('replays module', () => {
     })
   })
 
+  describe('modWarning.* handlers (story 182 D1)', () => {
+    let filePath: string
+    let state: StateStore
+    let registry: MainModuleRegistry
+
+    beforeEach(async () => {
+      filePath = join(tmpdir(), `q2-launcher-replays-index-mod-warning-${randomUUID()}.json`)
+      state = new StateStore(filePath)
+      await state.load()
+      registry = new MainModuleRegistry()
+      await registry.register(replaysModule, {
+        broadcast: { emit: () => {} },
+        installations: { list: () => [] },
+        state,
+      } as unknown as AppContext)
+    })
+
+    afterEach(async () => {
+      await state.settle()
+      await rm(filePath, { force: true })
+      await rm(`${filePath}.tmp`, { force: true })
+      await rm(`${filePath}.bak`, { force: true })
+    })
+
+    function invoke(type: string, payload?: unknown): Promise<unknown> {
+      return registry.invoke({ moduleId: 'replays', type, payload })
+    }
+
+    it('modWarning handlers persist enabled and trusted mods', async () => {
+      expect(await invoke(REPLAYS_HANDLERS.modWarningRead)).toEqual({
+        ok: true,
+        value: { enabled: true, trustedMods: [] },
+      })
+
+      await invoke(REPLAYS_HANDLERS.modWarningTrustMod, { gameDir: 'OpenTDM' })
+      expect(await invoke(REPLAYS_HANDLERS.modWarningTrustMod, { gameDir: 'opentdm' })).toEqual({
+        ok: true,
+        value: { enabled: true, trustedMods: ['opentdm'] },
+      })
+
+      // Turning the warning off keeps the trusted list.
+      expect(await invoke(REPLAYS_HANDLERS.modWarningSetEnabled, { enabled: false })).toEqual({
+        ok: true,
+        value: { enabled: false, trustedMods: ['opentdm'] },
+      })
+
+      await state.settle()
+      const reloaded = new StateStore(filePath)
+      await reloaded.load()
+      expect(reloaded.replaysState().modWarning).toEqual({ enabled: false, trustedMods: ['opentdm'] })
+
+      // Reset clears the list but leaves the switch.
+      expect(await invoke(REPLAYS_HANDLERS.modWarningResetTrusted)).toEqual({
+        ok: true,
+        value: { enabled: false, trustedMods: [] },
+      })
+      expect(await invoke(REPLAYS_HANDLERS.modWarningRead)).toEqual({
+        ok: true,
+        value: { enabled: false, trustedMods: [] },
+      })
+    })
+
+    it('modWarning.trustMod rejects an unsafe game dir', async () => {
+      for (const gameDir of ['..', '.', '', 'a/b', 'a\\b', 'C:\\x', 'x'.repeat(65), 'ctf mod']) {
+        expect(await invoke(REPLAYS_HANDLERS.modWarningTrustMod, { gameDir })).toEqual({
+          ok: false,
+          error: { key: 'ipc.error.invalidPayload' },
+        })
+      }
+      expect(state.replaysState().modWarning.trustedMods).toEqual([])
+    })
+  })
+
   describe('sidecar handlers (story 146)', () => {
     let dir: string
     let filePath: string
@@ -662,6 +745,10 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.listSetSort]: { sort: null },
         [REPLAYS_HANDLERS.listGetFilter]: undefined,
         [REPLAYS_HANDLERS.listSetFilter]: { filter: EMPTY_DEMO_LIST_FILTER },
+        [REPLAYS_HANDLERS.modWarningRead]: undefined,
+        [REPLAYS_HANDLERS.modWarningSetEnabled]: { enabled: true },
+        [REPLAYS_HANDLERS.modWarningTrustMod]: { gameDir: 'opentdm' },
+        [REPLAYS_HANDLERS.modWarningResetTrusted]: undefined,
       }
 
       const handlersToExercise = Object.values(REPLAYS_HANDLERS).filter(

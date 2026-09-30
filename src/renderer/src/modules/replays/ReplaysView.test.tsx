@@ -39,6 +39,8 @@ const {
   setListSortMock,
   getListFilterMock,
   setListFilterMock,
+  readModWarningMock,
+  trustModWarningModMock,
 } = vi.hoisted(() => ({
   indexReadMock: vi.fn(),
   scanStartMock: vi.fn(async () => ({ ok: true as const, value: { started: true } })),
@@ -54,6 +56,17 @@ const {
   // pre-existing test in this file keeps seeing every row unfiltered.
   getListFilterMock: vi.fn(async () => ({ ok: true as const, value: EMPTY_DEMO_LIST_FILTER })),
   setListFilterMock: vi.fn(async (filter: DemoListFilter) => ({ ok: true as const, value: filter })),
+  // Story 182 D2: the mod-warning state - defaults to "warning on, nothing trusted" (always ask).
+  readModWarningMock: vi.fn(
+    async (): Promise<{ ok: true; value: { enabled: boolean; trustedMods: string[] } }> => ({
+      ok: true,
+      value: { enabled: true, trustedMods: [] },
+    }),
+  ),
+  trustModWarningModMock: vi.fn(async (gameDir: string) => ({
+    ok: true as const,
+    value: { enabled: true, trustedMods: [gameDir] },
+  })),
 }))
 
 const sidecarReadMock = vi.fn(async () => ({ ok: true as const, value: { state: { state: 'none' as const }, values: {} } }))
@@ -67,6 +80,8 @@ vi.mock('./client', () => ({
   setListSort: setListSortMock,
   getListFilter: getListFilterMock,
   setListFilter: setListFilterMock,
+  readModWarning: readModWarningMock,
+  trustModWarningMod: trustModWarningModMock,
   sidecarRead: sidecarReadMock,
   playDemo: (...args: unknown[]) => playDemoMock(...args),
   onPlaybackPosition: () => () => {},
@@ -621,9 +636,10 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
       await screen.findByTestId('replays-detail')
     }
 
-    it('keeps View enabled with the warning as its note, and View opens a confirmation naming the mod', async () => {
+    it('keeps View enabled with no permanent warning, and View opens a confirmation naming the mod', async () => {
       await selectModMissing()
-      expect(published()).toMatchObject({ disabled: false, reason: { key: 'replays.play.unavailable.modMissing' } })
+      expect(published().disabled).toBe(false)
+      expect(published().reason).toBeUndefined()
       act(() => published().run())
       expect((await screen.findByTestId('replays-mod-missing-dialog')).textContent).toContain('opentdm')
       expect(playDemoMock).not.toHaveBeenCalled()
@@ -634,6 +650,84 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
       act(() => published().run())
       fireEvent.click(await screen.findByTestId('replays-mod-missing-cancel'))
       expect(screen.queryByTestId('replays-mod-missing-dialog')).toBeNull()
+      expect(playDemoMock).not.toHaveBeenCalled()
+    })
+
+    it("Cancel with don't ask again ticked remembers nothing", async () => {
+      await selectModMissing()
+      act(() => published().run())
+      fireEvent.click(await screen.findByTestId('replays-mod-warning-dont-ask'))
+      fireEvent.click(await screen.findByTestId('replays-mod-missing-cancel'))
+      expect(trustModWarningModMock).not.toHaveBeenCalled()
+      expect(playDemoMock).not.toHaveBeenCalled()
+      act(() => published().run())
+      expect(await screen.findByTestId('replays-mod-missing-dialog')).toBeTruthy()
+    })
+
+    it("Play anyway with don't ask again ticked remembers the mod, then plays", async () => {
+      await selectModMissing()
+      act(() => published().run())
+      fireEvent.click(await screen.findByTestId('replays-mod-warning-dont-ask'))
+      fireEvent.click(await screen.findByTestId('replays-mod-missing-confirm'))
+      await vi.waitFor(() =>
+        expect(playDemoMock).toHaveBeenCalledWith({
+          demoId: DEMO.id,
+          installationId: 'inst-1',
+          acknowledgeModMissing: true,
+        }),
+      )
+      expect(trustModWarningModMock).toHaveBeenCalledWith('opentdm')
+      const { usePlaybackStore } = await import('./playback-store')
+      usePlaybackStore.getState().endSession()
+    })
+
+    it('Play anyway without the tick remembers nothing', async () => {
+      await selectModMissing()
+      act(() => published().run())
+      fireEvent.click(await screen.findByTestId('replays-mod-missing-confirm'))
+      await vi.waitFor(() => expect(playDemoMock).toHaveBeenCalledTimes(1))
+      expect(trustModWarningModMock).not.toHaveBeenCalled()
+      const { usePlaybackStore } = await import('./playback-store')
+      usePlaybackStore.getState().endSession()
+    })
+
+    it('a trusted mod plays without asking', async () => {
+      await selectModMissing()
+      readModWarningMock.mockResolvedValueOnce({ ok: true, value: { enabled: true, trustedMods: ['opentdm'] } })
+      act(() => published().run())
+      await vi.waitFor(() =>
+        expect(playDemoMock).toHaveBeenCalledWith({
+          demoId: DEMO.id,
+          installationId: 'inst-1',
+          acknowledgeModMissing: true,
+        }),
+      )
+      expect(screen.queryByTestId('replays-mod-missing-dialog')).toBeNull()
+      const { usePlaybackStore } = await import('./playback-store')
+      usePlaybackStore.getState().endSession()
+    })
+
+    it('switched off, a missing mod plays without asking', async () => {
+      await selectModMissing()
+      readModWarningMock.mockResolvedValueOnce({ ok: true, value: { enabled: false, trustedMods: [] } })
+      act(() => published().run())
+      await vi.waitFor(() =>
+        expect(playDemoMock).toHaveBeenCalledWith({
+          demoId: DEMO.id,
+          installationId: 'inst-1',
+          acknowledgeModMissing: true,
+        }),
+      )
+      expect(screen.queryByTestId('replays-mod-missing-dialog')).toBeNull()
+      const { usePlaybackStore } = await import('./playback-store')
+      usePlaybackStore.getState().endSession()
+    })
+
+    it('an unreadable warning state falls back to asking', async () => {
+      await selectModMissing()
+      readModWarningMock.mockResolvedValueOnce({ ok: false, error: { key: 'x' } } as never)
+      act(() => published().run())
+      expect(await screen.findByTestId('replays-mod-missing-dialog')).toBeTruthy()
       expect(playDemoMock).not.toHaveBeenCalled()
     })
 

@@ -87,3 +87,15 @@
 - 2026-09-30 08:56 · 181 · review 1 · started
 - 2026-09-30 08:57 · 181 · review 1 · done
 - 2026-09-30 08:57 · 181 · story · done
+- 08:57:34 · 182 · build · started
+- 2026-09-30 08:57 · 182 · D1 Persisted mod-warning state + IPC · started
+- 2026-09-30 09:00 · 182 · D1 Persisted mod-warning state + IPC · done
+- 2026-09-30 09:00 · 182 · D2 Asked once: dialog checkbox, skip logic · started
+- 2026-09-30 09:04 · 182 · D2 Asked once: dialog checkbox, skip logic · done
+- 2026-09-30 09:04 · 182 · D3 Settings switch + reset · started
+- 2026-09-30 09:06 · 182 · D3 Settings switch + reset · done
+- 2026-09-30 09:06 · 182 · verify · started
+- 2026-09-30 09:08 · 182 · verify · done
+- 2026-09-30 09:08 · 182 · review 1 · started
+- 2026-09-30 09:09 · 182 · review 1 · done
+- 2026-09-30 09:09 · 182 · story · done

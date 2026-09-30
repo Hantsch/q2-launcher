@@ -274,3 +274,4 @@ second roadmap.
 - 179 — I favourite and rate a demo with one click · S30 · favourite toggle + 10-star rating save in one click via a per-demo write queue (no lost write); edit mode and rating filter updated
 - 180 — The action bar button speaks for the tab I'm on · S30 · modules contribute the primary action (Demos: View, reason as visible text, mod-missing confirm); panel Play removed; flows migrated
 - 181 — I join the selected server from the action bar · S30 · action bar Join runs the full join flow for the selected server via useJoinFlow and the primary-action seam
+- 182 — A missing-mod warning is asked once · S30 · demo mod warning asks once with per-mod remembered answers and a Demos settings switch/forget

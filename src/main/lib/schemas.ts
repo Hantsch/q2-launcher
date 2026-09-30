@@ -1491,6 +1491,9 @@ export interface ReplaysState {
    * this field is not optional - `EMPTY_DEMO_LIST_FILTER` (`@shared/replays/list-filter`) is itself
    * the "no filter applied" value, so there is no absent-key state to model. */
   listFilter: DemoListFilter
+  /** Story 182 D1: the missing-mod warning's persisted state - whether it is asked at all, and the
+   * lowercase game dirs the user said "don't ask again" for. */
+  modWarning: { enabled: boolean; trustedMods: string[] }
 }
 
 function cloneDefaultNameTemplatesState(): NameTemplatesState {
@@ -1576,6 +1579,26 @@ function parseExtraFolders(raw: unknown): ReplaysExtraFolder[] {
   return dedupeByKey(rows, (row) => pathKey(row.path))
 }
 
+const MOD_DIR_PATTERN = /^[A-Za-z0-9_.-]{1,64}$/
+
+/** Story 182 D1: forgiving parse of `modWarning` - non-boolean `enabled` -> `true`; invalid entries
+ * dropped; game dirs lowercased and deduped. */
+function parseModWarning(raw: unknown): ReplaysState['modWarning'] {
+  const obj = raw !== null && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const enabled = typeof obj['enabled'] === 'boolean' ? obj['enabled'] : true
+  const list = Array.isArray(obj['trustedMods']) ? (obj['trustedMods'] as unknown[]) : []
+  const trustedMods = dedupeByKey(
+    list
+      .filter(
+        (entry): entry is string =>
+          typeof entry === 'string' && MOD_DIR_PATTERN.test(entry) && entry !== '.' && entry !== '..',
+      )
+      .map((entry) => entry.toLowerCase()),
+    (entry) => entry,
+  )
+  return { enabled, trustedMods }
+}
+
 /**
  * Mirrors `parseServersState`'s/`parseUnlockState`'s shape exactly - `undefined`/missing input (a
  * `state.json` predating this story) degrades to the default, and each nested collection
@@ -1603,7 +1626,9 @@ export function parseReplaysState(raw: unknown): ReplaysState {
     ? normalizeDemoListFilter(listFilterResult.data)
     : EMPTY_DEMO_LIST_FILTER
 
-  return { nameTemplates, extraFolders, listFilter, ...(listSort ? { listSort } : {}) }
+  const modWarning = parseModWarning((raw as { modWarning?: unknown } | null)?.modWarning)
+
+  return { nameTemplates, extraFolders, listFilter, modWarning, ...(listSort ? { listSort } : {}) }
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

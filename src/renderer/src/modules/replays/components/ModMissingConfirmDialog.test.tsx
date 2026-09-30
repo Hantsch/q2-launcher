@@ -22,6 +22,6 @@ describe('ModMissingConfirmDialog (story 180 D3)', () => {
     expect(onCancel).toHaveBeenCalledTimes(1)
     expect(onConfirm).not.toHaveBeenCalled()
     fireEvent.click(screen.getByTestId('replays-mod-missing-confirm'))
-    expect(onConfirm).toHaveBeenCalledTimes(1)
+    expect(onConfirm).toHaveBeenCalledWith(false)
   })
 })

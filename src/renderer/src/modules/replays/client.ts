@@ -6,6 +6,7 @@ import {
   type DiscoveredDemo,
   type ExtraFoldersResult,
   type ReplaysDemoPlayResult,
+  type ReplaysModWarning,
   type ReplaysStageRect,
   type ReplaysExtraFolder,
   type ReplaysOverview,
@@ -279,4 +280,20 @@ export function getListFilter(): Promise<Outcome<DemoListFilter>> {
 
 export function setListFilter(filter: DemoListFilter): Promise<Outcome<DemoListFilter>> {
   return callModule<DemoListFilter>('replays', REPLAYS_HANDLERS.listSetFilter, { filter })
+}
+
+export function readModWarning(): Promise<Outcome<ReplaysModWarning>> {
+  return callModule<ReplaysModWarning>('replays', REPLAYS_HANDLERS.modWarningRead)
+}
+
+export function setModWarningEnabled(enabled: boolean): Promise<Outcome<ReplaysModWarning>> {
+  return callModule<ReplaysModWarning>('replays', REPLAYS_HANDLERS.modWarningSetEnabled, { enabled })
+}
+
+export function trustModWarningMod(gameDir: string): Promise<Outcome<ReplaysModWarning>> {
+  return callModule<ReplaysModWarning>('replays', REPLAYS_HANDLERS.modWarningTrustMod, { gameDir })
+}
+
+export function resetModWarningTrusted(): Promise<Outcome<ReplaysModWarning>> {
+  return callModule<ReplaysModWarning>('replays', REPLAYS_HANDLERS.modWarningResetTrusted)
 }

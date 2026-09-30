@@ -131,6 +131,11 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
   if (await play.isDisabled()) {
     throw new Error('replays-play-q2pro: View must stay enabled for the missing-mod demo')
   }
+  // Story 182: the warning lives only in the dialog - the readout carries no permanent modMissing text.
+  const reasonNode = page.getByTestId('actionbar-action-reason')
+  if ((await reasonNode.count()) > 0 && /not fully installed/i.test((await reasonNode.textContent()) ?? '')) {
+    throw new Error('replays-play-q2pro: the action bar must not carry a permanent mod warning')
+  }
   const launchesBefore = launchCount()
   await play.click({ timeout: TIMEOUT_MS })
   const dialog = page.getByTestId('replays-mod-missing-dialog')

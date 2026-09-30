@@ -101,7 +101,9 @@ function findPathLeak(schema: z.ZodTypeAny, keyName?: string): string | undefine
     return keyName ? `key "${keyName}" uses absolutePathSchema` : 'schema is absolutePathSchema'
   }
 
-  if (keyName && /path|dir$|folder|file/i.test(keyName)) {
+  // `gameDir` is a bare mod directory name, not a path: story 182's `modWarning.trustMod` schema
+  // pins it to /^[A-Za-z0-9_.-]+$/ (no separators) and refuses `.`/`..`.
+  if (keyName && keyName !== 'gameDir' && /path|dir$|folder|file/i.test(keyName)) {
     return `key "${keyName}" looks like a filesystem path`
   }
 

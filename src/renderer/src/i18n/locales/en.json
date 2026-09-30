@@ -1041,6 +1041,14 @@
       "description": "Where the launcher looks for demos and how it names them.",
       "placeholder": "Demo folders and naming patterns will be set here."
     },
+    "modWarning": {
+      "heading": "Missing-mod warning",
+      "enabled": "Warn when a demo's mod is not installed",
+      "trustedHeading": "Remembered mods",
+      "trustedEmpty": "No mods remembered - every missing mod asks once.",
+      "reset": "Forget remembered mods",
+      "error": "Could not update the warning setting."
+    },
     "extraFolders": {
       "heading": "Extra demo folders",
       "empty": "No extra folders added yet.",
@@ -1137,8 +1145,11 @@
     "play": {
       "modMissingConfirm": {
         "title": "Mod not fully installed",
-        "body": "The mod `{{gameDir}}` is not fully installed in this installation, so the demo may not play correctly. Play it anyway?",
         "confirm": "Play anyway"
+      },
+      "modWarning": {
+        "body": "The mod `{{gameDir}}` is not fully installed in this installation, so the demo may not play correctly. Play it anyway?",
+        "dontAsk": "Don't ask again"
       },
       "unavailable": {
         "notQ2pro": "The selected installation is not Q2PRO — demo playback needs Q2PRO. Pick a Q2PRO installation in the left rail.",
