@@ -277,3 +277,4 @@ second roadmap.
 - 182 — A missing-mod warning is asked once · S30 · demo mod warning asks once with per-mod remembered answers and a Demos settings switch/forget
 - 183 — A spike finds where demo-control latency comes from · S30 · delay is the log flush, not the tick; recommended flush3 + multiseq at wait 13 (p95 ACK ≤ 350 ms target, measured 293); wait1 is a console flood
 - 184 — The timeline answers my click at once · S30 · optimistic expected state, projected position, waiting text after 1 s, refusal rollback; proven by unit tests and a stub-lever flow
+- 185 — Demo commands reach the game without waiting · S30 · logfile_flush 3 + pipelined multi-seq control file; real-Q2PRO control->ACK p95 227.6 ms (was 1545)

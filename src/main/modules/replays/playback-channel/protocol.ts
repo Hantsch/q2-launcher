@@ -72,8 +72,13 @@ export function checkLine(line: string): Outcome<void> {
 
 /**
  * The position + fullscreen + pause poll: the game answers `POS <pos> FS <0|1> P <cl_paused>`. The
- * pause state is read, not inferred from a still position: on Windows the buffered logfile delivers
- * POS lines in bursts (~1.3 s apart at the 200 ms tick), so the position stands still between them.
+ * pause state is read, not inferred from a still position: the pause state stays explicit so a still
+ * position is never mistaken for a pause. Story 185 D1: the Windows logfile is unbuffered
+ * (`logfile_flush 3`, _IONBF; `1` was line-buffered through the MSVC CRT, which delivered POS lines in
+ * ~1.3 s bursts). Spike 183 measured control->ACK p95 254.4 ms at a 10 ms poll and 290.6 ms at the 50 ms
+ * production poll; the combo-4 run (flush 3 + multiseq at wait 13) held 10.0 console lines/s against
+ * 10.5 for the baseline; story 185's shipped-settings probe measured 9.2 / 7.0 idle plumbing lines/s
+ * (11.8 raw sum in run A incl. command/ACK/marker lines), see spikes/185-control-latency/RESULT.md.
  */
 export const POLL_LINE = 'echo POS $cl_demopos FS $vid_fullscreen P $cl_paused'
 
@@ -99,20 +104,24 @@ export function commandCfgName(seq: number): string {
 }
 
 /**
- * The control file. Its guard holds only fixed text - it execs command `seq`'s own cfg - so no
- * console line ever sits inside the guard's quoted string, where Q2's tokenizer (no escaping) would
- * let a `"` in it close the string early.
+ * The control file: the poll, then one guard per in-flight seq, ascending. Each guard holds only
+ * fixed text - it execs command N's own cfg - so no console line ever sits inside the guard's quoted
+ * string, where Q2's tokenizer (no escaping) would let a `"` in it close the string early.
+ *
+ * Story 185 D2: the guard is monotone (`if $q2l_seq < N`), so several commands share one file and
+ * run in seq order in one pass. A re-read after a later seq ran never re-runs an earlier one, and a
+ * seq dropped from the file (timed out) never blocks the ones after it. Spike 183 verified this form.
  */
-export function buildControlFile(seq: number | null): string[] {
+export function buildControlFile(seqs: readonly number[]): string[] {
   const lines = [POLL_LINE]
-  if (seq !== null) {
-    lines.push(`if $q2l_seq != ${seq} then "exec ${commandCfgName(seq)}; set q2l_seq ${seq}; echo ACK ${seq}"`)
+  for (const seq of [...seqs].sort((a, b) => a - b)) {
+    lines.push(`if $q2l_seq < ${seq} then "exec ${commandCfgName(seq)}; set q2l_seq ${seq}; echo ACK ${seq}"`)
   }
   return lines
 }
 
 export interface EncodedControlCommand {
-  /** Full content of the control file for this sequence: fixed text, never the line. */
+  /** Full content of the control file with only this sequence in flight: fixed text, never the line. */
   controlText: string
   commandFileName: string
   /** Full content of the command file: the line alone, as its only line. */
@@ -125,7 +134,7 @@ export interface EncodedControlCommand {
  */
 export function encodeControlCommand(seq: number, line: string): EncodedControlCommand {
   return {
-    controlText: toCfgText(buildControlFile(seq)),
+    controlText: toCfgText(buildControlFile([seq])),
     commandFileName: commandCfgName(seq),
     commandText: toCfgText([line]),
   }
@@ -207,7 +216,7 @@ export function windowsLaunchArgs(): LaunchArgs {
       '2',
       '+set',
       'logfile_flush',
-      '1',
+      '3',
       '+set',
       'logfile_name',
       LOG_FILE_NAME,

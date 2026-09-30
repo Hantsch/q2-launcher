@@ -97,16 +97,23 @@ describe('checkLine', () => {
 
 describe('files and launch args', () => {
   it('builds the guarded control file', () => {
-    expect(buildControlFile(4)).toEqual([
+    expect(buildControlFile([4])).toEqual([
       'echo POS $cl_demopos FS $vid_fullscreen P $cl_paused',
-      'if $q2l_seq != 4 then "exec q2l_cmd_4.cfg; set q2l_seq 4; echo ACK 4"',
+      'if $q2l_seq < 4 then "exec q2l_cmd_4.cfg; set q2l_seq 4; echo ACK 4"',
     ])
-    expect(buildControlFile(null)).toEqual(['echo POS $cl_demopos FS $vid_fullscreen P $cl_paused'])
+    // Several in flight: one monotone guard each, ascending whatever order they are given in.
+    expect(buildControlFile([7, 5, 6])).toEqual([
+      'echo POS $cl_demopos FS $vid_fullscreen P $cl_paused',
+      'if $q2l_seq < 5 then "exec q2l_cmd_5.cfg; set q2l_seq 5; echo ACK 5"',
+      'if $q2l_seq < 6 then "exec q2l_cmd_6.cfg; set q2l_seq 6; echo ACK 6"',
+      'if $q2l_seq < 7 then "exec q2l_cmd_7.cfg; set q2l_seq 7; echo ACK 7"',
+    ])
+    expect(buildControlFile([])).toEqual(['echo POS $cl_demopos FS $vid_fullscreen P $cl_paused'])
   })
   it('a console line cannot break out of the control file', () => {
     // The fixed template for seq N, spelled out: only N varies, never anything from the line.
     const template = (n: number): string =>
-      `echo POS $cl_demopos FS $vid_fullscreen P $cl_paused\nif $q2l_seq != ${n} then "exec q2l_cmd_${n}.cfg; set q2l_seq ${n}; echo ACK ${n}"\n`
+      `echo POS $cl_demopos FS $vid_fullscreen P $cl_paused\nif $q2l_seq < ${n} then "exec q2l_cmd_${n}.cfg; set q2l_seq ${n}; echo ACK ${n}"\n`
     const hostile = ['say "x"; alias loop ""', 'a" ; set seq 99 ; "', 'echo //x', '$seq', '}']
     for (const [i, line] of hostile.entries()) {
       for (const seq of [1, i + 7, 1234]) {
@@ -128,6 +135,12 @@ describe('files and launch args', () => {
     expect(buildLoopCfg(3)[2]).toContain('wait 3;')
     expect(buildStopFile()).toEqual(['alias q2l_loop ""'])
   })
+  it('Windows launch args carry the approved log flush settings', () => {
+    const args = windowsLaunchArgs().argsBeforeDemo
+    const at = (name: string): string[] => args.slice(args.indexOf(name) - 1, args.indexOf(name) + 2)
+    expect(at('logfile_flush')).toEqual(['+set', 'logfile_flush', '3'])
+    expect(at('logfile')).toEqual(['+set', 'logfile', '2'])
+  })
   it('never puts +demo in the args and keeps the loop exec after the demo', () => {
     const w = windowsLaunchArgs()
     const l = linuxLaunchArgs()
@@ -147,6 +160,12 @@ describe('notify session', () => {
     const ms = LOOP_WAIT_FRAMES * (1000 / 65)
     expect(ms).toBeGreaterThanOrEqual(180)
     expect(ms).toBeLessThanOrEqual(220)
+  })
+  it("the launcher's console lines stay within story 174's 10 per second", () => {
+    // Lines the launcher makes the game print per tick: the POS echo plus one ACK echo per command it runs.
+    const printed = buildControlFile([1]).filter((l) => l.startsWith('echo ') || l.includes('echo ACK')).length
+    expect(printed).toBe(2)
+    expect((printed * 65) / LOOP_WAIT_FRAMES).toBeLessThanOrEqual(10)
   })
   it('both platforms hide notify lines and enable the chat HUD for the session', () => {
     for (const args of [windowsLaunchArgs(), linuxLaunchArgs()]) {
@@ -189,7 +208,7 @@ describe('fullscreen switch and back to window (cbuf model)', () => {
       cvars: { vid_fullscreen: '0', ...(session ? { q2l_session: '1' } : {}) },
       files: {
         'q2l_loop.cfg': toCfgText(buildLoopCfg()),
-        'q2l_ctl.cfg': toCfgText(buildControlFile(null)),
+        'q2l_ctl.cfg': toCfgText(buildControlFile([])),
         'q2l_back.cfg': toCfgText(buildBackToWindowCfg(platform)),
       },
       demoPos: POS_A,

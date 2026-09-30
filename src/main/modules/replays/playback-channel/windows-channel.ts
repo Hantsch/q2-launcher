@@ -38,8 +38,13 @@ import type { PlaybackChannel } from './types'
 /**
  * Story 164 D2: the Windows playback channel. Q2PRO on Windows has no usable stdin, so the launcher
  * talks to it through files in the game dir: the engine re-executes `q2l_ctl.cfg` every loop tick
- * (the guard `if $q2l_seq != N` makes each command run once), and its answers (`POS`, `ACK`,
+ * (the guard `if $q2l_seq < N` makes each command run once), and its answers (`POS`, `ACK`,
  * `Demo finished`) arrive in the dedicated logfile, which this channel tails.
+ *
+ * Story 185 D2: a command goes to the game at once, never behind an earlier command's ACK. Every
+ * unacknowledged seq has its own guard in the control file; the guards are monotone, so they run in
+ * seq order, each exactly once, and an ACK for N retires every seq up to N. Each seq times out on its
+ * own and is dropped from the file without holding up the ones after it.
  *
  * Story 166 D3: command N's console line lives alone in its own `q2l_cmd_N.cfg`, which the guard
  * execs, so a free line never sits inside the guard's quoted string. That file is always on disk
@@ -73,6 +78,16 @@ interface QueuedCommand {
   fullscreenSwitch: boolean
 }
 
+interface InFlightCommand {
+  sentAt: number
+  fullscreenSwitch: boolean
+}
+
+interface CommandFile {
+  path: string
+  text: string
+}
+
 export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions): PlaybackChannel {
   const loopCfgPath = join(gameDirPath, LOOP_CFG_NAME)
   const backCfgPath = join(gameDirPath, BACK_TO_WINDOW_CFG)
@@ -82,8 +97,13 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   const tail = createLogTail(logPath)
   const listeners = new Set<() => void>()
   const displayListeners = new Set<(display: Display) => void>()
-  /** Commands waiting for their turn; the one being executed is `inFlight`, not in here. */
+  /**
+   * Commands not handed to the game yet: before `start`, and behind a pending fullscreen switch
+   * (dropped once fullscreen). Everything else goes straight to `inFlight`.
+   */
   const queue: QueuedCommand[] = []
+  /** Seqs in the control file, not yet acknowledged or timed out; ascending, as seqs only grow. */
+  const inFlight = new Map<number, InFlightCommand>()
 
   let started = false
   let closed = false
@@ -91,7 +111,6 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   let positionMs: number | null = null
   let paused: boolean | null = null
   let nextSeq = 1
-  let inFlight: { seq: number; sentAt: number; fullscreenSwitch: boolean } | null = null
   /** `entering`: the switch is queued or in flight; the demo still shows on the stage. */
   let mode: 'stage' | 'entering' | 'fullscreen' = 'stage'
   /** Whether the pending switch sets `vid_fullscreen 1` itself (false: the user already switched). */
@@ -102,10 +121,12 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
    */
   let unackedSwitchSeq: number | null = null
   /**
-   * Content not yet on disk: a rename can lose a race with the engine's own read. `command` is the
-   * command file the control text execs; it is written first, and the control never without it.
+   * Content not yet on disk: a rename can lose a race with the engine's own read. `pendingCommands`
+   * are command files the control text execs; they are written first, in order, and the control
+   * never while one of them is still missing.
    */
-  let pending: { command: { path: string; text: string } | null; control: string } | null = null
+  const pendingCommands: CommandFile[] = []
+  let pendingControl: string | null = null
   /** Command files this session wrote and has not removed yet. */
   const commandPaths = new Set<string>()
   let controlWriteFailing = false
@@ -125,22 +146,24 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     }
   }
 
-  function writeControl(control: string, command: { path: string; text: string } | null = null): void {
-    pending = { command, control }
+  function writeControl(control: string, commands: CommandFile[] = []): void {
+    pendingCommands.push(...commands)
+    pendingControl = control
     flushControl()
   }
 
   function flushControl(): void {
-    if (!pending) return
+    if (pendingControl === null && pendingCommands.length === 0) return
     try {
-      if (pending.command) {
-        commandPaths.add(pending.command.path)
-        writeAtomic(pending.command.path, pending.command.text)
-        // On disk now: a retry after a failed control write must not rewrite it.
-        pending.command = null
+      while (pendingCommands.length > 0) {
+        const command = pendingCommands[0]!
+        commandPaths.add(command.path)
+        writeAtomic(command.path, command.text)
+        // On disk now: a retry after a failed write must not rewrite it.
+        pendingCommands.shift()
       }
-      writeAtomic(controlPath, pending.control)
-      pending = null
+      if (pendingControl !== null) writeAtomic(controlPath, pendingControl)
+      pendingControl = null
       controlWriteFailing = false
     } catch (err) {
       if (!controlWriteFailing) log.warn(`control file write failed, retrying on the next poll: ${describe(err)}`)
@@ -148,21 +171,31 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     }
   }
 
-  /** Hand the next queued line to the engine with a fresh seq, or go idle when there is none. */
-  function dispatchNext(): void {
-    const next = queue.shift()
-    if (next === undefined) {
-      inFlight = null
-      writeControl(toCfgText(buildControlFile(null)))
-      return
+  /** The control file naming every seq in flight (idle when there is none), after any new command files. */
+  function writeInFlight(commands: CommandFile[] = []): void {
+    writeControl(toCfgText(buildControlFile([...inFlight.keys()])), commands)
+  }
+
+  function switchInFlight(): number | null {
+    for (const [seq, command] of inFlight) if (command.fullscreenSwitch) return seq
+    return null
+  }
+
+  /**
+   * Hand every queued command to the engine at once, each with a fresh seq - none waits for an
+   * earlier ACK. A switch goes too, but nothing behind it: once it runs, the loop is gone.
+   */
+  function dispatchQueued(): void {
+    if (!started) return
+    const commands: CommandFile[] = []
+    while (queue.length > 0 && switchInFlight() === null) {
+      const next = queue.shift()!
+      const seq = nextSeq
+      nextSeq += 1
+      inFlight.set(seq, { sentAt: Date.now(), fullscreenSwitch: next.fullscreenSwitch })
+      commands.push({ path: join(gameDirPath, commandCfgName(seq)), text: toCfgText(next.lines) })
     }
-    const seq = nextSeq
-    nextSeq += 1
-    inFlight = { seq, sentAt: Date.now(), fullscreenSwitch: next.fullscreenSwitch }
-    writeControl(toCfgText(buildControlFile(seq)), {
-      path: join(gameDirPath, commandCfgName(seq)),
-      text: toCfgText(next.lines),
-    })
+    if (commands.length > 0) writeInFlight(commands)
   }
 
   function emitDisplay(display: Display): void {
@@ -175,30 +208,34 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     }
   }
 
-  /** Queue the internal switch; commands already queued still run first, later ones are dropped. */
+  /**
+   * Hand the internal switch over behind the commands already sent (lower seqs, so they run first);
+   * commands sent after it wait in the queue and are dropped once fullscreen.
+   */
   function beginEntering(switchMode: boolean): void {
     mode = 'entering'
     enteringSwitchesMode = switchMode
     queue.push({ lines: buildEnterFullscreenLines({ switchMode }), fullscreenSwitch: true })
-    if (started && !inFlight) dispatchNext()
+    dispatchQueued()
   }
 
   /** `ackedSeq`: the switch's seq when its ACK is what got us here, else null. */
   function reachFullscreen(ackedSeq: number | null): void {
-    const switchSeq = inFlight?.fullscreenSwitch ? inFlight.seq : null
-    const dropped = queue.filter((c) => !c.fullscreenSwitch).length + (inFlight && !inFlight.fullscreenSwitch ? 1 : 0)
+    const switchSeq = switchInFlight()
+    const dropped =
+      queue.filter((c) => !c.fullscreenSwitch).length + [...inFlight.values()].filter((c) => !c.fullscreenSwitch).length
     if (dropped > 0) log.warn(`demo went fullscreen: dropping ${dropped} unsent command(s)`)
     mode = 'fullscreen'
     queue.length = 0
-    inFlight = null
+    inFlight.clear()
     unackedSwitchSeq = ackedSeq === null ? switchSeq : null
     // Idle, so the loop's `set q2l_seq 0` on Back to window finds no guard to re-fire.
-    writeControl(toCfgText(buildControlFile(null)))
+    writeInFlight()
     if (ackedSeq !== null) removeCommandFile(ackedSeq)
     emitDisplay('fullscreen')
   }
 
-  /** After its ACK: `$q2l_seq` already equals seq, so the guard can never exec this file again. */
+  /** After an ACK of seq or a later one: `$q2l_seq` is at least seq, so no guard can exec this file again. */
   function removeCommandFile(seq: number): void {
     const path = join(gameDirPath, commandCfgName(seq))
     const failure = removeFile(path)
@@ -212,7 +249,7 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   function finish(): void {
     finished = true
     queue.length = 0
-    inFlight = null
+    inFlight.clear()
     writeControl(toCfgText(buildStopFile()))
     for (const cb of [...listeners]) {
       try {
@@ -254,20 +291,47 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
         }
         return
       }
-      // Only the ACK of the command in flight counts: a late ACK of a timed-out seq must not
-      // acknowledge its successor.
-      if (!inFlight || parsed.seq !== inFlight.seq) return
-      const acked = inFlight.seq
-      log.debug(`seq ${acked} acknowledged after ${Date.now() - inFlight.sentAt} ms`)
-      if (inFlight.fullscreenSwitch) {
-        reachFullscreen(acked)
-        return
+      // ACK N retires N and every lower seq still in flight: `$q2l_seq` is N now, so their monotone
+      // guards can no longer fire. Higher seqs stay - a late ACK of a timed-out seq retires nothing
+      // sent after it. A seq never issued (a torn or foreign line) must not retire anything.
+      if (parsed.seq >= nextSeq) return
+      const retired = [...inFlight].filter(([seq]) => seq <= parsed.seq)
+      if (retired.length === 0) return
+      let ackedSwitch: number | null = null
+      for (const [seq, command] of retired) {
+        inFlight.delete(seq)
+        if (seq === parsed.seq) log.debug(`seq ${seq} acknowledged after ${Date.now() - command.sentAt} ms`)
+        if (command.fullscreenSwitch) ackedSwitch = seq
       }
-      dispatchNext()
-      removeCommandFile(acked)
+      // The control file drops them before their command files go (reachFullscreen removes the switch's).
+      if (ackedSwitch !== null) reachFullscreen(ackedSwitch)
+      else writeInFlight()
+      for (const [seq, command] of retired) if (!command.fullscreenSwitch) removeCommandFile(seq)
     } else if (parsed.kind === 'finished' && !finished) {
       finish()
     }
+  }
+
+  /**
+   * Each seq times out on its own and leaves the control file; the monotone guards let the ones
+   * after it run regardless. Its command file stays until close: a late exec (a delayed read of the
+   * old control file) still finds it, and its seq is never reused, so it can never re-fire.
+   */
+  function expireTimedOut(): void {
+    const now = Date.now()
+    let expired = false
+    for (const [seq, command] of [...inFlight]) {
+      if (now - command.sentAt < ACK_TIMEOUT_MS) continue
+      if (command.fullscreenSwitch) {
+        log.warn(`no ACK for the fullscreen switch (seq ${seq}) within ${ACK_TIMEOUT_MS} ms, assuming fullscreen`)
+        reachFullscreen(null)
+        return
+      }
+      log.warn(`no ACK for seq ${seq} within ${ACK_TIMEOUT_MS} ms, dropping it from the control file`)
+      inFlight.delete(seq)
+      expired = true
+    }
+    if (expired) writeInFlight()
   }
 
   function tick(): void {
@@ -275,15 +339,7 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       flushControl()
       const batch = tail.readLines().map(parseEngineLine)
       for (let i = 0; i < batch.length; i++) handleLine(batch, i)
-      if (inFlight && Date.now() - inFlight.sentAt >= ACK_TIMEOUT_MS) {
-        if (inFlight.fullscreenSwitch) {
-          log.warn(`no ACK for the fullscreen switch (seq ${inFlight.seq}) within ${ACK_TIMEOUT_MS} ms, assuming fullscreen`)
-          reachFullscreen(null)
-        } else {
-          log.warn(`no ACK for seq ${inFlight.seq} within ${ACK_TIMEOUT_MS} ms, moving on`)
-          dispatchNext()
-        }
-      }
+      expireTimedOut()
     } catch (err) {
       log.warn(`playback channel poll failed: ${describe(err)}`)
     }
@@ -315,11 +371,11 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       removeStale()
       writeAtomic(backCfgPath, toCfgText(buildBackToWindowCfg('win32')))
       writeAtomic(loopCfgPath, toCfgText(buildLoopCfg()))
-      writeAtomic(controlPath, toCfgText(buildControlFile(null)))
+      writeAtomic(controlPath, toCfgText(buildControlFile([])))
       tail.startAtEnd()
       started = true
       timer = setInterval(tick, LOG_POLL_MS)
-      if (queue.length > 0 && !inFlight) dispatchNext()
+      dispatchQueued()
     },
 
     send(line: string): Outcome<void> {
@@ -327,10 +383,10 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       if (!valid.ok) return valid
       if (finished || closed) return fail('replays.playback.error.noSession')
       if (mode === 'fullscreen') return fail('replays.playback.error.fullscreen')
-      // The cap counts every unacknowledged command, the one in flight included.
-      if (queue.length + (inFlight ? 1 : 0) >= QUEUE_CAP) return fail('replays.playback.error.busy')
+      // The cap counts every unacknowledged command: all in flight plus all still queued.
+      if (queue.length + inFlight.size >= QUEUE_CAP) return fail('replays.playback.error.busy')
       queue.push({ lines: [line], fullscreenSwitch: false })
-      if (started && !inFlight) dispatchNext()
+      dispatchQueued()
       return ok(undefined)
     },
 
@@ -369,8 +425,9 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       listeners.clear()
       displayListeners.clear()
       queue.length = 0
-      inFlight = null
-      pending = null
+      inFlight.clear()
+      pendingCommands.length = 0
+      pendingControl = null
       if (!started) return
       // The game may still hold a file for a moment after it exits (Windows locks): retry once.
       // Command files still here are the ones never acknowledged (timed out, or cut off by the end).

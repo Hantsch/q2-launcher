@@ -27,6 +27,7 @@ version section when a release actually ships.
 - **Demos** — View in the action bar now plays the selected demo, replacing the Play button in the demo detail; a demo whose mod is not fully installed asks before it plays.
 - **Demos** — the missing-mod warning asks once: tick "Don't ask again" and that mod plays straight away from then on. Settings has a switch to turn the warning off entirely and a button to forget the remembered mods.
 - **Demos** — the timeline answers your click at once: the play/pause button, the position and the speed follow what you asked for immediately, and say "Waiting for the game…" if the game takes over a second to catch up.
+- **Demos** — quick timeline clicks on Windows no longer queue behind each other: each one reaches the game straight away.
 
 ### Added
 - **Servers** — join the selected server straight from the big button.

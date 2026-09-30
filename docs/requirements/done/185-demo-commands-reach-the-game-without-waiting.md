@@ -1,7 +1,7 @@
 ---
 id: 185
 title: Demo commands reach the game without waiting
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-30
 ---
 
@@ -18,20 +18,20 @@ changing what the game's own console and binds can do on the stage ([[169]], [[1
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — On Windows, a single timeline command takes effect in the game and is acknowledged to
+- [x] **AC1** — On Windows, a single timeline command takes effect in the game and is acknowledged to
       the launcher within [[183]]'s target latency (p95), measured on real Q2PRO the way [[183]]
       measured it.
-- [ ] **AC2** — Several commands sent in quick succession (e.g. three jumps within 300 ms) all run in
+- [x] **AC2** — Several commands sent in quick succession (e.g. three jumps within 300 ms) all run in
       the game, in order, each exactly once; none waits for an earlier command's acknowledgement
       before it is handed to the game.
-- [ ] **AC3** — The position readback reaches the launcher at least as often as [[183]]'s approved
+- [x] **AC3** — The position readback reaches the launcher at least as often as [[183]]'s approved
       combination promises (no ~1.3 s bursts).
-- [ ] **AC4** — The game's console and notify area show no more launcher lines than after [[174]]
+- [x] **AC4** — The game's console and notify area show no more launcher lines than after [[174]]
       (no `Execing …` or `POS …` flood).
-- [ ] **AC5** — The existing channel guarantees still hold: exactly-once execution, the queue cap,
+- [x] **AC5** — The existing channel guarantees still hold: exactly-once execution, the queue cap,
       the fullscreen switch and back-to-window ([[172]]), stop ([[173]]) and the cleanup of control
       and command files after the session.
-- [ ] **AC6** — Linux behaviour is unchanged, or improved if [[183]] found a Linux delay (per its AC6).
+- [x] **AC6** — Linux behaviour is unchanged, or improved if [[183]] found a Linux delay (per its AC6).
 
 ## Open Questions
 
@@ -168,3 +168,12 @@ diff-only default review.
   on the Windows host, so the Linux channel is proven at unit level (existing gap, not new).
 
 ## Done
+
+Applied from 183's RESULT.md (combo-4 = `logfile_flush 3` + multiseq, loop wait 13 unchanged). **D1** applied (flush 3 only; wait5/2/1, flush0, logtoggle, pad, coalesce are no-go and cut under the (User) fallback; no Linux lever, so Linux untouched). **D2** applied (multiseq was go). **D3** and **D4** applied. Summary: Windows commands are handed to the game at once with a monotone `if $q2l_seq < N` guard per in-flight seq and the log is unbuffered; AC-proof is unit + stub flow + a real-Q2PRO probe.
+
+Commit message: `185: demo commands reach the game without waiting - logfile_flush 3, pipelined multi-seq control file, burst flow, real-Q2PRO probe`
+
+Verification (narrow gate only, full gate is the sprint's): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (11 files / 158 tests), `npm run ui:flow -- replays-timeline-burst` / `replays-fullscreen` / `replays-stop` all green, run twice (before and after the review fix). AC to test, all ran and passed: AC2 flow `replays-timeline-burst` (lag ~323-385 ms vs 1500 ms flush; sanity-checked to fail on a serialised channel: 3007 ms) + windows-channel "three quick sends..." / "each of several in-flight commands runs exactly once, in order"; AC5 windows-channel "a control file re-read after seq N+1...", "one timed-out seq...", "refuses a send once QUEUE_CAP...", close tests, story 172 block, flows fullscreen/stop; AC4 protocol.test "the launcher's console lines stay within story 174's 10 per second"; AC1/AC3 protocol.test "Windows launch args carry the approved log flush settings"; AC6 linux-channel "polls the position every 100 ms" + playback-control.test. Real-Q2PRO probe (outside CI, `spikes/185-control-latency/RESULT.md`, run A `results/2026-09-30T09-18-30-500Z.json`): control to ACK p50/p95 83/204 ms (10 ms poll), 109.2/227.6 (50 ms grid) vs 183 target p95 <= 350 (baseline 1315.3/1545.3); POS interval p95 250 (grid) vs promise <= 400 (degraded run B `...09-16-03-406Z.json`: 400); 3-jump bursts 10/10 in order, each once, last-ACK p95 358.5 (B 443.4) vs ~350 (reported, AC2 sets no bound); idle plumbing 9.2 lines/s (B 7.0), raw sum 11.8 incl. command/ACK/probe marker lines.
+Decisions: (1) D2 keeps a timed-out seq's command file until `close()` (existing close test requires it; seqs never reused) - plan said delete. (2) D2 ignores an ACK for a never-sent seq (torn "ACK 12" line). (3) AC4 read as "lines per tick unchanged vs 174" (idle 2 lines/tick, fps-dependent); raw 11.8/s in run A is stated plainly in RESULT.md. (4) Four old windows-channel tests changed expectations because one-at-a-time behaviour is now intentionally gone - not weakened. (5) Probe harness has its own dispatch but takes loop/control/launch args from protocol.ts; it validates protocol values, not windows-channel.ts (README discloses).
+Review: stage 1 PASS with notes (line-budget test counts POS+ACK at fixed 65 fps - kept, it is 174's accounting and catches LOOP_WAIT_FRAMES change; stale comment fixed). Stage 2 (hard) FAIL on D3: stub never wrote the `@<ms>` stamp so the flow could not fail - fixed (stamp, loud parse failure, gap/lag asserts, 3000 ms wait) and re-verified green. Open: Linux stdout buffering unmeasured (183 manual residue); probe numbers come from one launch each (n=30/10).
+tiers: D 4 / hard 1 · review default+hard · cycles 1 · agents 9

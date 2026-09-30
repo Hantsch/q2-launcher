@@ -67,11 +67,12 @@ function formatDemoPos(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}.${Math.floor((ms % 1000) / 100)}`
 }
 
-const GUARD = /^if \$q2l_seq != (\d+) then "exec (q2l_cmd_\d+\.cfg); set q2l_seq (\d+); echo ACK (\d+)"$/
+const GUARD = /^if \$q2l_seq < (\d+) then "exec (q2l_cmd_\d+\.cfg); set q2l_seq (\d+); echo ACK (\d+)"$/
 
 /**
  * Stands in for Q2PRO running `q2l_loop`: every tick it re-execs the control file from disk,
- * evaluates the `$q2l_seq` guard against its own cvar, execs the command file the guard names, and
+ * evaluates each `$q2l_seq` guard, top to bottom, against its own cvar as the previous guards left
+ * it, execs the command file a firing guard names, and
  * appends its echoes to the logfile - every third write cut mid-line and finished by the next one.
  */
 function createFakeEngine(dir: string, opts: { ack?: boolean; buffered?: boolean } = {}) {
@@ -126,7 +127,7 @@ function createFakeEngine(dir: string, opts: { ack?: boolean; buffered?: boolean
       if (guard) {
         const n = Number(guard[1])
         state.evaluations.set(n, (state.evaluations.get(n) ?? 0) + 1)
-        if (state.q2lSeq !== n) {
+        if (state.q2lSeq < n) {
           state.executions.set(n, (state.executions.get(n) ?? 0) + 1)
           let command: string
           try {
@@ -254,7 +255,7 @@ describe('createWindowsChannel', () => {
     expect(fsEvents).toEqual([`write ${commandCfgName(1)}`, `write ${CONTROL_CFG_NAME}`])
     expect(commandFile(1)).toBe(`${line}\n`)
     expect(controlFile()).toBe(
-      `echo POS $cl_demopos FS $vid_fullscreen P $cl_paused\nif $q2l_seq != 1 then "exec q2l_cmd_1.cfg; set q2l_seq 1; echo ACK 1"\n`,
+      `echo POS $cl_demopos FS $vid_fullscreen P $cl_paused\nif $q2l_seq < 1 then "exec q2l_cmd_1.cfg; set q2l_seq 1; echo ACK 1"\n`,
     )
 
     // Unacknowledged: the command file stays, however many polls pass.
@@ -262,26 +263,124 @@ describe('createWindowsChannel', () => {
     expect(commandFiles()).toEqual([commandCfgName(1)])
     expect(fsEvents).toHaveLength(2)
 
-    // Queued behind seq 1: its own file is not written before seq 1 is done.
+    // Not behind seq 1: its own file goes out at once, again before the control file naming it.
     expect(ch.send('seek 5').ok).toBe(true)
-    expect(fsEvents).toHaveLength(2)
+    expect(fsEvents.slice(2)).toEqual([`write ${commandCfgName(2)}`, `write ${CONTROL_CFG_NAME}`])
+    expect(commandFile(2)).toBe('seek 5\n')
+    expect(controlFile()).toBe(asFile(buildControlFile([1, 2])))
 
     appendFileSync(logPath(), `${PREFIX}ACK 1\n`)
     vi.advanceTimersByTime(LOG_POLL_MS)
-    expect(fsEvents.slice(2)).toEqual([
-      `write ${commandCfgName(2)}`,
-      `write ${CONTROL_CFG_NAME}`,
-      `delete ${commandCfgName(1)}`,
-    ])
+    // The control file stops naming seq 1 before its command file goes.
+    expect(fsEvents.slice(4)).toEqual([`write ${CONTROL_CFG_NAME}`, `delete ${commandCfgName(1)}`])
     expect(commandFiles()).toEqual([commandCfgName(2)])
-    expect(commandFile(2)).toBe('seek 5\n')
-    expect(controlFile()).toBe(asFile(buildControlFile(2)))
+    expect(controlFile()).toBe(asFile(buildControlFile([2])))
 
     appendFileSync(logPath(), `${PREFIX}ACK 2\n`)
     vi.advanceTimersByTime(LOG_POLL_MS)
-    expect(fsEvents.slice(5)).toEqual([`write ${CONTROL_CFG_NAME}`, `delete ${commandCfgName(2)}`])
+    expect(fsEvents.slice(6)).toEqual([`write ${CONTROL_CFG_NAME}`, `delete ${commandCfgName(2)}`])
     expect(commandFiles()).toEqual([])
-    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
+  })
+
+  it('three quick sends are all in the control file before any ACK', async () => {
+    const { ch } = makeChannel()
+    await ch.start()
+    const engine = createFakeEngine(dir, { ack: false })
+
+    expect(ch.send('seek 10').ok).toBe(true)
+    expect(ch.send('seek 20').ok).toBe(true)
+    expect(ch.send('seek 30').ok).toBe(true)
+    expect(controlFile()).toBe(asFile(buildControlFile([1, 2, 3])))
+    expect([1, 2, 3].map(commandFile)).toEqual(['seek 10\n', 'seek 20\n', 'seek 30\n'])
+
+    // A single engine pass runs all three, in order: none of them waited for an earlier ACK.
+    engine.run()
+    vi.advanceTimersByTime(ENGINE_TICK_MS)
+    expect(engine.state.executed).toEqual(['seek 10', 'seek 20', 'seek 30'])
+    expect(engine.state.missing).toEqual([])
+  })
+
+  it('each of several in-flight commands runs exactly once, in order', async () => {
+    const { ch } = makeChannel()
+    await ch.start()
+    const engine = createFakeEngine(dir)
+    engine.run()
+    vi.advanceTimersByTime(200)
+
+    // Sent between engine passes: each later control file is re-read after the earlier seqs ran,
+    // while their ACKs are still on the way to the channel.
+    expect(ch.send('seek 10').ok).toBe(true)
+    vi.advanceTimersByTime(ENGINE_TICK_MS)
+    expect(ch.send('seek 20').ok).toBe(true)
+    expect(controlFile()).toBe(asFile(buildControlFile([1, 2])))
+    vi.advanceTimersByTime(ENGINE_TICK_MS)
+    expect(ch.send('seek 30').ok).toBe(true)
+    expect(ch.send('seek 40').ok).toBe(true)
+    vi.advanceTimersByTime(1000)
+
+    expect(engine.state.executed).toEqual(['seek 10', 'seek 20', 'seek 30', 'seek 40'])
+    expect([...engine.state.executions]).toEqual([
+      [1, 1],
+      [2, 1],
+      [3, 1],
+      [4, 1],
+    ])
+    for (const seq of [1, 2, 3, 4]) expect(engine.state.evaluations.get(seq)).toBeGreaterThan(1)
+    expect(engine.state.missing).toEqual([])
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
+    expect(commandFiles()).toEqual([])
+  })
+
+  it('a control file re-read after seq N+1 ran does not re-run seq N', async () => {
+    const { ch } = makeChannel()
+    await ch.start()
+    const engine = createFakeEngine(dir, { ack: false })
+    engine.run()
+    expect(ch.send('first').ok).toBe(true)
+    expect(ch.send('second').ok).toBe(true)
+
+    // No ACK reaches the channel: the file keeps naming both seqs and the engine re-reads it often.
+    vi.advanceTimersByTime(ACK_TIMEOUT_MS - 100)
+    expect(controlFile()).toBe(asFile(buildControlFile([1, 2])))
+    expect(engine.state.evaluations.get(1)).toBeGreaterThan(10)
+    expect(engine.state.executed).toEqual(['first', 'second'])
+    expect([...engine.state.executions]).toEqual([
+      [1, 1],
+      [2, 1],
+    ])
+
+    // Only ACK 2 arrives (ACK 1 lost): seq 1 can no longer run, so it is retired with seq 2.
+    engine.pause()
+    appendFileSync(logPath(), `${PREFIX}ACK 2\n`)
+    vi.advanceTimersByTime(LOG_POLL_MS)
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
+    expect(commandFiles()).toEqual([])
+  })
+
+  it('one timed-out seq does not block the ones after it', async () => {
+    const { ch, log } = makeChannel()
+    await ch.start()
+    const engine = createFakeEngine(dir)
+    expect(ch.send('first').ok).toBe(true)
+    vi.advanceTimersByTime(ACK_TIMEOUT_MS - 500)
+    expect(ch.send('second').ok).toBe(true)
+    expect(controlFile()).toBe(asFile(buildControlFile([1, 2])))
+
+    // Seq 1 times out on its own clock and leaves the file; seq 2's clock is still running.
+    vi.advanceTimersByTime(600)
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('seq 1'))
+    expect(log.warn).not.toHaveBeenCalledWith(expect.stringContaining('seq 2'))
+    expect(controlFile()).toBe(asFile(buildControlFile([2])))
+
+    engine.run()
+    vi.advanceTimersByTime(200)
+    expect(engine.state.executed).toEqual(['second'])
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
+    // The timed-out seq's file stays until close; the acknowledged one is gone.
+    expect(commandFiles()).toEqual([commandCfgName(1)])
+    vi.advanceTimersByTime(ACK_TIMEOUT_MS)
+    expect(log.warn).not.toHaveBeenCalledWith(expect.stringContaining('seq 2'))
   })
 
   it('close removes command files that were never acknowledged', async () => {
@@ -323,7 +422,7 @@ describe('createWindowsChannel', () => {
     // The engine re-execed each guarded file several times; the guard is what kept it to one run.
     for (const seq of [1, 2, 3]) expect(engine.state.evaluations.get(seq)).toBeGreaterThan(1)
     expect(engine.state.missing).toEqual([])
-    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
     expect(commandFiles()).toEqual([])
 
     engine.pause()
@@ -337,7 +436,7 @@ describe('createWindowsChannel', () => {
     await ch.start()
     mkdirSync(join(dir, 'logs'), { recursive: true })
     expect(ch.send('pause').ok).toBe(true)
-    const guarded = asFile(buildControlFile(1))
+    const guarded = asFile(buildControlFile([1]))
 
     appendFileSync(logPath(), `${PREFIX}POS 0:12.3\n${PREFIX}ACK 1`) // really "ACK 12", cut mid-line
     vi.advanceTimersByTime(LOG_POLL_MS)
@@ -351,7 +450,7 @@ describe('createWindowsChannel', () => {
 
     appendFileSync(logPath(), `${PREFIX}ACK 1\n`)
     vi.advanceTimersByTime(LOG_POLL_MS)
-    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
     expect(commandFiles()).toEqual([])
   })
 
@@ -394,9 +493,14 @@ describe('createWindowsChannel', () => {
     expect(engine.state.stopped).toBe(true)
     expect(ch.send('third')).toEqual({ ok: false, error: { key: 'replays.playback.error.noSession' } })
 
-    // The queue was dropped: no ACK timeout brings "second" back or overwrites the stop file.
+    // Both went out at once and ran once; the unacknowledged seqs were dropped at the end, so no ACK
+    // timeout rewrites the control file over the stop file or brings either command back.
     vi.advanceTimersByTime(ACK_TIMEOUT_MS * 2)
-    expect(engine.state.executed).toEqual(['first'])
+    expect(engine.state.executed).toEqual(['first', 'second'])
+    expect([...engine.state.executions]).toEqual([
+      [1, 1],
+      [2, 1],
+    ])
     expect(controlFile()).toBe(asFile(buildStopFile()))
     expect(onFinished).toHaveBeenCalledTimes(1)
   })
@@ -421,8 +525,27 @@ describe('createWindowsChannel', () => {
     expect(ch.send('seek 6')).toEqual({ ok: false, error: { key: 'replays.playback.error.noSession' } })
   })
 
+  it('close removes every file it created with several commands still in flight', async () => {
+    const { ch } = makeChannel()
+    await ch.start()
+    const engine = createFakeEngine(dir)
+    expect(ch.send('seek 5').ok).toBe(true)
+    expect(ch.send('seek 6').ok).toBe(true)
+    expect(ch.send('seek 7').ok).toBe(true)
+    // One engine pass runs them; close comes before the channel has read a single ACK.
+    engine.run()
+    vi.advanceTimersByTime(ENGINE_TICK_MS)
+    engine.pause()
+    expect(commandFiles()).toEqual([1, 2, 3].map(commandCfgName))
+
+    await ch.close()
+    expect(readdirSync(dir).filter((n) => n.startsWith('q2l_'))).toEqual([])
+    expect(existsSync(logPath())).toBe(false)
+    expect(engine.state.executed).toEqual(['seek 5', 'seek 6', 'seek 7'])
+  })
+
   it('replaces stale files from a previous run and never parses pre-existing log bytes', async () => {
-    writeFileSync(join(dir, CONTROL_CFG_NAME), asFile(buildControlFile(1)))
+    writeFileSync(join(dir, CONTROL_CFG_NAME), asFile(buildControlFile([1])))
     writeFileSync(join(dir, commandCfgName(1)), 'quit\n')
     writeFileSync(join(dir, LOOP_CFG_NAME), 'garbage\n')
     writeFileSync(join(dir, BACK_TO_WINDOW_CFG), 'garbage\n')
@@ -433,7 +556,7 @@ describe('createWindowsChannel', () => {
 
     const { ch } = makeChannel()
     await ch.start()
-    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
     expect(readFileSync(join(dir, LOOP_CFG_NAME), 'utf8')).toBe(asFile(buildLoopCfg()))
     expect(readFileSync(join(dir, BACK_TO_WINDOW_CFG), 'utf8')).toBe(asFile(buildBackToWindowCfg('win32')))
     expect(existsSync(join(dir, `${CONTROL_CFG_NAME}.999.1.tmp`))).toBe(false)
@@ -450,20 +573,37 @@ describe('createWindowsChannel', () => {
     expect(ch.latest()).toEqual({ positionMs: engine.state.lastPosMs, paused: false, finished: false })
     expect(ch.latest().positionMs).toBeLessThan(599_000)
     // The old "ACK 1" did not acknowledge this run's seq 1.
-    expect(controlFile()).toBe(asFile(buildControlFile(1)))
+    expect(controlFile()).toBe(asFile(buildControlFile([1])))
     // This run's seq 1 execs this run's line, not the old run's command file of the same name.
     expect(engine.state.executed).toEqual(['pause'])
   })
 
-  it(`refuses a send once ${QUEUE_CAP} commands are unacknowledged`, async () => {
+  it('refuses a send once QUEUE_CAP commands are in flight or queued', async () => {
+    const BUSY = { ok: false, error: { key: 'replays.playback.error.busy' } }
     const { ch } = makeChannel()
     await ch.start()
-    for (let i = 0; i < QUEUE_CAP; i++) expect(ch.send(`cmd${i}`).ok).toBe(true)
-    expect(ch.send('one too many')).toEqual({ ok: false, error: { key: 'replays.playback.error.busy' } })
+    mkdirSync(join(dir, 'logs'), { recursive: true })
+    const seqs = Array.from({ length: QUEUE_CAP }, (_, i) => i + 1)
+    for (const seq of seqs) expect(ch.send(`cmd${seq}`).ok).toBe(true)
+    // All of them in flight at once, none queued.
+    expect(controlFile()).toBe(asFile(buildControlFile(seqs)))
+    expect(ch.send('one too many')).toEqual(BUSY)
     expect(ch.send('bad\nline')).toEqual({ ok: false, error: { key: 'replays.playback.error.invalidCommand' } })
+
+    // The last seq's ACK retires every seq: room for new commands again.
+    appendFileSync(logPath(), `${PREFIX}ACK ${QUEUE_CAP}\n`)
+    vi.advanceTimersByTime(LOG_POLL_MS)
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
+
+    // In flight and queued count together: one command and the switch in flight, the rest queued behind it.
+    expect(ch.send('in flight').ok).toBe(true)
+    expect(ch.enterFullscreen().ok).toBe(true)
+    for (let i = 2; i < QUEUE_CAP; i++) expect(ch.send(`queued${i}`).ok).toBe(true)
+    expect(controlFile()).toBe(asFile(buildControlFile([QUEUE_CAP + 1, QUEUE_CAP + 2])))
+    expect(ch.send('one too many')).toEqual(BUSY)
   })
 
-  it('an ACK timeout logs a warning and advances the queue', async () => {
+  it('an ACK timeout logs a warning and drops the seq from the control file', async () => {
     const { ch, log } = makeChannel()
     await ch.start()
     const engine = createFakeEngine(dir, { ack: false })
@@ -472,14 +612,15 @@ describe('createWindowsChannel', () => {
     expect(ch.send('second').ok).toBe(true)
 
     vi.advanceTimersByTime(ACK_TIMEOUT_MS - 100)
-    expect(controlFile()).toBe(asFile(buildControlFile(1)))
+    expect(controlFile()).toBe(asFile(buildControlFile([1, 2])))
     expect(commandFile(1)).toBe('first\n')
+    expect(commandFile(2)).toBe('second\n')
     expect(log.warn).not.toHaveBeenCalled()
 
     vi.advanceTimersByTime(200)
-    expect(controlFile()).toBe(asFile(buildControlFile(2)))
-    expect(commandFile(2)).toBe('second\n')
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('seq 1'))
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('seq 2'))
     vi.advanceTimersByTime(100)
     expect(engine.state.executed).toEqual(['first', 'second'])
     expect(engine.state.executions.get(1)).toBe(1)
@@ -520,7 +661,7 @@ describe('createWindowsChannel fullscreen (story 172)', () => {
     expect(engine.state.stopped).toBe(true)
     expect(ch.display()).toBe('fullscreen')
     expect(onDisplay.mock.calls).toEqual([['fullscreen']])
-    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
     expect(commandFiles()).toEqual([])
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('dropping 1'))
 
@@ -542,7 +683,45 @@ describe('createWindowsChannel fullscreen (story 172)', () => {
     expect(engine.state.executed).toEqual(['seek 10', ...SWITCH, 'seek 30'])
     expect(engine.state.executions.get(3)).toBe(1)
     expect(engine.state.executions.get(2)).toBe(1)
-    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
+  })
+
+  it('several commands in flight ahead of the switch each run once, the switch last', async () => {
+    const { ch, log } = makeChannel()
+    await ch.start()
+    const engine = createFakeEngine(dir)
+    engine.run()
+    vi.advanceTimersByTime(200)
+
+    expect(ch.send('seek 10').ok).toBe(true)
+    expect(ch.send('seek 20').ok).toBe(true)
+    expect(ch.enterFullscreen().ok).toBe(true)
+    expect(ch.send('seek 30').ok).toBe(true)
+    // The switch goes out with the commands before it; the one after it is held back.
+    expect(controlFile()).toBe(asFile(buildControlFile([1, 2, 3])))
+    vi.advanceTimersByTime(1000)
+
+    expect(engine.state.executed).toEqual(['seek 10', 'seek 20', ...SWITCH])
+    expect([...engine.state.executions]).toEqual([
+      [1, 1],
+      [2, 1],
+      [3, 1],
+    ])
+    expect(ch.display()).toBe('fullscreen')
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
+    expect(commandFiles()).toEqual([])
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('dropping 1'))
+
+    // Back to window resets q2l_seq to 0; no earlier guard is left in the file to re-fire.
+    engine.back()
+    vi.advanceTimersByTime(500)
+    expect(ch.display()).toBe('stage')
+    expect(ch.send('seek 40').ok).toBe(true)
+    expect(ch.send('seek 50').ok).toBe(true)
+    vi.advanceTimersByTime(500)
+    expect(engine.state.executed).toEqual(['seek 10', 'seek 20', ...SWITCH, 'seek 40', 'seek 50'])
+    expect(switches(engine.state.executed)).toBe(1)
+    for (const seq of [1, 2, 3, 4, 5]) expect(engine.state.executions.get(seq)).toBe(1)
   })
 
   it('the channel returns to the stage only on a fresh FS 0 sample', async () => {
@@ -604,7 +783,7 @@ describe('createWindowsChannel fullscreen (story 172)', () => {
     expect(ch.display()).toBe('fullscreen')
     expect(onDisplay.mock.calls).toEqual([['fullscreen']])
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('fullscreen switch'))
-    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
 
     engine.back()
     vi.advanceTimersByTime(200)
@@ -632,7 +811,7 @@ describe('createWindowsChannel fullscreen (story 172)', () => {
     expect(engine.state.stopped).toBe(true)
     expect(ch.display()).toBe('fullscreen')
     expect(onDisplay.mock.calls).toEqual([['fullscreen']])
-    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
 
     engine.back()
     vi.advanceTimersByTime(500)
@@ -656,7 +835,7 @@ describe('createWindowsChannel fullscreen (story 172)', () => {
     expect(ch.enterFullscreen()).toEqual(FULLSCREEN_ERROR)
     vi.advanceTimersByTime(500)
     expect(engine.state.executed).toEqual(SWITCH)
-    expect(controlFile()).toBe(asFile(buildControlFile(null)))
+    expect(controlFile()).toBe(asFile(buildControlFile([])))
     expect(commandFiles()).toEqual([])
 
     // The demo ending while fullscreen behaves as on the stage.

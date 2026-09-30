@@ -31,6 +31,10 @@
 // `Q2L_UI_ENGINE_LEVERS_FILE` may name a JSON `{commandDelayMs, outputBurstMs}` read at stub start
 // (it wins over the env vars): a flow rewrites it between demos.
 //
+// Story 185 D3: `Q2L_UI_ENGINE_LOG_FLUSH_MS=N` buffers only the logfile appends and writes them in one
+// burst every N ms (Q2PRO's buffered logfile; stdout is untouched), and stamps each command-log line
+// with ` @<epoch ms>` so a flow can time when a command actually ran. Unset: nothing changes.
+//
 // Lifetime: `stub-engine.json` next to this file (written by the fixture) gives `demoMs` and
 // `lifetimeMs`; the stub also exits when the file named by `Q2L_UI_ENGINE_QUIT_FILE` appears (a
 // flow's "the game exits" lever), on `quit`, or when its parent (the launcher) is gone - so no run
@@ -81,6 +85,9 @@ function readLevers() {
   }
 }
 const { commandDelayMs: COMMAND_DELAY_MS, outputBurstMs: OUTPUT_BURST_MS } = readLevers()
+const LOG_FLUSH_MS = Number(process.env.Q2L_UI_ENGINE_LOG_FLUSH_MS) > 0 ? Number(process.env.Q2L_UI_ENGINE_LOG_FLUSH_MS) : 0
+/** Logfile appends held back by LOG_FLUSH_MS until the next flush. */
+const heldLog = []
 /** Commands held back by COMMAND_DELAY_MS: `{ dueAt, text, front }`, in arrival order. */
 const delayed = []
 /** Output held back by OUTPUT_BURST_MS until the next burst. */
@@ -156,12 +163,20 @@ process.stdout.on('error', () => undefined)
 function emit(entry) {
   if (entry.stdout !== null) process.stdout.write(entry.stdout)
   if (entry.file !== null) {
-    try {
-      fs.mkdirSync(path.dirname(entry.file), { recursive: true })
-      fs.appendFileSync(entry.file, entry.line)
-    } catch {
-      // the launcher may be deleting the log at the same moment - the next line tries again
+    if (LOG_FLUSH_MS > 0) {
+      heldLog.push({ file: entry.file, line: entry.line })
+      return
     }
+    appendLog(entry.file, entry.line)
+  }
+}
+
+function appendLog(file, line) {
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.appendFileSync(file, line)
+  } catch {
+    // the launcher may be deleting the log at the same moment - the next line tries again
   }
 }
 
@@ -174,6 +189,13 @@ function print(text) {
   }
   if (OUTPUT_BURST_MS > 0) held.push(entry)
   else emit(entry)
+}
+
+function flushLog() {
+  while (heldLog.length > 0) {
+    const { file, line } = heldLog.shift()
+    appendLog(file, line)
+  }
 }
 
 function flushHeld() {
@@ -210,7 +232,8 @@ function logWindow(tokens) {
 function logCommand(tokens) {
   if (!COMMAND_LOG) return
   try {
-    fs.appendFileSync(COMMAND_LOG, `${tokens.join(' ')}\n`)
+    const suffix = LOG_FLUSH_MS > 0 ? ` @${Date.now()}` : ''
+    fs.appendFileSync(COMMAND_LOG, `${tokens.join(' ')}${suffix}\n`)
   } catch {
     // a missing log dir only loses the record, never the command
   }
@@ -502,6 +525,7 @@ process.stdin.on('error', () => undefined)
 
 setInterval(frame, FRAME_MS)
 if (OUTPUT_BURST_MS > 0) setInterval(flushHeld, OUTPUT_BURST_MS)
+if (LOG_FLUSH_MS > 0) setInterval(flushLog, LOG_FLUSH_MS)
 setInterval(() => {
   try {
     process.kill(process.ppid, 0)

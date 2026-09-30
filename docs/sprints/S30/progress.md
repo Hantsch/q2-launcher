@@ -134,3 +134,23 @@
 - 2026-09-30 10:59 · 184 · review 1 · started
 - 2026-09-30 11:00 · 184 · review 1 · done
 - 2026-09-30 11:00 · 184 · story · done
+- 11:01:10 · 185 · build · started
+- 2026-09-30 11:01 · 185 · D1 loop/flush lever · started
+- 2026-09-30 11:02 · 185 · D1 loop/flush lever · done
+- 2026-09-30 11:02 · 185 · D2 pipelined dispatch · started
+- 2026-09-30 11:09 · 185 · D2 pipelined dispatch · done
+- 2026-09-30 11:09 · 185 · D3 burst proof · started
+- 2026-09-30 11:11 · 185 · D3 burst proof · done
+- 2026-09-30 11:11 · 185 · D4 real-Q2PRO probe · started
+- 2026-09-30 11:21 · 185 · D4 real-Q2PRO probe · done
+- 2026-09-30 11:21 · 185 · verify · started
+- 2026-09-30 11:24 · 185 · verify · done
+- 2026-09-30 11:24 · 185 · review 1 · started
+- 2026-09-30 11:26 · 185 · review 1 · done
+- 2026-09-30 11:26 · 185 · review 2 (hard) · started
+- 2026-09-30 11:30 · 185 · review 2 (hard) · done
+- 2026-09-30 11:30 · 185 · D3 fix (review 2) · started
+- 2026-09-30 11:33 · 185 · D3 fix (review 2) · done
+- 2026-09-30 11:33 · 185 · verify · started
+- 2026-09-30 11:35 · 185 · verify · done
+- 2026-09-30 11:35 · 185 · story · done

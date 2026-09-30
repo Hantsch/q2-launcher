@@ -1,24 +1,13 @@
 #!/usr/bin/env node
-// Story 183 spike (D1): where does demo-control latency on Windows come from? Throwaway harness, run
-// by hand on Windows with a real q2pro.exe; not imported by src/, not wired into any build or test.
-//
-// The baseline is production: the loop cfg, control file, command cfg, stop file and launch args come
-// unmodified from src/main/modules/replays/playback-channel/protocol.ts (loaded through jiti). Every
-// other configuration changes exactly one lever (or, for combo-N, a few) on top of it:
-//   L1 loop wait frames (wait5/wait2/wait1)
-//   L2 forced log flush (flush<N>, logtoggle, pad)
-//   L3 no-wait dispatch (multiseq: several guarded seqs in one control file; coalesce: queued lines in one command cfg)
-//   L4 ACK via an engine-written file instead of the log (fileack)
-//
-// The effect time comes ONLY from an engine-written marker: every command line is sent as
-// `<command>; writeconfig q2l_mk_<id>`, so the marker file is written by the engine in the same guarded
-// exec as the command, and the host polls for it. Log lines are never used as the effect time.
-//
+// Story 185 D4: measure the SHIPPED settings on real Q2PRO. Derived from spikes/183-control-latency/harness.mjs
+// but with no lever, no preflight and no override: the loop cfg, control file text, command cfg, stop file and
+// launch args (logfile_flush 3 included) come unmodified from src/main/modules/replays/playback-channel/protocol.ts
+// (loaded through jiti), and commands are dispatched the way the shipped pipelined channel does: every command
+// gets its seq and cfg at once, the control file lists one monotone guard per pending seq, nothing waits for an
+// earlier ACK. The effect time comes ONLY from an engine-written marker (writeconfig in the same guarded exec).
 // Pitfalls honoured (spikes 133/169/174): the logfile is buffered, so the game is ended with WM_CLOSE
-// (CloseMainWindow), never killed, and the log is read after exit; `+demo` precedes `+exec`; no free
-// line ever sits inside the guard's quoted string; the log is deleted before each run; every file the
-// harness writes is removed afterwards and q2config.cfg is restored byte-exact.
-
+// (CloseMainWindow), never killed; +demo precedes +exec; the log is deleted before each run; every file written is
+// removed afterwards and q2config.cfg is restored byte-exact; refuses to start while any q2pro.exe runs.
 import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync, openSync, readSync, fstatSync, closeSync } from 'node:fs'
 import { basename, dirname, join, relative, resolve } from 'node:path'
@@ -47,16 +36,15 @@ const SINGLE_JITTER_MS = 400 // > two production ticks (~200 ms each)
 const BURST_GAP_MS = 100 // 3 commands within 300 ms
 const CPU_WINDOW_MS = 30000
 const MARKER_PREFIX = 'q2l_mk_'
-const AFTERARG = 'S183_AFTERARG'
+const AFTERARG = 'S185_AFTERARG'
 const GEOMETRY = '960x540+80+80'
-const FLUSH_CANDIDATES = [0, 2, 3, 1] // ends on production's 1
 const SINGLE_MIX = ['pause', 'pause', 'seek +10', 'seek -10', 'timescale 2', 'timescale 1']
-const BURST_MIX = ['pause', 'seek -10', 'pause']
+const BURST_MIX = ['seek +10', 'seek -10', 'seek +10']
 /** The test demo is ~40 s long: rewind (housekeeping, excluded from the stats) before it can end. */
 const REWIND_ABOVE_MS = 20000
 
-/** Production: wait 13, logfile 2, logfile_flush 1, one command in flight, next only on the log ACK. */
-const BASE = { waitFrames: LOOP_WAIT_FRAMES, flush: null, logToggle: false, pad: false, dispatch: 'serial', ackVia: 'log' }
+/** Shipped: wait 13, logfile 2, logfile_flush 3 (from windowsLaunchArgs), pipelined multi-seq dispatch. */
+const BASE = { waitFrames: LOOP_WAIT_FRAMES, flush: null, logToggle: false, pad: false, dispatch: 'multiseq', ackVia: 'log' }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const r1 = (x) => (x === null || x === undefined || !Number.isFinite(x) ? null : Math.round(x * 10) / 10)
@@ -71,16 +59,14 @@ function stats(values) {
 }
 
 function parseArgs(argv) {
-  const o = { config: 'baseline', all: false, exe: 'C:/Games/Q2Pro/q2pro.exe', game: 'opentdm', demo: 'test-demo-for-launcher.dm2', samples: 30, bursts: 10 }
+  const o = { exe: 'C:/Games/Q2Pro/q2pro.exe', game: 'opentdm', demo: 'test-demo-for-launcher.dm2', samples: 30, bursts: 10 }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const v = () => {
       if (i + 1 >= argv.length) throw new Error(`${a} needs a value`)
       return argv[++i]
     }
-    if (a === '--config') o.config = v()
-    else if (a === '--all') o.all = true
-    else if (a === '--exe') o.exe = v()
+    if (a === '--exe') o.exe = v()
     else if (a === '--game') o.game = v()
     else if (a === '--demo') o.demo = v()
     else if (a === '--samples') o.samples = Number(v())
@@ -286,12 +272,8 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
   }
 
   function writeMulti() {
-    const lines = buildControlFile([])
-    for (const seq of [...pending.keys()].sort((a, b) => a - b)) {
-      // Monotonic guard: every pending seq runs once, several in the same tick.
-      lines.push(`if $q2l_seq < ${seq} then "exec ${commandCfgName(seq)}; set q2l_seq ${seq}; echo ACK ${seq}"`)
-    }
-    writeControl(withExtras(toCfgText(lines)), pending.size ? 'controlFirstCommand' : 'controlIdle')
+    // The shipped builder: the poll plus one monotone guard per pending seq.
+    writeControl(toCfgText(buildControlFile([...pending.keys()])), pending.size ? 'controlFirstCommand' : 'controlIdle')
   }
 
   function sendMulti(s) {
@@ -300,6 +282,7 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
     const cmdPath = join(env.gameDir, commandCfgName(seq))
     keep('commandFirst', enc.commandText)
     writeAtomic(cmdPath, enc.commandText)
+    if (!r.firstCommand) r.firstCommand = { seq, line: lineFor(s) }
     const entry = { seq, batch: [s], sentAt: 0, cmdPath }
     pending.set(seq, entry)
     writeMulti()
@@ -348,17 +331,19 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
       const { lines, bytes } = tail.read()
       if (bytes > 0) sizeJumps.push({ t: now, bytes })
       let posAck = 0
+      let posOnly = 0
       for (const raw of lines) {
         const e = parseEngineLine(raw)
         if (e.kind === 'pos') {
           posAck += 1
+          posOnly += 1
           if (e.positionMs !== null) latestPos = e.positionMs
         } else if (e.kind === 'ack') {
           posAck += 1
           onLogAck(e.seq, now)
         } else if (e.kind === 'finished') demoFinished = true
       }
-      if (posAck > 0) batches.push({ t: now, lines: posAck, afterExit: draining })
+      if (posAck > 0) batches.push({ t: now, lines: posAck, pos: posOnly, afterExit: draining })
       const clockOffset = Date.now() - now
       for (const s of samples) {
         if (s.markerSeenAt !== null && now - s.markerSeenAt > 5000) continue
@@ -558,7 +543,7 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
     markerMtimeChanges: s.markerWrites, logAckLines: s.logAckLines, markerLogLines: s.markerLogLines,
     tookEffect: s.tookEffect, effectCheck: s.effectCheck, effectDetail: s.effectDetail ?? null, exactlyOnce: s.exactlyOnce,
   }))
-  r.batches = batches.map((b) => ({ t: rel(b.t), lines: b.lines, afterExit: b.afterExit }))
+  r.batches = batches.map((b) => ({ t: rel(b.t), lines: b.lines, pos: b.pos, afterExit: b.afterExit }))
   // Not persisted: the raw log (the preflight reads it).
   Object.defineProperty(r, 'logLines', { value: logLines, enumerable: false })
   Object.defineProperty(r, 'sizeJumpsRaw', { value: sizeJumps.map((j) => ({ t: j.t, bytes: j.bytes })), enumerable: false })
@@ -631,6 +616,46 @@ function summarize({ cfg, samples, batches, sizeJumps, ticks, blocked, launchAt,
     if (!blocked.some(([x, y]) => x < b && y > a)) intervals50.push(b - a)
   }
   out.flushIntervalsAtProductionPoll = stats(intervals50)
+  // AC3: arrival interval between read batches that carry new POS lines (10 ms poll, then the 50 ms production grid).
+  const livePos = live.filter((b) => b.pos > 0)
+  const posIv = []
+  for (let i = 1; i < livePos.length; i++) {
+    if (!blocked.some(([x, y]) => x < livePos[i].t && y > livePos[i - 1].t)) posIv.push(livePos[i].t - livePos[i - 1].t)
+  }
+  out.posIntervals = stats(posIv)
+  const posBuckets = [...new Set(livePos.map((b) => Math.ceil((b.t - launchAt) / LOG_POLL_MS)))]
+  const posIv50 = []
+  for (let i = 1; i < posBuckets.length; i++) {
+    const a = launchAt + posBuckets[i - 1] * LOG_POLL_MS
+    const b = launchAt + posBuckets[i] * LOG_POLL_MS
+    if (!blocked.some(([x, y]) => x < b && y > a)) posIv50.push(b - a)
+  }
+  out.posIntervalsAtProductionPoll = stats(posIv50)
+  // AC2: per burst, in request order: each dispatched once, in order, none waiting for an earlier ACK.
+  const bursts = [...groups.values()].map((g) => {
+    const gs = [...g].sort((a, b) => a.requestedAt - b.requestedAt)
+    const first = gs[0]
+    const ackT = (s) => (s.logAckAfterExit ? null : s.logAckAt)
+    return {
+      burst: first.burst,
+      requestSpanMs: r1(gs[gs.length - 1].requestedAt - first.requestedAt),
+      writtenBeforeFirstAck: first.logAckAt === null ? null : gs.slice(1).every((s) => s.writtenAt < first.logAckAt),
+      writtenAtMs: gs.map((s) => r1(s.writtenAt - first.requestedAt)),
+      effectAtMs: gs.map((s) => r1(d(s.markerSeenAt, first.requestedAt))),
+      ackAtMs: gs.map((s) => r1(d(ackT(s), first.requestedAt))),
+      seqs: gs.map((s) => s.seq),
+      inOrder: gs.every((s, i) => i === 0 || (s.markerSeenAt !== null && gs[i - 1].markerSeenAt !== null && s.markerSeenAt >= gs[i - 1].markerSeenAt && s.seq > gs[i - 1].seq)),
+      eachOnce: gs.every((s) => s.exactlyOnce),
+    }
+  })
+  out.burstDetail = bursts
+  out.burstCheck = {
+    bursts: bursts.length,
+    writtenBeforeFirstAck: bursts.filter((b) => b.writtenBeforeFirstAck === true).length,
+    inOrder: bursts.filter((b) => b.inOrder).length,
+    eachOnce: bursts.filter((b) => b.eachOnce).length,
+    maxRequestSpanMs: bursts.length ? Math.max(...bursts.map((b) => b.requestSpanMs)) : null,
+  }
   out.bytesPerFlush = stats(sizeJumps.filter((j) => j.t <= stopAt).map((j) => j.bytes))
   const tickGaps = []
   for (let i = 1; i < ticks.length; i++) tickGaps.push(ticks[i] - ticks[i - 1])
@@ -734,130 +759,6 @@ function checkEffect(cmd, entries, posIdx, k, waitFrames) {
   return res(Number(ts[1]) > 1 ? after / before > 1.4 : after / before < 0.75, extra)
 }
 
-// ---------------------------------------------------------------------------------------------------
-
-async function preflight(env) {
-  const pf = { marker: { kind: null }, logfileFlush: { tested: FLUSH_CANDIDATES, accepted: [], echoed: {} }, ifLessThan: null }
-  let flushChangeAt = null
-  let markerId = null
-  const s = await runSession(
-    env,
-    'preflight',
-    { ...BASE },
-    async (api) => {
-      const mk = api.request('echo S183_PF_MARKER')
-      markerId = mk.id
-      await api.until(() => mk.done, ACK_TIMEOUT_MS + 2000)
-      await api.until(() => mk.markerSeenAt !== null, 1500)
-      pf.marker.writeconfig = { seen: mk.markerSeenAt !== null, dir: mk.markerSeenAt !== null ? env.markerDir : null }
-      if (mk.markerSeenAt === null) {
-        // Another build may write elsewhere: use that dir from here on (this preflight's times are void).
-        for (const dir of [env.gameDir, join(env.root, 'baseq2', 'configs'), join(env.root, 'baseq2'), env.root]) {
-          const p = join(dir, `${MARKER_PREFIX}${mk.id}.cfg`)
-          if (!existsSync(p)) continue
-          rmSync(p, { force: true })
-          Object.assign(pf.marker.writeconfig, { seen: true, dir, foundElsewhere: true })
-          Object.assign(env, { markerDir: dir, markerDirExisted: true })
-          break
-        }
-      }
-      const lt = api.request('if 1 < 2 then "echo S183_LT_OK"')
-      await api.until(() => lt.done, ACK_TIMEOUT_MS + 2000)
-      flushChangeAt = performance.now()
-      for (const v of FLUSH_CANDIDATES) {
-        const x = api.request(`set logfile_flush ${v}; echo S183_LF ${v} $logfile_flush`)
-        await api.until(() => x.done, ACK_TIMEOUT_MS + 2000)
-      }
-      if (!pf.marker.writeconfig.seen) {
-        const g = api.request('set vid_geometry 640x480+120+120')
-        await api.until(() => g.done, ACK_TIMEOUT_MS + 2000)
-        await api.sleep(1500)
-        const rect = api.probe()
-        pf.marker.geometry = { asked: '640x480+120+120', got: rect, works: rect?.client?.w === 640 && rect?.client?.h === 480 }
-      }
-    },
-    { cpu: false },
-  )
-  const lines = s.logLines.map((l) => l.replace(/^\[[^\]]*\] /, ''))
-  pf.ifLessThan = lines.includes('S183_LT_OK')
-  for (const l of lines) {
-    const m = /^S183_LF (\d+) (\S*)$/.exec(l)
-    if (!m) continue
-    pf.logfileFlush.echoed[m[1]] = m[2]
-    if (m[1] === m[2]) pf.logfileFlush.accepted.push(Number(m[1]))
-  }
-  pf.logfileFlush.semantics = 'Q2PRO logfile_open: 0 = CRT default buffering, 1 = setvbuf _IOLBF (full buffering on the MSVC CRT), >1 = _IONBF'
-  pf.marker.kind = pf.marker.writeconfig?.seen ? 'writeconfig' : pf.marker.geometry?.works ? 'geometry' : null
-  pf.marker.writeconfigLogLines = lines.filter((l) => l.includes(`${MARKER_PREFIX}${markerId}`))
-  const jumps = s.sizeJumpsRaw.filter((j) => flushChangeAt === null || j.t < flushChangeAt).map((j) => j.bytes)
-  pf.bufferBytes = { fromSizeJumpsAtFlush1: stats(jumps) }
-  pf.session = { exitedCleanly: s.exitedCleanly, cleanup: s.cleanup, driverError: s.driverError ?? null, launch: s.launch, notes: s.notes }
-  return pf
-}
-
-function configFor(name, ctx) {
-  if (name === 'baseline') return { ...BASE }
-  const w = /^wait(\d+)$/.exec(name)
-  if (w) return { ...BASE, waitFrames: Number(w[1]) }
-  const f = /^flush(\d+)$/.exec(name)
-  if (f) {
-    if (!ctx.preflight.logfileFlush.accepted.includes(Number(f[1]))) throw new Error(`${name}: the build does not accept logfile_flush ${f[1]}`)
-    return { ...BASE, flush: Number(f[1]) }
-  }
-  if (name === 'logtoggle') return { ...BASE, logToggle: true }
-  if (name === 'pad') return { ...BASE, pad: true }
-  if (name === 'multiseq') return { ...BASE, dispatch: 'multiseq' }
-  if (name === 'coalesce') return { ...BASE, dispatch: 'coalesce' }
-  if (name === 'fileack') return { ...BASE, ackVia: 'file' }
-  const c = /^combo-([1234])$/.exec(name)
-  if (c) {
-    const parts = comboParts(ctx)[Number(c[1]) - 1]
-    const merged = { ...BASE }
-    for (const part of parts) {
-      const lever = configFor(part, ctx)
-      for (const k of Object.keys(BASE)) if (lever[k] !== BASE[k]) merged[k] = lever[k]
-    }
-    return { ...merged, composedOf: parts }
-  }
-  throw new Error(`unknown configuration ${name}`)
-}
-
-function loadEarlierConfigs(ownTs) {
-  const merged = {}
-  const files = existsSync(RESULTS) ? readdirSync(RESULTS).filter((f) => f.endsWith('.json') && f !== `${ownTs}.json`).sort() : []
-  for (const f of files) {
-    try {
-      const j = JSON.parse(readFileSync(join(RESULTS, f), 'utf8'))
-      if (j.options && j.options.samples < 20) continue
-      for (const [k, v] of Object.entries(j.configs ?? {})) if (!k.startsWith('combo-')) merged[k] = v
-    } catch {}
-  }
-  return merged
-}
-
-/**
- * combo-1 = best L1 + best L2; combo-2 = + best L3; combo-3 = best L1 + L4 (fileack) + best L3;
- * combo-4 = flush3 + multiseq at the production wait (no L1 change).
- * "Best" comes from this run's results when they exist (--all runs combos last), else a static choice.
- */
-function comboParts(ctx) {
-  // Each invocation writes its own JSON, so a combo run also draws on earlier results files (this run wins).
-  const res = { ...loadEarlierConfigs(ctx.ts), ...ctx.configs }
-  const flushNames = ctx.preflight.logfileFlush.accepted.filter((v) => v !== 1).map((v) => `flush${v}`)
-  const best = (names, metric, fallback) => {
-    const scored = names.filter((n) => res[n] && metric(res[n]) !== null)
-    return scored.length ? scored.sort((a, b) => metric(res[a]) - metric(res[b]))[0] : fallback
-  }
-  const l1 = best(['wait5', 'wait2', 'wait1'], (x) => x.effect.p50, 'wait2')
-  const l2 = best([...flushNames, 'logtoggle', 'pad'], (x) => x.markerToAck.p50, flushNames.includes('flush2') ? 'flush2' : 'logtoggle')
-  const l3 = best(['multiseq', 'coalesce'], (x) => x.burst.lastAck.p50, 'coalesce')
-  return [[l1, l2], [l1, l2, l3], [l1, 'fileack', l3], ['flush3', 'multiseq']]
-}
-
-function allNames(pf) {
-  const flush = pf.logfileFlush.accepted.filter((v) => v !== 1).map((v) => `flush${v}`)
-  return ['baseline', 'wait5', 'wait2', 'wait1', ...flush, 'logtoggle', 'pad', 'multiseq', 'coalesce', 'fileack', 'combo-1', 'combo-2', 'combo-3', 'combo-4']
-}
 
 function sampleDriver(opts, ts, name) {
   return async (api) => {
@@ -906,6 +807,8 @@ function productionCheck(r, env) {
     controlFirstCommand: enc !== null && c.controlFirstCommand === enc.controlText,
     commandFirst: enc !== null && c.commandFirst === enc.commandText,
     stop: c.stop === toCfgText(buildStopFile()),
+    logfileFlush3InLaunchArgs: r.launch.args.some((a, i) => a === 'logfile_flush' && r.launch.args[i - 1] === '+set' && r.launch.args[i + 1] === '3'),
+    launchArgsHaveOneFlush: r.launch.args.filter((a) => a === 'logfile_flush').length === 1,
     launchArgs: joined.includes([...argsBeforeDemo, '+demo', env.demo, ...argsAfterDemo].join('\u0000')),
   }
 }
@@ -922,42 +825,28 @@ async function main() {
   mkdirSync(RESULTS, { recursive: true })
   const ts = new Date().toISOString().replace(/[:.]/g, '-')
   const outPath = join(RESULTS, `${ts}.json`)
+  const launched = windowsLaunchArgs()
+  const fi = launched.argsBeforeDemo.indexOf('logfile_flush')
+  if (fi < 0 || launched.argsBeforeDemo[fi + 1] !== '3') throw new Error('shipped windowsLaunchArgs() does not carry logfile_flush 3')
   const out = {
     ts,
     options: opts,
     protocol: { LOOP_CFG_NAME, CONTROL_CFG_NAME, LOG_FILE_NAME, LOG_FILE_RELATIVE, LOG_POLL_MS, ACK_TIMEOUT_MS, LOOP_WAIT_FRAMES },
+    shipped: { loop: buildLoopCfg(), controlIdle: buildControlFile([]), controlThreeSeqs: buildControlFile([1, 2, 3]), launch: launched },
     harness: { TAIL_POLL_MS, STARTUP_MS, SINGLE_SPACING_MS, SINGLE_JITTER_MS, BURST_GAP_MS, CPU_WINDOW_MS, SINGLE_MIX, BURST_MIX, REWIND_ABOVE_MS, GEOMETRY },
-    preflight: null,
     configs: {},
   }
   const save = () => writeFileSync(outPath, JSON.stringify(out, null, 2))
-
-  out.preflight = await preflight(env)
-  save()
-  if (!out.preflight.session.exitedCleanly) throw new Error(`preflight: game did not exit on WM_CLOSE - aborting (${outPath})`)
-  if (out.preflight.marker.kind !== 'writeconfig') {
-    // The geometry fallback is recorded by the preflight, but sampling needs a file marker.
-    throw new Error(`preflight: writeconfig marker not usable (kind ${out.preflight.marker.kind}) - see ${outPath}`)
-  }
-  const buf = out.preflight.bufferBytes.fromSizeJumpsAtFlush1.p50 ?? 1024
-  env.padBytes = Math.max(512, buf) + 64
-  env.padLines = []
-  for (let left = env.padBytes; left > 0; left -= 900) env.padLines.push(`echo PAD${'x'.repeat(Math.min(900, left))}`)
-  out.preflight.padBytes = env.padBytes
-
-  const names = opts.all ? allNames(out.preflight) : [opts.config]
-  for (const name of names) {
-    if (q2proRunning()) throw new Error(`q2pro.exe is running before ${name} - aborting`)
-    const cfg = configFor(name, out)
-    const res = await runSession(env, name, cfg, sampleDriver(opts, ts, name))
+  {
+    const name = 'shipped'
+    const res = await runSession(env, name, { ...BASE }, sampleDriver(opts, ts, name))
     res.sideEffects = { ...res.sideEffectsPartial, cpuDeltaPct: res.sideEffects.cpuDeltaPct ?? null, cpu: res.sideEffects.cpu ?? null, screenshot: res.sideEffects.screenshot }
     delete res.sideEffectsPartial
-    if (name === 'baseline') res.productionUnmodified = productionCheck(res, env)
-    if (cfg.pad) res.padBytes = env.padBytes
+    res.productionUnmodified = productionCheck(res, env)
     out.configs[name] = res
     save()
-    console.log(`[${name}] effect p50 ${res.effect.p50} ms, ack p50 ${res.ack.p50} ms, flush p50 ${res.flushIntervals.p50} ms, leftover ${res.cleanup.leftover.length}`)
-    if (!res.exitedCleanly) throw new Error(`${name}: game did not exit on WM_CLOSE - aborting`)
+    console.log(`[${name}] effect p50 ${res.effect.p50} ms, ack p50/p95 ${res.ack.p50}/${res.ack.p95} ms (50 ms grid ${res.ackAtProductionPoll.p50}/${res.ackAtProductionPoll.p95}), pos interval p95 ${res.posIntervals.p95}, leftover ${res.cleanup.leftover.length}`)
+    if (!res.exitedCleanly) throw new Error('game did not exit on WM_CLOSE - aborting')
   }
   out.q2proRunningAfter = q2proRunning()
   save()
