@@ -72,7 +72,7 @@ async function playAndCheck(page, logPath, fileName) {
   // for the chat HUD right after its setup args; stage args (when a window is known) follow, then +demo.
   const head =
     process.platform === 'win32'
-      ? `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set logfile 2 +set logfile_flush 1 +set logfile_name q2l_demo.log`
+      ? `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set logfile 2 +set logfile_flush 3 +set logfile_name q2l_demo.log`
       : `+set game ${REPLAYS_PLAY_MVD2_GAME_DIR} +set sys_console 1`
   const tail = process.platform === 'win32' ? `+demo ${fileName} +exec q2l_loop.cfg` : `+demo ${fileName}`
   const trimmed = (line ?? '').trimEnd()

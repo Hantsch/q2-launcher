@@ -154,3 +154,7 @@
 - 2026-09-30 11:33 · 185 · verify · started
 - 2026-09-30 11:35 · 185 · verify · done
 - 2026-09-30 11:35 · 185 · story · done
+- 11:36:21 · gate · short suites · started
+- 11:39:45 · gate · short suites · done
+- 11:39:46 · gate · e2e-all · started
+- 12:20:25 · gate · e2e-all · done · 6 failed

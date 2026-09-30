@@ -100,7 +100,7 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
   // Story 170: the stage args (borderless window at `vid_geometry`) come after the channel's setup
   // args and before +demo. Story 172: the channel also marks the session (`+set q2l_session 1`) right
   // after its setup args.
-  const head = process.platform === 'win32' ? '+set logfile 2 +set logfile_flush 1 +set logfile_name q2l_demo.log' : '+set sys_console 1'
+  const head = process.platform === 'win32' ? '+set logfile 2 +set logfile_flush 3 +set logfile_name q2l_demo.log' : '+set sys_console 1'
   const tail = process.platform === 'win32' ? `+demo ${REPLAYS_PLAY_CTF_DEMO} +exec q2l_loop.cfg` : `+demo ${REPLAYS_PLAY_CTF_DEMO}`
   const trimmed = (line ?? '').trimEnd()
   const geometryAt = trimmed.search(/ \+set vid_geometry \d+x\d+\+-?\d+\+-?\d+ /)
