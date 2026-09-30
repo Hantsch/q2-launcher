@@ -16,7 +16,8 @@
 // named by `Q2L_UI_ENGINE_COMMAND_LOG`, so a flow can assert on what the engine actually ran.
 // Story 171 D2: a `set vid_geometry …` / `set win_alwaysontop …` the launcher sends once the demo has
 // started (its stage follower - never the launch argv) is appended to `Q2L_UI_ENGINE_WINDOW_LOG`
-// instead; `set` never reaches the command log, so that log is unchanged.
+// instead; `set` never reaches the command log, so that log is unchanged. A set to the cvar's current
+// value is not recorded (Q2PRO ignores it), so the follower's set-wait-re-set line logs once.
 //
 // Story 172 D7: `vid_fullscreen` is a cvar (`$vid_fullscreen` echoes it, `q2l_session` / `q2l_armpos`
 // are plain cvars) and a bare `vid_fullscreen N` is appended to the command log. The file named by
@@ -395,7 +396,8 @@ function execLine(raw) {
     case 'set':
     case 'seta':
       if (args.length >= 2) {
-        if (WINDOW_CVARS.has(args[0])) logWindow(tokens)
+        // Like Q2PRO, a set to the value the cvar already has changes nothing, so it is not recorded.
+        if (WINDOW_CVARS.has(args[0]) && cvars.get(args[0]) !== args[1]) logWindow(tokens)
         cvars.set(args[0], args[1])
       }
       return

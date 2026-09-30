@@ -301,7 +301,11 @@ export const replaysModule: MainModule = {
     // `playback.stage`; it parks the game window beyond the virtual desktop's right edge.
     const stageFollow = createStageFollowSessions({
       window: app.mainWindow,
-      send: (line) => playbackControl.send(line),
+      send: (line) => {
+        const result = playbackControl.send(line)
+        log.info(`[diag187] follower send "${line}" -> ${result.ok ? 'ok' : result.error.key}`)
+        return result
+      },
       computeGeometry: (rect, window) => geometryAt(rect, window.contentBounds) ?? '0x0+0+0',
       parkGeometry: (geometry) =>
         parkGeometryAt(
@@ -317,7 +321,12 @@ export const replaysModule: MainModule = {
     const cinema = createCinemaController({
       availability: currentCinemaAvailability,
       displayGeometry: primaryDisplayGeometry,
-      pin: (geometry) => stageFollow.pin(geometry),
+      pin: (geometry) => {
+        const placed = stageFollow.pin(geometry)
+        log.info(`[diag187] cinema pin ${geometry ?? 'off'} -> ${placed}`)
+        return placed
+      },
+      settled: () => playbackControl.settled().then(() => log.info('[diag187] cinema pin settled, opening overlay')),
       window: app.cinemaWindow,
       hasSession: () => playbackControl.currentFormat() !== null,
       enterFullscreen: () => playbackControl.enterFullscreen(),

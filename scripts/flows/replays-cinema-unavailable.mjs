@@ -46,7 +46,7 @@ async function waitForScan(page) {
 }
 
 async function expectDisabledWithReason(page, expected, label) {
-  const cinema = page.getByTestId('replays-timeline-mode-cinema')
+  const cinema = page.getByTestId('replays-timeline-cinema')
   await cinema.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const reason = page.getByTestId('replays-timeline-cinema-reason')
   const deadline = Date.now() + TIMEOUT_MS
@@ -57,7 +57,7 @@ async function expectDisabledWithReason(page, expected, label) {
     await sleep(100)
   }
   if ((await cinema.getAttribute('aria-disabled')) !== 'true') fail(`${label}: Cinema is not aria-disabled`)
-  if ((await cinema.getAttribute('aria-checked')) !== 'false') fail(`${label}: Cinema is checked`)
+  if ((await cinema.getAttribute('data-mode')) !== 'preview') fail(`${label}: the mode is not preview`)
 }
 
 export default async function replaysCinemaUnavailable({ page, app, step, shot }) {

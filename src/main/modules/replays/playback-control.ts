@@ -55,6 +55,8 @@ export interface PlaybackControl {
   /** Drops a prepared channel whose launch never started - no events. */
   cancel(): Promise<void>
   send(line: string): Outcome<void>
+  /** Story 187: every line sent so far has run in the game (see `PlaybackChannel.settled`). */
+  settled(): Promise<void>
   /** Format of the demo in the current session, or null with no live session (story 165 D2). */
   currentFormat(): DemoFormat | null
   /** Story 172 D5: switch the running demo to fullscreen; no session is `NO_SESSION`. */
@@ -236,6 +238,10 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
     send(line) {
       if (!session || session.finished) return fail(NO_SESSION)
       return session.channel.send(line)
+    },
+
+    settled() {
+      return session ? session.channel.settled() : Promise.resolve()
     },
 
     enterFullscreen() {

@@ -213,9 +213,12 @@ describe('DemoTimeline (story 165 D3)', () => {
     render(createElement(DemoTimeline))
     act(() => usePlaybackStore.getState().applyDisplay({ fullscreen: true }))
     expect(testid('keys').textContent).toContain('Back to window')
-    for (const id of ['toggle', 'back', 'forward', 'speed', 'fullscreen']) {
+    for (const id of ['toggle', 'back', 'forward', 'speed']) {
       expect((testid(id) as HTMLButtonElement).disabled).toBe(true)
     }
+    // No view buttons once fullscreen: the game's own "Back to window" key is the way back.
+    expect(screen.queryByTestId('replays-timeline-cinema')).toBeNull()
+    expect(screen.queryByTestId('replays-timeline-fullscreen')).toBeNull()
     expect(testid('seek').getAttribute('aria-disabled')).toBe('true')
     expect(screen.queryByTestId('replays-timeline-position')).toBeNull()
     expect(screen.queryByTestId('replays-timeline-duration')).toBeNull()
@@ -263,23 +266,20 @@ describe('DemoTimeline (story 184 D3)', () => {
 })
 
 describe('DemoTimeline (story 187 D6)', () => {
-  it('the timeline offers preview, cinema and fullscreen with the current mode marked', async () => {
+  it('offers cinema and fullscreen buttons, and exit cinema while in cinema', async () => {
     playbackCinema.mockResolvedValue({ ok: true, value: undefined })
     begin(60_000, 1000)
     render(createElement(DemoTimeline))
-    const group = screen.getByRole('radiogroup', { name: 'View mode' })
-    const radios = Array.from(group.querySelectorAll('[role="radio"]'))
-    expect(radios.map((r) => r.textContent)).toEqual(['Preview', 'Cinema', 'Fullscreen'])
-    expect(radios.map((r) => r.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false'])
-    expect(radios[0].querySelector('svg')).not.toBeNull()
-    fireEvent.click(testid('mode-cinema'))
+    expect(screen.queryByRole('radiogroup')).toBeNull()
+    expect(testid('cinema').getAttribute('aria-label')).toBe('Cinema mode')
+    expect(testid('fullscreen').getAttribute('aria-label')).toBe('Fullscreen')
+    fireEvent.click(testid('cinema'))
     expect(playbackCinema).toHaveBeenCalledWith(true)
     act(() => usePlaybackStore.getState().applyDisplay({ fullscreen: false, cinema: true }))
-    expect(testid('mode-cinema').getAttribute('aria-checked')).toBe('true')
-    expect(testid('mode-preview').getAttribute('aria-checked')).toBe('false')
-    expect(testid('mode-cinema').querySelector('svg')).not.toBeNull()
-    fireEvent.click(testid('mode-preview'))
-    expect(playbackCinema).toHaveBeenLastCalledWith(false)
+    expect(testid('cinema').getAttribute('aria-label')).toBe('Exit cinema mode')
+    expect(testid('cinema').getAttribute('data-mode')).toBe('cinema')
+    fireEvent.click(testid('cinema'))
+    await vi.waitFor(() => expect(playbackCinema).toHaveBeenLastCalledWith(false))
     fireEvent.click(testid('fullscreen'))
     await vi.waitFor(() => expect(playbackTimeline).toHaveBeenCalledWith({ kind: 'fullscreen' }))
   })
@@ -294,8 +294,9 @@ describe('DemoTimeline (story 187 D6)', () => {
         cinemaAvailability: { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } },
       }),
     )
-    const cinema = testid('mode-cinema')
+    const cinema = testid('cinema')
     expect(cinema.getAttribute('aria-disabled')).toBe('true')
+    expect(cinema.getAttribute('aria-describedby')).toBe(testid('cinema-reason').id)
     expect(testid('cinema-reason').textContent).toContain('not on the primary display')
     fireEvent.click(cinema)
     expect(playbackCinema).not.toHaveBeenCalled()

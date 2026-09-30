@@ -9,6 +9,11 @@ export interface PlaybackChannel {
   start(): Promise<void>
   /** Queue one console line for the game; refuses invalid lines and a full queue. */
   send(line: string): Outcome<void>
+  /**
+   * Story 187: resolves once every line sent so far has run in the game (acknowledged, timed out or
+   * dropped) - or the channel finished/closed. Where the engine gives no acknowledgement, at once.
+   */
+  settled(): Promise<void>
   /** `paused` is the engine's own pause state, null when it did not report one. */
   latest(): { positionMs: number | null; paused: boolean | null; finished: boolean }
   /** Subscribe to the demo finishing; returns the unsubscribe function. */

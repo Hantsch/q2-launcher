@@ -608,6 +608,7 @@ describe('demo.play playback channel (story 164 D4)', () => {
       display: vi.fn(() => ({ fullscreen: false, cinema: false, speed: 1, cinemaAvailability: { available: true as const } })),
       emitDisplay: vi.fn(),
       setSpeed: vi.fn(),
+      settled: vi.fn(() => Promise.resolve()),
     } satisfies PlaybackControl
   }
 
@@ -697,7 +698,8 @@ describe('demo.play on the stage (story 170 D2)', () => {
   const STAGE = { x: 1, y: 2, width: 640, height: 360 }
   const STAGE_ARGS = [
     '+set', 'vid_fullscreen', '0', '+set', 'win_noborder', '1', '+set', 'win_notitle', '1',
-    '+set', 'win_alwaysontop', '1', '+set', 'win_noresize', '1', '+set', 'vid_geometry', '800x600+10+20',
+    '+set', 'win_alwaysontop', '1', '+set', 'win_noresize', '1', '+set', 's_driver', 'wave',
+    '+set', 'vid_geometry', '800x600+10+20',
   ]
   const argsOf = (h: ReturnType<typeof harness>): string[] =>
     ((h.launch.start.mock.calls[0] as unknown as [LaunchInput])[0].extraArgs ?? [])
@@ -713,6 +715,7 @@ describe('demo.play on the stage (story 170 D2)', () => {
     display: vi.fn(() => ({ fullscreen: false, cinema: false, speed: 1, cinemaAvailability: { available: true as const } })),
     emitDisplay: vi.fn(),
     setSpeed: vi.fn(),
+    settled: vi.fn(() => Promise.resolve()),
   }) satisfies PlaybackControl
 
   it('stage args sit before +demo', async () => {
@@ -841,6 +844,7 @@ describe('demo.play stage cvar restore (story 170 D3)', () => {
       display: vi.fn(() => ({ fullscreen: false, cinema: false, speed: 1, cinemaAvailability: { available: true as const } })),
       emitDisplay: vi.fn(),
       setSpeed: vi.fn(),
+      settled: vi.fn(() => Promise.resolve()),
     } satisfies PlaybackControl
     const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), cvarRestore, playback })
     expect((await h.play('base', 'q2pro-a')).ok).toBe(true)

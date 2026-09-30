@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Pause, Play, RotateCcw, RotateCw, Square } from 'lucide-react'
+import { AppWindow, Maximize2, MonitorPlay, Pause, Play, RotateCcw, RotateCw, Square } from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
 import {
   JUMP_STEP_S,
@@ -14,7 +14,7 @@ import { IconButton } from '../../../components/ui/Button'
 import { Select } from '../../../components/ui/controls'
 import { useOverlayRegistration } from '../../../lib/overlay-registry'
 import { cn } from '../../../lib/cn'
-import { usePlaybackStore, type PlaybackMode } from '../playback-store'
+import { usePlaybackStore } from '../playback-store'
 import { createTimeline, expected, type ExpectedTimeline, type OptimisticTimeline } from '../optimistic-timeline'
 
 // `outline-solid` re-enables the outline style the shared Select's `focus:outline-none` switches off.
@@ -78,9 +78,11 @@ export function DemoTimeline() {
   const positionMs = displayedMs
   const paused = shown.paused
   const fullscreen = session.fullscreen
-  const mode = session.mode
+  const inCinema = session.mode === 'cinema'
   const cinemaReason = session.cinemaAvailability.available ? null : session.cinemaAvailability.reason
   const ended = view?.ended ?? false
+  // Leaving cinema is always possible; entering needs availability and a demo that has not ended.
+  const cinemaBlocked = !inCinema && (cinemaReason !== null || ended)
   const positionText = formatPlaybackPosition(positionMs)
   const durationText = hasDuration ? formatPlaybackPosition(durationMs) : t('replays.timeline.durationUnknown')
   const durationS = hasDuration ? Math.floor(durationMs / 1000) : 0
@@ -116,13 +118,10 @@ export function DemoTimeline() {
     await send({ kind: 'fullscreen' })
   }
 
-  async function chooseMode(next: PlaybackMode): Promise<void> {
-    if (next === mode) return
-    if (next === 'fullscreen') return enterFullscreen()
+  async function toggleCinema(): Promise<void> {
+    if (cinemaBlocked) return
     setError(null)
-    // Preview while in fullscreen is the game's own "Back to window" key; the options are disabled then.
-    if (next === 'cinema' && cinemaReason !== null) return
-    const refusal = await setCinema(next === 'cinema')
+    const refusal = await setCinema(!inCinema)
     if (refusal) setError(refusal)
   }
 
@@ -290,43 +289,36 @@ export function DemoTimeline() {
           data-testid="replays-timeline-speed"
           {...busy('speed')}
         />
-        <div
-          role="radiogroup"
-          aria-label={t('replays.timeline.mode.label')}
-          className="flex h-11 items-stretch overflow-hidden rounded-md border border-line-strong"
-          data-testid="replays-timeline-mode"
-        >
-          {(['preview', 'cinema', 'fullscreen'] as const).map((option) => {
-            const checked = mode === option
-            const blocked = option === 'cinema' ? cinemaReason !== null || fullscreen || ended : fullscreen || (option === 'fullscreen' && ended)
-            const testId = option === 'fullscreen' ? 'replays-timeline-fullscreen' : `replays-timeline-mode-${option}`
-            return (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={checked}
-                // Cinema stays focusable when unavailable so its reason is reachable; the rest are really disabled.
-                {...(option === 'cinema'
-                  ? { 'aria-disabled': blocked, 'aria-describedby': cinemaReason !== null ? cinemaReasonId : undefined }
-                  : { disabled: blocked })}
-                onClick={() => {
-                  if (!blocked) void chooseMode(option)
-                }}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 text-sm text-ink',
-                  checked ? 'bg-flame-500/15 font-semibold underline underline-offset-4' : 'hover:bg-hover',
-                  blocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
-                  FOCUS_RING,
-                )}
-                data-testid={testId}
-              >
-                {checked && <Check className="size-4" aria-hidden="true" />}
-                {t(`replays.timeline.mode.${option}`)}
-              </button>
-            )
-          })}
-        </div>
+        {/* Story 187: YouTube-style view buttons - cinema (theater) and fullscreen; none once fullscreen. */}
+        {!fullscreen && (
+          <>
+            <IconButton
+              size="lg"
+              label={inCinema ? t('replays.timeline.cinema.leave') : t('replays.timeline.cinema.enter')}
+              // Stays focusable when unavailable so its reason is reachable.
+              aria-disabled={cinemaBlocked || undefined}
+              aria-describedby={cinemaReason !== null && !inCinema ? cinemaReasonId : undefined}
+              onClick={() => void toggleCinema()}
+              className={cn(FOCUS_RING, cinemaBlocked && 'cursor-not-allowed opacity-45')}
+              data-testid="replays-timeline-cinema"
+              data-mode={session.mode}
+            >
+              {/* Three distinct shapes: monitor+play enters cinema, the app window returns to it,
+                  diagonal arrows go fullscreen, the filled square stops. */}
+              {inCinema ? <AppWindow className="size-6" /> : <MonitorPlay className="size-6" />}
+            </IconButton>
+            <IconButton
+              size="lg"
+              label={t('replays.timeline.fullscreen')}
+              disabled={ended}
+              onClick={() => void enterFullscreen()}
+              className={FOCUS_RING}
+              data-testid="replays-timeline-fullscreen"
+            >
+              <Maximize2 className="size-6" />
+            </IconButton>
+          </>
+        )}
         <IconButton
           size="lg"
           label={session.stopping ? t('replays.timeline.stopping') : t('replays.timeline.stop')}
@@ -335,7 +327,7 @@ export function DemoTimeline() {
           className={FOCUS_RING}
           data-testid="replays-timeline-stop"
         >
-          <Square className="size-6" />
+          <Square className="size-5 fill-current" />
         </IconButton>
       </div>
       {fullscreen && (
@@ -343,7 +335,7 @@ export function DemoTimeline() {
           {t('replays.timeline.fullscreenKeys')}
         </p>
       )}
-      {cinemaReason !== null && (
+      {cinemaReason !== null && !fullscreen && !inCinema && (
         <p id={cinemaReasonId} className="text-xs text-ink-muted" data-testid="replays-timeline-cinema-reason">
           {t(cinemaReason.key)}
         </p>

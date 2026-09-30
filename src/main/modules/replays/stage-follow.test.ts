@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fail, ok } from '@shared/types'
-import { createStageFollower, type StageFollowWindow } from './stage-follow'
+import { createStageFollower, GEOMETRY_RESET_WAIT_FRAMES, geometryLine, type StageFollowWindow } from './stage-follow'
 
 const LAUNCH = '800x600+10+20'
 const win = (over: Partial<StageFollowWindow> = {}): StageFollowWindow => ({
@@ -11,7 +11,7 @@ const win = (over: Partial<StageFollowWindow> = {}): StageFollowWindow => ({
   ...over,
 })
 const rect = (x = 10, y = 20) => ({ x, y, width: 800, height: 600 })
-const PARKED = 'set vid_geometry 800x600+3904+20'
+const PARKED = geometryLine('800x600+3904+20')
 
 function setup(results: Array<'ok' | 'busy'> = []) {
   const lines: string[] = []
@@ -27,6 +27,14 @@ function setup(results: Array<'ok' | 'busy'> = []) {
   })
   return { lines, follower }
 }
+
+describe('geometryLine', () => {
+  it('re-sets the geometry a few frames later, so a same-pass win_* change cannot undo it', () => {
+    expect(geometryLine('3840x2160+0+0')).toBe(
+      `set vid_geometry 3840x2160+0+0; wait ${GEOMETRY_RESET_WAIT_FRAMES}; set vid_geometry 3840x2160+0+0`,
+    )
+  })
+})
 
 describe('stage follower', () => {
   beforeEach(() => vi.useFakeTimers())
@@ -48,7 +56,7 @@ describe('stage follower', () => {
     }
     expect(lines).toEqual([PARKED])
     vi.advanceTimersByTime(300)
-    expect(lines).toEqual([PARKED, 'set vid_geometry 800x600+130+20'])
+    expect(lines).toEqual([PARKED, geometryLine('800x600+130+20')])
   })
 
   it('a diagonal drag parks once and places once at the end', () => {
@@ -60,7 +68,7 @@ describe('stage follower', () => {
     }
     expect(lines).toEqual([PARKED])
     vi.advanceTimersByTime(300)
-    expect(lines).toEqual([PARKED, 'set vid_geometry 800x600+130+80'])
+    expect(lines).toEqual([PARKED, geometryLine('800x600+130+80')])
   })
 
   it('a stage-rect change alone places after quiet without parking', () => {
@@ -69,7 +77,7 @@ describe('stage follower', () => {
     vi.advanceTimersByTime(249)
     expect(lines).toEqual([])
     vi.advanceTimersByTime(1)
-    expect(lines).toEqual(['set vid_geometry 800x600+50+60'])
+    expect(lines).toEqual([geometryLine('800x600+50+60')])
   })
 
   it('minimize parks, restore places', () => {
@@ -79,7 +87,7 @@ describe('stage follower', () => {
     follower.update({ stageRect: rect(), window: win() })
     expect(lines).toHaveLength(1)
     vi.advanceTimersByTime(250)
-    expect(lines).toEqual([PARKED, 'set vid_geometry 800x600+10+20'])
+    expect(lines).toEqual([PARKED, geometryLine('800x600+10+20')])
   })
 
   it('blur drops topmost, focus restores it', () => {
@@ -115,7 +123,7 @@ describe('stage follower', () => {
     follower.update({ stageRect: rect(50, 60), window: win({ focused: false }), tick: true })
     follower.update({ stageRect: rect(70, 60), window: win({ focused: true }) })
     vi.advanceTimersByTime(1000)
-    expect(lines).toEqual(['set vid_geometry 1920x1080+0+0'])
+    expect(lines).toEqual([geometryLine('1920x1080+0+0')])
   })
 
   it('unpinning re-sends the stage geometry', () => {
@@ -123,6 +131,6 @@ describe('stage follower', () => {
     follower.update({ stageRect: rect(), window: win() })
     follower.pin('1920x1080+0+0')
     follower.pin(null)
-    expect(lines).toEqual(['set vid_geometry 1920x1080+0+0', 'set vid_geometry 800x600+10+20'])
+    expect(lines).toEqual([geometryLine('1920x1080+0+0'), geometryLine('800x600+10+20')])
   })
 })

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FastForward, Maximize, Minimize, Pause, Play, Rewind, RotateCcw, RotateCw } from 'lucide-react'
+import { AppWindow, FastForward, Maximize2, Pause, Play, Rewind, RotateCcw, RotateCw } from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
 import { CINEMA_IDLE_MS, cinemaKeyAction } from '@shared/replays/cinema'
 import {
@@ -212,21 +212,22 @@ export function CinemaOverlay() {
             />
             <IconButton
               size="lg"
-              label={t('replays.timeline.fullscreen')}
-              onClick={() => void fullscreen()}
-              className={FOCUS_RING}
-              data-testid="cinema-fullscreen"
-            >
-              <Maximize className="size-6" />
-            </IconButton>
-            <IconButton
-              size="lg"
               label={t('replays.timeline.cinema.leave')}
               onClick={() => void leave()}
               className={FOCUS_RING}
               data-testid="cinema-leave"
             >
-              <Minimize className="size-6" />
+              {/* The launcher strip's cinema toggle in its "in cinema" state: back to the window. */}
+              <AppWindow className="size-6" />
+            </IconButton>
+            <IconButton
+              size="lg"
+              label={t('replays.timeline.fullscreen')}
+              onClick={() => void fullscreen()}
+              className={FOCUS_RING}
+              data-testid="cinema-fullscreen"
+            >
+              <Maximize2 className="size-6" />
             </IconButton>
           </div>
         </section>

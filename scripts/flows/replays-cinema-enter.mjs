@@ -1,5 +1,5 @@
-// Story 187 D6: e2e proof that the launcher's mode switch enters cinema. The three labeled options are
-// visible and aria-checked follows the mode; choosing Cinema opens the transparent overlay window
+// Story 187 D6: e2e proof that the launcher's view buttons enter cinema. Cinema and Fullscreen are
+// labeled icon buttons and the cinema button turns into "Exit cinema mode"; choosing Cinema opens the transparent overlay window
 // (cinema.html), pins the game to the primary display's physical rect with exactly one
 // `set vid_geometry` and no `win_alwaysontop`, without restarting the demo; quitting the game while in
 // cinema closes the overlay and the launcher shows the ended state (no timeline). Assertions on the
@@ -77,14 +77,12 @@ export default async function replaysCinemaEnter({ page, app, log, step, shot })
     if (Date.now() >= liveBy) fail('the playback session never went live')
     await sleep(100)
   }
-  const preview = page.getByTestId('replays-timeline-mode-preview')
-  const cinema = page.getByTestId('replays-timeline-mode-cinema')
+  const cinema = page.getByTestId('replays-timeline-cinema')
   const fullscreen = page.getByTestId('replays-timeline-fullscreen')
-  const labels = await Promise.all([preview, cinema, fullscreen].map(async (l) => ((await l.textContent()) ?? '').trim()))
-  if (labels.join('|') !== 'Preview|Cinema|Fullscreen') fail(`the mode labels read ${JSON.stringify(labels)}`)
-  const checked = async () =>
-    (await Promise.all([preview, cinema, fullscreen].map((l) => l.getAttribute('aria-checked')))).join(',')
-  if ((await checked()) !== 'true,false,false') fail(`aria-checked before cinema is ${await checked()}`)
+  const labels = await Promise.all([cinema, fullscreen].map((l) => l.getAttribute('aria-label')))
+  if (labels.join('|') !== 'Cinema mode|Fullscreen') fail(`the view button labels read ${JSON.stringify(labels)}`)
+  const mode = () => cinema.getAttribute('data-mode')
+  if ((await mode()) !== 'preview') fail(`the mode before cinema is ${await mode()}`)
   await sleep(SETTLE_MS)
   if (windowLines().length > 0) fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
   const launches = launchCount(logPath)
@@ -118,10 +116,11 @@ export default async function replaysCinemaEnter({ page, app, log, step, shot })
   if (lines.some((l) => l.includes('win_alwaysontop'))) fail(`cinema must not send win_alwaysontop: ${JSON.stringify(lines)}`)
   if (launchCount(logPath) !== launches) fail('entering cinema restarted the demo')
   const movedBy = Date.now() + TIMEOUT_MS
-  while ((await checked()) !== 'false,true,false') {
-    if (Date.now() >= movedBy) fail(`aria-checked never moved to Cinema (now ${await checked()})`)
+  while ((await mode()) !== 'cinema') {
+    if (Date.now() >= movedBy) fail(`the mode never moved to cinema (now ${await mode()})`)
     await sleep(100)
   }
+  if ((await cinema.getAttribute('aria-label')) !== 'Exit cinema mode') fail('the cinema button does not offer to exit')
   await shot('cinema-entered')
 
   step('the game quits while in cinema: the overlay closes and the launcher shows the ended state')

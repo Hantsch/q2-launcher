@@ -86,7 +86,7 @@ export default async function replaysCinemaFullscreen({ page, app, log, step, sh
   await until(async () => !(await input.isDisabled()), 'the playback session going live', 15_000)
   // The stage geometry the stub was last given before cinema pinned the display rect (AC7 compares it).
   const stageGeometry = await launchGeometry(page)
-  await page.getByTestId('replays-timeline-mode-cinema').click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('replays-timeline-cinema').click({ timeout: TIMEOUT_MS })
   const overlay = await waitForWindow(app, 'cinema.html', log)
   const root = overlay.getByTestId('cinema-root')
   await root.waitFor({ state: 'attached', timeout: TIMEOUT_MS })
@@ -110,7 +110,7 @@ export default async function replaysCinemaFullscreen({ page, app, log, step, sh
   if (geometry().at(-1)?.slice('set vid_geometry '.length) !== stageGeometry) {
     fail(`the newest geometry after the way back is ${geometry().at(-1)}, expected the stage geometry ${stageGeometry}`)
   }
-  const preview = page.getByTestId('replays-timeline-mode-preview')
-  await until(async () => (await preview.getAttribute('aria-checked')) === 'true', 'Preview to be checked', 10_000)
+  const cinema = page.getByTestId('replays-timeline-cinema')
+  await until(async () => (await cinema.getAttribute('data-mode').catch(() => null)) === 'preview', 'the mode to read preview', 10_000)
   if (log.pageErrors.length > 0) fail(`page errors: ${JSON.stringify(log.pageErrors)}`)
 }

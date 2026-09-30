@@ -98,7 +98,7 @@ export default async function replaysFullscreen({ page, step, shot }) {
   const timeline = page.getByTestId('replays-timeline')
   const keys = page.getByTestId('replays-timeline-keys')
   const fullscreenButton = page.getByTestId('replays-timeline-fullscreen')
-  const controls = ['toggle', 'back', 'forward', 'fullscreen'].map((id) => page.getByTestId(`replays-timeline-${id}`))
+  const controls = ['toggle', 'back', 'forward'].map((id) => page.getByTestId(`replays-timeline-${id}`))
 
   step('start the demo')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
@@ -121,6 +121,10 @@ export default async function replaysFullscreen({ page, step, shot }) {
   await keys.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   for (const control of controls) {
     if (!(await control.isDisabled())) throw new Error('replays-fullscreen: a timeline control stays enabled in fullscreen')
+  }
+  // Story 187: no view buttons in fullscreen - the game's own "Back to window" key is the way back.
+  if ((await fullscreenButton.count()) !== 0 || (await page.getByTestId('replays-timeline-cinema').count()) !== 0) {
+    throw new Error('replays-fullscreen: a view button still shows in fullscreen')
   }
   await sleep(SETTLE_MS)
   if (count('seek +60') !== 0) throw new Error(`replays-fullscreen: a starved press ran: ${JSON.stringify(commands())}`)

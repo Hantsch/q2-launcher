@@ -10,6 +10,21 @@ import type { Outcome } from '@shared/types'
  */
 export const STAGE_FOLLOW_QUIET_MS = 250
 
+/**
+ * Frames between a geometry's set and its re-set. On Windows a `win_*` change repositions the game
+ * window from its old rect and writes that rect back into `vid_geometry` - on the next event pump and
+ * again when the resulting window messages arrive - so a geometry landing in the same control-loop
+ * pass as `win_alwaysontop` is silently undone (cinema's pin right after the click that focused the
+ * launcher). The re-set a few frames later is a no-op when the first one took (Q2PRO ignores an
+ * unchanged cvar) and puts the rect back when it did not. Measured against Q2PRO: 3 frames suffice.
+ */
+export const GEOMETRY_RESET_WAIT_FRAMES = 5
+
+/** The console line that places the game window at `geometry` and survives a same-pass `win_*` change. */
+export function geometryLine(geometry: string): string {
+  return `set vid_geometry ${geometry}; wait ${GEOMETRY_RESET_WAIT_FRAMES}; set vid_geometry ${geometry}`
+}
+
 export interface StageFollowWindow {
   contentBounds: { x: number; y: number }
   scaleFactor: number
@@ -89,7 +104,7 @@ export function createStageFollower(deps: StageFollowerDeps): StageFollower {
       else failed = true
     }
     if (desiredGeo !== sentGeo) {
-      if (deps.send(`set vid_geometry ${desiredGeo}`).ok) {
+      if (deps.send(geometryLine(desiredGeo)).ok) {
         sentGeo = desiredGeo
         sentIsPark = desiredIsPark
       } else failed = true

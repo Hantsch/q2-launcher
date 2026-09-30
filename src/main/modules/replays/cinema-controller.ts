@@ -12,8 +12,9 @@ import { NO_SESSION } from './playback-control'
  * focus from the main window, and a follower that reacted to that blur would drop (or, on the way
  * back, lift) the game against the overlay. So the order is fixed:
  *
- * - **enter**: availability, then `pin(display geometry)`, then open the overlay - the follower is
- *   pinned before the first focus change the overlay causes.
+ * - **enter**: availability, then `pin(display geometry)`, then - once the game has run the pin -
+ *   open the overlay: the follower is pinned before the first focus change the overlay causes, and
+ *   the game's own re-placement (topmost + foreground) is over before the overlay goes on top.
  * - **leave** (handler or the overlay closing on its own): close the overlay, then unpin.
  * - **fullscreen from cinema**: close the overlay but keep the pin, so the focus change reaches a
  *   pinned follower; back to the window (display `stage`) unpins, and the stage geometry is sent again.
@@ -26,6 +27,8 @@ export interface CinemaControllerDeps {
   displayGeometry: () => string
   /** The live stage session's follower pin (`null` unpins). */
   pin: (geometry: string | null) => boolean
+  /** Resolves once the lines sent so far (the pin) have run in the game. */
+  settled: () => Promise<void>
   window: Pick<CinemaWindow, 'open' | 'close' | 'isOpen' | 'onClosed'>
   /** A demo is playing (a live, unfinished session). */
   hasSession: () => boolean
@@ -97,6 +100,10 @@ export function createCinemaController(deps: CinemaControllerDeps): CinemaContro
     if (!deps.pin(deps.displayGeometry())) return fail(NO_STAGE_REASON_KEY)
     active = true
     pinned = true
+    // Placing its window raises the game over every topmost window and takes the foreground, so the
+    // overlay opens only once the game has run the pin - on top of it, and with the keyboard.
+    await deps.settled()
+    if (!active) return ok(undefined)
     try {
       await deps.window.open()
     } catch (error) {

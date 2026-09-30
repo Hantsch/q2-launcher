@@ -59,7 +59,15 @@ export function stageGeometry(
   return `${Math.round(physical.width)}x${Math.round(physical.height)}+${Math.round(physical.x)}+${Math.round(physical.y)}`
 }
 
-/** Engine args that open the game borderless, on top, at `geometry`. */
+/**
+ * Engine args that open the game borderless, on top, at `geometry`.
+ *
+ * `s_driver wave`: Q2PRO's default DMA driver on Windows is DirectSound, whose buffer (no
+ * `DSBCAPS_GLOBALFOCUS`) is muted whenever the game window lacks focus - and a staged game rarely
+ * has it: the launcher (Preview) or the cinema overlay holds the keyboard. waveOut plays regardless
+ * of focus. It only picks the DMA backend (an OpenAL setup, `s_enable 2`, is untouched) and is not
+ * archived, so it never outlives the session. Ignored off Windows (no such driver).
+ */
 export function stageLaunchArgs(geometry: string): string[] {
   return [
     '+set', 'vid_fullscreen', '0',
@@ -67,6 +75,7 @@ export function stageLaunchArgs(geometry: string): string[] {
     '+set', 'win_notitle', '1',
     '+set', 'win_alwaysontop', '1',
     '+set', 'win_noresize', '1',
+    '+set', 's_driver', 'wave',
     '+set', 'vid_geometry', geometry,
   ]
 }

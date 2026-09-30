@@ -82,6 +82,7 @@ describe('stage args', () => {
       '+set', 'win_notitle', '1',
       '+set', 'win_alwaysontop', '1',
       '+set', 'win_noresize', '1',
+      '+set', 's_driver', 'wave',
       '+set', 'vid_geometry', '640x480+10+20',
     ])
     expect(normalWindowArgs()).toEqual(['+set', 'vid_fullscreen', '0'])

@@ -1121,17 +1121,12 @@
       "back": "Back 10 seconds",
       "forward": "Forward 10 seconds",
       "fullscreen": "Fullscreen",
-      "mode": {
-        "label": "View mode",
-        "preview": "Preview",
-        "cinema": "Cinema",
-        "fullscreen": "Fullscreen"
-      },
       "stop": "Stop demo",
       "stopping": "Stopping…",
       "cinema": {
         "label": "Cinema controls",
-        "leave": "Leave cinema mode",
+        "enter": "Cinema mode",
+        "leave": "Exit cinema mode",
         "back60": "Back 60 seconds",
         "forward60": "Forward 60 seconds"
       },

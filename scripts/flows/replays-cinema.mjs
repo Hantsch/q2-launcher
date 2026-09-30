@@ -110,7 +110,7 @@ export default async function replaysCinema({ page, app, log, step, shot }) {
   }
   // The stage geometry the stub was last given before cinema pinned the display rect (AC6 compares it).
   const stageGeometry = await launchGeometry(page)
-  await page.getByTestId('replays-timeline-mode-cinema').click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('replays-timeline-cinema').click({ timeout: TIMEOUT_MS })
   const overlay = await waitForWindow(app, 'cinema.html', log)
   const root = overlay.getByTestId('cinema-root')
   await root.waitFor({ state: 'attached', timeout: TIMEOUT_MS })
@@ -184,7 +184,7 @@ export default async function replaysCinema({ page, app, log, step, shot }) {
   if (geometry().at(-1)?.slice('set vid_geometry '.length) !== stageGeometry) {
     fail(`the newest geometry after leaving is ${geometry().at(-1)}, expected the stage geometry ${stageGeometry}`)
   }
-  await waitAttr(page.getByTestId('replays-timeline-mode-preview'), 'aria-checked', 'true', 'mode after leaving', 6_000)
+  await waitAttr(page.getByTestId('replays-timeline-cinema'), 'data-mode', 'preview', 'mode after leaving', 6_000)
   await expectAppended(() => page.getByTestId('replays-timeline-forward').click({ timeout: TIMEOUT_MS }), 'seek +10', 'launcher jump')
   if (log.pageErrors.length > 0) fail(`page errors: ${JSON.stringify(log.pageErrors)}`)
 }

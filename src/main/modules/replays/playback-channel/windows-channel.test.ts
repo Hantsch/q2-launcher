@@ -283,6 +283,26 @@ describe('createWindowsChannel', () => {
     expect(controlFile()).toBe(asFile(buildControlFile([])))
   })
 
+  it('settled resolves only once every sent command is acknowledged', async () => {
+    const { ch } = makeChannel()
+    await ch.start()
+    mkdirSync(join(dir, 'logs'), { recursive: true })
+    let settled = false
+    await ch.settled()
+
+    expect(ch.send('first').ok).toBe(true)
+    expect(ch.send('second').ok).toBe(true)
+    void ch.settled().then(() => (settled = true))
+
+    appendFileSync(logPath(), `${PREFIX}ACK 1\n`)
+    await vi.advanceTimersByTimeAsync(LOG_POLL_MS)
+    expect(settled).toBe(false)
+
+    appendFileSync(logPath(), `${PREFIX}ACK 2\n`)
+    await vi.advanceTimersByTimeAsync(LOG_POLL_MS)
+    expect(settled).toBe(true)
+  })
+
   it('three quick sends are all in the control file before any ACK', async () => {
     const { ch } = makeChannel()
     await ch.start()

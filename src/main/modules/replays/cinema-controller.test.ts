@@ -9,7 +9,7 @@ import { createCinemaController } from './cinema-controller'
 const DISPLAY = '2560x1440+0+0'
 
 function setup(
-  opts: { availability?: CinemaAvailability; session?: boolean; fullscreen?: Outcome<void>; follower?: boolean; failOpen?: boolean } = {},
+  opts: { availability?: CinemaAvailability; session?: boolean; fullscreen?: Outcome<void>; follower?: boolean; failOpen?: boolean; settled?: () => Promise<void> } = {},
 ) {
   const calls: string[] = []
   const closedCbs = new Set<() => void>()
@@ -43,6 +43,7 @@ function setup(
       calls.push(`pin ${geometry}`)
       return opts.follower ?? true
     },
+    settled: opts.settled ?? (() => Promise.resolve()),
     window,
     hasSession: () => opts.session ?? true,
     enterFullscreen: () => {
@@ -66,6 +67,29 @@ describe('cinema controller', () => {
     expect(t.calls).toEqual([`pin ${DISPLAY}`, 'open', 'display'])
     expect(t.controller.isOpen()).toBe(true)
     expect(t.isOverlayOpen()).toBe(true)
+  })
+
+  it('opens the overlay only once the game has run the pin', async () => {
+    let release = (): void => undefined
+    const t = setup({ settled: () => new Promise<void>((resolve) => (release = resolve)) })
+    const entering = t.controller.set(true)
+    await Promise.resolve()
+    expect(t.calls).toEqual([`pin ${DISPLAY}`])
+    release()
+    expect(await entering).toEqual(ok(undefined))
+    expect(t.calls).toEqual([`pin ${DISPLAY}`, 'open', 'display'])
+  })
+
+  it('leaving while the pin is still on its way never opens the overlay', async () => {
+    let release = (): void => undefined
+    const t = setup({ settled: () => new Promise<void>((resolve) => (release = resolve)) })
+    const entering = t.controller.set(true)
+    await t.controller.set(false)
+    release()
+    expect(await entering).toEqual(ok(undefined))
+    expect(t.calls).toEqual([`pin ${DISPLAY}`, 'pin null', 'display'])
+    expect(t.isOverlayOpen()).toBe(false)
+    expect(t.controller.isOpen()).toBe(false)
   })
 
   it('enter refuses when unavailable', async () => {

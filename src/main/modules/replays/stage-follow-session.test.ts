@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ok } from '@shared/types'
 import type { MainWindowEvent, MainWindowObserver, MainWindowSnapshot } from '../../main-window-observer'
-import { STAGE_FOLLOW_QUIET_MS } from './stage-follow'
+import { geometryLine, STAGE_FOLLOW_QUIET_MS } from './stage-follow'
 import { createStageFollowSessions, parkGeometryAt, virtualDesktopRightEdge } from './stage-follow-session'
 
 const RECT = { x: 10, y: 20, width: 800, height: 600 }
@@ -105,7 +105,7 @@ describe('stage follow sessions', () => {
       vi.advanceTimersByTime(20)
     }
     vi.advanceTimersByTime(300)
-    expect(lines).toEqual(['set vid_geometry 800x600+1984+20', 'set vid_geometry 800x600+60+20'])
+    expect(lines).toEqual([geometryLine('800x600+1984+20'), geometryLine('800x600+60+20')])
 
     lines.length = 0
     win.set({ minimized: true })
@@ -113,7 +113,7 @@ describe('stage follow sessions', () => {
     win.set({ minimized: false })
     win.fire('restore')
     vi.advanceTimersByTime(300)
-    expect(lines).toEqual(['set vid_geometry 800x600+1984+20', 'set vid_geometry 800x600+60+20'])
+    expect(lines).toEqual([geometryLine('800x600+1984+20'), geometryLine('800x600+60+20')])
 
     lines.length = 0
     win.set({ focused: false })
@@ -130,7 +130,7 @@ describe('stage follow sessions', () => {
     sessions.report({ ...RECT, x: 40 })
     vi.advanceTimersByTime(300)
     sessions.report(null)
-    expect(lines).toEqual(['set vid_geometry 800x600+40+20', 'set vid_geometry 800x600+1984+20'])
+    expect(lines).toEqual([geometryLine('800x600+40+20'), geometryLine('800x600+1984+20')])
   })
 
   it('the end unsubscribes and silences the follower, once, and only for its own session', () => {

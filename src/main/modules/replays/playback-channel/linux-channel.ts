@@ -112,6 +112,8 @@ export function createLinuxChannel(deps: {
       safeWrite(line)
       return ok(undefined)
     },
+    // stdin lines carry no acknowledgement.
+    settled: () => Promise.resolve(),
     latest: () => ({ positionMs, paused, finished }),
     onFinished(cb) {
       finishedCbs.add(cb)

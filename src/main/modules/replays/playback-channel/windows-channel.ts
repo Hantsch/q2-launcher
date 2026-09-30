@@ -104,6 +104,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   const queue: QueuedCommand[] = []
   /** Seqs in the control file, not yet acknowledged or timed out; ascending, as seqs only grow. */
   const inFlight = new Map<number, InFlightCommand>()
+  /** `settled()` callers waiting for the queue and the control file to run empty. */
+  const settledWaiters: Array<() => void> = []
 
   let started = false
   let closed = false
@@ -343,6 +345,13 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     } catch (err) {
       log.warn(`playback channel poll failed: ${describe(err)}`)
     }
+    releaseSettled()
+  }
+
+  function releaseSettled(): void {
+    if (settledWaiters.length === 0) return
+    if (!(finished || closed || mode === 'fullscreen') && (queue.length > 0 || inFlight.size > 0)) return
+    for (const resolve of settledWaiters.splice(0)) resolve()
   }
 
   function removeStale(): void {
@@ -390,6 +399,13 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       return ok(undefined)
     },
 
+    settled() {
+      return new Promise<void>((resolve) => {
+        settledWaiters.push(resolve)
+        releaseSettled()
+      })
+    },
+
     latest() {
       return { positionMs, paused, finished }
     },
@@ -428,6 +444,7 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       inFlight.clear()
       pendingCommands.length = 0
       pendingControl = null
+      releaseSettled()
       if (!started) return
       // The game may still hold a file for a moment after it exits (Windows locks): retry once.
       // Command files still here are the ones never acknowledged (timed out, or cut off by the end).
