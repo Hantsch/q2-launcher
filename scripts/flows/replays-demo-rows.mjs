@@ -10,7 +10,7 @@
 //   replays-demo-list              ReplaysView.tsx - the `<ul>` of discovered demos
 //   replays-demo-row               DemoRow.tsx - one row, `data-demo-id` carries its id
 //   replays-demo-name              DemoRow.tsx - the row's effective name
-//   replays-demo-gamemode          DemoRow.tsx - the row's effective gamemode (+ "(guessed)" suffix)
+//   replays-demo-gamemode          DemoRow.tsx - the row's effective gamemode
 //   replays-demo-sides             DemoRow.tsx - the row's team/player sides text
 //   replays-demo-map/-mod/-date/-duration/-format   DemoRow.tsx
 //   replays-demo-favourite         DemoRow.tsx - shown only when `sidecar.values.favourite`
@@ -126,14 +126,14 @@ export default async function replaysDemoRows({ page, shot, step }) {
     }
   }
 
-  step('the two-single-player-sides row resolves gamemode "duel", guessed')
+  step('the two-single-player-sides row resolves gamemode "duel", with no guessed marker')
   await duelRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const duelGamemode = await duelRow.getByTestId('replays-demo-gamemode').textContent()
   if (!/duel/i.test(duelGamemode)) {
     throw new Error(`replays-demo-rows: duel row gamemode expected to read "duel", got "${duelGamemode}"`)
   }
-  if (!duelGamemode.toLowerCase().includes('guess')) {
-    throw new Error(`replays-demo-rows: duel row gamemode expected a guessed marker, got "${duelGamemode}"`)
+  if (duelGamemode.toLowerCase().includes('guess')) {
+    throw new Error(`replays-demo-rows: duel row gamemode must not carry a guessed marker, got "${duelGamemode}"`)
   }
 
   step('the mvd2 row with no sidecar shows demo-derived values and no sidecar markers')

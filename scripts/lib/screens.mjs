@@ -1400,7 +1400,7 @@ export const SCREENS = [
     variant: 'replays-rows',
     viewports: BOTH_VIEWPORTS,
     // Story 150+ D5: the demos list's rich rows (sidecar/effective values, markers, detail panel) -
-    // `replays-rows`'s fixture seeds one sidecar'd row, one guessed-gamemode row, a no-sidecar mvd2
+    // `replays-rows`'s fixture seeds one sidecar'd row, one heuristic-gamemode row, a no-sidecar mvd2
     // row, a broken-sidecar row and an unreadable placeholder row. Waits for `replays-demo-list` the
     // same way `replays-list` does, since the list is fetched once on mount.
     navigate: async (page) => {

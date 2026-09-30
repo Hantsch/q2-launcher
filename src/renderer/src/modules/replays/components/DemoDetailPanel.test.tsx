@@ -75,7 +75,7 @@ function renderPanel(row: DemoRow = BASE_ROW, onClose: () => void = () => {}) {
 }
 
 describe('DemoDetailPanel', () => {
-  it('the panel shows each value with its source as text', async () => {
+  it('the panel shows the name as its title and the facts without provenance', async () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: {} } } satisfies Outcome<{
       state: { state: string }
       values: Record<string, unknown>
@@ -83,16 +83,21 @@ describe('DemoDetailPanel', () => {
 
     renderPanel()
 
-    const nameField = screen.getByTestId('replays-detail-field-name')
-    expect(nameField.textContent).toContain('Grand final')
-    expect(nameField.textContent).toContain('set by you')
+    expect(screen.getByTestId('replays-detail-title').textContent).toBe('Grand final')
+    for (const id of ['name', 'source', 'format', 'host']) {
+      expect(screen.queryByTestId(`replays-detail-field-${id}`)).toBeNull()
+    }
+    const panelText = screen.getByTestId('replays-detail').textContent ?? ''
+    expect(panelText).not.toContain('What the browser knows')
+    for (const provenance of ['set by you', 'from the demo', 'from the file name', 'file time', 'guessed']) {
+      expect(panelText).not.toContain(provenance)
+    }
 
-    const mapField = screen.getByTestId('replays-detail-field-map')
-    expect(mapField.textContent).toContain('q2dm1')
-    expect(mapField.textContent).toContain('from the demo')
-
-    const sidesField = screen.getByTestId('replays-detail-field-sides')
-    expect(sidesField.textContent).toContain('Red vs Blue')
+    expect(screen.getByTestId('replays-detail-field-map').textContent).toContain('q2dm1')
+    expect(screen.getByTestId('replays-detail-field-gamemode').textContent).toContain('CTF')
+    expect(screen.getByTestId('replays-detail-field-sides').textContent).toContain('Red vs Blue')
+    expect(screen.getByTestId('replays-detail-facts-file')).toBeTruthy()
+    expect(screen.getByTestId('replays-detail-facts-match')).toBeTruthy()
 
     await waitFor(() => expect(sidecarRead).toHaveBeenCalledWith(BASE_ROW.id))
   })

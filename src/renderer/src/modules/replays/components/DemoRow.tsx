@@ -166,9 +166,6 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
             {gamemodeDescription.labelKey !== undefined
               ? t(gamemodeDescription.labelKey)
               : gamemodeDescription.text}
-            {gamemodeDescription.guessedKey !== undefined && (
-              <span className="ml-1 text-ink-muted">({t(gamemodeDescription.guessedKey)})</span>
-            )}
           </span>
           <Badge tone="neutral" testId="replays-demo-format">
             {formatLabel(row.format, row.gzip, t)}

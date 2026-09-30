@@ -112,33 +112,25 @@ export const GAMEMODE_I18N_KEYS: readonly string[] = [
   'replays.gamemode.tdm',
   'replays.gamemode.duel',
   'replays.gamemode.unknown',
-  'replays.gamemode.guessed',
 ]
 
 /** What a UI surface needs to render an `EffectiveGamemode`: either a translated-label key (known
- * id or unknown) or literal free text, plus a `guessedKey` marker present only when the value was
- * guessed rather than reported by a sidecar or the file name. */
+ * id or unknown) or literal free text. A guessed value is described like a reported one. */
 export interface GamemodeDescription {
   labelKey?: string
   text?: string
-  guessedKey?: string
 }
 
 /**
  * Describes `g` for display: a known id gets its label key, unknown (`value: null`) gets the
- * `unknown` label key, and any other free text is shown verbatim. `guessedKey` is added on top of
- * whichever of those applies, only when `g.source === 'guessed'`.
+ * `unknown` label key, and any other free text is shown verbatim. `g.source` is not consulted.
  */
 export function describeGamemode(g: EffectiveGamemode): GamemodeDescription {
-  const guessedKey = g.source === 'guessed' ? 'replays.gamemode.guessed' : undefined
-
-  if (g.value === null) {
-    return { labelKey: 'replays.gamemode.unknown', ...(guessedKey !== undefined ? { guessedKey } : {}) }
-  }
+  if (g.value === null) return { labelKey: 'replays.gamemode.unknown' }
   if ((KNOWN_GAMEMODES as readonly string[]).includes(g.value)) {
-    return { labelKey: `replays.gamemode.${g.value}`, ...(guessedKey !== undefined ? { guessedKey } : {}) }
+    return { labelKey: `replays.gamemode.${g.value}` }
   }
-  return { text: g.value, ...(guessedKey !== undefined ? { guessedKey } : {}) }
+  return { text: g.value }
 }
 
 /** The demo browser's gamemode filter: `gamemode: null` means "any"; `excludeGuessed` additionally

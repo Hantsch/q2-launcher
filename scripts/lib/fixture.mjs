@@ -2254,7 +2254,7 @@ export const REPLAYS_ROWS_ZIP_ENTRY_NAME = 'test.dm2'
 
 /** `REPLAYS_ROWS_TDM_DEMO`'s sidecar: a full, valid sidecar with two named team sides, a
  * favourite/rating pair and an explicit `gamemode` - the one row that must show every
- * "reported, not guessed" marker at once, with no `(guessed)` suffix on its gamemode. */
+ * "reported, not guessed" marker at once, with its gamemode shown plain. */
 const REPLAYS_ROWS_TDM_SIDECAR = {
   schemaVersion: 1,
   name: 'Fixture TDM Match',
@@ -2269,7 +2269,7 @@ const REPLAYS_ROWS_TDM_SIDECAR = {
 
 /** `REPLAYS_ROWS_DUEL_DEMO`'s sidecar: two single-player sides and no `gamemode` field at all, so
  * `resolveGamemode` (`src/shared/demos/gamemode.ts`) has nothing reported and falls through to its
- * `two-players-duel` heuristic - `source: 'guessed'`, the `(guessed)` marker must show. */
+ * `two-players-duel` heuristic - `source: 'guessed'`, the row shows it like a reported one, with no guessed marker. */
 const REPLAYS_ROWS_DUEL_SIDECAR = {
   schemaVersion: 1,
   sides: [{ players: ['Solo1'] }, { players: ['Solo2'] }],

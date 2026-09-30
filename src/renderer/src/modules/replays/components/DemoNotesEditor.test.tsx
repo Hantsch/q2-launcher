@@ -72,7 +72,7 @@ describe('DemoNotesEditor', () => {
         values: {},
         onRowPatched: vi.fn(),
         disabledReason: null,
-        mapField: { id: 'map', value: 'q2dm1', source: 'demo' },
+        mapField: { id: 'map', group: 'match', value: 'q2dm1', source: 'demo' },
       }),
     )
 
@@ -88,7 +88,7 @@ describe('DemoNotesEditor', () => {
         values: {},
         onRowPatched: vi.fn(),
         disabledReason: null,
-        mapField: { id: 'map', value: 'q2dm1', source: 'sidecar' },
+        mapField: { id: 'map', group: 'match', value: 'q2dm1', source: 'sidecar' },
       }),
     )
 

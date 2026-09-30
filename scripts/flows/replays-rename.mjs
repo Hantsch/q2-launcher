@@ -144,24 +144,21 @@ export default async function replaysRename({ page, app, shot, step }) {
     throw new Error(`replays-rename: expected the detail title to show final-vs-tom, got "${title}"`)
   }
   // AC7: `final-vs-tom.dm2` no longer matches the autorecord pattern that supplied `q2dm1` as a
-  // name-derived fact, so the rename writes it into the sidecar rather than losing it - the VALUE
-  // survives, but its source flips from name-derived to sidecar-set (same shape as the date field
-  // asserted two steps below), so this can no longer compare the field's full text verbatim against
-  // `mapFieldTextBeforeRename`.
+  // name-derived fact, so the rename writes it into the sidecar rather than losing it - the panel
+  // still shows the value (no provenance text any more) and the sidecar JSON carries `map` (asserted
+  // below, next to the date).
   const mapFieldTextAfterRename = await detail.getByTestId('replays-detail-field-map').textContent()
   if (!mapFieldTextAfterRename.includes('q2dm1')) {
     throw new Error(
       `replays-rename: expected the map value to survive the rename, was "${mapFieldTextBeforeRename}", now "${mapFieldTextAfterRename}"`,
     )
   }
-  if (!mapFieldTextAfterRename.toLowerCase().includes('set by you')) {
-    throw new Error(
-      `replays-rename: expected the map field's source to become sidecar-set once preserved, got "${mapFieldTextAfterRename}"`,
-    )
-  }
 
   step('the name date moves into the sidecar')
   const finalSidecar = JSON.parse(readFileSync(FINAL_SIDECAR, 'utf8'))
+  if (finalSidecar.map !== 'q2dm1') {
+    throw new Error(`replays-rename: expected the renamed sidecar to carry map "q2dm1", got ${JSON.stringify(finalSidecar.map)}`)
+  }
   if (finalSidecar.description !== ORIGINAL_DESCRIPTION) {
     throw new Error(
       `replays-rename: expected the sidecar's description to survive the rename, got "${finalSidecar.description}"`,
@@ -176,8 +173,8 @@ export default async function replaysRename({ page, app, shot, step }) {
   }
 
   const dateFieldText = await detail.getByTestId('replays-detail-field-date').textContent()
-  if (!dateFieldText.toLowerCase().includes('set by you')) {
-    throw new Error(`replays-rename: expected the date field's source label to read as sidecar-set, got "${dateFieldText}"`)
+  if (dateFieldText.trim() === '') {
+    throw new Error('replays-rename: expected the date field to show a value')
   }
 
   await shot('replays-rename')

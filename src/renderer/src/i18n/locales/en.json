@@ -1319,8 +1319,7 @@
       "ctf": "CTF",
       "tdm": "TDM",
       "duel": "Duel",
-      "unknown": "unknown",
-      "guessed": "guessed"
+      "unknown": "unknown"
     },
     "row": {
       "unknown": "Unknown",
@@ -1388,26 +1387,20 @@
     },
     "detail": {
       "close": "Close",
-      "knownSection": "What the browser knows",
       "mvd2Note": "Server-side demo with every player. Q2PRO chooses whom the camera follows — switch in game with invnext / invprev or cmd chase <player>.",
       "field": {
-        "name": "Name",
         "map": "Map",
         "mod": "Mod",
         "gamemode": "Gamemode",
         "sides": "Players",
         "date": "Recorded",
         "pov": "Point of view",
-        "host": "Host",
         "description": "Description",
         "tags": "Tags",
         "favourite": "Favourite",
         "rating": "Rating",
         "fileName": "File name",
-        "format": "Format",
-        "duration": "Length",
-        "levelName": "Level name",
-        "source": "Source"
+        "duration": "Length"
       }
     }
   },

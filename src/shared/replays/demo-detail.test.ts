@@ -63,41 +63,40 @@ function baseRow(overrides: Partial<DemoRow> = {}): DemoRow {
 }
 
 describe('buildDemoDetail', () => {
-  it('the detail lists every effective value with its source', () => {
-    const row = baseRow({
-      sidecar: { state: 'ok', values: { name: 'Grudge match', tags: ['clan-war'], favourite: true, rating: 8 } },
-    })
-
+  it('the detail lists the file facts, then the match facts, in order', () => {
+    const row = baseRow()
     const detail = buildDemoDetail(row, row.sidecar.values)
 
+    expect(detail.fields.map((f) => [f.id, f.group])).toEqual([
+      ['fileName', 'file'],
+      ['duration', 'file'],
+      ['date', 'file'],
+      ['map', 'match'],
+      ['mod', 'match'],
+      ['gamemode', 'match'],
+      ['sides', 'match'],
+      ['pov', 'match'],
+    ])
+
     const byId = new Map(detail.fields.map((f) => [f.id, f]))
+    expect(byId.get('fileName')).toMatchObject({ value: 'final.dm2', source: null })
+    expect(byId.get('duration')).toMatchObject({ value: 12_345, source: null })
+    expect(byId.get('map')).toMatchObject({ value: 'q2dm1', source: 'demo' })
 
-    expect(byId.get('name')).toEqual({ id: 'name', value: 'Grudge match', source: 'sidecar' })
-    expect(byId.get('map')).toEqual({ id: 'map', value: 'q2dm1', source: 'demo' })
-    expect(byId.get('mod')).toEqual({ id: 'mod', value: 'baseq2', source: 'demo' })
-    expect(byId.get('pov')).toEqual({ id: 'pov', value: 'Ranger', source: 'demo' })
-    expect(byId.get('sides')).toEqual({
-      id: 'sides',
-      value: [{ players: ['Ranger', 'Reaper'] }],
-      source: 'demo',
-    })
-    expect(byId.get('host')).toEqual({ id: 'host', value: 'q2dm3-host', source: 'name' })
-    expect(byId.get('tags')).toEqual({ id: 'tags', value: ['clan-war'], source: 'sidecar' })
-    expect(byId.get('favourite')).toEqual({ id: 'favourite', value: true, source: 'sidecar' })
-    expect(byId.get('rating')).toEqual({ id: 'rating', value: 8, source: 'sidecar' })
-    expect(byId.get('fileName')).toEqual({ id: 'fileName', value: 'final.dm2', source: null })
-    expect(byId.get('format')).toEqual({ id: 'format', value: 'dm2', source: null })
-    expect(byId.get('duration')).toEqual({ id: 'duration', value: 12_345, source: null })
-    expect(byId.get('source')).toEqual({
-      id: 'source',
-      value: 'installation:inst-1:baseq2',
-      source: null,
-    })
+    const ids: string[] = detail.fields.map((f) => f.id)
+    for (const removed of ['name', 'host', 'format', 'source', 'levelName', 'description', 'tags', 'favourite', 'rating']) {
+      expect(ids).not.toContain(removed)
+    }
+  })
 
-    // no description was ever set - absent entirely.
-    expect(byId.has('description')).toBe(false)
-    // levelName has no home on DemoRow at all - never present.
-    expect(byId.has('levelName')).toBe(false)
+  it('a fact with no value anywhere is omitted', () => {
+    const row = baseRow({ durationMs: undefined, pov: null, nameFacts: { map: 'q2dm3', players: [] } })
+    const detail = buildDemoDetail({ ...row, effective: { ...row.effective, pov: { value: null, source: null } } }, {})
+    const ids = detail.fields.map((f) => f.id)
+    expect(ids).not.toContain('pov')
+    expect(ids).not.toContain('duration')
+    expect(ids).toContain('fileName')
+    for (const f of detail.fields) expect(f.value).not.toBe('')
   })
 
   it('known players come from the demo and the file name, not the sidecar', () => {
@@ -133,6 +132,7 @@ describe('buildDemoDetail', () => {
     const sidesField = detail.fields.find((f) => f.id === 'sides')
     expect(sidesField).toEqual({
       id: 'sides',
+      group: 'match',
       value: [{ team: 'Red', players: ['Someone Else'] }],
       source: 'sidecar',
     })

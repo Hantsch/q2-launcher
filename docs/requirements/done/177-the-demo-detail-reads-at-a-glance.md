@@ -1,7 +1,7 @@
 ---
 id: 177
 title: The demo detail reads at a glance
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-30
 ---
 
@@ -24,18 +24,18 @@ precedence stays, only its display in the detail panel goes.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The panel header shows the demo's effective name (falling back to the file name) as
+- [x] **AC1** — The panel header shows the demo's effective name (falling back to the file name) as
       its prominent title — visibly larger/stronger than today's `text-sm` header and than the field
       values below it.
-- [ ] **AC2** — The panel shows no "What the browser knows" subheader.
-- [ ] **AC3** — The facts list shows no Name, Source or Format row.
-- [ ] **AC4** — The facts list shows, top to bottom, File name, Length, Recorded, then a visible gap,
+- [x] **AC2** — The panel shows no "What the browser knows" subheader.
+- [x] **AC3** — The facts list shows no Name, Source or Format row.
+- [x] **AC4** — The facts list shows, top to bottom, File name, Length, Recorded, then a visible gap,
       then Map, Mod, Gamemode, Players, Point of view; a fact with no value anywhere is omitted as
       today, never shown blank.
-- [ ] **AC5** — No value in the facts list carries a provenance label ("from the demo", "from the
+- [x] **AC5** — No value in the facts list carries a provenance label ("from the demo", "from the
       file name", "file time", "guessed").
-- [ ] **AC6** — The MVD2 note and the sidecar-issue list are still shown when they apply.
-- [ ] **AC7** — The demo list row's gamemode carries no "(guessed)" marker; a guessed gamemode reads
+- [x] **AC6** — The MVD2 note and the sidecar-issue list are still shown when they apply.
+- [x] **AC7** — The demo list row's gamemode carries no "(guessed)" marker; a guessed gamemode reads
       like a reported one (e.g. "Duel"). *(Added in refine from the (User) decision below.)*
 
 ## Open Questions
@@ -108,7 +108,7 @@ Build order matters for [[178]]/[[179]], which reshape the same panel afterwards
 
 ## Deliverables
 
-- **D1 — the detail model carries the seven facts in two ordered groups.**
+- [x] **D1 — the detail model carries the seven facts in two ordered groups.**
   Files: `src/shared/replays/demo-detail.ts`, `src/shared/replays/demo-detail.test.ts`.
   `buildDemoDetail(row, sidecar)` returns `fields` in exactly this order, each with a new
   `group: 'file' | 'match'` property next to `id`/`value`/`source`: `fileName` (file, `row.fileName`,
@@ -129,7 +129,7 @@ Build order matters for [[178]]/[[179]], which reshape the same panel afterwards
   Acceptance: `npx vitest run src/shared/replays/demo-detail.test.ts` green, `npm run typecheck`
   green.
 
-- **D2 — the panel reads at a glance.** Depends on D1.
+- [x] **D2 — the panel reads at a glance.** Depends on D1.
   Files: `src/renderer/src/modules/replays/components/DemoDetailPanel.tsx`,
   `DemoDetailPanel.test.tsx` (same folder), delete `ValueSourceLabel.tsx` and
   `ValueSourceLabel.test.tsx` (same folder), `src/renderer/src/i18n/locales/en.json`,
@@ -177,7 +177,7 @@ Build order matters for [[178]]/[[179]], which reshape the same panel afterwards
   `npm run ui:flow -- replays-demo-detail`, `npm run ui:flow -- replays-rename` green;
   `npm run typecheck` green.
 
-- **D3 — the list row drops "(guessed)".** Independent of D2's files except `en.json`.
+- [x] **D3 — the list row drops "(guessed)".** Independent of D2's files except `en.json`.
   Files: `src/shared/demos/gamemode.ts`, `src/shared/demos/gamemode.test.ts`,
   `src/renderer/src/modules/replays/components/DemoRow.tsx`, `DemoRow.test.tsx` (same folder),
   `src/renderer/src/i18n/locales/en.json`, `scripts/flows/replays-demo-rows.mjs`,
@@ -236,3 +236,20 @@ Coverage: AC1/AC2/AC5/AC6 → D2; AC3/AC4 → D1 + D2; AC7 → D3. Regression fl
 `replays-rename` (D2).
 
 ## Done
+
+Summary: the demo detail model now emits seven facts (file name, length, recorded | map, mod,
+gamemode, players, point of view) in two groups; the panel shows the name as a large title, two
+`<dl>` groups with a gap, no provenance labels and no subheader; the list row drops "(guessed)".
+`ValueSourceLabel` and orphaned locale keys are removed.
+
+Commit message: `177: demo detail reads at a glance — name title, file/match fact groups, no provenance labels, no "(guessed)" in row`
+
+Verification: narrow gate — `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (140 files / 1978 tests) and `npm run ui:flow -- replays-demo-detail|replays-demo-rows|replays-rename` (each run once) all green; review (default tier, 1 cycle) PASS. AC -> test as verified: AC1-AC5 -> `replays-demo-detail` flow steps + `DemoDetailPanel.test.tsx`/`demo-detail.test.ts` named tests passed; AC6 -> mvd2 flow step + kept unit tests passed; AC7 -> `replays-demo-rows` duel step + `DemoRow.test.tsx`/`gamemode.test.ts` named tests passed. No manual residue. Full gate pending (sprint's).
+
+Decisions:
+- The notes editor below the facts keeps its `replays.source.*` "(from the demo)" labels (kept per story decision); AC5 concerns the facts list, so the flow's provenance check covers title + both fact groups, while the unit test checks the whole panel.
+- `DemoNotesEditor.test.tsx` got `group: 'match'` on its field literals (typecheck only).
+- Unfixed minor review notes: the `as` cast around `describeGamemode` args in `DemoDetailPanel.tsx`, `truncate` on `<dd>` without tooltip, stale "Story 155 D1" header comment, thin "omitted" unit test (covers duration/pov only).
+- CHANGELOG entry added under `### Changed` (repo uses Keep-a-Changelog headings, not `# Features`).
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 5

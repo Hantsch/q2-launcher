@@ -13,29 +13,15 @@
 import type { DemoRow } from '../modules/replays'
 import type { SidecarFields, SidecarSide } from './sidecar'
 import { hasValue, type ValueSource } from '../demos/effective-values'
-import { demoSourceKey } from '../modules/replays'
 
-export type DetailFieldId =
-  | 'name'
-  | 'map'
-  | 'mod'
-  | 'gamemode'
-  | 'sides'
-  | 'date'
-  | 'pov'
-  | 'host'
-  | 'description'
-  | 'tags'
-  | 'favourite'
-  | 'rating'
-  | 'fileName'
-  | 'format'
-  | 'duration'
-  | 'levelName'
-  | 'source'
+export type DetailFieldId = 'fileName' | 'duration' | 'date' | 'map' | 'mod' | 'gamemode' | 'sides' | 'pov'
+
+/** The two ordered groups the detail renders: facts about the file, then facts about the match. */
+export type DetailFieldGroup = 'file' | 'match'
 
 export interface DemoDetailField {
   id: DetailFieldId
+  group: DetailFieldGroup
   value: string | number | boolean | SidecarSide[] | string[]
   source: ValueSource | null
 }
@@ -68,43 +54,28 @@ function cleanPlayerList(players: string[] | undefined): string[] {
   return result
 }
 
-/** A stable, serializable representation of a demo row's discovery source — mirrors
- * `DemoRow.tsx`'s `sourceText` (base source + archive entry), but built without i18n since this
- * module is shared/pure: `demoSourceKey` for the base, plus the archive path/entry when the row
- * came from inside a zip. */
-function sourceValue(row: DemoRow): string {
-  const base = demoSourceKey(row.source)
-  return row.archiveEntry ? `${base}#${row.archiveEntry.archivePath}!${row.archiveEntry.entryPath}` : base
-}
-
-export function buildDemoDetail(row: DemoRow, sidecar: Partial<SidecarFields>): DemoDetail {
+// `_sidecar` is unused: the sidecar's values already reach the row through `row.effective`.
+export function buildDemoDetail(row: DemoRow, _sidecar: Partial<SidecarFields>): DemoDetail {
   const fields: DemoDetailField[] = []
 
-  const push = (id: DetailFieldId, value: DemoDetailField['value'] | null | undefined, source: ValueSource | null) => {
+  const push = (
+    id: DetailFieldId,
+    group: DetailFieldGroup,
+    value: DemoDetailField['value'] | null | undefined,
+    source: ValueSource | null,
+  ) => {
     if (!hasValue(value)) return
-    fields.push({ id, value: value as DemoDetailField['value'], source })
+    fields.push({ id, group, value: value as DemoDetailField['value'], source })
   }
 
-  push('name', row.effective.name.value, row.effective.name.source)
-  push('map', row.effective.map.value, row.effective.map.source)
-  push('mod', row.effective.mod.value, row.effective.mod.source)
-  push('gamemode', row.effective.gamemode.value, row.effective.gamemode.source)
-  push('sides', row.effective.sides.value as SidecarSide[] | null, row.effective.sides.source)
-  push('date', row.effective.date.value, row.effective.date.source)
-  push('pov', row.effective.pov.value, row.effective.pov.source)
-  push('host', row.effective.host.value, row.effective.host.source)
-
-  push('description', sidecar.description, 'sidecar')
-  push('tags', sidecar.tags, 'sidecar')
-  if (sidecar.favourite === true) push('favourite', true, 'sidecar')
-  if (sidecar.rating !== undefined) push('rating', sidecar.rating, 'sidecar')
-
-  push('fileName', row.fileName, null)
-  push('format', row.format, null)
-  if (Number.isFinite(row.durationMs)) push('duration', row.durationMs as number, null)
-  // `DemoRow` has no `levelName` field of its own (it lives only on a parsed `Dm2Header`, which the
-  // row never carries) — always omitted, never shown blank.
-  push('source', sourceValue(row), null)
+  push('fileName', 'file', row.fileName, null)
+  if (Number.isFinite(row.durationMs)) push('duration', 'file', row.durationMs as number, null)
+  push('date', 'file', row.effective.date.value, row.effective.date.source)
+  push('map', 'match', row.effective.map.value, row.effective.map.source)
+  push('mod', 'match', row.effective.mod.value, row.effective.mod.source)
+  push('gamemode', 'match', row.effective.gamemode.value, row.effective.gamemode.source)
+  push('sides', 'match', row.effective.sides.value as SidecarSide[] | null, row.effective.sides.source)
+  push('pov', 'match', row.effective.pov.value, row.effective.pov.source)
 
   return {
     fields,

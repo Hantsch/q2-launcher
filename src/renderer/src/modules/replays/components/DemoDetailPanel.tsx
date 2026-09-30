@@ -4,10 +4,10 @@ import { X } from 'lucide-react'
 import type { DemoRow, SidecarState } from '@shared/modules/replays'
 import { buildDemoDetail, type DemoDetailField } from '@shared/replays/demo-detail'
 import type { SidecarSide } from '@shared/replays/sidecar'
+import { describeGamemode } from '@shared/demos/gamemode'
 import { IconButton } from '../../../components/ui/Button'
 import { sidecarRead } from '../client'
 import { sidesText, formatDemoDate } from '../row-format'
-import { ValueSourceLabel } from './ValueSourceLabel'
 import { DemoFileActions } from './DemoFileActions'
 import { DemoPlayAction } from './DemoPlayAction'
 import { DemoNotesEditor } from './DemoNotesEditor'
@@ -28,7 +28,7 @@ export interface DemoDetailPanelProps {
 const NO_OTHER_TAGS: string[][] = []
 
 /** Renders one `DemoDetailField`'s value as text - mirrors each field's own natural formatting
- * (`sidesText` for `sides`, a localised date for `date`, a joined list for `tags`) rather than a
+ * (`sidesText` for `sides`, a localised date for `date`) rather than a
  * generic `String(value)`, which would print `[object Object]` for a `sides` array. */
 function fieldValueText(
   field: DemoDetailField,
@@ -38,14 +38,17 @@ function fieldValueText(
   switch (field.id) {
     case 'sides':
       return sidesText((field.value as SidecarSide[]).map((side) => ({ ...side })))
-    case 'tags':
-      return (field.value as string[]).join(', ')
+    case 'gamemode': {
+      const { labelKey, text } = describeGamemode({
+        value: field.value as string | null,
+        source: field.source,
+      } as Parameters<typeof describeGamemode>[0])
+      return labelKey ? t(labelKey) : (text ?? '')
+    }
     case 'date': {
       const formatted = formatDemoDate(field.value as number, locale)
       return formatted ?? String(field.value)
     }
-    case 'favourite':
-      return t('replays.row.favourite')
     case 'duration': {
       const ms = field.value as number
       const totalSeconds = Math.floor(ms / 1000)
@@ -59,9 +62,8 @@ function fieldValueText(
 }
 
 /**
- * Story 155 D1: the read-only "what the browser knows" panel for a selected demo - sticky header
- * (mirrors `ServerDetailView.tsx`'s), a `<dl>` of `buildDemoDetail`'s fields each paired with its
- * `ValueSourceLabel`, and the sidecar's specific issues (when its live state is `'error'`) - the
+ * Story 155 D1: the read-only facts panel for a selected demo - sticky header
+ * (mirrors `ServerDetailView.tsx`'s), two `<dl>`s of `buildDemoDetail`'s fields (file facts, match facts), and the sidecar's specific issues (when its live state is `'error'`) - the
  * row's own `sidecar.state` only ever says `'error'`, never which problem, so this panel calls
  * `sidecarRead(row.id)` itself to get the itemized `issues` (story 147's `replays.sidecar.issue.*`
  * keys) rather than trusting the row.
@@ -91,11 +93,11 @@ export function DemoDetailPanel({
 
   return (
     <section aria-labelledby="replays-detail-title" data-testid="replays-detail">
-      <div className="sticky top-0 z-10 flex h-9 items-center justify-between gap-2 border-b border-line bg-panel px-4">
+      <div className="sticky top-0 z-10 flex min-h-12 items-center justify-between gap-2 border-b border-line bg-panel px-4 py-2">
         <h2
           id="replays-detail-title"
           data-testid="replays-detail-title"
-          className="min-w-0 truncate text-sm font-medium text-ink"
+          className="min-w-0 truncate text-lg font-semibold text-ink"
         >
           {title}
         </h2>
@@ -110,25 +112,27 @@ export function DemoDetailPanel({
       </div>
 
       <div className="space-y-4 p-4">
-        <div>
-          <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-            {t('replays.detail.knownSection')}
-          </h3>
-          <dl className="mt-2 space-y-2">
-            {detail.fields.map((field) => (
-              <div
-                key={field.id}
-                className="flex items-baseline justify-between gap-3 text-sm"
-                data-testid={`replays-detail-field-${field.id}`}
-              >
-                <dt className="text-ink-muted">{t(`replays.detail.field.${field.id}`)}</dt>
-                <dd className="flex min-w-0 items-baseline gap-2 text-right">
-                  <span className="truncate text-ink">{fieldValueText(field, t, i18n.language)}</span>
-                  <ValueSourceLabel source={field.source} />
-                </dd>
-              </div>
-            ))}
-          </dl>
+        <div className="space-y-5">
+          {(['file', 'match'] as const).map((group) => {
+            const fields = detail.fields.filter((field) => field.group === group)
+            if (fields.length === 0) return null
+            return (
+              <dl key={group} className="space-y-2" data-testid={`replays-detail-facts-${group}`}>
+                {fields.map((field) => (
+                  <div
+                    key={field.id}
+                    className="flex items-baseline justify-between gap-3 text-sm"
+                    data-testid={`replays-detail-field-${field.id}`}
+                  >
+                    <dt className="text-ink-muted">{t(`replays.detail.field.${field.id}`)}</dt>
+                    <dd className="min-w-0 truncate text-right text-ink">
+                      {fieldValueText(field, t, i18n.language)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )
+          })}
         </div>
 
         {row.format === 'mvd2' && (

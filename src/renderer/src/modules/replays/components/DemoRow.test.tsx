@@ -96,7 +96,7 @@ describe('DemoRow', () => {
     expect(screen.getByTestId('replays-demo-source').textContent).toContain('Main')
   })
 
-  it('a guessed gamemode is marked guessed', () => {
+  it('a guessed gamemode carries no guessed marker', () => {
     const row: DemoRowData = {
       ...BASE_ROW,
       effective: {
@@ -107,7 +107,8 @@ describe('DemoRow', () => {
     renderRow(row)
     const gamemode = screen.getByTestId('replays-demo-gamemode')
     expect(gamemode.textContent).toContain('Duel')
-    expect(gamemode.textContent).toContain('guessed')
+    expect(gamemode.textContent).toBe('Duel')
+    expect(gamemode.textContent).not.toContain('guessed')
   })
 
   it('favourite and rating show only when the sidecar sets them', () => {

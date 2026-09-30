@@ -112,17 +112,13 @@ describe('describeGamemode', () => {
     })
   })
 
-  it('a guessed value carries the guessed marker', () => {
+  it('a guessed value is described like a reported one', () => {
     expect(describeGamemode({ value: 'duel', source: 'guessed' })).toEqual({
       labelKey: 'replays.gamemode.duel',
-      guessedKey: 'replays.gamemode.guessed',
     })
-  })
-
-  it('sidecar and name values carry no guessed marker', () => {
-    expect(describeGamemode({ value: 'ctf', source: 'sidecar' })).toEqual({
-      labelKey: 'replays.gamemode.ctf',
-    })
+    expect(describeGamemode({ value: 'duel', source: 'sidecar' })).toEqual(
+      describeGamemode({ value: 'duel', source: 'guessed' }),
+    )
     expect(describeGamemode({ value: 'ctf', source: 'name' })).toEqual({
       labelKey: 'replays.gamemode.ctf',
     })
