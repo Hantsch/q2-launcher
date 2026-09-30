@@ -1,7 +1,7 @@
 ---
 id: 180
 title: The action bar button speaks for the tab I'm on
-status: draft # draft -> ready -> in-progress -> done
+status: ready # draft -> ready -> in-progress -> done
 created: 2026-09-30
 ---
 
@@ -50,23 +50,161 @@ would allow Play. [[181]] uses the same seam for Servers.
 
 ## Open Questions
 
-- Q1: Shell edit. CLAUDE.md says a feature never edits the shell; a module-contributed primary
+- ~~Q1: Shell edit. CLAUDE.md says a feature never edits the shell; a module-contributed primary
   action is a new shell seam (a contribution point, same spirit as settings sections). Recorded as a
-  sprint decision with this story as its reason, or a CLAUDE.md deviation row?
-- Q2: Where does the not-playable reason (AC4) sit — in the action bar's middle readout column
-  (recommended: it is empty space when nothing downloads), or under the button?
-- Q3: Label "View" vs. "Watch" for playing a demo — the user said "View". Keep it.
-- Q4: The mod-missing warning ([[159]]'s acknowledgeable reason) loses its "play anyway" button
+  sprint decision with this story as its reason, or a CLAUDE.md deviation row?~~ answered → Decisions (Sprint)
+- ~~Q2: Where does the not-playable reason (AC4) sit — in the action bar's middle readout column
+  (recommended: it is empty space when nothing downloads), or under the button?~~ answered → Decisions (Sprint)
+- ~~Q3: Label "View" vs. "Watch" for playing a demo — the user said "View". Keep it.~~ answered → Decisions (Sprint)
+- ~~Q4: The mod-missing warning ([[159]]'s acknowledgeable reason) loses its "play anyway" button
   (AC7). Proposed split: this story makes View on such a demo open a plain confirmation (Play
   anyway / Cancel), so nothing regresses; [[182]] removes the permanent paragraph and adds
-  "don't ask again" plus the Settings switch. Confirm.
+  "don't ask again" plus the Settings switch. Confirm.~~ answered → Decisions (Sprint)
+
+## Decisions (Sprint)
+
+- **(User)** Shell edit: recorded as a sprint decision (module-contributed primary action is a new shell seam; reason: this story), no CLAUDE.md deviation row
+- **(User)** Not-playable reason: sits in the action bar's middle readout column
+- **(User)** Label: "View"
+- **(User)** Mod-missing warning split: confirmed; 180 makes View on a mod-missing demo open a plain confirmation (Play anyway / Cancel); 182 removes the permanent paragraph and adds don't-ask-again + Settings switch
+- Seam shape: a module view *publishes* its action into a small shell store (`lib/primary-action.ts`) tagged with its own route, and the action bar applies it only while that route is active — the Demos rows and selection live in `ReplaysView` state, so a static registry field would force lifting them into a store for no gain.
+- A contributed action only replaces the shell's `play` case of `resolvePrimaryAction`; every other kind (busy/no installation, running, stop, write-locked, install, locate, repair) is decided before it — this is AC6 by construction.
+- The button carries the contribution's own id as `data-action` (`view` for Demos, later `join` for [[181]]) and keeps the Play icon — flows already address the button by `data-action`, and a new icon would be an unasked design change.
+- The reason (and a play error, which lost its home with the panel's Play) render in the middle readout column with ids linked by `aria-describedby`; while a note is present the column is shown at every width, because it is `hidden lg:flex` and the window's minimum width (940px) is below `lg` — otherwise AC4's visible text would vanish on a narrow window.
+- The mod-missing (acknowledgeable) reason keeps showing in the readout as a note while View stays enabled — it preserves today's information until [[182]] decides the warning's final form; the detail panel itself shows none (the whole play block leaves it).
+- The Wayland stage limit stays what it is (a stage reason, not play eligibility, [[170]]) — the story's "Wayland" mention refers to that existing behaviour, and moving it is not in the ACs.
+- While a View is in flight (stage arming + IPC) the button is disabled — same as the panel's `busy` today, so a double click cannot launch twice.
+- `replays.play.action` / `replays.play.anyway` keys are removed with their only user; `installation.action.view` = "View" joins the other action labels.
+- The existing play flows are migrated to the action bar rather than kept on a hidden button — AC7 removes the panel button, so every flow that clicked it must move.
 
 ## Plan
 
+**Seam (shell, D1).** New `src/renderer/src/lib/primary-action.ts`: a tiny zustand store
+`{ owner: string | null, action: ContributedAction | null }` plus
+`usePrimaryActionContribution(owner, action | null)` (publish in an effect, clear on unmount only if
+still the owner). `ContributedAction = { id, labelKey, disabled, reason?: LocalizedMessage,
+error?: LocalizedMessage, run(): void }`. `ActionBar.tsx`: `resolvePrimaryAction` gains a 5th input
+(the contribution, already filtered by `owner === route`) and uses it only where it would return
+`play`. `onPrimary` calls `action.run()` for kind `contributed`. The readout column renders the note
+(reason dim, error danger + `role="alert"`) and drops `hidden` while a note exists.
+
+**Demos (replays module, D2–D3).** Extract `DemoPlayAction`'s eligibility + `handlePlay`
+(stage arm/measure, `playDemo`, `beginSession`) into `modules/replays/useDemoPlay.ts`. `ReplaysView`
+calls it for the selected row and publishes `{ id: 'view', labelKey: 'installation.action.view', … }`
+under route `/replays` (disabled with no selection). `DemoDetailPanel` drops `<DemoPlayAction>`;
+the component and its test are deleted (tests move to the hook). D3 adds a module-owned
+confirmation modal for the acknowledgeable mod-missing reason: View opens it, Play anyway calls
+play with `acknowledgeModMissing`, Cancel does nothing.
+
+**Flows (D4–D6).** New flow `action-bar-view` for the tab-switching and state ACs;
+`replays-play-q2pro` rewritten onto the action bar (AC3, AC4 reason, AC9); every other flow that
+clicked `replays-demo-play` migrates to `actionbar-play[data-action="view"]`.
+
+Order: D1 → D2 → D3 → D4 → D5/D6. Note [[177]] also edits `DemoDetailPanel.tsx` this sprint — D2
+removes only the play mount, nothing else.
+
 ## Deliverables
+
+- **D1 — Shell: the primary-action contribution seam.** New `src/renderer/src/lib/primary-action.ts`
+  (store + `usePrimaryActionContribution(owner, action)` hook + `ContributedAction` type: `id`,
+  `labelKey`, `disabled`, optional `reason`/`error` as `LocalizedMessage` from `@shared/types`,
+  `run()`); clear-on-unmount only when the store's owner is still the caller's. In
+  `src/renderer/src/components/shell/ActionBar.tsx`: read `route` from `useLauncher` and the
+  contribution; pass it to `resolvePrimaryAction` only when `owner === route`; in the function, the
+  contribution replaces only the final `play` return (new kind `contributed`, tone `flame`,
+  `disabled` from the contribution); `data-action` is the contribution's `id` for that kind;
+  `onPrimary` calls `run()`. The readout column (`hidden lg:flex` div) shows the note —
+  `data-testid="actionbar-action-reason"` (text-ink-dim) / `"actionbar-action-error"` (text-danger,
+  `role="alert"`) — ahead of `LaunchReadout`, is `flex` at every width while a note exists, and the
+  button gets `aria-describedby` to the note. Add `installation.action.view` = "View" to
+  `src/renderer/src/i18n/locales/en.json`. Tests in `src/renderer/src/components/shell/ActionBar.test.tsx`
+  (mirror the existing "during a demo session …" case) and `src/renderer/src/lib/primary-action.test.ts`:
+  "a tab without a contribution shows Play and plays", "a contribution for the active route replaces
+  Play", "a contribution for another route is ignored", "installation states win over a
+  contribution" (missing → locate, invalid → repair, job → install, writeLock → writing, running →
+  running/stop), "a disabled contribution's reason is visible text", "unmount clears only its own
+  contribution".
+- **D2 — Demos: View plays the selected demo from the action bar.** New
+  `src/renderer/src/modules/replays/useDemoPlay.ts`: move `DemoPlayAction.tsx`'s eligibility call and
+  `handlePlay` unchanged (stage arm + bounded rect wait + `playDemo` + `beginSession`/`setStageReason`
+  + `disarmStage` on failure), returning `{ eligibility, busy, error, play(ack?) }` for a
+  `DemoRow | null` (null → not eligible, no reason). `src/renderer/src/modules/replays/ReplaysView.tsx`:
+  call it with the selected row (`selected`, ~:274) and publish via `usePrimaryActionContribution('/replays', …)`
+  `{ id: 'view', labelKey: 'installation.action.view', disabled: !row || !eligibility.ok || busy,
+  reason: eligibility reason when a row is selected and not ok, error, run }` — publish a stable
+  object (memoised on its fields, `run` via ref) so the effect does not loop. For now an
+  acknowledgeable reason keeps the button disabled (D3 changes that). `components/DemoDetailPanel.tsx`:
+  remove the `<DemoPlayAction>` mount (:140) and import only. Delete `components/DemoPlayAction.tsx`
+  and move its cases from `components/DemoPlayAction.test.tsx` into `useDemoPlay.test.ts`
+  (play, error, disabled reason, unsafe name). Tests: `DemoDetailPanel.test.tsx` › "the detail
+  panel has no play or play-anyway button"; `ReplaysView.test.tsx` › "selecting a playable demo
+  publishes an enabled View", "no selection publishes a disabled View", "leaving the view clears the
+  contribution". Remove `replays.play.action` from `en.json` if now unused.
+- **D3 — Demos: View on a mod-missing demo asks first.** New
+  `src/renderer/src/modules/replays/components/ModMissingConfirmDialog.tsx` mirroring
+  `components/DiscardDemoNotesDialog.tsx` (`Modal size="sm"`): title + body naming the mod
+  (`{gameDir}` param of the `modMissing` reason), buttons Cancel (`common.cancel`,
+  `data-testid="replays-mod-missing-cancel"`) and Play anyway (`replays-mod-missing-confirm`).
+  In `useDemoPlay.ts` / `ReplaysView.tsx`: an acknowledgeable reason leaves View enabled (reason
+  still published as note); `run` opens the dialog instead of playing; confirm calls
+  `play(true)`, Cancel closes and plays nothing. en.json: `replays.play.modMissingConfirm.{title,body,confirm}`;
+  remove `replays.play.anyway`. CHANGELOG.md entry under `### Changed` (Demos: View in the action
+  bar replaces the panel's Play). Tests in `ModMissingConfirmDialog.test.tsx` / `useDemoPlay.test.ts`:
+  "View on a mod-missing demo opens a confirmation naming the mod", "Cancel plays nothing",
+  "Play anyway plays with the acknowledgement".
+- **D4 — Flows: the action bar speaks for the tab.** New `scripts/flows/action-bar-view.mjs`
+  (mirror `scripts/flows/replays-play-q2pro.mjs` for setup/fixture): Home and Library → button reads
+  "Play", `data-action="play"`; Demos, no selection → "View", disabled; select a demo → enabled;
+  go to Home → "Play" at once (short timeout); on Demos `replays-demo-play`/`replays-demo-play-anyway`
+  count 0; switch the active installation to one of `repair.mjs`'s broken fixture installations
+  (`scripts/lib/fixture.mjs`) while on Demos → `data-action="repair"`. Rewrite
+  `scripts/flows/replays-play-q2pro.mjs` onto `actionbar-play[data-action="view"]`: ctf demo plays
+  with the same launch args as today; r1q2 active → disabled + "is not Q2PRO" in
+  `actionbar-action-reason`; missing-mod demo → View enabled → confirmation names `opentdm` →
+  Cancel launches nothing → Play anyway launches with `+set game opentdm`.
+- **D5 — Flows: migrate the playback flows.** Replace clicks on `replays-demo-play` with
+  `page.getByTestId('actionbar-play')` filtered to `data-action="view"` in `scripts/flows/`
+  `replays-stop.mjs`, `replays-stage.mjs`, `replays-stage-follow.mjs`, `replays-stage-overlays.mjs`,
+  `replays-stage-view-leave.mjs`, `replays-stage-unavailable.mjs`, `replays-timeline.mjs`,
+  `replays-fullscreen.mjs`. No other change; each still passes via `npm run ui:flow -- <name>`.
+- **D6 — Flows: migrate the remaining play users.** Same replacement in
+  `scripts/flows/replays-console-command.mjs`, `replays-play-mvd2.mjs`, `replays-archive-readonly.mjs`,
+  `replays-copy-in.mjs`, `replays-copy-in-not-writable.mjs`, `scripts/lib/replays-copy-in.mjs`,
+  `scripts/lib/screens.mjs` (a `replays-demo-play-reason`/`-error` reference becomes
+  `actionbar-action-reason`/`-error`). Each still passes via `npm run ui:flow -- <name>`;
+  `npm run ui:verify` stays green.
 
 ## Model Hints
 
+- D2 → deliverable-hard: the 170 stage-arm/measure sequence must survive moving out of the panel
+  into a hook that runs from an action-bar click, and publishing a per-render action object from
+  `ReplaysView` into a store is a classic render loop / stale-closure trap (a `run` that plays the
+  previously selected demo).
+
+Review: → default
+
 ## Acceptance Tests
+
+- AC1 → e2e `scripts/flows/action-bar-view.mjs` › "action-bar-view" (Home/Library read Play,
+  `data-action="play"`) + unit `src/renderer/src/components/shell/ActionBar.test.tsx` › "a tab
+  without a contribution shows Play and plays"
+- AC2 → e2e `scripts/flows/action-bar-view.mjs` › "action-bar-view" (Demos, no selection: View,
+  disabled) + unit `src/renderer/src/modules/replays/ReplaysView.test.tsx` › "no selection publishes a disabled View"
+- AC3 → e2e `scripts/flows/replays-play-q2pro.mjs` › "replays-play-q2pro" (View plays the ctf demo,
+  same launch args) + e2e `scripts/flows/replays-stage.mjs` › "replays-stage" (on the stage)
+- AC4 → e2e `scripts/flows/replays-play-q2pro.mjs` › "replays-play-q2pro" (r1q2: disabled, reason
+  in `actionbar-action-reason`) + unit `ActionBar.test.tsx` › "a disabled contribution's reason is visible text"
+- AC5 → e2e `scripts/flows/replays-stop.mjs` › "replays-stop"
+- AC6 → e2e `scripts/flows/action-bar-view.mjs` › "action-bar-view" (broken installation on Demos →
+  repair) + unit `ActionBar.test.tsx` › "installation states win over a contribution"
+- AC7 → e2e `scripts/flows/action-bar-view.mjs` › "action-bar-view" (no panel play buttons) + unit
+  `src/renderer/src/modules/replays/components/DemoDetailPanel.test.tsx` › "the detail panel has no play or play-anyway button"
+- AC8 → e2e `scripts/flows/action-bar-view.mjs` › "action-bar-view" (Demos → Home: View → Play at
+  once) + unit `ActionBar.test.tsx` › "a contribution for another route is ignored"
+- AC9 → e2e `scripts/flows/replays-play-q2pro.mjs` › "replays-play-q2pro" (confirmation names
+  opentdm; Cancel plays nothing; Play anyway plays) + unit `useDemoPlay.test.ts` › "Cancel plays nothing"
+
+Coverage: AC1 D1+D4 · AC2 D2+D4 · AC3 D2+D4 · AC4 D1+D2+D4 · AC5 D5 (unchanged shell path) ·
+AC6 D1+D4 · AC7 D2+D4 · AC8 D1+D2+D4 · AC9 D3+D4.
 
 ## Done
