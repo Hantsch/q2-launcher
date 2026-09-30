@@ -26,15 +26,36 @@
 // so: commit exactly that, or the PR runs on a different tree. Exit code 0 means every step passed;
 // anything else prints which one did not.
 //
+// The host phase runs as GitHub's Windows runner would, not as this machine does (see
+// runnerEnv()): CI/GITHUB_ACTIONS set, TZ=UTC, and a TEMP that is not its own realpath - the
+// runner's tmpdir() is an 8.3 short path (C:\Users\RUNNER~1\...), which on 2026-09-30 failed tests
+// that were green here. The host checkout pins core.autocrlf=true like the runner's git does.
+//
+// Last, the release job itself is rehearsed at the version the release would get (story 096's
+// `release.mjs --dry-run`, the same code the release job runs, minus commit/tag/publish):
+// release.yml's `build-linux` job through act - taken from release.yml itself, only its `needs`
+// replaced by the planned version - and then, on the host, the Windows build at that version
+// plus the asset check over both platforms' files.
+//
 // act and Docker are checked first, so a missing prerequisite fails in seconds rather than after
 // the ~5 min host phase. Run it by hand once dev is in the state you want to release - it is not
 // wired into any git hook on purpose: a push to dev is not a release.
 //
 // Usage: npm run verify:release [-- --base=origin/main]
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import yaml from 'js-yaml'
 import { REPO_ROOT } from './lib/paths.mjs'
 
 const IS_WIN = process.platform === 'win32'
@@ -42,6 +63,8 @@ const SNAPSHOT_ROOT = join(tmpdir(), 'q2-launcher-verify-release')
 const HOST_DIR = join(SNAPSHOT_ROOT, 'host')
 const LINUX_DIR = join(SNAPSHOT_ROOT, 'linux')
 const ARTIFACT_DIR = join(SNAPSHOT_ROOT, 'act-artifacts')
+const RELEASE_ARTIFACT_DIR = join(SNAPSHOT_ROOT, 'act-release-artifacts')
+const LINUX_ASSETS_DIR = join(SNAPSHOT_ROOT, 'linux-assets')
 // Docker's default 64 MB /dev/shm is too small for Chromium: the renderer crashes ("Target
 // crashed", "Unable to capture screenshot") on image-heavy screens. GitHub's VMs have no such cap.
 const SHM = '--shm-size=2g'
@@ -92,6 +115,84 @@ function resolveAct() {
 function removeStaleActContainers() {
   const ids = capture('docker', ['ps', '-aq', '--filter', 'name=act-'])
   if (ids) run('docker', ['rm', '-f', ...ids.split(/\s+/)])
+}
+
+/** The 8.3 short form of an existing Windows path - the path itself when the volume has none. */
+function shortPath(path) {
+  const result = spawnSync('cmd.exe', ['/d', '/s', '/c', `"for %I in ("${path}") do @echo %~sI"`], {
+    encoding: 'utf-8',
+    windowsVerbatimArguments: true,
+  })
+  return result.status === 0 && result.stdout.trim() ? result.stdout.trim() : path
+}
+
+/**
+ * The environment GitHub's runner gives every step, for the host phase. On Windows TEMP/TMP are
+ * a path that is not its own realpath, like the runner's `C:UsersRUNNER~1AppDataLocalTemp`:
+ * the 8.3 short form of a long folder name, or a junction where the volume makes no 8.3 names.
+ */
+function runnerEnv() {
+  const env = { CI: 'true', GITHUB_ACTIONS: 'true', TZ: 'UTC' }
+  if (!IS_WIN) return env
+  const realTemp = join(SNAPSHOT_ROOT, 'runneradmin-temp')
+  const link = join(SNAPSHOT_ROOT, 'runneradmin-link')
+  rmSync(link, { recursive: true, force: true })
+  rmSync(realTemp, { recursive: true, force: true })
+  mkdirSync(realTemp, { recursive: true })
+  let temp = shortPath(realTemp)
+  if (temp === realTemp) {
+    symlinkSync(realTemp, link, 'junction')
+    temp = link
+  }
+  if (realpathSync.native(temp) === temp) throw new Error(`runner TEMP ${temp} is canonical`)
+  return { ...env, TEMP: temp, TMP: temp }
+}
+
+/**
+ * Writes release.yml's `build-linux` job as a standalone workflow into the Linux snapshot and
+ * returns its path: the job exactly as release.yml has it, except that the `plan` job it needs is
+ * replaced by the version that job would have printed, and its checkout's `ref` dropped: act only
+ * copies the local tree in for a checkout without one (with one it clones from GitHub), and the
+ * snapshot already is the tree that lands on main. act's copy carries no .git, so an empty repo
+ * stands in for the one checkout leaves (no tags either: `--promote-changelog` lists them).
+ */
+function writeBuildLinuxWorkflow(version) {
+  const release = yaml.load(readFileSync(join(LINUX_DIR, '.github/workflows/release.yml'), 'utf-8'))
+  const { needs: _plan, ...job } = release.jobs['build-linux']
+  const checkout = job.steps.findIndex((step) => step.uses?.startsWith('actions/checkout@'))
+  delete job.steps[checkout].with?.ref
+  job.steps.splice(checkout + 1, 0, { run: 'git init --quiet' })
+  const text = yaml
+    .dump({
+      name: 'verify-release build-linux',
+      on: { workflow_dispatch: null },
+      jobs: { 'build-linux': job },
+    })
+    .replaceAll('${{ needs.plan.outputs.version }}', version)
+  if (text.includes('needs.')) throw new Error('build-linux uses a job output besides the version')
+  const file = join(LINUX_DIR, '.verify-release-build-linux.yml')
+  writeFileSync(file, text)
+  return file
+}
+
+/** Unpacks the `linux-release-assets` artifact act's artifact server stored into LINUX_ASSETS_DIR. */
+function extractLinuxAssets() {
+  rmSync(LINUX_ASSETS_DIR, { recursive: true, force: true })
+  mkdirSync(LINUX_ASSETS_DIR, { recursive: true })
+  const zip = readdirSync(RELEASE_ARTIFACT_DIR, { recursive: true })
+    .map((entry) => join(RELEASE_ARTIFACT_DIR, entry))
+    .find((path) => /linux-release-assets[^\\/]*\.zip$/.test(path))
+  if (!zip) {
+    console.error(`verify:release - no linux-release-assets artifact under ${RELEASE_ARTIFACT_DIR}`)
+    return false
+  }
+  // bsdtar reads zip; Git Bash's GNU tar (possibly first on the PATH) does not.
+  const tar = IS_WIN
+    ? join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'tar.exe')
+    : 'bsdtar'
+  return (
+    run(tar, ['-xf', zip, '-C', LINUX_ASSETS_DIR]) === 0 && readdirSync(LINUX_ASSETS_DIR).length > 0
+  )
 }
 
 function parseBase(argv) {
@@ -215,7 +316,7 @@ function main() {
   console.log(`verify:release - verifying ${subjectLabel} merged into ${base} ${baseSha}`)
 
   if (
-    !checkoutTree(tree, HOST_DIR, []) ||
+    !checkoutTree(tree, HOST_DIR, IS_WIN ? ['-c', 'core.autocrlf=true'] : []) ||
     !checkoutTree(tree, LINUX_DIR, ['-c', 'core.autocrlf=false'])
   ) {
     console.error('verify:release - could not check the merge tree out into the snapshot folders')
@@ -225,35 +326,49 @@ function main() {
 
   // --- host phase --------------------------------------------------------------
   const H = HOST_DIR
+  const R = runnerEnv()
+  let plannedVersion = null
   runPhase(
     'host',
     [
-      { label: 'npm ci', gate: true, run: () => npm(['ci'], H) === 0 },
+      { label: 'npm ci', gate: true, run: () => npm(['ci'], H, R) === 0 },
       {
         label: 'install Electron binary',
         gate: true,
-        run: () => run(process.execPath, ['node_modules/electron/install.js'], { cwd: H }) === 0,
+        run: () =>
+          run(process.execPath, ['node_modules/electron/install.js'], { cwd: H, env: R }) === 0,
       },
-      { label: 'typecheck', run: () => npm(['run', 'typecheck'], H) === 0 },
-      { label: 'test', run: () => npm(['test'], H) === 0 },
+      { label: 'typecheck', run: () => npm(['run', 'typecheck'], H, R) === 0 },
+      { label: 'test', run: () => npm(['test'], H, R) === 0 },
       {
         // release.yml's `plan` job, against the merged tree - but the tags live in this repo's
         // .git, which the snapshot has none of.
         label: 'release plan',
-        run: () =>
-          run(process.execPath, ['scripts/release.mjs', '--print-plan'], {
+        run: () => {
+          const result = spawnSync(process.execPath, ['scripts/release.mjs', '--print-plan'], {
             cwd: H,
-            env: { GIT_DIR: join(REPO_ROOT, '.git') },
-          }) === 0,
+            env: { ...process.env, ...R, GIT_DIR: join(REPO_ROOT, '.git') },
+            encoding: 'utf-8',
+            stdio: ['ignore', 'pipe', 'inherit'],
+          })
+          if (result.status !== 0) return false
+          plannedVersion = JSON.parse(result.stdout).version
+          console.log(`planned version: ${plannedVersion}`)
+          return true
+        },
       },
-      { label: 'ui:verify (screens + axe)', run: () => npm(['run', 'ui:verify'], H) === 0 },
-      {
-        label: IS_WIN ? 'package:win' : 'package:linux',
-        run: () =>
-          npm(['run', IS_WIN ? 'package:win' : 'package:linux'], H, {
-            CSC_IDENTITY_AUTO_DISCOVERY: 'false',
-          }) === 0,
-      },
+      { label: 'ui:verify (screens + axe)', run: () => npm(['run', 'ui:verify'], H, R) === 0 },
+      // On Windows, package:win runs in the release phase's dry run, at the planned version.
+      ...(IS_WIN
+        ? []
+        : [
+            {
+              label: 'package:linux',
+              run: () =>
+                npm(['run', 'package:linux'], H, { ...R, CSC_IDENTITY_AUTO_DISCOVERY: 'false' }) ===
+                0,
+            },
+          ]),
     ],
     results,
   )
@@ -298,9 +413,64 @@ function main() {
         label: 'linux-update.yml',
         run: () => actRun('linux-update.yml', ['--container-options', `--privileged ${SHM}`]),
       },
+      ...(IS_WIN
+        ? [
+            {
+              label: 'release.yml build-linux (planned version)',
+              run: () => {
+                if (plannedVersion === null) return false
+                rmSync(RELEASE_ARTIFACT_DIR, { recursive: true, force: true })
+                const built =
+                  run(
+                    act,
+                    [
+                      'workflow_dispatch',
+                      '-W',
+                      writeBuildLinuxWorkflow(plannedVersion),
+                      '--artifact-server-path',
+                      RELEASE_ARTIFACT_DIR,
+                      '--container-options',
+                      SHM,
+                    ],
+                    { cwd: LINUX_DIR },
+                  ) === 0
+                return built && extractLinuxAssets()
+              },
+            },
+          ]
+        : []),
     ],
     results,
   )
+
+  // --- release phase: release.yml's Release step, as a dry run -----------------
+  if (IS_WIN) {
+    runPhase(
+      'release',
+      [
+        {
+          label: "release.mjs --dry-run (package:win + both platforms' assets)",
+          run: () =>
+            plannedVersion !== null &&
+            existsSync(LINUX_ASSETS_DIR) &&
+            run(
+              process.execPath,
+              ['scripts/release.mjs', '--dry-run', '--version', plannedVersion],
+              {
+                cwd: H,
+                env: {
+                  ...R,
+                  GIT_DIR: join(REPO_ROOT, '.git'),
+                  CSC_IDENTITY_AUTO_DISCOVERY: 'false',
+                  RELEASE_EXTRA_ASSETS_DIR: LINUX_ASSETS_DIR,
+                },
+              },
+            ) === 0,
+        },
+      ],
+      results,
+    )
+  }
 
   // --- summary -----------------------------------------------------------------
   console.log(`\nverify:release summary - ${subjectLabel} merged into ${base} ${baseSha}`)

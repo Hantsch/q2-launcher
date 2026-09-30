@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ReplaysExtraFolder } from '@shared/modules/replays'
@@ -21,7 +21,9 @@ const ZIP_DEPS: ZipDeps = { extractorPath: 'unused', extractorExists: false }
 let dir: string
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'q2-launcher-discovery-'))
+  // Canonical: discovery reports realpaths, and a Windows runner's tmpdir() is an 8.3 short path
+  // (C:\Users\RUNNER~1\...) that realpath expands.
+  dir = await realpath(await mkdtemp(join(tmpdir(), 'q2-launcher-discovery-')))
 })
 
 afterEach(async () => {

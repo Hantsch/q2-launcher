@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -42,7 +42,8 @@ let root: string
 let dir: string
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-rename-'))
+  // Canonical: scan ids hash the realpath, and a Windows runner's tmpdir() is an 8.3 short path.
+  root = await realpath(await mkdtemp(join(tmpdir(), 'q2-launcher-replays-rename-')))
   dir = join(root, 'demos')
   await mkdir(dir, { recursive: true })
 })
