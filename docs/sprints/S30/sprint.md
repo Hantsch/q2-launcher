@@ -1,7 +1,7 @@
 ---
 sprint: S30
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S30 # set by /sprint
 milestone: 10.10 — Demo browser polish (lean detail, context-aware action bar)
 ---
 
