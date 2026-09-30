@@ -13,77 +13,13 @@ version section when a release actually ships.
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
 ### Added
-- **Demos** — cinema mode: watch a demo across the whole screen with video-player controls that appear when you move the mouse and fade away when you stop. Pick Preview, Cinema or Fullscreen from the timeline; Esc leaves cinema mode. Available on the primary display (not on Wayland).
+- **Demos** — new Demos view: browse every demo from your installations, folders and `.zip` archives; search, filter, sort, rename, rate and favourite them.
+- **Demos** — play a demo inside the launcher, in cinema mode over the whole screen, or fullscreen, with a timeline (pause, seek, speed) and a console field. Cinema mode is not available on Wayland.
+- **Config** — "Record every map automatically" switch in Settings and a "Demo playback" key category in Controls.
+- **Servers** — join the selected server from the big button.
 
 ### Fixed
-- **Demos** — the play button no longer flickers between play and pause while a demo plays on Windows.
-- **Servers** — an address you add from the server browser now actually lands in the game's address book, right away, without leaving the profile marked as unsaved.
-
-### Changed
-- **Demos** — while a demo plays on the stage, its details stay visible to the right of the picture, and the playback controls are larger, with the seek bar spanning the full width above them.
-- **Demos** — the game no longer captures the mouse while a demo plays in the launcher, so the controls are reachable without pressing Escape first.
-- **Demos** — the launcher's plumbing no longer scrolls over the demo, and chat shows in the game's chat HUD.
-- **Demos** — the console field only shows while a demo is playing, instead of sitting there disabled.
-- **Demos** — the demo detail now reads at a glance: the name is the big title, then file name, length and recorded time, a gap, then map, mod, gamemode, players and point of view. The "where did this value come from" labels, the duplicate name, source and format rows are gone, and a guessed gamemode in the list no longer says "(guessed)".
-- **Demos** — you edit a demo's details where you read them: Edit turns the facts into inputs in place, the name into the title field, and there is no separate "Your notes" form below any more.
-- **Demos** — favourite and a 10-star rating are one click each in the demo detail, no Edit button and no ceremony; and a quick favourite followed by a quick rating no longer lose one another.
-- **Demos** — View in the action bar now plays the selected demo, replacing the Play button in the demo detail; a demo whose mod is not fully installed asks before it plays.
-- **Demos** — the missing-mod warning asks once: tick "Don't ask again" and that mod plays straight away from then on. Settings has a switch to turn the warning off entirely and a button to forget the remembered mods.
-- **Demos** — the timeline answers your click at once: the play/pause button, the position and the speed follow what you asked for immediately, and say "Waiting for the game…" if the game takes over a second to catch up.
-- **Demos** — quick timeline clicks on Windows no longer queue behind each other: each one reaches the game straight away.
-
-### Added
-- **Servers** — join the selected server straight from the big button.
-- **Demos** — a Stop button on the timeline (and in the action bar) ends the demo and the game with one click. On Windows the stage now tells you why the game's own console stays quiet while it steers the demo.
-- **Demos** — a fullscreen button on the timeline: the demo goes fullscreen, you steer it with your keys and "Back to window" brings it home.
-- **Demos** — a demo now plays on the launcher's stage: the game window sits right over a 4:3 area of the Demos view, with the timeline and console field beneath it. On Wayland it plays in its own window and tells you why.
-- **Config** — a "record every map automatically" switch in Settings: turn it on and every map you play is recorded as a demo, on r1q2 and Q2PRO.
-- **Config** — a "Demo playback" category in the Controls tab: bind pause, jump and speed up/down to any key and steer a demo in fullscreen. Nothing is bound for you.
-- **Demos** — a console field next to the timeline: type `fov 110` or `cl_demosnaps` and it goes straight to the running demo.
-- **Demos** — a timeline under the demo list while it plays: pause, jump 10 s, click to seek, speed from 0.25× to 4×. Watch it like a video.
-- **Demos** — a demo from another installation, your own folders or even a `.zip` now plays too: the
-  launcher slips a temporary copy into your Q2PRO and tidies it away when the game ends.
-- **Demos** — a Play button on every demo that can be played: it starts your Q2PRO with the right mod
-  and `+demo`, or tells you in plain words why it can't. No more typing console commands from memory.
-- **Demos** — server-side `.mvd2` demos (and `.mvd2.gz`) play like any other, with a note on who the camera follows.
-- **Demos** now has its own home in the nav — not much to see yet, but it's there.
-- **Demos** — teach the demo browser your own file-naming patterns in Settings, alongside the
-  built-in ones.
-- The Demos view now lists demos found across every installation and game dir.
-- Add your own demo folders in Demos settings — their demos show up in the list too.
-- A `.zip` of demos no longer hides them — every demo inside gets its own row in the list,
-  marked as coming from an archive.
-- The Demos list now shows what it already knows the instant you open it, then quietly rescans
-  for anything new — no more staring at "Looking for demos…" every single time. A Refresh button
-  is there when you want to ask again yourself.
-- Each demo row now tells you what it actually is at a glance — map, mod, who played, when, how
-  long, and whether it's a favourite — with clear badges for sidecar notes, archive entries and
-  anything unreadable. Click a row to open its details.
-- The Demos list now shows live scan progress while it reads, an empty state with a link straight
-  into Settings, and calls out any demo folder or archive it couldn't read instead of quietly
-  skipping it.
-- The Demos list remembers favourites-first-then-newest by default, and you can now click any
-  column header to sort by it instead — your choice is remembered next time you open Demos.
-- Demos now has a search and filter rail — find a demo by name, player, map, tag or description,
-  or narrow the list by mod, gamemode, map, favourites and rating. Your filter is remembered next
-  time you open Demos.
-- Filter demos by date — pick Today/Last 7 days/Last 30 days, or set your own from/to range,
-  combined with every other Demos filter.
-- Make a demo yours — give it a name, a description, mod, game mode, map, date, a rating and
-  a favourite star, right in its details panel. Saved next to the demo, no rescan needed.
-- You can now star/rate a demo right from the list, no need to open it.
-- Reveal a demo in the file manager or copy its path straight from the detail panel.
-- Rename a demo from its detail panel — its notes file moves right along with it, and if the old
-  name was giving away a date or the players, that's kept safe in the notes so renaming never
-  loses it.
-- A demo inside a `.zip` now shows you plainly why you can't rename it or add notes to it, right
-  there in its detail panel — reveal and copy path still work fine.
-
-### Changed
-- **Demos** — the demo stage now moves, hides and steps aside with the launcher: drag or resize the window and the game follows, leave the view and it parks, open a dialog or menu and it gets out of the way.
-
-### Removed
-- **Demos** — the "Sorted by …" line above the list is gone; the column header already shows the sort.
+- **Servers** — an address you add from the server browser lands in the game's address book right away.
 
 ## 0.5.0 — 2026-09-26
 

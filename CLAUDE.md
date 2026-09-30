@@ -58,6 +58,12 @@ Two TS projects: `tsconfig.node.json` (main/preload/shared) and
   unavailability plus its reason are part of the feature's spec, not an implementation detail.
 
 <!-- tech-rules:managed:start 2.1.0 -->
+- **The changelog tells users what is new — short, not a story.** `CHANGELOG.md` is read by users
+  (it is baked into Settings > About). One line per user-visible feature or fix, no more than ~15
+  words of detail. A feature is one entry, not one per story: refinements, polish and fixes of
+  something still under `## Unreleased` are folded into its entry, never listed separately. No
+  internals, no "where did this come from" explanations. A release section should fit on one screen.
+
 ## House rules
 
 These rules live in this repository as project skills, so they apply to everyone who works here —
