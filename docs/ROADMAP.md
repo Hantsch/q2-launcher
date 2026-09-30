@@ -2,11 +2,11 @@
 
 ## Where we stand
 
-*As of 2026-09-29.* Phases 1–4 and 7–10 are done; 1–4 and 7–9 are merged into `dev`, Phase 10 (demo
-browser, S26–S29) sits on its sprint branches. S29 finished: the demo plays on a stage in the
-launcher, fullscreen is a choice with a way back, the timeline can stop it, the game console is quiet
-and an added server address is saved right away. Waiting on the user: merging the sprint branches
-into `dev` and the manual residue in the [S28](sprints/S28/testplan.md) and [S29](sprints/S29/testplan.md) testplans.
+*As of 2026-09-30.* Phases 1–4 and 7–9 are done; Phase 10 (demo browser) has milestones 10.1–10.9
+done (S26–S29) and one more cut: 10.10, a polish round from the user's walk-through of the Demos tab.
+Next step: `/sprint S30` — lean detail panel, star rating, and an action bar button that speaks for
+the open tab (Play / Join / View / Stop). Still waiting on the user: the manual residue in the
+[S28](sprints/done/S28/testplan.md) and [S29](sprints/done/S29/testplan.md) testplans.
 
 ## Phase overview
 
@@ -21,7 +21,7 @@ into `dev` and the manual residue in the [S28](sprints/S28/testplan.md) and [S29
 | 7 — Release & updates (beta rollout) | 1/1 | done |
 | 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
 | 9 — Game browser (server list, detail, watchlist, observing) | 7/7 | done |
-| 10 — Demo browser (library, metadata, remote-controlled playback) | 9/9 | done |
+| 10 — Demo browser (library, metadata, remote-controlled playback) | 9/10 | in progress |
 
 ## Current phase
 
@@ -29,15 +29,16 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 10.1 | Module shell & parsing — dm2/MVD2 headers, duration, file-name patterns | done 2026-09-28 | [S26](sprints/S26/review.md) | Stories 135–140; spike 133 (Windows control channel) done, go. |
+| 10.1 | Module shell & parsing — dm2/MVD2 headers, duration, file-name patterns | done 2026-09-28 | [S26](sprints/done/S26/review.md) | Stories 135–140; spike 133 (Windows control channel) done, go. |
 | 10.2 | Discovery & index — installations, extra folders, zips, incremental rescan | done 2026-09-28 | S26 | Stories 141–145. |
 | 10.3 | Sidecar & precedence | done 2026-09-28 | S26 | Stories 146–149. |
-| 10.4 | Demo list — rows, states, order, search, filters | done 2026-09-29 | [S27](sprints/S27/review.md) | Stories 150–154; 2 regressions found and fixed at the gate (152, 154). |
+| 10.4 | Demo list — rows, states, order, search, filters | done 2026-09-29 | [S27](sprints/done/S27/review.md) | Stories 150–154; 2 regressions found and fixed at the gate (152, 154). |
 | 10.5 | Detail, edit & file actions | done 2026-09-29 | S27 | Stories 155–158; 1 regression found and fixed at the gate (155); story 157's AC6 (rename while playing) is e2e-proven only once 159/S28 adds a real playback session. |
-| 10.6 | Playback — Q2PRO, copy-in, r1q2 fallback, MVD2 | done 2026-09-29 | [S28](sprints/S28/review.md) | Stories 159–162; r1q2 fallback cut to a Q2PRO-only guard. |
+| 10.6 | Playback — Q2PRO, copy-in, r1q2 fallback, MVD2 | done 2026-09-29 | [S28](sprints/done/S28/review.md) | Stories 159–162; r1q2 fallback cut to a Q2PRO-only guard. |
 | 10.7 | Timeline & binds | done 2026-09-29 | S28 | Stories 163–167. |
 | 10.8 | Auto-record setting in the config profile | done 2026-09-29 | S28 | Story 168. |
-| 10.9 | Demo plays in the launcher — windowed stage, fullscreen by choice, stop, no console flood | done 2026-09-29 | [S29](sprints/S29/review.md) | Stories 170–175 (spike 169); 2 regressions found and fixed at the gate (173, 170). |
+| 10.9 | Demo plays in the launcher — windowed stage, fullscreen by choice, stop, no console flood | done 2026-09-29 | [S29](sprints/done/S29/review.md) | Stories 170–175 (spike 169); 2 regressions found and fixed at the gate (173, 170). |
+| 10.10 | Demo browser polish — lean detail, star rating, context-aware action bar, mod warning asked once, responsive timeline | planned | [S30](sprints/S30/sprint.md) | Stories 176–185 (spike 183); from the user's UI/UX walk-through. |
 
 ## Open / unprioritised
 
@@ -50,16 +51,12 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 
 ## Follow-ups worth doing
 
-- Five flows are red at the sprint base and stay red after S29 (`replays-archive-readonly`, `replays-extra-folders`, `servers-filter-search`, `servers-master-sources`, `servers-sort-order`) — a dedicated sweep beats rediscovering them at every gate. [S29 review](sprints/S29/review.md)
-- Add `writeCatalogDefaults` to `captureBaseline` (`src/shared/config/profile-baseline.ts`): today a pending catalog-defaults toggle lands on disk with an address-book add. [S29 review](sprints/S29/review.md)
-- Stage cvar restore edges: a launcher quit while the game runs lets the stage values persist, and negative display origins (`+-X` in `vid_geometry`) are unverified against real Q2PRO. [S29 review](sprints/S29/review.md)
-- A stop whose kill succeeds but never yields an `exit` event leaves the UI on "Stopping…" (e.g. a Linux wine wrapper). [S29 review](sprints/S29/review.md)
-- Story 157's AC6 (rename while playing) can now get its real-playback e2e. [S28 review](sprints/S28/review.md)
+- Five flows are red at the sprint base and stay red after S29 (`replays-archive-readonly`, `replays-extra-folders`, `servers-filter-search`, `servers-master-sources`, `servers-sort-order`) — a dedicated sweep beats rediscovering them at every gate. [S29 review](sprints/done/S29/review.md)
+- Add `writeCatalogDefaults` to `captureBaseline` (`src/shared/config/profile-baseline.ts`): today a pending catalog-defaults toggle lands on disk with an address-book add. [S29 review](sprints/done/S29/review.md)
+- Stage cvar restore edges: a launcher quit while the game runs lets the stage values persist, and negative display origins (`+-X` in `vid_geometry`) are unverified against real Q2PRO. [S29 review](sprints/done/S29/review.md)
+- A stop whose kill succeeds but never yields an `exit` event leaves the UI on "Stopping…" (e.g. a Linux wine wrapper). [S29 review](sprints/done/S29/review.md)
+- Story 157's AC6 (rename while playing) can now get its real-playback e2e. [S28 review](sprints/done/S28/review.md)
 
-- `demo-editor-store.ts`'s `quickEdit` (fire-and-forget read-merge-write, no per-row queuing) can
-  drop a field when a favourite toggle and a rating pick fire back-to-back on the same row —
-  reproduced against unmodified code, so it predates S27's own regression and wasn't caused by it.
-  Worth its own story if `replays-row-quick-rating` starts flaking in CI. [S27 review](../sprints/S27/review.md)
 - `servers-sort-order`'s e2e flow reads rows via a `[data-testid^="servers-row-"]` selector that
   also matches `ServerRow.tsx`'s `servers-row-copy-${address}` copy-address button (added on `dev`
   before S26, commit `09c08e0`) — the flow now fails intermittently depending on render order.

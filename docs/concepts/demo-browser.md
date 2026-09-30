@@ -339,7 +339,8 @@ untested.
 - Gamemode additionally takes a **mod heuristic** (e.g. game dir `ctf` → CTF, OpenTDM pattern →
   TDM, two players → duel) after the pattern and before "unknown". A heuristic value is shown as
   **guessed**, distinct from a sidecar or pattern value. The heuristic table itself is §17.5.
-- The detail view shows where each effective value came from (sidecar / demo / name / file / guessed).
+- The detail view shows the effective values only, not where each came from — provenance was
+  noise to the user (story 177); the precedence above is unchanged.
 
 ## 9. Playback research — options weighed
 
@@ -394,8 +395,9 @@ canvas are the only routes. Not in scope.
   beyond "last 30 days" are §17.6.
 - **States:** loading (scan in progress with counts), empty ("no demos found" with a link to the
   source settings), per-source error (folder missing, unreadable).
-- **Detail / edit:** all effective values with their source, the sidecar editor, file actions
-  (reveal, copy path, rename), Play.
+- **Detail / edit:** the effective values, edited in place (one set of fields, no separate form),
+  favourite and star rating one click each, file actions (reveal, copy path, rename). Playing a
+  demo is the action bar's primary action on the Demos tab ("View"), not a button in the panel.
 
 ## 11. Playback
 
@@ -540,8 +542,8 @@ Every "no" is visible, disabled and carries its reason as text, per CLAUDE.md.
   tags, favourite, rating 1–10, date override.
 - DEMO-12 An invalid or unknown-version sidecar is reported on the demo and never overwritten
   without an explicit save.
-- DEMO-13 Effective values follow sidecar > content > name > file time; the detail view shows each
-  value's source; heuristic gamemodes are marked "guessed".
+- DEMO-13 Effective values follow sidecar > content > name > file time; the detail view shows the
+  effective value without its source (story 177).
 - DEMO-14 Rename renames demo and sidecar together, atomically from the user's point of view.
 - DEMO-15 Sidecar editing and rename are visible but disabled, with the reason, for zip entries.
 
