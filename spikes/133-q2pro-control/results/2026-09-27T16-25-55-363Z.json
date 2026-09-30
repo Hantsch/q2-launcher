@@ -1,0 +1,161 @@
+{
+  "startedAt": "2026-09-27T16:25:55.363Z",
+  "exePath": "C:\\Games\\Q2Pro\\q2pro.exe",
+  "gameDir": "C:\\Games\\Q2Pro\\opentdm",
+  "demoName": "test.dm2",
+  "waitFrames": 5,
+  "runMode": "scripted",
+  "commands": [
+    {
+      "seq": 1,
+      "command": "pause",
+      "sentAt": 1790526358604,
+      "ackedAt": 1790526358764,
+      "latencyMs": 160,
+      "posBefore": null,
+      "posAfter": null
+    },
+    {
+      "seq": 2,
+      "command": "pause",
+      "sentAt": 1790526359303,
+      "ackedAt": 1790526359856,
+      "latencyMs": 553,
+      "posBefore": null,
+      "posAfter": null
+    },
+    {
+      "seq": 3,
+      "command": "seek +10",
+      "sentAt": 1790526360373,
+      "ackedAt": 1790526360695,
+      "latencyMs": 322,
+      "posBefore": null,
+      "posAfter": null
+    },
+    {
+      "seq": 4,
+      "command": "seek -10",
+      "sentAt": 1790526361197,
+      "ackedAt": 1790526361519,
+      "latencyMs": 322,
+      "posBefore": null,
+      "posAfter": null
+    },
+    {
+      "seq": 5,
+      "command": "seek 30",
+      "sentAt": 1790526362032,
+      "ackedAt": 1790526362227,
+      "latencyMs": 195,
+      "posBefore": null,
+      "posAfter": null
+    },
+    {
+      "seq": 6,
+      "command": "timescale 2",
+      "sentAt": 1790526362730,
+      "ackedAt": 1790526362984,
+      "latencyMs": 254,
+      "posBefore": null,
+      "posAfter": null
+    },
+    {
+      "seq": 7,
+      "command": "timescale 1",
+      "sentAt": 1790526363489,
+      "ackedAt": 1790526364369,
+      "latencyMs": 880,
+      "posBefore": null,
+      "posAfter": null
+    }
+  ],
+  "posSamples": [],
+  "cpuSamples": {
+    "baseline": 0.203125,
+    "underLoad": 5.609375
+  },
+  "logGrowth": {
+    "startBytes": 129224,
+    "endBytes": 137491
+  },
+  "duplicates": [
+    {
+      "seq": 1,
+      "observedAt": "2026-09-27T16:25:59.369Z"
+    },
+    {
+      "seq": 2,
+      "observedAt": "2026-09-27T16:25:59.857Z"
+    },
+    {
+      "seq": 2,
+      "observedAt": "2026-09-27T16:25:59.857Z"
+    },
+    {
+      "seq": 2,
+      "observedAt": "2026-09-27T16:25:59.857Z"
+    },
+    {
+      "seq": 2,
+      "observedAt": "2026-09-27T16:25:59.857Z"
+    },
+    {
+      "seq": 2,
+      "observedAt": "2026-09-27T16:25:59.857Z"
+    },
+    {
+      "seq": 2,
+      "observedAt": "2026-09-27T16:26:00.440Z"
+    },
+    {
+      "seq": 3,
+      "observedAt": "2026-09-27T16:26:00.696Z"
+    },
+    {
+      "seq": 3,
+      "observedAt": "2026-09-27T16:26:00.696Z"
+    },
+    {
+      "seq": 3,
+      "observedAt": "2026-09-27T16:26:01.518Z"
+    },
+    {
+      "seq": 4,
+      "observedAt": "2026-09-27T16:26:01.520Z"
+    },
+    {
+      "seq": 4,
+      "observedAt": "2026-09-27T16:26:02.227Z"
+    },
+    {
+      "seq": 5,
+      "observedAt": "2026-09-27T16:26:02.984Z"
+    },
+    {
+      "seq": 6,
+      "observedAt": "2026-09-27T16:26:03.563Z"
+    },
+    {
+      "seq": 7,
+      "observedAt": "2026-09-27T16:26:04.370Z"
+    },
+    {
+      "seq": 7,
+      "observedAt": "2026-09-27T16:26:04.370Z"
+    },
+    {
+      "seq": 7,
+      "observedAt": "2026-09-27T16:26:04.370Z"
+    },
+    {
+      "seq": 7,
+      "observedAt": "2026-09-27T16:26:04.370Z"
+    },
+    {
+      "seq": 7,
+      "observedAt": "2026-09-27T16:26:04.370Z"
+    }
+  ],
+  "finishedAt": "2026-09-27T16:26:05.067Z"
+}

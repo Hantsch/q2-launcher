@@ -1,0 +1,197 @@
+- 2026-09-28 07:59:50 · refine · 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 · started
+- 2026-09-28 08:42:20 · refine · 135 136 137 138 139 140 141 142 143 144 145 146 147 148 149 · done
+- 2026-09-28 08:42:29 · 135 · build · started
+- 2026-09-28 08:43 · 135 · D1 shared contract, manifest, ipc-schemas · started
+- 2026-09-28 08:45 · 135 · D1 shared contract, manifest, ipc-schemas · done
+- 2026-09-28 08:45 · 135 · D2 main half · started
+- 2026-09-28 08:47 · 135 · D2 main half · done
+- 2026-09-28 08:47 · 135 · D3 renderer, nav, settings, strings, flow · started
+- 2026-09-28 08:51 · 135 · D3 renderer, nav, settings, strings, flow · done
+- 2026-09-28 08:51 · 135 · verify · started
+- 2026-09-28 08:52 · 135 · verify · done
+- 2026-09-28 08:52 · 135 · review 1 · started
+- 2026-09-28 08:54 · 135 · review 1 · done
+- 2026-09-28 08:55 · 135 · story · done
+- 2026-09-28 08:55:54 · 136 · build · started
+- 2026-09-28 08:56 · 136 · D1 pure parser + writer + tests · started
+- 2026-09-28 09:01 · 136 · D1 pure parser + writer + tests · done
+- 2026-09-28 09:01 · 136 · D2 bounded main reader + real-fixture tests · started
+- 2026-09-28 09:05 · 136 · D2 bounded main reader + real-fixture tests · done
+- 2026-09-28 09:05 · 136 · verify · started
+- 2026-09-28 09:06 · 136 · verify · done
+- 2026-09-28 09:06 · 136 · review 1 · started
+- 2026-09-28 09:08 · 136 · review 1 · done
+- 2026-09-28 09:09 · 136 · story · done
+- 2026-09-28 09:09:40 · 137 · build · started
+- 2026-09-28 09:10 · 137 · D1 pure MVD2 parser + dispatcher · started
+- 2026-09-28 09:14 · 137 · D1 pure MVD2 parser + dispatcher · done
+- 2026-09-28 09:14 · 137 · D2 main reader + real-fixture tests · started
+- 2026-09-28 09:18 · 137 · D2 main reader + real-fixture tests · done
+- 2026-09-28 09:18 · 137 · fix players-loop bound bug (found pre-review) · started
+- 2026-09-28 09:20 · 137 · fix players-loop bound bug (found pre-review) · done
+- 2026-09-28 09:20 · 137 · verify · started
+- 2026-09-28 09:21 · 137 · verify · done
+- 2026-09-28 09:21 · 137 · review 1 · started
+- 2026-09-28 09:23 · 137 · review 1 · done
+- 2026-09-28 09:24 · 137 · story · done
+- 2026-09-28 09:24:52 · 138 · build · started
+- 2026-09-28 09:25 · 138 · D1 counter core + dm2 frame counter · started
+- 2026-09-28 09:35 · 138 · D1 counter core + dm2 frame counter · done
+- 2026-09-28 09:35 · 138 · D2 mvd2 frame counter · started
+- 2026-09-28 09:35 · 138 · D3 duration formatter · started
+- 2026-09-28 09:45 · 138 · D2 mvd2 frame counter · done
+- 2026-09-28 09:45 · 138 · D3 duration formatter · done
+- 2026-09-28 09:45 · 138 · D4 main reader + concept · started
+- 2026-09-28 09:51 · 138 · D4 main reader + concept · done
+- 2026-09-28 09:51 · 138 · verify · started
+- 2026-09-28 09:53 · 138 · verify · done
+- 2026-09-28 09:53 · 138 · review 1 · started
+- 2026-09-28 09:57 · 138 · review 1 · done
+- 2026-09-28 09:57 · 138 · story · done
+- 2026-09-28 09:58:42 · 139 · build · started
+- 2026-09-28 09:59 · 139 · D1 template compiler+matcher · started
+- 2026-09-28 10:05 · 139 · D1 template compiler+matcher · done
+- 2026-09-28 10:05 · 139 · D2 shipped patterns+concept doc · started
+- 2026-09-28 10:09 · 139 · D2 shipped patterns+concept doc · done
+- 2026-09-28 10:09 · 139 · verify · started
+- 2026-09-28 10:10 · 139 · verify · done
+- 2026-09-28 10:10 · 139 · review 1 · started
+- 2026-09-28 10:14 · 139 · review 1 · done
+- 2026-09-28 10:15 · 139 · story · done
+- 2026-09-28 10:16:15 · 140 · build · started
+- 2026-09-28 10:17 · 140 · D1 pure name-template list logic · started
+- 2026-09-28 10:20 · 140 · D1 pure name-template list logic · done
+- 2026-09-28 10:20 · 140 · D2 persistence and main handlers · started
+- 2026-09-28 10:30 · 140 · D2 persistence and main handlers · done
+- 2026-09-28 10:30 · 140 · D3 settings UI, strings, flow · started
+- 2026-09-28 10:43 · 140 · D3 settings UI, strings, flow · done
+- 2026-09-28 10:43 · 140 · verify · started
+- 2026-09-28 10:47 · 140 · verify · blocked: ui:flow times out on first nav click in this environment even for pre-existing unrelated flow (servers-master-sources) — unit/vitest gate green, e2e inconclusive
+- 2026-09-28 10:47 · 140 · review 1 · started
+- 2026-09-28 10:50 · 140 · review 1 · done
+- 2026-09-28 10:50 · 140 · story · blocked: e2e (ui:flow) times out on first nav click in this environment, confirmed pre-existing via untouched servers-master-sources flow — unit/narrow gate + review green, status kept in-progress
+- 2026-09-28 10:56:09 · 140 · story · done (e2e gap, see sprint.md Notes)
+- 2026-09-28 10:56:16 · 141 · build · started
+- 2026-09-28 10:56 · 141 · D1 demos.list contract · started
+- 2026-09-28 10:58 · 141 · D1 demos.list contract · done
+- 2026-09-28 10:58 · 141 · D2 discovery core · started
+- 2026-09-28 11:04 · 141 · D2 discovery core · done
+- 2026-09-28 11:04 · 141 · D3 demos.list handler · started
+- 2026-09-28 11:06 · 141 · D3 demos.list handler · done
+- 2026-09-28 11:06 · 141 · D4 ReplaysView · started
+- 2026-09-28 11:10 · 141 · D4 ReplaysView · done
+- 2026-09-28 11:10 · 141 · D5 fixture, flow, screen · started
+- 2026-09-28 11:32 · 141 · D5 fixture, flow, screen · done
+- 2026-09-28 11:32 · 141 · verify · started
+- 2026-09-28 11:48 · 141 · verify · done (unit/typecheck/build green; e2e ui:flow/ui:verify INCONCLUSIVE — confirmed session-wide first-nav-click timeout via untouched servers-module-shell flow)
+- 2026-09-28 11:48 · 141 · review 1 · started
+- 2026-09-28 11:52 · 141 · review 1 · done (PASS, no findings; noted e2e gap already recorded in verify step)
+- 2026-09-28 11:52 · 141 · story · done
+- 2026-09-28 11:53:24 · 142 · build · started
+- 2026-09-28 11:55 · 142 · D1 state key · started
+- 2026-09-28 12:00 · 142 · D1 state key · done
+- 2026-09-28 12:00 · 142 · D2 handlers · started
+- 2026-09-28 12:05 · 142 · D2 handlers · done
+- 2026-09-28 12:05 · 142 · D3 scan · started
+- 2026-09-28 12:10 · 142 · D3 scan · done
+- 2026-09-28 12:10 · 142 · D4 settings UI · started
+- 2026-09-28 12:16 · 142 · D4 settings UI · done
+- 2026-09-28 12:16 · 142 · D5 label+e2e · started
+- 2026-09-28 12:22 · 142 · D5 label+e2e · done
+- 2026-09-28 12:22 · 142 · verify · started
+- 2026-09-28 12:25 · 142 · verify · done
+- 2026-09-28 12:25 · 142 · review 1 · started
+- 2026-09-28 12:29 · 142 · review 1 · done: FAIL - extraFolders.remove response-shape bug
+- 2026-09-28 12:30 · 142 · verify (post-fix) · started
+- 2026-09-28 12:32 · 142 · verify (post-fix) · done
+- 2026-09-28 12:33 · 142 · story · done
+- 2026-09-28 12:34:28 · 143 · build · started
+- 2026-09-28 12:35 · 143 · D1 bounded 7za zip reader · started
+- 2026-09-28 12:39 · 143 · D1 bounded 7za zip reader · done
+- 2026-09-28 12:43 · 143 · D2 zip entry expansion · started
+- 2026-09-28 12:47 · 143 · D2 zip entry expansion · done
+- 2026-09-28 12:47 · 143 · D3 discovery expands zips · started
+- 2026-09-28 12:53 · 143 · D3 discovery expands zips · done
+- 2026-09-28 12:53 · 143 · D4 archive row on surface + flow · started
+- 2026-09-28 12:58 · 143 · D4 archive row on surface + flow · done
+- 2026-09-28 12:58 · 143 · verify · started
+- 2026-09-28 13:01 · 143 · verify · blocked: layering allowlist gap in replays/index.ts + stale fixture in shared/modules/replays.test.ts
+- 2026-09-28 13:02 · 143 · verify · done (build/typecheck/vitest green after 2 fixes; e2e ui:flow INCONCLUSIVE — first-nav-click timeout, environment gap confirmed pre-existing per 140-142)
+- 2026-09-28 13:02 · 143 · review 1 · started
+- 2026-09-28 13:09 · 143 · review 1 · done: PASS, 3 low-severity non-blocking findings (unused archiveMtimeMs param, archiveErrors.code typed as string, _launcher case covered implicitly)
+- 2026-09-28 13:10 · 143 · story · done
+- 2026-09-28 13:10:46 · 144 · build · started
+- 2026-09-28 13:12 · 144 · D1 disposable index cache · started
+- 2026-09-28 13:13 · 144 · D1 disposable index cache · done
+- 2026-09-28 13:13 · 144 · D2 incremental scan core · started
+- 2026-09-28 13:15 · 144 · D2 incremental scan core · done
+- 2026-09-28 13:15 · 144 · D3 scan service, handlers, progress event · started
+- 2026-09-28 13:23 · 144 · D3 scan service, handlers, progress event · done
+- 2026-09-28 13:23 · 144 · D4 Demos view renderer wiring · started
+- 2026-09-28 13:31 · 144 · D4 Demos view renderer wiring · done
+- 2026-09-28 13:31 · 144 · verify · started
+- 2026-09-28 13:34 · 144 · verify · done (narrow gate green; name-templates.test.ts pre-existing failures unrelated; ui:flow INCONCLUSIVE environment gap)
+- 2026-09-28 13:34 · 144 · review 1 · started
+- 2026-09-28 13:38 · 144 · review 1 · done (PASS, 2 minor non-blocking findings, no fix cycle needed)
+- 2026-09-28 13:39 · 144 · story · done
+- 2026-09-28 13:42:26 · 145 · build · started
+- 2026-09-28 13:43 · 145 · build · started
+- 2026-09-28 13:43 · 145 · D1 readability projection · started
+- 2026-09-28 13:46 · 145 · D1 readability projection · done
+- 2026-09-28 13:46 · 145 · D2 index keeps unreadable demos · started
+- 2026-09-28 13:58 · 145 · D2 index keeps unreadable demos · done
+- 2026-09-28 13:58 · 145 · D3 reason to i18n mapping · started
+- 2026-09-28 14:00 · 145 · D3 reason to i18n mapping · done
+- 2026-09-28 14:00 · 145 · verify · started
+- 2026-09-28 14:01 · 145 · verify · done
+- 2026-09-28 14:01 · 145 · review 1 · started
+- 2026-09-28 14:06 · 145 · review 1 · done
+- 2026-09-28 14:07 · 145 · story · done
+- 2026-09-28 14:08:05 · 146 · build · started
+- 2026-09-28 14:09 · 146 · D1 sidecar schema, normalisation, serialisation · started
+- 2026-09-28 14:11 · 146 · D1 sidecar schema, normalisation, serialisation · done
+- 2026-09-28 14:11 · 146 · D2 main-side sidecar store · started
+- 2026-09-28 14:13 · 146 · D2 main-side sidecar store · done
+- 2026-09-28 14:13 · 146 · D3 handlers, index-resolve wiring, strings, guard tests · started
+- 2026-09-28 14:18 · 146 · D3 handlers, index-resolve wiring, strings, guard tests · done
+- 2026-09-28 14:18 · 146 · verify · started
+- 2026-09-28 14:20 · 146 · verify · done
+- 2026-09-28 14:20 · 146 · review 1 · started
+- 2026-09-28 14:23 · 146 · review 1 · done: PASS, 2 low-severity non-blocking findings
+- 2026-09-28 14:24 · 146 · story · done
+- 2026-09-28 14:24:53 · 147 · build · started
+- 2026-09-28 14:27 · 147 · build · started
+- 2026-09-28 14:27 · 147 · D1 defensive reader + contract + i18n · started
+- 2026-09-28 14:29 · 147 · D1 defensive reader + contract + i18n · done
+- 2026-09-28 14:29 · 147 · D2 index/detail carry sidecar state · started
+- 2026-09-28 14:33 · 147 · D2 index/detail carry sidecar state · done
+- 2026-09-28 14:33 · 147 · D3 save/delete confirm-replace guard · started
+- 2026-09-28 14:38 · 147 · D3 save/delete confirm-replace guard · done
+- 2026-09-28 14:38 · 147 · verify · started
+- 2026-09-28 14:41 · 147 · verify · done
+- 2026-09-28 14:41 · 147 · review 1 · started
+- 2026-09-28 14:45 · 147 · review 1 · done
+- 2026-09-28 14:46 · 147 · story · done
+- 2026-09-28 14:47:52 · 148 · build · started
+- 2026-09-28 14:49 · 148 · D1 effective-value resolver · started
+- 2026-09-28 14:51 · 148 · D1 effective-value resolver · done
+- 2026-09-28 14:51 · 148 · D2 visible source label · started
+- 2026-09-28 14:53 · 148 · D2 visible source label · done
+- 2026-09-28 14:53 · 148 · verify · started
+- 2026-09-28 14:55 · 148 · verify · done
+- 2026-09-28 14:55 · 148 · review 1 · started
+- 2026-09-28 14:58 · 148 · review 1 · done
+- 2026-09-28 14:59 · 148 · story · done
+- 2026-09-28 14:59:51 · 149 · build · started
+- 2026-09-28 15:00 · 149 · D1 gamemode resolver, heuristic table, filter predicate · started
+- 2026-09-28 15:03 · 149 · D1 gamemode resolver, heuristic table, filter predicate · done
+- 2026-09-28 15:03 · 149 · D2 wire into effective-value resolver + i18n strings · started
+- 2026-09-28 15:05 · 149 · D2 wire into effective-value resolver + i18n strings · done
+- 2026-09-28 15:05 · 149 · verify · started
+- 2026-09-28 15:07 · 149 · verify · done
+- 2026-09-28 15:07 · 149 · review 1 · started
+- 2026-09-28 15:10 · 149 · review 1 · done (PASS, no blocking findings; 2 minor non-blocking notes)
+- 2026-09-28 15:11 · 149 · story · done
+- 2026-09-28 15:12:36 · gate · short-suites · started
+- 2026-09-28 15:27:55 · gate · e2e-all · started
+- 2026-09-28 17:10:51 · gate · recorded

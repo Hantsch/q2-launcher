@@ -5,6 +5,8 @@ import {
   DEV_CSP,
   NEWS_IMAGE_PATH_PREFIX,
   PRODUCTION_CSP,
+  RENDERER_CINEMA_URL,
+  rendererCinemaUrl,
   resolveRendererSource,
 } from './renderer-source'
 
@@ -37,6 +39,19 @@ describe('resolveRendererSource', () => {
   it('picks scheme when the dev-server URL is an empty string', () => {
     const result = resolveRendererSource({ isDev: true, devServerUrl: '' })
     expect(result).toEqual({ kind: 'scheme' })
+  })
+})
+
+describe('rendererCinemaUrl', () => {
+  it('the cinema URL resolves in dev and production', () => {
+    expect(rendererCinemaUrl({ kind: 'dev-server', url: 'http://localhost:5173' })).toBe(
+      'http://localhost:5173/cinema.html',
+    )
+    expect(rendererCinemaUrl({ kind: 'dev-server', url: 'http://localhost:5173/' })).toBe(
+      'http://localhost:5173/cinema.html',
+    )
+    expect(rendererCinemaUrl({ kind: 'scheme' })).toBe('q2launcher://app/cinema.html')
+    expect(RENDERER_CINEMA_URL).toBe('q2launcher://app/cinema.html')
   })
 })
 

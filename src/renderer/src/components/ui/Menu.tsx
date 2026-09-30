@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { anchorRect } from '../../lib/anchor-rect'
 import { cn } from '../../lib/cn'
+import { useOverlayRegistration } from '../../lib/overlay-registry'
 
 /** Matches the `w-64` below. Known up front so no measurement is needed. */
 const MENU_WIDTH = 256
@@ -47,6 +48,7 @@ export function Menu({
   const menuRef = useRef<HTMLDivElement>(null)
   const [placement, setPlacement] = useState<Placement | null>(null)
   const open = placement !== null
+  useOverlayRegistration(open, menuRef)
 
   const toggle = (): void => {
     if (open) {

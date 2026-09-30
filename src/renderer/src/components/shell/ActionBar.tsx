@@ -10,6 +10,7 @@ import {
   formatSpeed,
   shortenPath,
 } from '../../lib/format'
+import { type ContributedAction, usePrimaryActionStore } from '../../lib/primary-action'
 import { isPlayable, statusTone } from '../../lib/status'
 import { useActiveInstallation, useActiveJob, useLauncher } from '../../store/useLauncher'
 import { IconButton, PlayButton } from '../ui/Button'
@@ -21,6 +22,7 @@ import { Select } from '../ui/controls'
 import { StatusDot } from '../ui/primitives'
 import { useFixAction } from '../installations/ChecksList'
 import { EngineUpdateAction } from '../../modules/downloads/engine/EngineUpdateAction'
+import { useDemoStop } from '../../modules/replays/useDemoStop'
 
 /**
  * The bottom action bar: who is selected, what is happening, and the one button
@@ -41,12 +43,29 @@ export function ActionBar() {
   const updateInstallation = useLauncher((state) => state.updateInstallation)
   const openDialog = useLauncher((state) => state.openDialog)
   const runFix = useFixAction()
+  const demo = useDemoStop()
 
-  const action = resolvePrimaryAction(installation, job, launch)
+  const route = useLauncher((state) => state.route)
+  const contribution = usePrimaryActionStore((state) =>
+    state.owner === route ? state.action : null,
+  )
+
+  const action = resolvePrimaryAction(installation, job, launch, demo, contribution)
+  const note =
+    action.kind === 'contributed' && contribution
+      ? contribution.error
+        ? { id: 'actionbar-action-error', message: contribution.error, error: true }
+        : contribution.reason
+          ? { id: 'actionbar-action-reason', message: contribution.reason, error: false }
+          : null
+      : null
 
   const onPrimary = (): void => {
     if (!installation) return
     switch (action.kind) {
+      case 'contributed':
+        contribution?.run()
+        return
       case 'play':
         void play(installation.id)
         return
@@ -60,6 +79,9 @@ export function ActionBar() {
           view: 'repair',
           installationId: installation.id,
         })
+        return
+      case 'stop':
+        void demo.stop()
         return
       case 'busy':
         return
@@ -122,7 +144,19 @@ export function ActionBar() {
       </div>
 
       {/* --- what is happening --- */}
-      <div className="hidden min-w-0 flex-1 flex-col gap-1.5 lg:flex">
+      <div
+        className={cn('min-w-0 flex-1 flex-col gap-1.5 lg:flex', note ? 'flex' : 'hidden')}
+      >
+        {note && (
+          <p
+            id={note.id}
+            data-testid={note.id}
+            {...(note.error ? { role: 'alert' } : {})}
+            className={cn('text-xs', note.error ? 'text-danger' : 'text-ink-dim')}
+          >
+            {t(note.message.key, note.message.params ?? {})}
+          </p>
+        )}
         {job ? (
           <JobReadout job={job} onCancel={() => void cancelJob(job.id)} />
         ) : (
@@ -167,7 +201,8 @@ export function ActionBar() {
               changes per `action.kind`, i.e. precisely with the state under test. */}
           <PlayButton
             data-testid="actionbar-play"
-            data-action={action.kind}
+            data-action={action.kind === 'contributed' && contribution ? contribution.id : action.kind}
+            {...(note ? { 'aria-describedby': note.id } : {})}
             tone={action.tone}
             disabled={action.disabled}
             onClick={onPrimary}
@@ -208,6 +243,7 @@ function GameDirSelect({
       <span className="stencil text-[9px]">{t('dialog.gameDir.label')}</span>
       <Select
         className="h-6 w-44 py-0 text-xs"
+        aria-label={t('dialog.gameDir.label')}
         value={installation.activeGameDir}
         onChange={(event) => onChange(event.target.value)}
         options={[
@@ -344,7 +380,7 @@ function LaunchReadout({
   )
 }
 
-type PrimaryActionKind = 'play' | 'locate' | 'repair' | 'busy'
+type PrimaryActionKind = 'play' | 'locate' | 'repair' | 'busy' | 'stop' | 'contributed'
 
 interface PrimaryAction {
   kind: PrimaryActionKind
@@ -362,8 +398,20 @@ function resolvePrimaryAction(
   installation: Installation | null,
   job: Job | null,
   launch: LaunchState,
+  demo: { active: boolean; stopping: boolean },
+  contribution: ContributedAction | null,
 ): PrimaryAction {
   if (!installation) {
+    // Story 181 D2: without an installation a tab may still name what its button would do and why
+    // it cannot - the label and reason show, the button stays disabled whatever it says.
+    if (contribution) {
+      return {
+        kind: 'contributed',
+        labelKey: contribution.labelKey,
+        tone: 'flame',
+        disabled: true,
+      }
+    }
     return { kind: 'busy', labelKey: 'installation.action.play', tone: 'flame', disabled: true }
   }
 
@@ -371,6 +419,17 @@ function resolvePrimaryAction(
     launch.installationId === installation.id &&
     (launch.phase === 'running' || launch.phase === 'starting')
   if (running) {
+    // Story 173 D3: during a demo session "Running" is the way out, not a dead end.
+    if (demo.active) {
+      return {
+        kind: 'stop',
+        labelKey: demo.stopping
+          ? 'installation.action.stopping'
+          : 'installation.action.stopDemo',
+        tone: 'danger',
+        disabled: demo.stopping,
+      }
+    }
     return {
       kind: 'busy',
       labelKey: 'installation.action.running',
@@ -421,6 +480,16 @@ function resolvePrimaryAction(
       labelKey: 'installation.action.repair',
       tone: 'neutral',
       disabled: false,
+    }
+  }
+
+  // Story 180 D1: a tab's contribution replaces only this final case; every state above wins.
+  if (contribution) {
+    return {
+      kind: 'contributed',
+      labelKey: contribution.labelKey,
+      tone: 'flame',
+      disabled: contribution.disabled,
     }
   }
 

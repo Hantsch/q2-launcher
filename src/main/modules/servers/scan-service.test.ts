@@ -390,7 +390,7 @@ describe('createScanService', () => {
         return {
           ok: true,
           kind: 'status',
-          reply: { ok: true, serverinfo: { hostname: 'Host', ctf: '1' }, players: [] },
+          reply: { ok: true, serverinfo: { hostname: 'Host', gamename: 'baseq2', ctf: '1' }, players: [] },
           rttMs: 5,
         }
       }

@@ -100,6 +100,25 @@ export const setProfileCvarsInputSchema = z.object({
   cvarSections: z.array(configCvarSectionSchema).max(64).optional(),
 })
 
+/** Story 175 D1: at most this many cvars in one `commitCvars` call - a commit names a handful of
+ * cvars the user just chose (an address list), never a whole profile's cvar map. */
+export const MAX_COMMIT_CVARS = 9
+
+/**
+ * Story 175 D1: `commitCvars`' payload. The same structural cvar name/value rules as
+ * `setProfileCvarsInputSchema` above, plus: the map must name at least one cvar (committing nothing
+ * would still be a disk write) and at most `MAX_COMMIT_CVARS`.
+ */
+export const commitProfileCvarsInputSchema = z.object({
+  profileId: z.string().min(1),
+  cvars: z
+    .record(z.string().min(1), z.string())
+    .refine((cvars) => {
+      const count = Object.keys(cvars).length
+      return count >= 1 && count <= MAX_COMMIT_CVARS
+    }, `expected between 1 and ${MAX_COMMIT_CVARS} cvars`),
+})
+
 /** Structural validation only, same rationale as `setProfileCvarsInputSchema` above. */
 export const setProfileBindsInputSchema = z.object({
   profileId: z.string().min(1),

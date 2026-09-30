@@ -244,8 +244,45 @@ export function uiHarnessDetectedRunners(input: UiHarnessGateInput): DetectedRun
   return result.data
 }
 
-/** Anything missing, unreadable or not a JSON array reads back as "nothing recorded yet". */
+/** Anything missing, unreadable or not a JSON array reads back as "nothing recorded yet" - shared
+ * by `recordHarnessRevealedPath` below. */
 async function readHarnessExternalUrls(filePath: string): Promise<string[]> {
+  return readHarnessJsonArray(filePath)
+}
+
+/**
+ * Story 156: where a harness-launched run's `demos.reveal` calls land instead of a real
+ * `shell.showItemInFolder` - so an e2e flow can prove the reveal action ran, against the right
+ * file, without a real OS file manager window popping up on the test machine. Same shape as
+ * `HARNESS_EXTERNAL_URLS_FILE`/`recordHarnessExternalUrl` right above: a test fixture, not
+ * production data - plain read-modify-write, no schema, no atomic rename.
+ */
+export const HARNESS_REVEALED_PATHS_FILE = 'ui-harness-revealed.json'
+
+/** `userData/ui-harness-revealed.json`. */
+export function harnessRevealedPathsFilePath(): string {
+  return join(userDataDir(), HARNESS_REVEALED_PATHS_FILE)
+}
+
+export interface RecordHarnessRevealedPathOptions {
+  /** Defaults to `harnessRevealedPathsFilePath()`; a parameter so a test writes to a temp path. */
+  filePath?: string
+}
+
+/** Appends `path` to the recorded list, creating the file (starting from `[]`) if it does not exist. */
+export async function recordHarnessRevealedPath(
+  path: string,
+  options: RecordHarnessRevealedPathOptions = {},
+): Promise<void> {
+  const filePath = options.filePath ?? harnessRevealedPathsFilePath()
+  const paths = await readHarnessJsonArray(filePath)
+  paths.push(path)
+  await writeFile(filePath, JSON.stringify(paths), 'utf8')
+}
+
+/** Anything missing, unreadable or not a JSON array reads back as "nothing recorded yet" - shared
+ * by `readHarnessExternalUrls` and `recordHarnessRevealedPath`. */
+async function readHarnessJsonArray(filePath: string): Promise<string[]> {
   try {
     const raw = await readFile(filePath, 'utf8')
     const parsed: unknown = JSON.parse(raw)

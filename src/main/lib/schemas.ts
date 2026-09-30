@@ -57,6 +57,24 @@ import {
   type ServersState,
   type WatchlistEntry,
 } from '@shared/modules/servers'
+import {
+  demoListSortSchema,
+  nameTemplateTextSchema,
+  storedExtraFolderSchema,
+  type ReplaysExtraFolder,
+} from '@shared/modules/replays'
+import type { DemoListSort } from '@shared/replays/list-sort'
+import {
+  EMPTY_DEMO_LIST_FILTER,
+  demoListFilterSchema,
+  normalizeDemoListFilter,
+  type DemoListFilter,
+} from '@shared/replays/list-filter'
+import {
+  DEFAULT_NAME_TEMPLATES_STATE,
+  type NameTemplatesState,
+  type StoredNameTemplate,
+} from '@shared/replays/name-templates'
 import { parseServerAddress } from '@shared/servers/address'
 import { validateMasterSourceAddress } from '@shared/servers/master-source-address'
 import { engineKindSchema, settingsObjectSchema, sourceSchema } from '@shared/schemas'
@@ -74,6 +92,7 @@ import {
 // (`modules/downloads/failure-log.ts`) and `lib/renderer-source.ts` -> `modules/home/images/paths`.
 // That file is pure and imports nothing from `lib/`, so this cannot cycle.
 import { capServerHistory } from '../modules/servers/history-log'
+import { pathKey } from './fs-utils'
 
 /**
  * Runtime validation for everything that crosses a trust boundary: the state
@@ -1449,6 +1468,167 @@ export function parseUnlockState(raw: unknown): UnlockState {
     .map((result) => result.data)
 
   return { codes: dedupeByKey(rows, (row) => row.code).slice(0, MAX_UNLOCK_CODES) }
+}
+
+/**
+ * Story 140 D2: the replays module's own top-level `state.json` key - today just `nameTemplates`
+ * (`NameTemplatesState`, `src/shared/replays/name-templates.ts`). A new top-level key, same "no
+ * `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles`/`servers`/`unlock`
+ * above: it is purely additive, and a file written before this story simply lacks it and loads as
+ * `{ nameTemplates: DEFAULT_NAME_TEMPLATES_STATE }`.
+ */
+export interface ReplaysState {
+  nameTemplates: NameTemplatesState
+  /**
+   * Story 142 D1: user-added extra demo folders, additive to this same key (same "no
+   * `STATE_SCHEMA_VERSION` bump" precedent as `nameTemplates` above) - not a second top-level key.
+   */
+  extraFolders: ReplaysExtraFolder[]
+  /** Story 152 D2: user-chosen demo list sort, same "additive, optional, no schema version bump"
+   * precedent as `ServersState.listSort` (`servers.ts`). */
+  listSort?: DemoListSort
+  /** Story 153 D3: the user's persisted demo list filter, beside `listSort` above. Unlike `listSort`
+   * this field is not optional - `EMPTY_DEMO_LIST_FILTER` (`@shared/replays/list-filter`) is itself
+   * the "no filter applied" value, so there is no absent-key state to model. */
+  listFilter: DemoListFilter
+  /** Story 182 D1: the missing-mod warning's persisted state - whether it is asked at all, and the
+   * lowercase game dirs the user said "don't ask again" for. */
+  modWarning: { enabled: boolean; trustedMods: string[] }
+}
+
+function cloneDefaultNameTemplatesState(): NameTemplatesState {
+  return structuredClone(DEFAULT_NAME_TEMPLATES_STATE)
+}
+
+const storedNameTemplateSchema = z.discriminatedUnion('kind', [
+  z.object({
+    id: z.string().min(1),
+    kind: z.literal('shipped'),
+    shippedId: z.string().min(1),
+    template: z.string().nullable(),
+  }),
+  z.object({
+    id: z.string().min(1),
+    kind: z.literal('user'),
+    template: z.string(),
+  }),
+])
+
+/**
+ * One stored name-template row. Mirrors `parseServerSourceRow`'s two-step shape: a structural zod
+ * parse first, then a second, domain-specific check - here, that a non-null `template` is text
+ * `nameTemplateTextSchema` (story 140's shared validator) would actually accept, so a hand-edited or
+ * foreign `state.json` can never smuggle in a template the compiler/matcher would choke on. A
+ * `kind: 'shipped'` row with `template: null` (never edited) skips that check - there is no text to
+ * validate.
+ */
+function parseNameTemplateRow(raw: unknown): StoredNameTemplate | null {
+  const result = storedNameTemplateSchema.safeParse(raw)
+  if (!result.success) return null
+  if (result.data.template !== null && !nameTemplateTextSchema.safeParse(result.data.template).success) {
+    return null
+  }
+  return result.data
+}
+
+const nameTemplatesStateEnvelopeSchema = z.object({
+  entries: z.array(z.unknown()).catch([]),
+  removedShippedIds: z.array(z.unknown()).catch([]),
+})
+
+function parseNameTemplatesState(raw: unknown): NameTemplatesState {
+  const envelope = nameTemplatesStateEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
+  if (!envelope.success) return cloneDefaultNameTemplatesState()
+
+  const entries = dedupeByKey(
+    envelope.data.entries
+      .map(parseNameTemplateRow)
+      .filter((row): row is StoredNameTemplate => row !== null),
+    (row) => row.id,
+  )
+  const removedShippedIds = dedupeByKey(
+    envelope.data.removedShippedIds.filter((id): id is string => typeof id === 'string'),
+    (id) => id,
+  )
+
+  return { entries, removedShippedIds }
+}
+
+const extraFoldersEnvelopeSchema = z.object({
+  extraFolders: z.array(z.unknown()).catch([]),
+})
+
+/**
+ * Story 142 D1: mirrors `parseNameTemplatesState`'s shape - a forgiving envelope parse (missing or
+ * non-array input degrades to `[]`), then row-level dropping via the shared
+ * `storedExtraFolderSchema` (one malformed row - e.g. a relative path or a missing field - costs
+ * only itself, its siblings survive), then dedupe-by-key on `pathKey(row.path)` (first occurrence
+ * wins, same convention as `dedupeByKey`'s other callers in this file) so the same folder can never
+ * appear twice under different casing/trailing-slash spellings. Pure and synchronous - no disk
+ * access, no `stat` call; whether a folder still exists is a scan-time concern, not a parse-time one.
+ */
+function parseExtraFolders(raw: unknown): ReplaysExtraFolder[] {
+  const envelope = extraFoldersEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
+  if (!envelope.success) return []
+
+  const rows = envelope.data.extraFolders
+    .map((row) => storedExtraFolderSchema.safeParse(row))
+    .filter((result): result is z.ZodSafeParseSuccess<ReplaysExtraFolder> => result.success)
+    .map((result) => result.data)
+
+  return dedupeByKey(rows, (row) => pathKey(row.path))
+}
+
+const MOD_DIR_PATTERN = /^[A-Za-z0-9_.-]{1,64}$/
+
+/** Story 182 D1: forgiving parse of `modWarning` - non-boolean `enabled` -> `true`; invalid entries
+ * dropped; game dirs lowercased and deduped. */
+function parseModWarning(raw: unknown): ReplaysState['modWarning'] {
+  const obj = raw !== null && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+  const enabled = typeof obj['enabled'] === 'boolean' ? obj['enabled'] : true
+  const list = Array.isArray(obj['trustedMods']) ? (obj['trustedMods'] as unknown[]) : []
+  const trustedMods = dedupeByKey(
+    list
+      .filter(
+        (entry): entry is string =>
+          typeof entry === 'string' && MOD_DIR_PATTERN.test(entry) && entry !== '.' && entry !== '..',
+      )
+      .map((entry) => entry.toLowerCase()),
+    (entry) => entry,
+  )
+  return { enabled, trustedMods }
+}
+
+/**
+ * Mirrors `parseServersState`'s/`parseUnlockState`'s shape exactly - `undefined`/missing input (a
+ * `state.json` predating this story) degrades to the default, and each nested collection
+ * (`nameTemplates`, `extraFolders`) is parsed by its own forgiving parser above rather than inline
+ * here, since each has its own envelope/row-level rules.
+ */
+export function parseReplaysState(raw: unknown): ReplaysState {
+  const nameTemplates = parseNameTemplatesState(
+    (raw as { nameTemplates?: unknown } | null | undefined)?.nameTemplates,
+  )
+  const extraFolders = parseExtraFolders(raw)
+
+  // Story 152 D2: `listSort` is field-level-forgiving, mirroring `parseServersState`'s handling of
+  // `ServersState.listSort` exactly - an absent or malformed value simply omits the key (default
+  // order) rather than degrading the rest of the state.
+  const listSortResult = demoListSortSchema.safeParse((raw as { listSort?: unknown } | null)?.listSort)
+  const listSort: DemoListSort | undefined = listSortResult.success ? listSortResult.data : undefined
+
+  // Story 153 D3: `listFilter` is forgiving the same way, but - unlike `listSort` - it degrades to
+  // `EMPTY_DEMO_LIST_FILTER` rather than an absent key, since that value already means "no filter".
+  const listFilterResult = demoListFilterSchema.safeParse(
+    (raw as { listFilter?: unknown } | null)?.listFilter,
+  )
+  const listFilter: DemoListFilter = listFilterResult.success
+    ? normalizeDemoListFilter(listFilterResult.data)
+    : EMPTY_DEMO_LIST_FILTER
+
+  const modWarning = parseModWarning((raw as { modWarning?: unknown } | null)?.modWarning)
+
+  return { nameTemplates, extraFolders, listFilter, modWarning, ...(listSort ? { listSort } : {}) }
 }
 
 // IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -

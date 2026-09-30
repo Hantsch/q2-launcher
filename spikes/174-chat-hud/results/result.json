@@ -1,0 +1,53 @@
+{
+  "demo": "PFAU_20221127-053327_q2dm1.mvd2",
+  "game": "opentdm",
+  "shots": [
+    "C:\\development\\Hantsch\\q2-launcher\\spikes\\174-chat-hud\\results\\shot-4s.png",
+    "C:\\development\\Hantsch\\q2-launcher\\spikes\\174-chat-hud\\results\\shot-7s.png",
+    "C:\\development\\Hantsch\\q2-launcher\\spikes\\174-chat-hud\\results\\shot-10s.png",
+    "C:\\development\\Hantsch\\q2-launcher\\spikes\\174-chat-hud\\results\\shot-13s.png",
+    "C:\\development\\Hantsch\\q2-launcher\\spikes\\174-chat-hud\\results\\shot-16s.png"
+  ],
+  "geometry": {
+    "hwnd": 5114790,
+    "window": {
+      "y": 100,
+      "w": 822,
+      "h": 656,
+      "x": 100
+    },
+    "client": {
+      "y": 145,
+      "w": 800,
+      "h": 600,
+      "x": 111
+    },
+    "topmost": true,
+    "captioned": true,
+    "foreground": true,
+    "screen": {
+      "h": 2160,
+      "w": 3840
+    }
+  },
+  "exitedCleanly": true,
+  "configRestored": true,
+  "nlLines": [
+    "NL 0 CH 1"
+  ],
+  "chatSeenInLog": [
+    "[MVD] Chasing lamb shanker.",
+    "lamb shanker: gl",
+    "lamb shanker: gl"
+  ],
+  "posSamples": [
+    "POS 0:00.0",
+    "POS 0:02.2",
+    "POS 0:04.2",
+    "POS 0:06.2",
+    "POS 0:08.2",
+    "POS 0:10.2",
+    "POS 0:12.2",
+    "POS 0:14.2"
+  ]
+}

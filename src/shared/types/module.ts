@@ -13,7 +13,15 @@
  *   4. register a renderer view in `src/renderer/src/modules/index.ts`
  *   5. add its i18n keys
  */
-export type ModuleId = 'home' | 'library' | 'config' | 'downloads' | 'mods' | 'assets' | 'servers'
+export type ModuleId =
+  | 'home'
+  | 'library'
+  | 'config'
+  | 'downloads'
+  | 'mods'
+  | 'assets'
+  | 'servers'
+  | 'replays'
 
 /**
  * What a module needs from the host. Declared up front so the shell can tell
@@ -169,9 +177,27 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     icon: 'Globe',
     route: '/servers',
     nav: { section: 'primary', order: 20 },
-    status: 'planned',
+    status: 'available',
     capabilities: ['network', 'game-lifecycle'],
     ipcNamespace: 'module:servers',
+    requiresInstallation: false,
+  },
+  {
+    id: 'replays',
+    titleKey: 'replays.module.title',
+    descriptionKey: 'replays.module.description',
+    plannedIntroKey: 'replays.planned.intro',
+    plannedHighlightKeys: [
+      'replays.planned.highlight.1',
+      'replays.planned.highlight.2',
+      'replays.planned.highlight.3',
+    ],
+    icon: 'Film',
+    route: '/replays',
+    nav: { section: 'primary', order: 25 },
+    status: 'available',
+    capabilities: ['mutates-installation', 'game-lifecycle'],
+    ipcNamespace: 'module:replays',
     requiresInstallation: false,
   },
 ]

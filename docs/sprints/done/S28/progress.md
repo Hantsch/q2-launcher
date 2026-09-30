@@ -1,0 +1,155 @@
+- 2026-09-29 09:48:21 · refine · 159-168 · started
+- 2026-09-29 09:55:51 · refine · 159-168 · done (took ~7 min)
+- 2026-09-29 09:55:51 · 159 · build · started
+- 2026-09-29 09:56 · 159 · D1 play-eligibility rule · started
+- 2026-09-29 09:57 · 159 · D1 play-eligibility rule · done
+- 2026-09-29 09:57 · 159 · D2 main demo.play handler · started
+- 2026-09-29 10:03 · 159 · D2 main demo.play handler · done
+- 2026-09-29 10:03 · 159 · D3 Play action, fixture, e2e flow · started
+- 2026-09-29 10:11 · 159 · D3 Play action, fixture, e2e flow · done
+- 2026-09-29 10:11 · 159 · verify · started
+- 2026-09-29 10:13 · 159 · verify · done
+- 2026-09-29 10:13 · 159 · review 1 · started
+- 2026-09-29 10:14 · 159 · review 1 · done
+- 2026-09-29 10:14 · 159 · story · done
+- 2026-09-29 10:14:49 · 160 · build · started
+- 2026-09-29 10:15 · 160 · D1 staging core + unit tests · started
+- 2026-09-29 10:16 · 160 · D1 staging core + unit tests · done
+- 2026-09-29 10:16 · 160 · D2 wire staging into play · started
+- 2026-09-29 10:23 · 160 · D2 wire staging into play · done
+- 2026-09-29 10:23 · 160 · D2b eligibility allows copy-in · started
+- 2026-09-29 10:24 · 160 · D2b eligibility allows copy-in · done
+- 2026-09-29 10:24 · 160 · D3 e2e flows · started
+- 2026-09-29 10:29 · 160 · D3 e2e flows · done
+- 2026-09-29 10:29 · 160 · verify · started
+- 2026-09-29 10:32 · 160 · verify · done
+- 2026-09-29 10:32 · 160 · review 1 · started
+- 2026-09-29 10:33 · 160 · review 1 · done
+- 2026-09-29 10:33 · 160 · story · done
+- 2026-09-29 10:33 · 160 · story · done
+- 2026-09-29 10:34:17 · 161 · build · started
+- 2026-09-29 10:34 · 161 · D1 main refuses non-Q2PRO demo playback · started
+- 2026-09-29 10:35 · 161 · D1 main refuses non-Q2PRO demo playback · done
+- 2026-09-29 10:35 · 161 · verify · started
+- 2026-09-29 10:36 · 161 · verify · done
+- 2026-09-29 10:36 · 161 · review 1 · started
+- 2026-09-29 10:36 · 161 · review 1 · done
+- 2026-09-29 10:36 · 161 · D1-fix review finding AC2 builder coverage · started
+- 2026-09-29 10:37 · 161 · D1-fix review finding AC2 builder coverage · done
+- 2026-09-29 10:37 · 161 · verify · started
+- 2026-09-29 10:37 · 161 · verify · done
+- 2026-09-29 10:37 · 161 · story · done
+- 2026-09-29 10:37:56 · 162 · build · started
+- 2026-09-29 10:38 · 162 · D1 MVD2 plays through 159 path · started
+- 2026-09-29 10:40 · 162 · D1 MVD2 plays through 159 path · done
+- 2026-09-29 10:40 · 162 · D2 seek command per format · started
+- 2026-09-29 10:41 · 162 · D2 seek command per format · done
+- 2026-09-29 10:41 · 162 · D3 MVD2 detail note · started
+- 2026-09-29 10:44 · 162 · D3 MVD2 detail note · done
+- 2026-09-29 10:44 · 162 · verify · started
+- 2026-09-29 10:46 · 162 · verify · done
+- 2026-09-29 10:46 · 162 · review 1 · started
+- 2026-09-29 10:46 · 162 · review 1 · done
+- 2026-09-29 10:47 · 162 · story · done
+- 2026-09-29 10:47:21 · 163 · build · started
+- 2026-09-29 10:47 · 163 · D1 playback pipes in LaunchService · started
+- 2026-09-29 10:52 · 163 · D1 playback pipes in LaunchService · done
+- 2026-09-29 10:52 · 163 · D2 quit release + no pipe via launch:start · started
+- 2026-09-29 10:52 · 163 · D2 quit release + no pipe via launch:start · done
+- 2026-09-29 10:52 · 163 · verify · started
+- 2026-09-29 10:56 · 163 · verify · done
+- 2026-09-29 10:56 · 163 · review 1 · started
+- 2026-09-29 10:56 · 163 · review 1 · done
+- 2026-09-29 10:56 · 163 · story · done
+- 2026-09-29 10:57:07 · 164 · build · started
+- 2026-09-29 10:57 · 164 · story · started
+- 2026-09-29 10:57 · 164 · D1 Channel interface and Q2PRO protocol · started
+- 2026-09-29 10:59 · 164 · D1 Channel interface and Q2PRO protocol · done
+- 2026-09-29 10:59 · 164 · D2 Windows channel · started
+- 2026-09-29 10:59 · 164 · D3 Linux channel · started
+- 2026-09-29 11:05 · 164 · D2 Windows channel · done
+- 2026-09-29 11:05 · 164 · D3 Linux channel · done
+- 2026-09-29 11:05 · 164 · D4 PlaybackControl and wiring · started
+- 2026-09-29 11:10 · 164 · D4 PlaybackControl and wiring · done
+- 2026-09-29 11:10 · 164 · verify · started
+- 2026-09-29 11:11 · 164 · verify · done
+- 2026-09-29 11:11 · 164 · review 1 · started
+- 2026-09-29 11:13 · 164 · review 1 · done
+- 2026-09-29 11:13 · 164 · review 1 fixes · started
+- 2026-09-29 11:14 · 164 · review 1 fixes · done
+- 2026-09-29 11:14 · 164 · verify 2 · started
+- 2026-09-29 11:15 · 164 · verify 2 · done
+- 2026-09-29 11:16 · 164 · story · done
+- 2026-09-29 11:16:27 · 165 · build · started
+- 2026-09-29 11:16 · 165 · D1 timeline core · started
+- 2026-09-29 11:17 · 165 · D1 timeline core · done
+- 2026-09-29 11:18 · 165 · D2 playback.timeline handler · started
+- 2026-09-29 11:20 · 165 · D2 playback.timeline handler · done
+- 2026-09-29 11:20 · 165 · D3 timeline strip · started
+- 2026-09-29 11:23 · 165 · D3 timeline strip · done
+- 2026-09-29 11:23 · 165 · D4 e2e against stub engine · started
+- 2026-09-29 11:42 · 165 · D4 e2e against stub engine · done
+- 2026-09-29 11:42 · 165 · D4 fix stale 159/162 flow launch-line expectations · started
+- 2026-09-29 11:44 · 165 · D4 fix stale 159/162 flow launch-line expectations · done
+- 2026-09-29 11:44 · 165 · verify · started
+- 2026-09-29 11:48 · 165 · verify · done
+- 2026-09-29 11:48 · 165 · review 1 · started
+- 2026-09-29 11:49 · 165 · review 1 · done
+- 2026-09-29 11:49 · 165 · review 1 fixes · started
+- 2026-09-29 11:52 · 165 · review 1 fixes · done
+- 2026-09-29 11:52 · 165 · verify 2 · started
+- 2026-09-29 11:52 · 165 · verify 2 · done
+- 2026-09-29 11:53 · 165 · story · done
+- 2026-09-29 11:53:24 · 166 · build · started
+- 2026-09-29 11:53 · 166 · D1 console-line validator · started
+- 2026-09-29 11:54 · 166 · D3 windows breakout guard · started
+- 2026-09-29 11:59 · 166 · D1 console-line validator · done
+- 2026-09-29 11:59 · 166 · D3 windows breakout guard · done
+- 2026-09-29 11:59 · 166 · D2 playbackConsoleSend contract+handler · started
+- 2026-09-29 12:01 · 166 · D2 playbackConsoleSend contract+handler · done
+- 2026-09-29 12:01 · 166 · D4 console field + flow · started
+- 2026-09-29 12:03 · 166 · D4 console field + flow · done
+- 2026-09-29 12:03 · 166 · verify · started
+- 2026-09-29 12:05 · 166 · verify · done
+- 2026-09-29 12:05 · 166 · review 1 · started
+- 2026-09-29 12:09 · 166 · review 1 · done
+- 2026-09-29 12:09 · 166 · story · done
+- 2026-09-29 12:09:54 · 167 · build · started
+- 2026-09-29 12:10 · 167 · D1 demo actions in catalog · started
+- 2026-09-29 12:11 · 167 · D1 demo actions in catalog · done
+- 2026-09-29 12:11 · 167 · D2 speed up/down · started
+- 2026-09-29 13:01 · 167 · D2 speed up/down · done
+- 2026-09-29 13:01 · 167 · D3 demo migration · started
+- 2026-09-29 13:02 · 167 · D3 demo migration · done
+- 2026-09-29 13:02 · 167 · D4 controls tab · started
+- 2026-09-29 13:10 · 167 · D4 controls tab · done
+- 2026-09-29 13:10 · 167 · verify · started
+- 2026-09-29 13:16 · 167 · verify · blocked: 4 config flows red (controls-category-rename-reorder, drop-message-checkbox, raw-save-cascades, config-header-geometry) - fixing
+- 2026-09-29 13:16 · 167 · D5 fix flow fallout · started
+- 2026-09-29 13:21 · 167 · D5 fix flow fallout · done
+- 2026-09-29 13:21 · 167 · verify · done
+- 2026-09-29 13:21 · 167 · review 1 · started
+- 2026-09-29 13:22 · 167 · review 1 · done
+- 2026-09-29 13:24 · 167 · story · done
+- 2026-09-29 13:25:20 · 168 · build · started
+- 2026-09-29 13:25 · 168 · D1 autorecord recipes shared logic · started
+- 2026-09-29 13:27 · 168 · D1 autorecord recipes shared logic · done
+- 2026-09-29 13:27 · 168 · D2 autorecord switch settings tab · started
+- 2026-09-29 13:28 · 168 · D2 autorecord switch settings tab · done
+- 2026-09-29 13:28 · 168 · D3 fixture flow changelog · started
+- 2026-09-29 13:49 · 168 · D3 fixture flow changelog · done
+- 2026-09-29 13:49 · 168 · verify · started
+- 2026-09-29 13:53 · 168 · verify · done
+- 2026-09-29 13:53 · 168 · review 1 · started
+- 2026-09-29 13:54 · 168 · review 1 · done
+- 2026-09-29 13:54 · 168 · story · done
+- 2026-09-29 13:54:54 · gate · short suites · started
+- 2026-09-29 14:00:50 · gate · short suites · done (ui:verify red: config-care-clear)
+- 2026-09-29 14:00:50 · gate · e2e-all · started
+- 2026-09-29 14:36:20 · gate · e2e-all · done (94/100, 2116s)
+- 2026-09-29 14:47:42 · gate · fix 167 · started
+2026-09-29 14:51:57 · gate · fix 167 · done
+- 2026-09-29 14:52:12 · gate · fix 159 · started
+2026-09-29 14:55:05 · gate · fix 159 · done
+- 2026-09-29 14:55:20 · gate · e2e-all (confirmation) · started
+- 2026-09-29 15:30:36 · gate · e2e-all (confirmation) · done

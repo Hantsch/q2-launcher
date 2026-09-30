@@ -18,13 +18,20 @@
  */
 
 import type { ActionCategoryId, DroppableDef } from '@shared/config/action-catalog'
-import { DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
+import { DEMO_ACTIONS, DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
 import type { ConfigCommand } from '@shared/modules/config'
 
 /** Which catalogue family a row was built from - used only to namespace `catalogId`s so two
  * different families' entries (e.g. movement's `attack` and a droppable named `attack`) can
  * never collide. */
-export type CatalogRowKind = 'movement' | 'weaponUse' | 'weaponExtra' | 'dropWeapon' | 'dropAmmo' | 'dropMisc'
+export type CatalogRowKind =
+  | 'movement'
+  | 'weaponUse'
+  | 'weaponExtra'
+  | 'dropWeapon'
+  | 'dropAmmo'
+  | 'dropMisc'
+  | 'demo'
 
 /**
  * The three `CatalogRowKind`s that make a row a *drop* row (story 055). Typed as a set of plain
@@ -68,6 +75,9 @@ export interface CatalogRow {
   /** Mirrors `Action.continuous` for movement rows - a `+command` press/release pair that must
    * never share a key with another command. */
   continuous?: boolean
+  /** Stored name when the raw command is not a usable one: `seek -10` and `seek +10` would both derive
+   * the alias `seek_10`, so demo rows are named by their own label. */
+  name?: string
 }
 
 function makeCatalogId(kind: CatalogRowKind, id: string): string {
@@ -102,6 +112,17 @@ export function buildWeaponRows(): { useRows: CatalogRow[]; extraRows: CatalogRo
       commands: [action.command],
     })),
   }
+}
+
+/** One row per `DEMO_ACTIONS` entry (story 167) - no ammo choice, no message. */
+export function buildDemoRows(): CatalogRow[] {
+  return DEMO_ACTIONS.map((action) => ({
+    catalogId: makeCatalogId('demo', action.id),
+    categoryId: 'demo',
+    name: action.label,
+    // Speed rows (D2) carry their `if` checks as separate commands, like a drop row's pair.
+    commands: action.commands ? [...action.commands] : [action.command],
+  }))
 }
 
 function dropRow(kind: CatalogRowKind, droppable: DroppableDef): CatalogRow {
@@ -140,7 +161,7 @@ export function buildDropGroups(): { weapon: CatalogRow[]; ammo: CatalogRow[]; m
 export function allCatalogRows(): CatalogRow[] {
   const { useRows, extraRows } = buildWeaponRows()
   const drops = buildDropGroups()
-  return [...buildMovementRows(), ...useRows, ...extraRows, ...drops.weapon, ...drops.ammo, ...drops.misc]
+  return [...buildMovementRows(), ...useRows, ...extraRows, ...drops.weapon, ...drops.ammo, ...drops.misc, ...buildDemoRows()]
 }
 
 /** Plain, non-translated, stable text for a catalogue row with no other display name yet - the
@@ -149,7 +170,7 @@ export function allCatalogRows(): CatalogRow[] {
  * `STANDARD_TEMPLATE` (`@shared/modules/config`, story 052 D1) can seed the same name for a
  * still-unbound row without a third, potentially-drifting copy of the rule. */
 export function nameForCatalogRow(row: CatalogRow): string {
-  return row.commands[0] ?? row.catalogId
+  return row.name ?? row.commands[0] ?? row.catalogId
 }
 
 /** A row's raw commands as `ConfigCommand`s, with the ammo command appended when applicable -

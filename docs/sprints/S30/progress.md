@@ -1,0 +1,160 @@
+- 06:53:34 · refine · 176 177 178 179 180 181 182 183 184 185 · started
+- 06:59:26 · refine · done
+- 06:59:26 · 176 · build · started
+- 2026-09-30 06:59 · 176 · D1 console field only while playing · started
+- 2026-09-30 07:02 · 176 · D1 console field only while playing · done
+- 2026-09-30 07:02 · 176 · D2 no sort caption · started
+- 2026-09-30 07:03 · 176 · D2 no sort caption · done
+- 2026-09-30 07:03 · 176 · verify · started
+- 2026-09-30 07:06 · 176 · verify · done
+- 2026-09-30 07:06 · 176 · review 1 · started
+- 2026-09-30 07:06 · 176 · review 1 · done
+- 2026-09-30 07:06 · 176 · story · done
+- 07:07:14 · 177 · build · started
+- 2026-09-30 07:07 · 177 · D1 detail model · started
+- 2026-09-30 07:08 · 177 · D1 detail model · done
+- 2026-09-30 07:08 · 177 · D2 detail panel · started
+- 2026-09-30 07:11 · 177 · D2 detail panel · done
+- 2026-09-30 07:11 · 177 · D3 list row guessed · started
+- 2026-09-30 07:12 · 177 · D3 list row guessed · done
+- 2026-09-30 07:12 · 177 · verify · started
+- 2026-09-30 07:14 · 177 · verify · done
+- 2026-09-30 07:14 · 177 · review 1 · started
+- 2026-09-30 07:15 · 177 · review 1 · done
+- 2026-09-30 07:15 · 177 · story · done
+- 07:15:35 · 178 · build · started
+- 2026-09-30 07:15 · 178 · D1 store edit mode · started
+- 2026-09-30 07:16 · 178 · D1 store edit mode · done
+- 2026-09-30 07:16 · 178 · D2 header icons + Edit · started
+- 2026-09-30 07:18 · 178 · D2 header icons + Edit · done
+- 2026-09-30 07:18 · 178 · D3 in-place edit mode · started
+- 2026-09-30 07:25 · 178 · D3 in-place edit mode · done
+- 2026-09-30 07:25 · 178 · D4 reading extras + edit screen · started
+- 2026-09-30 07:26 · 178 · D4 reading extras + edit screen · done
+- 2026-09-30 07:26 · 178 · verify · started
+- 2026-09-30 07:32 · 178 · verify · blocked: replays-archive-readonly, replays-demo-file-actions, ui:verify unreachable screens (diagnosing)
+- 2026-09-30 07:45 · 178 · verify · blocked: axe heading-order moderate new on replays-rows/detail-edit/editor (fixing)
+- 2026-09-30 07:53 · 178 · verify · started
+- 2026-09-30 07:55 · 178 · verify · done
+- 2026-09-30 07:55 · 178 · review 1 · started
+- 2026-09-30 07:57 · 178 · review 1 · done
+- 2026-09-30 07:57 · 178 · story · done
+- 07:57:29 · 179 · build · started
+- 2026-09-30 07:57 · 179 · D1 serialize sidecar writes (store) · started
+- 2026-09-30 08:02 · 179 · D1 serialize sidecar writes (store) · done
+- 2026-09-30 08:02 · 179 · D2 header favourite toggle · started
+- 2026-09-30 08:06 · 179 · D2 header favourite toggle · done
+- 2026-09-30 08:06 · 179 · D3 star rating · started
+- 2026-09-30 08:12 · 179 · D3 star rating · done
+- 2026-09-30 08:12 · 179 · D4 edit mode drops favourite/rating · started
+- 2026-09-30 08:14 · 179 · D4 edit mode drops favourite/rating · done
+- 2026-09-30 08:14 · 179 · D5 filter labels in stars · started
+- 2026-09-30 08:14 · 179 · D5 filter labels in stars · done
+- 2026-09-30 08:14 · 179 · verify · started
+- 2026-09-30 08:17 · 179 · verify · done
+- 2026-09-30 08:17 · 179 · review 1 · started
+- 2026-09-30 08:19 · 179 · review 1 · done
+- 2026-09-30 08:19 · 179 · F1 review fixes (overlay flash, pendingQuickEdit) · started
+- 2026-09-30 08:21 · 179 · F1 review fixes (overlay flash, pendingQuickEdit) · done
+- 2026-09-30 08:21 · 179 · verify 2 · started
+- 2026-09-30 08:23 · 179 · verify 2 · done
+- 2026-09-30 08:23 · 179 · story · done
+- 08:23:34 · 180 · build · started
+- 2026-09-30 08:23 · 180 · D1 shell primary-action seam · started
+- 2026-09-30 08:25 · 180 · D1 shell primary-action seam · done
+- 2026-09-30 08:25 · 180 · D2 Demos View from action bar · started
+- 2026-09-30 08:29 · 180 · D2 Demos View from action bar · done
+- 2026-09-30 08:29 · 180 · D3 mod-missing confirm · started
+- 2026-09-30 08:30 · 180 · D3 mod-missing confirm · done
+- 2026-09-30 08:30 · 180 · D4 action-bar-view flow + play-q2pro · started
+- 2026-09-30 08:34 · 180 · D4 action-bar-view flow + play-q2pro · done
+- 2026-09-30 08:34 · 180 · D5 migrate playback flows · started
+- 2026-09-30 08:38 · 180 · D5 migrate playback flows · done
+- 2026-09-30 08:38 · 180 · D6 migrate remaining play users · started
+- 2026-09-30 08:43 · 180 · D6 migrate remaining play users · done
+- 2026-09-30 08:43 · 180 · verify · started
+- 2026-09-30 08:45 · 180 · verify · done
+- 2026-09-30 08:45 · 180 · review 1 · started
+- 2026-09-30 08:47 · 180 · review 1 · done
+- 2026-09-30 08:47 · 180 · story · done
+- 08:47:35 · 181 · build · started
+- 2026-09-30 08:47 · 181 · D1 useJoinFlow hook · started
+- 2026-09-30 08:48 · 181 · D1 useJoinFlow hook · done
+- 2026-09-30 08:48 · 181 · D2 Servers contributes Join · started
+- 2026-09-30 08:54 · 181 · D2 Servers contributes Join · done
+- 2026-09-30 08:54 · 181 · verify · started
+- 2026-09-30 08:56 · 181 · verify · done
+- 2026-09-30 08:56 · 181 · review 1 · started
+- 2026-09-30 08:57 · 181 · review 1 · done
+- 2026-09-30 08:57 · 181 · story · done
+- 08:57:34 · 182 · build · started
+- 2026-09-30 08:57 · 182 · D1 Persisted mod-warning state + IPC · started
+- 2026-09-30 09:00 · 182 · D1 Persisted mod-warning state + IPC · done
+- 2026-09-30 09:00 · 182 · D2 Asked once: dialog checkbox, skip logic · started
+- 2026-09-30 09:04 · 182 · D2 Asked once: dialog checkbox, skip logic · done
+- 2026-09-30 09:04 · 182 · D3 Settings switch + reset · started
+- 2026-09-30 09:06 · 182 · D3 Settings switch + reset · done
+- 2026-09-30 09:06 · 182 · verify · started
+- 2026-09-30 09:08 · 182 · verify · done
+- 2026-09-30 09:08 · 182 · review 1 · started
+- 2026-09-30 09:09 · 182 · review 1 · done
+- 2026-09-30 09:09 · 182 · story · done
+- 09:10:03 · 183 · build · started
+- 2026-09-30 09:10 · 183 · D1 harness · started
+- 2026-09-30 09:29 · 183 · D1 harness · done
+- 2026-09-30 09:29 · 183 · D2 run configs · started
+- 2026-09-30 10:13 · 183 · D2 write RESULT.md · started
+- 2026-09-30 10:16 · 183 · D2 write RESULT.md · done
+- 2026-09-30 10:16 · 183 · verify · started
+- 2026-09-30 10:17 · 183 · verify · done
+- 2026-09-30 10:17 · 183 · review 1 · started
+- 2026-09-30 10:19 · 183 · review 1 · done
+- 2026-09-30 10:19 · 183 · review 1 fixes · started
+- 2026-09-30 10:21 · 183 · review 1 fixes · done
+- 2026-09-30 10:21 · 183 · review 2 (hard) · started
+- 2026-09-30 10:25 · 183 · review 2 (hard) · done
+- 2026-09-30 10:25 · 183 · review 2 fixes (combo-4 run) · started
+- 2026-09-30 10:31 · 183 · review 2 fixes · done
+- 2026-09-30 10:31 · 183 · verify (re-run after fixes) · started
+- 2026-09-30 10:32 · 183 · verify (re-run after fixes) · done
+- 2026-09-30 10:35 · 183 · story · done
+- 10:35:33 · 184 · build · started
+- 2026-09-30 10:35 · 184 · D1 optimistic-timeline core · started
+- 2026-09-30 10:41 · 184 · D1 optimistic-timeline core · done
+- 2026-09-30 10:41 · 184 · D2 store owns pending state · started
+- 2026-09-30 10:42 · 184 · D2 store owns pending state · done
+- 2026-09-30 10:42 · 184 · D3 strip renders expected state · started
+- 2026-09-30 10:43 · 184 · D3 strip renders expected state · done
+- 2026-09-30 10:43 · 184 · D4 real-surface proof · started
+- 2026-09-30 10:53 · 184 · D4 real-surface proof · partial (AC4 red), re-dispatching
+- 2026-09-30 10:53 · 184 · D4 real-surface proof (retry) · started
+- 2026-09-30 10:57 · 184 · D4 real-surface proof (retry) · done
+- 2026-09-30 10:57 · 184 · verify · started
+- 2026-09-30 10:59 · 184 · verify · done
+- 2026-09-30 10:59 · 184 · review 1 · started
+- 2026-09-30 11:00 · 184 · review 1 · done
+- 2026-09-30 11:00 · 184 · story · done
+- 11:01:10 · 185 · build · started
+- 2026-09-30 11:01 · 185 · D1 loop/flush lever · started
+- 2026-09-30 11:02 · 185 · D1 loop/flush lever · done
+- 2026-09-30 11:02 · 185 · D2 pipelined dispatch · started
+- 2026-09-30 11:09 · 185 · D2 pipelined dispatch · done
+- 2026-09-30 11:09 · 185 · D3 burst proof · started
+- 2026-09-30 11:11 · 185 · D3 burst proof · done
+- 2026-09-30 11:11 · 185 · D4 real-Q2PRO probe · started
+- 2026-09-30 11:21 · 185 · D4 real-Q2PRO probe · done
+- 2026-09-30 11:21 · 185 · verify · started
+- 2026-09-30 11:24 · 185 · verify · done
+- 2026-09-30 11:24 · 185 · review 1 · started
+- 2026-09-30 11:26 · 185 · review 1 · done
+- 2026-09-30 11:26 · 185 · review 2 (hard) · started
+- 2026-09-30 11:30 · 185 · review 2 (hard) · done
+- 2026-09-30 11:30 · 185 · D3 fix (review 2) · started
+- 2026-09-30 11:33 · 185 · D3 fix (review 2) · done
+- 2026-09-30 11:33 · 185 · verify · started
+- 2026-09-30 11:35 · 185 · verify · done
+- 2026-09-30 11:35 · 185 · story · done
+- 11:36:21 · gate · short suites · started
+- 11:39:45 · gate · short suites · done
+- 11:39:46 · gate · e2e-all · started
+- 12:20:25 · gate · e2e-all · done · 6 failed

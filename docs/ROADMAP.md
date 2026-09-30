@@ -2,13 +2,11 @@
 
 ## Where we stand
 
-*As of 2026-09-26.* Phases 1–4 and 7–9 are done; story 102 (a self-built Linux Q2PRO) stays open
-as a standing, non-blocking item. Phase 9 (game browser) finished with S25: the full v1 game
-browser — list, detail view, join/spectate/address-book and the gated experimental watchlist —
-is built end to end, with the "Deliberately not in v1" items (2D observer, notifications,
-dashboard tile, server statistics, mod/map download) left out on purpose. Waiting on the user:
-merging `sprint/S22` through `sprint/S25` into `dev`. Phase 5 (mods) and Phase 6 (assets) remain
-unprioritised and are next up for `/roadmap plan` once prioritized.
+*As of 2026-09-30.* Phases 1–4 and 7–9 are done; Phase 10 (demo browser) has milestones 10.1–10.10
+done (S26–S30). S30 finished: lean demo detail, edit in place, one-click favourite/rating, an action bar
+button for the open tab, a mod warning asked once, and a timeline that answers at once. Waiting on the
+user: merging `sprint/S30`, and the manual residue in the [S28](sprints/done/S28/testplan.md),
+[S29](sprints/done/S29/testplan.md) and [S30](sprints/S30/testplan.md) testplans.
 
 ## Phase overview
 
@@ -23,43 +21,58 @@ unprioritised and are next up for `/roadmap plan` once prioritized.
 | 7 — Release & updates (beta rollout) | 1/1 | done |
 | 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
 | 9 — Game browser (server list, detail, watchlist, observing) | 7/7 | done |
+| 10 — Demo browser (library, metadata, remote-controlled playback) | 9/10 | in progress |
 
 ## Current phase
 
-Phase 9 (game browser) is done — all 7 milestones shipped, 9.1–9.3 across S22–S24 and 9.4–9.7
-together in S25. Phase 5 (mods) and Phase 6 (assets) are still unprioritised.
+Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 
 | # | Milestone | Status | Sprint(s) | Note |
 | --- | --- | --- | --- | --- |
-| 7.1 | Release & updates — changelog-driven GitHub releases, daily update check, user-chosen update | done 2026-09-13 | [S21](../sprints/S21/review.md) | Stories 096–099, all done. Two manual-residue items (a real GitHub publish, a real packaged-install restart) — see the review's Acceptance section. |
-| 9.1 | Servers module foundation & protocol core | done 2026-09-24 | [S22](../sprints/S22/review.md) | Stories 106–109, all done. |
-| 9.2 | Discovery & persistence | done 2026-09-24 | [S23](../sprints/S23/review.md) | Stories 110–113, all done. |
-| 9.3 | Scan engine | done 2026-09-25 | [S24](../sprints/S24/review.md) | Stories 114–117, all done. No e2e for 114 (no list UI to drive yet — see the review's Acceptance section); the pre-existing 14-flow `ui:flows` gap reconfirmed, unchanged by this sprint. |
-| 9.4 | Server list UI | done 2026-09-26 | [S25](../sprints/S25/review.md) | Rows, markers, default sort, filters/search, loading/empty/error states. Stories 118–121, all done. |
-| 9.5 | Server detail view | done 2026-09-26 | S25 | Header/players, rule table + `dmflags`, ping history. Stories 122–124, all done; local mod/map availability deferred to mods/assets. |
-| 9.6 | Join, spectate, address book | done 2026-09-26 | S25 | `+connect` join with mod-mismatch/password handling, spectate launch, address-book write dialog. Stories 125–127, all done. |
-| 9.7 | Experimental-features gate & watchlist | done 2026-09-26 | S25 | Signed unlock codes, installation id, gate enforcement, then the gated watchlist. Stories 128–132, all done. |
+| 10.1 | Module shell & parsing — dm2/MVD2 headers, duration, file-name patterns | done 2026-09-28 | [S26](sprints/done/S26/review.md) | Stories 135–140; spike 133 (Windows control channel) done, go. |
+| 10.2 | Discovery & index — installations, extra folders, zips, incremental rescan | done 2026-09-28 | S26 | Stories 141–145. |
+| 10.3 | Sidecar & precedence | done 2026-09-28 | S26 | Stories 146–149. |
+| 10.4 | Demo list — rows, states, order, search, filters | done 2026-09-29 | [S27](sprints/done/S27/review.md) | Stories 150–154; 2 regressions found and fixed at the gate (152, 154). |
+| 10.5 | Detail, edit & file actions | done 2026-09-29 | S27 | Stories 155–158; 1 regression found and fixed at the gate (155); story 157's AC6 (rename while playing) is e2e-proven only once 159/S28 adds a real playback session. |
+| 10.6 | Playback — Q2PRO, copy-in, r1q2 fallback, MVD2 | done 2026-09-29 | [S28](sprints/done/S28/review.md) | Stories 159–162; r1q2 fallback cut to a Q2PRO-only guard. |
+| 10.7 | Timeline & binds | done 2026-09-29 | S28 | Stories 163–167. |
+| 10.8 | Auto-record setting in the config profile | done 2026-09-29 | S28 | Story 168. |
+| 10.9 | Demo plays in the launcher — windowed stage, fullscreen by choice, stop, no console flood | done 2026-09-29 | [S29](sprints/done/S29/review.md) | Stories 170–175 (spike 169); 2 regressions found and fixed at the gate (173, 170). |
+| 10.10 | Demo browser polish — lean detail, star rating, context-aware action bar, mod warning asked once, responsive timeline | done 2026-09-30 | [S30](sprints/S30/review.md) | Stories 176–185 (spike 183); 2 flows fixed at the gate (185), 4 pre-existing red flows remain. |
 
 ## Open / unprioritised
 
 | Topic | State | Next step |
 | --- | --- | --- |
 | Story [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) — a self-built Linux Q2PRO | Draft; standing obligation cut from 101, blocks nothing | Decide build/provenance approach (its Q1–Q4) when prioritized |
+| Demos in a browser (WASM) engine — optional "Browser (experimental)" playback next to native Q2PRO, for an embedded canvas and Linux/Wayland without window placement | Deferred 2026-09-30 (polish, future): native Q2PRO works well for the start. Research in [demo-browser §9.2](concepts/demo-browser.md); depends on the q2pro `feature-rtx` WASM build (maintainer open to compiling common mods, which demo playback may not even need) | Spike when prioritized: run the web build in Electron with a vanilla and an OpenTDM demo (seek, speed, no game lib); `/roadmap plan` afterwards |
 | Mods — game directories | Not started; `+set game <dir>` already built; needs discovery, install, enable/disable, per-mod config and a `game-lifecycle` guard against mutating files while running; also owns the server detail view's "mod/map available locally" statement (GB-D5, cut from story 124) | `/roadmap plan` when prioritized |
 | Assets — texture/model/sound packs | Not started; needs conflict detection between packs touching the same files, plus a per-pack change record (`Installation.moduleData` is the slot) | `/roadmap plan` when prioritized |
 | Two config decisions left open across the file-format rounds: the `alias cali "bind ..."` key-block-as-layer question (story 041), and bind grouping by keyboard region vs. category (story 040, decided category for now) | Never blocked anything; only relevant if a future story touches this area | Decide when a config story next needs it |
 
 ## Follow-ups worth doing
 
+- Four flows stay red and pre-existing after S30 (`replays-extra-folders` — unstable, `servers-filter-search`, `servers-master-sources`, `servers-sort-order`) — fix them in one dedicated sweep. [S30 review](sprints/S30/review.md)
+- Play anyway on a mod whose game dir does not exist on disk fails in main (ENOENT writing `q2l_back.cfg`) and is not shown to the user as a play error. [S30 review](sprints/S30/review.md)
+- Measure the Linux channel's control latency / stdout buffering on a real Linux Q2PRO; no Linux lever was applied in 185. [S30 review](sprints/S30/review.md)
+- Add `writeCatalogDefaults` to `captureBaseline` (`src/shared/config/profile-baseline.ts`): today a pending catalog-defaults toggle lands on disk with an address-book add. [S29 review](sprints/done/S29/review.md)
+- Stage cvar restore edges: a launcher quit while the game runs lets the stage values persist, and negative display origins (`+-X` in `vid_geometry`) are unverified against real Q2PRO. [S29 review](sprints/done/S29/review.md)
+- A stop whose kill succeeds but never yields an `exit` event leaves the UI on "Stopping…" (e.g. a Linux wine wrapper). [S29 review](sprints/done/S29/review.md)
+- Story 157's AC6 (rename while playing) can now get its real-playback e2e. [S28 review](sprints/done/S28/review.md)
+
+- `servers-sort-order`'s e2e flow reads rows via a `[data-testid^="servers-row-"]` selector that
+  also matches `ServerRow.tsx`'s `servers-row-copy-${address}` copy-address button (added on `dev`
+  before S26, commit `09c08e0`) — the flow now fails intermittently depending on render order.
+  Predates S26, not caused by it; still failing as of S27. [S27 review](../sprints/S27/review.md)
+- `servers-filter-search`, `servers-master-sources` and `replays-extra-folders` all still fail
+  `ui:flows`, confirmed pre-existing again this sprint (reproduce at S27's merge-base with `dev`)
+  — none touched by any S26/S27 commit; worth a dedicated sweep rather than re-discovering them at
+  every future gate. [S27 review](../sprints/S27/review.md)
 - S25's `ui:flows` gate found only 2 of 71 flows failing (`home-dashboard-arrange`,
   `news-cover-template`, both pre-existing/environmental), not the 14 of 56 S23/S24 recorded as a
   pre-existing baseline. Whether that gap actually closed somewhere between S24 and S25, or the
   earlier list is stale/mismeasured, is unconfirmed — worth a dedicated sweep re-running the
   originally named 14 flows by name before trusting either number. [S25 review](../sprints/S25/review.md)
-- `ui:flows` cannot finish a full 55-flow run: `withApp()`'s teardown in `scripts/lib/harness.mjs`
-  (~line 529) races `app.close()` against a 15s timeout with no fallback `child.kill()`, so a hung
-  main process keeps the single-instance lock and every later flow on that fixture variant dies.
-  Pre-existing since `d0315ec`; needs a hard kill in the teardown. [S22 review](../sprints/S22/review.md)
 - `docs/ARCHITECTURE.md#adding-a-module` should name `src/shared/ipc-schemas.ts`'s hardcoded
   `moduleId` z.enum as a step — it is not extended automatically, and 106 rediscovered that.
   [S22 review](../sprints/S22/review.md)

@@ -207,3 +207,20 @@ jobs:
           ARGS="--version $RELEASE_VERSION"
           if [ "$RELEASE_DRY_RUN_INPUT" = "true" ]; then ARGS="$ARGS --dry-run"; fi
           node scripts/release.mjs $ARGS
+
+      # After a release, main is one `release: x.y.z [skip ci]` commit (promoted CHANGELOG, version
+      # bump) ahead of dev. A dev without it files its next entries under the already released
+      # version when it is merged back, and the next release refuses. So dev follows the release
+      # commit here - only as a pure fast-forward: if dev has moved on meanwhile, it is left alone
+      # with a warning, never merged into by CI. A failed push is a warning too: the release itself
+      # already went out.
+      - name: Fast-forward dev to the release commit
+        if: github.ref_name == 'main' && inputs.dry_run != true
+        shell: bash
+        run: |
+          git fetch origin dev
+          if git merge-base --is-ancestor origin/dev HEAD; then
+            git push origin HEAD:dev || echo "::warning::could not fast-forward dev - run: git checkout dev && git merge origin/main"
+          else
+            echo "::warning::dev has commits that are not on main - run: git checkout dev && git merge origin/main"
+          fi

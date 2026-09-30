@@ -27,7 +27,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { deflateSync } from 'node:zlib'
+import { deflateSync, gzipSync } from 'node:zlib'
 import { assertInside, REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 import { variantUserDataDir } from './harness.mjs'
 // Story 121 D2: the three `servers-list*` screens' loopback stub ports/URL - imported here (not
@@ -845,7 +845,18 @@ function populatedInstallations() {
       // (own-file) fixture config alongside the plain `baseq2` foreign-config one - `baseq2`
       // always sorts first (decision 12), so this is additive and does not change what
       // `config-import-preview`/`config-import-review` auto-select.
-      gameDirs: ['baseq2', RESTORE_GAME_DIR],
+      //
+      // Story 141 D5 appends `REPLAYS_FIXTURE_EXTRA_GAME_DIR` ('ctf') as a THIRD entry, purely so
+      // `scripts/flows/replays-discovered-list.mjs` has a second, non-`baseq2` game dir to find a
+      // demo under. 'ctf' is one of `KNOWN_GAME_DIRS` (`src/shared/constants.ts`), so
+      // `inspectInstallation`'s `isGameDir` (`src/main/services/inspector.ts`) recognises it purely
+      // by name and keeps it in `gameDirs` across the app's own startup `validateAll()`
+      // revalidation, unlike `RESTORE_GAME_DIR` above (an arbitrary name, kept only because nothing
+      // in this fixture ever re-derives it live before the flows that read it run). No existing
+      // reader of this installation's `gameDirs` (grepped: no flow/test asserts its exact array or
+      // length) is affected by the addition - `config-import*` no longer even has a gamedir
+      // `<select>` to auto-select from (story 066 D8 retired it).
+      gameDirs: ['baseq2', RESTORE_GAME_DIR, REPLAYS_FIXTURE_EXTRA_GAME_DIR],
     }),
     // Story 065 D5 - see `INSTALL_UNKNOWN_ENGINE_ID`/`INSTALL_UNKNOWN_ENGINE_NAME` above.
     // `sortOrder: 2` puts it last in the rail/library order, so the two installs the existing
@@ -1299,7 +1310,37 @@ function populatedConfigProfiles() {
     unrecognized: [{ file: 'config.cfg', line: 42, text: 'seta cl_oddcvar "1"' }],
   }
 
-  return [plain, withLayers, withUnrecognized]
+  // Story 167 D4: the one profile assigned to a Q2PRO installation (`INSTALL_ENGINE_UPDATE_ID`), so
+  // `scripts/flows/demo-actions-bind.mjs` can prove the demo rows are bindable there. Plain Profile
+  // (both installations r1q2) is that flow's r1q2 case. No `categories`/`actions`: the state
+  // migration materialises them on load, like every other populated profile.
+  const withQ2pro = {
+    id: 'fixture-profile-q2pro',
+    name: 'Q2PRO Profile',
+    createdAt: FIXED_TIMESTAMP,
+    updatedAt: FIXED_TIMESTAMP,
+    cvars: {},
+    binds: {},
+    assignments: [{ installationId: INSTALL_ENGINE_UPDATE_ID, isDefault: true }],
+  }
+
+  // Story 168 D3: assigned to one r1q2 (`INSTALL_DEMO_UPGRADE_ID`) and one healthy Q2PRO installation
+  // (`INSTALL_ENGINE_UPDATE_ID`) so `scripts/flows/autorecord-setting.mjs` can switch the engine
+  // scope. The existing `cl_beginmapcmd` proves the Q2PRO recipe chains after it, not over it.
+  const withAutorecord = {
+    id: 'fixture-profile-autorecord',
+    name: 'Autorecord Profile',
+    createdAt: FIXED_TIMESTAMP,
+    updatedAt: FIXED_TIMESTAMP,
+    cvars: { cl_beginmapcmd: 'echo welcome' },
+    binds: {},
+    assignments: [
+      { installationId: INSTALL_DEMO_UPGRADE_ID, isDefault: false },
+      { installationId: INSTALL_ENGINE_UPDATE_ID, isDefault: false },
+    ],
+  }
+
+  return [plain, withLayers, withUnrecognized, withQ2pro, withAutorecord]
 }
 
 // --- downloads.ts DownloadsSettings shape + archive-cache fixture ----------
@@ -1572,7 +1613,7 @@ bind s "+back" // note [q2l bogus]
 // touching `populated`/`empty` at all.
 /** Mirrors src/shared/constants.ts:14 (`STATE_SCHEMA_VERSION`), unlike the deliberately-stale
  * `STATE_SCHEMA_VERSION` above - see the comment block just above this constant. */
-const CONTROLS_SEED_SCHEMA_VERSION = 2
+const CONTROLS_SEED_SCHEMA_VERSION = 5
 
 /** Mirrors src/shared/modules/config.ts:146-150 (`TEMPLATE_ACTION_CATEGORIES`). */
 const TEMPLATE_CATEGORIES = [
@@ -1985,6 +2026,894 @@ function rmDirBestEffort(path) {
   }
 }
 
+// --- story 141 D5: the Demos view's discovered-list fixture --------------------------------------
+//
+// Five real demo files, placeholder bytes only (this story never parses a demo's own contents),
+// discoverable by `discoverDemos` (`src/main/modules/replays/discovery.ts`) across two
+// installations' game dirs - plus four decoys placed to prove the scanner's own rules (a sidecar
+// name, a launcher-temp-copy folder, one-level-only recursion, a wrong extension) rather than merely
+// trusting them. Exported so `scripts/flows/replays-discovered-list.mjs` asserts against the exact
+// same literals this file writes, never a hand-typed copy that could drift.
+
+/** The extra, non-`baseq2` game dir `INSTALL_TWO_ID` gets above - see that installation's own
+ * `gameDirs` doc comment for why 'ctf' specifically. Exported so the flow builds the same
+ * `replays.list.source` text this fixture's own data implies. */
+export const REPLAYS_FIXTURE_EXTRA_GAME_DIR = 'ctf'
+
+/**
+ * Every real demo file this fixture writes, and where `discoverDemos` should find it. Mirrors
+ * `DiscoveredDemo.fileName`/`.source` (`src/shared/modules/replays.ts`) closely enough for the flow
+ * to build its own expectations straight from this array, rather than a second, hand-typed list.
+ */
+export const REPLAYS_FIXTURE_DEMOS = [
+  {
+    fileName: 'duel_q2dm1.dm2',
+    installationId: INSTALL_ONE_ID,
+    installationName: 'Fixture Favorite Install',
+    gameDir: 'baseq2',
+  },
+  {
+    fileName: 'FINAL.DM2',
+    installationId: INSTALL_ONE_ID,
+    installationName: 'Fixture Favorite Install',
+    gameDir: 'baseq2',
+  },
+  {
+    fileName: 'tourney.mvd2.gz',
+    installationId: INSTALL_ONE_ID,
+    installationName: 'Fixture Favorite Install',
+    gameDir: 'baseq2',
+  },
+  {
+    fileName: 'ctf_q2ctf1.dm2.gz',
+    installationId: INSTALL_ONE_ID,
+    installationName: 'Fixture Favorite Install',
+    gameDir: 'baseq2',
+  },
+  {
+    fileName: 'team_q2dm3.mvd2',
+    installationId: INSTALL_TWO_ID,
+    installationName: 'Fixture WriteDir Install',
+    gameDir: REPLAYS_FIXTURE_EXTRA_GAME_DIR,
+  },
+]
+
+/**
+ * Decoy paths written alongside `REPLAYS_FIXTURE_DEMOS`' four `INSTALL_ONE_ID` files, in that same
+ * `baseq2/demos/` folder - every one of them must be invisible to `discoverDemos`, each proving a
+ * different one of its rules: a `.dm2.json` sidecar (`recogniseDemoFile` matches by exact suffix, a
+ * sidecar's name is not one), a subfolder named the way a launcher-owned temp-copy location might be
+ * (`_launcher/`) holding a real demo file one level down, a plain nested subfolder (`old/`) holding
+ * another, and a wrong extension (`.txt`) at the top level. The middle two both exist purely to prove
+ * `scanDemosDir`'s one-level-only, non-recursive listing - not because either name carries meaning to
+ * the scanner itself. Paths are `/`-separated, relative to that `demos/` folder; exported so the flow
+ * can describe what it does NOT expect to see without a second, hand-typed list.
+ */
+export const REPLAYS_FIXTURE_DECOYS = [
+  'duel_q2dm1.dm2.json',
+  '_launcher/leftover.dm2',
+  'old/nested.dm2',
+  'readme.txt',
+]
+
+/** Placeholder bytes for a fixture demo file - never real demo content (out of scope for this
+ * deliverable), just enough for the file to exist and be recognised by name. */
+const REPLAYS_FIXTURE_DEMO_CONTENT = 'q2l-fixture-demo-placeholder\n'
+
+/**
+ * Story 142 D5: the real on-disk path of a folder a user could plausibly point `extraFolders.add`
+ * at - a sibling of the installations' own game dirs (`<gameRoot>/extra-demos`), deliberately NOT
+ * inside either installation's own root, so scanning it as an extra folder is a genuinely separate
+ * case from the installation-owned `demos/` folders `writeReplaysDemosFixture()` writes above.
+ * Exported so `scripts/flows/replays-extra-folders.mjs` imports the exact path rather than
+ * hand-typing a second copy.
+ */
+export function replaysExtraFolderFixturePath() {
+  return join(gameRoot(), 'extra-demos')
+}
+
+/** Placeholder bytes for `replaysExtraFolderFixturePath()`'s files - same convention as
+ * `REPLAYS_FIXTURE_DEMO_CONTENT` above. */
+const REPLAYS_EXTRA_FOLDER_DEMO_CONTENT = 'q2l-fixture-extra-folder-demo-placeholder\n'
+
+/**
+ * Writes `replaysExtraFolderFixturePath()`'s contents: two real, top-level demo files
+ * (`a.dm2`, `B.MVD2` - mixed case, proving `recogniseDemoFile`'s case-insensitive match) plus three
+ * decoys that must never appear in a scan of this folder - a `.dm2.json` sidecar, a nested
+ * `sub/deep.dm2` (this scan is top-level-only, same rule `scanDemosDir` enforces everywhere else),
+ * and nothing else needed since a wrong extension is already covered by `REPLAYS_FIXTURE_DECOYS`
+ * above. Called from `writePopulatedFixture()`, alongside `writeReplaysDemosFixture()` - this
+ * folder is written but never itself added to `replaysState().extraFolders`; the flow adds it live
+ * through the UI.
+ */
+function writeReplaysExtraFolderFixture() {
+  const folder = replaysExtraFolderFixturePath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+  writeFileSync(join(folder, 'a.dm2'), REPLAYS_EXTRA_FOLDER_DEMO_CONTENT, 'utf8')
+  writeFileSync(join(folder, 'B.MVD2'), REPLAYS_EXTRA_FOLDER_DEMO_CONTENT, 'utf8')
+  writeFileSync(join(folder, 'a.dm2.json'), '{}\n', 'utf8')
+  mkdirSync(join(folder, 'sub'), { recursive: true })
+  writeFileSync(join(folder, 'sub', 'deep.dm2'), REPLAYS_EXTRA_FOLDER_DEMO_CONTENT, 'utf8')
+}
+
+/**
+ * Writes `REPLAYS_FIXTURE_DEMOS`' five real files under their installation/game-dir `demos/`
+ * folders, plus `REPLAYS_FIXTURE_DECOYS`' four decoys next to the `INSTALL_ONE_ID` ones. Called from
+ * `writePopulatedFixture()`, after that function's own install loop has already created both
+ * installations' root folders - `mkdirSync(..., { recursive: true })` below only ever adds to what
+ * that loop left behind, never clears it.
+ *
+ * Regression note (sprint S26 gate, following story 143 D4): this function used to also build
+ * `pack.zip` (see `writeReplaysZipPackArchive()` below) directly into `oneDemosDir` - i.e. into the
+ * shared `INSTALL_ONE_ID`/`baseq2/demos` folder every `writePopulatedFixture()` call (re)creates.
+ * Since `gameRoot()` is not variant-scoped, that made the zip's two real demo entries
+ * (`test.dm2`/`final.mvd2`) leak into every fixture variant's/flow's view of this folder, not just
+ * `scripts/flows/replays-zip-entries.mjs`'s own - in particular `replays-discovered-list.mjs`/
+ * `replays-incremental-scan.mjs`, which assert this folder holds exactly `REPLAYS_FIXTURE_DEMOS`'
+ * five known files. The zip is now built/removed by `writeReplaysZipPackArchive()`/
+ * `removeReplaysZipPackArchive()` below, called only from `replays-zip-entries.mjs`'s own
+ * `setup()`/`teardown()` hooks - so it exists on disk only for the duration of that one flow, and
+ * every other flow that runs before or after it (including another `npm run ui:seed`) sees the
+ * plain five-file folder this function alone produces.
+ */
+function writeReplaysDemosFixture() {
+  const oneDemosDir = join(gameRoot(), INSTALL_ONE_ID, 'baseq2', 'demos')
+  mkdirSync(oneDemosDir, { recursive: true })
+  const twoDemosDir = join(gameRoot(), INSTALL_TWO_ID, REPLAYS_FIXTURE_EXTRA_GAME_DIR, 'demos')
+  mkdirSync(twoDemosDir, { recursive: true })
+
+  for (const demo of REPLAYS_FIXTURE_DEMOS) {
+    const demosDir = demo.installationId === INSTALL_ONE_ID ? oneDemosDir : twoDemosDir
+    writeFileSync(join(demosDir, demo.fileName), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+  }
+
+  writeFileSync(join(oneDemosDir, 'duel_q2dm1.dm2.json'), '{}\n', 'utf8')
+  mkdirSync(join(oneDemosDir, '_launcher'), { recursive: true })
+  writeFileSync(join(oneDemosDir, '_launcher', 'leftover.dm2'), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+  mkdirSync(join(oneDemosDir, 'old'), { recursive: true })
+  writeFileSync(join(oneDemosDir, 'old', 'nested.dm2'), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+  writeFileSync(join(oneDemosDir, 'readme.txt'), 'not a demo\n', 'utf8')
+}
+
+/** The real on-disk path of `writeReplaysZipPackArchive()`'s archive - `INSTALL_ONE_ID`'s own
+ * `baseq2/demos/pack.zip`, exported so `replays-zip-entries.mjs` never has to re-derive this join
+ * itself. */
+export function replaysZipPackArchivePath() {
+  return join(gameRoot(), INSTALL_ONE_ID, 'baseq2', 'demos', 'pack.zip')
+}
+
+/**
+ * Story 143 D4's real zip archive, holding two real demo entries (one nested a level deep) plus a
+ * non-demo file, built with the same vendored 7za the app itself spawns - only when that binary was
+ * actually vendored locally, same "skip the archive, never crash fixture generation" guard every
+ * other zip/extractor-dependent fixture in this file already follows.
+ *
+ * Deliberately NOT called from `writeReplaysDemosFixture()`/`writePopulatedFixture()` (see the
+ * regression note on `writeReplaysDemosFixture()` above) - `scripts/flows/replays-zip-entries.mjs`
+ * is the only caller, from its own `setup()` hook, precisely so the archive exists on disk only for
+ * that flow's own run and never lingers in the shared `populated` fixture other flows read.
+ * `oneDemosDir` (`INSTALL_ONE_ID`'s `baseq2/demos`) must already exist - true after any `populated`-
+ * based seed, since `writeReplaysDemosFixture()` above always creates it first.
+ */
+export function writeReplaysZipPackArchive() {
+  if (!vendoredExtractorExists()) return
+  const oneDemosDir = join(gameRoot(), INSTALL_ONE_ID, 'baseq2', 'demos')
+  const staging = join(bootstrapStagingDir(), 'replays-zip-pack')
+  rmSync(staging, { recursive: true, force: true })
+  mkdirSync(join(staging, 'sub'), { recursive: true })
+  copyFileSync(join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2'), join(staging, 'test.dm2'))
+  copyFileSync(
+    join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2'),
+    join(staging, 'sub', 'final.mvd2'),
+  )
+  writeFileSync(join(staging, 'readme.txt'), 'not a demo\n', 'utf8')
+
+  const archivePath = replaysZipPackArchivePath()
+  // `7za a` APPENDS to an existing archive, so a stale one has to go first.
+  rmSync(archivePath, { force: true })
+  execFileSync(
+    vendoredSevenZaPath(),
+    ['a', '-tzip', '-mx1', '-bso0', '-bse0', '-bd', archivePath, 'test.dm2', 'sub', 'readme.txt'],
+    { cwd: staging, windowsHide: true },
+  )
+}
+
+/** Undoes `writeReplaysZipPackArchive()` - called from `replays-zip-entries.mjs`'s own `teardown()`
+ * hook so the archive never outlives that one flow's run. */
+export function removeReplaysZipPackArchive() {
+  rmSync(replaysZipPackArchivePath(), { force: true })
+}
+
+// --- story 150+ D5: the demos-list rows on a real surface - `replays-rows`/`replays-scale` -------
+//
+// Both variants are additive and self-contained: no installations at all, one extra demo folder
+// registered via `replays.extraFolders`, and - critically - that folder lives under the variant's
+// OWN `variantUserDataDir()`, never under `gameRoot()`. `gameRoot()` is not variant-scoped (see the
+// regression note on `writeReplaysDemosFixture()` above), so anything written there leaks into
+// every other variant/flow that reads the same shared installation folders; a folder under this
+// variant's own userData dir cannot leak anywhere else.
+
+/** `replays-rows`'s extra folder id/path, registered in its own `state.json` below. */
+const REPLAYS_ROWS_FOLDER_ID = 'fixture-replays-rows-folder'
+function replaysRowsFolderPath() {
+  return join(variantUserDataDir('replays-rows'), 'demos-fixture')
+}
+
+/** File names `scripts/flows/replays-demo-rows.mjs` asserts against - exported so the flow never
+ * hand-types a second copy that could drift from what this fixture actually writes. */
+export const REPLAYS_ROWS_TDM_DEMO = 'rows-tdm.dm2'
+export const REPLAYS_ROWS_DUEL_DEMO = 'rows-duel.dm2'
+export const REPLAYS_ROWS_MVD_DEMO = 'rows-mvd.mvd2'
+export const REPLAYS_ROWS_BROKEN_DEMO = 'rows-broken.dm2'
+export const REPLAYS_ROWS_UNREADABLE_DEMO = 'rows-unreadable.dm2'
+export const REPLAYS_ROWS_ZIP_ARCHIVE = 'rows-pack.zip'
+/** The demo file name inside `REPLAYS_ROWS_ZIP_ARCHIVE` - a copy of `test.dm2`, same convention as
+ * `writeReplaysZipPackArchive()` above. */
+export const REPLAYS_ROWS_ZIP_ENTRY_NAME = 'test.dm2'
+
+/** `REPLAYS_ROWS_TDM_DEMO`'s sidecar: a full, valid sidecar with two named team sides, a
+ * favourite/rating pair and an explicit `gamemode` - the one row that must show every
+ * "reported, not guessed" marker at once, with its gamemode shown plain. */
+const REPLAYS_ROWS_TDM_SIDECAR = {
+  schemaVersion: 1,
+  name: 'Fixture TDM Match',
+  gamemode: 'tdm',
+  favourite: true,
+  rating: 8,
+  sides: [
+    { team: 'Alpha', players: ['PlayerA1', 'PlayerA2'] },
+    { team: 'Bravo', players: ['PlayerB1', 'PlayerB2'] },
+  ],
+}
+
+/** `REPLAYS_ROWS_DUEL_DEMO`'s sidecar: two single-player sides and no `gamemode` field at all, so
+ * `resolveGamemode` (`src/shared/demos/gamemode.ts`) has nothing reported and falls through to its
+ * `two-players-duel` heuristic - `source: 'guessed'`, the row shows it like a reported one, with no guessed marker. */
+const REPLAYS_ROWS_DUEL_SIDECAR = {
+  schemaVersion: 1,
+  sides: [{ players: ['Solo1'] }, { players: ['Solo2'] }],
+}
+
+/** `REPLAYS_ROWS_BROKEN_DEMO`'s sidecar: deliberately not even a full sidecar document - a bare
+ * `{"rating": 99}`, which fails `sidecarFieldsSchema`'s `rating <= 10` bound
+ * (`readSidecarDefensively` reports `state: 'error'`, `values: {}`), so the row's effective values
+ * still resolve from the demo header/file name rather than from this sidecar. */
+const REPLAYS_ROWS_BROKEN_SIDECAR_TEXT = '{"rating": 99}\n'
+
+/** The sidecar file name for a demo file name - mirrors `sidecarFileName()`
+ * (`src/shared/replays/sidecar.ts`), duplicated here as a literal for the same reason every other
+ * mirrored fact in this file is (see the top-of-file note): this is plain Node ESM outside both TS
+ * projects. */
+function rowsSidecarFileName(demoFileName) {
+  return `${demoFileName}.json`
+}
+
+/** Where `replays-rows`'s sidecar for `demoFileName` lives on disk - exported so
+ * `scripts/flows/replays-edit-sidecar.mjs` can read back what a real save wrote. */
+export function replaysRowsSidecarPath(demoFileName) {
+  return join(replaysRowsFolderPath(), rowsSidecarFileName(demoFileName))
+}
+
+/**
+ * Deletes and rewrites the `replays-rows` variant: an empty `state.json` (no installations - every
+ * row here lives under one registered extra folder instead), plus that folder holding:
+ * `REPLAYS_ROWS_TDM_DEMO`/`REPLAYS_ROWS_DUEL_DEMO` (both copies of `docs/fixtures/demos/test.dm2`,
+ * each with its own sidecar above), `REPLAYS_ROWS_MVD_DEMO` (a copy of the PFAU `.mvd2` fixture, no
+ * sidecar at all), `REPLAYS_ROWS_BROKEN_DEMO` (a copy of `test.dm2` paired with the
+ * deliberately-invalid sidecar above) and `REPLAYS_ROWS_UNREADABLE_DEMO` (a genuinely empty file -
+ * `readDemoHeader`/`demoReadability` report `reason: 'empty'`, `readable: false`, the same fixture
+ * shape `scan-service.test.ts`'s own `empty.dm2` uses). `REPLAYS_ROWS_ZIP_ARCHIVE` is only ever
+ * written when the vendored extractor is present (mirrors `writeReplaysZipPackArchive()` above), so
+ * this fixture never pretends an archive-entry row exists without the real 7za binary that
+ * decompresses it.
+ */
+export function writeReplaysRowsFixture() {
+  const userDataDir = variantUserDataDir('replays-rows')
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [{ id: REPLAYS_ROWS_FOLDER_ID, path: replaysRowsFolderPath(), addedAt: FIXED_TIMESTAMP }],
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysRowsFolderPath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+
+  const testDm2 = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
+  const mvd2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2')
+
+  copyFileSync(testDm2, join(folder, REPLAYS_ROWS_TDM_DEMO))
+  writeFileSync(
+    join(folder, rowsSidecarFileName(REPLAYS_ROWS_TDM_DEMO)),
+    JSON.stringify(REPLAYS_ROWS_TDM_SIDECAR, null, 2) + '\n',
+    'utf8',
+  )
+
+  copyFileSync(testDm2, join(folder, REPLAYS_ROWS_DUEL_DEMO))
+  writeFileSync(
+    join(folder, rowsSidecarFileName(REPLAYS_ROWS_DUEL_DEMO)),
+    JSON.stringify(REPLAYS_ROWS_DUEL_SIDECAR, null, 2) + '\n',
+    'utf8',
+  )
+
+  copyFileSync(mvd2Fixture, join(folder, REPLAYS_ROWS_MVD_DEMO))
+
+  copyFileSync(testDm2, join(folder, REPLAYS_ROWS_BROKEN_DEMO))
+  writeFileSync(
+    join(folder, rowsSidecarFileName(REPLAYS_ROWS_BROKEN_DEMO)),
+    REPLAYS_ROWS_BROKEN_SIDECAR_TEXT,
+    'utf8',
+  )
+
+  writeFileSync(join(folder, REPLAYS_ROWS_UNREADABLE_DEMO), Buffer.alloc(0))
+
+  if (vendoredExtractorExists()) {
+    const staging = join(bootstrapStagingDir(), 'replays-rows-pack')
+    rmSync(staging, { recursive: true, force: true })
+    mkdirSync(staging, { recursive: true })
+    copyFileSync(testDm2, join(staging, REPLAYS_ROWS_ZIP_ENTRY_NAME))
+
+    const archivePath = join(folder, REPLAYS_ROWS_ZIP_ARCHIVE)
+    rmSync(archivePath, { force: true })
+    execFileSync(
+      vendoredSevenZaPath(),
+      ['a', '-tzip', '-mx1', '-bso0', '-bse0', '-bd', archivePath, REPLAYS_ROWS_ZIP_ENTRY_NAME],
+      { cwd: staging, windowsHide: true },
+    )
+  }
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+// --- story 152 D3: the demos list's sort-order e2e fixture ---------------------------------------
+
+/** `replays-sort-order`'s own fixture variant name, exported so the flow imports it rather than
+ * hardcoding the string a second time (mirrors `replays-demo-rows.mjs`'s own `variant` import
+ * shape - but that flow re-exports its own `variant` constant from the flow file itself; this one
+ * exports it from here since the fixture module is the source of truth for the variant name). */
+export const REPLAYS_SORT_ORDER_VARIANT = 'replays-sort-order'
+
+/** `replays-sort-order`'s extra folder id/path, registered in its own `state.json` below. */
+const REPLAYS_SORT_ORDER_FOLDER_ID = 'fixture-replays-sort-order-folder'
+function replaysSortOrderFolderPath() {
+  return join(variantUserDataDir(REPLAYS_SORT_ORDER_VARIANT), 'demos-fixture')
+}
+
+/** File names `scripts/flows/replays-sort-order.mjs` asserts against - exported so the flow never
+ * hand-types a second copy that could drift from what this fixture actually writes. Two favourites
+ * (different dates, different maps) and two non-favourites (one newer than both favourites, one
+ * older than both) - enough to prove the default order groups favourites first, then falls back
+ * to date descending within/outside that group, and that a column sort (e.g. map) never re-pins
+ * favourites (AC5). */
+export const REPLAYS_SORT_ORDER_FAV_NEWER_DEMO = 'sort-fav-newer.dm2'
+export const REPLAYS_SORT_ORDER_FAV_OLDER_DEMO = 'sort-fav-older.dm2'
+export const REPLAYS_SORT_ORDER_NONFAV_NEWEST_DEMO = 'sort-nonfav-newest.dm2'
+export const REPLAYS_SORT_ORDER_NONFAV_OLDEST_DEMO = 'sort-nonfav-oldest.dm2'
+
+/** Each demo's sidecar `map` override - exported so the flow can assert DOM row order by map text
+ * without hand-typing a second copy of these strings that could drift from the sidecars below. */
+export const REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR_MAP = 'q2dm2'
+export const REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR_MAP = 'q2dm10'
+export const REPLAYS_SORT_ORDER_NONFAV_NEWEST_SIDECAR_MAP = 'q2dm5'
+export const REPLAYS_SORT_ORDER_NONFAV_OLDEST_SIDECAR_MAP = 'q2dm1'
+
+const REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR = {
+  schemaVersion: 1,
+  favourite: true,
+  map: REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR_MAP,
+  date: '2026-01-10T00:00:00.000Z',
+}
+const REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR = {
+  schemaVersion: 1,
+  favourite: true,
+  map: REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR_MAP,
+  date: '2026-01-05T00:00:00.000Z',
+}
+const REPLAYS_SORT_ORDER_NONFAV_NEWEST_SIDECAR = {
+  schemaVersion: 1,
+  map: REPLAYS_SORT_ORDER_NONFAV_NEWEST_SIDECAR_MAP,
+  date: '2026-01-20T00:00:00.000Z',
+}
+const REPLAYS_SORT_ORDER_NONFAV_OLDEST_SIDECAR = {
+  schemaVersion: 1,
+  map: REPLAYS_SORT_ORDER_NONFAV_OLDEST_SIDECAR_MAP,
+  date: '2026-01-01T00:00:00.000Z',
+}
+
+/** The sidecar file name for a demo file name - mirrors `sidecarFileName()`
+ * (`src/shared/replays/sidecar.ts`), same duplication reasoning as `rowsSidecarFileName()` above:
+ * this is plain Node ESM outside both TS projects. */
+function sortOrderSidecarFileName(demoFileName) {
+  return `${demoFileName}.json`
+}
+
+/**
+ * Deletes and rewrites the `replays-sort-order` variant: an empty `state.json` (no installations -
+ * every row lives under one registered extra folder, never under `gameRoot()` - same reasoning as
+ * `writeReplaysRowsFixture()`'s own top-of-section comment), plus that folder holding four copies of
+ * `docs/fixtures/demos/test.dm2`, each paired with its own sidecar overriding `favourite`/`map`/
+ * `date` per the constants above.
+ */
+export function writeReplaysSortOrderFixture() {
+  const userDataDir = variantUserDataDir(REPLAYS_SORT_ORDER_VARIANT)
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [
+        { id: REPLAYS_SORT_ORDER_FOLDER_ID, path: replaysSortOrderFolderPath(), addedAt: FIXED_TIMESTAMP },
+      ],
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysSortOrderFolderPath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+
+  const testDm2 = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
+
+  const demos = [
+    [REPLAYS_SORT_ORDER_FAV_NEWER_DEMO, REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR],
+    [REPLAYS_SORT_ORDER_FAV_OLDER_DEMO, REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR],
+    [REPLAYS_SORT_ORDER_NONFAV_NEWEST_DEMO, REPLAYS_SORT_ORDER_NONFAV_NEWEST_SIDECAR],
+    [REPLAYS_SORT_ORDER_NONFAV_OLDEST_DEMO, REPLAYS_SORT_ORDER_NONFAV_OLDEST_SIDECAR],
+  ]
+  for (const [fileName, sidecar] of demos) {
+    copyFileSync(testDm2, join(folder, fileName))
+    writeFileSync(
+      join(folder, sortOrderSidecarFileName(fileName)),
+      JSON.stringify(sidecar, null, 2) + '\n',
+      'utf8',
+    )
+  }
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+// --- story 153 D5: the demo list's filter/search rail's own e2e fixture -------------------------
+
+/** `replays-filter-search`'s own fixture variant name, exported so the flow imports it rather than
+ * hardcoding the string a second time (same reasoning as `REPLAYS_SORT_ORDER_VARIANT` above). */
+export const REPLAYS_FILTER_VARIANT = 'filter-demos'
+
+/** `replays-filter-search`'s extra folder id/path, registered in its own `state.json` below - one
+ * folder scoped to this variant's own `variantUserDataDir()`, never `gameRoot()` (the regression
+ * note on `writeReplaysZipPackArchive()` above: writing demo fixtures into the shared installation
+ * folders leaks them into every other variant/flow that reads those same folders). */
+const REPLAYS_FILTER_FOLDER_ID = 'fixture-replays-filter-folder'
+export function replaysFilterFixturePath() {
+  return join(variantUserDataDir(REPLAYS_FILTER_VARIANT), 'filter-demos')
+}
+
+/** File names `scripts/flows/replays-filter-search.mjs` asserts against - exported so the flow
+ * never hand-types a second copy that could drift from what this fixture actually writes. */
+export const REPLAYS_FILTER_FAVOURITE_DEMO = 'filter-favourite.mvd2'
+export const REPLAYS_FILTER_NONFAV_DEMO = 'filter-nonfav.mvd2'
+export const REPLAYS_FILTER_HEADERONLY_DEMO = 'filter-headeronly.dm2'
+/** The user-defined `{p1}_vs_{p2}_{map}.mvd2` name template's own match (registered under
+ * `replays.nameTemplates` below) - `Zephyr`/`Rook` are its name-fact players. The name-fact `map`
+ * capture (`q2ctf5`) is immediately overridden by this same file's own sidecar `map` (below), so
+ * its effective map stays deterministic regardless of whatever this real demo's own embedded map
+ * happens to be. */
+export const REPLAYS_FILTER_NAMEFACT_DEMO = 'Zephyr_vs_Rook_q2ctf5.mvd2'
+
+/** The unique search terms each demo alone matches (AC1). */
+export const REPLAYS_FILTER_SIDECAR_NAME = 'CTF Grand Final'
+// Deliberately unrelated to `REPLAYS_FILTER_NAMEFACT_PLAYER` ('Zephyr') below - an earlier
+// 'zephyrgrove' picked here matched both demos under a substring search, since 'zephyrgrove'
+// contains 'zephyr'.
+export const REPLAYS_FILTER_DESCRIPTION_WORD = 'moonvale'
+export const REPLAYS_FILTER_SIDECAR_PLAYER = 'Tom'
+/** `test.dm2`'s own real header player (see `scan-service.test.ts`'s `EXPECTED.players`) - unique
+ * across this fixture because `REPLAYS_FILTER_HEADERONLY_DEMO` is the only row copied from
+ * `test.dm2`; every other row below copies the PFAU mvd2 fixture instead. */
+export const REPLAYS_FILTER_HEADER_PLAYER = 'WallFly'
+export const REPLAYS_FILTER_NAMEFACT_PLAYER = 'Zephyr'
+export const REPLAYS_FILTER_SHARED_MAP = 'q2ctf5'
+export const REPLAYS_FILTER_NONFAV_MAP = 'q2dm4'
+export const REPLAYS_FILTER_FAVOURITE_TAG = 'final'
+export const REPLAYS_FILTER_LAN_TAG = 'lan'
+export const REPLAYS_FILTER_FUN_TAG = 'fun'
+/** Known dropdown option sets (AC2) - deterministic from the sidecar overrides below plus the two
+ * real fixture files' own confirmed header facts (`zip-demos.test.ts`): both real files' `gameDir`
+ * is `'opentdm'`, which every un-overridden row's mod falls back to, and both report exactly two
+ * header players, so `resolveGamemode`'s "exactly two players" heuristic guesses `'duel'` for every
+ * un-overridden row (ahead of the looser opentdm/`'tdm'` rule - see `GAMEMODE_HEURISTICS`). The
+ * header-only demo's own real embedded map (`test.dm2`, never overridden - it has no sidecar) is
+ * `'q2rdm2'`. */
+export const REPLAYS_FILTER_MOD_OPTIONS = ['ctf', 'opentdm']
+export const REPLAYS_FILTER_GAMEMODE_OPTIONS = ['ctf', 'duel']
+export const REPLAYS_FILTER_HEADERONLY_MAP = 'q2rdm2'
+export const REPLAYS_FILTER_MAP_OPTIONS = [
+  REPLAYS_FILTER_SHARED_MAP,
+  REPLAYS_FILTER_NONFAV_MAP,
+  REPLAYS_FILTER_HEADERONLY_MAP,
+].sort((a, b) => a.localeCompare(b))
+
+const REPLAYS_FILTER_FAVOURITE_SIDECAR = {
+  schemaVersion: 1,
+  name: REPLAYS_FILTER_SIDECAR_NAME,
+  favourite: true,
+  rating: 9,
+  mod: 'ctf',
+  gamemode: 'ctf',
+  map: REPLAYS_FILTER_SHARED_MAP,
+  tags: [REPLAYS_FILTER_FAVOURITE_TAG, REPLAYS_FILTER_LAN_TAG],
+  sides: [{ team: 'Tom Team', players: [REPLAYS_FILTER_SIDECAR_PLAYER, 'Ally'] }],
+}
+const REPLAYS_FILTER_NONFAV_SIDECAR = {
+  schemaVersion: 1,
+  rating: 5,
+  map: REPLAYS_FILTER_NONFAV_MAP,
+  tags: [REPLAYS_FILTER_FUN_TAG],
+  description: `An epic comeback finish at ${REPLAYS_FILTER_DESCRIPTION_WORD}.`,
+}
+/** Deliberately just a `map` override - `REPLAYS_FILTER_NAMEFACT_DEMO` still counts as searchable
+ * only through its file name's own facts (name/tags/rating/favourite are all absent here), the
+ * sidecar's only job is pinning its effective map down for AC2/AC6's determinism. */
+const REPLAYS_FILTER_NAMEFACT_SIDECAR = {
+  schemaVersion: 1,
+  map: REPLAYS_FILTER_SHARED_MAP,
+}
+
+/** The sidecar file name for a demo file name - mirrors `sidecarFileName()`
+ * (`src/shared/replays/sidecar.ts`), same duplication reasoning as `sortOrderSidecarFileName()`
+ * above: this is plain Node ESM outside both TS projects. */
+function filterSidecarFileName(demoFileName) {
+  return `${demoFileName}.json`
+}
+
+/**
+ * Deletes and rewrites the `filter-demos` variant: an empty `state.json` (no installations - every
+ * row lives under one registered extra folder, same discipline as `writeReplaysSortOrderFixture()`
+ * above) carrying a user-defined name template (`{p1}_vs_{p2}_{map}.mvd2`) under
+ * `replays.nameTemplates`, so `REPLAYS_FILTER_NAMEFACT_DEMO`'s file name resolves name-fact
+ * players - plus that folder holding four demos: `docs/fixtures/demos/
+ * PFAU_20221127-053327_q2dm1.mvd2` copied three times (favourite, non-favourite, name-fact) and
+ * `docs/fixtures/demos/test.dm2` copied once, alone, as the header-only demo (its real header
+ * players, `WallFly[BZZZ]`/`sd.kgm/sauDove`, would stop being unique to that one demo if any other
+ * row shared its bytes).
+ */
+export function writeReplaysFilterFixture() {
+  const userDataDir = variantUserDataDir(REPLAYS_FILTER_VARIANT)
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [
+        { id: REPLAYS_FILTER_FOLDER_ID, path: replaysFilterFixturePath(), addedAt: FIXED_TIMESTAMP },
+      ],
+      nameTemplates: {
+        entries: [
+          { id: 'fixture-filter-namefact-template', kind: 'user', template: '{p1}_vs_{p2}_{map}.mvd2' },
+        ],
+        removedShippedIds: [],
+      },
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysFilterFixturePath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+
+  const mvd2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2')
+  const dm2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
+
+  const demos = [
+    [REPLAYS_FILTER_FAVOURITE_DEMO, mvd2Fixture, REPLAYS_FILTER_FAVOURITE_SIDECAR],
+    [REPLAYS_FILTER_NONFAV_DEMO, mvd2Fixture, REPLAYS_FILTER_NONFAV_SIDECAR],
+    [REPLAYS_FILTER_HEADERONLY_DEMO, dm2Fixture, null],
+    [REPLAYS_FILTER_NAMEFACT_DEMO, mvd2Fixture, REPLAYS_FILTER_NAMEFACT_SIDECAR],
+  ]
+  for (const [fileName, source, sidecar] of demos) {
+    copyFileSync(source, join(folder, fileName))
+    if (sidecar !== null) {
+      writeFileSync(
+        join(folder, filterSidecarFileName(fileName)),
+        JSON.stringify(sidecar, null, 2) + '\n',
+        'utf8',
+      )
+    }
+  }
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+/** Undoes `writeReplaysFilterFixture()` above - called from `replays-filter-search.mjs`'s own
+ * `teardown()` (never from `writePopulatedFixture()` - same discipline as
+ * `removeReplaysZipPackArchive()`). */
+export function removeReplaysFilterFixture() {
+  rmDirBestEffort(variantUserDataDir(REPLAYS_FILTER_VARIANT))
+}
+
+// --- story 154 D5: the demo list's own date filter's e2e fixture --------------------------------
+
+/** `replays-date-filter`'s own fixture variant name - own `state.json`/own extra folder, never
+ * shared with `REPLAYS_FILTER_VARIANT`/`REPLAYS_SORT_ORDER_VARIANT` above (same discipline as
+ * those two). */
+export const REPLAYS_DATE_FILTER_VARIANT = 'date-filter-demos'
+
+const REPLAYS_DATE_FILTER_FOLDER_ID = 'fixture-replays-date-filter-folder'
+export function replaysDateFilterFixturePath() {
+  return join(variantUserDataDir(REPLAYS_DATE_FILTER_VARIANT), 'date-filter-demos')
+}
+
+/** File names `scripts/flows/replays-date-filter.mjs` asserts against - see
+ * `writeReplaysDateFilterFixture()`'s own doc comment below for each demo's effective-date source
+ * and approximate age. */
+export const REPLAYS_DATE_FILTER_TODAY_DEMO = 'date-filter-today.dm2'
+export const REPLAYS_DATE_FILTER_RECENT_DEMO = 'date-filter-recent.mvd2'
+export const REPLAYS_DATE_FILTER_OLD_DEMO = 'date-filter-old.mvd2'
+export const REPLAYS_DATE_FILTER_VERYOLD_DEMO = 'date-filter-veryold.mvd2'
+
+/** `REPLAYS_DATE_FILTER_RECENT_DEMO`'s sidecar `mod` override - the "another 153 filter" criterion
+ * the date filter ANDs with in this flow's own combine step. */
+export const REPLAYS_DATE_FILTER_RECENT_MOD = 'excessive'
+
+/** The sidecar file name for a demo file name - mirrors `sidecarFileName()`
+ * (`src/shared/replays/sidecar.ts`), same duplication reasoning as `filterSidecarFileName()`
+ * above: this is plain Node ESM outside both TS projects. */
+function dateFilterSidecarFileName(demoFileName) {
+  return `${demoFileName}.json`
+}
+
+/** Builds a local calendar `Date` `daysAgo` days before `nowMs`'s own calendar day, pinned to
+ * 10:00 local time - mirrors `resolveDateRange()`'s (`src/shared/date-range.ts`) own
+ * `new Date(y, m, d)` construction, never `nowMs - daysAgo * 86_400_000` (which breaks across a
+ * DST transition), so each demo's day lands unambiguously inside/outside a preset's boundary. */
+function daysAgoLocal(nowMs, daysAgo) {
+  const now = new Date(nowMs)
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo, 10, 0, 0)
+}
+
+/**
+ * Deletes and rewrites the `date-filter-demos` variant: an empty `state.json` (no installations -
+ * every row lives under one registered extra folder, same discipline as
+ * `writeReplaysFilterFixture()` above) plus that folder holding four demos:
+ *
+ *  - `REPLAYS_DATE_FILTER_TODAY_DEMO` - ~0 days old (today). No sidecar at all, and a plain file
+ *    name that matches none of `SHIPPED_NAME_PATTERNS` - its effective date resolves from FILE
+ *    TIME ONLY (`resolveEffectiveValues()`'s `date` rung falls through sidecar/name-fact straight
+ *    to `file`). The one ≤7-day-old demo required to prove the file-time rung alone.
+ *  - `REPLAYS_DATE_FILTER_RECENT_DEMO` - ~3 days old. Carries a sidecar `date` (ISO string, 3 days
+ *    before `nowMs`) AND a sidecar `mod` override (`REPLAYS_DATE_FILTER_RECENT_MOD`) - its
+ *    effective date resolves from the SIDECAR rung, and its mod is the "combines with another 153
+ *    filter" flow step's second criterion.
+ *  - `REPLAYS_DATE_FILTER_OLD_DEMO` - ~20 days old. No sidecar - file time only. Outside "last 7
+ *    days", inside "last 30 days".
+ *  - `REPLAYS_DATE_FILTER_VERYOLD_DEMO` - ~60 days old. No sidecar - file time only. Outside every
+ *    preset.
+ *
+ * Backdated via `fs.utimesSync` (the `writeDownloadsCacheArchives()` idiom above) rather than a
+ * sidecar date for the three file-time demos: a copy this script just made has a real (now)
+ * `birthtimeMs`, so `effectiveFileTime()` (`src/shared/demos/effective-values.ts`) falls back to
+ * the backdated `mtimeMs` since `birthtimeMs > mtimeMs` after backdating.
+ */
+export function writeReplaysDateFilterFixture(nowMs = Date.now()) {
+  const userDataDir = variantUserDataDir(REPLAYS_DATE_FILTER_VARIANT)
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [
+        {
+          id: REPLAYS_DATE_FILTER_FOLDER_ID,
+          path: replaysDateFilterFixturePath(),
+          addedAt: FIXED_TIMESTAMP,
+        },
+      ],
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysDateFilterFixturePath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+
+  const mvd2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2')
+  const dm2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
+
+  const recentSidecarDate = daysAgoLocal(nowMs, 3).toISOString()
+
+  const demos = [
+    [REPLAYS_DATE_FILTER_TODAY_DEMO, dm2Fixture, null, daysAgoLocal(nowMs, 0)],
+    [
+      REPLAYS_DATE_FILTER_RECENT_DEMO,
+      mvd2Fixture,
+      { schemaVersion: 1, date: recentSidecarDate, mod: REPLAYS_DATE_FILTER_RECENT_MOD },
+      daysAgoLocal(nowMs, 3),
+    ],
+    [REPLAYS_DATE_FILTER_OLD_DEMO, mvd2Fixture, null, daysAgoLocal(nowMs, 20)],
+    [REPLAYS_DATE_FILTER_VERYOLD_DEMO, mvd2Fixture, null, daysAgoLocal(nowMs, 60)],
+  ]
+
+  for (const [fileName, source, sidecar, mtime] of demos) {
+    const target = join(folder, fileName)
+    copyFileSync(source, target)
+    if (sidecar !== null) {
+      writeFileSync(
+        join(folder, dateFilterSidecarFileName(fileName)),
+        JSON.stringify(sidecar, null, 2) + '\n',
+        'utf8',
+      )
+    }
+    utimesSync(target, mtime, mtime)
+  }
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+/** Undoes `writeReplaysDateFilterFixture()` above - called from `replays-date-filter.mjs`'s own
+ * `teardown()`, never from `writePopulatedFixture()` (same discipline as
+ * `removeReplaysFilterFixture()` above). */
+export function removeReplaysDateFilterFixture() {
+  rmDirBestEffort(variantUserDataDir(REPLAYS_DATE_FILTER_VARIANT))
+}
+
+/** `replays-scale`'s extra folder id/path, registered in its own `state.json` below. */
+const REPLAYS_SCALE_FOLDER_ID = 'fixture-replays-scale-folder'
+function replaysScaleFolderPath() {
+  return join(variantUserDataDir('replays-scale'), 'demos-fixture')
+}
+
+/** How many placeholder `.dm2` files `replays-scale` seeds - exported so
+ * `scripts/flows/replays-list-scale.mjs` never hand-types this count a second time. */
+export const REPLAYS_SCALE_FILE_COUNT = 3000
+
+/** Base instant for the deterministic per-file mtimes below - comfortably earlier than "now" for as
+ * long as this repo runs (see the birthtime note below), and distinct from other fixtures'
+ * `FIXED_TIMESTAMP` so nothing here can collide with another variant's files. */
+const REPLAYS_SCALE_BASE_TIMESTAMP_MS = Date.parse('2026-01-01T00:00:00.000Z')
+
+/**
+ * Regression note (sprint gate fix for story 152, "favourites first, then newest"): this used to be
+ * the *highest*-numbered file (`scale-3000.dm2`), which was correct only while the demos list had no
+ * default sort and rendered rows in raw scan order - scrolling a plain, unsorted list to the bottom
+ * reached whatever was written last. Once 152 shipped the default order (favourites first, then
+ * newest by effective date - `src/shared/replays/list-sort.ts`), the *newest* file sorts to the
+ * *top* of the list, not the bottom: these placeholder files have neither a sidecar nor a readable
+ * header, so their effective date always falls back to file time
+ * (`src/shared/demos/effective-values.ts`'s `effectiveFileTime`), and the highest-numbered file was
+ * also the most-recently-written one. The file reachable by scrolling to the *end* of the list under
+ * 152's "newest first" order is now the *oldest* one - file 1 - which is what this constant (and the
+ * flow that imports it) point at.
+ *
+ * The per-file mtimes below are deliberately backdated to strictly increasing, one-second-apart
+ * instants (`fs.utimesSync`, same idiom as `writeDownloadsCacheArchives()` above) rather than left
+ * at their incidental real write-time mtimes: writing 3 000 files in a tight loop clusters many of
+ * them into the same few-millisecond filesystem-timestamp bucket, which would make "which single
+ * file has the unique oldest date" a matter of FS timing rather than a deterministic fixture. Node's
+ * `utimesSync` only backdates atime/mtime, never birthtime, so each file's real (recent) birthtime
+ * stays later than every one of these synthetic, backdated mtimes - `effectiveFileTime` requires
+ * `birthtimeMs <= mtimeMs` to prefer birthtime, so it always falls back to the deterministic mtime
+ * set here.
+ */
+export const REPLAYS_SCALE_LAST_FILE_NAME = 'scale-0001.dm2'
+
+/**
+ * Deletes and rewrites the `replays-scale` variant: an empty `state.json` (no installations), plus
+ * one registered extra folder holding `REPLAYS_SCALE_FILE_COUNT` placeholder `.dm2` files
+ * (`scale-0001.dm2` … `scale-3000.dm2`), each with its own deterministic, strictly increasing mtime
+ * (oldest to newest) - purely to prove the list virtualises rather than mounting every row at once.
+ * Placeholder bytes only, same convention as `REPLAYS_FIXTURE_DEMO_CONTENT` above - this variant
+ * never asserts on any row's parsed content, only on how many `DemoRow`s the DOM holds and whether
+ * the one at the bottom of 152's default sort order is reachable by scrolling.
+ */
+export function writeReplaysScaleFixture() {
+  const userDataDir = variantUserDataDir('replays-scale')
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [{ id: REPLAYS_SCALE_FOLDER_ID, path: replaysScaleFolderPath(), addedAt: FIXED_TIMESTAMP }],
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysScaleFolderPath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+
+  for (let i = 1; i <= REPLAYS_SCALE_FILE_COUNT; i += 1) {
+    const name = `scale-${String(i).padStart(4, '0')}.dm2`
+    const filePath = join(folder, name)
+    writeFileSync(filePath, REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+    const mtime = new Date(REPLAYS_SCALE_BASE_TIMESTAMP_MS + i * 1000)
+    utimesSync(filePath, mtime, mtime)
+  }
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
+}
+
+// --- story 151 D4: the Demos view's own loading/empty/error status-strip screens -----------------
+
+/**
+ * Story 151 D4: `replays-list-loading`'s fixture - the plain `populated` install/demo set (so the
+ * loading strip's `data-total` is real, non-zero `REPLAYS_FIXTURE_DEMOS.length`), plus the harness's
+ * scan-hold seam (`scanHoldMs()`, `src/main/modules/replays/index.ts`) set to `holdMs` so the flow
+ * has a real window to assert the loading strip's numbers before the scan finishes on its own.
+ */
+export function writeReplaysListLoadingFixture({ holdMs = 15000 } = {}) {
+  const result = writePopulatedFixture({ variant: 'replays-list-loading' })
+  writeFileSync(join(result.userDataDir, 'harness-replays-scan-hold-ms'), String(holdMs), 'utf8')
+  return result
+}
+
+/**
+ * Story 151 D4: `replays-list-error`'s fixture - the plain `populated` install/demo set plus two
+ * extra folders registered under `replays.extraFolders`, each engineered to fail discovery in a
+ * distinct way (AC "a source failure never hides the rest of the list"):
+ *   - `replaysListErrorMissingFolderPath()` - never created, so `scanDemosDir` reports `'missing'`
+ *     (ENOENT) for the folder itself.
+ *   - `replaysListErrorBrokenArchiveFolderPath()` - a real, readable folder holding one file,
+ *     `broken.zip`, that is a few garbage bytes, never a real archive - it fails to expand whether
+ *     or not `resources/bin/7za.exe` happens to be vendored locally (`'extractor-missing'` without
+ *     it, `'archive-unreadable'` with it - both are one of `replaysSourceErrorReasonSchema`'s three
+ *     archive-only codes).
+ * Both folders live under THIS variant's own `variantUserDataDir()`, never under `gameRoot()` - the
+ * same discipline `writeReplaysRowsFixture()`/`writeReplaysScaleFixture()` follow above, for the
+ * same reason: `gameRoot()` is not variant-scoped, so anything written there would leak into every
+ * other variant/flow that reads the shared installation folders (see the regression note on
+ * `writeReplaysDemosFixture()`).
+ */
+export function replaysListErrorMissingFolderPath() {
+  return join(variantUserDataDir('replays-list-error'), 'missing-demos')
+}
+
+export function replaysListErrorBrokenArchiveFolderPath() {
+  return join(variantUserDataDir('replays-list-error'), 'broken-archive-demos')
+}
+
+export const REPLAYS_LIST_ERROR_BROKEN_ARCHIVE_NAME = 'broken.zip'
+
+export function writeReplaysListErrorFixture() {
+  const missingFolder = replaysListErrorMissingFolderPath()
+  const brokenArchiveFolder = replaysListErrorBrokenArchiveFolderPath()
+
+  const result = writePopulatedFixture({
+    variant: 'replays-list-error',
+    stateOverrides: {
+      replays: {
+        extraFolders: [
+          { id: 'fixture-replays-list-error-missing', path: missingFolder, addedAt: FIXED_TIMESTAMP },
+          {
+            id: 'fixture-replays-list-error-broken-archive',
+            path: brokenArchiveFolder,
+            addedAt: FIXED_TIMESTAMP,
+          },
+        ],
+      },
+    },
+  })
+
+  // `missingFolder` is deliberately never created.
+  rmDirBestEffort(brokenArchiveFolder)
+  mkdirSync(brokenArchiveFolder, { recursive: true })
+  writeFileSync(
+    join(brokenArchiveFolder, REPLAYS_LIST_ERROR_BROKEN_ARCHIVE_NAME),
+    'q2l-fixture-not-a-real-zip\n',
+    'utf8',
+  )
+
+  return result
+}
+
 /**
  * Deletes and rewrites the `populated` variant's userdata + game dirs - or, when `variant`/
  * `stateOverrides` are passed, a different variant that needs every one of those same side effects
@@ -2026,6 +2955,11 @@ export function writePopulatedFixture({ variant = 'populated', stateOverrides = 
       writeCustomIconFile(userDataDir, id)
     }
   }
+
+  // Story 141 D5: the Demos view's discovered-list fixture - both installations' roots were just
+  // (re)created by the loop above, so this only ever adds to them.
+  writeReplaysDemosFixture()
+  writeReplaysExtraFolderFixture()
 
   // Story 094 D4: a sentinel file in a directory NEXT TO `INSTALL_REMOVE_DISK_ID`'s own root
   // (created just above, in the loop) - not inside it. `installation-remove-from-disk.mjs` deletes
@@ -2318,6 +3252,23 @@ export function writeFixture(variant) {
   if (variant === 'servers-list-empty') return writeServersListEmptyFixture()
   if (variant === 'servers-list') return writeServersListFixture()
   if (variant === 'servers-list-error') return writeServersListErrorFixture()
+  // Story 150+ D5: the demos-list rows on a real surface - see each writer's own doc comment.
+  if (variant === 'replays-rows') return writeReplaysRowsFixture()
+  if (variant === 'replays-scale') return writeReplaysScaleFixture()
+  // Story 159 D3: demo playback in a stand-in Q2PRO - see `writeReplaysPlayFixture()`.
+  if (variant === 'replays-play') return writeReplaysPlayFixture()
+  // Story 165 D4: the same install with a long-lived stub engine - see `writeReplaysTimelineFixture()`.
+  if (variant === REPLAYS_TIMELINE_VARIANT) return writeReplaysTimelineFixture()
+  // Story 152 D3: `replays-sort-order` has no screen (only `scripts/flows/replays-sort-order.mjs`),
+  // same reasoning as `replays-scale` above - still listed here so `npm run ui:seed` writes it too.
+  if (variant === REPLAYS_SORT_ORDER_VARIANT) return writeReplaysSortOrderFixture()
+  // Story 154 D5: `replays-date-filter`/`replays-date-filter-invalid` screens - see
+  // `writeReplaysDateFilterFixture()`'s own doc comment.
+  if (variant === REPLAYS_DATE_FILTER_VARIANT) return writeReplaysDateFilterFixture()
+  // Story 151 D4: the Demos view's own loading/error status-strip screens - see each writer's own
+  // doc comment.
+  if (variant === 'replays-list-loading') return writeReplaysListLoadingFixture()
+  if (variant === 'replays-list-error') return writeReplaysListErrorFixture()
   throw new Error(`unknown fixture variant: ${variant}`)
 }
 
@@ -2338,6 +3289,20 @@ export const FIXTURE_VARIANTS = [
   'servers-list-empty',
   'servers-list',
   'servers-list-error',
+  // Story 150+ D5: `replays-rows`'s screen (`screens.mjs`) reseeds it; `replays-scale` has no
+  // screen (only `scripts/flows/replays-list-scale.mjs`), same reasoning as `news-cover`/
+  // `servers-scan` above - still listed here so `npm run ui:seed` writes it too.
+  'replays-rows',
+  'replays-scale',
+  'replays-play',
+  'replays-timeline',
+  'replays-sort-order',
+  // Story 151 D4: `replays-list-loading`/`replays-list-error`'s own screens (`screens.mjs`) reseed
+  // them.
+  'replays-list-loading',
+  'replays-list-error',
+  // Story 154 D5: `replays-date-filter`/`replays-date-filter-invalid`'s own variant (`screens.mjs`).
+  'date-filter-demos',
 ]
 
 // --- story 066 D8: the import-from-files flow's staged real-config corpus ---------------------
@@ -2722,6 +3687,299 @@ export function writeJoinFixture({ servers, variant = 'servers-join' }) {
     executablePath: install.executablePath,
     spawnable: install.spawnable,
   }
+}
+
+// --- story 159 D3: `replays-play` - demos playable in a stand-in Q2PRO ---------------------------
+//
+// Two registered installations: the ACTIVE `q2pro` one (the same spawnable stand-in client as
+// `writeJoinInstallRoot()`, renamed `q2pro.exe`/`q2pro` so it classifies as q2pro; game dirs
+// `baseq2` + `ctf`) and a second, plain `r1q2` one. No real engine ever starts: the "client" is
+// `scripts/lib/stub-engine.cjs` (story 165 D4, `writeStubEngine()`), which speaks the playback
+// transport and exits by itself after 400 ms unless told otherwise. Demos live under the q2pro install:
+// `baseq2/demos/play-base.dm2`, `ctf/demos/play-ctf.dm2` (header game dir patched to `ctf`) and
+// `baseq2/demos/play-tdm.dm2` (the unpatched fixture, header game dir `opentdm` - a mod no
+// installation has, so Play must say "Mod `opentdm` missing").
+export const REPLAYS_PLAY_Q2PRO_ID = 'fixture-replays-play-q2pro'
+export const REPLAYS_PLAY_R1Q2_ID = 'fixture-replays-play-r1q2'
+export const REPLAYS_PLAY_BASE_DEMO = 'play-base.dm2'
+export const REPLAYS_PLAY_CTF_DEMO = 'play-ctf.dm2'
+export const REPLAYS_PLAY_MISSING_MOD_DEMO = 'play-tdm.dm2'
+export const REPLAYS_PLAY_MISSING_MOD = 'opentdm'
+
+/** Returns `test.dm2` with its serverdata block's game dir rewritten to `gameDir` (block 0 =
+ * `int32 length`, then `svc_serverdata`: 1 + 4 + 4 + 1 bytes, then the null-terminated game dir). */
+function demoBytesWithGameDir(gameDir) {
+  const src = readFileSync(join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2'))
+  const blockLength = src.readUInt32LE(0)
+  const dirStart = 4 + 10
+  const dirEnd = src.indexOf(0, dirStart)
+  const patched = Buffer.concat([Buffer.from(gameDir, 'latin1'), Buffer.from([0])])
+  const out = Buffer.concat([src.subarray(0, dirStart), patched, src.subarray(dirEnd + 1)])
+  out.writeUInt32LE(blockLength - (dirEnd + 1 - dirStart) + patched.length, 0)
+  return out
+}
+
+export function replaysPlayInstallRoot() {
+  return join(gameRoot(), 'fixture-replays-play-q2pro-install')
+}
+
+/** Every fixture demo derives from `docs/fixtures/demos/test.dm2`: 410 server frames = 41 s. */
+export const REPLAYS_PLAY_DEMO_MS = 41_000
+
+/** copyFileSync that waits out a previous run's stub still holding `dest` open (Windows locks it
+ * until the stub notices its launcher is gone, see `stub-engine.cjs`'s parent check). */
+function copyFileRetrying(src, dest) {
+  const deadline = Date.now() + 5_000
+  for (;;) {
+    try {
+      copyFileSync(src, dest)
+      return
+    } catch (err) {
+      if (Date.now() >= deadline || !['EBUSY', 'EPERM'].includes(err?.code)) throw err
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100)
+    }
+  }
+}
+
+/**
+ * Story 165 D4: installs `scripts/lib/stub-engine.cjs` - the stand-in Q2PRO that speaks story 164's
+ * playback transport - as `executablePath`. Windows: this node binary copied as `q2pro.exe` plus the
+ * script as `<root>/+set.js` (node resolves the launch's leading `+set` argument against the cwd, the
+ * install root). Elsewhere: a `#!/bin/sh` wrapper that execs node on the script with the real argv.
+ * `stub-engine.json` carries the demo length and how long the stub lives when nobody quits it
+ * (400 ms by default - the old stand-in's "exits by itself" behaviour the 159-162 flows rely on).
+ */
+function writeStubEngine(root, executablePath, { lifetimeMs = 400 } = {}) {
+  const script = join(REPO_ROOT, 'scripts', 'lib', 'stub-engine.cjs')
+  writeJson(join(root, 'stub-engine.json'), { demoMs: REPLAYS_PLAY_DEMO_MS, lifetimeMs })
+  if (process.platform === 'win32') {
+    copyFileRetrying(script, join(root, '+set.js'))
+    copyFileRetrying(process.execPath, executablePath)
+    return
+  }
+  const target = join(root, 'stub-engine.cjs')
+  copyFileSync(script, target)
+  const quote = (p) => `'${p.replace(/'/g, `'\\''`)}'`
+  writeFileSync(executablePath, `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(target)} "$@"\n`)
+  chmodSync(executablePath, 0o755)
+}
+
+// Story 180 D4: an optional third installation that lacks pak0.pak (status `invalid`), so the
+// action bar's installation-level Repair state can be reached from the Demos tab.
+export const REPLAYS_PLAY_BROKEN_ID = 'fixture-replays-play-broken'
+export const REPLAYS_PLAY_BROKEN_NAME = 'Fixture Play Broken'
+
+export function writeReplaysPlayFixture(variant = 'replays-play', { engineLifetimeMs, brokenInstallation = false } = {}) {
+  const userDataDir = variantUserDataDir(variant)
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  const root = replaysPlayInstallRoot()
+  rmDirBestEffort(root)
+  mkdirSync(join(root, 'baseq2', 'demos'), { recursive: true })
+  mkdirSync(join(root, 'ctf', 'demos'), { recursive: true })
+  // Story 180 D4: an empty `opentdm` dir on disk (not in the installation's `gameDirs`, so the demo stays
+  // mod-missing) - the playback channel writes its cfg into the game dir and fails without it.
+  mkdirSync(join(root, REPLAYS_PLAY_MISSING_MOD), { recursive: true })
+  writeFileSync(join(root, 'baseq2', 'pak0.pak'), 'not a real pak, just needs to exist')
+  const executablePath = join(root, process.platform === 'win32' ? 'q2pro.exe' : 'q2pro')
+  const spawnable = true
+  writeStubEngine(root, executablePath, { lifetimeMs: engineLifetimeMs })
+
+  writeFileSync(join(root, 'baseq2', 'demos', REPLAYS_PLAY_BASE_DEMO), demoBytesWithGameDir('baseq2'))
+  writeFileSync(join(root, 'ctf', 'demos', REPLAYS_PLAY_CTF_DEMO), demoBytesWithGameDir('ctf'))
+  copyFileSync(
+    join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2'),
+    join(root, 'baseq2', 'demos', REPLAYS_PLAY_MISSING_MOD_DEMO),
+  )
+
+  const r1q2Root = join(gameRoot(), 'fixture-replays-play-r1q2-install')
+  rmDirBestEffort(r1q2Root)
+  mkdirSync(join(r1q2Root, 'baseq2'), { recursive: true })
+  writeFileSync(join(r1q2Root, 'baseq2', 'pak0.pak'), 'not a real pak, just needs to exist')
+  const r1q2Exe = join(r1q2Root, process.platform === 'win32' ? 'r1q2.exe' : 'r1q2')
+  writeFileSync(r1q2Exe, 'placeholder - never launched by this flow')
+
+  const brokenRoot = join(gameRoot(), 'fixture-replays-play-broken-install')
+  if (brokenInstallation) {
+    // Engine present, no pak0.pak: `validation.pak0Missing` (error) -> status invalid -> Repair.
+    rmDirBestEffort(brokenRoot)
+    mkdirSync(join(brokenRoot, 'baseq2'), { recursive: true })
+    writeFileSync(join(brokenRoot, process.platform === 'win32' ? 'r1q2.exe' : 'r1q2'), 'placeholder - never launched by this flow')
+  }
+
+  const installation = (id, name, engineKind, rootPath, exe, gameDirs, sortOrder) => ({
+    id,
+    name,
+    rootPath,
+    engineKind,
+    executablePath: exe,
+    launchArgs: [],
+    activeGameDir: '',
+    detectedVersion: undefined,
+    source: 'manual',
+    status: 'ok',
+    checks: [],
+    gameDirs,
+    favorite: false,
+    sortOrder,
+    createdAt: FIXED_TIMESTAMP,
+    updatedAt: FIXED_TIMESTAMP,
+    lastValidatedAt: undefined,
+    lastPlayedAt: undefined,
+    totalPlaytimeSeconds: 0,
+  })
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    settings: { ...DEFAULT_SETTINGS, scanOnFirstRun: false, activeInstallationId: REPLAYS_PLAY_Q2PRO_ID },
+    installations: [
+      installation(REPLAYS_PLAY_Q2PRO_ID, 'Fixture Play Q2PRO', 'q2pro', root, executablePath, ['baseq2', 'ctf'], 0),
+      installation(REPLAYS_PLAY_R1Q2_ID, 'Fixture Play R1Q2', 'r1q2', r1q2Root, r1q2Exe, ['baseq2'], 1),
+      ...(brokenInstallation
+        ? [
+            {
+              ...installation(
+                REPLAYS_PLAY_BROKEN_ID,
+                REPLAYS_PLAY_BROKEN_NAME,
+                'r1q2',
+                brokenRoot,
+                join(brokenRoot, process.platform === 'win32' ? 'r1q2.exe' : 'r1q2'),
+                ['baseq2'],
+                2,
+              ),
+              status: 'invalid',
+            },
+          ]
+        : []),
+    ],
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  return { userDataDir, installRoot: root, executablePath, spawnable }
+}
+
+// Story 165 D4: `replays-timeline` - the `replays-play` install, but its stub engine stays up (two
+// minutes, or until the flow drops the quit file) so the timeline strip can be steered and screenshot.
+export const REPLAYS_TIMELINE_VARIANT = 'replays-timeline'
+const REPLAYS_TIMELINE_ENGINE_LIFETIME_MS = 120_000
+
+/** Where the flow's stub engine records executed commands and looks for its quit file - handed to
+ * it as `Q2L_UI_ENGINE_COMMAND_LOG` / `Q2L_UI_ENGINE_QUIT_FILE` (and, story 172, `Q2L_UI_ENGINE_KEYS_FILE`) by the flow's `setup()`. */
+export function replaysTimelineEngineFiles() {
+  const dir = join(UI_VERIFY_ROOT, 'fixture', 'replays-timeline-engine')
+  return { dir, commandLog: join(dir, 'commands.log'), quitFile: join(dir, 'quit'), ignoreQuitFile: join(dir, 'ignore-quit'), keysFile: join(dir, 'keys') }
+}
+
+// Story 171 D2: where the stub engine records the stage follower's window lines (`Q2L_UI_ENGINE_WINDOW_LOG`).
+export function replaysStageFollowEngineFiles() {
+  const files = replaysTimelineEngineFiles()
+  return { ...files, windowLog: join(files.dir, 'window.log') }
+}
+
+export function writeReplaysTimelineFixture() {
+  const files = replaysTimelineEngineFiles()
+  rmDirBestEffort(files.dir)
+  mkdirSync(files.dir, { recursive: true })
+  writeFileSync(files.commandLog, '')
+  return {
+    ...writeReplaysPlayFixture(REPLAYS_TIMELINE_VARIANT, { engineLifetimeMs: REPLAYS_TIMELINE_ENGINE_LIFETIME_MS }),
+    ...files,
+  }
+}
+
+// Story 162 D1: the `replays-play` install plus an `.mvd2` and an `.mvd2.gz` in its `baseq2/demos/`
+// (names reuse `REPLAYS_FIXTURE_DEMOS`' literals; the gz is the same PFAU fixture, gzipped here).
+export const REPLAYS_PLAY_MVD2_DEMO = 'team_q2dm3.mvd2'
+export const REPLAYS_PLAY_MVD2_GZ_DEMO = 'tourney.mvd2.gz'
+export const REPLAYS_PLAY_MVD2_GAME_DIR = 'opentdm'
+
+export function writeReplaysPlayMvd2Fixture(variant) {
+  const result = writeReplaysPlayFixture(variant)
+  // The PFAU recording's header names game dir `opentdm`, so the Q2PRO install must have that mod.
+  mkdirSync(join(result.installRoot, REPLAYS_PLAY_MVD2_GAME_DIR), { recursive: true })
+  writeFileSync(join(result.installRoot, REPLAYS_PLAY_MVD2_GAME_DIR, 'pak0.pak'), 'not a real pak, just needs to exist')
+  const statePath = join(result.userDataDir, STATE_FILE)
+  const state = JSON.parse(readFileSync(statePath, 'utf8'))
+  state.installations[0].gameDirs.push(REPLAYS_PLAY_MVD2_GAME_DIR)
+  writeJson(statePath, state)
+  const demosDir = join(result.installRoot, 'baseq2', 'demos')
+  const bytes = readFileSync(join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2'))
+  writeFileSync(join(demosDir, REPLAYS_PLAY_MVD2_DEMO), bytes)
+  writeFileSync(join(demosDir, REPLAYS_PLAY_MVD2_GZ_DEMO), gzipSync(bytes))
+  return result
+}
+
+// --- story 160 D3: the copy-in flows' fixture ----------------------------------------------------
+//
+// The `replays-play` install plus (a) a stand-in client that LINGERS ~3s instead of exiting at once
+// - the copy under `demos/_launcher/` only exists while the game runs, so the flow needs a window
+// to see it in: off Windows a shell script that sleeps 3s; on Windows a copy of `cmd.exe` named
+// `q2pro.exe` whose installation `launchArgs` are `/d /c ping -n 4 127.0.0.1 >nul & rem`, so the
+// launcher's own trailing `+set game ... +demo _launcher/<id>` args land inside the `rem` comment
+// (still recorded in main.log's `launching` line); (b) an extra demo folder inside the variant's own
+// userData dir holding `copy-a.dm2` and, when 7za is vendored, `copy-pack.zip` with one entry; and
+// (c) optionally a `_launcher/leftover.dm2` (sweep flow) or a plain FILE named `_launcher` (the
+// not-writable flow).
+export const REPLAYS_COPY_IN_INPLACE_DEMO = REPLAYS_PLAY_BASE_DEMO
+export const REPLAYS_COPY_IN_EXTRA_DEMO = 'copy-a.dm2'
+export const REPLAYS_COPY_IN_ZIP = 'copy-pack.zip'
+export const REPLAYS_COPY_IN_ZIP_ENTRY = 'copy-entry.dm2'
+export const REPLAYS_COPY_IN_KEEP_DEMO = 'keep.dm2'
+
+export function replaysCopyInExtraFolder(variant) {
+  return join(variantUserDataDir(variant), 'copy-in-demos')
+}
+
+export function replaysCopyInDemosDir() {
+  return join(replaysPlayInstallRoot(), 'baseq2', 'demos')
+}
+
+/** `mode`: 'plain' | 'leftover' (seed `_launcher/leftover.dm2` + `keep.dm2`) | 'blocked' (`_launcher` is a file). */
+export function writeReplaysCopyInFixture(variant, mode = 'plain') {
+  const result = writeReplaysPlayFixture(variant)
+  const demosDir = replaysCopyInDemosDir()
+
+  if (process.platform === 'win32') {
+    copyFileSync(join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'cmd.exe'), result.executablePath)
+  } else {
+    writeFileSync(result.executablePath, '#!/bin/sh\nsleep 3\nexit 0\n')
+    chmodSync(result.executablePath, 0o755)
+  }
+
+  const folder = replaysCopyInExtraFolder(variant)
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+  writeFileSync(join(folder, REPLAYS_COPY_IN_EXTRA_DEMO), demoBytesWithGameDir('baseq2'))
+  if (vendoredExtractorExists()) {
+    const staging = join(bootstrapStagingDir(), `replays-copy-in-zip-${variant}`)
+    rmSync(staging, { recursive: true, force: true })
+    mkdirSync(staging, { recursive: true })
+    writeFileSync(join(staging, REPLAYS_COPY_IN_ZIP_ENTRY), demoBytesWithGameDir('baseq2'))
+    execFileSync(
+      vendoredSevenZaPath(),
+      ['a', '-tzip', '-mx1', '-bso0', '-bse0', '-bd', join(folder, REPLAYS_COPY_IN_ZIP), REPLAYS_COPY_IN_ZIP_ENTRY],
+      { cwd: staging, windowsHide: true },
+    )
+  }
+
+  const statePath = join(result.userDataDir, STATE_FILE)
+  const state = JSON.parse(readFileSync(statePath, 'utf8'))
+  if (process.platform === 'win32') {
+    state.installations[0].launchArgs = ['/d', '/c', 'ping', '-n', '4', '127.0.0.1', '>nul', '&', 'rem']
+  }
+  state.replays = {
+    extraFolders: [{ id: `fixture-${variant}-folder`, path: folder, addedAt: FIXED_TIMESTAMP }],
+  }
+  writeJson(statePath, state)
+
+  if (mode === 'leftover') {
+    mkdirSync(join(demosDir, '_launcher'), { recursive: true })
+    writeFileSync(join(demosDir, '_launcher', 'leftover.dm2'), 'q2l-fixture-leftover\n', 'utf8')
+    writeFileSync(join(demosDir, REPLAYS_COPY_IN_KEEP_DEMO), demoBytesWithGameDir('baseq2'))
+  } else if (mode === 'blocked') {
+    writeFileSync(join(demosDir, '_launcher'), 'a plain file where the directory should be\n', 'utf8')
+  }
+  return { ...result, extraFolder: folder }
 }
 
 /**

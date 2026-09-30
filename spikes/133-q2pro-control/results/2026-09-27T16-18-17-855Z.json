@@ -1,0 +1,19 @@
+{
+  "startedAt": "2026-09-27T16:18:17.855Z",
+  "exePath": "C:\\Games\\Q2Pro\\q2pro.exe",
+  "gameDir": "C:\\Games\\Q2Pro\\opentdm",
+  "demoName": "test.dm2",
+  "waitFrames": 5,
+  "runMode": "interactive",
+  "commands": [],
+  "posSamples": [],
+  "cpuSamples": {
+    "baseline": 0.171875
+  },
+  "logGrowth": {
+    "startBytes": 0,
+    "endBytes": 0
+  },
+  "duplicates": [],
+  "finishedAt": "2026-09-27T16:18:27.295Z"
+}

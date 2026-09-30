@@ -31,6 +31,9 @@ import { EmptyState, SectionLabel } from '../../components/ui/primitives'
 import { DragHandle, SortableItem } from '../../components/dnd'
 import { ActionEditor } from './components/ActionEditor'
 import { BindSlot, BindSlotPlaceholder } from './components/BindSlot'
+import { useLauncher } from '../../store/useLauncher'
+import { demoActionUnavailableReason } from './lib/demo-action-availability'
+import { assignedEngineKinds } from './lib/engine-scope'
 import { ControlsCategoryMenu } from './components/ControlsCategoryMenu'
 import { CategoryDropTarget, ControlsDragZone, categoryDragId } from './components/ControlsDragZone'
 import { ControlsGrid } from './components/ControlsGrid'
@@ -131,6 +134,16 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
   // `renderPlainActionRow` can each ask "is my action id in `keys.actions`" - same predicate the
   // save bar's badge and count use (`useProfileChanges`, `lib/profile-changes.tsx`).
   const changeSet = useProfileChanges()
+  // Story 167 D4: the engines this profile is assigned to, which decide whether a demo-playback
+  // row (`seek` / speed steps are Q2PRO verbs) can be bound at all - same read `SettingsTab` does.
+  const installations = useLauncher((state) => state.installations)
+  const assignedEngines = useMemo(
+    () => assignedEngineKinds(profile, installations),
+    [profile, installations],
+  )
+  /** i18n key naming why `row` cannot work on the assigned engine(s), or `undefined`. */
+  const unavailableReasonKey = (row: CatalogRow): string | undefined =>
+    demoActionUnavailableReason(row.catalogId, assignedEngines)
 
   // Story 009 D6: `localCategories`/`localActions` used to live here as their
   // own `useState`; they are now `draft.categories`/`draft.actions`, lifted
@@ -1083,6 +1096,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
         // collides with another owner anywhere in the profile is marked (D7's whole-profile scan).
         isPrimary={slotIndex === 0}
         isConflicted={isConflicted}
+        disabled={unavailableReasonKey(row) !== undefined}
         checkModifierCollision={checkModifierCollision}
         checkCollision={(key) =>
           findSlotCollision(draft, key, {
@@ -1163,7 +1177,18 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
     const conflict = conflictOwner ? { owner: conflictOwner } : null
     const extra =
       isDropEntry(action) || isDropCatalogRow(row) ? renderDropToggles(action, row) : undefined
-    return <ControlsOptionsCell layer={layer} conflict={conflict} extra={extra} />
+    // Story 167 D4: an unavailable demo row states why, as visible text (mirrors CvarRow's
+    // `notOnEngine` value-cell text) - a tooltip alone would not do.
+    const reasonKey = unavailableReasonKey(row)
+    const reason = reasonKey ? t(reasonKey) : undefined
+    return (
+      <ControlsOptionsCell
+        layer={layer}
+        conflict={conflict}
+        extra={extra}
+        unavailableReason={reason}
+      />
+    )
   }
 
   /**
@@ -1285,6 +1310,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
         extraKeyRows={renderExtraKeyRows(row, action, label)}
         rowId={action.id}
         grip={grip}
+        unavailable={unavailableReasonKey(row) !== undefined}
         optionsCell={
           <div className="flex w-full items-center justify-end gap-0.5">
             <div className="min-w-0 overflow-hidden">{renderCatalogOptionsCell(row, action)}</div>
@@ -1453,6 +1479,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
             <IconButton
               label={t('config.controls.actions.clearKey', { name: label, n: slotIndex + 1 })}
               size="sm"
+              disabled={row ? unavailableReasonKey(row) !== undefined : false}
               onClick={() => clearSlot(slotIndex)}
             >
               <X className="size-3.5" />

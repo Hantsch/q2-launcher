@@ -20,6 +20,7 @@
 //     caller can decide which of them fails a run.
 //
 // Run directly (`node scripts/lib/harness.mjs`) for a self-check.
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { delimiter, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -333,7 +334,13 @@ function defaultDeps() {
  * same way it does in dev, and a packaged-app run must be contained exactly as
  * strictly as a dev one.
  */
-async function launchApp({ userDataDir, env: extraEnv, executablePath, deps = defaultDeps() }) {
+async function launchApp({
+  userDataDir,
+  env: extraEnv,
+  executablePath,
+  extraArgs = [],
+  deps = defaultDeps(),
+}) {
   if (!executablePath) deps.ensureBuild()
 
   // Guard before anything is created: a run must never be able to point Electron
@@ -341,12 +348,22 @@ async function launchApp({ userDataDir, env: extraEnv, executablePath, deps = de
   const resolvedUserDataDir = assertInside(UI_VERIFY_ROOT, userDataDir, '--user-data-dir')
   mkdirSync(resolvedUserDataDir, { recursive: true })
 
+  // A flow's own extra launch args (story 154 D4, e.g. `--lang=de-DE`) must never be able to
+  // smuggle in a second `--user-data-dir` — that confinement switch is the harness's own and
+  // is never up for a flow to override.
+  const overridesUserDataDir = extraArgs.some(
+    (arg) => arg === '--user-data-dir' || arg.startsWith('--user-data-dir='),
+  )
+  if (overridesUserDataDir) {
+    throw new HarnessError('extraArgs may not override --user-data-dir')
+  }
+
   const log = new RunLog()
   const state = { expectedExit: false }
 
   const launchArgs = executablePath
-    ? [`--user-data-dir=${resolvedUserDataDir}`]
-    : [join(REPO_ROOT, MAIN_ENTRY), `--user-data-dir=${resolvedUserDataDir}`]
+    ? [`--user-data-dir=${resolvedUserDataDir}`, ...extraArgs]
+    : [join(REPO_ROOT, MAIN_ENTRY), `--user-data-dir=${resolvedUserDataDir}`, ...extraArgs]
 
   let app
   try {
@@ -437,7 +454,7 @@ async function launchApp({ userDataDir, env: extraEnv, executablePath, deps = de
     return { app, page, log, state, child, userDataDir: reportedUserDataDir }
   } catch (error) {
     state.expectedExit = true
-    await app.close().catch(() => {})
+    await closeAppOrKill(app, child)
     throw enrichLaunchFailure(error, log)
   }
 }
@@ -476,6 +493,57 @@ function enrichLaunchFailure(error, log) {
 }
 
 /**
+ * Hard-kills the process `launchApp()` attached to (`child`, from `app.process()`). Windows Electron
+ * spawns helper processes under the same tree, so a plain `child.kill()` only reaches the top one —
+ * `taskkill /T` recurses over the whole tree instead. POSIX only needs `SIGKILL` on the process
+ * itself. Killing an already-exited process is harmless either way: `taskkill` on a dead pid just
+ * exits non-zero, and signalling a dead pid throws, both swallowed here.
+ */
+function killProcessTree(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return
+  if (!child.pid) return
+  try {
+    if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'])
+    else child.kill('SIGKILL')
+  } catch {
+    // Already gone, or nothing left to signal — harmless either way.
+  }
+}
+
+/**
+ * Bounded wait for `app.close()`; hard-kills `child` (see `killProcessTree()`) if the close does not
+ * finish within `timeoutMs`. Shared by `launchApp()`'s own failure path and `withApp()`'s teardown —
+ * both used to just `await app.close().catch(() => {})`, unbounded, which let a close that never
+ * settles keep the whole script (and CI job) open.
+ *
+ * Story 101 D6's AppImage self-update is exactly that case: `AppImageUpdater.doInstall()` re-execs
+ * the launcher through `$APPIMAGE`, so Playwright's `close()` waits forever for a pipe only the
+ * *new*, detached process still holds open. This makes no attempt to hunt down that detached
+ * successor — it only makes sure a close that will not finish cannot hold the script open, by
+ * killing the one process `launchApp()` actually knows about.
+ *
+ * `timeoutMs`/`kill` are overridable so a test can prove both branches without waiting out the real
+ * timeout or spawning a real process — see harness.test.mjs.
+ */
+export async function closeAppOrKill(app, child, { timeoutMs = CLOSE_TIMEOUT_MS, kill = killProcessTree } = {}) {
+  const CLOSE_SETTLED = Symbol('close-settled')
+  const winner = await Promise.race([
+    app
+      .close()
+      .then(() => CLOSE_SETTLED)
+      .catch(() => CLOSE_SETTLED),
+    sleep(timeoutMs),
+  ])
+  if (winner !== CLOSE_SETTLED) {
+    try {
+      await kill(child)
+    } catch {
+      // Killing an already-exited (or already-gone) process must be harmless.
+    }
+  }
+}
+
+/**
  * Runs `fn` against the built app and closes the app afterwards, whatever
  * happened. `fn` receives `{ app, page, log, userDataDir }` and its result is
  * returned.
@@ -486,16 +554,22 @@ function enrichLaunchFailure(error, log) {
  * `page.setViewportSize()`. `env` (story 074 D8) is merged into `childEnv()`
  * last, for values only known immediately before the launch — see `childEnv()`.
  * `executablePath` (story 101 D4) launches a packaged binary instead of this
- * repo's own dev build — see `launchApp()`'s doc comment. `deps` overrides
+ * repo's own dev build — see `launchApp()`'s doc comment. `extraArgs` (story 154 D4) are appended
+ * after the harness's own `--user-data-dir` switch, for a flow that needs its own Electron launch
+ * arg (e.g. `--lang=de-DE`) — see `launchApp()`'s override guard. `deps` overrides
  * `launchApp()`'s collaborators; only a test passes it.
  */
-export async function withApp({ variant, viewport, env, executablePath, deps } = {}, fn) {
+export async function withApp(
+  { variant, viewport, env, executablePath, extraArgs, deps } = {},
+  fn,
+) {
   if (!variant) throw new HarnessError('withApp() needs a fixture variant')
 
   const { app, page, log, state, child, userDataDir } = await launchApp({
     userDataDir: variantUserDataDir(variant),
     env,
     executablePath,
+    extraArgs,
     deps,
   })
 
@@ -520,13 +594,9 @@ export async function withApp({ variant, viewport, env, executablePath, deps } =
     throw error
   } finally {
     state.expectedExit = true
-    // Bounded, not simply awaited: `close()` waits for the process Playwright attached to, and
-    // story 101 D6's AppImage self-update replaces exactly that process - `AppImageUpdater`'s
-    // `doInstall()` re-execs the launcher through `$APPIMAGE`, so the driver waits forever for a
-    // pipe the *new*, detached process still holds open. `.catch()` cannot help with a promise
-    // that never settles. By the time this runs the result of the run is already decided, so a
-    // close that will not finish must not be able to hold the script - and its CI job - open.
-    await Promise.race([app.close().catch(() => {}), sleep(CLOSE_TIMEOUT_MS)])
+    // Bounded, and hard-kills `child` if the close doesn't finish in time — see
+    // `closeAppOrKill()`'s own doc comment (story 101 D6 AppImage self-update) for why.
+    await closeAppOrKill(app, child)
   }
 }
 
@@ -577,13 +647,43 @@ async function settleExit(child, log, state, timeoutMs = 1000) {
 }
 
 /**
+ * Waits for the window whose URL contains `urlPart` (e.g. `cinema.html`, story 187's overlay) and
+ * attaches the same console / pageerror / CSP listeners the first window gets. Windows are picked by
+ * URL, never by position - the overlay and the launcher window coexist.
+ */
+export async function waitForWindow(app, urlPart, log, { timeoutMs = 10_000 } = {}) {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const page = app.windows().find((w) => w.url().includes(urlPart))
+    if (page) {
+      page.on('console', (message) => {
+        const location = message.location()
+        log?.messages.push({
+          type: message.type(),
+          text: message.text(),
+          location: location?.url ? `${location.url}:${location.lineNumber}` : '',
+        })
+      })
+      page.on('pageerror', (error) => log?.pageErrors.push(error.stack || String(error)))
+      await page.evaluate(installCspViolationListener).catch(() => {})
+      await page.addInitScript(installCspViolationListener)
+      await page.waitForLoadState('domcontentloaded')
+      return page
+    }
+    if (Date.now() >= deadline) throw new HarnessError(`no window with "${urlPart}" in its URL appeared`)
+    await new Promise((done) => setTimeout(done, 100))
+  }
+}
+
+/**
  * Resizes the app's single window. Callable more than once per launch — it
  * only touches the already-running app, it never relaunches.
  */
 export async function resize(app, { width, height }) {
   await app.evaluate(
     async ({ BrowserWindow, screen }, size) => {
-      const [window] = BrowserWindow.getAllWindows()
+      // Pick by URL: a cinema overlay (story 187) may be open and is not the launcher window.
+      const window = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('cinema.html'))
       if (!window) throw new Error('no BrowserWindow to resize')
       // A restored-maximized window would ignore setSize.
       if (window.isMaximized()) window.unmaximize()

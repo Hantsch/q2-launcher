@@ -38,9 +38,18 @@ export interface ControlsOptionsCellProps {
   /** A drops row's ammo toggle + team-message field, or any other content a row wants next to the
    * Options text. */
   extra?: ReactNode
+  /** Story 167 D4: already-translated reason the row's action cannot work on the assigned engine.
+   * Takes the place of the plain dash (there is no room for both) - a conflict or layer still wins,
+   * they carry more urgent information. */
+  unavailableReason?: string
 }
 
-export function ControlsOptionsCell({ layer, conflict, extra }: ControlsOptionsCellProps) {
+export function ControlsOptionsCell({
+  layer,
+  conflict,
+  extra,
+  unavailableReason,
+}: ControlsOptionsCellProps) {
   const { t } = useTranslation()
 
   // Review fix (finding 2): the fixed Options column has no room to grow, so the conflict/layer
@@ -65,6 +74,14 @@ export function ControlsOptionsCell({ layer, conflict, extra }: ControlsOptionsC
         </span>
       )
     })()
+  ) : unavailableReason ? (
+    <span
+      className="min-w-0 truncate text-xs text-warning"
+      title={unavailableReason}
+      data-testid="controls-unavailable-reason"
+    >
+      {unavailableReason}
+    </span>
   ) : (
     <span className="text-xs text-ink-faint">{t('config.controls.options.none')}</span>
   )

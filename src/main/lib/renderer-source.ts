@@ -17,6 +17,9 @@ export const RENDERER_ORIGIN = `${RENDERER_SCHEME}://${RENDERER_HOST}`
 
 export const RENDERER_INDEX_URL = `${RENDERER_ORIGIN}/index.html`
 
+/** Story 187: the cinema overlay's page - a second entry on the same origin, so the same CSP applies. */
+export const RENDERER_CINEMA_URL = `${RENDERER_ORIGIN}/cinema.html`
+
 /**
  * Defence in depth for the renderer: a strict CSP, no permission grants, and no navigation away
  * from our own content. The renderer is local, trusted code - these are the guardrails that keep
@@ -57,6 +60,13 @@ export function resolveRendererSource(input: ResolveRendererSourceInput): Render
     return { kind: 'dev-server', url: input.devServerUrl }
   }
   return { kind: 'scheme' }
+}
+
+/** The URL the cinema overlay loads: the dev server's `cinema.html`, or the scheme's in production. */
+export function rendererCinemaUrl(source: RendererSource): string {
+  return source.kind === 'dev-server'
+    ? `${source.url.replace(/\/+$/, '')}/cinema.html`
+    : RENDERER_CINEMA_URL
 }
 
 const MIME_TYPES: Record<string, string> = {

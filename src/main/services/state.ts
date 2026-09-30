@@ -8,6 +8,8 @@ import {
 import { DEFAULT_SETTINGS, type Installation, type LauncherSettings } from '@shared/types'
 import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
 import { DEFAULT_SERVERS_STATE, type ServersState } from '@shared/modules/servers'
+import { DEFAULT_NAME_TEMPLATES_STATE } from '@shared/replays/name-templates'
+import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
 import { JsonStore } from '../lib/json-store'
 import { pruneFailures } from '../modules/downloads/failure-log'
 import {
@@ -20,9 +22,11 @@ import {
   parseDownloadsSettings,
   parseHomeLayout,
   parseInstallations,
+  parseReplaysState,
   parseServersState,
   parseSettings,
   parseUnlockState,
+  type ReplaysState,
   type UnlockState,
 } from '../lib/schemas'
 import { migrateStateDocument } from './migrations'
@@ -116,6 +120,14 @@ export interface LauncherStateDocument {
    * purely additive, and a file written before this story simply lacks it and loads as `{ codes: [] }`.
    */
   unlock: UnlockState
+  /**
+   * Story 140 D2: the `replays` module's own top-level `state.json` key - today just
+   * `nameTemplates` (the user's ordered list of demo file-name templates). A new top-level key,
+   * same "no `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles`/`servers`/
+   * `unlock` above: it is purely additive, and a file written before this story simply lacks it and
+   * loads as `{ nameTemplates: DEFAULT_NAME_TEMPLATES_STATE }`.
+   */
+  replays: ReplaysState
 }
 
 function defaults(): LauncherStateDocument {
@@ -140,6 +152,14 @@ function defaults(): LauncherStateDocument {
     // module-level `DEFAULT_SERVERS_STATE` constant for the rest of the process's lifetime.
     servers: structuredClone(DEFAULT_SERVERS_STATE),
     unlock: { codes: [] },
+    // Same reasoning as `servers` above: a deep clone so nothing can mutate the shared
+    // module-level `DEFAULT_NAME_TEMPLATES_STATE` constant for the rest of the process's lifetime.
+    replays: {
+      nameTemplates: structuredClone(DEFAULT_NAME_TEMPLATES_STATE),
+      extraFolders: [],
+      listFilter: { ...EMPTY_DEMO_LIST_FILTER },
+      modWarning: { enabled: true, trustedMods: [] },
+    },
   }
 }
 
@@ -174,6 +194,7 @@ export class StateStore {
           homeLayout: parseHomeLayout(doc['homeLayout']),
           servers: parseServersState(doc['servers']),
           unlock: parseUnlockState(doc['unlock']),
+          replays: parseReplaysState(doc['replays']),
         }
       },
     })
@@ -318,6 +339,15 @@ export class StateStore {
 
   setUnlockState(unlock: UnlockState): UnlockState {
     return this.store.update((current) => ({ ...current, unlock })).unlock
+  }
+
+  /** Story 140 D2: the `replays` module's own persisted state (today just `nameTemplates`). */
+  replaysState(): ReplaysState {
+    return this.store.get().replays
+  }
+
+  setReplaysState(replays: ReplaysState): ReplaysState {
+    return this.store.update((current) => ({ ...current, replays })).replays
   }
 
   /** Waits for pending writes; called on quit. */

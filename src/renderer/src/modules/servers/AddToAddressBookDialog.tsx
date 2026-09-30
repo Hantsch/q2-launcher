@@ -6,10 +6,9 @@ import { Button } from '../../components/ui/Button'
 import { Select } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
 import { useLauncher } from '../../store/useLauncher'
-import { listConfigProfiles, updateProfileCvars } from '../config/client'
+import { commitProfileCvars, listConfigProfiles } from '../config/client'
 import {
   ADDRESS_BOOK_SLOTS,
-  buildAddressBookCvars,
   pickPreselectedProfileId,
   pickPreselectedSlot,
   readAddressBookSlots,
@@ -24,10 +23,9 @@ import {
  *
  * Mirrors `SetInstallationIconDialog`'s shell shape (own `pending`/`error` state, `Modal` with a
  * footer pair) but reads/writes through the config module's profile client instead of the
- * installations store. Every profile list read is fresh (AC5: switching profiles, and confirming,
- * never trust a value read before the switch) - `listConfigProfiles()` is called again on open, on
- * every profile switch, and again right before the write, rather than caching one snapshot for the
- * whole dialog lifetime.
+ * installations store. Profile list reads are fresh on open and on every profile switch; confirming
+ * saves only the chosen slot through the config module's `commitCvars`, which does the
+ * read-modify-write and conflict checks in main.
  */
 export function AddToAddressBookDialog({
   open,
@@ -122,22 +120,9 @@ export function AddToAddressBookDialog({
     setSubmitting(true)
     setError(null)
 
-    const freshResult = await listConfigProfiles()
-    if (!freshResult.ok) {
-      setError(freshResult.error.key)
-      setSubmitting(false)
-      return
-    }
-    const freshProfile = freshResult.value.find((p) => p.id === profileId)
-    if (!freshProfile) {
-      setError('servers.addressBook.noProfiles')
-      setSubmitting(false)
-      return
-    }
-
-    const result = await updateProfileCvars({
+    const result = await commitProfileCvars({
       profileId,
-      cvars: buildAddressBookCvars(freshProfile.cvars, slot, addressResult.normalized),
+      cvars: { [slot]: addressResult.normalized },
     })
     setSubmitting(false)
 
@@ -148,9 +133,9 @@ export function AddToAddressBookDialog({
 
     pushToast({
       level: 'success',
-      messageKey: 'servers.addressBook.written',
+      messageKey: 'servers.addressBook.saved',
       timeoutMs: 4000,
-      params: { profile: freshProfile.name, slot },
+      params: { profile: result.value.name, slot },
     })
     onClose()
   }

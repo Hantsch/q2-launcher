@@ -151,11 +151,11 @@ describe('ProfilesStore', () => {
 
   // Story 052 D1 (AC4): "a template profile has the three categories with every catalogue row
   // (unbound except the template's own 6 binds)".
-  it('creates a profile from the standard template with the three categories and every catalogue row', () => {
+  it('creates a profile from the standard template with the four categories and every catalogue row', () => {
     const [created] = profiles.create({ name: 'Vanilla', from: 'template-right' })
 
-    expect(created!.categories).toHaveLength(3)
-    expect(created!.categories!.map((c) => c.id).sort()).toEqual(['drops', 'movement', 'weapons'])
+    expect(created!.categories).toHaveLength(4)
+    expect(created!.categories!.map((c) => c.id).sort()).toEqual(['demo', 'drops', 'movement', 'weapons'])
     for (const category of created!.categories!) {
       const template = TEMPLATE_ACTION_CATEGORIES.find((t) => t.id === category.id)!
       expect(category.name).toBe(template.label)

@@ -52,13 +52,28 @@ branch or index of yours touched. Then:
 
 It prints a pass/fail line per step and exits non-zero if any failed. If it
 warns about uncommitted changes, commit exactly those before opening the PR.
+act and Docker are checked before anything else, so a missing prerequisite
+fails in seconds; act is also found in winget's install folder when a shell
+predates the install. Stale `act-*` containers from an aborted run are removed
+before the Linux phase.
 
-A trap it catches that no branch-only check can: after a release, `main` has a
-`release: x.y.z` commit that promoted `## Unreleased` into a version section.
-If your branch does not contain that commit, git's merge can silently file your
-new changelog entries under the *released* version, leaving `## Unreleased`
-empty — and the release job on `main` refuses. Merge `main` into your branch
-and put the entries back under `## Unreleased`.
+Run it by hand, once `dev` holds everything you want to release — pushes to
+`dev` are not gated. The result is only valid for the tree it verified: commit
+anything after it, or let `main` move on (e.g. a `release: x.y.z` commit), and
+run it again before the PR. And let the PR's checks finish before merging (PRs
+#9 and #10 were merged ~30 s after the push, before any check had run).
+
+**`dev` after a release.** A release leaves `main` one `release: x.y.z` commit
+ahead of `dev` (the promoted `## Unreleased` and the version bump). If `dev`
+misses it, the next merge can silently file new changelog entries under the
+*released* version, leaving `## Unreleased` empty — and the next release
+refuses. Two guards:
+
+- `release.yml` fast-forwards `dev` onto the release commit right after a
+  release. Locally, a plain `git pull` on `dev` picks it up. If `dev` got new
+  commits in the meantime it is left alone, and the run shows a warning.
+- `verify:release` stops before anything else if `origin/main` has changes
+  your branch does not, and tells you to `git merge origin/main` first.
 
 ### Rehearsing CI locally
 

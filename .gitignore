@@ -9,6 +9,8 @@ dist/
 .ui-verify/
 
 *.log
+# Test fixtures are real captures, not run output.
+!**/__fixtures__/*.log
 npm-debug.log*
 
 .env

@@ -1,0 +1,119 @@
+- 16:29:52 · sprint · S29 · started
+- 16:35:23 · refine · 170 171 172 173 174 175 · started
+- 16:59:34 · refine · 174 · started (follow-up)
+- 17:04:34 · 170 · build · started
+- 17:04:54 · 170 · D1 stage contract and pure helpers · started
+- 17:06:30 · 170 · D1 stage contract and pure helpers · done
+- 17:06:30 · 170 · D2 main passes stage args · started
+- 17:08:42 · 170 · D2 main passes stage args · done
+- 17:08:42 · 170 · D3 cvar restore (hard) · started
+- 17:14:02 · 170 · D3 cvar restore (hard) · done
+- 17:14:02 · 170 · D4 renderer stage mode · started
+- 17:15:56 · 170 · D4 renderer stage mode · done
+- 17:15:56 · 170 · D5 play wiring and flows · started
+- 17:25:50 · 170 · D5 play wiring and flows · done
+- 17:25:50 · 170 · verify · started
+- 17:27:35 · 170 · verify · done
+- 17:27:35 · 170 · review 1 · started
+- 17:29:12 · 170 · review 1 · done (findings, fixing)
+- 17:29:12 · 170 · review-fix 1 · started
+- 17:31:36 · 170 · review-fix 1 · done
+- 17:31:36 · 170 · review 2 (hard) · started
+- 17:36:46 · 170 · review 2 (hard) · done (FAIL, fixing)
+- 17:36:46 · 170 · review-fix 2 · started
+- 17:37:46 · 170 · review-fix 2 · done
+- 17:37:46 · 170 · verify (re-run) · started
+- 17:40:50 · 170 · verify (re-run) · done (one flaky test fixed, narrow suite green)
+- 17:41:07 · 170 · story · done
+- 17:41:26 · 171 · build · started
+- 17:41:43 · 171 · D1 stage follower core · started
+- 17:43:11 · 171 · D1 stage follower core · done
+- 17:43:11 · 171 · D2 main wiring and real-window flow · started
+- 17:56:28 · 171 · D2 main wiring and real-window flow · done
+- 17:56:28 · 171 · D2b park-once fix · started
+- 17:58:04 · 171 · D2b park-once fix · done
+- 17:58:04 · 171 · D3 renderer stage reporter and view-leave flow · started
+- 18:01:25 · 171 · D3 renderer stage reporter and view-leave flow · done
+- 18:01:25 · 171 · D4 overlay occlusion and CHANGELOG · started
+- 18:06:42 · 171 · D4 overlay occlusion and CHANGELOG · done
+- 18:06:42 · 171 · verify · started
+- 18:10:06 · 171 · verify · done
+- 18:10:06 · 171 · review 1 · started
+- 18:11:55 · 171 · review 1 · done (PASS, minor findings documented)
+- 18:11:55 · 171 · story · done
+- 18:12:15 · 172 · build · started
+- 18:12:36 · 172 · D1 guarded demo actions · started
+- 18:18:58 · 172 · D1 guarded demo actions · done
+- 18:18:58 · 172 · D2 migration + bind flow · started
+- 18:22:32 · 172 · D2 migration + bind flow · done
+- 18:22:32 · 172 · D3 protocol · started
+- 18:25:47 · 172 · D3 protocol · done
+- 18:25:47 · 172 · D4 Windows channel (hard) · started
+- 18:34:22 · 172 · D4 Windows channel (hard) · done
+- 18:34:22 · 172 · D5 Linux channel + control + IPC · started
+- 18:37:40 · 172 · D5 Linux channel + control + IPC · done
+- 18:37:40 · 172 · D6 timeline UI · started
+- 18:39:25 · 172 · D6 timeline UI · done
+- 18:39:25 · 172 · D7 stub engine + fullscreen flow · started
+- 18:47:33 · 172 · D7 stub engine + fullscreen flow · done
+- 18:47:33 · 172 · verify · started
+- 18:53:26 · 172 · verify · done (replays-play-q2pro assertion updated for q2l_session, re-run green; all else green)
+- 18:53:26 · 172 · review 1 · started
+- 18:56:23 · 172 · review 1 · done (PASS with reservations; fixing findings 2,4,7)
+- 18:56:23 · 172 · review-fix 1 · started
+- 19:01:49 · 172 · review-fix 1 · done
+- 19:01:49 · 172 · verify (re-run) · started
+- 19:09:58 · 172 · verify (re-run) · done (controls-extra-keys red on bare HEAD too: keyboard-focus flake, pre-existing)
+- 19:10:11 · 172 · story · done
+- 19:10:31 · 173 · build · started
+- 19:10:48 · 173 · D1 main stop (hard) · started
+- 19:14:17 · 173 · D1 main stop (hard) · done
+- 19:14:18 · 173 · D2 timeline stop + flow · started
+- 19:22:34 · 173 · D2 timeline stop + flow · done
+- 19:22:34 · 173 · D3 action bar stop · started
+- 19:24:40 · 173 · D3 action bar stop · done
+- 19:24:40 · 173 · D4 stage input hint · started
+- 19:25:57 · 173 · D4 stage input hint · done
+- 19:25:57 · 173 · verify · started
+- 19:27:21 · 173 · verify · done
+- 19:27:21 · 173 · review 1 · started
+- 19:28:45 · 173 · review 1 · done (PASS; fixing findings 1-3)
+- 19:28:45 · 173 · review-fix 1 · started
+- 19:30:36 · 173 · review-fix 1 · done
+- 19:30:36 · 173 · story · done
+- 19:30:52 · 174 · build · started
+- 2026-09-29 19:31 · 174 · D1 chat HUD probe · started
+- 2026-09-29 19:33 · 174 · D1 chat HUD probe · done
+- 2026-09-29 19:33 · 174 · D2 protocol + args · started
+- 2026-09-29 19:34 · 174 · D2 protocol + args · done
+- 2026-09-29 19:34 · 174 · D3 restore wiring · started
+- 2026-09-29 19:35 · 174 · D3 restore wiring · done
+- 2026-09-29 19:35 · 174 · verify · started
+- 2026-09-29 19:37 · 174 · verify · blocked: replays-play-q2pro, replays-play-mvd2 (expected launch line order)
+- 2026-09-29 19:41 · 174 · verify · done (flow expectations fixed for 172 arg order; all green)
+- 2026-09-29 19:41 · 174 · review 1 · started
+- 2026-09-29 19:41 · 174 · review 1 · done (PASS, no fixes)
+- 2026-09-29 19:42 · 174 · story · done
+- 19:42:19 · 175 · build · started
+- 2026-09-29 19:42 · 175 · D1 commitCvars main · started
+- 2026-09-29 19:50 · 175 · D1 commitCvars main · done
+- 2026-09-29 19:50 · 175 · D2 dialog renderer · started
+- 2026-09-29 19:52 · 175 · D2 dialog renderer · done
+- 2026-09-29 19:52 · 175 · D3 e2e + docs · started
+- 2026-09-29 19:55 · 175 · D3 e2e + docs · done
+- 2026-09-29 19:55 · 175 · verify · started
+- 2026-09-29 19:56 · 175 · verify · done
+- 2026-09-29 19:56 · 175 · review 1 · started
+- 2026-09-29 19:58 · 175 · review 1 · done (FAIL: 1 vacuous flow assertion + 3 minor, fixing)
+- 2026-09-29 19:58 · 175 · review-fix 1 · started
+- 2026-09-29 19:59 · 175 · review-fix 1 · done (flow + config tests + typecheck + build green after last edit)
+- 2026-09-29 19:59 · 175 · story · done
+- 20:00:05 · gate · short suites · started
+- 20:03:25 · gate · e2e-all · started
+- 20:41:28 · gate · e2e-all · done (98/107, 9 failed) · attribution started
+- 20:59:45 · fix · 173 stage-hint regression: hint now uses the reserved console reason line; stage/follow/overlays/view-leave/stop/timeline/fullscreen flows green
+- 21:00:02 · gate · fix 170 (ui:verify replays-timeline@940x620) · started
+
+- 21:03:41 · gate · fix 170 (replays-timeline@940x620) · screens.mjs navigate waits for list OR timeline (stage mode hides list); ui:verify 114/0 axe, replays-stage+timeline flows, typecheck green
+- 21:03:49 · gate · e2e-all (confirmation) · started
+- 21:42:07 · gate · recorded (102/107, 5 pre-existing)

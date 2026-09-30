@@ -1,0 +1,65 @@
+{
+  "startedAt": "2026-09-27T16:16:06.661Z",
+  "exePath": "C:\\Games\\Q2Pro\\q2pro.exe",
+  "gameDir": "C:\\Games\\Q2Pro\\opentdm",
+  "demoName": "test.dm2",
+  "waitFrames": 5,
+  "runMode": "scripted",
+  "commands": [
+    {
+      "seq": 1,
+      "command": "pause",
+      "sentAt": 1790525769900,
+      "ackedAt": null,
+      "latencyMs": null,
+      "posBefore": null,
+      "posAfter": null
+    },
+    {
+      "seq": 2,
+      "command": "pause",
+      "sentAt": 1790525780441,
+      "ackedAt": null,
+      "latencyMs": null,
+      "posBefore": null,
+      "posAfter": null
+    },
+    {
+      "seq": 3,
+      "command": "seek +10",
+      "sentAt": 1790525790980,
+      "ackedAt": null,
+      "latencyMs": null,
+      "posBefore": null,
+      "posAfter": null
+    },
+    {
+      "seq": 4,
+      "command": "seek -10",
+      "sentAt": 1790525801504,
+      "ackedAt": null,
+      "latencyMs": null,
+      "posBefore": null,
+      "posAfter": null
+    },
+    {
+      "seq": 5,
+      "command": "seek 30",
+      "sentAt": 1790525812074,
+      "ackedAt": null,
+      "latencyMs": null,
+      "posBefore": null,
+      "posAfter": null
+    }
+  ],
+  "posSamples": [],
+  "cpuSamples": {
+    "baseline": 0.203125
+  },
+  "logGrowth": {
+    "startBytes": 0,
+    "endBytes": 0
+  },
+  "duplicates": [],
+  "finishedAt": "2026-09-27T16:17:03.652Z"
+}

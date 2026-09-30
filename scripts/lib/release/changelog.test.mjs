@@ -213,19 +213,17 @@ describe('promote', () => {
     const realChangelogPath = fileURLToPath(new URL('../../../CHANGELOG.md', import.meta.url))
     const realChangelogText = readFileSync(realChangelogPath, 'utf-8')
 
-    // Sanity check the fixture assumption: the real file does contain a bullet that wraps, with a
-    // continuation-only substring that would be silently dropped by the truncating parser.
-    expect(realChangelogText).toContain('and manage your own favourites and address sources.')
-
+    // Structural on purpose: this used to assert one specific bullet's wording, and a plain rewrite
+    // of the changelog's prose then failed the release job on main (2026-09-26). promote() only
+    // adds a version heading and moves lines, so every line of the real file must survive it -
+    // and a wrapped bullet's continuation line must still start its own line (not truncated by
+    // the pre-fix parser, not reflowed onto the bullet's first line).
+    const lines = realChangelogText.split(/\r?\n/).filter((line) => line.trim() !== '')
     const result = promote(realChangelogText, '9.9.9', '2026-01-01')
 
-    // The whole sentence must survive intact across its original line breaks, not cut mid-word
-    // after "and see live status" (the pre-fix behaviour) and not reflowed onto one line either.
-    expect(result).toContain(
-      '- **Servers** — a full server browser: scan, filter and sort the list, see live status and\n' +
-        '  full server rules, join or spectate in one click, keep a watchlist of players across servers,\n' +
-        '  and manage your own favourites and address sources.',
-    )
+    for (const line of lines) {
+      expect(result).toContain(/^\s+\S/.test(line) ? `\n${line}` : line)
+    }
   })
 })
 

@@ -2,6 +2,7 @@ import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { anchorRect } from '../../lib/anchor-rect'
 import { cn } from '../../lib/cn'
+import { useOverlayRegistration } from '../../lib/overlay-registry'
 
 /** Matches the `w-72` below. Known up front so no measurement is needed. */
 const CARD_WIDTH = 288
@@ -45,8 +46,10 @@ export function HoverCard({
   className?: string
 }) {
   const anchorRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<number | null>(null)
   const [placement, setPlacement] = useState<Placement | null>(null)
+  useOverlayRegistration(placement !== null, cardRef)
 
   const clearTimer = (): void => {
     if (timerRef.current !== null) {
@@ -106,6 +109,7 @@ export function HoverCard({
       {placement &&
         createPortal(
           <div
+            ref={cardRef}
             role="tooltip"
             onPointerEnter={clearTimer}
             onPointerLeave={close}

@@ -70,13 +70,3 @@ export function pickPreselectedSlot(
   const empty = slots.find((entry) => entry.value === undefined)
   return empty?.slot
 }
-
-/** Builds the new `cvars` map to write: every existing cvar untouched, plus `slot` set to `address`.
- * Returns a new object - `currentCvars` is never mutated. */
-export function buildAddressBookCvars(
-  currentCvars: Record<string, string>,
-  slot: string,
-  address: string,
-): Record<string, string> {
-  return { ...currentCvars, [slot]: address }
-}

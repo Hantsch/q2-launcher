@@ -136,8 +136,8 @@ export default async function controlsCategoryRenameReorder({ page, shot, step }
   await menu.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await menu.getByRole('menuitem', { name: 'Move category up' }).click({ timeout: TIMEOUT_MS })
 
-  step('assert the rail order is now Movement, Drops, Weapons')
-  const expectedOrder = ['Movement', NEW_NAME, 'Weapons']
+  step('assert the rail order is now Movement, Drops, Weapons, Demo playback')
+  const expectedOrder = ['Movement', NEW_NAME, 'Weapons', 'Demo playback'] // story 167: seeded demo category stays last
   try {
     await page.waitForFunction(
       (expected) => {

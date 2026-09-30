@@ -76,18 +76,27 @@ async function runFlow(name, requestedVariant, executablePath) {
   // work that has to happen after it is gone, neither of which the flow function itself can do
   // (it only runs while the app is up).
   //
-  //   export async function setup({ variant }) -> { env?: { …} }
+  //   export async function setup({ variant }) -> { env?: { …}, args?: string[] }
   //     Runs before `withApp()`. Whatever `env` it returns is merged into the child environment
   //     (see `childEnv()` in `scripts/lib/harness.mjs`) — the only way to hand the app a value the
-  //     flow computed moments earlier, e.g. the port a fixture server just bound. Anything else
-  //     the flow needs afterwards it keeps in its own module scope; nothing is threaded back.
+  //     flow computed moments earlier, e.g. the port a fixture server just bound. `args` (story 154
+  //     D4) is threaded to `withApp()`'s `extraArgs`, appended after the harness's own
+  //     `--user-data-dir` switch — e.g. `--lang=de-DE` for a locale-dependent acceptance criterion.
+  //     Anything else the flow needs afterwards it keeps in its own module scope; nothing is
+  //     threaded back.
   //   export async function teardown()
   //     Runs after the app is closed, pass or fail, so a fixture server cannot outlive the run.
   const setupResult = typeof flow.setup === 'function' ? ((await flow.setup({ variant })) ?? {}) : {}
 
   try {
     await withApp(
-      { variant, viewport: VIEWPORT_DEFAULT, env: setupResult.env, executablePath },
+      {
+        variant,
+        viewport: VIEWPORT_DEFAULT,
+        env: setupResult.env,
+        extraArgs: setupResult.args,
+        executablePath,
+      },
       async ({ page, app, log }) => {
         const shot = async (label) => {
           const filePath = join(FLOWS_SCREENSHOTS_DIR, `${name}-${label}.png`)

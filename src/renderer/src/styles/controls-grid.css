@@ -430,6 +430,17 @@
   border-color: var(--color-line);
 }
 
+/* Story 167 D4: a slot of a row whose action cannot work on the assigned engine. The row states the
+   reason as text; this only removes the affordance (no hover lift, no pointer) and dims the cell. */
+.ctrl-slot.is-disabled,
+.ctrl-slot.is-disabled:hover {
+  cursor: not-allowed;
+  opacity: 0.6;
+  color: var(--color-ink-faint);
+  background: transparent;
+  border-color: var(--color-line);
+}
+
 /* The modifier of a modifier-bound key, as a small cap ahead of the key itself (`ALT R`, AC 8). */
 .ctrl-cap {
   font-family: var(--font-display);

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { stubPlatform } from '../../test-support/platform'
-import { listDir, looksExecutable, readBinaryKind } from './fs-utils'
+import { dirReadFailureReason, listDir, looksExecutable, readBinaryKind } from './fs-utils'
 
 /**
  * Story 100 D3, AC3. `looksExecutable` decides what `inspectInstallation` offers as the client
@@ -121,5 +121,16 @@ describe('readBinaryKind', () => {
 
     expect(await readBinaryKind(scriptFile)).toBe('script')
     expect(await readBinaryKind(join(dir, 'does-not-exist'))).toBe('unknown')
+  })
+})
+
+describe('dirReadFailureReason', () => {
+  it('classifies ENOENT, ENOTDIR, EACCES, EPERM and other codes', () => {
+    expect(dirReadFailureReason('ENOENT')).toBe('missing')
+    expect(dirReadFailureReason('ENOTDIR')).toBe('notAFolder')
+    expect(dirReadFailureReason('EACCES')).toBe('permissionDenied')
+    expect(dirReadFailureReason('EPERM')).toBe('permissionDenied')
+    expect(dirReadFailureReason('EMFILE')).toBe('unreadable')
+    expect(dirReadFailureReason(undefined)).toBe('unreadable')
   })
 })

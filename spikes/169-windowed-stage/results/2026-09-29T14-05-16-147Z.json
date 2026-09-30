@@ -1,0 +1,249 @@
+{
+  "startedAt": "2026-09-29T14:05:16.147Z",
+  "args": [
+    "+set",
+    "game",
+    "opentdm",
+    "+set",
+    "logfile",
+    "2",
+    "+set",
+    "logfile_flush",
+    "1",
+    "+set",
+    "logfile_name",
+    "q2l_s169.log",
+    "+set",
+    "vid_fullscreen",
+    "0",
+    "+set",
+    "win_noborder",
+    "1",
+    "+set",
+    "win_notitle",
+    "1",
+    "+set",
+    "win_alwaysontop",
+    "1",
+    "+set",
+    "win_noresize",
+    "1",
+    "+set",
+    "vid_geometry",
+    "960x540+200+150",
+    "+set",
+    "net_clientport",
+    "27969",
+    "+demo",
+    "test.dm2",
+    "+exec",
+    "q2l_s169_loop.cfg",
+    "+echo",
+    "AFTERARG"
+  ],
+  "probes": {
+    "P1_launchGeometry": {
+      "asked": "960x540+200+150",
+      "got": {
+        "hwnd": 3412048,
+        "window": {
+          "y": 150,
+          "w": 960,
+          "h": 540,
+          "x": 200
+        },
+        "client": {
+          "y": 150,
+          "w": 960,
+          "h": 540,
+          "x": 200
+        },
+        "topmost": true,
+        "captioned": false,
+        "foreground": true,
+        "screen": {
+          "h": 2160,
+          "w": 3840
+        }
+      }
+    },
+    "P5a_focusedRate": {
+      "samples": 34,
+      "demoSecondsPerSecond": null,
+      "from": 3.5,
+      "to": 6.2
+    },
+    "P2_appendedAfterLoop": {
+      "AFTERARG": false,
+      "AFTERLOOP": false
+    },
+    "P3_oobCmd": [],
+    "P4_liveGeometry": {
+      "send": {
+        "command": "set vid_geometry 800x450+400+300",
+        "acked": true,
+        "ms": 560
+      },
+      "asked": "800x450+400+300",
+      "got": {
+        "hwnd": 3412048,
+        "window": {
+          "y": 300,
+          "w": 800,
+          "h": 450,
+          "x": 400
+        },
+        "client": {
+          "y": 300,
+          "w": 800,
+          "h": 450,
+          "x": 400
+        },
+        "topmost": true,
+        "captioned": false,
+        "foreground": true,
+        "screen": {
+          "h": 2160,
+          "w": 3840
+        }
+      }
+    },
+    "P5b_unfocused": {
+      "otherPid": 10692,
+      "right_after_activate": {
+        "hwnd": 3412048,
+        "window": {
+          "y": 300,
+          "w": 800,
+          "h": 450,
+          "x": 400
+        },
+        "client": {
+          "y": 300,
+          "w": 800,
+          "h": 450,
+          "x": 400
+        },
+        "topmost": true,
+        "captioned": false,
+        "foreground": false,
+        "screen": {
+          "h": 2160,
+          "w": 3840
+        }
+      },
+      "rate": {
+        "samples": 48,
+        "demoSecondsPerSecond": null,
+        "from": 8.7,
+        "to": 13.6
+      },
+      "later": {
+        "hwnd": 3412048,
+        "window": {
+          "y": 300,
+          "w": 800,
+          "h": 450,
+          "x": 400
+        },
+        "client": {
+          "y": 300,
+          "w": 800,
+          "h": 450,
+          "x": 400
+        },
+        "topmost": true,
+        "captioned": false,
+        "foreground": false,
+        "screen": {
+          "h": 2160,
+          "w": 3840
+        }
+      }
+    },
+    "P6_fullscreen": {
+      "on": {
+        "command": "set vid_fullscreen 1",
+        "acked": true,
+        "ms": 502
+      },
+      "whileOn": {
+        "hwnd": 3412048,
+        "window": {
+          "y": 0,
+          "w": 3840,
+          "h": 2160,
+          "x": 0
+        },
+        "client": {
+          "y": 0,
+          "w": 3840,
+          "h": 2160,
+          "x": 0
+        },
+        "topmost": true,
+        "captioned": false,
+        "foreground": true,
+        "screen": {
+          "h": 2160,
+          "w": 3840
+        }
+      },
+      "off": {
+        "command": "set vid_fullscreen 0",
+        "acked": true,
+        "ms": 762
+      },
+      "afterOff": {
+        "hwnd": 3412048,
+        "window": {
+          "y": 300,
+          "w": 800,
+          "h": 450,
+          "x": 400
+        },
+        "client": {
+          "y": 300,
+          "w": 800,
+          "h": 450,
+          "x": 400
+        },
+        "topmost": true,
+        "captioned": false,
+        "foreground": true,
+        "screen": {
+          "h": 2160,
+          "w": 3840
+        }
+      }
+    },
+    "P7_spam": {
+      "seconds": 19.4,
+      "execingPerSecond": 13.4,
+      "posPerSecond": 13.1
+    },
+    "P8_quitViaControl": {
+      "exited": true,
+      "ms": 183
+    }
+  },
+  "notableLines": [
+    "Logging console to logs/q2l_s169.log",
+    "\"0x00\" isn't a valid key",
+    "------- R_Init -------",
+    "Using video driver: win32wgl",
+    "Using GLSL rendering backend.",
+    "----------------------",
+    "------- S_Init -------",
+    "DirectSound initialized",
+    "sound sampling rate: 22050",
+    "Raw mouse initialized.",
+    "The Chastity Belt Duel  -  by JaLisK0",
+    "cl_maxfps value `120' is inexact and will be rounded to `125'.",
+    "(Set `cl_warn_on_fps_rounding' to `0' to disable this warning.)",
+    "====== Q2PRO initialized ======",
+    "",
+    "q2pro r3834~601a8df8, Dec 11 2025",
+    "https://github.com/skullernet/q2pro"
+  ]
+}

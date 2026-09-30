@@ -137,6 +137,50 @@ export async function listDir(dir: string): Promise<DirListing> {
   return listing
 }
 
+/**
+ * Classifies a failed directory read's error code into one of the reasons `discoverDemos` (story
+ * 151 D1) reports per source: `ENOENT` -> missing, `ENOTDIR` -> notAFolder (a file sits where a
+ * folder was expected), `EACCES`/`EPERM` -> permissionDenied, anything else -> unreadable.
+ */
+export function dirReadFailureReason(
+  code: string | undefined,
+): 'missing' | 'notAFolder' | 'permissionDenied' | 'unreadable' {
+  if (code === 'ENOENT') return 'missing'
+  if (code === 'ENOTDIR') return 'notAFolder'
+  if (code === 'EACCES' || code === 'EPERM') return 'permissionDenied'
+  return 'unreadable'
+}
+
+/**
+ * Same entry loop as `listDir`, but reports *why* a read failed instead of silently returning an
+ * empty listing - story 151 D1 needs this to tell "there is nothing here" (not an error) apart
+ * from "there is something here and it could not be read" (reported per source). `listDir` itself
+ * is untouched: it has many callers that only ever want the forgiving empty-listing behaviour.
+ */
+export async function listDirOrReason(
+  dir: string,
+): Promise<{ ok: true; listing: DirListing } | { ok: false; reason: ReturnType<typeof dirReadFailureReason> }> {
+  let entries
+  try {
+    entries = await readdir(dir, { withFileTypes: true })
+  } catch (err) {
+    return { ok: false, reason: dirReadFailureReason((err as NodeJS.ErrnoException).code) }
+  }
+
+  const listing: DirListing = { names: [], dirs: [], files: [], byLowerName: new Map() }
+  for (const entry of entries) {
+    listing.names.push(entry.name)
+    listing.byLowerName.set(entry.name.toLowerCase(), entry.name)
+    if (entry.isDirectory()) listing.dirs.push(entry.name)
+    else if (entry.isFile()) listing.files.push(entry.name)
+    else if (entry.isSymbolicLink()) {
+      if (await isDirectory(join(dir, entry.name))) listing.dirs.push(entry.name)
+      else listing.files.push(entry.name)
+    }
+  }
+  return { ok: true, listing }
+}
+
 /** Case-insensitive child lookup; returns the real path or null. */
 export async function findChild(dir: string, name: string): Promise<string | null> {
   const listing = await listDir(dir)

@@ -41,7 +41,22 @@
     "never": "Never",
     "comingSoon": "Coming soon",
     "optional": "optional",
-    "of": "of"
+    "of": "of",
+    "dateRange": {
+      "any": "Any date",
+      "from": "From",
+      "to": "To",
+      "clear": "Clear",
+      "range": "{{from}} – {{to}}",
+      "fromOnly": "From {{from}}",
+      "toOnly": "Until {{to}}",
+      "fromAfterTo": "The from date is after the to date.",
+      "preset": {
+        "today": "Today",
+        "last7Days": "Last 7 days",
+        "last30Days": "Last 30 days"
+      }
+    }
   },
 
   "titlebar": {
@@ -280,6 +295,9 @@
       "update": "Update",
       "repair": "Repair",
       "running": "Running",
+      "stopDemo": "Stop demo",
+      "view": "View",
+      "stopping": "Stopping…",
       "writeLocked": "Writing\u2026",
       "locate": "Locate folder\u2026",
       "revalidate": "Check again",
@@ -951,7 +969,7 @@
       "cancel": "Cancel",
       "noProfiles": "Create a config profile first — there is nowhere to write this address to yet.",
       "loading": "Loading this profile's address book…",
-      "written": "Added to \"{{profile}}\"'s address book as {{slot}}."
+      "saved": "Saved to \"{{profile}}\"'s address book as {{slot}}."
     },
     "watchlist": {
       "title": "Watchlist",
@@ -1001,6 +1019,432 @@
       },
       "remove": {
         "label": "Remove"
+      }
+    }
+  },
+
+  "replays": {
+    "module": {
+      "title": "Demos",
+      "description": "Browse, tag and watch your Quake II demos."
+    },
+    "planned": {
+      "intro": "A demo library is on the way: find, describe and play back every demo you've recorded.",
+      "highlight": {
+        "1": "Find every demo across installations and folders",
+        "2": "See map, players and length before playing",
+        "3": "Play and scrub a demo from the launcher"
+      }
+    },
+    "settings": {
+      "title": "Demos",
+      "description": "Where the launcher looks for demos and how it names them.",
+      "placeholder": "Demo folders and naming patterns will be set here."
+    },
+    "modWarning": {
+      "heading": "Missing-mod warning",
+      "enabled": "Warn when a demo's mod is not installed",
+      "trustedHeading": "Remembered mods",
+      "trustedEmpty": "No mods remembered - every missing mod asks once.",
+      "reset": "Forget remembered mods",
+      "error": "Could not update the warning setting."
+    },
+    "extraFolders": {
+      "heading": "Extra demo folders",
+      "empty": "No extra folders added yet.",
+      "add": "Add folder",
+      "remove": "Remove {{path}}",
+      "pickTitle": "Choose a demo folder",
+      "error": {
+        "notAbsolute": "That path isn't valid.",
+        "unresolvable": "That folder couldn't be found.",
+        "notAFolder": "That path isn't a folder.",
+        "alreadyListed": "That folder is already in the list."
+      }
+    },
+    "nameTemplate": {
+      "error": {
+        "empty": "Enter a naming pattern.",
+        "unclosedBrace": "This pattern has an unclosed { at position {{position}}.",
+        "strayBrace": "Unexpected } at position {{position}}.",
+        "unknownToken": "Unknown token {{token}}.",
+        "duplicateToken": "{{token}} is used more than once.",
+        "adjacentTextTokens": "{{first}} and {{second}} can't sit next to each other with nothing between them.",
+        "capturesNothing": "This pattern captures nothing — add at least one token.",
+        "incompleteDate": "A date needs year, month and day together.",
+        "timeWithoutDate": "A time needs a full date to go with it.",
+        "misplacedExtension": "{{extension}} can only appear at the very end."
+      }
+    },
+    "nameTemplates": {
+      "heading": "Naming patterns",
+      "hint": "Tried top to bottom; the first that matches wins",
+      "badge": {
+        "builtIn": "Built-in",
+        "custom": "Custom",
+        "edited": "Edited"
+      },
+      "add": "Add",
+      "save": "Save",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "remove": "Remove",
+      "reset": "Reset",
+      "restore": "Restore built-in patterns",
+      "placeholder": "{date}_{map}_{p1}_vs_{p2}",
+      "error": {
+        "tooMany": "You've reached the limit of naming patterns.",
+        "notFound": "That naming pattern no longer exists.",
+        "invalidReorder": "That reorder couldn't be applied."
+      }
+    },
+    "view": {
+      "title": "Demos"
+    },
+    "stage": {
+      "label": "The demo plays here",
+      "unavailable": {
+        "wayland": "Not available on Wayland: the launcher cannot place the game window, so the demo plays in its own window"
+      }
+    },
+    "cinema": {
+      "unavailable": {
+        "notPrimaryDisplay": "Not available: the launcher is not on the primary display. Move it there to watch in cinema mode.",
+        "noStage": "Not available: this demo is not playing on the launcher's stage, so the game window cannot be moved under the overlay. Play it on the stage to watch in cinema mode.",
+        "fullscreen": "Not available: the demo is fullscreen. Go back to the window first."
+      }
+    },
+    "timeline": {
+      "label": "Demo playback",
+      "play": "Play",
+      "pause": "Pause",
+      "back": "Back 10 seconds",
+      "forward": "Forward 10 seconds",
+      "fullscreen": "Fullscreen",
+      "stop": "Stop demo",
+      "stopping": "Stopping…",
+      "cinema": {
+        "label": "Cinema controls",
+        "enter": "Cinema mode",
+        "leave": "Exit cinema mode",
+        "back60": "Back 60 seconds",
+        "forward60": "Forward 60 seconds"
+      },
+      "fullscreenKeys": "Fullscreen: steer the demo with your keys. Your \"Back to window\" key (Controls tab, Demo playback) returns it here.",
+      "seek": "Seek",
+      "seekValueText": "{{position}} of {{duration}}",
+      "speed": "Playback speed",
+      "speedOption": "{{value}}x",
+      "statePlaying": "Playing",
+      "statePaused": "Paused",
+      "stateFinished": "Finished",
+      "error": "The demo could not be steered.",
+      "seekNeedsDuration": "Seeking by click needs the demo's length",
+      "durationUnknown": "--:--",
+      "waiting": {
+        "pause": "Waiting for the game… (pause)",
+        "seek": "Waiting for the game… (seek)",
+        "speed": "Waiting for the game… (speed)"
+      }
+    },
+    "console": {
+      "label": "Console command",
+      "placeholder": "e.g. fov 110",
+      "send": "Send",
+      "stageInputHint": "The game's own console and key binds do not reach the game while it plays on the stage. Use this console field, switch to fullscreen, or close the game window (Alt+F4).",
+      "error": {
+        "empty": "Type a command first.",
+        "multiline": "A command must be a single line.",
+        "control": "The command contains control characters.",
+        "nonAscii": "Only plain ASCII characters are allowed.",
+        "tooLong": "The command is too long.",
+        "noSession": "No demo is playing, so there is nobody to send this to."
+      }
+    },
+    "play": {
+      "modMissingConfirm": {
+        "title": "Mod not fully installed",
+        "confirm": "Play anyway"
+      },
+      "modWarning": {
+        "body": "The mod `{{gameDir}}` is not fully installed in this installation, so the demo may not play correctly. Play it anyway?",
+        "dontAsk": "Don't ask again"
+      },
+      "unavailable": {
+        "notQ2pro": "The selected installation is not Q2PRO — demo playback needs Q2PRO. Pick a Q2PRO installation in the left rail.",
+        "modMissing": "Mod `{{gameDir}}` is not fully installed in this installation — the demo may not play correctly.",
+        "linuxNoQ2pro": "Not available on Linux: demo playback needs a Q2PRO installation",
+        "needsDirectLaunch": "This installation launches through Steam — switch it to a direct launch to play demos.",
+        "gameRunning": "A game is already running — quit it before playing a demo.",
+        "unsafeName": "This file name has characters the game console can't take — rename the demo (letters, digits, dot, dash and underscore only)."
+      },
+      "error": {
+        "notFound": "This demo is no longer in the list — rescan to update it.",
+        "fileMissing": "This demo's file is no longer on disk — rescan to update the list.",
+        "copyDirNotWritable": "Can't write a temporary copy to {{path}}. Nothing was started.",
+        "archiveEntry": "Can't read this demo out of its archive ({{code}}). Nothing was started."
+      }
+    },
+    "playback": {
+      "error": {
+        "noSession": "No demo is playing, so there is nothing to control.",
+        "invalidCommand": "This command has characters the game console can't take.",
+        "busy": "The game is still working on earlier commands — try again in a moment.",
+        "fullscreen": "The demo is in fullscreen — steer it with your keys."
+      }
+    },
+    "fileActions": {
+      "reveal": "Reveal in file manager",
+      "copyPath": "Copy path",
+      "pathCopied": "Path copied",
+      "fileMissing": "This demo's file is no longer on disk — rescan to update the list.",
+      "unknownDemo": "This demo is no longer in the list — rescan to update it."
+    },
+    "rename": {
+      "title": "Rename demo",
+      "label": "Name",
+      "error": {
+        "empty": "Enter a name.",
+        "separator": "Can't contain / or \\.",
+        "dotDot": "Can't contain \"..\".",
+        "invalidChar": "Can't contain \"{{char}}\".",
+        "trailingDotOrSpace": "Can't end with a dot or space.",
+        "reserved": "\"{{name}}\" is a reserved name on Windows.",
+        "tooLong": "At most {{max}} characters.",
+        "unknownDemo": "This demo is no longer in the index.",
+        "archiveEntry": "Demos inside an archive can't be renamed.",
+        "playing": "Cannot rename while playing.",
+        "scanning": "Can't rename while a scan is running.",
+        "demoMissing": "The file is no longer on disk.",
+        "exists": "\"{{name}}\" already exists.",
+        "sidecarExists": "\"{{name}}\" already exists.",
+        "sidecarBroken": "Fix or replace this demo's notes file first.",
+        "renameFailed": "Rename failed ({{code}}).",
+        "notWritable": "{{folder}} isn't writable.",
+        "rollbackFailed": "Rename failed and couldn't be fully undone — check {{demo}} and {{sidecar}}."
+      }
+    },
+    "list": {
+      "label": "Demos",
+      "loading": "Looking for demos…",
+      "loadingProgress": "Reading demos… {{scanned}} of {{total}}",
+      "empty": "No demos found.",
+      "openSettings": "Add a demo folder in Settings",
+      "source": "{{installation}} · {{gameDir}}",
+      "archiveSource": "{{base}} › {{archive}} › {{entry}}",
+      "sourceError": "Couldn't read {{source}}: {{reason}}",
+      "sourceErrorArchive": "{{base}} · {{archive}}",
+      "sourceErrorReason": {
+        "missing": "the folder no longer exists",
+        "notAFolder": "that path is not a folder",
+        "permissionDenied": "access was denied",
+        "unreadable": "the folder could not be read",
+        "extractor-missing": "the tool needed to open archives is missing",
+        "archive-unreadable": "the archive could not be opened",
+        "archive-too-large": "the archive is too large to scan"
+      },
+      "refresh": "Refresh",
+      "refreshing": "Scanning…"
+    },
+    "source": {
+      "extraFolder": "extra folder: {{path}}",
+      "sidecar": "set by you",
+      "demo": "from the demo",
+      "name": "from the file name",
+      "file": "file time",
+      "guessed": "guessed"
+    },
+    "unreadable": {
+      "marker": "Unreadable",
+      "playDisabled": "Can't play: this demo's header could not be read, so its mod is unknown.",
+      "reason": {
+        "empty": "The file is empty.",
+        "truncated": "The file ends before its header is complete.",
+        "not-a-demo": "This is not a Quake II demo.",
+        "unknown-protocol": "Unknown protocol {{protocol}}",
+        "header-too-large": "The header is larger than any known demo.",
+        "unreadable": "The file could not be read.",
+        "unknown-version": "Unknown MVD version {{version}}",
+        "entry-too-large": "Too large to read inside an archive",
+        "encrypted": "Encrypted archive entry"
+      }
+    },
+    "archive": {
+      "readOnly": {
+        "edit": "Demos inside an archive are read-only — extract it to annotate it.",
+        "rename": "Demos inside an archive can't be renamed — the archive is read-only.",
+        "row": "Read-only (in an archive)"
+      }
+    },
+    "sidecar": {
+      "error": {
+        "unknownDemo": "This demo is no longer in the list. Rescan and try again.",
+        "archiveEntry": "Demos inside a zip archive cannot have notes.",
+        "demoMissing": "The demo file is gone, so its notes were not saved.",
+        "existingInvalid": "The existing notes file for this demo cannot be read, so it was not overwritten.",
+        "notWritable": "Cannot save notes: the folder {{folder}} is not writable. Nothing was written.",
+        "writeFailed": "Saving the notes failed ({{code}}). Nothing was changed."
+      },
+      "issue": {
+        "invalidJson": "This notes file isn't valid JSON (line {{line}}, column {{column}}).",
+        "notAnObject": "This notes file isn't a valid notes file (expected an object).",
+        "invalidField": "The \"{{field}}\" field isn't valid and was ignored.",
+        "unknownField": "The \"{{field}}\" field isn't recognised and will be lost if you save.",
+        "unknownVersion": "This notes file was written by a newer version of the launcher (version {{version}}) — some fields may not show.",
+        "unreadable": "This notes file could not be read ({{code}})."
+      }
+    },
+    "editor": {
+      "field": {
+        "name": "Name",
+        "description": "Description",
+        "mod": "Mod",
+        "gamemode": "Game mode",
+        "map": "Map",
+        "date": "Date",
+        "tags": "Tags"
+      },
+      "placeholder": {
+        "name": "Give this demo a name",
+        "map": "e.g. q2dm1",
+        "mod": "e.g. baseq2",
+        "gamemode": "e.g. ctf",
+        "date": "YYYY-MM-DD HH:MM"
+      },
+      "error": {
+        "rating": "Rating must be a whole number from 1 to 10.",
+        "date": "Enter a real date and time as YYYY-MM-DD HH:MM."
+      },
+      "saving": "Saving…",
+      "saveFailed": "Not saved: {{reason}}",
+      "discardDialog": {
+        "title": "Discard your unsaved notes?",
+        "body": "This demo's notes have changes you haven't saved. Discard them and move on?",
+        "keep": "Keep editing",
+        "confirm": "Discard changes"
+      },
+      "replaceDialog": {
+        "title": "Replace the broken notes file?",
+        "body": "The notes file {{fileName}} on disk has problems. Saving replaces it with your notes:",
+        "confirm": "Replace it"
+      },
+      "sides": {
+        "section": "Sides",
+        "addSide": "Add side",
+        "team": "Team name",
+        "result": "Result",
+        "removeSide": "Remove side",
+        "addPlayerPlaceholder": "Add a player…",
+        "movePlayerUp": "Move {{name}} up",
+        "movePlayerDown": "Move {{name}} down",
+        "removePlayer": "Remove {{name}}",
+        "knownPlayer": {
+          "fromDemo": "from the demo",
+          "fromFileName": "from the file name"
+        }
+      },
+      "tags": {
+        "placeholder": "Add a tag…",
+        "remove": "Remove tag {{tag}}"
+      }
+    },
+    "gamemode": {
+      "ctf": "CTF",
+      "tdm": "TDM",
+      "duel": "Duel",
+      "unknown": "unknown"
+    },
+    "row": {
+      "unknown": "Unknown",
+      "morePlayers": "+{{count}}",
+      "favourite": "Favourite",
+      "ratingValue": "{{rating}}/10",
+      "quick": {
+        "favouriteAriaLabel": "Toggle favourite for {{name}}",
+        "ratingAriaLabel": "Rating for {{name}}",
+        "noRating": "—"
+      }
+    },
+    "column": {
+      "name": "Demo",
+      "map": "Map",
+      "mod": "Mod",
+      "sides": "Players",
+      "date": "Recorded",
+      "duration": "Length",
+      "favourite": "Favourite"
+    },
+    "sort": {
+      "column": {
+        "map": "Map",
+        "mod": "Mod",
+        "players": "Players",
+        "date": "Recorded",
+        "duration": "Length",
+        "rating": "Rating"
+      },
+      "direction": {
+        "asc": "ascending",
+        "desc": "descending"
+      }
+    },
+    "filter": {
+      "title": "Filters",
+      "search": "Search",
+      "searchPlaceholder": "Name, map or player…",
+      "any": "Any",
+      "mod": "Mod",
+      "gamemode": "Gamemode",
+      "map": "Map",
+      "favourites": "Favourites only",
+      "rating": "Minimum rating",
+      "ratingAtLeast_one": "At least {{count}} star",
+      "ratingAtLeast_other": "At least {{count}} stars",
+      "tags": "Tags",
+      "noTags": "No tags yet.",
+      "date": {
+        "label": "Date"
+      },
+      "clear": "Clear filters",
+      "count": "Showing {{shown}} of {{total}}",
+      "noMatch": "No demos match your filters."
+    },
+    "format": {
+      "dm2": "DM2",
+      "mvd2": "MVD2",
+      "gzip": "{{format}} (gz)"
+    },
+    "marker": {
+      "sidecar": "Has notes",
+      "sidecarError": "Notes have a problem",
+      "archive": "Inside an archive"
+    },
+    "detail": {
+      "close": "Close",
+      "favourite": {
+        "ariaLabel": "Favourite {{name}}"
+      },
+      "rating": {
+        "label": "Rating",
+        "none": "Not rated",
+        "star_one": "{{count}} star",
+        "star_other": "{{count}} stars"
+      },
+      "edit": "Edit",
+      "mvd2Note": "Server-side demo with every player. Q2PRO chooses whom the camera follows — switch in game with invnext / invprev or cmd chase <player>.",
+      "field": {
+        "map": "Map",
+        "mod": "Mod",
+        "gamemode": "Gamemode",
+        "sides": "Players",
+        "date": "Recorded",
+        "pov": "Point of view",
+        "description": "Description",
+        "tags": "Tags",
+        "favourite": "Favourite",
+        "rating": "Rating",
+        "fileName": "File name",
+        "duration": "Length"
       }
     }
   },
@@ -1222,6 +1666,8 @@
       "profileNotFound": "That config profile no longer exists.",
       "notAssigned": "This profile is not assigned to that installation.",
       "writeFailed": "Could not write this profile's files to disk.",
+      "commitConflict": "This profile's file changed on disk since the launcher last read it. Open the profile in Config to resolve that first.",
+      "commitNeedsSave": "This profile has unsaved changes the launcher cannot keep apart from the address. Save or discard them in Config first.",
       "installationRunning": "This installation is currently running. Close the game first.",
       "fileNotFound": "That file could not be found on disk.",
       "openFailed": "Could not open that file: {{message}}",
@@ -1550,6 +1996,38 @@
       },
       "mlook": { "label": "Mouse look" },
       "centerview": { "label": "Centre view" },
+      "demoPause": {
+        "label": "Pause demo",
+        "description": "Pauses or resumes the demo. Only works while a demo is playing."
+      },
+      "demoJumpBack": {
+        "label": "Demo jump back",
+        "description": "Jumps back 10 seconds in the demo. Only works while a demo is playing."
+      },
+      "demoJumpForward": {
+        "label": "Demo jump forward",
+        "description": "Jumps forward 10 seconds in the demo. Only works while a demo is playing."
+      },
+      "demoJumpBackLong": {
+        "label": "Demo long jump back",
+        "description": "Jumps back 60 seconds in the demo. Only works while a demo is playing."
+      },
+      "demoJumpForwardLong": {
+        "label": "Demo long jump forward",
+        "description": "Jumps forward 60 seconds in the demo. Only works while a demo is playing."
+      },
+      "demoSpeedUp": {
+        "label": "Demo speed up",
+        "description": "Plays the demo one speed step faster, up to 4x. Only works while a demo is playing."
+      },
+      "demoSpeedDown": {
+        "label": "Demo speed down",
+        "description": "Plays the demo one speed step slower, down to 0.25x. Only works while a demo is playing."
+      },
+      "demoBackToWindow": {
+        "label": "Back to window",
+        "description": "Leaves fullscreen and gives the launcher's timeline control again. Only works while the launcher plays a demo."
+      },
       "blaster": { "label": "Blaster" },
       "shotgun": { "label": "Shotgun" },
       "sshotgun": { "label": "Super Shotgun" },
@@ -1682,6 +2160,14 @@
         "unsavedOnly": "Unsaved only",
         "writeCatalogDefaults": "Write unset catalogue defaults",
         "writeCatalogDefaultsHint": "Keeps every catalogue cvar this profile does not place in a section written to the file under Defaults."
+      },
+      "autorecord": {
+        "label": "Record every map automatically",
+        "hint": "Starts a demo recording each time you enter a map.",
+        "caveatR1q2": "Rejoining the same map within one minute overwrites the earlier demo.",
+        "caveatQ2pro": "This also changes the console clock and any $com_time in your own binds. The command is added to any existing cl_beginmapcmd.",
+        "reasonEngine": "Not available on {{engine}}: it has no way to record every map automatically.",
+        "reasonNoEngine": "Not available: this profile has no r1q2 or Q2PRO installation assigned."
       },
       "advanced": {
         "show": "{{count}} more…",
@@ -2051,7 +2537,8 @@
       "categories": {
         "movement": "Movement",
         "weapons": "Weapons",
-        "drops": "Weapon dropping"
+        "drops": "Weapon dropping",
+        "demo": "Demo playback"
       },
       "label": "Categories",
       "create": "New category",
@@ -2273,6 +2760,10 @@
         "messagePlaceholder": "No message set yet",
         "editMessage": "Edit message",
         "editMessageFor": "Edit message for {{name}}"
+      },
+      "demo": {
+        "seekNeedsQ2pro": "Seeking needs Q2PRO",
+        "speedNeedsQ2pro": "Speed steps need Q2PRO"
       },
       "options": {
         "layer": "layer {{layer}}",
@@ -2583,7 +3074,8 @@
       "installationBusy": "A job is writing files for this installation. It can be started once that job has finished.",
       "spawnFailed": "The game could not be started: {{path}}",
       "processError": "The game process reported an error: {{message}}",
-      "connectNeedsDirectLaunch": "This installation launches through Steam, which cannot join a server directly."
+      "connectNeedsDirectLaunch": "This installation launches through Steam, which cannot join a server directly.",
+      "playbackNeedsDirectLaunch": "This installation launches through Steam, which cannot play a demo directly."
     },
     "userinfo": {
       "reject": {

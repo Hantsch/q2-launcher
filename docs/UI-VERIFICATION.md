@@ -861,6 +861,22 @@ installation's copy is read back off disk and asserted byte-identical to the can
 afterward — and distinct from the hand-edited bytes, so a no-op button could not pass this by
 accident.
 
+Story 156 D2 adds one more, for the demo detail panel's new file actions: **`replays-demo-file-actions`**
+— opens a loose demo's detail panel and clicks **Reveal in file manager**
+(`replays-demo-reveal`, `DemoFileActions.tsx`), reading `ui-harness-revealed.json` back to assert
+the demo's own real absolute path was recorded (the harness-mode stub for `demos.reveal`, see
+"Harness mode" above); clicks **Copy path** (`replays-demo-copy-path`), asserting a "Path copied"
+confirmation appears and that the real OS clipboard (`app.evaluate(({ clipboard }) =>
+clipboard.readText())`, same mechanism `downloads-tab.mjs`'s AC3 copy step uses) ends with that same
+path. Repeats both actions on one of `pack.zip`'s two archive-entry rows (built the same way
+`replays-zip-entries.mjs` builds it, in this flow's own `setup()`/`teardown()`), asserting both the
+revealed path and the clipboard text end with `pack.zip` itself, never the entry's own path inside
+it. Finally opens the detail panel for a demo copied into a throwaway file
+(`vanish-156.dm2`), deletes that file from disk, clicks reveal, and asserts the persistent inline
+alert (`replays-demo-file-action-error`) shows the fileMissing message while the
+harness-recorded-paths file gains no new entry — a refusal must actually refuse, not reveal a stale
+path.
+
 ## The offline bootstrap-wizard flow (`bootstrap-wizard`)
 
 `npm run ui:flow -- bootstrap-wizard` is story 074's acceptance run, and the only flow in which the

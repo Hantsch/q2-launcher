@@ -58,6 +58,7 @@ import {
   cleanupApplyInputSchema,
   cleanupRestoreInputSchema,
   cleanupScanInputSchema,
+  commitProfileCvarsInputSchema,
   createConfigProfileInputSchema,
   discardProfileInputSchema,
   importFilesCommitInputSchema,
@@ -328,6 +329,10 @@ async function syncAndPersist(
         // profile the caller names, so a sibling assigned to the same installation still follows the
         // ordinary rule below (a dirty sibling still refuses; a clean one still writes).
         if (candidate.id === options.refuseCanonicalWriteFor) return false
+        // Story 175 D1: this is the only rule keeping a dirty profile's file untouched here - the one
+        // deliberate writer of a dirty profile's canonical file is `commitCvars`, which writes it
+        // itself (baseline bytes plus the committed cvars only, never the pending edits) and then
+        // passes `refuseCanonicalWriteFor` so this cascade cannot re-render it either way.
         if (candidate.dirty === true) return false
         if (candidate.id === options.overwriteProfileId) return true
         if (onDisk.content === null) return true
@@ -422,19 +427,32 @@ async function authoriseContentWrite(
   profiles: ProfilesStore,
   profile: ConfigProfile,
 ): Promise<boolean> {
-  const baseDir = userDataDir()
+  const fileName = await canonicalFileNameFor(log, profiles, profile)
+  if (fileName === null) return false
+  const read = await readFileState(userDataDir(), fileName, profile.fileHash)
+  return read.state === 'unchanged' || read.state === 'missing'
+}
+
+/**
+ * The canonical file `profile` actually lives in: the one carrying its ownership sentinel
+ * (`readCanonicalOwnership`), else the name it resolves to. The sentinel wins because a rename only
+ * marks the profile dirty - its file stays under the old name until the user saves. `null` when the
+ * profile resolves to no name or the canonical directory could not be surveyed (logged); a caller
+ * about to write must then write nothing.
+ */
+async function canonicalFileNameFor(
+  log: Logger,
+  profiles: ProfilesStore,
+  profile: ConfigProfile,
+): Promise<string | null> {
   const resolvedName = resolveProfileFileNames(profiles.list()).get(profile.id)
-  if (!resolvedName) return false
-  let ownedName: string | undefined
+  if (!resolvedName) return null
   try {
-    ownedName = (await readCanonicalOwnership(baseDir)).get(profile.id)
+    return (await readCanonicalOwnership(userDataDir())).get(profile.id) ?? resolvedName
   } catch (error) {
     log.error(`failed to survey the canonical directory before writing ${profile.id}`, error)
-    return false
+    return null
   }
-  const fileName = ownedName ?? resolvedName
-  const read = await readFileState(baseDir, fileName, profile.fileHash)
-  return read.state === 'unchanged' || read.state === 'missing'
 }
 
 /**
@@ -677,6 +695,82 @@ export const configModule: MainModule = {
       profiles.setCvars(input)
       return markUnsaved(input.profileId)
     })
+
+    /**
+     * Story 175 D1: writes the chosen cvars into the profile's canonical file WITHOUT saving
+     * anything else - the one exception to "a dirty profile is only written by `save`" (see
+     * `canonicalWriteAllowed` above). Every other pending edit stays off disk and stays unsaved:
+     *
+     * 1. A dirty profile without a baseline has no record of what its file says, so there is
+     *    nothing to write the cvars on top of - refused (`commitNeedsSave`); the user saves instead.
+     * 2. The same read-before-write guard every content write passes (`authoriseContentWrite`): a
+     *    file changed on disk or unreadable is refused (`commitConflict`) and never forced - this is
+     *    a background commit, not the user's explicit "overwrite".
+     * 3. The bytes are rendered from the BASELINE (the file as last saved) plus the patch, never
+     *    from the live record, which carries the pending edits. A pending rename therefore keeps the
+     *    old name in the file, and the write goes to the file the sentinel says the profile still
+     *    owns, never to the new name.
+     * 4. A write failure changes nothing in the store. After a successful write the store patches
+     *    both the live record and the baseline with the cvars (`commitSavedCvars`, not
+     *    `markFileSeen`, which would absorb the pending edits into the baseline) and leaves `dirty`
+     *    alone.
+     * 5. The installation cascade runs with `refuseCanonicalWriteFor`, so the copies are brought in
+     *    line with the bytes now on disk while the canonical file is not re-rendered from the live
+     *    record.
+     *
+     * Known limitation: `writeCatalogDefaults` is a render-relevant field that `captureBaseline`
+     * does not snapshot, so a pending catalog-defaults toggle is rendered from the live value and
+     * would land on disk with the commit. Follow-up: add the field to `captureBaseline` in
+     * `src/shared/config/profile-baseline.ts`.
+     */
+    handle(
+      CONFIG_HANDLERS.commitCvars,
+      commitProfileCvarsInputSchema,
+      async (input): Promise<Outcome<ConfigProfile>> => {
+        const profile = profiles.find(input.profileId)
+        if (!profile) return fail('config.error.profileNotFound')
+        if (profile.dirty === true && !profile.baseline) return fail('config.error.commitNeedsSave')
+
+        if (!(await authoriseContentWrite(log, profiles, profile))) {
+          log.warn(
+            `refusing to commit cvars for profile ${profile.id}: its canonical file changed on disk ` +
+              `or could not be read`,
+          )
+          return fail('config.error.commitConflict')
+        }
+        const fileName = await canonicalFileNameFor(log, profiles, profile)
+        if (fileName === null) return fail('config.error.commitConflict')
+
+        const baseline = profile.baseline
+        const view: ConfigProfile = {
+          ...profile,
+          ...(baseline ?? {}),
+          cvars: { ...(baseline ?? profile).cvars, ...input.cvars },
+        }
+        const bytes = renderProfileFile(view)
+        try {
+          await writeTargetFile(join(userDataDir(), fileName), bytes)
+        } catch (error) {
+          log.error(`failed to commit cvars into the canonical file of profile ${profile.id}`, error)
+          return fail('config.error.writeFailed')
+        }
+
+        // `hashCanonicalFileContent` encodes latin1 exactly as the writer does, so this IS the hash
+        // `readFileState` will compare the next read against.
+        const list = profiles.commitSavedCvars(
+          profile.id,
+          input.cvars,
+          hashCanonicalFileContent(bytes),
+          Date.now(),
+        )
+        const committed = list.find((p) => p.id === profile.id)!
+        await syncAndPersist(app, log, profiles, committed, list, {
+          refuseCanonicalWriteFor: committed.id,
+        })
+
+        return ok(withLiveAssignments(profiles.list()).find((p) => p.id === profile.id)!)
+      },
+    )
 
     handle(CONFIG_HANDLERS.setBinds, setProfileBindsInputSchema, (input): ConfigProfile[] => {
       profiles.setBinds(input)

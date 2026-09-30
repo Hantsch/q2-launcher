@@ -1,0 +1,5117 @@
+{
+  "ts": "2026-09-30T09-18-30-500Z",
+  "options": {
+    "exe": "C:/Games/Q2Pro/q2pro.exe",
+    "game": "opentdm",
+    "demo": "test-demo-for-launcher.dm2",
+    "samples": 30,
+    "bursts": 10
+  },
+  "protocol": {
+    "LOOP_CFG_NAME": "q2l_loop.cfg",
+    "CONTROL_CFG_NAME": "q2l_ctl.cfg",
+    "LOG_FILE_NAME": "q2l_demo.log",
+    "LOG_FILE_RELATIVE": "logs/q2l_demo.log",
+    "LOG_POLL_MS": 50,
+    "ACK_TIMEOUT_MS": 2000,
+    "LOOP_WAIT_FRAMES": 13
+  },
+  "shipped": {
+    "loop": [
+      "set q2l_armpos \"\"",
+      "set q2l_seq 0",
+      "alias q2l_loop \"exec q2l_ctl.cfg; wait 13; q2l_loop\"",
+      "q2l_loop"
+    ],
+    "controlIdle": [
+      "echo POS $cl_demopos FS $vid_fullscreen P $cl_paused"
+    ],
+    "controlThreeSeqs": [
+      "echo POS $cl_demopos FS $vid_fullscreen P $cl_paused",
+      "if $q2l_seq < 1 then \"exec q2l_cmd_1.cfg; set q2l_seq 1; echo ACK 1\"",
+      "if $q2l_seq < 2 then \"exec q2l_cmd_2.cfg; set q2l_seq 2; echo ACK 2\"",
+      "if $q2l_seq < 3 then \"exec q2l_cmd_3.cfg; set q2l_seq 3; echo ACK 3\""
+    ],
+    "launch": {
+      "argsBeforeDemo": [
+        "+set",
+        "logfile",
+        "2",
+        "+set",
+        "logfile_flush",
+        "3",
+        "+set",
+        "logfile_name",
+        "q2l_demo.log",
+        "+set",
+        "q2l_session",
+        "1",
+        "+set",
+        "con_notifylines",
+        "0",
+        "+set",
+        "scr_chathud",
+        "1",
+        "+set",
+        "in_grab",
+        "2"
+      ],
+      "argsAfterDemo": [
+        "+exec",
+        "q2l_loop.cfg"
+      ]
+    }
+  },
+  "harness": {
+    "TAIL_POLL_MS": 10,
+    "STARTUP_MS": 4000,
+    "SINGLE_SPACING_MS": 1000,
+    "SINGLE_JITTER_MS": 400,
+    "BURST_GAP_MS": 100,
+    "CPU_WINDOW_MS": 30000,
+    "SINGLE_MIX": [
+      "pause",
+      "pause",
+      "seek +10",
+      "seek -10",
+      "timescale 2",
+      "timescale 1"
+    ],
+    "BURST_MIX": [
+      "seek +10",
+      "seek -10",
+      "seek +10"
+    ],
+    "REWIND_ABOVE_MS": 20000,
+    "GEOMETRY": "960x540+80+80"
+  },
+  "configs": {
+    "shipped": {
+      "name": "shipped",
+      "levers": {
+        "waitFrames": 13,
+        "flush": null,
+        "logToggle": false,
+        "pad": false,
+        "dispatch": "multiseq",
+        "ackVia": "log"
+      },
+      "cfgTexts": {
+        "loop": "set q2l_armpos \"\"\nset q2l_seq 0\nalias q2l_loop \"exec q2l_ctl.cfg; wait 13; q2l_loop\"\nq2l_loop\n",
+        "controlIdle": "echo POS $cl_demopos FS $vid_fullscreen P $cl_paused\n",
+        "stop": "alias q2l_loop \"\"\n",
+        "commandFirst": "pause; writeconfig q2l_mk_1\n",
+        "controlFirstCommand": "echo POS $cl_demopos FS $vid_fullscreen P $cl_paused\nif $q2l_seq < 1 then \"exec q2l_cmd_1.cfg; set q2l_seq 1; echo ACK 1\"\n"
+      },
+      "notes": [],
+      "sideEffects": {
+        "linesPerSec": {
+          "Execing": 5.4,
+          "POS": 4.6,
+          "ACK": 0.8,
+          "PAD": 0,
+          "other": 1
+        },
+        "linesTotalWhileLoop": {
+          "Execing": 491,
+          "POS": 417,
+          "ACK": 69,
+          "PAD": 0,
+          "other": 88
+        },
+        "starved": true,
+        "afterArg": {
+          "seen": true,
+          "lineIndex": 1066,
+          "firstPosIndex": 20,
+          "lastPosIndex": 1064
+        },
+        "cpuDeltaPct": 197.3,
+        "cpu": {
+          "loopRunningCpuSecPerSec": 1.0425,
+          "afterStopCpuSecPerSec": 0.3507,
+          "runningCpuSec": 31.484,
+          "stoppedCpuSec": 10.594,
+          "raw": {
+            "c0": 64.46875,
+            "c1": 95.953125,
+            "c2": 97.140625,
+            "c3": 107.734375,
+            "t0": 60818.704,
+            "t1": 91019.0228,
+            "t2": 92224.0925,
+            "t3": 122431.2139
+          }
+        },
+        "screenshot": "results/2026-09-30T09-18-30-500Z-shipped.png"
+      },
+      "staleAtStart": [],
+      "launch": {
+        "exe": "C:/Games/Q2Pro/q2pro.exe",
+        "cwd": "C:\\Games\\Q2Pro",
+        "args": [
+          "+set",
+          "game",
+          "opentdm",
+          "+set",
+          "vid_fullscreen",
+          "0",
+          "+set",
+          "vid_geometry",
+          "960x540+80+80",
+          "+set",
+          "win_alwaysontop",
+          "1",
+          "+set",
+          "logfile",
+          "2",
+          "+set",
+          "logfile_flush",
+          "3",
+          "+set",
+          "logfile_name",
+          "q2l_demo.log",
+          "+set",
+          "q2l_session",
+          "1",
+          "+set",
+          "con_notifylines",
+          "0",
+          "+set",
+          "scr_chathud",
+          "1",
+          "+set",
+          "in_grab",
+          "2",
+          "+demo",
+          "test-demo-for-launcher.dm2",
+          "+exec",
+          "q2l_loop.cfg",
+          "+echo",
+          "S185_AFTERARG"
+        ],
+        "argsBeforeDemo": [
+          "+set",
+          "logfile",
+          "2",
+          "+set",
+          "logfile_flush",
+          "3",
+          "+set",
+          "logfile_name",
+          "q2l_demo.log",
+          "+set",
+          "q2l_session",
+          "1",
+          "+set",
+          "con_notifylines",
+          "0",
+          "+set",
+          "scr_chathud",
+          "1",
+          "+set",
+          "in_grab",
+          "2"
+        ],
+        "argsAfterDemo": [
+          "+exec",
+          "q2l_loop.cfg"
+        ]
+      },
+      "firstCommand": {
+        "seq": 1,
+        "line": "pause; writeconfig q2l_mk_1"
+      },
+      "exitedCleanly": true,
+      "cleanup": {
+        "filesWritten": 141,
+        "removeFailed": [],
+        "leftover": [],
+        "logLeft": false,
+        "markerDirRemoved": true,
+        "markerDirLeft": false,
+        "configRestored": true
+      },
+      "effect": {
+        "n": 30,
+        "p50": 83,
+        "p95": 204,
+        "max": 214.9
+      },
+      "effectMtime": {
+        "n": 30,
+        "p50": 74.5,
+        "p95": 194.8,
+        "max": 207.6
+      },
+      "ack": {
+        "n": 30,
+        "p50": 83,
+        "p95": 204,
+        "max": 214.9
+      },
+      "ackAtProductionPoll": {
+        "n": 30,
+        "p50": 109.2,
+        "p95": 227.6,
+        "max": 241.1
+      },
+      "logAck": {
+        "n": 30,
+        "p50": 83,
+        "p95": 204,
+        "max": 214.9
+      },
+      "controlToMarker": {
+        "n": 30,
+        "p50": 80,
+        "p95": 202,
+        "max": 212.4
+      },
+      "markerToAck": {
+        "n": 30,
+        "p50": 0,
+        "p95": 0,
+        "max": 10
+      },
+      "markerToAckAtProductionPoll": {
+        "n": 30,
+        "p50": 26.2,
+        "p95": 36.2,
+        "max": 36.2
+      },
+      "burst": {
+        "n": 10,
+        "lastAck": {
+          "n": 10,
+          "p50": 337.3,
+          "p95": 358.5,
+          "max": 358.5
+        },
+        "lastEffect": {
+          "n": 10,
+          "p50": 337.3,
+          "p95": 358.5,
+          "max": 358.5
+        },
+        "lastAckVsSingleMs": 254.3
+      },
+      "flushIntervals": {
+        "n": 396,
+        "p50": 218.9,
+        "p95": 220,
+        "max": 233.2
+      },
+      "linesPerBatch": {
+        "n": 399,
+        "p50": 1,
+        "p95": 2,
+        "max": 4
+      },
+      "flushIntervalsAtProductionPoll": {
+        "n": 394,
+        "p50": 200,
+        "p95": 250,
+        "max": 250
+      },
+      "posIntervals": {
+        "n": 393,
+        "p50": 219.2,
+        "p95": 220,
+        "max": 233.2
+      },
+      "posIntervalsAtProductionPoll": {
+        "n": 393,
+        "p50": 200,
+        "p95": 250,
+        "max": 250
+      },
+      "burstDetail": [
+        {
+          "burst": 0,
+          "requestSpanMs": 203.3,
+          "writtenBeforeFirstAck": false,
+          "writtenAtMs": [
+            1.7,
+            103.7,
+            205.8
+          ],
+          "effectAtMs": [
+            138.5,
+            138.5,
+            358.5
+          ],
+          "ackAtMs": [
+            138.5,
+            138.5,
+            358.5
+          ],
+          "seqs": [
+            33,
+            34,
+            35
+          ],
+          "inOrder": true,
+          "eachOnce": true
+        },
+        {
+          "burst": 1,
+          "requestSpanMs": 203,
+          "writtenBeforeFirstAck": false,
+          "writtenAtMs": [
+            1.8,
+            103.8,
+            205.3
+          ],
+          "effectAtMs": [
+            133.3,
+            133.3,
+            343.3
+          ],
+          "ackAtMs": [
+            133.3,
+            133.3,
+            343.3
+          ],
+          "seqs": [
+            37,
+            38,
+            39
+          ],
+          "inOrder": true,
+          "eachOnce": true
+        },
+        {
+          "burst": 2,
+          "requestSpanMs": 204,
+          "writtenBeforeFirstAck": false,
+          "writtenAtMs": [
+            2.6,
+            104,
+            206.7
+          ],
+          "effectAtMs": [
+            83.3,
+            293.3,
+            303.3
+          ],
+          "ackAtMs": [
+            83.3,
+            303.3,
+            303.3
+          ],
+          "seqs": [
+            40,
+            41,
+            42
+          ],
+          "inOrder": true,
+          "eachOnce": true
+        },
+        {
+          "burst": 3,
+          "requestSpanMs": 204,
+          "writtenBeforeFirstAck": false,
+          "writtenAtMs": [
+            2.1,
+            104.1,
+            205.7
+          ],
+          "effectAtMs": [
+            119.3,
+            119.3,
+            339.3
+          ],
+          "ackAtMs": [
+            119.3,
+            119.3,
+            339.3
+          ],
+          "seqs": [
+            44,
+            45,
+            46
+          ],
+          "inOrder": true,
+          "eachOnce": true
+        },
+        {
+          "burst": 4,
+          "requestSpanMs": 202,
+          "writtenBeforeFirstAck": false,
+          "writtenAtMs": [
+            1.8,
+            102.6,
+            203.9
+          ],
+          "effectAtMs": [
+            69.3,
+            289.3,
+            289.3
+          ],
+          "ackAtMs": [
+            69.3,
+            289.3,
+            289.3
+          ],
+          "seqs": [
+            47,
+            48,
+            49
+          ],
+          "inOrder": true,
+          "eachOnce": true
+        },
+        {
+          "burst": 5,
+          "requestSpanMs": 205,
+          "writtenBeforeFirstAck": false,
+          "writtenAtMs": [
+            2.3,
+            105.1,
+            207
+          ],
+          "effectAtMs": [
+            121.3,
+            121.3,
+            341.3
+          ],
+          "ackAtMs": [
+            121.3,
+            121.3,
+            341.3
+          ],
+          "seqs": [
+            51,
+            52,
+            53
+          ],
+          "inOrder": true,
+          "eachOnce": true
+        },
+        {
+          "burst": 6,
+          "requestSpanMs": 202,
+          "writtenBeforeFirstAck": false,
+          "writtenAtMs": [
+            2,
+            102.9,
+            203.8
+          ],
+          "effectAtMs": [
+            72.3,
+            292.3,
+            292.3
+          ],
+          "ackAtMs": [
+            72.3,
+            292.3,
+            292.3
+          ],
+          "seqs": [
+            54,
+            55,
+            56
+          ],
+          "inOrder": true,
+          "eachOnce": true
+        },
+        {
+          "burst": 7,
+          "requestSpanMs": 204,
+          "writtenBeforeFirstAck": false,
+          "writtenAtMs": [
+            2.4,
+            104.2,
+            206
+          ],
+          "effectAtMs": [
+            132.3,
+            132.3,
+            342.4
+          ],
+          "ackAtMs": [
+            132.3,
+            132.3,
+            342.4
+          ],
+          "seqs": [
+            58,
+            59,
+            60
+          ],
+          "inOrder": true,
+          "eachOnce": true
+        },
+        {
+          "burst": 8,
+          "requestSpanMs": 204,
+          "writtenBeforeFirstAck": false,
+          "writtenAtMs": [
+            2.4,
+            104.5,
+            206.5
+          ],
+          "effectAtMs": [
+            82.3,
+            292.3,
+            292.3
+          ],
+          "ackAtMs": [
+            82.3,
+            292.3,
+            292.3
+          ],
+          "seqs": [
+            61,
+            62,
+            63
+          ],
+          "inOrder": true,
+          "eachOnce": true
+        },
+        {
+          "burst": 9,
+          "requestSpanMs": 203,
+          "writtenBeforeFirstAck": false,
+          "writtenAtMs": [
+            1.9,
+            103.3,
+            204.6
+          ],
+          "effectAtMs": [
+            117.3,
+            117.3,
+            337.3
+          ],
+          "ackAtMs": [
+            117.3,
+            117.3,
+            337.3
+          ],
+          "seqs": [
+            65,
+            66,
+            67
+          ],
+          "inOrder": true,
+          "eachOnce": true
+        }
+      ],
+      "burstCheck": {
+        "bursts": 10,
+        "writtenBeforeFirstAck": 0,
+        "inOrder": 10,
+        "eachOnce": 10,
+        "maxRequestSpanMs": 205
+      },
+      "bytesPerFlush": {
+        "n": 420,
+        "p50": 80,
+        "p95": 199,
+        "max": 492
+      },
+      "hostPollIntervals": {
+        "n": 5957,
+        "p50": 10,
+        "p95": 10,
+        "max": 741.6
+      },
+      "tookEffect": {
+        "yes": 60,
+        "no": 0,
+        "stateConfirmed": 40,
+        "stateContradicted": 0,
+        "stateUnknown": 20
+      },
+      "exactlyOnce": {
+        "ok": 60,
+        "total": 60,
+        "duplicates": []
+      },
+      "notableLines": [
+        "Logging console to logs/q2l_demo.log",
+        "\"0x00\" isn't a valid key",
+        "------- R_Init -------",
+        "Using video driver: win32wgl",
+        "Using GLSL rendering backend.",
+        "----------------------",
+        "------- S_Init -------",
+        "DirectSound initialized",
+        "sound sampling rate: 22050",
+        "Raw mouse initialized.",
+        "The Chastity Belt Duel  -  by JaLisK0",
+        "cl_maxfps value `120' is inexact and will be rounded to `125'.",
+        "(Set `cl_warn_on_fps_rounding' to `0' to disable this warning.)",
+        "====== Q2PRO initialized ======",
+        "",
+        "q2pro r3834~601a8df8, Dec 11 2025",
+        "https://github.com/skullernet/q2pro",
+        "S185_AFTERARG",
+        "Shutting down DirectSound",
+        "Closing console log."
+      ],
+      "timeouts": 0,
+      "logLineCount": 1070,
+      "demoFinished": true,
+      "renameRetries": 0,
+      "tickErrors": [],
+      "timing": {
+        "launchAt": 0,
+        "stopAt": 90723.2,
+        "exitAt": 122417.1
+      },
+      "samples": [
+        {
+          "id": 1,
+          "kind": "single",
+          "burst": null,
+          "cmd": "pause",
+          "seq": 1,
+          "batchSize": 1,
+          "requestedAt": 4004.2,
+          "writtenAt": 4007.1,
+          "markerSeenAt": 4093.8,
+          "markerMtimeAt": 4080.7,
+          "logAckAt": 4093.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 3800,
+            "postPos": 3800,
+            "prePaused": false,
+            "postPaused": true
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 2,
+          "kind": "single",
+          "burst": null,
+          "cmd": "pause",
+          "seq": 2,
+          "batchSize": 1,
+          "requestedAt": 5368.8,
+          "writtenAt": 5371.5,
+          "markerSeenAt": 5393.8,
+          "markerMtimeAt": 5382.2,
+          "logAckAt": 5393.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 3800,
+            "postPos": 4000,
+            "prePaused": true,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 3,
+          "kind": "single",
+          "burst": null,
+          "cmd": "seek +10",
+          "seq": 3,
+          "batchSize": 1,
+          "requestedAt": 6664.8,
+          "writtenAt": 6666.7,
+          "markerSeenAt": 6693.8,
+          "markerMtimeAt": 6682.3,
+          "logAckAt": 6693.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5100,
+            "postPos": 15300,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 4,
+          "kind": "single",
+          "burst": null,
+          "cmd": "seek -10",
+          "seq": 4,
+          "batchSize": 1,
+          "requestedAt": 7768.8,
+          "writtenAt": 7771,
+          "markerSeenAt": 7773.8,
+          "markerMtimeAt": 7769.3,
+          "logAckAt": 7773.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 16200,
+            "postPos": 6400,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 5,
+          "kind": "single",
+          "burst": null,
+          "cmd": "timescale 2",
+          "seq": 5,
+          "batchSize": 1,
+          "requestedAt": 8990.8,
+          "writtenAt": 8993.8,
+          "markerSeenAt": 9073.8,
+          "markerMtimeAt": 9065.4,
+          "logAckAt": 9073.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 7500,
+            "postPos": 7900,
+            "prePaused": false,
+            "postPaused": false,
+            "windowTicks": 4,
+            "msPerTickBefore": 225,
+            "msPerTickAfter": 425
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 6,
+          "kind": "single",
+          "burst": null,
+          "cmd": "timescale 1",
+          "seq": 6,
+          "batchSize": 1,
+          "requestedAt": 10431.8,
+          "writtenAt": 10433.6,
+          "markerSeenAt": 10593.8,
+          "markerMtimeAt": 10580.5,
+          "logAckAt": 10593.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 10500,
+            "postPos": 10800,
+            "prePaused": false,
+            "postPaused": false,
+            "windowTicks": 4,
+            "msPerTickBefore": 425,
+            "msPerTickAfter": 200
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 7,
+          "kind": "single",
+          "burst": null,
+          "cmd": "pause",
+          "seq": 7,
+          "batchSize": 1,
+          "requestedAt": 11640.8,
+          "writtenAt": 11643.3,
+          "markerSeenAt": 11673.8,
+          "markerMtimeAt": 11674.4,
+          "logAckAt": 11683.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 11600,
+            "postPos": 11600,
+            "prePaused": false,
+            "postPaused": true
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 8,
+          "kind": "single",
+          "burst": null,
+          "cmd": "pause",
+          "seq": 8,
+          "batchSize": 1,
+          "requestedAt": 13011.9,
+          "writtenAt": 13016.1,
+          "markerSeenAt": 13193.8,
+          "markerMtimeAt": 13182.6,
+          "logAckAt": 13193.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 11600,
+            "postPos": 11800,
+            "prePaused": true,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 9,
+          "kind": "single",
+          "burst": null,
+          "cmd": "seek +10",
+          "seq": 9,
+          "batchSize": 1,
+          "requestedAt": 14255.9,
+          "writtenAt": 14259.9,
+          "markerSeenAt": 14273.8,
+          "markerMtimeAt": 14262.9,
+          "logAckAt": 14273.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 12700,
+            "postPos": 22900,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 10,
+          "kind": "housekeeping",
+          "burst": null,
+          "cmd": "seek 5",
+          "seq": 10,
+          "batchSize": 1,
+          "requestedAt": 15634.9,
+          "writtenAt": 15637.4,
+          "markerSeenAt": 15793.8,
+          "markerMtimeAt": 15781.2,
+          "logAckAt": 15793.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": {
+            "prePos": 24200,
+            "postPos": 5200,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 11,
+          "kind": "single",
+          "burst": null,
+          "cmd": "seek -10",
+          "seq": 11,
+          "batchSize": 1,
+          "requestedAt": 16102.8,
+          "writtenAt": 16105.4,
+          "markerSeenAt": 16223.8,
+          "markerMtimeAt": 16214.7,
+          "logAckAt": 16223.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5500,
+            "postPos": 300,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 12,
+          "kind": "single",
+          "burst": null,
+          "cmd": "timescale 2",
+          "seq": 12,
+          "batchSize": 1,
+          "requestedAt": 17415.8,
+          "writtenAt": 17417.7,
+          "markerSeenAt": 17523.8,
+          "markerMtimeAt": 17514.2,
+          "logAckAt": 17523.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 1400,
+            "postPos": 1800,
+            "prePaused": false,
+            "postPaused": false,
+            "windowTicks": 4,
+            "msPerTickBefore": 225,
+            "msPerTickAfter": 425
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 13,
+          "kind": "single",
+          "burst": null,
+          "cmd": "timescale 1",
+          "seq": 13,
+          "batchSize": 1,
+          "requestedAt": 18805.8,
+          "writtenAt": 18807.6,
+          "markerSeenAt": 18823.8,
+          "markerMtimeAt": 18813,
+          "logAckAt": 18823.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 3900,
+            "postPos": 4200,
+            "prePaused": false,
+            "postPaused": false,
+            "windowTicks": 4,
+            "msPerTickBefore": 425,
+            "msPerTickAfter": 200
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 14,
+          "kind": "single",
+          "burst": null,
+          "cmd": "pause",
+          "seq": 14,
+          "batchSize": 1,
+          "requestedAt": 19922.4,
+          "writtenAt": 19924.5,
+          "markerSeenAt": 20123.8,
+          "markerMtimeAt": 20113.7,
+          "logAckAt": 20123.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5300,
+            "postPos": 5300,
+            "prePaused": false,
+            "postPaused": true
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 15,
+          "kind": "single",
+          "burst": null,
+          "cmd": "pause",
+          "seq": 15,
+          "batchSize": 1,
+          "requestedAt": 21208.9,
+          "writtenAt": 21211.4,
+          "markerSeenAt": 21423.8,
+          "markerMtimeAt": 21416.6,
+          "logAckAt": 21423.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5300,
+            "postPos": 5500,
+            "prePaused": true,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 16,
+          "kind": "single",
+          "burst": null,
+          "cmd": "seek +10",
+          "seq": 16,
+          "batchSize": 1,
+          "requestedAt": 22457.2,
+          "writtenAt": 22462.1,
+          "markerSeenAt": 22513.8,
+          "markerMtimeAt": 22496.3,
+          "logAckAt": 22513.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 6300,
+            "postPos": 16600,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 17,
+          "kind": "single",
+          "burst": null,
+          "cmd": "seek -10",
+          "seq": 17,
+          "batchSize": 1,
+          "requestedAt": 23884.8,
+          "writtenAt": 23886.6,
+          "markerSeenAt": 24023.8,
+          "markerMtimeAt": 24011.7,
+          "logAckAt": 24023.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 17900,
+            "postPos": 8100,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 18,
+          "kind": "single",
+          "burst": null,
+          "cmd": "timescale 2",
+          "seq": 18,
+          "batchSize": 1,
+          "requestedAt": 25036.8,
+          "writtenAt": 25039,
+          "markerSeenAt": 25113.8,
+          "markerMtimeAt": 25098,
+          "logAckAt": 25113.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 8900,
+            "postPos": 9400,
+            "prePaused": false,
+            "postPaused": false,
+            "windowTicks": 4,
+            "msPerTickBefore": 200,
+            "msPerTickAfter": 425
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 19,
+          "kind": "single",
+          "burst": null,
+          "cmd": "timescale 1",
+          "seq": 19,
+          "batchSize": 1,
+          "requestedAt": 26399.8,
+          "writtenAt": 26401.8,
+          "markerSeenAt": 26413.8,
+          "markerMtimeAt": 26395.5,
+          "logAckAt": 26413.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 11500,
+            "postPos": 11800,
+            "prePaused": false,
+            "postPaused": false,
+            "windowTicks": 4,
+            "msPerTickBefore": 425,
+            "msPerTickAfter": 200
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 20,
+          "kind": "single",
+          "burst": null,
+          "cmd": "pause",
+          "seq": 20,
+          "batchSize": 1,
+          "requestedAt": 27463.8,
+          "writtenAt": 27466,
+          "markerSeenAt": 27493.8,
+          "markerMtimeAt": 27480.2,
+          "logAckAt": 27493.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 12600,
+            "postPos": 12600,
+            "prePaused": false,
+            "postPaused": true
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 21,
+          "kind": "single",
+          "burst": null,
+          "cmd": "pause",
+          "seq": 21,
+          "batchSize": 1,
+          "requestedAt": 28677.8,
+          "writtenAt": 28679.6,
+          "markerSeenAt": 28793.8,
+          "markerMtimeAt": 28780.2,
+          "logAckAt": 28793.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 12600,
+            "postPos": 12800,
+            "prePaused": true,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 22,
+          "kind": "single",
+          "burst": null,
+          "cmd": "seek +10",
+          "seq": 22,
+          "batchSize": 1,
+          "requestedAt": 29868.8,
+          "writtenAt": 29870.8,
+          "markerSeenAt": 29873.8,
+          "markerMtimeAt": 29864.8,
+          "logAckAt": 29873.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 13700,
+            "postPos": 23900,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 23,
+          "kind": "housekeeping",
+          "burst": null,
+          "cmd": "seek 5",
+          "seq": 23,
+          "batchSize": 1,
+          "requestedAt": 30961.8,
+          "writtenAt": 30964,
+          "markerSeenAt": 31173.8,
+          "markerMtimeAt": 31176.9,
+          "logAckAt": 31183.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": {
+            "prePos": 25000,
+            "postPos": 5200,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 24,
+          "kind": "single",
+          "burst": null,
+          "cmd": "seek -10",
+          "seq": 24,
+          "batchSize": 1,
+          "requestedAt": 31493.8,
+          "writtenAt": 31495.6,
+          "markerSeenAt": 31613.8,
+          "markerMtimeAt": 31596.7,
+          "logAckAt": 31613.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5400,
+            "postPos": 400,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 25,
+          "kind": "single",
+          "burst": null,
+          "cmd": "timescale 2",
+          "seq": 25,
+          "batchSize": 1,
+          "requestedAt": 32894.8,
+          "writtenAt": 32896.7,
+          "markerSeenAt": 32913.8,
+          "markerMtimeAt": 32887.2,
+          "logAckAt": 32913.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 1400,
+            "postPos": 1900,
+            "prePaused": false,
+            "postPaused": false,
+            "windowTicks": 4,
+            "msPerTickBefore": 200,
+            "msPerTickAfter": 425
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 26,
+          "kind": "single",
+          "burst": null,
+          "cmd": "timescale 1",
+          "seq": 26,
+          "batchSize": 1,
+          "requestedAt": 34087.8,
+          "writtenAt": 34090.4,
+          "markerSeenAt": 34213.8,
+          "markerMtimeAt": 34199.5,
+          "logAckAt": 34213.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 4000,
+            "postPos": 4300,
+            "prePaused": false,
+            "postPaused": false,
+            "windowTicks": 4,
+            "msPerTickBefore": 425,
+            "msPerTickAfter": 200
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 27,
+          "kind": "single",
+          "burst": null,
+          "cmd": "pause",
+          "seq": 27,
+          "batchSize": 1,
+          "requestedAt": 35566.8,
+          "writtenAt": 35571.6,
+          "markerSeenAt": 35723.8,
+          "markerMtimeAt": 35715.2,
+          "logAckAt": 35723.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5600,
+            "postPos": 5600,
+            "prePaused": false,
+            "postPaused": true
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 28,
+          "kind": "single",
+          "burst": null,
+          "cmd": "pause",
+          "seq": 28,
+          "batchSize": 1,
+          "requestedAt": 36992.8,
+          "writtenAt": 36995,
+          "markerSeenAt": 37023.8,
+          "markerMtimeAt": 37010.3,
+          "logAckAt": 37023.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5600,
+            "postPos": 5800,
+            "prePaused": true,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 29,
+          "kind": "single",
+          "burst": null,
+          "cmd": "seek +10",
+          "seq": 29,
+          "batchSize": 1,
+          "requestedAt": 38406.8,
+          "writtenAt": 38409.4,
+          "markerSeenAt": 38543.8,
+          "markerMtimeAt": 38526.7,
+          "logAckAt": 38543.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 7100,
+            "postPos": 17300,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 30,
+          "kind": "single",
+          "burst": null,
+          "cmd": "seek -10",
+          "seq": 30,
+          "batchSize": 1,
+          "requestedAt": 39639.8,
+          "writtenAt": 39641.8,
+          "markerSeenAt": 39843.8,
+          "markerMtimeAt": 39834.5,
+          "logAckAt": 39843.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 18400,
+            "postPos": 8600,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 31,
+          "kind": "single",
+          "burst": null,
+          "cmd": "timescale 2",
+          "seq": 31,
+          "batchSize": 1,
+          "requestedAt": 41089.8,
+          "writtenAt": 41092.1,
+          "markerSeenAt": 41143.8,
+          "markerMtimeAt": 41131.3,
+          "logAckAt": 41143.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 9700,
+            "postPos": 10100,
+            "prePaused": false,
+            "postPaused": false,
+            "windowTicks": 4,
+            "msPerTickBefore": 225,
+            "msPerTickAfter": 425
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 32,
+          "kind": "single",
+          "burst": null,
+          "cmd": "timescale 1",
+          "seq": 32,
+          "batchSize": 1,
+          "requestedAt": 42318,
+          "writtenAt": 42320.6,
+          "markerSeenAt": 42443.8,
+          "markerMtimeAt": 42432.6,
+          "logAckAt": 42443.8,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 12300,
+            "postPos": 12500,
+            "prePaused": false,
+            "postPaused": false,
+            "windowTicks": 4,
+            "msPerTickBefore": 450,
+            "msPerTickAfter": 225
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 33,
+          "kind": "burst",
+          "burst": 0,
+          "cmd": "seek +10",
+          "seq": 33,
+          "batchSize": 1,
+          "requestedAt": 44253.6,
+          "writtenAt": 44255.3,
+          "markerSeenAt": 44392.1,
+          "markerMtimeAt": 44380.6,
+          "logAckAt": 44392.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 34,
+          "kind": "burst",
+          "burst": 0,
+          "cmd": "seek -10",
+          "seq": 34,
+          "batchSize": 1,
+          "requestedAt": 44354.8,
+          "writtenAt": 44357.3,
+          "markerSeenAt": 44392.1,
+          "markerMtimeAt": 44381.6,
+          "logAckAt": 44392.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 35,
+          "kind": "burst",
+          "burst": 0,
+          "cmd": "seek +10",
+          "seq": 35,
+          "batchSize": 1,
+          "requestedAt": 44456.9,
+          "writtenAt": 44459.5,
+          "markerSeenAt": 44612.1,
+          "markerMtimeAt": 44595.7,
+          "logAckAt": 44612.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 14400,
+            "postPos": 24700,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 36,
+          "kind": "housekeeping",
+          "burst": null,
+          "cmd": "seek 5",
+          "seq": 36,
+          "batchSize": 1,
+          "requestedAt": 45624.8,
+          "writtenAt": 45626.9,
+          "markerSeenAt": 45692.1,
+          "markerMtimeAt": 45683.6,
+          "logAckAt": 45692.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": {
+            "prePos": 25500,
+            "postPos": 5200,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 37,
+          "kind": "burst",
+          "burst": 1,
+          "cmd": "seek +10",
+          "seq": 37,
+          "batchSize": 1,
+          "requestedAt": 45998.8,
+          "writtenAt": 46000.6,
+          "markerSeenAt": 46132.1,
+          "markerMtimeAt": 46113.2,
+          "logAckAt": 46132.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 38,
+          "kind": "burst",
+          "burst": 1,
+          "cmd": "seek -10",
+          "seq": 38,
+          "batchSize": 1,
+          "requestedAt": 46099.8,
+          "writtenAt": 46102.6,
+          "markerSeenAt": 46132.1,
+          "markerMtimeAt": 46114.2,
+          "logAckAt": 46132.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 39,
+          "kind": "burst",
+          "burst": 1,
+          "cmd": "seek +10",
+          "seq": 39,
+          "batchSize": 1,
+          "requestedAt": 46201.8,
+          "writtenAt": 46204.1,
+          "markerSeenAt": 46342.1,
+          "markerMtimeAt": 46333.4,
+          "logAckAt": 46342.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5700,
+            "postPos": 15900,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 40,
+          "kind": "burst",
+          "burst": 2,
+          "cmd": "seek +10",
+          "seq": 40,
+          "batchSize": 1,
+          "requestedAt": 47348.8,
+          "writtenAt": 47351.4,
+          "markerSeenAt": 47432.1,
+          "markerMtimeAt": 47413,
+          "logAckAt": 47432.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 16800,
+            "postPos": 27000,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 41,
+          "kind": "burst",
+          "burst": 2,
+          "cmd": "seek -10",
+          "seq": 41,
+          "batchSize": 1,
+          "requestedAt": 47450.8,
+          "writtenAt": 47452.7,
+          "markerSeenAt": 47642.1,
+          "markerMtimeAt": 47633.5,
+          "logAckAt": 47652.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 2,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 42,
+          "kind": "burst",
+          "burst": 2,
+          "cmd": "seek +10",
+          "seq": 42,
+          "batchSize": 1,
+          "requestedAt": 47552.8,
+          "writtenAt": 47555.5,
+          "markerSeenAt": 47652.1,
+          "markerMtimeAt": 47641.4,
+          "logAckAt": 47652.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 43,
+          "kind": "housekeeping",
+          "burst": null,
+          "cmd": "seek 5",
+          "seq": 43,
+          "batchSize": 1,
+          "requestedAt": 48660.8,
+          "writtenAt": 48662.3,
+          "markerSeenAt": 48732.1,
+          "markerMtimeAt": 48713.9,
+          "logAckAt": 48732.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": {
+            "prePos": 28100,
+            "postPos": 5200,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 44,
+          "kind": "burst",
+          "burst": 3,
+          "cmd": "seek +10",
+          "seq": 44,
+          "batchSize": 1,
+          "requestedAt": 49042.8,
+          "writtenAt": 49044.9,
+          "markerSeenAt": 49162.1,
+          "markerMtimeAt": 49147.1,
+          "logAckAt": 49162.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 45,
+          "kind": "burst",
+          "burst": 3,
+          "cmd": "seek -10",
+          "seq": 45,
+          "batchSize": 1,
+          "requestedAt": 49144.8,
+          "writtenAt": 49146.8,
+          "markerSeenAt": 49162.1,
+          "markerMtimeAt": 49147.1,
+          "logAckAt": 49162.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 46,
+          "kind": "burst",
+          "burst": 3,
+          "cmd": "seek +10",
+          "seq": 46,
+          "batchSize": 1,
+          "requestedAt": 49246.8,
+          "writtenAt": 49248.5,
+          "markerSeenAt": 49382.1,
+          "markerMtimeAt": 49364.4,
+          "logAckAt": 49382.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5600,
+            "postPos": 15800,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 47,
+          "kind": "burst",
+          "burst": 4,
+          "cmd": "seek +10",
+          "seq": 47,
+          "batchSize": 1,
+          "requestedAt": 50392.8,
+          "writtenAt": 50394.6,
+          "markerSeenAt": 50462.1,
+          "markerMtimeAt": 50450.1,
+          "logAckAt": 50462.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 16700,
+            "postPos": 26900,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 48,
+          "kind": "burst",
+          "burst": 4,
+          "cmd": "seek -10",
+          "seq": 48,
+          "batchSize": 1,
+          "requestedAt": 50493.8,
+          "writtenAt": 50495.4,
+          "markerSeenAt": 50682.1,
+          "markerMtimeAt": 50660.6,
+          "logAckAt": 50682.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 49,
+          "kind": "burst",
+          "burst": 4,
+          "cmd": "seek +10",
+          "seq": 49,
+          "batchSize": 1,
+          "requestedAt": 50594.8,
+          "writtenAt": 50596.7,
+          "markerSeenAt": 50682.1,
+          "markerMtimeAt": 50660.6,
+          "logAckAt": 50682.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 50,
+          "kind": "housekeeping",
+          "burst": null,
+          "cmd": "seek 5",
+          "seq": 50,
+          "batchSize": 1,
+          "requestedAt": 51696.8,
+          "writtenAt": 51698.9,
+          "markerSeenAt": 51762.1,
+          "markerMtimeAt": 51749.2,
+          "logAckAt": 51762.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": {
+            "prePos": 28000,
+            "postPos": 5200,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 51,
+          "kind": "burst",
+          "burst": 5,
+          "cmd": "seek +10",
+          "seq": 51,
+          "batchSize": 1,
+          "requestedAt": 52070.8,
+          "writtenAt": 52073,
+          "markerSeenAt": 52192.1,
+          "markerMtimeAt": 52177,
+          "logAckAt": 52192.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 52,
+          "kind": "burst",
+          "burst": 5,
+          "cmd": "seek -10",
+          "seq": 52,
+          "batchSize": 1,
+          "requestedAt": 52172.8,
+          "writtenAt": 52175.8,
+          "markerSeenAt": 52192.1,
+          "markerMtimeAt": 52178,
+          "logAckAt": 52192.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 53,
+          "kind": "burst",
+          "burst": 5,
+          "cmd": "seek +10",
+          "seq": 53,
+          "batchSize": 1,
+          "requestedAt": 52275.8,
+          "writtenAt": 52277.8,
+          "markerSeenAt": 52412.1,
+          "markerMtimeAt": 52400,
+          "logAckAt": 52412.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5600,
+            "postPos": 15900,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 54,
+          "kind": "burst",
+          "burst": 6,
+          "cmd": "seek +10",
+          "seq": 54,
+          "batchSize": 1,
+          "requestedAt": 53419.8,
+          "writtenAt": 53421.7,
+          "markerSeenAt": 53492.1,
+          "markerMtimeAt": 53483.6,
+          "logAckAt": 53492.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 16700,
+            "postPos": 26900,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 55,
+          "kind": "burst",
+          "burst": 6,
+          "cmd": "seek -10",
+          "seq": 55,
+          "batchSize": 1,
+          "requestedAt": 53520.8,
+          "writtenAt": 53522.7,
+          "markerSeenAt": 53712.1,
+          "markerMtimeAt": 53696.6,
+          "logAckAt": 53712.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 56,
+          "kind": "burst",
+          "burst": 6,
+          "cmd": "seek +10",
+          "seq": 56,
+          "batchSize": 1,
+          "requestedAt": 53621.8,
+          "writtenAt": 53623.6,
+          "markerSeenAt": 53712.1,
+          "markerMtimeAt": 53697.6,
+          "logAckAt": 53712.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 57,
+          "kind": "housekeeping",
+          "burst": null,
+          "cmd": "seek 5",
+          "seq": 57,
+          "batchSize": 1,
+          "requestedAt": 54723.8,
+          "writtenAt": 54726.2,
+          "markerSeenAt": 54792.1,
+          "markerMtimeAt": 54783.9,
+          "logAckAt": 54792.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": {
+            "prePos": 28000,
+            "postPos": 5200,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 58,
+          "kind": "burst",
+          "burst": 7,
+          "cmd": "seek +10",
+          "seq": 58,
+          "batchSize": 1,
+          "requestedAt": 55099.8,
+          "writtenAt": 55102.2,
+          "markerSeenAt": 55232.1,
+          "markerMtimeAt": 55213.6,
+          "logAckAt": 55232.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 59,
+          "kind": "burst",
+          "burst": 7,
+          "cmd": "seek -10",
+          "seq": 59,
+          "batchSize": 1,
+          "requestedAt": 55201.8,
+          "writtenAt": 55204,
+          "markerSeenAt": 55232.1,
+          "markerMtimeAt": 55223.3,
+          "logAckAt": 55232.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 60,
+          "kind": "burst",
+          "burst": 7,
+          "cmd": "seek +10",
+          "seq": 60,
+          "batchSize": 1,
+          "requestedAt": 55303.8,
+          "writtenAt": 55305.8,
+          "markerSeenAt": 55442.2,
+          "markerMtimeAt": 55433.6,
+          "logAckAt": 55442.2,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5700,
+            "postPos": 15900,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 61,
+          "kind": "burst",
+          "burst": 8,
+          "cmd": "seek +10",
+          "seq": 61,
+          "batchSize": 1,
+          "requestedAt": 56449.8,
+          "writtenAt": 56452.2,
+          "markerSeenAt": 56532.1,
+          "markerMtimeAt": 56516.1,
+          "logAckAt": 56532.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 16800,
+            "postPos": 27000,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 62,
+          "kind": "burst",
+          "burst": 8,
+          "cmd": "seek -10",
+          "seq": 62,
+          "batchSize": 1,
+          "requestedAt": 56551.8,
+          "writtenAt": 56554.3,
+          "markerSeenAt": 56742.1,
+          "markerMtimeAt": 56732.6,
+          "logAckAt": 56742.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 63,
+          "kind": "burst",
+          "burst": 8,
+          "cmd": "seek +10",
+          "seq": 63,
+          "batchSize": 1,
+          "requestedAt": 56653.8,
+          "writtenAt": 56656.3,
+          "markerSeenAt": 56742.1,
+          "markerMtimeAt": 56733.6,
+          "logAckAt": 56742.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 64,
+          "kind": "housekeeping",
+          "burst": null,
+          "cmd": "seek 5",
+          "seq": 64,
+          "batchSize": 1,
+          "requestedAt": 57756.8,
+          "writtenAt": 57759,
+          "markerSeenAt": 57832.1,
+          "markerMtimeAt": 57812.5,
+          "logAckAt": 57832.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": {
+            "prePos": 28100,
+            "postPos": 5200,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 65,
+          "kind": "burst",
+          "burst": 9,
+          "cmd": "seek +10",
+          "seq": 65,
+          "batchSize": 1,
+          "requestedAt": 58144.8,
+          "writtenAt": 58146.7,
+          "markerSeenAt": 58262.1,
+          "markerMtimeAt": 58249.2,
+          "logAckAt": 58262.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 66,
+          "kind": "burst",
+          "burst": 9,
+          "cmd": "seek -10",
+          "seq": 66,
+          "batchSize": 1,
+          "requestedAt": 58245.8,
+          "writtenAt": 58248.1,
+          "markerSeenAt": 58262.1,
+          "markerMtimeAt": 58250.2,
+          "logAckAt": 58262.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": null,
+          "exactlyOnce": true
+        },
+        {
+          "id": 67,
+          "kind": "burst",
+          "burst": 9,
+          "cmd": "seek +10",
+          "seq": 67,
+          "batchSize": 1,
+          "requestedAt": 58347.8,
+          "writtenAt": 58349.3,
+          "markerSeenAt": 58482.1,
+          "markerMtimeAt": 58464,
+          "logAckAt": 58482.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": true,
+          "effectDetail": {
+            "prePos": 5600,
+            "postPos": 15800,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 68,
+          "kind": "housekeeping",
+          "burst": null,
+          "cmd": "timescale 1",
+          "seq": 68,
+          "batchSize": 1,
+          "requestedAt": 59493.8,
+          "writtenAt": 59495.3,
+          "markerSeenAt": 59562.1,
+          "markerMtimeAt": 59551.1,
+          "logAckAt": 59562.1,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": {
+            "prePos": 16700,
+            "postPos": 16900,
+            "prePaused": false,
+            "postPaused": false,
+            "windowTicks": 4,
+            "msPerTickBefore": 225,
+            "msPerTickAfter": -4025
+          },
+          "exactlyOnce": true
+        },
+        {
+          "id": 69,
+          "kind": "housekeeping",
+          "burst": null,
+          "cmd": "seek 0",
+          "seq": 69,
+          "batchSize": 1,
+          "requestedAt": 59869.8,
+          "writtenAt": 59871.8,
+          "markerSeenAt": 59992.2,
+          "markerMtimeAt": 59983.7,
+          "logAckAt": 59992.2,
+          "logAckAfterExit": false,
+          "fileAckAt": null,
+          "doneHow": "log",
+          "timedOut": false,
+          "markerMtimeChanges": 1,
+          "logAckLines": 1,
+          "markerLogLines": 1,
+          "tookEffect": true,
+          "effectCheck": null,
+          "effectDetail": {
+            "prePos": 17100,
+            "postPos": 300,
+            "prePaused": false,
+            "postPaused": false
+          },
+          "exactlyOnce": true
+        }
+      ],
+      "batches": [
+        {
+          "t": 413.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 623.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 843.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 1063.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 1273.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 1493.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 1713.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 1923.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 2143.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 2363.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 2573.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 2793.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 3013.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 3223.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 3443.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 3663.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 3873.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 4093.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 4313.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 4523.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 4743.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 4963.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 5173.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 5393.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 5613.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 5823.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 6044,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 6263.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 6473.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 6693.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 6913.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 7123.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 7343.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 7563.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 7773.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 7993.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 8213.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 8423.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 8643.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 8863.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 9073.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 9293.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 9513.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 9723.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 9943.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 10163.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 10373.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 10593.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 10813.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 11023.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 11243.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 11463.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 11673.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 11683.8,
+          "lines": 1,
+          "pos": 0,
+          "afterExit": false
+        },
+        {
+          "t": 11893.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 12113.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 12323.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 12543.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 12763.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 12973.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 13193.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 13413.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 13623.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 13843.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 14063.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 14273.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 14493.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 14713.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 14923.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 15143.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 15363.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 15573.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 15793.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 16013.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 16223.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 16443.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 16663.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 16873.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 17093.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 17313.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 17523.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 17743.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 17963.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 18173.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 18393.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 18613.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 18823.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 19043.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 19263.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 19473.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 19693.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 19913.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 20123.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 20343.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 20563.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 20773.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 20993.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 21213.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 21423.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 21643.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 21863.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 22073.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 22293.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 22513.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 22723.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 22943.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 23163.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 23373.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 23593.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 23813.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 24023.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 24243.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 24463.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 24673.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 24893.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 25113.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 25323.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 25543.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 25763.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 25973.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 26193.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 26413.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 26623.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 26843.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 27063.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 27273.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 27493.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 27713.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 27923.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 28143.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 28363.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 28573.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 28793.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 29013.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 29223.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 29443.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 29663.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 29873.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 30093.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 30313.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 30523.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 30743.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 30964.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 31173.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 31183.8,
+          "lines": 1,
+          "pos": 0,
+          "afterExit": false
+        },
+        {
+          "t": 31393.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 31613.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 31823.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 32043.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 32263.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 32473.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 32693.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 32913.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 33123.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 33343.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 33563.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 33773.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 33993.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 34213.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 34423.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 34643.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 34863.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 35073.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 35293.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 35513.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 35723.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 35943.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 36164,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 36373.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 36593.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 36813.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 37023.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 37243.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 37463.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 37673.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 37893.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 38113.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 38323.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 38543.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 38763.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 38973.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 39193.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 39413.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 39623.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 39843.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 40063.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 40273.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 40493.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 40713.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 40923.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 41143.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 41363.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 41573.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 41793.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 42013.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 42223.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 42443.8,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 42663.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 42873.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 43093.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 43313.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 44255.4,
+          "lines": 4,
+          "pos": 4,
+          "afterExit": false
+        },
+        {
+          "t": 44392.1,
+          "lines": 3,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 44612.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 44832.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 45042.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 45262.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 45482.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 45692.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 45912.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 46132.1,
+          "lines": 3,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 46342.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 46562.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 46782.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 46992.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 47212.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 47432.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 47642.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 47652.1,
+          "lines": 2,
+          "pos": 0,
+          "afterExit": false
+        },
+        {
+          "t": 47862.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 48082.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 48292.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 48512.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 48732.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 48942.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 49162.1,
+          "lines": 3,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 49382.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 49592.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 49812.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 50032.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 50242.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 50462.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 50682.1,
+          "lines": 3,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 50892.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 51112.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 51332.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 51542.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 51762.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 51982.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 52192.1,
+          "lines": 3,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 52412.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 52632.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 52842.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 53062.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 53282.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 53492.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 53712.1,
+          "lines": 3,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 53932.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 54142.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 54362.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 54582.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 54792.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 55012.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 55232.1,
+          "lines": 3,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 55442.2,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 55662.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 55882.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 56092.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 56312.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 56532.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 56742.1,
+          "lines": 3,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 56962.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 57182.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 57392.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 57612.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 57832.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 58042.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 58262.1,
+          "lines": 3,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 58482.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 58692.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 58912.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 59132.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 59342.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 59562.1,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 59782.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 59992.2,
+          "lines": 2,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 60212.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 60521.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 60651.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 60871.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 61075.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 61293.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 61509.3,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 61727.3,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 61946.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 62161.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 62380.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 62595.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 62815.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 63034.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 63251.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 63470.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 63688.4,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 63908.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 64110.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 64331,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 64547,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 64764.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 64983.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 65201.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 65419.3,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 65621,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 65854.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 66071.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 66289.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 66492.4,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 66724.4,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 66927.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 67145,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 67363.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 67583.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 67800.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 68020,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 68237.4,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 68455.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 68658.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 68877.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 69095,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 69313.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 69533.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 69748.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 69966.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 70188.3,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 70406.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 70609.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 70827.3,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 71043.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 71260.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 71479.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 71695.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 71914.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 72133.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 72350.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 72568,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 72787.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 73006.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 73209.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 73429.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 73647,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 73863.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 74083.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 74301.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 74519.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 74734.3,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 74953,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 75170.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 75386.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 75606.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 75809.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 76041,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 76245,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 76463.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 76677.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 76896.4,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 77113.3,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 77331.4,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 77550,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 77767.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 77983.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 78202.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 78420.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 78639,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 78857.3,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 79073.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 79289.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 79507.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 79725.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 79926.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 80143.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 80364.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 80583.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 80802.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 81021.3,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 81236.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 81456.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 81660.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 81878.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 82096,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 82313.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 82532.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 82752.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 82968.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 83188,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 83406.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 83610.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 83827.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 84044.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 84262.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 84478.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 84696.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 84899,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 85119.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 85338.4,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 85557.1,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 85774,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 85990.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 86194.3,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 86413.3,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 86630.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 86848.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 87065.8,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 87283.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 87501.6,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 87719.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 87939.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 88144.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 88363.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 88584.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 88803.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 89020.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 89238.5,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 89456,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 89674.4,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 89878.9,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 90096.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 90313.7,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        },
+        {
+          "t": 90723.2,
+          "lines": 1,
+          "pos": 1,
+          "afterExit": false
+        }
+      ],
+      "productionUnmodified": {
+        "loop": true,
+        "controlIdle": true,
+        "controlFirstCommand": true,
+        "commandFirst": true,
+        "stop": true,
+        "logfileFlush3InLaunchArgs": true,
+        "launchArgsHaveOneFlush": true,
+        "launchArgs": true
+      }
+    }
+  },
+  "q2proRunningAfter": false
+}

@@ -27,6 +27,7 @@ import {
   previewCommand,
   resolveEffectiveUserinfo,
 } from './launch-plan'
+import { openPlaybackSession, type PlaybackSession, type PlaybackSessionHandle } from './playback-session'
 import { detectRunners, needsCompatRunner, resolveRunner } from './runners'
 import type { InstallationsService } from './installations'
 import type { WriteLockReader } from './write-guard'
@@ -125,6 +126,16 @@ export class LaunchService {
   private launchSeq = 0
   /** Story 125 review fix: a `start()` is between its guards and its first state change. */
   private startInFlight = false
+  /** Story 163 D1: the running playback launch's pipes, if the running launch is one. */
+  private playback: PlaybackSessionHandle | undefined
+  /**
+   * Story 173 D1: the running playback launch's process - the only child this service ever keeps,
+   * so `terminatePlayback()` can never reach an ordinary Play/Join/Spectate. Cleared by that
+   * launch's own `'exit'`/`'error'` handler (identity-guarded), and deliberately *not* by
+   * `releasePlaybackSession()`: letting go of the pipes leaves the game running.
+   */
+  private playbackChild: ChildProcess | undefined
+  private readonly beforeReleaseListeners = new Set<() => void>()
 
   constructor(deps: LaunchDeps) {
     this.installations = deps.installations
@@ -243,7 +254,69 @@ export class LaunchService {
     })
   }
 
-  async start(input: LaunchInput): Promise<Outcome<LaunchState>> {
+  /**
+   * Story 163 D1: the running playback launch's session, or `undefined` when the running launch is
+   * not one (or nothing runs). Ended - and gone from here - once its process exits or errors, or
+   * after `releasePlaybackSession()`.
+   */
+  getPlaybackSession(): PlaybackSession | undefined {
+    return this.playback?.session
+  }
+
+  /**
+   * Story 164 D4: listeners called synchronously at the start of `releasePlaybackSession()`, before the
+   * session's stdin is ended, so a last console line can still be written. Errors are logged, never thrown.
+   */
+  onBeforePlaybackRelease(listener: () => void): () => void {
+    this.beforeReleaseListeners.add(listener)
+    return () => {
+      this.beforeReleaseListeners.delete(listener)
+    }
+  }
+
+  /**
+   * Story 163 D1: lets go of the game's pipes - stdin ended, stdout closed, `onEnd` fired - and
+   * leaves the game itself running. Never kills the process: that is the user's to close, and its
+   * exit still arrives through the normal lifecycle (state, playtime). A no-op without a session.
+   */
+  releasePlaybackSession(): void {
+    const handle = this.playback
+    if (!handle) return
+    for (const listener of [...this.beforeReleaseListeners]) {
+      try {
+        listener()
+      } catch (error) {
+        log.error('an onBeforePlaybackRelease listener threw', error)
+      }
+    }
+    this.playback = undefined
+    handle.end()
+  }
+
+  /** Story 173 D1: a playback launch's process is running (whether or not its pipes are still held). */
+  isPlaybackRunning(): boolean {
+    return this.playbackChild !== undefined
+  }
+
+  /**
+   * Story 173 D1: terminates the running playback launch's process and returns `true`; kills
+   * nothing and returns `false` when no playback launch runs. There is no cleanup of its own here:
+   * the kill surfaces as that launch's ordinary `'exit'` (or `'error'`), so session end, connect-cfg
+   * removal, playtime and the `exited` state all run through the one existing exit chain.
+   */
+  terminatePlayback(): boolean {
+    const child = this.playbackChild
+    if (!child) return false
+    log.warn(`terminating the playback launch${child.pid !== undefined ? ` (pid ${String(child.pid)})` : ''}`)
+    child.kill()
+    return true
+  }
+
+  /**
+   * `options.playback` (story 163 D1) is main-only - deliberately not part of `LaunchInput` or its
+   * schema, so the renderer cannot ask for piped stdio on an ordinary Play/Join/Spectate.
+   */
+  async start(input: LaunchInput, options?: { playback?: true; demo?: true }): Promise<Outcome<LaunchState>> {
     // Story 125 review fix: `phase` only becomes `'starting'` after the sweep, `plan()` and the
     // connect-cfg write have all been awaited, so on its own `isRunning()` would let a second,
     // overlapping `start()` (a double-clicked Join) through - and its sweep would delete this
@@ -269,14 +342,14 @@ export class LaunchService {
     // failed and a later one must not be blocked.
     this.startInFlight = true
     try {
-      return await this.startReserved(input)
+      return await this.startReserved(input, options?.playback === true, options?.demo === true)
     } finally {
       this.startInFlight = false
     }
   }
 
   /** `start()` past its guards, with the in-flight reservation held - see `startInFlight`. */
-  private async startReserved(input: LaunchInput): Promise<Outcome<LaunchState>> {
+  private async startReserved(input: LaunchInput, playback: boolean, demo = false): Promise<Outcome<LaunchState>> {
     // Story 125: every launch counts, so an event arriving late from an earlier, already
     // finished launch can never remove the connect cfg this one is about to write.
     const launchSeq = ++this.launchSeq
@@ -293,7 +366,15 @@ export class LaunchService {
     const planned = await this.plan(input)
     if (!planned.ok) return planned
 
-    if (planned.value.handoff) return this.handOff(input.installationId, planned.value)
+    if (planned.value.handoff) {
+      // Story 163 D1: a steam:// URL starts the game somewhere we hold no pipes to, so a playback
+      // launch through Steam would play nothing it could steer. Refused before any state change.
+      if (playback) {
+        log.warn(`refused to play a demo through Steam for ${input.installationId}: needs a direct launch`)
+        return fail('launch.error.playbackNeedsDirectLaunch')
+      }
+      return this.handOff(input.installationId, planned.value)
+    }
 
     const { executablePath, args, workingDirectory } = planned.value
 
@@ -336,13 +417,26 @@ export class LaunchService {
 
     let child: ChildProcess
     try {
-      child = spawn(executablePath, args, {
-        cwd: workingDirectory,
-        // The game owns its window; we want no pipes and no shell in between.
-        stdio: 'ignore',
-        windowsHide: false,
-        detached: false,
-      })
+      child = spawn(
+        executablePath,
+        args,
+        playback
+          ? {
+              cwd: workingDirectory,
+              // Story 163 D1: a playback launch is steered over stdin and heard over stdout;
+              // stderr stays unread, so it is not piped at all - an unread pipe fills and stalls.
+              stdio: ['pipe', 'pipe', 'ignore'],
+              windowsHide: false,
+              detached: false,
+            }
+          : {
+              cwd: workingDirectory,
+              // The game owns its window; we want no pipes and no shell in between.
+              stdio: 'ignore',
+              windowsHide: false,
+              detached: false,
+            },
+      )
     } catch (error) {
       log.error(`spawn failed for ${executablePath}`, error)
       await removeOwnedCfg()
@@ -359,6 +453,28 @@ export class LaunchService {
     // join password cannot appear here (story 125).
     log.info(`launching ${executablePath} ${args.join(' ')}`)
 
+    // Story 163 D1: opened right after `spawn()` returns, so stdout is drained from the first byte.
+    // A spawn that threw never got here, so there is no session to end on that path - the getter
+    // simply stays `undefined`. `endOwnSession` is the one exit for the error and exit branches:
+    // it ends only the session *this* launch opened (never a later one's, never one that was
+    // already released), which is what makes the end happen exactly once.
+    const ownSession = playback
+      ? openPlaybackSession(input.installationId, child.stdin, child.stdout)
+      : undefined
+    this.playback = ownSession
+    const endOwnSession = (): void => {
+      if (ownSession && this.playback === ownSession) {
+        this.playback = undefined
+        ownSession.end()
+      }
+    }
+    // Story 173 D1: only a playback launch's child is kept, and only this launch may clear it.
+    // `demo` marks a demo launch without pipes (Windows channel): stoppable, but no piped stdio.
+    if (playback || demo) this.playbackChild = child
+    const forgetOwnChild = (): void => {
+      if (this.playbackChild === child) this.playbackChild = undefined
+    }
+
     child.once('spawn', () => {
       this.setState({
         phase: 'running',
@@ -371,6 +487,8 @@ export class LaunchService {
 
     child.once('error', (error: Error) => {
       void removeOwnedCfg()
+      endOwnSession()
+      forgetOwnChild()
       log.error('game process error', error)
       this.setState({
         phase: 'failed',
@@ -381,6 +499,8 @@ export class LaunchService {
 
     child.once('exit', (code) => {
       void removeOwnedCfg()
+      endOwnSession()
+      forgetOwnChild()
       const seconds = (Date.now() - this.startedAtMs) / 1000
       this.installations.recordPlaySession(input.installationId, seconds)
       log.info(`game exited with code ${String(code)} after ${Math.round(seconds)}s`)

@@ -1,0 +1,21 @@
+// Story 133 D1 spike -- reference/documentation copy of the self-rescheduling control-loop cfg.
+//
+// harness.mjs generates the real, per-launch version of this file inline (see
+// `buildLoopCfg()`); this template is shipped alongside it purely so the cfg
+// shape is reviewable on its own, without reading JS string-concatenation code.
+// Keep the two in sync if you change one.
+//
+// Placeholders (filled in by the harness):
+//   __WAIT_FRAMES__   number of engine frames between reschedules (--wait, default 5)
+//   __CONTROL_FILE__  bare filename of the control file, relative to <gamedir>, e.g. spike133_ctl.cfg
+//
+// Mechanism: `exec`ing a cfg that is missing (control file not yet written) is a
+// silent no-op in Quake II derivatives, so the very first tick(s) before the
+// harness writes anything are harmless. Every __WAIT_FRAMES__ frames the alias
+// re-execs itself, which re-execs the control file, which re-runs whatever the
+// harness last wrote there -- see the top-of-file comment in harness.mjs for how
+// exactly-once command delivery is layered on top of this "runs forever" loop.
+
+set spike133_seq 0
+alias spike133_loop "exec __CONTROL_FILE__; wait __WAIT_FRAMES__; spike133_loop"
+spike133_loop

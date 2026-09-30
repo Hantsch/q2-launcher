@@ -331,3 +331,15 @@ custom buttons.
 Geometry is persisted from `getNormalBounds()` (the pre-maximize rectangle) and a
 saved position that is no longer on any display is dropped, so unplugging a monitor
 cannot strand the window off-screen.
+
+
+### Decisions: shell service for the cinema overlay
+
+Story 187's cinema mode lays a transparent, frameless window over the primary display. It is
+exposed to modules as `app.cinemaWindow` (`open()`, `close()`, `isOpen()`, `onClosed(cb)`,
+`src/main/cinema-window.ts`) - a narrow shell service like the main-window observer, because
+modules never touch a `BrowserWindow` and a window is not per-installation data. It shares the
+main window's preload and `webPreferences` (`rendererWebPreferences()`) and its popup/navigation
+guard (`hardenWebContents()`, both in `src/main/window-shared.ts`), so the overlay is exactly as
+privileged as the launcher window and no more. Its page, `cinema.html`, is served from the same
+origin, so the same CSP (response header in dev, protocol handler in production) covers it.

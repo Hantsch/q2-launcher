@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import { CONFIG_HANDLERS } from '@shared/modules/config'
 import { initI18n } from '../../i18n'
+import type { useLauncher as useLauncherType } from '../../store/useLauncher'
 import type { AddToAddressBookDialog as AddToAddressBookDialogType } from './AddToAddressBookDialog'
 
 function makeProfile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
@@ -38,10 +39,13 @@ function invokeImpl(_channel: string, args: { moduleId: string; type: string; pa
   if (args?.moduleId === 'config' && args?.type === CONFIG_HANDLERS.list) {
     return Promise.resolve({ ok: true, value: PROFILES })
   }
-  if (args?.moduleId === 'config' && args?.type === CONFIG_HANDLERS.setCvars) {
+  if (args?.moduleId === 'config' && args?.type === CONFIG_HANDLERS.commitCvars) {
     const payload = args.payload as { profileId: string; cvars: Record<string, string> }
-    PROFILES = PROFILES.map((p) => (p.id === payload.profileId ? { ...p, cvars: payload.cvars } : p))
-    return Promise.resolve({ ok: true, value: PROFILES })
+    const updated = PROFILES.map((p) =>
+      p.id === payload.profileId ? { ...p, cvars: { ...p.cvars, ...payload.cvars } } : p,
+    )
+    PROFILES = updated
+    return Promise.resolve({ ok: true, value: updated.find((p) => p.id === payload.profileId) })
   }
   return Promise.resolve({ ok: false, error: { key: 'unhandled' } })
 }
@@ -52,14 +56,17 @@ function invokeImpl(_channel: string, args: { moduleId: string; type: string; pa
 }
 
 let AddToAddressBookDialog: typeof AddToAddressBookDialogType
+let useLauncher: typeof useLauncherType
 
 beforeAll(async () => {
   await initI18n('en')
   ;({ AddToAddressBookDialog } = await import('./AddToAddressBookDialog'))
+  ;({ useLauncher } = await import('../../store/useLauncher'))
 })
 
 afterEach(() => {
   cleanup()
+  useLauncher.setState({ toasts: [] })
   PROFILES = [
     makeProfile({
       id: 'a',
@@ -141,35 +148,70 @@ describe('AddToAddressBookDialog', () => {
     expect(callsAfterSwitch).toBeGreaterThan(callsBeforeSwitch)
   })
 
-  it('confirm writes the full cvars map through config setCvars only', async () => {
-    renderDialog('1.2.3.4:27910')
-
+  async function confirmAdd(): Promise<void> {
     await waitFor(() => expect(screen.getByTestId('servers-address-book-slot-1')).toBeTruthy())
-
-    // adr1 is the lowest empty slot on the preselected Profile A - already preselected by default.
     const confirm = screen.getByTestId('servers-address-book-confirm') as HTMLButtonElement
     await waitFor(() => expect(confirm.disabled).toBe(false))
-
     await act(async () => {
       fireEvent.click(confirm)
       await Promise.resolve()
       await Promise.resolve()
     })
+  }
 
-    const setCvarsCall = invokeMock().mock.calls.find(
+  it('confirm commits only the chosen slot through config commitCvars', async () => {
+    renderDialog('1.2.3.4:27910')
+    await confirmAdd()
+
+    const commitCalls = invokeMock().mock.calls.filter(
+      (c: unknown[]) => (c[1] as { type: string }).type === CONFIG_HANDLERS.commitCvars,
+    )
+    expect(commitCalls).toHaveLength(1)
+    const [, args] = commitCalls[0] as [string, { moduleId: string; type: string; payload: unknown }]
+    expect(args.moduleId).toBe('config')
+    expect(args.type).toBe('commitCvars')
+    // Only the chosen slot (adr1, lowest empty) - not the profile's other cvar adr0.
+    expect(args.payload).toEqual({ profileId: 'a', cvars: { adr1: '1.2.3.4:27910' } })
+
+    const setCvarsCalls = invokeMock().mock.calls.filter(
       (c: unknown[]) => (c[1] as { type: string }).type === CONFIG_HANDLERS.setCvars,
     )
-    expect(setCvarsCall).toBeTruthy()
-    const [, args] = setCvarsCall as [string, { moduleId: string; payload: { profileId: string; cvars: Record<string, string> } }]
-    expect(args.moduleId).toBe('config')
-    expect(args.payload.profileId).toBe('a')
-    // Keeps the profile's other cvar (adr0) and adds the new one (adr1).
-    expect(args.payload.cvars).toEqual({ adr0: '9.9.9.9:27910', adr1: '1.2.3.4:27910' })
-
+    expect(setCvarsCalls).toHaveLength(0)
     const serversModuleCalls = invokeMock().mock.calls.filter(
       (c: unknown[]) => (c[1] as { moduleId: string }).moduleId === 'servers',
     )
     expect(serversModuleCalls).toHaveLength(0)
+  })
+
+  it('a successful add toasts the saved key', async () => {
+    const onClose = vi.fn()
+    render(createElement(AddToAddressBookDialog, { open: true, address: '1.2.3.4:27910', onClose }))
+    await confirmAdd()
+
+    expect(onClose).toHaveBeenCalled()
+    const toasts = useLauncher.getState().toasts
+    expect(toasts.map((toast) => toast.messageKey)).toContain('servers.addressBook.saved')
+    expect(toasts.map((toast) => toast.messageKey)).not.toContain('servers.addressBook.written')
+    expect(toasts.find((toast) => toast.messageKey === 'servers.addressBook.saved')?.params).toEqual({
+      profile: 'Profile A',
+      slot: 'adr1',
+    })
+  })
+
+  it('a failed commit keeps the dialog open with the error as text and no toast', async () => {
+    const onClose = vi.fn()
+    invokeMock().mockImplementation((channel: string, args: { moduleId: string; type: string }) =>
+      args?.type === CONFIG_HANDLERS.commitCvars
+        ? Promise.resolve({ ok: false, error: { key: 'config.error.commitConflict' } })
+        : invokeImpl(channel, args),
+    )
+    render(createElement(AddToAddressBookDialog, { open: true, address: '1.2.3.4:27910', onClose }))
+    await confirmAdd()
+
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('changed on disk')
+    expect(onClose).not.toHaveBeenCalled()
+    expect(useLauncher.getState().toasts).toHaveLength(0)
   })
 
   it('an address that fails validation cannot be written', async () => {

@@ -1,8 +1,10 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { BrowserWindow, app, protocol, session } from 'electron'
+import { BrowserWindow, app, protocol, screen, session } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
+import { createCinemaWindow } from './cinema-window'
 import { createAppContext, type AppContext } from './context'
+import { createMainWindowEvents } from './main-window-observer'
 import { registerAllIpc } from './ipc'
 import { logger } from './lib/logger'
 import {
@@ -87,15 +89,24 @@ async function bootstrap(): Promise<void> {
     optimizer.watchWindowShortcuts(window)
   })
 
+  // Story 171 D2: the window's events reach modules through `context.mainWindow` (read-only);
+  // `createMainWindow` gets the write side. Same late binding over `mainWindow` as below.
+  const windowEvents = createMainWindowEvents({
+    getWindow: () => mainWindow?.window ?? null,
+    scaleFactorFor: (bounds) => screen.getDisplayMatching(bounds).scaleFactor,
+    onListenerError: (error) => logger.warn(`main window listener failed: ${String(error)}`),
+  })
   context = await createAppContext({
     isDev: is.dev,
     // `mainWindow` is assigned a few lines below, after `createMainWindow(context)` returns - this
     // closure reads the module-level `let` at call time, by which point it is always set, rather
     // than capturing today's (still-null) value.
     getMainWindow: () => mainWindow?.window ?? null,
+    mainWindow: windowEvents.observer,
+    cinemaWindow: createCinemaWindow(),
   })
   registerAllIpc(context)
-  mainWindow = await createMainWindow(context)
+  mainWindow = await createMainWindow(context, windowEvents.notify)
 
   // Both of these used to hang off `mainWindow.window.webContents.once('did-finish-load', …)` here,
   // and therefore never ran at all: `createMainWindow()` ends by awaiting `window.loadURL(...)`
@@ -122,7 +133,7 @@ async function bootstrap(): Promise<void> {
   app.on('activate', () => {
     // macOS: re-create the window after the last one was closed.
     if (BrowserWindow.getAllWindows().length === 0 && context) {
-      void createMainWindow(context).then((created) => {
+      void createMainWindow(context, windowEvents.notify).then((created) => {
         mainWindow = created
       })
     }
@@ -228,6 +239,8 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   // Geometry and state are written asynchronously; make sure they land.
   void Promise.all([mainWindow?.settle(), context?.state.settle()])
+  // The launcher lets go of any playback session's pipe; the game keeps running.
+  context?.launch.releasePlaybackSession()
 })
 
 process.on('uncaughtException', (error) => {

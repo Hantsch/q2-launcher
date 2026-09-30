@@ -1,0 +1,172 @@
+- 2026-09-28 17:32:23 · refine · 150 151 152 153 154 155 156 157 158 · started
+- 2026-09-28 17:43:43 · refine · 150 151 152 153 154 155 156 157 158 · done
+- 2026-09-28 17:43:50 · 150 · build · started
+- 2026-09-28 17:44 · 150 · D1 index row carries header facts and duration · started
+- 2026-09-28 17:48 · 150 · D1 index row carries header facts and duration · done
+- 2026-09-28 17:48 · 150 · D2 index.read answers composed demo rows · started
+- 2026-09-28 17:51 · 150 · D2 index.read answers composed demo rows · done
+- 2026-09-28 17:52 · 150 · D3 demo row UI · started
+- 2026-09-28 17:57 · 150 · D3 demo row UI · done
+- 2026-09-28 17:58 · 150 · D4 virtualised selectable list with detail shell · started
+- 2026-09-28 18:03 · 150 · D4 virtualised selectable list with detail shell · done
+- 2026-09-28 18:03 · 150 · D5 rows on the real surface (fixtures + flows + screen) · started
+- 2026-09-28 18:18 · 150 · D5 rows on the real surface (fixtures + flows + screen) · done
+- 2026-09-28 18:18 · 150 · verify · started
+- 2026-09-28 18:22 · 150 · verify · done
+- 2026-09-28 18:22 · 150 · review 1 · started
+- 2026-09-28 18:25 · 150 · review 1 · done
+- 2026-09-28 18:26 · 150 · story · done
+- 2026-09-28 18:27:23 · 151 · build · started
+- 2026-09-28 18:27 · 151 · D1 discovery reports per-source errors · started
+- 2026-09-28 18:31 · 151 · D1 discovery reports per-source errors · done
+- 2026-09-28 18:31 · 151 · D2 scan service pushes source errors + harness scan hold · started
+- 2026-09-28 18:35 · 151 · D2 scan service pushes source errors + harness scan hold · done
+- 2026-09-28 18:35 · 151 · D3 renderer: the list says what its doing · started
+- 2026-09-28 18:39 · 151 · D3 renderer: the list says what its doing · done
+- 2026-09-28 18:39 · 151 · D4 surface proof: fixtures, screens, flows · started
+- 2026-09-28 18:46 · 151 · D4 surface proof: fixtures, screens, flows · done
+- 2026-09-28 18:46 · 151 · verify · started
+- 2026-09-28 18:49 · 151 · verify · blocked: replays-list-loading e2e flow red (data-total=0 instead of 5)
+- 2026-09-28 18:52 · 151 · verify · started
+- 2026-09-28 18:52 · 151 · verify · done
+- 2026-09-28 18:52 · 151 · review 1 · started
+- 2026-09-28 18:56 · 151 · review 1 · done
+- 2026-09-28 18:57 · 151 · story · done
+- 2026-09-28 18:57:47 · 152 · build · started
+- 2026-09-28 18:58 · 152 · D1 pure sort · started
+- 2026-09-28 19:01 · 152 · D1 pure sort · done
+- 2026-09-28 19:01 · 152 · D2 persisted sort choice · started
+- 2026-09-28 19:06 · 152 · D2 persisted sort choice · done
+- 2026-09-28 19:06 · 152 · D3 renderer header + e2e · started
+- 2026-09-28 19:06 · 152 · D3 renderer header + e2e · started (recorded above, continuing after research)
+- 2026-09-28 19:14 · 152 · D3 renderer header + e2e · done
+- 2026-09-28 19:14 · 152 · verify · started
+- 2026-09-28 19:16 · 152 · verify · done
+- 2026-09-28 19:16 · 152 · review 1 · started
+- 2026-09-28 19:18 · 152 · review 1 · done
+- 2026-09-28 19:19 · 152 · story · done
+- 2026-09-28 19:20:05 · 153 · build · started
+- 2026-09-28 19:20 · 153 · D1 row data (verify-or-add) · started
+- 2026-09-28 19:21 · 153 · D1 row data (verify-or-add) · done
+- 2026-09-28 19:22 · 153 · D2 filter engine + unit tests · started
+- 2026-09-28 19:24 · 153 · D2 filter engine + unit tests · done
+- 2026-09-28 19:24 · 153 · D3 persisted filter · started
+- 2026-09-28 19:28 · 153 · D3 persisted filter · done
+- 2026-09-28 19:28 · 153 · D4 filter rail component · started
+- 2026-09-28 19:30 · 153 · D4 filter rail component · done
+- 2026-09-28 19:30 · 153 · D5 wiring + e2e · started
+- 2026-09-28 19:52 · 153 · D5 wiring + e2e · done
+- 2026-09-28 19:52 · 153 · verify · started
+- 2026-09-28 19:55 · 153 · verify · done
+- 2026-09-28 19:55 · 153 · review 1 · started
+- 2026-09-28 19:59 · 153 · review 1 · done
+- 2026-09-28 20:00 · 153 · story · done
+- 2026-09-28 20:01:17 · 154 · build · started
+- 2026-09-28 20:02 · 154 · build · started
+- 2026-09-28 20:02 · 154 · D1 shared date-range logic · started
+- 2026-09-28 20:04 · 154 · D1 shared date-range logic · done
+- 2026-09-28 20:05 · 154 · D2 filter engine + persistence · started
+- 2026-09-28 20:08 · 154 · D2 filter engine + persistence · done
+- 2026-09-28 20:08 · 154 · D3 DateRangePicker · started
+- 2026-09-28 20:12 · 154 · D3 DateRangePicker · done
+- 2026-09-28 20:12 · 154 · D4 harness launch args · started
+- 2026-09-28 20:13 · 154 · D4 harness launch args · done
+- 2026-09-28 20:13 · 154 · D5 wiring + e2e · started
+- 2026-09-28 20:29 · 154 · D5 wiring + e2e · done
+- 2026-09-28 20:29 · 154 · verify · started
+- 2026-09-28 20:31 · 154 · verify · done
+- 2026-09-28 20:31 · 154 · review 1 · started
+- 2026-09-28 20:34 · 154 · review 1 · done
+- 2026-09-28 20:39 · 154 · review 2 · started
+- 2026-09-28 20:39 · 154 · review 2 · done (fixes applied and re-verified by the fix agent; no further findings)
+- 2026-09-28 20:40 · 154 · story · done
+- 2026-09-28 20:41:14 · 155 · build · started
+- 2026-09-28 20:43 · 155 · D1 demo detail model · started
+- 2026-09-28 20:43 · 155 · D2 sidecar draft model · started
+- 2026-09-28 20:47 · 155 · D1 demo detail model · done
+- 2026-09-28 20:47 · 155 · D2 sidecar draft model · done
+- 2026-09-28 20:47 · 155 · D3 detail side panel · started
+- 2026-09-28 20:55 · 155 · D3 detail side panel · done
+- 2026-09-28 20:55 · 155 · D4 notes editor core (hard) · started
+- 2026-09-28 21:07 · 155 · D4 notes editor core (hard) · done
+- 2026-09-28 21:07 · 155 · D5 sides players tags · started
+- 2026-09-28 21:16 · 155 · D5 sides players tags · done
+- 2026-09-28 21:16 · 155 · D6 row quick favourite rating · started
+- 2026-09-28 21:24 · 155 · D6 row quick favourite rating · done
+- 2026-09-28 21:24 · 155 · verify · started
+- 2026-09-28 21:29 · 155 · verify · blocked: nested-interactive axe violation + flow fixture-order collision
+- 2026-09-28 21:29 · 155 · fix nested-interactive row markup · started
+- 2026-09-28 21:34 · 155 · fix nested-interactive row markup · done
+- 2026-09-28 21:34 · 155 · verify 2 · started
+- 2026-09-28 21:38 · 155 · verify 2 · done
+- 2026-09-28 21:38 · 155 · verify 3 (final) · started
+- 2026-09-28 21:41 · 155 · verify 3 (final) · done
+- 2026-09-28 21:41 · 155 · review 1 · started
+- 2026-09-28 21:45 · 155 · review 1 · done
+- 2026-09-28 21:45 · 155 · fix map placeholder source hint · started
+- 2026-09-28 21:46 · 155 · fix map placeholder source hint · done
+- 2026-09-28 21:46 · 155 · verify 4 (post-fix) · started
+- 2026-09-28 21:48 · 155 · verify 4 (post-fix) · done
+- 2026-09-28 21:48 · 155 · story · done
+- 2026-09-28 21:49:31 · 156 · build · started
+- 2026-09-28 21:51 · 156 · D1 demos.reveal/demos.copyPath contract+main · started
+- 2026-09-28 21:55 · 156 · D1 demos.reveal/demos.copyPath contract+main · done
+- 2026-09-28 21:55 · 156 · D2 file-actions UI + flow · started
+- 2026-09-28 22:02 · 156 · D2 file-actions UI + flow · done
+- 2026-09-28 22:02 · 156 · verify · started
+- 2026-09-28 22:04 · 156 · verify · blocked: e2e replays-demo-file-actions strict-mode locator collision on duplicate 'Path copied' toast at pack.zip step
+- 2026-09-28 22:08 · 156 · verify · started
+- 2026-09-28 22:08 · 156 · verify · done
+- 2026-09-28 22:08 · 156 · review 1 · started
+- 2026-09-28 22:10 · 156 · review 1 · done
+- 2026-09-28 22:10 · 156 · story · done
+- 2026-09-28 22:11:06 · 157 · build · started
+- 2026-09-28 22:13 · 157 · D1 rename-name validator · started
+- 2026-09-28 22:14 · 157 · D1 rename-name validator · done
+- 2026-09-28 22:14 · 157 · D2 index patch + playing registry · started
+- 2026-09-28 22:16 · 157 · D2 index patch + playing registry · done
+- 2026-09-28 22:16 · 157 · D3 rename service + handler (hard) · started
+- 2026-09-28 22:24 · 157 · D3 rename service + handler (hard) · done
+- 2026-09-28 22:24 · 157 · D4 rename dialog + detail-panel trigger + flow · started
+- 2026-09-28 22:32 · 157 · D4 rename dialog + detail-panel trigger + flow · done
+- 2026-09-28 22:32 · 157 · verify · started
+- 2026-09-28 22:35 · 157 · verify · blocked: e2e replays-rename fails at step 1 (Save button state never resolves, demo-rename-save timeout)
+- 2026-09-28 22:35 · 157 · fix e2e replays-rename step 1 · started
+- 2026-09-28 22:45 · 157 · fix e2e replays-rename step 1 · done
+- 2026-09-28 22:45 · 157 · verify 2 (post-fix) · started
+- 2026-09-28 22:46 · 157 · verify 2 (post-fix) · done
+- 2026-09-28 22:46 · 157 · review 1 · started
+- 2026-09-28 22:51 · 157 · review 1 · done
+- 2026-09-28 22:51 · 157 · review 2 (hard) · started
+- 2026-09-28 22:55 · 157 · review 2 (hard) · done
+- 2026-09-28 22:55 · 157 · fix hard-review findings (sidecar-loss guard, rollback coverage, race crash) · started
+- 2026-09-28 22:58 · 157 · fix hard-review findings (sidecar-loss guard, rollback coverage, race crash) · done
+- 2026-09-28 22:58 · 157 · verify 3 (post-hard-review fix) · started
+- 2026-09-28 22:59 · 157 · verify 3 (post-hard-review fix) · done
+- 2026-09-28 23:00 · 157 · story · done
+- 2026-09-28 23:01:04 · 158 · build · started
+- 2026-09-28 23:03 · 158 · D1 main rejects rename of an archive entry · started
+- 2026-09-28 23:08 · 158 · D1 main rejects rename of an archive entry · done
+- 2026-09-28 23:08 · 158 · D2 detail panel editor+rename disabled with reason · started
+- 2026-09-28 23:12 · 158 · D2 detail panel editor+rename disabled with reason · done
+- 2026-09-28 23:12 · 158 · D3 demo row quick favourite/rating disabled with reason · started
+- 2026-09-28 23:13 · 158 · D3 demo row quick favourite/rating disabled with reason · done
+- 2026-09-28 23:13 · 158 · verify · started
+- 2026-09-28 23:18 · 158 · verify · blocked: e2e replays-archive-readonly red (pre-existing, reproduces on unmodified replays-zip-entries too)
+- 2026-09-28 23:18 · 158 · review 1 · started
+- 2026-09-28 23:22 · 158 · review 1 · done (PASS, 1 minor finding fixed: flow now asserts Play enabled-if-present)
+- 2026-09-28 23:22 · 158 · story · blocked: e2e replays-archive-readonly cannot be observed passing (pre-existing zip-fixture fault, reproduces on unmodified replays-zip-entries)
+- 2026-09-28 23:27:46 · 158 · orchestrator note · e2e timeout traced to stale shared fixtures (npm run ui:seed), not a code regression; reseed + rerun green
+- 2026-09-28 23:27:46 · 158 · story · done
+- 2026-09-28 23:28:37 · gate · short-suites · started
+- 2026-09-28 23:31:33 · gate · short-suites · done (build green, test green, ui:verify red: replays-date-filter-invalid)
+- 2026-09-28 23:38:09 · gate · attribution · started (orchestrator, direct: red screen replays-date-filter-invalid@940x620 confined to story 154's own screens)
+- 2026-09-28 23:57:52 · gate · attribution · done (bisected: 154's own commit d1dd1cf passes the flow, 155's commit a639704 fails it — regression is story 155's, not 154's)
+- 2026-09-29 00:28:56 · gate · fix 154 · done (commit 139cb8a)
+- 2026-09-29 00:28:56 · gate · fix 155 · done (commit 9bdf4eb)
+- 2026-09-29 00:32:15 · gate · e2e-all · started
+- 2026-09-29 01:03:39 · gate · e2e-all · done (86/91 passed, ~31 min; failed: replays-extra-folders, replays-list-scale, servers-filter-search, servers-master-sources, servers-sort-order)
+- 2026-09-29 08:03:28 · gate · attribution 2 · done (flaky-first + pre-existing checks: replays-extra-folders/servers-filter-search/servers-master-sources/servers-sort-order all pre-existing, unrelated to this sprint; replays-list-scale bisected to story 152, commit 3d360e3)
+- 2026-09-29 08:12:18 · gate · fix 152 · done (commit 53f775d)
+- 2026-09-29 08:13:16 · gate · e2e-all confirmation · started
+- 2026-09-29 08:45:07 · gate · e2e-all confirmation · done (87/91 passed, ~31 min; failed: replays-extra-folders, servers-filter-search, servers-master-sources, servers-sort-order — all confirmed pre-existing, unrelated to this sprint)

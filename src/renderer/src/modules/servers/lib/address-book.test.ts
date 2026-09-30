@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import {
   ADDRESS_BOOK_SLOTS,
-  buildAddressBookCvars,
   pickPreselectedProfileId,
   pickPreselectedSlot,
   readAddressBookSlots,
@@ -71,16 +70,5 @@ describe('pickPreselectedSlot', () => {
     const fullCvars = Object.fromEntries(ADDRESS_BOOK_SLOTS.map((slot, i) => [slot, `x:${i}`]))
     const slotsAllFull = readAddressBookSlots(fullCvars)
     expect(pickPreselectedSlot(slotsAllFull, address)).toBeUndefined()
-  })
-})
-
-describe('buildAddressBookCvars', () => {
-  it('the written cvars keep every other cvar and do not mutate the input', () => {
-    const current = { sensitivity: '3', adr0: 'old:1' }
-    const result = buildAddressBookCvars(current, 'adr0', '1.2.3.4:27910')
-
-    expect(result).toEqual({ sensitivity: '3', adr0: '1.2.3.4:27910' })
-    expect(result).not.toBe(current)
-    expect(current).toEqual({ sensitivity: '3', adr0: 'old:1' })
   })
 })

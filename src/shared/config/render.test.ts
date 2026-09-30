@@ -56,6 +56,22 @@ function renderedLines(profile: ConfigProfile): string[] {
   return renderProfileFile(profile).split('\n')
 }
 
+describe('render: the demo category (story 167 D1)', () => {
+  it('the template seeds the demo category unbound and binds no demo command', () => {
+    expect(STANDARD_TEMPLATE.categories.some((category) => category.id === 'demo')).toBe(true)
+    const demoActions = STANDARD_TEMPLATE.actions.filter((action) => action.categoryId === 'demo')
+    // Five D1 entries (pause + four jumps), D2's speed up / speed down, and story 172's back-to-window.
+    expect(demoActions).toHaveLength(8)
+    for (const action of demoActions) expect(action.commands).toEqual([])
+
+    const isDemoCommand = (text: string): boolean => /^(pause$|seek |if \$timescale |if x\$cl_demopos |exec q2l_back\.cfg$)/.test(text)
+    expect(Object.values(STANDARD_TEMPLATE.binds).some(isDemoCommand)).toBe(false)
+
+    const lines = renderedLines(templateProfile())
+    expect(lines.filter((line) => !line.startsWith('//') && /"(pause|seek [-+]\d+|if \$timescale [^"]*|if x\$cl_demopos [^"]*)"|exec q2l_back\.cfg/.test(line))).toEqual([])
+  })
+})
+
 describe('render: the unbound line (story 052 D2)', () => {
   it('a seeded, unbound template profile renders exactly one //bind line per unbound row', () => {
     const profile = templateProfile()
@@ -74,7 +90,9 @@ describe('render: the unbound line (story 052 D2)', () => {
     for (const action of unboundActions) {
       expect(action.commands).toEqual([])
       const matches = lines.filter(
-        (line) => line.startsWith('//bind ""') && line.includes(`cid=${action.catalogId}`),
+        // Token boundary: `demo:demoJumpBack` is a string prefix of `demo:demoJumpBackLong`.
+        (line) =>
+          line.startsWith('//bind ""') && new RegExp(`cid=${action.catalogId}(?=[\\s\\]]|$)`).test(line),
       )
       expect(matches, `expected exactly one unbound line for "${action.name}"`).toHaveLength(1)
     }

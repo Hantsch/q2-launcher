@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { configWriteFailuresSchema, parseConfigWriteFailures } from '../../lib/schemas'
 import {
   actionTextSchema,
+  commitProfileCvarsInputSchema,
   configActionSchema,
   importFilesCommitInputSchema,
   importFilesPreviewInputSchema,
+  MAX_COMMIT_CVARS,
   MAX_IMPORT_FILE_IDS,
   setProfileActionsInputSchema,
   setProfileCvarsInputSchema,
@@ -308,6 +310,36 @@ describe('setProfileCvarsInputSchema - cvarSections (story 059)', () => {
       ],
     }
     expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(false)
+  })
+})
+
+/** Story 175 D1: `commitCvars` commits a handful of named cvars - never nothing, never a whole map. */
+describe('commitProfileCvarsInputSchema (story 175)', () => {
+  const cvarsOf = (count: number): Record<string, string> =>
+    Object.fromEntries(Array.from({ length: count }, (_, i) => [`adr${i}`, `10.0.0.${i}`]))
+
+  it('accepts one cvar and accepts the maximum', () => {
+    expect(commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: cvarsOf(1) }).success).toBe(true)
+    expect(
+      commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: cvarsOf(MAX_COMMIT_CVARS) }).success,
+    ).toBe(true)
+  })
+
+  it('accepts an empty value, same as setCvars', () => {
+    expect(commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: { adr0: '' } }).success).toBe(true)
+  })
+
+  it('rejects an empty map and one cvar over the maximum', () => {
+    expect(commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: {} }).success).toBe(false)
+    expect(
+      commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: cvarsOf(MAX_COMMIT_CVARS + 1) }).success,
+    ).toBe(false)
+  })
+
+  it('rejects an empty profile id, an empty cvar name and a non-string value', () => {
+    expect(commitProfileCvarsInputSchema.safeParse({ profileId: '', cvars: { adr0: 'x' } }).success).toBe(false)
+    expect(commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: { '': 'x' } }).success).toBe(false)
+    expect(commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: { adr0: 1 } }).success).toBe(false)
   })
 })
 

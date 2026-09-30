@@ -49,6 +49,10 @@ const DOWNLOADS_MODULE = resolve(REPO_ROOT, 'src/main/modules/downloads')
  *    doc comments, contrasting the global `fetch` it actually uses (same wrapper/budget as
  *    `feed-fetcher.ts`) with `net.fetch` (deliberately not used, same reasoning as above) - not an
  *    actual network call via that API.
+ *  - `lib/zip-entries.ts` (story 143, spawns the vendored 7-Zip to list and read zip entries).
+ *  - `modules/replays/index.ts` (story 143) resolves the vendored 7-Zip binary path
+ *    (`resolveExtractorPath`) to hand to the zip scanner; it does not spawn anything itself,
+ *    `zip-entries.ts` does.
  */
 const ALLOWED_MAIN_SPAWN_NETWORK_FILES = new Set(
   [
@@ -57,6 +61,8 @@ const ALLOWED_MAIN_SPAWN_NETWORK_FILES = new Set(
     'src/main/lib/renderer-source.ts',
     'src/main/modules/home/news/feed-fetcher.ts',
     'src/main/modules/home/images/fetch-image.ts',
+    'src/main/lib/zip-entries.ts',
+    'src/main/modules/replays/index.ts',
   ].map((p) => resolve(REPO_ROOT, p)),
 )
 

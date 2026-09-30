@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
@@ -21,11 +21,14 @@ import {
   type ServerSortColumn,
 } from '@shared/servers/list-sort'
 import { PanelRight, RefreshCw, Star } from 'lucide-react'
+import type { LocalizedMessage } from '@shared/types'
+import { parseServerAddress, serverAddressRejectionKey } from '@shared/servers/address'
 import { Button } from '../../components/ui/Button'
+import { usePrimaryActionContribution, type ContributedAction } from '../../lib/primary-action'
 import { useFeatureUnlocked } from '../../components/features/FeatureGate'
 import { StatusDot } from '../../components/ui/primitives'
 import { cn } from '../../lib/cn'
-import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
+import { ROUTE_SETTINGS, useActiveInstallation, useLauncher } from '../../store/useLauncher'
 import {
   getListSort,
   listMasterSources,
@@ -38,6 +41,7 @@ import {
 } from './client'
 import { deriveListState } from './list-state'
 import { JoinServerButton } from './join/JoinServerButton'
+import { useJoinFlow } from './join/useJoinFlow'
 import { ServerDetailView } from './ServerDetailView'
 import { ServerListFilterBar } from './ServerListFilterBar'
 import { ServerListHeader } from './ServerListHeader'
@@ -331,6 +335,40 @@ export function ServersView() {
   const resolveServer = (address: string): ServerListRow | undefined =>
     entries.find((entry) => entry.address === address)
 
+  // Story 181 D2: the action bar's primary button on this tab is "Join" for the server the user is
+  // looking at - the list selection, or (on the watchlist tab) the server open in its detail pane.
+  // `run` is stable and reads the latest `start` through a ref (the flow's closure changes every
+  // render, and a new contribution identity would republish every time).
+  const joinFlow = useJoinFlow()
+  const startJoinRef = useRef(joinFlow.start)
+  useLayoutEffect(() => {
+    startJoinRef.current = joinFlow.start
+  })
+  const hasInstallation = useActiveInstallation() !== null
+  const joinAddress = activeTab === 'watchlist' ? watchlistDetailAddress : selectedAddress
+  const joinRow = joinAddress === null ? undefined : resolveServer(joinAddress)
+  const joinAction = useMemo<ContributedAction>(() => {
+    const parsed = joinRow ? parseServerAddress(joinRow.address) : null
+    const reason: LocalizedMessage | undefined =
+      joinRow === undefined
+        ? undefined
+        : parsed && !parsed.ok
+          ? { key: serverAddressRejectionKey(parsed.reason) }
+          : !hasInstallation
+            ? { key: 'servers.join.noInstallation' }
+            : undefined
+    return {
+      id: 'join-server',
+      labelKey: 'servers.join.action',
+      disabled: joinRow === undefined || reason !== undefined,
+      ...(reason ? { reason } : {}),
+      run: () => {
+        if (joinRow) startJoinRef.current(joinRow)
+      },
+    }
+  }, [joinRow, hasInstallation])
+  usePrimaryActionContribution('/servers', joinAction)
+
   const handleRefreshWatchlistDetail = (): void => {
     if (watchlistDetailAddress === null) return
     void startScan({ kind: 'server', address: watchlistDetailAddress })
@@ -575,6 +613,7 @@ export function ServersView() {
 
   return (
     <div className="flex h-full flex-col">
+      {joinFlow.dialogs}
       <ServersTabStrip activeTab={activeTab} onChange={setActiveTab} />
       <div className="min-h-0 flex-1">
         {activeTab === 'watchlist' ? isWatchlistUnlocked && watchlistAndDetail : listAndDetail}

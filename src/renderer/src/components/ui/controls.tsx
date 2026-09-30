@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useId,
+  type HTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -145,12 +146,14 @@ export function Switch({
   label,
   hint,
   disabled,
+  testId,
 }: {
   checked: boolean
   onChange: (next: boolean) => void
   label: string
   hint?: string
   disabled?: boolean
+  testId?: string
 }) {
   const id = useId()
   return (
@@ -163,6 +166,7 @@ export function Switch({
       </div>
       <button
         id={id}
+        data-testid={testId}
         type="button"
         role="switch"
         aria-checked={checked}
@@ -191,13 +195,14 @@ export function Checkbox({
   label,
   disabled,
   className,
+  ...rest
 }: {
   checked: boolean
   onChange: (next: boolean) => void
   label: ReactNode
   disabled?: boolean
   className?: string
-}) {
+} & Omit<HTMLAttributes<HTMLLabelElement>, 'onChange' | 'className'>) {
   return (
     <label
       className={cn(
@@ -205,6 +210,7 @@ export function Checkbox({
         disabled && 'pointer-events-none opacity-45',
         className,
       )}
+      {...rest}
     >
       <span
         className={cn(

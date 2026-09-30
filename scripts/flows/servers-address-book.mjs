@@ -1,7 +1,7 @@
 // Story 127 (docs/requirements/127-a-server-goes-into-my-address-book.md) D2: the story's own e2e
 // proof that "Add to address book" is really wired into both the servers list toolbar and the
-// detail pane, writes a real `adr<n>` cvar onto a real config profile, and that write shows up
-// through the config module's own unsaved-diff machinery - not just that the dialog renders.
+// detail pane, writes a real `adr<n>` cvar onto a real config profile, and that write lands
+// on disk right away (story 175) without dirtying the profile - not just that the dialog renders.
 //
 // ## Wire protocol - mirrored, not imported
 //
@@ -40,12 +40,22 @@
 // diff.mjs`'s `openConfig()`), `config-unsaved-indicator` (`UnsavedIndicator.tsx`), `config-tab-
 // unsaved`/`config-save-changes` (ConfigView.tsx/`ProfileChangeList.tsx`).
 import { createSocket } from 'node:dgram'
-import { SERVERS_DISABLED_SOURCES, writePopulatedFixture } from '../lib/fixture.mjs'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { variantUserDataDir } from '../lib/harness.mjs'
+import {
+  INSTALL_ONE_ID,
+  SERVERS_DISABLED_SOURCES,
+  installationConfigFilePath,
+  writePopulatedFixture,
+} from '../lib/fixture.mjs'
 
 export const variant = 'servers-address-book'
 
 const TIMEOUT_MS = 8_000
 const SCAN_SETTLE_TIMEOUT_MS = 15_000
+const RAW_TAB_LOAD_TIMEOUT_MS = 20_000
+const EDITED_SENSITIVITY = '7.25'
 
 const OOB_PREFIX = Buffer.from([0xff, 0xff, 0xff, 0xff])
 
@@ -174,6 +184,9 @@ async function waitForFinishedAtChange(page, previous, timeout) {
  * two different profiles. */
 async function openConfig(page, name) {
   await page.getByTestId('nav-config').click({ timeout: TIMEOUT_MS })
+  // The config view keeps whichever profile was last open - return to the list first.
+  const backToProfiles = page.getByRole('button', { name: 'Back to profiles' })
+  if (await backToProfiles.isVisible()) await backToProfiles.click({ timeout: TIMEOUT_MS })
   await page.getByTestId('config-profile-row').filter({ hasText: name }).first().click({
     timeout: TIMEOUT_MS,
   })
@@ -246,25 +259,91 @@ export default async function serversAddressBook({ page, step, shot }) {
   }
   await shot('address-book-dialog-layered-profile-untouched')
 
-  step('the write shows up in "Plain Profile"\'s own unsaved-diff surface')
+  step('Cancel the dialog; "Plain Profile" is clean and the address is already on disk (story 175)')
   await page.getByRole('button', { name: 'Cancel' }).click({ timeout: TIMEOUT_MS })
   await page.getByTestId('servers-address-book-profile').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   await openConfig(page, 'Plain Profile')
+  await page.getByTestId('config-tab-raw').click({ timeout: TIMEOUT_MS })
+  await page.locator('.cfg-code-textarea, .cfg-code').first().waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
+  await page.getByText('On disk', { exact: true }).first().waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
+  if ((await page.getByTestId('config-unsaved-indicator').count()) !== 0) {
+    throw new Error('expected "Plain Profile" to show no unsaved indicator after the address-book write')
+  }
+  if ((await page.getByText(/unsaved changes? (is|are) not in this file yet/).count()) !== 0) {
+    throw new Error('expected the Raw file tab to show no unsaved notice after the address-book write')
+  }
+  await shot('plain-profile-clean-on-disk')
+
+  const canonicalPath = join(variantUserDataDir(variant), 'Plain-Profile.cfg')
+  const adrLine = new RegExp(`set adr0 "?${server.address.replace(/[.:]/g, '\\$&')}`)
+  const canonical = readFileSync(canonicalPath, 'latin1')
+  if (!adrLine.test(canonical)) {
+    throw new Error(`expected ${canonicalPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(canonical.slice(-300))}`)
+  }
+  const copyPath = installationConfigFilePath(INSTALL_ONE_ID, 'Plain-Profile.cfg')
+  const copy = readFileSync(copyPath, 'latin1')
+  if (!adrLine.test(copy)) {
+    throw new Error(`expected the installation copy ${copyPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(copy.slice(-300))}`)
+  }
+
+  step('leave an unsaved Settings edit on "Layered Profile"')
+  await openConfig(page, 'Layered Profile')
+  await page.getByTestId('config-tab-settings').click({ timeout: TIMEOUT_MS })
+  const sensitivityRow = page
+    .locator('div.border-l-2', { hasText: 'sensitivity' })
+    .filter({ has: page.locator('input:not([type="range"])') })
+    .first()
+  await sensitivityRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await sensitivityRow.locator('input:not([type="range"])').first().fill(EDITED_SENSITIVITY)
+  await sensitivityRow.getByRole('img', { name: 'Unsaved change' }).waitFor({ timeout: TIMEOUT_MS })
+
+  step('add the server to "Layered Profile"\'s adr0 from the servers list')
+  await page.getByTestId('nav-servers').click({ timeout: TIMEOUT_MS })
+  await page.getByTestId(`servers-row-${server.address}`).click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('servers-detail-address-book-open').click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('servers-address-book-profile').locator('select').selectOption({ label: 'Layered Profile' })
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-testid="servers-address-book-slot-0"]')
+      return el !== null && !(el.textContent ?? '').includes('Loading')
+    },
+    null,
+    { timeout: TIMEOUT_MS },
+  )
+  await page.getByTestId('servers-address-book-slot-0').locator('input[type="radio"]').check({ timeout: TIMEOUT_MS })
+  await page.getByTestId('servers-address-book-confirm').click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+
+  step('"Layered Profile" stays unsaved for the Settings edit only; adr0 is on disk, the edit is not')
+  await openConfig(page, 'Layered Profile')
   await page.getByTestId('config-unsaved-indicator').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('config-tab-unsaved').click({ timeout: TIMEOUT_MS })
   const changeList = page.getByTestId('config-save-changes')
   await changeList.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const changeListText = await changeList.innerText()
-  if (!changeListText.includes('adr0')) {
-    throw new Error(`expected config-save-changes to list "adr0" among the changed cvars, got ${JSON.stringify(changeListText)}`)
+  if (!changeListText.includes('sensitivity')) {
+    throw new Error(`expected the Unsaved tab to list the sensitivity edit, got ${JSON.stringify(changeListText)}`)
   }
-  await shot('plain-profile-unsaved-diff-adr0')
+  if (changeListText.includes('adr0')) {
+    throw new Error(`expected the Unsaved tab not to list adr0, got ${JSON.stringify(changeListText)}`)
+  }
+  await shot('layered-profile-unsaved-excludes-adr0')
+
+  const layeredPath = join(variantUserDataDir(variant), 'Layered-Profile.cfg')
+  const layered = readFileSync(layeredPath, 'latin1')
+  if (!adrLine.test(layered)) {
+    throw new Error(`expected ${layeredPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(layered.slice(-300))}`)
+  }
+  if (new RegExp(String.raw`sensitivity\s+"?${EDITED_SENSITIVITY.replace(/\./g, '\\.')}"?\s*$`, 'm').test(layered)) {
+    throw new Error(`expected ${layeredPath} not to hold the unsaved sensitivity edit ${EDITED_SENSITIVITY}`)
+  }
 
   console.log(
-    'servers-address-book: "Add to address book" opened from the ' +
-      'detail pane, preselected "Plain Profile" with all nine slots empty, writing to slot 0 was ' +
-      'visible immediately from the detail pane\'s own trigger, "Layered Profile" stayed untouched, ' +
-      'and the write shows up as an "adr0" row in "Plain Profile"\'s own Unsaved tab.',
+    'servers-address-book: "Add to address book" preselects "Plain Profile" with nine empty slots and ' +
+      'the write is visible on reopen; "Layered Profile" stayed untouched; the address is on disk right away ' +
+      '(canonical file + installation copy) and leaves "Plain Profile" clean; a pending Settings edit on ' +
+      '"Layered Profile" stays unsaved and off disk while adr0 lands on disk and never enters its Unsaved tab.',
   )
 }

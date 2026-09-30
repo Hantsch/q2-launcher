@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allCatalogRows } from '@shared/config/catalog-rows'
+import { allCatalogRows, buildDemoRows } from '@shared/config/catalog-rows'
 import { STANDARD_TEMPLATE, TEMPLATE_ACTION_CATEGORIES, TEMPLATE_BOUND_CATALOG_IDS } from '@shared/modules/config'
 // (STANDARD_TEMPLATE is also used by the story 059 D6 tests below, to assert the migration's
 // seeded cvarSections match the template's own full-catalogue seeding.)
@@ -203,8 +203,8 @@ function profileWithCvars(cvars: Record<string, string>): Record<string, unknown
 }
 
 describe('migrations (story 059 D6)', () => {
-  it('bumps STATE_SCHEMA_VERSION to 3, one past the story 052 baseline', () => {
-    expect(STATE_SCHEMA_VERSION).toBe(3)
+  it('ships the cvarSections step as version 3 (the schema constant has moved on since)', () => {
+    expect(MIGRATIONS.find((step) => step.to === 3)).toBeDefined()
   })
 
   it('seeds all four catalogue-group sections with EVERY ALL_CVARS name (not just the ones the profile has), plus an Other section for non-catalogue keys, preserving every cvar value', () => {
@@ -321,5 +321,163 @@ describe('migrations (story 059 D6)', () => {
     expect(migratedDoc.schemaVersion).toBe(STATE_SCHEMA_VERSION)
     expect(Array.isArray(profile.categories)).toBe(true)
     expect(Array.isArray(profile.cvarSections)).toBe(true)
+  })
+})
+
+/** Story 167 D3: the demo step's own `apply`, called directly so it can run twice. */
+const migrateDemo = MIGRATIONS.find((step) => step.to === 4)!.apply
+
+describe('migrations (story 167 D3)', () => {
+  const demoRows = buildDemoRows()
+
+  function demoProfile(): Record<string, unknown> {
+    return {
+      ...profileWithActions([
+        { id: 'a-fwd', categoryId: 'movement', name: 'Forward', kind: 'bind', catalogId: 'movement:forward', commands: [{ kind: 'raw', text: '+forward' }] },
+        { id: 'a-free', categoryId: 'custom', name: 'Quicksave', kind: 'bind', commands: [{ kind: 'raw', text: 'save quick' }] },
+      ]),
+      // The user deleted the movement category; only weapons and a custom one remain.
+      categories: [
+        { id: 'weapons', name: 'Weapons', nameKey: 'config.controls.categories.weapons' },
+        { id: 'custom', name: 'Mine' },
+      ],
+      binds: { UPARROW: '+forward' },
+    }
+  }
+
+  it('the demo migration adds the demo category and unbound demo rows once', () => {
+    expect(STATE_SCHEMA_VERSION).toBeGreaterThanOrEqual(4)
+    const before = demoProfile()
+    const once = migrateDemo({ schemaVersion: 3, configProfiles: [before] })
+    const profile = (once.configProfiles as Record<string, unknown>[])[0]!
+    const categories = profile.categories as Record<string, unknown>[]
+    const actions = profile.actions as Record<string, unknown>[]
+
+    // Existing categories and actions untouched, in place; demo appended; deleted movement stays deleted.
+    expect(categories.slice(0, 2)).toEqual(before.categories)
+    expect(categories.map((c) => c.id)).toEqual(['weapons', 'custom', 'demo'])
+    expect(categories.some((c) => c.id === 'movement')).toBe(false)
+    expect(actions.slice(0, 2)).toEqual(before.actions)
+
+    const demoActions = actions.slice(2)
+    expect(demoRows.length).toBeGreaterThan(0)
+    expect(demoActions.map((a) => a.catalogId)).toEqual(demoRows.map((r) => r.catalogId))
+    for (const action of demoActions) {
+      expect(action.categoryId).toBe('demo')
+      expect(action.kind).toBe('bind')
+    }
+    expect(profile.dirty).toBe(true)
+
+    // Second run changes nothing.
+    const twice = migrateDemo(once)
+    expect(twice).toEqual(once)
+  })
+
+  it('the demo migration adds only what is missing when the profile already has the category and some rows', () => {
+    const rowKept = demoRows[0]!
+    const raw = {
+      ...profileWithActions([
+        { id: 'kept', categoryId: 'demo', name: 'Mine', kind: 'bind', catalogId: rowKept.catalogId, commands: [] },
+      ]),
+      categories: [{ id: 'demo', name: 'Renamed demo' }],
+    }
+    const out = (migrateDemo({ configProfiles: [raw] }).configProfiles as Record<string, unknown>[])[0]!
+    expect(out.categories).toEqual([{ id: 'demo', name: 'Renamed demo' }])
+    const ids = (out.actions as Record<string, unknown>[]).map((a) => a.catalogId)
+    expect(ids).toEqual(demoRows.map((r) => r.catalogId))
+    expect((out.actions as Record<string, unknown>[])[0]!.id).toBe('kept')
+  })
+
+  it('the demo migration writes no bind', () => {
+    const before = demoProfile()
+    const profile = (migrateDemo({ configProfiles: [before] }).configProfiles as Record<string, unknown>[])[0]!
+    const demoActions = (profile.actions as Record<string, unknown>[]).filter((a) => a.categoryId === 'demo')
+    expect(demoActions.length).toBe(demoRows.length)
+    for (const action of demoActions) {
+      expect(action.commands).toEqual([])
+      expect(action.keys).toBeUndefined()
+      expect(action.key).toBeUndefined()
+    }
+    expect(profile.binds).toEqual({ UPARROW: '+forward' })
+  })
+})
+
+/** Story 172 D2: the back-to-window / guard step's own `apply`, called directly so it can run twice. */
+const migrateV5 = MIGRATIONS.find((step) => step.to === 5)!.apply
+
+describe('migrations (story 172 D2)', () => {
+  const GUARD = 'if x$cl_demopos ne x$q2l_armpos then '
+  const raw = (text: string) => ({ kind: 'raw', text })
+
+  function v4Profile(actions: Record<string, unknown>[]): Record<string, unknown> {
+    return {
+      ...profileWithActions(actions),
+      categories: [{ id: 'demo', name: 'Demo playback' }],
+      binds: { Y: 'seek_10' },
+    }
+  }
+  const run = (profile: Record<string, unknown>) =>
+    (migrateV5({ configProfiles: [profile] }).configProfiles as Record<string, unknown>[])[0]!
+
+  it('the v5 migration adds the unbound back-to-window row once', () => {
+    expect(STATE_SCHEMA_VERSION).toBeGreaterThanOrEqual(5)
+    const before = v4Profile([
+      { id: 'p', categoryId: 'demo', name: 'Pause demo', kind: 'bind', catalogId: 'demo:demoPause', commands: [] },
+    ])
+    const once = run(before)
+    const actions = once.actions as Record<string, unknown>[]
+    expect(actions.slice(0, 1)).toEqual(before.actions)
+    const back = actions[1]!
+    expect(actions).toHaveLength(2)
+    expect(back.catalogId).toBe('demo:demoBackToWindow')
+    expect(back.categoryId).toBe('demo')
+    expect(back.kind).toBe('bind')
+    expect(back.commands).toEqual([])
+    expect(back.key).toBeUndefined()
+    expect(back.keys).toBeUndefined()
+    expect(once.binds).toEqual({ Y: 'seek_10' })
+    expect(once.dirty).toBe(true)
+
+    const twice = migrateV5({ configProfiles: [once] }).configProfiles as Record<string, unknown>[]
+    expect(twice[0]).toEqual(once)
+  })
+
+  it('the v5 migration never re-adds a deleted demo category and never throws on junk', () => {
+    const noDemo = { ...profileWithActions([]), categories: [{ id: 'custom', name: 'Mine' }] }
+    expect(run(noDemo)).toEqual(noDemo)
+    expect(() => migrateV5({ configProfiles: [null, 3, {}] })).not.toThrow()
+  })
+
+  it('the v5 migration guards untouched demo commands and leaves edited ones', () => {
+    const speedUp = [
+      'if $timescale == 2 then timescale 4',
+      'if $timescale == 1 then timescale 2',
+      'if $timescale == 0.5 then timescale 1',
+      'if $timescale == 0.25 then timescale 0.5',
+    ]
+    const before = v4Profile([
+      { id: 'a', categoryId: 'demo', name: 'Pause demo', kind: 'bind', catalogId: 'demo:demoPause', commands: [raw('pause')] },
+      { id: 'b', categoryId: 'demo', name: 'Jump fwd', kind: 'bind', catalogId: 'demo:demoJumpForward', commands: [raw('seek +10')] },
+      { id: 'c', categoryId: 'demo', name: 'Jump back', kind: 'bind', catalogId: 'demo:demoJumpBack', commands: [raw('seek -30')] },
+      { id: 'd', categoryId: 'demo', name: 'Speed up', kind: 'bind', catalogId: 'demo:demoSpeedUp', commands: speedUp.map(raw) },
+    ])
+    const out = run(before)
+    const byId = Object.fromEntries((out.actions as Record<string, unknown>[]).map((a) => [a.id as string, a]))
+    expect(byId.a!.commands).toEqual([raw(GUARD + 'pause')])
+    expect(byId.b!.commands).toEqual([raw(GUARD + 'seek +10')])
+    expect(byId.c!.commands).toEqual([raw('seek -30')])
+    expect(byId.d!.commands).toEqual(speedUp.map((t) => raw(GUARD + t)))
+    expect(out.binds).toEqual({ Y: 'seek_10' })
+    expect(out.dirty).toBe(true)
+
+    const twice = migrateV5({ configProfiles: [out] }).configProfiles as Record<string, unknown>[]
+    expect(twice[0]).toEqual(out)
+  })
+
+  it('the v5 migration leaves a profile with nothing to change clean', () => {
+    const before = v4Profile([
+      { id: 'c', categoryId: 'demo', name: 'Back', kind: 'bind', catalogId: 'demo:demoBackToWindow', commands: [] },
+    ])
+    expect(run(before)).toEqual(before)
   })
 })

@@ -2,6 +2,7 @@ import {
   Boxes,
   CircleHelp,
   Download,
+  Film,
   Globe,
   Images,
   LayoutGrid,
@@ -23,6 +24,7 @@ const ICONS: Record<string, LucideIcon> = {
   Boxes,
   Images,
   Globe,
+  Film,
 }
 
 export function moduleIcon(name: string): LucideIcon {
