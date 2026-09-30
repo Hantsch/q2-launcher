@@ -23,7 +23,7 @@ controls answer a click at once and reach the game faster on Windows.
 - [x] 178 — I edit a demo's details where I read them
 - [x] 179 — I favourite and rate a demo with one click
 - [x] 180 — the action bar button speaks for the tab I'm on
-- [ ] 181 — I join the selected server from the action bar
+- [x] 181 — I join the selected server from the action bar
 - [ ] 182 — a missing-mod warning is asked once
 - [ ] 183 — a spike finds where demo-control latency comes from
 - [ ] 184 — the timeline answers my click at once

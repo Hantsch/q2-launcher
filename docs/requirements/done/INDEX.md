@@ -273,3 +273,4 @@ second roadmap.
 - 178 — I edit a demo's details where I read them · S30 · facts become the form: Edit/Save/Cancel in place, header icon file actions, description + tags in reading mode, notes form removed
 - 179 — I favourite and rate a demo with one click · S30 · favourite toggle + 10-star rating save in one click via a per-demo write queue (no lost write); edit mode and rating filter updated
 - 180 — The action bar button speaks for the tab I'm on · S30 · modules contribute the primary action (Demos: View, reason as visible text, mod-missing confirm); panel Play removed; flows migrated
+- 181 — I join the selected server from the action bar · S30 · action bar Join runs the full join flow for the selected server via useJoinFlow and the primary-action seam

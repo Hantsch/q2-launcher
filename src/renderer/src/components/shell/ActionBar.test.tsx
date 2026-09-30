@@ -284,6 +284,72 @@ describe('ActionBar', () => {
     })
   })
 
+  describe('story 181 D2: the Servers Join contribution', () => {
+    const joinContribution = (over: Partial<ContributedAction> = {}) => {
+      const run = vi.fn()
+      usePrimaryActionStore.setState({
+        owner: '/servers',
+        action: {
+          id: 'join-server',
+          labelKey: 'servers.join.action',
+          disabled: false,
+          run,
+          ...over,
+        },
+      })
+      return run
+    }
+    const seed = (over: Partial<Installation> = {}, jobs: Job[] = []): void => {
+      useLauncher.setState({
+        installations: [makeInstallation(over)],
+        settings: { ...DEFAULT_SETTINGS, activeInstallationId: 'inst-1' },
+        jobs,
+        route: '/servers',
+      })
+    }
+
+    it('installation states win over the Servers Join contribution', async () => {
+      const cases: Array<[string, Partial<Installation>, Partial<Job>[], string, boolean]> = [
+        ['missing', { status: 'missing' }, [], 'Locate', false],
+        ['broken', { status: 'invalid' }, [], 'Repair', false],
+        ['job', {}, [{}], 'Install', false],
+        ['write lock', {}, [{ writeLock: true, progress: { ratio: 0.99 } }], 'Writing', false],
+        ['running', {}, [], 'Running', true],
+      ]
+      for (const [name, inst, jobs, label, running] of cases) {
+        seed(inst, jobs.map((j) => makeJob(j)))
+        if (running) {
+          useLauncher.setState({ launch: { phase: 'running', installationId: 'inst-1', pid: 1 } })
+        }
+        const run = joinContribution()
+        const { unmount } = render(createElement(ActionBar))
+        const button = await screen.findByTestId('actionbar-play')
+        expect(button.textContent, name).toContain(label)
+        expect(button.textContent, name).not.toContain('Join')
+        fireEvent.click(button)
+        expect(run, name).not.toHaveBeenCalled()
+        unmount()
+        useLauncher.setState({ launch: { phase: 'idle', installationId: null } })
+      }
+    })
+
+    it("no installation shows the contribution's label disabled with its reason in the readout", async () => {
+      useLauncher.setState({ installations: [], route: '/servers' })
+      const run = joinContribution({
+        disabled: false,
+        reason: { key: 'servers.join.noInstallation' },
+      })
+      render(createElement(ActionBar))
+      const button = await screen.findByTestId('actionbar-play')
+      expect(button.textContent).toContain('Join')
+      expect(button.hasAttribute('disabled')).toBe(true)
+      const reason = await screen.findByTestId('actionbar-action-reason')
+      expect(reason.textContent).toBe('Choose an active installation to join a server.')
+      fireEvent.click(button)
+      expect(run).not.toHaveBeenCalled()
+    })
+  })
+
   it('a normal running game still shows a disabled Running', async () => {
     useLauncher.setState({
       installations: [makeInstallation()],

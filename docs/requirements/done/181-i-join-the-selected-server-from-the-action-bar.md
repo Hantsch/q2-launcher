@@ -1,7 +1,7 @@
 ---
 id: 181
 title: I join the selected server from the action bar
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-30
 ---
 
@@ -16,15 +16,15 @@ Uses the seam from [[180]].
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — On the Servers tab with no server selected, the action bar button reads "Join" and
+- [x] **AC1** — On the Servers tab with no server selected, the action bar button reads "Join" and
       is disabled.
-- [ ] **AC2** — With a server selected, the button reads "Join" and is enabled; pressing it launches
+- [x] **AC2** — With a server selected, the button reads "Join" and is enabled; pressing it launches
       the game connected to that server.
-- [ ] **AC3** — Joining from the action bar runs the full join flow: a mod mismatch shows the same
+- [x] **AC3** — Joining from the action bar runs the full join flow: a mod mismatch shows the same
       warning with "join anyway", a password-protected server asks for the password first.
-- [ ] **AC4** — The installation-level states still win (missing, broken, installing, write-locked,
+- [x] **AC4** — The installation-level states still win (missing, broken, installing, write-locked,
       running), as in [[180]] AC6.
-- [ ] **AC5** — Leaving the Servers tab turns the button back into "Play".
+- [x] **AC5** — Leaving the Servers tab turns the button back into "Play".
 
 ## Open Questions
 
@@ -180,3 +180,17 @@ Files: `src/renderer/src/modules/servers/join/{useJoinFlow.tsx,JoinServerButton.
 Run target: `npm run ui:flow -- servers-actionbar-join`
 
 ## Done
+
+Summary: the join flow moved into `useJoinFlow` (JoinServerButton is a thin consumer, behaviour unchanged); `ServersView` hosts the dialogs and publishes "Join" for the visible sub-tab's detail server through 180's seam. `resolvePrimaryAction` got a forced-disabled contribution case for "no installation". New flow `servers-actionbar-join`.
+
+Commit message: `181: join the selected server from the action bar — useJoinFlow hook, Servers contributes Join via the primary-action seam`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (14 files / 96 tests); e2e `npm run ui:flow -- servers-actionbar-join` green. Full gate not run (sprint's job). Review 1 (default): PASS.
+AC -> test, all passed: AC1 flow step "no server selected: Join is disabled" + ServersView.actionbar "no selection…" · AC2 flow "Join from the action bar connects…" + ServersView.actionbar (selected / watchlist) · AC3 flow "mismatch then password then join…" + useJoinFlow.test (both) + unchanged JoinServerButton.test · AC4 ActionBar.test "installation states win over the Servers Join contribution" · AC5 flow "leaving Servers turns the button back into Play" · no-installation decision: ServersView.actionbar + ActionBar.test. No manual residue.
+
+Decisions:
+- ActionBar `resolvePrimaryAction`: with no installation, a present contribution is returned forced-disabled (label + readout reason); installation-level states still win.
+- CHANGELOG line moved by the orchestrator from `### Fixed` to `### Added` after review.
+- Unfixed, minor (review): "uses the row it was given" test has no mismatch step, so a stale pending row across dialog steps is not covered by it; no unit test for the invalid-address disabled+reason branch (ServersView.tsx); Join stays enabled for a selected server hidden by a list filter (matches the `entries.find` decision).
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 5

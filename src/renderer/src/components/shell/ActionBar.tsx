@@ -402,6 +402,16 @@ function resolvePrimaryAction(
   contribution: ContributedAction | null,
 ): PrimaryAction {
   if (!installation) {
+    // Story 181 D2: without an installation a tab may still name what its button would do and why
+    // it cannot - the label and reason show, the button stays disabled whatever it says.
+    if (contribution) {
+      return {
+        kind: 'contributed',
+        labelKey: contribution.labelKey,
+        tone: 'flame',
+        disabled: true,
+      }
+    }
     return { kind: 'busy', labelKey: 'installation.action.play', tone: 'flame', disabled: true }
   }
 

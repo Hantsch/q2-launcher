@@ -27,6 +27,7 @@ version section when a release actually ships.
 - **Demos** — View in the action bar now plays the selected demo, replacing the Play button in the demo detail; a demo whose mod is not fully installed asks before it plays.
 
 ### Added
+- **Servers** — join the selected server straight from the big button.
 - **Demos** — a Stop button on the timeline (and in the action bar) ends the demo and the game with one click. On Windows the stage now tells you why the game's own console stays quiet while it steers the demo.
 - **Demos** — a fullscreen button on the timeline: the demo goes fullscreen, you steer it with your keys and "Back to window" brings it home.
 - **Demos** — a demo now plays on the launcher's stage: the game window sits right over a 4:3 area of the Demos view, with the timeline and console field beneath it. On Wayland it plays in its own window and tells you why.
