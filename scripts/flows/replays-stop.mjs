@@ -2,7 +2,7 @@
 // channel: `quit` reaches the stub engine (commands.log), and a game that ignores `quit` is
 // terminated by main after its timeout. Afterwards the launcher's q2l_* control/log files are gone.
 //
-// Selectors: `replays-demo-row`, `replays-demo-play`, `replays-timeline`, `replays-timeline-stop`.
+// Selectors: `replays-demo-row`, `actionbar-play[data-action="view"]`, `replays-timeline`, `replays-timeline-stop`.
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
@@ -67,7 +67,7 @@ async function waitForScan(page) {
 
 async function playDemo(page, timeline) {
   await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
-  const play = page.getByTestId('replays-demo-play')
+  const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
   await timeline.waitFor({ state: 'visible', timeout: 15_000 })

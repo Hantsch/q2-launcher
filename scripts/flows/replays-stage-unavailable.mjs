@@ -56,7 +56,7 @@ export default async function replaysStageUnavailable({ page, step, shot }) {
   await waitForScan(page)
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
   await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
-  const play = page.getByTestId('replays-demo-play')
+  const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-timeline').waitFor({ state: 'visible', timeout: 15_000 })

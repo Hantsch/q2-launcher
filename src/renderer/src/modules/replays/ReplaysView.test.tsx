@@ -57,6 +57,7 @@ const {
 }))
 
 const sidecarReadMock = vi.fn(async () => ({ ok: true as const, value: { state: { state: 'none' as const }, values: {} } }))
+const playDemoMock = vi.fn()
 
 vi.mock('./client', () => ({
   indexRead: indexReadMock,
@@ -67,6 +68,10 @@ vi.mock('./client', () => ({
   getListFilter: getListFilterMock,
   setListFilter: setListFilterMock,
   sidecarRead: sidecarReadMock,
+  playDemo: (...args: unknown[]) => playDemoMock(...args),
+  onPlaybackPosition: () => () => {},
+  onPlaybackState: () => () => {},
+  onPlaybackDisplay: () => () => {},
 }))
 
 let ReplaysView: typeof import('./ReplaysView').ReplaysView
@@ -518,5 +523,142 @@ describe('ReplaysView - filter (story 153 D5)', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0].getAttribute('data-demo-id')).toBe(demoKeep.id)
     expect((screen.getByTestId('replays-filter-search') as HTMLInputElement).value).toBe('keep')
+  })
+})
+
+describe('ReplaysView - the action bar View plays the selected demo (story 180 D2)', () => {
+  let usePrimaryActionStore: typeof import('../../lib/primary-action').usePrimaryActionStore
+  let useLauncher: typeof import('../../store/useLauncher').useLauncher
+  let useDemoEditorStore: typeof import('./demo-editor-store').useDemoEditorStore
+
+  const SECOND: DemoRowData = {
+    ...DEMO,
+    id: 'fedcba0123456789',
+    fileName: 'second.dm2',
+    effective: { ...DEMO.effective, name: { value: 'second.dm2', source: 'name' } },
+  }
+
+  beforeAll(async () => {
+    ;({ usePrimaryActionStore } = await import('../../lib/primary-action'))
+    ;({ useLauncher } = await import('../../store/useLauncher'))
+    ;({ useDemoEditorStore } = await import('./demo-editor-store'))
+  })
+
+  function playableSetup(): void {
+    useDemoEditorStore.getState().close()
+    usePrimaryActionStore.setState({ owner: null, action: null })
+    useLauncher.setState({
+      installations: [{ id: 'inst-1', engineKind: 'q2pro', gameDirs: ['baseq2'], runner: undefined }] as never,
+      settings: { ...useLauncher.getState().settings, activeInstallationId: 'inst-1' },
+      appInfo: { platform: 'win32' } as never,
+      launch: { phase: 'idle' as never, installationId: null },
+    })
+  }
+
+  function published() {
+    const { owner, action } = usePrimaryActionStore.getState()
+    expect(owner).toBe('/replays')
+    if (action === null) throw new Error('nothing published')
+    return action
+  }
+
+  it('no selection publishes a disabled View', async () => {
+    playableSetup()
+    await renderView([DEMO])
+    const action = published()
+    expect(action).toMatchObject({ id: 'view', labelKey: 'installation.action.view', disabled: true })
+    expect(action.reason).toBeUndefined()
+  })
+
+  it('selecting a playable demo publishes an enabled View', async () => {
+    playableSetup()
+    await renderView([DEMO])
+    fireEvent.click(screen.getByTestId('replays-demo-row'))
+    await screen.findByTestId('replays-detail')
+    const action = published()
+    expect(action).toMatchObject({ id: 'view', disabled: false })
+    expect(action.reason).toBeUndefined()
+  })
+
+  it('a selected demo that cannot play publishes a disabled View with its reason', async () => {
+    playableSetup()
+    useLauncher.setState({ launch: { phase: 'running' as never, installationId: 'inst-1' } })
+    await renderView([DEMO])
+    fireEvent.click(screen.getByTestId('replays-demo-row'))
+    await screen.findByTestId('replays-detail')
+    expect(published()).toMatchObject({ disabled: true, reason: { key: 'replays.play.unavailable.gameRunning' } })
+  })
+
+  it('View plays the demo selected now, even through an action published for an earlier one', async () => {
+    playableSetup()
+    playDemoMock.mockResolvedValue({ ok: true, value: { ok: true, value: { stage: null } } })
+    await renderView([DEMO, SECOND])
+    const rowFor = (id: string) =>
+      screen.getAllByTestId('replays-demo-row').find((row) => row.getAttribute('data-demo-id') === id)!
+    fireEvent.click(rowFor(DEMO.id))
+    await screen.findByTestId('replays-detail')
+    const earlier = published()
+    fireEvent.click(rowFor(SECOND.id))
+    await act(async () => {
+      earlier.run()
+      await Promise.resolve()
+    })
+    await vi.waitFor(() =>
+      expect(playDemoMock).toHaveBeenCalledWith({ demoId: SECOND.id, installationId: 'inst-1' }),
+    )
+    expect(playDemoMock).toHaveBeenCalledTimes(1)
+    const { usePlaybackStore } = await import('./playback-store')
+    usePlaybackStore.getState().endSession()
+  })
+
+  describe('a mod-missing demo', () => {
+    async function selectModMissing(): Promise<void> {
+      playableSetup()
+      playDemoMock.mockReset()
+      playDemoMock.mockResolvedValue({ ok: true, value: { ok: true, value: { stage: null } } })
+      await renderView([{ ...DEMO, gameDir: 'opentdm' } as DemoRowData])
+      fireEvent.click(screen.getByTestId('replays-demo-row'))
+      await screen.findByTestId('replays-detail')
+    }
+
+    it('keeps View enabled with the warning as its note, and View opens a confirmation naming the mod', async () => {
+      await selectModMissing()
+      expect(published()).toMatchObject({ disabled: false, reason: { key: 'replays.play.unavailable.modMissing' } })
+      act(() => published().run())
+      expect((await screen.findByTestId('replays-mod-missing-dialog')).textContent).toContain('opentdm')
+      expect(playDemoMock).not.toHaveBeenCalled()
+    })
+
+    it('Cancel plays nothing', async () => {
+      await selectModMissing()
+      act(() => published().run())
+      fireEvent.click(await screen.findByTestId('replays-mod-missing-cancel'))
+      expect(screen.queryByTestId('replays-mod-missing-dialog')).toBeNull()
+      expect(playDemoMock).not.toHaveBeenCalled()
+    })
+
+    it('Play anyway plays with the acknowledgement', async () => {
+      await selectModMissing()
+      act(() => published().run())
+      fireEvent.click(await screen.findByTestId('replays-mod-missing-confirm'))
+      expect(screen.queryByTestId('replays-mod-missing-dialog')).toBeNull()
+      await vi.waitFor(() =>
+        expect(playDemoMock).toHaveBeenCalledWith({
+          demoId: DEMO.id,
+          installationId: 'inst-1',
+          acknowledgeModMissing: true,
+        }),
+      )
+      const { usePlaybackStore } = await import('./playback-store')
+      usePlaybackStore.getState().endSession()
+    })
+  })
+
+  it('leaving the view clears the contribution', async () => {
+    playableSetup()
+    await renderView([DEMO])
+    published()
+    cleanup()
+    expect(usePrimaryActionStore.getState()).toMatchObject({ owner: null, action: null })
   })
 })

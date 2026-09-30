@@ -1388,7 +1388,7 @@ export const SCREENS = [
           .filter({ hasText: 'play-ctf.dm2' })
           .first()
           .click({ timeout: CLICK_TIMEOUT_MS })
-        await click(page, 'replays-demo-play')
+        await page.locator('[data-testid="actionbar-play"][data-action="view"]').click({ timeout: CLICK_TIMEOUT_MS })
       }
       await page.getByTestId('replays-timeline').waitFor({ state: 'visible', timeout: 15_000 })
       await page.waitForFunction(

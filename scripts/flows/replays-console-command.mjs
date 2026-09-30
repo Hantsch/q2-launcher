@@ -3,7 +3,7 @@
 // engine (`scripts/lib/stub-engine.cjs`) executes what the channel delivers and records each command
 // in `Q2L_UI_ENGINE_COMMAND_LOG`; assertions read that log, not the UI's local state.
 //
-// Selectors: `replays-demo-row`, `replays-demo-play` (story 159), `replays-timeline`,
+// Selectors: `replays-demo-row`, `actionbar-play[data-action="view"]` (story 159), `replays-timeline`,
 // `replays-console-{field,input,send,reason}` (`ConsoleCommandField.tsx`).
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import {
@@ -80,7 +80,7 @@ export default async function replaysConsoleCommand({ page, step, shot }) {
 
   step('start playback against the stubbed engine')
   await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
-  const play = page.getByTestId('replays-demo-play')
+  const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-timeline').waitFor({ state: 'visible', timeout: 15_000 })

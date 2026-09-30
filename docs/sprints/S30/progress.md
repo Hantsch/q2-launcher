@@ -59,3 +59,21 @@
 - 2026-09-30 08:21 · 179 · verify 2 · started
 - 2026-09-30 08:23 · 179 · verify 2 · done
 - 2026-09-30 08:23 · 179 · story · done
+- 08:23:34 · 180 · build · started
+- 2026-09-30 08:23 · 180 · D1 shell primary-action seam · started
+- 2026-09-30 08:25 · 180 · D1 shell primary-action seam · done
+- 2026-09-30 08:25 · 180 · D2 Demos View from action bar · started
+- 2026-09-30 08:29 · 180 · D2 Demos View from action bar · done
+- 2026-09-30 08:29 · 180 · D3 mod-missing confirm · started
+- 2026-09-30 08:30 · 180 · D3 mod-missing confirm · done
+- 2026-09-30 08:30 · 180 · D4 action-bar-view flow + play-q2pro · started
+- 2026-09-30 08:34 · 180 · D4 action-bar-view flow + play-q2pro · done
+- 2026-09-30 08:34 · 180 · D5 migrate playback flows · started
+- 2026-09-30 08:38 · 180 · D5 migrate playback flows · done
+- 2026-09-30 08:38 · 180 · D6 migrate remaining play users · started
+- 2026-09-30 08:43 · 180 · D6 migrate remaining play users · done
+- 2026-09-30 08:43 · 180 · verify · started
+- 2026-09-30 08:45 · 180 · verify · done
+- 2026-09-30 08:45 · 180 · review 1 · started
+- 2026-09-30 08:47 · 180 · review 1 · done
+- 2026-09-30 08:47 · 180 · story · done

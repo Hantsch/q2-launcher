@@ -87,7 +87,7 @@ export default async function replaysStage({ page, app, step, shot }) {
   await waitForScan(page)
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
   await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
-  const play = page.getByTestId('replays-demo-play')
+  const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   // The picture's box is recorded every frame together with whether the session is live (the console
   // input enables with it): the last box measured before the session is what the launch was placed on,

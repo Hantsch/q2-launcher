@@ -6,7 +6,7 @@ import { onPlaybackDisplay, onPlaybackPosition, onPlaybackState, playbackStop } 
 /**
  * Story 165 D3: the renderer's view of the one running demo session.
  *
- * When a session begins: on `demo.play` success (`DemoPlayAction` calls `beginSession`), not on the
+ * When a session begins: on `demo.play` success (`useDemoPlay` calls `beginSession`), not on the
  * first position event. Only the play action knows the demo's name and its 138 `durationMs`, and
  * the strip should appear the moment the launch is accepted rather than up to 250 ms later.
  * Position events that arrive without a session are ignored; the session ends on a `state: ended`

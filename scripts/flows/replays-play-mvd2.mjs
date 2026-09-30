@@ -48,10 +48,10 @@ async function waitForLog(logPath, substring) {
 
 async function playAndCheck(page, logPath, fileName) {
   await rowFor(page, fileName).first().click({ timeout: TIMEOUT_MS })
-  const play = page.getByTestId('replays-demo-play')
+  const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (await play.isDisabled()) {
-    const reason = await page.getByTestId('replays-demo-play-reason').textContent()
+    const reason = await page.getByTestId('actionbar-action-reason').textContent()
     throw new Error(`replays-play-mvd2: Play should be enabled for ${fileName}, reason: ${reason}`)
   }
   await page.evaluate(() => {

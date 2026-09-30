@@ -11,7 +11,6 @@ import { sidecarRead } from '../client'
 import { sidesText, formatDemoDate } from '../row-format'
 import { DemoFileActions } from './DemoFileActions'
 import { StarRating } from './StarRating'
-import { DemoPlayAction } from './DemoPlayAction'
 import { DemoDetailEditor, DemoDetailNameInput } from './DemoDetailEditor'
 import { DiscardDemoNotesDialog } from './DiscardDemoNotesDialog'
 import { effectiveQuickValues, useDemoEditorStore, type RowPatcher } from '../demo-editor-store'
@@ -254,8 +253,6 @@ export function DemoDetailPanel({
             {t('replays.detail.mvd2Note')}
           </p>
         )}
-
-        <DemoPlayAction demo={row} />
 
         {liveSidecar !== null && liveSidecar.state === 'error' && (
           <ul className="space-y-1 text-xs text-danger" data-testid="replays-detail-sidecar-issues">

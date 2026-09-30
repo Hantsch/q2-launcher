@@ -81,6 +81,19 @@ function renderPanel(row: DemoRow = BASE_ROW, onClose: () => void = () => {}) {
 }
 
 describe('DemoDetailPanel', () => {
+  it('the detail panel has no play or play-anyway button', async () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: {} } })
+
+    renderPanel()
+
+    // Story 180 D2 (AC7): playing moved to the action bar's View - the panel offers neither.
+    expect(screen.queryByTestId('replays-demo-play')).toBeNull()
+    expect(screen.queryByTestId('replays-demo-play-anyway')).toBeNull()
+    const buttons = screen.getAllByRole('button').map((button) => button.textContent ?? '')
+    expect(buttons.some((label) => /\bplay\b/i.test(label))).toBe(false)
+    await waitFor(() => expect(sidecarRead).toHaveBeenCalledWith(BASE_ROW.id))
+  })
+
   it('the panel shows the name as its title and the facts without provenance', async () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: {} } } satisfies Outcome<{
       state: { state: string }

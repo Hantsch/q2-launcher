@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DemoRow, ReplaysScanProgress } from '@shared/modules/replays'
 import {
@@ -17,6 +17,7 @@ import {
 } from '@shared/replays/list-filter'
 import { Button } from '../../components/ui/Button'
 import { cn } from '../../lib/cn'
+import { usePrimaryActionContribution, type ContributedAction } from '../../lib/primary-action'
 import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
 import { VirtualDemoList } from './components/VirtualDemoList'
 import { DemoDetailPanel } from './components/DemoDetailPanel'
@@ -24,9 +25,11 @@ import { ConsoleCommandField } from './components/ConsoleCommandField'
 import { DemoStage } from './components/DemoStage'
 import { DemoTimeline } from './components/DemoTimeline'
 import { usePlaybackStore } from './playback-store'
+import { useDemoPlay } from './useDemoPlay'
 import { DemoListFilterBar } from './DemoListFilterBar'
 import { findRowReplaceId, useDemoEditorStore, type RowPatcher } from './demo-editor-store'
 import { ReplaceSidecarDialog } from './components/ReplaceSidecarDialog'
+import { ModMissingConfirmDialog } from './components/ModMissingConfirmDialog'
 import { rowWithSidecar } from './row-patch'
 import {
   getListFilter,
@@ -273,6 +276,38 @@ export function ReplaysView() {
   const rowCount = demos?.length ?? 0
   const listState = deriveReplaysListState({ scanning, rowCount })
   const selected = demos?.find((demo) => demo.id === selectedId) ?? null
+
+  // Story 180 D2: the action bar's primary button on this tab is "View" - it plays the selected
+  // demo. The published object must stay stable (the contribution effect republishes on every new
+  // identity), so `run` never changes; it reads the latest `play` - the one rendered for the
+  // currently selected row - through a ref, never a stale closure over an earlier selection.
+  const { eligibility, busy: playBusy, error: playError, play } = useDemoPlay(selected)
+  // Story 180 D3: a mod-missing refusal is a warning, not a wall - View stays enabled, the reason
+  // stays as the readout note, and `run` asks first (the dialog below) instead of playing.
+  const askFirst = eligibility !== null && !eligibility.ok && eligibility.acknowledgeable === true
+  const [confirmingModMissing, setConfirmingModMissing] = useState(false)
+  const playRef = useRef({ play, askFirst })
+  useLayoutEffect(() => {
+    playRef.current = { play, askFirst }
+  })
+  const runPlay = useCallback(() => {
+    const latest = playRef.current
+    if (latest.askFirst) setConfirmingModMissing(true)
+    else void latest.play()
+  }, [])
+  const hasSelection = selected !== null
+  const viewAction = useMemo<ContributedAction>(
+    () => ({
+      id: 'view',
+      labelKey: 'installation.action.view',
+      disabled: !hasSelection || eligibility === null || (!eligibility.ok && !askFirst) || playBusy,
+      ...(hasSelection && eligibility !== null && !eligibility.ok ? { reason: eligibility.reason } : {}),
+      ...(playError ? { error: playError } : {}),
+      run: runPlay,
+    }),
+    [hasSelection, eligibility, askFirst, playBusy, playError, runPlay],
+  )
+  usePrimaryActionContribution('/replays', viewAction)
   const sortedDemos = useMemo(() => sortDemoRows(demos ?? [], sort, toSortFields), [demos, sort])
   // Story 153 D5: filtered AFTER sort, never touching sort state itself - filtering only narrows
   // the already-sorted list. Options are computed over the whole index, not the filtered subset.
@@ -412,6 +447,17 @@ export function ReplaysView() {
         <DemoTimeline />
       </div>
       {stageMode && <ConsoleCommandField />}
+
+      {confirmingModMissing && askFirst && eligibility !== null && !eligibility.ok && (
+        <ModMissingConfirmDialog
+          gameDir={String(eligibility.reason.params?.gameDir ?? '')}
+          onCancel={() => setConfirmingModMissing(false)}
+          onConfirm={() => {
+            setConfirmingModMissing(false)
+            void play(true)
+          }}
+        />
+      )}
 
       {rowReplaceId !== undefined && rowReplaceEntry?.replace !== undefined && (
         <ReplaceSidecarDialog

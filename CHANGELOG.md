@@ -24,6 +24,7 @@ version section when a release actually ships.
 - **Demos** — the demo detail now reads at a glance: the name is the big title, then file name, length and recorded time, a gap, then map, mod, gamemode, players and point of view. The "where did this value come from" labels, the duplicate name, source and format rows are gone, and a guessed gamemode in the list no longer says "(guessed)".
 - **Demos** — you edit a demo's details where you read them: Edit turns the facts into inputs in place, the name into the title field, and there is no separate "Your notes" form below any more.
 - **Demos** — favourite and a 10-star rating are one click each in the demo detail, no Edit button and no ceremony; and a quick favourite followed by a quick rating no longer lose one another.
+- **Demos** — View in the action bar now plays the selected demo, replacing the Play button in the demo detail; a demo whose mod is not fully installed asks before it plays.
 
 ### Added
 - **Demos** — a Stop button on the timeline (and in the action bar) ends the demo and the game with one click. On Windows the stage now tells you why the game's own console stays quiet while it steers the demo.

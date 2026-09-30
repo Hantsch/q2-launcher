@@ -25,8 +25,8 @@ export default async function replaysCopyInNotWritable({ page, step, shot }) {
 
   step('Play on an extra-folder demo shows the copyDirNotWritable text and starts nothing')
   await selectDemo(page, REPLAYS_COPY_IN_EXTRA_DEMO)
-  await page.getByTestId('replays-demo-play').click({ timeout: TIMEOUT_MS })
-  const error = page.getByTestId('replays-demo-play-error')
+  await page.locator('[data-testid="actionbar-play"][data-action="view"]').click({ timeout: TIMEOUT_MS })
+  const error = page.getByTestId('actionbar-action-error')
   await error.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const text = (await error.textContent()) ?? ''
   if (!text.includes("Can't write a temporary copy to") || !text.includes('Nothing was started.')) {

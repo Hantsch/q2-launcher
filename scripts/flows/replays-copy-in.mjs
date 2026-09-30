@@ -46,7 +46,7 @@ export default async function replaysCopyIn({ page, step, shot }) {
     const before = snapshot(originalPath)
     const linesBefore = launchLines(logPath).length
     await selectDemo(page, fileName)
-    const play = page.getByTestId('replays-demo-play')
+    const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
     if (await play.isDisabled()) throw new Error(`replays-copy-in: Play disabled for ${fileName}`)
     await play.click({ timeout: TIMEOUT_MS })
     const names = await poll(`${label}: a copy in _launcher`, () => {
@@ -79,7 +79,7 @@ export default async function replaysCopyIn({ page, step, shot }) {
   const before = snapshot(inPlace)
   const lines = launchLines(logPath).length
   await selectDemo(page, REPLAYS_COPY_IN_INPLACE_DEMO)
-  await page.getByTestId('replays-demo-play').click({ timeout: TIMEOUT_MS })
+  await page.locator('[data-testid="actionbar-play"][data-action="view"]').click({ timeout: TIMEOUT_MS })
   const line = await poll('in-place launching line', () => launchLines(logPath).slice(lines).pop())
   if (!line.includes(`+demo ${REPLAYS_COPY_IN_INPLACE_DEMO}`) || line.includes('_launcher')) {
     throw new Error(`replays-copy-in: in-place demo must launch directly, got ${line}`)

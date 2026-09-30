@@ -3764,7 +3764,12 @@ function writeStubEngine(root, executablePath, { lifetimeMs = 400 } = {}) {
   chmodSync(executablePath, 0o755)
 }
 
-export function writeReplaysPlayFixture(variant = 'replays-play', { engineLifetimeMs } = {}) {
+// Story 180 D4: an optional third installation that lacks pak0.pak (status `invalid`), so the
+// action bar's installation-level Repair state can be reached from the Demos tab.
+export const REPLAYS_PLAY_BROKEN_ID = 'fixture-replays-play-broken'
+export const REPLAYS_PLAY_BROKEN_NAME = 'Fixture Play Broken'
+
+export function writeReplaysPlayFixture(variant = 'replays-play', { engineLifetimeMs, brokenInstallation = false } = {}) {
   const userDataDir = variantUserDataDir(variant)
   rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
@@ -3773,6 +3778,9 @@ export function writeReplaysPlayFixture(variant = 'replays-play', { engineLifeti
   rmDirBestEffort(root)
   mkdirSync(join(root, 'baseq2', 'demos'), { recursive: true })
   mkdirSync(join(root, 'ctf', 'demos'), { recursive: true })
+  // Story 180 D4: an empty `opentdm` dir on disk (not in the installation's `gameDirs`, so the demo stays
+  // mod-missing) - the playback channel writes its cfg into the game dir and fails without it.
+  mkdirSync(join(root, REPLAYS_PLAY_MISSING_MOD), { recursive: true })
   writeFileSync(join(root, 'baseq2', 'pak0.pak'), 'not a real pak, just needs to exist')
   const executablePath = join(root, process.platform === 'win32' ? 'q2pro.exe' : 'q2pro')
   const spawnable = true
@@ -3791,6 +3799,14 @@ export function writeReplaysPlayFixture(variant = 'replays-play', { engineLifeti
   writeFileSync(join(r1q2Root, 'baseq2', 'pak0.pak'), 'not a real pak, just needs to exist')
   const r1q2Exe = join(r1q2Root, process.platform === 'win32' ? 'r1q2.exe' : 'r1q2')
   writeFileSync(r1q2Exe, 'placeholder - never launched by this flow')
+
+  const brokenRoot = join(gameRoot(), 'fixture-replays-play-broken-install')
+  if (brokenInstallation) {
+    // Engine present, no pak0.pak: `validation.pak0Missing` (error) -> status invalid -> Repair.
+    rmDirBestEffort(brokenRoot)
+    mkdirSync(join(brokenRoot, 'baseq2'), { recursive: true })
+    writeFileSync(join(brokenRoot, process.platform === 'win32' ? 'r1q2.exe' : 'r1q2'), 'placeholder - never launched by this flow')
+  }
 
   const installation = (id, name, engineKind, rootPath, exe, gameDirs, sortOrder) => ({
     id,
@@ -3819,6 +3835,22 @@ export function writeReplaysPlayFixture(variant = 'replays-play', { engineLifeti
     installations: [
       installation(REPLAYS_PLAY_Q2PRO_ID, 'Fixture Play Q2PRO', 'q2pro', root, executablePath, ['baseq2', 'ctf'], 0),
       installation(REPLAYS_PLAY_R1Q2_ID, 'Fixture Play R1Q2', 'r1q2', r1q2Root, r1q2Exe, ['baseq2'], 1),
+      ...(brokenInstallation
+        ? [
+            {
+              ...installation(
+                REPLAYS_PLAY_BROKEN_ID,
+                REPLAYS_PLAY_BROKEN_NAME,
+                'r1q2',
+                brokenRoot,
+                join(brokenRoot, process.platform === 'win32' ? 'r1q2.exe' : 'r1q2'),
+                ['baseq2'],
+                2,
+              ),
+              status: 'invalid',
+            },
+          ]
+        : []),
     ],
   })
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())

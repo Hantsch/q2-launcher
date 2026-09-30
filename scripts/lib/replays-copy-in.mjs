@@ -1,6 +1,6 @@
 // Story 160 D3: shared helpers of the `replays-copy-in*` flows (opening a demo, clicking Play,
 // watching `<gamedir>/demos/_launcher/` and main.log). Selectors: `nav-replays`, `replays-demo-row`,
-// `replays-demo-play`, `replays-demo-play-error` (`DemoPlayAction.tsx`), `replays-refresh`.
+// `actionbar-play[data-action="view"]`, `actionbar-action-error` (`ActionBar.tsx`), `replays-refresh`.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -31,7 +31,7 @@ export async function selectDemo(page, fileName) {
     .filter({ hasText: fileName })
     .first()
     .click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-demo-play').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.locator('[data-testid="actionbar-play"][data-action="view"]').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 }
 
 export function copiesIn(demosDir) {

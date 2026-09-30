@@ -6,7 +6,7 @@
 // exactly once - and the strip's own position/duration, never only the UI's local state. The game's
 // exit is the stub seeing `Q2L_UI_ENGINE_QUIT_FILE` appear.
 //
-// Selectors: `replays-demo-row`, `replays-demo-play` (story 159), `replays-timeline`,
+// Selectors: `replays-demo-row`, `actionbar-play[data-action="view"]` (story 159), `replays-timeline`,
 // `replays-timeline-{toggle,back,forward,seek,speed,position,duration,seek-reason}` (`DemoTimeline.tsx`).
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import {
@@ -123,7 +123,7 @@ export default async function replaysTimeline({ page, step, shot }) {
   await waitForScan(page)
   if (await timeline.isVisible()) throw new Error('replays-timeline: the strip must not show before a demo plays')
   await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
-  const play = page.getByTestId('replays-demo-play')
+  const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
   await timeline.waitFor({ state: 'visible', timeout: 15_000 })

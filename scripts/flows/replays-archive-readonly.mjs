@@ -100,14 +100,14 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
 
   // Play ([[159]]/[[160]]): being an archive entry never locks it (160 plays a zip entry through a
   // temporary copy). In this populated fixture no installation has test.dm2's game dir
-  // (`opentdm`), so Play is present but disabled by the shared eligibility rule with its
+  // (`opentdm`), so the View button is present but disabled by the shared eligibility rule with its
   // `modMissing` reason as VISIBLE text - the same state a loose opentdm demo gets here. The archive-entry-plays-when-eligible half lives in
   // `replays-copy-in.mjs`.
-  const playButton = page.getByTestId('replays-demo-play')
+  const playButton = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   if ((await playButton.count()) > 0) {
     const playDisabled = await playButton.getAttribute('disabled')
     if (playDisabled !== null) {
-      const playReason = await page.getByTestId('replays-demo-play-reason').textContent()
+      const playReason = await page.getByTestId('actionbar-action-reason').textContent()
       if (!playReason || !/Mod `opentdm` missing/.test(playReason) || /archive/i.test(playReason)) {
         throw new Error(
           `replays-archive-readonly: Play is disabled for an archive entry, but its reason must be the ` +

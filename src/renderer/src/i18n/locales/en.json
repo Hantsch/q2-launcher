@@ -296,6 +296,7 @@
       "repair": "Repair",
       "running": "Running",
       "stopDemo": "Stop demo",
+      "view": "View",
       "stopping": "Stopping…",
       "writeLocked": "Writing\u2026",
       "locate": "Locate folder\u2026",
@@ -1134,8 +1135,11 @@
       }
     },
     "play": {
-      "action": "Play",
-      "anyway": "I know the consequences — play anyway",
+      "modMissingConfirm": {
+        "title": "Mod not fully installed",
+        "body": "The mod `{{gameDir}}` is not fully installed in this installation, so the demo may not play correctly. Play it anyway?",
+        "confirm": "Play anyway"
+      },
       "unavailable": {
         "notQ2pro": "The selected installation is not Q2PRO — demo playback needs Q2PRO. Pick a Q2PRO installation in the left rail.",
         "modMissing": "Mod `{{gameDir}}` is not fully installed in this installation — the demo may not play correctly.",

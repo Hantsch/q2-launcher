@@ -10,6 +10,7 @@ import {
   formatSpeed,
   shortenPath,
 } from '../../lib/format'
+import { type ContributedAction, usePrimaryActionStore } from '../../lib/primary-action'
 import { isPlayable, statusTone } from '../../lib/status'
 import { useActiveInstallation, useActiveJob, useLauncher } from '../../store/useLauncher'
 import { IconButton, PlayButton } from '../ui/Button'
@@ -44,11 +45,27 @@ export function ActionBar() {
   const runFix = useFixAction()
   const demo = useDemoStop()
 
-  const action = resolvePrimaryAction(installation, job, launch, demo)
+  const route = useLauncher((state) => state.route)
+  const contribution = usePrimaryActionStore((state) =>
+    state.owner === route ? state.action : null,
+  )
+
+  const action = resolvePrimaryAction(installation, job, launch, demo, contribution)
+  const note =
+    action.kind === 'contributed' && contribution
+      ? contribution.error
+        ? { id: 'actionbar-action-error', message: contribution.error, error: true }
+        : contribution.reason
+          ? { id: 'actionbar-action-reason', message: contribution.reason, error: false }
+          : null
+      : null
 
   const onPrimary = (): void => {
     if (!installation) return
     switch (action.kind) {
+      case 'contributed':
+        contribution?.run()
+        return
       case 'play':
         void play(installation.id)
         return
@@ -127,7 +144,19 @@ export function ActionBar() {
       </div>
 
       {/* --- what is happening --- */}
-      <div className="hidden min-w-0 flex-1 flex-col gap-1.5 lg:flex">
+      <div
+        className={cn('min-w-0 flex-1 flex-col gap-1.5 lg:flex', note ? 'flex' : 'hidden')}
+      >
+        {note && (
+          <p
+            id={note.id}
+            data-testid={note.id}
+            {...(note.error ? { role: 'alert' } : {})}
+            className={cn('text-xs', note.error ? 'text-danger' : 'text-ink-dim')}
+          >
+            {t(note.message.key, note.message.params ?? {})}
+          </p>
+        )}
         {job ? (
           <JobReadout job={job} onCancel={() => void cancelJob(job.id)} />
         ) : (
@@ -172,7 +201,8 @@ export function ActionBar() {
               changes per `action.kind`, i.e. precisely with the state under test. */}
           <PlayButton
             data-testid="actionbar-play"
-            data-action={action.kind}
+            data-action={action.kind === 'contributed' && contribution ? contribution.id : action.kind}
+            {...(note ? { 'aria-describedby': note.id } : {})}
             tone={action.tone}
             disabled={action.disabled}
             onClick={onPrimary}
@@ -350,7 +380,7 @@ function LaunchReadout({
   )
 }
 
-type PrimaryActionKind = 'play' | 'locate' | 'repair' | 'busy' | 'stop'
+type PrimaryActionKind = 'play' | 'locate' | 'repair' | 'busy' | 'stop' | 'contributed'
 
 interface PrimaryAction {
   kind: PrimaryActionKind
@@ -369,6 +399,7 @@ function resolvePrimaryAction(
   job: Job | null,
   launch: LaunchState,
   demo: { active: boolean; stopping: boolean },
+  contribution: ContributedAction | null,
 ): PrimaryAction {
   if (!installation) {
     return { kind: 'busy', labelKey: 'installation.action.play', tone: 'flame', disabled: true }
@@ -439,6 +470,16 @@ function resolvePrimaryAction(
       labelKey: 'installation.action.repair',
       tone: 'neutral',
       disabled: false,
+    }
+  }
+
+  // Story 180 D1: a tab's contribution replaces only this final case; every state above wins.
+  if (contribution) {
+    return {
+      kind: 'contributed',
+      labelKey: contribution.labelKey,
+      tone: 'flame',
+      disabled: contribution.disabled,
     }
   }
 

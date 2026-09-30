@@ -1,7 +1,7 @@
 ---
 id: 180
 title: The action bar button speaks for the tab I'm on
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-30
 ---
 
@@ -29,23 +29,23 @@ would allow Play. [[181]] uses the same seam for Servers.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — On a tab without its own action (e.g. Home, Library), the action bar button reads
+- [x] **AC1** — On a tab without its own action (e.g. Home, Library), the action bar button reads
       "Play" and starts the game, exactly as today.
-- [ ] **AC2** — On the Demos tab with no demo selected, the button reads "View" and is disabled.
-- [ ] **AC3** — On the Demos tab with a demo selected that can play, the button reads "View" and is
+- [x] **AC2** — On the Demos tab with no demo selected, the button reads "View" and is disabled.
+- [x] **AC3** — On the Demos tab with a demo selected that can play, the button reads "View" and is
       enabled; pressing it plays that demo on the stage exactly as the detail panel's Play did
       ([[170]]).
-- [ ] **AC4** — On the Demos tab with a selected demo that cannot play, the button is disabled and
+- [x] **AC4** — On the Demos tab with a selected demo that cannot play, the button is disabled and
       the reason ([[159]]'s eligibility reason) is shown as visible text in the action bar, not only
       as a tooltip.
-- [ ] **AC5** — While a demo plays, the button reads "Stop demo" and stops it, as today ([[173]]).
-- [ ] **AC6** — The installation-level states win over a tab's action: with the installation
+- [x] **AC5** — While a demo plays, the button reads "Stop demo" and stops it, as today ([[173]]).
+- [x] **AC6** — The installation-level states win over a tab's action: with the installation
       missing, broken, installing or write-locked, the button shows Locate / Repair / Install /
       write-locked as today, on the Demos tab too.
-- [ ] **AC7** — The Demos detail panel shows no Play button and no "play anyway" button.
-- [ ] **AC8** — Switching tabs updates the button's label and state immediately (Demos → Home turns
+- [x] **AC7** — The Demos detail panel shows no Play button and no "play anyway" button.
+- [x] **AC8** — Switching tabs updates the button's label and state immediately (Demos → Home turns
       "View" back into "Play").
-- [ ] **AC9** — Pressing View on a selected demo whose mod is not installed asks for confirmation
+- [x] **AC9** — Pressing View on a selected demo whose mod is not installed asks for confirmation
       naming the mod (Play anyway / Cancel) before playing; Cancel plays nothing.
 
 ## Open Questions
@@ -105,7 +105,7 @@ removes only the play mount, nothing else.
 
 ## Deliverables
 
-- **D1 — Shell: the primary-action contribution seam.** New `src/renderer/src/lib/primary-action.ts`
+- [x] **D1 — Shell: the primary-action contribution seam.** New `src/renderer/src/lib/primary-action.ts`
   (store + `usePrimaryActionContribution(owner, action)` hook + `ContributedAction` type: `id`,
   `labelKey`, `disabled`, optional `reason`/`error` as `LocalizedMessage` from `@shared/types`,
   `run()`); clear-on-unmount only when the store's owner is still the caller's. In
@@ -124,7 +124,7 @@ removes only the play mount, nothing else.
   contribution" (missing → locate, invalid → repair, job → install, writeLock → writing, running →
   running/stop), "a disabled contribution's reason is visible text", "unmount clears only its own
   contribution".
-- **D2 — Demos: View plays the selected demo from the action bar.** New
+- [x] **D2 — Demos: View plays the selected demo from the action bar.** New
   `src/renderer/src/modules/replays/useDemoPlay.ts`: move `DemoPlayAction.tsx`'s eligibility call and
   `handlePlay` unchanged (stage arm + bounded rect wait + `playDemo` + `beginSession`/`setStageReason`
   + `disarmStage` on failure), returning `{ eligibility, busy, error, play(ack?) }` for a
@@ -140,7 +140,7 @@ removes only the play mount, nothing else.
   panel has no play or play-anyway button"; `ReplaysView.test.tsx` › "selecting a playable demo
   publishes an enabled View", "no selection publishes a disabled View", "leaving the view clears the
   contribution". Remove `replays.play.action` from `en.json` if now unused.
-- **D3 — Demos: View on a mod-missing demo asks first.** New
+- [x] **D3 — Demos: View on a mod-missing demo asks first.** New
   `src/renderer/src/modules/replays/components/ModMissingConfirmDialog.tsx` mirroring
   `components/DiscardDemoNotesDialog.tsx` (`Modal size="sm"`): title + body naming the mod
   (`{gameDir}` param of the `modMissing` reason), buttons Cancel (`common.cancel`,
@@ -152,7 +152,7 @@ removes only the play mount, nothing else.
   bar replaces the panel's Play). Tests in `ModMissingConfirmDialog.test.tsx` / `useDemoPlay.test.ts`:
   "View on a mod-missing demo opens a confirmation naming the mod", "Cancel plays nothing",
   "Play anyway plays with the acknowledgement".
-- **D4 — Flows: the action bar speaks for the tab.** New `scripts/flows/action-bar-view.mjs`
+- [x] **D4 — Flows: the action bar speaks for the tab.** New `scripts/flows/action-bar-view.mjs`
   (mirror `scripts/flows/replays-play-q2pro.mjs` for setup/fixture): Home and Library → button reads
   "Play", `data-action="play"`; Demos, no selection → "View", disabled; select a demo → enabled;
   go to Home → "Play" at once (short timeout); on Demos `replays-demo-play`/`replays-demo-play-anyway`
@@ -162,12 +162,12 @@ removes only the play mount, nothing else.
   with the same launch args as today; r1q2 active → disabled + "is not Q2PRO" in
   `actionbar-action-reason`; missing-mod demo → View enabled → confirmation names `opentdm` →
   Cancel launches nothing → Play anyway launches with `+set game opentdm`.
-- **D5 — Flows: migrate the playback flows.** Replace clicks on `replays-demo-play` with
+- [x] **D5 — Flows: migrate the playback flows.** Replace clicks on `replays-demo-play` with
   `page.getByTestId('actionbar-play')` filtered to `data-action="view"` in `scripts/flows/`
   `replays-stop.mjs`, `replays-stage.mjs`, `replays-stage-follow.mjs`, `replays-stage-overlays.mjs`,
   `replays-stage-view-leave.mjs`, `replays-stage-unavailable.mjs`, `replays-timeline.mjs`,
   `replays-fullscreen.mjs`. No other change; each still passes via `npm run ui:flow -- <name>`.
-- **D6 — Flows: migrate the remaining play users.** Same replacement in
+- [x] **D6 — Flows: migrate the remaining play users.** Same replacement in
   `scripts/flows/replays-console-command.mjs`, `replays-play-mvd2.mjs`, `replays-archive-readonly.mjs`,
   `replays-copy-in.mjs`, `replays-copy-in-not-writable.mjs`, `scripts/lib/replays-copy-in.mjs`,
   `scripts/lib/screens.mjs` (a `replays-demo-play-reason`/`-error` reference becomes
@@ -202,9 +202,26 @@ Review: → default
 - AC8 → e2e `scripts/flows/action-bar-view.mjs` › "action-bar-view" (Demos → Home: View → Play at
   once) + unit `ActionBar.test.tsx` › "a contribution for another route is ignored"
 - AC9 → e2e `scripts/flows/replays-play-q2pro.mjs` › "replays-play-q2pro" (confirmation names
-  opentdm; Cancel plays nothing; Play anyway plays) + unit `useDemoPlay.test.ts` › "Cancel plays nothing"
+  opentdm; Cancel plays nothing; Play anyway plays) + unit `src/renderer/src/modules/replays/ReplaysView.test.tsx` › "a mod-missing demo" › Cancel plays nothing
 
 Coverage: AC1 D1+D4 · AC2 D2+D4 · AC3 D2+D4 · AC4 D1+D2+D4 · AC5 D5 (unchanged shell path) ·
 AC6 D1+D4 · AC7 D2+D4 · AC8 D1+D2+D4 · AC9 D3+D4.
 
 ## Done
+
+Summary: the action bar's primary button is now contributed by the open tab through a small shell seam (`lib/primary-action.ts`, route-tagged store; replaces only the `play` case). Demos publishes **View** (disabled without selection or when ineligible; reason/error as visible text in the readout column); the detail panel lost its Play/"play anyway" buttons; a mod-missing demo opens a Play anyway / Cancel confirmation. Play logic moved into `useDemoPlay`. All play flows migrated onto the action bar; new flow `action-bar-view`.
+
+Commit message: `180: action bar button speaks for the tab — module-contributed primary action, Demos View, mod-missing confirm`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (107 files / 856 tests); e2e `npm run ui:flow -- action-bar-view | replays-play-q2pro | replays-stage | replays-stop` green; D6 agent also ran `npm run ui:verify` (60/60 screens, 0 axe violations) and the five migrated copy/console/mvd2/archive flows. Full regression gate not run (sprint's job). Review 1 (default): PASS, no blockers.
+AC -> test, all passed: AC1 action-bar-view + ActionBar.test "a tab without a contribution shows Play and plays" · AC2 action-bar-view + ReplaysView.test "no selection publishes a disabled View" · AC3 replays-play-q2pro + replays-stage · AC4 replays-play-q2pro + ActionBar.test "a disabled contribution's reason is visible text" · AC5 replays-stop · AC6 action-bar-view + ActionBar.test "installation states win over a contribution" · AC7 action-bar-view + DemoDetailPanel.test · AC8 action-bar-view + ActionBar.test "a contribution for another route is ignored" · AC9 replays-play-q2pro + ReplaysView.test Cancel/Play anyway. No manual residue.
+
+Decisions:
+- Cancel/confirm unit tests live in `ReplaysView.test.tsx` (dialog state is in the view), not `useDemoPlay.test.ts`; mapping above corrected.
+- ActionBar shows the contribution's reason whenever present (also while enabled), so the mod-missing note stays visible with View enabled.
+- Play anyway uses `Button variant="primary"` (no flame variant exists).
+- Flow fixture: `writeReplaysPlayFixture` gained a broken-installation option (status invalid, reads `repair`) and an empty `opentdm` game dir; a seeded `missing` installation reads `locate`, not `repair`.
+- Unfixed, minor: `confirmingModMissing` is not reset on selection change (dialog could reappear when a mod-missing demo is re-selected); `'/replays'` literal in ReplaysView instead of the manifest route; stale comment in DemoTimeline.test.tsx:7 names the deleted DemoPlayAction.test.tsx.
+- Pre-existing, noted: Play anyway on a mod whose game dir does not exist on disk fails in main (ENOENT writing q2l_back.cfg tmp) and is not surfaced as a play error — candidate follow-up story.
+
+tiers: D 6 / hard 1 · review default · cycles 1 · agents 8
