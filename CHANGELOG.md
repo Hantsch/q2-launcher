@@ -22,6 +22,7 @@ version section when a release actually ships.
 - **Demos** — the launcher's plumbing no longer scrolls over the demo, and chat shows in the game's chat HUD.
 - **Demos** — the console field only shows while a demo is playing, instead of sitting there disabled.
 - **Demos** — the demo detail now reads at a glance: the name is the big title, then file name, length and recorded time, a gap, then map, mod, gamemode, players and point of view. The "where did this value come from" labels, the duplicate name, source and format rows are gone, and a guessed gamemode in the list no longer says "(guessed)".
+- **Demos** — you edit a demo's details where you read them: Edit turns the facts into inputs in place, the name into the title field, and there is no separate "Your notes" form below any more.
 
 ### Added
 - **Demos** — a Stop button on the timeline (and in the action bar) ends the demo and the game with one click. On Windows the stage now tells you why the game's own console stays quiet while it steers the demo.

@@ -6,7 +6,7 @@
 // plus its own `setup()` that drops one extra demo (a copy of `test.dm2`, which carries real header
 // player data) and a sidecar with a seed tag next to the fixture's own no-sidecar demo.
 //
-// Selectors - read `SidesEditor.tsx`, `TagInput.tsx` and `DemoNotesEditor.tsx` before changing any
+// Selectors - read `SidesEditor.tsx`, `TagInput.tsx` and `DemoDetailEditor.tsx` before changing any
 // of these:
 //   replays-sides-add                 SidesEditor.tsx - "Add side" button
 //   replays-side-<i>                  SidesEditor.tsx - one side card
@@ -17,7 +17,8 @@
 //   replays-known-player              SidesEditor.tsx - a known-player chip (name + source)
 //   replays-tag-input                 TagInput.tsx - the tag combobox input
 //   replays-tag-option                TagInput.tsx - one suggestion option
-//   replays-editor-save               DemoNotesEditor.tsx
+//   replays-detail-edit               DemoDetailPanel.tsx - enters edit mode (story 178)
+//   replays-editor-save               DemoDetailEditor.tsx
 
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -65,11 +66,12 @@ async function waitForDemosScanToFinish(page) {
 }
 
 export default async function replaysEditSidesTags({ page, shot, step }) {
-  step('opening the known-players demo shows the notes editor')
+  step('opening the known-players demo and pressing Edit shows the editor')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForDemosScanToFinish(page)
   await rowFor(page, KNOWN_PLAYERS_DEMO).click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('replays-detail-edit').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-editor').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   step('adding two sides with team names and results')
@@ -121,6 +123,8 @@ export default async function replaysEditSidesTags({ page, shot, step }) {
   await option.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await option.click({ timeout: TIMEOUT_MS })
 
+  await page.getByTestId('replays-editor-description').fill('Flow description', { timeout: TIMEOUT_MS })
+
   await shot('replays-edit-sides-tags')
 
   step('Save writes the sides (in order) and the tag into the sidecar on disk')
@@ -156,4 +160,14 @@ export default async function replaysEditSidesTags({ page, shot, step }) {
   if (!Array.isArray(written.tags) || !written.tags.includes(SEED_TAG)) {
     throw new Error(`replays-edit-sides-tags: expected tag "${SEED_TAG}", got ${JSON.stringify(written.tags)}`)
   }
+
+  step('after the save, reading mode shows the saved description and tags')
+  await page
+    .getByTestId('replays-detail-description')
+    .filter({ hasText: 'Flow description' })
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-detail-tags')
+    .filter({ hasText: SEED_TAG })
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 }

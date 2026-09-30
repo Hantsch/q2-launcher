@@ -28,7 +28,7 @@ export const RATING_ERROR_KEY = 'replays.editor.error.rating' as const
 export const DATE_ERROR_KEY = 'replays.editor.error.date' as const
 
 /** Renders an ISO datetime string (with offset) into the local `YYYY-MM-DD HH:MM:SS` draft text. */
-function isoToDraftText(iso: string): string {
+export function isoToDraftText(iso: string): string {
   const d = new Date(iso)
   const pad = (n: number): string => String(n).padStart(2, '0')
   const year = d.getFullYear()

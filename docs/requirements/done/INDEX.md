@@ -270,3 +270,4 @@ second roadmap.
 - 175 — an address I add is saved right away · S29 · commitCvars writes only the address to the .cfg and installation copies, dirty profiles keep their pending edits, dialog shows saved toast or inline error
 - 176 — The Demos view shows only what helps right now · S30 · console field only appears while a demo plays, sort caption removed (header names the sort for screen readers)
 - 177 — The demo detail reads at a glance · S30 · name as title, file facts then match facts, no provenance labels, list row drops "(guessed)"
+- 178 — I edit a demo's details where I read them · S30 · facts become the form: Edit/Save/Cancel in place, header icon file actions, description + tags in reading mode, notes form removed

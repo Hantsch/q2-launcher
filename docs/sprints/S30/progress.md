@@ -22,3 +22,20 @@
 - 2026-09-30 07:14 · 177 · review 1 · started
 - 2026-09-30 07:15 · 177 · review 1 · done
 - 2026-09-30 07:15 · 177 · story · done
+- 07:15:35 · 178 · build · started
+- 2026-09-30 07:15 · 178 · D1 store edit mode · started
+- 2026-09-30 07:16 · 178 · D1 store edit mode · done
+- 2026-09-30 07:16 · 178 · D2 header icons + Edit · started
+- 2026-09-30 07:18 · 178 · D2 header icons + Edit · done
+- 2026-09-30 07:18 · 178 · D3 in-place edit mode · started
+- 2026-09-30 07:25 · 178 · D3 in-place edit mode · done
+- 2026-09-30 07:25 · 178 · D4 reading extras + edit screen · started
+- 2026-09-30 07:26 · 178 · D4 reading extras + edit screen · done
+- 2026-09-30 07:26 · 178 · verify · started
+- 2026-09-30 07:32 · 178 · verify · blocked: replays-archive-readonly, replays-demo-file-actions, ui:verify unreachable screens (diagnosing)
+- 2026-09-30 07:45 · 178 · verify · blocked: axe heading-order moderate new on replays-rows/detail-edit/editor (fixing)
+- 2026-09-30 07:53 · 178 · verify · started
+- 2026-09-30 07:55 · 178 · verify · done
+- 2026-09-30 07:55 · 178 · review 1 · started
+- 2026-09-30 07:57 · 178 · review 1 · done
+- 2026-09-30 07:57 · 178 · story · done

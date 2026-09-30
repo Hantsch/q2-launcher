@@ -1,7 +1,7 @@
 ---
 id: 178
 title: I edit a demo's details where I read them
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-09-30
 ---
 
@@ -18,21 +18,21 @@ read as text ([[177]]'s layout); an **Edit** action turns them into inputs in pl
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The panel no longer shows a separate "Your notes" form below the facts.
-- [ ] **AC2** — The panel offers an Edit action; after pressing it, the name (in the header), map,
+- [x] **AC1** — The panel no longer shows a separate "Your notes" form below the facts.
+- [x] **AC2** — The panel offers an Edit action; after pressing it, the name (in the header), map,
       mod, gamemode, players/sides and recorded date become editable in place, and a description
       and tags field appear.
-- [ ] **AC3** — Save writes the changes to the demo's sidecar, the panel returns to reading mode
+- [x] **AC3** — Save writes the changes to the demo's sidecar, the panel returns to reading mode
       showing the saved values, and the list row reflects them without a rescan.
-- [ ] **AC4** — Cancel returns to reading mode with the values from before the edit; nothing is
+- [x] **AC4** — Cancel returns to reading mode with the values from before the edit; nothing is
       written.
-- [ ] **AC5** — Save is disabled while nothing changed or while an entered date is invalid, as the
+- [x] **AC5** — Save is disabled while nothing changed or while an entered date is invalid, as the
       current form does; the reason for an invalid date is visible text.
-- [ ] **AC6** — Leaving a demo (selecting another row, closing the panel, switching module) with
+- [x] **AC6** — Leaving a demo (selecting another row, closing the panel, switching module) with
       unsaved edits still asks to keep editing or discard, as today ([[155]]).
-- [ ] **AC7** — An archive entry offers no Edit action as an enabled control: it stays visible,
+- [x] **AC7** — An archive entry offers no Edit action as an enabled control: it stays visible,
       disabled, with the existing read-only reason as visible text ([[158]]).
-- [ ] **AC8** — A saved description and tags are shown in reading mode (below the facts) when set,
+- [x] **AC8** — A saved description and tags are shown in reading mode (below the facts) when set,
       and omitted when empty.
 
 ## Open Questions
@@ -220,14 +220,14 @@ Order: D1 → D2 → D3 → D4. CHANGELOG `### Changed` entry lands with D3.
   separate notes form is rendered"
 - AC2 → e2e `scripts/flows/replays-edit-sidecar.mjs` › "replays-edit-sidecar" (Edit → inputs in
   place) · e2e `scripts/flows/replays-edit-sides-tags.mjs` › "replays-edit-sides-tags" (sides, tags,
-  description) · unit `components/DemoDetailEditor.test.tsx` › "Edit turns the facts into inputs in
+  description) · unit `components/DemoDetailPanel.test.tsx` › "Edit turns the facts into inputs in
   place, name in the header"
 - AC3 → e2e `scripts/flows/replays-edit-sidecar.mjs` › "replays-edit-sidecar" (sidecar on disk,
   reading mode shows saved values, row patched without rescan) · unit
   `src/renderer/src/modules/replays/demo-editor-store.test.ts` › "a successful save ends edit mode"
 - AC4 → e2e `scripts/flows/replays-edit-sidecar.mjs` › "replays-edit-sidecar" (Cancel) · unit
   `demo-editor-store.test.ts` › "cancelEdit drops the draft and writes nothing" · unit
-  `components/DemoDetailEditor.test.tsx` › "Cancel restores the values and writes nothing"
+  `components/DemoDetailPanel.test.tsx` › "Cancel restores the values and writes nothing"
 - AC5 → e2e `scripts/flows/replays-edit-sidecar.mjs` › "replays-edit-sidecar" (invalid date) · unit
   `components/DemoDetailEditor.test.tsx` › "Save is disabled until something changes and while the
   date is invalid, with the reason as text"
@@ -245,3 +245,22 @@ Coverage gate: AC1 D3 · AC2 D2+D3 · AC3 D1+D3 · AC4 D1+D3 · AC5 D3 · AC6 D1
 Axe coverage of edit mode: ui:verify screen `replays-detail-edit` (D4).
 
 ## Done
+
+Edit is now in the panel itself: the facts list turns into inputs in place (name in the header), Save/Cancel
+in a footer, the separate notes form is gone. File actions and Edit are header icon buttons; description and
+tags show in reading mode when set. Renderer only.
+
+Commit message: `178: demo detail edits in place — Edit/Save/Cancel, header icon actions, description + tags in reading mode`
+
+Verification (narrow gate): build, typecheck green; `vitest run --changed HEAD` 103 files / 828 tests green; flows `replays-edit-sidecar`, `replays-edit-sides-tags`, `replays-rename`, `replays-demo-file-actions` green; `npm run ui:verify` 116 shots, 0 unreachable, axe 0 violations (incl. new `replays-detail-edit`). Review (default tier, 1 cycle): PASS.
+AC → test, all passed: AC1-AC6, AC8 via the mapped flows + units (two component tests live in `DemoDetailPanel.test.tsx`, not `DemoDetailEditor.test.tsx` — Acceptance Tests updated). AC7: unit passed; flow `replays-archive-readonly` passes every step covering AC7 (Edit disabled, reasons visible) but fails at its later Play-reason step — pre-existing, identical at bare HEAD (installation not Q2PRO text vs. expected mod-missing text), not fixed here.
+Open: pre-existing `replays-timeline@940x620` unreachable in ui:verify on bare HEAD, flaky here (reached once).
+
+Decisions:
+- axe heading-order: edit mode has no h2 (name input), so SidesEditor h4 became h3 and an `sr-only` h2 carries the name in edit mode.
+- `screens.mjs` edit screens skip the Edit click when already in edit mode (the store outlives a screen/viewport).
+- ReplaysView filter-deselect waits for the list to load, else a module-switch remount dropped the selection/edit (AC6). `findRowReplaceId` extracted for testing.
+- Unused `replays.editor.field.*` i18n keys left in place; `replays-edit-sidecar` flow narrowed to name/mod/date per D3 (description/tags covered by `-sides-tags`).
+- Reviewer notes accepted, not changed: `quickEdit` on the selected demo in edit mode refreshes the draft (spec: unchanged); `deselectIfMissing` keeps `editingId`.
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 7

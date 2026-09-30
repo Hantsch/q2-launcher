@@ -3,17 +3,16 @@
 // demo shows neither. Mirrors `replays-zip-entries.mjs`'s setup/teardown (writes/removes
 // `pack.zip` via the same fixture helpers) and row-finding selector.
 //
-// Selectors, not guesses - read `src/renderer/src/modules/replays/components/DemoNotesEditor.tsx`
+// Selectors, not guesses - read `src/renderer/src/modules/replays/components/DemoDetailPanel.tsx`
 // and `DemoFileActions.tsx` before changing any of these:
 //   nav-replays                     TitleBar.tsx - primary nav entry
 //   replays-demo-row / -name        ReplaysView.tsx - one row per demo / its file name text
-//   replays-editor-description      DemoNotesEditor.tsx - the notes textarea, disabled for an
+//   replays-detail-edit             DemoDetailPanel.tsx - the header Edit button, disabled for an
 //                                    archive entry
-//   replays-archive-readonly-edit   DemoNotesEditor.tsx - visible reason the notes editor is
-//                                    disabled
+//   replays-archive-readonly-edit   DemoDetailPanel.tsx - visible reason Edit is disabled
 //   demo-rename                     DemoFileActions.tsx - the rename button, disabled for an
 //                                    archive entry
-//   replays-archive-readonly-rename DemoFileActions.tsx - visible reason rename is disabled
+//   replays-archive-readonly-rename DemoDetailPanel.tsx - visible reason rename is disabled
 //   replays-demo-reveal / -copy-path DemoFileActions.tsx - must stay enabled regardless
 
 import {
@@ -57,11 +56,10 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
     .filter({ has: page.getByTestId('replays-demo-name').filter({ hasText: 'test.dm2' }) })
   await dm2Row.click({ timeout: TIMEOUT_MS })
 
-  const description = page.getByTestId('replays-editor-description')
-  await description.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const descriptionDisabled = await description.getAttribute('disabled')
-  if (descriptionDisabled === null) {
-    throw new Error('replays-archive-readonly: the notes editor must be disabled for an archive entry')
+  const editButton = page.getByTestId('replays-detail-edit')
+  await editButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  if (!(await editButton.isDisabled())) {
+    throw new Error('replays-archive-readonly: the Edit button must be disabled for an archive entry')
   }
 
   const editNotice = page.getByTestId('replays-archive-readonly-edit')

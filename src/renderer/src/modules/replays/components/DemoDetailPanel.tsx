@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { X } from 'lucide-react'
+import { Pencil, X } from 'lucide-react'
 import type { DemoRow, SidecarState } from '@shared/modules/replays'
 import { buildDemoDetail, type DemoDetailField } from '@shared/replays/demo-detail'
 import type { SidecarSide } from '@shared/replays/sidecar'
@@ -10,8 +10,9 @@ import { sidecarRead } from '../client'
 import { sidesText, formatDemoDate } from '../row-format'
 import { DemoFileActions } from './DemoFileActions'
 import { DemoPlayAction } from './DemoPlayAction'
-import { DemoNotesEditor } from './DemoNotesEditor'
-import type { RowPatcher } from '../demo-editor-store'
+import { DemoDetailEditor, DemoDetailNameInput } from './DemoDetailEditor'
+import { DiscardDemoNotesDialog } from './DiscardDemoNotesDialog'
+import { useDemoEditorStore, type RowPatcher } from '../demo-editor-store'
 
 export interface DemoDetailPanelProps {
   row: DemoRow
@@ -88,52 +89,127 @@ export function DemoDetailPanel({
     })
   }, [row.id])
 
+  // Edit mode needs both the flag and the draft it binds - the header and body switch together.
+  const editing = useDemoEditorStore(
+    (state) => state.editingId === row.id && state.drafts[row.id] !== undefined,
+  )
+  const pendingLeave = useDemoEditorStore((state) => state.pendingLeave)
+  const { keepEditing, discardAndLeave } = useDemoEditorStore.getState()
+  const archived = row.archiveEntry !== null
   const detail = buildDemoDetail(row, row.sidecar.values)
   const title = row.effective.name.value ?? row.fileName
+  const description = row.sidecar.values.description?.trim()
+  const tags = row.sidecar.values.tags
+  const factText = (id: DemoDetailField['id']): string | undefined => {
+    const field = detail.fields.find((candidate) => candidate.id === id)
+    return field === undefined ? undefined : fieldValueText(field, t, i18n.language)
+  }
 
   return (
-    <section aria-labelledby="replays-detail-title" data-testid="replays-detail">
-      <div className="sticky top-0 z-10 flex min-h-12 items-center justify-between gap-2 border-b border-line bg-panel px-4 py-2">
-        <h2
-          id="replays-detail-title"
-          data-testid="replays-detail-title"
-          className="min-w-0 truncate text-lg font-semibold text-ink"
-        >
-          {title}
-        </h2>
-        <IconButton
-          label={t('replays.detail.close')}
-          size="sm"
-          onClick={onClose}
-          data-testid="replays-detail-close"
-        >
-          <X className="size-3.5" aria-hidden="true" />
-        </IconButton>
+    <section aria-labelledby={editing ? undefined : 'replays-detail-title'} aria-label={editing ? title : undefined} data-testid="replays-detail">
+      <div className="sticky top-0 z-10 border-b border-line bg-panel px-4 py-2" data-testid="replays-detail-header">
+        <div className="flex min-h-8 flex-wrap items-center gap-2">
+          {editing ? (
+            <>
+              <h2 className="sr-only">{title}</h2>
+              <DemoDetailNameInput row={row} />
+            </>
+          ) : (
+            <h2
+              id="replays-detail-title"
+              data-testid="replays-detail-title"
+              className="min-w-0 flex-1 truncate text-lg font-semibold text-ink"
+            >
+              {title}
+            </h2>
+          )}
+          {!editing && <DemoFileActions demo={row} onRenamed={onRenamed} />}
+          {!editing && (
+            <IconButton
+              label={t('replays.detail.edit')}
+              size="sm"
+              disabled={archived}
+              aria-describedby={archived ? 'replays-archive-readonly-edit' : undefined}
+              onClick={() => useDemoEditorStore.getState().startEdit(row.id, row.sidecar.values)}
+              data-testid="replays-detail-edit"
+            >
+              <Pencil className="size-3.5" aria-hidden="true" />
+            </IconButton>
+          )}
+          <IconButton
+            label={t('replays.detail.close')}
+            size="sm"
+            onClick={onClose}
+            data-testid="replays-detail-close"
+          >
+            <X className="size-3.5" aria-hidden="true" />
+          </IconButton>
+        </div>
+        {archived && !editing && (
+          <div className="mt-2 space-y-1 text-xs text-ink-dim" data-testid="replays-archive-readonly">
+            <p id="replays-archive-readonly-edit" data-testid="replays-archive-readonly-edit">
+              {t('replays.archive.readOnly.edit')}
+            </p>
+            <p id="replays-archive-readonly-rename" data-testid="replays-archive-readonly-rename">
+              {t('replays.archive.readOnly.rename')}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4 p-4">
-        <div className="space-y-5">
-          {(['file', 'match'] as const).map((group) => {
-            const fields = detail.fields.filter((field) => field.group === group)
-            if (fields.length === 0) return null
-            return (
-              <dl key={group} className="space-y-2" data-testid={`replays-detail-facts-${group}`}>
-                {fields.map((field) => (
-                  <div
-                    key={field.id}
-                    className="flex items-baseline justify-between gap-3 text-sm"
-                    data-testid={`replays-detail-field-${field.id}`}
+        {editing ? (
+          <DemoDetailEditor
+            row={row}
+            onRowPatched={onRowPatched}
+            readOnlyText={{ duration: factText('duration'), pov: factText('pov') }}
+            knownPlayers={detail.knownPlayers}
+            otherDemosTags={otherDemosTags}
+          />
+        ) : (
+          <div className="space-y-5">
+            {(['file', 'match'] as const).map((group) => {
+              const fields = detail.fields.filter((field) => field.group === group)
+              if (fields.length === 0) return null
+              return (
+                <dl key={group} className="space-y-2" data-testid={`replays-detail-facts-${group}`}>
+                  {fields.map((field) => (
+                    <div
+                      key={field.id}
+                      className="flex items-baseline justify-between gap-3 text-sm"
+                      data-testid={`replays-detail-field-${field.id}`}
+                    >
+                      <dt className="text-ink-muted">{t(`replays.detail.field.${field.id}`)}</dt>
+                      <dd className="min-w-0 truncate text-right text-ink">
+                        {fieldValueText(field, t, i18n.language)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )
+            })}
+            {description !== undefined && description !== '' && (
+              <p
+                className="whitespace-pre-wrap wrap-break-word text-sm text-ink"
+                data-testid="replays-detail-description"
+              >
+                {description}
+              </p>
+            )}
+            {tags !== undefined && tags.length > 0 && (
+              <ul className="flex flex-wrap gap-1.5" data-testid="replays-detail-tags">
+                {tags.map((tag) => (
+                  <li
+                    key={tag}
+                    className="inline-flex items-center rounded-full border border-line-strong px-2 py-0.5 text-xs text-ink"
                   >
-                    <dt className="text-ink-muted">{t(`replays.detail.field.${field.id}`)}</dt>
-                    <dd className="min-w-0 truncate text-right text-ink">
-                      {fieldValueText(field, t, i18n.language)}
-                    </dd>
-                  </div>
+                    {tag}
+                  </li>
                 ))}
-              </dl>
-            )
-          })}
-        </div>
+              </ul>
+            )}
+          </div>
+        )}
 
         {row.format === 'mvd2' && (
           <p className="text-xs text-ink-muted" data-testid="demo-detail-mvd2-note">
@@ -143,10 +219,6 @@ export function DemoDetailPanel({
 
         <DemoPlayAction demo={row} />
 
-        <div data-testid="replays-detail-file-actions">
-          <DemoFileActions demo={row} onRenamed={onRenamed} />
-        </div>
-
         {liveSidecar !== null && liveSidecar.state === 'error' && (
           <ul className="space-y-1 text-xs text-danger" data-testid="replays-detail-sidecar-issues">
             {liveSidecar.issues.map((issue, index) => (
@@ -155,18 +227,11 @@ export function DemoDetailPanel({
           </ul>
         )}
 
-        <div data-testid="replays-notes-slot">
-          <DemoNotesEditor
-            demoId={row.id}
-            values={row.sidecar.values}
-            onRowPatched={onRowPatched}
-            disabledReason={row.archiveEntry !== null ? 'replays.archive.readOnly.edit' : null}
-            mapField={detail.fields.find((field) => field.id === 'map')}
-            knownPlayers={detail.knownPlayers}
-            otherDemosTags={otherDemosTags}
-          />
-        </div>
       </div>
+
+      {pendingLeave !== null && (
+        <DiscardDemoNotesDialog onKeepEditing={keepEditing} onDiscard={discardAndLeave} />
+      )}
     </section>
   )
 }

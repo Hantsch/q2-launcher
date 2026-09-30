@@ -51,6 +51,8 @@ export interface PendingLeave {
  */
 export interface DemoEditorState {
   selectedId: string | null
+  /** The demo whose details are in edit mode (story 178). Survives unmount like `drafts`. */
+  editingId: string | null
   drafts: Record<string, DemoDraftEntry>
   pendingLeave: PendingLeave | null
   select(id: string): void
@@ -58,8 +60,10 @@ export interface DemoEditorState {
   /** Clears the selection if it no longer names a row in `ids` - the "row vanished on a re-read or
    * a filter change" guard. Not guarded by the dirty check: the draft itself stays in `drafts`. */
   deselectIfMissing(ids: readonly string[]): void
-  /** Opens (or refreshes) a demo's draft from its sidecar values. A dirty draft is never replaced. */
-  openDraft(id: string, values: Partial<SidecarFields>): void
+  /** Enters edit mode for a demo: a fresh draft from its sidecar values (a dirty or saving entry is kept). */
+  startEdit(id: string, values: Partial<SidecarFields>): void
+  /** Leaves edit mode without writing: drops the draft (unless a save is running). */
+  cancelEdit(id: string): void
   updateDraft(id: string, patch: Partial<SidecarDraft> | ((draft: SidecarDraft) => SidecarDraft)): void
   /** The editor's Cancel: back to the baseline, the entry itself stays. */
   cancelDraft(id: string): void
@@ -81,6 +85,22 @@ export interface DemoEditorState {
     patch: { favourite?: boolean; rating?: number | null },
     onRowPatched: RowPatcher,
   ): Promise<void>
+}
+
+/**
+ * Story 178: which demo's pending `replace` (a row-level quick edit that needs confirmation) the view
+ * itself has to show. The only entry left out is the one whose editor is actually on screen - the
+ * selected demo while it is in edit mode - since `DemoDetailEditor` renders that dialog itself. A
+ * selected demo outside edit mode (or a stale `editingId` that no longer names the selection) still
+ * gets its dialog here.
+ */
+export function findRowReplaceId(
+  drafts: Record<string, DemoDraftEntry>,
+  selectedId: string | null,
+  editingId: string | null,
+): string | undefined {
+  const onScreen = editingId !== null && editingId === selectedId ? editingId : null
+  return Object.keys(drafts).find((id) => id !== onScreen && drafts[id]?.replace !== undefined)
 }
 
 function isEntryDirty(entry: DemoDraftEntry | undefined): boolean {
@@ -106,16 +126,23 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
   }
 
   const leave = (request: PendingLeave): void => {
-    const { selectedId, drafts } = get()
-    if (selectedId !== null && isEntryDirty(drafts[selectedId])) {
+    const { selectedId, editingId, drafts } = get()
+    if (selectedId !== null && editingId === selectedId && isEntryDirty(drafts[selectedId])) {
       set({ pendingLeave: request })
       return
     }
-    set({ selectedId: request.targetId, pendingLeave: null })
+    const left = selectedId === null ? undefined : drafts[selectedId]
+    if (selectedId !== null && left !== undefined && !isEntryDirty(left) && !left.saving && left.replace === undefined) {
+      const rest = { ...drafts }
+      delete rest[selectedId]
+      set({ drafts: rest })
+    }
+    set({ selectedId: request.targetId, editingId: null, pendingLeave: null })
   }
 
   return {
     selectedId: null,
+    editingId: null,
     drafts: {},
     pendingLeave: null,
     select: (id) => {
@@ -128,11 +155,20 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
       if (current === null) return
       if (!ids.includes(current)) set({ selectedId: null, pendingLeave: null })
     },
-    openDraft: (id, values) => {
+    startEdit: (id, values) => {
       const existing = get().drafts[id]
-      if (isEntryDirty(existing) || existing?.saving) return
+      if (isEntryDirty(existing) || existing?.saving) {
+        set({ editingId: id })
+        return
+      }
       const draft = draftFromSidecar(values)
-      set({ drafts: { ...get().drafts, [id]: { draft, baseline: draft } } })
+      set({ drafts: { ...get().drafts, [id]: { draft, baseline: draft } }, editingId: id })
+    },
+    cancelEdit: (id) => {
+      if (get().drafts[id]?.saving) return
+      const rest = { ...get().drafts }
+      delete rest[id]
+      set({ drafts: rest, ...(get().editingId === id ? { editingId: null } : {}) })
     },
     updateDraft: (id, patch) => {
       const entry = get().drafts[id]
@@ -155,7 +191,7 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
       const { pendingLeave, selectedId } = get()
       if (pendingLeave === null) return
       if (selectedId !== null) get().discardDraft(selectedId)
-      set({ selectedId: pendingLeave.targetId, pendingLeave: null })
+      set({ selectedId: pendingLeave.targetId, editingId: null, pendingLeave: null })
     },
     cancelReplace: (id) =>
       patchEntry(id, { replace: undefined, fingerprint: undefined, pendingQuickEdit: undefined }),
@@ -190,7 +226,10 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
         return
       }
       const baseline = draftFromSidecar(fresh.value.values)
-      set({ drafts: { ...get().drafts, [id]: { draft: baseline, baseline } } })
+      set({
+        drafts: { ...get().drafts, [id]: { draft: baseline, baseline } },
+        ...(get().editingId === id ? { editingId: null } : {}),
+      })
       onRowPatched(id, fresh.value)
     },
     quickEdit: async (id, patch, onRowPatched) => {

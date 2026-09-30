@@ -75,7 +75,7 @@ describe('DemoFileActions (story 156 D2)', () => {
     expect(alert.textContent).toContain("no longer on disk")
   })
 
-  it('an archive-entry demo disables rename and shows the read-only reason', () => {
+  it('an archive-entry demo disables rename and points it at the panel-rendered reason', () => {
     const archiveDemo = {
       ...BASE_DEMO,
       archiveEntry: { archivePath: 'pack.zip', entryPath: 'test.dm2' },
@@ -85,10 +85,7 @@ describe('DemoFileActions (story 156 D2)', () => {
 
     const rename = screen.getByTestId('demo-rename') as HTMLButtonElement
     expect(rename.disabled).toBe(true)
-
-    const notice = screen.getByTestId('replays-archive-readonly-rename')
-    expect(notice.textContent).toContain("can't be renamed")
-    expect(rename.getAttribute('aria-describedby')).toBe(notice.id)
+    expect(rename.getAttribute('aria-describedby')).toBe('replays-archive-readonly-rename')
   })
 
   it('a loose demo leaves rename enabled with no read-only notice', () => {
@@ -96,6 +93,19 @@ describe('DemoFileActions (story 156 D2)', () => {
 
     const rename = screen.getByTestId('demo-rename') as HTMLButtonElement
     expect(rename.disabled).toBe(false)
-    expect(screen.queryByTestId('replays-archive-readonly-rename')).toBeNull()
+    expect(rename.getAttribute('aria-describedby')).toBeNull()
+  })
+
+  it('offers Reveal, Copy path and Rename as labelled icon buttons', () => {
+    render(createElement(DemoFileActions, { demo: BASE_DEMO, onRenamed: vi.fn() }))
+    for (const [id, label] of [
+      ['replays-demo-reveal', 'Reveal'],
+      ['replays-demo-copy-path', 'Copy path'],
+      ['demo-rename', 'Rename'],
+    ]) {
+      const button = screen.getByTestId(id)
+      expect(button.getAttribute('aria-label')).toContain(label)
+      expect(button.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+    }
   })
 })

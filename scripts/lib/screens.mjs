@@ -1341,6 +1341,31 @@ export const SCREENS = [
     },
   },
   {
+    id: 'replays-detail-edit',
+    variant: 'replays-rows',
+    viewports: BOTH_VIEWPORTS,
+    // Story 178 D4: the demo detail in edit mode (`DemoDetailEditor.tsx`) - same path as
+    // `replays-detail`, then Edit; waits for the editor's Save button.
+    navigate: async (page) => {
+      await click(page, 'nav-replays')
+      await page
+        .getByTestId('replays-demo-list')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-demo-row')
+        .filter({ hasText: 'Fixture TDM Match' })
+        .click({ timeout: CLICK_TIMEOUT_MS })
+      await page.getByTestId('replays-detail').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      // The editor store outlives a screen and a viewport, so the demo may already be in edit mode.
+      if ((await page.getByTestId('replays-editor-save').count()) === 0) {
+        await click(page, 'replays-detail-edit')
+      }
+      await page
+        .getByTestId('replays-editor-save')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    },
+  },
+  {
     id: 'replays-timeline',
     variant: 'replays-timeline',
     viewports: BOTH_VIEWPORTS,
@@ -1377,8 +1402,8 @@ export const SCREENS = [
     id: 'replays-editor',
     variant: 'replays-rows',
     viewports: BOTH_VIEWPORTS,
-    // Story 155: the demo notes editor (`DemoNotesEditor.tsx`) inside the detail panel - same path
-    // as `replays-detail`, then an out-of-range rating so the inline field error is on screen too.
+    // Stories 155/178: the demo detail in edit mode (`DemoDetailEditor.tsx`) - same path as
+    // `replays-detail`, then Edit, then an out-of-range rating so the inline field error is on screen too.
     navigate: async (page) => {
       await click(page, 'nav-replays')
       await page
@@ -1389,6 +1414,10 @@ export const SCREENS = [
         .filter({ hasText: 'Fixture TDM Match' })
         .click({ timeout: CLICK_TIMEOUT_MS })
       await page.getByTestId('replays-detail').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      // The editor store outlives a screen and a viewport, so the demo may already be in edit mode.
+      if ((await page.getByTestId('replays-editor-save').count()) === 0) {
+        await click(page, 'replays-detail-edit')
+      }
       await page.getByTestId('replays-editor-rating').fill('11', { timeout: CLICK_TIMEOUT_MS })
       await page
         .getByTestId('replays-editor-error-rating')

@@ -1261,7 +1261,6 @@
       }
     },
     "editor": {
-      "section": "Your notes",
       "field": {
         "name": "Name",
         "description": "Description",
@@ -1274,8 +1273,10 @@
         "tags": "Tags"
       },
       "placeholder": {
+        "name": "Give this demo a name",
         "map": "e.g. q2dm1",
-        "mapFromSource": "{{source}}: {{value}}",
+        "mod": "e.g. baseq2",
+        "gamemode": "e.g. ctf",
         "date": "YYYY-MM-DD HH:MM"
       },
       "error": {
@@ -1387,6 +1388,7 @@
     },
     "detail": {
       "close": "Close",
+      "edit": "Edit",
       "mvd2Note": "Server-side demo with every player. Q2PRO chooses whom the camera follows — switch in game with invnext / invprev or cmd chase <player>.",
       "field": {
         "map": "Map",

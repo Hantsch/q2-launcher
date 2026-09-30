@@ -25,7 +25,7 @@ import { DemoStage } from './components/DemoStage'
 import { DemoTimeline } from './components/DemoTimeline'
 import { usePlaybackStore } from './playback-store'
 import { DemoListFilterBar } from './DemoListFilterBar'
-import { useDemoEditorStore, type RowPatcher } from './demo-editor-store'
+import { findRowReplaceId, useDemoEditorStore, type RowPatcher } from './demo-editor-store'
 import { ReplaceSidecarDialog } from './components/ReplaceSidecarDialog'
 import { rowWithSidecar } from './row-patch'
 import {
@@ -118,6 +118,7 @@ export function ReplaysView() {
   const selectDemo = useDemoEditorStore((state) => state.select)
   const closeDemo = useDemoEditorStore((state) => state.close)
   const drafts = useDemoEditorStore((state) => state.drafts)
+  const editingId = useDemoEditorStore((state) => state.editingId)
   const cancelReplace = useDemoEditorStore((state) => state.cancelReplace)
   const [sort, setSort] = useState<DemoListSort | null>(null)
   const [filter, setFilter] = useState<DemoListFilter>(EMPTY_DEMO_LIST_FILTER)
@@ -296,16 +297,18 @@ export function ReplaysView() {
   }, [sortedDemos, filter])
 
   // A row filtered out from under the current selection is deselected - mirrors `ServersView`'s
-  // own filter-driven deselect.
+  // own filter-driven deselect. Not before the index has loaded: a remount (module switch) starts
+  // with no rows at all, and deselecting then would drop a demo left in edit mode (story 178).
   useEffect(() => {
+    if (demos === null) return
     useDemoEditorStore.getState().deselectIfMissing(visibleDemos.map((demo) => demo.id))
-  }, [visibleDemos])
+  }, [demos, visibleDemos])
 
   // Story 155 D6: a quick edit from the row (favourite/rating) reuses the very same
   // `entry.replace`/`ReplaceSidecarDialog` mechanism the open editor's own Save uses - this only
-  // renders it for a demo whose panel isn't the one already showing it (`DemoNotesEditor` renders
-  // it itself when that demo is selected).
-  const rowReplaceId = Object.keys(drafts).find((id) => id !== selectedId && drafts[id]?.replace !== undefined)
+  // renders it for a demo whose editor isn't the one already showing it (`DemoDetailEditor` renders
+  // it itself while that demo is in edit mode, story 178).
+  const rowReplaceId = findRowReplaceId(drafts, selectedId, editingId)
   const rowReplaceEntry = rowReplaceId !== undefined ? drafts[rowReplaceId] : undefined
 
 

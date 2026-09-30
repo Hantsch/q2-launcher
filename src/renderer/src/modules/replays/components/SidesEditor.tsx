@@ -16,7 +16,7 @@ const MAX_SIDES = 16
 const MAX_PLAYERS = 64
 
 /**
- * Story 155: the sides/teams/players editor mounted inside `DemoNotesEditor.tsx`. Every mutation
+ * Story 155: the sides/teams/players editor mounted inside `DemoDetailEditor.tsx`. Every mutation
  * goes through `sidecar-draft.ts`'s pure ops (never a direct object mutation) - this component only
  * reads `draft.sides` and calls `onChange` with the op's result.
  */
@@ -38,9 +38,9 @@ export function SidesEditor({ draft, knownPlayers, disabled, onChange }: SidesEd
 
   return (
     <div className="space-y-3">
-      <h4 className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+      <h3 className="text-xs font-medium uppercase tracking-wide text-ink-muted">
         {t('replays.editor.sides.section')}
-      </h4>
+      </h3>
 
       <div className="space-y-3">
         {draft.sides.map((side, sideIndex) => {
