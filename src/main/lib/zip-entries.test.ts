@@ -318,7 +318,16 @@ describe('real zip (only when the vendored binary is present)', () => {
 
     execFileSync(
       realBinary.path,
-      ['a', '-tzip', '-y', '-spd', '--', zipPath, ...entryNames.map((n) => n.replace('/', '\\'))],
+      [
+        'a',
+        '-tzip',
+        '-y',
+        '-spd',
+        '--',
+        zipPath,
+        // 7za.exe wants native separators; on Linux a backslash is a literal file name.
+        ...entryNames.map((n) => (process.platform === 'win32' ? n.replace('/', '\\') : n)),
+      ],
       { cwd: src },
     )
   })

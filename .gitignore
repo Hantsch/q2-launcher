@@ -10,7 +10,7 @@ dist/
 
 *.log
 # Test fixtures are real captures, not run output.
-!**/__fixtures__
+!**/__fixtures__/*.log
 npm-debug.log*
 
 .env

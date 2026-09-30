@@ -1380,6 +1380,9 @@ export const SCREENS = [
       await page
         .getByTestId('replays-demo-list')
         .or(page.getByTestId('replays-timeline'))
+        // On the stage the (hidden) list precedes the timeline in the DOM, so a plain `.first()`
+        // would wait on the hidden list and time out.
+        .filter({ visible: true })
         .first()
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
       if (!(await page.getByTestId('replays-timeline').isVisible())) {

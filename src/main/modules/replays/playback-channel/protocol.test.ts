@@ -20,7 +20,7 @@ import {
 } from './protocol'
 
 const FIXTURE = readFileSync(join(__dirname, '__fixtures__', 'q2pro-logfile.log'), 'utf8')
-  .split('\n')
+  .split(/\r?\n/)
   .filter((l) => l.length > 0)
 
 describe('parseEngineLine', () => {
