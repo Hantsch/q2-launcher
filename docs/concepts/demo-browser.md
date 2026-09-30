@@ -112,6 +112,10 @@ better at taking them apart over time, and the user can teach it patterns it doe
   > two should share it rather than one blocking the other.
 - **3D in-launcher viewer** (three.js renderer from the user's own paks, BSP + MD2).
   > Rationale: left open by decision — "3D später offen". Researched effort is 2–3+ months (§9.3).
+- **A browser (WASM) engine as an optional, experimental playback mode.**
+  > Rationale: deferred by decision (2026-09-30) — native Q2PRO works well and is good enough for
+  > the start. Kept as a polish feature for deeper integration and better Linux/Wayland support
+  > (§9.2).
 - **Recording** (autorecord toggles, record buttons).
   > Rationale: decided in the interview — the module is browser + viewer; recording stays with the
   > game, the server and, where it is a cvar, the config profile.
@@ -134,9 +138,6 @@ better at taking them apart over time, and the user can teach it patterns it doe
   > Same finding as the game browser's §14.3.
   > The stage (§12.4) is not embedding: the game stays its own top-level window, the launcher only
   > sets its position, size and topmost flag through console cvars.
-- **A WebAssembly Quake II engine inside the launcher.**
-  > Researched (§9.2): Qwasm2/Yamagi has no seek, mods would have to be compiled to WASM, and it
-  > bundles GPL code into the app. It solves nothing the native Q2PRO does not solve better.
 - **A launcher-owned database as the source of truth for demo metadata.**
   > The filesystem is the master by decision. The app-data cache holds only what can be rebuilt
   > from the files.
@@ -359,10 +360,39 @@ untested.
 - Prior art: Quake2.Demoplay (C#, GPL-3.0) and packetflinger/dm2player drive playback through
   generated cfg binds. [V]
 
-### 9.2 WASM engine — rejected (§2 non-goal)
+### 9.2 WASM engine — deferred, future polish feature (§2)
 
-Qwasm2 (Yamagi, GPLv2) plays protocol-34 demos but has no seek; mods need WASM builds; bundling GPL
-code raises licensing questions.
+Researched 2026-09-30. Originally rejected, now **deferred, not rejected**: the reason that killed
+Yamagi-based ports no longer holds.
+
+- **Qwasm2** ([GMH-Code/Qwasm2](https://github.com/GMH-Code/Qwasm2), Yamagi, GPLv2) plays
+  protocol-34 demos but has no seek, no MVD2, no `.dm2.gz`, and mods need WASM builds. Still ruled
+  out.
+- **Q2PRO as WASM** — branch `feature-rtx` of
+  [MashedD/q2pro](https://github.com/MashedD/q2pro/tree/feature-rtx) (GPLv2, active; last commit
+  seen 2026-09-24) has a real Emscripten target: `build-web.sh`, `cross-web.txt`, the `web` branch of
+  `meson.build` and `src/unix/video/emscripten.c` (WebGL 2 canvas, fullscreen, pointer lock, DPI).
+  The client is Q2PRO's own, so `seek`/`cl_demosnaps` and MVD client playback are in the build [I:
+  read from source, never built or run]. The maintainer offered to compile in the common mods (TDM,
+  CTF, …).
+- **State today:** no published build; `-O0`, `-sASSERTIONS=2`, 512 MB initial heap, Arch-specific
+  paths in the script; `baseq2` is preloaded at build time; no README mention; Vulkan renderer off on
+  web; no live multiplayer (no UDP) — irrelevant for demos.
+- **Possible shape (not decided):** an engine picker next to "Native Q2PRO" — "Browser
+  (experimental)", native stays the default. The canvas replaces the placed stage window
+  ([[170]]/[[171]]), so Wayland needs no workaround and the Windows cfg-polling loop is not needed;
+  the timeline reuses the existing `playback.send` seam through a second channel implementation.
+- **To check first:** a `.dm2` plays client-side (no local server, so no game DLL) and MVD2 uses the
+  engine's built-in dummy game [I] — if true, demo playback needs **no compiled mods**, only the
+  mods' assets. Test an OpenTDM demo in the web build without `gamewasm32.so`.
+- **Real work:** feeding the user's PAKs to the engine (renderer is sandboxed, so main would serve
+  them, e.g. over a custom protocol; 2 GB heap cap), an optimized pinned build, CSP
+  `wasm-unsafe-eval`, and a licence decision on bundling GPL WASM in the app.
+- **Ask the maintainer for:** published pinned optimized builds; a small JS API (console command,
+  cvar read, runtime file mount); confirmation that seek/`.gz`/MVD2 work without a game library;
+  whether the fork tracks upstream Q2PRO.
+- **Staging:** spike → asset mounting → embedded stage → engine picker. Not scheduled; see
+  [ROADMAP](../ROADMAP.md) "Open / unprioritised".
 
 ### 9.3 Custom viewers — staged
 
