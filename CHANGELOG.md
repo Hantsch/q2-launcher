@@ -19,6 +19,7 @@ version section when a release actually ships.
 - **Mods** — Remove a mod the launcher installed — your own demos and configs stay.
 - **Mods** — Update an installed mod when the catalog has a newer version.
 - **Servers** — Server detail shows whether you have its mod and map, and installs a missing mod.
+- **Servers** — Put a search term in quotes to match it exactly.
 
 ## 0.6.0 — 2026-09-30
 

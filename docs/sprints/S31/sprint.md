@@ -26,7 +26,7 @@ browser gains an exact (quoted) search, an Online/LAN switch and saved quick fil
 - [x] 192 — the server detail says whether I have its mod and map
 - [x] 193 — the mod-missing warning offers the install
 - [x] 194 — a newer mod version is offered
-- [ ] 195 — a quoted search matches exactly
+- [x] 195 — a quoted search matches exactly
 - [ ] 196 — I switch the browser between online and LAN
 - [ ] 197 — I save my filter as a quick filter
 

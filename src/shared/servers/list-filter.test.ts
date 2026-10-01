@@ -270,6 +270,73 @@ describe('search matches player names only where a roster was fetched', () => {
   })
 })
 
+describe('a quoted search matches name, address or player name in full', () => {
+  const ffa = row({ name: 'FFA' })
+  const ffaClassic = row({ name: 'FFA Classic' })
+
+  it('"ffa" matches a row named "FFA" but not "FFA Classic"', () => {
+    expect(matchesSearch(ffa, '"ffa"')).toBe(true)
+    expect(matchesSearch(ffaClassic, '"ffa"')).toBe(false)
+  })
+
+  it('matches an address exactly', () => {
+    expect(matchesSearch(rocket, '"10.0.0.1:27910"')).toBe(true)
+    expect(matchesSearch(rocket, '"10.0.0.1"')).toBe(false)
+  })
+
+  it('matches a roster player exactly but not a longer name containing it', () => {
+    expect(matchesSearch(roster, '"alice"')).toBe(true)
+    expect(matchesSearch(roster, '"ali"')).toBe(false)
+    const longer = row({ name: 'Other', players: [{ name: 'Alice Cooper', score: 0, ping: 10 }] })
+    expect(matchesSearch(longer, '"alice"')).toBe(false)
+  })
+
+  it('is case-insensitive', () => {
+    expect(matchesSearch(ffa, '"FfA"')).toBe(true)
+    expect(matchesSearch(roster, '"ALICE"')).toBe(true)
+  })
+})
+
+describe('quotes with surrounding whitespace still count as quoted', () => {
+  it('a quoted term padded with spaces is exact', () => {
+    expect(matchesSearch(row({ name: 'FFA' }), ' "ffa" ')).toBe(true)
+    expect(matchesSearch(row({ name: 'FFA Classic' }), ' "ffa" ')).toBe(false)
+  })
+
+  it('whitespace inside the quotes is part of the term', () => {
+    expect(matchesSearch(row({ name: 'ffa' }), '" ffa"')).toBe(false)
+    expect(matchesSearch(row({ name: ' ffa' }), '" ffa"')).toBe(true)
+  })
+})
+
+describe('a malformed quote is plain substring text', () => {
+  it('an unclosed quote is a substring search', () => {
+    expect(matchesSearch(row({ name: 'The "FFA' }), '"ffa')).toBe(true)
+    expect(matchesSearch(row({ name: 'FFA' }), '"ffa')).toBe(false)
+  })
+
+  it('empty quotes do not match everything', () => {
+    expect(matchesSearch(rocket, '""')).toBe(false)
+  })
+
+  it('a lone quote does not match everything', () => {
+    expect(matchesSearch(rocket, '"')).toBe(false)
+  })
+
+  it('a single-quoted term is plain substring text', () => {
+    expect(matchesSearch(row({ name: "'ffa'" }), "'ffa'")).toBe(true)
+    expect(matchesSearch(row({ name: 'FFA' }), "'ffa'")).toBe(false)
+  })
+})
+
+describe('a quoted search matches player names only where a roster was fetched', () => {
+  it('a numeric count and undefined players never match on a player name', () => {
+    expect(matchesSearch(numericPlayers, '"alice"')).toBe(false)
+    expect(matchesSearch(undefinedPlayers, '"alice"')).toBe(false)
+    expect(matchesSearch(roster, '"alice"')).toBe(true)
+  })
+})
+
 describe('filtering preserves the input order', () => {
   it('the result is a subsequence of the input in the same relative order', () => {
     const shuffled = [

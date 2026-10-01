@@ -51,12 +51,25 @@ export function isFilterActive(f: ServerListFilter): boolean {
  * Whether `row` matches a free-text search term: an empty (or whitespace-only) term always matches.
  * Otherwise matches case-insensitively against the row's name, address, or - only when `players` is
  * the fetched roster array rather than a bare count or unknown - any player's name. Never throws.
+ *
+ * Quoted mode: a trimmed term of at least three characters that starts and ends with a double quote
+ * (`"ffa"`) matches exactly instead - the text between the quotes (case-insensitive, not trimmed)
+ * must equal the whole name, the whole address, or, where a roster was fetched, a whole player
+ * name. Anything else (an unclosed quote, empty quotes, a lone quote, single quotes) is plain text.
  */
 export function matchesSearch(
   row: Pick<ServerListEntry, 'name' | 'address' | 'players'>,
   term: string,
 ): boolean {
-  const t = term.trim().toLowerCase()
+  const raw = term.trim()
+  if (raw.length >= 3 && raw.startsWith('"') && raw.endsWith('"')) {
+    const inner = raw.slice(1, -1).toLowerCase()
+    if (row.name?.toLowerCase() === inner) return true
+    if (row.address.toLowerCase() === inner) return true
+    return Array.isArray(row.players) && row.players.some((p) => p.name.toLowerCase() === inner)
+  }
+
+  const t = raw.toLowerCase()
   if (t === '') return true
 
   if (row.name !== undefined && row.name.toLowerCase().includes(t)) return true

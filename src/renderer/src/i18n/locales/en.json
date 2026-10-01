@@ -999,7 +999,7 @@
       "title": "Filters",
       "quick": "Quick filters",
       "search": "Search",
-      "searchPlaceholder": "Name or player…",
+      "searchPlaceholder": "Name, address or player — \"quotes\" for exact",
       "any": "Any",
       "mod": "Mod",
       "gamemode": "Gamemode",

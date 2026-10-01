@@ -1,7 +1,7 @@
 ---
 id: 195
 title: a quoted search matches exactly
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-01
 ---
 
@@ -17,17 +17,17 @@ Concept: [game-browser.md](../concepts/game-browser.md) §8, GB-L5.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A search term wrapped in double quotes matches a row only when the quoted text
+- [x] **AC1** — A search term wrapped in double quotes matches a row only when the quoted text
       equals the server name, the address, or a player name in full, case-insensitively.
-- [ ] **AC2** — A search term without quotes behaves exactly as before: case-insensitive substring
+- [x] **AC2** — A search term without quotes behaves exactly as before: case-insensitive substring
       on name, address and (where fetched) player names.
-- [ ] **AC3** — Quotes with surrounding whitespace (` "ffa" `) count as quoted; whitespace inside
+- [x] **AC3** — Quotes with surrounding whitespace (` "ffa" `) count as quoted; whitespace inside
       the quotes is part of the term.
-- [ ] **AC4** — A term with an opening quote and no closing one (`"ffa`), or empty quotes (`""`),
+- [x] **AC4** — A term with an opening quote and no closing one (`"ffa`), or empty quotes (`""`),
       is treated as plain substring text, never as an error and never as "match everything".
-- [ ] **AC5** — Player names are matched exactly only where stage 2 has fetched the roster, as
+- [x] **AC5** — Player names are matched exactly only where stage 2 has fetched the roster, as
       for the unquoted search; a server without a fetched roster never matches on a player name.
-- [ ] **AC6** — The search field tells the user that quotes mean "exact" (placeholder or hint, an
+- [x] **AC6** — The search field tells the user that quotes mean "exact" (placeholder or hint, an
       i18n key), so the feature is discoverable without documentation.
 
 ## Open Questions
@@ -117,7 +117,7 @@ code change (`isFilterActive` already treats any non-blank search as active).
   `servers-filter-search`, asserts the visible set, then clears):
   - `ffa` → A, B (substring unchanged); `"ffa"` → A only; ` "ffa" ` → A only;
   - `"zulu"` → A only (exact player); `zulu` → A, B;
-  - `"ffa` → A, B (unclosed = substring); `""` → no rows, the no-match line is visible;
+  - `"ffa` → no rows (unclosed = literal substring `"ffa`); `""` → no rows, the no-match line is visible;
   - placeholder: the input's `placeholder` attribute contains `"quotes"`.
   Run with `npm run ui:flow -- servers-quoted-search`; also re-run
   `npm run ui:flow -- servers-filter-search` to confirm the existing search is untouched.
@@ -141,7 +141,7 @@ Review: → default
 - AC3 → unit `src/shared/servers/list-filter.test.ts` › "quotes with surrounding whitespace still
   count as quoted"; e2e `servers-quoted-search` step ` "ffa" ` → A.
 - AC4 → unit `src/shared/servers/list-filter.test.ts` › "a malformed quote is plain substring
-  text"; e2e `servers-quoted-search` steps `"ffa` → A, B and `""` → no rows.
+  text"; e2e `servers-quoted-search` steps `"ffa` → no rows and `""` → no rows.
 - AC5 → unit `src/shared/servers/list-filter.test.ts` › "a quoted search matches player names
   only where a roster was fetched" (no-roster rows are not producible through the live UDP
   fixture once stage 2 has run, so this stays at unit level).
@@ -151,3 +151,17 @@ Coverage gate: AC1 D1+D2 · AC2 D1 · AC3 D1+D2 · AC4 D1+D2 · AC5 D1 · AC6 D2
 and a test.
 
 ## Done
+
+Quoted search lands in the shared matcher (`list-filter.ts`: `"term"` = case-insensitive full equality on name, address, fetched roster names; everything else unchanged); placeholder carries the hint; new flow `servers-quoted-search`; one changelog line.
+
+Commit message: `195: quoted search matches exactly — matcher quoted mode + unit tests, placeholder hint, flow, changelog`
+
+Verification (narrow gate): `npm run build` green, `npm run typecheck` green, `npx vitest run --changed HEAD` green (112 files / 925 tests), `npm run ui:flow -- servers-quoted-search` green. AC → test as in `## Acceptance Tests`, all ran and passed (AC5 unit only, by design). Review: default stage, PASS, no findings needing a fix. No manual residue.
+Open point: `npm run ui:flow -- servers-filter-search` is red at "AC1: mod=baseq2 shows B and C" (got {B}); also red on bare HEAD per the D2 agent (stash check) — pre-existing, left for the sprint gate.
+
+Decisions:
+- Story text said the flow step `"ffa` shows A, B. AC4 says an unclosed quote is plain substring text, i.e. the literal `"ffa`, which no fixture name contains, so the flow expects no rows; D2 and AC4 test lines corrected accordingly.
+- Test name `' "ffa" ' is exact` was written as "a quoted term padded with spaces is exact" (same assertions).
+- Changelog line follows the repo's `**Servers** —` style under Unreleased.
+
+tiers: D 2 / hard 0 · review default · cycles 1 · agents 5
