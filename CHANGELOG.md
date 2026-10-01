@@ -15,7 +15,7 @@ version section when a release actually ships.
 ### Added
 - **Mods** — Mods view shows every game directory of the selected installation.
 - **Mods** — Action Quake, OpenTDM and CTF appear as catalog tiles.
-- **Mods** — Install Action Quake, OpenTDM and CTF from the Mods view, with the build that fits your engine.
+- **Mods** — Install Action Quake, OpenTDM and CTF, also from a demo's mod warning.
 - **Mods** — Remove a mod the launcher installed — your own demos and configs stay.
 - **Servers** — Server detail shows whether you have its mod and map, and installs a missing mod.
 

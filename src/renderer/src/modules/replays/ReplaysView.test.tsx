@@ -90,6 +90,20 @@ vi.mock('./client', () => ({
   playbackDisplayRead: () => new Promise(() => {}),
 }))
 
+// Story 193 D1: the mods client - the catalog read and the install start; defaults to "no catalog".
+const { getCatalogMock, installModMock } = vi.hoisted(() => ({
+  getCatalogMock: vi.fn(async (): Promise<unknown> => ({ ok: true, value: { status: 'unavailable' } })),
+  installModMock: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({
+    ok: true,
+    value: { jobId: 'job-1' },
+  })),
+}))
+vi.mock('../mods/client', () => ({
+  getCatalog: getCatalogMock,
+  installMod: installModMock,
+  onInstallDecision: () => () => {},
+}))
+
 let ReplaysView: typeof import('./ReplaysView').ReplaysView
 
 beforeAll(async () => {
@@ -730,6 +744,102 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
       act(() => published().run())
       expect(await screen.findByTestId('replays-mod-missing-dialog')).toBeTruthy()
       expect(playDemoMock).not.toHaveBeenCalled()
+    })
+
+    const CATALOG_WITH_OPENTDM = {
+      ok: true,
+      value: {
+        status: 'ok',
+        entries: [{ id: 'opentdm', gamedir: 'opentdm', name: 'OpenTDM' }],
+      },
+    }
+
+    it('a catalog mod is offered for install in the mod-missing dialog', async () => {
+      await selectModMissing()
+      getCatalogMock.mockResolvedValueOnce(CATALOG_WITH_OPENTDM)
+      act(() => published().run())
+      expect((await screen.findByTestId('replays-mod-missing-install')).textContent).toBe('Install OpenTDM')
+      expect(screen.getByTestId('replays-mod-missing-confirm')).toBeTruthy()
+    })
+
+    it('without a catalog entry the dialog offers no install', async () => {
+      await selectModMissing()
+      getCatalogMock.mockResolvedValueOnce({
+        ok: true,
+        value: { status: 'ok', entries: [{ id: 'ctf', gamedir: 'ctf', name: 'CTF' }] },
+      })
+      act(() => published().run())
+      await screen.findByTestId('replays-mod-missing-dialog')
+      expect(screen.queryByTestId('replays-mod-missing-install')).toBeNull()
+    })
+
+    it('a failed catalog read still opens the dialog without install', async () => {
+      await selectModMissing()
+      getCatalogMock.mockRejectedValueOnce(new Error('boom'))
+      act(() => published().run())
+      await screen.findByTestId('replays-mod-missing-dialog')
+      expect(screen.queryByTestId('replays-mod-missing-install')).toBeNull()
+    })
+
+    it('Install starts the install into the active installation and plays nothing', async () => {
+      await selectModMissing()
+      getCatalogMock.mockResolvedValueOnce(CATALOG_WITH_OPENTDM)
+      act(() => published().run())
+      fireEvent.click(await screen.findByTestId('replays-mod-missing-install'))
+      await vi.waitFor(() => expect(installModMock).toHaveBeenCalledWith('inst-1', 'opentdm'))
+      await vi.waitFor(() => expect(screen.queryByTestId('replays-mod-missing-dialog')).toBeNull())
+      expect(playDemoMock).not.toHaveBeenCalled()
+    })
+
+    it("Install with don't ask again ticked does not trust the mod", async () => {
+      await selectModMissing()
+      getCatalogMock.mockResolvedValueOnce(CATALOG_WITH_OPENTDM)
+      act(() => published().run())
+      fireEvent.click(await screen.findByTestId('replays-mod-warning-dont-ask'))
+      fireEvent.click(await screen.findByTestId('replays-mod-missing-install'))
+      await vi.waitFor(() => expect(installModMock).toHaveBeenCalledTimes(1))
+      await vi.waitFor(() => expect(screen.queryByTestId('replays-mod-missing-dialog')).toBeNull())
+      expect(trustModWarningModMock).not.toHaveBeenCalled()
+      expect(playDemoMock).not.toHaveBeenCalled()
+    })
+
+    it('a failed install start keeps the dialog open with the reason', async () => {
+      await selectModMissing()
+      getCatalogMock.mockResolvedValueOnce(CATALOG_WITH_OPENTDM)
+      installModMock.mockResolvedValueOnce({ ok: false, error: { key: 'mods.error.noVariant' } })
+      act(() => published().run())
+      fireEvent.click(await screen.findByTestId('replays-mod-missing-install'))
+      const error = await screen.findByTestId('replays-mod-missing-install-error')
+      expect(error.textContent).toBe('This mod has no build for your engine.')
+      expect(screen.getByTestId('replays-mod-missing-dialog')).toBeTruthy()
+      expect(playDemoMock).not.toHaveBeenCalled()
+    })
+
+    it('a rejected install start keeps the dialog open with the generic failure text', async () => {
+      await selectModMissing()
+      getCatalogMock.mockResolvedValueOnce(CATALOG_WITH_OPENTDM)
+      installModMock.mockRejectedValueOnce(new Error('ipc down'))
+      act(() => published().run())
+      fireEvent.click(await screen.findByTestId('replays-mod-missing-install'))
+      const error = await screen.findByTestId('replays-mod-missing-install-error')
+      expect(error.textContent).toBe('The install could not be started.')
+      expect(screen.getByTestId('replays-mod-missing-dialog')).toBeTruthy()
+      expect(playDemoMock).not.toHaveBeenCalled()
+    })
+
+    it('a second Install click while the start is pending starts only one install', async () => {
+      await selectModMissing()
+      getCatalogMock.mockResolvedValueOnce(CATALOG_WITH_OPENTDM)
+      let release: (value: unknown) => void = () => {}
+      installModMock.mockReturnValueOnce(new Promise((resolve) => (release = resolve)))
+      act(() => published().run())
+      const button = await screen.findByTestId('replays-mod-missing-install')
+      fireEvent.click(button)
+      fireEvent.click(button)
+      expect(installModMock).toHaveBeenCalledTimes(1)
+      await vi.waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(true))
+      await act(async () => release({ ok: true }))
+      await vi.waitFor(() => expect(screen.queryByTestId('replays-mod-missing-dialog')).toBeNull())
     })
 
     it('Play anyway plays with the acknowledgement', async () => {

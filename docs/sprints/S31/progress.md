@@ -86,3 +86,15 @@
 - 2026-10-01 11:54:31 · 192 · review 1 · started
 - 2026-10-01 11:55:22 · 192 · review 1 · done
 - 2026-10-01 11:55:22 · 192 · story · done
+- 2026-10-01 11:55:32 · 193 · build · started
+- 2026-10-01 11:55:51 · 193 · D1 mod-missing dialog offers Install · started
+- 2026-10-01 11:57:08 · 193 · D1 mod-missing dialog offers Install · done
+- 2026-10-01 11:57:08 · 193 · D2 e2e install from demo dialog · started
+- 2026-10-01 12:05:35 · 193 · D2 e2e install from demo dialog · done
+- 2026-10-01 12:05:35 · 193 · verify · started
+- 2026-10-01 12:07:06 · 193 · verify · done
+- 2026-10-01 12:07:06 · 193 · review 1 · started
+- 2026-10-01 12:07:54 · 193 · review 1 · done
+- 2026-10-01 12:07:54 · 193 · review-fix 1 · started
+- 2026-10-01 12:11:43 · 193 · review-fix 1 · done
+- 2026-10-01 12:11:43 · 193 · story · done

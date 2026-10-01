@@ -3257,6 +3257,8 @@ export function writeFixture(variant) {
   if (variant === 'replays-scale') return writeReplaysScaleFixture()
   // Story 159 D3: demo playback in a stand-in Q2PRO - see `writeReplaysPlayFixture()`.
   if (variant === 'replays-play') return writeReplaysPlayFixture()
+  // Story 193 D2: the same install under its own variant for the mod-install offer flow.
+  if (variant === 'replays-mod-install') return writeReplaysModInstallFixture()
   // Story 165 D4: the same install with a long-lived stub engine - see `writeReplaysTimelineFixture()`.
   if (variant === REPLAYS_TIMELINE_VARIANT) return writeReplaysTimelineFixture()
   // Story 152 D3: `replays-sort-order` has no screen (only `scripts/flows/replays-sort-order.mjs`),
@@ -3296,6 +3298,7 @@ export const FIXTURE_VARIANTS = [
   'replays-scale',
   'replays-play',
   'replays-timeline',
+  'replays-mod-install',
   'replays-sort-order',
   // Story 151 D4: `replays-list-loading`/`replays-list-error`'s own screens (`screens.mjs`) reseed
   // them.
@@ -4381,6 +4384,7 @@ export async function startBootstrapFixtureServer({
   failPrimaryOnlyFor,
   bleedingEdgeVersion,
   modsInstall = false,
+  modsReplays,
 } = {}) {
   const packages = buildBootstrapPackages({ demoContributesNothing, wrapperNestedLayout, includeR1q2 })
 
@@ -4554,6 +4558,19 @@ export async function startBootstrapFixtureServer({
       routes.set(`/mirror/${pkg.fileName}`, archiveRoute(pkg.path, pkg.corrupt, 150))
     }
   }
+  if (modsReplays) {
+    // Story 193 D2: a catalog for the Demos tab's "mod missing" install offer - see
+    // `modsReplaysManifestEntries()`. `withOpentdm` false leaves the `opentdm` entry out.
+    const pkg = buildModsReplaysPackage()
+    routes.set(
+      '/mods/manifest.json',
+      jsonRoute({
+        schemaVersion: 1,
+        entries: modsReplaysManifestEntries(pkg, baseUrl, modsReplays.withOpentdm),
+      }),
+    )
+    routes.set(`/mirror/${pkg.fileName}`, archiveRoute(pkg.path, false, 150))
+  }
   if (bleedingEdgeVersion !== undefined) {
     routes.set('/packages/version.txt', (response) => {
       const bytes = Buffer.from(`${bleedingEdgeVersion}\n`, 'utf8')
@@ -4684,6 +4701,67 @@ export function writeModsInstallFixture({ variant = 'populated', stateOverrides 
   writeJson(statePath, state)
   return { userDataDir }
 }
+
+// --- story 193 D2: the replays mod-install fixture ----------------------------------------------
+
+/** One hash-correct zip whose single `pak0.pak` lands in the mod's game dir (`contents: . -> gamedir`);
+ * the pak makes the inspector's `isGameDir` hold, so `opentdm` is listed once installed. */
+function buildModsReplaysPackage() {
+  return buildFixturePackage({
+    fileName: 'opentdm-replays-fixture.zip',
+    stagingName: 'opentdm-replays-fixture',
+    entries: ['pak0.pak'],
+    build: (staging) => writeFileIn(staging, 'pak0.pak', filler(4 * 1024, 0x6f)),
+  })
+}
+
+/** `action` is always listed; `opentdm` only with `withOpentdm`. Each entry carries a library variant
+ * for this host (both arches, so the stub engine's header decides nothing) plus a content-only set. */
+function modsReplaysManifestEntries(info, baseUrl, withOpentdm) {
+  const platform = process.platform === 'win32' ? 'win32' : 'linux'
+  const pkg = (id) => ({
+    id,
+    version: 'v1.0.0',
+    url: `${baseUrl}/modpkg/${info.fileName}`,
+    mirrors: [`${baseUrl}/mirror/${info.fileName}`],
+    sizeBytes: info.sizeBytes,
+    sha256: info.sha256,
+    contents: [{ from: '.', to: 'gamedir' }],
+  })
+  const entry = (gamedir, name) => ({
+    id: gamedir,
+    gamedir,
+    name,
+    description: `Fixture description: ${name}.`,
+    license: 'GPL-2.0',
+    projectUrl: `https://example.invalid/${gamedir}`,
+    sourceUrl: `https://example.invalid/${gamedir}/src`,
+    pinned: 'v1.0.0',
+    versions: [
+      {
+        version: 'v1.0.0',
+        prerelease: false,
+        variants: ['x86', 'x64'].map((arch) => ({ platform, arch, packages: [pkg(`${gamedir}-${platform}-${arch}`)] })),
+        contentOnly: { packages: [pkg(`${gamedir}-content`)] },
+      },
+    ],
+  })
+  return [entry('action', 'Action Quake II'), ...(withOpentdm ? [entry('opentdm', 'OpenTDM')] : [])]
+}
+
+/**
+ * The `replays-play` install (stub q2pro, demo `play-tdm.dm2` needing the missing `opentdm`) for the
+ * install-offer flow. The catalog is served separately - start `startBootstrapFixtureServer({
+ * modsReplays: { withOpentdm: true } })` and hand its `baseUrl` over as `Q2L_UI_CONTENT_REPO_BASE`.
+ */
+export function writeReplaysModInstallFixture() {
+  const result = writeReplaysPlayFixture(REPLAYS_MOD_INSTALL_VARIANT)
+  // The play fixture pre-creates an empty `opentdm` dir for "play anyway"; here the mod is truly absent,
+  // else the install would stop at 190's "folder already exists" decision.
+  rmDirBestEffort(join(result.installRoot, REPLAYS_PLAY_MISSING_MOD))
+  return result
+}
+export const REPLAYS_MOD_INSTALL_VARIANT = 'replays-mod-install'
 
 // --- story 191 D3: the mods-remove fixture ------------------------------------------------------
 

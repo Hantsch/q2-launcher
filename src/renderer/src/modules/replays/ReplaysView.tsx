@@ -18,7 +18,13 @@ import {
 import { Button } from '../../components/ui/Button'
 import { cn } from '../../lib/cn'
 import { usePrimaryActionContribution, type ContributedAction } from '../../lib/primary-action'
-import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
+import { findCatalogEntryByGameDir } from '@shared/mods/server-local-content'
+import { ROUTE_SETTINGS, useActiveInstallation, useLauncher } from '../../store/useLauncher'
+import {
+  InstallDecisionDialog,
+  type InstallDecisionRequest,
+} from '../mods/components/InstallDecisionDialog'
+import { getCatalog, installMod, onInstallDecision } from '../mods/client'
 import { VirtualDemoList } from './components/VirtualDemoList'
 import { DemoDetailPanel } from './components/DemoDetailPanel'
 import { ConsoleCommandField } from './components/ConsoleCommandField'
@@ -291,6 +297,38 @@ export function ReplaysView() {
   const modGameDir =
     eligibility !== null && !eligibility.ok ? String(eligibility.reason.params?.gameDir ?? '') : ''
   const [confirmingModMissing, setConfirmingModMissing] = useState(false)
+  // Story 193 D1: the catalog entry offered for install in the mod-missing dialog, if any.
+  const [modOffer, setModOffer] = useState<{ id: string; name: string } | null>(null)
+  const [installError, setInstallError] = useState<string | null>(null)
+  const activeInstallation = useActiveInstallation()
+  const activeInstallationId = activeInstallation?.id ?? null
+  const [decision, setDecision] = useState<InstallDecisionRequest | null>(null)
+  const [answeredDecisions, setAnsweredDecisions] = useState<string[]>([])
+  useEffect(
+    () =>
+      onInstallDecision((event) => {
+        if (event.installationId === activeInstallationId) setDecision(event)
+      }),
+    [activeInstallationId],
+  )
+  const [installPending, setInstallPending] = useState(false)
+  const installPendingRef = useRef(false)
+  const handleInstall = (): void => {
+    if (installPendingRef.current || activeInstallationId === null || modOffer === null) return
+    installPendingRef.current = true
+    setInstallPending(true)
+    setInstallError(null)
+    installMod(activeInstallationId, modOffer.id)
+      .then((outcome) => {
+        if (outcome.ok) setConfirmingModMissing(false)
+        else setInstallError(t(outcome.error.key, outcome.error.params))
+      })
+      .catch(() => setInstallError(t('replays.play.modMissingConfirm.installFailed')))
+      .finally(() => {
+        installPendingRef.current = false
+        setInstallPending(false)
+      })
+  }
   const playRef = useRef({ play, askFirst, modGameDir })
   useLayoutEffect(() => {
     playRef.current = { play, askFirst, modGameDir }
@@ -306,7 +344,23 @@ export function ReplaysView() {
       if (result.ok && (!result.value.enabled || result.value.trustedMods.includes(latest.modGameDir.toLowerCase()))) {
         void latest.play(true)
       } else {
-        setConfirmingModMissing(true)
+        // Only here is the dialog opening: read the catalog fresh for an install offer. A failed,
+        // rejected or empty read means no offer - it never blocks the dialog.
+        void getCatalog()
+          .then((catalog) =>
+            catalog.ok && catalog.value.status === 'ok'
+              ? findCatalogEntryByGameDir(
+                  catalog.value.entries.map((e) => ({ id: e.id, gameDir: e.gamedir, name: e.name })),
+                  latest.modGameDir,
+                )
+              : null,
+          )
+          .catch(() => null)
+          .then((entry) => {
+            setInstallError(null)
+            setModOffer(entry === null ? null : { id: entry.id, name: entry.name })
+            setConfirmingModMissing(true)
+          })
       }
     })
   }, [])
@@ -466,6 +520,11 @@ export function ReplaysView() {
       {confirmingModMissing && askFirst && eligibility !== null && !eligibility.ok && (
         <ModMissingConfirmDialog
           gameDir={modGameDir}
+          {...(modOffer !== null && activeInstallationId !== null
+            ? { installOffer: { name: modOffer.name }, onInstall: handleInstall }
+            : {})}
+          installPending={installPending}
+          {...(installError !== null ? { installError } : {})}
           onCancel={() => setConfirmingModMissing(false)}
           onConfirm={(dontAskAgain) => {
             setConfirmingModMissing(false)
@@ -474,6 +533,16 @@ export function ReplaysView() {
               return
             }
             void trustModWarningMod(modGameDir).finally(() => void play(true))
+          }}
+        />
+      )}
+
+      {decision && !answeredDecisions.includes(decision.jobId) && (
+        <InstallDecisionDialog
+          request={decision}
+          onAnswered={(jobId) => {
+            setAnsweredDecisions((prev) => [...prev, jobId])
+            setDecision(null)
           }}
         />
       )}

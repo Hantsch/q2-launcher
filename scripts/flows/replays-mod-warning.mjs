@@ -13,6 +13,7 @@ import {
   REPLAYS_PLAY_MISSING_MOD,
   REPLAYS_PLAY_MISSING_MOD_DEMO,
   vendoredExtractorExists,
+  startBootstrapFixtureServer,
   writeReplaysPlayFixture,
 } from '../lib/fixture.mjs'
 
@@ -21,10 +22,20 @@ export const variant = 'replays-play'
 const TIMEOUT_MS = 8_000
 const LAUNCH_TIMEOUT_MS = 15_000
 
-/** Flows never reseed their fixture, so this one writes its own (like `replays-play-q2pro.mjs`). */
+let server = null
+
+/** Flows never reseed their fixture, so this one writes its own (like `replays-play-q2pro.mjs`). The
+ * catalog has an entry (`action`) but no `opentdm`, so the dialog must offer no install (story 193 AC2). */
 export async function setup() {
   writeReplaysPlayFixture()
-  return {}
+  if (process.platform === 'win32' && !vendoredExtractorExists()) return {}
+  server = await startBootstrapFixtureServer({ modsReplays: { withOpentdm: false } })
+  return { env: { Q2L_UI_CONTENT_REPO_BASE: server.baseUrl } }
+}
+
+export async function teardown() {
+  await server?.close()
+  server = null
 }
 
 async function waitForScan(page) {
@@ -118,6 +129,15 @@ export default async function replaysModWarning({ page, step, shot }) {
   await page.getByTestId('replays-mod-missing-confirm').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('replays-mod-missing-cancel').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('mod-warning-dialog')
+
+  step('without a catalog entry the dialog offers no install')
+  // Prove the catalog was actually served (not unreachable) before trusting the absent button.
+  if (!server?.requested.includes('/mods/manifest.json')) {
+    throw new Error('replays-mod-warning: the mod catalog manifest was never requested from the fixture server')
+  }
+  if ((await page.getByTestId('replays-mod-missing-install').count()) !== 0) {
+    throw new Error('replays-mod-warning: no install offer expected while the catalog has no opentdm entry')
+  }
 
   step("cancel with don't ask again remembers nothing")
   await page.getByTestId('replays-mod-warning-dont-ask').click({ timeout: TIMEOUT_MS })

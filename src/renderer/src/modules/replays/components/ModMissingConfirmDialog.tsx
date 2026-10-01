@@ -11,10 +11,20 @@ import { Modal } from '../../../components/ui/Modal'
  */
 export function ModMissingConfirmDialog({
   gameDir,
+  installOffer,
+  onInstall,
+  installError,
+  installPending = false,
   onCancel,
   onConfirm,
 }: {
   gameDir: string
+  /** Story 193 D1: the mods catalog has this mod - offers installing it instead of playing. */
+  installOffer?: { name: string }
+  onInstall?: () => void
+  installError?: string
+  /** The install start request is in flight - the Install button is disabled meanwhile. */
+  installPending?: boolean
   onCancel: () => void
   onConfirm: (dontAskAgain: boolean) => void
 }) {
@@ -32,6 +42,16 @@ export function ModMissingConfirmDialog({
           <Button variant="ghost" onClick={onCancel} data-testid="replays-mod-missing-cancel">
             {t('common.cancel')}
           </Button>
+          {installOffer && onInstall && (
+            <Button
+              variant="primary"
+              onClick={onInstall}
+              disabled={installPending}
+              data-testid="replays-mod-missing-install"
+            >
+              {t('replays.play.modMissingConfirm.install', { name: installOffer.name })}
+            </Button>
+          )}
           <Button variant="primary" onClick={() => onConfirm(dontAsk)} data-testid="replays-mod-missing-confirm">
             {t('replays.play.modMissingConfirm.confirm')}
           </Button>
@@ -42,6 +62,11 @@ export function ModMissingConfirmDialog({
         <p className="text-sm leading-relaxed text-ink-dim" data-testid="replays-mod-missing-dialog">
           {t('replays.play.modWarning.body', { gameDir })}
         </p>
+        {installError && (
+          <p role="alert" className="text-sm text-danger" data-testid="replays-mod-missing-install-error">
+            {installError}
+          </p>
+        )}
         <Checkbox
           checked={dontAsk}
           onChange={setDontAsk}

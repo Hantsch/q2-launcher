@@ -1267,7 +1267,9 @@
     "play": {
       "modMissingConfirm": {
         "title": "Mod not fully installed",
-        "confirm": "Play anyway"
+        "confirm": "Play anyway",
+        "install": "Install {{name}}",
+        "installFailed": "The install could not be started."
       },
       "modWarning": {
         "body": "The mod `{{gameDir}}` is not fully installed in this installation, so the demo may not play correctly. Play it anyway?",
