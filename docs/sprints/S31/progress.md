@@ -159,3 +159,5 @@
 - 2026-10-01 13:26:40 · 197 · story · done
 - 2026-10-01 13:26:44 · gate · short suites (build, test, e2e) · started
 - 2026-10-01 13:29:56 · gate · short suites · done (test red: layering.test.ts → 192; fixing before long suite)
+- 2026-10-01 13:31:10 · gate · e2e-all · started
+- 2026-10-01 14:20:26 · gate · e2e-all · done (132/136, 4 failed, 49 min) · attribution started

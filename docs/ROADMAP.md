@@ -2,12 +2,11 @@
 
 ## Where we stand
 
-*As of 2026-09-30.* Phases 1–4 and 7–9 are done; Phase 10 (demo browser) has milestones 10.1–10.10
-done (S26–S30). S30 finished: lean demo detail, edit in place, one-click favourite/rating, an action bar
-button for the open tab, a mod warning asked once, and a timeline that answers at once. Waiting on the
-user: merging `sprint/S30`, and the manual residue in the [S28](sprints/done/S28/testplan.md),
-[S29](sprints/done/S29/testplan.md) and [S30](sprints/S30/testplan.md) testplans. Next: Phase 5 (mods),
-[S31](sprints/S31/sprint.md) planned — the user starts it with `/sprint S31`.
+*As of 2026-10-01.* Phases 1–4 and 7–9 are done; Phase 10 (demo browser) has milestones 10.1–10.10 done (S26–S30).
+S31 finished milestone 5.1: the Mods view, catalog, install, remove and update, the mod/map answer in the
+server detail and demo warning, plus exact search, Online/LAN and quick filters. Waiting on the user: merging
+`sprint/S30` and `sprint/S31`, and the manual residue in the S28–S30 testplans. Next: milestone 5.2 and the
+four pre-existing red flows (see Follow-ups).
 
 ## Phase overview
 
@@ -17,7 +16,7 @@ user: merging `sprint/S30`, and the manual residue in the [S28](sprints/done/S28
 | 2 — Config module (r1q2 settings & cvars, full lifecycle) | 5/5 | done |
 | 3 — Home screen (news hero + dashboard) | 2/2 | done |
 | 4 — Install (download/update/repair) | 1/1 | done |
-| 5 — Mods (game directories) | 0/2 | planned |
+| 5 — Mods (game directories) | 1/2 | in progress |
 | 6 — Assets (texture/model/sound packs) | 0/1 | not started |
 | 7 — Release & updates (beta rollout) | 1/1 | done |
 | 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
@@ -47,12 +46,14 @@ Phase 10 — demo browser, concept [demo-browser.md](concepts/demo-browser.md).
 | --- | --- | --- |
 | Story [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) — a self-built Linux Q2PRO | Draft; standing obligation cut from 101, blocks nothing | Decide build/provenance approach (its Q1–Q4) when prioritized |
 | Demos in a browser (WASM) engine — optional "Browser (experimental)" playback next to native Q2PRO, for an embedded canvas and Linux/Wayland without window placement | Deferred 2026-09-30 (polish, future): native Q2PRO works well for the start. Research in [demo-browser §9.2](concepts/demo-browser.md); depends on the q2pro `feature-rtx` WASM build (maintainer open to compiling common mods, which demo playback may not even need) | Spike when prioritized: run the web build in Electron with a vanilla and an OpenTDM demo (seek, speed, no game lib); `/roadmap plan` afterwards |
-| Mods — game directories, concept [mods.md](concepts/mods.md) | Concept drafted 2026-10-01, 9 open points (now story questions); 5.1 (catalog, install, remove, GB-D5, updates; stories 188–194) planned as [S31](sprints/S31/sprint.md) together with server-browser stories 195–197; X11 stage story 198 not scheduled | `/sprint S31` |
+| Mods — game directories, concept [mods.md](concepts/mods.md) | Milestone 5.1 (catalog, install, remove, updates, stories 188–194) done 2026-10-01 with server-browser stories 195–197 — [S31](sprints/S31/review.md); X11 stage story 198 not scheduled | 5.2 `/roadmap plan` |
 | Assets — texture/model/sound packs | Not started; needs conflict detection between packs touching the same files, plus a per-pack change record (`Installation.moduleData` is the slot) | `/roadmap plan` when prioritized |
 | Two config decisions left open across the file-format rounds: the `alias cali "bind ..."` key-block-as-layer question (story 041), and bind grouping by keyboard region vs. category (story 040, decided category for now) | Never blocked anything; only relevant if a future story touches this area | Decide when a config story next needs it |
 
 ## Follow-ups worth doing
 
+- Four flows are still red and pre-existing after S31 (`replays-extra-folders`, `servers-filter-search`, `servers-master-sources` — stale, expects three default sources, `servers-sort-order` — selector also matches the copy buttons) — one dedicated sweep. [S31 review](sprints/S31/review.md)
+- OpenTDM on 64-bit Q2PRO is refused (`mods.error.noVariant`, empty `contentOnly.packages`) — give it a content-only variant or a 64-bit build. [S31 review](sprints/S31/review.md)
 - Four flows stay red and pre-existing after S30 (`replays-extra-folders` — unstable, `servers-filter-search`, `servers-master-sources`, `servers-sort-order`) — fix them in one dedicated sweep. [S30 review](sprints/S30/review.md)
 - Play anyway on a mod whose game dir does not exist on disk fails in main (ENOENT writing `q2l_back.cfg`) and is not shown to the user as a play error. [S30 review](sprints/S30/review.md)
 - Measure the Linux channel's control latency / stdout buffering on a real Linux Q2PRO; no Linux lever was applied in 185. [S30 review](sprints/S30/review.md)
