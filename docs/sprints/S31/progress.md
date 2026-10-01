@@ -157,3 +157,5 @@
 - 2026-10-01 13:25:32 · 197 · review 1 · started
 - 2026-10-01 13:26:32 · 197 · review 1 · done
 - 2026-10-01 13:26:40 · 197 · story · done
+- 2026-10-01 13:26:44 · gate · short suites (build, test, e2e) · started
+- 2026-10-01 13:29:56 · gate · short suites · done (test red: layering.test.ts → 192; fixing before long suite)

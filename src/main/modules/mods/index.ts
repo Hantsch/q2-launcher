@@ -17,7 +17,6 @@ import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harn
 import type { MainModule } from '../types'
 import { readModsState, recordedGameDirs } from './install-records'
 import { resolveDownloadSource } from '../downloads/harness'
-import { resolveExtractorPath } from '../downloads/7za-path'
 import { ManifestService } from '../downloads/manifest-service'
 import { resolveVendoredExtractor, stagePackage } from '../downloads/stage-package'
 import { toCatalogEntryDto } from './catalog-parse'
@@ -295,10 +294,7 @@ export const modsModule: MainModule = {
       async (input): Promise<Outcome<ModMapPresence>> => {
         const installation = app.installations.find(input.installationId)
         if (!installation) return fail('mods.error.installationNotFound')
-        const extractor = resolveExtractorPath({
-          isPackaged: electronApp.isPackaged,
-          resourcesPath: process.resourcesPath,
-        })
+        const extractor = resolveVendoredExtractor()
         // The root comes from the installation record; only the two safe names come from the payload.
         const presence = await mapPresence(
           { rootPath: installation.rootPath, gameDir: input.gameDir, map: input.map },

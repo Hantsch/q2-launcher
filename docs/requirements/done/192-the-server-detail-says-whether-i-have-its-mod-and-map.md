@@ -243,3 +243,5 @@ Decisions:
 Names story 193 must reuse: `findCatalogEntryByGameDir` / `serverModStatus` / `mapLookupTarget` / `isSafeGameName` (`src/shared/mods/server-local-content.ts`), `isSafeGameDirName` (`src/shared/mods/gamedir.ts`), renderer `getMapPresence` (`modules/mods/client.ts`), `ServerLocalContentSection` testids `servers-detail-local-content`, `servers-detail-mod-status`, `servers-detail-map-status`, `servers-detail-mod-install`.
 
 tiers: D 4 / hard 1 · review default · cycles 0 · agents 8
+
+- Gate fix: regression from the sprint gate — `layering.test.ts` red because mods/index.ts imported the 7za path; now reuses downloads/stage-package `resolveVendoredExtractor`.
