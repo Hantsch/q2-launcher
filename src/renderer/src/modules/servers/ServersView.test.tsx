@@ -40,6 +40,7 @@ const {
   getListSortMock,
   setListSortMock,
   readServerDetailMock,
+  setModeMock,
 } = vi.hoisted(() => ({
   readScanMock: vi.fn(),
   startScanMock: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
@@ -48,7 +49,11 @@ const {
   onScanServerMock: vi.fn(),
   listMasterSourcesMock: vi.fn(async () => ({ ok: true as const, value: [] as MasterSource[] })),
   getListSortMock: vi.fn(async () => ({ ok: true as const, value: null as ServerListSort | null })),
-  setListSortMock: vi.fn(async (sort: ServerListSort | null) => ({ ok: true as const, value: sort })),
+  setListSortMock: vi.fn(async (sort: ServerListSort | null) => ({
+    ok: true as const,
+    value: sort,
+  })),
+  setModeMock: vi.fn(async () => ({ ok: true as const, value: undefined })),
   readServerDetailMock: vi.fn(async () => ({
     ok: true as const,
     value: null as ServerDetail | null,
@@ -65,6 +70,7 @@ vi.mock('./client', () => ({
   getListSort: getListSortMock,
   setListSort: setListSortMock,
   readServerDetail: readServerDetailMock,
+  setMode: setModeMock,
 }))
 
 let ServersView: typeof import('./ServersView').ServersView
@@ -106,6 +112,7 @@ const BASE_STATE: ServersScanState = {
   finishedAt: null,
   blockedReason: null,
   scope: null,
+  mode: 'online',
 }
 
 function snapshot(overrides: {
@@ -117,6 +124,8 @@ function snapshot(overrides: {
     // `favourite` is not this test file's concern - always `false` here so the fixture entries
     // (still written as plain `ServerListEntry`s) satisfy `ScanSnapshot.entries`'s `ServerListRow[]`.
     entries: (overrides.entries ?? []).map((entry) => ({ ...entry, favourite: false })),
+    mode: 'online',
+    lan: { lastFinishedAt: null, failureKey: null },
   }
 }
 
@@ -260,18 +269,18 @@ describe('ServersView - scoped refresh controls (story 117 D5)', () => {
     expect(busy.textContent).toBe('A scan is already running.')
 
     expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
-    expect(
-      (screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled,
-    ).toBe(true)
+    expect((screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled).toBe(
+      true,
+    )
   })
 
   it('disables the toolbar refresh controls while blocked by the game running', async () => {
     await renderView(snapshot({ state: { blockedReason: 'game-running' } }))
 
     expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)
-    expect(
-      (screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled,
-    ).toBe(true)
+    expect((screen.getByTestId('servers-refresh-favourites') as HTMLButtonElement).disabled).toBe(
+      true,
+    )
     // Blocked is the more specific/urgent reason - the busy banner does not also render.
     expect(screen.queryByTestId('servers-scan-busy')).toBeNull()
   })
@@ -343,9 +352,7 @@ describe('ServersView - list sort (story 119 D3)', () => {
     expect(setListSortMock).toHaveBeenCalledWith({ column: 'name', direction: 'asc' })
     const button = screen.getByTestId('servers-sort-name')
     expect(button.getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByTestId('servers-sort-current').textContent).toBe(
-      'Sorted by Name, ascending',
-    )
+    expect(screen.getByTestId('servers-sort-current').textContent).toBe('Sorted by Name, ascending')
   })
 
   it('restores the persisted sort on mount', async () => {
@@ -358,9 +365,7 @@ describe('ServersView - list sort (story 119 D3)', () => {
 
     const button = await screen.findByTestId('servers-sort-map')
     expect(button.getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByTestId('servers-sort-current').textContent).toBe(
-      'Sorted by Map, descending',
-    )
+    expect(screen.getByTestId('servers-sort-current').textContent).toBe('Sorted by Map, descending')
   })
 })
 
@@ -369,8 +374,22 @@ describe('ServersView - list filter (story 120 D2)', () => {
     await renderView(
       snapshot({
         entries: [
-          { address: 'a:1', name: 'Alpha', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'ctf' },
-          { address: 'b:1', name: 'Bravo', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'baseq2' },
+          {
+            address: 'a:1',
+            name: 'Alpha',
+            origins: ['manual'],
+            status: 'online',
+            lastSeenAt: 'x',
+            mod: 'ctf',
+          },
+          {
+            address: 'b:1',
+            name: 'Bravo',
+            origins: ['manual'],
+            status: 'online',
+            lastSeenAt: 'x',
+            mod: 'baseq2',
+          },
         ],
       }),
     )
@@ -391,8 +410,22 @@ describe('ServersView - list filter (story 120 D2)', () => {
     await renderView(
       snapshot({
         entries: [
-          { address: 'a:1', name: 'Alpha', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'ctf' },
-          { address: 'b:1', name: 'Bravo', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'baseq2' },
+          {
+            address: 'a:1',
+            name: 'Alpha',
+            origins: ['manual'],
+            status: 'online',
+            lastSeenAt: 'x',
+            mod: 'ctf',
+          },
+          {
+            address: 'b:1',
+            name: 'Bravo',
+            origins: ['manual'],
+            status: 'online',
+            lastSeenAt: 'x',
+            mod: 'baseq2',
+          },
         ],
       }),
     )
@@ -413,12 +446,21 @@ describe('ServersView - list filter (story 120 D2)', () => {
     await renderView(
       snapshot({
         entries: [
-          { address: 'a:1', name: 'Alpha', origins: ['manual'], status: 'online', lastSeenAt: 'x', mod: 'ctf' },
+          {
+            address: 'a:1',
+            name: 'Alpha',
+            origins: ['manual'],
+            status: 'online',
+            lastSeenAt: 'x',
+            mod: 'ctf',
+          },
         ],
       }),
     )
 
-    fireEvent.change(screen.getByTestId('servers-filter-search'), { target: { value: 'nope-nothing-matches' } })
+    fireEvent.change(screen.getByTestId('servers-filter-search'), {
+      target: { value: 'nope-nothing-matches' },
+    })
 
     const noMatch = await screen.findByTestId('servers-filter-no-match')
     expect(noMatch.textContent).toContain('No servers match your filters.')
@@ -427,7 +469,7 @@ describe('ServersView - list filter (story 120 D2)', () => {
 })
 
 describe('ServersView - detail pane (story 122 D3)', () => {
-  it("selecting a row opens its detail and the close button closes it", async () => {
+  it('selecting a row opens its detail and the close button closes it', async () => {
     readServerDetailMock.mockResolvedValue({
       ok: true,
       value: {
@@ -465,14 +507,18 @@ describe('ServersView - list status panel (story 121 D1)', () => {
   it('a source failure is shown beside the rows from the other sources', async () => {
     listMasterSourcesMock.mockResolvedValueOnce({
       ok: true,
-      value: [{ id: 'bad-source', type: 'udp-master', address: 'dead.example.com:27900', enabled: true }],
+      value: [
+        { id: 'bad-source', type: 'udp-master', address: 'dead.example.com:27900', enabled: true },
+      ],
     })
 
     await renderView(
       snapshot({
         state: {
           finishedAt: 'x',
-          sourceFailures: [{ sourceId: 'bad-source', reasonKey: 'servers.scan.error.already-running' }],
+          sourceFailures: [
+            { sourceId: 'bad-source', reasonKey: 'servers.scan.error.already-running' },
+          ],
         },
         entries: [
           { address: 'a:1', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
@@ -522,5 +568,58 @@ describe('ServersView - list status panel (story 121 D1)', () => {
     // implementation that calls readScan() on each push but never calls setEntries(...) would
     // still pass the assertions above.
     await screen.findByTestId('servers-row-pushed:1')
+  })
+})
+
+describe('ServersView - Online/LAN toggle (story 196 D4)', () => {
+  it('the mode toggle opens on Online', async () => {
+    await renderView(snapshot({}))
+    expect(screen.getByTestId('servers-mode-online').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('servers-mode-lan').getAttribute('aria-pressed')).toBe('false')
+    expect(screen.getByTestId('servers-refresh-favourites').hasAttribute('disabled')).toBe(false)
+  })
+
+  it('resets main to Online before announcing the view active', async () => {
+    setModeMock.mockClear()
+    setScanViewActiveMock.mockClear()
+    const lanSnapshot = snapshot({})
+    lanSnapshot.mode = 'lan'
+    await renderView(lanSnapshot)
+    expect(setModeMock).toHaveBeenCalledWith('online')
+    expect(setScanViewActiveMock).toHaveBeenCalledWith(true)
+    expect(setModeMock.mock.invocationCallOrder[0]).toBeLessThan(
+      setScanViewActiveMock.mock.invocationCallOrder[0],
+    )
+    expect(screen.getByTestId('servers-mode-online').getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('switching to LAN tells main, clears the selection and disables favourites with a visible reason', async () => {
+    await renderView(snapshot({ entries: [SELECTED_ENTRY] }))
+    fireEvent.click(screen.getByTestId('servers-mode-lan'))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(setModeMock).toHaveBeenCalledWith('lan')
+    expect(screen.getByTestId('servers-mode-lan').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('servers-refresh-favourites').hasAttribute('disabled')).toBe(true)
+    expect(screen.getByTestId('servers-lan-favourites-reason').textContent).toContain(
+      'Not available on the LAN',
+    )
+  })
+
+  it('shows a LAN discovery failure as text and keeps the LAN button enabled', async () => {
+    const withFailure = snapshot({})
+    withFailure.lan = { lastFinishedAt: 'x', failureKey: 'servers.lan.error.noInterface' }
+    await renderView(withFailure)
+    fireEvent.click(screen.getByTestId('servers-mode-lan'))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(screen.getByTestId('servers-lan-failure').textContent).toContain(
+      'No local network connection found.',
+    )
+    expect(screen.getByTestId('servers-mode-lan').hasAttribute('disabled')).toBe(false)
   })
 })

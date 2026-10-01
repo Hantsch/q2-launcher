@@ -124,3 +124,22 @@
 - 2026-10-01 12:44:36 · 195 · review 1 · started
 - 2026-10-01 12:45:01 · 195 · review 1 · done
 - 2026-10-01 12:45:11 · 195 · story · done
+- 2026-10-01 12:45:20 · 196 · build · started
+- 2026-10-01 12:45:38 · 196 · D1 LAN discovery core · started
+- 2026-10-01 12:48:11 · 196 · D1 LAN discovery core · done
+- 2026-10-01 12:48:11 · 196 · D2 contract + two-list scan service · started
+- 2026-10-01 12:56:42 · 196 · D2 contract + two-list scan service · done
+- 2026-10-01 12:56:42 · 196 · D3 IPC + cadence wiring · started
+- 2026-10-01 12:58:08 · 196 · D3 IPC + cadence wiring · done
+- 2026-10-01 12:58:08 · 196 · D4 renderer toggle and LAN states · started
+- 2026-10-01 12:59:44 · 196 · D4 renderer toggle and LAN states · done
+- 2026-10-01 12:59:44 · 196 · D5 e2e flows · started
+- 2026-10-01 13:04:56 · 196 · D5 e2e flows · done
+- 2026-10-01 13:04:56 · 196 · verify · started
+- 2026-10-01 13:07:14 · 196 · verify · done
+- 2026-10-01 13:07:14 · 196 · review 1 · started
+- 2026-10-01 13:08:38 · 196 · review 1 · done
+- 2026-10-01 13:08:38 · 196 · review fix 1 · started
+- 2026-10-01 13:10:21 · 196 · review fix 1 · done
+- 2026-10-01 13:10:21 · 196 · verify 2 · started
+- 2026-10-01 13:12:10 · 196 · story · done

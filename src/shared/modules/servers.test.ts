@@ -5,7 +5,10 @@ import {
   DEFAULT_MASTER_SOURCES,
   DEFAULT_SERVERS_STATE,
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
+  SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY,
   SERVER_HISTORY_CAP,
+  SERVERS_LAN_ERROR_NO_INTERFACE_KEY,
+  SERVERS_LAN_ERROR_SOCKET_REFUSED_KEY,
   SERVERS_HANDLERS,
   SERVERS_HANDLER_SCHEMAS,
   detailReadInputSchema,
@@ -13,6 +16,7 @@ import {
   masterSourceSchema,
   scanPatchSettingsInputSchema,
   scanScopeSchema,
+  scanSetModeInputSchema,
   scanStartInputSchema,
   serverHistoryEntrySchema,
   serversOverviewSchema,
@@ -49,7 +53,23 @@ describe('servers module contract (story 106 D1)', () => {
       listGetSort: 'list.getSort',
       listSetSort: 'list.setSort',
       detailRead: 'detail.read',
+      scanSetMode: 'scan.setMode',
     })
+  })
+
+  it('scan.setMode accepts exactly the two browse modes (story 196 D2)', () => {
+    const schema = SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.scanSetMode]
+    expect(schema).toBe(scanSetModeInputSchema)
+    expect(schema.safeParse({ mode: 'online' }).success).toBe(true)
+    expect(schema.safeParse({ mode: 'lan' }).success).toBe(true)
+    expect(schema.safeParse({ mode: 'internet' }).success).toBe(false)
+    expect(schema.safeParse(undefined).success).toBe(false)
+  })
+
+  it('the LAN reason/failure keys follow the servers.<namespace>.error.<reason> convention (story 196 D2)', () => {
+    expect(SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY).toBe('servers.scan.error.favouritesNotInLan')
+    expect(SERVERS_LAN_ERROR_NO_INTERFACE_KEY).toBe('servers.lan.error.noInterface')
+    expect(SERVERS_LAN_ERROR_SOCKET_REFUSED_KEY).toBe('servers.lan.error.socketRefused')
   })
 
   it('the no-input overview handler accepts undefined', () => {
@@ -377,6 +397,7 @@ describe('scan guard (story 116 D1)', () => {
       finishedAt: null,
       blockedReason: 'game-running',
       scope: null,
+      mode: 'online',
     }
     const unblocked: ServersScanState = { ...blocked, blockedReason: null }
 

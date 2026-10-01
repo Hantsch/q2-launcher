@@ -288,3 +288,4 @@ second roadmap.
 - 193 — the mod-missing warning offers the install · S31 · the demo mod-missing dialog installs a catalog mod via 190's install, without playing or trusting it
 - 194 — a newer mod version is offered · S31 · mods list reports update-available for catalog installs; one-click Update with backup/restore, keep/overwrite for changed files
 - 195 — a quoted search matches exactly · S31 · double-quoted server search matches name, address or fetched player name in full; placeholder hints it
+- 196 — I switch the browser between online and LAN · S31 · Online/LAN toggle; LAN round broadcasts per interface and lists only answers, separate from the online list

@@ -817,9 +817,22 @@
         "ipv4-octet-out-of-range": "Each part of an IPv4 address must be between 0 and 255."
       }
     },
+    "mode": {
+      "label": "Browse",
+      "online": "Online",
+      "lan": "LAN"
+    },
+    "lan": {
+      "favouritesNotInLan": "Not available on the LAN: favourites live on the internet.",
+      "error": {
+        "noInterface": "No local network connection found.",
+        "socketRefused": "The local network search was blocked by the system."
+      }
+    },
     "scan": {
       "error": {
-        "already-running": "A scan is already running."
+        "already-running": "A scan is already running.",
+        "favouritesNotInLan": "Favourites can't be refreshed on the local network."
       },
       "blocked": {
         "gameRunning": "Servers can't be scanned while the game is running."
@@ -842,6 +855,7 @@
         "stage2": "Fetching players: {{done}} of {{total}}"
       },
       "empty": "No source returned a server",
+      "lanEmpty": "No server answered on the local network",
       "openSourceSettings": "Open source settings",
       "idle": "Not scanned yet. Refresh to scan.",
       "sourceFailed": "{{source}}: {{reason}}",

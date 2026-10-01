@@ -15,6 +15,7 @@ import {
   scanGetSettingsInputSchema,
   scanPatchSettingsInputSchema,
   scanReadInputSchema,
+  scanSetModeInputSchema,
   scanSetViewActiveInputSchema,
   scanStartInputSchema,
   serversNoInputSchema,
@@ -33,11 +34,13 @@ import {
   type MasterSourcesResult,
   type WatchlistEntry,
 } from '@shared/modules/servers'
+import { uiHarnessLanTargets } from '../../lib/ui-harness'
 import type { MainModule } from '../types'
 import { addFavourite, listFavourites, removeFavourite } from './favourites'
 import { readServerHistory, recordServerVisit } from './history-log'
 import { addManualServer, removeManualServer } from './manual-servers'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
+import { discoverLanServers } from './lan-discovery'
 import { createScanCadence, type ScanCadence } from './scan-cadence'
 import { createScanService, type ScanService } from './scan-service'
 import { createRegexHost, type RegexHost } from './watchlist-regex-host'
@@ -123,7 +126,7 @@ export const serversModule: MainModule = {
           const current = app.state.serversState()
           app.state.setServersState({ ...current, watchlist: list })
         },
-        getKnownServers: () => scanServiceRef.current!.read().entries,
+        getKnownServers: () => scanServiceRef.current!.read('online').entries,
         scanService: watchlistScanHost,
         regexHost,
         emit: (snapshot) => emit(SERVERS_EVENTS.watchlistChanged, snapshot),
@@ -136,6 +139,18 @@ export const serversModule: MainModule = {
       emit,
       launch: app.launch,
       onStage2Row: watchlistService?.onStage2Row,
+      deps: {
+        // Story 196 D3: the real discovery, except that the UI harness (and only it) may name the
+        // loopback fixture servers to query instead of enumerating interfaces. Read per round.
+        lanDiscovery: (options) =>
+          discoverLanServers({
+            ...options,
+            deps: {
+              ...options.deps,
+              targetsOverride: uiHarnessLanTargets({ isDev: app.isDev, env: process.env }),
+            },
+          }),
+      },
     })
     activeScanService = scanService
     scanServiceRef.current = scanService
@@ -156,6 +171,12 @@ export const serversModule: MainModule = {
       scanService.start({ scope: payload?.scope, selectedAddress: payload?.selectedAddress }),
     )
     handle(SERVERS_HANDLERS.scanRead, scanReadInputSchema, () => scanService.read())
+    // Story 196 D3: the active list is main's in-memory state; a first visit to a never-scanned
+    // mode lets the cadence apply the same view-open auto trigger.
+    handle(SERVERS_HANDLERS.scanSetMode, scanSetModeInputSchema, (payload) => {
+      scanService.setMode(payload.mode)
+      scanCadence.onModeChanged()
+    })
 
     // Story 122 D2: `detailReadInputSchema` is a bare `serverAddressSchema` (like
     // `favouritesAddInputSchema`), not a `{ address }` wrapper, so the payload arrives already

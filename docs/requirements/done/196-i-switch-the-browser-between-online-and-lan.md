@@ -1,7 +1,7 @@
 ---
 id: 196
 title: I switch the browser between online and LAN
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-01
 ---
 
@@ -20,25 +20,25 @@ Concept: [game-browser.md](../concepts/game-browser.md) §7 (discovery and scann
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The server list header carries an Online / LAN toggle. Online is selected when
+- [x] **AC1** — The server list header carries an Online / LAN toggle. Online is selected when
       the launcher starts.
-- [ ] **AC2** — A scan in Online mode contacts the master sources and sends no LAN broadcast; a
+- [x] **AC2** — A scan in Online mode contacts the master sources and sends no LAN broadcast; a
       scan in LAN mode sends the broadcast and contacts no master source.
-- [ ] **AC3** — In LAN mode the list shows only servers that answered the broadcast: no
+- [x] **AC3** — In LAN mode the list shows only servers that answered the broadcast: no
       favourites, manual servers, history entries or master results appear in it unless they
       answered it. Online mode never shows a server that only the LAN scan found.
-- [ ] **AC4** — A server that answers the broadcast more than once, or from several interfaces,
+- [x] **AC4** — A server that answers the broadcast more than once, or from several interfaces,
       appears once per `address:port`.
-- [ ] **AC5** — LAN rows stream in as they answer, with the same columns, markers, detail view and
+- [x] **AC5** — LAN rows stream in as they answer, with the same columns, markers, detail view and
       Join action as online rows, and a measured ping.
-- [ ] **AC6** — When no server answers within the scan window, the LAN list shows an explicit
+- [x] **AC6** — When no server answers within the scan window, the LAN list shows an explicit
       empty state naming the local network ("no server answered on the local network"), not an
       error and not the online empty state.
-- [ ] **AC7** — The hard rule holds in both modes: no LAN scan runs while a game is running; an
+- [x] **AC7** — The hard rule holds in both modes: no LAN scan runs while a game is running; an
       automatic one is skipped and a manual one is refused, each with a visible reason.
-- [ ] **AC8** — Switching mode shows that mode's last result at once and does not discard the
+- [x] **AC8** — Switching mode shows that mode's last result at once and does not discard the
       other mode's result; filter and sort apply to whichever list is shown.
-- [ ] **AC9** — If the broadcast cannot be sent at all (no usable network interface, socket
+- [x] **AC9** — If the broadcast cannot be sent at all (no usable network interface, socket
       refused), the LAN toggle stays visible and says so as visible text from an i18n key; it is
       never silently removed.
 
@@ -257,3 +257,19 @@ Contract-first, main before renderer, e2e last (it needs the full surface).
   `scripts/flows/servers-lan-unavailable.mjs` › "servers-lan-unavailable"
 
 ## Done
+
+Online/LAN toggle in the server browser (opens on Online, never persisted). LAN discovery broadcasts `info` per interface on 27910, then the normal info+status scan runs over the answers into a separate LAN list; online and LAN lists are never mixed, switching shows each mode's last result. Favourites refresh is disabled in LAN with a visible reason; broadcast failure text sits by the toggle.
+
+Commit: `196: online/LAN switch in the server browser — per-interface LAN discovery, two-list scan service, mode toggle, LAN states, flows`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (170 files green after fixes) and `npm run ui:flow -- <servers-lan-mode|servers-lan-empty|servers-lan-unavailable|servers-lan-no-scan-while-playing>` all green. AC → test as in `## Acceptance Tests`, every named unit test and flow ran and passed (AC1–AC9). No manual residue. Review 1 (default): PASS with findings; fixed mount ordering (reset mode to online before announcing the view), mode-aware online empty state, reverted client.ts format churn. A one-off `profiles.test.ts` red in the first run was flaky and passed alone.
+
+Decisions:
+- `ScanServiceDeps.lanDiscovery` is an injectable function (`LanDiscoveryFn`); index.ts wraps D1 and injects the `Q2L_UI_LAN_TARGETS` override per round.
+- Watchlist data is online-only via `scanService.read('online')` (D-B). Unfixed, documented: a watchlist recheck (`start({scope:'server'})`) in LAN mode runs against the LAN list and stays pending.
+- LAN `server` refresh only updates an address the broadcast already found (keeps AC3). The `servers.scan.error.favouritesNotInLan` key exists but no UI path shows it (button disabled, reason in `servers-lan-favourites-reason`).
+- Flow "at once" checks poll up to 1.5s for render latency, with no scan started. The LAN refresh refusal in the playing flow is asserted as a disabled button; main's refusal is unit-tested.
+- Story 197 must reuse: `ServersBrowseMode`/`ScanSnapshot.mode`, `scanService.read(mode?)` (rows per list), the active-mode list in `read()/readDetail()/overview()`, and the view's `mode` state in `ServersView.tsx` (filters apply to the displayed list); `list-state.ts` `deriveListState` mode argument.
+- Known pre-existing reds not touched: `layering.test.ts`, flow `servers-filter-search`.
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 8

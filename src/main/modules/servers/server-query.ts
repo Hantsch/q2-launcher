@@ -121,7 +121,7 @@ export const dgramServerUdp: ServerUdpImpl = async (target, handlers) => {
 
 /** The classic Quake II protocol version the `info` query's argument claims - see the file doc
  * comment for why this is a fixed constant rather than an option. */
-const INFO_QUERY_PROTOCOL_VERSION = 34
+export const INFO_QUERY_PROTOCOL_VERSION = 34
 
 export interface QueryServerOptions {
   kind: 'info' | 'status'

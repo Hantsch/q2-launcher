@@ -138,6 +138,8 @@ export interface ScanCadence {
   onViewActive: (active: boolean) => void
   /** Call after `scan.patchSettings` persisted - reschedules if the effective period changed. */
   onSettingsChanged: () => void
+  /** Story 196 D3: call after `scan.setMode` switched the active list. */
+  onModeChanged: () => void
   /** Clears the timer and the launch subscription for good; every later call is a no-op. */
   dispose: () => void
 }
@@ -249,6 +251,19 @@ export function createScanCadence(options: CreateScanCadenceOptions): ScanCadenc
     armTimer()
   }
 
+  /** Story 196 D3 (AC7): switching into a mode that has never been scanned counts as opening the
+   * view for it - the same `'open'` gate applies (game-running skip, `autoScanOnOpen`, spacing). */
+  function onModeChanged(): void {
+    if (disposed || !viewActive) return
+    try {
+      if (scanService.overview().lastScanAt !== null) return
+    } catch (error) {
+      onError?.(error)
+      return
+    }
+    tryAutoTrigger('open')
+  }
+
   function onSettingsChanged(): void {
     if (disposed) return
     let desired: number | null
@@ -272,5 +287,5 @@ export function createScanCadence(options: CreateScanCadenceOptions): ScanCadenc
     unsubscribeLaunch()
   }
 
-  return { onViewActive, onSettingsChanged, dispose }
+  return { onViewActive, onSettingsChanged, onModeChanged, dispose }
 }

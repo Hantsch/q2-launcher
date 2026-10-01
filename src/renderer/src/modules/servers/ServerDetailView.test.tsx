@@ -64,6 +64,7 @@ const BASE_STATE: ServersScanState = {
   finishedAt: null,
   blockedReason: null,
   scope: null,
+  mode: 'online',
 }
 
 const DETAIL: ServerDetail = {

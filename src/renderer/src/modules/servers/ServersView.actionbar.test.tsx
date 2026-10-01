@@ -65,6 +65,7 @@ vi.mock('./client', () => ({
   readScan: readScanMock,
   startScan: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
   setScanViewActive: setScanViewActiveMock,
+  setMode: async () => ({ ok: true as const, value: undefined }),
   onScanChanged: onScanChangedMock,
   onScanServer: onScanServerMock,
   listMasterSources: listMasterSourcesMock,
@@ -145,6 +146,7 @@ const BASE_STATE: ServersScanState = {
   finishedAt: null,
   blockedReason: null,
   scope: null,
+  mode: 'online',
 }
 
 const ROW_A = '1.2.3.4:27910'
@@ -158,6 +160,8 @@ async function renderViewWithBar(entries: ServerListEntry[]): Promise<void> {
   const snapshot: ScanSnapshot = {
     state: BASE_STATE,
     entries: entries.map((e) => ({ ...e, favourite: false })),
+    mode: 'online',
+    lan: { lastFinishedAt: null, failureKey: null },
   }
   readScanMock.mockResolvedValue({ ok: true, value: snapshot })
   onScanChangedMock.mockImplementation(() => () => {})

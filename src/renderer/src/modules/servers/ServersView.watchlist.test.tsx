@@ -67,6 +67,7 @@ vi.mock('./client', () => ({
   readScan: readScanMock,
   startScan: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
   setScanViewActive: setScanViewActiveMock,
+  setMode: async () => ({ ok: true as const, value: undefined }),
   onScanChanged: onScanChangedMock,
   onScanServer: onScanServerMock,
   listMasterSources: listMasterSourcesMock,
@@ -134,6 +135,7 @@ const BASE_STATE: ServersScanState = {
   finishedAt: null,
   blockedReason: null,
   scope: null,
+  mode: 'online',
 }
 
 function snapshot(overrides: {
@@ -143,6 +145,8 @@ function snapshot(overrides: {
   return {
     state: { ...BASE_STATE, ...overrides.state },
     entries: (overrides.entries ?? []).map((entry) => ({ ...entry, favourite: false })),
+    mode: 'online',
+    lan: { lastFinishedAt: null, failureKey: null },
   }
 }
 

@@ -5,6 +5,7 @@ import {
   type ScanBlockedReason,
   type ScanSnapshot,
   type ServerListRow,
+  type ServersBrowseMode,
   type ServersScanState,
   type WatchlistMatch,
 } from '@shared/modules/servers'
@@ -20,7 +21,7 @@ import {
   type ServerListSort,
   type ServerSortColumn,
 } from '@shared/servers/list-sort'
-import { PanelRight, RefreshCw, Star } from 'lucide-react'
+import { AlertTriangle, PanelRight, RefreshCw, Star } from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
 import { parseServerAddress, serverAddressRejectionKey } from '@shared/servers/address'
 import { Button } from '../../components/ui/Button'
@@ -36,6 +37,7 @@ import {
   onScanServer,
   readScan,
   setListSort,
+  setMode,
   setScanViewActive,
   startScan,
 } from './client'
@@ -47,6 +49,7 @@ import { ServerListFilterBar } from './ServerListFilterBar'
 import { ServerListHeader } from './ServerListHeader'
 import { ServerRow } from './ServerRow'
 import { ServersListStatus } from './ServersListStatus'
+import { ServersModeToggle } from './ServersModeToggle'
 import { ServersTabStrip, type ServersTab } from './ServersTabStrip'
 import { WatchlistPanel } from './watchlist/WatchlistPanel'
 
@@ -80,7 +83,10 @@ const IDLE_SCAN_STATE: ServersScanState = {
   finishedAt: null,
   blockedReason: null,
   scope: null,
+  mode: 'online',
 }
+
+const NO_LAN_ROUND = { lastFinishedAt: null, failureKey: null } as const
 
 /** The list-beside-detail grid both tabs share: one slot until a server is open, then the detail
  * pane sits beside the first slot (a fixed 32rem) or, below the `@4xl` container width, under it. */
@@ -156,6 +162,12 @@ export function ServersView() {
   const [scanState, setScanState] = useState<ServersScanState>(IDLE_SCAN_STATE)
   const [entries, setEntries] = useState<ServerListRow[]>([])
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null)
+  // Story 196 D4: purely local, never persisted - every mount opens on Online.
+  const [mode, setBrowseMode] = useState<ServersBrowseMode>('online')
+  const [lan, setLan] = useState<ScanSnapshot['lan']>(NO_LAN_ROUND)
+  const modeRef = useRef<ServersBrowseMode>('online')
+  // The mode of the running/last scan (`scan.server` pushes carry no mode of their own).
+  const scanModeRef = useRef<ServersBrowseMode>('online')
   const [sort, setSort] = useState<ServerListSort | undefined>(undefined)
   // Story 120 D2: purely local, not persisted anywhere - a fresh mount always starts unfiltered.
   const [filter, setFilter] = useState<ServerListFilter>(EMPTY_SERVER_LIST_FILTER)
@@ -199,7 +211,10 @@ export function ServersView() {
       readInFlightRef.current = true
       void readScan().then((result) => {
         readInFlightRef.current = false
-        if (!cancelled && result.ok) setEntries(result.value.entries)
+        if (!cancelled && result.ok) {
+          setEntries(result.value.entries)
+          setLan(result.value.lan)
+        }
         if (readPendingRef.current) {
           readPendingRef.current = false
           requestCoalescedRead()
@@ -207,19 +222,28 @@ export function ServersView() {
       })
     }
 
-    void setScanViewActive(true)
-
-    void readScan().then((result) => {
+    const applySnapshot = (result: Awaited<ReturnType<typeof readScan>>): void => {
       if (cancelled || !result.ok) return
-      const snapshot: ScanSnapshot = result.value
-      setScanState(snapshot.state)
-      setEntries(snapshot.entries)
-      lastFinishedAtRef.current = snapshot.state.finishedAt
+      setScanState(result.value.state)
+      setEntries(result.value.entries)
+      setLan(result.value.lan)
+      scanModeRef.current = result.value.state.mode
+      lastFinishedAtRef.current = result.value.state.finishedAt
+    }
+
+    // Main remembers the last mode; a fresh mount always opens on Online. Reset it BEFORE announcing
+    // the view open, so the cadence's view-open trigger can never broadcast a LAN scan while the
+    // UI shows Online, and so the first snapshot read is already an Online one.
+    void setMode('online').then(() => {
+      if (cancelled) return
+      void setScanViewActive(true)
+      void readScan().then(applySnapshot)
     })
 
     const unsubscribeChanged = onScanChanged((state) => {
       if (cancelled) return
       setScanState(state)
+      scanModeRef.current = state.mode
 
       // AC3/D4: a completed round is the moment stale flips - react to it here with a single
       // reactive re-read (still push-driven, not polling: one extra read per finished round, same
@@ -227,14 +251,19 @@ export function ServersView() {
       if (!state.running && state.finishedAt !== lastFinishedAtRef.current) {
         lastFinishedAtRef.current = state.finishedAt
         void readScan().then((result) => {
-          if (!cancelled && result.ok) setEntries(result.value.entries)
+          if (!cancelled && result.ok) {
+            setEntries(result.value.entries)
+            setLan(result.value.lan)
+          }
         })
       }
     })
 
     // Story 121 D1: each resolved row streams the list live, coalesced so a burst of pushes never
     // queues more than one extra `readScan()`.
+    // Only rows of the displayed mode stream in (a LAN scan's rows never land in the Online list).
     const unsubscribeServer = onScanServer(() => {
+      if (modeRef.current !== scanModeRef.current) return
       requestCoalescedRead()
     })
 
@@ -287,6 +316,23 @@ export function ServersView() {
     void setListSort(next ?? null).then((result) => {
       setSort(result.ok && result.value !== null ? result.value : undefined)
     })
+  }
+
+  const handleModeChange = (next: ServersBrowseMode): void => {
+    if (next === mode) return
+    modeRef.current = next
+    setBrowseMode(next)
+    setSelectedAddress(null)
+    setEntries([])
+    void setMode(next)
+      .then(() => readScan())
+      .then((result) => {
+        if (modeRef.current !== next || !result.ok) return
+        setScanState(result.value.state)
+        setEntries(result.value.entries)
+        setLan(result.value.lan)
+        scanModeRef.current = result.value.state.mode
+      })
   }
 
   const handleRefresh = (): void => {
@@ -424,6 +470,7 @@ export function ServersView() {
   const isBlocked = scanState.blockedReason !== null
   const isBusy = scanState.running
   const isRefreshDisabled = isBlocked || isBusy
+  const isLan = mode === 'lan'
 
   // The toolbar: title + live status line on the left, the scoped refresh controls on the right,
   // every disabled control's visible reason underneath.
@@ -456,6 +503,16 @@ export function ServersView() {
 
       <div className="flex flex-col items-end gap-1.5">
         <div className="flex flex-wrap items-center justify-end gap-2">
+          <ServersModeToggle mode={mode} onChange={handleModeChange} />
+          {lan.failureKey !== null && isLan && (
+            <p
+              className="flex items-center gap-1.5 text-xs text-warning"
+              data-testid="servers-lan-failure"
+            >
+              <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+              <span>{t(lan.failureKey)}</span>
+            </p>
+          )}
           <Button
             variant="neutral"
             size="sm"
@@ -473,12 +530,17 @@ export function ServersView() {
             size="sm"
             icon={<Star className="size-3.5" aria-hidden="true" />}
             onClick={handleRefreshFavourites}
-            disabled={isRefreshDisabled}
+            disabled={isRefreshDisabled || isLan}
             data-testid="servers-refresh-favourites"
           >
             {t('module.servers.view.refreshFavourites')}
           </Button>
         </div>
+        {isLan && (
+          <p className="text-xs text-ink-muted" data-testid="servers-lan-favourites-reason">
+            {t('servers.lan.favouritesNotInLan')}
+          </p>
+        )}
         {isBlocked && scanState.blockedReason && (
           <p className="text-xs text-warning" data-testid="servers-scan-blocked">
             {t(BLOCKED_REASON_KEYS[scanState.blockedReason])}
@@ -556,7 +618,8 @@ export function ServersView() {
           <div className={detailSplit(selectedAddress !== null)}>
             <div className="flex min-h-0 flex-col">
               <ServersListStatus
-                listState={deriveListState(scanState, entries.length)}
+                listState={deriveListState(scanState, entries.length, mode, lan.lastFinishedAt)}
+                mode={mode}
                 scanState={scanState}
                 sourceLabels={sourceLabels}
                 onOpenSourceSettings={handleOpenSourceSettings}

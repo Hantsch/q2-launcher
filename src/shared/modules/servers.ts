@@ -97,6 +97,9 @@ export const SERVERS_HANDLERS = {
   /** Story 122 D2: resolves to a single server's `ServerDetail` - the row plus its last-known
    * `serverinfo`, or `null` for an address the scan has no row for at all. */
   detailRead: 'detail.read',
+  /** Story 196 D2: switches the browser between the online list and the LAN list
+   * (`ServersBrowseMode`). In memory only, default `'online'`; never aborts a running scan. */
+  scanSetMode: 'scan.setMode',
 } as const
 
 /**
@@ -621,7 +624,11 @@ export const historyReadInputSchema = serversNoInputSchema
 
 /** Where one `ScanTarget` address was seen: an enabled master/list source (111), a favourite
  * (112) or a manually-added server (113). A target can carry more than one - see `ScanTarget`. */
-export type ScanOrigin = 'source' | 'favourite' | 'manual'
+export type ScanOrigin = 'source' | 'favourite' | 'manual' | 'lan'
+
+/** Story 196: which list the servers browser shows and scans - the internet (sources, favourites,
+ * manual servers) or the local network (broadcast answers only). */
+export type ServersBrowseMode = 'online' | 'lan'
 
 /** One address the scan will sweep, plus every origin it was seen under (AC6: a duplicate
  * address from two origins collapses to one target that still carries both; AC4: a favourite is
@@ -750,6 +757,8 @@ export interface ServersScanState {
   finishedAt: string | null
   blockedReason: ScanBlockedReason | null
   scope: ScanScope | null
+  /** Story 196: the mode of the running scan, or of the last one (`'online'` before any scan). */
+  mode: ServersBrowseMode
 }
 
 /**
@@ -778,8 +787,20 @@ export const SCAN_BLOCKED_GAME_RUNNING_REASON_KEY = 'servers.scan.blocked.gameRu
  */
 export interface ScanSnapshot {
   state: ServersScanState
+  /** The active mode's rows only - never a mix of online and LAN rows. */
   entries: ServerListRow[]
+  /** Story 196: the browser's active mode (`state.mode` is the mode of the running/last scan). */
+  mode: ServersBrowseMode
+  /** Story 196: the last LAN round - when it finished and, if discovery failed, why (i18n key). */
+  lan: { lastFinishedAt: string | null; failureKey: string | null }
 }
+
+/** Story 196: `scan.start` with the favourites scope is refused while the browser is in LAN mode. */
+export const SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY = 'servers.scan.error.favouritesNotInLan'
+
+/** Story 196: `ScanSnapshot.lan.failureKey` values - must match `lan-discovery.ts`'s constants. */
+export const SERVERS_LAN_ERROR_NO_INTERFACE_KEY = 'servers.lan.error.noInterface'
+export const SERVERS_LAN_ERROR_SOCKET_REFUSED_KEY = 'servers.lan.error.socketRefused'
 
 /**
  * Story 117 D1: which subset of servers a scan round touches. 'all' is exactly today's full scan
@@ -871,6 +892,9 @@ export const scanPatchSettingsInputSchema = z
  * (`false`). */
 export const scanSetViewActiveInputSchema = z.object({ active: z.boolean() })
 
+/** Story 196 D2: `scan.setMode`'s payload - the browse mode to switch to. */
+export const scanSetModeInputSchema = z.object({ mode: z.enum(['online', 'lan']) })
+
 /**
  * Story 119 D2: the persisted/IPC shape of a `ServerListSort` - `.strict()` so a payload carrying
  * an unknown key is rejected outright, same convention as `scanPatchSettingsInputSchema`.
@@ -933,4 +957,5 @@ export const SERVERS_HANDLER_SCHEMAS: Record<
   [SERVERS_HANDLERS.listGetSort]: listGetSortInputSchema,
   [SERVERS_HANDLERS.listSetSort]: listSetSortInputSchema,
   [SERVERS_HANDLERS.detailRead]: detailReadInputSchema,
+  [SERVERS_HANDLERS.scanSetMode]: scanSetModeInputSchema,
 }

@@ -8,10 +8,13 @@ import {
   HARNESS_EXTERNAL_URLS_FILE,
   HARNESS_REVEALED_PATHS_FILE,
   UI_HARNESS_DETECTED_RUNNERS_ENV,
+  UI_HARNESS_ENV,
+  UI_HARNESS_LAN_TARGETS_ENV,
   parseHarnessBaseUrl,
   recordHarnessExternalUrl,
   recordHarnessRevealedPath,
   uiHarnessDetectedRunners,
+  uiHarnessLanTargets,
 } from './ui-harness'
 
 /**
@@ -98,6 +101,38 @@ describe('uiHarnessDetectedRunners', () => {
       }),
     ).toBeUndefined()
     expect(warnSpy).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('uiHarnessLanTargets', () => {
+  const read = (value: string | undefined, gate = true) =>
+    uiHarnessLanTargets({
+      isDev: false,
+      env: {
+        ...(gate ? { [UI_HARNESS_ENV]: '1' } : {}),
+        ...(value === undefined ? {} : { [UI_HARNESS_LAN_TARGETS_ENV]: value }),
+      },
+    })
+
+  it('gate closed or unset: undefined, so discovery runs for real', () => {
+    expect(read('127.0.0.1:27911', false)).toBeUndefined()
+    expect(read(undefined)).toBeUndefined()
+    expect(read('')).toBeUndefined()
+  })
+
+  it('none means zero interfaces', () => {
+    expect(read('none')).toBe('none')
+  })
+
+  it('parses a comma-separated list of loopback targets', () => {
+    expect(read('127.0.0.1:27911, 127.0.0.1:27912')).toEqual(['127.0.0.1:27911', '127.0.0.1:27912'])
+  })
+
+  it('rejects anything but 127.0.0.1:<port>', () => {
+    expect(
+      read('192.168.1.5:27910,127.0.0.1:27911,localhost:1,127.0.0.1:99999,127.0.0.1:abc'),
+    ).toEqual(['127.0.0.1:27911'])
+    expect(read('192.168.1.5:27910')).toBeUndefined()
   })
 })
 

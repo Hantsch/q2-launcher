@@ -11,6 +11,7 @@ import {
   type ScanStartResult,
   type ServerDetail,
   type ServerListSort,
+  type ServersBrowseMode,
   type ServersOverview,
   type ServersScanSettings,
   type ServersScanState,
@@ -118,6 +119,11 @@ export function removeFavourite(address: string): Promise<Outcome<FavouriteServe
 /** One-shot catch-up read (D-D) for a renderer that mounts mid-scan - never polled. */
 export function readScan(): Promise<Outcome<ScanSnapshot>> {
   return callModule<ScanSnapshot>('servers', SERVERS_HANDLERS.scanRead)
+}
+
+/** Story 196 D4: switches the browser's mode in main (in memory, never aborts a running scan). */
+export function setMode(mode: ServersBrowseMode): Promise<Outcome<void>> {
+  return callModule<void>('servers', SERVERS_HANDLERS.scanSetMode, { mode })
 }
 
 /** Subscribes to the scan's own state/progress push (`scan.changed`, D-C). */

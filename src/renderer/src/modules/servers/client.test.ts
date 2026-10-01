@@ -43,6 +43,7 @@ const SCAN_STATE: ServersScanState = {
   finishedAt: null,
   blockedReason: null,
   scope: null,
+  mode: 'online',
 }
 
 const SCAN_ROW = {

@@ -372,6 +372,50 @@ describe('createScanCadence (timer lifetime)', () => {
   })
 })
 
+describe('createScanCadence - story 196 D3 mode switch', () => {
+  const scan = { autoScanOnOpen: true, autoRefreshEnabled: false }
+
+  it('a never-scanned mode triggers the view-open auto trigger', () => {
+    const h = harness(scan, { lastScanAt: isoAgo(10 * 60_000) })
+    h.cadence.onViewActive(true)
+    expect(h.starts).toHaveLength(1)
+
+    h.overview.lastScanAt = null // the newly active mode has no scan yet
+    h.overview.scanning = false
+    h.cadence.onModeChanged()
+    expect(h.starts).toHaveLength(2)
+  })
+
+  it('an already-scanned mode does not trigger', () => {
+    const h = harness(scan, { lastScanAt: isoAgo(10 * 60_000) })
+    h.cadence.onViewActive(true)
+    h.cadence.onModeChanged()
+    expect(h.starts).toHaveLength(1)
+  })
+
+  it('switching into a never-scanned mode is skipped while the game runs', () => {
+    const h = harness(scan, { lastScanAt: null }, { launch: RUNNING })
+    h.cadence.onViewActive(true)
+    expect(h.starts).toHaveLength(0)
+
+    h.cadence.onModeChanged()
+    expect(h.starts).toHaveLength(0)
+    // The skip is the cadence's visible outcome: the gate reports the game as the reason.
+    expect(
+      decideAutoTrigger(input({ kind: 'open', lastScanAt: null, gameRunning: true })),
+    ).toEqual({ trigger: false, reason: 'game-running' })
+  })
+
+  it('does nothing while the view is inactive or after dispose', () => {
+    const h = harness(scan, { lastScanAt: null })
+    h.cadence.onModeChanged()
+    h.cadence.onViewActive(true)
+    h.cadence.dispose()
+    h.cadence.onModeChanged()
+    expect(h.starts).toHaveLength(1)
+  })
+})
+
 describe('createScanCadence - story 116 D3 game-running guard', () => {
   const INTERVAL = 60_000
   const scan = { autoScanOnOpen: true, autoRefreshEnabled: true, autoRefreshIntervalMs: INTERVAL, minSpacingMs: 30_000 }

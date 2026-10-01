@@ -137,6 +137,18 @@ describe('servers module', () => {
     expect(outcome).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
   })
 
+  it('scan.setMode exists and rejects an unknown mode', async () => {
+    const registry = new MainModuleRegistry()
+    await registry.register(serversModule, fakeAppContext())
+
+    expect(
+      await registry.invoke({ moduleId: 'servers', type: SERVERS_HANDLERS.scanSetMode, payload: { mode: 'lan' } }),
+    ).toEqual({ ok: true, value: undefined })
+    expect(
+      await registry.invoke({ moduleId: 'servers', type: SERVERS_HANDLERS.scanSetMode, payload: { mode: 'wan' } }),
+    ).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+  })
+
   it('detail.read rejects a malformed address payload', async () => {
     const registry = new MainModuleRegistry()
     await registry.register(serversModule, fakeAppContext())

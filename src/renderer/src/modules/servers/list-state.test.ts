@@ -14,6 +14,7 @@ const BASE: ServersScanState = {
   finishedAt: null,
   blockedReason: null,
   scope: null,
+  mode: 'online',
 }
 
 describe('deriveListState', () => {
@@ -22,6 +23,31 @@ describe('deriveListState', () => {
     expect(deriveListState({ ...BASE, running: false, finishedAt: 'x' }, 0)).toBe('empty')
     expect(deriveListState({ ...BASE, running: false, finishedAt: null }, 0)).toBe('idle')
     expect(deriveListState({ ...BASE, running: false, finishedAt: 'x' }, 4)).toBe('populated')
+  })
+})
+
+describe('deriveListState in LAN mode', () => {
+  const LAN = { ...BASE, mode: 'lan' as const }
+
+  it('a finished LAN scan with no rows is the LAN empty state', () => {
+    expect(deriveListState(LAN, 0, 'lan', '2026-01-01T00:00:00Z')).toBe('lanEmpty')
+  })
+
+  it('is loading while a LAN scan runs and idle before any LAN round', () => {
+    expect(deriveListState({ ...LAN, running: true }, 0, 'lan', null)).toBe('loading')
+    expect(deriveListState(LAN, 0, 'lan', null)).toBe('idle')
+    // an Online round finishing does not make the LAN list "empty"
+    expect(deriveListState({ ...BASE, finishedAt: 'x' }, 0, 'lan', null)).toBe('idle')
+    expect(deriveListState(LAN, 2, 'lan', 'x')).toBe('populated')
+  })
+
+  it('a finished LAN scan is not an Online result: Online never scanned stays idle', () => {
+    expect(deriveListState({ ...LAN, finishedAt: 'x' }, 0, 'online')).toBe('idle')
+    expect(deriveListState({ ...BASE, finishedAt: 'x' }, 0, 'online')).toBe('empty')
+  })
+
+  it('a running LAN scan does not make the Online list load', () => {
+    expect(deriveListState({ ...LAN, running: true }, 0, 'online')).not.toBe('loading')
   })
 })
 

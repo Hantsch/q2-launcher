@@ -291,3 +291,36 @@ async function readHarnessJsonArray(filePath: string): Promise<string[]> {
     return []
   }
 }
+
+/**
+ * Story 196 D1: the harness's stand-in for LAN broadcast discovery. A real broadcast cannot be
+ * answered by a fixture server on a CI machine, so under this override discovery sends unicast
+ * `info` queries to the named loopback fixture servers instead of enumerating interfaces.
+ */
+export const UI_HARNESS_LAN_TARGETS_ENV = 'Q2L_UI_LAN_TARGETS'
+
+const LAN_TARGET = /^127\.0\.0\.1:(\d{1,5})$/
+
+/**
+ * `undefined` - gate closed or variable unset/empty: discover for real. `'none'` - the harness
+ * simulates a machine with zero usable interfaces. Otherwise the `127.0.0.1:<port>` entries of the
+ * comma-separated list; any other entry (a non-loopback host, a bad port) is dropped, so the harness
+ * can never be pointed at a foreign host. A list with no valid entry is `undefined`.
+ */
+export function uiHarnessLanTargets(input: UiHarnessGateInput): string[] | 'none' | undefined {
+  if (!isUiHarnessEnabled(input)) return undefined
+  const env = input.env ?? process.env
+  const raw = env[UI_HARNESS_LAN_TARGETS_ENV]?.trim()
+  if (raw === undefined || raw.length === 0) return undefined
+  if (raw === 'none') return 'none'
+  const targets = raw
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => {
+      const match = LAN_TARGET.exec(entry)
+      if (match === null) return false
+      const port = Number(match[1])
+      return port >= 1 && port <= 65535
+    })
+  return targets.length > 0 ? targets : undefined
+}

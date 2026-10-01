@@ -20,6 +20,7 @@ version section when a release actually ships.
 - **Mods** — Update an installed mod when the catalog has a newer version.
 - **Servers** — Server detail shows whether you have its mod and map, and installs a missing mod.
 - **Servers** — Put a search term in quotes to match it exactly.
+- **Servers** — Switch between Online and LAN to find servers on your local network.
 
 ## 0.6.0 — 2026-09-30
 

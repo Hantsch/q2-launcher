@@ -33,7 +33,11 @@ import { variantUserDataDir } from './harness.mjs'
 // Story 121 D2: the three `servers-list*` screens' loopback stub ports/URL - imported here (not
 // just from `screens.mjs`) because the fixture itself has to point a seeded `http-list` source at
 // the stub list server's URL before the app ever starts.
-import { SERVERS_DEAD_LIST_URL, serversStubListUrl } from './servers-stub.mjs'
+import {
+  SERVERS_DEAD_LIST_URL,
+  SERVERS_STUB_FAVOURITE_PORT,
+  serversStubListUrl,
+} from './servers-stub.mjs'
 // Story 075 D7's two seeded `downloadFailures` entries. They live in their own module (which
 // imports only the redaction mirror) so a unit test can assert the seeded record is exactly what
 // the real `redactHome` produces, without dragging playwright in through this file.
@@ -3212,6 +3216,43 @@ export function writeServersListErrorFixture() {
   })
 }
 
+/**
+ * Story 196 D5: the `servers-lan` fixture - a favourite (stub responder A), the usual manual
+ * server (dead), and the enabled stub `http-list` source (which serves responder B), so Online has
+ * rows from every origin. The LAN-only responder is deliberately in none of them: only a LAN scan
+ * (`Q2L_UI_LAN_TARGETS`) can surface it. Autos are off unless `autoScanOnOpen` is asked for.
+ */
+export function writeServersLanFixture({ autoScanOnOpen = false } = {}) {
+  return writePopulatedFixture({
+    variant: 'servers-lan',
+    stateOverrides: {
+      servers: {
+        sources: [
+          ...SERVERS_DISABLED_SOURCES,
+          {
+            id: 'fixture-servers-lan-http',
+            type: 'http-list',
+            address: serversStubListUrl(),
+            enabled: true,
+          },
+        ],
+        favourites: [
+          { address: `127.0.0.1:${SERVERS_STUB_FAVOURITE_PORT}`, addedAt: '2026-01-01T00:00:00.000Z' },
+        ],
+        manualServers: [
+          {
+            address: SERVERS_MANUAL_SERVER_ADDRESS,
+            origin: 'manual',
+            addedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+        history: [],
+        scan: { ...SERVERS_SCAN_SETTINGS_SEED, autoScanOnOpen, autoRefreshEnabled: false },
+      },
+    },
+  })
+}
+
 export function writeFixture(variant) {
   // Story 066 D8: staged independently of which variant is being (re)written - see
   // `writeImportFilesFixture()`'s own doc comment for why this has to happen on every reseed
@@ -3252,6 +3293,7 @@ export function writeFixture(variant) {
   if (variant === 'servers-list-empty') return writeServersListEmptyFixture()
   if (variant === 'servers-list') return writeServersListFixture()
   if (variant === 'servers-list-error') return writeServersListErrorFixture()
+  if (variant === 'servers-lan') return writeServersLanFixture()
   // Story 150+ D5: the demos-list rows on a real surface - see each writer's own doc comment.
   if (variant === 'replays-rows') return writeReplaysRowsFixture()
   if (variant === 'replays-scale') return writeReplaysScaleFixture()

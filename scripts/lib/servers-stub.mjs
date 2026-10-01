@@ -63,6 +63,21 @@ export const SERVERS_STUB_RESPONDERS = [
   { port: 27952, hostname: 'Fixture Stub Server C', map: 'q2dm3', players: [] },
 ]
 
+/** Port of the responder the `servers-lan` fixture seeds as a favourite (= stub server A). */
+export const SERVERS_STUB_FAVOURITE_PORT = 27950
+
+/** Story 196 D5: the LAN-only fake game server - never in a source, favourite or manual list, so
+ * only a LAN scan (`Q2L_UI_LAN_TARGETS`) can ever surface it. */
+export const SERVERS_STUB_LAN_RESPONDER = {
+  port: 27955,
+  hostname: 'Fixture LAN Server',
+  map: 'q2lan1',
+  players: ['4 9 "Lana"'],
+}
+
+/** A loopback UDP port nothing binds - a LAN target that never answers (story 196 AC6). */
+export const SERVERS_LAN_DEAD_PORT = 27956
+
 /** The stub `http-list` server's fixed port - a fixture writer (`scripts/lib/fixture.mjs`) needs
  * this value at seed time, before the app (and therefore before `startListServer`) ever runs, so
  * it has to be a fixed constant rather than an ephemeral bound port. */
@@ -155,7 +170,7 @@ export async function startServerResponders(specs) {
  * (`src/shared/servers/http-list.ts`) reads. A non-`raw=1` request gets a 404 (never exercised by
  * this repo's own `http-list-source.ts`, which always appends `?raw=1`/`?raw=2` itself).
  *
- * Returns `{ setAddresses(list), close() }`. An empty `list` produces an empty response body,
+ * Returns `{ setAddresses(list), requestCount(), close() }`. An empty `list` produces an empty response body,
  * which `parseHttpListText` deterministically reports as `empty-body`.
  */
 export async function startListServer(port = SERVERS_STUB_LIST_PORT) {
@@ -168,6 +183,7 @@ export async function startListServer(port = SERVERS_STUB_LIST_PORT) {
         res.end()
         return
       }
+      instance.requestCount += 1
       res.writeHead(200, { 'Content-Type': 'text/plain' })
       res.end(instance.addresses.join('\n'))
     })
@@ -176,13 +192,17 @@ export async function startListServer(port = SERVERS_STUB_LIST_PORT) {
       server.listen(port, '127.0.0.1', () => resolve())
     })
     server.unref()
-    instance = { server, addresses: [] }
+    instance = { server, addresses: [], requestCount: 0 }
     listServerInstances.set(port, instance)
   }
 
   return {
     setAddresses(list) {
       instance.addresses = list
+    },
+    /** Number of `?raw=1` list requests served so far (story 196: a LAN scan must add none). */
+    requestCount() {
+      return instance.requestCount
     },
     close() {
       listServerInstances.delete(port)
