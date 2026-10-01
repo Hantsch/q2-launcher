@@ -1,18 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Boxes } from 'lucide-react'
-import type { ModCatalogState, ModGameDir } from '@shared/modules/mods'
-import type { LocalizedMessage } from '@shared/types'
+import type { ModActiveInstall, ModCatalogState, ModGameDir } from '@shared/modules/mods'
+import { isJobActive, type LocalizedMessage } from '@shared/types'
 import { EmptyState } from '../../components/ui/primitives'
-import { useActiveInstallation } from '../../store/useLauncher'
+import { useActiveInstallation, useLauncher } from '../../store/useLauncher'
 import { ModDetailPanel } from './components/ModDetailPanel'
 import { ModTile } from './components/ModTile'
-import { getCatalog, listMods } from './client'
+import {
+  InstallDecisionDialog,
+  type InstallDecisionRequest,
+} from './components/InstallDecisionDialog'
+import { getCatalog, installMod, listMods, onInstallDecision } from './client'
 import { mergeModTiles } from './merge-mod-tiles'
 
 type ListState =
   | { kind: 'loading' }
-  | { kind: 'ready'; installationId: string; gameDirs: ModGameDir[] }
+  | {
+      kind: 'ready'
+      installationId: string
+      gameDirs: ModGameDir[]
+      activeInstalls: ModActiveInstall[]
+    }
   | { kind: 'error'; installationId: string; error: LocalizedMessage }
 
 /** The game directories of the active installation, read through `mods/list` (never the store). */
@@ -23,6 +32,13 @@ export function ModsView() {
   // Re-list when the installation's directories change (rescan, add, remove).
   const dirsKey = installation ? installation.gameDirs.join('\n') : ''
   const [loaded, setState] = useState<ListState>({ kind: 'loading' })
+  const [reloadKey, setReloadKey] = useState(0)
+  // Installs this view started (catalogId -> jobId), refusals, and the decision a job waits on.
+  const [started, setStarted] = useState<Record<string, string>>({})
+  const [failures, setFailures] = useState<Record<string, LocalizedMessage>>({})
+  const [decisionEvent, setDecisionEvent] = useState<InstallDecisionRequest | null>(null)
+  const [answered, setAnswered] = useState<string[]>([])
+  const jobs = useLauncher((s) => s.jobs)
   // A result for another installation is not this one's: treat it as still loading.
   const state: ListState =
     loaded.kind !== 'loading' && loaded.installationId !== installationId
@@ -43,6 +59,10 @@ export function ModsView() {
       stale = true
     }
   }, [])
+  const activeInstalls = useMemo(
+    () => (state.kind === 'ready' ? state.activeInstalls : []),
+    [state],
+  )
   const gameDirs = state.kind === 'ready' ? state.gameDirs : null
   const tiles = useMemo(
     () =>
@@ -70,6 +90,67 @@ export function ModsView() {
     },
     [installationId],
   )
+  const jobFor = useCallback(
+    (catalogId: string) => {
+      const jobId =
+        started[catalogId] ?? activeInstalls.find((a) => a.catalogId === catalogId)?.jobId
+      return (jobId && jobs.find((job) => job.id === jobId)) || null
+    },
+    [started, activeInstalls, jobs],
+  )
+
+  // A tracked job that ends is final: refetch the list (the record, or nothing, is the truth).
+  useEffect(() => {
+    const done = Object.entries(started).filter(([, jobId]) => {
+      const job = jobs.find((j) => j.id === jobId)
+      return job !== undefined && !isJobActive(job)
+    })
+    if (done.length === 0) return
+    setReloadKey((n) => n + 1)
+    setFailures((prev) => {
+      const next = { ...prev }
+      for (const [catalogId, jobId] of done) {
+        const job = jobs.find((j) => j.id === jobId)
+        if (job?.status === 'failed' && job.error) next[catalogId] = job.error
+      }
+      return next
+    })
+    setStarted((prev) => {
+      const next = { ...prev }
+      for (const [catalogId] of done) delete next[catalogId]
+      return next
+    })
+  }, [started, jobs])
+
+  useEffect(
+    () =>
+      onInstallDecision((event) => {
+        if (event.installationId === installationId) setDecisionEvent(event)
+      }),
+    [installationId],
+  )
+  const fromList = activeInstalls.find((a) => a.decision && !answered.includes(a.jobId))
+  const decision: InstallDecisionRequest | null =
+    decisionEvent && !answered.includes(decisionEvent.jobId)
+      ? decisionEvent
+      : fromList?.decision
+        ? { jobId: fromList.jobId, ...fromList.decision }
+        : null
+
+  const install = useCallback(
+    async (catalogId: string, version?: string): Promise<void> => {
+      if (!installationId) return
+      setFailures(({ [catalogId]: _dropped, ...rest }) => rest)
+      const outcome = await installMod(installationId, catalogId, version)
+      if (outcome.ok) {
+        setStarted((prev) => ({ ...prev, [catalogId]: outcome.value.jobId }))
+        setReloadKey((n) => n + 1)
+      } else {
+        setFailures((prev) => ({ ...prev, [catalogId]: outcome.error }))
+      }
+    },
+    [installationId],
+  )
   const closePanel = useCallback(() => setSelectedRaw(null), [])
 
   useEffect(() => {
@@ -79,14 +160,19 @@ export function ModsView() {
       if (stale) return
       setState(
         outcome.ok
-          ? { kind: 'ready', installationId, gameDirs: outcome.value.gameDirs }
+          ? {
+              kind: 'ready',
+              installationId,
+              gameDirs: outcome.value.gameDirs,
+              activeInstalls: outcome.value.activeInstalls,
+            }
           : { kind: 'error', installationId, error: outcome.error },
       )
     })
     return () => {
       stale = true
     }
-  }, [installationId, dirsKey])
+  }, [installationId, dirsKey, reloadKey])
 
   return (
     <div className="flex h-full flex-col">
@@ -144,6 +230,9 @@ export function ModsView() {
                       mod={mod}
                       selected={mod.gameDir === selectedMod?.gameDir}
                       onSelect={setSelected}
+                      job={mod.catalog ? jobFor(mod.catalog.id) : null}
+                      failure={mod.catalog ? (failures[mod.catalog.id] ?? null) : null}
+                      onInstall={(catalogId) => void install(catalogId)}
                     />
                   ))}
                 </div>
@@ -152,9 +241,25 @@ export function ModsView() {
           ) : null}
         </div>
         {installation && selectedMod && (
-          <ModDetailPanel installationId={installation.id} mod={selectedMod} onClose={closePanel} />
+          <ModDetailPanel
+            installationId={installation.id}
+            mod={selectedMod}
+            onClose={closePanel}
+            job={selectedMod.catalog ? jobFor(selectedMod.catalog.id) : null}
+            failure={selectedMod.catalog ? (failures[selectedMod.catalog.id] ?? null) : null}
+            onInstall={(catalogId, version) => void install(catalogId, version)}
+          />
         )}
       </div>
+      {decision && (
+        <InstallDecisionDialog
+          request={decision}
+          onAnswered={(jobId) => {
+            setAnswered((prev) => [...prev, jobId])
+            setDecisionEvent(null)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -1,10 +1,13 @@
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MODS_HANDLERS, type ModsListResult } from '@shared/modules/mods'
+import { MODS_HANDLERS, type ModInstallChoice, type ModsListResult } from '@shared/modules/mods'
 import type { Outcome } from '@shared/types'
 import type { AppContext } from '../../context'
 import { MainModuleRegistry } from '../registry'
 import { modsModule } from './index'
+import { startModInstall } from './install-job'
+
+vi.mock('./install-job', () => ({ startModInstall: vi.fn() }))
 
 const openPath = vi.hoisted(() => vi.fn<(p: string) => Promise<string>>())
 
@@ -19,11 +22,13 @@ function installation(gameDirs: string[], moduleData?: Record<string, unknown>) 
   return { id: 'inst-1', rootPath: ROOT, gameDirs, moduleData }
 }
 
+const emitted: unknown[][] = []
+
 async function registryFor(inst: ReturnType<typeof installation>) {
   const app = {
     isDev: false,
     installations: { find: (id: string) => (id === inst.id ? inst : undefined) },
-    broadcast: { emit: () => {} },
+    broadcast: { emit: (...args: unknown[]) => emitted.push(args) },
   } as unknown as AppContext
   const registry = new MainModuleRegistry()
   await registry.register(modsModule, app)
@@ -81,6 +86,7 @@ describe('mods module', () => {
       ok: true,
       value: {
         installationId: 'inst-1',
+        activeInstalls: [],
         gameDirs: [
           { gameDir: 'rogue', folderPath: join(ROOT, 'rogue'), origin: 'manual' },
           { gameDir: 'xatrix', folderPath: join(ROOT, 'xatrix'), origin: 'manual' },
@@ -119,6 +125,88 @@ describe('mods module', () => {
     expect(await reveal(r, 'rogue')).toMatchObject({
       ok: false,
       error: { key: 'mods.error.revealFailed', params: { message: 'boom' } },
+    })
+  })
+
+  describe('install', () => {
+    const install = (r: MainModuleRegistry, payload: unknown) =>
+      unwrap<{ jobId: string }>(r.invoke({ moduleId: 'mods', type: MODS_HANDLERS.install, payload }))
+    const resolveInstall = (r: MainModuleRegistry, jobId: string, choice: ModInstallChoice) =>
+      unwrap<null>(
+        r.invoke({
+          moduleId: 'mods',
+          type: MODS_HANDLERS.resolveInstall,
+          payload: { jobId, choice },
+        }),
+      )
+
+    beforeEach(() => {
+      vi.mocked(startModInstall).mockReset()
+      emitted.length = 0
+    })
+
+    it('install refuses an invalid payload without starting a job', async () => {
+      const r = await registryFor(installation(['rogue']))
+      for (const payload of [
+        {},
+        { installationId: '', catalogId: 'rogue' },
+        { installationId: 'inst-1', catalogId: '' },
+        { installationId: 'inst-1', catalogId: 'rogue', path: 'C:\evil' },
+      ]) {
+        const envelope = (await r.invoke({
+          moduleId: 'mods',
+          type: MODS_HANDLERS.install,
+          payload,
+        })) as { ok: boolean }
+        expect(envelope.ok).toBe(false)
+      }
+      expect(startModInstall).not.toHaveBeenCalled()
+    })
+
+    function startWithDecision(): { answer: Promise<string> | undefined } {
+      const state: { answer: Promise<string> | undefined } = { answer: undefined }
+      vi.mocked(startModInstall).mockImplementation(async (deps) => {
+        state.answer = deps.askDecision('job-1', { folder: 'rogue', conflicts: ['pak0.pak'] })
+        return {
+          ok: true,
+          value: { jobId: 'job-1', settled: new Promise(() => {}) },
+        }
+      })
+      return state
+    }
+
+    it('resolveInstall settles the pending decision', async () => {
+      const r = await registryFor(installation(['rogue']))
+      const state = startWithDecision()
+      expect(await install(r, { installationId: 'inst-1', catalogId: 'rogue' })).toEqual({
+        ok: true,
+        value: { jobId: 'job-1' },
+      })
+      expect(emitted.some((e) => JSON.stringify(e).includes('"conflicts":["pak0.pak"]'))).toBe(true)
+      const listed = await list(r)
+      expect(listed.ok && listed.value.activeInstalls).toEqual([
+        {
+          catalogId: 'rogue',
+          jobId: 'job-1',
+          decision: { folder: 'rogue', conflicts: ['pak0.pak'] },
+        },
+      ])
+
+      expect(await resolveInstall(r, 'job-1', 'keep')).toEqual({ ok: true, value: null })
+      await expect(state.answer).resolves.toBe('keep')
+      // already settled
+      expect(await resolveInstall(r, 'job-1', 'keep')).toMatchObject({
+        ok: false,
+        error: { key: 'mods.error.noPendingDecision' },
+      })
+    })
+
+    it('resolveInstall with an unknown jobId is refused', async () => {
+      const r = await registryFor(installation(['rogue']))
+      expect(await resolveInstall(r, 'nope', 'overwrite')).toMatchObject({
+        ok: false,
+        error: { key: 'mods.error.noPendingDecision' },
+      })
     })
   })
 })

@@ -1,3 +1,5 @@
+import type { EngineKind } from '../types/engine'
+
 /**
  * The mods module's contract.
  *
@@ -9,7 +11,36 @@ export const MODS_HANDLERS = {
   list: 'list',
   reveal: 'reveal',
   catalogGet: 'catalog.get',
+  /** Story 190: start installing one catalog mod. Resolves to `Outcome<{ jobId }>` once the job exists. */
+  install: 'install',
+  /** Story 190: answers a pending `installDecision`. Resolves to `Outcome<null>`. */
+  resolveInstall: 'install.resolve',
 } as const
+
+/** Story 190: main -> renderer pushes of this module, delivered through the module event channel. */
+export const MODS_EVENTS = {
+  /** A `ModInstallDecisionEvent` - an install met a folder it did not create and waits for a choice. */
+  installDecision: 'install.decision',
+} as const
+
+export type ModInstallChoice = 'overwrite' | 'keep' | 'cancel'
+
+export interface ModInstallDecisionEvent {
+  jobId: string
+  installationId: string
+  catalogId: string
+  /** The existing folder's own name. */
+  folder: string
+  /** Gamedir-relative paths of existing files whose bytes differ. May be empty. */
+  conflicts: string[]
+}
+
+export interface ModActiveInstall {
+  catalogId: string
+  jobId: string
+  /** Present while the install waits for the user's choice. */
+  decision?: { folder: string; conflicts: string[] }
+}
 
 /** `catalog` = the launcher installed it (an install record exists); `manual` = anything else. */
 export type ModGameDirOrigin = 'manual' | 'catalog'
@@ -20,11 +51,20 @@ export interface ModGameDir {
   /** Absolute folder under the installation root. */
   folderPath: string
   origin: ModGameDirOrigin
+  /** From the install record; present only when the launcher has a parsable record for it. */
+  catalogId?: string
+  version?: string
+  contentOnly?: boolean
+  engineKind?: EngineKind
+  arch?: 'x86' | 'x64' | 'arm64' | 'unknown'
+  pkzUnsupported?: boolean
 }
 
 export interface ModsListResult {
   installationId: string
   gameDirs: ModGameDir[]
+  /** Installs running right now for this installation. */
+  activeInstalls: ModActiveInstall[]
 }
 
 /** One selectable version of a catalog mod, as the renderer sees it (no packages, no URLs). */
@@ -56,3 +96,30 @@ export type ModCatalogState =
       ageMs: number
     }
   | { status: 'unavailable' }
+
+/** One file a mod install wrote, recorded for later verify/uninstall. */
+export interface ModInstallFile {
+  /** Relative to the game directory, forward slashes. */
+  path: string
+  sizeBytes: number
+  sha256: string
+}
+
+/** The launcher's record of one catalog mod install (`moduleData.mods.records[]`). */
+export interface ModInstallRecord {
+  catalogId: string
+  /** The game directory's folder name, e.g. `rogue`. */
+  gameDir: string
+  version: string
+  variantId: string
+  engineKind: EngineKind
+  arch: 'x86' | 'x64' | 'arm64' | 'unknown'
+  platform: 'win32' | 'linux'
+  /** True when the mod is content only (no native game library written). */
+  contentOnly: boolean
+  /** True when an r1q2-family engine got a `.pkz` file it cannot read. */
+  pkzUnsupported?: boolean
+  /** Epoch ms. */
+  installedAt: number
+  files: ModInstallFile[]
+}

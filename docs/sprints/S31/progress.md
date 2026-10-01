@@ -31,3 +31,32 @@
 - 2026-10-01 10:19:06 · 189 · review fixes · started
 - 2026-10-01 10:20:29 · 189 · review fixes · done
 - 2026-10-01 10:20:29 · 189 · story · done
+- 2026-10-01 10:20:51 · 190 · build · started
+- 2026-10-01 10:21:19 · 190 · D1 engine target and variant selection · started
+- 2026-10-01 10:21:19 · 190 · D2 install record · started
+- 2026-10-01 10:21:19 · 190 · D3 package stager · started
+- 2026-10-01 10:22:48 · 190 · D1 engine target and variant selection · done
+- 2026-10-01 10:22:48 · 190 · D2 install record · done
+- 2026-10-01 10:22:48 · 190 · D3 package stager · done
+- 2026-10-01 10:22:50 · 190 · D4 install job (hard) · started
+- 2026-10-01 10:30:06 · 190 · D4 install job (hard) · done
+- 2026-10-01 10:30:06 · 190 · D5 contract and main wiring · started
+- 2026-10-01 10:33:36 · 190 · D5 contract and main wiring · done
+- 2026-10-01 10:33:36 · 190 · D6 renderer · started
+- 2026-10-01 10:36:56 · 190 · D6 renderer · done
+- 2026-10-01 10:36:56 · 190 · D7 fixture and mods-install flow · started
+- 2026-10-01 10:41:46 · 190 · D7 fixture and mods-install flow · done
+- 2026-10-01 10:41:46 · 190 · D8 four remaining flows · started
+- 2026-10-01 10:51:10 · 190 · D8 four remaining flows · done
+- 2026-10-01 10:51:10 · 190 · verify · started
+- 2026-10-01 10:53:58 · 190 · verify · done
+- 2026-10-01 10:53:58 · 190 · review 1 · started
+- 2026-10-01 10:55:47 · 190 · review 1 · done
+- 2026-10-01 10:55:47 · 190 · review fixes 1 · started
+- 2026-10-01 10:57:42 · 190 · review fixes 1 · done
+- 2026-10-01 10:57:42 · 190 · review 2 (hard) · started
+- 2026-10-01 11:05:32 · 190 · review 2 (hard) · done
+- 2026-10-01 11:05:32 · 190 · review fixes 2 · started
+- 2026-10-01 11:13:14 · 190 · review fixes 2 · done
+- 2026-10-01 11:13:14 · 190 · verify 2 · started
+- 2026-10-01 11:17:13 · 190 · story · done

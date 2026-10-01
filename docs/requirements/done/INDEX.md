@@ -282,3 +282,4 @@ second roadmap.
 - 187 — I watch a demo in cinema mode · — · Preview/Cinema/Fullscreen switch on the timeline; cinema opens a transparent topmost launcher overlay over the primary display (pinned stage follower, idle-fade controls, video-player keys, Esc leaves); Wayland/secondary display disabled with visible reason
 - 188 — The mods view shows the mods I have · S31 · Mods module: tile per installed game dir with manual/installed label, detail panel with Reveal folder, validated installation ids
 - 189 — the mod catalog comes from the content repository · S31 · manifest in the content repo, validated parser, cached catalog service, catalog tiles and detail panel.
+- 190 — I install a mod into an installation · S31 · catalog mods install into an installation as a job with variant selection, guarded write, install record and decision dialog

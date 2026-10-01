@@ -1,6 +1,13 @@
-import { MODS_HANDLERS, type ModCatalogState, type ModsListResult } from '@shared/modules/mods'
+import {
+  MODS_EVENTS,
+  MODS_HANDLERS,
+  type ModCatalogState,
+  type ModInstallChoice,
+  type ModInstallDecisionEvent,
+  type ModsListResult,
+} from '@shared/modules/mods'
 import type { Outcome } from '@shared/types'
-import { callModule } from '../moduleClient'
+import { callModule, onModuleEvent } from '../moduleClient'
 
 /**
  * Typed client for the mods module. One function per handler in its contract.
@@ -23,4 +30,24 @@ export function revealMod(installationId: string, gameDir: string): Promise<Outc
 
 export function getCatalog(): Promise<Outcome<ModCatalogState>> {
   return call<ModCatalogState>(MODS_HANDLERS.catalogGet, {})
+}
+
+export function installMod(
+  installationId: string,
+  catalogId: string,
+  version?: string,
+): Promise<Outcome<{ jobId: string }>> {
+  return call<{ jobId: string }>(MODS_HANDLERS.install, {
+    installationId,
+    catalogId,
+    ...(version !== undefined ? { version } : {}),
+  })
+}
+
+export function resolveInstall(jobId: string, choice: ModInstallChoice): Promise<Outcome<null>> {
+  return call<null>(MODS_HANDLERS.resolveInstall, { jobId, choice })
+}
+
+export function onInstallDecision(listener: (event: ModInstallDecisionEvent) => void): () => void {
+  return onModuleEvent<ModInstallDecisionEvent>('mods', MODS_EVENTS.installDecision, listener)
 }

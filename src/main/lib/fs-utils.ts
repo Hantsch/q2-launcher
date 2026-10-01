@@ -255,3 +255,44 @@ export async function readBinaryKind(path: string): Promise<BinaryKind> {
     await handle.close()
   }
 }
+
+export type BinaryArch = 'x86' | 'x86_64' | 'unknown'
+
+/**
+ * Reads the CPU architecture out of a PE (`Machine`, via `e_lfanew`) or ELF (`EI_CLASS`/`e_machine`)
+ * header. Never throws - a missing, truncated, unrecognised or other-architecture file is `'unknown'`.
+ */
+export async function readBinaryArch(path: string): Promise<BinaryArch> {
+  let handle
+  try {
+    handle = await open(path, 'r')
+  } catch {
+    return 'unknown'
+  }
+
+  try {
+    const head = Buffer.alloc(64)
+    const { bytesRead } = await handle.read(head, 0, 64, 0)
+    if (bytesRead >= 20 && head[0] === 0x7f && head[1] === 0x45 && head[2] === 0x4c && head[3] === 0x46) {
+      const littleEndian = head[5] !== 2
+      const machine = littleEndian ? head.readUInt16LE(18) : head.readUInt16BE(18)
+      if (machine === 3) return 'x86'
+      if (machine === 62) return 'x86_64'
+      return 'unknown'
+    }
+    if (bytesRead >= 64 && head[0] === 0x4d && head[1] === 0x5a) {
+      const peOffset = head.readUInt32LE(0x3c)
+      const pe = Buffer.alloc(6)
+      const read = await handle.read(pe, 0, 6, peOffset)
+      if (read.bytesRead < 6 || pe.toString('latin1', 0, 4) !== 'PE\0\0') return 'unknown'
+      const machine = pe.readUInt16LE(4)
+      if (machine === 0x14c) return 'x86'
+      if (machine === 0x8664) return 'x86_64'
+    }
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  } finally {
+    await handle.close()
+  }
+}

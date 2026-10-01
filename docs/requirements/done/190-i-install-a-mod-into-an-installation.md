@@ -1,7 +1,7 @@
 ---
 id: 190
 title: I install a mod into an installation
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-01
 ---
 
@@ -22,24 +22,24 @@ Concept: [mods.md](../concepts/mods.md) §6, §10; requirements MOD-5 to MOD-11.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Clicking Install on a catalog tile starts a job that shows progress in the
+- [x] **AC1** — Clicking Install on a catalog tile starts a job that shows progress in the
       Downloads surface and on the tile.
-- [ ] **AC2** — When the job finishes, the mod's files are in `<installation root>/<gamedir>/`
+- [x] **AC2** — When the job finishes, the mod's files are in `<installation root>/<gamedir>/`
       and the tile shows *installed*.
-- [ ] **AC3** — With a matching variant, the installed game library is the one for the
+- [x] **AC3** — With a matching variant, the installed game library is the one for the
       installation's platform and engine architecture (for example, r1q2 on Windows gets the
       32-bit `gamex86.dll`).
-- [ ] **AC4** — Without a matching game library, the content is installed, and the tile and
+- [x] **AC4** — Without a matching game library, the content is installed, and the tile and
       detail panel show the visible text "Not playable locally with <engine>: no matching build".
-- [ ] **AC5** — A package whose size or SHA256 does not match is never extracted or written. The
+- [x] **AC5** — A package whose size or SHA256 does not match is never extracted or written. The
       job fails with a visible reason, and the installation is unchanged.
-- [ ] **AC6** — When the source URL fails, the package's mirrors are tried in order.
-- [ ] **AC7** — While the game runs in that installation, the job waits before writing and says
+- [x] **AC6** — When the source URL fails, the package's mirrors are tried in order.
+- [x] **AC7** — While the game runs in that installation, the job waits before writing and says
       so. It writes once the game has exited.
-- [ ] **AC8** — After the install, the action bar's gamedir picker offers the mod.
-- [ ] **AC9** — The installation's state contains an install record listing every file the job
+- [x] **AC8** — After the install, the action bar's gamedir picker offers the mod.
+- [x] **AC9** — The installation's state contains an install record listing every file the job
       wrote, with its size and hash, plus the catalog id, version and variant.
-- [ ] **AC10** — Installing a catalog mod whose gamedir already exists as *installed manually*
+- [x] **AC10** — Installing a catalog mod whose gamedir already exists as *installed manually*
       first shows a confirmation naming the folder. Cancelling writes nothing.
 
 ## Open Questions
@@ -372,3 +372,22 @@ AC7 → D4+D8. AC9 → D2+D4+D7. AC10 → D4+D5+D6+D8. The e2e flows sit in D7/D
 only exists once D6 lands. Every behaviour D also carries its own unit tests.
 
 ## Done
+
+Install of a catalog mod is real: engine target + variant selection (`engine-target.ts`, manifest `arch`, `readBinaryArch`), install record + `setModuleData`, package stager in downloads, `startModInstall` (stage all, plan, decision, guarded write with backup/restore, record of written files only), `install`/`resolveInstall` handlers + `installDecision` event + `activeInstalls`, renderer Install/progress/decision dialog/reasons, fixture + five `ui:flow`s.
+
+Commit message: `190: install a catalog mod — engine target, stager, install job + record, decision dialog, flows`
+
+Verification (narrow gate, run twice: after build and after review fixes): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (197 files / 2756 tests), `ui:flow` mods-install, -content-only, -refused, -waits, -over-manual (+ mods-catalog/-view/-detail) each after `ui:seed`: all green. Full gate not run (sprint's). AC -> test: AC1-AC10 all mapped tests ran and passed as listed; no manual residue. Review: stage 1 PASS (3 fixed: unknown arch recorded as x86, concurrent same-gamedir installs, aria role=status), stage 2 hard PASS (3 fixed: re-check destination inside the write, record paths validated, NUL byte in slot key).
+
+Decisions:
+- Seam 1: install renames a top-level suffixed game library (`gamex86-opentdm-r388~add8f3c.dll` -> `gamex86.dll`, `gamex86_64-….so` -> `gamex86_64.so`), `placedGameLibraryName` in `install-job.ts`; no manifest schema change.
+- Seam 2: records carry optional `pkzUnsupported` (r1q2 + a written `.pkz`); tile/detail show visible `mods.reason.pkzNeedsQ2pro`.
+- Seam 3: a `from` that is a single file lands at `<gamedir>/<basename>`.
+- Seam 4: inspector `isGameDir` needs a top-level `.pak/.pkz/.pk3`, `game(x86|x86_64).dll` or any `.so`; a pak-only content install passes (tested with the real inspector). A content-only package with only nested files would not be listed (no catalog entry has that shape; job logs a warning).
+- Record field is `gameDir` (188's name); arch may be `unknown` (no bitness in the UI text); `variantId` = `<platform>-<arch>` or `content-only`. Detail Install testid is `mods-detail-install-<catalogId>`.
+- AC5 visible reason: the fetcher folds a bad-SHA mirror into `downloads.error.allMirrorsFailed`; the flow asserts that text (failed jobs are not listed on the Downloads tab, flow asserts via `jobs:list`).
+- Unfixed, documented: Keep/all-identical still saves a record with `files: []` (194 must not treat it as launcher-owned content); `setModuleData` disk write is debounced (crash window: files without record); `recordedGameDirs` stays lenient (188 contract); shipped manifest has OpenTDM `contentOnly.packages: []`, so OpenTDM on 64-bit Q2PRO is refused `mods.error.noVariant` (manifest content, not code); AQtion's two `from` dirs into one gamedir are untested against duplicate paths.
+
+Names later stories reuse: `readModsState`/`withRecord`/`recordedGameDirs`/`isSafeRecordedPath` (`install-records.ts`), `ModInstallRecord`/`ModGameDir`/`ModActiveInstall`/`ModInstallDecisionEvent`/`MODS_HANDLERS.install|resolveInstall`/`MODS_EVENTS.installDecision` (`src/shared/modules/mods.ts`), `startModInstall` (job kind `mod-install`, label `mods.job.install`, wait `mods.job.waitingForDecision`), `resolveEngineTarget`/`selectVariant`, `stagePackage`/`resolveVendoredExtractor`, `InstallationsService.setModuleData`, renderer `installMod`/`resolveInstall`/`ModInstallState`/`InstallDecisionDialog`, fixture `writeModsInstallFixture`/`modsFixtureFiles`, `scripts/lib/mods-install-flow.mjs`.
+
+tiers: D 8 / hard 1 · review default+hard · cycles 2 · agents 14

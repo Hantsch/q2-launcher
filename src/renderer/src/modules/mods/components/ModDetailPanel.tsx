@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, FolderOpen, X } from 'lucide-react'
-import type { LocalizedMessage } from '@shared/types'
+import type { Job, LocalizedMessage } from '@shared/types'
 import { Button, IconButton } from '../../../components/ui/Button'
 import { Badge } from '../../../components/ui/primitives'
 import { invoke } from '../../../lib/bridge'
 import { revealMod } from '../client'
 import type { ModTileModel } from '../merge-mod-tiles'
+import { ModInstallState } from './ModInstallState'
 
 /**
  * The docked detail of one selected mod tile: the catalog facts (licence, links, versions) when
@@ -16,18 +17,32 @@ export function ModDetailPanel({
   installationId,
   mod,
   onClose,
+  job = null,
+  failure = null,
+  onInstall,
 }: {
   installationId: string
   mod: ModTileModel
   onClose: () => void
+  job?: Job | null
+  failure?: LocalizedMessage | null
+  /** Starts the install of the version picked here. */
+  onInstall?: (catalogId: string, version: string) => void
 }) {
   const { t } = useTranslation()
   const { local, catalog } = mod
   const [error, setError] = useState<LocalizedMessage | null>(null)
+  const [version, setVersion] = useState<string | null>(null)
+  const chosenVersion = catalog
+    ? catalog.versions.some((v) => v.version === version)
+      ? (version as string)
+      : catalog.pinned
+    : null
 
   // A failure belongs to the directory it happened on.
   useEffect(() => {
     setError(null)
+    setVersion(null)
   }, [mod.gameDir, installationId])
 
   useEffect(() => {
@@ -90,11 +105,40 @@ export function ModDetailPanel({
                 {t('mods.detail.source')}
               </Button>
             </div>
+            <div className="space-y-2">
+              <ModInstallState
+                mod={mod}
+                job={job}
+                failure={failure}
+                onInstall={() => onInstall?.(catalog.id, chosenVersion ?? catalog.pinned)}
+                installTestId={`mods-detail-install-${catalog.id}`}
+              />
+              {catalog.versions.length > 1 && !local && (
+                <label className="flex items-center gap-2 text-sm text-ink-dim">
+                  {t('mods.detail.installVersion')}
+                  <select
+                    value={chosenVersion ?? catalog.pinned}
+                    onChange={(event) => setVersion(event.target.value)}
+                    data-testid="mods-detail-version-select"
+                    className="h-7 rounded-sm border border-line-strong bg-raised px-2 text-sm text-ink focus-visible:ring-2 focus-visible:ring-flame-500 focus-visible:outline-none"
+                  >
+                    {catalog.versions.map((entry) => (
+                      <option key={entry.version} value={entry.version}>
+                        {entry.version}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
             <div className="space-y-1">
               <p className="text-xs text-ink-muted">{t('mods.detail.versions')}</p>
               <ul className="space-y-1" data-testid="mods-detail-versions">
                 {catalog.versions.map((entry) => (
-                  <li key={entry.version} className="flex flex-wrap items-center gap-2 text-sm text-ink">
+                  <li
+                    key={entry.version}
+                    className="flex flex-wrap items-center gap-2 text-sm text-ink"
+                  >
                     <span className="select-text">{entry.version}</span>
                     {entry.version === catalog.pinned && (
                       <Badge tone="success">{t('mods.detail.defaultVersion')}</Badge>

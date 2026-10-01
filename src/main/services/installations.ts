@@ -395,6 +395,20 @@ export class InstallationsService {
     return ok(next)
   }
 
+  /** Replaces one module's slice of `moduleData` (story 190); every other module's key is untouched. */
+  setModuleData(id: string, moduleId: string, value: unknown): Outcome<Installation> {
+    const current = this.find(id)
+    if (!current) return fail('installations.error.notFound')
+
+    const next: Installation = {
+      ...current,
+      moduleData: { ...(current.moduleData ?? {}), [moduleId]: value },
+      updatedAt: new Date().toISOString(),
+    }
+    this.commit(this.state.installations().map((i) => (i.id === next.id ? next : i)))
+    return ok(next)
+  }
+
   /**
    * Story 093 finding fix (AC1): records the engine a completed `reinstall-engine` repair just put
    * back - same shape as `setIcon()`/`setLastFailure()` above, its own field, its own `commit()`

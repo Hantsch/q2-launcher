@@ -118,7 +118,12 @@ function manifestPackageSchemaWith(
 ): z.ZodType<PlatformTaggedManifestPackage> {
   const base = manifestPackageBaseSchemaWith(urlSchema)
   return z.discriminatedUnion('kind', [
-    base.extend({ kind: z.literal('engine'), engine: engineKindSchema }),
+    base.extend({
+      kind: z.literal('engine'),
+      engine: engineKindSchema,
+      /** Story 190 D1: the CPU architecture this engine build is (optional; absent = read the binary). */
+      arch: z.enum(['x86', 'x86_64']).optional(),
+    }),
     base.extend({ kind: z.literal('gamedata'), role: z.enum(['demo', 'point-release']) }),
   ])
 }

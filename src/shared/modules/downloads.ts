@@ -160,7 +160,7 @@ interface ManifestPackageBase {
  */
 export type ManifestPackage = ManifestPackageBase &
   (
-    | { kind: 'engine'; engine: EngineKind }
+    | { kind: 'engine'; engine: EngineKind; arch?: 'x86' | 'x86_64' }
     | { kind: 'gamedata'; role: 'demo' | 'point-release' }
   )
 

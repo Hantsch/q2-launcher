@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next'
+import type { Job, LocalizedMessage } from '@shared/types'
 import { Badge } from '../../../components/ui/primitives'
 import { cn } from '../../../lib/cn'
 import type { ModTileModel } from '../merge-mod-tiles'
+import { ModInstallState } from './ModInstallState'
 
 /**
  * One mod: a catalog entry (name + description, plain text), a game directory of the active
@@ -11,10 +13,19 @@ export function ModTile({
   mod,
   selected = false,
   onSelect,
+  job = null,
+  failure = null,
+  onInstall,
 }: {
   mod: ModTileModel
   selected?: boolean
   onSelect?: (gameDir: string) => void
+  /** The tile's install job from the jobs store. */
+  job?: Job | null
+  /** An install that was refused before it became a job. */
+  failure?: LocalizedMessage | null
+  /** Starts the install; the tile never picks a version. */
+  onInstall?: (catalogId: string) => void
 }) {
   const { t } = useTranslation()
   const local = mod.local
@@ -44,17 +55,30 @@ export function ModTile({
     </>
   )
   return (
-    <button
-      type="button"
-      data-testid={`mods-tile-${mod.gameDir}`}
-      aria-pressed={selected}
-      onClick={() => onSelect?.(mod.gameDir)}
-      className={cn(
-        className,
-        'transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-flame-500 focus-visible:outline-none',
+    <div className="flex min-w-0 flex-col gap-2">
+      <button
+        type="button"
+        data-testid={`mods-tile-${mod.gameDir}`}
+        aria-pressed={selected}
+        onClick={() => onSelect?.(mod.gameDir)}
+        className={cn(
+          className,
+          'transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-flame-500 focus-visible:outline-none',
+        )}
+      >
+        {body}
+      </button>
+      {mod.catalog && (
+        <div className="px-1">
+          <ModInstallState
+            mod={mod}
+            job={job}
+            failure={failure}
+            onInstall={() => onInstall?.(mod.catalog!.id)}
+            installTestId={`mods-install-${mod.catalog.id}`}
+          />
+        </div>
       )}
-    >
-      {body}
-    </button>
+    </div>
   )
 }

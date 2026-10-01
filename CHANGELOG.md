@@ -15,6 +15,7 @@ version section when a release actually ships.
 ### Added
 - **Mods** — Mods view shows every game directory of the selected installation.
 - **Mods** — Action Quake, OpenTDM and CTF appear as catalog tiles.
+- **Mods** — Install Action Quake, OpenTDM and CTF from the Mods view, with the build that fits your engine.
 
 ## 0.6.0 — 2026-09-30
 

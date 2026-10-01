@@ -4380,6 +4380,7 @@ export async function startBootstrapFixtureServer({
   includeR1q2 = false,
   failPrimaryOnlyFor,
   bleedingEdgeVersion,
+  modsInstall = false,
 } = {}) {
   const packages = buildBootstrapPackages({ demoContributesNothing, wrapperNestedLayout, includeR1q2 })
 
@@ -4468,8 +4469,10 @@ export async function startBootstrapFixtureServer({
     response.end(bytes)
   }
 
-  const archiveRoute = (archivePath) => async (response) => {
+  const archiveRoute = (archivePath, corrupt = false, chunkDelayMs = BOOTSTRAP_SERVE_CHUNK_DELAY_MS) => async (response) => {
     const bytes = readFileSync(archivePath)
+    // `corrupt`: same length, one flipped byte - the manifest SHA256 no longer matches.
+    if (corrupt) bytes[bytes.byteLength - 1] ^= 0xff
     response.writeHead(200, {
       'content-type': 'application/octet-stream',
       'content-length': bytes.byteLength,
@@ -4477,7 +4480,7 @@ export async function startBootstrapFixtureServer({
     const chunkSize = Math.ceil(bytes.byteLength / BOOTSTRAP_SERVE_CHUNKS)
     for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
       response.write(bytes.subarray(offset, Math.min(offset + chunkSize, bytes.byteLength)))
-      await new Promise((done) => setTimeout(done, BOOTSTRAP_SERVE_CHUNK_DELAY_MS))
+      await new Promise((done) => setTimeout(done, chunkDelayMs))
     }
     response.end()
   }
@@ -4512,14 +4515,14 @@ export async function startBootstrapFixtureServer({
         ? {
             schemaVersion: 1,
             packages: [
-              manifestPackage(engine, { kind: 'engine', engine: 'q2pro' }),
-              manifestPackage(r1q2Engine, { kind: 'engine', engine: 'r1q2' }),
+              manifestPackage(engine, { kind: 'engine', engine: 'q2pro', arch: 'x86_64' }),
+              manifestPackage(r1q2Engine, { kind: 'engine', engine: 'r1q2', arch: 'x86' }),
             ],
             pinned: { q2pro: engine.id, r1q2: r1q2Engine.id },
           }
         : {
             schemaVersion: 1,
-            packages: [manifestPackage(engine, { kind: 'engine', engine: 'q2pro' })],
+            packages: [manifestPackage(engine, { kind: 'engine', engine: 'q2pro', arch: 'x86_64' })],
             pinned: { q2pro: engine.id },
           },
     ),
@@ -4537,6 +4540,19 @@ export async function startBootstrapFixtureServer({
   for (const pkg of packages) {
     routes.set(`/packages/${pkg.fileName}`, archiveRoute(pkg.path))
     routes.set(`/mirror/${pkg.fileName}`, archiveRoute(pkg.path))
+  }
+  if (modsInstall) {
+    // Story 190 D7: the mod catalog + its packages. The primary URL is deliberately never routed
+    // (404 from the request log's point of view); the mirror serves. `fixturebad`'s bytes differ
+    // from its manifest SHA256 on both URLs.
+    const mods = buildModsInstallPackages()
+    routes.set(
+      '/mods/manifest.json',
+      jsonRoute({ schemaVersion: 1, entries: modsInstallManifestEntries(mods, baseUrl) }),
+    )
+    for (const pkg of mods.packages) {
+      routes.set(`/mirror/${pkg.fileName}`, archiveRoute(pkg.path, pkg.corrupt, 150))
+    }
   }
   if (bleedingEdgeVersion !== undefined) {
     routes.set('/packages/version.txt', (response) => {
@@ -4558,6 +4574,126 @@ export async function startBootstrapFixtureServer({
         server.close(() => resolve())
       }),
   }
+}
+
+// --- story 190 D7: the mods-install fixture ------------------------------------------------------
+
+/** Expected bytes per gamedir-relative path - what `fixturemod`'s win32/x86 library variant (and, for
+ * `pak0.pak`, its content-only variant) must put on disk. */
+export const modsFixtureFiles = {
+  'gamex86.dll': filler(24 * 1024, 0x6d),
+  'pak0.pak': filler(8 * 1024, 0x70),
+}
+/** The content-only variant ships only a pak0.pak, with its own bytes. */
+export const modsFixtureContentOnlyFiles = { 'pak0.pak': filler(6 * 1024, 0x63) }
+
+export const MODS_INSTALL_R1Q2_ID = 'fixture-install-mods-r1q2'
+export const MODS_INSTALL_R1Q2_NAME = 'Fixture Mods R1Q2 Install'
+export const MODS_INSTALL_Q2PRO_ID = 'fixture-install-mods-q2pro'
+export const MODS_INSTALL_Q2PRO_NAME = 'Fixture Mods Q2PRO Install'
+
+function buildModsInstallPackages() {
+  const zip = (fileName, files) =>
+    buildFixturePackage({
+      fileName,
+      stagingName: fileName.replace(/\.zip$/, ''),
+      entries: Object.keys(files),
+      build: (staging) => {
+        for (const [name, bytes] of Object.entries(files)) writeFileIn(staging, name, bytes)
+      },
+    })
+  const library = zip('fixturemod-win32-x86.zip', modsFixtureFiles)
+  const content = zip('fixturemod-content.zip', modsFixtureContentOnlyFiles)
+  const bad = zip('fixturebad-content.zip', modsFixtureContentOnlyFiles)
+  return {
+    library,
+    content,
+    bad,
+    packages: [library, content, { ...bad, corrupt: true }],
+  }
+}
+
+function modsInstallManifestEntries({ library, content, bad }, baseUrl) {
+  const pkg = (id, info) => ({
+    id,
+    version: 'v1.0.0',
+    // Never routed: answers 404, then the mirror serves.
+    url: `${baseUrl}/modpkg/${info.fileName}`,
+    mirrors: [`${baseUrl}/mirror/${info.fileName}`],
+    sizeBytes: info.sizeBytes,
+    sha256: info.sha256,
+    contents: [{ from: '.', to: 'gamedir' }],
+  })
+  const entry = (gamedir, name, packages) => ({
+    id: gamedir,
+    gamedir,
+    name,
+    description: `Fixture description: ${name}.`,
+    license: 'GPL-2.0',
+    projectUrl: `https://example.invalid/${gamedir}`,
+    sourceUrl: `https://example.invalid/${gamedir}/src`,
+    pinned: 'v1.0.0',
+    versions: [{ version: 'v1.0.0', prerelease: false, ...packages }],
+  })
+  return [
+    entry('fixturemod', 'Fixture Install Mod', {
+      variants: [
+        { platform: 'win32', arch: 'x86', packages: [pkg('fixturemod-win32-x86', library)] },
+      ],
+      contentOnly: { packages: [pkg('fixturemod-content', content)] },
+    }),
+    entry('fixturebad', 'Fixture Bad Checksum Mod', {
+      variants: [],
+      contentOnly: { packages: [pkg('fixturebad-content', bad)] },
+    }),
+  ]
+}
+
+/**
+ * Reseeds `populated` and adds two real, temp-rooted installations - an r1q2 (manifest arch `x86`) and
+ * a q2pro (`x86_64`) - each recording its fixture engine `packageId` under `moduleData.downloads`, so
+ * the engine arch comes from the manifest and not from an (empty, non-PE) executable. Written into
+ * `state.json` here rather than into `populatedInstallations()`, so no other flow's counts move.
+ */
+export function writeModsInstallFixture() {
+  const { userDataDir } = writePopulatedFixture()
+  const make = (id, name, engineKind, exe, packageId, sortOrder) => {
+    const root = join(gameRoot(), id)
+    rmDirBestEffort(root)
+    mkdirSync(join(root, 'baseq2'), { recursive: true })
+    writeFileSync(join(root, exe), '')
+    for (const pak of ['pak0.pak', 'pak1.pak', 'pak2.pak']) {
+      writeSizedFile(join(root, 'baseq2', pak), RETAIL_PAK_SIZES[pak])
+    }
+    return makeInstallation({
+      id,
+      name,
+      rootPath: root,
+      engineKind,
+      favorite: false,
+      sortOrder,
+      moduleData: { downloads: { version: 'fixture-mods', packageId } },
+    })
+  }
+  const statePath = join(userDataDir, STATE_FILE)
+  const state = JSON.parse(readFileSync(statePath, 'utf8'))
+  state.installations.push(
+    make(MODS_INSTALL_R1Q2_ID, MODS_INSTALL_R1Q2_NAME, 'r1q2', 'r1q2.exe', R1Q2_FIXTURE_ENGINE_ID, 90),
+    make(MODS_INSTALL_Q2PRO_ID, MODS_INSTALL_Q2PRO_NAME, 'q2pro', 'q2pro.exe', BOOTSTRAP_ENGINE_FIXTURE_ID, 91),
+  )
+  writeJson(statePath, state)
+  return { userDataDir }
+}
+
+/**
+ * Story 190 D8: seeds `<root>/<gamedir>/<relativePath>` of installation `id` with `bytes`, as a
+ * folder the user made by hand (no install record). Returns the file's path.
+ */
+export function writeManualGamedirFile(id, gamedir, relativePath, bytes) {
+  const path = installationRootFilePath(id, `${gamedir}/${relativePath}`)
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, bytes)
+  return path
 }
 
 /**

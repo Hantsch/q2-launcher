@@ -210,6 +210,24 @@ describe('setEngineState (story 092 D2)', () => {
   })
 })
 
+describe('setModuleData (story 190 D2)', () => {
+  it('setModuleData persists under its module key only', () => {
+    state.setInstallations([installation({ moduleData: { downloads: { version: '2.34' } } })])
+
+    const result = installations.setModuleData(INSTALLATION_ID, 'mods', { records: [] })
+
+    expect(result.ok).toBe(true)
+    expect(installations.find(INSTALLATION_ID)?.moduleData).toEqual({
+      downloads: { version: '2.34' },
+      mods: { records: [] },
+    })
+    expect(installations.setModuleData('nope', 'mods', {})).toEqual({
+      ok: false,
+      error: { key: 'installations.error.notFound' },
+    })
+  })
+})
+
 describe('AC4: a playable verdict clears the last failure, an invalid one keeps it', () => {
   it('clears lastFailure once validate() sees a playable verdict', async () => {
     const rootPath = join(dir, 'playable')
