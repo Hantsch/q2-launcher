@@ -1,7 +1,7 @@
 ---
 sprint: S31
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S31
 milestone: 5.1 — Mods v1 (catalog, install, remove, GB-D5)
 ---
 
