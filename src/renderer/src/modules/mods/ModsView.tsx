@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Boxes } from 'lucide-react'
-import type { ModGameDir } from '@shared/modules/mods'
+import type { ModCatalogState, ModGameDir } from '@shared/modules/mods'
 import type { LocalizedMessage } from '@shared/types'
 import { EmptyState } from '../../components/ui/primitives'
 import { useActiveInstallation } from '../../store/useLauncher'
 import { ModDetailPanel } from './components/ModDetailPanel'
 import { ModTile } from './components/ModTile'
-import { listMods } from './client'
+import { getCatalog, listMods } from './client'
+import { mergeModTiles } from './merge-mod-tiles'
 
 type ListState =
   | { kind: 'loading' }
@@ -16,7 +17,7 @@ type ListState =
 
 /** The game directories of the active installation, read through `mods/list` (never the store). */
 export function ModsView() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const installation = useActiveInstallation()
   const installationId = installation?.id ?? null
   // Re-list when the installation's directories change (rescan, add, remove).
@@ -28,13 +29,40 @@ export function ModsView() {
       ? { kind: 'loading' }
       : loaded
 
+  // The catalog is fetched once per view; `unavailable` also covers a failed call.
+  const [catalog, setCatalog] = useState<ModCatalogState | null>(null)
+  useEffect(() => {
+    let stale = false
+    getCatalog()
+      .then((outcome) => (outcome.ok ? outcome.value : ({ status: 'unavailable' } as const)))
+      .catch(() => ({ status: 'unavailable' }) as const)
+      .then((next) => {
+        if (!stale) setCatalog(next)
+      })
+    return () => {
+      stale = true
+    }
+  }, [])
+  const gameDirs = state.kind === 'ready' ? state.gameDirs : null
+  const tiles = useMemo(
+    () =>
+      gameDirs ? mergeModTiles(catalog?.status === 'ok' ? catalog.entries : [], gameDirs) : [],
+    [catalog, gameDirs],
+  )
+  const asOf =
+    catalog?.status === 'ok' && catalog.fromCache
+      ? new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(
+          new Date(catalog.fetchedAt),
+        )
+      : null
+
   // The selection is keyed to its installation and only counts while the directory is listed.
   const [selected, setSelectedRaw] = useState<{ installationId: string; gameDir: string } | null>(
     null,
   )
   const selectedMod =
-    state.kind === 'ready' && selected?.installationId === installationId
-      ? (state.gameDirs.find((mod) => mod.gameDir === selected.gameDir) ?? null)
+    selected?.installationId === installationId
+      ? (tiles.find((tile) => tile.gameDir === selected.gameDir) ?? null)
       : null
   const setSelected = useCallback(
     (gameDir: string) => {
@@ -88,24 +116,38 @@ export function ModsView() {
             <p role="alert" className="text-sm text-danger" data-testid="mods-error">
               {t(state.error.key, state.error.params)}
             </p>
-          ) : state.kind === 'ready' && state.gameDirs.length === 0 ? (
-            <div data-testid="mods-empty">
-              <EmptyState
-                icon={<Boxes className="size-6" />}
-                title={t('mods.empty.title')}
-                body={t('mods.empty.body')}
-              />
-            </div>
           ) : state.kind === 'ready' ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3">
-              {state.gameDirs.map((mod) => (
-                <ModTile
-                  key={mod.gameDir}
-                  mod={mod}
-                  selected={mod.gameDir === selectedMod?.gameDir}
-                  onSelect={setSelected}
-                />
-              ))}
+            <div className="space-y-3">
+              {catalog?.status === 'unavailable' && (
+                <p className="text-sm text-ink-dim" data-testid="mods-catalog-unavailable">
+                  {t('mods.catalog.unavailable')}
+                </p>
+              )}
+              {asOf && (
+                <p className="text-sm text-ink-dim" data-testid="mods-catalog-as-of">
+                  {t('mods.catalog.asOf', { date: asOf })}
+                </p>
+              )}
+              {tiles.length === 0 ? (
+                <div data-testid="mods-empty">
+                  <EmptyState
+                    icon={<Boxes className="size-6" />}
+                    title={t('mods.empty.title')}
+                    body={t('mods.empty.body')}
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3">
+                  {tiles.map((mod) => (
+                    <ModTile
+                      key={mod.gameDir}
+                      mod={mod}
+                      selected={mod.gameDir === selectedMod?.gameDir}
+                      onSelect={setSelected}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           ) : null}
         </div>

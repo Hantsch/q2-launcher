@@ -675,7 +675,17 @@
       "close": "Close details",
       "path": "Folder",
       "reveal": "Reveal folder",
+      "license": "Licence",
+      "projectPage": "Project page",
+      "source": "Source",
+      "versions": "Versions",
+      "defaultVersion": "default",
+      "prerelease": "pre-release",
       "manualNote": "Installed manually — the launcher does not update or remove it"
+    },
+    "catalog": {
+      "unavailable": "The mod catalog is not available right now. Mods already on disk are still shown.",
+      "asOf": "Catalog as of {{date}}"
     },
     "origin": {
       "manual": "installed manually",

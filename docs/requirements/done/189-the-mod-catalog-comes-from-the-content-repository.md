@@ -1,7 +1,7 @@
 ---
 id: 189
 title: the mod catalog comes from the content repository
-status: ready # draft -> ready -> in-progress -> done
+status: done
 created: 2026-10-01
 ---
 
@@ -23,20 +23,20 @@ Concept: [mods.md](../concepts/mods.md) §6–§8; requirements MOD-3, MOD-4.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `content/q2_community_content/mods/manifest.json` exists with entries for `action`,
+- [x] **AC1** — `content/q2_community_content/mods/manifest.json` exists with entries for `action`,
       `opentdm` and `ctf`. Every package has a real size and SHA256 that match the file at its
       `url`.
-- [ ] **AC2** — Every catalog entry appears as a tile in the Mods view, with its display name and
+- [x] **AC2** — Every catalog entry appears as a tile in the Mods view, with its display name and
       short description.
-- [ ] **AC3** — A catalog entry whose gamedir already exists in the installation shows on one tile,
+- [x] **AC3** — A catalog entry whose gamedir already exists in the installation shows on one tile,
       not as a catalog tile plus a manual tile.
-- [ ] **AC4** — The detail panel of a catalog entry shows its licence and links to its project
+- [x] **AC4** — The detail panel of a catalog entry shows its licence and links to its project
       page and its source.
-- [ ] **AC5** — A manifest row that fails validation is dropped with a logged warning, and the
+- [x] **AC5** — A manifest row that fails validation is dropped with a logged warning, and the
       other entries still appear. A manifest whose envelope fails validation shows no catalog
       tiles and a visible "catalog unavailable" note, and the local mods still show.
-- [ ] **AC6** — Offline, the last good catalog copy is shown with an "as of <date>" note.
-- [ ] **AC7** — Nothing from the manifest reaches the renderer unvalidated, and a gamedir name that
+- [x] **AC6** — Offline, the last good catalog copy is shown with an "as of <date>" note.
+- [x] **AC7** — Nothing from the manifest reaches the renderer unvalidated, and a gamedir name that
       is not a safe single path token (the `launch-plan.ts` rule) is refused at parse time.
 
 ## Open Questions
@@ -210,8 +210,8 @@ the 15-minute freshness window would mask a mid-session switch). Description and
 - AC2 → e2e `scripts/flows/mods-catalog.mjs` › flow `mods-catalog` (step "every catalog entry is a
   tile with its name and description")
 - AC3 → e2e `scripts/flows/mods-catalog.mjs` › flow `mods-catalog` (step "a catalog gamedir already
-  on disk is one tile") plus unit `src/renderer/src/modules/mods/merge-mod-tiles.test.ts` › "a
-  catalog entry and a local gamedir with the same name, any case, are one tile"
+  on disk is one tile") plus unit
+  `src/renderer/src/modules/mods/merge-mod-tiles.test.ts` › "merges a local directory into the catalog tile, case-insensitively"
 - AC4 → e2e `scripts/flows/mods-catalog-detail.mjs` › flow `mods-catalog-detail`
 - AC5 → unit `src/main/modules/mods/catalog-parse.test.ts` › "an invalid entry is dropped with a
   warning and the others survive" and › "a malformed envelope is refused"; unit
@@ -227,3 +227,20 @@ the 15-minute freshness window would mask a mid-session switch). Description and
   never reach the projection"
 
 ## Done
+
+Mod catalog is real: `content/q2_community_content/mods/manifest.json` (action, opentdm, ctf; real sizes + SHA256, `--check` green), zod schema + defensive parser (`catalog-schema.ts`, `catalog-parse.ts`), `CatalogService` (15-min freshness, separate disk cache, refused envelope = failed fetch), handler `catalog.get`, catalog tiles merged with local dirs, "unavailable" / "as of" notes, detail panel with licence, project/source links and versions.
+
+Commit message: `189: mod catalog from the content repository — manifest, parser, service, catalog tiles, detail`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (115 files / 900 tests), `ui:flow` mods-catalog, mods-catalog-detail, mods-view, mods-detail (each after `ui:seed`) green; `node scripts/manifest-hashes.mjs --check` green (D1, network). After review fixes: vitest mods suites, typecheck, build, mods-catalog flow re-run green. Full gate not run (sprint's). AC -> test: AC1-AC7 all mapped tests ran and passed (AC3 unit test line renamed to its real name "merges a local directory into the catalog tile, case-insensitively"); no manual residue. Review: stage 1 PASS, 3 minor findings fixed (all-dropped catalog now counts as failed fetch, `getCatalog` rejection -> unavailable, bad-row flow assertion made meaningful); unfixed: no in-flight fetch dedupe (mirrors ManifestService).
+
+Decisions:
+- Plan gap (D1): OpenTDM ships `gamex86-opentdm-r388~add8f3c.dll` / `gamex86_64-opentdm-r388~add8f3c.so`, not `gamex86.dll`; `to: 'gamedir'` cannot rename -> story 190 must rename (or schema grows a `rename`) or `+set game opentdm` will not load the library.
+- Plan gap (D1): AQtion paks are `.pkz`; r1q2 reads only `.pak`, Q2PRO reads `.pkz` — engine pairing matters for 190/AQtion launch. TNG `tng-lin-arm64.zip` carries `gamearm64.so` (name unverified against the engine). Licence strings stay `GPL-2.0` as specified.
+- AQtion maps `aqtion/action` + `aqtion/baseaq` into gamedir `action`; TNG zips map `from: "."`; ctf content-only lists single files (`pak0.pak`, `server.cfg`, ...) as `from`, so 190 must place a file-path `from` at `<gamedir>/<basename>`; CTF content-only row id `ctf-320-x86-content`. `mirrors: []` everywhere.
+- Catalog-only tiles are selectable (detail panel for catalog data; Reveal only when the dir exists); unavailable/as-of notes also show above the empty state. `mods-view.mjs` now uses a `down` catalog fixture so it never hits the real repo; `mods-catalog` runs each mode in its own seeded variant (`mods-catalog-<mode>`).
+- `fetchedAt` is a string (as `ManifestSnapshot`); a package requires >=1 `contents` entry; openExternal verified via harness-recorded `ui-harness-external.json`.
+
+Names later stories reuse: manifest shape `entries[]->versions[]->variants[{platform,arch,packages[]}]` + `contentOnly.packages[]` + `pinned`, parsed by `parseModCatalog(raw, log, { httpsOnly })` / `toCatalogEntryDto` / `isSafeContentsFrom` (`src/main/modules/mods/catalog-parse.ts`, `catalog-schema.ts`; parsed entries keep variants/packages in main); `CatalogService` (`catalog-service.ts`, 190 resolves variants from its parsed catalog there); `isSafeGameDirName` (`src/shared/mods/gamedir.ts`, 192/193); `MODS_HANDLERS.catalogGet`, `ModCatalogEntry`/`ModCatalogState` (`src/shared/modules/mods.ts`); renderer `getCatalog` (`client.ts`), `mergeModTiles` (`merge-mod-tiles.ts`); fixture `startModsCatalogFixtureServer({ mode })` in `scripts/lib/fixture.mjs`.
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 9

@@ -1,4 +1,4 @@
-import { MODS_HANDLERS, type ModsListResult } from '@shared/modules/mods'
+import { MODS_HANDLERS, type ModCatalogState, type ModsListResult } from '@shared/modules/mods'
 import type { Outcome } from '@shared/types'
 import { callModule } from '../moduleClient'
 
@@ -19,4 +19,8 @@ export function listMods(installationId: string): Promise<Outcome<ModsListResult
 
 export function revealMod(installationId: string, gameDir: string): Promise<Outcome<null>> {
   return call<null>(MODS_HANDLERS.reveal, { installationId, gameDir })
+}
+
+export function getCatalog(): Promise<Outcome<ModCatalogState>> {
+  return call<ModCatalogState>(MODS_HANDLERS.catalogGet, {})
 }

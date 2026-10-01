@@ -5,7 +5,22 @@
 // Selectors - read `src/renderer/src/modules/mods/ModsView.tsx` and `components/ModTile.tsx`:
 //   nav-mods, mods-empty, mods-installation-name, mods-tile-<dir>, mods-tile-origin-manual
 
+import { startModsCatalogFixtureServer } from '../lib/fixture.mjs'
+
 export const variant = 'populated'
+
+// Story 189 D4: the catalog would add tiles (and the real one needs the network); a failing
+// catalog keeps this flow about the installation's own game directories.
+let server
+
+export async function setup() {
+  server = await startModsCatalogFixtureServer({ mode: 'down' })
+  return { env: { Q2L_UI_CONTENT_REPO_BASE: server.baseUrl } }
+}
+
+export async function teardown() {
+  await server?.close()
+}
 
 const TIMEOUT_MS = 8_000
 const WRITEDIR_NAME = 'Fixture WriteDir Install'

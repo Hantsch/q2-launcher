@@ -1,11 +1,19 @@
 import { join } from 'node:path'
 import { shell } from 'electron'
-import { MODS_HANDLERS, type ModGameDir, type ModsListResult } from '@shared/modules/mods'
+import {
+  MODS_HANDLERS,
+  type ModCatalogState,
+  type ModGameDir,
+  type ModsListResult,
+} from '@shared/modules/mods'
 import { fail, ok, type Installation, type Outcome } from '@shared/types'
 import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harness'
 import type { MainModule } from '../types'
 import { recordedGameDirs } from './install-records'
-import { listInputSchema, revealInputSchema } from './schemas'
+import { resolveDownloadSource } from '../downloads/harness'
+import { toCatalogEntryDto } from './catalog-parse'
+import { CatalogService } from './catalog-service'
+import { catalogGetInputSchema, listInputSchema, revealInputSchema } from './schemas'
 
 /**
  * The mods module. Lists an installation's persisted game directories (no disk scan) minus
@@ -27,6 +35,25 @@ export const modsModule: MainModule = {
   id: 'mods',
 
   setup({ handle, app, log }) {
+    // Resolved once, as in the downloads module; httpsOnly follows the harness result.
+    const catalog = new CatalogService({ log, source: resolveDownloadSource({ isDev: app.isDev }) })
+
+    handle(
+      MODS_HANDLERS.catalogGet,
+      catalogGetInputSchema,
+      async (input): Promise<Outcome<ModCatalogState>> => {
+        const snapshot = await catalog.getCatalog({ refresh: input.refresh })
+        if (snapshot.status === 'unavailable') return ok({ status: 'unavailable' })
+        return ok({
+          status: 'ok',
+          entries: snapshot.entries.map(toCatalogEntryDto),
+          fetchedAt: snapshot.fetchedAt,
+          fromCache: snapshot.fromCache,
+          ageMs: snapshot.ageMs,
+        })
+      },
+    )
+
     handle(MODS_HANDLERS.list, listInputSchema, (input): Outcome<ModsListResult> => {
       const installation = app.installations.find(input.installationId)
       if (!installation) return fail('mods.error.installationNotFound')

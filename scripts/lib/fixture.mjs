@@ -4570,6 +4570,108 @@ export async function startBootstrapFixtureServer({
 const NO_ENGINE_FOR_PLATFORM_PLATFORM = 'q2l-fixture-unsupported-platform'
 
 /**
+ * Story 189 D4: the mod catalog fixture - three entries (action, opentdm, ctf) with distinctive
+ * names/descriptions so the Mods flow can tell catalog text from folder names. Passes the D2
+ * parser (`src/main/modules/mods/catalog-schema.ts`). Exported so the flow can also seed the
+ * catalog cache file with the same entries.
+ */
+export function modsCatalogFixtureEntries() {
+  const entry = (gamedir, name, description) => ({
+    id: gamedir,
+    gamedir,
+    name,
+    description,
+    license: 'GPL-2.0',
+    projectUrl: `https://example.invalid/${gamedir}`,
+    sourceUrl: `https://example.invalid/${gamedir}/src`,
+    pinned: 'v1.0.0',
+    versions: [
+      ['v1.0.0', false],
+      ['v1.1.0-rc1', true],
+    ].map(([version, prerelease]) => ({
+      version,
+      prerelease,
+      variants: [],
+      contentOnly: {
+        packages: [
+          {
+            id: `${gamedir}-fixture-content`,
+            version,
+            url: `https://example.invalid/${gamedir}.zip`,
+            mirrors: [],
+            sizeBytes: 1024,
+            sha256: createHash('sha256').update(`${gamedir}-fixture`).digest('hex'),
+            contents: [{ from: '.', to: 'gamedir' }],
+          },
+        ],
+      },
+    })),
+  })
+  return [
+    entry('action', 'Fixture Action Quake', 'Fixture description: realistic teamplay with bandaging.'),
+    entry('opentdm', 'Fixture OpenTDM', 'Fixture description: organised team deathmatch matches.'),
+    entry('ctf', 'Fixture Capture The Flag', 'Fixture description: steal the enemy flag.'),
+  ]
+}
+
+/**
+ * Story 189 D4: serves `/mods/manifest.json` in one of four modes - `ok`, `bad-row` (one invalid
+ * entry between two good ones), `bad-envelope` (refused whole) and `down` (HTTP 500). The mode is
+ * switchable at runtime, but the flow launches one app per mode (the app's 15-minute freshness
+ * window would mask a mid-session switch).
+ */
+export async function startModsCatalogFixtureServer({ mode = 'ok' } = {}) {
+  const requested = []
+  let currentMode = mode
+
+  const server = createServer((request, response) => {
+    const path = (request.url ?? '/').split('?')[0]
+    requested.push(path)
+    if (path !== '/mods/manifest.json') {
+      response.writeHead(404, { 'content-type': 'text/plain' })
+      response.end('not found')
+      return
+    }
+    if (currentMode === 'down') {
+      response.writeHead(500, { 'content-type': 'text/plain' })
+      response.end('down')
+      return
+    }
+    const [action, opentdm, ctf] = modsCatalogFixtureEntries()
+    let body
+    if (currentMode === 'bad-envelope') body = { entries: 'not-a-list' }
+    else if (currentMode === 'bad-row') {
+      body = {
+        schemaVersion: 1,
+        entries: [action, { id: 'broken', gamedir: '../escape', name: 'Broken Row' }, opentdm],
+      }
+    } else body = { schemaVersion: 1, entries: [action, opentdm, ctf] }
+    const bytes = Buffer.from(JSON.stringify(body), 'utf8')
+    response.writeHead(200, { 'content-type': 'application/json', 'content-length': bytes.byteLength })
+    response.end(bytes)
+  })
+
+  await new Promise((resolve, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', resolve)
+  })
+  const { port } = server.address()
+
+  return {
+    baseUrl: `http://127.0.0.1:${port}`,
+    requested,
+    setMode: (next) => {
+      currentMode = next
+    },
+    close: () =>
+      new Promise((resolve) => {
+        server.closeAllConnections?.()
+        server.close(() => resolve())
+      }),
+  }
+}
+
+/**
  * Story 100 D8 (AC7): a second, much smaller fixture server than `startBootstrapFixtureServer()`
  * above, for `scripts/flows/bootstrap-no-engine-for-platform.mjs` - the D7/D8 "manifest pins
  * something, just not for this host" case (`bootstrapEngineOptions`'s `emptyReason:

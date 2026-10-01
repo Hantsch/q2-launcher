@@ -4,6 +4,8 @@ import { z } from 'zod'
 
 export const listInputSchema = z.object({ installationId: z.string().min(1) })
 
+export const catalogGetInputSchema = z.object({ refresh: z.boolean().optional() }).strict()
+
 export const revealInputSchema = listInputSchema.extend({
   // A game dir is a single folder name, never a path - this blocks traversal
   // (same rule as `activeGameDir` in `src/shared/ipc-schemas.ts`).

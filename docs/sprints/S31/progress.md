@@ -13,3 +13,21 @@
 - 2026-10-01 09:43:27 · 188 · review 1 · started
 - 2026-10-01 09:45:46 · 188 · review 1 · done
 - 2026-10-01 09:45:49 · 188 · story · done
+- 2026-10-01 09:46:01 · 189 · build · started
+- 2026-10-01 09:46:28 · 189 · D1 mods manifest · started
+- 2026-10-01 10:01:11 · 189 · D1 mods manifest · done
+- 2026-10-01 10:01:11 · 189 · D2 schema parser gamedir · started
+- 2026-10-01 10:03:11 · 189 · D2 schema parser gamedir · done
+- 2026-10-01 10:03:11 · 189 · D3 catalog service and handler · started
+- 2026-10-01 10:04:23 · 189 · D3 catalog service and handler · done
+- 2026-10-01 10:04:23 · 189 · D4 catalog tiles + flow · started
+- 2026-10-01 10:11:23 · 189 · D4 catalog tiles + flow · done
+- 2026-10-01 10:11:23 · 189 · D5 catalog detail panel · started
+- 2026-10-01 10:15:38 · 189 · D5 catalog detail panel · done
+- 2026-10-01 10:15:38 · 189 · verify · started
+- 2026-10-01 10:17:55 · 189 · verify · done
+- 2026-10-01 10:17:55 · 189 · review 1 · started
+- 2026-10-01 10:19:06 · 189 · review 1 · done
+- 2026-10-01 10:19:06 · 189 · review fixes · started
+- 2026-10-01 10:20:29 · 189 · review fixes · done
+- 2026-10-01 10:20:29 · 189 · story · done
