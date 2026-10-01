@@ -89,7 +89,7 @@ export function InstallationRail() {
     >
       <SectionLabel className="text-[9px] tracking-[0.22em]">{t('rail.label')}</SectionLabel>
 
-      <ul className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto px-2">
+      <ul className="flex min-h-0 w-full flex-1 flex-col items-center gap-2 overflow-y-auto px-2 py-1">
         {installations.map((installation) => (
           <li key={installation.id} className="w-full">
             <HoverCard content={<RailCard installation={installation} />}>
@@ -219,9 +219,10 @@ function RailTile({
       // now, the button itself no longer needs to).
       className="group relative block w-full"
     >
-      {/* Active marker, bleeding into the rail edge like a plugged-in cartridge. */}
+      {/* Active marker, bleeding into the rail edge like a plugged-in cartridge. Sits inside the
+          list's padding: the list scrolls, so anything further out is clipped. */}
       {active && (
-        <span className="absolute top-1/2 -left-[9px] h-7 w-[3px] -translate-y-1/2 rounded-r-sm bg-flame-500 shadow-[0_0_10px_rgb(255_138_31/0.8)]" />
+        <span className="absolute top-1/2 -left-2 h-10 w-1 -translate-y-1/2 rounded-r-sm bg-flame-500 shadow-[0_0_10px_rgb(255_138_31/0.8)]" />
       )}
 
       <InstallationTile
@@ -229,9 +230,11 @@ function RailTile({
         size="rail"
         className={cn(
           'transition-[border-color,box-shadow,background-color] duration-[--dur-base] ease-[--ease-out-quart]',
+          // The ring sits outside the tile, so an icon bitmap cannot cover it; inactive tiles
+          // recede so the active one reads at a glance.
           active
-            ? 'border-flame-500 bg-flame-900/25 shadow-[var(--shadow-flame)]'
-            : 'border-line bg-raised hover:border-line-strong hover:bg-hover',
+            ? 'border-flame-500 bg-flame-900/25 shadow-[var(--shadow-flame)] ring-2 ring-flame-500 ring-offset-2 ring-offset-base'
+            : 'border-line bg-raised opacity-55 saturate-50 hover:border-line-strong hover:bg-hover hover:opacity-100 hover:saturate-100',
           dropTarget && 'border-strogg-500',
         )}
         textClassName={active ? 'text-flame-200' : 'text-ink-dim group-hover:text-ink'}

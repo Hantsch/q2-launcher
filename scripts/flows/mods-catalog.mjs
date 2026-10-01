@@ -114,7 +114,9 @@ export default async function modsCatalog({ shot, step }) {
     const ctf = ENTRIES.find((e) => e.gamedir === 'ctf')
     const ctfText = await tileText(page, 'ctf')
     expectText(ctfText, ctf.name, 'ctf tile')
-    expectText(ctfText.toLowerCase(), 'installed manually', 'ctf tile')
+    // The origin note sits in the card's footer, outside the select button.
+    const ctfCard = page.locator('article', { has: page.getByTestId('mods-tile-ctf') })
+    expectText((await ctfCard.innerText()).toLowerCase(), 'installed manually', 'ctf card')
   })
 
   step('bad row: the other entries still show')

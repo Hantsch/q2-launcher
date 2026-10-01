@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import type { Job, LocalizedMessage } from '@shared/types'
-import { Badge } from '../../../components/ui/primitives'
 import { cn } from '../../../lib/cn'
 import type { ModTileModel } from '../merge-mod-tiles'
 import { ModInstallState } from './ModInstallState'
@@ -36,58 +35,71 @@ export function ModTile({
   const { t } = useTranslation()
   const local = mod.local
   const manual = local?.origin === 'manual'
-  const className = cn(
-    'flex min-h-11 min-w-0 flex-col items-start gap-2 rounded-md border bg-panel px-4 py-3 text-left',
-    selected ? 'border-flame-500' : 'border-line',
-  )
   const body = (
     <>
-      <span className="w-full truncate font-display text-base tracking-[0.06em] text-ink uppercase">
-        {mod.name ?? mod.gameDir}
-      </span>
-      {mod.description && (
-        <span className="w-full text-sm text-ink-dim" data-testid="mods-tile-description">
-          {mod.description}
+      {/* Decorative banner: the gamedir as a stencilled watermark, CSS only. */}
+      <span className="mod-card-banner block h-20 w-full shrink-0">
+        <span className="mod-card-watermark" aria-hidden="true">
+          {mod.gameDir}
         </span>
-      )}
-      {local && (
-        <Badge
-          tone={manual ? 'neutral' : 'success'}
-          testId={manual ? 'mods-tile-origin-manual' : 'mods-tile-origin-catalog'}
-        >
-          {t(manual ? 'mods.origin.manual' : 'mods.origin.catalog')}
-        </Badge>
-      )}
+      </span>
+      <span className="flex w-full flex-1 flex-col gap-2 px-5 pt-4 pb-5">
+        <span className="w-full truncate font-display text-lg tracking-[0.06em] text-ink uppercase">
+          {mod.name ?? mod.gameDir}
+        </span>
+        <span className="numeric w-full truncate text-xs text-ink-muted">{mod.gameDir}/</span>
+        {mod.description && (
+          <span
+            className="line-clamp-4 w-full text-sm leading-relaxed text-ink-dim"
+            data-testid="mods-tile-description"
+          >
+            {mod.description}
+          </span>
+        )}
+      </span>
     </>
   )
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <article
+      className={cn(
+        'panel group flex h-full min-w-0 flex-col overflow-hidden rounded-lg',
+        'transition-[border-color,box-shadow] duration-[--dur-base] ease-[--ease-out-quart]',
+        selected
+          ? 'edge-flame border-flame-500 shadow-[var(--shadow-flame)]'
+          : 'hover:border-line-strong',
+      )}
+      data-selected={selected || undefined}
+    >
       <button
         type="button"
         data-testid={`mods-tile-${mod.gameDir}`}
         aria-pressed={selected}
         onClick={() => onSelect?.(mod.gameDir)}
-        className={cn(
-          className,
-          'transition-colors hover:bg-hover focus-visible:ring-2 focus-visible:ring-flame-500 focus-visible:outline-none',
-        )}
+        className="flex min-h-11 w-full flex-1 flex-col items-start text-left focus-visible:ring-2 focus-visible:ring-flame-500 focus-visible:outline-none focus-visible:ring-inset"
       >
         {body}
       </button>
-      {mod.catalog && (
-        <div className="px-1">
-          <ModInstallState
-            mod={mod}
-            job={job}
-            failure={failure}
-            onInstall={() => onInstall?.(mod.catalog!.id)}
-            installTestId={`mods-install-${mod.catalog.id}`}
-            onUpdate={() => onUpdate?.(mod.catalog!.id)}
-            updateTestId={`mods-update-${mod.catalog.id}`}
-            busy={busy}
-          />
+      {(mod.catalog || manual) && (
+        <div className="space-y-2 border-t border-line bg-base/50 px-5 py-3">
+          {manual && (
+            <p className="text-sm text-ink-dim" data-testid="mods-tile-origin-manual">
+              {t('mods.origin.manual')}
+            </p>
+          )}
+          {mod.catalog && (
+            <ModInstallState
+              mod={mod}
+              job={job}
+              failure={failure}
+              onInstall={() => onInstall?.(mod.catalog!.id)}
+              installTestId={`mods-install-${mod.catalog.id}`}
+              onUpdate={() => onUpdate?.(mod.catalog!.id)}
+              updateTestId={`mods-update-${mod.catalog.id}`}
+              busy={busy}
+            />
+          )}
         </div>
       )}
-    </div>
+    </article>
   )
 }

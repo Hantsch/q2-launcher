@@ -661,7 +661,7 @@
 
   "mods": {
     "view": {
-      "forInstallation": "For {{name}}"
+      "selectedInstallation": "Selected installation"
     },
     "noInstallation": {
       "title": "No installation selected",
@@ -720,8 +720,7 @@
       "asOf": "Catalog as of {{date}}"
     },
     "origin": {
-      "manual": "installed manually",
-      "catalog": "installed"
+      "manual": "Installed manually"
     },
     "error": {
       "installationNotFound": "This installation no longer exists.",

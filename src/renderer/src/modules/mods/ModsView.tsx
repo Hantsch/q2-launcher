@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Boxes } from 'lucide-react'
 import type { ModActiveInstall, ModCatalogState, ModGameDir } from '@shared/modules/mods'
 import { isJobActive, type LocalizedMessage } from '@shared/types'
+import { InstallationTile } from '../../components/installations/InstallationTile'
 import { EmptyState } from '../../components/ui/primitives'
 import { useActiveInstallation, useLauncher } from '../../store/useLauncher'
 import { ModDetailPanel } from './components/ModDetailPanel'
@@ -222,17 +223,30 @@ export function ModsView() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-line px-5 py-4">
-        <div className="min-w-0 space-y-1">
-          <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
-            {t('module.mods.title')}
-          </h1>
-          {installation && (
-            <p className="text-sm text-ink-dim" data-testid="mods-installation-name">
-              {t('mods.view.forInstallation', { name: installation.name })}
-            </p>
-          )}
-        </div>
+      {/* Three tracks so the selected installation sits in the true centre of the header. */}
+      <header className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-line px-5 py-4">
+        <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
+          {t('module.mods.title')}
+        </h1>
+        {installation && (
+          <div className="flex min-w-0 items-center gap-3 rounded-lg border border-flame-700/60 bg-flame-900/15 py-2 pr-5 pl-2 shadow-[var(--shadow-flame)]">
+            <InstallationTile
+              installation={installation}
+              size="card"
+              className="border-flame-500 bg-flame-900/25"
+              textClassName="text-flame-200"
+            />
+            <div className="min-w-0">
+              <p className="stencil mb-1 text-flame-300">{t('mods.view.selectedInstallation')}</p>
+              <p
+                className="truncate font-display text-lg tracking-[0.06em] text-ink uppercase"
+                data-testid="mods-installation-name"
+              >
+                {installation.name}
+              </p>
+            </div>
+          </div>
+        )}
       </header>
       <div className="flex min-h-0 flex-1">
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-5">
@@ -269,7 +283,7 @@ export function ModsView() {
                   />
                 </div>
               ) : (
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3">
+                <div className="grid auto-rows-fr grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4">
                   {tiles.map((mod) => (
                     <ModTile
                       key={mod.gameDir}
