@@ -682,12 +682,15 @@
       "defaultVersion": "default",
       "prerelease": "pre-release",
       "manualNote": "Installed manually — the launcher does not update or remove it",
-      "installVersion": "Version to install"
+      "installVersion": "Version to install",
+      "installedVsCatalog": "Installed {{installed}} · Catalog {{catalog}}"
     },
     "action": {
-      "install": "Install"
+      "install": "Install",
+      "update": "Update"
     },
     "status": {
+      "updateAvailable": "Update available",
       "installed": "Installed",
       "installedContentOnly": "Installed, content only"
     },
@@ -698,6 +701,7 @@
     "job": {
       "install": "Installing {{name}}",
       "remove": "Removing {{mod}} from {{installation}}",
+      "update": "Updating {{name}} to {{version}}",
       "waitingForDecision": "Waiting for your answer about the existing folder {{folder}}"
     },
     "decision": {
@@ -729,6 +733,21 @@
       "badPackage": "The mod's download is not usable.",
       "writeFailed": "Could not write the mod's files. Nothing was changed.",
       "noPendingDecision": "This install is no longer waiting for an answer."
+    },
+    "update": {
+      "title": "Update {{mod}} in {{installation}}?",
+      "body": "Updates {{mod}} from {{from}} to {{to}}. Your demos, configs and screenshots stay.",
+      "changed_one": "{{count}} installed file has changed since it was installed:",
+      "changed_other": "{{count}} installed files have changed since they were installed:",
+      "keepChanged": "Keep my versions",
+      "overwriteChanged": "Overwrite them",
+      "cancel": "Cancel",
+      "confirm": "Update",
+      "refused": {
+        "noRecord": "The launcher did not install this mod, so it will not update it.",
+        "upToDate": "This mod is already at the catalog's version.",
+        "unsafePath": "The install record points outside the mod folder. Nothing was changed."
+      }
     },
     "remove": {
       "action": "Remove",

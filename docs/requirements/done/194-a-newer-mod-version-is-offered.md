@@ -1,7 +1,7 @@
 ---
 id: 194
 title: a newer mod version is offered
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-01
 ---
 
@@ -15,17 +15,17 @@ Concept: [mods.md](../concepts/mods.md) §10; requirement MOD-12.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — When the manifest's pinned version of a catalog entry differs from the version in
+- [x] **AC1** — When the manifest's pinned version of a catalog entry differs from the version in
       the installation's install record, the tile shows *Update available* and the detail panel
       shows both versions.
-- [ ] **AC2** — No file in the gamedir changes until the user clicks *Update*.
-- [ ] **AC3** — After the update, the gamedir holds the new version's files, the install record
+- [x] **AC2** — No file in the gamedir changes until the user clicks *Update*.
+- [x] **AC3** — After the update, the gamedir holds the new version's files, the install record
       names the new version and its files, and the tile shows *installed*.
-- [ ] **AC4** — A file listed in the old record but not in the new version is removed. A file in
+- [x] **AC4** — A file listed in the old record but not in the new version is removed. A file in
       neither record is kept.
-- [ ] **AC5** — A failed update (verification or extraction) leaves the previous version's files
+- [x] **AC5** — A failed update (verification or extraction) leaves the previous version's files
       and record in place, and shows the failure.
-- [ ] **AC6** — A manually installed mod never shows *Update available*.
+- [x] **AC6** — A manually installed mod never shows *Update available*.
 
 ## Open Questions
 
@@ -195,3 +195,18 @@ before the click" are each pinned by named unit tests and by the flow's on-disk 
   path. The dialog itself is proven by 190's flow.
 
 ## Done
+
+Update of a catalog mod is real: pure status/plan (`update-status.ts`, `update-plan.ts`), `startModUpdate`/`previewModUpdate` (`update-job.ts`, job kind `mod-update`: stage, re-hash and plan inside the write guard, backup slot, record last, restore on error), handlers `update`/`updatePreview`, `update-available` status with both versions on `list`, renderer tile/detail Update action + `UpdateModDialog` (keep/overwrite), fixture `writeModsUpdateFixture`, flow `mod-update`, CHANGELOG line.
+
+Commit message: `194: a newer mod version is offered — update status/plan, update job with backup and restore, handlers, Update action and dialog, flow`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (122 files / 972 tests), `npm run ui:flow -- mod-update` green; after the review fix vitest (mods + renderer mods), typecheck, build and the flow re-run green. Full gate not run (sprint's). AC -> test: AC1-AC6 and the changed-file decision all mapped unit + flow tests ran and passed as listed (flow AC5 check now scoped to the detail panel); no manual residue. Review: stage 1 PASS, 2 minor fixed (AC5 flow scope, case-mapping test); unfixed minor: keep/slot-retained and cancel paths of update-job untested, install-job does not check for a running `mod-update` (write guard serialises), unchanged identical recorded files are moved and rewritten.
+
+Decisions:
+- Changed-file dialog is a new `UpdateModDialog` (keep default / overwrite), not 190's `InstallDecisionDialog` (tied to `resolveInstall`); follows the `RemoveModDialog` pattern. Versions line uses key `mods.detail.installedVsCatalog` (`mods.detail.versions` was taken).
+- `install-job.ts` exports `resolveModVariant`, `stagePackages`, `collectPackageFiles` etc. for reuse; `remove-job.ts` busy check also blocks on `mod-update`.
+- Unrecorded file at a path the new version ships is left untouched and kept out of the record; new paths differing only in case map to the old record's spelling; a backup slot is kept (logged) if a restore is incomplete.
+- No separate refresh event (190 emits none beyond jobs list + revalidation).
+- Pre-existing red, not caused here and not fixed (allowlist edit denied by the permission classifier): `src/main/modules/downloads/layering.test.ts` fails at HEAD because `mods/index.ts` contains "7za" (from 192's `../downloads/7za-path` import); needs `mods/index.ts` in `ALLOWED_MAIN_SPAWN_NETWORK_FILES`.
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 8

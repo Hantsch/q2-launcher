@@ -55,6 +55,18 @@ export const mapPresenceInputSchema = z
   })
   .strict()
 
+export const updatePreviewInputSchema = z
+  .object({ installationId: z.string().min(1), catalogId: modIdSchema })
+  .strict()
+
+export const updateInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    catalogId: modIdSchema,
+    changedPolicy: z.enum(['overwrite', 'keep']),
+  })
+  .strict()
+
 export const removeInputSchema = z
   .object({
     installationId: z.string().min(1),

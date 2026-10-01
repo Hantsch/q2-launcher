@@ -4385,6 +4385,7 @@ export async function startBootstrapFixtureServer({
   bleedingEdgeVersion,
   modsInstall = false,
   modsReplays,
+  modsUpdate = false,
 } = {}) {
   const packages = buildBootstrapPackages({ demoContributesNothing, wrapperNestedLayout, includeR1q2 })
 
@@ -4556,6 +4557,18 @@ export async function startBootstrapFixtureServer({
     )
     for (const pkg of mods.packages) {
       routes.set(`/mirror/${pkg.fileName}`, archiveRoute(pkg.path, pkg.corrupt, 150))
+    }
+  }
+  if (modsUpdate) {
+    // Story 194 D4: newer pinned versions of opentdm (valid package) and action (package bytes that do not
+    // match the manifest SHA256). Every package request is visible in `requested` (primary + mirror).
+    const mods = buildModsUpdatePackages()
+    routes.set(
+      '/mods/manifest.json',
+      jsonRoute({ schemaVersion: 1, entries: modsUpdateManifestEntries(mods, baseUrl) }),
+    )
+    for (const pkg of Object.values(mods)) {
+      routes.set(`/mirror/${pkg.fileName}`, archiveRoute(pkg.path, false, 150))
     }
   }
   if (modsReplays) {
@@ -4844,6 +4857,142 @@ export function writeModsRemoveFixture() {
 function writeMods191File(path, bytes) {
   mkdirSync(dirname(path), { recursive: true })
   writeFileSync(path, bytes)
+}
+
+// --- story 194 D4: the mods-update fixture ------------------------------------------------------
+
+export const INSTALL_MODS_UPDATE_ID = 'fixture-install-mods-update'
+export const INSTALL_MODS_UPDATE_NAME = 'Fixture Mods Update Install'
+export const MODS_UPDATE_USER_FILE = 'demos/mine.dm2'
+export const MODS_UPDATE_USER_BYTES = Buffer.from('my own demo')
+
+/** What the OLD (v1.0.0) records say is on disk, and what the NEW (v1.1.0) opentdm package ships. */
+export const modsUpdateOldFiles = {
+  opentdm: {
+    'gamex86.dll': filler(10 * 1024, 0x41),
+    'pak0.pak': filler(2 * 1024, 0x42),
+    'old-only.txt': Buffer.from('only in the old version\n'),
+  },
+  action: {
+    'gamex86.dll': filler(9 * 1024, 0x51),
+    'pak0.pak': filler(2 * 1024, 0x52),
+  },
+}
+export const modsUpdateNewOpentdmFiles = {
+  'gamex86.dll': filler(11 * 1024, 0x61),
+  'pak0.pak': filler(2 * 1024, 0x42),
+  'new-only.txt': Buffer.from('only in the new version\n'),
+}
+export const modsUpdateNewActionFiles = { 'gamex86.dll': filler(9 * 1024, 0x71), 'pak0.pak': filler(2 * 1024, 0x72) }
+export const modsUpdateManualFiles = { 'gamex86.dll': filler(8 * 1024, 0x81), 'pak0.pak': filler(2 * 1024, 0x82) }
+
+function buildModsUpdatePackages() {
+  const zip = (fileName, files) =>
+    buildFixturePackage({
+      fileName,
+      stagingName: fileName.replace(/\.zip$/, ''),
+      entries: Object.keys(files),
+      build: (staging) => {
+        for (const [name, bytes] of Object.entries(files)) writeFileIn(staging, name, bytes)
+      },
+    })
+  return {
+    opentdm: zip('opentdm-update-win32-x86.zip', modsUpdateNewOpentdmFiles),
+    action: zip('action-update-win32-x86.zip', modsUpdateNewActionFiles),
+  }
+}
+
+function modsUpdateManifestEntries(mods, baseUrl) {
+  const pkg = (id, info, wrongSha) => ({
+    id,
+    version: 'v1.1.0',
+    url: `${baseUrl}/modpkg/${info.fileName}`,
+    mirrors: [`${baseUrl}/mirror/${info.fileName}`],
+    sizeBytes: info.sizeBytes,
+    sha256: wrongSha ? createHash('sha256').update('not the package').digest('hex') : info.sha256,
+    contents: [{ from: '.', to: 'gamedir' }],
+  })
+  const entry = (gamedir, name, info, wrongSha) => ({
+    id: gamedir,
+    gamedir,
+    name,
+    description: `Fixture description: ${name}.`,
+    license: 'GPL-2.0',
+    projectUrl: `https://example.invalid/${gamedir}`,
+    sourceUrl: `https://example.invalid/${gamedir}/src`,
+    pinned: 'v1.1.0',
+    versions: [
+      { version: 'v1.0.0', prerelease: false, variants: [], contentOnly: { packages: [] } },
+      {
+        version: 'v1.1.0',
+        prerelease: false,
+        variants: [{ platform: 'win32', arch: 'x86', packages: [pkg(`${gamedir}-win32-x86`, info, wrongSha)] }],
+        contentOnly: { packages: [] },
+      },
+    ],
+  })
+  return [
+    entry('opentdm', 'Fixture OpenTDM', mods.opentdm, false),
+    entry('action', 'Fixture Action Quake', mods.action, true),
+    entry('ctf', 'Fixture Capture The Flag', mods.opentdm, false),
+  ]
+}
+
+/**
+ * Reseeds `populated` and adds one r1q2 installation with `opentdm` and `action` installed at v1.0.0 from
+ * the catalog (records written like story 190's install, real sha256/size of the bytes on disk), a user
+ * file `opentdm/demos/mine.dm2` in no record, and a hand-made `ctf` folder with no record.
+ */
+export function writeModsUpdateFixture() {
+  const { userDataDir } = writePopulatedFixture()
+  const root = join(gameRoot(), INSTALL_MODS_UPDATE_ID)
+  rmDirBestEffort(root)
+  mkdirSync(join(root, 'baseq2'), { recursive: true })
+  writeFileSync(join(root, 'r1q2.exe'), '')
+  for (const pak of ['pak0.pak', 'pak1.pak', 'pak2.pak']) {
+    writeSizedFile(join(root, 'baseq2', pak), RETAIL_PAK_SIZES[pak])
+  }
+  const records = []
+  for (const [gameDir, files] of Object.entries(modsUpdateOldFiles)) {
+    for (const [name, bytes] of Object.entries(files)) writeMods191File(join(root, gameDir, name), bytes)
+    records.push({
+      catalogId: gameDir,
+      gameDir,
+      version: 'v1.0.0',
+      variantId: `${gameDir}-win32-x86`,
+      engineKind: 'r1q2',
+      arch: 'x86',
+      platform: 'win32',
+      contentOnly: false,
+      installedAt: Date.parse(FIXED_TIMESTAMP),
+      files: Object.entries(files).map(([path, bytes]) => ({
+        path,
+        sizeBytes: bytes.length,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      })),
+    })
+  }
+  writeMods191File(join(root, 'opentdm', MODS_UPDATE_USER_FILE), MODS_UPDATE_USER_BYTES)
+  for (const [name, bytes] of Object.entries(modsUpdateManualFiles)) writeMods191File(join(root, 'ctf', name), bytes)
+  const statePath = join(userDataDir, STATE_FILE)
+  const state = JSON.parse(readFileSync(statePath, 'utf8'))
+  state.installations.push(
+    makeInstallation({
+      id: INSTALL_MODS_UPDATE_ID,
+      name: INSTALL_MODS_UPDATE_NAME,
+      rootPath: root,
+      engineKind: 'r1q2',
+      favorite: false,
+      sortOrder: 93,
+      gameDirs: ['baseq2', 'ctf', 'opentdm', 'action'],
+      moduleData: {
+        downloads: { version: 'fixture-mods', packageId: R1Q2_FIXTURE_ENGINE_ID },
+        mods: { records },
+      },
+    }),
+  )
+  writeJson(statePath, state)
+  return { userDataDir }
 }
 
 /**

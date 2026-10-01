@@ -17,6 +17,7 @@ version section when a release actually ships.
 - **Mods** — Action Quake, OpenTDM and CTF appear as catalog tiles.
 - **Mods** — Install Action Quake, OpenTDM and CTF, also from a demo's mod warning.
 - **Mods** — Remove a mod the launcher installed — your own demos and configs stay.
+- **Mods** — Update an installed mod when the catalog has a newer version.
 - **Servers** — Server detail shows whether you have its mod and map, and installs a missing mod.
 
 ## 0.6.0 — 2026-09-30

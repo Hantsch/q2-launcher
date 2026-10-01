@@ -7,6 +7,8 @@ import {
   type ModMapPresence,
   type ModRemovalPreview,
   type ModRemoveChangedFiles,
+  type ModUpdateChangedPolicy,
+  type ModUpdatePreview,
   type ModsListResult,
 } from '@shared/modules/mods'
 import type { Outcome } from '@shared/types'
@@ -78,4 +80,19 @@ export function removeMod(
   changedFiles: ModRemoveChangedFiles,
 ): Promise<Outcome<{ jobId: string }>> {
   return call<{ jobId: string }>(MODS_HANDLERS.remove, { installationId, modId, changedFiles })
+}
+
+export function previewUpdate(
+  installationId: string,
+  catalogId: string,
+): Promise<Outcome<ModUpdatePreview>> {
+  return call<ModUpdatePreview>(MODS_HANDLERS.updatePreview, { installationId, catalogId })
+}
+
+export function updateMod(
+  installationId: string,
+  catalogId: string,
+  changedPolicy: ModUpdateChangedPolicy,
+): Promise<Outcome<{ jobId: string }>> {
+  return call<{ jobId: string }>(MODS_HANDLERS.update, { installationId, catalogId, changedPolicy })
 }

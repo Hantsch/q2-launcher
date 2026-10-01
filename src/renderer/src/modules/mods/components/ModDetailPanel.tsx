@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, FolderOpen, Trash2, X } from 'lucide-react'
 import { isJobActive, type Job, type LocalizedMessage } from '@shared/types'
@@ -6,6 +6,7 @@ import { Button, IconButton } from '../../../components/ui/Button'
 import { Badge } from '../../../components/ui/primitives'
 import { invoke } from '../../../lib/bridge'
 import { revealMod } from '../client'
+import { useModUpdate } from '../useModUpdate'
 import type { ModTileModel } from '../merge-mod-tiles'
 import { ModInstallState } from './ModInstallState'
 import { RemoveModDialog } from './RemoveModDialog'
@@ -23,6 +24,9 @@ export function ModDetailPanel({
   onInstall,
   removeJob = null,
   onRemoveStarted,
+  busy = false,
+  onUpdateStarted,
+  onUpdateFailed,
 }: {
   installationId: string
   mod: ModTileModel
@@ -34,6 +38,10 @@ export function ModDetailPanel({
   /** The mod's `mods-remove` job from the jobs store, if there is one. */
   removeJob?: Job | null
   onRemoveStarted?: (jobId: string) => void
+  /** Another install, remove or update is working on this installation. */
+  busy?: boolean
+  onUpdateStarted?: (catalogId: string, jobId: string) => void
+  onUpdateFailed?: (catalogId: string, error: LocalizedMessage) => void
 }) {
   const { t } = useTranslation()
   const { local, catalog } = mod
@@ -61,6 +69,12 @@ export function ModDetailPanel({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const { requestUpdate, dialog: updateDialog } = useModUpdate(
+    installationId,
+    useCallback((id: string, jobId: string) => onUpdateStarted?.(id, jobId), [onUpdateStarted]),
+    useCallback((id: string, e: LocalizedMessage) => onUpdateFailed?.(id, e), [onUpdateFailed]),
+  )
+  const updatable = local?.origin === 'catalog' && local.status === 'update-available'
   const removeActive = removeJob !== null && isJobActive(removeJob)
   const reveal = async (): Promise<void> => {
     const outcome = await revealMod(installationId, mod.gameDir)
@@ -121,7 +135,19 @@ export function ModDetailPanel({
                 failure={failure}
                 onInstall={() => onInstall?.(catalog.id, chosenVersion ?? catalog.pinned)}
                 installTestId={`mods-detail-install-${catalog.id}`}
+                onUpdate={() => requestUpdate(catalog.id)}
+                updateTestId={`mods-detail-update-${catalog.id}`}
+                busy={busy}
+                updateSize="md"
               />
+              {updatable && local && (
+                <p className="text-sm text-ink-dim select-text" data-testid="mods-detail-update-versions">
+                  {t('mods.detail.installedVsCatalog', {
+                    installed: local.installedVersion ?? local.version,
+                    catalog: local.pinnedVersion ?? catalog.pinned,
+                  })}
+                </p>
+              )}
               {catalog.versions.length > 1 && !local && (
                 <label className="flex items-center gap-2 text-sm text-ink-dim">
                   {t('mods.detail.installVersion')}
@@ -209,6 +235,7 @@ export function ModDetailPanel({
           </p>
         )}
       </div>
+      {updateDialog}
       {removing && local?.catalogId && (
         <RemoveModDialog
           installationId={installationId}

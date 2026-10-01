@@ -21,7 +21,25 @@ export const MODS_HANDLERS = {
   remove: 'remove',
   /** Story 192: does the installation have a server's map? Resolves to `Outcome<ModMapPresence>`. */
   mapPresence: 'map.presence',
+  /** Story 194: what updating a mod would touch. Resolves to `Outcome<ModUpdatePreview>`; writes nothing. */
+  updatePreview: 'update.preview',
+  /** Story 194: start updating a catalog mod to its pinned version. Resolves to `Outcome<{ jobId }>`. */
+  update: 'update',
 } as const
+
+/** What `updatePreview` answers: names and versions for the confirm dialog and the recorded files the user changed. */
+export interface ModUpdatePreview {
+  installationName: string
+  modName: string
+  gameDir: string
+  installedVersion: string
+  targetVersion: string
+  /** Gamedir-relative paths of recorded files whose bytes differ from what the launcher installed. */
+  changedFiles: string[]
+}
+
+/** What happens to a recorded file the user changed since it was installed. */
+export type ModUpdateChangedPolicy = 'overwrite' | 'keep'
 
 /** What `mapPresence` answers: whether `maps/<map>.bsp` exists loose, in a pak or in a pkz. */
 export interface ModMapPresence {
@@ -80,6 +98,14 @@ export interface ModGameDir {
   engineKind?: EngineKind
   arch?: 'x86' | 'x64' | 'arm64' | 'unknown'
   pkzUnsupported?: boolean
+  /**
+   * Story 194: `update-available` when the catalog's pinned version differs from the recorded one (a
+   * catalog install only). Replaces plain "installed"; `contentOnly` stays so the renderer can still
+   * show the content-only reason.
+   */
+  status?: 'update-available'
+  installedVersion?: string
+  pinnedVersion?: string
 }
 
 export interface ModsListResult {

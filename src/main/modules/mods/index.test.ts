@@ -1,3 +1,5 @@
+import { mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MODS_HANDLERS, type ModInstallChoice, type ModsListResult } from '@shared/modules/mods'
@@ -6,8 +8,18 @@ import type { AppContext } from '../../context'
 import { MainModuleRegistry } from '../registry'
 import { modsModule } from './index'
 import { startModInstall } from './install-job'
+import { previewModUpdate, startModUpdate } from './update-job'
 
 vi.mock('./install-job', () => ({ startModInstall: vi.fn() }))
+vi.mock('./update-job', () => ({ previewModUpdate: vi.fn(), startModUpdate: vi.fn() }))
+
+const catalogGet = vi.hoisted(() => vi.fn())
+const stagePackage = vi.hoisted(() => vi.fn())
+vi.mock('./catalog-service', () => ({ CatalogService: class { getCatalog = catalogGet } }))
+vi.mock('../downloads/stage-package', () => ({
+  stagePackage,
+  resolveVendoredExtractor: () => ({ path: '', exists: false }),
+}))
 
 const openPath = vi.hoisted(() => vi.fn<(p: string) => Promise<string>>())
 
@@ -229,5 +241,99 @@ describe('mods module mapPresence', () => {
       payload: { installationId: 'inst-1', map: 'q2dm1', rootPath: '/' },
     })) as { ok: boolean }
     expect(withRoot.ok).toBe(false)
+  })
+})
+
+describe('mods module update (story 194)', () => {
+  const record = (over: Record<string, unknown> = {}) => ({
+    catalogId: 'rogue',
+    gameDir: 'rogue',
+    version: '1.0',
+    variantId: 'content-only',
+    engineKind: 'r1q2',
+    arch: 'x64',
+    platform: 'win32',
+    contentOnly: true,
+    installedAt: 1,
+    files: [{ path: 'pak0.pak', sizeBytes: 3, sha256: 'a'.repeat(64) }],
+    ...over,
+  })
+  const invoke = (r: MainModuleRegistry, type: string, payload: unknown) =>
+    unwrap<unknown>(r.invoke({ moduleId: 'mods', type, payload }))
+
+  beforeEach(() => {
+    vi.mocked(startModUpdate).mockReset()
+    vi.mocked(previewModUpdate).mockReset()
+    catalogGet.mockReset()
+    stagePackage.mockReset()
+  })
+
+  it('update refuses a manual mod', async () => {
+    const r = await registryFor(installation(['rogue'], { mods: { records: [] } }))
+    const payload = { installationId: 'inst-1', catalogId: 'rogue', changedPolicy: 'keep' }
+    expect(await invoke(r, MODS_HANDLERS.update, payload)).toMatchObject({
+      ok: false,
+      error: { key: 'mods.update.refused.noRecord' },
+    })
+    expect(startModUpdate).not.toHaveBeenCalled()
+    expect(await invoke(r, MODS_HANDLERS.update, { ...payload, installationId: 'nope' })).toMatchObject({
+      ok: false,
+      error: { key: 'mods.error.installationNotFound' },
+    })
+  })
+
+  it('updatePreview lists changed files', async () => {
+    vi.mocked(previewModUpdate).mockResolvedValue({
+      ok: true,
+      value: {
+        installationName: 'Main',
+        modName: 'Rogue',
+        gameDir: 'rogue',
+        installedVersion: '1.0',
+        targetVersion: '1.1',
+        changedFiles: ['pak0.pak'],
+      },
+    })
+    const r = await registryFor(installation(['rogue'], { mods: { records: [record()] } }))
+    expect(await invoke(r, MODS_HANDLERS.updatePreview, { installationId: 'inst-1', catalogId: 'rogue' })).toEqual({
+      ok: true,
+      value: expect.objectContaining({ changedFiles: ['pak0.pak'], installedVersion: '1.0', targetVersion: '1.1' }),
+    })
+  })
+
+  it('the list reports update-available without touching the gamedir', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'q2l-mods-'))
+    mkdirSync(join(root, 'rogue'))
+    mkdirSync(join(root, 'xatrix'))
+    const file = join(root, 'rogue', 'pak0.pak')
+    writeFileSync(file, 'abc')
+    const before = { bytes: readFileSync(file, 'utf8'), mtime: statSync(file).mtimeMs }
+    catalogGet.mockResolvedValue({
+      status: 'ok',
+      entries: [
+        { id: 'rogue', pinned: '1.1' },
+        { id: 'xatrix', pinned: '2.0' },
+      ],
+    })
+    const inst = {
+      ...installation(['rogue', 'xatrix', 'manual'], {
+        mods: { records: [record(), record({ catalogId: 'xatrix', gameDir: 'xatrix', version: '2.0', files: [] })] },
+      }),
+      rootPath: root,
+    }
+    const r = await registryFor(inst)
+    const out = await list(r)
+    const dirs = out.ok ? out.value.gameDirs : []
+    expect(dirs.find((d) => d.gameDir === 'rogue')).toMatchObject({
+      status: 'update-available',
+      installedVersion: '1.0',
+      pinnedVersion: '1.1',
+      contentOnly: true,
+    })
+    expect(dirs.find((d) => d.gameDir === 'xatrix')?.status).toBeUndefined()
+    expect(dirs.find((d) => d.gameDir === 'manual')?.status).toBeUndefined()
+    expect(stagePackage).not.toHaveBeenCalled()
+    expect(startModUpdate).not.toHaveBeenCalled()
+    expect({ bytes: readFileSync(file, 'utf8'), mtime: statSync(file).mtimeMs }).toEqual(before)
   })
 })

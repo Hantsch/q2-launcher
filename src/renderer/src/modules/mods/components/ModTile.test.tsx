@@ -112,3 +112,51 @@ describe('ModTile install state', () => {
     expect(screen.getByTestId('mods-tile-status-action').getAttribute('role')).toBe('status')
   })
 })
+
+describe('ModTile update', () => {
+  const updatable = {
+    gameDir: 'action',
+    folderPath: '/g/action',
+    origin: 'catalog' as const,
+    catalogId: 'action',
+    version: 'v1',
+    status: 'update-available' as const,
+    installedVersion: 'v1',
+    pinnedVersion: 'v2',
+  }
+
+  it('shows Update available as text and one Update action', () => {
+    const onUpdate = vi.fn()
+    render(createElement(ModTile, { mod: tile(updatable), onUpdate }))
+    expect(screen.getByTestId('mods-tile-status-action').textContent).toBe('Update available')
+    expect(screen.queryByTestId('mods-install-action')).toBeNull()
+    fireEvent.click(screen.getByTestId('mods-update-action'))
+    expect(onUpdate).toHaveBeenCalledWith('action')
+  })
+
+  it('disables Update while busy and shows progress during the update job', () => {
+    const { rerender } = render(createElement(ModTile, { mod: tile(updatable), busy: true }))
+    expect((screen.getByTestId('mods-update-action') as HTMLButtonElement).disabled).toBe(true)
+    rerender(
+      createElement(ModTile, {
+        mod: tile(updatable),
+        job: job({ kind: 'mod-update', labelKey: 'mods.job.update' }),
+      }),
+    )
+    expect(screen.getByTestId('mods-tile-progress-action')).toBeTruthy()
+    expect(screen.queryByTestId('mods-update-action')).toBeNull()
+  })
+
+  it('shows no Update for a current or manual gamedir', () => {
+    const { rerender } = render(createElement(ModTile, { mod: tile({ ...updatable, status: undefined }) }))
+    expect(screen.getByTestId('mods-tile-status-action').textContent).toBe('Installed')
+    expect(screen.queryByTestId('mods-update-action')).toBeNull()
+    rerender(
+      createElement(ModTile, {
+        mod: { ...tile({ gameDir: 'action', folderPath: '/g/action', origin: 'manual' }), catalog: null },
+      }),
+    )
+    expect(screen.queryByTestId('mods-update-action')).toBeNull()
+    expect(screen.queryByText('Update available')).toBeNull()
+  })
+})

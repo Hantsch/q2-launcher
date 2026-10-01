@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Download } from 'lucide-react'
+import { ArrowUpCircle, Download } from 'lucide-react'
 import { isJobActive, type Job, type LocalizedMessage } from '@shared/types'
 import { Button } from '../../../components/ui/Button'
 import { ProgressBar } from '../../../components/ui/ProgressBar'
@@ -17,6 +17,10 @@ export function ModInstallState({
   failure,
   onInstall,
   installTestId,
+  onUpdate,
+  updateTestId,
+  busy = false,
+  updateSize = 'sm',
 }: {
   mod: ModTileModel
   /** The tile's install job from the jobs store, if there is one. */
@@ -25,6 +29,13 @@ export function ModInstallState({
   failure: LocalizedMessage | null
   onInstall: () => void
   installTestId: string
+  /** Story 194: starts the update of an installed catalog mod whose catalog version moved on. */
+  onUpdate?: () => void
+  updateTestId?: string
+  /** Another install, remove or update is working on this installation: Update waits. */
+  busy?: boolean
+  /** The detail panel uses the default 44px button; the dense tile the small one. */
+  updateSize?: 'sm' | 'md'
 }) {
   const { t } = useTranslation()
   const { local, catalog } = mod
@@ -33,11 +44,48 @@ export function ModInstallState({
 
   if (local?.origin === 'catalog') {
     const engine = engineWithArch(local.engineKind, local.arch)
+    const updatable = local.status === 'update-available'
+    const updating = updatable && job !== null && isJobActive(job)
+    const updateError = updatable ? (job?.status === 'failed' ? (job.error ?? null) : failure) : null
     return (
       <div className="w-full space-y-1">
-        <p className="text-sm text-success" data-testid={`mods-tile-status-${id}`}>
-          {t(local.contentOnly ? 'mods.status.installedContentOnly' : 'mods.status.installed')}
-        </p>
+        {updating && job ? (
+          <div role="status" data-testid={`mods-tile-progress-${id}`}>
+            <ProgressBar
+              ratio={job.progress.ratio}
+              active={job.status === 'running'}
+              label={t(job.labelKey, job.labelParams ?? {})}
+            />
+          </div>
+        ) : updatable ? (
+          <p
+            className="flex items-center gap-1.5 text-sm text-warning"
+            data-testid={`mods-tile-status-${id}`}
+          >
+            <ArrowUpCircle className="size-3.5 shrink-0" aria-hidden="true" />
+            {t('mods.status.updateAvailable')}
+          </p>
+        ) : (
+          <p className="text-sm text-success" data-testid={`mods-tile-status-${id}`}>
+            {t(local.contentOnly ? 'mods.status.installedContentOnly' : 'mods.status.installed')}
+          </p>
+        )}
+        {updateError && (
+          <p role="alert" className="text-sm text-danger" data-testid={`mods-tile-update-error-${id}`}>
+            {t(updateError.key, updateError.params ?? {})}
+          </p>
+        )}
+        {updatable && !updating && (
+          <Button
+            size={updateSize}
+            icon={<ArrowUpCircle className="size-3.5" aria-hidden="true" />}
+            disabled={busy}
+            onClick={onUpdate}
+            data-testid={updateTestId}
+          >
+            {t('mods.action.update')}
+          </Button>
+        )}
         {local.contentOnly && (
           <p className="text-xs text-warning" data-testid="mods-content-only-reason">
             {t('mods.reason.notPlayableLocally', { engine })}

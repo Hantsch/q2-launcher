@@ -286,3 +286,4 @@ second roadmap.
 - 191 — I remove a mod the launcher installed · S31 · recorded-files-only removal with changed-file choice, mods-remove job, confirmation dialog and flow
 - 192 — the server detail says whether I have its mod and map · S31 · detail shows mod/map presence and installs a missing catalog mod
 - 193 — the mod-missing warning offers the install · S31 · the demo mod-missing dialog installs a catalog mod via 190's install, without playing or trusting it
+- 194 — a newer mod version is offered · S31 · mods list reports update-available for catalog installs; one-click Update with backup/restore, keep/overwrite for changed files

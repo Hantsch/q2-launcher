@@ -13,6 +13,7 @@ import {
 } from './components/InstallDecisionDialog'
 import { getCatalog, installMod, listMods, onInstallDecision } from './client'
 import { mergeModTiles } from './merge-mod-tiles'
+import { useModUpdate } from './useModUpdate'
 
 type ListState =
   | { kind: 'loading' }
@@ -173,6 +174,29 @@ export function ModsView() {
     },
     [installationId],
   )
+  const onUpdateStarted = useCallback((catalogId: string, jobId: string) => {
+    setFailures(({ [catalogId]: _dropped, ...rest }) => rest)
+    setStarted((prev) => ({ ...prev, [catalogId]: jobId }))
+    setReloadKey((n) => n + 1)
+  }, [])
+  const onUpdateFailed = useCallback((catalogId: string, error: LocalizedMessage) => {
+    setFailures((prev) => ({ ...prev, [catalogId]: error }))
+  }, [])
+  const { requestUpdate, dialog: updateDialog } = useModUpdate(
+    installationId,
+    onUpdateStarted,
+    onUpdateFailed,
+  )
+  // Any install, removal or update running for this installation makes Update wait.
+  const busy =
+    Object.keys(started).length > 0 ||
+    removeStarted.length > 0 ||
+    jobs.some(
+      (j) =>
+        j.installationId === installationId &&
+        ['mod-install', 'mods-remove', 'mod-update'].includes(j.kind) &&
+        isJobActive(j),
+    )
   const closePanel = useCallback(() => setSelectedRaw(null), [])
 
   useEffect(() => {
@@ -255,6 +279,8 @@ export function ModsView() {
                       job={mod.catalog ? jobFor(mod.catalog.id) : null}
                       failure={mod.catalog ? (failures[mod.catalog.id] ?? null) : null}
                       onInstall={(catalogId) => void install(catalogId)}
+                      onUpdate={requestUpdate}
+                      busy={busy}
                     />
                   ))}
                 </div>
@@ -272,9 +298,13 @@ export function ModsView() {
             onInstall={(catalogId, version) => void install(catalogId, version)}
             removeJob={removeJobFor(selectedMod.local?.catalogId)}
             onRemoveStarted={(jobId) => setRemoveStarted((prev) => [...prev, jobId])}
+            busy={busy}
+            onUpdateStarted={onUpdateStarted}
+            onUpdateFailed={onUpdateFailed}
           />
         )}
       </div>
+      {updateDialog}
       {decision && (
         <InstallDecisionDialog
           request={decision}

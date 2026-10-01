@@ -30,8 +30,11 @@ const BUSY = 'mods.remove.refused.busy'
 const LOCKED = 'mods.remove.failed.locked'
 const LOCAL_FAILURE = 'downloads.error.diskWrite'
 
-/** The install job's kind (story 190): an install running for the installation makes it busy. */
-const MOD_INSTALL_KIND = 'mod-install'
+/**
+ * An install (story 190) or update (story 194) running for the installation makes it busy: the
+ * removal works from the record it read at the start, which either of them may replace.
+ */
+const BUSY_KINDS = new Set(['mod-install', 'mod-update'])
 
 export type ModRemoveOutcome =
   | { status: 'succeeded' }
@@ -106,7 +109,7 @@ function resolveRequest(deps: ModRemoveDeps, request: ModRemoveRequest): Outcome
     .some(
       (j) =>
         j.moduleId === 'mods' &&
-        j.kind === MOD_INSTALL_KIND &&
+        BUSY_KINDS.has(j.kind) &&
         j.installationId === installation.id &&
         isJobActive(j),
     )

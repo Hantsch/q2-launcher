@@ -16,6 +16,8 @@ export function ModTile({
   job = null,
   failure = null,
   onInstall,
+  onUpdate,
+  busy = false,
 }: {
   mod: ModTileModel
   selected?: boolean
@@ -26,6 +28,10 @@ export function ModTile({
   failure?: LocalizedMessage | null
   /** Starts the install; the tile never picks a version. */
   onInstall?: (catalogId: string) => void
+  /** Starts the update of an installed catalog mod (the view asks what it would touch first). */
+  onUpdate?: (catalogId: string) => void
+  /** Another install, remove or update is working on this installation. */
+  busy?: boolean
 }) {
   const { t } = useTranslation()
   const local = mod.local
@@ -76,6 +82,9 @@ export function ModTile({
             failure={failure}
             onInstall={() => onInstall?.(mod.catalog!.id)}
             installTestId={`mods-install-${mod.catalog.id}`}
+            onUpdate={() => onUpdate?.(mod.catalog!.id)}
+            updateTestId={`mods-update-${mod.catalog.id}`}
+            busy={busy}
           />
         </div>
       )}

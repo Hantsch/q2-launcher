@@ -8,6 +8,7 @@ import {
   type ModGameDir,
   type ModMapPresence,
   type ModRemovalPreview,
+  type ModUpdatePreview,
   type ModsListResult,
 } from '@shared/modules/mods'
 import { fail, ok, type Installation, type Outcome } from '@shared/types'
@@ -23,6 +24,8 @@ import { toCatalogEntryDto } from './catalog-parse'
 import { CatalogService } from './catalog-service'
 import { mapPresence } from './map-presence'
 import { previewModRemoval, startModRemove } from './remove-job'
+import { previewModUpdate, startModUpdate } from './update-job'
+import { computeModUpdateStatus } from './update-status'
 import { startModInstall, type ModInstallDecision } from './install-job'
 import {
   catalogGetInputSchema,
@@ -33,6 +36,8 @@ import {
   removeInputSchema,
   resolveInstallInputSchema,
   revealInputSchema,
+  updateInputSchema,
+  updatePreviewInputSchema,
 } from './schemas'
 
 /**
@@ -43,7 +48,10 @@ import {
  * Story 190: `install` starts the install job; when it meets a folder it did not create it asks
  * through the `installDecision` event and waits for `resolveInstall`.
  */
-function modGameDirs(installation: Installation): ModGameDir[] {
+function modGameDirs(
+  installation: Installation,
+  catalogEntries: ReadonlyMap<string, { pinned: string }> = new Map(),
+): ModGameDir[] {
   const recorded = recordedGameDirs(installation.moduleData)
   const records = new Map(
     readModsState(installation.moduleData).records.map((r) => [r.gameDir.toLowerCase(), r]),
@@ -53,6 +61,7 @@ function modGameDirs(installation: Installation): ModGameDir[] {
     .map((gameDir): ModGameDir => {
       const key = gameDir.toLowerCase()
       const record = records.get(key)
+      const update = computeModUpdateStatus(record, record ? catalogEntries.get(record.catalogId) : undefined)
       return {
         gameDir,
         folderPath: join(installation.rootPath, gameDir),
@@ -65,6 +74,13 @@ function modGameDirs(installation: Installation): ModGameDir[] {
               engineKind: record.engineKind,
               arch: record.arch,
               ...(record.pkzUnsupported ? { pkzUnsupported: true } : {}),
+              ...(update.updateAvailable
+                ? {
+                    status: 'update-available' as const,
+                    ...(update.installedVersion ? { installedVersion: update.installedVersion } : {}),
+                    ...(update.pinnedVersion ? { pinnedVersion: update.pinnedVersion } : {}),
+                  }
+                : {}),
             }
           : {}),
       }
@@ -203,12 +219,72 @@ export const modsModule: MainModule = {
       return ok({ jobId: started.value.jobId })
     })
 
-    handle(MODS_HANDLERS.list, listInputSchema, (input): Outcome<ModsListResult> => {
+    const updateDeps = {
+      jobs: app.jobs,
+      installations: app.installations,
+      writeGuard: app.writeGuard,
+      catalog,
+      enginePackages: async () => {
+        try {
+          return (await manifest.getManifest()).packages
+        } catch {
+          return []
+        }
+      },
+      stage: stagePackage,
+      resolveExtractor: resolveVendoredExtractor,
+      readArch: readBinaryArch,
+      userDataPath: electronApp.getPath('userData'),
+      log,
+    }
+
+    /** Both update handlers: a mod the launcher did not install has no record to update from. */
+    const checkUpdatable = (installationId: string, catalogId: string): Outcome<null> => {
+      const installation = app.installations.find(installationId)
+      if (!installation) return fail('mods.error.installationNotFound')
+      const hasRecord = readModsState(installation.moduleData).records.some((r) => r.catalogId === catalogId)
+      return hasRecord ? ok(null) : fail('mods.update.refused.noRecord')
+    }
+
+    handle(
+      MODS_HANDLERS.updatePreview,
+      updatePreviewInputSchema,
+      async (input): Promise<Outcome<ModUpdatePreview>> => {
+        const checked = checkUpdatable(input.installationId, input.catalogId)
+        if (!checked.ok) return checked
+        return previewModUpdate(updateDeps, input)
+      },
+    )
+
+    handle(
+      MODS_HANDLERS.update,
+      updateInputSchema,
+      async (input): Promise<Outcome<{ jobId: string }>> => {
+        const checked = checkUpdatable(input.installationId, input.catalogId)
+        if (!checked.ok) return checked
+        // Like 190's install: the jobs list and the post-job revalidation are the refresh signal.
+        const started = await startModUpdate(updateDeps, input)
+        if (!started.ok) return started
+        return ok({ jobId: started.value.jobId })
+      },
+    )
+
+    handle(MODS_HANDLERS.list, listInputSchema, async (input): Promise<Outcome<ModsListResult>> => {
       const installation = app.installations.find(input.installationId)
       if (!installation) return fail('mods.error.installationNotFound')
+      // Only the catalog (never the gamedir, never a package) is consulted, and only when a record exists.
+      const catalogEntries = new Map<string, { pinned: string }>()
+      if (readModsState(installation.moduleData).records.length > 0) {
+        try {
+          const snapshot = await catalog.getCatalog()
+          if (snapshot.status === 'ok') for (const e of snapshot.entries) catalogEntries.set(e.id, { pinned: e.pinned })
+        } catch (error) {
+          log.warn(`mods list: catalog unavailable for update status: ${String(error)}`)
+        }
+      }
       return ok({
         installationId: installation.id,
-        gameDirs: modGameDirs(installation),
+        gameDirs: modGameDirs(installation, catalogEntries),
         activeInstalls: activeFor(installation.id),
       })
     })

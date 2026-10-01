@@ -182,7 +182,7 @@ export function placedGameLibraryName(relativePath: string): string {
 }
 
 /** The catalog package as the download pipeline's own minimal input, or undefined if unusable. */
-function toSource(pkg: CatalogPackage): PackageSource | undefined {
+export function toSource(pkg: CatalogPackage): PackageSource | undefined {
   let fileName: string
   try {
     fileName = decodeURIComponent(new URL(pkg.url).pathname.split('/').pop() ?? '')
@@ -194,16 +194,16 @@ function toSource(pkg: CatalogPackage): PackageSource | undefined {
 }
 
 /** Strictly inside `parent` (never equal). `isPathContainedBy` is symmetric, so it is not enough here. */
-function isStrictlyInside(child: string, parent: string): boolean {
+export function isStrictlyInside(child: string, parent: string): boolean {
   return pathKey(child).startsWith(pathKey(parent) + sep)
 }
 
-function isSafeRelative(rel: string): boolean {
+export function isSafeRelative(rel: string): boolean {
   if (rel.length === 0 || isAbsolute(rel)) return false
   return rel.split('/').every((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
 }
 
-async function hashFile(path: string): Promise<{ sha256: string; sizeBytes: number }> {
+export async function hashFile(path: string): Promise<{ sha256: string; sizeBytes: number }> {
   const hash = createHash('sha256')
   let sizeBytes = 0
   await pipeline(createReadStream(path), async function* (source) {
@@ -291,38 +291,135 @@ async function preflight(
   inFlight.add(slot)
   let handedOver = false
   try {
-    const target = await resolveEngineTarget(installation, await deps.enginePackages(), deps.readArch)
-    const selection = selectVariant(versionEntry, target)
-    if ('refused' in selection) return fail(selection.refused)
-
-    const packages = selection.variant.packages
-    const sources: PackageSource[] = []
-    for (const pkg of packages) {
-      const source = toSource(pkg)
-      if (!source) return fail(BAD_PACKAGE)
-      sources.push(source)
-    }
-
-    const variant = selection.variant
-    const isLibrary = 'platform' in variant
+    const variant = await resolveModVariant(deps, installation, versionEntry)
+    if (!variant.ok) return variant
     handedOver = true
-    return ok({
-      installation,
-      slot,
-      entry,
-      version,
-      packages,
-      sources,
-      contentOnly: selection.contentOnly,
-      variantId: isLibrary ? `${variant.platform}-${variant.arch}` : 'content-only',
-      // A content-only package set carries no arch of its own; the engine's is recorded. An engine
-      // whose arch could not be read is recorded as unknown, never guessed.
-      arch: isLibrary ? variant.arch : target.arch === 'x86_64' ? 'x64' : target.arch === 'x86' ? 'x86' : 'unknown',
-      platform: isLibrary ? variant.platform : target.platform,
-    })
+    return ok({ installation, slot, entry, version, ...variant.value })
   } finally {
     if (!handedOver) inFlight.delete(slot)
   }
+}
+
+export interface ResolvedModVariant {
+  packages: CatalogPackage[]
+  sources: PackageSource[]
+  contentOnly: boolean
+  variantId: string
+  arch: ModInstallRecord['arch']
+  platform: ModInstallRecord['platform']
+}
+
+/** The package set for this installation's engine (platform + architecture), as the record names it. */
+export async function resolveModVariant(
+  deps: Pick<ModInstallDeps, 'enginePackages' | 'readArch'>,
+  installation: Installation,
+  versionEntry: CatalogVersion,
+): Promise<Outcome<ResolvedModVariant>> {
+  const target = await resolveEngineTarget(installation, await deps.enginePackages(), deps.readArch)
+  const selection = selectVariant(versionEntry, target)
+  if ('refused' in selection) return fail(selection.refused)
+
+  const packages = selection.variant.packages
+  const sources: PackageSource[] = []
+  for (const pkg of packages) {
+    const source = toSource(pkg)
+    if (!source) return fail(BAD_PACKAGE)
+    sources.push(source)
+  }
+
+  const variant = selection.variant
+  const isLibrary = 'platform' in variant
+  return ok({
+    packages,
+    sources,
+    contentOnly: selection.contentOnly,
+    variantId: isLibrary ? `${variant.platform}-${variant.arch}` : 'content-only',
+    // A content-only package set carries no arch of its own; the engine's is recorded. An engine
+    // whose arch could not be read is recorded as unknown, never guessed.
+    arch: isLibrary ? variant.arch : target.arch === 'x86_64' ? 'x64' : target.arch === 'x86' ? 'x86' : 'unknown',
+    platform: isLibrary ? variant.platform : target.platform,
+  })
+}
+
+export type StagePackagesResult =
+  | { ok: true; extractDirs: string[] }
+  | { ok: false; cancelled: true }
+  | { ok: false; cancelled: false; key: string; reason: string }
+
+/** Stages every package in order; the first failure (or a cancel) ends it. Touches no installation. */
+export async function stagePackages(args: {
+  deps: Pick<ModInstallDeps, 'stage' | 'resolveExtractor' | 'userDataPath'>
+  jobId: string
+  sources: readonly PackageSource[]
+  signal: AbortSignal
+  onExtractor: (handle: ExtractorHandle) => void
+  /** `ratio` of the whole download, 0..1. */
+  onProgress: (bytesDone: number, bytesTotal: number) => void
+}): Promise<StagePackagesResult> {
+  const { deps, jobId, sources, signal } = args
+  const bytesTotal = sources.reduce((sum, s) => sum + s.sizeBytes, 0)
+  const extractDirs: string[] = []
+  let bytesBefore = 0
+  for (const [index, source] of sources.entries()) {
+    if (signal.aborted) return { ok: false, cancelled: true }
+    const staged = await deps.stage({
+      source,
+      jobId,
+      index,
+      userDataPath: deps.userDataPath,
+      signal,
+      resolveExtractor: deps.resolveExtractor,
+      onExtractor: args.onExtractor,
+      onProgress: (received) => args.onProgress(bytesBefore + Math.min(received, source.sizeBytes), bytesTotal),
+    })
+    if (!staged.ok) {
+      if (staged.cancelled || signal.aborted) return { ok: false, cancelled: true }
+      return {
+        ok: false,
+        cancelled: false,
+        key: staged.key,
+        reason: `staging package ${index} (${source.fileName}) failed`,
+      }
+    }
+    extractDirs.push(staged.extractDir)
+    bytesBefore += source.sizeBytes
+  }
+  if (signal.aborted) return { ok: false, cancelled: true }
+  return { ok: true, extractDirs }
+}
+
+/** Staged trees -> package-relative files per each package's `contents[]`; refuses links and escapes. */
+export async function collectPackageFiles(
+  packages: readonly CatalogPackage[],
+  extractDirs: readonly string[],
+): Promise<{ ok: true; files: { rel: string; abs: string }[] } | { ok: false; reason: string }> {
+  const staged: { rel: string; abs: string }[] = []
+  for (const [index, pkg] of packages.entries()) {
+    const tree = extractDirs[index]!
+    for (const content of pkg.contents) {
+      if (!isSafeContentsFrom(content.from)) return { ok: false, reason: `unsafe from ${content.from}` }
+      const source = content.from === '.' ? tree : join(tree, content.from)
+      if (pathKey(source) !== pathKey(tree) && !isStrictlyInside(source, tree)) {
+        return { ok: false, reason: `${content.from} leaves the staged tree` }
+      }
+      let info
+      try {
+        info = await lstat(source)
+      } catch {
+        return { ok: false, reason: `${pkg.id} holds no ${content.from}` }
+      }
+      if (info.isFile()) {
+        staged.push({ rel: basename(source), abs: source })
+      } else if (info.isDirectory()) {
+        const files = await collectFiles(source)
+        if (files === null) return { ok: false, reason: `${pkg.id} holds a link or special file` }
+        staged.push(...files)
+      } else {
+        return { ok: false, reason: `${pkg.id}'s ${content.from} is a link or special file` }
+      }
+    }
+  }
+  return { ok: true, files: staged }
 }
 
 export async function startModInstall(
@@ -408,60 +505,25 @@ async function runInstall(
     report({ ratio: 0, bytesDone: 0, bytesTotal })
 
     // Stage every package before anything in the installation is touched.
-    const extractDirs: string[] = []
-    let bytesBefore = 0
-    for (const [index, source] of sources.entries()) {
-      if (isCancelled()) return cancelledOutcome()
-      const staged = await deps.stage({
-        source,
-        jobId,
-        index,
-        userDataPath: deps.userDataPath,
-        signal,
-        resolveExtractor: deps.resolveExtractor,
-        onExtractor: setExtractor,
-        onProgress: (received) => {
-          const done = bytesBefore + Math.min(received, source.sizeBytes)
-          report({ ratio: (done / Math.max(1, bytesTotal)) * STAGE_RATIO, bytesDone: done, bytesTotal })
-        },
-      })
-      if (!staged.ok) {
-        if (staged.cancelled || isCancelled()) return cancelledOutcome()
-        return failed(staged.key, `staging package ${index} (${source.fileName}) failed`)
-      }
-      extractDirs.push(staged.extractDir)
-      bytesBefore += source.sizeBytes
+    const stagedPackages = await stagePackages({
+      deps,
+      jobId,
+      sources,
+      signal,
+      onExtractor: setExtractor,
+      onProgress: (done) =>
+        report({ ratio: (done / Math.max(1, bytesTotal)) * STAGE_RATIO, bytesDone: done, bytesTotal }),
+    })
+    if (!stagedPackages.ok) {
+      if (stagedPackages.cancelled) return cancelledOutcome()
+      return failed(stagedPackages.key, stagedPackages.reason)
     }
-    if (isCancelled()) return cancelledOutcome()
     report({ ratio: STAGE_RATIO, bytesDone: bytesTotal, bytesTotal })
 
     // Plan: staged trees -> gamedir-relative paths.
-    const staged: { rel: string; abs: string }[] = []
-    for (const [index, pkg] of packages.entries()) {
-      const tree = extractDirs[index]!
-      for (const content of pkg.contents) {
-        if (!isSafeContentsFrom(content.from)) return failed(BAD_PACKAGE, `unsafe from ${content.from}`)
-        const source = content.from === '.' ? tree : join(tree, content.from)
-        if (pathKey(source) !== pathKey(tree) && !isStrictlyInside(source, tree)) {
-          return failed(BAD_PACKAGE, `${content.from} leaves the staged tree`)
-        }
-        let info
-        try {
-          info = await lstat(source)
-        } catch {
-          return failed(BAD_PACKAGE, `${pkg.id} holds no ${content.from}`)
-        }
-        if (info.isFile()) {
-          staged.push({ rel: basename(source), abs: source })
-        } else if (info.isDirectory()) {
-          const files = await collectFiles(source)
-          if (files === null) return failed(BAD_PACKAGE, `${pkg.id} holds a link or special file`)
-          staged.push(...files)
-        } else {
-          return failed(BAD_PACKAGE, `${pkg.id}'s ${content.from} is a link or special file`)
-        }
-      }
-    }
+    const collected = await collectPackageFiles(packages, stagedPackages.extractDirs)
+    if (!collected.ok) return failed(BAD_PACKAGE, collected.reason)
+    const staged = collected.files
 
     const existingFolder = await findChild(root, entry.gamedir)
     if (existingFolder !== null && !(await isDirectory(existingFolder))) {
