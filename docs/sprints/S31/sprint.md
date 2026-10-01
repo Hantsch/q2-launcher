@@ -19,7 +19,7 @@ browser gains an exact (quoted) search, an Online/LAN switch and saved quick fil
 
 ## Stories (in build order)
 
-- [ ] 188 — the mods view shows the mods I have
+- [x] 188 — the mods view shows the mods I have
 - [ ] 189 — the mod catalog comes from the content repository
 - [ ] 190 — I install a mod into an installation
 - [ ] 191 — I remove a mod the launcher installed

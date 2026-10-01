@@ -141,7 +141,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     icon: 'Boxes',
     route: '/mods',
     nav: { section: 'primary', order: 40 },
-    status: 'planned',
+    status: 'available',
     capabilities: ['mutates-installation', 'long-running-jobs', 'network', 'game-lifecycle'],
     ipcNamespace: 'module:mods',
     requiresInstallation: true,

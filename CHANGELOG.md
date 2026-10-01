@@ -12,6 +12,8 @@ version section when a release actually ships.
 
 <!-- Add your changes here as '- ...' items, grouped under '### Added' / '### Changed' / '### Fixed' / '### Removed' / '### Security' headings. -->
 
+### Added
+- **Mods** — Mods view shows every game directory of the selected installation.
 
 ## 0.6.0 — 2026-09-30
 

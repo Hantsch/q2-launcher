@@ -1,0 +1,15 @@
+- 2026-10-01 09:11:46 · sprint · started
+- 2026-10-01 09:20:16 · refine · 188-197 · started
+- 2026-10-01 09:29:17 · refine · 188-197 · done
+- 2026-10-01 09:29:17 · 188 · build · started
+- 2026-10-01 09:29:31 · 188 · D1 mods contract + main module · started
+- 2026-10-01 09:31:16 · 188 · D1 mods contract + main module · done
+- 2026-10-01 09:31:16 · 188 · D2 Mods view tiles + registration · started
+- 2026-10-01 09:38:18 · 188 · D2 Mods view tiles + registration · done
+- 2026-10-01 09:38:18 · 188 · D3 detail panel + Reveal · started
+- 2026-10-01 09:41:44 · 188 · D3 detail panel + Reveal · done
+- 2026-10-01 09:41:44 · 188 · verify · started
+- 2026-10-01 09:43:27 · 188 · verify · done
+- 2026-10-01 09:43:27 · 188 · review 1 · started
+- 2026-10-01 09:45:46 · 188 · review 1 · done
+- 2026-10-01 09:45:49 · 188 · story · done

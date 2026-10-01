@@ -659,6 +659,35 @@
     }
   },
 
+  "mods": {
+    "view": {
+      "forInstallation": "For {{name}}"
+    },
+    "noInstallation": {
+      "title": "No installation selected",
+      "body": "Select an installation to see its mods."
+    },
+    "empty": {
+      "title": "No mods in this installation",
+      "body": "This installation has no game directories besides baseq2."
+    },
+    "detail": {
+      "close": "Close details",
+      "path": "Folder",
+      "reveal": "Reveal folder",
+      "manualNote": "Installed manually — the launcher does not update or remove it"
+    },
+    "origin": {
+      "manual": "installed manually",
+      "catalog": "installed"
+    },
+    "error": {
+      "installationNotFound": "This installation no longer exists.",
+      "gameDirNotFound": "This game directory no longer exists.",
+      "revealFailed": "Could not open the folder: {{message}}"
+    }
+  },
+
   "library": {
     "title": "Library",
     "subtitle_one": "{{count}} installation",
