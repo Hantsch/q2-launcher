@@ -60,3 +60,15 @@
 - 2026-10-01 11:13:14 · 190 · review fixes 2 · done
 - 2026-10-01 11:13:14 · 190 · verify 2 · started
 - 2026-10-01 11:17:13 · 190 · story · done
+- 2026-10-01 11:17:27 · 191 · build · started
+- 2026-10-01 11:17:44 · 191 · D1 Removal core · started
+- 2026-10-01 11:22:29 · 191 · D1 Removal core · done
+- 2026-10-01 11:22:29 · 191 · D2 Remove contract + job · started
+- 2026-10-01 11:25:10 · 191 · D2 Remove contract + job · done
+- 2026-10-01 11:25:10 · 191 · D3 Remove UI + flow · started
+- 2026-10-01 11:29:26 · 191 · D3 Remove UI + flow · done
+- 2026-10-01 11:29:26 · 191 · verify · started
+- 2026-10-01 11:31:40 · 191 · verify · done
+- 2026-10-01 11:31:40 · 191 · review 1 · started
+- 2026-10-01 11:32:57 · 191 · review 1 · done
+- 2026-10-01 11:33:07 · 191 · story · done

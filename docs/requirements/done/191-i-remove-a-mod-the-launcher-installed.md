@@ -1,7 +1,7 @@
 ---
 id: 191
 title: I remove a mod the launcher installed
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-01
 ---
 
@@ -16,18 +16,18 @@ Concept: [mods.md](../concepts/mods.md) §10; requirements MOD-13, MOD-14.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The detail panel of a catalog-installed mod offers *Remove*, behind a confirmation
+- [x] **AC1** — The detail panel of a catalog-installed mod offers *Remove*, behind a confirmation
       that names the installation and the mod.
-- [ ] **AC2** — After removal, every file in the install record is gone from the gamedir.
-- [ ] **AC3** — A file in the gamedir that is not in the install record (for example a recorded
+- [x] **AC2** — After removal, every file in the install record is gone from the gamedir.
+- [x] **AC3** — A file in the gamedir that is not in the install record (for example a recorded
       demo under `demos/`) still exists after removal.
-- [ ] **AC4** — The gamedir folder is deleted when it is empty after removal, and kept when it is
+- [x] **AC4** — The gamedir folder is deleted when it is empty after removal, and kept when it is
       not.
-- [ ] **AC5** — After removal, the install record is gone, the tile shows *not installed*, and the
+- [x] **AC5** — After removal, the install record is gone, the tile shows *not installed*, and the
       action bar picker no longer offers the mod if its folder was deleted.
-- [ ] **AC6** — While the game runs in that installation, removal waits before deleting and says
+- [x] **AC6** — While the game runs in that installation, removal waits before deleting and says
       so.
-- [ ] **AC7** — The remove channel refuses a mod with no install record, and deletes nothing.
+- [x] **AC7** — The remove channel refuses a mod with no install record, and deletes nothing.
 
 ## Open Questions
 
@@ -233,3 +233,21 @@ is disabled per platform.
   base game with a toast"
 
 ## Done
+
+Remove a mod the launcher installed: `remove.ts` (realpath-contained delete of exactly the recorded files, changed-file check, non-recursive pruning), `remove-job.ts` (`removal.preview`/`remove` channels, `mods-remove` job inside the write guard, record drop/rewrite, revalidate + base-game toast), renderer Remove button + `RemoveModDialog` (keep/delete changed files), fixture `INSTALL_MODS_REMOVE_ID`, flow `mods-remove`, CHANGELOG line.
+
+Commit message: `191: remove a catalog mod — recorded-files-only removal core, mods-remove job, confirmation dialog, flow`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (116 files / 914 tests), `ui:flow` mods-remove (7 labelled checks), mods-catalog, mods-detail, mods-install: all green. Full gate not run (sprint's). AC -> test: AC1-AC7 and the activeGameDir decision: all mapped unit/e2e tests exist, ran and passed as listed; no manual residue. Review: stage 1 PASS, 0 blocking findings, no fix cycle.
+
+Decisions:
+- D1 is stricter than the plan: gamedir name must pass `isSafeGameDirName` (`baseq2`, `..`, `''` refused) and a gamedir that is itself a link is refused; a recorded path that is no longer a regular file is kept and listed as changed.
+- Mod id rule `^[A-Za-z0-9_.-]+$` (max 128), payloads `.strict()`; preview field names `installationName`/`modName`; `modName` is the record's catalog id, the dialog prefers the catalog display name when available.
+- Busy check also blocks on any active `mod-install` of the same installation (install labels carry no mod id) - stricter, safe.
+- Partial failure rewrites the record to failed + kept-changed files, job fails `mods.remove.failed.locked`.
+- After removing `opentdm` with only `demos/` left, the tile reads *not installed* (inspector: no top-level pak/dll/.so).
+- Unfixed, documented: RemoveModDialog radio labels are ~20px high (no 44px deviation row written in CLAUDE.md, none authorised in this run - desktop mouse app, same reason as the existing rows); partial-failure test mocks `removeRecordedFiles` (real failing unlink not reproducible on Windows; D1 covers unlink failure itself).
+
+Names later stories reuse: `planRemoval`/`removeRecordedFiles`/`RemovalRefusedError` (`remove.ts`), `previewModRemoval`/`startModRemove` (`remove-job.ts`, job kind `mods-remove`, label `mods.job.remove`), `MODS_HANDLERS.removalPreview|remove`, renderer `previewRemoval`/`removeMod`/`RemoveModDialog`, testids `mods-detail-remove`/`mods-detail-job-status`/`mods-remove-*`, fixture `INSTALL_MODS_REMOVE_ID`/`writeModsRemoveFixture`.
+
+tiers: D 3 / hard 1 · review default · cycles 0 · agents 6

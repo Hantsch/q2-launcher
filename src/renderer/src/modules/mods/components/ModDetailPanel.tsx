@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ExternalLink, FolderOpen, X } from 'lucide-react'
-import type { Job, LocalizedMessage } from '@shared/types'
+import { ExternalLink, FolderOpen, Trash2, X } from 'lucide-react'
+import { isJobActive, type Job, type LocalizedMessage } from '@shared/types'
 import { Button, IconButton } from '../../../components/ui/Button'
 import { Badge } from '../../../components/ui/primitives'
 import { invoke } from '../../../lib/bridge'
 import { revealMod } from '../client'
 import type { ModTileModel } from '../merge-mod-tiles'
 import { ModInstallState } from './ModInstallState'
+import { RemoveModDialog } from './RemoveModDialog'
 
 /**
  * The docked detail of one selected mod tile: the catalog facts (licence, links, versions) when
@@ -20,6 +21,8 @@ export function ModDetailPanel({
   job = null,
   failure = null,
   onInstall,
+  removeJob = null,
+  onRemoveStarted,
 }: {
   installationId: string
   mod: ModTileModel
@@ -28,11 +31,15 @@ export function ModDetailPanel({
   failure?: LocalizedMessage | null
   /** Starts the install of the version picked here. */
   onInstall?: (catalogId: string, version: string) => void
+  /** The mod's `mods-remove` job from the jobs store, if there is one. */
+  removeJob?: Job | null
+  onRemoveStarted?: (jobId: string) => void
 }) {
   const { t } = useTranslation()
   const { local, catalog } = mod
   const [error, setError] = useState<LocalizedMessage | null>(null)
   const [version, setVersion] = useState<string | null>(null)
+  const [removing, setRemoving] = useState(false)
   const chosenVersion = catalog
     ? catalog.versions.some((v) => v.version === version)
       ? (version as string)
@@ -43,6 +50,7 @@ export function ModDetailPanel({
   useEffect(() => {
     setError(null)
     setVersion(null)
+    setRemoving(false)
   }, [mod.gameDir, installationId])
 
   useEffect(() => {
@@ -53,6 +61,7 @@ export function ModDetailPanel({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  const removeActive = removeJob !== null && isJobActive(removeJob)
   const reveal = async (): Promise<void> => {
     const outcome = await revealMod(installationId, mod.gameDir)
     setError(outcome.ok ? null : outcome.error)
@@ -169,6 +178,26 @@ export function ModDetailPanel({
             </Button>
           </>
         )}
+        {local?.origin === 'catalog' && local.catalogId && (
+          <div className="space-y-2">
+            {removeActive && removeJob && (
+              <p role="status" className="text-sm text-warning" data-testid="mods-detail-job-status">
+                {removeJob.status === 'waiting' && removeJob.waitingReason
+                  ? t(removeJob.waitingReason.key, removeJob.waitingReason.params ?? {})
+                  : t(removeJob.labelKey, removeJob.labelParams ?? {})}
+              </p>
+            )}
+            <Button
+              variant="danger"
+              icon={<Trash2 className="size-3.5" aria-hidden="true" />}
+              disabled={removeActive}
+              onClick={() => setRemoving(true)}
+              data-testid="mods-detail-remove"
+            >
+              {t('mods.remove.action')}
+            </Button>
+          </div>
+        )}
         {error && (
           <p role="alert" className="text-sm text-danger" data-testid="mods-detail-error">
             {t(error.key, error.params)}
@@ -180,6 +209,15 @@ export function ModDetailPanel({
           </p>
         )}
       </div>
+      {removing && local?.catalogId && (
+        <RemoveModDialog
+          installationId={installationId}
+          modId={local.catalogId}
+          displayName={catalog?.name}
+          onClose={() => setRemoving(false)}
+          onStarted={(jobId) => onRemoveStarted?.(jobId)}
+        />
+      )}
     </aside>
   )
 }

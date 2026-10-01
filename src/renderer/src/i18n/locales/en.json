@@ -697,6 +697,7 @@
     },
     "job": {
       "install": "Installing {{name}}",
+      "remove": "Removing {{mod}} from {{installation}}",
       "waitingForDecision": "Waiting for your answer about the existing folder {{folder}}"
     },
     "decision": {
@@ -728,6 +729,27 @@
       "badPackage": "The mod's download is not usable.",
       "writeFailed": "Could not write the mod's files. Nothing was changed.",
       "noPendingDecision": "This install is no longer waiting for an answer."
+    },
+    "remove": {
+      "action": "Remove",
+      "title": "Remove {{mod}} from {{installation}}?",
+      "titleLoading": "Remove mod",
+      "body": "Only the files the launcher installed are removed. Your demos, configs and screenshots stay.",
+      "changed_one": "{{count}} installed file has changed since it was installed:",
+      "changed_other": "{{count}} installed files have changed since they were installed:",
+      "keepChanged": "Keep them",
+      "deleteChanged": "Delete them too",
+      "cancel": "Cancel",
+      "confirm": "Remove",
+      "refused": {
+        "noRecord": "The launcher did not install this mod, so it will not remove it.",
+        "busy": "Another job is already working on this mod.",
+        "unsafePath": "The install record points outside the mod folder. Nothing was removed."
+      },
+      "failed": {
+        "locked": "Could not remove {{path}}. The rest was removed; remove it again once the file is free."
+      },
+      "fellBackToBase": "{{installation}} now starts the base game — {{gameDir}} was removed"
     }
   },
 

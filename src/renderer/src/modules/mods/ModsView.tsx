@@ -38,6 +38,7 @@ export function ModsView() {
   const [failures, setFailures] = useState<Record<string, LocalizedMessage>>({})
   const [decisionEvent, setDecisionEvent] = useState<InstallDecisionRequest | null>(null)
   const [answered, setAnswered] = useState<string[]>([])
+  const [removeStarted, setRemoveStarted] = useState<string[]>([])
   const jobs = useLauncher((s) => s.jobs)
   // A result for another installation is not this one's: treat it as still loading.
   const state: ListState =
@@ -121,6 +122,27 @@ export function ModsView() {
       return next
     })
   }, [started, jobs])
+
+  // A removal this view started that ends is final too: refetch the list.
+  useEffect(() => {
+    const done = removeStarted.filter((jobId) => {
+      const job = jobs.find((j) => j.id === jobId)
+      return job !== undefined && !isJobActive(job)
+    })
+    if (done.length === 0) return
+    setReloadKey((n) => n + 1)
+    setRemoveStarted((prev) => prev.filter((id) => !done.includes(id)))
+  }, [removeStarted, jobs])
+  const removeJobFor = (catalogId: string | undefined) =>
+    (catalogId &&
+      jobs.find(
+        (j) =>
+          j.kind === 'mods-remove' &&
+          j.installationId === installationId &&
+          j.labelParams?.mod === catalogId &&
+          isJobActive(j),
+      )) ||
+    null
 
   useEffect(
     () =>
@@ -248,6 +270,8 @@ export function ModsView() {
             job={selectedMod.catalog ? jobFor(selectedMod.catalog.id) : null}
             failure={selectedMod.catalog ? (failures[selectedMod.catalog.id] ?? null) : null}
             onInstall={(catalogId, version) => void install(catalogId, version)}
+            removeJob={removeJobFor(selectedMod.local?.catalogId)}
+            onRemoveStarted={(jobId) => setRemoveStarted((prev) => [...prev, jobId])}
           />
         )}
       </div>

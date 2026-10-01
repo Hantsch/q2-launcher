@@ -31,3 +31,22 @@ export const resolveInstallInputSchema = z
     choice: z.enum(['overwrite', 'keep', 'cancel']),
   })
   .strict()
+
+/** Story 191: the mod is named by its catalog id (the install record's key), never by a path. */
+const modIdSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9_.-]+$/, 'invalid mod id')
+
+export const removalPreviewInputSchema = z
+  .object({ installationId: z.string().min(1), modId: modIdSchema })
+  .strict()
+
+export const removeInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    modId: modIdSchema,
+    changedFiles: z.enum(['delete', 'keep']),
+  })
+  .strict()

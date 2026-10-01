@@ -4,6 +4,8 @@ import {
   type ModCatalogState,
   type ModInstallChoice,
   type ModInstallDecisionEvent,
+  type ModRemovalPreview,
+  type ModRemoveChangedFiles,
   type ModsListResult,
 } from '@shared/modules/mods'
 import type { Outcome } from '@shared/types'
@@ -50,4 +52,19 @@ export function resolveInstall(jobId: string, choice: ModInstallChoice): Promise
 
 export function onInstallDecision(listener: (event: ModInstallDecisionEvent) => void): () => void {
   return onModuleEvent<ModInstallDecisionEvent>('mods', MODS_EVENTS.installDecision, listener)
+}
+
+export function previewRemoval(
+  installationId: string,
+  modId: string,
+): Promise<Outcome<ModRemovalPreview>> {
+  return call<ModRemovalPreview>(MODS_HANDLERS.removalPreview, { installationId, modId })
+}
+
+export function removeMod(
+  installationId: string,
+  modId: string,
+  changedFiles: ModRemoveChangedFiles,
+): Promise<Outcome<{ jobId: string }>> {
+  return call<{ jobId: string }>(MODS_HANDLERS.remove, { installationId, modId, changedFiles })
 }

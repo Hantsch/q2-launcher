@@ -22,7 +22,7 @@ browser gains an exact (quoted) search, an Online/LAN switch and saved quick fil
 - [x] 188 — the mods view shows the mods I have
 - [x] 189 — the mod catalog comes from the content repository
 - [x] 190 — I install a mod into an installation
-- [ ] 191 — I remove a mod the launcher installed
+- [x] 191 — I remove a mod the launcher installed
 - [ ] 192 — the server detail says whether I have its mod and map
 - [ ] 193 — the mod-missing warning offers the install
 - [ ] 194 — a newer mod version is offered

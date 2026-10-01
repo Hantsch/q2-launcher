@@ -4685,6 +4685,89 @@ export function writeModsInstallFixture() {
   return { userDataDir }
 }
 
+// --- story 191 D3: the mods-remove fixture ------------------------------------------------------
+
+export const INSTALL_MODS_REMOVE_ID = 'fixture-install-mods-remove'
+export const INSTALL_MODS_REMOVE_NAME = 'Fixture Mods Remove Install'
+
+/** Bytes the launcher "installed" per game dir; every record below carries their size and sha256. */
+export const modsRemoveFiles = {
+  ctf: {
+    'gamex86.dll': filler(12 * 1024, 0x31),
+    'pak0.pak': filler(4 * 1024, 0x32),
+  },
+  opentdm: {
+    'gamex86.dll': filler(10 * 1024, 0x33),
+    'maps/tdm1.bsp': filler(3 * 1024, 0x34),
+    'opentdm.cfg': Buffer.from('set tdm_original 1\n'),
+  },
+}
+/** What `opentdm/opentdm.cfg` holds on disk: the user changed it after the "install". */
+export const MODS_REMOVE_EDITED_CFG = Buffer.from('set tdm_original 0 // my own tuning\n')
+/** A file the user put into `opentdm/` themselves - never in a record, so removal keeps it. */
+export const MODS_REMOVE_DEMO_PATH = 'demos/mine.dm2'
+
+/**
+ * Reseeds `populated` and adds one installation with two catalog-installed mods (`ctf`, `opentdm`) as
+ * story 190's records describe them. `ctf` is the active game directory; `opentdm`'s cfg was edited.
+ */
+export function writeModsRemoveFixture() {
+  const { userDataDir } = writePopulatedFixture()
+  const root = join(gameRoot(), INSTALL_MODS_REMOVE_ID)
+  rmDirBestEffort(root)
+  mkdirSync(join(root, 'baseq2'), { recursive: true })
+  writeFileSync(join(root, 'r1q2.exe'), '')
+  for (const pak of ['pak0.pak', 'pak1.pak', 'pak2.pak']) {
+    writeSizedFile(join(root, 'baseq2', pak), RETAIL_PAK_SIZES[pak])
+  }
+  const records = []
+  for (const [gameDir, files] of Object.entries(modsRemoveFiles)) {
+    for (const [name, bytes] of Object.entries(files)) {
+      const onDisk = gameDir === 'opentdm' && name === 'opentdm.cfg' ? MODS_REMOVE_EDITED_CFG : bytes
+      writeMods191File(join(root, gameDir, name), onDisk)
+    }
+    records.push({
+      catalogId: gameDir,
+      gameDir,
+      version: 'v1.0.0',
+      variantId: `${gameDir}-win32-x86`,
+      engineKind: 'r1q2',
+      arch: 'x86',
+      platform: 'win32',
+      contentOnly: false,
+      installedAt: Date.parse(FIXED_TIMESTAMP),
+      files: Object.entries(files).map(([path, bytes]) => ({
+        path,
+        sizeBytes: bytes.length,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+      })),
+    })
+  }
+  writeMods191File(join(root, 'opentdm', MODS_REMOVE_DEMO_PATH), Buffer.from('my demo'))
+  const statePath = join(userDataDir, STATE_FILE)
+  const state = JSON.parse(readFileSync(statePath, 'utf8'))
+  state.installations.push({
+    ...makeInstallation({
+      id: INSTALL_MODS_REMOVE_ID,
+      name: INSTALL_MODS_REMOVE_NAME,
+      rootPath: root,
+      engineKind: 'r1q2',
+      favorite: false,
+      sortOrder: 92,
+      gameDirs: ['baseq2', 'ctf', 'opentdm'],
+      moduleData: { mods: { records } },
+    }),
+    activeGameDir: 'ctf',
+  })
+  writeJson(statePath, state)
+  return { userDataDir }
+}
+
+function writeMods191File(path, bytes) {
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, bytes)
+}
+
 /**
  * Story 190 D8: seeds `<root>/<gamedir>/<relativePath>` of installation `id` with `bytes`, as a
  * folder the user made by hand (no install record). Returns the file's path.

@@ -6,6 +6,7 @@ import {
   type ModActiveInstall,
   type ModCatalogState,
   type ModGameDir,
+  type ModRemovalPreview,
   type ModsListResult,
 } from '@shared/modules/mods'
 import { fail, ok, type Installation, type Outcome } from '@shared/types'
@@ -18,11 +19,14 @@ import { ManifestService } from '../downloads/manifest-service'
 import { resolveVendoredExtractor, stagePackage } from '../downloads/stage-package'
 import { toCatalogEntryDto } from './catalog-parse'
 import { CatalogService } from './catalog-service'
+import { previewModRemoval, startModRemove } from './remove-job'
 import { startModInstall, type ModInstallDecision } from './install-job'
 import {
   catalogGetInputSchema,
   installInputSchema,
   listInputSchema,
+  removalPreviewInputSchema,
+  removeInputSchema,
   resolveInstallInputSchema,
   revealInputSchema,
 } from './schemas'
@@ -173,6 +177,26 @@ export const modsModule: MainModule = {
       if (entry) delete entry.decision
       resolve(input.choice)
       return ok(null)
+    })
+
+    const removeDeps = {
+      jobs: app.jobs,
+      installations: app.installations,
+      writeGuard: app.writeGuard,
+      broadcast: app.broadcast,
+      log,
+    }
+
+    handle(
+      MODS_HANDLERS.removalPreview,
+      removalPreviewInputSchema,
+      (input): Promise<Outcome<ModRemovalPreview>> => previewModRemoval(removeDeps, input),
+    )
+
+    handle(MODS_HANDLERS.remove, removeInputSchema, (input): Outcome<{ jobId: string }> => {
+      const started = startModRemove(removeDeps, input)
+      if (!started.ok) return started
+      return ok({ jobId: started.value.jobId })
     })
 
     handle(MODS_HANDLERS.list, listInputSchema, (input): Outcome<ModsListResult> => {

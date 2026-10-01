@@ -15,7 +15,22 @@ export const MODS_HANDLERS = {
   install: 'install',
   /** Story 190: answers a pending `installDecision`. Resolves to `Outcome<null>`. */
   resolveInstall: 'install.resolve',
+  /** Story 191: what removing a mod would touch. Resolves to `Outcome<ModRemovalPreview>`; deletes nothing. */
+  removalPreview: 'removal.preview',
+  /** Story 191: start removing a mod the launcher installed. Resolves to `Outcome<{ jobId }>`. */
+  remove: 'remove',
 } as const
+
+/** What `removalPreview` answers: names for the confirm dialog and the recorded files the user changed. */
+export interface ModRemovalPreview {
+  installationName: string
+  modName: string
+  gameDir: string
+  /** Gamedir-relative paths of recorded files whose bytes differ from what the launcher installed. */
+  changedFiles: string[]
+}
+
+export type ModRemoveChangedFiles = 'delete' | 'keep'
 
 /** Story 190: main -> renderer pushes of this module, delivered through the module event channel. */
 export const MODS_EVENTS = {
