@@ -1,7 +1,7 @@
 ---
 id: 192
 title: the server detail says whether I have its mod and map
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-01
 ---
 
@@ -17,19 +17,19 @@ Concept: [mods.md](../concepts/mods.md) §11; requirements MOD-15 to MOD-17.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The server detail shows a visible statement of whether the server's mod exists in
+- [x] **AC1** — The server detail shows a visible statement of whether the server's mod exists in
       the active installation (*mod installed* / *mod missing*). A server on the base game shows
       no mod statement.
-- [ ] **AC2** — The server detail shows a visible statement of whether the server's current map
+- [x] **AC2** — The server detail shows a visible statement of whether the server's current map
       exists locally (*map available* / *map missing — the server will send it*).
-- [ ] **AC3** — With the mod missing and a catalog entry of the same gamedir name (matched
+- [x] **AC3** — With the mod missing and a catalog entry of the same gamedir name (matched
       case-insensitively), the detail offers *Install*. Clicking it starts story 190's install
       into the active installation.
-- [ ] **AC4** — With the mod missing and no catalog entry, no Install button appears, and the
+- [x] **AC4** — With the mod missing and no catalog entry, no Install button appears, and the
       statement stays.
-- [ ] **AC5** — When the install finishes, the statement changes to *mod installed* without
+- [x] **AC5** — When the install finishes, the statement changes to *mod installed* without
       reopening the detail.
-- [ ] **AC6** — A gamedir string from a server that is not a safe single path token is shown as
+- [x] **AC6** — A gamedir string from a server that is not a safe single path token is shown as
       text but never used to build a path or start an install.
 
 ## Open Questions
@@ -226,3 +226,20 @@ Coverage: AC1 D1+D3 · AC2 D2+D3 · AC3 D4 · AC4 D1+D4 (statement from D3, no-b
 AC6 D1+D2+D3. Every AC has a D and a named test; no manual residue.
 
 ## Done
+
+Server detail now says whether the active installation has the server's mod and its current map (`ServerLocalContentSection`, under the stat grid): mod installed/missing, map available/missing (loose + pak + pkz lookup in main via handler `mods/map.presence`), and an Install button for a missing mod with a catalog entry that reuses 190's `installMod`; the statement flips from the store's revalidated `gameDirs`. Unsafe gamedirs are text only.
+
+Commit message: `192: server detail shows mod and map presence — shared status helper, mapPresence handler + pak reader, section, install offer, flow`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (118 files / 927 tests), `ui:flow` servers-detail-local-content and servers-detail (each after `ui:seed`): all green. Full gate not run (sprint's). AC -> test: AC1-AC6 all mapped unit + flow tests ran and passed as listed; no manual residue. Review: stage 1 PASS, no blocking findings, no fix cycle. Unfixed minor: pkz test branch returns early when 7za is missing; `lookupKey` omits `gameDirs` (stale map answer shown briefly after install); a decision event arriving while the section is unmounted is lost (same as ModsView).
+
+Decisions:
+- Server mod comes from `gamename` in serverinfo (the header's `row.mod ?? gamedir ?? game`); flow responders send `\gamename\...` and select + `servers-refresh-selected` for the stage-2 query.
+- Unknown installation reuses `mods.error.installationNotFound`; handler `MODS_HANDLERS.mapPresence = 'map.presence'`, schema `mapPresenceInputSchema` (strict, `isSafeGameName` refine); main re-checks names and only joins `readdir` results.
+- `InstallDecisionDialog` is also mounted in the section (it lived only in ModsView; install waits on a decision event); never both views live.
+- `writeModsInstallFixture` takes `{variant, stateOverrides}` (backward compatible); the flow runs on 190's catalog/package fixture throughout, so C/D prove AC4/AC6 with a loaded catalog.
+- Beyond spec: a folder named `x.bsp` is not a map; `.pk3` ignored.
+
+Names story 193 must reuse: `findCatalogEntryByGameDir` / `serverModStatus` / `mapLookupTarget` / `isSafeGameName` (`src/shared/mods/server-local-content.ts`), `isSafeGameDirName` (`src/shared/mods/gamedir.ts`), renderer `getMapPresence` (`modules/mods/client.ts`), `ServerLocalContentSection` testids `servers-detail-local-content`, `servers-detail-mod-status`, `servers-detail-map-status`, `servers-detail-mod-install`.
+
+tiers: D 4 / hard 1 · review default · cycles 0 · agents 8

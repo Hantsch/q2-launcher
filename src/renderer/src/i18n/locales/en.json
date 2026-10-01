@@ -869,6 +869,15 @@
         "engine": "Engine",
         "protocol": "Protocol"
       },
+      "localContent": {
+        "modInstalled": "Mod installed",
+        "modMissing": "Mod missing",
+        "install": "Install",
+        "installing": "Installing…",
+        "mapAvailable": "Map available",
+        "mapMissing": "Map missing — the server will send it",
+        "noInstallation": "No active installation"
+      },
       "sectionError": "This section could not be shown.",
       "gone": "This server is no longer in the list",
       "readError": "Could not load this server's details.",

@@ -284,3 +284,4 @@ second roadmap.
 - 189 — the mod catalog comes from the content repository · S31 · manifest in the content repo, validated parser, cached catalog service, catalog tiles and detail panel.
 - 190 — I install a mod into an installation · S31 · catalog mods install into an installation as a job with variant selection, guarded write, install record and decision dialog
 - 191 — I remove a mod the launcher installed · S31 · recorded-files-only removal with changed-file choice, mods-remove job, confirmation dialog and flow
+- 192 — the server detail says whether I have its mod and map · S31 · detail shows mod/map presence and installs a missing catalog mod

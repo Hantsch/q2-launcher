@@ -4655,8 +4655,8 @@ function modsInstallManifestEntries({ library, content, bad }, baseUrl) {
  * the engine arch comes from the manifest and not from an (empty, non-PE) executable. Written into
  * `state.json` here rather than into `populatedInstallations()`, so no other flow's counts move.
  */
-export function writeModsInstallFixture() {
-  const { userDataDir } = writePopulatedFixture()
+export function writeModsInstallFixture({ variant = 'populated', stateOverrides = {} } = {}) {
+  const { userDataDir } = writePopulatedFixture({ variant, stateOverrides })
   const make = (id, name, engineKind, exe, packageId, sortOrder) => {
     const root = join(gameRoot(), id)
     rmDirBestEffort(root)

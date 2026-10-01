@@ -72,3 +72,17 @@
 - 2026-10-01 11:31:40 · 191 · review 1 · started
 - 2026-10-01 11:32:57 · 191 · review 1 · done
 - 2026-10-01 11:33:07 · 191 · story · done
+- 2026-10-01 11:33:18 · 192 · build · started
+- 2026-10-01 11:33:35 · 192 · D1 shared helper · started
+- 2026-10-01 11:34:20 · 192 · D1 shared helper · done
+- 2026-10-01 11:34:34 · 192 · D2 map presence handler (hard) · started
+- 2026-10-01 11:38:37 · 192 · D2 map presence handler (hard) · done
+- 2026-10-01 11:38:37 · 192 · D3 detail statements · started
+- 2026-10-01 11:48:43 · 192 · D3 detail statements · done
+- 2026-10-01 11:48:43 · 192 · D4 install from detail · started
+- 2026-10-01 11:52:27 · 192 · D4 install from detail · done
+- 2026-10-01 11:52:27 · 192 · verify · started
+- 2026-10-01 11:54:31 · 192 · verify · done
+- 2026-10-01 11:54:31 · 192 · review 1 · started
+- 2026-10-01 11:55:22 · 192 · review 1 · done
+- 2026-10-01 11:55:22 · 192 · story · done

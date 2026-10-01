@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isSafeGameName } from '@shared/mods/server-local-content'
 
 /** IPC payload validation for the mods module's handlers (strict, like the config module's). */
 
@@ -41,6 +42,17 @@ const modIdSchema = z
 
 export const removalPreviewInputSchema = z
   .object({ installationId: z.string().min(1), modId: modIdSchema })
+  .strict()
+
+/** Story 192: `gameDir` and `map` come from a game server - single safe names, never paths. */
+const safeGameNameSchema = z.string().refine(isSafeGameName, 'invalid name')
+
+export const mapPresenceInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    gameDir: safeGameNameSchema.optional(),
+    map: safeGameNameSchema,
+  })
   .strict()
 
 export const removeInputSchema = z

@@ -17,6 +17,7 @@ version section when a release actually ships.
 - **Mods** — Action Quake, OpenTDM and CTF appear as catalog tiles.
 - **Mods** — Install Action Quake, OpenTDM and CTF from the Mods view, with the build that fits your engine.
 - **Mods** — Remove a mod the launcher installed — your own demos and configs stay.
+- **Servers** — Server detail shows whether you have its mod and map, and installs a missing mod.
 
 ## 0.6.0 — 2026-09-30
 

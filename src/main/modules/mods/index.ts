@@ -6,6 +6,7 @@ import {
   type ModActiveInstall,
   type ModCatalogState,
   type ModGameDir,
+  type ModMapPresence,
   type ModRemovalPreview,
   type ModsListResult,
 } from '@shared/modules/mods'
@@ -15,16 +16,19 @@ import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harn
 import type { MainModule } from '../types'
 import { readModsState, recordedGameDirs } from './install-records'
 import { resolveDownloadSource } from '../downloads/harness'
+import { resolveExtractorPath } from '../downloads/7za-path'
 import { ManifestService } from '../downloads/manifest-service'
 import { resolveVendoredExtractor, stagePackage } from '../downloads/stage-package'
 import { toCatalogEntryDto } from './catalog-parse'
 import { CatalogService } from './catalog-service'
+import { mapPresence } from './map-presence'
 import { previewModRemoval, startModRemove } from './remove-job'
 import { startModInstall, type ModInstallDecision } from './install-job'
 import {
   catalogGetInputSchema,
   installInputSchema,
   listInputSchema,
+  mapPresenceInputSchema,
   removalPreviewInputSchema,
   removeInputSchema,
   resolveInstallInputSchema,
@@ -208,6 +212,25 @@ export const modsModule: MainModule = {
         activeInstalls: activeFor(installation.id),
       })
     })
+
+    handle(
+      MODS_HANDLERS.mapPresence,
+      mapPresenceInputSchema,
+      async (input): Promise<Outcome<ModMapPresence>> => {
+        const installation = app.installations.find(input.installationId)
+        if (!installation) return fail('mods.error.installationNotFound')
+        const extractor = resolveExtractorPath({
+          isPackaged: electronApp.isPackaged,
+          resourcesPath: process.resourcesPath,
+        })
+        // The root comes from the installation record; only the two safe names come from the payload.
+        const presence = await mapPresence(
+          { rootPath: installation.rootPath, gameDir: input.gameDir, map: input.map },
+          { zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists } },
+        )
+        return ok(presence)
+      },
+    )
 
     handle(MODS_HANDLERS.reveal, revealInputSchema, async (input): Promise<Outcome<null>> => {
       const installation = app.installations.find(input.installationId)

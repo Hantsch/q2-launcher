@@ -11,6 +11,7 @@ import { useLauncher } from '../../store/useLauncher'
 import { AddToAddressBookDialog } from './AddToAddressBookDialog'
 import { addFavourite, removeFavourite } from './client'
 import { JoinServerButton } from './join/JoinServerButton'
+import { ServerLocalContentSection } from './ServerLocalContentSection'
 import { displayName, formatOccupancy, formatPing, orDash } from './server-format'
 
 export interface ServerDetailHeaderProps {
@@ -219,6 +220,7 @@ export function ServerDetailHeader({
           <span className="numeric">{orDash(protocol)}</span>
         </StatCell>
       </div>
+      <ServerLocalContentSection mod={mod} map={row.map} />
     </div>
   )
 }

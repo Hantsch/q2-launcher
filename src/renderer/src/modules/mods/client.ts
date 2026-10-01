@@ -4,6 +4,7 @@ import {
   type ModCatalogState,
   type ModInstallChoice,
   type ModInstallDecisionEvent,
+  type ModMapPresence,
   type ModRemovalPreview,
   type ModRemoveChangedFiles,
   type ModsListResult,
@@ -28,6 +29,16 @@ export function listMods(installationId: string): Promise<Outcome<ModsListResult
 
 export function revealMod(installationId: string, gameDir: string): Promise<Outcome<null>> {
   return call<null>(MODS_HANDLERS.reveal, { installationId, gameDir })
+}
+
+/** Whether a map file is on disk for a server's map: `gameDir` narrows the lookup to that mod's
+ * folder (plus baseq2); without it only baseq2 is searched. */
+export function getMapPresence(input: {
+  installationId: string
+  gameDir?: string
+  map: string
+}): Promise<Outcome<ModMapPresence>> {
+  return call<ModMapPresence>(MODS_HANDLERS.mapPresence, input)
 }
 
 export function getCatalog(): Promise<Outcome<ModCatalogState>> {

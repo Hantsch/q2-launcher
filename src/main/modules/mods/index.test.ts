@@ -210,3 +210,24 @@ describe('mods module', () => {
     })
   })
 })
+
+describe('mods module mapPresence', () => {
+  it('refuses an unknown installation id and never takes a root path from the payload', async () => {
+    const r = await registryFor(installation(['rogue']))
+    const unknown = await unwrap<{ available: boolean }>(
+      r.invoke({
+        moduleId: 'mods',
+        type: MODS_HANDLERS.mapPresence,
+        payload: { installationId: 'nope', map: 'q2dm1' },
+      }),
+    )
+    expect(unknown).toMatchObject({ ok: false, error: { key: 'mods.error.installationNotFound' } })
+
+    const withRoot = (await r.invoke({
+      moduleId: 'mods',
+      type: MODS_HANDLERS.mapPresence,
+      payload: { installationId: 'inst-1', map: 'q2dm1', rootPath: '/' },
+    })) as { ok: boolean }
+    expect(withRoot.ok).toBe(false)
+  })
+})

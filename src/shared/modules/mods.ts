@@ -19,7 +19,14 @@ export const MODS_HANDLERS = {
   removalPreview: 'removal.preview',
   /** Story 191: start removing a mod the launcher installed. Resolves to `Outcome<{ jobId }>`. */
   remove: 'remove',
+  /** Story 192: does the installation have a server's map? Resolves to `Outcome<ModMapPresence>`. */
+  mapPresence: 'map.presence',
 } as const
+
+/** What `mapPresence` answers: whether `maps/<map>.bsp` exists loose, in a pak or in a pkz. */
+export interface ModMapPresence {
+  available: boolean
+}
 
 /** What `removalPreview` answers: names for the confirm dialog and the recorded files the user changed. */
 export interface ModRemovalPreview {
