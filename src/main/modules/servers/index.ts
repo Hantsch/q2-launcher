@@ -12,6 +12,10 @@ import {
   manualAddInputSchema,
   manualListInputSchema,
   manualRemoveInputSchema,
+  quickFiltersListInputSchema,
+  quickFiltersRemoveInputSchema,
+  quickFiltersRenameInputSchema,
+  quickFiltersSaveInputSchema,
   scanGetSettingsInputSchema,
   scanPatchSettingsInputSchema,
   scanReadInputSchema,
@@ -32,8 +36,16 @@ import {
   type ManualServerAddResult,
   type MasterSource,
   type MasterSourcesResult,
+  type QuickFiltersResult,
   type WatchlistEntry,
 } from '@shared/modules/servers'
+import type { QuickFilter } from '@shared/servers/quick-filters'
+import {
+  removeQuickFilter,
+  renameQuickFilter,
+  saveQuickFilter,
+  type QuickFilterMutationResult,
+} from './quick-filter-entries'
 import { uiHarnessLanTargets } from '../../lib/ui-harness'
 import type { MainModule } from '../types'
 import { addFavourite, listFavourites, removeFavourite } from './favourites'
@@ -355,6 +367,33 @@ export const serversModule: MainModule = {
       }
       return app.state.setServersState({ ...current, listSort: payload.sort }).listSort ?? null
     })
+
+    /**
+     * Story 197 D2: the saved quick filters. Always registered (not behind the watchlist gate); each
+     * mutation reads one snapshot, runs the pure entry function, and on success replaces only the
+     * `quickFilters` slice, returning what `setServersState` actually persisted.
+     */
+    const mutateQuickFilters = (
+      run: (list: readonly QuickFilter[]) => QuickFilterMutationResult,
+    ): QuickFiltersResult => {
+      const current = app.state.serversState()
+      const result = run(current.quickFilters)
+      if (!result.ok) return result
+      const persisted = app.state.setServersState({ ...current, quickFilters: result.list })
+      return { ok: true, list: persisted.quickFilters }
+    }
+    handle(SERVERS_HANDLERS.quickFiltersList, quickFiltersListInputSchema, () =>
+      app.state.serversState().quickFilters,
+    )
+    handle(SERVERS_HANDLERS.quickFiltersSave, quickFiltersSaveInputSchema, (payload) =>
+      mutateQuickFilters((list) => saveQuickFilter(list, payload)),
+    )
+    handle(SERVERS_HANDLERS.quickFiltersRename, quickFiltersRenameInputSchema, (payload) =>
+      mutateQuickFilters((list) => renameQuickFilter(list, payload)),
+    )
+    handle(SERVERS_HANDLERS.quickFiltersRemove, quickFiltersRemoveInputSchema, (payload) =>
+      mutateQuickFilters((list) => removeQuickFilter(list, payload)),
+    )
 
     /**
      * Story 131 D5: the five `watchlist.*` handlers. Defined inside the same

@@ -15,6 +15,7 @@ import {
   filterServers,
   type ServerListFilter,
 } from '@shared/servers/list-filter'
+import { criteriaOf, type QuickFilter } from '@shared/servers/quick-filters'
 import {
   nextSort,
   sortServerRows,
@@ -46,11 +47,14 @@ import { JoinServerButton } from './join/JoinServerButton'
 import { useJoinFlow } from './join/useJoinFlow'
 import { ServerDetailView } from './ServerDetailView'
 import { ServerListFilterBar } from './ServerListFilterBar'
+import { QuickFilterChipMenu } from './QuickFilterChipMenu'
+import { QuickFilterNameDialog } from './QuickFilterNameDialog'
 import { ServerListHeader } from './ServerListHeader'
 import { ServerRow } from './ServerRow'
 import { ServersListStatus } from './ServersListStatus'
 import { ServersModeToggle } from './ServersModeToggle'
 import { ServersTabStrip, type ServersTab } from './ServersTabStrip'
+import { useQuickFilters } from './useQuickFilters'
 import { WatchlistPanel } from './watchlist/WatchlistPanel'
 
 /** Story 116 D5: the visible reason for each `ScanBlockedReason` - a lookup table of one entry
@@ -171,6 +175,9 @@ export function ServersView() {
   const [sort, setSort] = useState<ServerListSort | undefined>(undefined)
   // Story 120 D2: purely local, not persisted anywhere - a fresh mount always starts unfiltered.
   const [filter, setFilter] = useState<ServerListFilter>(EMPTY_SERVER_LIST_FILTER)
+  const quickFilters = useQuickFilters()
+  const [savingQuickFilter, setSavingQuickFilter] = useState(false)
+  const [renamingQuickFilter, setRenamingQuickFilter] = useState<QuickFilter | null>(null)
   // Story 121 D1: source id -> its human-readable address, for naming a `sourceFailures` entry.
   const [sourceLabels, setSourceLabels] = useState<Record<string, string>>({})
   // Story 132 D3: purely local, like `selectedAddress` above - a fresh mount always starts on the
@@ -609,7 +616,35 @@ export function ServersView() {
           options={filterOptions(entries)}
           shown={visible.length}
           total={entries.length}
+          quickFilters={quickFilters.list}
+          onSaveQuickFilter={() => setSavingQuickFilter(true)}
+          renderQuickFilterActions={(qf) => (
+            <QuickFilterChipMenu
+              quickFilter={qf}
+              onRename={setRenamingQuickFilter}
+              onDelete={(target) => void quickFilters.remove(target.id)}
+            />
+          )}
         />
+        {renamingQuickFilter && (
+          <QuickFilterNameDialog
+            key={renamingQuickFilter.id}
+            list={quickFilters.list}
+            renameId={renamingQuickFilter.id}
+            initialName={renamingQuickFilter.name}
+            onClose={() => setRenamingQuickFilter(null)}
+            onSubmit={(name) => quickFilters.rename({ id: renamingQuickFilter.id, name })}
+          />
+        )}
+        {savingQuickFilter && (
+          <QuickFilterNameDialog
+            list={quickFilters.list}
+            onClose={() => setSavingQuickFilter(false)}
+            onSubmit={(name, overwrite) =>
+              quickFilters.save({ name, criteria: criteriaOf(filter), overwrite })
+            }
+          />
+        )}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

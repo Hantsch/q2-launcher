@@ -1,7 +1,7 @@
 ---
 id: 197
 title: I save my filter as a quick filter
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-01
 ---
 
@@ -16,24 +16,24 @@ Concept: [game-browser.md](../concepts/game-browser.md) §8, GB-L5, GB-P1.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — While at least one filter criterion is active, the filter bar offers *Save as quick
+- [x] **AC1** — While at least one filter criterion is active, the filter bar offers *Save as quick
       filter*, which asks for a name. With no criterion active the action is disabled and says why
       as visible text.
-- [ ] **AC2** — A saved quick filter appears as a chip in the filter bar. Clicking it replaces the
+- [x] **AC2** — A saved quick filter appears as a chip in the filter bar. Clicking it replaces the
       current filter with exactly the saved criteria.
-- [ ] **AC3** — A chip shows pressed (flame edge plus check mark, never colour alone) whenever the
+- [x] **AC3** — A chip shows pressed (flame edge plus check mark, never colour alone) whenever the
       current filter equals its criteria, and clicking it then clears the filter.
-- [ ] **AC4** — A quick filter can be renamed and deleted from its chip; deleting it never
+- [x] **AC4** — A quick filter can be renamed and deleted from its chip; deleting it never
       changes the current filter.
-- [ ] **AC5** — Saving under a name that is already taken, or an empty name, is refused with a
+- [x] **AC5** — Saving under a name that is already taken, or an empty name, is refused with a
       reason; the user may overwrite the existing one explicitly.
-- [ ] **AC6** — Quick filters survive a restart and are global to the launcher, not per
+- [x] **AC6** — Quick filters survive a restart and are global to the launcher, not per
       installation, stored in the servers module's own state.
-- [ ] **AC7** — A saved filter that names a mod or map no longer in the list still applies and
+- [x] **AC7** — A saved filter that names a mod or map no longer in the list still applies and
       shows the existing no-match state; it never breaks the bar and is never dropped silently.
-- [ ] **AC8** — A damaged or unknown entry in the stored quick filters is skipped without losing
+- [x] **AC8** — A damaged or unknown entry in the stored quick filters is skipped without losing
       the others and without an error toast.
-- [ ] **AC9** — The built-in quick toggles (empty, waiting for opponent, bots) keep working
+- [x] **AC9** — The built-in quick toggles (empty, waiting for opponent, bots) keep working
       unchanged next to the custom chips.
 
 ## Open Questions
@@ -196,3 +196,15 @@ Flow run target: `npm run ui:flow -- servers-quick-filters`.
 Coverage gate: AC1 D3 · AC2 D1+D3 · AC3 D3 · AC4 D4 · AC5 D2+D3 · AC6 D2+D4 · AC7 D4 · AC8 D1+D4 · AC9 D3 — every criterion has a D and a test.
 
 ## Done
+
+Quick filters are saved, applied, renamed and deleted from the servers filter bar: shared model + defensive
+persisted parse (D1), main list ops and `quickFilters.*` handlers (D2), Save button/name dialog/chips (D3),
+chip kebab menu, CLAUDE.md deviation row, CHANGELOG line and persistence/resilience flow steps (D4).
+
+Commit message: `197: save a filter as a quick filter — shared model + defensive parse, quickFilters.* handlers, save dialog, chips, rename/delete menu, flow`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (2098 tests) green; `npm run ui:flow -- servers-quick-filters` green (AC1-AC9 steps all ran). Regression flow `servers-filter-search` red only at the known pre-existing step "AC1: mod=baseq2 shows B and C" (not touched). AC -> test as verified: AC1-AC9 per `## Acceptance Tests`, all named tests exist and passed; no manual residue. Review (default stage): PASS, no blocking findings.
+
+Decisions: the repo had no zod enum for `ServerGamemode`, so `servers.ts` defines a local `serverGamemodeSchema`. A transport failure on a mutation returns the new key `servers.quickFilter.error.failed`. Overwrite at the cap is allowed in the pure function (adds nothing) but unreachable from the UI. Deliberately unfixed review notes: the flow's AC8 "no error toast" check only looks at filter-worded toasts (an unrelated installations toast is always present in the fixture; the dropped damaged entry is proven by the chip count); "deleting a quick filter never calls onChange" is a thin unit test, the real wiring is proven by the flow's delete-while-pressed step.
+
+tiers: D 4 / hard 0 · review default · cycles 1 · agents 6

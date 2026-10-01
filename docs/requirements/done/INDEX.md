@@ -289,3 +289,4 @@ second roadmap.
 - 194 — a newer mod version is offered · S31 · mods list reports update-available for catalog installs; one-click Update with backup/restore, keep/overwrite for changed files
 - 195 — a quoted search matches exactly · S31 · double-quoted server search matches name, address or fetched player name in full; placeholder hints it
 - 196 — I switch the browser between online and LAN · S31 · Online/LAN toggle; LAN round broadcasts per interface and lists only answers, separate from the online list
+- 197 — I save my filter as a quick filter · S31 · save the structured filter under a name (max 8), apply/clear from a chip, rename/delete from its kebab; global, persisted in servers state

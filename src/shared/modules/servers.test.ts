@@ -54,6 +54,10 @@ describe('servers module contract (story 106 D1)', () => {
       listSetSort: 'list.setSort',
       detailRead: 'detail.read',
       scanSetMode: 'scan.setMode',
+      quickFiltersList: 'quickFilters.list',
+      quickFiltersSave: 'quickFilters.save',
+      quickFiltersRename: 'quickFilters.rename',
+      quickFiltersRemove: 'quickFilters.remove',
     })
   })
 
@@ -110,7 +114,7 @@ describe('servers persisted state (story 110 D1)', () => {
     const parsed = serversStateSchema.parse(DEFAULT_SERVERS_STATE)
     expect(parsed).toEqual(DEFAULT_SERVERS_STATE)
     expect(Object.keys(serversStateSchema.shape).sort()).toEqual(
-      ['favourites', 'history', 'manualServers', 'scan', 'sources', 'watchlist'].sort(),
+      ['favourites', 'history', 'manualServers', 'quickFilters', 'scan', 'sources', 'watchlist'].sort(),
     )
   })
 

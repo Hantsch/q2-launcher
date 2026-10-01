@@ -46,6 +46,7 @@ import {
   manualServerEntrySchema,
   serverHistoryEntrySchema,
   serverListSortSchema,
+  quickFilterSchema,
   serverSourceEntrySchema,
   watchlistEntrySchema,
   type FavouriteServerEntry,
@@ -63,6 +64,7 @@ import {
   storedExtraFolderSchema,
   type ReplaysExtraFolder,
 } from '@shared/modules/replays'
+import { QUICK_FILTER_MAX, type QuickFilter } from '@shared/servers/quick-filters'
 import type { DemoListSort } from '@shared/replays/list-sort'
 import {
   EMPTY_DEMO_LIST_FILTER,
@@ -1354,7 +1356,14 @@ const serversStateEnvelopeSchema = z.object({
   // `.catch([])`, same as every other collection here - no `.default()` needed since `[]` is also
   // this field's own out-of-the-box value (unlike `sources`, which seeds real rows).
   watchlist: z.array(z.unknown()).catch([]),
+  // Story 197 D1: absent (every `state.json` predating it) or malformed degrades to `[]`.
+  quickFilters: z.array(z.unknown()).catch([]),
 })
+
+function parseQuickFilterRow(raw: unknown): QuickFilter | null {
+  const result = quickFilterSchema.safeParse(raw)
+  return result.success ? result.data : null
+}
 
 export function parseServersState(raw: unknown): ServersState {
   // Story 111 D2: a `raw` of exactly `undefined` is "the `servers` key is missing from
@@ -1410,6 +1419,15 @@ export function parseServersState(raw: unknown): ServersState {
     (row) => row.id,
   )
 
+  // Story 197 D1: damaged rows dropped, then case-insensitive duplicate names (first wins), then
+  // the first `QUICK_FILTER_MAX` kept - the cap is a store invariant like the history cap.
+  const quickFilters = dedupeByKey(
+    envelope.data.quickFilters
+      .map(parseQuickFilterRow)
+      .filter((row): row is QuickFilter => row !== null),
+    (row) => row.name.toLowerCase(),
+  ).slice(0, QUICK_FILTER_MAX)
+
   return {
     sources,
     favourites,
@@ -1417,6 +1435,7 @@ export function parseServersState(raw: unknown): ServersState {
     history,
     scan,
     watchlist,
+    quickFilters,
     ...(listSort ? { listSort } : {}),
   }
 }

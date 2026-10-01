@@ -194,7 +194,7 @@ describe('StateStore servers state (story 110 D3)', () => {
     // servers is a distinct top-level key with its own shape...
     expect(state.serversState()).toEqual(DEFAULT_SERVERS_STATE)
     expect(Object.keys(state.serversState()).sort()).toEqual(
-      ['favourites', 'history', 'manualServers', 'scan', 'sources', 'watchlist'].sort(),
+      ['favourites', 'history', 'manualServers', 'quickFilters', 'scan', 'sources', 'watchlist'].sort(),
     )
 
     // ...and adding it left LauncherSettings's own shape and values untouched.
@@ -224,6 +224,7 @@ describe('StateStore servers state (story 110 D3)', () => {
         autoRefreshIntervalMs: 60000,
       },
       watchlist: [],
+      quickFilters: [],
     }
     const written = state.setServersState(custom)
     await state.settle()

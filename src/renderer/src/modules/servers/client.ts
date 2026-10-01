@@ -5,6 +5,7 @@ import {
   type MasterSource,
   type MasterSourcesResult,
   type MasterSourceType,
+  type QuickFiltersResult,
   type ScanScope,
   type ScanServerPush,
   type ScanSnapshot,
@@ -19,6 +20,7 @@ import {
   type WatchlistMatchMode,
   type WatchlistSnapshot,
 } from '@shared/modules/servers'
+import type { QuickFilter, QuickFilterCriteria } from '@shared/servers/quick-filters'
 import type { Outcome } from '@shared/types'
 import { callModule, onModuleEvent } from '../moduleClient'
 
@@ -231,4 +233,26 @@ export function recheckWatchlistEntry(id: string): Promise<Outcome<ScanStartResu
 /** Subscribes to the watchlist's own push (`watchlist.changed`) - the recomputed snapshot. */
 export function onWatchlistChanged(listener: (snapshot: WatchlistSnapshot) => void): () => void {
   return onModuleEvent<WatchlistSnapshot>('servers', SERVERS_EVENTS.watchlistChanged, listener)
+}
+
+/** Story 197 D3: the four `quickFilters.*` handlers. `list` answers the plain list; the three
+ * mutations answer a `QuickFiltersResult` (a refusal carries a reason key, not a thrown error). */
+export function listQuickFilters(): Promise<Outcome<QuickFilter[]>> {
+  return callModule<QuickFilter[]>('servers', SERVERS_HANDLERS.quickFiltersList)
+}
+
+export function saveQuickFilter(input: {
+  name: string
+  criteria: QuickFilterCriteria
+  overwrite: boolean
+}): Promise<Outcome<QuickFiltersResult>> {
+  return callModule<QuickFiltersResult>('servers', SERVERS_HANDLERS.quickFiltersSave, input)
+}
+
+export function renameQuickFilter(input: { id: string; name: string }): Promise<Outcome<QuickFiltersResult>> {
+  return callModule<QuickFiltersResult>('servers', SERVERS_HANDLERS.quickFiltersRename, input)
+}
+
+export function removeQuickFilter(id: string): Promise<Outcome<QuickFiltersResult>> {
+  return callModule<QuickFiltersResult>('servers', SERVERS_HANDLERS.quickFiltersRemove, { id })
 }

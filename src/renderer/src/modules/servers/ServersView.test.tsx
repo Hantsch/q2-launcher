@@ -61,6 +61,7 @@ const {
 }))
 
 vi.mock('./client', () => ({
+  listQuickFilters: async () => ({ ok: true as const, value: [] }),
   readScan: readScanMock,
   startScan: startScanMock,
   setScanViewActive: setScanViewActiveMock,

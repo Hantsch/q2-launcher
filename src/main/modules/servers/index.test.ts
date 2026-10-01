@@ -714,6 +714,77 @@ describe('servers module list.*Sort handlers (story 119 D2)', () => {
   })
 })
 
+describe('servers module quick filter handlers (story 197 D2)', () => {
+  let filePath: string
+  let state: StateStore
+  let registry: MainModuleRegistry
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-servers-quick-filters-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+    registry = new MainModuleRegistry()
+    await registry.register(serversModule, fakeAppContext(state))
+  })
+
+  afterEach(async () => {
+    await state.settle()
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  function invoke(type: string, payload?: unknown): Promise<unknown> {
+    return registry.invoke({ moduleId: 'servers', type, payload })
+  }
+
+  const criteria = {
+    mod: 'ctf',
+    gamemode: null,
+    map: null,
+    empty: false,
+    hideBotsOnly: true,
+    waitingForOpponent: false,
+  }
+
+  it('quick filter handlers persist to servers state', async () => {
+    expect(await invoke(SERVERS_HANDLERS.quickFiltersList)).toEqual({ ok: true, value: [] })
+
+    const saved = (await invoke(SERVERS_HANDLERS.quickFiltersSave, {
+      name: ' CTF ',
+      criteria,
+      overwrite: false,
+    })) as { ok: true; value: { ok: true; list: { id: string; name: string }[] } }
+    expect(saved.value.list).toHaveLength(1)
+    const { id } = saved.value.list[0]
+
+    await invoke(SERVERS_HANDLERS.quickFiltersRename, { id, name: 'Capture' })
+    await state.settle()
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+    expect(reloaded.serversState().quickFilters).toEqual([{ id, name: 'Capture', criteria }])
+
+    // A refusal persists nothing.
+    expect(
+      await invoke(SERVERS_HANDLERS.quickFiltersSave, { name: 'capture', criteria, overwrite: false }),
+    ).toEqual({ ok: true, value: { ok: false, reasonKey: 'servers.quickFilter.error.taken' } })
+    expect(state.serversState().quickFilters).toHaveLength(1)
+
+    await invoke(SERVERS_HANDLERS.quickFiltersRemove, { id })
+    expect(state.serversState().quickFilters).toEqual([])
+  })
+
+  it('quick filter save rejects a payload with an unknown criteria key', async () => {
+    expect(
+      await invoke(SERVERS_HANDLERS.quickFiltersSave, {
+        name: 'x',
+        criteria: { ...criteria, search: 'q' },
+        overwrite: false,
+      }),
+    ).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+  })
+})
+
 /**
  * Story 117 D4: `scan.start`'s handler now passes both `scope` and `selectedAddress` through to
  * `ScanService.start`'s options-object signature. The guard (116) and the single-flight rule (114

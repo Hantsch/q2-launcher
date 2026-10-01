@@ -822,6 +822,29 @@
       "online": "Online",
       "lan": "LAN"
     },
+    "quickFilter": {
+      "save": "Save as quick filter",
+      "saveNeedsCriteria": "Set a mod, gamemode, map or quick toggle first.",
+      "saveAtCap": "You can keep 8 quick filters — delete one first.",
+      "menuFor": "Actions for quick filter {{name}}",
+      "rename": "Rename",
+      "delete": "Delete",
+      "dialog": {
+        "saveTitle": "Save as quick filter",
+        "renameTitle": "Rename quick filter",
+        "label": "Name",
+        "overwrite": "Overwrite"
+      },
+      "error": {
+        "failed": "The quick filter could not be saved.",
+        "noCriteria": "Set at least one filter before saving it.",
+        "empty": "Enter a name for this quick filter.",
+        "tooLong": "That name is too long.",
+        "taken": "A quick filter with that name already exists.",
+        "cap": "You can keep up to 8 quick filters. Remove one first.",
+        "notFound": "That quick filter no longer exists."
+      }
+    },
     "lan": {
       "favouritesNotInLan": "Not available on the LAN: favourites live on the internet.",
       "error": {

@@ -1045,6 +1045,35 @@ describe('parseServersState (story 110 D2)', () => {
     }
   })
 
+  it('parseServersState skips a damaged quick filter and keeps the others', () => {
+    const crit = { mod: 'ctf', gamemode: null, map: null, empty: false, hideBotsOnly: false, waitingForOpponent: false }
+    const row = (id: string, name: string) => ({ id, name, criteria: crit })
+    const raw = {
+      quickFilters: [
+        row('a', 'Alpha'),
+        { id: 'b', name: 'Bad mode', criteria: { ...crit, gamemode: 'bogus' } },
+        { id: 'c', criteria: crit },
+        { id: 'd', name: 'Empty', criteria: { ...crit, mod: null } },
+        'not an object',
+        row('e', 'alpha'),
+        row('f', 'Foxtrot'),
+        row('g1', 'G1'),
+        row('g2', 'G2'),
+        row('g3', 'G3'),
+        row('g4', 'G4'),
+        row('g5', 'G5'),
+        row('g6', 'G6'),
+      ],
+    }
+    expect(() => parseServersState(raw)).not.toThrow()
+    const names = parseServersState(raw).quickFilters.map((q) => q.name)
+    // damaged rows and the case-insensitive duplicate are gone, order kept, capped at 8
+    expect(names).toEqual(['Alpha', 'Foxtrot', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6'])
+    expect(parseServersState({}).quickFilters).toEqual([])
+    expect(parseServersState(undefined).quickFilters).toEqual([])
+    expect(parseServersState({ quickFilters: 'junk' }).quickFilters).toEqual([])
+  })
+
   // Story 111 D2.
   it('a state.json without the `servers` key at all yields the three shipped default sources', () => {
     const result = parseServersState(undefined)

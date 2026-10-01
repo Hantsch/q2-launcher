@@ -1,11 +1,20 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BotOff, Check, Search, User, UserX, X } from 'lucide-react'
+import { BookmarkPlus, BotOff, Check, Search, User, UserX, X } from 'lucide-react'
 import {
   EMPTY_SERVER_LIST_FILTER,
   isFilterActive,
   type ServerListFilter,
 } from '@shared/servers/list-filter'
+import {
+  applyCriteria,
+  clearCriteria,
+  criteriaOf,
+  hasCriteria,
+  QUICK_FILTER_MAX,
+  sameCriteria,
+  type QuickFilter,
+} from '@shared/servers/quick-filters'
 import type { ServerGamemode } from '@shared/servers/row-markers'
 import { Button } from '../../components/ui/Button'
 import { Field, Input, Select, type SelectOption } from '../../components/ui/controls'
@@ -18,6 +27,11 @@ export interface ServerListFilterBarProps {
   options: { mods: string[]; maps: string[] }
   shown: number
   total: number
+  /** Story 197: the saved quick filters, rendered as chips after the built-in ones. */
+  quickFilters?: readonly QuickFilter[]
+  onSaveQuickFilter?: () => void
+  /** Story 197 D4 slot: rendered beside each saved chip (the rename/delete menu). */
+  renderQuickFilterActions?: (quickFilter: QuickFilter) => ReactNode
 }
 
 /** The five `ServerGamemode` values in a fixed display order — mirrors `ServerRow.tsx`'s own
@@ -95,6 +109,9 @@ export function ServerListFilterBar({
   options,
   shown,
   total,
+  quickFilters = [],
+  onSaveQuickFilter,
+  renderQuickFilterActions,
 }: ServerListFilterBarProps) {
   const { t } = useTranslation()
 
@@ -109,6 +126,12 @@ export function ServerListFilterBar({
   ]
 
   const active = isFilterActive(filter)
+  const currentCriteria = criteriaOf(filter)
+  const saveReasonKey = !hasCriteria(currentCriteria)
+    ? 'servers.quickFilter.saveNeedsCriteria'
+    : quickFilters.length >= QUICK_FILTER_MAX
+      ? 'servers.quickFilter.saveAtCap'
+      : null
 
   return (
     <div className="flex flex-col gap-5">
@@ -151,6 +174,40 @@ export function ServerListFilterBar({
           onToggle={() => onChange({ ...filter, hideBotsOnly: !filter.hideBotsOnly })}
           testId="servers-filter-hide-bots"
         />
+        {quickFilters.map((qf) => {
+          const pressed = sameCriteria(currentCriteria, qf.criteria)
+          return (
+            <div key={qf.id} className="flex items-center gap-1">
+              <div className="min-w-0 flex-1">
+                <FilterChip
+                  active={pressed}
+                  icon={<BookmarkPlus />}
+                  label={qf.name}
+                  onToggle={() =>
+                    onChange(pressed ? clearCriteria(filter) : applyCriteria(filter, qf.criteria))
+                  }
+                  testId="servers-quickfilter-chip"
+                />
+              </div>
+              {renderQuickFilterActions?.(qf)}
+            </div>
+          )
+        })}
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<BookmarkPlus className="size-3.5" aria-hidden="true" />}
+          onClick={onSaveQuickFilter}
+          disabled={saveReasonKey !== null || !onSaveQuickFilter}
+          data-testid="servers-quickfilter-save"
+        >
+          {t('servers.quickFilter.save')}
+        </Button>
+        {saveReasonKey && (
+          <p className="px-2.5 text-xs text-ink-muted" data-testid="servers-quickfilter-save-reason">
+            {t(saveReasonKey)}
+          </p>
+        )}
       </div>
 
       <div className="space-y-3">

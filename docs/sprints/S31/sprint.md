@@ -28,7 +28,7 @@ browser gains an exact (quoted) search, an Online/LAN switch and saved quick fil
 - [x] 194 — a newer mod version is offered
 - [x] 195 — a quoted search matches exactly
 - [x] 196 — I switch the browser between online and LAN
-- [ ] 197 — I save my filter as a quick filter
+- [x] 197 — I save my filter as a quick filter
 
 ## Notes
 

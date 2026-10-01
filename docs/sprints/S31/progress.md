@@ -143,3 +143,17 @@
 - 2026-10-01 13:10:21 · 196 · review fix 1 · done
 - 2026-10-01 13:10:21 · 196 · verify 2 · started
 - 2026-10-01 13:12:10 · 196 · story · done
+- 2026-10-01 13:12:23 · 197 · build · started
+- 2026-10-01 13:12:39 · 197 · D1 Quick-filter model, schema, parse · started
+- 2026-10-01 13:14:44 · 197 · D1 Quick-filter model, schema, parse · done
+- 2026-10-01 13:14:44 · 197 · D2 Main quick-filter handlers · started
+- 2026-10-01 13:16:23 · 197 · D2 Main quick-filter handlers · done
+- 2026-10-01 13:16:23 · 197 · D3 Save and apply from chip · started
+- 2026-10-01 13:20:19 · 197 · D3 Save and apply from chip · done
+- 2026-10-01 13:20:19 · 197 · D4 Rename/delete, persistence, resilience · started
+- 2026-10-01 13:23:50 · 197 · D4 Rename/delete, persistence, resilience · done
+- 2026-10-01 13:23:50 · 197 · verify · started
+- 2026-10-01 13:25:32 · 197 · verify · done
+- 2026-10-01 13:25:32 · 197 · review 1 · started
+- 2026-10-01 13:26:32 · 197 · review 1 · done
+- 2026-10-01 13:26:40 · 197 · story · done

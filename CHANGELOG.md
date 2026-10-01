@@ -21,6 +21,7 @@ version section when a release actually ships.
 - **Servers** — Server detail shows whether you have its mod and map, and installs a missing mod.
 - **Servers** — Put a search term in quotes to match it exactly.
 - **Servers** — Switch between Online and LAN to find servers on your local network.
+- **Servers** — Save your server filter as a named quick filter and reapply it with one click.
 
 ## 0.6.0 — 2026-09-30
 

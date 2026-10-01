@@ -4,6 +4,8 @@ import type { InfoReplySuccess } from '../servers/info-reply'
 import { SERVER_SORT_COLUMNS } from '../servers/list-sort'
 import type { ServerListSort, ServerSortColumn } from '../servers/list-sort'
 import type { MasterSourceAddressRejection } from '../servers/master-source-address'
+import { QUICK_FILTER_NAME_MAX, hasCriteria } from '../servers/quick-filters'
+import type { QuickFilter } from '../servers/quick-filters'
 import type { ServerGamemode } from '../servers/row-markers'
 import type { ServerPlayer, StatusReplySuccess } from '../servers/status-reply'
 
@@ -100,6 +102,12 @@ export const SERVERS_HANDLERS = {
   /** Story 196 D2: switches the browser between the online list and the LAN list
    * (`ServersBrowseMode`). In memory only, default `'online'`; never aborts a running scan. */
   scanSetMode: 'scan.setMode',
+  /** Story 197 D2: the saved quick filters. List resolves to the stored list; save/rename resolve to
+   * a `QuickFiltersResult` (the new list or a refusal reason key); remove is idempotent. */
+  quickFiltersList: 'quickFilters.list',
+  quickFiltersSave: 'quickFilters.save',
+  quickFiltersRename: 'quickFilters.rename',
+  quickFiltersRemove: 'quickFilters.remove',
 } as const
 
 /**
@@ -471,7 +479,30 @@ export interface ServersState {
   listSort?: ServerListSort
   /** Story 131 D1: the watchlist's persisted entries - see `WatchlistEntry` below. */
   watchlist: WatchlistEntry[]
+  /** Story 197 D1: saved quick filters (named filter criteria), at most `QUICK_FILTER_MAX`. */
+  quickFilters: QuickFilter[]
 }
+
+const serverGamemodeSchema = z.enum(['ctf', 'team', 'deathmatch', 'coop', 'single'] as const satisfies readonly ServerGamemode[])
+
+export const quickFilterCriteriaSchema = z
+  .object({
+    mod: z.string().nullable(),
+    gamemode: serverGamemodeSchema.nullable(),
+    map: z.string().nullable(),
+    empty: z.boolean(),
+    hideBotsOnly: z.boolean(),
+    waitingForOpponent: z.boolean(),
+  })
+  .strict()
+
+export const quickFilterSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().trim().min(1).max(QUICK_FILTER_NAME_MAX),
+    criteria: quickFilterCriteriaSchema.refine(hasCriteria),
+  })
+  .strict()
 
 export const serversStateSchema = z.object({
   sources: z.array(serverSourceEntrySchema),
@@ -480,6 +511,7 @@ export const serversStateSchema = z.object({
   history: z.array(serverHistoryEntrySchema),
   scan: serversScanSettingsSchema,
   watchlist: z.array(watchlistEntrySchema),
+  quickFilters: z.array(quickFilterSchema),
 })
 
 /**
@@ -509,6 +541,7 @@ export const DEFAULT_SERVERS_STATE: ServersState = {
     autoRefreshIntervalMs: 60_000,
   },
   watchlist: [],
+  quickFilters: [],
 }
 
 /**
@@ -932,6 +965,16 @@ export interface ServerDetail {
   serverinfo: Record<string, string> | null
 }
 
+/** Story 197 D2: result of a quick-filter mutation - the persisted list or a refusal reason key. */
+export type QuickFiltersResult = { ok: true; list: QuickFilter[] } | { ok: false; reasonKey: string }
+
+export const quickFiltersListInputSchema = serversNoInputSchema
+export const quickFiltersSaveInputSchema = z
+  .object({ name: z.string(), criteria: quickFilterCriteriaSchema, overwrite: z.boolean() })
+  .strict()
+export const quickFiltersRenameInputSchema = z.object({ id: z.string(), name: z.string() }).strict()
+export const quickFiltersRemoveInputSchema = z.object({ id: z.string() }).strict()
+
 export const SERVERS_HANDLER_SCHEMAS: Record<
   (typeof SERVERS_HANDLERS)[keyof typeof SERVERS_HANDLERS],
   z.ZodTypeAny
@@ -958,4 +1001,8 @@ export const SERVERS_HANDLER_SCHEMAS: Record<
   [SERVERS_HANDLERS.listSetSort]: listSetSortInputSchema,
   [SERVERS_HANDLERS.detailRead]: detailReadInputSchema,
   [SERVERS_HANDLERS.scanSetMode]: scanSetModeInputSchema,
+  [SERVERS_HANDLERS.quickFiltersList]: quickFiltersListInputSchema,
+  [SERVERS_HANDLERS.quickFiltersSave]: quickFiltersSaveInputSchema,
+  [SERVERS_HANDLERS.quickFiltersRename]: quickFiltersRenameInputSchema,
+  [SERVERS_HANDLERS.quickFiltersRemove]: quickFiltersRemoveInputSchema,
 }
