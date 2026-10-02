@@ -251,7 +251,7 @@ export const bootstrapRetailSourcesInputSchema = downloadsNoInputSchema
  * Story 074 D2: the eventual `bootstrap.targetVerdict` handler's payload - one absolute path, the
  * folder the wizard's target-folder step is considering. `.strict()` for the same "a bad payload is
  * a caller bug" reason as `dismissFailureInputSchema` above; `absolutePathSchema` (`@shared/schemas`)
- * already rejects an empty string and a NUL byte before this ever reaches `computeTargetVerdict`
+ * already rejects a non-absolute path (empty, relative, drive-relative) and a NUL byte before this ever reaches `computeTargetVerdict`
  * (`bootstrap/target.ts`), which then does its own, deeper path-safety validation (device paths,
  * reserved names, containment) as part of the verdict itself rather than at the schema layer.
  */
@@ -263,7 +263,7 @@ export const bootstrapTargetVerdictInputSchema = z
  * Story 089 D1: the eventual `bootstrap.gameDataSource` handler's payload (D3 wires the handler) -
  * one absolute path, the folder the wizard's game-data step is asking about. Same
  * `bootstrapTargetVerdictInputSchema` convention: `.strict()` because a bad payload is a caller bug,
- * `absolutePathSchema` rejects an empty string/NUL byte before anything looks at the filesystem, and
+ * `absolutePathSchema` rejects a non-absolute path/NUL byte before anything looks at the filesystem, and
  * the deeper "does this folder actually hold retail data" judgement is left to the verdict itself.
  */
 export const bootstrapGameDataSourceInputSchema = z

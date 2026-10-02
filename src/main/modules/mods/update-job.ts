@@ -12,7 +12,7 @@ import {
   type JobProgress,
   type Outcome,
 } from '@shared/types'
-import { pathKey, resolveRelaxed } from '../../lib/fs-utils'
+import { isInside, pathKey, resolveRelaxed } from '../../lib/fs-utils'
 import { isWriteCancelled } from '../../services/write-guard'
 import { moveFile, plannedDestination } from '../downloads/engine/update-job'
 import type { ExtractorHandle } from '../downloads/extractor'
@@ -152,16 +152,7 @@ function slotKey(jobId: string): string {
   return key.length > 0 ? key : 'job'
 }
 
-/** `child` is `parent` or below it. */
-function isInsideDir(child: string, parent: string): boolean {
-  const childKey = pathKey(child)
-  const parentKey = pathKey(parent)
-  return (
-    childKey === parentKey ||
-    childKey.startsWith(parentKey.endsWith(sep) ? parentKey : parentKey + sep)
-  )
-}
-
+// Not fs-utils' pathExists: lstat (a dangling link still exists) and rethrows anything but ENOENT/ENOTDIR.
 async function exists(path: string): Promise<boolean> {
   try {
     await lstat(path)
@@ -565,7 +556,7 @@ async function applyUpdate(args: {
     /** Where a recorded path lives; its real parent is re-checked against the real game dir. */
     const recordedTarget = async (path: string): Promise<string> => {
       const target = join(realGameDir, ...path.split('/'))
-      if (!isInsideDir(await realpath(dirname(target)), realGameDir))
+      if (!isInside(realGameDir, await realpath(dirname(target))))
         throw new Error(`${path} leaves ${realGameDir}`)
       return target
     }
@@ -619,7 +610,7 @@ async function applyUpdate(args: {
       const dest = await plannedDestination(realGameDir, file.path)
       if (!isStrictlyInside(dest, realGameDir)) throw new Error(`${dest} leaves ${realGameDir}`)
       await mkdirTracked(dirname(dest))
-      if (!isInsideDir(await realpath(dirname(dest)), realGameDir))
+      if (!isInside(realGameDir, await realpath(dirname(dest))))
         throw new Error(`${dest} resolves outside ${realGameDir}`)
       // Planning saw the folder a moment ago: anything at `dest` now was not planned and is not ours.
       if (await exists(dest)) throw new Error(`${dest} appeared during the update`)

@@ -5,7 +5,7 @@ import { basename, dirname, join, sep } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import type { ModInstallFile, ModInstallRecord } from '@shared/modules/mods'
 import { isSafeGameDirName } from '@shared/mods/gamedir'
-import { pathKey } from '../../lib/fs-utils'
+import { isInside, pathKey } from '../../lib/fs-utils'
 import { isSafeRecordedPath } from './install-records'
 
 /**
@@ -87,16 +87,6 @@ function isGone(error: unknown): boolean {
   return code === 'ENOENT' || code === 'ENOTDIR'
 }
 
-/** Same rule as `isInsideDir` in `downloads/bootstrap/target.ts`: `child` is `parent` or below it. */
-function isInsideDir(child: string, parent: string): boolean {
-  const childKey = pathKey(child)
-  const parentKey = pathKey(parent)
-  return (
-    childKey === parentKey ||
-    childKey.startsWith(parentKey.endsWith(sep) ? parentKey : parentKey + sep)
-  )
-}
-
 function refuse(detail: string): never {
   throw new RemovalRefusedError('mods.remove.refused.unsafePath', detail)
 }
@@ -147,7 +137,7 @@ async function resolveRemoval(
   for (const file of record.files) {
     const lexical = join(realGameDir, ...file.path.split('/'))
     const parent = await realAncestor(dirname(lexical))
-    if (!isInsideDir(parent.real, realGameDir)) refuse(`${file.path} resolves to ${parent.real}`)
+    if (!isInside(realGameDir, parent.real)) refuse(`${file.path} resolves to ${parent.real}`)
     entries.push({ file, target: parent.exists ? join(parent.real, basename(lexical)) : null })
   }
   return { gameDirPath, realGameDir, entries }

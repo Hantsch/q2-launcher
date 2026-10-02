@@ -3,7 +3,7 @@ import { rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, sep } from 'node:path'
 import type { BootstrapTargetVerdict } from '@shared/modules/downloads'
 import type { ValidationResult } from '@shared/types'
-import { canonicalizePath, isDirectory, listDir, pathKey } from '../../../lib/fs-utils'
+import { canonicalizePath, isDirectory, isInside, listDir } from '../../../lib/fs-utils'
 import { inspectInstallation } from '../../../services/inspector'
 
 /**
@@ -79,18 +79,10 @@ function looksLikeQuake2(result: ValidationResult): boolean {
   return !missingBaseDir || result.engineKind !== 'unknown'
 }
 
-/** True when `child` is `parent` itself or lives somewhere underneath it. Case-insensitive via
- * `pathKey`, since both inputs are expected to already be absolute/canonical. */
-function isInsideDir(child: string, parent: string): boolean {
-  const childKey = pathKey(child)
-  const parentKey = pathKey(parent)
-  return childKey === parentKey || childKey.startsWith(parentKey + sep)
-}
-
 /** Case-insensitive prefix match against `%ProgramFiles%`/`%ProgramFiles(x86)%`, when set. */
 function isUnderProgramFiles(canonicalTarget: string, env: NodeJS.ProcessEnv): boolean {
   const roots = [env.ProgramFiles, env['ProgramFiles(x86)']].filter((v): v is string => !!v)
-  return roots.some((root) => isInsideDir(canonicalTarget, root))
+  return roots.some((root) => isInside(root, canonicalTarget))
 }
 
 function isReservedDeviceName(canonicalTarget: string): boolean {
@@ -154,7 +146,7 @@ export async function computeTargetVerdict(
 
   const unsafePath =
     (await isUnsafeAbsolutePath(targetPath)) ||
-    protectedDirs.some((dir) => isInsideDir(canonicalTarget, dir))
+    protectedDirs.some((dir) => isInside(dir, canonicalTarget))
 
   const programFiles = isUnderProgramFiles(canonicalTarget, env)
 

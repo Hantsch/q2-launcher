@@ -36,11 +36,19 @@ export const sourceSchema = z.enum([
   'unknown',
 ])
 
-/** Rejects empty strings and relative paths before anything touches the filesystem. */
+/**
+ * Accepts only: a drive letter followed by a separator (`C:\x`, `c:/x`), a UNC path
+ * (`\\server\share...`), or a leading `/`. Rejects empty strings, NUL bytes, relative paths
+ * (`x`, `./x`, `..\x`) and bare or drive-relative `C:` / `C:x`. Syntactic only (no `node:path`,
+ * shared stays node-free): containment and existence are checked by the main process.
+ */
+const ABSOLUTE_PATH = /^(?:[A-Za-z]:[\\/]|\\\\[^\\/]+[\\/][^\\/]+|\/)/
+
 export const absolutePathSchema = z
   .string()
   .min(1)
   .refine((value) => !value.includes('\0'), 'path must not contain NUL')
+  .refine((value) => ABSOLUTE_PATH.test(value), 'path must be absolute')
 
 /** Strict `host:port` validation via `parseServerAddress`; rejects with the reason code (not
  * prose) as the issue message, and transforms a valid address into its normalized string. */

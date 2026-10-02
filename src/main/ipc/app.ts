@@ -1,7 +1,7 @@
 import { app as electronApp, clipboard, shell } from 'electron'
 import { release } from 'node:os'
 import { fail, ok, type AppInfo, type Platform, type ReleaseNotes } from '@shared/types'
-import { isDirectory } from '../lib/fs-utils'
+import { isDirectory, isInside } from '../lib/fs-utils'
 import { logFilePath } from '../lib/logger'
 import { userDataDir } from '../lib/paths'
 import { installedReleaseNotes } from '../lib/release-notes'
@@ -105,8 +105,5 @@ function isAllowedRevealTarget(app: AppContext, target: string): boolean {
       ]),
   ]
 
-  const normalize = (value: string): string =>
-    process.platform === 'linux' ? value : value.toLowerCase()
-  const candidate = normalize(target)
-  return roots.some((root) => candidate.startsWith(normalize(root)))
+  return roots.some((root) => isInside(root, target))
 }

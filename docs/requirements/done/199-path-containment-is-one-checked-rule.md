@@ -1,7 +1,7 @@
 ---
 id: 199
 title: path containment is one checked rule
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -28,24 +28,24 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F01):
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `src/main/lib/fs-utils.ts` exports one `isInside(root, target)` that resolves both
+- [x] **AC1** — `src/main/lib/fs-utils.ts` exports one `isInside(root, target)` that resolves both
       paths, uses `path.relative`, rejects `..`-leading and absolute relatives, folds case via the
       existing `pathKey` rule, and handles a drive root. It is unit-tested on win32 and linux for:
       `..` segments, a sibling-prefix root (`Quake2-other`), trailing separators, drive roots, and
       a target equal to the root.
-- [ ] **AC2** — `isAllowedRevealTarget` and the three `isInsideDir` sites call `isInside`; a repo
+- [x] **AC2** — `isAllowedRevealTarget` and the three `isInsideDir` sites call `isInside`; a repo
       grep for `function isInsideDir` and for `startsWith(normalize(` under `src/main` returns
       nothing.
-- [ ] **AC3** — `app:revealPath` refuses `<root>/../<x>` and `<root>-other/<x>` for a registered
+- [x] **AC3** — `app:revealPath` refuses `<root>/../<x>` and `<root>-other/<x>` for a registered
       installation root, proven in `src/main/ipc/app.test.ts`, on both platforms.
-- [ ] **AC4** — `absolutePathSchema` either checks absoluteness without `node:path` (drive letter,
+- [x] **AC4** — `absolutePathSchema` either checks absoluteness without `node:path` (drive letter,
       UNC, or leading `/`) and is tested for relative input, or is renamed to what it does
       (`nonEmptyPathSchema`) and every handler that relied on the promise has its own check. Its
       doc comment matches its behaviour.
-- [ ] **AC5** — The duplicated `exists`/`isFile`/recursive-list/atomic-byte-write helpers the
+- [x] **AC5** — The duplicated `exists`/`isFile`/recursive-list/atomic-byte-write helpers the
       review counted beside `fs-utils.ts` are either moved there or left with a one-line reason;
       no behaviour change elsewhere (full `npm test` green).
-- [ ] **AC6** — docs/ARCHITECTURE.md's "Paths are never trusted" paragraph names `isInside` as the
+- [x] **AC6** — docs/ARCHITECTURE.md's "Paths are never trusted" paragraph names `isInside` as the
       rule.
 
 ## Open Questions
@@ -186,4 +186,12 @@ Coverage: AC1→D1, AC2→D3, AC3→D2, AC4→D4, AC5→D5, AC6→D3.
 
 ## Done
 
-<!-- Filled by /build 199. -->
+`isInside(root, target)` in `src/main/lib/fs-utils.ts` is now the single containment rule: `app:revealPath`, the three former `isInsideDir` copies and `isStrictlyInside` go through it, `absolutePathSchema` really checks absoluteness (regex, node-free), and the duplicate `isFile` is gone while deliberate fs-helper copies carry a one-line reason. ARCHITECTURE.md names `isInside`; a guard test pins the grep and the doc wording.
+
+Commit message: `199: path containment is one checked rule (isInside), absolutePathSchema honest`
+
+Verification (narrow gate): `npm run build` green; `npm run typecheck` green; `npx vitest run --changed HEAD` green (160 files, 2557 tests); the D4 agent also ran full `npm test` green (483 files, 6305 tests). No e2e (IPC/main-level only).
+AC -> test: AC1 `fs-utils.test.ts` isInside on win32/linux; AC2 `containment-guard.test.ts` + existing remove/update-job/install-job/target suites; AC3 `app.test.ts` app:revealPath win32/linux refusals; AC4 `schemas.test.ts` (both); AC5 `map-presence.test.ts` + full suite; AC6 `containment-guard.test.ts` ARCHITECTURE.md test. All ran and passed. No manual residue.
+Review (default tier): PASS. Unfixed, deliberately: no new per-site test for swapped argument order at remove/update-job/target/install-job (D-5 requires it only at reveal; existing suites stay green, argument order verified by reviewer at all 7 sites); `isStrictlyInside` still compares `pathKey` for the equal check, as before (not a regression); comment placement above/below JSDoc differs in rollback-job.ts (cosmetic).
+Decisions: D1 ran on the hard tier per Model Hints; D2/D3/D4 ran in parallel (disjoint files), D5 after D3 (shared update-job.ts); no `sep` import became unused so none were dropped; D2 tests split into a refusals test and an allow test per platform; no changelog entry (internal hardening, no user-facing change).
+tiers: D 5 / hard 1 · review default · cycles 0 · agents 8

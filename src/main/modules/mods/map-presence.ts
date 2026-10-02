@@ -1,7 +1,8 @@
-import { readdir, stat } from 'node:fs/promises'
+import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { isSafeGameName } from '@shared/mods/server-local-content'
 import type { ModMapPresence } from '@shared/modules/mods'
+import { isFile } from '../../lib/fs-utils'
 import { readPakDirectory } from '../../lib/pak-directory'
 import { listZipEntries, type ZipDeps } from '../../lib/zip-entries'
 
@@ -48,14 +49,6 @@ function matching(dir: string, names: string[], wanted: string): string[] {
 
 async function matchingChildren(dir: string, wanted: string): Promise<string[]> {
   return matching(dir, await listNames(dir), wanted)
-}
-
-async function isFile(path: string): Promise<boolean> {
-  try {
-    return (await stat(path)).isFile()
-  } catch {
-    return false
-  }
 }
 
 /** `entry` names the wanted map: `maps/<map>.bsp` after `\` -> `/`, ignoring ASCII case. */

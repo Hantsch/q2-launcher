@@ -136,6 +136,7 @@ export function createCvarRestore({
     }
   }
 
+  // Not fs-utils' writeAtomic: writes through the injected fs and removes the tmp file on failure.
   /** Temp file then rename: a crash mid-write never leaves a half-written file behind. */
   async function writeAtomic(
     path: string,

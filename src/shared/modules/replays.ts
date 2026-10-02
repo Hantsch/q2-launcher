@@ -644,7 +644,7 @@ export interface ReplaysExtraFolder {
 
 /**
  * One persisted extra-folder row, as it would be read back out of `state.json`. Reuses
- * `absolutePathSchema` (non-empty, NUL-free) for `path` - the same primitive every other
+ * `absolutePathSchema` (absolute, NUL-free) for `path` - the same primitive every other
  * persisted/IPC path in this codebase validates against - rather than inventing a second one here.
  */
 export const storedExtraFolderSchema = z.object({

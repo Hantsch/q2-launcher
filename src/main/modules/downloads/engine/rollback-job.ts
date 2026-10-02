@@ -344,6 +344,7 @@ async function runRollback(args: {
  * a directory that does not exist, rather than throwing: that is for the caller above to treat as
  * "nothing to restore", not as a filesystem error of its own.
  */
+// Not a shared walker: swallows read errors (unreadable dir = no files) and yields relative forward-slash paths.
 async function listFilesRecursive(dir: string): Promise<string[]> {
   const out: string[] = []
   const walk = async (current: string): Promise<void> => {

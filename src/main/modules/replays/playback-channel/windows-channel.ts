@@ -135,6 +135,7 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   let tempCounter = 0
   let timer: ReturnType<typeof setInterval> | null = null
 
+  // Not fs-utils' writeAtomic: synchronous, with a per-pid/per-call tmp name.
   /** Temp file in the same dir, then rename over the target: the engine never execs a half-written cfg. */
   function writeAtomic(destPath: string, text: string): void {
     tempCounter += 1

@@ -14,7 +14,7 @@ import {
   type JobProgress,
   type Outcome,
 } from '@shared/types'
-import { findChild, isDirectory, pathKey, resolveRelaxed } from '../../lib/fs-utils'
+import { findChild, isDirectory, isInside, pathKey, resolveRelaxed } from '../../lib/fs-utils'
 import type { CreateJobInput } from '../../services/jobs'
 import { isSafeEarlyToken } from '../../services/launch-plan'
 import { isWriteCancelled } from '../../services/write-guard'
@@ -201,7 +201,7 @@ export function toSource(pkg: CatalogPackage): PackageSource | undefined {
 
 /** Strictly inside `parent` (never equal). `isPathContainedBy` is symmetric, so it is not enough here. */
 export function isStrictlyInside(child: string, parent: string): boolean {
-  return pathKey(child).startsWith(pathKey(parent) + sep)
+  return isInside(parent, child) && pathKey(child) !== pathKey(parent)
 }
 
 export function isSafeRelative(rel: string): boolean {
@@ -223,6 +223,7 @@ export async function hashFile(path: string): Promise<{ sha256: string; sizeByte
   return { sha256: hash.digest('hex'), sizeBytes }
 }
 
+// Not a shared walker: throws on read errors and refuses symlinks/special files (null).
 /** Regular files under `dir`, relative with forward slashes; `null` on a link or special file. */
 async function collectFiles(
   dir: string,

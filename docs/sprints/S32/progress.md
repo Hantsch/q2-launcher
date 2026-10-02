@@ -77,3 +77,19 @@
 - 2026-10-02 11:28:45 · 225 · verify 2 · started
 - 2026-10-02 11:30:04 · 225 · verify 2 · done
 - 2026-10-02 11:30:18 · 225 · story · done
+- 2026-10-02 11:30:44 · 199 · build · started
+- 2026-10-02 11:31:04 · 199 · D1 isInside · started
+- 2026-10-02 11:32:37 · 199 · D1 isInside · done
+- 2026-10-02 11:32:37 · 199 · D2 reveal check · started
+- 2026-10-02 11:32:37 · 199 · D3 containment copies · started
+- 2026-10-02 11:32:37 · 199 · D4 absolutePathSchema · started
+- 2026-10-02 11:33:55 · 199 · D2 reveal check · done
+- 2026-10-02 11:33:55 · 199 · D3 containment copies · done
+- 2026-10-02 11:33:55 · 199 · D4 absolutePathSchema · done
+- 2026-10-02 11:33:55 · 199 · D5 fs-helper duplicates · started
+- 2026-10-02 11:34:44 · 199 · D5 fs-helper duplicates · done
+- 2026-10-02 11:34:44 · 199 · verify · started
+- 2026-10-02 11:35:26 · 199 · verify · done
+- 2026-10-02 11:35:26 · 199 · review 1 · started
+- 2026-10-02 11:36:11 · 199 · review 1 · done
+- 2026-10-02 11:36:11 · 199 · story · done

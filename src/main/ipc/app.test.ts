@@ -1,6 +1,7 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppContext } from '../context'
+import { stubPlatform } from '../../test-support/platform'
 
 /**
  * Story 075 D4: `app:copyText` (a length-capped clipboard write) and
@@ -43,7 +44,9 @@ vi.mock('../lib/ui-harness', async (importOriginal) => {
 
 const fakeEvent = {} as unknown as IpcMainInvokeEvent
 
-async function setup(options: { isDev?: boolean } = {}): Promise<{
+async function setup(
+  options: { isDev?: boolean; installations?: { rootPath: string }[] } = {},
+): Promise<{
   getInfo: (event: unknown, payload: unknown) => unknown
   copyText: (event: unknown, payload: unknown) => unknown
   revealPath: (event: unknown, payload: unknown) => unknown
@@ -52,7 +55,7 @@ async function setup(options: { isDev?: boolean } = {}): Promise<{
   const { registerAppIpc } = await import('./app')
   const app = {
     isDev: options.isDev ?? false,
-    installations: { list: () => [] },
+    installations: { list: () => options.installations ?? [] },
   } as unknown as AppContext
   registerAppIpc(app)
   return {
@@ -122,6 +125,39 @@ describe('app:revealPath', () => {
 
     expect(result).toEqual({ ok: false, error: { key: 'app.error.pathNotAllowed' } })
   })
+
+  const denied = { ok: false, error: { key: 'app.error.pathNotAllowed' } }
+  const cases = [
+    { platform: 'win32', root: 'C:\\Games\\Quake2', sep: '\\', parent: 'C:\\Games' },
+    { platform: 'linux', root: '/games/quake2', sep: '/', parent: '/games' },
+  ] as const
+
+  for (const { platform, root, sep, parent } of cases) {
+    describe(`on ${platform}`, () => {
+      let restore: () => void
+      beforeEach(() => {
+        restore = stubPlatform(platform)
+      })
+      afterEach(() => restore())
+
+      it(`app:revealPath on ${platform} refuses ${root}${sep}..${sep}x, a sibling-prefix root and the root's parent`, async () => {
+        const { revealPath } = await setup({ installations: [{ rootPath: root }] })
+
+        expect(await revealPath(fakeEvent, `${root}${sep}..${sep}x`)).toEqual(denied)
+        expect(await revealPath(fakeEvent, `${root}-other${sep}x`)).toEqual(denied)
+        expect(await revealPath(fakeEvent, parent)).toEqual(denied)
+      })
+
+      it(`app:revealPath on ${platform} allows a folder inside the installation root`, async () => {
+        const { revealPath } = await setup({ installations: [{ rootPath: root }] })
+
+        expect(await revealPath(fakeEvent, `${root}${sep}baseq2`)).toEqual({
+          ok: true,
+          value: null,
+        })
+      })
+    })
+  }
 })
 
 describe('app:copyText', () => {

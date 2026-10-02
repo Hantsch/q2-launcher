@@ -74,6 +74,7 @@ function headerFromRow(row: DiscoveredDemo): ResolveEffectiveValuesInputs['heade
   } as ResolveEffectiveValuesInputs['header']
 }
 
+// Not fs-utils' pathExists: goes through the injected DemoRenameFs seam so tests can fake the filesystem.
 async function exists(fs: DemoRenameFs, path: string): Promise<boolean> {
   try {
     await fs.stat(path)

@@ -21,7 +21,7 @@ correct error message where they used to see English prose or a path.
 - [x] 223 — the flow gate is green or says why
 - [x] 226 — the repo is formatted once and its dependencies are current
 - [x] 225 — tests share a quiet logger and one test-support kit
-- [ ] 199 — path containment is one checked rule
+- [x] 199 — path containment is one checked rule
 - [ ] 200 — a thrown shell handler answers with an i18n key, not prose
 - [ ] 201 — the launcher shuts down in order and says when a write failed
 - [ ] 202 — state slices are mutated in place, never replaced from a snapshot

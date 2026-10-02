@@ -1,6 +1,6 @@
 import { constants as FS } from 'node:fs'
 import { access, mkdir, open, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, posix, resolve, sep, win32 } from 'node:path'
 import type { BinaryKind } from '@shared/types'
 
 export async function pathExists(target: string): Promise<boolean> {
@@ -88,7 +88,33 @@ export function pathKey(target: string): string {
   while (normalized.length > 3 && normalized.endsWith(sep)) {
     normalized = normalized.slice(0, -1)
   }
-  return process.platform === 'linux' ? normalized : normalized.toLowerCase()
+  return foldCase(normalized)
+}
+
+/** Linux filesystems are case-sensitive; Windows and macOS default to case-insensitive. */
+function foldCase(value: string): string {
+  return process.platform === 'linux' ? value : value.toLowerCase()
+}
+
+/**
+ * True when `target` is `root` itself or lies beneath it, under the same case rule as `pathKey`.
+ *
+ * Lexical only: both paths are `resolve`d (so `..` segments and trailing separators are
+ * collapsed), never `realpath`ed - a symlink or junction under `root` that points elsewhere still
+ * counts as inside. Callers that need symlink safety realpath both paths first.
+ *
+ * The path flavour is picked per call from `process.platform`, not bound at module load, so the
+ * Windows and POSIX rules can both be exercised on one host. Case is folded before `relative`
+ * because `posix.relative` compares byte-for-byte, which would put a case-differing child of a
+ * macOS root outside it.
+ */
+export function isInside(root: string, target: string): boolean {
+  const p = process.platform === 'win32' ? win32 : posix
+  const rel = p.relative(foldCase(p.resolve(root)), foldCase(p.resolve(target)))
+  if (rel === '') return true
+  // Only a whole `..` segment escapes; a child literally named `..foo` is inside. An absolute
+  // result is win32's answer for a target on another drive or UNC share.
+  return rel !== '..' && !rel.startsWith(`..${p.sep}`) && !p.isAbsolute(rel)
 }
 
 export interface DirListing {

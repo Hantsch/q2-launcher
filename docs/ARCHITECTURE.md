@@ -82,7 +82,8 @@ never exposed to the renderer.
 **Paths are never trusted.** `app:revealPath` only opens folders belonging to a
 registered installation or the launcher's own data directories. A mod directory is
 validated as a single ASCII token (`^[A-Za-z0-9_.-]+$`), which rules out traversal,
-absolute paths and reserved device names in one check.
+absolute paths and reserved device names in one check. Every "is this path inside that folder" decision in main goes through `isInside`
+(`src/main/lib/fs-utils.ts`) — resolved, `path.relative`-based, case-folded.
 
 ## State and persistence
 
