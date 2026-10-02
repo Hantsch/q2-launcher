@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ModInstallRecord } from '@shared/modules/mods'
+import { parseForgivingRows } from '../../lib/forgiving'
 
 /**
  * The mods module's slice of an installation's `moduleData` (`moduleData.mods`) - the one parser
@@ -60,13 +61,7 @@ function envelopeOf(moduleData: unknown): Record<string, unknown> | undefined {
 /** Parses `moduleData.mods`; a bad record is dropped, garbage is `{ records: [] }`. Never throws. */
 export function readModsState(moduleData: unknown): ModsState {
   const rows = envelopeOf(moduleData)?.['records']
-  if (!Array.isArray(rows)) return { records: [] }
-  const records: ModInstallRecord[] = []
-  for (const row of rows) {
-    const parsed = recordSchema.safeParse(row)
-    if (parsed.success) records.push(parsed.data as ModInstallRecord)
-  }
-  return { records }
+  return { records: parseForgivingRows(recordSchema, rows) as ModInstallRecord[] }
 }
 
 /** Returns a new `moduleData` with `record` replacing any record of the same game dir (case-insensitive). */
@@ -85,12 +80,10 @@ export function withRecord(moduleData: unknown, record: ModInstallRecord): Recor
  * a row only needs a `gameDir` to count (story 188 tells catalog from manual by that alone).
  */
 export function recordedGameDirs(moduleData: unknown): Set<string> {
-  const result = new Set<string>()
   const rows = envelopeOf(moduleData)?.['records']
-  if (!Array.isArray(rows)) return result
-  for (const row of rows) {
-    const parsed = z.object({ gameDir: z.string().min(1) }).safeParse(row)
-    if (parsed.success) result.add(parsed.data.gameDir.toLowerCase())
-  }
-  return result
+  return new Set(
+    parseForgivingRows(z.object({ gameDir: z.string().min(1) }), rows).map((r) =>
+      r.gameDir.toLowerCase(),
+    ),
+  )
 }

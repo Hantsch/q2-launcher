@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { configProfileSchema, parseConfigProfiles } from './schemas'
+import { configProfileSchema, parseConfigProfiles, parseReplaysState } from './schemas'
 import { setProfileActionsInputSchema } from '../modules/config/schemas'
 import { legacyAliasNameFor } from '@shared/config/alias-render'
 import { bindValueFor } from '@shared/config/action-mirror'
@@ -883,5 +885,23 @@ describe('configProfileSchema - baseline (story 049)', () => {
     })
     expect(result.baseline).toBeUndefined()
     expect(result.cvars).toEqual({ sensitivity: '4.5' })
+  })
+})
+
+describe('schemas.ts uses the forgiving helpers', () => {
+  it('schemas.ts holds no hand-rolled row parser', () => {
+    const source = readFileSync(join(__dirname, 'schemas.ts'), 'utf8')
+    expect(source.match(/safeParse/g)?.length ?? 0).toBeLessThanOrEqual(13)
+    expect(source).not.toMatch(/function parse\w*Row\(/)
+    expect(source).not.toContain('raw === undefined ? {} : raw')
+  })
+
+  it('modWarning is a zod schema that catches garbage', () => {
+    for (const modWarning of ['x', [], null]) {
+      expect(parseReplaysState({ modWarning }).modWarning).toEqual({
+        enabled: true,
+        trustedMods: [],
+      })
+    }
   })
 })

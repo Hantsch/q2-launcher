@@ -110,6 +110,15 @@ describe('parseManifestFile - row-by-row package parse (AC2/AC3)', () => {
     expect(result.packages.find((p) => p.id === 'broken')).toBeUndefined()
     expect(log.warn).toHaveBeenCalledTimes(1)
   })
+
+  it('a dropped package logs its index and id', () => {
+    const log = fakeLogger()
+    const broken = { ...goodEnginePackage, id: 'broken', sha256: 'not-a-valid-hash' }
+    parseManifestFile({ schemaVersion: 1, packages: [goodEnginePackage, broken] }, log)
+    expect(vi.mocked(log.warn).mock.calls[0][0]).toMatch(
+      /^manifest package at index 1 \(id: broken\) dropped: /,
+    )
+  })
 })
 
 describe('parseManifestFile - pin resolution (AC5)', () => {

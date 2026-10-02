@@ -1,4 +1,5 @@
 import type { ModCatalogEntry } from '@shared/modules/mods'
+import { parseKeyedRows } from '../../lib/forgiving'
 import type { Logger } from '../../lib/logger'
 import {
   harnessLoopbackModCatalogEntrySchema,
@@ -42,34 +43,19 @@ export function parseModCatalog(
     return { ok: false, reason: 'unsupported-schema-version' }
   }
 
-  const entries: ModCatalogEntryParsed[] = []
-  const ids = new Set<string>()
-  const gamedirs = new Set<string>()
-  for (const [index, row] of envelope.data.entries.entries()) {
-    const label = `mod catalog entry at index ${index}${idOf(row) ? ` (id: ${idOf(row)})` : ''}`
-    const result = entrySchema.safeParse(row)
-    if (!result.success) {
-      log.warn(`${label} dropped: ${result.error.message}`)
-      continue
-    }
-    const entry = result.data
-    if (!entry.versions.some((v) => v.version === entry.pinned)) {
-      log.warn(`${label} dropped: pinned "${entry.pinned}" names no listed version`)
-      continue
-    }
-    if (ids.has(entry.id)) {
-      log.warn(`${label} dropped: duplicate id`)
-      continue
-    }
-    const dir = entry.gamedir.toLowerCase()
-    if (gamedirs.has(dir)) {
-      log.warn(`${label} dropped: duplicate gamedir "${entry.gamedir}"`)
-      continue
-    }
-    ids.add(entry.id)
-    gamedirs.add(dir)
-    entries.push(entry)
-  }
+  const entries = parseKeyedRows(entrySchema, envelope.data.entries, {
+    refine: (e) => (e.versions.some((v) => v.version === e.pinned) ? e : null),
+    keyOf: { id: (e) => e.id, gamedir: (e) => e.gamedir.toLowerCase() },
+    onDrop: (drop) => {
+      const id = idOf(drop.row)
+      const label = `mod catalog entry at index ${drop.index}${id ? ` (id: ${id})` : ''}`
+      if (drop.reason === 'invalid') log.warn(`${label} dropped: ${drop.error.message}`)
+      else if (drop.reason === 'refused')
+        log.warn(`${label} dropped: pinned "${drop.parsed.pinned}" names no listed version`)
+      else if (drop.key === 'id') log.warn(`${label} dropped: duplicate id`)
+      else log.warn(`${label} dropped: duplicate gamedir "${drop.parsed.gamedir}"`)
+    },
+  })
   return { ok: true, entries }
 }
 

@@ -1,4 +1,5 @@
 import type { EngineKind } from '@shared/types'
+import { parseForgivingRows } from '../../lib/forgiving'
 import type { Logger } from '../../lib/logger'
 import { engineKindSchema } from '@shared/schemas'
 import {
@@ -129,18 +130,20 @@ export function parseManifestFile(
     return { ok: false, reason: 'unsupported-schema-version' }
   }
 
-  const packages: PlatformTaggedManifestPackage[] = []
-  for (const [index, row] of envelope.data.packages.entries()) {
-    const result = packageSchema.safeParse(row)
-    if (!result.success) {
-      const id = idOf(row)
-      log.warn(
-        `manifest package at index ${index}${id ? ` (id: ${id})` : ''} dropped: ${result.error.message}`,
-      )
-      continue
-    }
-    packages.push(result.data)
-  }
+  const packages: PlatformTaggedManifestPackage[] = parseForgivingRows(
+    packageSchema,
+    envelope.data.packages,
+    {
+      onDrop: (drop) => {
+        if (drop.reason !== 'invalid') return
+        const { index, row, error } = drop
+        const id = idOf(row)
+        log.warn(
+          `manifest package at index ${index}${id ? ` (id: ${id})` : ''} dropped: ${error.message}`,
+        )
+      },
+    },
+  )
 
   // Read once, here, from the option the caller was handed - not deep inside the resolver.
   const platform: string = options.platform ?? process.platform

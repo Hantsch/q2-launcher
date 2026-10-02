@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
+import { parseForgivingEnvelope, parseForgivingRows, parseKeyedRows } from './forgiving'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { bindValueFor } from '@shared/config/action-mirror'
 import { LEGACY_ACTION_ALIAS_PREFIX, legacyAliasNameFor } from '@shared/config/alias-render'
@@ -49,14 +50,10 @@ import {
   quickFilterSchema,
   serverSourceEntrySchema,
   watchlistEntrySchema,
-  type FavouriteServerEntry,
-  type ManualServerEntry,
-  type ServerHistoryEntry,
   type ServerListSort,
   type ServerSourceEntry,
   type ServersScanSettings,
   type ServersState,
-  type WatchlistEntry,
 } from '@shared/modules/servers'
 import {
   demoListSortSchema,
@@ -64,7 +61,7 @@ import {
   storedExtraFolderSchema,
   type ReplaysExtraFolder,
 } from '@shared/modules/replays'
-import { QUICK_FILTER_MAX, type QuickFilter } from '@shared/servers/quick-filters'
+import { QUICK_FILTER_MAX } from '@shared/servers/quick-filters'
 import type { DemoListSort } from '@shared/replays/list-sort'
 import {
   EMPTY_DEMO_LIST_FILTER,
@@ -72,11 +69,7 @@ import {
   normalizeDemoListFilter,
   type DemoListFilter,
 } from '@shared/replays/list-filter'
-import {
-  DEFAULT_NAME_TEMPLATES_STATE,
-  type NameTemplatesState,
-  type StoredNameTemplate,
-} from '@shared/replays/name-templates'
+import { type NameTemplatesState, type StoredNameTemplate } from '@shared/replays/name-templates'
 import { parseServerAddress } from '@shared/servers/address'
 import { validateMasterSourceAddress } from '@shared/servers/master-source-address'
 import { engineKindSchema, settingsObjectSchema, sourceSchema } from '@shared/schemas'
@@ -554,20 +547,6 @@ const profileBaselinePersistedSchema: z.ZodType<PersistedProfileBaseline> = z.ob
 })
 
 /**
- * Parses `raw` as an array, keeping only the elements that pass `schema` and dropping the rest -
- * the row-level counterpart to a whole-field `.catch()`. Same idea as `parseInstallations`/
- * `parseConfigProfiles` below, generalized so `categories` and `actions` can reuse it instead of
- * duplicating the map-safeParse-filter dance.
- */
-function parseForgivingRows<T>(schema: z.ZodType<T>, raw: unknown): T[] {
-  const rows = z.array(z.unknown()).catch([]).parse(raw)
-  return rows
-    .map((row) => schema.safeParse(row))
-    .filter((result): result is z.ZodSafeParseSuccess<T> => result.success)
-    .map((result) => result.data)
-}
-
-/**
  * A persisted config profile. Same rules as `installationSchema`: only the
  * fields without which the record is meaningless (`id`, `name`) are strict, so
  * a hand-mangled profile is dropped on its own instead of taking the file - or
@@ -999,8 +978,7 @@ export function parseInstallation(raw: unknown): Installation | null {
 }
 
 export function parseInstallations(raw: unknown): Installation[] {
-  const rows = z.array(z.unknown()).catch([]).parse(raw)
-  return rows.map(parseInstallation).filter((row): row is Installation => row !== null)
+  return parseForgivingRows(installationSchema, raw)
 }
 
 /** Parses one config profile, returning null (and dropping just that row) on failure. */
@@ -1011,13 +989,11 @@ export function parseConfigProfile(raw: unknown): ConfigProfile | null {
 
 /** A missing or non-array `configProfiles` key degrades to an empty list. */
 export function parseConfigProfiles(raw: unknown): ConfigProfile[] {
-  const rows = z.array(z.unknown()).catch([]).parse(raw)
-  return rows.map(parseConfigProfile).filter((row): row is ConfigProfile => row !== null)
+  return parseForgivingRows(configProfileSchema, raw)
 }
 
 /**
- * Story 071 D1: the persisted `downloads` top-level `state.json` key. Mirrors
- * `parseConfigProfiles`'s "forgiving, never throws" shape: a malformed or out-of-range
+ * Story 071 D1: the persisted `downloads` top-level `state.json` key. Forgiving, never throws: a malformed or out-of-range
  * `concurrentJobs` (not an integer, or outside 1-6) falls back to the default rather than
  * rejecting the whole file, and a `downloads` value that isn't even an object falls back to
  * `DEFAULT_DOWNLOADS_SETTINGS` wholesale.
@@ -1145,8 +1121,7 @@ const downloadFailureObjectSchema = z.object({
 })
 
 /**
- * The persisted `downloadFailures` top-level `state.json` key (story 073 D1). Mirrors
- * `parseConfigProfiles` exactly: a malformed row is dropped on its own, a missing/garbled key loads
+ * The persisted `downloadFailures` top-level `state.json` key (story 073 D1). A malformed row is dropped on its own, a missing/garbled key loads
  * as `[]`. Retention (7-day prune of dismissed entries, the 50-entry cap) is applied by
  * `main/modules/downloads/failure-log.ts`, not here - this function only guards the shape.
  */
@@ -1176,15 +1151,9 @@ const tilePlacementSchema: z.ZodType<TilePlacement> = z.object({
   h: z.number().int().nonnegative(),
 })
 
-/** Parses one tile placement, returning null (and dropping just that row) on failure. */
-function parseTilePlacement(raw: unknown): TilePlacement | null {
-  const result = tilePlacementSchema.safeParse(raw)
-  return result.success ? result.data : null
-}
-
 /**
- * The persisted `homeLayout` top-level `state.json` key (story 086 D1). Mirrors
- * `parseConfigProfiles`'s row-level-drop convention: a tile naming an unknown `moduleId`, or one
+ * The persisted `homeLayout` top-level `state.json` key (story 086 D1). Rows go
+ * through `lib/forgiving.ts`'s row-level drop: a tile naming an unknown `moduleId`, or one
  * that is otherwise malformed, is dropped on its own rather than costing the whole layout. A
  * second row naming a `moduleId` that already appeared earlier in the array is dropped too (first
  * occurrence wins) - the renderer keys tiles by `moduleId` in a `.map()`, so a duplicate would
@@ -1200,24 +1169,15 @@ function parseTilePlacement(raw: unknown): TilePlacement | null {
 export function parseHomeLayout(raw: unknown): HomeLayout {
   const envelope = z.object({ tiles: z.array(z.unknown()) }).safeParse(raw)
   if (!envelope.success) return { ...DEFAULT_HOME_LAYOUT }
-
-  const seenModuleIds = new Set<TilePlacement['moduleId']>()
-  const tiles = envelope.data.tiles
-    .map(parseTilePlacement)
-    .filter((tile): tile is TilePlacement => tile !== null)
-    .filter((tile) => {
-      if (seenModuleIds.has(tile.moduleId)) return false
-      seenModuleIds.add(tile.moduleId)
-      return true
-    })
-  return { tiles }
+  return {
+    tiles: parseKeyedRows(tilePlacementSchema, envelope.data.tiles, { keyOf: (t) => t.moduleId }),
+  }
 }
 
 /**
  * Story 110 D2: the persisted `servers` top-level `state.json` key. Defensive at two levels, same
  * combination `parseHomeLayout`/`parseDownloadsSettings` use separately: an envelope check (a raw
- * value that isn't even "an object with array-ish collection keys" falls back to a *fresh clone* of
- * `DEFAULT_SERVERS_STATE` - never the shared constant itself, so a caller mutating the result can't
+ * value that isn't even "an object with array-ish collection keys" falls back to fresh defaults (`parseForgivingEnvelope`'s `fallback()`) - never the shared constant itself, so a caller mutating the result can't
  * corrupt the default for the next call) plus row-level dropping within each collection
  * (`parseForgivingRows`'s convention: one malformed row costs only itself, siblings survive) plus
  * field-level `.catch()` on `scan`'s four knobs (`downloadsSettingsSchema`'s convention: one bad
@@ -1235,72 +1195,6 @@ export function parseHomeLayout(raw: unknown): HomeLayout {
  * deduplicated by normalized address (first occurrence wins) - the same "avoid duplicate React
  * keys from a hand-edited or foreign file" reasoning as `parseHomeLayout`'s `moduleId` dedupe pass.
  */
-function cloneDefaultServersState(): ServersState {
-  return structuredClone(DEFAULT_SERVERS_STATE)
-}
-
-/**
- * Story 111 D2: unlike the other three address-keyed collections below (which are always
- * `host:port` candidates re-validated by `parseServerAddress`), a source row's address shape
- * depends on its own `type` - a `udp-master` row is a `host:port` pair, an `http-list` row is an
- * absolute URL - so this uses the type-aware `validateMasterSourceAddress` (story 111 D1) instead.
- * A row whose type/address combination fails its own rulebook is dropped like any other malformed
- * row (`parseServersState`'s row-level-drop convention).
- */
-function parseServerSourceRow(raw: unknown): ServerSourceEntry | null {
-  const result = serverSourceEntrySchema.safeParse(raw)
-  if (!result.success) return null
-  const address = validateMasterSourceAddress(result.data.type, result.data.address)
-  if (!address.ok) return null
-  return { ...result.data, address: address.normalized }
-}
-
-function parseFavouriteServerRow(raw: unknown): FavouriteServerEntry | null {
-  const result = favouriteServerEntrySchema.safeParse(raw)
-  if (!result.success) return null
-  const address = parseServerAddress(result.data.address)
-  if (!address.ok) return null
-  return { ...result.data, address: address.normalized }
-}
-
-function parseManualServerRow(raw: unknown): ManualServerEntry | null {
-  const result = manualServerEntrySchema.safeParse(raw)
-  if (!result.success) return null
-  const address = parseServerAddress(result.data.address)
-  if (!address.ok) return null
-  return { ...result.data, address: address.normalized }
-}
-
-function parseServerHistoryRow(raw: unknown): ServerHistoryEntry | null {
-  const result = serverHistoryEntrySchema.safeParse(raw)
-  if (!result.success) return null
-  const address = parseServerAddress(result.data.address)
-  if (!address.ok) return null
-  return { ...result.data, address: address.normalized }
-}
-
-/**
- * Story 131 D1: one persisted watchlist entry row, mirroring `parseManualServerRow`'s shape - the
- * only field with anything to validate beyond `watchlistEntrySchema` itself is `mode` (an unknown
- * mode fails the schema's own `z.enum()` and the row is dropped), so unlike the address-keyed rows
- * above there is no second, domain-specific re-validation step here.
- */
-function parseWatchlistEntryRow(raw: unknown): WatchlistEntry | null {
-  const result = watchlistEntrySchema.safeParse(raw)
-  return result.success ? result.data : null
-}
-
-/** First occurrence wins - mirrors `parseHomeLayout`'s `moduleId` dedupe pass. */
-function dedupeByKey<T>(rows: T[], keyOf: (row: T) => string): T[] {
-  const seenKeys = new Set<string>()
-  return rows.filter((row) => {
-    const key = keyOf(row)
-    if (seenKeys.has(key)) return false
-    seenKeys.add(key)
-    return true
-  })
-}
-
 /**
  * Story 115 D2, review fix: extends the four original knobs with the three settings D1 added, and
  * checks every numeric field against its own `SCAN_*_CHOICES` list (not a bare `.min()/.max()`
@@ -1348,8 +1242,7 @@ function parseServersScanSettings(raw: unknown): ServersScanSettings {
 /**
  * The envelope shape loose enough that "missing/garbled collection key" degrades per-key, while
  * anything that isn't even an object (or is `null`) fails outright and falls back to
- * `cloneDefaultServersState()` wholesale - same two-tier shape as `parseHomeLayout`'s `tiles`
- * envelope check.
+ * fresh defaults wholesale.
  *
  * Story 111 D2: `sources` is the one field with a real, non-empty default -
  * `DEFAULT_MASTER_SOURCES`, the one shipped master/list source - applied via a genuine zod
@@ -1378,57 +1271,50 @@ const serversStateEnvelopeSchema = z.object({
   quickFilters: z.array(z.unknown()).catch([]),
 })
 
-function parseQuickFilterRow(raw: unknown): QuickFilter | null {
-  const result = quickFilterSchema.safeParse(raw)
-  return result.success ? result.data : null
-}
-
 export function parseServersState(raw: unknown): ServersState {
-  // Story 111 D2: a `raw` of exactly `undefined` is "the `servers` key is missing from
-  // `state.json` entirely" (`StateStore` calls this with `doc['servers']`, which is `undefined`
-  // for a file predating story 110) - a normal, expected shape, not foreign junk, so it is treated
-  // as `{}` before the envelope schema ever sees it. That lets `sources`' own `.default()` above
-  // decide the outcome instead of the whole-object `cloneDefaultServersState()` fallback below,
-  // which stays reserved for input that isn't even a plausible object (a string, a number, `null`).
-  const envelope = serversStateEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
-  if (!envelope.success) return cloneDefaultServersState()
+  // `undefined` is "the `servers` key is missing" (a file predating story 110) - treated as `{}`
+  // by `parseForgivingEnvelope`, so `sources`' `.default()` decides rather than the fallback.
+  const envelope = parseForgivingEnvelope(serversStateEnvelopeSchema, raw, () => ({
+    sources: structuredClone(DEFAULT_MASTER_SOURCES),
+    favourites: [],
+    manualServers: [],
+    history: [],
+    watchlist: [],
+    quickFilters: [],
+  }))
 
-  const sources = dedupeByKey(
-    envelope.data.sources
-      .map(parseServerSourceRow)
-      .filter((row): row is ServerSourceEntry => row !== null),
-    (row) => row.id,
-  )
-  const favourites = dedupeByKey(
-    envelope.data.favourites
-      .map(parseFavouriteServerRow)
-      .filter((row): row is FavouriteServerEntry => row !== null),
-    (row) => row.address,
-  )
-  const manualServers = dedupeByKey(
-    envelope.data.manualServers
-      .map(parseManualServerRow)
-      .filter((row): row is ManualServerEntry => row !== null),
-    (row) => row.address,
-  )
-  // Story 113 D-G: the history cap is a store invariant, not an append-path detail - a hand-edited
-  // or foreign `state.json` carrying 500 rows must not reintroduce an unbounded list, so the same
-  // `capServerHistory` the append path uses truncates here too. It only cuts the tail (oldest
-  // first, the file's order kept), after the dedupe-by-address above, never instead of it.
+  const sources = parseKeyedRows(serverSourceEntrySchema, envelope.sources, {
+    refine: (row): ServerSourceEntry | null => {
+      const address = validateMasterSourceAddress(row.type, row.address)
+      return address.ok ? { ...row, address: address.normalized } : null
+    },
+    keyOf: (row) => row.id,
+  })
+  const refineAddress = <T extends { address: string }>(row: T): T | null => {
+    const address = parseServerAddress(row.address)
+    return address.ok ? { ...row, address: address.normalized } : null
+  }
+  const byAddress = (row: { address: string }): string => row.address
+  const favourites = parseKeyedRows(favouriteServerEntrySchema, envelope.favourites, {
+    refine: refineAddress,
+    keyOf: byAddress,
+  })
+  const manualServers = parseKeyedRows(manualServerEntrySchema, envelope.manualServers, {
+    refine: refineAddress,
+    keyOf: byAddress,
+  })
+  // Story 113 D-G: the history cap is a store invariant - a hand-edited file carrying 500 rows must
+  // not reintroduce an unbounded list. It only cuts the tail, after the dedupe.
   const history = capServerHistory(
-    dedupeByKey(
-      envelope.data.history
-        .map(parseServerHistoryRow)
-        .filter((row): row is ServerHistoryEntry => row !== null),
-      (row) => row.address,
-    ),
+    parseKeyedRows(serverHistoryEntrySchema, envelope.history, {
+      refine: refineAddress,
+      keyOf: byAddress,
+    }),
   )
   const scan = parseServersScanSettings((raw as { scan?: unknown } | null)?.scan)
 
-  // Story 119 D2: `listSort` is field-level-forgiving like every other optional field here - an
-  // absent or malformed value simply omits the key (default order) rather than degrading the rest
-  // of the state, so it is parsed straight off `raw` (not through the envelope schema above, which
-  // only ever handles the four array-shaped collections) and only spread in on success.
+  // Story 119 D2: `listSort` is field-level-forgiving - an absent or malformed value omits the key
+  // rather than degrading the rest of the state, so it is read straight off `raw`.
   const listSortResult = serverListSortSchema.safeParse(
     (raw as { listSort?: unknown } | null)?.listSort,
   )
@@ -1436,23 +1322,15 @@ export function parseServersState(raw: unknown): ServersState {
     ? listSortResult.data
     : undefined
 
-  // Story 131 D1: dedupe by `id`, first occurrence wins - same convention as `sources` above (also
-  // an id-keyed collection, unlike the three address-keyed ones).
-  const watchlist = dedupeByKey(
-    envelope.data.watchlist
-      .map(parseWatchlistEntryRow)
-      .filter((row): row is WatchlistEntry => row !== null),
-    (row) => row.id,
-  )
+  const watchlist = parseKeyedRows(watchlistEntrySchema, envelope.watchlist, {
+    keyOf: (row) => row.id,
+  })
 
-  // Story 197 D1: damaged rows dropped, then case-insensitive duplicate names (first wins), then
-  // the first `QUICK_FILTER_MAX` kept - the cap is a store invariant like the history cap.
-  const quickFilters = dedupeByKey(
-    envelope.data.quickFilters
-      .map(parseQuickFilterRow)
-      .filter((row): row is QuickFilter => row !== null),
-    (row) => row.name.toLowerCase(),
-  ).slice(0, QUICK_FILTER_MAX)
+  // Story 197 D1: case-insensitive duplicate names (first wins), then the first `QUICK_FILTER_MAX`
+  // kept - the cap is a store invariant like the history cap.
+  const quickFilters = parseKeyedRows(quickFilterSchema, envelope.quickFilters, {
+    keyOf: (row) => row.name.toLowerCase(),
+  }).slice(0, QUICK_FILTER_MAX)
 
   return {
     sources,
@@ -1496,23 +1374,16 @@ const unlockStateEnvelopeSchema = z.object({
 })
 
 /**
- * Story 128 D4: mirrors `parseServersState`'s shape exactly - a forgiving envelope parse, then
- * row-level dropping (`unlockCodeEntrySchema.safeParse`, one bad row costs only itself), then
- * dedupe-by-key (`code`, first occurrence wins - `dedupeByKey`, same helper `parseServersState`
- * uses for its own address-keyed collections) and a cap (`MAX_UNLOCK_CODES`, same "truncate the
- * tail after dedupe" convention as `capServerHistory`). `undefined`/missing input (a `state.json`
- * predating this story) degrades to `{ codes: [] }`, same as every other additive top-level key.
+ * Story 128 D4: `undefined`/missing input (a `state.json` predating this story) degrades to
+ * `{ codes: [] }`; rows are deduped by `code` (first wins), then capped at `MAX_UNLOCK_CODES` -
+ * the cap truncates the tail after dedupe.
  */
 export function parseUnlockState(raw: unknown): UnlockState {
-  const envelope = unlockStateEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
-  if (!envelope.success) return { codes: [] }
-
-  const rows = envelope.data.codes
-    .map((row) => unlockCodeEntrySchema.safeParse(row))
-    .filter((result): result is z.ZodSafeParseSuccess<UnlockCodeEntry> => result.success)
-    .map((result) => result.data)
-
-  return { codes: dedupeByKey(rows, (row) => row.code).slice(0, MAX_UNLOCK_CODES) }
+  const envelope = parseForgivingEnvelope(unlockStateEnvelopeSchema, raw, () => ({ codes: [] }))
+  const codes = parseKeyedRows(unlockCodeEntrySchema, envelope.codes, {
+    keyOf: (row) => row.code,
+  }).slice(0, MAX_UNLOCK_CODES)
+  return { codes }
 }
 
 /**
@@ -1541,10 +1412,6 @@ export interface ReplaysState {
   modWarning: { enabled: boolean; trustedMods: string[] }
 }
 
-function cloneDefaultNameTemplatesState(): NameTemplatesState {
-  return structuredClone(DEFAULT_NAME_TEMPLATES_STATE)
-}
-
 const storedNameTemplateSchema = z.discriminatedUnion('kind', [
   z.object({
     id: z.string().min(1),
@@ -1559,46 +1426,29 @@ const storedNameTemplateSchema = z.discriminatedUnion('kind', [
   }),
 ])
 
-/**
- * One stored name-template row. Mirrors `parseServerSourceRow`'s two-step shape: a structural zod
- * parse first, then a second, domain-specific check - here, that a non-null `template` is text
- * `nameTemplateTextSchema` (story 140's shared validator) would actually accept, so a hand-edited or
- * foreign `state.json` can never smuggle in a template the compiler/matcher would choke on. A
- * `kind: 'shipped'` row with `template: null` (never edited) skips that check - there is no text to
- * validate.
- */
-function parseNameTemplateRow(raw: unknown): StoredNameTemplate | null {
-  const result = storedNameTemplateSchema.safeParse(raw)
-  if (!result.success) return null
-  if (
-    result.data.template !== null &&
-    !nameTemplateTextSchema.safeParse(result.data.template).success
-  ) {
-    return null
-  }
-  return result.data
-}
-
 const nameTemplatesStateEnvelopeSchema = z.object({
   entries: z.array(z.unknown()).catch([]),
   removedShippedIds: z.array(z.unknown()).catch([]),
 })
 
+/**
+ * Entries get a second, domain-specific check after the structural parse: a non-null `template`
+ * must be text `nameTemplateTextSchema` accepts, so a hand-edited file can never smuggle in a
+ * template the compiler/matcher would choke on. A shipped row with `template: null` has no text.
+ */
 function parseNameTemplatesState(raw: unknown): NameTemplatesState {
-  const envelope = nameTemplatesStateEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
-  if (!envelope.success) return cloneDefaultNameTemplatesState()
-
-  const entries = dedupeByKey(
-    envelope.data.entries
-      .map(parseNameTemplateRow)
-      .filter((row): row is StoredNameTemplate => row !== null),
-    (row) => row.id,
-  )
-  const removedShippedIds = dedupeByKey(
-    envelope.data.removedShippedIds.filter((id): id is string => typeof id === 'string'),
-    (id) => id,
-  )
-
+  const envelope = parseForgivingEnvelope(nameTemplatesStateEnvelopeSchema, raw, () => ({
+    entries: [],
+    removedShippedIds: [],
+  }))
+  const entries = parseKeyedRows(storedNameTemplateSchema, envelope.entries, {
+    refine: (row): StoredNameTemplate | null =>
+      row.template !== null && !nameTemplateTextSchema.safeParse(row.template).success ? null : row,
+    keyOf: (row) => row.id,
+  })
+  const removedShippedIds = parseKeyedRows(z.string(), envelope.removedShippedIds, {
+    keyOf: (id) => id,
+  })
   return { entries, removedShippedIds }
 }
 
@@ -1607,51 +1457,41 @@ const extraFoldersEnvelopeSchema = z.object({
 })
 
 /**
- * Story 142 D1: mirrors `parseNameTemplatesState`'s shape - a forgiving envelope parse (missing or
- * non-array input degrades to `[]`), then row-level dropping via the shared
- * `storedExtraFolderSchema` (one malformed row - e.g. a relative path or a missing field - costs
- * only itself, its siblings survive), then dedupe-by-key on `pathKey(row.path)` (first occurrence
- * wins, same convention as `dedupeByKey`'s other callers in this file) so the same folder can never
- * appear twice under different casing/trailing-slash spellings. Pure and synchronous - no disk
- * access, no `stat` call; whether a folder still exists is a scan-time concern, not a parse-time one.
+ * Story 142 D1: dedupe-by-key on `pathKey(row.path)` so the same folder can never appear twice
+ * under different casing/trailing-slash spellings. Pure and synchronous - no disk access; whether a
+ * folder still exists is a scan-time concern, not a parse-time one.
  */
 function parseExtraFolders(raw: unknown): ReplaysExtraFolder[] {
-  const envelope = extraFoldersEnvelopeSchema.safeParse(raw === undefined ? {} : raw)
-  if (!envelope.success) return []
-
-  const rows = envelope.data.extraFolders
-    .map((row) => storedExtraFolderSchema.safeParse(row))
-    .filter((result): result is z.ZodSafeParseSuccess<ReplaysExtraFolder> => result.success)
-    .map((result) => result.data)
-
-  return dedupeByKey(rows, (row) => pathKey(row.path))
+  const envelope = parseForgivingEnvelope(extraFoldersEnvelopeSchema, raw, () => ({
+    extraFolders: [],
+  }))
+  return parseKeyedRows(storedExtraFolderSchema, envelope.extraFolders, {
+    keyOf: (row) => pathKey(row.path),
+  })
 }
 
 const MOD_DIR_PATTERN = /^[A-Za-z0-9_.-]{1,64}$/
 
+const modDirSchema = z
+  .string()
+  .regex(MOD_DIR_PATTERN)
+  .refine((dir) => dir !== '.' && dir !== '..')
+  .transform((dir) => dir.toLowerCase())
+
 /** Story 182 D1: forgiving parse of `modWarning` - non-boolean `enabled` -> `true`; invalid entries
- * dropped; game dirs lowercased and deduped. */
-function parseModWarning(raw: unknown): ReplaysState['modWarning'] {
-  const obj = raw !== null && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
-  const enabled = typeof obj['enabled'] === 'boolean' ? obj['enabled'] : true
-  const list = Array.isArray(obj['trustedMods']) ? (obj['trustedMods'] as unknown[]) : []
-  const trustedMods = dedupeByKey(
-    list
-      .filter(
-        (entry): entry is string =>
-          typeof entry === 'string' &&
-          MOD_DIR_PATTERN.test(entry) &&
-          entry !== '.' &&
-          entry !== '..',
-      )
-      .map((entry) => entry.toLowerCase()),
-    (entry) => entry,
-  )
-  return { enabled, trustedMods }
-}
+ * dropped; game dirs lowercased and deduped (after lowercasing, so case variants collapse). */
+const modWarningSchema = z
+  .object({
+    enabled: z.boolean().catch(true),
+    trustedMods: z
+      .array(z.unknown())
+      .catch([])
+      .transform((rows) => parseKeyedRows(modDirSchema, rows, { keyOf: (dir) => dir })),
+  })
+  .catch(() => ({ enabled: true, trustedMods: [] as string[] }))
 
 /**
- * Mirrors `parseServersState`'s/`parseUnlockState`'s shape exactly - `undefined`/missing input (a
+ * `undefined`/missing input (a
  * `state.json` predating this story) degrades to the default, and each nested collection
  * (`nameTemplates`, `extraFolders`) is parsed by its own forgiving parser above rather than inline
  * here, since each has its own envelope/row-level rules.
@@ -1681,7 +1521,7 @@ export function parseReplaysState(raw: unknown): ReplaysState {
     ? normalizeDemoListFilter(listFilterResult.data)
     : EMPTY_DEMO_LIST_FILTER
 
-  const modWarning = parseModWarning((raw as { modWarning?: unknown } | null)?.modWarning)
+  const modWarning = modWarningSchema.parse((raw as { modWarning?: unknown } | null)?.modWarning)
 
   return { nameTemplates, extraFolders, listFilter, modWarning, ...(listSort ? { listSort } : {}) }
 }

@@ -1,7 +1,7 @@
 ---
 id: 203
 title: forgiving row parsing is one helper
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -23,17 +23,17 @@ log line.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `src/main/lib/forgiving.ts` exports `parseForgivingRows` (moved),
+- [x] **AC1** — `src/main/lib/forgiving.ts` exports `parseForgivingRows` (moved),
       `parseForgivingEnvelope(schema, raw, fallback)`, `parseKeyedRows(schema, raw, { keyOf, refine? })`
       and `dedupeByKey`, with an `onDrop` callback for module log lines; one unit test file covers
       drop, dedupe-first-wins, missing envelope and the callback.
-- [ ] **AC2** — The hand-written `parseXRow` + map/filter pairs and the four envelope blocks in
+- [x] **AC2** — The hand-written `parseXRow` + map/filter pairs and the four envelope blocks in
       `lib/schemas.ts` are expressed through the helpers; the file's `safeParse` count drops by at
       least half and no `function parse*Row` remains that only wraps `safeParse`.
-- [ ] **AC3** — `parseModWarning` is a zod schema with `.catch()` like its siblings.
-- [ ] **AC4** — The three module loops (`install-records`, `catalog-parse`, `manifest-parse`)
+- [x] **AC3** — `parseModWarning` is a zod schema with `.catch()` like its siblings.
+- [x] **AC4** — The three module loops (`install-records`, `catalog-parse`, `manifest-parse`)
       use `parseKeyedRows`/`parseForgivingRows` and keep their log wording via `onDrop`.
-- [ ] **AC5** — Behaviour is unchanged: `schemas.test.ts` passes without weakening any assertion;
+- [x] **AC5** — Behaviour is unchanged: `schemas.test.ts` passes without weakening any assertion;
       redundant per-row cases that now test the helper may be deleted once the helper's own test
       covers them.
 
@@ -215,4 +215,24 @@ listed version`, `${label} dropped: duplicate id`, `${label} dropped: duplicate 
 
 ## Done
 
-<!-- Filled by /build 203. -->
+Row-level parsing for persisted lists is now one helper module, `src/main/lib/forgiving.ts`
+(`parseForgivingRows`, `parseKeyedRows`, `parseForgivingEnvelope`, `dedupeByKey`, `RowDrop`/`onDrop`).
+`lib/schemas.ts` lost its eight `parse*Row` helpers, four envelope blocks and hand loops (safeParse 27 -> 10);
+`modWarningSchema` is zod with `.catch()`; the three module loops use the helper with log wording kept.
+
+Commit message: `203: forgiving row parsing is one helper (lib/forgiving.ts) - schemas.ts + 3 module loops use it`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (1317 passed),
+plus explicit run of the five story suites and `src/main/lib/schemas` (98 passed) - all green. No e2e (no user-visible change).
+AC -> test: AC1 forgiving.test.ts (5 named cases) passed; AC2 schemas.test.ts "schemas.ts holds no hand-rolled row parser" passed;
+AC3 "modWarning is a zod schema that catches garbage" + "modWarning loads forgivingly and round-trips" (lives in
+schemas.persisted-state.test.ts, not schemas.test.ts - verified there) passed; AC4 forgiving.test.ts "the module row loops go through
+the helper", catalog-parse "each drop reason keeps its log wording", manifest-parse "a dropped package logs its index and id" passed;
+AC5 existing suites green, review found no removed assertions. Manual residue: none.
+
+Decisions: review (default tier) FAIL only on prettier formatting of schemas.ts / forgiving.test.ts - fixed with prettier on those two
+files, re-verified green. Left as is: `dedupeByKey` has no production caller now (AC1 requires the export, covered by its own test);
+orphaned stacked JSDoc near schemas.ts parseServersState predates the story; module-loop source-scan regex is a plain-regression guard only.
+The "round-trips" test location differs from the story's file reference (schemas.test.ts) - noted, not retrofitted.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 5

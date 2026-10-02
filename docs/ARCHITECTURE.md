@@ -109,7 +109,8 @@ via a toast — losing an installation list silently is not acceptable.
 
 Parsing is deliberately forgiving. Every settings field has a `.catch()` default,
 and installations are parsed row by row so one bad entry is dropped instead of
-taking the file with it. Migrations live in `src/main/services/migrations.ts`;
+taking the file with it. Row-level dropping, dedupe and envelope fallback all go
+through `src/main/lib/forgiving.ts`. Migrations live in `src/main/services/migrations.ts`;
 `MIGRATIONS` is empty at v1 and carries a worked example in its doc comment.
 
 Writes are debounced: `state.json` (and every other `JsonStore`) is flushed shortly after the last

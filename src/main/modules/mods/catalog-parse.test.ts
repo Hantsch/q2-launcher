@@ -74,6 +74,28 @@ describe('parseModCatalog', () => {
     expect(log.warn).toHaveBeenCalledTimes(3)
   })
 
+  it('each drop reason keeps its log wording', () => {
+    const log = fakeLogger()
+    const result = parseModCatalog(
+      env([
+        entry(),
+        entry({ pinned: '9.9', id: 'x', gamedir: 'x' }),
+        entry({ gamedir: 'other' }),
+        entry({ id: 'dup2', gamedir: 'ROGUE' }),
+        entry({ id: 'dup2', gamedir: 'free' }),
+      ]),
+      log,
+    )
+    if (!result.ok) throw new Error('expected ok')
+    // The gamedir-duplicate row did not reserve its id, so the later "dup2" survives.
+    expect(result.entries.map((e) => e.id)).toEqual(['rogue', 'dup2'])
+    expect(vi.mocked(log.warn).mock.calls.map((c) => c[0])).toEqual([
+      'mod catalog entry at index 1 (id: x) dropped: pinned "9.9" names no listed version',
+      'mod catalog entry at index 2 (id: rogue) dropped: duplicate id',
+      'mod catalog entry at index 3 (id: dup2) dropped: duplicate gamedir "ROGUE"',
+    ])
+  })
+
   it('a malformed envelope is refused', () => {
     const log = fakeLogger()
     expect(parseModCatalog({ entries: [] }, log)).toEqual({
