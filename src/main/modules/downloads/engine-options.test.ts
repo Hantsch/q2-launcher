@@ -38,7 +38,7 @@ vi.mock('electron', () => ({
 }))
 
 function jsonResponse(body: unknown): Response {
-  return { ok: true, status: 200, json: () => Promise.resolve(body) } as unknown as Response
+  return new Response(JSON.stringify(body), { status: 200 })
 }
 
 function fakeLogger(): Logger {

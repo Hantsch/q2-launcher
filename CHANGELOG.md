@@ -28,6 +28,7 @@ version section when a release actually ships.
 
 - An unexpected launcher error now shows a translated message instead of raw system text.
 - Your last change before quitting is saved, and a failed settings write now tells you.
+- **Servers** — A stalled or oversized server-list source no longer hangs a scan.
 
 ### Security
 

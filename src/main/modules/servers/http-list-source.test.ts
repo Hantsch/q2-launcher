@@ -155,6 +155,14 @@ describe('resolveHttpListSource', () => {
     expect(result).toEqual({ ok: false, reason: 'transport-error' })
   })
 
+  it('a body over the cap is reported as truncated', async () => {
+    const url = route('/oversized', servesText('192.168.0.1:27910\n'.repeat(10)))
+
+    const result = await resolveHttpListSource(url, { raw: 1, fetchImpl, maxBytes: 32 })
+
+    expect(result).toEqual({ ok: false, reason: 'truncated' })
+  })
+
   it('never requests q2servers.com - every route in this file is bound to 127.0.0.1', () => {
     expect(origin).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
   })

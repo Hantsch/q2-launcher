@@ -44,7 +44,7 @@ vi.mock('electron', () => ({
 }))
 
 function jsonResponse(body: unknown): Response {
-  return { ok: true, status: 200, json: () => Promise.resolve(body) } as unknown as Response
+  return new Response(JSON.stringify(body), { status: 200 })
 }
 
 function fakeLogger(): Logger {
@@ -84,20 +84,12 @@ function servePinnedManifests(fetchMock: ReturnType<typeof vi.fn>): void {
   fetchMock.mockImplementation((url: unknown, init?: { method?: string }) => {
     const href = String(url)
     if (href.endsWith('version.txt')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        text: () => Promise.resolve('2026-09-12-nightly\n'),
-      } as unknown as Response)
+      return Promise.resolve(new Response('2026-09-12-nightly\n', { status: 200 }))
     }
     if (init?.method === 'HEAD') {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        headers: {
-          get: (name: string) => (name.toLowerCase() === 'content-length' ? '4096' : null),
-        },
-      } as unknown as Response)
+      return Promise.resolve(
+        new Response(null, { status: 200, headers: { 'content-length': '4096' } }),
+      )
     }
     if (href.includes('engines/')) {
       return Promise.resolve(

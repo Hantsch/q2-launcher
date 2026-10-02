@@ -306,3 +306,4 @@ second roadmap.
 - 207 — modules own their persisted state · S32 · StateStore.section() + per-module persisted.ts/persisted-migrations.ts, shell no longer imports modules, lib/schemas.ts 165 lines, golden state test + layering test
 - 208 — layer rules are a test and a linter, not a convention · S32 · architecture.test.ts enforces layering with a story-referenced allowlist; oxlint runs as npm run lint in CI and verify:release.
 - 209 — modules reach Electron and the harness only through the shell · S32 · app.os/displays/harness/env on AppContext, downloads infrastructure hoisted to shell-owned lib/services, architecture test enforces zero electron/process.env in modules
+- 221 — HTTP fetches share one timeout and size policy · S32 · lib/http.ts fetchWithPolicy backs feed, image, list-source, content-repo and probe fetches; a stalled or oversized server-list source no longer hangs a scan.

@@ -1,5 +1,6 @@
 import type { ScanServerPush, ScanTarget, ServersScanSettings } from '@shared/modules/servers'
 import { parseServerAddress } from '@shared/servers/address'
+import { composeSignals } from '../../lib/http'
 import {
   queryServer as defaultQueryServer,
   type QueryServerOptions,
@@ -171,11 +172,9 @@ export async function runScan(options: RunScanOptions): Promise<RunScanResult> {
   }
 
   const controller = new AbortController()
-  const internal = controller.signal
   const external = options.signal
-  const onExternalAbort = (): void => controller.abort()
   if (external?.aborted === true) return { ...progress, aborted: true }
-  external?.addEventListener('abort', onExternalAbort, { once: true })
+  const internal = composeSignals(controller.signal, external)
 
   // Resolves on abort, so a slot stops waiting for a query that is slow to honour the signal.
   const aborted = new Promise<null>((resolve) => {
@@ -220,46 +219,42 @@ export async function runScan(options: RunScanOptions): Promise<RunScanResult> {
     return result
   }
 
-  try {
-    // Stage 1: info over the whole address set.
+  // Stage 1: info over the whole address set.
+  report(() => onProgress?.({ ...progress }))
+  const worthStage2 = new Set<string>()
+  await runPool(stage1Targets, concurrency, internal, async (target) => {
+    const result = await queryOne('stage1', target)
+    if (result === null) return
+    if (isWorthStage2(result)) worthStage2.add(target.address)
+    progress.stage1Done += 1
+    report(() => onServer({ stage: 'stage1', target, result }))
     report(() => onProgress?.({ ...progress }))
-    const worthStage2 = new Set<string>()
-    await runPool(stage1Targets, concurrency, internal, async (target) => {
-      const result = await queryOne('stage1', target)
+  })
+
+  // Stage 2: status over exactly {selected} + {worth checking}, selected first.
+  if (!internal.aborted) {
+    const stage2Targets: ScanTarget[] = []
+    const selected =
+      options.selectedAddress === undefined ? null : normalizeAddress(options.selectedAddress)
+    if (selected !== null) {
+      const known = stage1Targets.find((target) => target.address === selected)
+      stage2Targets.push(known ?? { address: selected, origins: [] })
+    }
+    for (const target of stage1Targets) {
+      if (worthStage2.has(target.address) && target.address !== selected)
+        stage2Targets.push(target)
+    }
+
+    progress.phase = 'stage2'
+    progress.stage2Total = stage2Targets.length
+    report(() => onProgress?.({ ...progress }))
+    await runPool(stage2Targets, concurrency, internal, async (target) => {
+      const result = await queryOne('stage2', target)
       if (result === null) return
-      if (isWorthStage2(result)) worthStage2.add(target.address)
-      progress.stage1Done += 1
-      report(() => onServer({ stage: 'stage1', target, result }))
+      progress.stage2Done += 1
+      report(() => onServer({ stage: 'stage2', target, result }))
       report(() => onProgress?.({ ...progress }))
     })
-
-    // Stage 2: status over exactly {selected} + {worth checking}, selected first.
-    if (!internal.aborted) {
-      const stage2Targets: ScanTarget[] = []
-      const selected =
-        options.selectedAddress === undefined ? null : normalizeAddress(options.selectedAddress)
-      if (selected !== null) {
-        const known = stage1Targets.find((target) => target.address === selected)
-        stage2Targets.push(known ?? { address: selected, origins: [] })
-      }
-      for (const target of stage1Targets) {
-        if (worthStage2.has(target.address) && target.address !== selected)
-          stage2Targets.push(target)
-      }
-
-      progress.phase = 'stage2'
-      progress.stage2Total = stage2Targets.length
-      report(() => onProgress?.({ ...progress }))
-      await runPool(stage2Targets, concurrency, internal, async (target) => {
-        const result = await queryOne('stage2', target)
-        if (result === null) return
-        progress.stage2Done += 1
-        report(() => onServer({ stage: 'stage2', target, result }))
-        report(() => onProgress?.({ ...progress }))
-      })
-    }
-  } finally {
-    external?.removeEventListener('abort', onExternalAbort)
   }
 
   if (callbackFailure.thrown) throw callbackFailure.error

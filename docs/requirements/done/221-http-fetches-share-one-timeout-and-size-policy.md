@@ -1,7 +1,7 @@
 ---
 id: 221
 title: HTTP fetches share one timeout and size policy
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -23,19 +23,19 @@ to `fetcher.ts`. Six wrappers, six policies.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `src/main/lib/http.ts` exports `fetchWithPolicy(url, { fetchImpl, timeoutMs,
+- [x] **AC1** — `src/main/lib/http.ts` exports `fetchWithPolicy(url, { fetchImpl, timeoutMs,
 retries, maxBytes, signal, log })` composing `AbortSignal.any([signal, AbortSignal.timeout(ms)])`,
       `readBodyCapped`, `describeFetchError` and `delay`; unit tests cover timeout, external
       abort, retry-then-succeed, body over cap, and error classification.
-- [ ] **AC2** — `feed-fetcher.ts` and `fetch-image.ts` use it; their existing tests (367 + 251
+- [x] **AC2** — `feed-fetcher.ts` and `fetch-image.ts` use it; their existing tests (367 + 251
       lines) pass as the regression suite; `describeError` exists once.
-- [ ] **AC3** — `http-list-source.ts` uses it with a per-source budget (~10 s) and a cap
+- [x] **AC3** — `http-list-source.ts` uses it with a per-source budget (~10 s) and a cap
       (~2 MiB), mapped to the existing `transport-error`/`truncated` source states; a test proves
       a hanging source ends the fetch while the scan continues.
-- [ ] **AC4** — `content-repo.ts`, the bleeding-edge download (after story 220) and `scan-runner`
+- [x] **AC4** — `content-repo.ts`, the bleeding-edge download (after story 220) and `scan-runner`
       reuse the classifier and the abort composition; `downloads/fetcher.ts` keeps streaming but
       imports `delay` and `describeFetchError` from `http.ts`.
-- [ ] **AC5** — The roadmap follow-up about `resolveHttpListSource` is removed.
+- [x] **AC5** — The roadmap follow-up about `resolveHttpListSource` is removed.
 
 ## Open Questions
 
@@ -194,4 +194,16 @@ Order D1 → D2 → D3 → D4 (D2–D4 depend only on D1). Main process only; no
 
 ## Done
 
-<!-- Filled by /build 221. -->
+All fetch sites now share `src/main/lib/http.ts` (`fetchWithPolicy`, `readBodyCapped`, `describeFetchError`, `delay`, `composeSignals`). Feed and image fetchers use it; the HTTP list source gets a 10 s budget and 2 MiB cap (`transport-error`/`truncated`); content-repo, the bleeding-edge probe, scan-runner and `lib/net/fetcher.ts` reuse the pieces. Only `http.ts` calls `AbortSignal.timeout`; ROADMAP bullet removed, one `### Fixed` changelog line.
+
+Commit message: `221: http fetches share one timeout/size policy (lib/http.ts fetchWithPolicy); list sources get a 10 s budget and 2 MiB cap`
+
+Verification (narrow gate): `npm run build`, `typecheck`, `lint` green; `npx vitest run --changed HEAD` green (47 files / 555 tests); no e2e line by design (`e2e-all` is the sprint's gate). AC1-AC5 mapped tests all ran and passed (http.test.ts x5, source-resolution hanging-source, http-list-source truncated, content-repo and bleeding-edge timeout tests, feed/image/scan-runner/net-fetcher files green). AC5 checked in review of the diff. No manual residue. Review: stage 1 FAIL on test quality, fixed (2 cycles), second review PASS.
+
+Decisions:
+- Story paths mapped to current locations: `fetcher.ts` is `src/main/lib/net/fetcher.ts` (import `../http`), manifest service in `src/main/services/content/`.
+- Tests that faked responses as plain objects without a body stream (manifest-service, catalog-service, engine-options, downloads index, content-repo, bleeding-edge, source-resolution) had their response helpers changed to real `new Response(...)`, assertions unchanged, because `fetchWithPolicy` reads the body stream; the story's "unmodified" list only held for scan-runner, net/fetcher, feed and image tests.
+- Image fetcher: the size cap now applies while reading, before the content-type check, so an oversized body with a bad content-type is `rejected` for size; both outcomes are `rejected`.
+- Bleeding-edge timeout test spies `AbortSignal.timeout` (fake timers do not cover it) so it runs in milliseconds.
+
+tiers: D 4 / hard 0 · review default · cycles 2 · agents 8

@@ -57,9 +57,6 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 - `docs/ARCHITECTURE.md#adding-a-module` should name `src/shared/ipc-schemas.ts`'s hardcoded
   `moduleId` z.enum as a step — it is not extended automatically, and 106 rediscovered that.
   [S22 review](../sprints/S22/review.md)
-- `resolveHttpListSource`'s master/list sources have no bounded timeout of their own — only the
-  scan's shared abort signal can end a hung fetch, so a stalled source could in principle hang a
-  scan indefinitely. [S24 review](../sprints/S24/review.md)
 - A scoped refresh ("Refresh favourites" / "Refresh this server") overwrites a row's `origins`
   instead of merging them into the existing entry — currently inert since nothing reads `origins`
   yet, but worth fixing before story 131's watchlist work is likely to. [S24 review](../sprints/S24/review.md)

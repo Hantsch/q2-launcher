@@ -8,6 +8,10 @@
  * `CONTENT_REPO_RAW_BASE` or `contentRepoUrl()` rather than duplicating it.
  */
 
+import { fetchWithPolicy } from './http'
+
+const MAX_MANIFEST_BYTES = 4 * 1024 * 1024
+
 export const CONTENT_REPO_RAW_BASE =
   'https://raw.githubusercontent.com/Hantsch/q2_community_content/main'
 
@@ -57,11 +61,18 @@ export async function fetchContentJson<T = unknown>(
   opts?: FetchContentJsonOptions,
 ): Promise<T> {
   const url = contentRepoUrl(path, opts?.baseUrl)
-  const response = await fetch(url, {
-    signal: AbortSignal.timeout(opts?.timeoutMs ?? 10_000),
+  const outcome = await fetchWithPolicy(url, {
+    // Read `fetch` per call so a stubbed global is honoured.
+    fetchImpl: (u, i) => fetch(u, i),
+    timeoutMs: opts?.timeoutMs ?? 10_000,
+    retries: 0,
+    maxBytes: MAX_MANIFEST_BYTES,
   })
-  if (!response.ok) {
-    throw new ContentRepoHttpError(response.status, url)
+  if (!outcome.ok) {
+    if (outcome.kind === 'http-status' && outcome.status !== undefined) {
+      throw new ContentRepoHttpError(outcome.status, url)
+    }
+    throw new Error(`content repo request failed: ${outcome.reason} ${url}`)
   }
-  return (await response.json()) as T
+  return JSON.parse(new TextDecoder().decode(outcome.body)) as T
 }

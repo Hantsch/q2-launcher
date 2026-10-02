@@ -326,3 +326,19 @@
 - 2026-10-02 15:59:07 · 209 · review 2 (hard) · started
 - 2026-10-02 16:08:25 · 209 · review 2 (hard) · done
 - 2026-10-02 16:08:25 · 209 · story · done
+- 2026-10-02 16:08:50 · 221 · build · started
+- 2026-10-02 16:09:12 · 221 · D1 lib/http.ts · started
+- 2026-10-02 16:10:01 · 221 · D1 lib/http.ts · done
+- 2026-10-02 16:10:01 · 221 · D2 feed+image fetchers · started
+- 2026-10-02 16:10:46 · 221 · D2 feed+image fetchers · done
+- 2026-10-02 16:10:46 · 221 · D3 http-list-source budget · started
+- 2026-10-02 16:12:04 · 221 · D3 http-list-source budget · done
+- 2026-10-02 16:12:04 · 221 · D4 remaining fetch sites · started
+- 2026-10-02 16:16:49 · 221 · D4 remaining fetch sites · done
+- 2026-10-02 16:16:49 · 221 · verify · started
+- 2026-10-02 16:18:03 · 221 · verify · done
+- 2026-10-02 16:18:03 · 221 · review 1 · started
+- 2026-10-02 16:20:12 · 221 · review 1 · done
+- 2026-10-02 16:20:12 · 221 · review 2 · started
+- 2026-10-02 16:20:44 · 221 · review 2 · done
+- 2026-10-02 16:20:44 · 221 · story · done

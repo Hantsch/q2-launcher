@@ -1,5 +1,6 @@
 import { rename, rm, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
+import { fetchWithPolicy, type FetchImpl } from '../../../lib/http'
 import { decodeImageWithElectron } from '../../../lib/native-image'
 import { NEWS_FETCH_RETRIES, NEWS_FETCH_TIMEOUT_MS, type NewsFetchLog } from '../news/feed-fetcher'
 import { SAFE_NEWS_IMAGE_EXTENSIONS, isSafeNewsImageFileName, newsImageFileName } from '../../../lib/news-image-paths'
@@ -49,7 +50,7 @@ import { SAFE_NEWS_IMAGE_EXTENSIONS, isSafeNewsImageFileName, newsImageFileName 
  */
 
 /** Satisfied by both the global `fetch` and Electron's `net.fetch`. */
-export type ImageFetchImpl = (url: string, init: { signal: AbortSignal }) => Promise<Response>
+export type ImageFetchImpl = FetchImpl
 
 /** What `decodeImage` reports. `ok: false` covers both "this failed to decode" and "this decoded to
  * nothing" (Electron's `nativeImage.isEmpty()`) - both mean "not an image", not a crash. */
@@ -119,79 +120,10 @@ interface ResolvedOptions {
 
 const defaultFetchImpl: ImageFetchImpl = (url, init) => fetch(url, init)
 
-/** `AbortSignal.timeout` rejects with a `TimeoutError`; anything else is a genuine network error. */
-function describeError(error: unknown, timeoutMs: number): string {
-  if (error instanceof Error && error.name === 'TimeoutError') {
-    return `no response within ${timeoutMs}ms`
-  }
-  const cause =
-    error instanceof Error && error.cause !== undefined ? ` (${String(error.cause)})` : ''
-  return `${String(error)}${cause}`
-}
-
-async function discard(response: Response): Promise<void> {
-  await response.body?.cancel().catch(() => undefined)
-}
-
-function parseContentLength(response: Response): number | null {
-  const raw = response.headers.get('content-length')
-  if (raw === null) return null
-  const value = Number(raw)
-  return Number.isSafeInteger(value) && value >= 0 ? value : null
-}
-
-function contentTypeExtension(response: Response): string | undefined {
-  const raw = response.headers.get('content-type') ?? ''
+function contentTypeExtension(headers: Headers): string | undefined {
+  const raw = headers.get('content-type') ?? ''
   const contentType = raw.split(';')[0].trim().toLowerCase()
   return CONTENT_TYPE_EXTENSIONS[contentType]
-}
-
-/** One request's outcome, before any body has been read. `retry` never leaves `requestOnce()`. */
-type RequestOutcome =
-  | { kind: 'ok'; response: Response }
-  | { kind: 'gone' }
-  | { kind: 'unavailable'; reason: string }
-  | { kind: 'retry'; reason: string }
-
-/** 404/410 is treated as "withdrawn" (`gone`); 5xx is retried; any other non-`ok` status is
- * `unavailable` without a retry - a second identical request cannot tell us anything new about it. */
-async function requestOnce(url: string, options: ResolvedOptions): Promise<RequestOutcome> {
-  let response: Response
-  try {
-    response = await options.fetchImpl(url, { signal: AbortSignal.timeout(options.timeoutMs) })
-  } catch (error) {
-    return { kind: 'retry', reason: describeError(error, options.timeoutMs) }
-  }
-
-  if (response.status === 404 || response.status === 410) {
-    await discard(response)
-    return { kind: 'gone' }
-  }
-  if (response.status >= 500) {
-    await discard(response)
-    return { kind: 'retry', reason: `HTTP ${response.status}` }
-  }
-  if (!response.ok) {
-    await discard(response)
-    return { kind: 'unavailable', reason: `HTTP ${response.status}` }
-  }
-  return { kind: 'ok', response }
-}
-
-/** One request plus, for a timeout/network/5xx failure, exactly `options.retries` more. */
-async function requestWithRetry(
-  url: string,
-  options: ResolvedOptions,
-): Promise<Exclude<RequestOutcome, { kind: 'retry' }>> {
-  let reason = 'not attempted'
-  for (let attempt = 0; ; attempt++) {
-    const outcome = await requestOnce(url, options)
-    if (outcome.kind !== 'retry') return outcome
-    reason = outcome.reason
-    if (attempt >= options.retries) break
-    options.log?.warn(`news image ${url} failed (${reason}); retrying once`)
-  }
-  return { kind: 'unavailable', reason }
 }
 
 /**
@@ -223,37 +155,6 @@ async function deleteAnyCachedCopy(
 }
 
 /**
- * Streams `response.body`, capping at `MAX_IMAGE_BYTES` of *actually received* bytes regardless of
- * what `content-length` claimed - the header is only a cheap pre-check, applied by the caller before
- * this runs. Returns the whole body as one `Buffer`; `undefined` means the cap was hit and the
- * stream was cancelled.
- */
-async function readCappedBody(response: Response): Promise<Buffer | undefined> {
-  const body = response.body
-  if (body === null) return Buffer.alloc(0)
-
-  const reader = body.getReader()
-  const chunks: Buffer[] = []
-  let received = 0
-
-  for (;;) {
-    const chunk = await reader.read()
-    if (chunk.done) break
-    const value = chunk.value
-    if (value === undefined || value.byteLength === 0) continue
-
-    received += value.byteLength
-    if (received > MAX_IMAGE_BYTES) {
-      await reader.cancel().catch(() => undefined)
-      return undefined
-    }
-    chunks.push(Buffer.from(value))
-  }
-
-  return Buffer.concat(chunks)
-}
-
-/**
  * Fetches `options.sourceUrl`, validates the body, and promotes it into the news-image cache. See
  * the module comment for the four possible outcomes and which one deletes a previously cached copy.
  */
@@ -266,45 +167,31 @@ export async function fetchImage(options: FetchImageOptions): Promise<FetchImage
     ...(options.log !== undefined ? { log: options.log } : {}),
   }
 
-  const outcome = await requestWithRetry(options.sourceUrl, resolved)
+  const outcome = await fetchWithPolicy(options.sourceUrl, {
+    fetchImpl: resolved.fetchImpl,
+    timeoutMs: resolved.timeoutMs,
+    retries: resolved.retries,
+    maxBytes: MAX_IMAGE_BYTES,
+    onRetry: (reason) =>
+      resolved.log?.warn(`news image ${options.sourceUrl} failed (${reason}); retrying once`),
+  })
 
-  if (outcome.kind === 'gone') {
-    await deleteAnyCachedCopy(options.cacheDir, options.sourceUrl, options.log)
-    return { kind: 'gone' }
-  }
-  if (outcome.kind === 'unavailable') {
+  if (!outcome.ok) {
+    if (outcome.kind === 'http-status' && (outcome.status === 404 || outcome.status === 410)) {
+      await deleteAnyCachedCopy(options.cacheDir, options.sourceUrl, options.log)
+      return { kind: 'gone' }
+    }
+    if (outcome.kind === 'too-large') return { kind: 'rejected', reason: outcome.reason }
     return { kind: 'unavailable', reason: outcome.reason }
   }
 
-  const response = outcome.response
-
-  const ext = contentTypeExtension(response)
+  const ext = contentTypeExtension(outcome.headers)
   if (ext === undefined) {
-    await discard(response)
-    const reason = `unsupported content-type ${JSON.stringify(response.headers.get('content-type'))}`
+    const reason = `unsupported content-type ${JSON.stringify(outcome.headers.get('content-type'))}`
     return { kind: 'rejected', reason }
   }
 
-  // Cheap pre-check before a single byte is read: a declared length over the cap is refused
-  // outright, the same way `lib/net/fetcher.ts` refuses a mirror's `content-length` up front.
-  const declaredLength = parseContentLength(response)
-  if (declaredLength !== null && declaredLength > MAX_IMAGE_BYTES) {
-    await discard(response)
-    return {
-      kind: 'rejected',
-      reason: `declared content-length ${declaredLength} exceeds ${MAX_IMAGE_BYTES} bytes`,
-    }
-  }
-
-  let body: Buffer | undefined
-  try {
-    body = await readCappedBody(response)
-  } catch (error) {
-    return { kind: 'unavailable', reason: `body could not be read: ${String(error)}` }
-  }
-  if (body === undefined) {
-    return { kind: 'rejected', reason: `body exceeds ${MAX_IMAGE_BYTES} bytes` }
-  }
+  const body = Buffer.from(outcome.body)
 
   const fileName = newsImageFileName(options.sourceUrl, ext)
   const finalPath = join(options.cacheDir, fileName)

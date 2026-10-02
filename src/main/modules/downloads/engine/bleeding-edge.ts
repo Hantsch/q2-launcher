@@ -1,5 +1,6 @@
 import type { ManifestPackage } from '@shared/modules/downloads'
 import type { EngineKind } from '@shared/types/engine'
+import { fetchWithPolicy, type FetchImpl } from '../../../lib/http'
 
 /**
  * Story 092 D4 (AC4/AC5): probes Q2PRO's own nightly-build feed for "what does bleeding-edge
@@ -22,6 +23,9 @@ const VERSION_FILE_NAME = 'version.txt'
 
 /** Same per-request timeout budget `fetchContentJson`/`ManifestService` use for a manifest fetch. */
 const PROBE_TIMEOUT_MS = 10_000
+
+/** A version string; anything bigger is not a `version.txt`. */
+const MAX_VERSION_BYTES = 64 * 1024
 
 /** `probeBleedingEdge`'s answer (AC5): what "latest" currently resolves to, and its size. */
 export interface BleedingEdgeProbe {
@@ -101,39 +105,46 @@ export async function probeBleedingEdge(
   const assetUrl = pinnedPackage.url
   const versionUrl = versionTxtUrlFor(assetUrl)
 
-  let version: string
-  try {
-    const response = await fetch(versionUrl, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
-    if (!response.ok) {
-      throw new Error(`unexpected status ${response.status}`)
-    }
-    version = (await response.text()).trim()
-  } catch (error) {
-    throw new BleedingEdgeProbeFailedError(`fetching ${versionUrl} failed: ${String(error)}`)
+  // `fetch` is read per call so a stubbed global is honoured.
+  const fetchImpl: FetchImpl = (u, i) => fetch(u, i)
+
+  const versionOutcome = await fetchWithPolicy(versionUrl, {
+    fetchImpl,
+    timeoutMs: PROBE_TIMEOUT_MS,
+    retries: 0,
+    maxBytes: MAX_VERSION_BYTES,
+  })
+  if (!versionOutcome.ok) {
+    throw new BleedingEdgeProbeFailedError(
+      `fetching ${versionUrl} failed: ${versionOutcome.reason}`,
+    )
   }
+  const version = new TextDecoder().decode(versionOutcome.body).trim()
   if (version.length === 0) {
     throw new BleedingEdgeProbeFailedError(`${versionUrl} did not contain a version`)
   }
 
-  let sizeBytes: number
-  try {
-    const response = await fetch(assetUrl, {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-    })
-    if (!response.ok) {
-      throw new Error(`unexpected status ${response.status}`)
-    }
-    const contentLength = response.headers.get('content-length')
-    if (contentLength === null) {
-      throw new Error('response carried no Content-Length header')
-    }
-    sizeBytes = Number(contentLength)
-    if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
-      throw new Error(`unusable Content-Length "${contentLength}"`)
-    }
-  } catch (error) {
-    throw new BleedingEdgeProbeFailedError(`HEAD ${assetUrl} failed: ${String(error)}`)
+  const headOutcome = await fetchWithPolicy(assetUrl, {
+    fetchImpl,
+    timeoutMs: PROBE_TIMEOUT_MS,
+    retries: 0,
+    maxBytes: 0,
+    method: 'HEAD',
+  })
+  if (!headOutcome.ok) {
+    throw new BleedingEdgeProbeFailedError(`HEAD ${assetUrl} failed: ${headOutcome.reason}`)
+  }
+  const contentLength = headOutcome.headers.get('content-length')
+  if (contentLength === null) {
+    throw new BleedingEdgeProbeFailedError(
+      `HEAD ${assetUrl} failed: response carried no Content-Length header`,
+    )
+  }
+  const sizeBytes = Number(contentLength)
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0) {
+    throw new BleedingEdgeProbeFailedError(
+      `HEAD ${assetUrl} failed: unusable Content-Length "${contentLength}"`,
+    )
   }
 
   return { version, sizeBytes, url: assetUrl }

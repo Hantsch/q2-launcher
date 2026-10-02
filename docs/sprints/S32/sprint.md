@@ -32,7 +32,7 @@ correct error message where they used to see English prose or a path.
 - [x] 207 — modules own their persisted state
 - [x] 208 — layer rules are a test and a linter, not a convention
 - [x] 209 — modules reach Electron and the harness only through the shell
-- [ ] 221 — HTTP fetches share one timeout and size policy
+- [x] 221 — HTTP fetches share one timeout and size policy
 - [ ] 222 — platform rules live in one module
 - [ ] 220 — package staging is one path and the dead download queue is gone
 - [ ] 219 — jobs share one runner, one busy rule and one failure log

@@ -37,11 +37,8 @@ vi.mock('electron', () => ({
 const T0 = Date.parse('2026-03-01T12:00:00.000Z')
 
 function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): Response {
-  return {
-    ok: init?.ok ?? true,
-    status: init?.status ?? 200,
-    json: () => Promise.resolve(body),
-  } as unknown as Response
+  const status = init?.status ?? (init?.ok === false ? 500 : 200)
+  return new Response(JSON.stringify(body), { status })
 }
 
 function fakeLogger(): Logger {

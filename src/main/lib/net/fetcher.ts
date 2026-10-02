@@ -9,6 +9,7 @@ import {
   getFinalPath,
   getPartPath,
 } from './download-cache-paths'
+import { delay, describeFetchError, type FetchImpl } from '../http'
 import { verifyAndPromote } from './verify'
 
 /**
@@ -55,7 +56,7 @@ import { verifyAndPromote } from './verify'
  * global `Response`), so the test double is the real thing pointed somewhere else, not a mock of
  * a response object.
  */
-export type FetchImpl = (url: string, init: { signal: AbortSignal }) => Promise<Response>
+export type { FetchImpl } from '../http'
 
 /** Time the server has to produce response headers. Decisions (Sprint): 30s. */
 export const DEFAULT_HEADERS_TIMEOUT_MS = 30_000
@@ -178,22 +179,6 @@ async function removePart(partPath: string): Promise<void> {
   }
 }
 
-/** Abortable sleep, so cancelling does not have to wait out a retry pause. */
-function delay(ms: number, signal?: AbortSignal): Promise<void> {
-  if (ms <= 0 || signal?.aborted === true) return Promise.resolve()
-  return new Promise<void>((resolve) => {
-    const timer = setTimeout(resolve, ms)
-    signal?.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer)
-        resolve()
-      },
-      { once: true },
-    )
-  })
-}
-
 /**
  * Ends a write stream and waits for `'close'`, i.e. for the file descriptor to actually be gone.
  * Both this and `discardFile()` wait, because the `.part` file is deleted immediately afterwards
@@ -265,7 +250,7 @@ async function attemptDownload(context: AttemptContext): Promise<AttemptResult> 
         retryable: true,
       }
     }
-    return { kind: 'transport', reason: String(error), retryable: true }
+    return { kind: 'transport', reason: describeFetchError(error), retryable: true }
   }
 
   try {

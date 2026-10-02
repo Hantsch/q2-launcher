@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { MasterSource } from '@shared/modules/servers'
 import { MASTER_REPLY_HEADER, masterSourceFailureKey } from '@shared/servers/master-records'
-import type { FetchImpl } from '../../lib/net/fetcher'
+import type { FetchImpl } from '../../lib/http'
 import { resolveSources, type ResolveSourcesDeps } from './source-resolution'
 import type { MasterUdpImpl } from './udp-master-source'
 
@@ -85,20 +85,17 @@ describe('resolveSources', () => {
       enabled: true,
     }
 
-    // A response that reports success but whose body read rejects - `resolveHttpListSource` only
-    // wraps the `fetch` call itself in try/catch (see its file doc comment), so this is a genuine
-    // unhandled rejection escaping that function, not a value it returns.
+    // A real 200 response whose body stream errors mid-read: the shared reader must turn that
+    // into a transport-error outcome rather than letting it escape.
     const fetchImpl: FetchImpl = async () =>
-      ({
-        ok: true,
-        status: 200,
-        text: async () => {
-          throw new Error('body read failed')
-        },
-        arrayBuffer: async () => {
-          throw new Error('body read failed')
-        },
-      }) as unknown as Response
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.error(new Error('boom'))
+          },
+        }),
+        { status: 200 },
+      )
 
     const result = await resolveSources(
       [udpOkSource, httpThrowSource],
@@ -112,6 +109,33 @@ describe('resolveSources', () => {
     expect(result.addresses[0]?.normalized).toBe('5.6.7.8:27920')
     expect(result.failures).toEqual([
       { sourceId: 'http-throw', reasonKey: masterSourceFailureKey('transport-error') },
+    ])
+  })
+
+  it('a hanging http-list source ends at its budget as transport-error while the other sources still resolve', async () => {
+    const hangingSource: MasterSource = {
+      id: 'http-hang',
+      type: 'http-list',
+      address: 'http://example.test/hang?raw=1',
+      enabled: true,
+    }
+    const fetchImpl: FetchImpl = (_url, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init.signal.addEventListener('abort', () => reject(init.signal.reason), { once: true })
+      })
+
+    const result = await resolveSources(
+      [hangingSource, udpOkSource],
+      baseDeps({
+        udpImpl: udpStub(reply(record(5, 6, 7, 8, 27920))),
+        fetchImpl,
+        httpListTimeoutMs: 20,
+      }),
+    )
+
+    expect(result.addresses.map((a) => a.normalized)).toEqual(['5.6.7.8:27920'])
+    expect(result.failures).toEqual([
+      { sourceId: 'http-hang', reasonKey: masterSourceFailureKey('transport-error') },
     ])
   })
 

@@ -2,11 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ContentRepoHttpError, contentRepoUrl, fetchContentJson } from './content-repo'
 
 function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): Response {
-  return {
-    ok: init?.ok ?? true,
-    status: init?.status ?? 200,
-    json: () => Promise.resolve(body),
-  } as unknown as Response
+  const status = init?.status ?? (init?.ok === false ? 500 : 200)
+  return new Response(JSON.stringify(body), { status })
 }
 
 describe('content-repo', () => {
@@ -87,5 +84,18 @@ describe('content-repo', () => {
 
     expect(error).toBeInstanceOf(ContentRepoHttpError)
     expect((error as ContentRepoHttpError).status).toBe(500)
+  })
+
+  it('a request that never answers fails with the timeout reason instead of hanging', async () => {
+    fetchMock.mockImplementation(
+      (_url: string, init: { signal: AbortSignal }) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal.addEventListener('abort', () => reject(init.signal.reason), { once: true })
+        }),
+    )
+
+    await expect(fetchContentJson('engines/manifest.json', { timeoutMs: 20 })).rejects.toThrow(
+      /no response within 20ms/,
+    )
   })
 })

@@ -9,12 +9,11 @@
  * for `http-list` the source's own URL picks `raw` mode), and how one source's failure is kept from
  * ever taking the others down with it.
  *
- * Both transport seams already document themselves as "never throws" for the failures they know
- * about, but a resolve call can still reject for a reason neither seam guards (e.g. a response body
- * that errors mid-read in `resolveHttpListSource`, since only the `fetch` call itself, not
- * `response.text()`/`arrayBuffer()`, is wrapped there). `Promise.allSettled` is used rather than
- * `Promise.all` specifically so such a rejection is caught right here, per source, instead of
- * rejecting the whole `resolveSources` call and losing every other source's addresses with it.
+ * Both transport seams document themselves as "never throws". `Promise.allSettled` is still used
+ * rather than `Promise.all` so an unexpected rejection from one source is caught right here, per
+ * source, instead of rejecting the whole `resolveSources` call and losing every other source's
+ * addresses with it. An HTTP source that stalls ends at its own time budget (`httpListTimeoutMs`),
+ * so it cannot hold the other sources' results back.
  */
 
 import type { MasterSource } from '@shared/modules/servers'
@@ -22,7 +21,7 @@ import type { ScanSourceFailure } from '@shared/modules/servers'
 import type { ParsedServerAddress } from '@shared/servers/address'
 import { parseServerAddress } from '@shared/servers/address'
 import { masterSourceFailureKey, type MasterSourceFailure } from '@shared/servers/master-records'
-import type { FetchImpl } from '../../lib/net/fetcher'
+import type { FetchImpl } from '../../lib/http'
 import {
   dgramMasterUdp,
   resolveUdpMasterSource,
@@ -45,6 +44,7 @@ export interface ResolveSourcesDeps {
   clock?: Clock
   quietPeriodMs?: number
   firstReplyTimeoutMs?: number
+  httpListTimeoutMs?: number
   signal?: AbortSignal
 }
 
@@ -97,6 +97,7 @@ async function resolveOneSource(
     raw: deriveHttpListRaw(source.address),
     fetchImpl: deps.fetchImpl,
     signal: deps.signal,
+    timeoutMs: deps.httpListTimeoutMs,
   })
 }
 

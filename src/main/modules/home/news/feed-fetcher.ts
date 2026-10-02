@@ -1,4 +1,5 @@
 import { contentRepoUrl } from '../../../lib/content-repo'
+import { fetchWithPolicy, type FetchImpl } from '../../../lib/http'
 import type { NewsSource } from './harness'
 
 /**
@@ -65,6 +66,9 @@ export const NEWS_FETCH_TIMEOUT_MS = 5_000
 /** Extra requests after a retryable failure. Decisions (Sprint): 1. */
 export const NEWS_FETCH_RETRIES = 1
 
+/** Cap per news document (index or `.md`); the feed is foreign content read fully into memory. */
+export const NEWS_DOCUMENT_MAX_BYTES = 1024 * 1024
+
 /**
  * An index entry's `file` is foreign content used to build a URL, so it is refused unless it is one
  * boring path segment: ASCII letters/digits/`_`/`.`/`-`, starting with a letter or digit. That rules
@@ -82,10 +86,7 @@ export function isSafeNewsDocumentName(name: string): boolean {
 }
 
 /** Satisfied by both the global `fetch` and Electron's `net.fetch`; see the module comment. */
-export type NewsFetchImpl = (
-  url: string,
-  init: { signal: AbortSignal; headers: Record<string, string> },
-) => Promise<Response>
+export type NewsFetchImpl = FetchImpl
 
 /** Structurally satisfied by `Logger` (`src/main/lib/logger.ts`); kept minimal for the tests. */
 export interface NewsFetchLog {
@@ -164,76 +165,13 @@ interface ResolvedOptions {
   log?: NewsFetchLog
 }
 
-/** One request's outcome. `retry` is internal - it never leaves `attemptRequest()`. */
+/** One request's outcome. */
 type RequestOutcome =
   | { kind: 'ok'; text: string; etag: string }
   | { kind: 'not-modified' }
   | { kind: 'failed'; reason: string }
 
-type AttemptOutcome = RequestOutcome | { kind: 'retry'; reason: string }
-
 const defaultFetchImpl: NewsFetchImpl = (url, init) => fetch(url, init)
-
-/** `AbortSignal.timeout` rejects with a `TimeoutError`; anything else is a genuine network error. */
-function describeError(error: unknown, timeoutMs: number): string {
-  if (error instanceof Error && error.name === 'TimeoutError') {
-    return `no response within ${timeoutMs}ms`
-  }
-  const cause =
-    error instanceof Error && error.cause !== undefined ? ` (${String(error.cause)})` : ''
-  return `${String(error)}${cause}`
-}
-
-async function discard(response: Response): Promise<void> {
-  await response.body?.cancel().catch(() => undefined)
-}
-
-async function attemptRequest(
-  url: string,
-  etag: string | undefined,
-  options: ResolvedOptions,
-): Promise<AttemptOutcome> {
-  // An empty stored value means "known document, no validator" - the request then goes out
-  // unconditionally rather than with a meaningless `If-None-Match: `.
-  const headers: Record<string, string> =
-    etag !== undefined && etag !== '' ? { 'if-none-match': etag } : {}
-
-  let response: Response
-  try {
-    response = await options.fetchImpl(url, {
-      signal: AbortSignal.timeout(options.timeoutMs),
-      headers,
-    })
-  } catch (error) {
-    // A timeout and a dropped connection are the same kind of "ask again" (Decisions (Sprint)).
-    return { kind: 'retry', reason: describeError(error, options.timeoutMs) }
-  }
-
-  if (response.status === 304) {
-    await discard(response)
-    return { kind: 'not-modified' }
-  }
-  if (response.status >= 500) {
-    await discard(response)
-    return { kind: 'retry', reason: `HTTP ${response.status}` }
-  }
-  if (!response.ok) {
-    // 4xx (and any leftover redirect `fetch` did not follow): a second identical request cannot fix
-    // a document that is not there.
-    await discard(response)
-    return { kind: 'failed', reason: `HTTP ${response.status}` }
-  }
-
-  try {
-    const text = await response.text()
-    return { kind: 'ok', text, etag: response.headers.get('etag') ?? '' }
-  } catch (error) {
-    return {
-      kind: 'retry',
-      reason: `body could not be read: ${describeError(error, options.timeoutMs)}`,
-    }
-  }
-}
 
 /** One request plus, for a timeout/network/5xx failure, exactly `options.retries` more. */
 async function request(
@@ -241,15 +179,28 @@ async function request(
   etag: string | undefined,
   options: ResolvedOptions,
 ): Promise<RequestOutcome> {
-  let reason = 'not attempted'
-  for (let attempt = 0; ; attempt++) {
-    const outcome = await attemptRequest(url, etag, options)
-    if (outcome.kind !== 'retry') return outcome
-    reason = outcome.reason
-    if (attempt >= options.retries) break
-    options.log?.warn(`news: ${url} failed (${reason}); retrying once`)
+  // An empty stored value means "known document, no validator" - the request then goes out
+  // unconditionally rather than with a meaningless `If-None-Match: `.
+  const headers: Record<string, string> =
+    etag !== undefined && etag !== '' ? { 'if-none-match': etag } : {}
+
+  const outcome = await fetchWithPolicy(url, {
+    fetchImpl: options.fetchImpl,
+    timeoutMs: options.timeoutMs,
+    retries: options.retries,
+    maxBytes: NEWS_DOCUMENT_MAX_BYTES,
+    headers,
+    onRetry: (reason) => options.log?.warn(`news: ${url} failed (${reason}); retrying once`),
+  })
+  if (outcome.ok) {
+    return {
+      kind: 'ok',
+      text: new TextDecoder().decode(outcome.body),
+      etag: outcome.headers.get('etag') ?? '',
+    }
   }
-  return { kind: 'failed', reason }
+  if (outcome.kind === 'http-status' && outcome.status === 304) return { kind: 'not-modified' }
+  return { kind: 'failed', reason: outcome.reason }
 }
 
 /** The base every news URL is built on: the production content repo, or the harness's loopback. */
