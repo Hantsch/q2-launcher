@@ -1,7 +1,7 @@
 ---
 id: 134
 title: a native helper steers Q2PRO when cfg polling cannot
-status: draft # draft -> ready -> in-progress -> done
+status: withdrawn # spike 133 ended in go
 created: 2026-09-27
 ---
 
