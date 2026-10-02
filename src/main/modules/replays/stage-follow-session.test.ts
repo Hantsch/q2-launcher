@@ -169,3 +169,20 @@ describe('stage follow sessions', () => {
     expect(lines).toEqual([])
   })
 })
+
+describe('stage follow sessions dispose', () => {
+  it('dispose ends the live follower and drops its window subscription', () => {
+    const t = setup()
+    const end = t.sessions.begin({ geometry: '800x600+10+20', rect: RECT })
+    expect(t.win.listeners.size).toBe(1)
+
+    t.sessions.dispose()
+
+    expect(t.win.listeners.size).toBe(0)
+    expect(t.sessions.hasFollower()).toBe(false)
+    expect(t.sessions.pin('1920x1080+0+0')).toBe(false)
+    // The session's own end afterwards is a no-op, not a second dispose.
+    expect(() => end()).not.toThrow()
+    expect(t.win.listeners.size).toBe(0)
+  })
+})

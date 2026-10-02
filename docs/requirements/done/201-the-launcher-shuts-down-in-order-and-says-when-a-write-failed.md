@@ -1,7 +1,7 @@
 ---
 id: 201
 title: the launcher shuts down in order and says when a write failed
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -32,29 +32,29 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F05, F50, 
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — On the first `before-quit`, main calls `preventDefault()`, releases the playback
+- [x] **AC1** — On the first `before-quit`, main calls `preventDefault()`, releases the playback
       session synchronously first (the Linux channel's last write depends on it), then awaits
       `disposeAll()`, `state.settle()`, `mainWindow.settle()` and every registered persistent
       store, bounded by a timeout of 2–3 s, logs anything that failed or timed out, and then quits.
       A second `before-quit` during that window does not start a second shutdown.
-- [ ] **AC2** — `ModuleSetup` offers `onDispose(cb)`; the registry runs disposers in reverse
+- [x] **AC2** — `ModuleSetup` offers `onDispose(cb)`; the registry runs disposers in reverse
       registration order, a throwing disposer does not stop the others, and the servers and
       downloads module-level `let`/`Set` singletons are gone (grep-zero for `let active` at module
       scope in `src/main/modules/servers`). Registry tests prove order and the throwing case.
-- [ ] **AC3** — `replaysModule` disposes what it subscribes: `launch.onStateChange`,
+- [x] **AC3** — `replaysModule` disposes what it subscribes: `launch.onStateChange`,
       `onBeforePlaybackRelease`, main-window observer listeners, stage-follow sessions, the cinema
       controller and the playback channel (`close()` added where missing); a test registers the
       module twice and asserts no double subscription.
-- [ ] **AC4** — `AppContext` has a `persistence` registry (`register(store)`, `settleAll()`); the
+- [x] **AC4** — `AppContext` has a `persistence` registry (`register(store)`, `settleAll()`); the
       five module `JsonStore`s register on creation and are settled at quit.
-- [ ] **AC5** — `JsonStoreOptions.onPersistError` exists; a failed flush retries once after
+- [x] **AC5** — `JsonStoreOptions.onPersistError` exists; a failed flush retries once after
       ~500 ms, then reports; `StateStore` forwards it and the shell shows one toast per session
       (`app.toast.statePersistFailed`, visible text, i18n key). `settle()` resolves `{ ok }` and
       the quit path logs an unsuccessful settle. Unit test with a rejecting `writeFile`.
-- [ ] **AC6** — `StateStore` passes `debounceMs` (~250 ms) like window-state does; a
+- [x] **AC6** — `StateStore` passes `debounceMs` (~250 ms) like window-state does; a
       `state.test.ts` case proves a burst of ten updates produces one write; the existing
       `settle()` call before a launch (`ipc/launch.ts`) still forces the write.
-- [ ] **AC7** — A `ui:flow` toggles a persisted preference, quits the app through the real
+- [x] **AC7** — A `ui:flow` toggles a persisted preference, quits the app through the real
       quit path and asserts the value in `state.json` afterwards.
 
 ## Open Questions
@@ -330,8 +330,8 @@ void` and `settleAll(): Promise<{ label: string; ok: boolean }[]>` — settles i
   exactly one live subscription each" (D9)
 - AC4 → unit `src/main/services/persistence.test.ts` › "settleAll settles every registered store
   and reports each failure", "a rejecting store does not stop the others" (D6); per owner ›
-  "registers its store with persistence" (update service, D6) and "registers its cache with
-  app.persistence" (downloads, mods, replays, news-service tests, D7); settled at quit →
+  "registers its store with persistence" (update service, D6) and "registers its cache(s) with
+  app.persistence" (downloads, mods ["registers its caches with app.persistence"], replays, news-service tests, D7); settled at quit →
   `src/main/shutdown.test.ts` › "releases playback first, then disposes, then settles, then quits" (D10)
 - AC5 → unit `src/main/lib/json-store.test.ts` › "a failed flush retries once, then reports
   through onPersistError and settle resolves { ok: false }", "a failed flush retries once after the
@@ -349,4 +349,18 @@ gate green under the debounce) · AC7 D11.
 
 ## Done
 
-<!-- Filled by /build 201. -->
+Shutdown is now an awaited, bounded sequence (`src/main/shutdown.ts`): release playback, `disposeAll()`, settle state, window store and the `persistence` registry, 3 s cap, logged, then quit. `JsonStore` retries a failed write once and reports it (`onPersistError`, `settle()` -> `{ ok }`); `StateStore` debounces 250 ms and toasts the first failure. Modules release through `onDispose` (servers/downloads singletons gone); replays disposes all its subscriptions.
+
+Commit message: `201: ordered awaited shutdown, persist-failure retry + toast, onDispose lifecycle, debounced state.json`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` 177 files / 2111 tests green; `npm run ui:flow -- <name>` green for `quit-persists-state` and all 21 flows D2-D4 migrated (`settings-downloads-section` needs a fresh `npm run ui:seed` when run after other flows: fixture pollution, not a regression). Review 1 (default tier): PASS. AC -> test as verified: AC1 shutdown.test.ts + flow; AC2 registry/servers/downloads tests; AC3 replays index.test.ts; AC4 persistence.test.ts + per-owner tests; AC5 json-store/state/shutdown tests; AC6 state.test.ts; AC7 flow `quit-persists-state`. No manual residue.
+
+Decisions:
+- `withApp` got an `expectExit` opt-out (`scripts/lib/harness.mjs`, read from a flow's `export const expectExit` by `scripts/flow.mjs`), because a flow that quits the app would otherwise fail its "still alive" check.
+- Plan gap: replays listeners subscribe lazily, so the "twice" test plays a demo (and triggers a stop) in each registry; cinema/stage-follow disposal is proven by their helper tests (reviewer note: not at module level).
+- Added D9b: `playback-stop.ts` also leaked a `launch.onStateChange` listener; now `dispose()`d via `onDispose`.
+- Review fix: a throwing `releasePlayback()` is logged and shutdown continues (otherwise quit stays held); test added.
+- `servers-watchlist` copied `state.json` before the debounced write: now waits for the redeemed code first.
+- Open (not fixed, minor): `cinema.dispose` could be reopened by a late `set(true)`; electron-updater `quitAndInstall` path through the held `before-quit` untested. Pre-existing CRLF in `docs/requirements/done/199-*.md` trips the LF hygiene test in some worktrees.
+
+tiers: D 12 / hard 1 · review default · cycles 1 · agents 16

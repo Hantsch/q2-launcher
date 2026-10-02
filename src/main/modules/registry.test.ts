@@ -174,3 +174,74 @@ describe('MainModuleRegistry feature gating', () => {
     expect(registry.registered()).toEqual(['library'])
   })
 })
+
+describe('MainModuleRegistry disposal', () => {
+  it('disposers run in reverse registration order', async () => {
+    const registry = new MainModuleRegistry()
+    const order: string[] = []
+    await registry.register(
+      {
+        id: 'library',
+        setup: ({ onDispose }) => {
+          onDispose(() => void order.push('library-a'))
+          onDispose(async () => {
+            await Promise.resolve()
+            order.push('library-b')
+          })
+        },
+      },
+      fakeAppContext(),
+    )
+    await registry.register(
+      { id: 'servers', setup: ({ onDispose }) => onDispose(() => void order.push('servers')) },
+      fakeAppContext(),
+    )
+
+    await registry.disposeAll()
+    await registry.disposeAll()
+
+    expect(order).toEqual(['servers', 'library-b', 'library-a'])
+  })
+
+  it('a throwing disposer does not stop the others', async () => {
+    const registry = new MainModuleRegistry()
+    const ran: string[] = []
+    await registry.register(
+      {
+        id: 'library',
+        setup: ({ onDispose }) => {
+          onDispose(() => void ran.push('first'))
+          onDispose(() => {
+            throw new Error('boom')
+          })
+          onDispose(() => Promise.reject(new Error('rejected')))
+          onDispose(() => void ran.push('last'))
+        },
+      },
+      fakeAppContext(),
+    )
+
+    await expect(registry.disposeAll()).resolves.toBeUndefined()
+
+    expect(ran).toEqual(['last', 'first'])
+  })
+
+  it('disposers registered before setup() throws still run', async () => {
+    const registry = new MainModuleRegistry()
+    const disposer = vi.fn()
+    await registry.register(
+      {
+        id: 'library',
+        setup: ({ onDispose }) => {
+          onDispose(disposer)
+          throw new Error('setup failed')
+        },
+      },
+      fakeAppContext(),
+    )
+
+    await registry.disposeAll()
+
+    expect(disposer).toHaveBeenCalledTimes(1)
+  })
+})

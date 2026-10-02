@@ -7,8 +7,8 @@
 // The final step resets the trusted list so the flow leaves defaults behind - later deliverables insert
 // their steps BEFORE that cleanup.
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { STATE_WRITE_GRACE_MS, readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import {
   REPLAYS_PLAY_MISSING_MOD,
   REPLAYS_PLAY_MISSING_MOD_DEMO,
@@ -63,10 +63,13 @@ async function waitFor(predicate, what, timeoutMs = 10_000) {
   }
 }
 
+const trustedModsOf = (doc) => doc.replays?.modWarning?.trustedMods ?? []
 function trustedMods() {
-  const statePath = join(variantUserDataDir('replays-play'), 'state.json')
-  if (!existsSync(statePath)) return []
-  return JSON.parse(readFileSync(statePath, 'utf8')).replays?.modWarning?.trustedMods ?? []
+  try {
+    return trustedModsOf(readStateJson(variantUserDataDir('replays-play')))
+  } catch {
+    return []
+  }
 }
 
 export default async function replaysModWarning({ page, step, shot }) {
@@ -165,6 +168,7 @@ export default async function replaysModWarning({ page, step, shot }) {
   await new Promise((resolve) => setTimeout(resolve, 1_000))
   if (launchCount() !== launchesBefore)
     throw new Error('replays-mod-warning: Cancel must not launch anything')
+  await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_GRACE_MS))
   if (trustedMods().length !== 0) {
     throw new Error(
       `replays-mod-warning: Cancel must trust nothing, got ${JSON.stringify(trustedMods())}`,
@@ -182,8 +186,9 @@ export default async function replaysModWarning({ page, step, shot }) {
     'main.log +demo play-tdm.dm2',
   )
   await waitForExit()
-  await waitFor(
-    () => trustedMods().includes(REPLAYS_PLAY_MISSING_MOD),
+  await waitForStateJson(
+    variantUserDataDir('replays-play'),
+    (doc) => trustedModsOf(doc).includes(REPLAYS_PLAY_MISSING_MOD),
     `state.json trustedMods to contain ${REPLAYS_PLAY_MISSING_MOD}`,
   )
   await page.evaluate(() => {
@@ -246,7 +251,11 @@ export default async function replaysModWarning({ page, step, shot }) {
   step('resetting remembered mods asks again')
   await openSettings()
   await resetBtn.click({ timeout: TIMEOUT_MS })
-  await waitFor(() => trustedMods().length === 0, 'state.json trustedMods to be empty after Reset')
+  await waitForStateJson(
+    variantUserDataDir('replays-play'),
+    (doc) => trustedModsOf(doc).length === 0,
+    'state.json trustedMods to be empty after Reset',
+  )
   await page.waitForFunction(
     () =>
       document.querySelector('[data-testid="replays-mod-warning-reset"]')?.hasAttribute('disabled'),
@@ -276,5 +285,9 @@ export default async function replaysModWarning({ page, step, shot }) {
   await page.evaluate(() =>
     window.q2.invoke('module:invoke', { moduleId: 'replays', type: 'modWarning.resetTrusted' }),
   )
-  await waitFor(() => trustedMods().length === 0, 'state.json trustedMods to be empty again')
+  await waitForStateJson(
+    variantUserDataDir('replays-play'),
+    (doc) => trustedModsOf(doc).length === 0,
+    'state.json trustedMods to be empty again',
+  )
 }

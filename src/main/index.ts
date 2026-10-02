@@ -17,6 +17,7 @@ import {
   type RendererSource,
 } from './lib/renderer-source'
 import { getNewsImagesCacheDir } from './modules/home/images/paths'
+import { installShutdown } from './shutdown'
 import { createMainWindow, type MainWindow } from './window'
 
 const APP_USER_MODEL_ID = 'io.github.hantsch.q2launcher'
@@ -236,11 +237,21 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-app.on('before-quit', () => {
-  // Geometry and state are written asynchronously; make sure they land.
-  void Promise.all([mainWindow?.settle(), context?.state.settle()])
+// Registered at module load, like the quit handlers above; `context` and `mainWindow` are read at
+// quit time and may still be null if quit arrives during boot.
+installShutdown({
+  app,
+  log: logger,
   // The launcher lets go of any playback session's pipe; the game keeps running.
-  context?.launch.releasePlaybackSession()
+  releasePlayback: () => context?.launch.releasePlaybackSession(),
+  disposeModules: async () => {
+    await context?.modules.disposeAll()
+  },
+  settles: [
+    { label: 'state', run: async () => (await context?.state.settle()) ?? { ok: true } },
+    { label: 'window state', run: async () => (await mainWindow?.settle()) ?? { ok: true } },
+    { label: 'persistence', run: async () => (await context?.persistence.settleAll()) ?? [] },
+  ],
 })
 
 process.on('uncaughtException', (error) => {

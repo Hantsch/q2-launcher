@@ -14,6 +14,8 @@ import {
 import { fail, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
 import { JobsService } from '../../services/jobs'
+import { MainModuleRegistry } from '../registry'
+import { PersistenceRegistry } from '../../services/persistence'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { createDiagnosticsCollector, diagnosticsRegistrySize } from './diagnostics'
 import { downloadsModule, UNKNOWN_DOWNLOAD_FAILURE_KEY } from './index'
@@ -146,12 +148,18 @@ beforeEach(async () => {
   vi.stubGlobal('fetch', fetchMock)
 })
 
+/** Disposers the module registered during `setup()`, run newest-first like `MainModuleRegistry.disposeAll()`. */
+const disposers: Array<() => void | Promise<void>> = []
+async function releaseAll(): Promise<void> {
+  for (const dispose of disposers.splice(0).reverse()) await dispose()
+}
+
 afterEach(async () => {
   vi.unstubAllGlobals()
   // Story 073 D2: `setup()` subscribes to `JobsService.onChange`, and `dispose()` is what hands
   // that subscription back - so every test drops its own observer instead of leaving one attached
   // to a discarded jobs service.
-  await downloadsModule.dispose?.()
+  await releaseAll()
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
@@ -167,7 +175,8 @@ async function setUpModule(
   await downloadsModule.setup({
     handle: collectHandlers(handlers),
     emit: vi.fn(),
-    app: { jobs: new JobsService(() => {}), ...app } as ModuleSetup['app'],
+    onDispose: (cb) => void disposers.push(cb),
+    app: { jobs: new JobsService(() => {}), persistence: new PersistenceRegistry(), ...app } as ModuleSetup['app'],
     log: fakeLogger(),
   })
   return handlers
@@ -518,12 +527,34 @@ describe('downloadsModule failure log', () => {
 
   it('dispose stops the observation', async () => {
     const { jobs, state } = await setUpFailureLog()
-    await downloadsModule.dispose?.()
+    await releaseAll()
 
     const id = downloadJob(jobs)
     jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.network' } })
 
     expect(state.getDownloadFailures()).toEqual([])
+  })
+
+  it('disposeAll releases every job subscription', async () => {
+    const registries = [new MainModuleRegistry(), new MainModuleRegistry()]
+    const observed = registries.map(() => ({
+      jobs: new JobsService(() => {}),
+      state: fakeDownloadsState({ ...DEFAULT_DOWNLOADS_SETTINGS }),
+    }))
+    for (const [i, registry] of registries.entries()) {
+      await registry.register(downloadsModule, {
+        ...observed[i],
+        persistence: new PersistenceRegistry(),
+      } as unknown as ModuleSetup['app'])
+    }
+
+    for (const registry of registries) await registry.disposeAll()
+
+    for (const { jobs, state } of observed) {
+      const id = downloadJob(jobs)
+      jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.network' } })
+      expect(state.getDownloadFailures()).toEqual([])
+    }
   })
 
   it('failures answers the persisted log, dismiss and restore move an entry in and out', async () => {
@@ -767,5 +798,15 @@ describe('downloadsModule repair.plan', () => {
     const repairPlan = handlers.get(DOWNLOADS_HANDLERS.repairPlan)!
 
     expect(await repairPlan({ installationId: 'gone' })).toBeUndefined()
+  })
+})
+
+describe('downloadsModule persistence', () => {
+  it('registers its cache with app.persistence', async () => {
+    const labels: string[] = []
+    await setUpModule({
+      persistence: { register: (label: string) => void labels.push(label) },
+    } as unknown as Partial<ModuleSetup['app']>)
+    expect(labels).toEqual(['downloads-manifest'])
   })
 })

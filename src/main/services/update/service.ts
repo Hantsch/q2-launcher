@@ -7,7 +7,8 @@ import type {
   UpdateState,
 } from '@shared/types'
 import { fail, isJobActive, ok } from '@shared/types'
-import { UpdateCheckStore, type UpdateCheckStoreData } from './store'
+import type { PersistenceRegistry } from '../persistence'
+import { UpdateCheckStore,type UpdateCheckStoreData } from './store'
 
 /**
  * Story 097 D3: the update-check service - the only thing that decides *whether* a check runs, and
@@ -292,6 +293,8 @@ export interface UpdateServiceOptions {
   /** Defaults to a real {@link UpdateCheckStore}, built lazily (its path resolves through
    * `app.getPath('userData')`, which is only safe once Electron is ready - and never in a test). */
   store?: Pick<UpdateCheckStore, 'load' | 'save'>
+  /** Where the lazily built default store registers itself so shutdown can settle it. */
+  persistence?: PersistenceRegistry
   now?: () => Date
   timeoutMs?: number
   log?: UpdateServiceLog
@@ -356,7 +359,11 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
   let storeInstance: Pick<UpdateCheckStore, 'load' | 'save'> | undefined
   function store(): Pick<UpdateCheckStore, 'load' | 'save'> {
     if (options.store !== undefined) return options.store
-    storeInstance ??= new UpdateCheckStore(log !== undefined ? { log } : {})
+    if (storeInstance === undefined) {
+      const created = new UpdateCheckStore(log !== undefined ? { log } : {})
+      options.persistence?.register('update-check', created)
+      storeInstance = created
+    }
     return storeInstance
   }
 

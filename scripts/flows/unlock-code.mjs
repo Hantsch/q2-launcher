@@ -39,7 +39,8 @@
 // `env` (the public-key override) `setup()` already computed, since the restarted process still has
 // to verify the same throwaway-signed codes.
 import { generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
-import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync } from 'node:fs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 import { join } from 'node:path'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { variantUserDataDir, withApp } from '../lib/harness.mjs'
@@ -262,7 +263,13 @@ export default async function unlockCode({ page, app, shot, step, variant }) {
 
   // Read back what phase 2 must see from disk, the same way `servers-master-sources.mjs` proves its
   // own restart phase against the persisted bytes rather than re-derived in-memory state.
-  const onDiskAfterAccept = JSON.parse(readFileSync(join(userDataDir, 'state.json'), 'utf8'))
+  const onDiskAfterAccept = await waitForStateJson(
+    userDataDir,
+    (doc) =>
+      Array.isArray(doc.unlock?.codes) &&
+      doc.unlock.codes.some((entry) => entry.code === acceptedCode),
+    'the accepted code in unlock.codes',
+  )
   const storedCodes = onDiskAfterAccept.unlock?.codes
   if (!Array.isArray(storedCodes) || !storedCodes.some((entry) => entry.code === acceptedCode)) {
     throw new Error(

@@ -64,7 +64,13 @@ function setup(
     open = false
     closedCbs.forEach((cb) => cb())
   }
-  return { controller, calls, isOverlayOpen: () => open, userCloses }
+  return {
+    controller,
+    calls,
+    isOverlayOpen: () => open,
+    userCloses,
+    liveClosedListeners: () => closedCbs.size,
+  }
 }
 
 describe('cinema controller', () => {
@@ -199,5 +205,29 @@ describe('cinema controller', () => {
     expect(ended.calls).toEqual(['close', 'display'])
     expect(ended.isOverlayOpen()).toBe(false)
     expect(ended.controller.isOpen()).toBe(false)
+  })
+})
+
+describe('cinema controller dispose', () => {
+  it('dispose closes the overlay, unpins and stops listening for the overlay closing', async () => {
+    const t = setup()
+    await t.controller.set(true)
+    expect(t.liveClosedListeners()).toBe(1)
+    t.calls.length = 0
+
+    t.controller.dispose()
+
+    expect(t.calls).toEqual(['close', 'pin null'])
+    expect(t.controller.isOpen()).toBe(false)
+    expect(t.liveClosedListeners()).toBe(0)
+  })
+
+  it('dispose outside cinema touches neither the overlay nor the pin', () => {
+    const t = setup()
+
+    t.controller.dispose()
+
+    expect(t.calls).toEqual([])
+    expect(t.liveClosedListeners()).toBe(0)
   })
 })

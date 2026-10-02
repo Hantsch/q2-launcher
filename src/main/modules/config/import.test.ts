@@ -193,6 +193,7 @@ async function bootModule(
   await configModule.setup({
     handle,
     emit: () => {},
+    onDispose: () => {},
     app: {
       installations: { find: (id: string) => insts.find((i) => i.id === id), list: () => insts },
       launch: { getState: () => ({ phase: 'idle', installationId: null }) },

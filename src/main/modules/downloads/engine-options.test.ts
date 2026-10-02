@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DOWNLOADS_HANDLERS, type BootstrapEngineOptionsResult } from '@shared/modules/downloads'
 import type { Logger } from '../../lib/logger'
 import { JobsService } from '../../services/jobs'
+import { PersistenceRegistry } from '../../services/persistence'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { fail } from '@shared/types'
 import { stubPlatform } from '../../../test-support/platform'
@@ -195,9 +196,15 @@ beforeEach(async () => {
   vi.stubGlobal('fetch', fetchMock)
 })
 
+/** Disposers the module registered during `setup()`, run newest-first like `MainModuleRegistry.disposeAll()`. */
+const disposers: Array<() => void | Promise<void>> = []
+async function releaseAll(): Promise<void> {
+  for (const dispose of disposers.splice(0).reverse()) await dispose()
+}
+
 afterEach(async () => {
   vi.unstubAllGlobals()
-  await downloadsModule.dispose?.()
+  await releaseAll()
   await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
@@ -206,7 +213,8 @@ async function setUpModule(): Promise<Map<string, ModuleHandler>> {
   await downloadsModule.setup({
     handle: collectHandlers(handlers),
     emit: vi.fn(),
-    app: { jobs: new JobsService(() => {}) } as unknown as ModuleSetup['app'],
+    onDispose: (cb) => void disposers.push(cb),
+    app: { jobs: new JobsService(() => {}), persistence: new PersistenceRegistry() } as unknown as ModuleSetup['app'],
     log: fakeLogger(),
   })
   return handlers

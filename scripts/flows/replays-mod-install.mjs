@@ -5,8 +5,8 @@
 // The "engine" is the fixture's stand-in client (see `replays-play-q2pro.mjs`); the catalog and its one
 // package are served by the offline fixture server (`modsReplays`), so nothing leaves the machine.
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { STATE_WRITE_GRACE_MS, readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import {
   REPLAYS_MOD_INSTALL_VARIANT,
   REPLAYS_PLAY_MISSING_MOD,
@@ -64,10 +64,13 @@ async function waitFor(predicate, what, timeoutMs = 10_000) {
   }
 }
 
+const trustedModsOf = (doc) => doc.replays?.modWarning?.trustedMods ?? []
 function trustedMods() {
-  const statePath = join(variantUserDataDir(REPLAYS_MOD_INSTALL_VARIANT), 'state.json')
-  if (!existsSync(statePath)) return []
-  return JSON.parse(readFileSync(statePath, 'utf8')).replays?.modWarning?.trustedMods ?? []
+  try {
+    return trustedModsOf(readStateJson(variantUserDataDir(REPLAYS_MOD_INSTALL_VARIANT)))
+  } catch {
+    return []
+  }
 }
 
 export default async function replaysModInstall({ page, step, shot }) {
@@ -133,6 +136,7 @@ export default async function replaysModInstall({ page, step, shot }) {
   }
 
   step('install does not trust the mod')
+  await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_GRACE_MS))
   if (trustedMods().includes(REPLAYS_PLAY_MISSING_MOD)) {
     throw new Error(
       `replays-mod-install: Install must not trust the mod, got ${JSON.stringify(trustedMods())}`,

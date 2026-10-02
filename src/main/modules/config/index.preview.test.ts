@@ -157,6 +157,7 @@ describe('CONFIG_HANDLERS.preview handler', () => {
     await configModule.setup({
       handle: collectHandlers(handlers),
       emit: () => {},
+      onDispose: () => {},
       app: {
         installations: {
           find: (id: string) => (id === inst.id ? inst : undefined),
@@ -214,6 +215,7 @@ describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
     await configModule.setup({
       handle: collectHandlers(handlers),
       emit: () => {},
+      onDispose: () => {},
       app: {
         installations: { find: () => undefined, list: () => [] },
         // Story 022 D7: `setActions` now triggers a sync run, which reads the

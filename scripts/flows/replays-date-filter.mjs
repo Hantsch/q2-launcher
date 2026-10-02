@@ -20,6 +20,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { AXE_RUN_OPTIONS } from '../lib/session.mjs'
 import {
@@ -53,14 +54,6 @@ export async function teardown() {
   removeReplaysDateFilterFixture()
 }
 
-function statePath() {
-  return join(variantUserDataDir(variant), 'state.json')
-}
-
-function readStateJson() {
-  return JSON.parse(readFileSync(statePath(), 'utf8'))
-}
-
 /** Same reasoning/idiom as `replays-filter-search.mjs`'s own helper. */
 async function waitForCondition(predicate, label, timeout = TIMEOUT_MS) {
   const deadline = Date.now() + timeout
@@ -69,11 +62,6 @@ async function waitForCondition(predicate, label, timeout = TIMEOUT_MS) {
     if (Date.now() >= deadline) throw new Error(`timed out waiting for ${label}`)
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
   }
-}
-
-async function waitForStateJson(predicate, label) {
-  await waitForCondition(() => predicate(readStateJson()), label, 4_000)
-  return readStateJson()
 }
 
 /** Same reasoning/idiom as `replays-filter-search.mjs`'s own `waitForDemosScanToFinish`. */
@@ -457,7 +445,7 @@ export default async function replaysDateFilter({ page, step, shot }) {
   await page.getByTestId('replays-filter-date-clear').click({ timeout: TIMEOUT_MS })
   await waitForVisibleSet(page, ALL_NAMES, 'cleared at the end of the run')
 
-  await waitForStateJson(() => true, 'a settled state.json before exit')
+  await waitForStateJson(variantUserDataDir(variant), () => true, 'a settled state.json before exit')
 
   console.log(
     'replays-date-filter: presets and a custom from/to range each narrow the list correctly, an ' +

@@ -17,6 +17,7 @@ import { deleteStoredIcon, InstallationIconsService } from './services/installat
 import { InstallationsService } from './services/installations'
 import { JobsService } from './services/jobs'
 import { LaunchService } from './services/launch'
+import { PersistenceRegistry } from './services/persistence'
 import { StateStore } from './services/state'
 import { createUpdateBackend, createUpdateChecker } from './services/update/checker'
 import { createUpdateService, type UpdateService } from './services/update/service'
@@ -101,6 +102,8 @@ export interface AppContext {
    * re-verified unlock state and then frozen for the process lifetime - a code redeemed
    * mid-session takes effect only at the next start. `modules` was built with this same gate. */
   features: FeatureGate
+  /** Every persisted store registers here; shutdown settles them all through it. */
+  persistence: PersistenceRegistry
 }
 
 export async function createAppContext(options: {
@@ -117,8 +120,11 @@ export async function createAppContext(options: {
   cinemaWindow: CinemaWindow
 }): Promise<AppContext> {
   const broadcast = new Broadcaster()
+  const persistence = new PersistenceRegistry()
 
-  const state = new StateStore(stateFilePath())
+  const state = new StateStore(stateFilePath(), {
+    onPersistError: () => broadcast.toast('error', 'app.toast.statePersistFailed'),
+  })
   await state.load()
 
   // Story 094 D2: `InstallationsService` is constructed before `LaunchService`/`writeGuard` exist
@@ -182,6 +188,7 @@ export async function createAppContext(options: {
     isGameRunning: () => launch.isRunning(),
     listJobs: () => jobs.list(),
     onStateChange: (updateState) => broadcast.emit('update:state', updateState),
+    persistence,
     log: scopedLogger('update'),
   })
 
@@ -220,6 +227,7 @@ export async function createAppContext(options: {
     update,
     unlock,
     features,
+    persistence,
   }
 
   await registerModules(context)

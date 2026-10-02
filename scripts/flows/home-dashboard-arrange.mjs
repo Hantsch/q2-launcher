@@ -17,9 +17,8 @@
 // Selectors, not guesses - read Dashboard.tsx/DashboardTile.tsx before changing any of these:
 //   home-dashboard              Dashboard.tsx - the dashboard's own container
 //   dashboard-tile-<moduleId>   DashboardTile.tsx - one per placed tile, keyed by its moduleId
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { resize, variantUserDataDir } from '../lib/harness.mjs'
+import { STATE_WRITE_GRACE_MS, readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -161,17 +160,18 @@ async function waitForTileAtCell(page, moduleId, expected, label) {
 
 /** `state.json`'s `homeLayout` as it is on disk right now - read fresh, no restart (AC10). */
 function readPersistedHomeLayout() {
-  const statePath = join(variantUserDataDir('populated'), 'state.json')
-  return JSON.parse(readFileSync(statePath, 'utf8')).homeLayout
+  return readStateJson(variantUserDataDir('populated')).homeLayout
 }
 
-function assertPersistedLayout(expected, label) {
-  const actual = JSON.stringify(readPersistedHomeLayout())
-  if (actual !== JSON.stringify(expected)) {
-    throw new Error(
-      `${label}: expected state.json's homeLayout to be ${JSON.stringify(expected)}, got ${actual}`,
-    )
-  }
+/** Waits for the layout the app just wrote; `unchanged` first lets a pending debounced write land. */
+async function assertPersistedLayout(expected, label, { unchanged = false } = {}) {
+  if (unchanged) await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_GRACE_MS))
+  const want = JSON.stringify(expected)
+  await waitForStateJson(
+    variantUserDataDir('populated'),
+    (doc) => JSON.stringify(doc.homeLayout) === want,
+    `${label}: state.json's homeLayout to be ${want}`,
+  )
 }
 
 /**
@@ -302,8 +302,8 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
   }
   console.log('widening back to 1280x800 restored every tile to its exact original rect (AC2)')
 
-  const statePath = join(variantUserDataDir('populated'), 'state.json')
-  const state = JSON.parse(readFileSync(statePath, 'utf8'))
+  await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_GRACE_MS))
+  const state = readStateJson(variantUserDataDir('populated'))
   const actualHomeLayout = JSON.stringify(state.homeLayout)
   const expectedHomeLayout = JSON.stringify(EXPECTED_HOME_LAYOUT)
   if (actualHomeLayout !== expectedHomeLayout) {
@@ -419,16 +419,12 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
     "reset restored both tiles to DEFAULT_HOME_LAYOUT's exact 6x5 cells, after a confirm dialog (AC12)",
   )
 
-  const resetStatePath = join(variantUserDataDir('populated'), 'state.json')
-  const resetState = JSON.parse(readFileSync(resetStatePath, 'utf8'))
-  const actualResetLayout = JSON.stringify(resetState.homeLayout)
   const expectedResetLayout = JSON.stringify(DEFAULT_HOME_LAYOUT)
-  if (actualResetLayout !== expectedResetLayout) {
-    throw new Error(
-      `state.json's homeLayout after reset does not match DEFAULT_HOME_LAYOUT - expected ` +
-        `${expectedResetLayout}, got ${actualResetLayout}`,
-    )
-  }
+  await waitForStateJson(
+    variantUserDataDir('populated'),
+    (doc) => JSON.stringify(doc.homeLayout) === expectedResetLayout,
+    `state.json's homeLayout after reset to match DEFAULT_HOME_LAYOUT ${expectedResetLayout}`,
+  )
   console.log(
     "state.json's homeLayout now matches DEFAULT_HOME_LAYOUT - the reset was persisted immediately",
   )
@@ -479,7 +475,7 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
   const afterMoveLayout = {
     tiles: [movedPlaytime, { moduleId: 'configProfiles', x: 6, y: 0, w: 6, h: 5 }],
   }
-  assertPersistedLayout(afterMoveLayout, 'after an accepted pointer move')
+  await assertPersistedLayout(afterMoveLayout, 'after an accepted pointer move')
   console.log(
     "state.json's homeLayout already carries the new row - an accepted drop is on disk immediately, " +
       'before any restart (AC10)',
@@ -524,7 +520,7 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
   const afterResizeLayout = {
     tiles: [resizedPlaytime, { moduleId: 'configProfiles', x: 6, y: 0, w: 6, h: 5 }],
   }
-  assertPersistedLayout(afterResizeLayout, 'after an accepted pointer resize')
+  await assertPersistedLayout(afterResizeLayout, 'after an accepted pointer resize')
   console.log("state.json's homeLayout carries the new 5x6 size immediately as well (AC10)")
   await shot('pointer-resize-accepted')
 
@@ -568,7 +564,9 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
     await tileRect(page, 'playtime'),
     'playtime across an invalid drop',
   )
-  assertPersistedLayout(afterResizeLayout, 'after a refused pointer move')
+  await assertPersistedLayout(afterResizeLayout, 'after a refused pointer move', {
+    unchanged: true,
+  })
   console.log(
     'the refused drop left playtime at its stored placement and state.json untouched - "shown as ' +
       'invalid" and "not applied" are the same code path (AC5)',
@@ -612,7 +610,7 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
     placedConfigProfiles,
     'configProfiles after being dragged out of the catalog',
   )
-  assertPersistedLayout(
+  await assertPersistedLayout(
     { tiles: [resizedPlaytime, placedConfigProfiles] },
     'after a catalog entry was dragged onto the grid',
   )

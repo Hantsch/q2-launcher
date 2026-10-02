@@ -53,9 +53,9 @@ import { readServerHistory, recordServerVisit } from './history-log'
 import { addManualServer, removeManualServer } from './manual-servers'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
 import { discoverLanServers } from './lan-discovery'
-import { createScanCadence, type ScanCadence } from './scan-cadence'
+import { createScanCadence } from './scan-cadence'
 import { createScanService, type ScanService } from './scan-service'
-import { createRegexHost, type RegexHost } from './watchlist-regex-host'
+import { createRegexHost } from './watchlist-regex-host'
 import {
   createWatchlistService,
   type WatchlistScanHost,
@@ -75,47 +75,19 @@ import {
  * only on success.
  *
  * Story 114 D6 adds the `scan.*` handlers and replaces `overview.read`'s hardcoded zeroed object
- * with the real `ScanService`'s numbers - `activeScanService` is a module-level reference (mirroring
- * `src/main/modules/downloads/index.ts`'s `subscriptions` set) so this file's own static `dispose()`
- * can reach whichever service the most recent `setup()` created.
- *
- * Story 115 D3 adds `activeScanCadence` the same way: the auto-scan-on-open / auto-refresh timer
- * owner (`scan-cadence.ts`), so `dispose()` can tear its timer down on shutdown.
- *
- * Story 125 D3 adds `activeHistorySubscription`: `setup()` subscribes to `app.launch.onStateChange`
- * directly (not through `ScanService`/`ScanCadence`, which have their own unrelated launch
- * subscriptions) to record a history visit on a successful join. The unsubscribe function is kept
- * the same way `activeScanService`/`activeScanCadence` keep their disposers, so a superseded
- * `setup()`'s listener cannot outlive it and `dispose()` can always reach the current one.
- *
- * Story 131 D5 adds `activeWatchlistService`/`activeRegexHost` the same way - but, unlike every
- * other pair here, they are only ever created when `app.features.isFeatureUnlocked('watchlist')`
- * is true at `setup()` time (AC10: a locked feature must have no worker thread, no service
- * instance and no observer attached to the scan service at all - not merely a hidden one). A
- * locked `setup()` leaves both `null`, so `dispose()`'s optional calls below are no-ops for it.
+ * with the real `ScanService`'s numbers. Everything `setup()` creates (scan service, cadence, launch
+ * subscription, and - only while the `'watchlist'` feature is unlocked - watchlist service and regex
+ * host) lives in its closure and is released through `onDispose`; the module holds no state of its own.
  */
-let activeScanService: ScanService | null = null
-let activeScanCadence: ScanCadence | null = null
-let activeHistorySubscription: (() => void) | null = null
-let activeWatchlistService: WatchlistService | null = null
-let activeRegexHost: RegexHost | null = null
-
 export const serversModule: MainModule = {
   id: 'servers',
 
-  setup({ handle, emit, app, log }) {
+  setup({ handle, emit, app, log, onDispose }) {
     // Reads `app.state.serversState()` live at call time, never a snapshot captured here - sources/
     // favourites/manual servers can be mutated by the handlers below in between two scans.
     // Story 116 D3: both halves take `app.launch` (structurally a `LaunchHost`) and each reads it
     // live at decision time, so neither depends on the other's `onStateChange` listener running
-    // first. A superseded service is retired too now that it holds a launch subscription.
-    activeScanCadence?.dispose()
-    activeScanService?.dispose()
-    activeHistorySubscription?.()
-    activeWatchlistService?.dispose()
-    activeRegexHost?.dispose()
-    activeWatchlistService = null
-    activeRegexHost = null
+    // first. Disposers run in reverse creation order: the cadence stops before the scan it feeds.
 
     /**
      * Story 131 D5: the watchlist's service/worker are only ever constructed while the
@@ -130,7 +102,7 @@ export const serversModule: MainModule = {
     let watchlistService: WatchlistService | undefined
     if (app.features.isFeatureUnlocked('watchlist')) {
       const regexHost = createRegexHost()
-      activeRegexHost = regexHost
+      onDispose(() => regexHost.dispose())
 
       const watchlistScanHost: WatchlistScanHost = {
         start: (scanOptions) => scanServiceRef.current!.start(scanOptions),
@@ -147,7 +119,8 @@ export const serversModule: MainModule = {
         regexHost,
         emit: (snapshot) => emit(SERVERS_EVENTS.watchlistChanged, snapshot),
       })
-      activeWatchlistService = watchlistService
+      const createdWatchlist = watchlistService
+      onDispose(() => createdWatchlist.dispose())
     }
 
     const scanService = createScanService({
@@ -168,18 +141,16 @@ export const serversModule: MainModule = {
           }),
       },
     })
-    activeScanService = scanService
+    onDispose(() => scanService.dispose())
     scanServiceRef.current = scanService
 
-    // Story 115 D3: a cadence from a superseded `setup()` could no longer be reached by `dispose()`,
-    // so its timer would outlive it - it is retired above, before either reference is replaced.
     const scanCadence = createScanCadence({
       getServersState: () => app.state.serversState(),
       scanService,
       launch: app.launch,
       onError: (error) => log.warn('automatic scan trigger failed', error),
     })
-    activeScanCadence = scanCadence
+    onDispose(() => scanCadence.dispose())
 
     handle(SERVERS_HANDLERS.overviewRead, serversNoInputSchema, () => scanService.overview())
 
@@ -341,7 +312,7 @@ export const serversModule: MainModule = {
      * writes). Same read/run/persist discipline as `favourites.*` above: one snapshot, one slice
      * replaced, the rest of `ServersState` carried over untouched.
      */
-    activeHistorySubscription = app.launch.onStateChange((state) => {
+    const unsubscribeHistory = app.launch.onStateChange((state) => {
       if (state.phase !== 'running' || !state.connect) return
       const current = app.state.serversState()
       const history = recordServerVisit(current.history, {
@@ -350,6 +321,7 @@ export const serversModule: MainModule = {
       })
       app.state.setServersState({ ...current, history })
     })
+    onDispose(unsubscribeHistory)
 
     /**
      * Story 119 D2: the `list.*` sort handlers - same read/merge/persist discipline as
@@ -446,14 +418,5 @@ export const serversModule: MainModule = {
     }
 
     log.debug('servers module ready')
-  },
-
-  dispose() {
-    // Cadence first, so no timer tick can start a new scan after the running one is aborted.
-    activeScanCadence?.dispose()
-    activeScanService?.dispose()
-    activeHistorySubscription?.()
-    activeWatchlistService?.dispose()
-    activeRegexHost?.dispose()
   },
 }

@@ -67,6 +67,7 @@ describe('CONFIG_HANDLERS.rawFiles handler (story 023 D1)', () => {
     await configModule.setup({
       handle: collectHandlers(handlers),
       emit: () => {},
+      onDispose: () => {},
       app: {
         installations: {
           find: (id: string) => installations.find((i) => i.id === id),
@@ -214,6 +215,7 @@ describe('CONFIG_HANDLERS.openFile handler (story 023 D2)', () => {
     await configModule.setup({
       handle: collectHandlers(handlers),
       emit: () => {},
+      onDispose: () => {},
       app: {
         installations: {
           find: (id: string) => installations.find((i) => i.id === id),
@@ -441,6 +443,7 @@ describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
     await configModule.setup({
       handle: collectHandlers(handlers),
       emit: () => {},
+      onDispose: () => {},
       app: {
         installations: {
           find: (id: string) => installations.find((i) => i.id === id),

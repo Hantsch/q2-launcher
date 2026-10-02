@@ -763,6 +763,7 @@ describe('demo.play playback channel (story 164 D4)', () => {
       emitDisplay: vi.fn(),
       setSpeed: vi.fn(),
       settled: vi.fn(() => Promise.resolve()),
+      dispose: vi.fn(() => Promise.resolve()),
     } satisfies PlaybackControl
   }
 
@@ -897,6 +898,7 @@ describe('demo.play on the stage (story 170 D2)', () => {
       emitDisplay: vi.fn(),
       setSpeed: vi.fn(),
       settled: vi.fn(() => Promise.resolve()),
+      dispose: vi.fn(() => Promise.resolve()),
     }) satisfies PlaybackControl
 
   it('stage args sit before +demo', async () => {
@@ -1061,6 +1063,7 @@ describe('demo.play stage cvar restore (story 170 D3)', () => {
       emitDisplay: vi.fn(),
       setSpeed: vi.fn(),
       settled: vi.fn(() => Promise.resolve()),
+      dispose: vi.fn(() => Promise.resolve()),
     } satisfies PlaybackControl
     const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), cvarRestore, playback })
     expect((await h.play('base', 'q2pro-a')).ok).toBe(true)

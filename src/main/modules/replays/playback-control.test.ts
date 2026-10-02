@@ -62,6 +62,7 @@ function fakeLaunch() {
     exit: (phase: LaunchState['phase'] = 'exited') =>
       stateListeners.forEach((l) => l({ phase, installationId: 'a' } as LaunchState)),
     release: () => releaseListeners.forEach((l) => l()),
+    liveListeners: () => ({ state: stateListeners.size, release: releaseListeners.size }),
   }
 }
 
@@ -335,5 +336,65 @@ describe('playback control', () => {
     await t.control.cancel()
     expect(t.win.channel.close).toHaveBeenCalledTimes(1)
     expect(t.events).toHaveLength(0)
+  })
+})
+
+describe('playback control dispose', () => {
+  const PREPARE = { gameDirPath: '/q2/baseq2', durationMs: null, format: 'dm2' as const }
+
+  it('dispose unsubscribes and closes the channel once', async () => {
+    const t = setup('linux')
+    await t.control.prepare(PREPARE)
+    await t.control.attach(IO)
+    expect(t.fl.liveListeners()).toEqual({ state: 1, release: 1 })
+
+    await t.control.dispose()
+
+    expect(t.fl.liveListeners()).toEqual({ state: 0, release: 0 })
+    expect(t.lin.channel.close).toHaveBeenCalledTimes(1)
+    expect(endedCount(t.events)).toBe(1)
+  })
+
+  it('waits for the close the playback release started instead of closing again', async () => {
+    const t = setup('linux')
+    await t.control.prepare(PREPARE)
+    await t.control.attach(IO)
+    t.lin.state.deferClose = true
+
+    t.fl.release()
+    expect(t.lin.channel.close).toHaveBeenCalledTimes(1)
+    let disposed = false
+    const disposing = t.control.dispose().then(() => {
+      disposed = true
+    })
+    await Promise.resolve()
+    expect(disposed).toBe(false)
+
+    t.lin.resolveClose()
+    await disposing
+    expect(t.lin.channel.close).toHaveBeenCalledTimes(1)
+    expect(t.lin.channel.start).toHaveBeenCalledTimes(1)
+    expect(endedCount(t.events)).toBe(1)
+  })
+
+  it('dispose closes a prepared channel whose launch never started, without an ended push', async () => {
+    const t = setup('win32')
+    await t.control.prepare(PREPARE)
+
+    await t.control.dispose()
+
+    expect(t.win.channel.close).toHaveBeenCalledTimes(1)
+    expect(endedCount(t.events)).toBe(0)
+    expect(t.fl.liveListeners()).toEqual({ state: 0, release: 0 })
+  })
+
+  it('a prepare after dispose does not subscribe to the launch service again', async () => {
+    const t = setup('linux')
+    await t.control.prepare(PREPARE)
+    await t.control.dispose()
+
+    await t.control.prepare(PREPARE)
+
+    expect(t.fl.liveListeners()).toEqual({ state: 0, release: 0 })
   })
 })

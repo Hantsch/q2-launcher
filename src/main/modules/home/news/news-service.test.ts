@@ -4,7 +4,15 @@ import { describe, expect, it, vi } from 'vitest'
 import type { NewsFeed } from '@shared/modules/home'
 import type { NewsFeedCacheData } from './feed-cache'
 import type { FetchNewsResult } from './feed-fetcher'
+import type { PersistenceRegistry } from '../../../services/persistence'
 import { createNewsService, type NewsServiceLog } from './news-service'
+
+vi.mock('./feed-cache', () => ({
+  NewsFeedCache: class {
+    read = () => Promise.resolve(undefined)
+    write = () => Promise.resolve()
+  },
+}))
 
 /**
  * Story 082 D6 acceptance tests. Every scenario injects `fetchDocuments` (the seam over
@@ -356,5 +364,21 @@ describe('news-service: getNews() delivery-time sort', () => {
     await service.refreshNews()
     const feed: NewsFeed = await service.getNews()
     expect(feed.slides.map((slide) => slide.id)).toEqual(['b', 'a'])
+  })
+})
+
+describe('news-service: persistence', () => {
+  it('registers its cache with app.persistence', async () => {
+    const labels: string[] = []
+    const persistence = { register: (label: string) => void labels.push(label) }
+    const service = createNewsService({
+      isDev: false,
+      persistence: persistence as unknown as PersistenceRegistry,
+      log: fakeLog(),
+      onChanged: () => {},
+      fetchDocuments: vi.fn(async () => ({ kind: 'unchanged' as const, etags: {} })),
+    })
+    await service.getNews()
+    expect(labels).toEqual(['news-feed'])
   })
 })

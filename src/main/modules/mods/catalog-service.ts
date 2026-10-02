@@ -169,4 +169,9 @@ export class CatalogService {
       return { ok: false, reason: `${MODS_CATALOG_PATH} was refused (every entry was invalid)` }
     return { ok: true, entries: parsed.entries }
   }
+
+  /** Resolves once pending writes have reached the disk; `ok: false` if one failed. */
+  settle(): Promise<{ ok: boolean }> {
+    return this.store.settle()
+  }
 }

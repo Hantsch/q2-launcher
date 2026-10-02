@@ -163,7 +163,7 @@ export async function scanHoldMs({
 export const replaysModule: MainModule = {
   id: 'replays',
 
-  setup({ handle, emit, app, log }) {
+  setup({ handle, emit, app, log, onDispose }) {
     const discoveryContext = (): DiscoverContext => {
       const extractor = resolveExtractorPath({
         isPackaged: electronApp.isPackaged,
@@ -178,9 +178,11 @@ export const replaysModule: MainModule = {
 
     // Story 144 D3: the index scan service. Everything it reads (installations, extra folders,
     // name templates, launch phase) is read at scan time, never captured here.
+    const replaysIndexCache = new ReplaysIndexCache({ log })
+    app.persistence.register('replays-index', replaysIndexCache)
     const scanService = createReplaysScanService({
       emit,
-      cache: new ReplaysIndexCache({ log }),
+      cache: replaysIndexCache,
       discover: () =>
         discoverDemos(
           app.installations.list(),
@@ -240,6 +242,8 @@ export const replaysModule: MainModule = {
       launch: app.launch,
       cinema: () => ({ open: cinema.isOpen(), availability: currentCinemaAvailability() }),
     })
+    // Registered first, so it runs last: the follower and the overlay are let go before the channel.
+    onDispose(() => playbackControl.dispose())
     const demoRename = createDemoRename({
       scan: scanService,
       sidecars: sidecarStore,
@@ -345,6 +349,7 @@ export const replaysModule: MainModule = {
           ),
         ),
     })
+    onDispose(() => stageFollow.dispose())
 
     // Story 187 D5: the one owner of the cinema overlay. Pin before open, close before unpin.
     const cinema = createCinemaController({
@@ -364,6 +369,7 @@ export const replaysModule: MainModule = {
       enterFullscreen: () => playbackControl.enterFullscreen(),
       emitDisplay: () => playbackControl.emitDisplay(),
     })
+    onDispose(() => cinema.dispose())
 
     // Story 172 D5: a fullscreen demo is not steered - the follower rests until it is back on the stage.
     // Story 187 D5: back from a fullscreen entered in cinema, the controller unpins first, then the
@@ -376,11 +382,12 @@ export const replaysModule: MainModule = {
     // Subscribed when the first demo plays, so a module that never plays never touches the window.
     let lastAvailability: string | null = null
     let watchingWindow = false
+    let offWindow: (() => void) | null = null
     const watchAvailability = (): void => {
       lastAvailability = JSON.stringify(currentCinemaAvailability())
       if (watchingWindow) return
       watchingWindow = true
-      app.mainWindow.on((event) => {
+      offWindow = app.mainWindow.on((event) => {
         if (event !== 'move' && event !== 'resize' && event !== 'restore') return
         const next = JSON.stringify(currentCinemaAvailability())
         if (next === lastAvailability) return
@@ -388,6 +395,12 @@ export const replaysModule: MainModule = {
         if (playbackControl.currentFormat() !== null) playbackControl.emitDisplay()
       })
     }
+    onDispose(() => {
+      // A 'playing' push after this point must not subscribe again.
+      watchingWindow = true
+      offWindow?.()
+      offWindow = null
+    })
     playbackControl.onStateChange((state) => {
       if (state === 'playing') watchAvailability()
       cinema.onPlaybackState(state)
@@ -467,6 +480,7 @@ export const replaysModule: MainModule = {
       playbackConsole.send(payload.line),
     )
     const playbackStop = createPlaybackStop({ playback: playbackControl, launch: app.launch })
+    onDispose(() => playbackStop.dispose())
     handle(REPLAYS_HANDLERS.playbackStop, replaysNoInputSchema, () => playbackStop.stop())
     handle(REPLAYS_HANDLERS.playbackCinema, replaysPlaybackCinemaSchema, (payload) =>
       cinema.set(payload.enter),

@@ -6,6 +6,7 @@ import { resolveNewsSource } from './harness'
 import { filterAndSortSlides, resolveFeed } from './feed-pipeline'
 import { fetchNewsDocuments, type NewsFetchImpl, type NewsFetchLog } from './feed-fetcher'
 import { NewsFeedCache, type NewsFeedCacheData } from './feed-cache'
+import type { PersistenceRegistry } from '../../../services/persistence'
 
 /**
  * Story 082 D6: the module's own service - the only thing in `home` that decides *when* the news
@@ -56,6 +57,8 @@ const NEVER_RETRIEVED = new Date(0).toISOString()
 export interface NewsServiceOptions {
   /** `AppContext.isDev` - see `resolveNewsSource()`/`isUiHarnessEnabled()`. */
   isDev: boolean
+  /** Where the lazily built default cache registers itself so shutdown can settle it. */
+  persistence?: PersistenceRegistry
   /** Defaults to `process.env`; a parameter so tests never touch the real one. */
   env?: NodeJS.ProcessEnv
   log: NewsServiceLog
@@ -143,7 +146,11 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
   let cacheInstance: Pick<NewsFeedCache, 'read' | 'write'> | undefined
   function cache(): Pick<NewsFeedCache, 'read' | 'write'> {
     if (options.cache !== undefined) return options.cache
-    cacheInstance ??= new NewsFeedCache({ log: options.log })
+    if (cacheInstance === undefined) {
+      const created = new NewsFeedCache({ log: options.log })
+      options.persistence?.register('news-feed', created)
+      cacheInstance = created
+    }
     return cacheInstance
   }
 

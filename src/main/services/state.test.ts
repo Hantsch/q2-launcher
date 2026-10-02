@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto'
 import { rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  return { ...actual, rename: vi.fn(actual.rename) }
+})
+
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
 import { DEFAULT_DOWNLOADS_SETTINGS, type DownloadFailure } from '@shared/modules/downloads'
 import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
@@ -13,6 +18,7 @@ import {
   type ServerHistoryEntry,
   type ServersState,
 } from '@shared/modules/servers'
+import { rename } from 'node:fs/promises'
 import { StateStore } from './state'
 
 describe('StateStore downloads settings (story 072 D2)', () => {
@@ -520,5 +526,70 @@ describe('StateStore downloadFailures (story 073 D1)', () => {
 
     const jobIds = reloaded.getDownloadFailures().map((entry) => entry.jobId)
     expect(jobIds).toEqual(['still-here'])
+  })
+})
+
+describe('StateStore persistence', () => {
+  let filePath: string
+  const renameSpy = vi.mocked(rename)
+  const downloads = (concurrentJobs: number) => ({
+    ...DEFAULT_DOWNLOADS_SETTINGS,
+    concurrentJobs,
+  })
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    renameSpy.mockClear()
+    filePath = join(tmpdir(), `q2-launcher-state-persist-${randomUUID()}.json`)
+  })
+
+  afterEach(async () => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  it('a burst of ten updates produces one write', async () => {
+    const state = new StateStore(filePath)
+    await state.load()
+    for (let i = 1; i <= 10; i += 1) state.setDownloadsSettings(downloads(i))
+
+    await vi.advanceTimersByTimeAsync(1000)
+    await state.settle()
+
+    expect(renameSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('settle() forces a pending debounced write to disk at once', async () => {
+    const state = new StateStore(filePath)
+    await state.load()
+    state.setDownloadsSettings(downloads(4))
+    expect(renameSpy).not.toHaveBeenCalled()
+
+    const result = await state.settle()
+
+    expect(result).toEqual({ ok: true })
+    const reloaded = new StateStore(filePath)
+    await reloaded.load()
+    expect(reloaded.getDownloadsSettings().concurrentJobs).toBe(4)
+  })
+
+  it('a persist failure is forwarded to onPersistError once per session', async () => {
+    // Real timers: the retry delay is armed only after real file I/O, so a fake clock advanced
+    // up front would never reach it.
+    vi.useRealTimers()
+    const onPersistError = vi.fn()
+    const state = new StateStore(filePath, { onPersistError })
+    await state.load()
+    renameSpy.mockRejectedValue(new Error('disk full'))
+
+    for (const jobs of [2, 3]) {
+      state.setDownloadsSettings(downloads(jobs))
+      expect(await state.settle()).toEqual({ ok: false })
+    }
+
+    expect(onPersistError).toHaveBeenCalledTimes(1)
   })
 })

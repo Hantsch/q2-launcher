@@ -24,9 +24,8 @@
 // direct child, so this selector never matches a heading nested inside a section's own controls)
 // is what proves AC1's "between Library and About" ordering claim without a testid on either
 // shell-owned panel.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 import {
   DOWNLOADS_CACHE_ITEM_COUNT,
   DOWNLOADS_CACHE_TOTAL_BYTES,
@@ -39,9 +38,8 @@ const TIMEOUT_MS = 8_000
  * (4 MB, chosen so the assertion never depends on rounding behaviour). */
 const EXPECTED_CACHE_SIZE_TEXT = '4 MB'
 
-function readPopulatedStateJson() {
-  const path = join(variantUserDataDir('populated'), 'state.json')
-  return JSON.parse(readFileSync(path, 'utf8'))
+function waitForPopulatedStateJson(predicate, label) {
+  return waitForStateJson(variantUserDataDir('populated'), predicate, label)
 }
 
 export default async function settingsDownloadsSection({ page, shot, step }) {
@@ -149,7 +147,13 @@ export default async function settingsDownloadsSection({ page, shot, step }) {
   step(
     'the values persisted in state.json are the ones the app started with, and a change lands back on disk',
   )
-  const onDisk = readPopulatedStateJson()
+  const onDisk = await waitForPopulatedStateJson(
+    (doc) =>
+      doc.downloads?.concurrentJobs === nextConcurrency &&
+      doc.downloads?.archiveCacheBudgetGB === nextBudget &&
+      doc.downloads?.downloadWhilePlayingAllowed === nextWhilePlaying,
+    'the changed downloads settings',
+  )
   if (onDisk.downloads?.concurrentJobs !== nextConcurrency) {
     throw new Error(
       `expected state.json's downloads.concurrentJobs to be ${nextConcurrency}, got ${JSON.stringify(onDisk.downloads)}`,
@@ -208,7 +212,14 @@ export default async function settingsDownloadsSection({ page, shot, step }) {
     )
   }
 
-  const revertedOnDisk = readPopulatedStateJson()
+  const revertedOnDisk = await waitForPopulatedStateJson(
+    (doc) =>
+      doc.downloads?.concurrentJobs === DOWNLOADS_SETTINGS_SEED.concurrentJobs &&
+      doc.downloads?.archiveCacheBudgetGB === DOWNLOADS_SETTINGS_SEED.archiveCacheBudgetGB &&
+      doc.downloads?.downloadWhilePlayingAllowed ===
+        DOWNLOADS_SETTINGS_SEED.downloadWhilePlayingAllowed,
+    'the reverted downloads settings',
+  )
   if (revertedOnDisk.downloads?.concurrentJobs !== DOWNLOADS_SETTINGS_SEED.concurrentJobs) {
     throw new Error(
       `expected the revert to restore state.json's downloads.concurrentJobs to the seeded ${DOWNLOADS_SETTINGS_SEED.concurrentJobs}, got ${JSON.stringify(revertedOnDisk.downloads)}`,

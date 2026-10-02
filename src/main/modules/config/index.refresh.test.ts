@@ -59,6 +59,7 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
     await configModule.setup({
       handle: collectHandlers(handlers),
       emit: () => {},
+      onDispose: () => {},
       app: {
         installations: {
           find: (id: string) => installations.find((i) => i.id === id),

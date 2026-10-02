@@ -47,6 +47,8 @@ export interface CinemaController {
   /** The channel reported fullscreen (`true`) or back on the stage (`false`). */
   onDisplayChange(fullscreen: boolean): void
   onPlaybackState(state: ReplaysPlaybackState['state']): void
+  /** Module shutdown: closes the overlay, unpins, and stops listening for the overlay closing. */
+  dispose(): void
 }
 
 export function createCinemaController(deps: CinemaControllerDeps): CinemaController {
@@ -77,11 +79,13 @@ export function createCinemaController(deps: CinemaControllerDeps): CinemaContro
 
   // The overlay closed by itself (Escape in the overlay, Alt+F4, its page gone): leave cinema.
   // Subscribed on first enter, so a module that never enters cinema never touches the overlay service.
+  // Stays true after `dispose`, so a late enter cannot subscribe again.
   let subscribed = false
+  let offClosed: (() => void) | null = null
   const subscribe = (): void => {
     if (subscribed) return
     subscribed = true
-    deps.window.onClosed(() => {
+    offClosed = deps.window.onClosed(() => {
       if (!active) return
       active = false
       unpin()
@@ -156,6 +160,15 @@ export function createCinemaController(deps: CinemaControllerDeps): CinemaContro
         pinned = false
         if (was) deps.emitDisplay()
       }
+    },
+
+    dispose() {
+      subscribed = true
+      offClosed?.()
+      offClosed = null
+      // Close before unpin, as on every other way out of cinema.
+      closeOverlay()
+      unpin()
     },
   }
 }

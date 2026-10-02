@@ -15,9 +15,8 @@
 // two non-favourites newest-first - and AC5 ("a column sort never re-pins favourites") is provable
 // because sort-nonfav-newest's map (q2dm5) sits alphabetically/numerically BETWEEN the two
 // favourites' maps (q2dm2, q2dm10), so a map sort only groups it there if favourites are not pinned.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import {
   REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR_MAP,
   REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR_MAP,
@@ -28,8 +27,6 @@ import {
 } from '../lib/fixture.mjs'
 
 const TIMEOUT_MS = 8_000
-const STATE_WRITE_POLL_TIMEOUT_MS = 4_000
-const STATE_WRITE_POLL_INTERVAL_MS = 100
 
 export const variant = REPLAYS_SORT_ORDER_VARIANT
 
@@ -39,32 +36,6 @@ export const variant = REPLAYS_SORT_ORDER_VARIANT
 export async function setup() {
   writeReplaysSortOrderFixture()
   return {}
-}
-
-function statePath() {
-  return join(variantUserDataDir(variant), 'state.json')
-}
-
-function readStateJson() {
-  return JSON.parse(readFileSync(statePath(), 'utf8'))
-}
-
-/** Polls `state.json` until `predicate` is satisfied or the timeout elapses - a sort click updates
- * the DOM optimistically (`ReplaysView.tsx`'s `handleSort`) before the `list.setSort` IPC round
- * trip that actually writes the file resolves, so a single immediate read can race the write. */
-async function waitForStateJson(predicate, label) {
-  const deadline = Date.now() + STATE_WRITE_POLL_TIMEOUT_MS
-  let last
-  for (;;) {
-    last = readStateJson()
-    if (predicate(last)) return last
-    if (Date.now() >= deadline) {
-      throw new Error(
-        `timed out waiting for ${label}, last state.json replays: ${JSON.stringify(last.replays)}`,
-      )
-    }
-    await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_POLL_INTERVAL_MS))
-  }
 }
 
 /** Same reasoning as `replays-demo-rows.mjs`'s own helper: the first `index.read` on mount can
@@ -201,6 +172,7 @@ export default async function replaysSortOrder({ page, step, shot }) {
   step('clicking the map column again reverses to descending')
   await clickSort(page, 'map')
   await waitForStateJson(
+    variantUserDataDir(variant),
     (state) =>
       state.replays?.listSort?.column === 'map' && state.replays?.listSort?.direction === 'desc',
     'state.json to persist map/desc',
@@ -226,6 +198,7 @@ export default async function replaysSortOrder({ page, step, shot }) {
   )
   await clickSort(page, 'date')
   await waitForStateJson(
+    variantUserDataDir(variant),
     (state) =>
       state.replays?.listSort?.column === 'date' && state.replays?.listSort?.direction === 'asc',
     'state.json to persist date/asc',
@@ -237,12 +210,14 @@ export default async function replaysSortOrder({ page, step, shot }) {
   step('a third click on date resets to default, then two clicks on map sets map/desc again')
   await clickSort(page, 'date')
   await waitForStateJson(
+    variantUserDataDir(variant),
     (state) => !('listSort' in (state.replays ?? {})),
     'state.json to drop replays.listSort',
   )
   await clickSort(page, 'map')
   await clickSort(page, 'map')
   await waitForStateJson(
+    variantUserDataDir(variant),
     (state) =>
       state.replays?.listSort?.column === 'map' && state.replays?.listSort?.direction === 'desc',
     'state.json to persist map/desc again',
@@ -259,7 +234,7 @@ export default async function replaysSortOrder({ page, step, shot }) {
   await waitForPressed(page, 'map', true)
   const afterReloadOrder = await rowOrder(page)
   assertOrder(afterReloadOrder, descOrder, 'map descending after a page reload')
-  const persisted = readStateJson()
+  const persisted = readStateJson(variantUserDataDir(variant))
   const persistedSort = persisted.replays?.listSort
   if (persistedSort?.column !== 'map' || persistedSort?.direction !== 'desc') {
     throw new Error(
@@ -274,6 +249,7 @@ export default async function replaysSortOrder({ page, step, shot }) {
   const clearedOrder = await rowOrder(page)
   assertOrder(clearedOrder, defaultOrder, 'the default (after clearing the sort)')
   await waitForStateJson(
+    variantUserDataDir(variant),
     (state) => !('listSort' in (state.replays ?? {})),
     'state.json to drop replays.listSort',
   )

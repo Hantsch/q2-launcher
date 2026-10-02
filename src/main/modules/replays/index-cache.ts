@@ -120,4 +120,9 @@ export class ReplaysIndexCache {
     })
     await this.store.settle()
   }
+
+  /** Resolves once pending writes have reached the disk; `ok: false` if one failed. */
+  settle(): Promise<{ ok: boolean }> {
+    return this.store.settle()
+  }
 }

@@ -42,6 +42,7 @@
 // added row, so removing it at the very end restores the order too - so a second run without
 // `npm run ui:seed` in between still finds the shipped defaults, in their original order.
 import { readFileSync, mkdirSync, copyFileSync } from 'node:fs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 import { join } from 'node:path'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { variantUserDataDir, withApp } from '../lib/harness.mjs'
@@ -348,7 +349,13 @@ export default async function serversMasterSources({ page, shot, step, variant }
 
   // Snapshot exactly what phase 2 must see, read from disk rather than re-derived in JS, so AC3
   // proves the persisted bytes, not just this process's in-memory state.
-  const onDiskAfterEdits = JSON.parse(readFileSync(join(userDataDir, 'state.json'), 'utf8'))
+  const onDiskAfterEdits = await waitForStateJson(
+    userDataDir,
+    (doc) =>
+      JSON.stringify((doc.servers?.sources ?? []).map((source) => source.id)) ===
+      JSON.stringify(reorderedIds),
+    'servers.sources to hold the edited list',
+  )
   const persistedSources = onDiskAfterEdits.servers?.sources
   if (!Array.isArray(persistedSources) || persistedSources.length !== reorderedIds.length) {
     throw new Error(

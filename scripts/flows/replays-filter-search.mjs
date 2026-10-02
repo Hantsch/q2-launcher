@@ -12,9 +12,8 @@
 // (`{p1}_vs_{p2}_{map}.mvd2`), searchable through its name-fact player "Zephyr" - its own sidecar
 // pins its map to q2ctf5 too, so map+tag combos are deterministic regardless of the real demo
 // bytes' own embedded map.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import {
   REPLAYS_FILTER_FAVOURITE_DEMO,
   REPLAYS_FILTER_FAVOURITE_TAG,
@@ -55,14 +54,6 @@ export async function teardown() {
   removeReplaysFilterFixture()
 }
 
-function statePath() {
-  return join(variantUserDataDir(variant), 'state.json')
-}
-
-function readStateJson() {
-  return JSON.parse(readFileSync(statePath(), 'utf8'))
-}
-
 /** Polls a predicate until it is true or the timeout elapses - used both for `state.json` writes
  * (a debounced/async persist can lag a UI change) and for the visible row set (a filter change is
  * a synchronous React state update, but Playwright's own event loop still needs a tick to see the
@@ -74,11 +65,6 @@ async function waitForCondition(predicate, label, timeout = TIMEOUT_MS) {
     if (Date.now() >= deadline) throw new Error(`timed out waiting for ${label}`)
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
   }
-}
-
-async function waitForStateJson(predicate, label) {
-  await waitForCondition(() => predicate(readStateJson()), label, 4_000)
-  return readStateJson()
 }
 
 /** Same reasoning as `replays-sort-order.mjs`'s own helper: the first `index.read` on mount can
@@ -340,6 +326,7 @@ export default async function replaysFilterSearch({ page, step, shot }) {
     'the description search, before navigating away',
   )
   await waitForStateJson(
+    variantUserDataDir(variant),
     (state) => state.replays?.listFilter?.search === REPLAYS_FILTER_DESCRIPTION_WORD,
     'state.json to persist the search term',
   )
@@ -361,7 +348,7 @@ export default async function replaysFilterSearch({ page, step, shot }) {
     'the restored filter, after navigating back',
   )
 
-  const persisted = readStateJson()
+  const persisted = readStateJson(variantUserDataDir(variant))
   if (persisted.replays?.listFilter?.search !== REPLAYS_FILTER_DESCRIPTION_WORD) {
     throw new Error(
       `expected state.json's replays.listFilter.search to be "${REPLAYS_FILTER_DESCRIPTION_WORD}", got ${JSON.stringify(persisted.replays?.listFilter)}`,

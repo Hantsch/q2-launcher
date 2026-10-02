@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
@@ -1030,5 +1031,15 @@ describe('servers module watchlist.* handlers are feature-gated (story 131 D5)',
       value: { asOf: null, entries: [{ entry: seeded[0], state: 'offline', recheck: null }] },
     })
     expect(state.serversState().watchlist).toEqual(seeded)
+  })
+})
+
+describe('serversModule source', () => {
+  it('keeps no module-level mutable state', () => {
+    const source = readFileSync(join(__dirname, 'index.ts'), 'utf8')
+
+    const columnZeroLets = source.split(/\r?\n/).filter((line) => line.startsWith('let '))
+
+    expect(columnZeroLets).toEqual([])
   })
 })

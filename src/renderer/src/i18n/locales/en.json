@@ -14,6 +14,7 @@
     },
     "toast": {
       "stateRecoveredFromBackup": "Your settings file was damaged and has been restored from the backup.",
+      "statePersistFailed": "Your settings could not be saved to disk. Changes you make now may be lost when you quit.",
       "stateReset": "Your settings file could not be read and has been reset. A copy of the damaged file was kept next to it."
     },
     "crash": {

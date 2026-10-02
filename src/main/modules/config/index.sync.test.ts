@@ -64,6 +64,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     await configModule.setup({
       handle: collectHandlers(handlers),
       emit: () => {},
+      onDispose: () => {},
       app: {
         installations: {
           find: (id: string) => insts.find((i) => i.id === id),

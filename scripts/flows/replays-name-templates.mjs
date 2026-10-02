@@ -23,9 +23,8 @@
 // list resolves to just the four shipped patterns, in `SHIPPED_NAME_PATTERNS`' own order) and undoes
 // every edit it makes before it returns, so a second run without `npm run ui:seed` still finds the
 // same starting point AC1's own assertion checks.
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -86,10 +85,6 @@ async function keyboardReorder(page, grip, arrowKey, steps) {
   }
   await grip.press('Space')
   await page.waitForTimeout(300)
-}
-
-function readStateJson(userDataDir) {
-  return JSON.parse(readFileSync(join(userDataDir, 'state.json'), 'utf8'))
 }
 
 async function openReplaysSettings(page) {
@@ -178,7 +173,11 @@ export default async function replaysNameTemplates({ page, shot, step, variant }
   await shot('replays-name-templates-edited')
 
   step('the persisted state matches the edited order, the override and the tombstone')
-  const onDisk = readStateJson(userDataDir)
+  const onDisk = await waitForStateJson(
+    userDataDir,
+    (doc) => (doc.replays?.nameTemplates?.removedShippedIds?.length ?? 0) === 1,
+    'the edit and the tombstone in state.json',
+  )
   const nameTemplates = onDisk.replays?.nameTemplates
   if (!nameTemplates || !Array.isArray(nameTemplates.entries)) {
     throw new Error(
@@ -222,7 +221,18 @@ export default async function replaysNameTemplates({ page, shot, step, variant }
   // Every mutation persists the *full* merged state (shipped patterns included, explicitly, as
   // unedited entries) - not the fresh-profile's empty `entries: []` - so "reverted" here means the
   // 4 shipped patterns, each unedited, and no tombstone, not a literally empty array.
-  const finalOnDisk = readStateJson(userDataDir)
+  const finalOnDisk = await waitForStateJson(
+    userDataDir,
+    (doc) => {
+      const nt = doc.replays?.nameTemplates
+      return (
+        nt?.entries?.length === SHIPPED_IDS.length &&
+        (nt.removedShippedIds ?? []).length === 0 &&
+        nt.entries.every((entry) => entry.kind === 'shipped' && entry.template === null)
+      )
+    },
+    'the reverted shipped patterns in state.json',
+  )
   const finalNameTemplates = finalOnDisk.replays?.nameTemplates
   const stillTombstoned = finalNameTemplates?.removedShippedIds ?? []
   const remainingEntries = finalNameTemplates?.entries ?? []

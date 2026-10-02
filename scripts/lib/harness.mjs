@@ -564,7 +564,7 @@ export async function closeAppOrKill(
  * `launchApp()`'s collaborators; only a test passes it.
  */
 export async function withApp(
-  { variant, viewport, env, executablePath, extraArgs, deps } = {},
+  { variant, viewport, env, executablePath, extraArgs, expectExit, deps } = {},
   fn,
 ) {
   if (!variant) throw new HarnessError('withApp() needs a fixture variant')
@@ -577,9 +577,17 @@ export async function withApp(
     deps,
   })
 
+  // `expectExit`: the flow quits the app itself (the real Close path) and asserts on what the
+  // exit left behind, so a clean exit is the expected end state instead of a "stopped" failure.
+  if (expectExit) state.expectedExit = true
+
   try {
     if (viewport) await resize(app, viewport)
     const result = await fn({ app, page, log, userDataDir })
+    if (expectExit) {
+      await settleExit(child, log, state)
+      if (log.mainExit && !log.mainCrashed) return result
+    }
     // Whatever `fn` triggered (navigation, interaction) may have fired more
     // violations since the initial drain in `launchApp()` — collect those too
     // before the run's pass/fail is evaluated.

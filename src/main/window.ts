@@ -78,7 +78,7 @@ function withVisiblePosition(state: WindowState): WindowState {
 export interface MainWindow {
   window: BrowserWindow
   /** Flushes pending geometry writes; call before quitting. */
-  settle: () => Promise<void>
+  settle: () => Promise<{ ok: boolean }>
 }
 
 export async function createMainWindow(

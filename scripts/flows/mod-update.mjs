@@ -9,8 +9,8 @@
 // Selectors - ModInstallState.tsx, ModDetailPanel.tsx, ModTile.tsx: mods-tile-<dir>, mods-tile-status-<id>,
 // mods-update-<id>, mods-detail-update-<id>, mods-detail-update-versions, mods-tile-update-error-<id>.
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { STATE_WRITE_GRACE_MS, readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import {
   INSTALL_MODS_UPDATE_ID,
   INSTALL_MODS_UPDATE_NAME,
@@ -55,10 +55,7 @@ const same = (a, b) => a !== null && Buffer.compare(a, b) === 0
 function snapshot(dir, names) {
   return Object.fromEntries(names.map((n) => [n, bytesAt(`${dir}/${n}`)?.toString('hex') ?? null]))
 }
-const records = () => {
-  const state = JSON.parse(
-    readFileSync(join(variantUserDataDir('populated'), 'state.json'), 'utf8'),
-  )
+const records = (state = readStateJson(variantUserDataDir('populated'))) => {
   return (
     state.installations.find((i) => i.id === INSTALL_MODS_UPDATE_ID)?.moduleData?.mods?.records ??
     []
@@ -124,7 +121,12 @@ export default async function modUpdate({ page, shot, step }) {
   step('AC3/AC4: Update opentdm (no changed files, no dialog)')
   await page.getByTestId('mods-detail-update-opentdm').click({ timeout: TIMEOUT_MS })
   const done = await waitUntil(() => existsSync(path('opentdm/new-only.txt')), JOB_TIMEOUT_MS)
-  await waitUntil(() => recordOf('opentdm')?.version === 'v1.1.0', 10_000)
+  await waitForStateJson(
+    variantUserDataDir('populated'),
+    (state) => records(state).find((r) => r.gameDir === 'opentdm')?.version === 'v1.1.0',
+    "opentdm's record to read v1.1.0",
+    { timeoutMs: 10_000 },
+  )
   check('no dialog was asked for', (await page.getByRole('dialog').count()) === 0)
   check(
     'gamedir holds the new version bytes',
@@ -183,6 +185,7 @@ export default async function modUpdate({ page, shot, step }) {
     errorText,
   )
   await shot('action-update-failed')
+  await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_GRACE_MS))
   check(
     'action files and record are byte-identical to before',
     JSON.stringify(snapshot('action', Object.keys(modsUpdateOldFiles.action))) ===

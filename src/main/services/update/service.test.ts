@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import type { Job, UpdateState } from '@shared/types'
 import type { UpdateCheckStoreData } from './store'
+import type { PersistenceRegistry } from '../persistence'
 import { UPDATE_CHECK_TIMEOUT_MS, createUpdateService, type UpdateCheckOutcome } from './service'
 
 /**
@@ -10,6 +11,11 @@ import { UPDATE_CHECK_TIMEOUT_MS, createUpdateService, type UpdateCheckOutcome }
  * `now` and the `isPackaged` flag - so not one of these tests loads Electron, `electron-updater`,
  * or touches the network or the filesystem. `store.test.ts` already proves the real file behaviour.
  */
+
+vi.mock('../../lib/paths', async () => {
+  const { tmpdir } = await import('node:os')
+  return { userDataDir: () => tmpdir() }
+})
 
 const SERVICE_SOURCE = readFileSync(fileURLToPath(new URL('./service.ts', import.meta.url)), 'utf8')
 /** The source with comments stripped - the prose below explains the rules the code must follow, so
@@ -611,5 +617,24 @@ describe('update service: the timeout guard', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('update service: persistence', () => {
+  it('registers its store with persistence', async () => {
+    const register = vi.fn()
+    const service = createUpdateService({
+      ...unusedActionDeps(),
+      isPackaged: true,
+      currentVersion: '0.0.1',
+      check: upToDate,
+      onStateChange: () => {},
+      persistence: { register } as unknown as PersistenceRegistry,
+    })
+
+    await service.getState()
+
+    expect(register).toHaveBeenCalledTimes(1)
+    expect(register).toHaveBeenCalledWith('update-check', expect.anything())
   })
 })

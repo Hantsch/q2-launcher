@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MODS_HANDLERS, type ModInstallChoice, type ModsListResult } from '@shared/modules/mods'
 import type { Outcome } from '@shared/types'
 import type { AppContext } from '../../context'
+import { PersistenceRegistry } from '../../services/persistence'
 import { MainModuleRegistry } from '../registry'
 import { modsModule } from './index'
 import { startModInstall } from './install-job'
@@ -43,6 +44,7 @@ const emitted: unknown[][] = []
 async function registryFor(inst: ReturnType<typeof installation>) {
   const app = {
     isDev: false,
+    persistence: new PersistenceRegistry(),
     installations: { find: (id: string) => (id === inst.id ? inst : undefined) },
     broadcast: { emit: (...args: unknown[]) => emitted.push(args) },
   } as unknown as AppContext
@@ -363,5 +365,18 @@ describe('mods module update (story 194)', () => {
     expect(stagePackage).not.toHaveBeenCalled()
     expect(startModUpdate).not.toHaveBeenCalled()
     expect({ bytes: readFileSync(file, 'utf8'), mtime: statSync(file).mtimeMs }).toEqual(before)
+  })
+})
+
+describe('mods module persistence', () => {
+  it('registers its caches with app.persistence', async () => {
+    const labels: string[] = []
+    const app = {
+      isDev: false,
+      persistence: { register: (label: string) => void labels.push(label) },
+      installations: { find: () => undefined },
+    } as unknown as AppContext
+    await new MainModuleRegistry().register(modsModule, app)
+    expect(labels.sort()).toEqual(['mods-catalog', 'mods-manifest'])
   })
 })

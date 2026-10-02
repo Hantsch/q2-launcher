@@ -101,3 +101,35 @@
 - 2026-10-02 11:39:16 · 200 · review 1 · started
 - 2026-10-02 11:39:51 · 200 · review 1 · done
 - 2026-10-02 11:39:54 · 200 · story · done
+- 2026-10-02 11:40:04 · 201 · build · started
+- 2026-10-02 11:40:35 · 201 · D1 JsonStore write failure · started
+- 2026-10-02 11:40:35 · 201 · D2 shared state.json poller · started
+- 2026-10-02 11:43:30 · 201 · D1 JsonStore write failure · done
+- 2026-10-02 11:43:30 · 201 · D2 shared state.json poller · done
+- 2026-10-02 11:43:30 · 201 · D3 flow readers group A · started
+- 2026-10-02 11:50:38 · 201 · D3 flow readers group A · done
+- 2026-10-02 11:50:39 · 201 · D4 flow readers group B · started
+- 2026-10-02 11:54:12 · 201 · D4 flow readers group B · done
+- 2026-10-02 11:54:13 · 201 · D5 state debounce + persist toast · started
+- 2026-10-02 11:56:06 · 201 · D5 state debounce + persist toast · done
+- 2026-10-02 11:56:07 · 201 · D6 persistence registry · started
+- 2026-10-02 11:57:08 · 201 · D6 persistence registry · done
+- 2026-10-02 11:57:09 · 201 · D7 module caches register · started
+- 2026-10-02 11:59:14 · 201 · D7 module caches register · done
+- 2026-10-02 11:59:16 · 201 · D8 module disposers · started
+- 2026-10-02 12:02:01 · 201 · D8 module disposers · done
+- 2026-10-02 12:02:02 · 201 · D9 replays disposes (hard) · started
+- 2026-10-02 12:07:09 · 201 · D9 replays disposes (hard) · done
+- 2026-10-02 12:07:10 · 201 · D10 ordered shutdown · started
+- 2026-10-02 12:18:29 · 201 · D10 ordered shutdown · done
+- 2026-10-02 12:18:30 · 201 · D11 quit-persists-state flow · started
+- 2026-10-02 12:20:07 · 201 · D11 quit-persists-state flow · done
+- 2026-10-02 12:20:08 · 201 · D9b playback-stop listener release · started
+- 2026-10-02 12:20:51 · 201 · D9b playback-stop listener release · done
+- 2026-10-02 12:20:52 · 201 · verify · started
+- 2026-10-02 12:24:49 · 201 · verify · blocked: servers-watchlist red (copy before debounced write), fixing
+- 2026-10-02 12:24:55 · 201 · verify · started
+- 2026-10-02 12:31:44 · 201 · verify · done
+- 2026-10-02 12:31:45 · 201 · review 1 · started
+- 2026-10-02 12:34:20 · 201 · review 1 · done
+- 2026-10-02 12:34:36 · 201 · story · done

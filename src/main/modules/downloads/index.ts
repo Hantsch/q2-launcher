@@ -122,7 +122,7 @@ const BYTES_PER_GB = 1024 * 1024 * 1024
 export const downloadsModule: MainModule = {
   id: 'downloads',
 
-  setup({ handle, app, log }) {
+  setup({ handle, app, log, onDispose }) {
     // Story 074 D8: resolved exactly once, here, and then only ever passed around as a value -
     // see `harness.ts`. Without `Q2L_UI_HARNESS=1` (which a real shipped build never sets, and
     // which is not reachable from its UI) this is `PRODUCTION_DOWNLOAD_SOURCE`, and no later
@@ -132,6 +132,7 @@ export const downloadsModule: MainModule = {
       log.warn(`UI harness: download source overridden to ${source.baseUrl} (dev build only)`)
     }
     const manifestService = new ManifestService({ log, source })
+    app.persistence.register('downloads-manifest', manifestService)
 
     // Story 071 D4: builds the queue (and with it the pipeline) at startup, so the module owns
     // exactly one queue per `AppContext` no matter who calls `startDownload()` first. Nothing on
@@ -141,7 +142,7 @@ export const downloadsModule: MainModule = {
 
     // Story 073 D2: start observing job changes before any handler is registered, so no failure
     // can slip past between setup and the first renderer call.
-    subscriptions.add(observeFailedJobs(app, log))
+    onDispose(observeFailedJobs(app, log))
 
     handle(
       DOWNLOADS_HANDLERS.manifestGet,
@@ -559,20 +560,7 @@ export const downloadsModule: MainModule = {
 
     log.debug('downloads module ready')
   },
-
-  dispose() {
-    for (const unsubscribe of subscriptions) unsubscribe()
-    subscriptions.clear()
-  },
 }
-
-/**
- * The `JobsService.onChange` unsubscribers handed out to this module, so `dispose()` gives them
- * back. A set on the module object's behalf rather than a single field: `downloadsModule` is one
- * shared const, and two `AppContext`s in the same process (which is exactly what a test does) each
- * get their own subscription - a single field would leak the first one.
- */
-const subscriptions = new Set<() => void>()
 
 /**
  * Story 073 D2: the failure reason recorded for a `downloads` job that reached `failed` without

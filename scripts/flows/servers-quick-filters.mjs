@@ -2,9 +2,8 @@
 // real Servers surface. Same four loopback responders as servers-filter-search.mjs (helpers copied, not
 // imported). Steps are kept separate so D4 can append rename/delete/persistence/resilience steps.
 import { createSocket } from 'node:dgram'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 import { SERVERS_DISABLED_SOURCES, writePopulatedFixture } from '../lib/fixture.mjs'
 
 export const variant = 'servers-quick-filters'
@@ -215,10 +214,6 @@ async function clearFilters(page) {
   await page.getByTestId('servers-filter-clear').click({ timeout: TIMEOUT_MS })
 }
 
-function readStateJson() {
-  return JSON.parse(readFileSync(join(variantUserDataDir(variant), 'state.json'), 'utf8'))
-}
-
 const chips = (page) => page.getByTestId('servers-quickfilter-chip')
 const chipNamed = (page, name) => chips(page).filter({ hasText: name })
 
@@ -292,12 +287,13 @@ export default async function serversQuickFilters({ page, step, shot }) {
   if (!(await pressed(chipNamed(page, 'Base duels'))))
     throw new Error('chip should be pressed while the filter equals it')
   await shot('chip-saved')
-  const deadline = Date.now() + 5_000
-  let persisted = readStateJson().servers.quickFilters
-  while (!persisted.some((q) => q.name === 'Base duels') && Date.now() < deadline) {
-    await page.waitForTimeout(150)
-    persisted = readStateJson().servers.quickFilters
-  }
+  const persisted = (
+    await waitForStateJson(
+      variantUserDataDir(variant),
+      (doc) => doc.servers?.quickFilters?.some((q) => q.name === 'Base duels'),
+      'Base duels in servers.quickFilters',
+    )
+  ).servers.quickFilters
   assertEq(
     persisted.filter((q) => q.name === 'Base duels').map((q) => q.criteria.mod),
     ['baseq2'],
@@ -438,14 +434,13 @@ export default async function serversQuickFilters({ page, step, shot }) {
 
   step('AC6: state.json holds the list and the chips survive a reload')
   const expectedNames = ['Base duels', 'Waiting']
-  const stored = () =>
-    readStateJson()
-      .servers.quickFilters.map((q) => q.name)
-      .sort()
-  const persistDeadline = Date.now() + 5_000
-  while (stored().join('|') !== expectedNames.join('|') && Date.now() < persistDeadline)
-    await page.waitForTimeout(150)
-  assertEq(stored(), expectedNames, 'state.json quickFilters')
+  const storedNames = (doc) => doc.servers.quickFilters.map((q) => q.name).sort()
+  const stored = await waitForStateJson(
+    variantUserDataDir(variant),
+    (doc) => storedNames(doc).join('|') === expectedNames.join('|'),
+    'state.json quickFilters',
+  )
+  assertEq(storedNames(stored), expectedNames, 'state.json quickFilters')
   await page.reload()
   await page.getByTestId('nav-servers').click({ timeout: TIMEOUT_MS })
   await chips(page).first().waitFor({ state: 'visible', timeout: TIMEOUT_MS })

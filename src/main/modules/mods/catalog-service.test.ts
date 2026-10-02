@@ -7,6 +7,7 @@ import type { Outcome } from '@shared/types'
 import type { AppContext } from '../../context'
 import type { Logger } from '../../lib/logger'
 import { MainModuleRegistry } from '../registry'
+import { PersistenceRegistry } from '../../services/persistence'
 import { CATALOG_FRESHNESS_MS, CatalogService } from './catalog-service'
 import { modsModule } from './index'
 
@@ -169,7 +170,11 @@ describe('CatalogService', () => {
 
 describe('mods catalog.get handler', () => {
   async function registry() {
-    const app = { isDev: false, installations: { find: () => undefined } } as unknown as AppContext
+    const app = {
+      isDev: false,
+      persistence: new PersistenceRegistry(),
+      installations: { find: () => undefined },
+    } as unknown as AppContext
     const r = new MainModuleRegistry()
     await r.register(modsModule, app)
     return r

@@ -22,6 +22,8 @@ export interface PlaybackStopLaunch {
  */
 export interface PlaybackStop {
   stop(): Outcome<void>
+  /** Drops the launch observer and any pending timer; a stop after this never resubscribes. */
+  dispose(): void
 }
 
 export function createPlaybackStop(deps: {
@@ -43,16 +45,19 @@ export function createPlaybackStop(deps: {
   // Subscribed on first use, like the playback control, so a module that never stops a demo never
   // touches the launch service's observers.
   let subscribed = false
+  let disposed = false
+  let unsubscribe: (() => void) | null = null
   const subscribe = (): void => {
-    if (subscribed) return
+    if (subscribed || disposed) return
     subscribed = true
-    launch.onStateChange((state) => {
+    unsubscribe = launch.onStateChange((state) => {
       if (state.phase === 'exited' || state.phase === 'failed') settle()
     })
   }
 
   return {
     stop() {
+      if (disposed) return fail(NO_SESSION)
       if (!launch.isPlaybackRunning()) return fail(NO_SESSION)
       if (pending) return ok(undefined)
       subscribe()
@@ -68,6 +73,12 @@ export function createPlaybackStop(deps: {
         if (!launch.terminatePlayback()) settle()
       }, timeoutMs)
       return ok(undefined)
+    },
+    dispose() {
+      disposed = true
+      settle()
+      unsubscribe?.()
+      unsubscribe = null
     },
   }
 }

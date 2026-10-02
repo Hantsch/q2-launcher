@@ -82,6 +82,12 @@ export interface PlaybackControl {
   emitDisplay(): void
   /** Story 187 D5: a `speed` timeline action reached the game - main holds the speed. */
   setSpeed(speed: number): void
+  /**
+   * Module shutdown: drops the launch subscriptions and closes whatever channel is still open. At
+   * quit the playback release has usually ended the session already; that close is awaited, never
+   * repeated.
+   */
+  dispose(): Promise<void>
 }
 
 interface Prepared {
@@ -152,9 +158,19 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
     s.timer = null
   }
 
+  // Ends whose channel close is still running, so `dispose` can wait for them instead of closing again.
+  const endings = new Set<Promise<void>>()
+
   /** Closes the channel, then - and only then - announces the end. Idempotent per session. */
-  const end = async (s: Session): Promise<void> => {
-    if (s.ending) return
+  const end = (s: Session): Promise<void> => {
+    if (s.ending) return Promise.resolve()
+    const done = closeAndAnnounce(s).finally(() => endings.delete(done))
+    endings.add(done)
+    return done
+  }
+
+  // Everything up to the first `await` runs synchronously, so the close starts within `end`'s caller.
+  const closeAndAnnounce = async (s: Session): Promise<void> => {
     s.ending = true
     stopTimer(s)
     s.offFinished()
@@ -169,19 +185,22 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
   }
 
   // Subscribed on first use, so a module that never plays a demo never touches the launch service.
+  // Stays true after `dispose`, so a late `prepare` cannot subscribe again.
   let subscribed = false
+  let unsubscribers: Array<() => void> = []
   const subscribe = (): void => {
     if (subscribed) return
     subscribed = true
-    launch.onStateChange((state) => {
+    const offState = launch.onStateChange((state) => {
       if (state.phase !== 'exited' && state.phase !== 'failed') return
       if (session) void end(session)
     })
     // Launcher quit: the Linux channel's last sys_console 0 write must land while stdin is still
     // open, so the close is started synchronously, before the session's pipes end.
-    launch.onBeforePlaybackRelease(() => {
+    const offRelease = launch.onBeforePlaybackRelease(() => {
       if (session) void end(session)
     })
+    unsubscribers = [offState, offRelease]
   }
 
   return {
@@ -297,6 +316,25 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
 
     currentFormat() {
       return session && !session.finished ? session.format : null
+    },
+
+    async dispose() {
+      subscribed = true
+      for (const off of unsubscribers) off()
+      unsubscribers = []
+      const p = prepared
+      prepared = null
+      // `end` cleared `session` synchronously when the release started it; only that close is awaited.
+      const pending = [...endings]
+      if (session) pending.push(end(session))
+      if (p) {
+        pending.push(
+          p.channel.close().catch((error: unknown) => {
+            log.warn(`playback channel close failed: ${String(error)}`)
+          }),
+        )
+      }
+      await Promise.all(pending)
     },
   }
 }

@@ -42,6 +42,12 @@ export interface ModuleSetup {
   /** Access to the shell's services: installations, jobs, settings, ... */
   app: AppContext
   log: Logger
+  /**
+   * Registers a disposer for something `setup()` created. `MainModuleRegistry.disposeAll()` runs
+   * all disposers in reverse registration order, so a later-created resource is released before
+   * the one it depends on. Disposers registered before a throwing `setup()` still run.
+   */
+  onDispose: (cb: () => void | Promise<void>) => void
 }
 
 /**
@@ -55,5 +61,4 @@ export interface ModuleSetup {
 export interface MainModule {
   id: ModuleId
   setup: (setup: ModuleSetup) => void | Promise<void>
-  dispose?: () => void | Promise<void>
 }

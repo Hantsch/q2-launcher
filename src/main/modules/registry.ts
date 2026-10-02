@@ -39,6 +39,7 @@ interface RegisteredHandler {
 export class MainModuleRegistry {
   private readonly modules = new Map<ModuleId, MainModule>()
   private readonly handlers = new Map<string, RegisteredHandler>()
+  private readonly disposers: Array<{ moduleId: ModuleId; cb: () => void | Promise<void> }> = []
 
   /**
    * Story 130: `features` decides which feature-gated handlers get registered. It defaults to
@@ -104,6 +105,10 @@ export class MainModuleRegistry {
         emit: (type, payload) => {
           app.broadcast.emit('module:event', { moduleId: module.id, type, payload })
         },
+        // Kept even when `setup()` throws later: what was acquired before the throw still needs releasing.
+        onDispose: (cb) => {
+          this.disposers.push({ moduleId: module.id, cb })
+        },
       })
     } catch (error) {
       log.error(`module '${module.id}' failed to set up`, error)
@@ -147,11 +152,11 @@ export class MainModuleRegistry {
   }
 
   async disposeAll(): Promise<void> {
-    for (const module of this.modules.values()) {
+    for (const { moduleId, cb } of this.disposers.splice(0).reverse()) {
       try {
-        await module.dispose?.()
+        await cb()
       } catch (error) {
-        log.error(`module '${module.id}' failed to dispose`, error)
+        log.error(`module '${moduleId}' failed to dispose`, error)
       }
     }
     this.modules.clear()

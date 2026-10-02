@@ -120,6 +120,7 @@ export function TitleBar() {
         </WindowButton>
         <WindowButton
           label={t('titlebar.close')}
+          testId="titlebar-close"
           danger
           onClick={() => void invoke('window:close')}
         >
@@ -213,15 +214,18 @@ function WindowButton({
   children,
   onClick,
   danger,
+  testId,
 }: {
   label: string
   children: React.ReactNode
   onClick: () => void
   danger?: boolean
+  testId?: string
 }) {
   return (
     <button
       type="button"
+      data-testid={testId}
       aria-label={label}
       title={label}
       onClick={onClick}

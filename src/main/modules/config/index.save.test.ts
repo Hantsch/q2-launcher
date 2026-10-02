@@ -75,6 +75,7 @@ describe('story 043 D4: explicit save', () => {
     await configModule.setup({
       handle: collectHandlers(handlers),
       emit: () => {},
+      onDispose: () => {},
       app: {
         installations: {
           find: (id: string) => installations.find((i) => i.id === id),
@@ -711,6 +712,7 @@ describe('story 175: commitCvars', () => {
     await configModule.setup({
       handle: collectHandlers(handlers),
       emit: () => {},
+      onDispose: () => {},
       app: {
         installations: {
           find: (id: string) => installations.find((i) => i.id === id),

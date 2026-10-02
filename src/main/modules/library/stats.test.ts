@@ -31,6 +31,7 @@ async function setUpLibraryModule(installations: Installation[]): Promise<Librar
   await libraryModule.setup({
     handle: collectHandlers(handlers),
     emit: vi.fn(),
+    onDispose: () => {},
     app: { installations: { list: () => installations } } as unknown as ModuleSetup['app'],
     log: fakeLogger(),
   })

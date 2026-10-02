@@ -27,6 +27,7 @@ version section when a release actually ships.
 ### Fixed
 
 - An unexpected launcher error now shows a translated message instead of raw system text.
+- Your last change before quitting is saved, and a failed settings write now tells you.
 
 ### Security
 

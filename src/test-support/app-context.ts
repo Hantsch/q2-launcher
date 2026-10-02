@@ -1,6 +1,7 @@
 import type { AppContext } from '../main/context'
 import { IDLE_LAUNCH_STATE } from '@shared/types'
 import { createFeatureGate } from '../main/features/gate'
+import { PersistenceRegistry } from '../main/services/persistence'
 
 /**
  * A stand-in `AppContext` carrying only the seams module `setup()` reads unconditionally:
@@ -14,6 +15,7 @@ export function fakeAppContext(overrides: Partial<AppContext> = {}): AppContext 
     launch: { getState: () => IDLE_LAUNCH_STATE, onStateChange: () => () => {} },
     features: createFeatureGate([]),
     installations: { list: () => [] },
+    persistence: new PersistenceRegistry(),
     ...overrides,
   } as unknown as AppContext
 }

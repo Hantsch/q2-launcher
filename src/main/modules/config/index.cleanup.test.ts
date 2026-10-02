@@ -157,6 +157,7 @@ describe('CONFIG_HANDLERS.tidyUpApply handler (story 025 D3)', () => {
     await configModule.setup({
       handle: collectHandlers(handlers),
       emit: () => {},
+      onDispose: () => {},
       app: {
         installations: {
           find: (id: string) => insts.find((i) => i.id === id),

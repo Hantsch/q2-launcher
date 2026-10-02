@@ -96,6 +96,7 @@ async function runFlow(name, requestedVariant, executablePath) {
         viewport: VIEWPORT_DEFAULT,
         env: setupResult.env,
         extraArgs: setupResult.args,
+        expectExit: flow.expectExit === true,
         executablePath,
       },
       async ({ page, app, log }) => {

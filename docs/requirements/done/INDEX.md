@@ -297,3 +297,4 @@ second roadmap.
 - 225 — tests share a quiet logger and one test-support kit · S32 · quiet binary-free test run, shared fixtures/temp dir/mockClient, 8 oversized test files split under a 1,500-line guard
 - 199 — path containment is one checked rule · S32 · `isInside` is the single containment rule; reveal check, mods/downloads copies and `absolutePathSchema` now honest and pinned by a guard test
 - 200 — a thrown shell handler answers with an i18n key, not prose · S32 · `handle`/`handleOutcome` turn a throw into `ipc.error.handlerFailed`, logged with the channel; documented and pinned by tests
+- 201 — the launcher shuts down in order and says when a write failed · S32 · awaited 3 s shutdown, retry-once + one toast on a failed state write, 250 ms debounced state.json, onDispose lifecycle

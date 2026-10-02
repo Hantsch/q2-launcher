@@ -9,12 +9,15 @@ import {
   REPLAYS_HANDLERS,
   REPLAYS_SIDECAR_WRITING_HANDLERS,
 } from '@shared/modules/replays'
-import { getModuleManifest } from '@shared/types'
+import { getModuleManifest, ok } from '@shared/types'
 import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
 import en from '../../../renderer/src/i18n/locales/en.json'
 import { canonicalizePath } from '../../lib/fs-utils'
 import { UI_HARNESS_ENV } from '../../lib/ui-harness'
 import { fakeAppContext } from '../../../test-support/app-context'
+import { makeInstallation } from '../../../test-support/fixtures'
+import { stubPlatform } from '../../../test-support/platform'
+import { PersistenceRegistry } from '../../services/persistence'
 import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
@@ -287,6 +290,7 @@ describe('replays module', () => {
         broadcast: { emit: () => {} },
         installations: { list: () => [] },
         state,
+        persistence: new PersistenceRegistry(),
       } as unknown as AppContext
 
       const registry = new MainModuleRegistry()
@@ -328,6 +332,7 @@ describe('replays module', () => {
         broadcast: { emit: () => {} },
         installations: { list: () => [] },
         state,
+        persistence: new PersistenceRegistry(),
       } as unknown as AppContext
       await registry.register(replaysModule, appContext)
     })
@@ -391,6 +396,7 @@ describe('replays module', () => {
         broadcast: { emit: () => {} },
         installations: { list: () => [] },
         state,
+        persistence: new PersistenceRegistry(),
       } as unknown as AppContext
       await registry.register(replaysModule, appContext)
     })
@@ -462,6 +468,7 @@ describe('replays module', () => {
         broadcast: { emit: () => {} },
         installations: { list: () => [] },
         state,
+        persistence: new PersistenceRegistry(),
       } as unknown as AppContext)
     })
 
@@ -582,6 +589,7 @@ describe('replays module', () => {
         installations: { list: () => [installation] },
         state,
         launch: { isRunning: () => false, isPlaybackRunning: () => false },
+        persistence: new PersistenceRegistry(),
       } as unknown as AppContext
 
       const registry = new MainModuleRegistry()
@@ -660,6 +668,7 @@ describe('replays module', () => {
           installations: { list: () => [installation] },
           state,
           launch: { isRunning: () => false, isPlaybackRunning: () => false },
+          persistence: new PersistenceRegistry(),
         } as unknown as AppContext
 
         const registry = new MainModuleRegistry()
@@ -731,6 +740,7 @@ describe('replays module', () => {
         installations: { list: () => [installation] },
         state,
         launch: { isRunning: () => false, isPlaybackRunning: () => false },
+        persistence: new PersistenceRegistry(),
       } as unknown as AppContext
 
       const registry = new MainModuleRegistry()
@@ -870,5 +880,138 @@ describe('replays module', () => {
       await writeFile(holdFile, '999999')
       expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(60_000)
     })
+  })
+})
+
+describe('replays module persistence', () => {
+  it('registers its cache with app.persistence', async () => {
+    const labels: string[] = []
+    const app = {
+      ...fakeAppContext({ state: stubState }),
+      persistence: { register: (label: string) => void labels.push(label) },
+    } as unknown as AppContext
+    await new MainModuleRegistry().register(replaysModule, app)
+    expect(labels).toEqual(['replays-index'])
+  })
+})
+
+describe('replays module lifecycle', () => {
+  let dir: string
+  let restorePlatform: () => void
+
+  beforeEach(async () => {
+    // The Windows channel needs no engine pipes, so a play gets as far as `playing` with a fake launch.
+    restorePlatform = stubPlatform('win32')
+    dir = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-lifecycle-'))
+    userDataBox.current = dir
+  })
+
+  afterEach(async () => {
+    restorePlatform()
+    await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  })
+
+  /** A context whose launch service and main window count the listeners still subscribed. */
+  async function countingContext() {
+    const demosDir = join(dir, 'baseq2', 'demos')
+    await mkdir(demosDir, { recursive: true })
+    await writeFile(join(demosDir, 'x.dm2'), 'x')
+    const state = new StateStore(join(dir, 'state.json'))
+    await state.load()
+    state.patchSettings({ activeInstallationId: 'inst-1' })
+    const installation = makeInstallation({
+      id: 'inst-1',
+      rootPath: dir,
+      gameDirs: ['baseq2'],
+      engineKind: 'q2pro',
+    })
+    const stateListeners = new Set<unknown>()
+    const releaseListeners = new Set<unknown>()
+    const playback = { running: false }
+    const windowListeners = new Set<unknown>()
+    const subscribe = (set: Set<unknown>) => (listener: unknown) => {
+      set.add(listener)
+      return () => void set.delete(listener)
+    }
+    const app = fakeAppContext({
+      state,
+      installations: installationsOf([installation]),
+      launch: {
+        isRunning: () => false,
+        isPlaybackRunning: () => playback.running,
+        terminatePlayback: () => false,
+        start: async () => ok({ phase: 'running', installationId: 'inst-1' }),
+        onStateChange: subscribe(stateListeners),
+        onBeforePlaybackRelease: subscribe(releaseListeners),
+      } as unknown as AppContext['launch'],
+      mainWindow: {
+        snapshot: () => null,
+        on: subscribe(windowListeners),
+      } as unknown as AppContext['mainWindow'],
+      cinemaWindow: {
+        open: async () => undefined,
+        close: () => undefined,
+        isOpen: () => false,
+        onClosed: () => () => undefined,
+      } as unknown as AppContext['cinemaWindow'],
+      getMainWindow: () => null,
+    })
+    const live = () => ({
+      launchState: stateListeners.size,
+      playbackRelease: releaseListeners.size,
+      mainWindow: windowListeners.size,
+    })
+    return { app, live, playback }
+  }
+
+  /** Scans, then plays the one demo, so every lazily-taken subscription is live. */
+  async function registerAndPlay(app: AppContext): Promise<MainModuleRegistry> {
+    const registry = new MainModuleRegistry()
+    await registry.register(replaysModule, app)
+    const invoke = (type: string, payload?: unknown) =>
+      registry.invoke({ moduleId: 'replays', type, payload })
+    await invoke(REPLAYS_HANDLERS.scanStart)
+    // Until this registry's own scan is done, `index.read` may answer the previous one's cache rows,
+    // which `demo.play` cannot resolve to a file yet.
+    for (let i = 0; i < 50; i++) {
+      const outcome = await invoke(REPLAYS_HANDLERS.overviewRead)
+      if (outcome.ok && !(outcome.value as { scanning: boolean }).scanning) break
+      await new Promise((resolve) => setTimeout(resolve, 10))
+    }
+    const listed = await invoke(REPLAYS_HANDLERS.indexRead)
+    const rows = (listed.ok ? listed.value : []) as Array<{ id: string }>
+    expect(rows).toHaveLength(1)
+    const played = await invoke(REPLAYS_HANDLERS.demoPlay, {
+      demoId: rows[0].id,
+      installationId: 'inst-1',
+    })
+    expect(played).toEqual({ ok: true, value: { ok: true, value: { stage: null } } })
+    return registry
+  }
+
+  /** Triggers `playback.stop` while a playback launch is reported running, so its listener is taken. */
+  async function stopPlayback(registry: MainModuleRegistry, playback: { running: boolean }) {
+    playback.running = true
+    await registry.invoke({ moduleId: 'replays', type: REPLAYS_HANDLERS.playbackStop })
+    playback.running = false
+  }
+
+  it('registering the module twice leaves exactly one live subscription each', async () => {
+    const { app, live, playback } = await countingContext()
+    // The play's own subscription plus playback-stop's, which is only taken by a stop.
+    const one = { launchState: 2, playbackRelease: 1, mainWindow: 1 }
+    const none = { launchState: 0, playbackRelease: 0, mainWindow: 0 }
+
+    const first = await registerAndPlay(app)
+    await stopPlayback(first, playback)
+    expect(live()).toEqual(one)
+    await first.disposeAll()
+    expect(live()).toEqual(none)
+
+    const second = await registerAndPlay(app)
+    await stopPlayback(second, playback)
+    expect(live()).toEqual(one)
+    await second.disposeAll()
+    expect(live()).toEqual(none)
   })
 })

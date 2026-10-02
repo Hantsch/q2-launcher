@@ -1,6 +1,7 @@
 // Story 190 D8: `fixturebad` has a wrong SHA256. The install ends as a failed job whose visible reason is
 // the verification error; nothing is left on disk and no record is written.
 import { existsSync } from 'node:fs'
+import { STATE_WRITE_GRACE_MS } from '../lib/state-json.mjs'
 import {
   installationRootFilePath,
   MODS_INSTALL_R1Q2_ID,
@@ -55,6 +56,8 @@ export default async function modsInstallRefused({ page, shot, step }) {
   if (existsSync(installationRootFilePath(MODS_INSTALL_R1Q2_ID, 'fixturebad'))) {
     throw new Error('fixturebad/ exists after a refused install')
   }
+  // Absence assertion: let a debounced persist land first, or an erroneous record could be missed.
+  await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_GRACE_MS))
   const recs = installRecords(MODS_INSTALL_R1Q2_ID)
   if (recs.length !== 0) throw new Error(`records exist: ${JSON.stringify(recs)}`)
 }

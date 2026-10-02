@@ -57,6 +57,8 @@ export interface StageFollowSessions {
   pin(geometry: string | null): boolean
   /** A follower exists (a placed stage session is live), so a pin can take effect. */
   hasFollower(): boolean
+  /** Module shutdown: ends the live session's follower, as its own `end` would. */
+  dispose(): void
 }
 
 export interface StageFollowSessionsDeps {
@@ -127,6 +129,13 @@ export function createStageFollowSessions(deps: StageFollowSessionsDeps): StageF
       return true
     },
     hasFollower: () => current !== null,
+    dispose() {
+      const session = current
+      if (!session) return
+      current = null
+      session.unsubscribe()
+      session.follower.dispose()
+    },
     report(rect) {
       if (current) {
         current.rect = rect

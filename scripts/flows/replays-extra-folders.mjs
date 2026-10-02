@@ -26,6 +26,7 @@ import { join } from 'node:path'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { variantUserDataDir, withApp } from '../lib/harness.mjs'
 import { replaysExtraFolderFixturePath } from '../lib/fixture.mjs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -115,6 +116,11 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
   const restartVariant = `${variant}-extra-folders-restart`
   const restartUserDataDir = variantUserDataDir(restartVariant)
   mkdirSync(restartUserDataDir, { recursive: true })
+  await waitForStateJson(
+    userDataDir,
+    (doc) => doc.replays?.extraFolders?.some((row) => row.path === extraFolder),
+    'the extra folder in replays.extraFolders',
+  )
   copyFileSync(join(userDataDir, 'state.json'), join(restartUserDataDir, 'state.json'))
 
   await withApp(

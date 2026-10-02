@@ -9,9 +9,8 @@
 // pattern (copied, not imported - `scripts/*.mjs` never imports another flow file) and
 // `servers-scan-settings.mjs`'s approach for reading `state.json` off disk.
 import { createSocket } from 'node:dgram'
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import { SERVERS_DISABLED_SOURCES, writePopulatedFixture } from '../lib/fixture.mjs'
 
 export const variant = 'servers-sort-order'
@@ -21,8 +20,6 @@ const SCAN_SETTLE_TIMEOUT_MS = 15_000
 /** How long to keep retrying a `state.json` read after a sort click - the click updates the DOM
  * optimistically (`ServersView.tsx`'s `handleSort`) before the `list.setSort` IPC round trip that
  * actually writes the file resolves, so a single immediate read can race the write. */
-const STATE_WRITE_POLL_TIMEOUT_MS = 4_000
-const STATE_WRITE_POLL_INTERVAL_MS = 100
 
 const OOB_PREFIX = Buffer.from([0xff, 0xff, 0xff, 0xff])
 
@@ -193,31 +190,6 @@ async function waitForFinishedAtChange(page, previous, timeout) {
   )
 }
 
-function statePath() {
-  return join(variantUserDataDir(variant), 'state.json')
-}
-
-function readStateJson() {
-  return JSON.parse(readFileSync(statePath(), 'utf8'))
-}
-
-/** Polls `state.json` until `predicate` is satisfied or the timeout elapses - see the module-level
- * comment on `STATE_WRITE_POLL_TIMEOUT_MS` for why a single immediate read can race the write. */
-async function waitForStateJson(predicate, label) {
-  const deadline = Date.now() + STATE_WRITE_POLL_TIMEOUT_MS
-  let last
-  for (;;) {
-    last = readStateJson()
-    if (predicate(last)) return last
-    if (Date.now() >= deadline) {
-      throw new Error(
-        `timed out waiting for ${label}, last state.json servers: ${JSON.stringify(last.servers)}`,
-      )
-    }
-    await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_POLL_INTERVAL_MS))
-  }
-}
-
 // The bare `servers-row-` prefix also matches elements inside a row (`servers-row-copy-`,
 // `-favourite-`, `-gamemode-` ...); only the row itself carries an explicit `role="button"`.
 const ROW_SELECTOR = '[role="button"][data-testid^="servers-row-"]'
@@ -296,6 +268,7 @@ export default async function serversSortOrder({ page, step, shot }) {
   step('clicking the map column again reverses to descending')
   await page.getByTestId('servers-sort-map').click({ timeout: TIMEOUT_MS })
   await waitForStateJson(
+    variantUserDataDir(variant),
     (state) =>
       state.servers?.listSort?.column === 'map' && state.servers?.listSort?.direction === 'desc',
     'state.json to persist map/desc',
@@ -331,7 +304,7 @@ export default async function serversSortOrder({ page, step, shot }) {
     [serverF.address, serverC.address, serverE.address, serverD.address, serverB.address],
     'map descending after a page reload',
   )
-  const persisted = readStateJson()
+  const persisted = readStateJson(variantUserDataDir(variant))
   const persistedSort = persisted.servers?.listSort
   if (persistedSort?.column !== 'map' || persistedSort?.direction !== 'desc') {
     throw new Error(
@@ -356,6 +329,7 @@ export default async function serversSortOrder({ page, step, shot }) {
     'the default (after clearing the sort)',
   )
   await waitForStateJson(
+    variantUserDataDir(variant),
     (state) => !('listSort' in (state.servers ?? {})),
     'state.json to drop servers.listSort',
   )

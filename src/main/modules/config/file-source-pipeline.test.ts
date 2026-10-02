@@ -142,6 +142,7 @@ async function boot(
   await configModule.setup({
     handle: collectHandlers(handlers),
     emit: () => {},
+    onDispose: () => {},
     app: {
       installations: {
         find: (id: string) => installations.find((i) => i.id === id),

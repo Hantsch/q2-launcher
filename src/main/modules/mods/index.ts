@@ -104,8 +104,10 @@ export const modsModule: MainModule = {
     // Resolved once, as in the downloads module; httpsOnly follows the harness result.
     const source = resolveDownloadSource({ isDev: app.isDev })
     const catalog = new CatalogService({ log, source })
+    app.persistence.register('mods-catalog', catalog)
     // The engines manifest, only to learn the arch of the package an installation came from.
     const manifest = new ManifestService({ log, source })
+    app.persistence.register('mods-manifest', manifest)
 
     // Running installs and their pending decisions, keyed by job id; dropped when the job settles.
     const pending = new Map<string, (choice: ModInstallDecision) => void>()

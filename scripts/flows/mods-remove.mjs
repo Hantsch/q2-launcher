@@ -8,9 +8,9 @@
 // Selectors - `ModDetailPanel.tsx`, `RemoveModDialog.tsx`: mods-tile-<dir>, mods-detail-remove,
 // mods-detail-job-status, mods-remove-changed-list, mods-remove-changed-{keep,delete},
 // mods-remove-confirm.
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync } from 'node:fs'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { STATE_WRITE_GRACE_MS, readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import {
   INSTALL_MODS_REMOVE_ID,
   INSTALL_MODS_REMOVE_NAME,
@@ -43,10 +43,7 @@ function check(label, ok, detail = '') {
   if (!ok) failures.push(label)
 }
 
-function records() {
-  const state = JSON.parse(
-    readFileSync(join(variantUserDataDir('populated'), 'state.json'), 'utf8'),
-  )
+function records(state = readStateJson(variantUserDataDir('populated'))) {
   return (
     state.installations.find((i) => i.id === INSTALL_MODS_REMOVE_ID)?.moduleData?.mods?.records ??
     []
@@ -161,6 +158,11 @@ export default async function modsRemove({ page, shot, step }) {
     .allInnerTexts()
     .catch(() => [])
   await shot('after-opentdm-removed')
+  await waitForStateJson(
+    variantUserDataDir('populated'),
+    (state) => records(state).length === 0,
+    'the opentdm record to be removed from state.json',
+  )
   check(
     'after removal the record is gone, the tile says not installed and the picker no longer offers ctf',
     records().length === 0 &&

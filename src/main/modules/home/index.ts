@@ -25,6 +25,7 @@ export const homeModule: MainModule = {
   setup({ handle, emit, app, log }) {
     const newsService = createNewsService({
       isDev: app.isDev,
+      persistence: app.persistence,
       log,
       onChanged: (feed) => emit(HOME_EVENTS.newsChanged, feed),
     })

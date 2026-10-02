@@ -50,6 +50,7 @@ import { join } from 'node:path'
 import { SERVERS_DISABLED_SOURCES, writeJoinFixture } from '../lib/fixture.mjs'
 import { variantUserDataDir, withApp } from '../lib/harness.mjs'
 import { REPO_ROOT } from '../lib/paths.mjs'
+import { readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 
 export const variant = 'servers-watchlist'
 
@@ -437,13 +438,20 @@ export default async function serversWatchlist({ page, step, shot }) {
   const restartVariant = `${variant}-restart`
   const restartUserDataDir = variantUserDataDir(restartVariant)
   mkdirSync(restartUserDataDir, { recursive: true })
+  // state.json writes are debounced: copy only once the redeemed code is on disk.
+  await waitForStateJson(
+    userDataDir,
+    (doc) =>
+      Array.isArray(doc.unlock?.codes) && doc.unlock.codes.some((e) => e.code === acceptedCode),
+    'the accepted code in unlock.codes',
+  )
   copyFileSync(join(userDataDir, 'state.json'), join(restartUserDataDir, 'state.json'))
   copyFileSync(
     join(userDataDir, 'window-state.json'),
     join(restartUserDataDir, 'window-state.json'),
   )
 
-  const restartedState = JSON.parse(readFileSync(join(restartUserDataDir, 'state.json'), 'utf8'))
+  const restartedState = readStateJson(restartUserDataDir)
   restartedState.servers.watchlist = [
     { id: TOO_SLOW_ENTRY_ID, name: TOO_SLOW_ENTRY_NAME, mode: 'regex', tooSlow: true },
   ]

@@ -8,8 +8,8 @@
 //   mods-tile-progress-<id>, downloads-job-<jobId>; the action bar's gamedir <select> by its label.
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 import {
   installationRootFilePath,
   MODS_INSTALL_R1Q2_ID,
@@ -97,8 +97,12 @@ export default async function modsInstall({ page, shot, step }) {
   if (!options.includes('fixturemod')) throw new Error(`picker lists ${JSON.stringify(options)}`)
 
   step('state.json records the install with every file, size and SHA256')
-  const state = JSON.parse(
-    readFileSync(join(variantUserDataDir('populated'), 'state.json'), 'utf8'),
+  const state = await waitForStateJson(
+    variantUserDataDir('populated'),
+    (doc) =>
+      doc.installations?.find((i) => i.id === MODS_INSTALL_R1Q2_ID)?.moduleData?.mods?.records
+        ?.length > 0,
+    'the install record in state.json',
   )
   const installation = state.installations.find((i) => i.id === MODS_INSTALL_R1Q2_ID)
   const record = installation?.moduleData?.mods?.records?.[0]

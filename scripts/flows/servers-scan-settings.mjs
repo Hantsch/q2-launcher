@@ -27,9 +27,8 @@
 //   servers-scan-status                          ServersView.tsx - live status readout; carries
 //                                                `data-running`/`data-finished-at` test-observability
 //                                                attributes alongside its i18n-driven visible text
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 import { SERVERS_SCAN_SETTINGS_SEED } from '../lib/fixture.mjs'
 
 /** This flow's own dedicated fixture variant (review fix: it used to run against the shared
@@ -45,9 +44,8 @@ const TIMEOUT_MS = 8_000
 // own settle-wait gets real headroom rather than racing it.
 const SCAN_SETTLE_TIMEOUT_MS = 15_000
 
-function readPopulatedStateJson() {
-  const path = join(variantUserDataDir(variant), 'state.json')
-  return JSON.parse(readFileSync(path, 'utf8'))
+function waitForPopulatedStateJson(predicate, label) {
+  return waitForStateJson(variantUserDataDir(variant), predicate, label)
 }
 
 export default async function serversScanSettings({ page, shot, step }) {
@@ -167,7 +165,6 @@ export default async function serversScanSettings({ page, shot, step }) {
   await shot('values-changed')
 
   step('the changed values persisted in state.json')
-  const changed = readPopulatedStateJson()
   const expectedChanged = {
     concurrency: nextConcurrency,
     timeoutMs: nextTimeoutMs,
@@ -177,6 +174,10 @@ export default async function serversScanSettings({ page, shot, step }) {
     autoRefreshEnabled: nextAutoRefreshEnabled,
     autoRefreshIntervalMs: nextAutoRefreshIntervalMs,
   }
+  const changed = await waitForPopulatedStateJson(
+    (doc) => Object.entries(expectedChanged).every(([k, v]) => doc.servers?.scan?.[k] === v),
+    'the changed scan settings',
+  )
   for (const [field, expected] of Object.entries(expectedChanged)) {
     if (changed.servers?.scan?.[field] !== expected) {
       throw new Error(
@@ -227,7 +228,11 @@ export default async function serversScanSettings({ page, shot, step }) {
     SERVERS_SCAN_SETTINGS_SEED.concurrency,
   )
 
-  const reverted = readPopulatedStateJson()
+  const reverted = await waitForPopulatedStateJson(
+    (doc) =>
+      Object.entries(SERVERS_SCAN_SETTINGS_SEED).every(([k, v]) => doc.servers?.scan?.[k] === v),
+    'the reverted scan settings',
+  )
   for (const [field, expected] of Object.entries(SERVERS_SCAN_SETTINGS_SEED)) {
     if (reverted.servers?.scan?.[field] !== expected) {
       throw new Error(
@@ -310,7 +315,12 @@ export default async function serversScanSettings({ page, shot, step }) {
   }
   // `autoScanOnOpen`'s seed is already `false`, and AC3 left it `false` too - nothing to restore.
 
-  const finalOnDisk = readPopulatedStateJson()
+  const finalOnDisk = await waitForPopulatedStateJson(
+    (doc) =>
+      doc.servers?.scan?.autoRefreshEnabled === SERVERS_SCAN_SETTINGS_SEED.autoRefreshEnabled &&
+      doc.servers?.scan?.autoScanOnOpen === SERVERS_SCAN_SETTINGS_SEED.autoScanOnOpen,
+    'the final scan settings',
+  )
   if (
     finalOnDisk.servers?.scan?.autoRefreshEnabled !== SERVERS_SCAN_SETTINGS_SEED.autoRefreshEnabled
   ) {

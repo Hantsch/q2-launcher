@@ -112,6 +112,15 @@ and installations are parsed row by row so one bad entry is dropped instead of
 taking the file with it. Migrations live in `src/main/services/migrations.ts`;
 `MIGRATIONS` is empty at v1 and carries a worked example in its doc comment.
 
+Writes are debounced: `state.json` (and every other `JsonStore`) is flushed shortly after the last
+change, not on each one. A failed write is retried once; if the retry fails too, the store reports
+it and the user gets a toast instead of a silent loss.
+
+Quit is a sequence the shell awaits (`src/main/shutdown.ts`). The first `before-quit` is held, the
+playback pipe is released synchronously, then module disposers run (reverse registration order),
+then `state`, the main window and every registered store settle in parallel - all bounded to 3 s.
+Failures and a timeout are logged, then `app.quit()` runs; later `before-quit` events pass through.
+
 ## The installation domain
 
 An `Installation` is identified by a generated `id`, never by its path — so a
@@ -226,8 +235,10 @@ shell never needs editing to add one.
    placement, capabilities). Manifests already exist for all four planned modules.
 3. **Main half** — a `MainModule` in `src/main/modules/<id>/index.ts`, registered
    in `src/main/modules/index.ts`. It receives `handle`, `emit`, `app` (the
-   services) and a scoped logger. It never touches `ipcMain`, `BrowserWindow` or
-   the state file.
+   services), a scoped logger and `onDispose`. It never touches `ipcMain`,
+   `BrowserWindow` or the state file. `setup()` keeps its state in its closure
+   (no module-level `let`) and releases it through `onDispose`; the registry runs
+   the disposers in reverse registration order at shutdown.
 4. **Renderer half** — a view, registered in `src/renderer/src/modules/index.ts`,
    plus a typed client over `callModule()`.
 5. **Strings** — add the i18n keys.

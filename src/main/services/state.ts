@@ -172,9 +172,18 @@ function defaults(): LauncherStateDocument {
 export class StateStore {
   private readonly store: JsonStore<LauncherStateDocument>
 
-  constructor(filePath: string) {
+  constructor(filePath: string, options: { onPersistError?: () => void } = {}) {
+    // One notice per session: a disk that fails once usually keeps failing, and the user needs
+    // to hear it once, not on every debounced retry.
+    let reported = false
     this.store = new JsonStore<LauncherStateDocument>({
       filePath,
+      debounceMs: 250,
+      onPersistError: () => {
+        if (reported) return
+        reported = true
+        options.onPersistError?.()
+      },
       defaults,
       parse: (raw) => {
         const { doc } = migrateStateDocument(raw)
@@ -350,7 +359,7 @@ export class StateStore {
   }
 
   /** Waits for pending writes; called on quit. */
-  settle(): Promise<void> {
+  settle(): Promise<{ ok: boolean }> {
     return this.store.settle()
   }
 }

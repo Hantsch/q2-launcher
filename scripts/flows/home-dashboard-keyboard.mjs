@@ -16,9 +16,8 @@
 //                                     carrying `data-lifted` while a lift is in flight
 //   dashboard-status-line             ArrangeBar.tsx - the visible status line, which IS the
 //                                     aria-live region (AC9: one element, two roles)
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
+import { STATE_WRITE_GRACE_MS, readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -107,17 +106,18 @@ async function waitForTileAtCells(page, expected, label) {
 
 /** `state.json`'s `homeLayout` as it is on disk right now - read fresh, no restart (AC10). */
 function readPersistedHomeLayout() {
-  const statePath = join(variantUserDataDir('populated'), 'state.json')
-  return JSON.parse(readFileSync(statePath, 'utf8')).homeLayout
+  return readStateJson(variantUserDataDir('populated')).homeLayout
 }
 
-function assertPersistedLayout(expected, label) {
-  const actual = JSON.stringify(readPersistedHomeLayout())
-  if (actual !== JSON.stringify(expected)) {
-    throw new Error(
-      `${label}: expected state.json's homeLayout to be ${JSON.stringify(expected)}, got ${actual}`,
-    )
-  }
+/** Waits for the layout the app just wrote; `unchanged` first lets a pending debounced write land. */
+async function assertPersistedLayout(expected, label, { unchanged = false } = {}) {
+  if (unchanged) await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_GRACE_MS))
+  const want = JSON.stringify(expected)
+  await waitForStateJson(
+    variantUserDataDir('populated'),
+    (doc) => JSON.stringify(doc.homeLayout) === want,
+    `${label}: state.json's homeLayout to be ${want}`,
+  )
 }
 
 async function statusText(page) {
@@ -196,7 +196,7 @@ export default async function homeDashboardKeyboard({ page, shot, step }) {
     .getByTestId('dashboard-catalog-entry-configProfiles')
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   let expectedLayout = { tiles: [{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }] }
-  assertPersistedLayout(expectedLayout, 'the known starting state of this flow')
+  await assertPersistedLayout(expectedLayout, 'the known starting state of this flow')
   console.log(
     'arrange mode is on and the dashboard holds exactly one tile - playtime at {0,0,6,5}, with ' +
       'configProfiles parked in the catalog',
@@ -225,7 +225,7 @@ export default async function homeDashboardKeyboard({ page, shot, step }) {
     )
   }
   expectedLayout = { tiles: [movedCells] }
-  assertPersistedLayout(expectedLayout, 'after one accepted ArrowRight')
+  await assertPersistedLayout(expectedLayout, 'after one accepted ArrowRight')
   console.log(
     `ArrowRight moved playtime one cell right (${Math.round(travelled)}px) and state.json already ` +
       'carries the new column - an accepted keystroke is persisted as it happens (AC8/AC10)',
@@ -242,7 +242,7 @@ export default async function homeDashboardKeyboard({ page, shot, step }) {
     )
   }
   expectedLayout = { tiles: [resizedCells] }
-  assertPersistedLayout(expectedLayout, 'after one accepted Shift+ArrowDown')
+  await assertPersistedLayout(expectedLayout, 'after one accepted Shift+ArrowDown')
   console.log(
     `Shift+ArrowDown grew playtime by one row (${Math.round(grewBy)}px), persisted immediately - ` +
       'a single lift session mixed a move and a resize (AC8)',
@@ -253,7 +253,7 @@ export default async function homeDashboardKeyboard({ page, shot, step }) {
   await waitForStatusContaining(page, STATUS.dropped, 'Enter on a lifted tile')
   await assertLifted(page, 'playtime', false, 'after Enter dropped the tile')
   await waitForTileAtCells(page, resizedCells, 'playtime after the drop')
-  assertPersistedLayout(expectedLayout, 'after the drop itself')
+  await assertPersistedLayout(expectedLayout, 'after the drop itself')
   console.log(
     `Enter dropped playtime - ${JSON.stringify(await statusText(page))} - and changed no geometry: ` +
       'every accepted keystroke had already been committed, so the drop has nothing left to write',
@@ -297,7 +297,7 @@ export default async function homeDashboardKeyboard({ page, shot, step }) {
     await page.keyboard.press('ArrowRight')
     const moved = { ...before, x: before.x + 1 }
     await waitForTileAtCells(page, moved, `playtime after ArrowRight in the ${exit.name} sub-case`)
-    assertPersistedLayout(
+    await assertPersistedLayout(
       { tiles: [moved] },
       `the ArrowRight before ${exit.name} must really be committed`,
     )
@@ -310,7 +310,7 @@ export default async function homeDashboardKeyboard({ page, shot, step }) {
       before,
       `playtime after ${exit.name} restored the pre-lift cells`,
     )
-    assertPersistedLayout(
+    await assertPersistedLayout(
       beforeLayout,
       `state.json after ${exit.name} reverted the in-between move`,
     )
