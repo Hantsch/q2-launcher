@@ -15,8 +15,12 @@ let iconDataUrls: Record<string, string | null> = {}
 const fetchIconDataUrl = vi.fn()
 
 vi.mock('../../store/useLauncher', () => ({
-  useLauncher: (selector: (state: { iconDataUrls: Record<string, string | null>; fetchIconDataUrl: typeof fetchIconDataUrl }) => unknown) =>
-    selector({ iconDataUrls, fetchIconDataUrl }),
+  useLauncher: (
+    selector: (state: {
+      iconDataUrls: Record<string, string | null>
+      fetchIconDataUrl: typeof fetchIconDataUrl
+    }) => unknown,
+  ) => selector({ iconDataUrls, fetchIconDataUrl }),
 }))
 
 /**
@@ -66,7 +70,14 @@ describe('InstallationTile', () => {
     const text = screen.getByText('R1')
     const root = text.parentElement as HTMLElement
     expect(classesOf(root)).toEqual(
-      expect.arrayContaining(['grid', 'place-items-center', 'rounded-md', 'border', 'aspect-square', 'w-full']),
+      expect.arrayContaining([
+        'grid',
+        'place-items-center',
+        'rounded-md',
+        'border',
+        'aspect-square',
+        'w-full',
+      ]),
     )
     expect(classesOf(text)).toEqual(
       expect.arrayContaining(['font-display', 'font-semibold', 'text-lg', 'tracking-tight']),
@@ -81,7 +92,9 @@ describe('InstallationTile', () => {
     expect(classesOf(root)).toEqual(
       expect.arrayContaining(['grid', 'place-items-center', 'rounded-md', 'border', 'size-11']),
     )
-    expect(classesOf(text)).toEqual(expect.arrayContaining(['font-display', 'font-semibold', 'text-sm']))
+    expect(classesOf(text)).toEqual(
+      expect.arrayContaining(['font-display', 'font-semibold', 'text-sm']),
+    )
   })
 
   it("renders the actionBar variant with today's exact classes", () => {
@@ -141,7 +154,10 @@ describe('InstallationTile', () => {
       iconDataUrls['inst-1'] = 'data:image/png;base64,AAAA'
 
       const { container } = render(
-        <InstallationTile installation={makeInstallation({ icon: { kind: 'custom' } })} size="card" />,
+        <InstallationTile
+          installation={makeInstallation({ icon: { kind: 'custom' } })}
+          size="card"
+        />,
       )
 
       const img = container.querySelector('img') as HTMLImageElement
@@ -151,7 +167,10 @@ describe('InstallationTile', () => {
 
     it('falls back to the code tile and fetches once while a custom icon is uncached', () => {
       render(
-        <InstallationTile installation={makeInstallation({ icon: { kind: 'custom' } })} size="card" />,
+        <InstallationTile
+          installation={makeInstallation({ icon: { kind: 'custom' } })}
+          size="card"
+        />,
       )
 
       expect(screen.getByText('R1')).toBeTruthy()
@@ -182,7 +201,9 @@ describe('InstallationTile', () => {
 
       // Same broken status, no `lastFailure` - an ordinary broken folder must not
       // pick up the tag.
-      rerender(<InstallationTile installation={makeInstallation({ status: 'invalid' })} size="card" />)
+      rerender(
+        <InstallationTile installation={makeInstallation({ status: 'invalid' })} size="card" />,
+      )
       expect(screen.queryByTestId('installation-tile-failed-tag')).toBeNull()
     })
 

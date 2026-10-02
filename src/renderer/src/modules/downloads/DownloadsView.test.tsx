@@ -169,7 +169,12 @@ describe('DownloadsView', () => {
         makeJob({
           id: 'job-4',
           status: 'running',
-          progress: { ratio: 0.9, bytesDone: 900_000, bytesTotal: 1_000_000, bytesPerSecond: 60_000 },
+          progress: {
+            ratio: 0.9,
+            bytesDone: 900_000,
+            bytesTotal: 1_000_000,
+            bytesPerSecond: 60_000,
+          },
         }),
       ],
     })
@@ -194,7 +199,9 @@ describe('DownloadsView', () => {
 
     await waitFor(() => expect(getArchiveCacheStatus).toHaveBeenCalled())
     await waitFor(() =>
-      expect(screen.getByText(formatBytes(stubCacheStatus.totalBytes), { exact: false })).toBeTruthy(),
+      expect(
+        screen.getByText(formatBytes(stubCacheStatus.totalBytes), { exact: false }),
+      ).toBeTruthy(),
     )
   })
 

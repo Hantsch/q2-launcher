@@ -12,12 +12,14 @@ that the real R1Q2 binary initializes OpenGL, audio and input, or that it can lo
 executables are not real, runnable engine binaries.
 
 **Preparation:**
+
 - A Windows machine with a working GPU/driver (no headless CI runner).
 - Build and run the packaged app (`npm run build`, then launch it, or run from source with
   `npm run dev`).
 - No existing Q2PRO/R1Q2 installation required — this walks a fresh bootstrap.
 
 **Steps:**
+
 1. Open the bootstrap wizard for a new installation.
 2. At the engine step, pick **R1Q2**.
 3. Complete the wizard (target folder can be any writable path).
@@ -34,13 +36,14 @@ screen or an immediate crash to desktop).
 
 **Why it cannot be automated:** this is a legal/maintainer judgment call, not a testable
 behaviour. The launcher is proven to install the GPLv3 license text and to surface engine
-source/license info (automated, see story 080's Done section) — whether the *set* of
+source/license info (automated, see story 080's Done section) — whether the _set_ of
 dependency/third-party notices is exhaustive is outside what a test can assert.
 
 **Preparation:** the community `engines/r1q2/README.md` (in the content repository) already lists
 its own remaining dependency-notice work — read that first.
 
 **Steps:**
+
 1. Review R1Q2's upstream project for any third-party/dependency license notices beyond the
    GPLv3 text itself (bundled libraries, forked code, etc.).
 2. Compare against what `resources/licenses/r1q2/` currently ships.

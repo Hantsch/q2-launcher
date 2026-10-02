@@ -111,12 +111,10 @@ export const MAX_COMMIT_CVARS = 9
  */
 export const commitProfileCvarsInputSchema = z.object({
   profileId: z.string().min(1),
-  cvars: z
-    .record(z.string().min(1), z.string())
-    .refine((cvars) => {
-      const count = Object.keys(cvars).length
-      return count >= 1 && count <= MAX_COMMIT_CVARS
-    }, `expected between 1 and ${MAX_COMMIT_CVARS} cvars`),
+  cvars: z.record(z.string().min(1), z.string()).refine((cvars) => {
+    const count = Object.keys(cvars).length
+    return count >= 1 && count <= MAX_COMMIT_CVARS
+  }, `expected between 1 and ${MAX_COMMIT_CVARS} cvars`),
 })
 
 /** Structural validation only, same rationale as `setProfileCvarsInputSchema` above. */
@@ -277,7 +275,13 @@ function normalizeActionKeys(raw: unknown): unknown {
   }
   if (slots.length === 0) return raw
 
-  const { key: _key, secondaryKey: _secondaryKey, keyModifier: _keyModifier, secondaryKeyModifier: _secondaryKeyModifier, ...rest } = value
+  const {
+    key: _key,
+    secondaryKey: _secondaryKey,
+    keyModifier: _keyModifier,
+    secondaryKeyModifier: _secondaryKeyModifier,
+    ...rest
+  } = value
   return { ...rest, keys: slots }
 }
 
@@ -600,10 +604,7 @@ export const cleanupRestoreInputSchema = cleanupApplyInputSchema
  * `cleanupApplyInputSchema`'s 256 entries, and well above what the Care tab can
  * put on screen at once.
  */
-const tidyUpBindScopeSchema = z.union([
-  z.literal('base'),
-  z.object({ layerId: z.string().min(1) }),
-])
+const tidyUpBindScopeSchema = z.union([z.literal('base'), z.object({ layerId: z.string().min(1) })])
 
 const tidyUpBindClaimSchema = z.discriminatedUnion('source', [
   z.object({ source: z.literal('baseBind'), command: z.string() }),

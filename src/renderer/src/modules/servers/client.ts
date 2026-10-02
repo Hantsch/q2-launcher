@@ -200,8 +200,7 @@ export function readServerDetail(address: string): Promise<Outcome<ServerDetail 
  * split.
  */
 export type WatchlistMutationResult =
-  | { ok: true; snapshot: WatchlistSnapshot }
-  | { ok: false; reasonKey: string }
+  { ok: true; snapshot: WatchlistSnapshot } | { ok: false; reasonKey: string }
 
 export function readWatchlist(): Promise<Outcome<WatchlistSnapshot>> {
   return callModule<WatchlistSnapshot>('servers', SERVERS_WATCHLIST_HANDLERS.read)
@@ -249,7 +248,10 @@ export function saveQuickFilter(input: {
   return callModule<QuickFiltersResult>('servers', SERVERS_HANDLERS.quickFiltersSave, input)
 }
 
-export function renameQuickFilter(input: { id: string; name: string }): Promise<Outcome<QuickFiltersResult>> {
+export function renameQuickFilter(input: {
+  id: string
+  name: string
+}): Promise<Outcome<QuickFiltersResult>> {
   return callModule<QuickFiltersResult>('servers', SERVERS_HANDLERS.quickFiltersRename, input)
 }
 

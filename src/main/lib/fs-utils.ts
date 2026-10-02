@@ -159,7 +159,9 @@ export function dirReadFailureReason(
  */
 export async function listDirOrReason(
   dir: string,
-): Promise<{ ok: true; listing: DirListing } | { ok: false; reason: ReturnType<typeof dirReadFailureReason> }> {
+): Promise<
+  { ok: true; listing: DirListing } | { ok: false; reason: ReturnType<typeof dirReadFailureReason> }
+> {
   let entries
   try {
     entries = await readdir(dir, { withFileTypes: true })
@@ -243,7 +245,13 @@ export async function readBinaryKind(path: string): Promise<BinaryKind> {
   try {
     const header = Buffer.alloc(4)
     const { bytesRead } = await handle.read(header, 0, 4, 0)
-    if (bytesRead >= 4 && header[0] === 0x7f && header[1] === 0x45 && header[2] === 0x4c && header[3] === 0x46) {
+    if (
+      bytesRead >= 4 &&
+      header[0] === 0x7f &&
+      header[1] === 0x45 &&
+      header[2] === 0x4c &&
+      header[3] === 0x46
+    ) {
       return 'elf'
     }
     if (bytesRead >= 2 && header[0] === 0x4d && header[1] === 0x5a) return 'pe'
@@ -273,7 +281,13 @@ export async function readBinaryArch(path: string): Promise<BinaryArch> {
   try {
     const head = Buffer.alloc(64)
     const { bytesRead } = await handle.read(head, 0, 64, 0)
-    if (bytesRead >= 20 && head[0] === 0x7f && head[1] === 0x45 && head[2] === 0x4c && head[3] === 0x46) {
+    if (
+      bytesRead >= 20 &&
+      head[0] === 0x7f &&
+      head[1] === 0x45 &&
+      head[2] === 0x4c &&
+      head[3] === 0x46
+    ) {
       const littleEndian = head[5] !== 2
       const machine = littleEndian ? head.readUInt16LE(18) : head.readUInt16BE(18)
       if (machine === 3) return 'x86'

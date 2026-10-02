@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
-import { allCatalogRows, buildDemoRows, commandsForRow, nameForCatalogRow } from '@shared/config/catalog-rows'
+import {
+  allCatalogRows,
+  buildDemoRows,
+  commandsForRow,
+  nameForCatalogRow,
+} from '@shared/config/catalog-rows'
 import { findCvar } from '@shared/config/cvar-catalog'
 import {
   buildTemplateCvarSections,
@@ -61,7 +66,9 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       const profiles = Array.isArray(doc.configProfiles) ? doc.configProfiles : []
       return {
         ...doc,
-        configProfiles: profiles.map((raw) => materialiseTemplateCategories(raw as Record<string, unknown>)),
+        configProfiles: profiles.map((raw) =>
+          materialiseTemplateCategories(raw as Record<string, unknown>),
+        ),
       }
     },
   },
@@ -74,7 +81,9 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       const profiles = Array.isArray(doc.configProfiles) ? doc.configProfiles : []
       return {
         ...doc,
-        configProfiles: profiles.map((raw) => materialiseCvarSections(raw as Record<string, unknown>)),
+        configProfiles: profiles.map((raw) =>
+          materialiseCvarSections(raw as Record<string, unknown>),
+        ),
       }
     },
   },
@@ -100,7 +109,9 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       const profiles = Array.isArray(doc.configProfiles) ? doc.configProfiles : []
       return {
         ...doc,
-        configProfiles: profiles.map((raw) => addBackToWindowAndGuard(raw as Record<string, unknown>)),
+        configProfiles: profiles.map((raw) =>
+          addBackToWindowAndGuard(raw as Record<string, unknown>),
+        ),
       }
     },
   },
@@ -145,19 +156,23 @@ const DEMO_GUARD_TABLE: Record<string, { old: string[]; guarded: string[] }> = {
 function addBackToWindowAndGuard(raw: Record<string, unknown>): Record<string, unknown> {
   try {
     if (raw === null || typeof raw !== 'object') return raw
-    const categories = Array.isArray(raw.categories) ? (raw.categories as Record<string, unknown>[]) : []
+    const categories = Array.isArray(raw.categories)
+      ? (raw.categories as Record<string, unknown>[])
+      : []
     if (!categories.some((category) => category?.id === 'demo')) return raw
     if (!Array.isArray(raw.actions)) return raw
     let changed = false
     const actions = (raw.actions as Record<string, unknown>[]).map((action) => {
-      const entry = typeof action?.catalogId === 'string' ? DEMO_GUARD_TABLE[action.catalogId] : undefined
+      const entry =
+        typeof action?.catalogId === 'string' ? DEMO_GUARD_TABLE[action.catalogId] : undefined
       if (!entry || !Array.isArray(action.commands)) return action
       const texts = (action.commands as unknown[]).map((c) =>
         c !== null && typeof c === 'object' && (c as Record<string, unknown>).kind === 'raw'
           ? (c as Record<string, unknown>).text
           : undefined,
       )
-      if (texts.length !== entry.old.length || !texts.every((t, i) => t === entry.old[i])) return action
+      if (texts.length !== entry.old.length || !texts.every((t, i) => t === entry.old[i]))
+        return action
       changed = true
       return { ...action, commands: entry.guarded.map((text) => ({ kind: 'raw', text })) }
     })
@@ -188,12 +203,15 @@ function addBackToWindowAndGuard(raw: Record<string, unknown>): Record<string, u
  */
 function addDemoCategory(raw: Record<string, unknown>): Record<string, unknown> {
   if (raw === null || typeof raw !== 'object') return raw
-  const categories = Array.isArray(raw.categories) ? [...(raw.categories as Record<string, unknown>[])] : []
+  const categories = Array.isArray(raw.categories)
+    ? [...(raw.categories as Record<string, unknown>[])]
+    : []
   const actions = Array.isArray(raw.actions) ? [...(raw.actions as Record<string, unknown>[])] : []
 
   if (!categories.some((category) => category?.id === 'demo')) {
     const template = TEMPLATE_ACTION_CATEGORIES.find((category) => category.id === 'demo')
-    if (template) categories.push({ id: template.id, name: template.label, nameKey: template.labelKey })
+    if (template)
+      categories.push({ id: template.id, name: template.label, nameKey: template.labelKey })
   }
 
   const existingCatalogIds = new Set(
@@ -238,7 +256,9 @@ function addDemoCategory(raw: Record<string, unknown>): Record<string, unknown> 
  * pending edits", so the existing unsaved-changes bar picks this up for free.
  */
 function materialiseTemplateCategories(raw: Record<string, unknown>): Record<string, unknown> {
-  const categories = Array.isArray(raw.categories) ? [...(raw.categories as Record<string, unknown>[])] : []
+  const categories = Array.isArray(raw.categories)
+    ? [...(raw.categories as Record<string, unknown>[])]
+    : []
   const actions = Array.isArray(raw.actions) ? [...(raw.actions as Record<string, unknown>[])] : []
 
   const existingCategoryIds = new Set(categories.map((category) => category.id))
@@ -307,14 +327,19 @@ const MIGRATED_OTHER_SECTION_LABEL = 'Other'
 function materialiseCvarSections(raw: Record<string, unknown>): Record<string, unknown> {
   if (raw.cvarSections !== undefined) return raw
 
-  const cvars = raw.cvars && typeof raw.cvars === 'object' ? (raw.cvars as Record<string, string>) : {}
+  const cvars =
+    raw.cvars && typeof raw.cvars === 'object' ? (raw.cvars as Record<string, string>) : {}
   const keys = Object.keys(cvars)
 
   const sections = buildTemplateCvarSections()
 
   const otherCvars = keys.filter((key) => !findCvar(key))
   if (otherCvars.length > 0) {
-    sections.push({ id: MIGRATED_OTHER_SECTION_ID, name: MIGRATED_OTHER_SECTION_LABEL, cvars: otherCvars })
+    sections.push({
+      id: MIGRATED_OTHER_SECTION_ID,
+      name: MIGRATED_OTHER_SECTION_LABEL,
+      cvars: otherCvars,
+    })
   }
 
   return { ...raw, cvarSections: sections, writeCatalogDefaults: true, dirty: true }

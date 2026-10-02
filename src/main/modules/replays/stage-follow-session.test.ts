@@ -1,8 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ok } from '@shared/types'
-import type { MainWindowEvent, MainWindowObserver, MainWindowSnapshot } from '../../main-window-observer'
+import type {
+  MainWindowEvent,
+  MainWindowObserver,
+  MainWindowSnapshot,
+} from '../../main-window-observer'
 import { geometryLine, STAGE_FOLLOW_QUIET_MS } from './stage-follow'
-import { createStageFollowSessions, parkGeometryAt, virtualDesktopRightEdge } from './stage-follow-session'
+import {
+  createStageFollowSessions,
+  parkGeometryAt,
+  virtualDesktopRightEdge,
+} from './stage-follow-session'
 
 const RECT = { x: 10, y: 20, width: 800, height: 600 }
 
@@ -42,7 +50,8 @@ function setup() {
       lines.push(line)
       return ok(undefined)
     },
-    computeGeometry: (r, w) => `${r.width}x${r.height}+${w.contentBounds.x + r.x}+${w.contentBounds.y + r.y}`,
+    computeGeometry: (r, w) =>
+      `${r.width}x${r.height}+${w.contentBounds.x + r.x}+${w.contentBounds.y + r.y}`,
     parkGeometry: (g) => parkGeometryAt(g, 1920),
   })
   return { win, lines, sessions }

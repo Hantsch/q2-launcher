@@ -25,7 +25,7 @@ Concept: [mods.md](../concepts/mods.md) §6, §10; requirements MOD-5 to MOD-11.
 - [x] **AC1** — Clicking Install on a catalog tile starts a job that shows progress in the
       Downloads surface and on the tile.
 - [x] **AC2** — When the job finishes, the mod's files are in `<installation root>/<gamedir>/`
-      and the tile shows *installed*.
+      and the tile shows _installed_.
 - [x] **AC3** — With a matching variant, the installed game library is the one for the
       installation's platform and engine architecture (for example, r1q2 on Windows gets the
       32-bit `gamex86.dll`).
@@ -39,7 +39,7 @@ Concept: [mods.md](../concepts/mods.md) §6, §10; requirements MOD-5 to MOD-11.
 - [x] **AC8** — After the install, the action bar's gamedir picker offers the mod.
 - [x] **AC9** — The installation's state contains an install record listing every file the job
       wrote, with its size and hash, plus the catalog id, version and variant.
-- [x] **AC10** — Installing a catalog mod whose gamedir already exists as *installed manually*
+- [x] **AC10** — Installing a catalog mod whose gamedir already exists as _installed manually_
       first shows a confirmation naming the folder. Cancelling writes nothing.
 
 ## Open Questions
@@ -77,10 +77,10 @@ Concept: [mods.md](../concepts/mods.md) §6, §10; requirements MOD-5 to MOD-11.
   (user decision), and those are only known once the package is extracted. Until the user answers,
   the download lands only in the launcher's own cache.
 - **A conflict is an existing file of the same name (case-insensitive) whose SHA256 differs.** An
-  identical existing file is left alone and not recorded. A file the user chose to *keep* is not
+  identical existing file is left alone and not recorded. A file the user chose to _keep_ is not
   recorded, so 191 can never delete it. An overwritten file is recorded, because the launcher wrote
   it.
-- **The dialog appears only when the gamedir exists as *installed manually*.** A gamedir with an
+- **The dialog appears only when the gamedir exists as _installed manually_.** A gamedir with an
   install record is refused with `mods.error.alreadyInstalled` (replacing it is 194's update).
 - **The job waits for the decision through the existing `JobsService.setWaiting` with
   `mods.job.waitingForDecision`.** That is the generic, key-carrying wait story 091 built for later
@@ -110,7 +110,7 @@ Concept: [mods.md](../concepts/mods.md) §6, §10; requirements MOD-5 to MOD-11.
 ## Plan
 
 Builds on 188 (mods module, tiles, detail panel, mods state) and 189 (catalog with variants per
-*(platform, arch)*, its manifest parse and fixture route). Where those stories named a file or a
+_(platform, arch)_, its manifest parse and fixture route). Where those stories named a file or a
 field differently from below, their name wins. The behaviour described here does not change.
 
 1. **Engine arch (main, pure).** Add optional `arch` to engine packages in the engines manifest,
@@ -143,7 +143,7 @@ Order: D1, D2 and D3 are independent. D4 needs D1–D3, D5 needs D4, D6 needs D5
   engine member in `src/shared/modules/downloads.ts`. Set it in
   `content/q2_community_content/engines/manifest.json` (`q2pro-nightly-win64` → `x86_64`,
   `r1q2-b8012-msvs2022-win32` → `x86`). Add `readBinaryArch(path): Promise<'x86' | 'x86_64' |
-  'unknown'>` to `src/main/lib/fs-utils.ts`, next to `readBinaryKind` (same never-throw style). For
+'unknown'>` to `src/main/lib/fs-utils.ts`, next to `readBinaryKind` (same never-throw style). For
   PE it reads `e_lfanew` at 0x3C, checks `PE\0\0`, and reads Machine: 0x14c → x86, 0x8664 → x86_64.
   For ELF it reads EI_CLASS and `e_machine` at offset 18: 3 → x86, 62 → x86_64. Everything else is
   `unknown`. New `src/main/modules/mods/engine-target.ts` gets two functions:
@@ -156,19 +156,19 @@ Order: D1, D2 and D3 are independent. D4 needs D1–D3, D5 needs D4, D6 needs D5
     `{ refused: 'mods.error.noVariant' }`. It takes the variant whose `(platform, arch)` equals the
     target and that carries a game library. Otherwise it takes the entry's content-only variant for
     that platform, or any content-only variant. An `unknown` arch never matches a library variant.
-  Use 189's variant field names. Tests: `src/main/lib/fs-utils.test.ts` gets
-  "readBinaryArch reads x86 and x86_64 from PE and ELF headers" (synthetic headers in a temp dir,
-  plus a truncated file → `unknown`). `src/main/modules/mods/engine-target.test.ts` gets "r1q2 on
-  Windows selects the x86 library variant", "an x86-only mod for a 64-bit Q2PRO selects
-  content-only", "the manifest arch wins over the header", and "no variant and no content-only
-  variant is refused". `src/main/modules/downloads/schemas.test.ts` gets "an engine package
-  accepts an optional arch and refuses an unknown one".
+    Use 189's variant field names. Tests: `src/main/lib/fs-utils.test.ts` gets
+    "readBinaryArch reads x86 and x86_64 from PE and ELF headers" (synthetic headers in a temp dir,
+    plus a truncated file → `unknown`). `src/main/modules/mods/engine-target.test.ts` gets "r1q2 on
+    Windows selects the x86 library variant", "an x86-only mod for a 64-bit Q2PRO selects
+    content-only", "the manifest arch wins over the header", and "no variant and no content-only
+    variant is refused". `src/main/modules/downloads/schemas.test.ts` gets "an engine package
+    accepts an optional arch and refuses an unknown one".
 
 - **D2 — Install record.** New `src/main/modules/mods/install-record.ts`. If 188 already created a
   reader for `moduleData['mods']`, extend that file. There is exactly one parser of this key.
   Shape: `{ records: ModInstallRecord[] }`, and `ModInstallRecord = { catalogId, gamedir, version,
-  variantId, engineKind, arch, platform, contentOnly, installedAt (epoch ms), files: { path
-  (gamedir-relative, forward slashes), sizeBytes, sha256 }[] }`. `readModsState(moduleData)` parses
+variantId, engineKind, arch, platform, contentOnly, installedAt (epoch ms), files: { path
+(gamedir-relative, forward slashes), sizeBytes, sha256 }[] }`. `readModsState(moduleData)` parses
   defensively, mirroring `src/main/modules/downloads/engine/installation-state.ts`: a bad record is
   dropped, garbage becomes `{ records: [] }`, and it never throws. `withRecord(moduleData, record)`
   replaces any record for the same gamedir (case-insensitive) and keeps every other module's key.
@@ -182,20 +182,18 @@ Order: D1, D2 and D3 are independent. D4 needs D1–D3, D5 needs D4, D6 needs D5
 
 - **D3 — Package stager in the downloads module.** New
   `src/main/modules/downloads/stage-package.ts` exports `stagePackage({ source: PackageSource,
-  jobId, userDataPath, signal, onProgress, resolveExtractor, download?, extract? })` →
+jobId, userDataPath, signal, onProgress, resolveExtractor, download?, extract? })` →
   `{ ok: true, archivePath, extractDir } | { ok: false, key: DownloadsErrorKey, cancelled }`. It
   calls `downloadPackage` (`fetcher.ts`: `url` then `mirrors` in order, `.part`, size+SHA256, archive
   cache), then `extractArchive(markVerified(...))` (`extractor.ts`) into
-  `getExtractDir(userDataPath, \`${jobId}-${index}\`)` from `pipeline.ts` (SAFE_JOB_ID allows that).
-  If the extract dir then holds exactly one `*.tar` file and nothing else, it extracts that a second
-  time into the same dir and deletes the `.tar`. A failed or unverified download never spawns the
-  extractor. It creates no job (the caller owns the job) and writes nothing outside the downloads
-  cache. Mirror `src/main/modules/downloads/engine/update-job.ts`'s download/extract section and
-  `pipeline.ts`'s cancel checks. Export a production `resolveVendoredExtractor()` wrapper around
-  `resolveExtractorPath({ isPackaged, resourcesPath })` from this file, so callers outside the
-  downloads module never import the 7-Zip path module (`layering.test.ts` forbids that token outside
-  `downloads/`). Tests in `src/main/modules/downloads/stage-package.test.ts` (fake download/extract
-  seams, plus one real-7za case skipped when the binary is not vendored, like `extractor.test.ts`):
+  `getExtractDir(userDataPath, \`${jobId}-${index}\`)`from`pipeline.ts`(SAFE_JOB_ID allows that).
+If the extract dir then holds exactly one`*.tar`file and nothing else, it extracts that a second
+time into the same dir and deletes the`.tar`. A failed or unverified download never spawns the
+extractor. It creates no job (the caller owns the job) and writes nothing outside the downloads
+cache. Mirror `src/main/modules/downloads/engine/update-job.ts`'s download/extract section and
+`pipeline.ts`'s cancel checks. Export a production `resolveVendoredExtractor()`wrapper around`resolveExtractorPath({ isPackaged, resourcesPath })` from this file, so callers outside the
+downloads module never import the 7-Zip path module (`layering.test.ts`forbids that token outside`downloads/`). Tests in `src/main/modules/downloads/stage-package.test.ts`(fake download/extract
+seams, plus one real-7za case skipped when the binary is not vendored, like`extractor.test.ts`):
   "a size or SHA256 mismatch never extracts", "a failing url falls back to the mirror", and "a
   .tar.gz is extracted in two passes".
 
@@ -207,7 +205,7 @@ Order: D1, D2 and D3 are independent. D4 needs D1–D3, D5 needs D4, D6 needs D5
   `validate`, `setModuleData`), `writeGuard` (`runWrite` only, required), `catalog` (189's
   `getEntry(catalogId)`), `enginePackages()`, `stage` (D3's `stagePackage`), `readArch`
   (`readBinaryArch`), `askDecision(jobId, { folder, conflicts })` → `Promise<'overwrite' | 'keep' |
-  'cancel'>`, `log`. The steps:
+'cancel'>`, `log`. The steps:
   1. **Pre-flight, before `jobs.create` (no job, nothing on disk).** Unknown installation →
      `installations.error.notFound`. Unknown catalogId or version not listed →
      `mods.error.unknownMod`. Gamedir fails the `launch-plan.ts` safe-token rule →
@@ -235,7 +233,7 @@ Order: D1, D2 and D3 are independent. D4 needs D1–D3, D5 needs D4, D6 needs D5
      no record, and fails with `mods.error.writeFailed`.
   7. **Outside the guard:** `installations.validate(id)` (refreshes `gameDirs` for the action bar),
      remove the staging dirs (also in `finally`), and finish the job as succeeded.
-  Tests in `src/main/modules/mods/install-job.test.ts` (temp dirs, fake stage/guard/catalog):
+     Tests in `src/main/modules/mods/install-job.test.ts` (temp dirs, fake stage/guard/catalog):
   - "a verification failure writes nothing and records nothing"
   - "a second package failing leaves the gamedir untouched"
   - "the write runs inside runWrite"
@@ -267,12 +265,12 @@ Order: D1, D2 and D3 are independent. D4 needs D1–D3, D5 needs D4, D6 needs D5
   decision", and "resolveInstall with an unknown jobId is refused".
 
 - **D6 — Renderer.** In 188's tile and detail-panel components
-  (`src/renderer/src/modules/mods/components/…`): **Install** on a *not installed* catalog tile and
+  (`src/renderer/src/modules/mods/components/…`): **Install** on a _not installed_ catalog tile and
   in the detail panel. The detail panel passes 189's selected version, the tile passes none. While
   the tile's job (joined via `activeInstalls` → the jobs store) runs, the tile shows its progress
   ratio. When `waiting`, it shows the job's `waitingReason` text, reusing the Downloads `JobRow`
   translation of `waitingReason.key`. When `failed`, it shows the job's error text. When a record
-  exists, it shows *installed*. When `contentOnly`, both tile and detail show the visible line
+  exists, it shows _installed_. When `contentOnly`, both tile and detail show the visible line
   `mods.reason.notPlayableLocally` = "Not playable locally with {{engine}}: no matching build",
   where `{{engine}}` is the engine's display name plus " 32-bit" or " 64-bit" when arch is known.
   New `src/renderer/src/modules/mods/components/InstallDecisionDialog.tsx` (mirror
@@ -302,10 +300,10 @@ Order: D1, D2 and D3 are independent. D4 needs D1–D3, D5 needs D4, D6 needs D5
     content-only variant, and an entry `fixturebad` whose package is served with bytes that do not
     match its SHA256.
   - Expose `modsFixtureFiles` (expected bytes per path).
-  New `scripts/flows/mods-install.mjs` (mirror `scripts/flows/engine-update.mjs`'s offline
-  plumbing: `Q2L_UI_CONTENT_REPO_BASE`, the request log). On the r1q2 install: click
-  `mods-install-fixturemod`, see the job on the tile and in the Downloads tab (`downloads-job-*`),
-  wait for *installed*, then assert:
+    New `scripts/flows/mods-install.mjs` (mirror `scripts/flows/engine-update.mjs`'s offline
+    plumbing: `Q2L_UI_CONTENT_REPO_BASE`, the request log). On the r1q2 install: click
+    `mods-install-fixturemod`, see the job on the tile and in the Downloads tab (`downloads-job-*`),
+    wait for _installed_, then assert:
   - the files exist under `<root>/fixturemod/` and `gamex86.dll` equals the x86 variant's bytes;
   - the request log shows the 404 source followed by the mirror;
   - the action bar's gamedir picker lists `fixturemod`;
@@ -321,7 +319,7 @@ Order: D1, D2 and D3 are independent. D4 needs D1–D3, D5 needs D4, D6 needs D5
   - `scripts/flows/mods-install-waits.mjs`: with `dev:simulateLaunch` running (mirror
     `scripts/flows/job-waits-for-running-game.mjs`), the job shows the waiting reason on the tile
     and in `downloads-job-waiting-<id>`, and no gamedir exists yet. After `idle`, the files appear
-    and the tile shows *installed*.
+    and the tile shows _installed_.
   - `scripts/flows/mods-install-over-manual.mjs`: seed `<root>/fixturemod/pak0.pak` with other
     bytes as a manual gamedir. Install → `mods-install-decision` names the folder and lists
     `pak0.pak` → Cancel → folder bytes unchanged, no record. Install again → Keep → `pak0.pak`
@@ -343,17 +341,17 @@ Order: D1, D2 and D3 are independent. D4 needs D1–D3, D5 needs D4, D6 needs D5
 - AC1 → e2e `scripts/flows/mods-install.mjs` › "mods-install" (job visible on the tile and in the
   Downloads tab)
 - AC2 → e2e `scripts/flows/mods-install.mjs` › "mods-install" (files under `<root>/fixturemod/`,
-  tile *installed*)
+  tile _installed_)
 - AC3 → e2e `scripts/flows/mods-install.mjs` › "mods-install" (r1q2 gets the x86 `gamex86.dll`)
-  + unit `src/main/modules/mods/engine-target.test.ts` › "r1q2 on Windows selects the x86 library
-  variant"
+  - unit `src/main/modules/mods/engine-target.test.ts` › "r1q2 on Windows selects the x86 library
+    variant"
 - AC4 → e2e `scripts/flows/mods-install-content-only.mjs` › "mods-install-content-only" + unit
   `src/main/modules/mods/engine-target.test.ts` › "an x86-only mod for a 64-bit Q2PRO selects
   content-only"
 - AC5 → e2e `scripts/flows/mods-install-refused.mjs` › "mods-install-refused" + unit
   `src/main/modules/downloads/stage-package.test.ts` › "a size or SHA256 mismatch never extracts"
-  + unit `src/main/modules/mods/install-job.test.ts` › "a second package failing leaves the gamedir
-  untouched"
+  - unit `src/main/modules/mods/install-job.test.ts` › "a second package failing leaves the gamedir
+    untouched"
 - AC6 → e2e `scripts/flows/mods-install.mjs` › "mods-install" (request log: source 404, then
   mirror) + unit `src/main/modules/downloads/stage-package.test.ts` › "a failing url falls back to
   the mirror"
@@ -380,6 +378,7 @@ Commit message: `190: install a catalog mod — engine target, stager, install j
 Verification (narrow gate, run twice: after build and after review fixes): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (197 files / 2756 tests), `ui:flow` mods-install, -content-only, -refused, -waits, -over-manual (+ mods-catalog/-view/-detail) each after `ui:seed`: all green. Full gate not run (sprint's). AC -> test: AC1-AC10 all mapped tests ran and passed as listed; no manual residue. Review: stage 1 PASS (3 fixed: unknown arch recorded as x86, concurrent same-gamedir installs, aria role=status), stage 2 hard PASS (3 fixed: re-check destination inside the write, record paths validated, NUL byte in slot key).
 
 Decisions:
+
 - Seam 1: install renames a top-level suffixed game library (`gamex86-opentdm-r388~add8f3c.dll` -> `gamex86.dll`, `gamex86_64-….so` -> `gamex86_64.so`), `placedGameLibraryName` in `install-job.ts`; no manifest schema change.
 - Seam 2: records carry optional `pkzUnsupported` (r1q2 + a written `.pkz`); tile/detail show visible `mods.reason.pkzNeedsQ2pro`.
 - Seam 3: a `from` that is a single file lands at `<gamedir>/<basename>`.

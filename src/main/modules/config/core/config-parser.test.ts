@@ -44,7 +44,9 @@ describe('parseConfigText', () => {
       { name: 'a', value: '1', line: 1, comment: '' },
       { name: 'b', value: '2', line: 1, comment: '' },
     ])
-    expect(result.binds).toEqual([{ kind: 'bind', key: 'x', command: 'jump', line: 1, comment: '' }])
+    expect(result.binds).toEqual([
+      { kind: 'bind', key: 'x', command: 'jump', line: 1, comment: '' },
+    ])
   })
 
   it('attaches one whole-line trailing comment to every sibling on a ;-separated line, not a fragment per segment', () => {
@@ -78,7 +80,9 @@ describe('parseConfigText', () => {
   })
 
   it('normalizes a named key token to canonical casing regardless of how it was written', () => {
-    const result = parseConfigText(['bind Shift "+klook"', 'bind ctrl "+attack"', 'unbind Enter'].join('\n'))
+    const result = parseConfigText(
+      ['bind Shift "+klook"', 'bind ctrl "+attack"', 'unbind Enter'].join('\n'),
+    )
 
     expect(result.binds).toEqual([
       { kind: 'bind', key: 'SHIFT', command: '+klook', line: 1, comment: '' },
@@ -112,7 +116,9 @@ describe('parseConfigText', () => {
   })
 
   it('joins an unquoted multi-token alias body with single spaces', () => {
-    const result = parseConfigText(['alias zoom zoomin', 'alias +foo bind 1 use blaster'].join('\n'))
+    const result = parseConfigText(
+      ['alias zoom zoomin', 'alias +foo bind 1 use blaster'].join('\n'),
+    )
 
     expect(result.aliases).toEqual([
       { name: 'zoom', body: 'zoomin', line: 1, comment: '', codeWidth: 17 },
@@ -149,7 +155,13 @@ describe('parseConfigText', () => {
     const result = parseConfigText(`${line}\n`)
 
     expect(result.aliases).toEqual([
-      { name: 'zoom', body: 'zoomin', line: 1, comment: ' Zoom [q2l]', codeWidth: line.indexOf('//') },
+      {
+        name: 'zoom',
+        body: 'zoomin',
+        line: 1,
+        comment: ' Zoom [q2l]',
+        codeWidth: line.indexOf('//'),
+      },
     ])
     // Both `;`-chained siblings get the line's one code width, the same way they share its one
     // trailing comment.

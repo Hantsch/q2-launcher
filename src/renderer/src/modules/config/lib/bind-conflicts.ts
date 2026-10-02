@@ -126,7 +126,9 @@ function findBaseConflicts(profile: ConfigProfile): BindConflict[] {
 function modifierForLayer(layer: AltLayer): ModifierTrigger | undefined {
   if (!layer.triggerKey) return undefined
   const normalized = normalizeBindKey(layer.triggerKey)
-  return normalized === 'ALT' || normalized === 'CTRL' || normalized === 'SHIFT' ? normalized : undefined
+  return normalized === 'ALT' || normalized === 'CTRL' || normalized === 'SHIFT'
+    ? normalized
+    : undefined
 }
 
 /**
@@ -220,7 +222,9 @@ export function findSlotConflictOwner(
 
   const scope: BindConflict['scope'] | undefined = modifier
     ? (() => {
-        const layer = layers.find((candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier)
+        const layer = layers.find(
+          (candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier,
+        )
         return layer ? { layerId: layer.id } : undefined
       })()
     : 'base'

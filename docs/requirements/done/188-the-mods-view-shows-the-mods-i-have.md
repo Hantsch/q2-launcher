@@ -21,10 +21,10 @@ Concept: [mods.md](../concepts/mods.md) §9, §12; requirements MOD-1, MOD-2, MO
 - [x] **AC2** — For the installation the view speaks for, every game directory the inspector found
       (except `baseq2`) appears as one tile carrying the directory's name.
 - [x] **AC3** — A game directory without a launcher install record carries the visible label
-      *installed manually*.
+      _installed manually_.
 - [x] **AC4** — Clicking a tile opens a detail panel naming the directory and its folder path, with
-      a *Reveal folder* action that opens that folder in the OS file manager.
-- [x] **AC5** — A manually installed directory's detail panel offers neither *Update* nor *Remove*.
+      a _Reveal folder_ action that opens that folder in the OS file manager.
+- [x] **AC5** — A manually installed directory's detail panel offers neither _Update_ nor _Remove_.
 - [x] **AC6** — An installation with no game directories besides `baseq2` shows an empty state that
       says so, not an empty grid.
 - [x] **AC7** — Every installation id the renderer sends to the mods channels is validated in main.
@@ -47,7 +47,7 @@ Concept: [mods.md](../concepts/mods.md) §9, §12; requirements MOD-1, MOD-2, MO
 - **Game dirs read:** `mods/list` reads the persisted `Installation.gameDirs` (kept fresh by startup and post-change revalidation), not a live disk scan. An unknown id therefore touches nothing on disk, and the inspector stays the only folder judge.
 - **`baseq2` exclusion is case-insensitive.** The inspector already treats dir names case-insensitively (`inspector.ts:160-161,328`).
 - **Install-record reader:** 188 adds a minimal defensive reader of `moduleData['mods']` that only answers "does a record exist for this gamedir". Story 190 owns and extends the full record schema in the same file and must keep the `records[].gameDir` key. An origin that is computed, not hard-coded, is what AC3 tests.
-- **Catalog-origin tiles in 188:** a gamedir with a record shows the label *installed*. Like manual ones, its detail panel offers no Update or Remove yet. Stories 191 and 194 add those actions, so 188 ships no dead buttons.
+- **Catalog-origin tiles in 188:** a gamedir with a record shows the label _installed_. Like manual ones, its detail panel offers no Update or Remove yet. Stories 191 and 194 add those actions, so 188 ships no dead buttons.
 - **Manual note:** a manual dir's detail panel says visibly that the launcher does not update or remove it (concept §3). Without that line, AC5's missing buttons would read as a bug.
 - **Reveal goes through a mods handler** (`mods/reveal` with `{ installationId, gameDir }`), so main builds the path from a validated id plus a gamedir the installation actually has. The renderer never sends a path. Under the UI harness it records via `recordHarnessRevealedPath`, the way `replays/index.ts:211-216` does.
 - **No active installation:** the view shows an empty state asking the user to select an installation. The manifest's `requiresInstallation` is not enforced by the shell (repo fact, only `module.ts` reads it).
@@ -105,7 +105,7 @@ Fixture: the populated variant's active installation (`fixture-install-favorite`
     - Zero entries → `EmptyState` saying this installation has no game directories besides baseq2, `data-testid="mods-empty"`, with no grid rendered.
     - A failed outcome → its i18n error key.
   - `src/renderer/src/modules/mods/components/ModTile.tsx` (new): a button tile (`data-testid="mods-tile-<gameDir>"`) showing the dir name plus a `Badge` (`primitives.tsx:56`).
-    - The badge reads *installed manually* (`data-testid="mods-tile-origin-manual"`) or *installed* (`mods-tile-origin-catalog`).
+    - The badge reads _installed manually_ (`data-testid="mods-tile-origin-manual"`) or _installed_ (`mods-tile-origin-catalog`).
     - Tokens only, no images, with a visible focus ring.
   - `src/renderer/src/modules/index.ts`: register `{ id: 'mods', View: ModsView }`, replacing the commented stub.
   - `src/shared/types/module.ts`: mods `status: 'available'`.
@@ -124,7 +124,7 @@ Fixture: the populated variant's active installation (`fixture-install-favorite`
   - `src/renderer/src/modules/mods/components/ModDetailPanel.tsx` (new, mirror the docked layout of `src/renderer/src/modules/replays/components/DemoDetailPanel.tsx`). It is `data-testid="mods-detail-panel"` and contains:
     - the dir name as heading (`mods-detail-name`)
     - the full folder path (`mods-detail-path`, selectable text)
-    - a *Reveal folder* `Button` (`mods-detail-reveal`) → `revealMod`, whose failure shows the error key inline
+    - a _Reveal folder_ `Button` (`mods-detail-reveal`) → `revealMod`, whose failure shows the error key inline
     - for `origin: 'manual'`, the visible note "Installed manually — the launcher does not update or remove it" (`mods-detail-manual-note`)
     - no Update or Remove control for any origin in this story
     - a close button, and Escape also closes the panel
@@ -146,7 +146,7 @@ Review: → default. The obvious wrong turns are visible in a spec + diff review
 
 - AC1 → e2e `scripts/flows/mods-view.mjs` › "mods-view" (placeholder absent, Mods view shown); plus unit `src/renderer/src/modules/index.test.ts` › "the mods module is registered with a real View"
 - AC2 → e2e `scripts/flows/mods-view.mjs` › "mods-view" (tile per non-baseq2 gamedir, named, no baseq2 tile); plus unit `src/main/modules/mods/index.test.ts` › "list returns every game directory except baseq2"
-- AC3 → e2e `scripts/flows/mods-view.mjs` › "mods-view" (visible *installed manually* label); plus unit `src/main/modules/mods/index.test.ts` › "a game directory without an install record is manual" and › "a game directory with an install record is catalog"
+- AC3 → e2e `scripts/flows/mods-view.mjs` › "mods-view" (visible _installed manually_ label); plus unit `src/main/modules/mods/index.test.ts` › "a game directory without an install record is manual" and › "a game directory with an install record is catalog"
 - AC4 → e2e `scripts/flows/mods-detail.mjs` › "mods-detail" (name, folder path, Reveal recorded by the UI harness); plus unit `src/main/modules/mods/index.test.ts` › "reveal opens the gamedir folder under the installation root"
 - AC5 → e2e `scripts/flows/mods-detail.mjs` › "mods-detail" (no update/remove control, manual note visible)
 - AC6 → e2e `scripts/flows/mods-view.mjs` › "mods-view" (`mods-empty` on the baseq2-only installation, no tiles)
@@ -154,15 +154,15 @@ Review: → default. The obvious wrong turns are visible in a spec + diff review
 
 Coverage gate:
 
-| AC | Deliverable | Test |
-| --- | --- | --- |
-| AC1 | D2 | mods-view |
-| AC2 | D1 + D2 | index.test + mods-view |
-| AC3 | D1 + D2 | index.test + mods-view |
-| AC4 | D1 (reveal) + D3 | index.test + mods-detail |
-| AC5 | D3 | mods-detail |
-| AC6 | D2 | mods-view |
-| AC7 | D1 | index.test + schemas.test |
+| AC  | Deliverable      | Test                      |
+| --- | ---------------- | ------------------------- |
+| AC1 | D2               | mods-view                 |
+| AC2 | D1 + D2          | index.test + mods-view    |
+| AC3 | D1 + D2          | index.test + mods-view    |
+| AC4 | D1 (reveal) + D3 | index.test + mods-detail  |
+| AC5 | D3               | mods-detail               |
+| AC6 | D2               | mods-view                 |
+| AC7 | D1               | index.test + schemas.test |
 
 No gaps.
 
@@ -175,6 +175,7 @@ Commit message: `188: mods module — view of installed game dirs, tile catalog,
 Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (206 files / 3009 tests), `npm run ui:flow -- mods-view` and `-- mods-detail` (each after `ui:seed`) all green; after review fixes typecheck, `vitest run src/renderer/src/modules` and both flows re-run green. Full regression gate not run (sprint's job). AC -> test: AC1-AC7 all mapped tests ran and passed as listed under Acceptance Tests; no manual residue. Review: stage 1 PASS, 3 minor findings fixed (see Decisions).
 
 Decisions:
+
 - Detail panel buttons use the default 44px size, not `size="sm"` (no deviation row exists; CLAUDE.md untouched).
 - `client.ts` flattens the `module:invoke` double Outcome into one `Outcome<T>`; stale list responses for another installation count as loading.
 - `mods-detail.mjs` polls the revealed-paths file (5s bound) instead of a fixed wait; flows assume a freshly seeded fixture (`mods-detail` leaves WriteDir active; `ui:flows` reseeds per flow).

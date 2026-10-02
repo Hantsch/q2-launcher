@@ -116,7 +116,15 @@ describe('DemoStage (story 170 D4)', () => {
       vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => frames.push(cb))
       vi.stubGlobal('cancelAnimationFrame', () => {})
       vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
-        () => ({ ...current, top: current.y, left: current.x, right: 0, bottom: 0, toJSON: () => ({}) }) as DOMRect,
+        () =>
+          ({
+            ...current,
+            top: current.y,
+            left: current.x,
+            right: 0,
+            bottom: 0,
+            toJSON: () => ({}),
+          }) as DOMRect,
       )
       vi.mocked(client.sendStageRect).mockClear()
       frames.length = 0

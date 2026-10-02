@@ -78,7 +78,8 @@ function packRecords(addresses: { ip: [number, number, number, number]; port: nu
   return buffer
 }
 
-const fetchImpl = (url: string, init: { signal: AbortSignal }): Promise<Response> => fetch(url, init)
+const fetchImpl = (url: string, init: { signal: AbortSignal }): Promise<Response> =>
+  fetch(url, init)
 
 describe('resolveHttpListSource', () => {
   it('the HTTP list is fetched through the injected FetchImpl against a loopback server: raw=1 resolves to its addresses', async () => {

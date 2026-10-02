@@ -97,7 +97,9 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
   }
   const lastRevealed = afterLooseReveal[afterLooseReveal.length - 1]
   if (!lastRevealed.endsWith('duel_q2dm1.dm2')) {
-    throw new Error(`replays-demo-file-actions: expected revealed path to end with duel_q2dm1.dm2, got "${lastRevealed}"`)
+    throw new Error(
+      `replays-demo-file-actions: expected revealed path to end with duel_q2dm1.dm2, got "${lastRevealed}"`,
+    )
   }
 
   step('copy path on a loose demo puts its absolute path on the clipboard and shows a confirmation')
@@ -137,7 +139,9 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const clipboardAfterZip = await app.evaluate(({ clipboard }) => clipboard.readText())
   if (!clipboardAfterZip.endsWith('pack.zip')) {
-    throw new Error(`replays-demo-file-actions: expected clipboard to end with pack.zip, got "${clipboardAfterZip}"`)
+    throw new Error(
+      `replays-demo-file-actions: expected clipboard to end with pack.zip, got "${clipboardAfterZip}"`,
+    )
   }
 
   step('reveal on a vanished demo shows the file-missing alert and reveals nothing')
@@ -153,7 +157,9 @@ export default async function replaysDemoFileActions({ page, app, shot, step }) 
   await errorAlert.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const errorText = await errorAlert.textContent()
   if (!errorText.includes('no longer on disk')) {
-    throw new Error(`replays-demo-file-actions: expected the fileMissing message, got "${errorText}"`)
+    throw new Error(
+      `replays-demo-file-actions: expected the fileMissing message, got "${errorText}"`,
+    )
   }
   const afterVanishReveal = readRevealedPaths().length
   if (afterVanishReveal !== beforeVanishReveal) {

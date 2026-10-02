@@ -134,7 +134,11 @@ describe('news-service: AC7 a failed refresh delivers the cached feed with its r
     const fetchDocuments = vi
       .fn()
       .mockResolvedValueOnce(changedResult())
-      .mockResolvedValueOnce({ kind: 'failed', reason: 'HTTP 500', etags: {} } satisfies FetchNewsResult)
+      .mockResolvedValueOnce({
+        kind: 'failed',
+        reason: 'HTTP 500',
+        etags: {},
+      } satisfies FetchNewsResult)
 
     const service = createNewsService({
       isDev: false,
@@ -169,7 +173,9 @@ describe('news-service: AC9 change detection', () => {
       .mockResolvedValueOnce(changedResult())
       // Same document content, re-fetched under a new ETag: buildFeed() rebuilds to identical
       // slides, so this is the "identical one does not" half of the test.
-      .mockResolvedValueOnce(changedResult({ etags: { 'news/index.json': 'idx-2', 'a.md': 'doc-2' } }))
+      .mockResolvedValueOnce(
+        changedResult({ etags: { 'news/index.json': 'idx-2', 'a.md': 'doc-2' } }),
+      )
 
     const service = createNewsService({
       isDev: false,

@@ -63,7 +63,8 @@ async function defineMeasurement() {
   const os = await import('node:os')
   const { readFileSync } = await import('node:fs')
   const { runScan } = await import('@main/modules/servers/scan-runner')
-  const { buildInfoReplyBytes, buildStatusReplyBytes, formatInfoLine } = await import('@shared/servers/reply-fixtures')
+  const { buildInfoReplyBytes, buildStatusReplyBytes, formatInfoLine } =
+    await import('@shared/servers/reply-fixtures')
 
   // --- The modelled population (an invented input, recorded as such in story 115) -------------
 
@@ -98,7 +99,9 @@ async function defineMeasurement() {
   function modelledConfigsFor(n) {
     if (QUICK) return [{ concurrency: 16, timeoutMs: 500, retries: 1 }]
     const grid = (concurrencies, timeoutMs) =>
-      [0, 1].flatMap((retries) => concurrencies.map((concurrency) => ({ concurrency, timeoutMs, retries })))
+      [0, 1].flatMap((retries) =>
+        concurrencies.map((concurrency) => ({ concurrency, timeoutMs, retries })),
+      )
     if (n === 100) return grid([8, 16, 24], 1000)
     if (n === 200) return grid([16, 24], 1000)
     return [...grid([8, 16, 24, 32], 1000), ...grid([24], 2000)]
@@ -130,7 +133,8 @@ async function defineMeasurement() {
       const delayU = rand()
       const dead = deadU < DEAD_SHARE
       const lossy = !dead && lossyU < LOSSY_SHARE
-      const clients = clientsU < NON_EMPTY_SHARE ? 1 + Math.floor((clientsU / NON_EMPTY_SHARE) * 7) : 0
+      const clients =
+        clientsU < NON_EMPTY_SHARE ? 1 + Math.floor((clientsU / NON_EMPTY_SHARE) * 7) : 0
       let acc = 0
       let bucket = DELAY_BUCKETS[DELAY_BUCKETS.length - 1]
       for (const candidate of DELAY_BUCKETS) {
@@ -166,12 +170,17 @@ async function defineMeasurement() {
     const line =
       `\\gamename\\baseq2\\hostname\\${profile.hostname}\\mapname\\q2dm${(profile.index % 8) + 1}` +
       `\\clients\\${profile.clients}\\maxclients\\16\\version\\3.20`
-    const playerLines = Array.from({ length: profile.clients }, (_, k) => `${k * 3} ${20 + k} "Player${k}"`)
+    const playerLines = Array.from(
+      { length: profile.clients },
+      (_, k) => `${k * 3} ${20 + k} "Player${k}"`,
+    )
     const responder = {
       profile,
       socket,
       address: `127.0.0.1:${port}`,
-      infoBytes: buildInfoReplyBytes(formatInfoLine(profile.hostname, `q2dm${(profile.index % 8) + 1}`, profile.clients, 16)),
+      infoBytes: buildInfoReplyBytes(
+        formatInfoLine(profile.hostname, `q2dm${(profile.index % 8) + 1}`, profile.clients, 16),
+      ),
       statusBytes: buildStatusReplyBytes(line, playerLines),
       received: { info: 0, status: 0 },
       dropped: { info: false, status: false },
@@ -229,11 +238,14 @@ async function defineMeasurement() {
         rows[`${key}Ok`] += 1
         // Proves the row came off this responder's own datagram, parsed by the real parser.
         const hostname =
-          row.result.kind === 'info' ? row.result.reply.hostname : row.result.reply.serverinfo.hostname
+          row.result.kind === 'info'
+            ? row.result.reply.hostname
+            : row.result.reply.serverinfo.hostname
         if (responder === undefined || hostname !== responder.profile.hostname) rows.wrongHost += 1
       },
       onProgress: (progress) => {
-        if (progress.phase === 'stage2' && stage2StartedAt === null) stage2StartedAt = performance.now()
+        if (progress.phase === 'stage2' && stage2StartedAt === null)
+          stage2StartedAt = performance.now()
       },
     })
     const endedAt = performance.now()
@@ -256,8 +268,10 @@ async function defineMeasurement() {
     }
     const n = responders.length
     if (result.aborted) fail('the pass was aborted')
-    if (result.stage1Total !== n || result.stage1Done !== n) fail(`stage 1 settled ${result.stage1Done}/${n}`)
-    if (rows.wrongHost !== 0) fail(`${rows.wrongHost} rows did not carry their responder's hostname`)
+    if (result.stage1Total !== n || result.stage1Done !== n)
+      fail(`stage 1 settled ${result.stage1Done}/${n}`)
+    if (rows.wrongHost !== 0)
+      fail(`${rows.wrongHost} rows did not carry their responder's hostname`)
 
     let expectedOnline = 0
     let expectedStage2 = 0
@@ -268,13 +282,19 @@ async function defineMeasurement() {
       if (nonEmpty) expectedStage2 += 1
       if (received.info < 1) fail(`responder ${profile.index} never received an info query`)
       if (!mode.zeroDelay && profile.dead && received.info !== settings.retries + 1) {
-        fail(`dead responder ${profile.index} saw ${received.info} info sends, expected ${settings.retries + 1}`)
+        fail(
+          `dead responder ${profile.index} saw ${received.info} info sends, expected ${settings.retries + 1}`,
+        )
       }
-      if (!nonEmpty && received.status !== 0) fail(`responder ${profile.index} was asked for status`)
-      if (nonEmpty && received.status < 1) fail(`non-empty responder ${profile.index} got no status query`)
+      if (!nonEmpty && received.status !== 0)
+        fail(`responder ${profile.index} was asked for status`)
+      if (nonEmpty && received.status < 1)
+        fail(`non-empty responder ${profile.index} got no status query`)
     }
-    if (rows.stage1Ok !== expectedOnline) fail(`stage 1 online ${rows.stage1Ok}, expected ${expectedOnline}`)
-    if (result.stage2Total !== expectedStage2) fail(`stage 2 total ${result.stage2Total}, expected ${expectedStage2}`)
+    if (rows.stage1Ok !== expectedOnline)
+      fail(`stage 1 online ${rows.stage1Ok}, expected ${expectedOnline}`)
+    if (result.stage2Total !== expectedStage2)
+      fail(`stage 2 total ${result.stage2Total}, expected ${expectedStage2}`)
     if (rows.stage2Ok !== expectedStage2 || rows.stage2Failed !== 0) {
       fail(`stage 2 ok ${rows.stage2Ok}/${expectedStage2}, failed ${rows.stage2Failed}`)
     }
@@ -331,7 +351,9 @@ async function defineMeasurement() {
         log('## scan-pass measurement (story 115 D6)')
         log('')
         for (const line of environmentLines()) log(line)
-        log(`- Seed ${SEED}, reps per modelled config ${REPS}, reps per zero-delay config ${ZERO_REPS}`)
+        log(
+          `- Seed ${SEED}, reps per modelled config ${REPS}, reps per zero-delay config ${ZERO_REPS}`,
+        )
         log('')
         log('Population (prefixes of one seeded draw):')
         for (const n of POPULATION_SIZES) log(`- ${populationLine(allProfiles.slice(0, n))}`)
@@ -339,7 +361,11 @@ async function defineMeasurement() {
 
         // Warm-up (discarded): JIT, lazy `node:dgram` import inside `queryServer`, socket paths.
         mode.zeroDelay = true
-        await runPass(responders.slice(0, POPULATION_SIZES[0]), { concurrency: 16, timeoutMs: 1000, retries: 1 })
+        await runPass(responders.slice(0, POPULATION_SIZES[0]), {
+          concurrency: 16,
+          timeoutMs: 1000,
+          retries: 1,
+        })
 
         const measure = async (population, settings, zeroDelay, reps) => {
           mode.zeroDelay = zeroDelay
@@ -369,7 +395,8 @@ async function defineMeasurement() {
           for (const concurrency of ZERO_DELAY_CONCURRENCIES) {
             await measure(population, { concurrency, timeoutMs: 1000, retries: 1 }, true, ZERO_REPS)
           }
-          for (const settings of modelledConfigsFor(n)) await measure(population, settings, false, REPS)
+          for (const settings of modelledConfigsFor(n))
+            await measure(population, settings, false, REPS)
         }
 
         log('')
@@ -388,12 +415,16 @@ async function defineMeasurement() {
           )
         }
         log('')
-        log(`Total measurement wall time: ${((performance.now() - wallStartedAt) / 1000).toFixed(1)} s`)
+        log(
+          `Total measurement wall time: ${((performance.now() - wallStartedAt) / 1000).toFixed(1)} s`,
+        )
         const sendErrors = responders.reduce((sum, r) => sum + r.sendErrors, 0)
         log(`Responder socket errors: ${sendErrors}`)
         log('')
       } finally {
-        await Promise.all(responders.map((r) => new Promise((done) => r.socket.close(() => done()))))
+        await Promise.all(
+          responders.map((r) => new Promise((done) => r.socket.close(() => done()))),
+        )
       }
       expect(tableRows.length).toBeGreaterThan(0)
     },

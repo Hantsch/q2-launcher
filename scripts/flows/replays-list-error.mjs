@@ -78,7 +78,9 @@ export default async function replaysListError({ page, shot, step }) {
         )
       }
     } else {
-      throw new Error(`replays-list-error: unexpected data-reason "${reason}" on a source-error row`)
+      throw new Error(
+        `replays-list-error: unexpected data-reason "${reason}" on a source-error row`,
+      )
     }
   }
   if (missingCount !== 1 || archiveCount !== 1) {

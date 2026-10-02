@@ -1,30 +1,64 @@
 <!doctype html>
 <html>
-<head>
-<meta charset="utf-8" />
-<title>186 overlay</title>
-<style>
-  html, body { margin: 0; height: 100%; overflow: hidden; cursor: default; }
-  body { background: transparent; }
-  body.dim { background: rgba(0, 0, 0, 0.01); }
-  #bar { position: fixed; left: 20%; right: 20%; bottom: 40px; height: 64px; border-radius: 12px;
-    background: rgba(20, 20, 30, 0.85); color: #fff; font: 16px sans-serif; display: flex; align-items: center;
-    justify-content: center; gap: 24px; transition: opacity 300ms; }
-  #bar span { padding: 8px 16px; border: 1px solid #888; border-radius: 6px; }
-</style>
-</head>
-<body>
-<div id="bar"><span>|&lt;</span><span>&gt;</span><span>&gt;|</span><span>dummy control bar</span></div>
-<script>
-  if (new URLSearchParams(location.search).get('bg') === 'dim') document.body.classList.add('dim')
-  window.setBarOpacity = (v) => { document.getElementById('bar').style.opacity = String(v) }
-  const log = (o) => console.log(JSON.stringify(o))
-  addEventListener('mousemove', (e) => log({ e: 'mousemove', x: e.clientX, y: e.clientY }))
-  addEventListener('mousedown', (e) => log({ e: 'mousedown', x: e.clientX, y: e.clientY, b: e.button }))
-  addEventListener('keydown', (e) => log({ e: 'keydown', key: e.key, code: e.code }))
-  addEventListener('focus', () => log({ e: 'focus' }))
-  addEventListener('blur', () => log({ e: 'blur' }))
-  log({ e: 'ready', w: innerWidth, h: innerHeight, dpr: devicePixelRatio })
-</script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <title>186 overlay</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        cursor: default;
+      }
+      body {
+        background: transparent;
+      }
+      body.dim {
+        background: rgba(0, 0, 0, 0.01);
+      }
+      #bar {
+        position: fixed;
+        left: 20%;
+        right: 20%;
+        bottom: 40px;
+        height: 64px;
+        border-radius: 12px;
+        background: rgba(20, 20, 30, 0.85);
+        color: #fff;
+        font: 16px sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        transition: opacity 300ms;
+      }
+      #bar span {
+        padding: 8px 16px;
+        border: 1px solid #888;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bar">
+      <span>|&lt;</span><span>&gt;</span><span>&gt;|</span><span>dummy control bar</span>
+    </div>
+    <script>
+      if (new URLSearchParams(location.search).get('bg') === 'dim')
+        document.body.classList.add('dim')
+      window.setBarOpacity = (v) => {
+        document.getElementById('bar').style.opacity = String(v)
+      }
+      const log = (o) => console.log(JSON.stringify(o))
+      addEventListener('mousemove', (e) => log({ e: 'mousemove', x: e.clientX, y: e.clientY }))
+      addEventListener('mousedown', (e) =>
+        log({ e: 'mousedown', x: e.clientX, y: e.clientY, b: e.button }),
+      )
+      addEventListener('keydown', (e) => log({ e: 'keydown', key: e.key, code: e.code }))
+      addEventListener('focus', () => log({ e: 'focus' }))
+      addEventListener('blur', () => log({ e: 'blur' }))
+      log({ e: 'ready', w: innerWidth, h: innerHeight, dpr: devicePixelRatio })
+    </script>
+  </body>
 </html>

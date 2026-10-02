@@ -17,7 +17,11 @@ import type { StateStore } from '../../../services/state'
 import { InstallationWriteGuard, type LaunchHost } from '../../../services/write-guard'
 import { readEngineState } from './installation-state'
 import { ENGINE_BACKUP_DIR_NAME } from './update-job'
-import { ENGINE_ROLLBACK_JOB_KIND, startEngineRollback, type EngineRollbackDeps } from './rollback-job'
+import {
+  ENGINE_ROLLBACK_JOB_KIND,
+  startEngineRollback,
+  type EngineRollbackDeps,
+} from './rollback-job'
 
 /**
  * Story 092 D6. Mirrors `update-job.test.ts`'s own approach: a real `InstallationsService`, a real

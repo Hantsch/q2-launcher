@@ -97,7 +97,10 @@ describe('autorecord recipes (story 168 D1)', () => {
       .replace('${com_time}', '21-30-00')}.dm2`
     expect(q2proName).toBe('q2dm1_2026-09-27_21-30-00.dm2')
     const q2pro = parseDemoName(q2proName, SHIPPED_NAME_PATTERNS)
-    expect(q2pro).toMatchObject({ status: 'matched', patternId: AUTORECORD_RECIPES.q2pro.patternId })
+    expect(q2pro).toMatchObject({
+      status: 'matched',
+      patternId: AUTORECORD_RECIPES.q2pro.patternId,
+    })
     if (q2pro.status === 'matched') {
       expect(q2pro.facts.map).toBe('q2dm1')
       expect(q2pro.facts.date).toMatchObject({ year: 2026, month: 9, day: 27 })

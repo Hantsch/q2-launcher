@@ -28,7 +28,9 @@ const WRITEDIR_NAME = 'Fixture WriteDir Install'
 export default async function modsView({ page, shot, step }) {
   step('opening the Mods view shows the real view, not the planned placeholder')
   await page.getByTestId('nav-mods').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('mods-installation-name').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('mods-installation-name')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const body = await page.locator('body').innerText()
   if (/Mods will let you bring in extra content/.test(body)) {
     throw new Error('mods-view: the planned placeholder is still shown')
@@ -42,7 +44,9 @@ export default async function modsView({ page, shot, step }) {
   await shot('mods-view-empty')
 
   step('selecting the WriteDir installation lists its game directories')
-  await page.getByRole('button', { name: WRITEDIR_NAME, exact: true }).click({ timeout: TIMEOUT_MS })
+  await page
+    .getByRole('button', { name: WRITEDIR_NAME, exact: true })
+    .click({ timeout: TIMEOUT_MS })
   await page.getByTestId('mods-tile-ctf').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const name = await page.getByTestId('mods-installation-name').innerText()
   if (!name.includes(WRITEDIR_NAME)) {
@@ -59,10 +63,14 @@ export default async function modsView({ page, shot, step }) {
   const actual = (
     await page
       .locator('[data-testid^="mods-tile-"]:not([data-testid^="mods-tile-origin"])')
-      .evaluateAll((els) => els.map((e) => e.getAttribute('data-testid').slice('mods-tile-'.length)))
+      .evaluateAll((els) =>
+        els.map((e) => e.getAttribute('data-testid').slice('mods-tile-'.length)),
+      )
   ).sort()
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`mods-view: tiles ${JSON.stringify(actual)} != gameDirs ${JSON.stringify(expected)}`)
+    throw new Error(
+      `mods-view: tiles ${JSON.stringify(actual)} != gameDirs ${JSON.stringify(expected)}`,
+    )
   }
 
   step('every tile is marked "installed manually"')

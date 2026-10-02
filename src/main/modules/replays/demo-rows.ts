@@ -10,7 +10,10 @@
  * at once so a large index never opens thousands of file handles at the same time.
  */
 
-import { resolveEffectiveValues, type ResolveEffectiveValuesInputs } from '@shared/demos/effective-values'
+import {
+  resolveEffectiveValues,
+  type ResolveEffectiveValuesInputs,
+} from '@shared/demos/effective-values'
 import type { DemoRow, DiscoveredDemo, SidecarState } from '@shared/modules/replays'
 import type { SidecarFields } from '@shared/replays/sidecar'
 

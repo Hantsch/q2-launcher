@@ -7,18 +7,18 @@ detail panel, edit in place, one-click favourite and rating); the action bar but
 for the open tab (Play, Join, View, Stop); a missing-mod warning is asked once; timeline controls answer a
 click at once and reach the game faster on Windows.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 176 — the Demos view shows only what helps right now | done | d0b8d0f |
-| 177 — the demo detail reads at a glance | done | 0dad912 |
-| 178 — I edit a demo's details where I read them | done | 13f63c8 |
-| 179 — I favourite and rate a demo with one click | done | aaa4cff |
-| 180 — the action bar button speaks for the tab I'm on | done | 53468fb |
-| 181 — I join the selected server from the action bar | done | 1c60ec3 |
-| 182 — a missing-mod warning is asked once | done | 2179b0c |
-| 183 — a spike finds where demo-control latency comes from | done | c2ff9e7 |
-| 184 — the timeline answers my click at once | done | 0133f57 |
-| 185 — demo commands reach the game without waiting | done | 852e616, regression fix 040bacf |
+| Story                                                     | Status | Commit                          |
+| --------------------------------------------------------- | ------ | ------------------------------- |
+| 176 — the Demos view shows only what helps right now      | done   | d0b8d0f                         |
+| 177 — the demo detail reads at a glance                   | done   | 0dad912                         |
+| 178 — I edit a demo's details where I read them           | done   | 13f63c8                         |
+| 179 — I favourite and rate a demo with one click          | done   | aaa4cff                         |
+| 180 — the action bar button speaks for the tab I'm on     | done   | 53468fb                         |
+| 181 — I join the selected server from the action bar      | done   | 1c60ec3                         |
+| 182 — a missing-mod warning is asked once                 | done   | 2179b0c                         |
+| 183 — a spike finds where demo-control latency comes from | done   | c2ff9e7                         |
+| 184 — the timeline answers my click at once               | done   | 0133f57                         |
+| 185 — demo commands reach the game without waiting        | done   | 852e616, regression fix 040bacf |
 
 ## Implemented stories
 
@@ -94,12 +94,12 @@ click at once and reach the game faster on Windows.
 
 Ran on commit `852e616`:
 
-| Command | Minutes | Result |
-| --- | --- | --- |
-| `npm run build` | < 1 | green |
-| `npm test` | 0.7 | green — 5968 passed, 8 skipped |
-| `npm run ui:verify` | 2.2 | green — 60/60 screens, axe 0 |
-| `npm run ui:flows` | 40 | 113 flows, 107 passed, 6 failed |
+| Command             | Minutes | Result                          |
+| ------------------- | ------- | ------------------------------- |
+| `npm run build`     | < 1     | green                           |
+| `npm test`          | 0.7     | green — 5968 passed, 8 skipped  |
+| `npm run ui:verify` | 2.2     | green — 60/60 screens, axe 0    |
+| `npm run ui:flows`  | 40      | 113 flows, 107 passed, 6 failed |
 
 - `replays-play-mvd2`, `replays-play-q2pro` → story 185 (stale `logfile_flush 1` assertion against the new
   `logfile_flush 3`); fixed in `040bacf`, both re-run green individually, `npm test` green. The full suite was
@@ -124,7 +124,7 @@ noted.
   green in the final gate).
 - **179** — AC1-AC6: flow `replays-detail-quick-edit` + units (DemoDetailPanel, StarRating,
   demo-editor-store); AC7: units (flow pre-existing red at a later step, as above); AC8: `replays-edit-sidecar`
-  + unit; AC9: `DemoListFilterBar.test.tsx`.
+  - unit; AC9: `DemoListFilterBar.test.tsx`.
 - **180** — AC1-AC9: `action-bar-view`, `replays-play-q2pro`, `replays-stage`, `replays-stop` + ActionBar.test,
   ReplaysView.test, DemoDetailPanel.test (mapping in the story).
 - **181** — AC1-AC5 and the no-installation decision: flow `servers-actionbar-join` + ServersView.actionbar,
@@ -140,6 +140,7 @@ noted.
   AC6: linux-channel + playback-control tests. Real-Q2PRO probe outside CI (`spikes/185-control-latency/`).
 
 **Manual residue** (see `testplan.md`):
+
 - 183 — the per-config screenshots were judged by eye, not asserted (AC4: visible console/notify lines,
   `combo-4` vs baseline).
 - 183 AC6 / 185 — Linux delay not measured (no Linux Q2PRO on this machine).
@@ -150,19 +151,19 @@ proof is the one-off probe, not a CI test.
 
 ## Tier record
 
-| Story | Ds | Hard Ds | Review stages | Review cycles | Agents | Build min |
-| --- | --- | --- | --- | --- | --- | --- |
-| 176 | 2 | 0 | default | 1 | 4 | 8 |
-| 177 | 3 | 0 | default | 1 | 5 | 8 |
-| 178 | 4 | 1 | default | 1 | 7 | 42 |
-| 179 | 5 | 1 | default | 1 | 10 | 26 |
-| 180 | 6 | 1 | default | 1 | 8 | 24 |
-| 181 | 2 | 0 | default | 1 | 5 | 10 |
-| 182 | 3 | 0 | default | 1 | 5 | 13 |
-| 183 | 2 | 1 | default + hard | 2 | 10 | 85 |
-| 184 | 4 | 1 | default | 0 | 7 | 25 |
-| 185 | 4 | 1 | default + hard | 1 | 9 | 34 |
-| **Total** | **35** | **6** | | | **70** | **275** |
+| Story     | Ds     | Hard Ds | Review stages  | Review cycles | Agents | Build min |
+| --------- | ------ | ------- | -------------- | ------------- | ------ | --------- |
+| 176       | 2      | 0       | default        | 1             | 4      | 8         |
+| 177       | 3      | 0       | default        | 1             | 5      | 8         |
+| 178       | 4      | 1       | default        | 1             | 7      | 42        |
+| 179       | 5      | 1       | default        | 1             | 10     | 26        |
+| 180       | 6      | 1       | default        | 1             | 8      | 24        |
+| 181       | 2      | 0       | default        | 1             | 5      | 10        |
+| 182       | 3      | 0       | default        | 1             | 5      | 13        |
+| 183       | 2      | 1       | default + hard | 2             | 10     | 85        |
+| 184       | 4      | 1       | default        | 0             | 7      | 25        |
+| 185       | 4      | 1       | default + hard | 1             | 9      | 34        |
+| **Total** | **35** | **6**   |                |               | **70** | **275**   |
 
 Did the hard review find anything the default review had missed? Yes, in both stories that had one: 183
 (the recommendation broke the line budget) and 185 (the burst flow's stub could not fail).

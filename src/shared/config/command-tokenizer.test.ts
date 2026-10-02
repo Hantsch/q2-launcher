@@ -47,7 +47,11 @@ describe('tokenize', () => {
   })
 
   it('keeps a quoted argument with embedded spaces as one token, quotes stripped', () => {
-    expect(tokenize('set sv_hostname "My Cool Server"')).toEqual(['set', 'sv_hostname', 'My Cool Server'])
+    expect(tokenize('set sv_hostname "My Cool Server"')).toEqual([
+      'set',
+      'sv_hostname',
+      'My Cool Server',
+    ])
   })
 
   it('keeps a ; inside a quoted token intact', () => {
@@ -55,7 +59,11 @@ describe('tokenize', () => {
   })
 
   it('treats an unterminated quote as running to the end of the segment', () => {
-    expect(tokenize('set sv_hostname "unterminated')).toEqual(['set', 'sv_hostname', 'unterminated'])
+    expect(tokenize('set sv_hostname "unterminated')).toEqual([
+      'set',
+      'sv_hostname',
+      'unterminated',
+    ])
   })
 
   it('produces an empty-string token for an empty quoted argument', () => {

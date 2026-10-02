@@ -51,7 +51,11 @@ export function QuickFilterNameDialog({
     <Modal
       open
       size="sm"
-      title={t(renameId ? 'servers.quickFilter.dialog.renameTitle' : 'servers.quickFilter.dialog.saveTitle')}
+      title={t(
+        renameId
+          ? 'servers.quickFilter.dialog.renameTitle'
+          : 'servers.quickFilter.dialog.saveTitle',
+      )}
       onClose={onClose}
       closeLabel={t('common.close')}
       footer={

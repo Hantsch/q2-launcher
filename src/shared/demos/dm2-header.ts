@@ -114,14 +114,16 @@ interface Cursor {
 }
 
 function outOfBounds(bytes: Uint8Array): Dm2Unparsable {
-  return bytes.length >= DM2_HEADER_MAX_BYTES ? { ok: false, reason: 'header-too-large' } : { ok: false, reason: 'truncated' }
+  return bytes.length >= DM2_HEADER_MAX_BYTES
+    ? { ok: false, reason: 'header-too-large' }
+    : { ok: false, reason: 'truncated' }
 }
 
 function readInt32LE(cursor: Cursor, limit: number): number | null {
   if (cursor.offset + 4 > limit) return null
   const b = cursor.bytes
   const o = cursor.offset
-  const value = (b[o]! | (b[o + 1]! << 8) | (b[o + 2]! << 16) | (b[o + 3]! << 24)) | 0
+  const value = b[o]! | (b[o + 1]! << 8) | (b[o + 2]! << 16) | (b[o + 3]! << 24) | 0
   cursor.offset += 4
   return value
 }
@@ -228,7 +230,8 @@ export function parseDm2Header(bytes: Uint8Array): Dm2HeaderResult {
         serverdataLevel = levelRead
 
         const found = LAYOUTS[protocolValue]
-        if (found === undefined) return { ok: false, reason: 'unknown-protocol', protocol: protocolValue }
+        if (found === undefined)
+          return { ok: false, reason: 'unknown-protocol', protocol: protocolValue }
         layout = found
 
         continue
@@ -243,7 +246,8 @@ export function parseDm2Header(bytes: Uint8Array): Dm2HeaderResult {
 
       const index = readUint16LE(msgCursor, payloadEnd)
       if (index === null) return outOfBounds(bytes)
-      if (layout === null || index >= layout.MAX_CONFIGSTRINGS) return { ok: false, reason: 'not-a-demo' }
+      if (layout === null || index >= layout.MAX_CONFIGSTRINGS)
+        return { ok: false, reason: 'not-a-demo' }
 
       const value = readCString(msgCursor, payloadEnd)
       if (value === null) return outOfBounds(bytes)

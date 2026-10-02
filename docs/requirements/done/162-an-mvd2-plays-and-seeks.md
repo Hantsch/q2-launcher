@@ -73,7 +73,7 @@ filtering MVD2 out, the fix stays inside 159's files.
 
 - **D1 — MVD2 / MVD2.gz play through 159's path.**
   Locate 159's play-args builder and Play-availability resolver (`grep -rn "'+demo'" src/main
-  src/shared` and `grep -rln "demomap" src --include=*.test.ts`; expected under
+src/shared` and `grep -rln "demomap" src --include=*.test.ts`; expected under
   `src/main/modules/replays/` and/or `src/shared/replays/`). Ensure: (a) a row with
   `format: 'mvd2'` (`gzip` false or true; `demoFormatSchema` in `src/shared/modules/replays.ts`) is
   playable on a qualifying Q2PRO installation exactly like a `.dm2`; (b) the args are
@@ -93,15 +93,14 @@ filtering MVD2 out, the fix stays inside 159's files.
   New pure file `src/shared/replays/demo-control.ts` (no node/DOM/electron; header style of
   `src/shared/replays/demo-detail.ts`):
   `type SeekTarget = { kind: 'relative'; seconds: number } | { kind: 'absolute'; seconds: number }
-  | { kind: 'percent'; percent: number }` and
+| { kind: 'percent'; percent: number }` and
   `demoSeekCommand(format: DemoFormat, target: SeekTarget): string` returning `seek +10` /
   `seek -10` (relative, sign always written, whole seconds via `Math.round`), `seek 30` (absolute,
   clamped ≥ 0), `seek 50%` (percent, whole number clamped 0–100) — for **both** `'dm2'` and `'mvd2'`
   (Q2PRO's `seek`, verified on MVD by spike 133 `spikes/133-q2pro-control/RESULT.md`; not `mvdseek`).
   The doc comment says [[165]] sends seeks only through this function. Test
   `src/shared/replays/demo-control.test.ts` pins the command per format and each target kind.
-  Also correct `docs/concepts/demo-browser.md` §6.4 ("seeking uses `mvdseek`" → `seek`, per spike
-  133) and mark open point §17.9 decided: launcher does not pick the followed player, Q2PRO's own
+  Also correct `docs/concepts/demo-browser.md` §6.4 ("seeking uses `mvdseek`" → `seek`, per spike 133) and mark open point §17.9 decided: launcher does not pick the followed player, Q2PRO's own
   in-game controls (`cmd invnext`/`cmd invprev`/`cmd chase`) switch it, timeline sends `seek`.
   Touches: those three files.
 - **D3 — MVD2 detail note.**
@@ -145,6 +144,7 @@ AC3 -> DemoDetailPanel.test.tsx + flow note step; AC4 -> demo-play.test.ts r1q2 
 Review (default tier): PASS, no findings.
 
 Decisions:
+
 - In-place play passes `+demo <fileName>` (relative to `demos/`, as 159's own flow asserts), not `demos/<file>`; kept 159's behaviour, full extension retained.
 - The fixture MVD2's header names gamedir `opentdm`, so the flow's Q2PRO fixture gains an `opentdm` game dir and asserts `+set game opentdm`.
 - The MVD2 note also shows when Play is disabled on r1q2 (it describes Q2PRO behaviour; harmless).

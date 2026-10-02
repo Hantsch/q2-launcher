@@ -63,7 +63,9 @@ export default async function replaysZipEntries({ page, shot, step }) {
     .filter({ has: page.getByTestId('replays-demo-source').filter({ hasText: 'pack.zip ›' }) })
   const zipRowCount = await zipRows.count()
   if (zipRowCount !== 2) {
-    throw new Error(`replays-zip-entries: expected exactly 2 rows from pack.zip, got ${zipRowCount}`)
+    throw new Error(
+      `replays-zip-entries: expected exactly 2 rows from pack.zip, got ${zipRowCount}`,
+    )
   }
 
   step('both pack.zip rows carry data-archive-entry="true"')
@@ -76,14 +78,19 @@ export default async function replaysZipEntries({ page, shot, step }) {
   }
 
   step('the test.dm2 archive entry shows its parsed map name')
-  const dm2Row = zipRows.filter({ has: page.getByTestId('replays-demo-name').filter({ hasText: 'test.dm2' }) })
+  const dm2Row = zipRows.filter({
+    has: page.getByTestId('replays-demo-name').filter({ hasText: 'test.dm2' }),
+  })
   const dm2Map = await dm2Row.getByTestId('replays-demo-map').textContent()
   if (dm2Map !== 'q2rdm2') {
     throw new Error(`replays-zip-entries: test.dm2 map expected "q2rdm2", got "${dm2Map}"`)
   }
 
   step('the non-demo readme.txt entry never becomes a row')
-  const readmeRows = await page.getByTestId('replays-demo-name').filter({ hasText: 'readme.txt' }).count()
+  const readmeRows = await page
+    .getByTestId('replays-demo-name')
+    .filter({ hasText: 'readme.txt' })
+    .count()
   if (readmeRows !== 0) {
     throw new Error('replays-zip-entries: readme.txt must never appear as a demo row')
   }

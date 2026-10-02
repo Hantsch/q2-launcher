@@ -61,8 +61,8 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F12, F13, 
 ## Open Questions
 
 - ~~**Q1**~~ answered → Decisions (Sprint) — Disable-with-reason or remove the two settings? Removing needs a migration step
-      and drops a documented promise; disabling keeps the option to make the queue real later.
-      Recommendation: disable with reason now.
+  and drops a documented promise; disabling keeps the option to make the queue real later.
+  Recommendation: disable with reason now.
 
 ## Decisions (Sprint)
 
@@ -71,7 +71,7 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F12, F13, 
   schema, defaults and patch validation unchanged; only the renderer disables them — the user
   decision rules out a migration, and keeping the patch path lets the queue become real later.
 - **Reason placement**: the same i18n key (`module.downloads.settings.queueUnavailable`, text "Not
-  available yet: downloads run one at a time") is rendered as visible text under *each* of the two
+  available yet: downloads run one at a time") is rendered as visible text under _each_ of the two
   disabled controls and wired via `aria-describedby` — the platform-parity rule wants the reason on
   the control, not once for the section.
 - **Pipeline-only types move with `getExtractDir`**: `DownloadFn`/`ExtractFn` (used by
@@ -180,7 +180,7 @@ remove,catalog-service}.ts`, `src/main/lib/{fs-utils,math,content-repo}.ts`, `sr
   `asExtractionErrorKey` from `bootstrap/errors.ts` instead of its local `asErrorKey`. Keep the
   existing byte `onProgress` signature (mods calls it). In `engine/update-job.ts` replace the
   download + mkdir + extract block of `runUpdate` with one `stagePackage` call (`extractDir:
-  getExtractDir(userDataPath, jobId)`, `verify: target.sha256 ? 'sha256' : { sizeOnly: true }`,
+getExtractDir(userDataPath, jobId)`, `verify: target.sha256 ? 'sha256' : { sizeOnly: true }`,
   `download`/`extract` from deps, `onExtractor: setExtractor`); delete `downloadEngineArchive`,
   `downloadUnpinnedAsset` and the `EngineArchiveDownload*` types — `EngineUpdateDeps.download`
   becomes a `downloadPackage`-shaped seam; a size-only failure whose every attempt is
@@ -197,13 +197,13 @@ remove,catalog-service}.ts`, `src/main/lib/{fs-utils,math,content-repo}.ts`, `sr
   `src/main/modules/downloads/bootstrap/job.ts` (package loop, ~lines 1240–1380) replace the
   `deps.fetcher.fetch` → `mkdir` → `deps.extractor.extract({ archive: markVerified(...) })`
   sequence with one `stagePackage` call: `download: deps.fetcher.fetch`, `extract:
-  deps.extractor.extract`, `extractDir: getBootstrapExtractDir(...)`, `resolveExtractor`,
+deps.extractor.extract`, `extractDir: getBootstrapExtractDir(...)`, `resolveExtractor`,
   `onExtractor: (h) => { extractor = h }`, byte `onProgress` and `onExtractProgress` mapped to the
   same `packagesProgress(...)` ratios as today. Each of today's exits stays: cancel → cancelled
   outcome (check `cancelled` before reading the result), `stage: 'download'` → `recordPackage(last
-  attempt url ?? pkg.url, pkg.sizeBytes, false, false)`, `stage: 'prepare'`/`'extract'` →
+attempt url ?? pkg.url, pkg.sizeBytes, false, false)`, `stage: 'prepare'`/`'extract'` →
   `recordPackage(url, sizeBytes, true, false)`, success → `listExtraction` + `recordPackage(...,
-  true, true, listing)`; failure keys and reason strings unchanged. Same in
+true, true, listing)`; failure keys and reason strings unchanged. Same in
   `src/main/modules/downloads/repair/job.ts` (loop ~lines 418–476, `onExtractor: setExtractor`).
   Drop the now-unused `markVerified`/`mkdir` imports. Existing `bootstrap/job.test.ts` and
   `repair/job.test.ts` must pass with at most mechanical fixture changes (they inject
@@ -239,7 +239,7 @@ remove,catalog-service}.ts`, `src/main/lib/{fs-utils,math,content-repo}.ts`, `sr
   in src/main/lib" (no `function clamp01|removeDir|hashFile` outside `src/main/lib`).
 - **D7 — one cached-document routine behind both content services.** In
   `src/main/lib/content-repo.ts` add `CachedContentDocument<T>`: constructor `{ filePath, freshnessMs,
-  cacheVersion, schema (zod for T), log, fetch: () => Promise<T> }`; `get({ refresh })` answers a
+cacheVersion, schema (zod for T), log, fetch: () => Promise<T> }`; `get({ refresh })` answers a
   fresh in-memory value (only a live fetch in this process counts as fresh), else a live fetch
   persisted through `JsonStore` as `{ cacheVersion, fetchedAt, data }`, else the persisted cache
   (`fromCache: true`), else unavailable; a wrong `cacheVersion` or failed envelope parse discards
@@ -275,7 +275,7 @@ remove,catalog-service}.ts`, `src/main/lib/{fs-utils,math,content-repo}.ts`, `sr
   and download-while-playing are disabled and show the reason"
 - AC1 → e2e `scripts/flows/settings-downloads-section.mjs` › "concurrency and
   download-while-playing are disabled and say why" (run: `npm run ui:flow --
-  settings-downloads-section`); §9 doc match checked by the default review against D2's text.
+settings-downloads-section`); §9 doc match checked by the default review against D2's text.
 - AC2 → unit `src/main/modules/downloads/fetcher.test.ts` › "a size-only download that stalls fails
   on the stall timeout and leaves no file"
 - AC2 → unit `src/main/modules/downloads/fetcher.test.ts` › "a size-only download accepts any hash

@@ -1,5 +1,15 @@
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, unlink, writeFile } from 'node:fs/promises'
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  unlink,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -72,7 +82,11 @@ async function exists(path: string): Promise<boolean> {
 
 describe('removeRecordedFiles', () => {
   it('every recorded file is deleted', async () => {
-    const files = [await installed('pak0.pak'), await installed('maps/x.bsp'), await installed('gamex86.dll')]
+    const files = [
+      await installed('pak0.pak'),
+      await installed('maps/x.bsp'),
+      await installed('gamex86.dll'),
+    ]
 
     const result = await removeRecordedFiles(root, 'rogue', { files }, { changedFiles: 'keep' })
 
@@ -106,7 +120,12 @@ describe('removeRecordedFiles', () => {
 
     const again = [await installed('maps/x.bsp')]
     await writeFile(join(gameDirPath, 'config.cfg'), 'bind x +attack')
-    const kept = await removeRecordedFiles(root, 'rogue', { files: again }, { changedFiles: 'keep' })
+    const kept = await removeRecordedFiles(
+      root,
+      'rogue',
+      { files: again },
+      { changedFiles: 'keep' },
+    )
     expect(kept.folderRemoved).toBe(false)
     expect(await exists(join(gameDirPath, 'maps'))).toBe(false)
     expect(await exists(join(gameDirPath, 'config.cfg'))).toBe(true)
@@ -114,7 +133,11 @@ describe('removeRecordedFiles', () => {
 
   it('a changed file is listed and kept on keep, deleted on delete', async () => {
     const record = async () => ({
-      files: [await installed('a.pak', 'aaaa'), await installed('b.pak', 'bbbb'), await installed('c.pak', 'cccc')],
+      files: [
+        await installed('a.pak', 'aaaa'),
+        await installed('b.pak', 'bbbb'),
+        await installed('c.pak', 'cccc'),
+      ],
     })
     const change = async () => {
       await writeFile(join(gameDirPath, 'a.pak'), 'a different size') // size differs
@@ -123,31 +146,55 @@ describe('removeRecordedFiles', () => {
 
     const first = await record()
     await change()
-    expect(await planRemoval(root, 'rogue', first)).toEqual({ changed: ['a.pak', 'b.pak'], missing: [] })
+    expect(await planRemoval(root, 'rogue', first)).toEqual({
+      changed: ['a.pak', 'b.pak'],
+      missing: [],
+    })
     const onKeep = await removeRecordedFiles(root, 'rogue', first, { changedFiles: 'keep' })
-    expect(onKeep).toMatchObject({ deleted: ['c.pak'], kept: ['a.pak', 'b.pak'], failed: [], folderRemoved: false })
+    expect(onKeep).toMatchObject({
+      deleted: ['c.pak'],
+      kept: ['a.pak', 'b.pak'],
+      failed: [],
+      folderRemoved: false,
+    })
     expect(await readFile(join(gameDirPath, 'b.pak'), 'utf8')).toBe('BBBB')
 
     const second = await record()
     await change()
     const onDelete = await removeRecordedFiles(root, 'rogue', second, { changedFiles: 'delete' })
-    expect(onDelete).toEqual({ deleted: ['a.pak', 'b.pak', 'c.pak'], kept: [], failed: [], folderRemoved: true })
+    expect(onDelete).toEqual({
+      deleted: ['a.pak', 'b.pak', 'c.pak'],
+      kept: [],
+      failed: [],
+      folderRemoved: true,
+    })
   })
 
   it('a missing recorded file is already gone, not an error', async () => {
     const present = await installed('pak0.pak')
     const gone: ModInstallFile = { path: 'pak1.pak', sizeBytes: 4, sha256: sha256('gone') }
-    const goneNested: ModInstallFile = { path: 'maps/gone.bsp', sizeBytes: 4, sha256: sha256('gone') }
+    const goneNested: ModInstallFile = {
+      path: 'maps/gone.bsp',
+      sizeBytes: 4,
+      sha256: sha256('gone'),
+    }
     const record = { files: [present, gone, goneNested] }
 
-    expect(await planRemoval(root, 'rogue', record)).toEqual({ changed: [], missing: ['pak1.pak', 'maps/gone.bsp'] })
+    expect(await planRemoval(root, 'rogue', record)).toEqual({
+      changed: [],
+      missing: ['pak1.pak', 'maps/gone.bsp'],
+    })
     const result = await removeRecordedFiles(root, 'rogue', record, { changedFiles: 'keep' })
     expect(result).toEqual({ deleted: ['pak0.pak'], kept: [], failed: [], folderRemoved: true })
   })
 
   it('a record path outside the gamedir refuses the removal and deletes nothing', async () => {
     const inside = await installed('pak0.pak')
-    const escapes: ModInstallFile = { path: '../baseq2/pak0.pak', sizeBytes: 13, sha256: sha256('the base game') }
+    const escapes: ModInstallFile = {
+      path: '../baseq2/pak0.pak',
+      sizeBytes: 13,
+      sha256: sha256('the base game'),
+    }
     const absolute: ModInstallFile = {
       path: join(root, 'baseq2', 'pak0.pak').replace(/\\/g, '/'),
       sizeBytes: 13,
@@ -156,10 +203,12 @@ describe('removeRecordedFiles', () => {
 
     for (const bad of [escapes, absolute]) {
       const record = { files: [inside, bad] }
-      await expect(removeRecordedFiles(root, 'rogue', record, { changedFiles: 'delete' })).rejects.toThrow(
-        RemovalRefusedError,
+      await expect(
+        removeRecordedFiles(root, 'rogue', record, { changedFiles: 'delete' }),
+      ).rejects.toThrow(RemovalRefusedError)
+      await expect(planRemoval(root, 'rogue', record)).rejects.toThrow(
+        'mods.remove.refused.unsafePath',
       )
-      await expect(planRemoval(root, 'rogue', record)).rejects.toThrow('mods.remove.refused.unsafePath')
     }
     for (const gameDir of ['..', 'baseq2', '']) {
       await expect(
@@ -176,7 +225,11 @@ describe('removeRecordedFiles', () => {
     await mkdir(outside)
     await writeFile(join(outside, 'x.bsp'), 'not the mod')
     await symlink(outside, join(gameDirPath, 'maps'), 'junction')
-    const viaLink: ModInstallFile = { path: 'maps/x.bsp', sizeBytes: 11, sha256: sha256('not the mod') }
+    const viaLink: ModInstallFile = {
+      path: 'maps/x.bsp',
+      sizeBytes: 11,
+      sha256: sha256('not the mod'),
+    }
 
     await expect(
       removeRecordedFiles(root, 'rogue', { files: [inside, viaLink] }, { changedFiles: 'delete' }),

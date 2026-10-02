@@ -96,7 +96,12 @@ export function RepairDialog({ installationId }: { installationId: string }) {
         void startOffer(offer.kind)
         return
       case 'retail-copy':
-        openDialog({ kind: 'module', moduleId: 'downloads', view: 'retail-upgrade', installationId })
+        openDialog({
+          kind: 'module',
+          moduleId: 'downloads',
+          view: 'retail-upgrade',
+          installationId,
+        })
         return
       case 'set-write-dir':
         if (installation) void runFix(installation, 'set-write-dir')
@@ -161,7 +166,9 @@ export function RepairDialog({ installationId }: { installationId: string }) {
                       key={`${offer.kind}-${index}`}
                       className="flex items-center justify-between gap-3 rounded-sm border border-line-strong bg-void/10 p-3"
                     >
-                      <p className="text-xs text-ink-dim">{t(offer.messageKey, offer.params ?? {})}</p>
+                      <p className="text-xs text-ink-dim">
+                        {t(offer.messageKey, offer.params ?? {})}
+                      </p>
                       <Button
                         variant="primary"
                         size="sm"

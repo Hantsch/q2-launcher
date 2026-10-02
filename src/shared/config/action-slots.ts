@@ -44,7 +44,11 @@ export function keySlotCount(action: ConfigAction): number {
  * to guard against `undefined` holes. In practice every caller either replaces an existing index
  * or appends at `keySlotCount(action)`, so padding is only ever a defensive fallback.
  */
-export function withKeySlot(action: ConfigAction, index: number, slot: ActionKeySlot): ConfigAction {
+export function withKeySlot(
+  action: ConfigAction,
+  index: number,
+  slot: ActionKeySlot,
+): ConfigAction {
   if (index < 0) throw new RangeError(`withKeySlot: negative index ${index}`)
 
   const current = actionKeySlots(action)

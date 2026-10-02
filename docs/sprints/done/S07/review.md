@@ -6,12 +6,12 @@ Goal: a saved profile no longer carries dead alias lines or uuid-fragment names,
 into readable, commented sections instead of a flat sorted dump, and importing a real
 hand-written config turns into real Controls entries instead of preserved lines.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 038 — No alias line for an action the engine can bind directly | done | `28e337f` |
-| 039 — Aliases get readable names I control, and must be unique | done | `3bcf055` |
-| 040 — The profile file is written structured, commented and human-readable | done | `4d078d7` |
-| 041 — Import understands aliases, press/release pairs and unbindall | done | `7ec292b` |
+| Story                                                                      | Status | Commit    |
+| -------------------------------------------------------------------------- | ------ | --------- |
+| 038 — No alias line for an action the engine can bind directly             | done   | `28e337f` |
+| 039 — Aliases get readable names I control, and must be unique             | done   | `3bcf055` |
+| 040 — The profile file is written structured, commented and human-readable | done   | `4d078d7` |
+| 041 — Import understands aliases, press/release pairs and unbindall        | done   | `7ec292b` |
 
 All four stories in the sprint are done. No story is blocked.
 
@@ -27,7 +27,7 @@ invariant across profile shapes, not just one hand-built case.
 overridable, and unique within a profile (a collision is a Care warning, never an auto-appended
 counter suffix). Mirror ownership — "did our own write pass produce this bind value" — no longer
 depends on the `q2l_a_` name prefix; it now rests on the key-scoped rule story 034 introduced,
-plus a demoted *legacy-format* marker for migrating old profiles. This was the highest-risk
+plus a demoted _legacy-format_ marker for migrating old profiles. This was the highest-risk
 story in the sprint (five call sites depended on the prefix as an identity test) and needed four
 build/review rounds before the mechanism held under adversarial re-verification — see Findings.
 
@@ -57,7 +57,7 @@ genuinely-unparseable lines still preserved verbatim.
   this as the standing bar for any future story touching the mirror/alias-render mechanism:
   self-reported "done" on this code path is not trustworthy without an adversarial re-render pass.
 - **User decision, recorded in 039's story file:** when an action's own command list contains a
-  segment that collides with its own alias name but the body has *other* real commands too, the
+  segment that collides with its own alias name but the body has _other_ real commands too, the
   writer must keep the alias line (never silently drop content) and surface a new Care finding
   (`aliasSelfReference`) instead — the launcher's user decides whether to fix it, not the writer.
   This is now the standing rule for that shape.
@@ -69,7 +69,7 @@ genuinely-unparseable lines still preserved verbatim.
   messages are now recognised and rendered as colour codes by the message editor, per user
   decision — larger than the story's original "keep as ordinary cvar" fallback option.
 - **Deferred by user decision, not silently dropped (041):** the `alias cali "bind KP_END ...;
-  ..."`-style construct (an alias that rebinds keys, functionally a toggle layer) is not
+..."`-style construct (an alias that rebinds keys, functionally a toggle layer) is not
   auto-classified. The import flow asks the launcher's user whether to treat it as a plain alias
   or attempt it as a layer.
 - **Backlog note (041):** self-rewriting toggles and `wait` chains import as plain, opaque alias

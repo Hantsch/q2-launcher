@@ -148,12 +148,17 @@ describe('ModTile update', () => {
   })
 
   it('shows no Update for a current or manual gamedir', () => {
-    const { rerender } = render(createElement(ModTile, { mod: tile({ ...updatable, status: undefined }) }))
+    const { rerender } = render(
+      createElement(ModTile, { mod: tile({ ...updatable, status: undefined }) }),
+    )
     expect(screen.getByTestId('mods-tile-status-action').textContent).toBe('Installed')
     expect(screen.queryByTestId('mods-update-action')).toBeNull()
     rerender(
       createElement(ModTile, {
-        mod: { ...tile({ gameDir: 'action', folderPath: '/g/action', origin: 'manual' }), catalog: null },
+        mod: {
+          ...tile({ gameDir: 'action', folderPath: '/g/action', origin: 'manual' }),
+          catalog: null,
+        },
       }),
     )
     expect(screen.queryByTestId('mods-update-action')).toBeNull()

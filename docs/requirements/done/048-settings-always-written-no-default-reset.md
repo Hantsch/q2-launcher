@@ -20,7 +20,7 @@ button that resets to a state the file can no longer express.
 **1. Every setting the launcher knows is written, not just the changed ones.**
 
 Today a cvar only reaches the `.cfg` when it carries an explicit value - `handleResetAll` in
-[SettingsTab.tsx](../../src/renderer/src/modules/config/SettingsTab.tsx) deliberately *deletes*
+[SettingsTab.tsx](../../src/renderer/src/modules/config/SettingsTab.tsx) deliberately _deletes_
 the key, and [render.ts](../../src/shared/config/render.ts) renders exactly the keys
 `profile.cvars` holds. That silently assumes the engine starts from its own default. It does
 not: `config.cfg`, an `autoexec.cfg`, a mod's config or an earlier `exec` of another profile can
@@ -59,7 +59,7 @@ What goes:
 nothing. The only thing that exists afterwards is story 049's discard, and it is a different
 thing: "back to what I last saved", never "back to the catalogue's defaults".
 
-For a cvar the default value still gets *printed* on the row as a reference - that is information,
+For a cvar the default value still gets _printed_ on the row as a reference - that is information,
 not an affordance, and it is the useful half of what the button offered. For a binding there is
 no default at all: a bind is what the user chose, full stop. That makes `suggestedKeys` in
 [action-catalog.ts](../../src/shared/config/action-catalog.ts) dead data once
@@ -88,7 +88,7 @@ the launcher can snap a profile back to.
 - [x] No tab anywhere in the app offers a "reset/restore to default" action; the i18n keys behind
       the removed controls are removed too, not orphaned.
 - [x] Nothing replaces the removed controls: no clickable default value, no "restore" hint
-      anywhere in the bind flow. A cvar row still *prints* its default as a reference; a binding
+      anywhere in the bind flow. A cvar row still _prints_ its default as a reference; a binding
       shows no default, because it has none.
 - [x] `suggestedKeys` is gone from the action catalogue along with its only consumer, and
       creating a profile from `STANDARD_TEMPLATE` is unaffected.
@@ -123,7 +123,7 @@ the launcher can snap a profile back to.
 <!-- Taken during refine (S09), not by the user. Each with its reason. -->
 
 - **Read-back strips catalogue values equal to `def.default` back out of `profile.cvars`** (only
-  where a *launcher-written* file is adopted: `profiles.ts#adoptFromFile`, `rebuild.ts`) — without
+  where a _launcher-written_ file is adopted: `profiles.ts#adoptFromFile`, `rebuild.ts`) — without
   it, the first save+reload materialises all 30 catalogue defaults into state and turns "this was a
   default" into "the user chose this", which is exactly what AC3 forbids.
 - **A foreign (non-launcher) import is not stripped** — it must keep recording what the imported
@@ -139,7 +139,7 @@ the launcher can snap a profile back to.
   where the file grows a line every round-trip.
 - **The exec-buffer size budget keeps reporting the real, larger file — no exemption for default
   lines** — the engine really reads them, so hiding them from the budget would be the dishonest
-  answer; only the absence of *new* Care findings is regression-tested.
+  answer; only the absence of _new_ Care findings is regression-tested.
 - **The orange cvar row indicator switches to "edited and unsaved" in this story, not in 049** —
   048's own AC forbids counters and rows disagreeing, and they share one predicate.
 - **The "edited and unsaved" baseline is an interim cvar-scoped snapshot in `useProfileDraft`**
@@ -165,7 +165,7 @@ tab is never in a state where the reset is gone but the file is still deviation-
    `Object.keys(cvars)`: catalogue defs in today's group/index order with `writeValueFor`, plus every
    stored key the catalogue does not know in the unchanged "Other" section. Stored keys win over the
    catalogue line for the same def (case-insensitive), grouping/alignment/tie-breaks unchanged.
-   *This is the 039/042 risk path — see Model Hints.*
+   _This is the 039/042 risk path — see Model Hints._
 3. **Read-back stays deviation-only:** `stripCatalogDefaults` in `profiles.ts#adoptFromFile` and
    `rebuild.ts#buildRebuiltProfile`, then re-run story 042's round-trip fixed-point property
    (`src/main/modules/config/round-trip.test.ts`) plus a new "render → parse → adopt → render is
@@ -174,9 +174,9 @@ tab is never in a state where the reset is gone but the file is still deviation-
    `validateCvars` (`cvar-absent`/range/choice), `tidy-up` or `validate-structure` findings, and that
    the size budget simply reports the bigger file.
 5. **Remove the affordances:** per-row `RotateCcw` + its 4th grid column (`CvarRow.tsx`), "Reset all"
-   + dialog + `handleResetAll` (`SettingsTab.tsx`), "Restore defaults" + dialog + handler
-   (`ControlsTab.tsx`) and `lib/restore-defaults.ts` + test; i18n keys deleted, not orphaned. The
-   printed default reference in the value cell stays.
+   - dialog + `handleResetAll` (`SettingsTab.tsx`), "Restore defaults" + dialog + handler
+     (`ControlsTab.tsx`) and `lib/restore-defaults.ts` + test; i18n keys deleted, not orphaned. The
+     printed default reference in the value cell stays.
 6. **Switch the semantics:** saved-cvars baseline in `useProfileDraft`, `isEdited` replacing
    `isChanged` for filter, counters and the row indicator, wording renamed. Shaped so 049 can widen
    the baseline from cvars to the whole profile without unwinding it.
@@ -189,7 +189,7 @@ tab is never in a state where the reset is gone but the file is still deviation-
 
 **D1 — the shared default rule.** [x]
 New `src/shared/config/cvar-defaults.ts` + `cvar-defaults.test.ts`.
-*Accept:* `isDefaultValue`/`writeValueFor`/`stripCatalogDefaults` handle case-insensitive names
+_Accept:_ `isDefaultValue`/`writeValueFor`/`stripCatalogDefaults` handle case-insensitive names
 (`findCvar`'s rule), `"true"`/`"1"` toggles, `"1.0"`/`"1"` numerics, empty/whitespace = unset, and
 leave non-catalogue keys untouched. Pure, no consumers yet.
 
@@ -197,7 +197,7 @@ leave non-catalogue keys untouched. Pure, no consumers yet.
 `src/shared/config/render.ts` (`buildCvarSections`/`buildCvarSection` + doc comment),
 `src/main/modules/config/render.test.ts`. Mirror: the existing group/index ordering already in
 `buildCvarSections`.
-*Accept:* a profile with an empty `cvars` map renders a `set` line for all 30 `ALL_CVARS` names in
+_Accept:_ a profile with an empty `cvars` map renders a `set` line for all 30 `ALL_CVARS` names in
 the story-040 grouped, name-aligned layout; unknown stored cvars still land in "Other"; a stored
 `Sensitivity` produces exactly **one** line (no second `sensitivity` default line); a stored `''`
 renders the default; output stays byte-deterministic across two renders of the same profile.
@@ -205,7 +205,7 @@ renders the default; output stays byte-deterministic across two renders of the s
 **D3 — read-back does not inflate the profile, and 042's round-trip still holds.** [x]
 `src/main/modules/config/profiles.ts` (`adoptFromFile`), `src/main/modules/config/rebuild.ts`,
 `src/main/modules/config/round-trip.test.ts`.
-*Accept:* `render(parse(render(p))) === render(p)` green for every `ROUND_TRIP_FIXTURES` entry; a
+_Accept:_ `render(parse(render(p))) === render(p)` green for every `ROUND_TRIP_FIXTURES` entry; a
 launcher file adopted from disk yields the same `profile.cvars` it was rendered from (no default
 inflation, user values equal to a default included only where they were stored before); a foreign
 import path is unchanged.
@@ -213,7 +213,7 @@ import path is unchanged.
 **D4 — Care and the Raw File tab stay honest about the bigger file.** [x]
 Tests only (co-located with `validate-cvars.test.ts`, `tidy-up.test.ts`, `validate-structure.test.ts`
 or one new `default-lines.test.ts` under `src/main/modules/config/`).
-*Accept:* an adopted default-filled profile produces no new cvar findings (notably no
+_Accept:_ an adopted default-filled profile produces no new cvar findings (notably no
 `cvar-absent-*` storm for cvars the scoped engine lacks), tidy-up offers nothing to remove, and the
 size-budget finding reports the real byte count with unchanged wording.
 
@@ -223,7 +223,7 @@ size-budget finding reports the real byte count with unchanged wording.
 `confirmResetAllOpen` state/effect, dialog), `src/renderer/src/i18n/locales/en.json`
 (`config.cvar.resetToDefault`, `config.settings.header.resetAll`,
 `config.settings.resetAllDialog.*`).
-*Accept:* no reset control and no dialog anywhere on the tab, nothing takes their place (no
+_Accept:_ no reset control and no dialog anywhere on the tab, nothing takes their place (no
 clickable default), the row still prints its default as text, grid columns line up, keys gone from
 `en.json` with no references left.
 
@@ -232,7 +232,7 @@ clickable default), the row still prints its default as text, grid columns line 
 `src/renderer/src/modules/config/lib/cvar-rows.ts` + `cvar-rows.test.ts` (`isEdited` alongside/
 replacing `isChanged` in `buildCvarGroups`), `SettingsTab.tsx`, `CvarRow.tsx` (left border),
 `en.json` (filter/count/legend wording).
-*Accept:* a freshly loaded, saved profile shows 0 edited and no orange row even where values differ
+_Accept:_ a freshly loaded, saved profile shows 0 edited and no orange row even where values differ
 from the default; editing a row marks exactly that row and bumps the group + catalogue counter;
 saving clears both; the counter can never disagree with the visible rows because both read one
 predicate. Baseline is a snapshot object, not a boolean, so 049 can widen it to the whole profile.
@@ -242,18 +242,18 @@ predicate. Baseline is a snapshot object, not a boolean, so 049 can widen it to 
 `handleRestoreDefaults`, dialog), delete
 `src/renderer/src/modules/config/lib/restore-defaults.ts` and its test, `en.json`
 (`config.controls.restoreDefaults.*`).
-*Accept:* no restore control, no dialog, file deleted rather than left unused, no hint about
+_Accept:_ no restore control, no dialog, file deleted rather than left unused, no hint about
 defaults added anywhere in the bind flow, keys gone.
 
 **D8 — `suggestedKeys` is dead data and goes.** [x]
 `src/shared/config/action-catalog.ts` (the `Action.suggestedKeys` field + the 7 movement entries
 carrying it), `src/shared/config/action-catalog.test.ts`.
-*Accept:* typecheck green with no consumer left repo-wide; creating a profile from
+_Accept:_ typecheck green with no consumer left repo-wide; creating a profile from
 `STANDARD_TEMPLATE` is unchanged (pinned by a test).
 
 **D9 — verification pass.** [x]
 No production files expected; `docs/UI-VERIFICATION.md` screen registry only if a screen id moved.
-*Accept:* `npm run build`, `npm test`, `npm run typecheck` and `npm run ui:verify` green (0 axe
+_Accept:_ `npm run build`, `npm test`, `npm run typecheck` and `npm run ui:verify` green (0 axe
 violations); Settings and Controls screenshots show the removed controls actually absent, not
 disabled; a repo-wide grep for the five removed i18n key prefixes returns nothing.
 
@@ -265,7 +265,7 @@ AC6 → D5+D7, orphan check in D9 · AC7 → D5+D7 · AC8 → D8 · AC9 → D4 �
 - **D2 → `deliverable-hard`** — `render.ts`'s cvar path is the mirror/render code where story 039
   took four review rounds and 042 eight; the case-insensitive stored-key-wins rule is a silent
   clobber bug (duplicate `set` line, default wins at exec) if it is got wrong.
-- **D3 → `deliverable-hard`** — it changes what a *re-imported* file means; a strip rule that is one
+- **D3 → `deliverable-hard`** — it changes what a _re-imported_ file means; a strip rule that is one
   normalization off makes the round-trip fixed point fail one render later, which is precisely the
   failure mode 042 kept rediscovering.
 - D1, D4, D5, D6, D7, D8, D9 → default tier.
@@ -304,11 +304,13 @@ indicator were switched to "edited and unsaved" (a saved-cvars baseline in `useP
 they never disagree with a file that intentionally differs from default on every load.
 
 **Commit message:**
+
 ```
 048: profile files always write every cvar, reset-to-default affordances removed
 ```
 
 **Verification.**
+
 - `npm run build` — green.
 - `npm run typecheck` — green (node + web).
 - `npm test` (`npx vitest run`) — 1671 passed, 2 failed; both failures are known, pre-existing,
@@ -330,6 +332,7 @@ they never disagree with a file that intentionally differs from default on every
   collateral-damage check, full render→adopt→render pipeline) and confirmed AC3 now holds.
 
 **Decisions.**
+
 - The toggle-value normalization bug (D1) and the text-kind case-sensitivity bug (D1) were fixed
   within `src/shared/config/cvar-defaults.ts` during the review-fix cycle, since they were newly
   introduced by this story's own read-back strip (`stripCatalogDefaults`) turning a previously

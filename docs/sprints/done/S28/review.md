@@ -6,18 +6,18 @@
 
 ## Overview
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 159 play a demo in Q2PRO | done | c6069f9 (+ fix 5647b5a) |
-| 160 copy-in / cleanup | done | 6a829c2 |
-| 161 r1q2 fallback → Q2PRO-only guard | done (scope cut) | e80ca8a |
-| 162 mvd2 plays and seeks | done | 29f2e90 |
-| 163 playback session pipes | done | f748d10 |
-| 164 launcher speaks to a running demo | done | db393e2 |
-| 165 timeline | done | e4f852c |
-| 166 console command field | done | 2b49e08 |
-| 167 demo actions bindable | done | 879c67d (+ fix 89ef511) |
-| 168 auto-record | done | 9f0a558 |
+| Story                                 | Status           | Commit                  |
+| ------------------------------------- | ---------------- | ----------------------- |
+| 159 play a demo in Q2PRO              | done             | c6069f9 (+ fix 5647b5a) |
+| 160 copy-in / cleanup                 | done             | 6a829c2                 |
+| 161 r1q2 fallback → Q2PRO-only guard  | done (scope cut) | e80ca8a                 |
+| 162 mvd2 plays and seeks              | done             | 29f2e90                 |
+| 163 playback session pipes            | done             | f748d10                 |
+| 164 launcher speaks to a running demo | done             | db393e2                 |
+| 165 timeline                          | done             | e4f852c                 |
+| 166 console command field             | done             | 2b49e08                 |
+| 167 demo actions bindable             | done             | 879c67d (+ fix 89ef511) |
+| 168 auto-record                       | done             | 9f0a558                 |
 
 ## Implemented stories
 
@@ -59,19 +59,19 @@ Covered below the real surface: Linux behaviour (159, 164); 161's guards (unit l
 
 ## Tier record
 
-| Story | Ds | hard | review | cycles | agents | build min |
-| --- | --- | --- | --- | --- | --- | --- |
-| 159 | 3 | 1 | default | 0 | 6 | 19 |
-| 160 | 4 | 1 | default | 1 | 6 | 20 |
-| 161 | 1 | 0 | default | 1 | 5 | 4 |
-| 162 | 3 | 0 | default | 1 | 5 | 9 |
-| 163 | 2 | 1 | default | 1 | 4 | 10 |
-| 164 | 4 | 1 | default | 1 | 8 | 19 |
-| 165 | 4 | 1 | default | 1 | 8 | 37 |
-| 166 | 4 | 1 | default | 1 | 7 | 16 |
-| 167 | 5 | 1 | default | 1 | 8 | 75 |
-| 168 | 3 | 0 | default | 0 | 5 | 30 |
-| **Total** | **33** | **7** | 10× default | 8 | 62 | 239 |
+| Story     | Ds     | hard  | review      | cycles | agents | build min |
+| --------- | ------ | ----- | ----------- | ------ | ------ | --------- |
+| 159       | 3      | 1     | default     | 0      | 6      | 19        |
+| 160       | 4      | 1     | default     | 1      | 6      | 20        |
+| 161       | 1      | 0     | default     | 1      | 5      | 4         |
+| 162       | 3      | 0     | default     | 1      | 5      | 9         |
+| 163       | 2      | 1     | default     | 1      | 4      | 10        |
+| 164       | 4      | 1     | default     | 1      | 8      | 19        |
+| 165       | 4      | 1     | default     | 1      | 8      | 37        |
+| 166       | 4      | 1     | default     | 1      | 7      | 16        |
+| 167       | 5      | 1     | default     | 1      | 8      | 75        |
+| 168       | 3      | 0     | default     | 0      | 5      | 30        |
+| **Total** | **33** | **7** | 10× default | 8      | 62     | 239       |
 
 No second-stage (hard) reviews were used, so there is nothing to compare. The gate, not review, caught the 167 and 159 regressions.
 

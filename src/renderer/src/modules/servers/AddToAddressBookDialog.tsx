@@ -180,7 +180,9 @@ export function AddToAddressBookDialog({
         )}
 
         {noProfiles ? (
-          <p className="text-xs leading-relaxed text-ink-dim">{t('servers.addressBook.noProfiles')}</p>
+          <p className="text-xs leading-relaxed text-ink-dim">
+            {t('servers.addressBook.noProfiles')}
+          </p>
         ) : (
           <>
             <label className="block space-y-1.5" data-testid="servers-address-book-profile">

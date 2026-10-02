@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { ConfigAction } from '@shared/modules/config'
 import { getAliasSuggestions } from './alias-suggestions'
 
-function action(overrides: Partial<ConfigAction> & Pick<ConfigAction, 'id' | 'kind' | 'name'>): ConfigAction {
+function action(
+  overrides: Partial<ConfigAction> & Pick<ConfigAction, 'id' | 'kind' | 'name'>,
+): ConfigAction {
   return { categoryId: 'c1', commands: [], ...overrides }
 }
 
@@ -26,7 +28,12 @@ describe('getAliasSuggestions', () => {
 
   it('excludes a bind entry even if its command text looks alias-like', () => {
     const actions = [
-      action({ id: 'a1', kind: 'bind', name: '+lookalike', commands: [{ kind: 'raw', text: '+test' }] }),
+      action({
+        id: 'a1',
+        kind: 'bind',
+        name: '+lookalike',
+        commands: [{ kind: 'raw', text: '+test' }],
+      }),
     ]
 
     expect(getAliasSuggestions(actions)).toEqual([])

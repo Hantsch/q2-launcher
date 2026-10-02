@@ -218,7 +218,9 @@ export function RawFileTab({
           </HoverCard>
         ) : (
           changeSet.count > 0 && (
-            <Badge tone="warning">{t('config.raw.unsavedNotice', { count: changeSet.count })}</Badge>
+            <Badge tone="warning">
+              {t('config.raw.unsavedNotice', { count: changeSet.count })}
+            </Badge>
           )
         )}
         <IconButton
@@ -314,7 +316,9 @@ export function RawFileTab({
         <Panel className="flex flex-col gap-1.5 px-3 py-2" data-testid="config-raw-save-result">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="success">
-              {t('config.raw.result.preserved', { count: rawDraft.lastResult.preservedLines.length })}
+              {t('config.raw.result.preserved', {
+                count: rawDraft.lastResult.preservedLines.length,
+              })}
             </Badge>
             {rawDraft.lastResult.droppedAliases.length > 0 && (
               <Badge tone="warning">

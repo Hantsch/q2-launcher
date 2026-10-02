@@ -100,7 +100,7 @@ describe('resolveFeatureGate (end-to-end with a real UnlockService)', () => {
     await rm(`${filePath}.bak`, { force: true })
   })
 
-  it('only a token main\'s verifier accepts unlocks a feature', async () => {
+  it("only a token main's verifier accepts unlocks a feature", async () => {
     const now = new Date('2026-01-01T00:00:00.000Z')
     const service = createUnlockService({
       state,

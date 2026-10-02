@@ -43,7 +43,10 @@ function commands() {
     .filter((l) => l.length > 0)
     .map((l) => {
       const m = /^(.*) @(\d+)$/.exec(l)
-      if (!m) throw new Error(`replays-timeline-burst: command-log line has no @<epoch ms> stamp: ${JSON.stringify(l)}`)
+      if (!m)
+        throw new Error(
+          `replays-timeline-burst: command-log line has no @<epoch ms> stamp: ${JSON.stringify(l)}`,
+        )
       return { text: m[1], at: Number(m[2]) }
     })
 }
@@ -53,7 +56,8 @@ async function waitForScan(page) {
   await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const deadline = Date.now() + TIMEOUT_MS
   while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) throw new Error('replays-timeline-burst: timed out waiting for the demo scan to finish')
+    if (Date.now() >= deadline)
+      throw new Error('replays-timeline-burst: timed out waiting for the demo scan to finish')
     await sleep(100)
   }
 }
@@ -67,7 +71,11 @@ export default async function replaysTimelineBurst({ page, step, shot }) {
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForScan(page)
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
@@ -85,37 +93,54 @@ export default async function replaysTimelineBurst({ page, step, shot }) {
     if (i < 2) await sleep(60)
   }
   const clicksTook = Date.now() - firstClickAt
-  if (clicksTook > 300) throw new Error(`replays-timeline-burst: the three clicks took ${clicksTook} ms, expected <= 300`)
+  if (clicksTook > 300)
+    throw new Error(
+      `replays-timeline-burst: the three clicks took ${clicksTook} ms, expected <= 300`,
+    )
 
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
   while (commands().length < before + 3) {
     if (Date.now() >= deadline) {
-      throw new Error(`replays-timeline-burst: engine ran ${JSON.stringify(commands().slice(before))}, expected 3 seek commands`)
+      throw new Error(
+        `replays-timeline-burst: engine ran ${JSON.stringify(commands().slice(before))}, expected 3 seek commands`,
+      )
     }
     await sleep(25)
   }
   await sleep(FLUSH_MS + 500)
   const ran = commands().slice(before)
   if (ran.length !== 3 || ran.some((c) => c.text !== 'seek +10')) {
-    throw new Error(`replays-timeline-burst: engine ran ${JSON.stringify(ran)}, expected exactly three 'seek +10' in click order`)
+    throw new Error(
+      `replays-timeline-burst: engine ran ${JSON.stringify(ran)}, expected exactly three 'seek +10' in click order`,
+    )
   }
   const lag = ran[2].at - firstClickAt
   if (lag >= FLUSH_MS) {
-    throw new Error(`replays-timeline-burst: the third seek ran ${lag} ms after the first click, expected < ${FLUSH_MS} ms (waited for an ACK)`)
+    throw new Error(
+      `replays-timeline-burst: the third seek ran ${lag} ms after the first click, expected < ${FLUSH_MS} ms (waited for an ACK)`,
+    )
   }
-  if (ran[0].at > ran[1].at || ran[1].at > ran[2].at) throw new Error('replays-timeline-burst: the seeks ran out of order')
+  if (ran[0].at > ran[1].at || ran[1].at > ran[2].at)
+    throw new Error('replays-timeline-burst: the seeks ran out of order')
   for (let i = 1; i < ran.length; i++) {
     const gap = ran[i].at - ran[i - 1].at
     if (gap >= FLUSH_MS) {
-      throw new Error(`replays-timeline-burst: seek ${i + 1} ran ${gap} ms after seek ${i}, expected < ${FLUSH_MS} ms (serialised behind an ACK)`)
+      throw new Error(
+        `replays-timeline-burst: seek ${i + 1} ran ${gap} ms after seek ${i}, expected < ${FLUSH_MS} ms (serialised behind an ACK)`,
+      )
     }
   }
-  console.log(`replays-timeline-burst: lag=${lag} ms, gaps=${ran[1].at - ran[0].at}/${ran[2].at - ran[1].at} ms`)
+  console.log(
+    `replays-timeline-burst: lag=${lag} ms, gaps=${ran[1].at - ran[0].at}/${ran[2].at - ran[1].at} ms`,
+  )
 
   step('the position readback shows the jump')
   const deadlinePos = Date.now() + ENGINE_TIMEOUT_MS
   while ((await positionS()) < startS + 25) {
-    if (Date.now() >= deadlinePos) throw new Error(`replays-timeline-burst: position stuck at ${await positionS()} s after 3 jumps from ${startS} s`)
+    if (Date.now() >= deadlinePos)
+      throw new Error(
+        `replays-timeline-burst: position stuck at ${await positionS()} s after 3 jumps from ${startS} s`,
+      )
     await sleep(100)
   }
   await shot('timeline-burst-jumped')

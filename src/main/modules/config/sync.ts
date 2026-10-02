@@ -156,7 +156,8 @@ async function readLiveFile(
   try {
     return { content: await readFile(path, FILE_ENCODING), failure: null }
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { content: null, failure: 'missing' }
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+      return { content: null, failure: 'missing' }
     return { content: null, failure: 'error' }
   }
 }

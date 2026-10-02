@@ -71,7 +71,7 @@ describe('findSlotCollision', () => {
   })
 
   it(
-    "still names the owning action, not its bind mirror, once setActions has persisted it " +
+    'still names the owning action, not its bind mirror, once setActions has persisted it ' +
       '(review finding: profile.binds always carries this mirror in real use)',
     () => {
       const owner = catalogAction(forward, { keys: [{ key: 'f' }] })
@@ -210,7 +210,9 @@ describe('findModifierSlotCollision', () => {
   })
 
   it('reports a hand-made override (not written by the actions mirror) by its raw command text', () => {
-    const layers = [altLayer({ id: 'alt-9', name: 'Alt', overrides: { r: 'drop grenade launcher' } })]
+    const layers = [
+      altLayer({ id: 'alt-9', name: 'Alt', overrides: { r: 'drop grenade launcher' } }),
+    ]
 
     const found = findModifierSlotCollision([], layers, 'ALT', 'r')
 
@@ -656,10 +658,11 @@ describe('applyReplace', () => {
     expect(keySlotCount(clearedOwner)).toBe(2)
 
     const conflicts = findBindConflicts(profile({ actions: cleared }))
-    expect(conflicts).toEqual([{ key: 'h', scope: 'base', owners: [clearedOwner.name, other.name] }])
+    expect(conflicts).toEqual([
+      { key: 'h', scope: 'base', owners: [clearedOwner.name, other.name] },
+    ])
   })
 })
-
 
 describe('layerNameForModifier', () => {
   it("resolves a real layer's custom name when one exists", () => {

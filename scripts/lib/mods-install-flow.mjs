@@ -4,7 +4,11 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from './harness.mjs'
-import { startBootstrapFixtureServer, vendoredExtractorExists, writeModsInstallFixture } from './fixture.mjs'
+import {
+  startBootstrapFixtureServer,
+  vendoredExtractorExists,
+  writeModsInstallFixture,
+} from './fixture.mjs'
 
 export const TIMEOUT_MS = 8_000
 export const JOB_TIMEOUT_MS = 60_000
@@ -33,12 +37,16 @@ export function modsInstallLifecycle(onServer) {
 
 /** The install records of installation `id`, read from the app's `state.json`. */
 export function installRecords(id) {
-  const state = JSON.parse(readFileSync(join(variantUserDataDir('populated'), 'state.json'), 'utf8'))
+  const state = JSON.parse(
+    readFileSync(join(variantUserDataDir('populated'), 'state.json'), 'utf8'),
+  )
   return state.installations.find((i) => i.id === id)?.moduleData?.mods?.records ?? []
 }
 
 export async function openMods(page, installationName) {
-  await page.getByRole('button', { name: installationName, exact: true }).click({ timeout: TIMEOUT_MS })
+  await page
+    .getByRole('button', { name: installationName, exact: true })
+    .click({ timeout: TIMEOUT_MS })
   await page.getByTestId('nav-mods').click({ timeout: TIMEOUT_MS })
 }
 
@@ -47,5 +55,6 @@ export async function simulateLaunch(page, installationId, phase) {
     ({ id, ph }) => window.q2.invoke('dev:simulateLaunch', { installationId: id, phase: ph }),
     { id: installationId, ph: phase },
   )
-  if (!outcome?.ok) throw new Error(`dev:simulateLaunch(${phase}) failed: ${JSON.stringify(outcome)}`)
+  if (!outcome?.ok)
+    throw new Error(`dev:simulateLaunch(${phase}) failed: ${JSON.stringify(outcome)}`)
 }

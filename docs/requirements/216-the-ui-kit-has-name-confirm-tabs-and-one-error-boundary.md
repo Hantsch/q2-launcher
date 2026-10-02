@@ -28,8 +28,8 @@ fetch/start/track job state machine while mods dialogs use a different post-star
 ## Acceptance Criteria
 
 - [ ] **AC1** — `components/ui` exports `NameDialog({ titleKey, labelKey, initialName, maxLength,
-      validate?, onSubmit, onClose, children? })`, `ConfirmDialog({ title, body, confirmLabel,
-      tone, busy, onConfirm, onClose })`, `Tabs` (roving tabindex, `role="tablist"`/`tab`/
+validate?, onSubmit, onClose, children? })`, `ConfirmDialog({ title, body, confirmLabel,
+tone, busy, onConfirm, onClose })`, `Tabs` (roving tabindex, `role="tablist"`/`tab`/
       `tabpanel`, arrow-key navigation), `RadioGroup`/`Radio` and `TextArea`; each has a unit
       test, and `NameDialog` has one `canSubmit` that gates both the button and the Enter key.
 - [ ] **AC2** — The 12 name dialogs, the confirm dialogs and the three tab strips are rebuilt on

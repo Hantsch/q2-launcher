@@ -84,9 +84,7 @@ export default async function homeRouteRoundtrip({ page, app: _app, shot, step, 
 
   step('navigate away')
   await page.getByTestId('nav-config').click({ timeout: TIMEOUT_MS })
-  await page
-    .getByTestId('config-create-profile')
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('config-create-profile').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   step('navigate back to home')
   await page.getByTestId('nav-home').click({ timeout: TIMEOUT_MS })

@@ -56,8 +56,20 @@ const appInfo: AppInfo = {
 }
 
 const packages: DownloadDiagnosticsPackage[] = [
-  { id: 'q2pro-1.0', url: 'https://example.test/q2pro.zip', sizeBytes: 4_500_000, verified: true, extracted: true },
-  { id: 'demo-data', url: 'https://mirror.test/demo.zip', sizeBytes: 12_000_000, verified: true, extracted: false },
+  {
+    id: 'q2pro-1.0',
+    url: 'https://example.test/q2pro.zip',
+    sizeBytes: 4_500_000,
+    verified: true,
+    extracted: true,
+  },
+  {
+    id: 'demo-data',
+    url: 'https://mirror.test/demo.zip',
+    sizeBytes: 12_000_000,
+    verified: true,
+    extracted: false,
+  },
 ]
 
 const target: DownloadDiagnosticsTarget = {

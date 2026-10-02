@@ -51,7 +51,10 @@ const filledFeed: NewsFeed = {
   lastRefreshFailed: false,
 }
 
-const getNews = vi.fn<() => Promise<Outcome<NewsFeed>>>(async () => ({ ok: true, value: emptyFeed }))
+const getNews = vi.fn<() => Promise<Outcome<NewsFeed>>>(async () => ({
+  ok: true,
+  value: emptyFeed,
+}))
 const refreshNews = vi.fn<() => Promise<Outcome<NewsFeed>>>(async () => ({
   ok: true,
   value: emptyFeed,
@@ -206,7 +209,10 @@ describe('the home screen feed wiring (story 083 D4 fixup)', () => {
 
   it('leaves the last-known feed in place when a refresh fails', async () => {
     getNews.mockResolvedValueOnce({ ok: true, value: filledFeed })
-    refreshNews.mockResolvedValueOnce({ ok: false as const, error: { key: 'home.hero.stale.refresh' } })
+    refreshNews.mockResolvedValueOnce({
+      ok: false as const,
+      error: { key: 'home.hero.stale.refresh' },
+    })
 
     render(<HomeView />)
     await waitFor(() => {

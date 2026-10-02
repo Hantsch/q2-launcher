@@ -9,12 +9,12 @@ master-source codecs), written as pure, unit-tested code with no live network an
 
 ## Overview
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 106 — a servers module exists with its own nav entry | done | `2eeeac6` register the servers module (nav entry, settings slot, contract-first main/shared halves) |
-| 107 — a server address is validated before it is trusted | done | `0a99dce` validate a server address before it is trusted |
-| 108 — the launcher speaks the two server queries | done | `436b5db` speak the info and status server queries |
-| 109 — master sources return an address set | done | `39fb777` master sources return an address set |
+| Story                                                    | Status | Commit                                                                                              |
+| -------------------------------------------------------- | ------ | --------------------------------------------------------------------------------------------------- |
+| 106 — a servers module exists with its own nav entry     | done   | `2eeeac6` register the servers module (nav entry, settings slot, contract-first main/shared halves) |
+| 107 — a server address is validated before it is trusted | done   | `0a99dce` validate a server address before it is trusted                                            |
+| 108 — the launcher speaks the two server queries         | done   | `436b5db` speak the info and status server queries                                                  |
+| 109 — master sources return an address set               | done   | `39fb777` master sources return an address set                                                      |
 
 All four stories done, none blocked. Every acceptance criterion is proven by a named automated test
 (see **Acceptance** below); no manual residue in the entire sprint.
@@ -56,11 +56,11 @@ master or q2servers.com; the two loopback tests bind `127.0.0.1` only.
 - **IPv6 is out of scope for v1** (107, concept open point #9). IPv4 literals and hostnames only,
   for this story and every consumer of it in this milestone (join, manual entry, address-book
   write); an IPv6 literal is rejected like any other malformed input. It keeps its own
-  `ipv6-not-supported` reason code so the rejection can say *why*, which does not reopen the scope
+  `ipv6-not-supported` reason code so the rejection can say _why_, which does not reopen the scope
   decision.
 - **The UDP master reply stop condition is a quiet period** after the last received datagram (109,
   concept open point #2) — no expected-count check, no separate hard cap. Build settled it at 500 ms,
-  with a separate 2000 ms *first*-reply timeout for the distinct "this master never answered at all"
+  with a separate 2000 ms _first_-reply timeout for the distinct "this master never answered at all"
   case (`no-reply`), which a quiet-period rule by construction cannot detect.
 
 **Corrections found during build:**
@@ -104,12 +104,12 @@ sprint's merge:
 
 Ran on `sprint/S22` HEAD `39fb777`.
 
-| Command | Result |
-| --- | --- |
-| `npm run build` | green |
-| `npm test` (full) | green — 260 files, 4300 passed, 8 skipped, 0 failed |
-| `npm run ui:verify` (`e2e`) | green — 45/45 screens, 86 shots, 0 axe violations at any severity |
-| `npm run ui:flows` (`e2e-all`) | **red — pre-existing harness defect, not a sprint regression** |
+| Command                        | Result                                                            |
+| ------------------------------ | ----------------------------------------------------------------- |
+| `npm run build`                | green                                                             |
+| `npm test` (full)              | green — 260 files, 4300 passed, 8 skipped, 0 failed               |
+| `npm run ui:verify` (`e2e`)    | green — 45/45 screens, 86 shots, 0 axe violations at any severity |
+| `npm run ui:flows` (`e2e-all`) | **red — pre-existing harness defect, not a sprint regression**    |
 
 `ui:flows` gave 30/55, 3/55 and 18/55 passing across three consecutive runs on the same HEAD, with a
 different failure set each time and always the same cause: `another instance is already running,
@@ -141,15 +141,15 @@ four stories**, and nothing needs walking by hand.
 
 **106 — a servers module exists with its own nav entry**
 
-| AC | Proven by |
-| --- | --- |
-| AC1 module registered in `ModuleId`/`MODULE_MANIFESTS`, main + renderer halves | `src/shared/types/module.test.ts` › "servers is registered in ModuleId and MODULE_MANIFESTS…"; `src/main/modules/servers/index.test.ts`; `ServersSettingsSection.test.tsx` |
-| AC2 nav entry routes to the view | **e2e** `scripts/flows/servers-module-shell.mjs` — clicks `nav-servers`, asserts the route renders |
-| AC3 manifest declares its capabilities | `src/shared/types/module.test.ts` › "…exactly the network and game-lifecycle capabilities" |
-| AC4 IPC namespace isolation | `src/shared/types/module.test.ts` › "every module's ipcNamespace is module: plus its id"; `registry.test.ts` › "a module's handlers are not reachable under another module's id" |
-| AC5 settings section appears | **e2e** `servers-module-shell` (asserts `settings-section-servers` visible) + `ServersSettingsSection.test.tsx` |
-| AC6 platform parity declared | `src/main/modules/servers/platform-parity.test.ts` |
-| AC7 every handler has a zod schema | `src/shared/modules/servers.test.ts` |
+| AC                                                                             | Proven by                                                                                                                                                                        |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC1 module registered in `ModuleId`/`MODULE_MANIFESTS`, main + renderer halves | `src/shared/types/module.test.ts` › "servers is registered in ModuleId and MODULE_MANIFESTS…"; `src/main/modules/servers/index.test.ts`; `ServersSettingsSection.test.tsx`       |
+| AC2 nav entry routes to the view                                               | **e2e** `scripts/flows/servers-module-shell.mjs` — clicks `nav-servers`, asserts the route renders                                                                               |
+| AC3 manifest declares its capabilities                                         | `src/shared/types/module.test.ts` › "…exactly the network and game-lifecycle capabilities"                                                                                       |
+| AC4 IPC namespace isolation                                                    | `src/shared/types/module.test.ts` › "every module's ipcNamespace is module: plus its id"; `registry.test.ts` › "a module's handlers are not reachable under another module's id" |
+| AC5 settings section appears                                                   | **e2e** `servers-module-shell` (asserts `settings-section-servers` visible) + `ServersSettingsSection.test.tsx`                                                                  |
+| AC6 platform parity declared                                                   | `src/main/modules/servers/platform-parity.test.ts`                                                                                                                               |
+| AC7 every handler has a zod schema                                             | `src/shared/modules/servers.test.ts`                                                                                                                                             |
 
 **107 — a server address is validated before it is trusted** — all five ACs in
 `src/shared/servers/address.test.ts`: AC1 "accepts a hostname and an IPv4 literal with a port";
@@ -174,8 +174,9 @@ period after the last datagram"; AC3/AC4 `http-list.test.ts` › the `raw=1` and
 AC5 `master-records.test.ts` › "a malformed or truncated payload is an explicit failure, never a
 partial address" + `http-list.test.ts` › "a rejected line is skipped with its reason…";
 AC6 `udp-master-source.test.ts` › "the UDP transport is driven entirely through its injectable seam"
-+ `http-list-source.test.ts` › "the HTTP list is fetched through the injected FetchImpl against a
-loopback server".
+
+- `http-list-source.test.ts` › "the HTTP list is fetched through the injected FetchImpl against a
+  loopback server".
 
 **Criteria covered below the real surface.** None in the conventional sense — 107, 108 and 109 have
 no user-facing surface by design (pure codecs, no IPC channel, no UI), so their criteria belong at

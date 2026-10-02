@@ -34,7 +34,7 @@ Depends on story 223 (quarantine and CI) so a fixture change is gated.
       names) come from one importable source (`src/shared/fixture-constants.json` or a tiny
       shared module) instead of being retyped.
 - [ ] **AC3** — `fixture.mjs` is a facade over `scripts/lib/fixture/{core,installations,servers,
-      replays,news,controls}.mjs` with a `VARIANTS: Record<name, writer>` map; no file exceeds
+replays,news,controls}.mjs` with a `VARIANTS: Record<name, writer>` map; no file exceeds
       1,500 lines.
 - [ ] **AC4** — UDP responder builders live in `scripts/lib/servers-stub.mjs`, scan-wait helpers
       in `scripts/lib/servers-flow.mjs`, the reconciled `waitForDemosScanToFinish` in

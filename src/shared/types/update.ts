@@ -79,4 +79,7 @@ export type UpdateSimulateScenario =
   | { scenario: 'downloaded' }
   | { scenario: 'error'; reason: 'offline' | 'checksum' | 'cancelled' }
   | { scenario: 'upToDate' }
-  | { scenario: 'checkFailed'; reason: 'network' | 'http' | 'notConfigured' | 'timeout' | 'unknown' }
+  | {
+      scenario: 'checkFailed'
+      reason: 'network' | 'http' | 'notConfigured' | 'timeout' | 'unknown'
+    }

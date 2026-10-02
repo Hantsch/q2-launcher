@@ -51,7 +51,11 @@ function decodeQueryKind(message) {
 /** Binds one loopback responder. `extraInfoFlags` is appended verbatim to the `info`/`status`
  * serverinfo line (e.g. `\deathmatch\1\ctf\1`) and `needpass` toggles the `\needpass\1` key -
  * both feed `deriveGamemode`/the password marker on the real row. */
-async function bindResponder(hostname, playerLines, { extraInfoFlags = '', needpass = false } = {}) {
+async function bindResponder(
+  hostname,
+  playerLines,
+  { extraInfoFlags = '', needpass = false } = {},
+) {
   const socket = createSocket('udp4')
   await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
   const port = socket.address().port
@@ -195,11 +199,17 @@ export default async function serversRowMarkers({ page, step, shot }) {
   step('AC4/AC7: before any scan, the ghost address is pending-with-dashes and A shows favourite')
   await assertExists(page, `servers-row-${serverA.address}`, "A's row")
   await assertExists(page, `servers-row-${ghostAddress}`, "the ghost address's row")
-  await assertExists(page, `servers-row-pending-${ghostAddress}`, 'the pending marker on the ghost row')
+  await assertExists(
+    page,
+    `servers-row-pending-${ghostAddress}`,
+    'the pending marker on the ghost row',
+  )
   const ghostRowBefore = page.getByTestId(`servers-row-${ghostAddress}`)
   const ghostTextBefore = await ghostRowBefore.textContent()
   if (!ghostTextBefore || !ghostTextBefore.includes('—/—')) {
-    throw new Error(`expected the ghost row to show dashes before any scan, got "${ghostTextBefore}"`)
+    throw new Error(
+      `expected the ghost row to show dashes before any scan, got "${ghostTextBefore}"`,
+    )
   }
   await assertExists(
     page,
@@ -213,7 +223,7 @@ export default async function serversRowMarkers({ page, step, shot }) {
   await refreshAll.click({ timeout: TIMEOUT_MS })
   await waitForFinishedAtChange(page, finishedAtBefore, SCAN_SETTLE_TIMEOUT_MS)
 
-  step('AC1: B\'s row shows all five known fields')
+  step("AC1: B's row shows all five known fields")
   await assertExists(page, `servers-row-${serverB.address}`, "B's row")
   const rowB = page.getByTestId(`servers-row-${serverB.address}`)
   const textB = await rowB.textContent()
@@ -230,7 +240,8 @@ export default async function serversRowMarkers({ page, step, shot }) {
 
   step('AC3: ctf marker on A, deathmatch marker on B')
   const gamemodeA = await page.getByTestId(`servers-row-gamemode-${serverA.address}`).textContent()
-  if (gamemodeA !== 'CTF') throw new Error(`expected A's gamemode marker to read "CTF", got "${gamemodeA}"`)
+  if (gamemodeA !== 'CTF')
+    throw new Error(`expected A's gamemode marker to read "CTF", got "${gamemodeA}"`)
   const gamemodeB = await page.getByTestId(`servers-row-gamemode-${serverB.address}`).textContent()
   if (gamemodeB !== 'Deathmatch') {
     throw new Error(`expected B's gamemode marker to read "Deathmatch", got "${gamemodeB}"`)
@@ -268,13 +279,15 @@ export default async function serversRowMarkers({ page, step, shot }) {
   const ghostRowAfter = page.getByTestId(`servers-row-${ghostAddress}`)
   const ghostTextAfter = await ghostRowAfter.textContent()
   if (!ghostTextAfter || !ghostTextAfter.includes('—/—')) {
-    throw new Error(`expected the ghost row to still show dashes after a scan, got "${ghostTextAfter}"`)
+    throw new Error(
+      `expected the ghost row to still show dashes after a scan, got "${ghostTextAfter}"`,
+    )
   }
   await shot('after-second-refresh')
 
   console.log(
     'servers-row-markers: pending/favourite show before any scan (AC4/AC7), a full refresh ' +
-      "populated every field and every marker (AC1-AC3, AC6), and a responder going away flips " +
+      'populated every field and every marker (AC1-AC3, AC6), and a responder going away flips ' +
       'its row to stale while keeping its last-known values (AC5)',
   )
 }

@@ -56,7 +56,9 @@ describe('pickConfigFiles: the real dialog branch', () => {
     expect(window).toBe(FAKE_WINDOW)
     expect(options.properties).toEqual(expect.arrayContaining(['openFile', 'multiSelections']))
     expect(options.filters).toEqual(
-      expect.arrayContaining([expect.objectContaining({ extensions: expect.arrayContaining(['cfg']) })]),
+      expect.arrayContaining([
+        expect.objectContaining({ extensions: expect.arrayContaining(['cfg']) }),
+      ]),
     )
   })
 

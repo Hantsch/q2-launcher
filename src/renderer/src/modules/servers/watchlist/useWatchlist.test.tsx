@@ -43,7 +43,11 @@ const SNAPSHOT_B: WatchlistSnapshot = {
   ],
 }
 
-function Probe({ onRender }: { onRender: (result: ReturnType<typeof useWatchlist>) => void }): null {
+function Probe({
+  onRender,
+}: {
+  onRender: (result: ReturnType<typeof useWatchlist>) => void
+}): null {
   const result = useWatchlist()
   onRender(result)
   return null

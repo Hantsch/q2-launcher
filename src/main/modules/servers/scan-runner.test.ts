@@ -42,7 +42,10 @@ interface FakeQuery {
  * abort); without it the fake ignores the signal entirely, like a query slow to notice.
  */
 function fakeQuery(
-  behaviour: { auto?: (address: string, kind: Kind) => ServerQueryResult | 'reject'; honourAbort?: boolean } = {},
+  behaviour: {
+    auto?: (address: string, kind: Kind) => ServerQueryResult | 'reject'
+    honourAbort?: boolean
+  } = {},
 ): FakeQuery {
   const calls: FakeCall[] = []
   let inFlight = 0
@@ -73,9 +76,13 @@ function fakeQuery(
       }
       calls.push(call)
       if (behaviour.honourAbort === true) {
-        options.signal?.addEventListener('abort', () => call.resolve({ ok: false, reason: 'no-reply' }), {
-          once: true,
-        })
+        options.signal?.addEventListener(
+          'abort',
+          () => call.resolve({ ok: false, reason: 'no-reply' }),
+          {
+            once: true,
+          },
+        )
       }
       const auto = behaviour.auto
       if (auto !== undefined) {
@@ -96,7 +103,8 @@ function fakeQuery(
     get maxInFlight() {
       return maxInFlight
     },
-    pending: (kind) => calls.filter((call) => !call.settled && (kind === undefined || call.kind === kind)),
+    pending: (kind) =>
+      calls.filter((call) => !call.settled && (kind === undefined || call.kind === kind)),
     resolve: (address, kind, result) => {
       const call = calls.find((c) => c.address === address && c.kind === kind && !c.settled)
       if (call === undefined) throw new Error(`no pending ${kind} query for ${address}`)
@@ -111,7 +119,8 @@ function info(clients?: number): ServerQueryResult {
   return {
     ok: true,
     kind: 'info',
-    reply: clients === undefined ? { ok: true, serverinfo: {} } : { ok: true, serverinfo: {}, clients },
+    reply:
+      clients === undefined ? { ok: true, serverinfo: {} } : { ok: true, serverinfo: {}, clients },
     rttMs: 12,
   }
 }
@@ -138,7 +147,8 @@ function recorder(): { rows: ScanServerResult[]; progress: ScanProgress[] } {
 
 function countsPerAddress(calls: FakeCall[], kind: Kind): Map<string, number> {
   const counts = new Map<string, number>()
-  for (const call of calls.filter((c) => c.kind === kind)) counts.set(call.address, (counts.get(call.address) ?? 0) + 1)
+  for (const call of calls.filter((c) => c.kind === kind))
+    counts.set(call.address, (counts.get(call.address) ?? 0) + 1)
   return counts
 }
 
@@ -200,7 +210,9 @@ describe('runScan', () => {
       [addr(4)]: info(),
       [addr(5)]: info(1),
     }
-    const fake = fakeQuery({ auto: (address, kind) => (kind === 'info' ? (stage1[address] ?? NO_REPLY) : status()) })
+    const fake = fakeQuery({
+      auto: (address, kind) => (kind === 'info' ? (stage1[address] ?? NO_REPLY) : status()),
+    })
     const seen = recorder()
 
     const result = await runScan({
@@ -247,7 +259,12 @@ describe('runScan', () => {
       kind === 'status' ? status() : address === addr(1) ? info(2) : info(0)
 
     const plain = fakeQuery({ auto })
-    await runScan({ targets: targets(1, 2), settings: SETTINGS, deps: { queryServer: plain.fn }, onServer: () => {} })
+    await runScan({
+      targets: targets(1, 2),
+      settings: SETTINGS,
+      deps: { queryServer: plain.fn },
+      onServer: () => {},
+    })
     expect(plain.calls.filter((c) => c.kind === 'status').map((c) => c.address)).toEqual([addr(1)])
 
     const outside = fakeQuery({ auto })
@@ -259,9 +276,17 @@ describe('runScan', () => {
       deps: { queryServer: outside.fn },
       onServer: (row) => rows.push(row),
     })
-    expect(outside.calls.filter((c) => c.kind === 'info').map((c) => c.address)).toEqual([addr(1), addr(2)])
-    expect(outside.calls.filter((c) => c.kind === 'status').map((c) => c.address)).toEqual([addr(9), addr(1)])
-    expect(rows.find((r) => r.stage === 'stage2' && r.target.address === addr(9))?.target.origins).toEqual([])
+    expect(outside.calls.filter((c) => c.kind === 'info').map((c) => c.address)).toEqual([
+      addr(1),
+      addr(2),
+    ])
+    expect(outside.calls.filter((c) => c.kind === 'status').map((c) => c.address)).toEqual([
+      addr(9),
+      addr(1),
+    ])
+    expect(
+      rows.find((r) => r.stage === 'stage2' && r.target.address === addr(9))?.target.origins,
+    ).toEqual([])
   })
 
   it('a failing server does not stop the sweep', async () => {
@@ -271,7 +296,9 @@ describe('runScan', () => {
       [addr(3)]: 'reject',
       [addr(4)]: info(4),
     }
-    const fake = fakeQuery({ auto: (address, kind) => (kind === 'info' ? (stage1[address] ?? NO_REPLY) : status()) })
+    const fake = fakeQuery({
+      auto: (address, kind) => (kind === 'info' ? (stage1[address] ?? NO_REPLY) : status()),
+    })
     const rows: ScanServerResult[] = []
 
     const result = await runScan({
@@ -281,7 +308,9 @@ describe('runScan', () => {
       onServer: (row) => rows.push(row),
     })
 
-    expect(rows.filter((r) => r.stage === 'stage1').map((r) => [r.target.address, r.result])).toEqual([
+    expect(
+      rows.filter((r) => r.stage === 'stage1').map((r) => [r.target.address, r.result]),
+    ).toEqual([
       [addr(1), { ok: false, reason: 'transport-error' }],
       [addr(2), NO_REPLY],
       [addr(3), { ok: false, reason: 'transport-error' }],

@@ -287,7 +287,11 @@ describe('every accepted list survives parseServersState unchanged', () => {
 
   it('an edited address and a disabled source are not dropped on the next load', () => {
     const edited = expectOk(
-      updateSource(list(), { id: 'a', type: 'http-list', address: 'https://example.com/list?raw=1' }),
+      updateSource(list(), {
+        id: 'a',
+        type: 'http-list',
+        address: 'https://example.com/list?raw=1',
+      }),
     )
     expect(roundTrip(edited)).toEqual(edited)
 

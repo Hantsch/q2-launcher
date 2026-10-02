@@ -82,7 +82,13 @@ export interface EffectiveValues {
 
 /** The header, narrowed to its `ok: true` shape, or `null` when absent/unparsable. Both `Dm2Header`
  * and `Mvd2Header` share the fields this module reads (`map`, `pov`, `players`, `gameDir`). */
-type OkHeader = { ok: true; gameDir: string; map: string | null; pov: string | null; players: string[] }
+type OkHeader = {
+  ok: true
+  gameDir: string
+  map: string | null
+  pov: string | null
+  players: string[]
+}
 
 function okHeader(header: ResolveEffectiveValuesInputs['header']): OkHeader | null {
   return header !== null && header.ok ? header : null
@@ -133,16 +139,24 @@ export function resolveEffectiveValues(inputs: ResolveEffectiveValuesInputs): Ef
     { source: 'sidecar', value: sidecar?.sides },
     {
       source: 'demo',
-      value: demoPlayers !== undefined && demoPlayers.length > 0 ? [{ players: demoPlayers }] : undefined,
+      value:
+        demoPlayers !== undefined && demoPlayers.length > 0
+          ? [{ players: demoPlayers }]
+          : undefined,
     },
     {
       source: 'name',
-      value: namePlayers !== undefined && namePlayers.length > 0 ? [{ players: namePlayers }] : undefined,
+      value:
+        namePlayers !== undefined && namePlayers.length > 0
+          ? [{ players: namePlayers }]
+          : undefined,
     },
   ])
 
   const playerCount =
-    sides.value !== null ? sides.value.reduce((sum, side) => sum + side.players.length, 0) : undefined
+    sides.value !== null
+      ? sides.value.reduce((sum, side) => sum + side.players.length, 0)
+      : undefined
 
   const gamemodeResult = resolveGamemode({
     sidecar: sidecar?.gamemode,

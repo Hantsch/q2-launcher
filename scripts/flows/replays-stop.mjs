@@ -60,13 +60,18 @@ async function waitForScan(page) {
   await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const deadline = Date.now() + TIMEOUT_MS
   while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) throw new Error('replays-stop: timed out waiting for the demo scan to finish')
+    if (Date.now() >= deadline)
+      throw new Error('replays-stop: timed out waiting for the demo scan to finish')
     await sleep(100)
   }
 }
 
 async function playDemo(page, timeline) {
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
@@ -77,7 +82,8 @@ async function playDemo(page, timeline) {
 async function expectFilesPresent(label) {
   const deadline = Date.now() + 3_000
   while (leftovers().length === 0) {
-    if (Date.now() >= deadline) throw new Error(`replays-stop: ${label}: no q2l_* control/log file found in the install`)
+    if (Date.now() >= deadline)
+      throw new Error(`replays-stop: ${label}: no q2l_* control/log file found in the install`)
     await sleep(100)
   }
 }
@@ -85,7 +91,10 @@ async function expectFilesPresent(label) {
 async function expectFilesGone(label) {
   const deadline = Date.now() + 3_000
   while (leftovers().length > 0) {
-    if (Date.now() >= deadline) throw new Error(`replays-stop: ${label}: q2l_* files left behind: ${JSON.stringify(leftovers())}`)
+    if (Date.now() >= deadline)
+      throw new Error(
+        `replays-stop: ${label}: q2l_* files left behind: ${JSON.stringify(leftovers())}`,
+      )
     await sleep(100)
   }
 }
@@ -100,7 +109,9 @@ export default async function replaysStop({ page, step, shot }) {
 
   step('the windowed stage says in-game typing does not reach the game')
   await playDemo(page, timeline)
-  await page.getByTestId('replays-console-stage-hint').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-console-stage-hint')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await stop.click({ timeout: TIMEOUT_MS })
   await timeline.waitFor({ state: 'detached', timeout: 10_000 })
   await expectFilesGone('after the hint step')
@@ -112,7 +123,10 @@ export default async function replaysStop({ page, step, shot }) {
   await timeline.waitFor({ state: 'detached', timeout: 10_000 })
   await page.getByTestId('replays-console-field').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
   const ran = commands()
-  if (ran[ran.length - 1] !== 'quit') throw new Error(`replays-stop: engine's last command was ${JSON.stringify(ran[ran.length - 1])}, expected quit`)
+  if (ran[ran.length - 1] !== 'quit')
+    throw new Error(
+      `replays-stop: engine's last command was ${JSON.stringify(ran[ran.length - 1])}, expected quit`,
+    )
   await expectFilesGone('after quit')
   await shot('stop-idle')
 
@@ -122,7 +136,8 @@ export default async function replaysStop({ page, step, shot }) {
   await expectFilesPresent('while the quit-ignoring demo plays')
   await stop.click({ timeout: TIMEOUT_MS })
   await stop.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  if (!(await stop.isDisabled())) throw new Error('replays-stop: the stop button must be disabled while stopping')
+  if (!(await stop.isDisabled()))
+    throw new Error('replays-stop: the stop button must be disabled while stopping')
   await shot('stop-stopping')
   await timeline.waitFor({ state: 'detached', timeout: TERMINATE_TIMEOUT_MS + MARGIN_MS })
   await expectFilesGone('after terminate')
@@ -131,7 +146,10 @@ export default async function replaysStop({ page, step, shot }) {
   // The previous step left the ignore-quit marker behind; this game must quit normally.
   rmSync(files.ignoreQuitFile, { force: true })
   await playDemo(page, timeline)
-  await page.getByTestId('actionbar-play').filter({ hasText: 'Stop demo' }).click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('actionbar-play')
+    .filter({ hasText: 'Stop demo' })
+    .click({ timeout: TIMEOUT_MS })
   await timeline.waitFor({ state: 'detached', timeout: 10_000 })
   await expectFilesGone('after the action bar stop')
 
@@ -142,9 +160,13 @@ export default async function replaysStop({ page, step, shot }) {
   await consoleInput.focus()
   await page.keyboard.type('seek 100%')
   await page.keyboard.press('Enter')
-  await page.getByTestId('replays-timeline-state').filter({ hasText: 'Finished' }).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-timeline-state')
+    .filter({ hasText: 'Finished' })
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('replays-console-field').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
-  if (!(await timeline.isVisible())) throw new Error('replays-stop: the timeline must stay while the finished demo is shown')
+  if (!(await timeline.isVisible()))
+    throw new Error('replays-stop: the timeline must stay while the finished demo is shown')
   writeFileSync(files.quitFile, '')
   await timeline.waitFor({ state: 'detached', timeout: 10_000 })
   rmSync(files.quitFile, { force: true })

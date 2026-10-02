@@ -25,7 +25,7 @@ export interface CatalogGameDirEntry {
 /** The catalog entry whose gamedir equals `gameDir` (ASCII case-insensitive); safe names only. */
 export function findCatalogEntryByGameDir<T extends CatalogGameDirEntry>(
   catalog: readonly T[] | null,
-  gameDir: string
+  gameDir: string,
 ): T | null {
   if (!catalog || !isSafeGameName(gameDir)) return null
   const want = asciiLower(gameDir)
@@ -56,7 +56,7 @@ export function serverModStatus(input: {
 
 export function mapLookupTarget(
   status: ServerModStatus,
-  map: string | undefined
+  map: string | undefined,
 ): { map: string; gameDir?: string } | null {
   if (!map || !isSafeGameName(map)) return null
   if (status.kind === 'installed') return { map, gameDir: status.gameDir }

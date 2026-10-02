@@ -157,7 +157,9 @@ async function runPool<T>(
 export async function runScan(options: RunScanOptions): Promise<RunScanResult> {
   const { settings, onServer, onProgress } = options
   const query = options.deps?.queryServer ?? defaultQueryServer
-  const concurrency = Number.isFinite(settings.concurrency) ? Math.max(1, Math.floor(settings.concurrency)) : 1
+  const concurrency = Number.isFinite(settings.concurrency)
+    ? Math.max(1, Math.floor(settings.concurrency))
+    : 1
 
   const stage1Targets = dedupeTargets(options.targets)
   const progress: ScanProgress = {
@@ -192,7 +194,10 @@ export async function runScan(options: RunScanOptions): Promise<RunScanResult> {
     }
   }
 
-  const queryOne = async (stage: ScanStage, target: ScanTarget): Promise<ServerQueryResult | null> => {
+  const queryOne = async (
+    stage: ScanStage,
+    target: ScanTarget,
+  ): Promise<ServerQueryResult | null> => {
     const parsed = parseServerAddress(target.address)
     let result: ServerQueryResult
     if (!parsed.ok) {
@@ -231,13 +236,15 @@ export async function runScan(options: RunScanOptions): Promise<RunScanResult> {
     // Stage 2: status over exactly {selected} + {worth checking}, selected first.
     if (!internal.aborted) {
       const stage2Targets: ScanTarget[] = []
-      const selected = options.selectedAddress === undefined ? null : normalizeAddress(options.selectedAddress)
+      const selected =
+        options.selectedAddress === undefined ? null : normalizeAddress(options.selectedAddress)
       if (selected !== null) {
         const known = stage1Targets.find((target) => target.address === selected)
         stage2Targets.push(known ?? { address: selected, origins: [] })
       }
       for (const target of stage1Targets) {
-        if (worthStage2.has(target.address) && target.address !== selected) stage2Targets.push(target)
+        if (worthStage2.has(target.address) && target.address !== selected)
+          stage2Targets.push(target)
       }
 
       progress.phase = 'stage2'

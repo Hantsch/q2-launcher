@@ -13,7 +13,7 @@ An installation is identified in the UI by a square tile with a two-letter code
 on the library card
 ([LibraryView.tsx:224](../../src/renderer/src/views/LibraryView.tsx#L224)) and in the action bar
 ([ActionBar.tsx:74](../../src/renderer/src/components/shell/ActionBar.tsx#L74)). That code is
-derived from the *engine*, not from the installation: two r1q2 installs both read `R1`, and the one
+derived from the _engine_, not from the installation: two r1q2 installs both read `R1`, and the one
 thing the tile is there for — telling them apart at a glance — it cannot do.
 
 So the user wants to give an installation an icon. Two sources, both from the library:
@@ -28,8 +28,8 @@ set, so adding an icon later is dropping a file in, not editing a component.
 Four existing constraints shape this and none of them may be quietly bent:
 
 - **The repo rule is "no image assets in the UI"** (CLAUDE.md) — all surfaces are CSS/inline SVG.
-  The one exception today is the boot splash hero, and it is documented as *the one bitmap the
-  bundle emits*
+  The one exception today is the boot splash hero, and it is documented as _the one bitmap the
+  bundle emits_
   ([renderer-source.ts:67](../../src/main/lib/renderer-source.ts#L67)). An installation icon is a
   bitmap on a routine surface, so this story either comes with a recorded deviation in CLAUDE.md or
   it does not happen — see Open Questions.
@@ -120,8 +120,8 @@ next to `favorite`, the existing precedent for "cosmetic identity on the record"
 
 ```ts
 type InstallationIcon =
-  | { kind: 'shipped'; id: string }   // id = basename in src/renderer/src/assets/installations
-  | { kind: 'custom' }                // file at userData/installation-icons/<installationId>.png
+  | { kind: 'shipped'; id: string } // id = basename in src/renderer/src/assets/installations
+  | { kind: 'custom' } // file at userData/installation-icons/<installationId>.png
 ```
 
 Custom icons carry no path in the record — the location is derived from the installation id, so
@@ -130,11 +130,11 @@ break anything (AC4).
 
 **Three new IPC channels** (contract-first, `src/shared/ipc.ts` first):
 
-| Channel | Request | Response |
-| --- | --- | --- |
-| `installations:setIcon` | `{ installationId, icon: ShippedIcon \| null }` | `Outcome<Installation>` |
-| `installations:pickIconFile` | `{ installationId }` | `Outcome<Installation>` |
-| `installations:iconDataUrl` | `installationId: string` | `string \| null` |
+| Channel                      | Request                                         | Response                |
+| ---------------------------- | ----------------------------------------------- | ----------------------- |
+| `installations:setIcon`      | `{ installationId, icon: ShippedIcon \| null }` | `Outcome<Installation>` |
+| `installations:pickIconFile` | `{ installationId }`                            | `Outcome<Installation>` |
+| `installations:iconDataUrl`  | `installationId: string`                        | `string \| null`        |
 
 `pickIconFile` mirrors `installations:pickFolder`
 ([installations.ts:68-88](../../src/main/ipc/installations.ts#L68-L88)): main owns the dialog, main
@@ -166,8 +166,8 @@ existing `"icon"` script; commit the generated files. Add
 `src/renderer/src/lib/installation-icons.ts` — a manifest built with
 `import.meta.glob('../assets/installations/*.avif', { eager: true, import: 'default' })` exposing
 `SHIPPED_ICONS: { id, url }[]` sorted by id, plus `shippedIconUrl(id)`. **No component ever names an
-icon file** (AC1). Record the deviation row in CLAUDE.md's Deviations table: *bitmaps allowed for
-installation identity only*, reason = this story.
+icon file** (AC1). Record the deviation row in CLAUDE.md's Deviations table: _bitmaps allowed for
+installation identity only_, reason = this story.
 
 - Files: `package.json`, `scripts/generate-installation-icons.mjs`,
   `src/renderer/src/assets/installations/*.avif` (6, generated),
@@ -291,7 +291,7 @@ next to rename/cleanup
 
 - **D4 → `deliverable-hard`.** It is the only D that takes a renderer-triggered OS path, writes into
   `userData` and decodes untrusted bytes: a `nativeImage` that silently returns an empty image for a
-  renamed `.txt`, a 4 MB stat check that has to run *before* the decode, and an icon-file lifecycle
+  renamed `.txt`, a 4 MB stat check that has to run _before_ the decode, and an icon-file lifecycle
   that has to be torn down by `installations:remove` or it leaks orphans into `userData` forever.
 - **D1, D2, D3, D5, D6 → default.** D2 is a mechanical extraction whose regression surface is pinned
   by its own class-list test plus the existing `ui:verify` screens; D3 is contract typing that the
@@ -313,7 +313,7 @@ next to rename/cleanup
   Playwright cannot drive, the same blind spot already recorded for
   `installations:pickFolder`/`pickExecutable` in `docs/UI-VERIFICATION.md`.
 - AC3 → e2e `scripts/flows/installation-icon-tile.mjs` › "a seeded icon shows on rail, card and
-  action bar after a fresh launch" (D5 — the fixture is on-disk state, so a fresh launch *is* the
+  action bar after a fresh launch" (D5 — the fixture is on-disk state, so a fresh launch _is_ the
   restart)
 - AC4 → unit `src/main/services/installation-icons.test.ts` › "the icon survives deleting the file it
   was picked from" (D4)
@@ -346,17 +346,17 @@ next to rename/cleanup
 
 ### Coverage gate
 
-| AC | Deliverable | Test |
-| --- | --- | --- |
-| AC1 | D6 (+D1) | e2e picker flow + manifest unit |
-| AC2 | D4 (+D6) | main unit with stubbed dialog + e2e trigger; OS dialog = residue |
-| AC3 | D5 | e2e tile flow |
-| AC4 | D4 | main unit |
-| AC5 | D6 (+D2) | e2e picker flow + tile unit |
-| AC6 | D4 (+D6) | main unit (table) + dialog unit |
-| AC7 | D3, D4 | ipc coverage + schema unit + CSP-verbatim unit |
-| AC8 | D5 | e2e tile flow (rail + library-card accessible-name assertions) + axe report |
-| AC9 | D5 (+D2) | tile unit (call-count proof) + e2e tile flow (DOM proof) |
+| AC  | Deliverable | Test                                                                        |
+| --- | ----------- | --------------------------------------------------------------------------- |
+| AC1 | D6 (+D1)    | e2e picker flow + manifest unit                                             |
+| AC2 | D4 (+D6)    | main unit with stubbed dialog + e2e trigger; OS dialog = residue            |
+| AC3 | D5          | e2e tile flow                                                               |
+| AC4 | D4          | main unit                                                                   |
+| AC5 | D6 (+D2)    | e2e picker flow + tile unit                                                 |
+| AC6 | D4 (+D6)    | main unit (table) + dialog unit                                             |
+| AC7 | D3, D4      | ipc coverage + schema unit + CSP-verbatim unit                              |
+| AC8 | D5          | e2e tile flow (rail + library-card accessible-name assertions) + axe report |
+| AC9 | D5 (+D2)    | tile unit (call-count proof) + e2e tile flow (DOM proof)                    |
 
 Every criterion has a deliverable and a named test. The single residue is AC2's OS dialog, with a
 reason the profile accepts.
@@ -405,7 +405,7 @@ from the library card's new "Set icon…" action.
   byte-for-byte via `sharp` (already a devDependency from D1) before wiring it in.
 - **F1 fix left untested at first, then covered.** The `story-review-hard` review (see below) found a
   real bug: `useLauncher`'s `iconDataUrls` cache was never invalidated, so re-picking a custom icon
-  (or clear-then-repick) would keep showing the *previous* `data:` URL on all three surfaces until a
+  (or clear-then-repick) would keep showing the _previous_ `data:` URL on all three surfaces until a
   restart. Fixed with a `withoutIconDataUrl` helper called from both `setInstallationIcon` and
   `pickInstallationIconFile` on success. Initially shipped without a regression test on the
   (incorrect) assumption that this store had no test precedent; the review's confirmation pass
@@ -462,16 +462,16 @@ UI").
 
 ### AC → test mapping, as verified
 
-| AC | Test(s) | Result |
-| --- | --- | --- |
-| AC1 | `installation-icons.test.ts` (manifest derived, not literal) + e2e `installation-icon-pick.mjs` | PASS |
+| AC  | Test(s)                                                                                                                                                                                 | Result                             |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| AC1 | `installation-icons.test.ts` (manifest derived, not literal) + e2e `installation-icon-pick.mjs`                                                                                         | PASS                               |
 | AC2 | `installation-icons.test.ts` › pickAndStore + e2e trigger-present assertion; **manual residue:** the native `dialog.showOpenDialog` window, same class as `pickFolder`/`pickExecutable` | PASS (trigger); residue as planned |
-| AC3 | e2e `installation-icon-tile.mjs` (fixture is on-disk state, so a fresh launch is the restart) | PASS |
-| AC4 | `installation-icons.test.ts` › "the icon survives deleting the file it was picked from" | PASS |
-| AC5 | e2e `installation-icon-pick.mjs` + `InstallationTile.test.tsx` | PASS |
-| AC6 | `installation-icons.test.ts` (table: >4MB / wrong extension / corrupt bytes / cancelled) + `SetInstallationIconDialog.test.tsx` | PASS |
-| AC7 | `ipc/index.test.ts` + `ipc-schemas.test.ts` + `renderer-source.test.ts` (CSP pinned verbatim) | PASS |
-| AC8 | e2e `installation-icon-tile.mjs` (rail `aria-label` unaffected + library-card `aria-label` fix/assertion) + axe report | PASS |
-| AC9 | `InstallationTile.test.tsx` (call-count proof) + e2e `installation-icon-tile.mjs` (DOM proof) | PASS |
+| AC3 | e2e `installation-icon-tile.mjs` (fixture is on-disk state, so a fresh launch is the restart)                                                                                           | PASS                               |
+| AC4 | `installation-icons.test.ts` › "the icon survives deleting the file it was picked from"                                                                                                 | PASS                               |
+| AC5 | e2e `installation-icon-pick.mjs` + `InstallationTile.test.tsx`                                                                                                                          | PASS                               |
+| AC6 | `installation-icons.test.ts` (table: >4MB / wrong extension / corrupt bytes / cancelled) + `SetInstallationIconDialog.test.tsx`                                                         | PASS                               |
+| AC7 | `ipc/index.test.ts` + `ipc-schemas.test.ts` + `renderer-source.test.ts` (CSP pinned verbatim)                                                                                           | PASS                               |
+| AC8 | e2e `installation-icon-tile.mjs` (rail `aria-label` unaffected + library-card `aria-label` fix/assertion) + axe report                                                                  | PASS                               |
+| AC9 | `InstallationTile.test.tsx` (call-count proof) + e2e `installation-icon-tile.mjs` (DOM proof)                                                                                           | PASS                               |
 
 Commit message: `067: an installation carries an icon I choose`

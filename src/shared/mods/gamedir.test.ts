@@ -10,8 +10,23 @@ describe('isSafeGameDirName', () => {
 
   it('refuses traversal, separators, dot names, baseq2 and non-ASCII', () => {
     const bad = [
-      '', '.', '..', '../x', 'a/b', 'a\\b', '/abs', 'C:', 'C:\\x', 'a b', 'a\0b',
-      'baseq2', 'BaseQ2', 'BASEQ2', 'm\u00f6del', '\u30e2\u30c3\u30c9', 'a'.repeat(65),
+      '',
+      '.',
+      '..',
+      '../x',
+      'a/b',
+      'a\\b',
+      '/abs',
+      'C:',
+      'C:\\x',
+      'a b',
+      'a\0b',
+      'baseq2',
+      'BaseQ2',
+      'BASEQ2',
+      'm\u00f6del',
+      '\u30e2\u30c3\u30c9',
+      'a'.repeat(65),
     ]
     for (const name of bad) expect(isSafeGameDirName(name), JSON.stringify(name)).toBe(false)
     expect(isSafeGameDirName(undefined)).toBe(false)

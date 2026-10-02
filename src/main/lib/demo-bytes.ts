@@ -12,7 +12,11 @@ import { createReadStream } from 'node:fs'
 import { open } from 'node:fs/promises'
 import type { Readable } from 'node:stream'
 import { createGunzip } from 'node:zlib'
-import { DM2_HEADER_MAX_BYTES, parseDm2Header, type Dm2HeaderResult } from '../../shared/demos/dm2-header'
+import {
+  DM2_HEADER_MAX_BYTES,
+  parseDm2Header,
+  type Dm2HeaderResult,
+} from '../../shared/demos/dm2-header'
 import { parseDemoHeader, type DemoHeaderResult } from '../../shared/demos/demo-header'
 import { createDm2FrameCounter } from '../../shared/demos/dm2-frames'
 import { createMvd2FrameCounter } from '../../shared/demos/mvd2-frames'
@@ -30,7 +34,8 @@ export async function readDemoPrefix(path: string, maxBytes: number): Promise<De
     try {
       const peek = new Uint8Array(2)
       const peekResult = await handle.read(peek, 0, 2, 0)
-      const isGzip = peekResult.bytesRead === 2 && peek[0] === GZIP_MAGIC_0 && peek[1] === GZIP_MAGIC_1
+      const isGzip =
+        peekResult.bytesRead === 2 && peek[0] === GZIP_MAGIC_0 && peek[1] === GZIP_MAGIC_1
 
       if (!isGzip) {
         const buffer = new Uint8Array(maxBytes)
@@ -121,7 +126,10 @@ const FORMAT_SNIFF_BYTES = MVD2_MAGIC.length
  * errors on `source` itself are decode errors on a possibly-cut `.gz` (`finish()` on what was
  * pushed so far, like a cut plain file). Never rejects.
  */
-function streamDemoDuration(source: Readable, rawStream: Readable | null): Promise<FrameCountResult> {
+function streamDemoDuration(
+  source: Readable,
+  rawStream: Readable | null,
+): Promise<FrameCountResult> {
   return new Promise((resolve) => {
     let resolved = false
     let counter: FrameCounter | null = null
@@ -140,7 +148,8 @@ function streamDemoDuration(source: Readable, rawStream: Readable | null): Promi
       const head = new Uint8Array(FORMAT_SNIFF_BYTES)
       let offset = 0
       for (const chunk of sniffChunks) {
-        for (let i = 0; i < chunk.length && offset < FORMAT_SNIFF_BYTES; i++) head[offset++] = chunk[i]!
+        for (let i = 0; i < chunk.length && offset < FORMAT_SNIFF_BYTES; i++)
+          head[offset++] = chunk[i]!
       }
       const isMvd2 = offset === FORMAT_SNIFF_BYTES && MVD2_MAGIC.every((b, i) => head[i] === b)
       return isMvd2 ? createMvd2FrameCounter() : createDm2FrameCounter()

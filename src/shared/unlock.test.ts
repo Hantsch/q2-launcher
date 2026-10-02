@@ -11,15 +11,32 @@ describe('launcher installation id', () => {
     expect(formatLauncherInstallId('ABCDEFGHJK23')).toBe('ABCD-EFGH-JK23')
 
     // Typed or pasted forms normalise to the canonical ungrouped id.
-    for (const input of ['ABCDEFGHJK23', 'ABCD-EFGH-JK23', 'abcd-efgh-jk23', '  AbCd EfGh\tJk23 \n', 'ab-cd-ef-gh-jk-23']) {
+    for (const input of [
+      'ABCDEFGHJK23',
+      'ABCD-EFGH-JK23',
+      'abcd-efgh-jk23',
+      '  AbCd EfGh\tJk23 \n',
+      'ab-cd-ef-gh-jk-23',
+    ]) {
       expect(normalizeLauncherInstallId(input), input).toBe('ABCDEFGHJK23')
     }
     const id = normalizeLauncherInstallId('abcd-efgh-jk23')
     expect(id !== null && LAUNCHER_INSTALL_ID_PATTERN.test(id)).toBe(true)
-    expect(formatLauncherInstallId(normalizeLauncherInstallId('abcdefghjk23') ?? '')).toBe('ABCD-EFGH-JK23')
+    expect(formatLauncherInstallId(normalizeLauncherInstallId('abcdefghjk23') ?? '')).toBe(
+      'ABCD-EFGH-JK23',
+    )
 
     // Not base32 (0, 1, 8, 9 are outside the alphabet), wrong length, non-ASCII look-alikes.
-    for (const input of ['', 'ABCD-EFGH-JK2', 'ABCD-EFGH-JK234', 'ABCD-EFGH-JK01', 'ABCD-EFGH-JK89', 'ABCD_EFGH_JK23', 'ABCDEFGHIJß', 'ABCDEFGHJKĲ']) {
+    for (const input of [
+      '',
+      'ABCD-EFGH-JK2',
+      'ABCD-EFGH-JK234',
+      'ABCD-EFGH-JK01',
+      'ABCD-EFGH-JK89',
+      'ABCD_EFGH_JK23',
+      'ABCDEFGHIJß',
+      'ABCDEFGHJKĲ',
+    ]) {
       expect(normalizeLauncherInstallId(input), input).toBeNull()
     }
   })

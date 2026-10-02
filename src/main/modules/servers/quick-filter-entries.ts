@@ -13,8 +13,7 @@ import {
  * and a `{ ok: true; list } | { ok: false; reasonKey }` result instead of a thrown error.
  */
 export type QuickFilterMutationResult =
-  | { ok: true; list: QuickFilter[] }
-  | { ok: false; reasonKey: string }
+  { ok: true; list: QuickFilter[] } | { ok: false; reasonKey: string }
 
 const KEY = 'servers.quickFilter.error.'
 
@@ -32,7 +31,8 @@ export function saveQuickFilter(
   if (!hasCriteria(input.criteria)) return { ok: false, reasonKey: `${KEY}noCriteria` }
   const problem = validateQuickFilterName(input.name, list)
   const name = input.name.trim()
-  if (problem === 'empty' || problem === 'tooLong') return { ok: false, reasonKey: `${KEY}${problem}` }
+  if (problem === 'empty' || problem === 'tooLong')
+    return { ok: false, reasonKey: `${KEY}${problem}` }
   if (problem === 'taken') {
     if (!input.overwrite) return { ok: false, reasonKey: `${KEY}taken` }
     const key = name.toLowerCase()

@@ -65,7 +65,11 @@ describe('readSidecarDefensively', () => {
     expect(state.state).toBe('error')
     if (state.state !== 'error') throw new Error('expected error')
     expect(state.issues).toEqual([
-      { kind: 'unknownField', key: 'replays.sidecar.issue.unknownField', params: { field: 'extra' } },
+      {
+        kind: 'unknownField',
+        key: 'replays.sidecar.issue.unknownField',
+        params: { field: 'extra' },
+      },
     ])
     expect(values.name).toBe('kept')
   })

@@ -13,17 +13,25 @@ describe('cinema', () => {
       available: false,
       reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
     })
-    expect(cinemaAvailability({ stageReason: { available: true }, onPrimary: true })).toEqual({ available: true })
+    expect(cinemaAvailability({ stageReason: { available: true }, onPrimary: true })).toEqual({
+      available: true,
+    })
   })
 
   it('the harness knob only applies under Q2L_UI_HARNESS', () => {
     expect(resolveOnPrimary(true, { Q2L_UI_CINEMA_DISPLAY: 'secondary' })).toBe(true)
-    expect(resolveOnPrimary(true, { Q2L_UI_HARNESS: '1', Q2L_UI_CINEMA_DISPLAY: 'secondary' })).toBe(false)
-    expect(resolveOnPrimary(false, { Q2L_UI_HARNESS: '1', Q2L_UI_CINEMA_DISPLAY: 'primary' })).toBe(true)
+    expect(
+      resolveOnPrimary(true, { Q2L_UI_HARNESS: '1', Q2L_UI_CINEMA_DISPLAY: 'secondary' }),
+    ).toBe(false)
+    expect(resolveOnPrimary(false, { Q2L_UI_HARNESS: '1', Q2L_UI_CINEMA_DISPLAY: 'primary' })).toBe(
+      true,
+    )
     expect(resolveOnPrimary(false, { Q2L_UI_HARNESS: '1' })).toBe(false)
   })
 
   it('displayGeometry formats WxH+X+Y', () => {
-    expect(displayGeometry({ x: -1920, y: 0, width: 1920.4, height: 1080 })).toBe('1920x1080+-1920+0')
+    expect(displayGeometry({ x: -1920, y: 0, width: 1920.4, height: 1080 })).toBe(
+      '1920x1080+-1920+0',
+    )
   })
 })

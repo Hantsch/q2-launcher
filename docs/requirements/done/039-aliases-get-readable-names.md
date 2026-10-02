@@ -31,7 +31,7 @@ Decided with the user:
   over one name.
 
 The risk this carries, and why it is not a rename: `ACTION_ALIAS_PREFIX` (`q2l_a_`) is currently
-used as an *identity test* — "a bind value starting with this prefix was written by a mirror pass,
+used as an _identity test_ — "a bind value starting with this prefix was written by a mirror pass,
 so I may strip it". Five places rely on it: `src/shared/config/action-mirror.ts`,
 `src/shared/config/modifier-layers.ts`, `src/shared/config/bind-adoption.ts`,
 `src/renderer/src/modules/config/lib/keyboard-layout.ts` and the contracts documented in
@@ -96,11 +96,11 @@ binds. This story is only done when that is solved, not worked around.
   token, e.g. `weapnext` alone) still drops with a direct mirror, since there nothing is lost.
 - Mirror ownership is **not** re-established with a new persisted ledger field but with the
   key-scoped `previousActions` rule story 034 already introduced, plus `q2l_a_` demoted to a
-  *legacy-format* marker that the strip passes keep honouring forever — the only case the ledger
+  _legacy-format_ marker that the strip passes keep honouring forever — the only case the ledger
   would have covered beyond that is a `q2l_a_*` orphan written by an older version, which the
   legacy marker covers exactly, without adding a field to `ConfigProfile`, its two Zod schemas and
   every tidy-up/IPC path that carries a profile.
-- The refactor is sequenced so the prefix stops being an *identity* test **before** the name
+- The refactor is sequenced so the prefix stops being an _identity_ test **before** the name
   generator flips (D3–D6 keep `q2l_a_` as the emitted name and stay green), rather than flipping
   name and ownership in one deliverable — a single flip-everything D would touch ~11 files and
   leave no reviewable intermediate state.
@@ -142,7 +142,7 @@ and the "no alias line for a directly bindable action" writer rule).
 
 Two mechanisms change, in this order:
 
-1. **Ownership** — `q2l_a_` stops being "a mirror wrote this" and becomes "an *older version* wrote
+1. **Ownership** — `q2l_a_` stops being "a mirror wrote this" and becomes "an _older version_ wrote
    this". Current-format ownership is the key-scoped rule story 034 already added: an entry is ours
    iff its value equals `bindValueFor(previousAction)` **on a key that previous action held**. All
    five prefix sites are converted while the emitted name is still prefixed, so every existing test
@@ -207,7 +207,7 @@ change (that is 040), no importer change (041).
   `startsWith(ACTION_ALIAS_PREFIX)` half of both strip rules becomes
   `startsWith(LEGACY_ACTION_ALIAS_PREFIX)`, documented as "an older version wrote this" — not "a
   mirror wrote this". Rewrite both doc comments so the current-format rule (key-scoped
-  `bindValueFor(previousAction)` match) is stated as *the* ownership rule.
+  `bindValueFor(previousAction)` match) is stated as _the_ ownership rule.
 - New tests in `action-mirror.test.ts` and `modifier-layers.test.ts` built with prefix-free names
   (`aliasName: 'ssg_sg'`, available since D1) — they must fail if the strip ever falls back to a
   prefix test: a hand-typed `bind r "+attack"` and `bind x "some_alias"` survive a save; clearing a
@@ -346,7 +346,7 @@ migration case).
 5. **Press/release sign.** Create a `kind: 'alias'` entry named `+slow`; Raw File contains
    `alias +slow …` with the sign intact.
 6. **Collision warning.** Add a second entry whose display name also slugs to `ssg_sg` (e.g.
-   "SSG SG") with no own name. The Care tab shows a warning per entry naming *both* entries and
+   "SSG SG") with no own name. The Care tab shows a warning per entry naming _both_ entries and
    `ssg_sg`; no counter suffix appears anywhere; the file still contains both alias lines.
 7. **Rename refusal.** On the Overview keyboard, bind an unused key by hand to `ssg_sg2`. Then open
    the entry's rename dialog and change the display name: refused, with the referencing bind named
@@ -366,13 +366,15 @@ name flipped to a readable slug (D7), Care collision/shadow warnings (D8), and t
 `findAliasReferrers` export) rather than a second scan.
 
 **Decisions (implementation-detail, made without the user per the sprint's no-questions rule):**
-- D2's own-name length budget is 27 (`MAX_ALIAS_NAME - 1 - 4`); D7's *derived*-name content budget
+
+- D2's own-name length budget is 27 (`MAX_ALIAS_NAME - 1 - 4`); D7's _derived_-name content budget
   is 26 (same source, minus 1 more for a sign slot reserved unconditionally) — two different numbers
   from one shared arithmetic, documented in `alias-render.ts`/`alias-names.ts`.
 - `legacyAliasNameFor` keeps `slugAliasName`'s pre-story default fallback (`'layer'`) rather than the
-  new `'entry'` fallback D1 introduced for the *readable* path — see review fixes below.
+  new `'entry'` fallback D1 introduced for the _readable_ path — see review fixes below.
 
 **Review (2 cycles, `story-review-hard`, both foreground/blocking):**
+
 - Cycle 1 found two confirmed FAILs: (a) `legacyAliasNameFor` (`alias-render.ts`) had picked up the
   new `'entry'` slug-fallback meant only for the readable derived path, breaking byte-for-byte
   compatibility with the pre-story format for a name that slugs to nothing — a real legacy profile
@@ -384,21 +386,21 @@ name flipped to a readable slug (D7), Care collision/shadow warnings (D8), and t
   the UI. Fixed by raising it to 120 (matching the display-name field) so the real validation error
   is what stops the user, not a silent truncation.
 - Cycle 2 re-verified both fixes (independently re-derived, confirmed correct) but failed on a new
-  finding: D8's `aliasShadowsCommand` excluded *every* catalogue-materialised bind, including
+  finding: D8's `aliasShadowsCommand` excluded _every_ catalogue-materialised bind, including
   discrete rows like `weapnext`/`weapprev`/`weaplast` — exactly the case the story's own Decisions
   section names as the reason this rule exists ("the writer would otherwise emit the dead,
   self-referential `alias weapnext weapnext`"). A continuous row (`+forward`) never gets an alias
   line at all (`bindValueFor` mirrors it straight to its bind value), so excluding it is right: the
-  bug was excluding *every* catalogue row instead of only that continuous case. Fixed in
+  bug was excluding _every_ catalogue row instead of only that continuous case. Fixed in
   `validate-actions.ts` by narrowing the exclusion to `bindValueFor(action) !== aliasNameFor(action)`
   (the exact condition the writer itself uses to decide whether an alias line is emitted at all);
   added a regression test with a real `catalogId`-bearing `weapnext` row.
 - While investigating cycle 2's lower-severity notes, independently found and fixed a fourth bug:
-  the rename-refusal check in `RenameActionDialog` ignored a *pinned* own alias name, so the "pin a
+  the rename-refusal check in `RenameActionDialog` ignored a _pinned_ own alias name, so the "pin a
   name, then rename" escape hatch the Decisions section describes did not actually work in one save
   — a display-name change was refused even when an own name in the same submission had already
   decoupled the resolved alias name from the display name. Fixed: refusal now only applies when the
-  dialog would still fall back to the *derived* name (own-name field empty).
+  dialog would still fall back to the _derived_ name (own-name field empty).
 - Three "copy/doc inaccuracies" the cycle-2 reviewer mentioned in passing were requested twice in
   full detail and never returned in time to act on within the review-cycle budget; not independently
   reproduced, left unaddressed. Everything else in both reviews' AC-by-AC re-derivation came back
@@ -441,20 +443,20 @@ overwritten; what follows is what the prior pass had left broken and what this p
 **What was actually broken.** Two shapes, both created by D7's rename, neither caught by story 038's
 drop guard:
 
-1. *Self-referential alias line.* A **discrete** (sign-free) single-token catalogue row — the
+1. _Self-referential alias line._ A **discrete** (sign-free) single-token catalogue row — the
    built-in `weapnext`/`weapprev`/`weaplast`/`centerview` rows, or a raw `bind MWHEELUP "weapnext"`
    adopted by `bind-adoption.ts`, which names the action after the row's own command — derives the
    alias name `weapnext` for the command `weapnext`. `bindValueFor` has no continuous fast path for
    a sign-free command and falls through to `aliasNameFor`, so `bindValueFor === aliasNameFor` and
-   story 038's guard (which drops on `!==`) *kept* the entry: the writer emitted
+   story 038's guard (which drops on `!==`) _kept_ the entry: the writer emitted
    `alias weapnext weapnext` and `validateStructure` reported an **error**-level `aliasCycle`
    (`chain: "weapnext -> weapnext"`). Pre-039 the `q2l_a_` prefix made name and command textually
    distinct by construction, so this was unreachable.
-2. *Sign-differing near-namesake read as a cycle.* A continuous row named after its own command
+2. _Sign-differing near-namesake read as a cycle._ A continuous row named after its own command
    (display name `Forward`, command `+forward`) renders the legal `alias forward +forward`, and
    `validate-structure.ts#referencedAlias`'s sign-stripping fallback read the body token `+forward`
    as an edge back into `forward` — a false-positive error-level `aliasCycle` on a working file. The
-   prior pass had *hidden* this by renaming the `holdLayer` corpus fixture's two actions
+   prior pass had _hidden_ this by renaming the `holdLayer` corpus fixture's two actions
    `Forward`→`Forward Hold` / `Attack`→`Attack Hold`.
 
 **Fixes.** Two, deliberately different, because the two shapes are not the same defect:
@@ -462,7 +464,7 @@ drop guard:
 - `src/shared/config/alias-references.ts` — new `isSelfReferentialAlias` guard, checked first in
   `actionsWithAliasLine` and **not** conditioned on references: an entry whose single-command body is
   textually its own alias name never gets an alias line. Name-equality is the stronger form of 038's
-  `!==` guard, and a bind carrying that literal token is the *direct mirror of the command*, not a
+  `!==` guard, and a bind carrying that literal token is the _direct mirror of the command_, not a
   call into an alias — counting it as a reference would keep exactly the line that must go. Dropping
   is lossless by construction: `bindValueFor` equals the alias name, which here equals the command,
   so the emitted `bind MWHEELUP "weapnext"` already runs the raw command — the same shape 038
@@ -473,9 +475,9 @@ drop guard:
   second hand-kept list). `Cmd_ExecuteString` matches commands before aliases, so
   `alias forward +forward` dispatches the engine's `+forward` and never re-enters `forward`.
 
-  Deliberately *not* fixed by widening the writer's drop guard to cover this shape too, contrary to
+  Deliberately _not_ fixed by widening the writer's drop guard to cover this shape too, contrary to
   the review note's suggestion that both symptoms are one rule: `forward` is no engine command, so
-  that alias *is* what a caller reaches, and dropping the line would leave the `holdLayer` fixture's
+  that alias _is_ what a caller reaches, and dropping the line would leave the `holdLayer` fixture's
   override — and any real hand-typed `bind x "forward"` — pointing at nothing. The engine's own
   command-before-alias lookup is the deciding argument, not the symmetry of the two symptoms. The
   narrowing is exactly as wide as the evidence: `alias zoom "set fov 30; -zoom"` names no engine
@@ -487,7 +489,7 @@ the sign-differing shape it was dodging, and a new eighth fixture `discreteMirro
 adopted `weapnext` shape. Both are pinned by `render-invariants.test.ts`'s existing "zero
 `validateStructure` findings for every corpus profile" assertion. `validate-actions.ts`'s
 `aliasShadowsCommand` rule is unchanged and still fires for the `weapnext` entry — the warning is
-about the *name* being unusable as an alias (the engine's command of that name always wins), which
+about the _name_ being unusable as an alias (the engine's command of that name always wins), which
 stays true now that no dead line is written; only its stale comment was corrected.
 
 **Reproduced first, then fixed** — both symptoms were observed as error-level `aliasCycle` findings
@@ -496,12 +498,13 @@ removed; 12 tests were added (`alias-references.test.ts`'s self-reference-guard 
 `validate-structure.test.ts`'s four sign/self-edge cases, the two corpus fixtures).
 
 **Accepted / deferred, honestly:**
+
 - Review Finding 3 (`ControlsTab.tsx`, `renameRefused` ignoring a pinned `aliasName`) needed **no
   change**: the code the finding quotes (`nameChanged && referrers.length > 0`) is not what the
   working tree contains — the prior pass's fourth fix already added the
   `trimmedOwnAliasName.length === 0` term, so "pin the current name, then rename" works in one
   submit. The finding's suggested replacement ("refuse whenever the resolved name would change and
-  referrers exist for the old name") was *not* adopted, because it would also refuse a pure
+  referrers exist for the old name") was _not_ adopted, because it would also refuse a pure
   alias-name change and thereby remove the escape hatch D9's Decisions section exists to provide.
   Changing the alias-name field alone stays allowed by design; a dangling reference it creates is
   Care's `undefinedAlias` business.
@@ -520,14 +523,14 @@ removed; 12 tests were added (`alias-references.test.ts`'s self-reference-guard 
 
 Plainly: the second pass's fix was not enough, and a third review found the same CRITICAL shape still
 getting through. `isSelfReferentialAlias` bailed out on `if (commands.length !== 1) return false`, so
-it only ever caught a body that was *entirely* one self-call — while
+it only ever caught a body that was _entirely_ one self-call — while
 `validate-structure.ts#buildEdges`, the ground truth for what counts as a cycle edge, builds an edge
 from the head token of **every** top-level `;` segment. A two-command entry therefore still rendered
 the exact line the guard exists to prevent:
 
 - name `weapnext`, key `MWHEELUP`, commands `weapnext` + `centerview` (a free-form "Other actions"
   row, no `catalogId` needed) → `alias weapnext "weapnext; centerview"` → error-level `aliasCycle`;
-- the same through a *later* segment: name `centerview`, body `+attack; centerview` → same error;
+- the same through a _later_ segment: name `centerview`, body `+attack; centerview` → same error;
 - reachable on an adopted catalogue row too, once it carries a second command
   (`bind-adoption.ts:119` names an adopted row after `row.commands[0]`).
 
@@ -562,14 +565,14 @@ carve-out). It is **not**, and the guard compares head tokens literally instead:
 
 - `alias forward "+forward; centerview"` keeps rendering — `+forward` is not literally `forward`, so
   literal comparison agrees with the carve-out without restating it. Verified explicitly by test.
-- `alias zoom "set fov 30; -zoom"` is where the two rules differ: `referencedAlias` *does* draw that
+- `alias zoom "set fov 30; -zoom"` is where the two rules differ: `referencedAlias` _does_ draw that
   sign-stripped self-edge, so this shape still produces an `aliasCycle`. Mirroring it here would mean
   dropping a **live** alias (`zoom` is no engine command, its `set fov 30` really runs), turning a
   working key into a dead one to silence a debatable finding. Dropping is only lossless when the
   alias was unreachable anyway, which is exactly what literal head-equality tests.
 
 **Known accepted gap (the reviewer's low-severity note), not fixed.** A pinned `aliasName` equal to a
-single *non-reserved* command (display name `Zoom In`, `aliasName: 'zoomin'`, command `zoomin`) is
+single _non-reserved_ command (display name `Zoom In`, `aliasName: 'zoomin'`, command `zoomin`) is
 dropped by this guard and draws no Care finding at all: `aliasShadowsCommand` only fires for names in
 `reservedAliasNames()`, and the shared layer has no full engine-command list to check `zoomin`
 against. If `zoomin` is a real command the resulting `bind … zoomin` works; if it is not, the bind is
@@ -591,16 +594,16 @@ Two confirmed defects, both reproduced red before any production code was touche
 **Defect 1 — the self-carve-out was scoped to the wrong alias.**
 `validate-structure.ts#referencedAlias` refuses to resolve a sign-stripped token back into an alias
 when the signed form is an engine press/release command (`alias forward +forward` is not a cycle),
-but it only did so when the stripped name equalled *the node being visited*. `renderActionAlias`
+but it only did so when the stripped name equalled _the node being visited_. `renderActionAlias`
 splits a long action into a `_p<n>` family, so in `alias forward_p1 "+forward; say_team …"` the token
 sits in `forward_p1` while the name it strips to is the family root `forward`: the carve-out never
 applied, the fallback drew `forward_p1 -> forward`, the root's own body drew the way back, and a
 legal split action was reported as an **error-level `aliasCycle`**.
 
-**Deviation from the brief, deliberate and reported.** The brief asked for the *root* alias name to be
+**Deviation from the brief, deliberate and reported.** The brief asked for the _root_ alias name to be
 threaded through the edge-building/cycle-check recursion. That was not done, and the `self` parameter
 was **removed** instead, leaving the carve-out to hang off `isEnginePressReleaseCommand` alone. Two
-reasons: (a) whether a body token dispatches a command or an alias is a property of the *token*
+reasons: (a) whether a body token dispatches a command or an alias is a property of the _token_
 (`Cmd_ExecuteString` matches registered commands before aliases), not of which body it sits in — an
 edge the fallback would draw from a registered engine command is one the engine can never take, self
 or not, so scoping it to the root only moves an arbitrary line; (b) threading a root would require
@@ -617,7 +620,7 @@ is superseded:
 
 - `alias-references.ts`: `isSelfReferentialAlias` is split into `selfReferencingSegments(action)`
   (every body segment whose head token is the entry's own alias name) and `isSelfMirroringAlias(action)`
-  (the whole body is *nothing but* that name). Only the latter drops a line — the one case where
+  (the whole body is _nothing but_ that name). Only the latter drops a line — the one case where
   dropping is lossless by construction, since `bindValueFor` equals the name equals that single
   command. A body of `weapnext arg` is deliberately not that case (the argument would be lost) and is
   kept like any other multi-segment self-reference.
@@ -625,12 +628,12 @@ is superseded:
   `{ entry, name, command }`), fed by `selfReferencingSegments` so it can never disagree with the
   writer, skipped for the still-dropped self-mirror shape. Message key added under
   `config.validation.actions` in `en.json`, following `aliasShadowsCommand`'s shape.
-- The kept line *does* still produce an error-level `aliasCycle` from `validateStructure`. That is
+- The kept line _does_ still produce an error-level `aliasCycle` from `validateStructure`. That is
   correct now, not a bug, and `render-invariants.test.ts` asserts the two findings appear **together**
   (plus that every authored command is still present in the render, i.e. nothing was silently lost).
 
 **Corpus.** `discreteMirrorCombo`/`trailingSelfCall` moved out of `PROFILE_FIXTURES` into a new
-`SELF_REFERENCE_FIXTURES` export — they are now *expected* to produce findings, so they cannot sit in
+`SELF_REFERENCE_FIXTURES` export — they are now _expected_ to produce findings, so they cannot sit in
 a corpus asserted to produce none, and an exception list inside the zero-findings assertion would have
 weakened it for every future shape too. New clean fixture `chunkedSignedBody` covers defect 1 (with an
 explicit assertion that it really splits into a `_p<n>` family opening with `+forward`, so the fixture
@@ -644,10 +647,10 @@ tests added (the two repros, four `aliasSelfReference` cases including both nega
 `aliasCycle` + `aliasSelfReference` pair).
 
 **Still open, unchanged and honestly restated:** the third pass's "known accepted gap" — a pinned
-`aliasName` equal to a single *non-reserved* command (`aliasName: 'zoomin'`, command `zoomin`) is
+`aliasName` equal to a single _non-reserved_ command (`aliasName: 'zoomin'`, command `zoomin`) is
 dropped by `isSelfMirroringAlias` and draws no finding, because `aliasShadowsCommand` only knows
 `reservedAliasNames()` and this repo carries no full engine-command list. `aliasSelfReference`
-deliberately does not cover it (it fires only for the *kept* shape), so the gap is exactly where it
+deliberately does not cover it (it fires only for the _kept_ shape), so the gap is exactly where it
 was.
 
 **Verification (this pass):** `npm run build`, `npm run typecheck`, `npm test` (57 files /

@@ -35,7 +35,9 @@ export interface ReplaysScanProgressLine {
  * Describes a running scan's progress: a single "reading demos" line with no numbers while no
  * source has reported a total yet, otherwise the scanned/total counts summed across every source.
  */
-export function describeReplaysScanProgress(progress: ReplaysScanProgress): ReplaysScanProgressLine {
+export function describeReplaysScanProgress(
+  progress: ReplaysScanProgress,
+): ReplaysScanProgressLine {
   const hasTotal = progress.sources.some((source) => source.total > 0)
   if (!hasTotal) return { key: 'replays.list.loading' }
 

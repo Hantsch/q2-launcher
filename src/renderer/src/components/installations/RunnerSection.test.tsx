@@ -109,9 +109,7 @@ describe('RunnerSection', () => {
     // CLAUDE.md's platform-parity rule, first implementation in the app.
     const reason = screen.getByTestId('installation-runner-reason-wine')
     expect(reason.textContent).toBe('wine not found — install wine to run Windows builds')
-    expect(
-      screen.getByText('wine not found — install wine to run Windows builds'),
-    ).toBeTruthy()
+    expect(screen.getByText('wine not found — install wine to run Windows builds')).toBeTruthy()
     expect(wineOption.getAttribute('title')).toBeNull()
   })
 
@@ -182,7 +180,8 @@ describe('RunnerSection', () => {
             executablePath: '/home/user/Games/Q2/r1q2',
             args: [],
             workingDirectory: '/home/user/Games/Q2',
-            preview: planCalls === 1 ? 'wine /home/user/Games/Q2/r1q2' : 'native /home/user/Games/Q2/r1q2',
+            preview:
+              planCalls === 1 ? 'wine /home/user/Games/Q2/r1q2' : 'native /home/user/Games/Q2/r1q2',
           },
         })
       }
@@ -248,7 +247,7 @@ describe('RunnerSection', () => {
     // also satisfy a truthiness check, hiding a real i18n-resolution regression.
     const preview = await screen.findByTestId('installation-runner-preview')
     expect(preview.textContent).toBe(
-      'quake2.exe is a Windows program and nothing on this machine can run it. Install wine or umu-run and pick it as the runner, or add this folder\'s game data to a native engine instead.',
+      "quake2.exe is a Windows program and nothing on this machine can run it. Install wine or umu-run and pick it as the runner, or add this folder's game data to a native engine instead.",
     )
   })
 
@@ -401,7 +400,10 @@ describe('RunnerSection', () => {
       if (channel === 'installations:listRunners') {
         return Promise.resolve({
           ok: true,
-          value: [...RUNNERS, { kind: 'steam', id: 'steam', labelKey: 'runner.kind.steam', available: true }],
+          value: [
+            ...RUNNERS,
+            { kind: 'steam', id: 'steam', labelKey: 'runner.kind.steam', available: true },
+          ],
         })
       }
       if (channel === 'launch:plan') {

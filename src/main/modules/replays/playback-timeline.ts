@@ -15,7 +15,8 @@ export interface PlaybackTimeline {
 }
 
 export function createPlaybackTimeline(deps: {
-  playback: Pick<PlaybackControl, 'send' | 'currentFormat' | 'enterFullscreen'> & Partial<Pick<PlaybackControl, 'setSpeed'>>
+  playback: Pick<PlaybackControl, 'send' | 'currentFormat' | 'enterFullscreen'> &
+    Partial<Pick<PlaybackControl, 'setSpeed'>>
 }): PlaybackTimeline {
   return {
     run(action) {

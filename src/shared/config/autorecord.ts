@@ -30,8 +30,7 @@ export const AUTORECORD_RECIPES: Record<AutorecordEngine, AutorecordRecipe> = {
 }
 
 export type AutorecordState =
-  | { kind: 'unavailable' }
-  | { kind: 'available'; engine: AutorecordEngine; on: boolean }
+  { kind: 'unavailable' } | { kind: 'available'; engine: AutorecordEngine; on: boolean }
 
 function recipeEngine(engine: EngineKind | null): AutorecordEngine | null {
   return engine === 'r1q2' || engine === 'q2pro' ? engine : null
@@ -82,7 +81,10 @@ export function applyAutorecord(
 
   if (on) {
     if (!q2proOn(cvars)) {
-      const existing = (cvars['cl_beginmapcmd'] ?? '').trim().replace(/;+\s*$/, '').trim()
+      const existing = (cvars['cl_beginmapcmd'] ?? '')
+        .trim()
+        .replace(/;+\s*$/, '')
+        .trim()
       next['cl_beginmapcmd'] =
         existing === '' ? Q2PRO_AUTORECORD_COMMAND : `${existing}; ${Q2PRO_AUTORECORD_COMMAND}`
     }

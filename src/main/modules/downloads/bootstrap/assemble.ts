@@ -113,7 +113,9 @@ export interface BuildAssemblePlanInput {
 function getQ2proDefinition() {
   const definition = ENGINE_DEFINITIONS.find((engine) => engine.kind === 'q2pro')
   if (!definition) {
-    throw new Error('ENGINE_DEFINITIONS has no q2pro entry - bootstrap assembly cannot resolve a target binary name')
+    throw new Error(
+      'ENGINE_DEFINITIONS has no q2pro entry - bootstrap assembly cannot resolve a target binary name',
+    )
   }
   return definition
 }
@@ -122,7 +124,9 @@ function getQ2proDefinition() {
 function getR1q2Definition() {
   const definition = ENGINE_DEFINITIONS.find((engine) => engine.kind === 'r1q2')
   if (!definition) {
-    throw new Error('ENGINE_DEFINITIONS has no r1q2 entry - bootstrap assembly cannot resolve a target binary name')
+    throw new Error(
+      'ENGINE_DEFINITIONS has no r1q2 entry - bootstrap assembly cannot resolve a target binary name',
+    )
   }
   return definition
 }
@@ -222,7 +226,12 @@ function buildQ2proEngineEntries(): AssembleFileEntry[] {
     // load a map with, so a "playable" installation missing this entry could not actually run a
     // map even though `inspectInstallation` may still call it playable (that inspector only checks
     // for the engine binary + base game dir, not for this DLL).
-    { from: ['baseq2/gamex86_64.dll'], to: 'baseq2/gamex86_64.dll', role: 'engine', required: true },
+    {
+      from: ['baseq2/gamex86_64.dll'],
+      to: 'baseq2/gamex86_64.dll',
+      role: 'engine',
+      required: true,
+    },
     // Ships alongside the engine binary and DLL in the same package. Not required - its absence
     // doesn't make the installation unplayable, just missing a menu asset.
     { from: ['baseq2/q2pro.menu'], to: 'baseq2/q2pro.menu', role: 'engine', required: false },
@@ -444,7 +453,12 @@ async function findSource(
 async function expandGlobDir(
   sources: AssembleSource[],
   candidates: string[],
-): Promise<{ absoluteDir: string; relativePath: string; names: string[]; packageId: string } | null> {
+): Promise<{
+  absoluteDir: string
+  relativePath: string
+  names: string[]
+  packageId: string
+} | null> {
   for (const dirRelativePath of candidates) {
     for (const source of sources) {
       const absoluteDir = join(source.dir, dirRelativePath)
@@ -468,8 +482,15 @@ async function expandGlobDir(
 export async function assembleInstallation(
   input: AssembleInstallationInput,
 ): Promise<AssembleInstallationResult> {
-  const { sources, targetRoot, engine, includeVideoAndPlayers, dataSource, folderPakNames, restrictTo } =
-    input
+  const {
+    sources,
+    targetRoot,
+    engine,
+    includeVideoAndPlayers,
+    dataSource,
+    folderPakNames,
+    restrictTo,
+  } = input
   const copiedFiles: string[] = []
   const missingRequired: { role: AssembleFileRole; from: string[] }[] = []
   const entries: AssembleEntryResult[] = []
@@ -480,7 +501,8 @@ export async function assembleInstallation(
       ? fullPlan
       : fullPlan.filter((entry) => {
           if (restrictTo.roles !== undefined && !restrictTo.roles.includes(entry.role)) return false
-          if (restrictTo.targets !== undefined && !restrictTo.targets.includes(entry.to)) return false
+          if (restrictTo.targets !== undefined && !restrictTo.targets.includes(entry.to))
+            return false
           return true
         })
   for (const entry of plan) {

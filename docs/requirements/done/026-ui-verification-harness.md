@@ -67,7 +67,7 @@ touch or corrupt my real installations and profiles.
   with a single `.gitignore` entry — one ignored root instead of the skill's bare `.screenshots/`,
   because this run writes fixtures and reports too.
 - **npm scripts `ui:seed`, `ui:shot`, `ui:a11y`, `ui:flow`, `ui:verify`** — namespaced because the
-  repo already has 15 scripts; `ui:verify` is *the* one documented command (AC1).
+  repo already has 15 scripts; `ui:verify` is _the_ one documented command (AC1).
 - **Exit codes: `0` clean, `1` harness/app failure** (build missing, app did not start, screen
   unreachable, main-process crash, renderer console error), **`2` accessibility findings**
   (serious/critical) — AC5 needs the two classes distinguishable by a machine.
@@ -148,7 +148,7 @@ plus the non-route state `keybind-dialog` (KeyBindDialog open).
 `RunLog` that captures renderer `console` (errors and warnings kept apart), `pageerror` and abnormal
 main-process exit. Env scrub: the child env is a copy of `process.env` with `ELECTRON_RUN_AS_NODE`
 deleted. Guard: throw unless the resolved `--user-data-dir` lies inside `<repo>/.ui-verify/`.
-*Acceptance:* `node scripts/lib/harness.mjs` runs a self-check — launches the built app into a
+_Acceptance:_ `node scripts/lib/harness.mjs` runs a self-check — launches the built app into a
 throwaway userData dir, waits for the first window, prints the captured console output and the
 resolved userData path, exits 0. Run from a shell with `ELECTRON_RUN_AS_NODE=1` set it still passes;
 with `out/` renamed away it exits 1 with the "build first" message instead of a Playwright stack
@@ -161,7 +161,7 @@ a `writeDirPath`), three config profiles — one plain, one with `layers`, one w
 lines — and at least one profile assignment. `empty`: defaults only. Field names mirror
 `src/main/services/state.ts:16-48`, `src/shared/types/installation.ts:68` and
 `src/shared/modules/config.ts:181` exactly.
-*Acceptance:* `npm run ui:seed` is idempotent; the app launched on the `populated` fixture (D1's
+_Acceptance:_ `npm run ui:seed` is idempotent; the app launched on the `populated` fixture (D1's
 self-check with `--variant=populated`) shows two installations in the rail and three profiles in the
 config list. Nothing outside `.ui-verify/` is written.
 
@@ -172,7 +172,7 @@ config list. Nothing outside `.ui-verify/` is written.
 `data-testid` only — `nav-<moduleId>`, `nav-settings`, `config-tab-<tabId>`, `config-profile-row`,
 `keycap-<keyName>`, `installation-tile`. No restructuring, no style change, no new props threaded
 through unrelated components.
-*Acceptance:* `npm run typecheck` and `npm test` stay green; every testid above resolves via
+_Acceptance:_ `npm run typecheck` and `npm test` stay green; every testid above resolves via
 `page.getByTestId(...)` on the populated fixture; the diff contains no class, text or markup changes
 beyond the added attributes.
 
@@ -182,7 +182,7 @@ covering the 14 screens listed in the plan. `shot.mjs` seeds when the fixture is
 viewports, writes `.ui-verify/screenshots/<id>@<w>x<h>.png`, renames any PNG this run did not write
 to `*.png.stale`, and writes `.ui-verify/run.json` plus a console summary listing per screen:
 written / unreachable / console errors.
-*Acceptance:* `npm run ui:shot` produces 14+ PNGs per viewport, prints the summary and exits 0.
+_Acceptance:_ `npm run ui:shot` produces 14+ PNGs per viewport, prints the summary and exits 0.
 Temporarily removing one testid makes exactly that screen report "unreachable" and the run exit 1
 while the others are still captured. A screen that logs a renderer console error exits 1 and the
 message appears in `run.json`.
@@ -191,14 +191,14 @@ message appears in `run.json`.
 into each registry screen over the same harness; writes `.ui-verify/a11y.json` (raw, per screen) and
 `.ui-verify/a11y.md` (grouped by impact: screen, rule, node count, help URL). `serious`/`critical`
 present → exit 2; only `minor`/`moderate` → exit 0 with summary; app or screen failure → exit 1.
-*Acceptance:* `npm run ui:a11y` writes both files, the exit code follows that rule, and the summary
+_Acceptance:_ `npm run ui:a11y` writes both files, the exit code follows that rule, and the summary
 is readable without opening the JSON.
 
 **D6 — The one command.** `scripts/ui-verify.mjs`, `package.json` (`ui:verify`). Builds when
 `out/main/index.js` is missing (spawning `npm run build`), seeds when the fixture is missing, then
 shot, then a11y; prints one combined summary; exit code = 1 if any stage failed at harness level,
 else 2 if a11y found serious/critical, else 0. Referenced by neither `test` nor `build`.
-*Acceptance:* with `out/` deleted, `npm run ui:verify` alone produces the screenshots and both a11y
+_Acceptance:_ with `out/` deleted, `npm run ui:verify` alone produces the screenshots and both a11y
 files; `npm test` does not invoke it; the real `%APPDATA%/<app>/state.json` has the same hash after
 the run as before.
 
@@ -207,14 +207,14 @@ the run as before.
 export with `{ page, app, shot(label), log }`, so a flow can click, type and drop extra screenshots
 into `.ui-verify/screenshots/flows/`. The example opens the populated fixture → a profile →
 Overview → a keycap → screenshots the open `KeyBindDialog`.
-*Acceptance:* `npm run ui:flow -- open-keycap-dialog` exits 0 and leaves a screenshot showing the
+_Acceptance:_ `npm run ui:flow -- open-keycap-dialog` exits 0 and leaves a screenshot showing the
 open dialog; a failing assertion inside a flow exits 1 naming the flow and the step.
 
 **D8 — Docs.** `docs/UI-VERIFICATION.md`, `docs/ARCHITECTURE.md` (one link), `.claude/ai-scrum.md`
 (`live-smoke-how`). Covers the one command, the individual scripts, where output lands, the exit
 codes, how to add a screen to the registry, how to write a flow, the `ELECTRON_RUN_AS_NODE` note,
 and the explicit statement that baselines are never diffed and CI is out of scope.
-*Acceptance:* someone who has never seen the harness can run it and add a screen from the doc alone;
+_Acceptance:_ someone who has never seen the harness can run it and add a screen from the doc alone;
 no page under `docs/` still tells the reader to start the app by hand for a live smoke.
 
 ## Model Hints
@@ -237,7 +237,7 @@ no page under `docs/` still tells the reader to start the app by hand for a live
    at the end and exit code 0 or 2, not 1.
 3. Open `.ui-verify/screenshots/` and look: 14 screens x 2 viewports. Home, Library (populated and
    empty), Settings, the config profile list (populated and empty) and all seven config tabs
-   including Preserved, plus the open keybind dialog. No screenshot shows *your* installations —
+   including Preserved, plus the open keybind dialog. No screenshot shows _your_ installations —
    only the seeded fixture ones.
 4. Open `.ui-verify/a11y.md` — findings grouped by impact, each naming screen and rule.
 5. Re-hash your real state file: unchanged. `git status` is clean (`.ui-verify/` ignored).
@@ -259,6 +259,7 @@ linked from `docs/ARCHITECTURE.md`. `.claude/ai-scrum.md`'s `live-smoke-how` now
 `npm run ui:verify`.
 
 **Decisions (build-time, beyond what Refine already fixed):**
+
 - `InstallationRail.tsx` actually lives at `src/renderer/src/components/shell/InstallationRail.tsx`,
   not `.../installations/...` as the story text assumed — testids were added there; no other
   location exists.
@@ -281,11 +282,13 @@ linked from `docs/ARCHITECTURE.md`. `.claude/ai-scrum.md`'s `live-smoke-how` now
   screens — recorded in `.ui-verify/a11y.md`; remediation is out of this story's scope.
 
 **Commit message:**
+
 ```
 026: add a committed UI-verification harness (screenshots + axe-core, one command)
 ```
 
 **Verification:**
+
 - `npm run build` — green.
 - `npm run typecheck` — green (`typecheck:node` + `typecheck:web`).
 - `npm test` — green, 568/568 tests, 33 files; confirmed `ui:*` scripts are not referenced by `test`

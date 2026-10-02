@@ -24,8 +24,8 @@ export function loadWorkflows() {
 export function allSteps(workflows = loadWorkflows()) {
   return workflows.flatMap(({ file, doc }) =>
     Object.entries(doc.jobs ?? {}).flatMap(([job, def]) =>
-      (def.steps ?? []).map((step) => ({ file, job, step }))
-    )
+      (def.steps ?? []).map((step) => ({ file, job, step })),
+    ),
   )
 }
 
@@ -44,7 +44,13 @@ describe('ui-flows workflow', () => {
     expect(job.strategy['fail-fast']).toBe(false)
     expect(job.strategy.matrix.shard).toEqual([1, 2, 3, 4])
     const runs = job.steps.map((s) => String(s.run ?? ''))
-    expect(runs.some((r) => /xvfb-run --auto-servernum npm run ui:flows -- --shard=\$\{\{ matrix\.shard \}\}\/4/.test(r))).toBe(true)
+    expect(
+      runs.some((r) =>
+        /xvfb-run --auto-servernum npm run ui:flows -- --shard=\$\{\{ matrix\.shard \}\}\/4/.test(
+          r,
+        ),
+      ),
+    ).toBe(true)
     expect(runs).toContain('npm run fetch:7za')
     expect(runs).toContain('npm run build')
     const flows = job.steps.find((s) => /ui:flows/.test(String(s.run ?? '')))
@@ -65,7 +71,7 @@ describe('ui-flows workflow', () => {
       'npm run ui:verify',
       'npm run ui:flow -- about-release-notes',
       'npm run ui:flow -- steam-handoff',
-      'npm run ui:flow -- open-keycap-dialog'
+      'npm run ui:flow -- open-keycap-dialog',
     ])
     const upload = job.steps.find((s) => String(s.uses ?? '').startsWith('actions/upload-artifact'))
     expect(upload.if).toBe('always()')
@@ -95,7 +101,9 @@ describe('workflow setup', () => {
     const steps = action.runs.steps
     const cache = steps.find((s) => String(s.uses ?? '').startsWith('actions/cache'))
     expect(cache).toBeDefined()
-    const resolver = steps.find((s) => s.id && cache.with.key.includes(`steps.${s.id}.outputs.version`))
+    const resolver = steps.find(
+      (s) => s.id && cache.with.key.includes(`steps.${s.id}.outputs.version`),
+    )
     expect(resolver, 'cache key references the version-resolving step').toBeDefined()
     expect(resolver.run).toContain("require('electron/package.json').version")
     expect(cache.with.key).toContain('runner.os')

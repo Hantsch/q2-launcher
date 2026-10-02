@@ -12,7 +12,8 @@ export const CONSOLE_LINE_MAX = 255
 
 export type ConsoleLineReason = 'empty' | 'multiline' | 'control' | 'nonAscii' | 'tooLong'
 
-export type ValidateConsoleLineResult = { ok: true; line: string } | { ok: false; reason: ConsoleLineReason }
+export type ValidateConsoleLineResult =
+  { ok: true; line: string } | { ok: false; reason: ConsoleLineReason }
 
 function firstViolation(raw: string): ConsoleLineReason | null {
   if (raw.includes('\r') || raw.includes('\n')) return 'multiline'

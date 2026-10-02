@@ -476,7 +476,9 @@ describe('appUpdate.error.* i18n coverage', () => {
         .split('.')
         .reduce<unknown>(
           (node, segment) =>
-            node && typeof node === 'object' ? (node as Record<string, unknown>)[segment] : undefined,
+            node && typeof node === 'object'
+              ? (node as Record<string, unknown>)[segment]
+              : undefined,
           en,
         )
       expect(typeof value, `${key} should be a string in en.json`).toBe('string')

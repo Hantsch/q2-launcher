@@ -9,7 +9,7 @@ created: 2026-09-24
 
 A user opens the Servers view (from [[106]]) and, for every server the scan ([[114]]) has found,
 sees at a glance what is happening on it — without opening the detail view. That is the whole point
-of a *list*: the busy server, the password-protected one, the favourite, the one whose last scan
+of a _list_: the busy server, the password-protected one, the favourite, the one whose last scan
 went unanswered, and — the specific case the browser exists for — the duel server where one person
 is sitting alone waiting for an opponent, all have to be readable from the row itself.
 

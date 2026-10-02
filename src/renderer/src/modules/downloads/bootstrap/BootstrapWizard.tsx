@@ -124,7 +124,9 @@ export function BootstrapWizard() {
     let cancelled = false
     void getDownloadFailures().then((result) => {
       if (cancelled) return
-      setFailure(result.ok ? result.value.find((candidate) => candidate.jobId === job.id) : undefined)
+      setFailure(
+        result.ok ? result.value.find((candidate) => candidate.jobId === job.id) : undefined,
+      )
     })
     return () => {
       cancelled = true
@@ -187,7 +189,9 @@ export function BootstrapWizard() {
     // `selectEngine`'s default-selection effect - but never overwrites a path the user already
     // picked from the source list.
     if (copySourcePath === null) {
-      const firstVerified = (detectedSources ?? []).find((candidate) => candidate.inspection.verified)
+      const firstVerified = (detectedSources ?? []).find(
+        (candidate) => candidate.inspection.verified,
+      )
       if (firstVerified) setCopySourcePath(firstVerified.rootPath)
     }
   }
@@ -201,7 +205,9 @@ export function BootstrapWizard() {
   // when it has neither `baseq2/video` nor `baseq2/players`, the confirm step's toggle is disabled
   // with this reason rather than left enabled to fail the copy afterwards.
   const includeExtrasDisabledReason =
-    selectedCopySource && !selectedCopySource.inspection.hasVideo && !selectedCopySource.inspection.hasPlayers
+    selectedCopySource &&
+    !selectedCopySource.inspection.hasVideo &&
+    !selectedCopySource.inspection.hasPlayers
       ? t('bootstrapWizard.confirm.includeExtrasDisabledReason')
       : undefined
 
@@ -275,7 +281,15 @@ export function BootstrapWizard() {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, engine, targetPath, includeVideoAndPlayers, dataSource, copySourcePath, gameDataFolderPath])
+  }, [
+    step,
+    engine,
+    targetPath,
+    includeVideoAndPlayers,
+    dataSource,
+    copySourcePath,
+    gameDataFolderPath,
+  ])
 
   async function pickTargetFolder(): Promise<void> {
     const picked = await invoke('installations:pickFolder', {

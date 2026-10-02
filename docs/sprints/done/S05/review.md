@@ -8,12 +8,12 @@ everywhere a config's text is shown, and the maintenance side of a profile (vali
 state, tidy-up actions) lives in one Care tab instead of being split across Validation, Write
 targets and a "Preserved lines" side tab.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 022 — A profile is a real `<name>.cfg` that exists before any assignment | done | `4254033` |
-| 023 — Raw File absorbs Write targets | done | `6b32bbf` |
-| 024 — Read the config with Quake 2 syntax highlighting | done | `ab625a6` |
-| 025 — Validation becomes Care | done | `e28384f` |
+| Story                                                                    | Status | Commit    |
+| ------------------------------------------------------------------------ | ------ | --------- |
+| 022 — A profile is a real `<name>.cfg` that exists before any assignment | done   | `4254033` |
+| 023 — Raw File absorbs Write targets                                     | done   | `6b32bbf` |
+| 024 — Read the config with Quake 2 syntax highlighting                   | done   | `ab625a6` |
+| 025 — Validation becomes Care                                            | done   | `e28384f` |
 
 All four stories done, in build order, no blocked story.
 
@@ -49,6 +49,7 @@ All four stories done, in build order, no blocked story.
 ## Findings & decisions
 
 **From the clarification round (binding user decisions, now implemented):**
+
 - Per-installation profile copies are name-based, not id-based; names must be unique, collisions
   disambiguated rather than overwritten.
 - The canonical file lives in userData next to `state.json`, not a separate visible "profiles"
@@ -62,6 +63,7 @@ All four stories done, in build order, no blocked story.
   pre-apply warning.
 
 **Bugs caught by review/live-smoke and fixed before landing (not left as debt):**
+
 - 022: a rename that collided a profile into another profile's sanitised name could clobber that
   other profile's canonical file, because only the mutated profile was re-synced. Fixed with a
   cascading re-sync (every profile whose resolved name changed is re-synced, displaced files moved
@@ -87,6 +89,7 @@ roadmap update below.
 
 **Carried-over, deliberately out of scope (documented with reasons in the stories' own Done
 sections, not silently dropped):**
+
 - `setPlayedMods`/`setSwitchBind` (022) still write without a sync pass — a switch-bind chain can
   `exec` a not-yet-migrated file name until the next real sync; not listed under the story's own
   write-trigger decision, so left alone.

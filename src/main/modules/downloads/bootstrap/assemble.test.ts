@@ -403,12 +403,7 @@ describe('assembleInstallation', () => {
 
     // Every other required file still copied, and none of them show up as missing.
     expect(result.copiedFiles.sort()).toEqual(
-      [
-        'baseq2/gamex86_64.dll',
-        'baseq2/pak1.pak',
-        'baseq2/pak2.pak',
-        Q2PRO_ENGINE_TARGET,
-      ].sort(),
+      ['baseq2/gamex86_64.dll', 'baseq2/pak1.pak', 'baseq2/pak2.pak', Q2PRO_ENGINE_TARGET].sort(),
     )
     expect(result.copiedFiles).not.toContain('baseq2/pak0.pak')
   })
@@ -479,7 +474,11 @@ describe('assembleInstallation', () => {
       // Story 078 review finding M3: a not-found entry with more than one candidate records every
       // candidate that was tried (joined by ` | `), not just the first - so this table can tell
       // "the archive's real layout doesn't match any candidate" from "only one path was ever tried".
-      { from: 'baseq2/pak0.pak | Install/Data/baseq2/pak0.pak', to: 'baseq2/pak0.pak', found: false },
+      {
+        from: 'baseq2/pak0.pak | Install/Data/baseq2/pak0.pak',
+        to: 'baseq2/pak0.pak',
+        found: false,
+      },
       { from: 'baseq2/pak1.pak', to: 'baseq2/pak1.pak', found: false },
       { from: 'baseq2/pak2.pak', to: 'baseq2/pak2.pak', found: false },
       { from: 'q2pro.exe | q2pro64.exe', to: Q2PRO_ENGINE_TARGET, found: false },
@@ -840,9 +839,7 @@ describe('assembleInstallation (restrictTo)', () => {
     })
 
     expect(result.missingRequired).toEqual([])
-    expect(result.copiedFiles.sort()).toEqual(
-      ['baseq2/gamex86_64.dll', Q2PRO_ENGINE_TARGET].sort(),
-    )
+    expect(result.copiedFiles.sort()).toEqual(['baseq2/gamex86_64.dll', Q2PRO_ENGINE_TARGET].sort())
   })
 
   it('omitting restrictTo copies the full plan, unchanged from pre-093 behaviour', async () => {

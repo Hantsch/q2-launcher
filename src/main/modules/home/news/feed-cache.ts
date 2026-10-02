@@ -112,11 +112,7 @@ const cachedSlideSchema = z.object({
   // shape `resolve-feed-images.ts` ever writes - defence in depth at the read boundary, since
   // this is the one field a hand-edited or otherwise-tampered cache file could use to make the
   // renderer request an arbitrary origin if it were accepted unchecked.
-  imageUrl: z
-    .string()
-    .startsWith(`${RENDERER_ORIGIN}${NEWS_IMAGE_PATH_PREFIX}`)
-    .min(1)
-    .optional(),
+  imageUrl: z.string().startsWith(`${RENDERER_ORIGIN}${NEWS_IMAGE_PATH_PREFIX}`).min(1).optional(),
   buttons: z.array(newsButtonSchema),
   visibleFrom: z.string().optional(),
   visibleUntil: z.string().optional(),

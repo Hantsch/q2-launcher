@@ -72,7 +72,8 @@ const PROTON_BUILD_COUNT = 4
 
 /** Mirrors src/renderer/src/i18n/locales/en.json's `runner.unavailable.*` - asserted verbatim, the
  * same way `steam-handoff.mjs`/`windows-build-on-linux.mjs` assert their own reason texts. */
-const STEAM_NOT_OWNER_TEXT = 'this folder is not a Steam install — Steam can only start games it owns'
+const STEAM_NOT_OWNER_TEXT =
+  'this folder is not a Steam install — Steam can only start games it owns'
 const PROTON_REASON_TEXT =
   `${PROTON_BUILD_COUNT} Proton builds are used through umu-run, not launched directly — ` +
   'pick umu-run instead'
@@ -188,7 +189,9 @@ async function addReportedSetupInstallation({ page, step }) {
     throw new Error(`no installation named "${REPORTED_SETUP_NAME}" was registered`)
   }
 
-  const row = page.locator('div.panel', { has: page.getByTestId(`installation-remove-${registered.id}`) })
+  const row = page.locator('div.panel', {
+    has: page.getByTestId(`installation-remove-${registered.id}`),
+  })
   await row.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await row.getByTestId('installation-runner').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
@@ -201,7 +204,9 @@ async function assertProtonListedOnce(row) {
   const protonOptions = row.getByTestId('installation-runner-option-proton')
   const count = await protonOptions.count()
   if (count !== 1) {
-    throw new Error(`expected exactly one installation-runner-option-proton chip, found ${count} (AC1)`)
+    throw new Error(
+      `expected exactly one installation-runner-option-proton chip, found ${count} (AC1)`,
+    )
   }
   const protonOption = protonOptions.first()
   await protonOption.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -241,17 +246,23 @@ async function assertNoTwoReasonsMatch(row) {
   const seen = new Set()
   for (const text of reasonTexts) {
     if (seen.has(text)) {
-      throw new Error(`two disabled reasons read the same text ${JSON.stringify(text)} (AC2): ${JSON.stringify(reasonTexts)}`)
+      throw new Error(
+        `two disabled reasons read the same text ${JSON.stringify(text)} (AC2): ${JSON.stringify(reasonTexts)}`,
+      )
     }
     seen.add(text)
   }
-  console.log(`AC2: ${reasonTexts.length} disabled-reason texts, all pairwise distinct: ${JSON.stringify(reasonTexts)}`)
+  console.log(
+    `AC2: ${reasonTexts.length} disabled-reason texts, all pairwise distinct: ${JSON.stringify(reasonTexts)}`,
+  )
 }
 
 // --- AC4: every unavailable runner stays visible with its reason ---------------------------------
 
 async function assertEveryUnavailableRunnerStaysVisible(row) {
-  const chipHandles = await row.locator('[data-testid^="installation-runner-option-"]').elementHandles()
+  const chipHandles = await row
+    .locator('[data-testid^="installation-runner-option-"]')
+    .elementHandles()
   let disabledCount = 0
 
   for (const chip of chipHandles) {
@@ -271,7 +282,7 @@ async function assertEveryUnavailableRunnerStaysVisible(row) {
       throw new Error(`disabled chip ${testId} has no aria-describedby target (AC4)`)
     }
 
-    const reason = row.locator(`#${describedBy}`);
+    const reason = row.locator(`#${describedBy}`)
     await reason.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
     const reasonText = (await reason.innerText()).trim()
     if (reasonText.length === 0) {
@@ -282,13 +293,17 @@ async function assertEveryUnavailableRunnerStaysVisible(row) {
   if (disabledCount === 0) {
     throw new Error('expected at least one disabled runner chip to exercise AC4, found none')
   }
-  console.log(`AC4: ${disabledCount} disabled chip(s), each visible with a visible, non-empty describedby reason`)
+  console.log(
+    `AC4: ${disabledCount} disabled chip(s), each visible with a visible, non-empty describedby reason`,
+  )
 }
 
 // --- AC5: the runner section is no taller than the header and checks -----------------------------
 
 async function assertRunnerNoTallerThanHeaderPlusChecks({ page, step, shot }) {
-  step('locate the Fixture Failed Install row - checks always render there, on every platform (AC5)')
+  step(
+    'locate the Fixture Failed Install row - checks always render there, on every platform (AC5)',
+  )
   const failedRow = page.locator('div.panel', {
     has: page.getByTestId(`installation-remove-${INSTALL_FAILED_ID}`),
   })
@@ -363,7 +378,11 @@ async function assertKeyboardPickPersists({ page, row, step, shot }) {
     // command off win32, for this PE-only fixture - mirrors `windows-build-on-linux.mjs`'s own
     // platform split for the same reason.
     step('off win32: assert the previewed command changed to the umu-run choice (AC6)')
-    previewAfterPick = await waitForPreviewContains(previewLocator, 'umu-run', RUNNER_REFRESH_TIMEOUT_MS)
+    previewAfterPick = await waitForPreviewContains(
+      previewLocator,
+      'umu-run',
+      RUNNER_REFRESH_TIMEOUT_MS,
+    )
     console.log(`AC6: previewed command now reads ${JSON.stringify(previewAfterPick)}`)
   } else {
     console.log(

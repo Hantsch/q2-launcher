@@ -22,7 +22,10 @@ describe('banner', () => {
   })
 
   it('renders a header block (fill "=") as a full rule, the content lines, then the same rule again', () => {
-    const lines = banner(['Hantsch - Test', 'Q2 Launcher - do not hand-edit'], { fill: '=', width: 20 })
+    const lines = banner(['Hantsch - Test', 'Q2 Launcher - do not hand-edit'], {
+      fill: '=',
+      width: 20,
+    })
 
     expect(lines).toEqual([
       '// =================',
@@ -86,7 +89,7 @@ describe('sectionHeaderStyle (story 042 D7)', () => {
     expect(line).toBe('// Weapons [q2l cat=weapons]')
   })
 
-  it('the tag\'s position and content are identical across all three styles - only the decoration differs', () => {
+  it("the tag's position and content are identical across all three styles - only the decoration differs", () => {
     const dashes = banner(titledLine, { width: 60, style: 'dashes' })[0]!
     const brackets = banner(titledLine, { style: 'brackets' })[0]!
     const plain = banner(titledLine, { style: 'plain' })[0]!
@@ -146,7 +149,13 @@ describe('alignRows', () => {
   })
 
   it('leaves cells past the described columns untouched', () => {
-    const rows = alignRows([['a', 'bbb'], ['aa', 'b']], [{ margin: 1, cap: 40 }])
+    const rows = alignRows(
+      [
+        ['a', 'bbb'],
+        ['aa', 'b'],
+      ],
+      [{ margin: 1, cap: 40 }],
+    )
 
     expect(rows[0]![1]).toBe('bbb')
     expect(rows[1]![1]).toBe('b')
@@ -174,7 +183,9 @@ describe('alignRows', () => {
       ['bb', '2'],
     ]
 
-    expect(alignRows(input, [{ margin: 1, cap: 40 }])).toEqual(alignRows(input, [{ margin: 1, cap: 40 }]))
+    expect(alignRows(input, [{ margin: 1, cap: 40 }])).toEqual(
+      alignRows(input, [{ margin: 1, cap: 40 }]),
+    )
   })
 })
 

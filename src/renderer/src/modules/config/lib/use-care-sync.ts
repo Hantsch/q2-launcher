@@ -28,7 +28,12 @@
 import { useState } from 'react'
 import type { ConfigProfile, SaveProfileConflict } from '@shared/modules/config'
 import { useLauncher } from '../../../store/useLauncher'
-import { openProfileFile, refreshProfilesFromFiles, saveConfigProfile, writeConfigProfile } from '../client'
+import {
+  openProfileFile,
+  refreshProfilesFromFiles,
+  saveConfigProfile,
+  writeConfigProfile,
+} from '../client'
 import type { CareItemAction } from './care-items'
 import type { CareSyncStatus } from './care-summary'
 import { adoptProfileFromFile } from './file-source-refresh'

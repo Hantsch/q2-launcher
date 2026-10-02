@@ -20,7 +20,9 @@ describe('deriveGamemode', () => {
 
   it('no mode flag at all means unknown', () => {
     expect(deriveGamemode({})).toBeUndefined()
-    expect(deriveGamemode({ deathmatch: 'abc', coop: '', ctf: '3.5', teamplay: 'x' })).toBeUndefined()
+    expect(
+      deriveGamemode({ deathmatch: 'abc', coop: '', ctf: '3.5', teamplay: 'x' }),
+    ).toBeUndefined()
   })
 })
 
@@ -45,7 +47,9 @@ describe('waiting for an opponent', () => {
   it('is also any roster with a player named need1, the community standard', () => {
     const human = (name: string) => ({ name, score: 0, ping: 30 })
     expect(isWaitingForOpponent({ players: [human('need1'), human('Bob')] })).toBe(true)
-    expect(isWaitingForOpponent({ players: [human('NEED1'), human('Bob'), human('Carl')] })).toBe(true)
+    expect(isWaitingForOpponent({ players: [human('NEED1'), human('Bob'), human('Carl')] })).toBe(
+      true,
+    )
     expect(isWaitingForOpponent({ players: [human('Alice'), human('Bob')] })).toBe(false)
   })
 

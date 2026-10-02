@@ -189,7 +189,9 @@ function ChoiceOption({
       <span
         className={cn(
           'grid size-5 shrink-0 place-items-center rounded-full border',
-          selected ? 'border-flame-500 bg-flame-500 text-flame-ink' : 'border-line-strong bg-transparent',
+          selected
+            ? 'border-flame-500 bg-flame-500 text-flame-ink'
+            : 'border-line-strong bg-transparent',
         )}
       >
         {selected && <Check className="size-3" strokeWidth={3} />}

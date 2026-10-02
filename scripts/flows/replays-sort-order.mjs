@@ -59,7 +59,9 @@ async function waitForStateJson(predicate, label) {
     last = readStateJson()
     if (predicate(last)) return last
     if (Date.now() >= deadline) {
-      throw new Error(`timed out waiting for ${label}, last state.json replays: ${JSON.stringify(last.replays)}`)
+      throw new Error(
+        `timed out waiting for ${label}, last state.json replays: ${JSON.stringify(last.replays)}`,
+      )
     }
     await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_POLL_INTERVAL_MS))
   }
@@ -85,8 +87,8 @@ async function waitForDemosScanToFinish(page) {
  * effective name (unset here - no sidecar `name` field). */
 async function rowOrder(page) {
   return page.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-testid="replays-demo-row"]')).map((row) =>
-      row.querySelector('[data-testid="replays-demo-map"]')?.textContent?.trim() ?? null,
+    Array.from(document.querySelectorAll('[data-testid="replays-demo-row"]')).map(
+      (row) => row.querySelector('[data-testid="replays-demo-map"]')?.textContent?.trim() ?? null,
     ),
   )
 }
@@ -101,7 +103,9 @@ async function waitForRowCount(page, count) {
 
 function assertOrder(actual, expected, label) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`expected ${label} order ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
+    throw new Error(
+      `expected ${label} order ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    )
   }
 }
 
@@ -112,8 +116,9 @@ async function clickSort(page, column) {
 async function waitForPressed(page, column, pressed) {
   await page.waitForFunction(
     ({ column, pressed }) =>
-      document.querySelector(`[data-testid="replays-sort-${column}"]`)?.getAttribute('aria-pressed') ===
-      String(pressed),
+      document
+        .querySelector(`[data-testid="replays-sort-${column}"]`)
+        ?.getAttribute('aria-pressed') === String(pressed),
     { column, pressed },
     { timeout: TIMEOUT_MS },
   )
@@ -123,12 +128,17 @@ async function assertNoSortCaption(page, label) {
   const captions = await page.getByTestId('replays-sort-current').count()
   const defaultText = await page.getByText('Favourites first, then newest').count()
   if (captions !== 0 || defaultText !== 0) {
-    throw new Error(`expected no sort caption in ${label}, got ${captions} testid / ${defaultText} text matches`)
+    throw new Error(
+      `expected no sort caption in ${label}, got ${captions} testid / ${defaultText} text matches`,
+    )
   }
 }
 
 async function assertDirectionText(page, column, expected) {
-  const text = await page.getByTestId(`replays-sort-${column}`).getByTestId('replays-sort-direction').textContent()
+  const text = await page
+    .getByTestId(`replays-sort-${column}`)
+    .getByTestId('replays-sort-direction')
+    .textContent()
   if (text !== expected) {
     throw new Error(`expected ${column} direction text "${expected}", got "${text}"`)
   }
@@ -177,8 +187,12 @@ export default async function replaysSortOrder({ page, step, shot }) {
     ascOrder.indexOf(REPLAYS_SORT_ORDER_FAV_NEWER_SIDECAR_MAP),
     ascOrder.indexOf(REPLAYS_SORT_ORDER_FAV_OLDER_SIDECAR_MAP),
   ]
-  if (!(newestNonFavIndex > Math.min(...favIndices) && newestNonFavIndex < Math.max(...favIndices))) {
-    throw new Error('expected the newest non-favourite to sit between the two favourites under a map sort')
+  if (!(
+    newestNonFavIndex > Math.min(...favIndices) && newestNonFavIndex < Math.max(...favIndices)
+  )) {
+    throw new Error(
+      'expected the newest non-favourite to sit between the two favourites under a map sort',
+    )
   }
   await assertNoSortCaption(page, 'map ascending')
   await assertDirectionText(page, 'map', 'ascending')
@@ -187,7 +201,8 @@ export default async function replaysSortOrder({ page, step, shot }) {
   step('clicking the map column again reverses to descending')
   await clickSort(page, 'map')
   await waitForStateJson(
-    (state) => state.replays?.listSort?.column === 'map' && state.replays?.listSort?.direction === 'desc',
+    (state) =>
+      state.replays?.listSort?.column === 'map' && state.replays?.listSort?.direction === 'desc',
     'state.json to persist map/desc',
   )
   const descOrder = await rowOrder(page)
@@ -211,7 +226,8 @@ export default async function replaysSortOrder({ page, step, shot }) {
   )
   await clickSort(page, 'date')
   await waitForStateJson(
-    (state) => state.replays?.listSort?.column === 'date' && state.replays?.listSort?.direction === 'asc',
+    (state) =>
+      state.replays?.listSort?.column === 'date' && state.replays?.listSort?.direction === 'asc',
     'state.json to persist date/asc',
   )
   const dateAscOrder = await rowOrder(page)
@@ -220,11 +236,15 @@ export default async function replaysSortOrder({ page, step, shot }) {
 
   step('a third click on date resets to default, then two clicks on map sets map/desc again')
   await clickSort(page, 'date')
-  await waitForStateJson((state) => !('listSort' in (state.replays ?? {})), 'state.json to drop replays.listSort')
+  await waitForStateJson(
+    (state) => !('listSort' in (state.replays ?? {})),
+    'state.json to drop replays.listSort',
+  )
   await clickSort(page, 'map')
   await clickSort(page, 'map')
   await waitForStateJson(
-    (state) => state.replays?.listSort?.column === 'map' && state.replays?.listSort?.direction === 'desc',
+    (state) =>
+      state.replays?.listSort?.column === 'map' && state.replays?.listSort?.direction === 'desc',
     'state.json to persist map/desc again',
   )
   const mapDescAgain = await rowOrder(page)
@@ -242,7 +262,9 @@ export default async function replaysSortOrder({ page, step, shot }) {
   const persisted = readStateJson()
   const persistedSort = persisted.replays?.listSort
   if (persistedSort?.column !== 'map' || persistedSort?.direction !== 'desc') {
-    throw new Error(`expected state.json's replays.listSort to be map/desc, got ${JSON.stringify(persistedSort)}`)
+    throw new Error(
+      `expected state.json's replays.listSort to be map/desc, got ${JSON.stringify(persistedSort)}`,
+    )
   }
   await shot('after-reload')
 
@@ -251,7 +273,10 @@ export default async function replaysSortOrder({ page, step, shot }) {
   await waitForPressed(page, 'map', false)
   const clearedOrder = await rowOrder(page)
   assertOrder(clearedOrder, defaultOrder, 'the default (after clearing the sort)')
-  await waitForStateJson((state) => !('listSort' in (state.replays ?? {})), 'state.json to drop replays.listSort')
+  await waitForStateJson(
+    (state) => !('listSort' in (state.replays ?? {})),
+    'state.json to drop replays.listSort',
+  )
   await shot('cleared-back-to-default')
 
   console.log(

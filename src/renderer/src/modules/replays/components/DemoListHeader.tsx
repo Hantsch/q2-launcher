@@ -1,6 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp } from 'lucide-react'
-import { DEMO_SORT_COLUMNS, type DemoListSort, type DemoSortColumn } from '@shared/replays/list-sort'
+import {
+  DEMO_SORT_COLUMNS,
+  type DemoListSort,
+  type DemoSortColumn,
+} from '@shared/replays/list-sort'
 import { cn } from '../../../lib/cn'
 import { DEMO_LIST_GRID } from '../list-grid'
 
@@ -26,7 +30,9 @@ export function DemoListHeader({ sort, onSort }: DemoListHeaderProps) {
         'sticky top-0 z-10 h-9 border-b border-l-transparent border-b-line bg-panel',
       )}
     >
-      <span className="stencil flex h-9 items-center justify-start">{t('replays.column.name')}</span>
+      <span className="stencil flex h-9 items-center justify-start">
+        {t('replays.column.name')}
+      </span>
       {DEMO_SORT_COLUMNS.map((column) => {
         const isActive = sort?.column === column
         return (

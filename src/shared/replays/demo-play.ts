@@ -82,8 +82,13 @@ function hasGameDir(gameDirs: readonly string[], dir: string): boolean {
   return sameDir(dir, DEMO_BASE_GAME_DIR) || gameDirs.some((d) => sameDir(d, dir))
 }
 
-function refuse(key: DemoPlayReasonKey, params?: Record<string, string | number>): DemoPlayEligibility {
-  return params === undefined ? { ok: false, reason: { key } } : { ok: false, reason: { key, params } }
+function refuse(
+  key: DemoPlayReasonKey,
+  params?: Record<string, string | number>,
+): DemoPlayEligibility {
+  return params === undefined
+    ? { ok: false, reason: { key } }
+    : { ok: false, reason: { key, params } }
 }
 
 export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
@@ -94,9 +99,13 @@ export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
     return refuse('replays.play.unavailable.linuxNoQ2pro')
   }
 
-  const active = activeInstallationId === null ? undefined : installations.find((i) => i.id === activeInstallationId)
+  const active =
+    activeInstallationId === null
+      ? undefined
+      : installations.find((i) => i.id === activeInstallationId)
   if (!active || active.engineKind !== 'q2pro') return refuse('replays.play.unavailable.notQ2pro')
-  if (active.runner === STEAM_RUNNER_CHOICE) return refuse('replays.play.unavailable.needsDirectLaunch')
+  if (active.runner === STEAM_RUNNER_CHOICE)
+    return refuse('replays.play.unavailable.needsDirectLaunch')
   if (gameRunning) return refuse('replays.play.unavailable.gameRunning')
   // Last, and only a warning: a mod folder the inspector does not list (only demos, or files the
   // server sent on connect) still plays - the user decides. Last so the warning is never shown for

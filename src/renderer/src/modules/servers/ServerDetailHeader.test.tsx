@@ -48,7 +48,13 @@ function renderHeader(detail: ServerDetail, onFavouriteChanged: () => void = () 
 
 function favouriteDetail(favourite: boolean): ServerDetail {
   return {
-    row: { address: '127.0.0.1:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x', favourite },
+    row: {
+      address: '127.0.0.1:27910',
+      origins: ['manual'],
+      status: 'online',
+      lastSeenAt: 'x',
+      favourite,
+    },
     serverinfo: null,
   }
 }
@@ -76,9 +82,7 @@ describe('ServerDetailHeader (story 122 D3)', () => {
     renderHeader(detail)
 
     expect(screen.getByTestId('servers-detail-field-name').textContent).toBe('Fixture Server A')
-    expect(screen.getByTestId('servers-detail-field-address').textContent).toBe(
-      '127.0.0.1:27910',
-    )
+    expect(screen.getByTestId('servers-detail-field-address').textContent).toBe('127.0.0.1:27910')
     expect(screen.getByTestId('servers-detail-field-mod').textContent).toBe('baseq2')
     expect(screen.getByTestId('servers-detail-field-map').textContent).toBe('q2dm1')
     expect(screen.getByTestId('servers-detail-field-gamemode').textContent).toBe('Deathmatch')

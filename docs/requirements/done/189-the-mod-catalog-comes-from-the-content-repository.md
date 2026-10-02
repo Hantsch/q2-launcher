@@ -17,7 +17,7 @@ The manifest is shaped for mirroring later but does not mirror now. Every packag
 original source (GitHub releases, or the id 3.20 point release already in
 `gamedata/manifest.json` for CTF), and `mirrors[]` exists and is read but stays empty for mods.
 Each entry carries its gamedir, version, licence (SPDX), project page, source link and its
-variants per *(platform, engine architecture)*.
+variants per _(platform, engine architecture)_.
 
 Concept: [mods.md](../concepts/mods.md) §6–§8; requirements MOD-3, MOD-4.
 
@@ -41,7 +41,7 @@ Concept: [mods.md](../concepts/mods.md) §6–§8; requirements MOD-3, MOD-4.
 
 ## Open Questions
 
-- ~~**Q1**~~ answered → Decisions (Sprint) — (concept §14 item 2) — Does the manifest pin the latest *stable* release only (AQtion
+- ~~**Q1**~~ answered → Decisions (Sprint) — (concept §14 item 2) — Does the manifest pin the latest _stable_ release only (AQtion
   v1.3.8, not the v1.4.0-rc1 pre-release)? Which AQ2-TNG build goes with that AQtion content?
 - ~~**Q2**~~ answered → Decisions (Sprint) — (concept §14 item 8) — Are the catalog name and description English text in the manifest
   (foreign content, like news entries), or per-locale fields?
@@ -91,11 +91,11 @@ Concept: [mods.md](../concepts/mods.md) §6–§8; requirements MOD-3, MOD-4.
   sourceUrl, pinned and `versions[{ version, prerelease }]`, plus `fetchedAt`/`fromCache`/`ageMs`, or
   an unavailable state. Variants and packages stay in main (190 resolves them there).
 - **Versions in the UI (this story):** the detail panel lists the entry's versions, the pinned one
-  marked *default*, pre-releases marked *pre-release*. The control that picks the version to install
+  marked _default_, pre-releases marked _pre-release_. The control that picks the version to install
   belongs to the Install action (story 190), which has no button to attach it to here.
 - **Merge rule (AC3):** a catalog entry and a local gamedir are the same tile when the names match
   case-insensitively (concept §11). Until 190 writes install records, such a tile carries the catalog
-  name and the *installed manually* label from 188.
+  name and the _installed manually_ label from 188.
 - **Text limits:** `name` ≤ 64, `description` ≤ 280 characters, rendered as plain text (no markup).
   Reason: the tile holds a short description; foreign content never becomes HTML.
 - **Content mapping:** everything the game needs for `+set game <gamedir>` lands in `<gamedir>/`
@@ -126,10 +126,10 @@ Affected layers: content + scripts (D1), main + shared (D2, D3), renderer + flow
 - **D1 — the real mods manifest.** Files: `content/q2_community_content/mods/manifest.json` (new),
   `scripts/manifest-hashes.mjs` (mirror its existing loop). Shape (`schemaVersion: 1`,
   `entries[]`): entry `{ id, gamedir, name, description (≤280, English), license (SPDX), projectUrl,
-  sourceUrl (https), pinned, versions[] }`; version `{ version, prerelease, variants[{ platform
-  ('win32'|'linux'), arch ('x86'|'x64'|'arm64'), packages[] }], contentOnly: { packages[] } }`;
+sourceUrl (https), pinned, versions[] }`; version `{ version, prerelease, variants[{ platform
+('win32'|'linux'), arch ('x86'|'x64'|'arm64'), packages[] }], contentOnly: { packages[] } }`;
   package `{ id, version, url, mirrors: [], sizeBytes, sha256 (lowercase hex), contents[{ from, to:
-  'gamedir' }] }`. Entries: `action` (AQtion; pinned `v1.3.8`, plus `v1.4.0-rc1` with
+'gamedir' }] }`. Entries: `action` (AQtion; pinned `v1.3.8`, plus `v1.4.0-rc1` with
   `prerelease: true`; content = `aqtion-<v>-content-only.zip` from
   github.com/actionquake/distrib releases; game library = TNG release `282af79` from
   github.com/actionquake/aq2-tng: `tng-win-32.zip` → win32/x86, `tng-win-64.zip` → win32/x64,
@@ -148,9 +148,9 @@ Affected layers: content + scripts (D1), main + shared (D2, D3), renderer + flow
 - **D2 — schema, parser and gamedir rule.** Files: `src/shared/mods/gamedir.ts` +
   `gamedir.test.ts` (new: `isSafeGameDirName(name)` = `^[A-Za-z0-9_.-]{1,64}$` and not `.`, `..`,
   `baseq2`, case-insensitive), `src/shared/modules/mods.ts` (add the wire types `ModCatalogEntry
-  { id, gamedir, name, description, license, projectUrl, sourceUrl, pinned, versions: { version,
-  prerelease }[] }` and `ModCatalogState = { status: 'ok'; entries; fetchedAt; fromCache; ageMs } |
-  { status: 'unavailable' }`), `src/main/modules/mods/catalog-schema.ts` +
+{ id, gamedir, name, description, license, projectUrl, sourceUrl, pinned, versions: { version,
+prerelease }[] }` and `ModCatalogState = { status: 'ok'; entries; fetchedAt; fromCache; ageMs } |
+{ status: 'unavailable' }`), `src/main/modules/mods/catalog-schema.ts` +
   `catalog-parse.ts` + `catalog-parse.test.ts` (new; mirror `downloads/schemas.ts` and
   `downloads/manifest-parse.ts`, reuse their exported `sha256Schema`, `httpsUrlSchema`,
   `harnessLoopbackUrlSchema`), `src/main/modules/mods/shipped-manifest.test.ts` (mirror
@@ -175,7 +175,7 @@ Affected layers: content + scripts (D1), main + shared (D2, D3), renderer + flow
   `src/renderer/src/modules/mods/` (extend, don't fork), its typed client (add `getCatalog`), a pure
   `mergeModTiles(catalogEntries, gameDirs)` + test in `src/renderer/src/modules/mods/` (one tile per
   case-insensitive gamedir; catalog tile carries name + description; matched local dir keeps 188's
-  *installed manually* label; local-only dirs unchanged), `src/renderer/src/i18n/locales/en/*`
+  _installed manually_ label; local-only dirs unchanged), `src/renderer/src/i18n/locales/en/*`
   (keys `mods.catalog.unavailable`, `mods.catalog.asOf` with a `{{date}}` formatted in the UI
   locale), `CHANGELOG.md` (one line under Unreleased: "Mods: Action Quake, OpenTDM and CTF appear as
   catalog tiles."), `scripts/lib/fixture.mjs` (add `startModsCatalogFixtureServer({ mode })` serving
@@ -184,16 +184,16 @@ Affected layers: content + scripts (D1), main + shared (D2, D3), renderer + flow
   `scripts/flows/mods-catalog.mjs` (new; mirror `scripts/flows/news-feed.mjs`'s setup/teardown and
   `Q2L_UI_CONTENT_REPO_BASE`; for AC6 seed `cache/mods/catalog-cache.json` in the fixture userData
   before launch with `mode: 'down'`; one app launch per mode — the base URL is fixed per session and
-the 15-minute freshness window would mask a mid-session switch). Description and name render as plain text. The notes are
+  the 15-minute freshness window would mask a mid-session switch). Description and name render as plain text. The notes are
   visible text, not tooltips. Acceptance: merge test and flow green.
 - **D5 — catalog detail panel.** Files: 188's detail panel component under
   `src/renderer/src/modules/mods/`, `src/renderer/src/i18n/locales/en/*` (keys
   `mods.detail.license`, `mods.detail.projectPage`, `mods.detail.source`, `mods.detail.versions`,
   `mods.detail.defaultVersion`, `mods.detail.prerelease`), `scripts/flows/mods-catalog-detail.mjs`
   (new; reuses D4's `startModsCatalogFixtureServer({ mode: 'ok' })`). For a catalog entry the panel
-  shows the SPDX licence as text, *Project page* and *Source* links that open via the existing
-  `app:openExternal` channel, and the versions list (pinned marked *default*, pre-releases marked
-  *pre-release*). Acceptance: flow green.
+  shows the SPDX licence as text, _Project page_ and _Source_ links that open via the existing
+  `app:openExternal` channel, and the versions list (pinned marked _default_, pre-releases marked
+  _pre-release_). Acceptance: flow green.
 
 ## Model Hints
 
@@ -235,6 +235,7 @@ Commit message: `189: mod catalog from the content repository — manifest, pars
 Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (115 files / 900 tests), `ui:flow` mods-catalog, mods-catalog-detail, mods-view, mods-detail (each after `ui:seed`) green; `node scripts/manifest-hashes.mjs --check` green (D1, network). After review fixes: vitest mods suites, typecheck, build, mods-catalog flow re-run green. Full gate not run (sprint's). AC -> test: AC1-AC7 all mapped tests ran and passed (AC3 unit test line renamed to its real name "merges a local directory into the catalog tile, case-insensitively"); no manual residue. Review: stage 1 PASS, 3 minor findings fixed (all-dropped catalog now counts as failed fetch, `getCatalog` rejection -> unavailable, bad-row flow assertion made meaningful); unfixed: no in-flight fetch dedupe (mirrors ManifestService).
 
 Decisions:
+
 - Plan gap (D1): OpenTDM ships `gamex86-opentdm-r388~add8f3c.dll` / `gamex86_64-opentdm-r388~add8f3c.so`, not `gamex86.dll`; `to: 'gamedir'` cannot rename -> story 190 must rename (or schema grows a `rename`) or `+set game opentdm` will not load the library.
 - Plan gap (D1): AQtion paks are `.pkz`; r1q2 reads only `.pak`, Q2PRO reads `.pkz` — engine pairing matters for 190/AQtion launch. TNG `tng-lin-arm64.zip` carries `gamearm64.so` (name unverified against the engine). Licence strings stay `GPL-2.0` as specified.
 - AQtion maps `aqtion/action` + `aqtion/baseaq` into gamedir `action`; TNG zips map `from: "."`; ctf content-only lists single files (`pak0.pak`, `server.cfg`, ...) as `from`, so 190 must place a file-path `from` at `<gamedir>/<basename>`; CTF content-only row id `ctf-320-x86-content`. `mirrors: []` everywhere.

@@ -9,7 +9,14 @@ import { createCinemaController } from './cinema-controller'
 const DISPLAY = '2560x1440+0+0'
 
 function setup(
-  opts: { availability?: CinemaAvailability; session?: boolean; fullscreen?: Outcome<void>; follower?: boolean; failOpen?: boolean; settled?: () => Promise<void> } = {},
+  opts: {
+    availability?: CinemaAvailability
+    session?: boolean
+    fullscreen?: Outcome<void>
+    follower?: boolean
+    failOpen?: boolean
+    settled?: () => Promise<void>
+  } = {},
 ) {
   const calls: string[] = []
   const closedCbs = new Set<() => void>()
@@ -93,8 +100,15 @@ describe('cinema controller', () => {
   })
 
   it('enter refuses when unavailable', async () => {
-    const t = setup({ availability: { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } } })
-    expect(await t.controller.set(true)).toEqual(fail('replays.cinema.unavailable.notPrimaryDisplay'))
+    const t = setup({
+      availability: {
+        available: false,
+        reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+      },
+    })
+    expect(await t.controller.set(true)).toEqual(
+      fail('replays.cinema.unavailable.notPrimaryDisplay'),
+    )
     expect(t.calls).toEqual([])
     expect(t.isOverlayOpen()).toBe(false)
 

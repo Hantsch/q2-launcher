@@ -195,7 +195,7 @@ function skipDownload(bytes: Uint8Array, p: number, end: number): number {
 }
 
 function readInt32LE(bytes: Uint8Array, p: number): number {
-  return (bytes[p]! | (bytes[p + 1]! << 8) | (bytes[p + 2]! << 16) | (bytes[p + 3]! << 24)) | 0
+  return bytes[p]! | (bytes[p + 1]! << 8) | (bytes[p + 2]! << 16) | (bytes[p + 3]! << 24) | 0
 }
 
 type BlockOutcome = 'frame' | 'frameless' | 'undecodable' | 'not-a-demo'

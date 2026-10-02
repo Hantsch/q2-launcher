@@ -29,7 +29,7 @@ included, and the header looks identical on all of them.
 
 This supersedes story 057's decision to give the Raw File tab its own folded header — the reason
 for it (AC1: at least 30 editor lines visible at 1280x800) is satisfied by a one-row header for
-*all* tabs, so the exception is no longer needed. Refine must re-verify that line budget rather
+_all_ tabs, so the exception is no longer needed. Refine must re-verify that line budget rather
 than assume it.
 
 ## Acceptance Criteria
@@ -55,18 +55,18 @@ All of these were decided in refine (no user input available); each with its rea
 - **Measured, not assumed (AC4).** A throwaway `ui:flow` probe measured the real app at 1280x800:
   the shell's fixed zones are `TitleBar` 68px + `ActionBar` 96px (`AppShell.tsx:26-36`), so a config
   view gets exactly **638px**; `--cfg-code-line-h` is **17px** and `.cfg-code` has `padding-block:
-  12px` (`styles/config-syntax.css:43-74`). Today's raw tab: chrome above the editor 66px (28px
+12px` (`styles/config-syntax.css:43-74`). Today's raw tab: chrome above the editor 66px (28px
   header row + 38px of two intra-tab toolbar rows), editor 571px → **32 visible lines**. So the
   budget for **30 lines** is `638 - (30*17) - padding` → **all chrome above the editor must stay
   ≤ 104px**. Reason: the whole story hinges on this number and the story text explicitly forbids
   assuming it.
 - **Consequence: the header alone eats the budget.** A one-row header (~28px) plus the tab strip in
-  its own row (39px today) is already 67px, leaving 37px for page padding, row gaps *and* the raw
+  its own row (39px today) is already 67px, leaving 37px for page padding, row gaps _and_ the raw
   tab's own 38px path/options rows. AC3 and AC4 are therefore only jointly satisfiable if the raw
   tab funds the difference **inside** the tab: its two toolbar rows merge into one (−19px) and the
   fill variant's `padding-block` drops 12px → 6px. Reason: those are raw-local, do not touch the
   header, and are the only levers left that AC3 (identical header everywhere) does not forbid.
-- **Uniform padding, because a header that starts at a different `y` per tab *has* moved (AC3).**
+- **Uniform padding, because a header that starts at a different `y` per tab _has_ moved (AC3).**
   The outer wrapper becomes `px-8 pt-4 pb-8` for every tab, with only `pb-0` plus the existing
   `flex flex-1 min-h-0 flex-col` fill chain left conditional on the raw tab. Reason: `p-8` vs `p-0`
   is exactly the per-tab relayout AC3 outlaws, and the bottom padding is below the header, so it
@@ -153,12 +153,12 @@ prints `lines=N margin=Mpx`, and exits non-zero below 30. Green on the current c
 Files: `src/renderer/src/modules/config/RawFileTab.tsx`,
 `src/renderer/src/styles/config-syntax.css`, `src/renderer/src/i18n/locales/en.json` (only if a
 label has to be shortened).
-Acceptance: path/on-disk badge/Open in editor/Reveal *and* the unbindall + section-header-style
+Acceptance: path/on-disk badge/Open in editor/Reveal _and_ the unbindall + section-header-style
 controls sit in **one** toolbar row (all four actions and both controls still reachable and
 functional); `.cfg-code--fill` has `padding-block: 6px`; D1's flow reports a margin at least 25px
 larger than its baseline; `config-raw` / `config-raw-editing` in `npm run ui:verify` stay axe-clean.
 
-**D3 — One header row for every tab** *(hard)*
+**D3 — One header row for every tab** _(hard)_
 Files: `src/renderer/src/modules/config/ConfigView.tsx`, `CLAUDE.md` (deviation row for the denser
 tab strip). Mirror: today's `isRawFill` header row (`ConfigView.tsx:675-730`) for the zone/flex
 idiom, `ConfigView.tsx:732-749` for the identity bits.
@@ -185,7 +185,7 @@ AC4 → D1+D2+D3 (test in D1) · AC5 → D3 (test in D4).
 
 ## Model Hints
 
-- D3 → `deliverable-hard` — it rewrites the layout chain shared by all seven config tabs *and* the
+- D3 → `deliverable-hard` — it rewrites the layout chain shared by all seven config tabs _and_ the
   raw tab's full-height flex chain in one file, where the 30-line floor already failed review once
   in story 057 and a per-tab regression is invisible to unit tests.
 - D1, D2, D4 → default.
@@ -231,6 +231,7 @@ header/tab-strip/padding changes spend part of that budget — expected and with
 **Commit message:** `061: profile header is one row for every tab`
 
 **Decisions taken during build** (all verified against Plan/AC, none contradict a Sprint Decision):
+
 - **D2 — `Select`/`IconButton` sizing bug fix.** The shared `Select`'s `h-7` override never
   actually applied (`cn()` has no tailwind-merge dedup, so `FIELD_BASE`'s `h-9` won the cascade).
   Fixed at the one Raw File call site (`h-6!`) rather than in the shared component, and combined
@@ -263,6 +264,7 @@ header/tab-strip/padding changes spend part of that budget — expected and with
   green, and confirmed these were test gaps, not implementation gaps (production code untouched).
 
 **Verification.**
+
 - `npm run build` — green.
 - `npm test` — 101 files / 2607 tests, green.
 - `npm run typecheck` — green (node + web), re-confirmed after the final flow edit.
@@ -280,6 +282,7 @@ header/tab-strip/padding changes spend part of that budget — expected and with
   production code.
 
 **AC → test mapping, as verified:**
+
 - AC1 → `scripts/flows/config-header-geometry.mjs` (cross-tab header-rect equality + new
   single-row-height ceiling assertion) — passed.
 - AC2 → same flow (identity-zone text assertions + new identity-uniqueness/no-stray-duplicate

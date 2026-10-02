@@ -36,7 +36,7 @@ use, or open its folder.
 
 ## Open Questions
 
-- ~~With the tab gone, where do the per-installation write *errors* and the retry live?~~ answered
+- ~~With the tab gone, where do the per-installation write _errors_ and the retry live?~~ answered
   → Decisions (Sprint)
 - ~~Same question for the played-mods selection.~~ answered → Decisions (Sprint)
 
@@ -117,76 +117,76 @@ which nothing triggers a write.
 ## Deliverables
 
 - [x] **D1 — `rawFiles` read handler.** Contract types + `CONFIG_HANDLERS.rawFiles`, `schemas.ts`
-  payload schema, `collectRawFiles(...)` + handler in main, typed client function.
-  *Files:* `src/shared/modules/config.ts`, `src/main/modules/config/schemas.ts`,
-  `src/main/modules/config/index.ts`, `src/main/modules/config/writer.ts` (export `readExisting`),
-  `src/main/modules/config/index.test.ts`, `src/renderer/src/modules/config/client.ts`.
-  *Mirror:* the `preview` handler (`index.ts:391-410`) + `previewProfileFiles` (`index.ts:182-215`);
-  client style `client.ts:145-147`.
-  *Acceptance:* unit tests prove canonical `onDisk` false→true, `matches` true only for
-  byte-identical latin1 content, one entry per assignment, `playedMods` echoed, unknown profile →
-  `config.error.profileNotFound`.
+      payload schema, `collectRawFiles(...)` + handler in main, typed client function.
+      _Files:_ `src/shared/modules/config.ts`, `src/main/modules/config/schemas.ts`,
+      `src/main/modules/config/index.ts`, `src/main/modules/config/writer.ts` (export `readExisting`),
+      `src/main/modules/config/index.test.ts`, `src/renderer/src/modules/config/client.ts`.
+      _Mirror:_ the `preview` handler (`index.ts:391-410`) + `previewProfileFiles` (`index.ts:182-215`);
+      client style `client.ts:145-147`.
+      _Acceptance:_ unit tests prove canonical `onDisk` false→true, `matches` true only for
+      byte-identical latin1 content, one entry per assignment, `playedMods` echoed, unknown profile →
+      `config.error.profileNotFound`.
 
 - [x] **D2 — `openFile` (open in editor / reveal in folder).** Handler + schema + client; id-addressed,
-  existence + `.cfg` + own-file check before any `shell` call.
-  *Files:* `src/shared/modules/config.ts`, `src/main/modules/config/schemas.ts`,
-  `src/main/modules/config/index.ts`, `src/main/modules/config/index.test.ts`,
-  `src/renderer/src/modules/config/client.ts`.
-  *Mirror:* `src/main/ipc/app.ts:34-71` (`app:revealPath` + `isAllowedRevealTarget`).
-  *Acceptance:* a test asserts a mocked `shell.openPath`/`showItemInFolder` is called for a resolved
-  own file and is **not** called for an unknown profile, an unknown installation, or a missing file
-  (each returning a `fail` key); no input field carries a path.
+      existence + `.cfg` + own-file check before any `shell` call.
+      _Files:_ `src/shared/modules/config.ts`, `src/main/modules/config/schemas.ts`,
+      `src/main/modules/config/index.ts`, `src/main/modules/config/index.test.ts`,
+      `src/renderer/src/modules/config/client.ts`.
+      _Mirror:_ `src/main/ipc/app.ts:34-71` (`app:revealPath` + `isAllowedRevealTarget`).
+      _Acceptance:_ a test asserts a mocked `shell.openPath`/`showItemInFolder` is called for a resolved
+      own file and is **not** called for an unknown profile, an unknown installation, or a missing file
+      (each returning a `fail` key); no input field carries a path.
 
 - [x] **D3 — Auto-write survives the deletion.** Pure trigger rule + hook mounted by the detail screen;
-  `WriteTargets` still present and its own effect removed so there is exactly one trigger.
-  *Files:* `src/renderer/src/modules/config/lib/auto-write.ts` (new),
-  `src/renderer/src/modules/config/lib/auto-write.test.ts` (new),
-  `src/renderer/src/modules/config/ConfigView.tsx`, `src/renderer/src/modules/config/WriteTargets.tsx`.
-  *Mirror:* `WriteTargets.tsx:105-130` for the rule, `lib/useProfileDraft.ts` for hook style and
-  `lib/useProfileDraft.test.ts` for the pure-test style.
-  *Acceptance:* tests cover — first sighting of a profile id is not a write, an unchanged
-  `updatedAt` is not a write, a bumped `updatedAt` is, and switching away and back without an edit
-  is not; editing a cvar in the Settings tab still writes with no Write-targets tab open.
+      `WriteTargets` still present and its own effect removed so there is exactly one trigger.
+      _Files:_ `src/renderer/src/modules/config/lib/auto-write.ts` (new),
+      `src/renderer/src/modules/config/lib/auto-write.test.ts` (new),
+      `src/renderer/src/modules/config/ConfigView.tsx`, `src/renderer/src/modules/config/WriteTargets.tsx`.
+      _Mirror:_ `WriteTargets.tsx:105-130` for the rule, `lib/useProfileDraft.ts` for hook style and
+      `lib/useProfileDraft.test.ts` for the pure-test style.
+      _Acceptance:_ tests cover — first sighting of a profile id is not a write, an unchanged
+      `updatedAt` is not a write, a bumped `updatedAt` is, and switching away and back without an edit
+      is not; editing a cvar in the Settings tab still writes with no Write-targets tab open.
 
 - [x] **D4 — Raw File tab: the profile's own file.** New `RawFileTab` replacing the tab body: canonical
-  path (selectable), on-disk badge, open/reveal buttons, byte-faithful read-only content, inline
-  error state, no assignment required.
-  *Files:* `src/renderer/src/modules/config/RawFileTab.tsx` (new),
-  `src/renderer/src/modules/config/ConfigView.tsx`, `src/renderer/src/i18n/locales/en.json`.
-  *Mirror:* `RawConfigPanel.tsx` (fetch + `CodeBlock` + badge + `IconButton` idiom).
-  *Acceptance:* a profile assigned nowhere shows its file with full path and content instead of the
-  old "not assigned" empty state; a re-fetch happens on profile switch and after a save.
+      path (selectable), on-disk badge, open/reveal buttons, byte-faithful read-only content, inline
+      error state, no assignment required.
+      _Files:_ `src/renderer/src/modules/config/RawFileTab.tsx` (new),
+      `src/renderer/src/modules/config/ConfigView.tsx`, `src/renderer/src/i18n/locales/en.json`.
+      _Mirror:_ `RawConfigPanel.tsx` (fetch + `CodeBlock` + badge + `IconButton` idiom).
+      _Acceptance:_ a profile assigned nowhere shows its file with full path and content instead of the
+      old "not assigned" empty state; a re-fetch happens on profile switch and after a save.
 
 - [x] **D5 — Per-installation rows.** One row per assignment: installation name, copy path,
-  present/matches badges, open/reveal, and an expand that renders `RawConfigPanel` for that
-  installation. Disabled actions state their reason as text.
-  *Files:* `src/renderer/src/modules/config/RawFileTab.tsx`,
-  `src/renderer/src/modules/config/RawConfigPanel.tsx`, `src/renderer/src/i18n/locales/en.json`.
-  *Mirror:* the row layout of `WriteTargets.tsx:145-221`.
-  *Acceptance:* rows show absent vs. present vs. present-but-differs distinctly; both actions are
-  disabled with a visible reason when the file is absent; expanding re-reads that installation's
-  rendered files.
+      present/matches badges, open/reveal, and an expand that renders `RawConfigPanel` for that
+      installation. Disabled actions state their reason as text.
+      _Files:_ `src/renderer/src/modules/config/RawFileTab.tsx`,
+      `src/renderer/src/modules/config/RawConfigPanel.tsx`, `src/renderer/src/i18n/locales/en.json`.
+      _Mirror:_ the row layout of `WriteTargets.tsx:145-221`.
+      _Acceptance:_ rows show absent vs. present vs. present-but-differs distinctly; both actions are
+      disabled with a visible reason when the file is absent; expanding re-reads that installation's
+      rendered files.
 
 - [x] **D6 — Played-mods per row.** Checkbox list from `installation.gameDirs` (minus `baseq2`), seeded
-  from D1's `playedMods`, persisted through the existing `setPlayedMods`.
-  *Files:* `src/renderer/src/modules/config/RawFileTab.tsx`,
-  `src/renderer/src/i18n/locales/en.json`.
-  *Mirror:* `WriteTargets.tsx:132-143` and `:197-213`.
-  *Acceptance:* a toggled selection survives leaving the profile and coming back (the gap
-  `WriteTargets.tsx:49-58` documents), and an installation with no mod folders shows the empty note.
+      from D1's `playedMods`, persisted through the existing `setPlayedMods`.
+      _Files:_ `src/renderer/src/modules/config/RawFileTab.tsx`,
+      `src/renderer/src/i18n/locales/en.json`.
+      _Mirror:_ `WriteTargets.tsx:132-143` and `:197-213`.
+      _Acceptance:_ a toggled selection survives leaving the profile and coming back (the gap
+      `WriteTargets.tsx:49-58` documents), and an installation with no mod folders shows the empty note.
 
 - [x] **D7 — Remove the Write targets surface.** Delete `WriteTargets.tsx`, `PreviewProfileDialog.tsx`,
-  `lib/raw-view.ts` (+ its test) and the `previewInstallationId`/`rawInstallationId` state; drop
-  `writeTargets` from `DetailTab` and `tabs`; delete `config.tabs.writeTargets`,
-  `config.writeTargets.*`, `config.previewDialog.*` and the now-unused `config.raw.installationLabel`
-  / `config.raw.noAssignment.*`; drop the `config-writeTargets` screen entry and its stale
-  screenshots.
-  *Files:* the four renderer files above, `src/renderer/src/modules/config/ConfigView.tsx`,
-  `src/renderer/src/i18n/locales/en.json`, `scripts/lib/screens.mjs`,
-  `.ui-verify/screenshots/config-writeTargets@*.png`.
-  *Acceptance:* `npm run typecheck` + `npm test` clean, no reference to `WriteTargets`,
-  `previewConfigProfile`'s dialog or `config.writeTargets` left in `src/` or `scripts/`, and
-  `npm run ui:verify` walks the config tabs without the removed one.
+      `lib/raw-view.ts` (+ its test) and the `previewInstallationId`/`rawInstallationId` state; drop
+      `writeTargets` from `DetailTab` and `tabs`; delete `config.tabs.writeTargets`,
+      `config.writeTargets.*`, `config.previewDialog.*` and the now-unused `config.raw.installationLabel`
+      / `config.raw.noAssignment.*`; drop the `config-writeTargets` screen entry and its stale
+      screenshots.
+      _Files:_ the four renderer files above, `src/renderer/src/modules/config/ConfigView.tsx`,
+      `src/renderer/src/i18n/locales/en.json`, `scripts/lib/screens.mjs`,
+      `.ui-verify/screenshots/config-writeTargets@*.png`.
+      _Acceptance:_ `npm run typecheck` + `npm test` clean, no reference to `WriteTargets`,
+      `previewConfigProfile`'s dialog or `config.writeTargets` left in `src/` or `scripts/`, and
+      `npm run ui:verify` walks the config tabs without the removed one.
 
 **Coverage (AC → D):** tab gone / nothing unreachable → D7 (+ D5 keeps the preview content
 reachable) · auto-write survives, test covers → D3 · own file always shown, path visible and
@@ -245,6 +245,7 @@ seeded from the persisted selection; and removal of `WriteTargets.tsx`, `Preview
 and `lib/raw-view.ts`.
 
 **Decisions (during build):**
+
 - D3's plan text (`## Plan`, `## Deliverables`) was written against the pre-story-022
   `WriteTargets.tsx`, which had a `lastSeenUpdatedAt`-gated write effect. Story 022 shipped first
   and moved that trigger into main itself (022 decision 8: every mutating handler awaits a sync

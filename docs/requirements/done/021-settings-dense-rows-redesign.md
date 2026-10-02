@@ -130,53 +130,53 @@ New i18n keys go into `src/renderer/src/i18n/locales/en.json` under `config.sett
 ## Deliverables
 
 - [x] **D1 — Row model + Advanced flag audit.**
-  New `src/renderer/src/modules/config/lib/cvar-rows.ts` + `lib/cvar-rows.test.ts`; data-only edit
-  to `src/shared/config/cvar-catalog.ts` (`common:` on all 30 entries).
-  Mirror: `modules/config/lib/engine-scope.ts` (pure module + colocated test).
-  *Accept:* `npm test` green; tests cover group order (Player·Network·Graphics·Sound), per-group
-  `total`/`changed`, toggle normalisation (`1`/`true`), filter over name+label+description,
-  `changedOnly`, `showAdvanced` incl. "filter hit inside Advanced is revealed", and that an
-  engine-absent cvar resolves its default without inventing engine numbers.
+      New `src/renderer/src/modules/config/lib/cvar-rows.ts` + `lib/cvar-rows.test.ts`; data-only edit
+      to `src/shared/config/cvar-catalog.ts` (`common:` on all 30 entries).
+      Mirror: `modules/config/lib/engine-scope.ts` (pure module + colocated test).
+      _Accept:_ `npm test` green; tests cover group order (Player·Network·Graphics·Sound), per-group
+      `total`/`changed`, toggle normalisation (`1`/`true`), filter over name+label+description,
+      `changedOnly`, `showAdvanced` incl. "filter hit inside Advanced is revealed", and that an
+      engine-absent cvar resolves its default without inventing engine numbers.
 
 - [x] **D2 — Dense row: grid, controls, value cell, changed accent, reset.**
-  `src/renderer/src/modules/config/components/CvarRow.tsx`, `src/renderer/src/i18n/locales/en.json`.
-  Mirror: current `CvarRow.tsx` for the control dispatch, `components/ui/controls.tsx` for field
-  styling.
-  *Accept:* a row is one grid (label · control · value · reset); text/select/toggle/slider+number
-  each render for their kind; the value cell shows the effective value plus `= default` or
-  `default · min–max`; a changed row carries the 2 px left accent; reset is always visible and
-  disabled exactly when the value equals the default; the description truncates to one line and
-  expands on hover; no raw hex in the file.
+      `src/renderer/src/modules/config/components/CvarRow.tsx`, `src/renderer/src/i18n/locales/en.json`.
+      Mirror: current `CvarRow.tsx` for the control dispatch, `components/ui/controls.tsx` for field
+      styling.
+      _Accept:_ a row is one grid (label · control · value · reset); text/select/toggle/slider+number
+      each render for their kind; the value cell shows the effective value plus `= default` or
+      `default · min–max`; a changed row carries the 2 px left accent; reset is always visible and
+      disabled exactly when the value equals the default; the description truncates to one line and
+      expands on hover; no raw hex in the file.
 
 - [x] **D3 — Inline engine caveats and the absent-on-engine row.**
-  `src/renderer/src/modules/config/components/CvarRow.tsx` (flag sub-row only),
-  `src/renderer/src/i18n/locales/en.json`.
-  *Accept:* note / clamp / mod-dependent / cross-engine disagreement render as a full-width flag
-  row inside the affected row and name the other assigned engines' numbers; an absent cvar is
-  dimmed, its control and reset disabled, value cell reads "not on <engine>"; with no engine in
-  scope no default, range or note is attributed to any engine (story 009 honesty rule);
-  `src/shared/config/cvar-facts.ts` and `lib/validation-scope.ts` are not modified.
+      `src/renderer/src/modules/config/components/CvarRow.tsx` (flag sub-row only),
+      `src/renderer/src/i18n/locales/en.json`.
+      _Accept:_ note / clamp / mod-dependent / cross-engine disagreement render as a full-width flag
+      row inside the affected row and name the other assigned engines' numbers; an absent cvar is
+      dimmed, its control and reset disabled, value cell reads "not on <engine>"; with no engine in
+      scope no default, range or note is attributed to any engine (story 009 honesty rule);
+      `src/shared/config/cvar-facts.ts` and `lib/validation-scope.ts` are not modified.
 
 - [x] **D4 — Tab shell: capped width, header bar, sticky groups, Advanced collapse, legend.**
-  `src/renderer/src/modules/config/SettingsTab.tsx`, `src/renderer/src/i18n/locales/en.json`.
-  Mirror: `modules/config/CleanupPanel.tsx` for the confirm `Modal`, `ConfigView.tsx:203` for the
-  capped wrapper.
-  *Accept:* content capped at ~1000 px; the two hard-coded panels are gone; a sticky group header
-  per real group showing "n · m changed"; header shows "n cvars · m changed" plus filter box and
-  changed-only toggle (both session-local, reset on profile switch); Advanced collapse per group;
-  "Reset all" opens a confirm dialog naming the count and clears only catalogue keys; the legend
-  explains the accent bar and `= default`; `EngineScopeSelect` still sits above the list;
-  `SAVE_DEBOUNCE_MS`, `scheduleSave`, `handleChange` and the failure-path
-  `patch({ cvars: profile.cvars })` are unchanged and `lib/useProfileDraft.ts` is untouched.
+      `src/renderer/src/modules/config/SettingsTab.tsx`, `src/renderer/src/i18n/locales/en.json`.
+      Mirror: `modules/config/CleanupPanel.tsx` for the confirm `Modal`, `ConfigView.tsx:203` for the
+      capped wrapper.
+      _Accept:_ content capped at ~1000 px; the two hard-coded panels are gone; a sticky group header
+      per real group showing "n · m changed"; header shows "n cvars · m changed" plus filter box and
+      changed-only toggle (both session-local, reset on profile switch); Advanced collapse per group;
+      "Reset all" opens a confirm dialog naming the count and clears only catalogue keys; the legend
+      explains the accent bar and `= default`; `EngineScopeSelect` still sits above the list;
+      `SAVE_DEBOUNCE_MS`, `scheduleSave`, `handleChange` and the failure-path
+      `patch({ cvars: profile.cvars })` are unchanged and `lib/useProfileDraft.ts` is untouched.
 
 - [x] **D5 — Token/a11y pass, documented deviation, live smoke.**
-  `src/renderer/src/modules/config/**` (fixes only), `CLAUDE.md` (deviation note), screenshots via
-  the story 026 harness.
-  *Accept:* no hex literal and no raw palette class in the touched files; every interactive element
-  has a visible `:focus-visible` ring; "changed", "disabled" and "caveat" are each conveyed by more
-  than colour; the switch honours `prefers-reduced-motion`; CLAUDE.md records the desktop-density
-  deviation with its reason; harness screenshot of the Settings tab plus an axe run with no new
-  violations; `npm run build`, `npm run typecheck`, `npm test` green.
+      `src/renderer/src/modules/config/**` (fixes only), `CLAUDE.md` (deviation note), screenshots via
+      the story 026 harness.
+      _Accept:_ no hex literal and no raw palette class in the touched files; every interactive element
+      has a visible `:focus-visible` ring; "changed", "disabled" and "caveat" are each conveyed by more
+      than colour; the switch honours `prefers-reduced-motion`; CLAUDE.md records the desktop-density
+      deviation with its reason; harness screenshot of the Settings tab plus an axe run with no new
+      violations; `npm run build`, `npm run typecheck`, `npm test` green.
 
 **AC coverage:** width cap → D4, row grid → D2 · real groups + sticky "n · m changed" → D1+D4 ·
 label/mono name/hover description → D2 · control per kind → D2 · value + default/range or
@@ -257,6 +257,7 @@ claim), no regression against AC1-12 or story 009's autosave/facts/honesty-rule 
 weakened or deleted.
 
 **Deliberately unfixed (low/cosmetic, noted by the reviewer, not required to be fixed):**
+
 - `NUMERIC_FIELD`'s `focus:outline-none` cancels the global focus-visible ring — a pre-existing
   shell (`FIELD_BASE`) convention, not introduced by this story.
 - The slider's numeric-companion `aria-label` reads "Current value" on every row rather than
@@ -270,6 +271,7 @@ weakened or deleted.
   rather than the prototype's terser "n · m changed" — information is identical, wording differs.
 
 **Decisions (implementation, beyond the pre-filled sprint decisions):**
+
 - D1's `buildCvarGroups` filter accepts optional `labelText`/`descriptionText` resolvers so
   `SettingsTab.tsx` can pass real translated strings via `t()`, keeping `cvar-rows.ts` free of any
   i18n import (still a pure module) while satisfying "filter matches label and description" against

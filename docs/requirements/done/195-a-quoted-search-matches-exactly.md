@@ -21,7 +21,7 @@ Concept: [game-browser.md](../concepts/game-browser.md) §8, GB-L5.
       equals the server name, the address, or a player name in full, case-insensitively.
 - [x] **AC2** — A search term without quotes behaves exactly as before: case-insensitive substring
       on name, address and (where fetched) player names.
-- [x] **AC3** — Quotes with surrounding whitespace (` "ffa" `) count as quoted; whitespace inside
+- [x] **AC3** — Quotes with surrounding whitespace (`"ffa"`) count as quoted; whitespace inside
       the quotes is part of the term.
 - [x] **AC4** — A term with an opening quote and no closing one (`"ffa`), or empty quotes (`""`),
       is treated as plain substring text, never as an error and never as "match everything".
@@ -82,25 +82,25 @@ code change (`isFilterActive` already treats any non-blank search as active).
   Files: `src/shared/servers/list-filter.ts`, `src/shared/servers/list-filter.test.ts` (mirror the
   existing `describe('search matches …')` blocks around lines 233 and 255).
   In `matchesSearch(row, term)`: let `raw = term.trim()`. If `raw.length >= 3 &&
-  raw.startsWith('"') && raw.endsWith('"')`, the term is quoted: `inner = raw.slice(1, -1)
-  .toLowerCase()` (do **not** trim `inner`); the row matches when `row.name?.toLowerCase() ===
-  inner`, or `row.address.toLowerCase() === inner`, or — only when `Array.isArray(row.players)` —
+raw.startsWith('"') && raw.endsWith('"')`, the term is quoted: `inner = raw.slice(1, -1)
+.toLowerCase()` (do **not** trim `inner`); the row matches when `row.name?.toLowerCase() ===
+inner`, or `row.address.toLowerCase() === inner`, or — only when `Array.isArray(row.players)` —
   some `player.name.toLowerCase() === inner`. Otherwise run the existing substring logic
   unchanged (`raw.toLowerCase()`, empty → true). No high-bit/`& 0x7f` normalisation, no trimming
   of field values. Only double quotes count; single quotes are literal text. Never throws.
   Update the JSDoc to describe the quoted mode. Add one `describe` per behaviour with these
   test names:
   - `describe('a quoted search matches name, address or player name in full')` — `'"ffa"' matches
-    a row named "FFA" but not "FFA Classic"`, `matches an address exactly`, `matches a roster
-    player exactly but not a longer name containing it`, `is case-insensitive`.
+a row named "FFA" but not "FFA Classic"`, `matches an address exactly`, `matches a roster
+player exactly but not a longer name containing it`, `is case-insensitive`.
   - `describe('quotes with surrounding whitespace still count as quoted')` — `' "ffa" ' is exact`,
     `whitespace inside the quotes is part of the term` (`'" ffa"'` does not match "ffa").
   - `describe('a malformed quote is plain substring text')` — `an unclosed quote is a substring
-    search`, `empty quotes do not match everything`, `a lone quote does not match everything`,
+search`, `empty quotes do not match everything`, `a lone quote does not match everything`,
     `a single-quoted term is plain substring text`.
   - `describe('a quoted search matches player names only where a roster was fetched')` — numeric
     count and undefined `players` never match on a player name.
-  Existing search tests must stay green unchanged (that is AC2's proof).
+    Existing search tests must stay green unchanged (that is AC2's proof).
 
 - **D2 — discoverable hint, end-to-end flow, changelog.**
   Files: `src/renderer/src/i18n/locales/en.json` (key `servers.filter.searchPlaceholder`, ~line
@@ -115,12 +115,12 @@ code change (`isFilterActive` already treats any non-blank search as active).
   Flow fixture, three responders: **A** hostname `FFA`, players `"Zulu"`; **B** hostname
   `FFA Classic`, players `"Zulu2"`; **C** hostname `Cellar`, no players. Steps (each fills
   `servers-filter-search`, asserts the visible set, then clears):
-  - `ffa` → A, B (substring unchanged); `"ffa"` → A only; ` "ffa" ` → A only;
+  - `ffa` → A, B (substring unchanged); `"ffa"` → A only; `"ffa"` → A only;
   - `"zulu"` → A only (exact player); `zulu` → A, B;
   - `"ffa` → no rows (unclosed = literal substring `"ffa`); `""` → no rows, the no-match line is visible;
   - placeholder: the input's `placeholder` attribute contains `"quotes"`.
-  Run with `npm run ui:flow -- servers-quoted-search`; also re-run
-  `npm run ui:flow -- servers-filter-search` to confirm the existing search is untouched.
+    Run with `npm run ui:flow -- servers-quoted-search`; also re-run
+    `npm run ui:flow -- servers-filter-search` to confirm the existing search is untouched.
 
 ## Model Hints
 
@@ -133,13 +133,13 @@ Review: → default
 
 - AC1 → unit `src/shared/servers/list-filter.test.ts` › "a quoted search matches name, address or
   player name in full"; e2e `scripts/flows/servers-quoted-search.mjs` (`npm run ui:flow --
-  servers-quoted-search`), steps `"ffa"` → A and `"zulu"` → A.
+servers-quoted-search`), steps `"ffa"` → A and `"zulu"` → A.
 - AC2 → unit `src/shared/servers/list-filter.test.ts` › existing "search matches server name or
   address for every row" and "search matches player names only where a roster was fetched"
   (unchanged); e2e `servers-quoted-search` steps `ffa` → A, B and `zulu` → A, B; regression e2e
   `servers-filter-search`.
 - AC3 → unit `src/shared/servers/list-filter.test.ts` › "quotes with surrounding whitespace still
-  count as quoted"; e2e `servers-quoted-search` step ` "ffa" ` → A.
+  count as quoted"; e2e `servers-quoted-search` step `"ffa"` → A.
 - AC4 → unit `src/shared/servers/list-filter.test.ts` › "a malformed quote is plain substring
   text"; e2e `servers-quoted-search` steps `"ffa` → no rows and `""` → no rows.
 - AC5 → unit `src/shared/servers/list-filter.test.ts` › "a quoted search matches player names
@@ -160,6 +160,7 @@ Verification (narrow gate): `npm run build` green, `npm run typecheck` green, `n
 Open point: `npm run ui:flow -- servers-filter-search` is red at "AC1: mod=baseq2 shows B and C" (got {B}); also red on bare HEAD per the D2 agent (stash check) — pre-existing, left for the sprint gate.
 
 Decisions:
+
 - Story text said the flow step `"ffa` shows A, B. AC4 says an unclosed quote is plain substring text, i.e. the literal `"ffa`, which no fixture name contains, so the flow expects no rows; D2 and AC4 test lines corrected accordingly.
 - Test name `' "ffa" ' is exact` was written as "a quoted term padded with spaces is exact" (same assertions).
 - Changelog line follows the repo's `**Servers** —` style under Unreleased.

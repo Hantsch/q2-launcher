@@ -12,11 +12,7 @@ import type {
 import { aliasNameFor } from '@shared/config/alias-render'
 import { isDropEntry } from '@shared/config/drop-entries'
 import { scopedLogger } from '../../../lib/logger'
-import {
-  commitImportFiles,
-  previewImportFiles,
-  type CreateProfileFromImport,
-} from '../import'
+import { commitImportFiles, previewImportFiles, type CreateProfileFromImport } from '../import'
 import { PickedFilesRegistry } from '../picked-files'
 import { readImportableFiles } from './import-reader'
 
@@ -114,7 +110,8 @@ function buildExpectedPreservedLines(
   ]
 
   const dmaliasLineNumbers = [
-    1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 54, 55, 114, 120, 126, 130, 134, 146,
+    1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 54, 55, 114, 120, 126, 130, 134,
+    146,
   ]
   const expectedDmalias = dmaliasLineNumbers.map((n) => ({
     file: 'dmalias.cfg',
@@ -277,11 +274,7 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
       return stubProfiles
     }
 
-    const result = await commitPicked(
-      ['baseq2/autoexec.cfg'],
-      { name: 'Fixture' },
-      createProfile,
-    )
+    const result = await commitPicked(['baseq2/autoexec.cfg'], { name: 'Fixture' }, createProfile)
 
     expect(result).toEqual({ ok: true, value: stubProfiles })
     expect(calls).toHaveLength(1)
@@ -440,14 +433,10 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
     await buildFixtureGamedir()
 
     let actions: ConfigAction[] = []
-    const result = await commitPicked(
-      ['baseq2/autoexec.cfg'],
-      { name: 'Fixture' },
-      (input) => {
-        actions = input.actions
-        return []
-      },
-    )
+    const result = await commitPicked(['baseq2/autoexec.cfg'], { name: 'Fixture' }, (input) => {
+      actions = input.actions
+      return []
+    })
 
     expect(result.ok).toBe(true)
 
@@ -719,14 +708,10 @@ describe("story 059 D5: dm.cfg's own section banners become cvar sections", () =
     await buildFixtureGamedir()
 
     let committedCvarSections: { name: string; cvars: string[] }[] = []
-    const result = await commitPicked(
-      ['baseq2/autoexec.cfg'],
-      { name: 'Fixture' },
-      (input) => {
-        committedCvarSections = input.cvarSections
-        return []
-      },
-    )
+    const result = await commitPicked(['baseq2/autoexec.cfg'], { name: 'Fixture' }, (input) => {
+      committedCvarSections = input.cvarSections
+      return []
+    })
 
     expect(result.ok).toBe(true)
     const general = committedCvarSections.find((section) => section.name === 'General Settings')
@@ -747,15 +732,11 @@ describe("story 059 D5: dm.cfg's own section banners become cvar sections", () =
 
     let committedCvars: Record<string, string> = {}
     let committedCvarSections: { name: string; cvars: string[] }[] = []
-    const result = await commitPicked(
-      ['baseq2/autoexec.cfg'],
-      { name: 'Fixture' },
-      (input) => {
-        committedCvars = input.cvars
-        committedCvarSections = input.cvarSections
-        return []
-      },
-    )
+    const result = await commitPicked(['baseq2/autoexec.cfg'], { name: 'Fixture' }, (input) => {
+      committedCvars = input.cvars
+      committedCvarSections = input.cvarSections
+      return []
+    })
 
     expect(result.ok).toBe(true)
     // The engine's own semantics: the later `set` really did win.
@@ -794,15 +775,11 @@ describe("story 059 D5: dm.cfg's own section banners become cvar sections", () =
 
     let committedCvars: Record<string, string> = {}
     let committedCvarSections: { name: string; cvars: string[] }[] = []
-    const result = await commitPicked(
-      ['baseq2/config.cfg'],
-      { name: 'Fixture' },
-      (input) => {
-        committedCvars = input.cvars
-        committedCvarSections = input.cvarSections
-        return []
-      },
-    )
+    const result = await commitPicked(['baseq2/config.cfg'], { name: 'Fixture' }, (input) => {
+      committedCvars = input.cvars
+      committedCvarSections = input.cvarSections
+      return []
+    })
 
     expect(result.ok).toBe(true)
     // The value stored is the LAST `set` - "Second Banner"'s "2", not "First Banner"'s "1".
@@ -834,14 +811,10 @@ describe("story 059 D5: dm.cfg's own section banners become cvar sections", () =
     expect(preview.value.cvarSections).toEqual([])
 
     let committedCvarSections: unknown
-    const commitResult = await commitPicked(
-      ['baseq2/config.cfg'],
-      { name: 'Fixture' },
-      (input) => {
-        committedCvarSections = input.cvarSections
-        return []
-      },
-    )
+    const commitResult = await commitPicked(['baseq2/config.cfg'], { name: 'Fixture' }, (input) => {
+      committedCvarSections = input.cvarSections
+      return []
+    })
     expect(commitResult.ok).toBe(true)
     expect(committedCvarSections).toEqual([])
   })

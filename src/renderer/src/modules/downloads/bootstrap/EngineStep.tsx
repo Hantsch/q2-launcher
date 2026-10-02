@@ -2,7 +2,10 @@ import { useTranslation } from 'react-i18next'
 import { Check, ExternalLink, FolderOpen } from 'lucide-react'
 import { engineLabel } from '@shared/types/engine'
 import type { EngineKind } from '@shared/types'
-import type { BootstrapEngineOption, BootstrapEngineOptionsEmptyReason } from '@shared/modules/downloads'
+import type {
+  BootstrapEngineOption,
+  BootstrapEngineOptionsEmptyReason,
+} from '@shared/modules/downloads'
 import { invoke } from '../../../lib/bridge'
 import { Button } from '../../../components/ui/Button'
 import { EmptyState, Panel } from '../../../components/ui/primitives'
@@ -61,10 +64,14 @@ export function EngineStep({
       <Panel data-testid="bootstrap-engine-empty">
         <EmptyState
           title={t(
-            isPlatformGap ? 'bootstrapWizard.engine.empty.platformTitle' : 'bootstrapWizard.engine.empty.title',
+            isPlatformGap
+              ? 'bootstrapWizard.engine.empty.platformTitle'
+              : 'bootstrapWizard.engine.empty.title',
           )}
           body={t(
-            isPlatformGap ? 'bootstrapWizard.engine.empty.platformBody' : 'bootstrapWizard.engine.empty.body',
+            isPlatformGap
+              ? 'bootstrapWizard.engine.empty.platformBody'
+              : 'bootstrapWizard.engine.empty.body',
           )}
           actions={
             <Button

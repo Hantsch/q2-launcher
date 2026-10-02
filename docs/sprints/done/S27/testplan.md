@@ -19,6 +19,7 @@ Preparation: a running Q2 Launcher build with at least one indexed demo (loose f
 entry) visible in the Demos list.
 
 Steps:
+
 1. Open the Demos view and select a demo from the list.
 2. In its detail panel, click "Reveal in file manager".
 3. Repeat for a demo inside a `.zip` archive.

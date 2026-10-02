@@ -12,7 +12,11 @@ import {
 } from './quick-filters'
 
 const none = criteriaOf(EMPTY_SERVER_LIST_FILTER)
-const q = (id: string, name: string): QuickFilter => ({ id, name, criteria: { ...none, empty: true } })
+const q = (id: string, name: string): QuickFilter => ({
+  id,
+  name,
+  criteria: { ...none, empty: true },
+})
 
 describe('quick filter criteria', () => {
   it('criteriaOf drops the search and keeps the rest', () => {
@@ -32,7 +36,9 @@ describe('quick filter criteria', () => {
   })
 
   it('sameCriteria compares mod and map case-insensitively and the rest exactly', () => {
-    expect(sameCriteria({ ...none, mod: 'CTF', map: 'Q2DM1' }, { ...none, mod: 'ctf', map: 'q2dm1' })).toBe(true)
+    expect(
+      sameCriteria({ ...none, mod: 'CTF', map: 'Q2DM1' }, { ...none, mod: 'ctf', map: 'q2dm1' }),
+    ).toBe(true)
     expect(sameCriteria({ ...none, mod: 'ctf' }, none)).toBe(false)
     expect(sameCriteria({ ...none, gamemode: 'ctf' }, { ...none, gamemode: 'team' })).toBe(false)
     expect(sameCriteria({ ...none, hideBotsOnly: true }, none)).toBe(false)

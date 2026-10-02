@@ -191,7 +191,10 @@ export function sortDemoRows<T>(
  * that column at its natural direction; clicking the same column again reverses it; clicking it a
  * third time returns to the default order (`null`).
  */
-export function nextSort(current: DemoListSort | null, column: DemoSortColumn): DemoListSort | null {
+export function nextSort(
+  current: DemoListSort | null,
+  column: DemoSortColumn,
+): DemoListSort | null {
   if (current === null || current.column !== column) {
     return { column, direction: NATURAL_DIRECTION[column] }
   }

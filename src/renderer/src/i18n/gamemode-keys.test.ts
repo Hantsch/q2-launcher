@@ -10,7 +10,13 @@ import { GAMEMODE_I18N_KEYS } from '../../../shared/demos/gamemode'
 function stringAt(path: string): unknown {
   return path
     .split('.')
-    .reduce<unknown>((acc, key) => (acc && typeof acc === 'object' && key in acc ? (acc as Record<string, unknown>)[key] : undefined), en)
+    .reduce<unknown>(
+      (acc, key) =>
+        acc && typeof acc === 'object' && key in acc
+          ? (acc as Record<string, unknown>)[key]
+          : undefined,
+      en,
+    )
 }
 
 describe('gamemode i18n keys', () => {

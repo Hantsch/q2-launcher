@@ -6,7 +6,7 @@ file is written structured, commented and human-readable), **041** (import under
 press/release pairs and `unbindall`).
 
 Every step below is a real action in the running app: clicking, typing, opening a dialog. The only
-place a console/terminal is used is to *start* the app (and, for story 041, to copy three fixture
+place a console/terminal is used is to _start_ the app (and, for story 041, to copy three fixture
 files into a folder before starting it) — never as a substitute for a UI action.
 
 ## Preparation
@@ -63,7 +63,7 @@ files into a folder before starting it) — never as a substitute for a UI actio
 - Switch to tab **Raw file**.
 - **Expected:** the file contains `alias ssg_sg "use super shotgun; use shotgun"` and
   `bind q "ssg_sg"` — a short, lowercase, prefix-free name derived from the display name, with no
-  `q2l_a_` fragment anywhere. (This also confirms story 038's AC2: this alias line *is* referenced
+  `q2l_a_` fragment anywhere. (This also confirms story 038's AC2: this alias line _is_ referenced
   by its own bind, so — unlike use case 1 — it is correctly kept, not dropped.)
 
 ### 3. The own alias-name field rejects bad input and accepts good input
@@ -114,7 +114,7 @@ files into a folder before starting it) — never as a substitute for a UI actio
 - Now also type a value into **Alias name** (e.g. `ssg_sg2`, repeating the current name to pin it),
   keeping the new display name. **Expected:** the refusal disappears and **Save** is enabled;
   saving succeeds.
-- Switch to tab **Care**: if you typed a *different* alias name than `ssg_sg2` above, the hand-typed
+- Switch to tab **Care**: if you typed a _different_ alias name than `ssg_sg2` above, the hand-typed
   bind on `V` now shows an "undefined alias" finding — expected, since only the display-name-driven
   default would have been rewritten automatically, and it deliberately is not.
 
@@ -137,7 +137,7 @@ files into a folder before starting it) — never as a substitute for a UI actio
     `ssg_sg`-family alias lines from story 039's use cases, each ending in a readable trailing
     comment, e.g. `alias ssg_sg2   "use super shotgun; use shotgun"   // SSG + SG`.
   - A binds section further down with `bind q "ssg_sg2"   // SSG + SG` and `bind c "+movedown"   //
-    Crouch`, also column-aligned.
+Crouch`, also column-aligned.
   - Search/highlighting still works and still colours commands, keys, strings and comments
     differently (use the search box to find `ssg_sg2` — it should still highlight inside the
     comment too).
@@ -231,7 +231,7 @@ exception:
   profile and is explicitly left unticked in the story file pending that specific manual run — it
   is not reproducible generically, since this session has no access to that profile. The underlying
   mechanism it exercises (a directly-bindable action never gets a dead alias line; an alias that
-  *is* referenced keeps its line) is fully covered above by use cases 1 and 2, built live through
+  _is_ referenced keeps its line) is fully covered above by use cases 1 and 2, built live through
   the UI. If you have your own long-lived profile carrying legacy `q2l_a_*` lines, opening it and
   saving once should show the same removal — that is an easy additional spot check, not a gap in
   what this plan verifies.

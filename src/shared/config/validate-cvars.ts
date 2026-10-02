@@ -72,7 +72,11 @@ export function validateCvars(cvars: Record<string, string>, engine: EngineKind)
       // See the file-level doc comment: an info note still explains the
       // value (no range check below) but is not reported as its own finding.
       if (note.level !== 'info') {
-        const params: Record<string, string | number> = { name: def.name, value, engine: engineName }
+        const params: Record<string, string | number> = {
+          name: def.name,
+          value,
+          engine: engineName,
+        }
         findings.push({
           id: `cvar-note-${def.name}`,
           level: note.level,
@@ -105,7 +109,12 @@ export function validateCvars(cvars: Record<string, string>, engine: EngineKind)
         const above = resolved.max !== undefined && numeric > resolved.max
         if (below || above) {
           const bound = below ? resolved.min! : resolved.max!
-          const params: Record<string, string | number> = { name: def.name, value, engine: engineName, bound }
+          const params: Record<string, string | number> = {
+            name: def.name,
+            value,
+            engine: engineName,
+            bound,
+          }
           if (resolved.min !== undefined) params.min = resolved.min
           if (resolved.max !== undefined) params.max = resolved.max
 

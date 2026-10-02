@@ -17,7 +17,12 @@ afterEach(() => {
   cleanup()
 })
 
-function renderBar(filter: ServerListFilter, onChange: (f: ServerListFilter) => void, shown = 2, total = 2) {
+function renderBar(
+  filter: ServerListFilter,
+  onChange: (f: ServerListFilter) => void,
+  shown = 2,
+  total = 2,
+) {
   render(
     createElement(ServerListFilterBar, {
       filter,
@@ -77,7 +82,10 @@ describe('ServerListFilterBar - each control writes its own field (story 120 D2)
     expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, hideBotsOnly: true })
 
     fireEvent.click(screen.getByTestId('servers-filter-waiting'))
-    expect(onChange).toHaveBeenLastCalledWith({ ...EMPTY_SERVER_LIST_FILTER, waitingForOpponent: true })
+    expect(onChange).toHaveBeenLastCalledWith({
+      ...EMPTY_SERVER_LIST_FILTER,
+      waitingForOpponent: true,
+    })
   })
 
   it('a selected mod/map not present in options still renders as the selected value', () => {
@@ -157,9 +165,17 @@ describe('ServerListFilterBar - saved quick filters (story 197 D3)', () => {
     void _search
     return rest
   }
-  const ctf: QuickFilter = { id: 'q1', name: 'CTF night', criteria: { ...crit, mod: 'ctf', waitingForOpponent: true } }
+  const ctf: QuickFilter = {
+    id: 'q1',
+    name: 'CTF night',
+    criteria: { ...crit, mod: 'ctf', waitingForOpponent: true },
+  }
 
-  function renderWith(filter: ServerListFilter, onChange = vi.fn(), quickFilters: QuickFilter[] = [ctf]) {
+  function renderWith(
+    filter: ServerListFilter,
+    onChange = vi.fn(),
+    quickFilters: QuickFilter[] = [ctf],
+  ) {
     render(
       createElement(ServerListFilterBar, {
         filter,
@@ -176,19 +192,27 @@ describe('ServerListFilterBar - saved quick filters (story 197 D3)', () => {
 
   it('save as quick filter is disabled with a reason without criteria or at the cap', () => {
     renderWith(EMPTY_SERVER_LIST_FILTER, vi.fn(), [])
-    expect((screen.getByTestId('servers-quickfilter-save') as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByTestId('servers-quickfilter-save') as HTMLButtonElement).disabled).toBe(
+      true,
+    )
     expect(screen.getByTestId('servers-quickfilter-save-reason').textContent).toContain('Set a mod')
     cleanup()
 
     renderWith({ ...EMPTY_SERVER_LIST_FILTER, mod: 'ctf' }, vi.fn(), [])
-    expect((screen.getByTestId('servers-quickfilter-save') as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByTestId('servers-quickfilter-save') as HTMLButtonElement).disabled).toBe(
+      false,
+    )
     expect(screen.queryByTestId('servers-quickfilter-save-reason')).toBeNull()
     cleanup()
 
     const eight = Array.from({ length: 8 }, (_, i) => ({ ...ctf, id: `q${i}`, name: `n${i}` }))
     renderWith({ ...EMPTY_SERVER_LIST_FILTER, mod: 'ctf' }, vi.fn(), eight)
-    expect((screen.getByTestId('servers-quickfilter-save') as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByTestId('servers-quickfilter-save-reason').textContent).toContain('delete one first')
+    expect((screen.getByTestId('servers-quickfilter-save') as HTMLButtonElement).disabled).toBe(
+      true,
+    )
+    expect(screen.getByTestId('servers-quickfilter-save-reason').textContent).toContain(
+      'delete one first',
+    )
   })
 
   it('a quick filter chip shows pressed with a check mark when the filter equals it', () => {

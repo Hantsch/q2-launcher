@@ -27,7 +27,11 @@ import {
   previewCommand,
   resolveEffectiveUserinfo,
 } from './launch-plan'
-import { openPlaybackSession, type PlaybackSession, type PlaybackSessionHandle } from './playback-session'
+import {
+  openPlaybackSession,
+  type PlaybackSession,
+  type PlaybackSessionHandle,
+} from './playback-session'
 import { detectRunners, needsCompatRunner, resolveRunner } from './runners'
 import type { InstallationsService } from './installations'
 import type { WriteLockReader } from './write-guard'
@@ -82,7 +86,10 @@ function steamHandoffPlan(
   if (runner?.kind !== 'steam' || !installation.steamAppId) return undefined
   const table = STEAM_APP_CLIENTS[installation.steamAppId]
   if (!table) return undefined
-  const url = steamLaunchUrl(installation.steamAppId, installation.steamClient ?? table.defaultIndex)
+  const url = steamLaunchUrl(
+    installation.steamAppId,
+    installation.steamClient ?? table.defaultIndex,
+  )
   if (!url) {
     log.warn(
       `not handing ${installation.id} to Steam: client ${String(installation.steamClient)} is not listed for app ${installation.steamAppId}`,
@@ -206,7 +213,9 @@ export class LaunchService {
         // Story 125: a steam:// URL has no way to carry `+connect` (or the connect cfg's
         // `+exec`), so a join through Steam would silently land in the menu instead.
         if (input.connect) {
-          log.warn(`refused to join a server through Steam for ${installation.id}: needs a direct launch`)
+          log.warn(
+            `refused to join a server through Steam for ${installation.id}: needs a direct launch`,
+          )
           return fail('launch.error.connectNeedsDirectLaunch')
         }
         return ok(handoff)
@@ -307,7 +316,9 @@ export class LaunchService {
   terminatePlayback(): boolean {
     const child = this.playbackChild
     if (!child) return false
-    log.warn(`terminating the playback launch${child.pid !== undefined ? ` (pid ${String(child.pid)})` : ''}`)
+    log.warn(
+      `terminating the playback launch${child.pid !== undefined ? ` (pid ${String(child.pid)})` : ''}`,
+    )
     child.kill()
     return true
   }
@@ -316,7 +327,10 @@ export class LaunchService {
    * `options.playback` (story 163 D1) is main-only - deliberately not part of `LaunchInput` or its
    * schema, so the renderer cannot ask for piped stdio on an ordinary Play/Join/Spectate.
    */
-  async start(input: LaunchInput, options?: { playback?: true; demo?: true }): Promise<Outcome<LaunchState>> {
+  async start(
+    input: LaunchInput,
+    options?: { playback?: true; demo?: true },
+  ): Promise<Outcome<LaunchState>> {
     // Story 125 review fix: `phase` only becomes `'starting'` after the sweep, `plan()` and the
     // connect-cfg write have all been awaited, so on its own `isRunning()` would let a second,
     // overlapping `start()` (a double-clicked Join) through - and its sweep would delete this
@@ -349,7 +363,11 @@ export class LaunchService {
   }
 
   /** `start()` past its guards, with the in-flight reservation held - see `startInFlight`. */
-  private async startReserved(input: LaunchInput, playback: boolean, demo = false): Promise<Outcome<LaunchState>> {
+  private async startReserved(
+    input: LaunchInput,
+    playback: boolean,
+    demo = false,
+  ): Promise<Outcome<LaunchState>> {
     // Story 125: every launch counts, so an event arriving late from an earlier, already
     // finished launch can never remove the connect cfg this one is about to write.
     const launchSeq = ++this.launchSeq
@@ -370,7 +388,9 @@ export class LaunchService {
       // Story 163 D1: a steam:// URL starts the game somewhere we hold no pipes to, so a playback
       // launch through Steam would play nothing it could steer. Refused before any state change.
       if (playback) {
-        log.warn(`refused to play a demo through Steam for ${input.installationId}: needs a direct launch`)
+        log.warn(
+          `refused to play a demo through Steam for ${input.installationId}: needs a direct launch`,
+        )
         return fail('launch.error.playbackNeedsDirectLaunch')
       }
       return this.handOff(input.installationId, planned.value)

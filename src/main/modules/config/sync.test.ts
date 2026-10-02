@@ -223,12 +223,16 @@ describe('syncProfile', () => {
     const uncreatableBaseDir = join(blocker, 'sub', 'userData')
 
     const p = profile({ assignments: [] })
-    const run = syncProfile(deps({ profile: p, allProfiles: [p], canonicalBaseDir: uncreatableBaseDir }))
+    const run = syncProfile(
+      deps({ profile: p, allProfiles: [p], canonicalBaseDir: uncreatableBaseDir }),
+    )
 
     if (process.platform === 'win32') {
       const result = await run
       expect(result.state.own.status).toBe('missing')
-      expect(result.writeFailures['p1|own']).toMatchObject({ messageKey: 'config.error.writeFailed' })
+      expect(result.writeFailures['p1|own']).toMatchObject({
+        messageKey: 'config.error.writeFailed',
+      })
     } else {
       await expect(run).rejects.toMatchObject({ code: 'ENOTDIR' })
     }
@@ -643,7 +647,11 @@ describe('syncProfile', () => {
       // The save's run: the profile's baseline is the OLD file's hash (the caller reseeds it from
       // `canonicalHashes` afterwards), the canonical write goes first, and the copy must say what
       // the file says NOW - not the bytes the write decision was made from.
-      const saved = { ...p, cvars: { sensitivity: '42' }, fileHash: hashCanonicalFileContent(before) }
+      const saved = {
+        ...p,
+        cvars: { sensitivity: '42' },
+        fileHash: hashCanonicalFileContent(before),
+      }
 
       const result = await syncProfile(
         deps({
@@ -711,7 +719,11 @@ describe('syncProfile', () => {
       const cleanP2 = { ...p2, fileHash: hashCanonicalFileContent(handFormatted) }
       // p1 is renamed to "Two" and saved. Both profiles share `createdAt`, so `p1` wins the tie on
       // id and claims `Two.cfg`; p2 is displaced to `Two-2.cfg`.
-      const renamed = { ...p1, name: 'Two', fileHash: hashCanonicalFileContent(await read(userDataDir, 'One.cfg')) }
+      const renamed = {
+        ...p1,
+        name: 'Two',
+        fileHash: hashCanonicalFileContent(await read(userDataDir, 'One.cfg')),
+      }
 
       const result = await syncProfile(
         deps({

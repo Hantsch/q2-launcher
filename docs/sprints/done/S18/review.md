@@ -6,17 +6,17 @@ Goal: two demonstrable things. R1Q2 as a second installable engine through the b
 and a `home` module showing a live community news hero over a user-arranged dashboard with two
 real tiles. Both are done — all 8 stories shipped, none blocked.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 080 — Install R1Q2 from the community package | done | `97e55d1` |
-| 081 — The home screen belongs to a home module | done | `8a8eebb` |
-| 082 — The launcher fetches the community news feed | done | `6ff9d7b` |
-| 085 — The content repository carries the news contract | done | `82b28c6` |
-| 083 — The hero is the news carousel | done | `b8f63ed` |
-| 084 — Slide images come from the launcher's own cache | done | `cba509e` |
-| 086 — The dashboard is a grid I arrange myself | done | `b69c8a0` |
-| 087 — Two tiles worth having — playtime and config profiles | done | `af00e38` |
-| — regression fix (news startup fetch vs. harness gate) | done | `c2633d0` |
+| Story                                                       | Status | Commit    |
+| ----------------------------------------------------------- | ------ | --------- |
+| 080 — Install R1Q2 from the community package               | done   | `97e55d1` |
+| 081 — The home screen belongs to a home module              | done   | `8a8eebb` |
+| 082 — The launcher fetches the community news feed          | done   | `6ff9d7b` |
+| 085 — The content repository carries the news contract      | done   | `82b28c6` |
+| 083 — The hero is the news carousel                         | done   | `b8f63ed` |
+| 084 — Slide images come from the launcher's own cache       | done   | `cba509e` |
+| 086 — The dashboard is a grid I arrange myself              | done   | `b69c8a0` |
+| 087 — Two tiles worth having — playtime and config profiles | done   | `af00e38` |
+| — regression fix (news startup fetch vs. harness gate)      | done   | `c2633d0` |
 
 ## Implemented stories
 
@@ -69,7 +69,7 @@ real tiles. Both are done — all 8 stories shipped, none blocked.
   `refreshNews()` call whenever the UI-verification harness flag was set at all — not only when no
   fixture base was configured. That silently broke story 082's own AC1 and its `news-feed.mjs`
   acceptance flow (which sets a real loopback base and expects a live fetch). Each story's own
-  per-story verification passed because no story re-ran an *earlier* story's flow after building on
+  per-story verification passed because no story re-ran an _earlier_ story's flow after building on
   top of it; only running all seven flows together, after 087, surfaced it. Fixed in `c2633d0` by
   removing the redundant outer gate — `resolveNewsSource()` already distinguishes "harness, no base
   → skip" from "harness, base configured → fetch" correctly, and now the caller only ever asks it

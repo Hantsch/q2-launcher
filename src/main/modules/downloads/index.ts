@@ -31,11 +31,7 @@ import { userDataDir } from '../../lib/paths'
 import type { AppContext } from '../../context'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from './7za-path'
-import {
-  buildBootstrapSummary,
-  startBootstrap,
-  type BootstrapDeps,
-} from './bootstrap/job'
+import { buildBootstrapSummary, startBootstrap, type BootstrapDeps } from './bootstrap/job'
 import { inspectGameDataSource } from './bootstrap/game-data-source'
 import {
   manifestSourceFrom,
@@ -194,7 +190,12 @@ export const downloadsModule: MainModule = {
         for (const engine of BOOTSTRAP_SUPPORTED_ENGINES) {
           const pkg = manifestService.pinnedEnginePackage(engine)
           if (pkg === undefined) continue
-          options.push({ engine, packageId: pkg.id, version: pkg.version, sizeBytes: pkg.sizeBytes })
+          options.push({
+            engine,
+            packageId: pkg.id,
+            version: pkg.version,
+            sizeBytes: pkg.sizeBytes,
+          })
         }
 
         if (options.length > 0) return { options, emptyReason: null }
@@ -355,7 +356,10 @@ export const downloadsModule: MainModule = {
       DOWNLOADS_HANDLERS.engineUpdateStart,
       startEngineUpdateInputSchema,
       async (input): Promise<Outcome<StartEngineUpdateResult>> => {
-        const started = await startEngineUpdate(engineUpdateDepsFor(app, manifestService, log), input)
+        const started = await startEngineUpdate(
+          engineUpdateDepsFor(app, manifestService, log),
+          input,
+        )
         if (!started.ok) return started
         return ok({ jobId: started.value.jobId })
       },
@@ -512,8 +516,10 @@ export const downloadsModule: MainModule = {
 
     // Story 072 D4 (AC3): the archive cache's current size/count - a thin pass-through to D3's
     // `cache.status`, which already owns the "what counts as evictable" rule.
-    handle(DOWNLOADS_HANDLERS.cacheStatus, downloadsNoInputSchema, (): Promise<ArchiveCacheStatus> =>
-      status({ userDataPath: userDataDir(), log }),
+    handle(
+      DOWNLOADS_HANDLERS.cacheStatus,
+      downloadsNoInputSchema,
+      (): Promise<ArchiveCacheStatus> => status({ userDataPath: userDataDir(), log }),
     )
 
     // Story 072 D4 (AC4): deletes every evictable cache entry and reports exactly what went -
@@ -706,7 +712,10 @@ async function resolveEngineUpdateTarget(
     const probe = await probeBleedingEdge(engine, manifestService.pinnedEnginePackage(engine))
     return { channel: 'bleeding-edge', version: probe.version }
   } catch (error) {
-    if (error instanceof BleedingEdgeUnsupportedError || error instanceof BleedingEdgeProbeFailedError) {
+    if (
+      error instanceof BleedingEdgeUnsupportedError ||
+      error instanceof BleedingEdgeProbeFailedError
+    ) {
       log.warn(`bleeding-edge probe unavailable for engine "${engine}": ${error.message}`)
       return { channel: 'bleeding-edge', version: undefined }
     }

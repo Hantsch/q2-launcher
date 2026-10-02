@@ -39,7 +39,7 @@ story 059.
       style; story 042's round-trip property holds.
 - [x] Importing a foreign file with a main+sub header pair produces a category with a
       sub-category, not a flat `Main / Sub` category; an existing profile whose category name already
-      contains ` / ` from an earlier import is left alone - no guessing.
+      contains `/` from an earlier import is left alone - no guessing.
 - [x] Deleting a sub-category keeps its entries in the parent category.
 - [x] Overview, Aliases and Care keep working unchanged (none of them needs to show the
       sub-category); the "n rows - m bound" footer and the filter count across sub-categories.
@@ -60,7 +60,7 @@ story 059.
 - **(User)** Foreign second-level markers: the importer recognises decorated comment-only lines
   (`##### 1st row #####`-style) as sub-category headers via the repeated-decoration heuristic.
 - **Model shape:** a sub-category is nested in its category (`ConfigActionCategory.subcategories:
-  { id, name }[]`), not a flat sibling list - nesting makes "exactly two levels, exactly one parent"
+{ id, name }[]`), not a flat sibling list - nesting makes "exactly two levels, exactly one parent"
   structurally true instead of an invariant three modules have to remember.
 - **Entry field:** `ConfigAction.subcategoryId?: string`; an id the category does not have is
   treated as ungrouped, mirroring how a dangling `categoryId` falls into `render.ts`'s "other"
@@ -78,7 +78,7 @@ story 059.
   sub-category the user just created does not vanish on the first reload - the same "file is the
   source of truth" problem 052 solves for unbound rows; reuse 052's empty-section mechanism if it
   landed one.
-- **Deleting a category** deletes its sub-categories with it; what happens to the *entries* is 052's
+- **Deleting a category** deletes its sub-categories with it; what happens to the _entries_ is 052's
   confirm dialog (delete or move), unchanged here.
 - **Repeated-decoration heuristic (scope):** a comment-only line whose text is symmetrically wrapped
   in a run of >=3 identical punctuation characters counts as a banner only if that same decoration
@@ -114,7 +114,7 @@ Builds on 052's model (categories persisted, ordered, no built-in special case).
    `round-trip.test.ts`'s fixed-point property is the gate.
 4. **Import heuristic.** Extend banner detection with the repeated-decoration rule and make an
    adjacent banner pair yield category + sub-category instead of `Main / Sub`. Existing profiles
-   with a ` / ` name are untouched.
+   with a `/` name are untouched.
 5. **Grid.** `controls-row-groups.ts` groups by `subcategoryId` (prefix map
    `GROUP_LABEL_KEY_BY_PREFIX` deleted); `ControlsGrid.tsx` renders a name label; 052's standard
    template seeds the five sub-categories; footer/filter counts verified across groups.
@@ -125,71 +125,71 @@ Builds on 052's model (categories persisted, ordered, no built-in special case).
 ## Deliverables
 
 - [x] **D1 - Model and schemas.** `ConfigActionCategory.subcategories: { id, name }[]` and
-  `ConfigAction.subcategoryId?: string`; persisted + IPC zod, name capped at 120.
-  Files: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
-  `src/main/modules/config/schemas.ts`. Mirror: the existing `categories` field and its two schemas.
-  *Accept:* `npm run typecheck` + `npm test` green; a profile with sub-categories survives
-  persist/load; an unknown `subcategoryId` does not fail validation.
+      `ConfigAction.subcategoryId?: string`; persisted + IPC zod, name capped at 120.
+      Files: `src/shared/modules/config.ts`, `src/main/lib/schemas.ts`,
+      `src/main/modules/config/schemas.ts`. Mirror: the existing `categories` field and its two schemas.
+      _Accept:_ `npm run typecheck` + `npm test` green; a profile with sub-categories survives
+      persist/load; an unknown `subcategoryId` does not fail validation.
 
 - [x] **D2 - The file writes sub-categories.** Second-level bucketing and banner emission, `sub=` tag,
-  empty sub-banner kept, name clamped like a category title.
-  Files: `src/shared/config/render.ts`, `src/shared/config/profile-metadata.ts`,
-  `src/shared/config/comment-labels.ts`, `src/shared/config/render-invariants.test.ts`.
-  Mirror: `categoryTag`/`categoryTitle`/`titledSection` and `orderedCategoryIds`.
-  *Accept:* a fixture profile renders category header -> ungrouped rows -> sub-banner + rows, in
-  profile order, in all three header styles; an empty sub-category still writes its banner;
-  render-invariants green.
+      empty sub-banner kept, name clamped like a category title.
+      Files: `src/shared/config/render.ts`, `src/shared/config/profile-metadata.ts`,
+      `src/shared/config/comment-labels.ts`, `src/shared/config/render-invariants.test.ts`.
+      Mirror: `categoryTag`/`categoryTitle`/`titledSection` and `orderedCategoryIds`.
+      _Accept:_ a fixture profile renders category header -> ungrouped rows -> sub-banner + rows, in
+      profile order, in all three header styles; an empty sub-category still writes its banner;
+      render-invariants green.
 
 - [x] **D3 - The file reads sub-categories back.** `Section.kind: 'subcategory'` with parent tracking,
-  eager registration from `sub=`, entries filed with `subcategoryId`, `pairedTitle` flattening
-  removed. Files: `src/shared/config/profile-restore.ts`,
-  `src/shared/config/fixtures/profiles.ts`, `src/main/modules/config/round-trip.test.ts`.
-  *Accept:* new sub-category fixtures added to `ROUND_TRIP_FIXTURES` and the story-042 fixed-point
-  property (`render(parse(render(p))) === render(p)`) green for all of them, including an empty
-  sub-category and a hand-deleted `sub=` tag (degrades to a category, never crashes); the
-  adversarial-mangling suite stays green.
+      eager registration from `sub=`, entries filed with `subcategoryId`, `pairedTitle` flattening
+      removed. Files: `src/shared/config/profile-restore.ts`,
+      `src/shared/config/fixtures/profiles.ts`, `src/main/modules/config/round-trip.test.ts`.
+      _Accept:_ new sub-category fixtures added to `ROUND_TRIP_FIXTURES` and the story-042 fixed-point
+      property (`render(parse(render(p))) === render(p)`) green for all of them, including an empty
+      sub-category and a hand-deleted `sub=` tag (degrades to a category, never crashes); the
+      adversarial-mangling suite stays green.
 
 - [x] **D4 - Foreign two-level import.** Repeated-decoration banner detection plus adjacent-pair ->
-  category + sub-category. Files: `src/shared/config/profile-restore.ts` (+ its tests),
-  `docs/fixtures/` sample if one is needed.
-  *Accept:* importing a `dm.cfg`-shaped file (`.: Main Key's :.` with `##### 1st row #####` blocks)
-  yields one category with sub-categories, no `Main / Sub` name anywhere; a single stray decorated
-  comment does not mint a section; an existing profile with a ` / ` category name is unchanged.
+      category + sub-category. Files: `src/shared/config/profile-restore.ts` (+ its tests),
+      `docs/fixtures/` sample if one is needed.
+      _Accept:_ importing a `dm.cfg`-shaped file (`.: Main Key's :.` with `##### 1st row #####` blocks)
+      yields one category with sub-categories, no `Main / Sub` name anywhere; a single stray decorated
+      comment does not mint a section; an existing profile with a `/` category name is unchanged.
 
 - [x] **D5 - Controls groups by sub-category.** Group derivation from the profile, catalogue prefix map
-  deleted, template seeds the five sub-categories.
-  Files: `src/renderer/src/modules/config/lib/controls-row-groups.ts`,
-  `src/renderer/src/modules/config/components/ControlsGrid.tsx`,
-  `src/renderer/src/modules/config/ControlsTab.tsx` (grouping call site only),
-  `src/shared/modules/config.ts` (`STANDARD_TEMPLATE`), `src/renderer/src/i18n/locales/en.json`.
-  *Accept:* a template profile shows Use weapon / Cycling and Weapons / Ammunition / Misc as headers
-  that now come from `draft.categories`; ungrouped entries render first; the "n rows - m bound"
-  footer and the filter count are unchanged across groups; Overview, Aliases and Care render as
-  before.
+      deleted, template seeds the five sub-categories.
+      Files: `src/renderer/src/modules/config/lib/controls-row-groups.ts`,
+      `src/renderer/src/modules/config/components/ControlsGrid.tsx`,
+      `src/renderer/src/modules/config/ControlsTab.tsx` (grouping call site only),
+      `src/shared/modules/config.ts` (`STANDARD_TEMPLATE`), `src/renderer/src/i18n/locales/en.json`.
+      _Accept:_ a template profile shows Use weapon / Cycling and Weapons / Ammunition / Misc as headers
+      that now come from `draft.categories`; ungrouped entries render first; the "n rows - m bound"
+      footer and the filter count are unchanged across groups; Overview, Aliases and Care render as
+      before.
 
 - [x] **D6 - Sub-category CRUD in the grid.** Create, rename, reorder (up/down), delete from the group
-  header; delete moves entries back to the parent.
-  Files: `src/renderer/src/modules/config/ControlsTab.tsx`,
-  `src/renderer/src/modules/config/components/ControlsGrid.tsx`,
-  `src/renderer/src/styles/controls-grid.css`, `src/renderer/src/i18n/locales/en.json`.
-  Mirror: the custom category chips' rename/delete handlers (`ControlsTab.tsx:332-360`).
-  *Accept:* all four operations through the UI, persisted via the existing `patch({ categories,
-  actions })` path; deleting a sub-category leaves its entries in the parent as an ungrouped run;
-  keyboard reachable, focus-visible.
+      header; delete moves entries back to the parent.
+      Files: `src/renderer/src/modules/config/ControlsTab.tsx`,
+      `src/renderer/src/modules/config/components/ControlsGrid.tsx`,
+      `src/renderer/src/styles/controls-grid.css`, `src/renderer/src/i18n/locales/en.json`.
+      Mirror: the custom category chips' rename/delete handlers (`ControlsTab.tsx:332-360`).
+      _Accept:_ all four operations through the UI, persisted via the existing `patch({ categories,
+actions })` path; deleting a sub-category leaves its entries in the parent as an ungrouped run;
+      keyboard reachable, focus-visible.
 
 - [x] **D7 - Move an entry in and out.** Sub-category select in the action editor, scoped to the entry's
-  category, with an explicit "no sub-category" option.
-  Files: `src/renderer/src/modules/config/components/ActionEditor.tsx`,
-  `src/renderer/src/i18n/locales/en.json`.
-  *Accept:* an entry can be moved into a sub-category and back out; the row jumps to the right group
-  on save; a category without sub-categories hides the control.
+      category, with an explicit "no sub-category" option.
+      Files: `src/renderer/src/modules/config/components/ActionEditor.tsx`,
+      `src/renderer/src/i18n/locales/en.json`.
+      _Accept:_ an entry can be moved into a sub-category and back out; the row jumps to the right group
+      on save; a category without sub-categories hides the control.
 
 - [x] **D8 - Live verification.** Files: `scripts/flows/controls-subcategory.mjs`,
-  `scripts/ui-verify.mjs` fixture seeding (or `src/shared/config/fixtures/profiles.ts` if the verify
-  fixture lives there). Mirror: `scripts/flows/custom-action-row.mjs`.
-  *Accept:* `npm run ui:verify` screenshots a category with sub-categories with no new axe
-  violations; `npm run ui:flow controls-subcategory` creates a sub-category and moves an entry into
-  it through the real UI.
+      `scripts/ui-verify.mjs` fixture seeding (or `src/shared/config/fixtures/profiles.ts` if the verify
+      fixture lives there). Mirror: `scripts/flows/custom-action-row.mjs`.
+      _Accept:_ `npm run ui:verify` screenshots a category with sub-categories with no new axe
+      violations; `npm run ui:flow controls-subcategory` creates a sub-category and moves an entry into
+      it through the real UI.
 
 ## Model Hints
 
@@ -265,15 +265,15 @@ the real UI.
   as the ungrouped run, satisfying D1's "no cross-referential validation" decision without a
   dedicated check anywhere.
 - **The outer main-header recognition gap (review Finding 1, blocking).** A fresh code review found
-  that AC6/D4's own accept clause was unmet for the *exact* shape the story names: a `.: Main Key's
-  :.`-style outer header, decorated with mirrored (not uniformly-repeated) punctuation, opened no
+  that AC6/D4's own accept clause was unmet for the _exact_ shape the story names: a `.: Main Key's
+:.`-style outer header, decorated with mirrored (not uniformly-repeated) punctuation, opened no
   section at all before this fix — so the real repeated-decoration sub-heuristic (already correct)
   had nothing to attach to, and the whole pair fell back to a single content-guessed category with
-  zero sub-categories. Investigation traced this to a genuine gap that *predates* story 053: story
+  zero sub-categories. Investigation traced this to a genuine gap that _predates_ story 053: story
   042's own removed `pairedTitle` sat inside the same `BANNER_RULE || CATEGORY_TITLE_PREFIX` branch
   and never actually recognised this decoration style either — D3 dropped nothing that used to work,
   it just stopped masking a pre-existing recognition hole. Fixed by adding `mirroredWrapTitle`
-  (`src/shared/config/profile-restore.ts`): an untagged, comment-only line wrapped in a *mirrored*
+  (`src/shared/config/profile-restore.ts`): an untagged, comment-only line wrapped in a _mirrored_
   punctuation run (leading run reversed, paired delimiters flipped, `-`/`=` and alphanumerics
   excluded so it never collides with `BANNER_RULE` or the uniform-run `decorationWrap` sub-heuristic)
   now opens an ordinary untagged `'plain'` category section from its own text — recognition only, the
@@ -283,7 +283,7 @@ the real UI.
 - **Accepted residuals (not fixed, disclosed rather than silently left)** — none of these block any
   acceptance criterion; the reviewer's own verdict on each was "does not block":
   - **Finding 2**: because an empty sub-category's banner must always be written (a story decision),
-    it is currently written unconditionally in *every* per-block section (Binds/Aliases/Anchors) a
+    it is currently written unconditionally in _every_ per-block section (Binds/Aliases/Anchors) a
     category could have, even one with literally zero entries of that block's kind — e.g. a
     bind-only sub-category still produces an empty `Aliases: …` section carrying only sub-banners.
     This affects the standard template itself (visible in every new profile's raw file) as
@@ -297,7 +297,7 @@ the real UI.
     duplicate; self-consistent on reload, no data loss, mirrors a dedup gap the category level
     already had to solve for a different reason.
   - **Finding 4**: a hand-deleted sub-banner title (`name: ''`) restores once, then is dropped by the
-    persisted schema's `min(1)` on the *next* save (unreachable via the UI, which trims and rejects
+    persisted schema's `min(1)` on the _next_ save (unreachable via the UI, which trims and rejects
     empty names in both the create and rename dialogs).
   - **Finding 5**: `handleDeleteSubcategory`/`handleMoveSubcategory` in `ControlsTab.tsx` are correct
     by inspection (entries fall back to the parent's ungrouped run, per AC7) but have no direct unit
@@ -314,7 +314,7 @@ the real UI.
 - `npm run typecheck` — clean (node + web).
 - `npm test` — 80 test files, **2166 passed, 0 failed**. 4 "Errors" reported are the same
   pre-existing, unrelated Node v20.20.2/jsdom-undici `webidl.util.markAsUncloneable is not a
-  function` fork-worker-start environment issue documented in story 052's own Done section (now
+function` fork-worker-start environment issue documented in story 052's own Done section (now
   touching 2 more files simply because 2 more jsdom-environment test files exist) — not a real
   failure; all 2166 tests report passed.
 - `npm run build` — clean.

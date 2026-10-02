@@ -306,7 +306,9 @@ export function buildRebuiltProfile(input: RebuiltProfileInput): ConfigProfile {
  */
 function fallbackProfileName(fileName: string, id: string): string {
   const base = fileName.replace(/\.cfg$/i, '').trim()
-  return base.length > 0 ? base.slice(0, MAX_RECOVERED_NAME_LENGTH) : sanitizeProfileFileBase('', id)
+  return base.length > 0
+    ? base.slice(0, MAX_RECOVERED_NAME_LENGTH)
+    : sanitizeProfileFileBase('', id)
 }
 
 // ---------------------------------------------------------------------------

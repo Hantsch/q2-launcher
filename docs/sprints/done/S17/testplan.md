@@ -14,11 +14,13 @@ mirrors depends on two external services and would download ~190 MB per suite ru
 to automate into a test suite.
 
 **Preparation:**
+
 - A machine with internet access and the manifest's currently-pinned package versions still live
   at their mirrors.
 - A clean target directory with no pre-existing installation.
 
 **Steps:**
+
 1. Launch the app and open the bootstrap wizard from the Library.
 2. Pick Q2PRO, accept the defaults, and point the target at the clean directory.
 3. Let the wizard download, verify, extract and assemble all three packages for real.
@@ -38,10 +40,12 @@ tests; only the window actually appearing is left. This is unchanged residue car
 [[075]]'s AC5, not new to this sprint.
 
 **Preparation:**
+
 - A failed download or bootstrap run so a failure entry with diagnostics exists in the Downloads
   tab (or seed one via the same fixture `downloadFailureWithDiagnostics()` the e2e flows use).
 
 **Steps:**
+
 1. Open the Downloads tab and locate the failed entry.
 2. Expand its cause detail.
 3. Click "Reveal log" in the detail's footer.

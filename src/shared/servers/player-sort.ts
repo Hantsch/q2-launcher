@@ -38,7 +38,7 @@ function compareValid(key: PlayerSortKey, a: ServerPlayer, b: ServerPlayer): num
 export function sortPlayers(
   players: readonly ServerPlayer[],
   key: PlayerSortKey,
-  dir: SortDir
+  dir: SortDir,
 ): ServerPlayer[] {
   const indexed = players.map((player, index) => ({ player, index }))
 

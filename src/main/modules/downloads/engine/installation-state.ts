@@ -58,7 +58,9 @@ const UNKNOWN_ENGINE_STATE: InstallationEngineState = {}
  * than throwing - "an installation with no recorded engine version counts as 'differs'" (Decisions
  * (Sprint)) starts from this function never blowing up on garbage.
  */
-export function readEngineState(moduleData: Record<string, unknown> | undefined): InstallationEngineState {
+export function readEngineState(
+  moduleData: Record<string, unknown> | undefined,
+): InstallationEngineState {
   if (!moduleData) return UNKNOWN_ENGINE_STATE
   const result = engineStateSchema.safeParse(moduleData['downloads'])
   return result.success ? result.data : UNKNOWN_ENGINE_STATE

@@ -8,7 +8,7 @@ created: 2026-08-19
 ## Requirement
 
 Today a category carries the type (`ConfigActionCategory.entryKind`), so a category is either
-binds *or* messages *or* aliases. That is the wrong axis: a category is just a drawer I named,
+binds _or_ messages _or_ aliases. That is the wrong axis: a category is just a drawer I named,
 and what is typed is the individual entry.
 
 An entry is one of three kinds:
@@ -19,7 +19,7 @@ An entry is one of three kinds:
 - **alias** — defines a command or wraps several commands. An alias is **not** bindable; it exists
   to be referenced by bindings.
 
-Because an alias has to be *defined before it is used*, I need to control the order of entries
+Because an alias has to be _defined before it is used_, I need to control the order of entries
 inside a category, e.g.:
 
 ```
@@ -77,9 +77,9 @@ This story is the data model and the mechanics; the visual redesign of the tab i
   `src/shared/config/alt-layers.ts` — engine limits stay central (S04 watch-out), never re-derived.
 - Alias entries never contribute to `binds` nor to any layer's `overrides` — both are derived
   mirrors, so the exclusion belongs at the single derive site, not to a hidden key slot in the UI.
-- `kind` is derived at *profile* level in the persisted schema (`src/main/lib/schemas.ts`), not
+- `kind` is derived at _profile_ level in the persisted schema (`src/main/lib/schemas.ts`), not
   per row — the derive needs the profile's `categories`, which a row-level schema cannot see.
-- The persisted category schema keeps *accepting* and then dropping a legacy `entryKind` —
+- The persisted category schema keeps _accepting_ and then dropping a legacy `entryKind` —
   reading an old `state.json` must not drop a category row over a field the type no longer has.
 - The strict IPC schema requires `kind` on every action and rejects a missing/unknown value —
   renderer payloads are never trusted, and a default there would silently mistype an entry.
@@ -87,7 +87,7 @@ This story is the data model and the mechanics; the visual redesign of the tab i
   `src/shared/modules/config.ts`, carried by the existing `setActions` — contract-first, and
   order preservation is proven by a round-trip test on `setActions` → `list`.
 - Order = relative position inside the one flat `actions` array; a reorder swaps with the nearest
-  neighbour *of the same category* — keeps the persisted shape and the emission order
+  neighbour _of the same category_ — keeps the persisted shape and the emission order
   `renderActionAliasLines` already follows.
 - Reorder is up/down buttons mirroring `ActionEditor.moveCommand`, not drag & drop — keyboard
   accessible, and story 020 owns the visual rebuild anyway.
@@ -122,7 +122,7 @@ types on the existing `setActions` change.
 5. **Surface** (`src/renderer/src/modules/config/AdvancedTab.tsx` + `components/`): category
    create/rename lose the type select; entry creation asks for the kind; every row shows a kind
    `Badge` and up/down reorder buttons; the edit dialog is dispatched by `action.kind` — binding
-   (command *or* message payload), message (channel + text), alias (commands, **no key slot at
+   (command _or_ message payload), message (channel + text), alias (commands, **no key slot at
    all**). Alias-name suggestions come from the profile's own alias entries.
 6. **Validation** (`src/shared/config/validate-actions.ts` → `lib/validation-scope.ts`):
    undefined alias reference, never-referenced alias, duplicate alias name → `Finding`s in the
@@ -140,10 +140,10 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       compile fixes at the entry construction sites only
       (`src/renderer/src/modules/config/AdvancedTab.tsx`,
       `src/renderer/src/modules/config/lib/catalog-binds.ts` → `kind: 'bind'`).
-      *Acceptance:* `npm run typecheck` + `npm test` green; a fixture `state.json` whose
+      _Acceptance:_ `npm run typecheck` + `npm test` green; a fixture `state.json` whose
       categories carry `entryKind: 'message' | 'alias'` loads with every entry's `kind` derived,
       no row and no profile dropped; a `setActions` payload without `kind` is rejected.
-      *No UI change yet.*
+      _No UI change yet._
 
 - [x] **D2 — Alias entries render as their own alias and are never bound.**
       `src/shared/config/alias-render.ts` (+ `alias-render.test.ts`): `kind: 'alias'` →
@@ -151,7 +151,7 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       `src/shared/config/modifier-layers.ts` (+ test) and
       `src/main/modules/config/profiles.ts` (+ `profiles.test.ts`): alias entries contribute
       neither a `binds` entry nor a layer override.
-      *Acceptance:* rendering a profile with an alias entry `+test` and a binding whose command
+      _Acceptance:_ rendering a profile with an alias entry `+test` and a binding whose command
       is `+test` emits `alias +test …` before the binding's alias line and no `bind` for the
       alias entry; a stale `q2l_a_*` bind for an entry turned into an alias is gone; hand-made
       binds/overrides untouched.
@@ -162,7 +162,7 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       neighbour inside the flat array. Order round-trip tests in
       `src/main/modules/config/profiles.test.ts`, `src/main/modules/config/index.test.ts` and
       `src/main/lib/schemas.test.ts`.
-      *Acceptance:* the array order sent through `setActions` comes back identically from `list`
+      _Acceptance:_ the array order sent through `setActions` comes back identically from `list`
       and survives a persisted read; the helper never moves an entry past a foreign category.
 
 - [x] **D4 — Controls: kind per entry, no type per category.**
@@ -172,7 +172,7 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       entryKind badge, each entry row shows its own kind `Badge`
       (`src/renderer/src/components/ui/primitives.tsx` `Badge`, mirroring today's
       `ENTRY_KIND_TONE` map).
-      *Acceptance:* creating a category asks only for a name; creating an entry asks for a kind;
+      _Acceptance:_ creating a category asks only for a name; creating an entry asks for a kind;
       the row badge shows that kind; a mixed-kind category renders correctly.
 
 - [x] **D5 — Kind-aware entry editor.**
@@ -181,14 +181,14 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       `action.kind`; a binding switches its payload between command and message in place; a
       message edits channel + text; an alias edits its commands and has **no key slot and no
       capture control at all**.
-      *Acceptance:* an alias entry offers no way to reach key capture through the UI; switching
+      _Acceptance:_ an alias entry offers no way to reach key capture through the UI; switching
       a binding's payload to a message keeps the entry's key; a message entry still keys.
 
 - [x] **D6 — A binding can call an alias by name, with suggestions.**
       New `src/renderer/src/modules/config/lib/alias-suggestions.ts` (+ test) listing the
       profile's alias-kind entry names; wired into `ActionEditor.tsx`'s raw-command input
       (native `datalist`, no new dependency), `en.json`.
-      *Acceptance:* typing `+` in a binding's command field offers the profile's own aliases;
+      _Acceptance:_ typing `+` in a binding's command field offers the profile's own aliases;
       picking one writes its exact name; suggestions exclude non-alias entries.
 
 - [x] **D7 — Reorder entries by hand.**
@@ -196,7 +196,7 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       entry row (mirroring `ActionEditor.tsx`'s `moveCommand` idiom) calling D3's helper and
       saving through the existing `persistCategoriesAndActions` path; ends disabled, labelled
       for screen readers.
-      *Acceptance:* moving an entry persists across a reload and the rendered preview emits the
+      _Acceptance:_ moving an entry persists across a reload and the rendered preview emits the
       entries in that order.
 
 - [x] **D8 — Broken alias wiring is reported, not written out silently.**
@@ -204,7 +204,7 @@ Visual redesign of the tab is story 020 — this story keeps the current look.
       referencing an undefined alias, an alias never referenced, a duplicate alias name; wired
       into `src/renderer/src/modules/config/lib/validation-scope.ts` (+ test) and `en.json`
       (`config.validation.actions.*`).
-      *Acceptance:* each case shows up in the Validation panel with a readable message; a clean
+      _Acceptance:_ each case shows up in the Validation panel with a readable message; a clean
       profile produces none of them.
 
 ## Model Hints
@@ -270,6 +270,7 @@ catalogue exists to fully eliminate false positives), an alias never referenced 
 Validation panel.
 
 **Decisions**
+
 - `undefinedAlias` is reported at `warning`, not `error`: without a full engine-command
   catalogue, a bare `+`/`-` token in a hand-typed command can't be told apart from an ordinary
   built-in engine command with full certainty. The check still fires (AC 8's "reported, not

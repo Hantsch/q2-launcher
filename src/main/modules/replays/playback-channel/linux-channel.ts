@@ -129,7 +129,8 @@ export function createLinuxChannel(deps: {
       try {
         unlinkSync(backCfgPath)
       } catch (e) {
-        if ((e as NodeJS.ErrnoException).code !== 'ENOENT') log.warn('playback: could not remove q2l_back.cfg', e)
+        if ((e as NodeJS.ErrnoException).code !== 'ENOENT')
+          log.warn('playback: could not remove q2l_back.cfg', e)
       }
       // SIGPIPE: when the launcher quits, the game's stdout is closed while the engine keeps running.
       // An engine that does not ignore SIGPIPE could die on its next print. While the session is still

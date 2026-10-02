@@ -22,7 +22,9 @@ describe('mods schemas', () => {
     expect(removeInputSchema.safeParse({ ...base, changedFiles: 'keep' }).success).toBe(true)
     for (const modId of ['', '../x', 'a/b', 'a\\b', 'C:\\x', 'x'.repeat(129)]) {
       expect(removalPreviewInputSchema.safeParse({ ...base, modId }).success).toBe(false)
-      expect(removeInputSchema.safeParse({ ...base, modId, changedFiles: 'delete' }).success).toBe(false)
+      expect(removeInputSchema.safeParse({ ...base, modId, changedFiles: 'delete' }).success).toBe(
+        false,
+      )
     }
     expect(removeInputSchema.safeParse({ ...base, changedFiles: 'maybe' }).success).toBe(false)
     expect(removeInputSchema.safeParse(base).success).toBe(false)
@@ -36,11 +38,15 @@ describe('mods schemas', () => {
     expect(updateInputSchema.safeParse({ ...base, changedPolicy: 'overwrite' }).success).toBe(true)
     for (const catalogId of ['', '../x', 'a/b', 'a\\b', 'C:\\x', 'x'.repeat(129)]) {
       expect(updatePreviewInputSchema.safeParse({ ...base, catalogId }).success).toBe(false)
-      expect(updateInputSchema.safeParse({ ...base, catalogId, changedPolicy: 'keep' }).success).toBe(false)
+      expect(
+        updateInputSchema.safeParse({ ...base, catalogId, changedPolicy: 'keep' }).success,
+      ).toBe(false)
     }
     expect(updateInputSchema.safeParse({ ...base, changedPolicy: 'maybe' }).success).toBe(false)
     expect(updateInputSchema.safeParse(base).success).toBe(false)
-    expect(updateInputSchema.safeParse({ ...base, changedPolicy: 'keep', path: '/' }).success).toBe(false)
+    expect(updateInputSchema.safeParse({ ...base, changedPolicy: 'keep', path: '/' }).success).toBe(
+      false,
+    )
     expect(updatePreviewInputSchema.safeParse({ ...base, extra: 1 }).success).toBe(false)
   })
 })

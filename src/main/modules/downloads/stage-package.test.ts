@@ -44,7 +44,10 @@ afterEach(async () => {
   await rm(userData, { recursive: true, force: true })
 })
 
-const resolveExtractor = (): { path: string; exists: boolean } => ({ path: 'fake-7za', exists: true })
+const resolveExtractor = (): { path: string; exists: boolean } => ({
+  path: 'fake-7za',
+  exists: true,
+})
 
 const baseInput = (overrides: { url: string; mirrors?: string[]; sizeBytes?: number }) => ({
   source: {
@@ -167,4 +170,3 @@ describe('stagePackage with the vendored 7-Zip', () => {
     }
   })
 })
-

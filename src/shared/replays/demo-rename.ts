@@ -38,13 +38,7 @@ export function demoExtension(fileName: string): string {
 export const DEMO_RENAME_MAX_STEM = 100
 
 export type DemoRenameReason =
-  | 'empty'
-  | 'separator'
-  | 'dotDot'
-  | 'invalidChar'
-  | 'trailingDotOrSpace'
-  | 'reserved'
-  | 'tooLong'
+  'empty' | 'separator' | 'dotDot' | 'invalidChar' | 'trailingDotOrSpace' | 'reserved' | 'tooLong'
 
 export type ValidateDemoRenameResult =
   | { ok: true; fileName: string }
@@ -77,7 +71,10 @@ const RESERVED_NAMES = new Set([
   'LPT9',
 ])
 
-function fail(reason: DemoRenameReason, params?: Record<string, string | number>): ValidateDemoRenameResult {
+function fail(
+  reason: DemoRenameReason,
+  params?: Record<string, string | number>,
+): ValidateDemoRenameResult {
   return params === undefined ? { ok: false, reason } : { ok: false, reason, params }
 }
 
@@ -87,7 +84,10 @@ function fail(reason: DemoRenameReason, params?: Record<string, string | number>
  * so the first violated rule is the one reported. On success, returns the file name to use:
  * `stem + ext`, with `ext` in its original case as extracted from `currentFileName`.
  */
-export function validateDemoRename(stem: string, currentFileName: string): ValidateDemoRenameResult {
+export function validateDemoRename(
+  stem: string,
+  currentFileName: string,
+): ValidateDemoRenameResult {
   const ext = demoExtension(currentFileName)
 
   let s = stem.trim()

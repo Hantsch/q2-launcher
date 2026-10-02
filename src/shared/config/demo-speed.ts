@@ -65,7 +65,12 @@ function checks(pairs: Array<readonly [number, number]>): string[] {
  * alias body in this order, which is exactly the order the engine runs them in.
  */
 export function speedUpCommands(steps: Steps = SPEED_STEPS): string[] {
-  return checks(steps.slice(0, -1).map((from, i) => [from, steps[i + 1]!] as const).reverse())
+  return checks(
+    steps
+      .slice(0, -1)
+      .map((from, i) => [from, steps[i + 1]!] as const)
+      .reverse(),
+  )
 }
 
 /** The speed-down chain's `if` checks, in execution order (slowest step first). */

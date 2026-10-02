@@ -151,7 +151,7 @@ describe('isMirroredValue', () => {
       expect(isMirroredValue('ssg_sg', [secondary], 'MOUSE3')).toBe(true)
     })
 
-    it('does not swallow a hand-typed reference to another entry\'s alias by name', () => {
+    it("does not swallow a hand-typed reference to another entry's alias by name", () => {
       // `bound` owns `q`; the value `ssg_sg` also happens to be sitting on key `z`, but `bound`
       // does not hold `z` in any slot, so that `z` entry is not `bound`'s mirror - it is a
       // hand-typed reference to `bound`'s alias, and must be reported as such, not hidden.

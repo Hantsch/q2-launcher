@@ -84,7 +84,11 @@ describe('redactHome', () => {
   // whatever the sentence around it happens to put there - a boundary that only accepts a
   // separator or end-of-string leaks the account name in every case below.
   it.each([
-    ['a colon', 'target: C:\\Users\\bob: not writable', `target: ${HOME_PLACEHOLDER}: not writable`],
+    [
+      'a colon',
+      'target: C:\\Users\\bob: not writable',
+      `target: ${HOME_PLACEHOLDER}: not writable`,
+    ],
     ['a closing paren', 'cleanup (C:\\Users\\bob) done', `cleanup (${HOME_PLACEHOLDER}) done`],
     ['a comma', 'roots: C:\\Users\\bob, D:\\Games', `roots: ${HOME_PLACEHOLDER}, D:\\Games`],
     ['a newline', 'root\nC:\\Users\\bob\nend', `root\n${HOME_PLACEHOLDER}\nend`],
@@ -93,7 +97,9 @@ describe('redactHome', () => {
   })
 
   it('redacts the forward-slash form of the same home directory', () => {
-    expect(redactHome('C:/Users/bob/AppData/Roaming', home)).toBe(`${HOME_PLACEHOLDER}/AppData/Roaming`)
+    expect(redactHome('C:/Users/bob/AppData/Roaming', home)).toBe(
+      `${HOME_PLACEHOLDER}/AppData/Roaming`,
+    )
   })
 
   it('redacts the JSON-escaped double-backslash form', () => {
@@ -220,8 +226,9 @@ describe('createDiagnosticsCollector / diagnosticsFor / dropDiagnostics', () => 
     // up in an entry, must not carry an account name into a public issue report.
     const jobId = randomUUID()
     const collector = createDiagnosticsCollector(jobId, 'bootstrap', 'C:\\Users\\bob')
-    const overCap = Array.from({ length: EXTRACTION_LISTING_CAP + 5 }, (_, index) =>
-      `entry-${String(index).padStart(2, '0')}`,
+    const overCap = Array.from(
+      { length: EXTRACTION_LISTING_CAP + 5 },
+      (_, index) => `entry-${String(index).padStart(2, '0')}`,
     )
 
     collector.recordPackage({
@@ -339,7 +346,7 @@ describe('createDiagnosticsCollector / diagnosticsFor / dropDiagnostics', () => 
     expect(diagnosticsFor(terminalJob({ id: randomUUID() }))).toBeUndefined()
   })
 
-  it('diagnosticsFor mirrors the job\'s own startedAt/finishedAt/errorKey', () => {
+  it("diagnosticsFor mirrors the job's own startedAt/finishedAt/errorKey", () => {
     const jobId = randomUUID()
     createDiagnosticsCollector(jobId, 'bootstrap', 'C:\\Users\\bob')
 

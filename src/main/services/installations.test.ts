@@ -197,7 +197,9 @@ describe('setEngineState (story 092 D2)', () => {
       installation({ moduleData: { downloads: { version: 42, backup: 'nope' } } }),
     ])
 
-    expect(() => installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true })).not.toThrow()
+    expect(() =>
+      installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true }),
+    ).not.toThrow()
 
     const found = installations.find(INSTALLATION_ID)
     expect(found?.moduleData?.downloads).toEqual({ bleedingEdge: true })

@@ -15,7 +15,13 @@ export interface StarRatingProps {
 }
 
 /** Story 179 D3: a 1-10 star radio group. Clicking the current star clears it. */
-export function StarRating({ value, onChange, disabled = false, describedBy, label }: StarRatingProps) {
+export function StarRating({
+  value,
+  onChange,
+  disabled = false,
+  describedBy,
+  label,
+}: StarRatingProps) {
   const { t } = useTranslation()
   const buttons = useRef<Array<HTMLButtonElement | null>>([])
   const tabStop = value ?? 1
@@ -84,7 +90,10 @@ export function StarRating({ value, onChange, disabled = false, describedBy, lab
           )}
         >
           <Star
-            className={cn('size-4', value !== null && n <= value ? 'fill-flame-500 text-flame-500' : 'text-ink-muted')}
+            className={cn(
+              'size-4',
+              value !== null && n <= value ? 'fill-flame-500 text-flame-500' : 'text-ink-muted',
+            )}
             aria-hidden="true"
           />
         </button>

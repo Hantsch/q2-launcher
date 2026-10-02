@@ -144,9 +144,7 @@ export function ActionBar() {
       </div>
 
       {/* --- what is happening --- */}
-      <div
-        className={cn('min-w-0 flex-1 flex-col gap-1.5 lg:flex', note ? 'flex' : 'hidden')}
-      >
+      <div className={cn('min-w-0 flex-1 flex-col gap-1.5 lg:flex', note ? 'flex' : 'hidden')}>
         {note && (
           <p
             id={note.id}
@@ -201,7 +199,9 @@ export function ActionBar() {
               changes per `action.kind`, i.e. precisely with the state under test. */}
           <PlayButton
             data-testid="actionbar-play"
-            data-action={action.kind === 'contributed' && contribution ? contribution.id : action.kind}
+            data-action={
+              action.kind === 'contributed' && contribution ? contribution.id : action.kind
+            }
             {...(note ? { 'aria-describedby': note.id } : {})}
             tone={action.tone}
             disabled={action.disabled}
@@ -423,9 +423,7 @@ function resolvePrimaryAction(
     if (demo.active) {
       return {
         kind: 'stop',
-        labelKey: demo.stopping
-          ? 'installation.action.stopping'
-          : 'installation.action.stopDemo',
+        labelKey: demo.stopping ? 'installation.action.stopping' : 'installation.action.stopDemo',
         tone: 'danger',
         disabled: demo.stopping,
       }

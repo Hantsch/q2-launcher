@@ -65,7 +65,7 @@ wizard) have real data to work against.
   `downloads/manifest.get` returns the snapshot with `fetchedAt`, `ageMs` and `fromCache`, so AC4's
   "exposed to callers" is a real path stories 071/074 consume rather than an internal return value.
 - **Manifest zod schemas are main-only** (`src/main/modules/downloads/schemas.ts`) — the manifest is
-  foreign *remote* data validated in main, not a renderer-supplied payload, so it does not belong in
+  foreign _remote_ data validated in main, not a renderer-supplied payload, so it does not belong in
   `src/shared/ipc-schemas.ts`; only the handler's (empty-ish) request payload schema does.
 - **`schemaVersion` is an exact match on `1`.** Anything else refuses the whole manifest, per the
   binding (User) decision, and a refused fetch is treated exactly like a failed one — the last good
@@ -126,6 +126,7 @@ compiles on the previous one.
    `src/main/modules/downloads/schemas.ts` holds the zod mirrors (`sha256Schema` = 64 lowercase hex,
    `httpsUrlSchema` in the style of `urlSchema` in `src/shared/ipc-schemas.ts`), and
    `manifest-parse.ts` the pure `parseManifestFile()` (refuse envelope / drop package / resolve pin).
+
 2. **Transport.** `src/main/lib/content-repo.ts`: `CONTENT_REPO_RAW_BASE`, `contentRepoUrl(path)`,
    `fetchContentJson(path, { timeoutMs })` over built-in `fetch` with `AbortSignal.timeout`.
 3. **Service.** `src/main/modules/downloads/manifest-service.ts`: fetch both files, merge, cache via
@@ -164,7 +165,7 @@ Untouched on purpose: `src/shared/ipc.ts` (module traffic rides `module:invoke`)
       (`src/main/lib/json-store.ts` is the mirror for options/defensive parse) at
       `userData/cache/downloads/manifest-cache.json`, `cacheVersion` envelope with `fetchedAt`;
       `getManifest({ refresh })` with a 15-min in-memory window, `pinnedEnginePackage(kind)`,
-      network failure *and* a refused manifest both falling back to the cache with `ageMs` and
+      network failure _and_ a refused manifest both falling back to the cache with `ageMs` and
       `fromCache: true`. Plus `src/main/modules/downloads/manifest-service.test.ts` (mock `electron`'s
       `app.getPath` like `src/main/services/installation-icons.test.ts`, stub `fetch`). Covers AC4,
       AC5. Accept: constructing the service issues zero fetches; a fetch failure after one good fetch
@@ -192,7 +193,7 @@ Untouched on purpose: `src/shared/ipc.ts` (module traffic rides `module:invoke`)
 ## Model Hints
 
 - D3 → `deliverable-hard` — the cache/offline path is where this story silently gets AC4 wrong: a
-  refused manifest and a dead network must both land on the cached copy with a *correct* age, while a
+  refused manifest and a dead network must both land on the cached copy with a _correct_ age, while a
   cold cache must fail rather than serve an empty snapshot, and the `JsonStore` quarantine path adds a
   third way to end up with "no cache" that must not be confused with "empty manifest".
 - D1, D2, D4, D5 → default tier (small, single-layer, pattern-mirroring pieces).
@@ -240,11 +241,13 @@ live-verified manifest content for the Q2PRO nightly mirror plus both free game-
 with a standalone hash-check script (D5).
 
 **Commit message:**
+
 ```
 070: fetch, validate and cache the install manifest
 ```
 
 **Verification:**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `npm test` (full suite) — 2792/2792 pass on a clean run; one unrelated flake was observed once in
@@ -260,6 +263,7 @@ with a standalone hash-check script (D5).
   documented below as known, non-blocking coverage gaps.
 
 **AC → test mapping, as verified:**
+
 - AC1 → `src/main/lib/content-repo.test.ts` — asserts the literal fetch URLs for
   `engines/manifest.json` and `gamedata/manifest.json` against
   `https://raw.githubusercontent.com/Hantsch/q2_community_content/main`. PASS.
@@ -267,7 +271,7 @@ with a standalone hash-check script (D5).
   `mirrors`/`sizeBytes` is invalid and dropped. PASS.
 - AC3 → same file — one invalid package is dropped, the rest of a structurally valid manifest
   stays usable (not a refusal), with an asserted `log.warn` call. PASS.
-- AC4 → `src/main/modules/downloads/manifest-service.test.ts` — a failed fetch *and* a
+- AC4 → `src/main/modules/downloads/manifest-service.test.ts` — a failed fetch _and_ a
   fetch-succeeds-but-manifest-is-refused case both serve the cached snapshot with `fromCache: true`
   and a real, non-zero `ageMs`; a cold cache + dead network rejects rather than returning an empty
   snapshot; constructing the service issues zero fetches. PASS.
@@ -292,11 +296,12 @@ with a standalone hash-check script (D5).
     ```
 
 **Decisions (Build):**
+
 - Merge semantics: if either `engines/manifest.json` or `gamedata/manifest.json` fails to fetch or
   is refused by the parser, the whole combined fetch attempt counts as failed and falls back to the
   cache — no partial merge that would silently drop a whole content type while looking current.
 - Cold-cache-and-dead-network error contract: `ManifestUnavailableError` (`.code ===
-  'manifest-unavailable'`), so the D4 handler distinguishes it from any other failure and maps it to
+'manifest-unavailable'`), so the D4 handler distinguishes it from any other failure and maps it to
   the `downloads.error.manifestUnavailable` i18n key rather than leaking a stack/message across IPC.
 - Review fix cycle (1 of 3 max): fixed two real correctness findings before accepting the review —
   (1) `pinnedEnginePackage()` now verifies the resolved package is actually `kind: 'engine'` with a
@@ -307,7 +312,7 @@ with a standalone hash-check script (D5).
   comment-only finding (an inaccurate "one shared 10s budget" comment where the two fetches
   actually each get their own parallel 10s timeout) was also corrected.
 - Known, accepted non-blocking gaps from the review (not fixed — coverage notes, not defects):
-  a malformed `pinned` *value* (e.g. a non-string) currently refuses the whole envelope, which is
+  a malformed `pinned` _value_ (e.g. a non-string) currently refuses the whole envelope, which is
   slightly wider than the Decisions section's literal wording ("missing `schemaVersion` or
   `packages`") — fail-loud is consistent with the story's overall bias and is left as is;
   `manifest-parse.test.ts`'s AC2 coverage does not separately exercise a missing `url`, a

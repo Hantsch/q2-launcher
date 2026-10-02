@@ -115,7 +115,7 @@ Order: D1 → D2 → (D3, D4 in parallel) → D5 → D6 → D7. Files it must no
 ## Deliverables
 
 - **D1 — `LibraryStats` knows the last session.** Add `lastSession?: { installationId: string;
-  name: string; at: string }` to `src/shared/modules/library.ts` and derive it in
+name: string; at: string }` to `src/shared/modules/library.ts` and derive it in
   `src/main/modules/library/index.ts` (newest `lastPlayedAt` wins; absent when nothing was ever
   played). Seed real playtime in `scripts/lib/fixture.mjs` (`populatedInstallations()`, one
   installation with `lastPlayedAt` + non-zero `totalPlaytimeSeconds`) and re-check the flows/tests
@@ -227,11 +227,13 @@ layout locked in 086 already matched the required two-tile, 6×5-each, side-by-s
 story filled it with the two real bodies and proved it with tests instead of changing it.
 
 **Commit message:**
+
 ```
 087: fill the dashboard's playtime and config-profiles tiles with real data
 ```
 
 **Verification.**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `npm test` — 197 files / 3583 tests passed.
@@ -240,9 +242,10 @@ story filled it with the two real bodies and proved it with tests instead of cha
   loading/error/retry, AC5's partial-failure + arrange-mode steps).
 
 **AC → test mapping, as verified:**
+
 - AC1 → `src/main/modules/library/stats.test.ts` (newest session wins; all-unplayed → `undefined`)
-  + `src/renderer/src/modules/home/dashboard/PlaytimeTile.test.tsx` (all five facts render; zeroed
-  stats render the empty state) — both green.
+  - `src/renderer/src/modules/home/dashboard/PlaytimeTile.test.tsx` (all five facts render; zeroed
+    stats render the empty state) — both green.
 - AC2 → `src/renderer/src/modules/home/dashboard/profile-rows.test.ts` (own/installations state per
   profile, worst-of reduction, a failed fetch still yields a row) + e2e `ui:flow -- home-tile-states`
   step "clicking a config profile row opens that profile in the config editor" — green.
@@ -268,6 +271,7 @@ story filled it with the two real bodies and proved it with tests instead of cha
 - No manual residue.
 
 **Decisions made during implementation (beyond the story's own Decisions (Sprint)):**
+
 - **Tile body wiring.** `DASHBOARD_MODULES` (`dashboard-modules.tsx`) gained a `Body: ComponentType`
   field per entry, and `DashboardTile.tsx` renders `<definition.Body />` in a new content slot below
   its existing header — the plan named this integration implicitly ("fills the two placeholder tiles
@@ -319,6 +323,7 @@ violation, fixed separately), cycle 3 PASS.
 
 **Residual findings, deliberately left as-is (all low-severity, noted by the cycle-3 review under its
 PASS verdict):**
+
 - `DashboardTile.tsx`'s arrange-mode header row is an empty, dead `<div>` outside arrange mode (the
   title moved into the frame) — a few pixels of unused space, no functional effect.
 - The render-fault boundary's fallback and the frame's own fetch-error state both use similar test-id

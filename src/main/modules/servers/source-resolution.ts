@@ -56,8 +56,7 @@ export interface ResolveSourcesResult {
 /** Common shape both transport results share: an address list on success, a `MasterSourceFailure`
  * reason on failure. Only the fields this module reads. */
 type SourceOutcome =
-  | { ok: true; addresses: ParsedServerAddress[] }
-  | { ok: false; reason: MasterSourceFailure }
+  { ok: true; addresses: ParsedServerAddress[] } | { ok: false; reason: MasterSourceFailure }
 
 /**
  * `?raw=2` on the source's own URL means the bare packed-binary shape; anything else (including no
@@ -114,9 +113,7 @@ export async function resolveSources(
 ): Promise<ResolveSourcesResult> {
   const enabled = sources.filter((source) => source.enabled)
 
-  const settled = await Promise.allSettled(
-    enabled.map((source) => resolveOneSource(source, deps)),
-  )
+  const settled = await Promise.allSettled(enabled.map((source) => resolveOneSource(source, deps)))
 
   const addresses: ParsedServerAddress[] = []
   const failures: ScanSourceFailure[] = []
@@ -130,7 +127,10 @@ export async function resolveSources(
     if (outcome.value.ok) {
       addresses.push(...outcome.value.addresses)
     } else {
-      failures.push({ sourceId: source.id, reasonKey: masterSourceFailureKey(outcome.value.reason) })
+      failures.push({
+        sourceId: source.id,
+        reasonKey: masterSourceFailureKey(outcome.value.reason),
+      })
     }
   })
 

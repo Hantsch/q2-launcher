@@ -33,7 +33,7 @@ under an authoritative file, conflict granularity, and what a deleted-outside-th
 means. Those get resolved in `/sprint`'s clarification round before refine, not guessed at.
 
 046 and 047 go first deliberately: they are small, independent of the config rework, and they put the
-UI-verification harness at full coverage *before* 042/043 start changing the write pipeline, Raw
+UI-verification harness at full coverage _before_ 042/043 start changing the write pipeline, Raw
 File and Care — which is when a green report is worth the most. 042/043 are the largest pair cut into
 one sprint so far; expect two acceptance passes rather than one.
 

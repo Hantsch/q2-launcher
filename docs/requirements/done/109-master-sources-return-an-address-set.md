@@ -224,12 +224,14 @@ now resolves to a `servers.source.error.*` i18n key (`masterSourceFailureKey`), 
 `en.json`.
 
 **Commit message.**
+
 ```
 109: master sources return an address set
 ```
 
 **Verification — narrow gate (this was the sprint's last story; the full regression gate is run
 once by the orchestrator after all stories, per the sprint deviation for this run).**
+
 - `npm run build` — green.
 - `npm run typecheck` — green (`tsconfig.node.json` and `tsconfig.web.json` both clean).
 - `npx vitest run --changed HEAD` (test-story) — 68 files / 518 tests, all passed, including all
@@ -248,6 +250,7 @@ once by the orchestrator after all stories, per the sprint deviation for this ru
   needed.
 
 **AC → test mapping, as verified:**
+
 - AC1 → `src/shared/servers/master-records.test.ts` › "unpacks a master reply into packed IPv4 and
   big-endian port records" — passed.
 - AC2 → `master-records.test.ts` › "assembles several datagrams into one address set without
@@ -261,11 +264,12 @@ once by the orchestrator after all stories, per the sprint deviation for this ru
   still parses" — both passed.
 - AC6 → `udp-master-source.test.ts` › "the UDP transport is driven entirely through its injectable
   seam" (plus a loopback `node:dgram` test bound to `127.0.0.1`) + `src/main/modules/servers/
-  http-list-source.test.ts` › "the HTTP list is fetched through the injected FetchImpl against a
+http-list-source.test.ts` › "the HTTP list is fetched through the injected FetchImpl against a
   loopback server" — both passed. No test in this story addresses a real master or q2servers.com.
 - No `manual residue` — the story has no user-facing criterion.
 
 **Decisions made during build (beyond the story's own Decisions (Sprint)):**
+
 - D3's UDP seam shape: `MasterUdpImpl = (target, handlers) => Promise<MasterUdpSocket>` with
   `MasterUdpSocket = { send(datagram), close() }` and `handlers = { onMessage(data), onError(error) }`
   supplied at open time (no post-open registration window a datagram could be missed in), mirroring

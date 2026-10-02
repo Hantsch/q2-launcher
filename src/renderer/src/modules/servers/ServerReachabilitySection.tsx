@@ -28,7 +28,10 @@ function SampleLine({ sample, t }: { sample: RttSample; t: TFunction }) {
   }
 
   return (
-    <div className="flex min-w-0 items-baseline justify-between gap-3 py-0.5" data-testid="server-reachability-sample">
+    <div
+      className="flex min-w-0 items-baseline justify-between gap-3 py-0.5"
+      data-testid="server-reachability-sample"
+    >
       <span className="min-w-0 truncate text-xs text-ink-dim">{text}</span>
       {time !== null && <span className="shrink-0 text-xs text-ink-muted">{time}</span>}
     </div>

@@ -268,7 +268,13 @@ const configCommandPersistedSchema = z.discriminatedUnion('kind', [
 
 /** Story 019: what one entry is. Same vocabulary as the strict IPC schema's
  * `actionEntryKindSchema`. Story 045 D1 adds the two-part `'toggle'`/`'press-release'` kinds. */
-const actionEntryKindPersistedSchema = z.enum(['bind', 'message', 'alias', 'toggle', 'press-release'])
+const actionEntryKindPersistedSchema = z.enum([
+  'bind',
+  'message',
+  'alias',
+  'toggle',
+  'press-release',
+])
 
 /**
  * Story 045 D1: one state's worth of commands for a two-part action, persisted-schema mirror of the
@@ -465,7 +471,10 @@ const configActionPersistedObjectSchema = z.object({
 function refineActionParts(action: { kind?: string; parts?: unknown }, ctx: z.RefinementCtx): void {
   if (!action.kind || !TWO_PART_ACTION_KINDS.has(action.kind)) return
   if (Array.isArray(action.parts) && action.parts.length === 2) return
-  ctx.addIssue({ code: z.ZodIssueCode.custom, message: `'${action.kind}' actions require exactly two 'parts'` })
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: `'${action.kind}' actions require exactly two 'parts'`,
+  })
 }
 
 const configActionPersistedSchema = z.preprocess(
@@ -918,17 +927,22 @@ export function parseConfigSwitchBinds(raw: unknown): Record<string, string> {
 const configWriteFailureEntrySchema = z.object({ messageKey: z.string(), at: z.string() })
 
 export const configWriteFailuresSchema = z
-  .preprocess((raw) => {
-    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return raw
-    return Object.fromEntries(
-      Object.entries(raw as Record<string, unknown>).filter(
-        ([, value]) => configWriteFailureEntrySchema.safeParse(value).success,
-      ),
-    )
-  }, z.record(z.string(), configWriteFailureEntrySchema))
+  .preprocess(
+    (raw) => {
+      if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return raw
+      return Object.fromEntries(
+        Object.entries(raw as Record<string, unknown>).filter(
+          ([, value]) => configWriteFailureEntrySchema.safeParse(value).success,
+        ),
+      )
+    },
+    z.record(z.string(), configWriteFailureEntrySchema),
+  )
   .catch(() => ({}))
 
-export function parseConfigWriteFailures(raw: unknown): Record<string, { messageKey: string; at: string }> {
+export function parseConfigWriteFailures(
+  raw: unknown,
+): Record<string, { messageKey: string; at: string }> {
   return configWriteFailuresSchema.parse(raw)
 }
 
@@ -1113,11 +1127,17 @@ const downloadFailureObjectSchema = z.object({
   id: z.string().min(1),
   jobId: z.string().min(1),
   labelKey: z.string().min(1),
-  labelParams: z.record(z.string(), z.union([z.string(), z.number()])).optional().catch(undefined),
+  labelParams: z
+    .record(z.string(), z.union([z.string(), z.number()]))
+    .optional()
+    .catch(undefined),
   installationId: z.string().min(1).optional().catch(undefined),
   error: z.object({
     key: z.string().min(1),
-    params: z.record(z.string(), z.union([z.string(), z.number()])).optional().catch(undefined),
+    params: z
+      .record(z.string(), z.union([z.string(), z.number()]))
+      .optional()
+      .catch(undefined),
   }),
   createdAt: z.number().finite(),
   dismissedAt: z.number().finite().optional().catch(undefined),
@@ -1178,9 +1198,7 @@ function parseTilePlacement(raw: unknown): TilePlacement | null {
  * reads the same as "never customised", which is exactly what a fresh install has.
  */
 export function parseHomeLayout(raw: unknown): HomeLayout {
-  const envelope = z
-    .object({ tiles: z.array(z.unknown()) })
-    .safeParse(raw)
+  const envelope = z.object({ tiles: z.array(z.unknown()) }).safeParse(raw)
   if (!envelope.success) return { ...DEFAULT_HOME_LAYOUT }
 
   const seenModuleIds = new Set<TilePlacement['moduleId']>()
@@ -1376,7 +1394,9 @@ export function parseServersState(raw: unknown): ServersState {
   if (!envelope.success) return cloneDefaultServersState()
 
   const sources = dedupeByKey(
-    envelope.data.sources.map(parseServerSourceRow).filter((row): row is ServerSourceEntry => row !== null),
+    envelope.data.sources
+      .map(parseServerSourceRow)
+      .filter((row): row is ServerSourceEntry => row !== null),
     (row) => row.id,
   )
   const favourites = dedupeByKey(
@@ -1397,7 +1417,9 @@ export function parseServersState(raw: unknown): ServersState {
   // first, the file's order kept), after the dedupe-by-address above, never instead of it.
   const history = capServerHistory(
     dedupeByKey(
-      envelope.data.history.map(parseServerHistoryRow).filter((row): row is ServerHistoryEntry => row !== null),
+      envelope.data.history
+        .map(parseServerHistoryRow)
+        .filter((row): row is ServerHistoryEntry => row !== null),
       (row) => row.address,
     ),
   )
@@ -1407,8 +1429,12 @@ export function parseServersState(raw: unknown): ServersState {
   // absent or malformed value simply omits the key (default order) rather than degrading the rest
   // of the state, so it is parsed straight off `raw` (not through the envelope schema above, which
   // only ever handles the four array-shaped collections) and only spread in on success.
-  const listSortResult = serverListSortSchema.safeParse((raw as { listSort?: unknown } | null)?.listSort)
-  const listSort: ServerListSort | undefined = listSortResult.success ? listSortResult.data : undefined
+  const listSortResult = serverListSortSchema.safeParse(
+    (raw as { listSort?: unknown } | null)?.listSort,
+  )
+  const listSort: ServerListSort | undefined = listSortResult.success
+    ? listSortResult.data
+    : undefined
 
   // Story 131 D1: dedupe by `id`, first occurrence wins - same convention as `sources` above (also
   // an id-keyed collection, unlike the three address-keyed ones).
@@ -1544,7 +1570,10 @@ const storedNameTemplateSchema = z.discriminatedUnion('kind', [
 function parseNameTemplateRow(raw: unknown): StoredNameTemplate | null {
   const result = storedNameTemplateSchema.safeParse(raw)
   if (!result.success) return null
-  if (result.data.template !== null && !nameTemplateTextSchema.safeParse(result.data.template).success) {
+  if (
+    result.data.template !== null &&
+    !nameTemplateTextSchema.safeParse(result.data.template).success
+  ) {
     return null
   }
   return result.data
@@ -1610,7 +1639,10 @@ function parseModWarning(raw: unknown): ReplaysState['modWarning'] {
     list
       .filter(
         (entry): entry is string =>
-          typeof entry === 'string' && MOD_DIR_PATTERN.test(entry) && entry !== '.' && entry !== '..',
+          typeof entry === 'string' &&
+          MOD_DIR_PATTERN.test(entry) &&
+          entry !== '.' &&
+          entry !== '..',
       )
       .map((entry) => entry.toLowerCase()),
     (entry) => entry,
@@ -1633,8 +1665,12 @@ export function parseReplaysState(raw: unknown): ReplaysState {
   // Story 152 D2: `listSort` is field-level-forgiving, mirroring `parseServersState`'s handling of
   // `ServersState.listSort` exactly - an absent or malformed value simply omits the key (default
   // order) rather than degrading the rest of the state.
-  const listSortResult = demoListSortSchema.safeParse((raw as { listSort?: unknown } | null)?.listSort)
-  const listSort: DemoListSort | undefined = listSortResult.success ? listSortResult.data : undefined
+  const listSortResult = demoListSortSchema.safeParse(
+    (raw as { listSort?: unknown } | null)?.listSort,
+  )
+  const listSort: DemoListSort | undefined = listSortResult.success
+    ? listSortResult.data
+    : undefined
 
   // Story 153 D3: `listFilter` is forgiving the same way, but - unlike `listSort` - it degrades to
   // `EMPTY_DEMO_LIST_FILTER` rather than an absent key, since that value already means "no filter".

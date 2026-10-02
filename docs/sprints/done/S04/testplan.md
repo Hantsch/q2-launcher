@@ -140,8 +140,8 @@ see a tab labelled "Advanced" instead, story 020's rename did not land; note thi
    - one of kind **alias** named `+test` (its command/body can be anything, e.g. `+moveup`)
    - one of kind **alias** named `-test` (e.g. `-moveup`)
    - one of kind **binding** named "Test binding"
-   **Expected:** the "create entry" dialog asks you to choose a kind (bind / message / alias) at
-   creation time.
+     **Expected:** the "create entry" dialog asks you to choose a kind (bind / message / alias) at
+     creation time.
 3. Open the "Test binding" entry's editor and type `+t` into its command field.
    **Expected:** the two aliases you just created (`+test` etc.) appear as suggestions. Pick
    `+test` and save.

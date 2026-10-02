@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { CONNECT_CFG_NAME } from '@shared/launch/userinfo'
 import type { EngineKind, Installation } from '@shared/types'
-import { buildLaunchArgs, isSafeEarlyToken, previewCommand, resolveEffectiveUserinfo } from './launch-plan'
+import {
+  buildLaunchArgs,
+  isSafeEarlyToken,
+  previewCommand,
+  resolveEffectiveUserinfo,
+} from './launch-plan'
 
 function installation(overrides: Partial<Installation> = {}): Installation {
   return {
@@ -28,7 +33,8 @@ function installation(overrides: Partial<Installation> = {}): Installation {
 describe('buildLaunchArgs', () => {
   it('a normal launch carries no stage cvar', () => {
     const joined = buildLaunchArgs(installation({ activeGameDir: 'ctf' })).args.join(' ')
-    for (const cvar of ['vid_fullscreen', 'vid_geometry', 'win_']) expect(joined).not.toContain(cvar)
+    for (const cvar of ['vid_fullscreen', 'vid_geometry', 'win_'])
+      expect(joined).not.toContain(cvar)
   })
 
   it('passes the engine default switches', () => {
@@ -97,7 +103,12 @@ describe('buildLaunchArgs', () => {
     })
 
     // The normalized address, with the cfg exec'd immediately before it.
-    expect(result.args.slice(-4)).toEqual(['+exec', CONNECT_CFG_NAME, '+connect', 'q2.example.org:27910'])
+    expect(result.args.slice(-4)).toEqual([
+      '+exec',
+      CONNECT_CFG_NAME,
+      '+connect',
+      'q2.example.org:27910',
+    ])
     expect(result.args.filter((arg) => arg === '+exec')).toHaveLength(1)
     expect(result.args.join(' ')).not.toContain(password)
     expect(result.args).not.toContain('password')
@@ -109,7 +120,9 @@ describe('buildLaunchArgs', () => {
       '+connect',
       '1.2.3.4:27910',
     ])
-    expect(buildLaunchArgs(installation(), { userinfo: { password } }).args).toEqual(['-nopathcheck'])
+    expect(buildLaunchArgs(installation(), { userinfo: { password } }).args).toEqual([
+      '-nopathcheck',
+    ])
   })
 
   it('join without spectate is unchanged', () => {
@@ -166,8 +179,16 @@ describe('buildLaunchArgs', () => {
   })
 
   it('an address that fails validation is dropped, never emitted', () => {
-    for (const bad of ['1.2.3.4:27910 +set rcon_password x', 'host;quit:27910', 'nohost', '1.2.3.4:99999']) {
-      const result = buildLaunchArgs(installation(), { connect: bad, userinfo: { password: 'secret' } })
+    for (const bad of [
+      '1.2.3.4:27910 +set rcon_password x',
+      'host;quit:27910',
+      'nohost',
+      '1.2.3.4:99999',
+    ]) {
+      const result = buildLaunchArgs(installation(), {
+        connect: bad,
+        userinfo: { password: 'secret' },
+      })
       expect(result.args).toEqual(['-nopathcheck'])
       expect(result.args).not.toContain('+connect')
       expect(result.args).not.toContain('+exec')

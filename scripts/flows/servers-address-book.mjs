@@ -193,7 +193,9 @@ async function openConfig(page, name) {
 }
 
 export default async function serversAddressBook({ page, step, shot }) {
-  step('navigate to Servers, run a refresh, select the fixture row and open the address-book dialog')
+  step(
+    'navigate to Servers, run a refresh, select the fixture row and open the address-book dialog',
+  )
   await page.getByTestId('nav-servers').click({ timeout: TIMEOUT_MS })
   const refreshAll = page.getByTestId('servers-refresh')
   await refreshAll.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -211,7 +213,9 @@ export default async function serversAddressBook({ page, step, shot }) {
     .locator('option', { hasText: 'Plain Profile' })
     .evaluate((option) => option.selected)
   if (!preselectedLabel) {
-    throw new Error('expected "Plain Profile" to be preselected - it is the active installation\'s own profile')
+    throw new Error(
+      'expected "Plain Profile" to be preselected - it is the active installation\'s own profile',
+    )
   }
 
   for (let index = 0; index < 9; index++) {
@@ -219,7 +223,9 @@ export default async function serversAddressBook({ page, step, shot }) {
     await slotRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
     const text = (await slotRow.innerText()).trim()
     if (!text.includes('Empty')) {
-      throw new Error(`expected slot ${index} to show the empty placeholder before any write, got ${JSON.stringify(text)}`)
+      throw new Error(
+        `expected slot ${index} to show the empty placeholder before any write, got ${JSON.stringify(text)}`,
+      )
     }
   }
   await shot('address-book-dialog-plain-profile-empty')
@@ -229,14 +235,20 @@ export default async function serversAddressBook({ page, step, shot }) {
     timeout: TIMEOUT_MS,
   })
   await page.getByTestId('servers-address-book-confirm').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   step('reopening from the detail pane shows slot 0 now holding the address')
   await page.getByTestId('servers-detail-address-book-open').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const slot0AfterWrite = (await page.getByTestId('servers-address-book-slot-0').innerText()).trim()
   if (!slot0AfterWrite.includes(server.address)) {
-    throw new Error(`expected slot 0 to show the written address ${server.address}, got ${JSON.stringify(slot0AfterWrite)}`)
+    throw new Error(
+      `expected slot 0 to show the written address ${server.address}, got ${JSON.stringify(slot0AfterWrite)}`,
+    )
   }
   await shot('address-book-dialog-plain-profile-written')
 
@@ -261,17 +273,29 @@ export default async function serversAddressBook({ page, step, shot }) {
 
   step('Cancel the dialog; "Plain Profile" is clean and the address is already on disk (story 175)')
   await page.getByRole('button', { name: 'Cancel' }).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   await openConfig(page, 'Plain Profile')
   await page.getByTestId('config-tab-raw').click({ timeout: TIMEOUT_MS })
-  await page.locator('.cfg-code-textarea, .cfg-code').first().waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
-  await page.getByText('On disk', { exact: true }).first().waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
+  await page
+    .locator('.cfg-code-textarea, .cfg-code')
+    .first()
+    .waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
+  await page
+    .getByText('On disk', { exact: true })
+    .first()
+    .waitFor({ state: 'visible', timeout: RAW_TAB_LOAD_TIMEOUT_MS })
   if ((await page.getByTestId('config-unsaved-indicator').count()) !== 0) {
-    throw new Error('expected "Plain Profile" to show no unsaved indicator after the address-book write')
+    throw new Error(
+      'expected "Plain Profile" to show no unsaved indicator after the address-book write',
+    )
   }
   if ((await page.getByText(/unsaved changes? (is|are) not in this file yet/).count()) !== 0) {
-    throw new Error('expected the Raw file tab to show no unsaved notice after the address-book write')
+    throw new Error(
+      'expected the Raw file tab to show no unsaved notice after the address-book write',
+    )
   }
   await shot('plain-profile-clean-on-disk')
 
@@ -279,12 +303,16 @@ export default async function serversAddressBook({ page, step, shot }) {
   const adrLine = new RegExp(`set adr0 "?${server.address.replace(/[.:]/g, '\\$&')}`)
   const canonical = readFileSync(canonicalPath, 'latin1')
   if (!adrLine.test(canonical)) {
-    throw new Error(`expected ${canonicalPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(canonical.slice(-300))}`)
+    throw new Error(
+      `expected ${canonicalPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(canonical.slice(-300))}`,
+    )
   }
   const copyPath = installationConfigFilePath(INSTALL_ONE_ID, 'Plain-Profile.cfg')
   const copy = readFileSync(copyPath, 'latin1')
   if (!adrLine.test(copy)) {
-    throw new Error(`expected the installation copy ${copyPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(copy.slice(-300))}`)
+    throw new Error(
+      `expected the installation copy ${copyPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(copy.slice(-300))}`,
+    )
   }
 
   step('leave an unsaved Settings edit on "Layered Profile"')
@@ -302,8 +330,13 @@ export default async function serversAddressBook({ page, step, shot }) {
   await page.getByTestId('nav-servers').click({ timeout: TIMEOUT_MS })
   await page.getByTestId(`servers-row-${server.address}`).click({ timeout: TIMEOUT_MS })
   await page.getByTestId('servers-detail-address-book-open').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').locator('select').selectOption({ label: 'Layered Profile' })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .locator('select')
+    .selectOption({ label: 'Layered Profile' })
   await page.waitForFunction(
     () => {
       const el = document.querySelector('[data-testid="servers-address-book-slot-0"]')
@@ -312,32 +345,54 @@ export default async function serversAddressBook({ page, step, shot }) {
     null,
     { timeout: TIMEOUT_MS },
   )
-  await page.getByTestId('servers-address-book-slot-0').locator('input[type="radio"]').check({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-slot-0')
+    .locator('input[type="radio"]')
+    .check({ timeout: TIMEOUT_MS })
   await page.getByTestId('servers-address-book-confirm').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-address-book-profile').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-address-book-profile')
+    .waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
-  step('"Layered Profile" stays unsaved for the Settings edit only; adr0 is on disk, the edit is not')
+  step(
+    '"Layered Profile" stays unsaved for the Settings edit only; adr0 is on disk, the edit is not',
+  )
   await openConfig(page, 'Layered Profile')
-  await page.getByTestId('config-unsaved-indicator').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('config-unsaved-indicator')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('config-tab-unsaved').click({ timeout: TIMEOUT_MS })
   const changeList = page.getByTestId('config-save-changes')
   await changeList.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const changeListText = await changeList.innerText()
   if (!changeListText.includes('sensitivity')) {
-    throw new Error(`expected the Unsaved tab to list the sensitivity edit, got ${JSON.stringify(changeListText)}`)
+    throw new Error(
+      `expected the Unsaved tab to list the sensitivity edit, got ${JSON.stringify(changeListText)}`,
+    )
   }
   if (changeListText.includes('adr0')) {
-    throw new Error(`expected the Unsaved tab not to list adr0, got ${JSON.stringify(changeListText)}`)
+    throw new Error(
+      `expected the Unsaved tab not to list adr0, got ${JSON.stringify(changeListText)}`,
+    )
   }
   await shot('layered-profile-unsaved-excludes-adr0')
 
   const layeredPath = join(variantUserDataDir(variant), 'Layered-Profile.cfg')
   const layered = readFileSync(layeredPath, 'latin1')
   if (!adrLine.test(layered)) {
-    throw new Error(`expected ${layeredPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(layered.slice(-300))}`)
+    throw new Error(
+      `expected ${layeredPath} to contain "set adr0 ${server.address}", got ${JSON.stringify(layered.slice(-300))}`,
+    )
   }
-  if (new RegExp(String.raw`sensitivity\s+"?${EDITED_SENSITIVITY.replace(/\./g, '\\.')}"?\s*$`, 'm').test(layered)) {
-    throw new Error(`expected ${layeredPath} not to hold the unsaved sensitivity edit ${EDITED_SENSITIVITY}`)
+  if (
+    new RegExp(
+      String.raw`sensitivity\s+"?${EDITED_SENSITIVITY.replace(/\./g, '\\.')}"?\s*$`,
+      'm',
+    ).test(layered)
+  ) {
+    throw new Error(
+      `expected ${layeredPath} not to hold the unsaved sensitivity edit ${EDITED_SENSITIVITY}`,
+    )
   }
 
   console.log(

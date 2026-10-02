@@ -76,7 +76,9 @@ export function UnlockCodePanel() {
           </code>
           <IconButton
             label={
-              copied ? t('settings.unlock.installationId.copied') : t('settings.unlock.installationId.copy')
+              copied
+                ? t('settings.unlock.installationId.copied')
+                : t('settings.unlock.installationId.copy')
             }
             size="sm"
             onClick={handleCopy}
@@ -86,7 +88,9 @@ export function UnlockCodePanel() {
             <Copy className="size-3.5" />
           </IconButton>
           {copied && (
-            <span className="text-xs text-ink-muted">{t('settings.unlock.installationId.copied')}</span>
+            <span className="text-xs text-ink-muted">
+              {t('settings.unlock.installationId.copied')}
+            </span>
           )}
         </div>
         <p className="text-xs text-ink-muted">{t('settings.unlock.installationId.hint')}</p>
@@ -123,7 +127,11 @@ export function UnlockCodePanel() {
       )}
 
       {result && result.ok && (
-        <div className="space-y-1 text-xs text-ink" role="status" data-testid="unlock-result-accepted">
+        <div
+          className="space-y-1 text-xs text-ink"
+          role="status"
+          data-testid="unlock-result-accepted"
+        >
           <ul className="list-disc pl-4">
             {result.code.features.map((feature) => (
               <li key={feature}>{t(`unlock.feature.${feature}`, { defaultValue: feature })}</li>

@@ -63,7 +63,8 @@ export const demoUnreadableSchema = z.object({
 
 export type DemoUnreadable = z.infer<typeof demoUnreadableSchema>
 
-export type DemoReadability = { readable: true; unreadable: null } | { readable: false; unreadable: DemoUnreadable }
+export type DemoReadability =
+  { readable: true; unreadable: null } | { readable: false; unreadable: DemoUnreadable }
 
 /**
  * Projects a `DemoHeaderResult` down to readability: `ok: true` becomes `{ readable: true,

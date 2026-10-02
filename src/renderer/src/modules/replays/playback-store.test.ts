@@ -65,11 +65,26 @@ describe('playback store (story 165 D3)', () => {
 
   it('the display event sets mode, speed and cinema availability', () => {
     usePlaybackStore.getState().beginSession('a.dm2', 90_000)
-    expect(usePlaybackStore.getState().session).toMatchObject({ mode: 'preview', cinemaAvailability: { available: true } })
-    const off = { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } }
+    expect(usePlaybackStore.getState().session).toMatchObject({
+      mode: 'preview',
+      cinemaAvailability: { available: true },
+    })
+    const off = {
+      available: false,
+      reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+    }
     handlers.display?.({ fullscreen: false, cinema: true, speed: 2, cinemaAvailability: off })
-    expect(usePlaybackStore.getState().session).toMatchObject({ mode: 'cinema', speed: 2, cinemaAvailability: off })
-    handlers.display?.({ fullscreen: true, cinema: false, speed: 2, cinemaAvailability: { available: true } })
+    expect(usePlaybackStore.getState().session).toMatchObject({
+      mode: 'cinema',
+      speed: 2,
+      cinemaAvailability: off,
+    })
+    handlers.display?.({
+      fullscreen: true,
+      cinema: false,
+      speed: 2,
+      cinemaAvailability: { available: true },
+    })
     expect(usePlaybackStore.getState().session).toMatchObject({
       mode: 'fullscreen',
       fullscreen: true,

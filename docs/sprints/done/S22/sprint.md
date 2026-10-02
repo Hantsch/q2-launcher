@@ -26,7 +26,7 @@ master-source codecs) is written as pure, unit-tested code with no live network 
 This is the first of 7 sprints (9.1–9.7, stories 106–132) building the game-browser milestone
 described in full in `docs/concepts/game-browser.md`. 106 goes first because 107–109 need the module
 shell (main/renderer halves, IPC namespace) to land their code into, even though none of the three
-protocol/validation stories depend on 106's *content* — they are pure modules that could in principle
+protocol/validation stories depend on 106's _content_ — they are pure modules that could in principle
 be built standalone. 107 goes before 108/109 because both later stories' "reject malformed input"
 acceptance criteria are easier to reason about once the shared validation vocabulary exists, and
 because [[107]] is written to be referenced by name from join/manual-entry/address-book stories in
@@ -45,12 +45,12 @@ codec is exercised against fixtures/stubs, per GB-A5.
 
 Ran on `sprint/S22` HEAD `39fb777` (109, the sprint's last story).
 
-| Command | Result |
-| --- | --- |
-| `npm run build` | green |
-| `npm test` (full) | green — 260 files, 4300 passed, 8 skipped, 0 failed |
-| `npm run ui:verify` (`e2e`) | green — 45/45 screens, 86 shots, 0 axe violations at any severity |
-| `npm run ui:flows` (`e2e-all`) | **red** — non-deterministic, see below |
+| Command                        | Result                                                            |
+| ------------------------------ | ----------------------------------------------------------------- |
+| `npm run build`                | green                                                             |
+| `npm test` (full)              | green — 260 files, 4300 passed, 8 skipped, 0 failed               |
+| `npm run ui:verify` (`e2e`)    | green — 45/45 screens, 86 shots, 0 axe violations at any severity |
+| `npm run ui:flows` (`e2e-all`) | **red** — non-deterministic, see below                            |
 
 ### `ui:flows` — verdict: pre-existing harness defect, not a sprint regression
 

@@ -155,77 +155,83 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
         aria-pressed={selected}
         className="col-span-full row-start-1 grid grid-cols-subgrid items-center"
       >
-      <div className="min-w-0">
-        <p className="flex min-w-0 items-center gap-1.5 text-sm text-ink">
-          <span className="min-w-0 flex-1 truncate" data-testid="replays-demo-name">
-            {name !== null ? name : <UnknownValue />}
-          </span>
-        </p>
-        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="truncate text-[11px] text-ink-muted" data-testid="replays-demo-gamemode">
-            {gamemodeDescription.labelKey !== undefined
-              ? t(gamemodeDescription.labelKey)
-              : gamemodeDescription.text}
-          </span>
-          <Badge tone="neutral" testId="replays-demo-format">
-            {formatLabel(row.format, row.gzip, t)}
-          </Badge>
-          <span className="truncate text-[11px] text-ink-muted" data-testid="replays-demo-source">
-            {sourceText}
-          </span>
+        <div className="min-w-0">
+          <p className="flex min-w-0 items-center gap-1.5 text-sm text-ink">
+            <span className="min-w-0 flex-1 truncate" data-testid="replays-demo-name">
+              {name !== null ? name : <UnknownValue />}
+            </span>
+          </p>
+          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span
+              className="truncate text-[11px] text-ink-muted"
+              data-testid="replays-demo-gamemode"
+            >
+              {gamemodeDescription.labelKey !== undefined
+                ? t(gamemodeDescription.labelKey)
+                : gamemodeDescription.text}
+            </span>
+            <Badge tone="neutral" testId="replays-demo-format">
+              {formatLabel(row.format, row.gzip, t)}
+            </Badge>
+            <span className="truncate text-[11px] text-ink-muted" data-testid="replays-demo-source">
+              {sourceText}
+            </span>
 
-          {row.sidecar.state !== 'none' && (
-            <span
-              data-testid="replays-marker-sidecar"
-              className="inline-flex items-center gap-1 text-ink-muted"
-            >
-              <StickyNote className="size-3" aria-hidden="true" />
-              <span className="sr-only">{t('replays.marker.sidecar')}</span>
-            </span>
-          )}
-          {row.sidecar.state === 'error' && (
-            <Badge tone="danger" testId="replays-marker-sidecar-error">
-              <TriangleAlert className="size-3" aria-hidden="true" />
-              {t('replays.marker.sidecarError')}
-            </Badge>
-          )}
-          {row.archiveEntry !== null && (
-            <span
-              id={archiveMarkerId}
-              data-testid="replays-marker-archive"
-              className="inline-flex items-center gap-1 text-ink-muted"
-            >
-              <Archive className="size-3" aria-hidden="true" />
-              <span className="sr-only">{t('replays.marker.archive')}</span>
-            </span>
-          )}
-          {!row.readable && (
-            <Badge tone="warning" testId="replays-marker-unreadable">
-              <FileWarning className="size-3" aria-hidden="true" />
-              {t('replays.unreadable.marker')}
-            </Badge>
-          )}
+            {row.sidecar.state !== 'none' && (
+              <span
+                data-testid="replays-marker-sidecar"
+                className="inline-flex items-center gap-1 text-ink-muted"
+              >
+                <StickyNote className="size-3" aria-hidden="true" />
+                <span className="sr-only">{t('replays.marker.sidecar')}</span>
+              </span>
+            )}
+            {row.sidecar.state === 'error' && (
+              <Badge tone="danger" testId="replays-marker-sidecar-error">
+                <TriangleAlert className="size-3" aria-hidden="true" />
+                {t('replays.marker.sidecarError')}
+              </Badge>
+            )}
+            {row.archiveEntry !== null && (
+              <span
+                id={archiveMarkerId}
+                data-testid="replays-marker-archive"
+                className="inline-flex items-center gap-1 text-ink-muted"
+              >
+                <Archive className="size-3" aria-hidden="true" />
+                <span className="sr-only">{t('replays.marker.archive')}</span>
+              </span>
+            )}
+            {!row.readable && (
+              <Badge tone="warning" testId="replays-marker-unreadable">
+                <FileWarning className="size-3" aria-hidden="true" />
+                {t('replays.unreadable.marker')}
+              </Badge>
+            )}
+          </div>
         </div>
-      </div>
 
-      <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-map">
-        {row.effective.map.value !== null ? row.effective.map.value : <UnknownValue />}
-      </span>
-      <span className="truncate text-right" data-testid="replays-demo-mod">
-        {row.effective.mod.value !== null ? row.effective.mod.value : <UnknownValue />}
-      </span>
-      <span className="truncate text-right" data-testid="replays-demo-sides">
-        {sides !== '' ? sides : <UnknownValue />}
-      </span>
-      <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-date">
-        {date !== null ? date : <UnknownValue />}
-      </span>
-      <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-duration">
-        {duration.kind === 'known' ? duration.text : <UnknownValue />}
-      </span>
-      {/* This column's real content (badges + quick controls) is the outer div's sibling below -
+        <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-map">
+          {row.effective.map.value !== null ? row.effective.map.value : <UnknownValue />}
+        </span>
+        <span className="truncate text-right" data-testid="replays-demo-mod">
+          {row.effective.mod.value !== null ? row.effective.mod.value : <UnknownValue />}
+        </span>
+        <span className="truncate text-right" data-testid="replays-demo-sides">
+          {sides !== '' ? sides : <UnknownValue />}
+        </span>
+        <span className="numeric truncate text-right text-[11px]" data-testid="replays-demo-date">
+          {date !== null ? date : <UnknownValue />}
+        </span>
+        <span
+          className="numeric truncate text-right text-[11px]"
+          data-testid="replays-demo-duration"
+        >
+          {duration.kind === 'known' ? duration.text : <UnknownValue />}
+        </span>
+        {/* This column's real content (badges + quick controls) is the outer div's sibling below -
           this placeholder just keeps the subgrid's column count lined up with the header. */}
-      <span aria-hidden="true" />
+        <span aria-hidden="true" />
       </div>
 
       <span className="col-start-7 row-start-1 flex items-center justify-end gap-1.5">
@@ -262,7 +268,10 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
           onKeyDown={handleFavouriteKeyDown}
         >
           <Star
-            className={cn('size-3.5', favourite ? 'fill-flame-500 text-flame-500' : 'text-ink-muted')}
+            className={cn(
+              'size-3.5',
+              favourite ? 'fill-flame-500 text-flame-500' : 'text-ink-muted',
+            )}
             aria-hidden="true"
           />
         </IconButton>
@@ -282,7 +291,11 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
             const value = event.target.value
             void useDemoEditorStore
               .getState()
-              .quickEdit(row.id, { rating: value === '' ? null : Number(value) }, onRowPatched ?? (() => {}))
+              .quickEdit(
+                row.id,
+                { rating: value === '' ? null : Number(value) },
+                onRowPatched ?? (() => {}),
+              )
           }}
         >
           <option value="">{t('replays.row.quick.noRating')}</option>

@@ -55,7 +55,10 @@ const {
   // Story 153 D5: the persisted list-filter mocks - default to "nothing persisted" so every
   // pre-existing test in this file keeps seeing every row unfiltered.
   getListFilterMock: vi.fn(async () => ({ ok: true as const, value: EMPTY_DEMO_LIST_FILTER })),
-  setListFilterMock: vi.fn(async (filter: DemoListFilter) => ({ ok: true as const, value: filter })),
+  setListFilterMock: vi.fn(async (filter: DemoListFilter) => ({
+    ok: true as const,
+    value: filter,
+  })),
   // Story 182 D2: the mod-warning state - defaults to "warning on, nothing trusted" (always ask).
   readModWarningMock: vi.fn(
     async (): Promise<{ ok: true; value: { enabled: boolean; trustedMods: string[] } }> => ({
@@ -69,7 +72,10 @@ const {
   })),
 }))
 
-const sidecarReadMock = vi.fn(async () => ({ ok: true as const, value: { state: { state: 'none' as const }, values: {} } }))
+const sidecarReadMock = vi.fn(async () => ({
+  ok: true as const,
+  value: { state: { state: 'none' as const }, values: {} },
+}))
 const playDemoMock = vi.fn()
 
 vi.mock('./client', () => ({
@@ -92,7 +98,10 @@ vi.mock('./client', () => ({
 
 // Story 193 D1: the mods client - the catalog read and the install start; defaults to "no catalog".
 const { getCatalogMock, installModMock } = vi.hoisted(() => ({
-  getCatalogMock: vi.fn(async (): Promise<unknown> => ({ ok: true, value: { status: 'unavailable' } })),
+  getCatalogMock: vi.fn(async (): Promise<unknown> => ({
+    ok: true,
+    value: { status: 'unavailable' },
+  })),
   installModMock: vi.fn(async (..._args: unknown[]): Promise<unknown> => ({
     ok: true,
     value: { jobId: 'job-1' },
@@ -185,7 +194,10 @@ function stringAt(path: string): unknown {
   return path
     .split('.')
     .reduce<unknown>(
-      (acc, key) => (acc && typeof acc === 'object' && key in acc ? (acc as Record<string, unknown>)[key] : undefined),
+      (acc, key) =>
+        acc && typeof acc === 'object' && key in acc
+          ? (acc as Record<string, unknown>)[key]
+          : undefined,
       en,
     )
 }
@@ -578,7 +590,9 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
     useDemoEditorStore.getState().close()
     usePrimaryActionStore.setState({ owner: null, action: null })
     useLauncher.setState({
-      installations: [{ id: 'inst-1', engineKind: 'q2pro', gameDirs: ['baseq2'], runner: undefined }] as never,
+      installations: [
+        { id: 'inst-1', engineKind: 'q2pro', gameDirs: ['baseq2'], runner: undefined },
+      ] as never,
       settings: { ...useLauncher.getState().settings, activeInstallationId: 'inst-1' },
       appInfo: { platform: 'win32' } as never,
       launch: { phase: 'idle' as never, installationId: null },
@@ -596,7 +610,11 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
     playableSetup()
     await renderView([DEMO])
     const action = published()
-    expect(action).toMatchObject({ id: 'view', labelKey: 'installation.action.view', disabled: true })
+    expect(action).toMatchObject({
+      id: 'view',
+      labelKey: 'installation.action.view',
+      disabled: true,
+    })
     expect(action.reason).toBeUndefined()
   })
 
@@ -616,7 +634,10 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
     await renderView([DEMO])
     fireEvent.click(screen.getByTestId('replays-demo-row'))
     await screen.findByTestId('replays-detail')
-    expect(published()).toMatchObject({ disabled: true, reason: { key: 'replays.play.unavailable.gameRunning' } })
+    expect(published()).toMatchObject({
+      disabled: true,
+      reason: { key: 'replays.play.unavailable.gameRunning' },
+    })
   })
 
   it('View plays the demo selected now, even through an action published for an earlier one', async () => {
@@ -624,7 +645,9 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
     playDemoMock.mockResolvedValue({ ok: true, value: { ok: true, value: { stage: null } } })
     await renderView([DEMO, SECOND])
     const rowFor = (id: string) =>
-      screen.getAllByTestId('replays-demo-row').find((row) => row.getAttribute('data-demo-id') === id)!
+      screen
+        .getAllByTestId('replays-demo-row')
+        .find((row) => row.getAttribute('data-demo-id') === id)!
     fireEvent.click(rowFor(DEMO.id))
     await screen.findByTestId('replays-detail')
     const earlier = published()
@@ -656,7 +679,9 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
       expect(published().disabled).toBe(false)
       expect(published().reason).toBeUndefined()
       act(() => published().run())
-      expect((await screen.findByTestId('replays-mod-missing-dialog')).textContent).toContain('opentdm')
+      expect((await screen.findByTestId('replays-mod-missing-dialog')).textContent).toContain(
+        'opentdm',
+      )
       expect(playDemoMock).not.toHaveBeenCalled()
     })
 
@@ -708,7 +733,10 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
 
     it('a trusted mod plays without asking', async () => {
       await selectModMissing()
-      readModWarningMock.mockResolvedValueOnce({ ok: true, value: { enabled: true, trustedMods: ['opentdm'] } })
+      readModWarningMock.mockResolvedValueOnce({
+        ok: true,
+        value: { enabled: true, trustedMods: ['opentdm'] },
+      })
       act(() => published().run())
       await vi.waitFor(() =>
         expect(playDemoMock).toHaveBeenCalledWith({
@@ -724,7 +752,10 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
 
     it('switched off, a missing mod plays without asking', async () => {
       await selectModMissing()
-      readModWarningMock.mockResolvedValueOnce({ ok: true, value: { enabled: false, trustedMods: [] } })
+      readModWarningMock.mockResolvedValueOnce({
+        ok: true,
+        value: { enabled: false, trustedMods: [] },
+      })
       act(() => published().run())
       await vi.waitFor(() =>
         expect(playDemoMock).toHaveBeenCalledWith({
@@ -758,7 +789,9 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
       await selectModMissing()
       getCatalogMock.mockResolvedValueOnce(CATALOG_WITH_OPENTDM)
       act(() => published().run())
-      expect((await screen.findByTestId('replays-mod-missing-install')).textContent).toBe('Install OpenTDM')
+      expect((await screen.findByTestId('replays-mod-missing-install')).textContent).toBe(
+        'Install OpenTDM',
+      )
       expect(screen.getByTestId('replays-mod-missing-confirm')).toBeTruthy()
     })
 

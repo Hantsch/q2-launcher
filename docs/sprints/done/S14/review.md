@@ -10,13 +10,13 @@ Controls > Weapons take a key again.
 All five stories came out of the live acceptance pass on S11–S13, not new scope; 063 is the only
 functional defect, the other four are chrome/UX corrections.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 063 — grenade rows take a key | done | `063: grenade rows take a key` |
-| 061 — profile header is one row | done | `061: profile header is one row for every tab` |
-| 062 — category rail is a clean chip row with an action menu | done | `062: category rail is one chip with an action menu` |
-| 064 — unsaved changes read as a real diff | done | `064: unsaved changes read as a real diff` |
-| 065 — installation name carries an engine badge | done | `065: installation name carries an engine badge everywhere it is shown` |
+| Story                                                       | Status | Commit                                                                  |
+| ----------------------------------------------------------- | ------ | ----------------------------------------------------------------------- |
+| 063 — grenade rows take a key                               | done   | `063: grenade rows take a key`                                          |
+| 061 — profile header is one row                             | done   | `061: profile header is one row for every tab`                          |
+| 062 — category rail is a clean chip row with an action menu | done   | `062: category rail is one chip with an action menu`                    |
+| 064 — unsaved changes read as a real diff                   | done   | `064: unsaved changes read as a real diff`                              |
+| 065 — installation name carries an engine badge             | done   | `065: installation name carries an engine badge everywhere it is shown` |
 
 Build order followed the sprint plan (063 first — the only functional defect and, at sprint start,
 the only story with an unknown cause; 061 before 062/064 since it reshapes the header frame those

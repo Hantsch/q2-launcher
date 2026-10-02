@@ -16,7 +16,8 @@ export interface DemoFileActionsProps {
 /** One failed file action's message: either one of this module's own two i18n keys (a domain
  * refusal - `fileMissing`/`unknownDemo`), or a transport-level `LocalizedMessage` rendered
  * verbatim, same convention as `ReplaysSettingsSection.tsx`'s `error` state. */
-type FileActionError = { kind: 'domain'; key: string } | { kind: 'transport'; message: LocalizedMessage }
+type FileActionError =
+  { kind: 'domain'; key: string } | { kind: 'transport'; message: LocalizedMessage }
 
 /**
  * Story 156 D2 / 178 D2: "Reveal in file manager" / "Copy path" / "Rename" for one demo as icon

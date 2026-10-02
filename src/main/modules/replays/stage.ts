@@ -8,8 +8,7 @@ import type { ReplaysStageRect } from '@shared/modules/replays'
  */
 
 export type StageAvailability =
-  | { available: true }
-  | { available: false; reason: { key: 'replays.stage.unavailable.wayland' } }
+  { available: true } | { available: false; reason: { key: 'replays.stage.unavailable.wayland' } }
 
 const WAYLAND_UNAVAILABLE = {
   available: false,
@@ -26,8 +25,12 @@ export function stageAvailability(
   env: Record<string, string | undefined>,
   harnessEnv: Record<string, string | undefined> = {},
 ): StageAvailability {
-  if (harnessEnv['Q2L_UI_HARNESS'] && harnessEnv['Q2L_UI_SESSION_TYPE'] === 'wayland') return WAYLAND_UNAVAILABLE
-  if (platform === 'linux' && (env['XDG_SESSION_TYPE'] === 'wayland' || (env['WAYLAND_DISPLAY'] ?? '') !== '')) {
+  if (harnessEnv['Q2L_UI_HARNESS'] && harnessEnv['Q2L_UI_SESSION_TYPE'] === 'wayland')
+    return WAYLAND_UNAVAILABLE
+  if (
+    platform === 'linux' &&
+    (env['XDG_SESSION_TYPE'] === 'wayland' || (env['WAYLAND_DISPLAY'] ?? '') !== '')
+  ) {
     return WAYLAND_UNAVAILABLE
   }
   return { available: true }
@@ -70,13 +73,27 @@ export function stageGeometry(
  */
 export function stageLaunchArgs(geometry: string): string[] {
   return [
-    '+set', 'vid_fullscreen', '0',
-    '+set', 'win_noborder', '1',
-    '+set', 'win_notitle', '1',
-    '+set', 'win_alwaysontop', '1',
-    '+set', 'win_noresize', '1',
-    '+set', 's_driver', 'wave',
-    '+set', 'vid_geometry', geometry,
+    '+set',
+    'vid_fullscreen',
+    '0',
+    '+set',
+    'win_noborder',
+    '1',
+    '+set',
+    'win_notitle',
+    '1',
+    '+set',
+    'win_alwaysontop',
+    '1',
+    '+set',
+    'win_noresize',
+    '1',
+    '+set',
+    's_driver',
+    'wave',
+    '+set',
+    'vid_geometry',
+    geometry,
   ]
 }
 

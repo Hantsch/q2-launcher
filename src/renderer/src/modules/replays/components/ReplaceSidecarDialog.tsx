@@ -38,7 +38,10 @@ export function ReplaceSidecarDialog({
         </>
       }
     >
-      <div className="space-y-2 text-sm leading-relaxed text-ink-dim" data-testid="replays-replace-sidecar-dialog">
+      <div
+        className="space-y-2 text-sm leading-relaxed text-ink-dim"
+        data-testid="replays-replace-sidecar-dialog"
+      >
         <p>{t('replays.editor.replaceDialog.body', { fileName })}</p>
         <ul className="list-disc space-y-1 pl-5 text-xs text-danger">
           {issues.map((issue, index) => (

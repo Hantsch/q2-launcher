@@ -305,9 +305,7 @@ export function applySlot(
       ? { key: normalizedKey, modifier }
       : { key: normalizedKey }
     : undefined
-  const updated = nextSlot
-    ? withKeySlot(base, slotIndex, nextSlot)
-    : clearKeySlot(base, slotIndex)
+  const updated = nextSlot ? withKeySlot(base, slotIndex, nextSlot) : clearKeySlot(base, slotIndex)
   return actions.map((action, i) => (i === index ? updated : action))
 }
 
@@ -424,7 +422,9 @@ export function applyMessage(
   const base = actions[index]!
   const withoutMessage = base.commands.filter((command) => command.kind !== 'message')
   const commands: ConfigCommand[] =
-    text.trim().length > 0 ? [...withoutMessage, { kind: 'message', channel, text }] : withoutMessage
+    text.trim().length > 0
+      ? [...withoutMessage, { kind: 'message', channel, text }]
+      : withoutMessage
 
   return actions.map((action, i) => (i === index ? { ...action, commands } : action))
 }

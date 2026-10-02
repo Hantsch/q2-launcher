@@ -133,6 +133,8 @@ export async function installR1q2Notices(
     const text = await readFile(source, 'utf8')
     await writeFile(join(targetRoot, 'LICENSE-r1q2-GPL-3.0.txt'), text)
   } catch (error) {
-    log?.warn(`could not install the R1Q2 GPLv3 license notice into ${targetRoot}: ${String(error)}`)
+    log?.warn(
+      `could not install the R1Q2 GPLv3 license notice into ${targetRoot}: ${String(error)}`,
+    )
   }
 }

@@ -38,14 +38,24 @@ describe('validateDemoRename', () => {
   })
 
   it('rejects a stem with a trailing dot or space', () => {
-    expect(validateDemoRename('foo.', 'old.dm2')).toEqual({ ok: false, reason: 'trailingDotOrSpace' })
+    expect(validateDemoRename('foo.', 'old.dm2')).toEqual({
+      ok: false,
+      reason: 'trailingDotOrSpace',
+    })
     // trailing whitespace is trimmed first, so a trailing space only survives when it's exposed by
     // stripping a re-typed extension off the (already trimmed) stem
-    expect(validateDemoRename('foo .dm2', 'old.dm2')).toEqual({ ok: false, reason: 'trailingDotOrSpace' })
+    expect(validateDemoRename('foo .dm2', 'old.dm2')).toEqual({
+      ok: false,
+      reason: 'trailingDotOrSpace',
+    })
   })
 
   it('rejects reserved device names, case-insensitively', () => {
-    expect(validateDemoRename('con', 'old.dm2')).toEqual({ ok: false, reason: 'reserved', params: { name: 'con' } })
+    expect(validateDemoRename('con', 'old.dm2')).toEqual({
+      ok: false,
+      reason: 'reserved',
+      params: { name: 'con' },
+    })
     expect(validateDemoRename('Com1', 'old.dm2')).toEqual({
       ok: false,
       reason: 'reserved',
@@ -65,10 +75,22 @@ describe('validateDemoRename', () => {
   })
 
   it('keeps the extension for all four recognised extensions', () => {
-    expect(validateDemoRename('new-name', 'old.dm2')).toEqual({ ok: true, fileName: 'new-name.dm2' })
-    expect(validateDemoRename('new-name', 'old.mvd2')).toEqual({ ok: true, fileName: 'new-name.mvd2' })
-    expect(validateDemoRename('new-name', 'old.dm2.gz')).toEqual({ ok: true, fileName: 'new-name.dm2.gz' })
-    expect(validateDemoRename('new-name', 'old.mvd2.gz')).toEqual({ ok: true, fileName: 'new-name.mvd2.gz' })
+    expect(validateDemoRename('new-name', 'old.dm2')).toEqual({
+      ok: true,
+      fileName: 'new-name.dm2',
+    })
+    expect(validateDemoRename('new-name', 'old.mvd2')).toEqual({
+      ok: true,
+      fileName: 'new-name.mvd2',
+    })
+    expect(validateDemoRename('new-name', 'old.dm2.gz')).toEqual({
+      ok: true,
+      fileName: 'new-name.dm2.gz',
+    })
+    expect(validateDemoRename('new-name', 'old.mvd2.gz')).toEqual({
+      ok: true,
+      fileName: 'new-name.mvd2.gz',
+    })
   })
 
   it('preserves the extension case from a mixed-case current file name', () => {

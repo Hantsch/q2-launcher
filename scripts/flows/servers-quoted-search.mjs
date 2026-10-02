@@ -45,7 +45,17 @@ function decodeQueryKind(message) {
 
 /** Binds one loopback responder with full control over its `gamename`/`mapname`/`maxclients`/
  * gamemode flags/`needpass`, so each of A-D can exercise a different filter field. */
-async function bindResponder(hostname, playerLines, { mod = 'baseq2', map = 'q2dm1', maxclients = 8, extraInfoFlags = '\\deathmatch\\1', needpass = false } = {}) {
+async function bindResponder(
+  hostname,
+  playerLines,
+  {
+    mod = 'baseq2',
+    map = 'q2dm1',
+    maxclients = 8,
+    extraInfoFlags = '\\deathmatch\\1',
+    needpass = false,
+  } = {},
+) {
   const socket = createSocket('udp4')
   await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
   const port = socket.address().port
@@ -143,8 +153,13 @@ async function waitForFinishedAtChange(page, previous, timeout) {
 
 async function visibleLabels(page) {
   const visible = []
-  for (const [label, responder] of [['A', serverA], ['B', serverB], ['C', serverC]]) {
-    if ((await page.getByTestId(`servers-row-${responder.address}`).count()) > 0) visible.push(label)
+  for (const [label, responder] of [
+    ['A', serverA],
+    ['B', serverB],
+    ['C', serverC],
+  ]) {
+    if ((await page.getByTestId(`servers-row-${responder.address}`).count()) > 0)
+      visible.push(label)
   }
   return visible.sort()
 }
@@ -167,7 +182,9 @@ export default async function serversQuotedSearch({ page, step, shot }) {
   const finishedAtBefore = await readFinishedAt(page)
   await refreshAll.click({ timeout: TIMEOUT_MS })
   await waitForFinishedAtChange(page, finishedAtBefore, SCAN_SETTLE_TIMEOUT_MS)
-  await page.getByTestId(`servers-row-${serverA.address}`).waitFor({ state: 'attached', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId(`servers-row-${serverA.address}`)
+    .waitFor({ state: 'attached', timeout: TIMEOUT_MS })
   assertSet(await visibleLabels(page), ['A', 'B', 'C'], 'no filter')
 
   const search = page.getByTestId('servers-filter-search')
@@ -189,15 +206,21 @@ export default async function serversQuotedSearch({ page, step, shot }) {
 
   step('search "" (empty quotes) matches nothing and shows the no-match line')
   await search.fill('""')
-  await page.getByTestId('servers-filter-no-match').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-filter-no-match')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   assertSet(await visibleLabels(page), [], 'search=""')
   await search.fill('')
 
   step('placeholder mentions quotes')
   const placeholder = (await search.getAttribute('placeholder')) ?? ''
   if (!placeholder.includes('"quotes"')) {
-    throw new Error(`expected the search placeholder to mention "quotes", got ${JSON.stringify(placeholder)}`)
+    throw new Error(
+      `expected the search placeholder to mention "quotes", got ${JSON.stringify(placeholder)}`,
+    )
   }
 
-  console.log('servers-quoted-search: quoted terms match exactly, unquoted stay substring, the placeholder says so.')
+  console.log(
+    'servers-quoted-search: quoted terms match exactly, unquoted stay substring, the placeholder says so.',
+  )
 }

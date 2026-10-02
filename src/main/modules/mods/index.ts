@@ -60,7 +60,10 @@ function modGameDirs(
     .map((gameDir): ModGameDir => {
       const key = gameDir.toLowerCase()
       const record = records.get(key)
-      const update = computeModUpdateStatus(record, record ? catalogEntries.get(record.catalogId) : undefined)
+      const update = computeModUpdateStatus(
+        record,
+        record ? catalogEntries.get(record.catalogId) : undefined,
+      )
       return {
         gameDir,
         folderPath: join(installation.rootPath, gameDir),
@@ -76,7 +79,9 @@ function modGameDirs(
               ...(update.updateAvailable
                 ? {
                     status: 'update-available' as const,
-                    ...(update.installedVersion ? { installedVersion: update.installedVersion } : {}),
+                    ...(update.installedVersion
+                      ? { installedVersion: update.installedVersion }
+                      : {}),
                     ...(update.pinnedVersion ? { pinnedVersion: update.pinnedVersion } : {}),
                   }
                 : {}),
@@ -241,7 +246,9 @@ export const modsModule: MainModule = {
     const checkUpdatable = (installationId: string, catalogId: string): Outcome<null> => {
       const installation = app.installations.find(installationId)
       if (!installation) return fail('mods.error.installationNotFound')
-      const hasRecord = readModsState(installation.moduleData).records.some((r) => r.catalogId === catalogId)
+      const hasRecord = readModsState(installation.moduleData).records.some(
+        (r) => r.catalogId === catalogId,
+      )
       return hasRecord ? ok(null) : fail('mods.update.refused.noRecord')
     }
 
@@ -276,7 +283,8 @@ export const modsModule: MainModule = {
       if (readModsState(installation.moduleData).records.length > 0) {
         try {
           const snapshot = await catalog.getCatalog()
-          if (snapshot.status === 'ok') for (const e of snapshot.entries) catalogEntries.set(e.id, { pinned: e.pinned })
+          if (snapshot.status === 'ok')
+            for (const e of snapshot.entries) catalogEntries.set(e.id, { pinned: e.pinned })
         } catch (error) {
           log.warn(`mods list: catalog unavailable for update status: ${String(error)}`)
         }

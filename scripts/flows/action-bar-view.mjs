@@ -23,7 +23,9 @@ async function expectAction(page, action, label, disabled) {
   await button.waitFor({ state: 'visible', timeout: SHORT_MS })
   const text = ((await button.textContent()) ?? '').trim()
   if (label !== undefined && text !== label) {
-    throw new Error(`action-bar-view: expected label ${JSON.stringify(label)} for ${action}, got ${JSON.stringify(text)}`)
+    throw new Error(
+      `action-bar-view: expected label ${JSON.stringify(label)} for ${action}, got ${JSON.stringify(text)}`,
+    )
   }
   if (disabled !== undefined && (await button.isDisabled()) !== disabled) {
     throw new Error(`action-bar-view: expected ${action} disabled=${disabled}`)
@@ -66,7 +68,8 @@ export default async function actionBarView({ page, step, shot }) {
     timeout: TIMEOUT_MS,
   })
   for (const id of ['replays-demo-play', 'replays-demo-play-anyway']) {
-    if ((await page.getByTestId(id).count()) !== 0) throw new Error(`action-bar-view: ${id} must not exist any more`)
+    if ((await page.getByTestId(id).count()) !== 0)
+      throw new Error(`action-bar-view: ${id} must not exist any more`)
   }
   await shot('view-enabled')
 
@@ -78,7 +81,10 @@ export default async function actionBarView({ page, step, shot }) {
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('installation-tile').nth(2).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('installation-tile').nth(2).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('installation-tile')
+    .nth(2)
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await expectAction(page, 'repair')
   await shot('repair-wins')
 }

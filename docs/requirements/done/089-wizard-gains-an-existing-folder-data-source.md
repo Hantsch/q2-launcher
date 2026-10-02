@@ -45,7 +45,7 @@ exactly as [[074]] already does.
   name match, as `inspectInstallation` already does via `byLowerName`) — a looser "search any
   subfolder" rule would make the copy non-deterministic and could not be expressed as an allowlist,
   which is the only mechanism that guarantees AC7.
-- **Three verdicts, defined by size, not by hashing:** `retail` = `pak0.pak` *and* `pak1.pak` both
+- **Three verdicts, defined by size, not by hashing:** `retail` = `pak0.pak` _and_ `pak1.pak` both
   present and matching `RETAIL_PAK_SIZES` (`src/shared/constants.ts`); `demo` = `pak0.pak` present
   but the retail check failed; `unusable` = no `baseq2/pak0.pak` at all — because the inspector
   already decides "is this retail" by exactly that pak0 size comparison, so any other rule here
@@ -56,11 +56,11 @@ exactly as [[074]] already does.
   `inspectGameDataSource(rootPath)` and `copyGameDataSource(rootPath, targetRoot)` — a second
   implementation of "is this retail" would be a second answer to the same question. **Reconcile at
   build time:** [[088]] is refined in parallel and builds this routine first for its AC3/AC4; if it
-  landed under a different file/function name, 089 imports *that* one and adds only what is missing
+  landed under a different file/function name, 089 imports _that_ one and adds only what is missing
   (the `demo`/`unusable` verdicts), never a parallel copy.
 - **The data source becomes an explicit discriminated union in the contract**, shared with [[088]]:
   `BootstrapDataSource = { kind: 'download' } | { kind: 'store'; path: string } | { kind: 'folder';
-  path: string }`, carried on `StartBootstrapInput.source` and echoed on `BootstrapSummary.source` —
+path: string }`, carried on `StartBootstrapInput.source` and echoed on `BootstrapSummary.source` —
   the wizard's data source is now a real choice and a `boolean`/optional-path pair would let an
   impossible combination through the schema. If [[088]]'s build already added the union, 089 adds
   only the `'folder'` variant.
@@ -111,14 +111,14 @@ exactly as [[074]] already does.
 
 ## Open Questions
 
-*(none — both entries were decided above)*
+_(none — both entries were decided above)_
 
 ## Plan
 
 1. **Contract first** (`src/shared/modules/downloads.ts`): `BootstrapDataSource` union,
    `GameDataSourceVerdict` (`rootPath`, `kind: 'retail' | 'demo' | 'unusable'`, `reason?`,
    `paks: { name, sizeBytes, retail }[]`), `DOWNLOADS_HANDLERS.bootstrapGameDataSource =
-   'bootstrap.gameDataSource'`, `StartBootstrapInput.source`, `BootstrapSummary.source`, the new
+'bootstrap.gameDataSource'`, `StartBootstrapInput.source`, `BootstrapSummary.source`, the new
    error key. Schemas in `src/main/modules/downloads/schemas.ts`, client in
    `src/renderer/src/modules/downloads/client.ts`.
 2. **The shared routine** (`bootstrap/game-data-source.ts`, reconciled with [[088]]):
@@ -142,7 +142,7 @@ exactly as [[074]] already does.
   `bootstrapSummaryInputSchema`/`startBootstrapInputSchema` + `bootstrapGameDataSourceInputSchema`),
   `src/main/modules/downloads/bootstrap/errors.ts`, `src/renderer/src/modules/downloads/client.ts`.
   Mirror: the `bootstrapSummary` entries added by 074 D4 in each of these files.
-  *Acceptance:* typecheck + `npm test` green; every existing call site compiles against the new
+  _Acceptance:_ typecheck + `npm test` green; every existing call site compiles against the new
   shape (`{ kind: 'download' }` is the free path's value). Test: schema cases in the existing
   downloads schema test file — an unknown `kind`, and a `'folder'` source without a path, are both
   rejected.
@@ -151,7 +151,7 @@ exactly as [[074]] already does.
   `isUnsafeAbsolutePath()` from `bootstrap/target.ts`. **Reconcile with [[088]] first** — if it
   already built this module, extend it instead of adding a second. Mirror: `bootstrap/target.ts`
   (verdict-producing pure-ish function) and `bootstrap/assemble.ts` (allowlist copy discipline).
-  *Acceptance:* unit tests cover retail / demo / unusable classification, a source whose `baseq2`
+  _Acceptance:_ unit tests cover retail / demo / unusable classification, a source whose `baseq2`
   holds `ctf`, `xatrix`, `rogue` and loose files (none copied), overlap with the target refused, and
   `pak2.pak` copied when present.
 - **D3 — the job installs from a folder.** `src/main/modules/downloads/bootstrap/job.ts`
@@ -159,7 +159,7 @@ exactly as [[074]] already does.
   the copy inside the assemble phase feeding `copied`), `src/main/modules/downloads/index.ts` (the
   `bootstrap.gameDataSource` handler), plus `bootstrap/job.test.ts` cases. Mirror: the existing
   `missingRequired`/`r1q2` branches in `job.ts` for where a source-specific step belongs.
-  *Acceptance:* unit tests prove the start refusal with `downloads.error.gameDataSourceUnusable`
+  _Acceptance:_ unit tests prove the start refusal with `downloads.error.gameDataSourceUnusable`
   before any installation is registered, engine-only package resolution and summary, and that a
   failed run's cleanup removes the copied paks.
 - **D4 — the wizard has a data-source step.** New
@@ -169,13 +169,13 @@ exactly as [[074]] already does.
   "cannot proceed" shape) and `EngineStep.tsx` (option list). Plus the happy-path flow
   `scripts/flows/bootstrap-existing-folder.mjs` (mirror: `scripts/flows/bootstrap-wizard.mjs`,
   including its `findForbiddenDirs` assertions and its `Q2L_UI_PICK_FOLDER` usage).
-  *Acceptance:* the flow drives engine → existing-folder → browse → retail verdict → target →
+  _Acceptance:_ the flow drives engine → existing-folder → browse → retail verdict → target →
   confirm → success against a truncate-built retail fixture and asserts the copied paks, the absent
   Demo marker and the absent `ctf`/`xatrix`/`rogue` directories on disk.
 - **D5 — demo and rejection read as reasons, not as failures.** `ConfirmStep.tsx` (source line,
   engine-only package list, toggle hidden for a folder source), the verdict/refusal strings in
   `en.json`, and the second flow `scripts/flows/bootstrap-existing-folder-demo.mjs`.
-  *Acceptance:* the flow runs a demo-only fixture to a finished installation carrying the Demo
+  _Acceptance:_ the flow runs a demo-only fixture to a finished installation carrying the Demo
   marker, and a second pass against an empty folder where the wizard names the reason and Next stays
   disabled.
 
@@ -243,6 +243,7 @@ server-side before any installation is registered (AC5), independent of whatever
 claims.
 
 **Commit message:**
+
 ```
 089: wizard gains an existing-folder data source
 ```
@@ -250,13 +251,14 @@ claims.
 **Reconciliation decisions (this story was refined against a version of [[088]] that landed
 differently than expected; these are the resulting deviations from this story's own Plan/Decisions
 prose, made during build per the sprint's "no questions to the user" rule):**
+
 - `BootstrapDataSource` stayed [[088]]'s **flat string union** (`'free-download' | 'store-copy'`),
   widened to add `'existing-folder'`, instead of the discriminated `{kind:...}` object union this
   story's Decisions section describes — 088 never built that shape for `store-copy` either, and
   forking the type two ways for the same concept would be worse than the union this story
   originally wanted to avoid. `copySourcePath` (already on `StartBootstrapInput`/`BootstrapSummary`)
   is reused verbatim for the folder path; no second field.
-- No `game-data-source.ts` was needed as a *shared* module with [[088]]'s pak-size check — 088's
+- No `game-data-source.ts` was needed as a _shared_ module with [[088]]'s pak-size check — 088's
   `inspectRetailSource` is a boolean verified/not-verified check with no `demo` concept, which this
   story's three-verdict requirement doesn't fit. Added `src/main/modules/downloads/bootstrap/game-data-source.ts`
   (`inspectGameDataSource`, `copyGameDataSource`, `isPathContainedBy`) as its own module, importing
@@ -280,6 +282,7 @@ prose, made during build per the sprint's "no questions to the user" rule):**
   `module:invoke` dispatcher in this codebase to hang it off of.
 
 **Verification.**
+
 - `npm run typecheck` — clean (node + web).
 - `npm run build` — clean.
 - `npm test` — 3663 passed, 1 skipped (a symlink-copy regression test gated `skipIf` — this sandbox
@@ -304,7 +307,7 @@ prose, made during build per the sprint's "no questions to the user" rule):**
   the finished install's Demo marker is derived from `pak0`'s own validity, not from the verdict —
   outside AC4's scope since AC4 only requires an actually-demo-shaped `pak0` to carry the marker,
   which it does); **F4** (documentation only — fixed separately by correcting the `## Acceptance
-  Tests` section above to point AC3/AC7 at the production-path tests in `job.test.ts` rather than
+Tests` section above to point AC3/AC7 at the production-path tests in `job.test.ts` rather than
   at `copyGameDataSource`'s standalone tests, which cover the same allowlist discipline as an
   independently tested unit but aren't on the path production calls); **F5** (minor — the
   `GameDataSourceUnusableReasonKey` union/array this story added is currently unused because

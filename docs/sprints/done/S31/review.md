@@ -7,18 +7,18 @@ detail and the demo mod warning, plus exact search, Online/LAN and quick filters
 All ten stories are done on `sprint/S31`. **Do not merge before reading the Regression gate section:**
 four flows are red, all pre-existing (none caused by this sprint).
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 188 mods view | done | 70d16c4 mods module — view, tile catalog, detail, reveal |
-| 189 catalog | done | c83022b manifest, parser, service, catalog tiles, detail |
-| 190 install | done | ad68d4d engine target, stager, install job + record, decision dialog |
-| 191 remove | done | 303dee2 recorded-files-only removal, job, dialog |
-| 192 server detail | done | d3121fe mod/map presence, pak reader, install offer (+ b971230 gate fix) |
-| 193 mod-missing warning | done | 236da3d Install action in the dialog |
-| 194 update | done | da174d3 update status/plan, job with backup/restore, dialog |
-| 195 quoted search | done | 65ba234 |
-| 196 Online/LAN | done | d0a10da |
-| 197 quick filters | done | 88464b4 |
+| Story                   | Status | Commit                                                                   |
+| ----------------------- | ------ | ------------------------------------------------------------------------ |
+| 188 mods view           | done   | 70d16c4 mods module — view, tile catalog, detail, reveal                 |
+| 189 catalog             | done   | c83022b manifest, parser, service, catalog tiles, detail                 |
+| 190 install             | done   | ad68d4d engine target, stager, install job + record, decision dialog     |
+| 191 remove              | done   | 303dee2 recorded-files-only removal, job, dialog                         |
+| 192 server detail       | done   | d3121fe mod/map presence, pak reader, install offer (+ b971230 gate fix) |
+| 193 mod-missing warning | done   | 236da3d Install action in the dialog                                     |
+| 194 update              | done   | da174d3 update status/plan, job with backup/restore, dialog              |
+| 195 quoted search       | done   | 65ba234                                                                  |
+| 196 Online/LAN          | done   | d0a10da                                                                  |
+| 197 quick filters       | done   | 88464b4                                                                  |
 
 ## Implemented stories
 
@@ -71,6 +71,7 @@ From `sprint.md`: build, `npm test`, `ui:verify` green after the fix; `ui:flows`
 
 Every story's AC1–ACn was proven by named unit tests and `ui:flow` flows, listed in each story's
 `## Done` (docs/requirements/done/188–197-*.md). **Manual residue: none declared.** Level notes:
+
 - 192 AC5 (statement flips after install) has no extra code; it follows the store's `gameDirs`.
 - 195 AC5 is unit-level only (the live UDP fixture always fetches the roster).
 - 196 uses a harness-only target hook (`Q2L_UI_LAN_TARGETS`); loopback broadcast is unreliable on
@@ -80,19 +81,19 @@ Every story's AC1–ACn was proven by named unit tests and `ui:flow` flows, list
 
 ## Tier record
 
-| Story | Ds | hard Ds | review | cycles | agents | build min |
-| --- | --- | --- | --- | --- | --- | --- |
-| 188 | 3 | 0 | default | 1 | 6 | 16 |
-| 189 | 5 | 1 | default | 1 | 9 | 35 |
-| 190 | 8 | 1 | default+hard | 2 | 14 | 56 |
-| 191 | 3 | 1 | default | 0 | 6 | 16 |
-| 192 | 4 | 1 | default | 0 | 8 | 22 |
-| 193 | 2 | 0 | default | 1 | 5 | 16 |
-| 194 | 5 | 1 | default | 1 | 8 | 27 |
-| 195 | 2 | 0 | default | 1 | 5 | 7 |
-| 196 | 5 | 1 | default | 1 | 8 | 27 |
-| 197 | 4 | 0 | default | 1 | 6 | 14 |
-| **Total** | **41** | **6** | 1 hard review of 10 | 9 | 75 | 236 |
+| Story     | Ds     | hard Ds | review              | cycles | agents | build min |
+| --------- | ------ | ------- | ------------------- | ------ | ------ | --------- |
+| 188       | 3      | 0       | default             | 1      | 6      | 16        |
+| 189       | 5      | 1       | default             | 1      | 9      | 35        |
+| 190       | 8      | 1       | default+hard        | 2      | 14     | 56        |
+| 191       | 3      | 1       | default             | 0      | 6      | 16        |
+| 192       | 4      | 1       | default             | 0      | 8      | 22        |
+| 193       | 2      | 0       | default             | 1      | 5      | 16        |
+| 194       | 5      | 1       | default             | 1      | 8      | 27        |
+| 195       | 2      | 0       | default             | 1      | 5      | 7         |
+| 196       | 5      | 1       | default             | 1      | 8      | 27        |
+| 197       | 4      | 0       | default             | 1      | 6      | 14        |
+| **Total** | **41** | **6**   | 1 hard review of 10 | 9      | 75     | 236       |
 
 The one hard review (190) fixed 3 findings the default review had not raised. Refine took 9 min; gate
 took ~3 min (short suites) + 49 min (flows) + ~10 min (attribution and fix).

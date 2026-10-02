@@ -13,13 +13,16 @@ export interface PlaybackConsole {
   send(line: string): Outcome<void>
 }
 
-export function createPlaybackConsole(deps: { playback: Pick<PlaybackControl, 'send'> }): PlaybackConsole {
+export function createPlaybackConsole(deps: {
+  playback: Pick<PlaybackControl, 'send'>
+}): PlaybackConsole {
   return {
     send(line) {
       const checked = validateConsoleLine(line)
       if (!checked.ok) return fail(`replays.console.error.${checked.reason}`)
       const result = deps.playback.send(checked.line)
-      if (!result.ok && result.error.key === NO_SESSION) return fail('replays.console.error.noSession')
+      if (!result.ok && result.error.key === NO_SESSION)
+        return fail('replays.console.error.noSession')
       return result
     },
   }

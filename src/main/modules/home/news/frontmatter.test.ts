@@ -79,9 +79,7 @@ describe('parseFrontmatter', () => {
       ].join('\n'),
     )
     expect(result).toBeDefined()
-    expect(result?.data.buttons).toEqual([
-      { label: 'Good entry', url: 'https://example.com/good' },
-    ])
+    expect(result?.data.buttons).toEqual([{ label: 'Good entry', url: 'https://example.com/good' }])
   })
 
   it('ignores unrecognized keys in the block', () => {

@@ -23,7 +23,9 @@ describe('buildRepairPlan', () => {
       canSupplyEngine: true,
     })
 
-    expect(plan.offers).toEqual([{ kind: 'reinstall-engine', messageKey: 'validation.noExecutable' }])
+    expect(plan.offers).toEqual([
+      { kind: 'reinstall-engine', messageKey: 'validation.noExecutable' },
+    ])
     expect(plan.findings).toHaveLength(1)
   })
 
@@ -94,7 +96,10 @@ describe('buildRepairPlan', () => {
   })
 
   it('returns an empty offer list while still carrying the findings when nothing is repairable', () => {
-    const findings = [check('validation.engineUnknown'), check('validation.pak0MissingButPaksPresent')]
+    const findings = [
+      check('validation.engineUnknown'),
+      check('validation.pak0MissingButPaksPresent'),
+    ]
     const plan = buildRepairPlan('inst-1', resultOf(findings), { canSupplyEngine: true })
 
     expect(plan.offers).toEqual([])
@@ -135,7 +140,9 @@ describe('resolveRepairPlan', () => {
     expect(inspect).toHaveBeenCalledTimes(1)
     expect(inspect).toHaveBeenCalledWith('C:\\Games\\Q2', {})
     expect(canSupplyEngine).toHaveBeenCalledWith('q2pro')
-    expect(plan.offers).toEqual([{ kind: 'reinstall-engine', messageKey: 'validation.noExecutable' }])
+    expect(plan.offers).toEqual([
+      { kind: 'reinstall-engine', messageKey: 'validation.noExecutable' },
+    ])
     expect(plan.findings).toEqual(freshResult.checks)
   })
 
@@ -162,7 +169,9 @@ describe('resolveRepairPlan', () => {
     )
 
     expect(canSupplyEngine).toHaveBeenCalledWith('r1q2')
-    expect(plan.offers).toEqual([{ kind: 'reinstall-engine', messageKey: 'validation.noExecutable' }])
+    expect(plan.offers).toEqual([
+      { kind: 'reinstall-engine', messageKey: 'validation.noExecutable' },
+    ])
   })
 
   it('offers reinstall-engine from recordedEngineKind when a fresh inspection can no longer identify the engine at all', async () => {
@@ -184,11 +193,18 @@ describe('resolveRepairPlan', () => {
 
     const plan = await resolveRepairPlan(
       { inspect, canSupplyEngine },
-      { id: 'inst-4', rootPath: 'C:\\Games\\Q2', engineKind: 'unknown', recordedEngineKind: 'q2pro' },
+      {
+        id: 'inst-4',
+        rootPath: 'C:\\Games\\Q2',
+        engineKind: 'unknown',
+        recordedEngineKind: 'q2pro',
+      },
     )
 
     expect(canSupplyEngine).toHaveBeenCalledWith('q2pro')
-    expect(plan.offers).toEqual([{ kind: 'reinstall-engine', messageKey: 'validation.noExecutable' }])
+    expect(plan.offers).toEqual([
+      { kind: 'reinstall-engine', messageKey: 'validation.noExecutable' },
+    ])
   })
 
   it('passes the installation executable/write-dir overrides through to inspect', async () => {

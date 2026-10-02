@@ -84,8 +84,7 @@ export interface CompiledNameTemplate {
 }
 
 export type CompileNameTemplateResult =
-  | { ok: true; template: CompiledNameTemplate }
-  | { ok: false; error: NameTemplateError }
+  { ok: true; template: CompiledNameTemplate } | { ok: false; error: NameTemplateError }
 
 export interface NameFacts {
   date?: {
@@ -108,9 +107,7 @@ export interface NameFacts {
 }
 
 export type NameTemplateMatch =
-  | { kind: 'none' }
-  | { kind: 'ambiguous' }
-  | { kind: 'match'; facts: NameFacts }
+  { kind: 'none' } | { kind: 'ambiguous' } | { kind: 'match'; facts: NameFacts }
 
 const DIGIT_WIDTH: Record<NameTemplateDigitToken, number> = {
   year: 4,
@@ -121,7 +118,10 @@ const DIGIT_WIDTH: Record<NameTemplateDigitToken, number> = {
   sec: 2,
 }
 
-const SHORTHAND_EXPANSION: Record<(typeof NAME_TEMPLATE_SHORTHANDS)[number], (string | NameTemplateDigitToken)[]> = {
+const SHORTHAND_EXPANSION: Record<
+  (typeof NAME_TEMPLATE_SHORTHANDS)[number],
+  (string | NameTemplateDigitToken)[]
+> = {
   date: ['year', '-', 'month', '-', 'day'],
   time: ['hour', '-', 'min', '-', 'sec'],
 }
@@ -153,7 +153,10 @@ function isShorthand(name: string): name is (typeof NAME_TEMPLATE_SHORTHANDS)[nu
   return (NAME_TEMPLATE_SHORTHANDS as readonly string[]).includes(name)
 }
 
-function fail(key: NameTemplateErrorKey, params?: Record<string, string | number>): CompileNameTemplateResult {
+function fail(
+  key: NameTemplateErrorKey,
+  params?: Record<string, string | number>,
+): CompileNameTemplateResult {
   return { ok: false, error: params === undefined ? { key } : { key, params } }
 }
 
@@ -175,7 +178,8 @@ export function compileNameTemplate(text: string): CompileNameTemplateResult {
     if (ch === '{') {
       let j = i + 1
       while (j < text.length && text[j] !== '}' && text[j] !== '{') j++
-      if (j >= text.length || text[j] === '{') return fail(NAME_TEMPLATE_ERROR.unclosedBrace, { position: i })
+      if (j >= text.length || text[j] === '{')
+        return fail(NAME_TEMPLATE_ERROR.unclosedBrace, { position: i })
       if (literal !== '') pieces.push({ kind: 'literal', text: literal })
       literal = ''
       pieces.push({ kind: 'token', name: text.slice(i + 1, j) })
@@ -190,7 +194,12 @@ export function compileNameTemplate(text: string): CompileNameTemplateResult {
   if (literal !== '') pieces.push({ kind: 'literal', text: literal })
 
   for (const p of pieces) {
-    if (p.kind === 'token' && !isTextToken(p.name) && !isDigitToken(p.name) && !isShorthand(p.name)) {
+    if (
+      p.kind === 'token' &&
+      !isTextToken(p.name) &&
+      !isDigitToken(p.name) &&
+      !isShorthand(p.name)
+    ) {
       return fail(NAME_TEMPLATE_ERROR.unknownToken, { token: p.name })
     }
   }
@@ -222,7 +231,8 @@ export function compileNameTemplate(text: string): CompileNameTemplateResult {
   }
   const pushToken = (name: string): void => {
     if (isTextToken(name)) segments.push({ kind: 'text', token: name })
-    else if (isDigitToken(name)) segments.push({ kind: 'digit', token: name, width: DIGIT_WIDTH[name] })
+    else if (isDigitToken(name))
+      segments.push({ kind: 'digit', token: name, width: DIGIT_WIDTH[name] })
   }
   for (const p of pieces) {
     if (p.kind === 'literal') pushLiteral(p.text)

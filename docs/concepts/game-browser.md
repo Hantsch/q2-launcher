@@ -24,7 +24,7 @@ event-push precedents, and the module seam described in
 ## TL;DR
 
 - **Vision:** "where is something going on right now, and who is playing where" — a window you open
-  to find *people*, not to browse infrastructure.
+  to find _people_, not to browse infrastructure.
 - **Discovery is configurable.** A user-editable list of master sources (UDP masters and the
   q2servers.com HTTP list) with shipped defaults, plus manually added servers and favourites.
 - **Scanning is two-stage and streaming:** a cheap `info` sweep fills the list within a second, a
@@ -76,7 +76,7 @@ The game browser answers it in two directions:
   alphabetical directory of mostly-empty infrastructure, but an activity view: who has players, what
   are they playing, and — the specific case that matters in a small community — **where is one
   person sitting alone on a duel server waiting for an opponent**.
-- **"Where is *this* person?"** — the watchlist. You keep a handful of names, and the browser tells
+- **"Where is _this_ person?"** — the watchlist. You keep a handful of names, and the browser tells
   you which server each of them is on, or that they are offline. That is the moment the feature
   exists for: you see the name light up, and you either go watch them or go play them.
 
@@ -147,7 +147,7 @@ not things it asks of you. The default state is: open it, look at it, join somet
   > WebQuake2) cannot open UDP sockets and need a WebSocket proxy, so they cannot reach a real
   > server at all; embedding a native engine window (`SetParent` / X11 reparenting) is fragile,
   > needs native code and is impossible on Wayland. Observing in the launcher means observing
-  > *data*.
+  > _data_.
 - **The launcher never pretends to be a human player.** An observer connection identifies itself as
   a launcher observer; it does not take a player-looking name to blend in, and it never sends
   movement, chat or commands to a server.
@@ -164,53 +164,53 @@ not things it asks of you. The default state is: open it, look at it, join somet
 
 ## 3. Design decisions taken (from the requirements interview)
 
-| Topic | Decision | Rationale (user's) |
-| --- | --- | --- |
-| Purpose | "Wo ist gerade was los" + "wer spielt wo" over the watchlist | The two questions the browser exists for |
-| Placement | Own module, **primary** nav entry | Same level as Library and Config |
-| Master sources | **User-configurable list** with shipped defaults | "falls ein master stirbt" — not dependent on one website |
-| Scan trigger | Auto on open **and** auto-refresh on an interval, **both configurable in settings**, manual always available | The user decides how aggressive it is |
-| Scan shape | **Two-stage** (header query first, details after) and **asynchronous/streaming** | "damit es schnell und performant ist" |
-| Scanning while playing | **Never**, in any mode | "kein autoscan während das spiel läuft auf jeden fall" |
-| Scan budget (concurrency, timeouts, minimum refresh spacing) | Settings with shipped defaults | "das soll der user selber entscheiden" |
-| Default sort | **Favourites pinned on top, then occupancy**, with gamemode as a second dimension | "server mit auslastung … favouriten immer on top" |
-| Default filter | **None** — every server is shown | Chosen over hiding empty servers |
-| List row | Name, mod, players/slots, map, measured ping | The four asked for, plus map and ping which cost nothing |
-| "Waiting for an opponent" | A first-class marker on servers with exactly one player | "wo wartet wer auf einen gegner" |
-| Detail content | Players; **full serverinfo rule table**; **decoded dmflags**; **ping history**; **map/mod availability locally** | All four picked |
-| Join | Active installation + `+connect`, **warning on mod mismatch**, password asked up front | Fails loudly instead of silently |
-| Address book | Dialog with **profile choice and slot choice** (`adr0`–`adr8`, occupied slots show their value) | Full control over nine slots |
-| v1 extras | Favourites, manual `ip:port`, history, filters & search, address-book write | All five picked |
-| Watchlist shape | **Its own list UI**: per entry either `offline` or the server, with score and ping, and an action menu with Join | "watchlist ist eine eigene liste wo der name steht" |
-| Watchlist matching | **Per entry selectable**: exact, substring, **or regex** | Per-entry control, regex for the hard cases |
-| Watchlist scan cost | **None** — the watchlist matches against the details a normal scan produces; a re-check queries only the server an entry was last seen on | "die watchlist muss nicht hard sein … man muss keinen neuen scan machen" |
-| Refresh granularity | Scoped refreshes (all / favourites / one server) instead of always reloading everything | "damit man nicht immer alles neu laden muss" |
-| Performance tuning | **Measure before optimising** — build it, load ~100 servers with details, then decide whether any of this needs solving | "wenn das nämlich ca 300ms sind dann braucht man darüber nicht diskutieren" |
-| Spectator vs. player | **Not shown** — only what the protocol actually carries | Accepted after the protocol limitation was raised |
-| Favourites / history / watchlist scope | **Global to the launcher**, not per installation | It is about finding people, not managing setups |
-| Watchlist in release | **Hidden behind an experimental-features gate** | Should not roll out yet, but be there optionally |
-| Gate mechanism | **Signed unlock code that names the features it unlocks**, optional expiry, issued by the maintainer | Different codes for different testers |
-| Code reuse | **Device-bound**: the token names the installation it was issued for and is refused anywhere else | One-time use is impossible offline; binding beats it for the actual goal — a forwarded code simply does not work |
-| Code activation | A **short redemption window** (issued-at + redeem-by); after redemption the window no longer matters | "um die chance zu verringern damit ein code weitergegeben wird" |
-| Clock tampering | **Not defended against**, documented as a known limit | Consistent with the whole mechanism being gatekeeping, not security |
-| Locked feature visibility | **Invisible** — no tab, no hint, only an unobtrusive code field in Settings | "niemand fragt nach etwas, das er nicht sieht" |
-| Observing in v1 | **Spectator launch** of the real game | Cheap, works everywhere |
-| Observing, next stage | **2D in-launcher observer**: live scoreboard, chat/server messages, top-down radar, controllable self-identification | All four picked; specified here, built later |
-| Platform support | **Windows and Linux**, Windows first (~80% of users) | Standing rule from now on |
-| Unavailable-on-Linux features | **Visible, disabled, with the reason as visible text** — never silently dropped | "nicht einfach stillschweigend weggelassen" |
+| Topic                                                        | Decision                                                                                                                                  | Rationale (user's)                                                                                               |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Purpose                                                      | "Wo ist gerade was los" + "wer spielt wo" over the watchlist                                                                              | The two questions the browser exists for                                                                         |
+| Placement                                                    | Own module, **primary** nav entry                                                                                                         | Same level as Library and Config                                                                                 |
+| Master sources                                               | **User-configurable list** with shipped defaults                                                                                          | "falls ein master stirbt" — not dependent on one website                                                         |
+| Scan trigger                                                 | Auto on open **and** auto-refresh on an interval, **both configurable in settings**, manual always available                              | The user decides how aggressive it is                                                                            |
+| Scan shape                                                   | **Two-stage** (header query first, details after) and **asynchronous/streaming**                                                          | "damit es schnell und performant ist"                                                                            |
+| Scanning while playing                                       | **Never**, in any mode                                                                                                                    | "kein autoscan während das spiel läuft auf jeden fall"                                                           |
+| Scan budget (concurrency, timeouts, minimum refresh spacing) | Settings with shipped defaults                                                                                                            | "das soll der user selber entscheiden"                                                                           |
+| Default sort                                                 | **Favourites pinned on top, then occupancy**, with gamemode as a second dimension                                                         | "server mit auslastung … favouriten immer on top"                                                                |
+| Default filter                                               | **None** — every server is shown                                                                                                          | Chosen over hiding empty servers                                                                                 |
+| List row                                                     | Name, mod, players/slots, map, measured ping                                                                                              | The four asked for, plus map and ping which cost nothing                                                         |
+| "Waiting for an opponent"                                    | A first-class marker on servers with exactly one player                                                                                   | "wo wartet wer auf einen gegner"                                                                                 |
+| Detail content                                               | Players; **full serverinfo rule table**; **decoded dmflags**; **ping history**; **map/mod availability locally**                          | All four picked                                                                                                  |
+| Join                                                         | Active installation + `+connect`, **warning on mod mismatch**, password asked up front                                                    | Fails loudly instead of silently                                                                                 |
+| Address book                                                 | Dialog with **profile choice and slot choice** (`adr0`–`adr8`, occupied slots show their value)                                           | Full control over nine slots                                                                                     |
+| v1 extras                                                    | Favourites, manual `ip:port`, history, filters & search, address-book write                                                               | All five picked                                                                                                  |
+| Watchlist shape                                              | **Its own list UI**: per entry either `offline` or the server, with score and ping, and an action menu with Join                          | "watchlist ist eine eigene liste wo der name steht"                                                              |
+| Watchlist matching                                           | **Per entry selectable**: exact, substring, **or regex**                                                                                  | Per-entry control, regex for the hard cases                                                                      |
+| Watchlist scan cost                                          | **None** — the watchlist matches against the details a normal scan produces; a re-check queries only the server an entry was last seen on | "die watchlist muss nicht hard sein … man muss keinen neuen scan machen"                                         |
+| Refresh granularity                                          | Scoped refreshes (all / favourites / one server) instead of always reloading everything                                                   | "damit man nicht immer alles neu laden muss"                                                                     |
+| Performance tuning                                           | **Measure before optimising** — build it, load ~100 servers with details, then decide whether any of this needs solving                   | "wenn das nämlich ca 300ms sind dann braucht man darüber nicht diskutieren"                                      |
+| Spectator vs. player                                         | **Not shown** — only what the protocol actually carries                                                                                   | Accepted after the protocol limitation was raised                                                                |
+| Favourites / history / watchlist scope                       | **Global to the launcher**, not per installation                                                                                          | It is about finding people, not managing setups                                                                  |
+| Watchlist in release                                         | **Hidden behind an experimental-features gate**                                                                                           | Should not roll out yet, but be there optionally                                                                 |
+| Gate mechanism                                               | **Signed unlock code that names the features it unlocks**, optional expiry, issued by the maintainer                                      | Different codes for different testers                                                                            |
+| Code reuse                                                   | **Device-bound**: the token names the installation it was issued for and is refused anywhere else                                         | One-time use is impossible offline; binding beats it for the actual goal — a forwarded code simply does not work |
+| Code activation                                              | A **short redemption window** (issued-at + redeem-by); after redemption the window no longer matters                                      | "um die chance zu verringern damit ein code weitergegeben wird"                                                  |
+| Clock tampering                                              | **Not defended against**, documented as a known limit                                                                                     | Consistent with the whole mechanism being gatekeeping, not security                                              |
+| Locked feature visibility                                    | **Invisible** — no tab, no hint, only an unobtrusive code field in Settings                                                               | "niemand fragt nach etwas, das er nicht sieht"                                                                   |
+| Observing in v1                                              | **Spectator launch** of the real game                                                                                                     | Cheap, works everywhere                                                                                          |
+| Observing, next stage                                        | **2D in-launcher observer**: live scoreboard, chat/server messages, top-down radar, controllable self-identification                      | All four picked; specified here, built later                                                                     |
+| Platform support                                             | **Windows and Linux**, Windows first (~80% of users)                                                                                      | Standing rule from now on                                                                                        |
+| Unavailable-on-Linux features                                | **Visible, disabled, with the reason as visible text** — never silently dropped                                                           | "nicht einfach stillschweigend weggelassen"                                                                      |
 
 ## 4. Tech decisions
 
-| Area | Choice | Rationale |
-| --- | --- | --- |
-| Server queries | `node:dgram` in **main**, first UDP use in this repo | The renderer has no network path; the production CSP stays `connect-src 'self'` |
-| HTTP master source | The same main-side fetch approach the news feed uses | One network layer, already proven |
-| Scan orchestration | A module-owned scheduler with an explicit concurrency limit and per-request timeout, results pushed as they arrive | No generic retry/concurrency helper exists in the repo yet; this one is module-local until a second consumer needs it |
-| Result transport | `module:event` push (the `jobs:changed` pattern), not polling from the renderer | Main owns the state, the store applies what main pushes |
-| Unlock code format | A compact signed token (payload + detached signature, Ed25519 via `node:crypto`), public key embedded in the app, verified **in main only**, re-verified on every start | Offline verification, expiry works without a server, the renderer never decides what is unlocked |
-| Persistence | A new top-level `state.json` key owned by the module (favourites, history, custom servers, watchlist, scan settings); the unlock token gets its own launcher-level key | `LauncherSettings` is a closed shape; the `home` layout set the precedent for module-owned keys |
-| `dmflags` decoding | A table in the launcher, marked as "vanilla meaning; mods may reuse bits" | The bits are not standardised across mods |
-| Tests | The protocol codecs (query build, response parse, infostring split, player-line parse, master record unpack), the sort/filter engine, the matcher and the token verifier are pure, unit-tested modules; the UDP socket is behind an injectable seam like `FetchImpl` in `downloads/fetcher.ts` | The acceptance criteria live in pure code, not in a live network |
+| Area               | Choice                                                                                                                                                                                                                                                                                         | Rationale                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Server queries     | `node:dgram` in **main**, first UDP use in this repo                                                                                                                                                                                                                                           | The renderer has no network path; the production CSP stays `connect-src 'self'`                                       |
+| HTTP master source | The same main-side fetch approach the news feed uses                                                                                                                                                                                                                                           | One network layer, already proven                                                                                     |
+| Scan orchestration | A module-owned scheduler with an explicit concurrency limit and per-request timeout, results pushed as they arrive                                                                                                                                                                             | No generic retry/concurrency helper exists in the repo yet; this one is module-local until a second consumer needs it |
+| Result transport   | `module:event` push (the `jobs:changed` pattern), not polling from the renderer                                                                                                                                                                                                                | Main owns the state, the store applies what main pushes                                                               |
+| Unlock code format | A compact signed token (payload + detached signature, Ed25519 via `node:crypto`), public key embedded in the app, verified **in main only**, re-verified on every start                                                                                                                        | Offline verification, expiry works without a server, the renderer never decides what is unlocked                      |
+| Persistence        | A new top-level `state.json` key owned by the module (favourites, history, custom servers, watchlist, scan settings); the unlock token gets its own launcher-level key                                                                                                                         | `LauncherSettings` is a closed shape; the `home` layout set the precedent for module-owned keys                       |
+| `dmflags` decoding | A table in the launcher, marked as "vanilla meaning; mods may reuse bits"                                                                                                                                                                                                                      | The bits are not standardised across mods                                                                             |
+| Tests              | The protocol codecs (query build, response parse, infostring split, player-line parse, master record unpack), the sort/filter engine, the matcher and the token verifier are pure, unit-tested modules; the UDP socket is behind an injectable seam like `FetchImpl` in `downloads/fetcher.ts` | The acceptance criteria live in pure code, not in a live network                                                      |
 
 ## 5. Core terms & model
 
@@ -269,11 +269,11 @@ depends on it, and because "the protocol does not carry that" settled a question
 
 Both are connectionless UDP datagrams beginning with the four bytes `FF FF FF FF`:
 
-| Query | Sent | Reply | Use |
-| --- | --- | --- | --- |
-| `status\n` | to the game port | `print\n` + one serverinfo line + one line per player | Stage 2 — the only query that carries player names |
-| `info <protocol>` | to the game port | `info\n` + a short infostring (hostname, map, clients, maxclients) | Stage 1 — small, fast, enough for a list row |
-| `ping` | to the game port | `ack` | Pure reachability / round-trip measurement |
+| Query             | Sent             | Reply                                                              | Use                                                |
+| ----------------- | ---------------- | ------------------------------------------------------------------ | -------------------------------------------------- |
+| `status\n`        | to the game port | `print\n` + one serverinfo line + one line per player              | Stage 2 — the only query that carries player names |
+| `info <protocol>` | to the game port | `info\n` + a short infostring (hostname, map, clients, maxclients) | Stage 1 — small, fast, enough for a list row       |
+| `ping`            | to the game port | `ack`                                                              | Pure reachability / round-trip measurement         |
 
 The `status` reply's shape:
 
@@ -289,23 +289,23 @@ The `status` reply's shape:
 The key set is **open-ended**: a cvar appears here only if it carries the `CVAR_SERVERINFO` flag, so
 every mod contributes its own. Keys seen in practice:
 
-| Key | Meaning | Used by us for |
-| --- | --- | --- |
-| `hostname` | Server name | List row |
-| `mapname` | Current map | List row, local-availability check |
-| `gamename` / `gamedir` / `game` | Mod directory | List row (mod), mod-mismatch warning |
-| `maxclients` | Slot count | Occupancy |
-| `protocol` | 34 vanilla, 35 r1q2, 36 Q2PRO | Engine hint, query compatibility |
-| `version` | Engine build string | Detail |
-| `port` | UDP port | Detail |
-| `needpass` | Bit 0 = password, bit 1 = spectator password | Password marker, join flow |
-| `deathmatch`, `coop`, `ctf`, `teamplay` | Gamemode flags | Derived gamemode |
-| `dmflags` | Bitfield of rule switches | Decoded rule list |
-| `fraglimit`, `timelimit`, `capturelimit` | Match limits | Detail |
-| `cheats` | Cheats enabled | Detail |
-| `maptime`, `uptime` | How long the map / server has run | Detail |
-| `gamedate` | Mod build date | Detail |
-| anything else | Mod-specific (`actionversion`, `matchmode`, `roundlimit`, …) | Shown raw in the rule table |
+| Key                                      | Meaning                                                      | Used by us for                       |
+| ---------------------------------------- | ------------------------------------------------------------ | ------------------------------------ |
+| `hostname`                               | Server name                                                  | List row                             |
+| `mapname`                                | Current map                                                  | List row, local-availability check   |
+| `gamename` / `gamedir` / `game`          | Mod directory                                                | List row (mod), mod-mismatch warning |
+| `maxclients`                             | Slot count                                                   | Occupancy                            |
+| `protocol`                               | 34 vanilla, 35 r1q2, 36 Q2PRO                                | Engine hint, query compatibility     |
+| `version`                                | Engine build string                                          | Detail                               |
+| `port`                                   | UDP port                                                     | Detail                               |
+| `needpass`                               | Bit 0 = password, bit 1 = spectator password                 | Password marker, join flow           |
+| `deathmatch`, `coop`, `ctf`, `teamplay`  | Gamemode flags                                               | Derived gamemode                     |
+| `dmflags`                                | Bitfield of rule switches                                    | Decoded rule list                    |
+| `fraglimit`, `timelimit`, `capturelimit` | Match limits                                                 | Detail                               |
+| `cheats`                                 | Cheats enabled                                               | Detail                               |
+| `maptime`, `uptime`                      | How long the map / server has run                            | Detail                               |
+| `gamedate`                               | Mod build date                                               | Detail                               |
+| anything else                            | Mod-specific (`actionversion`, `matchmode`, `roundlimit`, …) | Shown raw in the rule table          |
 
 **Every key is optional.** `gamename` is frequently absent on plain baseq2 servers, `version` is not
 guaranteed. The parser treats the whole set as optional and degrades per field.
@@ -318,7 +318,7 @@ no skin, no model, no connection time, no spectator flag.
 Names may contain the high-bit "green" character set, arbitrary punctuation and clan tags; they are
 not unique and not an identity. A bot typically reports ping `0`, but so can a listen-server host.
 
-### 6.4 What is *not* available — and what follows from it
+### 6.4 What is _not_ available — and what follows from it
 
 - **Spectator vs. player is not derivable.** Some mods list spectators with score 0, some omit them
   entirely, and neither case is distinguishable from a player who has not scored yet. Decided: the
@@ -328,7 +328,7 @@ not unique and not an identity. A bot typically reports ping `0`, but so can a l
 - **The watchlist is bounded by what stage 2 fetched.** Player names exist only in the `status`
   reply, so the watchlist can only know about servers whose details were actually fetched. It is
   therefore **best-effort, not exhaustive**: it matches against the detail data a normal scan
-  produced, and it re-checks a found player by re-querying *that one server*, not by sweeping the
+  produced, and it re-checks a found player by re-querying _that one server_, not by sweeping the
   whole list again. A watched player who moves to a server nobody fetched details for shows as
   `offline` until the next scan reaches that server — and that is accepted (§12).
 - **Response size.** A `status` reply from a well-populated 32-slot server can approach or exceed a
@@ -365,7 +365,7 @@ manually added server, and (as a decision to make in §18.4) the history.
    is usable while the sweep is still running.
 2. **Stage 2 — `status` fetch.** Full player data. Fetched for: the selected server, and every
    server stage 1 did not positively report as empty (so the occupancy sort, the duel marker and the
-   watchlist all work off the same data). A *known* zero-player reply is not asked twice; a reply
+   watchlist all work off the same data). A _known_ zero-player reply is not asked twice; a reply
    whose player count could not be read at all (e.g. a very long hostname truncating the classic
    `info` summary line) is treated as worth checking rather than assumed empty, since `status`'s
    uncapped infostring can recover what `info` could not.
@@ -455,7 +455,7 @@ which `buildLaunchArgs` already turns into a trailing `+connect` argument.
   the game fail at the connect.
 - The join is recorded in the history.
 
-**Security note, and it is not theoretical:** `+connect` is a *late* command in r1q2's argument
+**Security note, and it is not theoretical:** `+connect` is a _late_ command in r1q2's argument
 handling and is re-tokenized normally, i.e. it honours quotes and spaces — unlike `+set`. The
 address reaching `LaunchInput.connect` comes from foreign data (a master list) or from user input.
 It is therefore validated strictly as host/IPv4 plus port before it is ever put into an argument
@@ -513,7 +513,7 @@ feature (§13).
   single `status` query per entry, not a scan.
 - **Accuracy is honest, not perfect.** The list reflects the last detail data the launcher holds. An
   entry shows `offline` when no fetched server had a match — which also covers "on a server nobody
-  has fetched yet". The UI says *when* the information is from, so `offline` is never read as a
+  has fetched yet". The UI says _when_ the information is from, so `offline` is never read as a
   fact about the world.
 - **Regex needs a guard.** A user-supplied pattern is still user input that runs over a few thousand
   names per scan; a pathological pattern can hang the scan. The concrete safeguard (pattern length
@@ -548,7 +548,7 @@ like. The token is stored verbatim; it is **re-verified on every app start**, so
 takes effect by itself.
 
 **Redemption window and feature expiry are two different clocks.** The window only governs
-*activation*: once a code has been redeemed inside it, the window is irrelevant and the unlock lives
+_activation_: once a code has been redeemed inside it, the window is irrelevant and the unlock lives
 as long as the feature expiry (or forever, if none was set).
 
 **Revocation is only possible through the feature expiry or a new launcher build** — accepted in the
@@ -664,7 +664,7 @@ milestone turns that into a standing rule in CLAUDE.md:
 
 For the game browser itself, **no platform delta is known**: `node:dgram` is platform-neutral, the
 HTTP source is the same path the news feed already uses, and the spectator launch goes through the
-existing launch service. The rule matters here because the *milestone* introduces it, and because
+existing launch service. The rule matters here because the _milestone_ introduces it, and because
 the 2D observer (stage B) will be the first place to re-check the assumption.
 
 Remaining, and not a browser problem: Linux installations depend on engine binaries being available
@@ -748,7 +748,7 @@ for Linux at all — see [linux-support-analysis.md](../linux-support-analysis.m
 - **GB-N9** — Scoped refreshes exist: all servers, favourites only, and a single server from its
   detail view.
 - **GB-N10** — Stage 2 runs for the selected server and for every server stage 1 did not positively
-  report as empty (a reply with no readable player count is checked, not assumed empty); a *known*
+  report as empty (a reply with no readable player count is checked, not assumed empty); a _known_
   zero-player server is not queried twice.
 
 **Server list (GB-L)**
@@ -773,7 +773,7 @@ for Linux at all — see [linux-support-analysis.md](../linux-support-analysis.m
 - **GB-D4** — The response times measured this session are shown, and whether the last scan
   answered.
 - **GB-D5** — The view states whether the server's mod and map exist locally, without offering to
-  install them. *Deferred 2026-09-25 to the mods/assets modules (open point 14); not in v1.*
+  install them. _Deferred 2026-09-25 to the mods/assets modules (open point 14); not in v1._
 - **GB-D6** — A missing or malformed key never breaks the view; each field degrades on its own.
 
 **Join, spectate, address book (GB-J)**
@@ -873,7 +873,7 @@ for Linux at all — see [linux-support-analysis.md](../linux-support-analysis.m
    terminator. How the scan decides the list is complete (quiet period, expected count, cap) is
    unresolved.
 3. **Gamemode as the second sort dimension** — the interview said "occupancy and gamemodes"; whether
-   that means the list is *grouped* by gamemode or only tie-broken by it is not settled.
+   that means the list is _grouped_ by gamemode or only tie-broken by it is not settled.
 4. **Are history entries queried during a scan**, or only shown when a source also returns them?
 5. **Regex safeguards** — the concrete limits (pattern length, compile-time validation, per-scan
    time budget, and what the UI says when a pattern is refused).
@@ -900,8 +900,8 @@ for Linux at all — see [linux-support-analysis.md](../linux-support-analysis.m
     stored entries are kept for a later code or discarded is undecided.
 13. **A dashboard tile** for the browser (favourites / who is online) — out of v1 by decision, but
     the obvious follow-up once the home grid and this module both exist.
-14. **Mod/map "available locally" detection** (*deferred 2026-09-25: moves to the mods/assets
-    modules, story 124 ships without it*) — the check is stated in GB-D5, but what counts as
+14. **Mod/map "available locally" detection** (_deferred 2026-09-25: moves to the mods/assets
+    modules, story 124 ships without it_) — the check is stated in GB-D5, but what counts as
     "the mod is there" before the `mods` module exists needs defining.
 15. **Rate-limit etiquette toward masters** — whether the launcher should also bound how often it
     re-fetches a master source, distinct from how often it queries game servers.

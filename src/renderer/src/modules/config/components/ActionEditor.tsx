@@ -60,7 +60,12 @@ function CommandListSection({
   title: string
   /** Only present for a toggle's state sections (story 045: labels are toggle-only, a press/release
    * half never shows this field even though `ActionEntryPart.label` could technically hold one). */
-  labelField?: { value: string; onChange: (value: string) => void; label: string; placeholder: string }
+  labelField?: {
+    value: string
+    onChange: (value: string) => void
+    label: string
+    placeholder: string
+  }
   commands: ConfigCommand[]
   setCommands: Dispatch<SetStateAction<ConfigCommand[]>>
   aliasSuggestions: string[]
@@ -345,8 +350,12 @@ export function ActionEditor({
 
   // Story 045 D9: a two-part entry's halves live in `action.parts`, not `action.commands` (which
   // stays `[]` for these two kinds) - see `ConfigAction.parts`'s doc comment.
-  const [part1Commands, setPart1Commands] = useState<ConfigCommand[]>(action.parts?.[0]?.commands ?? [])
-  const [part2Commands, setPart2Commands] = useState<ConfigCommand[]>(action.parts?.[1]?.commands ?? [])
+  const [part1Commands, setPart1Commands] = useState<ConfigCommand[]>(
+    action.parts?.[0]?.commands ?? [],
+  )
+  const [part2Commands, setPart2Commands] = useState<ConfigCommand[]>(
+    action.parts?.[1]?.commands ?? [],
+  )
   // Only actually shown/editable for `kind: 'toggle'` - a press/release half's `label` is left
   // unset by this editor even though the type technically allows one (story's UI scope).
   const [part1Label, setPart1Label] = useState(action.parts?.[0]?.label ?? '')
@@ -684,7 +693,9 @@ export function ActionEditor({
               ) : key ? (
                 <Badge tone="flame">{key}</Badge>
               ) : (
-                <span className="text-xs text-ink-muted">{t('config.controls.editor.keyNotSet')}</span>
+                <span className="text-xs text-ink-muted">
+                  {t('config.controls.editor.keyNotSet')}
+                </span>
               )}
               {!capturingKey && (
                 <Button variant="ghost" size="sm" onClick={() => setCapturingKey(true)}>

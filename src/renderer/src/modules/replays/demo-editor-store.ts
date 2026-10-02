@@ -36,7 +36,10 @@ export function effectiveQuickValues(
 ): { favourite: boolean; rating: number | null } {
   return {
     favourite: pending?.favourite ?? values.favourite ?? false,
-    rating: pending !== undefined && 'rating' in pending ? (pending.rating ?? null) : (values.rating ?? null),
+    rating:
+      pending !== undefined && 'rating' in pending
+        ? (pending.rating ?? null)
+        : (values.rating ?? null),
   }
 }
 
@@ -93,7 +96,10 @@ export interface DemoEditorState {
   startEdit(id: string, values: Partial<SidecarFields>): void
   /** Leaves edit mode without writing: drops the draft (unless a save is running). */
   cancelEdit(id: string): void
-  updateDraft(id: string, patch: Partial<SidecarDraft> | ((draft: SidecarDraft) => SidecarDraft)): void
+  updateDraft(
+    id: string,
+    patch: Partial<SidecarDraft> | ((draft: SidecarDraft) => SidecarDraft),
+  ): void
   /** The editor's Cancel: back to the baseline, the entry itself stays. */
   cancelDraft(id: string): void
   discardDraft(id: string): void
@@ -212,7 +218,9 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
     const fields = withQuickEdit(fresh.value.values, patch)
 
     const outcome =
-      fingerprint === undefined ? await sidecarWrite(id, fields) : await sidecarWrite(id, fields, fingerprint)
+      fingerprint === undefined
+        ? await sidecarWrite(id, fields)
+        : await sidecarWrite(id, fields, fingerprint)
     if (!outcome.ok) return
 
     if (outcome.value.status === 'needsConfirmation') {
@@ -262,7 +270,11 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
 
   /** `save`'s queued part. Reads the draft only now, so a quick edit queued ahead of it (which
    * refreshes the draft's favourite/rating) is carried along instead of written back over. */
-  const saveWrite = async (id: string, fingerprint: string | undefined, onRowPatched: RowPatcher): Promise<void> => {
+  const saveWrite = async (
+    id: string,
+    fingerprint: string | undefined,
+    onRowPatched: RowPatcher,
+  ): Promise<void> => {
     const entry = get().drafts[id]
     if (entry === undefined) return
     const converted = draftToFields(entry.draft)
@@ -272,25 +284,43 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
     }
     // Quick edits merged while a replace dialog was open ride along with the confirmed save.
     const fields =
-      entry.pendingQuickEdit === undefined ? converted.fields : withQuickEdit(converted.fields, entry.pendingQuickEdit)
+      entry.pendingQuickEdit === undefined
+        ? converted.fields
+        : withQuickEdit(converted.fields, entry.pendingQuickEdit)
     const outcome =
-      fingerprint === undefined ? await sidecarWrite(id, fields) : await sidecarWrite(id, fields, fingerprint)
+      fingerprint === undefined
+        ? await sidecarWrite(id, fields)
+        : await sidecarWrite(id, fields, fingerprint)
 
     if (!outcome.ok) {
       // The merged quick edits were part of this failed write: drop them so a retry can't carry stale ones.
-      patchEntry(id, { saving: false, saveError: outcome.error, fingerprint: undefined, pendingQuickEdit: undefined })
+      patchEntry(id, {
+        saving: false,
+        saveError: outcome.error,
+        fingerprint: undefined,
+        pendingQuickEdit: undefined,
+      })
       return
     }
     if (outcome.value.status === 'needsConfirmation') {
       const { fileName, issues } = outcome.value
-      patchEntry(id, { saving: false, fingerprint: outcome.value.fingerprint, replace: { fileName, issues } })
+      patchEntry(id, {
+        saving: false,
+        fingerprint: outcome.value.fingerprint,
+        replace: { fileName, issues },
+      })
       return
     }
 
     // Written: reflect what is actually on disk now, not what was sent.
     const fresh = await sidecarRead(id)
     if (!fresh.ok) {
-      patchEntry(id, { saving: false, saveError: fresh.error, fingerprint: undefined, pendingQuickEdit: undefined })
+      patchEntry(id, {
+        saving: false,
+        saveError: fresh.error,
+        fingerprint: undefined,
+        pendingQuickEdit: undefined,
+      })
       return
     }
     const baseline = draftFromSidecar(fresh.value.values)
@@ -308,7 +338,13 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
       return
     }
     const left = selectedId === null ? undefined : drafts[selectedId]
-    if (selectedId !== null && left !== undefined && !isEntryDirty(left) && !left.saving && left.replace === undefined) {
+    if (
+      selectedId !== null &&
+      left !== undefined &&
+      !isEntryDirty(left) &&
+      !left.saving &&
+      left.replace === undefined
+    ) {
       const rest = { ...drafts }
       delete rest[selectedId]
       set({ drafts: rest })

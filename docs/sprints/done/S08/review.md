@@ -7,12 +7,12 @@ to another machine and imported back; and the file — not `state.json` — beco
 source of truth. Plus two guardrails the repo still owed: no `'unsafe-inline'` in the production
 CSP, and no unscreened authoring surface left in `ui:verify`.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 046 — production CSP drops `'unsafe-inline'` | done | `046: drop 'unsafe-inline' from production style-src, wire CSP-violation gate into ui:verify` |
-| 047 — MessageEditor joins the screen registry | done | `047: message editor, remove/detect dialogs join the screen registry` |
-| 042 — profile file round-trips losslessly | done | `042: profile files round-trip losslessly through launcher metadata tags` |
-| 043 — .cfg becomes the source of truth | done | `043: the .cfg file becomes the source of truth, state.json becomes a cache` |
+| Story                                         | Status | Commit                                                                                        |
+| --------------------------------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| 046 — production CSP drops `'unsafe-inline'`  | done   | `046: drop 'unsafe-inline' from production style-src, wire CSP-violation gate into ui:verify` |
+| 047 — MessageEditor joins the screen registry | done   | `047: message editor, remove/detect dialogs join the screen registry`                         |
+| 042 — profile file round-trips losslessly     | done   | `042: profile files round-trip losslessly through launcher metadata tags`                     |
+| 043 — .cfg becomes the source of truth        | done   | `043: the .cfg file becomes the source of truth, state.json becomes a cache`                  |
 
 All four stories in the sprint list are done. No blocked or carried-over stories.
 

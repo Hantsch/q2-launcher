@@ -90,7 +90,12 @@ function manualEntry(address: string): ServersState['manualServers'][number] {
  * it (a *known* empty reply, per `scan-runner.ts`'s `isWorthStage2`) - keeps every test below to a
  * single stage1-only row per target. */
 function infoOk(hostname = 'Host'): ServerQueryResult {
-  return { ok: true, kind: 'info', reply: { ok: true, serverinfo: { hostname }, clients: 0 }, rttMs: 7 }
+  return {
+    ok: true,
+    kind: 'info',
+    reply: { ok: true, serverinfo: { hostname }, clients: 0 },
+    rttMs: 7,
+  }
 }
 
 const noReply: ServerQueryResult = { ok: false, reason: 'no-reply' }
@@ -129,8 +134,14 @@ describe('createScanService', () => {
       manualServers: [manualEntry('1.1.1.1:27910'), manualEntry('2.2.2.2:27910')],
     })
     let call = 0
-    const queryServer: QueryServerFn = async () => (call++ === 0 ? infoOk('First') : infoOk('Second'))
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const queryServer: QueryServerFn = async () =>
+      call++ === 0 ? infoOk('First') : infoOk('Second')
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     expect(service.start()).toEqual({ ok: true })
     expect(events[0]).toEqual({ type: SERVERS_EVENTS.scanChanged, payload: expect.any(Object) })
@@ -154,7 +165,12 @@ describe('createScanService', () => {
     const { emit } = recorder()
     const state = baseState({ manualServers: [manualEntry('9.9.9.9:27910')] })
     const { fn: queryServer, calls } = deferredQuery()
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     expect(service.start()).toEqual({ ok: true })
     expect(service.start({ selectedAddress: 'irrelevant' })).toEqual({
@@ -170,13 +186,18 @@ describe('createScanService', () => {
     expect(service.read().state.running).toBe(true)
   })
 
-  it("D-K: a server that misses a later scan keeps its previous row flagged stale, never zeroed", async () => {
+  it('D-K: a server that misses a later scan keeps its previous row flagged stale, never zeroed', async () => {
     const { emit } = recorder()
     const address = '3.3.3.3:27910'
     const state = baseState({ manualServers: [manualEntry(address)] })
     let reply: ServerQueryResult = infoOk('Arena')
     const queryServer: QueryServerFn = async () => reply
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     // First scan: the server answers.
     expect(service.start()).toEqual({ ok: true })
@@ -201,7 +222,12 @@ describe('createScanService', () => {
     const address = '3.3.3.4:27910'
     const state = baseState({ manualServers: [manualEntry(address)] })
     const { fn: queryServer, calls } = deferredQuery()
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     // First scan: the server answers and gets a normal 'online' row.
     expect(service.start()).toEqual({ ok: true })
@@ -231,7 +257,12 @@ describe('createScanService', () => {
     const address = '4.4.4.4:27910'
     const state = baseState({ manualServers: [manualEntry(address)] })
     const { fn: queryServer, calls } = deferredQuery()
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     expect(service.start()).toEqual({ ok: true })
     // Let resolveSources/buildScanAddressSet/runScan reach the pool and issue the query.
@@ -261,7 +292,12 @@ describe('createScanService', () => {
     const { emit } = recorder()
     const state = baseState({ manualServers: [manualEntry('5.5.5.5:27910')] })
     const queryServer: QueryServerFn = async () => infoOk()
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     expect(service.overview()).toEqual({ scanning: false, knownServerCount: 0, lastScanAt: null })
 
@@ -294,30 +330,43 @@ describe('createScanService', () => {
       reply: { ok: true, serverinfo: { hostname: 'Host', needpass }, clients: undefined },
       rttMs: 5,
     })
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     // needpass=1 (bit 0 set) -> true
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ needpass: true })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      needpass: true,
+    })
 
     // needpass=3 (bit 0 set, plus another flag) -> true
     needpass = '3'
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ needpass: true })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      needpass: true,
+    })
 
     // needpass=0 -> false
     needpass = '0'
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ needpass: false })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      needpass: false,
+    })
 
     // needpass=2 (bit 0 clear) -> false
     needpass = '2'
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ needpass: false })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      needpass: false,
+    })
   })
 
   it('needpass bit 1 sets spectatorPass', async () => {
@@ -331,30 +380,43 @@ describe('createScanService', () => {
       reply: { ok: true, serverinfo: { hostname: 'Host', needpass }, clients: undefined },
       rttMs: 5,
     })
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     // needpass=2 (bit 1 set) -> true
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: true })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      spectatorPass: true,
+    })
 
     // needpass=3 (bit 1 set, plus bit 0) -> true
     needpass = '3'
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: true })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      spectatorPass: true,
+    })
 
     // needpass=0 -> false
     needpass = '0'
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: false })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      spectatorPass: false,
+    })
 
     // needpass=1 (bit 1 clear) -> false
     needpass = '1'
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: false })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      spectatorPass: false,
+    })
   })
 
   it('garbage or absent needpass keeps the previous spectatorPass value', async () => {
@@ -365,9 +427,19 @@ describe('createScanService', () => {
     const queryServer: QueryServerFn = async () => {
       const serverinfo: Record<string, string> = { hostname: 'Host' }
       if (needpass !== undefined) serverinfo.needpass = needpass
-      return { ok: true, kind: 'info', reply: { ok: true, serverinfo, clients: undefined }, rttMs: 5 }
+      return {
+        ok: true,
+        kind: 'info',
+        reply: { ok: true, serverinfo, clients: undefined },
+        rttMs: 5,
+      }
     }
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     // garbage needpass -> no previous value, stays undefined
     service.start()
@@ -378,13 +450,17 @@ describe('createScanService', () => {
     needpass = '2'
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: true })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      spectatorPass: true,
+    })
 
     // an absent needpass afterwards keeps the previously established value
     needpass = undefined
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ spectatorPass: true })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      spectatorPass: true,
+    })
   })
 
   it("a status reply's mode flags become the entry's gamemode and survive an info-only reply", async () => {
@@ -399,7 +475,11 @@ describe('createScanService', () => {
         return {
           ok: true,
           kind: 'status',
-          reply: { ok: true, serverinfo: { hostname: 'Host', gamename: 'baseq2', ctf: '1' }, players: [] },
+          reply: {
+            ok: true,
+            serverinfo: { hostname: 'Host', gamename: 'baseq2', ctf: '1' },
+            players: [],
+          },
           rttMs: 5,
         }
       }
@@ -407,15 +487,24 @@ describe('createScanService', () => {
       // previously derived gamemode must survive rather than being cleared.
       return infoOk('Host')
     }
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     service.start({ selectedAddress: address })
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ gamemode: 'ctf' })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      gamemode: 'ctf',
+    })
 
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ gamemode: 'ctf' })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      gamemode: 'ctf',
+    })
   })
 
   it('read marks favourite from the live favourites list', async () => {
@@ -423,16 +512,25 @@ describe('createScanService', () => {
     const address = '20.0.0.3:27910'
     const state = baseState({ favourites: [{ address, addedAt: new Date().toISOString() }] })
     const queryServer: QueryServerFn = async () => infoOk('Fav')
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     service.start()
     await waitForIdle(service)
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ favourite: true })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      favourite: true,
+    })
 
     // The favourites list changes between two read() calls - the very next read() must reflect it,
     // with no new scan needed.
     state.favourites = []
-    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({ favourite: false })
+    expect(service.read().entries.find((e) => e.address === address)).toMatchObject({
+      favourite: false,
+    })
   })
 
   it('story 124 D1: every successful reply appends one RTT sample across rounds, and a timeout appends a no-answer sample', async () => {
@@ -447,7 +545,12 @@ describe('createScanService', () => {
     })
     let reply: ServerQueryResult = infoOkWithRtt(11)
     const queryServer: QueryServerFn = async () => reply
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     // Round 1: a successful reply with rttMs 11.
     service.start()
@@ -488,19 +591,34 @@ describe('createScanService', () => {
     // pre-existing entry and this test never runs a scan at all, so `read()` alone must produce the
     // placeholders.
     const queryServer: QueryServerFn = async () => noReply
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer },
+    })
 
     const snapshot = service.read()
     const favRow = snapshot.entries.find((e) => e.address === favAddress)
     const manualRow = snapshot.entries.find((e) => e.address === manualAddress)
 
-    expect(favRow).toMatchObject({ status: 'pending', lastSeenAt: null, favourite: true, origins: ['favourite'] })
-    expect(manualRow).toMatchObject({ status: 'pending', lastSeenAt: null, favourite: false, origins: ['manual'] })
+    expect(favRow).toMatchObject({
+      status: 'pending',
+      lastSeenAt: null,
+      favourite: true,
+      origins: ['favourite'],
+    })
+    expect(manualRow).toMatchObject({
+      status: 'pending',
+      lastSeenAt: null,
+      favourite: false,
+      origins: ['manual'],
+    })
     expect(snapshot.entries.some((e) => e.address === masterOnlyAddress)).toBe(false)
     expect(snapshot.entries).toHaveLength(2)
   })
 
-  it('story 131 D4: onStage2Row fires synchronously for stage2 rows only, after the scan\'s own emit, and never delays or alters the scan', async () => {
+  it("story 131 D4: onStage2Row fires synchronously for stage2 rows only, after the scan's own emit, and never delays or alters the scan", async () => {
     // Both scans below are compared field-for-field, timestamps included - freeze the clock
     // (Date only; setImmediate stays real for waitForIdle) so a millisecond boundary crossed
     // between the two runs cannot make them differ.
@@ -513,8 +631,18 @@ describe('createScanService', () => {
     // A status reply with clients>0 so stage1 queues a stage2 status query for the same address.
     const queryServer: QueryServerFn = async (_target, opts) =>
       opts.kind === 'info'
-        ? { ok: true, kind: 'info', reply: { ok: true, serverinfo: { hostname: 'Arena' }, clients: 1 }, rttMs: 5 }
-        : { ok: true, kind: 'status', reply: { ok: true, serverinfo: { hostname: 'Arena' }, players: [] }, rttMs: 5 }
+        ? {
+            ok: true,
+            kind: 'info',
+            reply: { ok: true, serverinfo: { hostname: 'Arena' }, clients: 1 },
+            rttMs: 5,
+          }
+        : {
+            ok: true,
+            kind: 'status',
+            reply: { ok: true, serverinfo: { hostname: 'Arena' }, players: [] },
+            rttMs: 5,
+          }
 
     // Baseline run with no hook at all, to compare event sequence/timing against.
     const { emit: emitBaseline, events: baselineEvents } = recorder()
@@ -568,12 +696,20 @@ describe('createScanService - story 116 D3 game-running guard', () => {
     const state = baseState({ manualServers: [manualEntry('6.6.6.6:27910')] })
     const { fn: queryServer, calls } = deferredQuery()
     const launch = fakeLaunch(RUNNING)
-    const service = createScanService({ getServersState: () => state, emit, launch: launch.host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: launch.host,
+      deps: { queryServer },
+    })
 
     expect(service.start()).toEqual({ ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY })
     // `starting` blocks just the same (D-D's exact predicate); a `selectedAddress` changes nothing.
     launch.set({ phase: 'starting', installationId: 'inst-1' })
-    expect(service.start({ selectedAddress: '6.6.6.6:27910' })).toEqual({ ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY })
+    expect(service.start({ selectedAddress: '6.6.6.6:27910' })).toEqual({
+      ok: false,
+      reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
+    })
 
     await tick()
     await tick()
@@ -604,7 +740,12 @@ describe('createScanService - story 116 D3 game-running guard', () => {
     const state = baseState({ manualServers: [manualEntry('6.6.6.7:27910')] })
     const { fn: queryServer } = deferredQuery()
     const launch = fakeLaunch()
-    const service = createScanService({ getServersState: () => state, emit, launch: launch.host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: launch.host,
+      deps: { queryServer },
+    })
 
     expect(service.start()).toEqual({ ok: true })
     launch.set(RUNNING)
@@ -615,7 +756,11 @@ describe('createScanService - story 116 D3 game-running guard', () => {
   it('AC1/AC4: blockedReason mirrors the live launch state and clears the moment the session ends', () => {
     const { emit, events } = recorder()
     const launch = fakeLaunch()
-    const service = createScanService({ getServersState: () => baseState(), emit, launch: launch.host })
+    const service = createScanService({
+      getServersState: () => baseState(),
+      emit,
+      launch: launch.host,
+    })
 
     expect(service.read().state.blockedReason).toBeNull()
 
@@ -645,7 +790,11 @@ describe('createScanService - story 116 D3 game-running guard', () => {
   it('a service constructed mid-session starts blocked, and dispose() drops the launch subscription', () => {
     const { emit, events } = recorder()
     const launch = fakeLaunch(RUNNING)
-    const service = createScanService({ getServersState: () => baseState(), emit, launch: launch.host })
+    const service = createScanService({
+      getServersState: () => baseState(),
+      emit,
+      launch: launch.host,
+    })
 
     expect(service.read().state.blockedReason).toBe('game-running')
     expect(launch.listenerCount()).toBe(1)
@@ -676,7 +825,12 @@ describe('createScanService - story 117 D3 scoped rounds', () => {
         const scripted = replies.get(address)
         return scripted === undefined || !scripted.ok
           ? noReply
-          : { ok: true, kind: 'status', reply: { ok: true, serverinfo: { hostname: 'Status' }, players: [] }, rttMs: 9 }
+          : {
+              ok: true,
+              kind: 'status',
+              reply: { ok: true, serverinfo: { hostname: 'Status' }, players: [] },
+              rttMs: 9,
+            }
       }
       return replies.get(address) ?? noReply
     }
@@ -736,11 +890,16 @@ describe('createScanService - story 117 D3 scoped rounds', () => {
 
     expect(fetchCalls).toHaveLength(1)
     expect(service.read().state.sourceFailures).toHaveLength(1)
-    expect(query.calls.filter((c) => c.kind === 'info').map((c) => c.address).sort()).toEqual(
-      [FAV_1, FAV_2, MANUAL, OTHER].sort(),
-    )
+    expect(
+      query.calls
+        .filter((c) => c.kind === 'info')
+        .map((c) => c.address)
+        .sort(),
+    ).toEqual([FAV_1, FAV_2, MANUAL, OTHER].sort())
     // 114's selected-server rule still applies to a full scan: status for the selected address.
-    expect(query.calls.filter((c) => c.kind === 'status')).toEqual([{ address: MANUAL, kind: 'status' }])
+    expect(query.calls.filter((c) => c.kind === 'status')).toEqual([
+      { address: MANUAL, kind: 'status' },
+    ])
     // Persisted after the round, so the final scan.changed still names the scope.
     expect(service.read().state.scope).toEqual({ kind: 'all' })
   })
@@ -758,13 +917,18 @@ describe('createScanService - story 117 D3 scoped rounds', () => {
     })
 
     // A selectedAddress outside the scope is ignored - it must not smuggle in a status query.
-    expect(service.start({ scope: { kind: 'favourites' }, selectedAddress: MANUAL })).toEqual({ ok: true })
+    expect(service.start({ scope: { kind: 'favourites' }, selectedAddress: MANUAL })).toEqual({
+      ok: true,
+    })
     await waitForIdle(service)
 
     expect(fetchCalls).toHaveLength(0)
     expect(query.calls.map((c) => c.address).sort()).toEqual([FAV_1, FAV_2])
     expect(query.calls.every((c) => c.kind === 'info')).toBe(true)
-    expect(service.read().state).toMatchObject({ sourceFailures: [], scope: { kind: 'favourites' } })
+    expect(service.read().state).toMatchObject({
+      sourceFailures: [],
+      scope: { kind: 'favourites' },
+    })
   })
 
   it('AC3: a single-server scope sends one status query and no info query', async () => {
@@ -785,16 +949,23 @@ describe('createScanService - story 117 D3 scoped rounds', () => {
 
     expect(fetchCalls).toHaveLength(0)
     expect(query.calls).toEqual([{ address: MANUAL, kind: 'status' }])
-    expect(service.read().state).toMatchObject({ stage1Total: 0, stage2Total: 1, sourceFailures: [] })
+    expect(service.read().state).toMatchObject({
+      stage1Total: 0,
+      stage2Total: 1,
+      sourceFailures: [],
+    })
     // The queried address gets its real row; every other favourite/manual address that has never
     // answered gets a pending placeholder (story S25 D2) - a single-server scope never touches them.
     const entries = service.read().entries
     expect(entries.find((e) => e.address === MANUAL)).toEqual(
       expect.objectContaining({ address: MANUAL, status: 'online', name: 'Status', players: [] }),
     )
-    expect(entries.filter((e) => e.status === 'pending').map((e) => e.address).sort()).toEqual(
-      [FAV_1, FAV_2, OTHER].sort(),
-    )
+    expect(
+      entries
+        .filter((e) => e.status === 'pending')
+        .map((e) => e.address)
+        .sort(),
+    ).toEqual([FAV_1, FAV_2, OTHER].sort())
     expect(entries).toHaveLength(4)
   })
 
@@ -805,8 +976,14 @@ describe('createScanService - story 117 D3 scoped rounds', () => {
       manualServers: [manualEntry(MANUAL), manualEntry(OTHER)],
     })
     const query = scriptedQuery()
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer: query.fn } })
-    const entryOf = (address: string) => service.read().entries.find((entry) => entry.address === address)
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer: query.fn },
+    })
+    const entryOf = (address: string) =>
+      service.read().entries.find((entry) => entry.address === address)
 
     // Round 1 (all): everyone answers.
     query.replies.set(FAV_1, infoOk('Fav'))
@@ -841,10 +1018,19 @@ describe('createScanService - story 117 D3 scoped rounds', () => {
 
   it('a timed-out single-server refresh flips only that row stale and leaves every other row untouched', async () => {
     const { emit } = recorder()
-    const state = baseState({ favourites: [favouriteEntry(FAV_1)], manualServers: [manualEntry(MANUAL)] })
+    const state = baseState({
+      favourites: [favouriteEntry(FAV_1)],
+      manualServers: [manualEntry(MANUAL)],
+    })
     const query = scriptedQuery()
-    const service = createScanService({ getServersState: () => state, emit, launch: fakeLaunch().host, deps: { queryServer: query.fn } })
-    const entryOf = (address: string) => service.read().entries.find((entry) => entry.address === address)
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: fakeLaunch().host,
+      deps: { queryServer: query.fn },
+    })
+    const entryOf = (address: string) =>
+      service.read().entries.find((entry) => entry.address === address)
 
     query.replies.set(FAV_1, infoOk('Fav'))
     query.replies.set(MANUAL, infoOk('Manual'))
@@ -874,7 +1060,12 @@ describe('createScanService - story 117 D3 scoped rounds', () => {
     const { fn: queryServer, calls } = deferredQuery()
     const launch = fakeLaunch()
     const state = baseState({ manualServers: [manualEntry(MANUAL)] })
-    const service = createScanService({ getServersState: () => state, emit, launch: launch.host, deps: { queryServer } })
+    const service = createScanService({
+      getServersState: () => state,
+      emit,
+      launch: launch.host,
+      deps: { queryServer },
+    })
 
     expect(service.start()).toEqual({ ok: true })
     expect(service.start({ scope: { kind: 'server', address: OTHER } })).toEqual({
@@ -1058,7 +1249,11 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
   const FAV = '10.0.0.6:27910'
 
   function lanReply(address: string): LanReply {
-    return { address, reply: { ok: true, serverinfo: { hostname: `LAN ${address}` }, clients: 0 }, rttMs: 2 }
+    return {
+      address,
+      reply: { ok: true, serverinfo: { hostname: `LAN ${address}` }, clients: 0 },
+      rttMs: 2,
+    }
   }
 
   /** A `lanDiscovery` fake answering `replies` in order; `hold()` parks the next round until
@@ -1108,10 +1303,20 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
       const address = `${target.host}:${target.port}`
       calls.push({ address, kind: options.kind })
       if (options.kind === 'status') {
-        return { ok: true, kind: 'status', reply: { ok: true, serverinfo: { hostname: 'Status' }, players: [] }, rttMs: 9 }
+        return {
+          ok: true,
+          kind: 'status',
+          reply: { ok: true, serverinfo: { hostname: 'Status' }, players: [] },
+          rttMs: 9,
+        }
       }
       const clients = busy.has(address) ? 2 : 0
-      return { ok: true, kind: 'info', reply: { ok: true, serverinfo: { hostname: address }, clients }, rttMs: 7 }
+      return {
+        ok: true,
+        kind: 'info',
+        reply: { ok: true, serverinfo: { hostname: address }, clients },
+        rttMs: 7,
+      }
     }
     return { fn, calls }
   }
@@ -1124,7 +1329,10 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
   }
 
   function addresses(service: ScanService): string[] {
-    return service.read().entries.map((entry) => entry.address).sort()
+    return service
+      .read()
+      .entries.map((entry) => entry.address)
+      .sort()
   }
 
   it('read with the online mode returns the online list while LAN is the active mode', async () => {
@@ -1141,7 +1349,12 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
     await waitForIdle(service)
 
     expect(addresses(service)).toEqual([LAN_A])
-    expect(service.read('online').entries.map((e) => e.address).sort()).toEqual([FAV, NET].sort())
+    expect(
+      service
+        .read('online')
+        .entries.map((e) => e.address)
+        .sort(),
+    ).toEqual([FAV, NET].sort())
   })
 
   it('an online scan never runs LAN discovery', async () => {
@@ -1176,7 +1389,12 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
     }
     const state = baseState({
       sources: [
-        { id: 'http', type: 'http-list', address: 'http://example.invalid/servers.txt', enabled: true },
+        {
+          id: 'http',
+          type: 'http-list',
+          address: 'http://example.invalid/servers.txt',
+          enabled: true,
+        },
         { id: 'udp', type: 'udp-master', address: 'master.example.invalid:27900', enabled: true },
       ],
       manualServers: [manualEntry(NET)],
@@ -1237,7 +1455,9 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
     service.start()
     await waitForIdle(service)
 
-    const flags = Object.fromEntries(service.read().entries.map((entry) => [entry.address, entry.favourite]))
+    const flags = Object.fromEntries(
+      service.read().entries.map((entry) => [entry.address, entry.favourite]),
+    )
     expect(flags).toEqual({ [LAN_A]: true, [LAN_B]: false })
   })
 
@@ -1300,8 +1520,15 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
     })
     service.setMode('lan')
 
-    for (const scope of [{ kind: 'all' }, { kind: 'favourites' }, { kind: 'server', address: LAN_A }] as const) {
-      expect(service.start({ scope })).toEqual({ ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY })
+    for (const scope of [
+      { kind: 'all' },
+      { kind: 'favourites' },
+      { kind: 'server', address: LAN_A },
+    ] as const) {
+      expect(service.start({ scope })).toEqual({
+        ok: false,
+        reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
+      })
     }
     expect(lan.calls).toHaveLength(0)
     expect(query.calls).toHaveLength(0)
@@ -1367,9 +1594,12 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
     await waitForIdle(online)
     expect(online.read().entries).toEqual([])
     online.setMode('online')
-    expect(online.read().entries.map((entry) => `${entry.address} ${entry.status}`).sort()).toEqual(
-      [`${FAV} online`, `${NET} online`].sort(),
-    )
+    expect(
+      online
+        .read()
+        .entries.map((entry) => `${entry.address} ${entry.status}`)
+        .sort(),
+    ).toEqual([`${FAV} online`, `${NET} online`].sort())
   })
 
   it('a LAN round replaces the LAN list', async () => {
@@ -1389,7 +1619,9 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
     service.start()
     await waitForIdle(service)
     // LAN_A stopped answering: gone, not stale.
-    expect(service.read().entries.map((entry) => `${entry.address} ${entry.status}`)).toEqual([`${LAN_B} online`])
+    expect(service.read().entries.map((entry) => `${entry.address} ${entry.status}`)).toEqual([
+      `${LAN_B} online`,
+    ])
     expect(service.readDetail(LAN_A)).toBeNull()
   })
 
@@ -1399,12 +1631,18 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
       getServersState: onlineState,
       emit,
       launch: fakeLaunch().host,
-      deps: { queryServer: recordingQuery().fn, lanDiscovery: fakeLan([], 'servers.lan.error.noInterface').fn },
+      deps: {
+        queryServer: recordingQuery().fn,
+        lanDiscovery: fakeLan([], 'servers.lan.error.noInterface').fn,
+      },
     })
     service.setMode('lan')
     service.start()
     await waitForIdle(service)
-    expect(service.read().lan).toEqual({ lastFinishedAt: expect.any(String), failureKey: 'servers.lan.error.noInterface' })
+    expect(service.read().lan).toEqual({
+      lastFinishedAt: expect.any(String),
+      failureKey: 'servers.lan.error.noInterface',
+    })
     expect(service.read().entries).toEqual([])
 
     const answering = createScanService({
@@ -1421,10 +1659,9 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
       .filter((event) => event.type === SERVERS_EVENTS.scanServer)
       .map((event) => event.payload as ScanServerPush)
       .filter((row) => row.stage === 'stage1')
-    expect(stage1.slice(0, 2).map((row) => `${row.target.address} ${row.target.origins.join()}`)).toEqual([
-      `${LAN_A} lan`,
-      `${LAN_B} lan`,
-    ])
+    expect(
+      stage1.slice(0, 2).map((row) => `${row.target.address} ${row.target.origins.join()}`),
+    ).toEqual([`${LAN_A} lan`, `${LAN_B} lan`])
     const counts = events
       .filter((event) => event.type === SERVERS_EVENTS.scanChanged)
       .map((event) => (event.payload as ServersScanState).stage1Done)
@@ -1449,9 +1686,12 @@ describe('createScanService - story 196 D2 online and LAN lists', () => {
     service.start({ scope: { kind: 'server', address: LAN_B } })
     await waitForIdle(service)
 
-    expect(query.calls.filter((call) => call.kind === 'status').map((call) => call.address).sort()).toEqual(
-      [LAN_A, LAN_B].sort(),
-    )
+    expect(
+      query.calls
+        .filter((call) => call.kind === 'status')
+        .map((call) => call.address)
+        .sort(),
+    ).toEqual([LAN_A, LAN_B].sort())
     expect(service.readDetail(LAN_A)?.serverinfo).toEqual({ hostname: 'Status' })
     expect(onStage2Row).not.toHaveBeenCalled()
   })

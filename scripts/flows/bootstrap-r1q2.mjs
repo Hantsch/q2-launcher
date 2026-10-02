@@ -167,9 +167,7 @@ export default async function bootstrapR1q2({ page, shot, step }) {
   await browse.click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
     (expected) => {
-      const input = document.querySelector(
-        '[data-testid="bootstrap-target-path-input"] input',
-      )
+      const input = document.querySelector('[data-testid="bootstrap-target-path-input"] input')
       return input && input.value === expected
     },
     targetPath,
@@ -177,7 +175,9 @@ export default async function bootstrapR1q2({ page, shot, step }) {
   )
   const shownPath = await pathField.inputValue()
   if (shownPath !== targetPath) {
-    throw new Error(`expected the target field to show ${JSON.stringify(targetPath)}, got ${JSON.stringify(shownPath)}`)
+    throw new Error(
+      `expected the target field to show ${JSON.stringify(targetPath)}, got ${JSON.stringify(shownPath)}`,
+    )
   }
 
   // A fresh, non-Program-Files folder is not expected to raise any warning - but if the real
@@ -194,7 +194,9 @@ export default async function bootstrapR1q2({ page, shot, step }) {
     }
   }
   if (await page.getByTestId('bootstrap-target-blocked').count()) {
-    throw new Error('the R1Q2 fixture target was reported as blocked, not a warning or a clean pick')
+    throw new Error(
+      'the R1Q2 fixture target was reported as blocked, not a warning or a clean pick',
+    )
   }
   if (!(await next.isEnabled())) {
     throw new Error('Next stayed disabled for a fresh, non-Program-Files target')
@@ -222,7 +224,9 @@ export default async function bootstrapR1q2({ page, shot, step }) {
   // --- AC2/AC5: the job runs, falling back to the mirror for the r1q2 package ----------------------
   step('start the job')
   await page.getByTestId('bootstrap-confirm-start').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('bootstrap-running-step').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('bootstrap-running-step')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   step('wait for the job to succeed (AC2/AC3/AC5)')
   await page
@@ -235,19 +239,29 @@ export default async function bootstrapR1q2({ page, shot, step }) {
   const primaryPath = `/packages/${r1q2Package.fileName}`
   const mirrorPath = `/mirror/${r1q2Package.fileName}`
   if (!server.requested.includes(primaryPath)) {
-    throw new Error(`expected the fixture server to have been asked for the primary ${primaryPath} (AC2)`)
+    throw new Error(
+      `expected the fixture server to have been asked for the primary ${primaryPath} (AC2)`,
+    )
   }
   if (!server.requested.includes(mirrorPath)) {
-    throw new Error(`expected the fixture server to have been asked for the mirror ${mirrorPath} (AC2)`)
+    throw new Error(
+      `expected the fixture server to have been asked for the mirror ${mirrorPath} (AC2)`,
+    )
   }
-  console.log(`AC2: primary ${primaryPath} was attempted and failed; mirror ${mirrorPath} served the bytes`)
+  console.log(
+    `AC2: primary ${primaryPath} was attempted and failed; mirror ${mirrorPath} served the bytes`,
+  )
 
   // --- AC3/AC5: the assembled target holds exactly the R1Q2 client files, no dedicated.exe --------
-  step('assert on disk that the R1Q2 client files were assembled and dedicated.exe was excluded (AC3)')
+  step(
+    'assert on disk that the R1Q2 client files were assembled and dedicated.exe was excluded (AC3)',
+  )
   const tree = readTargetTree(targetPath)
   for (const expected of ['r1q2.exe', 'ref_r1gl.dll']) {
     if (!tree.files.includes(expected)) {
-      throw new Error(`expected ${expected} in the target root, found ${JSON.stringify(tree.files)} (AC3)`)
+      throw new Error(
+        `expected ${expected} in the target root, found ${JSON.stringify(tree.files)} (AC3)`,
+      )
     }
   }
   if (!existsSync(join(targetPath, 'baseq2', 'gamex86.dll'))) {
@@ -275,7 +289,9 @@ export default async function bootstrapR1q2({ page, shot, step }) {
   }
   const autoexecText = readFileSync(autoexecPath, 'utf8')
   if (!autoexecText.includes('vid_ref') || !autoexecText.includes('r1gl')) {
-    throw new Error(`expected autoexec.cfg to seed vid_ref "r1gl", got: ${JSON.stringify(autoexecText)} (AC4)`)
+    throw new Error(
+      `expected autoexec.cfg to seed vid_ref "r1gl", got: ${JSON.stringify(autoexecText)} (AC4)`,
+    )
   }
 
   // --- AC8: the GPLv3 license notice was installed at the target root ------------------------------
@@ -308,13 +324,15 @@ export default async function bootstrapR1q2({ page, shot, step }) {
   step('assert nothing outside the loopback fixture server was ever asked for')
   const unexpected = server.requested.filter((path) => path === '/' || path.startsWith('/..'))
   if (unexpected.length > 0) {
-    throw new Error(`the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`)
+    throw new Error(
+      `the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`,
+    )
   }
   console.log(`fixture server served: ${JSON.stringify([...new Set(server.requested)])}`)
 
   console.log(
     'bootstrap r1q2: R1Q2 was offered/selected with its notice shown, the confirm step named it, ' +
-      'the job fell back to the mirror after the primary 404\'d, the target holds exactly the ' +
+      "the job fell back to the mirror after the primary 404'd, the target holds exactly the " +
       'three required client files with dedicated.exe excluded, autoexec.cfg seeds vid_ref "r1gl", ' +
       "the GPLv3 license was installed, and the library card's engine-badge reads R1Q2",
   )

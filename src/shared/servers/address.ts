@@ -90,8 +90,7 @@ export interface ParsedServerAddress {
 }
 
 export type ServerAddressResult =
-  | ({ ok: true } & ParsedServerAddress)
-  | { ok: false; reason: ServerAddressRejection }
+  ({ ok: true } & ParsedServerAddress) | { ok: false; reason: ServerAddressRejection }
 
 /** Control bytes, bytes above 126, and the shell/argument metacharacters `'`, `"`, `\`, `;`. */
 const FORBIDDEN_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\uffff'"\\;]/
@@ -129,10 +128,15 @@ function looksLikeIpv6Literal(candidate: string): boolean {
 }
 
 /** Classify and validate the host part once port parsing has succeeded. */
-function parseHost(hostPart: string): { ok: true; host: string; kind: 'ipv4' | 'hostname' } | { ok: false; reason: ServerAddressRejection } {
+function parseHost(
+  hostPart: string,
+):
+  | { ok: true; host: string; kind: 'ipv4' | 'hostname' }
+  | { ok: false; reason: ServerAddressRejection } {
   const labels = hostPart.split('.')
 
-  const isDottedNumericCandidate = labels.length === 4 && labels.every((label) => ALL_DIGITS_PATTERN.test(label))
+  const isDottedNumericCandidate =
+    labels.length === 4 && labels.every((label) => ALL_DIGITS_PATTERN.test(label))
   if (isDottedNumericCandidate) {
     const octets: number[] = []
     for (const label of labels) {

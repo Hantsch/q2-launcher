@@ -49,8 +49,7 @@ export function pickPreselectedProfileId(
   if (activeInstallationId !== null) {
     const defaultProfile = profiles.find((profile) =>
       profile.assignments.some(
-        (assignment) =>
-          assignment.installationId === activeInstallationId && assignment.isDefault,
+        (assignment) => assignment.installationId === activeInstallationId && assignment.isDefault,
       ),
     )
     if (defaultProfile) return defaultProfile.id

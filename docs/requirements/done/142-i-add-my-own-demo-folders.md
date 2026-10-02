@@ -63,14 +63,14 @@ templates ([[140]]) and the remembered sort ([[152]]).
   "is this the same folder?" key installations use, so `C:\Demos`, `c:\demos\` and a junction to it
   collapse.
 - **An installation's `demos/` folder may be added; the dedup happens at scan time, not at add
-  time** — an installation can be registered *after* the extra folder was added, so an add-time
+  time** — an installation can be registered _after_ the extra folder was added, so an add-time
   check alone cannot satisfy AC4; at scan, an extra folder whose canonical `pathKey` equals a
   scanned installation `demos/` folder is skipped and its demos keep the installation source label
   (the richer one: installation + game dir).
 - **A listed folder that is missing at scan time contributes no demos and stays listed** — a
   removable or network drive can come back; the per-source error state is DEMO-19's story (S27).
 - **The state key is `replays` with envelope `{ extraFolders: ReplaysExtraFolder[] }`, entry `{ id,
-  path, addedAt }`**, getter/setter `replaysState()` / `setReplaysState()`, parse
+path, addedAt }`**, getter/setter `replaysState()` / `setReplaysState()`, parse
   `parseReplaysState` — the story-110 `servers` precedent verbatim (module-named key, no schema
   bump, envelope fallback + row-level drop + first-wins dedupe by `pathKey`). If story 140 (built
   earlier in this sprint) already introduced the `replays` key, `extraFolders` is added to that
@@ -90,16 +90,16 @@ Five Ds, bottom-up: state → handlers → scan → settings UI → list label +
 no shell file, no platform branch (folder dialog and paths behave the same on Windows and Linux).
 
 1. [x] **D1 State key** — `ReplaysState`/`ReplaysExtraFolder` + zod schema + `DEFAULT_REPLAYS_STATE`
-   in `src/shared/modules/replays.ts`; `parseReplaysState` in `src/main/lib/schemas.ts`;
-   `replays` on `LauncherStateDocument` with getter/setter in `src/main/services/state.ts`.
+       in `src/shared/modules/replays.ts`; `parseReplaysState` in `src/main/lib/schemas.ts`;
+       `replays` on `LauncherStateDocument` with getter/setter in `src/main/services/state.ts`.
 2. [x] **D2 Handlers** — `extraFolders.list` / `.add` / `.remove` in the contract and the main half;
-   validation in a new `src/main/modules/replays/extra-folders.ts`.
+       validation in a new `src/main/modules/replays/extra-folders.ts`.
 3. [x] **D3 Scan** — 141's discovery gets extra-folder sources (top level only, same per-folder scan
-   function, formats and exclusions), dedup against installation `demos/` folders.
+       function, formats and exclusions), dedup against installation `demos/` folders.
 4. [x] **D4 Settings UI** — `ReplaysSettingsSection` lists folders, adds via picker, removes, shows the
-   rejection reason; i18n; CHANGELOG; 135's shell flow's last assertion updated.
+       rejection reason; i18n; CHANGELOG; 135's shell flow's last assertion updated.
 5. [x] **D5 List label + e2e** — "extra folder: `<path>`" in the list row's source; fixture folder;
-   flow `replays-extra-folders`.
+       flow `replays-extra-folders`.
 
 Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs D3's scan and D4's section).
 
@@ -112,8 +112,8 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs D3's scan and D4's sectio
   `src/main/lib/schemas.test.ts` (extend), `src/main/services/state.ts` (field, `defaults()`, parse
   callback, `replaysState()`/`setReplaysState()`; mirror the `servers`/`serversState()` quartet),
   `src/main/services/state.test.ts` (extend). Shape: `ReplaysState = { extraFolders:
-  ReplaysExtraFolder[] }`, `ReplaysExtraFolder = { id: string; path: string; addedAt: string (ISO)
-  }`, `DEFAULT_REPLAYS_STATE = { extraFolders: [] }`. Parse: envelope failure → fresh clone of the
+ReplaysExtraFolder[] }`, `ReplaysExtraFolder = { id: string; path: string; addedAt: string (ISO)
+}`, `DEFAULT_REPLAYS_STATE = { extraFolders: [] }`. Parse: envelope failure → fresh clone of the
   default; per-row parse, a row whose `path` is not an absolute NUL-free string is dropped; rows
   deduped first-wins by `pathKey(path)` (`src/main/lib/fs-utils.ts`); no disk access. No
   `STATE_SCHEMA_VERSION` bump, no migration, no `LauncherSettings` field. **If `replays` already
@@ -127,18 +127,18 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs D3's scan and D4's sectio
 
 - **D2 — extra-folder handlers with main-side validation.** Files: `src/shared/modules/replays.ts`
   (extend `REPLAYS_HANDLERS` with `extraFoldersList: 'extraFolders.list'`, `extraFoldersAdd:
-  'extraFolders.add'`, `extraFoldersRemove: 'extraFolders.remove'`; payload schemas
+'extraFolders.add'`, `extraFoldersRemove: 'extraFolders.remove'`; payload schemas
   `z.void()`, `z.object({ path: absolutePathSchema })` (from `src/shared/schemas.ts`), `z.object({
-  id: z.string().min(1) })`; result type `ExtraFoldersResult = { ok: true; folders:
-  ReplaysExtraFolder[] } | { ok: false; reason: 'notAbsolute' | 'unresolvable' | 'notAFolder' |
-  'alreadyListed' }` — mirror `MasterSourcesResult` in `src/shared/modules/servers.ts`; set
+id: z.string().min(1) })`; result type `ExtraFoldersResult = { ok: true; folders:
+ReplaysExtraFolder[] } | { ok: false; reason: 'notAbsolute' | 'unresolvable' | 'notAFolder' |
+'alreadyListed' }` — mirror `MasterSourcesResult` in `src/shared/modules/servers.ts`; set
   `REPLAYS_PATH_PAYLOAD_HANDLERS = ['extraFolders.add']`), `src/shared/modules/replays.test.ts`
   (the existing "every replays handler has a zod schema" / "no replays handler payload carries a
   filesystem path" tests must pass with the new entries), `src/main/modules/replays/extra-folders.ts`
   (new: `async addExtraFolder(current, rawPath, now, newId): Promise<ExtraFoldersResult>` — `!isAbsolute`
   → `notAbsolute`; `canonicalizePath` + `stat` throws → `unresolvable`; `!isDirectory()` →
   `notAFolder`; `pathKey` equal to a listed row → `alreadyListed`; else append `{ id, path:
-  canonical, addedAt }`; `removeExtraFolder(current, id)` — unknown id is a no-op returning the
+canonical, addedAt }`; `removeExtraFolder(current, id)` — unknown id is a no-op returning the
   unchanged list; neither function ever writes, deletes or renames anything on disk),
   `src/main/modules/replays/extra-folders.test.ts` (new, real temp dirs via `mkdtemp`),
   `src/main/modules/replays/index.ts` (register the three handlers; persist through
@@ -189,7 +189,7 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs D3's scan and D4's sectio
   (`/design-tokens`), no raw palette classes. Tests: › "the section lists, adds and removes extra
   folders through the module client", › "a rejected folder shows its reason as visible text", ›
   "a cancelled pick adds nothing". Acceptance: those tests pass; `npm run ui:flow --
-  replays-module-shell` OK.
+replays-module-shell` OK.
 
 - **D5 — the list shows the extra-folder source; end-to-end flow.** Files: story 141's renderer
   source-label code (the place that renders "installation name + game dir" — add the
@@ -205,7 +205,7 @@ Order: D1 → D2 → D3 → D4 → D5 (D5's flow needs D3's scan and D4's sectio
   `replays-extra-folders-error` visible and the list still shows each demo once; remove the row →
   the Demos view no longer lists them, and the fixture files still exist on disk. Test: unit ›
   "an extra-folder source renders as extra folder: <path>". Acceptance: that test passes; `npm run
-  ui:flow -- replays-extra-folders` OK.
+ui:flow -- replays-extra-folders` OK.
 
 ## Model Hints
 
@@ -300,6 +300,7 @@ gate re-run, all green; e2e still environment-inconclusive as above). No further
 fix; no deliberately-unfixed findings.
 
 Decisions (implementation-detail, made without a user question per sprint rules):
+
 - `ReplaysState`/`parseReplaysState` already live in `src/main/lib/schemas.ts` (not
   `src/shared/modules/replays.ts` as the plan's shorthand implied) — extended there, in place,
   rather than relocated, since story 140 had already established that location.

@@ -29,7 +29,8 @@ export function computeEngineUpdateStatus(
   target: { channel: EngineUpdateChannel; version: string | undefined },
 ): EngineUpdateStatus {
   const current = recorded.version
-  const updateAvailable = target.version !== undefined && (current === undefined || current !== target.version)
+  const updateAvailable =
+    target.version !== undefined && (current === undefined || current !== target.version)
 
   return {
     installationId,

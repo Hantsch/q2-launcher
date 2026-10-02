@@ -61,7 +61,8 @@ async function bindResponder(infoLine) {
   const address = `127.0.0.1:${socket.address().port}`
   socket.on('message', (message, rinfo) => {
     const text = message.subarray(4).toString('latin1')
-    if (text.startsWith('info')) socket.send(buildInfoReplyBytes(infoLine), rinfo.port, rinfo.address)
+    if (text.startsWith('info'))
+      socket.send(buildInfoReplyBytes(infoLine), rinfo.port, rinfo.address)
     else if (text.startsWith('status'))
       socket.send(buildStatusReplyBytes(infoLine), rinfo.port, rinfo.address)
   })
@@ -138,8 +139,14 @@ export async function setup() {
   })
 
   // The active installation's real files (written after the fixture reseeded its root).
-  writeFileDeep(installationRootFilePath(MODS_INSTALL_R1Q2_ID, 'baseq2/maps/q2dm1.bsp'), Buffer.from('BSP!'))
-  writeFileDeep(installationRootFilePath(MODS_INSTALL_R1Q2_ID, 'opentdm/pak0.pak'), buildPack('maps/tdm1.bsp'))
+  writeFileDeep(
+    installationRootFilePath(MODS_INSTALL_R1Q2_ID, 'baseq2/maps/q2dm1.bsp'),
+    Buffer.from('BSP!'),
+  )
+  writeFileDeep(
+    installationRootFilePath(MODS_INSTALL_R1Q2_ID, 'opentdm/pak0.pak'),
+    buildPack('maps/tdm1.bsp'),
+  )
 
   return { env: { Q2L_UI_CONTENT_REPO_BASE: catalogServer.baseUrl } }
 }
@@ -147,7 +154,8 @@ export async function setup() {
 export async function teardown() {
   await Promise.all(
     responders.map(
-      (r) => !r.closed && ((r.closed = true), new Promise((resolve) => r.socket.close(() => resolve()))),
+      (r) =>
+        !r.closed && ((r.closed = true), new Promise((resolve) => r.socket.close(() => resolve()))),
     ),
   )
   await catalogServer?.close()
@@ -194,11 +202,14 @@ async function expectState(page, testId, state, text) {
 }
 
 export default async function serversDetailLocalContent({ page, step, shot }) {
-  await page.getByRole('button', { name: MODS_INSTALL_R1Q2_NAME, exact: true }).click({ timeout: TIMEOUT_MS })
+  await page
+    .getByRole('button', { name: MODS_INSTALL_R1Q2_NAME, exact: true })
+    .click({ timeout: TIMEOUT_MS })
   await page.getByTestId('nav-servers').click({ timeout: TIMEOUT_MS })
   const refreshAll = page.getByTestId('servers-refresh')
   await refreshAll.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const before = (await page.getByTestId('servers-scan-status').getAttribute('data-finished-at')) ?? ''
+  const before =
+    (await page.getByTestId('servers-scan-status').getAttribute('data-finished-at')) ?? ''
   await refreshAll.click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
     (previous) => {
@@ -226,7 +237,7 @@ export default async function serversDetailLocalContent({ page, step, shot }) {
   }
 
   step(
-    'a loose baseq2 map and a map inside the mod\'s pak read map available, an absent map reads map missing — the server will send it',
+    "a loose baseq2 map and a map inside the mod's pak read map available, an absent map reads map missing — the server will send it",
   )
   await expectState(page, 'servers-detail-map-status', 'available', 'Map available')
   await selectServer(page, 'B')
@@ -258,30 +269,42 @@ export default async function serversDetailLocalContent({ page, step, shot }) {
     throw new Error('a mod with no catalog entry must offer no Install')
   }
 
-  step('a missing catalog mod offers Install and clicking it starts the install job into the active installation')
+  step(
+    'a missing catalog mod offers Install and clicking it starts the install job into the active installation',
+  )
   await selectServer(page, 'E')
   await expectState(page, 'servers-detail-mod-status', 'missing', 'Mod missing')
   const install = page.getByTestId('servers-detail-mod-install')
   await install.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  if ((await install.textContent())?.trim() !== 'Install') throw new Error('expected an Install button')
+  if ((await install.textContent())?.trim() !== 'Install')
+    throw new Error('expected an Install button')
   await shot('detail-server-e-install')
   await install.click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
     () => {
       const el = document.querySelector('[data-testid="servers-detail-mod-install"]')
-      return el instanceof HTMLButtonElement && el.disabled && el.textContent?.trim() === 'Installing…'
+      return (
+        el instanceof HTMLButtonElement && el.disabled && el.textContent?.trim() === 'Installing…'
+      )
     },
     undefined,
     { timeout: TIMEOUT_MS },
   )
   await shot('detail-server-e-installing')
 
-  step('after the install job finishes the statement reads mod installed without reopening the detail')
-  await page.getByTestId('servers-detail-mod-install').waitFor({ state: 'detached', timeout: JOB_TIMEOUT_MS })
+  step(
+    'after the install job finishes the statement reads mod installed without reopening the detail',
+  )
+  await page
+    .getByTestId('servers-detail-mod-install')
+    .waitFor({ state: 'detached', timeout: JOB_TIMEOUT_MS })
   await expectState(page, 'servers-detail-mod-status', 'installed', 'Mod installed')
   for (const [name, expected] of Object.entries(modsFixtureFiles)) {
-    const actual = readFileSync(installationRootFilePath(MODS_INSTALL_R1Q2_ID, `fixturemod/${name}`))
-    if (!actual.equals(expected)) throw new Error(`fixturemod/${name} differs from the package bytes`)
+    const actual = readFileSync(
+      installationRootFilePath(MODS_INSTALL_R1Q2_ID, `fixturemod/${name}`),
+    )
+    if (!actual.equals(expected))
+      throw new Error(`fixturemod/${name} differs from the package bytes`)
   }
   await shot('detail-server-e-installed')
 

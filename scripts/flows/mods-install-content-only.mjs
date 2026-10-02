@@ -7,7 +7,13 @@ import {
   MODS_INSTALL_Q2PRO_NAME,
   modsFixtureContentOnlyFiles,
 } from '../lib/fixture.mjs'
-import { installRecords, JOB_TIMEOUT_MS, modsInstallLifecycle, openMods, TIMEOUT_MS } from '../lib/mods-install-flow.mjs'
+import {
+  installRecords,
+  JOB_TIMEOUT_MS,
+  modsInstallLifecycle,
+  openMods,
+  TIMEOUT_MS,
+} from '../lib/mods-install-flow.mjs'
 
 export const variant = 'populated'
 const lifecycle = modsInstallLifecycle()
@@ -32,7 +38,8 @@ export default async function modsInstallContentOnly({ page, shot, step }) {
 
   step('files on disk: pak0.pak only, byte for byte; no library')
   const pak = readFileSync(installationRootFilePath(MODS_INSTALL_Q2PRO_ID, 'fixturemod/pak0.pak'))
-  if (!pak.equals(modsFixtureContentOnlyFiles['pak0.pak'])) throw new Error('pak0.pak is not the content-only bytes')
+  if (!pak.equals(modsFixtureContentOnlyFiles['pak0.pak']))
+    throw new Error('pak0.pak is not the content-only bytes')
   if (existsSync(installationRootFilePath(MODS_INSTALL_Q2PRO_ID, 'fixturemod/gamex86.dll'))) {
     throw new Error('gamex86.dll was written for a q2pro 64-bit install')
   }
@@ -46,9 +53,11 @@ export default async function modsInstallContentOnly({ page, shot, step }) {
   if (texts.length !== 2 || !texts.every((t) => t === REASON)) {
     throw new Error(`expected the reason on tile and detail, got ${JSON.stringify(texts)}`)
   }
-  if ((await inDetail.count()) !== 1) throw new Error('the detail panel does not show the reason exactly once')
+  if ((await inDetail.count()) !== 1)
+    throw new Error('the detail panel does not show the reason exactly once')
 
   step('the record lists only pak0.pak')
   const recs = installRecords(MODS_INSTALL_Q2PRO_ID)
-  if (recs.length !== 1 || recs[0].files.length !== 1) throw new Error(`records: ${JSON.stringify(recs)}`)
+  if (recs.length !== 1 || recs[0].files.length !== 1)
+    throw new Error(`records: ${JSON.stringify(recs)}`)
 }

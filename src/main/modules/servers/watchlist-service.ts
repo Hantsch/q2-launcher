@@ -10,7 +10,11 @@ import type {
 } from '@shared/modules/servers'
 import type { ServerPlayer } from '@shared/servers/status-reply'
 import { addWatchlistEntry, removeWatchlistEntry, updateWatchlistEntry } from './watchlist-entries'
-import { buildWatchlistSnapshot, matchPlainEntry, type WatchlistRosterContext } from './watchlist-matcher'
+import {
+  buildWatchlistSnapshot,
+  matchPlainEntry,
+  type WatchlistRosterContext,
+} from './watchlist-matcher'
 import type { RegexHost } from './watchlist-regex-host'
 
 /**
@@ -33,8 +37,7 @@ import type { RegexHost } from './watchlist-regex-host'
  */
 
 export type WatchlistServiceMutationResult =
-  | { ok: true; snapshot: WatchlistSnapshot }
-  | { ok: false; reasonKey: string }
+  { ok: true; snapshot: WatchlistSnapshot } | { ok: false; reasonKey: string }
 
 /** The scan-service surface this service needs - just enough to start a single-server recheck
  * round, never the full `ScanService` (this file must not depend on scan-service.ts's own types
@@ -65,7 +68,10 @@ export interface WatchlistService {
    * follow-up snapshot when it does. */
   onStage2Row: (row: ScanServerPush) => void
   read: () => WatchlistSnapshot
-  add: (input: { name: string; mode: WatchlistMatchMode }) => Promise<WatchlistServiceMutationResult>
+  add: (input: {
+    name: string
+    mode: WatchlistMatchMode
+  }) => Promise<WatchlistServiceMutationResult>
   update: (input: {
     id: string
     name: string
@@ -129,7 +135,10 @@ export function createWatchlistService(options: CreateWatchlistServiceOptions): 
   }
 
   function isStaleGeneration(entryId: string, generation: number): boolean {
-    return !getEntries().some((entry) => entry.id === entryId) || currentGeneration(entryId) !== generation
+    return (
+      !getEntries().some((entry) => entry.id === entryId) ||
+      currentGeneration(entryId) !== generation
+    )
   }
 
   function setEntryMatches(address: string, entryId: string, matches: WatchlistMatch[]): void {
@@ -365,7 +374,9 @@ export function createWatchlistService(options: CreateWatchlistServiceOptions): 
 
     // Most recently seen wins; ties keep the first in encounter order (a stable sort over the
     // already-gathered array).
-    const mostRecent = [...matches].sort((a, b) => b.seenAt.localeCompare(a.seenAt))[0] as WatchlistMatch
+    const mostRecent = [...matches].sort((a, b) =>
+      b.seenAt.localeCompare(a.seenAt),
+    )[0] as WatchlistMatch
 
     pendingRecheckAddress.set(entry.id, mostRecent.address)
     recheckByEntry.set(entry.id, 'pending')

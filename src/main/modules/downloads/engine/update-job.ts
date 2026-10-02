@@ -36,7 +36,12 @@ import { toPackageSource } from '../bootstrap/job'
 import type { BootstrapLog, Extractor, ManifestSource } from '../bootstrap/ports'
 import { markVerified, type ExtractorHandle } from '../extractor'
 import { downloadPackage, electronNetFetch, type FetchImpl } from '../fetcher'
-import { ensureDownloadsCacheDir, getFinalPath, getPartPath, isSafeDownloadFileName } from '../paths'
+import {
+  ensureDownloadsCacheDir,
+  getFinalPath,
+  getPartPath,
+  isSafeDownloadFileName,
+} from '../paths'
 import { getExtractDir } from '../pipeline'
 import {
   BleedingEdgeProbeFailedError,
@@ -127,7 +132,8 @@ export const ENGINE_UPDATE_JOB_LABEL_KEY = 'downloads.job.engineUpdate'
 export const ENGINE_BACKUP_DIR_NAME = '.q2launcher-engine-backup'
 
 /** `downloads.error.engineUpdateUnavailable` - there is nothing to update this installation to. */
-export const ENGINE_UPDATE_UNAVAILABLE: DownloadsErrorKey = 'downloads.error.engineUpdateUnavailable'
+export const ENGINE_UPDATE_UNAVAILABLE: DownloadsErrorKey =
+  'downloads.error.engineUpdateUnavailable'
 
 /**
  * `downloads.error.engineReplaceFailed` - the *write phase* failed: a backup move, a copy, or the
@@ -792,16 +798,16 @@ async function runUpdate(args: {
     // writes one, and `EngineUpdateInstallationsHost` gives it no way to.
     const revalidated = await deps.installations.validate(installation.id)
     if (!revalidated.ok) {
-      return failed(LOCAL_FAILURE, `revalidating ${installation.id} failed: ${revalidated.error.key}`)
+      return failed(
+        LOCAL_FAILURE,
+        `revalidating ${installation.id} failed: ${revalidated.error.key}`,
+      )
     }
     if (revalidated.value.status === 'invalid' || revalidated.value.status === 'missing') {
       // The new engine is in place and the inspector still says this is not a usable installation.
       // The files stay - rolling back is `engine.rollbackStart`'s job (D6), and the backup this run
       // just took is exactly what it needs; succeeding here would claim an update that did not work.
-      return failed(
-        NOT_PLAYABLE,
-        `${root} is ${revalidated.value.status} after the engine update`,
-      )
+      return failed(NOT_PLAYABLE, `${root} is ${revalidated.value.status} after the engine update`)
     }
 
     report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
@@ -1001,6 +1007,8 @@ async function downloadUnpinnedAsset(
       cancelled: false,
     }
   }
-  request.log?.info(`downloaded the bleeding-edge engine build ${target.version} (${actualBytes} bytes)`)
+  request.log?.info(
+    `downloaded the bleeding-edge engine build ${target.version} (${actualBytes} bytes)`,
+  )
   return { ok: true, path: finalPath }
 }

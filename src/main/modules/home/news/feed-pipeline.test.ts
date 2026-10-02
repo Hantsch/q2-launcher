@@ -240,9 +240,7 @@ describe('buildFeed', () => {
     // The text fallback carries no image through, even though the source declared none.
     expect(result.slides[1].image).toBeUndefined()
     expect(result.slides.find((slide) => slide.id === 'cover-ok')?.image).toBe('img/cover.png')
-    expect(
-      result.slides.find((slide) => slide.id === 'cover-no-image')?.image,
-    ).toBeUndefined()
+    expect(result.slides.find((slide) => slide.id === 'cover-no-image')?.image).toBeUndefined()
 
     const warned = result.warnings.filter((warning) => warning.id === 'unknown-template')
     expect(warned).toHaveLength(1)
@@ -542,11 +540,7 @@ describe('filterAndSortSlides', () => {
 
   it('sorts survivors by order, stable on incoming order for ties', () => {
     const result = filterAndSortSlides(
-      [
-        slide({ id: 'c', order: 10 }),
-        slide({ id: 'a', order: 30 }),
-        slide({ id: 'b', order: 10 }),
-      ],
+      [slide({ id: 'c', order: 10 }), slide({ id: 'a', order: 30 }), slide({ id: 'b', order: 10 })],
       NOW,
     )
     expect(result.map((s) => s.id)).toEqual(['c', 'b', 'a'])

@@ -39,7 +39,9 @@ function base32Encode60Bits(bytes: Buffer): string {
 /** Pure: `sha256(SALT + normalized raw value)`, truncated to 60 bits and base32-encoded. */
 export function deriveLauncherInstallId(raw: string): string {
   const normalized = raw.trim().toLowerCase()
-  const digest = createHash('sha256').update(SALT + normalized).digest()
+  const digest = createHash('sha256')
+    .update(SALT + normalized)
+    .digest()
   return base32Encode60Bits(digest)
 }
 
@@ -57,7 +59,9 @@ function defaultDeps(): ResolveLauncherInstallIdDeps {
   }
 }
 
-async function readLinuxMachineId(readFile: ResolveLauncherInstallIdDeps['readFile']): Promise<string | null> {
+async function readLinuxMachineId(
+  readFile: ResolveLauncherInstallIdDeps['readFile'],
+): Promise<string | null> {
   for (const path of ['/etc/machine-id', '/var/lib/dbus/machine-id']) {
     try {
       const contents = await readFile(path)

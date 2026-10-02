@@ -111,8 +111,7 @@ const getGameDataSourceVerdict = vi.fn(
 )
 
 vi.mock('../client', () => ({
-  getBootstrapEngineOptions: (...args: unknown[]) =>
-    getBootstrapEngineOptions(...(args as [])),
+  getBootstrapEngineOptions: (...args: unknown[]) => getBootstrapEngineOptions(...(args as [])),
   getBootstrapTargetVerdict: vi.fn(async () => ({ ok: true, value: verdict })),
   getBootstrapSummary: (...args: unknown[]) => getBootstrapSummary(...(args as [])),
   startBootstrapInstall: (...args: unknown[]) => startBootstrapInstall(...(args as [])),
@@ -180,7 +179,9 @@ async function runToRunningStep(): Promise<void> {
     ).toBe('D:\\Games\\Quake II'),
   )
   await waitFor(() =>
-    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(false),
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+      false,
+    ),
   )
   fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
@@ -219,7 +220,11 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
     await runToRunningStep()
 
     act(() => {
-      useLauncher.setState({ jobs: [makeJob({ status: 'succeeded', progress: { ratio: 1, bytesDone: 1, bytesTotal: 1 } })] })
+      useLauncher.setState({
+        jobs: [
+          makeJob({ status: 'succeeded', progress: { ratio: 1, bytesDone: 1, bytesTotal: 1 } }),
+        ],
+      })
     })
 
     await waitFor(() =>
@@ -296,7 +301,9 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
     await waitFor(() => expect(getDownloadFailures).toHaveBeenCalledTimes(1))
     await waitFor(() =>
       expect(
-        screen.getByText('The files were downloaded, but the result was not a usable Quake II installation.'),
+        screen.getByText(
+          'The files were downloaded, but the result was not a usable Quake II installation.',
+        ),
       ).toBeTruthy(),
     )
     expect(document.querySelector('details')).toBeNull()
@@ -355,8 +362,11 @@ describe('BootstrapWizard engine selection (story 080 D2, AC1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
     await waitFor(() =>
       expect(
-        (screen.getByTestId('bootstrap-target-path-input').querySelector('input') as HTMLInputElement)
-          .value,
+        (
+          screen
+            .getByTestId('bootstrap-target-path-input')
+            .querySelector('input') as HTMLInputElement
+        ).value,
       ).toBe('D:\\Games\\Quake II'),
     )
     await waitFor(() =>
@@ -546,7 +556,9 @@ describe('BootstrapWizard game-data step (story 088 D5)', () => {
 
     // Clicking the disabled row must not change the selection.
     fireEvent.click(unverifiedRow)
-    expect(screen.getByTestId('bootstrap-gamedata-source-0').getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByTestId('bootstrap-gamedata-source-0').getAttribute('aria-pressed')).toBe(
+      'true',
+    )
 
     await waitFor(() =>
       expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
@@ -604,7 +616,10 @@ describe('BootstrapWizard game-data step (story 088 D5)', () => {
 
     await waitFor(() =>
       expect(getBootstrapSummary).toHaveBeenCalledWith(
-        expect.objectContaining({ dataSource: 'store-copy', copySourcePath: 'C:\\Steam\\Quake II' }),
+        expect.objectContaining({
+          dataSource: 'store-copy',
+          copySourcePath: 'C:\\Steam\\Quake II',
+        }),
       ),
     )
   })

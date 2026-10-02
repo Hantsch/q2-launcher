@@ -10,7 +10,7 @@ function must(name: string) {
 }
 
 describe('validateCvars — engine value notes', () => {
-  it('flags r_maxfps 0 as an error-level finding on r1q2, using the note\'s own specific explanation', () => {
+  it("flags r_maxfps 0 as an error-level finding on r1q2, using the note's own specific explanation", () => {
     const findings = validateCvars({ r_maxfps: '0' }, 'r1q2')
 
     const found = findings.find((f) => f.subject.id === 'r_maxfps')
@@ -50,7 +50,13 @@ describe('validateCvars — out-of-range values', () => {
     expect(found).toBeDefined()
     expect(found?.level).toBe('warning')
     expect(found?.messageKey).toBe('config.validation.cvar.outOfRangeClamped')
-    expect(found?.params).toMatchObject({ name: 'r_maxfps', value: '3000', min: 5, max: 1000, bound: 1000 })
+    expect(found?.params).toMatchObject({
+      name: 'r_maxfps',
+      value: '3000',
+      min: 5,
+      max: 1000,
+      bound: 1000,
+    })
   })
 
   it('reports a non-clamping out-of-range value with the plain range message', () => {
@@ -61,7 +67,13 @@ describe('validateCvars — out-of-range values', () => {
     expect(found).toBeDefined()
     expect(found?.level).toBe('warning')
     expect(found?.messageKey).toBe('config.validation.cvar.outOfRange')
-    expect(found?.params).toMatchObject({ name: 'rate', value: '500', min: 1000, max: 100000, bound: 1000 })
+    expect(found?.params).toMatchObject({
+      name: 'rate',
+      value: '500',
+      min: 1000,
+      max: 100000,
+      bound: 1000,
+    })
     expect(found?.source).toContain('rate')
   })
 
@@ -129,12 +141,14 @@ describe('story 048 D4 — a default-filled file does not storm validateCvars wi
     // prevent.
     expect(findCvar('ch_scale')).toBeDefined()
     const naive = validateCvars(allDefaultsWritten, 'r1q2')
-    expect(naive.some((f) => f.messageKey === 'config.validation.cvar.absent' && f.subject.id === 'ch_scale')).toBe(
-      true,
-    )
+    expect(
+      naive.some(
+        (f) => f.messageKey === 'config.validation.cvar.absent' && f.subject.id === 'ch_scale',
+      ),
+    ).toBe(true)
   })
 
-  it('produces no findings at all once D3\'s stripCatalogDefaults is applied, on every engine with cvar facts', () => {
+  it("produces no findings at all once D3's stripCatalogDefaults is applied, on every engine with cvar facts", () => {
     // Every catalogue cvar in `allDefaultsWritten` sits at its own default, so the strip - the exact
     // step `ProfilesStore.adoptFromFile`/`buildRebuiltProfile` run on read-back - removes all of it.
     const stripped = stripCatalogDefaults(allDefaultsWritten)

@@ -176,7 +176,8 @@ export function createRendererProtocolHandler(
   // Every response this handler returns must carry the CSP - including 404s, so a missing or
   // corrupt file inside the packaged asar still produces a policy-protected document instead of
   // a policy-less fail-open one. Built per handler instance since it closes over `csp`.
-  const notFound = (): Response => new Response(null, { status: 404, headers: { 'Content-Security-Policy': csp } })
+  const notFound = (): Response =>
+    new Response(null, { status: 404, headers: { 'Content-Security-Policy': csp } })
 
   /**
    * Story 084 D3: serves one cached slide image, given the decoded path *after* the

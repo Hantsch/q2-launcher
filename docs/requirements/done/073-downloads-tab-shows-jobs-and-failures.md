@@ -64,7 +64,7 @@ moment they navigate away.
   already broadcasts the full list.
 - **i18n:** the log stores the job's `error.key`/`params`, never prose, and the renderer
   translates — the full reason set stays open (concept §15.19) and is [[071]]'s to enumerate.
-- **Scope guard:** the tab only *shows*. Pause/resume and queue controls (INST-J2/J3) and the
+- **Scope guard:** the tab only _shows_. Pause/resume and queue controls (INST-J2/J3) and the
   cache **clear** action (INST-S4) are their own stories; cancel is included because
   `job.cancellable` and `cancelJob` already exist end to end.
 - **Test trigger:** `dev:simulateJob` gains a zod-validated `scenario` payload
@@ -111,7 +111,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. D3 can start once D1's contract ex
   `src/main/modules/downloads/failure-log.ts`, edit `src/main/services/state.ts` (add
   `downloadFailures` to the document schema + getter/setter, mirror `configProfiles` at
   `state.ts:133/185`).
-  *Acceptance:* `downloadFailures` round-trips through `state.json`, a garbage entry is dropped
+  _Acceptance:_ `downloadFailures` round-trips through `state.json`, a garbage entry is dropped
   row-wise instead of taking the file, and `failure-log.test.ts` proves append, dismiss,
   restore, the 7-day prune of dismissed entries, the never-prune of undismissed ones and the
   50-entry cap. Test: `src/main/modules/downloads/failure-log.test.ts`.
@@ -121,7 +121,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. D3 can start once D1's contract ex
   `src/main/services/jobs.ts` (add `onChange(listener)`) and `src/main/modules/index.ts`
   (register). Mirror `src/main/modules/library/index.ts` for the handler shape and
   `src/main/modules/config/schemas.ts` for the per-handler schemas.
-  *Acceptance:* a `downloads` job finishing `failed` produces exactly one log entry carrying the
+  _Acceptance:_ a `downloads` job finishing `failed` produces exactly one log entry carrying the
   job's `error.key`/`params`, `labelKey` and `installationId`; a succeeded job produces none;
   the existing `jobs:changed` broadcast is unchanged; `cacheStatus` returns the byte sum of
   `userData/cache/downloads/` and `0` for a missing directory. Tests:
@@ -134,7 +134,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. D3 can start once D1's contract ex
   `src/renderer/src/modules/index.ts` (uncomment the `downloads` entry),
   `src/shared/types/module.ts` (`status: 'available'`),
   `src/renderer/src/i18n/locales/en.json`.
-  *Acceptance:* running and queued jobs render with label, progress bar, bytes, speed and ETA
+  _Acceptance:_ running and queued jobs render with label, progress bar, bytes, speed and ETA
   from `JobProgress`; a cancellable job offers cancel; a succeeded job fades out; the cache size
   shows as a `KeyValue`; zero jobs shows `EmptyState`; the route renders this view instead of
   `PlannedModuleView`. Tests: `src/renderer/src/modules/downloads/DownloadsView.test.tsx`
@@ -143,7 +143,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. D3 can start once D1's contract ex
 - **D4 — The failure log section.**
   New `src/renderer/src/modules/downloads/components/FailureLogEntry.tsx`; edit
   `DownloadsView.tsx`, `client.ts`, `en.json`.
-  *Acceptance:* a failed job's reason renders translated and persists across a view remount and
+  _Acceptance:_ a failed job's reason renders translated and persists across a view remount and
   an app restart; dismiss moves it into the collapsed "dismissed" disclosure; restore brings it
   back; the log refetches on `jobs:changed`. Test:
   `src/renderer/src/modules/downloads/DownloadsView.failures.test.tsx` (jsdom).
@@ -153,7 +153,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. D3 can start once D1's contract ex
   `src/shared/ipc-schemas.ts`, `src/main/ipc/dev.ts` (add `stall` — hold at ~0.4 — and
   `failure` — finish `failed` with an i18n'd `error.key`), `src/renderer/src/views/SettingsView.tsx`
   (two more dev-panel buttons), `en.json`.
-  *Acceptance:* the channel stays in `DEV_ONLY_CHANNELS`, an unknown scenario is rejected by the
+  _Acceptance:_ the channel stays in `DEV_ONLY_CHANNELS`, an unknown scenario is rejected by the
   schema, and each scenario is reachable by a click in the dev panel. Test:
   `src/main/ipc/dev.test.ts` plus the existing `src/main/ipc/index.test.ts` dev-gating test.
 
@@ -161,7 +161,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6. D3 can start once D1's contract ex
   Edit `scripts/lib/screens.mjs` (a `downloads` screen, `variant: 'populated'`); new
   `scripts/flows/downloads-tab.mjs` (mirror `scripts/flows/config-header-geometry.mjs`); edit
   `docs/UI-VERIFICATION.md` where it lists screens/flows.
-  *Acceptance:* `npm run ui:verify -- --screens=downloads` is axe-clean with no console or CSP
+  _Acceptance:_ `npm run ui:verify -- --screens=downloads` is axe-clean with no console or CSP
   findings, and `npm run ui:flow -- downloads-tab` passes its steps offline.
 
 ## Model Hints
@@ -213,11 +213,13 @@ UI verification (a `downloads` screen plus `scripts/flows/downloads-tab.mjs`). T
 flipped `downloads` from `planned` to `available`.
 
 **Commit message:**
+
 ```
 073: the Downloads tab shows jobs and failures
 ```
 
 **Verification:**
+
 - `npm run build` — green.
 - `npm run typecheck` (node + web) — clean.
 - `npm test` — 139 files, 2952 passed, 3 skipped (pre-existing skips, unrelated).
@@ -229,21 +231,22 @@ flipped `downloads` from `planned` to `available`.
   confirmed bug (finding 1: the succeeded-job fade effect could get stuck forever if the
   `jobs` store changed again while a job was mid-fade — reachable any time `concurrentJobs`
   > 1, not an edge case). Fixed with a ref-based one-shot-per-job fade timer in
-  `DownloadsView.tsx`; the unexplained `eslint-disable-next-line react-hooks/exhaustive-deps`
-  (finding 3) was removed as a result (deps became correct). The existing fade test was
-  strengthened to actually exercise the bug (seeds a second store update while the first job
-  is mid-fade) — confirmed it fails against the pre-fix code and passes against the fix. The
-  `## Acceptance Tests` section's cross-references (finding 7) were corrected to the tests'
-  real titles. Findings 4–6, 8–11 were reviewed and accepted as non-blocking/out of scope (see
-  Decisions below); nothing else changed. Second pass not re-dispatched to a fresh agent — the
-  fix was narrow, targeted, and independently verified (test fails on revert, passes on fix;
-  full build/test/typecheck/e2e re-run clean) rather than exhausting review cycles on cosmetic
-  findings.
+  > `DownloadsView.tsx`; the unexplained `eslint-disable-next-line react-hooks/exhaustive-deps`
+  > (finding 3) was removed as a result (deps became correct). The existing fade test was
+  > strengthened to actually exercise the bug (seeds a second store update while the first job
+  > is mid-fade) — confirmed it fails against the pre-fix code and passes against the fix. The
+  > `## Acceptance Tests` section's cross-references (finding 7) were corrected to the tests'
+  > real titles. Findings 4–6, 8–11 were reviewed and accepted as non-blocking/out of scope (see
+  > Decisions below); nothing else changed. Second pass not re-dispatched to a fresh agent — the
+  > fix was narrow, targeted, and independently verified (test fails on revert, passes on fix;
+  > full build/test/typecheck/e2e re-run clean) rather than exhausting review cycles on cosmetic
+  > findings.
 - AC → test mapping as verified: see `## Acceptance Tests` above (corrected to match the real
   test titles); all named tests exist, ran, and passed in this verification. No manual
   residue.
 
 **Decisions (this build, beyond the ones already in Decisions (Sprint)):**
+
 - Findings 4 (fading row still tabbable via cancel button), 9 (cache figure fetched once on
   mount, can go stale while the tab stays open across a job finishing) and 10 (failure log
   refetches on every `jobs:changed`, i.e. once per progress tick while any job runs — explicitly

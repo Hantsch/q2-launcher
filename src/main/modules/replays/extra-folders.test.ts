@@ -22,7 +22,12 @@ describe('addExtraFolder (story 142 D2)', () => {
     await writeFile(filePath, 'x')
     const missingPath = join(dir, 'does-not-exist')
 
-    const relative = await addExtraFolder([], 'relative/path', '2026-01-01T00:00:00.000Z', randomUUID())
+    const relative = await addExtraFolder(
+      [],
+      'relative/path',
+      '2026-01-01T00:00:00.000Z',
+      randomUUID(),
+    )
     expect(relative).toEqual({ ok: false, reason: 'notAbsolute' })
 
     const file = await addExtraFolder([], filePath, '2026-01-01T00:00:00.000Z', randomUUID())

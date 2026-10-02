@@ -67,7 +67,8 @@ function formatDemoPos(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}.${Math.floor((ms % 1000) / 100)}`
 }
 
-const GUARD = /^if \$q2l_seq < (\d+) then "exec (q2l_cmd_\d+\.cfg); set q2l_seq (\d+); echo ACK (\d+)"$/
+const GUARD =
+  /^if \$q2l_seq < (\d+) then "exec (q2l_cmd_\d+\.cfg); set q2l_seq (\d+); echo ACK (\d+)"$/
 
 /**
  * Stands in for Q2PRO running `q2l_loop`: every tick it re-execs the control file from disk,
@@ -141,7 +142,8 @@ function createFakeEngine(dir: string, opts: { ack?: boolean; buffered?: boolean
             const seek = /^seek (\d+)$/.exec(cmd)
             if (seek) state.posMs = Number(seek[1]) * 1000
             if (cmd === 'vid_fullscreen 1') state.fullscreen = true
-            if (cmd.startsWith('alias q2l_loop ') && !cmd.includes(`exec ${CONTROL_CFG_NAME}`)) loopRedefined = true
+            if (cmd.startsWith('alias q2l_loop ') && !cmd.includes(`exec ${CONTROL_CFG_NAME}`))
+              loopRedefined = true
           }
           state.q2lSeq = Number(guard[3])
           if (opts.ack !== false) out.push(`ACK ${guard[4]}`)
@@ -207,7 +209,8 @@ function createFakeEngine(dir: string, opts: { ack?: boolean; buffered?: boolean
         for (const line of readFileSync(join(dir, LOOP_CFG_NAME), 'utf8').split(/\r?\n/)) {
           const set = /^set q2l_seq (\d+)$/.exec(line)
           if (set) state.q2lSeq = Number(set[1])
-          if (line.startsWith('alias q2l_loop ') && line.includes(`exec ${CONTROL_CFG_NAME}`)) state.stopped = false
+          if (line.startsWith('alias q2l_loop ') && line.includes(`exec ${CONTROL_CFG_NAME}`))
+            state.stopped = false
         }
       }
     },
@@ -448,7 +451,11 @@ describe('createWindowsChannel', () => {
     engine.pause()
     vi.advanceTimersByTime(LOG_POLL_MS)
     expect(engine.state.lastPosMs).toBeGreaterThanOrEqual(30_000)
-    expect(ch.latest()).toEqual({ positionMs: engine.state.lastPosMs, paused: false, finished: false })
+    expect(ch.latest()).toEqual({
+      positionMs: engine.state.lastPosMs,
+      paused: false,
+      finished: false,
+    })
   })
 
   it('does not act on a line until its newline arrives', async () => {
@@ -511,7 +518,10 @@ describe('createWindowsChannel', () => {
     expect(ch.latest().finished).toBe(true)
     expect(controlFile()).toBe(asFile(buildStopFile()))
     expect(engine.state.stopped).toBe(true)
-    expect(ch.send('third')).toEqual({ ok: false, error: { key: 'replays.playback.error.noSession' } })
+    expect(ch.send('third')).toEqual({
+      ok: false,
+      error: { key: 'replays.playback.error.noSession' },
+    })
 
     // Both went out at once and ran once; the unacknowledged seqs were dropped at the end, so no ACK
     // timeout rewrites the control file over the stop file or brings either command back.
@@ -542,7 +552,10 @@ describe('createWindowsChannel', () => {
     expect(existsSync(join(dir, LOOP_CFG_NAME))).toBe(false)
     expect(existsSync(logPath())).toBe(false)
     expect(readdirSync(dir).filter((n) => n.startsWith('q2l_'))).toEqual([])
-    expect(ch.send('seek 6')).toEqual({ ok: false, error: { key: 'replays.playback.error.noSession' } })
+    expect(ch.send('seek 6')).toEqual({
+      ok: false,
+      error: { key: 'replays.playback.error.noSession' },
+    })
   })
 
   it('close removes every file it created with several commands still in flight', async () => {
@@ -578,7 +591,9 @@ describe('createWindowsChannel', () => {
     await ch.start()
     expect(controlFile()).toBe(asFile(buildControlFile([])))
     expect(readFileSync(join(dir, LOOP_CFG_NAME), 'utf8')).toBe(asFile(buildLoopCfg()))
-    expect(readFileSync(join(dir, BACK_TO_WINDOW_CFG), 'utf8')).toBe(asFile(buildBackToWindowCfg('win32')))
+    expect(readFileSync(join(dir, BACK_TO_WINDOW_CFG), 'utf8')).toBe(
+      asFile(buildBackToWindowCfg('win32')),
+    )
     expect(existsSync(join(dir, `${CONTROL_CFG_NAME}.999.1.tmp`))).toBe(false)
     expect(commandFiles()).toEqual([])
     expect(existsSync(join(dir, 'autoexec.cfg'))).toBe(true)
@@ -590,7 +605,11 @@ describe('createWindowsChannel', () => {
     engine.pause()
     vi.advanceTimersByTime(LOG_POLL_MS)
 
-    expect(ch.latest()).toEqual({ positionMs: engine.state.lastPosMs, paused: false, finished: false })
+    expect(ch.latest()).toEqual({
+      positionMs: engine.state.lastPosMs,
+      paused: false,
+      finished: false,
+    })
     expect(ch.latest().positionMs).toBeLessThan(599_000)
     // The old "ACK 1" did not acknowledge this run's seq 1.
     expect(controlFile()).toBe(asFile(buildControlFile([1])))
@@ -608,7 +627,10 @@ describe('createWindowsChannel', () => {
     // All of them in flight at once, none queued.
     expect(controlFile()).toBe(asFile(buildControlFile(seqs)))
     expect(ch.send('one too many')).toEqual(BUSY)
-    expect(ch.send('bad\nline')).toEqual({ ok: false, error: { key: 'replays.playback.error.invalidCommand' } })
+    expect(ch.send('bad\nline')).toEqual({
+      ok: false,
+      error: { key: 'replays.playback.error.invalidCommand' },
+    })
 
     // The last seq's ACK retires every seq: room for new commands again.
     appendFileSync(logPath(), `${PREFIX}ACK ${QUEUE_CAP}\n`)
@@ -652,7 +674,8 @@ describe('createWindowsChannel fullscreen (story 172)', () => {
   const SWITCH = buildEnterFullscreenLines({ switchMode: true })
   const FOLLOW = buildEnterFullscreenLines({ switchMode: false })
   const FULLSCREEN_ERROR = { ok: false, error: { key: 'replays.playback.error.fullscreen' } }
-  const switches = (executed: string[]): number => executed.filter((c) => c === 'vid_fullscreen 1').length
+  const switches = (executed: string[]): number =>
+    executed.filter((c) => c === 'vid_fullscreen 1').length
 
   function withDisplayLog(ch: PlaybackChannel): ReturnType<typeof vi.fn> {
     const onDisplay = vi.fn()
@@ -863,13 +886,18 @@ describe('createWindowsChannel fullscreen (story 172)', () => {
     vi.advanceTimersByTime(LOG_POLL_MS)
     expect(onFinished).toHaveBeenCalledTimes(1)
     expect(controlFile()).toBe(asFile(buildStopFile()))
-    expect(ch.send('seek 5')).toEqual({ ok: false, error: { key: 'replays.playback.error.noSession' } })
+    expect(ch.send('seek 5')).toEqual({
+      ok: false,
+      error: { key: 'replays.playback.error.noSession' },
+    })
   })
 
   it('close removes q2l_back.cfg', async () => {
     const { ch } = makeChannel()
     await ch.start()
-    expect(readFileSync(join(dir, BACK_TO_WINDOW_CFG), 'utf8')).toBe(asFile(buildBackToWindowCfg('win32')))
+    expect(readFileSync(join(dir, BACK_TO_WINDOW_CFG), 'utf8')).toBe(
+      asFile(buildBackToWindowCfg('win32')),
+    )
     await ch.close()
     expect(existsSync(join(dir, BACK_TO_WINDOW_CFG))).toBe(false)
   })

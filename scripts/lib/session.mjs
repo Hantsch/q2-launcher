@@ -55,8 +55,7 @@ export const SCREENSHOTS_DIR = join(UI_VERIFY_ROOT, 'screenshots')
  * summary/report output without the two files drifting apart.
  */
 export const AXE_DISABLED_RULES = ['page-has-heading-one']
-export const AXE_DISABLED_RULES_REASON =
-  'single-window desktop app has no page-document semantics'
+export const AXE_DISABLED_RULES_REASON = 'single-window desktop app has no page-document semantics'
 
 /** Passed into every `window.axe.run()` call to disable `AXE_DISABLED_RULES`. */
 export const AXE_RUN_OPTIONS = {
@@ -366,7 +365,8 @@ async function runVisit({ app, page, log, screen, viewport, capture, axeSource }
     } else if (appFailed) {
       axe = {
         status: 'error',
-        reason: 'renderer console error/exception, CSP violation, or main-process crash during axe run',
+        reason:
+          'renderer console error/exception, CSP violation, or main-process crash during axe run',
         consoleErrors,
         pageErrors,
         cspViolations,

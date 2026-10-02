@@ -255,7 +255,9 @@ export const bootstrapRetailSourcesInputSchema = downloadsNoInputSchema
  * (`bootstrap/target.ts`), which then does its own, deeper path-safety validation (device paths,
  * reserved names, containment) as part of the verdict itself rather than at the schema layer.
  */
-export const bootstrapTargetVerdictInputSchema = z.object({ targetPath: absolutePathSchema }).strict()
+export const bootstrapTargetVerdictInputSchema = z
+  .object({ targetPath: absolutePathSchema })
+  .strict()
 
 /**
  * Story 089 D1: the eventual `bootstrap.gameDataSource` handler's payload (D3 wires the handler) -
@@ -264,7 +266,9 @@ export const bootstrapTargetVerdictInputSchema = z.object({ targetPath: absolute
  * `absolutePathSchema` rejects an empty string/NUL byte before anything looks at the filesystem, and
  * the deeper "does this folder actually hold retail data" judgement is left to the verdict itself.
  */
-export const bootstrapGameDataSourceInputSchema = z.object({ rootPath: absolutePathSchema }).strict()
+export const bootstrapGameDataSourceInputSchema = z
+  .object({ rootPath: absolutePathSchema })
+  .strict()
 
 /**
  * Story 074 D4: the engine a bootstrap may be asked for. Narrower than `engineKindSchema` on
@@ -302,7 +306,10 @@ const bootstrapDataSourceSchema = z.enum(['free-download', 'store-copy', 'existi
  * joins `storeCopy` below rather than getting a second required-path branch.
  */
 function refineCopySource(
-  value: { dataSource?: 'free-download' | 'store-copy' | 'existing-folder'; copySourcePath?: string },
+  value: {
+    dataSource?: 'free-download' | 'store-copy' | 'existing-folder'
+    copySourcePath?: string
+  },
   ctx: z.RefinementCtx,
 ): void {
   const storeCopy = value.dataSource === 'store-copy' || value.dataSource === 'existing-folder'
@@ -393,7 +400,9 @@ export const startRetailUpgradeInputSchema = z
  * installation id and nothing else. `.strict()` for the same "a bad payload is a caller bug"
  * reason as `dismissFailureInputSchema` above.
  */
-export const engineInstallationInputSchema = z.object({ installationId: z.string().min(1) }).strict()
+export const engineInstallationInputSchema = z
+  .object({ installationId: z.string().min(1) })
+  .strict()
 
 export const engineUpdateStatusInputSchema = engineInstallationInputSchema
 

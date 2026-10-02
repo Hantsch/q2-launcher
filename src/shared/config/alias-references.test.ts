@@ -12,7 +12,9 @@ import {
 } from './alias-references'
 import { generateLayerAliases, type AltLayer } from './alt-layers'
 
-function action(overrides: Partial<ConfigAction> & Pick<ConfigAction, 'id' | 'kind' | 'name'>): ConfigAction {
+function action(
+  overrides: Partial<ConfigAction> & Pick<ConfigAction, 'id' | 'kind' | 'name'>,
+): ConfigAction {
   return { categoryId: 'c1', commands: [], ...overrides }
 }
 
@@ -22,7 +24,9 @@ function keySlots(...slots: (ActionKeySlot | undefined)[]): ActionKeySlot[] {
 }
 
 /** A continuous catalogue row (story 034): mirrors as its own bare command, not an alias. */
-function catalogueRow(overrides: Partial<ConfigAction> & Pick<ConfigAction, 'id' | 'name'>): ConfigAction {
+function catalogueRow(
+  overrides: Partial<ConfigAction> & Pick<ConfigAction, 'id' | 'name'>,
+): ConfigAction {
   return action({
     kind: 'bind',
     catalogId: 'movement:forward',
@@ -35,7 +39,12 @@ describe('collectAliasReferences', () => {
   it('collects a bare token from an action raw command', () => {
     const actions = [
       action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] }),
-      action({ id: 'b1', kind: 'bind', name: 'Test bind', commands: [{ kind: 'raw', text: '+test' }] }),
+      action({
+        id: 'b1',
+        kind: 'bind',
+        name: 'Test bind',
+        commands: [{ kind: 'raw', text: '+test' }],
+      }),
     ]
 
     expect(collectAliasReferences({ actions })).toContain('+test')
@@ -49,7 +58,15 @@ describe('collectAliasReferences', () => {
 
   it('collects a bare token from every layer overrides value', () => {
     const actions: ConfigAction[] = []
-    const layers = [{ id: 'l1', name: 'Alt', mode: 'hold' as const, triggerKey: 'ALT', overrides: { r: '+test' } }]
+    const layers = [
+      {
+        id: 'l1',
+        name: 'Alt',
+        mode: 'hold' as const,
+        triggerKey: 'ALT',
+        overrides: { r: '+test' },
+      },
+    ]
 
     expect(collectAliasReferences({ actions, layers })).toContain('+test')
   })
@@ -68,14 +85,26 @@ describe('collectAliasReferences', () => {
   })
 
   it('lower-cases every collected token', () => {
-    const actions = [action({ id: 'b1', kind: 'bind', name: 'Test bind', commands: [{ kind: 'raw', text: '+TEST' }] })]
+    const actions = [
+      action({
+        id: 'b1',
+        kind: 'bind',
+        name: 'Test bind',
+        commands: [{ kind: 'raw', text: '+TEST' }],
+      }),
+    ]
 
     expect(collectAliasReferences({ actions })).toContain('+test')
   })
 
   it('does not treat a multi-word, non-bind segment as a reference', () => {
     const actions = [
-      action({ id: 'b1', kind: 'bind', name: 'Drop weapon', commands: [{ kind: 'raw', text: '-drop rocket launcher' }] }),
+      action({
+        id: 'b1',
+        kind: 'bind',
+        name: 'Drop weapon',
+        commands: [{ kind: 'raw', text: '-drop rocket launcher' }],
+      }),
     ]
 
     const tokens = collectAliasReferences({ actions })
@@ -88,13 +117,21 @@ describe('collectAliasReferences', () => {
   it('collects a quote-wrapped binds value as its unquoted token (sanitized before scan, matching render)', () => {
     const actions: ConfigAction[] = []
 
-    expect(collectAliasReferences({ actions, binds: { r: '"q2l_a_x_1234"' } })).toContain('q2l_a_x_1234')
+    expect(collectAliasReferences({ actions, binds: { r: '"q2l_a_x_1234"' } })).toContain(
+      'q2l_a_x_1234',
+    )
   })
 
   it('collects a quote-wrapped layer overrides value as its unquoted token (sanitized before scan, matching render)', () => {
     const actions: ConfigAction[] = []
     const layers = [
-      { id: 'l1', name: 'Alt', mode: 'hold' as const, triggerKey: 'ALT', overrides: { r: '"q2l_a_x_1234"' } },
+      {
+        id: 'l1',
+        name: 'Alt',
+        mode: 'hold' as const,
+        triggerKey: 'ALT',
+        overrides: { r: '"q2l_a_x_1234"' },
+      },
     ]
 
     expect(collectAliasReferences({ actions, layers })).toContain('q2l_a_x_1234')
@@ -153,7 +190,15 @@ describe('actionsWithAliasLine', () => {
     const row = catalogueRow({ id: 'b1', name: '+forward' })
     const aliasName = aliasNameFor(row)
     const actions = [row]
-    const layers = [{ id: 'l1', name: 'Alt', mode: 'hold' as const, triggerKey: 'ALT', overrides: { z: aliasName } }]
+    const layers = [
+      {
+        id: 'l1',
+        name: 'Alt',
+        mode: 'hold' as const,
+        triggerKey: 'ALT',
+        overrides: { z: aliasName },
+      },
+    ]
 
     const kept = actionsWithAliasLine(actions, { actions, layers })
 
@@ -175,7 +220,13 @@ describe('actionsWithAliasLine', () => {
     const aliasName = aliasNameFor(row)
     const actions = [row]
     const layers = [
-      { id: 'l1', name: 'Alt', mode: 'hold' as const, triggerKey: 'ALT', overrides: { z: `"${aliasName}"` } },
+      {
+        id: 'l1',
+        name: 'Alt',
+        mode: 'hold' as const,
+        triggerKey: 'ALT',
+        overrides: { z: `"${aliasName}"` },
+      },
     ]
 
     const kept = actionsWithAliasLine(actions, { actions, layers })
@@ -200,7 +251,12 @@ describe('actionsWithAliasLine', () => {
   })
 
   it('keeps a kind: alias entry even when nothing references it', () => {
-    const aliasEntry = action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] })
+    const aliasEntry = action({
+      id: 'a1',
+      kind: 'alias',
+      name: '+test',
+      commands: [{ kind: 'raw', text: 'wait' }],
+    })
     const actions = [aliasEntry]
 
     const kept = actionsWithAliasLine(actions, { actions })
@@ -317,7 +373,13 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
     const row = discreteRow()
     const actions = [row]
     const layers = [
-      { id: 'l1', name: 'Alt', mode: 'hold' as const, triggerKey: 'ALT', overrides: { z: 'weapnext' } },
+      {
+        id: 'l1',
+        name: 'Alt',
+        mode: 'hold' as const,
+        triggerKey: 'ALT',
+        overrides: { z: 'weapnext' },
+      },
     ]
 
     const kept = actionsWithAliasLine(actions, { actions, binds: { y: 'weapnext' }, layers })
@@ -326,7 +388,12 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
   })
 
   it('drops a kind: alias entry whose body is nothing but its own name', () => {
-    const selfLoop = action({ id: 's1', kind: 'alias', name: '+slow', commands: [{ kind: 'raw', text: '+slow' }] })
+    const selfLoop = action({
+      id: 's1',
+      kind: 'alias',
+      name: '+slow',
+      commands: [{ kind: 'raw', text: '+slow' }],
+    })
     const actions = [selfLoop]
 
     expect(actionsWithAliasLine(actions, { actions })).toEqual([])
@@ -372,7 +439,10 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
       kind: 'bind',
       name: 'weapnext',
       keys: keySlots({ key: 'MWHEELUP' }),
-      commands: [{ kind: 'raw', text: 'weapnext' }, { kind: 'raw', text: 'centerview' }],
+      commands: [
+        { kind: 'raw', text: 'weapnext' },
+        { kind: 'raw', text: 'centerview' },
+      ],
     })
     const actions = [combo]
 
@@ -387,7 +457,10 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
       kind: 'bind',
       name: 'centerview',
       keys: keySlots({ key: 'MOUSE3' }),
-      commands: [{ kind: 'raw', text: '+attack' }, { kind: 'raw', text: 'centerview' }],
+      commands: [
+        { kind: 'raw', text: '+attack' },
+        { kind: 'raw', text: 'centerview' },
+      ],
     })
     const actions = [combo]
 
@@ -434,7 +507,10 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
       kind: 'bind',
       name: 'Forward',
       keys: keySlots({ key: 'w' }),
-      commands: [{ kind: 'raw', text: '+forward' }, { kind: 'raw', text: 'centerview' }],
+      commands: [
+        { kind: 'raw', text: '+forward' },
+        { kind: 'raw', text: 'centerview' },
+      ],
     })
     expect(aliasNameFor(combo)).toBe('forward')
     const actions = [combo]
@@ -470,7 +546,10 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
       kind: 'bind',
       name: 'zoom',
       keys: keySlots({ key: 'MOUSE2' }),
-      commands: [{ kind: 'raw', text: 'set fov 30' }, { kind: 'raw', text: '-zoom' }],
+      commands: [
+        { kind: 'raw', text: 'set fov 30' },
+        { kind: 'raw', text: '-zoom' },
+      ],
     })
     const actions = [zoom]
 
@@ -480,7 +559,13 @@ describe('actionsWithAliasLine self-reference guard (story 039)', () => {
 
 describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () => {
   it('ignores the own base bind slot the action holds', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
+    const owner = action({
+      id: 'a1',
+      kind: 'bind',
+      name: 'SSG SG',
+      keys: keySlots({ key: 'q' }),
+      commands: [],
+    })
     const aliasName = aliasNameFor(owner)
 
     const tokens = collectAliasReferences(
@@ -492,7 +577,13 @@ describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () =
   })
 
   it('still reports the same alias name on a key the action does not hold as a reference', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
+    const owner = action({
+      id: 'a1',
+      kind: 'bind',
+      name: 'SSG SG',
+      keys: keySlots({ key: 'q' }),
+      commands: [],
+    })
     const aliasName = aliasNameFor(owner)
 
     const tokens = collectAliasReferences(
@@ -512,9 +603,20 @@ describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () =
       commands: [],
     })
     const aliasName = aliasNameFor(owner)
-    const layers = [{ id: 'l1', name: 'Alt', mode: 'hold' as const, triggerKey: 'ALT', overrides: { q: aliasName } }]
+    const layers = [
+      {
+        id: 'l1',
+        name: 'Alt',
+        mode: 'hold' as const,
+        triggerKey: 'ALT',
+        overrides: { q: aliasName },
+      },
+    ]
 
-    const tokens = collectAliasReferences({ actions: [owner], layers }, { ignoreOwnMirrorOf: owner })
+    const tokens = collectAliasReferences(
+      { actions: [owner], layers },
+      { ignoreOwnMirrorOf: owner },
+    )
 
     expect(tokens.has(aliasName.toLowerCase())).toBe(false)
   })
@@ -529,16 +631,31 @@ describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () =
     })
     const aliasName = aliasNameFor(owner)
     const layers = [
-      { id: 'l1', name: 'Ctrl', mode: 'hold' as const, triggerKey: 'CTRL', overrides: { q: aliasName } },
+      {
+        id: 'l1',
+        name: 'Ctrl',
+        mode: 'hold' as const,
+        triggerKey: 'CTRL',
+        overrides: { q: aliasName },
+      },
     ]
 
-    const tokens = collectAliasReferences({ actions: [owner], layers }, { ignoreOwnMirrorOf: owner })
+    const tokens = collectAliasReferences(
+      { actions: [owner], layers },
+      { ignoreOwnMirrorOf: owner },
+    )
 
     expect(tokens.has(aliasName.toLowerCase())).toBe(true)
   })
 
   it('default (no options) behaves exactly as before - own mirror slot still counts as a reference', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
+    const owner = action({
+      id: 'a1',
+      kind: 'bind',
+      name: 'SSG SG',
+      keys: keySlots({ key: 'q' }),
+      commands: [],
+    })
     const aliasName = aliasNameFor(owner)
 
     const tokens = collectAliasReferences({ actions: [owner], binds: { q: aliasName } })
@@ -549,12 +666,20 @@ describe('collectAliasReferences ignoreOwnMirrorOf option (story 039, D9)', () =
 
 describe('findAliasReferrers (story 039, D9)', () => {
   it('finds nothing for an unreferenced entry', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
+    const owner = action({
+      id: 'a1',
+      kind: 'bind',
+      name: 'SSG SG',
+      keys: keySlots({ key: 'q' }),
+      commands: [],
+    })
 
-    expect(findAliasReferrers(owner, { actions: [owner], binds: { q: aliasNameFor(owner) } })).toEqual([])
+    expect(
+      findAliasReferrers(owner, { actions: [owner], binds: { q: aliasNameFor(owner) } }),
+    ).toEqual([])
   })
 
-  it('does not report the entry\'s own two mirror slots (base bind + layer override)', () => {
+  it("does not report the entry's own two mirror slots (base bind + layer override)", () => {
     const owner = action({
       id: 'a1',
       kind: 'bind',
@@ -563,18 +688,39 @@ describe('findAliasReferrers (story 039, D9)', () => {
       commands: [],
     })
     const aliasName = aliasNameFor(owner)
-    const layers = [{ id: 'l1', name: 'Alt', mode: 'hold' as const, triggerKey: 'ALT', overrides: { r: aliasName } }]
+    const layers = [
+      {
+        id: 'l1',
+        name: 'Alt',
+        mode: 'hold' as const,
+        triggerKey: 'ALT',
+        overrides: { r: aliasName },
+      },
+    ]
 
-    const referrers = findAliasReferrers(owner, { actions: [owner], binds: { q: aliasName }, layers })
+    const referrers = findAliasReferrers(owner, {
+      actions: [owner],
+      binds: { q: aliasName },
+      layers,
+    })
 
     expect(referrers).toEqual([])
   })
 
   it('reports a hand-typed bind on an unrelated key by that key', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
+    const owner = action({
+      id: 'a1',
+      kind: 'bind',
+      name: 'SSG SG',
+      keys: keySlots({ key: 'q' }),
+      commands: [],
+    })
     const aliasName = aliasNameFor(owner)
 
-    const referrers = findAliasReferrers(owner, { actions: [owner], binds: { q: aliasName, x: aliasName } })
+    const referrers = findAliasReferrers(owner, {
+      actions: [owner],
+      binds: { q: aliasName, x: aliasName },
+    })
 
     expect(referrers).toEqual([{ kind: 'bind', key: 'x' }])
   })
@@ -592,27 +738,67 @@ describe('findAliasReferrers (story 039, D9)', () => {
     })
     const aliasName = aliasNameFor(owner)
     const layers: AltLayer[] = [
-      { id: 'l1', name: 'Alt', mode: 'hold' as const, triggerKey: 'ALT', overrides: { r: aliasName } },
-      { id: 'l2', name: 'Ctrl', mode: 'hold' as const, triggerKey: 'CTRL', overrides: { t: aliasName } },
+      {
+        id: 'l1',
+        name: 'Alt',
+        mode: 'hold' as const,
+        triggerKey: 'ALT',
+        overrides: { r: aliasName },
+      },
+      {
+        id: 'l2',
+        name: 'Ctrl',
+        mode: 'hold' as const,
+        triggerKey: 'CTRL',
+        overrides: { t: aliasName },
+      },
     ]
 
-    const referrers = findAliasReferrers(owner, { actions: [owner], binds: { q: aliasName }, layers })
+    const referrers = findAliasReferrers(owner, {
+      actions: [owner],
+      binds: { q: aliasName },
+      layers,
+    })
 
     expect(referrers).toEqual([])
   })
 
   it('reports a hand-typed layer override on an unrelated modifier by its key and layer name', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
+    const owner = action({
+      id: 'a1',
+      kind: 'bind',
+      name: 'SSG SG',
+      keys: keySlots({ key: 'q' }),
+      commands: [],
+    })
     const aliasName = aliasNameFor(owner)
-    const layers = [{ id: 'l1', name: 'Ctrl', mode: 'hold' as const, triggerKey: 'CTRL', overrides: { z: aliasName } }]
+    const layers = [
+      {
+        id: 'l1',
+        name: 'Ctrl',
+        mode: 'hold' as const,
+        triggerKey: 'CTRL',
+        overrides: { z: aliasName },
+      },
+    ]
 
-    const referrers = findAliasReferrers(owner, { actions: [owner], binds: { q: aliasName }, layers })
+    const referrers = findAliasReferrers(owner, {
+      actions: [owner],
+      binds: { q: aliasName },
+      layers,
+    })
 
     expect(referrers).toEqual([{ kind: 'override', key: 'z', layerName: 'Ctrl' }])
   })
 
   it('reports another action whose command text calls the alias by name', () => {
-    const owner = action({ id: 'a1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [] })
+    const owner = action({
+      id: 'a1',
+      kind: 'bind',
+      name: 'SSG SG',
+      keys: keySlots({ key: 'q' }),
+      commands: [],
+    })
     const aliasName = aliasNameFor(owner)
     const caller = action({
       id: 'c1',
@@ -621,7 +807,10 @@ describe('findAliasReferrers (story 039, D9)', () => {
       commands: [{ kind: 'raw', text: aliasName }],
     })
 
-    const referrers = findAliasReferrers(owner, { actions: [owner, caller], binds: { q: aliasName } })
+    const referrers = findAliasReferrers(owner, {
+      actions: [owner, caller],
+      binds: { q: aliasName },
+    })
 
     expect(referrers).toEqual([{ kind: 'action', name: 'Caller' }])
   })
@@ -637,13 +826,26 @@ describe('findAliasReferrers (story 039, D9)', () => {
  */
 describe('buildAliasIndex (story 044, D1)', () => {
   function holdLayer(overrides: Partial<AltLayer> = {}): AltLayer {
-    return { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' }, ...overrides }
+    return {
+      id: 'l1',
+      name: 'Drops',
+      mode: 'hold',
+      triggerKey: 'ALT',
+      overrides: { '1': 'drop rl' },
+      ...overrides,
+    }
   }
 
   it('emits one row per entry, in actions order, before any layer row (the contract validate-actions.ts pairs on)', () => {
     const actions = [
       action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] }),
-      action({ id: 'b1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [{ kind: 'raw', text: 'use ssg' }] }),
+      action({
+        id: 'b1',
+        kind: 'bind',
+        name: 'SSG SG',
+        keys: keySlots({ key: 'q' }),
+        commands: [{ kind: 'raw', text: 'use ssg' }],
+      }),
     ]
 
     const index = buildAliasIndex({ actions, layers: [holdLayer()] })
@@ -653,7 +855,12 @@ describe('buildAliasIndex (story 044, D1)', () => {
   })
 
   it('labels a kind: alias entry as an editable user alias owned by that entry', () => {
-    const aliasEntry = action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] })
+    const aliasEntry = action({
+      id: 'a1',
+      kind: 'alias',
+      name: '+test',
+      commands: [{ kind: 'raw', text: 'wait' }],
+    })
 
     const [row] = buildAliasIndex({ actions: [aliasEntry] })
 
@@ -667,12 +874,23 @@ describe('buildAliasIndex (story 044, D1)', () => {
     })
   })
 
-  it('labels a keyed entry\'s alias as generated and read-only', () => {
-    const keyed = action({ id: 'b1', kind: 'bind', name: 'SSG SG', keys: keySlots({ key: 'q' }), commands: [{ kind: 'raw', text: 'use ssg' }] })
+  it("labels a keyed entry's alias as generated and read-only", () => {
+    const keyed = action({
+      id: 'b1',
+      kind: 'bind',
+      name: 'SSG SG',
+      keys: keySlots({ key: 'q' }),
+      commands: [{ kind: 'raw', text: 'use ssg' }],
+    })
 
     const [row] = buildAliasIndex({ actions: [keyed] })
 
-    expect(row).toMatchObject({ origin: 'generated', owner: 'SSG SG', ownerActionId: 'b1', editable: false })
+    expect(row).toMatchObject({
+      origin: 'generated',
+      owner: 'SSG SG',
+      ownerActionId: 'b1',
+      editable: false,
+    })
   })
 
   it('lists every alias the launcher generates for a layer, owned by that layer and read-only', () => {
@@ -683,13 +901,29 @@ describe('buildAliasIndex (story 044, D1)', () => {
     const index = buildAliasIndex({ actions: [], layers: [layer] })
 
     expect(index.map((row) => row.name)).toEqual(emitted)
-    expect(index.every((row) => row.origin === 'layer' && row.ownerLayerName === 'Drops')).toBe(true)
-    expect(index.every((row) => row.owner === 'Drops' && !row.editable && row.ownerActionId === undefined)).toBe(true)
+    expect(index.every((row) => row.origin === 'layer' && row.ownerLayerName === 'Drops')).toBe(
+      true,
+    )
+    expect(
+      index.every(
+        (row) => row.owner === 'Drops' && !row.editable && row.ownerActionId === undefined,
+      ),
+    ).toBe(true)
   })
 
-  it('reports a name called only from inside another alias\'s body as referenced by that entry', () => {
-    const target = action({ id: 'a1', kind: 'alias', name: 'drop_shotgun', commands: [{ kind: 'raw', text: 'drop shotgun' }] })
-    const caller = action({ id: 'a2', kind: 'alias', name: 'dall', commands: [{ kind: 'raw', text: 'drop_shotgun' }] })
+  it("reports a name called only from inside another alias's body as referenced by that entry", () => {
+    const target = action({
+      id: 'a1',
+      kind: 'alias',
+      name: 'drop_shotgun',
+      commands: [{ kind: 'raw', text: 'drop shotgun' }],
+    })
+    const caller = action({
+      id: 'a2',
+      kind: 'alias',
+      name: 'dall',
+      commands: [{ kind: 'raw', text: 'drop_shotgun' }],
+    })
 
     const index = buildAliasIndex({ actions: [target, caller] })
 
@@ -713,13 +947,16 @@ describe('buildAliasIndex (story 044, D1)', () => {
     expect(index[0]!.referrers).toEqual([{ kind: 'bind', key: 'KP_END' }])
   })
 
-  it('counts an entry\'s own recursive body and its own bind mirror as referrers (no self-exclusion)', () => {
+  it("counts an entry's own recursive body and its own bind mirror as referrers (no self-exclusion)", () => {
     const recursive = action({
       id: 'a1',
       kind: 'bind',
       name: 'weapnext',
       keys: keySlots({ key: 'MWHEELUP' }),
-      commands: [{ kind: 'raw', text: 'weapnext' }, { kind: 'raw', text: 'centerview' }],
+      commands: [
+        { kind: 'raw', text: 'weapnext' },
+        { kind: 'raw', text: 'centerview' },
+      ],
     })
 
     const index = buildAliasIndex({ actions: [recursive], binds: { MWHEELUP: 'weapnext' } })
@@ -731,7 +968,12 @@ describe('buildAliasIndex (story 044, D1)', () => {
   })
 
   it('reports an alias nothing calls with an empty referrer array, never undefined', () => {
-    const lonely = action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] })
+    const lonely = action({
+      id: 'a1',
+      kind: 'alias',
+      name: '+test',
+      commands: [{ kind: 'raw', text: 'wait' }],
+    })
 
     const [row] = buildAliasIndex({ actions: [lonely], binds: { z: 'centerview' } })
 
@@ -752,10 +994,18 @@ describe('buildAliasIndex (story 044, D1)', () => {
   it('surfaces a user alias colliding with a generated layer alias on both rows', () => {
     const layer = holdLayer()
     const layerAliasName = generateLayerAliases(layer, {}).aliases[0]!.name
-    const collide = action({ id: 'a1', kind: 'alias', name: 'My alias', aliasName: layerAliasName, commands: [] })
+    const collide = action({
+      id: 'a1',
+      kind: 'alias',
+      name: 'My alias',
+      aliasName: layerAliasName,
+      commands: [],
+    })
 
     const index = buildAliasIndex({ actions: [collide], layers: [layer] })
-    const layerRow = index.find((row) => row.origin === 'layer' && row.key === layerAliasName.toLowerCase())
+    const layerRow = index.find(
+      (row) => row.origin === 'layer' && row.key === layerAliasName.toLowerCase(),
+    )
 
     expect(index[0]!.duplicateOf).toEqual(['Drops'])
     expect(layerRow?.duplicateOf).toEqual(['My alias'])
@@ -806,9 +1056,24 @@ describe('buildAliasIndex (story 044, D1)', () => {
     const index = buildAliasIndex({ actions: [toggle] })
 
     expect(index).toHaveLength(3)
-    expect(index[0]).toMatchObject({ name: 'zoom', origin: 'generated', owner: 'Zoom', ownerActionId: 't1' })
-    expect(index[1]).toMatchObject({ name: 'zoom_s1', origin: 'generated', owner: 'Zoom', ownerActionId: 't1' })
-    expect(index[2]).toMatchObject({ name: 'zoom_s2', origin: 'generated', owner: 'Zoom', ownerActionId: 't1' })
+    expect(index[0]).toMatchObject({
+      name: 'zoom',
+      origin: 'generated',
+      owner: 'Zoom',
+      ownerActionId: 't1',
+    })
+    expect(index[1]).toMatchObject({
+      name: 'zoom_s1',
+      origin: 'generated',
+      owner: 'Zoom',
+      ownerActionId: 't1',
+    })
+    expect(index[2]).toMatchObject({
+      name: 'zoom_s2',
+      origin: 'generated',
+      owner: 'Zoom',
+      ownerActionId: 't1',
+    })
   })
 
   it('story 045 D8: a press/release entry contributes two rows - its +base primary row (not the sign-free base) plus its -base release row', () => {
@@ -817,24 +1082,49 @@ describe('buildAliasIndex (story 044, D1)', () => {
     const index = buildAliasIndex({ actions: [pair] })
 
     expect(index).toHaveLength(2)
-    expect(index[0]).toMatchObject({ name: '+slow', origin: 'generated', owner: 'Slow', ownerActionId: 'p1' })
-    expect(index[1]).toMatchObject({ name: '-slow', origin: 'generated', owner: 'Slow', ownerActionId: 'p1' })
+    expect(index[0]).toMatchObject({
+      name: '+slow',
+      origin: 'generated',
+      owner: 'Slow',
+      ownerActionId: 'p1',
+    })
+    expect(index[1]).toMatchObject({
+      name: '-slow',
+      origin: 'generated',
+      owner: 'Slow',
+      ownerActionId: 'p1',
+    })
   })
 
   it('story 045 D8: the "one primary row per actions element, in array order" contract holds even with a two-part action mixed in', () => {
     const actions = [
       action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] }),
       toggleAction(),
-      action({ id: 'b1', kind: 'bind', name: 'SSG SG', keys: [{ key: 'q' }], commands: [{ kind: 'raw', text: 'use ssg' }] }),
+      action({
+        id: 'b1',
+        kind: 'bind',
+        name: 'SSG SG',
+        keys: [{ key: 'q' }],
+        commands: [{ kind: 'raw', text: 'use ssg' }],
+      }),
     ]
 
     const index = buildAliasIndex({ actions, layers: [holdLayer()] })
 
     // The primary-row prefix is exactly `actions.length` long and pairs back by position.
-    expect(index.slice(0, actions.length).map((row) => row.ownerActionId)).toEqual(['a1', 't1', 'b1'])
+    expect(index.slice(0, actions.length).map((row) => row.ownerActionId)).toEqual([
+      'a1',
+      't1',
+      'b1',
+    ])
     // The toggle's two extra state rows follow, before any layer row.
-    expect(index.slice(actions.length, actions.length + 2).map((row) => row.name)).toEqual(['zoom_s1', 'zoom_s2'])
-    expect(index.slice(actions.length, actions.length + 2).every((row) => row.origin === 'generated')).toBe(true)
+    expect(index.slice(actions.length, actions.length + 2).map((row) => row.name)).toEqual([
+      'zoom_s1',
+      'zoom_s2',
+    ])
+    expect(
+      index.slice(actions.length, actions.length + 2).every((row) => row.origin === 'generated'),
+    ).toBe(true)
     expect(index.slice(actions.length + 2).every((row) => row.origin === 'layer')).toBe(true)
   })
 
@@ -868,7 +1158,7 @@ describe('findAliasReferrersByName (story 044, D1)', () => {
     expect(referrers).toEqual([{ kind: 'bind', key: 'ALT' }])
   })
 
-  it('matches case-insensitively, like the engine\'s own alias lookup', () => {
+  it("matches case-insensitively, like the engine's own alias lookup", () => {
     const referrers = findAliasReferrersByName('+Drops', { actions: [], binds: { ALT: '+DROPS' } })
 
     expect(referrers).toEqual([{ kind: 'bind', key: 'ALT' }])
@@ -879,7 +1169,10 @@ describe('findAliasReferrersByName (story 044, D1)', () => {
       id: 'c1',
       kind: 'alias',
       name: 'dall',
-      commands: [{ kind: 'raw', text: 'drop_shotgun' }, { kind: 'raw', text: 'drop_shotgun' }],
+      commands: [
+        { kind: 'raw', text: 'drop_shotgun' },
+        { kind: 'raw', text: 'drop_shotgun' },
+      ],
     })
 
     expect(findAliasReferrersByName('drop_shotgun', { actions: [caller] })).toEqual([

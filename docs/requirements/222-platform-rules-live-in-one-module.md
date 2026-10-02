@@ -51,9 +51,9 @@ sites, and `looksLikeQuake2`/`qualifies` are byte-identical copies with a commen
   `isInside` (which uses `pathKey`); this story only verifies no inline fold is left there, so it never
   re-touches 199's containment code.
 - **D-e** — The "< 10 reads" count is a literal grep of `process.platform` in non-test files under
-  `src/main/services` and `src/main/modules`, comments included, so comments that only *mention*
+  `src/main/services` and `src/main/modules`, comments included, so comments that only _mention_
   it are reworded ("the Node platform string") instead of being excluded by a fragile parser.
-- **D-f** — Reads that pass the platform *string* as an injectable default (`manifest-parse`,
+- **D-f** — Reads that pass the platform _string_ as an injectable default (`manifest-parse`,
   `manifest-service`, `replays/index` x3, `playback-control`, `launcher-install-id`) stay raw with a
   `// platform-read: <reason>` comment on the line above, because they are dependency-injection
   seams that tests already override; 7 remain.
@@ -64,7 +64,7 @@ sites, and `looksLikeQuake2`/`qualifies` are byte-identical copies with a commen
   the requirement is "one module answers"; `index.ts`'s startup log and `!== 'darwin'` quit idiom
   stay, as Electron boilerplate with no product question behind them.
 - **D-i** — `createListenerSet<T>(log, label)` returns `{ add(fn) → unsubscribe, emit(value),
-  clear(), size }`, iterates a copy, catches per listener and logs `log.error(\`${label} listener
+clear(), size }`, iterates a copy, catches per listener and logs `log.error(\`${label} listener
   threw\`, error)`; a listener throwing is a programming fault, hence `error` for all sites.
 - **D-j** — The migrated sites are exactly those with the full shape (Set + copy + try/catch + log):
   `cinema-window`, `main-window-observer`, `playback-session` x2, `launch` x2, `jobs`,
@@ -109,12 +109,12 @@ Order: D1 first (D2/D3 import it); D4 before D5; D6 independent. Full `npm test`
   `redactHome` in `src/main/modules/downloads/diagnostics.ts` uses `isCaseInsensitiveFs()` for its
   `caseInsensitive` flag. In `src/main/ipc/app.ts`, story 199 has already replaced the inline
   `normalize` with `isInside` (which uses `pathKey`); if any `process.platform === 'linux' ? value :
-  value.toLowerCase()` fold is still there, replace it with `pathKey`, otherwise leave the file alone.
+value.toLowerCase()` fold is still there, replace it with `pathKey`, otherwise leave the file alone.
   Tests: new `src/main/lib/platform.test.ts` › "answers every platform question for win32, linux and
   darwin" (table over the three platforms via `stubPlatform`, all five functions); existing
   `fs-utils`, `steam`, `diagnostics` tests stay green (darwin now folds in steam/diagnostics — intended).
 - **D2 — services, lib, ipc and window use the helpers.** Replace boolean `process.platform ===/!==
-  'win32'|'linux'` checks with `isWindows()`/`isLinux()` from `src/main/lib/platform.ts` in:
+'win32'|'linux'` checks with `isWindows()`/`isLinux()` from `src/main/lib/platform.ts` in:
   `src/main/services/detection/deep-scan.ts`, `src/main/services/detection/providers.ts` (3),
   `src/main/services/inspector.ts` (3), `src/main/services/runners.ts` (3),
   `src/main/lib/fs-utils.ts` (`looksExecutable`), `src/main/lib/win-registry.ts`,
@@ -138,16 +138,14 @@ Order: D1 first (D2/D3 import it); D4 before D5; D6 independent. Full `npm test`
   contains `platform-read:`. Expected result after D2+D3: 7.
 - **D4 — listener-set helper, services-side sites.** Create `src/main/lib/listeners.ts` exporting
   `createListenerSet<T>(log: Pick<Logger, 'error'>, label: string)` returning `{ add(fn: (value: T)
-  => void): () => void; emit(value: T): void; clear(): void; readonly size: number }`; `emit` iterates
+=> void): () => void; emit(value: T): void; clear(): void; readonly size: number }`; `emit` iterates
   a copy, catches per listener and calls `log.error(\`${label} listener threw\`, error)`, so one
-  throwing listener never stops the others. Migrate: `src/main/services/jobs.ts` (onChange),
-  `src/main/services/launch.ts` (onStateChange, onBeforePlaybackRelease),
-  `src/main/services/playback-session.ts` (stdout listeners; end listeners → `emit` then `clear()`).
-  Reword `src/main/services/update/service.ts`'s single-callback log to "update: the state callback
-  threw (...)" (it is not a set — do not wrap it). Tests: new `src/main/lib/listeners.test.ts` ›
-  "emits to a copy and isolates a throwing listener" (a listener unsubscribing mid-emit, one that
-  throws, the next still called, log.error called with the label); existing jobs/launch/
-  playback-session tests stay green (adjust log-spy level only if a test spied `warn`).
+throwing listener never stops the others. Migrate: `src/main/services/jobs.ts`(onChange),`src/main/services/launch.ts`(onStateChange, onBeforePlaybackRelease),`src/main/services/playback-session.ts`(stdout listeners; end listeners →`emit`then`clear()`).
+Reword `src/main/services/update/service.ts`'s single-callback log to "update: the state callback
+threw (...)" (it is not a set — do not wrap it). Tests: new `src/main/lib/listeners.test.ts`›
+"emits to a copy and isolates a throwing listener" (a listener unsubscribing mid-emit, one that
+throws, the next still called, log.error called with the label); existing jobs/launch/
+playback-session tests stay green (adjust log-spy level only if a test spied`warn`).
 - **D5 — listener-set helper, window/replays-side sites + grep-zero.** Using
   `createListenerSet` from `src/main/lib/listeners.ts` (signature: `createListenerSet<T>(log, label)`
   → `{ add → unsubscribe, emit, clear, size }`, logs `${label} listener threw` at error level),

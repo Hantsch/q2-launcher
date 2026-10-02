@@ -38,7 +38,7 @@ each `Verified: Yes` / `Extracted: Yes`, one mirror fallback recorded (`Hantsch/
 (a self-chosen path outside the home directory stayed verbatim, [[075]] AC4).
 
 But it stops one step short of the cause, and the step is always the same one. Everything the
-report describes ends *before* assembly, and assembly is the stage that failed: with all three
+report describes ends _before_ assembly, and assembly is the stage that failed: with all three
 archives verified and extracted, an unplayable target means
 [`assembleInstallation`](../../src/main/modules/downloads/bootstrap/assemble.ts) copied nothing —
 each allowlist entry it could not find is silently `continue`d ("A missing allowlisted file is
@@ -82,11 +82,11 @@ found it**, and **what was actually inside each extracted package**.
 
 ## Open Questions
 
-- ~~**Q1 — Does the *user-facing* card show the assembly table too, or only the report?**~~
+- ~~**Q1 — Does the _user-facing_ card show the assembly table too, or only the report?**~~
   answered → Decisions (Sprint)
 - ~~**Q2 — Where does the wizard's summary live (AC4)?**~~ answered → Decisions (Sprint)
 - **Q3 — Overlap with [[076]].** Not a user decision — noted as context, not blocking: 076 fixes
-  the allowlist so packages contribute; this story makes a *future* assembly failure legible. If
+  the allowlist so packages contribute; this story makes a _future_ assembly failure legible. If
   076 lands first (it does, per sprint build order), AC7's table shows all entries found on a
   healthy run — that is the intended shape, not a reason to defer.
 
@@ -175,137 +175,137 @@ Order: D1 → D2 → D3, then D4 and D5 in parallel, D6/D7 after D5, D8 after D5
 ## Deliverables
 
 - [ ] **D1 — The two new records, their persisted form, and their cap.**
-  Edit `src/shared/modules/downloads.ts` (add `DownloadDiagnosticsAssemblyEntry`; add `assembly?` to
-  `DownloadDiagnostics` at [downloads.ts:282](../../src/shared/modules/downloads.ts#L282); add
-  `contents?`, `contentsTruncated?`, `contributed?` to `DownloadDiagnosticsPackage` at
-  [downloads.ts:310](../../src/shared/modules/downloads.ts#L310)); edit `src/main/lib/schemas.ts`
-  (extend the diagnostics block at lines ~944-1007, mirroring its existing per-field
-  `.optional().catch(undefined)` style); edit `src/main/modules/downloads/failure-log.ts`
-  (`capDiagnostics` gains the `contents` and `assembly` trim passes between the existing `logTail`
-  and `packages` passes).
-  *Acceptance:* a record carrying `assembly` and per-package `contents` round-trips through the
-  failure log and `state.json`; a [[075]]-era record without either parses unchanged; a garbage
-  `assembly` or `contents` value drops only that field, not the row or the record; an oversized
-  record is trimmed in the documented order (`logTail` → `contents` → `assembly` → `packages` →
-  `target` → dropped) and comes back `truncated: true`; `DIAGNOSTICS_SIZE_CAP_BYTES` and
-  `FAILURE_LOG_CAP` are unchanged.
-  Tests: `src/main/modules/downloads/failure-log.test.ts`, `src/main/lib/schemas.test.ts`.
+      Edit `src/shared/modules/downloads.ts` (add `DownloadDiagnosticsAssemblyEntry`; add `assembly?` to
+      `DownloadDiagnostics` at [downloads.ts:282](../../src/shared/modules/downloads.ts#L282); add
+      `contents?`, `contentsTruncated?`, `contributed?` to `DownloadDiagnosticsPackage` at
+      [downloads.ts:310](../../src/shared/modules/downloads.ts#L310)); edit `src/main/lib/schemas.ts`
+      (extend the diagnostics block at lines ~944-1007, mirroring its existing per-field
+      `.optional().catch(undefined)` style); edit `src/main/modules/downloads/failure-log.ts`
+      (`capDiagnostics` gains the `contents` and `assembly` trim passes between the existing `logTail`
+      and `packages` passes).
+      _Acceptance:_ a record carrying `assembly` and per-package `contents` round-trips through the
+      failure log and `state.json`; a [[075]]-era record without either parses unchanged; a garbage
+      `assembly` or `contents` value drops only that field, not the row or the record; an oversized
+      record is trimmed in the documented order (`logTail` → `contents` → `assembly` → `packages` →
+      `target` → dropped) and comes back `truncated: true`; `DIAGNOSTICS_SIZE_CAP_BYTES` and
+      `FAILURE_LOG_CAP` are unchanged.
+      Tests: `src/main/modules/downloads/failure-log.test.ts`, `src/main/lib/schemas.test.ts`.
 
 - [ ] **D2 — `assemble.ts` reports what it looked for and what served it.**
-  Edit `src/main/modules/downloads/bootstrap/assemble.ts`: `AssembleInstallationInput.sourceDirs`
-  becomes `sources: { packageId: string; dir: string }[]`; `AssembleInstallationResult` gains
-  `entries: { from, to, found, sourcePackageId? }[]`, one per allowlist entry in plan order plus
-  one per expanded glob dir. `copiedFiles` keeps its exact current meaning and content (it is
-  [[076]]/[[074]]'s cleanup set, [job.ts:718](../../src/main/modules/downloads/bootstrap/job.ts#L718)).
-  *Acceptance:* a run where every entry is found yields `found: true` for each with the id of the
-  source that served it; a run where nothing is found yields one `found: false` entry per allowlist
-  entry and an empty `copiedFiles`; source order still decides the winner when two sources have the
-  same file; AC8 of [[074]] is untouched — nothing outside the allowlist is read or copied, and the
-  entries record is not a directory scan.
-  Test: `src/main/modules/downloads/bootstrap/assemble.test.ts` (extend).
-  Mirror: the file's own existing `findSource`/`expandGlobDir` structure — no new traversal.
+      Edit `src/main/modules/downloads/bootstrap/assemble.ts`: `AssembleInstallationInput.sourceDirs`
+      becomes `sources: { packageId: string; dir: string }[]`; `AssembleInstallationResult` gains
+      `entries: { from, to, found, sourcePackageId? }[]`, one per allowlist entry in plan order plus
+      one per expanded glob dir. `copiedFiles` keeps its exact current meaning and content (it is
+      [[076]]/[[074]]'s cleanup set, [job.ts:718](../../src/main/modules/downloads/bootstrap/job.ts#L718)).
+      _Acceptance:_ a run where every entry is found yields `found: true` for each with the id of the
+      source that served it; a run where nothing is found yields one `found: false` entry per allowlist
+      entry and an empty `copiedFiles`; source order still decides the winner when two sources have the
+      same file; AC8 of [[074]] is untouched — nothing outside the allowlist is read or copied, and the
+      entries record is not a directory scan.
+      Test: `src/main/modules/downloads/bootstrap/assemble.test.ts` (extend).
+      Mirror: the file's own existing `findSource`/`expandGlobDir` structure — no new traversal.
 
 - [ ] **D3 — The bootstrap job records assembly and extraction contents.**
-  Edit `src/main/modules/downloads/bootstrap/job.ts` (pass `{ packageId, dir }` into both
-  `assembleInstallation` calls at ~713 and ~738, merge their `entries` into one
-  `diagnostics.recordAssembly(...)`, derive `contributed` per package from it; read a bounded
-  top-level listing of each extraction dir right after `extractor.result` resolves at ~684 and pass
-  it into the existing per-package `recordPackage` call at ~690/~697); edit
-  `src/main/modules/downloads/bootstrap/ports.ts` (`BootstrapDiagnosticsSource` gains
-  `recordAssembly`, `recordPackage`'s payload widens); edit
-  `src/main/modules/downloads/diagnostics.ts` (`recordAssembly`, `EXTRACTION_LISTING_CAP = 20`,
-  `redactHome` over both new records, `diagnosticsFor` carries `assembly` through).
-  *Acceptance:* a run where assembly copies nothing yields one assembly entry per allowlist entry
-  with `found: false`, and every package `contributed: false` — the 2026-09-08 run becomes
-  legible without the log; a healthy run (post-[[076]]) yields `found: true` entries naming the
-  serving package; each package's `contents` holds its extraction dir's top-level names, sorted,
-  at most 20, with `contentsTruncated: true` when there were more; a package whose extraction
-  failed records no `contents` rather than an empty one; a run that fails before assembly records
-  no `assembly`; the happy path, the cleanup set and when cleanup runs are all unchanged.
-  Tests: `src/main/modules/downloads/bootstrap/job.test.ts` (extend the fake-deps setup),
-  `src/main/modules/downloads/diagnostics.test.ts` (extend).
+      Edit `src/main/modules/downloads/bootstrap/job.ts` (pass `{ packageId, dir }` into both
+      `assembleInstallation` calls at ~713 and ~738, merge their `entries` into one
+      `diagnostics.recordAssembly(...)`, derive `contributed` per package from it; read a bounded
+      top-level listing of each extraction dir right after `extractor.result` resolves at ~684 and pass
+      it into the existing per-package `recordPackage` call at ~690/~697); edit
+      `src/main/modules/downloads/bootstrap/ports.ts` (`BootstrapDiagnosticsSource` gains
+      `recordAssembly`, `recordPackage`'s payload widens); edit
+      `src/main/modules/downloads/diagnostics.ts` (`recordAssembly`, `EXTRACTION_LISTING_CAP = 20`,
+      `redactHome` over both new records, `diagnosticsFor` carries `assembly` through).
+      _Acceptance:_ a run where assembly copies nothing yields one assembly entry per allowlist entry
+      with `found: false`, and every package `contributed: false` — the 2026-09-08 run becomes
+      legible without the log; a healthy run (post-[[076]]) yields `found: true` entries naming the
+      serving package; each package's `contents` holds its extraction dir's top-level names, sorted,
+      at most 20, with `contentsTruncated: true` when there were more; a package whose extraction
+      failed records no `contents` rather than an empty one; a run that fails before assembly records
+      no `assembly`; the happy path, the cleanup set and when cleanup runs are all unchanged.
+      Tests: `src/main/modules/downloads/bootstrap/job.test.ts` (extend the fake-deps setup),
+      `src/main/modules/downloads/diagnostics.test.ts` (extend).
 
 - [ ] **D4 — The copied report gains both records.**
-  Edit `src/renderer/src/modules/downloads/report.ts` (two helpers pushed into the existing
-  `sections` array after the verdict section: an assembly table and a per-package extraction
-  listing); edit `src/renderer/src/i18n/locales/en.json` (new keys under `downloads.failures.report.*`).
-  *Acceptance:* the report contains an assembly table with one row per entry (looked-for path,
-  target path, found yes/no, serving package) and, per package, its capped extraction listing with
-  an explicit marker when it was truncated; a record without `assembly`/`contents` (a [[075]]-era
-  entry) still yields a valid report with those sections simply absent; every heading and column
-  label resolves through `t()`; no output value contains a home-directory segment.
-  Test: `src/renderer/src/modules/downloads/report.test.ts` (extend).
-  Mirror: `buildVerdictSection` (report.ts:95-116).
+      Edit `src/renderer/src/modules/downloads/report.ts` (two helpers pushed into the existing
+      `sections` array after the verdict section: an assembly table and a per-package extraction
+      listing); edit `src/renderer/src/i18n/locales/en.json` (new keys under `downloads.failures.report.*`).
+      _Acceptance:_ the report contains an assembly table with one row per entry (looked-for path,
+      target path, found yes/no, serving package) and, per package, its capped extraction listing with
+      an explicit marker when it was truncated; a record without `assembly`/`contents` (a [[075]]-era
+      entry) still yields a valid report with those sections simply absent; every heading and column
+      label resolves through `t()`; no output value contains a home-directory segment.
+      Test: `src/renderer/src/modules/downloads/report.test.ts` (extend).
+      Mirror: `buildVerdictSection` (report.ts:95-116).
 
 - [ ] **D5 — The shared, collapsed cause detail.**
-  New `src/renderer/src/modules/downloads/components/FailureCauseDetail.tsx`; edit
-  `src/renderer/src/i18n/locales/en.json` (`downloads.failures.detail.*`).
-  Renders `null` when the failure carries no diagnostics; otherwise a closed `<details>` whose
-  summary is a translated "what went wrong" line, and whose body lists each package with the step
-  it reached (fetched / verified / extracted / contributed) and, when `diagnostics.target` exists,
-  the verdict plus each failing check via its `messageKey`. Optional `footer` slot for the
-  reveal-log action (D6). Assembly and extraction listings are deliberately **not** rendered
-  ((User) Q1).
-  *Acceptance:* a bootstrap record whose packages are all fetched/verified/extracted but none
-  `contributed` renders as exactly that per package (AC1); the verdict and every failing check's
-  `messageKey` render as translated text, no raw key and no prose from main (AC2); the disclosure
-  is closed on first render and the body is not in the accessible tree until opened (AC3); a
-  failure without diagnostics renders nothing — no empty summary, no disabled affordance (AC6);
-  tokens only, no raw colour, focus-visible on the summary (`/design-tokens`).
-  Test: `src/renderer/src/modules/downloads/components/FailureCauseDetail.test.tsx` (new).
-  Mirror: `ChecksList.tsx`'s `CheckRow` (line 61) for check rendering; `DownloadsView.tsx:203-220`
-  for the `<details>`/`<summary>` styling.
+      New `src/renderer/src/modules/downloads/components/FailureCauseDetail.tsx`; edit
+      `src/renderer/src/i18n/locales/en.json` (`downloads.failures.detail.*`).
+      Renders `null` when the failure carries no diagnostics; otherwise a closed `<details>` whose
+      summary is a translated "what went wrong" line, and whose body lists each package with the step
+      it reached (fetched / verified / extracted / contributed) and, when `diagnostics.target` exists,
+      the verdict plus each failing check via its `messageKey`. Optional `footer` slot for the
+      reveal-log action (D6). Assembly and extraction listings are deliberately **not** rendered
+      ((User) Q1).
+      _Acceptance:_ a bootstrap record whose packages are all fetched/verified/extracted but none
+      `contributed` renders as exactly that per package (AC1); the verdict and every failing check's
+      `messageKey` render as translated text, no raw key and no prose from main (AC2); the disclosure
+      is closed on first render and the body is not in the accessible tree until opened (AC3); a
+      failure without diagnostics renders nothing — no empty summary, no disabled affordance (AC6);
+      tokens only, no raw colour, focus-visible on the summary (`/design-tokens`).
+      Test: `src/renderer/src/modules/downloads/components/FailureCauseDetail.test.tsx` (new).
+      Mirror: `ChecksList.tsx`'s `CheckRow` (line 61) for check rendering; `DownloadsView.tsx:203-220`
+      for the `<details>`/`<summary>` styling.
 
 - [ ] **D6 — The Downloads card mounts it and demotes reveal-log.**
-  Edit `src/renderer/src/modules/downloads/components/FailureLogEntry.tsx` (mount
-  `FailureCauseDetail` under the existing header row; move the reveal-log `IconButton` out of the
-  always-visible cluster into the detail's footer slot; copy-report stays where it is).
-  *Acceptance:* an entry with diagnostics shows the closed detail and, in the header cluster, only
-  copy + dismiss/restore; reveal-log is reachable only after expanding, still invokes
-  `app:revealPath` with `appInfo.logPath` and is still disabled until `AppInfo` loads; an entry
-  without diagnostics renders exactly as it did before this story minus the header reveal-log
-  button, with no detail affordance (AC6); no `logTail` line is ever rendered as card text.
-  Tests: `src/renderer/src/modules/downloads/components/FailureLogEntry.test.tsx` (extend),
-  `src/renderer/src/modules/downloads/DownloadsView.failures.test.tsx` (extend).
+      Edit `src/renderer/src/modules/downloads/components/FailureLogEntry.tsx` (mount
+      `FailureCauseDetail` under the existing header row; move the reveal-log `IconButton` out of the
+      always-visible cluster into the detail's footer slot; copy-report stays where it is).
+      _Acceptance:_ an entry with diagnostics shows the closed detail and, in the header cluster, only
+      copy + dismiss/restore; reveal-log is reachable only after expanding, still invokes
+      `app:revealPath` with `appInfo.logPath` and is still disabled until `AppInfo` loads; an entry
+      without diagnostics renders exactly as it did before this story minus the header reveal-log
+      button, with no detail affordance (AC6); no `logTail` line is ever rendered as card text.
+      Tests: `src/renderer/src/modules/downloads/components/FailureLogEntry.test.tsx` (extend),
+      `src/renderer/src/modules/downloads/DownloadsView.failures.test.tsx` (extend).
 
 - [ ] **D7 — The wizard's failed running step shows the same detail.**
-  Edit `src/renderer/src/modules/downloads/bootstrap/BootstrapWizard.tsx` (when `job.status ===
-  'failed'`, fetch `getDownloadFailures()` once and pick the entry whose `jobId` matches, pass it
-  to `RunningStep`); edit `src/renderer/src/modules/downloads/bootstrap/RunningStep.tsx` (mount
-  `FailureCauseDetail` below the existing `job.error` line at
-  [RunningStep.tsx:44](../../src/renderer/src/modules/downloads/bootstrap/RunningStep.tsx#L44)).
-  *Acceptance:* a failed job whose failure entry carries diagnostics shows the same closed detail
-  as the Downloads tab, with the same content; a failed job with no matching entry (or none with
-  diagnostics) keeps today's single error line and nothing else; a running or succeeded job renders
-  no detail and triggers no fetch; the fetch does not run on every `jobs:changed` tick.
-  Test: `src/renderer/src/modules/downloads/bootstrap/RunningStep.test.tsx` (new or extend).
+      Edit `src/renderer/src/modules/downloads/bootstrap/BootstrapWizard.tsx` (when `job.status ===
+'failed'`, fetch `getDownloadFailures()` once and pick the entry whose `jobId` matches, pass it
+      to `RunningStep`); edit `src/renderer/src/modules/downloads/bootstrap/RunningStep.tsx` (mount
+      `FailureCauseDetail` below the existing `job.error` line at
+      [RunningStep.tsx:44](../../src/renderer/src/modules/downloads/bootstrap/RunningStep.tsx#L44)).
+      _Acceptance:_ a failed job whose failure entry carries diagnostics shows the same closed detail
+      as the Downloads tab, with the same content; a failed job with no matching entry (or none with
+      diagnostics) keeps today's single error line and nothing else; a running or succeeded job renders
+      no detail and triggers no fetch; the fetch does not run on every `jobs:changed` tick.
+      Test: `src/renderer/src/modules/downloads/bootstrap/RunningStep.test.tsx` (new or extend).
 
 - [ ] **D8 — Fixture record and the Downloads-tab flow.**
-  Edit `scripts/lib/download-failures.mjs` (`downloadFailureWithDiagnostics()` at lines 56-105
-  gains `assembly`, per-package `contents`/`contentsTruncated`/`contributed`); edit
-  `scripts/flows/downloads-tab.mjs` (after the existing copy-report steps: expand the detail,
-  assert the per-package step summary and the verdict + check text, assert reveal-log is only
-  reachable there, `shot('failure-cause-expanded')`); edit `docs/UI-VERIFICATION.md` where the
-  flow's steps are listed.
-  *Acceptance:* `npm run ui:verify -- --screens=downloads` stays axe-clean with the closed detail
-  present; `npm run ui:flow -- downloads-tab` passes offline and its new steps prove the detail is
-  closed on load, opens to the package summary and the verdict, that the no-diagnostics entry has
-  none, and that the clipboard report now also carries the assembly table and the extraction
-  listing with no real account name in either.
+      Edit `scripts/lib/download-failures.mjs` (`downloadFailureWithDiagnostics()` at lines 56-105
+      gains `assembly`, per-package `contents`/`contentsTruncated`/`contributed`); edit
+      `scripts/flows/downloads-tab.mjs` (after the existing copy-report steps: expand the detail,
+      assert the per-package step summary and the verdict + check text, assert reveal-log is only
+      reachable there, `shot('failure-cause-expanded')`); edit `docs/UI-VERIFICATION.md` where the
+      flow's steps are listed.
+      _Acceptance:_ `npm run ui:verify -- --screens=downloads` stays axe-clean with the closed detail
+      present; `npm run ui:flow -- downloads-tab` passes offline and its new steps prove the detail is
+      closed on load, opens to the package summary and the verdict, that the no-diagnostics entry has
+      none, and that the clipboard report now also carries the assembly table and the extraction
+      listing with no real account name in either.
 
 - [ ] **D9 — A real failed bootstrap run, end to end.**
-  Edit `scripts/lib/fixture.mjs` (`buildBootstrapPackages()` at
-  [fixture.mjs:1299](../../scripts/lib/fixture.mjs#L1299) gains a variant whose demo and
-  point-release archives nest their paks under an `Install/Data/` wrapper —
-  [[076]]'s real-world shape — and `startBootstrapFixtureServer()` at
-  [fixture.mjs:1388](../../scripts/lib/fixture.mjs#L1388) accepts it); new
-  `scripts/flows/bootstrap-failure.mjs` (own `setup()`/`teardown()`, mirroring
-  `scripts/flows/bootstrap-wizard.mjs`'s); edit `docs/UI-VERIFICATION.md`.
-  *Acceptance:* `npm run ui:flow -- bootstrap-failure` passes offline: the wizard runs to a real
-  `installationNotPlayable`, `bootstrap-running-step` reaches `data-status="failed"`, the cause
-  detail appears there and expands to name every package as downloaded-but-not-contributing plus
-  the target verdict and its failing checks, and `shot('bootstrap-failure-cause')` is captured;
-  `scripts/flows/bootstrap-wizard.mjs` is untouched and still passes.
+      Edit `scripts/lib/fixture.mjs` (`buildBootstrapPackages()` at
+      [fixture.mjs:1299](../../scripts/lib/fixture.mjs#L1299) gains a variant whose demo and
+      point-release archives nest their paks under an `Install/Data/` wrapper —
+      [[076]]'s real-world shape — and `startBootstrapFixtureServer()` at
+      [fixture.mjs:1388](../../scripts/lib/fixture.mjs#L1388) accepts it); new
+      `scripts/flows/bootstrap-failure.mjs` (own `setup()`/`teardown()`, mirroring
+      `scripts/flows/bootstrap-wizard.mjs`'s); edit `docs/UI-VERIFICATION.md`.
+      _Acceptance:_ `npm run ui:flow -- bootstrap-failure` passes offline: the wizard runs to a real
+      `installationNotPlayable`, `bootstrap-running-step` reaches `data-status="failed"`, the cause
+      detail appears there and expands to name every package as downloaded-but-not-contributing plus
+      the target verdict and its failing checks, and `shot('bootstrap-failure-cause')` is captured;
+      `scripts/flows/bootstrap-wizard.mjs` is untouched and still passes.
 
 ## Model Hints
 
@@ -390,6 +390,7 @@ finds nothing in).
 **Commit message:** `078: the failure says the cause, not "go read the log"`
 
 **Verification:**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (both TS projects).
 - `npm test` — 157 files / 3173 tests; one unrelated flake
@@ -414,10 +415,11 @@ new `capDiagnostics` trim passes terminate correctly at every `assembly`/`conten
 tautology; `DIAGNOSTICS_SIZE_CAP_BYTES`/`FAILURE_LOG_CAP` are unchanged.
 
 Findings fixed:
+
 - **M2 (medium) — `contributed: undefined` (assembly never ran for this job) was indistinguishable
   from `contributed: false` (assembly ran and rejected this package)** in
   `FailureCauseDetail.tsx`'s `reachedStep()`, so a package that extracted cleanly but whose job
-  failed *before* assembly ever started (e.g. a later package's download error) was told to the
+  failed _before_ assembly ever started (e.g. a later package's download error) was told to the
   user as "did not contribute to the installation" — an accusation assembly never actually made.
   Fixed: a new `extractedNoAssembly` step/i18n key ("downloaded, verified and extracted", no
   contribution claim) for the `undefined` case; the `false` case keeps its existing wording
@@ -429,7 +431,7 @@ Findings fixed:
   (`assemble.ts`'s demo `pak0.pak`/`Install/Data/…` and engine `q2pro.exe`/`q2pro64.exe`
   candidates) recorded only the first candidate**, so the assembly table could read "looked for
   `baseq2/pak0.pak`, not found" on exactly the real-world wrapper-nested case ([[076]]) where the
-  allowlist *did* try the `Install/Data/…` candidate too — misleading a maintainer reading the
+  allowlist _did_ try the `Install/Data/…` candidate too — misleading a maintainer reading the
   report toward "the allowlist never tries the wrapper path" when it does. Fixed:
   `AssembleEntryResult.from` for a not-found entry now joins every candidate that was tried
   (`' | '`-separated); a found entry still records only the single candidate that matched.
@@ -437,13 +439,14 @@ Findings fixed:
   `job.test.ts` › "a run that assembles nothing marks every package as not contributed".
 
 Findings reviewed and deliberately left unfixed, with reasons:
+
 - **M1 — a `missingChecks` entry whose message interpolates a variable (e.g.
   `validation.rootMissing`'s `{{path}}`) renders its raw placeholder unfilled**, because
   `DownloadDiagnosticsTarget.missingChecks` has stored only `{id, messageKey}` (no `params`) since
   [[075]] — a deliberate redaction boundary (a check's params can carry an absolute install path).
   This story surfaces those keys on screen for the first time (previously report-only), inheriting
   a gap AC2's literal wording ("no untranslated string") does not clearly cover ("no raw key" is
-  satisfied — the *key* is never shown, only an unfilled variable inside its translation) and both
+  satisfied — the _key_ is never shown, only an unfilled variable inside its translation) and both
   this story's AC2 tests and the e2e fixture happen to use only param-free keys. Left unfixed:
   closing it properly means deciding whether/how to redact-and-carry `params` through
   `missingChecks`, which is a shape change to a [[075]] record type this story's plan never
@@ -454,7 +457,7 @@ Findings reviewed and deliberately left unfixed, with reasons:
   is D6's own explicitly stated acceptance ("minus the header reveal-log button, with no detail
   affordance (AC6)"), not a review-found bug: AC6 rules out any empty detail affordance, and there
   is nowhere left to put a demoted reveal-log action on such an entry. AC5's "demoted" wording is
-  about entries *with* diagnostics; reveal-log stays reachable from Settings regardless.
+  about entries _with_ diagnostics; reveal-log stays reachable from Settings regardless.
 - **L1 — an empty detail is theoretically reachable** if a record's `packages` were trimmed to `[]`
   and `target` is absent (a very small, already-oversized record, or a job that fails before either
   is ever recorded). Accepted: both are pre-existing, narrow edge cases of `capDiagnostics`/the
@@ -472,11 +475,11 @@ Findings reviewed and deliberately left unfixed, with reasons:
 - **L4 — `bootstrap-failure.mjs` (D9) reaches `downloads.error.packageIncomplete`, not
   `installationNotPlayable`**, so the target-verdict half of the cause detail is not proven
   end-to-end. Investigated and confirmed structural, not a shortcut: `job.ts` fails on
-  `missingRequired` *before* the revalidation that could ever produce `installationNotPlayable`,
+  `missingRequired` _before_ the revalidation that could ever produce `installationNotPlayable`,
   and this codebase's checks (`inspector.ts`) all pass once every required file is genuinely
-  present — there is no real archive layout that leaves a required file unfindable and *also*
+  present — there is no real archive layout that leaves a required file unfindable and _also_
   reaches revalidation, only `job.test.ts`'s own mock-based `breakTargetBeforeValidate()` can. The
-  flow's own header comment discloses this at length and asserts the verdict section's *absence*
+  flow's own header comment discloses this at length and asserts the verdict section's _absence_
   explicitly rather than silently omitting the check. AC4's actual test mapping (unit
   `RunningStep.test.tsx` + this e2e's AC1-half proof) does not require reaching
   `installationNotPlayable` specifically, and AC7/AC8 (the assembly table / extraction listing)
@@ -486,7 +489,7 @@ Findings reviewed and deliberately left unfixed, with reasons:
 - **L5 — the AC3 e2e measures closed-vs-open card height, not pre-story-vs-post-story height** —
   correct as designed: the closed `<details>`/`<summary>` bar is an intentional, small addition to
   every diagnostics entry's closed height (Decisions: mirrors `DownloadsView.tsx`'s existing
-  disclosure pattern), and AC3's actual requirement (no growth when *unopened* is the point) is
+  disclosure pattern), and AC3's actual requirement (no growth when _unopened_ is the point) is
   what the flow proves.
 - **L6 — the D8 fixture's hand-authored `assembly` rows don't exactly match what real code would
   now produce** (e.g. single-candidate `from` values, unsorted `contents`) — cosmetic; the fixture

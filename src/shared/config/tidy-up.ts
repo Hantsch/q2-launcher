@@ -77,11 +77,7 @@
 import type { AltLayer } from './alt-layers'
 import { actionKeySlots, keySlotAt, withKeySlot } from './action-slots'
 import type { BindSlot } from './bind-collision'
-import type {
-  ConfigAction,
-  ConfigProfile,
-  UnrecognizedConfigLine,
-} from '../modules/config'
+import type { ConfigAction, ConfigProfile, UnrecognizedConfigLine } from '../modules/config'
 import { ACTIONS_MESSAGE_PREFIX, validateActions } from './validate-actions'
 import { applyActionBindMirror, bindValueFor, isMirroredValue } from './action-mirror'
 import { aliasNameFor } from './alias-render'
@@ -461,7 +457,10 @@ function applyRemoveShadowedBind(
     : withoutMirrorEntries(profile.binds, normalizedKey, mirrorValue)
   const layers = (profile.layers ?? []).map((layer) => {
     if (!modifier || modifierForLayer(layer) !== modifier) return layer
-    return { ...layer, overrides: withoutMirrorEntries(layer.overrides, normalizedKey, mirrorValue) }
+    return {
+      ...layer,
+      overrides: withoutMirrorEntries(layer.overrides, normalizedKey, mirrorValue),
+    }
   })
 
   return { ...profile, actions, binds, layers }
@@ -577,11 +576,7 @@ function categoryExists(profile: ConfigProfile, categoryId: string): boolean {
  * collision - the identical entry, which makes the write a no-op instead of a
  * clobber and keeps a re-sent op idempotent rather than rejected.
  */
-function baseKeyIsFree(
-  profile: ConfigProfile,
-  key: string,
-  allowedCommand?: string,
-): boolean {
+function baseKeyIsFree(profile: ConfigProfile, key: string, allowedCommand?: string): boolean {
   const collision = findBindCollision(profile, key)
   if (!collision || collision.kind === 'layerOverride') return true
   return collision.kind === 'baseBind' && collision.command === allowedCommand
@@ -631,7 +626,10 @@ function applyReclassifyPreservedLine(
     const normalizedKey = normalizeBindKey(target.key)
     return {
       ...profile,
-      binds: { ...withoutNormalizedKey(profile.binds, normalizedKey), [normalizedKey]: target.command },
+      binds: {
+        ...withoutNormalizedKey(profile.binds, normalizedKey),
+        [normalizedKey]: target.command,
+      },
       unrecognized,
     }
   }

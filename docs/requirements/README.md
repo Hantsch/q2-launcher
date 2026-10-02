@@ -14,12 +14,12 @@ draft ──► ready ──► in-progress ──► done
   └─────────┘  (back, as long as "Open Questions" are unresolved)
 ```
 
-| Status        | Meaning                                                       |
-| ------------- | ------------------------------------------------------------- |
-| `draft`       | The requirement is written, the plan is missing               |
-| `ready`       | Plan + deliverables are in the document, approved to build    |
-| `in-progress` | Implementation is running, or a real blocker holds it there   |
-| `done`        | Implemented, every criterion's test green, review through     |
+| Status        | Meaning                                                     |
+| ------------- | ----------------------------------------------------------- |
+| `draft`       | The requirement is written, the plan is missing             |
+| `ready`       | Plan + deliverables are in the document, approved to build  |
+| `in-progress` | Implementation is running, or a real blocker holds it there |
+| `done`        | Implemented, every criterion's test green, review through   |
 
 `done` is set by `/build` itself, as soon as verification is green and the clean-agent review
 is through. There is **no** approval state behind it: acceptance is the test each criterion was

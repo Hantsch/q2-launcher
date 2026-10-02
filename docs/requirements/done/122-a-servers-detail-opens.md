@@ -76,8 +76,8 @@ user in the clarification round. -->
   selected" (117) fetches it at once. An auto-query on open would collide with the single-flight
   guard and GB-N5's game-running refusal for no gain.
 - **A new `detail.read` handler returns `ServerDetail = { row: ServerListRow; serverinfo:
-  Record<string,string> | null }`.** Concept §16 names "read detail" as a handler. `serverinfo` is
-  the full key set of the last *successful `status` reply*, replaced whole (not merged) and kept
+Record<string,string> | null }`.** Concept §16 names "read detail" as a handler. `serverinfo` is
+  the full key set of the last _successful `status` reply_, replaced whole (not merged) and kept
   while stale (GB-N6). It lives in a scan-service map, not on `ServerListEntry`, so `scan.read`
   does not ship every server's full serverinfo. [[123]] reads its rule table from this field, and
   [[124]] extends `ServerDetail` with its ping history. The result is `null` when `scan.read` would
@@ -98,7 +98,7 @@ user in the clarification round. -->
 - **Players panel states.** A roster (array) → a sortable table. A known count of 0 (a number 0 or
   an empty roster) → the stated empty state (AC3). A positive number with no roster → "N connected
   — names arrive with the next detailed scan". `players` undefined → "Player data not fetched yet".
-  Only a *known* zero is ever called empty (GB-N6).
+  Only a _known_ zero is ever called empty (GB-N6).
 - **Sorting.** The columns are name, score and ping, each with a header button and `aria-sort`.
   The default is score descending. Clicking the active column flips the direction, and clicking
   another column picks it with its natural direction (score descending, ping and name ascending).
@@ -175,7 +175,7 @@ Out of scope: rules/dmflags ([[123]]), reachability/stale statement ([[124]]), a
     - Add `export const detailReadInputSchema = serverAddressSchema`, the same payload shape as
       `favouritesAddInputSchema`, and its entry in `SERVERS_HANDLER_SCHEMAS`.
     - Add `export interface ServerDetail { row: ServerListRow; serverinfo: Record<string,string> |
-      null }` with a doc comment. `serverinfo` is the full key set of the last successful `status`
+null }` with a doc comment. `serverinfo` is the full key set of the last successful `status`
       reply, replaced whole on each one, kept while stale, and `null` until one arrives. Later
       detail stories extend this type.
   - Update `src/shared/modules/servers.test.ts`: its literal `SERVERS_HANDLERS` expectation, plus a

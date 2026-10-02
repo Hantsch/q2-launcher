@@ -49,7 +49,9 @@ export function FailureLogEntry({
   const { t } = useTranslation()
   const installation = useInstallationById(failure.installationId ?? null)
   const pushToast = useLauncher((state) => state.pushToast)
-  const errorKey = KNOWN_ERROR_KEYS.has(failure.error.key) ? failure.error.key : 'downloads.error.unknown'
+  const errorKey = KNOWN_ERROR_KEYS.has(failure.error.key)
+    ? failure.error.key
+    : 'downloads.error.unknown'
   const timestamp = formatRelativeTime(new Date(failure.createdAt).toISOString())
 
   function handleCopyReport() {

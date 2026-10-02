@@ -42,7 +42,7 @@ General setup, once, before any of the four use cases:
 ### Expected result
 
 - No `Refused to apply inline style because it violates the following Content Security Policy
-  directive: "style-src 'self'"` message (or any CSP violation) appears in the Console at any point.
+directive: "style-src 'self'"` message (or any CSP violation) appears in the Console at any point.
 - Every surface above still looks and moves exactly as before: the progress bar fills smoothly, the
   keyboard overview zooms, popovers open anchored at the pointer (not snapped to the top-left
   corner), and the titlebar/rail/toasts keep their normal size and position.
@@ -53,7 +53,7 @@ General setup, once, before any of the four use cases:
 
 This story's acceptance is mostly automated (`ui:verify`'s axe pass over two new screen-registry
 entries: the drop-row message editor and the Team-messages editor). There is nothing a manual
-run *sees differently* from before — the point of this check is simply to confirm the surface a
+run _sees differently_ from before — the point of this check is simply to confirm the surface a
 human would look at during a real edit is well-formed and behaves, since that is what the automated
 pass now also covers.
 
@@ -210,8 +210,8 @@ once, so its file exists on disk) — or any other saved, assigned profile. `npm
 ## Coverage note
 
 | Story | Use case |
-| --- | --- |
-| 046 | 1 |
-| 047 | 2 |
-| 042 | 3 |
-| 043 | 4 |
+| ----- | -------- |
+| 046   | 1        |
+| 047   | 2        |
+| 042   | 3        |
+| 043   | 4        |

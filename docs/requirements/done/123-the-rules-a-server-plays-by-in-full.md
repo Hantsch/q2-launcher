@@ -22,7 +22,7 @@ mod-specific rule is never lost just because this launcher does not know its nam
 `dmflags` is the one key in that set that is actively hostile to read raw — it is a bitfield, and a
 number like `16711680` tells a user nothing. GB-D3 decodes it into a named list of the rules it
 actually switches (no falling damage, no health, instant weapon switch, and so on — concept §4's
-tech-decisions table calls this "a table in the launcher"). But the bit meanings are the *vanilla*
+tech-decisions table calls this "a table in the launcher"). But the bit meanings are the _vanilla_
 Quake II meanings, and a mod is free to reuse a bit for something else entirely; the launcher has no
 way to know if one has. The decoded list therefore carries a visible caveat saying exactly that, so a
 decoded rule is read as "this is what dmflags means in vanilla Quake II", not as a guarantee about
@@ -117,18 +117,18 @@ ServerRulesPanel.tsx(+test)`, 122's detail view file, `src/renderer/src/i18n/loc
     `model-teams`, 256 `no-friendly-fire`, 512 `spawn-farthest`, 1024 `force-respawn`, 2048
     `no-armor`, 4096 `allow-exit`, 8192 `infinite-ammo`, 16384 `quad-drop`, 32768 `fixed-fov`.
   - `decodeDmflags(raw: string)` → `{ ok: true; value: number; rules: DmflagId[]; unknownBits:
-    number[] }` (rules in bit order, `unknownBits` = set bit indices ≥ 16) or `{ ok: false; raw }`
+number[] }` (rules in bit order, `unknownBits` = set bit indices ≥ 16) or `{ ok: false; raw }`
     when `raw` is not a non-negative decimal integer ≤ 2^31−1 (trim whitespace; `"abc"`, `"-1"`,
     `"1.5"`, `""` are not ok). Use unsigned bit tests up to bit 30; never throws.
   - `buildRuleTable(serverinfo: Record<string,string>)` → `{ known: KnownRuleRow[]; raw: {key,
-    value}[]; dmflags?: { raw: string; decoded: ReturnType<typeof decodeDmflags> } }`. Known keys,
+value}[]; dmflags?: { raw: string; decoded: ReturnType<typeof decodeDmflags> } }`. Known keys,
     in this order, exact-case: `hostname`, `mapname`, `gamename`, `gamedir`, `game`, `maxclients`,
     `protocol`, `version`, `port`, `needpass`, `deathmatch`, `coop`, `ctf`, `teamplay`, `dmflags`,
     `fraglimit`, `timelimit`, `capturelimit`, `cheats`, `maptime`, `uptime`, `gamedate`. Each
     reported known key becomes one `KnownRuleRow { key; value: RuleValue }`; `dmflags` also fills
     `dmflags`. `RuleValue` is a union: `text` (hostname, mapname, gamename/gamedir/game, version,
     gamedate), `int` (maxclients, port), `protocol` (int + `engine: 'vanilla'|'r1q2'|'q2pro'|
-    undefined` for 34/35/36), `needpass` (`password` = bit 0, `spectatorPassword` = bit 1), `flag`
+undefined` for 34/35/36), `needpass` (`password` = bit 0, `spectatorPassword` = bit 1), `flag`
     (deathmatch/coop/ctf/teamplay/cheats: int, 0 = off, non-zero = on), `limit` (fraglimit/
     capturelimit: int, 0 = none), `minutes` (timelimit: int or decimal, 0 = none), `duration`
     (maptime/uptime: non-negative integer = seconds; any other non-empty string = `text` verbatim,
@@ -150,7 +150,7 @@ ServerRulesPanel.tsx(+test)`, 122's detail view file, `src/renderer/src/i18n/loc
   - Add `serverinfo?: Record<string, string>` to `ServerListEntry`, doc comment: "the latest
     `status` reply's full serverinfo map, verbatim; never taken from an `info` reply".
   - In `mergeSuccessfulReply` (`scan-service.ts`): `serverinfo: result.kind === 'status' ?
-    { ...result.reply.serverinfo } : existing?.serverinfo`. Check that `mergeStaleRound`
+{ ...result.reply.serverinfo } : existing?.serverinfo`. Check that `mergeStaleRound`
     (`scan-merge.ts`) and every other place building an entry spreads `existing` so the field
     survives a stale round; fix any that rebuilds field by field.
   - Tests (names literal): "a status reply's full serverinfo is kept on the entry" (includes a
@@ -158,7 +158,7 @@ ServerRulesPanel.tsx(+test)`, 122's detail view file, `src/renderer/src/i18n/loc
     reply carries `clients`, which must not appear), "a stale round keeps the last serverinfo".
 
 - **D3 — the Rules section in the detail view** plus its tests `src/renderer/src/modules/
-  servers/ServerRulesPanel.test.tsx` and the e2e flow `scripts/flows/servers-detail-rules.mjs`.
+servers/ServerRulesPanel.test.tsx` and the e2e flow `scripts/flows/servers-detail-rules.mjs`.
   Files: `src/renderer/src/modules/servers/ServerRulesPanel.tsx`, its test, the detail view
   component story 122 created in `src/renderer/src/modules/servers/` (mount only),
   `src/renderer/src/i18n/locales/en.json` (the `servers` block at ~line 662), the flow,

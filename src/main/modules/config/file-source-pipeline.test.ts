@@ -163,10 +163,7 @@ async function boot(
 
 /** One fixture profile, re-identified so every test can talk about `p1`, and given a name that is
  * distinctive enough to be found (and hand-edited) inside the rendered header. */
-function seededProfile(
-  base: ConfigProfile,
-  overrides: Partial<ConfigProfile> = {},
-): ConfigProfile {
+function seededProfile(base: ConfigProfile, overrides: Partial<ConfigProfile> = {}): ConfigProfile {
   return {
     ...base,
     id: 'p1',
@@ -292,7 +289,8 @@ describe('external edit while the UI carries unsaved edits', () => {
     await booted.state.settle()
 
     const first = await save(booted.handlers)
-    if (!first.ok || first.value.status !== 'saved') throw new Error('expected the first save to work')
+    if (!first.ok || first.value.status !== 'saved')
+      throw new Error('expected the first save to work')
     const fileName = fileNameOf(booted.state)
 
     // Notepad edits the file...
@@ -337,7 +335,8 @@ describe('external edit while the UI carries unsaved edits', () => {
 
     const forced = await save(handlers, { force: true })
 
-    if (!forced.ok || forced.value.status !== 'saved') throw new Error('expected the forced save to work')
+    if (!forced.ok || forced.value.status !== 'saved')
+      throw new Error('expected the forced save to work')
     const onDisk = await readFile(canonicalPath(fileName), 'latin1')
     expect(onDisk).toBe(renderProfileFile(forced.value.profile))
     const saved = only(state)
@@ -415,9 +414,7 @@ describe('conflicting simultaneous changes', () => {
     expect(only(state).fileHash).toBe(seededHash)
     // And the refresh that follows (focus, tab open) still finds the edit and adopts it.
     const results = await refresh(handlers, { profileId: 'p1' })
-    expect(results).toEqual([
-      expect.objectContaining({ profileId: 'p1', outcome: 'adopted' }),
-    ])
+    expect(results).toEqual([expect.objectContaining({ profileId: 'p1', outcome: 'adopted' })])
   })
 
   it('the startup retry sweep never writes over a hand-edit made while the launcher was closed', async () => {
@@ -503,7 +500,9 @@ describe('conflicting simultaneous changes', () => {
     const renamed = await save(handlers, { profileId: 'p2' })
 
     if (!renamed.ok || renamed.value.status !== 'saved') {
-      throw new Error(`expected the rename save to work, got ${renamed.ok ? renamed.value.status : 'fail'}`)
+      throw new Error(
+        `expected the rename save to work, got ${renamed.ok ? renamed.value.status : 'fail'}`,
+      )
     }
     // Every live profile still has exactly one file, holding exactly its own content.
     for (const profileId of ['p1', 'p2'] as const) {
@@ -678,7 +677,9 @@ describe('a canonical file deleted outside the launcher', () => {
       // including (especially) when the cache carries unsaved edits.
       const rewritten = await save(handlers)
       if (!rewritten.ok || rewritten.value.status !== 'saved') {
-        throw new Error(`expected the rewrite to save, got ${rewritten.ok ? rewritten.value.status : 'fail'}`)
+        throw new Error(
+          `expected the rewrite to save, got ${rewritten.ok ? rewritten.value.status : 'fail'}`,
+        )
       }
       const onDisk = await readFile(canonicalPath(fileName), 'latin1')
       expect(onDisk).toBe(renderProfileFile(rewritten.value.profile))
@@ -1088,9 +1089,7 @@ describe('two entries deriving one alias name', () => {
     // One entry left, carrying the surviving definition's commands. Pinned so the warning can never
     // be satisfied by a file that lost nothing.
     expect(adopted.profile.actions).toHaveLength(1)
-    expect(adopted.profile.actions?.[0]?.commands).toEqual([
-      { kind: 'raw', text: 'use railgun' },
-    ])
+    expect(adopted.profile.actions?.[0]?.commands).toEqual([{ kind: 'raw', text: 'use railgun' }])
     // Both keys survive on the surviving entry - the collision costs a body, not a binding.
     expect(Object.keys(adopted.profile.binds).sort()).toEqual(['q', 'r'])
   })

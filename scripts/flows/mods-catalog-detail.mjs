@@ -109,8 +109,12 @@ export default async function modsCatalogDetail({ shot, step }) {
 
       step('a catalog gamedir on disk keeps Reveal folder')
       await page.getByTestId('mods-tile-ctf').click({ timeout: TIMEOUT_MS })
-      await page.getByTestId('mods-detail-reveal').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-      await page.getByTestId('mods-detail-license').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+      await page
+        .getByTestId('mods-detail-reveal')
+        .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+      await page
+        .getByTestId('mods-detail-license')
+        .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
     },
   )
 }

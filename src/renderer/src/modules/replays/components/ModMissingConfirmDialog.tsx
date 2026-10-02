@@ -52,18 +52,29 @@ export function ModMissingConfirmDialog({
               {t('replays.play.modMissingConfirm.install', { name: installOffer.name })}
             </Button>
           )}
-          <Button variant="primary" onClick={() => onConfirm(dontAsk)} data-testid="replays-mod-missing-confirm">
+          <Button
+            variant="primary"
+            onClick={() => onConfirm(dontAsk)}
+            data-testid="replays-mod-missing-confirm"
+          >
             {t('replays.play.modMissingConfirm.confirm')}
           </Button>
         </>
       }
     >
       <div className="space-y-3">
-        <p className="text-sm leading-relaxed text-ink-dim" data-testid="replays-mod-missing-dialog">
+        <p
+          className="text-sm leading-relaxed text-ink-dim"
+          data-testid="replays-mod-missing-dialog"
+        >
           {t('replays.play.modWarning.body', { gameDir })}
         </p>
         {installError && (
-          <p role="alert" className="text-sm text-danger" data-testid="replays-mod-missing-install-error">
+          <p
+            role="alert"
+            className="text-sm text-danger"
+            data-testid="replays-mod-missing-install-error"
+          >
             {installError}
           </p>
         )}

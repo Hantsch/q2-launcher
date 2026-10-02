@@ -9,7 +9,21 @@
 // (CloseMainWindow), never killed; +demo precedes +exec; the log is deleted before each run; every file written is
 // removed afterwards and q2config.cfg is restored byte-exact; refuses to start while any q2pro.exe runs.
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, statSync, writeFileSync, openSync, readSync, fstatSync, closeSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+  openSync,
+  readSync,
+  fstatSync,
+  closeSync,
+} from 'node:fs'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { performance } from 'node:perf_hooks'
@@ -19,13 +33,33 @@ const SPIKE_DIR = fileURLToPath(new URL('.', import.meta.url))
 const REPO = resolve(SPIKE_DIR, '..', '..')
 const RESULTS = join(SPIKE_DIR, 'results')
 const WIN_PROBE = join(SPIKE_DIR, '..', '169-windowed-stage', 'win-probe.ps1')
-const PROTOCOL_TS = join(REPO, 'src', 'main', 'modules', 'replays', 'playback-channel', 'protocol.ts')
+const PROTOCOL_TS = join(
+  REPO,
+  'src',
+  'main',
+  'modules',
+  'replays',
+  'playback-channel',
+  'protocol.ts',
+)
 
 const jiti = createJiti(import.meta.url, { alias: { '@shared': join(REPO, 'src', 'shared') } })
 const P = await jiti.import(PROTOCOL_TS)
 const {
-  ACK_TIMEOUT_MS, CONTROL_CFG_NAME, LOG_FILE_NAME, LOG_FILE_RELATIVE, LOG_POLL_MS, LOOP_CFG_NAME, LOOP_WAIT_FRAMES,
-  buildControlFile, buildLoopCfg, buildStopFile, commandCfgName, encodeControlCommand, parseEngineLine, toCfgText,
+  ACK_TIMEOUT_MS,
+  CONTROL_CFG_NAME,
+  LOG_FILE_NAME,
+  LOG_FILE_RELATIVE,
+  LOG_POLL_MS,
+  LOOP_CFG_NAME,
+  LOOP_WAIT_FRAMES,
+  buildControlFile,
+  buildLoopCfg,
+  buildStopFile,
+  commandCfgName,
+  encodeControlCommand,
+  parseEngineLine,
+  toCfgText,
   windowsLaunchArgs,
 } = P
 
@@ -44,11 +78,22 @@ const BURST_MIX = ['seek +10', 'seek -10', 'seek +10']
 const REWIND_ABOVE_MS = 20000
 
 /** Shipped: wait 13, logfile 2, logfile_flush 3 (from windowsLaunchArgs), pipelined multi-seq dispatch. */
-const BASE = { waitFrames: LOOP_WAIT_FRAMES, flush: null, logToggle: false, pad: false, dispatch: 'multiseq', ackVia: 'log' }
+const BASE = {
+  waitFrames: LOOP_WAIT_FRAMES,
+  flush: null,
+  logToggle: false,
+  pad: false,
+  dispatch: 'multiseq',
+  ackVia: 'log',
+}
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const r1 = (x) => (x === null || x === undefined || !Number.isFinite(x) ? null : Math.round(x * 10) / 10)
-const ps = (args) => execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', ...args], { encoding: 'utf-8' }).trim()
+const r1 = (x) =>
+  x === null || x === undefined || !Number.isFinite(x) ? null : Math.round(x * 10) / 10
+const ps = (args) =>
+  execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', ...args], {
+    encoding: 'utf-8',
+  }).trim()
 const d = (a, b) => (a === null || a === undefined || b === null || b === undefined ? null : a - b)
 
 function stats(values) {
@@ -59,7 +104,13 @@ function stats(values) {
 }
 
 function parseArgs(argv) {
-  const o = { exe: 'C:/Games/Q2Pro/q2pro.exe', game: 'opentdm', demo: 'test-demo-for-launcher.dm2', samples: 30, bursts: 10 }
+  const o = {
+    exe: 'C:/Games/Q2Pro/q2pro.exe',
+    game: 'opentdm',
+    demo: 'test-demo-for-launcher.dm2',
+    samples: 30,
+    bursts: 10,
+  }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const v = () => {
@@ -73,12 +124,15 @@ function parseArgs(argv) {
     else if (a === '--bursts') o.bursts = Number(v())
     else throw new Error(`unknown argument ${a}`)
   }
-  if (!(o.samples >= 1) || !(o.bursts >= 0)) throw new Error('--samples must be >= 1, --bursts >= 0')
+  if (!(o.samples >= 1) || !(o.bursts >= 0))
+    throw new Error('--samples must be >= 1, --bursts >= 0')
   return o
 }
 
 function q2proRunning() {
-  return /q2pro\.exe/i.test(execFileSync('tasklist', ['/FI', 'IMAGENAME eq q2pro.exe', '/NH'], { encoding: 'utf-8' }))
+  return /q2pro\.exe/i.test(
+    execFileSync('tasklist', ['/FI', 'IMAGENAME eq q2pro.exe', '/NH'], { encoding: 'utf-8' }),
+  )
 }
 
 function winProbe(pid) {
@@ -159,7 +213,8 @@ function listQ2l(env) {
   const dirs = [...new Set([env.gameDir, env.markerDir])]
   const found = []
   for (const dir of dirs) {
-    for (const name of existsSync(dir) ? readdirSync(dir) : []) if (name.startsWith('q2l_')) found.push(join(dir, name))
+    for (const name of existsSync(dir) ? readdirSync(dir) : [])
+      if (name.startsWith('q2l_')) found.push(join(dir, name))
   }
   return found
 }
@@ -194,7 +249,10 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
     written.delete(tmp)
     written.add(path)
   }
-  const extras = [...(cfg.logToggle ? ['logfile 0', 'logfile 2'] : []), ...(cfg.pad ? env.padLines : [])]
+  const extras = [
+    ...(cfg.logToggle ? ['logfile 0', 'logfile 2'] : []),
+    ...(cfg.pad ? env.padLines : []),
+  ]
   const withExtras = (text) => (extras.length ? text + toCfgText(extras) : text)
   const keep = (key, text) => {
     if (!(key in r.cfgTexts)) r.cfgTexts[key] = text
@@ -221,13 +279,25 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
 
   const { argsBeforeDemo, argsAfterDemo } = windowsLaunchArgs()
   const args = [
-    '+set', 'game', env.game,
-    '+set', 'vid_fullscreen', '0', '+set', 'vid_geometry', GEOMETRY, '+set', 'win_alwaysontop', '1',
+    '+set',
+    'game',
+    env.game,
+    '+set',
+    'vid_fullscreen',
+    '0',
+    '+set',
+    'vid_geometry',
+    GEOMETRY,
+    '+set',
+    'win_alwaysontop',
+    '1',
     ...argsBeforeDemo,
     ...(cfg.flush !== null ? ['+set', 'logfile_flush', String(cfg.flush)] : []),
-    '+demo', env.demo,
+    '+demo',
+    env.demo,
     ...argsAfterDemo,
-    '+echo', AFTERARG,
+    '+echo',
+    AFTERARG,
   ]
   r.launch = { exe: env.exe, cwd: env.root, args, argsBeforeDemo, argsAfterDemo }
 
@@ -251,7 +321,8 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
   const tail = createTail(env.logPath)
   const markerPath = (s) => join(env.markerDir, `${MARKER_PREFIX}${s.id}.cfg`)
   const lineFor = (s) => `${s.cmd}; writeconfig ${MARKER_PREFIX}${s.id}`
-  const entries = () => (cfg.dispatch === 'multiseq' ? [...pending.values()] : inFlight ? [inFlight] : [])
+  const entries = () =>
+    cfg.dispatch === 'multiseq' ? [...pending.values()] : inFlight ? [inFlight] : []
 
   function sendSerial() {
     if (inFlight || queue.length === 0) return
@@ -260,7 +331,10 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
     const enc =
       batch.length === 1
         ? encodeControlCommand(seq, lineFor(batch[0]))
-        : { controlText: toCfgText(buildControlFile([seq])), commandText: toCfgText(batch.map(lineFor)) }
+        : {
+            controlText: toCfgText(buildControlFile([seq])),
+            commandText: toCfgText(batch.map(lineFor)),
+          }
     const cmdPath = join(env.gameDir, commandCfgName(seq))
     if (!r.firstCommand && batch.length === 1) r.firstCommand = { seq, line: lineFor(batch[0]) }
     keep('commandFirst', enc.commandText)
@@ -273,7 +347,10 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
 
   function writeMulti() {
     // The shipped builder: the poll plus one monotone guard per pending seq.
-    writeControl(toCfgText(buildControlFile([...pending.keys()])), pending.size ? 'controlFirstCommand' : 'controlIdle')
+    writeControl(
+      toCfgText(buildControlFile([...pending.keys()])),
+      pending.size ? 'controlFirstCommand' : 'controlIdle',
+    )
   }
 
   function sendMulti(s) {
@@ -360,7 +437,8 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
       }
       if (draining) return
       for (const entry of entries()) {
-        if (cfg.ackVia === 'file' && entry.batch.every((s) => s.markerSeenAt !== null)) settle(entry, now, 'file')
+        if (cfg.ackVia === 'file' && entry.batch.every((s) => s.markerSeenAt !== null))
+          settle(entry, now, 'file')
         else if (now - entry.sentAt >= ACK_TIMEOUT_MS) settle(entry, now, 'timeout')
       }
     } catch (e) {
@@ -379,9 +457,25 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
 
   function request(cmd, kind = 'single', burst = null) {
     const s = {
-      id: nextId++, kind, burst, cmd, requestedAt: performance.now(), seq: null, writtenAt: null, batchSize: null,
-      markerSeenAt: null, markerMtimeAt: null, markerWrites: 0, lastMtime: null,
-      logAckAt: null, logAckLive: 0, logAckAfterExit: false, fileAckAt: null, done: false, doneHow: null, timedOut: false,
+      id: nextId++,
+      kind,
+      burst,
+      cmd,
+      requestedAt: performance.now(),
+      seq: null,
+      writtenAt: null,
+      batchSize: null,
+      markerSeenAt: null,
+      markerMtimeAt: null,
+      markerWrites: 0,
+      lastMtime: null,
+      logAckAt: null,
+      logAckLive: 0,
+      logAckAfterExit: false,
+      fileAckAt: null,
+      done: false,
+      doneHow: null,
+      timedOut: false,
     }
     samples.push(s)
     if (cfg.dispatch === 'multiseq') sendMulti(s)
@@ -468,7 +562,13 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
       const t3 = performance.now()
       const running = (c1 - c0) / ((t1 - t0) / 1000)
       const stopped = (c3 - c2) / ((t3 - t2) / 1000)
-      r.sideEffects.cpu = { loopRunningCpuSecPerSec: Math.round(running * 10000) / 10000, afterStopCpuSecPerSec: Math.round(stopped * 10000) / 10000, runningCpuSec: Math.round((c1 - c0) * 1000) / 1000, stoppedCpuSec: Math.round((c3 - c2) * 1000) / 1000, raw: { c0, c1, c2, c3, t0, t1, t2, t3 } }
+      r.sideEffects.cpu = {
+        loopRunningCpuSecPerSec: Math.round(running * 10000) / 10000,
+        afterStopCpuSecPerSec: Math.round(stopped * 10000) / 10000,
+        runningCpuSec: Math.round((c1 - c0) * 1000) / 1000,
+        stoppedCpuSec: Math.round((c3 - c2) * 1000) / 1000,
+        raw: { c0, c1, c2, c3, t0, t1, t2, t3 },
+      }
       r.sideEffects.cpuDeltaPct = stopped > 0 ? r1(((running - stopped) / stopped) * 100) : null
     } else {
       writeControl(toCfgText(buildStopFile()), 'stop')
@@ -480,7 +580,10 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
     while (!exited && performance.now() - closeAt < 10000) await sleep(50)
   }
   r.exitedCleanly = exited
-  if (!exited) r.notes.push('game did not exit on WM_CLOSE; NOT killed (the log stays buffered) - end it by hand')
+  if (!exited)
+    r.notes.push(
+      'game did not exit on WM_CLOSE; NOT killed (the log stays buffered) - end it by hand',
+    )
   polling = false
   await pollLoop
   draining = true
@@ -505,7 +608,11 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
     await sleep(300)
   }
   let markerDirRemoved = false
-  if (!env.markerDirExisted && existsSync(env.markerDir) && readdirSync(env.markerDir).length === 0) {
+  if (
+    !env.markerDirExisted &&
+    existsSync(env.markerDir) &&
+    readdirSync(env.markerDir).length === 0
+  ) {
     rmdirSync(env.markerDir)
     markerDirRemoved = true
   }
@@ -530,40 +637,92 @@ async function runSession(env, name, cfg, driver, { cpu = true } = {}) {
     configRestored,
   }
 
-  Object.assign(r, summarize({ cfg, samples, batches, sizeJumps, ticks, blocked, launchAt, stopAt: stopAt ?? driverEndAt, logLines }))
+  Object.assign(
+    r,
+    summarize({
+      cfg,
+      samples,
+      batches,
+      sizeJumps,
+      ticks,
+      blocked,
+      launchAt,
+      stopAt: stopAt ?? driverEndAt,
+      logLines,
+    }),
+  )
   r.demoFinished = demoFinished
   r.renameRetries = renameRetries
   r.tickErrors = tickErrors
   r.timing = { launchAt: 0, stopAt: r1(d(stopAt, launchAt)), exitAt: r1(d(exitAt, launchAt)) }
   const rel = (x) => r1(d(x, launchAt))
   r.samples = samples.map((s) => ({
-    id: s.id, kind: s.kind, burst: s.burst, cmd: s.cmd, seq: s.seq, batchSize: s.batchSize,
-    requestedAt: rel(s.requestedAt), writtenAt: rel(s.writtenAt), markerSeenAt: rel(s.markerSeenAt), markerMtimeAt: rel(s.markerMtimeAt),
-    logAckAt: rel(s.logAckAt), logAckAfterExit: s.logAckAfterExit, fileAckAt: rel(s.fileAckAt), doneHow: s.doneHow, timedOut: s.timedOut,
-    markerMtimeChanges: s.markerWrites, logAckLines: s.logAckLines, markerLogLines: s.markerLogLines,
-    tookEffect: s.tookEffect, effectCheck: s.effectCheck, effectDetail: s.effectDetail ?? null, exactlyOnce: s.exactlyOnce,
+    id: s.id,
+    kind: s.kind,
+    burst: s.burst,
+    cmd: s.cmd,
+    seq: s.seq,
+    batchSize: s.batchSize,
+    requestedAt: rel(s.requestedAt),
+    writtenAt: rel(s.writtenAt),
+    markerSeenAt: rel(s.markerSeenAt),
+    markerMtimeAt: rel(s.markerMtimeAt),
+    logAckAt: rel(s.logAckAt),
+    logAckAfterExit: s.logAckAfterExit,
+    fileAckAt: rel(s.fileAckAt),
+    doneHow: s.doneHow,
+    timedOut: s.timedOut,
+    markerMtimeChanges: s.markerWrites,
+    logAckLines: s.logAckLines,
+    markerLogLines: s.markerLogLines,
+    tookEffect: s.tookEffect,
+    effectCheck: s.effectCheck,
+    effectDetail: s.effectDetail ?? null,
+    exactlyOnce: s.exactlyOnce,
   }))
-  r.batches = batches.map((b) => ({ t: rel(b.t), lines: b.lines, pos: b.pos, afterExit: b.afterExit }))
+  r.batches = batches.map((b) => ({
+    t: rel(b.t),
+    lines: b.lines,
+    pos: b.pos,
+    afterExit: b.afterExit,
+  }))
   // Not persisted: the raw log (the preflight reads it).
   Object.defineProperty(r, 'logLines', { value: logLines, enumerable: false })
-  Object.defineProperty(r, 'sizeJumpsRaw', { value: sizeJumps.map((j) => ({ t: j.t, bytes: j.bytes })), enumerable: false })
+  Object.defineProperty(r, 'sizeJumpsRaw', {
+    value: sizeJumps.map((j) => ({ t: j.t, bytes: j.bytes })),
+    enumerable: false,
+  })
   return r
 }
 
-function summarize({ cfg, samples, batches, sizeJumps, ticks, blocked, launchAt, stopAt, logLines }) {
+function summarize({
+  cfg,
+  samples,
+  batches,
+  sizeJumps,
+  ticks,
+  blocked,
+  launchAt,
+  stopAt,
+  logLines,
+}) {
   const out = {}
-  const entries = logLines.map((raw) => ({ ...parseEngineLine(raw), line: raw.replace(/^\[[^\]]*\] /, '') }))
+  const entries = logLines.map((raw) => ({
+    ...parseEngineLine(raw),
+    line: raw.replace(/^\[[^\]]*\] /, ''),
+  }))
 
   // Exactly-once: the guard echoes `ACK <seq>` each time it fires; writeconfig names the marker.
   const ackLines = new Map()
   const markerLines = new Map()
   for (const e of entries) {
     if (e.kind === 'ack') ackLines.set(e.seq, (ackLines.get(e.seq) ?? 0) + 1)
-    for (const m of e.line.matchAll(/q2l_mk_(\d+)\b/g)) markerLines.set(Number(m[1]), (markerLines.get(Number(m[1])) ?? 0) + 1)
+    for (const m of e.line.matchAll(/q2l_mk_(\d+)\b/g))
+      markerLines.set(Number(m[1]), (markerLines.get(Number(m[1])) ?? 0) + 1)
   }
   judgeEffects(entries, samples, cfg.waitFrames)
   for (const s of samples) {
-    s.logAckLines = s.seq === null ? 0 : ackLines.get(s.seq) ?? 0
+    s.logAckLines = s.seq === null ? 0 : (ackLines.get(s.seq) ?? 0)
     s.markerLogLines = markerLines.get(s.id) ?? 0
     // Authoritative: the engine's own lines (`ACK <seq>` per guard firing, `Wrote configs/q2l_mk_<id>.cfg.`
     // per marker write). Host-seen mtime changes are informational only (a write in progress can show two).
@@ -574,7 +733,8 @@ function summarize({ cfg, samples, batches, sizeJumps, ticks, blocked, launchAt,
   const singles = measured.filter((s) => s.kind === 'single')
   const logAck = (s) => (s.logAckAfterExit ? null : s.logAckAt)
   const configAck = (s) => (cfg.ackVia === 'file' ? s.fileAckAt : logAck(s))
-  const grid = (t) => (t === null ? null : launchAt + Math.ceil((t - launchAt) / LOG_POLL_MS) * LOG_POLL_MS)
+  const grid = (t) =>
+    t === null ? null : launchAt + Math.ceil((t - launchAt) / LOG_POLL_MS) * LOG_POLL_MS
 
   // AC1a: effect = host request -> engine-written marker seen by the host (10 ms poll).
   out.effect = stats(singles.map((s) => d(s.markerSeenAt, s.requestedAt)))
@@ -587,8 +747,12 @@ function summarize({ cfg, samples, batches, sizeJumps, ticks, blocked, launchAt,
   out.markerToAckAtProductionPoll = stats(singles.map((s) => d(grid(logAck(s)), s.markerSeenAt)))
 
   const groups = new Map()
-  for (const s of measured.filter((x) => x.kind === 'burst')) groups.set(s.burst, [...(groups.get(s.burst) ?? []), s])
-  const lastOf = (g, f) => (g.some((s) => f(s) === null || f(s) === undefined) ? null : Math.max(...g.map(f)) - Math.min(...g.map((s) => s.requestedAt)))
+  for (const s of measured.filter((x) => x.kind === 'burst'))
+    groups.set(s.burst, [...(groups.get(s.burst) ?? []), s])
+  const lastOf = (g, f) =>
+    g.some((s) => f(s) === null || f(s) === undefined)
+      ? null
+      : Math.max(...g.map(f)) - Math.min(...g.map((s) => s.requestedAt))
   const lastAck = stats([...groups.values()].map((g) => lastOf(g, configAck)))
   out.burst = {
     n: groups.size,
@@ -620,7 +784,8 @@ function summarize({ cfg, samples, batches, sizeJumps, ticks, blocked, launchAt,
   const livePos = live.filter((b) => b.pos > 0)
   const posIv = []
   for (let i = 1; i < livePos.length; i++) {
-    if (!blocked.some(([x, y]) => x < livePos[i].t && y > livePos[i - 1].t)) posIv.push(livePos[i].t - livePos[i - 1].t)
+    if (!blocked.some(([x, y]) => x < livePos[i].t && y > livePos[i - 1].t))
+      posIv.push(livePos[i].t - livePos[i - 1].t)
   }
   out.posIntervals = stats(posIv)
   const posBuckets = [...new Set(livePos.map((b) => Math.ceil((b.t - launchAt) / LOG_POLL_MS)))]
@@ -639,12 +804,20 @@ function summarize({ cfg, samples, batches, sizeJumps, ticks, blocked, launchAt,
     return {
       burst: first.burst,
       requestSpanMs: r1(gs[gs.length - 1].requestedAt - first.requestedAt),
-      writtenBeforeFirstAck: first.logAckAt === null ? null : gs.slice(1).every((s) => s.writtenAt < first.logAckAt),
+      writtenBeforeFirstAck:
+        first.logAckAt === null ? null : gs.slice(1).every((s) => s.writtenAt < first.logAckAt),
       writtenAtMs: gs.map((s) => r1(s.writtenAt - first.requestedAt)),
       effectAtMs: gs.map((s) => r1(d(s.markerSeenAt, first.requestedAt))),
       ackAtMs: gs.map((s) => r1(d(ackT(s), first.requestedAt))),
       seqs: gs.map((s) => s.seq),
-      inOrder: gs.every((s, i) => i === 0 || (s.markerSeenAt !== null && gs[i - 1].markerSeenAt !== null && s.markerSeenAt >= gs[i - 1].markerSeenAt && s.seq > gs[i - 1].seq)),
+      inOrder: gs.every(
+        (s, i) =>
+          i === 0 ||
+          (s.markerSeenAt !== null &&
+            gs[i - 1].markerSeenAt !== null &&
+            s.markerSeenAt >= gs[i - 1].markerSeenAt &&
+            s.seq > gs[i - 1].seq),
+      ),
       eachOnce: gs.every((s) => s.exactlyOnce),
     }
   })
@@ -674,7 +847,9 @@ function summarize({ cfg, samples, batches, sizeJumps, ticks, blocked, launchAt,
     duplicates: measured.filter((s) => s.logAckLines > 1 || s.markerLogLines > 1).map((s) => s.id),
   }
   const quiet = /^(Execing |PAD|Wrote configs\/q2l_mk_)/
-  out.notableLines = [...new Set(entries.filter((e) => e.kind === 'other' && !quiet.test(e.line)).map((e) => e.line))].slice(0, 60)
+  out.notableLines = [
+    ...new Set(entries.filter((e) => e.kind === 'other' && !quiet.test(e.line)).map((e) => e.line)),
+  ].slice(0, 60)
   out.timeouts = measured.filter((s) => s.timedOut).length
 
   // Side effects: launcher lines per second while the loop lived, by kind; starvation probe.
@@ -698,10 +873,17 @@ function summarize({ cfg, samples, batches, sizeJumps, ticks, blocked, launchAt,
   const loopSeconds = (stopAt - launchAt) / 1000
   const afterIdx = entries.findIndex((e) => e.line === AFTERARG)
   out.sideEffectsPartial = {
-    linesPerSec: Object.fromEntries(Object.entries(kinds).map(([k, v]) => [k, r1(v / loopSeconds)])),
+    linesPerSec: Object.fromEntries(
+      Object.entries(kinds).map(([k, v]) => [k, r1(v / loopSeconds)]),
+    ),
     linesTotalWhileLoop: kinds,
     starved: !(afterIdx >= 0 && afterIdx < lastPos),
-    afterArg: { seen: afterIdx >= 0, lineIndex: afterIdx, firstPosIndex: firstPos, lastPosIndex: lastPos },
+    afterArg: {
+      seen: afterIdx >= 0,
+      lineIndex: afterIdx,
+      firstPosIndex: firstPos,
+      lastPosIndex: lastPos,
+    },
   }
   out.logLineCount = entries.length
   return out
@@ -726,7 +908,8 @@ function judgeEffects(entries, samples, waitFrames) {
     for (let j = 0; j < posIdx.length && posIdx[j] < i; j++) k = j
     if (k < 0 || k + 1 >= posIdx.length) continue
     let other = false
-    for (let j = posIdx[k] + 1; j < posIdx[k + 1]; j++) if (entries[j].kind === 'ack' && j !== i) other = true
+    for (let j = posIdx[k] + 1; j < posIdx[k + 1]; j++)
+      if (entries[j].kind === 'ack' && j !== i) other = true
     if (other) continue
     const res = checkEffect(s.cmd, entries, posIdx, k, waitFrames)
     s.effectCheck = res.ok
@@ -737,13 +920,20 @@ function judgeEffects(entries, samples, waitFrames) {
 function checkEffect(cmd, entries, posIdx, k, waitFrames) {
   const pre = entries[posIdx[k]]
   const post = entries[posIdx[k + 1]]
-  const detail = { prePos: pre.positionMs, postPos: post.positionMs, prePaused: pre.paused, postPaused: post.paused }
+  const detail = {
+    prePos: pre.positionMs,
+    postPos: post.positionMs,
+    prePaused: pre.paused,
+    postPaused: post.paused,
+  }
   const res = (ok, extra = {}) => ({ ok, detail: { ...detail, ...extra } })
-  if (cmd === 'pause') return res(pre.paused === null || post.paused === null ? null : pre.paused !== post.paused)
+  if (cmd === 'pause')
+    return res(pre.paused === null || post.paused === null ? null : pre.paused !== post.paused)
   if (pre.positionMs === null || post.positionMs === null) return res(null)
   const delta = post.positionMs - pre.positionMs
   if (cmd === 'seek +10') return res(delta >= 7000 && delta <= 14000)
-  if (cmd === 'seek -10') return res((delta <= -7000 && delta >= -14000) || (delta < 0 && post.positionMs <= 1000))
+  if (cmd === 'seek -10')
+    return res((delta <= -7000 && delta >= -14000) || (delta < 0 && post.positionMs <= 1000))
   const ts = /^timescale (\S+)$/.exec(cmd)
   if (!ts) return res(null)
   // Demo-time advance per tick before vs after, over a window of ~0.8 s wall time.
@@ -758,7 +948,6 @@ function checkEffect(cmd, entries, posIdx, k, waitFrames) {
   if (before <= 0 || after < 0) return res(null, extra)
   return res(Number(ts[1]) > 1 ? after / before > 1.4 : after / before < 0.75, extra)
 }
-
 
 function sampleDriver(opts, ts, name) {
   return async (api) => {
@@ -807,9 +996,14 @@ function productionCheck(r, env) {
     controlFirstCommand: enc !== null && c.controlFirstCommand === enc.controlText,
     commandFirst: enc !== null && c.commandFirst === enc.commandText,
     stop: c.stop === toCfgText(buildStopFile()),
-    logfileFlush3InLaunchArgs: r.launch.args.some((a, i) => a === 'logfile_flush' && r.launch.args[i - 1] === '+set' && r.launch.args[i + 1] === '3'),
+    logfileFlush3InLaunchArgs: r.launch.args.some(
+      (a, i) =>
+        a === 'logfile_flush' && r.launch.args[i - 1] === '+set' && r.launch.args[i + 1] === '3',
+    ),
     launchArgsHaveOneFlush: r.launch.args.filter((a) => a === 'logfile_flush').length === 1,
-    launchArgs: joined.includes([...argsBeforeDemo, '+demo', env.demo, ...argsAfterDemo].join('\u0000')),
+    launchArgs: joined.includes(
+      [...argsBeforeDemo, '+demo', env.demo, ...argsAfterDemo].join('\u0000'),
+    ),
   }
 }
 
@@ -821,31 +1015,64 @@ async function main() {
   }
   const env = makeEnv(opts)
   if (!existsSync(env.exe)) throw new Error(`no q2pro at ${env.exe}`)
-  if (!existsSync(join(env.gameDir, 'demos', opts.demo))) throw new Error(`no demo ${opts.demo} in ${join(env.gameDir, 'demos')}`)
+  if (!existsSync(join(env.gameDir, 'demos', opts.demo)))
+    throw new Error(`no demo ${opts.demo} in ${join(env.gameDir, 'demos')}`)
   mkdirSync(RESULTS, { recursive: true })
   const ts = new Date().toISOString().replace(/[:.]/g, '-')
   const outPath = join(RESULTS, `${ts}.json`)
   const launched = windowsLaunchArgs()
   const fi = launched.argsBeforeDemo.indexOf('logfile_flush')
-  if (fi < 0 || launched.argsBeforeDemo[fi + 1] !== '3') throw new Error('shipped windowsLaunchArgs() does not carry logfile_flush 3')
+  if (fi < 0 || launched.argsBeforeDemo[fi + 1] !== '3')
+    throw new Error('shipped windowsLaunchArgs() does not carry logfile_flush 3')
   const out = {
     ts,
     options: opts,
-    protocol: { LOOP_CFG_NAME, CONTROL_CFG_NAME, LOG_FILE_NAME, LOG_FILE_RELATIVE, LOG_POLL_MS, ACK_TIMEOUT_MS, LOOP_WAIT_FRAMES },
-    shipped: { loop: buildLoopCfg(), controlIdle: buildControlFile([]), controlThreeSeqs: buildControlFile([1, 2, 3]), launch: launched },
-    harness: { TAIL_POLL_MS, STARTUP_MS, SINGLE_SPACING_MS, SINGLE_JITTER_MS, BURST_GAP_MS, CPU_WINDOW_MS, SINGLE_MIX, BURST_MIX, REWIND_ABOVE_MS, GEOMETRY },
+    protocol: {
+      LOOP_CFG_NAME,
+      CONTROL_CFG_NAME,
+      LOG_FILE_NAME,
+      LOG_FILE_RELATIVE,
+      LOG_POLL_MS,
+      ACK_TIMEOUT_MS,
+      LOOP_WAIT_FRAMES,
+    },
+    shipped: {
+      loop: buildLoopCfg(),
+      controlIdle: buildControlFile([]),
+      controlThreeSeqs: buildControlFile([1, 2, 3]),
+      launch: launched,
+    },
+    harness: {
+      TAIL_POLL_MS,
+      STARTUP_MS,
+      SINGLE_SPACING_MS,
+      SINGLE_JITTER_MS,
+      BURST_GAP_MS,
+      CPU_WINDOW_MS,
+      SINGLE_MIX,
+      BURST_MIX,
+      REWIND_ABOVE_MS,
+      GEOMETRY,
+    },
     configs: {},
   }
   const save = () => writeFileSync(outPath, JSON.stringify(out, null, 2))
   {
     const name = 'shipped'
     const res = await runSession(env, name, { ...BASE }, sampleDriver(opts, ts, name))
-    res.sideEffects = { ...res.sideEffectsPartial, cpuDeltaPct: res.sideEffects.cpuDeltaPct ?? null, cpu: res.sideEffects.cpu ?? null, screenshot: res.sideEffects.screenshot }
+    res.sideEffects = {
+      ...res.sideEffectsPartial,
+      cpuDeltaPct: res.sideEffects.cpuDeltaPct ?? null,
+      cpu: res.sideEffects.cpu ?? null,
+      screenshot: res.sideEffects.screenshot,
+    }
     delete res.sideEffectsPartial
     res.productionUnmodified = productionCheck(res, env)
     out.configs[name] = res
     save()
-    console.log(`[${name}] effect p50 ${res.effect.p50} ms, ack p50/p95 ${res.ack.p50}/${res.ack.p95} ms (50 ms grid ${res.ackAtProductionPoll.p50}/${res.ackAtProductionPoll.p95}), pos interval p95 ${res.posIntervals.p95}, leftover ${res.cleanup.leftover.length}`)
+    console.log(
+      `[${name}] effect p50 ${res.effect.p50} ms, ack p50/p95 ${res.ack.p50}/${res.ack.p95} ms (50 ms grid ${res.ackAtProductionPoll.p50}/${res.ackAtProductionPoll.p95}), pos interval p95 ${res.posIntervals.p95}, leftover ${res.cleanup.leftover.length}`,
+    )
     if (!res.exitedCleanly) throw new Error('game did not exit on WM_CLOSE - aborting')
   }
   out.q2proRunningAfter = q2proRunning()

@@ -160,7 +160,8 @@ export async function queryServer(
   const clock = options.clock ?? systemClock
   const signal = options.signal
 
-  const datagram = kind === 'info' ? buildInfoQuery(INFO_QUERY_PROTOCOL_VERSION) : buildStatusQuery()
+  const datagram =
+    kind === 'info' ? buildInfoQuery(INFO_QUERY_PROTOCOL_VERSION) : buildStatusQuery()
 
   let settled = false
   let socket: ServerUdpSocket | null = null

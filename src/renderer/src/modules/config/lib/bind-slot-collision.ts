@@ -90,7 +90,9 @@ function ownerLabel(profile: ConfigProfile, collision: BindCollision): string {
  * `modifier-layers.ts`'s module doc comment).
  */
 export function layerNameForModifier(layers: AltLayer[], modifier: ModifierTrigger): string {
-  const layer = layers.find((candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier)
+  const layer = layers.find(
+    (candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier,
+  )
   return layer?.name ?? MODIFIER_LAYER_NAME[modifier]
 }
 
@@ -236,7 +238,9 @@ export function findModifierSlotCollision(
   ignoreActionId?: string,
 ): ModifierSlotCollision | null {
   const normalizedKey = normalizeBindKey(key)
-  const layer = layers.find((candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier)
+  const layer = layers.find(
+    (candidate) => normalizeBindKey(candidate.triggerKey ?? '') === modifier,
+  )
   const layerId = layer?.id ?? ''
   const layerName = layer?.name ?? MODIFIER_LAYER_NAME[modifier]
 

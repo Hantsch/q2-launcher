@@ -113,7 +113,12 @@ export interface ResolvedCvar {
  * keeping a second copy, and the config-file writer (`render.ts`, D2) sections cvars by it too -
  * one order, not two that could drift apart.
  */
-export const CVAR_GROUP_ORDER: readonly CvarDef['group'][] = ['player', 'network', 'graphics', 'sound']
+export const CVAR_GROUP_ORDER: readonly CvarDef['group'][] = [
+  'player',
+  'network',
+  'graphics',
+  'sound',
+]
 
 /**
  * Plain ASCII English label per cvar group (story 040 D1). The renderer keeps resolving its own
@@ -169,7 +174,11 @@ function sameValue(a: string, b: string): boolean {
 }
 
 /** The note that applies to `value` on `engine`, if the engine has one. */
-export function noteForValue(def: CvarDef, engine: EngineKind, value: string): EngineValueNote | undefined {
+export function noteForValue(
+  def: CvarDef,
+  engine: EngineKind,
+  value: string,
+): EngineValueNote | undefined {
   return def.byEngine?.[engine]?.valueNotes?.find((n) => sameValue(n.value, value))
 }
 
@@ -206,7 +215,11 @@ export interface ForeignValueNote {
  * loud. The caller can turn `engine` into a display label via `engineLabel()`
  * in `src/shared/types/engine.ts`.
  */
-export function foreignNotesForValue(def: CvarDef, engine: EngineKind, value: string): ForeignValueNote[] {
+export function foreignNotesForValue(
+  def: CvarDef,
+  engine: EngineKind,
+  value: string,
+): ForeignValueNote[] {
   const out: ForeignValueNote[] = []
   for (const other of Object.keys(def.byEngine ?? {}) as EngineKind[]) {
     if (other === engine) continue

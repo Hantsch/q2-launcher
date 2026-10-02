@@ -80,7 +80,13 @@ function doc(file = 'q2l-profile-src.cfg'): DocBuilder {
     /** `codeWidth` is what the parser measures off the raw line - omitted by every case that does
      * not care, exactly as a caller with no raw line to measure omits it. */
     alias: (name: string, body: string, comment = '', codeWidth?: number): void =>
-      void aliases.push({ ...at(), name, body, comment, ...(codeWidth === undefined ? {} : { codeWidth }) }),
+      void aliases.push({
+        ...at(),
+        name,
+        body,
+        comment,
+        ...(codeWidth === undefined ? {} : { codeWidth }),
+      }),
     bind: (key: string, command: string, comment = ''): void =>
       void binds.push({ ...at(), key, command, comment }),
     cvar: (name: string, value: string, comment = ''): void =>
@@ -127,7 +133,11 @@ describe('restoreProfileParts - what a launcher-written file gives back', () => 
     const file = doc()
     file.version()
     file.header('Aliases: Weapons', formatMetaTag({ cat: 'weapons' }))
-    file.alias('ssg_sg', 'use super shotgun; use shotgun', tagged('SSG + SG', { cid: 'weapon:ssg_sg' }))
+    file.alias(
+      'ssg_sg',
+      'use super shotgun; use shotgun',
+      tagged('SSG + SG', { cid: 'weapon:ssg_sg' }),
+    )
     file.header('Binds: Weapons', formatMetaTag({ cat: 'weapons' }))
     file.bind('q', 'ssg_sg', tagged('SSG + SG', { cid: 'weapon:ssg_sg' }))
     file.bind('MOUSE2', 'ssg_sg', tagged('SSG + SG', { cid: 'weapon:ssg_sg' }))
@@ -259,7 +269,10 @@ describe('restoreProfileParts - what a launcher-written file gives back', () => 
     file.comment(tagged('Rocket', { cid: 'weapon:rl', key: 'r', mod: 'ALT' }))
     file.header('Binds: Weapons', formatMetaTag({ cat: 'weapons' }))
     file.bind('t', 'rl', tagged('Rocket', { cid: 'weapon:rl' }))
-    file.header('Layer: Alt (hold, on ALT)', formatMetaTag({ layer: 'l-alt', mode: 'hold', trigger: 'ALT' }))
+    file.header(
+      'Layer: Alt (hold, on ALT)',
+      formatMetaTag({ layer: 'l-alt', mode: 'hold', trigger: 'ALT' }),
+    )
     file.alias('+alt', 'bind r rl', ' Alt')
     file.alias('-alt', 'unbind r', ' Alt')
     file.bind('ALT', '+alt', ' Alt')
@@ -351,11 +364,9 @@ describe('restoreProfileParts - what a launcher-written file gives back', () => 
     // One entry, not three: the `_p<n>` family folds onto the base line that calls it.
     expect(result.actions).toHaveLength(1)
     expect(action!.aliasName).toBe('drop_all')
-    expect(action!.commands.map((command) => (command.kind === 'raw' ? command.text : ''))).toEqual([
-      'drop rl',
-      'drop rg',
-      'drop bfg',
-    ])
+    expect(action!.commands.map((command) => (command.kind === 'raw' ? command.text : ''))).toEqual(
+      ['drop rl', 'drop rg', 'drop bfg'],
+    )
   })
 
   it('joins a bind line onto a chunk-split family through its base name', () => {
@@ -602,7 +613,10 @@ describe('restoreProfileParts - layers', () => {
     file.alias('quad_rl', 'use rocket launcher; say_team quad up', tagged('Quad RL'))
     file.header('Entries: Weapons', formatMetaTag({ cat: 'weapons' }))
     file.comment(tagged('Quad RL', { key: 'r', mod: 'ALT' }))
-    file.header('Layer: Alt (hold, on ALT)', formatMetaTag({ layer: 'remote-alt', mode: 'hold', trigger: 'ALT' }))
+    file.header(
+      'Layer: Alt (hold, on ALT)',
+      formatMetaTag({ layer: 'remote-alt', mode: 'hold', trigger: 'ALT' }),
+    )
     file.alias('+alt', 'bind r quad_rl', ' Alt')
     file.alias('-alt', 'unbind r', ' Alt')
     file.bind('ALT', '+alt', ' Alt')
@@ -635,7 +649,10 @@ describe('restoreProfileParts - layers', () => {
     file.version()
     file.header('Aliases: Weapons', formatMetaTag({ cat: 'weapons' }))
     file.alias('quad_rl', 'use rocket launcher; say_team quad up', tagged('Quad RL'))
-    file.header('Layer: Alt (hold, on ALT)', formatMetaTag({ layer: 'remote-alt', mode: 'hold', trigger: 'ALT' }))
+    file.header(
+      'Layer: Alt (hold, on ALT)',
+      formatMetaTag({ layer: 'remote-alt', mode: 'hold', trigger: 'ALT' }),
+    )
     file.alias('+alt', 'bind r quad_rl', ' Alt')
     file.alias('-alt', 'unbind r', ' Alt')
     file.bind('ALT', '+alt', ' Alt')
@@ -662,7 +679,10 @@ describe('restoreProfileParts - layers', () => {
     file.header('Binds: Weapons', formatMetaTag({ cat: 'weapons' }))
     file.bind('q', 'quad_rl', tagged('Quad RL'))
     file.bind('e', 'quad_rl', tagged('Quad RL'))
-    file.header('Layer: Alt (hold, on ALT)', formatMetaTag({ layer: 'l-alt', mode: 'hold', trigger: 'ALT' }))
+    file.header(
+      'Layer: Alt (hold, on ALT)',
+      formatMetaTag({ layer: 'l-alt', mode: 'hold', trigger: 'ALT' }),
+    )
     file.alias('+alt', 'bind r quad_rl', ' Alt')
     file.alias('-alt', 'unbind r', ' Alt')
     file.bind('ALT', '+alt', ' Alt')
@@ -680,7 +700,10 @@ describe('restoreProfileParts - layers', () => {
   it('reports a trigger tag the layer section does not actually bind, and follows the file', () => {
     const file = doc()
     file.version()
-    file.header('Layer: Drops (hold, on ALT)', formatMetaTag({ layer: 'l1', mode: 'hold', trigger: 'ALT' }))
+    file.header(
+      'Layer: Drops (hold, on ALT)',
+      formatMetaTag({ layer: 'l1', mode: 'hold', trigger: 'ALT' }),
+    )
     file.alias('+drops', 'bind 1 drop rl', ' Drops')
     file.alias('-drops', 'unbind 1', ' Drops')
     file.bind('CTRL', '+drops', ' Drops')
@@ -702,7 +725,10 @@ describe('restoreProfileParts - anchor lines and how they find their entry', () 
     file.version()
     file.header('Entries: Movement', formatMetaTag({ cat: 'movement' }))
     file.comment(tagged('Forward', { cid: 'forward', key: 'w', mod: 'ALT' }))
-    file.header('Layer: Alt (hold, on ALT)', formatMetaTag({ layer: 'remote-alt', mode: 'hold', trigger: 'ALT' }))
+    file.header(
+      'Layer: Alt (hold, on ALT)',
+      formatMetaTag({ layer: 'remote-alt', mode: 'hold', trigger: 'ALT' }),
+    )
     file.alias('+alt', 'bind w +forward', ' Alt')
     file.alias('-alt', 'unbind w', ' Alt')
     file.bind('ALT', '+alt', ' Alt')
@@ -828,14 +854,20 @@ describe('restoreProfileParts - anchor lines and how they find their entry', () 
     file.alias('quad_rl', 'use rocket launcher', tagged('Quad RL'))
     file.header('Entries: Weapons', formatMetaTag({ cat: 'weapons' }))
     file.comment(tagged('Something else entirely', { an: 'quad_rl', key: 'g', mod: 'SHIFT' }))
-    file.header('Layer: Alt (hold, on SHIFT)', formatMetaTag({ layer: 'l-s', mode: 'hold', trigger: 'SHIFT' }))
+    file.header(
+      'Layer: Alt (hold, on SHIFT)',
+      formatMetaTag({ layer: 'l-s', mode: 'hold', trigger: 'SHIFT' }),
+    )
     file.alias('+shifted', 'bind g quad_rl', ' Shifted')
     file.alias('-shifted', 'unbind g', ' Shifted')
     file.bind('SHIFT', '+shifted', ' Shifted')
 
     const result = file.restore()
 
-    expect(result.actions.map((action) => action.name)).toEqual(['Quad RL', 'Something else entirely'])
+    expect(result.actions.map((action) => action.name)).toEqual([
+      'Quad RL',
+      'Something else entirely',
+    ])
     // The alias line's entry keeps its own line and its own name; the anchor's entry keeps the key
     // and modifier the anchor recorded. Nothing was dropped and nothing was merged.
     expect(slotsOf(result.actions[0])).toEqual([])
@@ -905,7 +937,10 @@ describe('restoreProfileParts - anchor lines and how they find their entry', () 
     // The self-mirroring shape story 039 drops the alias line for: nothing in the file spells
     // `weapnext` as code, so the tag is the only place the entry's own alias name can live.
     file.comment(tagged('Next weapon', { an: 'weapnext', key: 'MWHEELUP', mod: 'ALT' }))
-    file.header('Layer: Alt (hold, on ALT)', formatMetaTag({ layer: 'l-alt', mode: 'hold', trigger: 'ALT' }))
+    file.header(
+      'Layer: Alt (hold, on ALT)',
+      formatMetaTag({ layer: 'l-alt', mode: 'hold', trigger: 'ALT' }),
+    )
     file.alias('+alt', 'bind MWHEELUP weapnext', ' Alt')
     file.alias('-alt', 'unbind MWHEELUP', ' Alt')
     file.bind('ALT', '+alt', ' Alt')
@@ -1069,7 +1104,11 @@ describe('restoreProfileParts - unbound lines (story 052 D3)', () => {
     const file = doc()
     file.version()
     file.header('Aliases: Weapons', formatMetaTag({ cat: 'weapons' }))
-    file.alias('ssg_sg', 'use super shotgun; use shotgun', tagged('SSG + SG', { cid: 'weapon:ssg_sg' }))
+    file.alias(
+      'ssg_sg',
+      'use super shotgun; use shotgun',
+      tagged('SSG + SG', { cid: 'weapon:ssg_sg' }),
+    )
     file.header('Binds: Weapons', formatMetaTag({ cat: 'weapons' }))
     file.bind('q', 'ssg_sg', tagged('SSG + SG', { cid: 'weapon:ssg_sg' }))
     file.header('Entries: Weapons', formatMetaTag({ cat: 'weapons' }))
@@ -1479,9 +1518,9 @@ describe('restoreProfileParts - an unbound line beside an alias line (story 063 
     expect(relay.catalogId).toBe('weapons:lone-relay')
     expect(keysOf(relay)).toEqual([])
     // One `catalogId`, on one entry: the split's own signature was two entries carrying it.
-    expect(result.actions.filter((action) => action.catalogId === 'weapons:lone-relay')).toHaveLength(
-      1,
-    )
+    expect(
+      result.actions.filter((action) => action.catalogId === 'weapons:lone-relay'),
+    ).toHaveLength(1)
     // The caller is untouched, and still calls the relay by the exact name it is defined under.
     const caller = result.actions.find((action) => action.name === 'Relay caller')!
     expect(caller.kind).toBe('bind')
@@ -1972,7 +2011,12 @@ describe('restoreProfileParts - a file with no metadata at all', () => {
     const input = file.input({ newId: idFactory(), layerAliases: ['cali'] })
     const restored = restoreProfileParts(input)
     const expected = buildImportedActions({
-      aliases: input.aliases.map(({ name, body, file: from, line }) => ({ name, body, file: from, line })),
+      aliases: input.aliases.map(({ name, body, file: from, line }) => ({
+        name,
+        body,
+        file: from,
+        line,
+      })),
       binds: Object.fromEntries(input.binds.map((bind) => [bind.key, bind.command])),
       layerAliases: ['cali'],
       newId: idFactory(),
@@ -2009,7 +2053,11 @@ describe('restoreProfileParts - toggle and press/release entries (story 045)', (
     const file = doc()
     file.version()
     file.header('Aliases: Movement', formatMetaTag({ cat: 'movement' }))
-    file.alias('zoom_s1', 'fov 30; sensitivity 1.5; alias zoom zoom_s2', tagged('Zoom', { lbl: 'In' }))
+    file.alias(
+      'zoom_s1',
+      'fov 30; sensitivity 1.5; alias zoom zoom_s2',
+      tagged('Zoom', { lbl: 'In' }),
+    )
     file.alias('zoom_s2', 'fov 90; alias zoom zoom_s1', tagged('Zoom', { lbl: 'Out' }))
     file.alias('zoom', 'zoom_s1', tagged('Zoom'))
     file.header('Binds: Movement', formatMetaTag({ cat: 'movement' }))

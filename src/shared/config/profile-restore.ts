@@ -551,7 +551,9 @@ const TITLE_PREFIXES = ['Aliases: ', 'Binds: ', 'Entries: ']
  * for what this closes: `plain` header style has no decoration `BANNER_RULE` could otherwise match,
  * so without this a hand-deleted `cat=` tag left a real category invisible as a section boundary
  * under that style specifically (story-042-review round 6). */
-const CATEGORY_TITLE_PREFIX = new RegExp(`^(?:${TITLE_PREFIXES.map((p) => p.trim().slice(0, -1)).join('|')}): `)
+const CATEGORY_TITLE_PREFIX = new RegExp(
+  `^(?:${TITLE_PREFIXES.map((p) => p.trim().slice(0, -1)).join('|')}): `,
+)
 
 /**
  * A parsed comment, tag and prose separated, tolerant of a *banner*'s trailing decoration.
@@ -780,13 +782,25 @@ const MIRROR_TITLE_CONTENT = /[\p{L}\p{N}]/u
 
 /** The paired delimiters that mirror into each other rather than into themselves, so `<< X >>` reads
  * as wrapped and `<< X <<` does not. Every other punctuation character mirrors to itself. */
-const MIRROR_PAIRS: Record<string, string> = { '<': '>', '>': '<', '[': ']', ']': '[', '(': ')', ')': '(', '{': '}', '}': '{' }
+const MIRROR_PAIRS: Record<string, string> = {
+  '<': '>',
+  '>': '<',
+  '[': ']',
+  ']': '[',
+  '(': ')',
+  ')': '(',
+  '{': '}',
+  '}': '{',
+}
 
 function mirroredWrapTitle(text: string): string | null {
   const match = MIRROR_WRAP.exec(text.trim())
   if (!match) return null
   const [, open, title, close] = match
-  const mirrored = [...open!].reverse().map((char) => MIRROR_PAIRS[char] ?? char).join('')
+  const mirrored = [...open!]
+    .reverse()
+    .map((char) => MIRROR_PAIRS[char] ?? char)
+    .join('')
   if (close !== mirrored) return null
   if ([...open!].every((char) => char === open![0])) return null
   if (!MIRROR_TITLE_CONTENT.test(title!)) return null
@@ -816,7 +830,10 @@ function peelForeignBracketWrap(text: string): string | null {
   const match = FOREIGN_OUTER_WRAP.exec(text)
   if (!match) return null
   const [, open, inner, close] = match
-  const mirrored = [...open!].reverse().map((char) => MIRROR_PAIRS[char] ?? char).join('')
+  const mirrored = [...open!]
+    .reverse()
+    .map((char) => MIRROR_PAIRS[char] ?? char)
+    .join('')
   return close === mirrored ? inner! : null
 }
 
@@ -908,7 +925,10 @@ function heuristicSubcategoryParent(
   if (!repeated) return undefined
   return [...sections]
     .reverse()
-    .find((candidate) => candidate.file === file && (candidate.kind === 'category' || candidate.kind === 'plain'))
+    .find(
+      (candidate) =>
+        candidate.file === file && (candidate.kind === 'category' || candidate.kind === 'plain'),
+    )
 }
 
 /**
@@ -1068,7 +1088,9 @@ function bannerTitle(prose: string, tagSliced: boolean): { title: string; block?
     // `----- [ Nested ] -----`) - a false positive that strips real content, not decoration. Only a
     // genuinely untagged brackets banner can still have the real suffix in `rest` at all.
     bare =
-      !tagSliced && rest.endsWith(BRACKETS_SUFFIX) ? rest.slice(0, -BRACKETS_SUFFIX.length) : rest.trimEnd()
+      !tagSliced && rest.endsWith(BRACKETS_SUFFIX)
+        ? rest.slice(0, -BRACKETS_SUFFIX.length)
+        : rest.trimEnd()
   } else if (trimmedStart.startsWith(DASHES_PREFIX)) {
     const rest = trimmedStart.slice(DASHES_PREFIX.length)
     const fill = tagSliced ? null : DASHES_SUFFIX.exec(rest)
@@ -1308,7 +1330,12 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
     if (parsed.tagged) anyTag = true
     if (parsed.malformed) warnings.push({ reason: 'tag-malformed', file, line })
     if (parsed.unknownKeys.length > 0) {
-      warnings.push({ reason: 'tag-unknown-keys', file, line, subject: parsed.unknownKeys.join(',') })
+      warnings.push({
+        reason: 'tag-unknown-keys',
+        file,
+        line,
+        subject: parsed.unknownKeys.join(','),
+      })
     }
 
     if (parsed.fields.v !== undefined && version === null) {
@@ -1333,7 +1360,14 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
         const ownershipId = (parsed.fields.id ?? '').trim()
         if (ownershipId.length > 0) sentinels.push({ id: ownershipId, file })
         consumed.push({ file, line })
-        consumeHeaderDecoration(comments, index, file, line, consumed, isBannerHeaderTagLine(parsed))
+        consumeHeaderDecoration(
+          comments,
+          index,
+          file,
+          line,
+          consumed,
+          isBannerHeaderTagLine(parsed),
+        )
       }
     }
 
@@ -1342,7 +1376,12 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
     // heuristic sub-category branch and its "did this qualify at all" condition need the same
     // answer - see `heuristicSubcategoryParent`'s own doc comment for what "qualify" means.
     const heuristicWrap = parsed.tagged ? null : decorationWrap(comment.text)
-    const heuristicParent = heuristicSubcategoryParent(sections, heuristicWrap, decorationTally, file)
+    const heuristicParent = heuristicSubcategoryParent(
+      sections,
+      heuristicWrap,
+      decorationTally,
+      file,
+    )
     // Story 053 D4 (review fix): the same "an untagged line the file itself decorated" question, one
     // level up - see `mirroredWrapTitle`. Untagged only, for the same reason `heuristicWrap` is: a
     // tagged line's tag has already said what the line is.
@@ -1485,7 +1524,14 @@ function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
       // Story 053 D4 (review fix): a mirror-wrapped foreign header (`mirroredWrapTitle`) lands here
       // too, and brings its own stripped title - `bannerTitle` knows only this writer's three banner
       // shapes, so for `.: Main Key's :.` it would hand back the whole decorated line as the name.
-      sections.push({ kind: 'plain', title: mirroredTitle ?? title, block, fields: parsed.fields, file, line })
+      sections.push({
+        kind: 'plain',
+        title: mirroredTitle ?? title,
+        block,
+        fields: parsed.fields,
+        file,
+        line,
+      })
     }
   }
 
@@ -1844,7 +1890,9 @@ function categoryRegistry(
       // own title, so a colleague's category comes back as a real local category under the id
       // their file states and the next render writes that same tag back.
       const template = TEMPLATE_ACTION_CATEGORIES.find((category) => category.id === tagged)
-      return template ? mintTemplate(key, template, section.title) : mint(key, section.title, tagged)
+      return template
+        ? mintTemplate(key, template, section.title)
+        : mint(key, section.title, tagged)
     }
     return mint(key, section.title)
   }
@@ -2031,7 +2079,9 @@ function cvarSectionRegistry(
     if (existing) return existing
     const stated = taggedCvarSectionId(section.fields)
     const template =
-      stated === null ? undefined : STANDARD_TEMPLATE.cvarSections.find((seed) => seed.id === stated)
+      stated === null
+        ? undefined
+        : STANDARD_TEMPLATE.cvarSections.find((seed) => seed.id === stated)
     // A template id is kept verbatim exactly as `categoryRegistry#mintTemplate` keeps one; any other
     // stated id is adopted through `adoptableId` (story 079 D1), and an untagged `'plain'` banner
     // (`stated === null`) mints from its title as before.
@@ -2248,7 +2298,8 @@ function foldedAliasBody(lines: readonly TaggedLine<RestoreAliasLine>[]): {
 
   for (const line of lines) {
     const match = CHUNK_SUFFIX.exec(line.item.name)
-    if (match && names.has(match[1]!)) chunks.push({ index: Number(match[2]), body: line.item.body })
+    if (match && names.has(match[1]!))
+      chunks.push({ index: Number(match[2]), body: line.item.body })
     else parents.push(line.item)
   }
 
@@ -2735,7 +2786,10 @@ function twoPartProse(primary: EntryGroup, groups: readonly EntryGroup[]): strin
   // line lost its prose entirely still has its bind/anchor lines to name it, and that fallback is
   // the one `buildEntry` would have used had this group stayed an entry of its own.
   const candidates = [...lines.map((line) => line.prose.trim()), entryProse(primary)]
-  const full = candidates.reduce((longest, prose) => (prose.length > longest.length ? prose : longest), '')
+  const full = candidates.reduce(
+    (longest, prose) => (prose.length > longest.length ? prose : longest),
+    '',
+  )
 
   for (const line of lines) {
     const prose = line.prose.trim()
@@ -2926,7 +2980,13 @@ function buildTwoPartEntry(
   const first = group.aliases[0]?.item ?? group.binds[0]?.item ?? group.anchors[0]!.item
 
   const section = sectionFor(sections, first)
-  if (section === null) warnings.push({ reason: 'entry-section-unknown', file: first.file, line: first.line, subject: group.key })
+  if (section === null)
+    warnings.push({
+      reason: 'entry-section-unknown',
+      file: first.file,
+      line: first.line,
+      subject: group.key,
+    })
 
   // `merge.prose`, not `entryProse(group)`: the primary's own line is not always the one that kept
   // the whole display name (story-045 review, finding 1 - see `twoPartProse`).
@@ -2985,8 +3045,7 @@ function commandsForHalf(half: TwoPartMerge['halves'][number]): ConfigCommand[] 
   const flat = chunks.flat()
   const tail = flat.length - half.segments.length
   const aligned =
-    (tail === 0 || tail === 1) &&
-    half.segments.every((segment, index) => segment === flat[index])
+    (tail === 0 || tail === 1) && half.segments.every((segment, index) => segment === flat[index])
   if (!aligned) return commandsFromSegments(half.segments)
 
   const kept = [...chunks]
@@ -3109,9 +3168,11 @@ function collectOverrides(bodies: Map<string, string>, applyName: string): Recor
 /** The mode the section's alias names actually spell: a `+x`/`-x` pair is hold, `x_on`/`x_off` is
  * toggle. This is the config line's own answer, so it outranks a `mode` tag that disagrees. */
 function modeFromAliases(names: readonly string[]): AltLayerMode | null {
-  const hold = names.some((name) => name.startsWith('+')) && names.some((name) => name.startsWith('-'))
+  const hold =
+    names.some((name) => name.startsWith('+')) && names.some((name) => name.startsWith('-'))
   if (hold) return 'hold'
-  const toggle = names.some((name) => name.endsWith('_on')) && names.some((name) => name.endsWith('_off'))
+  const toggle =
+    names.some((name) => name.endsWith('_on')) && names.some((name) => name.endsWith('_off'))
   return toggle ? 'toggle' : null
 }
 
@@ -3145,7 +3206,8 @@ function buildLayer(
   const lines = linesInSection(section, sections, input.aliases, input.binds)
   const titleMatch = LAYER_TITLE.exec(section.title)
 
-  const taggedMode = section.fields.mode === 'hold' || section.fields.mode === 'toggle' ? section.fields.mode : null
+  const taggedMode =
+    section.fields.mode === 'hold' || section.fields.mode === 'toggle' ? section.fields.mode : null
   const spelled = modeFromAliases([...lines.bodies.keys()])
   if (taggedMode !== null && spelled !== null && spelled !== taggedMode) {
     warnings.push({
@@ -3584,8 +3646,7 @@ function groupEntryLines(
   for (const line of aliasLines) {
     const category = categoryKeyOf(line.item)
     const chunk = CHUNK_SUFFIX.exec(line.item.name)
-    const key =
-      chunk && ownedAliasNames.get(category)?.has(chunk[1]!) ? chunk[1]! : line.item.name
+    const key = chunk && ownedAliasNames.get(category)?.has(chunk[1]!) ? chunk[1]! : line.item.name
     const group = groupFor(category, key)
     group.aliases.push(line)
     chain('aliases', group)
@@ -3982,9 +4043,11 @@ function applyForeignSubcategoryHeuristic(
 ): { actions: ConfigAction[]; categories: ConfigActionCategory[] } {
   const heuristicSections = sections.filter(
     (section) =>
-      section.kind === 'subcategory' && (section.fields.sub ?? '').startsWith(HEURISTIC_SUBCATEGORY_PREFIX),
+      section.kind === 'subcategory' &&
+      (section.fields.sub ?? '').startsWith(HEURISTIC_SUBCATEGORY_PREFIX),
   )
-  if (heuristicSections.length === 0) return { actions: [...delegated.actions], categories: [...delegated.categories] }
+  if (heuristicSections.length === 0)
+    return { actions: [...delegated.actions], categories: [...delegated.categories] }
 
   // Last definition of a name wins - the same fold every reader of this format applies before a body
   // ever reaches here (file doc comment); `aliases` is already that folded array, so "the" position
@@ -4098,7 +4161,11 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
     // Tags but no marker: the header block's `[q2l v=…]` was hand-deleted. Read the tags anyway -
     // refusing them would throw away exactly the record the user did not touch.
     const first = input.comments[0]
-    warnings.push({ reason: 'metadata-version-missing', file: first?.file ?? '', line: first?.line ?? 0 })
+    warnings.push({
+      reason: 'metadata-version-missing',
+      file: first?.file ?? '',
+      line: first?.line ?? 0,
+    })
   }
 
   const categories = categoryRegistry(input.newId, scan.sections)
@@ -4168,7 +4235,8 @@ export function restoreProfileParts(input: RestoreProfilePartsInput): RestorePro
   // thing to say about one is that somebody hand-edited a `[q2l` into or out of it.
   for (const cvar of input.cvars) {
     const parsed = parseMetaTag(cvar.comment)
-    if (parsed.malformed) warnings.push({ reason: 'tag-malformed', file: cvar.file, line: cvar.line })
+    if (parsed.malformed)
+      warnings.push({ reason: 'tag-malformed', file: cvar.file, line: cvar.line })
   }
 
   return {

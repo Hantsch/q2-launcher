@@ -38,7 +38,13 @@ describe('parseMvd2Header', () => {
   })
 
   it('an empty game dir resolves to baseq2', () => {
-    const bytes = buildMvd2({ version: 2010, gameDir: '', clientNum: 0, configstrings: {}, terminate: true })
+    const bytes = buildMvd2({
+      version: 2010,
+      gameDir: '',
+      clientNum: 0,
+      configstrings: {},
+      terminate: true,
+    })
     const result = parseMvd2Header(bytes)
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.gameDir).toBe('baseq2')
@@ -131,7 +137,13 @@ describe('parseMvd2Header', () => {
 
   it('the mvd version is recorded and one outside 2009-2013 is unknown-version', () => {
     const low = parseMvd2Header(
-      buildMvd2({ version: 2008, gameDir: 'baseq2', clientNum: 0, configstrings: {}, terminate: true }),
+      buildMvd2({
+        version: 2008,
+        gameDir: 'baseq2',
+        clientNum: 0,
+        configstrings: {},
+        terminate: true,
+      }),
     )
     expect(low.ok).toBe(false)
     if (!low.ok) {
@@ -140,7 +152,13 @@ describe('parseMvd2Header', () => {
     }
 
     const high = parseMvd2Header(
-      buildMvd2({ version: 2014, gameDir: 'baseq2', clientNum: 0, configstrings: {}, terminate: true }),
+      buildMvd2({
+        version: 2014,
+        gameDir: 'baseq2',
+        clientNum: 0,
+        configstrings: {},
+        terminate: true,
+      }),
     )
     expect(high.ok).toBe(false)
     if (!high.ok) {
@@ -149,13 +167,25 @@ describe('parseMvd2Header', () => {
     }
 
     const okLow = parseMvd2Header(
-      buildMvd2({ version: 2009, gameDir: 'baseq2', clientNum: 0, configstrings: {}, terminate: true }),
+      buildMvd2({
+        version: 2009,
+        gameDir: 'baseq2',
+        clientNum: 0,
+        configstrings: {},
+        terminate: true,
+      }),
     )
     expect(okLow.ok).toBe(true)
     if (okLow.ok) expect(okLow.mvdVersion).toBe(2009)
 
     const okHigh = parseMvd2Header(
-      buildMvd2({ version: 2013, gameDir: 'baseq2', clientNum: 0, configstrings: {}, terminate: true }),
+      buildMvd2({
+        version: 2013,
+        gameDir: 'baseq2',
+        clientNum: 0,
+        configstrings: {},
+        terminate: true,
+      }),
     )
     expect(okHigh.ok).toBe(true)
     if (okHigh.ok) expect(okHigh.mvdVersion).toBe(2013)
@@ -249,9 +279,14 @@ describe('parseMvd2Header', () => {
     })
 
     const isValidReason = (reason: string): boolean =>
-      ['empty', 'truncated', 'not-a-demo', 'unknown-protocol', 'header-too-large', 'unknown-version'].includes(
-        reason,
-      )
+      [
+        'empty',
+        'truncated',
+        'not-a-demo',
+        'unknown-protocol',
+        'header-too-large',
+        'unknown-version',
+      ].includes(reason)
 
     for (let i = 0; i < 2000; i++) {
       const mode = rand() < 0.5 ? 'truncate' : 'flip'

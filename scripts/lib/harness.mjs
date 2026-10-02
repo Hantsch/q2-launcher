@@ -525,7 +525,11 @@ function killProcessTree(child) {
  * `timeoutMs`/`kill` are overridable so a test can prove both branches without waiting out the real
  * timeout or spawning a real process — see harness.test.mjs.
  */
-export async function closeAppOrKill(app, child, { timeoutMs = CLOSE_TIMEOUT_MS, kill = killProcessTree } = {}) {
+export async function closeAppOrKill(
+  app,
+  child,
+  { timeoutMs = CLOSE_TIMEOUT_MS, kill = killProcessTree } = {},
+) {
   const CLOSE_SETTLED = Symbol('close-settled')
   const winner = await Promise.race([
     app
@@ -670,7 +674,8 @@ export async function waitForWindow(app, urlPart, log, { timeoutMs = 10_000 } = 
       await page.waitForLoadState('domcontentloaded')
       return page
     }
-    if (Date.now() >= deadline) throw new HarnessError(`no window with "${urlPart}" in its URL appeared`)
+    if (Date.now() >= deadline)
+      throw new HarnessError(`no window with "${urlPart}" in its URL appeared`)
     await new Promise((done) => setTimeout(done, 100))
   }
 }
@@ -683,7 +688,9 @@ export async function resize(app, { width, height }) {
   await app.evaluate(
     async ({ BrowserWindow, screen }, size) => {
       // Pick by URL: a cinema overlay (story 187) may be open and is not the launcher window.
-      const window = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('cinema.html'))
+      const window = BrowserWindow.getAllWindows().find(
+        (w) => !w.webContents.getURL().includes('cinema.html'),
+      )
       if (!window) throw new Error('no BrowserWindow to resize')
       // A restored-maximized window would ignore setSize.
       if (window.isMaximized()) window.unmaximize()

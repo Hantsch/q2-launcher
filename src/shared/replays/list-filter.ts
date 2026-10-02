@@ -132,7 +132,8 @@ export function matchesDemoSearch(s: DemoFilterSubject, term: string): boolean {
   if (includes(s.sidecar?.description)) return true
 
   if (s.sidecar?.tags?.some((tag) => tag.toLowerCase().includes(t))) return true
-  if (s.sidecar?.sides?.some((side) => side.players.some((p) => p.toLowerCase().includes(t)))) return true
+  if (s.sidecar?.sides?.some((side) => side.players.some((p) => p.toLowerCase().includes(t))))
+    return true
   if (s.headerPlayers.some((p) => p.toLowerCase().includes(t))) return true
   if (s.namePlayers.some((p) => p.toLowerCase().includes(t))) return true
 
@@ -147,12 +148,19 @@ function matchesText(value: string | null, filterValue: string): boolean {
  * Whether `s` satisfies every active criterion in `f` (search plus each select/toggle/list that is
  * not at its "not applied" value). An inactive field is skipped entirely rather than evaluated.
  */
-export function matchesDemoFilter(s: DemoFilterSubject, f: DemoListFilter, nowMs: number = Date.now()): boolean {
+export function matchesDemoFilter(
+  s: DemoFilterSubject,
+  f: DemoListFilter,
+  nowMs: number = Date.now(),
+): boolean {
   if (!matchesDemoSearch(s, f.search)) return false
 
   if (f.mod !== null && !matchesText(s.mod, f.mod)) return false
   if (f.map !== null && !matchesText(s.map, f.map)) return false
-  if (f.gamemode !== null && !gamemodeFilterMatches(s.gamemode, { gamemode: f.gamemode, excludeGuessed: false })) {
+  if (
+    f.gamemode !== null &&
+    !gamemodeFilterMatches(s.gamemode, { gamemode: f.gamemode, excludeGuessed: false })
+  ) {
     return false
   }
 

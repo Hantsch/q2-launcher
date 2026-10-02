@@ -1,5 +1,9 @@
 import { create } from 'zustand'
-import { reducePlaybackView, type PlaybackView, type TimelineAction } from '@shared/replays/timeline'
+import {
+  reducePlaybackView,
+  type PlaybackView,
+  type TimelineAction,
+} from '@shared/replays/timeline'
 import type { LocalizedMessage } from '@shared/types'
 import type { CinemaAvailability } from '@shared/replays/cinema'
 import type { ReplaysPlaybackDisplay } from '@shared/modules/replays'
@@ -86,7 +90,11 @@ interface PlaybackStoreState {
   /** Story 184 D2: sends a timeline action optimistically; resolves to the refusal to show, or null. */
   sendTimeline: (action: TimelineAction) => Promise<LocalizedMessage | null>
   setSpeed: (speed: number) => void
-  applyPosition: (positionMs: number | null, engineDurationMs: number | null, enginePaused?: boolean | null) => void
+  applyPosition: (
+    positionMs: number | null,
+    engineDurationMs: number | null,
+    enginePaused?: boolean | null,
+  ) => void
   applyState: (state: 'playing' | 'finished' | 'ended') => void
   /** Story 187 D6: asks main to enter or leave cinema; resolves to the refusal to show, or null. */
   setCinema: (enter: boolean) => Promise<LocalizedMessage | null>
@@ -113,7 +121,11 @@ function unsubscribeAll(): void {
 type SetState = (fn: (s: PlaybackStoreState) => Partial<PlaybackStoreState>) => void
 
 /** Applies `fn` to the session's optimistic state and recomputes `waiting`. */
-function update(set: SetState, fn: (o: OptimisticTimeline) => OptimisticTimeline, dropStale = false): void {
+function update(
+  set: SetState,
+  fn: (o: OptimisticTimeline) => OptimisticTimeline,
+  dropStale = false,
+): void {
   set((s) => {
     if (s.session === null) return s
     const now = Date.now()
@@ -147,7 +159,15 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     set((s) => {
       const p = s.stageRect
       if (p === rect) return s
-      if (p && rect && p.x === rect.x && p.y === rect.y && p.width === rect.width && p.height === rect.height) return s
+      if (
+        p &&
+        rect &&
+        p.x === rect.x &&
+        p.y === rect.y &&
+        p.width === rect.width &&
+        p.height === rect.height
+      )
+        return s
       return { stageRect: rect }
     }),
   setStageReason: (reason) => set({ stageReason: reason }),
@@ -233,8 +253,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     }
     return null
   },
-  setSpeed: (speed) =>
-    set((s) => (s.session === null ? s : { session: { ...s.session, speed } })),
+  setSpeed: (speed) => set((s) => (s.session === null ? s : { session: { ...s.session, speed } })),
   applyPosition: (positionMs, engineDurationMs, enginePaused = null) =>
     set((s) => {
       if (s.session === null || positionMs === null) return s
@@ -274,8 +293,12 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         !followSpeed &&
         JSON.stringify(c.cinemaAvailability) === JSON.stringify(cinemaAvailability)
       if (same) return s
-      const optimistic = followSpeed ? { ...c.optimistic, confirmed: { ...c.optimistic.confirmed, speed } } : c.optimistic
-      return { session: { ...c, fullscreen: p.fullscreen, mode, speed, cinemaAvailability, optimistic } }
+      const optimistic = followSpeed
+        ? { ...c.optimistic, confirmed: { ...c.optimistic.confirmed, speed } }
+        : c.optimistic
+      return {
+        session: { ...c, fullscreen: p.fullscreen, mode, speed, cinemaAvailability, optimistic },
+      }
     }),
   applyState: (state) => {
     if (state === 'ended') {
@@ -288,7 +311,13 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         const prev = s.session.view
         const view: PlaybackView = prev
           ? { ...prev, ended: true }
-          : { positionMs: 0, durationMs: s.session.knownDurationMs, paused: false, ended: true, stillCount: 0 }
+          : {
+              positionMs: 0,
+              durationMs: s.session.knownDurationMs,
+              paused: false,
+              ended: true,
+              stillCount: 0,
+            }
         return { session: { ...s.session, view } }
       })
     }

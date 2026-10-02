@@ -262,7 +262,7 @@ export default async function serversDetailRules({ page, step, shot }) {
   await shot('detail-rules')
 
   console.log(
-    'servers-detail-rules: the detail pane\'s rules section lists every reported key (known and ' +
+    "servers-detail-rules: the detail pane's rules section lists every reported key (known and " +
       'raw), degrades a malformed timelimit on its own row without breaking siblings, and decodes ' +
       'dmflags with its caveat visible.',
   )

@@ -55,7 +55,7 @@ reply.
 
 - [x] ~~**Q1 — Display and watchlist-matching of non-ASCII/high-bit player names.** This story only
       guarantees the parser does not crash on such names and preserves their bytes (AC5). How they are
-      *decoded for display* (the "green" character mapping) and how a watchlist entry's match mode
+      _decoded for display_ (the "green" character mapping) and how a watchlist entry's match mode
       (exact/substring/regex, §12) applies to them is concept open point #10, explicitly deferred to
       the watchlist sprint — it is a display/matching decision, not a parsing one, and does not block
       this story.~~ settled by the story text itself → out of scope here, see Decisions (Sprint).
@@ -72,7 +72,7 @@ reply.
   "no `node:dgram` import" structurally true instead of a promise one test has to police alone.
 - **Bytes are `Uint8Array`, never `Buffer`** — AC1 allows either, but `Buffer` is a `node:` type
   `src/shared` forbids (the rule `q2-charset.ts` and `alt-layers.ts` already state in their file
-  docs), and the main-side socket seam can still pass a `Buffer` straight in, since it *is* a
+  docs), and the main-side socket seam can still pass a `Buffer` straight in, since it _is_ a
   `Uint8Array`.
 - **A local lossless latin-1 pair (`decodeLatin1`/`encodeLatin1`) does all byte↔string work** — byte
   value equals code unit, so every byte including the high-bit "green" range round-trips exactly
@@ -94,14 +94,14 @@ reply.
   command line; the prefix lives in one exported constant both builders use.
 - **`buildInfoQuery(protocol)` throws a `RangeError` on a non-integer or out-of-1–255 protocol** —
   that argument is our own code's, not foreign data, so failing loudly beats emitting a datagram no
-  server answers; only *inbound* bytes get the never-throw treatment.
+  server answers; only _inbound_ bytes get the never-throw treatment.
 - **The infostring splitter is tolerant and reports only what was sent** — leading/trailing
   backslashes ignored, an empty value kept as `''`, a dangling final key dropped, a duplicate key
   won by its last occurrence; the result is a plain `Record<string, string>` holding exactly the
   reported keys, so AC4's "absent, not defaulted" is the data shape rather than a rule to remember.
 - **Typed accessors never invent a value** — `hostname`/`map`/`clients`/`maxClients` on the `info`
   result are optional, and a numeric key whose value is not a decimal integer is reported as
-  *absent* while its raw string stays in the serverinfo record, because a coerced `0` is exactly the
+  _absent_ while its raw string stays in the serverinfo record, because a coerced `0` is exactly the
   "default presented as if it were reported" AC4 forbids.
 - **A status reply's player section is all-or-nothing: truncation anywhere fails the whole reply
   with `truncated`** — a partially parsed player list is indistinguishable downstream from a
@@ -116,7 +116,7 @@ reply.
   outer quotes are stripped (the last quote wins), otherwise the rest is taken as-is, so an embedded
   quote, a space, a backslash or a high-bit byte inside a name is never treated as a separator
   (AC5); a non-integer score or ping is `malformed-player-line`, not a silent `0`.
-- **An empty player section is a legitimate `players: []`** — only a *failed* parse means "no data
+- **An empty player section is a legitimate `players: []`** — only a _failed_ parse means "no data
   this round", so the distinction AC6 asks for is precisely `{ ok: true, players: [] }` versus
   `{ ok: false, reason: 'truncated' }`.
 - **Fixtures are byte literals in `src/shared/servers/reply-fixtures.ts`** — shared by the `info`
@@ -237,6 +237,7 @@ socket, no `node:dgram`, no live server, per D1–D4 of the Plan.
 **Commit message:** `108: speak the info and status server queries`
 
 **Changed/created files:**
+
 - `src/shared/servers/protocol.ts`, `protocol.test.ts` (new)
 - `src/shared/servers/infostring.ts`, `infostring.test.ts` (new)
 - `src/shared/servers/info-reply.ts`, `info-reply.test.ts` (new)
@@ -249,6 +250,7 @@ socket, no `node:dgram`, no live server, per D1–D4 of the Plan.
   AC checkboxes, Done)
 
 **Verification — narrow gate:**
+
 - `npm run build` → green.
 - `npm run typecheck` → green (both `tsconfig.node.json` and `tsconfig.web.json`).
 - `test-story` (`npx vitest run --changed HEAD`) → 4 files, 18 tests passed (the four new suites
@@ -260,6 +262,7 @@ socket, no `node:dgram`, no live server, per D1–D4 of the Plan.
 - Clean-agent review (default tier, per `Review: → default`): verdict **PASS**, no findings.
 
 **AC → test mapping, as verified:**
+
 - AC1 → `protocol.test.ts` › "builds both query datagrams with the connectionless prefix" — passed.
 - AC2 → `info-reply.test.ts` › "parses a well-formed info reply into hostname, map, clients and
   maxclients" — passed.
@@ -279,6 +282,7 @@ socket, no `node:dgram`, no live server, per D1–D4 of the Plan.
 - No `manual residue`: every criterion is pure core behaviour with an automated test.
 
 **Decisions (Build):**
+
 - A late-discovered gap in D4's own delegation brief mapped "cut mid-serverinfo" to
   `malformed-infostring`, but the story's Decisions section and D4's own acceptance text both call
   for `truncated` there (a serverinfo line ending in a dangling key with no following newline is a

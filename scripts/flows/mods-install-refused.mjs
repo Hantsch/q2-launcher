@@ -1,8 +1,18 @@
 // Story 190 D8: `fixturebad` has a wrong SHA256. The install ends as a failed job whose visible reason is
 // the verification error; nothing is left on disk and no record is written.
 import { existsSync } from 'node:fs'
-import { installationRootFilePath, MODS_INSTALL_R1Q2_ID, MODS_INSTALL_R1Q2_NAME } from '../lib/fixture.mjs'
-import { installRecords, JOB_TIMEOUT_MS, modsInstallLifecycle, openMods, TIMEOUT_MS } from '../lib/mods-install-flow.mjs'
+import {
+  installationRootFilePath,
+  MODS_INSTALL_R1Q2_ID,
+  MODS_INSTALL_R1Q2_NAME,
+} from '../lib/fixture.mjs'
+import {
+  installRecords,
+  JOB_TIMEOUT_MS,
+  modsInstallLifecycle,
+  openMods,
+  TIMEOUT_MS,
+} from '../lib/mods-install-flow.mjs'
 
 export const variant = 'populated'
 let server = null
@@ -29,7 +39,9 @@ export default async function modsInstallRefused({ page, shot, step }) {
 
   step('the job is failed with the downloader error key')
   const jobs = await page.evaluate(() => window.q2.invoke('jobs:list'))
-  const failed = jobs.filter((j) => j.installationId === MODS_INSTALL_R1Q2_ID && j.status === 'failed')
+  const failed = jobs.filter(
+    (j) => j.installationId === MODS_INSTALL_R1Q2_ID && j.status === 'failed',
+  )
   if (failed.length !== 1 || failed[0].error?.key !== 'downloads.error.allMirrorsFailed') {
     throw new Error(`expected one failed job with allMirrorsFailed, got ${JSON.stringify(jobs)}`)
   }

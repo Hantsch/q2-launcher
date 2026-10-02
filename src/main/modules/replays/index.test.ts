@@ -123,7 +123,7 @@ describe('replays module', () => {
     expect(outcome).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
   })
 
-  it('replays handlers are not reachable under another module\'s id', async () => {
+  it("replays handlers are not reachable under another module's id", async () => {
     const registry = new MainModuleRegistry()
     await registry.register(replaysModule, fakeAppContext())
 
@@ -136,7 +136,10 @@ describe('replays module', () => {
 
       expect(outcome).toEqual({
         ok: false,
-        error: { key: 'modules.error.notImplemented', params: { moduleId, type: REPLAYS_HANDLERS.overviewRead } },
+        error: {
+          key: 'modules.error.notImplemented',
+          params: { moduleId, type: REPLAYS_HANDLERS.overviewRead },
+        },
       })
     }
   })
@@ -208,7 +211,10 @@ describe('replays module', () => {
         join(rootA, 'ctf', 'demos', '_launcher', 'b.mvd2.gz'),
         join(rootB, 'baseq2', 'demos', '_launcher', 'c.dm2'),
       ]
-      const kept = [join(rootA, 'baseq2', 'demos', 'mine.dm2'), join(rootA, 'baseq2', 'demos', '_launcher', 'sub', 'x.dm2')]
+      const kept = [
+        join(rootA, 'baseq2', 'demos', 'mine.dm2'),
+        join(rootA, 'baseq2', 'demos', '_launcher', 'sub', 'x.dm2'),
+      ]
       for (const file of [...staged, ...kept]) {
         await mkdir(join(file, '..'), { recursive: true })
         await writeFile(file, 'demo')
@@ -226,7 +232,10 @@ describe('replays module', () => {
       const registry = new MainModuleRegistry()
       await registry.register(
         replaysModule,
-        fakeAppContext([installation('a', rootA, ['baseq2', 'ctf']), installation('b', rootB, ['baseq2'])]),
+        fakeAppContext([
+          installation('a', rootA, ['baseq2', 'ctf']),
+          installation('b', rootB, ['baseq2']),
+        ]),
       )
 
       await vi.waitFor(async () => {
@@ -237,7 +246,14 @@ describe('replays module', () => {
       for (const file of kept) expect(await readFile(file, 'utf8')).toBe('demo')
 
       // A sweep that cannot even list the installations never breaks the module's start.
-      const broken = { ...fakeAppContext(), installations: { list: () => { throw new Error('boom') } } }
+      const broken = {
+        ...fakeAppContext(),
+        installations: {
+          list: () => {
+            throw new Error('boom')
+          },
+        },
+      }
       const second = new MainModuleRegistry()
       await second.register(replaysModule, broken as unknown as AppContext)
       expect(second.registered()).toContain('replays')
@@ -347,7 +363,9 @@ describe('replays module', () => {
       expect(await invoke(REPLAYS_HANDLERS.listGetSort)).toEqual({ ok: true, value: null })
 
       await state.settle()
-      const rawJson = JSON.parse(await readFile(filePath, 'utf8')) as { replays?: { listSort?: unknown } }
+      const rawJson = JSON.parse(await readFile(filePath, 'utf8')) as {
+        replays?: { listSort?: unknown }
+      }
       expect(rawJson.replays?.listSort).toBeUndefined()
     })
   })
@@ -476,7 +494,10 @@ describe('replays module', () => {
       await state.settle()
       const reloaded = new StateStore(filePath)
       await reloaded.load()
-      expect(reloaded.replaysState().modWarning).toEqual({ enabled: false, trustedMods: ['opentdm'] })
+      expect(reloaded.replaysState().modWarning).toEqual({
+        enabled: false,
+        trustedMods: ['opentdm'],
+      })
 
       // Reset clears the list but leaves the switch.
       expect(await invoke(REPLAYS_HANDLERS.modWarningResetTrusted)).toEqual({
@@ -523,9 +544,7 @@ describe('replays module', () => {
     /** Polls `index.read` until the scan started by `scan.start` has produced at least one row -
      * there is no existing wait helper in this file for this pair, so this is a small local
      * polling loop, capped at 50 tries of 10ms each. */
-    async function waitForIndexed(
-      registry: MainModuleRegistry,
-    ): Promise<Array<{ id: string }>> {
+    async function waitForIndexed(registry: MainModuleRegistry): Promise<Array<{ id: string }>> {
       for (let i = 0; i < 50; i++) {
         const outcome = await registry.invoke({
           moduleId: 'replays',
@@ -604,86 +623,89 @@ describe('replays module', () => {
       expect(afterBad).toEqual(afterWrite)
     })
 
-    it.skipIf(!resolveExtractorPath({ isPackaged: false }).exists)('sidecar write and demo rename both refuse an archive-entry demo id, at the registered-handler level', async () => {
-      const demosDir = join(dir, 'baseq2', 'demos')
-      await mkdir(demosDir, { recursive: true })
+    it.skipIf(!resolveExtractorPath({ isPackaged: false }).exists)(
+      'sidecar write and demo rename both refuse an archive-entry demo id, at the registered-handler level',
+      async () => {
+        const demosDir = join(dir, 'baseq2', 'demos')
+        await mkdir(demosDir, { recursive: true })
 
-      // Story 143 D3: a real zip built with the vendored extractor, so the real scan/discovery
-      // path assigns this demo a `kind: 'archive-entry'` resolved file, same as
-      // `discovery.test.ts`'s "zip expansion" case.
-      const extractor = resolveExtractorPath({ isPackaged: false })
-      const zipSrc = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-zip-src-'))
-      await writeFile(join(zipSrc, 'archived.dm2'), 'archived-bytes')
-      execFileSync(
-        extractor.path,
-        ['a', '-tzip', '-y', '-spd', '--', join(demosDir, 'pack.zip'), 'archived.dm2'],
-        { cwd: zipSrc },
-      )
-      await rm(zipSrc, { recursive: true, force: true })
+        // Story 143 D3: a real zip built with the vendored extractor, so the real scan/discovery
+        // path assigns this demo a `kind: 'archive-entry'` resolved file, same as
+        // `discovery.test.ts`'s "zip expansion" case.
+        const extractor = resolveExtractorPath({ isPackaged: false })
+        const zipSrc = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-zip-src-'))
+        await writeFile(join(zipSrc, 'archived.dm2'), 'archived-bytes')
+        execFileSync(
+          extractor.path,
+          ['a', '-tzip', '-y', '-spd', '--', join(demosDir, 'pack.zip'), 'archived.dm2'],
+          { cwd: zipSrc },
+        )
+        await rm(zipSrc, { recursive: true, force: true })
 
-      const installation = {
-        id: 'inst-1',
-        name: 'Installation One',
-        rootPath: dir,
-        gameDirs: ['baseq2'],
-        engineKind: 'r1q2',
-        recordedEngineKind: undefined,
-        writeDirPath: undefined,
-      }
+        const installation = {
+          id: 'inst-1',
+          name: 'Installation One',
+          rootPath: dir,
+          gameDirs: ['baseq2'],
+          engineKind: 'r1q2',
+          recordedEngineKind: undefined,
+          writeDirPath: undefined,
+        }
 
-      const appContext = {
-        broadcast: { emit: () => {} },
-        installations: { list: () => [installation] },
-        state,
-        launch: { isRunning: () => false, isPlaybackRunning: () => false },
-      } as unknown as AppContext
+        const appContext = {
+          broadcast: { emit: () => {} },
+          installations: { list: () => [installation] },
+          state,
+          launch: { isRunning: () => false, isPlaybackRunning: () => false },
+        } as unknown as AppContext
 
-      const registry = new MainModuleRegistry()
-      await registry.register(replaysModule, appContext)
+        const registry = new MainModuleRegistry()
+        await registry.register(replaysModule, appContext)
 
-      await registry.invoke({
-        moduleId: 'replays',
-        type: REPLAYS_HANDLERS.scanStart,
-        payload: undefined,
-      })
-      const rows = await waitForIndexed(registry)
-      const archiveRow = rows.find(
-        (r) => (r as unknown as { fileName?: string }).fileName === 'archived.dm2',
-      )
-      expect(archiveRow).toBeDefined()
-      const archiveEntryId = archiveRow!.id
+        await registry.invoke({
+          moduleId: 'replays',
+          type: REPLAYS_HANDLERS.scanStart,
+          payload: undefined,
+        })
+        const rows = await waitForIndexed(registry)
+        const archiveRow = rows.find(
+          (r) => (r as unknown as { fileName?: string }).fileName === 'archived.dm2',
+        )
+        expect(archiveRow).toBeDefined()
+        const archiveEntryId = archiveRow!.id
 
-      const filesBefore = (await readdir(demosDir)).sort()
+        const filesBefore = (await readdir(demosDir)).sort()
 
-      const writeOutcome = await registry.invoke({
-        moduleId: 'replays',
-        type: REPLAYS_HANDLERS.sidecarWrite,
-        payload: { demoId: archiveEntryId, fields: { name: 'x' } },
-      })
-      // Story 146: `sidecarStore.write` returns its own Outcome as the handler's *value* - the
-      // registry always wraps a successfully-invoked handler in `ok(...)` regardless of what the
-      // handler's own result says (`registry.ts`'s `invoke`), so a typed rejection from the sidecar
-      // store surfaces as `{ ok: true, value: { ok: false, error: { key } } }` here, same shape
-      // `sidecar-store.test.ts` asserts directly against the service.
-      expect(writeOutcome).toEqual({
-        ok: true,
-        value: { ok: false, error: { key: 'replays.sidecar.error.archiveEntry' } },
-      })
+        const writeOutcome = await registry.invoke({
+          moduleId: 'replays',
+          type: REPLAYS_HANDLERS.sidecarWrite,
+          payload: { demoId: archiveEntryId, fields: { name: 'x' } },
+        })
+        // Story 146: `sidecarStore.write` returns its own Outcome as the handler's *value* - the
+        // registry always wraps a successfully-invoked handler in `ok(...)` regardless of what the
+        // handler's own result says (`registry.ts`'s `invoke`), so a typed rejection from the sidecar
+        // store surfaces as `{ ok: true, value: { ok: false, error: { key } } }` here, same shape
+        // `sidecar-store.test.ts` asserts directly against the service.
+        expect(writeOutcome).toEqual({
+          ok: true,
+          value: { ok: false, error: { key: 'replays.sidecar.error.archiveEntry' } },
+        })
 
-      const renameOutcome = await registry.invoke({
-        moduleId: 'replays',
-        type: REPLAYS_HANDLERS.demoRename,
-        payload: { id: archiveEntryId, name: 'renamed' },
-      })
-      expect(renameOutcome).toEqual({
-        ok: true,
-        value: { ok: false, error: { key: 'replays.rename.error.archiveEntry' } },
-      })
+        const renameOutcome = await registry.invoke({
+          moduleId: 'replays',
+          type: REPLAYS_HANDLERS.demoRename,
+          payload: { id: archiveEntryId, name: 'renamed' },
+        })
+        expect(renameOutcome).toEqual({
+          ok: true,
+          value: { ok: false, error: { key: 'replays.rename.error.archiveEntry' } },
+        })
 
-      const filesAfter = (await readdir(demosDir)).sort()
-      expect(filesAfter).toEqual(filesBefore)
-      expect(filesAfter.some((f) => f.endsWith('.json'))).toBe(false)
-    })
+        const filesAfter = (await readdir(demosDir)).sort()
+        expect(filesAfter).toEqual(filesBefore)
+        expect(filesAfter.some((f) => f.endsWith('.json'))).toBe(false)
+      },
+    )
 
     it('no replays handler except the sidecar writers creates a sidecar', async () => {
       const demosDir = join(dir, 'baseq2', 'demos')
@@ -776,8 +798,8 @@ describe('replays module', () => {
 
   describe('sidecar error i18n (story 146)', () => {
     it('sidecar error keys resolve to specific English text', () => {
-      const sidecar = (en as { replays: { sidecar: { error: Record<string, string> } } }).replays.sidecar
-        .error
+      const sidecar = (en as { replays: { sidecar: { error: Record<string, string> } } }).replays
+        .sidecar.error
 
       expect(sidecar.unknownDemo.length).toBeGreaterThan(0)
       expect(sidecar.archiveEntry.length).toBeGreaterThan(0)

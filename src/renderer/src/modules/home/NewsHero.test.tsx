@@ -336,7 +336,14 @@ describe('the news hero, a feed after a failed refresh (story 083 D4)', () => {
 
   it('the refresh button calls the caller-supplied onRefresh, not a new IPC channel', () => {
     const onRefresh = vi.fn()
-    render(<NewsHero slides={slides} retrievedAt="2020-01-01T00:00:00.000Z" lastRefreshFailed onRefresh={onRefresh} />)
+    render(
+      <NewsHero
+        slides={slides}
+        retrievedAt="2020-01-01T00:00:00.000Z"
+        lastRefreshFailed
+        onRefresh={onRefresh}
+      />,
+    )
 
     fireEvent.click(screen.getByRole('button', { name: hero.stale.refresh }))
     expect(onRefresh).toHaveBeenCalledTimes(1)

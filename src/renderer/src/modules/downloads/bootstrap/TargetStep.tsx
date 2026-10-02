@@ -79,7 +79,9 @@ export function TargetStep({
           >
             {t('bootstrapWizard.target.programFiles.remedyButton')}
           </button>
-          <p className="text-xs text-ink-muted">{t('bootstrapWizard.target.programFiles.remedyNote')}</p>
+          <p className="text-xs text-ink-muted">
+            {t('bootstrapWizard.target.programFiles.remedyNote')}
+          </p>
           <div data-testid="bootstrap-target-programfiles-acknowledge">
             <Checkbox
               checked={ackProgramFiles}

@@ -31,7 +31,7 @@ is a fixed point.
       including custom category names), own alias name (story 039), `catalogId`, `key` +
       `secondaryKey` pairing, `keyModifier`/`secondaryKeyModifier`, layer identity/name/mode/trigger
       and which overrides belong to which layer, and command order within an entry.
-- [x] The profile `id` is *not* adopted from the file on import - importing a colleague's file must
+- [x] The profile `id` is _not_ adopted from the file on import - importing a colleague's file must
       create a new profile, not collide with or overwrite a local one with the same id.
 - [x] A file whose metadata comments were edited or deleted by hand still imports as a valid profile,
       degrading to what the plain config lines say. A malformed metadata comment is reported, never
@@ -85,7 +85,7 @@ is a fixed point.
   (043 shows whole-file diffs to the user); collisions inside one render are broken deterministically
   by extending the prefix.
 - **No per-entry `cat` tag** (the User decision) — the section header owns the category. Custom
-  category *names* survive as the header title; on import a built-in `cat` id is adopted as-is, an
+  category _names_ survive as the header title; on import a built-in `cat` id is adopted as-is, an
   unknown one mints a local category named from the title.
 - **Section headers carry their tag inline after the title, inside the decoration**
   (`// --- Weapons [q2l cat=weapons] -------`). One line, and it stays parseable when the decoration
@@ -113,7 +113,7 @@ is a fixed point.
   rather than declared.
 - **Reconstruction is a new shared module, not a branch inside `alias-import.ts`.** The metadata
   path and 041's guessing path are different problems (record vs. inference); a shared module that
-  *falls back to* `buildImportedActions` keeps AC8 a pure delegation.
+  _falls back to_ `buildImportedActions` keeps AC8 a pure delegation.
 - **The profile `id` in the sentinel is read but never adopted** — it is reported (so "restore this
   profile" can name the original) and a new id is always minted (AC4).
 - **Header decoration is a per-profile setting mirroring 040's `writeUnbindall`**
@@ -226,7 +226,7 @@ production code, `alias-render.ts`'s naming rules.
   `src/main/modules/config/import.test.ts`, `src/main/modules/config/profiles.test.ts`.
 - **Mirror:** 041's D6 (`ambiguousRebindAliases` / `layerAliases` wiring in the same functions).
 - **Acceptance:** `ImportPreviewResult` gains `ownWrittenFile: boolean`, `metadataVersion: number |
-  null`, `sourceProfileId: string | null`, `metadataWarnings` (i18n keys + `file:line`, never prose
+null`, `sourceProfileId: string | null`, `metadataWarnings` (i18n keys + `file:line`, never prose
   over IPC); `previewImport`/`commitImport` run the D4 restore path and `createFromImport` stores
   its `actions`/`categories`/`layers`; `ownWrittenFile` comes from the existing `OWNERSHIP_MARKER`
   check on any file the import read — including a profile file reached only through the loader's
@@ -338,18 +338,18 @@ synced its profile file into that installation's gamedir.
 
 ## Coverage
 
-| AC | Deliverable |
-| --- | --- |
-| 1 One documented metadata format, legal cfg text, reads as a normal comment | D1 (grammar + doc), D2 (emitted) |
-| 2 `render(parse(render(p))) === render(p)` as a property test over fixtures | D9 |
-| 3 Preserves name, `kind`, category (built-in + custom), own alias name, `catalogId`, key/secondary pairing, modifiers, layer identity/name/mode/trigger + override attribution, command order | D2 (emit) + D4 (read back), asserted in D9 |
-| 4 Profile `id` never adopted on import | D5 |
-| 5 Hand-edited/deleted/malformed metadata still imports, reported, never fatal, never discards the config line | D3 (comments survive) + D4 (degradation + warnings) + D6 (surfaced), asserted in D9 |
-| 6 Metadata never contradicts its config line; config line wins, discrepancy reported | D4, surfaced by D6 |
-| 7 Own file recognised via `OWNERSHIP_MARKER`, "restore" vs "best-effort" in the dialog | D5 (detection + contract) + D6 (wording) |
-| 8 A foreign config still imports exactly as 041 leaves it | D4 (delegation to `buildImportedActions`), asserted in D9 |
-| 9 The format is versioned; a future field addition keeps older files readable | D1 (`v` + unknown-key rule) + D2 (emit) + D4 (tolerate unknown/newer) |
-| User decision: header decoration configurable per file | D7 (data + render) + D8 (UI) |
+| AC                                                                                                                                                                                            | Deliverable                                                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 1 One documented metadata format, legal cfg text, reads as a normal comment                                                                                                                   | D1 (grammar + doc), D2 (emitted)                                                    |
+| 2 `render(parse(render(p))) === render(p)` as a property test over fixtures                                                                                                                   | D9                                                                                  |
+| 3 Preserves name, `kind`, category (built-in + custom), own alias name, `catalogId`, key/secondary pairing, modifiers, layer identity/name/mode/trigger + override attribution, command order | D2 (emit) + D4 (read back), asserted in D9                                          |
+| 4 Profile `id` never adopted on import                                                                                                                                                        | D5                                                                                  |
+| 5 Hand-edited/deleted/malformed metadata still imports, reported, never fatal, never discards the config line                                                                                 | D3 (comments survive) + D4 (degradation + warnings) + D6 (surfaced), asserted in D9 |
+| 6 Metadata never contradicts its config line; config line wins, discrepancy reported                                                                                                          | D4, surfaced by D6                                                                  |
+| 7 Own file recognised via `OWNERSHIP_MARKER`, "restore" vs "best-effort" in the dialog                                                                                                        | D5 (detection + contract) + D6 (wording)                                            |
+| 8 A foreign config still imports exactly as 041 leaves it                                                                                                                                     | D4 (delegation to `buildImportedActions`), asserted in D9                           |
+| 9 The format is versioned; a future field addition keeps older files readable                                                                                                                 | D1 (`v` + unknown-key rule) + D2 (emit) + D4 (tolerate unknown/newer)               |
+| User decision: header decoration configurable per file                                                                                                                                        | D7 (data + render) + D8 (UI)                                                        |
 
 ## Done
 
@@ -366,25 +366,25 @@ invisible in a green test run) and the sprint's carry-over precedent (story 039)
 
 - **fix-cycle-5 continuation**: the axe violation traced to the same root cause the interrupted
   agent had already diagnosed - `preserved` (the import dialog's "unrecognised leftovers" list) was
-  showing lines the reconstruction pass had actually *understood* (the ownership sentinel, the
+  showing lines the reconstruction pass had actually _understood_ (the ownership sentinel, the
   header block's `=`-rule/hand-edit-sentence lines) as if they were foreign junk. Fixed by marking
   them `consumed` the same way a section banner or version marker already was.
 - **fix-cycle-6** (review round: 4 confirmed defects): an untagged hand-added `alias` line was
   silently dropped instead of degrading through 041's inference (AC5); a claim on an already-taken
-  key slot was silently re-homed into the *other* slot instead of being rejected (AC6); a custom
+  key slot was silently re-homed into the _other_ slot instead of being rejected (AC6); a custom
   category name ending in a decoration-shaped character (`-`, `=`, `[`, `]`) was mis-stripped as if
   it were banner decoration; the untagged-banner "Main/Sub" pairing fused unrelated launcher-owned
   banners (a cvar group and the `Other` bucket) into a fabricated category name; `commitImport`
   stored an unfiltered preserved-line count while `previewImport` showed a filtered one; the D9
   round-trip test's own dash-padding normaliser was eager enough to risk masking a real regression.
 - **fix-cycle-7** (review round: 4 confirmed defects, one from a fix-cycle-6 change and one
-  discovered through investigating it): switch-bind chain aliases (story 007, in the *loader*
+  discovered through investigating it): switch-bind chain aliases (story 007, in the _loader_
   `autoexec.cfg`) were wrongly captured as junk Controls-tab entries by the new untagged-alias
   recovery; an interim attempt to also recover an alias hand-appended after a file's last layer
   section removed a positional guard that turned out to protect real content (a hold/toggle layer's
   own `+x`/`-x` alias pair) - reverted, with the narrower hand-append-after-last-layer case accepted
   as a documented, unfixed limitation; `bannerTitle`'s dashes/brackets decoration stripping eroded a
-  *tagged* banner's own real trailing decoration-shaped text, because `tagEndIndex` already excludes
+  _tagged_ banner's own real trailing decoration-shaped text, because `tagEndIndex` already excludes
   real fill from a tagged banner's prose, so there is nothing left to strip; the header block's own
   `=`-rule lines were misread as a real section title once the blunt full-strip was replaced by
   anchor-based stripping.
@@ -395,11 +395,11 @@ invisible in a green test run) and the sprint's carry-over precedent (story 039)
   check also excluded an unrelated hand-added alias that merely shared the prefix (`q2l_sword`); an
   orphaned-`categoryId` ("Other" bucket) entry was promoted to a real, persisted category on restore
   - itself a category the original profile never had, and one that stopped matching nothing on the
-  very next render (an AC2 regression one round-trip delayed). The follow-up fix-cycle-8b closed the
-  same invisible-boundary problem for a *real* category whose tag was hand-deleted under `plain`
-  style, using a narrow, safe signal (the three fixed title prefixes every category section carries,
-  tagged or not) rather than a broader "any untagged comment is a candidate section" heuristic that
-  was considered and rejected for trading a silent merge for a silent split.
+    very next render (an AC2 regression one round-trip delayed). The follow-up fix-cycle-8b closed the
+    same invisible-boundary problem for a _real_ category whose tag was hand-deleted under `plain`
+    style, using a narrow, safe signal (the three fixed title prefixes every category section carries,
+    tagged or not) rather than a broader "any untagged comment is a candidate section" heuristic that
+    was considered and rejected for trading a silent merge for a silent split.
 - Added 3 new D9 fixtures (`orphanedCategoryProfiles`, one per header style) so the "entry whose
   category matches nothing" case - the root cause all three fix-cycle-8 findings traced back to -
   has permanent round-trip coverage going forward.
@@ -407,7 +407,7 @@ invisible in a green test run) and the sprint's carry-over precedent (story 039)
 ### Decisions made during the fix-cycle-5+ continuation (one-sentence reason each)
 
 - The ownership sentinel and the header block's decoration lines join `scan.consumed` on the same
-  terms as a version marker or section banner, because they are equally *understood*, not foreign.
+  terms as a version marker or section banner, because they are equally _understood_, not foreign.
 - A truly untagged (never malformed) `alias` line degrades through `buildImportedActions` instead of
   vanishing, because AC5 promises "degrading to what the plain config lines say," not silence.
 - A slot claim naming an already-taken slot is rejected outright rather than falling through to the
@@ -440,7 +440,7 @@ invisible in a green test run) and the sprint's carry-over precedent (story 039)
 
 ### Known, accepted limitations (documented in code, not silently left)
 
-- A `dashes`-style title that both fills `BANNER_WIDTH` exactly (zero fill dashes) *and* itself ends
+- A `dashes`-style title that both fills `BANNER_WIDTH` exactly (zero fill dashes) _and_ itself ends
   in `<space>-+` is indistinguishable from one that had fill stripped.
 - A hand-appended alias positioned physically after a file's last layer section is not recovered
   (silently, as it was before this story's fix-cycle-6), because telling it apart from the layer's

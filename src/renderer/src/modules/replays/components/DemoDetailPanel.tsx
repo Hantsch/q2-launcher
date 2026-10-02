@@ -113,8 +113,15 @@ export function DemoDetailPanel({
   }
 
   return (
-    <section aria-labelledby={editing ? undefined : 'replays-detail-title'} aria-label={editing ? title : undefined} data-testid="replays-detail">
-      <div className="sticky top-0 z-10 border-b border-line bg-panel px-4 py-2" data-testid="replays-detail-header">
+    <section
+      aria-labelledby={editing ? undefined : 'replays-detail-title'}
+      aria-label={editing ? title : undefined}
+      data-testid="replays-detail"
+    >
+      <div
+        className="sticky top-0 z-10 border-b border-line bg-panel px-4 py-2"
+        data-testid="replays-detail-header"
+      >
         <div className="flex min-h-8 flex-wrap items-center gap-2">
           {editing ? (
             <>
@@ -137,12 +144,17 @@ export function DemoDetailPanel({
             disabled={archived}
             aria-describedby={archived ? 'replays-archive-readonly-edit' : undefined}
             onClick={() => {
-              void useDemoEditorStore.getState().quickEdit(row.id, { favourite: !favourite }, onRowPatched)
+              void useDemoEditorStore
+                .getState()
+                .quickEdit(row.id, { favourite: !favourite }, onRowPatched)
             }}
             data-testid="replays-detail-favourite"
           >
             <Star
-              className={cn('size-3.5', favourite ? 'fill-flame-500 text-flame-500' : 'text-ink-muted')}
+              className={cn(
+                'size-3.5',
+                favourite ? 'fill-flame-500 text-flame-500' : 'text-ink-muted',
+              )}
               aria-hidden="true"
             />
           </IconButton>
@@ -169,7 +181,10 @@ export function DemoDetailPanel({
           </IconButton>
         </div>
         {archived && !editing && (
-          <div className="mt-2 space-y-1 text-xs text-ink-dim" data-testid="replays-archive-readonly">
+          <div
+            className="mt-2 space-y-1 text-xs text-ink-dim"
+            data-testid="replays-archive-readonly"
+          >
             <p id="replays-archive-readonly-edit" data-testid="replays-archive-readonly-edit">
               {t('replays.archive.readOnly.edit')}
             </p>
@@ -192,7 +207,9 @@ export function DemoDetailPanel({
             }}
           />
           <span className="numeric text-sm text-ink-dim" data-testid="replays-detail-rating-value">
-            {rating === null ? t('replays.detail.rating.none') : t('replays.row.ratingValue', { rating })}
+            {rating === null
+              ? t('replays.detail.rating.none')
+              : t('replays.row.ratingValue', { rating })}
           </span>
         </div>
         {editing ? (
@@ -261,7 +278,6 @@ export function DemoDetailPanel({
             ))}
           </ul>
         )}
-
       </div>
 
       {pendingLeave !== null && (

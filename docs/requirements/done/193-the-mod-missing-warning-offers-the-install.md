@@ -8,16 +8,16 @@ created: 2026-10-01
 ## Requirement
 
 As a player who wants to watch a demo recorded on a mod I do not have, the mod-missing dialog
-(story 182) lets me install that mod instead of only *Play anyway* or *Cancel*, whenever the
-catalog has it. *Play anyway* and the "asked once" behaviour stay as they are.
+(story 182) lets me install that mod instead of only _Play anyway_ or _Cancel_, whenever the
+catalog has it. _Play anyway_ and the "asked once" behaviour stay as they are.
 
 Concept: [mods.md](../concepts/mods.md) §11; requirement MOD-18.
 
 ## Acceptance Criteria
 
 - [x] **AC1** — When a demo's mod is missing and the catalog has an entry of that gamedir name
-      (case-insensitive), the mod-missing dialog shows an *Install <mod>* action next to *Play
-      anyway*.
+      (case-insensitive), the mod-missing dialog shows an _Install <mod>_ action next to _Play
+      anyway_.
 - [x] **AC2** — When the catalog has no entry for that mod, the dialog shows no Install action and
       otherwise looks as it does today.
 - [x] **AC3** — Choosing Install starts story 190's install into the installation the demo would
@@ -49,7 +49,7 @@ Concept: [mods.md](../concepts/mods.md) §11; requirement MOD-18.
   decided the name is English manifest text shown as foreign content.
 - Install installs the entry's pinned (default) version. The dialog has no version picker: 189's
   version choice belongs to the Mods view, and the dialog's job is one click.
-- "Don't ask again" is ignored on Install, ticked or not. 182 honours it only on *Play anyway*, and
+- "Don't ask again" is ignored on Install, ticked or not. 182 honours it only on _Play anyway_, and
   AC5 forbids trusting the mod.
 - When the install fails to start (an Outcome error, e.g. a job already running), the dialog stays
   open and shows the reason as visible text. AC3 closes the dialog only for a started install, and
@@ -74,7 +74,7 @@ dialog.
    - When `ReplaysView`'s `runPlay` is about to open the mod-missing dialog, it reads the catalog
      and matches the demo's `gameDir` case-insensitively.
    - On a match, the dialog gets an `installOffer`, and `ModMissingConfirmDialog` renders
-     *Install <name>* next to *Play anyway*.
+     _Install <name>_ next to _Play anyway_.
    - Install starts 190's install into the active installation. On success it closes the dialog,
      with no playback and no `trustMod`. On a start error the reason shows inline.
    - Unit tests in `ReplaysView.test.tsx`, plus i18n and the CHANGELOG entry.
@@ -185,13 +185,14 @@ No manual residue.
 
 ## Done
 
-The mod-missing dialog (182) now offers *Install <name>* next to *Play anyway* when a fresh catalog read has an entry for the demo's gamedir (case-insensitive, `findCatalogEntryByGameDir`). Install starts 190's `installMod` into the active installation (pinned version), closes the dialog, plays nothing and never trusts the mod. A refused/failed start keeps the dialog open with the reason as visible text; `InstallDecisionDialog` is mounted in the Demos view too, so a decision wait can be answered there.
+The mod-missing dialog (182) now offers _Install <name>_ next to _Play anyway_ when a fresh catalog read has an entry for the demo's gamedir (case-insensitive, `findCatalogEntryByGameDir`). Install starts 190's `installMod` into the active installation (pinned version), closes the dialog, plays nothing and never trusts the mod. A refused/failed start keeps the dialog open with the reason as visible text; `InstallDecisionDialog` is mounted in the Demos view too, so a decision wait can be answered there.
 
 Commit message: `193: mod-missing warning offers the catalog install — Install action in the dialog, decision dialog in Demos, fixture + flows`
 
 Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (112 files / 895 tests), `ui:flow` replays-mod-install and replays-mod-warning: green, re-run green after the review fixes (replays + typecheck + build + both flows). Full gate not run (sprint's). AC -> test: AC1-AC5 mapped unit + flow tests ran and passed as listed; no manual residue. Review: stage 1 PASS; 4 minor findings fixed (real i18n key in the failed-start test + thrown-install test, in-flight double-click guard, AC2 flow asserts the manifest was requested, CHANGELOG line shortened). Unfixed minor: two primary buttons in the dialog; catalog read delays opening the dialog while slow; `replays-mod-warning` step "resetting remembered mods asks again" failed once in 2 of ~6 runs and passed on rerun (also on baseline; not touched here, probable timing race).
 
 Decisions:
+
 - Entry DTO field is `name` (not `displayName`); offer is `{ name }`. Catalog read per press, only on the path that opens the dialog; failed/rejected/empty read = no offer, dialog still opens.
 - Refusals (e.g. `mods.error.noVariant`, which hits OpenTDM on 64-bit Q2PRO per the shipped manifest's empty `contentOnly.packages`) show as visible text in the dialog; the dialog cannot resolve a manifest refusal, the player can only Play anyway/Cancel.
 - No auto-start after install (user decision); progress lives in Downloads.

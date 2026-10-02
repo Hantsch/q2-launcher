@@ -328,8 +328,12 @@ function resolveWinner(
  * still "an" entry worth looking at, even though which one is at fault is
  * exactly what could not be proven.
  */
-function shadowedBindActionId(claims: TidyUpBindClaim[], winner: number | undefined): string | undefined {
-  const candidates = winner === undefined ? claims : claims.filter((_claim, index) => index !== winner)
+function shadowedBindActionId(
+  claims: TidyUpBindClaim[],
+  winner: number | undefined,
+): string | undefined {
+  const candidates =
+    winner === undefined ? claims : claims.filter((_claim, index) => index !== winner)
   const found = candidates.find((claim) => claim.source === 'action')
   return found?.source === 'action' ? found.actionId : undefined
 }
@@ -347,7 +351,8 @@ function shadowedBindFindings(profile: ConfigProfile): TidyUpFinding[] {
   return findBindConflicts(profile).map((conflict: BindConflict): TidyUpFinding => {
     const normalizedKey = normalizeBindKey(conflict.key)
     const claims = bindClaimsFor(profile, conflict.scope, normalizedKey)
-    const winner = claims.length >= 2 ? resolveWinner(profile, conflict.scope, normalizedKey, claims) : undefined
+    const winner =
+      claims.length >= 2 ? resolveWinner(profile, conflict.scope, normalizedKey, claims) : undefined
     const id = `${scopeId(conflict.scope)}:${conflict.key}`
 
     const shared = {
@@ -366,7 +371,11 @@ function shadowedBindFindings(profile: ConfigProfile): TidyUpFinding[] {
         ...shared,
         mode: 'report' as const,
         messageKey: `${TIDY_UP_MESSAGE_PREFIX}shadowedBindUnresolved`,
-        params: { key: conflict.key, owners: conflict.owners.join(', '), count: conflict.owners.length },
+        params: {
+          key: conflict.key,
+          owners: conflict.owners.join(', '),
+          count: conflict.owners.length,
+        },
         ops: [],
         actionId: shadowedBindActionId(claims, winner),
       }
@@ -533,7 +542,9 @@ function duplicateEntries(
   return ids.flatMap((id) => {
     const action = actions.find((candidate) => candidate.id === id)
     if (!action) return []
-    const category = (profile.categories ?? []).find((candidate) => candidate.id === action.categoryId)
+    const category = (profile.categories ?? []).find(
+      (candidate) => candidate.id === action.categoryId,
+    )
     const subcategory = (category?.subcategories ?? []).find(
       (candidate) => candidate.id === action.subcategoryId,
     )

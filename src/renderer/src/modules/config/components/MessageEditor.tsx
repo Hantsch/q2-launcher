@@ -7,7 +7,12 @@ import {
   findSingleDollarLocMistakes,
   tokenizeMessage,
 } from '@shared/config/chat-macros'
-import { fromAltCharset, hasAltCharset, toAltCharset, toDisplaySegments } from '@shared/config/q2-charset'
+import {
+  fromAltCharset,
+  hasAltCharset,
+  toAltCharset,
+  toDisplaySegments,
+} from '@shared/config/q2-charset'
 import { keySlotAt } from '@shared/config/action-slots'
 import { colorCvarTokens } from '@shared/config/color-cvars'
 import { Button } from '../../../components/ui/Button'
@@ -295,7 +300,9 @@ export function MessageEditor({
           <span className="stencil">{t('config.controls.messageEditor.previewLabel')}</span>
           <p className="rounded-sm border border-line bg-void px-2.5 py-2 text-sm break-words">
             {previewSegments.length === 0 ? (
-              <span className="text-ink-faint">{t('config.controls.messageEditor.previewEmpty')}</span>
+              <span className="text-ink-faint">
+                {t('config.controls.messageEditor.previewEmpty')}
+              </span>
             ) : (
               previewSegments.map((segment, index) =>
                 segment.kind === 'colorCvar' ? (
@@ -350,7 +357,9 @@ export function MessageEditor({
             ))}
           </div>
           <span className="stencil">{t('config.controls.messageEditor.macroBar.modLabel')}</span>
-          <p className="text-xs text-ink-muted">{t('config.controls.messageEditor.macroBar.modCaveat')}</p>
+          <p className="text-xs text-ink-muted">
+            {t('config.controls.messageEditor.macroBar.modCaveat')}
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {modMacros.map((macro) => (
               <Button
@@ -397,7 +406,9 @@ export function MessageEditor({
               ) : key ? (
                 <Badge tone="flame">{key}</Badge>
               ) : (
-                <span className="text-xs text-ink-muted">{t('config.controls.editor.keyNotSet')}</span>
+                <span className="text-xs text-ink-muted">
+                  {t('config.controls.editor.keyNotSet')}
+                </span>
               )}
               {!capturingKey && (
                 <Button variant="ghost" size="sm" onClick={() => setCapturingKey(true)}>

@@ -76,16 +76,29 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
       let last: StageRect | null = null
       // Without ResizeObserver (jsdom) nothing ever measures, so waiting would only delay the play.
       const canMeasure = typeof ResizeObserver !== 'undefined'
-      for (let frame = 0; canMeasure && frame < STAGE_MEASURE_FRAMES && stable < STAGE_STABLE_FRAMES; frame += 1) {
+      for (
+        let frame = 0;
+        canMeasure && frame < STAGE_MEASURE_FRAMES && stable < STAGE_STABLE_FRAMES;
+        frame += 1
+      ) {
         await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
         const rect = usePlaybackStore.getState().stageRect
-        const same = rect !== null && last !== null && rect.x === last.x && rect.y === last.y && rect.width === last.width && rect.height === last.height
+        const same =
+          rect !== null &&
+          last !== null &&
+          rect.x === last.x &&
+          rect.y === last.y &&
+          rect.width === last.width &&
+          rect.height === last.height
         stable = same && rect.width > MIN_STAGE_PX ? stable + 1 : 0
         last = rect
       }
       // A rect that never settled can still be the border-only box before layout: launch normally then.
       const measured = usePlaybackStore.getState().stageRect
-      const stage = measured && measured.width >= MIN_USABLE_STAGE_PX && measured.height >= MIN_USABLE_STAGE_PX ? measured : null
+      const stage =
+        measured && measured.width >= MIN_USABLE_STAGE_PX && measured.height >= MIN_USABLE_STAGE_PX
+          ? measured
+          : null
       const result = await playDemo({
         demoId: demo.id,
         installationId: target.installationId,

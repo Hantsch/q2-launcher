@@ -43,9 +43,9 @@ afterEach(() => {
   cleanup()
   getStateResult = EMPTY_STATE
   redeemResult = { ok: false, reason: 'not-a-code' }
-  ;(globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }).q2.invoke.mockImplementation(
-    defaultInvoke,
-  )
+  ;(
+    globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }
+  ).q2.invoke.mockImplementation(defaultInvoke)
 })
 
 async function renderPanel() {

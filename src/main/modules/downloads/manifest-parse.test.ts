@@ -37,10 +37,7 @@ const anotherGoodEnginePackage = {
 describe('parseManifestFile - envelope refusal', () => {
   it('refuses (not a partial result) when schemaVersion is not exactly 1', () => {
     const log = fakeLogger()
-    const result = parseManifestFile(
-      { schemaVersion: 2, packages: [goodEnginePackage] },
-      log,
-    )
+    const result = parseManifestFile({ schemaVersion: 2, packages: [goodEnginePackage] }, log)
     expect(result.ok).toBe(false)
     // A refusal must never carry a `packages` field - proves this is not a
     // partial list dressed up as a failure.
@@ -80,7 +77,13 @@ describe('parseManifestFile - row-by-row package parse (AC2/AC3)', () => {
     const result = parseManifestFile(
       {
         schemaVersion: 1,
-        packages: [goodEnginePackage, missingSha256, missingMirrors, missingSize, anotherGoodEnginePackage],
+        packages: [
+          goodEnginePackage,
+          missingSha256,
+          missingMirrors,
+          missingSize,
+          anotherGoodEnginePackage,
+        ],
       },
       log,
     )
@@ -262,7 +265,11 @@ describe('parseManifestFile - per-platform pin resolution (story 100 AC5)', () =
     // the suite runs on, so this proves the *default wiring* on Windows and on Linux alike.
     const hostPackage = { ...goodEnginePackage, id: 'q2pro-host', platforms: [process.platform] }
     const result = parseManifestFile(
-      { schemaVersion: 1, packages: [hostPackage], pinned: { q2pro: { [process.platform]: 'q2pro-host' } } },
+      {
+        schemaVersion: 1,
+        packages: [hostPackage],
+        pinned: { q2pro: { [process.platform]: 'q2pro-host' } },
+      },
       fakeLogger(),
     )
 

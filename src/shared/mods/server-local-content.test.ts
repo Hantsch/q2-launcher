@@ -3,12 +3,12 @@ import {
   findCatalogEntryByGameDir,
   isSafeGameName,
   mapLookupTarget,
-  serverModStatus
+  serverModStatus,
 } from './server-local-content'
 
 const catalog = [
   { id: 'rogue', gameDir: 'rogue' },
-  { id: 'ctf-pack', gameDir: 'CTF' }
+  { id: 'ctf-pack', gameDir: 'CTF' },
 ]
 
 describe('isSafeGameName', () => {
@@ -32,14 +32,14 @@ describe('serverModStatus', () => {
   it('a gamedir in gameDirs is installed, case-insensitively', () => {
     expect(serverModStatus({ serverMod: 'rogue', gameDirs: ['rogue'], catalog })).toEqual({
       kind: 'installed',
-      gameDir: 'rogue'
+      gameDir: 'rogue',
     })
     expect(serverModStatus({ serverMod: 'ROGUE', gameDirs: ['rogue'], catalog: null })).toEqual({
       kind: 'installed',
-      gameDir: 'rogue'
+      gameDir: 'rogue',
     })
     expect(serverModStatus({ serverMod: 'ctf', gameDirs: ['Ctf'], catalog: null }).kind).toBe(
-      'installed'
+      'installed',
     )
   })
 
@@ -48,7 +48,7 @@ describe('serverModStatus', () => {
       kind: 'missing',
       gameDir: 'Ctf',
       safe: true,
-      catalogId: 'ctf-pack'
+      catalogId: 'ctf-pack',
     })
   })
 
@@ -57,15 +57,15 @@ describe('serverModStatus', () => {
       kind: 'missing',
       gameDir: 'zaero',
       safe: true,
-      catalogId: null
+      catalogId: null,
     })
     expect(serverModStatus({ serverMod: 'rogue', gameDirs: [], catalog: null })).toMatchObject({
       kind: 'missing',
-      catalogId: null
+      catalogId: null,
     })
     expect(serverModStatus({ serverMod: 'rogue', gameDirs: [], catalog: [] })).toMatchObject({
       kind: 'missing',
-      catalogId: null
+      catalogId: null,
     })
   })
 
@@ -73,13 +73,13 @@ describe('serverModStatus', () => {
     const unsafeCatalog = [
       { id: 'evil', gameDir: '../x' },
       { id: 'dot', gameDir: '.' },
-      { id: 'sp', gameDir: 'my mod' }
+      { id: 'sp', gameDir: 'my mod' },
     ]
     for (const mod of ['../x', 'my mod', '.', '..']) {
       const status = serverModStatus({
         serverMod: mod,
         gameDirs: [mod, '../x', 'my mod', '.', '..'],
-        catalog: unsafeCatalog
+        catalog: unsafeCatalog,
       })
       expect(status).toEqual({ kind: 'missing', gameDir: mod, safe: false, catalogId: null })
       expect(mapLookupTarget(status, 'q2dm1')).toEqual({ map: 'q2dm1' })

@@ -38,9 +38,9 @@ describe('readEngineState', () => {
     ).not.toThrow()
 
     // Every field individually degrades to absent - a wrong-typed value costs only that field.
-    expect(readEngineState({ downloads: { version: 42, bleedingEdge: 'yes', backup: 'nope' } })).toEqual(
-      {},
-    )
+    expect(
+      readEngineState({ downloads: { version: 42, bleedingEdge: 'yes', backup: 'nope' } }),
+    ).toEqual({})
   })
 
   it('parses a non-object downloads value back to "unknown" rather than throwing', () => {

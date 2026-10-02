@@ -171,10 +171,7 @@ function foldConfig(parsed: ParseConfigResult): FoldedConfig {
  * as "this line's content did not survive the read", and every other `RestoreWarning` likewise
  * points at the line it is about.
  */
-function discardedAliasWarnings(
-  file: string,
-  discarded: readonly ParsedAlias[],
-): RestoreWarning[] {
+function discardedAliasWarnings(file: string, discarded: readonly ParsedAlias[]): RestoreWarning[] {
   return discarded.map((alias) => ({
     reason: 'entry-alias-duplicate' as const,
     file,

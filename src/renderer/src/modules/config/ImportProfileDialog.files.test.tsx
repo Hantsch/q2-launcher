@@ -65,10 +65,12 @@ vi.mock('./client', () => ({
       return { ok: true, value: PREVIEW_OK }
     },
   ),
-  commitImportFiles: vi.fn(async (input: ImportFilesCommitInput): Promise<Outcome<ConfigProfile[]>> => {
-    commitCalls.push(input)
-    return { ok: true, value: [] }
-  }),
+  commitImportFiles: vi.fn(
+    async (input: ImportFilesCommitInput): Promise<Outcome<ConfigProfile[]>> => {
+      commitCalls.push(input)
+      return { ok: true, value: [] }
+    },
+  ),
 }))
 
 beforeAll(async () => {
@@ -140,9 +142,7 @@ describe('ImportProfileDialog file list', () => {
     expect(previewCalls[0].fileIds).toEqual(['id-a', 'id-b', 'id-c'])
 
     // Move the first row ("config.cfg") down: a -> [b, a, c].
-    fireEvent.click(
-      within(fileRows()[0]).getByRole('button', { name: 'Move file down' }),
-    )
+    fireEvent.click(within(fileRows()[0]).getByRole('button', { name: 'Move file down' }))
     await waitFor(() => expect(previewCalls).toHaveLength(2))
     expect(previewCalls[1].fileIds).toEqual(['id-b', 'id-a', 'id-c'])
     expect(fileRows().map((row) => row.textContent)).toEqual([
@@ -152,16 +152,12 @@ describe('ImportProfileDialog file list', () => {
     ])
 
     // Move the second row ("config.cfg", now at index 1) back up: [b, a, c] -> [a, b, c].
-    fireEvent.click(
-      within(fileRows()[1]).getByRole('button', { name: 'Move file up' }),
-    )
+    fireEvent.click(within(fileRows()[1]).getByRole('button', { name: 'Move file up' }))
     await waitFor(() => expect(previewCalls).toHaveLength(3))
     expect(previewCalls[2].fileIds).toEqual(['id-a', 'id-b', 'id-c'])
 
     // Remove the last row ("gfx.cfg"): [a, b, c] -> [a, b].
-    fireEvent.click(
-      within(fileRows()[2]).getByRole('button', { name: 'Remove file' }),
-    )
+    fireEvent.click(within(fileRows()[2]).getByRole('button', { name: 'Remove file' }))
     await waitFor(() => expect(previewCalls).toHaveLength(4))
     expect(previewCalls[3].fileIds).toEqual(['id-a', 'id-b'])
     expect(fileRows()).toHaveLength(2)

@@ -563,7 +563,10 @@ async function runRepair(args: {
     // writes one, and `RepairInstallationsHost` gives it no way to.
     const revalidated = await deps.installations.validate(installation.id)
     if (!revalidated.ok) {
-      return failed(LOCAL_FAILURE, `revalidating ${installation.id} failed: ${revalidated.error.key}`)
+      return failed(
+        LOCAL_FAILURE,
+        `revalidating ${installation.id} failed: ${revalidated.error.key}`,
+      )
     }
     if (revalidated.value.status === 'invalid' || revalidated.value.status === 'missing') {
       // Reported, not failed - see the module comment: a repair fixes what it was asked to fix, and

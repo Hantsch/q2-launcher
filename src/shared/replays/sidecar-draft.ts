@@ -57,10 +57,10 @@ export function draftFromSidecar(values: Partial<SidecarFields>): SidecarDraft {
         ? values.sides.map((s) => ({
             team: s.team ?? '',
             result: s.result ?? '',
-            players: [...s.players]
+            players: [...s.players],
           }))
         : [],
-    originalDate: values.date ?? null
+    originalDate: values.date ?? null,
   }
 }
 
@@ -124,7 +124,9 @@ function convertRating(text: string): number | undefined | 'error' {
 }
 
 /** Converts the draft's date text; returns `undefined` for empty, an ISO string, or `'error'`. */
-function convertDate(draft: Pick<SidecarDraft, 'date' | 'originalDate'>): string | undefined | 'error' {
+function convertDate(
+  draft: Pick<SidecarDraft, 'date' | 'originalDate'>,
+): string | undefined | 'error' {
   const trimmed = draft.date.trim()
   if (trimmed === '') return undefined
 
@@ -151,7 +153,7 @@ function rawFieldsFromDraftBase(draft: SidecarDraft): SidecarFields {
     out.sides = draft.sides.map((s) => ({
       team: s.team,
       result: s.result,
-      players: [...s.players]
+      players: [...s.players],
     }))
   }
   if (draft.tags.length > 0) out.tags = [...draft.tags]
@@ -164,8 +166,10 @@ function rawFieldsFromDraftBase(draft: SidecarDraft): SidecarFields {
  * field is normalised via `normalizeSidecarFields` and validated through `sidecarFieldsSchema`.
  */
 export function draftToFields(
-  draft: SidecarDraft
-): { ok: true; fields: SidecarFields } | { ok: false; errors: Partial<Record<'rating' | 'date', string>> } {
+  draft: SidecarDraft,
+):
+  | { ok: true; fields: SidecarFields }
+  | { ok: false; errors: Partial<Record<'rating' | 'date', string>> } {
   const rating = convertRating(draft.rating)
   const date = convertDate(draft)
 
@@ -219,13 +223,15 @@ export function addPlayer(draft: SidecarDraft, side: number, name: string): Side
   const exists = target.players.some((p) => p.toLowerCase() === trimmed.toLowerCase())
   if (exists) return draft
 
-  const sides = draft.sides.map((s, i) => (i === side ? { ...s, players: [...s.players, trimmed] } : s))
+  const sides = draft.sides.map((s, i) =>
+    i === side ? { ...s, players: [...s.players, trimmed] } : s,
+  )
   return { ...draft, sides }
 }
 
 export function removePlayer(draft: SidecarDraft, side: number, index: number): SidecarDraft {
   const sides = draft.sides.map((s, i) =>
-    i === side ? { ...s, players: s.players.filter((_, pi) => pi !== index) } : s
+    i === side ? { ...s, players: s.players.filter((_, pi) => pi !== index) } : s,
   )
   return { ...draft, sides }
 }
@@ -234,7 +240,7 @@ export function movePlayer(
   draft: SidecarDraft,
   side: number,
   index: number,
-  direction: -1 | 1
+  direction: -1 | 1,
 ): SidecarDraft {
   const target = draft.sides[side]
   if (target === undefined) return draft
@@ -267,7 +273,11 @@ export function removeTag(draft: SidecarDraft, tag: string): SidecarDraft {
  * tags already present on the current draft and keeping only those matching `input` as a
  * case-insensitive substring. Caps at 8 results.
  */
-export function suggestTags(otherDemosTags: string[][], input: string, current: string[]): string[] {
+export function suggestTags(
+  otherDemosTags: string[][],
+  input: string,
+  current: string[],
+): string[] {
   const currentLower = new Set(current.map((t) => t.toLowerCase()))
   const inputLower = input.toLowerCase()
 
@@ -312,7 +322,7 @@ export function suggestTags(otherDemosTags: string[][], input: string, current: 
  */
 export function withQuickEdit(
   values: Partial<SidecarFields>,
-  patch: { favourite?: boolean; rating?: number | null }
+  patch: { favourite?: boolean; rating?: number | null },
 ): SidecarFields {
   const out: SidecarFields = { ...values }
 

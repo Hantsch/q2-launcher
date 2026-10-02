@@ -7,14 +7,14 @@ reassignment via binding, a more usable alt-layers/keyboard-overview layout, on-
 visibility, a raw config view with reveal-in-folder, and a dual-bind editor for Movement/Weapons/
 Weapon dropping with modifier-layer auto-creation on capture.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 011 — Trigger assignable via key binding | done (built, live acceptance pending) | `da2c570` |
-| 013 — Compact layers panel, switcher moved into overview | done (built, live acceptance pending) | `400bb17` |
-| 014 — Trigger key visibility + click-to-switch | done (built, live acceptance pending) | `6444cbd` |
-| 012 — Raw config view with reveal-in-folder | done (built, live acceptance pending) | `115437e` |
-| 015 — Dual-bind editor (Movement/Weapons/Drops) | done (built, live acceptance pending) | `08b1e67` |
-| 016 — Modifier-layer auto-creation on capture | **blocked** (AC5 unresolved) | `29b4f4f` (WIP) |
+| Story                                                    | Status                                | Commit          |
+| -------------------------------------------------------- | ------------------------------------- | --------------- |
+| 011 — Trigger assignable via key binding                 | done (built, live acceptance pending) | `da2c570`       |
+| 013 — Compact layers panel, switcher moved into overview | done (built, live acceptance pending) | `400bb17`       |
+| 014 — Trigger key visibility + click-to-switch           | done (built, live acceptance pending) | `6444cbd`       |
+| 012 — Raw config view with reveal-in-folder              | done (built, live acceptance pending) | `115437e`       |
+| 015 — Dual-bind editor (Movement/Weapons/Drops)          | done (built, live acceptance pending) | `08b1e67`       |
+| 016 — Modifier-layer auto-creation on capture            | **blocked** (AC5 unresolved)          | `29b4f4f` (WIP) |
 
 5 of 6 stories built and reviewed; story 016 is blocked on a genuine design gap, documented below.
 

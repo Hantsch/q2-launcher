@@ -35,7 +35,7 @@ Measured facts about the current implementation, so nobody has to re-derive them
   through `settings:patch` (`src/renderer/src/store/useLauncher.ts:141-144`) and the store reads
   it back at boot (`:113`), so every screen starts in whatever state its predecessor left
   behind — restart or not. On top of that `ensureFixtures()` (`scripts/shot.mjs:37-45`) only
-  seeds when the file is *missing*, so run N+1 inherits run N's drift. Determinism has to come
+  seeds when the file is _missing_, so run N+1 inherits run N's drift. Determinism has to come
   from rewriting the fixture, not from ending the process.
 - `ui:shot` and `ui:a11y` currently drive two different app instances, so the accessibility
   report is not about the state in the PNG — which is the one thing the `ui-verify` skill says
@@ -62,7 +62,7 @@ requirements, it is a rule the skill never wrote down.
       are still visited, and the failure is reported as before.
 - [x] Each run starts from a freshly written fixture, so two consecutive runs of the same build
       produce the same screens — the current "seed only if missing" drift is gone.
-- [x] A screen whose subject *is* the cold boot can declare that in the registry and gets its own
+- [x] A screen whose subject _is_ the cold boot can declare that in the registry and gets its own
       app; the declaration is visible in the registry, not hidden in the driver.
 - [x] I can restrict a run to named screens for a fast edit/verify loop, and a restricted run
       says that it is partial (no stale-renaming of images it never tried to write).
@@ -89,7 +89,7 @@ starts instead of 56):
 - **Tie no-focus to the existing harness env, or a general "verification mode"?** ~~answered~~ —
   There is no harness-mode flag today (`grep -rE 'E2E|PLAYWRIGHT|UI_VERIFY|HARNESS' src/main`:
   zero hits); it has to be introduced from scratch either way. The first-run-scan-off behaviour
-  the question raises is *already* solved without an env flag — the `empty` fixture sets
+  the question raises is _already_ solved without an env flag — the `empty` fixture sets
   `settings.scanOnFirstRun: false` directly in the seeded `state.json` (`scripts/lib/fixture.mjs`,
   story 026 Decisions), not via a runtime mode switch. So there is only one boot-time behaviour
   left that genuinely needs an env flag (focus), and introducing a generic "verification mode" for
@@ -116,7 +116,7 @@ Today: `harness.mjs`'s `withApp()` = one `_electron.launch()` + one `app.close()
 (14 x 2 x 2 = 56). Viewport switching (`applyViewport()`, `harness.mjs:323`) already runs
 mid-launch via `app.evaluate` + `win.setSize` — it's callable more than once, nothing currently
 does. Fixture write (`fixture.mjs`) is unconditional; the "only if missing" drift is in the
-*caller* (`ensureFixtures()`, duplicated 3x across `shot.mjs`/`a11y.mjs`/`ui-verify.mjs`).
+_caller_ (`ensureFixtures()`, duplicated 3x across `shot.mjs`/`a11y.mjs`/`ui-verify.mjs`).
 
 1. **Registry + mid-session resize.** `screens.mjs` gets an optional `coldStart` field (default
    off — today's 14 screens use none). `harness.mjs` gets a `resize(app, viewport)` export (the
@@ -148,7 +148,7 @@ does. Fixture write (`fixture.mjs`) is unconditional; the "only if missing" drif
 `scripts/lib/harness.mjs` (export `resize(app, viewport)` — lift `applyViewport`'s body so it can
 be called more than once per launch; `childEnv()` also sets the new harness-mode var, e.g.
 `Q2L_UI_HARNESS=1`, alongside its existing `ELECTRON_RUN_AS_NODE` delete).
-*Acceptance:* a throwaway script that launches once and calls `resize()` twice with different
+_Acceptance:_ a throwaway script that launches once and calls `resize()` twice with different
 sizes resizes the window both times without a second launch; `childEnv()`'s returned object
 contains the new var; existing `withApp()` callers are unaffected (still resize once at launch).
 
@@ -161,7 +161,7 @@ today's `shootOne()`/`auditOne()` in `scripts/shot.mjs:67-124`/`scripts/a11y.mjs
 `coldStart` screens get their own `withApp()` call each. Fixture: caller always calls
 `writeFixture(variant)` for every variant in use — delete the `existsSync`-gated skip in
 `ensureFixtures()` wherever it currently lives.
-*Acceptance:* running the driver over the existing 14-screen registry with `capture: {shot:true,
+_Acceptance:_ running the driver over the existing 14-screen registry with `capture: {shot:true,
 axe:true}` produces the same screenshots + axe results as today's separate `shot.mjs`+`a11y.mjs`
 runs, using 2 launches total instead of 56; breaking one screen's `data-testid` still lets the
 other 13 complete and reports that one screen as `unreachable`; running twice in a row produces
@@ -175,7 +175,7 @@ flags). `--screens=a,b,c` filters the registry (unknown name = hard error); `ful
 === SCREENS.length`, gates the stale-PNG sweep, and a partial run says so in its summary/log.
 Exit code: `0` clean, `1` harness/app failure, `2` a11y serious/critical present — computed once,
 in-process. Run summary prints the actual launch count.
-*Acceptance:* `npm run ui:shot`, `npm run ui:a11y`, `npm run ui:verify`, and `npm run ui:verify --
+_Acceptance:_ `npm run ui:shot`, `npm run ui:a11y`, `npm run ui:verify`, and `npm run ui:verify --
 --screens=home,settings` each run and produce correct, correctly-scoped artifacts; the summary
 states the launch count (2 for a full run) and, for the restricted run, that it is partial and did
 not stale-sweep; exit codes match the three cases from story 026's existing contract.
@@ -184,16 +184,16 @@ not stale-sweep; exit codes match the three cases from story 026's existing cont
 `BrowserWindow` constructor and `window.showInactive()` in place of `window.show()` in the
 `ready-to-show` handler, both gated on the new harness env var being set), `scripts/lib/harness.mjs`
 (already sets the var in D1's `childEnv()` change — this D only consumes it).
-*Acceptance:* launching via the harness (var set) never raises/activates the window (manual check,
+_Acceptance:_ launching via the harness (var set) never raises/activates the window (manual check,
 see Test Plan); `npm run dev` and a packaged launch (var unset) show/focus exactly as before —
 verified by reading the code path, since this environment cannot demonstrate Windows focus
 behaviour directly (see Test Plan).
 
 **D5 — Docs.** [DONE] `docs/UI-VERIFICATION.md`. Documents: the per-variant session model and launch
-count, how to mark a screen `coldStart: true` and why (a screen whose subject *is* the cold boot),
+count, how to mark a screen `coldStart: true` and why (a screen whose subject _is_ the cold boot),
 `--screens` for a partial run and what "partial" changes about stale-sweep behaviour, and the
 harness-mode env var's purpose.
-*Acceptance:* doc matches the shipped behaviour; no remaining reference to `shot.mjs`/`a11y.mjs`
+_Acceptance:_ doc matches the shipped behaviour; no remaining reference to `shot.mjs`/`a11y.mjs`
 as separate always-two-launch scripts.
 
 ## Model Hints
@@ -227,7 +227,7 @@ as separate always-two-launch scripts.
 5. Run `npm run ui:verify` twice back to back; diff the two `.ui-verify/run.json` — identical
    (fixture rewritten fresh each time, no drift).
 6. Temporarily break one screen's `data-testid` so its `navigate()` throws; run `npm run
-   ui:verify`; confirm the other 13 screens still complete and the broken one is reported
+ui:verify`; confirm the other 13 screens still complete and the broken one is reported
    `unreachable` (not a whole-run abort); revert the change.
 7. Exit codes: clean run → `0`; a run against a build with an injected serious/critical a11y
    violation → `2`; a run where the app fails to start (e.g. `out/` deleted, no rebuild) → `1`.
@@ -264,6 +264,7 @@ matching `a11y.md`'s existing semantics (previously double-counted `config-raw`'
 
 **Deliberately left unfixed**, all lower-severity findings from the same review, none tied to a
 FAILing AC:
+
 - A `--screens=` partial run overwrites `run.json`/`a11y.json` with only the visited subset rather
   than merging into the prior full run's records (PNGs of untouched screens are correctly left
   alone; their JSON entries are not). Not required by AC8, which only specifies PNG-staleness
@@ -299,6 +300,7 @@ interruption — needs a human on a real Windows session per the story's own tex
 `in-progress` until that is confirmed; every other acceptance criterion is met and verified.
 
 **Commit message:**
+
 ```
 027: unify UI-verification into one session per fixture, suppress harness window focus
 ```

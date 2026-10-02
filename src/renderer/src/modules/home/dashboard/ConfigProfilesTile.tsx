@@ -115,13 +115,7 @@ export function ConfigProfilesTile() {
   )
 }
 
-function ConfigProfileRowItem({
-  row,
-  onOpen,
-}: {
-  row: ConfigProfileRow
-  onOpen: () => void
-}) {
+function ConfigProfileRowItem({ row, onOpen }: { row: ConfigProfileRow; onOpen: () => void }) {
   const { t } = useTranslation()
 
   return (

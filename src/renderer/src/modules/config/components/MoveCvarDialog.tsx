@@ -57,7 +57,9 @@ export function MoveCvarDialog({
       }
     >
       {targets.length === 0 ? (
-        <p className="text-sm text-ink-muted">{t('config.settings.section.moveCvarDialog.empty')}</p>
+        <p className="text-sm text-ink-muted">
+          {t('config.settings.section.moveCvarDialog.empty')}
+        </p>
       ) : (
         <Field label={t('config.settings.section.moveCvarDialog.targetLabel')}>
           <Select

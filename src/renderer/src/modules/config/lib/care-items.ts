@@ -261,7 +261,11 @@ function fileItems(rows: CareSyncRow[], profileDirty: boolean | undefined): Care
     }
     if (!isCanonical) {
       if (offersSyncNow) {
-        actions.push({ key: `${id}:syncNow`, kind: 'syncNow', labelKey: 'config.care.sync.syncNow' })
+        actions.push({
+          key: `${id}:syncNow`,
+          kind: 'syncNow',
+          labelKey: 'config.care.sync.syncNow',
+        })
       }
       // A missing file cannot be opened, only located - so `missing` rows keep
       // Reveal (which opens the containing folder) and drop Open.

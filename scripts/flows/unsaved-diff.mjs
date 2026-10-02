@@ -94,7 +94,9 @@ async function openActionEditor(page, rowId) {
  * `handleSaveAction`), so the dialog closing is proof the change already reached the server. */
 async function saveActionEditor(page) {
   const dialog = page.getByRole('dialog')
-  await dialog.getByRole('button', { name: 'Save', exact: true }).click({ timeout: CLICK_TIMEOUT_MS })
+  await dialog
+    .getByRole('button', { name: 'Save', exact: true })
+    .click({ timeout: CLICK_TIMEOUT_MS })
   await dialog.waitFor({ state: 'hidden', timeout: CLICK_TIMEOUT_MS })
 }
 
@@ -106,7 +108,9 @@ export default async function unsavedDiff({ page, shot, step }) {
   step('select the Weapons category (fixture-action-keyless lives there)')
   // No testid/role on the rail's category chips (plain `<button>`s, text is the category's own
   // display name) - same convention `scripts/flows/controls-subcategory.mjs` already uses.
-  await page.getByRole('button', { name: 'Weapons', exact: true }).click({ timeout: CLICK_TIMEOUT_MS })
+  await page
+    .getByRole('button', { name: 'Weapons', exact: true })
+    .click({ timeout: CLICK_TIMEOUT_MS })
 
   step('dirty actions/binds: bind the keyless action to an unused key, and give it a long body')
   await openActionEditor(page, 'fixture-action-keyless')
@@ -115,9 +119,13 @@ export default async function unsavedDiff({ page, shot, step }) {
     const rawCommandInput = dialog.getByLabel('Add a raw command', { exact: true })
     for (const command of EXTRA_COMMANDS) {
       await rawCommandInput.fill(command)
-      await dialog.getByRole('button', { name: 'Add', exact: true }).click({ timeout: CLICK_TIMEOUT_MS })
+      await dialog
+        .getByRole('button', { name: 'Add', exact: true })
+        .click({ timeout: CLICK_TIMEOUT_MS })
     }
-    await dialog.getByRole('button', { name: 'Press a key…', exact: true }).click({ timeout: CLICK_TIMEOUT_MS })
+    await dialog
+      .getByRole('button', { name: 'Press a key…', exact: true })
+      .click({ timeout: CLICK_TIMEOUT_MS })
     await page.keyboard.press(NEW_KEY)
     // `resolveQuakeKeyName` (`lib/keyboard-layout.ts`) resolves a letter key to its lower-case
     // Quake spelling (`KeyY` -> `'y'`), which is exactly what `ActionEditor`'s key `Badge` prints -
@@ -127,9 +135,11 @@ export default async function unsavedDiff({ page, shot, step }) {
   await saveActionEditor(page)
 
   step('select the Movement category (fixture-action-attack lives there)')
-  await page.getByRole('button', { name: 'Movement', exact: true }).click({ timeout: CLICK_TIMEOUT_MS })
+  await page
+    .getByRole('button', { name: 'Movement', exact: true })
+    .click({ timeout: CLICK_TIMEOUT_MS })
 
-  step('dirty actions/binds further: clear the attack action\'s primary key (a removal)')
+  step("dirty actions/binds further: clear the attack action's primary key (a removal)")
   // Unlike `fixture-action-keyless` (a plain, free-form action with the full edit/rename/remove
   // Options cell), `fixture-action-attack` carries a `catalogId` (`movement:attack`) - a catalogue
   // row, which `ControlsTab.tsx` renders through its own catalogue path with a live `BindSlot`
@@ -173,7 +183,9 @@ export default async function unsavedDiff({ page, shot, step }) {
   await page.locator('select').selectOption('brackets', { timeout: RAW_TAB_LOAD_TIMEOUT_MS })
 
   step('open the Unsaved tab')
-  await page.getByTestId('config-tab-unsaved').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+  await page
+    .getByTestId('config-tab-unsaved')
+    .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
   await page.getByTestId('config-tab-unsaved').click({ timeout: CLICK_TIMEOUT_MS })
   const changeList = page.getByTestId('config-save-changes')
   await changeList.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -235,11 +247,15 @@ export default async function unsavedDiff({ page, shot, step }) {
   const badgeText = (await page.getByTestId('config-tab-unsaved').innerText()).trim()
   const badgeMatch = badgeText.match(/(\d+)\s*$/)
   if (!badgeMatch) {
-    throw new Error(`expected the Unsaved tab's own text to end in a number, got ${JSON.stringify(badgeText)}`)
+    throw new Error(
+      `expected the Unsaved tab's own text to end in a number, got ${JSON.stringify(badgeText)}`,
+    )
   }
   const badgeCount = Number(badgeMatch[1])
   if (badgeCount !== rowCount) {
-    throw new Error(`expected the tab badge (${badgeCount}) to equal the rendered row count (${rowCount})`)
+    throw new Error(
+      `expected the tab badge (${badgeCount}) to equal the rendered row count (${rowCount})`,
+    )
   }
 
   step('a long command body does not overflow the panel')
@@ -256,7 +272,9 @@ export default async function unsavedDiff({ page, shot, step }) {
   const detailValues = page.getByTestId('profile-change-detail-value')
   const detailCount = await detailValues.count()
   if (detailCount === 0) {
-    throw new Error('expected at least one profile-change-detail-value block (the long command body)')
+    throw new Error(
+      'expected at least one profile-change-detail-value block (the long command body)',
+    )
   }
   const detailGeometry = await detailValues.evaluateAll((blocks) =>
     blocks.map((block) => ({

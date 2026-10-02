@@ -4,11 +4,7 @@ import type { UiHarnessGateInput } from '../../../lib/ui-harness'
 import { resolveFeedImages } from '../images/resolve-feed-images'
 import { resolveNewsSource } from './harness'
 import { filterAndSortSlides, resolveFeed } from './feed-pipeline'
-import {
-  fetchNewsDocuments,
-  type NewsFetchImpl,
-  type NewsFetchLog,
-} from './feed-fetcher'
+import { fetchNewsDocuments, type NewsFetchImpl, type NewsFetchLog } from './feed-fetcher'
 import { NewsFeedCache, type NewsFeedCacheData } from './feed-cache'
 
 /**
@@ -100,7 +96,12 @@ function deliverSlides(slides: NewsSlide[], deliveredAt: Date): NewsSlide[] {
 
 function deliver(state: NewsServiceState | undefined, deliveredAt: Date): NewsFeed {
   if (!state) {
-    return { slides: [], retrievedAt: NEVER_RETRIEVED, schemaAhead: false, lastRefreshFailed: false }
+    return {
+      slides: [],
+      retrievedAt: NEVER_RETRIEVED,
+      schemaAhead: false,
+      lastRefreshFailed: false,
+    }
   }
   return {
     slides: deliverSlides(state.slides, deliveredAt),
@@ -172,7 +173,11 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
       // lets a cache file carry it explicitly (defaulting to `false` when absent, `feed-cache.ts`) so
       // a harness-seeded, already-aged-and-failed fixture can be told apart from a normal cache with
       // no in-process refresh required to prove it.
-      state = { ...cached, schemaAhead: false, lastRefreshFailed: cached.lastRefreshFailed ?? false }
+      state = {
+        ...cached,
+        schemaAhead: false,
+        lastRefreshFailed: cached.lastRefreshFailed ?? false,
+      }
     }
     return state
   }

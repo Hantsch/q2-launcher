@@ -48,8 +48,8 @@ line with a length cap** before it goes anywhere (§12.3).
   `nameTemplateTextSchema` already uses. Leading/trailing whitespace is trimmed; an empty line is
   not sent (Send disabled, no error).
 - **D-B — `;` and `$` are allowed.** Several commands in one line and cvar macros are ordinary
-  console behaviour on the user's own local game; the validation guards the *transport's
-  structure*, not what the user chooses to run (typing `alias <loop> ""` by hand is the user's
+  console behaviour on the user's own local game; the validation guards the _transport's
+  structure_, not what the user chooses to run (typing `alias <loop> ""` by hand is the user's
   choice, not a breakout).
 - **D-C — Windows breakout guard (AC4): the free line never enters the guarded `if` string.** The
   spike's guard `if $seq != N then "<command>; set seq N; echo ACK N"` has no quote escaping in
@@ -71,7 +71,7 @@ build order is 164 → 165 → 166.
 
 1. **Shared validator (D1):** `src/shared/replays/console-line.ts` — `CONSOLE_LINE_MAX = 255`, a zod
    `consoleLineSchema` and `validateConsoleLine(raw)` returning `{ ok: true, line } | { ok: false,
-   reason }`. Mirrors `src/shared/replays/demo-rename.ts` (`validateDemoRename`). Used by main
+reason }`. Mirrors `src/shared/replays/demo-rename.ts` (`validateDemoRename`). Used by main
    (authoritative, AC2) and by the renderer (immediate reason, AC3).
 2. **Contract + main handler (D2):** new invoke `REPLAYS_HANDLERS.playbackConsoleSend`
    (`'playback.consoleSend'`) in `src/shared/modules/replays.ts`, loose outer payload schema
@@ -95,7 +95,7 @@ Linux needs no extra encoding: stdin gets `line + "\n"` and D1 already rejects e
   Export `CONSOLE_LINE_MAX = 255`; `consoleLineSchema` (zod): string, trimmed, min 1, max
   `CONSOLE_LINE_MAX`, every char in `0x20`–`0x7E` (so no `\r`, `\n`, tab, other control chars, no
   non-ASCII); `validateConsoleLine(raw: string)` → `{ ok: true; line: string } | { ok: false;
-  reason: 'empty' | 'multiline' | 'control' | 'nonAscii' | 'tooLong' }` implemented via
+reason: 'empty' | 'multiline' | 'control' | 'nonAscii' | 'tooLong' }` implemented via
   `consoleLineSchema` (reason order: `multiline` for any `\r`/`\n`, then `control`, `nonAscii`,
   `tooLong`, `empty` after trim). `;`, `$`, `"`, `//` are allowed (they are console syntax the
   user may use). Test `src/shared/replays/console-line.test.ts`: "a single printable line up to
@@ -106,18 +106,18 @@ Linux needs no extra encoding: stdin gets `line + "\n"` and D1 already rejects e
 - **D2 — `playback.consoleSend` contract and main handler plus its test.** Files:
   `src/shared/modules/replays.ts` (add `playbackConsoleSend: 'playback.consoleSend'` to
   `REPLAYS_HANDLERS` with a doc comment; add `replaysConsoleSendSchema = z.object({ line:
-  z.string().max(1024) }).strict()` and register it in the module's handler→schema map next to
+z.string().max(1024) }).strict()` and register it in the module's handler→schema map next to
   `replaysDemoRenameSchema`); `src/main/modules/replays/playback-console.ts` (new —
   `createPlaybackConsole({ channelFor })` with `send(line): Promise<Outcome<void>>`: run
   `validateConsoleLine` from `@shared/replays/console-line`; on failure return
-  `fail(\`replays.console.error.${reason}\`)` **without** touching the channel; with no current
-  playback session return `fail('replays.console.error.noSession')` (map [[164]]'s typed
-  no-session error to this key); otherwise call the channel's send with the *trimmed* line and
-  return `ok(undefined)`); `src/main/modules/replays/index.ts` (register the handler, mirroring
-  how `demoRename` is wired). Use `fail`/`ok`/`Outcome` from `@shared/types/common`. Test
-  `src/main/modules/replays/playback-console.test.ts` with a fake channel: "a valid line is sent
-  once, trimmed", "an invalid line never reaches the channel and names its reason", "no session
-  is a typed noSession failure". Update `src/shared/modules/replays.test.ts` if it enumerates
+  `fail(\`replays.console.error.${reason}\`)`**without** touching the channel; with no current
+playback session return`fail('replays.console.error.noSession')`(map [[164]]'s typed
+no-session error to this key); otherwise call the channel's send with the *trimmed* line and
+return`ok(undefined)`); `src/main/modules/replays/index.ts`(register the handler, mirroring
+how`demoRename`is wired). Use`fail`/`ok`/`Outcome`from`@shared/types/common`. Test
+`src/main/modules/replays/playback-console.test.ts`with a fake channel: "a valid line is sent
+once, trimmed", "an invalid line never reaches the channel and names its reason", "no session
+is a typed noSession failure". Update`src/shared/modules/replays.test.ts` if it enumerates
   handlers/schemas.
 
 - **D3 — Windows route: a free line cannot break out of the control file, plus its test.** File:
@@ -130,7 +130,7 @@ Linux needs no extra encoding: stdin gets `line + "\n"` and D1 already rejects e
   `if $seq != N then "exec <prefix>_cmd_N.cfg; set seq N; echo ACK N"`. Delete command file N
   after its ACK is seen, and all remaining command files when the channel closes (164's cleanup,
   AC5 there). Put the text building in a pure function (e.g. `encodeControlCommand(seq, line) →
-  { controlText, commandFileName, commandText }`) so the test needs no filesystem. If 164 already
+{ controlText, commandFileName, commandText }`) so the test needs no filesystem. If 164 already
   routes every command through such a file, this D reduces to the test. Test names: "a console
   line cannot break out of the control file" — for hostile lines (`say "x"; alias loop ""`,
   `a" ; set seq 99 ; "`, `echo //x`, `$seq`, `}`) the control text equals the fixed template for
@@ -145,7 +145,7 @@ Linux needs no extra encoding: stdin gets `line + "\n"` and D1 already rejects e
   `src/renderer/src/modules/replays/` (render the field next to the timeline, **also in its idle /
   no-session state**); `src/renderer/src/i18n/locales/en.json` (`replays.console.*`: label,
   placeholder, send, `disabled.noSession` visible text, `error.empty|multiline|control|nonAscii|
-  tooLong|noSession`); `scripts/flows/replays-console-command.mjs` (new, mirroring 165's timeline
+tooLong|noSession`); `scripts/flows/replays-console-command.mjs` (new, mirroring 165's timeline
   flow and its stubbed-engine seam). Mirror `src/renderer/src/modules/replays/RenameDemoDialog.tsx`
   (`Field` + `Input` from `components/ui/controls`, shared validator for the immediate reason,
   main's `Outcome` reason shown the same way). Behaviour: labelled text input + Send button;
@@ -204,6 +204,7 @@ Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vit
 AC map: AC1 flow + playback-console "a valid line is sent once, trimmed"; AC2 console-line.test + playback-console "an invalid line never reaches..."; AC3 ConsoleCommandField "a rejected line..." + flow non-ASCII step; AC4 protocol.test "a console line cannot break out of the control file" + windows-channel.test "the command file is written before the control file and removed after ACK"; AC5 ConsoleCommandField "without a session..." + flow + playback-console noSession; AC6 flow keyboard step + ConsoleCommandField "Enter sends...". All passed. No manual residue.
 
 Decisions:
+
 - `checkLine` (164's transport guard, both channels) rejected `"`; relaxed it (D-B/D-C: safe now that the Windows line never enters a quoted string). Line breaks/control chars/empty still rejected there.
 - Field is its own always-rendered section after `DemoTimeline` in `ReplaysView.tsx`, not inside the timeline (keeps timeline's "absent before play" check; D-D).
 - Handler is synchronous (`PlaybackControl.send` is sync), not `Promise<Outcome>` as the plan sketched.

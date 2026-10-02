@@ -50,7 +50,9 @@ const DROP_COMMAND = /^drop\s+(.+)$/i
  * field always points at one of these same names (`itemAmmoFor` below reads that field directly), so
  * one set here is enough to recognise a further `drop <ammo>` command wherever it names one. */
 const AMMO_NAMES: ReadonlySet<string> = new Set(
-  DROPPABLES.filter((droppable) => droppable.kind === 'ammo').map((droppable) => droppable.item.toLowerCase()),
+  DROPPABLES.filter((droppable) => droppable.kind === 'ammo').map((droppable) =>
+    droppable.item.toLowerCase(),
+  ),
 )
 
 function isKnownAmmoName(argument: string): boolean {
@@ -77,7 +79,9 @@ function itemAmmoFor(item: string): string | undefined {
 export function isDropEntry(action: ConfigAction): boolean {
   const name = aliasNameFor(action).trim().toLowerCase()
   if (!name.startsWith('drop_')) return false
-  return action.commands.some((command) => command.kind === 'raw' && DROP_COMMAND.test(command.text.trim()))
+  return action.commands.some(
+    (command) => command.kind === 'raw' && DROP_COMMAND.test(command.text.trim()),
+  )
 }
 
 /**

@@ -72,12 +72,16 @@ export default async function settingsDownloadsSection({ page, shot, step }) {
 
   const concurrencySelect = page.getByTestId('downloads-settings-concurrency').locator('select')
   const budgetSelect = page.getByTestId('downloads-settings-cache-budget').locator('select')
-  const whilePlayingSwitch = page.getByTestId('downloads-settings-while-playing').getByRole('switch')
+  const whilePlayingSwitch = page
+    .getByTestId('downloads-settings-while-playing')
+    .getByRole('switch')
 
   step(
     'boot-side: the section renders the fixture-seeded non-default values, not DEFAULT_DOWNLOADS_SETTINGS',
   )
-  await concurrencySelect.locator('option:checked').waitFor({ state: 'attached', timeout: TIMEOUT_MS })
+  await concurrencySelect
+    .locator('option:checked')
+    .waitFor({ state: 'attached', timeout: TIMEOUT_MS })
   const seededConcurrency = await concurrencySelect.inputValue()
   const seededBudget = await budgetSelect.inputValue()
   const seededWhilePlaying = await whilePlayingSwitch.getAttribute('aria-checked')
@@ -261,7 +265,10 @@ export default async function settingsDownloadsSection({ page, shot, step }) {
   await confirmBody.waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   const cacheSizeAfterCancel = await page.getByTestId('downloads-settings-cache-size').innerText()
-  if (!cacheSizeAfterCancel.includes(EXPECTED_CACHE_SIZE_TEXT) || !cacheSizeAfterCancel.includes('2')) {
+  if (
+    !cacheSizeAfterCancel.includes(EXPECTED_CACHE_SIZE_TEXT) ||
+    !cacheSizeAfterCancel.includes('2')
+  ) {
     throw new Error(
       `expected cache-size line to still show ${EXPECTED_CACHE_SIZE_TEXT}/2 archives after cancelling, got: ${JSON.stringify(cacheSizeAfterCancel)}`,
     )

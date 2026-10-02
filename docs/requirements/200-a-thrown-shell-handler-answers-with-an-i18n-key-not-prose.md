@@ -41,8 +41,8 @@ the two surfaces disagree.
 ## Open Questions
 
 - ~~**Q1**~~ answered → Decisions (Sprint) — Should the renderer bridge (`src/renderer/src/lib/bridge.ts`) map a rejected plain
-      `invoke` onto the error toast, or is that left to callers as today? The review's value
-      judge recommends leaving the bridge alone in this story.
+  `invoke` onto the error toast, or is that left to callers as today? The review's value
+  judge recommends leaving the bridge alone in this story.
 
 ## Decisions (Sprint)
 
@@ -56,7 +56,7 @@ the two surfaces disagree.
 - The catch covers both a synchronous throw and a rejected promise from the handler (`await` inside
   `try`), because `installations:inspectPath`-style handlers are async and an EPERM is a rejection.
 - Log line mirrors `MainModuleRegistry.invoke` (`src/main/modules/registry.ts:141`):
-  `log.error(\`handler for channel '${channel}' threw\`, error)` on the existing `ipc` scoped logger,
+  `log.error(\`handler for channel '${channel}' threw\`, error)`on the existing`ipc` scoped logger,
   because one log shape for both surfaces is the point of the story.
 - `handle` rethrows `new Error('ipc.error.handlerFailed')` with no channel or params in the
   message, because AC2 asks for the bare key and the channel is already in the log line.
@@ -101,9 +101,9 @@ Order: one deliverable, all of the above.
     (an invalid payload must still throw synchronously); then call the handler inside an async
     function with `try { return await handler(data, event) } catch (error) { log.error(\`handler
     for channel '${channel}' threw\`, error); throw new Error(HANDLER_FAILED_KEY) }`.
-    `handleOutcome`: keep `safeParse` → `return fail(invalidKey)` unchanged; then the same
-    try/await/catch, returning `fail(HANDLER_FAILED_KEY, { channel })`. Update both JSDoc comments.
-    Success and `Outcome`-failure return values pass through untouched.
+`handleOutcome`: keep `safeParse`→`return fail(invalidKey)`unchanged; then the same
+try/await/catch, returning`fail(HANDLER_FAILED_KEY, { channel })`. Update both JSDoc comments.
+Success and `Outcome`-failure return values pass through untouched.
   - `en.json`: under `"ipc": { "error": { … } }` add
     `"handlerFailed": "The launcher failed while handling \u201c{{channel}}\u201d. This is a bug."`
     (keep the file's existing `\u201c`/`\u201d` escape style; edit only this block — never run

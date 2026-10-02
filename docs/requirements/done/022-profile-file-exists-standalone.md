@@ -93,7 +93,7 @@ This is the on-disk half; the tab that shows and opens the files is story 023.
    depend on a renderer component that story 023 deletes, and awaiting means the returned profile
    list already matches the disk.
 9. **The renderer debounce stays where it is** (`SettingsTab`'s 500 ms) and `WriteTargets`'s
-   `updatedAt` effect becomes a sync-state refetch — the debounce AC 4 protects is the *edit*
+   `updatedAt` effect becomes a sync-state refetch — the debounce AC 4 protects is the _edit_
    debounce, not the write trigger.
 10. **A sync run writes every profile assigned to a target installation**, not just the saved one
     plus that installation's default — otherwise "missing" in the AC 5 report would routinely mean
@@ -112,7 +112,7 @@ This is the on-disk half; the tab that shows and opens the files is story 023.
 14. **Exactly one new IPC channel, read-only `syncState`** (`{ profileId }` →
     `Outcome<ProfileSyncState>`: an `own` entry plus one per assigned installation, each
     `{ path, fileName, status, messageKey? }` with `status ∈ inSync | outOfSync | missing | pending
-    | error`); `write` stays the retry trigger with its existing `WriteTargetResult[]` shape —
+| error`); `write` stays the retry trigger with its existing `WriteTargetResult[]` shape —
     stories 023 and 025 both render exactly this shape, and one channel keeps the contract diff
     reviewable.
 15. **Reading and opening files stays out of this story** — `syncState` hands out paths and status
@@ -133,16 +133,16 @@ Order matters: names first, then the two writers, then the orchestration, then t
    `resolveProfileFileNames(profiles): Map<id, fileName>`, pure and deterministic (decisions 1–4).
    `profileFileName(id)` in `render.ts` stays, but only as the matcher for old id-based files.
 2. **Every name consumer takes the resolved name** — `renderLoaderFile(profile, fileName,
-   switchBind?)`, `SwitchBindProfile` gains `fileName`, and the call sites in
+switchBind?)`, `SwitchBindProfile` gains `fileName`, and the call sites in
    `main/modules/config/index.ts` and `renderer/.../lib/validation-scope.ts` pass it in. No
    consumer derives a file name from an id any more.
 3. **Canonical file (`main/modules/config/canonical.ts`, new)** — write / rename / remove
    `<userData>/<name>.cfg`, reusing `writer.ts`'s `writeTargetFile` (diff-skip + backup-once) rather
    than a second copy of that logic; the base directory is a parameter so tests need no `electron`.
 4. **Installation reconcile (`main/modules/config/writer.ts`)** — `reconcileOwnedProfileFiles(
-   installation, expected)`: list `baseq2/*.cfg`, read the first line, rename launcher-owned files
+installation, expected)`: list `baseq2/*.cfg`, read the first line, rename launcher-owned files
    to their expected name (this migrates `q2l-profile-<id>.cfg`), delete launcher-owned files with
-   no live/assigned owner, leave everything else alone. Runs *before* the writes, so the following
+   no live/assigned owner, leave everything else alone. Runs _before_ the writes, so the following
    write diff-skips the renamed file and rewrites `autoexec.cfg`'s `exec` line.
 5. **Contract + persisted failures** — `ProfileSyncState`/`ProfileFileSync`/`ProfileFileSyncStatus`
    and `CONFIG_HANDLERS.syncState` in `src/shared/modules/config.ts`; `configWriteFailures` added
@@ -272,6 +272,7 @@ contract types + the read-only `syncState` channel and persisted `configWriteFai
 `src/main/modules/config/index.ts`, and `WriteTargets.tsx` rendering live sync state with retry.
 
 **Decisions (during build):**
+
 - The `write` IPC handler now routes through the sync engine (not a separate write path), so a
   manual retry clears a persisted `configWriteFailures` entry the same way an automatic sync does.
 - `getProfileSyncState`'s outcome was double-wrapped (`Outcome<Outcome<...>>`) — fixed to the

@@ -61,7 +61,10 @@ interface Harness {
 }
 
 /** `gate` holds the write guard closed until `release()`. */
-function harness(rec: ModInstallRecord | undefined, opts: { activeGameDir?: string; gate?: boolean; revalidatedActive?: string } = {}): Harness {
+function harness(
+  rec: ModInstallRecord | undefined,
+  opts: { activeGameDir?: string; gate?: boolean; revalidatedActive?: string } = {},
+): Harness {
   const installation = {
     id: 'inst-1',
     name: 'My Quake',
@@ -148,7 +151,11 @@ describe('startModRemove', () => {
   it('a mod with no install record is refused and nothing is deleted', async () => {
     await seed(FILES)
     const h = harness(record(FILES))
-    const started = startModRemove(h.deps, { installationId: 'inst-1', modId: 'other', changedFiles: 'delete' })
+    const started = startModRemove(h.deps, {
+      installationId: 'inst-1',
+      modId: 'other',
+      changedFiles: 'delete',
+    })
     expect(started).toMatchObject({ ok: false, error: { key: 'mods.remove.refused.noRecord' } })
     const preview = await previewModRemoval(h.deps, { installationId: 'inst-1', modId: 'other' })
     expect(preview.ok).toBe(false)
@@ -159,7 +166,11 @@ describe('startModRemove', () => {
   it('nothing is deleted before the write guard grants the lock', async () => {
     await seed(FILES)
     const h = harness(record(FILES), { gate: true })
-    const started = startModRemove(h.deps, { installationId: 'inst-1', modId: 'rogue', changedFiles: 'delete' })
+    const started = startModRemove(h.deps, {
+      installationId: 'inst-1',
+      modId: 'rogue',
+      changedFiles: 'delete',
+    })
     if (!started.ok) throw new Error('expected a started job')
     await new Promise((r) => setTimeout(r, 20))
     expect(existsSync(join(root, 'rogue', 'pak0.pak'))).toBe(true)
@@ -171,7 +182,11 @@ describe('startModRemove', () => {
   it('the install record is dropped and the installation revalidated', async () => {
     await seed(FILES)
     const h = harness(record(FILES))
-    const started = startModRemove(h.deps, { installationId: 'inst-1', modId: 'rogue', changedFiles: 'delete' })
+    const started = startModRemove(h.deps, {
+      installationId: 'inst-1',
+      modId: 'rogue',
+      changedFiles: 'delete',
+    })
     if (!started.ok) throw new Error('expected a started job')
     expect(await started.value.settled).toEqual({ status: 'succeeded' })
     expect(readModsState(h.installation.moduleData).records).toEqual([])
@@ -184,7 +199,11 @@ describe('startModRemove', () => {
   it('a removed active gamedir falls back to the base game with a toast', async () => {
     await seed(FILES)
     const h = harness(record(FILES), { activeGameDir: 'Rogue', revalidatedActive: '' })
-    const started = startModRemove(h.deps, { installationId: 'inst-1', modId: 'rogue', changedFiles: 'delete' })
+    const started = startModRemove(h.deps, {
+      installationId: 'inst-1',
+      modId: 'rogue',
+      changedFiles: 'delete',
+    })
     if (!started.ok) throw new Error('expected a started job')
     await started.value.settled
     expect(h.toasts).toEqual([
@@ -196,21 +215,36 @@ describe('startModRemove', () => {
     await seed(FILES)
     const h = harness(record(FILES))
     forced.failPath = 'maps/x.bsp'
-    const started = startModRemove(h.deps, { installationId: 'inst-1', modId: 'rogue', changedFiles: 'delete' })
+    const started = startModRemove(h.deps, {
+      installationId: 'inst-1',
+      modId: 'rogue',
+      changedFiles: 'delete',
+    })
     if (!started.ok) throw new Error('expected a started job')
     const outcome = await started.value.settled
     expect(outcome).toEqual({ status: 'failed', key: 'mods.remove.failed.locked' })
     const files = readModsState(h.installation.moduleData).records[0].files.map((f) => f.path)
     expect(files).toEqual(['maps/x.bsp'])
-    expect(h.finished[0].error).toEqual({ key: 'mods.remove.failed.locked', params: { path: 'maps/x.bsp' } })
+    expect(h.finished[0].error).toEqual({
+      key: 'mods.remove.failed.locked',
+      params: { path: 'maps/x.bsp' },
+    })
   })
 
   it('a second mods job for the same mod is refused', async () => {
     await seed(FILES)
     const h = harness(record(FILES), { gate: true })
-    const first = startModRemove(h.deps, { installationId: 'inst-1', modId: 'rogue', changedFiles: 'delete' })
+    const first = startModRemove(h.deps, {
+      installationId: 'inst-1',
+      modId: 'rogue',
+      changedFiles: 'delete',
+    })
     if (!first.ok) throw new Error('expected a started job')
-    const second = startModRemove(h.deps, { installationId: 'inst-1', modId: 'rogue', changedFiles: 'delete' })
+    const second = startModRemove(h.deps, {
+      installationId: 'inst-1',
+      modId: 'rogue',
+      changedFiles: 'delete',
+    })
     expect(second).toMatchObject({ ok: false, error: { key: 'mods.remove.refused.busy' } })
     h.release()
     await first.value.settled

@@ -67,7 +67,7 @@ folder; those keep entry-only removal with a note that the store uninstalls the 
   the app's `userData` dir, equals the user's home dir, or is an ancestor of (or equal to) another
   registered installation's canonical root (`pathKey`, `fs-utils.ts:85`). Reason: every one of
   these would delete something the user did not point at, and the story's whole risk is exactly that.
-- **Store-managed sources are locked in main *and* in the UI**, via one shared predicate
+- **Store-managed sources are locked in main _and_ in the UI**, via one shared predicate
   (`isStoreManaged(source)` in `src/shared/types/installation.ts`) covering `steam`, `gog`, `epic`
   **and `bethesda`**. Reason: AC4 enumerates the three the concept names, and `bethesda` is the
   same class of store-managed folder in the existing `InstallationSource` union — locking it too
@@ -118,47 +118,47 @@ Order: D1 → D2 → D3 → D4. D3 may start once D1 exists.
 ## Deliverables
 
 - [x] **D1 — Safe folder deletion (main).** `src/main/services/installation-removal.ts` +
-  `installation-removal.test.ts`, `src/shared/types/installation.ts` (`isStoreManaged`),
-  error keys in `src/renderer/src/i18n/locales/en.json`. Mirror `src/main/lib/fs-utils.ts` for the
-  path helpers (`canonicalizePath`, `pathKey`, `isDirectory`) and `installations.ts`'s
-  `ok`/`fail` Outcome style. *Acceptance (tmp-dir tests):* deletes a folder tree including nested
-  dirs and read-only-ish files; refuses a drive root, a one-segment path, the `userData` dir, the
-  home dir, a missing path, and a root that contains another registered installation's root, each
-  with its own error key and before touching anything; a symlink inside the folder is unlinked, its
-  target outside survives; a failing unlink (injected) surfaces as a failure, not a silent success.
-  Proves AC3 and AC7's main half.
+      `installation-removal.test.ts`, `src/shared/types/installation.ts` (`isStoreManaged`),
+      error keys in `src/renderer/src/i18n/locales/en.json`. Mirror `src/main/lib/fs-utils.ts` for the
+      path helpers (`canonicalizePath`, `pathKey`, `isDirectory`) and `installations.ts`'s
+      `ok`/`fail` Outcome style. _Acceptance (tmp-dir tests):_ deletes a folder tree including nested
+      dirs and read-only-ish files; refuses a drive root, a one-segment path, the `userData` dir, the
+      home dir, a missing path, and a root that contains another registered installation's root, each
+      with its own error key and before touching anything; a symlink inside the folder is unlinked, its
+      target outside survives; a failing unlink (injected) surfaces as a failure, not a silent success.
+      Proves AC3 and AC7's main half.
 - [x] **D2 — Removal policy in the service.** `src/main/services/installations.ts` (`remove`,
-  `InstallationsDeps.isRunning`), `src/main/context.ts`, `src/shared/types/installation.ts`
-  (comment on `deleteFromDisk`), `src/main/services/installations.test.ts`,
-  `src/renderer/src/i18n/locales/en.json` (drop `deleteFromDiskUnsupported`). Mirror the existing
-  `remove` body for entry teardown and `onRemoved` for the injected-callback pattern.
-  *Acceptance:* `deleteFromDisk: true` on a store-managed source (steam/gog/epic/bethesda) fails
-  with the store key and deletes nothing; on a running installation fails with the running key and
-  deletes nothing; on a removable one calls the D1 deleter, then removes the entry, reassigns
-  `activeInstallationId` and runs `onRemoved`; when the deleter fails the entry, the active id and
-  the icon are all still there; `deleteFromDisk` absent/false behaves exactly as today.
-  Proves AC4 (main), AC5 (main), AC6 (main) and AC7's entry-kept half.
+      `InstallationsDeps.isRunning`), `src/main/context.ts`, `src/shared/types/installation.ts`
+      (comment on `deleteFromDisk`), `src/main/services/installations.test.ts`,
+      `src/renderer/src/i18n/locales/en.json` (drop `deleteFromDiskUnsupported`). Mirror the existing
+      `remove` body for entry teardown and `onRemoved` for the injected-callback pattern.
+      _Acceptance:_ `deleteFromDisk: true` on a store-managed source (steam/gog/epic/bethesda) fails
+      with the store key and deletes nothing; on a running installation fails with the running key and
+      deletes nothing; on a removable one calls the D1 deleter, then removes the entry, reassigns
+      `activeInstallationId` and runs `onRemoved`; when the deleter fails the entry, the active id and
+      the icon are all still there; `deleteFromDisk` absent/false behaves exactly as today.
+      Proves AC4 (main), AC5 (main), AC6 (main) and AC7's entry-kept half.
 - [x] **D3 — The chooser dialog and its trigger.**
-  `src/renderer/src/components/installations/RemoveInstallationDialog.tsx` (+
-  `RemoveInstallationDialog.test.tsx`, jsdom), `src/renderer/src/views/LibraryView.tsx`,
-  `src/renderer/src/store/useLauncher.ts` (pass `deleteFromDisk`),
-  `src/renderer/src/i18n/locales/en.json`. Mirror `DeleteProfileDialog.tsx` for the danger-confirm
-  idiom and `ActionBar.tsx:257` for the launch-state gate. *Acceptance:* a removable installation's
-  dialog offers both outcomes; choosing disk removal shows a second step naming `rootPath` before
-  any invoke happens; confirming invokes `installations:remove` with `deleteFromDisk: true`; a
-  store-managed installation shows only entry-only removal plus the "the store uninstalls the game"
-  note and has no disk option in the DOM; the disk option is disabled while that installation's
-  game runs; `data-testid`s for the flow. Proves AC1, AC2, AC4 (UI), AC5 (UI).
+      `src/renderer/src/components/installations/RemoveInstallationDialog.tsx` (+
+      `RemoveInstallationDialog.test.tsx`, jsdom), `src/renderer/src/views/LibraryView.tsx`,
+      `src/renderer/src/store/useLauncher.ts` (pass `deleteFromDisk`),
+      `src/renderer/src/i18n/locales/en.json`. Mirror `DeleteProfileDialog.tsx` for the danger-confirm
+      idiom and `ActionBar.tsx:257` for the launch-state gate. _Acceptance:_ a removable installation's
+      dialog offers both outcomes; choosing disk removal shows a second step naming `rootPath` before
+      any invoke happens; confirming invokes `installations:remove` with `deleteFromDisk: true`; a
+      store-managed installation shows only entry-only removal plus the "the store uninstalls the game"
+      note and has no disk option in the DOM; the disk option is disabled while that installation's
+      game runs; `data-testid`s for the flow. Proves AC1, AC2, AC4 (UI), AC5 (UI).
 - [x] **D4 — Offline end-to-end proof.** `scripts/lib/fixture.mjs` (one `source: 'steam'`
-  installation, and a sentinel file in a sibling folder next to the removable install's root),
-  `scripts/flows/installation-remove-from-disk.mjs`, `docs/UI-VERIFICATION.md`. Mirror
-  `scripts/flows/retail-upgrade.mjs` (on-disk assertions + `dev:simulateLaunch` seeding).
-  *Acceptance:* `npm run ui:flow -- installation-remove-from-disk` walks the real surface: the
-  removable installation offers both outcomes, the confirm step shows its path, confirming makes
-  the folder disappear from disk while the sibling sentinel survives, and the installation is gone
-  from library, rail and dashboard; the steam installation offers entry-only removal with the store
-  note and no disk option; with `dev:simulateLaunch` the disk option is refused/disabled with the
-  running-game reason. No network access. Proves AC1, AC2, AC3 (on disk), AC4, AC5, AC6.
+      installation, and a sentinel file in a sibling folder next to the removable install's root),
+      `scripts/flows/installation-remove-from-disk.mjs`, `docs/UI-VERIFICATION.md`. Mirror
+      `scripts/flows/retail-upgrade.mjs` (on-disk assertions + `dev:simulateLaunch` seeding).
+      _Acceptance:_ `npm run ui:flow -- installation-remove-from-disk` walks the real surface: the
+      removable installation offers both outcomes, the confirm step shows its path, confirming makes
+      the folder disappear from disk while the sibling sentinel survives, and the installation is gone
+      from library, rail and dashboard; the steam installation offers entry-only removal with the store
+      note and no disk option; with `dev:simulateLaunch` the disk option is refused/disabled with the
+      running-game reason. No network access. Proves AC1, AC2, AC3 (on disk), AC4, AC5, AC6.
 
 ## Model Hints
 
@@ -253,7 +253,7 @@ Commit message: `094: an installation can be removed from disk`
   distinct `rootPath` per id, and the assertion checks the exact forwarded object (`rootPath`,
   `otherInstallationRoots`, `userDataDir`, `homeDir`) instead of `expect.any(String)`.
 - **Review finding fixed - mid-dialog running-game race.** `RemoveInstallationDialog` disabled the
-  "remove from disk" *option* while the game runs, but not the confirm step's submit button if the
+  "remove from disk" _option_ while the game runs, but not the confirm step's submit button if the
   game started running after the disk step was already open. Main already refused this server-side
   (no data-loss risk), but the UI could still let a doomed submit through. The footer's confirm
   button is now also disabled in that combination.

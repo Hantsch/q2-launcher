@@ -51,7 +51,13 @@ const RATINGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
  * every interaction (no debounce, no local buffering) — the caller is the single source of truth for
  * `filter`.
  */
-export function DemoListFilterBar({ filter, onChange, options, shown, total }: DemoListFilterBarProps) {
+export function DemoListFilterBar({
+  filter,
+  onChange,
+  options,
+  shown,
+  total,
+}: DemoListFilterBarProps) {
   const { t } = useTranslation()
 
   const modOptions = nullableOptions(options.mods, filter.mod, t)
@@ -72,7 +78,10 @@ export function DemoListFilterBar({ filter, onChange, options, shown, total }: D
 
   const ratingOptions: SelectOption[] = [
     { value: '', label: t('replays.filter.any') },
-    ...RATINGS.map((n) => ({ value: String(n), label: t('replays.filter.ratingAtLeast', { count: n }) })),
+    ...RATINGS.map((n) => ({
+      value: String(n),
+      label: t('replays.filter.ratingAtLeast', { count: n }),
+    })),
   ]
 
   const active = isDemoFilterActive(filter)
@@ -111,7 +120,10 @@ export function DemoListFilterBar({ filter, onChange, options, shown, total }: D
             value={filter.gamemode ?? ''}
             options={gamemodeOptions}
             onChange={(event) =>
-              onChange({ ...filter, gamemode: event.target.value === '' ? null : event.target.value })
+              onChange({
+                ...filter,
+                gamemode: event.target.value === '' ? null : event.target.value,
+              })
             }
             data-testid="replays-filter-gamemode"
           />

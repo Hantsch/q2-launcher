@@ -175,10 +175,7 @@ describe('inspectInstallation executable ranking', () => {
 
       const result = await inspectInstallation(mixedRoot)
 
-      expect(result.executables).toEqual([
-        join(mixedRoot, 'quake2'),
-        join(mixedRoot, 'quake2.exe'),
-      ])
+      expect(result.executables).toEqual([join(mixedRoot, 'quake2'), join(mixedRoot, 'quake2.exe')])
       expect(result.executableKind).toBe('elf')
     },
   )

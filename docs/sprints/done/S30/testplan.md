@@ -10,6 +10,7 @@ Only what cannot be automated. Everything else is covered by the tests listed in
 baseline config are the pair that matters.
 
 **Steps:**
+
 1. Open the `combo-4` PNG and the baseline PNG side by side.
 2. Look at the game console / notify area in each.
 
@@ -24,6 +25,7 @@ was never measured.
 **Preparation:** a Linux machine with a Q2PRO build and the launcher; a demo to play.
 
 **Steps:**
+
 1. Play a demo in the launcher, click pause/resume and jump 10 s three times quickly.
 2. Time from click to the game reacting (frame-stepped screen recording, or the spike harness adapted to
    `linux-channel.ts`).

@@ -9,7 +9,13 @@ import {
   modsFixtureFiles,
   writeManualGamedirFile,
 } from '../lib/fixture.mjs'
-import { installRecords, JOB_TIMEOUT_MS, modsInstallLifecycle, openMods, TIMEOUT_MS } from '../lib/mods-install-flow.mjs'
+import {
+  installRecords,
+  JOB_TIMEOUT_MS,
+  modsInstallLifecycle,
+  openMods,
+  TIMEOUT_MS,
+} from '../lib/mods-install-flow.mjs'
 
 export const variant = 'populated'
 const lifecycle = modsInstallLifecycle()
@@ -50,7 +56,8 @@ export default async function modsInstallOverManual({ page, shot, step }) {
   if (existsSync(installationRootFilePath(MODS_INSTALL_R1Q2_ID, 'fixturemod/gamex86.dll'))) {
     throw new Error('gamex86.dll written after Cancel')
   }
-  if (installRecords(MODS_INSTALL_R1Q2_ID).length !== 0) throw new Error('a record exists after Cancel')
+  if (installRecords(MODS_INSTALL_R1Q2_ID).length !== 0)
+    throw new Error('a record exists after Cancel')
 
   step('install again, Keep')
   await page.getByTestId('mods-install-fixturemod').click({ timeout: TIMEOUT_MS })
@@ -63,7 +70,8 @@ export default async function modsInstallOverManual({ page, shot, step }) {
   await shot('installed-keep')
 
   step('pak0.pak kept, library written, record leaves pak0.pak out')
-  if (!readFileSync(pakPath).equals(MANUAL_BYTES)) throw new Error('pak0.pak was overwritten by Keep')
+  if (!readFileSync(pakPath).equals(MANUAL_BYTES))
+    throw new Error('pak0.pak was overwritten by Keep')
   const dll = readFileSync(installationRootFilePath(MODS_INSTALL_R1Q2_ID, 'fixturemod/gamex86.dll'))
   if (!dll.equals(modsFixtureFiles['gamex86.dll'])) throw new Error('gamex86.dll bytes wrong')
   const recs = installRecords(MODS_INSTALL_R1Q2_ID)

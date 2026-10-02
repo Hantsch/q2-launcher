@@ -525,11 +525,7 @@
         "mousemove": 7,
         "mousedown": 1,
         "keydown": 3,
-        "keys": [
-          "KeyA",
-          "KeyW",
-          "Space"
-        ],
+        "keys": ["KeyA", "KeyW", "Space"],
         "other": []
       },
       "cursorHidden": false,

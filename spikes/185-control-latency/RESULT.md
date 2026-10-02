@@ -14,12 +14,12 @@ its latency tail is less trustworthy. It is kept because it is a real run of the
 
 ## AC1 - single commands (30 each): control written -> effect / ACK
 
-| Measure | A p50 / p95 (max) | B p50 / p95 (max) | 183 target |
-| --- | --- | --- | --- |
-| written -> effect (`effect`) | 83 / 204 (214.9) | 94.3 / 271.2 (341.3) | - |
-| written -> ACK read, 10 ms poll (`ack`) | 83 / 204 (214.9) | 94.3 / 271.2 (341.3) | - |
-| written -> ACK read, 50 ms grid (`ackAtProductionPoll`) | 109.2 / 227.6 (241.1) | 100.1 / 307 (387.1) | p95 <= 350 |
-| marker -> ACK (`markerToAck`) | 0 / 0 | 0 / 0 | - |
+| Measure                                                 | A p50 / p95 (max)     | B p50 / p95 (max)    | 183 target |
+| ------------------------------------------------------- | --------------------- | -------------------- | ---------- |
+| written -> effect (`effect`)                            | 83 / 204 (214.9)      | 94.3 / 271.2 (341.3) | -          |
+| written -> ACK read, 10 ms poll (`ack`)                 | 83 / 204 (214.9)      | 94.3 / 271.2 (341.3) | -          |
+| written -> ACK read, 50 ms grid (`ackAtProductionPoll`) | 109.2 / 227.6 (241.1) | 100.1 / 307 (387.1)  | p95 <= 350 |
+| marker -> ACK (`markerToAck`)                           | 0 / 0                 | 0 / 0                | -          |
 
 Met in A (227.6) and in B (307) for p95 <= 350 at the 50 ms grid; B's max (387.1) is above 350. Effect equals ACK at the 10 ms poll:
 with `logfile_flush 3` the log line is on disk before the host's poll sees the marker. 183 baseline (`2026-09-30T07-30-22-186Z.json`):
@@ -27,23 +27,23 @@ ACK 1277.3 / 1537.4, 50 ms grid 1315.3 / 1545.3; 183 combo-4 (`2026-09-30T08-26-
 
 ## AC3 - POS arrival interval (read batches carrying new POS lines)
 
-| Series | A p50 / p95 (max), n | B p50 / p95 (max), n | 183 promise |
-| --- | --- | --- | --- |
-| 10 ms poll (`posIntervals`) | 219.2 / 220 (233.2), 393 | 220 / 384.4 (403.8), 303 | p95 <= 400 |
-| 50 ms grid (`posIntervalsAtProductionPoll`) | 200 / 250 (250), 393 | 250 / 400 (400), 303 | p95 <= 400 |
+| Series                                      | A p50 / p95 (max), n     | B p50 / p95 (max), n     | 183 promise |
+| ------------------------------------------- | ------------------------ | ------------------------ | ----------- |
+| 10 ms poll (`posIntervals`)                 | 219.2 / 220 (233.2), 393 | 220 / 384.4 (403.8), 303 | p95 <= 400  |
+| 50 ms grid (`posIntervalsAtProductionPoll`) | 200 / 250 (250), 393     | 250 / 400 (400), 303     | p95 <= 400  |
 
 Met in both (B at the limit: 400 on the grid, max 403.8 at the 10 ms poll). 183 combo-4 flush interval p95 was 372.4.
 
 ## AC2 - three jumps within 300 ms (10 bursts each: `seek +10`, `seek -10`, `seek +10`, ~100 ms apart)
 
-| Measure | A | B |
-| --- | --- | --- |
-| dispatched in order (`burstCheck.inOrder`) | 10 / 10 | 10 / 10 |
-| each exactly once (`burstCheck.eachOnce`) | 10 / 10 | 10 / 10 |
-| max request span first -> third (`maxRequestSpanMs`) | 205 | 204.4 |
-| seq and cfg of 2nd and 3rd written before the 1st ACK (`writtenBeforeFirstAck`) | 0 / 10 | 1 / 10 |
-| first request -> last ACK, p50 / p95 (`burst.lastAck`) | 337.3 / 358.5 | 357.9 / 443.4 |
-| first request -> last effect (`burst.lastEffect`) | 337.3 / 358.5 | 357.9 / 443.4 |
+| Measure                                                                         | A             | B             |
+| ------------------------------------------------------------------------------- | ------------- | ------------- |
+| dispatched in order (`burstCheck.inOrder`)                                      | 10 / 10       | 10 / 10       |
+| each exactly once (`burstCheck.eachOnce`)                                       | 10 / 10       | 10 / 10       |
+| max request span first -> third (`maxRequestSpanMs`)                            | 205           | 204.4         |
+| seq and cfg of 2nd and 3rd written before the 1st ACK (`writtenBeforeFirstAck`) | 0 / 10        | 1 / 10        |
+| first request -> last ACK, p50 / p95 (`burst.lastAck`)                          | 337.3 / 358.5 | 357.9 / 443.4 |
+| first request -> last effect (`burst.lastEffect`)                               | 337.3 / 358.5 | 357.9 / 443.4 |
 
 Per command `burstDetail[]` holds requested-at, written-at (2nd about 103, 3rd about 205 after the first request, i.e. at request
 time, never delayed by an ACK), effect and ACK times. **The literal "2nd/3rd written before the 1st ACK" is not what happened:**
@@ -54,10 +54,10 @@ the 1st ACK usually arrived (A: 69 to 138 ms) before the 2nd command was even re
 
 ## AC4 - launcher lines per second while the loop lived (`sideEffects.linesPerSec`)
 
-| Run | Execing | POS | ACK | other | Sum | Budget <= 10 |
-| --- | --- | --- | --- | --- | --- | --- |
-| A | 5.4 | 4.6 | 0.8 | 1 | 11.8 | raw sum over 10 (launcher-only Execing+POS+ACK = 10.8; idle plumbing 2 x 4.6 = 9.2) |
-| B | 4.3 | 3.5 | 0.7 | 0.9 | 9.4 | met (idle plumbing 2 x 3.5 = 7.0) |
+| Run | Execing | POS | ACK | other | Sum  | Budget <= 10                                                                        |
+| --- | ------- | --- | --- | ----- | ---- | ----------------------------------------------------------------------------------- |
+| A   | 5.4     | 4.6 | 0.8 | 1     | 11.8 | raw sum over 10 (launcher-only Execing+POS+ACK = 10.8; idle plumbing 2 x 4.6 = 9.2) |
+| B   | 4.3     | 3.5 | 0.7 | 0.9   | 9.4  | met (idle plumbing 2 x 3.5 = 7.0)                                                   |
 
 The tick rate is the POS rate (one POS line per tick): A 4.6 ticks/s, B 3.5 ticks/s. The Execing count also includes the
 `Execing q2l_cmd_N.cfg` line of every command (A 5.4 - 4.6 = 0.8/s, B 4.3 - 3.5 = 0.8/s, matching the 0.8 / 0.7 ACK lines/s), so it is

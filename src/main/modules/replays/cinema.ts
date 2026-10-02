@@ -41,7 +41,10 @@ export function displayGeometry(physicalRect: StageRect): string {
  * `Q2L_UI_CINEMA_DISPLAY=primary|secondary` overrides `onPrimary` - honoured only with
  * `Q2L_UI_HARNESS` set, like `Q2L_UI_SESSION_TYPE` in `stage.ts`.
  */
-export function resolveOnPrimary(onPrimary: boolean, env: Record<string, string | undefined>): boolean {
+export function resolveOnPrimary(
+  onPrimary: boolean,
+  env: Record<string, string | undefined>,
+): boolean {
   if (!env['Q2L_UI_HARNESS']) return onPrimary
   const knob = env['Q2L_UI_CINEMA_DISPLAY']
   if (knob === 'primary') return true

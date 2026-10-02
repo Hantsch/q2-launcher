@@ -43,7 +43,10 @@ export function findMatches(lines: ConfigSyntaxLine[], query: string): ConfigSea
   const matches: ConfigSearchMatch[] = []
 
   for (const line of lines) {
-    const haystack = line.tokens.map((token) => token.text).join('').toLowerCase()
+    const haystack = line.tokens
+      .map((token) => token.text)
+      .join('')
+      .toLowerCase()
 
     let searchFrom = 0
     while (searchFrom <= haystack.length) {

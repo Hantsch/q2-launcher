@@ -79,7 +79,9 @@ function toUnlockState(snapshot: UnlockSnapshot): UnlockState {
   }
   return {
     installationId:
-      snapshot.launcherInstallId === null ? '' : formatLauncherInstallId(snapshot.launcherInstallId),
+      snapshot.launcherInstallId === null
+        ? ''
+        : formatLauncherInstallId(snapshot.launcherInstallId),
     codes,
   }
 }

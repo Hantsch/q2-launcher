@@ -29,7 +29,11 @@ describe('MainModuleRegistry', () => {
     }
 
     await registry.register(module, fakeAppContext())
-    const result = await registry.invoke({ moduleId: 'library', type: 'stats', payload: { x: 123 } })
+    const result = await registry.invoke({
+      moduleId: 'library',
+      type: 'stats',
+      payload: { x: 123 },
+    })
 
     expect(result).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
     expect(handler).not.toHaveBeenCalled()
@@ -46,13 +50,17 @@ describe('MainModuleRegistry', () => {
     }
 
     await registry.register(module, fakeAppContext())
-    const result = await registry.invoke({ moduleId: 'library', type: 'stats', payload: { x: 'hello' } })
+    const result = await registry.invoke({
+      moduleId: 'library',
+      type: 'stats',
+      payload: { x: 'hello' },
+    })
 
     expect(handler).toHaveBeenCalledWith({ x: 'hello' })
     expect(result).toEqual({ ok: true, value: { answer: 42 } })
   })
 
-  it('a module\'s handlers are not reachable under another module\'s id', async () => {
+  it("a module's handlers are not reachable under another module's id", async () => {
     const registry = new MainModuleRegistry()
     const libraryHandler = vi.fn().mockResolvedValue({ from: 'library' })
     const libraryMod: MainModule = {
@@ -119,7 +127,10 @@ describe('MainModuleRegistry feature gating', () => {
     expect(locked).toEqual(unknown)
     expect(locked).toEqual({
       ok: false,
-      error: { key: 'modules.error.notImplemented', params: { moduleId: 'library', type: 'watch' } },
+      error: {
+        key: 'modules.error.notImplemented',
+        params: { moduleId: 'library', type: 'watch' },
+      },
     })
     expect(watch).not.toHaveBeenCalled()
   })
@@ -144,7 +155,10 @@ describe('MainModuleRegistry feature gating', () => {
 
     expect(result).toEqual({
       ok: false,
-      error: { key: 'modules.error.notImplemented', params: { moduleId: 'library', type: 'watch' } },
+      error: {
+        key: 'modules.error.notImplemented',
+        params: { moduleId: 'library', type: 'watch' },
+      },
     })
     expect(watch).not.toHaveBeenCalled()
   })

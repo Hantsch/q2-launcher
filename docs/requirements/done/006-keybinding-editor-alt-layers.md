@@ -49,7 +49,7 @@ the editor it defers to. See
    reason: the renderer needs the same generator for the live preview and the `+command` warning
    that the writer needs for the file, and `src/shared/config/` is exactly where story 003 put
    its pure, node-free config logic.
-3. **Generated aliases are emitted into the *same* per-profile file story 004 already writes**
+3. **Generated aliases are emitted into the _same_ per-profile file story 004 already writes**
    (`baseq2/q2l-profile-<id>.cfg`), as an `alias` block between the `set` and `bind` blocks, with
    the layer trigger binds appended to the bind block — reason: `writer.ts`'s backup-once /
    diff-skip / atomic-write and the `autoexec.cfg` loader (`exec q2l-profile-<id>.cfg`) already
@@ -78,7 +78,7 @@ the editor it defers to. See
 9. **Bodies are split into `<name>_pN` chunk aliases before 1024 bytes** (measured in latin1
    bytes, not UTF-16 units) — reason: `Cbuf_Execute`'s per-line limit is the concept's named hard
    limit, and the byte/char distinction matters for the high-ASCII values this module allows.
-10. **Editing happens as an explicit *edit mode* on the existing `OverviewKeyboardPanel`, not in a
+10. **Editing happens as an explicit _edit mode_ on the existing `OverviewKeyboardPanel`, not in a
     separate tab** — reason: AC1 says "any key shown in the overview tab", and one board that
     toggles between read / test / edit keeps a single source of truth for the layout instead of a
     second keyboard component that can drift from it.
@@ -182,7 +182,7 @@ that both physical keys share one bind.
   `src/renderer/src/modules/config/lib/command-catalog.ts` (export a browsable list),
   `src/renderer/src/i18n/locales/en.json`.
 - Mirror: `RenameProfileDialog.tsx` for dialog shape; `SettingsTab.tsx` for the save-through-client
-  + `onChanged` flow. Design-system primitives only, no image assets.
+  - `onChanged` flow. Design-system primitives only, no image assets.
 - Accept: binding, clearing and rebinding a key in the UI updates the keycap immediately and
   survives a restart. **Covers AC 1, AC 6 (reflected).**
 
@@ -218,14 +218,14 @@ panel repeats it as a banner.
 
 ## Coverage
 
-| AC | Deliverable |
-| --- | --- |
-| Bind / clear / rebind any key from the UI | D4 |
-| Create a layer, bind keys in it independently | D5 (create) + D6 (bind) |
+| AC                                               | Deliverable                                 |
+| ------------------------------------------------ | ------------------------------------------- |
+| Bind / clear / rebind any key from the UI        | D4                                          |
+| Create a layer, bind keys in it independently    | D5 (create) + D6 (bind)                     |
 | Toggle pair / `+layer`-`-layer` halves generated | D1 (generate) + D3 (on disk) + D5 (preview) |
-| `+command` warning | D1 (detect) + D6 (surface) |
-| `MAX_ALIAS_NAME` 32 + no in-quote escaping | D1 |
-| Saved on the profile, reflected in the overview | D2 (persist) + D4/D6 (UI) |
+| `+command` warning                               | D1 (detect) + D6 (surface)                  |
+| `MAX_ALIAS_NAME` 32 + no in-quote escaping       | D1                                          |
+| Saved on the profile, reflected in the overview  | D2 (persist) + D4/D6 (UI)                   |
 
 ## Model Hints
 
@@ -283,7 +283,7 @@ flagged hard-tier for, both fixed in this session (not by the implementing sub-a
 
 1. `KeyBindDialog`'s raw-command field let Enter submit a self-bind (a layer remapping its own
    trigger key) even though the Assign button correctly disabled it — decision 12 makes this a
-   *blocking* error, not a warning, and the keyboard path bypassed it. Fixed by hoisting the
+   _blocking_ error, not a warning, and the keyboard path bypassed it. Fixed by hoisting the
    Assign button's guard into a shared `canAssign` used by both the button and the Enter handler.
 2. The base-bind raw-command field had no sanitization, so a user-typed `"` reached
    `render.ts`'s `bind <key> "<value>"` line unescaped and nested — exactly the class of bug D1's
@@ -334,7 +334,7 @@ i18n string (now rendered as a hint under the layers panel's heading).
 - **Live smoke NOT performed.** `live-smoke-required: true` and `ui-acceptance-required: true`
   apply to this story. `npm run dev` was attempted directly in this session's environment; the
   Electron main process crashes immediately (`TypeError: Cannot read properties of undefined
-  (reading 'isPackaged')` in `@electron-toolkit/utils`) because this sandboxed session has no
+(reading 'isPackaged')` in `@electron-toolkit/utils`) because this sandboxed session has no
   real Electron/GUI runtime available to it, confirmed by trying the launch directly rather than
   assuming. Per the sprint deviation ("If you cannot do that in this environment, leave the story
   in-progress..."), status stays `in-progress` rather than `done`. The story is **built and

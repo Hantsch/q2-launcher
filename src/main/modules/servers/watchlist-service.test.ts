@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { ScanScope, ScanServerPush, ScanStartResult, ServerListRow, WatchlistEntry, WatchlistSnapshot } from '@shared/modules/servers'
+import type {
+  ScanScope,
+  ScanServerPush,
+  ScanStartResult,
+  ServerListRow,
+  WatchlistEntry,
+  WatchlistSnapshot,
+} from '@shared/modules/servers'
 import type { RegexHost, RegexMatchOutcome } from './watchlist-regex-host'
 import { createWatchlistService, type WatchlistScanHost } from './watchlist-service'
 
@@ -10,7 +17,12 @@ import { createWatchlistService, type WatchlistScanHost } from './watchlist-serv
  */
 
 function entry(overrides: Partial<WatchlistEntry> = {}): WatchlistEntry {
-  return { id: overrides.id ?? 'e1', name: overrides.name ?? 'Alice', mode: overrides.mode ?? 'exact', tooSlow: overrides.tooSlow ?? false }
+  return {
+    id: overrides.id ?? 'e1',
+    name: overrides.name ?? 'Alice',
+    mode: overrides.mode ?? 'exact',
+    tooSlow: overrides.tooSlow ?? false,
+  }
 }
 
 function statusRow(
@@ -21,12 +33,21 @@ function statusRow(
   return {
     stage: 'stage2',
     target: { address, origins: ['manual'] },
-    result: { ok: true, kind: 'status', reply: { ok: true, serverinfo: { hostname }, players }, rttMs: 5 },
+    result: {
+      ok: true,
+      kind: 'status',
+      reply: { ok: true, serverinfo: { hostname }, players },
+      rttMs: 5,
+    },
   }
 }
 
 function failedRow(address: string): ScanServerPush {
-  return { stage: 'stage2', target: { address, origins: ['manual'] }, result: { ok: false, reason: 'no-reply' } }
+  return {
+    stage: 'stage2',
+    target: { address, origins: ['manual'] },
+    result: { ok: false, reason: 'no-reply' },
+  }
 }
 
 /** A regex host fake whose outcome per (entryId, pattern) call is scripted, or defaults to a plain
@@ -62,15 +83,20 @@ function fakeScanService(): { host: WatchlistScanHost; calls: ScanScope[] } {
   return { host, calls }
 }
 
-function setup(overrides: {
-  entries?: WatchlistEntry[]
-  knownServers?: ServerListRow[]
-  regexHost?: RegexHost
-} = {}) {
+function setup(
+  overrides: {
+    entries?: WatchlistEntry[]
+    knownServers?: ServerListRow[]
+    regexHost?: RegexHost
+  } = {},
+) {
   let entries = overrides.entries ?? []
   const knownServers = overrides.knownServers ?? []
   const { host: regexHost, calls: regexCalls } = overrides.regexHost
-    ? { host: overrides.regexHost, calls: [] as { entryId: string; pattern: string; names: string[] }[] }
+    ? {
+        host: overrides.regexHost,
+        calls: [] as { entryId: string; pattern: string; names: string[] }[],
+      }
     : fakeRegexHost()
   const scan = fakeScanService()
   const snapshots: WatchlistSnapshot[] = []
@@ -94,7 +120,9 @@ describe('createWatchlistService', () => {
   it('AC3: a matched entry carries server, player score and ping from the status row', async () => {
     const { service, snapshots } = setup({ entries: [entry({ name: 'Alice' })] })
 
-    service.onStage2Row(statusRow('1.1.1.1:27910', [{ score: 5, ping: 40, name: 'Alice' }], 'Arena'))
+    service.onStage2Row(
+      statusRow('1.1.1.1:27910', [{ score: 5, ping: 40, name: 'Alice' }], 'Arena'),
+    )
     await tick()
 
     const snapshot = service.read()
@@ -128,7 +156,10 @@ describe('createWatchlistService', () => {
     const status = service.read().entries[0]
     expect(status?.state).toBe('found')
     if (status?.state === 'found') {
-      expect(status.matches.map((m) => m.address).sort()).toEqual(['1.1.1.1:27910', '2.2.2.2:27910'])
+      expect(status.matches.map((m) => m.address).sort()).toEqual([
+        '1.1.1.1:27910',
+        '2.2.2.2:27910',
+      ])
     }
   })
 
@@ -174,14 +205,22 @@ describe('createWatchlistService', () => {
 
   it('recheck refuses when the entry has no current match', () => {
     const { service } = setup({ entries: [entry({ id: 'e1', name: 'Alice' })] })
-    expect(service.recheck({ id: 'e1' })).toEqual({ ok: false, reasonKey: 'servers.watchlist.error.notFound' })
+    expect(service.recheck({ id: 'e1' })).toEqual({
+      ok: false,
+      reasonKey: 'servers.watchlist.error.notFound',
+    })
   })
 
   it('AC8: a too-slow regex entry is marked and skipped while a plain entry in the same row matches normally', async () => {
-    const script = new Map<string, RegexMatchOutcome>([['regex-1', { ok: false, reason: 'too-slow' }]])
+    const script = new Map<string, RegexMatchOutcome>([
+      ['regex-1', { ok: false, reason: 'too-slow' }],
+    ])
     const { host: regexHost, calls } = fakeRegexHost(script)
     const { service, getEntries } = setup({
-      entries: [entry({ id: 'regex-1', name: '(a+)+$', mode: 'regex' }), entry({ id: 'plain-1', name: 'Alice' })],
+      entries: [
+        entry({ id: 'regex-1', name: '(a+)+$', mode: 'regex' }),
+        entry({ id: 'plain-1', name: 'Alice' }),
+      ],
       regexHost,
     })
 

@@ -76,7 +76,10 @@ describe('parseModCatalog', () => {
 
   it('a malformed envelope is refused', () => {
     const log = fakeLogger()
-    expect(parseModCatalog({ entries: [] }, log)).toEqual({ ok: false, reason: 'malformed-envelope' })
+    expect(parseModCatalog({ entries: [] }, log)).toEqual({
+      ok: false,
+      reason: 'malformed-envelope',
+    })
     expect(parseModCatalog({ schemaVersion: 1, entries: 'x' }, log)).toEqual({
       ok: false,
       reason: 'malformed-envelope',
@@ -133,7 +136,17 @@ describe('parseModCatalog', () => {
     expect(dto).not.toHaveProperty('variants')
     expect(dto.versions).toEqual([{ version: '1.0', prerelease: false }])
     expect(Object.keys(dto).sort()).toEqual(
-      ['description', 'gamedir', 'id', 'license', 'name', 'pinned', 'projectUrl', 'sourceUrl', 'versions'].sort(),
+      [
+        'description',
+        'gamedir',
+        'id',
+        'license',
+        'name',
+        'pinned',
+        'projectUrl',
+        'sourceUrl',
+        'versions',
+      ].sort(),
     )
   })
 })

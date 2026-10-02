@@ -54,12 +54,12 @@ controls answer a click at once and reach the game faster on Windows.
 
 Ran on commit `852e616` (story 185, the last story commit).
 
-| Command | Minutes | Result |
-| --- | --- | --- |
-| `npm run build` | < 1 | green |
-| `npm test` | 0.7 | green — 5968 passed, 8 skipped |
-| `npm run ui:verify` | 2.2 | green — 60/60 screens, axe 0 violations |
-| `npm run ui:flows` (e2e-all) | 40 | 113 flows, 107 passed, 6 failed |
+| Command                      | Minutes | Result                                  |
+| ---------------------------- | ------- | --------------------------------------- |
+| `npm run build`              | < 1     | green                                   |
+| `npm test`                   | 0.7     | green — 5968 passed, 8 skipped          |
+| `npm run ui:verify`          | 2.2     | green — 60/60 screens, axe 0 violations |
+| `npm run ui:flows` (e2e-all) | 40      | 113 flows, 107 passed, 6 failed         |
 
 Failures:
 

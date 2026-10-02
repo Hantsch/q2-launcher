@@ -2,7 +2,7 @@
 
 ## Where we stand
 
-*As of 2026-10-02.* Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31).
+_As of 2026-10-02._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31).
 Current: Phase 11, codebase health. The 2026-10-01 review's stories 199–231 are cut into S32 (gate,
 foundations, module bus) and S33 (config + renderer layers, docs, X11 stage story 198).
 Next: `/sprint S32`, then `/sprint S33` once S32 is merged. Waiting on the user: the manual residue in
@@ -10,38 +10,38 @@ the S28–S30 testplans, and 102's Q1–Q4.
 
 ## Phase overview
 
-| Phase | Milestones | Status |
-| --- | --- | --- |
-| 1 — Shell | 1/1 | done |
-| 2 — Config module (r1q2 settings & cvars, full lifecycle) | 5/5 | done |
-| 3 — Home screen (news hero + dashboard) | 2/2 | done |
-| 4 — Install (download/update/repair) | 1/1 | done |
-| 5 — Mods (game directories) | 1/2 | in progress |
-| 6 — Assets (texture/model/sound packs) | 0/1 | not started |
-| 7 — Release & updates (beta rollout) | 1/1 | done |
-| 8 — Platform parity (Linux support, Steam Play/Proton runners) | 1/1 | done |
-| 9 — Game browser (server list, detail, watchlist, observing) | 7/7 | done |
-| 10 — Demo browser (library, metadata, remote-controlled playback) | 10/10 | done |
-| 11 — Codebase health (review 2026-10-01, stories 199–231) | 0/2 | planned |
+| Phase                                                             | Milestones | Status      |
+| ----------------------------------------------------------------- | ---------- | ----------- |
+| 1 — Shell                                                         | 1/1        | done        |
+| 2 — Config module (r1q2 settings & cvars, full lifecycle)         | 5/5        | done        |
+| 3 — Home screen (news hero + dashboard)                           | 2/2        | done        |
+| 4 — Install (download/update/repair)                              | 1/1        | done        |
+| 5 — Mods (game directories)                                       | 1/2        | in progress |
+| 6 — Assets (texture/model/sound packs)                            | 0/1        | not started |
+| 7 — Release & updates (beta rollout)                              | 1/1        | done        |
+| 8 — Platform parity (Linux support, Steam Play/Proton runners)    | 1/1        | done        |
+| 9 — Game browser (server list, detail, watchlist, observing)      | 7/7        | done        |
+| 10 — Demo browser (library, metadata, remote-controlled playback) | 10/10      | done        |
+| 11 — Codebase health (review 2026-10-01, stories 199–231)         | 0/2        | planned     |
 
 ## Current phase
 
 Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-10-01-codebase-review.md).
 
-| # | Milestone | Status | Sprint(s) | Note |
-| --- | --- | --- | --- | --- |
-| 11.1 | A green gate, safe foundations, one module bus | planned | [S32](sprints/S32/sprint.md) | 18 stories, main side and infra; 223 (green gate) goes first. |
+| #    | Milestone                                                  | Status  | Sprint(s)                    | Note                                                              |
+| ---- | ---------------------------------------------------------- | ------- | ---------------------------- | ----------------------------------------------------------------- |
+| 11.1 | A green gate, safe foundations, one module bus             | planned | [S32](sprints/S32/sprint.md) | 18 stories, main side and infra; 223 (green gate) goes first.     |
 | 11.2 | Config module and renderer on shared layers, docs as built | planned | [S33](sprints/S33/sprint.md) | 16 stories incl. X11 stage story 198; starts after S32 is merged. |
 
 ## Open / unprioritised
 
-| Topic | State | Next step |
-| --- | --- | --- |
-| Story [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) — a self-built Linux Q2PRO | Draft; standing obligation cut from 101, blocks nothing | Decide build/provenance approach (its Q1–Q4) when prioritized |
-| Demos in a browser (WASM) engine — optional "Browser (experimental)" playback next to native Q2PRO, for an embedded canvas and Linux/Wayland without window placement | Deferred 2026-09-30 (polish, future): native Q2PRO works well for the start. Research in [demo-browser §9.2](concepts/demo-browser.md); depends on the q2pro `feature-rtx` WASM build (maintainer open to compiling common mods, which demo playback may not even need) | Spike when prioritized: run the web build in Electron with a vanilla and an OpenTDM demo (seek, speed, no game lib); `/roadmap plan` afterwards |
-| Mods — game directories, concept [mods.md](concepts/mods.md) | Milestone 5.1 (catalog, install, remove, updates, stories 188–194) done 2026-10-01 with server-browser stories 195–197 — [S31](sprints/done/S31/review.md) | 5.2 `/roadmap plan` |
-| Assets — texture/model/sound packs | Not started; needs conflict detection between packs touching the same files, plus a per-pack change record (`Installation.moduleData` is the slot) | `/roadmap plan` when prioritized |
-| Two config decisions left open across the file-format rounds: the `alias cali "bind ..."` key-block-as-layer question (story 041), and bind grouping by keyboard region vs. category (story 040, decided category for now) | Never blocked anything; only relevant if a future story touches this area | Decide when a config story next needs it |
+| Topic                                                                                                                                                                                                                      | State                                                                                                                                                                                                                                                                   | Next step                                                                                                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Story [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) — a self-built Linux Q2PRO                                                                                                                            | Draft; standing obligation cut from 101, blocks nothing                                                                                                                                                                                                                 | Decide build/provenance approach (its Q1–Q4) when prioritized                                                                                   |
+| Demos in a browser (WASM) engine — optional "Browser (experimental)" playback next to native Q2PRO, for an embedded canvas and Linux/Wayland without window placement                                                      | Deferred 2026-09-30 (polish, future): native Q2PRO works well for the start. Research in [demo-browser §9.2](concepts/demo-browser.md); depends on the q2pro `feature-rtx` WASM build (maintainer open to compiling common mods, which demo playback may not even need) | Spike when prioritized: run the web build in Electron with a vanilla and an OpenTDM demo (seek, speed, no game lib); `/roadmap plan` afterwards |
+| Mods — game directories, concept [mods.md](concepts/mods.md)                                                                                                                                                               | Milestone 5.1 (catalog, install, remove, updates, stories 188–194) done 2026-10-01 with server-browser stories 195–197 — [S31](sprints/done/S31/review.md)                                                                                                              | 5.2 `/roadmap plan`                                                                                                                             |
+| Assets — texture/model/sound packs                                                                                                                                                                                         | Not started; needs conflict detection between packs touching the same files, plus a per-pack change record (`Installation.moduleData` is the slot)                                                                                                                      | `/roadmap plan` when prioritized                                                                                                                |
+| Two config decisions left open across the file-format rounds: the `alias cali "bind ..."` key-block-as-layer question (story 041), and bind grouping by keyboard region vs. category (story 040, decided category for now) | Never blocked anything; only relevant if a future story touches this area                                                                                                                                                                                               | Decide when a config story next needs it                                                                                                        |
 
 ## Follow-ups worth doing
 
@@ -80,8 +80,7 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
   manifest only pins the two engines both paths already require; worth re-checking once a third
   engine is added. [S20 review](../sprints/S20/review.md)
 - `bootstrap/job.ts`'s toggle-on extras pass re-copies the whole assemble plan a second time when
-  `includeVideoAndPlayers` is set (pre-existing since story 074, confirmed still present by 088 and
-  090) — worth a fix once that toggle sees more use. [S19 review](../sprints/done/S19/review.md)
+  `includeVideoAndPlayers` is set (pre-existing since story 074, confirmed still present by 088 and 090) — worth a fix once that toggle sees more use. [S19 review](../sprints/done/S19/review.md)
 - `docs/concepts/home-screen.md` §6 still says the content repository holds "only a LICENSE" —
   story 080 added `engines/` and `gamedata/`. A small doc correction, next time that concept is
   touched. [S18 review](../sprints/done/S18/review.md)
@@ -113,25 +112,25 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 
 ## History
 
-| Milestone | Sprint(s) | Done |
-| --- | --- | --- |
-| Shell | pre-sprint | done |
-| Config — r1q2 settings and cvars | S01–S06 | 2026-08-22 |
-| Config, round two — the file becomes the config | S07–S10 | 2026-09-04 |
-| Config, round three — the editor reflects the file | S11–S13 | 2026-09-06 |
-| Config, round three — live-acceptance findings | S14 | 2026-09-07 |
-| Identity, icons and the first profile | S15 | 2026-09-07 |
-| Install, first slice — bootstrap to a playable Q2PRO demo | S16 | 2026-09-08 |
-| Install — real-run gaps: allowlist, failed-install persistence, failure cause | S17 | 2026-09-09 |
-| Home screen — news hero | S18 | 2026-09-11 |
-| Home screen — dashboard | S18 | 2026-09-11 |
-| Install — retail import, demo upgrade | S19 | 2026-09-11 |
-| Install — write-guard, engine update/rollback, repair, removal from disk | S20 | 2026-09-12 |
-| Release & updates — changelog-driven releases, daily update check, user-chosen update | S21 | 2026-09-13 |
-| Platform parity — Linux support, Steam Play/Proton runner selection | ad hoc (100, 101, 103–105) | 2026-09-24 |
-| Game browser — server list, detail, join/spectate/address book, experimental gate & watchlist | S22–S25 | 2026-09-26 |
-| Demo browser — parsing, discovery & index, sidecar | S26 | 2026-09-28 |
-| Demo browser — list, detail, edit & file actions | S27 | 2026-09-29 |
-| Demo browser — playback, timeline & binds, auto-record | S28 | 2026-09-29 |
-| Demo browser — demo plays in the launcher (stage) | S29 | 2026-09-29 |
-| Demo browser — polish | S30 | 2026-09-30 |
+| Milestone                                                                                     | Sprint(s)                  | Done       |
+| --------------------------------------------------------------------------------------------- | -------------------------- | ---------- |
+| Shell                                                                                         | pre-sprint                 | done       |
+| Config — r1q2 settings and cvars                                                              | S01–S06                    | 2026-08-22 |
+| Config, round two — the file becomes the config                                               | S07–S10                    | 2026-09-04 |
+| Config, round three — the editor reflects the file                                            | S11–S13                    | 2026-09-06 |
+| Config, round three — live-acceptance findings                                                | S14                        | 2026-09-07 |
+| Identity, icons and the first profile                                                         | S15                        | 2026-09-07 |
+| Install, first slice — bootstrap to a playable Q2PRO demo                                     | S16                        | 2026-09-08 |
+| Install — real-run gaps: allowlist, failed-install persistence, failure cause                 | S17                        | 2026-09-09 |
+| Home screen — news hero                                                                       | S18                        | 2026-09-11 |
+| Home screen — dashboard                                                                       | S18                        | 2026-09-11 |
+| Install — retail import, demo upgrade                                                         | S19                        | 2026-09-11 |
+| Install — write-guard, engine update/rollback, repair, removal from disk                      | S20                        | 2026-09-12 |
+| Release & updates — changelog-driven releases, daily update check, user-chosen update         | S21                        | 2026-09-13 |
+| Platform parity — Linux support, Steam Play/Proton runner selection                           | ad hoc (100, 101, 103–105) | 2026-09-24 |
+| Game browser — server list, detail, join/spectate/address book, experimental gate & watchlist | S22–S25                    | 2026-09-26 |
+| Demo browser — parsing, discovery & index, sidecar                                            | S26                        | 2026-09-28 |
+| Demo browser — list, detail, edit & file actions                                              | S27                        | 2026-09-29 |
+| Demo browser — playback, timeline & binds, auto-record                                        | S28                        | 2026-09-29 |
+| Demo browser — demo plays in the launcher (stage)                                             | S29                        | 2026-09-29 |
+| Demo browser — polish                                                                         | S30                        | 2026-09-30 |

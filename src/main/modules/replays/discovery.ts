@@ -62,8 +62,7 @@ export function effectiveWriteDirs(
   installation: DiscoverableInstallation,
   { platform, homeDir }: DiscoverContext,
 ): string[] {
-  const isQ2pro =
-    installation.engineKind === 'q2pro' || installation.recordedEngineKind === 'q2pro'
+  const isQ2pro = installation.engineKind === 'q2pro' || installation.recordedEngineKind === 'q2pro'
   if (platform === 'linux' && isQ2pro) return [join(homeDir, '.q2pro')]
   return []
 }
@@ -223,11 +222,7 @@ export async function discoverDemos(
     // gameDir -> fileName -> index into `entries`, root-dir hits only, for this installation.
     const rootIndex = new Map<string, Map<string, number>>()
 
-    async function addFromDir(
-      base: string,
-      gameDir: string,
-      isWriteDir: boolean,
-    ): Promise<void> {
+    async function addFromDir(base: string, gameDir: string, isWriteDir: boolean): Promise<void> {
       const demosDir = await findDemosDir(join(base, gameDir))
       if (!demosDir) return
       const canonicalDemosDir = await canonicalizePath(demosDir)
@@ -330,7 +325,12 @@ export async function discoverDemos(
         sourceErrors,
         demosDir,
         zipFiles,
-        { kind: 'installation', installationId: installation.id, installationName: installation.name, gameDir },
+        {
+          kind: 'installation',
+          installationId: installation.id,
+          installationName: installation.name,
+          gameDir,
+        },
         instIndex,
         order,
         ctx.zipDeps,
@@ -360,7 +360,9 @@ export async function discoverDemos(
       }
     }
     const orderedExtras = [...extraGameDirNames].sort((a, b) => a.localeCompare(b))
-    orderedExtras.forEach((gameDir, i) => gameDirOrder.set(gameDir, installation.gameDirs.length + i))
+    orderedExtras.forEach((gameDir, i) =>
+      gameDirOrder.set(gameDir, installation.gameDirs.length + i),
+    )
 
     for (const gameDir of rootOnlyDirs) {
       await addFromDir(installation.rootPath, gameDir, false)

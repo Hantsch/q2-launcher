@@ -93,9 +93,14 @@ export default async function replaysRename({ page, app, shot, step }) {
   const detail = page.getByTestId('replays-detail')
   await detail.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
-  const mapFieldTextBeforeRename = await detail.getByTestId('replays-detail-field-map').textContent()
+  const mapFieldTextBeforeRename = await detail
+    .getByTestId('replays-detail-field-map')
+    .textContent()
 
-  await detail.getByTestId('replays-detail-file-actions').getByTestId('demo-rename').click({ timeout: TIMEOUT_MS })
+  await detail
+    .getByTestId('replays-detail-file-actions')
+    .getByTestId('demo-rename')
+    .click({ timeout: TIMEOUT_MS })
   const dialog = page.getByTestId('demo-rename-dialog')
   await dialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
@@ -121,7 +126,9 @@ export default async function replaysRename({ page, app, shot, step }) {
 
   const takenAfter = readFileSync(TAKEN_DEMO)
   if (!takenBefore.equals(takenAfter)) {
-    throw new Error('replays-rename: a rejected rename to a taken name must not touch the collision target')
+    throw new Error(
+      'replays-rename: a rejected rename to a taken name must not touch the collision target',
+    )
   }
 
   step('renames the demo and its sidecar')
@@ -131,8 +138,10 @@ export default async function replaysRename({ page, app, shot, step }) {
   await dialog.waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   if (!existsSync(FINAL_DEMO)) throw new Error(`replays-rename: expected ${FINAL_DEMO} to exist`)
-  if (!existsSync(FINAL_SIDECAR)) throw new Error(`replays-rename: expected ${FINAL_SIDECAR} to exist`)
-  if (existsSync(ORIGINAL_DEMO)) throw new Error(`replays-rename: expected ${ORIGINAL_DEMO} to no longer exist`)
+  if (!existsSync(FINAL_SIDECAR))
+    throw new Error(`replays-rename: expected ${FINAL_SIDECAR} to exist`)
+  if (existsSync(ORIGINAL_DEMO))
+    throw new Error(`replays-rename: expected ${ORIGINAL_DEMO} to no longer exist`)
   if (existsSync(ORIGINAL_SIDECAR)) {
     throw new Error(`replays-rename: expected ${ORIGINAL_SIDECAR} to no longer exist`)
   }
@@ -141,7 +150,9 @@ export default async function replaysRename({ page, app, shot, step }) {
   await detail.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const title = await detail.getByTestId('replays-detail-title').textContent()
   if (!title.includes('final-vs-tom')) {
-    throw new Error(`replays-rename: expected the detail title to show final-vs-tom, got "${title}"`)
+    throw new Error(
+      `replays-rename: expected the detail title to show final-vs-tom, got "${title}"`,
+    )
   }
   // AC7: `final-vs-tom.dm2` no longer matches the autorecord pattern that supplied `q2dm1` as a
   // name-derived fact, so the rename writes it into the sidecar rather than losing it - the panel
@@ -157,7 +168,9 @@ export default async function replaysRename({ page, app, shot, step }) {
   step('the name date moves into the sidecar')
   const finalSidecar = JSON.parse(readFileSync(FINAL_SIDECAR, 'utf8'))
   if (finalSidecar.map !== 'q2dm1') {
-    throw new Error(`replays-rename: expected the renamed sidecar to carry map "q2dm1", got ${JSON.stringify(finalSidecar.map)}`)
+    throw new Error(
+      `replays-rename: expected the renamed sidecar to carry map "q2dm1", got ${JSON.stringify(finalSidecar.map)}`,
+    )
   }
   if (finalSidecar.description !== ORIGINAL_DESCRIPTION) {
     throw new Error(
@@ -165,11 +178,19 @@ export default async function replaysRename({ page, app, shot, step }) {
     )
   }
   if (finalSidecar.date === undefined || Number.isNaN(Date.parse(finalSidecar.date))) {
-    throw new Error(`replays-rename: expected the sidecar to carry a parseable date, got ${finalSidecar.date}`)
+    throw new Error(
+      `replays-rename: expected the sidecar to carry a parseable date, got ${finalSidecar.date}`,
+    )
   }
   const parsedDate = new Date(finalSidecar.date)
-  if (parsedDate.getUTCFullYear() !== 2026 || parsedDate.getUTCMonth() !== 8 || parsedDate.getUTCDate() !== 26) {
-    throw new Error(`replays-rename: expected the sidecar date to be 2026-09-26, got "${finalSidecar.date}"`)
+  if (
+    parsedDate.getUTCFullYear() !== 2026 ||
+    parsedDate.getUTCMonth() !== 8 ||
+    parsedDate.getUTCDate() !== 26
+  ) {
+    throw new Error(
+      `replays-rename: expected the sidecar date to be 2026-09-26, got "${finalSidecar.date}"`,
+    )
   }
 
   const dateFieldText = await detail.getByTestId('replays-detail-field-date').textContent()

@@ -12,7 +12,11 @@ import {
   type ReplaysScanStartResult,
   type ReplaysSourceError,
 } from '@shared/modules/replays'
-import { compileNameTemplate, matchNameTemplate, type NameFacts } from '@shared/replays/name-template'
+import {
+  compileNameTemplate,
+  matchNameTemplate,
+  type NameFacts,
+} from '@shared/replays/name-template'
 import { readDemoDuration, readDemoHeader } from '../../lib/demo-bytes'
 import { demoIdForPath, type DiscoveredDemoFile } from './discovery'
 import type { CachedDemo, ReplaysIndexCache } from './index-cache'
@@ -66,7 +70,11 @@ export interface DemoHeaderFacts {
 /** A discovered demo plus the identity D2 compares against the cache. For a zip entry, `size`,
  * `mtimeMs` and `birthtimeMs` are the archive's own (its `absolutePath` is the archive), so an entry
  * of an unchanged archive is a cache hit. */
-export type ReplaysScanFile = DiscoveredDemoFile & { size: number; mtimeMs: number; birthtimeMs: number }
+export type ReplaysScanFile = DiscoveredDemoFile & {
+  size: number
+  mtimeMs: number
+  birthtimeMs: number
+}
 
 export interface ReplaysNameMatcher {
   fingerprint: string
@@ -104,7 +112,9 @@ export interface ReplaysScanService {
    * and whether it's a zip entry. `undefined` before this process's first successful scan has seen
    * the id, same as any other id the index doesn't know about - never backfilled from the cache
    * (the cache does not retain `absolutePath`). */
-  resolveFile: (id: string) => { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] } | undefined
+  resolveFile: (
+    id: string,
+  ) => { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] } | undefined
   /** Story 157: renames a demo's identity in place, without a re-scan. Looks the old id up in
    * `fileById`; `undefined` (a no-op) when it is not known - no successful scan has seen it, or a
    * later scan has already replaced it. Otherwise re-keys `snapshot`, `fileById` and `lastCache`
@@ -179,7 +189,10 @@ function usableCache(raw: Map<string, CachedDemo>): Map<string, CachedDemo> {
 /** Stats every discovered demo; a file that vanished since the listing is left out. One `stat()`
  * per distinct path, so a zip's entries share their archive's. */
 async function statScanFiles(demos: DiscoveredDemoFile[]): Promise<ReplaysScanFile[]> {
-  const byPath = new Map<string, Promise<{ size: number; mtimeMs: number; birthtimeMs: number } | null>>()
+  const byPath = new Map<
+    string,
+    Promise<{ size: number; mtimeMs: number; birthtimeMs: number } | null>
+  >()
   const out: ReplaysScanFile[] = []
   for (const demo of demos) {
     let pending = byPath.get(demo.absolutePath)
@@ -276,8 +289,11 @@ export function nameMatcherFor(templates: string[], fingerprint: string): Replay
   }
 }
 
-export function createReplaysScanService(options: CreateReplaysScanServiceOptions): ReplaysScanService {
-  const { emit, cache, discover, parse, nameMatcher, isGameRunning, holdAfterDiscovery, log } = options
+export function createReplaysScanService(
+  options: CreateReplaysScanServiceOptions,
+): ReplaysScanService {
+  const { emit, cache, discover, parse, nameMatcher, isGameRunning, holdAfterDiscovery, log } =
+    options
   const now = options.now ?? Date.now
 
   let running = false
@@ -375,7 +391,9 @@ export function createReplaysScanService(options: CreateReplaysScanServiceOption
     const cached = await loadCache()
     // A scan may have finished while the cache was loading.
     if (snapshot !== null) return snapshot
-    return [...cached.values()].map((entry) => withNameFacts(entry.parsed as DiscoveredDemo, entry.name))
+    return [...cached.values()].map((entry) =>
+      withNameFacts(entry.parsed as DiscoveredDemo, entry.name),
+    )
   }
 
   async function overview(): Promise<ReplaysOverview> {

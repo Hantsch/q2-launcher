@@ -7,11 +7,11 @@ downloading anything they already own — copying retail data straight out of a 
 Steam/GOG/Epic installation or out of any folder the user points it at — and an existing demo
 installation gets an explicit way out of the demo state.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 088 — Retail import from a detected store installation | done | `2ea394e` |
-| 089 — The wizard gains an existing-folder data source | done | `9ae658f` |
-| 090 — A demo installation upgrades to retail | done | `d108974` |
+| Story                                                  | Status | Commit    |
+| ------------------------------------------------------ | ------ | --------- |
+| 088 — Retail import from a detected store installation | done   | `2ea394e` |
+| 089 — The wizard gains an existing-folder data source  | done   | `9ae658f` |
+| 090 — A demo installation upgrades to retail           | done   | `d108974` |
 
 All three stories of the sprint are done; nothing is blocked.
 
@@ -78,6 +78,7 @@ the real surface (`npm run ui:verify` / `npm run ui:flow`) where the criterion d
 a user does.
 
 **088.**
+
 - AC1, AC2, AC3 — `scripts/flows/bootstrap-retail-import.mjs` (both option-present and
   option-absent halves) + `retail-source.test.ts`.
 - AC4 — `bootstrap-retail-import.mjs` (on-disk byte comparison) + `retail-source.test.ts` +
@@ -86,10 +87,12 @@ a user does.
 - AC7 — `assemble.test.ts` + the e2e's on-disk directory assertion.
 
 **089.**
+
 - AC1, AC2, AC3, AC6, AC7 — `scripts/flows/bootstrap-existing-folder.mjs`.
 - AC4, AC5 — `scripts/flows/bootstrap-existing-folder-demo.mjs`.
 
 **090.**
+
 - AC1 — `scripts/flows/retail-upgrade.mjs` (all three trigger surfaces).
 - AC2 — `retail-upgrade.mjs` + `retail/sources.test.ts`.
 - AC3 — `retail-upgrade.mjs` (empty-state, no picker shown).

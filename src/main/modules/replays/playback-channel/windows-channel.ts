@@ -168,7 +168,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       pendingControl = null
       controlWriteFailing = false
     } catch (err) {
-      if (!controlWriteFailing) log.warn(`control file write failed, retrying on the next poll: ${describe(err)}`)
+      if (!controlWriteFailing)
+        log.warn(`control file write failed, retrying on the next poll: ${describe(err)}`)
       controlWriteFailing = true
     }
   }
@@ -225,7 +226,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   function reachFullscreen(ackedSeq: number | null): void {
     const switchSeq = switchInFlight()
     const dropped =
-      queue.filter((c) => !c.fullscreenSwitch).length + [...inFlight.values()].filter((c) => !c.fullscreenSwitch).length
+      queue.filter((c) => !c.fullscreenSwitch).length +
+      [...inFlight.values()].filter((c) => !c.fullscreenSwitch).length
     if (dropped > 0) log.warn(`demo went fullscreen: dropping ${dropped} unsent command(s)`)
     mode = 'fullscreen'
     queue.length = 0
@@ -270,7 +272,11 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
         if (finished || parsed.fullscreen !== false) return
         // The switch's ACK still to come in this batch: this FS 0 was logged before the loop stopped.
         const switchSeq = unackedSwitchSeq
-        if (switchSeq !== null && batch.some((l, i) => i > index && l.kind === 'ack' && l.seq === switchSeq)) return
+        if (
+          switchSeq !== null &&
+          batch.some((l, i) => i > index && l.kind === 'ack' && l.seq === switchSeq)
+        )
+          return
         mode = 'stage'
         unackedSwitchSeq = null
         positionMs = parsed.positionMs
@@ -302,7 +308,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       let ackedSwitch: number | null = null
       for (const [seq, command] of retired) {
         inFlight.delete(seq)
-        if (seq === parsed.seq) log.debug(`seq ${seq} acknowledged after ${Date.now() - command.sentAt} ms`)
+        if (seq === parsed.seq)
+          log.debug(`seq ${seq} acknowledged after ${Date.now() - command.sentAt} ms`)
         if (command.fullscreenSwitch) ackedSwitch = seq
       }
       // The control file drops them before their command files go (reachFullscreen removes the switch's).
@@ -325,11 +332,15 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     for (const [seq, command] of [...inFlight]) {
       if (now - command.sentAt < ACK_TIMEOUT_MS) continue
       if (command.fullscreenSwitch) {
-        log.warn(`no ACK for the fullscreen switch (seq ${seq}) within ${ACK_TIMEOUT_MS} ms, assuming fullscreen`)
+        log.warn(
+          `no ACK for the fullscreen switch (seq ${seq}) within ${ACK_TIMEOUT_MS} ms, assuming fullscreen`,
+        )
         reachFullscreen(null)
         return
       }
-      log.warn(`no ACK for seq ${seq} within ${ACK_TIMEOUT_MS} ms, dropping it from the control file`)
+      log.warn(
+        `no ACK for seq ${seq} within ${ACK_TIMEOUT_MS} ms, dropping it from the control file`,
+      )
       inFlight.delete(seq)
       expired = true
     }
@@ -350,7 +361,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
 
   function releaseSettled(): void {
     if (settledWaiters.length === 0) return
-    if (!(finished || closed || mode === 'fullscreen') && (queue.length > 0 || inFlight.size > 0)) return
+    if (!(finished || closed || mode === 'fullscreen') && (queue.length > 0 || inFlight.size > 0))
+      return
     for (const resolve of settledWaiters.splice(0)) resolve()
   }
 

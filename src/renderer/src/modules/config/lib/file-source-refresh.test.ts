@@ -51,7 +51,11 @@ describe('didFocusResume', () => {
 describe('applyRefreshedProfile', () => {
   it('leaves the list untouched for an unchanged result', () => {
     const list = [profile()]
-    const result: RefreshedProfileResult = { profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' }
+    const result: RefreshedProfileResult = {
+      profileId: 'p1',
+      outcome: 'unchanged',
+      fileState: 'unchanged',
+    }
 
     expect(applyRefreshedProfile(list, result)).toBe(list)
   })
@@ -76,7 +80,11 @@ describe('applyRefreshedProfile', () => {
 
   it('replaces the matching profile wholesale on adopted', () => {
     const stale = profile({ cvars: { sensitivity: '3' } })
-    const adopted = profile({ cvars: { sensitivity: '5' }, name: 'Hand-Edited', fileState: 'unchanged' })
+    const adopted = profile({
+      cvars: { sensitivity: '5' },
+      name: 'Hand-Edited',
+      fileState: 'unchanged',
+    })
     const result: RefreshedProfileResult = {
       profileId: 'p1',
       outcome: 'adopted',
@@ -92,7 +100,11 @@ describe('applyRefreshedProfile', () => {
 
   it('patches only fileState on missing, leaving cached content untouched', () => {
     const cached = profile({ cvars: { sensitivity: '3' } })
-    const result: RefreshedProfileResult = { profileId: 'p1', outcome: 'missing', fileState: 'missing' }
+    const result: RefreshedProfileResult = {
+      profileId: 'p1',
+      outcome: 'missing',
+      fileState: 'missing',
+    }
 
     const next = applyRefreshedProfile([cached], result)
 
@@ -132,7 +144,11 @@ describe('applyRefreshedProfile', () => {
   it('leaves other profiles in the list untouched', () => {
     const other = profile({ id: 'p2', name: 'Other' })
     const cached = profile({ id: 'p1' })
-    const result: RefreshedProfileResult = { profileId: 'p1', outcome: 'missing', fileState: 'missing' }
+    const result: RefreshedProfileResult = {
+      profileId: 'p1',
+      outcome: 'missing',
+      fileState: 'missing',
+    }
 
     const next = applyRefreshedProfile([other, cached], result)
 
@@ -218,13 +234,21 @@ describe('noticeForRefreshedProfile', () => {
   })
 
   it('has nothing to surface for unchanged', () => {
-    const result: RefreshedProfileResult = { profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' }
+    const result: RefreshedProfileResult = {
+      profileId: 'p1',
+      outcome: 'unchanged',
+      fileState: 'unchanged',
+    }
 
     expect(noticeForRefreshedProfile(result)).toBeNull()
   })
 
   it('has nothing to surface for missing - the banner reads fileState directly', () => {
-    const result: RefreshedProfileResult = { profileId: 'p1', outcome: 'missing', fileState: 'missing' }
+    const result: RefreshedProfileResult = {
+      profileId: 'p1',
+      outcome: 'missing',
+      fileState: 'missing',
+    }
 
     expect(noticeForRefreshedProfile(result)).toBeNull()
   })
@@ -263,9 +287,7 @@ describe('adoptProfileFromFile', () => {
   }
 
   /** Stands in for `client.ts#refreshProfilesFromFiles`, recording the input the handler sent. */
-  function refreshStub(
-    outcome: Outcome<RefreshFromFilesResult>,
-  ): {
+  function refreshStub(outcome: Outcome<RefreshFromFilesResult>): {
     calls: RefreshFromFilesInput[]
     refresh: (input: RefreshFromFilesInput) => Promise<Outcome<RefreshFromFilesResult>>
   } {
@@ -384,9 +406,7 @@ describe('adoptProfileFromFile', () => {
   // `takeFileFailed`), so it stays their message to make.
   it('says nothing for a result that adopted nothing, leaving the wording to the caller', async () => {
     const toasts = toastSpy()
-    const stub = refreshStub(
-      ok([{ profileId: 'p1', outcome: 'missing', fileState: 'missing' }]),
-    )
+    const stub = refreshStub(ok([{ profileId: 'p1', outcome: 'missing', fileState: 'missing' }]))
 
     const result = await adoptProfileFromFile({
       profileId: 'p1',

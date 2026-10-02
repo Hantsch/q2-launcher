@@ -1,6 +1,15 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AppWindow, Maximize2, MonitorPlay, Pause, Play, RotateCcw, RotateCw, Square } from 'lucide-react'
+import {
+  AppWindow,
+  Maximize2,
+  MonitorPlay,
+  Pause,
+  Play,
+  RotateCcw,
+  RotateCw,
+  Square,
+} from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
 import {
   JUMP_STEP_S,
@@ -15,7 +24,12 @@ import { Select } from '../../../components/ui/controls'
 import { useOverlayRegistration } from '../../../lib/overlay-registry'
 import { cn } from '../../../lib/cn'
 import { usePlaybackStore } from '../playback-store'
-import { createTimeline, expected, type ExpectedTimeline, type OptimisticTimeline } from '../optimistic-timeline'
+import {
+  createTimeline,
+  expected,
+  type ExpectedTimeline,
+  type OptimisticTimeline,
+} from '../optimistic-timeline'
 
 // `outline-solid` re-enables the outline style the shared Select's `focus:outline-none` switches off.
 // Only read when there is no session, where the component renders nothing anyway.
@@ -28,7 +42,10 @@ const FOCUS_RING =
  * Story 184 D3: the expected timeline at this instant. While the demo plays in the window the
  * position moves between readbacks, so the component re-renders once per animation frame.
  */
-export function useExpectedTimeline(optimistic: OptimisticTimeline, running: boolean): ExpectedTimeline {
+export function useExpectedTimeline(
+  optimistic: OptimisticTimeline,
+  running: boolean,
+): ExpectedTimeline {
   const [, setFrame] = useState(0)
   const now = Date.now()
   const current = expected(optimistic, now)
@@ -66,7 +83,7 @@ export function DemoTimeline() {
   const optimistic = session?.optimistic
   const shown = useExpectedTimeline(
     optimistic ?? createEmpty,
-    session !== null && !session.fullscreen && !(session.view?.ended ?? false)
+    session !== null && !session.fullscreen && !(session.view?.ended ?? false),
   )
 
   if (session === null) return null
@@ -79,12 +96,16 @@ export function DemoTimeline() {
   const paused = shown.paused
   const fullscreen = session.fullscreen
   const inCinema = session.mode === 'cinema'
-  const cinemaReason = session.cinemaAvailability.available ? null : session.cinemaAvailability.reason
+  const cinemaReason = session.cinemaAvailability.available
+    ? null
+    : session.cinemaAvailability.reason
   const ended = view?.ended ?? false
   // Leaving cinema is always possible; entering needs availability and a demo that has not ended.
   const cinemaBlocked = !inCinema && (cinemaReason !== null || ended)
   const positionText = formatPlaybackPosition(positionMs)
-  const durationText = hasDuration ? formatPlaybackPosition(durationMs) : t('replays.timeline.durationUnknown')
+  const durationText = hasDuration
+    ? formatPlaybackPosition(durationMs)
+    : t('replays.timeline.durationUnknown')
   const durationS = hasDuration ? Math.floor(durationMs / 1000) : 0
   const positionS = Math.min(durationS, Math.floor(positionMs / 1000))
   const fraction = hasDuration ? Math.min(1, positionMs / durationMs) : 0
@@ -251,7 +272,10 @@ export function DemoTimeline() {
             <span data-testid="replays-timeline-duration">{durationText}</span>
           </span>
         )}
-        <span className="ml-4 min-w-0 flex-1 truncate text-sm text-ink-muted" title={session.demoName}>
+        <span
+          className="ml-4 min-w-0 flex-1 truncate text-sm text-ink-muted"
+          title={session.demoName}
+        >
           {session.demoName}
         </span>
         {waitingChain === null ? (
@@ -273,7 +297,8 @@ export function DemoTimeline() {
           value={String(shown.speed)}
           onMouseDown={() => setSpeedOpen(true)}
           onKeyDown={(event) => {
-            if ((event.altKey && event.key === 'ArrowDown') || event.key === 'F4') setSpeedOpen(true)
+            if ((event.altKey && event.key === 'ArrowDown') || event.key === 'F4')
+              setSpeedOpen(true)
           }}
           onBlur={() => setSpeedOpen(false)}
           onChange={(event) => {
@@ -294,7 +319,9 @@ export function DemoTimeline() {
           <>
             <IconButton
               size="lg"
-              label={inCinema ? t('replays.timeline.cinema.leave') : t('replays.timeline.cinema.enter')}
+              label={
+                inCinema ? t('replays.timeline.cinema.leave') : t('replays.timeline.cinema.enter')
+              }
               // Stays focusable when unavailable so its reason is reachable.
               aria-disabled={cinemaBlocked || undefined}
               aria-describedby={cinemaReason !== null && !inCinema ? cinemaReasonId : undefined}
@@ -336,7 +363,11 @@ export function DemoTimeline() {
         </p>
       )}
       {cinemaReason !== null && !fullscreen && !inCinema && (
-        <p id={cinemaReasonId} className="text-xs text-ink-muted" data-testid="replays-timeline-cinema-reason">
+        <p
+          id={cinemaReasonId}
+          className="text-xs text-ink-muted"
+          data-testid="replays-timeline-cinema-reason"
+        >
           {t(cinemaReason.key)}
         </p>
       )}

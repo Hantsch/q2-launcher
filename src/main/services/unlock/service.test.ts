@@ -210,7 +210,9 @@ describe('UnlockService (story 128 D4)', () => {
       redeemBy: seconds(now) - 10_000,
       expiresAt: seconds(now) - 1_000, // already expired relative to `now`
     })
-    state.setUnlockState({ codes: [{ code, redeemedAt: new Date(now.getTime() - 20_000_000).toISOString() }] })
+    state.setUnlockState({
+      codes: [{ code, redeemedAt: new Date(now.getTime() - 20_000_000).toISOString() }],
+    })
 
     const service = createUnlockService({
       state,

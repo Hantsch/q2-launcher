@@ -115,7 +115,9 @@ export function commandCfgName(seq: number): string {
 export function buildControlFile(seqs: readonly number[]): string[] {
   const lines = [POLL_LINE]
   for (const seq of [...seqs].sort((a, b) => a - b)) {
-    lines.push(`if $q2l_seq < ${seq} then "exec ${commandCfgName(seq)}; set q2l_seq ${seq}; echo ACK ${seq}"`)
+    lines.push(
+      `if $q2l_seq < ${seq} then "exec ${commandCfgName(seq)}; set q2l_seq ${seq}; echo ACK ${seq}"`,
+    )
   }
   return lines
 }
@@ -151,7 +153,10 @@ export function toCfgText(lines: string[]): string {
  * guard with the current position, so presses queued behind the loop find the position unchanged.
  */
 export function buildEnterFullscreenLines({ switchMode }: { switchMode: boolean }): string[] {
-  return [...(switchMode ? ['vid_fullscreen 1'] : []), `alias q2l_loop "set ${ARMPOS_CVAR} $cl_demopos"`]
+  return [
+    ...(switchMode ? ['vid_fullscreen 1'] : []),
+    `alias q2l_loop "set ${ARMPOS_CVAR} $cl_demopos"`,
+  ]
 }
 
 /**
@@ -232,7 +237,16 @@ export function windowsLaunchArgs(): LaunchArgs {
 
 export function linuxLaunchArgs(): LaunchArgs {
   return {
-    argsBeforeDemo: ['+set', 'sys_console', '1', '+set', SESSION_CVAR, '1', ...notifySessionArgs(), ...mouseSessionArgs()],
+    argsBeforeDemo: [
+      '+set',
+      'sys_console',
+      '1',
+      '+set',
+      SESSION_CVAR,
+      '1',
+      ...notifySessionArgs(),
+      ...mouseSessionArgs(),
+    ],
     argsAfterDemo: [],
   }
 }

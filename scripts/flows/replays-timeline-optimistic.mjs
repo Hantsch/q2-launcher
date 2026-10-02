@@ -50,7 +50,8 @@ function commands() {
 async function waitForCommands(count, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS * 2
   while (commands().length < count) {
-    if (Date.now() >= deadline) fail(`${label}: engine ran ${JSON.stringify(commands())}, expected ${count}`)
+    if (Date.now() >= deadline)
+      fail(`${label}: engine ran ${JSON.stringify(commands())}, expected ${count}`)
     await sleep(50)
   }
 }
@@ -61,8 +62,10 @@ async function at(t0, ms) {
   if (wait > 0) await sleep(wait)
 }
 
-const positionS = async (page) => Number(await page.getByTestId('replays-timeline-seek').getAttribute('aria-valuenow'))
-const positionMs = async (page) => Number(await page.getByTestId('replays-timeline-seek').getAttribute('data-position-ms'))
+const positionS = async (page) =>
+  Number(await page.getByTestId('replays-timeline-seek').getAttribute('aria-valuenow'))
+const positionMs = async (page) =>
+  Number(await page.getByTestId('replays-timeline-seek').getAttribute('data-position-ms'))
 const toggleLabel = (page) => page.getByTestId('replays-timeline-toggle').getAttribute('aria-label')
 
 async function waitForScan(page) {
@@ -80,7 +83,11 @@ async function startDemo(page, levers) {
   rmSync(files.quitFile, { force: true })
   rmSync(files.commandLog, { force: true })
   writeFileSync(leversFile, JSON.stringify(levers))
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
@@ -118,18 +125,23 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
 
   step('AC1 pause flips before the readback')
   {
-    if ((await toggleLabel(page)) !== 'Pause') fail(`AC1: the toggle reads ${await toggleLabel(page)} before the click, expected Pause`)
+    if ((await toggleLabel(page)) !== 'Pause')
+      fail(`AC1: the toggle reads ${await toggleLabel(page)} before the click, expected Pause`)
     const t0 = Date.now()
     await toggle.click({ timeout: TIMEOUT_MS })
     await at(t0, 300)
-    if ((await toggleLabel(page)) !== 'Play') fail(`AC1: at +300 ms the toggle reads ${await toggleLabel(page)}, expected Play`)
-    if (commands().includes('pause')) fail('AC1: the engine had already run pause at +300 ms - the delay lever is not holding it')
+    if ((await toggleLabel(page)) !== 'Play')
+      fail(`AC1: at +300 ms the toggle reads ${await toggleLabel(page)}, expected Play`)
+    if (commands().includes('pause'))
+      fail('AC1: the engine had already run pause at +300 ms - the delay lever is not holding it')
     await at(t0, 1200)
-    if ((await toggleLabel(page)) !== 'Play') fail(`AC1: at +1200 ms the toggle reads ${await toggleLabel(page)}, expected Play`)
+    if ((await toggleLabel(page)) !== 'Play')
+      fail(`AC1: at +1200 ms the toggle reads ${await toggleLabel(page)}, expected Play`)
     if (commands().includes('pause')) fail('AC1: the engine had already run pause at +1200 ms')
     await waitForCommands(1, 'AC1')
     await sleep(800)
-    if ((await toggleLabel(page)) !== 'Play') fail('AC1: the toggle flipped back after the engine confirmed pause')
+    if ((await toggleLabel(page)) !== 'Play')
+      fail('AC1: the toggle flipped back after the engine confirmed pause')
     await shot('optimistic-paused')
   }
 
@@ -138,13 +150,16 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
     const t0 = Date.now()
     await speed.selectOption('2', { timeout: TIMEOUT_MS })
     await at(t0, 300)
-    if ((await speed.inputValue()) !== '2') fail(`AC3: at +300 ms the speed shows ${await speed.inputValue()}, expected 2`)
+    if ((await speed.inputValue()) !== '2')
+      fail(`AC3: at +300 ms the speed shows ${await speed.inputValue()}, expected 2`)
     const label = await speed.evaluate((el) => el.options[el.selectedIndex]?.textContent ?? '')
     if (!label.includes('2')) fail(`AC3: speed label ${JSON.stringify(label)}`)
-    if (commands().some((c) => c === 'timescale 2')) fail('AC3: the engine had already run timescale 2 at +300 ms')
+    if (commands().some((c) => c === 'timescale 2'))
+      fail('AC3: the engine had already run timescale 2 at +300 ms')
     await waitForCommands(2, 'AC3')
     await sleep(800)
-    if ((await speed.inputValue()) !== '2') fail('AC3: the speed fell back after the engine confirmed it')
+    if ((await speed.inputValue()) !== '2')
+      fail('AC3: the speed fell back after the engine confirmed it')
   }
 
   step('AC2 jump, click-seek and key-seek move at once')
@@ -157,13 +172,20 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
     expectedS = p0 + 20
     await at(t0, 300)
     const s300 = await positionS(page)
-    if (s300 !== expectedS) fail(`AC2: two forward clicks at +300 ms show ${s300} s, expected ${expectedS} s (from ${p0} s)`)
+    if (s300 !== expectedS)
+      fail(
+        `AC2: two forward clicks at +300 ms show ${s300} s, expected ${expectedS} s (from ${p0} s)`,
+      )
     const text = (await page.getByTestId('replays-timeline-position').textContent()) ?? ''
-    if (!text.startsWith(`0:${String(expectedS).padStart(2, '0')}`)) fail(`AC2: the position text reads ${JSON.stringify(text)}, expected 0:${expectedS}`)
+    if (!text.startsWith(`0:${String(expectedS).padStart(2, '0')}`))
+      fail(`AC2: the position text reads ${JSON.stringify(text)}, expected 0:${expectedS}`)
     for (const offset of [800, 1200]) {
       await at(t0, offset)
       const s = await positionS(page)
-      if (s < expectedS) fail(`AC2: at +${offset} ms the position fell back to ${s} s, below the target ${expectedS} s`)
+      if (s < expectedS)
+        fail(
+          `AC2: at +${offset} ms the position fell back to ${s} s, below the target ${expectedS} s`,
+        )
     }
     // Let both jumps land before the next gesture so the final position is deterministic.
     await waitForCommands(4, 'AC2 jumps')
@@ -177,7 +199,8 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
     await at(t1, 300)
     const clicked = await positionS(page)
     const durationS = Number(await seekBar.getAttribute('aria-valuemax'))
-    if (Math.abs(clicked - durationS * 0.25) > 2) fail(`AC2: a click at 25% shows ${clicked} s at +300 ms, expected ~${durationS * 0.25} s`)
+    if (Math.abs(clicked - durationS * 0.25) > 2)
+      fail(`AC2: a click at 25% shows ${clicked} s at +300 ms, expected ~${durationS * 0.25} s`)
     expectedS = clicked
     await waitForCommands(5, 'AC2 bar click')
     await sleep(600)
@@ -186,7 +209,8 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
     await page.keyboard.press('ArrowRight')
     await at(t2, 300)
     const keyed = await positionS(page)
-    if (keyed !== clicked + 10) fail(`AC2: ArrowRight at +300 ms shows ${keyed} s, expected ${clicked + 10} s`)
+    if (keyed !== clicked + 10)
+      fail(`AC2: ArrowRight at +300 ms shows ${keyed} s, expected ${clicked + 10} s`)
     expectedS = keyed
   }
 
@@ -197,15 +221,27 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
     const ran = commands()
     const seekCmd = ran[4]
     if (!/^seek \d+$/.test(seekCmd ?? '')) fail(`AC5: the bar click ran ${JSON.stringify(seekCmd)}`)
-    if (ran.length !== 6 || ran[0] !== 'pause' || ran[1] !== 'timescale 2' || ran[2] !== 'seek +10' || ran[3] !== 'seek +10' || ran[5] !== 'seek +10') {
-      fail(`AC5: each command must run exactly once, in order; the engine ran ${JSON.stringify(ran)}`)
+    if (
+      ran.length !== 6 ||
+      ran[0] !== 'pause' ||
+      ran[1] !== 'timescale 2' ||
+      ran[2] !== 'seek +10' ||
+      ran[3] !== 'seek +10' ||
+      ran[5] !== 'seek +10'
+    ) {
+      fail(
+        `AC5: each command must run exactly once, in order; the engine ran ${JSON.stringify(ran)}`,
+      )
     }
     // The demo is paused, so the stub's position is exactly the last absolute seek plus the last jump.
     const stubS = Number(seekCmd.split(' ')[1]) + 10
     const shown = await positionS(page)
-    if (Math.abs(shown - stubS) > 1) fail(`AC5: the strip shows ${shown} s, the engine is at ~${stubS} s`)
-    if (Math.abs(shown - expectedS) > 1) fail(`AC5: the strip moved from ${expectedS} s to ${shown} s after confirmation`)
-    if ((await toggleLabel(page)) !== 'Play') fail('AC5: the toggle no longer reads Play after confirmation')
+    if (Math.abs(shown - stubS) > 1)
+      fail(`AC5: the strip shows ${shown} s, the engine is at ~${stubS} s`)
+    if (Math.abs(shown - expectedS) > 1)
+      fail(`AC5: the strip moved from ${expectedS} s to ${shown} s after confirmation`)
+    if ((await toggleLabel(page)) !== 'Play')
+      fail('AC5: the toggle no longer reads Play after confirmation')
   }
 
   step('AC6 waiting text after 1 s, cleared on confirmation')
@@ -215,15 +251,19 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
     const t0 = Date.now()
     await forward.click({ timeout: TIMEOUT_MS })
     await at(t0, 500)
-    if (await waiting.isVisible()) fail('AC6: the waiting note shows at +500 ms, before the 1 s threshold')
+    if (await waiting.isVisible())
+      fail('AC6: the waiting note shows at +500 ms, before the 1 s threshold')
     await at(t0, 1100)
     if (!(await waiting.isVisible())) fail('AC6: no waiting note at +1100 ms')
     const text = (await waiting.textContent()) ?? ''
-    if (!text.includes('Waiting for the game') || !text.includes('(seek)')) fail(`AC6: the waiting note reads ${JSON.stringify(text)}`)
-    if ((await forward.getAttribute('aria-busy')) !== 'true') fail('AC6: the forward button is not aria-busy="true" while waiting')
+    if (!text.includes('Waiting for the game') || !text.includes('(seek)'))
+      fail(`AC6: the waiting note reads ${JSON.stringify(text)}`)
+    if ((await forward.getAttribute('aria-busy')) !== 'true')
+      fail('AC6: the forward button is not aria-busy="true" while waiting')
     await waitForCommands(before + 1, 'AC6')
     await waiting.waitFor({ state: 'detached', timeout: 6_000 })
-    if ((await forward.getAttribute('aria-busy')) === 'true') fail('AC6: the forward button is still aria-busy after confirmation')
+    if ((await forward.getAttribute('aria-busy')) === 'true')
+      fail('AC6: the forward button is still aria-busy after confirmation')
     await shot('optimistic-waiting-cleared')
   }
   await stopDemo(page)
@@ -242,11 +282,17 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
     }
     for (let i = 1; i < samples.length; i++) {
       const d = samples[i] - samples[i - 1]
-      if (d === 0) fail(`AC4: the position stood still between samples ${i - 1} and ${i}: ${JSON.stringify(samples)}`)
+      if (d === 0)
+        fail(
+          `AC4: the position stood still between samples ${i - 1} and ${i}: ${JSON.stringify(samples)}`,
+        )
       // A burst's newest sample is up to loop (13 frames = 208 ms) + log poll (50 ms) + push (250 ms) = ~510 ms
       // old at receipt, and the previous anchor was as fresh as it could be, so a correction of ~-520 ms is the
       // pipeline's jitter, not a renderer error (the stub's held samples are the real ones, flushed together).
-      if (d > 1000 || d < -750) fail(`AC4: the position jumped ${d} ms between samples ${i - 1} and ${i}: ${JSON.stringify(samples)}`)
+      if (d > 1000 || d < -750)
+        fail(
+          `AC4: the position jumped ${d} ms between samples ${i - 1} and ${i}: ${JSON.stringify(samples)}`,
+        )
     }
   }
   await stopDemo(page)
@@ -259,7 +305,10 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
     await waitForLive(page, 1_000)
     await seekBar.focus()
     await page.keyboard.press('End')
-    await page.getByTestId('replays-timeline-state').filter({ hasText: 'Finished' }).waitFor({ state: 'visible', timeout: 15_000 })
+    await page
+      .getByTestId('replays-timeline-state')
+      .filter({ hasText: 'Finished' })
+      .waitFor({ state: 'visible', timeout: 15_000 })
     await sleep(800)
     const confirmedMs = await positionMs(page)
     const confirmedLabel = await toggleLabel(page)
@@ -274,8 +323,14 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
       ms = await positionMs(page)
       label = await toggleLabel(page)
     }
-    if (ms !== confirmedMs) fail(`AC7: the position is ${ms} ms after the refusal, expected the confirmed ${confirmedMs} ms`)
-    if (label !== confirmedLabel) fail(`AC7: the toggle reads ${label} after the refusal, expected the confirmed ${confirmedLabel}`)
+    if (ms !== confirmedMs)
+      fail(
+        `AC7: the position is ${ms} ms after the refusal, expected the confirmed ${confirmedMs} ms`,
+      )
+    if (label !== confirmedLabel)
+      fail(
+        `AC7: the toggle reads ${label} after the refusal, expected the confirmed ${confirmedLabel}`,
+      )
     await shot('optimistic-refused')
   }
   await stopDemo(page)

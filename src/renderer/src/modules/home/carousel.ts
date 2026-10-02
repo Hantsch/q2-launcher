@@ -37,11 +37,7 @@ export function createCarouselState(count: number, reducedMotion = false): Carou
 /** True only when nothing is holding the rotation back and there is more than one slide. */
 export function isRunning(state: CarouselState): boolean {
   return (
-    !state.hovered &&
-    !state.focused &&
-    !state.latched &&
-    !state.reducedMotion &&
-    state.count > 1
+    !state.hovered && !state.focused && !state.latched && !state.reducedMotion && state.count > 1
   )
 }
 

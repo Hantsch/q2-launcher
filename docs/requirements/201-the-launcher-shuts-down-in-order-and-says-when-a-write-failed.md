@@ -101,7 +101,7 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F05, F50, 
   because then `state.test.ts` proves "once" without a context test.
 - **D-debounce** — `StateStore` uses `debounceMs: 250`; `ipc/launch.ts`'s existing
   `await app.state.settle()` stays untouched, because `settle()` already flushes a pending timer.
-- **D-negative-reads** — A flow assertion that `state.json` did *not* change waits
+- **D-negative-reads** — A flow assertion that `state.json` did _not_ change waits
   `STATE_WRITE_GRACE_MS` (750 ms) before reading, because an immediate read would pass vacuously
   under the debounce.
 - **D-quit-flow** — AC7's flow `quit-persists-state` flips Settings › Downloads' "download while
@@ -160,7 +160,7 @@ Layers: main, flow scripts, one locale key, one testid. No IPC channel change.
   `scripts/flows/{replays-date-filter,replays-filter-search,replays-sort-order,servers-sort-order,servers-watchlist}.mjs`.
   Extract from `servers-sort-order.mjs`'s `waitForStateJson` (≈line 199) and export
   `readStateJson(userDataDir)`, `waitForStateJson(userDataDir, predicate, label, { timeoutMs = 5000,
-  intervalMs = 50 } = {})` (re-reads until `predicate(doc)` holds, treats a missing or unparseable
+intervalMs = 50 } = {})` (re-reads until `predicate(doc)` holds, treats a missing or unparseable
   file as "not yet", throws naming the label and the last doc on timeout) and
   `STATE_WRITE_GRACE_MS = 750` (for "did not change" assertions: sleep it, then read). Replace the
   five private copies with imports, behaviour unchanged. Tests against a temp dir: "waits until the
@@ -171,7 +171,7 @@ Layers: main, flow scripts, one locale key, one testid. No IPC channel change.
   `scripts/flows/{home-dashboard-arrange,home-dashboard-keyboard,mod-update,mods-install,mods-remove,replays-mod-install,replays-mod-warning,replays-name-templates}.mjs`.
   The app will debounce `state.json` writes by 250 ms (story 201). Every read asserting a value the
   running app just wrote becomes `waitForStateJson(...)` from `scripts/lib/state-json.mjs`; every
-  read asserting the file did *not* change (e.g. home-dashboard-arrange's "narrow render wrote
+  read asserting the file did _not_ change (e.g. home-dashboard-arrange's "narrow render wrote
   nothing", ≈line 296) first sleeps `STATE_WRITE_GRACE_MS`; reads of seeded values before any
   action may stay plain `readStateJson`. Local wrappers (`readPersistedHomeLayout`, `trustedMods`,
   `readStateJson`) become thin calls into the helper — no new private poller. Run each touched flow
@@ -210,7 +210,7 @@ Layers: main, flow scripts, one locale key, one testid. No IPC channel change.
   `src/main/services/update/store.ts`, `src/main/services/update/service.ts`, and the test
   `fakeAppContext` builder(s) that the new required member breaks (follow the typecheck errors).
   `PersistenceRegistry`: `register(label: string, store: { settle(): Promise<{ ok: boolean }> }):
-  void` and `settleAll(): Promise<{ label: string; ok: boolean }[]>` — settles in parallel, each
+void` and `settleAll(): Promise<{ label: string; ok: boolean }[]>` — settles in parallel, each
   isolated (a rejecting one becomes `ok: false`; `settleAll` never rejects). `AppContext.persistence`
   is created in `createAppContext`. `UpdateCheckStore` exposes `settle()` delegating to its
   `JsonStore` (which resolves `{ ok }`); `update/service.ts` registers it at its `storeInstance ??=`
@@ -260,7 +260,7 @@ Layers: main, flow scripts, one locale key, one testid. No IPC channel change.
   the three helpers' existing tests. `createPlaybackControl` keeps the unsubscribers of
   `launch.onStateChange` (≈line 158) and `launch.onBeforePlaybackRelease` (≈line 164) and gains
   `dispose()`: unsubscribe both and close the prepared/current channel. `PlaybackChannel.close()`
-  exists and is guarded on both channels; at quit the shell releases the playback session *before*
+  exists and is guarded on both channels; at quit the shell releases the playback session _before_
   `disposeAll()`, and that release already starts the close synchronously (the Linux channel's
   last write), so `dispose()` must tolerate an already-closed channel and never re-open or re-send.
   `createStageFollowSessions` gains `dispose()` ending the current follower;

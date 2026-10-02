@@ -130,7 +130,7 @@ Order: D1 → D2 → D3 (D2 needs D1's keys; D3 screenshots the finished copy).
 
 - Files: `scripts/lib/screens.mjs`, `docs/UI-VERIFICATION.md`
 - Add three entries mirroring the existing `settings` entry (`{ id, variant: 'populated',
-  viewports: BOTH_VIEWPORTS, navigate }`) for `mods`, `assets` and `downloads`; navigate via the
+viewports: BOTH_VIEWPORTS, navigate }`) for `mods`, `assets` and `downloads`; navigate via the
   module's nav test-id (`nav-<moduleId>` convention documented at `scripts/lib/screens.mjs:19`;
   Downloads uses the right-cluster button test-id story 031 leaves behind).
 - Correct the screen-count sentence in `docs/UI-VERIFICATION.md:111`.
@@ -177,11 +177,13 @@ and `assets` entries (`downloads` already existed from story 031); the stale "14
 count in `docs/UI-VERIFICATION.md` was corrected to 15.
 
 **Commit message:**
+
 ```
 033: rewrite planned-module copy in plain language, drop capability checklist
 ```
 
 **Verification:**
+
 - `npm run typecheck` — green
 - `npm run build` — green
 - `npm test` — 51 files / 932 tests passed
@@ -191,6 +193,7 @@ count in `docs/UI-VERIFICATION.md` was corrected to 15.
   a `p-4`→`px-1` padding tweak on the now-unwrapped dev-only debug line, harmless)
 
 **Decisions:**
+
 - `downloads`'s `nav-downloads` test-id was already wired into the ui:verify registry by
   story 031's D4 — this story only needed to add the `mods` and `assets` entries.
 - `module.install.description` no longer existed (story 031 already renamed it to

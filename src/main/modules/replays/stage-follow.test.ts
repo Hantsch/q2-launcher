@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fail, ok } from '@shared/types'
-import { createStageFollower, GEOMETRY_RESET_WAIT_FRAMES, geometryLine, type StageFollowWindow } from './stage-follow'
+import {
+  createStageFollower,
+  GEOMETRY_RESET_WAIT_FRAMES,
+  geometryLine,
+  type StageFollowWindow,
+} from './stage-follow'
 
 const LAUNCH = '800x600+10+20'
 const win = (over: Partial<StageFollowWindow> = {}): StageFollowWindow => ({

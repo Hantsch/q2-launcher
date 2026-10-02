@@ -81,7 +81,14 @@ function setup(platform: string, cinema?: Parameters<typeof createPlaybackContro
   const fl = fakeLaunch()
   const makeWindows = vi.fn(() => win.channel)
   const makeLinux = vi.fn(() => lin.channel)
-  const control = createPlaybackControl({ emit, launch: fl.launch, platform, makeWindows, makeLinux, cinema })
+  const control = createPlaybackControl({
+    emit,
+    launch: fl.launch,
+    platform,
+    makeWindows,
+    makeLinux,
+    cinema,
+  })
   return { control, events, order, win, lin, fl, makeWindows, makeLinux }
 }
 
@@ -95,17 +102,24 @@ afterEach(() => vi.useRealTimers())
 describe('playback control', () => {
   it('picks the Windows channel on win32 and the Linux channel on linux', async () => {
     const w = setup('win32')
-    expect(await w.control.prepare({ gameDirPath: 'C:/q2/baseq2', durationMs: null, format: 'dm2' })).toEqual({
+    expect(
+      await w.control.prepare({ gameDirPath: 'C:/q2/baseq2', durationMs: null, format: 'dm2' }),
+    ).toEqual({
       argsBeforeDemo: ['+before-win'],
       argsAfterDemo: ['+after-win'],
     })
-    expect(w.makeWindows).toHaveBeenCalledWith(expect.objectContaining({ gameDirPath: 'C:/q2/baseq2' }))
+    expect(w.makeWindows).toHaveBeenCalledWith(
+      expect.objectContaining({ gameDirPath: 'C:/q2/baseq2' }),
+    )
     expect(w.makeLinux).not.toHaveBeenCalled()
     // Windows writes its files in prepare, before the game is spawned; Linux waits for the engine's pipes.
     expect(w.win.channel.start).toHaveBeenCalledTimes(1)
 
     const l = setup('linux')
-    expect((await l.control.prepare({ gameDirPath: '/q2/baseq2', durationMs: null, format: 'dm2' })).argsAfterDemo).toEqual(['+after-lin'])
+    expect(
+      (await l.control.prepare({ gameDirPath: '/q2/baseq2', durationMs: null, format: 'dm2' }))
+        .argsAfterDemo,
+    ).toEqual(['+after-lin'])
     expect(l.makeLinux).toHaveBeenCalledTimes(1)
     expect(l.makeWindows).not.toHaveBeenCalled()
     expect(l.lin.channel.start).not.toHaveBeenCalled()
@@ -233,41 +247,68 @@ describe('playback control', () => {
     const before = positions(t.events).length
     expect(before).toBeGreaterThan(0)
     t.win.fireDisplay('fullscreen')
-    expect(t.events.at(-1)).toEqual({ type: 'playback.display', payload: expect.objectContaining({ fullscreen: true }) })
+    expect(t.events.at(-1)).toEqual({
+      type: 'playback.display',
+      payload: expect.objectContaining({ fullscreen: true }),
+    })
     vi.advanceTimersByTime(2000)
     expect(positions(t.events)).toHaveLength(before)
     t.win.fireDisplay('stage')
-    expect(t.events.at(-1)).toEqual({ type: 'playback.display', payload: expect.objectContaining({ fullscreen: false }) })
+    expect(t.events.at(-1)).toEqual({
+      type: 'playback.display',
+      payload: expect.objectContaining({ fullscreen: false }),
+    })
     vi.advanceTimersByTime(500)
     expect(positions(t.events).length).toBeGreaterThan(before)
     expect(seen).toEqual([true, false])
   })
 
   it('the display event carries cinema, speed and availability', async () => {
-    const cinema = { open: false, availability: { available: true } as { available: true } | { available: false; reason: { key: string } } }
+    const cinema = {
+      open: false,
+      availability: { available: true } as
+        { available: true } | { available: false; reason: { key: string } },
+    }
     const t = setup('win32', () => cinema)
     const states: string[] = []
     t.control.onStateChange((s) => states.push(s))
     // No session: the defaults, with what cinema says right now.
-    expect(t.control.display()).toEqual({ fullscreen: false, cinema: false, speed: 1, cinemaAvailability: { available: true } })
+    expect(t.control.display()).toEqual({
+      fullscreen: false,
+      cinema: false,
+      speed: 1,
+      cinemaAvailability: { available: true },
+    })
     await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
     await t.control.attach()
     expect(states).toEqual(['playing'])
-    const displays = () => t.events.filter((e) => e.type === 'playback.display').map((e) => e.payload)
+    const displays = () =>
+      t.events.filter((e) => e.type === 'playback.display').map((e) => e.payload)
 
     t.control.setSpeed(2)
     cinema.open = true
     t.control.emitDisplay()
-    expect(displays().at(-1)).toEqual({ fullscreen: false, cinema: true, speed: 2, cinemaAvailability: { available: true } })
+    expect(displays().at(-1)).toEqual({
+      fullscreen: false,
+      cinema: true,
+      speed: 2,
+      cinemaAvailability: { available: true },
+    })
 
     // Fullscreen wins over an open overlay; availability is read at push time.
-    cinema.availability = { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } }
+    cinema.availability = {
+      available: false,
+      reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+    }
     t.win.fireDisplay('fullscreen')
     expect(displays().at(-1)).toEqual({
       fullscreen: true,
       cinema: false,
       speed: 2,
-      cinemaAvailability: { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } },
+      cinemaAvailability: {
+        available: false,
+        reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+      },
     })
     expect(t.control.display()).toEqual(displays().at(-1))
 

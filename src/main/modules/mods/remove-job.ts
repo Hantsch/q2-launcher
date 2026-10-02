@@ -1,4 +1,8 @@
-import type { ModInstallRecord, ModRemovalPreview, ModRemoveChangedFiles } from '@shared/modules/mods'
+import type {
+  ModInstallRecord,
+  ModRemovalPreview,
+  ModRemoveChangedFiles,
+} from '@shared/modules/mods'
 import {
   fail,
   isJobActive,
@@ -37,9 +41,7 @@ const LOCAL_FAILURE = 'downloads.error.diskWrite'
 const BUSY_KINDS = new Set(['mod-install', 'mod-update'])
 
 export type ModRemoveOutcome =
-  | { status: 'succeeded' }
-  | { status: 'failed'; key: string }
-  | { status: 'cancelled' }
+  { status: 'succeeded' } | { status: 'failed'; key: string } | { status: 'cancelled' }
 
 export interface StartedModRemove {
   jobId: string

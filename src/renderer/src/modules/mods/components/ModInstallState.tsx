@@ -46,7 +46,11 @@ export function ModInstallState({
     const engine = engineWithArch(local.engineKind, local.arch)
     const updatable = local.status === 'update-available'
     const updating = updatable && job !== null && isJobActive(job)
-    const updateError = updatable ? (job?.status === 'failed' ? (job.error ?? null) : failure) : null
+    const updateError = updatable
+      ? job?.status === 'failed'
+        ? (job.error ?? null)
+        : failure
+      : null
     return (
       <div className="w-full space-y-1">
         {updating && job ? (
@@ -71,7 +75,11 @@ export function ModInstallState({
           </p>
         )}
         {updateError && (
-          <p role="alert" className="text-sm text-danger" data-testid={`mods-tile-update-error-${id}`}>
+          <p
+            role="alert"
+            className="text-sm text-danger"
+            data-testid={`mods-tile-update-error-${id}`}
+          >
             {t(updateError.key, updateError.params ?? {})}
           </p>
         )}

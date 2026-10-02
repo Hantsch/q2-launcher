@@ -1,4 +1,14 @@
-import { chmod, mkdir, mkdtemp, readdir, realpath, rm, stat, truncate, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  realpath,
+  rm,
+  stat,
+  truncate,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -187,7 +197,10 @@ interface ManifestCalls {
 
 function fakeManifest(
   calls: ManifestCalls,
-  options: { engine?: ManifestPackage | undefined; pointRelease?: ManifestPackage | undefined } = {},
+  options: {
+    engine?: ManifestPackage | undefined
+    pointRelease?: ManifestPackage | undefined
+  } = {},
 ): ManifestSource {
   const engine = 'engine' in options ? options.engine : ENGINE_PACKAGE
   const pointRelease = 'pointRelease' in options ? options.pointRelease : POINT_RELEASE_PACKAGE
@@ -210,7 +223,10 @@ function fakeManifest(
 }
 
 /** Never moves a byte: the archive path it answers is only ever handed to the fake extractor. */
-function fakeFetcher(calls: string[], options: { gate?: () => Promise<void> } = {}): PackageFetcher {
+function fakeFetcher(
+  calls: string[],
+  options: { gate?: () => Promise<void> } = {},
+): PackageFetcher {
   return {
     fetch: async (source) => {
       calls.push(source.fileName)

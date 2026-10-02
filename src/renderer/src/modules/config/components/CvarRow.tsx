@@ -118,7 +118,14 @@ export interface CvarRowProps {
  * "no engine in scope" note lives once above the list in `EngineScopeSelect`
  * rather than being repeated on all 30 rows.
  */
-export function CvarRow({ def, engine, value, edited, onChange, otherAssignedEngines }: CvarRowProps) {
+export function CvarRow({
+  def,
+  engine,
+  value,
+  edited,
+  onChange,
+  otherAssignedEngines,
+}: CvarRowProps) {
   const { t } = useTranslation()
   const controlId = useId()
   const labelId = useId()
@@ -564,7 +571,10 @@ function CvarControl({
   const displayValue = value !== '' ? value : effectiveDefault
 
   if (def.kind === 'choice') {
-    const options = resolved.choices.map((choice) => ({ value: choice.value, label: t(choice.labelKey) }))
+    const options = resolved.choices.map((choice) => ({
+      value: choice.value,
+      label: t(choice.labelKey),
+    }))
     return (
       <Select
         id={controlId}

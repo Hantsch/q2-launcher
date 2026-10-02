@@ -228,7 +228,9 @@ export function WatchlistRow({
         </p>
       )}
 
-      {state === 'too-slow' && <p className="text-xs text-ink-muted">{t('servers.watchlist.tooSlow')}</p>}
+      {state === 'too-slow' && (
+        <p className="text-xs text-ink-muted">{t('servers.watchlist.tooSlow')}</p>
+      )}
 
       {state === 'left' && (
         <p className="text-xs text-ink-muted">

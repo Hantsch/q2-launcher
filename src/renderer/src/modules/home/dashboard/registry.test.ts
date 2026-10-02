@@ -51,7 +51,7 @@ describe('the dashboard registry (AC3, AC6)', () => {
     }
   })
 
-  it('every registry entry\'s own id matches the key it is stored under', () => {
+  it("every registry entry's own id matches the key it is stored under", () => {
     for (const id of DASHBOARD_MODULE_IDS) {
       expect(DASHBOARD_MODULES[id].id).toBe(id)
     }

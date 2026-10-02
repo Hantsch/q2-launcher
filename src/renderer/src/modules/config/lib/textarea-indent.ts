@@ -31,7 +31,11 @@ export interface IndentResult {
  * `document.execCommand('insertText', ...)` (to keep native undo/redo working - see
  * `ConfigCodeView`) can select exactly this range before replacing it, rather than guessing at
  * line boundaries a second, possibly inconsistent, way. */
-export function getIndentLineRange(text: string, start: number, end: number): { lineStart: number; lineEnd: number } {
+export function getIndentLineRange(
+  text: string,
+  start: number,
+  end: number,
+): { lineStart: number; lineEnd: number } {
   const lineStart = text.lastIndexOf('\n', start - 1) + 1
 
   // A selection landing exactly on a line boundary (its last character is the newline that
@@ -85,7 +89,11 @@ function leadingRemovable(line: string, indentUnit: string): number {
   if (indentUnit.length > 0 && line.startsWith(indentUnit)) return indentUnit.length
 
   let count = 0
-  while (count < indentUnit.length && count < line.length && (line[count] === ' ' || line[count] === '\t')) {
+  while (
+    count < indentUnit.length &&
+    count < line.length &&
+    (line[count] === ' ' || line[count] === '\t')
+  ) {
     count++
   }
   return count

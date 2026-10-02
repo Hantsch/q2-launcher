@@ -212,7 +212,12 @@ describe('replays scan service (story 144 D3)', () => {
       nameFacts: null,
     }
     await new ReplaysIndexCache({ filePath: cacheFile }).write(
-      new Map([[cachedRow.id, { size: 1, mtimeMs: 1, patternFingerprint: 'fp-1', parsed: cachedRow, name: null }]]),
+      new Map([
+        [
+          cachedRow.id,
+          { size: 1, mtimeMs: 1, patternFingerprint: 'fp-1', parsed: cachedRow, name: null },
+        ],
+      ]),
     )
 
     const gate = deferred()
@@ -276,7 +281,10 @@ describe('replays scan service (story 144 D3)', () => {
     await h.waitIdle(1)
     const snapshotA = await h.service.read()
     expect(snapshotA).toHaveLength(2)
-    const cacheBefore = { bytes: await readFile(cacheFile), mtimeMs: (await stat(cacheFile)).mtimeMs }
+    const cacheBefore = {
+      bytes: await readFile(cacheFile),
+      mtimeMs: (await stat(cacheFile)).mtimeMs,
+    }
 
     // A new file forces a parse, which now throws mid-scan.
     await writeFile(join(dir, 'c.dm2'), 'demo c')
@@ -324,7 +332,10 @@ describe('replays scan service (story 144 D3)', () => {
 })
 
 describe('scan service source errors and scan hold (story 151 D2)', () => {
-  function errorFor(path: string, reason: ReplaysSourceError['reason'] = 'unreadable'): ReplaysSourceError {
+  function errorFor(
+    path: string,
+    reason: ReplaysSourceError['reason'] = 'unreadable',
+  ): ReplaysSourceError {
     return { source: { kind: 'extraFolder', path }, archiveName: null, reason }
   }
 
@@ -347,7 +358,8 @@ describe('scan service source errors and scan hold (story 151 D2)', () => {
     const last = h.progress().at(-1)!
     expect(last.running).toBe(false)
     expect(last.sourceErrors).toEqual([error])
-    for (const push of h.progress()) expect(replaysScanProgressSchema.safeParse(push).success).toBe(true)
+    for (const push of h.progress())
+      expect(replaysScanProgressSchema.safeParse(push).success).toBe(true)
   })
 
   it("running pushes carry the previous scan's source errors", async () => {
@@ -378,7 +390,10 @@ describe('scan service source errors and scan hold (story 151 D2)', () => {
     const beforeSecond = h.progress().length
     h.service.start()
     await vi.waitFor(() => expect(h.progress().length).toBeGreaterThan(beforeSecond))
-    const midPushes = h.progress().slice(beforeSecond).filter((p) => p.running)
+    const midPushes = h
+      .progress()
+      .slice(beforeSecond)
+      .filter((p) => p.running)
     expect(midPushes.length).toBeGreaterThan(0)
     for (const push of midPushes) expect(push.sourceErrors).toEqual([error1])
 
@@ -538,7 +553,10 @@ describe('unreadable demos stay in the index (story 145 D2)', () => {
 
     const broken = byName.get('broken.dm2')!
     const brokenStat = await stat(join(dir, 'broken.dm2'))
-    expect(broken.fileTime).toEqual({ birthtimeMs: brokenStat.birthtimeMs, mtimeMs: brokenStat.mtimeMs })
+    expect(broken.fileTime).toEqual({
+      birthtimeMs: brokenStat.birthtimeMs,
+      mtimeMs: brokenStat.mtimeMs,
+    })
 
     for (const fileName of [GARBAGE_FILE, 'empty.dm2', 'broken.dm2']) {
       const row = byName.get(fileName)!
@@ -663,7 +681,10 @@ describe('applyRename (story 157)', () => {
     const rows = await h.service.read()
     expect(rows.map((r) => [r.id, r.fileName])).toEqual([[newId, 'new.dm2']])
 
-    expect(h.service.resolveFile(newId)).toEqual({ absolutePath: newAbsolutePath, archiveEntry: null })
+    expect(h.service.resolveFile(newId)).toEqual({
+      absolutePath: newAbsolutePath,
+      archiveEntry: null,
+    })
     expect(h.service.resolveFile(oldId)).toBeUndefined()
 
     // A second service instance over the same cache file gets a hit under the new id.
@@ -687,7 +708,9 @@ describe('applyRename (story 157)', () => {
     h.service.start()
     await h.waitIdle(1)
 
-    expect(await h.service.applyRename('0000000000000000', join(dir, 'x.dm2'), 'x.dm2')).toBeUndefined()
+    expect(
+      await h.service.applyRename('0000000000000000', join(dir, 'x.dm2'), 'x.dm2'),
+    ).toBeUndefined()
   })
 
   it('isScanning reflects the running flag', async () => {

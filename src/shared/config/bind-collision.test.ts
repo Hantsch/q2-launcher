@@ -106,7 +106,12 @@ describe('findBindCollision', () => {
       profile({ layers: [layer({ overrides: { '1': 'drop rl' } })] }),
       '1',
     )
-    expect(result).toEqual({ kind: 'layerOverride', key: '1', layerId: 'layer-1', command: 'drop rl' })
+    expect(result).toEqual({
+      kind: 'layerOverride',
+      key: '1',
+      layerId: 'layer-1',
+      command: 'drop rl',
+    })
   })
 
   it('prefers a base-level collision over a layer-level one for the same key', () => {
@@ -145,11 +150,10 @@ describe('findBindCollision', () => {
   it('self-ignore: the mirrored base bind for the ignored action’s own key is not a collision either', () => {
     const owner = withKeys(action({ id: 'a1', name: 'Drop RL' }), { key: 'q' })
     const mirroredBinds = { q: aliasNameFor(owner) }
-    const result = findBindCollision(
-      profile({ actions: [owner], binds: mirroredBinds }),
-      'q',
-      { actionId: 'a1', slot: 0 },
-    )
+    const result = findBindCollision(profile({ actions: [owner], binds: mirroredBinds }), 'q', {
+      actionId: 'a1',
+      slot: 0,
+    })
     expect(result).toBeNull()
   })
 
@@ -176,7 +180,10 @@ describe('findBindCollision', () => {
     // all (AC 4) - so it must not appear to "own" the plain key `r` either. Before this fix,
     // `slotValue` read the slot's key regardless of its modifier, so a plain-`r` capture on a
     // different action would falsely block on - and, via `releaseKey`, destroy - this one.
-    const modifierBound = withKeys(action({ id: 'a1', name: 'Drop RL' }), { key: 'r', modifier: 'ALT' })
+    const modifierBound = withKeys(action({ id: 'a1', name: 'Drop RL' }), {
+      key: 'r',
+      modifier: 'ALT',
+    })
     const result = findBindCollision(profile({ actions: [modifierBound] }), 'r')
     expect(result).toBeNull()
   })
@@ -216,7 +223,13 @@ describe('releaseKey', () => {
   it('action: clears the offending slot and drops its stale bind mirror', () => {
     const owner = withKeys(action({ id: 'a1', name: 'Drop RL' }), { key: 'q' })
     const binds = { q: aliasNameFor(owner) }
-    const collision: BindCollision = { kind: 'action', key: 'q', actionId: 'a1', name: 'Drop RL', slot: 0 }
+    const collision: BindCollision = {
+      kind: 'action',
+      key: 'q',
+      actionId: 'a1',
+      name: 'Drop RL',
+      slot: 0,
+    }
 
     const result = releaseKey([owner], binds, collision)
 
@@ -254,7 +267,13 @@ describe('releaseKey', () => {
       { key: 'e' },
     )
     const binds = { e: aliasNameFor(owner) }
-    const collision: BindCollision = { kind: 'action', key: 'e', actionId: 'a1', name: 'Drop RL', slot: 2 }
+    const collision: BindCollision = {
+      kind: 'action',
+      key: 'e',
+      actionId: 'a1',
+      name: 'Drop RL',
+      slot: 2,
+    }
 
     const result = releaseKey([owner], binds, collision)
 
@@ -275,7 +294,13 @@ describe('releaseKey', () => {
       { key: 'g' },
       { key: 'h' },
     )
-    const collision: BindCollision = { kind: 'action', key: 'f', actionId: 'a1', name: 'Drop RL', slot: 0 }
+    const collision: BindCollision = {
+      kind: 'action',
+      key: 'f',
+      actionId: 'a1',
+      name: 'Drop RL',
+      slot: 0,
+    }
 
     const result = releaseKey([owner], {}, collision)
 
@@ -286,7 +311,13 @@ describe('releaseKey', () => {
     const owner = withKeys(action({ id: 'a1', name: 'Drop RL' }), { key: 'q' })
     // 'q' in binds points at something else entirely (e.g. stale data) - not this action's alias.
     const binds = { q: 'weapnext' }
-    const collision: BindCollision = { kind: 'action', key: 'q', actionId: 'a1', name: 'Drop RL', slot: 0 }
+    const collision: BindCollision = {
+      kind: 'action',
+      key: 'q',
+      actionId: 'a1',
+      name: 'Drop RL',
+      slot: 0,
+    }
 
     const result = releaseKey([owner], binds, collision)
 
@@ -300,7 +331,13 @@ describe('releaseKey', () => {
     // regardless of how it is reached, so a half-filled slot (a modifier with no key) can never
     // exist - the invariant `catalog-binds.ts`'s `applySlot` documents.
     const owner = withKeys(action({ id: 'a1', name: 'Drop RL' }), { key: 'r', modifier: 'ALT' })
-    const collision: BindCollision = { kind: 'action', key: 'r', actionId: 'a1', name: 'Drop RL', slot: 0 }
+    const collision: BindCollision = {
+      kind: 'action',
+      key: 'r',
+      actionId: 'a1',
+      name: 'Drop RL',
+      slot: 0,
+    }
 
     const result = releaseKey([owner], {}, collision)
 

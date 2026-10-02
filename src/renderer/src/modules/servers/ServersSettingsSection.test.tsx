@@ -3,7 +3,11 @@ import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { getModuleManifest } from '@shared/types'
-import { SERVERS_HANDLERS, type MasterSource, type ServersScanSettings } from '@shared/modules/servers'
+import {
+  SERVERS_HANDLERS,
+  type MasterSource,
+  type ServersScanSettings,
+} from '@shared/modules/servers'
 import { initI18n } from '../../i18n'
 import type { ServersSettingsSection as ServersSettingsSectionType } from './ServersSettingsSection'
 
@@ -60,9 +64,9 @@ beforeAll(async () => {
 
 afterEach(() => {
   cleanup()
-  ;(globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }).q2.invoke.mockImplementation(
-    defaultInvoke,
-  )
+  ;(
+    globalThis as unknown as { q2: { invoke: ReturnType<typeof vi.fn> } }
+  ).q2.invoke.mockImplementation(defaultInvoke)
 })
 
 describe('servers module registration', () => {
@@ -71,26 +75,22 @@ describe('servers module registration', () => {
   // `import()` in the suite - it's the one file that still timed out under CI-level CPU
   // contention after the global bump to 20s, so it gets its own longer allowance instead of
   // raising the default further for every other test.
-  it(
-    'the servers renderer module contributes a settings section and a minimal manual-scan view',
-    async () => {
-      const { rendererModule } = await import('../index')
-      const { ServersView } = await import('./ServersView')
-      const module = rendererModule('servers')
+  it('the servers renderer module contributes a settings section and a minimal manual-scan view', async () => {
+    const { rendererModule } = await import('../index')
+    const { ServersView } = await import('./ServersView')
+    const module = rendererModule('servers')
 
-      expect(module).toBeDefined()
-      // Story 115 D5 stood `ServersView` in as a manual-scan-only stand-in; the full game
-      // browser ([[118]]-[[132]], done S22-S25) has since landed, so the manifest's `status`
-      // flipped to `'available'` and the nav rail's "planned" badge is gone.
-      expect(module?.View).toBe(ServersView)
-      expect(module?.settingsSection).toBeDefined()
-      expect(module?.settingsSection?.Section).toBe(ServersSettingsSection)
+    expect(module).toBeDefined()
+    // Story 115 D5 stood `ServersView` in as a manual-scan-only stand-in; the full game
+    // browser ([[118]]-[[132]], done S22-S25) has since landed, so the manifest's `status`
+    // flipped to `'available'` and the nav rail's "planned" badge is gone.
+    expect(module?.View).toBe(ServersView)
+    expect(module?.settingsSection).toBeDefined()
+    expect(module?.settingsSection?.Section).toBe(ServersSettingsSection)
 
-      const manifest = getModuleManifest('servers')
-      expect(manifest?.status).toBe('available')
-    },
-    40_000,
-  )
+    const manifest = getModuleManifest('servers')
+    expect(manifest?.status).toBe('available')
+  }, 40_000)
 
   it('the section renders the master-source list fetched from main', async () => {
     render(createElement(ServersSettingsSection))

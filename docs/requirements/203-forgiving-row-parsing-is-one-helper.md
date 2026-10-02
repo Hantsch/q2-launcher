@@ -40,8 +40,8 @@ log line.
 ## Open Questions
 
 - ~~**Q1**~~ answered → Decisions (Sprint) — Does story 207 (modules own their persisted state) want this helper in
-      `src/main/lib` or in `src/shared`? It uses no node API, so shared is possible; the review
-      recommends `src/main/lib` because only main parses persisted files.
+  `src/main/lib` or in `src/shared`? It uses no node API, so shared is possible; the review
+  recommends `src/main/lib` because only main parses persisted files.
 
 ## Decisions (Sprint)
 
@@ -49,14 +49,14 @@ log line.
 - **D-a** `refine` returns `U | null` (no reason string); a refused row reaches `onDrop` with its
   parsed value, so a caller (the catalog's pinned check) builds its own wording from it — keeps the
   helper's contract minimal while AC4's wording survives.
-- **D-b** `keyOf` takes one key function *or* a record of named key functions checked in order, and
-  keys are recorded only for kept rows — the mod catalog dedupes on id *and* gamedir with separate
+- **D-b** `keyOf` takes one key function _or_ a record of named key functions checked in order, and
+  keys are recorded only for kept rows — the mod catalog dedupes on id _and_ gamedir with separate
   messages and today only records a row's keys after every check passed.
 - **D-c** Pipeline order is fixed: shape (`schema`) → `refine` → dedupe; caps (`slice`, `capServerHistory`)
   stay at the caller after the helper — this is today's order in every caller (address is normalised
   before the address dedupe, caps cut after dedupe).
 - **D-d** `parseForgivingEnvelope(schema, raw, fallback)` treats `raw === undefined` as `{}`, and
-  `fallback` is a function returning an *envelope-shaped* value (fresh per call) — then all four
+  `fallback` is a function returning an _envelope-shaped_ value (fresh per call) — then all four
   envelope callers keep one return path; servers' fallback envelope seeds `DEFAULT_MASTER_SOURCES`
   so the garbage-input result equals today's `cloneDefaultServersState()` (proved by the existing
   `parseServersState` tests).
@@ -111,11 +111,11 @@ no shared-layer change; behaviour is unchanged (AC5) — `schemas.test.ts`, `cat
   - `parseForgivingEnvelope<T>(schema: z.ZodType<T>, raw: unknown, fallback: () => T): T` —
     `schema.safeParse(raw === undefined ? {} : raw)`; on failure returns `fallback()` (a fresh value per call).
   - `dedupeByKey<T>(rows: T[], keyOf: (row: T) => string): T[]` — moved unchanged, first wins.
-  Test file covers: invalid row dropped while siblings survive, non-array raw → `[]`, refine-null
-  dropped, dedupe first-wins, multi-key dedupe with keys recorded only for kept rows, envelope
-  `undefined` → `{}` path, envelope garbage → `fallback()` (and two calls return distinct objects), and
-  `onDrop` called once per drop with the right `reason`/`index`/`key`. Use the shared test-support kit
-  in `src/test-support/` where it offers a fit (story 225), no ad-hoc logger.
+    Test file covers: invalid row dropped while siblings survive, non-array raw → `[]`, refine-null
+    dropped, dedupe first-wins, multi-key dedupe with keys recorded only for kept rows, envelope
+    `undefined` → `{}` path, envelope garbage → `fallback()` (and two calls return distinct objects), and
+    `onDrop` called once per drop with the right `reason`/`index`/`key`. Use the shared test-support kit
+    in `src/test-support/` where it offers a fit (story 225), no ad-hoc logger.
 
 - **D2 — `src/main/lib/schemas.ts` expressed through the helpers** (files: `src/main/lib/schemas.ts`,
   `src/main/lib/schemas.test.ts`, `docs/ARCHITECTURE.md`). Helpers in `./forgiving`:
@@ -128,10 +128,10 @@ no shared-layer change; behaviour is unchanged (AC5) — `schemas.test.ts`, `cat
     `DEFAULT_HOME_LAYOUT` wholesale); tiles via `parseKeyedRows(tilePlacementSchema, …, { keyOf: t => t.moduleId })`;
     delete `parseTilePlacement` and the inline Set filter.
   - `parseServersState`: envelope via `parseForgivingEnvelope(serversStateEnvelopeSchema, raw, () => ({ sources:
-    structuredClone(DEFAULT_MASTER_SOURCES), favourites: [], manualServers: [], history: [], watchlist: [], quickFilters: [] }))`
+structuredClone(DEFAULT_MASTER_SOURCES), favourites: [], manualServers: [], history: [], watchlist: [], quickFilters: [] }))`
     — the garbage-input result must stay equal to today's `cloneDefaultServersState()` (scan/listSort are read
     off `raw` as today; delete `cloneDefaultServersState` if unused). Sources: `parseKeyedRows(serverSourceEntrySchema,
-    …, { refine: validate via validateMasterSourceAddress → {...row, address: normalized} | null, keyOf: id })`.
+…, { refine: validate via validateMasterSourceAddress → {...row, address: normalized} | null, keyOf: id })`.
     The three address-keyed rows (favourites/manualServers/history) share **one** refine function
     (`parseServerAddress` → normalised address or `null`) and `keyOf: r => r.address`; history keeps
     `capServerHistory(...)` around the result. Watchlist `keyOf: id`; quickFilters `keyOf: name.toLowerCase()`
@@ -140,13 +140,13 @@ no shared-layer change; behaviour is unchanged (AC5) — `schemas.test.ts`, `cat
     `parseKeyedRows(unlockCodeEntrySchema, …, { keyOf: code }).slice(0, MAX_UNLOCK_CODES)`.
   - `parseNameTemplatesState`: envelope fallback `() => ({ entries: [], removedShippedIds: [] })` (equal to
     `DEFAULT_NAME_TEMPLATES_STATE`; delete `cloneDefaultNameTemplatesState` if unused); entries via `parseKeyedRows(storedNameTemplateSchema, …, { refine:
-    non-null template must pass nameTemplateTextSchema, keyOf: id })`; removedShippedIds via
+non-null template must pass nameTemplateTextSchema, keyOf: id })`; removedShippedIds via
     `parseKeyedRows(z.string(), …, { keyOf: id => id })`. Delete `parseNameTemplateRow`.
   - `parseExtraFolders`: envelope fallback `() => ({ extraFolders: [] })`, rows via
     `parseKeyedRows(storedExtraFolderSchema, …, { keyOf: r => pathKey(r.path) })`.
   - `parseModWarning` → `modWarningSchema` (zod, like its siblings): `z.object({ enabled: z.boolean().catch(true),
-    trustedMods: z.array(z.unknown()).catch([]).transform(rows => parseKeyedRows(modDirSchema, rows, { keyOf: d => d })) })
-    .catch(() => ({ enabled: true, trustedMods: [] }))`, where `modDirSchema` is
+trustedMods: z.array(z.unknown()).catch([]).transform(rows => parseKeyedRows(modDirSchema, rows, { keyOf: d => d })) })
+.catch(() => ({ enabled: true, trustedMods: [] }))`, where `modDirSchema` is
     `z.string().regex(MOD_DIR_PATTERN).refine(d => d !== '.' && d !== '..').transform(d => d.toLowerCase())`.
     `parseReplaysState` calls `modWarningSchema.parse(raw?.modWarning)`.
   - Leave `configWriteFailuresSchema`'s record filter and the field-level `listSort`/`listFilter` safeParses alone.
@@ -168,16 +168,16 @@ no shared-layer change; behaviour is unchanged (AC5) — `schemas.test.ts`, `cat
   and `parseKeyedRows(schema, raw, { keyOf, refine?, onDrop? })` — shape → `refine` (`U | null`) → dedupe;
   `keyOf` may be a record of named key functions checked in order, keys recorded only for kept rows;
   `onDrop(drop)` gets `{ reason: 'invalid', index, row, error } | { reason: 'refused', index, row, parsed } |
-  { reason: 'duplicate', index, row, parsed, key }`.
+{ reason: 'duplicate', index, row, parsed, key }`.
   - `install-records.ts`: `readModsState` → `parseForgivingRows(recordSchema, rows)` (no dedupe, no log — as
     today); `recordedGameDirs` → `new Set(parseForgivingRows(z.object({ gameDir: z.string().min(1) }), rows)
-    .map(r => r.gameDir.toLowerCase()))`. Keep `envelopeOf`.
+.map(r => r.gameDir.toLowerCase()))`. Keep `envelopeOf`.
   - `catalog-parse.ts`: envelope/schemaVersion checks unchanged; entries via `parseKeyedRows(entrySchema,
-    envelope.data.entries, { refine: e => e.versions.some(v => v.version === e.pinned) ? e : null, keyOf:
-    { id: e => e.id, gamedir: e => e.gamedir.toLowerCase() }, onDrop })` where `onDrop` builds the label
+envelope.data.entries, { refine: e => e.versions.some(v => v.version === e.pinned) ? e : null, keyOf:
+{ id: e => e.id, gamedir: e => e.gamedir.toLowerCase() }, onDrop })` where `onDrop` builds the label
     `mod catalog entry at index ${index}${idOf(row) ? ` (id: ${idOf(row)})` : ''}` and emits exactly today's
     four messages: `${label} dropped: ${error.message}`, `${label} dropped: pinned "${parsed.pinned}" names no
-    listed version`, `${label} dropped: duplicate id`, `${label} dropped: duplicate gamedir "${parsed.gamedir}"`.
+listed version`, `${label} dropped: duplicate id`, `${label} dropped: duplicate gamedir "${parsed.gamedir}"`.
   - `manifest-parse.ts`: packages via `parseForgivingRows(packageSchema, envelope.data.packages, { onDrop })`
     emitting exactly `manifest package at index ${index}${id ? ` (id: ${id})` : ''} dropped: ${error.message}`.
     `resolvePinned` unchanged.

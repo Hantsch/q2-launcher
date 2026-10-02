@@ -272,7 +272,11 @@ export function NameTemplatesList() {
         </Button>
       </div>
       {addError && (
-        <p className="text-xs text-danger" id="replays-name-template-error" data-testid="replays-name-template-error">
+        <p
+          className="text-xs text-danger"
+          id="replays-name-template-error"
+          data-testid="replays-name-template-error"
+        >
           {t(addError.key, addError.params)}
         </p>
       )}
@@ -339,7 +343,11 @@ function NameTemplateRow({
             data-testid={`replays-name-template-edit-input-${index}`}
           />
           {editError && (
-            <p className="text-xs text-danger" id={editErrorId} data-testid={`replays-name-template-edit-error-${index}`}>
+            <p
+              className="text-xs text-danger"
+              id={editErrorId}
+              data-testid={`replays-name-template-edit-error-${index}`}
+            >
               {t(editError.key, editError.params)}
             </p>
           )}
@@ -352,7 +360,11 @@ function NameTemplateRow({
 
       {!isEditing && (
         <Badge tone={entry.origin === 'shipped' ? 'neutral' : 'flame'}>
-          {t(entry.origin === 'shipped' ? 'replays.nameTemplates.badge.builtIn' : 'replays.nameTemplates.badge.custom')}
+          {t(
+            entry.origin === 'shipped'
+              ? 'replays.nameTemplates.badge.builtIn'
+              : 'replays.nameTemplates.badge.custom',
+          )}
         </Badge>
       )}
       {!isEditing && entry.edited && (

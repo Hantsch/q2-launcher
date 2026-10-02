@@ -1,4 +1,9 @@
-import { RTT_HISTORY_LIMIT, type RttSample, type ScanTarget, type ServerListEntry } from '@shared/modules/servers'
+import {
+  RTT_HISTORY_LIMIT,
+  type RttSample,
+  type ScanTarget,
+  type ServerListEntry,
+} from '@shared/modules/servers'
 
 /**
  * Story 124 D1: appends one `RttSample` to a server's session history, capped at

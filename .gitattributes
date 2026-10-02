@@ -1,0 +1,33 @@
+# Every text file is LF in the index and in the worktree, on every OS (story 226).
+# Files git auto-detects as binary (e.g. sources carrying a literal NUL) stay -text; nothing
+# below forces `text` on them.
+* text=auto eol=lf
+
+*.png binary
+*.ico binary
+*.avif binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.7z binary
+*.gz binary
+*.tgz binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dm2 binary
+*.mvd2 binary
+*.pak binary
+*.pcx binary
+*.wal binary
+*.bsp binary
+*.tga binary
+
+# Vendored 7-Zip binaries (7za, 7za.exe).
+resources/bin/7za* binary

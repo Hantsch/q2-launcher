@@ -68,7 +68,12 @@ export function UpdateModDialog({
       closeLabel={t('common.close')}
       footer={
         <>
-          <Button variant="ghost" disabled={busy} onClick={onClose} data-testid="mods-update-cancel">
+          <Button
+            variant="ghost"
+            disabled={busy}
+            onClick={onClose}
+            data-testid="mods-update-cancel"
+          >
             {t('mods.update.cancel')}
           </Button>
           <Button disabled={busy} onClick={() => void confirm()} data-testid="mods-update-confirm">

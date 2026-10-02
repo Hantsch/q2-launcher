@@ -18,12 +18,16 @@ export type CinemaAvailability = { available: true } | { available: false; reaso
 /** Next step slower (`-1`) or faster (`1`) than `current`, clamped at the ends of SPEED_STEPS. */
 function stepSpeed(current: number, direction: -1 | 1): number {
   const steps = SPEED_STEPS as readonly number[]
-  const candidates = direction > 0 ? steps.filter((s) => s > current) : steps.filter((s) => s < current)
+  const candidates =
+    direction > 0 ? steps.filter((s) => s > current) : steps.filter((s) => s < current)
   if (candidates.length === 0) return steps[direction > 0 ? steps.length - 1 : 0]
   return direction > 0 ? candidates[0] : candidates[candidates.length - 1]
 }
 
-export function cinemaKeyAction(event: CinemaKeyEvent, currentSpeed: number): CinemaKeyAction | null {
+export function cinemaKeyAction(
+  event: CinemaKeyEvent,
+  currentSpeed: number,
+): CinemaKeyAction | null {
   const jump = event.shiftKey ? PAGE_STEP_S : JUMP_STEP_S
   switch (event.code) {
     case 'Space':

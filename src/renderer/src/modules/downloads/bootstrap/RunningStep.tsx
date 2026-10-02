@@ -19,13 +19,7 @@ import { FailureCauseDetail } from '../components/FailureCauseDetail'
  * without diagnostics, so an undefined/diagnostics-less `failure` leaves today's single error line
  * unchanged - no extra branching needed here.
  */
-export function RunningStep({
-  job,
-  failure,
-}: {
-  job: Job | undefined
-  failure?: DownloadFailure
-}) {
+export function RunningStep({ job, failure }: { job: Job | undefined; failure?: DownloadFailure }) {
   const { t } = useTranslation()
 
   if (!job) {
@@ -55,7 +49,11 @@ export function RunningStep({
         </Badge>
       </div>
 
-      <ProgressBar ratio={ratio} active={job.status === 'running'} label={t(job.labelKey, job.labelParams ?? {})} />
+      <ProgressBar
+        ratio={ratio}
+        active={job.status === 'running'}
+        label={t(job.labelKey, job.labelParams ?? {})}
+      />
 
       <p className="numeric text-xs text-ink-muted">
         {ratio !== null
@@ -73,7 +71,9 @@ export function RunningStep({
           bootstrap running step names why the assemble pass paused instead of leaving the
           `jobs.status.waiting` badge as the only signal. */}
       {job.status === 'waiting' && job.waitingReason && (
-        <p className="text-xs text-warning">{t(job.waitingReason.key, job.waitingReason.params ?? {})}</p>
+        <p className="text-xs text-warning">
+          {t(job.waitingReason.key, job.waitingReason.params ?? {})}
+        </p>
       )}
 
       <FailureCauseDetail diagnostics={failure?.diagnostics} />

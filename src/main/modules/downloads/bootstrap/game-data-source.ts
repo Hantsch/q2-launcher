@@ -28,7 +28,12 @@ export async function inspectGameDataSource(rootPath: string): Promise<GameDataS
 
   const baseq2Path = await resolveRelaxed(rootPath, 'baseq2')
   if (!baseq2Path) {
-    return { rootPath, kind: 'unusable', reason: 'bootstrap.gameDataSource.baseDirMissing', paks: [] }
+    return {
+      rootPath,
+      kind: 'unusable',
+      reason: 'bootstrap.gameDataSource.baseDirMissing',
+      paks: [],
+    }
   }
 
   const found = await Promise.all(

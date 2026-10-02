@@ -96,7 +96,7 @@ export function project(
   now: number,
   speed: number,
   paused: boolean,
-  durationMs: number | null
+  durationMs: number | null,
 ): number {
   const played = paused ? 0 : Math.min(PROJECTION_CAP_MS, Math.max(0, now - from))
   return clampPosition(pos + played * speed, durationMs)
@@ -104,7 +104,7 @@ export function project(
 
 export function createTimeline(
   init: { view: PlaybackView | null; durationMs?: number | null; speed?: number },
-  now: number
+  now: number,
 ): OptimisticTimeline {
   const { view } = init
   return {
@@ -112,14 +112,14 @@ export function createTimeline(
       positionMs: view?.positionMs ?? 0,
       paused: view?.paused ?? false,
       anchorAt: now,
-      speed: init.speed ?? 1
+      speed: init.speed ?? 1,
     },
     durationMs: knownDuration(view?.durationMs) ?? knownDuration(init.durationMs),
     lastReadback: view === null ? null : { positionMs: view.positionMs, paused: view.paused },
     pause: [],
     position: [],
     speed: null,
-    nextId: 1
+    nextId: 1,
   }
 }
 
@@ -167,7 +167,7 @@ export function expected(s: OptimisticTimeline, now: number): ExpectedTimeline {
         ? projectExpected(s, s.confirmed.positionMs, s.confirmed.anchorAt, now)
         : projectExpected(s, last.targetMs, last.sentAt, now),
     paused: expectedPaused(s),
-    speed: expectedSpeed(s)
+    speed: expectedSpeed(s),
   }
 }
 
@@ -179,7 +179,7 @@ function targetFor(action: PositionAction, baseMs: number, durationMs: number | 
 export function enqueue(
   s: OptimisticTimeline,
   action: QueuedTimelineAction,
-  now: number
+  now: number,
 ): { state: OptimisticTimeline; id: number } {
   const id = s.nextId
   const next = { ...s, nextId: id + 1 }
@@ -197,7 +197,7 @@ export function enqueue(
         sentAt: now,
         action,
         baseMs,
-        targetMs: targetFor(action, baseMs, s.durationMs)
+        targetMs: targetFor(action, baseMs, s.durationMs),
       }
       return { state: { ...next, position: [...s.position, entry] }, id }
     }
@@ -205,7 +205,11 @@ export function enqueue(
 }
 
 /** Resolves the pause and position chains against a readback received at `now`. */
-export function applyReadback(s: OptimisticTimeline, view: PlaybackView, now: number): OptimisticTimeline {
+export function applyReadback(
+  s: OptimisticTimeline,
+  view: PlaybackView,
+  now: number,
+): OptimisticTimeline {
   // Pause: a readback showing the expected state confirms every pending toggle; any other is stale.
   const pauseStale = s.pause.length > 0 && view.paused !== expectedPaused(s)
 
@@ -214,7 +218,7 @@ export function applyReadback(s: OptimisticTimeline, view: PlaybackView, now: nu
   if (position.length > 0) {
     const hypotheses = [
       projectExpected(s, s.confirmed.positionMs, s.confirmed.anchorAt, now),
-      ...position.map((e) => projectExpected(s, e.targetMs, e.sentAt, now))
+      ...position.map((e) => projectExpected(s, e.targetMs, e.sentAt, now)),
     ]
     let best = 0
     let bestDistance = Infinity
@@ -245,12 +249,12 @@ export function applyReadback(s: OptimisticTimeline, view: PlaybackView, now: nu
       positionMs: view.positionMs,
       paused,
       anchorAt: changed ? now : s.confirmed.anchorAt,
-      speed: s.confirmed.speed
+      speed: s.confirmed.speed,
     },
     durationMs: knownDuration(view.durationMs) ?? s.durationMs,
     lastReadback: { positionMs: view.positionMs, paused: view.paused },
     pause: pauseStale ? s.pause : [],
-    position
+    position,
   }
 }
 
@@ -279,7 +283,7 @@ function chainEntries(s: OptimisticTimeline): Array<[TimelineChain, readonly Pen
   return [
     ['pause', s.pause],
     ['position', s.position],
-    ['speed', s.speed === null ? [] : [s.speed]]
+    ['speed', s.speed === null ? [] : [s.speed]],
   ]
 }
 
@@ -296,12 +300,16 @@ export function waiting(s: OptimisticTimeline, now: number): Set<TimelineChain> 
 export function giveUp(s: OptimisticTimeline, now: number): OptimisticTimeline {
   const stale = (entries: readonly PendingEntry[]): boolean =>
     entries.length > 0 && now - entries[entries.length - 1].sentAt >= GIVE_UP_AFTER_MS
-  const drop = new Set(chainEntries(s).filter(([, e]) => stale(e)).map(([chain]) => chain))
+  const drop = new Set(
+    chainEntries(s)
+      .filter(([, e]) => stale(e))
+      .map(([chain]) => chain),
+  )
   if (drop.size === 0) return s
   return {
     ...s,
     pause: drop.has('pause') ? [] : s.pause,
     position: drop.has('position') ? [] : s.position,
-    speed: drop.has('speed') ? null : s.speed
+    speed: drop.has('speed') ? null : s.speed,
   }
 }

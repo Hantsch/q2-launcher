@@ -50,7 +50,11 @@ import { createCinemaController } from './cinema-controller'
 import { cinemaAvailability, displayGeometry, resolveOnPrimary } from './cinema'
 import { createPlaybackControl } from './playback-control'
 import { stageAvailability, stageGeometry, type StageRect } from './stage'
-import { createStageFollowSessions, parkGeometryAt, virtualDesktopRightEdge } from './stage-follow-session'
+import {
+  createStageFollowSessions,
+  parkGeometryAt,
+  virtualDesktopRightEdge,
+} from './stage-follow-session'
 import { createPlaybackTimeline } from './playback-timeline'
 import { createPlaybackConsole } from './playback-console'
 import { createPlaybackStop } from './playback-stop'
@@ -114,7 +118,10 @@ const SCAN_HOLD_MS_MAX = 60_000
  * non-numeric content, zero/negative or non-integer values all read back as `0`. Mirrors
  * `discoveryHomeDir`'s own signature and harness gate exactly.
  */
-export async function scanHoldMs({ env = process.env, userData = userDataDir() }: ScanHoldMsOptions = {}): Promise<number> {
+export async function scanHoldMs({
+  env = process.env,
+  userData = userDataDir(),
+}: ScanHoldMsOptions = {}): Promise<number> {
   if (!isUiHarnessEnabled({ env, isDev: false })) return 0
   let raw: string
   try {
@@ -175,7 +182,11 @@ export const replaysModule: MainModule = {
       emit,
       cache: new ReplaysIndexCache({ log }),
       discover: () =>
-        discoverDemos(app.installations.list(), app.state.replaysState().extraFolders, discoveryContext()),
+        discoverDemos(
+          app.installations.list(),
+          app.state.replaysState().extraFolders,
+          discoveryContext(),
+        ),
       parse: readDemoFacts,
       nameMatcher: () => {
         const { templates, fingerprint } = currentNameTemplates(app)
@@ -197,7 +208,9 @@ export const replaysModule: MainModule = {
       resolveDemo: (id) => {
         const file = scanService.resolveFile(id)
         if (!file) return undefined
-        return file.archiveEntry ? { kind: 'archive-entry' } : { kind: 'file', absolutePath: file.absolutePath }
+        return file.archiveEntry
+          ? { kind: 'archive-entry' }
+          : { kind: 'file', absolutePath: file.absolutePath }
       },
     })
 
@@ -245,7 +258,9 @@ export const replaysModule: MainModule = {
     // fire-and-forget. Deferred to a microtask and fully caught, so nothing in it - not even a
     // synchronous throw while listing installations - can block or break this module's start.
     const startupSweep: Promise<void> = Promise.resolve()
-      .then(() => sweepLauncherDirs(launcherSweepDirs(app.installations.list(), discoveryContext()), log))
+      .then(() =>
+        sweepLauncherDirs(launcherSweepDirs(app.installations.list(), discoveryContext()), log),
+      )
       .catch((error: unknown) => log.warn(`demo staging sweep failed: ${String(error)}`))
     // Story 170 D3: the stage's archived cvars are put back after each stage session; a snapshot a
     // crashed launcher left behind is applied once here. Its operations are serialised, so a play
@@ -267,9 +282,18 @@ export const replaysModule: MainModule = {
       const toScreen = (dip: StageRect): StageRect => {
         if (typeof screen.dipToScreenRect === 'function') return screen.dipToScreenRect(win, dip)
         const scale = screen.getDisplayMatching(win.getContentBounds()).scaleFactor
-        return { x: dip.x * scale, y: dip.y * scale, width: dip.width * scale, height: dip.height * scale }
+        return {
+          x: dip.x * scale,
+          y: dip.y * scale,
+          width: dip.width * scale,
+          height: dip.height * scale,
+        }
       }
-      return stageGeometry(rect, { contentBounds, zoomFactor: win.webContents.getZoomFactor() }, toScreen)
+      return stageGeometry(
+        rect,
+        { contentBounds, zoomFactor: win.webContents.getZoomFactor() },
+        toScreen,
+      )
     }
     const currentStageAvailability = () =>
       stageAvailability(process.platform, process.env, {
@@ -280,7 +304,9 @@ export const replaysModule: MainModule = {
     // (`Q2L_UI_CINEMA_DISPLAY` fakes that under the UI harness).
     const onPrimaryDisplay = (): boolean => {
       const win = app.getMainWindow()
-      const actual = win ? screen.getDisplayMatching(win.getBounds()).id === screen.getPrimaryDisplay().id : true
+      const actual = win
+        ? screen.getDisplayMatching(win.getBounds()).id === screen.getPrimaryDisplay().id
+        : true
       return resolveOnPrimary(actual, process.env)
     }
     const currentCinemaAvailability = () =>
@@ -291,7 +317,8 @@ export const replaysModule: MainModule = {
       })
     const primaryDisplayGeometry = (): string => {
       const primary = screen.getPrimaryDisplay()
-      if (typeof screen.dipToScreenRect === 'function') return displayGeometry(screen.dipToScreenRect(null, primary.bounds))
+      if (typeof screen.dipToScreenRect === 'function')
+        return displayGeometry(screen.dipToScreenRect(null, primary.bounds))
       const s = primary.scaleFactor
       const b = primary.bounds
       return displayGeometry({ x: b.x * s, y: b.y * s, width: b.width * s, height: b.height * s })
@@ -312,7 +339,9 @@ export const replaysModule: MainModule = {
           geometry,
           virtualDesktopRightEdge(
             screen.getAllDisplays(),
-            typeof screen.dipToScreenRect === 'function' ? (dip) => screen.dipToScreenRect(null, dip) : undefined,
+            typeof screen.dipToScreenRect === 'function'
+              ? (dip) => screen.dipToScreenRect(null, dip)
+              : undefined,
           ),
         ),
     })
@@ -326,7 +355,10 @@ export const replaysModule: MainModule = {
         log.info(`[diag187] cinema pin ${geometry ?? 'off'} -> ${placed}`)
         return placed
       },
-      settled: () => playbackControl.settled().then(() => log.info('[diag187] cinema pin settled, opening overlay')),
+      settled: () =>
+        playbackControl
+          .settled()
+          .then(() => log.info('[diag187] cinema pin settled, opening overlay')),
       window: app.cinemaWindow,
       hasSession: () => playbackControl.currentFormat() !== null,
       enterFullscreen: () => playbackControl.enterFullscreen(),
@@ -414,7 +446,9 @@ export const replaysModule: MainModule = {
       }),
     )
 
-    handle(REPLAYS_HANDLERS.playbackStage, replaysPlaybackStageSchema, (payload) => stageFollow.report(payload.rect))
+    handle(REPLAYS_HANDLERS.playbackStage, replaysPlaybackStageSchema, (payload) =>
+      stageFollow.report(payload.rect),
+    )
 
     // Story 187 D5: fullscreen goes through the cinema controller, so leaving cinema for it keeps the pin.
     const playbackTimeline = createPlaybackTimeline({
@@ -434,8 +468,12 @@ export const replaysModule: MainModule = {
     )
     const playbackStop = createPlaybackStop({ playback: playbackControl, launch: app.launch })
     handle(REPLAYS_HANDLERS.playbackStop, replaysNoInputSchema, () => playbackStop.stop())
-    handle(REPLAYS_HANDLERS.playbackCinema, replaysPlaybackCinemaSchema, (payload) => cinema.set(payload.enter))
-    handle(REPLAYS_HANDLERS.playbackDisplayRead, replaysPlaybackDisplayReadSchema, () => playbackControl.display())
+    handle(REPLAYS_HANDLERS.playbackCinema, replaysPlaybackCinemaSchema, (payload) =>
+      cinema.set(payload.enter),
+    )
+    handle(REPLAYS_HANDLERS.playbackDisplayRead, replaysPlaybackDisplayReadSchema, () =>
+      playbackControl.display(),
+    )
 
     handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))
     handle(REPLAYS_HANDLERS.nameTemplatesAdd, nameTemplatesAddSchema, (payload) =>
@@ -493,8 +531,10 @@ export const replaysModule: MainModule = {
     // `mutate()` pattern - read `replaysState()` once, run the op, on refusal return early without
     // persisting, on success persist and return what `setReplaysState` actually stored (not the
     // local candidate).
-    handle(REPLAYS_HANDLERS.extraFoldersList, replaysNoInputSchema, () =>
-      app.state.replaysState().extraFolders,
+    handle(
+      REPLAYS_HANDLERS.extraFoldersList,
+      replaysNoInputSchema,
+      () => app.state.replaysState().extraFolders,
     )
     handle(REPLAYS_HANDLERS.extraFoldersAdd, extraFoldersAddSchema, async (payload) => {
       const current = app.state.replaysState()
@@ -524,8 +564,10 @@ export const replaysModule: MainModule = {
      * absent key on disk, not a present `null`/`undefined` one. What's returned is what
      * `setReplaysState` actually persisted (`?? null`), not the local candidate.
      */
-    handle(REPLAYS_HANDLERS.listGetSort, listGetSortInputSchema, () =>
-      app.state.replaysState().listSort ?? null,
+    handle(
+      REPLAYS_HANDLERS.listGetSort,
+      listGetSortInputSchema,
+      () => app.state.replaysState().listSort ?? null,
     )
     handle(REPLAYS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) => {
       const current = app.state.replaysState()
@@ -541,8 +583,10 @@ export const replaysModule: MainModule = {
      * `listGetSort`/`listSetSort` right above. `listFilter` is never absent on `ReplaysState` (unlike
      * `listSort`), so there is no clear-to-null case to model here.
      */
-    handle(REPLAYS_HANDLERS.listGetFilter, listGetFilterInputSchema, () =>
-      app.state.replaysState().listFilter ?? EMPTY_DEMO_LIST_FILTER,
+    handle(
+      REPLAYS_HANDLERS.listGetFilter,
+      listGetFilterInputSchema,
+      () => app.state.replaysState().listFilter ?? EMPTY_DEMO_LIST_FILTER,
     )
     handle(REPLAYS_HANDLERS.listSetFilter, listSetFilterInputSchema, (payload) => {
       const current = app.state.replaysState()
@@ -560,8 +604,10 @@ export const replaysModule: MainModule = {
 
     // Story 182 D1: the `modWarning.*` handlers - same read/spread/persist discipline as `listFilter`;
     // every one returns what `setReplaysState` actually persisted.
-    handle(REPLAYS_HANDLERS.modWarningRead, modWarningReadInputSchema, () =>
-      app.state.replaysState().modWarning,
+    handle(
+      REPLAYS_HANDLERS.modWarningRead,
+      modWarningReadInputSchema,
+      () => app.state.replaysState().modWarning,
     )
     handle(REPLAYS_HANDLERS.modWarningSetEnabled, modWarningSetEnabledInputSchema, (payload) => {
       const current = app.state.replaysState()

@@ -140,7 +140,10 @@ describe('ServerPlayersPanel (story 122 D4)', () => {
     expect(zeroRow).toBeTruthy()
     expect(zeroRow?.className).toBe(scoringRow?.className)
 
-    const attrNames = (el: Element) => Array.from(el.attributes).map((a) => a.name).sort()
+    const attrNames = (el: Element) =>
+      Array.from(el.attributes)
+        .map((a) => a.name)
+        .sort()
     expect(attrNames(zeroRow as Element)).toEqual(attrNames(scoringRow as Element))
 
     const strings = collectStrings(

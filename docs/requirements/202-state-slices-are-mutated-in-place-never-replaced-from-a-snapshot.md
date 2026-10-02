@@ -61,14 +61,14 @@ Config and downloads already got per-key setters, so the store API differs per s
   AC2 keeps a generic per-section `{ get(), update(fn) }`, which becomes a thin wrapper over
   `updateSlice(key, fn)` — named mutators would only be deleted again in 207.
 - **S2** — `updateSlice`'s key type is an explicit union `'servers' | 'replays' |
-  'configWriteFailures' | 'installations'`: slices with a write invariant (`settings` via
+'configWriteFailures' | 'installations'`: slices with a write invariant (`settings` via
   `patchSettings`, `downloadFailures` pruning, write-once `configFileSourceMigratedAt`) keep their
   own setter so the generic path cannot bypass that invariant.
 - **S3** — A callback that returns the identical reference it received schedules no write: refusal
   paths can run their op on the live value inside the callback and keep "written only on real
   changes" (ARCHITECTURE.md) true.
 - **S4** — The callback is synchronous by type (`(live: T) => T`); async work (stat, canonicalize,
-  inspect) happens *before* the mutator and only its pure result is applied to the live value.
+  inspect) happens _before_ the mutator and only its pure result is applied to the live value.
 - **S5** — `replays` `extraFoldersAdd`: `addExtraFolder` is split into an async
   `resolveExtraFolder(rawPath)` (absolute/stat/canonicalize) and a pure
   `appendExtraFolder(live, canonical, now, id)` (dedupe + append) run inside the mutator, because the
@@ -144,7 +144,7 @@ their tests, `docs/ARCHITECTURE.md`.
     otherwise".
 - **D2 — servers use the mutator.** Needs D1.
   - `src/main/modules/servers/index.ts`: replace every `const current = app.state.serversState(); …
-    app.state.setServersState({ ...current, X })` with `app.state.updateSlice('servers', (live) => …)`
+app.state.setServersState({ ...current, X })` with `app.state.updateSlice('servers', (live) => …)`
     — sites: watchlist `setEntries` (mechanical, S12), `scanPatchSettings`, the sources `mutate()`,
     favourites add/remove, `manualAdd`/`manualRemove`, the history `onStateChange` subscription,
     `listSetSort` (use `setOrClearListSort` from `src/main/lib/list-sort.ts`), `mutateQuickFilters`.
@@ -245,7 +245,7 @@ their tests, `docs/ARCHITECTURE.md`.
 - AC2 → unit `src/main/modules/servers/index.test.ts` › "a refused sources mutation writes nothing
   and keeps a concurrent favourite" (D2) + `src/main/modules/replays/index.test.ts` › "a sort change
   during extraFoldersAdd's await survives" (D3); the grep `git grep -n
-  'setServersState\|setReplaysState' src/main` returning nothing is checked in D2/D3 acceptance.
+'setServersState\|setReplaysState' src/main` returning nothing is checked in D2/D3 acceptance.
 - AC3 → unit `src/main/services/installations.test.ts` › "an installation added during validateAll
   survives", › "a play session recorded during validateAll is kept", › "setIcon during an awaited
   update() is not clobbered", › "patch merges onto the live record and an undefined key deletes the

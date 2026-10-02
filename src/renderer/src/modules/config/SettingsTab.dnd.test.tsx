@@ -32,7 +32,10 @@ const bridge = vi.hoisted(() => {
 const { SettingsTab } = await import('./SettingsTab')
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
-function baseProfile(cvarSections: ConfigCvarSection[], cvars: Record<string, string> = {}): ConfigProfile {
+function baseProfile(
+  cvarSections: ConfigCvarSection[],
+  cvars: Record<string, string> = {},
+): ConfigProfile {
   return {
     id: 'p1',
     name: 'Profile',
@@ -83,7 +86,9 @@ function rectAt(index: number): DOMRect {
  * across the whole file, but never changes *during* one drag - dnd-kit only ever changes an item's
  * `style.transform`, not its DOM position - so a rect map built once per drag is faithful. */
 function draggableElements(): Element[] {
-  return [...container.querySelectorAll('[data-section-id], [data-subsection-id], [data-cvar-name]')]
+  return [
+    ...container.querySelectorAll('[data-section-id], [data-subsection-id], [data-cvar-name]'),
+  ]
 }
 
 function stubRects(): void {
@@ -168,7 +173,10 @@ beforeEach(() => {
       payload?: { cvars?: Record<string, string>; cvarSections?: ConfigCvarSection[] }
     }
     if (envelope.type === 'setCvars' && envelope.payload) {
-      saved.push({ cvars: envelope.payload.cvars ?? {}, cvarSections: envelope.payload.cvarSections })
+      saved.push({
+        cvars: envelope.payload.cvars ?? {},
+        cvarSections: envelope.payload.cvarSections,
+      })
     }
     return Promise.resolve({ ok: true, value: [] })
   }) as unknown as typeof bridge.invoke
@@ -183,9 +191,7 @@ afterEach(() => {
 
 describe('SettingsTab drag (story 054 D10)', () => {
   it('reorders two cvars inside one section by dragging the second past the first', async () => {
-    const profile = baseProfile([
-      { id: 'sec-a', name: 'Alpha', cvars: ['cl_maxfps', 'crosshair'] },
-    ])
+    const profile = baseProfile([{ id: 'sec-a', name: 'Alpha', cvars: ['cl_maxfps', 'crosshair'] }])
     renderTab(profile)
 
     await dragBy(cvarGrip('cl_maxfps'), 'ArrowDown', 1)
@@ -214,10 +220,9 @@ describe('SettingsTab drag (story 054 D10)', () => {
   })
 
   it('moves a cvar out of the reserved Other bucket into a real section', async () => {
-    const profile = baseProfile(
-      [{ id: 'sec-a', name: 'Alpha', cvars: ['cl_maxfps'] }],
-      { custom_thing: '5' },
-    )
+    const profile = baseProfile([{ id: 'sec-a', name: 'Alpha', cvars: ['cl_maxfps'] }], {
+      custom_thing: '5',
+    })
     renderTab(profile)
 
     // Rendered order: Alpha's header, cl_maxfps, the (undraggable) Other header, custom_thing.

@@ -136,8 +136,14 @@ export const PLAYER_CVARS: CvarDef[] = [
         noteKey: 'config.cvar.freelook.byEngine.vanilla.note',
         source: 'vanilla client/cl_input.c: Cvar_Get("freelook", "0", CVAR_ARCHIVE)',
       },
-      r1q2: { engineDefault: '1', source: 'r1q2 client/cl_input.c: Cvar_Get("freelook", "1", CVAR_ARCHIVE)' },
-      q2pro: { engineDefault: '1', source: 'q2pro src/client/input.c: Cvar_Get("freelook", "1", CVAR_ARCHIVE)' },
+      r1q2: {
+        engineDefault: '1',
+        source: 'r1q2 client/cl_input.c: Cvar_Get("freelook", "1", CVAR_ARCHIVE)',
+      },
+      q2pro: {
+        engineDefault: '1',
+        source: 'q2pro src/client/input.c: Cvar_Get("freelook", "1", CVAR_ARCHIVE)',
+      },
     },
   },
   {
@@ -240,9 +246,18 @@ export const PLAYER_CVARS: CvarDef[] = [
     step: 1000,
     common: false,
     byEngine: {
-      vanilla: { engineDefault: '25000', source: 'vanilla client/cl_main.c: Cvar_Get("rate", "25000", ...)' },
-      r1q2: { engineDefault: '15000', source: 'r1q2 client/cl_main.c: Cvar_Get("rate", "15000", ...)' },
-      q2pro: { engineDefault: '15000', source: 'q2pro src/client/main.c: Cvar_Get("rate", "15000", ...)' },
+      vanilla: {
+        engineDefault: '25000',
+        source: 'vanilla client/cl_main.c: Cvar_Get("rate", "25000", ...)',
+      },
+      r1q2: {
+        engineDefault: '15000',
+        source: 'r1q2 client/cl_main.c: Cvar_Get("rate", "15000", ...)',
+      },
+      q2pro: {
+        engineDefault: '15000',
+        source: 'q2pro src/client/main.c: Cvar_Get("rate", "15000", ...)',
+      },
     },
   },
   {
@@ -317,13 +332,15 @@ export const PLAYER_CVARS: CvarDef[] = [
       r1q2: {
         engineDefault: '1',
         noteKey: 'config.cvar.cl_async.byEngine.r1q2.note',
-        source: 'r1q2 client/cl_main.c:3550 (default "1"), :3296-3303 (mirroring), :3306-3311 (_async_changed)',
+        source:
+          'r1q2 client/cl_main.c:3550 (default "1"), :3296-3303 (mirroring), :3306-3311 (_async_changed)',
       },
       q2pro: {
         engineDefault: '1',
         extraChoices: [{ value: '2', labelKey: 'config.cvar.cl_async.choice.2' }],
         noteKey: 'config.cvar.cl_async.byEngine.q2pro.note',
-        source: 'q2pro src/client/main.c:2743 (default "1"), :3209-3211 (cl_async > 1 selects ASYNC_VIDEO)',
+        source:
+          'q2pro src/client/main.c:2743 (default "1"), :3209-3211 (cl_async > 1 selects ASYNC_VIDEO)',
       },
     },
   },
@@ -364,7 +381,8 @@ export const GRAPHICS_CVARS: CvarDef[] = [
       q2pro: {
         engineDefault: '1',
         noteKey: 'config.cvar.vid_gamma.byEngine.q2pro.note',
-        source: 'q2pro src/refresh/texture.c:1278 (registration), :1283-1288 (CVAR_FILES unless QVF_GAMMARAMP)',
+        source:
+          'q2pro src/refresh/texture.c:1278 (registration), :1283-1288 (CVAR_FILES unless QVF_GAMMARAMP)',
       },
     },
   },
@@ -380,7 +398,10 @@ export const GRAPHICS_CVARS: CvarDef[] = [
     step: 0.5,
     common: true,
     byEngine: {
-      vanilla: { engineDefault: '1', source: 'vanilla ref_gl/gl_rmain.c: Cvar_Get("gl_modulate", "1", 0)' },
+      vanilla: {
+        engineDefault: '1',
+        source: 'vanilla ref_gl/gl_rmain.c: Cvar_Get("gl_modulate", "1", 0)',
+      },
       r1q2: {
         engineDefault: '2',
         noteKey: 'config.cvar.gl_modulate.byEngine.r1q2.note',
@@ -424,20 +445,35 @@ export const GRAPHICS_CVARS: CvarDef[] = [
     choices: [
       { value: 'GL_NEAREST', labelKey: 'config.cvar.gl_texturemode.choice.gl_nearest' },
       { value: 'GL_LINEAR', labelKey: 'config.cvar.gl_texturemode.choice.gl_linear' },
-      { value: 'GL_NEAREST_MIPMAP_NEAREST', labelKey: 'config.cvar.gl_texturemode.choice.gl_nearest_mipmap_nearest' },
-      { value: 'GL_LINEAR_MIPMAP_NEAREST', labelKey: 'config.cvar.gl_texturemode.choice.gl_linear_mipmap_nearest' },
-      { value: 'GL_NEAREST_MIPMAP_LINEAR', labelKey: 'config.cvar.gl_texturemode.choice.gl_nearest_mipmap_linear' },
-      { value: 'GL_LINEAR_MIPMAP_LINEAR', labelKey: 'config.cvar.gl_texturemode.choice.gl_linear_mipmap_linear' },
+      {
+        value: 'GL_NEAREST_MIPMAP_NEAREST',
+        labelKey: 'config.cvar.gl_texturemode.choice.gl_nearest_mipmap_nearest',
+      },
+      {
+        value: 'GL_LINEAR_MIPMAP_NEAREST',
+        labelKey: 'config.cvar.gl_texturemode.choice.gl_linear_mipmap_nearest',
+      },
+      {
+        value: 'GL_NEAREST_MIPMAP_LINEAR',
+        labelKey: 'config.cvar.gl_texturemode.choice.gl_nearest_mipmap_linear',
+      },
+      {
+        value: 'GL_LINEAR_MIPMAP_LINEAR',
+        labelKey: 'config.cvar.gl_texturemode.choice.gl_linear_mipmap_linear',
+      },
     ],
     byEngine: {
       vanilla: {
         engineDefault: 'GL_LINEAR_MIPMAP_NEAREST',
-        source: 'vanilla ref_gl/gl_rmain.c: Cvar_Get("gl_texturemode", "GL_LINEAR_MIPMAP_NEAREST", CVAR_ARCHIVE)',
+        source:
+          'vanilla ref_gl/gl_rmain.c: Cvar_Get("gl_texturemode", "GL_LINEAR_MIPMAP_NEAREST", CVAR_ARCHIVE)',
       },
       r1q2: { engineDefault: 'GL_LINEAR_MIPMAP_LINEAR', source: 'r1q2 ref_gl/gl_rmain.c:1373' },
       q2pro: {
         engineDefault: 'GL_LINEAR_MIPMAP_LINEAR',
-        extraChoices: [{ value: 'MAG_NEAREST', labelKey: 'config.cvar.gl_texturemode.choice.mag_nearest' }],
+        extraChoices: [
+          { value: 'MAG_NEAREST', labelKey: 'config.cvar.gl_texturemode.choice.mag_nearest' },
+        ],
         noteKey: 'config.cvar.gl_texturemode.byEngine.q2pro.note',
         source: 'q2pro src/refresh/texture.c:66-74 (filterModes table), :1263 (registration)',
       },
@@ -508,7 +544,8 @@ export const GRAPHICS_CVARS: CvarDef[] = [
       q2pro: {
         engineDefault: '1',
         noteKey: 'config.cvar.gl_dynamic.byEngine.q2pro.note',
-        source: 'q2pro src/refresh/main.c:806 (gl_dynamic->integer != 1), src/refresh/surf.c:450 (build_style_map)',
+        source:
+          'q2pro src/refresh/main.c:806 (gl_dynamic->integer != 1), src/refresh/surf.c:450 (build_style_map)',
       },
     },
   },
@@ -523,7 +560,10 @@ export const GRAPHICS_CVARS: CvarDef[] = [
     byEngine: {
       vanilla: { engineDefault: '1' },
       r1q2: { engineDefault: '1' },
-      q2pro: { engineDefault: '1', source: 'q2pro src/refresh/main.c:1111 (default "1", CVAR_ARCHIVE)' },
+      q2pro: {
+        engineDefault: '1',
+        source: 'q2pro src/refresh/main.c:1111 (default "1", CVAR_ARCHIVE)',
+      },
     },
   },
   {
@@ -607,7 +647,8 @@ export const GRAPHICS_CVARS: CvarDef[] = [
         max: 1,
         clamps: true,
         noteKey: 'config.cvar.con_alpha.byEngine.q2pro.note',
-        source: 'q2pro src/client/console.c:461 (default "1"), :827-829 (clamped 0..1, only while ca_active)',
+        source:
+          'q2pro src/client/console.c:461 (default "1"), :827-829 (clamped 0..1, only while ca_active)',
       },
     },
   },
@@ -642,7 +683,10 @@ export const GRAPHICS_CVARS: CvarDef[] = [
       { value: '44', labelKey: 'config.cvar.s_khz.choice.44' },
     ],
     byEngine: {
-      vanilla: { engineDefault: '11', source: 'vanilla client/snd_dma.c: Cvar_Get("s_khz", "11", CVAR_ARCHIVE)' },
+      vanilla: {
+        engineDefault: '11',
+        source: 'vanilla client/snd_dma.c: Cvar_Get("s_khz", "11", CVAR_ARCHIVE)',
+      },
       r1q2: { engineDefault: '22' },
       q2pro: { engineDefault: '44' },
     },

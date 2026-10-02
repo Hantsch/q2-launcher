@@ -14,7 +14,8 @@ import type { DemoRow } from '../modules/replays'
 import type { SidecarFields, SidecarSide } from './sidecar'
 import { hasValue, type ValueSource } from '../demos/effective-values'
 
-export type DetailFieldId = 'fileName' | 'duration' | 'date' | 'map' | 'mod' | 'gamemode' | 'sides' | 'pov'
+export type DetailFieldId =
+  'fileName' | 'duration' | 'date' | 'map' | 'mod' | 'gamemode' | 'sides' | 'pov'
 
 /** The two ordered groups the detail renders: facts about the file, then facts about the match. */
 export type DetailFieldGroup = 'file' | 'match'
@@ -74,7 +75,12 @@ export function buildDemoDetail(row: DemoRow, _sidecar: Partial<SidecarFields>):
   push('map', 'match', row.effective.map.value, row.effective.map.source)
   push('mod', 'match', row.effective.mod.value, row.effective.mod.source)
   push('gamemode', 'match', row.effective.gamemode.value, row.effective.gamemode.source)
-  push('sides', 'match', row.effective.sides.value as SidecarSide[] | null, row.effective.sides.source)
+  push(
+    'sides',
+    'match',
+    row.effective.sides.value as SidecarSide[] | null,
+    row.effective.sides.source,
+  )
   push('pov', 'match', row.effective.pov.value, row.effective.pov.source)
 
   return {

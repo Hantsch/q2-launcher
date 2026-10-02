@@ -145,7 +145,9 @@ export function playbackTimeline(action: TimelineAction): Promise<Outcome<Outcom
 
 /** Story 187 D6: enters or leaves cinema mode. Flattens like `playbackStop`. */
 export async function playbackCinema(enter: boolean): Promise<Outcome<void>> {
-  return flattenOutcome(await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackCinema, { enter }))
+  return flattenOutcome(
+    await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackCinema, { enter }),
+  )
 }
 
 /** Story 187 D6: the current display state, read once when a session begins. */
@@ -157,7 +159,11 @@ export function playbackDisplayRead(): Promise<Outcome<ReplaysPlaybackDisplay>> 
 export function onPlaybackPosition(
   listener: (payload: ReplaysPlaybackPosition) => void,
 ): () => void {
-  return onModuleEvent<ReplaysPlaybackPosition>('replays', REPLAYS_EVENTS.playbackPosition, listener)
+  return onModuleEvent<ReplaysPlaybackPosition>(
+    'replays',
+    REPLAYS_EVENTS.playbackPosition,
+    listener,
+  )
 }
 
 export function onPlaybackState(listener: (payload: ReplaysPlaybackState) => void): () => void {
@@ -178,9 +184,15 @@ export function copyDemoPath(demoId: string): Promise<Outcome<DemoFileActionResu
  * `sidecarWrite` above (the module registry's own transport layer wraps the handler's domain
  * `Outcome`), so this flattens the same way.
  */
-export async function renameDemo(id: string, name: string): Promise<Outcome<{ demo: DiscoveredDemo }>> {
+export async function renameDemo(
+  id: string,
+  name: string,
+): Promise<Outcome<{ demo: DiscoveredDemo }>> {
   return flattenOutcome(
-    await callModule<Outcome<{ demo: DiscoveredDemo }>>('replays', REPLAYS_HANDLERS.demoRename, { id, name }),
+    await callModule<Outcome<{ demo: DiscoveredDemo }>>('replays', REPLAYS_HANDLERS.demoRename, {
+      id,
+      name,
+    }),
   )
 }
 
@@ -190,7 +202,9 @@ export async function renameDemo(id: string, name: string): Promise<Outcome<{ de
  * refusal (`replays.console.error.*`) reach the caller the same way.
  */
 export async function consoleSend(line: string): Promise<Outcome<void>> {
-  return flattenOutcome(await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackConsoleSend, { line }))
+  return flattenOutcome(
+    await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackConsoleSend, { line }),
+  )
 }
 
 /**
@@ -198,7 +212,9 @@ export async function consoleSend(line: string): Promise<Outcome<void>> {
  * `consoleSend`; no playback launch running is `replays.playback.error.noSession`.
  */
 export async function playbackStop(): Promise<Outcome<void>> {
-  return flattenOutcome(await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackStop, undefined))
+  return flattenOutcome(
+    await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackStop, undefined),
+  )
 }
 
 /**
@@ -297,7 +313,9 @@ export function readModWarning(): Promise<Outcome<ReplaysModWarning>> {
 }
 
 export function setModWarningEnabled(enabled: boolean): Promise<Outcome<ReplaysModWarning>> {
-  return callModule<ReplaysModWarning>('replays', REPLAYS_HANDLERS.modWarningSetEnabled, { enabled })
+  return callModule<ReplaysModWarning>('replays', REPLAYS_HANDLERS.modWarningSetEnabled, {
+    enabled,
+  })
 }
 
 export function trustModWarningMod(gameDir: string): Promise<Outcome<ReplaysModWarning>> {

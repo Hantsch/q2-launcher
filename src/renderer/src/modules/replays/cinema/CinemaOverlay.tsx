@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AppWindow, FastForward, Maximize2, Pause, Play, Rewind, RotateCcw, RotateCw } from 'lucide-react'
+import {
+  AppWindow,
+  FastForward,
+  Maximize2,
+  Pause,
+  Play,
+  Rewind,
+  RotateCcw,
+  RotateCw,
+} from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
 import { CINEMA_IDLE_MS, cinemaKeyAction } from '@shared/replays/cinema'
 import {
@@ -44,7 +53,10 @@ export function CinemaOverlay() {
     rootRef.current?.focus()
   }, [beginSession])
 
-  const shown = useExpectedTimeline(session?.optimistic ?? createEmpty, session !== null && !session.fullscreen)
+  const shown = useExpectedTimeline(
+    session?.optimistic ?? createEmpty,
+    session !== null && !session.fullscreen,
+  )
   const paused = shown.paused
   const { visible, show } = useIdleFade(CINEMA_IDLE_MS, hovered || paused)
 
@@ -52,7 +64,9 @@ export function CinemaOverlay() {
   const durationMs = view?.durationMs ?? session?.knownDurationMs ?? null
   const hasDuration = durationMs !== null && durationMs > 0
   const positionText = formatPlaybackPosition(shown.positionMs)
-  const durationText = hasDuration ? formatPlaybackPosition(durationMs) : t('replays.timeline.durationUnknown')
+  const durationText = hasDuration
+    ? formatPlaybackPosition(durationMs)
+    : t('replays.timeline.durationUnknown')
   const durationS = hasDuration ? Math.floor(durationMs / 1000) : 0
   const positionS = Math.min(durationS, Math.floor(shown.positionMs / 1000))
   const fraction = hasDuration ? Math.min(1, shown.positionMs / durationMs) : 0
@@ -127,7 +141,10 @@ export function CinemaOverlay() {
             aria-valuemin={0}
             aria-valuemax={durationS}
             aria-valuenow={positionS}
-            aria-valuetext={t('replays.timeline.seekValueText', { position: positionText, duration: durationText })}
+            aria-valuetext={t('replays.timeline.seekValueText', {
+              position: positionText,
+              duration: durationText,
+            })}
             aria-disabled={!hasDuration}
             onClick={handleSeekClick}
             className={cn(
@@ -139,7 +156,10 @@ export function CinemaOverlay() {
             data-position-ms={Math.round(shown.positionMs)}
           >
             <div className="pointer-events-none relative h-1.5 w-full rounded-full bg-line-strong transition-[height] group-hover:h-2.5">
-              <div className="h-full rounded-full bg-flame-500" style={{ width: `${fraction * 100}%` }} />
+              <div
+                className="h-full rounded-full bg-flame-500"
+                style={{ width: `${fraction * 100}%` }}
+              />
             </div>
           </div>
           <div className="flex items-center gap-1">

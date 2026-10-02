@@ -118,7 +118,10 @@ const NEWS_FIXTURE_SLIDES = [
 ]
 
 /** Writes `userData/news-feed.json` in the exact shape `NewsFeedCache`/`ensureLoaded()` read back. */
-function writeNewsFeedCache(userDataDir, { slides, retrievedAt, lastRefreshFailed = false, etags = {} }) {
+function writeNewsFeedCache(
+  userDataDir,
+  { slides, retrievedAt, lastRefreshFailed = false, etags = {} },
+) {
   writeJson(join(userDataDir, NEWS_FEED_CACHE_FILE), {
     cacheVersion: NEWS_CACHE_VERSION,
     slides,
@@ -157,7 +160,14 @@ function newsImageSourceUrl(relativeImagePath) {
 /** The real fixture image `story 085` already stages under `content/q2_community_content/news/
  * img/` - reused here rather than inventing new bytes, so the "image present" screen shows a real
  * picture. */
-const NEWS_IMAGE_SOURCE_FILE = join(REPO_ROOT, 'content', 'q2_community_content', 'news', 'img', 'split-bootstrap.png')
+const NEWS_IMAGE_SOURCE_FILE = join(
+  REPO_ROOT,
+  'content',
+  'q2_community_content',
+  'news',
+  'img',
+  'split-bootstrap.png',
+)
 const NEWS_IMAGE_RELATIVE_PATH = 'img/split-bootstrap.png'
 const NEWS_IMAGE_EXT = 'png'
 
@@ -289,7 +299,8 @@ const CRC32_TABLE = (() => {
 
 function crc32(buffer) {
   let c = 0xffffffff
-  for (let i = 0; i < buffer.length; i += 1) c = (CRC32_TABLE[(c ^ buffer[i]) & 0xff] ^ (c >>> 8)) >>> 0
+  for (let i = 0; i < buffer.length; i += 1)
+    c = (CRC32_TABLE[(c ^ buffer[i]) & 0xff] ^ (c >>> 8)) >>> 0
   return (c ^ 0xffffffff) >>> 0
 }
 
@@ -344,7 +355,9 @@ function coverProbeImageBytes() {
   const plainRow = Buffer.alloc(width * 3)
   for (let x = 0; x < width; x += 1) {
     const inBand = x % COVER_PROBE_BAND_PERIOD_PX < COVER_PROBE_BAND_WIDTH_PX
-    const value = inBand ? COVER_PROBE_MIN_CHANNEL : base + Math.round(((peak - base) * x) / (width - 1))
+    const value = inBand
+      ? COVER_PROBE_MIN_CHANNEL
+      : base + Math.round(((peak - base) * x) / (width - 1))
     plainRow[x * 3] = value
     plainRow[x * 3 + 1] = value
     plainRow[x * 3 + 2] = value
@@ -969,7 +982,12 @@ function populatedInstallations() {
       executablePath: join(gameRoot(), INSTALL_REPAIR_ENGINE_ID, 'r1q2.exe'),
       status: 'invalid',
       checks: [
-        { id: 'base-paks', severity: 'error', messageKey: 'validation.pak0Missing', fix: 'install-game-files' },
+        {
+          id: 'base-paks',
+          severity: 'error',
+          messageKey: 'validation.pak0Missing',
+          fix: 'install-game-files',
+        },
         {
           id: 'executable',
           severity: 'warn',
@@ -1009,7 +1027,12 @@ function populatedInstallations() {
       engineKind: 'r1q2',
       status: 'invalid',
       checks: [
-        { id: 'base-paks', severity: 'error', messageKey: 'validation.pak0Missing', fix: 'install-game-files' },
+        {
+          id: 'base-paks',
+          severity: 'error',
+          messageKey: 'validation.pak0Missing',
+          fix: 'install-game-files',
+        },
       ],
       favorite: false,
       sortOrder: 8,
@@ -1026,7 +1049,12 @@ function populatedInstallations() {
       engineKind: 'r1q2',
       status: 'invalid',
       checks: [
-        { id: 'base-paks', severity: 'error', messageKey: 'validation.pak0Missing', fix: 'install-game-files' },
+        {
+          id: 'base-paks',
+          severity: 'error',
+          messageKey: 'validation.pak0Missing',
+          fix: 'install-game-files',
+        },
         {
           id: 'write-access',
           severity: 'warn',
@@ -1057,8 +1085,18 @@ function populatedInstallations() {
       engineKind: 'unknown',
       status: 'invalid',
       checks: [
-        { id: 'engine-identified', severity: 'warn', messageKey: 'validation.engineUnknown', fix: 'select-executable' },
-        { id: 'executable', severity: 'error', messageKey: 'validation.noExecutable', fix: 'select-executable' },
+        {
+          id: 'engine-identified',
+          severity: 'warn',
+          messageKey: 'validation.engineUnknown',
+          fix: 'select-executable',
+        },
+        {
+          id: 'executable',
+          severity: 'error',
+          messageKey: 'validation.noExecutable',
+          fix: 'select-executable',
+        },
       ],
       favorite: false,
       sortOrder: 10,
@@ -2174,7 +2212,11 @@ function writeReplaysDemosFixture() {
 
   writeFileSync(join(oneDemosDir, 'duel_q2dm1.dm2.json'), '{}\n', 'utf8')
   mkdirSync(join(oneDemosDir, '_launcher'), { recursive: true })
-  writeFileSync(join(oneDemosDir, '_launcher', 'leftover.dm2'), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
+  writeFileSync(
+    join(oneDemosDir, '_launcher', 'leftover.dm2'),
+    REPLAYS_FIXTURE_DEMO_CONTENT,
+    'utf8',
+  )
   mkdirSync(join(oneDemosDir, 'old'), { recursive: true })
   writeFileSync(join(oneDemosDir, 'old', 'nested.dm2'), REPLAYS_FIXTURE_DEMO_CONTENT, 'utf8')
   writeFileSync(join(oneDemosDir, 'readme.txt'), 'not a demo\n', 'utf8')
@@ -2320,7 +2362,9 @@ export function writeReplaysRowsFixture() {
   writeJson(join(userDataDir, STATE_FILE), {
     ...emptyStateDocument(),
     replays: {
-      extraFolders: [{ id: REPLAYS_ROWS_FOLDER_ID, path: replaysRowsFolderPath(), addedAt: FIXED_TIMESTAMP }],
+      extraFolders: [
+        { id: REPLAYS_ROWS_FOLDER_ID, path: replaysRowsFolderPath(), addedAt: FIXED_TIMESTAMP },
+      ],
     },
   })
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
@@ -2330,7 +2374,13 @@ export function writeReplaysRowsFixture() {
   mkdirSync(folder, { recursive: true })
 
   const testDm2 = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
-  const mvd2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2')
+  const mvd2Fixture = join(
+    REPO_ROOT,
+    'docs',
+    'fixtures',
+    'demos',
+    'PFAU_20221127-053327_q2dm1.mvd2',
+  )
 
   copyFileSync(testDm2, join(folder, REPLAYS_ROWS_TDM_DEMO))
   writeFileSync(
@@ -2453,7 +2503,11 @@ export function writeReplaysSortOrderFixture() {
     ...emptyStateDocument(),
     replays: {
       extraFolders: [
-        { id: REPLAYS_SORT_ORDER_FOLDER_ID, path: replaysSortOrderFolderPath(), addedAt: FIXED_TIMESTAMP },
+        {
+          id: REPLAYS_SORT_ORDER_FOLDER_ID,
+          path: replaysSortOrderFolderPath(),
+          addedAt: FIXED_TIMESTAMP,
+        },
       ],
     },
   })
@@ -2596,11 +2650,19 @@ export function writeReplaysFilterFixture() {
     ...emptyStateDocument(),
     replays: {
       extraFolders: [
-        { id: REPLAYS_FILTER_FOLDER_ID, path: replaysFilterFixturePath(), addedAt: FIXED_TIMESTAMP },
+        {
+          id: REPLAYS_FILTER_FOLDER_ID,
+          path: replaysFilterFixturePath(),
+          addedAt: FIXED_TIMESTAMP,
+        },
       ],
       nameTemplates: {
         entries: [
-          { id: 'fixture-filter-namefact-template', kind: 'user', template: '{p1}_vs_{p2}_{map}.mvd2' },
+          {
+            id: 'fixture-filter-namefact-template',
+            kind: 'user',
+            template: '{p1}_vs_{p2}_{map}.mvd2',
+          },
         ],
         removedShippedIds: [],
       },
@@ -2612,7 +2674,13 @@ export function writeReplaysFilterFixture() {
   rmDirBestEffort(folder)
   mkdirSync(folder, { recursive: true })
 
-  const mvd2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2')
+  const mvd2Fixture = join(
+    REPO_ROOT,
+    'docs',
+    'fixtures',
+    'demos',
+    'PFAU_20221127-053327_q2dm1.mvd2',
+  )
   const dm2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
 
   const demos = [
@@ -2728,7 +2796,13 @@ export function writeReplaysDateFilterFixture(nowMs = Date.now()) {
   rmDirBestEffort(folder)
   mkdirSync(folder, { recursive: true })
 
-  const mvd2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2')
+  const mvd2Fixture = join(
+    REPO_ROOT,
+    'docs',
+    'fixtures',
+    'demos',
+    'PFAU_20221127-053327_q2dm1.mvd2',
+  )
   const dm2Fixture = join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2')
 
   const recentSidecarDate = daysAgoLocal(nowMs, 3).toISOString()
@@ -2825,7 +2899,9 @@ export function writeReplaysScaleFixture() {
   writeJson(join(userDataDir, STATE_FILE), {
     ...emptyStateDocument(),
     replays: {
-      extraFolders: [{ id: REPLAYS_SCALE_FOLDER_ID, path: replaysScaleFolderPath(), addedAt: FIXED_TIMESTAMP }],
+      extraFolders: [
+        { id: REPLAYS_SCALE_FOLDER_ID, path: replaysScaleFolderPath(), addedAt: FIXED_TIMESTAMP },
+      ],
     },
   })
   writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
@@ -2895,7 +2971,11 @@ export function writeReplaysListErrorFixture() {
     stateOverrides: {
       replays: {
         extraFolders: [
-          { id: 'fixture-replays-list-error-missing', path: missingFolder, addedAt: FIXED_TIMESTAMP },
+          {
+            id: 'fixture-replays-list-error-missing',
+            path: missingFolder,
+            addedAt: FIXED_TIMESTAMP,
+          },
           {
             id: 'fixture-replays-list-error-broken-archive',
             path: brokenArchiveFolder,
@@ -2997,7 +3077,11 @@ export function writePopulatedFixture({ variant = 'populated', stateOverrides = 
     // only look at the file name, never its contents.
     writeFileSync(join(demoRoot, 'r1q2.exe'), '')
     writeSizedFile(join(demoBaseq2, 'pak0.pak'), UNVERIFIED_PAK0_BYTES)
-    writeFileSync(join(demoBaseq2, RETAIL_UPGRADE_MARKER_FILE), RETAIL_UPGRADE_MARKER_CONTENT, 'utf8')
+    writeFileSync(
+      join(demoBaseq2, RETAIL_UPGRADE_MARKER_FILE),
+      RETAIL_UPGRADE_MARKER_CONTENT,
+      'utf8',
+    )
   }
 
   // Story 092 D8: `INSTALL_ENGINE_UPDATE_ID`'s real files - an already-playable Q2PRO installation
@@ -3019,7 +3103,11 @@ export function writePopulatedFixture({ variant = 'populated', stateOverrides = 
     for (const [archiveRelative, { sizeBytes }] of Object.entries(ENGINE_FIXTURE_FILES)) {
       const segments = ENGINE_INSTALLED_RELATIVE[archiveRelative].split('/')
       const fileName = segments.pop()
-      writeFileIn(join(engineRoot, ...segments), fileName, filler(sizeBytes, ENGINE_UPDATE_OLD_FILL_BYTE))
+      writeFileIn(
+        join(engineRoot, ...segments),
+        fileName,
+        filler(sizeBytes, ENGINE_UPDATE_OLD_FILL_BYTE),
+      )
     }
     writeSizedFile(join(engineBaseq2, 'pak0.pak'), RETAIL_PAK_SIZES['pak0.pak'])
     writeSizedFile(join(engineBaseq2, 'pak1.pak'), RETAIL_PAK_SIZES['pak1.pak'])
@@ -3237,7 +3325,10 @@ export function writeServersLanFixture({ autoScanOnOpen = false } = {}) {
           },
         ],
         favourites: [
-          { address: `127.0.0.1:${SERVERS_STUB_FAVOURITE_PORT}`, addedAt: '2026-01-01T00:00:00.000Z' },
+          {
+            address: `127.0.0.1:${SERVERS_STUB_FAVOURITE_PORT}`,
+            addedAt: '2026-01-01T00:00:00.000Z',
+          },
         ],
         manualServers: [
           {
@@ -3805,7 +3896,10 @@ function writeStubEngine(root, executablePath, { lifetimeMs = 400 } = {}) {
   const target = join(root, 'stub-engine.cjs')
   copyFileSync(script, target)
   const quote = (p) => `'${p.replace(/'/g, `'\\''`)}'`
-  writeFileSync(executablePath, `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(target)} "$@"\n`)
+  writeFileSync(
+    executablePath,
+    `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(target)} "$@"\n`,
+  )
   chmodSync(executablePath, 0o755)
 }
 
@@ -3814,7 +3908,10 @@ function writeStubEngine(root, executablePath, { lifetimeMs = 400 } = {}) {
 export const REPLAYS_PLAY_BROKEN_ID = 'fixture-replays-play-broken'
 export const REPLAYS_PLAY_BROKEN_NAME = 'Fixture Play Broken'
 
-export function writeReplaysPlayFixture(variant = 'replays-play', { engineLifetimeMs, brokenInstallation = false } = {}) {
+export function writeReplaysPlayFixture(
+  variant = 'replays-play',
+  { engineLifetimeMs, brokenInstallation = false } = {},
+) {
   const userDataDir = variantUserDataDir(variant)
   rmDirBestEffort(userDataDir)
   mkdirSync(userDataDir, { recursive: true })
@@ -3831,7 +3928,10 @@ export function writeReplaysPlayFixture(variant = 'replays-play', { engineLifeti
   const spawnable = true
   writeStubEngine(root, executablePath, { lifetimeMs: engineLifetimeMs })
 
-  writeFileSync(join(root, 'baseq2', 'demos', REPLAYS_PLAY_BASE_DEMO), demoBytesWithGameDir('baseq2'))
+  writeFileSync(
+    join(root, 'baseq2', 'demos', REPLAYS_PLAY_BASE_DEMO),
+    demoBytesWithGameDir('baseq2'),
+  )
   writeFileSync(join(root, 'ctf', 'demos', REPLAYS_PLAY_CTF_DEMO), demoBytesWithGameDir('ctf'))
   copyFileSync(
     join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2'),
@@ -3850,7 +3950,10 @@ export function writeReplaysPlayFixture(variant = 'replays-play', { engineLifeti
     // Engine present, no pak0.pak: `validation.pak0Missing` (error) -> status invalid -> Repair.
     rmDirBestEffort(brokenRoot)
     mkdirSync(join(brokenRoot, 'baseq2'), { recursive: true })
-    writeFileSync(join(brokenRoot, process.platform === 'win32' ? 'r1q2.exe' : 'r1q2'), 'placeholder - never launched by this flow')
+    writeFileSync(
+      join(brokenRoot, process.platform === 'win32' ? 'r1q2.exe' : 'r1q2'),
+      'placeholder - never launched by this flow',
+    )
   }
 
   const installation = (id, name, engineKind, rootPath, exe, gameDirs, sortOrder) => ({
@@ -3876,10 +3979,30 @@ export function writeReplaysPlayFixture(variant = 'replays-play', { engineLifeti
   })
   writeJson(join(userDataDir, STATE_FILE), {
     ...emptyStateDocument(),
-    settings: { ...DEFAULT_SETTINGS, scanOnFirstRun: false, activeInstallationId: REPLAYS_PLAY_Q2PRO_ID },
+    settings: {
+      ...DEFAULT_SETTINGS,
+      scanOnFirstRun: false,
+      activeInstallationId: REPLAYS_PLAY_Q2PRO_ID,
+    },
     installations: [
-      installation(REPLAYS_PLAY_Q2PRO_ID, 'Fixture Play Q2PRO', 'q2pro', root, executablePath, ['baseq2', 'ctf'], 0),
-      installation(REPLAYS_PLAY_R1Q2_ID, 'Fixture Play R1Q2', 'r1q2', r1q2Root, r1q2Exe, ['baseq2'], 1),
+      installation(
+        REPLAYS_PLAY_Q2PRO_ID,
+        'Fixture Play Q2PRO',
+        'q2pro',
+        root,
+        executablePath,
+        ['baseq2', 'ctf'],
+        0,
+      ),
+      installation(
+        REPLAYS_PLAY_R1Q2_ID,
+        'Fixture Play R1Q2',
+        'r1q2',
+        r1q2Root,
+        r1q2Exe,
+        ['baseq2'],
+        1,
+      ),
       ...(brokenInstallation
         ? [
             {
@@ -3912,7 +4035,13 @@ const REPLAYS_TIMELINE_ENGINE_LIFETIME_MS = 120_000
  * it as `Q2L_UI_ENGINE_COMMAND_LOG` / `Q2L_UI_ENGINE_QUIT_FILE` (and, story 172, `Q2L_UI_ENGINE_KEYS_FILE`) by the flow's `setup()`. */
 export function replaysTimelineEngineFiles() {
   const dir = join(UI_VERIFY_ROOT, 'fixture', 'replays-timeline-engine')
-  return { dir, commandLog: join(dir, 'commands.log'), quitFile: join(dir, 'quit'), ignoreQuitFile: join(dir, 'ignore-quit'), keysFile: join(dir, 'keys') }
+  return {
+    dir,
+    commandLog: join(dir, 'commands.log'),
+    quitFile: join(dir, 'quit'),
+    ignoreQuitFile: join(dir, 'ignore-quit'),
+    keysFile: join(dir, 'keys'),
+  }
 }
 
 // Story 171 D2: where the stub engine records the stage follower's window lines (`Q2L_UI_ENGINE_WINDOW_LOG`).
@@ -3927,7 +4056,9 @@ export function writeReplaysTimelineFixture() {
   mkdirSync(files.dir, { recursive: true })
   writeFileSync(files.commandLog, '')
   return {
-    ...writeReplaysPlayFixture(REPLAYS_TIMELINE_VARIANT, { engineLifetimeMs: REPLAYS_TIMELINE_ENGINE_LIFETIME_MS }),
+    ...writeReplaysPlayFixture(REPLAYS_TIMELINE_VARIANT, {
+      engineLifetimeMs: REPLAYS_TIMELINE_ENGINE_LIFETIME_MS,
+    }),
     ...files,
   }
 }
@@ -3942,13 +4073,18 @@ export function writeReplaysPlayMvd2Fixture(variant) {
   const result = writeReplaysPlayFixture(variant)
   // The PFAU recording's header names game dir `opentdm`, so the Q2PRO install must have that mod.
   mkdirSync(join(result.installRoot, REPLAYS_PLAY_MVD2_GAME_DIR), { recursive: true })
-  writeFileSync(join(result.installRoot, REPLAYS_PLAY_MVD2_GAME_DIR, 'pak0.pak'), 'not a real pak, just needs to exist')
+  writeFileSync(
+    join(result.installRoot, REPLAYS_PLAY_MVD2_GAME_DIR, 'pak0.pak'),
+    'not a real pak, just needs to exist',
+  )
   const statePath = join(result.userDataDir, STATE_FILE)
   const state = JSON.parse(readFileSync(statePath, 'utf8'))
   state.installations[0].gameDirs.push(REPLAYS_PLAY_MVD2_GAME_DIR)
   writeJson(statePath, state)
   const demosDir = join(result.installRoot, 'baseq2', 'demos')
-  const bytes = readFileSync(join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2'))
+  const bytes = readFileSync(
+    join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'PFAU_20221127-053327_q2dm1.mvd2'),
+  )
   writeFileSync(join(demosDir, REPLAYS_PLAY_MVD2_DEMO), bytes)
   writeFileSync(join(demosDir, REPLAYS_PLAY_MVD2_GZ_DEMO), gzipSync(bytes))
   return result
@@ -3985,7 +4121,10 @@ export function writeReplaysCopyInFixture(variant, mode = 'plain') {
   const demosDir = replaysCopyInDemosDir()
 
   if (process.platform === 'win32') {
-    copyFileSync(join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'cmd.exe'), result.executablePath)
+    copyFileSync(
+      join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'cmd.exe'),
+      result.executablePath,
+    )
   } else {
     writeFileSync(result.executablePath, '#!/bin/sh\nsleep 3\nexit 0\n')
     chmodSync(result.executablePath, 0o755)
@@ -4002,7 +4141,16 @@ export function writeReplaysCopyInFixture(variant, mode = 'plain') {
     writeFileSync(join(staging, REPLAYS_COPY_IN_ZIP_ENTRY), demoBytesWithGameDir('baseq2'))
     execFileSync(
       vendoredSevenZaPath(),
-      ['a', '-tzip', '-mx1', '-bso0', '-bse0', '-bd', join(folder, REPLAYS_COPY_IN_ZIP), REPLAYS_COPY_IN_ZIP_ENTRY],
+      [
+        'a',
+        '-tzip',
+        '-mx1',
+        '-bso0',
+        '-bse0',
+        '-bd',
+        join(folder, REPLAYS_COPY_IN_ZIP),
+        REPLAYS_COPY_IN_ZIP_ENTRY,
+      ],
       { cwd: staging, windowsHide: true },
     )
   }
@@ -4010,7 +4158,17 @@ export function writeReplaysCopyInFixture(variant, mode = 'plain') {
   const statePath = join(result.userDataDir, STATE_FILE)
   const state = JSON.parse(readFileSync(statePath, 'utf8'))
   if (process.platform === 'win32') {
-    state.installations[0].launchArgs = ['/d', '/c', 'ping', '-n', '4', '127.0.0.1', '>nul', '&', 'rem']
+    state.installations[0].launchArgs = [
+      '/d',
+      '/c',
+      'ping',
+      '-n',
+      '4',
+      '127.0.0.1',
+      '>nul',
+      '&',
+      'rem',
+    ]
   }
   state.replays = {
     extraFolders: [{ id: `fixture-${variant}-folder`, path: folder, addedAt: FIXED_TIMESTAMP }],
@@ -4022,7 +4180,11 @@ export function writeReplaysCopyInFixture(variant, mode = 'plain') {
     writeFileSync(join(demosDir, '_launcher', 'leftover.dm2'), 'q2l-fixture-leftover\n', 'utf8')
     writeFileSync(join(demosDir, REPLAYS_COPY_IN_KEEP_DEMO), demoBytesWithGameDir('baseq2'))
   } else if (mode === 'blocked') {
-    writeFileSync(join(demosDir, '_launcher'), 'a plain file where the directory should be\n', 'utf8')
+    writeFileSync(
+      join(demosDir, '_launcher'),
+      'a plain file where the directory should be\n',
+      'utf8',
+    )
   }
   return { ...result, extraFolder: folder }
 }
@@ -4127,7 +4289,11 @@ const R1Q2_FIXTURE_ENGINE_VERSION = 'r1q2-fixture-1'
  * `BOOTSTRAP_FIXTURE_LAYOUT`'s style, but only the engine role: demo/point-release are unchanged
  * and engine-independent, so they stay documented once, above.
  */
-export const BOOTSTRAP_R1Q2_ENGINE_FIXTURE_LAYOUT = ['r1q2.exe', 'ref_r1gl.dll', 'baseq2/gamex86.dll']
+export const BOOTSTRAP_R1Q2_ENGINE_FIXTURE_LAYOUT = [
+  'r1q2.exe',
+  'ref_r1gl.dll',
+  'baseq2/gamex86.dll',
+]
 
 /** The one file the r1q2 fixture archive carries that the allowlist must never assemble (AC3). */
 export const BOOTSTRAP_R1Q2_DEDICATED_EXE_NAME = 'dedicated.exe'
@@ -4198,7 +4364,10 @@ function buildBootstrapPackages({
       writeFileIn(
         root,
         'q2pro64.exe',
-        filler(ENGINE_FIXTURE_FILES['q2pro64.exe'].sizeBytes, ENGINE_FIXTURE_FILES['q2pro64.exe'].fillByte),
+        filler(
+          ENGINE_FIXTURE_FILES['q2pro64.exe'].sizeBytes,
+          ENGINE_FIXTURE_FILES['q2pro64.exe'].fillByte,
+        ),
       )
       // Not allowlisted, on purpose: the real engine build does ship a `baseq2/` of its own (game
       // DLLs), and AC8's guarantee has to hold for that too.
@@ -4285,7 +4454,12 @@ function buildBootstrapPackages({
   })
 
   const result = [
-    { role: 'engine', id: BOOTSTRAP_ENGINE_FIXTURE_ID, version: BOOTSTRAP_ENGINE_FIXTURE_VERSION, ...engine },
+    {
+      role: 'engine',
+      id: BOOTSTRAP_ENGINE_FIXTURE_ID,
+      version: BOOTSTRAP_ENGINE_FIXTURE_VERSION,
+      ...engine,
+    },
     { role: 'demo', id: 'q2-demo-fixture', version: '3.14-fixture', ...demo },
     {
       role: 'point-release',
@@ -4429,7 +4603,11 @@ export async function startBootstrapFixtureServer({
   modsReplays,
   modsUpdate = false,
 } = {}) {
-  const packages = buildBootstrapPackages({ demoContributesNothing, wrapperNestedLayout, includeR1q2 })
+  const packages = buildBootstrapPackages({
+    demoContributesNothing,
+    wrapperNestedLayout,
+    includeR1q2,
+  })
 
   const failFirstPackage = failFirstAttemptFor
     ? packages.find((pkg) => pkg.id === failFirstAttemptFor)
@@ -4466,9 +4644,7 @@ export async function startBootstrapFixtureServer({
   }
   /** PRIMARY-only request paths that 404 on every request, forever - never the mirror path. */
   const failPrimaryPaths = new Set(
-    packages
-      .filter((pkg) => failPrimaryIds.has(pkg.id))
-      .map((pkg) => `/packages/${pkg.fileName}`),
+    packages.filter((pkg) => failPrimaryIds.has(pkg.id)).map((pkg) => `/packages/${pkg.fileName}`),
   )
 
   /** Everything this server is willing to serve, by request path. */
@@ -4516,21 +4692,23 @@ export async function startBootstrapFixtureServer({
     response.end(bytes)
   }
 
-  const archiveRoute = (archivePath, corrupt = false, chunkDelayMs = BOOTSTRAP_SERVE_CHUNK_DELAY_MS) => async (response) => {
-    const bytes = readFileSync(archivePath)
-    // `corrupt`: same length, one flipped byte - the manifest SHA256 no longer matches.
-    if (corrupt) bytes[bytes.byteLength - 1] ^= 0xff
-    response.writeHead(200, {
-      'content-type': 'application/octet-stream',
-      'content-length': bytes.byteLength,
-    })
-    const chunkSize = Math.ceil(bytes.byteLength / BOOTSTRAP_SERVE_CHUNKS)
-    for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
-      response.write(bytes.subarray(offset, Math.min(offset + chunkSize, bytes.byteLength)))
-      await new Promise((done) => setTimeout(done, chunkDelayMs))
+  const archiveRoute =
+    (archivePath, corrupt = false, chunkDelayMs = BOOTSTRAP_SERVE_CHUNK_DELAY_MS) =>
+    async (response) => {
+      const bytes = readFileSync(archivePath)
+      // `corrupt`: same length, one flipped byte - the manifest SHA256 no longer matches.
+      if (corrupt) bytes[bytes.byteLength - 1] ^= 0xff
+      response.writeHead(200, {
+        'content-type': 'application/octet-stream',
+        'content-length': bytes.byteLength,
+      })
+      const chunkSize = Math.ceil(bytes.byteLength / BOOTSTRAP_SERVE_CHUNKS)
+      for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
+        response.write(bytes.subarray(offset, Math.min(offset + chunkSize, bytes.byteLength)))
+        await new Promise((done) => setTimeout(done, chunkDelayMs))
+      }
+      response.end()
     }
-    response.end()
-  }
 
   const manifestPackage = (pkg, extra) => ({
     ...extra,
@@ -4550,7 +4728,9 @@ export async function startBootstrapFixtureServer({
   const engine = packages.find((pkg) => pkg.role === 'engine')
   const demo = packages.find((pkg) => pkg.role === 'demo')
   const pointRelease = packages.find((pkg) => pkg.role === 'point-release')
-  const r1q2Engine = includeR1q2 ? packages.find((pkg) => pkg.id === R1Q2_FIXTURE_ENGINE_ID) : undefined
+  const r1q2Engine = includeR1q2
+    ? packages.find((pkg) => pkg.id === R1Q2_FIXTURE_ENGINE_ID)
+    : undefined
 
   // Mirrors `ENGINES_MANIFEST_PATH`/`GAMEDATA_MANIFEST_PATH` (`manifest-service.ts`) and the
   // envelope shape of the real shipped files (`content/q2_community_content/*/manifest.json`).
@@ -4569,7 +4749,9 @@ export async function startBootstrapFixtureServer({
           }
         : {
             schemaVersion: 1,
-            packages: [manifestPackage(engine, { kind: 'engine', engine: 'q2pro', arch: 'x86_64' })],
+            packages: [
+              manifestPackage(engine, { kind: 'engine', engine: 'q2pro', arch: 'x86_64' }),
+            ],
             pinned: { q2pro: engine.id },
           },
     ),
@@ -4750,8 +4932,22 @@ export function writeModsInstallFixture({ variant = 'populated', stateOverrides 
   const statePath = join(userDataDir, STATE_FILE)
   const state = JSON.parse(readFileSync(statePath, 'utf8'))
   state.installations.push(
-    make(MODS_INSTALL_R1Q2_ID, MODS_INSTALL_R1Q2_NAME, 'r1q2', 'r1q2.exe', R1Q2_FIXTURE_ENGINE_ID, 90),
-    make(MODS_INSTALL_Q2PRO_ID, MODS_INSTALL_Q2PRO_NAME, 'q2pro', 'q2pro.exe', BOOTSTRAP_ENGINE_FIXTURE_ID, 91),
+    make(
+      MODS_INSTALL_R1Q2_ID,
+      MODS_INSTALL_R1Q2_NAME,
+      'r1q2',
+      'r1q2.exe',
+      R1Q2_FIXTURE_ENGINE_ID,
+      90,
+    ),
+    make(
+      MODS_INSTALL_Q2PRO_ID,
+      MODS_INSTALL_Q2PRO_NAME,
+      'q2pro',
+      'q2pro.exe',
+      BOOTSTRAP_ENGINE_FIXTURE_ID,
+      91,
+    ),
   )
   writeJson(statePath, state)
   return { userDataDir }
@@ -4796,7 +4992,11 @@ function modsReplaysManifestEntries(info, baseUrl, withOpentdm) {
       {
         version: 'v1.0.0',
         prerelease: false,
-        variants: ['x86', 'x64'].map((arch) => ({ platform, arch, packages: [pkg(`${gamedir}-${platform}-${arch}`)] })),
+        variants: ['x86', 'x64'].map((arch) => ({
+          platform,
+          arch,
+          packages: [pkg(`${gamedir}-${platform}-${arch}`)],
+        })),
         contentOnly: { packages: [pkg(`${gamedir}-content`)] },
       },
     ],
@@ -4856,7 +5056,8 @@ export function writeModsRemoveFixture() {
   const records = []
   for (const [gameDir, files] of Object.entries(modsRemoveFiles)) {
     for (const [name, bytes] of Object.entries(files)) {
-      const onDisk = gameDir === 'opentdm' && name === 'opentdm.cfg' ? MODS_REMOVE_EDITED_CFG : bytes
+      const onDisk =
+        gameDir === 'opentdm' && name === 'opentdm.cfg' ? MODS_REMOVE_EDITED_CFG : bytes
       writeMods191File(join(root, gameDir, name), onDisk)
     }
     records.push({
@@ -4925,8 +5126,14 @@ export const modsUpdateNewOpentdmFiles = {
   'pak0.pak': filler(2 * 1024, 0x42),
   'new-only.txt': Buffer.from('only in the new version\n'),
 }
-export const modsUpdateNewActionFiles = { 'gamex86.dll': filler(9 * 1024, 0x71), 'pak0.pak': filler(2 * 1024, 0x72) }
-export const modsUpdateManualFiles = { 'gamex86.dll': filler(8 * 1024, 0x81), 'pak0.pak': filler(2 * 1024, 0x82) }
+export const modsUpdateNewActionFiles = {
+  'gamex86.dll': filler(9 * 1024, 0x71),
+  'pak0.pak': filler(2 * 1024, 0x72),
+}
+export const modsUpdateManualFiles = {
+  'gamex86.dll': filler(8 * 1024, 0x81),
+  'pak0.pak': filler(2 * 1024, 0x82),
+}
 
 function buildModsUpdatePackages() {
   const zip = (fileName, files) =>
@@ -4968,7 +5175,13 @@ function modsUpdateManifestEntries(mods, baseUrl) {
       {
         version: 'v1.1.0',
         prerelease: false,
-        variants: [{ platform: 'win32', arch: 'x86', packages: [pkg(`${gamedir}-win32-x86`, info, wrongSha)] }],
+        variants: [
+          {
+            platform: 'win32',
+            arch: 'x86',
+            packages: [pkg(`${gamedir}-win32-x86`, info, wrongSha)],
+          },
+        ],
         contentOnly: { packages: [] },
       },
     ],
@@ -4996,7 +5209,8 @@ export function writeModsUpdateFixture() {
   }
   const records = []
   for (const [gameDir, files] of Object.entries(modsUpdateOldFiles)) {
-    for (const [name, bytes] of Object.entries(files)) writeMods191File(join(root, gameDir, name), bytes)
+    for (const [name, bytes] of Object.entries(files))
+      writeMods191File(join(root, gameDir, name), bytes)
     records.push({
       catalogId: gameDir,
       gameDir,
@@ -5015,7 +5229,8 @@ export function writeModsUpdateFixture() {
     })
   }
   writeMods191File(join(root, 'opentdm', MODS_UPDATE_USER_FILE), MODS_UPDATE_USER_BYTES)
-  for (const [name, bytes] of Object.entries(modsUpdateManualFiles)) writeMods191File(join(root, 'ctf', name), bytes)
+  for (const [name, bytes] of Object.entries(modsUpdateManualFiles))
+    writeMods191File(join(root, 'ctf', name), bytes)
   const statePath = join(userDataDir, STATE_FILE)
   const state = JSON.parse(readFileSync(statePath, 'utf8'))
   state.installations.push(
@@ -5096,7 +5311,11 @@ export function modsCatalogFixtureEntries() {
     })),
   })
   return [
-    entry('action', 'Fixture Action Quake', 'Fixture description: realistic teamplay with bandaging.'),
+    entry(
+      'action',
+      'Fixture Action Quake',
+      'Fixture description: realistic teamplay with bandaging.',
+    ),
     entry('opentdm', 'Fixture OpenTDM', 'Fixture description: organised team deathmatch matches.'),
     entry('ctf', 'Fixture Capture The Flag', 'Fixture description: steal the enemy flag.'),
   ]
@@ -5135,7 +5354,10 @@ export async function startModsCatalogFixtureServer({ mode = 'ok' } = {}) {
       }
     } else body = { schemaVersion: 1, entries: [action, opentdm, ctf] }
     const bytes = Buffer.from(JSON.stringify(body), 'utf8')
-    response.writeHead(200, { 'content-type': 'application/json', 'content-length': bytes.byteLength })
+    response.writeHead(200, {
+      'content-type': 'application/json',
+      'content-length': bytes.byteLength,
+    })
     response.end(bytes)
   })
 
@@ -5204,7 +5426,10 @@ export async function startNoEngineForPlatformFixtureServer() {
 
   const jsonRoute = (body) => (response) => {
     const bytes = Buffer.from(JSON.stringify(body), 'utf8')
-    response.writeHead(200, { 'content-type': 'application/json', 'content-length': bytes.byteLength })
+    response.writeHead(200, {
+      'content-type': 'application/json',
+      'content-length': bytes.byteLength,
+    })
     response.end(bytes)
   }
 

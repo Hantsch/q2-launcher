@@ -18,16 +18,16 @@ Concept: [mods.md](../concepts/mods.md) §11; requirements MOD-15 to MOD-17.
 ## Acceptance Criteria
 
 - [x] **AC1** — The server detail shows a visible statement of whether the server's mod exists in
-      the active installation (*mod installed* / *mod missing*). A server on the base game shows
+      the active installation (_mod installed_ / _mod missing_). A server on the base game shows
       no mod statement.
 - [x] **AC2** — The server detail shows a visible statement of whether the server's current map
-      exists locally (*map available* / *map missing — the server will send it*).
+      exists locally (_map available_ / _map missing — the server will send it_).
 - [x] **AC3** — With the mod missing and a catalog entry of the same gamedir name (matched
-      case-insensitively), the detail offers *Install*. Clicking it starts story 190's install
+      case-insensitively), the detail offers _Install_. Clicking it starts story 190's install
       into the active installation.
 - [x] **AC4** — With the mod missing and no catalog entry, no Install button appears, and the
       statement stays.
-- [x] **AC5** — When the install finishes, the statement changes to *mod installed* without
+- [x] **AC5** — When the install finishes, the statement changes to _mod installed_ without
       reopening the detail.
 - [x] **AC6** — A gamedir string from a server that is not a safe single path token is shown as
       text but never used to build a path or start an install.
@@ -48,10 +48,10 @@ Concept: [mods.md](../concepts/mods.md) §11; requirements MOD-15 to MOD-17.
 - **(User)** Where shown: server detail only, no list-row marker
 - The server's mod string is the one the header already shows (`row.mod ?? serverinfo.gamedir ?? serverinfo.game`), so the statement never disagrees with the Mod cell next to it.
 - Empty/absent mod or `baseq2` (case-insensitive) counts as the base game: no mod statement, map looked up in `baseq2` only — Q2 servers omit `gamedir` on the base game.
-- "Mod installed" means the gamedir is in the active installation's `gameDirs` (case-insensitive, catalog *or* manual origin) — the concept's §11 says "exists in the active installation", not "installed by the launcher".
+- "Mod installed" means the gamedir is in the active installation's `gameDirs` (case-insensitive, catalog _or_ manual origin) — the concept's §11 says "exists in the active installation", not "installed by the launcher".
 - Gamedir and map names are trusted only if they are a safe name (`^[A-Za-z0-9_.-]+$`, 1–64 chars, not `.`/`..`), the same rule as `modWarningTrustModInputSchema` and ARCHITECTURE.md — one rule, enforced both in the pure helper and in the main-side zod schema.
-- An unsafe gamedir still gets a statement (*mod missing*, never installed — it is compared as a string only), no Install, and the map lookup is sent without it (baseq2 only) — AC6 wants it shown, never used for a path.
-- An empty or unsafe map name gets no map statement — it cannot be checked, and claiming *missing* would be untrue.
+- An unsafe gamedir still gets a statement (_mod missing_, never installed — it is compared as a string only), no Install, and the map lookup is sent without it (baseq2 only) — AC6 wants it shown, never used for a path.
+- An empty or unsafe map name gets no map statement — it cannot be checked, and claiming _missing_ would be untrue.
 - Map lookup scans every `*.pak` and `*.pkz` in `<root>/<gameDir>/` and `<root>/baseq2/` plus loose `maps/<map>.bsp`, case-insensitively — presence, not engine load order, is the question (User decision: loose + pak/pkz; `.pk3` deliberately not added).
 - A corrupt/unreadable pak or pkz (or a missing 7-Zip for pkz) is skipped, never an error — a broken archive must not hide the statement for the rest.
 - No cache for the map lookup: it reads only pak headers/directories and 7-Zip listings, per detail open; re-queried when the selected server, its map, or the installation's `gameDirs` change.
@@ -71,7 +71,7 @@ plus the install wiring as its own D:
 
 1. **Shared pure helper** `src/shared/mods/server-local-content.ts`: `isSafeGameName()` and
    `serverModStatus({ serverMod, gameDirs, catalog })` → `base | installed | missing(+catalogId|null,
-   safe)`; `mapLookupTarget()` → `{ gameDir?, map } | null`. Unit-tested.
+safe)`; `mapLookupTarget()` → `{ gameDir?, map } | null`. Unit-tested.
 2. **Main**: `src/main/lib/pak-directory.ts` (bounded id PACK directory reader) and
    `src/main/modules/mods/map-presence.ts` (loose `maps/<map>.bsp`, `*.pak`, `*.pkz` via
    `listZipEntries`, case-insensitive, gamedir then baseq2). Handler `mapPresence` added to
@@ -96,18 +96,18 @@ Order D1 → D2 → D3 → D4. No shell file, no new top-level IPC channel (modu
     mods contract (`src/shared/modules/mods.ts`, stories 188–190) already exports an equivalent
     safe-gamedir check, re-export/reuse that one instead of a second regex.
   - `serverModStatus({ serverMod: string | undefined, gameDirs: readonly string[], catalog:
-    readonly { id: string; gameDir: string }[] | null })` →
+readonly { id: string; gameDir: string }[] | null })` →
     `{ kind: 'base' }` (mod empty/whitespace/absent or `baseq2`, case-insensitive) |
     `{ kind: 'installed', gameDir }` (case-insensitive hit in `gameDirs`; ASCII lowercasing like
     `src/shared/replays/demo-play.ts:57`) | `{ kind: 'missing', gameDir, safe: boolean,
-    catalogId: string | null }` — `catalogId` is set only when `safe` and a catalog entry's gamedir
+catalogId: string | null }` — `catalogId` is set only when `safe` and a catalog entry's gamedir
     matches case-insensitively; `catalog: null` (unavailable) → `catalogId: null`. An unsafe mod is
     never `installed`.
   - `mapLookupTarget(status, map: string | undefined)` → `null` when the map is empty or not
     `isSafeGameName`; else `{ map, gameDir? }` with `gameDir` only for `installed` (or `missing`
     and safe — harmless, main will just not find the folder); never for unsafe or `base`.
-  Tests (names below in Acceptance Tests) cover every branch incl. `../x`, `my mod`, `.`, `..`,
-  mixed case, `null` catalog.
+    Tests (names below in Acceptance Tests) cover every branch incl. `../x`, `my mod`, `.`, `..`,
+    mixed case, `null` catalog.
 
 - **D2 — main-side map presence lookup as a mods handler.**
   Files: new `src/main/lib/pak-directory.ts` (+ `.test.ts`), new
@@ -131,10 +131,10 @@ Order D1 → D2 → D3 → D4. No shell file, no new top-level IPC channel (modu
     installation by id from `app` (unknown id → fail with an i18n key, e.g.
     `mods.error.installationNotFound` if 188–190 have one, else add `mods.error.unknownInstallation`);
     the root path comes from the installation record, never from the payload.
-  Tests: pak reader (valid fixture pak written in-test, bad magic, oversize dirlen, truncated);
-  map-presence (loose in gamedir, loose in baseq2, inside pak, inside pkz, case-insensitive names,
-  corrupt pak skipped, absent → false); schema refuses `../x`, `a/b`, `my mod`, `.`, absolute paths,
-  extra keys.
+    Tests: pak reader (valid fixture pak written in-test, bad magic, oversize dirlen, truncated);
+    map-presence (loose in gamedir, loose in baseq2, inside pak, inside pkz, case-insensitive names,
+    corrupt pak skipped, absent → false); schema refuses `../x`, `a/b`, `my mod`, `.`, absolute paths,
+    extra keys.
 
 - **D3 — the detail shows the mod and map statements.**
   Files: `src/renderer/src/modules/mods/client.ts` (add `getMapPresence(input)` over
@@ -147,9 +147,9 @@ Order D1 → D2 → D3 → D4. No shell file, no new top-level IPC channel (modu
   `scripts/lib/fixture.mjs` to put real files on disk and set the fixture installation's `gameDirs`
   to match).
   - Section `data-testid="servers-detail-local-content"`; statements
-    `servers-detail-mod-status` (`data-state="installed|missing"`, text *Mod installed* /
-    *Mod missing*) and `servers-detail-map-status` (`data-state="available|missing"`, text *Map
-    available* / *Map missing — the server will send it*). Base game → no mod statement element.
+    `servers-detail-mod-status` (`data-state="installed|missing"`, text _Mod installed_ /
+    _Mod missing_) and `servers-detail-map-status` (`data-state="available|missing"`, text _Map
+    available_ / _Map missing — the server will send it_). Base game → no mod statement element.
     Map statement absent while the lookup is pending, on failure, or when `mapLookupTarget` is null.
     No active installation (`useActiveInstallation()` null) → only
     `servers-detail-local-content-no-installation` text.
@@ -162,7 +162,7 @@ Order D1 → D2 → D3 → D4. No shell file, no new top-level IPC channel (modu
     holding `maps/tdm1.bsp` (a minimal valid PACK written by the flow), gameDirs
     `['baseq2','opentdm']`; responders: A base game `q2dm1`, B `gamedir opentdm` map `tdm1`,
     C `gamedir zzunknown` map `nomap`, D `gamedir ../evil` map `q2dm1`.
-  Component test covers the states with a mocked client; flow steps as in Acceptance Tests.
+    Component test covers the states with a mocked client; flow steps as in Acceptance Tests.
 
 - **D4 — Install from the detail.**
   Files: `src/renderer/src/modules/servers/ServerLocalContentSection.tsx` (+ its test),
@@ -170,12 +170,12 @@ Order D1 → D2 → D3 → D4. No shell file, no new top-level IPC channel (modu
   `CHANGELOG.md`.
   - Read the catalog with story 189's renderer client function (the one the Mods view uses);
     unavailable/failed read → `catalog: null`. Feed it to D1's `serverModStatus`.
-  - `kind === 'missing' && catalogId !== null` → button `servers-detail-mod-install` (*Install*),
+  - `kind === 'missing' && catalogId !== null` → button `servers-detail-mod-install` (_Install_),
     calling story 190's renderer install function with `{ installationId: activeInstallation.id,
-    catalogId }` — the exact call the catalog tile's Install uses; no other install path.
+catalogId }` — the exact call the catalog tile's Install uses; no other install path.
     Otherwise no button (statement stays).
   - While a job for that catalog id + installation is active (the same jobs-store lookup 190's tile
-    uses for its progress), the button stays visible, disabled, labelled *Installing…*.
+    uses for its progress), the button stays visible, disabled, labelled _Installing…_.
   - No extra refresh logic for AC5: the statement is derived from the store's active installation
     `gameDirs`, which 190's post-install revalidation updates; D3's lookup re-runs on that change.
   - Flow: extend D3's flow with an install phase, reusing story 190's catalog + package fixture
@@ -190,7 +190,7 @@ Order D1 → D2 → D3 → D4. No shell file, no new top-level IPC channel (modu
 
 - D2 → deliverable-hard — it is the only code that turns server-supplied strings into filesystem
   reads in main and parses untrusted binary pak directories: a path built from the raw name, an
-  unbounded `dirlen` read, or a case-sensitive lookup that silently says *missing* on Linux would
+  unbounded `dirlen` read, or a case-sensitive lookup that silently says _missing_ on Linux would
   all pass a happy-path test.
 - Review: → default — AC6's negative behaviour is pinned by the schema refusal tests (D2) and a
   flow step (D3), so no plausible wrong implementation slips past tests plus a default review.
@@ -234,6 +234,7 @@ Commit message: `192: server detail shows mod and map presence — shared status
 Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (118 files / 927 tests), `ui:flow` servers-detail-local-content and servers-detail (each after `ui:seed`): all green. Full gate not run (sprint's). AC -> test: AC1-AC6 all mapped unit + flow tests ran and passed as listed; no manual residue. Review: stage 1 PASS, no blocking findings, no fix cycle. Unfixed minor: pkz test branch returns early when 7za is missing; `lookupKey` omits `gameDirs` (stale map answer shown briefly after install); a decision event arriving while the section is unmounted is lost (same as ModsView).
 
 Decisions:
+
 - Server mod comes from `gamename` in serverinfo (the header's `row.mod ?? gamedir ?? game`); flow responders send `\gamename\...` and select + `servers-refresh-selected` for the stage-2 query.
 - Unknown installation reuses `mods.error.installationNotFound`; handler `MODS_HANDLERS.mapPresence = 'map.presence'`, schema `mapPresenceInputSchema` (strict, `isSafeGameName` refine); main re-checks names and only joins `readdir` results.
 - `InstallDecisionDialog` is also mounted in the section (it lived only in ModsView; install waits on a decision event); never both views live.

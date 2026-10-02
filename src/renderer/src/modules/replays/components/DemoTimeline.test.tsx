@@ -291,7 +291,10 @@ describe('DemoTimeline (story 187 D6)', () => {
       usePlaybackStore.getState().applyDisplay({
         fullscreen: false,
         cinema: false,
-        cinemaAvailability: { available: false, reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' } },
+        cinemaAvailability: {
+          available: false,
+          reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+        },
       }),
     )
     const cinema = testid('cinema')

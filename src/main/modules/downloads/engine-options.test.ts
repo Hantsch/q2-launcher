@@ -2,10 +2,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  DOWNLOADS_HANDLERS,
-  type BootstrapEngineOptionsResult,
-} from '@shared/modules/downloads'
+import { DOWNLOADS_HANDLERS, type BootstrapEngineOptionsResult } from '@shared/modules/downloads'
 import type { Logger } from '../../lib/logger'
 import { JobsService } from '../../services/jobs'
 import type { ModuleHandler, ModuleSetup } from '../types'
@@ -162,7 +159,9 @@ const noPinsAtAllManifest = {
 function serveWin32OnlyAllEnginesManifest(fetchMock: ReturnType<typeof vi.fn>): void {
   fetchMock.mockImplementation((url: unknown) =>
     Promise.resolve(
-      jsonResponse(String(url).includes('engines/') ? win32OnlyAllEnginesManifest : gamedataManifest),
+      jsonResponse(
+        String(url).includes('engines/') ? win32OnlyAllEnginesManifest : gamedataManifest,
+      ),
     ),
   )
 }

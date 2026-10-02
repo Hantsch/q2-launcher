@@ -34,7 +34,10 @@ async function writePakOfSize(baseq2: string, name: string, size: number): Promi
 }
 
 function candidate(
-  overrides: Partial<DetectedInstallation> & { source: DetectedInstallation['source']; rootPath: string },
+  overrides: Partial<DetectedInstallation> & {
+    source: DetectedInstallation['source']
+    rootPath: string
+  },
 ): DetectedInstallation {
   return {
     suggestedName: 'Quake II',

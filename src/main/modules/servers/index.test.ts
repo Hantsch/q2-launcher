@@ -61,9 +61,9 @@ function fakeAppContext(
   // Story 116 D3: the scan service/cadence read `app.launch` at construction - an idle, silent stub
   // by default; story 117 D4's guard tests below pass a `'running'`/`'starting'` state instead.
   const launch = { getState: () => launchState, onStateChange: () => () => {} }
-  return (
-    state === undefined ? { broadcast, launch, features } : { state, broadcast, launch, features }
-  ) as unknown as AppContext
+  return (state === undefined
+    ? { broadcast, launch, features }
+    : { state, broadcast, launch, features }) as unknown as AppContext
 }
 
 /**
@@ -142,10 +142,18 @@ describe('servers module', () => {
     await registry.register(serversModule, fakeAppContext())
 
     expect(
-      await registry.invoke({ moduleId: 'servers', type: SERVERS_HANDLERS.scanSetMode, payload: { mode: 'lan' } }),
+      await registry.invoke({
+        moduleId: 'servers',
+        type: SERVERS_HANDLERS.scanSetMode,
+        payload: { mode: 'lan' },
+      }),
     ).toEqual({ ok: true, value: undefined })
     expect(
-      await registry.invoke({ moduleId: 'servers', type: SERVERS_HANDLERS.scanSetMode, payload: { mode: 'wan' } }),
+      await registry.invoke({
+        moduleId: 'servers',
+        type: SERVERS_HANDLERS.scanSetMode,
+        payload: { mode: 'wan' },
+      }),
     ).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
   })
 
@@ -242,7 +250,10 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
   it('sources.reorder persists the new order', async () => {
     const ids = DEFAULT_MASTER_SOURCES.map((source) => source.id).reverse()
 
-    expect(await invoke('sources.reorder', { ids })).toMatchObject({ ok: true, value: { ok: true } })
+    expect(await invoke('sources.reorder', { ids })).toMatchObject({
+      ok: true,
+      value: { ok: true },
+    })
 
     expect((await reloaded()).sources.map((source) => source.id)).toEqual(ids)
   })
@@ -766,7 +777,11 @@ describe('servers module quick filter handlers (story 197 D2)', () => {
 
     // A refusal persists nothing.
     expect(
-      await invoke(SERVERS_HANDLERS.quickFiltersSave, { name: 'capture', criteria, overwrite: false }),
+      await invoke(SERVERS_HANDLERS.quickFiltersSave, {
+        name: 'capture',
+        criteria,
+        overwrite: false,
+      }),
     ).toEqual({ ok: true, value: { ok: false, reasonKey: 'servers.quickFilter.error.taken' } })
     expect(state.serversState().quickFilters).toHaveLength(1)
 
@@ -970,14 +985,21 @@ describe('servers module watchlist.* handlers are feature-gated (story 131 D5)',
     // (story 130's own rule, `registry.ts`'s doc comment).
     expect(outcome).toEqual({
       ok: false,
-      error: { key: 'modules.error.notImplemented', params: { moduleId: 'servers', type: 'watchlist.read' } },
+      error: {
+        key: 'modules.error.notImplemented',
+        params: { moduleId: 'servers', type: 'watchlist.read' },
+      },
     })
 
     // No observer attached to the scan service either: a stage2 push resolves nothing watchlist-
     // shaped, proven here by starting a (network-free, empty-address-set) scan and confirming it
     // still settles - if `onStage2Row` had been wired to a `watchlistService` that no longer exists
     // this would throw instead of resolving.
-    const start = await registry.invoke({ moduleId: 'servers', type: 'scan.start', payload: undefined })
+    const start = await registry.invoke({
+      moduleId: 'servers',
+      type: 'scan.start',
+      payload: undefined,
+    })
     expect(start).toEqual({ ok: true, value: { ok: true } })
   })
 
@@ -990,13 +1012,23 @@ describe('servers module watchlist.* handlers are feature-gated (story 131 D5)',
     // touch `state.json`'s `watchlist` key at all.
     const lockedGate = createFeatureGate([])
     const lockedRegistry = new MainModuleRegistry(lockedGate)
-    await lockedRegistry.register(serversModule, fakeAppContext(state, IDLE_LAUNCH_STATE, lockedGate))
+    await lockedRegistry.register(
+      serversModule,
+      fakeAppContext(state, IDLE_LAUNCH_STATE, lockedGate),
+    )
 
     expect(
-      await lockedRegistry.invoke({ moduleId: 'servers', type: 'watchlist.read', payload: undefined }),
+      await lockedRegistry.invoke({
+        moduleId: 'servers',
+        type: 'watchlist.read',
+        payload: undefined,
+      }),
     ).toEqual({
       ok: false,
-      error: { key: 'modules.error.notImplemented', params: { moduleId: 'servers', type: 'watchlist.read' } },
+      error: {
+        key: 'modules.error.notImplemented',
+        params: { moduleId: 'servers', type: 'watchlist.read' },
+      },
     })
     expect(state.serversState().watchlist).toEqual(seeded)
 

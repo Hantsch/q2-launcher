@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_SERVERS_STATE, type FavouriteServerEntry, type ServersState } from '@shared/modules/servers'
+import {
+  DEFAULT_SERVERS_STATE,
+  type FavouriteServerEntry,
+  type ServersState,
+} from '@shared/modules/servers'
 import { addFavourite, listFavourites, removeFavourite } from './favourites'
 
 /**
@@ -18,7 +22,10 @@ describe('listFavourites', () => {
       { address: '10.0.0.1:27910', addedAt: '2024-01-01T00:00:00.000Z' },
     ])
 
-    expect(listFavourites(state).map((f) => f.address)).toEqual(['10.0.0.1:27910', '10.0.0.2:27910'])
+    expect(listFavourites(state).map((f) => f.address)).toEqual([
+      '10.0.0.1:27910',
+      '10.0.0.2:27910',
+    ])
   })
 })
 

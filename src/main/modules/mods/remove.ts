@@ -91,7 +91,10 @@ function isGone(error: unknown): boolean {
 function isInsideDir(child: string, parent: string): boolean {
   const childKey = pathKey(child)
   const parentKey = pathKey(parent)
-  return childKey === parentKey || childKey.startsWith(parentKey.endsWith(sep) ? parentKey : parentKey + sep)
+  return (
+    childKey === parentKey ||
+    childKey.startsWith(parentKey.endsWith(sep) ? parentKey : parentKey + sep)
+  )
 }
 
 function refuse(detail: string): never {
@@ -116,7 +119,11 @@ async function realAncestor(dir: string): Promise<{ real: string; exists: boolea
 }
 
 /** The containment check. Throws {@link RemovalRefusedError} before anything is touched. */
-async function resolveRemoval(root: string, gameDir: string, record: RecordedFiles): Promise<ResolvedRemoval> {
+async function resolveRemoval(
+  root: string,
+  gameDir: string,
+  record: RecordedFiles,
+): Promise<ResolvedRemoval> {
   if (!isSafeGameDirName(gameDir)) refuse(`game dir ${JSON.stringify(gameDir)}`)
   for (const file of record.files) {
     if (!isSafeRecordedPath(file.path)) refuse(`recorded path ${JSON.stringify(file.path)}`)
@@ -125,10 +132,15 @@ async function resolveRemoval(root: string, gameDir: string, record: RecordedFil
   try {
     const stats = await lstat(gameDirPath)
     // A linked game dir would make "inside the game dir" mean somewhere else entirely.
-    if (stats.isSymbolicLink() || !stats.isDirectory()) refuse(`${gameDirPath} is not a plain directory`)
+    if (stats.isSymbolicLink() || !stats.isDirectory())
+      refuse(`${gameDirPath} is not a plain directory`)
   } catch (error) {
     if (error instanceof RemovalRefusedError || !isGone(error)) throw error
-    return { gameDirPath, realGameDir: null, entries: record.files.map((file) => ({ file, target: null })) }
+    return {
+      gameDirPath,
+      realGameDir: null,
+      entries: record.files.map((file) => ({ file, target: null })),
+    }
   }
   const realGameDir = await realpath(gameDirPath)
   const entries: ResolvedEntry[] = []
@@ -171,7 +183,11 @@ async function stateOf(entry: ResolvedEntry): Promise<EntryState> {
 }
 
 /** Which recorded files the user changed and which are already gone. Refuses like the removal does. */
-export async function planRemoval(root: string, gameDir: string, record: RecordedFiles): Promise<RemovalPlan> {
+export async function planRemoval(
+  root: string,
+  gameDir: string,
+  record: RecordedFiles,
+): Promise<RemovalPlan> {
   const resolved = await resolveRemoval(root, gameDir, record)
   const plan: RemovalPlan = { changed: [], missing: [] }
   for (const entry of resolved.entries) {

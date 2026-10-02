@@ -7,14 +7,14 @@ working, playable demo installation — engine and free game data downloaded fro
 manifest, verified, extracted, and assembled automatically. This is the first slice of the
 [Install concept](../../concepts/install-module.md).
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 070 — The launcher reads a curated manifest instead of hardcoded download URLs | done | `070: fetch, validate and cache the install manifest` |
-| 071 — A download is a verified job, never a trusted file | done | `071: downloads are verified jobs — fetch, extract, queue` |
-| 072 — Settings learn to host a module's own section, starting with Downloads | done | `072: settings gain a downloads section` |
-| 073 — The Downloads tab shows what is running, what failed, and what is cached | done | `073: the Downloads tab shows jobs and failures` |
-| 074 — The Library turns nothing into a playable Q2PRO demo installation | done | `074: bootstrap wizard turns nothing into a playable Q2PRO demo install` |
-| 032 — Downloads icon shows a running-count badge | done | `032: downloads icon shows a running-count badge` |
+| Story                                                                          | Status | Commit                                                                   |
+| ------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------ |
+| 070 — The launcher reads a curated manifest instead of hardcoded download URLs | done   | `070: fetch, validate and cache the install manifest`                    |
+| 071 — A download is a verified job, never a trusted file                       | done   | `071: downloads are verified jobs — fetch, extract, queue`               |
+| 072 — Settings learn to host a module's own section, starting with Downloads   | done   | `072: settings gain a downloads section`                                 |
+| 073 — The Downloads tab shows what is running, what failed, and what is cached | done   | `073: the Downloads tab shows jobs and failures`                         |
+| 074 — The Library turns nothing into a playable Q2PRO demo installation        | done   | `074: bootstrap wizard turns nothing into a playable Q2PRO demo install` |
+| 032 — Downloads icon shows a running-count badge                               | done   | `032: downloads icon shows a running-count badge`                        |
 
 All six stories done, none blocked. Sprint goal reached: the free-download, Q2PRO-only bootstrap
 wizard is real and its acceptance criteria are proven by automated tests, end to end.
@@ -86,14 +86,14 @@ clarification round already answered at the top of this sprint.
 Acceptance is the test suite — every criterion below was proven by a named automated test as
 part of its story's build (see each story's `## Done` section for the full AC → test mapping).
 
-| Story | Criteria proven by tests | Manual residue |
-| --- | --- | --- |
-| 070 | AC1–AC6, all via unit/integration tests (`content-repo.test.ts`, `manifest-parse.test.ts`, `manifest-service.test.ts`, `shipped-manifest.test.ts`) | AC6: publishing the manifest files and the mirrored Q2PRO asset to the public `Hantsch/q2_community_content` repository needs push/publish credentials this run does not have — the reviewed files are meant to be byte-identical to what gets committed there; hashes were verified live against the real, currently-published upstream assets. |
-| 071 | AC1–AC7, all via unit/integration tests (`pipeline.test.ts`, `queue.test.ts`, `fetcher.test.ts`, `extractor.test.ts`, `layering.test.ts`) | None acceptance-blocking. Non-acceptance residue: `scripts/fetch-7za.mjs` has never run end-to-end (no network access to 7-zip.org in this environment); three real-`7za.exe` tests stay `it.skipIf`-gated until it does. |
-| 072 | AC1–AC6, all via e2e (`ui:flow -- settings-downloads-section`) plus unit tests | None. |
-| 073 | AC1–AC5, all via e2e (`ui:flow -- downloads-tab`) plus unit tests | None. |
-| 074 | AC1–AC8, all via e2e (`ui:flow -- bootstrap-wizard`) plus unit tests | None acceptance-blocking. Non-acceptance residue: the assembler's allowlist paths are verified against a fixture archive layout, not yet against the real, unmodified installer archives (see Findings above). |
-| 032 | AC1–AC4, all via e2e (`ui:flow -- downloads-badge-count`) plus unit tests | None. |
+| Story | Criteria proven by tests                                                                                                                           | Manual residue                                                                                                                                                                                                                                                                                                                                   |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 070   | AC1–AC6, all via unit/integration tests (`content-repo.test.ts`, `manifest-parse.test.ts`, `manifest-service.test.ts`, `shipped-manifest.test.ts`) | AC6: publishing the manifest files and the mirrored Q2PRO asset to the public `Hantsch/q2_community_content` repository needs push/publish credentials this run does not have — the reviewed files are meant to be byte-identical to what gets committed there; hashes were verified live against the real, currently-published upstream assets. |
+| 071   | AC1–AC7, all via unit/integration tests (`pipeline.test.ts`, `queue.test.ts`, `fetcher.test.ts`, `extractor.test.ts`, `layering.test.ts`)          | None acceptance-blocking. Non-acceptance residue: `scripts/fetch-7za.mjs` has never run end-to-end (no network access to 7-zip.org in this environment); three real-`7za.exe` tests stay `it.skipIf`-gated until it does.                                                                                                                        |
+| 072   | AC1–AC6, all via e2e (`ui:flow -- settings-downloads-section`) plus unit tests                                                                     | None.                                                                                                                                                                                                                                                                                                                                            |
+| 073   | AC1–AC5, all via e2e (`ui:flow -- downloads-tab`) plus unit tests                                                                                  | None.                                                                                                                                                                                                                                                                                                                                            |
+| 074   | AC1–AC8, all via e2e (`ui:flow -- bootstrap-wizard`) plus unit tests                                                                               | None acceptance-blocking. Non-acceptance residue: the assembler's allowlist paths are verified against a fixture archive layout, not yet against the real, unmodified installer archives (see Findings above).                                                                                                                                   |
+| 032   | AC1–AC4, all via e2e (`ui:flow -- downloads-badge-count`) plus unit tests                                                                          | None.                                                                                                                                                                                                                                                                                                                                            |
 
 One criterion (070's AC6) carries genuine manual residue — publishing to a public repository this
 run has no credentials for. It is listed in `testplan.md`. Every other criterion in this sprint

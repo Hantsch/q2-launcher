@@ -59,7 +59,7 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F01):
 - **D-1 (Q1)** — `absolutePathSchema` stays and becomes honest via a `node:path`-free regex
   (drive letter + separator, UNC `\\server\share`, or leading `/`); every caller already sends
   dialog-picked or stored absolute paths, so the promise the name makes is the cheapest one to keep.
-- **D-2** — `isInside` picks `path.win32` / `path.posix` from `process.platform` *at call time*,
+- **D-2** — `isInside` picks `path.win32` / `path.posix` from `process.platform` _at call time_,
   because the native `node:path` functions ignore `stubPlatform` and "tested on win32 and linux"
   must run on one host.
 - **D-3** — The case rule (lowercase unless `linux`) is extracted into one private helper used by
@@ -68,7 +68,7 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F01):
   job, as the mods sites already `realpath` before checking and the reveal check never did.
 - **D-5** — The signature is `isInside(root, target)` (root first, as AC1 names it), the reverse of
   the old `isInsideDir(child, parent)`; every migrated call site is rewritten and a reveal test
-  proves a *parent* of a root is refused, since a swapped call would pass every other test.
+  proves a _parent_ of a root is refused, since a swapped call would pass every other test.
 - **D-6** — `isStrictlyInside` (`mods/install-job.ts`, a fourth prefix copy the review missed) is
   rebuilt on `isInside` plus a not-equal check and keeps its export, so the drive-root drift is
   closed there too without touching its callers.
@@ -122,14 +122,14 @@ key `app.error.pathNotAllowed` already exists).
   `src/main/ipc/app.test.ts` with an optional `installations` list (`{ rootPath }`) and add, under
   `describe('app:revealPath')`, for each of `stubPlatform('win32')` (root `C:\Games\Quake2`) and
   `stubPlatform('linux')` (root `/games/quake2`): `<root>/../<x>` refused, `<root>-other/<x>`
-  refused, the root's *parent* refused (`app.error.pathNotAllowed`), and `<root>/baseq2` allowed.
+  refused, the root's _parent_ refused (`app.error.pathNotAllowed`), and `<root>/baseq2` allowed.
   Keep the existing two tests green.
 - **D3 — one containment rule in main, pinned.** Delete the local `isInsideDir` in
   `src/main/modules/mods/remove.ts` (~91), `src/main/modules/mods/update-job.ts` (~148) and
   `src/main/modules/downloads/bootstrap/target.ts` (~84) and call `isInside(parent, child)` —
   note the argument order flips; rewrite each call, do not alias. Rebuild `isStrictlyInside` in
   `src/main/modules/mods/install-job.ts` (~197) as `isInside(parent, child) && pathKey(child) !==
-  pathKey(parent)`, export unchanged. Drop now-unused `sep` imports. In `docs/ARCHITECTURE.md`'s
+pathKey(parent)`, export unchanged. Drop now-unused `sep` imports. In `docs/ARCHITECTURE.md`'s
   "**Paths are never trusted.**" paragraph (~line 82) add one sentence: every "is this path inside
   that folder" decision in main goes through `isInside` (`src/main/lib/fs-utils.ts`) — resolved,
   `path.relative`-based, case-folded. Add `src/main/lib/containment-guard.test.ts` that reads files

@@ -90,7 +90,9 @@ export async function probeBleedingEdge(
   pinnedPackage: ManifestPackage | undefined,
 ): Promise<BleedingEdgeProbe> {
   if (engine !== 'q2pro') {
-    throw new BleedingEdgeUnsupportedError(`engine "${engine}" does not offer a bleeding-edge channel`)
+    throw new BleedingEdgeUnsupportedError(
+      `engine "${engine}" does not offer a bleeding-edge channel`,
+    )
   }
   if (pinnedPackage === undefined) {
     throw new BleedingEdgeUnsupportedError('no pinned Q2PRO package to derive the probe URL from')

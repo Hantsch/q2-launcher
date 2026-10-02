@@ -76,7 +76,11 @@ function checkReservedReadmes() {
     const text = readTextIfExists(path)
     const lower = text?.toLowerCase() ?? ''
     const ok = text !== null && lower.includes('reserved') && lower.includes('not read')
-    check(`reserved README: ${dir}/README.md states reserved/not read`, ok, text === null ? 'file missing' : undefined)
+    check(
+      `reserved README: ${dir}/README.md states reserved/not read`,
+      ok,
+      text === null ? 'file missing' : undefined,
+    )
   }
 }
 
@@ -127,16 +131,28 @@ function checkNewsByteIdentity() {
     const inSource = sourceFiles.has(relPath)
     const inTarget = targetFiles.has(relPath)
     if (!inSource) {
-      check(`news byte-identity: ${relPath}`, false, 'present in checkout but missing from this repo\'s fixture copy')
+      check(
+        `news byte-identity: ${relPath}`,
+        false,
+        "present in checkout but missing from this repo's fixture copy",
+      )
       continue
     }
     if (!inTarget) {
-      check(`news byte-identity: ${relPath}`, false, 'present in this repo\'s fixture copy but missing from checkout')
+      check(
+        `news byte-identity: ${relPath}`,
+        false,
+        "present in this repo's fixture copy but missing from checkout",
+      )
       continue
     }
     const sourceHash = sha256OfFile(join(source, relPath))
     const targetHash = sha256OfFile(join(target, relPath))
-    check(`news byte-identity: ${relPath}`, sourceHash === targetHash, sourceHash === targetHash ? undefined : 'content differs')
+    check(
+      `news byte-identity: ${relPath}`,
+      sourceHash === targetHash,
+      sourceHash === targetHash ? undefined : 'content differs',
+    )
   }
 }
 
@@ -144,7 +160,11 @@ function checkGitState() {
   let head
   try {
     head = runGit(['rev-parse', 'HEAD']).trim()
-    check('git: HEAD is the pinned commit', head.startsWith(EXPECTED_HEAD) || EXPECTED_HEAD.startsWith(head), `expected ${EXPECTED_HEAD}, got ${head}`)
+    check(
+      'git: HEAD is the pinned commit',
+      head.startsWith(EXPECTED_HEAD) || EXPECTED_HEAD.startsWith(head),
+      `expected ${EXPECTED_HEAD}, got ${head}`,
+    )
   } catch (error) {
     check('git: HEAD is the pinned commit', false, error.message)
   }
@@ -156,7 +176,9 @@ function checkGitState() {
     check(
       'git: working tree changes are all untracked (??)',
       notUntracked.length === 0,
-      notUntracked.length > 0 ? `staged/modified/tracked entries: ${notUntracked.join(', ')}` : undefined,
+      notUntracked.length > 0
+        ? `staged/modified/tracked entries: ${notUntracked.join(', ')}`
+        : undefined,
     )
   } catch (error) {
     check('git: working tree changes are all untracked (??)', false, error.message)
@@ -189,7 +211,9 @@ function checkGitState() {
 
 function main() {
   if (!existsSync(CHECKOUT_ROOT)) {
-    console.log(`content repo checkout not found at ${CHECKOUT_ROOT}; skipping (nothing to verify on this machine)`)
+    console.log(
+      `content repo checkout not found at ${CHECKOUT_ROOT}; skipping (nothing to verify on this machine)`,
+    )
     process.exit(0)
   }
 

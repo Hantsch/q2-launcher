@@ -13,7 +13,7 @@ for clicking something in the launcher.
 2. You need at least one registered installation:
    - **Preferred, if you have a real Quake II install** (an r1q2/Q2PRO/etc. folder with `baseq2`,
      `pak0.pak` and a client executable): Library → **Add existing** → pick the folder that
-     *contains* `baseq2` (not `baseq2` itself). A real, launchable installation is also required
+     _contains_ `baseq2` (not `baseq2` itself). A real, launchable installation is also required
      for use case 6 below (the "pending" sync state).
    - **Otherwise**: Library → **Create new** → Browse to any empty folder → give it a name → leave
      **Client** on its default → **Create installation**. This registers an empty installation
@@ -153,7 +153,7 @@ or observing it through the UI.
 
 - Open any profile's **Raw file** tab.
 - **Expected:** line numbers down the left; the first line (the generated `// q2-launcher
-  profile...` header) renders dim and in italics; `set`/`bind` lines render their command word in a
+profile...` header) renders dim and in italics; `set`/`bind` lines render their command word in a
   different, semibold weight, with the key/cvar name, the quoted value and any `+`-prefixed command
   each in their own colour.
 
@@ -272,7 +272,7 @@ or observing it through the UI.
 ### 24. Tidy-up: preserved lines offer Drop and Re-classify
 
 - Reuse the profile imported in use case 15 (with the `frobnicate...` and the `set
-  sensitivity "5"`-style unrecognised line, or write a fresh file with a line like
+sensitivity "5"`-style unrecognised line, or write a fresh file with a line like
   `seta cl_oddcvar "1"` to also see a re-classify-as-cvar suggestion).
 - Care tab → the **Preserved lines** section (folded into Care, no longer its own tab) lists each
   line with a preview.
@@ -295,7 +295,7 @@ or observing it through the UI.
 ### 26. Cleanup moved into Care, scoped to the profile
 
 - Still in **Care**, scroll to the **Redundant config copies** section (previously on the profile
-  list screen — confirm it is *not* there any more).
+  list screen — confirm it is _not_ there any more).
 - **Expected:** the installation picker only offers this profile's assigned installations, with a
   hint pointing at the **Scan any installation** checkbox to widen it.
 - Pick an installation, click **Scan**. If there are no redundant copies to demonstrate apply/undo,

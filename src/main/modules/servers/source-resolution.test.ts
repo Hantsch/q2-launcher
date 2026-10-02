@@ -60,8 +60,7 @@ describe('resolveSources', () => {
       enabled: true,
     }
 
-    const fetchImpl: FetchImpl = async () =>
-      ({ ok: false, status: 500 }) as unknown as Response
+    const fetchImpl: FetchImpl = async () => ({ ok: false, status: 500 }) as unknown as Response
 
     const result = await resolveSources(
       [udpOkSource, httpFailSource],

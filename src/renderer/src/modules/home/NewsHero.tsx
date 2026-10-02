@@ -83,7 +83,13 @@ export interface NewsHeroProps {
   onRefresh?: () => void
 }
 
-export function NewsHero({ slides, retrievedAt, lastRefreshFailed, onOpenUrl, onRefresh }: NewsHeroProps) {
+export function NewsHero({
+  slides,
+  retrievedAt,
+  lastRefreshFailed,
+  onOpenUrl,
+  onRefresh,
+}: NewsHeroProps) {
   const { t } = useTranslation()
   const reducedMotion = useReducedMotion()
   const count = slides.length
@@ -185,11 +191,7 @@ export function NewsHero({ slides, retrievedAt, lastRefreshFailed, onOpenUrl, on
             >
               {t('home.hero.stale.asOf', { time: formatAsOfDate(retrievedAt) ?? '' })}
             </span>
-            <button
-              type="button"
-              className="home-hero-stale-refresh"
-              onClick={() => onRefresh?.()}
-            >
+            <button type="button" className="home-hero-stale-refresh" onClick={() => onRefresh?.()}>
               <RefreshCw className="size-3.5" aria-hidden="true" />
               {t('home.hero.stale.refresh')}
             </button>

@@ -29,8 +29,8 @@ the `@dnd-kit` primitive introduced by story 054
   There is no news dashboard module and no "Featured" tile row.
 - Content comes from **`raw.githubusercontent` on `main`** of the public repo. The repo is laid out
   as `news/`, `packs/`, `mods/`, `config_templates/`; **v1 fills only `news/`.**
-- A **hand-maintained `index.json`** decides *which* entry is shown, *when* (visibility window) and
-  *in which order* (`order`). Each entry's **`.md`** carries the template, the content and its
+- A **hand-maintained `index.json`** decides _which_ entry is shown, _when_ (visibility window) and
+  _in which order_ (`order`). Each entry's **`.md`** carries the template, the content and its
   buttons.
 - Slide **templates are fixed renderers in the launcher** (`split`, `banner`, `text`); the `.md`
   only fills template-defined fields. Contributors get no design freedom. Unknown template →
@@ -59,7 +59,7 @@ the `@dnd-kit` primitive introduced by story 054
 
 Today's home screen is honest about being unfinished: a hero showing the active installation with
 four carousel dots wired to nothing, and below it a grid of module cards that is really the
-roadmap. It tells a new user what the launcher *will* do, not what is going on in Quake II.
+roadmap. It tells a new user what the launcher _will_ do, not what is going on in Quake II.
 
 The new home screen does two jobs at once, and keeps them strictly apart:
 
@@ -72,8 +72,8 @@ The new home screen does two jobs at once, and keeps them strictly apart:
   of playtime and, later, a server browser and a friend list. The launcher does not decide what
   matters to a player.
 
-The split is the point. The top is *ours* and always looks the same for everyone; the bottom is
-*theirs* and the launcher never rearranges it.
+The split is the point. The top is _ours_ and always looks the same for everyone; the bottom is
+_theirs_ and the launcher never rearranges it.
 
 ## 2. Scope
 
@@ -142,57 +142,57 @@ The split is the point. The top is *ours* and always looks the same for everyone
   module inserting itself into a saved layout, no reset on update.
   > The whole promise of the lower half is that it stays as it was left.
 - **No bundled image assets in the UI.** The welcome slide, every template's chrome and every empty
-  state are CSS/inline SVG. Only *feed* images are bitmaps, and they come from the network.
+  state are CSS/inline SVG. Only _feed_ images are bitmaps, and they come from the network.
   > CLAUDE.md's rule, kept; see §9 for the deviation this required.
 
 ## 3. Design decisions taken (from the requirements interview)
 
-| Topic | Decision | Rationale (user's) |
-| --- | --- | --- |
-| Shape of the news zone | A fixed hero carousel, nothing else | "hero-carousel ist das was ich mir unter news liste vorgestellt habe, kein zusätzliches modul" |
-| Featured tile row | None — the hero is the whole news zone | Everything below the hero belongs to the user |
-| News as a dashboard module | No | The news zone is fixed, not something to place |
-| Today's `HeroPanel` | Replaced entirely by the news hero | Identity of the active installation already lives in `ActionBar` and `InstallationRail` |
-| Content transport | `raw.githubusercontent` on `main` | No token, no rate limit, a commit publishes |
-| Repo layout | `news/`, `packs/`, `mods/`, `config_templates/`; v1 fills `news/` | Fixes the later content types now at almost no cost |
-| Content types in v1 | News only | Packs/mods need modules that do not exist |
-| Feed index | A hand-maintained `index.json` | Needed anyway, because it also carries visibility control |
-| `index.json` contents | Which entry, when it is visible, in which order (`order` number) | "ich möchte steuern können ab wann ein beitrag angezeigt wird und ab wann nicht mehr" |
-| `.md` contents | Template, content, buttons | Editorial control in one file, the text next to the entry |
-| Slide templates | Fixed, named renderers in the launcher; the `.md` fills template-defined fields | "die community die den content liefert braucht fixe vorlagen und keine design möglichkeiten" |
-| v1 template set | `split`, `banner`, `text` | Covers image-left/right, image-top and text-only |
-| Invalid/unknown template | Fall back to the `text` template | Content is never silently lost |
-| Buttons | Max 3, external links only, host allowlist in main | Covers v1 news completely without a target module |
-| Slide images | Fetched and cached by main, served over `q2launcher://` | CSP stays `'self'`, images work offline |
-| Fetch cadence | App start + manual refresh | Predictable, sparse |
-| Offline behaviour | Show the cached feed with an "as of …" note; a failure is quiet, never an error dialog | News are not important enough to shout about |
-| First start without cache | A built-in, offline-capable welcome slide (CSS/SVG), displaced by real news | Nicest first start |
-| Carousel behaviour | Auto-rotation with dots and a pause control; pause on hover/focus; no auto-rotation under `motion: reduced` | Close to the Blizzard reference without fighting the motion setting |
-| Ownership | A new `home` module owns hero, dashboard, catalog and layout; `AppShell` loses `HomeView` | Rule-conform: a feature is a module |
-| Dashboard layout model | Free grid with x/y/w/h and resize | Maximum freedom for the user's own screen |
-| Grid geometry | 12 columns × 40px rows | Fine resolution; thirds and quarters both work out |
-| Grid implementation | Hand-rolled on `@dnd-kit` | One dependency fewer than a grid library; keyboard path and design tokens stay under our control |
-| Narrow window | Columns shrink proportionally; below a threshold the grid stacks into one column without changing the stored layout | No data loss, no horizontal scrolling |
-| Editing | An explicit arrange mode (button toggles handles, resize grips and the catalog) | No accidental drags during normal use |
-| Adding a module | A catalog bar of not-yet-placed modules in arrange mode, dragged into the grid (keyboard: Enter places it at the first free spot) | One mechanism for adding and placing |
-| Keyboard operation | Space/Enter lifts, arrows move one cell, Shift+arrows resize, Enter drops, Esc cancels, with `aria-live` announcements | One state machine for pointer and keyboard |
-| Layouts | One layout, plus "reset to default" | Simplest persistence, no management UI |
-| Real v1 modules | Playtime & statistics, Config profiles | The data already exists |
-| Planned modules on the home screen | Not shown at all | Cleanest surface |
-| Prototype | 2–3 HTML variants differing in the hero ↔ dashboard composition | The question best decided by looking at it |
-| Composition (decided on the prototype, 2026-09-07) | **Variant A — a 320px hero over the dashboard**, i.e. the news zone takes about half the main area and the dashboard shows ~6 grid rows without scrolling | Picked from `docs/prototypes/home/`; B's dashboard gain was not worth what 176px does to the `split` and `banner` slides, and C's below-the-fold dashboard contradicts the vision's "the bottom is theirs" |
-| A fixed right-hand column (Blizzard-style friend list) | **Not now** — no third fixed zone; the hero keeps the full width next to the rail | Raised and set aside by the user on 2026-09-07 to be thought through separately; see open point 1 |
+| Topic                                                  | Decision                                                                                                                                                  | Rationale (user's)                                                                                                                                                                                         |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shape of the news zone                                 | A fixed hero carousel, nothing else                                                                                                                       | "hero-carousel ist das was ich mir unter news liste vorgestellt habe, kein zusätzliches modul"                                                                                                             |
+| Featured tile row                                      | None — the hero is the whole news zone                                                                                                                    | Everything below the hero belongs to the user                                                                                                                                                              |
+| News as a dashboard module                             | No                                                                                                                                                        | The news zone is fixed, not something to place                                                                                                                                                             |
+| Today's `HeroPanel`                                    | Replaced entirely by the news hero                                                                                                                        | Identity of the active installation already lives in `ActionBar` and `InstallationRail`                                                                                                                    |
+| Content transport                                      | `raw.githubusercontent` on `main`                                                                                                                         | No token, no rate limit, a commit publishes                                                                                                                                                                |
+| Repo layout                                            | `news/`, `packs/`, `mods/`, `config_templates/`; v1 fills `news/`                                                                                         | Fixes the later content types now at almost no cost                                                                                                                                                        |
+| Content types in v1                                    | News only                                                                                                                                                 | Packs/mods need modules that do not exist                                                                                                                                                                  |
+| Feed index                                             | A hand-maintained `index.json`                                                                                                                            | Needed anyway, because it also carries visibility control                                                                                                                                                  |
+| `index.json` contents                                  | Which entry, when it is visible, in which order (`order` number)                                                                                          | "ich möchte steuern können ab wann ein beitrag angezeigt wird und ab wann nicht mehr"                                                                                                                      |
+| `.md` contents                                         | Template, content, buttons                                                                                                                                | Editorial control in one file, the text next to the entry                                                                                                                                                  |
+| Slide templates                                        | Fixed, named renderers in the launcher; the `.md` fills template-defined fields                                                                           | "die community die den content liefert braucht fixe vorlagen und keine design möglichkeiten"                                                                                                               |
+| v1 template set                                        | `split`, `banner`, `text`                                                                                                                                 | Covers image-left/right, image-top and text-only                                                                                                                                                           |
+| Invalid/unknown template                               | Fall back to the `text` template                                                                                                                          | Content is never silently lost                                                                                                                                                                             |
+| Buttons                                                | Max 3, external links only, host allowlist in main                                                                                                        | Covers v1 news completely without a target module                                                                                                                                                          |
+| Slide images                                           | Fetched and cached by main, served over `q2launcher://`                                                                                                   | CSP stays `'self'`, images work offline                                                                                                                                                                    |
+| Fetch cadence                                          | App start + manual refresh                                                                                                                                | Predictable, sparse                                                                                                                                                                                        |
+| Offline behaviour                                      | Show the cached feed with an "as of …" note; a failure is quiet, never an error dialog                                                                    | News are not important enough to shout about                                                                                                                                                               |
+| First start without cache                              | A built-in, offline-capable welcome slide (CSS/SVG), displaced by real news                                                                               | Nicest first start                                                                                                                                                                                         |
+| Carousel behaviour                                     | Auto-rotation with dots and a pause control; pause on hover/focus; no auto-rotation under `motion: reduced`                                               | Close to the Blizzard reference without fighting the motion setting                                                                                                                                        |
+| Ownership                                              | A new `home` module owns hero, dashboard, catalog and layout; `AppShell` loses `HomeView`                                                                 | Rule-conform: a feature is a module                                                                                                                                                                        |
+| Dashboard layout model                                 | Free grid with x/y/w/h and resize                                                                                                                         | Maximum freedom for the user's own screen                                                                                                                                                                  |
+| Grid geometry                                          | 12 columns × 40px rows                                                                                                                                    | Fine resolution; thirds and quarters both work out                                                                                                                                                         |
+| Grid implementation                                    | Hand-rolled on `@dnd-kit`                                                                                                                                 | One dependency fewer than a grid library; keyboard path and design tokens stay under our control                                                                                                           |
+| Narrow window                                          | Columns shrink proportionally; below a threshold the grid stacks into one column without changing the stored layout                                       | No data loss, no horizontal scrolling                                                                                                                                                                      |
+| Editing                                                | An explicit arrange mode (button toggles handles, resize grips and the catalog)                                                                           | No accidental drags during normal use                                                                                                                                                                      |
+| Adding a module                                        | A catalog bar of not-yet-placed modules in arrange mode, dragged into the grid (keyboard: Enter places it at the first free spot)                         | One mechanism for adding and placing                                                                                                                                                                       |
+| Keyboard operation                                     | Space/Enter lifts, arrows move one cell, Shift+arrows resize, Enter drops, Esc cancels, with `aria-live` announcements                                    | One state machine for pointer and keyboard                                                                                                                                                                 |
+| Layouts                                                | One layout, plus "reset to default"                                                                                                                       | Simplest persistence, no management UI                                                                                                                                                                     |
+| Real v1 modules                                        | Playtime & statistics, Config profiles                                                                                                                    | The data already exists                                                                                                                                                                                    |
+| Planned modules on the home screen                     | Not shown at all                                                                                                                                          | Cleanest surface                                                                                                                                                                                           |
+| Prototype                                              | 2–3 HTML variants differing in the hero ↔ dashboard composition                                                                                           | The question best decided by looking at it                                                                                                                                                                 |
+| Composition (decided on the prototype, 2026-09-07)     | **Variant A — a 320px hero over the dashboard**, i.e. the news zone takes about half the main area and the dashboard shows ~6 grid rows without scrolling | Picked from `docs/prototypes/home/`; B's dashboard gain was not worth what 176px does to the `split` and `banner` slides, and C's below-the-fold dashboard contradicts the vision's "the bottom is theirs" |
+| A fixed right-hand column (Blizzard-style friend list) | **Not now** — no third fixed zone; the hero keeps the full width next to the rail                                                                         | Raised and set aside by the user on 2026-09-07 to be thought through separately; see open point 1                                                                                                          |
 
 ## 4. Tech decisions
 
-| Area | Choice | Rationale |
-| --- | --- | --- |
-| Grid / DnD | `@dnd-kit` (already a dependency, story 054) with a hand-written cell/collision/resize layer and a pure `layout.ts` | No new dependency; keyboard sensors and announcements come from the library, geometry and tokens stay ours |
-| HTTP | An HTTP client in the **main** process only (first network code in this repo) | Production CSP is `connect-src 'self'`; main-side fetch keeps it that way and matches "main owns effects" |
-| Feed format | JSON index + markdown entries with YAML-style frontmatter, validated with zod in main | The repo's validation convention; unvalidated foreign data never reaches the renderer |
-| Image delivery | Main-side download into userData, served over the existing `q2launcher://` privileged scheme | Story 035's scheme already exists and travels with the CSP |
-| Layout persistence | A new top-level key in `state.json` with its own zod schema and defensive parse (the `configProfiles` precedent) | `LauncherSettings` is a closed shape; a layout is module state, not a setting |
-| Prototype | Static HTML/CSS under `docs/prototypes/home/`, hand-copied token values, `index.html` picker + lettered variants | The convention already used by `docs/prototypes/{bindings,settings}` |
+| Area               | Choice                                                                                                              | Rationale                                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Grid / DnD         | `@dnd-kit` (already a dependency, story 054) with a hand-written cell/collision/resize layer and a pure `layout.ts` | No new dependency; keyboard sensors and announcements come from the library, geometry and tokens stay ours |
+| HTTP               | An HTTP client in the **main** process only (first network code in this repo)                                       | Production CSP is `connect-src 'self'`; main-side fetch keeps it that way and matches "main owns effects"  |
+| Feed format        | JSON index + markdown entries with YAML-style frontmatter, validated with zod in main                               | The repo's validation convention; unvalidated foreign data never reaches the renderer                      |
+| Image delivery     | Main-side download into userData, served over the existing `q2launcher://` privileged scheme                        | Story 035's scheme already exists and travels with the CSP                                                 |
+| Layout persistence | A new top-level key in `state.json` with its own zod schema and defensive parse (the `configProfiles` precedent)    | `LauncherSettings` is a closed shape; a layout is module state, not a setting                              |
+| Prototype          | Static HTML/CSS under `docs/prototypes/home/`, hand-copied token values, `index.html` picker + lettered variants    | The convention already used by `docs/prototypes/{bindings,settings}`                                       |
 
 ## 5. Core terms & model
 
@@ -203,7 +203,7 @@ The split is the point. The top is *ours* and always looks the same for everyone
 - **Template** — a named launcher-side renderer (`split`, `banner`, `text`) with a fixed field set.
 - **Dashboard** — the lower region: a free grid of modules.
 - **Dashboard module** — one tile with an id, a component, a data source and a min size. Distinct
-  from a *launcher module* (`config`, `library`, `home`) — a dashboard module lives inside `home`.
+  from a _launcher module_ (`config`, `library`, `home`) — a dashboard module lives inside `home`.
 - **Arrange mode** — the editing state of the dashboard.
 - **Catalog** — the list of dashboard modules not currently placed.
 - **Layout** — the persisted placement: one record per placed module with x, y, w, h.
@@ -258,13 +258,13 @@ each is visible, and **in which order** they appear.
   "schemaVersion": 1,
   "entries": [
     {
-      "id": "q2pro-1-2",            // stable, unique; identity across edits
+      "id": "q2pro-1-2", // stable, unique; identity across edits
       "file": "2026-09-07-q2pro-1-2.md",
-      "order": 10,                   // ascending; lower = earlier in the carousel
-      "visibleFrom": "2026-09-07",   // optional; inclusive
-      "visibleUntil": "2026-10-01"   // optional; exclusive
-    }
-  ]
+      "order": 10, // ascending; lower = earlier in the carousel
+      "visibleFrom": "2026-09-07", // optional; inclusive
+      "visibleUntil": "2026-10-01", // optional; exclusive
+    },
+  ],
 }
 ```
 
@@ -286,7 +286,7 @@ template: split
 title: Q2PRO 1.2 is out
 tag: RELEASE
 image: img/q2pro.png
-imageSide: left            # split only
+imageSide: left # split only
 buttons:
   - label: Changelog
     url: https://github.com/skullernet/q2pro/releases
@@ -307,11 +307,11 @@ Body text of the slide.
 
 ### 6.3 Templates in v1
 
-| Template | Fields | Shape |
-| --- | --- | --- |
-| `split` | `title`, `tag?`, `image`, `imageSide: left \| right`, `buttons?`, body | Image on one side, title/tag/text/buttons on the other |
-| `banner` | `title`, `tag?`, `image`, `buttons?`, body | Image across the top, text and buttons below |
-| `text` | `title`, `tag?`, `buttons?`, body | Typography only; also the fallback renderer |
+| Template | Fields                                                                 | Shape                                                  |
+| -------- | ---------------------------------------------------------------------- | ------------------------------------------------------ |
+| `split`  | `title`, `tag?`, `image`, `imageSide: left \| right`, `buttons?`, body | Image on one side, title/tag/text/buttons on the other |
+| `banner` | `title`, `tag?`, `image`, `buttons?`, body                             | Image across the top, text and buttons below           |
+| `text`   | `title`, `tag?`, `buttons?`, body                                      | Typography only; also the fallback renderer            |
 
 A new template is a change **in the launcher**, not in the content repo — the repo's README
 documents which template names the current launcher understands.
@@ -321,7 +321,7 @@ documents which template names the current launcher understands.
 - **Height: 320px**, about half of the main area at a 1280×820 window — decided on the prototype
   (§11, variant A). The hero spans the full width between the installation rail and the window
   edge; there is no column beside it.
-- **Rotation:** auto-advance on an interval *(placeholder: 8 s — not decided)*, dots for direct
+- **Rotation:** auto-advance on an interval _(placeholder: 8 s — not decided)_, dots for direct
   selection, previous/next, and an explicit pause control (the Blizzard reference's shape, and the
   four dead dots in today's `HeroPanel` finally get content).
 - **Pause** on pointer hover and on keyboard focus anywhere inside the hero; the pause control
@@ -344,8 +344,8 @@ documents which template names the current launcher understands.
 
 - **12 columns × 40px rows.** A module occupies `x`, `y` (cell coordinates) and `w`, `h` (cell
   spans). Gaps are allowed — the grid never compacts a layout by itself.
-- Columns **shrink proportionally** with the window. Below a threshold *(placeholder: 900px — not
-  decided)* the grid renders as a single column in layout order (row-major, top-left first). The
+- Columns **shrink proportionally** with the window. Below a threshold _(placeholder: 900px — not
+  decided)_ the grid renders as a single column in layout order (row-major, top-left first). The
   **stored layout is not modified** by this — widen the window and the layout is back.
 - Each module declares a **minimum size** in cells; a resize cannot go below it.
 - Collisions are refused rather than resolved: a move or resize that would overlap another module
@@ -372,23 +372,23 @@ documents which template names the current launcher understands.
 
 One state machine drives pointer and keyboard:
 
-| Key | Effect |
-| --- | --- |
-| `Space` / `Enter` on a tile's handle | Lift the tile |
-| Arrow keys (lifted) | Move one cell |
-| `Shift` + arrows (lifted) | Grow/shrink by one cell |
-| `Enter` (lifted) | Drop |
-| `Esc`, blur, `Tab` (lifted) | Cancel and restore the pre-lift placement |
+| Key                                  | Effect                                    |
+| ------------------------------------ | ----------------------------------------- |
+| `Space` / `Enter` on a tile's handle | Lift the tile                             |
+| Arrow keys (lifted)                  | Move one cell                             |
+| `Shift` + arrows (lifted)            | Grow/shrink by one cell                   |
+| `Enter` (lifted)                     | Drop                                      |
+| `Esc`, blur, `Tab` (lifted)          | Cancel and restore the pre-lift placement |
 
 Every lift, move, resize, drop and cancel is announced through an `aria-live` region, and a visible
 status line mirrors the announcement so pointer and keyboard users see the same feedback.
 
 ### 8.4 Modules in v1
 
-| Module | Data source | Content |
-| --- | --- | --- |
+| Module                | Data source                                         | Content                                                                      |
+| --------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Playtime & statistics | `library` module's `stats` handler (`LibraryStats`) | Installations by status and engine, favourites, total playtime, last session |
-| Config profiles | `config` module | Profiles with their sync and care state; opens the editor |
+| Config profiles       | `config` module                                     | Profiles with their sync and care state; opens the editor                    |
 
 Each tile carries a uniform frame with four explicit states — loading (skeleton), error (with
 retry), empty (a sentence plus an action) and filled — so a failing data source degrades in one
@@ -399,7 +399,7 @@ place instead of per module.
 Two of `CLAUDE.md`'s rules are touched by this concept. Both are resolved by decision, not by
 bending the rule quietly:
 
-1. **"Adding a feature is a module — never edit the shell."** The home screen *is* shell today
+1. **"Adding a feature is a module — never edit the shell."** The home screen _is_ shell today
    ([HomeView.tsx](../../src/renderer/src/views/HomeView.tsx), the route table in
    [AppShell.tsx](../../src/renderer/src/components/shell/AppShell.tsx), and
    [HeroPanel.tsx](../../src/renderer/src/components/shell/HeroPanel.tsx)). **Decision: a new
@@ -414,8 +414,8 @@ bending the rule quietly:
    decision.
 
 A third rule is untouched but worth stating: **"main sends i18n keys, never prose."** Feed text is
-*data*, not a UI string — it crosses IPC as content, exactly like a config file's text does today.
-Every label *around* the content (pause, next, "as of …", the welcome slide, arrange mode, the
+_data_, not a UI string — it crosses IPC as content, exactly like a config file's text does today.
+Every label _around_ the content (pause, next, "as of …", the welcome slide, arrange mode, the
 catalog, empty and error states) is an i18n key.
 
 ## 10. Integration with existing systems (architecture notes)

@@ -45,7 +45,7 @@ These are session settings of a demo playback only; a normal game launch is unch
   `win_notitle`/`win_alwaysontop`/`win_noresize` line is written although default-valued archived
   cvars (`win_noalttab "0"`) are; so the four `win_*` go as plain `+set` with nothing to restore.
 - **AC4 mechanism = restore after the session** (the User's fallback), because no non-archived path
-  exists for these two: they are archived engine-side, and 171/172 must set them *live*
+  exists for these two: they are archived engine-side, and 171/172 must set them _live_
   (`set vid_geometry`, `vid_fullscreen 1/0`), which Q2PRO archives the same as a `+set`.
 - **Restore is line-exact:** only the `vid_fullscreen`/`vid_geometry` lines of the playback game's
   engine-written `q2config.cfg` are put back to their pre-session text (or removed if absent before);
@@ -125,12 +125,12 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
 ## Deliverables
 
 - [x] **D1 — Stage contract and pure helpers.**
-  Files: `src/shared/modules/replays.ts`, `src/main/modules/replays/stage.ts` (new),
-  `src/main/modules/replays/stage.test.ts` (new).
+      Files: `src/shared/modules/replays.ts`, `src/main/modules/replays/stage.ts` (new),
+      `src/main/modules/replays/stage.test.ts` (new).
   - Add to `replaysDemoPlaySchema` (keep `.strict()`) an optional
     `stage: { x, y, width, height }`: integers in CSS px. `x`/`y` are ≥ 0 and `width`/`height` are
     1–16384, all zod-bounded. Add the same rect schema for a new `REPLAYS_HANDLERS.playbackStage =
-    'playback.stage'`, registered in the module's schema map next to `playback.timeline`. The
+'playback.stage'`, registered in the module's schema map next to `playback.timeline`. The
     `demo.play` success value gains
     `stage: { placed: true } | { placed: false; reason: { key: string } }`, or null when no rect was
     sent.
@@ -144,7 +144,7 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
       physical pixels. It computes the DIP rect `contentBounds.x + x*zoom` and so on, passes that
       through the injected `dipToScreen`, and rounds.
     - `stageLaunchArgs(geometry)` returns, in this order, `+set vid_fullscreen 0 +set win_noborder 1
-      +set win_notitle 1 +set win_alwaysontop 1 +set win_noresize 1 +set vid_geometry <g>`.
++set win_notitle 1 +set win_alwaysontop 1 +set win_noresize 1 +set vid_geometry <g>`.
       `normalWindowArgs()` returns `+set vid_fullscreen 0`.
   - Tests in `stage.test.ts`:
     - Wayland detected by either env var and ignored off Linux.
@@ -154,9 +154,9 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
     - Exact arg order.
     - The schema rejects a negative, fractional, zero-size or extra-key rect.
 - [x] **D2 — Main passes stage args to demo playbacks only.**
-  Files: `src/main/modules/replays/demo-play.ts`, `src/main/modules/replays/index.ts`,
-  `src/main/modules/replays/demo-play.test.ts`, `src/main/services/launch-plan.test.ts`.
-  Uses D1's `stage.ts` helpers and schema.
+      Files: `src/main/modules/replays/demo-play.ts`, `src/main/modules/replays/index.ts`,
+      `src/main/modules/replays/demo-play.test.ts`, `src/main/services/launch-plan.test.ts`.
+      Uses D1's `stage.ts` helpers and schema.
   - `createDemoPlay` gets two new deps. `stageAvailability` is bound in `index.ts` to
     `process.platform`/`process.env`. `toGeometry(cssRect) → string | null` is built in `index.ts`
     from the main window's `getContentBounds()`, `webContents.getZoomFactor()` and
@@ -178,8 +178,8 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
   - Test in `launch-plan.test.ts`: "a normal launch carries no stage cvar". `buildLaunchArgs` for a
     plain launch contains none of `vid_fullscreen`, `vid_geometry` or `win_`.
 - [x] **D3 — Archived stage cvars are restored after the session.**
-  Files: `src/main/modules/replays/session-cvar-restore.ts` (new), `session-cvar-restore.test.ts`
-  (new), `src/main/modules/replays/demo-play.ts`, `src/main/modules/replays/index.ts`.
+      Files: `src/main/modules/replays/session-cvar-restore.ts` (new), `session-cvar-restore.test.ts`
+      (new), `src/main/modules/replays/demo-play.ts`, `src/main/modules/replays/index.ts`.
   - `createCvarRestore({ names, fs, pendingPath })`. `names` is `['vid_fullscreen', 'vid_geometry']`
     for 170. 174 may append to this list.
   - `snapshot(configPath)` records, per name, the exact original line or "absent". It writes the
@@ -207,9 +207,9 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
     - A pending snapshot is applied at start and then deleted.
     - A normal launch takes no snapshot.
 - [x] **D4 — The Demos view has a stage mode.**
-  Files: `src/renderer/src/modules/replays/playback-store.ts`, `ReplaysView.tsx`,
-  `components/DemoStage.tsx` (new), `components/DemoStage.test.tsx` (new), `stage-fit.ts` (new, pure),
-  `stage-fit.test.ts` (new), `src/renderer/src/i18n/locales/en.json`.
+      Files: `src/renderer/src/modules/replays/playback-store.ts`, `ReplaysView.tsx`,
+      `components/DemoStage.tsx` (new), `components/DemoStage.test.tsx` (new), `stage-fit.ts` (new, pure),
+      `stage-fit.test.ts` (new), `src/renderer/src/i18n/locales/en.json`.
   - The store gains `stageArmed`, `armStage()`, `disarmStage()` and `stageRect` (the last measured
     CSS rect).
   - Stage mode is `stageArmed || session !== null`. In stage mode `ReplaysView` hides the filter
@@ -233,10 +233,10 @@ opens no window. Re-run `spikes/169-windowed-stage/harness.mjs`-style probing ag
     hiding list/detail while keeping them mounted, the label and reason coming from i18n keys, and
     `stageRect` being written. Mirror `DemoTimeline.test.tsx`.
 - [x] **D5 — Play launches onto the stage; flows.**
-  Files: `components/DemoPlayAction.tsx`, `components/DemoPlayAction.test.tsx`,
-  `src/renderer/src/modules/replays/client.ts`, `components/DemoStage.tsx`,
-  `scripts/flows/replays-stage.mjs` (new), `scripts/flows/replays-stage-unavailable.mjs` (new),
-  `scripts/flows/replays-play-q2pro.mjs`.
+      Files: `components/DemoPlayAction.tsx`, `components/DemoPlayAction.test.tsx`,
+      `src/renderer/src/modules/replays/client.ts`, `components/DemoStage.tsx`,
+      `scripts/flows/replays-stage.mjs` (new), `scripts/flows/replays-stage-unavailable.mjs` (new),
+      `scripts/flows/replays-play-q2pro.mjs`.
   - `DemoPlayAction`: after any mod-missing confirmation, call `armStage()`, wait one animation frame,
     read `stageRect`, then call `demo.play` with `stage`. On failure, call `disarmStage()` and show
     the error as today; the component stayed mounted, so its state survives. Put the result's
@@ -305,6 +305,7 @@ Commit message: `170: demo plays on the launcher's stage (stage args, line-exact
 Verification: narrow gate only — build, typecheck, `npx vitest run --changed HEAD` (1882 passed), flows `replays-stage`, `replays-stage-unavailable`, `replays-play-q2pro` green (`npm run ui:flow -- <name>`). Review: stage 1 (default) UNCLEAR, stage 2 (hard) FAIL, both fixed (2 cycles); no third re-review of the small cycle-2 fixes, each covered by a new test. AC → test: AC1 replays-stage + DemoStage.test + stage-fit.test; AC2 stage.test + demo-play.test + replays-stage; AC3 launch-plan.test + demo-play.test; AC4 session-cvar-restore.test; AC5 replays-stage-unavailable + stage.test + demo-play.test; AC6 DemoStage.test + stage.test — all passed. Manual residue: AC2 — real Q2PRO window client area on the stage, borderless/topmost, at 150 % scaling and on X11 (stub engine opens no window).
 
 Decisions (implementation):
+
 - Console field always reserves its reason line (`min-h-4`) so the stage box is identical before and after session start; DemoPlayAction waits up to 30 frames for a steady rect (skipped without ResizeObserver) and plays without `stage` if the rect is under 64 px.
 - `AppContext.getMainWindow` added so the replays module can reach the window for content bounds/zoom.
 - `snapshot()` never overwrites a still-pending snapshot (failed restore keeps the original lines).

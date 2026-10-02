@@ -113,7 +113,7 @@ function skipFixed(p: number, n: number, end: number): number {
 }
 
 function readInt32LE(bytes: Uint8Array, p: number): number {
-  return (bytes[p]! | (bytes[p + 1]! << 8) | (bytes[p + 2]! << 16) | (bytes[p + 3]! << 24)) | 0
+  return bytes[p]! | (bytes[p + 1]! << 8) | (bytes[p + 2]! << 16) | (bytes[p + 3]! << 24) | 0
 }
 
 function readUint16LE(bytes: Uint8Array, p: number): number {
@@ -155,7 +155,8 @@ export function createMvd2FrameCounter(): FrameCounter {
 
   function decodeBlock(bytes: Uint8Array, start: number, end: number): BlockOutcome {
     let p = start
-    if (protocol === null && (p >= end || (bytes[p]! & OP_MASK) !== MVD_SERVERDATA)) return 'not-a-demo'
+    if (protocol === null && (p >= end || (bytes[p]! & OP_MASK) !== MVD_SERVERDATA))
+      return 'not-a-demo'
     while (p < end) {
       const opcodeByte = bytes[p]!
       const op = opcodeByte & OP_MASK

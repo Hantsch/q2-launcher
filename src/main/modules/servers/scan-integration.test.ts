@@ -12,7 +12,11 @@ import {
   type ServersScanState,
   type ServersState,
 } from '@shared/modules/servers'
-import { buildInfoReplyBytes, buildStatusReplyBytes, formatInfoLine } from '@shared/servers/reply-fixtures'
+import {
+  buildInfoReplyBytes,
+  buildStatusReplyBytes,
+  formatInfoLine,
+} from '@shared/servers/reply-fixtures'
 import { IDLE_LAUNCH_STATE } from '@shared/types'
 import type { AppContext } from '../../context'
 import { createFeatureGate } from '../../features/gate'
@@ -37,8 +41,7 @@ import type { ScanServerResult } from './scan-runner'
  */
 
 const POPULATED_HOSTNAME = 'Populated Server'
-const POPULATED_INFO_LINE =
-  `\\gamename\\baseq2\\hostname\\${POPULATED_HOSTNAME}\\mapname\\q2dm1\\clients\\3\\maxclients\\8\\version\\3.20`
+const POPULATED_INFO_LINE = `\\gamename\\baseq2\\hostname\\${POPULATED_HOSTNAME}\\mapname\\q2dm1\\clients\\3\\maxclients\\8\\version\\3.20`
 const POPULATED_PLAYER_LINES = ['3 25 "PlayerOne"', '0 -1 "PlayerTwo"']
 
 const EMPTY_HOSTNAME = 'Empty Server'
@@ -101,7 +104,11 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       const kind = decodeQueryKind(message)
       populatedReceivedKinds.push(kind)
       if (kind === 'info') {
-        populated.socket.send(buildInfoReplyBytes(formatInfoLine(POPULATED_HOSTNAME, 'q2dm1', 3, 8)), rinfo.port, rinfo.address)
+        populated.socket.send(
+          buildInfoReplyBytes(formatInfoLine(POPULATED_HOSTNAME, 'q2dm1', 3, 8)),
+          rinfo.port,
+          rinfo.address,
+        )
       } else if (kind === 'status') {
         populated.socket.send(
           buildStatusReplyBytes(POPULATED_INFO_LINE, POPULATED_PLAYER_LINES),
@@ -117,7 +124,11 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       // Only ever answers `info` - stage 1 must find it empty and never ask it again, so it must
       // never see a `status` query at all (AC2). If it somehow did, it stays silent for it.
       if (kind === 'info') {
-        empty.socket.send(buildInfoReplyBytes(formatInfoLine(EMPTY_HOSTNAME, 'q2dm2', 0, 8)), rinfo.port, rinfo.address)
+        empty.socket.send(
+          buildInfoReplyBytes(formatInfoLine(EMPTY_HOSTNAME, 'q2dm2', 0, 8)),
+          rinfo.port,
+          rinfo.address,
+        )
       }
     })
 
@@ -249,7 +260,9 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       // The populated address was listed as both a favourite and a manual server; it must appear
       // exactly once in the final entries, and its responder must only ever have seen exactly one
       // `info` query (not two, one per origin).
-      const populatedEntries = snapshot.entries.filter((entry) => entry.address === populatedAddress)
+      const populatedEntries = snapshot.entries.filter(
+        (entry) => entry.address === populatedAddress,
+      )
       expect(populatedEntries).toHaveLength(1)
       expect(populatedReceivedKinds.filter((kind) => kind === 'info')).toHaveLength(1)
 

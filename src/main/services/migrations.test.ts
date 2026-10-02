@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { allCatalogRows, buildDemoRows } from '@shared/config/catalog-rows'
-import { STANDARD_TEMPLATE, TEMPLATE_ACTION_CATEGORIES, TEMPLATE_BOUND_CATALOG_IDS } from '@shared/modules/config'
+import {
+  STANDARD_TEMPLATE,
+  TEMPLATE_ACTION_CATEGORIES,
+  TEMPLATE_BOUND_CATALOG_IDS,
+} from '@shared/modules/config'
 // (STANDARD_TEMPLATE is also used by the story 059 D6 tests below, to assert the migration's
 // seeded cvarSections match the template's own full-catalogue seeding.)
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
@@ -48,7 +52,10 @@ describe('migrations (story 052 D6)', () => {
       commands: [{ kind: 'raw', text: 'save quick' }],
     }
 
-    const doc = { schemaVersion: 1, configProfiles: [profileWithActions([existingAction, freeformAction])] }
+    const doc = {
+      schemaVersion: 1,
+      configProfiles: [profileWithActions([existingAction, freeformAction])],
+    }
     const migrated = migrateCategories(doc)
     const profiles = migrated.configProfiles as Record<string, unknown>[]
     const profile = profiles[0]!
@@ -83,7 +90,9 @@ describe('migrations (story 052 D6)', () => {
     // the same real command `buildTemplateActions` gives them so `adoptRawBinds` can still recognise
     // a matching raw bind as this row.
     const appended = actions.slice(2)
-    expect(appended.map((a) => a.catalogId)).toEqual(rows.filter((r) => r.catalogId !== firstRow.catalogId).map((r) => r.catalogId))
+    expect(appended.map((a) => a.catalogId)).toEqual(
+      rows.filter((r) => r.catalogId !== firstRow.catalogId).map((r) => r.catalogId),
+    )
     for (const action of appended) {
       const catalogId = action.catalogId as string
       if (TEMPLATE_BOUND_CATALOG_IDS.has(catalogId)) {
@@ -122,57 +131,67 @@ describe('migrations (story 052 D6)', () => {
     // `buildTemplateActions` gives them, not `commands: []` - otherwise `adoptRawBinds` can never
     // recognise a pre-existing profile's matching raw bind as this row (see the end-to-end test
     // below). Every other row is genuinely unbound.
-    expect(actions.map((a) => a.catalogId)).toEqual(STANDARD_TEMPLATE.actions.map((a) => a.catalogId))
-    expect(actions.map((a) => a.categoryId)).toEqual(STANDARD_TEMPLATE.actions.map((a) => a.categoryId))
+    expect(actions.map((a) => a.catalogId)).toEqual(
+      STANDARD_TEMPLATE.actions.map((a) => a.catalogId),
+    )
+    expect(actions.map((a) => a.categoryId)).toEqual(
+      STANDARD_TEMPLATE.actions.map((a) => a.categoryId),
+    )
     expect(actions.map((a) => a.name)).toEqual(STANDARD_TEMPLATE.actions.map((a) => a.name))
     expect(actions.map((a) => a.kind)).toEqual(STANDARD_TEMPLATE.actions.map((a) => a.kind))
     expect(actions.map((a) => a.commands)).toEqual(STANDARD_TEMPLATE.actions.map((a) => a.commands))
     for (const action of actions) {
       expect(typeof action.id).toBe('string')
-      if (typeof action.catalogId === 'string' && TEMPLATE_BOUND_CATALOG_IDS.has(action.catalogId)) {
+      if (
+        typeof action.catalogId === 'string' &&
+        TEMPLATE_BOUND_CATALOG_IDS.has(action.catalogId)
+      ) {
         expect(action.commands).not.toEqual([])
       }
     }
   })
 
-  it('F1 (story 052 review): a migrated action for one of the six default-bound catalogIds ' +
-    'carries the real command, so a pre-existing profile whose raw binds match the template default ' +
-    'still gets its keys adopted after migration - not commands: [] and an unadopted raw bind', () => {
-    // A pre-existing profile that has never stored `actions`/`categories` at all (pre-story-008 or
-    // pre-052 shape), whose raw `binds` happen to match two of the template's own six default-bound
-    // catalogIds (forward/moveup), exactly the scenario the bug report describes.
-    const rawProfile = {
-      id: 'p1',
-      name: 'Pre-existing profile',
-      createdAt: '2024-01-01T00:00:00.000Z',
-      updatedAt: '2024-01-01T00:00:00.000Z',
-      cvars: {},
-      binds: { UPARROW: '+forward', SPACE: '+moveup' },
-      assignments: [],
-      actions: [],
-    }
+  it(
+    'F1 (story 052 review): a migrated action for one of the six default-bound catalogIds ' +
+      'carries the real command, so a pre-existing profile whose raw binds match the template default ' +
+      'still gets its keys adopted after migration - not commands: [] and an unadopted raw bind',
+    () => {
+      // A pre-existing profile that has never stored `actions`/`categories` at all (pre-story-008 or
+      // pre-052 shape), whose raw `binds` happen to match two of the template's own six default-bound
+      // catalogIds (forward/moveup), exactly the scenario the bug report describes.
+      const rawProfile = {
+        id: 'p1',
+        name: 'Pre-existing profile',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z',
+        cvars: {},
+        binds: { UPARROW: '+forward', SPACE: '+moveup' },
+        assignments: [],
+        actions: [],
+      }
 
-    const doc = { schemaVersion: 1, configProfiles: [rawProfile] }
-    const { doc: migratedDoc } = migrateStateDocument(doc)
+      const doc = { schemaVersion: 1, configProfiles: [rawProfile] }
+      const { doc: migratedDoc } = migrateStateDocument(doc)
 
-    // Run the exact pipeline `StateStore`/`state.ts` runs on load: parse + normalise, which chains
-    // `adoptRawBinds` after whatever the migration produced.
-    const profiles = parseConfigProfiles(migratedDoc['configProfiles'])
-    const profile = profiles[0]!
+      // Run the exact pipeline `StateStore`/`state.ts` runs on load: parse + normalise, which chains
+      // `adoptRawBinds` after whatever the migration produced.
+      const profiles = parseConfigProfiles(migratedDoc['configProfiles'])
+      const profile = profiles[0]!
 
-    const forwardAction = profile.actions?.find((a) => a.catalogId === 'movement:forward')
-    const moveupAction = profile.actions?.find((a) => a.catalogId === 'movement:moveup')
-    expect(forwardAction).toBeDefined()
-    expect(moveupAction).toBeDefined()
+      const forwardAction = profile.actions?.find((a) => a.catalogId === 'movement:forward')
+      const moveupAction = profile.actions?.find((a) => a.catalogId === 'movement:moveup')
+      expect(forwardAction).toBeDefined()
+      expect(moveupAction).toBeDefined()
 
-    // The bug: before the fix, the migration wrote `commands: []` for these rows, so
-    // `adoptRawBinds`'s signature check bailed and the raw bind was never adopted - the action came
-    // back with no keys at all despite the raw bind existing and working in-game.
-    expect(forwardAction?.commands).not.toEqual([])
-    expect(moveupAction?.commands).not.toEqual([])
-    expect(forwardAction?.keys?.some((slot) => slot.key === 'UPARROW')).toBe(true)
-    expect(moveupAction?.keys?.some((slot) => slot.key === 'SPACE')).toBe(true)
-  })
+      // The bug: before the fix, the migration wrote `commands: []` for these rows, so
+      // `adoptRawBinds`'s signature check bailed and the raw bind was never adopted - the action came
+      // back with no keys at all despite the raw bind existing and working in-game.
+      expect(forwardAction?.commands).not.toEqual([])
+      expect(moveupAction?.commands).not.toEqual([])
+      expect(forwardAction?.keys?.some((slot) => slot.key === 'UPARROW')).toBe(true)
+      expect(moveupAction?.keys?.some((slot) => slot.key === 'SPACE')).toBe(true)
+    },
+  )
 
   it('migrateStateDocument runs the step once for a v1 (or unversioned) document and is a no-op for an already-current one', () => {
     const doc = { configProfiles: [profileWithActions([])] }
@@ -233,7 +252,12 @@ describe('migrations (story 059 D6)', () => {
     const sections = profile.cvarSections as { id: string; name: string; cvars: string[] }[]
 
     // The four catalogue groups are always present, in `CVAR_GROUP_ORDER` order.
-    expect(sections.slice(0, 4).map((s) => s.id)).toEqual(['player', 'network', 'graphics', 'sound'])
+    expect(sections.slice(0, 4).map((s) => s.id)).toEqual([
+      'player',
+      'network',
+      'graphics',
+      'sound',
+    ])
 
     // Every section matches the template's own seeding exactly - the full catalogue's worth of
     // names per group, not narrowed to what the profile happens to customize.
@@ -275,11 +299,16 @@ describe('migrations (story 059 D6)', () => {
     expect(profile.dirty).toBe(true)
   })
 
-  it('seeds the full catalogue even when the profile customized none of it - matching a fresh template profile\'s shape exactly', () => {
+  it("seeds the full catalogue even when the profile customized none of it - matching a fresh template profile's shape exactly", () => {
     const doc = { schemaVersion: 2, configProfiles: [profileWithCvars({})] }
     const migrated = migrateCvarSections(doc)
     const profile = (migrated.configProfiles as Record<string, unknown>[])[0]!
-    const sections = profile.cvarSections as { id: string; name: string; nameKey?: string; cvars: string[] }[]
+    const sections = profile.cvarSections as {
+      id: string
+      name: string
+      nameKey?: string
+      cvars: string[]
+    }[]
 
     expect(sections).toEqual(STANDARD_TEMPLATE.cvarSections)
   })
@@ -305,7 +334,10 @@ describe('migrations (story 059 D6)', () => {
   })
 
   it('is idempotent: running the migration a second time on already-migrated data changes nothing', () => {
-    const doc = { schemaVersion: 2, configProfiles: [profileWithCvars({ sensitivity: '3', my_cvar: 'x' })] }
+    const doc = {
+      schemaVersion: 2,
+      configProfiles: [profileWithCvars({ sensitivity: '3', my_cvar: 'x' })],
+    }
     const once = migrateCvarSections(doc)
     const twice = migrateCvarSections(once)
 
@@ -333,8 +365,21 @@ describe('migrations (story 167 D3)', () => {
   function demoProfile(): Record<string, unknown> {
     return {
       ...profileWithActions([
-        { id: 'a-fwd', categoryId: 'movement', name: 'Forward', kind: 'bind', catalogId: 'movement:forward', commands: [{ kind: 'raw', text: '+forward' }] },
-        { id: 'a-free', categoryId: 'custom', name: 'Quicksave', kind: 'bind', commands: [{ kind: 'raw', text: 'save quick' }] },
+        {
+          id: 'a-fwd',
+          categoryId: 'movement',
+          name: 'Forward',
+          kind: 'bind',
+          catalogId: 'movement:forward',
+          commands: [{ kind: 'raw', text: '+forward' }],
+        },
+        {
+          id: 'a-free',
+          categoryId: 'custom',
+          name: 'Quicksave',
+          kind: 'bind',
+          commands: [{ kind: 'raw', text: 'save quick' }],
+        },
       ]),
       // The user deleted the movement category; only weapons and a custom one remain.
       categories: [
@@ -377,11 +422,20 @@ describe('migrations (story 167 D3)', () => {
     const rowKept = demoRows[0]!
     const raw = {
       ...profileWithActions([
-        { id: 'kept', categoryId: 'demo', name: 'Mine', kind: 'bind', catalogId: rowKept.catalogId, commands: [] },
+        {
+          id: 'kept',
+          categoryId: 'demo',
+          name: 'Mine',
+          kind: 'bind',
+          catalogId: rowKept.catalogId,
+          commands: [],
+        },
       ]),
       categories: [{ id: 'demo', name: 'Renamed demo' }],
     }
-    const out = (migrateDemo({ configProfiles: [raw] }).configProfiles as Record<string, unknown>[])[0]!
+    const out = (
+      migrateDemo({ configProfiles: [raw] }).configProfiles as Record<string, unknown>[]
+    )[0]!
     expect(out.categories).toEqual([{ id: 'demo', name: 'Renamed demo' }])
     const ids = (out.actions as Record<string, unknown>[]).map((a) => a.catalogId)
     expect(ids).toEqual(demoRows.map((r) => r.catalogId))
@@ -390,8 +444,12 @@ describe('migrations (story 167 D3)', () => {
 
   it('the demo migration writes no bind', () => {
     const before = demoProfile()
-    const profile = (migrateDemo({ configProfiles: [before] }).configProfiles as Record<string, unknown>[])[0]!
-    const demoActions = (profile.actions as Record<string, unknown>[]).filter((a) => a.categoryId === 'demo')
+    const profile = (
+      migrateDemo({ configProfiles: [before] }).configProfiles as Record<string, unknown>[]
+    )[0]!
+    const demoActions = (profile.actions as Record<string, unknown>[]).filter(
+      (a) => a.categoryId === 'demo',
+    )
     expect(demoActions.length).toBe(demoRows.length)
     for (const action of demoActions) {
       expect(action.commands).toEqual([])
@@ -422,7 +480,14 @@ describe('migrations (story 172 D2)', () => {
   it('the v5 migration adds the unbound back-to-window row once', () => {
     expect(STATE_SCHEMA_VERSION).toBeGreaterThanOrEqual(5)
     const before = v4Profile([
-      { id: 'p', categoryId: 'demo', name: 'Pause demo', kind: 'bind', catalogId: 'demo:demoPause', commands: [] },
+      {
+        id: 'p',
+        categoryId: 'demo',
+        name: 'Pause demo',
+        kind: 'bind',
+        catalogId: 'demo:demoPause',
+        commands: [],
+      },
     ])
     const once = run(before)
     const actions = once.actions as Record<string, unknown>[]
@@ -456,13 +521,43 @@ describe('migrations (story 172 D2)', () => {
       'if $timescale == 0.25 then timescale 0.5',
     ]
     const before = v4Profile([
-      { id: 'a', categoryId: 'demo', name: 'Pause demo', kind: 'bind', catalogId: 'demo:demoPause', commands: [raw('pause')] },
-      { id: 'b', categoryId: 'demo', name: 'Jump fwd', kind: 'bind', catalogId: 'demo:demoJumpForward', commands: [raw('seek +10')] },
-      { id: 'c', categoryId: 'demo', name: 'Jump back', kind: 'bind', catalogId: 'demo:demoJumpBack', commands: [raw('seek -30')] },
-      { id: 'd', categoryId: 'demo', name: 'Speed up', kind: 'bind', catalogId: 'demo:demoSpeedUp', commands: speedUp.map(raw) },
+      {
+        id: 'a',
+        categoryId: 'demo',
+        name: 'Pause demo',
+        kind: 'bind',
+        catalogId: 'demo:demoPause',
+        commands: [raw('pause')],
+      },
+      {
+        id: 'b',
+        categoryId: 'demo',
+        name: 'Jump fwd',
+        kind: 'bind',
+        catalogId: 'demo:demoJumpForward',
+        commands: [raw('seek +10')],
+      },
+      {
+        id: 'c',
+        categoryId: 'demo',
+        name: 'Jump back',
+        kind: 'bind',
+        catalogId: 'demo:demoJumpBack',
+        commands: [raw('seek -30')],
+      },
+      {
+        id: 'd',
+        categoryId: 'demo',
+        name: 'Speed up',
+        kind: 'bind',
+        catalogId: 'demo:demoSpeedUp',
+        commands: speedUp.map(raw),
+      },
     ])
     const out = run(before)
-    const byId = Object.fromEntries((out.actions as Record<string, unknown>[]).map((a) => [a.id as string, a]))
+    const byId = Object.fromEntries(
+      (out.actions as Record<string, unknown>[]).map((a) => [a.id as string, a]),
+    )
     expect(byId.a!.commands).toEqual([raw(GUARD + 'pause')])
     expect(byId.b!.commands).toEqual([raw(GUARD + 'seek +10')])
     expect(byId.c!.commands).toEqual([raw('seek -30')])
@@ -476,7 +571,14 @@ describe('migrations (story 172 D2)', () => {
 
   it('the v5 migration leaves a profile with nothing to change clean', () => {
     const before = v4Profile([
-      { id: 'c', categoryId: 'demo', name: 'Back', kind: 'bind', catalogId: 'demo:demoBackToWindow', commands: [] },
+      {
+        id: 'c',
+        categoryId: 'demo',
+        name: 'Back',
+        kind: 'bind',
+        catalogId: 'demo:demoBackToWindow',
+        commands: [],
+      },
     ])
     expect(run(before)).toEqual(before)
   })

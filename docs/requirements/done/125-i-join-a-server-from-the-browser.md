@@ -268,6 +268,7 @@ installation that has the server's mod.
 
     With no active installation, the button is disabled and shows `servers.join.noInstallation`
     as visible text. The password stays in component state only and is cleared on close.
+
   - `src/renderer/src/store/useLauncher.ts`: `play(installationId?, options?: { connect?: string; userinfo?: LaunchUserinfo })`
     spreads `options` into the `launch:start` payload. The existing call sites are unchanged.
   - In `ServersView.tsx`, render `<JoinServerButton>` for the selected row in the toolbar next to
@@ -383,11 +384,13 @@ to a one-shot `q2launcher-connect.cfg` (0600), `+exec`'d before `+connect`, and 
 failure, with a leftover sweep before every launch. A successful join records one history entry (113).
 
 **Commit message:**
+
 ```
 125: i join a server from the browser
 ```
 
 **Verification:**
+
 - Narrow gate (twice — once before, once after the review-fix cycle): `npm run build`, `npm run typecheck`,
   `npx vitest run --changed HEAD` (145 files / 2319 passed), `npm run ui:flow -- servers-join` — all green
   both times.
@@ -416,6 +419,7 @@ failure, with a leftover sweep before every launch. A successful join records on
     by asserting the cfg exists with password-bearing content before the removal wait.
 
 **Decisions:**
+
 - Fix-cycle tests keep the mocked-spawn/real-temp-dir style already used by `launch.test.ts`, per the
   hard review's own note that real fs timing (not mocked writeFile/rm) is the right choice for this
   timing-sensitive class of bug.

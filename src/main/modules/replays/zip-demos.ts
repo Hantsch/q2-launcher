@@ -6,8 +6,18 @@ import { createDm2FrameCounter } from '@shared/demos/dm2-frames'
 import { createMvd2FrameCounter } from '@shared/demos/mvd2-frames'
 import { demoReadability } from '@shared/demos/readability'
 import type { DemoUnreadable } from '@shared/demos/readability'
-import type { DemoFormat, DemoSource, DemoUnparsableReason, DiscoveredDemo } from '@shared/modules/replays'
-import { listZipEntries, readZipEntry, ZIP_ENTRY_MAX_BYTES, type ZipDeps } from '../../lib/zip-entries'
+import type {
+  DemoFormat,
+  DemoSource,
+  DemoUnparsableReason,
+  DiscoveredDemo,
+} from '@shared/modules/replays'
+import {
+  listZipEntries,
+  readZipEntry,
+  ZIP_ENTRY_MAX_BYTES,
+  type ZipDeps,
+} from '../../lib/zip-entries'
 import { recogniseDemoFile } from './discovery'
 
 /**
@@ -20,7 +30,10 @@ export type ExpandZipResult =
   | { rows: DiscoveredDemo[]; error: null }
   | {
       rows: []
-      error: { archivePath: string; code: 'extractor-missing' | 'archive-unreadable' | 'archive-too-large' }
+      error: {
+        archivePath: string
+        code: 'extractor-missing' | 'archive-unreadable' | 'archive-too-large'
+      }
     }
 
 const GZIP_MAGIC_0 = 0x1f
@@ -41,7 +54,10 @@ function baseName(entryPath: string): string {
  * behaviour as `demo-bytes.ts`'s `readGzipPrefix`) rather than becoming a hard failure - parsing
  * continues on that partial buffer. Never rejects.
  */
-function gunzipBounded(bytes: Uint8Array, maxBytes: number): Promise<{ bytes: Uint8Array; overCap: boolean }> {
+function gunzipBounded(
+  bytes: Uint8Array,
+  maxBytes: number,
+): Promise<{ bytes: Uint8Array; overCap: boolean }> {
   return new Promise((resolve) => {
     const chunks: Uint8Array[] = []
     let total = 0
@@ -143,12 +159,20 @@ export async function expandZip(
 
     const read = await readZipEntry(archivePath, entry.path, entry.size, deps)
     if (!read.ok) {
-      rows.push(unparsableRow({ reason: read.code === 'entry-too-large' ? 'entry-too-large' : 'unreadable' }))
+      rows.push(
+        unparsableRow({
+          reason: read.code === 'entry-too-large' ? 'entry-too-large' : 'unreadable',
+        }),
+      )
       continue
     }
 
     let finalBytes = read.bytes
-    if (finalBytes.length >= 2 && finalBytes[0] === GZIP_MAGIC_0 && finalBytes[1] === GZIP_MAGIC_1) {
+    if (
+      finalBytes.length >= 2 &&
+      finalBytes[0] === GZIP_MAGIC_0 &&
+      finalBytes[1] === GZIP_MAGIC_1
+    ) {
       const gunzipped = await gunzipBounded(finalBytes, ZIP_ENTRY_MAX_BYTES)
       if (gunzipped.overCap) {
         rows.push(unparsableRow({ reason: 'entry-too-large' }))
@@ -160,7 +184,9 @@ export async function expandZip(
     const header = parseDemoHeader(finalBytes)
     const readability = demoReadability(header)
     if (!header.ok) {
-      rows.push(unparsableRow(readability.unreadable ?? { reason: header.reason as DemoUnparsableReason }))
+      rows.push(
+        unparsableRow(readability.unreadable ?? { reason: header.reason as DemoUnparsableReason }),
+      )
       continue
     }
 

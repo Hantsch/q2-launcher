@@ -14,7 +14,9 @@ import type { AppContext } from '../context'
  * working service, per the story's own guidance.
  */
 
-const registered = vi.hoisted(() => new Map<string, (event: unknown, payload: unknown) => unknown>())
+const registered = vi.hoisted(
+  () => new Map<string, (event: unknown, payload: unknown) => unknown>(),
+)
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -171,7 +173,10 @@ describe('registerAllIpc', () => {
     registerAllIpc(fakeApp(false))
 
     const fn = registered.get('installations:setIcon')!
-    const result = await fn(fakeEvent, { installationId: 'id', icon: { kind: 'shipped', id: '../etc' } })
+    const result = await fn(fakeEvent, {
+      installationId: 'id',
+      icon: { kind: 'shipped', id: '../etc' },
+    })
     expect(result).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
   })
 
@@ -191,7 +196,10 @@ describe('registerAllIpc', () => {
     registerAllIpc(fakeApp(false))
 
     const fn = registered.get('installations:setIcon')!
-    const result = await fn(fakeEvent, { installationId: 'id', icon: { kind: 'shipped', id: 'ring' } })
+    const result = await fn(fakeEvent, {
+      installationId: 'id',
+      icon: { kind: 'shipped', id: 'ring' },
+    })
 
     expect(iconsMock.setShipped).toHaveBeenCalledWith('id', 'ring')
     expect(result).toEqual({ ok: true, value: 'shipped' })

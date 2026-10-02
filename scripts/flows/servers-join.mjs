@@ -98,7 +98,11 @@ function decodeQueryKind(message) {
 
 /** Binds one loopback responder with an explicit `gamename` (this flow's mismatch/no-mismatch
  * split is judged on that field, not a gametype flag - see file header). */
-async function bindResponder(hostname, playerLines, { gamename = 'baseq2', needpass = false } = {}) {
+async function bindResponder(
+  hostname,
+  playerLines,
+  { gamename = 'baseq2', needpass = false } = {},
+) {
   const socket = createSocket('udp4')
   await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
   const port = socket.address().port
@@ -244,11 +248,9 @@ async function readPhases(page) {
 }
 
 async function waitForPhase(page, phase, timeout) {
-  await page.waitForFunction(
-    (expected) => (window.__q2lPhases ?? []).includes(expected),
-    phase,
-    { timeout },
-  )
+  await page.waitForFunction((expected) => (window.__q2lPhases ?? []).includes(expected), phase, {
+    timeout,
+  })
 }
 
 /** Polls `logPath` until its contents contain `substring`, or throws once `timeoutMs` elapses -
@@ -369,9 +371,17 @@ export default async function serversJoin({ page, step, shot }) {
   await waitForPhase(page, 'running', LAUNCH_TIMEOUT_MS)
   await waitForPhase(page, 'exited', LAUNCH_TIMEOUT_MS)
 
-  const logAfterB = await waitForLogContains(logPath, `+connect ${serverB.address}`, LOG_POLL_TIMEOUT_MS)
+  const logAfterB = await waitForLogContains(
+    logPath,
+    `+connect ${serverB.address}`,
+    LOG_POLL_TIMEOUT_MS,
+  )
   const launchLineB = lastLaunchingLine(logAfterB)
-  if (!launchLineB || !launchLineB.includes('launching') || !launchLineB.includes(`+connect ${serverB.address}`)) {
+  if (
+    !launchLineB ||
+    !launchLineB.includes('launching') ||
+    !launchLineB.includes(`+connect ${serverB.address}`)
+  ) {
     throw new Error(
       `expected the newest "launching" line to contain "+connect ${serverB.address}", got ` +
         JSON.stringify(launchLineB),
@@ -399,7 +409,9 @@ export default async function serversJoin({ page, step, shot }) {
   await mismatchDialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const mismatchText = (await mismatchDialog.textContent()) ?? ''
   if (!mismatchText.includes('ctf') || !mismatchText.includes('baseq2')) {
-    throw new Error(`expected the mismatch dialog to name both "ctf" and "baseq2", got ${JSON.stringify(mismatchText)}`)
+    throw new Error(
+      `expected the mismatch dialog to name both "ctf" and "baseq2", got ${JSON.stringify(mismatchText)}`,
+    )
   }
   await shot('join-mismatch-dialog')
 
@@ -422,16 +434,22 @@ export default async function serversJoin({ page, step, shot }) {
 
   const logAfterCancel = readLog(logPath)
   if (countLaunchingLines(logAfterCancel) !== launchingCountAfterB) {
-    throw new Error('expected no new "launching" line in main.log after cancelling the password step (AC4)')
+    throw new Error(
+      'expected no new "launching" line in main.log after cancelling the password step (AC4)',
+    )
   }
   const historyAfterCancel = await readHistory(page)
   if (JSON.stringify(historyAfterCancel) !== JSON.stringify(historyAfterB)) {
-    throw new Error('expected history.read to be unchanged after cancelling the password step (AC4/AC5)')
+    throw new Error(
+      'expected history.read to be unchanged after cancelling the password step (AC4/AC5)',
+    )
   }
 
   // --- Step 3: join A for real, with a password - never in argv or main.log (AC6) ---
 
-  step('press Join on A again (still selected - clicking a selected row would deselect it), confirm the mismatch, and submit a password with a space in it')
+  step(
+    'press Join on A again (still selected - clicking a selected row would deselect it), confirm the mismatch, and submit a password with a space in it',
+  )
   await armPhaseListener(page)
   await listJoinButton(page).click({ timeout: TIMEOUT_MS })
   await mismatchDialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -455,10 +473,14 @@ export default async function serversJoin({ page, step, shot }) {
 
   // AC6's other half: the password went through the cfg, which was really on disk for the launch.
   if (!cfgWatch.seen.existed) {
-    throw new Error(`expected ${cfgPath} to exist while the password join was starting/running - it never appeared`)
+    throw new Error(
+      `expected ${cfgPath} to exist while the password join was starting/running - it never appeared`,
+    )
   }
   if (!cfgWatch.seen.mentionsPassword) {
-    throw new Error(`expected ${CONNECT_CFG_NAME} to set the join password, but its content never mentions "password"`)
+    throw new Error(
+      `expected ${CONNECT_CFG_NAME} to set the join password, but its content never mentions "password"`,
+    )
   }
 
   const expectedTail = `+exec ${CONNECT_CFG_NAME} +connect ${serverA.address}`

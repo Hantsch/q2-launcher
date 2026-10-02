@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Trash2 } from 'lucide-react'
 import type { LocalizedMessage, Outcome } from '@shared/types'
-import type { ExtraFoldersResult, ReplaysExtraFolder, ReplaysModWarning } from '@shared/modules/replays'
+import type {
+  ExtraFoldersResult,
+  ReplaysExtraFolder,
+  ReplaysModWarning,
+} from '@shared/modules/replays'
 import { invoke } from '../../lib/bridge'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Switch } from '../../components/ui/controls'

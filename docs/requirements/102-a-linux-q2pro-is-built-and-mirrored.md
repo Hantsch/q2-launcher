@@ -22,7 +22,7 @@ sandboxed Flatpak and Arch source builds; neither is an install tree this launch
 update, repair or roll back, because the whole `downloads` module assumes it owns the directory.
 Full evidence: [linux-support-analysis.md](../linux-support-analysis.md) §3 B1.
 
-Story 100 already landed everything on the *consuming* side: the manifest's `platforms` field,
+Story 100 already landed everything on the _consuming_ side: the manifest's `platforms` field,
 per-platform `pinned` resolution, and the `none-for-platform` bootstrap outcome that is currently
 what a Linux user sees. So this story adds no schema and no renderer work — it is a build job, a
 mirrored package, and a manifest row.
@@ -44,7 +44,7 @@ mirrored package, and a manifest row.
 ## Open Questions
 
 - [ ] **Q1 — Is a self-compiled engine acceptable provenance?** Every package pinned today is
-      *mirrored byte-for-byte from an upstream release*, and the provenance strings say exactly
+      _mirrored byte-for-byte from an upstream release_, and the provenance strings say exactly
       that. A binary this project compiled itself is a different trust claim. Either the
       provenance convention grows a "built by us, from upstream source `<sha>`" shape, or this
       story does not happen.

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type Mock = ReturnType<typeof vi.fn>
 let failLoad = false
-const created:Array<{ options: Record<string, unknown>; win: Record<string, Mock> }> = []
+const created: Array<{ options: Record<string, unknown>; win: Record<string, Mock> }> = []
 
 vi.mock('electron', () => {
   class BrowserWindow {

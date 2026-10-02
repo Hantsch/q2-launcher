@@ -284,9 +284,7 @@ export function ImportProfileDialog({
                     className="space-y-1 rounded-sm border border-line p-2.5 text-xs"
                     data-testid="config-import-restore-banner"
                   >
-                    <p className="font-medium text-ink">
-                      {t('config.importDialog.restore.title')}
-                    </p>
+                    <p className="font-medium text-ink">{t('config.importDialog.restore.title')}</p>
                     <p className="leading-relaxed text-ink-muted">
                       {sourceProfileName
                         ? t('config.importDialog.restore.bodyNamed', { name: sourceProfileName })
@@ -468,7 +466,10 @@ export function ImportProfileDialog({
                           <span className="numeric shrink-0 text-ink-muted">
                             {alias.file}:{alias.line}
                           </span>
-                          <div title={alias.name} className="min-w-0 overflow-hidden font-medium text-ink">
+                          <div
+                            title={alias.name}
+                            className="min-w-0 overflow-hidden font-medium text-ink"
+                          >
                             {alias.name}
                           </div>
                         </div>

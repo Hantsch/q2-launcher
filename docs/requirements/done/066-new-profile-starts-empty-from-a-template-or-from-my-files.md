@@ -274,7 +274,7 @@ flow ends on a created profile carrying the fixture's binds and aliases.
   › "preview and commit work with no installation selected" and › "preview and commit work on an
   empty installation list" (D5); e2e `scripts/flows/import-from-files.mjs` run against the `empty`
   fixture variant, which has no installation registered (D8, `npm run ui:flow -- import-from-files
-  empty`)
+empty`)
 - AC10 → unit `src/main/modules/config/import.test.ts` › "commit re-reads the picked files from
   disk" (D5) and › "preview writes nothing" (D5)
 - AC11 → e2e `npm run ui:verify` a11y + screenshot for `config-import-files` (0 violations, both
@@ -285,19 +285,19 @@ flow ends on a created profile carrying the fixture's binds and aliases.
 
 ### Coverage gate
 
-| AC | Deliverable | Test |
-| --- | --- | --- |
-| AC1 | D6, D8 | e2e flow + CreateProfileDialog unit |
-| AC2 | D3, D6 | profiles unit |
-| AC3 | D3, D6, D8 | profiles unit + e2e flow |
-| AC4 | D4, D5, D7, D8 | dialog unit + import unit + e2e screen (residue: the OS dialog itself) |
-| AC5 | D1, D7, D8 | reader unit + e2e flow |
-| AC6 | D1 | reader unit |
-| AC7 | D2 | fixture corpus unit |
-| AC8 | D1 | reader unit |
-| AC9 | D5, D8 | import unit + e2e flow on the `empty` variant |
-| AC10 | D5 | import unit |
-| AC11 | D7, D8 | e2e a11y / screenshot |
+| AC   | Deliverable    | Test                                                                   |
+| ---- | -------------- | ---------------------------------------------------------------------- |
+| AC1  | D6, D8         | e2e flow + CreateProfileDialog unit                                    |
+| AC2  | D3, D6         | profiles unit                                                          |
+| AC3  | D3, D6, D8     | profiles unit + e2e flow                                               |
+| AC4  | D4, D5, D7, D8 | dialog unit + import unit + e2e screen (residue: the OS dialog itself) |
+| AC5  | D1, D7, D8     | reader unit + e2e flow                                                 |
+| AC6  | D1             | reader unit                                                            |
+| AC7  | D2             | fixture corpus unit                                                    |
+| AC8  | D1             | reader unit                                                            |
+| AC9  | D5, D8         | import unit + e2e flow on the `empty` variant                          |
+| AC10 | D5             | import unit                                                            |
+| AC11 | D7, D8         | e2e a11y / screenshot                                                  |
 
 ## Done
 
@@ -317,11 +317,13 @@ a populated and an installation-less fixture) is the acceptance surface for ever
 criterion; only the native OS dialog window itself is manual residue (Playwright cannot drive it).
 
 **Commit message:**
+
 ```
 066: new profile starts empty, from a handed template, or from picked config files
 ```
 
 **Decisions** (own calls made while implementing, checked against the plan/AC afterward):
+
 - `ConfigProfile.seedFrom` typed as `Exclude<ConfigProfileSeed, 'empty'>` (only meaningful for the
   two template seeds; absent — not `undefined`-valued — for `empty` and for imported profiles).
 - `fileIds` payload cap: `MAX_IMPORT_FILE_IDS = 64` (no existing precedent for a picker-id-list
@@ -338,19 +340,20 @@ criterion; only the native OS dialog window itself is manual residue (Playwright
   dormant, once D7 confirmed nothing in main or renderer still referenced it.
 
 **Verification:**
+
 - `npm run build` — green.
 - `npm run typecheck` — green (both `tsconfig.node.json` and `tsconfig.web.json`).
 - `npm test` — 2755/2755 tests green (116 files), including every unit named in `## Acceptance
-  Tests` above (each confirmed present and passing, not just inferred from a green suite total).
+Tests` above (each confirmed present and passing, not just inferred from a green suite total).
 - `npm run ui:verify` — green: 64/64 screenshots written, 0 unreachable, 0 axe violations across
   all 32 screens including the new `config-import-files` screen (both 1280×800 and 940×620).
 - `npm run ui:flow -- import-from-files` (populated) and `npm run ui:flow -- import-from-files
-  empty` — both pass end to end (new profile → four start-from options → both templates create a
+empty` — both pass end to end (new profile → four start-from options → both templates create a
   profile and record `seedFrom` → Import from files → harness-stubbed pick → reorder → remove →
   create → created profile carries dm.cfg's binds and dmalias.cfg's aliases; the `empty` run
   proves AC9 with zero installations registered).
 - Acceptance-criteria → test mapping verified as listed in the (now corrected) `## Acceptance
-  Tests` section above; every test name there was checked to exist and pass, not paraphrased from
+Tests` section above; every test name there was checked to exist and pass, not paraphrased from
   the plan.
 - **Manual residue** (AC4): that the OS actually puts up a real native multi-select file dialog —
   Playwright cannot drive an OS-native dialog at all
@@ -364,6 +367,7 @@ criterion; only the native OS dialog window itself is manual residue (Playwright
 
 **Clean-agent review (`story-review-hard`, single pass):** verdict **PASS**, 4 findings, none
 blocking.
+
 - **F1 (fixed)** — the fourth "Start from" option's i18n label had been left as "Import from
   installation" (stale from before D7's rewrite), and D6's own unit test pinned that stale string
   rather than catching it. Fixed: `en.json`'s `sourceImport` → "Import from files"; the

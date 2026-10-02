@@ -134,7 +134,10 @@ export interface ColumnSpec {
  * An empty `rows` returns `[]`; nothing else about this function has profile, cvar or bind
  * knowledge — it operates purely on strings.
  */
-export function alignRows(rows: readonly (readonly string[])[], columns: readonly ColumnSpec[]): string[][] {
+export function alignRows(
+  rows: readonly (readonly string[])[],
+  columns: readonly ColumnSpec[],
+): string[][] {
   if (rows.length === 0) return []
 
   const columnWidths = columns.map((spec, index) => {

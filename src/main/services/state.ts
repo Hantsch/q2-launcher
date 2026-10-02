@@ -293,8 +293,7 @@ export class StateStore {
   setConfigWriteFailures(
     configWriteFailures: Record<string, { messageKey: string; at: string }>,
   ): Record<string, { messageKey: string; at: string }> {
-    return this.store.update((current) => ({ ...current, configWriteFailures }))
-      .configWriteFailures
+    return this.store.update((current) => ({ ...current, configWriteFailures })).configWriteFailures
   }
 
   setDownloadsSettings(downloads: DownloadsSettings): DownloadsSettings {

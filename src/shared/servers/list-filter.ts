@@ -131,7 +131,10 @@ function distinctSorted(values: (string | undefined)[]): string[] {
 
 /** The distinct `mod`/`map` values across `rows`, deduped case-insensitively (first spelling
  * encountered wins) and sorted with `localeCompare`, for populating filter dropdowns. */
-export function filterOptions(rows: readonly ServerListEntry[]): { mods: string[]; maps: string[] } {
+export function filterOptions(rows: readonly ServerListEntry[]): {
+  mods: string[]
+  maps: string[]
+} {
   return {
     mods: distinctSorted(rows.map((r) => r.mod)),
     maps: distinctSorted(rows.map((r) => r.map)),

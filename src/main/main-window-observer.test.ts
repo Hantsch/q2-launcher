@@ -1,8 +1,25 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createMainWindowEvents, type MainWindowEvent, type ObservedWindow } from './main-window-observer'
+import {
+  createMainWindowEvents,
+  type MainWindowEvent,
+  type ObservedWindow,
+} from './main-window-observer'
 
-function fakeWin(over: Partial<{ bounds: { x: number; y: number; width: number; height: number }; minimized: boolean; focused: boolean; destroyed: boolean }> = {}) {
-  const s = { bounds: { x: 1, y: 2, width: 300, height: 200 }, minimized: false, focused: false, destroyed: false, ...over }
+function fakeWin(
+  over: Partial<{
+    bounds: { x: number; y: number; width: number; height: number }
+    minimized: boolean
+    focused: boolean
+    destroyed: boolean
+  }> = {},
+) {
+  const s = {
+    bounds: { x: 1, y: 2, width: 300, height: 200 },
+    minimized: false,
+    focused: false,
+    destroyed: false,
+    ...over,
+  }
   const win: ObservedWindow = {
     isDestroyed: () => s.destroyed,
     getContentBounds: () => ({ ...s.bounds }),
@@ -15,7 +32,10 @@ function fakeWin(over: Partial<{ bounds: { x: number; y: number; width: number; 
 describe('main window observer', () => {
   it('has no snapshot without a live window', () => {
     let current: ObservedWindow | null = null
-    const { observer } = createMainWindowEvents({ getWindow: () => current, scaleFactorFor: () => 1 })
+    const { observer } = createMainWindowEvents({
+      getWindow: () => current,
+      scaleFactorFor: () => 1,
+    })
     expect(observer.snapshot()).toBeNull()
     const { s, win } = fakeWin({ destroyed: true })
     current = win
@@ -32,7 +52,11 @@ describe('main window observer', () => {
   it('forwards events to subscribers until they unsubscribe; a throwing one does not stop the rest', () => {
     const { win } = fakeWin()
     const onListenerError = vi.fn()
-    const { observer, notify } = createMainWindowEvents({ getWindow: () => win, scaleFactorFor: () => 1, onListenerError })
+    const { observer, notify } = createMainWindowEvents({
+      getWindow: () => win,
+      scaleFactorFor: () => 1,
+      onListenerError,
+    })
     const seen: MainWindowEvent[] = []
     observer.on(() => {
       throw new Error('boom')
@@ -47,7 +71,10 @@ describe('main window observer', () => {
 
   it('focus follows the focus/blur events once one arrived', () => {
     const { win } = fakeWin({ focused: false })
-    const { observer, notify } = createMainWindowEvents({ getWindow: () => win, scaleFactorFor: () => 1 })
+    const { observer, notify } = createMainWindowEvents({
+      getWindow: () => win,
+      scaleFactorFor: () => 1,
+    })
     expect(observer.snapshot()?.focused).toBe(false)
     notify('focus')
     expect(observer.snapshot()?.focused).toBe(true)

@@ -7,11 +7,11 @@ Settings mirrors the file's own cvar sections (every cvar in the profile has a r
 not), and the Raw file tab becomes an editor first — the code view gets the space, the admin
 around it shrinks to a toolbar, and a quick change can be typed straight into the file and saved.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 051 — The file header is a small banner | done | `051: file header is a small banner, not a technical block` |
-| 059 — Settings mirrors the file's own sections | done | `059: Settings mirrors the file's own cvar sections` |
-| 057 — Raw file is an editor first, and I can edit inline | done | `057: raw file tab is an editor first, with inline editing and a real save path` |
+| Story                                                    | Status | Commit                                                                           |
+| -------------------------------------------------------- | ------ | -------------------------------------------------------------------------------- |
+| 051 — The file header is a small banner                  | done   | `051: file header is a small banner, not a technical block`                      |
+| 059 — Settings mirrors the file's own sections           | done   | `059: Settings mirrors the file's own cvar sections`                             |
+| 057 — Raw file is an editor first, and I can edit inline | done   | `057: raw file tab is an editor first, with inline editing and a real save path` |
 
 All three stories built in the planned order (051 → 059 → 057) on `sprint/S12`, cut from `dev`.
 `npm run build` / `npm run typecheck` / `npm test` are green at the sprint's final commit (2458
@@ -65,14 +65,14 @@ planning and beyond:
   story's Done section; worth a sentence in the profile-file-format doc if a future story touches
   template rendering again.
 - **059 found a real IPC cap bug**: the cvar-name-list payload cap was 64 (meant for
-  section/sub-section *count*, not list *length*), which silently broke every Settings edit on a
+  section/sub-section _count_, not list _length_), which silently broke every Settings edit on a
   profile with more than 64 cvars — i.e. exactly the real-world imported profiles (`dm.cfg`) this
   story exists for. Fixed; worth checking other list-shaped IPC payloads for the same count/length
   mix-up.
 - **057 found and fixed a real conflict-guard bypass**: the raw-edit focus-resume file-refresh
   path could silently overwrite an in-progress raw draft, bypassing the same conflict dialog every
   other save path already goes through. Caught only in review round 2, after round 1 had already
-  passed a different fix — same lesson S08–S11 already established: verify the *previous* round's
+  passed a different fix — same lesson S08–S11 already established: verify the _previous_ round's
   fix through the real pipeline, don't trust a diff read.
 - **057 left one accepted residual limitation**: no confirm dialog when navigating away from an
   unsaved raw draft loses it (documented, not blocking); the `config-raw` axe-wait timing gap is

@@ -13,7 +13,7 @@ that same user alt-tabs back to the launcher and hits "refresh" out of habit, th
 it won't, instead of quietly doing it anyway or quietly doing nothing. This is the one rule in the
 whole scan story that is not a setting: "kein autoscan während das spiel läuft auf jeden fall"
 (game-browser.md §3), restated as a permanent non-goal (§2) and as GB-N5. It sits on top of
-[[114]]'s scheduler and [[115]]'s cadence settings — the cadence decides *when* a scan is due, this
+[[114]]'s scheduler and [[115]]'s cadence settings — the cadence decides _when_ a scan is due, this
 story decides that a due scan still does not run if a game is live, no matter what the cadence says.
 
 The launcher already knows whether a game is running — `LaunchService` tracks `LaunchState.phase`
@@ -50,7 +50,7 @@ carried into this story's Decisions below. -->
 ## Decisions (Sprint)
 
 - **D-A — The guard reads the scan scheduler directly, not `jobs:changed`.** [[115]]'s recorded
-  decision is that a scan is *not* a `Job`; the scheduler owns its own state and pushes a dedicated
+  decision is that a scan is _not_ a `Job`; the scheduler owns its own state and pushes a dedicated
   `module:event`, so the guard lives inside that scheduler and `JobsService` /
   `InstallationWriteGuard` are untouched by this story.
 - **D-B — The scheduler contract this story attaches to.** 116 assumes [[114]]/[[115]] give the
@@ -59,8 +59,8 @@ carried into this story's Decisions below. -->
   new constructor dependency (`launch`) and one new branch in each of those two paths — if [[114]]
   named them differently, the guard adapts to those names and nothing else.
 - **D-C — The block is launcher-wide, not per installation.** Unlike `InstallationWriteGuard` (which
-  blocks writes to *that* installation's files), the contention here is the network path and the
-  CPU, so *any* active session blocks *every* scan.
+  blocks writes to _that_ installation's files), the contention here is the network path and the
+  CPU, so _any_ active session blocks _every_ scan.
 - **D-D — `handed-off` does not block.** The launcher has no reliable knowledge of a
   Steam-handed-off process, so the guard uses exactly `LaunchService.isRunning()`'s predicate
   (`starting` / `running`) rather than inventing a wider one.
@@ -72,7 +72,7 @@ carried into this story's Decisions below. -->
   the user caused is not an exception.
 - **D-G — "Resume" means re-evaluating due-ness, not replaying the skipped round.** On unblock the
   scheduler clears the blocked reason and re-runs the normal cadence predicate ("has the interval
-  elapsed since the last *completed* scan?"); nothing about the skipped round is remembered, which
+  elapsed since the last _completed_ scan?"); nothing about the skipped round is remembered, which
   is how AC4 and AC1's "not queued" hold at the same time.
 - **D-H — The reason is visible text, and main stays authoritative.** The view shows a blocked
   banner and disables the refresh control with the reason rendered as text (CLAUDE.md's visible-text
@@ -140,60 +140,60 @@ Untouched by design: `JobsService`, `InstallationWriteGuard`, `LaunchService` (r
 ## Deliverables
 
 - [x] **D1 — Shared scan-guard contract.** `ScanBlockedReason`, the scan state's `blockedReason` field,
-  the `ScanStartResult` refusal union, and `stale` on the known-server entry.
-  Files: `src/shared/modules/servers.ts`, `src/shared/modules/servers.test.ts`.
-  Mirror: the `MasterSourcesResult` refusal union already in that file.
-  *Accepted when:* the types/schemas compile against [[114]]'s scan state and the schema test covers
-  the new fields.
+      the `ScanStartResult` refusal union, and `stale` on the known-server entry.
+      Files: `src/shared/modules/servers.ts`, `src/shared/modules/servers.test.ts`.
+      Mirror: the `MasterSourcesResult` refusal union already in that file.
+      _Accepted when:_ the types/schemas compile against [[114]]'s scan state and the schema test covers
+      the new fields.
 
 - [x] **D2 — The pure guard, folded into the cadence decision.** `isScanBlocked(state: LaunchState):
-  boolean` (exactly `starting`/`running`) in its own module, plus `gameRunning` as an input to
-  [[115]]'s pure `scan-cadence.ts` decision and `'game-running'` as one more skip reason there — one
-  decision function, not two (D-P).
-  Files: `src/main/modules/servers/scan-guard.ts` (new),
-  `src/main/modules/servers/scan-guard.test.ts` (new), `src/main/modules/servers/scan-cadence.ts`
-  (+ its existing `.test.ts`).
-  Mirror: `src/main/services/write-guard.ts` (`LaunchHost`, `isBlockedFor`).
-  *Accepted when:* the unit test covers every `LaunchPhase`, including `handed-off` → not blocked,
-  and the cadence decision returns `game-running` ahead of every other skip reason.
+boolean` (exactly `starting`/`running`) in its own module, plus `gameRunning` as an input to
+      [[115]]'s pure `scan-cadence.ts` decision and `'game-running'` as one more skip reason there — one
+      decision function, not two (D-P).
+      Files: `src/main/modules/servers/scan-guard.ts` (new),
+      `src/main/modules/servers/scan-guard.test.ts` (new), `src/main/modules/servers/scan-cadence.ts`
+      (+ its existing `.test.ts`).
+      Mirror: `src/main/services/write-guard.ts` (`LaunchHost`, `isBlockedFor`).
+      _Accepted when:_ the unit test covers every `LaunchPhase`, including `handed-off` → not blocked,
+      and the cadence decision returns `game-running` ahead of every other skip reason.
 
 - [x] **D3 — Scheduler wiring: skip, refuse, resume.** Inject `launch: LaunchHost` into [[114]]'s
-  scheduler and `src/main/context.ts`; an auto tick that is due-and-blocked skips the round without
-  queueing and publishes `blockedReason`; the manual entry point returns the refusal; a launch state
-  change out of an active phase clears the reason, pushes the new state and re-evaluates due-ness
-  (D-G).
-  Files: `src/main/modules/servers/scan-scheduler.ts`, `src/main/modules/servers/index.ts`,
-  `src/main/context.ts`, plus its test in `src/main/modules/servers/scan-scheduler.test.ts` (fake
-  timers + a stub `LaunchHost`).
-  *Accepted when:* the test proves skip-not-queue, manual refusal, and exactly one resumed scan
-  after unblock (never two).
+      scheduler and `src/main/context.ts`; an auto tick that is due-and-blocked skips the round without
+      queueing and publishes `blockedReason`; the manual entry point returns the refusal; a launch state
+      change out of an active phase clears the reason, pushes the new state and re-evaluates due-ness
+      (D-G).
+      Files: `src/main/modules/servers/scan-scheduler.ts`, `src/main/modules/servers/index.ts`,
+      `src/main/context.ts`, plus its test in `src/main/modules/servers/scan-scheduler.test.ts` (fake
+      timers + a stub `LaunchHost`).
+      _Accepted when:_ the test proves skip-not-queue, manual refusal, and exactly one resumed scan
+      after unblock (never two).
 
 - [x] **D4 — The stale merge rule.** A completed round merges results into the known-server map: no
-  reply → previous entry kept with `stale: true`; a reply → entry replaced with `stale: false`; a
-  skipped round changes nothing (D-J).
-  Files: `src/main/modules/servers/scan-merge.ts` (new), `src/main/modules/servers/scan-merge.test.ts`
-  (new), called from the scheduler.
-  *Accepted when:* the unit test shows a timed-out server keeps its player count and is neither
-  zeroed nor dropped.
+      reply → previous entry kept with `stale: true`; a reply → entry replaced with `stale: false`; a
+      skipped round changes nothing (D-J).
+      Files: `src/main/modules/servers/scan-merge.ts` (new), `src/main/modules/servers/scan-merge.test.ts`
+      (new), called from the scheduler.
+      _Accepted when:_ the unit test shows a timed-out server keeps its player count and is neither
+      zeroed nor dropped.
 
 - [x] **D5 — The visible reason and the stale row.** Blocked banner + refresh control disabled with the
-  reason as text, and a stale label on a stale row.
-  Files: `src/renderer/src/modules/servers/` (the view/store [[114]] builds — banner component + row
-  label), `src/renderer/src/i18n/locales/en.json` (`servers.scan.blocked.gameRunning`,
-  `servers.row.stale`), plus a renderer test next to the touched component.
-  Testids: `servers-scan-blocked`, `servers-refresh`, `servers-row-stale-<address>`.
-  Mirror: `JobRow.tsx`'s waiting-reason line (`downloads-job-waiting-<id>`).
-  *Accepted when:* the reason is real text in the DOM (not a `title`), and the refresh control is
-  disabled while blocked.
+      reason as text, and a stale label on a stale row.
+      Files: `src/renderer/src/modules/servers/` (the view/store [[114]] builds — banner component + row
+      label), `src/renderer/src/i18n/locales/en.json` (`servers.scan.blocked.gameRunning`,
+      `servers.row.stale`), plus a renderer test next to the touched component.
+      Testids: `servers-scan-blocked`, `servers-refresh`, `servers-row-stale-<address>`.
+      Mirror: `JobRow.tsx`'s waiting-reason line (`downloads-job-waiting-<id>`).
+      _Accepted when:_ the reason is real text in the DOM (not a `title`), and the refresh control is
+      disabled while blocked.
 
 - [x] **D6 — The offline e2e flow.** `scripts/flows/servers-no-scan-while-playing.mjs` plus the fixture
-  writer it needs (a servers `state.json` seed: one manual server on a dead loopback port, one
-  pre-seeded known-server entry with players, a short timeout and a short auto-refresh interval).
-  Files: `scripts/flows/servers-no-scan-while-playing.mjs` (new), `scripts/lib/fixture.mjs`.
-  Mirror: `scripts/flows/job-waits-for-running-game.mjs` (its `dev:simulateLaunch` helper and pass
-  ordering), `scripts/flows/servers-master-sources.mjs` (servers fixture/nav plumbing).
-  *Accepted when:* the flow passes offline via `npm run ui:flow -- servers-no-scan-while-playing`
-  and covers AC1–AC4 in one app session.
+      writer it needs (a servers `state.json` seed: one manual server on a dead loopback port, one
+      pre-seeded known-server entry with players, a short timeout and a short auto-refresh interval).
+      Files: `scripts/flows/servers-no-scan-while-playing.mjs` (new), `scripts/lib/fixture.mjs`.
+      Mirror: `scripts/flows/job-waits-for-running-game.mjs` (its `dev:simulateLaunch` helper and pass
+      ordering), `scripts/flows/servers-master-sources.mjs` (servers fixture/nav plumbing).
+      _Accepted when:_ the flow passes offline via `npm run ui:flow -- servers-no-scan-while-playing`
+      and covers AC1–AC4 in one app session.
 
 ## Model Hints
 
@@ -201,7 +201,7 @@ Untouched by design: `JobsService`, `InstallationWriteGuard`, `LaunchService` (r
   subscription and a "skip but do not queue, then resume exactly once" rule meeting in one object,
   wired into `context.ts` where a wrong subscription order silently disables the guard.
 - D1, D2, D4, D5, D6 → default.
-- Review: → `story-review-hard` — the value of this story is a *negative* behaviour (nothing runs, no
+- Review: → `story-review-hard` — the value of this story is a _negative_ behaviour (nothing runs, no
   queue survives), which a green suite can mask if the guard is wired into only one of the two entry
   points; that is exactly the class of gap a cheap review misses.
 
@@ -241,12 +241,12 @@ No manual residue.
 
 ### Coverage gate
 
-| AC | Deliverable | Test |
-| --- | --- | --- |
-| AC1 | D1, D3, D5 | e2e flow + `scan-scheduler.test.ts` |
-| AC2 | D1, D3, D5 | e2e flow + `scan-scheduler.test.ts` |
-| AC3 | D1, D4, D5 | `scan-merge.test.ts` + e2e flow |
-| AC4 | D2, D3, D5 | e2e flow + `scan-scheduler.test.ts` |
+| AC  | Deliverable | Test                                |
+| --- | ----------- | ----------------------------------- |
+| AC1 | D1, D3, D5  | e2e flow + `scan-scheduler.test.ts` |
+| AC2 | D1, D3, D5  | e2e flow + `scan-scheduler.test.ts` |
+| AC3 | D1, D4, D5  | `scan-merge.test.ts` + e2e flow     |
+| AC4 | D2, D3, D5  | e2e flow + `scan-scheduler.test.ts` |
 
 ## Done
 
@@ -263,11 +263,13 @@ one app session against real loopback UDP sockets, no internet (D6). All 6 deliv
 order with a fresh agent each; D3 ran on `deliverable-hard` per `## Model Hints`.
 
 **Commit message:**
+
 ```
 116: no scan runs while the game does
 ```
 
 **Verification — narrow gate (no `--full`):**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `test-story` (`npx vitest run --changed HEAD`) — 90/91 files green, 1478/1479 tests green. The
@@ -285,9 +287,10 @@ order with a fresh agent each; D3 ran on `deliverable-hard` per `## Model Hints`
 to the real test names — several deliverable agents phrased them slightly differently than the
 plan predicted, and the plan's own `scan-scheduler.test.ts` file name never existed; the real files
 are `scan-cadence.test.ts`/`scan-service.test.ts`):
+
 - AC1 — e2e PASS + `scan-cadence.test.ts`'s two named unit tests PASS + the ordering proof PASS.
 - AC2 — e2e PASS (both the disabled-button half and the real `module:invoke` refusal-value half)
-  + `scan-service.test.ts`'s two named unit tests PASS.
+  - `scan-service.test.ts`'s two named unit tests PASS.
 - AC3 — `scan-merge.test.ts`'s three named unit tests PASS + e2e PASS (stale testid in the DOM,
   full player roster confirmed unzeroed via a direct `scan.read` invoke — after the review fix
   below, the roster count is now also visible in the DOM row itself, not just provable via IPC).
@@ -298,6 +301,7 @@ are `scan-cadence.test.ts`/`scan-service.test.ts`):
 **Review outcome (clean agent, `story-review-hard` tier per `## Model Hints`):** first-pass verdict
 PASS, with 4 findings (none blocking the verdict). One review-fix cycle (of the 3 allowed) fixed
 the two actionable ones; the other two are documented below as deliberately left as-is:
+
 - **Fixed — D5 DOM gap.** `ServersView.tsx`'s row only showed a player count when `entry.players`
   was a bare `number` (the stage-1-only shape); a server that had answered a real `status` reply
   (the roster-array shape `mergeSuccessfulReply` produces once stage 2 lands) showed no player data
@@ -314,12 +318,13 @@ the two actionable ones; the other two are documented below as deliberately left
   pre-existing flake, confirmed unrelated again), e2e flow re-run green against a fresh build.
 
 **Decisions (review findings deliberately left unfixed, with reasons):**
+
 - **A scan already in flight when a game session starts is not aborted (PLAUSIBLE, not
   CONFIRMED).** It keeps sweeping in the background until it finishes on its own, showing
   "Scanning…" next to the blocked banner for that window. No AC or `## Decisions` entry in this
-  story asks for an in-flight abort — D-A/D-C scope the guard to skip/refuse *new* scan attempts,
+  story asks for an in-flight abort — D-A/D-C scope the guard to skip/refuse _new_ scan attempts,
   and the Requirement's "never compete… in the background" is satisfied for every scan that comes
-  due *after* the session starts, which is the whole surface this story's ACs describe. Aborting a
+  due _after_ the session starts, which is the whole surface this story's ACs describe. Aborting a
   scan that was already running when the game started would be a new decision this story never
   made and a new failure mode (a half-merged round) this story never designed for; left as a named
   follow-up candidate rather than invented under review-fix time pressure.

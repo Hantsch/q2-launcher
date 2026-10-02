@@ -167,7 +167,10 @@ interface ResolveOneImageOptions {
 /** Resolves one slide's declared `image` to a cached file name, or `undefined` - see the module
  * comment for the four outcomes. Never throws: every `fetchImage()` result kind is handled, and a
  * fetch that would fail is reported through `log`, not by rejecting. */
-async function resolveOneImage(image: string, options: ResolveOneImageOptions): Promise<string | undefined> {
+async function resolveOneImage(
+  image: string,
+  options: ResolveOneImageOptions,
+): Promise<string | undefined> {
   const sourceUrl = imageSourceUrl(image, options.base)
 
   const cached = await findCachedFileName(sourceUrl, options.cacheDir, options.fileExists)

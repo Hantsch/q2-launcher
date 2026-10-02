@@ -100,7 +100,7 @@ None open.
 Public shape (what [[129]]/[[132]] build on):
 
 - main: `app.features.isFeatureUnlocked(name): boolean` and `app.features.unlockedFeatures():
-  FeatureName[]` on `AppContext`. Modules gate a handler with
+FeatureName[]` on `AppContext`. Modules gate a handler with
   `handle(type, schema, handler, { feature: 'watchlist' })`.
 - IPC: `features:getUnlocked` (void → `FeatureName[]`).
 - renderer: `useFeatureUnlocked(name): boolean` plus `<FeatureGate feature="…">children</FeatureGate>`,
@@ -126,7 +126,7 @@ file mentions `watchlist` except as an example in a doc comment. The shell views
 - [x] **D1 — main-side gate + gated module handlers.** Files:
   - new `src/shared/features.ts`: `export type FeatureName = string`, with a doc comment.
   - new `src/main/features/gate.ts`: `interface FeatureGate { isFeatureUnlocked(name): boolean;
-    unlockedFeatures(): FeatureName[] }`.
+unlockedFeatures(): FeatureName[] }`.
     - `createFeatureGate(names: Iterable<FeatureName>)` copies the names into a private `Set`
       at construction. There is no mutator.
     - `LOCKED_FEATURE_GATE` is an empty gate.
@@ -140,7 +140,7 @@ file mentions `watchlist` except as an example in a doc comment. The shell views
     `options?: { feature?: FeatureName }`, with a doc comment that a locked feature's handler is
     never registered.
   - `src/main/modules/registry.ts`: the constructor takes `features: FeatureGate =
-    LOCKED_FEATURE_GATE`. Inside `setup.handle`, if `options?.feature` is set and
+LOCKED_FEATURE_GATE`. Inside `setup.handle`, if `options?.feature` is set and
     `!features.isFeatureUnlocked(options.feature)`, do not store the handler and log at debug
     level only. `invoke()` is unchanged, so the answer equals an unknown type's.
   - `src/main/modules/registry.test.ts`: add cases. Mirror the existing `fakeAppContext()` style.

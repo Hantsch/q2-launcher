@@ -131,7 +131,7 @@ describe('analyzeTidyUp - duplicate alias names', () => {
     ])
   })
 
-  it("names the keys a colliding side is bound to, and whether anything calls it", () => {
+  it('names the keys a colliding side is bound to, and whether anything calls it', () => {
     const [weapon, ammo] = dropEntries()
     const bound = { ...weapon!, keys: [{ key: 'q' }] }
     const rows = ofKind(
@@ -147,7 +147,9 @@ describe('analyzeTidyUp - duplicate alias names', () => {
       'duplicateAlias',
     )
 
-    expect(rows[0]!.duplicates?.map((entry) => [entry.actionId, entry.keys, entry.referenced])).toEqual([
+    expect(
+      rows[0]!.duplicates?.map((entry) => [entry.actionId, entry.keys, entry.referenced]),
+    ).toEqual([
       ['d1', ['q'], true],
       ['d2', [], true],
     ])
@@ -247,9 +249,7 @@ describe('analyzeTidyUp - shadowed binds', () => {
       commands: [{ kind: 'raw', text: '+forward' }],
     })
     const second = action({ ...first, id: 'a2', name: 'Forward again' })
-    const result = analyzeTidyUp(
-      profile({ actions: [first, second], binds: { w: '+forward' } }),
-    )
+    const result = analyzeTidyUp(profile({ actions: [first, second], binds: { w: '+forward' } }))
 
     const [finding] = ofKind(result, 'shadowedBind')
     expect(finding!.mode).toBe('report')
@@ -468,10 +468,9 @@ describe('analyzeTidyUp - the auto set', () => {
       }),
     )
 
-    expect(result.filter((finding) => finding.mode === 'auto').map((finding) => finding.kind)).toEqual([
-      'shadowedBind',
-      'emptyLayer',
-    ])
+    expect(
+      result.filter((finding) => finding.mode === 'auto').map((finding) => finding.kind),
+    ).toEqual(['shadowedBind', 'emptyLayer'])
     // Every automatic row carries a fix; an `auto` row with no op would be a
     // button that does nothing.
     for (const finding of result) {

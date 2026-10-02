@@ -63,7 +63,8 @@ export interface AutoTriggerInput {
 
 export type AutoTriggerSkipReason = 'game-running' | 'disabled' | 'scanning' | 'spacing'
 
-export type AutoTriggerDecision = { trigger: true } | { trigger: false; reason: AutoTriggerSkipReason }
+export type AutoTriggerDecision =
+  { trigger: true } | { trigger: false; reason: AutoTriggerSkipReason }
 
 /**
  * The automatic-trigger gate. Order of the checks only affects which `reason` is reported; any
@@ -91,7 +92,8 @@ export function decideAutoTrigger(input: AutoTriggerInput): AutoTriggerDecision 
 
   if (lastScanAt !== null) {
     const elapsed = now - Date.parse(lastScanAt)
-    if (elapsed >= 0 && elapsed < settings.minSpacingMs) return { trigger: false, reason: 'spacing' }
+    if (elapsed >= 0 && elapsed < settings.minSpacingMs)
+      return { trigger: false, reason: 'spacing' }
   }
 
   return { trigger: true }
@@ -102,7 +104,10 @@ export function decideAutoTrigger(input: AutoTriggerInput): AutoTriggerDecision 
  * `autoRefreshIntervalMs` while the view is active and auto-refresh is on, otherwise `null` (no
  * timer).
  */
-export function autoRefreshDelayMs(settings: ServersScanSettings, viewActive: boolean): number | null {
+export function autoRefreshDelayMs(
+  settings: ServersScanSettings,
+  viewActive: boolean,
+): number | null {
   if (!viewActive || !settings.autoRefreshEnabled) return null
   return settings.autoRefreshIntervalMs
 }
@@ -150,7 +155,11 @@ export interface ScanCadence {
  * for the same reason `decideAutoTrigger`'s spacing gate lets them through. Only the *extra* resume
  * path asks this; whether the scan may actually start is still `decideAutoTrigger`'s call (D-P).
  */
-function isRefreshOverdue(settings: ServersScanSettings, now: number, lastScanAt: string | null): boolean {
+function isRefreshOverdue(
+  settings: ServersScanSettings,
+  now: number,
+  lastScanAt: string | null,
+): boolean {
   if (lastScanAt === null) return true
   const elapsed = now - Date.parse(lastScanAt)
   return !(elapsed >= 0 && elapsed < settings.autoRefreshIntervalMs)

@@ -1,5 +1,15 @@
 import { existsSync } from 'node:fs'
-import { chmod, mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -1207,7 +1217,10 @@ describe('startBootstrap', () => {
       contents: {
         ...FIXTURE_CONTENTS,
         [R1Q2_ENGINE_PACKAGE.id]: ['r1q2.exe', 'ref_r1gl.dll', 'dedicated.exe'],
-        [POINT_RELEASE_PACKAGE.id]: [...FIXTURE_CONTENTS[POINT_RELEASE_PACKAGE.id]!, 'baseq2/gamex86.dll'],
+        [POINT_RELEASE_PACKAGE.id]: [
+          ...FIXTURE_CONTENTS[POINT_RELEASE_PACKAGE.id]!,
+          'baseq2/gamex86.dll',
+        ],
       },
     })
     const markPlayable = vi.spyOn(box.jobs, 'markPlayable')
@@ -1260,7 +1273,10 @@ describe('startBootstrap', () => {
     if (!started.ok) return
 
     const job = (): Job => box.jobs.list().find((entry) => entry.id === started.value.jobId)!
-    await waitFor(() => job().status === 'waiting', 'the assemble pass to wait for the game to exit')
+    await waitFor(
+      () => job().status === 'waiting',
+      'the assemble pass to wait for the game to exit',
+    )
 
     // AC4: every package downloaded and extracted to completion despite the guard reporting the
     // installation busy the entire time.
@@ -2020,7 +2036,9 @@ describe('startBootstrap diagnostics', () => {
     })
     // AC1: and the same fact said per package, which is what the card renders - every one of them
     // downloaded, none of them contributed.
-    expect(record?.packages.map((pkg) => [pkg.id, pkg.verified, pkg.extracted, pkg.contributed])).toEqual([
+    expect(
+      record?.packages.map((pkg) => [pkg.id, pkg.verified, pkg.extracted, pkg.contributed]),
+    ).toEqual([
       [ENGINE_PACKAGE.id, true, true, false],
       [DEMO_PACKAGE.id, true, true, false],
       [POINT_RELEASE_PACKAGE.id, true, true, false],
@@ -2085,7 +2103,10 @@ describe('startBootstrap diagnostics', () => {
   it("each package records its extraction's top-level entries, capped and sorted", async () => {
     // The point release gets more top-level entries than the cap allows, so both halves of AC8 are
     // exercised in one run: the ordinary packages' full listings and the capped one's flag.
-    const extras = Array.from({ length: 25 }, (_, index) => `extra-${String(index).padStart(2, '0')}.txt`)
+    const extras = Array.from(
+      { length: 25 },
+      (_, index) => `extra-${String(index).padStart(2, '0')}.txt`,
+    )
     const box = harness({
       contents: {
         ...FIXTURE_CONTENTS,
@@ -2597,7 +2618,9 @@ describe('startBootstrap from an existing folder (story 089 D3)', () => {
       'pak0.pak',
       'pak1.pak',
     ])
-    expect(box.installations.list().map((entry) => entry.id)).toEqual([started.value.installationId])
+    expect(box.installations.list().map((entry) => entry.id)).toEqual([
+      started.value.installationId,
+    ])
     expect(box.installations.find(started.value.installationId)?.lastFailure?.errorKey).toBe(
       'downloads.error.diskWrite',
     )

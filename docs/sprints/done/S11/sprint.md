@@ -9,7 +9,7 @@ milestone: Config, round three
 
 ## Goal
 
-Controls becomes an editor of *my* config rather than a catalogue with my config laid over it: the
+Controls becomes an editor of _my_ config rather than a catalogue with my config laid over it: the
 categories and sub-categories on screen are the ones my file has (the built-in three become a
 template that only seeds a new profile), every row and category can be renamed, moved and deleted,
 extra keys group under the primary row instead of filling a Secondary column, and a `drop_` alias
@@ -26,7 +26,7 @@ is a drop wherever it lives — with two icon toggles instead of two checkboxes.
 
 ## Notes
 
-**Order.** 052 changes what a category *is* (persisted, ordered, no built-in special case) and what
+**Order.** 052 changes what a category _is_ (persisted, ordered, no built-in special case) and what
 an unbound row leaves in the file; 053 adds the second level on top of that model; 056 reshapes the
 grid columns (Primary/Secondary → one Key column plus sub-rows) and lands before story 054's drag
 and drop in S13 so DnD is built once against the final row structure; 055 is independent of the

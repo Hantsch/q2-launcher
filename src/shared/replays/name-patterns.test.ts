@@ -47,7 +47,10 @@ describe('parseDemoName', () => {
     expect(result).toEqual({
       status: 'matched',
       patternId: 'aq2tng-mvd2',
-      facts: { date: { year: 2026, month: 9, day: 26, hour: 21, minute: 30, second: 0 }, map: 'urban' },
+      facts: {
+        date: { year: 2026, month: 9, day: 26, hour: 21, minute: 30, second: 0 },
+        map: 'urban',
+      },
     })
   })
 

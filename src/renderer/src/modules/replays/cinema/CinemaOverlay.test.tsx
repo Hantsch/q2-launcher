@@ -59,7 +59,17 @@ describe('CinemaOverlay (story 187 D7)', () => {
     fireEvent.click(screen.getByTestId('cinema-forward60'))
     fireEvent.change(screen.getByTestId('cinema-speed'), { target: { value: '2' } })
     const seek = screen.getByTestId('cinema-seek')
-    seek.getBoundingClientRect = () => ({ left: 0, width: 200, top: 0, height: 20, right: 200, bottom: 20, x: 0, y: 0, toJSON: () => ({}) })
+    seek.getBoundingClientRect = () => ({
+      left: 0,
+      width: 200,
+      top: 0,
+      height: 20,
+      right: 200,
+      bottom: 20,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    })
     fireEvent.click(seek, { clientX: 100 })
     expect(sent()).toEqual([
       { kind: 'fullscreen' },

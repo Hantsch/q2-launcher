@@ -5,7 +5,7 @@ import {
   serializeSidecar,
   sidecarFieldsSchema,
   sidecarFileName,
-  sidecarFileSchema
+  sidecarFileSchema,
 } from './sidecar'
 
 const fullFields = {
@@ -18,7 +18,7 @@ const fullFields = {
   tags: ['final', 'ctf'],
   favourite: true,
   rating: 8,
-  date: '2026-01-02T03:04:05Z'
+  date: '2026-01-02T03:04:05Z',
 }
 
 describe("the sidecar schema accepts exactly the story's fields", () => {
@@ -52,9 +52,7 @@ describe("the sidecar schema accepts exactly the story's fields", () => {
   })
 
   it('rejects date: "not-a-date" (non-ISO)', () => {
-    expect(sidecarFieldsSchema.safeParse({ ...fullFields, date: 'not-a-date' }).success).toBe(
-      false
-    )
+    expect(sidecarFieldsSchema.safeParse({ ...fullFields, date: 'not-a-date' }).success).toBe(false)
   })
 
   it('rejects a side object with team set but no players key at all', () => {
@@ -71,36 +69,33 @@ describe("the sidecar schema accepts exactly the story's fields", () => {
 describe('normalisation keeps only what the user set', () => {
   it('trims strings and drops fields that become empty', () => {
     expect(normalizeSidecarFields({ name: '  Foo  ', description: '   ' })).toEqual({
-      name: 'Foo'
+      name: 'Foo',
     })
   })
 
   it('trims tags, drops empties, and de-duplicates case-insensitively keeping first spelling', () => {
     expect(normalizeSidecarFields({ tags: ['Foo', ' foo ', 'bar', '  '] })).toEqual({
-      tags: ['Foo', 'bar']
+      tags: ['Foo', 'bar'],
     })
   })
 
   it('trims player names and drops empties', () => {
     expect(
       normalizeSidecarFields({
-        sides: [{ team: 'red', players: [' alice ', '', 'bob'] }]
-      })
+        sides: [{ team: 'red', players: [' alice ', '', 'bob'] }],
+      }),
     ).toEqual({
-      sides: [{ team: 'red', players: ['alice', 'bob'] }]
+      sides: [{ team: 'red', players: ['alice', 'bob'] }],
     })
   })
 
   it('drops a side with no team, no result and empty players', () => {
     expect(
       normalizeSidecarFields({
-        sides: [
-          { players: ['  ', ''] },
-          { team: 'red', players: [] }
-        ]
-      })
+        sides: [{ players: ['  ', ''] }, { team: 'red', players: [] }],
+      }),
     ).toEqual({
-      sides: [{ team: 'red', players: [] }]
+      sides: [{ team: 'red', players: [] }],
     })
   })
 
@@ -130,7 +125,7 @@ describe('serialisation is pretty-printed in a fixed key order', () => {
       gamemode: 'ctf',
       mod: 'ctf',
       description: 'A close one.',
-      name: 'Grand final'
+      name: 'Grand final',
     }
 
     const expected =

@@ -249,7 +249,10 @@ describe('ActionBar', () => {
       ['job → install', {}, [{}], 'busy'],
       ['write lock → writing', {}, [{ writeLock: true, progress: { ratio: 0.99 } }], 'busy'],
     ])('installation states win over a contribution: %s', async (_name, inst, jobs, kind) => {
-      seed(inst, jobs.map((j) => makeJob(j)))
+      seed(
+        inst,
+        jobs.map((j) => makeJob(j)),
+      )
       const run = contribute()
       render(createElement(ActionBar))
       const button = await screen.findByTestId('actionbar-play')
@@ -322,7 +325,10 @@ describe('ActionBar', () => {
         ['running', {}, [], 'Running', true],
       ]
       for (const [name, inst, jobs, label, running] of cases) {
-        seed(inst, jobs.map((j) => makeJob(j)))
+        seed(
+          inst,
+          jobs.map((j) => makeJob(j)),
+        )
         if (running) {
           useLauncher.setState({ launch: { phase: 'running', installationId: 'inst-1', pid: 1 } })
         }

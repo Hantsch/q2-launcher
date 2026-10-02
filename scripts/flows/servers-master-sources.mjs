@@ -59,8 +59,11 @@ const TYPE_LABEL = { 'udp-master': 'UDP master', 'http-list': 'HTTP list' }
  */
 function readShippedDefaultSources() {
   const text = readFileSync(join(REPO_ROOT, 'src', 'shared', 'modules', 'servers.ts'), 'utf8')
-  const block = /export const DEFAULT_MASTER_SOURCES: MasterSource\[\] = \[([\s\S]*?)\r?\n\]/.exec(text)
-  if (!block) throw new Error('could not find DEFAULT_MASTER_SOURCES in src/shared/modules/servers.ts')
+  const block = /export const DEFAULT_MASTER_SOURCES: MasterSource\[\] = \[([\s\S]*?)\r?\n\]/.exec(
+    text,
+  )
+  if (!block)
+    throw new Error('could not find DEFAULT_MASTER_SOURCES in src/shared/modules/servers.ts')
   const sources = [...block[1].matchAll(/\{([^{}]*)\}/g)].map(([, body]) => {
     const field = (key) => new RegExp(`\\b${key}:\\s*'([^']*)'`).exec(body)?.[1]
     const source = {
@@ -109,7 +112,9 @@ function rowLocator(page, id) {
  * list itself both track. */
 async function rowIds(page) {
   return rowsLocator(page).evaluateAll((elements) =>
-    elements.map((element) => element.getAttribute('data-testid').replace('servers-source-row-', '')),
+    elements.map((element) =>
+      element.getAttribute('data-testid').replace('servers-source-row-', ''),
+    ),
   )
 }
 
@@ -119,16 +124,19 @@ async function readRow(page, id) {
   const address = await paragraphs.nth(0).innerText()
   const type = await paragraphs.nth(1).innerText()
   const enabled =
-    (await row.getByTestId('servers-source-toggle').getByRole('switch').getAttribute('aria-checked')) ===
-    'true'
+    (await row
+      .getByTestId('servers-source-toggle')
+      .getByRole('switch')
+      .getAttribute('aria-checked')) === 'true'
   return { address, type, enabled }
 }
 
 async function waitForRowCount(page, count) {
   await page.waitForFunction(
     (expected) =>
-      document.querySelectorAll('[data-testid="servers-sources-list"] [data-testid^="servers-source-row-"]')
-        .length === expected,
+      document.querySelectorAll(
+        '[data-testid="servers-sources-list"] [data-testid^="servers-source-row-"]',
+      ).length === expected,
     count,
     { timeout: TIMEOUT_MS },
   )
@@ -215,8 +223,12 @@ export default async function serversMasterSources({ page, shot, step, variant }
 
   /** Adds `ADDED_ADDRESS` through the form and returns the new row's id. */
   async function addSource(expectedCount) {
-    await page.getByTestId('servers-source-add-type').selectOption('http-list', { timeout: TIMEOUT_MS })
-    await page.getByTestId('servers-source-add-address').fill(ADDED_ADDRESS, { timeout: TIMEOUT_MS })
+    await page
+      .getByTestId('servers-source-add-type')
+      .selectOption('http-list', { timeout: TIMEOUT_MS })
+    await page
+      .getByTestId('servers-source-add-address')
+      .fill(ADDED_ADDRESS, { timeout: TIMEOUT_MS })
     await page.getByTestId('servers-source-add-submit').click({ timeout: TIMEOUT_MS })
     await waitForRowCount(page, expectedCount)
     const row = rowsLocator(page).filter({ hasText: ADDED_ADDRESS })
@@ -260,12 +272,16 @@ export default async function serversMasterSources({ page, shot, step, variant }
 
   // --- toggle -------------------------------------------------------------------------------------
   const toggleId = DEFAULT_IDS[0]
-  const toggleSwitch = rowLocator(page, toggleId).getByTestId('servers-source-toggle').getByRole('switch')
+  const toggleSwitch = rowLocator(page, toggleId)
+    .getByTestId('servers-source-toggle')
+    .getByRole('switch')
   await toggleSwitch.click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
     (id) =>
       document
-        .querySelector(`[data-testid="servers-source-row-${id}"] [data-testid="servers-source-toggle"] [role="switch"]`)
+        .querySelector(
+          `[data-testid="servers-source-row-${id}"] [data-testid="servers-source-toggle"] [role="switch"]`,
+        )
         ?.getAttribute('aria-checked') === 'false',
     toggleId,
     { timeout: TIMEOUT_MS },
@@ -275,7 +291,9 @@ export default async function serversMasterSources({ page, shot, step, variant }
   await page.waitForFunction(
     (id) =>
       document
-        .querySelector(`[data-testid="servers-source-row-${id}"] [data-testid="servers-source-toggle"] [role="switch"]`)
+        .querySelector(
+          `[data-testid="servers-source-row-${id}"] [data-testid="servers-source-toggle"] [role="switch"]`,
+        )
         ?.getAttribute('aria-checked') === 'true',
     toggleId,
     { timeout: TIMEOUT_MS },
@@ -302,8 +320,12 @@ export default async function serversMasterSources({ page, shot, step, variant }
   }
 
   step('an invalid address is refused with a visible reason (AC4)')
-  await page.getByTestId('servers-source-add-type').selectOption('http-list', { timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-source-add-address').fill(INVALID_ADDRESS, { timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-source-add-type')
+    .selectOption('http-list', { timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-source-add-address')
+    .fill(INVALID_ADDRESS, { timeout: TIMEOUT_MS })
   await page.getByTestId('servers-source-add-submit').click({ timeout: TIMEOUT_MS })
   const errorText = page.getByTestId('servers-source-error')
   await errorText.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -329,9 +351,13 @@ export default async function serversMasterSources({ page, shot, step, variant }
   const onDiskAfterEdits = JSON.parse(readFileSync(join(userDataDir, 'state.json'), 'utf8'))
   const persistedSources = onDiskAfterEdits.servers?.sources
   if (!Array.isArray(persistedSources) || persistedSources.length !== reorderedIds.length) {
-    throw new Error(`expected state.json's servers.sources to hold the edited list, got: ${JSON.stringify(persistedSources)}`)
+    throw new Error(
+      `expected state.json's servers.sources to hold the edited list, got: ${JSON.stringify(persistedSources)}`,
+    )
   }
-  if (JSON.stringify(persistedSources.map((source) => source.id)) !== JSON.stringify(reorderedIds)) {
+  if (
+    JSON.stringify(persistedSources.map((source) => source.id)) !== JSON.stringify(reorderedIds)
+  ) {
     throw new Error(
       `state.json's servers.sources order does not match the edited list: ${JSON.stringify(persistedSources)}`,
     )
@@ -357,7 +383,11 @@ export default async function serversMasterSources({ page, shot, step, variant }
       for (const id of reorderedIds) {
         const expected = expectedById.get(id)
         const actual = await readRow(secondPage, id)
-        if (actual.address !== expected.address || actual.type !== TYPE_LABEL[expected.type] || !actual.enabled) {
+        if (
+          actual.address !== expected.address ||
+          actual.type !== TYPE_LABEL[expected.type] ||
+          !actual.enabled
+        ) {
           throw new Error(
             `after restart, ${id}: expected ${expected.address} / ${TYPE_LABEL[expected.type]} / enabled, ` +
               `got ${JSON.stringify(actual)}`,
@@ -365,16 +395,26 @@ export default async function serversMasterSources({ page, shot, step, variant }
         }
       }
       await secondPage.screenshot({
-        path: join(REPO_ROOT, '.ui-verify', 'screenshots', 'flows', 'servers-master-sources-restarted.png'),
+        path: join(
+          REPO_ROOT,
+          '.ui-verify',
+          'screenshots',
+          'flows',
+          'servers-master-sources-restarted.png',
+        ),
       })
     },
   )
 
-  step('remove the added source so a second run without a reseed still starts from the shipped defaults')
+  step(
+    'remove the added source so a second run without a reseed still starts from the shipped defaults',
+  )
   await removeSource(addedId)
   await waitForRowOrder(page, DEFAULT_IDS)
   const finalIds = await rowIds(page)
   if (JSON.stringify(finalIds) !== JSON.stringify(DEFAULT_IDS)) {
-    throw new Error(`revert left the list as ${JSON.stringify(finalIds)}, expected the shipped default order`)
+    throw new Error(
+      `revert left the list as ${JSON.stringify(finalIds)}, expected the shipped default order`,
+    )
   }
 }

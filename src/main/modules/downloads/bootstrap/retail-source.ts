@@ -14,7 +14,11 @@ import {
   pathKey,
   resolveRelaxed,
 } from '../../../lib/fs-utils'
-import { assembleInstallation, type AssembleInstallationResult, type AssembleSource } from './assemble'
+import {
+  assembleInstallation,
+  type AssembleInstallationResult,
+  type AssembleSource,
+} from './assemble'
 
 /**
  * Story 088 D1: fact-gathering pass over a candidate "I already own retail Quake II" source folder
@@ -32,7 +36,10 @@ const RETAIL_PAK_NAMES = ['pak0.pak', 'pak1.pak', 'pak2.pak'] as const
 
 const MISSING_PAK: RetailPakInfo = { exists: false, sizeBytes: null, matchesRetailSize: false }
 
-async function inspectPak(baseq2Path: string, name: (typeof RETAIL_PAK_NAMES)[number]): Promise<RetailPakInfo> {
+async function inspectPak(
+  baseq2Path: string,
+  name: (typeof RETAIL_PAK_NAMES)[number],
+): Promise<RetailPakInfo> {
   const actualPath = await findChild(baseq2Path, name)
   if (!actualPath) return MISSING_PAK
 

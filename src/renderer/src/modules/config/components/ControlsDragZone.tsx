@@ -84,7 +84,9 @@ export function categoryDragId(categoryId: string): string {
 
 function categoryIdFromDragId(id: UniqueIdentifier): string | undefined {
   const value = String(id)
-  return value.startsWith(CATEGORY_DRAG_PREFIX) ? value.slice(CATEGORY_DRAG_PREFIX.length) : undefined
+  return value.startsWith(CATEGORY_DRAG_PREFIX)
+    ? value.slice(CATEGORY_DRAG_PREFIX.length)
+    : undefined
 }
 
 /**

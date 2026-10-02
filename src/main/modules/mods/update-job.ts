@@ -93,7 +93,9 @@ export interface ModUpdateJobsHost extends Omit<ModInstallJobsHost, 'setWaiting'
 }
 
 /** 190's install deps, minus the decision prompt, plus the job list for the busy check. */
-export type ModUpdateDeps = Omit<ModInstallDeps, 'jobs' | 'askDecision'> & { jobs: ModUpdateJobsHost }
+export type ModUpdateDeps = Omit<ModInstallDeps, 'jobs' | 'askDecision'> & {
+  jobs: ModUpdateJobsHost
+}
 
 export interface ModUpdateRequest {
   installationId: string
@@ -116,7 +118,13 @@ export interface ModUpdatePreview {
 }
 
 export type ModUpdateOutcome =
-  | { status: 'succeeded'; gameDir: string; version: string; files: ModInstallFile[]; kept: string[] }
+  | {
+      status: 'succeeded'
+      gameDir: string
+      version: string
+      files: ModInstallFile[]
+      kept: string[]
+    }
   | { status: 'failed'; key: string }
   | { status: 'cancelled' }
 
@@ -148,7 +156,10 @@ function slotKey(jobId: string): string {
 function isInsideDir(child: string, parent: string): boolean {
   const childKey = pathKey(child)
   const parentKey = pathKey(parent)
-  return childKey === parentKey || childKey.startsWith(parentKey.endsWith(sep) ? parentKey : parentKey + sep)
+  return (
+    childKey === parentKey ||
+    childKey.startsWith(parentKey.endsWith(sep) ? parentKey : parentKey + sep)
+  )
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -162,12 +173,20 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-async function resolveUpdate(deps: ModUpdateDeps, request: ModUpdateRequest): Promise<Outcome<Resolved>> {
+async function resolveUpdate(
+  deps: ModUpdateDeps,
+  request: ModUpdateRequest,
+): Promise<Outcome<Resolved>> {
   const installation = deps.installations.find(request.installationId)
   if (!installation) return fail(INSTALLATION_NOT_FOUND)
-  const record = readModsState(installation.moduleData).records.find((r) => r.catalogId === request.catalogId)
+  const record = readModsState(installation.moduleData).records.find(
+    (r) => r.catalogId === request.catalogId,
+  )
   if (!record) return fail(NO_RECORD)
-  if (!isSafeGameDirName(record.gameDir) || !record.files.every((f) => isSafeRecordedPath(f.path))) {
+  if (
+    !isSafeGameDirName(record.gameDir) ||
+    !record.files.every((f) => isSafeRecordedPath(f.path))
+  ) {
     return fail(UNSAFE_PATH)
   }
   const snapshot = await deps.catalog.getCatalog()
@@ -176,7 +195,8 @@ async function resolveUpdate(deps: ModUpdateDeps, request: ModUpdateRequest): Pr
   if (!entry) return fail(UNKNOWN_MOD)
   const versionEntry = entry.versions.find((v) => v.version === entry.pinned)
   // The update replaces files inside the recorded folder; a catalog that moved the mod elsewhere is not one.
-  if (!versionEntry || entry.gamedir.toLowerCase() !== record.gameDir.toLowerCase()) return fail(UNKNOWN_MOD)
+  if (!versionEntry || entry.gamedir.toLowerCase() !== record.gameDir.toLowerCase())
+    return fail(UNKNOWN_MOD)
   if (!computeModUpdateStatus(record, entry).updateAvailable) return fail(UP_TO_DATE)
   return ok({ installation, record, entry, versionEntry })
 }
@@ -187,7 +207,13 @@ function isBusy(deps: ModUpdateDeps, installationId: string): boolean {
     inFlight.has(installationId) ||
     deps.jobs
       .list()
-      .some((j) => j.moduleId === 'mods' && BUSY_KINDS.has(j.kind) && j.installationId === installationId && isJobActive(j))
+      .some(
+        (j) =>
+          j.moduleId === 'mods' &&
+          BUSY_KINDS.has(j.kind) &&
+          j.installationId === installationId &&
+          isJobActive(j),
+      )
   )
 }
 
@@ -197,7 +223,10 @@ function isBusy(deps: ModUpdateDeps, installationId: string): boolean {
  * file any more). 191's `planRemoval` does the hashing and refuses an unsafe record or a linked or
  * escaping game dir with {@link RemovalRefusedError} - one rule set for "what did the user change".
  */
-async function recordedDiskHashes(root: string, record: ModInstallRecord): Promise<Map<string, string>> {
+async function recordedDiskHashes(
+  root: string,
+  record: ModInstallRecord,
+): Promise<Map<string, string>> {
   const plan = await planRemoval(root, record.gameDir, record)
   const missing = new Set(plan.missing)
   const changed = new Set(plan.changed)
@@ -283,9 +312,17 @@ export async function startModUpdate(
 
   const settled = (async (): Promise<ModUpdateOutcome> => {
     try {
-      return await runUpdate(deps, job.id, resolved.value, variant.value, input.changedPolicy, cancellation.signal, (h) => {
-        extractor = h
-      })
+      return await runUpdate(
+        deps,
+        job.id,
+        resolved.value,
+        variant.value,
+        input.changedPolicy,
+        cancellation.signal,
+        (h) => {
+          extractor = h
+        },
+      )
     } catch (error) {
       deps.log?.warn(`updating ${entry.id} threw: ${String(error)}`)
       deps.jobs.finish(job.id, { status: 'failed', error: { key: LOCAL_FAILURE } })
@@ -329,7 +366,9 @@ async function runUpdate(
     return { status: 'cancelled' }
   }
 
-  const stagingDirs = variant.sources.map((_, index) => getExtractDir(deps.userDataPath, `${jobId}-${index}`))
+  const stagingDirs = variant.sources.map((_, index) =>
+    getExtractDir(deps.userDataPath, `${jobId}-${index}`),
+  )
   const slotParent = join(installation.rootPath, MOD_BACKUP_DIR_NAME)
   const slot = join(slotParent, slotKey(jobId))
   let keepSlot = false
@@ -346,7 +385,11 @@ async function runUpdate(
       signal,
       onExtractor: setExtractor,
       onProgress: (done) =>
-        report({ ratio: (done / Math.max(1, bytesTotal)) * STAGE_RATIO, bytesDone: done, bytesTotal }),
+        report({
+          ratio: (done / Math.max(1, bytesTotal)) * STAGE_RATIO,
+          bytesDone: done,
+          bytesTotal,
+        }),
     })
     if (!staged.ok) return staged.cancelled ? cancelledOutcome() : failed(staged.key, staged.reason)
     report({ ratio: STAGE_RATIO, bytesDone: bytesTotal, bytesTotal })
@@ -396,24 +439,27 @@ async function runUpdate(
     if (!outcome || outcome.status !== 'succeeded') return outcome ?? cancelledOutcome()
 
     const revalidated = await deps.installations.validate(installation.id)
-    if (!revalidated.ok) log?.warn(`revalidating ${installation.id} after updating ${entry.id} failed`)
+    if (!revalidated.ok)
+      log?.warn(`revalidating ${installation.id} after updating ${entry.id} failed`)
 
     report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
     deps.jobs.finish(jobId, { status: 'succeeded' })
-    log?.info(`updated ${entry.id} to ${outcome.version} in ${installation.name} (${outcome.files.length} files)`)
+    log?.info(
+      `updated ${entry.id} to ${outcome.version} in ${installation.name} (${outcome.files.length} files)`,
+    )
     return outcome
   } finally {
     for (const dir of stagingDirs) {
-      await rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 }).catch((error: unknown) =>
-        log?.warn(`could not remove ${dir}: ${String(error)}`),
+      await rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 }).catch(
+        (error: unknown) => log?.warn(`could not remove ${dir}: ${String(error)}`),
       )
     }
     if (keepSlot) {
       log?.warn(`keeping ${slot}: it holds the only copy of files a rollback could not put back`)
     } else {
       // The slot is the launcher's own folder; only its parent is removed non-recursively.
-      await rm(slot, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 }).catch((error: unknown) =>
-        log?.warn(`could not remove ${slot}: ${String(error)}`),
+      await rm(slot, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 }).catch(
+        (error: unknown) => log?.warn(`could not remove ${slot}: ${String(error)}`),
       )
       await rmdir(slotParent).catch(() => {})
     }
@@ -448,8 +494,12 @@ async function applyUpdate(args: {
   if (!record || record.gameDir.toLowerCase() !== ctx.record.gameDir.toLowerCase()) {
     return failed(NO_RECORD, `the record of ${ctx.entry.id} changed while the update waited`)
   }
-  if (record.version === ctx.versionEntry.version) return failed(UP_TO_DATE, `${record.version} is already installed`)
-  if (!isSafeGameDirName(record.gameDir) || !record.files.every((f) => isSafeRecordedPath(f.path))) {
+  if (record.version === ctx.versionEntry.version)
+    return failed(UP_TO_DATE, `${record.version} is already installed`)
+  if (
+    !isSafeGameDirName(record.gameDir) ||
+    !record.files.every((f) => isSafeRecordedPath(f.path))
+  ) {
     return failed(UNSAFE_PATH, `record of ${record.gameDir} holds an unsafe path`)
   }
 
@@ -515,7 +565,8 @@ async function applyUpdate(args: {
     /** Where a recorded path lives; its real parent is re-checked against the real game dir. */
     const recordedTarget = async (path: string): Promise<string> => {
       const target = join(realGameDir, ...path.split('/'))
-      if (!isInsideDir(await realpath(dirname(target)), realGameDir)) throw new Error(`${path} leaves ${realGameDir}`)
+      if (!isInsideDir(await realpath(dirname(target)), realGameDir))
+        throw new Error(`${path} leaves ${realGameDir}`)
       return target
     }
 
@@ -523,19 +574,26 @@ async function applyUpdate(args: {
     const toWrite: NewFile[] = []
     const userOwned: string[] = []
     for (const path of [...plan.write].sort()) {
-      if (!recordedKeys.has(path.toLowerCase()) && (await resolveRelaxed(realGameDir, path)) !== null) {
+      if (
+        !recordedKeys.has(path.toLowerCase()) &&
+        (await resolveRelaxed(realGameDir, path)) !== null
+      ) {
         userOwned.push(path)
         continue
       }
       toWrite.push(byPath.get(path)!)
     }
-    if (userOwned.length > 0) log?.info(`leaving unrecorded ${userOwned.join(', ')} in ${record.gameDir} alone`)
+    if (userOwned.length > 0)
+      log?.info(`leaving unrecorded ${userOwned.join(', ')} in ${record.gameDir} alone`)
 
     // 4. Every recorded file about to be replaced or deleted moves into the slot first.
     const writeKeys = new Set(toWrite.map((f) => f.path))
     const toMove = record.files
       .map((f) => f.path)
-      .filter((path) => diskHashes.has(path) && (writeKeys.has(path) || plan.deleteObsolete.includes(path)))
+      .filter(
+        (path) =>
+          diskHashes.has(path) && (writeKeys.has(path) || plan.deleteObsolete.includes(path)),
+      )
     for (const path of toMove) {
       if (signal.aborted) {
         await restore()
@@ -561,7 +619,8 @@ async function applyUpdate(args: {
       const dest = await plannedDestination(realGameDir, file.path)
       if (!isStrictlyInside(dest, realGameDir)) throw new Error(`${dest} leaves ${realGameDir}`)
       await mkdirTracked(dirname(dest))
-      if (!isInsideDir(await realpath(dirname(dest)), realGameDir)) throw new Error(`${dest} resolves outside ${realGameDir}`)
+      if (!isInsideDir(await realpath(dirname(dest)), realGameDir))
+        throw new Error(`${dest} resolves outside ${realGameDir}`)
       // Planning saw the folder a moment ago: anything at `dest` now was not planned and is not ours.
       if (await exists(dest)) throw new Error(`${dest} appeared during the update`)
       const part = `${dest}${PART_SUFFIX}`
@@ -599,7 +658,11 @@ async function applyUpdate(args: {
       installedAt: Date.now(),
       files,
     }
-    const saved = deps.installations.setModuleData(installationId, 'mods', withRecord(fresh.moduleData, next)['mods'])
+    const saved = deps.installations.setModuleData(
+      installationId,
+      'mods',
+      withRecord(fresh.moduleData, next)['mods'],
+    )
     if (!saved.ok) throw new Error(`recording the update failed: ${saved.error.key}`)
 
     // Folders the deleted obsolete files leave empty go; non-recursive, and never the game dir itself.
@@ -620,7 +683,13 @@ async function applyUpdate(args: {
       }
     }
 
-    return { status: 'succeeded', gameDir: record.gameDir, version: next.version, files, kept: plan.keptUntouched }
+    return {
+      status: 'succeeded',
+      gameDir: record.gameDir,
+      version: next.version,
+      files,
+      kept: plan.keptUntouched,
+    }
   } catch (error) {
     await restore()
     return failed(WRITE_FAILED, String(error))

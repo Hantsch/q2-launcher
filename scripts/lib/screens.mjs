@@ -177,7 +177,10 @@ const SCAN_SETTLE_TIMEOUT_MS = 15_000
  * the next screen's click). */
 async function waitScanIdle(page) {
   await page.waitForFunction(
-    () => document.querySelector('[data-testid="servers-scan-status"]')?.getAttribute('data-running') === 'false',
+    () =>
+      document
+        .querySelector('[data-testid="servers-scan-status"]')
+        ?.getAttribute('data-running') === 'false',
     null,
     { timeout: CLICK_TIMEOUT_MS },
   )
@@ -875,9 +878,11 @@ export const SCREENS = [
       const simulate = () =>
         page.evaluate(() => window.q2.invoke('dev:simulateJob', { scenario: 'stall' }))
       const first = await simulate()
-      if (!first?.ok) throw new Error(`downloads-badge: dev:simulateJob failed: ${JSON.stringify(first)}`)
+      if (!first?.ok)
+        throw new Error(`downloads-badge: dev:simulateJob failed: ${JSON.stringify(first)}`)
       const second = await simulate()
-      if (!second?.ok) throw new Error(`downloads-badge: dev:simulateJob failed: ${JSON.stringify(second)}`)
+      if (!second?.ok)
+        throw new Error(`downloads-badge: dev:simulateJob failed: ${JSON.stringify(second)}`)
 
       await page
         .getByTestId('nav-downloads-badge')
@@ -1240,8 +1245,10 @@ export const SCREENS = [
       const firstRowTestId = `servers-row-127.0.0.1:${SERVERS_STUB_RESPONDERS[0].port}`
       await page.waitForFunction(
         (rowTestId) =>
-          document.querySelector('[data-testid="servers-scan-status"]')?.getAttribute('data-running') ===
-            'false' && document.querySelector(`[data-testid="${rowTestId}"]`) !== null,
+          document
+            .querySelector('[data-testid="servers-scan-status"]')
+            ?.getAttribute('data-running') === 'false' &&
+          document.querySelector(`[data-testid="${rowTestId}"]`) !== null,
         firstRowTestId,
         { timeout: SCAN_SETTLE_TIMEOUT_MS },
       )
@@ -1337,7 +1344,9 @@ export const SCREENS = [
         .getByTestId('replays-demo-row')
         .filter({ hasText: 'Fixture TDM Match' })
         .click({ timeout: CLICK_TIMEOUT_MS })
-      await page.getByTestId('replays-detail').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-detail')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
   {
@@ -1355,7 +1364,9 @@ export const SCREENS = [
         .getByTestId('replays-demo-row')
         .filter({ hasText: 'Fixture TDM Match' })
         .click({ timeout: CLICK_TIMEOUT_MS })
-      await page.getByTestId('replays-detail').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-detail')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
       // The editor store outlives a screen and a viewport, so the demo may already be in edit mode.
       if ((await page.getByTestId('replays-editor-save').count()) === 0) {
         await click(page, 'replays-detail-edit')
@@ -1391,11 +1402,18 @@ export const SCREENS = [
           .filter({ hasText: 'play-ctf.dm2' })
           .first()
           .click({ timeout: CLICK_TIMEOUT_MS })
-        await page.locator('[data-testid="actionbar-play"][data-action="view"]').click({ timeout: CLICK_TIMEOUT_MS })
+        await page
+          .locator('[data-testid="actionbar-play"][data-action="view"]')
+          .click({ timeout: CLICK_TIMEOUT_MS })
       }
       await page.getByTestId('replays-timeline').waitFor({ state: 'visible', timeout: 15_000 })
       await page.waitForFunction(
-        () => Number(document.querySelector('[data-testid="replays-timeline-seek"]')?.getAttribute('aria-valuenow')) >= 1,
+        () =>
+          Number(
+            document
+              .querySelector('[data-testid="replays-timeline-seek"]')
+              ?.getAttribute('aria-valuenow'),
+          ) >= 1,
         undefined,
         { timeout: CLICK_TIMEOUT_MS },
       )
@@ -1416,12 +1434,16 @@ export const SCREENS = [
         .getByTestId('replays-demo-row')
         .filter({ hasText: 'Fixture TDM Match' })
         .click({ timeout: CLICK_TIMEOUT_MS })
-      await page.getByTestId('replays-detail').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-detail')
+        .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
       // The editor store outlives a screen and a viewport, so the demo may already be in edit mode.
       if ((await page.getByTestId('replays-editor-save').count()) === 0) {
         await click(page, 'replays-detail-edit')
       }
-      await page.getByTestId('replays-editor-date').fill('2026-02-30 10:00', { timeout: CLICK_TIMEOUT_MS })
+      await page
+        .getByTestId('replays-editor-date')
+        .fill('2026-02-30 10:00', { timeout: CLICK_TIMEOUT_MS })
       await page
         .getByTestId('replays-editor-error-date')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })

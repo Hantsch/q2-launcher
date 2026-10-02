@@ -2,7 +2,11 @@ import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join } from 'node:path'
 import { z } from 'zod'
 import { limitsFor } from '@shared/config/engine-limits'
-import { effectiveWriteDirs, type DiscoverableInstallation, type DiscoverContext } from './discovery'
+import {
+  effectiveWriteDirs,
+  type DiscoverableInstallation,
+  type DiscoverContext,
+} from './discovery'
 
 /**
  * Story 170 D3: a stage play sets `vid_fullscreen`/`vid_geometry` on the command line, and Q2PRO
@@ -93,7 +97,8 @@ function splitLines(text: string): Segment[] {
   return out
 }
 
-const joinLines = (segments: readonly Segment[]): string => segments.map((s) => s.content + s.eol).join('')
+const joinLines = (segments: readonly Segment[]): string =>
+  segments.map((s) => s.content + s.eol).join('')
 
 /** The cvar a `set`/`seta` line assigns, or null for any other line. */
 function cvarNameOf(content: string): string | null {
@@ -132,7 +137,11 @@ export function createCvarRestore({
   }
 
   /** Temp file then rename: a crash mid-write never leaves a half-written file behind. */
-  async function writeAtomic(path: string, data: string, encoding: 'latin1' | 'utf8'): Promise<void> {
+  async function writeAtomic(
+    path: string,
+    data: string,
+    encoding: 'latin1' | 'utf8',
+  ): Promise<void> {
     const tmp = `${path}.q2l-tmp`
     try {
       await fs.writeFile(tmp, data, encoding)
@@ -184,7 +193,9 @@ export function createCvarRestore({
       const result = pendingSchema.safeParse(JSON.parse(raw))
       if (result.success) {
         // Only the names this launcher owns - a stray key never edits an unrelated line.
-        const lines = new Map(Object.entries(result.data.lines).filter(([name]) => names.includes(name)))
+        const lines = new Map(
+          Object.entries(result.data.lines).filter(([name]) => names.includes(name)),
+        )
         return { exists: true, snapshot: { configPath: result.data.configPath, lines } }
       }
     } catch {
@@ -218,7 +229,11 @@ export function createCvarRestore({
         }
         current = { configPath, lines }
         await fs.mkdir(dirname(pendingPath), { recursive: true })
-        await writeAtomic(pendingPath, JSON.stringify({ configPath, lines: Object.fromEntries(lines) }), 'utf8')
+        await writeAtomic(
+          pendingPath,
+          JSON.stringify({ configPath, lines: Object.fromEntries(lines) }),
+          'utf8',
+        )
       })
     },
     restore() {

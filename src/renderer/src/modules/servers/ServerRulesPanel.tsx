@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { buildRuleTable, type KnownRuleRow, type RawRuleRow, type RuleValue } from '@shared/servers/rule-table'
+import {
+  buildRuleTable,
+  type KnownRuleRow,
+  type RawRuleRow,
+  type RuleValue,
+} from '@shared/servers/rule-table'
 import type { DmflagId } from '@shared/servers/dmflags'
 
 export interface ServerRulesPanelProps {
@@ -79,8 +84,7 @@ function KnownRow({ row, t }: { row: KnownRuleRow; t: TFunction }) {
       <span className="min-w-0 truncate text-right text-xs text-ink-dim">
         {failed || row.value.kind === 'unparsed' ? (
           <>
-            {row.value.kind === 'unparsed' ? row.value.raw : ''}
-            {' '}
+            {row.value.kind === 'unparsed' ? row.value.raw : ''}{' '}
             <span className="text-ink-muted">{t('servers.detail.rules.unparsed')}</span>
           </>
         ) : (

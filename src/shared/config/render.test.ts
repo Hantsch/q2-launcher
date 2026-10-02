@@ -64,11 +64,20 @@ describe('render: the demo category (story 167 D1)', () => {
     expect(demoActions).toHaveLength(8)
     for (const action of demoActions) expect(action.commands).toEqual([])
 
-    const isDemoCommand = (text: string): boolean => /^(pause$|seek |if \$timescale |if x\$cl_demopos |exec q2l_back\.cfg$)/.test(text)
+    const isDemoCommand = (text: string): boolean =>
+      /^(pause$|seek |if \$timescale |if x\$cl_demopos |exec q2l_back\.cfg$)/.test(text)
     expect(Object.values(STANDARD_TEMPLATE.binds).some(isDemoCommand)).toBe(false)
 
     const lines = renderedLines(templateProfile())
-    expect(lines.filter((line) => !line.startsWith('//') && /"(pause|seek [-+]\d+|if \$timescale [^"]*|if x\$cl_demopos [^"]*)"|exec q2l_back\.cfg/.test(line))).toEqual([])
+    expect(
+      lines.filter(
+        (line) =>
+          !line.startsWith('//') &&
+          /"(pause|seek [-+]\d+|if \$timescale [^"]*|if x\$cl_demopos [^"]*)"|exec q2l_back\.cfg/.test(
+            line,
+          ),
+      ),
+    ).toEqual([])
   })
 })
 
@@ -92,7 +101,8 @@ describe('render: the unbound line (story 052 D2)', () => {
       const matches = lines.filter(
         // Token boundary: `demo:demoJumpBack` is a string prefix of `demo:demoJumpBackLong`.
         (line) =>
-          line.startsWith('//bind ""') && new RegExp(`cid=${action.catalogId}(?=[\\s\\]]|$)`).test(line),
+          line.startsWith('//bind ""') &&
+          new RegExp(`cid=${action.catalogId}(?=[\\s\\]]|$)`).test(line),
       )
       expect(matches, `expected exactly one unbound line for "${action.name}"`).toHaveLength(1)
     }
@@ -101,8 +111,13 @@ describe('render: the unbound line (story 052 D2)', () => {
     // real bind line - "one fact, one place".
     for (const action of boundActions) {
       const commandText = action.commands[0]?.kind === 'raw' ? action.commands[0].text : ''
-      const realBindLines = lines.filter((line) => line.startsWith(`bind`) && line.includes(`"${commandText}"`))
-      expect(realBindLines, `expected exactly one real bind line for "${action.name}"`).toHaveLength(1)
+      const realBindLines = lines.filter(
+        (line) => line.startsWith(`bind`) && line.includes(`"${commandText}"`),
+      )
+      expect(
+        realBindLines,
+        `expected exactly one real bind line for "${action.name}"`,
+      ).toHaveLength(1)
       const unboundLines = lines.filter(
         (line) => line.startsWith('//bind') && line.includes(`cid=${action.catalogId}`),
       )
@@ -125,7 +140,10 @@ describe('render: the unbound line (story 052 D2)', () => {
       name: 'SSG SG',
       kind: 'bind',
       keys: [{ key: 'q' }],
-      commands: [{ kind: 'raw', text: 'use shotgun' }, { kind: 'raw', text: 'use sshotgun' }],
+      commands: [
+        { kind: 'raw', text: 'use shotgun' },
+        { kind: 'raw', text: 'use sshotgun' },
+      ],
     }
     // The mirror value the writer's own bind-owner index actually recognises.
     const profile = baseProfile('fixture-bound', {
@@ -175,7 +193,7 @@ describe('render: the unbound line (story 052 D2)', () => {
     expect(rendered).toContain('[q2l cid=movement:crouch]')
   })
 
-  it('carries the entry\'s own aliasName as `an`, since no alias line exists to spell it out', () => {
+  it("carries the entry's own aliasName as `an`, since no alias line exists to spell it out", () => {
     const action: ConfigAction = {
       id: 'a4',
       categoryId: 'movement',
@@ -202,7 +220,10 @@ describe('render: the unbound line (story 052 D2)', () => {
       name: 'Throw grenade',
       kind: 'bind',
       catalogId: 'weapons:grenade-throw',
-      commands: [{ kind: 'raw', text: 'use grenades' }, { kind: 'raw', text: '+attack' }],
+      commands: [
+        { kind: 'raw', text: 'use grenades' },
+        { kind: 'raw', text: '+attack' },
+      ],
     }
     const profile = baseProfile('fixture-grenade-row', { actions: [action] })
 

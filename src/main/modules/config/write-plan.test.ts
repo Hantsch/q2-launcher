@@ -44,7 +44,11 @@ describe('assignedProfilesFor', () => {
     const profiles = [
       profile({ id: 'p1', name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] }),
       profile({ id: 'p2', name: 'Two', assignments: [{ installationId: 'i2', isDefault: true }] }),
-      profile({ id: 'p3', name: 'Three', assignments: [{ installationId: 'i1', isDefault: false }] }),
+      profile({
+        id: 'p3',
+        name: 'Three',
+        assignments: [{ installationId: 'i1', isDefault: false }],
+      }),
     ]
 
     expect(assignedProfilesFor(profiles, 'i1')).toEqual([
@@ -54,7 +58,9 @@ describe('assignedProfilesFor', () => {
   })
 
   it('returns an empty array when the installation has no assignments', () => {
-    const profiles = [profile({ id: 'p1', assignments: [{ installationId: 'i2', isDefault: true }] })]
+    const profiles = [
+      profile({ id: 'p1', assignments: [{ installationId: 'i2', isDefault: true }] }),
+    ]
 
     expect(assignedProfilesFor(profiles, 'i1')).toEqual([])
   })
@@ -79,29 +85,29 @@ function launchState(overrides: Partial<LaunchState> = {}): LaunchState {
 
 describe('isInstallationRunning', () => {
   it('is true for the matching installation while starting or running', () => {
-    expect(isInstallationRunning(launchState({ phase: 'starting', installationId: 'i1' }), 'i1')).toBe(
-      true,
-    )
-    expect(isInstallationRunning(launchState({ phase: 'running', installationId: 'i1' }), 'i1')).toBe(
-      true,
-    )
+    expect(
+      isInstallationRunning(launchState({ phase: 'starting', installationId: 'i1' }), 'i1'),
+    ).toBe(true)
+    expect(
+      isInstallationRunning(launchState({ phase: 'running', installationId: 'i1' }), 'i1'),
+    ).toBe(true)
   })
 
   it('is false for exited, failed or idle phases', () => {
-    expect(isInstallationRunning(launchState({ phase: 'exited', installationId: 'i1' }), 'i1')).toBe(
-      false,
-    )
-    expect(isInstallationRunning(launchState({ phase: 'failed', installationId: 'i1' }), 'i1')).toBe(
-      false,
-    )
+    expect(
+      isInstallationRunning(launchState({ phase: 'exited', installationId: 'i1' }), 'i1'),
+    ).toBe(false)
+    expect(
+      isInstallationRunning(launchState({ phase: 'failed', installationId: 'i1' }), 'i1'),
+    ).toBe(false)
     expect(isInstallationRunning(launchState({ phase: 'idle', installationId: null }), 'i1')).toBe(
       false,
     )
   })
 
   it('is false when a different installation is running', () => {
-    expect(isInstallationRunning(launchState({ phase: 'running', installationId: 'i2' }), 'i1')).toBe(
-      false,
-    )
+    expect(
+      isInstallationRunning(launchState({ phase: 'running', installationId: 'i2' }), 'i1'),
+    ).toBe(false)
   })
 })

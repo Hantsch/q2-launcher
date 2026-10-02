@@ -23,7 +23,10 @@ function str(s: string): number[] {
 function everySizedMessage(): Dm2StreamMessage[] {
   const tempEntities = (Object.keys(TE_FIELDS) as TeName[]).flatMap((name) =>
     name === 'STEAM'
-      ? [dm2Msg.tempEntity(TE.STEAM, { steamEntity: -1 }), dm2Msg.tempEntity(TE.STEAM, { steamEntity: 3, coord: 20_000 })]
+      ? [
+          dm2Msg.tempEntity(TE.STEAM, { steamEntity: -1 }),
+          dm2Msg.tempEntity(TE.STEAM, { steamEntity: 3, coord: 20_000 }),
+        ]
       : [dm2Msg.tempEntity(TE[name]), dm2Msg.tempEntity(TE[name], { coord: -20_000 })],
   )
   return [
@@ -39,7 +42,15 @@ function everySizedMessage(): Dm2StreamMessage[] {
     dm2Msg.raw(1, [5, 0, 1]), // muzzleflash
     dm2Msg.raw(2, [5, 0, 1]), // muzzleflash2
     dm2Msg.sound({ index: 4 }),
-    dm2Msg.sound({ index: 300, index16: true, volume: 255, attenuation: 64, offset: 10, entity: 7, pos: [100, -20_000, 20_000] }),
+    dm2Msg.sound({
+      index: 300,
+      index16: true,
+      volume: 255,
+      attenuation: 64,
+      offset: 10,
+      entity: 7,
+      pos: [100, -20_000, 20_000],
+    }),
     dm2Msg.raw(16, [4, 0, 50, 1, 2, 3, 4]), // download: 4 bytes
     dm2Msg.raw(16, [0xff, 0xff, 100]), // download: size -1, no data
     dm2Msg.raw(16, [0, 0, 100]), // download: size 0
@@ -56,7 +67,14 @@ describe('createDm2FrameCounter', () => {
         ...prefix.map((m, i) => [m, dm2Msg.frame(i + 2)]),
         [dm2Msg.frame(9999)],
       ]
-      const result = count(buildDm2Stream({ protocol, headerConfigstrings: { 0: 'The Edge' }, blocks, terminate: true }))
+      const result = count(
+        buildDm2Stream({
+          protocol,
+          headerConfigstrings: { 0: 'The Edge' },
+          blocks,
+          terminate: true,
+        }),
+      )
       expect(result, `protocol ${protocol}`).toEqual({
         ok: true,
         frames: blocks.length,
@@ -90,7 +108,9 @@ describe('createDm2FrameCounter', () => {
     // Hand-assembled message bytes, followed by a frame whose serverframe (256) starts with a 0
     // byte: reading one byte too many or too few lands on opcode 0 and fails loudly.
     function withFrame(protocol: number, raw: Dm2StreamMessage): FrameCountResult {
-      return count(buildDm2Stream({ protocol, blocks: [[raw, dm2Msg.frame(256)]], terminate: true }))
+      return count(
+        buildDm2Stream({ protocol, blocks: [[raw, dm2Msg.frame(256)]], terminate: true }),
+      )
     }
     const ONE_FRAME = { ok: true, frames: 1, durationMs: 100, complete: true }
 
@@ -110,12 +130,18 @@ describe('createDm2FrameCounter', () => {
       for (const protocol of [3435, 3436]) {
         // Low bit clear: 2 bytes per axis. Low bit set: 3 bytes per axis.
         expect(withFrame(protocol, dm2Msg.raw(3, [7, 2, 0, 4, 0, 6, 0]))).toEqual(ONE_FRAME)
-        expect(withFrame(protocol, dm2Msg.raw(3, [7, 1, 0, 9, 3, 0, 9, 0x41, 0x9c, 0]))).toEqual(ONE_FRAME)
+        expect(withFrame(protocol, dm2Msg.raw(3, [7, 1, 0, 9, 3, 0, 9, 0x41, 0x9c, 0]))).toEqual(
+          ONE_FRAME,
+        )
         // Sound position under the same rule: flags SND_POS, index, x (3 bytes), y, z (2 bytes).
-        expect(withFrame(protocol, dm2Msg.raw(9, [0x04, 5, 1, 0, 1, 2, 0, 4, 0]))).toEqual(ONE_FRAME)
+        expect(withFrame(protocol, dm2Msg.raw(9, [0x04, 5, 1, 0, 1, 2, 0, 4, 0]))).toEqual(
+          ONE_FRAME,
+        )
       }
       // The same extended bytes misalign on a fixed-coordinate protocol.
-      expect(withFrame(34, dm2Msg.raw(3, [7, 1, 0, 9, 3, 0, 9, 0x41, 0x9c, 0]))).toMatchObject({ ok: false })
+      expect(withFrame(34, dm2Msg.raw(3, [7, 1, 0, 9, 3, 0, 9, 0x41, 0x9c, 0]))).toMatchObject({
+        ok: false,
+      })
     })
 
     it('TE_STEAM carries its trailing int32 only when its entity is not -1', () => {
@@ -130,11 +156,21 @@ describe('createDm2FrameCounter', () => {
     it('every protocol counts a stream exercising its deviations end to end', () => {
       for (const protocol of PROTOCOLS) {
         const blocks = [
-          [dm2Msg.sound({ index: 700, index16: true, entity: 1, pos: [30_000, 1, -30_000] }), dm2Msg.frame(1)],
-          [dm2Msg.tempEntity(TE.RAILTRAIL, { coord: 25_000 }), dm2Msg.tempEntity(TE.LIGHTNING, { coord: -25_000 }), dm2Msg.frame(2)],
+          [
+            dm2Msg.sound({ index: 700, index16: true, entity: 1, pos: [30_000, 1, -30_000] }),
+            dm2Msg.frame(1),
+          ],
+          [
+            dm2Msg.tempEntity(TE.RAILTRAIL, { coord: 25_000 }),
+            dm2Msg.tempEntity(TE.LIGHTNING, { coord: -25_000 }),
+            dm2Msg.frame(2),
+          ],
           [dm2Msg.tempEntity(TE.STEAM, { steamEntity: 12, coord: 17_000 }), dm2Msg.frame(3)],
         ]
-        expect(count(buildDm2Stream({ protocol, blocks, terminate: true })), `protocol ${protocol}`).toEqual({
+        expect(
+          count(buildDm2Stream({ protocol, blocks, terminate: true })),
+          `protocol ${protocol}`,
+        ).toEqual({
           ok: true,
           frames: 3,
           durationMs: 300,
@@ -161,7 +197,11 @@ describe('createDm2FrameCounter', () => {
     for (const [name, message] of cases) {
       it(`${name} is undecodable at its block`, () => {
         const good = buildDm2Stream({ protocol: 34, blocks: [[dm2Msg.frame(1)]] })
-        const bytes = buildDm2Stream({ protocol: 34, blocks: [[dm2Msg.frame(1)], [message], [dm2Msg.frame(2)]], terminate: true })
+        const bytes = buildDm2Stream({
+          protocol: 34,
+          blocks: [[dm2Msg.frame(1)], [message], [dm2Msg.frame(2)]],
+          terminate: true,
+        })
         expect(count(bytes)).toEqual({ ok: false, reason: 'undecodable', at: good.length })
       })
     }
@@ -178,7 +218,9 @@ describe('createDm2FrameCounter', () => {
     it('rejects foreign data as not-a-demo', () => {
       const firstNotServerdata = new Uint8Array([3, 0, 0, 0, 10, 2, 0, 0xff, 0xff, 0xff, 0xff])
       expect(count(firstNotServerdata)).toEqual({ ok: false, reason: 'not-a-demo', at: 0 })
-      expect(count(buildDm2Stream({ protocol: 35, blocks: [[dm2Msg.frame(1)]], terminate: true }))).toMatchObject({
+      expect(
+        count(buildDm2Stream({ protocol: 35, blocks: [[dm2Msg.frame(1)]], terminate: true })),
+      ).toMatchObject({
         ok: false,
         reason: 'not-a-demo',
       })
@@ -189,7 +231,10 @@ describe('createDm2FrameCounter', () => {
         new DataView(bytes.buffer).setInt32(valid.length, badLength, true)
         expect(count(bytes)).toEqual({ ok: false, reason: 'not-a-demo', at: valid.length })
       }
-      expect(count(new Uint8Array([0xff, 0xff, 0xff, 0xff]))).toEqual({ ok: false, reason: 'not-a-demo' })
+      expect(count(new Uint8Array([0xff, 0xff, 0xff, 0xff]))).toEqual({
+        ok: false,
+        reason: 'not-a-demo',
+      })
       expect(count(new Uint8Array(0))).toEqual({ ok: false, reason: 'not-a-demo' })
     })
   })
@@ -198,27 +243,61 @@ describe('createDm2FrameCounter', () => {
     const blocks = [[dm2Msg.frame(1)], [dm2Msg.frame(2)], [dm2Msg.print('x\n'), dm2Msg.frame(3)]]
     const full = buildDm2Stream({ protocol: 34, blocks, terminate: true })
     expect(count(full)).toEqual({ ok: true, frames: 3, durationMs: 300, complete: true })
-    expect(count(full.subarray(0, full.length - 4))).toEqual({ ok: true, frames: 3, durationMs: 300, complete: false })
-    expect(count(full.subarray(0, full.length - 10))).toEqual({ ok: true, frames: 2, durationMs: 200, complete: false })
+    expect(count(full.subarray(0, full.length - 4))).toEqual({
+      ok: true,
+      frames: 3,
+      durationMs: 300,
+      complete: false,
+    })
+    expect(count(full.subarray(0, full.length - 10))).toEqual({
+      ok: true,
+      frames: 2,
+      durationMs: 200,
+      complete: false,
+    })
     // Cut inside the terminator itself.
-    expect(count(full.subarray(0, full.length - 2))).toEqual({ ok: true, frames: 3, durationMs: 300, complete: false })
+    expect(count(full.subarray(0, full.length - 2))).toEqual({
+      ok: true,
+      frames: 3,
+      durationMs: 300,
+      complete: false,
+    })
     // Bytes after the terminator are ignored.
-    const trailing = buildDm2Stream({ protocol: 34, blocks, terminate: true, trailing: [1, 2, 3, 99, 99, 99, 99, 99] })
+    const trailing = buildDm2Stream({
+      protocol: 34,
+      blocks,
+      terminate: true,
+      trailing: [1, 2, 3, 99, 99, 99, 99, 99],
+    })
     expect(count(trailing)).toEqual({ ok: true, frames: 3, durationMs: 300, complete: true })
   })
 
   it('zero frames is no-frames', () => {
     const blocks = [[dm2Msg.baseline()], [dm2Msg.print('nothing happens\n')]]
-    expect(count(buildDm2Stream({ protocol: 3436, headerConfigstrings: { 0: 'x' }, blocks, terminate: true }))).toEqual({
+    expect(
+      count(
+        buildDm2Stream({
+          protocol: 3436,
+          headerConfigstrings: { 0: 'x' },
+          blocks,
+          terminate: true,
+        }),
+      ),
+    ).toEqual({
       ok: false,
       reason: 'no-frames',
     })
-    expect(count(buildDm2Stream({ protocol: 34, blocks: [] }))).toEqual({ ok: false, reason: 'no-frames' })
+    expect(count(buildDm2Stream({ protocol: 34, blocks: [] }))).toEqual({
+      ok: false,
+      reason: 'no-frames',
+    })
   })
 
   it('gives the same result for 1-byte, 7-byte and 64 KiB pushes', () => {
     const big = Array.from({ length: 400 }, (_, i) =>
-      i % 5 === 0 ? [dm2Msg.print(`line ${i}\n`)] : [dm2Msg.sound({ index: i, index16: true, pos: [i * 100, 0, 0] }), dm2Msg.frame(i, 300)],
+      i % 5 === 0
+        ? [dm2Msg.print(`line ${i}\n`)]
+        : [dm2Msg.sound({ index: i, index16: true, pos: [i * 100, 0, 0] }), dm2Msg.frame(i, 300)],
     )
     const streams = [
       buildDm2Stream({ protocol: 3435, blocks: big, terminate: true }),
@@ -243,7 +322,12 @@ describe('createDm2FrameCounter', () => {
     }
     const int = (n: number): number => Math.floor(random() * n)
     const base = PROTOCOLS.map((protocol) =>
-      buildDm2Stream({ protocol, headerConfigstrings: { 0: 'x', 33: 'maps/q2dm1.bsp' }, blocks: everySizedMessage().map((m, i) => [m, dm2Msg.frame(i)]), terminate: true }),
+      buildDm2Stream({
+        protocol,
+        headerConfigstrings: { 0: 'x', 33: 'maps/q2dm1.bsp' },
+        blocks: everySizedMessage().map((m, i) => [m, dm2Msg.frame(i)]),
+        terminate: true,
+      }),
     )
     for (let n = 0; n < 1000; n++) {
       const source = base[n % base.length]!
@@ -262,7 +346,7 @@ describe('createDm2FrameCounter', () => {
       const counter = createDm2FrameCounter()
       let result: FrameCountResult | undefined
       expect(() => {
-        for (let i = 0; i < bytes.length; ) {
+        for (let i = 0; i < bytes.length;) {
           const size = 1 + int(512)
           counter.push(bytes.subarray(i, i + size))
           i += size
@@ -286,7 +370,11 @@ describe('createDm2FrameCounter', () => {
       if (i % 50 === 0) {
         blocks.push([dm2Msg.print(`chat line ${i}\n`)])
       } else {
-        blocks.push([dm2Msg.sound({ index: 3, entity: 4 }), dm2Msg.tempEntity(TE.GUNSHOT, { coord: 900 }), dm2Msg.frame(i, 1_300)])
+        blocks.push([
+          dm2Msg.sound({ index: 3, entity: 4 }),
+          dm2Msg.tempEntity(TE.GUNSHOT, { coord: 900 }),
+          dm2Msg.frame(i, 1_300),
+        ])
         frames++
       }
       size += 1_250 // under-estimates every block, so the stream ends up at least 32 MiB

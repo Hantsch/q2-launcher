@@ -27,4 +27,5 @@ export interface UnlockState {
   codes: RedeemedCode[]
 }
 
-export type RedeemResult = { ok: true; code: RedeemedCode } | { ok: false; reason: UnlockRejectReason }
+export type RedeemResult =
+  { ok: true; code: RedeemedCode } | { ok: false; reason: UnlockRejectReason }

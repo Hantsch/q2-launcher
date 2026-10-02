@@ -116,8 +116,18 @@ export interface MessageSuggestion {
 }
 
 export const MESSAGE_SUGGESTIONS: MessageSuggestion[] = [
-  { id: 'ok', labelKey: 'config.chatMacros.suggestions.ok.label', text: '[ OK ] $$loc_here', group: 'status' },
-  { id: 'neg', labelKey: 'config.chatMacros.suggestions.neg.label', text: '[ NEGATIVE ]', group: 'status' },
+  {
+    id: 'ok',
+    labelKey: 'config.chatMacros.suggestions.ok.label',
+    text: '[ OK ] $$loc_here',
+    group: 'status',
+  },
+  {
+    id: 'neg',
+    labelKey: 'config.chatMacros.suggestions.neg.label',
+    text: '[ NEGATIVE ]',
+    group: 'status',
+  },
   {
     id: 'help',
     labelKey: 'config.chatMacros.suggestions.help.label',

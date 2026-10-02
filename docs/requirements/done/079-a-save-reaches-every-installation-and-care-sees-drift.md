@@ -8,7 +8,7 @@ created: 2026-09-10
 ## Requirement
 
 When I change something in a profile and save it, every installation that profile is assigned to
-must carry the new file — without me doing anything else. Today that is only true for *one* of the
+must carry the new file — without me doing anything else. Today that is only true for _one_ of the
 ways a profile's file changes. And when a copy no longer matches — because a save never reached
 it, or because something edited the file in the game folder — Care must tell me, and let me fix it
 from there. Care is where the "is my config where it should be" question already lives; the
@@ -18,9 +18,9 @@ answer just is not complete yet.
 
 The launcher's own state on this machine, read directly from disk:
 
-| File | Written | SHA-256 |
-| --- | --- | --- |
-| `%APPDATA%/Q2 Launcher/Hantsch-Test.cfg` (canonical) | 08:14:09 | `2037e6df…` |
+| File                                                         | Written  | SHA-256     |
+| ------------------------------------------------------------ | -------- | ----------- |
+| `%APPDATA%/Q2 Launcher/Hantsch-Test.cfg` (canonical)         | 08:14:09 | `2037e6df…` |
 | `C:\Games\Q2Pro\baseq2\Hantsch-Test.cfg` (installation copy) | 08:13:44 | `3c92ace0…` |
 
 `state.json` says the profile is clean (`dirty: false`), `fileHash` is `2037e6df…`, no pending
@@ -28,8 +28,8 @@ writes, no write failures — i.e. from the launcher's point of view everything 
 differs from the canonical file by exactly one block (the nine `Entries: Movement` anchor lines),
 and every entry id, and the layer id, in `state.json` was minted anew at 08:14:09 while the
 previous `state.json.bak` still carries the old ones. Ids are only ever re-minted by adopting a file
-(`profile-restore.ts`: "an id is never adopted"), and the only path that both *writes* the
-canonical file and *adopts* it is the Raw file tab's save (`CONFIG_HANDLERS.saveRawText`,
+(`profile-restore.ts`: "an id is never adopted"), and the only path that both _writes_ the
+canonical file and _adopts_ it is the Raw file tab's save (`CONFIG_HANDLERS.saveRawText`,
 [index.ts:1107](../../src/main/modules/config/index.ts#L1107)) — which, by its own doc comment,
 "deliberately" does not run the installation cascade. The structured save
 (`CONFIG_HANDLERS.save`) does cascade, and is covered by
@@ -42,13 +42,13 @@ user cannot tell the two apart — it is the same button in the same save bar
 
 ### Every path on which the canonical file changes, and whether installations follow
 
-| Path | Cascades today? | Where |
-| --- | --- | --- |
-| Structured save (Settings/Controls/Aliases) | yes | `save` → `syncAndPersist` |
-| Raw file tab save | **no** — documented as deliberate | `saveRawText` |
-| Adopting an external edit (Care › Reload, conflict dialog "take the file", focus/tab re-read) | **no** | `refreshFromFiles` |
-| Tidy-up apply | yes | `tidyUpApply` → `syncAndPersist` |
-| Game was running at save time | **not written at all** — deferred as `pending` and never flushed on game exit; only the next save/assign/launcher start retries | `sync.ts:280`, no `onStateChange` consumer in the config module |
+| Path                                                                                          | Cascades today?                                                                                                                 | Where                                                           |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Structured save (Settings/Controls/Aliases)                                                   | yes                                                                                                                             | `save` → `syncAndPersist`                                       |
+| Raw file tab save                                                                             | **no** — documented as deliberate                                                                                               | `saveRawText`                                                   |
+| Adopting an external edit (Care › Reload, conflict dialog "take the file", focus/tab re-read) | **no**                                                                                                                          | `refreshFromFiles`                                              |
+| Tidy-up apply                                                                                 | yes                                                                                                                             | `tidyUpApply` → `syncAndPersist`                                |
+| Game was running at save time                                                                 | **not written at all** — deferred as `pending` and never flushed on game exit; only the next save/assign/launcher start retries | `sync.ts:280`, no `onStateChange` consumer in the config module |
 
 ### The running game is not a reason to hold a write back
 
@@ -58,10 +58,10 @@ opposite: the engine reads a config only at `exec` time and holds no handle on i
 copy written mid-session is exactly what lets the player `exec` the new profile from the console
 (or press the switch bind) without restarting. Holding the write back turns "tweak, alt-tab,
 `exec`, try" into "tweak, quit, restart, try". The `pending` state therefore disappears as a
-*reason*: an installation copy is written whenever its canonical file changes, running or not. What
-stays is the honest report of a write that *failed* (a locked file, a permissions problem — the
+_reason_: an installation copy is written whenever its canonical file changes, running or not. What
+stays is the honest report of a write that _failed_ (a locked file, a permissions problem — the
 existing `failed` row with Retry). `cleanup.ts`'s own running-game guard (`applyCleanupIfNotRunning`)
-is about *deleting* files out from under a running engine and is not touched by this.
+is about _deleting_ files out from under a running engine and is not touched by this.
 
 ### Where drift is (not) visible today
 
@@ -76,50 +76,50 @@ is about *deleting* files out from under a running engine and is not touched by 
 
 ### A round-trip flaw that would make the drift verdict wrong
 
-Adopting a file mints a new layer id, but the layer id is *rendered into the file*
+Adopting a file mints a new layer id, but the layer id is _rendered into the file_
 (`[q2l layer=<id> …]`, `render.ts:262`). After any adopt (raw save, Reload, focus re-read of an
 external edit) `renderProfileFile(profile)` therefore differs from the very file that was just
 adopted, by exactly that one line — verified with the real file above: parse → render is
 byte-identical except for the layer banner. Consequences: the canonical row reads `outOfSync` with
-the *externalEdit* reason although nothing external happened, every installation row reads
+the _externalEdit_ reason although nothing external happened, every installation row reads
 `outOfSync` against a render nobody wrote, and the next structured save rewrites the layer id into
 every copy. A drift check that cannot trust its own render is worth nothing, so this story has to
-close it (or judge drift against the canonical *file*, never the render — the same rule AC6 of
+close it (or judge drift against the canonical _file_, never the render — the same rule AC6 of
 story 043 already applies to installation copies of a dirty profile).
 
 ## Acceptance Criteria
 
 - [x] **AC1** — After a Raw file tab save, every assigned, not-running installation's copy is
-  byte-identical to the canonical file (the typed text), the same way it is after a structured save.
+      byte-identical to the canonical file (the typed text), the same way it is after a structured save.
 - [x] **AC2** — After the launcher adopts an external edit of the canonical file (Care › Reload,
-  the conflict dialog's "take the file", or the focus/tab re-read), every assigned, not-running
-  installation's copy is byte-identical to the adopted file.
+      the conflict dialog's "take the file", or the focus/tab re-read), every assigned, not-running
+      installation's copy is byte-identical to the adopted file.
 - [x] **AC3** — A save (structured or raw) while the installation's game is running writes that
-  installation's copy and loader immediately, exactly as when it is not running; the Care row
-  reads *in sync* right after the save, and `exec <profile>.cfg` in the running game's console
-  picks up the new content. No write is ever deferred for a running game; `pending` no longer
-  appears as a state (a write that actually fails is still reported as *failed* with Retry).
+      installation's copy and loader immediately, exactly as when it is not running; the Care row
+      reads _in sync_ right after the save, and `exec <profile>.cfg` in the running game's console
+      picks up the new content. No write is ever deferred for a running game; `pending` no longer
+      appears as a state (a write that actually fails is still reported as _failed_ with Retry).
 - [x] **AC4** — Adopting a launcher-owned file (raw save, Reload, focus re-read, startup rebuild)
-  is render-stable: `renderProfileFile(adopted)` equals the file's bytes, so a freshly adopted
-  profile reports its canonical file as in sync and its installation copies against the same bytes.
+      is render-stable: `renderProfileFile(adopted)` equals the file's bytes, so a freshly adopted
+      profile reports its canonical file as in sync and its installation copies against the same bytes.
 - [x] **AC5** — Drift is checked without the Care tab being open: on window focus and on
-  switching to any config tab (the same triggers as the canonical re-read), a changed, missing or
-  stale installation copy is detected.
+      switching to any config tab (the same triggers as the canonical re-read), a changed, missing or
+      stale installation copy is detected.
 - [x] **AC6** — The Care tab's badge in the tab strip counts file drift (any Files row that is not
-  in sync) alongside validation and tidy-up findings, de-duplicated like the rest.
+      in sync) alongside validation and tidy-up findings, de-duplicated like the rest.
 - [x] **AC7** — A drifted installation row in Care (`outOfSync` or `missing`) offers a one-click
-  *Sync now* that rewrites that installation from the canonical file (backup-once rules of
-  `writer.ts` unchanged: a foreign file is backed up before it is overwritten), and the row clears
-  on success.
-- [x] **AC8** — A hand-edited installation copy is reported as *changed in the game folder*, not as
-  a launcher failure: the row's title distinguishes "the copy was edited" from "the launcher's write
-  did not land", and Sync now says which file it will overwrite.
+      _Sync now_ that rewrites that installation from the canonical file (backup-once rules of
+      `writer.ts` unchanged: a foreign file is backed up before it is overwritten), and the row clears
+      on success.
+- [x] **AC8** — A hand-edited installation copy is reported as _changed in the game folder_, not as
+      a launcher failure: the row's title distinguishes "the copy was edited" from "the launcher's write
+      did not land", and Sync now says which file it will overwrite.
 - [x] **AC9** — None of the above writes a `dirty` profile's unsaved edits to any installation
-  (story 043 AC6 holds): the cascade after a raw save/adopt, the write into a running
-  installation and Sync now all write from the canonical file's bytes.
+      (story 043 AC6 holds): the cascade after a raw save/adopt, the write into a running
+      installation and Sync now all write from the canonical file's bytes.
 - [x] **AC10** — `docs/systems/config-module.md` (§3 "Apply trigger", §4 write flow, §6
-  "Game-lifecycle", CFG-3) states the new rule — copies are written running or not — instead of
-  "skipped and marked pending".
+      "Game-lifecycle", CFG-3) states the new rule — copies are written running or not — instead of
+      "skipped and marked pending".
 
 ## Open Questions
 
@@ -130,8 +130,8 @@ None — the two forks below were decided during refine (see Decisions in the pl
 ### Decisions
 
 - **AC4 — adopt the file's grouping ids, do not re-mint them.** The "an id is never adopted" rule in
-  `profile-restore.ts:68` generalised story 042 AC4, which is only about the *profile* id on
-  *import*. Entry ids are no longer rendered at all (`render.ts:177-184`), and layer/category/
+  `profile-restore.ts:68` generalised story 042 AC4, which is only about the _profile_ id on
+  _import_. Entry ids are no longer rendered at all (`render.ts:177-184`), and layer/category/
   section ids are only ever looked up within one profile (`alt-layers.ts:445`, `tidy-up.ts:349`,
   `bind-collision.ts:172`; entries match modifier slots by trigger key, not layer id). So a
   `[q2l layer=…]`/`cat=`/`sub=`/`cvs=` tag is adopted when non-empty and unique within the file,
@@ -140,7 +140,7 @@ None — the two forks below were decided during refine (see Decisions in the pl
   rewriting ids into every copy (spurious diff after every adopt), so it is not a substitute.
 - **Installation copies always mirror the canonical file's bytes**, never the render. Today
   `writeSourceFor` (`sync.ts:221`) and the readers (`index.ts:333, 1501`) use the canonical bytes
-  only when the profile is `dirty`. New rule, enforced in one place and used by writer *and*
+  only when the profile is `dirty`. New rule, enforced in one place and used by writer _and_
   judges: copies are written from and compared against the canonical file's bytes whenever that
   file's hash equals the profile's `fileHash` (or the file was just written in this sync run);
   if the canonical file is absent the render is the source (it is what the run writes first); if
@@ -160,10 +160,10 @@ None — the two forks below were decided during refine (see Decisions in the pl
 ### Order
 
 1. **D1** render-stable adopt (shared parser) → 2. **D2** copies mirror canonical bytes (sync core)
-→ 3. **D3** raw save + adopt cascade (+ two e2e flows) → 4. **D4** no running-game defer (main)
-→ 5. **D5** drop `pending` from shared type + renderer → 6. **D6** drift fetched outside Care
-→ 7. **D7** Care badge counts drift → 8. **D8** per-installation `write` (main) → 9. **D9** Sync now
-row action + wording (+ e2e flow) → 10. **D10** docs.
+   → 3. **D3** raw save + adopt cascade (+ two e2e flows) → 4. **D4** no running-game defer (main)
+   → 5. **D5** drop `pending` from shared type + renderer → 6. **D6** drift fetched outside Care
+   → 7. **D7** Care badge counts drift → 8. **D8** per-installation `write` (main) → 9. **D9** Sync now
+   row action + wording (+ e2e flow) → 10. **D10** docs.
 
 D1 and D2 are the invariants everything else stands on; D3 is a two-line cascade call once they
 hold. D4/D5 are independent of D6–D9 but ordered first so the renderer never renders a state main
@@ -172,82 +172,82 @@ no longer produces.
 ## Deliverables
 
 - [x] **D1 — Adopting a file keeps its grouping ids (AC4).** `src/shared/config/profile-restore.ts`:
-  `buildLayer` (`:3116`) uses `section.fields.layer` when non-empty and unseen in this file, else
-  `newId()`; same for `categoryRegistry.mint`/`idFor` (`:1748`, `:1813`), `subcategoryIdFor`
-  (`:1853`) and the cvar-section registry (`:1887ff`, `:1954`) — mirror the template branch at
-  `:1762-1776`. Doc comments at `:68-70` and `:3966` restated ("the *profile* id is never
-  adopted; grouping ids are adopted when well-formed and unique"). Tests: `round-trip.test.ts`
-  drops `canonicalizeMintedIds` so the fixed point is asserted byte-for-byte over every 042
-  fixture; `file-source-pipeline.test.ts` gains "refresh → syncState reads inSync without a save
-  in between" (the `:852-865` case currently saves in between) and a duplicate/empty-tag fixture
-  that still mints. Acceptance: all round-trip fixtures byte-stable; duplicate tag → minted.
+      `buildLayer` (`:3116`) uses `section.fields.layer` when non-empty and unseen in this file, else
+      `newId()`; same for `categoryRegistry.mint`/`idFor` (`:1748`, `:1813`), `subcategoryIdFor`
+      (`:1853`) and the cvar-section registry (`:1887ff`, `:1954`) — mirror the template branch at
+      `:1762-1776`. Doc comments at `:68-70` and `:3966` restated ("the _profile_ id is never
+      adopted; grouping ids are adopted when well-formed and unique"). Tests: `round-trip.test.ts`
+      drops `canonicalizeMintedIds` so the fixed point is asserted byte-for-byte over every 042
+      fixture; `file-source-pipeline.test.ts` gains "refresh → syncState reads inSync without a save
+      in between" (the `:852-865` case currently saves in between) and a duplicate/empty-tag fixture
+      that still mints. Acceptance: all round-trip fixtures byte-stable; duplicate tag → minted.
 - [x] **D2 — Installation copies are written from and judged against the canonical file's bytes.**
-  `src/main/modules/config/sync.ts` (`writeSourceFor` `:221`, uses at `:374`/`:418`),
-  `src/main/modules/config/index.ts` (`collectRawFiles` `:333-334`, syncState judge `:1501-1502`;
-  `canonicalWriteAllowed` `:432-444` untouched). One predicate decides the source per the
-  Decisions rule; the "moved underneath" case writes nothing and reports `outOfSync`. Tests in
-  `sync.test.ts` + `index.test.ts`: clean profile with hand-formatted canonical → copy equals
-  file bytes, not render; canonical absent → render; hash ≠ `fileHash` → no copy write,
-  `outOfSync`; existing 043 dirty-profile tests (`index.test.ts:1367, 1419`) unchanged.
+      `src/main/modules/config/sync.ts` (`writeSourceFor` `:221`, uses at `:374`/`:418`),
+      `src/main/modules/config/index.ts` (`collectRawFiles` `:333-334`, syncState judge `:1501-1502`;
+      `canonicalWriteAllowed` `:432-444` untouched). One predicate decides the source per the
+      Decisions rule; the "moved underneath" case writes nothing and reports `outOfSync`. Tests in
+      `sync.test.ts` + `index.test.ts`: clean profile with hand-formatted canonical → copy equals
+      file bytes, not render; canonical absent → render; hash ≠ `fileHash` → no copy write,
+      `outOfSync`; existing 043 dirty-profile tests (`index.test.ts:1367, 1419`) unchanged.
 - [x] **D3 — Raw save and every adopt path cascade (AC1, AC2).** `index.ts`: `saveRawText` calls
-  `syncAndPersist` after `adoptFromFile` (`:1230-1244`), doc comment `:1107-1111` replaced;
-  `refreshFromFiles` calls it after each adopt (silent re-read, "take the file" `:1316-1397`).
-  Tests in `index.test.ts` › `saveRawText` / `refreshFromFiles` describes: copy byte-identical to
-  typed/adopted text; dirty sibling on the same installation untouched. **Plus** e2e
-  `scripts/flows/raw-save-cascades.mjs` (raw tab: type, save via `config-save`, assert
-  installation copy bytes == canonical) and `scripts/flows/external-edit-cascades.mjs` (edit the
-  canonical file on disk via `fs`, leave to Library and re-enter Config → adopt, assert copy ==
-  new bytes); fixture helper in `scripts/lib/fixture.mjs` if `writePopulatedFixture` lacks a
-  second assigned installation.
+      `syncAndPersist` after `adoptFromFile` (`:1230-1244`), doc comment `:1107-1111` replaced;
+      `refreshFromFiles` calls it after each adopt (silent re-read, "take the file" `:1316-1397`).
+      Tests in `index.test.ts` › `saveRawText` / `refreshFromFiles` describes: copy byte-identical to
+      typed/adopted text; dirty sibling on the same installation untouched. **Plus** e2e
+      `scripts/flows/raw-save-cascades.mjs` (raw tab: type, save via `config-save`, assert
+      installation copy bytes == canonical) and `scripts/flows/external-edit-cascades.mjs` (edit the
+      canonical file on disk via `fs`, leave to Library and re-enter Config → adopt, assert copy ==
+      new bytes); fixture helper in `scripts/lib/fixture.mjs` if `writePopulatedFixture` lacks a
+      second assigned installation.
 - [x] **D4 — A running game defers nothing (AC3, main half).** `sync.ts:280-302` running check
-  removed; `pendingWrites` dropped from the sync outcome, `syncAndPersist` (`index.ts:447`), the
-  persisted state key + `src/main/lib/schemas.ts` (read-side stays forgiving so an old key is
-  ignored) and the startup sweep (failures still retried); legacy
-  `writeProfileToAssignedInstallations` (`index.ts:137-239`) and its `describe` (`index.test.ts:172`)
-  deleted. `write-plan.ts`'s `isInstallationRunning` stays (cleanup uses it). Tests: `sync.test.ts:146`
-  becomes "writes a running installation exactly like a stopped one"; `index.test.ts` › save with
-  a running installation → copy written, syncState `inSync`, nothing persisted as pending;
-  `applyCleanupIfNotRunning` tests (`:1907-1974`) unchanged.
+      removed; `pendingWrites` dropped from the sync outcome, `syncAndPersist` (`index.ts:447`), the
+      persisted state key + `src/main/lib/schemas.ts` (read-side stays forgiving so an old key is
+      ignored) and the startup sweep (failures still retried); legacy
+      `writeProfileToAssignedInstallations` (`index.ts:137-239`) and its `describe` (`index.test.ts:172`)
+      deleted. `write-plan.ts`'s `isInstallationRunning` stays (cleanup uses it). Tests: `sync.test.ts:146`
+      becomes "writes a running installation exactly like a stopped one"; `index.test.ts` › save with
+      a running installation → copy written, syncState `inSync`, nothing persisted as pending;
+      `applyCleanupIfNotRunning` tests (`:1907-1974`) unchanged.
 - [x] **D5 — `pending` leaves the contract and the renderer (AC3, renderer half).**
-  `src/shared/modules/config.ts` (`ProfileFileSyncStatus` `:1107`, `WriteTargetStatus` `:773`),
-  `src/renderer/src/modules/config/lib/care-sync.ts` (`CareSyncState` mirror `:20-34`),
-  `care-items.ts`, `care-summary.ts`, `client.ts:433,445` (`installationRunning` only if it has no
-  other user), `en.json` (`care.sync.state.pending`, `care.item.files.consequence.pending`, and the
-  error key if orphaned). Tests updated: `care-sync.test.ts:55,89`, `care-items.test.ts:237`,
-  `care-summary.test.ts:247`, `save-bar.test.ts:115-119`. Acceptance: `npm run typecheck` clean,
-  no `'pending'` sync literal left in `src/`.
+      `src/shared/modules/config.ts` (`ProfileFileSyncStatus` `:1107`, `WriteTargetStatus` `:773`),
+      `src/renderer/src/modules/config/lib/care-sync.ts` (`CareSyncState` mirror `:20-34`),
+      `care-items.ts`, `care-summary.ts`, `client.ts:433,445` (`installationRunning` only if it has no
+      other user), `en.json` (`care.sync.state.pending`, `care.item.files.consequence.pending`, and the
+      error key if orphaned). Tests updated: `care-sync.test.ts:55,89`, `care-items.test.ts:237`,
+      `care-summary.test.ts:247`, `save-bar.test.ts:115-119`. Acceptance: `npm run typecheck` clean,
+      no `'pending'` sync literal left in `src/`.
 - [x] **D6 — Drift is fetched on the re-read triggers, not only in Care (AC5).** Sync rows move up:
-  new `lib/use-drift-state.ts` (or a small context next to `raw-draft.tsx`) owned by
-  `ConfigView.tsx`, fetched via `getProfileSyncState` right after `useFileSourceRefresh.ts`'s
-  `runRefresh` (`:58-64`) on both triggers (`:66-81`) and on `profile.updatedAt`; `use-care-sync.ts`
-  consumes those rows (keeps `runAction`, conflict handling, and re-fetch after an action) instead
-  of its own effect (`:83-93`); `CareTab.tsx` unchanged in behaviour. Tests: `useFileSourceRefresh`
-  test (refresh on mount/focus is followed by a sync-state fetch), `use-care-sync` test (no own
-  fetch, refetch after retry).
+      new `lib/use-drift-state.ts` (or a small context next to `raw-draft.tsx`) owned by
+      `ConfigView.tsx`, fetched via `getProfileSyncState` right after `useFileSourceRefresh.ts`'s
+      `runRefresh` (`:58-64`) on both triggers (`:66-81`) and on `profile.updatedAt`; `use-care-sync.ts`
+      consumes those rows (keeps `runAction`, conflict handling, and re-fetch after an action) instead
+      of its own effect (`:83-93`); `CareTab.tsx` unchanged in behaviour. Tests: `useFileSourceRefresh`
+      test (refresh on mount/focus is followed by a sync-state fetch), `use-care-sync` test (no own
+      fetch, refetch after retry).
 - [x] **D7 — The Care badge counts drift (AC6).** `lib/care-summary.ts`'s `dedupedFindingCounts`
-  gains the non-`inSync` Files rows (`ConfigView.tsx:237-240`, tab badge `:495`), de-duplicated
-  per row like findings. Tests: `care-summary.test.ts` (an `outOfSync` and a `missing` row add to
-  the badge count; `inSync` adds nothing; validation + drift are summed, not double-counted).
+      gains the non-`inSync` Files rows (`ConfigView.tsx:237-240`, tab badge `:495`), de-duplicated
+      per row like findings. Tests: `care-summary.test.ts` (an `outOfSync` and a `missing` row add to
+      the badge count; `inSync` adds nothing; validation + drift are summed, not double-counted).
 - [x] **D8 — `write` targets one installation (AC7 main half, AC9).** `src/shared/modules/config.ts`
-  `WriteProfileInput` gains optional `installationId`; `src/main/modules/config/schemas.ts`
-  validates it against known installation ids; `index.ts` `write` (`:894-929`) / `sync.ts`
-  restrict the run to that installation. Tests in `index.test.ts`: Sync now on a foreign copy
-  backs it up once then overwrites (`writer.ts:147-160` contract); on a **dirty** profile the
-  copy equals the canonical file's bytes, not the unsaved edits (AC9); unknown id → rejected.
+      `WriteProfileInput` gains optional `installationId`; `src/main/modules/config/schemas.ts`
+      validates it against known installation ids; `index.ts` `write` (`:894-929`) / `sync.ts`
+      restrict the run to that installation. Tests in `index.test.ts`: Sync now on a foreign copy
+      backs it up once then overwrites (`writer.ts:147-160` contract); on a **dirty** profile the
+      copy equals the canonical file's bytes, not the unsaved edits (AC9); unknown id → rejected.
 - [x] **D9 — Sync now on a drifted row, and the row says what happened (AC7, AC8).**
-  `lib/care-items.ts` (`:241-257`): `outOfSync`/`missing` installation rows get a `syncNow`
-  action (Open/Reveal kept); `use-care-sync.ts` `runAction` → `writeConfigProfile({ profileId,
-  installationId })` then re-fetch; `client.ts`; `en.json`: `care.sync.state.outOfSync` →
-  "Changed in the game folder", `failed` → "The launcher's write did not land", `care.sync.syncNow`
-  with the target path in its hint. Tests: `care-items.test.ts` (outOfSync/missing rows offer Sync
-  now, failed keeps Retry, canonical row never gets Sync now). **Plus** e2e
-  `scripts/flows/care-drift-sync-now.mjs`: edit the installation copy on disk via `fs`, leave to
-  Library and re-enter Config → badge count includes the drift row (AC5, AC6), open Care → row
-  titled "Changed in the game folder" (AC8), click Sync now → copy bytes == canonical, row gone
-  (AC7). Register in `docs/UI-VERIFICATION.md` like the existing flows.
+      `lib/care-items.ts` (`:241-257`): `outOfSync`/`missing` installation rows get a `syncNow`
+      action (Open/Reveal kept); `use-care-sync.ts` `runAction` → `writeConfigProfile({ profileId,
+installationId })` then re-fetch; `client.ts`; `en.json`: `care.sync.state.outOfSync` →
+      "Changed in the game folder", `failed` → "The launcher's write did not land", `care.sync.syncNow`
+      with the target path in its hint. Tests: `care-items.test.ts` (outOfSync/missing rows offer Sync
+      now, failed keeps Retry, canonical row never gets Sync now). **Plus** e2e
+      `scripts/flows/care-drift-sync-now.mjs`: edit the installation copy on disk via `fs`, leave to
+      Library and re-enter Config → badge count includes the drift row (AC5, AC6), open Care → row
+      titled "Changed in the game folder" (AC8), click Sync now → copy bytes == canonical, row gone
+      (AC7). Register in `docs/UI-VERIFICATION.md` like the existing flows.
 - [x] **D10 — Docs (AC10).** `docs/systems/config-module.md` §3 "Apply trigger", §4 write flow
-  ("per assigned installation", copies from canonical bytes), §6 "Game-lifecycle", CFG-3; a
-  one-line note that story 079 reverses story 004 decision 3.
+      ("per assigned installation", copies from canonical bytes), §6 "Game-lifecycle", CFG-3; a
+      one-line note that story 079 reverses story 004 decision 3.
 
 ## Model Hints
 
@@ -260,7 +260,7 @@ no longer produces.
 - D3–D10 → default.
 - Review: → `story-review-hard` — the story changes which bytes land in game folders, removes a
   safety rule (running-game defer) and adds a renderer-triggered write with a target id; the spec
-  + diff must be checked for AC9 (no unsaved edits ever reach an installation) across all new paths.
+  - diff must be checked for AC9 (no unsaved edits ever reach an installation) across all new paths.
 
 ## Acceptance Tests
 
@@ -307,12 +307,13 @@ byte-identically, never a re-render: raw saves, adopting an external edit (silen
 "take the file"), and structured saves alike. Adopting a file is render-stable (grouping ids are
 adopted, not re-minted), which is what makes drift judged against canonical bytes trustworthy. A
 running game no longer defers writes — `pending` is removed end to end. Care now surfaces drift
-outside the tab (badge, background fetch on focus/profile-open) and offers a one-click *Sync now*
+outside the tab (badge, background fetch on focus/profile-open) and offers a one-click _Sync now_
 per drifted row, with wording that tells a hand-edited copy apart from a failed launcher write.
 
 **Commit message:** `079: a save reaches every installation, and Care sees drift`
 
 **Verification:**
+
 - `npm run typecheck` — clean.
 - `npm run build` — succeeds.
 - `npm test` — 3262/3262 passing across 159 files.

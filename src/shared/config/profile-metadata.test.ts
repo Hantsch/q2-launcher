@@ -38,14 +38,22 @@ describe('id (story 051)', () => {
 describe('formatMetaTag', () => {
   it('renders known keys in the fixed registry order regardless of input order', () => {
     const inOrder = formatMetaTag({ v: '1', cid: 'ssg_sg', an: 'ssg', key: 'MOUSE1', mod: 'shift' })
-    const reversed = formatMetaTag({ mod: 'shift', key: 'MOUSE1', an: 'ssg', cid: 'ssg_sg', v: '1' })
+    const reversed = formatMetaTag({
+      mod: 'shift',
+      key: 'MOUSE1',
+      an: 'ssg',
+      cid: 'ssg_sg',
+      v: '1',
+    })
 
     expect(inOrder).toBe('[q2l v=1 cid=ssg_sg an=ssg key=MOUSE1 mod=shift]')
     expect(reversed).toBe(inOrder)
   })
 
   it('omits keys whose value is undefined', () => {
-    expect(formatMetaTag({ cid: 'abc12345', an: undefined, key: undefined })).toBe('[q2l cid=abc12345]')
+    expect(formatMetaTag({ cid: 'abc12345', an: undefined, key: undefined })).toBe(
+      '[q2l cid=abc12345]',
+    )
   })
 
   it('renders the bare sigil with no pairs for an empty fields object', () => {
@@ -202,7 +210,13 @@ describe('parseMetaTag', () => {
 
 describe('formatMetaTag / parseMetaTag round trip', () => {
   it('is a fixed point for known fields', () => {
-    const fields = { v: String(META_FORMAT_VERSION), cid: 'ssg_sg', an: 'ssg', key: 'MOUSE1', mod: 'shift' }
+    const fields = {
+      v: String(META_FORMAT_VERSION),
+      cid: 'ssg_sg',
+      an: 'ssg',
+      key: 'MOUSE1',
+      mod: 'shift',
+    }
     const tag = formatMetaTag(fields)
     const parsed = parseMetaTag(`prose ${tag}`)
 

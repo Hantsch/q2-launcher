@@ -59,10 +59,15 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
   const editButton = page.getByTestId('replays-detail-edit')
   await editButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (!(await editButton.isDisabled())) {
-    throw new Error('replays-archive-readonly: the Edit button must be disabled for an archive entry')
+    throw new Error(
+      'replays-archive-readonly: the Edit button must be disabled for an archive entry',
+    )
   }
 
-  for (const id of ['replays-detail-favourite', ...Array.from({ length: 10 }, (_, i) => `replays-detail-rating-star-${i + 1}`)]) {
+  for (const id of [
+    'replays-detail-favourite',
+    ...Array.from({ length: 10 }, (_, i) => `replays-detail-rating-star-${i + 1}`),
+  ]) {
     if (!(await page.getByTestId(id).isDisabled())) {
       throw new Error(`replays-archive-readonly: ${id} must be disabled for an archive entry`)
     }
@@ -78,7 +83,9 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
   const renameButton = page.getByTestId('demo-rename')
   const renameDisabled = await renameButton.getAttribute('disabled')
   if (renameDisabled === null) {
-    throw new Error('replays-archive-readonly: the rename button must be disabled for an archive entry')
+    throw new Error(
+      'replays-archive-readonly: the rename button must be disabled for an archive entry',
+    )
   }
 
   const renameNotice = page.getByTestId('replays-archive-readonly-rename')
@@ -124,27 +131,41 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
 
   const looseEditNoticeCount = await page.getByTestId('replays-archive-readonly-edit').count()
   if (looseEditNoticeCount !== 0) {
-    throw new Error('replays-archive-readonly: a loose demo must not show the read-only edit notice')
+    throw new Error(
+      'replays-archive-readonly: a loose demo must not show the read-only edit notice',
+    )
   }
   const looseRenameNoticeCount = await page.getByTestId('replays-archive-readonly-rename').count()
   if (looseRenameNoticeCount !== 0) {
-    throw new Error('replays-archive-readonly: a loose demo must not show the read-only rename notice')
+    throw new Error(
+      'replays-archive-readonly: a loose demo must not show the read-only rename notice',
+    )
   }
 
-  step('the zip row disables its quick favourite control with a visible reason, the loose row does not')
-  const dm2FavouriteDisabled = await dm2Row.getByTestId('replays-row-favourite').getAttribute('disabled')
+  step(
+    'the zip row disables its quick favourite control with a visible reason, the loose row does not',
+  )
+  const dm2FavouriteDisabled = await dm2Row
+    .getByTestId('replays-row-favourite')
+    .getAttribute('disabled')
   if (dm2FavouriteDisabled === null) {
     throw new Error('replays-archive-readonly: the zip row favourite control must be disabled')
   }
-  await dm2Row.getByTestId('replays-archive-readonly-row').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await dm2Row
+    .getByTestId('replays-archive-readonly-row')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
-  const looseFavouriteDisabled = await looseRow.getByTestId('replays-row-favourite').getAttribute('disabled')
+  const looseFavouriteDisabled = await looseRow
+    .getByTestId('replays-row-favourite')
+    .getAttribute('disabled')
   if (looseFavouriteDisabled !== null) {
     throw new Error('replays-archive-readonly: the loose row favourite control must stay enabled')
   }
   const looseRowNoticeCount = await looseRow.getByTestId('replays-archive-readonly-row').count()
   if (looseRowNoticeCount !== 0) {
-    throw new Error('replays-archive-readonly: the loose row must not show the read-only row notice')
+    throw new Error(
+      'replays-archive-readonly: the loose row must not show the read-only row notice',
+    )
   }
 
   await shot('replays-archive-readonly')

@@ -31,6 +31,6 @@ export function formatDemoDuration(ms: number | null | undefined): FormattedDemo
   const seconds = totalSeconds % 60
   return {
     kind: 'known',
-    text: `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+    text: `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
   }
 }

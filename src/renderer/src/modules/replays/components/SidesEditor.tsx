@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
-import { addPlayer, addSide, movePlayer, removePlayer, removeSide, type SidecarDraft } from '@shared/replays/sidecar-draft'
+import {
+  addPlayer,
+  addSide,
+  movePlayer,
+  removePlayer,
+  removeSide,
+  type SidecarDraft,
+} from '@shared/replays/sidecar-draft'
 import { Button, IconButton } from '../../../components/ui/Button'
 import { Field, Input } from '../../../components/ui/controls'
 
@@ -25,11 +32,20 @@ export function SidesEditor({ draft, knownPlayers, disabled, onChange }: SidesEd
   const [playerInputs, setPlayerInputs] = useState<Record<number, string>>({})
 
   const knownChips: Array<{ name: string; labelKey: string }> = [
-    ...knownPlayers.demo.map((name) => ({ name, labelKey: 'replays.editor.sides.knownPlayer.fromDemo' })),
-    ...knownPlayers.name.map((name) => ({ name, labelKey: 'replays.editor.sides.knownPlayer.fromFileName' })),
+    ...knownPlayers.demo.map((name) => ({
+      name,
+      labelKey: 'replays.editor.sides.knownPlayer.fromDemo',
+    })),
+    ...knownPlayers.name.map((name) => ({
+      name,
+      labelKey: 'replays.editor.sides.knownPlayer.fromFileName',
+    })),
   ]
 
-  const setSideField = (sideIndex: number, patch: Partial<{ team: string; result: string }>): void => {
+  const setSideField = (
+    sideIndex: number,
+    patch: Partial<{ team: string; result: string }>,
+  ): void => {
     onChange({
       ...draft,
       sides: draft.sides.map((s, i) => (i === sideIndex ? { ...s, ...patch } : s)),
@@ -124,7 +140,9 @@ export function SidesEditor({ draft, knownPlayers, disabled, onChange }: SidesEd
                 maxLength={64}
                 placeholder={t('replays.editor.sides.addPlayerPlaceholder')}
                 disabled={disabled || side.players.length >= MAX_PLAYERS}
-                onChange={(event) => setPlayerInputs((prev) => ({ ...prev, [sideIndex]: event.target.value }))}
+                onChange={(event) =>
+                  setPlayerInputs((prev) => ({ ...prev, [sideIndex]: event.target.value }))
+                }
                 onKeyDown={(event) => {
                   if (event.key !== 'Enter') return
                   event.preventDefault()
@@ -139,7 +157,9 @@ export function SidesEditor({ draft, knownPlayers, disabled, onChange }: SidesEd
               {knownChips.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {knownChips.map((chip, chipIndex) => {
-                    const present = side.players.some((p) => p.toLowerCase() === chip.name.toLowerCase())
+                    const present = side.players.some(
+                      (p) => p.toLowerCase() === chip.name.toLowerCase(),
+                    )
                     return (
                       <button
                         key={`${chip.name}-${chipIndex}`}

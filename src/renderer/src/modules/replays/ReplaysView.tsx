@@ -276,7 +276,9 @@ export function ReplaysView() {
   // list is patched in place (old id -> the freshly composed row) and the selection follows the
   // new id, mirroring `handleRowPatched`'s "patch, never rescan" shape.
   const handleRenamed = (oldId: string, newRow: DemoRow): void => {
-    setDemos((current) => (current === null ? current : current.map((d) => (d.id === oldId ? newRow : d))))
+    setDemos((current) =>
+      current === null ? current : current.map((d) => (d.id === oldId ? newRow : d)),
+    )
     pinnedRowIdRef.current = newRow.id
     selectDemo(newRow.id)
   }
@@ -341,7 +343,11 @@ export function ReplaysView() {
     }
     void readModWarning().then((result) => {
       // A failed read falls back to asking.
-      if (result.ok && (!result.value.enabled || result.value.trustedMods.includes(latest.modGameDir.toLowerCase()))) {
+      if (
+        result.ok &&
+        (!result.value.enabled ||
+          result.value.trustedMods.includes(latest.modGameDir.toLowerCase()))
+      ) {
         void latest.play(true)
       } else {
         // Only here is the dialog opening: read the catalog fresh for an install offer. A failed,
@@ -350,7 +356,11 @@ export function ReplaysView() {
           .then((catalog) =>
             catalog.ok && catalog.value.status === 'ok'
               ? findCatalogEntryByGameDir(
-                  catalog.value.entries.map((e) => ({ id: e.id, gameDir: e.gamedir, name: e.name })),
+                  catalog.value.entries.map((e) => ({
+                    id: e.id,
+                    gameDir: e.gamedir,
+                    name: e.name,
+                  })),
                   latest.modGameDir,
                 )
               : null,
@@ -370,7 +380,9 @@ export function ReplaysView() {
       id: 'view',
       labelKey: 'installation.action.view',
       disabled: !hasSelection || eligibility === null || (!eligibility.ok && !askFirst) || playBusy,
-      ...(hasSelection && eligibility !== null && !eligibility.ok && !askFirst ? { reason: eligibility.reason } : {}),
+      ...(hasSelection && eligibility !== null && !eligibility.ok && !askFirst
+        ? { reason: eligibility.reason }
+        : {}),
       ...(playError ? { error: playError } : {}),
       run: runPlay,
     }),
@@ -386,7 +398,10 @@ export function ReplaysView() {
   )
   // Story 155: every demo's own sidecar tags, for the notes editor's tag-suggestion input -
   // `suggestTags` excludes the current draft's own tags itself, so duplicates here are harmless.
-  const otherDemosTags = useMemo(() => (demos ?? []).map((demo) => demo.sidecar.values.tags ?? []), [demos])
+  const otherDemosTags = useMemo(
+    () => (demos ?? []).map((demo) => demo.sidecar.values.tags ?? []),
+    [demos],
+  )
   const visibleDemos = useMemo(() => {
     const filtered = filterDemos(sortedDemos, filter, demoFilterSubject, Date.now())
     const pinnedId = pinnedRowIdRef.current
@@ -415,7 +430,6 @@ export function ReplaysView() {
   const rowReplaceId = findRowReplaceId(drafts, selectedId, editingId)
   const rowReplaceEntry = rowReplaceId !== undefined ? drafts[rowReplaceId] : undefined
 
-
   return (
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-line px-5 py-4">
@@ -434,7 +448,11 @@ export function ReplaysView() {
         </Button>
       </header>
 
-      <ReplaysListStatus listState={listState} progress={progress} onOpenSettings={handleOpenSettings} />
+      <ReplaysListStatus
+        listState={listState}
+        progress={progress}
+        onOpenSettings={handleOpenSettings}
+      />
 
       <div className="flex min-h-0 flex-1">
         <aside
@@ -495,7 +513,12 @@ export function ReplaysView() {
             </div>
 
             {selected && (
-              <div className={cn(DETAIL_PANE, stageMode ? 'border-l' : 'border-t @4xl:border-t-0 @4xl:border-l')}>
+              <div
+                className={cn(
+                  DETAIL_PANE,
+                  stageMode ? 'border-l' : 'border-t @4xl:border-t-0 @4xl:border-l',
+                )}
+              >
                 <DemoDetailPanel
                   row={selected}
                   onClose={() => {
@@ -512,7 +535,10 @@ export function ReplaysView() {
         </div>
       </div>
 
-      <div className={cn(stageMode && 'h-32 shrink-0 overflow-hidden')} data-testid="replays-timeline-slot">
+      <div
+        className={cn(stageMode && 'h-32 shrink-0 overflow-hidden')}
+        data-testid="replays-timeline-slot"
+      >
         <DemoTimeline />
       </div>
       {stageMode && <ConsoleCommandField />}
@@ -551,7 +577,9 @@ export function ReplaysView() {
         <ReplaceSidecarDialog
           fileName={rowReplaceEntry.replace.fileName}
           issues={rowReplaceEntry.replace.issues}
-          onConfirm={() => void useDemoEditorStore.getState().confirmQuickEdit(rowReplaceId, handleRowPatched)}
+          onConfirm={() =>
+            void useDemoEditorStore.getState().confirmQuickEdit(rowReplaceId, handleRowPatched)
+          }
           onCancel={() => cancelReplace(rowReplaceId)}
         />
       )}

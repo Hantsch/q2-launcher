@@ -81,7 +81,7 @@ Depends on stories 202 (mutators) and 203 (forgiving helper).
   `modules/<id>/` path in AC3 is read as "next to its owner".
 - **S5** — One section per existing top-level key, file layout flat and unchanged (no nesting under
   a module id), because AC6 requires every existing `state.json` to load identically.
-- **S6** — `section(spec)` called again with the *same spec object* returns the same handle; a
+- **S6** — `section(spec)` called again with the _same spec object_ returns the same handle; a
   different spec for a registered key, or a shell key (`schemaVersion`, `settings`,
   `installations`), throws. Each owner exports `<id>State(state)` over a module-level const spec, so
   `setup()` and tests reach the identical handle without a test-only peek API.
@@ -109,7 +109,7 @@ Depends on stories 202 (mutators) and 203 (forgiving helper).
   `load()`, before any module exists. `src/main/modules/index.ts` exports `MODULE_MIGRATIONS`,
   `context.ts` passes it to `new StateStore(path, { migrations })`; the runner asserts strictly
   ascending `to` values ending at `STATE_SCHEMA_VERSION` and throws at boot otherwise.
-- **S15** — AC6 is proven by a golden characterization test written *first* (D1) against today's
+- **S15** — AC6 is proven by a golden characterization test written _first_ (D1) against today's
   code; every later D changes only the accessor in its helper, never the golden JSON.
 - **S16** — No CHANGELOG entry: nothing user-visible changes.
 - **S17** — AC1's grep and AC3's line target become a unit test (mirroring
@@ -145,8 +145,8 @@ End state: `LauncherStateDocument` = `schemaVersion`, `settings`, `installations
   version, every top-level key filled, including a few garbage rows each parser drops). For each
   input: write it to a temp dir, `new StateStore(file).load()`, then `readEverySection(state)` — one
   local helper returning `{ settings, installations, configProfiles, configPlayedMods,
-  configSwitchBinds, configWriteFailures, configFileSourceMigratedAt, downloads, downloadFailures,
-  homeLayout, servers, unlock, replays }` via today's `StateStore` getters — and compare to a
+configSwitchBinds, configWriteFailures, configFileSourceMigratedAt, downloads, downloadFailures,
+homeLayout, servers, unlock, replays }` via today's `StateStore` getters — and compare to a
   committed `__fixtures__/state/<name>.expected.json` (generate once from the current code, then
   commit; use `toEqual` against the file, not vitest snapshots). Also `settle()` and compare the
   written file's known keys to the same expectation after re-load. Determinism: `vi.setSystemTime`
@@ -160,7 +160,7 @@ End state: `LauncherStateDocument` = `schemaVersion`, `settings`, `installations
   `src/main/lib/renderer-source.test.ts`, and in `src/main/modules/home/images/`
   `fetch-image.ts`, `image-cache.ts`, `resolve-feed-images.ts` and their tests (grep
   `images/paths`/`'./paths'`). Move the `describe('real zip (only when the vendored binary is
-  present)', …)` block from `src/main/lib/zip-entries.test.ts` into new
+present)', …)` block from `src/main/lib/zip-entries.test.ts` into new
   `src/main/modules/downloads/zip-entries-7za.test.ts` (importing `../../lib/zip-entries` and
   `./7za-path`), removing the `7za-path` import from the lib test. No behaviour change; existing
   tests are the acceptance.
@@ -168,10 +168,10 @@ End state: `LauncherStateDocument` = `schemaVersion`, `settings`, `installations
 - **D3 — `setEngineState` is a downloads function (AC1 part).** New
   `src/main/modules/downloads/engine/record-engine-state.ts` exporting
   `setEngineState(installations: Pick<InstallationsService, 'find' | 'patch'>, id, patch:
-  Partial<InstallationEngineState>): Outcome<Installation>`: `find(id)` (else
+Partial<InstallationEngineState>): Outcome<Installation>`: `find(id)` (else
   `fail('installations.error.notFound')`), `moduleData = writeEngineState(current.moduleData,
-  patch)`, `merged = readEngineState(moduleData)`, then one `installations.patch(id, { moduleData,
-  detectedVersion: merged.version || undefined })` (story 202's `patch`; `undefined` deletes the
+patch)`, `merged = readEngineState(moduleData)`, then one `installations.patch(id, { moduleData,
+detectedVersion: merged.version || undefined })` (story 202's `patch`; `undefined` deletes the
   field). Delete `InstallationsService.setEngineState` and its `installation-state` import from
   `src/main/services/installations.ts`; move its tests from `src/main/services/installations.test.ts`
   to new `record-engine-state.test.ts`. The jobs' structural deps keep their
@@ -185,7 +185,7 @@ End state: `LauncherStateDocument` = `schemaVersion`, `settings`, `installations
 - **D4 — `StateStore.section()` (AC2).** Files: `src/main/services/state.ts`,
   `src/main/services/state.test.ts`, and `src/main/lib/json-store.ts` only if a serialize hook is
   needed. Add `section<T>(spec: { key: string; parse: (raw: unknown) => T; defaults: () => T }):
-  StateSection<T>` with `StateSection<T> = { get(): T; update(fn: (live: T) => T): T }`. Semantics:
+StateSection<T>` with `StateSection<T> = { get(): T; update(fn: (live: T) => T): T }`. Semantics:
   at `load()` the shell keys (`schemaVersion`, `settings`, `installations`) are parsed as today and
   every other top-level key of the migrated document is kept raw; `section()` parses its raw value
   (absent → `defaults()`), caches it, and from then on writes the typed value under the same flat
@@ -272,7 +272,7 @@ End state: `LauncherStateDocument` = `schemaVersion`, `settings`, `installations
   `migrateStateDocument(raw, steps)`, asserting strictly ascending `to` ending at
   `STATE_SCHEMA_VERSION` (throws otherwise) and carrying no config import. `src/main/modules/index.ts`
   exports `MODULE_MIGRATIONS`; `src/main/context.ts` passes it to `new StateStore(path,
-  { migrations })`. Move the config step tests from `src/main/services/migrations.test.ts` to the new
+{ migrations })`. Move the config step tests from `src/main/services/migrations.test.ts` to the new
   test; the shell test keeps runner tests with fake steps. Tests: › "runs only steps above the file's
   version, in order", › "a step list not ending at STATE_SCHEMA_VERSION throws"; golden unchanged.
 
@@ -282,8 +282,7 @@ End state: `LauncherStateDocument` = `schemaVersion`, `settings`, `installations
   bump; no new parse-time rewrites), `section()` and unknown-key preservation; drop "`MIGRATIONS` is
   empty at v1"; "Adding a module" step 3 says the module owns its state via `persisted.ts` +
   `app.state.section()` instead of "never touches the state file" (same fix in the `MainModule` doc
-  comment in `src/main/modules/types.ts`). Update `docs/systems/config-module.md` (~lines 180–193,
-  248) and `docs/systems/install-module.md` (~190, 391) paths. New `src/main/shell-layering.test.ts`
+  comment in `src/main/modules/types.ts`). Update `docs/systems/config-module.md` (~lines 180–193, 248) and `docs/systems/install-module.md` (~190, 391) paths. New `src/main/shell-layering.test.ts`
   (mirror the tree walk in `src/main/modules/downloads/layering.test.ts`): › "no shell file imports
   from modules" (every `.ts` under `src/main/lib`, `src/main/services` plus `src/main/index.ts` has no
   import specifier matching `modules/`), › "lib/schemas.ts holds at most 400 lines",

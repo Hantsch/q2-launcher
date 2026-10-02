@@ -8,7 +8,7 @@ requires an IPC payload schema) — plus one closing check for story **037** (`u
 every surface and is green), which is still in-progress pending a human focus-steal confirmation.
 
 Every step below is a real action in the running app. The one console command used anywhere in
-this plan is `npm run ui:verify` itself, in use case 8 — it is *starting* a harness run, not a
+this plan is `npm run ui:verify` itself, in use case 8 — it is _starting_ a harness run, not a
 substitute for clicking something in the launcher, and its own acceptance criterion is precisely
 that a human watches it from outside the app.
 

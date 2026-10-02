@@ -146,7 +146,11 @@ describe('sidecar read path never writes', () => {
           const full = join(dirPath, entry.name)
           if (entry.isDirectory()) {
             files.push(...(await collectTsFiles(full)))
-          } else if (entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) {
+          } else if (
+            entry.isFile() &&
+            entry.name.endsWith('.ts') &&
+            !entry.name.endsWith('.test.ts')
+          ) {
             files.push(full)
           } else if (entry.isFile() && entry.name.endsWith('.test.ts')) {
             // Test files are scanned too (they're allowed importers, but an unexpected non-listed
@@ -173,9 +177,10 @@ describe('sidecar read path never writes', () => {
         }
       }
 
-      expect(unexpectedImporters, `unexpected importers of sidecar-store: ${unexpectedImporters.join(', ')}`).toEqual(
-        [],
-      )
+      expect(
+        unexpectedImporters,
+        `unexpected importers of sidecar-store: ${unexpectedImporters.join(', ')}`,
+      ).toEqual([])
     })
   })
 })

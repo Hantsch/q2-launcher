@@ -21,8 +21,9 @@ export const readFinishedAt = async (page) =>
 export async function waitForScanIdle(page, timeout = SCAN_SETTLE_TIMEOUT_MS) {
   await page.waitForFunction(
     () =>
-      document.querySelector('[data-testid="servers-scan-status"]')?.getAttribute('data-running') ===
-      'false',
+      document
+        .querySelector('[data-testid="servers-scan-status"]')
+        ?.getAttribute('data-running') === 'false',
     null,
     { timeout },
   )

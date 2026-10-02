@@ -126,7 +126,13 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
         timeout: TIMEOUT_MS,
       })
       await secondPage.screenshot({
-        path: join(REPO_ROOT, '.ui-verify', 'screenshots', 'flows', 'replays-extra-folders-restarted.png'),
+        path: join(
+          REPO_ROOT,
+          '.ui-verify',
+          'screenshots',
+          'flows',
+          'replays-extra-folders-restarted.png',
+        ),
       })
     },
   )
@@ -139,7 +145,9 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
   const errorText = page.getByTestId('replays-extra-folders-error')
   await errorText.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if ((await foldersList(page).count()) !== 1) {
-    throw new Error('re-adding the same folder produced a second row - expected the add to be refused')
+    throw new Error(
+      're-adding the same folder produced a second row - expected the add to be refused',
+    )
   }
   await shot('replays-extra-folder-duplicate-refused')
 
@@ -150,7 +158,9 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
       .filter({ hasText: fileName })
       .count()
     if (count !== 1) {
-      throw new Error(`expected ${fileName} to appear exactly once after the refused re-add, got ${count}`)
+      throw new Error(
+        `expected ${fileName} to appear exactly once after the refused re-add, got ${count}`,
+      )
     }
   }
 
@@ -168,18 +178,24 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
       .filter({ hasText: fileName })
       .count()
     if (count !== 0) {
-      throw new Error(`expected ${fileName} to be gone from the Demos list after removing its folder`)
+      throw new Error(
+        `expected ${fileName} to be gone from the Demos list after removing its folder`,
+      )
     }
   }
   await shot('replays-extra-folder-removed')
 
   if (!existsSync(extraFolder)) {
-    throw new Error(`expected the fixture folder ${extraFolder} to still exist on disk after removal`)
+    throw new Error(
+      `expected the fixture folder ${extraFolder} to still exist on disk after removal`,
+    )
   }
   const filesOnDisk = readdirSync(extraFolder)
   for (const fileName of ['a.dm2', 'B.MVD2']) {
     if (!filesOnDisk.includes(fileName)) {
-      throw new Error(`expected ${fileName} to still be present on disk under ${extraFolder} after removal`)
+      throw new Error(
+        `expected ${fileName} to still be present on disk under ${extraFolder} after removal`,
+      )
     }
   }
 

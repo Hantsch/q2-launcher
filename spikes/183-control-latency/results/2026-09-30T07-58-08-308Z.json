@@ -25,19 +25,8 @@
     "SINGLE_JITTER_MS": 400,
     "BURST_GAP_MS": 100,
     "CPU_WINDOW_MS": 30000,
-    "SINGLE_MIX": [
-      "pause",
-      "pause",
-      "seek +10",
-      "seek -10",
-      "timescale 2",
-      "timescale 1"
-    ],
-    "BURST_MIX": [
-      "pause",
-      "seek -10",
-      "pause"
-    ],
+    "SINGLE_MIX": ["pause", "pause", "seek +10", "seek -10", "timescale 2", "timescale 1"],
+    "BURST_MIX": ["pause", "seek -10", "pause"],
     "REWIND_ABOVE_MS": 20000,
     "GEOMETRY": "960x540+80+80"
   },
@@ -48,23 +37,11 @@
         "seen": true,
         "dir": "C:\\Games\\Q2Pro\\opentdm\\configs"
       },
-      "writeconfigLogLines": [
-        "Wrote configs/q2l_mk_1.cfg."
-      ]
+      "writeconfigLogLines": ["Wrote configs/q2l_mk_1.cfg."]
     },
     "logfileFlush": {
-      "tested": [
-        0,
-        2,
-        3,
-        1
-      ],
-      "accepted": [
-        0,
-        2,
-        3,
-        1
-      ],
+      "tested": [0, 2, 3, 1],
+      "accepted": [0, 2, 3, 1],
       "echoed": {
         "0": "0",
         "1": "1",
@@ -161,10 +138,7 @@
           "in_grab",
           "2"
         ],
-        "argsAfterDemo": [
-          "+exec",
-          "q2l_loop.cfg"
-        ]
+        "argsAfterDemo": ["+exec", "q2l_loop.cfg"]
       },
       "notes": []
     },
@@ -298,10 +272,7 @@
           "in_grab",
           "2"
         ],
-        "argsAfterDemo": [
-          "+exec",
-          "q2l_loop.cfg"
-        ]
+        "argsAfterDemo": ["+exec", "q2l_loop.cfg"]
       },
       "exitedCleanly": true,
       "cleanup": {

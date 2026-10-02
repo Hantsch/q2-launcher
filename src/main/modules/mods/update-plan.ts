@@ -39,7 +39,9 @@ export function planModUpdate(
 
   return {
     write: [...newPaths].filter((path) => !kept.has(path)),
-    deleteObsolete: oldRecord.files.map((file) => file.path).filter((path) => !newPaths.has(path) && !kept.has(path)),
+    deleteObsolete: oldRecord.files
+      .map((file) => file.path)
+      .filter((path) => !newPaths.has(path) && !kept.has(path)),
     changed,
     keptUntouched: changed.filter((path) => kept.has(path)),
   }

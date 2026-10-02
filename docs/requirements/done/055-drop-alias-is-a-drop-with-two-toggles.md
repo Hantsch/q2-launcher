@@ -10,7 +10,7 @@ created: 2026-09-05
 In my config every drop is an alias called `drop_<something>` - `drop_shotgun`, `drop_rail`,
 `drop_shells`, `drop_tech`, `drop_powers` (`docs/fixtures/dmalias.cfg:86-103`, sixteen of them) -
 with a body of the shape `drop <item>; [drop <ammo>;] [say_team ...;] [extras such as wave 1]`. That
-name pattern *is* the type: a drop is a helper type, like a toggle or a press/release pair, and
+name pattern _is_ the type: a drop is a helper type, like a toggle or a press/release pair, and
 "Weapon dropping" is just where the template happens to put them.
 
 The launcher instead identifies a drop by `row.categoryId === 'drops'` on a catalogue row
@@ -230,8 +230,8 @@ findings, 4 of which were fixed (A-D) and 3 deliberately accepted as-is (see Dec
   its body is actually a drop** (i.e. a user-renamed plain alias or message-only entry parked in
   "Weapon dropping"). Accepted as-is (self-documented in `alias-render.ts`): cosmetic and self-correcting
   - it only affects the rendered alias name, not the entry's behaviour or its `isDropEntry` status, and
-  a user who deliberately re-categorises a non-drop entry into a drop-named category can rename it back
-  via story 039's explicit `aliasName`, which still wins verbatim.
+    a user who deliberately re-categorises a non-drop entry into a drop-named category can rename it back
+    via story 039's explicit `aliasName`, which still wins verbatim.
 - **`withDropMessage`'s removal and the sub-row's display were made to agree on "first message command"**
   (both previously risked disagreeing - display read the last, removal targeted the first - only
   observable for a body with two message commands, an edge case no real fixture hits, but now pinned by

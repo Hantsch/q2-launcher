@@ -190,7 +190,13 @@ export function toSource(pkg: CatalogPackage): PackageSource | undefined {
     return undefined
   }
   if (!isSafeDownloadFileName(fileName)) return undefined
-  return { fileName, url: pkg.url, mirrors: pkg.mirrors, sizeBytes: pkg.sizeBytes, sha256: pkg.sha256 }
+  return {
+    fileName,
+    url: pkg.url,
+    mirrors: pkg.mirrors,
+    sizeBytes: pkg.sizeBytes,
+    sha256: pkg.sha256,
+  }
 }
 
 /** Strictly inside `parent` (never equal). `isPathContainedBy` is symmetric, so it is not enough here. */
@@ -200,7 +206,9 @@ export function isStrictlyInside(child: string, parent: string): boolean {
 
 export function isSafeRelative(rel: string): boolean {
   if (rel.length === 0 || isAbsolute(rel)) return false
-  return rel.split('/').every((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
+  return rel
+    .split('/')
+    .every((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
 }
 
 export async function hashFile(path: string): Promise<{ sha256: string; sizeBytes: number }> {
@@ -216,7 +224,10 @@ export async function hashFile(path: string): Promise<{ sha256: string; sizeByte
 }
 
 /** Regular files under `dir`, relative with forward slashes; `null` on a link or special file. */
-async function collectFiles(dir: string, prefix = ''): Promise<{ rel: string; abs: string }[] | null> {
+async function collectFiles(
+  dir: string,
+  prefix = '',
+): Promise<{ rel: string; abs: string }[] | null> {
   const out: { rel: string; abs: string }[] = []
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const abs = join(dir, entry.name)
@@ -278,7 +289,8 @@ async function preflight(
   const versionEntry = entry.versions.find((v) => v.version === version)
   if (!versionEntry) return fail(UNKNOWN_MOD)
   // The same two rules `launch-plan.ts` and the catalog parser apply: a name `+set game` can carry.
-  if (!isSafeGameDirName(entry.gamedir) || !isSafeEarlyToken(entry.gamedir)) return fail(UNKNOWN_MOD)
+  if (!isSafeGameDirName(entry.gamedir) || !isSafeEarlyToken(entry.gamedir))
+    return fail(UNKNOWN_MOD)
 
   if (recordedGameDirs(installation.moduleData).has(entry.gamedir.toLowerCase())) {
     return fail(ALREADY_INSTALLED)
@@ -336,7 +348,13 @@ export async function resolveModVariant(
     variantId: isLibrary ? `${variant.platform}-${variant.arch}` : 'content-only',
     // A content-only package set carries no arch of its own; the engine's is recorded. An engine
     // whose arch could not be read is recorded as unknown, never guessed.
-    arch: isLibrary ? variant.arch : target.arch === 'x86_64' ? 'x64' : target.arch === 'x86' ? 'x86' : 'unknown',
+    arch: isLibrary
+      ? variant.arch
+      : target.arch === 'x86_64'
+        ? 'x64'
+        : target.arch === 'x86'
+          ? 'x86'
+          : 'unknown',
     platform: isLibrary ? variant.platform : target.platform,
   })
 }
@@ -370,7 +388,8 @@ export async function stagePackages(args: {
       signal,
       resolveExtractor: deps.resolveExtractor,
       onExtractor: args.onExtractor,
-      onProgress: (received) => args.onProgress(bytesBefore + Math.min(received, source.sizeBytes), bytesTotal),
+      onProgress: (received) =>
+        args.onProgress(bytesBefore + Math.min(received, source.sizeBytes), bytesTotal),
     })
     if (!staged.ok) {
       if (staged.cancelled || signal.aborted) return { ok: false, cancelled: true }
@@ -397,7 +416,8 @@ export async function collectPackageFiles(
   for (const [index, pkg] of packages.entries()) {
     const tree = extractDirs[index]!
     for (const content of pkg.contents) {
-      if (!isSafeContentsFrom(content.from)) return { ok: false, reason: `unsafe from ${content.from}` }
+      if (!isSafeContentsFrom(content.from))
+        return { ok: false, reason: `unsafe from ${content.from}` }
       const source = content.from === '.' ? tree : join(tree, content.from)
       if (pathKey(source) !== pathKey(tree) && !isStrictlyInside(source, tree)) {
         return { ok: false, reason: `${content.from} leaves the staged tree` }
@@ -495,7 +515,9 @@ async function runInstall(
     return { status: 'cancelled' }
   }
 
-  const stagingDirs = sources.map((_, index) => getExtractDir(deps.userDataPath, `${jobId}-${index}`))
+  const stagingDirs = sources.map((_, index) =>
+    getExtractDir(deps.userDataPath, `${jobId}-${index}`),
+  )
   const backupRoot = getExtractDir(deps.userDataPath, `${jobId}-backup`)
   /** Set when a restore could not put every backed-up file back: the backup is then the only copy. */
   let keepBackup = false
@@ -512,7 +534,11 @@ async function runInstall(
       signal,
       onExtractor: setExtractor,
       onProgress: (done) =>
-        report({ ratio: (done / Math.max(1, bytesTotal)) * STAGE_RATIO, bytesDone: done, bytesTotal }),
+        report({
+          ratio: (done / Math.max(1, bytesTotal)) * STAGE_RATIO,
+          bytesDone: done,
+          bytesTotal,
+        }),
     })
     if (!stagedPackages.ok) {
       if (stagedPackages.cancelled) return cancelledOutcome()
@@ -537,7 +563,8 @@ async function runInstall(
     for (const file of staged) {
       const rel = placedGameLibraryName(file.rel)
       const key = rel.toLowerCase()
-      if (!isSafeRelative(rel) || seen.has(key)) return failed(BAD_PACKAGE, `bad or duplicate ${rel}`)
+      if (!isSafeRelative(rel) || seen.has(key))
+        return failed(BAD_PACKAGE, `bad or duplicate ${rel}`)
       seen.add(key)
       if (!isStrictlyInside(join(gameDirPath, rel), gameDirPath)) {
         return failed(BAD_PACKAGE, `${rel} leaves the game directory`)
@@ -629,7 +656,9 @@ async function runInstall(
 
     report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
     deps.jobs.finish(jobId, { status: 'succeeded' })
-    log?.info(`installed ${entry.id} ${plan.version} into ${gameDirPath} (${outcome.files.length} files)`)
+    log?.info(
+      `installed ${entry.id} ${plan.version} into ${gameDirPath} (${outcome.files.length} files)`,
+    )
     return outcome
   } finally {
     for (const dir of keepBackup ? stagingDirs : [...stagingDirs, backupRoot]) {
@@ -663,8 +692,7 @@ function raceAbort(
 }
 
 type WriteResult =
-  | { ok: true; files: ModInstallFile[] }
-  | { ok: false; cancelled: boolean; reason: string }
+  { ok: true; files: ModInstallFile[] } | { ok: false; cancelled: boolean; reason: string }
 
 /**
  * The only code that writes into the installation. Every exit that is not a success has restored

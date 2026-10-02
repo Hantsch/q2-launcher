@@ -24,7 +24,7 @@ to `fetcher.ts`. Six wrappers, six policies.
 ## Acceptance Criteria
 
 - [ ] **AC1** — `src/main/lib/http.ts` exports `fetchWithPolicy(url, { fetchImpl, timeoutMs,
-      retries, maxBytes, signal, log })` composing `AbortSignal.any([signal, AbortSignal.timeout(ms)])`,
+retries, maxBytes, signal, log })` composing `AbortSignal.any([signal, AbortSignal.timeout(ms)])`,
       `readBodyCapped`, `describeFetchError` and `delay`; unit tests cover timeout, external
       abort, retry-then-succeed, body over cap, and error classification.
 - [ ] **AC2** — `feed-fetcher.ts` and `fetch-image.ts` use it; their existing tests (367 + 251
@@ -52,7 +52,7 @@ to `fetcher.ts`. Six wrappers, six policies.
 - **A declared `content-length` over the cap is refused before reading**, carrying `fetch-image.ts`'s existing pre-check into the shared reader for every caller.
 - **`FetchImpl` moves to `src/main/lib/http.ts`** (with optional `headers`/`method`) and `downloads/fetcher.ts` re-exports it, because `lib/` must not import from a module (story 208) and existing importers then need no edit.
 - **List-source mapping:** `timeout`/`network`/`aborted`/body-read error → `transport-error`, `too-large` → `truncated`, `http-status` → `http-status` with its code; budget 10 s, no retry, both budget and cap overridable (`ResolveSourcesDeps.httpListTimeoutMs`) so the hang test runs in milliseconds.
-- **Bleeding-edge scope:** 221 is built before 220, which deletes `downloadUnpinnedAsset` and routes the unpinned download through `fetcher.ts`; so 221 migrates only the bleeding-edge *probe* (`bleeding-edge.ts`, two of the five hand-wired `AbortSignal.timeout` sites) and the post-220 download is covered by `fetcher.ts` importing `delay`/`describeFetchError`.
+- **Bleeding-edge scope:** 221 is built before 220, which deletes `downloadUnpinnedAsset` and routes the unpinned download through `fetcher.ts`; so 221 migrates only the bleeding-edge _probe_ (`bleeding-edge.ts`, two of the five hand-wired `AbortSignal.timeout` sites) and the post-220 download is covered by `fetcher.ts` importing `delay`/`describeFetchError`.
 - **scan-runner reuses the abort composition only** (`composeSignals`), because it runs UDP queries and has no fetch error to classify.
 - **content-repo keeps zero retries and throwing** (`ContentRepoHttpError` for a status, an `Error` with the classifier's reason otherwise), because `ManifestService`'s ~10 s worst case and both callers' `catch` rely on it.
 - **`update/service.ts`'s one-argument `describeError` stays:** it formats electron-updater errors for a log line, not a fetch, so AC2's "exists once" means the fetch classifier.
@@ -93,7 +93,7 @@ Order D1 → D2 → D3 → D4 (D2–D4 depend only on D1). Main process only; no
   - `readBodyCapped(response, maxBytes)` → `{ ok: true; body: Uint8Array } | { ok: false; reason: string }`:
     a valid `content-length` header over the cap is refused before reading (reason
     `declared content-length <n> exceeds <cap> bytes`); otherwise it streams and cancels the reader
-    as soon as *received* bytes exceed the cap (reason `body exceeds <cap> bytes`); `body === null`
+    as soon as _received_ bytes exceed the cap (reason `body exceeds <cap> bytes`); `body === null`
     → empty. Port from `readCappedBody`/`parseContentLength` in
     `src/main/modules/home/images/fetch-image.ts`. A read rejection propagates to the caller.
   - `fetchWithPolicy(url, { fetchImpl, timeoutMs, retries, maxBytes, signal?, headers?, method?, retryDelayMs?, onRetry? })`
@@ -111,8 +111,8 @@ Order D1 → D2 → D3 → D4 (D2–D4 depend only on D1). Main process only; no
     ≥ 500. Between attempts call `onRetry?.(reason)` then `await delay(retryDelayMs ?? 0, signal)`.
     Never retried: `aborted`, any other status, `too-large`. After the last attempt return its
     outcome.
-  Tests in `http.test.ts` (127.0.0.1 loopback `http` server or an injected fake `FetchImpl`;
-  short timeouts like 50 ms), one per AC1 line in `## Acceptance Tests`.
+    Tests in `http.test.ts` (127.0.0.1 loopback `http` server or an injected fake `FetchImpl`;
+    short timeouts like 50 ms), one per AC1 line in `## Acceptance Tests`.
 - **D2 — feed and image fetchers on `fetchWithPolicy`.** Files:
   `src/main/modules/home/news/feed-fetcher.ts`, `src/main/modules/home/images/fetch-image.ts`.
   Delete both private `describeError`, `discard`, the retry loops (`attemptRequest`/`request`,
@@ -161,16 +161,15 @@ Order D1 → D2 → D3 → D4 (D2–D4 depend only on D1). Main process only; no
     through `fetchWithPolicy` with `method: 'HEAD'`; failures still throw
     `BleedingEdgeProbeFailedError` carrying the outcome's reason. Do not touch
     `engine/update-job.ts` (story 220 deletes `downloadUnpinnedAsset`).
-  - `scan-runner.ts`: replace the `onExternalAbort` listener add/remove (around lines 171–176 and
-    255) with `const internal = composeSignals(controller.signal, external)`; keep the early return
+  - `scan-runner.ts`: replace the `onExternalAbort` listener add/remove (around lines 171–176 and 255) with `const internal = composeSignals(controller.signal, external)`; keep the early return
     for an already-aborted `external` and every abort guarantee in the file doc comment.
   - `fetcher.ts`: delete the private `delay`; import `delay` and `describeFetchError`; the transport
     fallback `String(error)` in `classify` becomes `describeFetchError(error)`; replace the local
     `FetchImpl` declaration with `export type { FetchImpl } from '../../lib/http'` (plus a type
     import for local use). Streaming, stall timer and size-overrun logic stay unchanged.
-  Acceptance: outside test files, `grep -rn "AbortSignal.timeout" src/main` finds only
-  `src/main/lib/http.ts`; `scan-runner.test.ts`, `fetcher.test.ts`, `manifest-service.test.ts` and
-  the mods catalog-service tests pass unmodified; the AC4 test lines pass.
+    Acceptance: outside test files, `grep -rn "AbortSignal.timeout" src/main` finds only
+    `src/main/lib/http.ts`; `scan-runner.test.ts`, `fetcher.test.ts`, `manifest-service.test.ts` and
+    the mods catalog-service tests pass unmodified; the AC4 test lines pass.
 
 ## Model Hints
 

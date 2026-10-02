@@ -134,9 +134,7 @@ describe('applyTidyUpOps - removeShadowedBind', () => {
     const before = profile({
       actions: [shadowed, winner],
       binds: { r: 'weapnext' },
-      layers: [
-        layer({ overrides: { r: aliasNameFor(winner), R: aliasNameFor(shadowed) } }),
-      ],
+      layers: [layer({ overrides: { r: aliasNameFor(winner), R: aliasNameFor(shadowed) } })],
     })
     const op: TidyUpOp = {
       kind: 'removeShadowedBind',
@@ -253,9 +251,24 @@ describe('applyTidyUpOps - removeShadowedBind', () => {
   it('applies two removals on one key in order and rejects a third that would unbind it', () => {
     const before = profile({ binds: { MOUSE1: '+attack', mouse1: 'weapnext', Mouse1: 'weapprev' } })
     const ops: TidyUpOp[] = [
-      { kind: 'removeShadowedBind', scope: 'base', key: 'MOUSE1', claim: { source: 'baseBind', command: '+attack' } },
-      { kind: 'removeShadowedBind', scope: 'base', key: 'MOUSE1', claim: { source: 'baseBind', command: 'weapprev' } },
-      { kind: 'removeShadowedBind', scope: 'base', key: 'MOUSE1', claim: { source: 'baseBind', command: 'weapnext' } },
+      {
+        kind: 'removeShadowedBind',
+        scope: 'base',
+        key: 'MOUSE1',
+        claim: { source: 'baseBind', command: '+attack' },
+      },
+      {
+        kind: 'removeShadowedBind',
+        scope: 'base',
+        key: 'MOUSE1',
+        claim: { source: 'baseBind', command: 'weapprev' },
+      },
+      {
+        kind: 'removeShadowedBind',
+        scope: 'base',
+        key: 'MOUSE1',
+        claim: { source: 'baseBind', command: 'weapnext' },
+      },
     ]
 
     const result = applyTidyUpOps(before, ops)
@@ -292,7 +305,12 @@ describe('applyTidyUpOps - removeEmptyLayer', () => {
 })
 
 describe('applyTidyUpOps - removeUnreferencedAlias', () => {
-  const alias = action({ id: 'x1', name: '+test', kind: 'alias', commands: [{ kind: 'raw', text: 'echo hi' }] })
+  const alias = action({
+    id: 'x1',
+    name: '+test',
+    kind: 'alias',
+    commands: [{ kind: 'raw', text: 'echo hi' }],
+  })
 
   it('removes an alias action nothing calls', () => {
     const keeper = withKeys(action({ id: 'a1', name: 'Keeper' }), { key: 'w' })
@@ -428,7 +446,11 @@ describe('applyTidyUpOps - reclassifyPreservedLine', () => {
 
   it('rejects a bind target whose key an action already claims', () => {
     const owner = withKeys(action({ id: 'a1' }), { key: 'F9' })
-    const before = profile({ actions: [owner], binds: { F9: aliasNameFor(owner) }, unrecognized: [line] })
+    const before = profile({
+      actions: [owner],
+      binds: { F9: aliasNameFor(owner) },
+      unrecognized: [line],
+    })
     const op: TidyUpOp = {
       kind: 'reclassifyPreservedLine',
       ...line,
@@ -506,7 +528,12 @@ describe('applyTidyUpOps - batches', () => {
       unrecognized: [preserved],
     })
     const ops: TidyUpOp[] = [
-      { kind: 'removeShadowedBind', scope: 'base', key: 'MOUSE1', claim: { source: 'baseBind', command: '+attack' } },
+      {
+        kind: 'removeShadowedBind',
+        scope: 'base',
+        key: 'MOUSE1',
+        claim: { source: 'baseBind', command: '+attack' },
+      },
       { kind: 'removeEmptyLayer', layerId: 'l1' },
       { kind: 'removeUnreferencedAlias', actionId: 'x1' },
       {

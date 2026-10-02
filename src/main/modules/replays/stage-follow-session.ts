@@ -2,7 +2,12 @@ import type { ReplaysStageRect } from '@shared/modules/replays'
 import { ok, type Outcome } from '@shared/types'
 import type { MainWindowEvent, MainWindowObserver } from '../../main-window-observer'
 import type { StageRect } from './stage'
-import { createStageFollower, type StageFollower, type StageFollowerDeps, type StageFollowWindow } from './stage-follow'
+import {
+  createStageFollower,
+  type StageFollower,
+  type StageFollowerDeps,
+  type StageFollowWindow,
+} from './stage-follow'
 
 /**
  * Story 171 D2: wires D1's stage follower to a live stage session. A follower exists only between
@@ -30,7 +35,12 @@ export function virtualDesktopRightEdge(
   for (const { bounds, scaleFactor } of displays) {
     const physical = dipToScreen
       ? dipToScreen(bounds)
-      : { x: bounds.x * scaleFactor, y: bounds.y * scaleFactor, width: bounds.width * scaleFactor, height: bounds.height * scaleFactor }
+      : {
+          x: bounds.x * scaleFactor,
+          y: bounds.y * scaleFactor,
+          width: bounds.width * scaleFactor,
+          height: bounds.height * scaleFactor,
+        }
     edge = Math.max(edge, physical.x + physical.width)
   }
   return edge
@@ -61,7 +71,11 @@ const TICK_EVENTS: ReadonlySet<MainWindowEvent> = new Set(['move', 'resize'])
 
 export function createStageFollowSessions(deps: StageFollowSessionsDeps): StageFollowSessions {
   const create = deps.createFollower ?? createStageFollower
-  let current: { follower: StageFollower; rect: ReplaysStageRect | null; unsubscribe: () => void } | null = null
+  let current: {
+    follower: StageFollower
+    rect: ReplaysStageRect | null
+    unsubscribe: () => void
+  } | null = null
 
   let suspended = false
 

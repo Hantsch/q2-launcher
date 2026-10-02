@@ -56,7 +56,11 @@ import { discoverLanServers } from './lan-discovery'
 import { createScanCadence, type ScanCadence } from './scan-cadence'
 import { createScanService, type ScanService } from './scan-service'
 import { createRegexHost, type RegexHost } from './watchlist-regex-host'
-import { createWatchlistService, type WatchlistScanHost, type WatchlistService } from './watchlist-service'
+import {
+  createWatchlistService,
+  type WatchlistScanHost,
+  type WatchlistService,
+} from './watchlist-service'
 
 /**
  * The servers module - story 106 D2 registers its main half with a single
@@ -208,8 +212,10 @@ export const serversModule: MainModule = {
      * `scanPatchSettingsInputSchema` already rejects them at the registry (per-field choice-list
      * `.refine()`), so there is nothing left for this handler itself to validate.
      */
-    handle(SERVERS_HANDLERS.scanGetSettings, scanGetSettingsInputSchema, () =>
-      app.state.serversState().scan,
+    handle(
+      SERVERS_HANDLERS.scanGetSettings,
+      scanGetSettingsInputSchema,
+      () => app.state.serversState().scan,
     )
     handle(SERVERS_HANDLERS.scanPatchSettings, scanPatchSettingsInputSchema, (patch) => {
       const current = app.state.serversState()
@@ -302,22 +308,20 @@ export const serversModule: MainModule = {
      * only main ever appends to the history - story 125 D3's `app.launch.onStateChange` subscription
      * below is the second (and, so far, only other) writer, alongside `manual.add`/`manual.remove`.
      */
-    handle(SERVERS_HANDLERS.manualList, manualListInputSchema, () =>
-      app.state.serversState().manualServers,
-    )
     handle(
-      SERVERS_HANDLERS.manualAdd,
-      manualAddInputSchema,
-      (payload): ManualServerAddResult => {
-        const current = app.state.serversState()
-        const result = addManualServer(current.manualServers, payload)
-        if (!result.ok) return result
-        // `result.entry` is a member of `result.list`, which is what gets stored verbatim - so the
-        // entry handed back is the persisted one, not a separate local candidate.
-        app.state.setServersState({ ...current, manualServers: result.list })
-        return { ok: true, entry: result.entry }
-      },
+      SERVERS_HANDLERS.manualList,
+      manualListInputSchema,
+      () => app.state.serversState().manualServers,
     )
+    handle(SERVERS_HANDLERS.manualAdd, manualAddInputSchema, (payload): ManualServerAddResult => {
+      const current = app.state.serversState()
+      const result = addManualServer(current.manualServers, payload)
+      if (!result.ok) return result
+      // `result.entry` is a member of `result.list`, which is what gets stored verbatim - so the
+      // entry handed back is the persisted one, not a separate local candidate.
+      app.state.setServersState({ ...current, manualServers: result.list })
+      return { ok: true, entry: result.entry }
+    })
     handle(SERVERS_HANDLERS.manualRemove, manualRemoveInputSchema, (payload) => {
       const current = app.state.serversState()
       const manualServers = removeManualServer(current.manualServers, payload.address)
@@ -356,8 +360,10 @@ export const serversModule: MainModule = {
      * cleared sort is an absent key on disk, not a present `null`/`undefined` one. What's returned is
      * what `setServersState` actually persisted (`?? null`), not the local candidate.
      */
-    handle(SERVERS_HANDLERS.listGetSort, listGetSortInputSchema, () =>
-      app.state.serversState().listSort ?? null,
+    handle(
+      SERVERS_HANDLERS.listGetSort,
+      listGetSortInputSchema,
+      () => app.state.serversState().listSort ?? null,
     )
     handle(SERVERS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) => {
       const current = app.state.serversState()
@@ -382,8 +388,10 @@ export const serversModule: MainModule = {
       const persisted = app.state.setServersState({ ...current, quickFilters: result.list })
       return { ok: true, list: persisted.quickFilters }
     }
-    handle(SERVERS_HANDLERS.quickFiltersList, quickFiltersListInputSchema, () =>
-      app.state.serversState().quickFilters,
+    handle(
+      SERVERS_HANDLERS.quickFiltersList,
+      quickFiltersListInputSchema,
+      () => app.state.serversState().quickFilters,
     )
     handle(SERVERS_HANDLERS.quickFiltersSave, quickFiltersSaveInputSchema, (payload) =>
       mutateQuickFilters((list) => saveQuickFilter(list, payload)),
@@ -408,12 +416,9 @@ export const serversModule: MainModule = {
      */
     if (watchlistService !== undefined) {
       const service = watchlistService
-      handle(
-        SERVERS_WATCHLIST_HANDLERS.read,
-        watchlistReadInputSchema,
-        () => service.read(),
-        { feature: 'watchlist' },
-      )
+      handle(SERVERS_WATCHLIST_HANDLERS.read, watchlistReadInputSchema, () => service.read(), {
+        feature: 'watchlist',
+      })
       handle(
         SERVERS_WATCHLIST_HANDLERS.add,
         watchlistAddInputSchema,

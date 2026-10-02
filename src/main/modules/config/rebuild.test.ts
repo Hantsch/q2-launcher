@@ -228,7 +228,11 @@ describe('runFileSourceStartup: rebuilding a lost record', () => {
   it('does not adopt a file whose marker is our word but carries no profile id', async () => {
     // `ownedProfileId` returns null for a marker with no id after it, which is the one shape that
     // is closest to ours and must still be refused - a rebuild with no id has nothing to key on.
-    await writeFile(join(canonicalDir(), 'nameless.cfg'), `${OWNERSHIP_MARKER}\nset volume "1"\n`, 'latin1')
+    await writeFile(
+      join(canonicalDir(), 'nameless.cfg'),
+      `${OWNERSHIP_MARKER}\nset volume "1"\n`,
+      'latin1',
+    )
 
     const report = await runFileSourceStartup(deps())
 
@@ -276,7 +280,9 @@ describe('runFileSourceStartup: AC8 one-time migration', () => {
   /** A profile whose canonical file is in a pre-043 shape: the old "generated, do not edit"
    * sentinel wording and a stale body. Still recognisably ours (`ownedProfileId` is wording
    * tolerant since D1), so the migration is expected to rewrite it in place with no backup. */
-  async function seedProfileWithLegacyFile(name: string): Promise<{ profile: ConfigProfile; fileName: string }> {
+  async function seedProfileWithLegacyFile(
+    name: string,
+  ): Promise<{ profile: ConfigProfile; fileName: string }> {
     const created = profiles.create({ name, from: 'template-right' })
     const profile = created[created.length - 1]!
     const fileName = resolveProfileFileNames(created).get(profile.id)!

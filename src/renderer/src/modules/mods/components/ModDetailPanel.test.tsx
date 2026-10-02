@@ -44,10 +44,21 @@ const tile = (local: Partial<NonNullable<ModTileModel['local']>>): ModTileModel 
   gameDir: 'action',
   name: 'Action Quake 2',
   description: 'd',
-  local: { gameDir: 'action', folderPath: '/g/action', origin: 'catalog', catalogId: 'action', ...local },
+  local: {
+    gameDir: 'action',
+    folderPath: '/g/action',
+    origin: 'catalog',
+    catalogId: 'action',
+    ...local,
+  },
   catalog,
 })
-const updatable = tile({ version: 'v1', status: 'update-available', installedVersion: 'v1', pinnedVersion: 'v2' })
+const updatable = tile({
+  version: 'v1',
+  status: 'update-available',
+  installedVersion: 'v1',
+  pinnedVersion: 'v2',
+})
 const props = { installationId: 'i1', onClose: vi.fn() }
 
 beforeAll(async () => {

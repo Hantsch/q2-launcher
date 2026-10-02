@@ -28,7 +28,7 @@ engine-fact background. `config` is a registered, implemented module
   engines (Yamagi, KMQuake II, vkQuake2, Q2RTX, remaster) are explicitly out of scope, no
   source-cited facts exist for them.
 - **Data model change from the original tool:** profiles are managed centrally, independent of
-  any installation, and *assigned* to installations (many-to-many). Editing a profile re-writes
+  any installation, and _assigned_ to installations (many-to-many). Editing a profile re-writes
   it to every assigned, non-running installation immediately on save.
 - An installation can have several assigned profiles; one is the default (used at launch). A
   bindable key cycles through the assigned profiles in-session (console echo of the new name),
@@ -82,21 +82,21 @@ surface of the launcher, styled and behaving like the rest of it.
 
 ## 3. Design decisions taken (from the requirements interview)
 
-| Topic | Decision |
-| --- | --- |
-| Scope | Full q2-config-manager feature parity, cut into stories in one sprint (not a phased subset). |
-| Engine support | Only r1q2, Q2PRO, vanilla `quake2.exe` 3.20 — matching the source-cited facts already researched. |
-| Data ownership | Profiles are centrally managed, independent of any installation; not `Installation.moduleData`. |
-| Assignment | Many-to-many: a profile can be assigned to several installations; an installation can have several assigned profiles. |
-| Default profile | Each installation with assigned profiles designates one as default, used at launch. |
-| Apply trigger | Saving a profile immediately re-writes it to every assigned installation, running or not — the engine only reads a config at `exec` time and holds no handle on it afterwards, so a copy written mid-session is what lets the player `exec` the new profile from the console without restarting. **Reversed by story 079** (was: running installations skipped and marked pending). |
-| Gamedir scope | Profile content is written to `baseq2` (search-path makes it reachable from mods); `autoexec.cfg` is additionally copied into every mod folder of the installation the user has marked as "played" — because `FS_ExecAutoexec` never consults the search path. |
-| Cleanup | Stays in scope, per installation, independent of the central-profile model. |
-| Import | Stays in scope — importing an existing `config.cfg`/`autoexec.cfg` from disk into a new profile, resolving `exec` references. |
-| In-session switching | A bindable key (user-assignable, no fixed default beyond suggesting F9) cycles through an installation's assigned profiles and echoes the newly active profile's name to the console. |
-| Switch persistence | Session-only. Next launch always loads the installation's designated default profile. |
-| Validator scope | Checks every engine actually reached through the profile's assigned installations as an equally-weighted error surface — no primary/portability two-tier severity. |
-| Design | Full re-implementation in the launcher's design system — no reuse of q2-config-manager's CSS or React components. |
+| Topic                | Decision                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope                | Full q2-config-manager feature parity, cut into stories in one sprint (not a phased subset).                                                                                                                                                                                                                                                                                        |
+| Engine support       | Only r1q2, Q2PRO, vanilla `quake2.exe` 3.20 — matching the source-cited facts already researched.                                                                                                                                                                                                                                                                                   |
+| Data ownership       | Profiles are centrally managed, independent of any installation; not `Installation.moduleData`.                                                                                                                                                                                                                                                                                     |
+| Assignment           | Many-to-many: a profile can be assigned to several installations; an installation can have several assigned profiles.                                                                                                                                                                                                                                                               |
+| Default profile      | Each installation with assigned profiles designates one as default, used at launch.                                                                                                                                                                                                                                                                                                 |
+| Apply trigger        | Saving a profile immediately re-writes it to every assigned installation, running or not — the engine only reads a config at `exec` time and holds no handle on it afterwards, so a copy written mid-session is what lets the player `exec` the new profile from the console without restarting. **Reversed by story 079** (was: running installations skipped and marked pending). |
+| Gamedir scope        | Profile content is written to `baseq2` (search-path makes it reachable from mods); `autoexec.cfg` is additionally copied into every mod folder of the installation the user has marked as "played" — because `FS_ExecAutoexec` never consults the search path.                                                                                                                      |
+| Cleanup              | Stays in scope, per installation, independent of the central-profile model.                                                                                                                                                                                                                                                                                                         |
+| Import               | Stays in scope — importing an existing `config.cfg`/`autoexec.cfg` from disk into a new profile, resolving `exec` references.                                                                                                                                                                                                                                                       |
+| In-session switching | A bindable key (user-assignable, no fixed default beyond suggesting F9) cycles through an installation's assigned profiles and echoes the newly active profile's name to the console.                                                                                                                                                                                               |
+| Switch persistence   | Session-only. Next launch always loads the installation's designated default profile.                                                                                                                                                                                                                                                                                               |
+| Validator scope      | Checks every engine actually reached through the profile's assigned installations as an equally-weighted error surface — no primary/portability two-tier severity.                                                                                                                                                                                                                  |
+| Design               | Full re-implementation in the launcher's design system — no reuse of q2-config-manager's CSS or React components.                                                                                                                                                                                                                                                                   |
 
 ## 4. Core terms & model
 
@@ -183,7 +183,7 @@ central, assigned to installations) and the UI (launcher design system) change.
 - **`state.json` is a cache, the `.cfg` is the source of truth** (story 043). Two startup steps in
   `src/main/modules/config/rebuild.ts`, run in this fixed order by `configModule.setup()`:
   1. **One-time format migration** (AC8), gated by the new top-level state key
-     `configFileSourceMigratedAt` (an ISO timestamp; a *new key*, not a `STATE_SCHEMA_VERSION`
+     `configFileSourceMigratedAt` (an ISO timestamp; a _new key_, not a `STATE_SCHEMA_VERSION`
      bump — `MIGRATIONS` stays empty, same precedent as `configPlayedMods`). On the first start
      after the update, every profile record already in `state.json` has its canonical `.cfg`
      rewritten from cached state into the current 040/042 format through the normal write path
@@ -198,9 +198,9 @@ central, assigned to installations) and the UI (launcher design system) change.
      through `src/shared/config/file-ownership.ts`'s `readOwnershipStamp`, which recognises both the
      current header-block shape (the id lives in the header's `[q2l v=1 id=…]` tag,
      `docs/systems/profile-file-format.md#header-block`) and a pre-051 file's legacy sentinel line —
-     the id is always on the *file*, never derived from `state.json`. That is the deliberate opposite
-     of story 042's import rule (an import of a foreign file always mints a *new* id): the file's own
-     id *is* the profile's identity, so reusing it is what keeps every installation assignment
+     the id is always on the _file_, never derived from `state.json`. That is the deliberate opposite
+     of story 042's import rule (an import of a foreign file always mints a _new_ id): the file's own
+     id _is_ the profile's identity, so reusing it is what keeps every installation assignment
      pointing at that profile valid. A `.cfg` with no recognised ownership marker — a hand-written
      config, or another tool's file — is never adopted. Only installation assignments and played mods
      are lost by a rebuild (they are launcher bookkeeping, not file content); name, cvars, binds,
@@ -209,6 +209,7 @@ central, assigned to installations) and the UI (launcher design system) change.
 
   Neither step deletes anything, and neither adds backup logic: `writeTargetFile`'s existing
   diff-skip / backup-once / atomic-write contract and `state.json.bak` are untouched.
+
 - **Write cadence: explicit save** (story 043 D4), the deliberate inversion of story 022's
   "every mutation writes immediately". Content mutations (`setCvars`, `setBinds`, `setLayers`,
   `setActions`, `rename`, `setWriteUnbindall`, `setSectionHeaderStyle`) still persist into
@@ -226,7 +227,7 @@ central, assigned to installations) and the UI (launcher design system) change.
   (AC6). The same rule decides what `syncState`/`rawFiles` judge an installation copy against, so
   the writer's and the readers' reports of one file cannot disagree.
 - **Never overwrite bytes nobody has read** (story 043 D10, AC5's other half). `dirty` says the
-  cache is *ahead* of the file; it says nothing about the file having moved *underneath* the
+  cache is _ahead_ of the file; it says nothing about the file having moved _underneath_ the
   launcher, so the same central rule in `syncAndPersist` also refuses a canonical write whenever the
   file's current bytes hash to something other than that profile's cached `fileHash` — unless there
   is no file, no baseline yet (a pre-migration profile), the bytes already equal what would be
@@ -252,7 +253,7 @@ central, assigned to installations) and the UI (launcher design system) change.
   handle on it afterwards. `pending` is gone entirely: removed from the sync outcome, from
   persisted state (`configPendingWrites`), and from the shared `WriteTargetStatus`/
   `ProfileFileSyncStatus` unions and the renderer. What the module still reports honestly is a
-  write that *failed* (locked file, permissions) as a `failed` row with Retry, and the startup
+  write that _failed_ (locked file, permissions) as a `failed` row with Retry, and the startup
   sweep still retries persisted failures. `cleanup.ts`'s `applyCleanupIfNotRunning` — which
   deletes files out from under a running engine — is a different operation and is untouched by
   this reversal; the `game-lifecycle` dependency called out for the `mods` module in

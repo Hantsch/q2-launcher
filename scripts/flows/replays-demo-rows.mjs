@@ -65,21 +65,27 @@ export default async function replaysDemoRows({ page, shot, step }) {
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForDemosScanToFinish(page)
 
-  step('the sidecar\'d row shows its reported name, gamemode, sides, favourite and rating')
+  step("the sidecar'd row shows its reported name, gamemode, sides, favourite and rating")
   // The tdm row's sidecar sets `name`, so its effective name (shown in the row) is that reported
   // name, not the raw file name - select on the name the sidecar actually reports.
   const tdmRow = rowFor(page, 'Fixture TDM Match')
   await tdmRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const tdmName = await tdmRow.getByTestId('replays-demo-name').textContent()
   if (tdmName !== 'Fixture TDM Match') {
-    throw new Error(`replays-demo-rows: tdm row name expected "Fixture TDM Match", got "${tdmName}"`)
+    throw new Error(
+      `replays-demo-rows: tdm row name expected "Fixture TDM Match", got "${tdmName}"`,
+    )
   }
   const tdmGamemode = await tdmRow.getByTestId('replays-demo-gamemode').textContent()
   if (!tdmGamemode.includes('tdm') && !/tdm/i.test(tdmGamemode)) {
-    throw new Error(`replays-demo-rows: tdm row gamemode expected to read "tdm", got "${tdmGamemode}"`)
+    throw new Error(
+      `replays-demo-rows: tdm row gamemode expected to read "tdm", got "${tdmGamemode}"`,
+    )
   }
   if (tdmGamemode.toLowerCase().includes('guess')) {
-    throw new Error(`replays-demo-rows: tdm row gamemode must not carry a guessed marker, got "${tdmGamemode}"`)
+    throw new Error(
+      `replays-demo-rows: tdm row gamemode must not carry a guessed marker, got "${tdmGamemode}"`,
+    )
   }
   const tdmSides = await tdmRow.getByTestId('replays-demo-sides').textContent()
   if (tdmSides !== 'Alpha vs Bravo') {
@@ -97,12 +103,16 @@ export default async function replaysDemoRows({ page, shot, step }) {
   if (!tdmDate || tdmDate.trim() === '' || tdmDate.trim() === '–') {
     throw new Error(`replays-demo-rows: tdm row date expected a real value, got "${tdmDate}"`)
   }
-  await tdmRow.getByTestId('replays-demo-favourite').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await tdmRow
+    .getByTestId('replays-demo-favourite')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const tdmRating = await tdmRow.getByTestId('replays-demo-rating').textContent()
   if (!tdmRating.includes('8')) {
     throw new Error(`replays-demo-rows: tdm row rating expected to mention "8", got "${tdmRating}"`)
   }
-  await tdmRow.getByTestId('replays-marker-sidecar').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await tdmRow
+    .getByTestId('replays-marker-sidecar')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const tdmSidecarErrorCount = await tdmRow.getByTestId('replays-marker-sidecar-error').count()
   if (tdmSidecarErrorCount !== 0) {
     throw new Error('replays-demo-rows: tdm row must not show a sidecar-error marker')
@@ -130,10 +140,14 @@ export default async function replaysDemoRows({ page, shot, step }) {
   await duelRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const duelGamemode = await duelRow.getByTestId('replays-demo-gamemode').textContent()
   if (!/duel/i.test(duelGamemode)) {
-    throw new Error(`replays-demo-rows: duel row gamemode expected to read "duel", got "${duelGamemode}"`)
+    throw new Error(
+      `replays-demo-rows: duel row gamemode expected to read "duel", got "${duelGamemode}"`,
+    )
   }
   if (duelGamemode.toLowerCase().includes('guess')) {
-    throw new Error(`replays-demo-rows: duel row gamemode must not carry a guessed marker, got "${duelGamemode}"`)
+    throw new Error(
+      `replays-demo-rows: duel row gamemode must not carry a guessed marker, got "${duelGamemode}"`,
+    )
   }
 
   step('the mvd2 row with no sidecar shows demo-derived values and no sidecar markers')
@@ -144,7 +158,9 @@ export default async function replaysDemoRows({ page, shot, step }) {
   }
   const mvdSidecarCount = await mvdRow.getByTestId('replays-marker-sidecar').count()
   if (mvdSidecarCount !== 0) {
-    throw new Error('replays-demo-rows: mvd row must show no sidecar marker at all (no sidecar file)')
+    throw new Error(
+      'replays-demo-rows: mvd row must show no sidecar marker at all (no sidecar file)',
+    )
   }
 
   step('the broken-sidecar row shows the sidecar-error marker with visible text and valid values')
@@ -157,7 +173,9 @@ export default async function replaysDemoRows({ page, shot, step }) {
   }
   const brokenMap = await brokenRow.getByTestId('replays-demo-map').textContent()
   if (!brokenMap || brokenMap.trim() === '' || brokenMap.trim() === '–') {
-    throw new Error(`replays-demo-rows: broken row map expected a real (header-derived) value, got "${brokenMap}"`)
+    throw new Error(
+      `replays-demo-rows: broken row map expected a real (header-derived) value, got "${brokenMap}"`,
+    )
   }
 
   step('the unreadable placeholder row shows its marker with visible text and no blank cells')
@@ -168,10 +186,18 @@ export default async function replaysDemoRows({ page, shot, step }) {
   if (!unreadableBadgeText || unreadableBadgeText.trim() === '') {
     throw new Error('replays-demo-rows: unreadable marker must carry visible text')
   }
-  for (const testId of ['replays-demo-map', 'replays-demo-mod', 'replays-demo-sides', 'replays-demo-date', 'replays-demo-duration']) {
+  for (const testId of [
+    'replays-demo-map',
+    'replays-demo-mod',
+    'replays-demo-sides',
+    'replays-demo-date',
+    'replays-demo-duration',
+  ]) {
     const cellText = await unreadableRow.getByTestId(testId).textContent()
     if (cellText === null || cellText.trim() === '') {
-      throw new Error(`replays-demo-rows: unreadable row's ${testId} cell must never be empty/blank`)
+      throw new Error(
+        `replays-demo-rows: unreadable row's ${testId} cell must never be empty/blank`,
+      )
     }
   }
 
@@ -179,23 +205,31 @@ export default async function replaysDemoRows({ page, shot, step }) {
     step('7za.exe is not vendored - skipping the archive-entry assertion')
   } else {
     step('the zipped copy of test.dm2 shows up as an archive-entry row')
-    const zipRow = page
-      .getByTestId('replays-demo-row')
-      .filter({ has: page.getByTestId('replays-demo-source').filter({ hasText: `${REPLAYS_ROWS_ZIP_ARCHIVE} ›` }) })
+    const zipRow = page.getByTestId('replays-demo-row').filter({
+      has: page
+        .getByTestId('replays-demo-source')
+        .filter({ hasText: `${REPLAYS_ROWS_ZIP_ARCHIVE} ›` }),
+    })
     await zipRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
     const archiveEntry = await zipRow.getAttribute('data-archive-entry')
     if (archiveEntry !== 'true') {
-      throw new Error(`replays-demo-rows: expected the pack.zip row to carry data-archive-entry="true", got "${archiveEntry}"`)
+      throw new Error(
+        `replays-demo-rows: expected the pack.zip row to carry data-archive-entry="true", got "${archiveEntry}"`,
+      )
     }
   }
 
-  step('clicking the sidecar\'d row opens the detail panel titled with its effective name, and closing hides it')
+  step(
+    "clicking the sidecar'd row opens the detail panel titled with its effective name, and closing hides it",
+  )
   await tdmRow.click({ timeout: TIMEOUT_MS })
   const detail = page.getByTestId('replays-detail')
   await detail.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const detailTitle = await detail.textContent()
   if (!detailTitle.includes('Fixture TDM Match')) {
-    throw new Error(`replays-demo-rows: detail panel expected to mention "Fixture TDM Match", got "${detailTitle}"`)
+    throw new Error(
+      `replays-demo-rows: detail panel expected to mention "Fixture TDM Match", got "${detailTitle}"`,
+    )
   }
   await shot('replays-demo-rows-detail')
 

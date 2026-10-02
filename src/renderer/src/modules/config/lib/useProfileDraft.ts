@@ -79,7 +79,9 @@ export interface UseProfileDraftResult {
    * what the removed per-tab `useState`s relied on to stay correct against
    * two edits landing in one tick).
    */
-  patch: (partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>)) => void
+  patch: (
+    partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>),
+  ) => void
   /**
    * Story 049 D6: force-adopts `profile` as the draft outright, bypassing `mergeProfileUpdate`'s
    * usual "keep locally-patched fields that have not echoed back yet" rule. A discard restores

@@ -284,14 +284,16 @@ export default async function bootstrapWizard({ page, shot, step }) {
     )
   }
   if (await page.getByTestId('bootstrap-target-blocked').count()) {
-    throw new Error('the fixture target was reported as blocked; a warning was expected, not a block')
+    throw new Error(
+      'the fixture target was reported as blocked; a warning was expected, not a block',
+    )
   }
   // Changing the target resets every acknowledge (`BootstrapWizard.tsx`: "an acknowledge for one
   // folder must never silently carry over to a different one") - so Next is disabled again here
   // even though a warning was already acknowledged for the previous folder.
   if (await next.isEnabled()) {
     throw new Error(
-      'Next was enabled for a freshly picked non-empty target - the previous folder\'s ' +
+      "Next was enabled for a freshly picked non-empty target - the previous folder's " +
         'acknowledge appears to have carried over (AC3)',
     )
   }
@@ -331,7 +333,9 @@ export default async function bootstrapWizard({ page, shot, step }) {
   console.log(`confirm step: total ${totalSizeText} for ${server.totalSizeBytes} real bytes`)
   await shot('confirm-step')
 
-  step('turn on "include videos and player models" (AC4 e2e half - exercises GLOB_DIRS\' baseq2/players candidate)')
+  step(
+    'turn on "include videos and player models" (AC4 e2e half - exercises GLOB_DIRS\' baseq2/players candidate)',
+  )
   // `Checkbox` (`components/ui/controls.tsx`) hides its real `<input type="checkbox">` with
   // `sr-only` and paints a visible `<span>` checkmark box next to it, so the click has to land on
   // the wrapping `<label>` - same pattern as the Program-Files-acknowledge checkbox above. This
@@ -385,7 +389,8 @@ export default async function bootstrapWizard({ page, shot, step }) {
     return window.__q2lBootstrapSamples
   })
   const playableWhileRunning = samples.filter(
-    (sample) => sample.job === 'running' && sample.playDisabled === false && sample.playAction === 'play',
+    (sample) =>
+      sample.job === 'running' && sample.playDisabled === false && sample.playAction === 'play',
   )
   const runningSamples = samples.filter((sample) => sample.job === 'running')
   if (playableWhileRunning.length === 0) {
@@ -393,7 +398,9 @@ export default async function bootstrapWizard({ page, shot, step }) {
       `Play was never enabled while the job status was still "running" (AC6). ` +
         `${runningSamples.length} running sample(s) at ${SAMPLE_INTERVAL_MS}ms; ` +
         `play states seen while running: ${JSON.stringify([
-          ...new Set(runningSamples.map((s) => `${s.playAction}/${s.playDisabled ? 'disabled' : 'enabled'}`)),
+          ...new Set(
+            runningSamples.map((s) => `${s.playAction}/${s.playDisabled ? 'disabled' : 'enabled'}`),
+          ),
         ])}`,
     )
   }
@@ -446,7 +453,9 @@ export default async function bootstrapWizard({ page, shot, step }) {
   }
   for (const expected of ['q2pro.exe', BOOTSTRAP_TARGET_LOOSE_FILE]) {
     if (!tree.files.includes(expected)) {
-      throw new Error(`expected ${expected} in the target root, found ${JSON.stringify(tree.files)}`)
+      throw new Error(
+        `expected ${expected} in the target root, found ${JSON.stringify(tree.files)}`,
+      )
     }
   }
   for (const pak of ['pak0.pak', 'pak1.pak', 'pak2.pak']) {
@@ -477,7 +486,9 @@ export default async function bootstrapWizard({ page, shot, step }) {
   step('assert nothing outside the loopback fixture server was ever asked for')
   const unexpected = server.requested.filter((path) => path === '/' || path.startsWith('/..'))
   if (unexpected.length > 0) {
-    throw new Error(`the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`)
+    throw new Error(
+      `the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`,
+    )
   }
   console.log(`fixture server served: ${JSON.stringify([...new Set(server.requested)])}`)
 

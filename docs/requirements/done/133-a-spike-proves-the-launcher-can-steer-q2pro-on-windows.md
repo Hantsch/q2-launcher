@@ -66,6 +66,7 @@ The spike has two phases, split by the user's manual run:
    and marks [[134]] as withdrawn (go) or confirmed (no-go).
 
 **Mechanism under test** (concept §9.1, §12.3):
+
 - The launch looks like `q2pro.exe +set game <gd> +set logfile … +exec spike133.cfg +demo <name>`,
   spawned the same way `src/main/services/launch.ts:339` does it (args array, no shell).
 - `spike133.cfg` defines a self-rescheduling alias (`exec <control file>; wait …; <alias>`). The
@@ -78,6 +79,7 @@ The spike has two phases, split by the user's manual run:
   the harness must detect and report any duplicate.
 
 **Proposed go thresholds.** Corrections are welcome. D2 writes them into RESULT.md:
+
 - every AC1 command takes effect, with p95 latency ≤ 300 ms;
 - the position updates at least every 500 ms and is correct after pause, forward seek and backward
   seek;
@@ -94,7 +96,7 @@ AC1 is always no-go (Q1).
   builtins only, no deps, matching the style of `scripts/*.mjs`) and
   `spikes/133-q2pro-control/spike133.cfg.template`.
   - **CLI:** `node harness.mjs --q2pro <path to q2pro.exe> --game <gamedir> --demo <file name in
-    <gamedir>/demos/> [--wait <frames per tick>] [--run scripted|interactive]`. Refuse to start if
+<gamedir>/demos/> [--wait <frames per tick>] [--run scripted|interactive]`. Refuse to start if
     the exe or the demo is missing.
   - **Setup:** write the bootstrap cfg and control file into the installation's `<gamedir>`, and
     record every path it writes to. Launch Q2PRO with an args array (no shell), with `logfile`
@@ -156,13 +158,13 @@ the user's demo exist only on the user's Windows machine.
 
 ### Coverage
 
-| AC | Deliverable | Proof |
-| --- | --- | --- |
-| AC1 | D1 (scripted run), D2 (RESULT §AC1) | manual residue, user run |
-| AC2 | D1 (position readback), D2 (RESULT §AC2) | manual residue, user run |
-| AC3 | D1 (paths, log growth, CPU, interactive), D2 (checklist) | manual residue, user run |
-| AC4 | D3 | review of the concept diff |
-| AC5 | D1 (location), D3 (link) | review: no `src/` diff |
+| AC  | Deliverable                                              | Proof                      |
+| --- | -------------------------------------------------------- | -------------------------- |
+| AC1 | D1 (scripted run), D2 (RESULT §AC1)                      | manual residue, user run   |
+| AC2 | D1 (position readback), D2 (RESULT §AC2)                 | manual residue, user run   |
+| AC3 | D1 (paths, log growth, CPU, interactive), D2 (checklist) | manual residue, user run   |
+| AC4 | D3                                                       | review of the concept diff |
+| AC5 | D1 (location), D3 (link)                                 | review: no `src/` diff     |
 
 ## Done
 
@@ -170,6 +172,7 @@ the user's demo exist only on the user's Windows machine.
 client demos and MVDs. [[164]] builds on it, and [[134]] is withdrawn. The result is
 `spikes/133-q2pro-control/RESULT.md`, based on `results/2026-09-27T16-28-35-181Z.json` (dm2)
 and `…T16-35-41-425Z.json` (MVD).
+
 - **AC1:** every command takes effect with 0 duplicates. p95 latency is 587–701 ms, which misses
   the 300 ms bar; the user accepted this for now, and tuning is an open item in 164. The MVD run
   also switched the chased player (`cmd invnext`/`invprev`/`chase`).

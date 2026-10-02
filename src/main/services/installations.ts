@@ -419,7 +419,11 @@ export class InstallationsService {
     const current = this.find(id)
     if (!current) return fail('installations.error.notFound')
 
-    const next: Installation = { ...current, recordedEngineKind: engine, updatedAt: new Date().toISOString() }
+    const next: Installation = {
+      ...current,
+      recordedEngineKind: engine,
+      updatedAt: new Date().toISOString(),
+    }
     this.commit(this.state.installations().map((i) => (i.id === next.id ? next : i)))
     return ok(next)
   }

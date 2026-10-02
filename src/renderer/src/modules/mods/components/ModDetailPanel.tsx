@@ -141,7 +141,10 @@ export function ModDetailPanel({
                 updateSize="md"
               />
               {updatable && local && (
-                <p className="text-sm text-ink-dim select-text" data-testid="mods-detail-update-versions">
+                <p
+                  className="text-sm text-ink-dim select-text"
+                  data-testid="mods-detail-update-versions"
+                >
                   {t('mods.detail.installedVsCatalog', {
                     installed: local.installedVersion ?? local.version,
                     catalog: local.pinnedVersion ?? catalog.pinned,
@@ -207,7 +210,11 @@ export function ModDetailPanel({
         {local?.origin === 'catalog' && local.catalogId && (
           <div className="space-y-2">
             {removeActive && removeJob && (
-              <p role="status" className="text-sm text-warning" data-testid="mods-detail-job-status">
+              <p
+                role="status"
+                className="text-sm text-warning"
+                data-testid="mods-detail-job-status"
+              >
                 {removeJob.status === 'waiting' && removeJob.waitingReason
                   ? t(removeJob.waitingReason.key, removeJob.waitingReason.params ?? {})
                   : t(removeJob.labelKey, removeJob.labelParams ?? {})}

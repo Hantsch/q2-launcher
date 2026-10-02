@@ -60,7 +60,9 @@ export function DemoDetailNameInput({ row }: { row: DemoRow }) {
       maxLength={200}
       placeholder={editorPlaceholder(row, 'name', t)}
       disabled={entry.saving === true}
-      onChange={(event) => useDemoEditorStore.getState().updateDraft(row.id, { name: event.target.value })}
+      onChange={(event) =>
+        useDemoEditorStore.getState().updateDraft(row.id, { name: event.target.value })
+      }
       data-testid="replays-editor-name"
     />
   )
@@ -181,7 +183,9 @@ export function DemoDetailEditor({
 
           {entry.saveError !== undefined && (
             <p role="alert" className="text-sm text-danger" data-testid="replays-editor-save-error">
-              {t('replays.editor.saveFailed', { reason: t(entry.saveError.key, entry.saveError.params) })}
+              {t('replays.editor.saveFailed', {
+                reason: t(entry.saveError.key, entry.saveError.params),
+              })}
             </p>
           )}
 
@@ -255,7 +259,11 @@ export function DemoDetailEditor({
         data-testid={`replays-editor-${id}`}
       />,
       error !== undefined && (
-        <p id={errorId} className="mt-1 text-right text-xs text-danger" data-testid={`replays-editor-error-${id}`}>
+        <p
+          id={errorId}
+          className="mt-1 text-right text-xs text-danger"
+          data-testid={`replays-editor-error-${id}`}
+        >
           {t(error)}
         </p>
       ),

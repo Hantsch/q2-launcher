@@ -43,17 +43,17 @@ same explicitness the servers list got in [[121]].
   discovery.
 - **What counts as a per-source error:** an extra folder that is missing / not a folder / not
   readable, an installation `demos` folder that exists but cannot be read, and a zip that fails to
-  open (the three existing `ArchiveError` codes); an installation game dir *without* a `demos`
+  open (the three existing `ArchiveError` codes); an installation game dir _without_ a `demos`
   folder is normal and never an error — otherwise every fresh installation would show a warning.
 - **Reasons are a closed enum** `missing | notAFolder | permissionDenied | unreadable |
-  extractor-missing | archive-unreadable | archive-too-large`, sent as codes and translated in the
+extractor-missing | archive-unreadable | archive-too-large`, sent as codes and translated in the
   renderer — CLAUDE.md: main sends keys/codes, never prose; the archive codes keep their existing
   spelling from `zip-demos.ts` so nothing is remapped.
 - **Errors ride on `scan.progress`** (a `sourceErrors` array on every push: the last finished
   scan's while running, the new scan's on the final push; a throwing scan keeps the previous) — the
   view already subscribes to it and always starts a scan on mount, so no new handler is needed.
 - **An error names its source** with the same label a row uses (installation · game dir, or the
-  extra folder's path) plus the archive's *file name* for a zip — the extra-folder path already
+  extra folder's path) plus the archive's _file name_ for a zip — the extra-folder path already
   crosses IPC in `demoSourceSchema`; a full archive path is not needed to name it.
 - **Settings link** reuses `ServersView`'s `handleOpenSourceSettings` pattern (route to Settings,
   scroll `settings-section-replays` into view) — that section is where [[142]] adds extra folders.
@@ -94,13 +94,13 @@ Order: D1 → D2 → D3 → D4. Files: `src/main/lib/fs-utils.ts`, `src/main/mod
 
 - [x] **D1 — discovery reports per-source errors.**
   - `src/shared/modules/replays.ts`: add `replaysSourceErrorReasonSchema = z.enum(['missing',
-    'notAFolder', 'permissionDenied', 'unreadable', 'extractor-missing', 'archive-unreadable',
-    'archive-too-large'])` and `replaysSourceErrorSchema = z.object({ source: demoSourceSchema,
-    archiveName: z.string().min(1).nullable(), reason: replaysSourceErrorReasonSchema })`, plus
+'notAFolder', 'permissionDenied', 'unreadable', 'extractor-missing', 'archive-unreadable',
+'archive-too-large'])` and `replaysSourceErrorSchema = z.object({ source: demoSourceSchema,
+archiveName: z.string().min(1).nullable(), reason: replaysSourceErrorReasonSchema })`, plus
     exported types `ReplaysSourceError` / `ReplaysSourceErrorReason`. Do not touch
     `replaysScanProgressSchema` here (D2 does).
   - `src/main/lib/fs-utils.ts`: add `listDirOrReason(dir)` → `{ ok: true, listing: DirListing } |
-    { ok: false, reason: 'missing' | 'notAFolder' | 'permissionDenied' | 'unreadable' }`, sharing
+{ ok: false, reason: 'missing' | 'notAFolder' | 'permissionDenied' | 'unreadable' }`, sharing
     `listDir`'s entry loop (do not change `listDir`'s behaviour — it has many callers), plus an
     exported pure `dirReadFailureReason(code: string | undefined)`: `ENOENT`→`missing`,
     `ENOTDIR`→`notAFolder`, `EACCES`/`EPERM`→`permissionDenied`, anything else→`unreadable`.
@@ -108,11 +108,11 @@ Order: D1 → D2 → D3 → D4. Files: `src/main/lib/fs-utils.ts`, `src/main/mod
     (replaces `ArchiveError`/`archiveErrors`; update the doc comments that say "never throws /
     contributes nothing" to say what is now reported). Rules: (a) an extra folder whose scan
     `listDirOrReason` fails → one error `{ source: { kind: 'extraFolder', path: canonical },
-    archiveName: null, reason }`; (b) an installation (root or write-dir) `demos` folder that
+archiveName: null, reason }`; (b) an installation (root or write-dir) `demos` folder that
     `findDemosDir` found but that cannot be listed → one error with the installation source for
     that game dir; (c) a game dir with **no** `demos` folder, or a write dir the engine never
     created, is **not** an error; (d) each failed zip → `{ source, archiveName: <zip file name>,
-    reason: <existing code> }`; (e) an extra folder skipped because it equals an installation's
+reason: <existing code> }`; (e) an extra folder skipped because it equals an installation's
     demos dir produces nothing. Demos from every other source are unaffected.
   - Callers: `src/main/modules/replays/index.ts`'s legacy `demosList` handler just keeps
     destructuring `demos` (compile fix only; D2 rewires `discover`).
@@ -148,22 +148,22 @@ Order: D1 → D2 → D3 → D4. Files: `src/main/lib/fs-utils.ts`, `src/main/mod
     "scanHoldMs is 0 outside the harness, reads the file under it, and ignores garbage".
 
 - [x] **D3 — the list says what it's doing (renderer).** Do not change the row/list markup story
-  150 left in `ReplaysView.tsx` — only its loading/empty branches and what sits above the list.
+      150 left in `ReplaysView.tsx` — only its loading/empty branches and what sits above the list.
   - New `src/renderer/src/modules/replays/list-state.ts` (mirror
     `src/renderer/src/modules/servers/list-state.ts`): `deriveReplaysListState({ scanning,
-    rowCount })` → `'loading' | 'empty' | 'populated'` (`loading` wins while scanning, even with
+rowCount })` → `'loading' | 'empty' | 'populated'` (`loading` wins while scanning, even with
     rows; `empty` only when not scanning and 0 rows), and `describeReplaysScanProgress(progress)` →
     `{ key: 'replays.list.loading' }` when no source has a total yet, else
     `{ key: 'replays.list.loadingProgress', params: { scanned, total } }` summed over all sources.
   - New `src/renderer/src/modules/replays/ReplaysListStatus.tsx` (mirror
     `src/renderer/src/modules/servers/ServersListStatus.tsx`): loading strip `role="status"
-    aria-live="polite"` `data-testid="replays-list-loading"` with `data-scanned`/`data-total`
+aria-live="polite"` `data-testid="replays-list-loading"` with `data-scanned`/`data-total`
     and a `Spinner`; empty block `data-testid="replays-list-empty"` with the existing
     `replays.list.empty` text and a **default-size** `Button` `data-testid="replays-list-empty-settings"`
     (`replays.list.openSettings`); a source-errors block `data-testid="replays-list-source-errors"`
     with one row per error `data-testid="replays-list-source-error"` carrying `data-reason`, an
     `AlertTriangle` icon plus text (never colour alone) `t('replays.list.sourceError', { source,
-    reason })`. Source label: installation → `replays.list.source` ({installation, gameDir}),
+reason })`. Source label: installation → `replays.list.source` ({installation, gameDir}),
     extra folder → `replays.source.extraFolder` ({path}); with an `archiveName` →
     `replays.list.sourceErrorArchive` ({ base, archive }). Reason →
     `replays.list.sourceErrorReason.<reason>`. Renders nothing when populated and no errors.
@@ -179,7 +179,7 @@ Order: D1 → D2 → D3 → D4. Files: `src/main/lib/fs-utils.ts`, `src/main/mod
     {{scanned}} of {{total}}"), `openSettings` ("Add a demo folder in Settings"), `sourceError`
     ("Couldn't read {{source}}: {{reason}}"), `sourceErrorArchive` ("{{base}} · {{archive}}"),
     `sourceErrorReason.{missing,notAFolder,permissionDenied,unreadable,extractor-missing,
-    archive-unreadable,archive-too-large}` (plain user wording, e.g. "the folder no longer
+archive-unreadable,archive-too-large}` (plain user wording, e.g. "the folder no longer
     exists", "access was denied", "the archive could not be opened").
   - `CHANGELOG.md`: one `### Added` line in the current section (Keep-a-Changelog headings).
   - Tests: new `src/renderer/src/modules/replays/list-state.test.ts` › "loading wins while a scan
@@ -194,7 +194,7 @@ Order: D1 → D2 → D3 → D4. Files: `src/main/lib/fs-utils.ts`, `src/main/mod
     `writePopulatedFixture({ variant: 'replays-list-loading' })` plus the text file
     `<that variant's userData>/harness-replays-scan-hold-ms` = `holdMs`;
     `writeReplaysListErrorFixture()` = `writePopulatedFixture({ variant: 'replays-list-error',
-    stateOverrides })` whose `replays` state (keep every other field `populatedStateDocument`
+stateOverrides })` whose `replays` state (keep every other field `populatedStateDocument`
     puts under `replays`) lists two extra folders: one path under the variant's userData that is
     never created, one variant-scoped folder under that userData holding `broken.zip` (a few
     garbage bytes — fails whether or not 7za is vendored). Nothing of either may be written into

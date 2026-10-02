@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { ConfigAction } from '../modules/config'
 import { ACTIONS_MESSAGE_PREFIX, validateActions } from './validate-actions'
 
-function action(overrides: Partial<ConfigAction> & Pick<ConfigAction, 'id' | 'kind' | 'name'>): ConfigAction {
+function action(
+  overrides: Partial<ConfigAction> & Pick<ConfigAction, 'id' | 'kind' | 'name'>,
+): ConfigAction {
   return { categoryId: 'c1', commands: [], ...overrides }
 }
 
@@ -32,7 +34,9 @@ describe('validateActions', () => {
     // Sign-free name (story 045, D8 changed the fixture from '+test'): a lone signed alias with no
     // matching opposite half now also gets its own `pressWithoutRelease`/`releaseWithoutPress`
     // finding, which would be noise in a test about `aliasUnreferenced` specifically.
-    const actions = [action({ id: 'a1', kind: 'alias', name: 'test', commands: [{ kind: 'raw', text: 'wait' }] })]
+    const actions = [
+      action({ id: 'a1', kind: 'alias', name: 'test', commands: [{ kind: 'raw', text: 'wait' }] }),
+    ]
 
     const findings = validateActions(actions, 'r1q2')
 
@@ -71,7 +75,12 @@ describe('validateActions', () => {
         catalogId: 'weapons:railgun',
         commands: [{ kind: 'raw', text: 'use railgun' }],
       }),
-      action({ id: 'a1', kind: 'alias', name: 'railgun', commands: [{ kind: 'raw', text: 'wait' }] }),
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: 'railgun',
+        commands: [{ kind: 'raw', text: 'wait' }],
+      }),
     ]
 
     const findings = validateActions(actions, 'r1q2')
@@ -149,7 +158,10 @@ describe('validateActions', () => {
         kind: 'bind',
         name: 'weapnext',
         keys: [{ key: 'MWHEELUP' }],
-        commands: [{ kind: 'raw', text: 'weapnext' }, { kind: 'raw', text: 'centerview' }],
+        commands: [
+          { kind: 'raw', text: 'weapnext' },
+          { kind: 'raw', text: 'centerview' },
+        ],
       }),
     ]
 
@@ -169,7 +181,10 @@ describe('validateActions', () => {
         kind: 'bind',
         name: 'centerview',
         keys: [{ key: 'MOUSE3' }],
-        commands: [{ kind: 'raw', text: '+attack' }, { kind: 'raw', text: 'centerview' }],
+        commands: [
+          { kind: 'raw', text: '+attack' },
+          { kind: 'raw', text: 'centerview' },
+        ],
       }),
     ]
 
@@ -206,13 +221,18 @@ describe('validateActions', () => {
         kind: 'bind',
         name: 'Forward',
         keys: [{ key: 'w' }],
-        commands: [{ kind: 'raw', text: '+forward' }, { kind: 'raw', text: 'centerview' }],
+        commands: [
+          { kind: 'raw', text: '+forward' },
+          { kind: 'raw', text: 'centerview' },
+        ],
       }),
     ]
 
     const findings = validateActions(actions, 'r1q2')
 
-    expect(findings.some((finding) => finding.messageKey.endsWith('aliasSelfReference'))).toBe(false)
+    expect(findings.some((finding) => finding.messageKey.endsWith('aliasSelfReference'))).toBe(
+      false,
+    )
   })
 
   it('produces no findings for a clean profile: a correctly referenced alias, no duplicates', () => {
@@ -263,7 +283,12 @@ describe('validateActions', () => {
 
   it('excludes a bare command with no sign from the undefined-alias check', () => {
     const actions = [
-      action({ id: 'b1', kind: 'bind', name: 'Wait a bit', commands: [{ kind: 'raw', text: 'wait' }] }),
+      action({
+        id: 'b1',
+        kind: 'bind',
+        name: 'Wait a bit',
+        commands: [{ kind: 'raw', text: 'wait' }],
+      }),
     ]
 
     expect(validateActions(actions, 'r1q2')).toEqual([])
@@ -301,7 +326,7 @@ describe('validateActions', () => {
     expect(validateActions(actions, 'r1q2')).toEqual([])
   })
 
-  it('second review fix: does not flag a bind calling this profile\'s own hold-layer alias (+drops)', () => {
+  it("second review fix: does not flag a bind calling this profile's own hold-layer alias (+drops)", () => {
     const actions = [
       action({
         id: 'b1',
@@ -312,7 +337,15 @@ describe('validateActions', () => {
     ]
 
     const findings = validateActions(actions, 'r1q2', {
-      layers: [{ id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'CTRL', overrides: { g: 'drop grenades' } }],
+      layers: [
+        {
+          id: 'l1',
+          name: 'Drops',
+          mode: 'hold',
+          triggerKey: 'CTRL',
+          overrides: { g: 'drop grenades' },
+        },
+      ],
     })
 
     expect(findings).toEqual([])
@@ -336,7 +369,9 @@ describe('validateActions', () => {
 
   it('review fix, Finding 3: an alias only referenced via profile.binds is not flagged as unreferenced', () => {
     // Sign-free name (story 045, D8): see the comment on 'reports an alias that nothing calls'.
-    const actions = [action({ id: 'a1', kind: 'alias', name: 'test', commands: [{ kind: 'raw', text: 'wait' }] })]
+    const actions = [
+      action({ id: 'a1', kind: 'alias', name: 'test', commands: [{ kind: 'raw', text: 'wait' }] }),
+    ]
 
     const findings = validateActions(actions, 'r1q2', { binds: { r: 'test' } })
 
@@ -345,10 +380,14 @@ describe('validateActions', () => {
 
   it('review fix, Finding 3: an alias only referenced via a layer override is not flagged as unreferenced', () => {
     // Sign-free name (story 045, D8): see the comment on 'reports an alias that nothing calls'.
-    const actions = [action({ id: 'a1', kind: 'alias', name: 'test', commands: [{ kind: 'raw', text: 'wait' }] })]
+    const actions = [
+      action({ id: 'a1', kind: 'alias', name: 'test', commands: [{ kind: 'raw', text: 'wait' }] }),
+    ]
 
     const findings = validateActions(actions, 'r1q2', {
-      layers: [{ id: 'l1', name: 'Alt', mode: 'hold', triggerKey: 'ALT', overrides: { r: 'test' } }],
+      layers: [
+        { id: 'l1', name: 'Alt', mode: 'hold', triggerKey: 'ALT', overrides: { r: 'test' } },
+      ],
     })
 
     expect(findings).toEqual([])
@@ -356,7 +395,9 @@ describe('validateActions', () => {
 
   it('still reports an alias referenced by nothing at all, binds/layers included', () => {
     // Sign-free name (story 045, D8): see the comment on 'reports an alias that nothing calls'.
-    const actions = [action({ id: 'a1', kind: 'alias', name: 'test', commands: [{ kind: 'raw', text: 'wait' }] })]
+    const actions = [
+      action({ id: 'a1', kind: 'alias', name: 'test', commands: [{ kind: 'raw', text: 'wait' }] }),
+    ]
 
     const findings = validateActions(actions, 'r1q2', {
       binds: { r: 'other' },
@@ -577,7 +618,9 @@ describe('validateActions', () => {
   })
 
   it('carries the engine passed in on every finding', () => {
-    const actions = [action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] })]
+    const actions = [
+      action({ id: 'a1', kind: 'alias', name: '+test', commands: [{ kind: 'raw', text: 'wait' }] }),
+    ]
 
     const findings = validateActions(actions, 'q2pro')
 
@@ -588,19 +631,30 @@ describe('validateActions', () => {
 
   it('story 045 D8: a cross-wired toggle trio (both states reassign to the same name) yields exactly one toggleCrossWired finding', () => {
     const actions = [
-      action({ id: 'a1', kind: 'alias', name: 'zoom', commands: [{ kind: 'raw', text: 'zoomin' }] }),
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: 'zoom',
+        commands: [{ kind: 'raw', text: 'zoomin' }],
+      }),
       action({
         id: 'a2',
         kind: 'alias',
         name: 'zoomin',
-        commands: [{ kind: 'raw', text: 'zoom_fov' }, { kind: 'raw', text: 'alias zoom zoomout' }],
+        commands: [
+          { kind: 'raw', text: 'zoom_fov' },
+          { kind: 'raw', text: 'alias zoom zoomout' },
+        ],
       }),
       // Cross-wired: zoomout should reassign back to zoomin, but reassigns to itself instead.
       action({
         id: 'a3',
         kind: 'alias',
         name: 'zoomout',
-        commands: [{ kind: 'raw', text: 'norm_fov' }, { kind: 'raw', text: 'alias zoom zoomout' }],
+        commands: [
+          { kind: 'raw', text: 'norm_fov' },
+          { kind: 'raw', text: 'alias zoom zoomout' },
+        ],
       }),
     ]
 
@@ -619,18 +673,29 @@ describe('validateActions', () => {
     // rewrites the dispatch to *itself*, which is where the old check's walk ended: it found
     // `second === first` and reported nothing at all.
     const actions = [
-      action({ id: 'a1', kind: 'alias', name: 'zoom', commands: [{ kind: 'raw', text: 'zoom_s1' }] }),
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: 'zoom',
+        commands: [{ kind: 'raw', text: 'zoom_s1' }],
+      }),
       action({
         id: 'a2',
         kind: 'alias',
         name: 'zoom_s1',
-        commands: [{ kind: 'raw', text: 'fov 30' }, { kind: 'raw', text: 'alias zoom zoom_s1' }],
+        commands: [
+          { kind: 'raw', text: 'fov 30' },
+          { kind: 'raw', text: 'alias zoom zoom_s1' },
+        ],
       }),
       action({
         id: 'a3',
         kind: 'alias',
         name: 'zoom_s2',
-        commands: [{ kind: 'raw', text: 'fov 90' }, { kind: 'raw', text: 'alias zoom zoom_s1' }],
+        commands: [
+          { kind: 'raw', text: 'fov 90' },
+          { kind: 'raw', text: 'alias zoom zoom_s1' },
+        ],
       }),
     ]
 
@@ -645,12 +710,20 @@ describe('validateActions', () => {
     // Only two lines left of a trio. The missing name is what the finding names as the second
     // state, since that is what the file says is supposed to be there.
     const actions = [
-      action({ id: 'a1', kind: 'alias', name: 'zoom', commands: [{ kind: 'raw', text: 'zoom_s1' }] }),
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: 'zoom',
+        commands: [{ kind: 'raw', text: 'zoom_s1' }],
+      }),
       action({
         id: 'a2',
         kind: 'alias',
         name: 'zoom_s1',
-        commands: [{ kind: 'raw', text: 'fov 30' }, { kind: 'raw', text: 'alias zoom zoom_s2' }],
+        commands: [
+          { kind: 'raw', text: 'fov 30' },
+          { kind: 'raw', text: 'alias zoom zoom_s2' },
+        ],
       }),
     ]
 
@@ -667,7 +740,12 @@ describe('validateActions', () => {
     // no finding may appear. The guard against the widened index turning plain aliases into noise.
     const actions = [
       action({ id: 'a1', kind: 'alias', name: 'go', commands: [{ kind: 'raw', text: 'go_now' }] }),
-      action({ id: 'a2', kind: 'alias', name: 'go_now', commands: [{ kind: 'raw', text: 'fov 30' }] }),
+      action({
+        id: 'a2',
+        kind: 'alias',
+        name: 'go_now',
+        commands: [{ kind: 'raw', text: 'fov 30' }],
+      }),
       action({ id: 'b1', kind: 'bind', name: 'Go key', commands: [{ kind: 'raw', text: 'go' }] }),
     ]
 
@@ -678,20 +756,36 @@ describe('validateActions', () => {
 
   it('story 045 D8: a healthy hand-written toggle trio does not yield toggleCrossWired', () => {
     const actions = [
-      action({ id: 'a1', kind: 'alias', name: 'zoom', commands: [{ kind: 'raw', text: 'zoomin' }] }),
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: 'zoom',
+        commands: [{ kind: 'raw', text: 'zoomin' }],
+      }),
       action({
         id: 'a2',
         kind: 'alias',
         name: 'zoomin',
-        commands: [{ kind: 'raw', text: 'zoom_fov' }, { kind: 'raw', text: 'alias zoom zoomout' }],
+        commands: [
+          { kind: 'raw', text: 'zoom_fov' },
+          { kind: 'raw', text: 'alias zoom zoomout' },
+        ],
       }),
       action({
         id: 'a3',
         kind: 'alias',
         name: 'zoomout',
-        commands: [{ kind: 'raw', text: 'norm_fov' }, { kind: 'raw', text: 'alias zoom zoomin' }],
+        commands: [
+          { kind: 'raw', text: 'norm_fov' },
+          { kind: 'raw', text: 'alias zoom zoomin' },
+        ],
       }),
-      action({ id: 'b1', kind: 'bind', name: 'Zoom key', commands: [{ kind: 'raw', text: 'zoom' }] }),
+      action({
+        id: 'b1',
+        kind: 'bind',
+        name: 'Zoom key',
+        commands: [{ kind: 'raw', text: 'zoom' }],
+      }),
     ]
 
     const findings = validateActions(actions, 'r1q2')
@@ -701,35 +795,64 @@ describe('validateActions', () => {
 
   it('story 045 D8: a lone +x alias with no matching -x yields exactly one pressWithoutRelease finding', () => {
     const actions = [
-      action({ id: 'a1', kind: 'alias', name: '+slow', commands: [{ kind: 'raw', text: 'cl_run 0' }] }),
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: '+slow',
+        commands: [{ kind: 'raw', text: 'cl_run 0' }],
+      }),
     ]
 
     const findings = validateActions(actions, 'r1q2')
     const rules = rulesOf(findings)
 
     expect(rules.filter((rule) => rule === 'pressWithoutRelease')).toHaveLength(1)
-    const pressWithoutRelease = findings.find((finding) => finding.messageKey.endsWith('pressWithoutRelease'))
+    const pressWithoutRelease = findings.find((finding) =>
+      finding.messageKey.endsWith('pressWithoutRelease'),
+    )
     expect(pressWithoutRelease!.params).toEqual({ entry: '+slow', name: '+slow' })
   })
 
   it('story 045 D8: a lone -x alias with no matching +x yields exactly one releaseWithoutPress finding', () => {
     const actions = [
-      action({ id: 'a1', kind: 'alias', name: '-slow', commands: [{ kind: 'raw', text: 'cl_run 1' }] }),
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: '-slow',
+        commands: [{ kind: 'raw', text: 'cl_run 1' }],
+      }),
     ]
 
     const findings = validateActions(actions, 'r1q2')
     const rules = rulesOf(findings)
 
     expect(rules.filter((rule) => rule === 'releaseWithoutPress')).toHaveLength(1)
-    const releaseWithoutPress = findings.find((finding) => finding.messageKey.endsWith('releaseWithoutPress'))
+    const releaseWithoutPress = findings.find((finding) =>
+      finding.messageKey.endsWith('releaseWithoutPress'),
+    )
     expect(releaseWithoutPress!.params).toEqual({ entry: '-slow', name: '-slow' })
   })
 
   it('story 045 D8: a healthy +x/-x alias pair yields neither pressWithoutRelease nor releaseWithoutPress', () => {
     const actions = [
-      action({ id: 'a1', kind: 'alias', name: '+slow', commands: [{ kind: 'raw', text: 'cl_run 0' }] }),
-      action({ id: 'a2', kind: 'alias', name: '-slow', commands: [{ kind: 'raw', text: 'cl_run 1' }] }),
-      action({ id: 'b1', kind: 'bind', name: 'Slow key', commands: [{ kind: 'raw', text: '+slow' }] }),
+      action({
+        id: 'a1',
+        kind: 'alias',
+        name: '+slow',
+        commands: [{ kind: 'raw', text: 'cl_run 0' }],
+      }),
+      action({
+        id: 'a2',
+        kind: 'alias',
+        name: '-slow',
+        commands: [{ kind: 'raw', text: 'cl_run 1' }],
+      }),
+      action({
+        id: 'b1',
+        kind: 'bind',
+        name: 'Slow key',
+        commands: [{ kind: 'raw', text: '+slow' }],
+      }),
     ]
 
     const findings = validateActions(actions, 'r1q2')
@@ -779,7 +902,7 @@ describe('validateActions', () => {
     expect(rulesOf(findings)).toEqual([])
   })
 
-  it('story 045 D8: a healthy first-class toggle\'s generated names (dispatch, _s1/_s2) never show up as undefinedAlias/aliasUnreferenced', () => {
+  it("story 045 D8: a healthy first-class toggle's generated names (dispatch, _s1/_s2) never show up as undefinedAlias/aliasUnreferenced", () => {
     const actions = [
       action({
         id: 'a1',
@@ -800,7 +923,7 @@ describe('validateActions', () => {
     expect(findings.some((finding) => finding.messageKey.endsWith('aliasUnreferenced'))).toBe(false)
   })
 
-  it('story 045 D8: a healthy first-class press-release entry\'s generated names (+base/-base) never show up as undefinedAlias/aliasUnreferenced', () => {
+  it("story 045 D8: a healthy first-class press-release entry's generated names (+base/-base) never show up as undefinedAlias/aliasUnreferenced", () => {
     const actions = [
       action({
         id: 'a1',
@@ -826,7 +949,7 @@ describe('validateActions', () => {
   // file resolves by keeping exactly one definition - i.e. by losing the other entry's body. Care
   // used to group only the *primary* index row per action and therefore never saw it. ---------------
 
-  it('story-045 review: a user alias colliding with a toggle\'s generated _s1 name is reported as aliasDuplicate', () => {
+  it("story-045 review: a user alias colliding with a toggle's generated _s1 name is reported as aliasDuplicate", () => {
     const actions = [
       action({
         id: 't1',
@@ -861,7 +984,7 @@ describe('validateActions', () => {
     expect(duplicates[0].params?.['actionIds']).toBe('a1,t1')
   })
 
-  it('story-045 review: a user alias colliding with a press/release entry\'s generated -base half is reported too', () => {
+  it("story-045 review: a user alias colliding with a press/release entry's generated -base half is reported too", () => {
     const actions = [
       action({
         id: 'p1',

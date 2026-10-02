@@ -15,17 +15,17 @@ runs well over half an hour. Refuses to start while any `q2pro.exe` is running.
 
 ## Configurations
 
-| Name | Lever | What changes against production |
-| --- | --- | --- |
-| `baseline` | — | Production, unmodified: `buildLoopCfg()` (wait 13), `logfile 2`, `logfile_flush 1`, one command in flight, next only on the log ACK, 2000 ms timeout |
-| `wait5` `wait2` `wait1` | L1 | `buildLoopCfg(waitFrames)` |
-| `flush<N>` | L2 | `+set logfile_flush N` for every value the preflight saw accepted (except 1) |
-| `logtoggle` | L2 | control file ends with `logfile 0` / `logfile 2` (close + reopen flushes, every tick) |
-| `pad` | L2 | control file ends with `echo PADxxx…` lines of `padBytes` (the measured buffer size + 64) |
-| `multiseq` | L3 | every queued command gets its seq and cfg at once; the control file holds one monotonic guard per pending seq (`if $q2l_seq < N`), so several run in one tick |
-| `coalesce` | L3 | still one seq in flight, but everything queued behind it goes into the next command cfg together |
-| `fileack` | L4 | the next command is dispatched when the engine-written marker appears, not on the log ACK |
-| `combo-1..4` | mix | best L1 + best L2; + best L3; best L1 + L4 + best L3; `combo-4` = `flush3` + `multiseq` at the production wait (no L1 change). "Best" is taken from the same `--all` run's results (combos run last), else a static choice (`wait2`, `flush2`, `coalesce`) |
+| Name                    | Lever | What changes against production                                                                                                                                                                                                                            |
+| ----------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `baseline`              | —     | Production, unmodified: `buildLoopCfg()` (wait 13), `logfile 2`, `logfile_flush 1`, one command in flight, next only on the log ACK, 2000 ms timeout                                                                                                       |
+| `wait5` `wait2` `wait1` | L1    | `buildLoopCfg(waitFrames)`                                                                                                                                                                                                                                 |
+| `flush<N>`              | L2    | `+set logfile_flush N` for every value the preflight saw accepted (except 1)                                                                                                                                                                               |
+| `logtoggle`             | L2    | control file ends with `logfile 0` / `logfile 2` (close + reopen flushes, every tick)                                                                                                                                                                      |
+| `pad`                   | L2    | control file ends with `echo PADxxx…` lines of `padBytes` (the measured buffer size + 64)                                                                                                                                                                  |
+| `multiseq`              | L3    | every queued command gets its seq and cfg at once; the control file holds one monotonic guard per pending seq (`if $q2l_seq < N`), so several run in one tick                                                                                              |
+| `coalesce`              | L3    | still one seq in flight, but everything queued behind it goes into the next command cfg together                                                                                                                                                           |
+| `fileack`               | L4    | the next command is dispatched when the engine-written marker appears, not on the log ACK                                                                                                                                                                  |
+| `combo-1..4`            | mix   | best L1 + best L2; + best L3; best L1 + L4 + best L3; `combo-4` = `flush3` + `multiseq` at the production wait (no L1 change). "Best" is taken from the same `--all` run's results (combos run last), else a static choice (`wait2`, `flush2`, `coalesce`) |
 
 The protocol pieces (`buildLoopCfg`, `buildControlFile`, `encodeControlCommand`, `buildStopFile`,
 `windowsLaunchArgs`, `parseEngineLine`, the file names and timing constants) are imported from

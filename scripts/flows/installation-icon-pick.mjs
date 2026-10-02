@@ -51,7 +51,9 @@ const SHIPPED_ICON_ID = 'gate'
 
 /** The library card - no dedicated testid, mirrors `installation-icon-tile.mjs`'s own helper. */
 function libraryCard(page, name) {
-  return page.locator('div.items-start').filter({ has: page.getByRole('heading', { name, exact: true }) })
+  return page
+    .locator('div.items-start')
+    .filter({ has: page.getByRole('heading', { name, exact: true }) })
 }
 
 export default async function installationIconPick({ page, shot, step }) {
@@ -76,7 +78,9 @@ export default async function installationIconPick({ page, shot, step }) {
   step('AC1: every shipped icon (SHIPPED_ICONS, D1) has a visible option in the grid')
   const shippedIds = shippedIconIdsFromDisk()
   if (shippedIds.length === 0) {
-    throw new Error('SHIPPED_ICONS (D1 manifest) resolved to zero icons - nothing to prove AC1 against')
+    throw new Error(
+      'SHIPPED_ICONS (D1 manifest) resolved to zero icons - nothing to prove AC1 against',
+    )
   }
   for (const id of shippedIds) {
     const option = dialog.getByRole('button', { name: `“${id}” icon` })
@@ -110,7 +114,9 @@ export default async function installationIconPick({ page, shot, step }) {
   })
   await page.waitForFunction(
     (name) => {
-      const heading = [...document.querySelectorAll('h3, h2, h4')].find((el) => el.textContent === name)
+      const heading = [...document.querySelectorAll('h3, h2, h4')].find(
+        (el) => el.textContent === name,
+      )
       const root = heading?.closest('div.items-start')
       return Boolean(root?.querySelector('img'))
     },
@@ -130,7 +136,9 @@ export default async function installationIconPick({ page, shot, step }) {
   await dialog.getByRole('button', { name: 'Clear icon' }).click({ timeout: CLICK_TIMEOUT_MS })
   await page.waitForFunction(
     (name) => {
-      const heading = [...document.querySelectorAll('h3, h2, h4')].find((el) => el.textContent === name)
+      const heading = [...document.querySelectorAll('h3, h2, h4')].find(
+        (el) => el.textContent === name,
+      )
       const root = heading?.closest('div.items-start')
       return Boolean(root) && !root.querySelector('img')
     },
@@ -138,11 +146,15 @@ export default async function installationIconPick({ page, shot, step }) {
     { timeout: CLICK_TIMEOUT_MS },
   )
   if ((await card.locator('img').count()) !== 0) {
-    throw new Error(`expected "${ICONLESS_NAME}" to revert to its code tile after clearing the icon`)
+    throw new Error(
+      `expected "${ICONLESS_NAME}" to revert to its code tile after clearing the icon`,
+    )
   }
   const codeTileText = await card.locator('span').filter({ hasText: 'FU' }).count()
   if (codeTileText === 0) {
-    throw new Error(`expected "${ICONLESS_NAME}" to show its "FU" code tile after clearing the icon`)
+    throw new Error(
+      `expected "${ICONLESS_NAME}" to show its "FU" code tile after clearing the icon`,
+    )
   }
   await shot('icon-cleared')
 }

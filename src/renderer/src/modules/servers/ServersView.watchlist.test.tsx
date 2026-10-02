@@ -50,8 +50,14 @@ const {
   onScanServerMock: vi.fn(),
   listMasterSourcesMock: vi.fn(async () => ({ ok: true as const, value: [] as MasterSource[] })),
   getListSortMock: vi.fn(async () => ({ ok: true as const, value: null as ServerListSort | null })),
-  setListSortMock: vi.fn(async (sort: ServerListSort | null) => ({ ok: true as const, value: sort })),
-  readServerDetailMock: vi.fn(async () => ({ ok: true as const, value: null as ServerDetail | null })),
+  setListSortMock: vi.fn(async (sort: ServerListSort | null) => ({
+    ok: true as const,
+    value: sort,
+  })),
+  readServerDetailMock: vi.fn(async () => ({
+    ok: true as const,
+    value: null as ServerDetail | null,
+  })),
   readWatchlistMock: vi.fn(async () => ({
     ok: true as const,
     value: { asOf: null, entries: [] } as WatchlistSnapshot,
@@ -171,7 +177,9 @@ describe('ServersView - watchlist tab, locked (story 132 D3)', () => {
 
     await renderView(
       snapshot({
-        entries: [{ address: '1.2.3.4:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x' }],
+        entries: [
+          { address: '1.2.3.4:27910', origins: ['manual'], status: 'online', lastSeenAt: 'x' },
+        ],
       }),
     )
 

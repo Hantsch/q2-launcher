@@ -49,7 +49,11 @@ function decodeQueryKind(message) {
 
 /** Binds one loopback responder with full control over its `gamename`/`mapname`/`maxclients`/
  * gamemode flags/`needpass`, so each of A-D can exercise a different filter field. */
-async function bindResponder(hostname, playerLines, { mod, map, maxclients, extraInfoFlags = '', needpass = false }) {
+async function bindResponder(
+  hostname,
+  playerLines,
+  { mod, map, maxclients, extraInfoFlags = '', needpass = false },
+) {
   const socket = createSocket('udp4')
   await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
   const port = socket.address().port
@@ -173,7 +177,12 @@ async function waitForFinishedAtChange(page, previous, timeout) {
 /** Reads the set of visible row addresses (as their bound loopback port suffix) among A-D, by
  * checking which of the four `servers-row-<address>` testids are currently attached. */
 async function visibleLabels(page) {
-  const labels = { [serverA.address]: 'A', [serverB.address]: 'B', [serverC.address]: 'C', [serverD.address]: 'D' }
+  const labels = {
+    [serverA.address]: 'A',
+    [serverB.address]: 'B',
+    [serverC.address]: 'C',
+    [serverD.address]: 'D',
+  }
   const visible = []
   for (const responder of [serverA, serverB, serverC, serverD]) {
     const count = await page.getByTestId(`servers-row-${responder.address}`).count()
@@ -204,7 +213,9 @@ export default async function serversFilterSearch({ page, step, shot }) {
   const finishedAtBefore = await readFinishedAt(page)
   await refreshAll.click({ timeout: TIMEOUT_MS })
   await waitForFinishedAtChange(page, finishedAtBefore, SCAN_SETTLE_TIMEOUT_MS)
-  await page.getByTestId(`servers-row-${serverA.address}`).waitFor({ state: 'attached', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId(`servers-row-${serverA.address}`)
+    .waitFor({ state: 'attached', timeout: TIMEOUT_MS })
 
   // The `info` reply carries only hostname/map/player counts; mod (`gamename`) comes from `status`,
   // which a full round skips for a server whose `info` reported 0 players - unless that server is
@@ -214,7 +225,8 @@ export default async function serversFilterSearch({ page, step, shot }) {
   const rowC = page.getByTestId(`servers-row-${serverC.address}`)
   await rowC.click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
-    (testId) => document.querySelector(`[data-testid="${testId}"]`)?.getAttribute('aria-pressed') === 'true',
+    (testId) =>
+      document.querySelector(`[data-testid="${testId}"]`)?.getAttribute('aria-pressed') === 'true',
     `servers-row-${serverC.address}`,
     { timeout: TIMEOUT_MS },
   )
@@ -223,7 +235,8 @@ export default async function serversFilterSearch({ page, step, shot }) {
   await waitForFinishedAtChange(page, finishedAtBeforeSelected, SCAN_SETTLE_TIMEOUT_MS)
   await rowC.click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
-    (testId) => document.querySelector(`[data-testid="${testId}"]`)?.getAttribute('aria-pressed') === 'false',
+    (testId) =>
+      document.querySelector(`[data-testid="${testId}"]`)?.getAttribute('aria-pressed') === 'false',
     `servers-row-${serverC.address}`,
     { timeout: TIMEOUT_MS },
   )
@@ -266,7 +279,9 @@ export default async function serversFilterSearch({ page, step, shot }) {
 
   step('AC2: adding "Empty" too leaves an empty set, with the no-match line visible')
   await page.getByTestId('servers-filter-empty').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-filter-no-match').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-filter-no-match')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   assertSet(await visibleLabels(page), [], 'mod=baseq2 + map=q2dm1 + empty')
   await shot('no-match')
   await clearFilters(page)
@@ -286,7 +301,9 @@ export default async function serversFilterSearch({ page, step, shot }) {
   await page.getByTestId('servers-filter-mod').selectOption('baseq2')
   assertSet(await visibleLabels(page), ['B', 'C', 'D'], 'mod=baseq2 (pre-sort)')
   // Default sort: favourites first (none here), then occupancy descending - B (2 players) above C (0).
-  const rowsBeforeSort = await page.getByRole('button', { name: /Fixture Server B|Empty Cellar/ }).all()
+  const rowsBeforeSort = await page
+    .getByRole('button', { name: /Fixture Server B|Empty Cellar/ })
+    .all()
   const orderBefore = []
   for (const row of rowsBeforeSort) orderBefore.push(await row.getAttribute('data-testid'))
   if (orderBefore[0] !== `servers-row-${serverB.address}`) {
@@ -297,7 +314,9 @@ export default async function serversFilterSearch({ page, step, shot }) {
   assertSet(await visibleLabels(page), ['B', 'C', 'D'], 'mod=baseq2 (post-sort, still same set)')
   const modAfterSort = await page.getByTestId('servers-filter-mod').inputValue()
   if (modAfterSort !== 'baseq2') {
-    throw new Error(`expected the mod filter to keep its value after sorting, got "${modAfterSort}"`)
+    throw new Error(
+      `expected the mod filter to keep its value after sorting, got "${modAfterSort}"`,
+    )
   }
   await shot('filter-plus-sort')
 
@@ -311,6 +330,6 @@ export default async function serversFilterSearch({ page, step, shot }) {
     'servers-filter-search: every filter field (mod/gamemode/map/search/toggles) narrows the real ' +
       'rendered list on its own (AC1) and in combination (AC2), search matches hostnames and roster ' +
       'player names (AC4/AC5), an unfiltered list still shows the empty server (AC3), and filtering ' +
-      'and sorting compose without disturbing each other\'s state (AC6).',
+      "and sorting compose without disturbing each other's state (AC6).",
   )
 }

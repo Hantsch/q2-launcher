@@ -38,13 +38,15 @@ function listFilesRecursively(dir: string): string[] {
 const THIS_FILE = fileURLToPath(import.meta.url)
 
 function readAllSourceFiles(dirs: string[]): Array<{ path: string; text: string }> {
-  return dirs
-    .flatMap((dir) => listFilesRecursively(dir))
-    .filter((path) => /\.(ts|tsx)$/.test(path))
-    // Exclude this guard test itself: it necessarily names `HeroPanel` and home-view import
-    // patterns in its own source (as strings/regexes), which would otherwise trip its own checks.
-    .filter((path) => path !== THIS_FILE)
-    .map((path) => ({ path, text: readFileSync(path, 'utf-8') }))
+  return (
+    dirs
+      .flatMap((dir) => listFilesRecursively(dir))
+      .filter((path) => /\.(ts|tsx)$/.test(path))
+      // Exclude this guard test itself: it necessarily names `HeroPanel` and home-view import
+      // patterns in its own source (as strings/regexes), which would otherwise trip its own checks.
+      .filter((path) => path !== THIS_FILE)
+      .map((path) => ({ path, text: readFileSync(path, 'utf-8') }))
+  )
 }
 
 /** Every home-screen component this codebase has ever had, plus a generic pattern for the module path. */
@@ -75,9 +77,9 @@ describe('shell home ownership (story 081)', () => {
     expect(mentions.map((f) => f.path)).toEqual([])
 
     // No hero.* i18n key survives anywhere in the tree - not just at the top level.
-    expect(collectKeyPaths(en, '').some((path) => path === 'hero' || path.startsWith('hero.'))).toBe(
-      false,
-    )
+    expect(
+      collectKeyPaths(en, '').some((path) => path === 'hero' || path.startsWith('hero.')),
+    ).toBe(false)
   })
 })
 

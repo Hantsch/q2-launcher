@@ -60,7 +60,9 @@ async function waitForPressed(page, locator, expected, label) {
     current = await locator.getAttribute('aria-pressed')
     if (current === expected) return
     if (Date.now() >= deadline) {
-      throw new Error(`${label}: expected aria-pressed="${expected}", still "${current}" after ${TIMEOUT_MS}ms`)
+      throw new Error(
+        `${label}: expected aria-pressed="${expected}", still "${current}" after ${TIMEOUT_MS}ms`,
+      )
     }
     await page.waitForTimeout(50)
   }
@@ -77,7 +79,9 @@ export default async function dropMessageCheckbox({ page, shot, step }) {
   await page.getByTestId('config-tab-controls').click({ timeout: TIMEOUT_MS })
 
   step('select drops category')
-  await page.getByRole('button', { name: 'Weapon dropping', exact: true }).click({ timeout: TIMEOUT_MS })
+  await page
+    .getByRole('button', { name: 'Weapon dropping', exact: true })
+    .click({ timeout: TIMEOUT_MS })
 
   const ammoToggle = page.getByTestId(`drop-ammo-${CATALOG_ID}`).getByRole('button')
   const messageToggle = page.getByTestId(`drop-message-${CATALOG_ID}`).getByRole('button')
@@ -87,8 +91,18 @@ export default async function dropMessageCheckbox({ page, shot, step }) {
   await messageToggle.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   step('assert initial toggle state (ammo off, message on)')
-  await waitForPressed(page, ammoToggle, 'false', 'ammo toggle (expected unpressed - fixture carries no ammo command)')
-  await waitForPressed(page, messageToggle, 'true', 'message toggle (expected pressed - fixture carries a stored message)')
+  await waitForPressed(
+    page,
+    ammoToggle,
+    'false',
+    'ammo toggle (expected unpressed - fixture carries no ammo command)',
+  )
+  await waitForPressed(
+    page,
+    messageToggle,
+    'true',
+    'message toggle (expected pressed - fixture carries a stored message)',
+  )
 
   const subRow = page.getByTestId(`drop-message-row-${CATALOG_ID}`)
   await subRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -131,7 +145,9 @@ export default async function dropMessageCheckbox({ page, shot, step }) {
     await subRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
     const placeholderVisible = await subRow.getByText('No message set yet').isVisible()
     if (!placeholderVisible) {
-      throw new Error('inline message row revealed but placeholder text "No message set yet" is not visible')
+      throw new Error(
+        'inline message row revealed but placeholder text "No message set yet" is not visible',
+      )
     }
 
     await shot('message-row-revealed')
@@ -143,7 +159,10 @@ export default async function dropMessageCheckbox({ page, shot, step }) {
     await dialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
     step('assert no key-capture block in dialog')
-    const keyCaptureVisible = await dialog.getByText('Capture key').isVisible().catch(() => false)
+    const keyCaptureVisible = await dialog
+      .getByText('Capture key')
+      .isVisible()
+      .catch(() => false)
     if (keyCaptureVisible) {
       throw new Error(
         'MessageEditor opened from a drop row shows a "Capture key" control - showKeyCapture should be false for drop rows',

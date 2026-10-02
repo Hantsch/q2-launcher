@@ -40,7 +40,10 @@ export function createCinemaWindow(): CinemaWindow {
     // Harness: placed left of every display, same size, so a run never covers the desktop.
     const position = IS_UI_HARNESS_OFFSCREEN
       ? {
-          x: Math.min(...displays.map((display) => display.bounds.x)) - bounds.width - OFFSCREEN_MARGIN,
+          x:
+            Math.min(...displays.map((display) => display.bounds.x)) -
+            bounds.width -
+            OFFSCREEN_MARGIN,
           y: 0,
         }
       : { x: bounds.x, y: bounds.y }

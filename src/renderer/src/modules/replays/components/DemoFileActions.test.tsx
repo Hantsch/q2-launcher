@@ -60,7 +60,9 @@ describe('DemoFileActions (story 156 D2)', () => {
     })
     await vi.waitFor(() => {
       const toasts = useLauncher.getState().toasts
-      expect(toasts.some((toast) => toast.messageKey === 'replays.fileActions.pathCopied')).toBe(true)
+      expect(toasts.some((toast) => toast.messageKey === 'replays.fileActions.pathCopied')).toBe(
+        true,
+      )
     })
   })
 
@@ -72,7 +74,7 @@ describe('DemoFileActions (story 156 D2)', () => {
 
     const alert = await screen.findByTestId('replays-demo-file-action-error')
     expect(alert.getAttribute('role')).toBe('alert')
-    expect(alert.textContent).toContain("no longer on disk")
+    expect(alert.textContent).toContain('no longer on disk')
   })
 
   it('an archive-entry demo disables rename and points it at the panel-rendered reason', () => {

@@ -31,7 +31,9 @@ export async function openSlideUrl(url: string, log: Logger): Promise<Outcome<nu
   const hostAllowed = (NEWS_BUTTON_HOST_ALLOWLIST as readonly string[]).includes(parsed.hostname)
 
   if (!schemeAllowed || !hostAllowed) {
-    log.warn(`slide.openUrl: refused '${parsed.protocol}//${parsed.hostname}' (not on the allowlist)`)
+    log.warn(
+      `slide.openUrl: refused '${parsed.protocol}//${parsed.hostname}' (not on the allowlist)`,
+    )
     return fail('home.error.urlNotAllowed')
   }
 

@@ -75,7 +75,7 @@ _None — all detail decisions were taken during the sprint refine pass, see bel
     "the same way"). Fallback if 015's surface turns out non-reusable: the inline-banner +
     disabled-primary pattern of `components/KeyBindDialog.tsx`.
 11. **A mode select is added to the Layers panel** — AC 7 requires the mode to be changeable, and
-    today *no* layer (hand-made or not) can change its mode; parity alone would not satisfy the AC.
+    today _no_ layer (hand-made or not) can change its mode; parity alone would not satisfy the AC.
 12. **The override stores the exact command string 015's row builder produces** (one builder, one
     call site, base path and layer path share it) — that is what makes AC 5 true by construction
     instead of by a second implementation.
@@ -84,7 +84,7 @@ _None — all detail decisions were taken during the sprint refine pass, see bel
 
 ## Decisions (Refine, AC 5 re-plan)
 
-The first build attempt treated a layer override as a *source* of a row's state and tried to
+The first build attempt treated a layer override as a _source_ of a row's state and tried to
 re-derive row identity from the override's command text. That cannot work: two catalogue rows
 legitimately produce the identical command - the weapon droppable `grenades` and the ammo
 droppable `hgrenades` both render `drop grenades` (`action-catalog.ts`) - so no textual or
@@ -125,7 +125,7 @@ approach (option B, chosen by the user).
 
 Turn the modifier binding into a property of the action and the layer override into a generated
 mirror of it - the same relationship `binds` already has to `actions`. Then AC 5 is not a feature
-to implement but a consequence: base path and layer path bind the *same generated alias*.
+to implement but a consequence: base path and layer path bind the _same generated alias_.
 
 1. **Type** - `ConfigAction` gains `keyModifier` / `secondaryKeyModifier` (`ModifierTrigger`,
    optional); both zod schemas (strict IPC + forgiving persisted) learn the fields.
@@ -141,7 +141,7 @@ to implement but a consequence: base path and layer path bind the *same generate
    and the debounced direct-override write. Ammo/message go through `applyAmmo`/`applyMessage`
    with no branch on where the key lives - that is AC 5 in the diff.
 5. **Collision** - `findModifierSlotCollision` reads the actions array instead of override text
-   and can therefore name the occupying *action*; hand-made overrides keep the raw-text label.
+   and can therefore name the occupying _action_; hand-made overrides keep the raw-text label.
 
 D5 (mode select in the Layers panel, AC 7) is built and stays as is. D1/D2's capture resolution,
 the bare-modifier-release fix and `AdvancedTab`'s save-status fix stay as is.
@@ -180,7 +180,7 @@ Files: `src/main/modules/config/profiles.ts` + its existing test file.
 Acceptance: `setActions` skips a slot that carries a modifier when rebuilding the `q2l_a_*` binds
 mirror, so the base bind for that key is neither written nor dropped, and applies D7's mirror to
 `current.layers`; `setLayers` applies it to the incoming layers; hand-typed binds and non-mirrored
-overrides survive both; a test asserts `renderProfileFile` produces the *identical* executed
+overrides survive both; a test asserts `renderProfileFile` produces the _identical_ executed
 command for one and the same action whether it is base-bound or modifier-bound, including the
 ammo + `say_team` case (this replaces D2's textual render test). -> AC 2, 3, 4, 5
 
@@ -234,7 +234,7 @@ Run `npm run dev`, open Config, pick a profile with at least one existing layer 
 3. Movement → Forward → **Secondary** slot, hold **Alt**, press **F**. Expect: no third layer — the
    override lands in the existing `Alt` layer.
 4. Overview tab: the base bind that `R` had before step 1 is still there.
-5. Repeat step 1 on a *different* drop row with Alt+R. Expect: a warning naming the `Alt` layer and
+5. Repeat step 1 on a _different_ drop row with Alt+R. Expect: a warning naming the `Alt` layer and
    the occupying action, with an explicit confirm; cancel → nothing changes.
 6. Set the rocket-launcher row to "with ammo" and type a team message, then compare the raw config
    view (story 012) against the same row moved to the base layer — the executed commands match.
@@ -245,9 +245,9 @@ Run `npm run dev`, open Config, pick a profile with at least one existing layer 
    from the keyboard overview. All work exactly as on a hand-made layer.
 8. In a slot capture, hold **Alt+Ctrl** and press **R**. Expect: a hint, no layer created, capture
    still active; releasing Ctrl and pressing R then works.
-9. **Row-identity regression (the blocker):** in Weapon dropping, put the *weapons* group's
-   **Hand grenades** on **Alt+G** and the *ammo* group's **Hand grenades** on **Alt+H** — two
-   different rows whose label *and* rendered command (`drop grenades`) are literally identical.
+9. **Row-identity regression (the blocker):** in Weapon dropping, put the _weapons_ group's
+   **Hand grenades** on **Alt+G** and the _ammo_ group's **Hand grenades** on **Alt+H** — two
+   different rows whose label _and_ rendered command (`drop grenades`) are literally identical.
    Expect: two separate overrides in the `Alt` layer, each row showing its own key, and editing one
    row's team message leaves the other row's message untouched.
 10. Layers panel → add a hand-made override on `Alt`+`K` by hand, then change any row's ammo choice.
@@ -307,7 +307,7 @@ rather than shipped as if AC 5 were satisfied.
 - **AC 5 fix attempts (both superseded, documented for whoever continues this):**
   1. First attempt: `renameModifierOverrideCommand`, a value-based "find whatever override still
      holds the row's old command string and rewrite it". Pass 2 found two problems this caused: a
-     layer-only-bound row (no `ConfigAction`) had no way to *read back* its real current ammo/message
+     layer-only-bound row (no `ConfigAction`) had no way to _read back_ its real current ammo/message
      state (`deriveRowState(undefined, row)` only ever reports its "unbound" default), and the
      value-diff raced its own debounced IPC round trip on the message field, silently getting stuck
      mid-word once the comparison stopped matching a `draft.layers` that hadn't caught up yet. This
@@ -363,10 +363,10 @@ rather than shipped as if AC 5 were satisfied.
 AC 5 is not satisfied for Weapon-dropping rows whose binding lives entirely inside a modifier layer
 (no base `ConfigAction`) when two catalog rows' command text can structurally collide. The root
 cause both AC 5 fix attempts share: a layer override is stored as a bare `command: string`
-(`AltLayer.overrides: Record<string, string>`) with nothing identifying *which row* wrote it, so any
+(`AltLayer.overrides: Record<string, string>`) with nothing identifying _which row_ wrote it, so any
 read-back or write-back has to re-derive row identity from the command text itself — which is not
 guaranteed unique across the catalog. Closing this properly likely needs a plan-level decision this
-build session cannot make unilaterally: whether the override value's *shape* should change to carry
+build session cannot make unilaterally: whether the override value's _shape_ should change to carry
 an explicit row/catalog identity (a schema change touching `AltLayer`, `generateLayerAliases`, and
 every existing override in a saved profile), or whether some other invariant (e.g. a stricter
 uniqueness guarantee across `action-catalog.ts`'s row commands, if one can be established) makes the
@@ -433,7 +433,7 @@ text. A second `story-review-hard` pass confirmed all fixes correct and returned
   derived mirror, never a source) — a rename/mode change on that layer is lost when it does. Same
   behaviour for a hand-made layer whose overrides get re-mirrored; AC 7 itself (rename/mode/overrides
   editable) is unaffected.
-- `applyActionLayerMirror`'s strip pass removes any `ACTION_ALIAS_PREFIX`-valued override from *any*
+- `applyActionLayerMirror`'s strip pass removes any `ACTION_ALIAS_PREFIX`-valued override from _any_
   layer, including a non-modifier one — defensible (a layer whose trigger changed away from a
   modifier must lose its stale mirror too) but wider than the mirror's own ownership; no reported
   path produces this today.

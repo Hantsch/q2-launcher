@@ -186,7 +186,11 @@ export function LibraryView() {
                     variant="ghost"
                     icon={<HardDriveDownload className="size-4" />}
                     onClick={() =>
-                      openDialog({ kind: 'module', moduleId: 'downloads', view: 'bootstrap-wizard' })
+                      openDialog({
+                        kind: 'module',
+                        moduleId: 'downloads',
+                        view: 'bootstrap-wizard',
+                      })
                     }
                   >
                     {t('rail.downloadAndInstall')}
@@ -374,7 +378,9 @@ function InstallationRow({ installation }: { installation: Installation }) {
           <IconButton
             label={t('installation.action.setIcon')}
             size="sm"
-            onClick={() => openDialog({ kind: 'installationIcon', installationId: installation.id })}
+            onClick={() =>
+              openDialog({ kind: 'installationIcon', installationId: installation.id })
+            }
           >
             <ImagePlus className="size-3.5" />
           </IconButton>

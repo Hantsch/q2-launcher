@@ -74,7 +74,12 @@ describe('home module', () => {
     const outcome = await registry.invoke({ moduleId: 'home', type: 'news.get' })
     expect(outcome).toEqual({
       ok: true,
-      value: { slides: [], retrievedAt: expect.any(String), schemaAhead: false, lastRefreshFailed: false },
+      value: {
+        slides: [],
+        retrievedAt: expect.any(String),
+        schemaAhead: false,
+        lastRefreshFailed: false,
+      },
     })
   })
 

@@ -35,7 +35,7 @@ timeline is [[165]].
 - [x] **AC3** — With no installation that has the demo's game dir — or an active Q2PRO that lacks
       it — Play is disabled with the visible text "Mod `<gamedir>` missing".
 - [x] **AC4** — The launch arguments are exactly `+set game <gamedir>` and `+demo <path relative to
-      the game dir's demos>`; a unit test asserts `demomap` never appears for Q2PRO.
+the game dir's demos>`; a unit test asserts `demomap` never appears for Q2PRO.
 - [x] **AC5** — The play handler takes the demo's id and the chosen installation's id only; main
       resolves and validates the path, and a demo outside that installation's file system is not
       launched in place.
@@ -58,7 +58,7 @@ timeline is [[165]].
 - **Q2 — Where Play lives:** detail panel only, next to the file actions. Concept §10 lists Play
   under "Detail / edit". A disabled Play also needs room for its visible reason, and the dense 56px
   row, which already carries two touch-target deviations, does not have that room.
-- **AC1/AC2 rewritten to the (User) decision:** the rail selection *is*
+- **AC1/AC2 rewritten to the (User) decision:** the rail selection _is_
   `settings.activeInstallationId`. It is one concept: `InstallationRail.tsx` calls
   `setActiveInstallation`. So "pick in the left rail" changes the active installation, and the old
   AC2 per-play picker is withdrawn.
@@ -83,13 +83,13 @@ timeline is [[165]].
   - not an archive entry;
   - `source.gameDir` equals the demo's game dir or `baseq2`, case-insensitive. These are the two
     folders Q2's file system searches after `+set game`.
-  Anything else is disabled with `notInInstallation` in this story and becomes [[160]]'s copy-in.
+    Anything else is disabled with `notInInstallation` in this story and becomes [[160]]'s copy-in.
 - **The launch game dir** is the demo's game dir. For `baseq2` the existing `buildLaunchArgs`
   omission of `+set game baseq2` is kept, because it is the engine default and the builder is shared
   by every launch. So AC4's "exactly" is asserted on a mod demo, and "no foreign `+set game`" is
   asserted on a baseq2 demo.
 - **The `+demo` argument** is the file name. Discovery is non-recursive, so the path relative to
-  `demos/` *is* the file name. It includes the extension, and `.gz` is passed as-is per [[160]] AC3.
+  `demos/` _is_ the file name. It includes the extension, and `.gz` is passed as-is per [[160]] AC3.
   The name must match `^[A-Za-z0-9_.-]+$`. Anything else (space, `;`, `+`, `$`, quote, non-ASCII)
   gives `unsafeName` with a hint to rename, because `;`, `+` and `$` would inject commands into
   Q2PRO's command buffer, and the existing rename action is the remedy.
@@ -182,7 +182,7 @@ Build order is D1, then D2, then D3. No shell edits, and no change to `buildLaun
      The payload's `installationId` must equal the eligible (active) installation, otherwise fail.
   3. Get the `realpath` of the file and of the installation's `<rootPath>/<source.gameDir>/demos`
      folder. Find that folder case-insensitively, as discovery does.
-  4. Require the file's parent to *be* that folder. Use no string-prefix check, because a sibling
+  4. Require the file's parent to _be_ that folder. Use no string-prefix check, because a sibling
      `Quake2-other` root must fail. Refuse archive entries.
   5. Require the file to still exist, otherwise fail with `replays.play.error.fileMissing`.
   6. Call `app.launch.start({ installationId, gameDir, extraArgs })` and return its failure as-is.
@@ -234,7 +234,7 @@ Build order is D1, then D2, then D3. No shell edits, and no change to `buildLaun
   Mirror how `servers-join.mjs` captures the main.log "launching" line and the `launch:state`
   phases. The flow checks:
   - Playing the ctf demo produces a launching line that ends with `+set game ctf +demo
-    play-ctf.dm2` and contains no `demomap`. The phases reach `running` and then go back.
+play-ctf.dm2` and contains no `demomap`. The phases reach `running` and then go back.
   - After selecting the r1q2 installation in the rail, Play is disabled and the notQ2pro text is
     visible.
   - For the missing-mod demo, "Mod `…` missing" is visible.
@@ -291,6 +291,7 @@ AC map (all passed): AC1/2/3/5/7 shared `demo-play.test.ts`; AC4/5/6 main `demo-
 Review: clean sonnet agent, PASS, no findings needing fixes.
 
 Decisions:
+
 - Payload installationId differing from the eligible (active) one returns `replays.play.unavailable.notInInstallation` (plan named no key).
 - Unreadable header on an extra-folder source: `demoGameDir` falls back to `baseq2` (plan only specified installations).
 - Linux Q2PRO write-dir demos (`~/.q2pro/<gameDir>/demos`) are refused (spec allows only `<rootPath>`); a follow-up story if wanted.

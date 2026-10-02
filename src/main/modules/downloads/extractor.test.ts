@@ -222,39 +222,42 @@ describe('progress parsing', () => {
 describe('real-archive extraction (only when the vendored binary is present)', () => {
   const realBinary = resolveExtractorPath({ isPackaged: false })
 
-  it.skipIf(!realBinary.exists)('extracts a real archive with the vendored 7-Zip binary', async () => {
-    const archiveSourceDir = join(dir, 'source')
-    const extractDir = join(dir, 'extract')
-    await mkdir(archiveSourceDir, { recursive: true })
-    await mkdir(extractDir, { recursive: true })
+  it.skipIf(!realBinary.exists)(
+    'extracts a real archive with the vendored 7-Zip binary',
+    async () => {
+      const archiveSourceDir = join(dir, 'source')
+      const extractDir = join(dir, 'extract')
+      await mkdir(archiveSourceDir, { recursive: true })
+      await mkdir(extractDir, { recursive: true })
 
-    const payloadPath = join(archiveSourceDir, 'hello.txt')
-    await writeFile(payloadPath, 'hello from a real 7za extraction test\n')
+      const payloadPath = join(archiveSourceDir, 'hello.txt')
+      await writeFile(payloadPath, 'hello from a real 7za extraction test\n')
 
-    const archivePath = join(dir, 'archive.zip')
-    execFileSync(realBinary.path, ['a', '-tzip', '-y', archivePath, payloadPath], {
-      cwd: archiveSourceDir,
-    })
+      const archivePath = join(dir, 'archive.zip')
+      execFileSync(realBinary.path, ['a', '-tzip', '-y', archivePath, payloadPath], {
+        cwd: archiveSourceDir,
+      })
 
-    const progressRatios: Array<number | undefined> = []
-    const { result } = extractArchive({
-      archive: markVerified(archivePath),
-      extractDir,
-      extractorPath: realBinary.path,
-      extractorExists: true,
-      onProgress: (ratio) => progressRatios.push(ratio),
-    })
+      const progressRatios: Array<number | undefined> = []
+      const { result } = extractArchive({
+        archive: markVerified(archivePath),
+        extractDir,
+        extractorPath: realBinary.path,
+        extractorExists: true,
+        onProgress: (ratio) => progressRatios.push(ratio),
+      })
 
-    const outcome = await result
-    expect(outcome.ok).toBe(true)
+      const outcome = await result
+      expect(outcome.ok).toBe(true)
 
-    const extracted = await readFile(join(extractDir, 'hello.txt'), 'utf8')
-    expect(extracted).toBe('hello from a real 7za extraction test\n')
+      const extracted = await readFile(join(extractDir, 'hello.txt'), 'utf8')
+      expect(extracted).toBe('hello from a real 7za extraction test\n')
 
-    // AC8: proves the `-bsp1` progress parse works against the real binary, not just the
-    // `FakeChild`-driven test above - a defined ratio must have been reported at least once.
-    expect(progressRatios.some((ratio) => ratio !== undefined)).toBe(true)
-  })
+      // AC8: proves the `-bsp1` progress parse works against the real binary, not just the
+      // `FakeChild`-driven test above - a defined ratio must have been reported at least once.
+      expect(progressRatios.some((ratio) => ratio !== undefined)).toBe(true)
+    },
+  )
 
   it.skipIf(!realBinary.exists)('kill() aborts a real extraction in progress', async () => {
     const extractDir = join(dir, 'extract-kill')

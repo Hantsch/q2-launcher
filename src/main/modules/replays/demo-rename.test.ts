@@ -1,4 +1,15 @@
-import { mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  stat,
+  utimes,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -106,7 +117,9 @@ async function setup(
     resolveDemo: (id) => {
       const file = scan.resolveFile(id)
       if (!file) return undefined
-      return file.archiveEntry ? { kind: 'archive-entry' } : { kind: 'file', absolutePath: file.absolutePath }
+      return file.archiveEntry
+        ? { kind: 'archive-entry' }
+        : { kind: 'file', absolutePath: file.absolutePath }
     },
   })
   const sessions = createPlaybackSessions()
@@ -136,7 +149,10 @@ function errorKey(outcome: Outcome<unknown>): string | undefined {
 
 describe('demo rename (story 157)', () => {
   it('renames a demo and its sidecar', async () => {
-    const t = await setup({ 'Final.dm2': 'demo', 'Final.dm2.json': sidecarText({ name: 'The final' }) })
+    const t = await setup({
+      'Final.dm2': 'demo',
+      'Final.dm2.json': sidecarText({ name: 'The final' }),
+    })
     const id = await t.idOf('Final.dm2')
 
     const outcome = await t.rename(id, 'Grand Final')
@@ -148,7 +164,9 @@ describe('demo rename (story 157)', () => {
     expect((await readJson('Grand Final.dm2.json')).name).toBe('The final')
     // The index was re-keyed in place: the old id is gone, the new one resolves to the new file.
     expect(t.scan.resolveFile(id)).toBeUndefined()
-    expect(basename(t.scan.resolveFile(outcome.value.demo.id)!.absolutePath)).toBe('Grand Final.dm2')
+    expect(basename(t.scan.resolveFile(outcome.value.demo.id)!.absolutePath)).toBe(
+      'Grand Final.dm2',
+    )
   })
 
   it('renames a demo without a sidecar and creates none', async () => {
@@ -240,7 +258,10 @@ describe('demo rename (story 157)', () => {
     }
 
     it('removes the sidecar step 1 created when there was none before', async () => {
-      const t = await setup({ 'alice_vs_bob.dm2': 'demo' }, { templates: [PLAYERS], fs: failDemoRename })
+      const t = await setup(
+        { 'alice_vs_bob.dm2': 'demo' },
+        { templates: [PLAYERS], fs: failDemoRename },
+      )
 
       const outcome = await t.rename(await t.idOf('alice_vs_bob.dm2'), 'grudge match')
 
@@ -259,7 +280,10 @@ describe('demo rename (story 157)', () => {
       const outcome = await t.rename(await t.idOf('2026-03-14-2130-q2dm1.dm2'), 'clan night')
 
       expect(errorKey(outcome)).toBe('replays.rename.error.renameFailed')
-      expect(await listDir()).toEqual(['2026-03-14-2130-q2dm1.dm2', '2026-03-14-2130-q2dm1.dm2.json'])
+      expect(await listDir()).toEqual([
+        '2026-03-14-2130-q2dm1.dm2',
+        '2026-03-14-2130-q2dm1.dm2.json',
+      ])
       expect(await readFile(join(dir, '2026-03-14-2130-q2dm1.dm2.json'), 'utf8')).toBe(original)
     })
   })
@@ -315,7 +339,9 @@ describe('demo rename (story 157)', () => {
           scanOverride: (real) => ({
             resolveFile: (id) => {
               const file = real.resolveFile(id)
-              return file && { ...file, archiveEntry: { archivePath: 'x.zip', entryPath: 'Final.dm2' } }
+              return (
+                file && { ...file, archiveEntry: { archivePath: 'x.zip', entryPath: 'Final.dm2' } }
+              )
             },
           }),
         },
@@ -335,8 +361,13 @@ describe('demo rename (story 157)', () => {
     })
 
     it('a rename while a scan runs is refused', async () => {
-      const t = await setup({ 'Final.dm2': 'demo' }, { scanOverride: () => ({ isScanning: () => true }) })
-      expect(errorKey(await t.rename(await t.idOf('Final.dm2'), 'Other'))).toBe('replays.rename.error.scanning')
+      const t = await setup(
+        { 'Final.dm2': 'demo' },
+        { scanOverride: () => ({ isScanning: () => true }) },
+      )
+      expect(errorKey(await t.rename(await t.idOf('Final.dm2'), 'Other'))).toBe(
+        'replays.rename.error.scanning',
+      )
       expect(await listDir()).toEqual(['Final.dm2'])
     })
 
@@ -422,7 +453,10 @@ describe('demo rename (story 157)', () => {
     // On a case-insensitive filesystem (Windows/macOS defaults) `final.dm2` stats as the very same
     // file as `Final.dm2` - this proves the collision check is skipped for it. On a case-sensitive
     // one it is an ordinary rename to a free name, so the test holds on both.
-    const t = await setup({ 'Final.dm2': 'demo', 'Final.dm2.json': sidecarText({ name: 'The final' }) })
+    const t = await setup({
+      'Final.dm2': 'demo',
+      'Final.dm2.json': sidecarText({ name: 'The final' }),
+    })
 
     const outcome = await t.rename(await t.idOf('Final.dm2'), 'final')
 

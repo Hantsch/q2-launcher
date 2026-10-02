@@ -64,11 +64,9 @@ function parseCacheDocument(raw: unknown, log: Logger, httpsOnly: boolean): Cata
     log.warn('mod catalog cache discarded: unreadable fetchedAt')
     return emptyCache()
   }
-  const parsed = parseModCatalog(
-    { schemaVersion: 1, entries: envelope.data.entries },
-    log,
-    { httpsOnly },
-  )
+  const parsed = parseModCatalog({ schemaVersion: 1, entries: envelope.data.entries }, log, {
+    httpsOnly,
+  })
   if (!parsed.ok) {
     log.warn(`mod catalog cache discarded: ${parsed.reason}`)
     return emptyCache()
@@ -91,8 +89,11 @@ export class CatalogService {
   private readonly source: DownloadSource
   private readonly store: JsonStore<CatalogCacheDocument>
   private cacheLoaded = false
-  private fresh: { entries: ModCatalogEntryParsed[]; fetchedAtMs: number; fetchedAt: string } | null =
-    null
+  private fresh: {
+    entries: ModCatalogEntryParsed[]
+    fetchedAtMs: number
+    fetchedAt: string
+  } | null = null
 
   constructor(options: CatalogServiceOptions) {
     this.log = options.log
@@ -158,7 +159,8 @@ export class CatalogService {
       return { ok: false, reason: `fetching ${MODS_CATALOG_PATH} failed` }
     }
     const parsed = parseModCatalog(raw, this.log, { httpsOnly: this.source.httpsOnly })
-    if (!parsed.ok) return { ok: false, reason: `${MODS_CATALOG_PATH} was refused (${parsed.reason})` }
+    if (!parsed.ok)
+      return { ok: false, reason: `${MODS_CATALOG_PATH} was refused (${parsed.reason})` }
     // A non-empty list whose every row was dropped is a broken file, not an empty catalog.
     const rawCount = Array.isArray((raw as { entries?: unknown } | null)?.entries)
       ? (raw as { entries: unknown[] }).entries.length

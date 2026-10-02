@@ -62,9 +62,14 @@ describe('readFileState', () => {
   it('applies unbind/unbindall folding before handing binds to the parsed profile', async () => {
     await writeFile(
       join(dir, 'p.cfg'),
-      ['bind w "+forward"', 'bind s "+back"', 'unbind w', 'bind x "+moveleft"', 'unbindall', 'bind y "+moveright"'].join(
-        '\n',
-      ),
+      [
+        'bind w "+forward"',
+        'bind s "+back"',
+        'unbind w',
+        'bind x "+moveleft"',
+        'unbindall',
+        'bind y "+moveright"',
+      ].join('\n'),
       'latin1',
     )
 
@@ -191,9 +196,7 @@ describe('readFileState', () => {
   })
 
   it('reports a file of binary garbage as unparseable rather than parsing it into an empty profile', async () => {
-    const garbage = Buffer.from(
-      Array.from({ length: 256 }, (_value, index) => (index * 7) % 32),
-    )
+    const garbage = Buffer.from(Array.from({ length: 256 }, (_value, index) => (index * 7) % 32))
     await writeFile(join(dir, 'p.cfg'), garbage)
 
     const result = await readFileState(dir, 'p.cfg', undefined)

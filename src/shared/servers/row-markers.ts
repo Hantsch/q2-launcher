@@ -28,7 +28,12 @@ export function deriveGamemode(serverinfo: Record<string, string>): ServerGamemo
   const ctf = readIntKey(serverinfo, 'ctf')
   const teamplay = readIntKey(serverinfo, 'teamplay')
 
-  if (deathmatch === undefined && coop === undefined && ctf === undefined && teamplay === undefined) {
+  if (
+    deathmatch === undefined &&
+    coop === undefined &&
+    ctf === undefined &&
+    teamplay === undefined
+  ) {
     return undefined
   }
 

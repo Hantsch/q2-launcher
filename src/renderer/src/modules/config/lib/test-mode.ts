@@ -32,7 +32,13 @@ export interface TestModeProfile {
  * layer's own override → the base bind → unbound.
  */
 export type TestPress = { key: string } & (
-  | { kind: 'trigger'; layerId: string; layerName: string; mode: AltLayerMode; alias: string | null }
+  | {
+      kind: 'trigger'
+      layerId: string
+      layerName: string
+      mode: AltLayerMode
+      alias: string | null
+    }
   | { kind: 'override' | 'base'; command: string; layerName?: string }
   | { kind: 'unbound' }
 )
@@ -129,7 +135,11 @@ export function applyTriggerPress(
 
   // toggle: flip between this layer and base, unaffected by any held trigger.
   const isActive = state.displayedLayerId === press.layerId
-  const target = triggerSelectTarget({ layerId: press.layerId, layerName: press.layerName, isActive })
+  const target = triggerSelectTarget({
+    layerId: press.layerId,
+    layerName: press.layerName,
+    isActive,
+  })
   return { ...state, displayedLayerId: target }
 }
 
@@ -139,10 +149,7 @@ export function applyTriggerPress(
  * that was displayed before it was pressed; releasing any other key
  * (including a toggle trigger, which has no hold state) is a no-op.
  */
-export function applyTriggerRelease(
-  state: TestModeSwitchState,
-  key: string,
-): TestModeSwitchState {
+export function applyTriggerRelease(state: TestModeSwitchState, key: string): TestModeSwitchState {
   if (!state.heldTrigger || state.heldTrigger.key !== key) return state
 
   return { displayedLayerId: state.heldTrigger.restoreLayerId, heldTrigger: null }

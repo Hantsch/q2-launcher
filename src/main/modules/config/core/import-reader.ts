@@ -436,7 +436,12 @@ function applyBind(ctx: ReaderContext, bind: ParsedBind, file: string): void {
       if (ctx.binds.has(bind.key)) {
         ctx.duplicateBinds.push({ key: bind.key, file, line: bind.line })
       }
-      ctx.binds.set(bind.key, { command: bind.command, comment: bind.comment, file, line: bind.line })
+      ctx.binds.set(bind.key, {
+        command: bind.command,
+        comment: bind.comment,
+        file,
+        line: bind.line,
+      })
       return
     case 'unbind':
       ctx.binds.delete(bind.key)

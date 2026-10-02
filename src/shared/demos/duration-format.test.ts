@@ -7,7 +7,7 @@ describe('formatDemoDuration', () => {
     expect(formatDemoDuration(620100)).toEqual({ kind: 'known', text: '10:20' })
     expect(formatDemoDuration(59 * 60 * 1000 + 59 * 1000)).toEqual({
       kind: 'known',
-      text: '59:59'
+      text: '59:59',
     })
     expect(formatDemoDuration(3599400)).toEqual({ kind: 'known', text: '59:59' })
   })
@@ -34,7 +34,7 @@ describe('formatDemoDuration', () => {
       Infinity,
       -Infinity,
       0,
-      -5
+      -5,
     ]
 
     for (const input of invalidInputs) {

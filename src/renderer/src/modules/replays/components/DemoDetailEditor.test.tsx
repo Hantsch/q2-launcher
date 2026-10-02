@@ -91,7 +91,9 @@ describe('DemoDetailEditor', () => {
     const save = screen.getByTestId('replays-editor-save') as HTMLButtonElement
     expect(save.disabled).toBe(true)
 
-    fireEvent.change(screen.getByTestId('replays-editor-name'), { target: { value: 'Grand final' } })
+    fireEvent.change(screen.getByTestId('replays-editor-name'), {
+      target: { value: 'Grand final' },
+    })
     expect(save.disabled).toBe(false)
     fireEvent.click(save)
 
@@ -101,7 +103,11 @@ describe('DemoDetailEditor', () => {
     expect(sidecarRead).not.toHaveBeenCalled()
     expect(onRowPatched).not.toHaveBeenCalled()
     // The draft is kept, so the user can fix the folder and save again.
-    await waitFor(() => expect((screen.getByTestId('replays-editor-name') as HTMLInputElement).value).toBe('Grand final'))
+    await waitFor(() =>
+      expect((screen.getByTestId('replays-editor-name') as HTMLInputElement).value).toBe(
+        'Grand final',
+      ),
+    )
   })
 
   it('Save is disabled until something changes and while the date is invalid, with the reason as text', () => {
@@ -140,7 +146,8 @@ describe('DemoDetailEditor', () => {
 
   it('an empty field shows the lower-source value as placeholder without a source prefix', () => {
     renderEditor()
-    const placeholder = (id: string): string => (screen.getByTestId(`replays-editor-${id}`) as HTMLInputElement).placeholder
+    const placeholder = (id: string): string =>
+      (screen.getByTestId(`replays-editor-${id}`) as HTMLInputElement).placeholder
     expect(placeholder('name')).toBe('duel alice bob')
     expect(placeholder('map')).toBe('q2dm1')
     expect(placeholder('mod')).toBe('baseq2')

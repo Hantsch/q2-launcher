@@ -14,8 +14,7 @@ import { matchRegexNames } from './watchlist-matcher'
  */
 
 export type RegexMatchOutcome =
-  | { ok: true; hits: boolean[] }
-  | { ok: false; reason: 'too-slow' | 'worker-error' }
+  { ok: true; hits: boolean[] } | { ok: false; reason: 'too-slow' | 'worker-error' }
 
 export interface RegexHost {
   /** Runs `pattern` against every one of `names` in the worker. Jobs are serialised FIFO: one

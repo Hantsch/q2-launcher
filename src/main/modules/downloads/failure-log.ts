@@ -80,7 +80,11 @@ export function capDiagnostics(
     current = { ...current, assembly: current.assembly.slice(1) }
   }
 
-  if (current.assembly !== undefined && current.assembly.length === 0 && serializedSize(current) > maxBytes) {
+  if (
+    current.assembly !== undefined &&
+    current.assembly.length === 0 &&
+    serializedSize(current) > maxBytes
+  ) {
     const { assembly: _assembly, ...rest } = current
     current = rest
   }

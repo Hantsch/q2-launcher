@@ -193,13 +193,13 @@ naming the other engine.
 
 ## Coverage
 
-| AC | Deliverable |
-| --- | --- |
-| Value + engine default + clamp range | D1 (facts) + D3 (row) |
-| Special-value warning | D1 (`valueNotes`) + D3 (badge) |
-| Unsupported cvar named, not hidden | D1 (`absent`) + D3 (disabled row) |
-| Multi-engine clarity | D5 |
-| Edits saved on the profile, survive restart | D2 + D4 |
+| AC                                          | Deliverable                       |
+| ------------------------------------------- | --------------------------------- |
+| Value + engine default + clamp range        | D1 (facts) + D3 (row)             |
+| Special-value warning                       | D1 (`valueNotes`) + D3 (badge)    |
+| Unsupported cvar named, not hidden          | D1 (`absent`) + D3 (disabled row) |
+| Multi-engine clarity                        | D5                                |
+| Edits saved on the profile, survive restart | D2 + D4                           |
 
 ## Model Hints
 
@@ -243,6 +243,7 @@ assignment data and drives per-row cross-engine disagreement badges (D5). All 5 
 criteria are met per an independent code review (see below); build/tests are green.
 
 **Decisions:**
+
 - **q2-config-manager source was available and used.** `/mnt/c/dev/Hantsch/q2-config-manager`
   existed in the sandbox; `src/core/settings.ts` (830 lines: `PLAYER_SETTINGS`/`GRAPHICS_SETTINGS`,
   the resolver section) and `src/core/engines.ts` were read and ported. All numbers, ranges and
@@ -282,6 +283,7 @@ criteria are met per an independent code review (see below); build/tests are gre
   `## Test Plan (manual acceptance)` section below, not yet executed (see Verification).
 
 **Files changed:**
+
 - New: `src/shared/config/cvar-facts.ts`, `src/shared/config/cvar-catalog.ts`,
   `src/shared/config/cvar-facts.test.ts`, `src/renderer/src/modules/config/SettingsTab.tsx`,
   `src/renderer/src/modules/config/components/CvarRow.tsx`,
@@ -293,6 +295,7 @@ criteria are met per an independent code review (see below); build/tests are gre
   `src/renderer/src/i18n/locales/en.json`.
 
 **Verification:**
+
 - `npm run build` — green (main/preload/renderer all build).
 - `npm test` — green, 54/54 tests passed (48 pre-existing + D1's 7 resolver tests folded to net 7,
   plus D5's 6 new `engineDisagreement` tests; exact count 54 across 4 test files).
@@ -310,7 +313,7 @@ criteria are met per an independent code review (see below); build/tests are gre
   cleanly would need an in-flight-request cancellation token, which felt like scope creep for a
   one-frame visual glitch; worth a follow-up if it's noticed in manual testing.
 - **Live smoke NOT run.** This sandbox is headless (no Electron display under WSL) — `npm run
-  dev` cannot be driven through the real UI here. Built, acceptance pending: the manual test plan
+dev` cannot be driven through the real UI here. Built, acceptance pending: the manual test plan
   below is ready to execute but not yet performed. Per project policy (P2), status stays
   `in-progress` rather than `done` until that happens.
 

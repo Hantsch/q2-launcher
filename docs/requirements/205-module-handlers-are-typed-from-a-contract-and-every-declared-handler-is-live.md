@@ -57,8 +57,8 @@ This is the hottest area of the codebase: since 2026-08-01, 73 commits touched a
 ## Open Questions
 
 - ~~**Q1**~~ answered → Decisions (Sprint) — Where do config/downloads/mods request schemas live after this — shared (so the
-      contract map can carry them) or main-only with the schema map typed against the contract?
-      Persisted and manifest schemas stay in main either way.
+  contract map can carry them) or main-only with the schema map typed against the contract?
+  Persisted and manifest schemas stay in main either way.
 
 ## Decisions (Sprint)
 
@@ -80,7 +80,7 @@ This is the hottest area of the codebase: since 2026-08-01, 73 commits touched a
 - Contract `res` is the success value `R`; handlers return `Outcome<R>` (story 204's compile-time
   envelope), and the client call resolves to `Outcome<R>`.
 - The existing `X_HANDLER_SCHEMAS` maps become the contract schema maps; their `: Record<…,
-  ZodTypeAny>` annotation turns into `satisfies Record<…, ZodTypeAny>`, because the annotation
+ZodTypeAny>` annotation turns into `satisfies Record<…, ZodTypeAny>`, because the annotation
   erases the per-key schema type `z.infer` needs.
 - Converted clients keep passing the handler constant (`client.call(HOME_HANDLERS.newsGet)`), so
   the AC5 reference test is one plain constant-reference check for converted and unconverted
@@ -97,7 +97,7 @@ This is the hottest area of the codebase: since 2026-08-01, 73 commits touched a
 - `REPLAYS_HANDLERS.demosList` → removed end to end: the view reads `index.read` since stories
   144/150, and `listDemos` has no caller.
 - The renderer reference test reads client sources via `import.meta.glob('./*/client.ts', { query:
-  '?raw', eager: true })`, so it stays in the web project and needs no node-only tsconfig exclude.
+'?raw', eager: true })`, so it stays in the web project and needs no node-only tsconfig exclude.
 - The bus-wide coverage test registers modules with an all-unlocked `FeatureGate`, and servers'
   declared set is `SERVERS_HANDLERS ∪ SERVERS_WATCHLIST_HANDLERS`, because locked handlers are
   never registered by design (story 130).
@@ -123,6 +123,7 @@ types are `DomainResult`). Order:
    test (D11).
 
 Follow-ups (not built in this story, listed for the sprint review to cut into a story):
+
 - **FU1 config** (35 handlers) — move `src/main/modules/config/schemas.ts` request schemas into
   `src/shared/modules/config.ts` as `CONFIG_HANDLER_SCHEMAS`, then convert main + client.
 - **FU2 downloads** (20 after D3) — move request schemas from `src/main/modules/downloads/schemas.ts`
@@ -131,7 +132,7 @@ Follow-ups (not built in this story, listed for the sprint review to cut into a 
 - **FU3 mods** (10) — move `src/main/modules/mods/schemas.ts` to shared; `catalog-schema.ts` stays
   main.
 - **FU4 replays** (33 after D4) — schemas already shared (`REPLAYS_HANDLER_SCHEMAS`); convert main
-  + client.
+  - client.
 - **FU5 library** (1) — trivial; add `LIBRARY_HANDLER_SCHEMAS` and convert.
 
 ## Deliverables
@@ -139,15 +140,15 @@ Follow-ups (not built in this story, listed for the sprint review to cut into a 
 - **D1 — Contract types + `defineModule` (shared + main, additive).**
   New `src/shared/modules/contract.ts` (types only, no zod runtime import beyond `import type`):
   `ModuleContract = { handlers: Record<string, { req: unknown; res: unknown }>; events:
-  Record<string, unknown> }`; `ContractSchemas<H> = { [K in keyof H['handlers']]:
-  ZodType<H['handlers'][K]['req']> }` (every key required, so a missing schema is a compile
+Record<string, unknown> }`; `ContractSchemas<H> = { [K in keyof H['handlers']]:
+ZodType<H['handlers'][K]['req']> }` (every key required, so a missing schema is a compile
   error); `HandlerReq<H,K>`, `HandlerRes<H,K>`, `EventPayload<H,E>`; and
   `PayloadArgs<Req> = [Req] extends [void | undefined] ? [] : [payload: Req]`.
   New `src/main/modules/define-module.ts`: `defineModule<H extends ModuleContract>(id: ModuleId,
-  schemas: ContractSchemas<H>)` returning `{ id, schemas, bind(setup: ModuleSetup) }`; `bind`
+schemas: ContractSchemas<H>)` returning `{ id, schemas, bind(setup: ModuleSetup) }`; `bind`
   yields `handle<K extends keyof H['handlers'] & string>(type: K, handler: (p: HandlerReq<H,K>) =>
-  Outcome<HandlerRes<H,K>> | Promise<Outcome<HandlerRes<H,K>>>, options?: { feature?: FeatureName
-  })` — it calls `setup.handle(type, schemas[type], handler, options)`, nothing else — and
+Outcome<HandlerRes<H,K>> | Promise<Outcome<HandlerRes<H,K>>>, options?: { feature?: FeatureName
+})` — it calls `setup.handle(type, schemas[type], handler, options)`, nothing else — and
   `emit<E extends keyof H['events'] & string>(type: E, payload: EventPayload<H,E>)` over
   `setup.emit`. `src/main/modules/types.ts` and `registry.ts` are not changed.
   Tests, `src/main/modules/define-module.test.ts`: "defineModule registers each handler with its
@@ -163,9 +164,9 @@ Follow-ups (not built in this story, listed for the sprint review to cut into a 
 - **D2 — `createModuleClient` (renderer, additive).**
   In `src/renderer/src/modules/moduleClient.ts`, beside the unchanged `callModule`/`onModuleEvent`:
   `createModuleClient<H extends ModuleContract>(id: ModuleId)` returning `call<K extends keyof
-  H['handlers'] & string>(type: K, ...args: PayloadArgs<HandlerReq<H,K>>):
-  Promise<Outcome<HandlerRes<H,K>>>` and `on<E extends keyof H['events'] & string>(type: E,
-  listener: (p: EventPayload<H,E>) => void): () => void`. Implement over `callModule`/`onModuleEvent`
+H['handlers'] & string>(type: K, ...args: PayloadArgs<HandlerReq<H,K>>):
+Promise<Outcome<HandlerRes<H,K>>>` and `on<E extends keyof H['events'] & string>(type: E,
+listener: (p: EventPayload<H,E>) => void): () => void`. Implement over `callModule`/`onModuleEvent`
   (the one remaining cast stays inside `moduleClient.ts`). Types from `@shared/modules/contract`.
   Tests, `src/renderer/src/modules/moduleClient.test.ts`: "createModuleClient infers Outcome<Res>
   per handler" (`expectTypeOf` on a local test contract) plus `@ts-expect-error` for a missing
@@ -204,13 +205,13 @@ Follow-ups (not built in this story, listed for the sprint review to cut into a 
 
 - **D5 — Convert `home` (reference).**
   `src/shared/modules/home.ts`: `HOME_HANDLER_SCHEMAS` → `satisfies Record<…>`; add `HomeContract
-  extends ModuleContract` with handlers `[HOME_HANDLERS.x]: { req: z.infer<typeof
-  HOME_HANDLER_SCHEMAS[...]>; res: … }` (`news.get`/`news.refresh` → `NewsFeed`, `slide.openUrl` →
+extends ModuleContract` with handlers `[HOME_HANDLERS.x]: { req: z.infer<typeof
+HOME_HANDLER_SCHEMAS[...]>; res: … }` (`news.get`/`news.refresh` → `NewsFeed`, `slide.openUrl` →
   `null`, `layout.*` → `HomeLayout`) and events `{ [HOME_EVENTS.newsChanged]: NewsFeed }`.
   Shared exports only the type and the map; `defineModule` is called in main.
   `src/main/modules/home/index.ts`: `const { handle, emit } = defineModule<HomeContract>('home',
-  HOME_HANDLER_SCHEMAS).bind(setup)`; drop the per-handler schema imports. `src/renderer/src/
-  modules/home/client.ts`: `const client = createModuleClient<HomeContract>('home')`; each
+HOME_HANDLER_SCHEMAS).bind(setup)`; drop the per-handler schema imports. `src/renderer/src/
+modules/home/client.ts`: `const client = createModuleClient<HomeContract>('home')`; each
   function becomes `client.call(HOME_HANDLERS.x, …)` / `client.on(HOME_EVENTS.newsChanged, …)`;
   exported function names and signatures unchanged. Tests: existing `home/index.test.ts`,
   `home/client.test.ts`, `shared/modules/home.test.ts` stay green; `home.test.ts` › "HomeContract
@@ -221,7 +222,7 @@ Follow-ups (not built in this story, listed for the sprint review to cut into a 
   → `satisfies`; add `ServersContract` covering both maps (`req` via `z.infer`, `res` = the value
   type each handler's main code returns today, e.g. `FavouriteServerEntry[]`, the 206
   `DomainResult` types) plus `SERVERS_EVENTS` payloads; export `SERVERS_CONTRACT_SCHEMAS = {
-  ...SERVERS_HANDLER_SCHEMAS, ...SERVERS_WATCHLIST_HANDLER_SCHEMAS }`.
+...SERVERS_HANDLER_SCHEMAS, ...SERVERS_WATCHLIST_HANDLER_SCHEMAS }`.
   `src/main/modules/servers/index.ts`: register every handler through
   `defineModule<ServersContract>('servers', SERVERS_CONTRACT_SCHEMAS).bind(setup)`, watchlist ones
   keeping `{ feature: 'watchlist' }`; every `emit(...)` goes through the typed `emit`. Fix any
@@ -255,13 +256,13 @@ Follow-ups (not built in this story, listed for the sprint review to cut into a 
   shared `X_HANDLERS` (and `SERVERS_WATCHLIST_HANDLERS`), assert each key appears as
   `X_HANDLERS.key` in that module's client source, except `FLOW_ONLY = { servers: ['historyRead'] }`
   (comment: read by `scripts/flows/servers-join.mjs`). Second case: `CONVERTED = ['home',
-  'servers']` clients contain no `callModule<` and no `onModuleEvent<`. Tests: › "every handler
+'servers']` clients contain no `callModule<` and no `onModuleEvent<`. Tests: › "every handler
   constant is referenced by its module's client"; › "a converted module's client has no
   callModule generic".
 
 - **D10 — `moduleInvokeSchema` id enum from manifests.**
   `src/shared/ipc-schemas.ts:258`: `moduleId: z.enum(MODULE_MANIFESTS.map((m) => m.id) as
-  [ModuleId, ...ModuleId[]])` (import from `./types/module`). Test in `src/shared/ipc-schemas.test.ts`
+[ModuleId, ...ModuleId[]])` (import from `./types/module`). Test in `src/shared/ipc-schemas.test.ts`
   (create if absent) › "moduleInvokeSchema accepts exactly the manifest ids" (every manifest id
   parses; `'nope'` fails; the enum's `options` equal the manifest ids).
 

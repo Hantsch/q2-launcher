@@ -57,7 +57,7 @@ should land first.
   number of custom categories instead of wrapping or shrinking tabs.
 - **(User)** "Restore defaults" acts on the whole profile, not per category. A custom category
   with no catalogue default is simply cleared (there is no default to restore to).
-- Tab id *and* i18n namespace rename: `'advanced'` → `'controls'` and `config.advanced.*` →
+- Tab id _and_ i18n namespace rename: `'advanced'` → `'controls'` and `config.advanced.*` →
   `config.controls.*` (105 call sites) — AC 1 says "everywhere", and a tab labelled Controls
   whose keys still say advanced is the next reader's trap.
 - One grid for every category: `DualBindPanel`, `DropBindPanel` and the generic action list
@@ -130,87 +130,87 @@ and renders in array order; nothing here may reintroduce `ConfigActionCategory.e
 ## Deliverables
 
 - [x] **D1 — Advanced is Controls, everywhere.**
-  Files: `src/renderer/src/modules/config/ConfigView.tsx`,
-  `src/renderer/src/modules/config/AdvancedTab.tsx` → `ControlsTab.tsx`,
-  `src/renderer/src/i18n/locales/en.json`, `src/shared/modules/config.ts`,
-  `docs/systems/config-module.md`, plus the `config.advanced.*` call sites in
-  `components/{BindSlot,DualBindPanel,DropBindPanel,ActionEditor,MessageEditor,SymbolPicker}.tsx`,
-  `LayersPanel.tsx` and `lib/catalog-binds.ts`.
-  Accept: the tab id is `'controls'`, the tab reads "Controls", a grep for `config.advanced`
-  over `src/` is empty, build + typecheck + tests green. → AC 1
+      Files: `src/renderer/src/modules/config/ConfigView.tsx`,
+      `src/renderer/src/modules/config/AdvancedTab.tsx` → `ControlsTab.tsx`,
+      `src/renderer/src/i18n/locales/en.json`, `src/shared/modules/config.ts`,
+      `docs/systems/config-module.md`, plus the `config.advanced.*` call sites in
+      `components/{BindSlot,DualBindPanel,DropBindPanel,ActionEditor,MessageEditor,SymbolPicker}.tsx`,
+      `LayersPanel.tsx` and `lib/catalog-binds.ts`.
+      Accept: the tab id is `'controls'`, the tab reads "Controls", a grep for `config.advanced`
+      over `src/` is empty, build + typecheck + tests green. → AC 1
 
 - [x] **D2 — The grid's style layer, in tokens.**
-  Files: new `src/renderer/src/styles/controls-grid.css`, `src/renderer/src/styles/index.css`
-  (import), `CLAUDE.md` (deviation note). Mirror: `src/renderer/src/styles/surfaces.css`.
-  Accept: every class the prototype needs exists and resolves to `@theme` tokens; no hex, no
-  palette class; pulse and hover transitions disabled under `prefers-reduced-motion`; the
-  40px-row deviation from `/design-tokens` is written down with its reason. → AC 4, 12
+      Files: new `src/renderer/src/styles/controls-grid.css`, `src/renderer/src/styles/index.css`
+      (import), `CLAUDE.md` (deviation note). Mirror: `src/renderer/src/styles/surfaces.css`.
+      Accept: every class the prototype needs exists and resolves to `@theme` tokens; no hex, no
+      palette class; pulse and hover transitions disabled under `prefers-reduced-motion`; the
+      40px-row deviation from `/design-tokens` is written down with its reason. → AC 4, 12
 
 - [x] **D3 — Grid shell: cap, sticky headers, groups, footer.**
-  Files: new `components/ControlsGrid.tsx`, `ControlsTab.tsx` (renders it).
-  Mirror: `components/DualBindPanel.tsx` for the group/catalogue-row wiring,
-  `OverviewKeyboardPanel.tsx` for the dense-grid idiom.
-  Accept: content stops at 1120px on a 2560px-wide window and stays centred; the header row
-  sticks while scrolling and reads Action · (reset) · Primary · Secondary · Options; each
-  catalogue group shows rule + label + count; the footer shows the ESC/DEL/ALT legend and
-  "n rows · m bound". → AC 2, 3, 7 (footer), 9, 10 (counts)
+      Files: new `components/ControlsGrid.tsx`, `ControlsTab.tsx` (renders it).
+      Mirror: `components/DualBindPanel.tsx` for the group/catalogue-row wiring,
+      `OverviewKeyboardPanel.tsx` for the dense-grid idiom.
+      Accept: content stops at 1120px on a 2560px-wide window and stays centred; the header row
+      sticks while scrolling and reads Action · (reset) · Primary · Secondary · Options; each
+      catalogue group shows rule + label + count; the footer shows the ESC/DEL/ALT legend and
+      "n rows · m bound". → AC 2, 3, 7 (footer), 9, 10 (counts)
 
 - [x] **D4 — The row.**
-  Files: new `components/ControlsRow.tsx`, `components/ControlsGrid.tsx`.
-  Accept: 40px height, zebra striping, hover highlight; name plus its command in mono as a
-  secondary label; a reset button invisible until the row is hovered or keyboard-focused, with an
-  `aria-label`, that resets that row's binds. → AC 4, 5
+      Files: new `components/ControlsRow.tsx`, `components/ControlsGrid.tsx`.
+      Accept: 40px height, zebra striping, hover highlight; name plus its command in mono as a
+      secondary label; a reset button invisible until the row is hovered or keyboard-focused, with an
+      `aria-label`, that resets that row's binds. → AC 4, 5
 
 - [x] **D5 — The slot is a cell.**
-  Files: `components/BindSlot.tsx` (rewritten surface), `components/ControlsRow.tsx`.
-  Reuses unchanged: `lib/useKeyCapture.ts`, `lib/modifier-capture.ts`,
-  `lib/bind-slot-collision.ts`.
-  Accept: every slot is a filled cell — unbound reads "Empty", bound shows the key, a bound
-  row's primary slot is the strongest element in the row; clicking enters capture with
-  "Press a key…" and a dashed pulsing border; ESC cancels, DEL clears; a modifier capture
-  renders `ALT R` with the modifier as a small cap; a blocked capture opens its Cancel/Replace
-  prompt as a full-width sub-row; an alias entry has inert placeholder cells; the existing
-  collision and modifier-layer tests stay green. → AC 6, 7, 8 (slot marker)
+      Files: `components/BindSlot.tsx` (rewritten surface), `components/ControlsRow.tsx`.
+      Reuses unchanged: `lib/useKeyCapture.ts`, `lib/modifier-capture.ts`,
+      `lib/bind-slot-collision.ts`.
+      Accept: every slot is a filled cell — unbound reads "Empty", bound shows the key, a bound
+      row's primary slot is the strongest element in the row; clicking enters capture with
+      "Press a key…" and a dashed pulsing border; ESC cancels, DEL clears; a modifier capture
+      renders `ALT R` with the modifier as a small cap; a blocked capture opens its Cancel/Replace
+      prompt as a full-width sub-row; an alias entry has inert placeholder cells; the existing
+      collision and modifier-layer tests stay green. → AC 6, 7, 8 (slot marker)
 
 - [x] **D6 — The Options column.**
-  Files: new `components/ControlsOptionsCell.tsx`, `components/ControlsRow.tsx`,
-  `src/renderer/src/i18n/locales/en.json`.
-  Accept: a modifier-bound row names its layer; a conflicting row reads "also: <owner>" with a
-  danger tone and a glyph; an ordinary row reads "—"; a drops row still reaches its ammo toggle
-  and its team message. → AC 8 (Options text)
+      Files: new `components/ControlsOptionsCell.tsx`, `components/ControlsRow.tsx`,
+      `src/renderer/src/i18n/locales/en.json`.
+      Accept: a modifier-bound row names its layer; a conflicting row reads "also: <owner>" with a
+      danger tone and a glyph; an ordinary row reads "—"; a drops row still reaches its ammo toggle
+      and its team message. → AC 8 (Options text)
 
 - [x] **D7 — Profile-wide conflict count.**
-  Files: new `lib/bind-conflicts.ts` + `lib/bind-conflicts.test.ts`, `ControlsTab.tsx`.
-  Mirror: `src/shared/config/bind-collision.ts`.
-  Accept: a key held by two owners is reported once with both owners; the header shows the count
-  as a warning badge with an icon and an accessible name; zero conflicts shows no badge; unit
-  tests cover base binds, action slots and modifier-layer overrides. → AC 8 (header count)
+      Files: new `lib/bind-conflicts.ts` + `lib/bind-conflicts.test.ts`, `ControlsTab.tsx`.
+      Mirror: `src/shared/config/bind-collision.ts`.
+      Accept: a key held by two owners is reported once with both owners; the header shows the count
+      as a warning badge with an icon and an accessible name; zero conflicts shows no badge; unit
+      tests cover base binds, action slots and modifier-layer overrides. → AC 8 (header count)
 
 - [x] **D8 — Filter.**
-  Files: `ControlsTab.tsx`, `components/ControlsGrid.tsx`,
-  `src/renderer/src/i18n/locales/en.json`.
-  Accept: typing narrows rows by action name *and* command, case-insensitively; group headers
-  with no surviving row disappear; the footer counts follow the filter; clearing the box restores
-  everything. → AC 10
+      Files: `ControlsTab.tsx`, `components/ControlsGrid.tsx`,
+      `src/renderer/src/i18n/locales/en.json`.
+      Accept: typing narrows rows by action name _and_ command, case-insensitively; group headers
+      with no surviving row disappear; the footer counts follow the filter; clearing the box restores
+      everything. → AC 10
 
 - [x] **D9 — The category rail.**
-  Files: `ControlsTab.tsx`, `src/renderer/src/styles/controls-grid.css`.
-  Accept: the strip scrolls horizontally instead of wrapping, keeps create / rename / delete and
-  "+ New category", shows no entryKind badge, and the selected tab is scrolled into view when it
-  is off-screen. → (User) decision on the rail
+      Files: `ControlsTab.tsx`, `src/renderer/src/styles/controls-grid.css`.
+      Accept: the strip scrolls horizontally instead of wrapping, keeps create / rename / delete and
+      "+ New category", shows no entryKind badge, and the selected tab is scrolled into view when it
+      is off-screen. → (User) decision on the rail
 
 - [x] **D10 — Restore defaults.**
-  Files: new `lib/restore-defaults.ts` + `lib/restore-defaults.test.ts`, `ControlsTab.tsx`.
-  Mirror: `components/CvarRow.tsx` for the reset idiom, `Modal` for the confirm.
-  Accept: the header button asks before discarding; confirming restores every catalogue row's
-  `suggestedKeys[0]` as primary, clears secondaries and clears entries with no catalogue row,
-  across the whole profile; cancelling changes nothing; a unit test pins both branches. → AC 11
+      Files: new `lib/restore-defaults.ts` + `lib/restore-defaults.test.ts`, `ControlsTab.tsx`.
+      Mirror: `components/CvarRow.tsx` for the reset idiom, `Modal` for the confirm.
+      Accept: the header button asks before discarding; confirming restores every catalogue row's
+      `suggestedKeys[0]` as primary, clears secondaries and clears entries with no catalogue row,
+      across the whole profile; cancelling changes nothing; a unit test pins both branches. → AC 11
 
 - [x] **D11 — Docs and the token audit.**
-  Files: `docs/systems/config-module.md`.
-  Accept: the doc describes the Controls tab as it now is; a grep for hex literals and raw
-  palette classes over the files this story touched is empty; a harness screenshot of the
-  Controls tab exists (story 026) or the manual pass below is recorded. → AC 12
+      Files: `docs/systems/config-module.md`.
+      Accept: the doc describes the Controls tab as it now is; a grep for hex literals and raw
+      palette classes over the files this story touched is empty; a harness screenshot of the
+      Controls tab exists (story 026) or the manual pass below is recorded. → AC 12
 
 ## Model Hints
 
@@ -266,6 +266,7 @@ run then caught one more (the UI-verification harness still targeted the old `co
 `'advanced'` tab id, and the category rail's `role="tablist"` was invalid ARIA), both fixed here.
 
 **Decisions (beyond what's already in "## Decisions (Sprint)"):**
+
 - Plan gap closed in D6: custom-category `bind`/`message` actions (no `catalogId`) had neither a
   live slot nor an inert placeholder after D4/D5 — only alias rows were handled. Added a parallel
   plain-action write path (`applyPlainSlot`/`applyPlainReplace`/`applyPlainModifierReplace`) so

@@ -39,6 +39,7 @@ Ran on `sprint/S23` `HEAD` (`bb3c805`, after both fix commits below) with a clea
   worktree at that commit. None touch the `servers` module; none are new to this sprint.
 
 Two flows **did** regress from this sprint's own commits, both fixed on the branch:
+
 - `servers-module-shell` (story 106's own flow) — failed once story 111 replaced the placeholder
   UI it asserted on (`servers-settings-placeholder`) with the real master-source list. Fixed in
   `4002e7b` (`111: fix regression from sprint gate`) by pointing the flow at `servers-sources-list`.
@@ -67,7 +68,7 @@ the three before it would mean inventing the shape twice. 111–113 have no depe
 and could build in any order after 110; the listed order follows the concept's own §17 grouping
 (sources before persistence-scoped favourites/manual/history).
 
-Two scope boundaries carried over from the story files, worth restating here: the *scan-time*
+Two scope boundaries carried over from the story files, worth restating here: the _scan-time_
 behaviour of favourites (always queried, pinned to the top) and of history (whether it feeds the
 scan's address set) both belong to sprint 9.3's scan engine ([[114]]) and sprint 9.4's list sorting
 ([[119]]), not to this sprint — 112 and 113 build storage and read APIs only. Likewise, 111 defers

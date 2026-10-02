@@ -42,13 +42,17 @@ export default async function grenadeRowsTakeAKey({ page, shot, step }) {
   // category (`movement`), not `weapons`, so both seeded inert rows are invisible until this
   // chip is clicked. No testid on the chip itself, selected by its translated accessible name
   // (`Button`, `role="button"`, `aria-pressed`), same convention `screens.mjs` uses for it.
-  await page.getByRole('button', { name: 'Weapons', exact: true }).click({ timeout: CLICK_TIMEOUT_MS })
+  await page
+    .getByRole('button', { name: 'Weapons', exact: true })
+    .click({ timeout: CLICK_TIMEOUT_MS })
 
   step('locate both inert rows')
   for (const { id } of ROWS) {
     const row = page.locator(`.ctrl-row[data-row-id="${id}"]`)
     await row.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
-    await row.locator('.ctrl-slot.is-inert').waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
+    await row
+      .locator('.ctrl-slot.is-inert')
+      .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
   }
   await shot('both-rows-inert')
 
@@ -65,9 +69,7 @@ export default async function grenadeRowsTakeAKey({ page, shot, step }) {
       .click({ timeout: CLICK_TIMEOUT_MS })
     await page.waitForTimeout(300)
     // The menu portals into document.body (`Menu.tsx`), so it is found off `page`, not `row`.
-    await page
-      .getByRole('menuitem', { name: 'Make bindable' })
-      .click({ timeout: CLICK_TIMEOUT_MS })
+    await page.getByRole('menuitem', { name: 'Make bindable' }).click({ timeout: CLICK_TIMEOUT_MS })
 
     step(`${label}: assert the row is no longer inert`)
     await row.locator('.ctrl-slot.is-inert').waitFor({ state: 'hidden', timeout: CLICK_TIMEOUT_MS })
@@ -99,7 +101,9 @@ export default async function grenadeRowsTakeAKey({ page, shot, step }) {
     }
     const inertCount = await row.locator('.ctrl-slot.is-inert').count()
     if (inertCount !== 0) {
-      throw new Error(`expected the ${label} row to have no inert slot after capture, found ${inertCount}`)
+      throw new Error(
+        `expected the ${label} row to have no inert slot after capture, found ${inertCount}`,
+      )
     }
 
     await shot(`${label}-key-captured`)

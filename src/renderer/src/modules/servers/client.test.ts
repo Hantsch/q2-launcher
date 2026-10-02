@@ -27,9 +27,8 @@ const onMock = vi.fn((_channel: string, listener: Listener) => {
 
 ;(globalThis as unknown as { q2: unknown }).q2 = { invoke: invokeMock, on: onMock }
 
-const { startScan, readScan, readServerDetail, onScanChanged, onScanServer } = await import(
-  './client'
-)
+const { startScan, readScan, readServerDetail, onScanChanged, onScanServer } =
+  await import('./client')
 
 const SCAN_STATE: ServersScanState = {
   running: true,

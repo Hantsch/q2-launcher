@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { WATCHLIST_NAME_MAX, type WatchlistEntry, type WatchlistMatchMode } from '@shared/modules/servers'
+import {
+  WATCHLIST_NAME_MAX,
+  type WatchlistEntry,
+  type WatchlistMatchMode,
+} from '@shared/modules/servers'
 
 /**
  * Story 131 D2: the watchlist entry collection's three operations, as pure functions over
@@ -15,8 +19,7 @@ import { WATCHLIST_NAME_MAX, type WatchlistEntry, type WatchlistMatchMode } from
  */
 
 export type WatchlistEntryMutationResult =
-  | { ok: true; list: WatchlistEntry[] }
-  | { ok: false; reasonKey: string }
+  { ok: true; list: WatchlistEntry[] } | { ok: false; reasonKey: string }
 
 /** Validates `name`/`mode` in the fixed order the story specifies: empty, too long, then (for
  * `'regex'` only) whether the pattern compiles at all. Returns `null` when the input is valid. */

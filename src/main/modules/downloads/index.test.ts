@@ -76,7 +76,9 @@ const gamedataManifest = { schemaVersion: 1, packages: [] }
 /** Both manifest files answer 200, routed by URL - same helper `manifest-service.test.ts` uses. */
 function serveGoodManifests(fetchMock: ReturnType<typeof vi.fn>): void {
   fetchMock.mockImplementation((url: unknown) =>
-    Promise.resolve(jsonResponse(String(url).includes('engines/') ? enginesManifest : gamedataManifest)),
+    Promise.resolve(
+      jsonResponse(String(url).includes('engines/') ? enginesManifest : gamedataManifest),
+    ),
   )
 }
 
@@ -99,7 +101,9 @@ function servePinnedManifests(fetchMock: ReturnType<typeof vi.fn>): void {
       return Promise.resolve({
         ok: true,
         status: 200,
-        headers: { get: (name: string) => (name.toLowerCase() === 'content-length' ? '4096' : null) },
+        headers: {
+          get: (name: string) => (name.toLowerCase() === 'content-length' ? '4096' : null),
+        },
       } as unknown as Response)
     }
     if (href.includes('engines/')) {
@@ -527,7 +531,9 @@ describe('downloadsModule failure log', () => {
     const id = downloadJob(jobs)
     jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.diskWrite' } })
 
-    const listed = (await handlers.get(DOWNLOADS_HANDLERS.failures)!(undefined)) as DownloadFailure[]
+    const listed = (await handlers.get(DOWNLOADS_HANDLERS.failures)!(
+      undefined,
+    )) as DownloadFailure[]
     expect(listed).toHaveLength(1)
     const entryId = listed[0]!.id
 

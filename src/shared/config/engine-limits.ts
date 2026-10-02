@@ -310,7 +310,8 @@ export function evaluateSize(
 
   const limit = limits.execBufferBytes
   const countsCompressed = limits.sizeCountsAfterCompression
-  const effectiveBytes = countsCompressed && content !== undefined ? compressedLength(content) : bytes
+  const effectiveBytes =
+    countsCompressed && content !== undefined ? compressedLength(content) : bytes
   const ratio = effectiveBytes / limit
 
   return {

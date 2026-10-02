@@ -261,11 +261,13 @@ existing `updateProfileCvars`/`setCvars` path — no new IPC, no servers-module 
 the dialog's profile re-reads and re-renders that profile's own slots, clearing stale values first.
 
 **Commit message:**
+
 ```
 127: a server goes into my address book
 ```
 
 **Verification (narrow gate):**
+
 - `npm run build`, `npm run typecheck` — green.
 - `npx vitest run --changed HEAD` — 78 files / 609 tests, all passed (one unrelated flaky timeout
   in `ServersSettingsSection.test.tsx` on the first run, clean on re-run — confirmed flaky, not a

@@ -86,14 +86,14 @@ nothing references installations (story 002).
       `src/main/lib/schemas.ts` (`configProfileSchema`, `parseConfigProfiles`).
       Mirror: `src/shared/modules/library.ts` for the contract, the `installations` handling in
       `schemas.ts`/`state.ts` for the persistence shape.
-      *Acceptance:* `state.json` round-trips a `configProfiles` array; a file without the key
+      _Acceptance:_ `state.json` round-trips a `configProfiles` array; a file without the key
       loads as `[]`; a malformed row is dropped on its own without affecting the others or the
       installation list. No `STATE_SCHEMA_VERSION` bump.
 - [x] **D2 — Config main module with CRUD handlers.**
       `src/main/modules/config/index.ts`, `profiles.ts`, `schemas.ts`,
       `src/main/modules/config/profiles.test.ts`, registration line in
       `src/main/modules/index.ts`. Mirror: `src/main/modules/library/index.ts`.
-      *Acceptance:* `list`, `create` (`{ name, from: 'empty' | 'template' }`), `rename`,
+      _Acceptance:_ `list`, `create` (`{ name, from: 'empty' | 'template' }`), `rename`,
       `remove` are callable over `module:invoke`; mutations return the updated profile list;
       invalid payloads are rejected by the module's own zod schemas; unit tests cover create
       (both variants), rename and remove.
@@ -103,7 +103,7 @@ nothing references installations (story 002).
       `status: 'available'`, `requiresInstallation: false`),
       `src/renderer/src/i18n/locales/en.json` (`config.*` keys).
       Mirror: `src/renderer/src/modules/library/client.ts`, `views/LibraryView.tsx`.
-      *Acceptance:* the Config nav item opens the real view (never `PlannedModuleView`); it
+      _Acceptance:_ the Config nav item opens the real view (never `PlannedModuleView`); it
       lists persisted profiles in a master/detail layout and shows an `EmptyState` when there
       are none; built only from existing design-system primitives; no prose in the component,
       all strings via i18n keys.
@@ -111,7 +111,7 @@ nothing references installations (story 002).
       `src/renderer/src/modules/config/CreateProfileDialog.tsx`, `.../ConfigView.tsx`,
       `src/renderer/src/i18n/locales/en.json`. Mirror:
       `src/renderer/src/components/installations/CreateInstallationDialog.tsx`.
-      *Acceptance:* a "New profile" action opens a `Modal` with a name field and a choice of
+      _Acceptance:_ a "New profile" action opens a `Modal` with a name field and a choice of
       empty vs. standard template; on confirm the profile appears in the list and is selected;
       an empty name cannot be submitted.
 - [x] **D5 — Rename and delete a profile.**
@@ -119,7 +119,7 @@ nothing references installations (story 002).
       `.../DeleteProfileDialog.tsx`, `.../ConfigView.tsx`,
       `src/renderer/src/i18n/locales/en.json`. Mirror:
       `src/renderer/src/components/installations/{RenameInstallationDialog,RemoveInstallationDialog}.tsx`.
-      *Acceptance:* renaming updates the list entry and the detail pane; deleting asks for
+      _Acceptance:_ renaming updates the list entry and the detail pane; deleting asks for
       confirmation first, then removes the profile and clears/moves the selection; both survive
       an app restart.
 
@@ -164,11 +164,13 @@ and a renderer master/detail view with create/rename/delete dialogs, all built f
 design-system primitives (D3–D5). No new IPC channel; no `STATE_SCHEMA_VERSION` bump.
 
 **Commit message:**
+
 ```
 001: config module scaffold and central profile store
 ```
 
 **Verification:**
+
 - `npm run build` — clean (main/preload/renderer all build).
 - `npm test` — 18/18 passing (9 new tests in `src/main/modules/config/profiles.test.ts`
   covering create-empty, create-template incl. anti-aliasing, rename incl. unknown-id,
@@ -199,6 +201,7 @@ design-system primitives (D3–D5). No new IPC channel; no `STATE_SCHEMA_VERSION
 
 **Decisions** (implementation details the plan didn't spell out, made by this session and
 checked against the story's Plan/Acceptance Criteria):
+
 - **`STANDARD_TEMPLATE` contents** — the plan only said "a small, deliberately minimal seed
   of vanilla Quake II cvar/bind defaults." Picked six of each: cvars `sensitivity`, `cl_run`,
   `crosshair`, `cl_gun`, `m_pitch`, `volume`; binds `UPARROW`/`DOWNARROW`/`SPACE`/`c`/`SHIFT`/
@@ -215,20 +218,20 @@ checked against the story's Plan/Acceptance Criteria):
   until D4/D5 add the rename/delete `IconButton`s and D4 adds the "New profile" trigger, so
   each deliverable's diff maps cleanly to what it actually adds, and the master/detail frame
   doesn't need reshaping later (matches the Plan's stated reason for the layout).
-- **New-profile selection after create** — `create`/`rename`/`remove` all return the *full*
+- **New-profile selection after create** — `create`/`rename`/`remove` all return the _full_
   updated list (not just the affected row), so the newly-created profile is found by diffing
   the id sets before/after rather than by name (names aren't unique, per the story's own
   decision) or by array position.
 - **Dialog sizing and i18n namespacing** — config's three dialogs use `Modal size="sm"`
   (simpler forms than the installation dialogs they mirror) and their own `config.
-  createDialog.*` / `config.renameDialog.*` / `config.deleteDialog.*` i18n keys, kept
+createDialog.*` / `config.renameDialog.*` / `config.deleteDialog.*` i18n keys, kept
   separate from the existing `dialog.create.*` / `dialog.rename.*` / `dialog.remove.*` keys
   used by installations, to avoid key collisions between the two features.
 - **Sandbox environment repair (not a code change)** — this session's shell initially had no
   usable Node.js (`npm`/`npx` resolved only to a Windows shim that refuses to run under
   WSL1-style bash) and, once a Linux Node was installed via apt, a Node 18 runtime plus a
   `node_modules` tree built with Windows-native optional dependencies (`@rollup/rollup-
-  linux-x64-gnu` missing). Installed Node 22 from the official Linux x64 tarball into
+linux-x64-gnu` missing). Installed Node 22 from the official Linux x64 tarball into
   `/usr/local/node22`, symlinked it over `/usr/bin/node`/`npm`/`npx`, and ran `npm install`
   to pull in the correct Linux native bindings. This did not touch `package.json` or
   `package-lock.json` (confirmed via `git status`/`git diff --stat`) — purely an environment

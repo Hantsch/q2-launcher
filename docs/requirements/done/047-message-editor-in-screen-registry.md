@@ -87,7 +87,7 @@ Order matters: renderer hooks first, then fixture data, then registry, then run-
    messages-category row's edit trigger in `ControlsTab.tsx` has no testid, add one there too.
 2. **Fixture (`scripts/lib/fixture.mjs`):** on "Plain Profile" add (a) a `drops`-category action
    using a real `catalogId` from the drops catalogue, with `commands: [{ kind: 'message', channel:
-   'say', text: '... $r ...' }]`, (b) a `kind: 'message'` action for the Team-messages path, and
+'say', text: '... $r ...' }]`, (b) a `kind: 'message'` action for the Team-messages path, and
    (c) a colour cvar (e.g. `r: '\x7f\x88\x88\x7f'`) so `colorCvarTokens` resolves the `$r` token.
    Keep it literal/deterministic — `ui:seed` must stay byte-identical across runs.
 3. **Registry (`scripts/lib/screens.mjs`):** four new `populated`/`BOTH_VIEWPORTS` entries —
@@ -191,10 +191,11 @@ still have a reason to stay out (D5).
 **Commit message:** `047: message editor, remove/detect dialogs join the screen registry`
 
 **Verification:**
+
 - `npm run build` / `npm test` (1323 tests, 64 files) / `npm run typecheck` — all green throughout.
 - Live smoke (`npm run ui:verify`, full run): exit `0`, `22/22` screens written (`44` shots across
   both viewports), `0 unreachable`/`0 error`, `a11y.md` summary: `0 critical, 0 serious,
-  0 moderate, 0 minor` — at every impact level, per Decision 10's stricter-than-default read.
+0 moderate, 0 minor` — at every impact level, per Decision 10's stricter-than-default read.
 - Clean-agent review: verdict **PASS**. All 5 acceptance criteria independently verified
   (re-ran the scoped and full `ui:verify` passes) as PASS with file:line evidence. No weakened
   tests, no scope creep, no CLAUDE.md guardrail violations. Two non-blocking notes: the story's own
@@ -203,13 +204,14 @@ still have a reason to stay out (D5).
   earlier in the file (cosmetic only — the referenced logic is unchanged and correct).
 
 **Decisions made during the build (not already in the story):**
+
 - The Team-messages `MessageEditor` trigger's testid is `action-edit-<actionId>`
   (`ControlsTab.tsx`), distinct from the pre-existing drop-row testid
   `drop-message-edit-<catalogId>` — needed so the two new screen entries can each target their own
   invocation path per Decision 3.
 - Fixture drop action uses `catalogId: 'dropWeapon:railgun'` with commands
   `[{ kind: 'raw', text: 'drop railgun' }, { kind: 'message', channel: 'say', text: 'Dropped
-  railgun $r' }]`; the Team-messages fixture action uses `channel: 'say_team'` — both literal and
+railgun $r' }]`; the Team-messages fixture action uses `channel: 'say_team'` — both literal and
   deterministic, confirmed byte-identical across two `npm run ui:seed` runs.
 - `install-remove-dialog` and `install-detect-dialog` wait on `getByRole('dialog')` (mirroring
   `keybind-dialog`); the two `MessageEditor` screens wait on the `message-editor-content` testid

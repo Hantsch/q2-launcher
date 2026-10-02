@@ -544,7 +544,7 @@ Story 073 D6 updates one existing entry rather than adding a new one:
   the real `DownloadsView`, so the same click (`nav-downloads`) now reaches real content —
   `navigate()` was given a wait on the empty-jobs body text (`downloads.jobs.empty.body`) so a
   screenshot can never race a not-yet-mounted view the way a bare click could. Per the story's own
-  "Fixture split" decision, this screen only ever shows the *zero-jobs* state — a live job cannot
+  "Fixture split" decision, this screen only ever shows the _zero-jobs_ state — a live job cannot
   be seeded through the static `state.json` fixture — which is what `variant: 'populated'` means
   here: "the real view, populated with its own UI" (the archive cache's real figure, from the two
   dummy archives `scripts/lib/fixture.mjs` seeds under `cache/downloads/`), not "populated with
@@ -695,16 +695,16 @@ already up):
   module scope; nothing is threaded back into the flow function.
 - `export async function teardown()` — runs after the app is closed, pass or
   fail, so a fixture server cannot outlive the run. The flow launches at the default 1280x800
-viewport (`scripts/flow.mjs`) — flows aren't part of the registry and don't
-take `viewports` of their own — against the `populated` fixture unless a
-second CLI argument names another variant: `npm run ui:flow -- <name>
+  viewport (`scripts/flow.mjs`) — flows aren't part of the registry and don't
+  take `viewports` of their own — against the `populated` fixture unless a
+  second CLI argument names another variant: `npm run ui:flow -- <name>
 <variant>` (story 066 D8, added so `import-from-files` could prove AC9 —
-"import from files needs no installation" — against the zero-installation
-`empty` variant; `variant` is also passed into the flow function's own
-context object, alongside `page`/`app`/`shot`/`log`/`step`, so a flow can
-tailor its own steps to whichever fixture it is actually running against).
-Every flow that predates story 066 keeps its exact prior behaviour with no
-argument needed.
+  "import from files needs no installation" — against the zero-installation
+  `empty` variant; `variant` is also passed into the flow function's own
+  context object, alongside `page`/`app`/`shot`/`log`/`step`, so a flow can
+  tailor its own steps to whichever fixture it is actually running against).
+  Every flow that predates story 066 keeps its exact prior behaviour with no
+  argument needed.
 
 Flows shipped so far, alongside `open-keycap-dialog` above:
 `alias-rename-dialog`, `controls-category-rename-reorder`,
@@ -824,7 +824,7 @@ a failing bootstrap that leaves its installation in the Library, and the retry t
 (story 078 D9) **`bootstrap-failure`** — the wizard's own failed running step showing the same
 cause detail the Downloads tab mounts (AC4), driven by a REAL, deliberately broken package set
 rather than `dev:simulateJob` or hand-authored diagnostics; and (story 088 D6)
-**`bootstrap-retail-import`** — the wizard's *second* data source, copying the game data out of a
+**`bootstrap-retail-import`** — the wizard's _second_ data source, copying the game data out of a
 detected Steam/GOG installation instead of downloading it. All four also have their own sections
 below. (Story 091 D8) **`job-waits-for-running-game`** — `InstallationWriteGuard`'s own end-to-end
 proof: a write into a running installation waits instead of writing, names why on both the
@@ -849,11 +849,11 @@ followed by a Reload click races the silent re-read below and is not a reliable 
 profile changing (opening a profile from the list, or re-selecting one while `ConfigView` stays
 mounted — depends on `params.profileId` itself, story 079 D6) and window focus regained
 (`chrome.focused` transitioning false → true). Part 1 of this flow uses the first of those: leaving
-to Library and re-selecting Plain Profile re-fires the re-read for a still-*clean* profile, which
+to Library and re-selecting Plain Profile re-fires the re-read for a still-_clean_ profile, which
 silently adopts the on-disk edit and cascades it to both installations with no dialog or button at
 all — the flow polls both installation copies on disk until they equal the adopted bytes (rather
 than asserting on the first read, since the adopt is a real async IPC round trip). Part 2 covers the conflict dialog's "take
-the file" resolution, which a clean profile can never reach (it needs unsaved edits *and* a changed
+the file" resolution, which a clean profile can never reach (it needs unsaved edits _and_ a changed
 file at once): it dirties Plain Profile through the Raw tab's real `unbindall` checkbox, hand-edits
 the canonical file a second time, and clicks the real Save button — `save`'s own `changedOnDisk`
 guard is a direct, synchronous response to that click, so `ConfigConflictDialog` opens deterministically
@@ -921,7 +921,7 @@ Four things about it are worth knowing before changing it:
   proven by the four gate cases in `src/main/modules/downloads/harness.test.ts`, which
   mirror `dialog.test.ts`'s):
   `Q2L_UI_CONTENT_REPO_BASE` names the manifest/package base URL (`resolveDownloadSource()`,
-  `src/main/modules/downloads/harness.ts`) and is *refused* unless it is a `127.0.0.1` origin, so it
+  `src/main/modules/downloads/harness.ts`) and is _refused_ unless it is a `127.0.0.1` origin, so it
   can never redirect a run somewhere public; the production package schema stays https-only and the
   harness path selects a separately named `harnessLoopbackManifestPackageSchema` rather than
   widening it. `Q2L_UI_PICK_FOLDER` is what `installations:pickFolder` answers instead of opening a
@@ -939,7 +939,7 @@ Four things about it are worth knowing before changing it:
   ever installed anywhere near Program Files, and the only write attempted there is the same
   throwaway probe marker a real user picking that folder would trigger.
 - **AC6 is proven with an in-page sampler, not a single check.** "Play lights up the moment the
-  verdict stops being `invalid`/`missing`, even while the job is still copying" is a *window*: an
+  verdict stops being `invalid`/`missing`, even while the job is still copying" is a _window_: an
   injected `setInterval` records `bootstrap-running-step`'s `data-status` next to `actionbar-play`'s
   `disabled`/`data-action` every 5 ms for the whole run, and the flow asserts at least one sample had
   a `running` job and an enabled Play button. A one-shot `page.evaluate()` could only ever prove the
@@ -955,7 +955,7 @@ raw.githubusercontent.com and break the harness's "never touches the network" gu
 takes its own `shot()`s of all four steps instead.
 
 The flow needs `resources/bin/7za.exe` (`npm run fetch:7za`) and refuses to run without it rather
-than quietly skipping the extraction — the whole point is that the *real* extractor runs.
+than quietly skipping the extraction — the whole point is that the _real_ extractor runs.
 
 ## The offline bootstrap-failure-retry flow (`bootstrap-failure-retry`)
 
@@ -969,8 +969,8 @@ above for what those are and why they are safe), and walks the wizard **twice** 
 - **Run 1** picks a genuinely fresh target folder (not the pre-seeded, deliberately-non-empty one
   `bootstrap-wizard.mjs` uses) and lets the job fail — the fixture server is started with a new
   `startBootstrapFixtureServer({ failFirstAttemptFor })` option (`scripts/lib/fixture.mjs`) that
-  404s one named package's PRIMARY *and* MIRROR url on their first request only, then serves that
-  same package normally ever after. This has to be a property of the *server*, not of the flow:
+  404s one named package's PRIMARY _and_ MIRROR url on their first request only, then serves that
+  same package normally ever after. This has to be a property of the _server_, not of the flow:
   `Q2L_UI_CONTENT_REPO_BASE` is fixed for the whole app session, so one flow covering both the
   failing first run and the succeeding retry has no other way to make the second attempt succeed
   where the first did not. The flow fails the engine package specifically — the first one
@@ -981,7 +981,7 @@ above for what those are and why they are safe), and walks the wizard **twice** 
   microtag, the translated failure sentence (`installation-failure-reason`, reading exactly what
   `downloads.error.allMirrorsFailed` says) and a disabled Play control (AC1/AC5/AC6) — and that the
   target folder is empty on disk (AC1), read directly via `node:fs`, not scraped off the UI.
-- **Run 2** re-opens the wizard and picks the *same* folder again — the harness's `Q2L_UI_PICK_FOLDER`
+- **Run 2** re-opens the wizard and picks the _same_ folder again — the harness's `Q2L_UI_PICK_FOLDER`
   stub queues only one entry, and its last entry repeats forever, so the second Browse click hands
   back the same path with no second queued value needed. The fixture server now serves the
   previously-404'd package normally, so this run downloads, verifies, extracts and assembles for
@@ -989,7 +989,7 @@ above for what those are and why they are safe), and walks the wizard **twice** 
   refusing with `installations.error.duplicate` (AC7). Once it succeeds, the flow asserts the badge,
   the microtag and the failure sentence are all gone and Play is enabled again (AC4).
 
-This is a *different* fixture entry point than the restart half of AC1: `scripts/lib/fixture.mjs`'s
+This is a _different_ fixture entry point than the restart half of AC1: `scripts/lib/fixture.mjs`'s
 `populatedInstallations()` also seeds a fourth, standing installation (`Fixture Failed Install`,
 `INSTALL_FAILED_ID`) that already carries a `lastFailure` in `state.json` before the app ever boots.
 That row is what `npm run ui:verify --screens=library` reads — proving "after an app restart the
@@ -1024,16 +1024,16 @@ extraction and a real allowlist search that finds nothing — never a simulated 
 for a real `downloads.error.installationNotPlayable` failure. What a wrapper-nested archive
 genuinely produces on this codebase instead is `downloads.error.packageIncomplete` — not a
 shortcut this flow took, but the only reachable outcome: `bootstrap/job.ts` (story 076 D3) fails
-the job the moment even one required allowlist entry is not found, strictly *before* the
+the job the moment even one required allowlist entry is not found, strictly _before_ the
 revalidation that could ever produce `installationNotPlayable`. Reaching `installationNotPlayable`
 for real requires every required entry to be found (so the job never trips that earlier check) and
-the assembled folder to *still* fail `inspectInstallation` afterwards — which this codebase's
+the assembled folder to _still_ fail `inspectInstallation` afterwards — which this codebase's
 checks cannot do once every required file is genuinely present, since each is satisfied by mere
 presence at its target path. `job.test.ts`'s own `breakTargetBeforeValidate()` helper reaches
 `installationNotPlayable` only by mocking `installations.validate()` to delete the assembled paks a
 moment before the verdict is read — a test-only race no flow driving the real, unmodified app can
 reproduce. Consequently this flow's cause detail never shows a target verdict or failing checks
-(`diagnostics.target` is only ever recorded downstream of a *successful* core assemble pass, a line
+(`diagnostics.target` is only ever recorded downstream of a _successful_ core assemble pass, a line
 this run's `packageIncomplete` exit never reaches) — the flow asserts that gap explicitly (no
 "Installation check" text anywhere in the expanded detail) rather than silently skipping the check.
 What it proves instead, in full, is AC1's half: a real run where every package downloaded, verified
@@ -1083,7 +1083,7 @@ bootstrap flows never race over one directory. Three things about it are worth k
   `rogue/`, a `pak3.pak` and a loose `quake2.exe`, so AC7 is a claim about real, rejected input.
 - **Both halves of AC1 in one launch.** A flow gets one app launch and a running process's
   environment block cannot be changed from outside, so the "no detected installation → no copy
-  choice" half is driven by setting `process.env.Q2L_UI_HARNESS_STORE_SOURCES` to `'[]'` *inside*
+  choice" half is driven by setting `process.env.Q2L_UI_HARNESS_STORE_SOURCES` to `'[]'` _inside_
   the main process via `app.evaluate()`, asserting the choice is absent (not disabled), and then
   restoring the fixture list before the real run. `detectedRetailSourcesFor()`
   (`src/main/modules/downloads/index.ts`) resolves the override fresh on every call precisely for
@@ -1095,7 +1095,7 @@ What the run asserts: the copy choice absent with an empty list and present with
 `disabled` and naming its reason (AC3); the confirm step naming the copy source, the engine-only
 download with its size and the target, plus the video/players toggle disabled with its reason, since
 neither fixture source has those directories (AC5, and the story's binding user decision); that the
-fixture server was asked for the engine archive and for *neither* game-data archive — evidence, not
+fixture server was asked for the engine archive and for _neither_ game-data archive — evidence, not
 inference, that the game data came from the copy (AC4); that the finished installation is named
 `Q2PRO` (not `Q2PRO Demo`) and carries no Demo badge on its library card or in the action bar (AC6);
 and on disk that the target holds `baseq2` only, with no `ctf`/`xatrix`/`rogue`, no `pak3.pak` and
@@ -1255,13 +1255,13 @@ installation's pak0.pak and the third depends on neither:
 2. **AC3** — starts the upgrade again while still running, confirms it enters `waiting` a second
    time, then flips `dev:simulateLaunch` to `'idle'` with **no further UI interaction**. The job
    resumes and finishes on its own; the flow waits for `bootstrap-running-step[data-status=
-   "succeeded"]` and asserts pak0.pak/pak1.pak are now retail-sized, the marker file and file
+"succeeded"]` and asserts pak0.pak/pak1.pak are now retail-sized, the marker file and file
    listing are otherwise as `retail-upgrade.mjs`'s own AC4 check expects.
 3. **AC5** — independent of the upgrade job: D7's `dev:simulateJob({ scenario: 'writing',
-   installationId })` takes the real write lock on the same (now already-upgraded) installation.
+installationId })` takes the real write lock on the same (now already-upgraded) installation.
    The flow asserts `actionbar-play` is `disabled`, then calls `window.q2.invoke('launch:start', {
-   installationId })` directly and asserts the response refuses with `launch.error.
-   installationBusy` — asserted against the real IPC outcome rather than through a click, since a
+installationId })` directly and asserts the response refuses with `launch.error.
+installationBusy` — asserted against the real IPC outcome rather than through a click, since a
    disabled `<button>` never dispatches one; the main process is the authoritative refusal surface
    regardless (091 Decisions: "the authoritative refusal is never derived from renderer-visible
    data"). It cancels the dev-only job afterwards so the write lock does not outlive the run.
@@ -1313,8 +1313,9 @@ fresh session's `engine.updateStatus` would otherwise report `target: undefined`
 installation's own recorded version is. The bootstrap wizard's `EngineStep` warms that cache by
 calling `downloads.bootstrap.engineOptions` on mount; this flow makes the identical real IPC call
 directly (`warmManifestCache()`) - a real fetch of `/engines/manifest.json` against the fixture server
+
 - before touching the engine-update dialog at all, without opening the wizard UI or registering a
-second installation.
+  second installation.
 
 **The bleeding-edge route.** `probeBleedingEdge()` (`src/main/modules/downloads/engine/
 bleeding-edge.ts`) derives its `version.txt` request by swapping the pinned package's own asset URL's
@@ -1355,7 +1356,7 @@ for every one of them. Separately, `inspector.ts`'s `classifyEngine()` only reco
 one of THEIR OWN executable file names being present at the root - so once every such file is gone, a
 fresh inspection reports `engineKind: 'unknown'` and raises `validation.noExecutable` (error).
 `buildRepairPlan`'s `reinstall-engine` gate (`repair/plan.ts`) asks the manifest about the
-installation's *recorded* `engineKind`, not that fresh one, so `validation.noExecutable` and "the
+installation's _recorded_ `engineKind`, not that fresh one, so `validation.noExecutable` and "the
 manifest can supply this installation's engine" CAN co-occur in the real app (see `plan.test.ts`'s
 "gates reinstall-engine on the recorded engine kind..."). This flow doesn't build that exact fixture,
 though: AC1's "missing engine executable" fixture is built as `validation.executableMissing` (a stale
@@ -1373,7 +1374,7 @@ under the machine's own `%ProgramFiles%` - `repairNonWritableDir()`, determinist
 process's own elevation since `isWritableDir()`'s plain `fs.access(..., W_OK)` fails closed on a
 non-existent path exactly as it does on a genuinely locked-down one), and
 `INSTALL_REPAIR_UNREPAIRABLE_ID` (AC6: `noExecutable` alone, with a fully valid retail `baseq2` and
-no engine marker anywhere, so `engineKind` inspects fresh as `'unknown'` - and its *recorded*
+no engine marker anywhere, so `engineKind` inspects fresh as `'unknown'` - and its _recorded_
 `engineKind` is `'unknown'` too, exactly what an ordinary installation's record decays to once every
 marker is gone, so the manifest is asked about `'unknown'` and answers no). AC3's demo-pak0 case
 reuses `INSTALL_DEMO_UPGRADE_ID` verbatim (090 D6)
@@ -1392,7 +1393,7 @@ tested, so nothing here needs a real detected source.
 `reinstall-engine`/`install-point-release` trigger with an unrelated `error`-severity finding this job
 never touches (`pak0Missing`/`baseDirMissing`/`retailPaksMissing`/`pak0NotRetail` all route to 088's
 retail-copy flow instead) - so, in this run, running one of this job's own repairs never flips the
-action bar from Repair to Play. A marker-less installation whose *recorded* engine the manifest can
+action bar from Repair to Play. A marker-less installation whose _recorded_ engine the manifest can
 supply (see the gate above) could in principle do that via `reinstall-engine` alone, but no fixture
 here constructs that shape. This flow instead asserts the always-true half of AC9 that every one of
 its fixtures CAN prove: after the AC1 engine repair succeeds, `validation.pak0Missing` is still
@@ -1489,7 +1490,7 @@ game server:
 - **`servers-list-error`** (variant `servers-list-error`) — the same working stub `http-list`
   source alongside a second `http-list` source pointing at `SERVERS_DEAD_LIST_URL` (a loopback port
   nothing binds), so one source fails while the other's rows still render — `servers-list-source-
-  failures` next to real `servers-row-*` elements, proving a source failure never hides the rest of
+failures` next to real `servers-row-*` elements, proving a source failure never hides the rest of
   the list.
 
 Each screen's `navigate()` opens the Servers view and waits for `servers-scan-status[data-running=

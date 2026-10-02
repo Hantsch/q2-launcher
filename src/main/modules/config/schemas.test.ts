@@ -269,7 +269,11 @@ describe('setProfileCvarsInputSchema - cvarSections (story 059)', () => {
   it('rejects more than 64 sections', () => {
     const payload = {
       ...validPayload,
-      cvarSections: Array.from({ length: 65 }, (_, i) => ({ id: `s${i}`, name: `S${i}`, cvars: [] })),
+      cvarSections: Array.from({ length: 65 }, (_, i) => ({
+        id: `s${i}`,
+        name: `S${i}`,
+        cvars: [],
+      })),
     }
     expect(setProfileCvarsInputSchema.safeParse(payload).success).toBe(false)
   })
@@ -305,7 +309,11 @@ describe('setProfileCvarsInputSchema - cvarSections (story 059)', () => {
           id: 's1',
           name: 'Custom',
           cvars: [],
-          subsections: Array.from({ length: 65 }, (_, i) => ({ id: `sub${i}`, name: `Sub${i}`, cvars: [] })),
+          subsections: Array.from({ length: 65 }, (_, i) => ({
+            id: `sub${i}`,
+            name: `Sub${i}`,
+            cvars: [],
+          })),
         },
       ],
     }
@@ -319,27 +327,43 @@ describe('commitProfileCvarsInputSchema (story 175)', () => {
     Object.fromEntries(Array.from({ length: count }, (_, i) => [`adr${i}`, `10.0.0.${i}`]))
 
   it('accepts one cvar and accepts the maximum', () => {
-    expect(commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: cvarsOf(1) }).success).toBe(true)
     expect(
-      commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: cvarsOf(MAX_COMMIT_CVARS) }).success,
+      commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: cvarsOf(1) }).success,
+    ).toBe(true)
+    expect(
+      commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: cvarsOf(MAX_COMMIT_CVARS) })
+        .success,
     ).toBe(true)
   })
 
   it('accepts an empty value, same as setCvars', () => {
-    expect(commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: { adr0: '' } }).success).toBe(true)
+    expect(
+      commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: { adr0: '' } }).success,
+    ).toBe(true)
   })
 
   it('rejects an empty map and one cvar over the maximum', () => {
-    expect(commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: {} }).success).toBe(false)
+    expect(commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: {} }).success).toBe(
+      false,
+    )
     expect(
-      commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: cvarsOf(MAX_COMMIT_CVARS + 1) }).success,
+      commitProfileCvarsInputSchema.safeParse({
+        profileId: 'p1',
+        cvars: cvarsOf(MAX_COMMIT_CVARS + 1),
+      }).success,
     ).toBe(false)
   })
 
   it('rejects an empty profile id, an empty cvar name and a non-string value', () => {
-    expect(commitProfileCvarsInputSchema.safeParse({ profileId: '', cvars: { adr0: 'x' } }).success).toBe(false)
-    expect(commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: { '': 'x' } }).success).toBe(false)
-    expect(commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: { adr0: 1 } }).success).toBe(false)
+    expect(
+      commitProfileCvarsInputSchema.safeParse({ profileId: '', cvars: { adr0: 'x' } }).success,
+    ).toBe(false)
+    expect(
+      commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: { '': 'x' } }).success,
+    ).toBe(false)
+    expect(
+      commitProfileCvarsInputSchema.safeParse({ profileId: 'p1', cvars: { adr0: 1 } }).success,
+    ).toBe(false)
   })
 })
 
@@ -524,9 +548,9 @@ describe('writeProfileInputSchema (story 079 D8)', () => {
   })
 
   it('rejects an empty installationId', () => {
-    expect(
-      writeProfileInputSchema.safeParse({ profileId: 'p1', installationId: '' }).success,
-    ).toBe(false)
+    expect(writeProfileInputSchema.safeParse({ profileId: 'p1', installationId: '' }).success).toBe(
+      false,
+    )
   })
 })
 
@@ -609,9 +633,7 @@ describe('importFilesPreviewInputSchema (fileIds)', () => {
 
   it('rejects a value that is not an array of strings', () => {
     expect(importFilesPreviewInputSchema.safeParse({ fileIds: [1, 2, 3] }).success).toBe(false)
-    expect(
-      importFilesPreviewInputSchema.safeParse({ fileIds: [{ id: 'a1' }] }).success,
-    ).toBe(false)
+    expect(importFilesPreviewInputSchema.safeParse({ fileIds: [{ id: 'a1' }] }).success).toBe(false)
     expect(importFilesPreviewInputSchema.safeParse({ fileIds: 'a1' }).success).toBe(false)
   })
 
@@ -629,9 +651,9 @@ describe('importFilesCommitInputSchema (fileIds)', () => {
   const base = { name: 'Imported' }
 
   it('accepts a normal small array of id strings alongside name', () => {
-    expect(
-      importFilesCommitInputSchema.safeParse({ ...base, fileIds: ['a1', 'a2'] }).success,
-    ).toBe(true)
+    expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: ['a1', 'a2'] }).success).toBe(
+      true,
+    )
   })
 
   it('rejects an empty fileIds array', () => {
@@ -640,15 +662,13 @@ describe('importFilesCommitInputSchema (fileIds)', () => {
 
   it('rejects a fileIds array over the cap', () => {
     const tooMany = Array.from({ length: MAX_IMPORT_FILE_IDS + 1 }, (_, i) => `id${i}`)
-    expect(
-      importFilesCommitInputSchema.safeParse({ ...base, fileIds: tooMany }).success,
-    ).toBe(false)
+    expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: tooMany }).success).toBe(
+      false,
+    )
   })
 
   it('rejects a fileIds value that is not an array of strings', () => {
-    expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: [1, 2] }).success).toBe(
-      false,
-    )
+    expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: [1, 2] }).success).toBe(false)
     expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: 'a1' }).success).toBe(false)
   })
 })

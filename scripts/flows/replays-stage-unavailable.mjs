@@ -17,7 +17,10 @@ export const variant = REPLAYS_TIMELINE_VARIANT
 const TIMEOUT_MS = 8_000
 const files = replaysTimelineEngineFiles()
 const en = JSON.parse(
-  readFileSync(fileURLToPath(new URL('../../src/renderer/src/i18n/locales/en.json', import.meta.url)), 'utf8'),
+  readFileSync(
+    fileURLToPath(new URL('../../src/renderer/src/i18n/locales/en.json', import.meta.url)),
+    'utf8',
+  ),
 )
 
 export async function setup() {
@@ -55,7 +58,11 @@ export default async function replaysStageUnavailable({ page, step, shot }) {
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForScan(page)
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
@@ -63,7 +70,8 @@ export default async function replaysStageUnavailable({ page, step, shot }) {
   const reason = page.getByTestId('replays-stage-reason')
   await reason.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const text = ((await reason.textContent()) ?? '').trim()
-  if (text !== expectedReason) fail(`the reason shows ${JSON.stringify(text)}, expected ${JSON.stringify(expectedReason)}`)
+  if (text !== expectedReason)
+    fail(`the reason shows ${JSON.stringify(text)}, expected ${JSON.stringify(expectedReason)}`)
   await shot('stage-unavailable')
 
   step('the launch line opens the game in its own window: vid_fullscreen 0, no vid_geometry')
@@ -80,8 +88,10 @@ export default async function replaysStageUnavailable({ page, step, shot }) {
       await sleep(150)
     }
   }
-  if (!line.includes('+set vid_fullscreen 0')) fail(`the launching line lacks +set vid_fullscreen 0: ${JSON.stringify(line)}`)
-  if (line.includes('vid_geometry')) fail(`the launching line must not carry vid_geometry: ${JSON.stringify(line)}`)
+  if (!line.includes('+set vid_fullscreen 0'))
+    fail(`the launching line lacks +set vid_fullscreen 0: ${JSON.stringify(line)}`)
+  if (line.includes('vid_geometry'))
+    fail(`the launching line must not carry vid_geometry: ${JSON.stringify(line)}`)
 
   step('after the game exits the timeline is gone')
   writeFileSync(files.quitFile, '')

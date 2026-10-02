@@ -64,7 +64,8 @@ const KNOWN_APPID = '2320'
 // Mirrors src/renderer/src/i18n/locales/en.json's `runner.unavailable.*`/`runner.steam.caveat` -
 // asserted verbatim, the same way `windows-build-on-linux.mjs` asserts the wine reason text.
 const STEAM_NOT_FOUND_TEXT = 'Steam not found — install Steam to hand this game off to it'
-const STEAM_NOT_OWNER_TEXT = 'this folder is not a Steam install — Steam can only start games it owns'
+const STEAM_NOT_OWNER_TEXT =
+  'this folder is not a Steam install — Steam can only start games it owns'
 const STEAM_UNKNOWN_APP_TEXT = 'this Steam game has no known launch options'
 const STEAM_CAVEAT_TEXT =
   "Steam runs its own copy of the game: the launcher's launch arguments and active game directory " +
@@ -121,7 +122,9 @@ export async function setup() {
     // AC (steam not found) needs Steam provably absent, not merely "probably absent on this CI
     // runner" - PATH is scrubbed for the whole app lifetime here; the Linux branch prepends its own
     // steam stub back onto it later, at runtime, via Playwright's `app.evaluate()`.
-    console.log('  scrubbing PATH for the whole run: steam must be provably absent (first assertion)')
+    console.log(
+      '  scrubbing PATH for the whole run: steam must be provably absent (first assertion)',
+    )
     env.PATH = ''
   }
 
@@ -132,7 +135,7 @@ export default async function steamHandoff({ page, app, step, shot }) {
   if (process.platform === 'win32') {
     await runWindowsBranch({ page, step, shot })
     console.log(
-      "steam-handoff: SKIPPING the Linux branch (pressing Play, and the steam-not-found step) " +
+      'steam-handoff: SKIPPING the Linux branch (pressing Play, and the steam-not-found step) ' +
         "LOUDLY - this host's process.platform is 'win32'. The ubuntu xvfb CI job runs the Linux " +
         'branch for real - see .github/workflows/ci.yml.',
     )
@@ -189,7 +192,9 @@ async function addInstallation({ page, step, folderRoot, name }) {
     throw new Error(`no installation named "${name}" was registered`)
   }
 
-  const row = page.locator('div.panel', { has: page.getByTestId(`installation-remove-${registered.id}`) })
+  const row = page.locator('div.panel', {
+    has: page.getByTestId(`installation-remove-${registered.id}`),
+  })
   await row.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   return { registered, row }
@@ -204,7 +209,9 @@ async function assertSteamDisabled(row, expectedReasonText) {
   const steamOption = row.getByTestId('installation-runner-option-steam')
   await steamOption.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (!(await steamOption.isDisabled())) {
-    throw new Error(`expected the steam runner option to be disabled (reason: ${JSON.stringify(expectedReasonText)})`)
+    throw new Error(
+      `expected the steam runner option to be disabled (reason: ${JSON.stringify(expectedReasonText)})`,
+    )
   }
   const reason = row.getByTestId('installation-runner-reason-steam')
   await reason.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -289,7 +296,9 @@ async function runWindowsBranch({ page, step, shot }) {
     folderRoot: notOwnedRoot,
     name: NOT_OWNED_NAME,
   })
-  step('assert Steam is disabled with the not-owner reason (Steam "exists" via the harness override, but this folder is not one of its own)')
+  step(
+    'assert Steam is disabled with the not-owner reason (Steam "exists" via the harness override, but this folder is not one of its own)',
+  )
   await assertSteamDisabled(notOwnedRow, STEAM_NOT_OWNER_TEXT)
   await shot('windows-steam-not-owner')
 
@@ -310,11 +319,15 @@ async function runWindowsBranch({ page, step, shot }) {
     name: KNOWN_APP_NAME,
   })
 
-  step('assert Steam is enabled, but its caveat is NOT shown yet - it is not the selected runner (D2: the caveat now follows the choice, not merely the option being listed)')
+  step(
+    'assert Steam is enabled, but its caveat is NOT shown yet - it is not the selected runner (D2: the caveat now follows the choice, not merely the option being listed)',
+  )
   const steamOption = knownRow.getByTestId('installation-runner-option-steam')
   await steamOption.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (await steamOption.isDisabled()) {
-    throw new Error('expected the steam runner option to be enabled via the harness executable override')
+    throw new Error(
+      'expected the steam runner option to be enabled via the harness executable override',
+    )
   }
   if ((await knownRow.getByTestId('installation-runner-steam-caveat').count()) !== 0) {
     throw new Error('expected no steam caveat before Steam is the selected runner (AC3)')
@@ -324,16 +337,24 @@ async function runWindowsBranch({ page, step, shot }) {
   step('select Steam, choose "Ground Zero", and wait for the choice to persist')
   await selectSteamAndGroundZero({ page, row: knownRow, registered: knownInstall })
 
-  step('assert the caveat paragraph is now visible as DOM text, now that Steam is the selected runner (AC3)')
+  step(
+    'assert the caveat paragraph is now visible as DOM text, now that Steam is the selected runner (AC3)',
+  )
   const caveat = knownRow.getByTestId('installation-runner-steam-caveat')
   await caveat.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('windows-steam-enabled-caveat')
 
-  step('assert the previewed launch string refreshes live to the Ground Zero URL - no remount needed - Play is NOT pressed on Windows (a real Steam client may be installed on this machine)')
+  step(
+    'assert the previewed launch string refreshes live to the Ground Zero URL - no remount needed - Play is NOT pressed on Windows (a real Steam client may be installed on this machine)',
+  )
   const expectedUrl = `steam://launch/${KNOWN_APPID}/client/4`
   const previewLocator = knownRow.getByTestId('installation-runner-preview')
   await previewLocator.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const previewText = await waitForPreviewContains(previewLocator, expectedUrl, RUNNER_REFRESH_TIMEOUT_MS)
+  const previewText = await waitForPreviewContains(
+    previewLocator,
+    expectedUrl,
+    RUNNER_REFRESH_TIMEOUT_MS,
+  )
   await shot('windows-steam-client-selected')
 
   console.log(
@@ -353,7 +374,9 @@ async function runLinuxBranch({ page, app, step, shot }) {
     name: NOT_OWNED_NAME,
   })
 
-  step('assert Steam is disabled with the "not found" reason - PATH is scrubbed of any steam binary')
+  step(
+    'assert Steam is disabled with the "not found" reason - PATH is scrubbed of any steam binary',
+  )
   await assertSteamDisabled(notOwnedRow, STEAM_NOT_FOUND_TEXT)
   await shot('steam-not-found')
 
@@ -374,7 +397,9 @@ async function runLinuxBranch({ page, app, step, shot }) {
   await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
   await notOwnedRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
-  step('assert Steam is now found but disabled with the not-owner reason (this folder is not a Steam install)')
+  step(
+    'assert Steam is now found but disabled with the not-owner reason (this folder is not a Steam install)',
+  )
   await assertSteamDisabled(notOwnedRow, STEAM_NOT_OWNER_TEXT)
   await shot('steam-not-owner')
 
@@ -395,11 +420,15 @@ async function runLinuxBranch({ page, app, step, shot }) {
     name: KNOWN_APP_NAME,
   })
 
-  step('assert Steam is enabled, but its caveat is NOT shown yet - it is not the selected runner (D2: the caveat now follows the choice, not merely the option being listed)')
+  step(
+    'assert Steam is enabled, but its caveat is NOT shown yet - it is not the selected runner (D2: the caveat now follows the choice, not merely the option being listed)',
+  )
   const steamOption = knownRow.getByTestId('installation-runner-option-steam')
   await steamOption.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (await steamOption.isDisabled()) {
-    throw new Error('expected the steam runner option to be enabled for a folder steam owns with a known appid')
+    throw new Error(
+      'expected the steam runner option to be enabled for a folder steam owns with a known appid',
+    )
   }
   if ((await knownRow.getByTestId('installation-runner-steam-caveat').count()) !== 0) {
     throw new Error('expected no steam caveat before Steam is the selected runner (AC3)')
@@ -409,7 +438,9 @@ async function runLinuxBranch({ page, app, step, shot }) {
   step('select Steam, choose "Ground Zero", and wait for the choice to persist')
   await selectSteamAndGroundZero({ page, row: knownRow, registered: knownInstall })
 
-  step('assert the caveat paragraph is now visible as DOM text, now that Steam is the selected runner (AC3)')
+  step(
+    'assert the caveat paragraph is now visible as DOM text, now that Steam is the selected runner (AC3)',
+  )
   const caveat = knownRow.getByTestId('installation-runner-steam-caveat')
   await caveat.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const caveatText = await caveat.innerText()
@@ -418,11 +449,17 @@ async function runLinuxBranch({ page, app, step, shot }) {
   }
   await shot('steam-enabled-caveat')
 
-  step('assert the previewed launch string refreshes live to the Ground Zero URL - no remount needed')
+  step(
+    'assert the previewed launch string refreshes live to the Ground Zero URL - no remount needed',
+  )
   const expectedUrl = `steam://launch/${KNOWN_APPID}/client/4`
   const previewLocator = knownRow.getByTestId('installation-runner-preview')
   await previewLocator.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const previewText = await waitForPreviewContains(previewLocator, expectedUrl, RUNNER_REFRESH_TIMEOUT_MS)
+  const previewText = await waitForPreviewContains(
+    previewLocator,
+    expectedUrl,
+    RUNNER_REFRESH_TIMEOUT_MS,
+  )
   await shot('steam-client-selected')
   console.log(`previewed launch string: ${JSON.stringify(previewText)}`)
 
@@ -451,7 +488,9 @@ async function runLinuxBranch({ page, app, step, shot }) {
   step("assert 'running' was never observed, and the stub recorded exactly the expected URL")
   const phases = await page.evaluate(() => window.__q2lPhases)
   if (phases.includes('running')) {
-    throw new Error(`launch:state broadcast a 'running' phase during a steam handoff: ${JSON.stringify(phases)}`)
+    throw new Error(
+      `launch:state broadcast a 'running' phase during a steam handoff: ${JSON.stringify(phases)}`,
+    )
   }
   const logContents = readFileSync(steamStub.logPath, 'utf8').trim()
   if (logContents !== expectedUrl) {

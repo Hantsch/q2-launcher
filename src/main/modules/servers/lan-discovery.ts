@@ -5,7 +5,12 @@ import {
 } from '@shared/modules/servers'
 import { parseInfoReply, type InfoReplySuccess } from '@shared/servers/info-reply'
 import { buildInfoQuery } from '@shared/servers/protocol'
-import { INFO_QUERY_PROTOCOL_VERSION, systemClock, type Clock, type TimerHandle } from './server-query'
+import {
+  INFO_QUERY_PROTOCOL_VERSION,
+  systemClock,
+  type Clock,
+  type TimerHandle,
+} from './server-query'
 
 /**
  * Story 196 D1: LAN discovery. One `info` query is broadcast per usable IPv4 interface (directed
@@ -121,7 +126,9 @@ export function directedBroadcast(address: string, netmask: string): string | nu
   return intToIpv4((a | ~m) >>> 0)
 }
 
-function planFromInterfaces(interfaces: Record<string, NetworkInterfaceInfo[] | undefined>): Plan[] {
+function planFromInterfaces(
+  interfaces: Record<string, NetworkInterfaceInfo[] | undefined>,
+): Plan[] {
   const plans: Plan[] = []
   for (const infos of Object.values(interfaces)) {
     for (const info of infos ?? []) {
@@ -191,7 +198,10 @@ export async function discoverLanServers(
     await Promise.all(
       plans.map(async (plan) => {
         try {
-          return { socket: await udpImpl(plan.bindAddress, { onMessage, onError: () => undefined }), plan }
+          return {
+            socket: await udpImpl(plan.bindAddress, { onMessage, onError: () => undefined }),
+            plan,
+          }
         } catch {
           return null
         }

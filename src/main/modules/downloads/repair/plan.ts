@@ -28,7 +28,10 @@ const RETAIL_COPY_KEYS = new Set<string>([
   'validation.retailPaksMissing',
 ])
 
-function offerKindFor(finding: ValidationCheck, canSupplyEngine: boolean): RepairOfferKind | undefined {
+function offerKindFor(
+  finding: ValidationCheck,
+  canSupplyEngine: boolean,
+): RepairOfferKind | undefined {
   if (EXECUTABLE_MISSING_KEYS.has(finding.messageKey)) {
     // Only offer to reinstall the engine when the manifest can actually supply this
     // installation's recorded engine - never promise a fix the job could not fulfil.

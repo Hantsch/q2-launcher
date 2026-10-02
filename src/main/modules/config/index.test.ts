@@ -200,7 +200,12 @@ describe('previewProfileFiles', () => {
       log,
     })
     expect(result.state.installations).toEqual([
-      { installationId: 'i1', path: join(dir, 'baseq2', 'Profile.cfg'), fileName: 'Profile.cfg', status: 'inSync' },
+      {
+        installationId: 'i1',
+        path: join(dir, 'baseq2', 'Profile.cfg'),
+        fileName: 'Profile.cfg',
+        status: 'inSync',
+      },
     ])
 
     expect(preview).toHaveLength(2)
@@ -668,7 +673,9 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     const afterActionsReorder = actionsResult.find((p) => p.id === 'p1')!
     expect(afterActionsReorder.categories!.map((c) => c.id)).toEqual(['cat-b', 'cat-a'])
     expect(
-      afterActionsReorder.categories!.find((c) => c.id === 'cat-a')!.subcategories!.map((s) => s.id),
+      afterActionsReorder
+        .categories!.find((c) => c.id === 'cat-a')!
+        .subcategories!.map((s) => s.id),
     ).toEqual(['sub-2', 'sub-1'])
     expect(afterActionsReorder.actions!.map((a) => a.id)).toEqual(['a2', 'a1'])
     // AC1: the reorder alone already shows up as an unsaved change.
@@ -739,7 +746,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     expect(await readFile(join(dir, 'baseq2', 'Profile.cfg'), 'latin1')).toBe(expected)
   })
 
-  it('setWriteCatalogDefaults (story 059 D9) toggles whether an imported profile\'s rendered file carries a Defaults section, and survives reload', async () => {
+  it("setWriteCatalogDefaults (story 059 D9) toggles whether an imported profile's rendered file carries a Defaults section, and survives reload", async () => {
     const inst = installation()
     const { handlers, state } = await boot({ installations: [inst] })
     // Story 059 decision: `cvarSections: []` is what an imported/empty-seeded profile looks like -
@@ -774,7 +781,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toContain('Defaults')
   })
 
-  it('setWriteCatalogDefaults (story 059 D9) is a no-op for a template profile\'s rendered file either way', async () => {
+  it("setWriteCatalogDefaults (story 059 D9) is a no-op for a template profile's rendered file either way", async () => {
     const inst = installation()
     const { handlers, state } = await boot({ installations: [inst] })
     // The default `profile()` fixture carries `STANDARD_TEMPLATE.cvarSections`, which places every
@@ -915,7 +922,12 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     })) as Outcome<ProfileSyncState>
     if (!synced.ok) throw new Error('expected syncState to succeed')
     expect(synced.value.installations).toEqual([
-      { installationId: 'i1', path: join(dir, 'baseq2', 'Profile.cfg'), fileName: 'Profile.cfg', status: 'inSync' },
+      {
+        installationId: 'i1',
+        path: join(dir, 'baseq2', 'Profile.cfg'),
+        fileName: 'Profile.cfg',
+        status: 'inSync',
+      },
     ])
   })
 })
@@ -981,7 +993,8 @@ describe('story 043 D4: explicit save', () => {
     const result = await save(handlers)
 
     if (!result.ok) throw new Error('expected save to succeed')
-    if (result.value.status !== 'saved') throw new Error(`expected saved, got ${result.value.status}`)
+    if (result.value.status !== 'saved')
+      throw new Error(`expected saved, got ${result.value.status}`)
     const expected = renderProfileFile(result.value.profile)
     expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(expected)
     // The installation cascade is unchanged by this deliverable - it still runs, from the same
@@ -1011,7 +1024,8 @@ describe('story 043 D4: explicit save', () => {
     const result = await save(handlers)
 
     if (!result.ok) throw new Error('expected save to succeed')
-    if (result.value.status !== 'saved') throw new Error(`expected saved, got ${result.value.status}`)
+    if (result.value.status !== 'saved')
+      throw new Error(`expected saved, got ${result.value.status}`)
     const expected = renderProfileFile(result.value.profile)
     // Story 079 D4: a running game defers nothing - the canonical file and the installation copy
     // are written exactly as they would be if the installation were idle.
@@ -1019,7 +1033,12 @@ describe('story 043 D4: explicit save', () => {
     expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(expected)
     expect(result.value.sync.own.status).toBe('inSync')
     expect(result.value.sync.installations).toEqual([
-      { installationId: 'i1', path: copyPath('Profile.cfg'), fileName: 'Profile.cfg', status: 'inSync' },
+      {
+        installationId: 'i1',
+        path: copyPath('Profile.cfg'),
+        fileName: 'Profile.cfg',
+        status: 'inSync',
+      },
     ])
 
     // Nothing is left behind to retry, and `writeState` (the pending-write report) is empty.
@@ -1124,7 +1143,8 @@ describe('story 043 D4: explicit save', () => {
     const result = await save(handlers)
 
     if (!result.ok) throw new Error('expected save to succeed')
-    if (result.value.status !== 'saved') throw new Error(`expected saved, got ${result.value.status}`)
+    if (result.value.status !== 'saved')
+      throw new Error(`expected saved, got ${result.value.status}`)
     expect(await readFile(canonicalPath('Renamed.cfg'), 'latin1')).toBe(
       renderProfileFile(result.value.profile),
     )
@@ -1179,7 +1199,7 @@ describe('story 043 D4: explicit save', () => {
     expect(await pathExists(copyPath('autoexec.cfg'))).toBe(true)
   })
 
-  it('the retry trigger `write` publishes the canonical file too, not a dirty profile\'s unsaved edits', async () => {
+  it("the retry trigger `write` publishes the canonical file too, not a dirty profile's unsaved edits", async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
     state.setConfigProfiles([profile()])
@@ -1290,7 +1310,7 @@ describe('story 043 D4: explicit save', () => {
     expect(only(state).dirty).toBe(false)
   })
 
-  it('write with installationId touches only the named installation, not the profile\'s other assignments', async () => {
+  it("write with installationId touches only the named installation, not the profile's other assignments", async () => {
     const i1 = installation({ id: 'i1', rootPath: join(dir, 'i1') })
     const i2 = installation({ id: 'i2', rootPath: join(dir, 'i2') })
     await mkdir(join(i1.rootPath, 'baseq2'), { recursive: true })
@@ -1429,7 +1449,7 @@ describe('story 043 D4: explicit save', () => {
     expect(only(state).dirty).toBe(false)
   })
 
-  it('syncState and rawFiles judge a dirty profile\'s installation copy against the FILE, so a retry can still clear it', async () => {
+  it("syncState and rawFiles judge a dirty profile's installation copy against the FILE, so a retry can still clear it", async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
     state.setConfigProfiles([profile()])
@@ -1590,14 +1610,19 @@ describe('story 175: commitCvars', () => {
   const ADDRESS = '203.0.113.7:27910'
 
   async function save(handlers: Map<string, ModuleHandler>): Promise<Outcome<SaveProfileResult>> {
-    return (await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })) as Outcome<SaveProfileResult>
+    return (await handlers.get(CONFIG_HANDLERS.save)!({
+      profileId: 'p1',
+    })) as Outcome<SaveProfileResult>
   }
 
   async function commit(
     handlers: Map<string, ModuleHandler>,
     cvars: Record<string, string> = { adr0: ADDRESS },
   ): Promise<Outcome<ConfigProfile>> {
-    return (await handlers.get(CONFIG_HANDLERS.commitCvars)!({ profileId: 'p1', cvars })) as Outcome<ConfigProfile>
+    return (await handlers.get(CONFIG_HANDLERS.commitCvars)!({
+      profileId: 'p1',
+      cvars,
+    })) as Outcome<ConfigProfile>
   }
 
   function only(state: StateStore): ConfigProfile {
@@ -1634,8 +1659,14 @@ describe('story 175: commitCvars', () => {
     state.setConfigProfiles([profile()])
     await state.settle()
     await save(handlers)
-    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9.25' } })
-    await handlers.get(CONFIG_HANDLERS.setBinds)!({ profileId: 'p1', binds: { F5: 'say pendingbind' } })
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({
+      profileId: 'p1',
+      cvars: { sensitivity: '9.25' },
+    })
+    await handlers.get(CONFIG_HANDLERS.setBinds)!({
+      profileId: 'p1',
+      binds: { F5: 'say pendingbind' },
+    })
 
     const result = await commit(handlers)
 
@@ -1807,7 +1838,9 @@ describe('CONFIG_HANDLERS.rawFiles handler (story 023 D1)', () => {
     if (!after.ok) throw new Error('expected rawFiles to succeed')
     expect(after.value.canonical.onDisk).toBe(true)
     const updated = (await handlers.get(CONFIG_HANDLERS.list)!(undefined)) as ConfigProfile[]
-    expect(after.value.canonical.content).toBe(renderProfileFile(updated.find((p) => p.id === 'p1')!))
+    expect(after.value.canonical.content).toBe(
+      renderProfileFile(updated.find((p) => p.id === 'p1')!),
+    )
   })
 
   it('reports matches: true right after a save, and false once the on-disk copy is edited independently', async () => {
@@ -1937,12 +1970,15 @@ describe('CONFIG_HANDLERS.openFile handler (story 023 D2)', () => {
     const { handlers, state } = await boot(installations)
     state.setConfigProfiles([seeded])
     await state.settle()
-    await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: seeded.id, cvars: { sensitivity: '9' } })
+    await handlers.get(CONFIG_HANDLERS.setCvars)!({
+      profileId: seeded.id,
+      cvars: { sensitivity: '9' },
+    })
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: seeded.id })
     return handlers
   }
 
-  it('opens the profile\'s own canonical file with the path main resolved itself', async () => {
+  it("opens the profile's own canonical file with the path main resolved itself", async () => {
     const handlers = await bootSynced()
 
     const result = await handlers.get(CONFIG_HANDLERS.openFile)!({
@@ -2281,7 +2317,9 @@ describe('CONFIG_HANDLERS.tidyUpApply handler (story 025 D3)', () => {
       // Deliberately non-catalogue commands, so `commit`'s own `adoptRawBinds`
       // pass has nothing to adopt and cannot muddy what this test asserts.
       binds: { MOUSE1: 'echo one', mouse1: 'echo two' },
-      layers: [{ id: 'l1', name: 'Empty', mode: 'hold', triggerKey: 'ALT', overrides: { '1': '  ' } }],
+      layers: [
+        { id: 'l1', name: 'Empty', mode: 'hold', triggerKey: 'ALT', overrides: { '1': '  ' } },
+      ],
       unrecognized: [preservedLine],
     })
   }
@@ -2539,7 +2577,9 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
     const result = await refresh(handlers, 'p1')
 
     if (!result.ok) throw new Error('expected refreshFromFiles to succeed')
-    expect(result.value).toEqual([{ profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' }])
+    expect(result.value).toEqual([
+      { profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' },
+    ])
     // Nothing in state.json changed - not even a re-stamped `fileSeenAt`.
     expect(state.configProfiles()[0]).toEqual(before)
   })
@@ -2878,10 +2918,7 @@ describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
   }
 
   /** A saved profile plus the exact bytes its canonical file holds - the editor's starting point. */
-  async function seeded(
-    handlers: Map<string, ModuleHandler>,
-    state: StateStore,
-  ): Promise<string> {
+  async function seeded(handlers: Map<string, ModuleHandler>, state: StateStore): Promise<string> {
     state.setConfigProfiles([profile({ assignments: [] })])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
@@ -2927,7 +2964,7 @@ describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
     expect(result.value.profile.fileHash).toBe(hashCanonicalFileContent(raw))
   })
 
-  it('reports the lines it could not read back, and never the file\'s own comment lines', async () => {
+  it("reports the lines it could not read back, and never the file's own comment lines", async () => {
     const { handlers, state } = await boot()
     const onDisk = await seeded(handlers, state)
 
@@ -3012,7 +3049,7 @@ describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
     expect(only(state).fileHash).toBe(hashCanonicalFileContent(raw))
   })
 
-  it('rejects text that no longer carries the profile\'s ownership tag, and writes nothing', async () => {
+  it("rejects text that no longer carries the profile's ownership tag, and writes nothing", async () => {
     const { handlers, state } = await boot()
     const onDisk = await seeded(handlers, state)
     const before = only(state)
@@ -3028,7 +3065,7 @@ describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
     expect(only(state)).toEqual(before)
   })
 
-  it('rejects text carrying the OTHER profile\'s ownership tag', async () => {
+  it("rejects text carrying the OTHER profile's ownership tag", async () => {
     const { handlers, state } = await boot()
     state.setConfigProfiles([
       profile({ id: 'p1', name: 'Profile', assignments: [] }),
@@ -3202,8 +3239,16 @@ describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
     state.setConfigProfiles([
-      profile({ id: 'p1', name: 'Profile', assignments: [{ installationId: inst.id, isDefault: true }] }),
-      profile({ id: 'p2', name: 'Second', assignments: [{ installationId: inst.id, isDefault: false }] }),
+      profile({
+        id: 'p1',
+        name: 'Profile',
+        assignments: [{ installationId: inst.id, isDefault: true }],
+      }),
+      profile({
+        id: 'p2',
+        name: 'Second',
+        assignments: [{ installationId: inst.id, isDefault: false }],
+      }),
     ])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })

@@ -1,6 +1,12 @@
 import { realpath } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { DemoFormat, DiscoveredDemo, ReplaysDemoPlayResult, ReplaysStageRect, ReplaysStageResult } from '@shared/modules/replays'
+import type {
+  DemoFormat,
+  DiscoveredDemo,
+  ReplaysDemoPlayResult,
+  ReplaysStageRect,
+  ReplaysStageResult,
+} from '@shared/modules/replays'
 import { DEMO_BASE_GAME_DIR, demoPlayEligibility } from '@shared/replays/demo-play'
 import {
   fail,
@@ -13,7 +19,11 @@ import {
 } from '@shared/types'
 import { isFile, listDir, pathKey } from '../../lib/fs-utils'
 import { removeStagedCopy, stageDemo, stagedFileName } from './demo-staging'
-import { effectiveWriteDirs, type DiscoverableInstallation, type DiscoverContext } from './discovery'
+import {
+  effectiveWriteDirs,
+  type DiscoverableInstallation,
+  type DiscoverContext,
+} from './discovery'
 import type { PlaybackSession } from '../../services/playback-session'
 import type { PlaybackControl } from './playback-control'
 import { MOUSE_SESSION_CVARS, NOTIFY_SESSION_CVARS } from './playback-channel/protocol'
@@ -23,7 +33,11 @@ import type { EngineIo } from './playback-channel/types'
 import type { PlaybackSessions } from './playback-sessions'
 
 /** Every cvar a launch may override with `+set` and whose archived line is put back after the session. */
-export const SESSION_RESTORE_CVARS = [...STAGE_CVAR_NAMES, ...NOTIFY_SESSION_CVARS, ...MOUSE_SESSION_CVARS] as const
+export const SESSION_RESTORE_CVARS = [
+  ...STAGE_CVAR_NAMES,
+  ...NOTIFY_SESSION_CVARS,
+  ...MOUSE_SESSION_CVARS,
+] as const
 
 /**
  * Story 159 D2: `demo.play` - the one path where a renderer-sent demo id becomes a spawned process.
@@ -72,7 +86,8 @@ export function launcherSweepDirs(
   const dirs = new Map<string, string>()
   for (const installation of installations) {
     for (const gameDir of new Set([DEMO_BASE_GAME_DIR, ...installation.gameDirs])) {
-      for (const dir of stagingDemosDirs(installation, gameDir, context)) dirs.set(pathKey(dir), dir)
+      for (const dir of stagingDemosDirs(installation, gameDir, context))
+        dirs.set(pathKey(dir), dir)
     }
   }
   return [...dirs.values()]
@@ -81,7 +96,10 @@ export function launcherSweepDirs(
 /** The slice of `LaunchService` this handler needs - a fake stands in for it in tests. */
 export interface DemoPlayLaunch {
   isRunning(): boolean
-  start(input: LaunchInput, options?: { playback?: true; demo?: true }): Promise<Outcome<LaunchState>>
+  start(
+    input: LaunchInput,
+    options?: { playback?: true; demo?: true },
+  ): Promise<Outcome<LaunchState>>
   /** Story 164 D4: the piped session of a `{ playback: true }` launch (Linux). */
   getPlaybackSession?(): PlaybackSession | undefined
   onStateChange(listener: (state: LaunchState) => void): () => void
@@ -91,7 +109,9 @@ export interface DemoPlayDeps {
   /** Main's current index rows (`ReplaysScanService.read`). */
   readDemos: () => Promise<readonly DiscoveredDemo[]>
   /** Mirrors `ReplaysScanService.resolveFile`. */
-  resolveFile: (id: string) => { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] } | undefined
+  resolveFile: (
+    id: string,
+  ) => { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] } | undefined
   installations: () => readonly Installation[]
   activeInstallationId: () => string | null
   platform: string
@@ -271,9 +291,12 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
     const withStage = (args: readonly string[]): string[] => {
       if (stageArgs.length === 0) return [...args]
       const at = args.indexOf('+demo')
-      return at < 0 ? [...stageArgs, ...args] : [...args.slice(0, at), ...stageArgs, ...args.slice(at)]
+      return at < 0
+        ? [...stageArgs, ...args]
+        : [...args.slice(0, at), ...stageArgs, ...args.slice(at)]
     }
-    if (stageArgs.length > 0 && !deps.playback) input = { ...launchInput, extraArgs: withStage(launchInput.extraArgs ?? []) }
+    if (stageArgs.length > 0 && !deps.playback)
+      input = { ...launchInput, extraArgs: withStage(launchInput.extraArgs ?? []) }
     if (deps.playback) {
       let prepared: Awaited<ReturnType<PlaybackControl['prepare']>>
       try {
@@ -285,14 +308,20 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       }
       const { argsBeforeDemo, argsAfterDemo } = prepared
       // `+demo` must precede the channel's `+exec` polling loop.
-      input = { ...launchInput, extraArgs: [...argsBeforeDemo, ...withStage(launchInput.extraArgs ?? []), ...argsAfterDemo] }
+      input = {
+        ...launchInput,
+        extraArgs: [...argsBeforeDemo, ...withStage(launchInput.extraArgs ?? []), ...argsAfterDemo],
+      }
     }
     // Story 170 D3 / 174 D3: only a play whose final args `+set` a restore cvar has its archived cvars put
     // back once the game has exited (the engine writes its config on the way out). The snapshot is
     // taken - and persisted - before the process is spawned. A failed restore keeps the pending
     // snapshot on disk, so the next launcher start tries again.
     const overridesRestoreCvar = (input.extraArgs ?? []).some(
-      (arg, i, all) => i > 0 && all[i - 1] === '+set' && (SESSION_RESTORE_CVARS as readonly string[]).includes(arg),
+      (arg, i, all) =>
+        i > 0 &&
+        all[i - 1] === '+set' &&
+        (SESSION_RESTORE_CVARS as readonly string[]).includes(arg),
     )
     const cvarRestore = overridesRestoreCvar && configPath !== null ? deps.cvarRestore : undefined
     const restoring = cvarRestore !== undefined
@@ -321,7 +350,8 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       const session = pipes ? deps.launch.getPlaybackSession?.() : undefined
       void deps.playback.attach(session ? engineIoFromSession(session) : undefined)
     }
-    if (copyPath !== null) onGameEnd(input.installationId, started.value.phase, () => void removeStagedCopy(copyPath))
+    if (copyPath !== null)
+      onGameEnd(input.installationId, started.value.phase, () => void removeStagedCopy(copyPath))
     if (restoring) onGameEnd(input.installationId, started.value.phase, restoreCvars)
     // Story 171 D2: only a placed session with a control channel is followed; ended with the session.
     const endStage =
@@ -346,7 +376,12 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       if (inFlight) return fail('replays.play.unavailable.gameRunning')
       inFlight = true
       try {
-        return await playOnce(demoId, installationId, options?.acknowledgeModMissing === true, options?.stage)
+        return await playOnce(
+          demoId,
+          installationId,
+          options?.acknowledgeModMissing === true,
+          options?.stage,
+        )
       } finally {
         inFlight = false
       }
@@ -394,15 +429,31 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
         format: demo.format,
       }
       // Story 170 D3: where the engine writes its config for this game (Linux: Q2PRO's write dir).
-      const configPath = sessionConfigPath(installation, target.gameDir, playbackInfo.gameDirPath, deps.discoveryContext())
+      const configPath = sessionConfigPath(
+        installation,
+        target.gameDir,
+        playbackInfo.gameDirPath,
+        deps.discoveryContext(),
+      )
 
-      if (target.inPlaceArgs !== null && demo.source.kind === 'installation' && file.archiveEntry === null) {
-        const contained = await containment(file.absolutePath, join(installation.rootPath, demo.source.gameDir))
+      if (
+        target.inPlaceArgs !== null &&
+        demo.source.kind === 'installation' &&
+        file.archiveEntry === null
+      ) {
+        const contained = await containment(
+          file.absolutePath,
+          join(installation.rootPath, demo.source.gameDir),
+        )
         if (contained === 'missing') return fail(FILE_MISSING)
         if (contained === 'contained') {
           return launch(
             demoId,
-            { installationId: target.installationId, gameDir: target.gameDir, extraArgs: target.inPlaceArgs },
+            {
+              installationId: target.installationId,
+              gameDir: target.gameDir,
+              extraArgs: target.inPlaceArgs,
+            },
             null,
             playbackInfo,
             stage,

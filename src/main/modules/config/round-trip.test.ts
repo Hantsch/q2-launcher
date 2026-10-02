@@ -138,11 +138,13 @@ function canonicalizeProfileId(text: string): string {
     if (!ids.has(value)) ids.set(value, `SENTINEL${ids.size}`)
     return ids.get(value)!
   }
-  const out = text.replace(/(\/\/ q2-launcher profile )(\S+)( -)/, (_m, pre, id, post) =>
-    `${pre}${tokenFor(id)}${post}`,
+  const out = text.replace(
+    /(\/\/ q2-launcher profile )(\S+)( -)/,
+    (_m, pre, id, post) => `${pre}${tokenFor(id)}${post}`,
   )
-  return out.replace(/(\[q2l v=\d+ id=)([^\s\]]+)/g, (_m, prefix: string, id: string) =>
-    `${prefix}${tokenFor(id)}`,
+  return out.replace(
+    /(\[q2l v=\d+ id=)([^\s\]]+)/g,
+    (_m, prefix: string, id: string) => `${prefix}${tokenFor(id)}`,
   )
 }
 
@@ -168,7 +170,9 @@ function slotsOf(action: ConfigAction): string[] {
  * over only the fields `restoreProfileParts` never claims to recover (see D4's own doc comment:
  * `id` is reported, never adopted; `writeUnbindall`/`sectionHeaderStyle` carry no tag key in
  * `profile-metadata.ts`'s registry at all). */
-async function reimportProfile(profile: ConfigProfile): Promise<{ profile2: ConfigProfile; text1: string }> {
+async function reimportProfile(
+  profile: ConfigProfile,
+): Promise<{ profile2: ConfigProfile; text1: string }> {
   const text1 = renderProfileFile(profile)
   const result = await reimport(text1)
   const restored = restoreProfileParts(toRestoreInput(result, [], randomUUID))
@@ -420,7 +424,9 @@ describe('story 045: the two-part kinds and the wait command survive as objects'
    * looks at `commands` - the file round-tripped perfectly while the model behind it did not.
    */
   it('"Toggle whose only slot carries a modifier": the ALT override does not leak into `commands`', async () => {
-    const { profile2 } = await reimportProfile(findFixture('Toggle whose only slot carries a modifier'))
+    const { profile2 } = await reimportProfile(
+      findFixture('Toggle whose only slot carries a modifier'),
+    )
 
     expect(profile2.actions).toHaveLength(1)
     const entry = profile2.actions![0]!
@@ -532,7 +538,11 @@ describe('story 045 AC7: Care sees a broken toggle/pair that is bound to a key (
 
     const crossWired = findings.filter((finding) => finding.messageKey.endsWith('toggleCrossWired'))
     expect(crossWired).toHaveLength(1)
-    expect(crossWired[0]!.params).toMatchObject({ dispatch: 'zoom', first: 'zoom_s1', second: 'zoom_s2' })
+    expect(crossWired[0]!.params).toMatchObject({
+      dispatch: 'zoom',
+      first: 'zoom_s1',
+      second: 'zoom_s2',
+    })
   })
 
   /**
@@ -587,7 +597,9 @@ describe('story 045 AC7: Care sees a broken toggle/pair that is bound to a key (
       expect(restored.actions.some((entry) => entry.kind === 'toggle')).toBe(false)
       expect(restored.actions.some((entry) => entry.parts !== undefined)).toBe(false)
 
-      const crossWired = findings.filter((finding) => finding.messageKey.endsWith('toggleCrossWired'))
+      const crossWired = findings.filter((finding) =>
+        finding.messageKey.endsWith('toggleCrossWired'),
+      )
       expect(crossWired).toHaveLength(1)
       expect(crossWired[0]!.level).toBe('warning')
       expect(crossWired[0]!.params).toMatchObject({ dispatch: 'zoom', first: 'zoom_s1', second })
@@ -708,16 +720,18 @@ describe('closed gap: both slots modified plus an alias line keeps its slot assi
   it('the mirrored assignment (r/ALT first, t/CTRL second) is not swapped either', async () => {
     // The same shape with its two slots exchanged: a "fix" that merely inverted the guess would
     // break exactly here.
-    expect(await slots(findFixture('Own alias name, both slots modified (mirrored slots)'))).toEqual({
+    expect(
+      await slots(findFixture('Own alias name, both slots modified (mirrored slots)')),
+    ).toEqual({
       slots: ['ALT+r', 'CTRL+t'],
       aliasName: 'rail_combo',
     })
   })
 
   it('does not depend on the order the two layer sections appear in', async () => {
-    expect(await slots(findFixture('Own alias name, both slots modified (layers reversed)'))).toEqual(
-      await slots(findFixture('Own alias name, both slots modified')),
-    )
+    expect(
+      await slots(findFixture('Own alias name, both slots modified (layers reversed)')),
+    ).toEqual(await slots(findFixture('Own alias name, both slots modified')))
   })
 })
 
@@ -893,7 +907,7 @@ describe('story 063 D3: the adversarial pass over the writer/reader pair (D1/D2)
     expect(profile2.actions).toHaveLength(8)
   })
 
-  it('a keyless multi-command entry survives as one `kind: \'bind\'` entry, commands intact', async () => {
+  it("a keyless multi-command entry survives as one `kind: 'bind'` entry, commands intact", async () => {
     const profile = findFixture('Keyless bodied entries (story 063 D3)')
     const original = profile.actions!.find((action) => action.name === 'Grenade multi-throw')!
     const { profile2 } = await reimportProfile(profile)
@@ -923,7 +937,7 @@ describe('story 063 D3: the adversarial pass over the writer/reader pair (D1/D2)
     expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
   })
 
-  it('an entry referenced only by another entry\'s body keeps its alias line, and both survive', async () => {
+  it("an entry referenced only by another entry's body keeps its alias line, and both survive", async () => {
     const profile = findFixture('Keyless bodied entries (story 063 D3)')
     const original = profile.actions!.find((action) => action.name === 'Relay macro')!
     const { profile2, text1 } = await reimportProfile(profile)
@@ -987,9 +1001,7 @@ describe('story 063 D3: the adversarial pass over the writer/reader pair (D1/D2)
     expect(text1).not.toContain('an=cont_relay')
 
     // ONE entry, not two - asserted by `catalogId`, which is what the split duplicated.
-    const carrying = profile2.actions!.filter(
-      (action) => action.catalogId === 'weapons:cont-relay',
-    )
+    const carrying = profile2.actions!.filter((action) => action.catalogId === 'weapons:cont-relay')
     expect(carrying).toHaveLength(1)
 
     const restored = carrying[0]!
@@ -1013,8 +1025,10 @@ describe('story 063 D3: the adversarial pass over the writer/reader pair (D1/D2)
     expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
   })
 
-  it('a genuine `kind: \'alias\'` entry beside them stays an alias entry, never gets a key slot', async () => {
-    const { profile2, text1 } = await reimportProfile(findFixture('Keyless bodied entries (story 063 D3)'))
+  it("a genuine `kind: 'alias'` entry beside them stays an alias entry, never gets a key slot", async () => {
+    const { profile2, text1 } = await reimportProfile(
+      findFixture('Keyless bodied entries (story 063 D3)'),
+    )
 
     // No unbound line for it at all - `isUnboundEntry`'s kind guard, story 019.
     const macroLines = text1.split('\n').filter((line) => line.includes('Deliberate macro'))
@@ -1088,7 +1102,9 @@ describe('story 053 D3: sub-categories come back off the file', () => {
   /** The restored profile's sub-category names per category, and each entry's `(category,
    * sub-category)` pair - by *name*, since every id in a restored profile is freshly minted. */
   const shapeOf = (profile: ConfigProfile) => {
-    const categories = new Map((profile.categories ?? []).map((category) => [category.id, category]))
+    const categories = new Map(
+      (profile.categories ?? []).map((category) => [category.id, category]),
+    )
     const nameOf = (action: ConfigAction): [string, string | null] => {
       const category = categories.get(action.categoryId)
       const sub = category?.subcategories?.find((entry) => entry.id === action.subcategoryId)
@@ -1259,7 +1275,11 @@ describe('closed gap: a `---` in a display name is not read as a section header 
 })
 
 describe('closed gap: a layer\'s own trigger bind does not leak into "Other binds" on reimport', () => {
-  const triggeredFixtureNames = ['Hold layer', 'Two-slot entry with a layer override', 'Two-slot two-modifier entry']
+  const triggeredFixtureNames = [
+    'Hold layer',
+    'Two-slot entry with a layer override',
+    'Two-slot two-modifier entry',
+  ]
 
   for (const name of triggeredFixtureNames) {
     it(`"${name}": the reimported profile gains the physical trigger bind, but it never renders unowned`, async () => {
@@ -1535,7 +1555,7 @@ describe('adversarial mangling (story 042 D9 - not accepted on a green diff read
     expectEveryLineSurvivesRerender(after, rerendered)
   })
 
-  it('two-slot-two-modifier entry: truncating an entry line\'s tag mid-way ([q2l)', async () => {
+  it("two-slot-two-modifier entry: truncating an entry line's tag mid-way ([q2l)", async () => {
     const profile = findFixture('Two-slot two-modifier entry')
     const text = renderProfileFile(profile)
     // Story 050: this used to truncate `[q2l e=<hex> k=bind]` to `[q2l e=`. With the tag down to its
@@ -1590,7 +1610,7 @@ describe('adversarial mangling (story 042 D9 - not accepted on a green diff read
     expect(restored.warnings.some((w) => w.reason === 'metadata-version-newer')).toBe(true)
   })
 
-  it('custom category: editing a section header\'s cat= value to nonsense', async () => {
+  it("custom category: editing a section header's cat= value to nonsense", async () => {
     const profile = findFixture('Forged category name')
     const text = renderProfileFile(profile)
     const mangled = text.replace(/cat=forged-cat/, 'cat=totally-bogus-nonsense')
@@ -1613,7 +1633,7 @@ describe('adversarial mangling (story 042 D9 - not accepted on a green diff read
   // no tagged kind left for a hand edit to contradict.
   // -------------------------------------------------------------------------
 
-  it('story 050: the tag deleted from ONE of an entry\'s three bind lines', async () => {
+  it("story 050: the tag deleted from ONE of an entry's three bind lines", async () => {
     const profile = findFixture('Hand-added third key')
     const text = renderProfileFile(profile)
     // The middle of three identical-value bind lines loses its whole `// â€¦ [q2l â€¦]` tail - the shape
@@ -1637,13 +1657,16 @@ describe('adversarial mangling (story 042 D9 - not accepted on a green diff read
     expectEveryLineSurvivesRerender(after, rerendered)
   })
 
-  it('story 050: the display prose renamed on one of an entry\'s lines splits it into two rows', async () => {
+  it("story 050: the display prose renamed on one of an entry's lines splits it into two rows", async () => {
     const profile = findFixture('Modified slot 1 next to a plain slot 2')
     const text = renderProfileFile(profile)
     // The anchor line's prose is renamed to something that is not even a prefix of the entry's other
     // lines, so none of `matchAnchor`'s three steps (cid - this entry has none - then exact prose,
     // then a unique prefix relationship) can pair the two any more.
-    const mangled = text.replace('// Reload weapon [q2l key=r mod=ALT]', '// Rocket reload [q2l key=r mod=ALT]')
+    const mangled = text.replace(
+      '// Reload weapon [q2l key=r mod=ALT]',
+      '// Rocket reload [q2l key=r mod=ALT]',
+    )
     expect(mangled).not.toBe(text)
 
     const before = await reimport(text)
@@ -1662,7 +1685,10 @@ describe('adversarial mangling (story 042 D9 - not accepted on a green diff read
     // `restoreModifierSlots` documents (round 2, NEW-4), reached here exactly as it says: only
     // through a hand-edited file. It is a duplicate *claim* on one key, which the Care tab reports
     // as a collision - not a lost key and not a lost line, which is what this pass is about.
-    expect(slotsOf(restored.actions.find((a) => a.name === 'Reload weapon')!)).toEqual(['t', 'ALT+r'])
+    expect(slotsOf(restored.actions.find((a) => a.name === 'Reload weapon')!)).toEqual([
+      't',
+      'ALT+r',
+    ])
     expectEveryLineSurvivesRerender(after, rerendered)
   })
 
@@ -1788,7 +1814,7 @@ async function adoptRendered(
   return { adopted: list.find((p) => p.id === id)!, text1 }
 }
 
-describe('story 048 D3: adopting the launcher\'s own file back does not inflate profile.cvars', () => {
+describe("story 048 D3: adopting the launcher's own file back does not inflate profile.cvars", () => {
   for (const profile of ROUND_TRIP_FIXTURES) {
     it(`"${profile.name}": the adopted record re-renders the same file, with no cvar it did not store`, async () => {
       const { adopted, text1 } = await adoptRendered(profile)
@@ -1945,7 +1971,12 @@ describe('story 052 D4: category sections follow the profile, not a built-in lis
     return text
       .split('\n')
       .filter((line) => line.includes(`--- ${prefix}: `))
-      .map((line) => line.slice(line.indexOf(`${prefix}: `) + prefix.length + 2).replace(/\s*(\[q2l .*)?-+$/, '').trim())
+      .map((line) =>
+        line
+          .slice(line.indexOf(`${prefix}: `) + prefix.length + 2)
+          .replace(/\s*(\[q2l .*)?-+$/, '')
+          .trim(),
+      )
   }
 
   it('writes the sections in profile.categories order, under the profile`s own names', async () => {
@@ -1978,9 +2009,7 @@ describe('story 052 D4: category sections follow the profile, not a built-in lis
     // nothing swept into "Other".
     // (`cat-mine` is re-minted locally on read - a foreign category id means nothing here, which is
     // unchanged by this D - so it is checked against the restored category rather than literally.)
-    expect(
-      profile2.actions!.map((entry) => [entry.name, entry.categoryId] as const),
-    ).toEqual([
+    expect(profile2.actions!.map((entry) => [entry.name, entry.categoryId] as const)).toEqual([
       ['Wave', profile2.categories![0]!.id],
       ['Drop RL', 'drops'],
       ['Strafe left', 'movement'],
@@ -2242,9 +2271,7 @@ describe('story 052 D5: non-ASCII display and category names', () => {
       'Jump  up',
       'Rocket  dance',
     ])
-    expect(
-      profile2.actions!.find((entry) => entry.name === 'Rocket  dance')!.commands,
-    ).toEqual([])
+    expect(profile2.actions!.find((entry) => entry.name === 'Rocket  dance')!.commands).toEqual([])
 
     // Once, not on every pass: the second render is the same file as the first, and a third pass
     // changes neither the file nor the names again.
@@ -2412,7 +2439,12 @@ describe('story 054 D11: a scrambled sub-category / cvar-section order survives 
     const banners = text1
       .split('\n')
       .filter((line) => line.startsWith('// --- ') && line.includes('[q2l sub='))
-      .map((line) => line.slice('// --- '.length).replace(/\s*\[q2l .*$/, '').trim())
+      .map((line) =>
+        line
+          .slice('// --- '.length)
+          .replace(/\s*\[q2l .*$/, '')
+          .trim(),
+      )
     expect([...new Set(banners)]).toEqual(['Cycling', 'Ammo', 'Beta'])
 
     // The reader half: `category.subcategories` has to come back in that same order, or the next
@@ -2436,17 +2468,26 @@ describe('story 054 D11: a scrambled sub-category / cvar-section order survives 
     // every catalogue cvar) trailing after the real sections, which is not what this case is about.
     const banners = text1
       .split('\n')
-      .filter((line) => line.startsWith('// --- ') && (line.includes('[q2l cvs=') || line.includes('[q2l cvsub=')))
-      .map((line) => line.slice('// --- '.length).replace(/\s*\[q2l .*$/, '').trim())
+      .filter(
+        (line) =>
+          line.startsWith('// --- ') &&
+          (line.includes('[q2l cvs=') || line.includes('[q2l cvsub=')),
+      )
+      .map((line) =>
+        line
+          .slice('// --- '.length)
+          .replace(/\s*\[q2l .*$/, '')
+          .trim(),
+      )
       .filter((name) => name !== 'Defaults')
     expect(banners).toEqual(['Network', 'Player', 'Look', 'Move'])
 
     // The reader half.
     expect(profile2.cvarSections!.map((section) => section.name)).toEqual(['Network', 'Player'])
     expect(
-      profile2.cvarSections!.find((section) => section.name === 'Player')!.subsections!.map(
-        (sub) => sub.name,
-      ),
+      profile2
+        .cvarSections!.find((section) => section.name === 'Player')!
+        .subsections!.map((sub) => sub.name),
     ).toEqual(['Look', 'Move'])
     expect(normalize(renderProfileFile(profile2))).toBe(normalize(text1))
   })
@@ -2521,7 +2562,9 @@ describe('story 055 D2: a profile of drops is a fixed point under the new `drop_
     expect(text1).toMatch(
       /^alias drop_rail_gun\s+"drop railgun; drop slugs; say_team Dropped \[ Rail Gun \] %l; wave 1"/m,
     )
-    expect(text1).toMatch(/^alias drop_rebreather\s+"drop rebreather; say_team Dropped a rebreather"/m)
+    expect(text1).toMatch(
+      /^alias drop_rebreather\s+"drop rebreather; say_team Dropped a rebreather"/m,
+    )
     // The already-`drop_` name is untouched, in both directions.
     expect(text1).toMatch(/^alias drop_shells\s+"drop shells; drop shells; wave 1"/m)
     expect(text1).not.toContain('drop_drop_')
@@ -2545,7 +2588,9 @@ describe('story 055 D2: a profile of drops is a fixed point under the new `drop_
     // Ammo, message and the extra `wave 1` all survive as the commands they were (AC 6), so the
     // toggles D1 splices have the same body to work on after a reload as before it.
     for (const original of dropsProfile.actions!) {
-      const restored = profile2.actions!.find((entry) => entry.aliasName === aliasNameFor(original))!
+      const restored = profile2.actions!.find(
+        (entry) => entry.aliasName === aliasNameFor(original),
+      )!
       expect(restored.commands).toEqual(original.commands)
     }
     expect(slotsOf(byName.get('Railgun')!)).toEqual(['r'])
@@ -2822,7 +2867,9 @@ describe('story 051 D6: hand-edited header blocks', () => {
     // nor consumed as decoration - it stays visible as an unrecognised line, which is the safe
     // direction to fail in (a guess here would rename the profile from a stray comment).
     expect(recoverProfileName(mangled)).toBeNull()
-    expect(preservedLines(mangledResult.result, mangledResult.restored)).toContain(headerOf(text)[1])
+    expect(preservedLines(mangledResult.result, mangledResult.restored)).toContain(
+      headerOf(text)[1],
+    )
     // ...and, critically, that line is not read as a section header either: no category is minted
     // from it, and the entries stay where they were.
     expect(countConfigLines(mangledResult.result)).toBe(countConfigLines(before) - 2)
@@ -3217,7 +3264,10 @@ describe('story 059 D4: the cvar-section fixed point over hostile profiles', () 
       const known = KNOWN_UNWRITTEN_CVARS[profile.name] ?? []
       for (const name of Object.keys(profile.cvars)) {
         if (known.includes(name)) {
-          expect(names1, `${name} was expected to be unwritten, but the file carries it`).not.toContain(name)
+          expect(
+            names1,
+            `${name} was expected to be unwritten, but the file carries it`,
+          ).not.toContain(name)
           continue
         }
         expect(names1, `${name} is missing from the rendered file`).toContain(name)
@@ -3265,7 +3315,10 @@ describe('story 059 D4: what the hostile cvar-section fixtures come back as', ()
     const { profile2, text1 } = await reimportProfile(literalOtherCvarSectionProfile)
 
     // Two banners, both titled `Other`, and the tag is the only thing between them.
-    const others = text1.split('\n').map(bannerAt).filter((banner) => banner?.title === 'Other')
+    const others = text1
+      .split('\n')
+      .map(bannerAt)
+      .filter((banner) => banner?.title === 'Other')
     expect(others.map((banner) => banner!.tag !== null)).toEqual([true, false])
 
     // Exactly one section, the user's - the reserved bucket minted nothing, and the user's section
@@ -3288,7 +3341,9 @@ describe('story 059 D4: what the hostile cvar-section fixtures come back as', ()
       .map(bannerAt)
       .filter((banner) => banner?.title.endsWith('Movement'))
     expect(
-      movement.map((banner) => `${banner!.title}${banner!.tag!.includes('cvs=') ? ' <cvs>' : ' <cat>'}`),
+      movement.map(
+        (banner) => `${banner!.title}${banner!.tag!.includes('cvs=') ? ' <cvs>' : ' <cat>'}`,
+      ),
     ).toEqual(['Movement <cvs>', 'Aliases: Movement <cat>', 'Binds: Movement <cat>'])
 
     expect(shapeOf(profile2.cvarSections)).toEqual([
@@ -3505,7 +3560,9 @@ describe('round-trip: a bound demo speed action (story 167 D2)', () => {
       // What the action mirror writes for each slot: the key calls the generated alias.
       binds: { KP_PLUS: bindValueFor(up), KP_MINUS: bindValueFor(down) },
       assignments: [],
-      categories: STANDARD_TEMPLATE.categories.filter((category) => category.id === 'demo').map((c) => ({ ...c })),
+      categories: STANDARD_TEMPLATE.categories
+        .filter((category) => category.id === 'demo')
+        .map((c) => ({ ...c })),
       actions: [up, down],
     }
   }
@@ -3546,7 +3603,9 @@ describe('round-trip: a bound demo speed action (story 167 D2)', () => {
 
 describe('round-trip: a guarded demo bind (story 172 D1)', () => {
   it('a guarded demo bind survives write and read-back quoted', async () => {
-    const row = buildDemoRows().find((candidate) => candidate.catalogId.endsWith(':demoJumpForward'))!
+    const row = buildDemoRows().find((candidate) =>
+      candidate.catalogId.endsWith(':demoJumpForward'),
+    )!
     const action: ConfigAction = {
       id: 'entry-demoJumpForward',
       categoryId: 'demo',
@@ -3564,7 +3623,9 @@ describe('round-trip: a guarded demo bind (story 172 D1)', () => {
       cvars: {},
       binds: { KP_RIGHTARROW: bindValueFor(action) },
       assignments: [],
-      categories: STANDARD_TEMPLATE.categories.filter((category) => category.id === 'demo').map((c) => ({ ...c })),
+      categories: STANDARD_TEMPLATE.categories
+        .filter((category) => category.id === 'demo')
+        .map((c) => ({ ...c })),
       actions: [action],
     }
     const { profile2, text1 } = await reimportProfile(profile)

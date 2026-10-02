@@ -86,7 +86,10 @@ function readLevers() {
   }
 }
 const { commandDelayMs: COMMAND_DELAY_MS, outputBurstMs: OUTPUT_BURST_MS } = readLevers()
-const LOG_FLUSH_MS = Number(process.env.Q2L_UI_ENGINE_LOG_FLUSH_MS) > 0 ? Number(process.env.Q2L_UI_ENGINE_LOG_FLUSH_MS) : 0
+const LOG_FLUSH_MS =
+  Number(process.env.Q2L_UI_ENGINE_LOG_FLUSH_MS) > 0
+    ? Number(process.env.Q2L_UI_ENGINE_LOG_FLUSH_MS)
+    : 0
 /** Logfile appends held back by LOG_FLUSH_MS until the next flush. */
 const heldLog = []
 /** Commands held back by COMMAND_DELAY_MS: `{ dueAt, text, front }`, in arrival order. */
@@ -258,7 +261,14 @@ function expandMacros(line) {
     }
     const name = m[2] ?? m[3]
     // `$cl_paused` mirrors Q2PRO: 2 while a demo is paused, 0 otherwise.
-    out += name === 'cl_demopos' ? demoPos() : name === 'cl_paused' ? (demo.playing && demo.paused ? '2' : '0') : cvar(name)
+    out +=
+      name === 'cl_demopos'
+        ? demoPos()
+        : name === 'cl_paused'
+          ? demo.playing && demo.paused
+            ? '2'
+            : '0'
+          : cvar(name)
     i += m[0].length - 1
   }
   return out
@@ -313,7 +323,9 @@ function execFile(name) {
 
 function startDemo(file) {
   if (!file) return
-  const candidates = path.isAbsolute(file) ? [file] : searchDirs().map((dir) => path.join(dir, 'demos', file))
+  const candidates = path.isAbsolute(file)
+    ? [file]
+    : searchDirs().map((dir) => path.join(dir, 'demos', file))
   if (!candidates.some((p) => fs.existsSync(p))) {
     print(`Couldn't open demos/${file}`)
     return

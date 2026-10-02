@@ -69,7 +69,13 @@ const BASE_ROW: DemoRow = {
     map: { value: 'q2dm1', source: 'demo' },
     mod: { value: 'baseq2', source: 'demo' },
     gamemode: { value: 'ctf', source: 'sidecar' },
-    sides: { value: [{ team: 'Red', players: ['Alice'] }, { team: 'Blue', players: ['Bob'] }], source: 'sidecar' },
+    sides: {
+      value: [
+        { team: 'Red', players: ['Alice'] },
+        { team: 'Blue', players: ['Bob'] },
+      ],
+      source: 'sidecar',
+    },
     date: { value: Date.UTC(2024, 0, 1, 12, 0, 0), source: 'sidecar' },
     pov: { value: null, source: null },
     host: { value: null, source: null },
@@ -77,7 +83,9 @@ const BASE_ROW: DemoRow = {
 }
 
 function renderPanel(row: DemoRow = BASE_ROW, onClose: () => void = () => {}) {
-  render(createElement(DemoDetailPanel, { row, onClose, onRowPatched: () => {}, onRenamed: () => {} }))
+  render(
+    createElement(DemoDetailPanel, { row, onClose, onRowPatched: () => {}, onRenamed: () => {} }),
+  )
 }
 
 describe('DemoDetailPanel', () => {
@@ -95,7 +103,10 @@ describe('DemoDetailPanel', () => {
   })
 
   it('the panel shows the name as its title and the facts without provenance', async () => {
-    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: {} } } satisfies Outcome<{
+    sidecarRead.mockResolvedValue({
+      ok: true,
+      value: { state: { state: 'ok' }, values: {} },
+    } satisfies Outcome<{
       state: { state: string }
       values: Record<string, unknown>
     }>)
@@ -108,7 +119,13 @@ describe('DemoDetailPanel', () => {
     }
     const panelText = screen.getByTestId('replays-detail').textContent ?? ''
     expect(panelText).not.toContain('What the browser knows')
-    for (const provenance of ['set by you', 'from the demo', 'from the file name', 'file time', 'guessed']) {
+    for (const provenance of [
+      'set by you',
+      'from the demo',
+      'from the file name',
+      'file time',
+      'guessed',
+    ]) {
       expect(panelText).not.toContain(provenance)
     }
 
@@ -125,7 +142,16 @@ describe('DemoDetailPanel', () => {
     sidecarRead.mockResolvedValue({
       ok: true,
       value: {
-        state: { state: 'error', issues: [{ kind: 'invalidJson', key: 'replays.sidecar.issue.invalidJson', params: { line: 1, column: 2 } }] },
+        state: {
+          state: 'error',
+          issues: [
+            {
+              kind: 'invalidJson',
+              key: 'replays.sidecar.issue.invalidJson',
+              params: { line: 1, column: 2 },
+            },
+          ],
+        },
         values: {},
       },
     })
@@ -177,7 +203,12 @@ describe('DemoDetailPanel', () => {
   it('the header offers Edit, Reveal, Copy path and Rename as icon buttons', () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
     renderPanel()
-    for (const id of ['replays-detail-edit', 'replays-demo-reveal', 'replays-demo-copy-path', 'demo-rename']) {
+    for (const id of [
+      'replays-detail-edit',
+      'replays-demo-reveal',
+      'replays-demo-copy-path',
+      'demo-rename',
+    ]) {
       const button = screen.getByTestId(id) as HTMLButtonElement
       expect(button.disabled).toBe(false)
       expect(button.getAttribute('aria-label')).toBeTruthy()
@@ -188,14 +219,19 @@ describe('DemoDetailPanel', () => {
 
   it('an archive entry shows Edit disabled with the read-only reason as visible text', () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
-    renderPanel({ ...BASE_ROW, archiveEntry: { archivePath: 'pack.zip', entryPath: 'test.dm2' } } as DemoRow)
+    renderPanel({
+      ...BASE_ROW,
+      archiveEntry: { archivePath: 'pack.zip', entryPath: 'test.dm2' },
+    } as DemoRow)
     const edit = screen.getByTestId('replays-detail-edit') as HTMLButtonElement
     expect(edit.disabled).toBe(true)
     const reason = screen.getByTestId('replays-archive-readonly-edit')
     expect(reason.textContent).toContain('read-only')
     expect(edit.getAttribute('aria-describedby')).toBe(reason.id)
     expect((screen.getByTestId('demo-rename') as HTMLButtonElement).disabled).toBe(true)
-    expect(screen.getByTestId('replays-archive-readonly-rename').textContent).toContain("can't be renamed")
+    expect(screen.getByTestId('replays-archive-readonly-rename').textContent).toContain(
+      "can't be renamed",
+    )
     // An archive entry cannot enter edit mode at all.
     fireEvent.click(edit)
     expect(screen.queryByTestId('replays-editor')).toBeNull()
@@ -215,7 +251,10 @@ describe('DemoDetailPanel', () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
     const row: DemoRow = {
       ...BASE_ROW,
-      sidecar: { state: 'ok', values: { name: 'Grand final', gamemode: 'ctf', favourite: true, rating: 7 } },
+      sidecar: {
+        state: 'ok',
+        values: { name: 'Grand final', gamemode: 'ctf', favourite: true, rating: 7 },
+      },
     }
     useDemoEditorStore.getState().select(row.id)
     renderPanel(row)
@@ -227,10 +266,9 @@ describe('DemoDetailPanel', () => {
     expect(header.contains(name)).toBe(true)
     expect(name.value).toBe('Grand final')
     expect(screen.queryByTestId('replays-detail-title')).toBeNull()
-    expect(Array.from(header.querySelectorAll('button')).map((b) => b.getAttribute('data-testid'))).toEqual([
-      'replays-detail-favourite',
-      'replays-detail-close',
-    ])
+    expect(
+      Array.from(header.querySelectorAll('button')).map((b) => b.getAttribute('data-testid')),
+    ).toEqual(['replays-detail-favourite', 'replays-detail-close'])
 
     // The facts list became the form, in the same place: no reading-mode facts left.
     expect(screen.queryByTestId('replays-detail-facts-file')).toBeNull()
@@ -260,11 +298,16 @@ describe('DemoDetailPanel', () => {
       value: { state: { state: 'ok' }, values: { favourite: true, rating: 6 } },
     })
     sidecarWrite.mockResolvedValue({ ok: true, value: { status: 'saved', state: 'written' } })
-    const row: DemoRow = { ...BASE_ROW, sidecar: { state: 'ok', values: { favourite: true, rating: 6 } } }
+    const row: DemoRow = {
+      ...BASE_ROW,
+      sidecar: { state: 'ok', values: { favourite: true, rating: 6 } },
+    }
     useDemoEditorStore.getState().select(row.id)
     renderPanel(row)
     fireEvent.click(screen.getByTestId('replays-detail-edit'))
-    fireEvent.change(screen.getByTestId('replays-editor-description'), { target: { value: 'Edited note' } })
+    fireEvent.change(screen.getByTestId('replays-editor-description'), {
+      target: { value: 'Edited note' },
+    })
     fireEvent.click(screen.getByTestId('replays-editor-save'))
 
     await waitFor(() => expect(sidecarWrite).toHaveBeenCalled())
@@ -278,10 +321,15 @@ describe('DemoDetailPanel', () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
     const row: DemoRow = { ...BASE_ROW, sidecar: { state: 'ok', values: { mod: 'lithium' } } }
     useDemoEditorStore.getState().select(row.id)
-    renderPanel({ ...row, effective: { ...row.effective, mod: { value: 'lithium', source: 'sidecar' } } })
+    renderPanel({
+      ...row,
+      effective: { ...row.effective, mod: { value: 'lithium', source: 'sidecar' } },
+    })
 
     fireEvent.click(screen.getByTestId('replays-detail-edit'))
-    fireEvent.change(screen.getByTestId('replays-editor-mod'), { target: { value: 'typed but not kept' } })
+    fireEvent.change(screen.getByTestId('replays-editor-mod'), {
+      target: { value: 'typed but not kept' },
+    })
     fireEvent.click(screen.getByTestId('replays-editor-cancel'))
 
     expect(screen.queryByTestId('replays-editor')).toBeNull()
@@ -329,12 +377,19 @@ describe('DemoDetailPanel', () => {
     expect(off.getAttribute('aria-pressed')).toBe('false')
     expect(off.querySelector('svg')?.getAttribute('class')).not.toContain('fill-flame-500')
     fireEvent.click(off)
-    expect(quickEdit).toHaveBeenLastCalledWith(BASE_ROW.id, { favourite: true }, expect.any(Function))
+    expect(quickEdit).toHaveBeenLastCalledWith(
+      BASE_ROW.id,
+      { favourite: true },
+      expect.any(Function),
+    )
   })
 
   it("an archive entry's favourite toggle is disabled and described by the visible read-only reason", () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
-    renderPanel({ ...BASE_ROW, archiveEntry: { archivePath: 'pack.zip', entryPath: 'test.dm2' } } as DemoRow)
+    renderPanel({
+      ...BASE_ROW,
+      archiveEntry: { archivePath: 'pack.zip', entryPath: 'test.dm2' },
+    } as DemoRow)
     const toggle = screen.getByTestId('replays-detail-favourite') as HTMLButtonElement
     expect(toggle.disabled).toBe(true)
     const reason = screen.getByTestId('replays-archive-readonly-edit')

@@ -156,7 +156,9 @@ describe('ServerLocalContentSection install (story 192 D4)', () => {
     cleanup()
     getCatalogMock.mockResolvedValue(CATALOG)
     await renderSection('zzunknown', 'm')
-    expect(screen.getByTestId('servers-detail-mod-status').getAttribute('data-state')).toBe('missing')
+    expect(screen.getByTestId('servers-detail-mod-status').getAttribute('data-state')).toBe(
+      'missing',
+    )
     expect(screen.queryByTestId('servers-detail-mod-install')).toBeNull()
     cleanup()
     await renderSection('../evil', 'm')

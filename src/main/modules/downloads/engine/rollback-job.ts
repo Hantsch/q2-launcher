@@ -245,7 +245,10 @@ async function runRollback(args: {
     try {
       relatives = await listFilesRecursive(backupDir)
     } catch (error) {
-      return failed(ENGINE_REPLACE_FAILED, `reading the backup slot ${backupDir} failed: ${String(error)}`)
+      return failed(
+        ENGINE_REPLACE_FAILED,
+        `reading the backup slot ${backupDir} failed: ${String(error)}`,
+      )
     }
     if (relatives.length === 0) {
       return failed(ENGINE_REPLACE_FAILED, `the backup slot ${backupDir} holds no files to restore`)
@@ -326,9 +329,7 @@ async function runRollback(args: {
 
   report({ ratio: 1 })
   deps.jobs.finish(jobId, { status: 'succeeded' })
-  log?.info(
-    `rolled back the engine of ${installation.name} to ${backupVersion} (job ${jobId})`,
-  )
+  log?.info(`rolled back the engine of ${installation.name} to ${backupVersion} (job ${jobId})`)
   return {
     status: 'succeeded',
     version: backupVersion,

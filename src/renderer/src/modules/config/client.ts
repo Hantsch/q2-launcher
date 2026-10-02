@@ -78,9 +78,7 @@ export function removeConfigProfile(
 }
 
 /** Replaces a profile's cvars map and returns the full, updated profile list. */
-export function updateProfileCvars(
-  input: SetProfileCvarsInput,
-): Promise<Outcome<ConfigProfile[]>> {
+export function updateProfileCvars(input: SetProfileCvarsInput): Promise<Outcome<ConfigProfile[]>> {
   return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setCvars, input)
 }
 
@@ -95,9 +93,7 @@ export function commitProfileCvars(
 }
 
 /** Replaces a profile's binds map and returns the full, updated profile list. */
-export function updateProfileBinds(
-  input: SetProfileBindsInput,
-): Promise<Outcome<ConfigProfile[]>> {
+export function updateProfileBinds(input: SetProfileBindsInput): Promise<Outcome<ConfigProfile[]>> {
   return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setBinds, input)
 }
 
@@ -181,7 +177,11 @@ export async function assignConfigProfile(
 export async function unassignConfigProfile(
   input: UnassignProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  const result = await callModule<Outcome<ConfigProfile[]>>('config', CONFIG_HANDLERS.unassign, input)
+  const result = await callModule<Outcome<ConfigProfile[]>>(
+    'config',
+    CONFIG_HANDLERS.unassign,
+    input,
+  )
   return result.ok ? result.value : result
 }
 
@@ -217,7 +217,9 @@ export function writeConfigProfile(
  * an error for things like "profile not found"; `SaveProfileResult`'s own `status` discriminates
  * saved / conflict / unreadable.
  */
-export async function saveConfigProfile(input: SaveProfileInput): Promise<Outcome<SaveProfileResult>> {
+export async function saveConfigProfile(
+  input: SaveProfileInput,
+): Promise<Outcome<SaveProfileResult>> {
   const result = await callModule<Outcome<SaveProfileResult>>('config', CONFIG_HANDLERS.save, input)
   return result.ok ? result.value : result
 }
@@ -324,7 +326,11 @@ export async function getProfileSyncState(
  * here is `Outcome<Outcome<RawFilesResult>>`, flattened the same way.
  */
 export async function getRawFiles(input: RawFilesInput): Promise<Outcome<RawFilesResult>> {
-  const result = await callModule<Outcome<RawFilesResult>>('config', CONFIG_HANDLERS.rawFiles, input)
+  const result = await callModule<Outcome<RawFilesResult>>(
+    'config',
+    CONFIG_HANDLERS.rawFiles,
+    input,
+  )
   return result.ok ? result.value : result
 }
 
@@ -367,9 +373,7 @@ export function getSwitchBinds(): Promise<Outcome<Record<string, string>>> {
 }
 
 /** Sets or clears (key: null) the in-session profile-switch key for one installation. */
-export function setSwitchBind(
-  input: SetSwitchBindInput,
-): Promise<Outcome<Record<string, string>>> {
+export function setSwitchBind(input: SetSwitchBindInput): Promise<Outcome<Record<string, string>>> {
   return callModule<Record<string, string>>('config', CONFIG_HANDLERS.setSwitchBind, input)
 }
 
@@ -442,9 +446,7 @@ export async function scanCleanupFindings(
 }
 
 /** Backs up and removes the given redundant copies. Fails with `config.error.installationRunning` while the installation is running. */
-export async function applyCleanup(
-  input: CleanupApplyInput,
-): Promise<Outcome<CleanupApplyResult>> {
+export async function applyCleanup(input: CleanupApplyInput): Promise<Outcome<CleanupApplyResult>> {
   const result = await callModule<Outcome<CleanupApplyResult>>(
     'config',
     CONFIG_HANDLERS.cleanupApply,

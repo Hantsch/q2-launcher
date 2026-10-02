@@ -104,7 +104,7 @@ export default async function careDriftSyncNow({ page, shot, step }) {
   await page.getByTestId('config-tab-care').click({ timeout: TIMEOUT_MS })
   await clearAnySyncNowRows(page)
 
-  step("back to Overview and read the Care badge from this now-synced baseline")
+  step('back to Overview and read the Care badge from this now-synced baseline')
   await page.getByTestId('config-tab-overview').click({ timeout: TIMEOUT_MS })
   const badgeBefore = await readCareBadgeCount(page)
 
@@ -135,7 +135,9 @@ export default async function careDriftSyncNow({ page, shot, step }) {
   step('open Care')
   await page.getByTestId('config-tab-care').click({ timeout: TIMEOUT_MS })
 
-  step('the row reads Changed in the game folder and Sync now names the file it will overwrite (AC8)')
+  step(
+    'the row reads Changed in the game folder and Sync now names the file it will overwrite (AC8)',
+  )
   const driftedRow = page.getByText('Changed in the game folder', { exact: false }).first()
   await driftedRow.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const syncNowButton = page.getByRole('button', { name: 'Sync now' })
@@ -168,6 +170,8 @@ export default async function careDriftSyncNow({ page, shot, step }) {
   }
   // And genuinely rewritten, not merely coincidentally equal to what the hand-edit already produced.
   if (synced === edited) {
-    throw new Error('expected Sync now to overwrite the hand-edited bytes; the marker line survived')
+    throw new Error(
+      'expected Sync now to overwrite the hand-edited bytes; the marker line survived',
+    )
   }
 }

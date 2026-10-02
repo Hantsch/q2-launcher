@@ -45,7 +45,10 @@ describe('createDemoFileActions', () => {
     const { deps, reveal, writeClipboard } = makeDeps({
       resolveFile: (id) =>
         id === 'archived'
-          ? { absolutePath: 'C:\\demos\\archive.zip', archiveEntry: { archivePath: 'C:\\demos\\archive.zip', entryPath: 'inner.dm2' } }
+          ? {
+              absolutePath: 'C:\\demos\\archive.zip',
+              archiveEntry: { archivePath: 'C:\\demos\\archive.zip', entryPath: 'inner.dm2' },
+            }
           : undefined,
     })
     const actions = createDemoFileActions(deps)

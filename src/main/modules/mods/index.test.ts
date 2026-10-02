@@ -15,7 +15,11 @@ vi.mock('./update-job', () => ({ previewModUpdate: vi.fn(), startModUpdate: vi.f
 
 const catalogGet = vi.hoisted(() => vi.fn())
 const stagePackage = vi.hoisted(() => vi.fn())
-vi.mock('./catalog-service', () => ({ CatalogService: class { getCatalog = catalogGet } }))
+vi.mock('./catalog-service', () => ({
+  CatalogService: class {
+    getCatalog = catalogGet
+  },
+}))
 vi.mock('../downloads/stage-package', () => ({
   stagePackage,
   resolveVendoredExtractor: () => ({ path: '', exists: false }),
@@ -59,7 +63,11 @@ const list = (r: MainModuleRegistry, installationId = 'inst-1') =>
   )
 const reveal = (r: MainModuleRegistry, gameDir: string, installationId = 'inst-1') =>
   unwrap<null>(
-    r.invoke({ moduleId: 'mods', type: MODS_HANDLERS.reveal, payload: { installationId, gameDir } }),
+    r.invoke({
+      moduleId: 'mods',
+      type: MODS_HANDLERS.reveal,
+      payload: { installationId, gameDir },
+    }),
   )
 
 describe('mods module', () => {
@@ -112,7 +120,9 @@ describe('mods module', () => {
       installation(['rogue', 'xatrix'], { mods: { records: [{ gameDir: 'xatrix' }, { bad: 1 }] } }),
     )
     const outcome = await list(r)
-    expect(outcome.ok && outcome.value.gameDirs.find((d) => d.gameDir === 'rogue')?.origin).toBe('manual')
+    expect(outcome.ok && outcome.value.gameDirs.find((d) => d.gameDir === 'rogue')?.origin).toBe(
+      'manual',
+    )
   })
 
   it('a game directory with an install record is catalog', async () => {
@@ -142,7 +152,9 @@ describe('mods module', () => {
 
   describe('install', () => {
     const install = (r: MainModuleRegistry, payload: unknown) =>
-      unwrap<{ jobId: string }>(r.invoke({ moduleId: 'mods', type: MODS_HANDLERS.install, payload }))
+      unwrap<{ jobId: string }>(
+        r.invoke({ moduleId: 'mods', type: MODS_HANDLERS.install, payload }),
+      )
     const resolveInstall = (r: MainModuleRegistry, jobId: string, choice: ModInstallChoice) =>
       unwrap<null>(
         r.invoke({
@@ -276,7 +288,9 @@ describe('mods module update (story 194)', () => {
       error: { key: 'mods.update.refused.noRecord' },
     })
     expect(startModUpdate).not.toHaveBeenCalled()
-    expect(await invoke(r, MODS_HANDLERS.update, { ...payload, installationId: 'nope' })).toMatchObject({
+    expect(
+      await invoke(r, MODS_HANDLERS.update, { ...payload, installationId: 'nope' }),
+    ).toMatchObject({
       ok: false,
       error: { key: 'mods.error.installationNotFound' },
     })
@@ -295,9 +309,18 @@ describe('mods module update (story 194)', () => {
       },
     })
     const r = await registryFor(installation(['rogue'], { mods: { records: [record()] } }))
-    expect(await invoke(r, MODS_HANDLERS.updatePreview, { installationId: 'inst-1', catalogId: 'rogue' })).toEqual({
+    expect(
+      await invoke(r, MODS_HANDLERS.updatePreview, {
+        installationId: 'inst-1',
+        catalogId: 'rogue',
+      }),
+    ).toEqual({
       ok: true,
-      value: expect.objectContaining({ changedFiles: ['pak0.pak'], installedVersion: '1.0', targetVersion: '1.1' }),
+      value: expect.objectContaining({
+        changedFiles: ['pak0.pak'],
+        installedVersion: '1.0',
+        targetVersion: '1.1',
+      }),
     })
   })
 
@@ -317,7 +340,12 @@ describe('mods module update (story 194)', () => {
     })
     const inst = {
       ...installation(['rogue', 'xatrix', 'manual'], {
-        mods: { records: [record(), record({ catalogId: 'xatrix', gameDir: 'xatrix', version: '2.0', files: [] })] },
+        mods: {
+          records: [
+            record(),
+            record({ catalogId: 'xatrix', gameDir: 'xatrix', version: '2.0', files: [] }),
+          ],
+        },
       }),
       rootPath: root,
     }

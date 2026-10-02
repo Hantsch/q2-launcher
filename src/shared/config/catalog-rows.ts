@@ -18,20 +18,20 @@
  */
 
 import type { ActionCategoryId, DroppableDef } from '@shared/config/action-catalog'
-import { DEMO_ACTIONS, DROPPABLES, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from '@shared/config/action-catalog'
+import {
+  DEMO_ACTIONS,
+  DROPPABLES,
+  MOVEMENT_ACTIONS,
+  WEAPON_ACTIONS,
+  WEAPON_EXTRA_ACTIONS,
+} from '@shared/config/action-catalog'
 import type { ConfigCommand } from '@shared/modules/config'
 
 /** Which catalogue family a row was built from - used only to namespace `catalogId`s so two
  * different families' entries (e.g. movement's `attack` and a droppable named `attack`) can
  * never collide. */
 export type CatalogRowKind =
-  | 'movement'
-  | 'weaponUse'
-  | 'weaponExtra'
-  | 'dropWeapon'
-  | 'dropAmmo'
-  | 'dropMisc'
-  | 'demo'
+  'movement' | 'weaponUse' | 'weaponExtra' | 'dropWeapon' | 'dropAmmo' | 'dropMisc' | 'demo'
 
 /**
  * The three `CatalogRowKind`s that make a row a *drop* row (story 055). Typed as a set of plain
@@ -140,11 +140,17 @@ function dropRow(kind: CatalogRowKind, droppable: DroppableDef): CatalogRow {
  * `kind`; `misc` folds `powerup` and `tech` together, matching the story's
  * "Misc (everything else droppable: powerups, tech)".
  */
-export function buildDropGroups(): { weapon: CatalogRow[]; ammo: CatalogRow[]; misc: CatalogRow[] } {
+export function buildDropGroups(): {
+  weapon: CatalogRow[]
+  ammo: CatalogRow[]
+  misc: CatalogRow[]
+} {
   return {
     weapon: DROPPABLES.filter((d) => d.kind === 'weapon').map((d) => dropRow('dropWeapon', d)),
     ammo: DROPPABLES.filter((d) => d.kind === 'ammo').map((d) => dropRow('dropAmmo', d)),
-    misc: DROPPABLES.filter((d) => d.kind === 'powerup' || d.kind === 'tech').map((d) => dropRow('dropMisc', d)),
+    misc: DROPPABLES.filter((d) => d.kind === 'powerup' || d.kind === 'tech').map((d) =>
+      dropRow('dropMisc', d),
+    ),
   }
 }
 
@@ -161,7 +167,15 @@ export function buildDropGroups(): { weapon: CatalogRow[]; ammo: CatalogRow[]; m
 export function allCatalogRows(): CatalogRow[] {
   const { useRows, extraRows } = buildWeaponRows()
   const drops = buildDropGroups()
-  return [...buildMovementRows(), ...useRows, ...extraRows, ...drops.weapon, ...drops.ammo, ...drops.misc, ...buildDemoRows()]
+  return [
+    ...buildMovementRows(),
+    ...useRows,
+    ...extraRows,
+    ...drops.weapon,
+    ...drops.ammo,
+    ...drops.misc,
+    ...buildDemoRows(),
+  ]
 }
 
 /** Plain, non-translated, stable text for a catalogue row with no other display name yet - the

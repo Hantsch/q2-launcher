@@ -10,7 +10,7 @@ created: 2026-09-24
 A user looking at the server list ([[118]], ordered per [[119]]) wants to narrow it down: only my
 mod, only deathmatch, only servers with room, only servers with no password, only the ones waiting
 for an opponent, only this map — or find a specific server or a specific player by typing a name.
-None of that should ever mean a server disappears from the list *by default*: the browser's whole
+None of that should ever mean a server disappears from the list _by default_: the browser's whole
 premise is that nothing is hidden until the user asks for it, because an empty server is still a
 fact worth seeing, not noise to be swept away.
 
@@ -54,7 +54,7 @@ user in the clarification round. -->
   input, and the view applies it to [[119]]'s already-sorted rows. Filter state and sort state are
   separate values that never write to each other (AC6).
 - **Filters and search are not persisted.** They are local view state and reset when the view
-  remounts. The concept only asks for the *sort* to be remembered (§8), and a remembered filter would
+  remounts. The concept only asks for the _sort_ to be remembered (§8), and a remembered filter would
   hide servers on open, against GB-L4 ("no filter by default").
 - **An active filter needs the data to be known.** A server whose relevant field is unknown fails
   that filter: an unknown count fails non-empty/not-full/waiting, unknown `maxclients` fails not-full,
@@ -106,6 +106,7 @@ Builds on [[118]] (`ServerListRow`, `row-markers.ts`, `ServerRow.tsx`, `ServerGa
    loopback responders prove it on the real surface.
 
 **Plan assumptions (118/119 are refined in parallel):**
+
 - 118 lands `src/shared/servers/row-markers.ts` with `knownPlayerCount`/`isWaitingForOpponent`,
   `ServerListEntry.gamemode?: ServerGamemode`, and `ServerListRow`.
 - 119 lands a sort function whose output the view renders, plus a sort control with a stable testid.
@@ -292,7 +293,7 @@ assertions (all present and passing per the verification agent's walk).
 Review: default-tier only (per Model Hints), verdict PASS. One confirmed finding fixed directly
 (CHANGELOG.md: the pre-existing "Your choice sticks across restarts." line was orphaned under the
 new filter/search entry instead of the sort entry it belongs to — moved, and the filter/search
-entry now states its own no-persistence behaviour instead). One finding left unfixed: 
+entry now states its own no-persistence behaviour instead). One finding left unfixed:
 `filterServers`'s internal `as unknown as ServerListRow` cast (list-filter.ts) is a type-safety
 smell with no current bug (both call sites already pass `ServerListRow[]`) — left as-is rather
 than widening `matchesFilter`'s signature for a hypothetical future caller.

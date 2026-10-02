@@ -27,9 +27,7 @@ import {
 
 /** Where `home`'s news fetcher should get `news/index.json` and its documents from. */
 export type NewsSource =
-  | { kind: 'production' }
-  | { kind: 'loopback'; base: string }
-  | { kind: 'skip' }
+  { kind: 'production' } | { kind: 'loopback'; base: string } | { kind: 'skip' }
 
 /**
  * Resolves the news fetch source for this process.

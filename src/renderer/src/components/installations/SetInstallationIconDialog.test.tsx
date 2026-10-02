@@ -87,7 +87,9 @@ describe('SetInstallationIconDialog', () => {
     // The click handler is fire-and-forget (`onClick={() => void chooseFile()}`); `waitFor` retries
     // until the mocked pick's promise resolves and the store's invalidation has run.
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith('installations:pickIconFile', { installationId: 'inst-1' })
+      expect(invokeMock).toHaveBeenCalledWith('installations:pickIconFile', {
+        installationId: 'inst-1',
+      })
     })
     expect('inst-1' in useLauncher.getState().iconDataUrls).toBe(false)
   })

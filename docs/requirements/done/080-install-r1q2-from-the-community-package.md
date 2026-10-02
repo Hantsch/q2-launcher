@@ -224,6 +224,7 @@ Implemented across four deliverables (D1-D4):
   remaining named unit tests in `pipeline.test.ts`/`shipped-manifest.test.ts`.
 
 **Decisions:**
+
 - Publishing the community mirror to GitHub (the actual release upload) is out
   of scope for this build: it requires human legal sign-off on the still-open
   dependency/third-party notices (the community `engines/r1q2/README.md`
@@ -242,6 +243,7 @@ Implemented across four deliverables (D1-D4):
   story itself anticipated - not run as part of this build.
 
 **Verification:**
+
 - `npm run build` - clean.
 - `npm run typecheck` - clean (node + web).
 - `npm test` - 3287 tests, all green; two flaky failures observed during full-suite

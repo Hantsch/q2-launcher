@@ -139,7 +139,7 @@ Files: `src/renderer/src/modules/servers/join/{useJoinFlow.tsx,JoinServerButton.
   - e2e `scripts/flows/servers-actionbar-join.mjs` (mirror `scripts/flows/servers-join.mjs`: same
     two loopback responders B = baseq2/no password, A = ctf/needpass; fixture
     `writeJoinFixture({ servers, variant: 'servers-actionbar-join' })`; `export const variant =
-    'servers-actionbar-join'`). Steps: open `nav-servers`, refresh; assert `actionbar-play` reads
+'servers-actionbar-join'`). Steps: open `nav-servers`, refresh; assert `actionbar-play` reads
     "Join" and is disabled; select B → enabled, press → newest `launching` line in `main.log` has
     `+connect <B>`; select B then A, press `actionbar-play` → `servers-join-mismatch` appears,
     confirm → `servers-join-password`, submit `hunter2 x` → newest line ends
@@ -189,6 +189,7 @@ Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vit
 AC -> test, all passed: AC1 flow step "no server selected: Join is disabled" + ServersView.actionbar "no selection…" · AC2 flow "Join from the action bar connects…" + ServersView.actionbar (selected / watchlist) · AC3 flow "mismatch then password then join…" + useJoinFlow.test (both) + unchanged JoinServerButton.test · AC4 ActionBar.test "installation states win over the Servers Join contribution" · AC5 flow "leaving Servers turns the button back into Play" · no-installation decision: ServersView.actionbar + ActionBar.test. No manual residue.
 
 Decisions:
+
 - ActionBar `resolvePrimaryAction`: with no installation, a present contribution is returned forced-disabled (label + readout reason); installation-level states still win.
 - CHANGELOG line moved by the orchestrator from `### Fixed` to `### Added` after review.
 - Unfixed, minor (review): "uses the row it was given" test has no mismatch step, so a stale pending row across dialog steps is not covered by it; no unit test for the invalid-address disabled+reason branch (ServersView.tsx); Join stays enabled for a selected server hidden by a list filter (matches the `entries.find` decision).

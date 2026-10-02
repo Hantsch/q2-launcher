@@ -76,7 +76,9 @@ describe('decideAutoTrigger / autoRefreshDelayMs (pure)', () => {
 
     // autoRefreshEnabled gates the refresh trigger and whether a timer exists at all.
     expect(
-      decideAutoTrigger(input({ kind: 'refresh', settings: settings({ autoRefreshEnabled: false }) })),
+      decideAutoTrigger(
+        input({ kind: 'refresh', settings: settings({ autoRefreshEnabled: false }) }),
+      ),
     ).toEqual({ trigger: false, reason: 'disabled' })
     expect(
       decideAutoTrigger(input({ kind: 'open', settings: settings({ autoRefreshEnabled: false }) })),
@@ -92,10 +94,14 @@ describe('decideAutoTrigger / autoRefreshDelayMs (pure)', () => {
 
     // minSpacingMs moves the spacing threshold: last scan 20s ago.
     const lastScanAt = isoAgo(20_000)
-    expect(decideAutoTrigger(input({ lastScanAt, settings: settings({ minSpacingMs: 15_000 }) }))).toEqual({
+    expect(
+      decideAutoTrigger(input({ lastScanAt, settings: settings({ minSpacingMs: 15_000 }) })),
+    ).toEqual({
       trigger: true,
     })
-    expect(decideAutoTrigger(input({ lastScanAt, settings: settings({ minSpacingMs: 30_000 }) }))).toEqual({
+    expect(
+      decideAutoTrigger(input({ lastScanAt, settings: settings({ minSpacingMs: 30_000 }) })),
+    ).toEqual({
       trigger: false,
       reason: 'spacing',
     })
@@ -133,7 +139,10 @@ describe('decideAutoTrigger / autoRefreshDelayMs (pure)', () => {
       settings: settings({ autoScanOnOpen: false }),
       gameRunning: true,
     })
-    expect(decideAutoTrigger(wouldAlsoBeDisabled)).toEqual({ trigger: false, reason: 'game-running' })
+    expect(decideAutoTrigger(wouldAlsoBeDisabled)).toEqual({
+      trigger: false,
+      reason: 'game-running',
+    })
     expect(decideAutoTrigger({ ...wouldAlsoBeDisabled, kind: 'refresh' })).toEqual({
       trigger: false,
       reason: 'game-running',
@@ -144,16 +153,29 @@ describe('decideAutoTrigger / autoRefreshDelayMs (pure)', () => {
   })
 
   it('minimum spacing gates an automatic trigger of either kind', () => {
-    const tooSoon = input({ lastScanAt: isoAgo(5_000), settings: settings({ minSpacingMs: 30_000 }) })
-    expect(decideAutoTrigger({ ...tooSoon, kind: 'open' })).toEqual({ trigger: false, reason: 'spacing' })
-    expect(decideAutoTrigger({ ...tooSoon, kind: 'refresh' })).toEqual({ trigger: false, reason: 'spacing' })
+    const tooSoon = input({
+      lastScanAt: isoAgo(5_000),
+      settings: settings({ minSpacingMs: 30_000 }),
+    })
+    expect(decideAutoTrigger({ ...tooSoon, kind: 'open' })).toEqual({
+      trigger: false,
+      reason: 'spacing',
+    })
+    expect(decideAutoTrigger({ ...tooSoon, kind: 'refresh' })).toEqual({
+      trigger: false,
+      reason: 'spacing',
+    })
 
     // Exactly at the boundary the window is open again.
-    expect(decideAutoTrigger(input({ lastScanAt: isoAgo(30_000), settings: settings({ minSpacingMs: 30_000 }) })))
-      .toEqual({ trigger: true })
+    expect(
+      decideAutoTrigger(
+        input({ lastScanAt: isoAgo(30_000), settings: settings({ minSpacingMs: 30_000 }) }),
+      ),
+    ).toEqual({ trigger: true })
     // No scan ever run: always passes.
-    expect(decideAutoTrigger(input({ lastScanAt: null, settings: settings({ minSpacingMs: 600_000 }) })))
-      .toEqual({ trigger: true })
+    expect(
+      decideAutoTrigger(input({ lastScanAt: null, settings: settings({ minSpacingMs: 600_000 }) })),
+    ).toEqual({ trigger: true })
     // Wall clock moved backwards: real elapsed time unknowable, never starve the trigger.
     expect(decideAutoTrigger(input({ lastScanAt: isoAgo(-60_000) }))).toEqual({ trigger: true })
   })
@@ -183,7 +205,11 @@ interface FakeTimer {
   ms: number
 }
 
-function fakeClock(): { clock: CadenceClock; pending: Map<number, FakeTimer>; fireAll: () => void } {
+function fakeClock(): {
+  clock: CadenceClock
+  pending: Map<number, FakeTimer>
+  fireAll: () => void
+} {
   let nextId = 1
   const pending = new Map<number, FakeTimer>()
   const clock: CadenceClock = {
@@ -247,7 +273,12 @@ function harness(
   options: HarnessOptions = {},
 ) {
   let state: ServersState = { ...DEFAULT_SERVERS_STATE, scan: settings(scan) }
-  const current: ServersOverview = { scanning: false, knownServerCount: 0, lastScanAt: null, ...overview }
+  const current: ServersOverview = {
+    scanning: false,
+    knownServerCount: 0,
+    lastScanAt: null,
+    ...overview,
+  }
   const starts: number[] = []
   const { clock, pending, fireAll } = fakeClock()
   const launch = fakeLaunch(options.launch ?? IDLE_LAUNCH_STATE)
@@ -282,7 +313,11 @@ function harness(
 
 describe('createScanCadence (timer lifetime)', () => {
   it('auto-scan-on-open starts once per view-open and arms the refresh timer with the configured period', () => {
-    const h = harness({ autoScanOnOpen: true, autoRefreshEnabled: true, autoRefreshIntervalMs: 45_000 })
+    const h = harness({
+      autoScanOnOpen: true,
+      autoRefreshEnabled: true,
+      autoRefreshIntervalMs: 45_000,
+    })
     h.cadence.onViewActive(true)
     expect(h.starts).toHaveLength(1)
     expect([...h.pending.values()].map((t) => t.ms)).toEqual([45_000])
@@ -319,7 +354,11 @@ describe('createScanCadence (timer lifetime)', () => {
   })
 
   it('each tick starts a scan and re-arms exactly one next tick', () => {
-    const h = harness({ autoScanOnOpen: false, autoRefreshEnabled: true, autoRefreshIntervalMs: 20_000 })
+    const h = harness({
+      autoScanOnOpen: false,
+      autoRefreshEnabled: true,
+      autoRefreshIntervalMs: 20_000,
+    })
     h.cadence.onViewActive(true)
     h.fireAll()
     expect(h.starts).toHaveLength(1)
@@ -342,7 +381,11 @@ describe('createScanCadence (timer lifetime)', () => {
   })
 
   it('a changed interval reschedules immediately; an unrelated change leaves the countdown alone', () => {
-    const h = harness({ autoScanOnOpen: false, autoRefreshEnabled: true, autoRefreshIntervalMs: 60_000 })
+    const h = harness({
+      autoScanOnOpen: false,
+      autoRefreshEnabled: true,
+      autoRefreshIntervalMs: 60_000,
+    })
     h.cadence.onViewActive(true)
     const [firstId] = [...h.pending.keys()]
 
@@ -401,9 +444,9 @@ describe('createScanCadence - story 196 D3 mode switch', () => {
     h.cadence.onModeChanged()
     expect(h.starts).toHaveLength(0)
     // The skip is the cadence's visible outcome: the gate reports the game as the reason.
-    expect(
-      decideAutoTrigger(input({ kind: 'open', lastScanAt: null, gameRunning: true })),
-    ).toEqual({ trigger: false, reason: 'game-running' })
+    expect(decideAutoTrigger(input({ kind: 'open', lastScanAt: null, gameRunning: true }))).toEqual(
+      { trigger: false, reason: 'game-running' },
+    )
   })
 
   it('does nothing while the view is inactive or after dispose', () => {
@@ -418,7 +461,12 @@ describe('createScanCadence - story 196 D3 mode switch', () => {
 
 describe('createScanCadence - story 116 D3 game-running guard', () => {
   const INTERVAL = 60_000
-  const scan = { autoScanOnOpen: true, autoRefreshEnabled: true, autoRefreshIntervalMs: INTERVAL, minSpacingMs: 30_000 }
+  const scan = {
+    autoScanOnOpen: true,
+    autoRefreshEnabled: true,
+    autoRefreshIntervalMs: INTERVAL,
+    minSpacingMs: 30_000,
+  }
 
   it('AC1: a due auto-refresh while the game runs is skipped, not queued', () => {
     // Last scan long ago: every tick below is due on its own merits - only the game says no.
@@ -470,7 +518,11 @@ describe('createScanCadence - story 116 D3 game-running guard', () => {
   })
 
   it('AC4: exactly one resumed scan after unblock, never two', () => {
-    const h = harness(scan, { lastScanAt: isoAgo(10 * INTERVAL) }, { launch: RUNNING, singleFlight: true })
+    const h = harness(
+      scan,
+      { lastScanAt: isoAgo(10 * INTERVAL) },
+      { launch: RUNNING, singleFlight: true },
+    )
     h.cadence.onViewActive(true)
     const [tickPendingAtUnblock] = [...h.pending.keys()]
 
@@ -490,7 +542,11 @@ describe('createScanCadence - story 116 D3 game-running guard', () => {
   })
 
   it('handed-off never blocks, so a Steam hand-off neither skips a tick nor triggers a resume', () => {
-    const h = harness(scan, { lastScanAt: isoAgo(10 * INTERVAL) }, { launch: { phase: 'handed-off', installationId: 'inst-1' } })
+    const h = harness(
+      scan,
+      { lastScanAt: isoAgo(10 * INTERVAL) },
+      { launch: { phase: 'handed-off', installationId: 'inst-1' } },
+    )
     h.cadence.onViewActive(true)
     expect(h.starts).toHaveLength(1) // open trigger ran
 
@@ -506,7 +562,11 @@ describe('createScanCadence - story 116 D3 game-running guard', () => {
     expect(inactive.pending.size).toBe(0)
 
     // Auto-refresh off: the resume goes through the same gate and is 'disabled'.
-    const off = harness({ ...scan, autoScanOnOpen: false, autoRefreshEnabled: false }, { lastScanAt: null }, { launch: RUNNING })
+    const off = harness(
+      { ...scan, autoScanOnOpen: false, autoRefreshEnabled: false },
+      { lastScanAt: null },
+      { launch: RUNNING },
+    )
     off.cadence.onViewActive(true)
     off.launch.set(EXITED)
     expect(off.starts).toHaveLength(0)

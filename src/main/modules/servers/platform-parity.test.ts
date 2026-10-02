@@ -16,7 +16,14 @@ import { describe, expect, it } from 'vitest'
 
 const REPO_ROOT = join(__dirname, '../../../../')
 
-const FORBIDDEN_SNIPPETS = ["process.platform", "os.platform", "'win32'", '"win32"', "'linux'", '"linux"']
+const FORBIDDEN_SNIPPETS = [
+  'process.platform',
+  'os.platform',
+  "'win32'",
+  '"win32"',
+  "'linux'",
+  '"linux"',
+]
 
 const SOURCE_EXTENSIONS = ['.ts', '.tsx']
 

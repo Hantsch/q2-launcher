@@ -116,46 +116,46 @@ Order matters only between 1–3; step 3 does not typecheck before 1 and 2 exist
 ## Deliverables
 
 - [x] **D1 — `home` is a registered module in shared + main.**
-  Files: `src/shared/types/module.ts`, `src/main/modules/home/index.ts` (mirror
-  `src/main/modules/library/index.ts`), `src/main/modules/index.ts`, plus its test
-  `src/main/modules/home/index.test.ts` (mirror `src/main/modules/registry.test.ts`'s style).
-  Acceptance: `getModuleManifest('home')` exists with `route: '/home'`, `nav: null`,
-  `status: 'available'`, `capabilities: []`; a registry built from `MODULES` reports `home` as
-  `available` (i.e. it is not downgraded to `planned`); no IPC channel is added.
+      Files: `src/shared/types/module.ts`, `src/main/modules/home/index.ts` (mirror
+      `src/main/modules/library/index.ts`), `src/main/modules/index.ts`, plus its test
+      `src/main/modules/home/index.test.ts` (mirror `src/main/modules/registry.test.ts`'s style).
+      Acceptance: `getModuleManifest('home')` exists with `route: '/home'`, `nav: null`,
+      `status: 'available'`, `capabilities: []`; a registry built from `MODULES` reports `home` as
+      `available` (i.e. it is not downgraded to `planned`); no IPC channel is added.
 
 - [x] **D2 — the home route is rendered by the module, and the shell forgets it.**
-  Files: `src/renderer/src/modules/home/HomeView.tsx` (new), `src/renderer/src/modules/index.ts`,
-  `src/renderer/src/components/shell/AppShell.tsx`, delete
-  `src/renderer/src/views/HomeView.tsx` and
-  `src/renderer/src/components/shell/HeroPanel.tsx`; i18n `home.*` + `module.home.*` in
-  `src/renderer/src/i18n/locales/en.json`. Tests:
-  `src/renderer/src/modules/home/HomeView.test.tsx` (new) and the existing
-  `src/renderer/src/components/shell/AppShell.test.tsx`; mirror
-  `src/renderer/src/modules/index.test.ts` for the registration assertion.
-  Acceptance: `resolveView('/home', modules)` returns the home module's `View` and an unknown route
-  falls back to it; `AppShell.tsx` imports no home component; the rendered screen shows no module
-  card, no planned-module title and no hero, and every visible string comes from `t()`.
+      Files: `src/renderer/src/modules/home/HomeView.tsx` (new), `src/renderer/src/modules/index.ts`,
+      `src/renderer/src/components/shell/AppShell.tsx`, delete
+      `src/renderer/src/views/HomeView.tsx` and
+      `src/renderer/src/components/shell/HeroPanel.tsx`; i18n `home.*` + `module.home.*` in
+      `src/renderer/src/i18n/locales/en.json`. Tests:
+      `src/renderer/src/modules/home/HomeView.test.tsx` (new) and the existing
+      `src/renderer/src/components/shell/AppShell.test.tsx`; mirror
+      `src/renderer/src/modules/index.test.ts` for the registration assertion.
+      Acceptance: `resolveView('/home', modules)` returns the home module's `View` and an unknown route
+      falls back to it; `AppShell.tsx` imports no home component; the rendered screen shows no module
+      card, no planned-module title and no hero, and every visible string comes from `t()`.
 
 - [x] **D3 — no residue: dead i18n keys and a guard against the shell taking it back.**
-  Files: `src/renderer/src/i18n/locales/en.json`, new
-  `src/renderer/src/components/shell/shell-home-ownership.test.ts`.
-  Acceptance: no `hero.*` key remains and no key removed here is referenced anywhere in `src`
-  (keys still used elsewhere — `empty.*`, `rail.*`, `module.<id>.*` — are untouched); the guard test
-  fails if any file under `src/renderer/src/components/shell/` or `src/renderer/src/views/`
-  mentions `HeroPanel` or a home view, and if `HeroPanel.tsx` reappears.
+      Files: `src/renderer/src/i18n/locales/en.json`, new
+      `src/renderer/src/components/shell/shell-home-ownership.test.ts`.
+      Acceptance: no `hero.*` key remains and no key removed here is referenced anywhere in `src`
+      (keys still used elsewhere — `empty.*`, `rail.*`, `module.<id>.*` — are untouched); the guard test
+      fails if any file under `src/renderer/src/components/shell/` or `src/renderer/src/views/`
+      mentions `HeroPanel` or a home view, and if `HeroPanel.tsx` reappears.
 
 - [x] **D4 — the move is verified on the real surface.**
-  Files: `scripts/flows/home-route-roundtrip.mjs` (new; mirror
-  `scripts/flows/config-header-geometry.mjs` for the geometry-measuring pattern),
-  `scripts/lib/screens.mjs` (only if the `home` entry needs an adjustment).
-  Acceptance: `npm run ui:flow -- home-route-roundtrip` passes — home renders, navigating away and
-  back re-renders it, zero console errors, and the rail/titlebar/action-bar bounding boxes are
-  identical before and after; `npm run ui:verify` completes with the `home` screen shot and zero
-  axe violations.
+      Files: `scripts/flows/home-route-roundtrip.mjs` (new; mirror
+      `scripts/flows/config-header-geometry.mjs` for the geometry-measuring pattern),
+      `scripts/lib/screens.mjs` (only if the `home` entry needs an adjustment).
+      Acceptance: `npm run ui:flow -- home-route-roundtrip` passes — home renders, navigating away and
+      back re-renders it, zero console errors, and the rail/titlebar/action-bar bounding boxes are
+      identical before and after; `npm run ui:verify` completes with the `home` screen shot and zero
+      axe violations.
 
 ## Model Hints
 
-- D2 → `deliverable-hard` — it deletes the shell's hardcoded home branch *and* the fallback every
+- D2 → `deliverable-hard` — it deletes the shell's hardcoded home branch _and_ the fallback every
   unknown/stale `lastRoute` lands on, so a mistake in `resolveView` breaks route resolution
   app-wide, not just the home screen.
 - D1, D3, D4 → default.
@@ -194,11 +194,13 @@ the old card-grid `HomeView` are deleted, not carried along; the new `HomeView` 
 i18n'd title + lead placeholder for stories 083/086 to build on.
 
 **Commit message:**
+
 ```
 081: the home screen belongs to a home module
 ```
 
 **Decisions (additions during implementation):**
+
 - Two pre-existing Playwright e2e flows (`scripts/flows/engine-not-client.mjs`,
   `scripts/flows/engine-badge-surfaces.mjs`) asserted against the hero panel's
   `section.hero-fallback` DOM to prove the hero badges the active installation's engine (story 068).
@@ -212,6 +214,7 @@ i18n'd title + lead placeholder for stories 083/086 to build on.
   the review found it; the vocabulary test's key swapped for a surviving equivalent, same claim).
 
 **Verification:**
+
 - `npm run typecheck` — clean.
 - `npm run build` — clean.
 - `npm test` — 3294 passed, 1 pre-existing unrelated failure (`import-reader.test.ts`'s
@@ -227,9 +230,10 @@ i18n'd title + lead placeholder for stories 083/086 to build on.
   `npm run typecheck`.
 
 **AC → test mapping, as verified:**
+
 - AC1 → `src/main/modules/home/index.test.ts` › "the home module is registered and stays available"
-  + `src/renderer/src/modules/home/HomeView.test.tsx` › "the home module provides the view for the
-  home route" — both pass, against the real registry/manifest.
+  - `src/renderer/src/modules/home/HomeView.test.tsx` › "the home module provides the view for the
+    home route" — both pass, against the real registry/manifest.
 - AC2 → `src/renderer/src/components/shell/AppShell.test.tsx` › "the shell resolves the home route
   through the module registry" + `shell-home-ownership.test.ts` › "no shell file imports a
   home-screen component" — both pass.

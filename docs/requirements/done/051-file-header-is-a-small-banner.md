@@ -95,7 +95,7 @@ looks cool for the player, it is right.
   // ==============================================================================
   //                              [q2l v=1 id=3f9c2a1e-fd01-4353-81c9-3e6961d5ac72]
   ```
-  Reason: the user's decision puts the tag on its own *last* header line, and right-alignment is the
+  Reason: the user's decision puts the tag on its own _last_ header line, and right-alignment is the
   cheapest way to make it look deliberate without inventing a second decoration vocabulary.
 - **Ownership travels as a new `id` key in the existing `[q2l …]` grammar** (registered in
   `KNOWN_META_KEYS`), not as a second literal format. Reason: one tag parser already exists and is
@@ -114,7 +114,7 @@ looks cool for the player, it is right.
   uses as `HEADER_SCAN_LINES`). Reason: the id is no longer on line 1 of a profile file.
 - **`consumeHeaderDecoration` gains a backward branch** (rule/name/rule at `versionIndex −1/−2/−3`)
   and keeps the existing forward branch for the legacy block. Reason: the tag moved from the middle
-  of the block to its end. Confirmed safe: an untagged name line between `=` rules is *not* picked up
+  of the block to its end. Confirmed safe: an untagged name line between `=` rules is _not_ picked up
   by story 053's section heuristics (`decorationWrap`/`mirroredWrapTitle` exclude `-`/`=`;
   `bannerTitle`'s `PURE_DECORATION` empties a rule's title), so consumption is only about AC5, not
   about phantom sections.
@@ -133,7 +133,7 @@ looks cool for the player, it is right.
 
 ## Plan
 
-The id leaves prose and moves into the tag; the sentinel line disappears from the *profile* file
+The id leaves prose and moves into the tag; the sentinel line disappears from the _profile_ file
 (the loader keeps it). That makes "is this file ours" a header scan instead of a line-1 prefix test,
 which is where the whole risk of this story sits.
 
@@ -144,7 +144,7 @@ which is where the whole risk of this story sits.
    banner = a comment line whose tag carries `id`; sentinel = `OWNERSHIP_MARKER` + first whitespace
    token (today's `ownedProfileId` semantics, unchanged). `isLauncherOwnedFile(text)` on top of it.
 3. **Writer** (`shared/config/render.ts`): `buildHeaderBlock` = `banner([bannerText(name).trimEnd()],
-   { fill: '=' })` plus the right-aligned tag line; `renderProfileFile` no longer prepends
+{ fill: '=' })` plus the right-aligned tag line; `renderProfileFile` no longer prepends
    `sentinelLine`. `renderLoaderFile` untouched. `HAND_EDIT_SENTENCE` no longer rendered.
 4. **Main-side readers** (`writer.ts`, `cleanup.ts`, `canonical.ts`, `index.ts`): `ownedProfileId`
    becomes a thin wrapper over the module; the two bare `startsWith(OWNERSHIP_MARKER)` guards in
@@ -159,8 +159,8 @@ which is where the whole risk of this story sits.
    shape, forward for the legacy one.
 7. **Round trip + adversarial** (`fixtures/profiles.ts`, `round-trip.test.ts`,
    `render-invariants.test.ts`): re-run story 042's property over the whole corpus, plus hand-edit
-   variants (tag line deleted, id removed, rules removed, name renamed, a profile *named* `[q2l
-   id=…]`, a whole legacy-shape file).
+   variants (tag line deleted, id removed, rules removed, name renamed, a profile _named_ `[q2l
+id=…]`, a whole legacy-shape file).
 8. **Docs** (`docs/systems/profile-file-format.md`) + one `config-syntax` regression test.
 
 Not touched: the loader, section headers (`titledSection`), per-entry tags, the cvar/bind/layer
@@ -175,16 +175,16 @@ bodies, `META_FORMAT_VERSION`.
 lines) and **sentinel** (legacy line-1 marker) shapes; `HEADER_SCAN_LINES = 8`. Files:
 `src/shared/config/profile-metadata.ts` (+ test), `src/shared/config/file-ownership.ts` (+ new test).
 Mirror for module shape and doc style: `src/shared/config/action-slots.ts`.
-*Accepted when:* both shapes yield the same `{ id }` for the same profile, an id-less or malformed
+_Accepted when:_ both shapes yield the same `{ id }` for the same profile, an id-less or malformed
 stamp returns `null` (never a guess), a foreign `.cfg` (`docs/fixtures/dm.cfg`) returns `null`, and a
-`[q2l id=…]` appearing *after* line 8 is not treated as ownership.
+`[q2l id=…]` appearing _after_ line 8 is not treated as ownership.
 
 **D2 [x] - The writer emits the banner.** `buildHeaderBlock` → four lines (rule / `//  <name>` trimmed /
 rule / right-aligned `[q2l v=1 id=<profile.id>]`, falling back to `//  <tag>` when the tag alone
 exceeds `BANNER_WIDTH - 3`); `renderProfileFile` drops the `sentinelLine` prefix;
 `HAND_EDIT_SENTENCE` kept as an export but unreferenced by any render path. `renderLoaderFile`
 byte-identical to today. Files: `src/shared/config/render.ts`, `src/main/modules/config/render.test.ts`.
-*Accepted when:* the rendered file starts with exactly those four lines, contains the profile id
+_Accepted when:_ the rendered file starts with exactly those four lines, contains the profile id
 exactly once and only inside the tag, contains none of the words "hand-edited", "metadata",
 "version", "generated", is pure ASCII in the frame, renders byte-identically twice in a row, and a
 profile named `[q2l id=x]` renders `(q2l id=x` on the name line (`neutralizeProse`).
@@ -195,7 +195,7 @@ entry point); `writer.ts:158` / `writer.ts:371` / `cleanup.ts:133` use `isLaunch
 `canonical.ts` and `index.ts:1353` pass full content instead of `split('\n', 1)[0]`. Files:
 `src/main/modules/config/{writer,cleanup,canonical,index}.ts` + `writer.test.ts`, `cleanup.test.ts`,
 `canonical.test.ts`.
-*Accepted when:* a new-shape profile file is recognised as owned by every one of these paths (no
+_Accepted when:_ a new-shape profile file is recognised as owned by every one of these paths (no
 backup-once on overwrite, skipped by cleanup, found by `findOwnCanonicalFile`, open-in-editor
 allowed), a legacy-shape file still is, and a foreign `config.cfg` still is not.
 
@@ -203,16 +203,16 @@ allowed), a legacy-shape file still is, and a foreign `config.cfg` still is not.
 `readOwnershipStamp`; `recoverProfileName` returns the line after the first `=` rule for the new
 shape (nothing to strip) and keeps the legacy tag-strip + `HAND_EDIT_SENTENCE` guard. Files:
 `src/main/modules/config/rebuild.ts`, `rebuild.test.ts`.
-*Accepted when:* a new-shape file with no store record rebuilds a profile with the right name **and**
+_Accepted when:_ a new-shape file with no store record rebuilds a profile with the right name **and**
 the id from the tag (so story 043's installation assignments survive), and a legacy-shape file does
 exactly what it does today.
 
 **D5 [x] - The restore reader.** `profile-restore.ts`: a `v` line carrying `id` contributes
 `{ id, file }` to `sentinels` and is consumed; `consumeHeaderDecoration` consumes the three lines
-*before* it for the banner shape and keeps the forward legacy branch; `SENTINEL_TEXT` path unchanged
+_before_ it for the banner shape and keeps the forward legacy branch; `SENTINEL_TEXT` path unchanged
 for the loader and legacy files. Files: `src/shared/config/profile-restore.ts`,
 `profile-restore.test.ts`.
-*Accepted when:* importing a new-shape file yields `sourceProfileId === profile.id` (→ `import.ts`'s
+_Accepted when:_ importing a new-shape file yields `sourceProfileId === profile.id` (→ `import.ts`'s
 `ownWrittenFile`), none of the four header lines appears in `preserved`, a profile file plus its
 loader still resolve to the profile's own id, and a hand-mangled header (one rule deleted) leaves the
 remaining lines in `preserved` without crashing or inventing a section.
@@ -220,13 +220,13 @@ remaining lines in `preserved` without crashing or inventing a section.
 **D6 [x] - Round trip and adversarial re-render (carry-over rule).** Re-run story 042's property over the
 whole corpus and add fixtures/variants: legacy-shape file, tag line deleted, `id=` removed from the
 tag, both rules deleted, name line hand-renamed, empty profile name, a profile named `[q2l id=…]`,
-and a file where a *body* comment also carries `id=`. Every case goes through the real
+and a file where a _body_ comment also carries `id=`. Every case goes through the real
 render → write → `readImportableConfig` → `restoreProfileParts` → re-render path (`restoreFromText`),
 never a diff read. Files: `src/shared/config/fixtures/profiles.ts`,
 `src/main/modules/config/round-trip.test.ts`, `src/shared/config/render-invariants.test.ts`.
-*Accepted when:* render → parse → restore → render is byte-identical for every fixture,
+_Accepted when:_ render → parse → restore → render is byte-identical for every fixture,
 `expectEveryLineSurvivesRerender` holds for every adversarial variant, and a legacy-shape file
-re-renders into the *new* shape while keeping its id and name.
+re-renders into the _new_ shape while keeping its id and name.
 
 **D7 [x] - Docs, highlighting check, fixture note.** `docs/systems/profile-file-format.md`: a "Header
 block" description (the four lines, the `id` key in the registry, the version rule, and the legacy
@@ -234,7 +234,7 @@ shape named as read-only), plus `docs/systems/config-module.md` wherever it desc
 line 1. One regression test in `src/shared/config/config-syntax.test.ts` that the four header lines
 tokenize as `comment`. A comment in `scripts/lib/fixture.mjs` recording that
 `FIXTURE_RESTORE_CONFIG_CFG` is deliberately left in the legacy shape.
-*Accepted when:* no doc in `docs/systems/` describes the sentinel as the profile file's first line as
+_Accepted when:_ no doc in `docs/systems/` describes the sentinel as the profile file's first line as
 if that were current, and the highlighting test passes.
 
 ## Model Hints
@@ -249,7 +249,7 @@ if that were current, and the highlighting test passes.
   fully specified above, D3/D4 are delegation to D1's module).
 - Review: → `story-review-hard` - the failure mode is a profile that silently stops being recognised
   as launcher-owned (AC7: "no profile on a dev machine goes missing"), which a cheap review confirms
-  away by reading the new tests instead of the paths that were *not* migrated.
+  away by reading the new tests instead of the paths that were _not_ migrated.
 
 ## Test Plan (manual acceptance)
 
@@ -276,17 +276,17 @@ if that were current, and the highlighting test passes.
 
 ## Coverage gate
 
-| Acceptance criterion | Deliverable |
-| --- | --- |
-| no id in prose, no doubled sentence | D2 |
-| ≤ 4 lines, name dominant, player words only | D2 |
-| ownership + version in exactly one compact `[q2l …]` tag | D1, D2 |
-| ownership / rebuild / guards / external edit / import recognition keep working, proven through the real pipeline | D3, D4, D5, D6 |
-| header lines never listed as unrecognised/preserved | D5, D6 |
-| story 042's round-trip property still holds corpus-wide | D6 |
-| a previous-shape file is still recognised and rewritten on next save | D1, D3, D4, D5, D6 |
-| deterministic and latin-1 safe | D2, D6 |
-| Raw file tab + write preview highlight intact; format doc describes the header block | D7 (+ Test Plan 2/3) |
+| Acceptance criterion                                                                                             | Deliverable          |
+| ---------------------------------------------------------------------------------------------------------------- | -------------------- |
+| no id in prose, no doubled sentence                                                                              | D2                   |
+| ≤ 4 lines, name dominant, player words only                                                                      | D2                   |
+| ownership + version in exactly one compact `[q2l …]` tag                                                         | D1, D2               |
+| ownership / rebuild / guards / external edit / import recognition keep working, proven through the real pipeline | D3, D4, D5, D6       |
+| header lines never listed as unrecognised/preserved                                                              | D5, D6               |
+| story 042's round-trip property still holds corpus-wide                                                          | D6                   |
+| a previous-shape file is still recognised and rewritten on next save                                             | D1, D3, D4, D5, D6   |
+| deterministic and latin-1 safe                                                                                   | D2, D6               |
+| Raw file tab + write preview highlight intact; format doc describes the header block                             | D7 (+ Test Plan 2/3) |
 
 ## Done
 
@@ -300,6 +300,7 @@ old sentinel-line shape is still read (backward compatible) and migrates to the 
 save. The loader (`autoexec.cfg`) is untouched and still uses the sentinel line.
 
 **Decisions.**
+
 - `ownedProfileId(firstLine)` (legacy single-line signature) turned out to have zero real callers
   once every reader was migrated onto full-content `ownedProfileIdFromContent`; deleted rather than
   kept as unused surface (found and fixed during review follow-up).

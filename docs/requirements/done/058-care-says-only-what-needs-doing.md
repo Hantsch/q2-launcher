@@ -69,7 +69,7 @@ screen.
    else in the app mounts them) and replaced by one shared `CareItemRow` — four section components
    each with their own empty state is the structural cause of the six-screens-of-nothing complaint.
 2. **The per-engine report becomes one row per finding, with the engine named on the row.** AC 8
-   requires the honesty rules unchanged in *substance*, not the per-engine panel layout; naming the
+   requires the honesty rules unchanged in _substance_, not the per-engine panel layout; naming the
    engine per row keeps "equally weighted, per engine" true without a header over nothing.
 3. **"Nothing to validate against" stays an explicit third state**, neither an item nor part of "All
    clear" — story 025's review finding F2 was exactly a profile with nothing assigned reaching a
@@ -78,7 +78,7 @@ screen.
    leave `care-summary.ts`) — that branch is what forces the permanent "Not all clear" banner the
    requirement names, and with the cleanup in Library there is nothing left to report.
 5. **`RawConfigPanel.tsx` is deleted, not remounted.** Story 057's header note expected 058 to
-   remount it in Care's Sync, but AC 5 lists only files that *need attention* — a card grid
+   remount it in Care's Sync, but AC 5 lists only files that _need attention_ — a card grid
    previewing every installation copy is precisely the surface this story removes. The retired
    `config-write-preview` ui:verify screen stays retired.
 6. **Per-installation file rows keep Open/Reveal through the existing calls** —
@@ -87,7 +87,7 @@ screen.
 7. **Cleanup in Library = an icon button on the installation row opening a new
    `dialog.kind: 'cleanup'`** that mounts the existing `CleanupPanel` scoped to that one
    installation; the installation picker and the "scan any installation" control disappear because
-   the row *is* the scope. This mirrors how rename/remove already work (`LibraryView.tsx:319-344` →
+   the row _is_ the scope. This mirrors how rename/remove already work (`LibraryView.tsx:319-344` →
    `components/installations/Dialogs.tsx`), so no new interaction pattern is invented.
 8. **`CleanupPanel` stays in `src/renderer/src/modules/config/` and is imported by the library
    surface** — the first cross-module renderer import in this repo, accepted deliberately: the rule
@@ -117,8 +117,8 @@ installation in Library.
 
 1. **Model** — new `lib/care-items.ts`: `buildCareItems({ validation, syncRows, tidyUp })` →
    `CareItem[]` (`{ id, group: 'health' | 'files' | 'tidy', level, titleKey, consequenceKey, params,
-   actions[], actionId? }`), grouped and sorted errors-first. `lib/care-summary.ts` is rewritten:
-   the cleanup branch drops out, `allClear` becomes "no items *and* every source answered", and it
+actions[], actionId? }`), grouped and sorted errors-first. `lib/care-summary.ts` is rewritten:
+   the cleanup branch drops out, `allClear` becomes "no items _and_ every source answered", and it
    gains the summary lines the All clear block prints (engines validated, files in sync (n),
    nothing to tidy).
 2. **Shell** — `CareTab.tsx` becomes: All clear block, or groups of `CareItemRow`s. A group with no
@@ -147,7 +147,7 @@ New `lib/care-items.ts` (+ test) with `CareItem` and `buildCareItems`, folding v
 non-`inSync` sync rows and tidy-up findings into one grouped, errors-first list; each item carries
 its title key, one-sentence consequence key and its available actions. `lib/care-summary.ts` (+ its
 test) is rewritten alongside: cleanup drops out of `CareSummaryInput`/`CareSummary`, `allClear`
-requires zero items *and* a resolved answer from every source, and the summary exposes the lines the
+requires zero items _and_ a resolved answer from every source, and the summary exposes the lines the
 All clear block prints. Pure model only, no UI.
 
 - Files: `src/renderer/src/modules/config/lib/care-items.ts` (new) + `care-items.test.ts` (new),
@@ -272,17 +272,17 @@ drives one Care item from listed to fixed.
 
 ## Coverage
 
-| AC | Deliverable |
-| --- | --- |
-| Healthy profile shows one "All clear" block, nothing else | D1 (rollup + lines), D2 (render) |
-| "Not all clear" only from an actual item; manual scan is an action, not a status | D1 (cleanup leaves the rollup), D6 (the scan becomes a Library action) |
-| Every item is one row, grouped, errors first, empty group not rendered | D1 (grouping/sorting), D2 (row + groups), D3/D4 (the Files/Tidy-up groups) |
-| Preserved lines appear exactly once with Drop / Re-classify | D4 (panel already deleted in D2) |
-| Files: only what needs attention; in-sync counted; per-installation rows keep open/reveal | D3 |
-| "Fix all safe findings" only when a safe item exists | D4 |
-| Redundant-copies cleanup leaves the Care tab, flow + backup-once intact | D6 |
-| Validation honesty, badge, deep links unchanged; new "Show in Controls" | D1 (badge/honesty), D2 (nothing-to-validate-against state), D5 (deep link) |
-| `ui:verify` covers Care healthy and Care with findings, zero axe findings | D7 |
+| AC                                                                                        | Deliverable                                                                |
+| ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Healthy profile shows one "All clear" block, nothing else                                 | D1 (rollup + lines), D2 (render)                                           |
+| "Not all clear" only from an actual item; manual scan is an action, not a status          | D1 (cleanup leaves the rollup), D6 (the scan becomes a Library action)     |
+| Every item is one row, grouped, errors first, empty group not rendered                    | D1 (grouping/sorting), D2 (row + groups), D3/D4 (the Files/Tidy-up groups) |
+| Preserved lines appear exactly once with Drop / Re-classify                               | D4 (panel already deleted in D2)                                           |
+| Files: only what needs attention; in-sync counted; per-installation rows keep open/reveal | D3                                                                         |
+| "Fix all safe findings" only when a safe item exists                                      | D4                                                                         |
+| Redundant-copies cleanup leaves the Care tab, flow + backup-once intact                   | D6                                                                         |
+| Validation honesty, badge, deep links unchanged; new "Show in Controls"                   | D1 (badge/honesty), D2 (nothing-to-validate-against state), D5 (deep link) |
+| `ui:verify` covers Care healthy and Care with findings, zero axe findings                 | D7                                                                         |
 
 ## Model Hints
 
@@ -321,7 +321,7 @@ Run `npm run dev` and drive the real UI (P1: every step is a real user action).
    exactly that one row (`missing`), offering **Open** and **Reveal**. The other, in-sync
    installations are not listed — they are the count in the All clear line.
 6. Open a profile with **no installation assigned**: Care says explicitly that there is nothing to
-   validate against, and does *not* claim "All clear".
+   validate against, and does _not_ claim "All clear".
 7. On a shadowed-bind row press **Show in Controls** — Controls opens with that entry focused. On an
    unreferenced-alias row **Show in Aliases** still works.
 8. Go to **Library**. The installation row has a cleanup action; open it, scan, review, apply, then
@@ -334,7 +334,7 @@ Run `npm run dev` and drive the real UI (P1: every step is a real user action).
 
 Care is now a derived to-do list. `lib/care-items.ts` folds validation findings, non-`inSync` sync
 rows and tidy-up findings into one grouped, errors-first `CareItem[]`; `lib/care-summary.ts`'s
-`allClear` requires zero items *and* every source resolved, keeping "nothing to validate against"
+`allClear` requires zero items _and_ every source resolved, keeping "nothing to validate against"
 an explicit third state. `CareTab.tsx` renders either one All-clear block or the groups that have
 items via the shared `CareItemRow`; `ValidationPanel.tsx`, `PreservedLinesPanel.tsx`,
 `CareSyncSection.tsx`, `CareTidyUpSection.tsx` and `RawConfigPanel.tsx` are deleted. The
@@ -373,6 +373,7 @@ timing-dependent `config-care` screenshot. Final review verdict: PASS, all 9 acc
 individually confirmed PASS with file:line evidence.
 
 **Decisions:**
+
 - `buildCareItems` takes an optional `profileDirty` (beyond the story's named signature) so a dirty
   canonical `outOfSync` row offers no Reload — reloading would discard unsaved edits.
 - `CareSummary`'s fields are named after the item groups (`health`/`files`/`tidy`) rather than

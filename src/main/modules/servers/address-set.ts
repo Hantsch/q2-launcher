@@ -1,4 +1,9 @@
-import type { FavouriteServerEntry, ManualServerEntry, ScanOrigin, ScanTarget } from '@shared/modules/servers'
+import type {
+  FavouriteServerEntry,
+  ManualServerEntry,
+  ScanOrigin,
+  ScanTarget,
+} from '@shared/modules/servers'
 import type { ParsedServerAddress } from '@shared/servers/address'
 import { parseServerAddress } from '@shared/servers/address'
 

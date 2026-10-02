@@ -91,7 +91,7 @@ and has no decision yet.~~ answered → Decisions (Sprint)
   failure log work unchanged, and both writing paths carry [[091]]'s guard in one shape, even
   though rollback downloads nothing.
 - **AC6 rides [[091]]'s guard as an injected dependency**, with no second running-game check of
-  this story's own; 092 proves *usage* at unit level, 091 proves the waiting state on the real
+  this story's own; 092 proves _usage_ at unit level, 091 proves the waiting state on the real
   surface (its own AC1–AC3).
 - **The e2e flow seeds an out-of-date installation** into the fixture and runs the real job
   against the loopback fixture server (a second engine package version plus a `version.txt`/`HEAD`
@@ -139,7 +139,7 @@ Order: 1 → 2 → (3, 4) → 5 → 6 → 7 → 8. Steps 3–6 are main-only and
   `src/main/modules/downloads/schemas.test.ts` (reject non-string ids, unknown keys).
 - **D2 — the recorded engine version.** `InstallationEngineState` (version, packageId,
   bleedingEdge, backup) with a defensive parser, and `InstallationsService.setEngineState(id,
-  patch)` writing both `moduleData.downloads` and `detectedVersion`; `bootstrap/job.ts` records
+patch)` writing both `moduleData.downloads` and `detectedVersion`; `bootstrap/job.ts` records
   the engine package it just installed. `.q2launcher-engine-backup` joins `NON_GAME_DIRS`.
   Files: `src/main/modules/downloads/engine/installation-state.ts` (new),
   `src/main/services/installations.ts`, `src/main/lib/schemas.ts`, `src/shared/constants.ts`,
@@ -254,8 +254,8 @@ Order: 1 → 2 → (3, 4) → 5 → 6 → 7 → 8. Steps 3–6 are main-only and
   `scripts/flows/engine-update.mjs` › "turning the toggle off restores the pinned target".
 - AC6 → D5 + D6; unit `src/main/modules/downloads/engine/update-job.test.ts` › "the write phase
   waits while the target installation's game is running and continues once it exits" and
-  `.../rollback-job.test.ts` › "rollback waits on the same guard". The *waiting state on the real
-  surface* is [[091]]'s own e2e (its AC1–AC3); this story's e2e cannot hold a real Quake II
+  `.../rollback-job.test.ts` › "rollback waits on the same guard". The _waiting state on the real
+  surface_ is [[091]]'s own e2e (its AC1–AC3); this story's e2e cannot hold a real Quake II
   process open against a fixture installation whose executables are filler bytes, so what 092
   proves here is that both jobs go through that guard rather than checking for themselves.
 - AC7 → D2 + D5 + D6; unit `src/main/modules/downloads/engine/update-job.test.ts` › "the recorded
@@ -294,7 +294,7 @@ backup slot — both fixed and re-reviewed to PASS.
 - **Backup set is what the new archive actually staged, not the full `buildAssemblePlan({engine})`
   allowlist.** An optional engine entry (`baseq2/q2pro.menu`, `required: false`) that the new
   archive doesn't ship would otherwise be moved into the backup and never restored, silently
-  deleting it from the installation. A missing *required* entry still fails the completeness
+  deleting it from the installation. A missing _required_ entry still fails the completeness
   check before any file is touched, so this only narrows what gets backed up/replaced, never what
   blocks the update. Documented in `update-job.ts` and unit-tested (archive missing the optional
   menu file leaves the existing copy in place).

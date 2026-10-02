@@ -158,7 +158,9 @@ export default async function bootstrapIncompletePackage({ page, shot, step }) {
   step('assert nothing outside the loopback fixture server was ever asked for')
   const unexpected = server.requested.filter((path) => path === '/' || path.startsWith('/..'))
   if (unexpected.length > 0) {
-    throw new Error(`the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`)
+    throw new Error(
+      `the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`,
+    )
   }
   console.log(`fixture server served: ${JSON.stringify([...new Set(server.requested)])}`)
 

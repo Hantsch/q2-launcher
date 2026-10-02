@@ -21,7 +21,8 @@ const addNameTemplate = vi.fn<(template: string) => Promise<Outcome<Outcome<Name
 const updateNameTemplate =
   vi.fn<(id: string, template: string) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
 const removeNameTemplate = vi.fn<(id: string) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
-const reorderNameTemplates = vi.fn<(ids: string[]) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
+const reorderNameTemplates =
+  vi.fn<(ids: string[]) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
 const resetNameTemplate = vi.fn<(id: string) => Promise<Outcome<Outcome<NameTemplatesView>>>>()
 const restoreNameTemplates = vi.fn<() => Promise<Outcome<Outcome<NameTemplatesView>>>>()
 
@@ -108,7 +109,9 @@ describe('an invalid template shows its reason next to the field and cannot be a
     fireEvent.change(input, { target: { value: '{nope}' } })
 
     const error = await screen.findByTestId('replays-name-template-error')
-    expect(error.textContent).toBe(en.replays.nameTemplate.error.unknownToken.replace('{{token}}', 'nope'))
+    expect(error.textContent).toBe(
+      en.replays.nameTemplate.error.unknownToken.replace('{{token}}', 'nope'),
+    )
 
     const addButton = screen.getByTestId('replays-name-template-add')
     expect((addButton as HTMLButtonElement).disabled).toBe(true)

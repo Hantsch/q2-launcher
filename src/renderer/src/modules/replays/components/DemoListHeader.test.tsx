@@ -23,13 +23,20 @@ describe('DemoListHeader', () => {
     expect(button.getAttribute('aria-pressed')).toBe('true')
     expect(within(button).getByTestId('replays-sort-direction').textContent).toBe('ascending')
 
-    rerender(createElement(DemoListHeader, { sort: { column: 'map', direction: 'desc' }, onSort: vi.fn() }))
-    expect(within(screen.getByTestId('replays-sort-map')).getByTestId('replays-sort-direction').textContent).toBe(
-      'descending',
+    rerender(
+      createElement(DemoListHeader, {
+        sort: { column: 'map', direction: 'desc' },
+        onSort: vi.fn(),
+      }),
     )
+    expect(
+      within(screen.getByTestId('replays-sort-map')).getByTestId('replays-sort-direction')
+        .textContent,
+    ).toBe('descending')
 
     rerender(createElement(DemoListHeader, { sort: null, onSort: vi.fn() }))
     expect(screen.queryByTestId('replays-sort-direction')).toBeNull()
-    for (const b of screen.getAllByRole('button')) expect(b.getAttribute('aria-pressed')).toBe('false')
+    for (const b of screen.getAllByRole('button'))
+      expect(b.getAttribute('aria-pressed')).toBe('false')
   })
 })

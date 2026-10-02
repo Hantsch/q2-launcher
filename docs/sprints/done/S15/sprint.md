@@ -9,7 +9,7 @@ milestone: Identity, icons and the first profile
 
 ## Goal
 
-One word for one concept: the launcher calls a Quake II engine an *engine*, everywhere, and only
+One word for one concept: the launcher calls a Quake II engine an _engine_, everywhere, and only
 offers the two it actually supports. An installation is told apart by an icon the user picked, not
 by two letters derived from its engine. The config profile header stops looking pasted together.
 And creating a profile offers the three starting points people actually arrive with — empty, a

@@ -95,7 +95,7 @@ desktop, and this story's test plan is where that happens.
 ## Plan
 
 Registry facts as found (the Requirement's "14 entries" is stale): `scripts/lib/screens.mjs` holds
-**12** entries today, one of which (`keybind-dialog`) is already a modal — so the harness *can* do
+**12** entries today, one of which (`keybind-dialog`) is already a modal — so the harness _can_ do
 dialogs, the two S05 surfaces simply were never added. Both surfaces need a testid on their
 trigger, and one of them needs fixture data:
 
@@ -227,7 +227,7 @@ Affected files: `src/renderer/src/modules/config/{RawFileTab,ConfigView,CreatePr
 ## Test Plan (manual acceptance)
 
 1. **027's focus check (the one criterion only a human can close).** Open an editor or terminal in
-   another window, start `npm run ui:verify` there, and keep typing in a *different* window for the
+   another window, start `npm run ui:verify` there, and keep typing in a _different_ window for the
    whole run. Expect: no app window takes focus, no keystroke lands in the launcher, typing is never
    interrupted. Note the run's `launches: N` line. → AC5
 2. **Look at the four new screenshots** in `.ui-verify/screenshots/`:
@@ -270,11 +270,11 @@ this session — see below.
 
 **D5 inventory (first full run, exit 2) and its fixes (D6):**
 
-| Screen | Rule | Impact | Nodes | Disposition |
-| --- | --- | --- | --- | --- |
-| config-import-preview@1280x800/@940x620 | select-name | critical | 2 each | Fixed — `Field` now mints an id (`useId()`, or the caller's `htmlFor`) and wires it to its one control via `FieldControlIdContext`/`useControlId()` in `src/renderer/src/components/ui/controls.tsx`; `Select`/`Input`/`PathPicker` adopted it. Applied as a shared helper (not per-site patches) because 30+ `Field` sites lacked `htmlFor` — the ≥3-site threshold in D6's brief. |
-| keybind-dialog@1280x800/@940x620 | label | critical | 1 each | Fixed by the same `Field` id-wiring helper (the failing node was the raw-command input, not the filter input as the plan anticipated — corrected during D6). |
-| library-empty@1280x800/@940x620, config-empty@1280x800/@940x620 | heading-order | moderate | 1 each | Fixed — `EmptyState` title changed `h3` → `h2` in `src/renderer/src/components/ui/primitives.tsx` (it renders directly under a view's `h1`; `h3` skipped a level). |
+| Screen                                                                    | Rule                                                                             | Impact   | Nodes      | Disposition                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| config-import-preview@1280x800/@940x620                                   | select-name                                                                      | critical | 2 each     | Fixed — `Field` now mints an id (`useId()`, or the caller's `htmlFor`) and wires it to its one control via `FieldControlIdContext`/`useControlId()` in `src/renderer/src/components/ui/controls.tsx`; `Select`/`Input`/`PathPicker` adopted it. Applied as a shared helper (not per-site patches) because 30+ `Field` sites lacked `htmlFor` — the ≥3-site threshold in D6's brief.  |
+| keybind-dialog@1280x800/@940x620                                          | label                                                                            | critical | 1 each     | Fixed by the same `Field` id-wiring helper (the failing node was the raw-command input, not the filter input as the plan anticipated — corrected during D6).                                                                                                                                                                                                                         |
+| library-empty@1280x800/@940x620, config-empty@1280x800/@940x620           | heading-order                                                                    | moderate | 1 each     | Fixed — `EmptyState` title changed `h3` → `h2` in `src/renderer/src/components/ui/primitives.tsx` (it renders directly under a view's `h1`; `h3` skipped a level).                                                                                                                                                                                                                   |
 | config-import-preview@1280x800/@940x620, keybind-dialog@1280x800/@940x620 | landmark-no-duplicate-banner, landmark-no-duplicate-contentinfo, landmark-unique | moderate | 1/1/2 each | Fixed, not a harness artifact — `Modal.tsx`'s dialog `<header>`/`<footer>` were real second `banner`/`contentinfo` landmarks because the modal portals to `document.body`, outside `<main>` where view headers already provide one. Changed to plain `div`s in `src/renderer/src/components/ui/Modal.tsx`; dialog naming still works via `aria-label`, no DOM-order/tabIndex change. |
 
 Second full run after D6: 0 critical / 0 serious / 0 moderate / 0 minor, 34/34 shots written, 0
@@ -287,6 +287,7 @@ no page-document semantics for this rule to check. Both `a11y.md`'s summary and 
 baked in. The exit-code gate (`critical > 0 || serious > 0`, `scripts/verify.mjs`) is untouched.
 
 **Review findings handled:**
+
 - Review flagged that this Done section didn't exist yet at review time (the story's `## Done`
   was still empty while D5/D6's violation inventory only lived in the orchestrator's progress
   log) — fixed by writing this section (the review ran before step 8 of the build procedure,
@@ -309,6 +310,7 @@ the whole time; if nothing steals focus, tick AC5 here, set 027's own Done note,
 `docs/requirements/done/`, add its `INDEX.md` line, and flip this story to `done`.
 
 **Decisions made beyond the sprint's binding ones:**
+
 - D6's `select-name`/`label` fix used the shared `Field` id-wiring helper (not per-call-site
   `aria-label`s) because the missing-name pattern recurred at 30+ sites, matching the D6
   deliverable's own "3 or more sites → shared helper" instruction.

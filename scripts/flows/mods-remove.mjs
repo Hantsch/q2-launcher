@@ -44,8 +44,13 @@ function check(label, ok, detail = '') {
 }
 
 function records() {
-  const state = JSON.parse(readFileSync(join(variantUserDataDir('populated'), 'state.json'), 'utf8'))
-  return state.installations.find((i) => i.id === INSTALL_MODS_REMOVE_ID)?.moduleData?.mods?.records ?? []
+  const state = JSON.parse(
+    readFileSync(join(variantUserDataDir('populated'), 'state.json'), 'utf8'),
+  )
+  return (
+    state.installations.find((i) => i.id === INSTALL_MODS_REMOVE_ID)?.moduleData?.mods?.records ??
+    []
+  )
 }
 
 async function openRemoveDialog(page, dir) {
@@ -107,9 +112,13 @@ export default async function modsRemove({ page, shot, step }) {
     await appears(page.getByText(/now starts the base game/i).first()),
   )
   await shot('after-ctf-removed')
-  const ctfOffered = (await page.getByLabel('Launch with').locator('option').allInnerTexts().catch(() => [])).includes(
-    'ctf',
-  )
+  const ctfOffered = (
+    await page
+      .getByLabel('Launch with')
+      .locator('option')
+      .allInnerTexts()
+      .catch(() => [])
+  ).includes('ctf')
 
   step('remove opentdm, deleting changed files too')
   await openRemoveDialog(page, 'opentdm')
@@ -122,7 +131,8 @@ export default async function modsRemove({ page, shot, step }) {
       listText.includes('opentdm.cfg'),
     dialogText,
   )
-  if (!(await page.getByTestId('mods-remove-changed-keep').isChecked())) failures.push('keep is not the default')
+  if (!(await page.getByTestId('mods-remove-changed-keep').isChecked()))
+    failures.push('keep is not the default')
   await shot('remove-dialog-opentdm')
   await page.getByTestId('mods-remove-changed-delete').check({ timeout: TIMEOUT_MS })
   await page.getByTestId('mods-remove-confirm').click({ timeout: TIMEOUT_MS })
@@ -132,7 +142,10 @@ export default async function modsRemove({ page, shot, step }) {
     JOB_TIMEOUT_MS,
   )
   check('after removal every recorded file is gone', recordedGone)
-  check('a demo under demos/ survives removal', existsSync(path(`opentdm/${MODS_REMOVE_DEMO_PATH}`)))
+  check(
+    'a demo under demos/ survives removal',
+    existsSync(path(`opentdm/${MODS_REMOVE_DEMO_PATH}`)),
+  )
   check(
     'the empty ctf folder is deleted and the opentdm folder with a demo is kept',
     ctfGone && existsSync(path('opentdm')) && !existsSync(path('opentdm/maps')),
@@ -142,7 +155,11 @@ export default async function modsRemove({ page, shot, step }) {
   const installShown = await appears(page.getByTestId('mods-install-opentdm'))
   const installedStatus = await page.getByTestId('mods-tile-status-opentdm').count()
   const manualOrigin = await page.getByTestId('mods-tile-origin-manual').count()
-  const pickerNow = await page.getByLabel('Launch with').locator('option').allInnerTexts().catch(() => [])
+  const pickerNow = await page
+    .getByLabel('Launch with')
+    .locator('option')
+    .allInnerTexts()
+    .catch(() => [])
   await shot('after-opentdm-removed')
   check(
     'after removal the record is gone, the tile says not installed and the picker no longer offers ctf',

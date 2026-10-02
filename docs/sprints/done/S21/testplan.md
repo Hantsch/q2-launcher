@@ -14,6 +14,7 @@ with `contents: write` on `Hantsch/q2-launcher` available as `GH_TOKEN`, and a m
 and the repo's toolchain installed.
 
 **Steps:**
+
 1. Run `node scripts/release.mjs --dry-run` and confirm the printed version/notes look right.
 2. Trigger the `release.yml` workflow (`workflow_dispatch`, or push to `main` with a
    non-empty `## Unreleased`).
@@ -33,6 +34,7 @@ where update checks are disabled by design (097 AC5).
 plus a newer published release to update to (see the residue above).
 
 **Steps:**
+
 1. Launch the older installed build and let it complete its daily update check (or trigger one
    by hand from About).
 2. Open the titlebar's update control, start the download, wait for it to finish.

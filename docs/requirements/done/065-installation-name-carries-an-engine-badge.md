@@ -60,7 +60,7 @@ repeated per call site.
 - **Two further call sites join AC2**, beyond the six named in the requirement:
   [AddExistingDialog.tsx:123](../../src/renderer/src/components/installations/AddExistingDialog.tsx#L123)
   and [DetectDialog.tsx:229](../../src/renderer/src/components/installations/DetectDialog.tsx#L229)
-  repeat the same tone expression. AC2 says *no* call site repeats it, so they migrate as well.
+  repeat the same tone expression. AC2 says _no_ call site repeats it, so they migrate as well.
 - **Tone map stays exactly as today** (`r1q2` → `flame`, every other kind → `neutral`), including
   `unknown`. Extracting the expression must not change how rail and hero look; per-engine tones
   would be a separate story.
@@ -96,7 +96,7 @@ repeated per call site.
    itself made shrinkable (`InstallationProfilesPanel`'s `shrink-0 truncate` on the name is
    self-defeating for AC4 — drop `shrink-0` there, keep `min-w-0 truncate`).
 4. **Promote the two plain-text sites to badges.** `LibraryView.tsx:245` and `ActionBar.tsx:91`
-   currently print `engineLabel(...)` as meta text in the row *below* the name: remove that span
+   currently print `engineLabel(...)` as meta text in the row _below_ the name: remove that span
    and its `/` separator and put an `EngineBadge` in the name row instead (LibraryView already has
    a `flex flex-wrap` name row next to the active/favorite markers; ActionBar's name div becomes a
    `flex min-w-0 items-center gap-2` row with the truncating name plus a `shrink-0` badge). No
@@ -114,41 +114,41 @@ i18n keys.
 ## Deliverables
 
 - [x] **D1 — `EngineBadge` + `Badge.testId`.** New `src/renderer/src/components/ui/EngineBadge.tsx`;
-  `testId?: string` added to `Badge` in `src/renderer/src/components/ui/primitives.tsx` (mirror:
-  `TitleBar.tsx`'s `testId` prop). Plus its test in
-  `src/renderer/src/components/ui/EngineBadge.test.ts` (mirror:
-  `src/renderer/src/modules/config/components/DropToggles.test.ts` — `// @vitest-environment jsdom`
-  docblock, RTL via `createElement`, `initI18n('en')` in `beforeAll`).
-  *Accepted when:* the badge renders `R1Q2` with the flame tone classes for `r1q2`, the neutral
-  tone for every other `EngineKind`, `Unknown engine` for `unknown`, and its subtree contains no
-  `img` element.
+      `testId?: string` added to `Badge` in `src/renderer/src/components/ui/primitives.tsx` (mirror:
+      `TitleBar.tsx`'s `testId` prop). Plus its test in
+      `src/renderer/src/components/ui/EngineBadge.test.ts` (mirror:
+      `src/renderer/src/modules/config/components/DropToggles.test.ts` — `// @vitest-environment jsdom`
+      docblock, RTL via `createElement`, `initI18n('en')` in `beforeAll`).
+      _Accepted when:_ the badge renders `R1Q2` with the flame tone classes for `r1q2`, the neutral
+      tone for every other `EngineKind`, `Unknown engine` for `unknown`, and its subtree contains no
+      `img` element.
 - [x] **D2 — Existing badge call sites use it.** `src/renderer/src/components/shell/InstallationRail.tsx`,
-  `components/shell/HeroPanel.tsx`, `components/installations/AddExistingDialog.tsx`,
-  `components/installations/DetectDialog.tsx`.
-  *Accepted when:* no file in `src/renderer` still contains `engineKind === 'r1q2' ? 'flame'`, and
-  the four surfaces render an identical badge to before (`npm run ui:shot` screenshots of `home`,
-  `library`, `install-detect-dialog` unchanged in appearance).
+      `components/shell/HeroPanel.tsx`, `components/installations/AddExistingDialog.tsx`,
+      `components/installations/DetectDialog.tsx`.
+      _Accepted when:_ no file in `src/renderer` still contains `engineKind === 'r1q2' ? 'flame'`, and
+      the four surfaces render an identical badge to before (`npm run ui:shot` screenshots of `home`,
+      `library`, `install-detect-dialog` unchanged in appearance).
 - [x] **D3 — Config lists get the badge.** `src/renderer/src/modules/config/InstallationProfilesPanel.tsx`,
-  `ProfileAssignmentsPanel.tsx`, plus their test in
-  `src/renderer/src/modules/config/InstallationProfilesPanel.test.ts` (one file covering both
-  panels; mirror: `DropToggles.test.ts`, with `useLauncher`'s `installations` seeded).
-  *Accepted when:* each row shows the engine badge after the installation name; a row for an
-  `unknown`-engine install shows a badge reading `Unknown engine`; with a 120-char name the name
-  element carries `truncate` inside a `min-w-0` shrinking box and the badge node is still rendered
-  as its sibling (jsdom does not lay out — the visual half of AC4 is D5's flow).
+      `ProfileAssignmentsPanel.tsx`, plus their test in
+      `src/renderer/src/modules/config/InstallationProfilesPanel.test.ts` (one file covering both
+      panels; mirror: `DropToggles.test.ts`, with `useLauncher`'s `installations` seeded).
+      _Accepted when:_ each row shows the engine badge after the installation name; a row for an
+      `unknown`-engine install shows a badge reading `Unknown engine`; with a 120-char name the name
+      element carries `truncate` inside a `min-w-0` shrinking box and the badge node is still rendered
+      as its sibling (jsdom does not lay out — the visual half of AC4 is D5's flow).
 - [x] **D4 — Library card and action bar promote meta text to a badge.**
-  `src/renderer/src/views/LibraryView.tsx`, `src/renderer/src/components/shell/ActionBar.tsx`.
-  *Accepted when:* both show the engine as a badge next to the name, the old plain-text engine span
-  and its `/` separator are gone, and the surrounding meta row still reads without a dangling
-  separator.
+      `src/renderer/src/views/LibraryView.tsx`, `src/renderer/src/components/shell/ActionBar.tsx`.
+      _Accepted when:_ both show the engine as a badge next to the name, the old plain-text engine span
+      and its `/` separator are gone, and the surrounding meta row still reads without a dangling
+      separator.
 - [x] **D5 — Fixture install + acceptance flow.** `scripts/lib/fixture.mjs` (third populated
-  installation: new id constant, entry in `populatedInstallations()`, id added to the `installIds`
-  mkdir loop; mirror: `INSTALL_CONTROLS_SEED_ID`), new
-  `scripts/flows/engine-badge-surfaces.mjs` (mirror: `scripts/flows/care-duplicate-name.mjs`).
-  *Accepted when:* `npm run ui:flow engine-badge-surfaces` passes — a visible, non-zero-box engine
-  badge on all six surfaces, `Unknown engine` on the long-named install, its name clipped and the
-  badge still inside the panel — and `npm run ui:verify` stays green (axe report gains no new
-  violation, all 34 screens still reachable with the extra installation present).
+      installation: new id constant, entry in `populatedInstallations()`, id added to the `installIds`
+      mkdir loop; mirror: `INSTALL_CONTROLS_SEED_ID`), new
+      `scripts/flows/engine-badge-surfaces.mjs` (mirror: `scripts/flows/care-duplicate-name.mjs`).
+      _Accepted when:_ `npm run ui:flow engine-badge-surfaces` passes — a visible, non-zero-box engine
+      badge on all six surfaces, `Unknown engine` on the long-named install, its name clipped and the
+      badge still inside the panel — and `npm run ui:verify` stays green (axe report gains no new
+      violation, all 34 screens still reachable with the extra installation present).
 
 ## Model Hints
 
@@ -198,6 +198,7 @@ six surfaces asserting a visible, non-zero-box badge everywhere, the "Unknown en
 that the long name clips (`scrollWidth > clientWidth`) while the badge stays inside its panel.
 
 ### Decisions
+
 - The 102-character name originally chosen for the fixture install did not actually clip inside
   `InstallationProfilesPanel`'s `flex flex-wrap` row at the flow's 940px viewport (the badge just
   wrapped to a second line, `scrollWidth === clientWidth`). Genuinely fixed by lengthening the
@@ -213,6 +214,7 @@ that the long name clips (`scrollWidth > clientWidth`) while the badge stays ins
   panel) as a regression guard against a future silent fixture drop.
 
 ### Verification
+
 - `npm run build` — pass.
 - `npm run typecheck` — pass (both `tsconfig.node.json` and `tsconfig.web.json`).
 - `npm test` — 2632/2633 pass; the one failure (`import-reader.test.ts` › "refuses further exec
@@ -235,6 +237,7 @@ that the long name clips (`scrollWidth > clientWidth`) while the badge stays ins
   directly (now reads 156).
 
 ### AC → test mapping, as verified
+
 - AC1 → `scripts/flows/engine-badge-surfaces.mjs`, pass — badge visible on rail/hero/action
   bar/library card/`InstallationProfilesPanel`/`ProfileAssignmentsPanel`.
 - AC2 → `EngineBadge.test.ts` (tone-per-kind table, 4/4 pass) + repo-wide grep confirms
@@ -242,8 +245,8 @@ that the long name clips (`scrollWidth > clientWidth`) while the badge stays ins
 - AC3 → `EngineBadge.test.ts` ("unknown engine still gets a labelled badge") +
   `InstallationProfilesPanel.test.ts` + the flow's "Unknown engine" assertions — all pass.
 - AC4 → the flow's `scrollWidth > clientWidth` + badge-boundingBox-inside-panel assertions (pass)
-  + `InstallationProfilesPanel.test.ts`'s DOM-structure assertion (name `truncate`/`min-w-0` without
-  `shrink-0`, badge sibling present) — pass.
+  - `InstallationProfilesPanel.test.ts`'s DOM-structure assertion (name `truncate`/`min-w-0` without
+    `shrink-0`, badge sibling present) — pass.
 - AC5 → `EngineBadge.test.ts` (no `img`, no inline `background-image`) — pass.
 
 No manual residue; every criterion has an automated test.

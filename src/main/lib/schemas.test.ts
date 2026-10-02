@@ -53,7 +53,12 @@ describe('configProfileSchema - categories/actions (story 008)', () => {
         // Missing `id` - malformed.
         { categoryId: 'c1', name: 'Bad row', commands: [] },
         // Well-formed.
-        { id: 'a1', categoryId: 'c1', name: 'Good row', commands: [{ kind: 'raw', text: '+forward' }] },
+        {
+          id: 'a1',
+          categoryId: 'c1',
+          name: 'Good row',
+          commands: [{ kind: 'raw', text: '+forward' }],
+        },
       ],
     })
     expect(result.actions).toHaveLength(1)
@@ -277,7 +282,8 @@ describe('configProfileSchema - cvarSections/writeCatalogDefaults (story 059)', 
   it('defaults writeCatalogDefaults to true when absent or malformed', () => {
     expect(configProfileSchema.parse(baseProfile).writeCatalogDefaults).toBe(true)
     expect(
-      configProfileSchema.parse({ ...baseProfile, writeCatalogDefaults: 'nope' }).writeCatalogDefaults,
+      configProfileSchema.parse({ ...baseProfile, writeCatalogDefaults: 'nope' })
+        .writeCatalogDefaults,
     ).toBe(true)
   })
 
@@ -486,12 +492,27 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
         name: 'Taunt',
         commands: [{ kind: 'message', channel: 'say', text: 'nice shot' }],
       },
-      { id: 'a-alias', categoryId: 'c-alias', name: '+test', commands: [{ kind: 'raw', text: '+attack' }] },
-      { id: 'a-bind', categoryId: 'c-bind', name: 'Jump', commands: [{ kind: 'raw', text: '+moveup' }] },
+      {
+        id: 'a-alias',
+        categoryId: 'c-alias',
+        name: '+test',
+        commands: [{ kind: 'raw', text: '+attack' }],
+      },
+      {
+        id: 'a-bind',
+        categoryId: 'c-bind',
+        name: 'Jump',
+        commands: [{ kind: 'raw', text: '+moveup' }],
+      },
       { id: 'a-odd', categoryId: 'c-odd', name: 'Odd entry', commands: [] },
       { id: 'a-plain', categoryId: 'c-plain', name: 'Plain entry', commands: [] },
       // A built-in category: never a persisted row, so there is nothing to derive from.
-      { id: 'a-builtin', categoryId: 'movement', name: 'Forward', commands: [{ kind: 'raw', text: '+forward' }] },
+      {
+        id: 'a-builtin',
+        categoryId: 'movement',
+        name: 'Forward',
+        commands: [{ kind: 'raw', text: '+forward' }],
+      },
       // A category that is not in `categories` at all (deleted by hand).
       { id: 'a-orphan', categoryId: 'deleted-category', name: 'Orphan', commands: [] },
     ],
@@ -810,9 +831,9 @@ describe('configProfileSchema - legacy alias references migrated on read (story 
     expect(twice.binds).toEqual(once.binds)
     expect(twice.layers).toEqual(once.layers)
     expect(twice.actions).toEqual(once.actions)
-    expect(validateActions(once.actions, 'r1q2', { binds: once.binds, layers: once.layers })).toEqual(
-      [],
-    )
+    expect(
+      validateActions(once.actions, 'r1q2', { binds: once.binds, layers: once.layers }),
+    ).toEqual([])
   })
 })
 
@@ -835,7 +856,9 @@ describe('configProfileSchema - baseline (story 049)', () => {
     ...baseProfile,
     cvars: { sensitivity: '4.5' },
     binds: { w: '+forward' },
-    layers: [{ id: 'l1', name: 'Alt', mode: 'hold', triggerKey: 'ALT', overrides: { r: '+attack' } }],
+    layers: [
+      { id: 'l1', name: 'Alt', mode: 'hold', triggerKey: 'ALT', overrides: { r: '+attack' } },
+    ],
     categories: [{ id: 'c1', name: 'Chat', subcategories: [] }],
     actions: [
       {
@@ -903,9 +926,7 @@ describe('parseDownloadsSettings (story 071 D1)', () => {
 
   it('falls back to the default instead of throwing when concurrentJobs is not a number', () => {
     expect(() => parseDownloadsSettings({ concurrentJobs: 'nope' })).not.toThrow()
-    expect(parseDownloadsSettings({ concurrentJobs: 'nope' })).toEqual(
-      DEFAULT_DOWNLOADS_SETTINGS,
-    )
+    expect(parseDownloadsSettings({ concurrentJobs: 'nope' })).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
   })
 
   it('falls back to the default instead of throwing when concurrentJobs is out of range', () => {
@@ -931,9 +952,10 @@ describe('parseDownloadsSettings (story 071 D1)', () => {
   })
 
   it('falls back to the default when archiveCacheBudgetGB is not one of the allowed choices', () => {
-    expect(
-      parseDownloadsSettings({ concurrentJobs: 2, archiveCacheBudgetGB: 999 }),
-    ).toEqual({ ...DEFAULT_DOWNLOADS_SETTINGS, concurrentJobs: 2 })
+    expect(parseDownloadsSettings({ concurrentJobs: 2, archiveCacheBudgetGB: 999 })).toEqual({
+      ...DEFAULT_DOWNLOADS_SETTINGS,
+      concurrentJobs: 2,
+    })
   })
 
   it('falls back to the default when downloadWhilePlayingAllowed is not a boolean', () => {
@@ -1020,8 +1042,18 @@ describe('parseHomeLayout (story 086 D1)', () => {
 
 // Story 110 D2.
 describe('parseServersState (story 110 D2)', () => {
-  const validSource1 = { id: 's1', type: 'udp-master', address: '203.0.113.10:27900', enabled: true }
-  const validSource2 = { id: 's2', type: 'http-list', address: 'https://example.com/list?raw=1', enabled: false }
+  const validSource1 = {
+    id: 's1',
+    type: 'udp-master',
+    address: '203.0.113.10:27900',
+    enabled: true,
+  }
+  const validSource2 = {
+    id: 's2',
+    type: 'http-list',
+    address: 'https://example.com/list?raw=1',
+    enabled: false,
+  }
   const malformedSource = { id: 's3', type: 'udp-master', address: '203.0.113.12:27900' } // missing enabled
 
   const validFavourite1 = { address: '203.0.113.20:27910', addedAt: '2026-01-01T00:00:00.000Z' }
@@ -1038,7 +1070,12 @@ describe('parseServersState (story 110 D2)', () => {
 
       // Prove it's a fresh clone, not a shared reference: mutating the result must not mutate the
       // shared `DEFAULT_SERVERS_STATE` constant.
-      result.sources.push({ id: 'mutated', type: 'udp-master', address: '1.2.3.4:27910', enabled: true })
+      result.sources.push({
+        id: 'mutated',
+        type: 'udp-master',
+        address: '1.2.3.4:27910',
+        enabled: true,
+      })
       result.scan.concurrency = 999
       expect(DEFAULT_SERVERS_STATE.sources).toEqual(DEFAULT_MASTER_SOURCES)
       expect(DEFAULT_SERVERS_STATE.scan.concurrency).toBe(24)
@@ -1046,7 +1083,14 @@ describe('parseServersState (story 110 D2)', () => {
   })
 
   it('parseServersState skips a damaged quick filter and keeps the others', () => {
-    const crit = { mod: 'ctf', gamemode: null, map: null, empty: false, hideBotsOnly: false, waitingForOpponent: false }
+    const crit = {
+      mod: 'ctf',
+      gamemode: null,
+      map: null,
+      empty: false,
+      hideBotsOnly: false,
+      waitingForOpponent: false,
+    }
     const row = (id: string, name: string) => ({ id, name, criteria: crit })
     const raw = {
       quickFilters: [
@@ -1355,7 +1399,13 @@ describe('parseDownloadFailures - diagnostics (story 075 D1)', () => {
     finishedAt: '2026-01-08T00:01:00.000Z',
     errorKey: 'downloads.error.installationNotPlayable',
     packages: [
-      { id: 'demo', url: 'https://example.test/demo.zip', sizeBytes: 42, verified: true, extracted: false },
+      {
+        id: 'demo',
+        url: 'https://example.test/demo.zip',
+        sizeBytes: 42,
+        verified: true,
+        extracted: false,
+      },
     ],
     target: {
       targetPath: 'C:\\%HOME%\\Games\\Quake2',
@@ -1438,8 +1488,17 @@ describe('parseDownloadFailures - diagnostics (story 075 D1)', () => {
   it('round-trips a record carrying assembly and per-package contents', () => {
     const withNewRecords: DownloadDiagnostics = {
       ...diagnostics,
-      packages: [{ ...diagnostics.packages[0]!, contents: ['pak0.pak', 'players'], contentsTruncated: false, contributed: true }],
-      assembly: [{ from: 'base/pak0.pak', to: 'base/pak0.pak', found: true, sourcePackageId: 'demo' }],
+      packages: [
+        {
+          ...diagnostics.packages[0]!,
+          contents: ['pak0.pak', 'players'],
+          contentsTruncated: false,
+          contributed: true,
+        },
+      ],
+      assembly: [
+        { from: 'base/pak0.pak', to: 'base/pak0.pak', found: true, sourcePackageId: 'demo' },
+      ],
     }
     const [parsed] = parseDownloadFailures([{ ...baseRow, diagnostics: withNewRecords }])
 
@@ -1518,7 +1577,10 @@ describe('installationSchema - lastFailure (story 077 D1)', () => {
   })
 
   it('a garbage params drops only params, not the rest of lastFailure (one level more forgiving)', () => {
-    const parsed = parseInstallation({ ...baseRow, lastFailure: { ...lastFailure, params: 'nope' } })
+    const parsed = parseInstallation({
+      ...baseRow,
+      lastFailure: { ...lastFailure, params: 'nope' },
+    })
 
     expect(parsed).not.toBeNull()
     expect(parsed?.lastFailure).toEqual(lastFailure)
@@ -1578,7 +1640,9 @@ describe('parseReplaysState (story 140 D2)', () => {
 
   it('modWarning loads forgivingly and round-trips', () => {
     expect(parseReplaysState({}).modWarning).toEqual({ enabled: true, trustedMods: [] })
-    expect(parseReplaysState({ modWarning: { enabled: 'no', trustedMods: 'x' } }).modWarning).toEqual({
+    expect(
+      parseReplaysState({ modWarning: { enabled: 'no', trustedMods: 'x' } }).modWarning,
+    ).toEqual({
       enabled: true,
       trustedMods: [],
     })
@@ -1696,7 +1760,12 @@ describe('parseReplaysState (story 140 D2)', () => {
       extraFolders: [],
     }
 
-    const filter = { ...EMPTY_DEMO_LIST_FILTER, search: 'frag', favouritesOnly: true, tags: ['clutch'] }
+    const filter = {
+      ...EMPTY_DEMO_LIST_FILTER,
+      search: 'frag',
+      favouritesOnly: true,
+      tags: ['clutch'],
+    }
     const result = parseReplaysState({ ...base, listFilter: filter })
 
     expect(result.listFilter).toEqual(filter)

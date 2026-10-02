@@ -554,9 +554,7 @@ function printSummary(results) {
   for (let i = 1; i < results.posSamples.length; i++) {
     posGaps.push(results.posSamples[i].t - results.posSamples[i - 1].t)
   }
-  const avgPosInterval = posGaps.length
-    ? posGaps.reduce((a, b) => a + b, 0) / posGaps.length
-    : null
+  const avgPosInterval = posGaps.length ? posGaps.reduce((a, b) => a + b, 0) / posGaps.length : null
 
   const cpuDelta =
     results.cpuSamples.baseline != null && results.cpuSamples.underLoad != null
@@ -566,9 +564,15 @@ function printSummary(results) {
   console.log('\n=== Summary ===')
   console.log(`Commands sent: ${results.commands.length}`)
   console.log(`p95 ACK latency: ${p95 != null ? `${p95}ms` : 'n/a'}`)
-  console.log(`POS samples: ${results.posSamples.length}, avg interval: ${avgPosInterval != null ? `${avgPosInterval.toFixed(0)}ms` : 'n/a'}`)
-  console.log(`CPU (baseline -> under load): ${results.cpuSamples.baseline} -> ${results.cpuSamples.underLoad} (delta ${cpuDelta})`)
-  console.log(`Logfile size: ${results.logGrowth.startBytes} -> ${results.logGrowth.endBytes ?? 'n/a'} bytes`)
+  console.log(
+    `POS samples: ${results.posSamples.length}, avg interval: ${avgPosInterval != null ? `${avgPosInterval.toFixed(0)}ms` : 'n/a'}`,
+  )
+  console.log(
+    `CPU (baseline -> under load): ${results.cpuSamples.baseline} -> ${results.cpuSamples.underLoad} (delta ${cpuDelta})`,
+  )
+  console.log(
+    `Logfile size: ${results.logGrowth.startBytes} -> ${results.logGrowth.endBytes ?? 'n/a'} bytes`,
+  )
   console.log(`Duplicates observed: ${results.duplicates.length}`)
 }
 

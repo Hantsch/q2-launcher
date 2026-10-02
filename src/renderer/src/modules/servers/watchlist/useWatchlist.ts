@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Outcome } from '@shared/types'
-import type { ScanStartResult, WatchlistMatchMode, WatchlistSnapshot } from '@shared/modules/servers'
+import type {
+  ScanStartResult,
+  WatchlistMatchMode,
+  WatchlistSnapshot,
+} from '@shared/modules/servers'
 import {
   addWatchlistEntry,
   onWatchlistChanged,
@@ -13,7 +17,10 @@ import {
 
 export interface UseWatchlistResult {
   snapshot: WatchlistSnapshot | null
-  add: (input: { name: string; mode: WatchlistMatchMode }) => Promise<Outcome<WatchlistMutationResult>>
+  add: (input: {
+    name: string
+    mode: WatchlistMatchMode
+  }) => Promise<Outcome<WatchlistMutationResult>>
   update: (input: {
     id: string
     name: string
@@ -61,7 +68,10 @@ export function useWatchlist(): UseWatchlistResult {
   }, [])
 
   const add = useCallback(
-    async (input: { name: string; mode: WatchlistMatchMode }): Promise<Outcome<WatchlistMutationResult>> => {
+    async (input: {
+      name: string
+      mode: WatchlistMatchMode
+    }): Promise<Outcome<WatchlistMutationResult>> => {
       const result = await addWatchlistEntry(input)
       applyMutationResult(result)
       return result

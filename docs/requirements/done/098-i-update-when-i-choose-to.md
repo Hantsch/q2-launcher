@@ -243,6 +243,7 @@ and AC8's automated half against the real, unpackaged app (D5).
 **Commit message:** `098: I update when I choose to`
 
 **Verification.**
+
 - `npm run typecheck` — clean (node + web).
 - `npm run build` — clean.
 - `npm test` (full suite) — 4029 passed, 2 pre-existing/unrelated failures confirmed both before
@@ -266,6 +267,7 @@ and AC8's automated half against the real, unpackaged app (D5).
   cancellation token isn't created yet (real-backend-only, unreachable from this e2e).
 
 **AC → test mapping (verified this pass):**
+
 - AC1 → e2e `scripts/flows/app-update.mjs` — passed.
 - AC2 → e2e `app-update.mjs` + unit `UpdatePopover.test.tsx` — passed.
 - AC3 → e2e `app-update.mjs` — passed.
@@ -278,6 +280,7 @@ and AC8's automated half against the real, unpackaged app (D5).
   first release.
 
 **Decisions (made during implementation, not pre-specified in the plan):**
+
 - File names follow 097's real, already-committed layout (`src/shared/types/update.ts`,
   `src/main/services/update/service.ts` + `checker.ts`) rather than the story text's guessed
   `app-update.ts` names — both D1 and D4 follow this; noted inline in `## Acceptance Tests` above.
@@ -294,6 +297,6 @@ and AC8's automated half against the real, unpackaged app (D5).
   simulation, and `checker.ts`'s `quitAndInstall()` still throws on an unresolved updater) is kept
   as the reviewed, PASS-level design, now documented in a code comment on `installAndRestart`.
 - `scripts/flows/app-update.mjs`'s AC6 popover-click assertions read the popover after the first
-  refusal without needing to reopen it for the *first* refusal; the *second* refusal (job-active)
+  refusal without needing to reopen it for the _first_ refusal; the _second_ refusal (job-active)
   closes/reopens the popover first, because `UpdatePopover`'s `refusalKey` is local, mount-scoped
   state (a deliberate D3 choice) that only clears on remount.

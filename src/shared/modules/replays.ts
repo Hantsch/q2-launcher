@@ -185,9 +185,14 @@ export const nameTemplateTextSchema = z
 export const NAME_TEMPLATES_MAX = 50
 
 export const nameTemplatesAddSchema = z.object({ template: nameTemplateTextSchema })
-export const nameTemplatesUpdateSchema = z.object({ id: z.string(), template: nameTemplateTextSchema })
+export const nameTemplatesUpdateSchema = z.object({
+  id: z.string(),
+  template: nameTemplateTextSchema,
+})
 export const nameTemplatesRemoveSchema = z.object({ id: z.string() })
-export const nameTemplatesReorderSchema = z.object({ ids: z.array(z.string()).max(NAME_TEMPLATES_MAX) })
+export const nameTemplatesReorderSchema = z.object({
+  ids: z.array(z.string()).max(NAME_TEMPLATES_MAX),
+})
 export const nameTemplatesResetSchema = z.object({ id: z.string() })
 
 /** A demo's on-disk container format - never a factor a UI label should need beyond this enum. */
@@ -270,7 +275,9 @@ export const discoveredDemoSchema = z.object({
   gzip: z.boolean(),
   source: demoSourceSchema,
   /** Non-null when this row came from an entry inside a zip (story 143); null for a loose file. */
-  archiveEntry: z.object({ archivePath: z.string().min(1), entryPath: z.string().min(1) }).nullable(),
+  archiveEntry: z
+    .object({ archivePath: z.string().min(1), entryPath: z.string().min(1) })
+    .nullable(),
   /** The map name parsed from the demo's own header, or null when unparsable/not yet parsed. */
   map: z.string().nullable(),
   /** Why the header couldn't be parsed, or null for a parseable row. */
@@ -449,12 +456,15 @@ export const replaysDemoFileActionSchema = z.object({ demoId: replaysDemoIdSchem
 
 /** `demos.reveal`/`demos.copyPath`'s result: the path itself never crosses IPC, only whether the
  * action ran and, on refusal, why - mirrors `ExtraFoldersResult`'s ok/refusal union shape above. */
-export type DemoFileActionResult = { ok: true } | { ok: false; reason: 'unknownDemo' | 'fileMissing' }
+export type DemoFileActionResult =
+  { ok: true } | { ok: false; reason: 'unknownDemo' | 'fileMissing' }
 
 /** `demo.rename`'s payload (story 157): the demo id plus the new name STEM - never a path; main
  * validates the stem itself (`validateDemoRename`) and resolves the id to the real file. `.strict()`
  * for the same reason as `replaysDemoFileActionSchema` above. */
-export const replaysDemoRenameSchema = z.object({ id: replaysDemoIdSchema, name: z.string().max(255) }).strict()
+export const replaysDemoRenameSchema = z
+  .object({ id: replaysDemoIdSchema, name: z.string().max(255) })
+  .strict()
 
 /** `playback.consoleSend`'s payload (story 166): one free console line. The loose 1024 cap only
  * bounds the payload; main's `validateConsoleLine` is the authority (printable, one line, 255). */
@@ -473,7 +483,9 @@ export const replaysStageRectSchema = z
 export type ReplaysStageRect = z.infer<typeof replaysStageRectSchema>
 
 /** Story 171 D2: `playback.stage`'s payload - where the stage is now, or `null` when there is none. */
-export const replaysPlaybackStageSchema = z.object({ rect: replaysStageRectSchema.nullable() }).strict()
+export const replaysPlaybackStageSchema = z
+  .object({ rect: replaysStageRectSchema.nullable() })
+  .strict()
 export type ReplaysPlaybackStagePayload = z.infer<typeof replaysPlaybackStageSchema>
 
 /** Story 187 D5: `playback.cinema`'s payload - enter (`true`) or leave (`false`) cinema mode. */
@@ -507,7 +519,11 @@ export const replaysDemoPlaySchema = z
  * only when replacing a broken sidecar the user has confirmed - the fingerprint a previous
  * `needsConfirmation` response reported for that file (story 147). */
 export const replaysSidecarWriteSchema = z
-  .object({ demoId: replaysDemoIdSchema, fields: sidecarFieldsSchema, confirmReplace: z.string().optional() })
+  .object({
+    demoId: replaysDemoIdSchema,
+    fields: sidecarFieldsSchema,
+    confirmReplace: z.string().optional(),
+  })
   .strict()
 
 /**
@@ -648,12 +664,7 @@ export const REPLAYS_SIDECAR_WRITING_HANDLERS: readonly string[] = ['sidecar.wri
  * failures reading the file itself, not its content).
  */
 export type SidecarIssueKind =
-  | 'invalidJson'
-  | 'notAnObject'
-  | 'invalidField'
-  | 'unknownField'
-  | 'unknownVersion'
-  | 'unreadable'
+  'invalidJson' | 'notAnObject' | 'invalidField' | 'unknownField' | 'unknownVersion' | 'unreadable'
 
 /** One reported problem with a sidecar file: which kind, the i18n key to show it with (always
  * `replays.sidecar.issue.<kind>`), and the interpolation params that key expects. */
@@ -668,7 +679,8 @@ export interface SidecarIssue {
  * problem - `issues` names each one, and reading never drops the whole file over a single bad
  * field (whatever validated successfully is still usable elsewhere).
  */
-export type SidecarState = { state: 'none' } | { state: 'ok' } | { state: 'error'; issues: SidecarIssue[] }
+export type SidecarState =
+  { state: 'none' } | { state: 'ok' } | { state: 'error'; issues: SidecarIssue[] }
 
 /**
  * Story 147: what `sidecar.write` answers. `saved` is the story-146 outcome. `needsConfirmation`

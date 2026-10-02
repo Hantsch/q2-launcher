@@ -157,7 +157,7 @@ A Steam-owned installation can launch through Steam itself instead: `plan()` ski
 installation's discovered appid and the user's chosen client, so none of the launcher's own
 `+set` arguments or active game directory reach the game. `start()` takes a separate branch for
 this — a detached, `unref()`d spawn with no exit listener — because a cold `steam` process
-*becomes* the Steam client and never exits; there is no child process left to observe, so no
+_becomes_ the Steam client and never exits; there is no child process left to observe, so no
 playtime is ever recorded for it. The phase this reaches is a dedicated terminal state,
 `handed-off`, never `running` — `isRunning()` treats it as not running. The write guard's
 blocking set covers only `starting`/`running`, so a handed-off installation stays writable; the
@@ -176,10 +176,10 @@ key or the raw signed bytes.
 
 Two independent clocks are checked, and they must not be confused:
 
-- the **redemption window** (`redeemBy`) gates *entering* a code — once a code
+- the **redemption window** (`redeemBy`) gates _entering_ a code — once a code
   has been redeemed inside its window, the window no longer matters, even
   across restarts;
-- **feature expiry** (`expiresAt`) is separate and re-checked on *every*
+- **feature expiry** (`expiresAt`) is separate and re-checked on _every_
   verification, including every app start — a code stays revocable-by-time
   long after its redemption window has closed.
 
@@ -302,7 +302,7 @@ Permitted, because both are CSSOM writes and `style-src` does not govern the CSS
 
 Blocked by this policy, and not to be introduced:
 
-- `setAttribute('style', ...)` (and `cssText`) — a *parsed* style attribute, which is
+- `setAttribute('style', ...)` (and `cssText`) — a _parsed_ style attribute, which is
   what `style-src-attr` covers, unlike the property-by-property CSSOM write above.
 - A literal `<style>` block, whether authored in markup or built with
   `document.createElement('style')` — `style-src-elem`.
@@ -331,7 +331,6 @@ custom buttons.
 Geometry is persisted from `getNormalBounds()` (the pre-maximize rectangle) and a
 saved position that is no longer on any display is dropped, so unplugging a monitor
 cannot strand the window off-screen.
-
 
 ### Decisions: shell service for the cinema overlay
 

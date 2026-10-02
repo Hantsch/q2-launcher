@@ -48,15 +48,21 @@ function check(label, ok, detail = '') {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}${ok ? '' : ` - ${detail}`}`)
   if (!ok) failures.push(label)
 }
-const packageRequests = () => server.requested.filter((p) => p.startsWith('/mirror/') || p.startsWith('/modpkg/'))
+const packageRequests = () =>
+  server.requested.filter((p) => p.startsWith('/mirror/') || p.startsWith('/modpkg/'))
 const bytesAt = (rel) => (existsSync(path(rel)) ? readFileSync(path(rel)) : null)
 const same = (a, b) => a !== null && Buffer.compare(a, b) === 0
 function snapshot(dir, names) {
   return Object.fromEntries(names.map((n) => [n, bytesAt(`${dir}/${n}`)?.toString('hex') ?? null]))
 }
 const records = () => {
-  const state = JSON.parse(readFileSync(join(variantUserDataDir('populated'), 'state.json'), 'utf8'))
-  return state.installations.find((i) => i.id === INSTALL_MODS_UPDATE_ID)?.moduleData?.mods?.records ?? []
+  const state = JSON.parse(
+    readFileSync(join(variantUserDataDir('populated'), 'state.json'), 'utf8'),
+  )
+  return (
+    state.installations.find((i) => i.id === INSTALL_MODS_UPDATE_ID)?.moduleData?.mods?.records ??
+    []
+  )
 }
 const recordOf = (dir) => records().find((r) => r.gameDir === dir)
 async function waitUntil(fn, ms) {
@@ -78,8 +84,14 @@ export default async function modUpdate({ page, shot, step }) {
   const oldOpentdm = snapshot('opentdm', Object.keys(modsUpdateOldFiles.opentdm))
   const oldAction = snapshot('action', Object.keys(modsUpdateOldFiles.action))
   const oldActionRecord = JSON.stringify(recordOf('action'))
-  check('opentdm tile shows Update available', /update available/i.test(await status('opentdm').innerText()))
-  check('opentdm tile has an Update action', (await page.getByTestId('mods-update-opentdm').count()) === 1)
+  check(
+    'opentdm tile shows Update available',
+    /update available/i.test(await status('opentdm').innerText()),
+  )
+  check(
+    'opentdm tile has an Update action',
+    (await page.getByTestId('mods-update-opentdm').count()) === 1,
+  )
   await page.getByTestId('mods-tile-opentdm').click({ timeout: TIMEOUT_MS })
   const versions = page.getByTestId('mods-detail-update-versions')
   await versions.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -89,7 +101,10 @@ export default async function modUpdate({ page, shot, step }) {
     versionsText.includes('v1.0.0') && versionsText.includes('v1.1.0'),
     versionsText,
   )
-  check('detail has an Update action', (await page.getByTestId('mods-detail-update-opentdm').count()) === 1)
+  check(
+    'detail has an Update action',
+    (await page.getByTestId('mods-detail-update-opentdm').count()) === 1,
+  )
   await shot('opentdm-update-available')
   const ctfStatus = await page.getByTestId('mods-tile-status-ctf').allInnerTexts()
   check(
@@ -101,8 +116,8 @@ export default async function modUpdate({ page, shot, step }) {
   )
   check(
     'opentdm bytes unchanged and no package requested before Update is clicked',
-    JSON.stringify(snapshot('opentdm', Object.keys(modsUpdateOldFiles.opentdm))) === JSON.stringify(oldOpentdm) &&
-      packageRequests().length === 0,
+    JSON.stringify(snapshot('opentdm', Object.keys(modsUpdateOldFiles.opentdm))) ===
+      JSON.stringify(oldOpentdm) && packageRequests().length === 0,
     JSON.stringify(server.requested),
   )
 
@@ -113,10 +128,14 @@ export default async function modUpdate({ page, shot, step }) {
   check('no dialog was asked for', (await page.getByRole('dialog').count()) === 0)
   check(
     'gamedir holds the new version bytes',
-    done && Object.entries(modsUpdateNewOpentdmFiles).every(([n, b]) => same(bytesAt(`opentdm/${n}`), b)),
+    done &&
+      Object.entries(modsUpdateNewOpentdmFiles).every(([n, b]) => same(bytesAt(`opentdm/${n}`), b)),
   )
   check('old-only.txt is gone', !existsSync(path('opentdm/old-only.txt')))
-  check('demos/mine.dm2 keeps its bytes', same(bytesAt(`opentdm/${MODS_UPDATE_USER_FILE}`), MODS_UPDATE_USER_BYTES))
+  check(
+    'demos/mine.dm2 keeps its bytes',
+    same(bytesAt(`opentdm/${MODS_UPDATE_USER_FILE}`), MODS_UPDATE_USER_BYTES),
+  )
   const rec = recordOf('opentdm')
   const recPaths = (rec?.files ?? []).map((f) => f.path).sort()
   check(
@@ -126,7 +145,17 @@ export default async function modUpdate({ page, shot, step }) {
     JSON.stringify(rec),
   )
   await status('opentdm').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitUntil(async () => /^installed/i.test((await status('opentdm').innerText().catch(() => '')).trim()), 10_000)
+  await waitUntil(
+    async () =>
+      /^installed/i.test(
+        (
+          await status('opentdm')
+            .innerText()
+            .catch(() => '')
+        ).trim(),
+      ),
+    10_000,
+  )
   const installedText = await status('opentdm').innerText()
   check('the tile shows installed again', /^installed/i.test(installedText.trim()), installedText)
   check(
@@ -148,14 +177,21 @@ export default async function modUpdate({ page, shot, step }) {
       () => false,
     )
   const errorText = shown ? (await errors.allInnerTexts()).join(' | ') : ''
-  check('the failure reason is visible text in the detail panel', shown && errorText.trim().length > 0, errorText)
+  check(
+    'the failure reason is visible text in the detail panel',
+    shown && errorText.trim().length > 0,
+    errorText,
+  )
   await shot('action-update-failed')
   check(
     'action files and record are byte-identical to before',
-    JSON.stringify(snapshot('action', Object.keys(modsUpdateOldFiles.action))) === JSON.stringify(oldAction) &&
-      JSON.stringify(recordOf('action')) === oldActionRecord,
+    JSON.stringify(snapshot('action', Object.keys(modsUpdateOldFiles.action))) ===
+      JSON.stringify(oldAction) && JSON.stringify(recordOf('action')) === oldActionRecord,
   )
-  check('action still offers the update', (await page.getByTestId('mods-detail-update-action').count()) === 1)
+  check(
+    'action still offers the update',
+    (await page.getByTestId('mods-detail-update-action').count()) === 1,
+  )
 
   if (failures.length > 0) throw new Error(`mod-update: failed: ${failures.join('; ')}`)
 }

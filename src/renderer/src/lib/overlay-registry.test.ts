@@ -7,7 +7,17 @@ const stage = { x: 100, y: 100, width: 400, height: 300 }
 function box(x: number, y: number, width: number, height: number): HTMLElement {
   const el = document.createElement('div')
   el.getBoundingClientRect = () =>
-    ({ x, y, width, height, left: x, top: y, right: x + width, bottom: y + height, toJSON: () => ({}) }) as DOMRect
+    ({
+      x,
+      y,
+      width,
+      height,
+      left: x,
+      top: y,
+      right: x + width,
+      bottom: y + height,
+      toJSON: () => ({}),
+    }) as DOMRect
   return el
 }
 

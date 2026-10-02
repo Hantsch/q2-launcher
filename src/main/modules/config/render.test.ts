@@ -294,12 +294,7 @@ describe('renderProfileFile', () => {
     const p = profile({ id: 'empty-id', cvars: {}, binds: {} })
 
     expect(renderProfileFile(p)).toBe(
-      [
-        ...testProfileHeader('empty-id'),
-        ...TEST_PROFILE_UNBINDALL,
-        ...cvarBlock(),
-        '',
-      ].join('\n'),
+      [...testProfileHeader('empty-id'), ...TEST_PROFILE_UNBINDALL, ...cvarBlock(), ''].join('\n'),
     )
   })
 
@@ -312,21 +307,16 @@ describe('renderProfileFile', () => {
     const p = profile({ id: 'unbindall-default', cvars: {}, binds: {} })
     expect(p.writeUnbindall).toBeUndefined()
 
-    expect(renderProfileFile(p)).toBe(
-      renderProfileFile({ ...p, writeUnbindall: true }),
-    )
+    expect(renderProfileFile(p)).toBe(renderProfileFile({ ...p, writeUnbindall: true }))
   })
 
   it('writes a single unbindall line directly after the header when writeUnbindall is true', () => {
     const p = profile({ id: 'unbindall-on', cvars: {}, binds: {}, writeUnbindall: true })
 
     expect(renderProfileFile(p)).toBe(
-      [
-        ...testProfileHeader('unbindall-on'),
-        ...TEST_PROFILE_UNBINDALL,
-        ...cvarBlock(),
-        '',
-      ].join('\n'),
+      [...testProfileHeader('unbindall-on'), ...TEST_PROFILE_UNBINDALL, ...cvarBlock(), ''].join(
+        '\n',
+      ),
     )
   })
 
@@ -334,11 +324,7 @@ describe('renderProfileFile', () => {
     const p = profile({ id: 'unbindall-off', cvars: {}, binds: {}, writeUnbindall: false })
 
     expect(renderProfileFile(p)).toBe(
-      [
-        ...testProfileHeader('unbindall-off'),
-        ...cvarBlock(),
-        '',
-      ].join('\n'),
+      [...testProfileHeader('unbindall-off'), ...cvarBlock(), ''].join('\n'),
     )
   })
 
@@ -607,7 +593,11 @@ describe('renderLoaderFile', () => {
     const p = profile({ id: 'abc123' })
 
     expect(renderLoaderFile(p, 'My-Config.cfg')).toBe(
-      ['// q2-launcher profile abc123 - hand-edited changes are read back', 'exec My-Config.cfg', ''].join('\n'),
+      [
+        '// q2-launcher profile abc123 - hand-edited changes are read back',
+        'exec My-Config.cfg',
+        '',
+      ].join('\n'),
     )
   })
 
@@ -984,7 +974,10 @@ describe('renderProfileFile with actions', () => {
       const freeform = action({
         id: 'ffff4444',
         name: 'My combo',
-        commands: [{ kind: 'raw', text: 'wait' }, { kind: 'raw', text: '+attack' }],
+        commands: [
+          { kind: 'raw', text: 'wait' },
+          { kind: 'raw', text: '+attack' },
+        ],
       })
       const p = profile({ id: 'keyless', actions: [freeform] })
 
@@ -1071,10 +1064,7 @@ describe('renderProfileFile with actions', () => {
 
       // Both slots of one action, so both binds land in that action's category section, ordered
       // by key within it, and both carry the same entry name as their trailing comment.
-      expect(bindLines.map(unformat)).toEqual([
-        `bind PGUP "${aliasName}"`,
-        `bind r "${aliasName}"`,
-      ])
+      expect(bindLines.map(unformat)).toEqual([`bind PGUP "${aliasName}"`, `bind r "${aliasName}"`])
       expect(aliasLines.map(unformat)).toEqual([
         `alias ${aliasName} "drop rocket launcher; drop rockets; say_team need ammo"`,
       ])
@@ -1167,12 +1157,72 @@ describe('story 040 D3: alias, layer and bind sections', () => {
     /** One entry per section a category can produce, plus one whose category the profile no
      * longer has - built so both the alias and the bind side of each category is exercised. */
     const entries: ConfigAction[] = [
-      action({ id: 'e-move', name: 'Strafe left', categoryId: 'movement', keys: keySlots({ key: 'a' }), aliasName: 'strafe_l', commands: [{ kind: 'raw', text: 'wait' }, { kind: 'raw', text: '+moveleft' }] }),
-      action({ id: 'e-weap', name: 'SSG + SG', categoryId: 'weapons', keys: keySlots({ key: 'q' }), aliasName: 'ssg_sg', commands: [{ kind: 'raw', text: 'use super shotgun' }, { kind: 'raw', text: 'use shotgun' }] }),
-      action({ id: 'e-drop', name: 'Drop RL', categoryId: 'drops', keys: keySlots({ key: 'r' }), aliasName: 'drop_rl', commands: [{ kind: 'raw', text: 'drop rocket launcher' }, { kind: 'raw', text: 'say_team dropped rl' }] }),
-      action({ id: 'e-bravo', name: 'Bravo entry', categoryId: 'cat-bravo', keys: keySlots({ key: 'b' }), aliasName: 'bravo_e', commands: [{ kind: 'raw', text: 'wave 1' }, { kind: 'raw', text: 'wait' }] }),
-      action({ id: 'e-alpha', name: 'Alpha entry', categoryId: 'cat-alpha', keys: keySlots({ key: 'z' }), aliasName: 'alpha_e', commands: [{ kind: 'raw', text: 'wave 2' }, { kind: 'raw', text: 'wait' }] }),
-      action({ id: 'e-gone', name: 'Orphan entry', categoryId: 'deleted-category', keys: keySlots({ key: 'o' }), aliasName: 'orphan_e', commands: [{ kind: 'raw', text: 'wave 3' }, { kind: 'raw', text: 'wait' }] }),
+      action({
+        id: 'e-move',
+        name: 'Strafe left',
+        categoryId: 'movement',
+        keys: keySlots({ key: 'a' }),
+        aliasName: 'strafe_l',
+        commands: [
+          { kind: 'raw', text: 'wait' },
+          { kind: 'raw', text: '+moveleft' },
+        ],
+      }),
+      action({
+        id: 'e-weap',
+        name: 'SSG + SG',
+        categoryId: 'weapons',
+        keys: keySlots({ key: 'q' }),
+        aliasName: 'ssg_sg',
+        commands: [
+          { kind: 'raw', text: 'use super shotgun' },
+          { kind: 'raw', text: 'use shotgun' },
+        ],
+      }),
+      action({
+        id: 'e-drop',
+        name: 'Drop RL',
+        categoryId: 'drops',
+        keys: keySlots({ key: 'r' }),
+        aliasName: 'drop_rl',
+        commands: [
+          { kind: 'raw', text: 'drop rocket launcher' },
+          { kind: 'raw', text: 'say_team dropped rl' },
+        ],
+      }),
+      action({
+        id: 'e-bravo',
+        name: 'Bravo entry',
+        categoryId: 'cat-bravo',
+        keys: keySlots({ key: 'b' }),
+        aliasName: 'bravo_e',
+        commands: [
+          { kind: 'raw', text: 'wave 1' },
+          { kind: 'raw', text: 'wait' },
+        ],
+      }),
+      action({
+        id: 'e-alpha',
+        name: 'Alpha entry',
+        categoryId: 'cat-alpha',
+        keys: keySlots({ key: 'z' }),
+        aliasName: 'alpha_e',
+        commands: [
+          { kind: 'raw', text: 'wave 2' },
+          { kind: 'raw', text: 'wait' },
+        ],
+      }),
+      action({
+        id: 'e-gone',
+        name: 'Orphan entry',
+        categoryId: 'deleted-category',
+        keys: keySlots({ key: 'o' }),
+        aliasName: 'orphan_e',
+        commands: [
+          { kind: 'raw', text: 'wave 3' },
+          { kind: 'raw', text: 'wait' },
+        ],
+      }),
     ]
 
     const grouped = profile({
@@ -1182,9 +1232,7 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       binds: {
         // The mirror `setActions` would have written for each entry above, plus one bind the
         // user typed themselves.
-        ...Object.fromEntries(
-          entries.map((entry) => [keySlotAt(entry, 0)!.key, entry.aliasName!]),
-        ),
+        ...Object.fromEntries(entries.map((entry) => [keySlotAt(entry, 0)!.key, entry.aliasName!])),
         F1: 'say hello',
       },
     })
@@ -1259,7 +1307,10 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         categoryId: 'movement',
         keys: keySlots({ key: 'k' }, { key: 'HOME' }),
         aliasName: 'two_slots',
-        commands: [{ kind: 'raw', text: 'wave 1' }, { kind: 'raw', text: 'wait' }],
+        commands: [
+          { kind: 'raw', text: 'wave 1' },
+          { kind: 'raw', text: 'wait' },
+        ],
       })
       const first = action({
         id: 'e-first',
@@ -1267,7 +1318,10 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         categoryId: 'movement',
         keys: keySlots({ key: 'zzz_last_key' }),
         aliasName: 'first_e',
-        commands: [{ kind: 'raw', text: 'wave 2' }, { kind: 'raw', text: 'wait' }],
+        commands: [
+          { kind: 'raw', text: 'wave 2' },
+          { kind: 'raw', text: 'wait' },
+        ],
       })
       const p = profile({
         id: 'ordering',
@@ -1304,7 +1358,10 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       categoryId: 'weapons',
       keys: keySlots({ key: 'q' }),
       aliasName: 'ssg_sg',
-      commands: [{ kind: 'raw', text: 'use super shotgun' }, { kind: 'raw', text: 'use shotgun' }],
+      commands: [
+        { kind: 'raw', text: 'use super shotgun' },
+        { kind: 'raw', text: 'use shotgun' },
+      ],
     })
 
     it('does not claim the same value on a key the action does not hold (story 039 key-scoping)', () => {
@@ -1412,7 +1469,13 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         id: 'trigger-conflict',
         binds: { ALT: '+attack' },
         layers: [
-          { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' } },
+          {
+            id: 'l1',
+            name: 'Drops',
+            mode: 'hold',
+            triggerKey: 'ALT',
+            overrides: { '1': 'drop rl' },
+          },
         ],
       })
 
@@ -1441,14 +1504,23 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         categoryId: 'weapons',
         keys: keySlots({ key: 'ALT' }),
         aliasName: 'attack_e',
-        commands: [{ kind: 'raw', text: 'use blaster' }, { kind: 'raw', text: '+attack' }],
+        commands: [
+          { kind: 'raw', text: 'use blaster' },
+          { kind: 'raw', text: '+attack' },
+        ],
       })
       const p = profile({
         id: 'trigger-conflict-owned',
         actions: [attack],
         binds: { ALT: 'attack_e' },
         layers: [
-          { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' } },
+          {
+            id: 'l1',
+            name: 'Drops',
+            mode: 'hold',
+            triggerKey: 'ALT',
+            overrides: { '1': 'drop rl' },
+          },
         ],
       })
 
@@ -1471,7 +1543,16 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         // The empty one first, so its absence from the output cannot be an ordering artefact.
         categories: [{ id: 'cat-empty', name: 'Empty category' }, ...TEMPLATE_CATEGORIES],
         actions: [
-          action({ id: 'only', name: 'Only', categoryId: 'weapons', aliasName: 'only_e', commands: [{ kind: 'raw', text: 'wave 1' }, { kind: 'raw', text: 'wait' }] }),
+          action({
+            id: 'only',
+            name: 'Only',
+            categoryId: 'weapons',
+            aliasName: 'only_e',
+            commands: [
+              { kind: 'raw', text: 'wave 1' },
+              { kind: 'raw', text: 'wait' },
+            ],
+          }),
         ],
       })
 
@@ -1498,7 +1579,10 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         categoryId: 'cat-melee',
         keys: keySlots({ key: 'x' }),
         aliasName: 'melee_x',
-        commands: [{ kind: 'raw', text: 'use blaster' }, { kind: 'raw', text: '+attack' }],
+        commands: [
+          { kind: 'raw', text: 'use blaster' },
+          { kind: 'raw', text: '+attack' },
+        ],
       })
       return profile({
         id: 'rich',
@@ -1508,7 +1592,13 @@ describe('story 040 D3: alias, layer and bind sections', () => {
         actions: [entry],
         binds: { x: 'melee_x', F1: 'say Grüße' },
         layers: [
-          { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' } },
+          {
+            id: 'l1',
+            name: 'Drops',
+            mode: 'hold',
+            triggerKey: 'ALT',
+            overrides: { '1': 'drop rl' },
+          },
         ],
       })
     }
@@ -1541,7 +1631,13 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       const p = profile({
         id: 'truncated-comment',
         actions: [
-          action({ id: 'long', name: label, categoryId: 'weapons', aliasName: 'long_entry', commands: [{ kind: 'raw', text: command }] }),
+          action({
+            id: 'long',
+            name: label,
+            categoryId: 'weapons',
+            aliasName: 'long_entry',
+            commands: [{ kind: 'raw', text: command }],
+          }),
         ],
         binds: { k: 'long_entry' },
       })
@@ -1723,13 +1819,15 @@ describe('story 040 D3: alias, layer and bind sections', () => {
       const withLongCategory = renderProfileFile(
         profile({
           categories: [{ id: 'cat-long', name: long }],
-          actions: [action({
-            id: 'long-cat',
-            name: 'E',
-            categoryId: 'cat-long',
-            keys: keySlots({ key: 'z' }),
-            aliasName: 'e',
-          })],
+          actions: [
+            action({
+              id: 'long-cat',
+              name: 'E',
+              categoryId: 'cat-long',
+              keys: keySlots({ key: 'z' }),
+              aliasName: 'e',
+            }),
+          ],
           binds: { z: 'e' },
         }),
       )
@@ -1855,7 +1953,9 @@ describe('story 048 D2: every catalogue cvar is written', () => {
     const p = profile({
       id: 'stable',
       cvars: { Sensitivity: '9', sensitivity: '3', zz_unknown: 'kept', vid_gamma: '1.0' },
-      actions: [action({ id: 'st-1', name: 'One', keys: keySlots({ key: 'q' }), aliasName: 'one_e' })],
+      actions: [
+        action({ id: 'st-1', name: 'One', keys: keySlots({ key: 'q' }), aliasName: 'one_e' }),
+      ],
       binds: { q: 'one_e' },
     })
 
@@ -1885,7 +1985,9 @@ describe('story 051 D2: the header block is a small banner', () => {
   it('contains the profile id exactly once, only inside the header tag', () => {
     const p = profile({
       id: 'only-in-tag',
-      actions: [action({ id: 'a-1', name: 'One', keys: keySlots({ key: 'q' }), aliasName: 'one_e' })],
+      actions: [
+        action({ id: 'a-1', name: 'One', keys: keySlots({ key: 'q' }), aliasName: 'one_e' }),
+      ],
       binds: { q: 'one_e' },
     })
     const rendered = renderProfileFile(p)
@@ -1924,7 +2026,11 @@ describe('story 051 D2: the header block is a small banner', () => {
   })
 
   it('renders byte-identically twice in a row', () => {
-    const p = profile({ id: 'idempotent-header', cvars: { sensitivity: '3' }, binds: { q: '+forward' } })
+    const p = profile({
+      id: 'idempotent-header',
+      cvars: { sensitivity: '3' },
+      binds: { q: '+forward' },
+    })
 
     expect(renderProfileFile(p)).toBe(renderProfileFile(p))
   })
@@ -1955,14 +2061,22 @@ describe('story 051 D2: the header block is a small banner', () => {
  * layout assertion, so each gets its own case here.
  */
 describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
-  it('carries the version marker exactly once, only in the header block\'s own tag line (story 051 D2)', () => {
+  it("carries the version marker exactly once, only in the header block's own tag line (story 051 D2)", () => {
     const lines = renderProfileFile(
       profile({
         id: 'versioned',
-        actions: [action({ id: 'v-1', name: 'One', keys: keySlots({ key: 'q' }), aliasName: 'one_e' })],
+        actions: [
+          action({ id: 'v-1', name: 'One', keys: keySlots({ key: 'q' }), aliasName: 'one_e' }),
+        ],
         binds: { q: 'one_e' },
         layers: [
-          { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' } },
+          {
+            id: 'l1',
+            name: 'Drops',
+            mode: 'hold',
+            triggerKey: 'ALT',
+            overrides: { '1': 'drop rl' },
+          },
         ],
       }),
     ).split('\n')
@@ -2000,7 +2114,9 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
       expect(line.split('[q2l').length - 1).toBeLessThanOrEqual(1)
     }
     expect(rendered).toContain(`// Gib (q2l cid=attack:primary] ${entryTag()}`)
-    expect(rendered).toContain('// --- Aliases: Weapons (q2l cat=movement] [q2l cat=cat-real ord=0] ')
+    expect(rendered).toContain(
+      '// --- Aliases: Weapons (q2l cat=movement] [q2l cat=cat-real ord=0] ',
+    )
     // The forged fields did not become real ones - the only `cid` and `cat` in the file are the
     // ones the writer put there itself.
     expect(rendered).not.toContain('[q2l cid=attack:primary]')
@@ -2043,13 +2159,15 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
       profile({
         id: 'long-cat-id',
         categories: [{ id, name: 'Long id' }],
-        actions: [action({
-          id: 'long-1',
-          name: 'E',
-          categoryId: id,
-          keys: keySlots({ key: 'z' }),
-          aliasName: 'e',
-        })],
+        actions: [
+          action({
+            id: 'long-1',
+            name: 'E',
+            categoryId: id,
+            keys: keySlots({ key: 'z' }),
+            aliasName: 'e',
+          }),
+        ],
         binds: { z: 'e' },
       }),
     )
@@ -2075,13 +2193,28 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
             catalogId: 'weapon:blaster',
             keys: keySlots({ key: 'x' }, { key: 'MOUSE3' }),
             aliasName: 'melee_x',
-            commands: [{ kind: 'raw', text: 'use blaster' }, { kind: 'raw', text: '+attack' }],
+            commands: [
+              { kind: 'raw', text: 'use blaster' },
+              { kind: 'raw', text: '+attack' },
+            ],
           }),
         ],
         binds: { x: 'melee_x', MOUSE3: 'melee_x', F1: 'say Grüße' },
         layers: [
-          { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' } },
-          { id: 'l2', name: 'Zoom', mode: 'toggle', triggerKey: null, overrides: { MOUSE2: 'zoom' } },
+          {
+            id: 'l1',
+            name: 'Drops',
+            mode: 'hold',
+            triggerKey: 'ALT',
+            overrides: { '1': 'drop rl' },
+          },
+          {
+            id: 'l2',
+            name: 'Zoom',
+            mode: 'toggle',
+            triggerKey: null,
+            overrides: { MOUSE2: 'zoom' },
+          },
         ],
       })
 
@@ -2104,8 +2237,19 @@ describe('story 042 D2: the [q2l ...] metadata the writer emits', () => {
     const p = profile({
       id: 'kinds',
       actions: [
-        action({ id: 'k-alias', name: '+slow', kind: 'alias', commands: [{ kind: 'raw', text: 'cl_maxfps 30' }] }),
-        action({ id: 'k-msg', name: 'GG', kind: 'message', aliasName: 'gg_e', commands: [{ kind: 'message', channel: 'say', text: 'gg' }] }),
+        action({
+          id: 'k-alias',
+          name: '+slow',
+          kind: 'alias',
+          commands: [{ kind: 'raw', text: 'cl_maxfps 30' }],
+        }),
+        action({
+          id: 'k-msg',
+          name: 'GG',
+          kind: 'message',
+          aliasName: 'gg_e',
+          commands: [{ kind: 'message', channel: 'say', text: 'gg' }],
+        }),
       ],
     })
 
@@ -2197,7 +2341,10 @@ describe('story 050 D6: the reduced [q2l ...] tag', () => {
         { key: 'F5', modifier: 'CTRL' },
         { key: 'F6', modifier: 'SHIFT' },
       ),
-      commands: [{ kind: 'raw', text: 'use rl' }, { kind: 'raw', text: 'wait' }],
+      commands: [
+        { kind: 'raw', text: 'use rl' },
+        { kind: 'raw', text: 'wait' },
+      ],
     })
     const lines = renderProfileFile(
       profile({ id: 'multi-anchor', actions: [multi], binds: { p: 'multi_e' } }),
@@ -2269,7 +2416,10 @@ describe('story 050 D6: the reduced [q2l ...] tag', () => {
             catalogId: 'weapon:blaster',
             aliasName: 'melee_x',
             keys: keySlots({ key: 'x' }, { key: 'MOUSE3' }, { key: 'F7', modifier: 'CTRL' }),
-            commands: [{ kind: 'raw', text: 'use blaster' }, { kind: 'raw', text: '+attack' }],
+            commands: [
+              { kind: 'raw', text: 'use blaster' },
+              { kind: 'raw', text: '+attack' },
+            ],
           }),
           action({
             id: 'audit-b',
@@ -2277,13 +2427,28 @@ describe('story 050 D6: the reduced [q2l ...] tag', () => {
             categoryId: 'category-that-is-gone',
             aliasName: 'orphan_e',
             keys: keySlots({ key: 'o', modifier: 'ALT' }),
-            commands: [{ kind: 'raw', text: 'wave 3' }, { kind: 'raw', text: 'wait' }],
+            commands: [
+              { kind: 'raw', text: 'wave 3' },
+              { kind: 'raw', text: 'wait' },
+            ],
           }),
         ],
         binds: { x: 'melee_x', MOUSE3: 'melee_x', F1: 'say hello' },
         layers: [
-          { id: 'l1', name: 'Drops', mode: 'hold', triggerKey: 'ALT', overrides: { '1': 'drop rl' } },
-          { id: 'l2', name: 'Zoom', mode: 'toggle', triggerKey: null, overrides: { MOUSE2: 'zoom' } },
+          {
+            id: 'l1',
+            name: 'Drops',
+            mode: 'hold',
+            triggerKey: 'ALT',
+            overrides: { '1': 'drop rl' },
+          },
+          {
+            id: 'l2',
+            name: 'Zoom',
+            mode: 'toggle',
+            triggerKey: null,
+            overrides: { MOUSE2: 'zoom' },
+          },
         ],
       }),
       ...ROUND_TRIP_FIXTURES,
@@ -2362,8 +2527,12 @@ describe('story 045 D4: toggle/press-release state labels ride the `lbl` tag', (
       return line.slice(line.indexOf('// '))
     }
 
-    expect(commentOf('alias zoom_s1 ')).toBe(`// Zoom ${entryTag({ cid: 'movement:zoom', lbl: 'In' })}`)
-    expect(commentOf('alias zoom_s2 ')).toBe(`// Zoom ${entryTag({ cid: 'movement:zoom', lbl: 'Out' })}`)
+    expect(commentOf('alias zoom_s1 ')).toBe(
+      `// Zoom ${entryTag({ cid: 'movement:zoom', lbl: 'In' })}`,
+    )
+    expect(commentOf('alias zoom_s2 ')).toBe(
+      `// Zoom ${entryTag({ cid: 'movement:zoom', lbl: 'Out' })}`,
+    )
     // Note the trailing space: distinguishes the dispatch line (`alias zoom zoom_s1`) from either
     // state line (`alias zoom_s1 ...`) - both share the `alias zoom` prefix otherwise.
     expect(commentOf('alias zoom ')).toBe(`// Zoom ${entryTag({ cid: 'movement:zoom' })}`)
@@ -2448,7 +2617,9 @@ describe('profileFileName', () => {
 
 describe('sentinelLine', () => {
   it('produces the exact sentinel format', () => {
-    expect(sentinelLine('abc123')).toBe('// q2-launcher profile abc123 - hand-edited changes are read back')
+    expect(sentinelLine('abc123')).toBe(
+      '// q2-launcher profile abc123 - hand-edited changes are read back',
+    )
   })
 
   it('is prefixed by OWNERSHIP_MARKER', () => {

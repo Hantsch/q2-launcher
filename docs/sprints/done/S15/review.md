@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Goal:** one word for one concept — the launcher calls a Quake II engine an *engine*, everywhere,
+**Goal:** one word for one concept — the launcher calls a Quake II engine an _engine_, everywhere,
 and only offers the two it actually supports; an installation is told apart by an icon the user
 picked, not by two letters derived from its engine; the config profile header stops looking pasted
 together; and creating a profile offers the three starting points people actually arrive with —
@@ -10,12 +10,12 @@ empty, a handed template, or their own config files.
 
 This closes the "Identity, icons and the first profile" milestone (`docs/ROADMAP.md`).
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 068 — the app says engine, not client | done | `40a4d83` (+ `6e2a51e` fix, see below) |
-| 067 — an installation carries an icon I choose | done | `d750127` |
-| 069 — the profile header breathes in two lines | done | `f144537` |
-| 066 — a new profile starts empty, from a handed template, or from my own config files | done | `e111db8` |
+| Story                                                                                 | Status | Commit                                 |
+| ------------------------------------------------------------------------------------- | ------ | -------------------------------------- |
+| 068 — the app says engine, not client                                                 | done   | `40a4d83` (+ `6e2a51e` fix, see below) |
+| 067 — an installation carries an icon I choose                                        | done   | `d750127`                              |
+| 069 — the profile header breathes in two lines                                        | done   | `f144537`                              |
+| 066 — a new profile starts empty, from a handed template, or from my own config files | done   | `e111db8`                              |
 
 Build order followed the sprint plan exactly: 068 → 067 → 069 → 066 (068 settles the engine
 vocabulary and supported-engine set everything else builds on; 067 replaces the code tile before

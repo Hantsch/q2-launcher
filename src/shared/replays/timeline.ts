@@ -25,13 +25,13 @@ export const timelineActionSchema = z.discriminatedUnion('kind', [
       z.literal(-PAGE_STEP_S),
       z.literal(-JUMP_STEP_S),
       z.literal(JUMP_STEP_S),
-      z.literal(PAGE_STEP_S)
-    ])
+      z.literal(PAGE_STEP_S),
+    ]),
   }),
   z.strictObject({ kind: z.literal('seekTo'), seconds: z.number().int().min(0) }),
   z.strictObject({ kind: z.literal('speed'), value: speedSchema }),
   // Story 172: handled by the launcher (the channel switches the game), never a console line.
-  z.strictObject({ kind: z.literal('fullscreen') })
+  z.strictObject({ kind: z.literal('fullscreen') }),
 ])
 
 export type TimelineAction = z.infer<typeof timelineActionSchema>
@@ -96,7 +96,10 @@ const STILL_SAMPLES_FOR_PAUSE = 2
 
 const positive = (v: number | null): number | null => (v !== null && v > 0 ? v : null)
 
-export function reducePlaybackView(prev: PlaybackView | null, sample: PlaybackSample): PlaybackView {
+export function reducePlaybackView(
+  prev: PlaybackView | null,
+  sample: PlaybackSample,
+): PlaybackView {
   const stillCount =
     prev !== null && sample.positionMs === prev.positionMs ? prev.stillCount + 1 : 0
   return {
@@ -104,6 +107,6 @@ export function reducePlaybackView(prev: PlaybackView | null, sample: PlaybackSa
     durationMs: positive(sample.knownDurationMs) ?? positive(sample.engineDurationMs),
     paused: sample.enginePaused ?? stillCount >= STILL_SAMPLES_FOR_PAUSE,
     ended: sample.ended,
-    stillCount
+    stillCount,
   }
 }

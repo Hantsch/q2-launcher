@@ -120,7 +120,9 @@ describe('probeBleedingEdge', () => {
   })
 
   it('refuses q2pro with no pinned package with an unsupported error', async () => {
-    await expect(probeBleedingEdge('q2pro', undefined)).rejects.toThrow(BleedingEdgeUnsupportedError)
+    await expect(probeBleedingEdge('q2pro', undefined)).rejects.toThrow(
+      BleedingEdgeUnsupportedError,
+    )
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })

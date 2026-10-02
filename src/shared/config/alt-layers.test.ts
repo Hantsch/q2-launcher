@@ -415,7 +415,7 @@ describe('assignLayerTrigger', () => {
     expect(result.find((l) => l.id === 'c')?.triggerKey).toBeNull()
   })
 
-  it('never mutates any layer\'s overrides', () => {
+  it("never mutates any layer's overrides", () => {
     const input = threeLayers()
     const result = assignLayerTrigger(input, 'c', 'ALT')
     for (const original of input) {

@@ -168,7 +168,9 @@ function readPersistedHomeLayout() {
 function assertPersistedLayout(expected, label) {
   const actual = JSON.stringify(readPersistedHomeLayout())
   if (actual !== JSON.stringify(expected)) {
-    throw new Error(`${label}: expected state.json's homeLayout to be ${JSON.stringify(expected)}, got ${actual}`)
+    throw new Error(
+      `${label}: expected state.json's homeLayout to be ${JSON.stringify(expected)}, got ${actual}`,
+    )
   }
 }
 
@@ -206,7 +208,9 @@ async function pointerDrag(page, testId, dx, dy, midDrag) {
 async function assertGhostInvalid(ghost, expectInvalid, label) {
   const actual = await ghost.getAttribute('data-invalid')
   if (actual !== String(expectInvalid)) {
-    throw new Error(`${label}: expected the drag ghost's data-invalid to be "${expectInvalid}", got "${actual}"`)
+    throw new Error(
+      `${label}: expected the drag ghost's data-invalid to be "${expectInvalid}", got "${actual}"`,
+    )
   }
 }
 
@@ -284,7 +288,12 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
   // Waiting for a tile's inline grid placement - which only the grid branch renders at all - is
   // what makes the rect comparison below measure the restored grid rather than the dying stack.
   for (const expected of EXPECTED_HOME_LAYOUT.tiles) {
-    await waitForTileAtCell(page, expected.moduleId, expected, `${expected.moduleId} after widening`)
+    await waitForTileAtCell(
+      page,
+      expected.moduleId,
+      expected,
+      `${expected.moduleId} after widening`,
+    )
   }
 
   for (const moduleId of SEEDED_STACK_ORDER) {
@@ -358,9 +367,7 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
   await page
     .getByTestId('dashboard-tile-configProfiles')
     .waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
-  console.log(
-    "clicking configProfiles's remove affordance took it out of the grid (AC7)",
-  )
+  console.log("clicking configProfiles's remove affordance took it out of the grid (AC7)")
 
   await page
     .getByTestId('dashboard-catalog-entry-configProfiles')
@@ -372,7 +379,9 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
         `found ${playtimeStillAbsent}`,
     )
   }
-  console.log('the catalog now lists exactly configProfiles - the one unplaced module, nothing more (AC6)')
+  console.log(
+    'the catalog now lists exactly configProfiles - the one unplaced module, nothing more (AC6)',
+  )
 
   await page.getByTestId('dashboard-catalog-entry-configProfiles').focus()
   await page.keyboard.press('Enter')
@@ -420,7 +429,9 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
         `${expectedResetLayout}, got ${actualResetLayout}`,
     )
   }
-  console.log("state.json's homeLayout now matches DEFAULT_HOME_LAYOUT - the reset was persisted immediately")
+  console.log(
+    "state.json's homeLayout now matches DEFAULT_HOME_LAYOUT - the reset was persisted immediately",
+  )
 
   await shot('reset-to-default')
 
@@ -465,7 +476,9 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
       `bounding box travelled with it (${Math.round(movedDownBy)}px)`,
   )
 
-  const afterMoveLayout = { tiles: [movedPlaytime, { moduleId: 'configProfiles', x: 6, y: 0, w: 6, h: 5 }] }
+  const afterMoveLayout = {
+    tiles: [movedPlaytime, { moduleId: 'configProfiles', x: 6, y: 0, w: 6, h: 5 }],
+  }
   assertPersistedLayout(afterMoveLayout, 'after an accepted pointer move')
   console.log(
     "state.json's homeLayout already carries the new row - an accepted drop is on disk immediately, " +
@@ -486,7 +499,11 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
     -columnPitchPx,
     ROW_PITCH_PX,
     async (ghost) => {
-      await assertGhostInvalid(ghost, false, 'shrinking playtime by one column, growing it by one row')
+      await assertGhostInvalid(
+        ghost,
+        false,
+        'shrinking playtime by one column, growing it by one row',
+      )
     },
   )
 
@@ -546,7 +563,11 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
     resizedPlaytime,
     'playtime after an overlapping drop',
   )
-  assertRectsEqual(beforeInvalid, await tileRect(page, 'playtime'), 'playtime across an invalid drop')
+  assertRectsEqual(
+    beforeInvalid,
+    await tileRect(page, 'playtime'),
+    'playtime across an invalid drop',
+  )
   assertPersistedLayout(afterResizeLayout, 'after a refused pointer move')
   console.log(
     'the refused drop left playtime at its stored placement and state.json untouched - "shown as ' +
@@ -597,7 +618,7 @@ export default async function homeDashboardArrange({ page, app, shot, step }) {
   )
   console.log(
     'dragging the configProfiles catalog entry onto cell (6, 0) placed it there and persisted it - ' +
-      "the pointer half of AC6's \"dragged into the grid or placed with Enter\"",
+      'the pointer half of AC6\'s "dragged into the grid or placed with Enter"',
   )
   await shot('pointer-place-from-catalog')
 }

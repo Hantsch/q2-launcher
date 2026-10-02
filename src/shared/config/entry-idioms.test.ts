@@ -321,11 +321,7 @@ describe('recognizeEntryIdioms - press/release pair', () => {
 describe('recognizeEntryIdioms - one idiom per definition', () => {
   it('claims nothing when a pair is also wired as a toggle (ambiguous, so no guess)', () => {
     const result = recognizeEntryIdioms(
-      defs(
-        ['+x', 'cl_x 1;alias hold -x'],
-        ['-x', 'cl_x 0;alias hold +x'],
-        ['hold', '+x'],
-      ),
+      defs(['+x', 'cl_x 1;alias hold -x'], ['-x', 'cl_x 0;alias hold +x'], ['hold', '+x']),
     )
 
     expect(result.toggles).toEqual([])
@@ -335,9 +331,7 @@ describe('recognizeEntryIdioms - one idiom per definition', () => {
   })
 
   it('a wait-shaped half yields to the pair rather than cancelling it', () => {
-    const result = recognizeEntryIdioms(
-      defs(['+nuke', 'wait;wait;wait'], ['-nuke', 'wait;wait']),
-    )
+    const result = recognizeEntryIdioms(defs(['+nuke', 'wait;wait;wait'], ['-nuke', 'wait;wait']))
 
     expect(result.pressReleases).toHaveLength(1)
     expect(result.waitAliases).toEqual([])

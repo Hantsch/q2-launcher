@@ -6,7 +6,12 @@
  * Pure by contract: this file lives in `src/shared`, so no `node:*` import, no DOM types, no IPC.
  */
 
-import { compileNameTemplate, matchNameTemplate, type CompiledNameTemplate, type NameFacts } from './name-template'
+import {
+  compileNameTemplate,
+  matchNameTemplate,
+  type CompiledNameTemplate,
+  type NameFacts,
+} from './name-template'
 
 /** The shipped OpenTDM pattern's id — the single source of truth other modules (e.g. the gamemode
  * heuristic table) reference instead of hard-coding a second copy of the string. */
@@ -59,7 +64,8 @@ export function parseDemoName(
   const entries = compileEntries(patterns)
   for (const entry of entries) {
     const result = matchNameTemplate(entry.template, fileName)
-    if (result.kind === 'match') return { status: 'matched', patternId: entry.id, facts: result.facts }
+    if (result.kind === 'match')
+      return { status: 'matched', patternId: entry.id, facts: result.facts }
     if (result.kind === 'ambiguous') return { status: 'ambiguous', patternId: entry.id }
   }
   return { status: 'none' }

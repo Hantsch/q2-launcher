@@ -204,7 +204,10 @@ export function ServerListFilterBar({
           {t('servers.quickFilter.save')}
         </Button>
         {saveReasonKey && (
-          <p className="px-2.5 text-xs text-ink-muted" data-testid="servers-quickfilter-save-reason">
+          <p
+            className="px-2.5 text-xs text-ink-muted"
+            data-testid="servers-quickfilter-save-reason"
+          >
             {t(saveReasonKey)}
           </p>
         )}

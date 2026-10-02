@@ -14,14 +14,7 @@
  *   5. add its i18n keys
  */
 export type ModuleId =
-  | 'home'
-  | 'library'
-  | 'config'
-  | 'downloads'
-  | 'mods'
-  | 'assets'
-  | 'servers'
-  | 'replays'
+  'home' | 'library' | 'config' | 'downloads' | 'mods' | 'assets' | 'servers' | 'replays'
 
 /**
  * What a module needs from the host. Declared up front so the shell can tell

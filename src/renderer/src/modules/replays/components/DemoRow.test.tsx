@@ -70,7 +70,12 @@ describe('DemoRow', () => {
       ...BASE_ROW,
       format: 'mvd2',
       gzip: true,
-      source: { kind: 'installation', installationId: 'i1', installationName: 'Main', gameDir: 'baseq2' },
+      source: {
+        kind: 'installation',
+        installationId: 'i1',
+        installationName: 'Main',
+        gameDir: 'baseq2',
+      },
       durationMs: 65_000,
       effective: {
         ...BASE_ROW.effective,
@@ -78,7 +83,13 @@ describe('DemoRow', () => {
         map: { value: 'q2dm1', source: 'demo' },
         mod: { value: 'baseq2', source: 'demo' },
         gamemode: { value: 'ctf', source: 'sidecar' },
-        sides: { value: [{ team: 'Red', players: ['Alice'] }, { team: 'Blue', players: ['Bob'] }], source: 'sidecar' },
+        sides: {
+          value: [
+            { team: 'Red', players: ['Alice'] },
+            { team: 'Blue', players: ['Bob'] },
+          ],
+          source: 'sidecar',
+        },
         date: { value: Date.UTC(2024, 0, 1, 12, 0, 0), source: 'sidecar' },
       },
     }

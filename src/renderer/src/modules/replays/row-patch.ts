@@ -1,4 +1,7 @@
-import { resolveEffectiveValues, type ResolveEffectiveValuesInputs } from '@shared/demos/effective-values'
+import {
+  resolveEffectiveValues,
+  type ResolveEffectiveValuesInputs,
+} from '@shared/demos/effective-values'
 import type { DemoRow, DiscoveredDemo } from '@shared/modules/replays'
 import type { SidecarReadResult } from './demo-editor-store'
 

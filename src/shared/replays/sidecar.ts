@@ -17,7 +17,7 @@ export const sidecarSideSchema = z
   .object({
     team: z.string().max(64).optional(),
     result: z.string().max(32).optional(),
-    players: z.array(z.string().max(64)).max(64)
+    players: z.array(z.string().max(64)).max(64),
   })
   .strict()
 
@@ -32,7 +32,7 @@ export const sidecarFieldsSchema = z
     tags: z.array(z.string().min(1).max(40)).max(50).optional(),
     favourite: z.boolean().optional(),
     rating: z.number().int().min(1).max(10).optional(),
-    date: z.iso.datetime({ offset: true }).optional()
+    date: z.iso.datetime({ offset: true }).optional(),
   })
   .strict()
 
@@ -41,7 +41,7 @@ export type SidecarFields = z.infer<typeof sidecarFieldsSchema>
 
 export const sidecarFileSchema = sidecarFieldsSchema
   .extend({
-    schemaVersion: z.literal(SIDECAR_SCHEMA_VERSION)
+    schemaVersion: z.literal(SIDECAR_SCHEMA_VERSION),
   })
   .strict()
 

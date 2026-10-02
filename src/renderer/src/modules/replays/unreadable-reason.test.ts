@@ -13,14 +13,17 @@ beforeAll(async () => {
 })
 
 describe('unreadable-reason', () => {
-  it.each(DEMO_UNREADABLE_REASONS)('every unreadable reason code has an en string: %s', (reason) => {
-    const key = UNREADABLE_REASON_KEYS[reason]
-    const text = t(key, { protocol: 36, version: 2008 })
+  it.each(DEMO_UNREADABLE_REASONS)(
+    'every unreadable reason code has an en string: %s',
+    (reason) => {
+      const key = UNREADABLE_REASON_KEYS[reason]
+      const text = t(key, { protocol: 36, version: 2008 })
 
-    expect(text.length).toBeGreaterThan(0)
-    expect(text).not.toBe(key)
-    expect(text).not.toContain('{{')
-  })
+      expect(text.length).toBeGreaterThan(0)
+      expect(text).not.toBe(key)
+      expect(text).not.toContain('{{')
+    },
+  )
 
   it('unknown protocol and version interpolate their number', () => {
     const protocolMessage = unreadableReasonMessage({ reason: 'unknown-protocol', protocol: 36 })

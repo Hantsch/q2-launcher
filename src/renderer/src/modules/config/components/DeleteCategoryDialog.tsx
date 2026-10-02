@@ -118,7 +118,10 @@ export function DeleteCategoryDialog({
             aria-label={t('config.controls.deleteCategoryDialog.targetLabel')}
             value={targetId}
             onChange={(event) => setTargetId(event.target.value)}
-            options={otherCategories.map((category) => ({ value: category.id, label: category.label }))}
+            options={otherCategories.map((category) => ({
+              value: category.id,
+              label: category.label,
+            }))}
           />
         )}
       </div>

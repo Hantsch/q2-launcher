@@ -152,9 +152,7 @@ describe('StateStore homeLayout (story 086 D1)', () => {
     const reloaded = new StateStore(filePath)
     await reloaded.load()
 
-    expect(reloaded.homeLayout().tiles).toEqual([
-      { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
-    ])
+    expect(reloaded.homeLayout().tiles).toEqual([{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }])
   })
 })
 
@@ -194,7 +192,15 @@ describe('StateStore servers state (story 110 D3)', () => {
     // servers is a distinct top-level key with its own shape...
     expect(state.serversState()).toEqual(DEFAULT_SERVERS_STATE)
     expect(Object.keys(state.serversState()).sort()).toEqual(
-      ['favourites', 'history', 'manualServers', 'quickFilters', 'scan', 'sources', 'watchlist'].sort(),
+      [
+        'favourites',
+        'history',
+        'manualServers',
+        'quickFilters',
+        'scan',
+        'sources',
+        'watchlist',
+      ].sort(),
     )
 
     // ...and adding it left LauncherSettings's own shape and values untouched.
@@ -208,7 +214,9 @@ describe('StateStore servers state (story 110 D3)', () => {
     const homeLayoutBefore = state.homeLayout()
 
     const custom: ServersState = {
-      sources: [{ id: 'src-1', type: 'udp-master', address: 'master.example.com:27900', enabled: true }],
+      sources: [
+        { id: 'src-1', type: 'udp-master', address: 'master.example.com:27900', enabled: true },
+      ],
       favourites: [{ address: '1.2.3.4:27910', addedAt: '2026-01-01T00:00:00.000Z' }],
       manualServers: [
         { address: '5.6.7.8:27911', origin: 'manual', addedAt: '2026-01-02T00:00:00.000Z' },
@@ -369,9 +377,7 @@ describe('StateStore servers state (story 110 D3)', () => {
 
     expect(reloaded.serversState()).toEqual(DEFAULT_SERVERS_STATE)
     // The sibling key survives untouched even though servers was corrupt.
-    expect(reloaded.homeLayout().tiles).toEqual([
-      { moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 },
-    ])
+    expect(reloaded.homeLayout().tiles).toEqual([{ moduleId: 'playtime', x: 0, y: 0, w: 6, h: 5 }])
   })
 })
 

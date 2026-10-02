@@ -279,7 +279,9 @@ describe('render invariants (story 038 D3, AC4)', () => {
           )
           if (!bound || bound[1] !== value) continue
           const bindLine = lines.find((line) =>
-            new RegExp(`^bind\\s+${bound[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s`, 'i').test(line),
+            new RegExp(`^bind\\s+${bound[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s`, 'i').test(
+              line,
+            ),
           )
           expect(bindLine, `"${fixtureName}": no bind line for slot "${slot.key}"`).toBeDefined()
           if (!roomForATag(bindLine!)) {
@@ -292,7 +294,9 @@ describe('render invariants (story 038 D3, AC4)', () => {
             // presence is the ownership signal), so such an entry's key reads back unowned; only
             // `profile-fixtures.ts`' deliberately pathological `chunkSplit` fixture reaches it, and
             // shortening the tag is what made it *less* reachable than it was before this story.
-            expect(bindLine!, `"${fixtureName}": a tag was cut instead of dropped`).not.toContain('[q2l')
+            expect(bindLine!, `"${fixtureName}": a tag was cut instead of dropped`).not.toContain(
+              '[q2l',
+            )
             continue
           }
           expect(bindLine!, `"${fixtureName}": bind line without a tag`).toContain('[q2l')
@@ -315,7 +319,6 @@ describe('render invariants (story 038 D3, AC4)', () => {
         expect(line, `"${fixtureName}": alias line without a tag`).toContain('[q2l')
         checked++
       }
-
     }
 
     // A floor across the whole corpus, not per fixture (a keyless or alias-less fixture
@@ -323,8 +326,10 @@ describe('render invariants (story 038 D3, AC4)', () => {
     // hypothetical: while the two fixture corpora still carried the pre-050 `key`/`secondaryKey`
     // field names, every action in them rendered with no key slots at all - the files came out as
     // bare headers and this loop would have checked exactly zero lines while reporting green.
-    expect(checked, 'the fixture corpora rendered almost no entry lines - have they gone inert?')
-      .toBeGreaterThan(40)
+    expect(
+      checked,
+      'the fixture corpora rendered almost no entry lines - have they gone inert?',
+    ).toBeGreaterThan(40)
   })
 
   // -------------------------------------------------------------------------
@@ -383,7 +388,9 @@ describe('render invariants (story 038 D3, AC4)', () => {
         for (const line of [openingRule, closingRule, tagLine]) {
           expect(line, `${where}: a non-ASCII character in the frame`).toMatch(/^[ -~]*$/)
         }
-        expect(nameLine, `${where}: a character beyond latin-1 on the name line`).toMatch(/^[ -ÿ]*$/)
+        expect(nameLine, `${where}: a character beyond latin-1 on the name line`).toMatch(
+          /^[ -ÿ]*$/,
+        )
 
         // The header the launcher writes is one D1 reads back as its own, with the profile's own id
         // - the property every ownership guard in `main/modules/config` rests on.
@@ -395,7 +402,9 @@ describe('render invariants (story 038 D3, AC4)', () => {
 
         // AC8's other half: no timestamp, nothing else per-run - two renders of one profile are the
         // same bytes, header included.
-        expect(renderProfileFile(profile), `${where}: the render is not deterministic`).toBe(rendered)
+        expect(renderProfileFile(profile), `${where}: the render is not deterministic`).toBe(
+          rendered,
+        )
       }
     })
   })
@@ -408,9 +417,10 @@ describe('render invariants (story 038 D3, AC4)', () => {
       // Kept as authored: no command silently lost.
       for (const command of actions.flatMap((action) => action.commands)) {
         if (command.kind !== 'raw') continue
-        expect(rendered, `"${fixtureName}": "${command.text}" is missing from the render`).toContain(
-          command.text,
-        )
+        expect(
+          rendered,
+          `"${fixtureName}": "${command.text}" is missing from the render`,
+        ).toContain(command.text)
       }
 
       const structure = validateStructure([{ name: 'fixture.cfg', content: rendered }], 'r1q2')
@@ -418,7 +428,10 @@ describe('render invariants (story 038 D3, AC4)', () => {
       expect(cycles).toHaveLength(1)
       expect(cycles[0]!.level).toBe('error')
 
-      const care = validateActions(actions, 'r1q2', { binds: profile.binds, layers: profile.layers })
+      const care = validateActions(actions, 'r1q2', {
+        binds: profile.binds,
+        layers: profile.layers,
+      })
       const selfReferences = care.filter((finding) =>
         finding.messageKey.endsWith('aliasSelfReference'),
       )
@@ -484,7 +497,9 @@ describe('render invariants (story 038 D3, AC4)', () => {
         updatedAt: '2026-01-01T00:00:00.000Z',
         cvars: {},
         binds: Object.fromEntries(
-          actions.flatMap((action) => actionKeySlots(action).map((slot) => [slot.key, bindValueFor(action)])),
+          actions.flatMap((action) =>
+            actionKeySlots(action).map((slot) => [slot.key, bindValueFor(action)]),
+          ),
         ),
         assignments: [],
         sectionHeaderStyle: style,
@@ -542,7 +557,10 @@ describe('render invariants (story 038 D3, AC4)', () => {
           cyclingRowIndex,
           emptyBannerIndex,
         })) {
-          expect(index, `"${label}" not found in the ${style}-style Binds: Weapons section`).toBeGreaterThanOrEqual(0)
+          expect(
+            index,
+            `"${label}" not found in the ${style}-style Binds: Weapons section`,
+          ).toBeGreaterThanOrEqual(0)
         }
 
         // Category header, then the ungrouped run (profile order: the untagged entry, then the

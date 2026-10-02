@@ -40,7 +40,7 @@ reveal it in the system file manager or copy its path (concept `docs/concepts/de
   the path never crosses IPC — a loose file's `absolutePath` is deliberately main-only
   (`discovery.ts` `DiscoveredDemoFile`), and returning it would open that up for no gain.
 - Both handlers resolve through `scanService.resolveFile(id)` and use its `absolutePath`, which for
-  an archive entry already *is* the archive's own path — so AC3 needs no special branch, only a test.
+  an archive entry already _is_ the archive's own path — so AC3 needs no special branch, only a test.
 - Payload is `{ demoId }` with `replaysDemoIdSchema`, `.strict()` — same id primitive and strictness
   as `sidecar.write`, so an extra `path` key is rejected rather than silently stripped (AC4).
 - Result is a domain union `{ ok: true } | { ok: false; reason: 'unknownDemo' | 'fileMissing' }`
@@ -83,13 +83,13 @@ Order: D1 → D2. D2 needs 155's detail panel to exist (build order 155 before 1
 
 - [ ] **D1 — `demos.reveal` / `demos.copyPath` in the contract and main, id-addressed**
   - `src/shared/modules/replays.ts`: add `demosReveal: 'demos.reveal'`, `demosCopyPath:
-    'demos.copyPath'` to `REPLAYS_HANDLERS` (with doc comments); add
+'demos.copyPath'` to `REPLAYS_HANDLERS` (with doc comments); add
     `replaysDemoFileActionSchema = z.object({ demoId: replaysDemoIdSchema }).strict()`; add
     `export type DemoFileActionResult = { ok: true } | { ok: false; reason: 'unknownDemo' | 'fileMissing' }`;
     register both handlers in `REPLAYS_HANDLER_SCHEMAS`. Do **not** add them to
     `REPLAYS_PATH_PAYLOAD_HANDLERS`.
   - `src/main/modules/replays/file-actions.ts` (new): `createDemoFileActions({ resolveFile, stat,
-    reveal, writeClipboard })` returning `{ reveal(id), copyPath(id) }`, both `Promise<DemoFileActionResult>`.
+reveal, writeClipboard })` returning `{ reveal(id), copyPath(id) }`, both `Promise<DemoFileActionResult>`.
     Each: `resolveFile(id)` → `undefined` ⇒ `{ ok: false, reason: 'unknownDemo' }`; `stat(absolutePath)`
     rejecting with `code` `ENOENT`/`ENOTDIR` ⇒ `{ ok: false, reason: 'fileMissing' }` (any other stat
     error: proceed); else call `reveal(absolutePath)` / `writeClipboard(absolutePath)` and return
@@ -185,6 +185,7 @@ actually opens" half stays `manual residue` per the story's own Decisions (harne
 Review: default-tier PASS, no findings. No hard-tier stage (`Review: → default`).
 
 Decisions made during implementation (beyond `## Decisions (Sprint)`):
+
 - `DemoDetailPanel.tsx` had no existing "file-actions area" (the Plan's reference to one was
   aspirational) — added `<div data-testid="replays-detail-file-actions">` between the known-fields
   `<dl>` and the sidecar-issues block, without renaming any existing testid.

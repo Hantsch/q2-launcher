@@ -30,7 +30,8 @@ describe('mod install record', () => {
 
   it('a record with a path escaping the gamedir is dropped', () => {
     const good = record()
-    const bad = (path: string): ModInstallRecord => record({ files: [{ path, sizeBytes: 1, sha256: 'ab' }] })
+    const bad = (path: string): ModInstallRecord =>
+      record({ files: [{ path, sizeBytes: 1, sha256: 'ab' }] })
     const rows = ['../x', 'a/../../x', '/etc/passwd', 'C:/x', 'a\\b', 'a\0b', 'a//b'].map(bad)
     expect(readModsState({ mods: { records: [...rows, good] } }).records).toEqual([good])
   })

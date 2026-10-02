@@ -804,12 +804,18 @@ export function validateActions(
       const base = entry.name.slice(1)
       if (base.length === 0) continue
       if (fallbackEntries.has(`-${base}`.toLowerCase())) continue
-      add('pressWithoutRelease', 'warning', entry.action.name, { entry: entry.action.name, name: entry.name })
+      add('pressWithoutRelease', 'warning', entry.action.name, {
+        entry: entry.action.name,
+        name: entry.name,
+      })
     } else if (entry.name.startsWith('-')) {
       const base = entry.name.slice(1)
       if (base.length === 0) continue
       if (fallbackEntries.has(`+${base}`.toLowerCase())) continue
-      add('releaseWithoutPress', 'warning', entry.action.name, { entry: entry.action.name, name: entry.name })
+      add('releaseWithoutPress', 'warning', entry.action.name, {
+        entry: entry.action.name,
+        name: entry.name,
+      })
     }
   }
 

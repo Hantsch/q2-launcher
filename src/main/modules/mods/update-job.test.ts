@@ -13,13 +13,22 @@ import type { StagePackageInput, StagePackageResult } from '../downloads/stage-p
 import type { ModCatalogEntryParsed } from './catalog-schema'
 import { readModsState } from './install-records'
 import type { ModUpdatePolicy } from './update-plan'
-import { MOD_BACKUP_DIR_NAME, previewModUpdate, startModUpdate, type ModUpdateDeps } from './update-job'
+import {
+  MOD_BACKUP_DIR_NAME,
+  previewModUpdate,
+  startModUpdate,
+  type ModUpdateDeps,
+} from './update-job'
 
 type Tree = Record<string, string>
 type StageSpec = { files: Tree } | { fail: string }
 
 const sha = (text: string): string => createHash('sha256').update(text).digest('hex')
-const fileOf = (path: string, content: string) => ({ path, sizeBytes: Buffer.byteLength(content), sha256: sha(content) })
+const fileOf = (path: string, content: string) => ({
+  path,
+  sizeBytes: Buffer.byteLength(content),
+  sha256: sha(content),
+})
 
 const pkg = (id: string) => ({
   id,
@@ -34,7 +43,9 @@ const pkg = (id: string) => ({
 const version = (v: string) => ({
   version: v,
   prerelease: false,
-  variants: [{ platform: 'win32' as const, arch: 'x64' as const, packages: [pkg('lib'), pkg('data')] }],
+  variants: [
+    { platform: 'win32' as const, arch: 'x64' as const, packages: [pkg('lib'), pkg('data')] },
+  ],
   contentOnly: { packages: [pkg('content')] },
 })
 
@@ -51,7 +62,11 @@ const entry: ModCatalogEntryParsed = {
 }
 
 /** Version 1.0 as installed: content only. */
-const OLD_FILES: Tree = { 'pak0.pak': 'old-pak', 'maps/old.bsp': 'old-map', 'readme.txt': 'readme-v1' }
+const OLD_FILES: Tree = {
+  'pak0.pak': 'old-pak',
+  'maps/old.bsp': 'old-map',
+  'readme.txt': 'readme-v1',
+}
 const oldRecord = (): ModInstallRecord => ({
   catalogId: 'fixturemod',
   gameDir: 'fixturemod',
@@ -102,7 +117,8 @@ async function readTree(dir: string, prefix = ''): Promise<Tree> {
   const out: Tree = {}
   for (const e of entries) {
     const rel = prefix ? `${prefix}/${e.name}` : e.name
-    if (e.isDirectory()) Object.assign(out, { [`${rel}/`]: '' }, await readTree(join(dir, e.name), rel))
+    if (e.isDirectory())
+      Object.assign(out, { [`${rel}/`]: '' }, await readTree(join(dir, e.name), rel))
     else out[rel] = await readFile(join(dir, e.name), 'utf8')
   }
   return out
@@ -183,11 +199,26 @@ function harness(options: { stages: StageSpec[]; arch?: BinaryArch; activeJobs?:
 
   const records = (): ModInstallRecord[] => readModsState(installation.moduleData).records
   const run = async (changedPolicy: ModUpdatePolicy = 'overwrite') => {
-    const started = await startModUpdate(deps, { installationId: 'inst1', catalogId: 'fixturemod', changedPolicy })
+    const started = await startModUpdate(deps, {
+      installationId: 'inst1',
+      catalogId: 'fixturemod',
+      changedPolicy,
+    })
     if (!started.ok) throw new Error(started.error.key)
     return started.value.settled
   }
-  return { deps, installation, jobs, installations, writeGuard, stage, events, finished, records, run }
+  return {
+    deps,
+    installation,
+    jobs,
+    installations,
+    writeGuard,
+    stage,
+    events,
+    finished,
+    records,
+    run,
+  }
 }
 
 const byPath = (a: { path: string }, b: { path: string }) => a.path.localeCompare(b.path)
@@ -253,9 +284,15 @@ describe('startModUpdate', () => {
 
   it('update removes obsolete recorded files and keeps unrecorded ones', async () => {
     // The user's own files: one beside the obsolete map, one at the root, one at a path 2.0 ships.
-    const userFiles: Tree = { 'maps/mine.bsp': 'my-map', 'autoexec.cfg': 'bind x', 'extra.txt': 'my-notes' }
+    const userFiles: Tree = {
+      'maps/mine.bsp': 'my-map',
+      'autoexec.cfg': 'bind x',
+      'extra.txt': 'my-notes',
+    }
     await writeTree(gameDir, userFiles)
-    const h = harness({ stages: [{ files: { 'pak0.pak': 'new-pak', 'extra.txt': 'their-notes' } }] })
+    const h = harness({
+      stages: [{ files: { 'pak0.pak': 'new-pak', 'extra.txt': 'their-notes' } }],
+    })
     const outcome = await h.run()
     expect(outcome.status).toBe('succeeded')
     expect(await readTree(gameDir)).toEqual({
@@ -285,7 +322,10 @@ describe('startModUpdate', () => {
   it('a verify or extract failure leaves the old files and record', async () => {
     for (const key of ['downloads.error.verificationFailed', 'downloads.error.extractionFailed']) {
       const before = await readTree(root)
-      const h = harness({ arch: 'x86_64', stages: [{ files: { 'gamex86_64.dll': 'lib-v2' } }, { fail: key }] })
+      const h = harness({
+        arch: 'x86_64',
+        stages: [{ files: { 'gamex86_64.dll': 'lib-v2' } }, { fail: key }],
+      })
       const outcome = await h.run()
       expect(outcome).toEqual({ status: 'failed', key })
       expect(h.finished).toEqual([{ status: 'failed', error: { key } }])
@@ -298,7 +338,9 @@ describe('startModUpdate', () => {
   })
 
   it('a mid-copy failure restores the backup and keeps the old record', async () => {
-    const h = harness({ stages: [{ files: { 'a-new.txt': 'n', 'pak0.pak': 'new-pak', 'zz.pak': 'z' } }] })
+    const h = harness({
+      stages: [{ files: { 'a-new.txt': 'n', 'pak0.pak': 'new-pak', 'zz.pak': 'z' } }],
+    })
     // `zz.pak` vanishes from staging after planning: its copy fails once `a-new.txt` was created,
     // `pak0.pak` overwritten and the obsolete `maps/old.bsp`/`readme.txt` moved into the slot.
     h.writeGuard.runWrite.mockImplementationOnce(async (_i, _j, _s, fn) => {
@@ -331,8 +373,14 @@ describe('startModUpdate', () => {
     await writeFile(join(gameDir, 'maps', 'old.bsp'), 'user-map')
     const h = harness({ stages: [{ files: { 'pak0.pak': 'new-pak', 'readme.txt': 'readme-v2' } }] })
 
-    const preview = await previewModUpdate(h.deps, { installationId: 'inst1', catalogId: 'fixturemod' })
-    expect(preview.ok && [...preview.value.changedFiles].sort()).toEqual(['maps/old.bsp', 'pak0.pak'])
+    const preview = await previewModUpdate(h.deps, {
+      installationId: 'inst1',
+      catalogId: 'fixturemod',
+    })
+    expect(preview.ok && [...preview.value.changedFiles].sort()).toEqual([
+      'maps/old.bsp',
+      'pak0.pak',
+    ])
 
     const outcome = await h.run('keep')
     expect(outcome.status).toBe('succeeded')
@@ -344,7 +392,8 @@ describe('startModUpdate', () => {
       'readme.txt': 'readme-v2',
     })
     expect(h.records()[0]!.files).toEqual([fileOf('readme.txt', 'readme-v2')])
-    if (outcome.status === 'succeeded') expect([...outcome.kept].sort()).toEqual(['maps/old.bsp', 'pak0.pak'])
+    if (outcome.status === 'succeeded')
+      expect([...outcome.kept].sort()).toEqual(['maps/old.bsp', 'pak0.pak'])
   })
 
   it('overwrite replaces a changed file and records the new bytes', async () => {
@@ -358,24 +407,44 @@ describe('startModUpdate', () => {
   it('is refused before any job exists when busy, up to date or not recorded', async () => {
     const busy = harness({
       stages: [],
-      activeJobs: [{ id: 'j0', moduleId: 'mods', kind: 'mods-remove', installationId: 'inst1', status: 'running' } as Job],
+      activeJobs: [
+        {
+          id: 'j0',
+          moduleId: 'mods',
+          kind: 'mods-remove',
+          installationId: 'inst1',
+          status: 'running',
+        } as Job,
+      ],
     })
-    expect(await startModUpdate(busy.deps, { installationId: 'inst1', catalogId: 'fixturemod', changedPolicy: 'keep' })).toEqual(
-      fail('mods.remove.refused.busy'),
-    )
+    expect(
+      await startModUpdate(busy.deps, {
+        installationId: 'inst1',
+        catalogId: 'fixturemod',
+        changedPolicy: 'keep',
+      }),
+    ).toEqual(fail('mods.remove.refused.busy'))
     expect(busy.jobs.create).not.toHaveBeenCalled()
 
     const current = harness({ stages: [] })
     current.installation.moduleData = { mods: { records: [{ ...oldRecord(), version: '2.0' }] } }
-    expect(await startModUpdate(current.deps, { installationId: 'inst1', catalogId: 'fixturemod', changedPolicy: 'keep' })).toEqual(
-      fail('mods.update.refused.upToDate'),
-    )
+    expect(
+      await startModUpdate(current.deps, {
+        installationId: 'inst1',
+        catalogId: 'fixturemod',
+        changedPolicy: 'keep',
+      }),
+    ).toEqual(fail('mods.update.refused.upToDate'))
 
     const manual = harness({ stages: [] })
     manual.installation.moduleData = {}
-    expect(await startModUpdate(manual.deps, { installationId: 'inst1', catalogId: 'fixturemod', changedPolicy: 'keep' })).toEqual(
-      fail('mods.update.refused.noRecord'),
-    )
+    expect(
+      await startModUpdate(manual.deps, {
+        installationId: 'inst1',
+        catalogId: 'fixturemod',
+        changedPolicy: 'keep',
+      }),
+    ).toEqual(fail('mods.update.refused.noRecord'))
     expect(current.jobs.create).not.toHaveBeenCalled()
     expect(manual.stage).not.toHaveBeenCalled()
     expect(await readTree(gameDir)).toEqual({ ...OLD_FILES, 'maps/': '' })

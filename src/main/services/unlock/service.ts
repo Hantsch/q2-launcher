@@ -106,7 +106,11 @@ export function createUnlockService(options: UnlockServiceOptions): UnlockServic
     return { entry, status: verdict.reason, features: [] }
   }
 
-  function acceptedVerdict(classified: { features: string[]; label?: string; expiresAt?: number }): UnlockVerdict {
+  function acceptedVerdict(classified: {
+    features: string[]
+    label?: string
+    expiresAt?: number
+  }): UnlockVerdict {
     return {
       ok: true,
       features: classified.features,

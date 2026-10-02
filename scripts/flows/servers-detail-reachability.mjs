@@ -228,9 +228,7 @@ export default async function serversDetailReachability({ page, step, shot }) {
 
   const lastRoundAfterStop = await page.getByTestId('server-reachability-last-round').innerText()
   if (!/did not answer the last scan/i.test(lastRoundAfterStop)) {
-    throw new Error(
-      `expected the no-answer statement, got ${JSON.stringify(lastRoundAfterStop)}`,
-    )
+    throw new Error(`expected the no-answer statement, got ${JSON.stringify(lastRoundAfterStop)}`)
   }
 
   const samplesAfterStop = await readSampleTexts(page)

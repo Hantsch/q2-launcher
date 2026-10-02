@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import { renderProfileFile } from '@shared/config/render'
-import {
-  tokenizeConfigText,
-  type ConfigSyntaxLine,
-  type ConfigSyntaxToken,
-} from './config-syntax'
+import { tokenizeConfigText, type ConfigSyntaxLine, type ConfigSyntaxToken } from './config-syntax'
 
 /** Concatenates one line's token texts, in order. */
 function lineText(line: ConfigSyntaxLine): string {
@@ -366,7 +362,9 @@ describe('tokenizeConfigText - a [q2l ...] metadata tail is part of its comment 
     const [line] = tokenizeConfigText(raw)
     const comments = line.tokens.filter((token) => token.kind === 'comment')
 
-    expect(comments).toEqual([{ kind: 'comment', text: '// SSG + SG [q2l e=3f9a1c22 k=alias slot=1]' }])
+    expect(comments).toEqual([
+      { kind: 'comment', text: '// SSG + SG [q2l e=3f9a1c22 k=alias slot=1]' },
+    ])
     expect(lineText(line)).toBe(raw)
     // Nothing inside the tag leaked out as its own token - no `=`-word promoted to text, no
     // `slot=1` read as a number, and above all no `separator`/`string` from the brackets.

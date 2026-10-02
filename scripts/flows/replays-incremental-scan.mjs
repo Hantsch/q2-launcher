@@ -29,7 +29,10 @@ const RUN_SUFFIX = Date.now().toString(36)
 const SOURCE_DEMO = REPLAYS_FIXTURE_DEMOS.find((demo) => demo.fileName === 'duel_q2dm1.dm2')
 
 function sourceDemoPath() {
-  return installationRootFilePath(SOURCE_DEMO.installationId, `baseq2/demos/${SOURCE_DEMO.fileName}`)
+  return installationRootFilePath(
+    SOURCE_DEMO.installationId,
+    `baseq2/demos/${SOURCE_DEMO.fileName}`,
+  )
 }
 
 function newDemoFileName() {
@@ -61,8 +64,10 @@ async function waitForScanToFinish(page) {
 }
 
 export default async function replaysIncrementalScan({ page, shot, step }) {
-  step('a fresh variant has no replays-index.json cache yet - opening Demos can only show the ' +
-    'fixture rows via a real scan')
+  step(
+    'a fresh variant has no replays-index.json cache yet - opening Demos can only show the ' +
+      'fixture rows via a real scan',
+  )
   await openDemosView(page)
 
   const expectedNames = REPLAYS_FIXTURE_DEMOS.map((demo) => demo.fileName)

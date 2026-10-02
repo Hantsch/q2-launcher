@@ -261,9 +261,7 @@ export function careSummary(input: CareSummaryInput): CareSummary {
     ? statusFor(countIn(input.items, 'health'))
     : { kind: 'notChecked' }
   const files: SectionStatus =
-    input.sync.kind === 'loaded'
-      ? statusFor(countIn(input.items, 'files'))
-      : { kind: 'notChecked' }
+    input.sync.kind === 'loaded' ? statusFor(countIn(input.items, 'files')) : { kind: 'notChecked' }
   // The tidy-up analyzer is synchronous and always answers, so this group has
   // no `notChecked` state at all.
   const tidy = statusFor(countIn(input.items, 'tidy'))

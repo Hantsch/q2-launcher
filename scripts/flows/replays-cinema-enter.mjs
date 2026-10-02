@@ -46,7 +46,11 @@ function windowLines() {
 }
 
 const launchCount = (logPath) =>
-  existsSync(logPath) ? readFileSync(logPath, 'utf8').split(/\r?\n/).filter((l) => l.includes('launching')).length : 0
+  existsSync(logPath)
+    ? readFileSync(logPath, 'utf8')
+        .split(/\r?\n/)
+        .filter((l) => l.includes('launching')).length
+    : 0
 
 async function waitForScan(page) {
   const refresh = page.getByTestId('replays-refresh')
@@ -66,7 +70,11 @@ export default async function replaysCinemaEnter({ page, app, log, step, shot })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForScan(page)
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
@@ -80,11 +88,13 @@ export default async function replaysCinemaEnter({ page, app, log, step, shot })
   const cinema = page.getByTestId('replays-timeline-cinema')
   const fullscreen = page.getByTestId('replays-timeline-fullscreen')
   const labels = await Promise.all([cinema, fullscreen].map((l) => l.getAttribute('aria-label')))
-  if (labels.join('|') !== 'Cinema mode|Fullscreen') fail(`the view button labels read ${JSON.stringify(labels)}`)
+  if (labels.join('|') !== 'Cinema mode|Fullscreen')
+    fail(`the view button labels read ${JSON.stringify(labels)}`)
   const mode = () => cinema.getAttribute('data-mode')
   if ((await mode()) !== 'preview') fail(`the mode before cinema is ${await mode()}`)
   await sleep(SETTLE_MS)
-  if (windowLines().length > 0) fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
+  if (windowLines().length > 0)
+    fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
   const launches = launchCount(logPath)
   await shot('cinema-mode-switch')
 
@@ -112,15 +122,18 @@ export default async function replaysCinemaEnter({ page, app, log, step, shot })
   await sleep(SETTLE_MS)
   const lines = windowLines()
   const geometry = lines.filter((l) => l.startsWith('set vid_geometry '))
-  if (geometry.length !== 1 || geometry[0] !== want) fail(`expected exactly [${want}], got ${JSON.stringify(lines)}`)
-  if (lines.some((l) => l.includes('win_alwaysontop'))) fail(`cinema must not send win_alwaysontop: ${JSON.stringify(lines)}`)
+  if (geometry.length !== 1 || geometry[0] !== want)
+    fail(`expected exactly [${want}], got ${JSON.stringify(lines)}`)
+  if (lines.some((l) => l.includes('win_alwaysontop')))
+    fail(`cinema must not send win_alwaysontop: ${JSON.stringify(lines)}`)
   if (launchCount(logPath) !== launches) fail('entering cinema restarted the demo')
   const movedBy = Date.now() + TIMEOUT_MS
   while ((await mode()) !== 'cinema') {
     if (Date.now() >= movedBy) fail(`the mode never moved to cinema (now ${await mode()})`)
     await sleep(100)
   }
-  if ((await cinema.getAttribute('aria-label')) !== 'Exit cinema mode') fail('the cinema button does not offer to exit')
+  if ((await cinema.getAttribute('aria-label')) !== 'Exit cinema mode')
+    fail('the cinema button does not offer to exit')
   await shot('cinema-entered')
 
   step('the game quits while in cinema: the overlay closes and the launcher shows the ended state')

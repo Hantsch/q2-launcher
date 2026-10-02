@@ -175,7 +175,9 @@ describe('captureBaseline', () => {
     expect(captured.cvarSections).not.toBe(live.cvarSections)
     expect(captured.cvarSections[0]).not.toBe(live.cvarSections![0])
     expect(captured.cvarSections[0]!.cvars).not.toBe(live.cvarSections![0]!.cvars)
-    expect(captured.cvarSections[0]!.subsections![0]).not.toBe(live.cvarSections![0]!.subsections![0])
+    expect(captured.cvarSections[0]!.subsections![0]).not.toBe(
+      live.cvarSections![0]!.subsections![0],
+    )
     expect(captured.unrecognized).not.toBe(live.unrecognized)
     expect(captured.unrecognized[0]).not.toBe(live.unrecognized![0])
   })
@@ -196,6 +198,8 @@ describe('captureBaseline', () => {
     // The property D1's acceptance is stated in terms of: seeding a baseline is idempotent, so a
     // re-confirmed file (`markFileSeen` on unchanged bytes) cannot drift the snapshot.
     const live = fullProfile()
-    expect(captureBaseline(live)).toEqual(captureBaseline({ ...live, baseline: captureBaseline(live) }))
+    expect(captureBaseline(live)).toEqual(
+      captureBaseline({ ...live, baseline: captureBaseline(live) }),
+    )
   })
 })

@@ -35,13 +35,18 @@ function collectModPackages(manifestPath, entries) {
   const byUrl = new Map()
   for (const entry of entries) {
     for (const version of entry.versions ?? []) {
-      const rows = [...(version.variants ?? []).flatMap((variant) => variant.packages ?? []), ...(version.contentOnly?.packages ?? [])]
+      const rows = [
+        ...(version.variants ?? []).flatMap((variant) => variant.packages ?? []),
+        ...(version.contentOnly?.packages ?? []),
+      ]
       for (const pkg of rows) {
         const seen = byUrl.get(pkg.url)
         if (!seen) {
           byUrl.set(pkg.url, pkg)
         } else if (seen.sizeBytes !== pkg.sizeBytes || seen.sha256 !== pkg.sha256) {
-          throw new Error(`${manifestPath}: rows "${seen.id}" and "${pkg.id}" share ${pkg.url} but disagree on sizeBytes/sha256`)
+          throw new Error(
+            `${manifestPath}: rows "${seen.id}" and "${pkg.id}" share ${pkg.url} but disagree on sizeBytes/sha256`,
+          )
         }
       }
     }
@@ -86,7 +91,9 @@ async function hashPackage(pkg) {
       lastError = error
     }
   }
-  throw new Error(`all candidate URLs failed for package "${pkg.id}": ${lastError?.message ?? 'no URL configured'}`)
+  throw new Error(
+    `all candidate URLs failed for package "${pkg.id}": ${lastError?.message ?? 'no URL configured'}`,
+  )
 }
 
 async function main() {

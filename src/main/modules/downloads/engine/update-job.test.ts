@@ -1,5 +1,15 @@
 import { existsSync } from 'node:fs'
-import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises'
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -376,7 +386,9 @@ describe('the engine update job', () => {
     }
     // ...and the previous ones are in the one backup slot, byte for byte.
     for (const [relativePath, content] of Object.entries(OLD_FILES)) {
-      expect(await contentsOf(installRoot, join(ENGINE_BACKUP_DIR_NAME, relativePath))).toBe(content)
+      expect(await contentsOf(installRoot, join(ENGINE_BACKUP_DIR_NAME, relativePath))).toBe(
+        content,
+      )
     }
     // Nothing outside the engine allowlist moved - not the game data, not the user's own files.
     for (const [relativePath, content] of Object.entries(UNRELATED_FILES)) {

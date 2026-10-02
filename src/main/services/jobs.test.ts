@@ -29,7 +29,9 @@ describe('JobsService broadcast (unchanged by story 073 D2)', () => {
 
     const id = create(jobs)
     expect(broadcast).toHaveBeenCalledTimes(1)
-    expect(broadcast.mock.calls[0]?.[0]).toEqual([expect.objectContaining({ id, status: 'queued' })])
+    expect(broadcast.mock.calls[0]?.[0]).toEqual([
+      expect.objectContaining({ id, status: 'queued' }),
+    ])
 
     jobs.progress(id, { ratio: 0.5, bytesDone: 50, bytesTotal: 100 })
     expect(broadcast).toHaveBeenCalledTimes(2)

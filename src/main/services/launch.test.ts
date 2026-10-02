@@ -65,7 +65,13 @@ const spawnMock = vi.mocked(spawn)
 function loggedText(): string {
   return Object.values(logMock)
     .flatMap((fn) => fn.mock.calls)
-    .map((call) => call.map((part: unknown) => (part instanceof Error ? `${part.message} ${part.stack}` : String(part))).join(' '))
+    .map((call) =>
+      call
+        .map((part: unknown) =>
+          part instanceof Error ? `${part.message} ${part.stack}` : String(part),
+        )
+        .join(' '),
+    )
     .join('\n')
 }
 
@@ -336,7 +342,12 @@ describe('LaunchService steam handoff', () => {
     // Linux + a Windows PE: the one case where the compat branch runs, and where `resolveRunner`
     // would otherwise hand back Steam (available, known appid) to be wrapped around the exe.
     restorePlatform = stubPlatform('linux')
-    const LINUX_STEAM: DetectedRunner = { kind: 'steam', id: 'steam', path: '/usr/bin/steam', available: true }
+    const LINUX_STEAM: DetectedRunner = {
+      kind: 'steam',
+      id: 'steam',
+      path: '/usr/bin/steam',
+      available: true,
+    }
     const brokenChoice = {
       ...peInstallation,
       runner: 'steam',
@@ -392,7 +403,10 @@ describe('LaunchService join with a password', () => {
   })
   const joinInstallation = (overrides: Record<string, unknown> = {}): Installation =>
     ({ ...installation, rootPath: root, ...overrides }) as unknown as Installation
-  const listener = (child: ReturnType<typeof fakeChild>, event: string): ((...args: unknown[]) => void) =>
+  const listener = (
+    child: ReturnType<typeof fakeChild>,
+    event: string,
+  ): ((...args: unknown[]) => void) =>
     child.once.mock.calls.find((call) => call[0] === event)?.[1] as (...args: unknown[]) => void
 
   beforeEach(async () => {
@@ -430,7 +444,11 @@ describe('LaunchService join with a password', () => {
 
     expect(launch.getState()).toMatchObject({ phase: 'starting', connect: '1.2.3.4:27910' })
     listener(child, 'spawn')()
-    expect(launch.getState()).toMatchObject({ phase: 'running', connect: '1.2.3.4:27910', pid: 4242 })
+    expect(launch.getState()).toMatchObject({
+      phase: 'running',
+      connect: '1.2.3.4:27910',
+      pid: 4242,
+    })
     expect(JSON.stringify(launch.getState())).not.toContain(PASSWORD)
   })
 
@@ -510,7 +528,7 @@ describe('LaunchService join with a password', () => {
     expect(spawnMock.mock.calls[0]?.[1]).not.toContain('+exec')
   })
 
-  it('an overlapping second start() is refused and cannot sweep the first one\'s cfg or orphan its cleanup', async () => {
+  it("an overlapping second start() is refused and cannot sweep the first one's cfg or orphan its cleanup", async () => {
     const { launch } = service({ installation: joinInstallation() })
     const child = fakeChild()
     let cfgAtSpawn: string | undefined
@@ -647,7 +665,10 @@ describe('LaunchService playback session', () => {
     stdin: new PassThrough(),
     stdout: new PassThrough(),
   })
-  const listener = (child: { once: ReturnType<typeof vi.fn> }, event: string): ((...args: unknown[]) => void) =>
+  const listener = (
+    child: { once: ReturnType<typeof vi.fn> },
+    event: string,
+  ): ((...args: unknown[]) => void) =>
     child.once.mock.calls.find((call) => call[0] === event)?.[1] as (...args: unknown[]) => void
   const tempInstallation = (overrides: Record<string, unknown> = {}): Installation =>
     ({ ...installation, rootPath: root, ...overrides }) as unknown as Installation
@@ -810,7 +831,11 @@ describe('LaunchService playback session', () => {
     listener(child, 'exit')(null, 'SIGTERM')
 
     expect(observed.map((state) => state.phase)).toEqual(['exited'])
-    expect(launch.getState()).toMatchObject({ phase: 'exited', installationId: INSTALLATION, exitCode: null })
+    expect(launch.getState()).toMatchObject({
+      phase: 'exited',
+      installationId: INSTALLATION,
+      exitCode: null,
+    })
     expect(session.ended).toBe(true)
     expect(launch.getPlaybackSession()).toBeUndefined()
     expect(installations.recordPlaySession).toHaveBeenCalledTimes(1)
@@ -944,7 +969,10 @@ describe('LaunchService playback session', () => {
   })
 
   it('onBeforePlaybackRelease runs before the session ends, survives a throwing listener, and unsubscribes', async () => {
-    const owned = new LaunchService({ installations: fakeInstallations(tempInstallation()), onStateChange: vi.fn() })
+    const owned = new LaunchService({
+      installations: fakeInstallations(tempInstallation()),
+      onStateChange: vi.fn(),
+    })
     const child = pipedChild()
     spawnMock.mockImplementation(() => child as never)
     await owned.start({ installationId: INSTALLATION }, PLAY)

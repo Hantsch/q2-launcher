@@ -109,10 +109,14 @@ export default async function serversLanMode({ page, step, shot }) {
   step('AC8: the search filter applies to the LAN list')
   const search = page.getByTestId('servers-filter-search')
   await search.fill('no-such-lan-server')
-  await page.getByTestId('servers-filter-no-match').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-filter-no-match')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   assertRows(await rowAddresses(page), [], 'LAN list filtered to nothing')
   await search.fill('LAN Server')
-  await page.getByTestId(`servers-row-${LAN_ADDRESS}`).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId(`servers-row-${LAN_ADDRESS}`)
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   assertRows(await rowAddresses(page), [LAN_ADDRESS], 'LAN list filtered by name')
   await shot('lan-filtered')
   await search.fill('')

@@ -34,7 +34,7 @@ download pipeline, verification, archive cache, write guard. It also builds on t
   with that engine. Joining a server still works.
 - **The target is one installation.** Removing a mod removes **only the files the launcher put
   there**, following an install record in `Installation.moduleData['mods']`. User files stay put.
-- **Game directories not installed by the launcher** appear as *installed manually*. The launcher
+- **Game directories not installed by the launcher** appear as _installed manually_. The launcher
   shows them but never updates or removes them.
 - **Updates:** the manifest pins a version. The launcher offers a newer one and the user decides.
 - **UI:** a **tile catalog** with a **detail panel**. The tiles have no Play button: starting the
@@ -64,7 +64,7 @@ content repository that already carries the engines and the free game data.
 
 - A `mods` module with its own view, replacing today's planned-module placeholder.
 - **Discovery:** every game directory of every installation (the inspector's existing
-  `gameDirs`) is shown, with its origin: *from the catalog* or *installed manually*.
+  `gameDirs`) is shown, with its origin: _from the catalog_ or _installed manually_.
 - **Catalog:** a `mods/manifest.json` in `Hantsch/q2_community_content`, fetched, validated and
   cached the same way as the engines and game-data manifests.
 - **Catalog v1 entries:** Action Quake (`action`), OpenTDM (`opentdm`), CTF (`ctf`).
@@ -111,24 +111,24 @@ content repository that already carries the engines and the free game data.
 
 ## 3. Design decisions taken (from the requirements interview)
 
-| Topic | Decision | Rationale |
-| --- | --- | --- |
-| Focus of v1 | Multiplayer mods first | Matches the server browser and demo browser. Online play is what users do. |
-| What an install contains | The full package including the game library, per engine and platform | Local games and demos work too, not just joining |
-| No matching build | Install the content only and show a visible reason ("Not playable locally with Q2PRO 64-bit: no matching build"). Joining stays possible. | Joining does not need the game library. The reason is honest. |
-| Retail mods (mission packs, Zaero) | Later | Commercial data. Copying from a store installation is its own step. |
-| GB-D5 | In v1, with an install button. The demo mod-missing dialog gets the same offer. | A missing mod should be one click away where you notice it |
-| Install target | One installation at a time | Fits `activeGameDir` and the installation model |
-| Removing | Only files the launcher installed, from an install record. The folder stays if it is not empty. | Mod folders hold user demos, configs and screenshots |
-| Foreign game directories | Shown as *installed manually*. The launcher does not update or remove them. Installing a catalog mod over one asks first. | Never touch what the launcher did not put there |
-| Catalog v1 | Action Quake, OpenTDM, CTF | The mods with a real download source and active servers. Jump has no source. |
-| Jump | Out of v1 | No releases, no content package |
-| Updates | Manifest pins a version, the launcher offers it, the user decides | Same model as engines: reproducible, never silent |
-| Mirror preparation | Licence and source shown in the UI; `mirrors[]` read now, empty for mods | Mirroring later is a manifest commit. The GPL source note is already in place. |
-| Download source v1 | Original sources only, no mirroring | User decision after the licence check |
-| View | Tile catalog with a detail panel | User decision |
-| Per-mod config | Later | The config loader in played mods is enough for now |
-| Play button on a tile | None. Starting stays in the action bar. | User decision |
+| Topic                              | Decision                                                                                                                                  | Rationale                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Focus of v1                        | Multiplayer mods first                                                                                                                    | Matches the server browser and demo browser. Online play is what users do.     |
+| What an install contains           | The full package including the game library, per engine and platform                                                                      | Local games and demos work too, not just joining                               |
+| No matching build                  | Install the content only and show a visible reason ("Not playable locally with Q2PRO 64-bit: no matching build"). Joining stays possible. | Joining does not need the game library. The reason is honest.                  |
+| Retail mods (mission packs, Zaero) | Later                                                                                                                                     | Commercial data. Copying from a store installation is its own step.            |
+| GB-D5                              | In v1, with an install button. The demo mod-missing dialog gets the same offer.                                                           | A missing mod should be one click away where you notice it                     |
+| Install target                     | One installation at a time                                                                                                                | Fits `activeGameDir` and the installation model                                |
+| Removing                           | Only files the launcher installed, from an install record. The folder stays if it is not empty.                                           | Mod folders hold user demos, configs and screenshots                           |
+| Foreign game directories           | Shown as _installed manually_. The launcher does not update or remove them. Installing a catalog mod over one asks first.                 | Never touch what the launcher did not put there                                |
+| Catalog v1                         | Action Quake, OpenTDM, CTF                                                                                                                | The mods with a real download source and active servers. Jump has no source.   |
+| Jump                               | Out of v1                                                                                                                                 | No releases, no content package                                                |
+| Updates                            | Manifest pins a version, the launcher offers it, the user decides                                                                         | Same model as engines: reproducible, never silent                              |
+| Mirror preparation                 | Licence and source shown in the UI; `mirrors[]` read now, empty for mods                                                                  | Mirroring later is a manifest commit. The GPL source note is already in place. |
+| Download source v1                 | Original sources only, no mirroring                                                                                                       | User decision after the licence check                                          |
+| View                               | Tile catalog with a detail panel                                                                                                          | User decision                                                                  |
+| Per-mod config                     | Later                                                                                                                                     | The config loader in played mods is enough for now                             |
+| Play button on a tile              | None. Starting stays in the action bar.                                                                                                   | User decision                                                                  |
 
 ## 4. Tech decisions
 
@@ -143,13 +143,13 @@ extraction, size and SHA256 verification, the archive cache, `JobsService` and t
 - **Catalog entry:** one mod in `mods/manifest.json`. It has a gamedir name, a display name, a
   description, a licence, links to the project and its source, a pinned version and one or more
   **variants**.
-- **Variant:** what to download for one *(platform, engine architecture)* pair. It is one or more
+- **Variant:** what to download for one _(platform, engine architecture)_ pair. It is one or more
   packages with URL, mirrors, size, SHA256 and a `contents` mapping into the gamedir. A variant
   without a game library is **content-only**.
 - **Install record:** per installation and mod, in `Installation.moduleData['mods']`. It holds the
   catalog id, the version, the variant and the list of installed files with their sizes and
   hashes. Removing a mod and detecting user changes both work from this record.
-- **Origin:** *catalog* (an install record exists) or *manual* (a gamedir exists without a record).
+- **Origin:** _catalog_ (an install record exists) or _manual_ (a gamedir exists without a record).
 
 ```
  content repo                launcher (main)                        installation root
@@ -164,11 +164,11 @@ extraction, size and SHA256 verification, the archive cache, `JobsService` and t
 
 ## 6. The v1 catalog (research, 2026-10-01)
 
-| Entry | gamedir | Sources | Variants found |
-| --- | --- | --- | --- |
-| Action Quake | `action` | AQtion `content-only.zip` ([actionquake/distrib](https://github.com/actionquake/distrib/releases), latest stable v1.3.8, v1.4.0-rc1 is a pre-release) + game library from [actionquake/aq2-tng](https://github.com/actionquake/aq2-tng/releases) | TNG: `win-32`, `win-64`, `lin-x86_64` (also arm64/darwin) → full for r1q2 and Q2PRO on Windows and Linux |
-| OpenTDM | `opentdm` | [packetflinger/opentdm](https://github.com/packetflinger/opentdm/releases) (r388, 2026-08) | `win32.zip`, `linux-x86_64.tar.gz` → full for r1q2 on Windows and for Linux Q2PRO. **For Q2PRO 64-bit on Windows it is content-only**: OpenTDM has no client content, so this creates only the gamedir. |
-| CTF | `ctf` | The `ctf/` payload of the id 3.20 point release, **already in `gamedata/manifest.json`** as `q2-320-x86-full-ctf` (Yamagi + tastyspleen) | Win32 `gamex86.dll` + `pak0.pak` → full for r1q2, **content-only for Q2PRO 64-bit and Linux** |
+| Entry        | gamedir   | Sources                                                                                                                                                                                                                                          | Variants found                                                                                                                                                                                          |
+| ------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Action Quake | `action`  | AQtion `content-only.zip` ([actionquake/distrib](https://github.com/actionquake/distrib/releases), latest stable v1.3.8, v1.4.0-rc1 is a pre-release) + game library from [actionquake/aq2-tng](https://github.com/actionquake/aq2-tng/releases) | TNG: `win-32`, `win-64`, `lin-x86_64` (also arm64/darwin) → full for r1q2 and Q2PRO on Windows and Linux                                                                                                |
+| OpenTDM      | `opentdm` | [packetflinger/opentdm](https://github.com/packetflinger/opentdm/releases) (r388, 2026-08)                                                                                                                                                       | `win32.zip`, `linux-x86_64.tar.gz` → full for r1q2 on Windows and for Linux Q2PRO. **For Q2PRO 64-bit on Windows it is content-only**: OpenTDM has no client content, so this creates only the gamedir. |
+| CTF          | `ctf`     | The `ctf/` payload of the id 3.20 point release, **already in `gamedata/manifest.json`** as `q2-320-x86-full-ctf` (Yamagi + tastyspleen)                                                                                                         | Win32 `gamex86.dll` + `pak0.pak` → full for r1q2, **content-only for Q2PRO 64-bit and Linux**                                                                                                           |
 
 Repo facts that make this possible or constrain it:
 
@@ -182,12 +182,12 @@ Repo facts that make this possible or constrain it:
 
 ## 7. Licences (research, 2026-10-01)
 
-| Entry | Code | Data | Consequence |
-| --- | --- | --- | --- |
-| AQtion | GPL-2.0 | Free of licensed content by its own statement. The id player models are redistributed under AQtion's own permission from id/ZeniMax. | Download from source: fine. Mirroring: needs clarification first. |
-| AQ2-TNG | No LICENSE file. Derived from id's GPL source, and AQtion names GPLv2. | — | Download: fine. Mirroring: ask the maintainers for an explicit licence first. |
-| OpenTDM | GPL-2.0 | — | Download and mirror both fine, with a link to the source |
-| CTF | GPL-2.0 (yquake2/ctf, id source) | `ctf/pak0.pak` is id data from the freely distributed 3.20 point release, not GPL | Only taken from the complete 3.20 package, never shipped separately |
+| Entry   | Code                                                                   | Data                                                                                                                                 | Consequence                                                                   |
+| ------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| AQtion  | GPL-2.0                                                                | Free of licensed content by its own statement. The id player models are redistributed under AQtion's own permission from id/ZeniMax. | Download from source: fine. Mirroring: needs clarification first.             |
+| AQ2-TNG | No LICENSE file. Derived from id's GPL source, and AQtion names GPLv2. | —                                                                                                                                    | Download: fine. Mirroring: ask the maintainers for an explicit licence first. |
+| OpenTDM | GPL-2.0                                                                | —                                                                                                                                    | Download and mirror both fine, with a link to the source                      |
+| CTF     | GPL-2.0 (yquake2/ctf, id source)                                       | `ctf/pak0.pak` is id data from the freely distributed 3.20 point release, not GPL                                                    | Only taken from the complete 3.20 package, never shipped separately           |
 
 The detail panel shows each entry's licence (SPDX id), project page and source link. For GPL
 entries this is the source note the licence asks for if we ever mirror the binaries.
@@ -204,10 +204,10 @@ entries this is the source note the licence asks for if we ever mirror the binar
 
 - The view is a **tile catalog**. Each tile shows the mod name, a short description, its status
   for the selected installation and **one main action** (Install / Update / Installed). Status is
-  one of *not installed*, *installed*, *installed — content only*, *update available* or
-  *installed manually*.
+  one of _not installed_, _installed_, _installed — content only_, _update available_ or
+  _installed manually_.
 - Manually installed gamedirs that match no catalog entry get their own tiles, marked
-  *installed manually*.
+  _installed manually_.
 - Clicking a tile opens a **detail panel**: description, licence, project and source links, status
   per installation, version installed and pinned, and all actions (install, update, remove, reveal
   folder). It also shows the content-only reason when it applies.
@@ -240,7 +240,7 @@ entries this is the source note the licence asks for if we ever mirror the binar
   button starts the install into the active installation. A catalog entry is matched by gamedir
   name, case-insensitively.
 - **Demo mod-missing dialog (story 182):** when the catalog has the missing mod, the dialog also
-  offers **Install**, next to the existing *Play anyway*.
+  offers **Install**, next to the existing _Play anyway_.
 - The roadmap follow-up "Play anyway on a mod without a game dir fails with ENOENT" is not fixed by
   this, but becomes much rarer. It stays a follow-up.
 
@@ -270,14 +270,16 @@ entries this is the source note the licence asks for if we ever mirror the binar
 ## 13. Requirements
 
 ### Catalog and discovery
+
 - **MOD-1** The Mods view lists every catalog entry and every game directory found in the selected
   installation, each as a tile.
-- **MOD-2** A game directory without an install record is labelled *installed manually*.
+- **MOD-2** A game directory without an install record is labelled _installed manually_.
 - **MOD-3** The catalog is read from `mods/manifest.json` in the content repository, validated in
   main, cached, and shown from the cache with an "as of" note when offline.
 - **MOD-4** The detail panel shows the licence, project page and source link of a catalog entry.
 
 ### Install
+
 - **MOD-5** Installing a mod into an installation runs as a job with progress and lands the mod in
   `<root>/<gamedir>/`.
 - **MOD-6** The variant matches the installation's platform and engine architecture.
@@ -290,13 +292,15 @@ entries this is the source note the licence asks for if we ever mirror the binar
 - **MOD-11** Installing over a manual game directory asks first.
 
 ### Update and remove
+
 - **MOD-12** When the manifest pins a different version than the installed one, the tile shows
-  *Update available* and the update starts only on the user's click.
+  _Update available_ and the update starts only on the user's click.
 - **MOD-13** Removing a catalog mod deletes exactly the files in its install record. Other files
   and a non-empty folder stay.
 - **MOD-14** A manual game directory offers no update and no remove.
 
 ### GB-D5 and demos
+
 - **MOD-15** The server detail states whether the server's mod exists in the active installation.
 - **MOD-16** The server detail states whether the server's map exists locally.
 - **MOD-17** If the mod is missing and in the catalog, the server detail offers Install.

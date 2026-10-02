@@ -60,7 +60,15 @@ function normalizeLauncherInstallId(input) {
  * @returns {string} `q2l1.<payloadB64>.<sigB64>`
  */
 export function issueUnlockCode(options) {
-  const { features, launcherInstallId, expiresAt, label, now = new Date(), redeemHours = 24, privateKey } = options
+  const {
+    features,
+    launcherInstallId,
+    expiresAt,
+    label,
+    now = new Date(),
+    redeemHours = 24,
+    privateKey,
+  } = options
 
   if (!Array.isArray(features) || features.length < 1 || features.length > 16) {
     throw new Error('issue-unlock-code: features must be an array of 1 to 16 entries')
@@ -237,9 +245,7 @@ function sshReader(buffer) {
  * @returns {import('node:crypto').KeyObject}
  */
 export function openSshPrivateKeyToKeyObject(text) {
-  const body = text
-    .replace(/-----(BEGIN|END) OPENSSH PRIVATE KEY-----/g, '')
-    .replace(/\s+/g, '')
+  const body = text.replace(/-----(BEGIN|END) OPENSSH PRIVATE KEY-----/g, '').replace(/\s+/g, '')
   const raw = Buffer.from(body, 'base64')
   if (!raw.subarray(0, OPENSSH_MAGIC.length).equals(OPENSSH_MAGIC)) {
     throw new Error('issue-unlock-code: not an OpenSSH private key')
@@ -253,11 +259,13 @@ export function openSshPrivateKeyToKeyObject(text) {
       'issue-unlock-code: the OpenSSH private key is passphrase-protected - export it without a passphrase',
     )
   }
-  if (reader.uint32() !== 1) throw new Error('issue-unlock-code: expected exactly one key in the OpenSSH file')
+  if (reader.uint32() !== 1)
+    throw new Error('issue-unlock-code: expected exactly one key in the OpenSSH file')
   reader.string() // public key blob, repeated in the private section
 
   const priv = sshReader(reader.string())
-  if (priv.uint32() !== priv.uint32()) throw new Error('issue-unlock-code: corrupt OpenSSH private key')
+  if (priv.uint32() !== priv.uint32())
+    throw new Error('issue-unlock-code: corrupt OpenSSH private key')
   const type = priv.string().toString()
   if (type !== 'ssh-ed25519') {
     throw new Error(`issue-unlock-code: the signing key must be Ed25519, got "${type}"`)
@@ -286,7 +294,9 @@ export function loadSigningKey(text) {
     ? openSshPrivateKeyToKeyObject(text)
     : createPrivateKey(text)
   if (key.asymmetricKeyType !== 'ed25519') {
-    throw new Error(`issue-unlock-code: the signing key must be Ed25519, got "${key.asymmetricKeyType}"`)
+    throw new Error(
+      `issue-unlock-code: the signing key must be Ed25519, got "${key.asymmetricKeyType}"`,
+    )
   }
   return key
 }
@@ -301,7 +311,9 @@ export function loadSigningKey(text) {
 export function openSshPublicKeyToPem(line) {
   const [type, blobB64] = line.trim().split(/\s+/)
   if (type !== 'ssh-ed25519' || !blobB64) {
-    throw new Error('issue-unlock-code: expected an OpenSSH public key starting with "ssh-ed25519 AAAA"')
+    throw new Error(
+      'issue-unlock-code: expected an OpenSSH public key starting with "ssh-ed25519 AAAA"',
+    )
   }
   const reader = sshReader(Buffer.from(blobB64, 'base64'))
   if (reader.string().toString() !== 'ssh-ed25519') {
@@ -309,7 +321,11 @@ export function openSshPublicKeyToPem(line) {
   }
   const raw = reader.string()
   if (raw.length !== 32) throw new Error('issue-unlock-code: corrupt ssh-ed25519 public key')
-  return createPublicKey({ key: Buffer.concat([SPKI_ED25519_PREFIX, raw]), format: 'der', type: 'spki' })
+  return createPublicKey({
+    key: Buffer.concat([SPKI_ED25519_PREFIX, raw]),
+    format: 'der',
+    type: 'spki',
+  })
     .export({ type: 'spki', format: 'pem' })
     .toString()
 }
@@ -353,7 +369,8 @@ function runKeygen(argv) {
 /** `pubkey "<ssh-ed25519 AAAA...>"` or `pubkey <file.pub>`: prints the PEM to embed in the launcher. */
 function runPubkey(argv) {
   const input = argv[0]
-  if (!input) throw new Error('issue-unlock-code: pubkey needs "ssh-ed25519 AAAA..." or a .pub file path')
+  if (!input)
+    throw new Error('issue-unlock-code: pubkey needs "ssh-ed25519 AAAA..." or a .pub file path')
   const line = input.trim().startsWith('ssh-') ? input : readFileSync(input, 'utf-8')
   console.log(openSshPublicKeyToPem(line))
 }
@@ -391,13 +408,22 @@ function runIssue(argv) {
   } else if (expiresInDays !== undefined) {
     const days = Number(expiresInDays)
     if (!Number.isFinite(days) || days <= 0) {
-      throw new Error(`issue-unlock-code: --expires-in-days "${expiresInDays}" must be a positive number`)
+      throw new Error(
+        `issue-unlock-code: --expires-in-days "${expiresInDays}" must be a positive number`,
+      )
     }
     expiresAt = new Date(Date.now() + days * 24 * 3600 * 1000)
   }
 
   const now = new Date()
-  const code = issueUnlockCode({ features, launcherInstallId: installIdValue, expiresAt, label, now, privateKey })
+  const code = issueUnlockCode({
+    features,
+    launcherInstallId: installIdValue,
+    expiresAt,
+    label,
+    now,
+    privateKey,
+  })
 
   const normalizedInstallId = normalizeLauncherInstallId(installIdValue)
   const redeemBy = new Date(Math.floor(now.getTime() / 1000) * 1000 + 24 * 3600 * 1000)

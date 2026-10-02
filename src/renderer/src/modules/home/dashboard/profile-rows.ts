@@ -27,7 +27,8 @@ const SEVERITY_ORDER: readonly CareSyncState[] = ['inSync', 'outOfSync', 'missin
 
 function worstState(states: CareSyncState[]): CareSyncState {
   return states.reduce<CareSyncState>(
-    (worst, state) => (SEVERITY_ORDER.indexOf(state) > SEVERITY_ORDER.indexOf(worst) ? state : worst),
+    (worst, state) =>
+      SEVERITY_ORDER.indexOf(state) > SEVERITY_ORDER.indexOf(worst) ? state : worst,
     'inSync',
   )
 }

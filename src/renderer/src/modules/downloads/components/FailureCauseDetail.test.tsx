@@ -64,10 +64,14 @@ describe('FailureCauseDetail', () => {
     details.open = true
 
     expect(
-      screen.getByText('engine-q2pro: downloaded, verified and extracted, but did not contribute to the installation'),
+      screen.getByText(
+        'engine-q2pro: downloaded, verified and extracted, but did not contribute to the installation',
+      ),
     ).toBeTruthy()
     expect(
-      screen.getByText('demo-data: downloaded, verified and extracted, but did not contribute to the installation'),
+      screen.getByText(
+        'demo-data: downloaded, verified and extracted, but did not contribute to the installation',
+      ),
     ).toBeTruthy()
   })
 
@@ -156,9 +160,7 @@ describe('FailureCauseDetail', () => {
   })
 
   it('a failure without diagnostics renders nothing', () => {
-    const { container } = render(
-      createElement(FailureCauseDetail, { diagnostics: undefined }),
-    )
+    const { container } = render(createElement(FailureCauseDetail, { diagnostics: undefined }))
 
     expect(container.innerHTML).toBe('')
     expect(document.querySelector('details')).toBeNull()

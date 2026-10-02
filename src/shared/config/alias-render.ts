@@ -82,7 +82,11 @@ const PART_SUFFIX_RESERVE = '_p'.length + 2
  */
 const LEGACY_SLUG_LENGTH = Math.min(
   14,
-  USABLE_ALIAS_NAME - LEGACY_ACTION_ALIAS_PREFIX.length - 1 - LEGACY_ID_SUFFIX_LENGTH - PART_SUFFIX_RESERVE,
+  USABLE_ALIAS_NAME -
+    LEGACY_ACTION_ALIAS_PREFIX.length -
+    1 -
+    LEGACY_ID_SUFFIX_LENGTH -
+    PART_SUFFIX_RESERVE,
 )
 
 /**
@@ -124,7 +128,8 @@ const STATE_SUFFIX_RESERVE = '_s'.length + 1
  * character free for a sign, which is precisely the `+`/`-` its halves prepend, and its chunks
  * hang off that signed name (`+slow_p1`), one affix deep.
  */
-const TOGGLE_DERIVED_ALIAS_NAME_BUDGET = USABLE_ALIAS_NAME - STATE_SUFFIX_RESERVE - PART_SUFFIX_RESERVE
+const TOGGLE_DERIVED_ALIAS_NAME_BUDGET =
+  USABLE_ALIAS_NAME - STATE_SUFFIX_RESERVE - PART_SUFFIX_RESERVE
 
 /**
  * The prefix a *launcher-generated* drop entry's alias name carries (story 055, D2): the same
@@ -298,7 +303,10 @@ export function legacyAliasNameFor(action: ConfigAction): string {
 
   const slug = slugAliasName(action.name, LEGACY_SLUG_LENGTH)
   const idSuffix =
-    action.id.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, LEGACY_ID_SUFFIX_LENGTH) || '0000'
+    action.id
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, LEGACY_ID_SUFFIX_LENGTH) || '0000'
   return `${LEGACY_ACTION_ALIAS_PREFIX}${slug}_${idSuffix}`
 }
 
@@ -338,11 +346,13 @@ export function legacyAliasNameFor(action: ConfigAction): string {
  */
 export function derivedAliasName(action: ConfigAction): string {
   const raw = action.name.trim()
-  const sign = action.kind === 'alias' && (raw.startsWith('+') || raw.startsWith('-')) ? raw.slice(0, 1) : ''
+  const sign =
+    action.kind === 'alias' && (raw.startsWith('+') || raw.startsWith('-')) ? raw.slice(0, 1) : ''
   // A toggle's name is shortened further, because its chunk names carry two stacked affixes -
   // see `TOGGLE_DERIVED_ALIAS_NAME_BUDGET`. Every other kind, `press-release` included, keeps the
   // budget it had before story 045, so no name already on disk moves.
-  const budget = action.kind === 'toggle' ? TOGGLE_DERIVED_ALIAS_NAME_BUDGET : DERIVED_ALIAS_NAME_BUDGET
+  const budget =
+    action.kind === 'toggle' ? TOGGLE_DERIVED_ALIAS_NAME_BUDGET : DERIVED_ALIAS_NAME_BUDGET
   const slug = slugAliasName(raw.slice(sign.length), budget, 'entry')
   if (sign || slug.startsWith(DROP_ALIAS_PREFIX) || !isDropCatalogueEntry(action)) {
     return `${sign}${slug}`

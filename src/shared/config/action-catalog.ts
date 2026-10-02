@@ -393,11 +393,41 @@ export const DROPPABLES: DroppableDef[] = [
     ...(w.ammo ? { ammo: w.ammo } : {}),
     kind: 'weapon' as const,
   })),
-  { id: 'shells', labelKey: 'config.actionCatalog.shells.label', label: 'Shells', item: 'shells', kind: 'ammo' },
-  { id: 'bullets', labelKey: 'config.actionCatalog.bullets.label', label: 'Bullets', item: 'bullets', kind: 'ammo' },
-  { id: 'rockets', labelKey: 'config.actionCatalog.rockets.label', label: 'Rockets', item: 'rockets', kind: 'ammo' },
-  { id: 'cells', labelKey: 'config.actionCatalog.cells.label', label: 'Cells', item: 'cells', kind: 'ammo' },
-  { id: 'slugs', labelKey: 'config.actionCatalog.slugs.label', label: 'Slugs', item: 'slugs', kind: 'ammo' },
+  {
+    id: 'shells',
+    labelKey: 'config.actionCatalog.shells.label',
+    label: 'Shells',
+    item: 'shells',
+    kind: 'ammo',
+  },
+  {
+    id: 'bullets',
+    labelKey: 'config.actionCatalog.bullets.label',
+    label: 'Bullets',
+    item: 'bullets',
+    kind: 'ammo',
+  },
+  {
+    id: 'rockets',
+    labelKey: 'config.actionCatalog.rockets.label',
+    label: 'Rockets',
+    item: 'rockets',
+    kind: 'ammo',
+  },
+  {
+    id: 'cells',
+    labelKey: 'config.actionCatalog.cells.label',
+    label: 'Cells',
+    item: 'cells',
+    kind: 'ammo',
+  },
+  {
+    id: 'slugs',
+    labelKey: 'config.actionCatalog.slugs.label',
+    label: 'Slugs',
+    item: 'slugs',
+    kind: 'ammo',
+  },
   {
     id: 'hgrenades',
     labelKey: 'config.actionCatalog.hgrenades.label',
@@ -421,7 +451,13 @@ export const DROPPABLES: DroppableDef[] = [
     ammo: 'cells',
     kind: 'powerup',
   },
-  { id: 'quad', labelKey: 'config.actionCatalog.quad.label', label: 'Quad Damage', item: 'quad damage', kind: 'powerup' },
+  {
+    id: 'quad',
+    labelKey: 'config.actionCatalog.quad.label',
+    label: 'Quad Damage',
+    item: 'quad damage',
+    kind: 'powerup',
+  },
   {
     id: 'invuln',
     labelKey: 'config.actionCatalog.invuln.label',
@@ -471,7 +507,13 @@ export const DROPPABLES: DroppableDef[] = [
     item: 'ammo pack',
     kind: 'powerup',
   },
-  { id: 'tech', labelKey: 'config.actionCatalog.tech.label', label: 'Tech (CTF Rune)', item: 'tech', kind: 'tech' },
+  {
+    id: 'tech',
+    labelKey: 'config.actionCatalog.tech.label',
+    label: 'Tech (CTF Rune)',
+    item: 'tech',
+    kind: 'tech',
+  },
 ]
 
 export interface DropAction {

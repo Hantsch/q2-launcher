@@ -56,7 +56,10 @@ async function waitFor(predicate, what, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs
   for (;;) {
     if (await predicate()) return
-    if (Date.now() >= deadline) throw new Error(`replays-mod-install: timed out waiting for ${typeof what === 'function' ? what() : what}`)
+    if (Date.now() >= deadline)
+      throw new Error(
+        `replays-mod-install: timed out waiting for ${typeof what === 'function' ? what() : what}`,
+      )
     await new Promise((resolve) => setTimeout(resolve, 150))
   }
 }
@@ -69,7 +72,9 @@ function trustedMods() {
 
 export default async function replaysModInstall({ page, step, shot }) {
   if (process.platform === 'win32' && !vendoredExtractorExists()) {
-    console.log('replays-mod-install: SKIPPING LOUDLY - resources/bin/7za.exe was not vendored (npm run fetch:7za)')
+    console.log(
+      'replays-mod-install: SKIPPING LOUDLY - resources/bin/7za.exe was not vendored (npm run fetch:7za)',
+    )
     return
   }
 
@@ -82,7 +87,10 @@ export default async function replaysModInstall({ page, step, shot }) {
   const dialog = page.getByTestId('replays-mod-missing-dialog')
   const install = page.getByTestId('replays-mod-missing-install')
   const demoCommand = `+demo ${REPLAYS_PLAY_MISSING_MOD_DEMO}`
-  const listJobs = async () => (await page.evaluate(() => window.q2.invoke('jobs:list'))).filter((job) => job.moduleId === 'mods')
+  const listJobs = async () =>
+    (await page.evaluate(() => window.q2.invoke('jobs:list'))).filter(
+      (job) => job.moduleId === 'mods',
+    )
 
   step('the dialog offers installing the catalog mod')
   await page
@@ -100,10 +108,14 @@ export default async function replaysModInstall({ page, step, shot }) {
   })
   await play.click({ timeout: TIMEOUT_MS })
   await dialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-mod-missing-confirm').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-mod-missing-confirm')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await install.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (!((await install.textContent()) ?? '').includes('OpenTDM')) {
-    throw new Error(`replays-mod-install: the install button must name OpenTDM, got ${JSON.stringify(await install.textContent())}`)
+    throw new Error(
+      `replays-mod-install: the install button must name OpenTDM, got ${JSON.stringify(await install.textContent())}`,
+    )
   }
   await shot('install-offered')
 
@@ -115,12 +127,16 @@ export default async function replaysModInstall({ page, step, shot }) {
   await waitFor(async () => (await listJobs()).length > jobsBefore, 'a mods job in jobs:list')
   await new Promise((resolve) => setTimeout(resolve, 1_000))
   if (readLog(logPath).includes(demoCommand)) {
-    throw new Error(`replays-mod-install: Install must not play the demo (${demoCommand} found in main.log)`)
+    throw new Error(
+      `replays-mod-install: Install must not play the demo (${demoCommand} found in main.log)`,
+    )
   }
 
   step('install does not trust the mod')
   if (trustedMods().includes(REPLAYS_PLAY_MISSING_MOD)) {
-    throw new Error(`replays-mod-install: Install must not trust the mod, got ${JSON.stringify(trustedMods())}`)
+    throw new Error(
+      `replays-mod-install: Install must not trust the mod, got ${JSON.stringify(trustedMods())}`,
+    )
   }
 
   step('after the install the demo plays without asking')
@@ -129,7 +145,8 @@ export default async function replaysModInstall({ page, step, shot }) {
     async () => {
       const jobs = (lastJobs = await listJobs())
       const failed = jobs.find((job) => job.status === 'failed')
-      if (failed) throw new Error(`replays-mod-install: the install job failed: ${JSON.stringify(failed)}`)
+      if (failed)
+        throw new Error(`replays-mod-install: the install job failed: ${JSON.stringify(failed)}`)
       return jobs.length > jobsBefore && jobs.every((job) => job.status === 'succeeded')
     },
     () => `the mods job to succeed (jobs: ${JSON.stringify(lastJobs)})`,
@@ -139,12 +156,19 @@ export default async function replaysModInstall({ page, step, shot }) {
     window.__q2lPhases = []
   })
   await play.click({ timeout: TIMEOUT_MS })
-  await waitFor(() => readLog(logPath).includes(demoCommand), `main.log ${demoCommand}`, LAUNCH_TIMEOUT_MS)
-  if ((await dialog.count()) !== 0) throw new Error('replays-mod-install: the installed mod must play without the dialog')
+  await waitFor(
+    () => readLog(logPath).includes(demoCommand),
+    `main.log ${demoCommand}`,
+    LAUNCH_TIMEOUT_MS,
+  )
+  if ((await dialog.count()) !== 0)
+    throw new Error('replays-mod-install: the installed mod must play without the dialog')
   await page.waitForFunction(
     () => {
       const phases = window.__q2lPhases ?? []
-      return phases.lastIndexOf('running') !== -1 && phases.length > phases.lastIndexOf('running') + 1
+      return (
+        phases.lastIndexOf('running') !== -1 && phases.length > phases.lastIndexOf('running') + 1
+      )
     },
     undefined,
     { timeout: LAUNCH_TIMEOUT_MS },

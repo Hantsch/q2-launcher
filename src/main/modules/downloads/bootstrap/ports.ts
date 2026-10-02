@@ -88,10 +88,7 @@ export interface BootstrapLog {
  * ships exactly one of each, and picking the first keeps the choice a property of the manifest's
  * own order rather than of an id convention this file would have to invent.
  */
-export function manifestSourceFrom(
-  service: ManifestService,
-  log?: BootstrapLog,
-): ManifestSource {
+export function manifestSourceFrom(service: ManifestService, log?: BootstrapLog): ManifestSource {
   /** Never throws: a manifest that cannot be produced is "no packages", which each resolver below
    * turns into `undefined` - the job's single "a required package is unavailable" failure. */
   const packages = async (): Promise<ManifestPackage[]> => {
@@ -118,7 +115,9 @@ export function manifestSourceFrom(
     },
 
     async resolveGameDataPackage(role) {
-      const pkg = (await packages()).find((entry) => entry.kind === 'gamedata' && entry.role === role)
+      const pkg = (await packages()).find(
+        (entry) => entry.kind === 'gamedata' && entry.role === role,
+      )
       if (pkg === undefined) log?.warn(`the manifest lists no "${role}" game-data package`)
       return pkg
     },

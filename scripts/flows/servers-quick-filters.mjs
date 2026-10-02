@@ -47,7 +47,11 @@ function decodeQueryKind(message) {
 
 /** Binds one loopback responder with full control over its `gamename`/`mapname`/`maxclients`/
  * gamemode flags/`needpass`, so each of A-D can exercise a different filter field. */
-async function bindResponder(hostname, playerLines, { mod, map, maxclients, extraInfoFlags = '', needpass = false }) {
+async function bindResponder(
+  hostname,
+  playerLines,
+  { mod, map, maxclients, extraInfoFlags = '', needpass = false },
+) {
   const socket = createSocket('udp4')
   await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
   const port = socket.address().port
@@ -75,7 +79,14 @@ async function closeResponder(responder) {
   await new Promise((resolve) => responder.socket.close(() => resolve()))
 }
 
-const NO_CRITERIA = { mod: null, gamemode: null, map: null, empty: false, hideBotsOnly: false, waitingForOpponent: false }
+const NO_CRITERIA = {
+  mod: null,
+  gamemode: null,
+  map: null,
+  empty: false,
+  hideBotsOnly: false,
+  waitingForOpponent: false,
+}
 // Story 197 AC7/AC8: a filter whose mod no row carries, one damaged entry between two good ones.
 const SEEDED_QUICK_FILTERS = [
   { id: 'seed-ghost', name: 'Ghost mod', criteria: { ...NO_CRITERIA, mod: 'nosuchmod' } },
@@ -178,7 +189,12 @@ async function waitForFinishedAtChange(page, previous, timeout) {
 /** Reads the set of visible row addresses (as their bound loopback port suffix) among A-D, by
  * checking which of the four `servers-row-<address>` testids are currently attached. */
 async function visibleLabels(page) {
-  const labels = { [serverA.address]: 'A', [serverB.address]: 'B', [serverC.address]: 'C', [serverD.address]: 'D' }
+  const labels = {
+    [serverA.address]: 'A',
+    [serverB.address]: 'B',
+    [serverC.address]: 'C',
+    [serverD.address]: 'D',
+  }
   const visible = []
   for (const responder of [serverA, serverB, serverC, serverD]) {
     const count = await page.getByTestId(`servers-row-${responder.address}`).count()
@@ -198,7 +214,6 @@ function assertSet(actual, expected, label) {
 async function clearFilters(page) {
   await page.getByTestId('servers-filter-clear').click({ timeout: TIMEOUT_MS })
 }
-
 
 function readStateJson() {
   return JSON.parse(readFileSync(join(variantUserDataDir(variant), 'state.json'), 'utf8'))
@@ -232,7 +247,9 @@ export default async function serversQuickFilters({ page, step, shot }) {
   const finishedAtBefore = await readFinishedAt(page)
   await refreshAll.click({ timeout: TIMEOUT_MS })
   await waitForFinishedAtChange(page, finishedAtBefore, SCAN_SETTLE_TIMEOUT_MS)
-  await page.getByTestId(`servers-row-${serverA.address}`).waitFor({ state: 'attached', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId(`servers-row-${serverA.address}`)
+    .waitFor({ state: 'attached', timeout: TIMEOUT_MS })
 
   step('AC1: save is disabled with a visible reason while the filter has no criteria')
   const save = page.getByTestId('servers-quickfilter-save')
@@ -254,7 +271,9 @@ export default async function serversQuickFilters({ page, step, shot }) {
     throw new Error('the save reason should be gone once save is enabled')
   }
   await save.click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-quickfilter-name').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-quickfilter-name')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (!(await page.getByTestId('servers-quickfilter-dialog-save').isDisabled())) {
     throw new Error('dialog save should be disabled until a name is entered')
   }
@@ -265,8 +284,13 @@ export default async function serversQuickFilters({ page, step, shot }) {
   await page.getByTestId('servers-quickfilter-dialog-save').click({ timeout: TIMEOUT_MS })
   await chipNamed(page, 'Base duels').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   assertEq(await chips(page).count(), 3, 'three chips')
-  assertEq(((await chipNamed(page, 'Base duels').textContent()) ?? '').trim(), 'Base duels', 'chip label')
-  if (!(await pressed(chipNamed(page, 'Base duels')))) throw new Error('chip should be pressed while the filter equals it')
+  assertEq(
+    ((await chipNamed(page, 'Base duels').textContent()) ?? '').trim(),
+    'Base duels',
+    'chip label',
+  )
+  if (!(await pressed(chipNamed(page, 'Base duels'))))
+    throw new Error('chip should be pressed while the filter equals it')
   await shot('chip-saved')
   const deadline = Date.now() + 5_000
   let persisted = readStateJson().servers.quickFilters
@@ -274,13 +298,18 @@ export default async function serversQuickFilters({ page, step, shot }) {
     await page.waitForTimeout(150)
     persisted = readStateJson().servers.quickFilters
   }
-  assertEq(persisted.filter((q) => q.name === 'Base duels').map((q) => q.criteria.mod), ['baseq2'], 'persisted Base duels')
+  assertEq(
+    persisted.filter((q) => q.name === 'Base duels').map((q) => q.criteria.mod),
+    ['baseq2'],
+    'persisted Base duels',
+  )
 
   step('AC2: change the filter, then clicking the chip restores exactly the saved criteria')
   await page.getByTestId('servers-filter-mod').selectOption('ctf')
   await page.getByTestId('servers-filter-empty').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('servers-filter-search').fill('keepme')
-  if (await pressed(chipNamed(page, 'Base duels'))) throw new Error('chip should not be pressed after changing the filter')
+  if (await pressed(chipNamed(page, 'Base duels')))
+    throw new Error('chip should not be pressed after changing the filter')
   await chipNamed(page, 'Base duels').click({ timeout: TIMEOUT_MS })
   assertEq(await page.getByTestId('servers-filter-mod').inputValue(), 'baseq2', 'mod restored')
   assertEq(await pressed(page.getByTestId('servers-filter-empty')), false, 'empty restored off')
@@ -289,28 +318,46 @@ export default async function serversQuickFilters({ page, step, shot }) {
   step('AC3: pressed chip shows aria-pressed and a check icon; clicking it clears the criteria')
   await page.getByTestId('servers-filter-search').fill('')
   if (!(await pressed(chipNamed(page, 'Base duels')))) throw new Error('chip should be pressed')
-  assertEq(await chipNamed(page, 'Base duels').locator('svg.lucide-check').count(), 1, 'check icon while pressed')
+  assertEq(
+    await chipNamed(page, 'Base duels').locator('svg.lucide-check').count(),
+    1,
+    'check icon while pressed',
+  )
   await chipNamed(page, 'Base duels').click({ timeout: TIMEOUT_MS })
   assertEq(await pressed(chipNamed(page, 'Base duels')), false, 'chip unpressed after clear')
-  assertEq(await chipNamed(page, 'Base duels').locator('svg.lucide-check').count(), 0, 'no check icon when off')
+  assertEq(
+    await chipNamed(page, 'Base duels').locator('svg.lucide-check').count(),
+    0,
+    'no check icon when off',
+  )
   assertEq(await page.getByTestId('servers-filter-mod').inputValue(), '', 'mod cleared')
 
   step('AC5: a taken name shows the reason plus Overwrite; overwriting keeps a single chip')
   await page.getByTestId('servers-filter-mod').selectOption('ctf')
   await saveAs(page, 'base DUELS')
-  await page.getByTestId('servers-quickfilter-overwrite').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-quickfilter-overwrite')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const dialogText = (await page.getByTestId('servers-quickfilter-dialog').textContent()) ?? ''
-  if (!dialogText.includes('already exists')) throw new Error(`taken reason missing: "${dialogText}"`)
+  if (!dialogText.includes('already exists'))
+    throw new Error(`taken reason missing: "${dialogText}"`)
   if (!(await page.getByTestId('servers-quickfilter-dialog-save').isDisabled())) {
     throw new Error('plain save must stay disabled for a taken name')
   }
   await shot('taken-name')
   await page.getByTestId('servers-quickfilter-overwrite').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('servers-quickfilter-name').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('servers-quickfilter-name')
+    .waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   assertEq(await chips(page).count(), 3, 'still three chips after overwrite')
-  if (!(await pressed(chipNamed(page, 'Base duels')))) throw new Error('overwritten chip should equal the current filter (ctf)')
+  if (!(await pressed(chipNamed(page, 'Base duels'))))
+    throw new Error('overwritten chip should equal the current filter (ctf)')
   await chipNamed(page, 'Base duels').click({ timeout: TIMEOUT_MS })
-  assertEq(await page.getByTestId('servers-filter-mod').inputValue(), '', 'cleared via overwritten chip')
+  assertEq(
+    await page.getByTestId('servers-filter-mod').inputValue(),
+    '',
+    'cleared via overwritten chip',
+  )
 
   step('AC9: the built-in toggles still toggle with custom chips present')
   for (const id of ['servers-filter-waiting', 'servers-filter-empty', 'servers-filter-hide-bots']) {
@@ -327,49 +374,89 @@ export default async function serversQuickFilters({ page, step, shot }) {
   assertEq(await chipNamed(page, 'Waiting').count(), 1, 'Waiting chip')
   const toasts = await page.locator('div[role="status"].panel-raised').allTextContents()
   // The populated fixture raises its own unrelated "installations need attention" toast.
-  assertEq(toasts.filter((text) => /quick filter|filter/i.test(text)), [], 'no quick-filter toast')
+  assertEq(
+    toasts.filter((text) => /quick filter|filter/i.test(text)),
+    [],
+    'no quick-filter toast',
+  )
 
-  step('AC7: a chip whose mod no row carries applies, shows the value, and the no-match state keeps the bar intact')
+  step(
+    'AC7: a chip whose mod no row carries applies, shows the value, and the no-match state keeps the bar intact',
+  )
   await chipNamed(page, 'Ghost mod').click({ timeout: TIMEOUT_MS })
-  assertEq(await page.getByTestId('servers-filter-mod').inputValue(), 'nosuchmod', 'mod select shows the value')
-  await page.getByTestId('servers-filter-no-match').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  assertEq(
+    await page.getByTestId('servers-filter-mod').inputValue(),
+    'nosuchmod',
+    'mod select shows the value',
+  )
+  await page
+    .getByTestId('servers-filter-no-match')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('servers-filter-clear').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   assertEq(await chips(page).count(), 3, 'bar intact')
   await shot('ghost-mod-no-match')
 
   step('AC4: rename via the kebab changes the chip label and state.json')
-  const ghostMenu = chipNamed(page, 'Ghost mod').locator('xpath=ancestor::div[2]').getByTestId('servers-quickfilter-menu')
+  const ghostMenu = chipNamed(page, 'Ghost mod')
+    .locator('xpath=ancestor::div[2]')
+    .getByTestId('servers-quickfilter-menu')
   await ghostMenu.click({ timeout: TIMEOUT_MS })
   await page.getByRole('menuitem', { name: 'Rename' }).click({ timeout: TIMEOUT_MS })
   const renameInput = page.getByTestId('servers-quickfilter-name')
   await renameInput.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   assertEq(await renameInput.inputValue(), 'Ghost mod', 'rename prefilled')
-  if ((await page.getByTestId('servers-quickfilter-overwrite').count()) !== 0) throw new Error('rename must not offer Overwrite')
+  if ((await page.getByTestId('servers-quickfilter-overwrite').count()) !== 0)
+    throw new Error('rename must not offer Overwrite')
   await renameInput.fill('Phantom')
   await page.getByTestId('servers-quickfilter-dialog-save').click({ timeout: TIMEOUT_MS })
   await renameInput.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   assertEq(await chipNamed(page, 'Phantom').count(), 1, 'renamed chip')
   assertEq(await chipNamed(page, 'Ghost mod').count(), 0, 'old name gone')
-  assertEq(await pressed(chipNamed(page, 'Phantom')), true, 'renamed chip still pressed (criteria unchanged)')
+  assertEq(
+    await pressed(chipNamed(page, 'Phantom')),
+    true,
+    'renamed chip still pressed (criteria unchanged)',
+  )
 
-  step('AC4: deleting the pressed chip leaves the current filter and the no-match state as they were')
-  await chipNamed(page, 'Phantom').locator('xpath=ancestor::div[2]').getByTestId('servers-quickfilter-menu').click({ timeout: TIMEOUT_MS })
+  step(
+    'AC4: deleting the pressed chip leaves the current filter and the no-match state as they were',
+  )
+  await chipNamed(page, 'Phantom')
+    .locator('xpath=ancestor::div[2]')
+    .getByTestId('servers-quickfilter-menu')
+    .click({ timeout: TIMEOUT_MS })
   await page.getByRole('menuitem', { name: 'Delete' }).click({ timeout: TIMEOUT_MS })
   await chipNamed(page, 'Phantom').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
-  assertEq(await page.getByTestId('servers-filter-mod').inputValue(), 'nosuchmod', 'filter untouched by delete')
-  await page.getByTestId('servers-filter-no-match').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  assertEq(
+    await page.getByTestId('servers-filter-mod').inputValue(),
+    'nosuchmod',
+    'filter untouched by delete',
+  )
+  await page
+    .getByTestId('servers-filter-no-match')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   step('AC6: state.json holds the list and the chips survive a reload')
   const expectedNames = ['Base duels', 'Waiting']
-  const stored = () => readStateJson().servers.quickFilters.map((q) => q.name).sort()
+  const stored = () =>
+    readStateJson()
+      .servers.quickFilters.map((q) => q.name)
+      .sort()
   const persistDeadline = Date.now() + 5_000
-  while (stored().join('|') !== expectedNames.join('|') && Date.now() < persistDeadline) await page.waitForTimeout(150)
+  while (stored().join('|') !== expectedNames.join('|') && Date.now() < persistDeadline)
+    await page.waitForTimeout(150)
   assertEq(stored(), expectedNames, 'state.json quickFilters')
   await page.reload()
   await page.getByTestId('nav-servers').click({ timeout: TIMEOUT_MS })
   await chips(page).first().waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  assertEq((await chips(page).allTextContents()).map((x) => x.trim()).sort(), expectedNames, 'chips after reload')
+  assertEq(
+    (await chips(page).allTextContents()).map((x) => x.trim()).sort(),
+    expectedNames,
+    'chips after reload',
+  )
   await shot('after-reload')
 
-  console.log('servers-quick-filters: save gating (AC1), chip apply (AC2), pressed/clear (AC3), rename/delete (AC4), overwrite (AC5), persistence (AC6), unknown mod (AC7), damaged entry (AC8), built-ins intact (AC9).')
+  console.log(
+    'servers-quick-filters: save gating (AC1), chip apply (AC2), pressed/clear (AC3), rename/delete (AC4), overwrite (AC5), persistence (AC6), unknown mod (AC7), damaged entry (AC8), built-ins intact (AC9).',
+  )
 }

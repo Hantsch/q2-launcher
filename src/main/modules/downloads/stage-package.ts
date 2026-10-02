@@ -61,7 +61,11 @@ export async function stagePackage(input: StagePackageInput): Promise<StagePacka
   const { source, signal } = input
   const download = input.download ?? downloadPackage
   const extract = input.extract ?? extractArchive
-  const cancelled: StagePackageResult = { ok: false, key: 'downloads.error.extractionFailed', cancelled: true }
+  const cancelled: StagePackageResult = {
+    ok: false,
+    key: 'downloads.error.extractionFailed',
+    cancelled: true,
+  }
 
   if (signal.aborted) return cancelled
 

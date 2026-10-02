@@ -24,8 +24,14 @@ describe('splitInfostring', () => {
 
     // A gamename-less, version-less infostring with other realistic keys still yields a record
     // where those keys are actually absent, not present-with-undefined.
-    const noGamenameOrVersion = splitInfostring('\\mapname\\q2dm1\\maxclients\\8\\hostname\\Test Server')
-    expect(noGamenameOrVersion).toEqual({ mapname: 'q2dm1', maxclients: '8', hostname: 'Test Server' })
+    const noGamenameOrVersion = splitInfostring(
+      '\\mapname\\q2dm1\\maxclients\\8\\hostname\\Test Server',
+    )
+    expect(noGamenameOrVersion).toEqual({
+      mapname: 'q2dm1',
+      maxclients: '8',
+      hostname: 'Test Server',
+    })
     expect('gamename' in noGamenameOrVersion).toBe(false)
     expect('version' in noGamenameOrVersion).toBe(false)
   })

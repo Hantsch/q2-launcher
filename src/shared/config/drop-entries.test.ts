@@ -115,7 +115,14 @@ describe('dropStateFor', () => {
    * now, and it says yes precisely because there is a command to remove.
    */
   it('keeps the ammo toggle operable for an ammo-item drop that carries an ammo command', () => {
-    for (const name of ['drop_shells', 'drop_bullets', 'drop_grens', 'drop_rocks', 'drop_cells', 'drop_slugs']) {
+    for (const name of [
+      'drop_shells',
+      'drop_bullets',
+      'drop_grens',
+      'drop_rocks',
+      'drop_cells',
+      'drop_slugs',
+    ]) {
       const state = dropStateFor(aliasAction(name, FIXTURE_DROPS[name]!))
       expect(state.hasAmmo, name).toBe(true)
       expect(state.itemAmmo, name).toBeUndefined()
@@ -123,7 +130,7 @@ describe('dropStateFor', () => {
     }
   })
 
-  it('goes disabled AND unpressed once such an entry\'s ammo command is removed', () => {
+  it("goes disabled AND unpressed once such an entry's ammo command is removed", () => {
     const off = withDropAmmo(aliasAction('drop_shells', FIXTURE_DROPS.drop_shells!), false)
     const state = dropStateFor(off)
     // One-way by design: nothing left to remove, and no catalogue ammo type to re-add for an ammo
@@ -133,9 +140,13 @@ describe('dropStateFor', () => {
   })
 
   it('reports canToggleAmmo for the two ordinary shapes: a weapon with ammo, and drop_tech', () => {
-    expect(dropStateFor(aliasAction('drop_shotgun', FIXTURE_DROPS.drop_shotgun!)).canToggleAmmo).toBe(true)
+    expect(
+      dropStateFor(aliasAction('drop_shotgun', FIXTURE_DROPS.drop_shotgun!)).canToggleAmmo,
+    ).toBe(true)
     // No ammo command present and no catalogue ammo to add - the one case AC 4 asks to disable.
-    expect(dropStateFor(aliasAction('drop_tech', FIXTURE_DROPS.drop_tech!)).canToggleAmmo).toBe(false)
+    expect(dropStateFor(aliasAction('drop_tech', FIXTURE_DROPS.drop_tech!)).canToggleAmmo).toBe(
+      false,
+    )
   })
 
   it('reports no message when the body carries none', () => {
@@ -158,7 +169,9 @@ describe('withDropAmmo / withDropMessage round-trip extras survive', () => {
   }
 
   function rawTexts(action: ConfigAction): string[] {
-    return action.commands.filter((c): c is Extract<ConfigCommand, { kind: 'raw' }> => c.kind === 'raw').map((c) => c.text)
+    return action.commands
+      .filter((c): c is Extract<ConfigCommand, { kind: 'raw' }> => c.kind === 'raw')
+      .map((c) => c.text)
   }
 
   it('withDropAmmo(off) removes only the recognised ammo command', () => {
@@ -191,7 +204,11 @@ describe('withDropAmmo / withDropMessage round-trip extras survive', () => {
     expect(state.message).toBe('hello team')
     expect(state.channel).toBe('say_team')
     // inserted right after the ammo command (index 1), before the second drop power shield and wave 1
-    expect(withMsg.commands[2]).toEqual({ kind: 'message', channel: 'say_team', text: 'hello team' })
+    expect(withMsg.commands[2]).toEqual({
+      kind: 'message',
+      channel: 'say_team',
+      text: 'hello team',
+    })
   })
 
   it('withDropMessage(on) then withDropMessage(off) round-trips back to the original body', () => {

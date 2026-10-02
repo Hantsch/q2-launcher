@@ -48,15 +48,15 @@ below._
 - **Findings are computed against the rendered profile text, not against 006/008's internal
   data shapes.** The serializer output is the one stable contract every later story must feed
   into anyway, so line-length, buffer-size and alias checks keep working whatever shape
-  006/008 pick. *(Assumption noted: 006 and 008 are still `draft` with empty Plan/Decisions at
-  refine time; this decision is deliberately built so it does not depend on their outcome.)*
+  006/008 pick. _(Assumption noted: 006 and 008 are still `draft` with empty Plan/Decisions at
+  refine time; this decision is deliberately built so it does not depend on their outcome.)_
 - **Finding-to-source is derived from the rendered line's own head tokens** — `set <name>` →
   `{kind:'cvar', id:name}`, `bind <key>` → `{kind:'bind', id:key}`, `alias <name>` →
   `{kind:'alias', id:name}`, everything else → `{kind:'file'}`. This answers the story's only
   open point without coupling the validator to any story's model, and it is exactly what the
   user sees on disk.
 - **The pure serializer moves to `src/shared/config/render.ts`; `src/main/modules/config/
-  render.ts` re-exports it.** Duplicating the serializer in the renderer is how the validated
+render.ts` re-exports it.** Duplicating the serializer in the renderer is how the validated
   bytes and the written bytes drift apart; the move is mechanical (pure string building) and
   pinned by the existing `render.test.ts`.
 - **Finding level is `'info' | 'warning' | 'error'`**, reusing `EngineValueNote.level` from
@@ -86,7 +86,7 @@ below._
 ## Plan
 
 Port q2-config-manager's source-cited engine limits and validation rules into
-`src/shared/config/`, run them per assigned engine over the *rendered* profile text, and
+`src/shared/config/`, run them per assigned engine over the _rendered_ profile text, and
 surface the result as a new Validation tab that reads the in-progress draft.
 
 1. **Facts + model** — `engine-limits.ts` (buffer sizes, `MAX_ALIAS_NAME`, `ALIAS_LOOP_COUNT`,
@@ -210,19 +210,19 @@ validates `draft`, so findings update as the user types, before any save.
   `src/renderer/src/modules/config/SettingsTab.tsx`, plus the 006/008 tab(s) if they hold
   their own draft state at build time.
 - Mirror: `SettingsTab.tsx`'s existing `localCvars` + 500 ms debounce + `'idle'|'saving'|
-  'saved'` status — preserve that behaviour exactly, only move where the state lives.
+'saved'` status — preserve that behaviour exactly, only move where the state lives.
 - Accept: changing a cvar re-runs validation without saving; the existing autosave and its
   status label still behave as before, including on profile switch. Covers AC 4.
 
 ## Coverage
 
-| AC | Deliverable |
-| --- | --- |
-| Runs against every assigned engine, equally weighted | D5 (aggregation), D1 (per-engine limits) |
-| Alias name length / loop depth / no in-quote escaping / buffer size / 1024-byte line | D1 (facts) + D3 (structural rules) |
-| Per-engine cvar meaning (part of the same AC) | D4 |
-| Explicit "nothing to validate against", never a default to r1q2 | D5 (scope states) + D1 (`limitsFor` yields nothing off-scope) |
-| Reflects in-progress edit state without saving | D6 |
+| AC                                                                                   | Deliverable                                                   |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| Runs against every assigned engine, equally weighted                                 | D5 (aggregation), D1 (per-engine limits)                      |
+| Alias name length / loop depth / no in-quote escaping / buffer size / 1024-byte line | D1 (facts) + D3 (structural rules)                            |
+| Per-engine cvar meaning (part of the same AC)                                        | D4                                                            |
+| Explicit "nothing to validate against", never a default to r1q2                      | D5 (scope states) + D1 (`limitsFor` yields nothing off-scope) |
+| Reflects in-progress edit state without saving                                       | D6                                                            |
 
 ## Model Hints
 
@@ -281,11 +281,13 @@ tab (`ValidationPanel.tsx`) with a tab-badge count (D5). Lifted the in-progress 
 happens rather than after a debounced save round-trips (D6).
 
 **Commit message:**
+
 ```
 009: multi-engine validator - structural + cvar checks, Validation tab, shared draft state
 ```
 
 **Verification:**
+
 - `npm test` → 384 tests passing (24 files), 0 failing.
 - `npm run typecheck` → clean (both `tsconfig.node.json` and `tsconfig.web.json`).
 - `npm run build` → succeeds (main/preload/renderer all build).
@@ -303,6 +305,7 @@ happens rather than after a debounced save round-trips (D6).
   sprint deviation; live acceptance is handed to the user.
 
 **Decisions (implementation):**
+
 - D1/D2 were delegated to fresh agents and completed cleanly on the first pass (engine-limits.ts
   extended in place per the story's own note that story 008 already created it; render.ts/
   switch-bind.ts moved together since `switch-bind.ts` is pure and `render.ts` depends on it —

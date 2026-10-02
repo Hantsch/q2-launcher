@@ -45,7 +45,7 @@ dependabot or renovate configuration.
 ## Open Questions
 
 - ~~**Q1**~~ answered → Decisions (Sprint) — Land the format commit on `dev` right before a sprint branch is cut, to keep it
-      out of every open diff? Timing to be agreed with the user.
+  out of every open diff? Timing to be agreed with the user.
 
 ## Decisions (Sprint)
 
@@ -112,8 +112,8 @@ that implements the behaviour.
      restore it after step 5 (formatting someone's in-flight edits into the format commit is exactly
      the churn the memory note warns about).
   2. `.gitattributes`: `* text=auto eol=lf`, then `binary` for `*.png *.ico *.avif *.jpg *.jpeg *.gif
-     *.webp *.woff *.woff2 *.ttf *.otf *.zip *.7z *.gz *.tgz *.exe *.dll *.so *.dm2 *.mvd2 *.pak *.pcx
-     *.wal *.bsp *.tga`, and `resources/bin/7za* binary` for the vendored 7za. Do **not** force
+*.webp *.woff *.woff2 *.ttf *.otf *.zip *.7z *.gz *.tgz *.exe *.dll *.so *.dm2 *.mvd2 *.pak *.pcx
+*.wal *.bsp *.tga`, and `resources/bin/7za* binary` for the vendored 7za. Do **not** force
      `text` on anything: the seven NUL-bearing UTF-8 files git auto-detects as binary
      (`src/renderer/src/modules/config/AliasesTab.tsx`, `src/main/modules/config/round-trip.test.ts`,
      `src/main/lib/fs-utils.test.ts`, `src/shared/servers/master-source-address.ts`,
@@ -122,25 +122,25 @@ that implements the behaviour.
      (byte-identical mirror checked by `scripts/check-content-repo.mjs`), `**/__fixtures__/`,
      `docs/fixtures/`, `resources/`.
   4. `git add --renormalize .`, then `npx prettier --write .`, then `npm run typecheck && npm test &&
-     npm run build`. Verify the NUL bytes in the seven files survived (`tr -cd '\000' < f | wc -c`
+npm run build`. Verify the NUL bytes in the seven files survived (`tr -cd '\000' < f | wc -c`
      unchanged: 2,1,2,1,2,1). Commit **only** these whitespace/format changes as
      `S32 226: format the repo once (prettier --write . + renormalize to LF)`.
   5. Re-checkout the worktree so it matches the index: for every path `git ls-files --eol` still
      reports `w/crlf`, delete and `git checkout --` it.
   6. `.git-blame-ignore-revs`: the format commit's full hash with a `#` comment line naming it;
      `CONTRIBUTING.md` next to the `npm run format` row: one line on `git config blame.ignoreRevsFile
-     .git-blame-ignore-revs` and that CI runs `format:check`.
+.git-blame-ignore-revs` and that CI runs `format:check`.
   7. `ci.yml` `test` job: step `Format check` → `npm run format:check`, `if: matrix.os == 'ubuntu-latest'`,
      after `npm ci`.
   8. `verify-release.mjs`: keep the `core.autocrlf` pins; correct the header comment so it no longer
      claims the host snapshot has "this machine's line endings" (`.gitattributes` makes both LF).
-  Tests in `scripts/repo-hygiene.test.mjs`, `describe('line endings and formatting')`:
-  "every text file is LF in the worktree" (runs `git ls-files --eol`, fails on any line whose `i/`
-  is not `-text` and whose `w/` is `crlf` or `mixed` — on CI this runs on a fresh Windows and Linux
-  checkout); ".gitattributes declares text=auto eol=lf and binary entries" (asserts the `*` line and
-  `*.png`, `*.woff2`, `*.zip`, `resources/bin/7za*` entries); "the format commit is blame-ignored"
-  (every non-comment line of `.git-blame-ignore-revs` is a 40-hex hash `git cat-file -e` accepts);
-  "ci runs format:check" (`ci.yml` contains `npm run format:check`). Plus `npm run format:check` green.
+     Tests in `scripts/repo-hygiene.test.mjs`, `describe('line endings and formatting')`:
+     "every text file is LF in the worktree" (runs `git ls-files --eol`, fails on any line whose `i/`
+     is not `-text` and whose `w/` is `crlf` or `mixed` — on CI this runs on a fresh Windows and Linux
+     checkout); ".gitattributes declares text=auto eol=lf and binary entries" (asserts the `*` line and
+     `*.png`, `*.woff2`, `*.zip`, `resources/bin/7za*` entries); "the format commit is blame-ignored"
+     (every non-comment line of `.git-blame-ignore-revs` is a 40-hex hash `git cat-file -e` accepts);
+     "ci runs format:check" (`ci.yml` contains `npm run format:check`). Plus `npm run format:check` green.
 
 - **D2 — the obsolete undici patch is gone.**
   Files: `package.json`, `package-lock.json`, `patches/` (delete), `scripts/repo-hygiene.test.mjs`.
@@ -160,7 +160,7 @@ that implements the behaviour.
   `package.json` floors of `electron` and `js-yaml` to the fixed versions (`^43.7.7`, `^4.3.2`).
   Both `npm audit --omit=dev --audit-level=high` and `npm audit --audit-level=high` must exit 0;
   paste both outputs' summary lines into the story's Done section. Then `npm run typecheck && npm test
-  && npm run build && npm run ui:verify` and `npm run verify:release` (packaging rehearsal; needs act +
+&& npm run build && npm run ui:verify` and `npm run verify:release` (packaging rehearsal; needs act +
   Docker — if they are absent, record that as a named gap, do not claim green). CHANGELOG
   `## Unreleased` › `### Security`: `- Updated Electron to 43.7.7 for upstream security fixes.`
   Test `describe('dependency floors')` › "the lockfile carries no advisory-affected electron or
@@ -173,7 +173,7 @@ that implements the behaviour.
   `C:\Users\darkp\.claude\projects\c--development-Hantsch-q2-launcher\memory\prettier-repo-wide-churn.md`
   plus its line in that folder's `MEMORY.md`.
   `dependabot.yml`: `version: 2`, one `package-ecosystem: npm`, `directory: /`, `schedule.interval:
-  weekly`, `groups: { minor-and-patch: { update-types: [minor, patch] } }`; majors stay ungrouped, so
+weekly`, `groups: { minor-and-patch: { update-types: [minor, patch] } }`; majors stay ungrouped, so
   Electron and Vite majors arrive as their own PRs (a comment says so). `ci.yml` `test` job, ubuntu
   leg, after `npm ci`: step `Audit (non-blocking until 2026-10-09)` → `npm audit --audit-level=high`
   with `continue-on-error: true`. ROADMAP `## Follow-ups worth doing`: remove the sentence "Vite is

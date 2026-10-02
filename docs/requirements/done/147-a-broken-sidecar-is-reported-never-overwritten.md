@@ -65,7 +65,7 @@ demo — never silently dropped, never overwritten unless the user explicitly sa
   `{ kind, key, params }` with `demos.sidecar.issue.*` i18n keys added to `en.json` now, so
   [[150]]/[[155]] only render them.
 - **Confirmation is a two-step save contract, not an error.** A save (or 146's clear-everything
-  delete) over an existing sidecar whose *current on-disk* read is erroneous returns
+  delete) over an existing sidecar whose _current on-disk_ read is erroneous returns
   `{ status: 'needsConfirmation', fileName, issues, fingerprint }` and writes nothing; it proceeds
   only when re-sent with `confirmReplace: <fingerprint>` matching a SHA-256 of the current file
   bytes. The file is re-read at save time, not taken from the index — a sidecar hand-edited while
@@ -78,7 +78,7 @@ demo — never silently dropped, never overwritten unless the user explicitly sa
 ## Plan
 
 1. Contract (`src/shared/modules/demos.ts`): `SidecarIssue` (`kind: 'invalidJson' | 'notAnObject'
-   | 'invalidField' | 'unknownField' | 'unknownVersion' | 'unreadable'`, `key`, `params`), `SidecarState`
+| 'invalidField' | 'unknownField' | 'unknownVersion' | 'unreadable'`, `key`, `params`), `SidecarState`
    (`{ state: 'none' } | { state: 'ok' } | { state: 'error'; issues }`), and the save result union
    (`saved` | `needsConfirmation`). Save payload gains optional `confirmReplace: string`.
 2. Pure reader `readSidecarDefensively(bytes)` in `src/main/modules/demos/sidecar-read.ts` →
@@ -95,60 +95,60 @@ Order: D1 → D2 → D3. All main/shared; no renderer code except `en.json` keys
 ## Deliverables
 
 - [x] **D1 — Defensive sidecar reader (pure) + contract types + i18n keys.**
-  Files: `src/shared/modules/demos.ts` (add `SidecarIssue`, `SidecarState`), new
-  `src/main/modules/demos/sidecar-read.ts` + `sidecar-read.test.ts`,
-  `src/renderer/src/i18n/locales/en.json` (`demos.sidecar.issue.invalidJson` {line?, column?},
-  `.notAnObject`, `.invalidField` {field}, `.unknownField` {field}, `.unknownVersion` {version},
-  `.unreadable` {code}). `SidecarIssue.kind` also includes `'unreadable'` (produced by D2's fs
-  layer, not by the pure reader).
-  Reuse story 146's sidecar zod schema (find it: grep `schemaVersion` under `src/shared/modules/`
-  and `src/main/modules/demos/`) — do not duplicate the field schemas; take its object `.shape` and
-  `safeParse` each top-level field separately.
-  `readSidecarDefensively(bytes: Buffer | string): { values: Partial<SidecarFields>; state:
-  SidecarState }` rules: strip a leading UTF-8 BOM; empty/whitespace or `JSON.parse` failure →
-  one `invalidJson` issue (line/column params when the parser message yields a position), no
-  values; parsed non-object/array/null → `notAnObject`, no values; `schemaVersion` missing,
-  non-integer or not in the known set → `unknownVersion` {version: raw value as string, or
-  `"missing"`}, and continue per-field; each known field: valid → into `values`, invalid →
-  `invalidField` {field: first zod issue path joined with `.`, prefixed by the field name}; any
-  other top-level key → `unknownField` {field}. No issues → `state: 'ok'`; any → `state: 'error'`
-  with all issues (valid values still returned). Pure: no fs, no clock.
-  Tests (in `sidecar-read.test.ts`): invalid JSON, empty file, BOM-prefixed valid file, array
-  root, one bad field among good ones, bad nested `sides` path, unknown key, newer version with
-  valid fields, missing version.
+      Files: `src/shared/modules/demos.ts` (add `SidecarIssue`, `SidecarState`), new
+      `src/main/modules/demos/sidecar-read.ts` + `sidecar-read.test.ts`,
+      `src/renderer/src/i18n/locales/en.json` (`demos.sidecar.issue.invalidJson` {line?, column?},
+      `.notAnObject`, `.invalidField` {field}, `.unknownField` {field}, `.unknownVersion` {version},
+      `.unreadable` {code}). `SidecarIssue.kind` also includes `'unreadable'` (produced by D2's fs
+      layer, not by the pure reader).
+      Reuse story 146's sidecar zod schema (find it: grep `schemaVersion` under `src/shared/modules/`
+      and `src/main/modules/demos/`) — do not duplicate the field schemas; take its object `.shape` and
+      `safeParse` each top-level field separately.
+      `readSidecarDefensively(bytes: Buffer | string): { values: Partial<SidecarFields>; state:
+SidecarState }` rules: strip a leading UTF-8 BOM; empty/whitespace or `JSON.parse` failure →
+      one `invalidJson` issue (line/column params when the parser message yields a position), no
+      values; parsed non-object/array/null → `notAnObject`, no values; `schemaVersion` missing,
+      non-integer or not in the known set → `unknownVersion` {version: raw value as string, or
+      `"missing"`}, and continue per-field; each known field: valid → into `values`, invalid →
+      `invalidField` {field: first zod issue path joined with `.`, prefixed by the field name}; any
+      other top-level key → `unknownField` {field}. No issues → `state: 'ok'`; any → `state: 'error'`
+      with all issues (valid values still returned). Pure: no fs, no clock.
+      Tests (in `sidecar-read.test.ts`): invalid JSON, empty file, BOM-prefixed valid file, array
+      root, one bad field among good ones, bad nested `sides` path, unknown key, newer version with
+      valid fields, missing version.
 
 - [x] **D2 — Index/detail carry the sidecar state; reading never writes.**
-  Files: 146's sidecar read site in `src/main/modules/demos/` (the service that loads
-  `<demo>.json` for the index/detail — find it via the sidecar path helper 146 added), the index
-  entry / detail types in `src/shared/modules/demos.ts` (add `sidecarState: SidecarState`), new
-  `src/main/modules/demos/sidecar-readonly.test.ts`.
-  Replace 146's strict parse with `readSidecarDefensively`; missing file → `{ state: 'none' }`,
-  values `{}`; an existing but unreadable file (EACCES, EISDIR…) → `state: 'error'` with one
-  `unreadable` {code} issue, values `{}`. Only `values` feed the sidecar precedence layer. Read with `fs.readFile` only; no write, rename,
-  touch or `utimes` anywhere on this path.
-  Tests: (a) temp dir with one demo per broken kind (invalid JSON, bad field, newer version) plus
-  their sidecars; run the module's scan, list and detail handlers; assert each sidecar's bytes and
-  `mtimeMs` are unchanged and that entries report `state: 'error'` with the expected issue kinds
-  and params (field name, version); (b) partial use: a sidecar with valid `name` + invalid
-  `rating` yields `values.name` and no `rating`; a `schemaVersion: 999` sidecar with valid `map`
-  yields `values.map`; (c) structural: read every `.ts` under `src/main` and assert 146's sidecar
-  write/delete export is imported only by the save handler file (and its test).
+      Files: 146's sidecar read site in `src/main/modules/demos/` (the service that loads
+      `<demo>.json` for the index/detail — find it via the sidecar path helper 146 added), the index
+      entry / detail types in `src/shared/modules/demos.ts` (add `sidecarState: SidecarState`), new
+      `src/main/modules/demos/sidecar-readonly.test.ts`.
+      Replace 146's strict parse with `readSidecarDefensively`; missing file → `{ state: 'none' }`,
+      values `{}`; an existing but unreadable file (EACCES, EISDIR…) → `state: 'error'` with one
+      `unreadable` {code} issue, values `{}`. Only `values` feed the sidecar precedence layer. Read with `fs.readFile` only; no write, rename,
+      touch or `utimes` anywhere on this path.
+      Tests: (a) temp dir with one demo per broken kind (invalid JSON, bad field, newer version) plus
+      their sidecars; run the module's scan, list and detail handlers; assert each sidecar's bytes and
+      `mtimeMs` are unchanged and that entries report `state: 'error'` with the expected issue kinds
+      and params (field name, version); (b) partial use: a sidecar with valid `name` + invalid
+      `rating` yields `values.name` and no `rating`; a `schemaVersion: 999` sidecar with valid `map`
+      yields `values.map`; (c) structural: read every `.ts` under `src/main` and assert 146's sidecar
+      write/delete export is imported only by the save handler file (and its test).
 
 - [x] **D3 — Save/delete over a broken sidecar needs a matching confirmation.**
-  Files: 146's save handler and its payload schema in `src/main/modules/demos/` (module schemas
-  file), `src/shared/modules/demos.ts` (save result union, `confirmReplace?: string` on the save
-  payload), new `src/main/modules/demos/sidecar-guard.test.ts`.
-  Before writing *or deleting* (146's clear-everything path), read the current sidecar bytes from
-  disk (never the index's cached state), run `readSidecarDefensively`; if the file exists and
-  `state === 'error'`: compute `fingerprint = sha256(bytes)` hex; if `confirmReplace` is absent or
-  differs → return `ok({ status: 'needsConfirmation', fileName: <sidecar base name>, issues,
-  fingerprint })` and touch nothing; if it matches → proceed through 146's atomic write unchanged.
-  Valid or absent sidecar → behaviour exactly as in 146 (`ok({ status: 'saved' })`).
-  Tests: unconfirmed save over each broken kind → needsConfirmation, bytes + mtime unchanged;
-  confirmed with matching fingerprint → written; stale fingerprint (file edited between the two
-  calls) → needsConfirmation again with the new fingerprint, unchanged; sidecar valid at scan time
-  but broken by hand before save → guarded; clear-everything over a broken sidecar → guarded; valid
-  sidecar save needs no confirmation (146 regression).
+      Files: 146's save handler and its payload schema in `src/main/modules/demos/` (module schemas
+      file), `src/shared/modules/demos.ts` (save result union, `confirmReplace?: string` on the save
+      payload), new `src/main/modules/demos/sidecar-guard.test.ts`.
+      Before writing _or deleting_ (146's clear-everything path), read the current sidecar bytes from
+      disk (never the index's cached state), run `readSidecarDefensively`; if the file exists and
+      `state === 'error'`: compute `fingerprint = sha256(bytes)` hex; if `confirmReplace` is absent or
+      differs → return `ok({ status: 'needsConfirmation', fileName: <sidecar base name>, issues,
+fingerprint })` and touch nothing; if it matches → proceed through 146's atomic write unchanged.
+      Valid or absent sidecar → behaviour exactly as in 146 (`ok({ status: 'saved' })`).
+      Tests: unconfirmed save over each broken kind → needsConfirmation, bytes + mtime unchanged;
+      confirmed with matching fingerprint → written; stale fingerprint (file edited between the two
+      calls) → needsConfirmation again with the new fingerprint, unchanged; sidecar valid at scan time
+      but broken by hand before save → guarded; clear-everything over a broken sidecar → guarded; valid
+      sidecar save needs no confirmation (146 regression).
 
 ## Model Hints
 
@@ -221,8 +221,9 @@ UNCLEAR on one point, resolved by decision (see below) rather than a code fix; o
 non-blocking observation, left as-is. No weakened tests, no scope creep, IPC/i18n rules upheld.
 
 Decisions:
+
 - Sidecar state/values are **not** embedded in the scan/index snapshot (`DiscoveredDemo`,
-  `demos.list`/`index.read`). The incremental scan caches a row keyed off the *demo* file's own
+  `demos.list`/`index.read`). The incremental scan caches a row keyed off the _demo_ file's own
   identity (size/mtime); a sidecar can change without the demo file changing, so baking
   `sidecarState` into that cache would go stale exactly when a sidecar is edited or saved — the
   case this story exists to get right. 146 already chose a separate per-id `sidecar.read`

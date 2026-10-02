@@ -59,13 +59,18 @@ function windowLines() {
 async function expectNewLines(from, expected, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
   while (windowLines().length - from < expected.length) {
-    if (Date.now() >= deadline) fail(`${label}: window log got ${JSON.stringify(windowLines().slice(from))}, expected ${JSON.stringify(expected)}`)
+    if (Date.now() >= deadline)
+      fail(
+        `${label}: window log got ${JSON.stringify(windowLines().slice(from))}, expected ${JSON.stringify(expected)}`,
+      )
     await sleep(50)
   }
   await sleep(SETTLE_MS)
   const got = windowLines().slice(from)
   if (JSON.stringify(got) !== JSON.stringify(expected)) {
-    fail(`${label}: window log got ${JSON.stringify(got)}, expected exactly ${JSON.stringify(expected)}`)
+    fail(
+      `${label}: window log got ${JSON.stringify(got)}, expected exactly ${JSON.stringify(expected)}`,
+    )
   }
 }
 
@@ -102,7 +107,12 @@ async function launchGeometry(logPath) {
 async function placedNow(page, app) {
   const b = await page.getByTestId('replays-stage-picture').boundingBox()
   if (!b) fail('the stage picture has no box')
-  const rect = { x: Math.round(b.x), y: Math.round(b.y), width: Math.round(b.width), height: Math.round(b.height) }
+  const rect = {
+    x: Math.round(b.x),
+    y: Math.round(b.y),
+    width: Math.round(b.width),
+    height: Math.round(b.height),
+  }
   return app.evaluate(({ BrowserWindow, screen }, rect) => {
     const win = BrowserWindow.getAllWindows()[0]
     const contentBounds = win.getContentBounds()
@@ -114,9 +124,15 @@ async function placedNow(page, app) {
       width: rect.width * zoom,
       height: rect.height * zoom,
     }
-    const p = typeof screen.dipToScreenRect === 'function' ? screen.dipToScreenRect(win, dip) : {
-      x: dip.x * scale, y: dip.y * scale, width: dip.width * scale, height: dip.height * scale,
-    }
+    const p =
+      typeof screen.dipToScreenRect === 'function'
+        ? screen.dipToScreenRect(win, dip)
+        : {
+            x: dip.x * scale,
+            y: dip.y * scale,
+            width: dip.width * scale,
+            height: dip.height * scale,
+          }
     return `set vid_geometry ${Math.round(p.width)}x${Math.round(p.height)}+${Math.round(p.x)}+${Math.round(p.y)}`
   }, rect)
 }
@@ -127,7 +143,11 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForScan(page)
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
@@ -142,7 +162,8 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
   }
   const launched = await launchGeometry(logPath)
   await sleep(SETTLE_MS)
-  if (windowLines().length > 0) fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
+  if (windowLines().length > 0)
+    fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
   await shot('stage-follow-playing')
 
   // Where the launcher parks: the virtual desktop's right edge in physical px + 64, same size and Y.
@@ -150,29 +171,40 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
     const win = BrowserWindow.getAllWindows()[0]
     let right = 0
     for (const d of screen.getAllDisplays()) {
-      const p = typeof screen.dipToScreenRect === 'function' ? screen.dipToScreenRect(null, d.bounds) : {
-        x: d.bounds.x * d.scaleFactor, width: d.bounds.width * d.scaleFactor,
-      }
+      const p =
+        typeof screen.dipToScreenRect === 'function'
+          ? screen.dipToScreenRect(null, d.bounds)
+          : {
+              x: d.bounds.x * d.scaleFactor,
+              width: d.bounds.width * d.scaleFactor,
+            }
       right = Math.max(right, p.x + p.width)
     }
-    return { edge: Math.round(right), scale: screen.getDisplayMatching(win.getContentBounds()).scaleFactor }
+    return {
+      edge: Math.round(right),
+      scale: screen.getDisplayMatching(win.getContentBounds()).scaleFactor,
+    }
   })
   const size = `${launched.w}x${launched.h}`
   const parked = `set vid_geometry ${size}+${edge + PARK_MARGIN_PX}+${launched.y}`
 
   step('AC1: a drag parks the game once, then places it once, moved by the delta')
   let from = windowLines().length
-  await app.evaluate(async ({ BrowserWindow }, { steps, stepPx }) => {
-    const win = BrowserWindow.getAllWindows()[0]
-    const [x, y] = win.getPosition()
-    for (let i = 1; i <= steps; i++) {
-      win.setPosition(x + i * stepPx, y + i * stepPx)
-      await new Promise((resolve) => setTimeout(resolve, 10))
-    }
-  }, { steps: STEPS, stepPx: STEP_PX })
+  await app.evaluate(
+    async ({ BrowserWindow }, { steps, stepPx }) => {
+      const win = BrowserWindow.getAllWindows()[0]
+      const [x, y] = win.getPosition()
+      for (let i = 1; i <= steps; i++) {
+        win.setPosition(x + i * stepPx, y + i * stepPx)
+        await new Promise((resolve) => setTimeout(resolve, 10))
+      }
+    },
+    { steps: STEPS, stepPx: STEP_PX },
+  )
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
   while (geometryLines(windowLines().slice(from)).length < 2) {
-    if (Date.now() >= deadline) fail(`drag: window log got ${JSON.stringify(windowLines().slice(from))}`)
+    if (Date.now() >= deadline)
+      fail(`drag: window log got ${JSON.stringify(windowLines().slice(from))}`)
     await sleep(50)
   }
   await sleep(SETTLE_MS)
@@ -181,14 +213,29 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
   const parkY = pk ? Number(pk[3]) : Number.NaN
   const yLo = Math.min(launched.y, launched.y + STEPS * STEP_PX * scale) - 1
   const yHi = Math.max(launched.y, launched.y + STEPS * STEP_PX * scale) + 1
-  if (dragged.length !== 2 || !pk || pk[1] !== size || Number(pk[2]) !== edge + PARK_MARGIN_PX || !(parkY >= yLo && parkY <= yHi)) {
-    fail(`drag: expected exactly [${parked} (Y within the drag), <placed>], got ${JSON.stringify(dragged)}`)
+  if (
+    dragged.length !== 2 ||
+    !pk ||
+    pk[1] !== size ||
+    Number(pk[2]) !== edge + PARK_MARGIN_PX ||
+    !(parkY >= yLo && parkY <= yHi)
+  ) {
+    fail(
+      `drag: expected exactly [${parked} (Y within the drag), <placed>], got ${JSON.stringify(dragged)}`,
+    )
   }
   const m = /^set vid_geometry (\d+x\d+)\+(-?\d+)\+(-?\d+)$/.exec(dragged[1])
   const wantX = launched.x + STEPS * STEP_PX * scale
   const wantY = launched.y + STEPS * STEP_PX * scale
-  if (!m || m[1] !== size || Math.abs(Number(m[3]) - wantY) > 1 || Math.abs(Number(m[2]) - wantX) > 1) {
-    fail(`drag: the placed line ${JSON.stringify(dragged[1])} is not ${size}+${wantX}+${wantY} (launch moved by the delta)`)
+  if (
+    !m ||
+    m[1] !== size ||
+    Math.abs(Number(m[3]) - wantY) > 1 ||
+    Math.abs(Number(m[2]) - wantX) > 1
+  ) {
+    fail(
+      `drag: the placed line ${JSON.stringify(dragged[1])} is not ${size}+${wantX}+${wantY} (launch moved by the delta)`,
+    )
   }
   const placed = dragged[1]
   // After the drag the stage sits at the placed Y, so minimize parks at that Y.
@@ -205,17 +252,26 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
   const restoreBy = Date.now() + ENGINE_TIMEOUT_MS
   const isPark = (l) => {
     const g = /^set vid_geometry \d+x\d+\+(-?\d+)\+(-?\d+)$/.exec(l)
-    return g !== null && Number(g[1]) === edge + PARK_MARGIN_PX && Math.abs(Number(g[2]) - Number(m[3])) <= 1
+    return (
+      g !== null &&
+      Number(g[1]) === edge + PARK_MARGIN_PX &&
+      Math.abs(Number(g[2]) - Number(m[3])) <= 1
+    )
   }
   while (!geometryLines(windowLines().slice(from)).some((l) => !isPark(l))) {
-    if (Date.now() >= restoreBy) fail(`restore: window log got ${JSON.stringify(windowLines().slice(from))}, expected a placed line`)
+    if (Date.now() >= restoreBy)
+      fail(
+        `restore: window log got ${JSON.stringify(windowLines().slice(from))}, expected a placed line`,
+      )
     await sleep(50)
   }
   await sleep(SETTLE_MS)
   const restored = windowLines().slice(from)
   const wantPlaced = await placedNow(page, app)
   if (restored[restored.length - 1] !== wantPlaced || !restored.slice(0, -1).every(isPark)) {
-    fail(`restore: expected park lines then exactly one ${wantPlaced}, got ${JSON.stringify(restored)} (placed before minimize: ${placed})`)
+    fail(
+      `restore: expected park lines then exactly one ${wantPlaced}, got ${JSON.stringify(restored)} (placed before minimize: ${placed})`,
+    )
   }
 
   step('AC3: blur drops the game from topmost, focus puts it back')

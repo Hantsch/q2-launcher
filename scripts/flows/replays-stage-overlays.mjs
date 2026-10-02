@@ -57,7 +57,12 @@ async function waitForScan(page) {
 async function placedNow(page, app) {
   const b = await page.getByTestId('replays-stage-picture').boundingBox()
   if (!b) fail('the stage picture has no box')
-  const rect = { x: Math.round(b.x), y: Math.round(b.y), width: Math.round(b.width), height: Math.round(b.height) }
+  const rect = {
+    x: Math.round(b.x),
+    y: Math.round(b.y),
+    width: Math.round(b.width),
+    height: Math.round(b.height),
+  }
   return app.evaluate(({ BrowserWindow, screen }, rect) => {
     const win = BrowserWindow.getAllWindows()[0]
     const contentBounds = win.getContentBounds()
@@ -69,19 +74,25 @@ async function placedNow(page, app) {
       width: rect.width * zoom,
       height: rect.height * zoom,
     }
-    const p = typeof screen.dipToScreenRect === 'function' ? screen.dipToScreenRect(win, dip) : {
-      x: dip.x * scale, y: dip.y * scale, width: dip.width * scale, height: dip.height * scale,
-    }
+    const p =
+      typeof screen.dipToScreenRect === 'function'
+        ? screen.dipToScreenRect(win, dip)
+        : {
+            x: dip.x * scale,
+            y: dip.y * scale,
+            width: dip.width * scale,
+            height: dip.height * scale,
+          }
     return `set vid_geometry ${Math.round(p.width)}x${Math.round(p.height)}+${Math.round(p.x)}+${Math.round(p.y)}`
   }, rect)
 }
-
 
 /** Waits for `n` new geometry lines, settles, and returns all new geometry lines. */
 async function newGeometry(from, n, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
   while (geometryLines(windowLines().slice(from)).length < n) {
-    if (Date.now() >= deadline) fail(`${label}: window log got ${JSON.stringify(windowLines().slice(from))}`)
+    if (Date.now() >= deadline)
+      fail(`${label}: window log got ${JSON.stringify(windowLines().slice(from))}`)
     await sleep(50)
   }
   await sleep(SETTLE_MS)
@@ -93,7 +104,11 @@ export default async function replaysStageOverlays({ page, app, step, shot }) {
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForScan(page)
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
@@ -107,50 +122,62 @@ export default async function replaysStageOverlays({ page, app, step, shot }) {
     await sleep(100)
   }
   await sleep(SETTLE_MS)
-  if (windowLines().length > 0) fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
+  if (windowLines().length > 0)
+    fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
 
   const edge = await app.evaluate(({ screen }) => {
     let right = 0
     for (const d of screen.getAllDisplays()) {
-      const p = typeof screen.dipToScreenRect === 'function' ? screen.dipToScreenRect(null, d.bounds) : {
-        x: d.bounds.x * d.scaleFactor, width: d.bounds.width * d.scaleFactor,
-      }
+      const p =
+        typeof screen.dipToScreenRect === 'function'
+          ? screen.dipToScreenRect(null, d.bounds)
+          : {
+              x: d.bounds.x * d.scaleFactor,
+              width: d.bounds.width * d.scaleFactor,
+            }
       right = Math.max(right, p.x + p.width)
     }
     return Math.round(right)
   })
   const parkX = edge + 64
-  const isPark = (l) => Number(/^set vid_geometry \d+x\d+\+(-?\d+)\+-?\d+$/.exec(l ?? '')?.[1]) === parkX
+  const isPark = (l) =>
+    Number(/^set vid_geometry \d+x\d+\+(-?\d+)\+-?\d+$/.exec(l ?? '')?.[1]) === parkX
 
   step('a dialog over the stage parks the game, closing it places it again')
   let from = windowLines().length
   // The list and its detail panel are hidden while the stage shows, so the dialog comes from the
   // shell's rail (same Modal primitive): Add an installation -> Add existing installation.
   await page.getByRole('button', { name: 'Add an installation' }).click({ timeout: TIMEOUT_MS })
-  await page.getByRole('menuitem', { name: /Add existing installation/ }).click({ timeout: TIMEOUT_MS })
+  await page
+    .getByRole('menuitem', { name: /Add existing installation/ })
+    .click({ timeout: TIMEOUT_MS })
   const dialog = page.getByRole('dialog')
   await dialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   let lines = await newGeometry(from, 1, 'dialog open')
-  if (lines.length !== 1 || !isPark(lines[0])) fail(`dialog open: expected exactly one park line (x=${parkX}), got ${JSON.stringify(lines)}`)
+  if (lines.length !== 1 || !isPark(lines[0]))
+    fail(`dialog open: expected exactly one park line (x=${parkX}), got ${JSON.stringify(lines)}`)
   await shot('stage-overlays-dialog')
   from = windowLines().length
   await page.keyboard.press('Escape')
   await dialog.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   lines = await newGeometry(from, 1, 'dialog close')
   let want = await placedNow(page, app)
-  if (lines.length !== 1 || lines[0] !== want) fail(`dialog close: expected exactly [${want}], got ${JSON.stringify(lines)}`)
+  if (lines.length !== 1 || lines[0] !== want)
+    fail(`dialog close: expected exactly [${want}], got ${JSON.stringify(lines)}`)
 
   step('the speed select parks the game from mousedown until change')
   const speed = page.getByTestId('replays-timeline-speed')
   from = windowLines().length
   await speed.dispatchEvent('mousedown')
   lines = await newGeometry(from, 1, 'speed open')
-  if (lines.length !== 1 || !isPark(lines[0])) fail(`speed open: expected exactly one park line (x=${parkX}), got ${JSON.stringify(lines)}`)
+  if (lines.length !== 1 || !isPark(lines[0]))
+    fail(`speed open: expected exactly one park line (x=${parkX}), got ${JSON.stringify(lines)}`)
   from = windowLines().length
   await speed.selectOption('2')
   lines = await newGeometry(from, 1, 'speed change')
   want = await placedNow(page, app)
-  if (lines.length !== 1 || lines[0] !== want) fail(`speed change: expected exactly [${want}], got ${JSON.stringify(lines)}`)
+  if (lines.length !== 1 || lines[0] !== want)
+    fail(`speed change: expected exactly [${want}], got ${JSON.stringify(lines)}`)
   await shot('stage-overlays-placed')
 
   step('the game exits and the stage is gone')

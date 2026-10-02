@@ -67,7 +67,10 @@ const plainAction = baseAction({
   name: 'SSG SG',
   categoryId: 'weapons',
   keys: [{ key: 'q' }],
-  commands: [{ kind: 'raw', text: 'use shotgun' }, { kind: 'raw', text: 'use sshotgun' }],
+  commands: [
+    { kind: 'raw', text: 'use shotgun' },
+    { kind: 'raw', text: 'use sshotgun' },
+  ],
 })
 
 export const plainProfile: ConfigProfile = baseProfile('fixture-plain', {
@@ -128,7 +131,10 @@ const keylessAction: ConfigAction = {
   categoryId: 'weapons',
   name: 'My Combo',
   kind: 'bind',
-  commands: [{ kind: 'raw', text: 'wait' }, { kind: 'raw', text: '+attack' }],
+  commands: [
+    { kind: 'raw', text: 'wait' },
+    { kind: 'raw', text: '+attack' },
+  ],
 }
 
 export const keylessActionProfile: ConfigProfile = baseProfile('fixture-keyless-action', {
@@ -453,14 +459,20 @@ const discreteMirrorComboAction = baseAction({
   name: 'weapnext',
   categoryId: 'weapons',
   keys: [{ key: 'MWHEELUP' }],
-  commands: [{ kind: 'raw', text: 'weapnext' }, { kind: 'raw', text: 'centerview' }],
+  commands: [
+    { kind: 'raw', text: 'weapnext' },
+    { kind: 'raw', text: 'centerview' },
+  ],
 })
 
-export const discreteMirrorComboProfile: ConfigProfile = baseProfile('fixture-discrete-mirror-combo', {
-  name: 'Discrete Mirror Row With A Second Command',
-  binds: { MWHEELUP: bindValueFor(discreteMirrorComboAction) },
-  actions: [discreteMirrorComboAction],
-})
+export const discreteMirrorComboProfile: ConfigProfile = baseProfile(
+  'fixture-discrete-mirror-combo',
+  {
+    name: 'Discrete Mirror Row With A Second Command',
+    binds: { MWHEELUP: bindValueFor(discreteMirrorComboAction) },
+    actions: [discreteMirrorComboAction],
+  },
+)
 
 // ---------------------------------------------------------------------------
 // S2. trailingSelfCall - the same shape reached through a *later* segment
@@ -475,7 +487,10 @@ const trailingSelfCallAction = baseAction({
   name: 'centerview',
   categoryId: 'weapons',
   keys: [{ key: 'MOUSE3' }],
-  commands: [{ kind: 'raw', text: '+attack' }, { kind: 'raw', text: 'centerview' }],
+  commands: [
+    { kind: 'raw', text: '+attack' },
+    { kind: 'raw', text: 'centerview' },
+  ],
 })
 
 export const trailingSelfCallProfile: ConfigProfile = baseProfile('fixture-trailing-self-call', {

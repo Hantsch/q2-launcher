@@ -36,7 +36,9 @@ describe('demo speed commands (story 167 D2)', () => {
 
     for (let i = 0; i < steps.length; i++) {
       // One step per press, clamped at the fastest / slowest step.
-      expect(press(up, steps[i]!), `up from ${steps[i]}`).toBe(steps[Math.min(i + 1, steps.length - 1)])
+      expect(press(up, steps[i]!), `up from ${steps[i]}`).toBe(
+        steps[Math.min(i + 1, steps.length - 1)],
+      )
       expect(press(down, steps[i]!), `down from ${steps[i]}`).toBe(steps[Math.max(i - 1, 0)])
     }
 
@@ -66,7 +68,9 @@ describe('demo speed commands (story 167 D2)', () => {
     for (const action of DEMO_ACTIONS.filter((a) => a.id.startsWith('demoSpeed'))) {
       const commands = rows[`demo:${action.id}`]
       expect(commands, action.id).toEqual(
-        (action.id === 'demoSpeedUp' ? speedUpCommands() : speedDownCommands()).map(guardDemoCommand),
+        (action.id === 'demoSpeedUp' ? speedUpCommands() : speedDownCommands()).map(
+          guardDemoCommand,
+        ),
       )
       expect(commands!.join('; ')).toBe(action.command)
     }

@@ -60,7 +60,11 @@ function decodeQueryKind(message) {
 /** Binds one loopback responder. `extraInfoFlags` is appended verbatim to the `info`/`status`
  * serverinfo line (e.g. `\deathmatch\1`) - feeds `deriveGamemode` on the real row. `mapName`
  * feeds the row's `map` field, the column this flow sorts by. */
-async function bindResponder(hostname, playerLines, { extraInfoFlags = '', mapName = 'q2dm1' } = {}) {
+async function bindResponder(
+  hostname,
+  playerLines,
+  { extraInfoFlags = '', mapName = 'q2dm1' } = {},
+) {
   const socket = createSocket('udp4')
   await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
   const port = socket.address().port
@@ -93,7 +97,10 @@ async function closeResponder(responder) {
 const FIXED_ADDED_AT = '2026-01-01T00:00:00.000Z'
 
 function playerLinesFor(count) {
-  return Array.from({ length: count }, (_, index) => `${index + 1} ${index * 5} "Player${index + 1}"`)
+  return Array.from(
+    { length: count },
+    (_, index) => `${index + 1} ${index * 5} "Player${index + 1}"`,
+  )
 }
 
 let serverF = null
@@ -203,7 +210,9 @@ async function waitForStateJson(predicate, label) {
     last = readStateJson()
     if (predicate(last)) return last
     if (Date.now() >= deadline) {
-      throw new Error(`timed out waiting for ${label}, last state.json servers: ${JSON.stringify(last.servers)}`)
+      throw new Error(
+        `timed out waiting for ${label}, last state.json servers: ${JSON.stringify(last.servers)}`,
+      )
     }
     await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_POLL_INTERVAL_MS))
   }
@@ -227,9 +236,7 @@ async function rowOrder(page) {
  * navigation lands. */
 async function waitForRowCount(page, count) {
   await page.waitForFunction(
-    ({ selector, expected }) =>
-      Array.from(document.querySelectorAll(selector)).length >=
-      expected,
+    ({ selector, expected }) => Array.from(document.querySelectorAll(selector)).length >= expected,
     { selector: ROW_SELECTOR, expected: count },
     { timeout: TIMEOUT_MS },
   )
@@ -238,7 +245,9 @@ async function waitForRowCount(page, count) {
 function assertOrder(actual, expectedAddresses, label) {
   const expected = expectedAddresses.map((address) => `servers-row-${address}`)
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(`expected ${label} order ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`)
+    throw new Error(
+      `expected ${label} order ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+    )
   }
 }
 
@@ -252,7 +261,9 @@ export default async function serversSortOrder({ page, step, shot }) {
   await refreshAll.click({ timeout: TIMEOUT_MS })
   await waitForFinishedAtChange(page, finishedAtBefore, SCAN_SETTLE_TIMEOUT_MS)
 
-  step('the default order is favourite-pinned, then occupancy descending (gamemode only breaks ties)')
+  step(
+    'the default order is favourite-pinned, then occupancy descending (gamemode only breaks ties)',
+  )
   const defaultOrder = await rowOrder(page)
   assertOrder(
     defaultOrder,
@@ -268,7 +279,9 @@ export default async function serversSortOrder({ page, step, shot }) {
   step('clicking the map column sorts ascending (favourite still pinned first)')
   await page.getByTestId('servers-sort-map').click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
-    () => document.querySelector('[data-testid="servers-sort-map"]')?.getAttribute('aria-pressed') === 'true',
+    () =>
+      document.querySelector('[data-testid="servers-sort-map"]')?.getAttribute('aria-pressed') ===
+      'true',
     null,
     { timeout: TIMEOUT_MS },
   )
@@ -321,14 +334,18 @@ export default async function serversSortOrder({ page, step, shot }) {
   const persisted = readStateJson()
   const persistedSort = persisted.servers?.listSort
   if (persistedSort?.column !== 'map' || persistedSort?.direction !== 'desc') {
-    throw new Error(`expected state.json's servers.listSort to be map/desc, got ${JSON.stringify(persistedSort)}`)
+    throw new Error(
+      `expected state.json's servers.listSort to be map/desc, got ${JSON.stringify(persistedSort)}`,
+    )
   }
   await shot('after-reload')
 
   step('a third click on the map column clears the sort back to the default order')
   await page.getByTestId('servers-sort-map').click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
-    () => document.querySelector('[data-testid="servers-sort-map"]')?.getAttribute('aria-pressed') === 'false',
+    () =>
+      document.querySelector('[data-testid="servers-sort-map"]')?.getAttribute('aria-pressed') ===
+      'false',
     null,
     { timeout: TIMEOUT_MS },
   )

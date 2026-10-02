@@ -175,16 +175,19 @@ unchanged.
 
 **Decisions** (implementation-detail calls made without a user to ask, verified against plan +
 acceptance criteria):
+
 - Kept `LayerSwitcher`'s outer wrapper as `<div className={cn('flex flex-wrap items-center gap-2', className)}>` with the `config.layersPanel.selector.label` caption inside it (same visual shape as the original inline block), and put `role="group"`/`aria-label` on the inner button-row `div` rather than the outer wrapper, since that inner div is the actual segmented control — the caption text sits outside the group.
 - `OverviewKeyboardPanel` passes `className="flex flex-wrap items-center gap-2"` explicitly to `<LayerSwitcher>` even though it matches `LayerSwitcher`'s own default — left as-is after review flagged it as a harmless redundant literal (no visual/behavioral difference); not worth a follow-up edit.
 - Header layout: `LayerSwitcher` sits as a third flex child between the label/subtitle block and the edit/test-mode buttons inside the existing `flex flex-wrap items-center justify-between gap-3` row, per the plan's placement instruction; no extra wrapper div was needed since the row already wraps.
 
 **Commit message:**
+
 ```
 013: compact empty alt-layers state, move layer switcher into keyboard overview header
 ```
 
 **Verification:**
+
 - `npx tsc -p tsconfig.web.json --noEmit` — clean.
 - `npx tsc -p tsconfig.node.json --noEmit` — clean.
 - `npm run build` — green (main/preload/renderer all built).

@@ -148,7 +148,8 @@ function ownMirrorLayerKeys(action: ConfigAction, layer: AltLayer): Set<string> 
   const keys = new Set<string>()
   const layerTrigger = normalizeBindKey(layer.triggerKey ?? '')
   for (const slot of actionKeySlots(action)) {
-    if (slot.key && slot.modifier && slot.modifier === layerTrigger) keys.add(normalizeBindKey(slot.key))
+    if (slot.key && slot.modifier && slot.modifier === layerTrigger)
+      keys.add(normalizeBindKey(slot.key))
   }
   return keys
 }
@@ -312,7 +313,10 @@ export function findAliasReferrersByName(
  * exactly "the entry's own two mirror slots" the story's D9 text asks to ignore, restated in terms an
  * open-ended reference count could not express (a boolean has no room to say "except these").
  */
-export function findAliasReferrers(action: ConfigAction, sources: AliasReferenceSources): AliasReferrer[] {
+export function findAliasReferrers(
+  action: ConfigAction,
+  sources: AliasReferenceSources,
+): AliasReferrer[] {
   return findAliasReferrersByName(aliasNameFor(action), sources, {
     excludeActionId: action.id,
     ignoreOwnMirrorOf: action,
@@ -438,7 +442,9 @@ export function buildAliasIndex(sources: AliasReferenceSources): AliasIndexRow[]
   // Copied per row rather than handed out by reference: two rows of a duplicate pair share one
   // bucket, and a consumer sorting or filtering a row's `referrers` in place must not reach the
   // other row through it.
-  const referrersFor = (name: string): AliasReferrer[] => [...(referrers.get(name.toLowerCase()) ?? [])]
+  const referrersFor = (name: string): AliasReferrer[] => [
+    ...(referrers.get(name.toLowerCase()) ?? []),
+  ]
 
   const rows: AliasIndexRow[] = sources.actions.map((action) => {
     // `aliasNameFor` for every kind but `press-release`, where it is sign-free (`base`, not `+base`)

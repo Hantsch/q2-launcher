@@ -84,7 +84,9 @@ export function ConfirmStep({
 
       <Panel className="space-y-1.5 p-3">
         <KeyValue label={t('bootstrapWizard.confirm.totalSizeLabel')}>
-          <span data-testid="bootstrap-confirm-total-size">{formatBytes(summary.totalSizeBytes)}</span>
+          <span data-testid="bootstrap-confirm-total-size">
+            {formatBytes(summary.totalSizeBytes)}
+          </span>
         </KeyValue>
         <KeyValue label={t('bootstrapWizard.confirm.targetLabel')}>
           <span data-testid="bootstrap-confirm-target-path" title={summary.targetPath}>

@@ -71,7 +71,7 @@ is carried into this story's Decisions below. Every other detail was decided dur
   cheap, and batching is a timer plus a buffer that AC1/AC5 do not ask for — if it ever costs
   anything, [[115]]'s measurement is exactly where that shows up.
 - **D-D — A renderer that mounts mid-scan reads a snapshot once through `scan.read`.** AC5 forbids
-  *polling* for results, not a single catch-up read; without it a view opened after the first rows
+  _polling_ for results, not a single catch-up read; without it a view opened after the first rows
   arrived would be permanently missing them.
 - **D-E — One UDP socket per server query**, opened through a `ServerUdpImpl` seam that mirrors
   `udp-master-source.ts`'s `MasterUdpImpl`. The existing socket seam deliberately carries no sender
@@ -94,7 +94,7 @@ is carried into this story's Decisions below. Every other detail was decided dur
   session, which is also what [[117]]'s scoped refreshes will later update in place.
 - **D-L — At most one scan in flight; `scan.start` while one runs is refused as a value**
   (`{ ok: false, reasonKey }`). The runner needs a single-flight guard to have coherent state at
-  all; [[115]] AC4 only adds the *automatic* caller's "skip, don't queue" rule on top of it.
+  all; [[115]] AC4 only adds the _automatic_ caller's "skip, don't queue" rule on top of it.
 - **D-M — No renderer view and no e2e flow in this story.** The `servers` route is still the shell's
   `PlannedModuleView` and the list UI is [[118]]/[[121]] in S25, so there is no real surface to
   drive — the same situation [[113]] D-J recorded. The gap is named in `## Acceptance Tests`, and
@@ -113,13 +113,13 @@ tests, so the runner itself only has to orchestrate:
 
 1. **Contract first** (CLAUDE.md key rule): the scan's types, event names, handler names and zod
    schemas go into `src/shared/modules/servers.ts` before any handler exists.
-2. **`server-query.ts`** — the missing transport: query *one game server* for `info`/`status` over
+2. **`server-query.ts`** — the missing transport: query _one game server_ for `info`/`status` over
    UDP with a timeout, retries and a measured RTT. Mirrors `udp-master-source.ts` line for line
    (injectable `ServerUdpImpl` + `Clock` + `signal`, lazy `node:dgram`, one `settle()` exit), but
    with a far simpler state machine: one datagram is the whole reply.
 3. **`address-set.ts`** — pure union/dedupe of source addresses + favourites + manual servers into
-   `ScanTarget[]`, each carrying *all* of its origins (AC6, AC4).
-4. **`source-resolution.ts`** — runs every *enabled* source through the existing
+   `ScanTarget[]`, each carrying _all_ of its origins (AC6, AC4).
+4. **`source-resolution.ts`** — runs every _enabled_ source through the existing
    `resolveUdpMasterSource`/`resolveHttpListSource`, each isolated: a rejection is that source's
    failure, never the scan's (AC3).
 5. **`scan-runner.ts`** — the two-stage sweep: a concurrency-capped pool over the address set
@@ -142,91 +142,91 @@ address-set,source-resolution,scan-runner,scan-service}.ts` plus tests;
 ## Deliverables
 
 - [x] **D1 — The scan's shared contract.** In `src/shared/modules/servers.ts`: `ScanOrigin`
-  (`'source' | 'favourite' | 'manual'`), `ScanTarget`, `ServerListEntry` (address, origins,
-  `status: 'online' | 'stale'`, name/map/mod/players/maxclients/needpass, `rttMs`, `players?`,
-  `lastSeenAt`), `ScanSourceFailure`, `ServersScanState` (`running`, `phase`, stage-1/stage-2
-  done/total, `sourceFailures`, `startedAt`, `finishedAt`), `ScanStartResult`, `ScanSnapshot`,
-  `SERVERS_EVENTS = { scanChanged: 'scan.changed', scanServer: 'scan.server' }`, plus
-  `SERVERS_HANDLERS.scanStart`/`scanRead` with `scanStartInputSchema` (optional `selectedAddress`,
-  reusing `serverAddressSchema`) / `serversNoInputSchema`, both registered in
-  `SERVERS_HANDLER_SCHEMAS`. Mirror: the existing `SERVERS_HANDLERS` block in the same file and
-  `HOME_EVENTS` in `src/shared/modules/home.ts`. *Acceptance:* `servers.test.ts`'s existing "every
-  handler has a schema" iteration passes with the two new handlers.
-  Files: `src/shared/modules/servers.ts`, `src/shared/modules/servers.test.ts`.
+      (`'source' | 'favourite' | 'manual'`), `ScanTarget`, `ServerListEntry` (address, origins,
+      `status: 'online' | 'stale'`, name/map/mod/players/maxclients/needpass, `rttMs`, `players?`,
+      `lastSeenAt`), `ScanSourceFailure`, `ServersScanState` (`running`, `phase`, stage-1/stage-2
+      done/total, `sourceFailures`, `startedAt`, `finishedAt`), `ScanStartResult`, `ScanSnapshot`,
+      `SERVERS_EVENTS = { scanChanged: 'scan.changed', scanServer: 'scan.server' }`, plus
+      `SERVERS_HANDLERS.scanStart`/`scanRead` with `scanStartInputSchema` (optional `selectedAddress`,
+      reusing `serverAddressSchema`) / `serversNoInputSchema`, both registered in
+      `SERVERS_HANDLER_SCHEMAS`. Mirror: the existing `SERVERS_HANDLERS` block in the same file and
+      `HOME_EVENTS` in `src/shared/modules/home.ts`. _Acceptance:_ `servers.test.ts`'s existing "every
+      handler has a schema" iteration passes with the two new handlers.
+      Files: `src/shared/modules/servers.ts`, `src/shared/modules/servers.test.ts`.
 
 - [x] **D2 — Query one game server.** New `src/main/modules/servers/server-query.ts`:
-  `ServerUdpTarget`, `ServerUdpHandlers`, `ServerUdpSocket`, `ServerUdpImpl`, `dgramServerUdp`,
-  `queryServer(target, { kind: 'info' | 'status', timeoutMs, retries, clock?, udpImpl?, signal? })`
-  → `{ ok: true; kind; reply; rttMs } | { ok: false; reason: 'no-reply' | 'transport-error' |
-  'malformed' }`. Uses `buildInfoQuery`/`buildStatusQuery` and `parseInfoReply`/`parseStatusReply`
-  from `@shared/servers`. A retry re-sends on timeout and the RTT is measured from the *last* send.
-  Mirror: `src/main/modules/servers/udp-master-source.ts` (seam, `Clock`, `settle()`, lazy dgram).
-  *Acceptance + test:* `server-query.test.ts` — a reply is parsed and carries an RTT; a silent
-  server yields `no-reply` after exactly `retries + 1` sends; a datagram arriving after settle is
-  dropped; an abort closes the socket.
-  Files: `server-query.ts`, `server-query.test.ts`.
+      `ServerUdpTarget`, `ServerUdpHandlers`, `ServerUdpSocket`, `ServerUdpImpl`, `dgramServerUdp`,
+      `queryServer(target, { kind: 'info' | 'status', timeoutMs, retries, clock?, udpImpl?, signal? })`
+      → `{ ok: true; kind; reply; rttMs } | { ok: false; reason: 'no-reply' | 'transport-error' |
+'malformed' }`. Uses `buildInfoQuery`/`buildStatusQuery` and `parseInfoReply`/`parseStatusReply`
+      from `@shared/servers`. A retry re-sends on timeout and the RTT is measured from the _last_ send.
+      Mirror: `src/main/modules/servers/udp-master-source.ts` (seam, `Clock`, `settle()`, lazy dgram).
+      _Acceptance + test:_ `server-query.test.ts` — a reply is parsed and carries an RTT; a silent
+      server yields `no-reply` after exactly `retries + 1` sends; a datagram arriving after settle is
+      dropped; an abort closes the socket.
+      Files: `server-query.ts`, `server-query.test.ts`.
 
 - [x] **D3 — The address set.** New `src/main/modules/servers/address-set.ts`:
-  `buildScanAddressSet({ sourceAddresses, favourites, manualServers }): ScanTarget[]` — pure, keyed
-  by the normalized `host:port` from [[107]]'s `parseServerAddress`/`formatServerAddress`, origins
-  merged and deduped, favourites always present. Mirror: `favourites.ts` (pure, list in / list out).
-  *Acceptance + test:* `address-set.test.ts` — AC6's duplicate-collapses-but-keeps-both-origins
-  case, and AC4's "favourite present even with zero source addresses".
-  Files: `address-set.ts`, `address-set.test.ts`.
+      `buildScanAddressSet({ sourceAddresses, favourites, manualServers }): ScanTarget[]` — pure, keyed
+      by the normalized `host:port` from [[107]]'s `parseServerAddress`/`formatServerAddress`, origins
+      merged and deduped, favourites always present. Mirror: `favourites.ts` (pure, list in / list out).
+      _Acceptance + test:_ `address-set.test.ts` — AC6's duplicate-collapses-but-keeps-both-origins
+      case, and AC4's "favourite present even with zero source addresses".
+      Files: `address-set.ts`, `address-set.test.ts`.
 
 - [x] **D4 — Resolve the sources, isolated.** New `src/main/modules/servers/source-resolution.ts`:
-  `resolveSources(sources, deps): Promise<{ addresses: ParsedServerAddress[]; failures:
-  ScanSourceFailure[] }>` — only `enabled` sources; `udp-master` through `resolveUdpMasterSource`,
-  `http-list` through `resolveHttpListSource` with `raw` derived from the URL (D-I); each call
-  wrapped so a rejection becomes that source's failure. *Acceptance + test:*
-  `source-resolution.test.ts` — one source failing (and one throwing) while the other still
-  contributes its addresses (AC3), disabled sources skipped, the failure carries `sourceId` plus
-  `masterSourceFailureKey()`.
-  Files: `source-resolution.ts`, `source-resolution.test.ts`.
+      `resolveSources(sources, deps): Promise<{ addresses: ParsedServerAddress[]; failures:
+ScanSourceFailure[] }>` — only `enabled` sources; `udp-master` through `resolveUdpMasterSource`,
+      `http-list` through `resolveHttpListSource` with `raw` derived from the URL (D-I); each call
+      wrapped so a rejection becomes that source's failure. _Acceptance + test:_
+      `source-resolution.test.ts` — one source failing (and one throwing) while the other still
+      contributes its addresses (AC3), disabled sources skipped, the failure carries `sourceId` plus
+      `masterSourceFailureKey()`.
+      Files: `source-resolution.ts`, `source-resolution.test.ts`.
 
 - [x] **D5 — The two-stage runner.** New `src/main/modules/servers/scan-runner.ts`:
-  `runScan({ state, deps, selectedAddress, signal, onSourceFailure, onServer, onProgress })`.
-  Stage 1: a concurrency-capped pool (`state.scan.concurrency`) of `queryServer(…, 'info')` over
-  the address set, `onServer` called per result the moment it lands — never after a stage-wide
-  `await`. Stage 2: the same pool over the non-empty set ∪ `selectedAddress`, `status` only; an
-  address stage 1 reported empty is not queried again in the same scan. *Acceptance + test:*
-  `scan-runner.test.ts` with a fake `queryServer` — rows stream before the last address resolves
-  (AC1), the stage-2 target set is exactly non-empty ∪ selected and no address is queried twice in
-  a stage (AC2), a source failure does not stop the sweep (AC3), an abort stops both stages.
-  Files: `scan-runner.ts`, `scan-runner.test.ts`.
+      `runScan({ state, deps, selectedAddress, signal, onSourceFailure, onServer, onProgress })`.
+      Stage 1: a concurrency-capped pool (`state.scan.concurrency`) of `queryServer(…, 'info')` over
+      the address set, `onServer` called per result the moment it lands — never after a stage-wide
+      `await`. Stage 2: the same pool over the non-empty set ∪ `selectedAddress`, `status` only; an
+      address stage 1 reported empty is not queried again in the same scan. _Acceptance + test:_
+      `scan-runner.test.ts` with a fake `queryServer` — rows stream before the last address resolves
+      (AC1), the stage-2 target set is exactly non-empty ∪ selected and no address is queried twice in
+      a stage (AC2), a source failure does not stop the sweep (AC3), an abort stops both stages.
+      Files: `scan-runner.ts`, `scan-runner.test.ts`.
 
 - [x] **D6 — The service and its handlers.** New `src/main/modules/servers/scan-service.ts`:
-  `createScanService({ state, emit, deps })` — holds the last-known `ServerListEntry` map (D-J/D-K),
-  the live `ServersScanState`, a single-flight `start(selectedAddress?)` (D-L) and `read()`; emits
-  `scan.changed` on every state change and `scan.server` per row. Wired into
-  `src/main/modules/servers/index.ts` as the `scan.start`/`scan.read` handlers plus
-  `serversModule.dispose()`; `overview.read` stops being hardcoded and reports the service's real
-  `scanning`/`knownServerCount`/`lastScanAt`. Mirror: `index.ts`'s existing read/run/persist blocks
-  and `src/main/modules/home/index.ts`'s `onChanged: (feed) => emit(...)`.
-  *Acceptance + test:* `scan-service.test.ts` — a start emits `scan.changed` and then one
-  `scan.server` per row as each arrives (AC5); a second `start` during a scan is refused with a
-  reason key; a silent server keeps its previous row flagged stale; `read()` returns the mid-scan
-  snapshot (D-D).
-  Files: `scan-service.ts`, `scan-service.test.ts`, `index.ts`, `index.test.ts`,
-  `src/renderer/src/i18n/locales/en.json`.
+      `createScanService({ state, emit, deps })` — holds the last-known `ServerListEntry` map (D-J/D-K),
+      the live `ServersScanState`, a single-flight `start(selectedAddress?)` (D-L) and `read()`; emits
+      `scan.changed` on every state change and `scan.server` per row. Wired into
+      `src/main/modules/servers/index.ts` as the `scan.start`/`scan.read` handlers plus
+      `serversModule.dispose()`; `overview.read` stops being hardcoded and reports the service's real
+      `scanning`/`knownServerCount`/`lastScanAt`. Mirror: `index.ts`'s existing read/run/persist blocks
+      and `src/main/modules/home/index.ts`'s `onChanged: (feed) => emit(...)`.
+      _Acceptance + test:_ `scan-service.test.ts` — a start emits `scan.changed` and then one
+      `scan.server` per row as each arrives (AC5); a second `start` during a scan is refused with a
+      reason key; a silent server keeps its previous row flagged stale; `read()` returns the mid-scan
+      snapshot (D-D).
+      Files: `scan-service.ts`, `scan-service.test.ts`, `index.ts`, `index.test.ts`,
+      `src/renderer/src/i18n/locales/en.json`.
 
 - [x] **D7 — Renderer client helpers.** In `src/renderer/src/modules/servers/client.ts`: `startScan`,
-  `readScan` (both `callModule`) and `onScanChanged`/`onScanServer` (both `onModuleEvent`, filtered
-  by `moduleId: 'servers'` plus type). No component, no view (D-M). Mirror:
-  `src/renderer/src/modules/home/client.ts`'s `onNewsChanged`. *Acceptance + test:* new
-  `client.test.ts` — each subscription delivers only its own event type and unsubscribes cleanly,
-  and nothing in this module polls `scan.read` on a timer (AC5's renderer half).
-  Files: `client.ts`, `client.test.ts`.
+      `readScan` (both `callModule`) and `onScanChanged`/`onScanServer` (both `onModuleEvent`, filtered
+      by `moduleId: 'servers'` plus type). No component, no view (D-M). Mirror:
+      `src/renderer/src/modules/home/client.ts`'s `onNewsChanged`. _Acceptance + test:_ new
+      `client.test.ts` — each subscription delivers only its own event type and unsubscribes cleanly,
+      and nothing in this module polls `scan.read` on a timer (AC5's renderer half).
+      Files: `client.ts`, `client.test.ts`.
 
 - [x] **D8 — The real-socket integration proof** (the substitute for the missing e2e, D-M/D-N). New
-  `src/main/modules/servers/scan-integration.test.ts`: two throwaway `node:dgram` responders on
-  `127.0.0.1` answering real `info`/`status` bytes (one populated, one empty), one address that
-  never answers, and a `ServersState` with every source disabled, one favourite and two manual
-  servers — driven through the real `serversModule` handlers with a captured `emit`. Proves the
-  whole path on real sockets: rows stream in (AC1), stage 2 hits only the non-empty server (AC2),
-  the favourite is swept (AC4), the union is deduped (AC6), and every result arrives as an emitted
-  event rather than a read (AC5).
-  Files: `scan-integration.test.ts`.
+      `src/main/modules/servers/scan-integration.test.ts`: two throwaway `node:dgram` responders on
+      `127.0.0.1` answering real `info`/`status` bytes (one populated, one empty), one address that
+      never answers, and a `ServersState` with every source disabled, one favourite and two manual
+      servers — driven through the real `serversModule` handlers with a captured `emit`. Proves the
+      whole path on real sockets: rows stream in (AC1), stage 2 hits only the non-empty server (AC2),
+      the favourite is swept (AC4), the union is deduped (AC6), and every result arrives as an emitted
+      event rather than a read (AC5).
+      Files: `scan-integration.test.ts`.
 
 ## Model Hints
 
@@ -290,11 +290,13 @@ deliverables landed in order with a fresh agent each; D5 ran on the `deliverable
 `## Model Hints`.
 
 **Commit message:**
+
 ```
 114: sweep servers in two stages
 ```
 
 **Verification — narrow gate (no `--full`):**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `test-story` (`npx vitest run --changed HEAD`) — 90 test files, 1450 tests, all passing (run
@@ -307,6 +309,7 @@ deliverables landed in order with a fresh agent each; D5 ran on the `deliverable
   scan lands with [[118]].
 
 **AC → test mapping, as verified:**
+
 - AC1 (rows stream before the sweep finishes) — `scan-runner.test.ts` › "stage 1 streams a row
   before the sweep has finished" (PASS) + `scan-integration.test.ts`'s one real-socket test (PASS).
 - AC2 (stage 2 = non-empty ∪ selected, nothing twice) — `scan-runner.test.ts` › "stage 2 queries
@@ -330,6 +333,7 @@ deliverables landed in order with a fresh agent each; D5 ran on the `deliverable
 **Review outcome (clean agent, `story-review-hard` tier per `## Model Hints`):** first pass verdict
 FAIL — all six ACs individually PASSed with cited evidence, but two findings sank the overall
 verdict. One review-fix cycle (of the 3 allowed) closed it:
+
 - **Fixed:** the renderer (`client.ts`) hand-declared its own copy of the `scan.server` payload
   type instead of sharing one with main, an ARCHITECTURE.md violation with real drift risk. Moved
   the canonical shape into `@shared/modules/servers.ts` as `ScanQueryResult`/`ScanServerPush`; both
@@ -352,6 +356,7 @@ verdict. One review-fix cycle (of the 3 allowed) closed it:
   then the full narrow gate re-run (build/typecheck/`--changed HEAD`) green at 1450 tests.
 
 **Decisions (review findings deliberately left unfixed, with reasons):**
+
 - `resolveHttpListSource` (`http-list-source.ts`, story 109/111, not touched by this story's Plan)
   has no timeout of its own — only an externally-supplied `AbortSignal` can end a hung fetch. A
   stalled `http-list` source could in principle hang a scan indefinitely, and because that signal
@@ -363,7 +368,7 @@ verdict. One review-fix cycle (of the 3 allowed) closed it:
   under review-fix time pressure.
 - A `ServerListEntry` for an address that drops out of a later scan's address set entirely (an
   unfavourited/removed manual server, or a master that stops returning it) keeps reporting
-  `status: 'online'` forever, since D-K's stale-flip only runs over *this round's* address set. Not
+  `status: 'online'` forever, since D-K's stale-flip only runs over _this round's_ address set. Not
   in scope: D-K's own text scopes "does not answer" to addresses still in the set, and the story
   explicitly hands "the narrower refresh variants" to [[117]].
 - The D8 integration test's AC1 proof is comment-level stronger than its assertions alone

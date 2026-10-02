@@ -84,7 +84,7 @@ No renderer, IPC-contract, or locale change (159 owns the channel, the key and t
   - "demo launch args never contain demomap" — call the builder with an installation of each
     `engineKindSchema` value (and a gz/archived demo path if the builder accepts one); assert no
     arg equals or contains `demomap` (case-insensitive).
-  Files: 159's play handler `.ts` + its `.test.ts`, 159's args-builder `.test.ts` (≤4 files).
+    Files: 159's play handler `.ts` + its `.test.ts`, 159's args-builder `.test.ts` (≤4 files).
 
 ## Model Hints
 
@@ -109,12 +109,14 @@ so no production code changed. New regression tests only.
 Commit: `161: pin main-side Q2PRO-only guard — non-q2pro demo.play refused, demomap never in launch args`
 
 Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` 33/33 green. No e2e (neither AC is a user action).
+
 - AC1 -> `src/main/modules/replays/demo-play.test.ts` "a non-Q2PRO installation never gets a demo launch" (every non-q2pro engine kind, in-place and staged demo; no start, no `_launcher` dir, no session) passed.
 - AC2 -> same file "demo launch args never contain demomap" plus "the real builder never emits demomap for any engine kind, plain or gz demo" (real `buildLaunchArgs` per engine kind); shared test in `src/shared/replays/demo-play.test.ts` passed.
 - Review 1 (default): PASS; one finding (builder never called with non-q2pro kinds) fixed with the extra builder test.
 - No changelog entry (no user-facing change).
 
 Decisions:
+
 - Guard already existed in 159, so D1 added tests only, per D1's own allowance. Guard runs after the id-based demo lookup (no fs access) and before path resolution/copy/spawn.
 
 tiers: D 1 / hard 0 · review default · cycles 1 · agents 5

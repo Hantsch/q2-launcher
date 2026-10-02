@@ -89,7 +89,9 @@ export function CareBatchFixDialog({
               {t('common.cancel')}
             </Button>
             <Button variant="danger" disabled={submitting} onClick={() => void handleApply()}>
-              {submitting ? t('config.care.tidyUp.applying') : t('config.care.tidyUp.batch.confirm')}
+              {submitting
+                ? t('config.care.tidyUp.applying')
+                : t('config.care.tidyUp.batch.confirm')}
             </Button>
           </>
         )
@@ -126,11 +128,17 @@ export function CareBatchFixDialog({
                         const preview = opPreview(profile, op, t)
                         return (
                           <p key={index} className="flex flex-wrap items-baseline gap-1.5">
-                            <code className="numeric min-w-0 break-all text-ink-muted" data-selectable>
+                            <code
+                              className="numeric min-w-0 break-all text-ink-muted"
+                              data-selectable
+                            >
                               {preview.before}
                             </code>
                             <span className="text-ink-muted">&rarr;</span>
-                            <code className="numeric min-w-0 break-all text-ink-muted" data-selectable>
+                            <code
+                              className="numeric min-w-0 break-all text-ink-muted"
+                              data-selectable
+                            >
                               {preview.after}
                             </code>
                           </p>

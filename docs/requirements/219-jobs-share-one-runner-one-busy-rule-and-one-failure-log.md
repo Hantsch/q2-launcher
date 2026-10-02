@@ -91,7 +91,7 @@ Depends on story 220 (staging) landing first so the runner wraps the final stagi
   write, then finishes. Errors from that revalidation are logged, never change the outcome. Reason:
   remove/bootstrap/engine update read the validate result on success, and a second validate on the
   success path would double the disk walk.
-- **D-S7** — The busy rule: `exclusive: 'installation'` refuses when *any* active job
+- **D-S7** — The busy rule: `exclusive: 'installation'` refuses when _any_ active job
   (`isJobActive`, any `moduleId`, any kind) in `jobs.list()` carries the same `installationId`; the
   check and `jobs.create` run synchronously with no `await` between. `JobRunner.isInstallationBusy(id)`
   is exported for preview paths (mods update/remove previews). Reason: the job list becomes the only
@@ -102,7 +102,7 @@ Depends on story 220 (staging) landing first so the runner wraps the final stagi
   never write into one installation"; a bootstrap into a new folder has no installation yet.
 - **D-S9** — A second start that previously answered `mods.error.alreadyInstalled` (same folder
   in flight) or `mods.remove.refused.busy` now answers `jobs.error.installationBusy`; the
-  `already installed` refusal for a *recorded* mod stays. Reason: one busy rule, one key; the old
+  `already installed` refusal for a _recorded_ mod stays. Reason: one busy rule, one key; the old
   keys described the in-flight registries being deleted.
 - **D-S10** — The Downloads failure log records failed jobs of every module with no module filter.
   Reason: entries already render their own `labelKey` ("Installing <mod>"), so the module is visible
@@ -144,35 +144,35 @@ Order: D1 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9 → D10 (D8–
 
 ## Deliverables
 
-- **D1 — the job runner** *(hard)*. New `src/main/services/job-runner.ts` exporting
+- **D1 — the job runner** _(hard)_. New `src/main/services/job-runner.ts` exporting
   `class JobRunner` (constructed with `{ jobs: JobsService, writeGuard: InstallationWriteGuard,
-  installations: { validate(id): Promise<Outcome<Installation>> } }`) with
+installations: { validate(id): Promise<Outcome<Installation>> } }`) with
   `run<K, S>(spec, body): Outcome<{ jobId: string; settled: Promise<JobOutcome<K, S>> }>` and
   `isInstallationBusy(installationId): boolean`. `spec = { moduleId, kind, labelKey, labelParams?,
-  installationId?, playableAtRatio?, cancellable?, exclusive?: 'installation' }`. `run` is
+installationId?, playableAtRatio?, cancellable?, exclusive?: 'installation' }`. `run` is
   synchronous: with `exclusive` it refuses `fail('jobs.error.installationBusy')` (no job created)
   when any `isJobActive` job in `jobs.list()` of any module has that `installationId`; the check and
   `jobs.create` have no `await` between them. It creates one `AbortController`, `onCancel` aborts it
   and kills the handle registered via `ctx.setExtractor`. `body(ctx)` gets `ctx = { jobId, signal,
-  report(progress) /* no-op once aborted */, fail(key, reason, params?) /* logs reason, returns
-  {status:'failed', key, params} */, cancelled(), write(installationId, fn): Promise<'done' |
-  'cancelled'> /* writeGuard.runWrite; isWriteCancelled or aborted → 'cancelled', other errors
-  rethrow */, setExtractor(handle), markPlayable(ratio), revalidate(installationId) }`. A throw from
+report(progress) /* no-op once aborted */, fail(key, reason, params?) /* logs reason, returns
+{status:'failed', key, params} */, cancelled(), write(installationId, fn): Promise<'done' |
+'cancelled'> /* writeGuard.runWrite; isWriteCancelled or aborted → 'cancelled', other errors
+rethrow */, setExtractor(handle), markPlayable(ratio), revalidate(installationId) }`. A throw from
   `body` → `{status:'failed', key:'downloads.error.diskWrite'}` (the one `LOCAL_FAILURE`). In a
   `finally`: every installation passed to `ctx.write` whose write was entered (the guard's `fn`
   started, or the write threw after acquiring) and not revalidated by the body after its last write
   is revalidated via `installations.validate` (errors logged, outcome unchanged); then `jobs.finish`
   is called once from the outcome — skipped when the job is already terminal (cancelled by
   `jobs.cancel`). `settled` never rejects. New `src/main/modules/ports.ts` exports `JobOutcome<K
-  extends string = string, S extends object = {}>` (`({status:'succeeded'} & S) | {status:'failed';
-  key: K; params?: Record<string, string|number>} | {status:'cancelled'}`), `JobRunnerHost` (`run`,
+extends string = string, S extends object = {}>` (`({status:'succeeded'} & S) | {status:'failed';
+key: K; params?: Record<string, string|number>} | {status:'cancelled'}`), `JobRunnerHost` (`run`,
   `isInstallationBusy`), `JobContext`, `RunJobSpec`, and the shared module host interfaces the jobs
   will need (`InstallationsHost` with `find`/`validate`/`setModuleData`, `ToastHost`, `JobLogHost`).
   Wire `jobRunner` into `AppContext` in `src/main/context.ts` after `writeGuard`. Add
   `jobs.error.installationBusy` ("Another job is changing this installation. Try again when it has
   finished.") under `jobs.error` in `src/renderer/src/i18n/locales/en.json`. New
   `src/test-support/job-runner.ts`: `makeJobRunner(overrides?)` returning `{ runner, jobs,
-  writeGuard, installations, launch }` built from real `JobsService` + `InstallationWriteGuard` with
+writeGuard, installations, launch }` built from real `JobsService` + `InstallationWriteGuard` with
   a controllable fake launch host and a spy `validate`. Tests in
   `src/main/services/job-runner.test.ts`: "a succeeding body finishes the job once as succeeded",
   "a throwing body finishes as local failure", "cancel before write never calls fn and settles
@@ -209,7 +209,7 @@ Order: D1 → D2 → D3 → D4 → D5 → D6 → D7 → D8 → D9 → D10 (D8–
   (`exclusive: 'installation'`); delete both `inFlight` sets, `slot` reservation/`handedOver`,
   `isBusy`, `BUSY_KINDS`, both `LOCAL_FAILURE` constants; update's preview uses
   `deps.runner.isInstallationBusy` → `jobs.error.installationBusy`. A concurrent second install now
-  refuses with `jobs.error.installationBusy` (a *recorded* mod still answers already-installed).
+  refuses with `jobs.error.installationBusy` (a _recorded_ mod still answers already-installed).
   Wiring in `src/main/modules/mods/index.ts`. Adapt `install-job.test.ts`/`update-job.test.ts` to
   `makeJobRunner()`, and add to `update-job.test.ts` "a running mod update refuses a mod install and
   an engine update" (start a held update via the shared runner, then call `startModInstall` and

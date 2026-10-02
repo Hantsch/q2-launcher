@@ -61,12 +61,12 @@ browser gains an exact (quoted) search, an Online/LAN switch and saved quick fil
 
 Ran on `sprint/S31`, 2026-10-01. Result: **green for the sprint — 4 flows red, all pre-existing.**
 
-| Command | Result | Minutes |
-| --- | --- | --- |
-| `npm run build` | green | 0.1 |
-| `npm test` | red at first (1 test), green after the fix | 0.4 |
-| `npm run ui:verify` | green (60/60 screens, 0 axe violations) | 2.2 |
-| `npm run ui:flows` | 132/136 passed, ran on `b971230` | 49 |
+| Command             | Result                                     | Minutes |
+| ------------------- | ------------------------------------------ | ------- |
+| `npm run build`     | green                                      | 0.1     |
+| `npm test`          | red at first (1 test), green after the fix | 0.4     |
+| `npm run ui:verify` | green (60/60 screens, 0 axe violations)    | 2.2     |
+| `npm run ui:flows`  | 132/136 passed, ran on `b971230`           | 49      |
 
 - `layering.test.ts` (story 071 AC7): regression from story 192 (`d3121fe`, `mods/index.ts` imported the
   7za path). Fixed in `b971230` by reusing `resolveVendoredExtractor` from the downloads module; the

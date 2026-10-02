@@ -44,8 +44,9 @@ export default async function serversLanNoScanWhilePlaying({ page, step, shot })
   // Let the on-open online scan finish before the game "starts".
   await page.waitForFunction(
     () =>
-      (document.querySelector('[data-testid="servers-scan-status"]')?.getAttribute('data-finished-at') ??
-        '') !== '',
+      (document
+        .querySelector('[data-testid="servers-scan-status"]')
+        ?.getAttribute('data-finished-at') ?? '') !== '',
     null,
     { timeout: SCAN_SETTLE_TIMEOUT_MS },
   )
@@ -55,7 +56,8 @@ export default async function serversLanNoScanWhilePlaying({ page, step, shot })
     (id) => window.q2.invoke('dev:simulateLaunch', { installationId: id, phase: 'running' }),
     INSTALL_ONE_ID,
   )
-  if (!outcome?.ok) throw new Error(`dev:simulateLaunch(running) failed: ${JSON.stringify(outcome)}`)
+  if (!outcome?.ok)
+    throw new Error(`dev:simulateLaunch(running) failed: ${JSON.stringify(outcome)}`)
   const finishedAtBefore = await readFinishedAt(page)
 
   step('AC7: switching to LAN does not scan; the blocked reason is visible')

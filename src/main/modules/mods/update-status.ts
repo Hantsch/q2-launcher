@@ -26,7 +26,9 @@ export function computeModUpdateStatus(
   const pinnedVersion = entry?.pinned || undefined
   const isCatalogInstall = !!record && !!record.catalogId
   const updateAvailable =
-    isCatalogInstall && pinnedVersion !== undefined && (installedVersion === undefined || installedVersion !== pinnedVersion)
+    isCatalogInstall &&
+    pinnedVersion !== undefined &&
+    (installedVersion === undefined || installedVersion !== pinnedVersion)
   return {
     updateAvailable,
     ...(installedVersion !== undefined ? { installedVersion } : {}),

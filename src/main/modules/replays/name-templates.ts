@@ -69,7 +69,10 @@ export function nameTemplatesList(app: AppContext): Outcome<NameTemplatesView> {
  * Appends a new user template. Refused (writing nothing) when the template text itself is invalid
  * per `compileNameTemplate`, or when the list is already at `NAME_TEMPLATES_MAX`.
  */
-export function nameTemplatesAdd(app: AppContext, input: NameTemplatesAddInput): Outcome<NameTemplatesView> {
+export function nameTemplatesAdd(
+  app: AppContext,
+  input: NameTemplatesAddInput,
+): Outcome<NameTemplatesView> {
   const compiled = compileNameTemplate(input.template)
   if (!compiled.ok) return fail(compiled.error.key, compiled.error.params)
 
@@ -169,7 +172,10 @@ export function nameTemplatesRestore(app: AppContext): Outcome<NameTemplatesView
  * scan (story 144) consumes to decide whether a cached demo's name-derived facts need
  * re-deriving (`needsNameFactsRederive`, story 140 D1). Read-only, like `nameTemplatesList`.
  */
-export function currentNameTemplates(app: AppContext): { templates: string[]; fingerprint: string } {
+export function currentNameTemplates(app: AppContext): {
+  templates: string[]
+  fingerprint: string
+} {
   const templates = effectiveNameTemplates(currentMerged(app), SHIPPED_NAME_PATTERNS)
   return { templates, fingerprint: nameTemplatesFingerprint(templates) }
 }

@@ -13,6 +13,7 @@ and multi-select behaviour are left here.
 image file (PNG or JPEG, any size) ready on disk to pick.
 
 **Steps:**
+
 1. On any installation's library card, open its action cluster and choose "Set icon…".
 2. In the picker dialog, click "Choose a file…".
 
@@ -28,6 +29,7 @@ not activate here), and have the three fixture files `docs/fixtures/dm.cfg`,
 disk.
 
 **Steps:**
+
 1. Open the config module and start creating a new profile.
 2. Choose "Import from files" as the starting point.
 3. Click "Choose files…".

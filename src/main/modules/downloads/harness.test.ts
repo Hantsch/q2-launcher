@@ -187,7 +187,11 @@ describe('the production package schema is never widened by the harness variant'
   })
 
   it('parseManifestFile drops a loopback row by default and keeps it only with httpsOnly: false', () => {
-    const file = { schemaVersion: 1, packages: [loopbackPackageRow()], pinned: { q2pro: 'q2pro-fixture' } }
+    const file = {
+      schemaVersion: 1,
+      packages: [loopbackPackageRow()],
+      pinned: { q2pro: 'q2pro-fixture' },
+    }
 
     // Story 100 D5: the fixture uses the pre-platform manifest shape (bare-string pin, no
     // `platforms`), which reads as Windows-only - so both calls say which platform they resolve
@@ -227,9 +231,7 @@ describe('the detected-retail-sources override requires only Q2L_UI_HARNESS', ()
   const FIXTURE_ENV = { [HARNESS_STORE_SOURCES_ENV]: JSON.stringify(FIXTURE_SOURCES) }
 
   it('both flags off: undefined, so the caller runs the real detection scan', () => {
-    expect(
-      resolveDetectedRetailSourcesOverride({ isDev: false, env: FIXTURE_ENV }),
-    ).toBeUndefined()
+    expect(resolveDetectedRetailSourcesOverride({ isDev: false, env: FIXTURE_ENV })).toBeUndefined()
   })
 
   it('only Q2L_UI_HARNESS=1 (isDev false): the fixture sources come back - the env var alone is the gate', () => {
@@ -242,9 +244,7 @@ describe('the detected-retail-sources override requires only Q2L_UI_HARNESS', ()
   })
 
   it('only isDev=true (Q2L_UI_HARNESS unset): still the real detection scan', () => {
-    expect(
-      resolveDetectedRetailSourcesOverride({ isDev: true, env: FIXTURE_ENV }),
-    ).toBeUndefined()
+    expect(resolveDetectedRetailSourcesOverride({ isDev: true, env: FIXTURE_ENV })).toBeUndefined()
   })
 
   it('only isDev=true and Q2L_UI_HARNESS set to something other than "1": still the real scan', () => {
@@ -309,7 +309,10 @@ describe('the folder-picker stub requires only Q2L_UI_HARNESS - isDev is not par
 
   it('only isDev=true (Q2L_UI_HARNESS unset): still the real dialog', () => {
     expect(
-      uiHarnessPickedFolders({ isDev: true, env: { [UI_HARNESS_PICK_FOLDER_ENV]: 'C:\\fixtures' } }),
+      uiHarnessPickedFolders({
+        isDev: true,
+        env: { [UI_HARNESS_PICK_FOLDER_ENV]: 'C:\\fixtures' },
+      }),
     ).toBeUndefined()
   })
 

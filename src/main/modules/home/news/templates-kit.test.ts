@@ -64,7 +64,9 @@ describe('news template kit (content/q2_community_content/news/_templates/)', ()
     for (const template of NEWS_TEMPLATES) {
       const dir = templateDir(template)
       expect(existsSync(dir), `expected a kit folder at ${dir}`).toBe(true)
-      expect(existsSync(join(dir, 'template.md')), `expected template.md for ${template}`).toBe(true)
+      expect(existsSync(join(dir, 'template.md')), `expected template.md for ${template}`).toBe(
+        true,
+      )
       expect(existsSync(join(dir, 'README.md')), `expected README.md for ${template}`).toBe(true)
     }
   })
@@ -80,7 +82,10 @@ describe('news template kit (content/q2_community_content/news/_templates/)', ()
         documents: { 'template.md': text },
       })
 
-      expect(result.slides, `${template}: expected the kit skeleton to survive resolveFeed()`).toHaveLength(1)
+      expect(
+        result.slides,
+        `${template}: expected the kit skeleton to survive resolveFeed()`,
+      ).toHaveLength(1)
       expect(
         result.slides[0].template,
         `${template}: expected the kit skeleton to resolve as its own template, not fall back`,
@@ -96,17 +101,18 @@ describe('news template kit (content/q2_community_content/news/_templates/)', ()
       expect(readme, `${template} README: accepted formats`).toMatch(/webp/i)
       expect(readme, `${template} README: max file size`).toMatch(/5\s*MB/i)
       expect(readme, `${template} README: max pixel dimension`).toMatch(/4000\s*px/i)
-      expect(readme, `${template} README: recommended source size`).toMatch(/recommended source size/i)
+      expect(readme, `${template} README: recommended source size`).toMatch(
+        /recommended source size/i,
+      )
     }
   })
 
-  it('the kit overview (_templates/README.md) links every NEWS_TEMPLATES value\'s folder', () => {
+  it("the kit overview (_templates/README.md) links every NEWS_TEMPLATES value's folder", () => {
     const overview = readFileSync(join(TEMPLATES_DIR, 'README.md'), 'utf-8')
     for (const template of NEWS_TEMPLATES) {
-      expect(
-        overview,
-        `expected _templates/README.md to link ./${template}/`,
-      ).toMatch(new RegExp(`\\]\\(\\./${template}/\\)`))
+      expect(overview, `expected _templates/README.md to link ./${template}/`).toMatch(
+        new RegExp(`\\]\\(\\./${template}/\\)`),
+      )
     }
   })
 
@@ -122,7 +128,7 @@ describe('news template kit (content/q2_community_content/news/_templates/)', ()
     )
   })
 
-  it('the top-level README\'s order-list claim matches the real index.json order values', () => {
+  it("the top-level README's order-list claim matches the real index.json order values", () => {
     const readme = readFileSync(join(CONTENT_ROOT, 'README.md'), 'utf-8')
     const index = JSON.parse(readFileSync(join(CONTENT_ROOT, 'news', 'index.json'), 'utf-8')) as {
       entries: { order: number }[]
@@ -133,11 +139,15 @@ describe('news template kit (content/q2_community_content/news/_templates/)', ()
     // whatever slash-separated run of numbers follows "uses" so a stale list (missing a real order
     // value, or including one that no longer exists) fails this test instead of silently drifting.
     const match = readme.match(/this repository uses ([\d/]+)/i)
-    expect(match, 'expected an "this repository uses N/N/..." order-list statement in the README').not.toBeNull()
+    expect(
+      match,
+      'expected an "this repository uses N/N/..." order-list statement in the README',
+    ).not.toBeNull()
     const statedOrders = match![1].split('/').map(Number)
-    expect(statedOrders, "README's stated order list must match news/index.json's real order values").toEqual(
-      realOrders,
-    )
+    expect(
+      statedOrders,
+      "README's stated order list must match news/index.json's real order values",
+    ).toEqual(realOrders)
   })
 
   it('the top-level README does not claim an unknown template is dropped', () => {
@@ -184,40 +194,44 @@ describe('news template kit (content/q2_community_content/news/_templates/)', ()
   it('every template README states that adding a template does not bump schemaVersion', () => {
     for (const template of NEWS_TEMPLATES) {
       const readme = readReadme(template)
-      expect(
-        readme,
-        `${template} README: expected an R1 note that schemaVersion stays 1`,
-      ).toMatch(/schemaVersion.*stays.*1|does not bump.*schemaVersion/i)
+      expect(readme, `${template} README: expected an R1 note that schemaVersion stays 1`).toMatch(
+        /schemaVersion.*stays.*1|does not bump.*schemaVersion/i,
+      )
     }
   })
 
-  it('every image template folder has an example.png, a valid in-budget PNG at its README\'s recommended size', async () => {
+  it("every image template folder has an example.png, a valid in-budget PNG at its README's recommended size", async () => {
     for (const template of IMAGE_TEMPLATES) {
       const path = join(templateDir(template), 'example.png')
       expect(existsSync(path), `expected ${path} to exist`).toBe(true)
 
       const bytes = statSync(path).size
-      expect(bytes, `${template} example.png: expected it within MAX_IMAGE_BYTES`).toBeLessThanOrEqual(
-        MAX_IMAGE_BYTES,
-      )
+      expect(
+        bytes,
+        `${template} example.png: expected it within MAX_IMAGE_BYTES`,
+      ).toBeLessThanOrEqual(MAX_IMAGE_BYTES)
       expect(bytes, `${template} example.png: expected it ≤ 25 KB`).toBeLessThanOrEqual(25 * 1024)
 
       const metadata = await sharp(path).metadata()
       expect(metadata.format, `${template} example.png: expected a PNG`).toBe('png')
-      expect(metadata.width, `${template} example.png: width within MAX_IMAGE_DIMENSION_PX`).toBeLessThanOrEqual(
-        MAX_IMAGE_DIMENSION_PX,
-      )
-      expect(metadata.height, `${template} example.png: height within MAX_IMAGE_DIMENSION_PX`).toBeLessThanOrEqual(
-        MAX_IMAGE_DIMENSION_PX,
-      )
+      expect(
+        metadata.width,
+        `${template} example.png: width within MAX_IMAGE_DIMENSION_PX`,
+      ).toBeLessThanOrEqual(MAX_IMAGE_DIMENSION_PX)
+      expect(
+        metadata.height,
+        `${template} example.png: height within MAX_IMAGE_DIMENSION_PX`,
+      ).toBeLessThanOrEqual(MAX_IMAGE_DIMENSION_PX)
 
       const expected = recommendedSize(readReadme(template))
-      expect(metadata.width, `${template} example.png: width matches README's recommended size`).toBe(
-        expected.width,
-      )
-      expect(metadata.height, `${template} example.png: height matches README's recommended size`).toBe(
-        expected.height,
-      )
+      expect(
+        metadata.width,
+        `${template} example.png: width matches README's recommended size`,
+      ).toBe(expected.width)
+      expect(
+        metadata.height,
+        `${template} example.png: height matches README's recommended size`,
+      ).toBe(expected.height)
     }
   })
 

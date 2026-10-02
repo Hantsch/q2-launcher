@@ -389,6 +389,6 @@ export default async function serversScopedRefresh({ page, step, shot }) {
     'servers-scoped-refresh: "Refresh servers" swept all three addresses through both stages ' +
       '(AC1), "Refresh favourites" queried only the favourite and left the other two rows byte-' +
       'for-byte untouched (AC2), and "Refresh this server" queried exactly the selected address ' +
-      "with a single status query and left every other row untouched (AC3)",
+      'with a single status query and left every other row untouched (AC3)',
   )
 }

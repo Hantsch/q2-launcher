@@ -68,7 +68,12 @@
 
 import type { ActionEntryKind } from '../modules/config'
 import { ALL_CVARS } from './cvar-catalog'
-import { DROP_ACTIONS, MOVEMENT_ACTIONS, WEAPON_ACTIONS, WEAPON_EXTRA_ACTIONS } from './action-catalog'
+import {
+  DROP_ACTIONS,
+  MOVEMENT_ACTIONS,
+  WEAPON_ACTIONS,
+  WEAPON_EXTRA_ACTIONS,
+} from './action-catalog'
 import { MAX_ALIAS_NAME } from './engine-limits'
 
 /** `MAX_ALIAS_NAME` counts the implicit terminator - see `validate-structure.ts`'s own

@@ -33,4 +33,4 @@ picker), the multi-engine validator, cleanup of redundant per-mod config copies,
 in-session profile-switch bind (F9-style cycle + console echo).
 
 Story 005 (import) is ordered last because it is independent of 002–004 in principle, but
-verifying its result as a *usable* profile benefits from assignment/write already working.
+verifying its result as a _usable_ profile benefits from assignment/write already working.

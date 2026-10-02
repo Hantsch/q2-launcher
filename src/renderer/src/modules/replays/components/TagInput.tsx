@@ -21,7 +21,14 @@ export interface TagInputProps {
  * picks the highlighted one (or commits the typed text if none is highlighted), comma also commits
  * the typed text, Escape closes the list.
  */
-export function TagInput({ tags, suggestions, disabled, onAddTag, onRemoveTag, onInputChange }: TagInputProps) {
+export function TagInput({
+  tags,
+  suggestions,
+  disabled,
+  onAddTag,
+  onRemoveTag,
+  onInputChange,
+}: TagInputProps) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
   const [open, setOpen] = useState(false)
@@ -76,7 +83,9 @@ export function TagInput({ tags, suggestions, disabled, onAddTag, onRemoveTag, o
           aria-expanded={open && suggestions.length > 0}
           aria-controls={listboxId}
           aria-autocomplete="list"
-          aria-activedescendant={open && highlighted >= 0 ? `${listboxId}-option-${highlighted}` : undefined}
+          aria-activedescendant={
+            open && highlighted >= 0 ? `${listboxId}-option-${highlighted}` : undefined
+          }
           value={text}
           disabled={disabled}
           placeholder={t('replays.editor.tags.placeholder')}

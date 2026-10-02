@@ -44,15 +44,18 @@ export const absolutePathSchema = z
 
 /** Strict `host:port` validation via `parseServerAddress`; rejects with the reason code (not
  * prose) as the issue message, and transforms a valid address into its normalized string. */
-export const serverAddressSchema = z.string().superRefine((value, ctx) => {
-  const result = parseServerAddress(value)
-  if (!result.ok) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.reason })
-  }
-}).transform((value) => {
-  const result = parseServerAddress(value)
-  return result.ok ? result.normalized : value
-})
+export const serverAddressSchema = z
+  .string()
+  .superRefine((value, ctx) => {
+    const result = parseServerAddress(value)
+    if (!result.ok) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.reason })
+    }
+  })
+  .transform((value) => {
+    const result = parseServerAddress(value)
+    return result.ok ? result.normalized : value
+  })
 
 /** Strict validation via `parseUserinfoValue`; rejects with the reason code (not prose) as the
  * issue message, same convention as `serverAddressSchema`. */

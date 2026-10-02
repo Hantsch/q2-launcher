@@ -11,7 +11,11 @@ import en from './locales/en.json'
 
 const CLIENT_PATTERN = /client/i
 
-function collectStringValues(node: unknown, path: string, out: Array<{ path: string; value: string }>): void {
+function collectStringValues(
+  node: unknown,
+  path: string,
+  out: Array<{ path: string; value: string }>,
+): void {
   if (typeof node === 'string') {
     out.push({ path, value: node })
     return
@@ -26,7 +30,13 @@ function collectStringValues(node: unknown, path: string, out: Array<{ path: str
 function stringAt(path: string): unknown {
   return path
     .split('.')
-    .reduce<unknown>((acc, key) => (acc && typeof acc === 'object' && key in acc ? (acc as Record<string, unknown>)[key] : undefined), en)
+    .reduce<unknown>(
+      (acc, key) =>
+        acc && typeof acc === 'object' && key in acc
+          ? (acc as Record<string, unknown>)[key]
+          : undefined,
+      en,
+    )
 }
 
 describe('en.json vocabulary', () => {

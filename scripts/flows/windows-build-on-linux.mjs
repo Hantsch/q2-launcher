@@ -106,14 +106,18 @@ export async function setup() {
 
   console.log(`  fixture install root:  ${fixtureRoot}`)
   console.log(`  fixture quake2.exe:    ${written.exePath}`)
-  console.log(`  fixture native quake2: ${written.elfPath} (the story's own "ranking half" fixture requirement - not used by this flow's own assertions, which need PE-only on the Linux branch)`)
+  console.log(
+    `  fixture native quake2: ${written.elfPath} (the story's own "ranking half" fixture requirement - not used by this flow's own assertions, which need PE-only on the Linux branch)`,
+  )
 
   const env = { Q2L_UI_PICK_FOLDER: fixtureRoot }
   if (process.platform !== 'win32') {
     // AC6/AC7 need wine/umu-run to be provably absent, not merely "probably absent on this CI
     // runner" - PATH is scrubbed for the whole app lifetime here; the Linux branch prepends its own
     // wine stub back onto it later, at runtime, via Playwright's `app.evaluate()` (AC4).
-    console.log('  scrubbing PATH for the whole run: wine/umu-run must be provably absent (AC6/AC7)')
+    console.log(
+      '  scrubbing PATH for the whole run: wine/umu-run must be provably absent (AC6/AC7)',
+    )
     env.PATH = ''
   }
   return { env }
@@ -192,7 +196,9 @@ async function addFixtureInstallation({ page, step, shot }) {
   // bare `page.getByTestId(...)`, which would violate Playwright's strict mode the moment a second
   // installation (every `populated` fixture install, or the elf/pe ranking install on Linux) is
   // also on screen.
-  const row = page.locator('div.panel', { has: page.getByTestId(`installation-remove-${registered.id}`) })
+  const row = page.locator('div.panel', {
+    has: page.getByTestId(`installation-remove-${registered.id}`),
+  })
   await row.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   return { registered, row }
@@ -259,7 +265,9 @@ async function runWindowsBranch({ page, step, shot }) {
 // --- Linux branch (AC2, AC4-AC7) -----------------------------------------------------------------
 
 async function runLinuxBranch({ page, app, step, shot }) {
-  step('rewrite the fixture as genuinely PE-only (no native quake2) - see this file\'s header comment')
+  step(
+    "rewrite the fixture as genuinely PE-only (no native quake2) - see this file's header comment",
+  )
   writeWindowsBuildFixture({ includeNativeElf: false })
 
   const { registered, row } = await addFixtureInstallation({ page, step, shot })
@@ -272,7 +280,9 @@ async function runLinuxBranch({ page, app, step, shot }) {
   // non-exact (substring) match would also match that `<li>`/its wrapper `<div>`, since their own
   // text content still CONTAINS this string, and Playwright's strict mode would then refuse to
   // pick one.
-  await row.getByText(expectedCheckText, { exact: true }).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await row
+    .getByText(expectedCheckText, { exact: true })
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   step("assert the Runner section's wine entry is disabled, with its reason visible (AC6)")
   const wineOption = row.getByTestId('installation-runner-option-wine')
@@ -344,7 +354,9 @@ async function runLinuxBranch({ page, app, step, shot }) {
       `launch:state broadcast a 'running' phase despite the refusal: ${JSON.stringify(phasesAfterRefusal)}`,
     )
   }
-  console.log(`AC7: Play refused via a visible toast, phases observed: ${JSON.stringify(phasesAfterRefusal)}`)
+  console.log(
+    `AC7: Play refused via a visible toast, phases observed: ${JSON.stringify(phasesAfterRefusal)}`,
+  )
 
   step('dismiss the refusal toast so it does not linger over the later shots')
   await refusalToast.getByRole('button', { name: 'Close' }).click({ timeout: TIMEOUT_MS })
@@ -357,7 +369,9 @@ async function runLinuxBranch({ page, app, step, shot }) {
   // before anything is clicked. Two stubs fix that: with both wine and umu-run on PATH, the cascade
   // still defaults to wine, so explicitly picking umu-run instead is the only path to the umu-wrapped
   // preview, and reaching it proves the click handler actually persisted the user's own choice.
-  step('write stub wine and umu-run binaries on PATH (#!/bin/sh + exec "$@") and let the running app find them (AC4)')
+  step(
+    'write stub wine and umu-run binaries on PATH (#!/bin/sh + exec "$@") and let the running app find them (AC4)',
+  )
   const wineDir = writeWineStub()
   const umuDir = writeUmuStub()
   await app.evaluate(
@@ -393,14 +407,19 @@ async function runLinuxBranch({ page, app, step, shot }) {
     RUNNER_REFRESH_TIMEOUT_MS,
   )
   const wineBinaryPath = `${wineDir}/wine`
-  if (!previewAfterBothAvailable.includes(wineBinaryPath) || !previewAfterBothAvailable.includes(expectedExeName)) {
+  if (
+    !previewAfterBothAvailable.includes(wineBinaryPath) ||
+    !previewAfterBothAvailable.includes(expectedExeName)
+  ) {
     throw new Error(
       `expected the cascade-default preview to contain both ${JSON.stringify(wineBinaryPath)} and ` +
         `${expectedExeName}, got ${JSON.stringify(previewAfterBothAvailable)}`,
     )
   }
 
-  step('explicitly select umu-run - the runner the cascade did NOT default to - and assert it persists (AC4)')
+  step(
+    'explicitly select umu-run - the runner the cascade did NOT default to - and assert it persists (AC4)',
+  )
   await umuOption.click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
     (el) => el?.getAttribute('aria-checked') === 'true',
@@ -412,10 +431,14 @@ async function runLinuxBranch({ page, app, step, shot }) {
     return installations.find((installation) => installation.id === id) ?? null
   }, registered.id)
   if (updated?.runner !== 'umu') {
-    throw new Error(`expected the installation's recorded runner to be "umu", got: ${JSON.stringify(updated?.runner)}`)
+    throw new Error(
+      `expected the installation's recorded runner to be "umu", got: ${JSON.stringify(updated?.runner)}`,
+    )
   }
 
-  step('assert the previewed command changed to the explicit umu-run choice, not the cascade default (AC4)')
+  step(
+    'assert the previewed command changed to the explicit umu-run choice, not the cascade default (AC4)',
+  )
   // This can only pass if the click handler genuinely persisted the explicit choice AND the preview
   // genuinely reflects it: the previous step's cascade default already produced a DIFFERENT (wine)
   // command, so a click handler that silently left the cascade default in place - the exact failure
@@ -444,7 +467,9 @@ async function runLinuxBranch({ page, app, step, shot }) {
   // Play-disabled-forever bug (see this file's header comment) was fixed, when Play truly was
   // unclickable and a raw invoke was the only way to reach a real spawn. Play is genuinely enabled
   // now, so this presses the same real `playButton` locator AC7 already used above.
-  step('press the real library-row Play button again - real spawn, through the real umu-run wrapper (AC5)')
+  step(
+    'press the real library-row Play button again - real spawn, through the real umu-run wrapper (AC5)',
+  )
   await playButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await playButton.click({ timeout: TIMEOUT_MS })
 
@@ -457,13 +482,19 @@ async function runLinuxBranch({ page, app, step, shot }) {
   const runningIndex = phases.indexOf('running')
   const exitedIndex = phases.indexOf('exited')
   if (runningIndex === -1) {
-    throw new Error(`launch state never reported 'running' - observed phases: ${JSON.stringify(phases)}`)
+    throw new Error(
+      `launch state never reported 'running' - observed phases: ${JSON.stringify(phases)}`,
+    )
   }
   if (exitedIndex === -1 || exitedIndex < runningIndex) {
-    throw new Error(`launch state did not go running -> exited, in order - observed: ${JSON.stringify(phases)}`)
+    throw new Error(
+      `launch state did not go running -> exited, in order - observed: ${JSON.stringify(phases)}`,
+    )
   }
   await shot('linux-branch-launch-exited')
-  console.log(`AC4/AC5: umu-run explicitly selected, real launch state transitioned ${JSON.stringify(phases)}`)
+  console.log(
+    `AC4/AC5: umu-run explicitly selected, real launch state transitioned ${JSON.stringify(phases)}`,
+  )
 
   console.log(
     'windows-build-on-linux (Linux branch): a PE-only folder raised the visible executable-runnable ' +
@@ -483,7 +514,9 @@ async function waitForEnabled(locator, timeoutMs) {
   for (;;) {
     if (!(await locator.isDisabled())) return
     if (Date.now() >= deadline) {
-      throw new Error(`timed out after ${timeoutMs}ms waiting for the runner option to become enabled`)
+      throw new Error(
+        `timed out after ${timeoutMs}ms waiting for the runner option to become enabled`,
+      )
     }
     await new Promise((resolve) => setTimeout(resolve, 150))
   }

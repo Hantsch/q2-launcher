@@ -260,11 +260,13 @@ reserved-directory READMEs and the full contract `README.md` into the external c
 READMEs, byte-identity and untouched git state.
 
 Commit message:
+
 ```
 085: news contract lives in the content repo, with a fixture copy and a checker
 ```
 
 Verification:
+
 - `npm run build` — passed.
 - `npm run typecheck` — passed (fixed an unused-variable error the D2 test introduced: an
   unnecessary `NOW` constant, since `resolveFeed()` doesn't filter by visibility).
@@ -297,6 +299,7 @@ Verification:
 - No manual residue.
 
 Decisions (made during implementation, not previously recorded):
+
 - The story's own text guessed the pipeline directory as `src/main/modules/home/feed/`; the real
   082 output lives at `src/main/modules/home/news/`. D2's test and the `## Acceptance Tests`
   mapping were corrected to that real path.

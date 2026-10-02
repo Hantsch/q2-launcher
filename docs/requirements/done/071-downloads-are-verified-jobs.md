@@ -71,13 +71,13 @@ against a manifest fixture and a local test server.
 - **Paths:** archives in `userData/cache/downloads/`, in-flight as `<name>.part`, extraction into
   `userData/cache/downloads/extract/<jobId>/`. Cancel deletes the `.part` file and that extract
   directory; an already verified cached archive is kept, since the cache is the point (AC6 says
-  *partial*).
+  _partial_).
 - **Extractor binary:** `7za.exe` plus its licence text are vendored into `resources/bin/` by
   `scripts/fetch-7za.mjs` and shipped via `electron-builder.yml`'s `extraResources`; the path is
   resolved absolutely (dev: repo `resources/bin`, prod: `process.resourcesPath/bin`), never from
   `PATH`. A missing binary fails the job with a readable key instead of throwing.
 - **Fixed argument shape:** `['x', '-y', '-bso0', '-bse1', '-bsp1', '-o<absolute extract dir>',
-  '<absolute archive path>']`, `shell: false`, both paths computed in main — nothing renderer-shaped
+'<absolute archive path>']`, `shell: false`, both paths computed in main — nothing renderer-shaped
   can become an argument or a flag (AC5).
 - **Extraction progress:** parse `-bsp1`'s percent lines into `JobProgress.ratio` for the extract
   phase, falling back to indeterminate when nothing parses — a coarse but real bar without a
@@ -212,6 +212,7 @@ removed. A re-review confirmed all five fixes genuinely resolve the findings and
 **Commit message:** `071: downloads are verified jobs — fetch, extract, queue`
 
 **Verification:**
+
 - build: `npm run build` — clean.
 - typecheck: `npm run typecheck` — clean (node + web).
 - test: `npm test` — 127 files, 2848 passed, 3 skipped (the 3 skips are `it.skipIf` real-`7za.exe`
@@ -223,6 +224,7 @@ removed. A re-review confirmed all five fixes genuinely resolve the findings and
   on re-review (of 1 max-3 allowed cycles).
 
 **AC → test mapping, as verified:**
+
 - AC1 (one `Job` through `JobsService`) → `pipeline.test.ts` › "a download runs as one job created
   through JobsService" — passed.
 - AC2 (concurrency limit + queueing) → `queue.test.ts` › "at most the configured number of jobs run,
@@ -247,6 +249,7 @@ removed. A re-review confirmed all five fixes genuinely resolve the findings and
   single-name mapping to match what was actually written) — passed.
 
 **Decisions made during implementation (not pre-answered by the story):**
+
 - `7za-path.ts`'s dev-mode repo-root resolution walks up from `__dirname` to the nearest ancestor
   containing `package.json`, rather than counting fixed directory levels — the codebase has no
   existing runtime "find repo root" helper that transfers (`scripts/lib/paths.mjs`'s `REPO_ROOT` is
@@ -265,6 +268,7 @@ removed. A re-review confirmed all five fixes genuinely resolve the findings and
   which owns the settings UI for this same shape.
 
 **Open points carried forward (not blockers):**
+
 - `scripts/fetch-7za.mjs` has never run end-to-end in this environment (no network access to
   7-zip.org) — the packaging wiring is correct but unverified against a real download; the two
   real-archive tests remain `skipIf`-gated until a developer with network access runs it once.

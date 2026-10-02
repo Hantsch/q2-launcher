@@ -1,6 +1,9 @@
 import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { resolveEffectiveValues, type ResolveEffectiveValuesInputs } from '@shared/demos/effective-values'
+import {
+  resolveEffectiveValues,
+  type ResolveEffectiveValuesInputs,
+} from '@shared/demos/effective-values'
 import type { DiscoveredDemo } from '@shared/modules/replays'
 import { validateDemoRename } from '@shared/replays/demo-rename'
 import type { NameFacts } from '@shared/replays/name-template'
@@ -117,7 +120,8 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
     // A case-only rename on a case-insensitive filesystem names the very same file and sidecar -
     // not a collision.
     if (pathKey(newPath) !== pathKey(oldPath)) {
-      if (await exists(fs, newPath)) return fail('replays.rename.error.exists', { name: newFileName })
+      if (await exists(fs, newPath))
+        return fail('replays.rename.error.exists', { name: newFileName })
       if (await exists(fs, newSidecarPath)) {
         return fail('replays.rename.error.sidecarExists', { name: sidecarFileName(newFileName) })
       }
@@ -126,7 +130,9 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
     // Facts the old name supplied that the new one no longer would: carried into the sidecar so a
     // rename never silently changes what the row shows.
     const sidecarRead = await sidecars.read(id)
-    const { state, values } = sidecarRead.ok ? sidecarRead.value : { state: { state: 'none' as const }, values: {} }
+    const { state, values } = sidecarRead.ok
+      ? sidecarRead.value
+      : { state: { state: 'none' as const }, values: {} }
     const header = headerFromRow(row)
     const oldEffective = resolveEffectiveValues({
       fileName: row.fileName,
@@ -145,7 +151,10 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
     })
 
     const preserved: Partial<SidecarFields> = {}
-    if (oldEffective.date.source === 'name' && oldEffective.date.value !== newEffective.date.value) {
+    if (
+      oldEffective.date.source === 'name' &&
+      oldEffective.date.value !== newEffective.date.value
+    ) {
       preserved.date = new Date(oldEffective.date.value).toISOString()
     }
     if (
@@ -157,7 +166,10 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
     if (oldEffective.map.source === 'name' && oldEffective.map.value !== newEffective.map.value) {
       preserved.map = oldEffective.map.value
     }
-    if (oldEffective.gamemode.source === 'name' && oldEffective.gamemode.value !== newEffective.gamemode.value) {
+    if (
+      oldEffective.gamemode.source === 'name' &&
+      oldEffective.gamemode.value !== newEffective.gamemode.value
+    ) {
       preserved.gamemode = oldEffective.gamemode.value
     }
     const mustPreserve = Object.keys(preserved).length > 0

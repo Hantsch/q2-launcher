@@ -467,8 +467,7 @@ function finishGroup(
       rows,
     })),
     advancedHidden:
-      ownSelection.advancedHidden +
-      subSelections.reduce((sum, sub) => sum + sub.advancedHidden, 0),
+      ownSelection.advancedHidden + subSelections.reduce((sum, sub) => sum + sub.advancedHidden, 0),
     hasAdvanced: all.some((row) => !isCommonRow(row)),
   }
 }

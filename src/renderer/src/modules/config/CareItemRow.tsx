@@ -53,7 +53,10 @@ export function CareItemRow({
     <li className="flex flex-wrap items-start justify-between gap-2 rounded-sm border border-line px-2.5 py-2">
       <div className="flex min-w-0 flex-1 items-start gap-2.5">
         <Icon
-          className={cn('mt-0.5 size-3.5 shrink-0', item.level === 'error' ? 'text-danger' : 'text-warning')}
+          className={cn(
+            'mt-0.5 size-3.5 shrink-0',
+            item.level === 'error' ? 'text-danger' : 'text-warning',
+          )}
         />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -75,9 +78,7 @@ export function CareItemRow({
           {typeof item.params['messageKey'] === 'string' && (
             <p className="text-xs text-ink-muted">{t(item.params['messageKey'])}</p>
           )}
-          {item.fixKey && (
-            <p className="text-xs text-ink-muted">{t(item.fixKey, item.params)}</p>
-          )}
+          {item.fixKey && <p className="text-xs text-ink-muted">{t(item.fixKey, item.params)}</p>}
           {item.source && <p className="text-[10px] text-ink-faint">{item.source}</p>}
           {details.length > 0 && (
             <div className="space-y-1.5 pt-0.5">
@@ -93,7 +94,9 @@ export function CareItemRow({
                 ) : (
                   <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
                 )}
-                {t(detailsOpen ? 'config.care.action.hideDetails' : 'config.care.action.showDetails')}
+                {t(
+                  detailsOpen ? 'config.care.action.hideDetails' : 'config.care.action.showDetails',
+                )}
               </button>
               {detailsOpen && (
                 <ul id={detailsId} className="space-y-1">

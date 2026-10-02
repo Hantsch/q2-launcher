@@ -848,7 +848,9 @@ export async function startBootstrap(
     const verified = await verifyGameDataSource(deps, input.copySourcePath, verdict.targetPath)
     if (!verified.ok) {
       const reason = JSON.stringify(verified.error.params)
-      log?.warn(`bootstrap refused the game data folder ${input.copySourcePath ?? '(none)'}: ${reason}`)
+      log?.warn(
+        `bootstrap refused the game data folder ${input.copySourcePath ?? '(none)'}: ${reason}`,
+      )
       return verified
     }
     folderSource = verified.value
@@ -1548,7 +1550,9 @@ export async function startBootstrap(
         await deps.r1q2Setup.installR1q2Notices(targetRoot, deps.resolveR1q2LicensePath(), jobLog)
         copied.add('LICENSE-r1q2-GPL-3.0.txt')
       } catch (error) {
-        jobLog?.warn(`could not install R1Q2's license notices into ${targetRoot}: ${String(error)}`)
+        jobLog?.warn(
+          `could not install R1Q2's license notices into ${targetRoot}: ${String(error)}`,
+        )
       }
     }
 

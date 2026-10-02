@@ -45,13 +45,18 @@ function windowLines() {
 async function expectNewLines(from, expected, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
   while (windowLines().length - from < expected.length) {
-    if (Date.now() >= deadline) fail(`${label}: window log got ${JSON.stringify(windowLines().slice(from))}, expected ${JSON.stringify(expected)}`)
+    if (Date.now() >= deadline)
+      fail(
+        `${label}: window log got ${JSON.stringify(windowLines().slice(from))}, expected ${JSON.stringify(expected)}`,
+      )
     await sleep(50)
   }
   await sleep(SETTLE_MS)
   const got = windowLines().slice(from)
   if (JSON.stringify(got) !== JSON.stringify(expected)) {
-    fail(`${label}: window log got ${JSON.stringify(got)}, expected exactly ${JSON.stringify(expected)}`)
+    fail(
+      `${label}: window log got ${JSON.stringify(got)}, expected exactly ${JSON.stringify(expected)}`,
+    )
   }
 }
 
@@ -88,7 +93,12 @@ async function launchGeometry(logPath) {
 async function placedNow(page, app) {
   const b = await page.getByTestId('replays-stage-picture').boundingBox()
   if (!b) fail('the stage picture has no box')
-  const rect = { x: Math.round(b.x), y: Math.round(b.y), width: Math.round(b.width), height: Math.round(b.height) }
+  const rect = {
+    x: Math.round(b.x),
+    y: Math.round(b.y),
+    width: Math.round(b.width),
+    height: Math.round(b.height),
+  }
   return app.evaluate(({ BrowserWindow, screen }, rect) => {
     const win = BrowserWindow.getAllWindows()[0]
     const contentBounds = win.getContentBounds()
@@ -100,22 +110,32 @@ async function placedNow(page, app) {
       width: rect.width * zoom,
       height: rect.height * zoom,
     }
-    const p = typeof screen.dipToScreenRect === 'function' ? screen.dipToScreenRect(win, dip) : {
-      x: dip.x * scale, y: dip.y * scale, width: dip.width * scale, height: dip.height * scale,
-    }
+    const p =
+      typeof screen.dipToScreenRect === 'function'
+        ? screen.dipToScreenRect(win, dip)
+        : {
+            x: dip.x * scale,
+            y: dip.y * scale,
+            width: dip.width * scale,
+            height: dip.height * scale,
+          }
     return `set vid_geometry ${Math.round(p.width)}x${Math.round(p.height)}+${Math.round(p.x)}+${Math.round(p.y)}`
   }, rect)
 }
 
-
 const launchCount = (logPath) =>
-  existsSync(logPath) ? readFileSync(logPath, 'utf8').split(/\r?\n/).filter((l) => l.includes('launching')).length : 0
+  existsSync(logPath)
+    ? readFileSync(logPath, 'utf8')
+        .split(/\r?\n/)
+        .filter((l) => l.includes('launching')).length
+    : 0
 
 /** Waits for `n` new geometry lines, settles, and returns all new geometry lines. */
 async function newGeometry(from, n, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
   while (geometryLines(windowLines().slice(from)).length < n) {
-    if (Date.now() >= deadline) fail(`${label}: window log got ${JSON.stringify(windowLines().slice(from))}`)
+    if (Date.now() >= deadline)
+      fail(`${label}: window log got ${JSON.stringify(windowLines().slice(from))}`)
     await sleep(50)
   }
   await sleep(SETTLE_MS)
@@ -128,7 +148,11 @@ export default async function replaysStageViewLeave({ page, app, step, shot }) {
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForScan(page)
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
@@ -143,15 +167,20 @@ export default async function replaysStageViewLeave({ page, app, step, shot }) {
   }
   const launched = await launchGeometry(logPath)
   await sleep(SETTLE_MS)
-  if (windowLines().length > 0) fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
+  if (windowLines().length > 0)
+    fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
   const launches = launchCount(logPath)
 
   const edge = await app.evaluate(({ screen }) => {
     let right = 0
     for (const d of screen.getAllDisplays()) {
-      const p = typeof screen.dipToScreenRect === 'function' ? screen.dipToScreenRect(null, d.bounds) : {
-        x: d.bounds.x * d.scaleFactor, width: d.bounds.width * d.scaleFactor,
-      }
+      const p =
+        typeof screen.dipToScreenRect === 'function'
+          ? screen.dipToScreenRect(null, d.bounds)
+          : {
+              x: d.bounds.x * d.scaleFactor,
+              width: d.bounds.width * d.scaleFactor,
+            }
       right = Math.max(right, p.x + p.width)
     }
     return Math.round(right)
@@ -168,7 +197,8 @@ export default async function replaysStageViewLeave({ page, app, step, shot }) {
   await page.getByTestId('nav-home').click({ timeout: TIMEOUT_MS })
   await picture.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   let lines = await newGeometry(from, 1, 'leave')
-  if (lines.length !== 1 || !isPark(lines[0])) fail(`leave: expected exactly one park line (x=${parkX}), got ${JSON.stringify(lines)}`)
+  if (lines.length !== 1 || !isPark(lines[0]))
+    fail(`leave: expected exactly one park line (x=${parkX}), got ${JSON.stringify(lines)}`)
 
   step('back on Demos the game is placed at the stage, the demo was not restarted')
   from = windowLines().length
@@ -176,7 +206,8 @@ export default async function replaysStageViewLeave({ page, app, step, shot }) {
   await picture.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   lines = await newGeometry(from, 1, 'return')
   let want = await placedNow(page, app)
-  if (lines.length !== 1 || lines[0] !== want) fail(`return: expected exactly [${want}], got ${JSON.stringify(lines)}`)
+  if (lines.length !== 1 || lines[0] !== want)
+    fail(`return: expected exactly [${want}], got ${JSON.stringify(lines)}`)
   if (launchCount(logPath) !== launches) fail('returning to the Demos view restarted the demo')
   await shot('stage-view-leave-back')
 
@@ -195,7 +226,8 @@ export default async function replaysStageViewLeave({ page, app, step, shot }) {
   if (lines.length !== 2 || !isPark(lines[0]) || lines[1] !== want) {
     fail(`resize: expected exactly one park line then [${want}], got ${JSON.stringify(lines)}`)
   }
-  if (!(now.w > before.w || now.h > before.h)) fail(`resize: the stage did not grow (${JSON.stringify(before)} -> ${JSON.stringify(now)})`)
+  if (!(now.w > before.w || now.h > before.h))
+    fail(`resize: the stage did not grow (${JSON.stringify(before)} -> ${JSON.stringify(now)})`)
   if (launchCount(logPath) !== launches) fail('resizing restarted the demo')
   await shot('stage-view-leave-maximized')
 

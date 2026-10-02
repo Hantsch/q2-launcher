@@ -131,7 +131,9 @@ export function RetailUpgradeDialog({ installationId }: { installationId: string
         <RunningStep job={job} />
       ) : (
         <div className="space-y-3" data-testid="retail-upgrade-dialog">
-          {sources === null && <p className="text-xs text-ink-muted">{t('retailUpgrade.loading')}</p>}
+          {sources === null && (
+            <p className="text-xs text-ink-muted">{t('retailUpgrade.loading')}</p>
+          )}
 
           {sources !== null && sources.length === 0 && (
             <p className="text-xs text-ink-muted" data-testid="retail-upgrade-no-sources">
@@ -212,7 +214,9 @@ function sizeMismatchParams(
   inspection: DetectedRetailSource['inspection'],
   reasonKey: string,
 ): Record<string, string> {
-  const pak = (SIZE_MISMATCH_REASON_TO_PAK as Record<string, 'pak0' | 'pak1' | undefined>)[reasonKey]
+  const pak = (SIZE_MISMATCH_REASON_TO_PAK as Record<string, 'pak0' | 'pak1' | undefined>)[
+    reasonKey
+  ]
   if (!pak) return {}
   return { actualSize: formatBytes(inspection[pak].sizeBytes ?? undefined) }
 }

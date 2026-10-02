@@ -68,7 +68,11 @@ describe('mergeProfileUpdate', () => {
       name: 'New name', // an unrelated external field genuinely did change
     })
 
-    const merged = mergeProfileUpdate(prev, fresh, new Set<LocallyPatchedField>(['cvars', 'categories', 'actions']))
+    const merged = mergeProfileUpdate(
+      prev,
+      fresh,
+      new Set<LocallyPatchedField>(['cvars', 'categories', 'actions']),
+    )
 
     expect(merged?.cvars).toEqual({ sensitivity: '7' })
     expect(merged?.categories).toEqual(prev.categories)

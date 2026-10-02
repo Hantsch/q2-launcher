@@ -74,7 +74,7 @@ and the cvars inside them - and see the file follow.
   stay untouched.
 - **"Directly into another category's grid" is spring-loaded:** only one category's grid is on
   screen at a time, so hovering a category chip during a drag for ~600 ms switches the grid to that
-  category and the drag continues, allowing an exact drop position there; dropping *on* the chip
+  category and the drag continues, allowing an exact drop position there; dropping _on_ the chip
   itself appends to the end, as the user's decision states.
 - **Dragging is disabled while the Controls filter narrows the list** (grip disabled with an
   explaining tooltip, row menu still offers move up/down/"Move to…"): a drop between two visible
@@ -135,7 +135,7 @@ it, the story stalls at D1 and nothing below it can be built.
       accessible name and a `disabled` mode) and the drop-indicator class in
       `src/renderer/src/styles/controls-grid.css`.
       Mirror for the button/tooltip idiom: `components/ui/Button.tsx`'s `IconButton`.
-      *Acceptance:* a throwaway or test-only list reorders by mouse and by keyboard (Space, arrows,
+      _Acceptance:_ a throwaway or test-only list reorders by mouse and by keyboard (Space, arrows,
       Space; Escape cancels); `npm run build` production bundle logs no CSP violation and the
       renderer contains no injected `<style>`; `renderer-source.test.ts`'s CSP guard still green.
 
@@ -146,7 +146,7 @@ it, the story stalls at D1 and nothing below it can be built.
       `moveCategory(categories, id, toIndex)`, `moveSubcategory(category, id, toIndex)` — all pure,
       array-position semantics, no-ops on unknown ids, existing `swapEntries`/`buildMoveTargets`
       untouched.
-      *Acceptance:* tests cover each helper incl. cross-category append and unknown-id no-op;
+      _Acceptance:_ tests cover each helper incl. cross-category append and unknown-id no-op;
       `npm test` green.
 
 - [x] **D3 — One element per Controls row, plus the grip column.**
@@ -155,7 +155,7 @@ it, the story stalls at D1 and nothing below it can be built.
       Wrap a row's fragment in one `role="rowgroup"` element carrying `data-row-id`; the
       sub-category divider becomes a `role="row"` direct child of the table. Add the leading 20px
       grip cell to `.ctrl-row`'s grid template (`:63`) and the column header's `sr-only` label.
-      *Acceptance:* no visual change other than the grip column; 40px row height, zebra parity,
+      _Acceptance:_ no visual change other than the grip column; 40px row height, zebra parity,
       extra-key sub-rows and message rows unchanged; `npm run ui:verify` axe still at zero.
 
 - [x] **D4 — Rows drag within a category.**
@@ -165,7 +165,7 @@ it, the story stalls at D1 and nothing below it can be built.
       index and `subcategoryId`), persisting through the existing `persistCategoriesAndActions`.
       Drop indicator, auto-scroll, Escape cancel come from D1. Multi-key sub-rows, prompt hosts and
       message rows are never drag targets. Grip disabled while the filter is active.
-      *Acceptance:* a row can be dragged anywhere in its category and into a sibling sub-category;
+      _Acceptance:_ a row can be dragged anywhere in its category and into a sibling sub-category;
       the save bar shows it as an unsaved change; the "n rows - m bound" footer and conflict markers
       stay correct.
 
@@ -174,21 +174,21 @@ it, the story stalls at D1 and nothing below it can be built.
       Category chips become droppables: a drop on a chip moves the row to that category, appended at
       the end; hovering a chip for ~600 ms during a drag switches the visible grid to that category
       so the drag can finish at an exact position there.
-      *Acceptance:* both paths move the row and persist; the source category loses it, the target
+      _Acceptance:_ both paths move the row and persist; the source category loses it, the target
       shows it; cancelling with Escape after a spring-load switch leaves the model untouched.
 
 - [x] **D6 — Sub-category headers reorder by drag.**
       `components/ControlsGrid.tsx`, `ControlsTab.tsx`.
       The group header gets a grip; dragging reorders sub-categories inside their category via D2's
       `moveSubcategory`, existing up/down buttons on the header stay as the keyboard path.
-      *Acceptance:* reorder persists and the rendered file emits the sub-category sections in the
+      _Acceptance:_ reorder persists and the rendered file emits the sub-category sections in the
       new order.
 
 - [x] **D7 — Category chips reorder by drag.**
       `ControlsTab.tsx` (rail at `:1466`), `en.json`.
       The rail becomes a horizontal sortable list; existing chip move buttons stay as the keyboard
       path.
-      *Acceptance:* chip order persists across tab switches and the file's category sections follow.
+      _Acceptance:_ chip order persists across tab switches and the file's category sections follow.
 
 - [x] **D8 — The row menu takes over move up/down.**
       New `components/ControlsRowMenu.tsx` (built on `components/ui/Menu.tsx`), `ControlsTab.tsx`
@@ -196,7 +196,7 @@ it, the story stalls at D1 and nothing below it can be built.
       A kebab in the row's action cluster with `Move up`, `Move down`, `Move to…` (category /
       sub-category picker, reusing 053's move path); the inline arrow buttons are removed from the
       row.
-      *Acceptance:* every ordering operation is reachable by keyboard alone for every row kind
+      _Acceptance:_ every ordering operation is reachable by keyboard alone for every row kind
       (catalogue and free-form); no arrow buttons left in a Controls row; `en.json` has no orphaned
       keys.
 
@@ -205,14 +205,14 @@ it, the story stalls at D1 and nothing below it can be built.
       `moveSectionToIndex`, `moveSubsectionToIndex`, `moveCvarToPosition(sections, name, target)`
       where target is a (section|subsection, index) pair, incl. moving out of the reserved
       `Defaults`/`Other` buckets into a real section.
-      *Acceptance:* tests cover each; reserved buckets are never reordered themselves.
+      _Acceptance:_ tests cover each; reserved buckets are never reordered themselves.
 
 - [x] **D10 — Settings drags.**
       `SettingsTab.tsx`, `en.json`.
       Grips on section headers, sub-section headers and cvar rows; drag reorders and moves cvars
       between sections/sub-sections using D9's helpers and the existing persist path.
       `MoveCvarDialog` and the arrow buttons stay as the keyboard path.
-      *Acceptance:* a section, a sub-section and a cvar can each be dragged; filter, "Unsaved only",
+      _Acceptance:_ a section, a sub-section and a cvar can each be dragged; filter, "Unsaved only",
       the Advanced collapse and the per-section counts keep working.
 
 - [x] **D11 — Order survives save, discard and render.**
@@ -221,7 +221,7 @@ it, the story stalls at D1 and nothing below it can be built.
       Cases: a reorder is in the profile diff (save bar), Discard restores the previous order, a
       rendered file emits categories/sub-categories/sections/rows in the new order and re-reads
       identically.
-      *Acceptance:* `npm test` green, including a reorder-then-round-trip property case.
+      _Acceptance:_ `npm test` green, including a reorder-then-round-trip property case.
 
 - [x] **D12 — Seen and driven in the real app.**
       `scripts/lib/screens.mjs` (a Controls screen with grips visible), new
@@ -229,8 +229,8 @@ it, the story stalls at D1 and nothing below it can be built.
       reorder a row and drop one onto another category's chip), `docs/UI-VERIFICATION.md` if the
       flow list is documented there.
       Mirror: `scripts/flows/controls-subcategory.mjs`.
-      *Acceptance:* `npm run ui:verify` green with zero axe findings; `npm run ui:flow --
-      controls-drag-reorder` performs a real drag against the running app and the new order is
+      _Acceptance:_ `npm run ui:verify` green with zero axe findings; `npm run ui:flow --
+controls-drag-reorder` performs a real drag against the running app and the new order is
       visible in the screenshot.
 
 ## Model Hints
@@ -307,6 +307,7 @@ a "ghost" (unrendered) cvar name was fixed with an index remap; and the extra-ke
 indent was restored to account for the new grip column's width.
 
 **Decisions (not asked, made and recorded here):**
+
 - D1 added `@dnd-kit/modifiers` (for `restrictToVerticalAxis`) as a fourth package alongside the three
   the user named — it's a peer of `sortable`, not a second library choice, same as `utilities`.
 - The Controls row grip column ended up 28px wide, not the 20px the Decisions section named — a 28px

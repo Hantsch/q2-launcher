@@ -123,7 +123,9 @@ export function buildFixtureProfile(input: FixtureProfileInput): ConfigProfile {
   }
 }
 
-function action(overrides: Partial<ConfigAction> & Pick<ConfigAction, 'name' | 'kind' | 'commands'>): ConfigAction {
+function action(
+  overrides: Partial<ConfigAction> & Pick<ConfigAction, 'name' | 'kind' | 'commands'>,
+): ConfigAction {
   return {
     id: nextId('action')(),
     categoryId: 'movement',
@@ -196,7 +198,10 @@ export const twoSlotTwoModifierProfile: ConfigProfile = buildFixtureProfile({
       name: 'Reload weapon',
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'reload' }],
-      keys: [{ key: 'r', modifier: 'ALT' }, { key: 't', modifier: 'CTRL' }],
+      keys: [
+        { key: 'r', modifier: 'ALT' },
+        { key: 't', modifier: 'CTRL' },
+      ],
       categoryId: 'weapons',
     }),
   ],
@@ -222,7 +227,10 @@ export const twoSlotTwoModifierLayersReversedProfile: ConfigProfile = (() => {
         name: 'Reload weapon',
         kind: 'bind',
         commands: [{ kind: 'raw', text: 'reload' }],
-        keys: [{ key: 'r', modifier: 'ALT' }, { key: 't', modifier: 'CTRL' }],
+        keys: [
+          { key: 'r', modifier: 'ALT' },
+          { key: 't', modifier: 'CTRL' },
+        ],
         categoryId: 'weapons',
       }),
     ],
@@ -248,9 +256,15 @@ export const ownAliasBothSlotsModifiedProfile: ConfigProfile = buildFixtureProfi
     action({
       name: 'Rail combo',
       kind: 'bind',
-      commands: [{ kind: 'raw', text: 'use railgun' }, { kind: 'raw', text: 'say_team rail out' }],
+      commands: [
+        { kind: 'raw', text: 'use railgun' },
+        { kind: 'raw', text: 'say_team rail out' },
+      ],
       aliasName: 'rail_combo',
-      keys: [{ key: 't', modifier: 'CTRL' }, { key: 'r', modifier: 'ALT' }],
+      keys: [
+        { key: 't', modifier: 'CTRL' },
+        { key: 'r', modifier: 'ALT' },
+      ],
       categoryId: 'weapons',
     }),
   ],
@@ -265,9 +279,15 @@ export const ownAliasBothSlotsModifiedAlphabeticalProfile: ConfigProfile = build
     action({
       name: 'Rail combo',
       kind: 'bind',
-      commands: [{ kind: 'raw', text: 'use railgun' }, { kind: 'raw', text: 'say_team rail out' }],
+      commands: [
+        { kind: 'raw', text: 'use railgun' },
+        { kind: 'raw', text: 'say_team rail out' },
+      ],
       aliasName: 'rail_combo',
-      keys: [{ key: 'r', modifier: 'ALT' }, { key: 't', modifier: 'CTRL' }],
+      keys: [
+        { key: 'r', modifier: 'ALT' },
+        { key: 't', modifier: 'CTRL' },
+      ],
       categoryId: 'weapons',
     }),
   ],
@@ -380,7 +400,10 @@ export const pressReleaseAndEmptyAliasProfile: ConfigProfile = buildFixtureProfi
     action({
       name: 'Slow walk',
       kind: 'alias',
-      commands: [{ kind: 'raw', text: '+speed' }, { kind: 'raw', text: 'cl_run 0' }],
+      commands: [
+        { kind: 'raw', text: '+speed' },
+        { kind: 'raw', text: 'cl_run 0' },
+      ],
       aliasName: '+slow',
       keys: [{ key: 'CAPSLOCK' }],
       categoryId: 'movement',
@@ -388,7 +411,10 @@ export const pressReleaseAndEmptyAliasProfile: ConfigProfile = buildFixtureProfi
     action({
       name: 'Slow walk (release)',
       kind: 'alias',
-      commands: [{ kind: 'raw', text: '-speed' }, { kind: 'raw', text: 'cl_run 1' }],
+      commands: [
+        { kind: 'raw', text: '-speed' },
+        { kind: 'raw', text: 'cl_run 1' },
+      ],
       aliasName: '-slow',
       categoryId: 'movement',
     }),
@@ -419,7 +445,10 @@ export const catalogueAndUserEntryProfile: ConfigProfile = buildFixtureProfile({
     action({
       name: 'My macro',
       kind: 'bind',
-      commands: [{ kind: 'raw', text: 'say hi' }, { kind: 'raw', text: 'wait' }],
+      commands: [
+        { kind: 'raw', text: 'say hi' },
+        { kind: 'raw', text: 'wait' },
+      ],
       keys: [{ key: 'g' }],
       categoryId: 'movement',
     }),
@@ -502,8 +531,18 @@ export const markerTagOnlyPairProfile: ConfigProfile = buildFixtureProfile({
   actions: [
     // Deliberately not a `say`/`say_team` body: `entryKindFor` reads one of those back as a
     // `kind: 'message'` entry, which would make this fixture about kind inference instead.
-    action({ name: 'Pick blaster', kind: 'bind', commands: [{ kind: 'raw', text: 'use blaster' }], keys: [{ key: 'j' }] }),
-    action({ name: 'Pick shotgun', kind: 'bind', commands: [{ kind: 'raw', text: 'use shotgun' }], keys: [{ key: 'k' }] }),
+    action({
+      name: 'Pick blaster',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use blaster' }],
+      keys: [{ key: 'j' }],
+    }),
+    action({
+      name: 'Pick shotgun',
+      kind: 'bind',
+      commands: [{ kind: 'raw', text: 'use shotgun' }],
+      keys: [{ key: 'k' }],
+    }),
   ],
 })
 
@@ -654,7 +693,10 @@ export const layeredThirdModifiedSlotProfile: ConfigProfile = buildFixtureProfil
     action({
       name: 'Rail zoom',
       kind: 'bind',
-      commands: [{ kind: 'raw', text: 'use railgun' }, { kind: 'raw', text: 'zoom_in' }],
+      commands: [
+        { kind: 'raw', text: 'use railgun' },
+        { kind: 'raw', text: 'zoom_in' },
+      ],
       keys: [{ key: 'j' }, { key: 'k' }, { key: 'l', modifier: 'CTRL' }],
       categoryId: 'weapons',
     }),
@@ -737,7 +779,10 @@ export const anchorOnlyTwoSlotProfile: ConfigProfile = buildFixtureProfile({
       kind: 'bind',
       commands: [{ kind: 'raw', text: 'weapnext' }],
       aliasName: 'weapnext',
-      keys: [{ key: 'MWHEELUP', modifier: 'ALT' }, { key: 'MWHEELDOWN', modifier: 'CTRL' }],
+      keys: [
+        { key: 'MWHEELUP', modifier: 'ALT' },
+        { key: 'MWHEELDOWN', modifier: 'CTRL' },
+      ],
       categoryId: 'weapons',
     }),
   ],

@@ -44,7 +44,7 @@ imports.
       modifier, without `e`/`slot`.
 - [x] Story 042's round-trip property still holds on the whole fixture corpus: render → parse →
       restore → render is byte-identical.
-- [ ] ~~A file written by the *current* (pre-050) format still imports with the same result as
+- [ ] ~~A file written by the _current_ (pre-050) format still imports with the same result as
       before — old tags are read, the dropped keys are ignored rather than reported as unknown.~~
       Dropped by user decision (see Decisions (Sprint)): pre-release app, no old format to support.
 - [x] `docs/systems/profile-file-format.md` describes the reduced key registry, the order rule and
@@ -67,10 +67,10 @@ imports.
   dual-format support.
 
 - Registry after the cut: `v`, `cid`, `an`, `key`, `mod`, `cat`, `layer`, `mode`, `trigger`. `an`
-  stays because an anchor-only entry has no line whose *code* could spell its alias name; `v` stays
+  stays because an anchor-only entry has no line whose _code_ could spell its alias name; `v` stays
   unchanged at 1 (no bump, per the user decision above).
 - **Every entry line always emits the tag, even with no fields** (`// My Thing [q2l]`): with `e`
-  gone, tag *presence* is the only thing that still distinguishes a launcher-owned bind line from a
+  gone, tag _presence_ is the only thing that still distinguishes a launcher-owned bind line from a
   raw bind a user typed and commented themselves - without it such a line would come back unowned
   and move into the "other binds" section on the next render, breaking the fixed point.
 - Entry identity on read comes from the config text: an alias line is identified by its alias name
@@ -79,7 +79,7 @@ imports.
   pairing AC4 asks for, with no ref involved.
 - Anchor to entry matching: within the same section, by `cid` when the anchor carries one, else by
   exact display prose. Ambiguous or unmatched anchors become their own entry - the drift the user
-  already accepted. ~~else by a *unique* prefix relationship (prose truncation is a plain prefix
+  already accepted. ~~else by a _unique_ prefix relationship (prose truncation is a plain prefix
   cut, `fitProseAndTag`)~~ - dropped in the story review (finding 1): the prefix relation cannot
   tell a truncated name from two sibling names that nest (`Reload` inside `Reload weapon`) and
   merged the two, losing one entry's name, commands and key with no warning; the truncation case it
@@ -90,9 +90,9 @@ imports.
   decision - the name is the user's contract with whatever binding calls it, so a collision is
   reported by Care, never silently renamed), so `Fire` and `fire!` both render `alias fire`. Quake
   II's alias name space is flat and whole-file: the engine keeps only the last definition, and every
-  reader folds `alias` lines last-definition-wins by name *before* the entry reconstruction runs, so
+  reader folds `alias` lines last-definition-wins by name _before_ the entry reconstruction runs, so
   the earlier body is gone before any group exists to attribute it to. Section scoping keeps the
-  *groups* apart (and genuinely fixes the bind-value key space, where nothing folds anything away)
+  _groups_ apart (and genuinely fixes the bind-value key space, where nothing folds anything away)
   but cannot put that body back. The first fix reported `entry-alias-duplicate` from
   `buildEntry`, which is downstream of the fold and therefore unreachable - the warning was dead
   code and the entry still vanished silently. It is now raised by the fold itself
@@ -120,7 +120,7 @@ imports.
   and `include: ['src/**/*.{test,spec}.ts']`; the one jsdom-based test in the repo
   (`lib/profile-changes.test.ts`) cannot run on the installed toolchain at all - jsdom 30 requires
   Node >= 22.19 and this machine runs Node 20, so `npm test` reports it as a worker-start error
-  (pre-existing, unrelated to this story). The regression tests therefore drive the *handler* both
+  (pre-existing, unrelated to this story). The regression tests therefore drive the _handler_ both
   buttons run, with `refreshProfilesFromFiles`/`pushToast` substituted exactly as each component
   passes them, and the components hold no adopt logic left to diverge. Closing the gap properly is
   a toolchain change (Node bump, or a DOM environment that runs on Node 20), not a story-050 fix.
@@ -145,7 +145,7 @@ imports.
 - Entry kind is always inferred (`entryKindFor`, story 041). `resolveKind` and the warnings
   `tag-kind-unknown` / `tag-kind-contradicted` disappear with `k`.
 - Slot claims are taken in file order, bind lines before anchor lines. Consequence, accepted and
-  documented in the format doc: an entry whose *modified* slot is slot 1 and whose plain slot is
+  documented in the format doc: an entry whose _modified_ slot is slot 1 and whose plain slot is
   slot 2 comes back with the two swapped - both keys and both modifiers survive and the rendered
   file stays byte-identical, only the intra-entry order flips.
 - Slot conflicts are structurally impossible once claims simply append, so `tag-slot-conflict` and
@@ -155,7 +155,7 @@ imports.
   `secondaryKeyModifier` outright, read and written through one new accessor module
   (`src/shared/config/action-slots.ts`) - no hybrid `key` plus `extraKeys[]`, which would leave two
   representations of one concept for every future story to pay for.
-- The persisted profile schema *does* accept the legacy four fields and normalizes them into `keys`
+- The persisted profile schema _does_ accept the legacy four fields and normalizes them into `keys`
   on read (zod preprocess). This is not cfg-format compatibility (which the user dropped): without
   it every profile already on a dev machine loses all of its binds silently on the next load.
 - The Controls tab keeps its two editable slot columns and its `'primary' | 'secondary'` vocabulary,
@@ -219,7 +219,7 @@ the file, and `META_FORMAT_VERSION` (stays 1).
 **D1 - Tag registry shrink. [x]** `e`/`k`/`slot` gone from `KNOWN_META_KEYS`, `MetaTagFields` and the
 module doc; a line with no fields emits the bare `[q2l]` marker. Files:
 `src/shared/config/profile-metadata.ts`, `profile-metadata.test.ts`.
-*Accepted when:* no code path can emit those three keys, a fieldless tag renders `[q2l]`, and
+_Accepted when:_ no code path can emit those three keys, a fieldless tag renders `[q2l]`, and
 `parseMetaTag` reports a hand-written `e=...` as an unknown key rather than crashing.
 ~~`formatMetaComment` gains an explicit marker mode~~ - removed in the story review (finding 7): it
 never acquired a caller, because the writer needs prose and tag as two separate halves
@@ -233,33 +233,33 @@ never acquired a caller, because the writer needs prose and tag as two separate 
 shape on read. Files: `src/shared/modules/config.ts`, `src/shared/config/action-slots.ts` (+ test),
 `src/main/lib/schemas.ts`, `src/main/modules/config/schemas.ts` (+ their tests). Mirror for module
 shape and doc style: `src/shared/config/press-release.ts`.
-*Accepted when:* an action with five slots round-trips through both schemas, a legacy-shaped stored
+_Accepted when:_ an action with five slots round-trips through both schemas, a legacy-shaped stored
 profile loads with its two slots intact, and `npm run typecheck` is green for the shared+main layer
 (call sites follow in D3-D5).
 
 **D3 - Shared slot consumers, array-shaped batch. [x]** `action-mirror.ts`, `alias-references.ts`,
 `modifier-layers.ts` (+ their tests) read slots through the accessor and loop over all of them.
-*Accepted when:* an unmodified slot 3 is mirrored into `profile.binds` and a modified slot 3 into its
+_Accepted when:_ an unmodified slot 3 is mirrored into `profile.binds` and a modified slot 3 into its
 modifier layer, and every existing test passes unchanged in behaviour.
 
 **D4 - Shared slot consumers, primary/secondary batch. [x]** `bind-collision.ts`, `bind-adoption.ts`,
 `tidy-up.ts`, `profile-diff.ts` (+ tests): slot descriptors become numeric indices, detection covers
 all slots, adoption appends a new slot instead of stopping after the second.
-*Accepted when:* a collision on a third key is reported and clearable, and a diff names the slot it
+_Accepted when:_ a collision on a third key is reported and clearable, and a diff names the slot it
 changed for any index.
 
 **D5 - Renderer on the accessor. [x]** `lib/catalog-binds.ts`, `lib/bind-conflicts.ts`,
 `lib/bind-slot-collision.ts`, `ControlsTab.tsx`, `components/ActionEditor.tsx`,
 `CareTidyUpSection.tsx`, plus one `en.json` label for a slot index of 3 and up. Two editable columns
 stay; `applySlot` writes slot 0/1 through `withKeySlot` and leaves further slots untouched.
-*Accepted when:* editing or clearing slot 1 of an entry that has three keys keeps the third key, and
+_Accepted when:_ editing or clearing slot 1 of an entry that has three keys keeps the third key, and
 that third key still participates in conflict detection.
 
 **D6 - Writer emits the reduced tag. [x]** `entryTag` down to `cid` only (an anchor adds
 `key`/`mod`/`an`); all ref machinery and the `KeySlot` type deleted; entry lines always carry the
 marker tag; anchor lines emitted per modified slot for all slots, in slot order. Files:
 `src/shared/config/render.ts`, `src/main/modules/config/render.test.ts`.
-*Accepted when:* the story's example renders exactly
+_Accepted when:_ the story's example renders exactly
 `bind mouse1 "+attack"   // Attack [q2l cid=movement:attack]` and no rendered line anywhere in the
 fixture corpus contains `e=`, `k=` or `slot=`.
 
@@ -268,7 +268,7 @@ name/value/anchor grouping; claims append in file order, uncapped; `resolveKind`
 discriminator on `key`; the four dead warning reasons plus their `en.json` strings removed. Files:
 `src/shared/config/profile-restore.ts`, `profile-restore.test.ts`,
 `src/renderer/src/i18n/locales/en.json`.
-*Accepted when:* two bind lines on one value come back as one entry with two keys in file order, a
+_Accepted when:_ two bind lines on one value come back as one entry with two keys in file order, a
 hand-added third bind line becomes slot 3, an anchor pairs with its entry via `cid`/prose, and an
 inconsistently renamed anchor splits off as its own entry with no crash and no lost line.
 
@@ -278,14 +278,14 @@ with no `cid` (marker-tag-only line). `canonicalizeRefs` deleted. Adversarial pa
 prose renamed on one of an entry's lines, forged `cat=`, leftover `e=`/`slot=` from a hand-edit.
 Files: `src/shared/config/fixtures/profiles.ts`, `src/main/modules/config/round-trip.test.ts`,
 `src/shared/config/render-invariants.test.ts`.
-*Accepted when:* render -> parse -> restore -> render is byte-identical for every fixture in the
+_Accepted when:_ render -> parse -> restore -> render is byte-identical for every fixture in the
 corpus and every adversarial variant loses no config line.
 
 **D9 - Format documentation. [x]** `docs/systems/profile-file-format.md`: reduced key registry, the
 file-order slot rule (including the documented slot-swap consequence), the per-entry multi-slot
 model, the marker tag, and `e`/`k`/`slot` named as removed with the reason. Touch
 `docs/systems/config-module.md` only where it names a removed key.
-*Accepted when:* no removed key is described as current anywhere in `docs/systems/`.
+_Accepted when:_ no removed key is described as current anywhere in `docs/systems/`.
 
 ## Model Hints
 
@@ -324,17 +324,17 @@ model, the marker tag, and `e`/`k`/`slot` named as removed with the reason. Touc
 
 ## Coverage gate
 
-| Acceptance criterion | Deliverable |
-| --- | --- |
-| `e`/`k`/`slot` never written | D1, D6 |
-| example bind renders as `// Attack [q2l cid=movement:attack]` | D6 |
-| slots recovered from file order | D7 |
-| two bind lines on one command pair into one entry | D7 |
-| anchor still identifies its entry and carries key + modifier | D6 (write), D7 (read) |
-| round-trip fixed point over the whole corpus | D8 |
-| ~~old-format import~~ | dropped by user decision |
-| `profile-file-format.md` updated | D9 |
-| arbitrary key slots per entry (user decision) | D2, D3, D4, D5, D6, D7 |
+| Acceptance criterion                                          | Deliverable              |
+| ------------------------------------------------------------- | ------------------------ |
+| `e`/`k`/`slot` never written                                  | D1, D6                   |
+| example bind renders as `// Attack [q2l cid=movement:attack]` | D6                       |
+| slots recovered from file order                               | D7                       |
+| two bind lines on one command pair into one entry             | D7                       |
+| anchor still identifies its entry and carries key + modifier  | D6 (write), D7 (read)    |
+| round-trip fixed point over the whole corpus                  | D8                       |
+| ~~old-format import~~                                         | dropped by user decision |
+| `profile-file-format.md` updated                              | D9                       |
+| arbitrary key slots per entry (user decision)                 | D2, D3, D4, D5, D6, D7   |
 
 ## Done
 
@@ -354,6 +354,7 @@ fixed and re-verified through the real render→import/restore pipeline, not jus
 **Commit message:** `050: tag shrinks to the non-derivable minimum, key slots move to file order`
 
 **Verification.**
+
 - `npm run typecheck`: clean (shared+main+web).
 - `npm test`: 75 files / 1871 tests passed.
 - `npm run build`: clean.

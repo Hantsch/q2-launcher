@@ -169,7 +169,10 @@ export function ControlsRow({
           )}
         </span>
         <span role="cell">
-          <button type="button" className="ctrl-reset" aria-label={resetLabel}
+          <button
+            type="button"
+            className="ctrl-reset"
+            aria-label={resetLabel}
             onClick={onReset}
             disabled={unavailable}
           >

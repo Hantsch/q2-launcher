@@ -1,15 +1,7 @@
 import { rename, rm, unlink, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
-import {
-  NEWS_FETCH_RETRIES,
-  NEWS_FETCH_TIMEOUT_MS,
-  type NewsFetchLog,
-} from '../news/feed-fetcher'
-import {
-  SAFE_NEWS_IMAGE_EXTENSIONS,
-  isSafeNewsImageFileName,
-  newsImageFileName,
-} from './paths'
+import { NEWS_FETCH_RETRIES, NEWS_FETCH_TIMEOUT_MS, type NewsFetchLog } from '../news/feed-fetcher'
+import { SAFE_NEWS_IMAGE_EXTENSIONS, isSafeNewsImageFileName, newsImageFileName } from './paths'
 
 /**
  * Story 084 D2: fetch one slide image, decide whether it is safe to cache, and never leave an

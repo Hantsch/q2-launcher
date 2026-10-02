@@ -182,11 +182,26 @@ function harness(options: {
 
   const records = (): ModInstallRecord[] => readModsState(installation.moduleData).records
   const run = async () => {
-    const started = await startModInstall(deps, { installationId: 'inst1', catalogId: 'fixturemod' })
+    const started = await startModInstall(deps, {
+      installationId: 'inst1',
+      catalogId: 'fixturemod',
+    })
     if (!started.ok) throw new Error(started.error.key)
     return started.value.settled
   }
-  return { deps, installation, jobs, installations, writeGuard, stage, askDecision, events, finished, records, run }
+  return {
+    deps,
+    installation,
+    jobs,
+    installations,
+    writeGuard,
+    stage,
+    askDecision,
+    events,
+    finished,
+    records,
+    run,
+  }
 }
 
 async function stagingLeft(): Promise<string[]> {
@@ -206,10 +221,14 @@ describe('placedGameLibraryName', () => {
 
 describe('startModInstall', () => {
   it('a verification failure writes nothing and records nothing', async () => {
-    const h = harness({ stages: [{ fail: 'downloads.error.verificationFailed' }, { files: { 'pak0.pak': 'x' } }] })
+    const h = harness({
+      stages: [{ fail: 'downloads.error.verificationFailed' }, { files: { 'pak0.pak': 'x' } }],
+    })
     const outcome = await h.run()
     expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.verificationFailed' })
-    expect(h.finished).toEqual([{ status: 'failed', error: { key: 'downloads.error.verificationFailed' } }])
+    expect(h.finished).toEqual([
+      { status: 'failed', error: { key: 'downloads.error.verificationFailed' } },
+    ])
     expect(await listTree(root)).toEqual(['baseq2/'])
     expect(h.records()).toEqual([])
     expect(h.writeGuard.runWrite).not.toHaveBeenCalled()
@@ -231,7 +250,9 @@ describe('startModInstall', () => {
   })
 
   it('the write runs inside runWrite', async () => {
-    const h = harness({ stages: [{ files: { 'gamex86_64.dll': 'lib' } }, { files: { 'pak0.pak': 'data' } }] })
+    const h = harness({
+      stages: [{ files: { 'gamex86_64.dll': 'lib' } }, { files: { 'pak0.pak': 'data' } }],
+    })
     // The write is deferred (a running game) and the user cancels while it waits: nothing may
     // reach the installation before the guard runs the write.
     h.writeGuard.runWrite.mockImplementationOnce(async () => {
@@ -245,7 +266,12 @@ describe('startModInstall', () => {
 
     const outcome = await h.run()
     expect(outcome.status).toBe('succeeded')
-    expect(h.writeGuard.runWrite).toHaveBeenLastCalledWith('inst1', 'job1', expect.any(AbortSignal), expect.any(Function))
+    expect(h.writeGuard.runWrite).toHaveBeenLastCalledWith(
+      'inst1',
+      'job1',
+      expect.any(AbortSignal),
+      expect.any(Function),
+    )
     expect(h.events).toEqual(['guard-enter', 'record-in-guard', 'guard-exit'])
     expect(await listTree(join(root, 'fixturemod'))).toEqual(['gamex86_64.dll', 'pak0.pak'])
     expect(h.installations.validate).toHaveBeenCalledWith('inst1')
@@ -291,12 +317,21 @@ describe('startModInstall', () => {
     await writeTree(join(root, 'FixtureMod'), { 'pak0.pak': 'mine', 'readme.txt': 'same' })
     const h = harness({
       decision: 'keep',
-      stages: [{ files: { 'gamex86_64.dll': 'lib' } }, { files: { 'pak0.pak': 'theirs', 'readme.txt': 'same' } }],
+      stages: [
+        { files: { 'gamex86_64.dll': 'lib' } },
+        { files: { 'pak0.pak': 'theirs', 'readme.txt': 'same' } },
+      ],
     })
     const outcome = await h.run()
     expect(outcome.status).toBe('succeeded')
-    expect(h.askDecision).toHaveBeenCalledWith('job1', { folder: 'FixtureMod', conflicts: ['pak0.pak'] })
-    expect(h.jobs.setWaiting).toHaveBeenCalledWith('job1', expect.objectContaining({ key: 'mods.job.waitingForDecision' }))
+    expect(h.askDecision).toHaveBeenCalledWith('job1', {
+      folder: 'FixtureMod',
+      conflicts: ['pak0.pak'],
+    })
+    expect(h.jobs.setWaiting).toHaveBeenCalledWith(
+      'job1',
+      expect.objectContaining({ key: 'mods.job.waitingForDecision' }),
+    )
     expect(await readFile(join(root, 'FixtureMod', 'pak0.pak'), 'utf8')).toBe('mine')
     expect(await listTree(root)).toEqual([
       'FixtureMod/',
@@ -314,12 +349,18 @@ describe('startModInstall', () => {
     await writeTree(join(root, 'fixturemod'), { 'pak0.pak': 'mine', 'readme.txt': 'same' })
     const h = harness({
       decision: 'overwrite',
-      stages: [{ files: { 'gamex86_64.dll': 'lib' } }, { files: { 'pak0.pak': 'theirs', 'readme.txt': 'same' } }],
+      stages: [
+        { files: { 'gamex86_64.dll': 'lib' } },
+        { files: { 'pak0.pak': 'theirs', 'readme.txt': 'same' } },
+      ],
     })
     const outcome = await h.run()
     expect(outcome.status).toBe('succeeded')
     expect(await readFile(join(root, 'fixturemod', 'pak0.pak'), 'utf8')).toBe('theirs')
-    const paths = h.records()[0]!.files.map((f) => f.path).sort()
+    const paths = h
+      .records()[0]!
+      .files.map((f) => f.path)
+      .sort()
     expect(paths).toEqual(['gamex86_64.dll', 'pak0.pak'])
     expect(h.records()[0]!.files.find((f) => f.path === 'pak0.pak')!.sha256).toBe(sha('theirs'))
     expect(await stagingLeft()).toEqual([])
@@ -347,13 +388,20 @@ describe('startModInstall', () => {
     await writeTree(join(root, 'fixturemod'), { 'pak0.pak': 'mine', 'zfile.txt/keep.me': 'k' })
     const h = harness({
       decision: 'overwrite',
-      stages: [{ files: { 'new.txt': 'new', 'pak0.pak': 'theirs' } }, { files: { 'zfile.txt': 'z' } }],
+      stages: [
+        { files: { 'new.txt': 'new', 'pak0.pak': 'theirs' } },
+        { files: { 'zfile.txt': 'z' } },
+      ],
     })
     const outcome = await h.run()
     expect(outcome).toEqual({ status: 'failed', key: 'mods.error.writeFailed' })
     expect(h.finished).toEqual([{ status: 'failed', error: { key: 'mods.error.writeFailed' } }])
     expect(await readFile(join(root, 'fixturemod', 'pak0.pak'), 'utf8')).toBe('mine')
-    expect(await listTree(join(root, 'fixturemod'))).toEqual(['pak0.pak', 'zfile.txt/', 'zfile.txt/keep.me'])
+    expect(await listTree(join(root, 'fixturemod'))).toEqual([
+      'pak0.pak',
+      'zfile.txt/',
+      'zfile.txt/keep.me',
+    ])
     expect(h.records()).toEqual([])
     expect(h.installations.setModuleData).not.toHaveBeenCalled()
     expect(await stagingLeft()).toEqual([])
@@ -361,7 +409,10 @@ describe('startModInstall', () => {
 
   it('a file appearing after planning is backed up and survives a rollback', async () => {
     const h = harness({
-      stages: [{ files: { 'gamex86_64.dll': 'lib', 'new.txt': 'new' } }, { files: { 'zfile.txt': 'z' } }],
+      stages: [
+        { files: { 'gamex86_64.dll': 'lib', 'new.txt': 'new' } },
+        { files: { 'zfile.txt': 'z' } },
+      ],
     })
     // Appears between planning and writing: new.txt is the user's, zfile.txt is a folder that fails the run.
     h.writeGuard.runWrite.mockImplementationOnce(async (_i, _j, _s, fn) => {
@@ -371,7 +422,11 @@ describe('startModInstall', () => {
     const outcome = await h.run()
     expect(outcome).toEqual({ status: 'failed', key: 'mods.error.writeFailed' })
     expect(await readFile(join(root, 'fixturemod', 'new.txt'), 'utf8')).toBe('user')
-    expect(await listTree(join(root, 'fixturemod'))).toEqual(['new.txt', 'zfile.txt/', 'zfile.txt/keep.me'])
+    expect(await listTree(join(root, 'fixturemod'))).toEqual([
+      'new.txt',
+      'zfile.txt/',
+      'zfile.txt/keep.me',
+    ])
     expect(h.records()).toEqual([])
     expect(await stagingLeft()).toEqual([])
   })
@@ -381,13 +436,19 @@ describe('startModInstall', () => {
       stages: [{ files: { 'pak0.pak': 'x' } }],
       moduleData: { mods: { records: [{ gameDir: 'FIXTUREMOD' }] } },
     })
-    const started = await startModInstall(h.deps, { installationId: 'inst1', catalogId: 'fixturemod' })
+    const started = await startModInstall(h.deps, {
+      installationId: 'inst1',
+      catalogId: 'fixturemod',
+    })
     expect(started).toEqual(fail('mods.error.alreadyInstalled'))
     expect(h.jobs.create).not.toHaveBeenCalled()
     expect(h.stage).not.toHaveBeenCalled()
     expect(await listTree(root)).toEqual(['baseq2/'])
 
-    const unknown = await startModInstall(h.deps, { installationId: 'nope', catalogId: 'fixturemod' })
+    const unknown = await startModInstall(h.deps, {
+      installationId: 'nope',
+      catalogId: 'fixturemod',
+    })
     expect(unknown).toEqual(fail('installations.error.notFound'))
     const badVersion = await startModInstall(harness({ stages: [] }).deps, {
       installationId: 'inst1',
@@ -405,7 +466,12 @@ describe('startModInstall', () => {
     expect(outcome.status).toBe('succeeded')
     expect(h.stage).toHaveBeenCalledTimes(1)
     const [record] = h.records()
-    expect(record).toMatchObject({ contentOnly: true, variantId: 'content-only', arch: 'x86', platform: 'win32' })
+    expect(record).toMatchObject({
+      contentOnly: true,
+      variantId: 'content-only',
+      arch: 'x86',
+      platform: 'win32',
+    })
     expect(record!.files).toEqual([{ path: 'pak0.pak', sizeBytes: 7, sha256: sha('content') }])
     // Story 193: the real inspector (through validate) lists the content-only folder as a game dir.
     expect(h.installation.gameDirs).toContain('fixturemod')
@@ -419,7 +485,9 @@ describe('startModInstall', () => {
   })
 
   it('a second install of the same gamedir while one runs is refused before any job exists', async () => {
-    const h = harness({ stages: [{ files: { 'gamex86_64.dll': 'lib' } }, { files: { 'pak0.pak': 'data' } }] })
+    const h = harness({
+      stages: [{ files: { 'gamex86_64.dll': 'lib' } }, { files: { 'pak0.pak': 'data' } }],
+    })
     let release!: () => void
     const gate = new Promise<void>((resolve) => (release = resolve))
     const realStage = h.stage.getMockImplementation()!
@@ -427,9 +495,15 @@ describe('startModInstall', () => {
       await gate
       return realStage(input)
     })
-    const first = await startModInstall(h.deps, { installationId: 'inst1', catalogId: 'fixturemod' })
+    const first = await startModInstall(h.deps, {
+      installationId: 'inst1',
+      catalogId: 'fixturemod',
+    })
     expect(first.ok).toBe(true)
-    const second = await startModInstall(h.deps, { installationId: 'inst1', catalogId: 'fixturemod' })
+    const second = await startModInstall(h.deps, {
+      installationId: 'inst1',
+      catalogId: 'fixturemod',
+    })
     expect(second).toEqual(fail('mods.error.alreadyInstalled'))
     expect(h.jobs.create).toHaveBeenCalledTimes(1)
     release()
@@ -437,9 +511,14 @@ describe('startModInstall', () => {
   })
 
   it('the in-flight slot is released when the install fails', async () => {
-    const h = harness({ stages: [{ fail: 'downloads.error.network' }, { files: { 'pak0.pak': 'x' } }] })
+    const h = harness({
+      stages: [{ fail: 'downloads.error.network' }, { files: { 'pak0.pak': 'x' } }],
+    })
     expect((await h.run()).status).toBe('failed')
-    const again = await startModInstall(h.deps, { installationId: 'inst1', catalogId: 'fixturemod' })
+    const again = await startModInstall(h.deps, {
+      installationId: 'inst1',
+      catalogId: 'fixturemod',
+    })
     expect(again.ok).toBe(true)
     if (again.ok) await again.value.settled
   })

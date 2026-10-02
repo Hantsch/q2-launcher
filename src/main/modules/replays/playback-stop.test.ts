@@ -24,13 +24,24 @@ function harness(options: { quit?: Outcome<void> } = {}) {
   }
   const exit = (): void => {
     running = false
-    const state = { phase: 'exited', installationId: 'inst-1', exitedAt: '', exitCode: null } as LaunchState
+    const state = {
+      phase: 'exited',
+      installationId: 'inst-1',
+      exitedAt: '',
+      exitCode: null,
+    } as LaunchState
     for (const listener of [...listeners]) listener(state)
   }
   const relaunch = (): void => {
     running = true
   }
-  return { send, terminatePlayback, exit, relaunch, stop: createPlaybackStop({ playback: { send }, launch }) }
+  return {
+    send,
+    terminatePlayback,
+    exit,
+    relaunch,
+    stop: createPlaybackStop({ playback: { send }, launch }),
+  }
 }
 
 beforeEach(() => {

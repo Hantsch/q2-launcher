@@ -91,9 +91,13 @@ export function getDetectedRetailSources(): Promise<Outcome<DetectedRetailSource
 export function getBootstrapTargetVerdict(
   targetPath: string,
 ): Promise<Outcome<BootstrapTargetVerdict>> {
-  return callModule<BootstrapTargetVerdict>('downloads', DOWNLOADS_HANDLERS.bootstrapTargetVerdict, {
-    targetPath,
-  })
+  return callModule<BootstrapTargetVerdict>(
+    'downloads',
+    DOWNLOADS_HANDLERS.bootstrapTargetVerdict,
+    {
+      targetPath,
+    },
+  )
 }
 
 /**
@@ -105,9 +109,13 @@ export function getBootstrapTargetVerdict(
 export function getGameDataSourceVerdict(
   rootPath: string,
 ): Promise<Outcome<GameDataSourceVerdict>> {
-  return callModule<GameDataSourceVerdict>('downloads', DOWNLOADS_HANDLERS.bootstrapGameDataSource, {
-    rootPath,
-  })
+  return callModule<GameDataSourceVerdict>(
+    'downloads',
+    DOWNLOADS_HANDLERS.bootstrapGameDataSource,
+    {
+      rootPath,
+    },
+  )
 }
 
 /**

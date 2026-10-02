@@ -8,8 +8,11 @@ import type { ModInstallRecord } from '@shared/modules/mods'
  */
 /** A recorded path is later deleted (story 191): only plain gamedir-relative, forward-slash paths pass. */
 export function isSafeRecordedPath(path: string): boolean {
-  if (path.length === 0 || /[\\\0]/.test(path) || path.startsWith('/') || /^[a-zA-Z]:/.test(path)) return false
-  return path.split('/').every((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
+  if (path.length === 0 || /[\\\0]/.test(path) || path.startsWith('/') || /^[a-zA-Z]:/.test(path))
+    return false
+  return path
+    .split('/')
+    .every((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
 }
 
 const fileSchema = z.object({
@@ -24,7 +27,16 @@ const recordSchema = z.object({
   version: z.string().min(1),
   variantId: z.string().min(1),
   engineKind: z.enum([
-    'r1q2', 'q2pro', 'yquake2', 'kmquake2', 'vkquake2', 'q2rtx', 'vanilla', 'remaster', 'custom', 'unknown',
+    'r1q2',
+    'q2pro',
+    'yquake2',
+    'kmquake2',
+    'vkquake2',
+    'q2rtx',
+    'vanilla',
+    'remaster',
+    'custom',
+    'unknown',
   ]),
   arch: z.enum(['x86', 'x64', 'arm64', 'unknown']),
   platform: z.enum(['win32', 'linux']),
@@ -60,7 +72,9 @@ export function readModsState(moduleData: unknown): ModsState {
 /** Returns a new `moduleData` with `record` replacing any record of the same game dir (case-insensitive). */
 export function withRecord(moduleData: unknown, record: ModInstallRecord): Record<string, unknown> {
   const base =
-    typeof moduleData === 'object' && moduleData !== null ? (moduleData as Record<string, unknown>) : {}
+    typeof moduleData === 'object' && moduleData !== null
+      ? (moduleData as Record<string, unknown>)
+      : {}
   const key = record.gameDir.toLowerCase()
   const kept = readModsState(moduleData).records.filter((r) => r.gameDir.toLowerCase() !== key)
   return { ...base, mods: { records: [...kept, record] } }

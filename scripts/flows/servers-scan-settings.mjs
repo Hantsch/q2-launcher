@@ -89,7 +89,11 @@ export default async function serversScanSettings({ page, shot, step }) {
     }
   }
   const seedSelectChecks = [
-    [autoRefreshIntervalSelect, SERVERS_SCAN_SETTINGS_SEED.autoRefreshIntervalMs, 'autoRefreshIntervalMs'],
+    [
+      autoRefreshIntervalSelect,
+      SERVERS_SCAN_SETTINGS_SEED.autoRefreshIntervalMs,
+      'autoRefreshIntervalMs',
+    ],
     [concurrencySelect, SERVERS_SCAN_SETTINGS_SEED.concurrency, 'concurrency'],
     [timeoutSelect, SERVERS_SCAN_SETTINGS_SEED.timeoutMs, 'timeoutMs'],
     [retriesSelect, SERVERS_SCAN_SETTINGS_SEED.retries, 'retries'],
@@ -207,8 +211,16 @@ export default async function serversScanSettings({ page, shot, step }) {
     'servers-scan-settings-min-spacing',
     SERVERS_SCAN_SETTINGS_SEED.minSpacingMs,
   )
-  await selectAndWait(retriesSelect, 'servers-scan-settings-retries', SERVERS_SCAN_SETTINGS_SEED.retries)
-  await selectAndWait(timeoutSelect, 'servers-scan-settings-timeout', SERVERS_SCAN_SETTINGS_SEED.timeoutMs)
+  await selectAndWait(
+    retriesSelect,
+    'servers-scan-settings-retries',
+    SERVERS_SCAN_SETTINGS_SEED.retries,
+  )
+  await selectAndWait(
+    timeoutSelect,
+    'servers-scan-settings-timeout',
+    SERVERS_SCAN_SETTINGS_SEED.timeoutMs,
+  )
   await selectAndWait(
     concurrencySelect,
     'servers-scan-settings-concurrency',
@@ -256,7 +268,10 @@ export default async function serversScanSettings({ page, shot, step }) {
 
   step('the scan visibly ran: it starts running and settles with a new finished timestamp')
   await page.waitForFunction(
-    () => document.querySelector('[data-testid="servers-scan-status"]')?.getAttribute('data-running') === 'true',
+    () =>
+      document
+        .querySelector('[data-testid="servers-scan-status"]')
+        ?.getAttribute('data-running') === 'true',
     null,
     { timeout: TIMEOUT_MS },
   )
@@ -296,7 +311,9 @@ export default async function serversScanSettings({ page, shot, step }) {
   // `autoScanOnOpen`'s seed is already `false`, and AC3 left it `false` too - nothing to restore.
 
   const finalOnDisk = readPopulatedStateJson()
-  if (finalOnDisk.servers?.scan?.autoRefreshEnabled !== SERVERS_SCAN_SETTINGS_SEED.autoRefreshEnabled) {
+  if (
+    finalOnDisk.servers?.scan?.autoRefreshEnabled !== SERVERS_SCAN_SETTINGS_SEED.autoRefreshEnabled
+  ) {
     throw new Error(
       `expected state.json's servers.scan.autoRefreshEnabled to end back at the seeded ${SERVERS_SCAN_SETTINGS_SEED.autoRefreshEnabled}, got ${JSON.stringify(finalOnDisk.servers?.scan)}`,
     )

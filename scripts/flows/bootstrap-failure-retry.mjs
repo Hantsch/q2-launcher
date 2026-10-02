@@ -204,7 +204,9 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
   await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
 
   step('engine step: assert Q2PRO is offered and click Next')
-  await page.getByTestId('bootstrap-engine-q2pro').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('bootstrap-engine-q2pro')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
 
   step('game-data step: keep the default free download and click Next')
@@ -276,7 +278,9 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
   // --- run 2: the same folder, adopting the failed installation, this time succeeding ------------
   step('open the wizard again, pointed at the same folder (run 2)')
   await page.getByTestId('library-download-install').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('bootstrap-engine-q2pro').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('bootstrap-engine-q2pro')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
 
   step('game-data step: keep the default free download and click Next')
@@ -329,7 +333,9 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
     throw new Error('expected the FailureBadge to be gone once the retry succeeded (AC4)')
   }
   if (cardStateAfterSuccess.hasFailedTag) {
-    throw new Error('expected the tile\'s "FAILED" microtag to be gone once the retry succeeded (AC4)')
+    throw new Error(
+      'expected the tile\'s "FAILED" microtag to be gone once the retry succeeded (AC4)',
+    )
   }
   if (cardStateAfterSuccess.failureReasonText !== null) {
     throw new Error(
@@ -344,7 +350,9 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
   step('assert nothing outside the loopback fixture server was ever asked for')
   const unexpected = server.requested.filter((path) => path === '/' || path.startsWith('/..'))
   if (unexpected.length > 0) {
-    throw new Error(`the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`)
+    throw new Error(
+      `the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`,
+    )
   }
 
   console.log(

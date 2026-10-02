@@ -51,7 +51,7 @@ Depends on story 208 (the architecture test that keeps this true).
 ## Open Questions
 
 - ~~**Q1**~~ answered → Decisions (Sprint) — Does `stagePackage` move with story 220 (which
-      changes it) or with this one?
+  changes it) or with this one?
 
 ## Decisions (Sprint)
 
@@ -133,7 +133,7 @@ Order: D1 → D2 → D3 → D4a → D4b → D5 → D6. Gate after each D: `npm r
 
 - **D1 — boot facts on `AppContext`: `harness`, `env`, `isPackaged`, `userDataDir`.**
   In `src/main/lib/ui-harness.ts` add `export interface UiHarness { readonly enabled: boolean;
-  readonly offscreen: boolean; read(name: UiHarnessVar): string | undefined }`, `UiHarnessVar` a
+readonly offscreen: boolean; read(name: UiHarnessVar): string | undefined }`, `UiHarnessVar` a
   union of every `Q2L_UI_*` name used in `src/main` (`Q2L_UI_HARNESS`, `_VISIBLE`, `_PICK_FOLDER`,
   `_PICK_FILES`, `_CONTENT_REPO_BASE`, `_HARNESS_STORE_SOURCES`, `_STEAM_EXECUTABLE`,
   `_DETECTED_RUNNERS`, `_LAN_TARGETS`, `_SESSION_TYPE`, `_CINEMA_DISPLAY`, `_UNLOCK_PUBLIC_KEY`, …
@@ -148,7 +148,7 @@ Order: D1 → D2 → D3 → D4a → D4b → D5 → D6. Gate after each D: `npm r
   module callers still use it until D5/D6; D6 deletes it. A module call site of a rewritten helper
   that the compiler flags (e.g. `servers/index.ts`'s `uiHarnessLanTargets`) gets `app.harness` —
   that one-argument change only, nothing else in modules. Add `src/main/lib/boot-env.ts`: `bootEnv(env): Readonly<Record<string, string |
-  undefined>>` = frozen shallow copy with every key starting `Q2L_` removed. In
+undefined>>` = frozen shallow copy with every key starting `Q2L_` removed. In
   `src/main/context.ts`: `AppContext` gains `harness: UiHarness`, `env`, `isPackaged: boolean`,
   `userDataDir: string`, resolved once in `createAppContext` (`resolveUiHarness(process.env)`,
   `bootEnv(process.env)`, `electronApp.isPackaged`, `userDataDir()`); `resolveUnlockPublicKeyPem`
@@ -172,7 +172,7 @@ Order: D1 → D2 → D3 → D4a → D4b → D5 → D6. Gate after each D: `npm r
 
 - **D2 — `app.os`: the one place that opens, reveals, copies and records under the harness.**
   New `src/main/services/os.ts`: `export interface OsService { openPath(p): Promise<string>;
-  showItemInFolder(p): void | Promise<void>; openExternal(url): Promise<void>; copyText(text): void }`
+showItemInFolder(p): void | Promise<void>; openExternal(url): Promise<void>; copyText(text): void }`
   and `createOsService({ harness, shell, clipboard })` (electron's `shell`/`clipboard` injected so the
   test needs no electron mock). Under `harness.enabled`: `openPath` and `showItemInFolder` call
   `recordHarnessRevealedPath(harness, p)` (and `openPath` resolves `''`), `openExternal` calls
@@ -191,8 +191,8 @@ Order: D1 → D2 → D3 → D4a → D4b → D5 → D6. Gate after each D: `npm r
   adapts `win.webContents.getZoomFactor()`); `createMainWindowEvents` deps gain
   `displayFor(bounds): { id: number; scaleFactor: number }` replacing `scaleFactorFor`. New
   `src/main/services/displays.ts`: `export interface DisplaysService { primary(): DisplayInfo;
-  all(): DisplayInfo[]; dipToScreenRect(rect, window: 'main' | null): Rect }` with `DisplayInfo =
-  { id, bounds, scaleFactor }`, built by `createDisplaysService({ screen, getMainWindow })` —
+all(): DisplayInfo[]; dipToScreenRect(rect, window: 'main' | null): Rect }` with `DisplayInfo =
+{ id, bounds, scaleFactor }`, built by `createDisplaysService({ screen, getMainWindow })` —
   `dipToScreenRect` uses `screen.dipToScreenRect(win|null, rect)` when it is a function, else
   multiplies by the matching display's (`'main'`) or primary display's (`null`) scale factor —
   exactly the fallback `src/main/modules/replays/index.ts` lines ~264-297 carries today (read it,
@@ -214,7 +214,7 @@ Order: D1 → D2 → D3 → D4a → D4b → D5 → D6. Gate after each D: `npm r
   `src/main/lib/archive/7za-path.ts` (same directory depth, so its `__dirname` walk still finds
   `resources/` — keep its test green and re-check the depth comment); `downloads/stage-package.ts`
   → `src/main/services/package-staging.ts`, with `getExtractDir` moved out of `downloads/
-  pipeline.ts` into it (pipeline imports it back) and `electronApp.isPackaged` replaced by an
+pipeline.ts` into it (pipeline imports it back) and `electronApp.isPackaged` replaced by an
   `isPackaged` input field/param supplied by the caller (`app.isPackaged`). Their `*.test.ts`
   move alongside. Rewrite every importer — downloads itself, `mods/index.ts`, `mods/install-job.ts`
   (+test), `mods/update-job.ts` (+test), `mods/map-presence.test.ts`, `servers/scan-service.ts`
@@ -262,11 +262,11 @@ Order: D1 → D2 → D3 → D4a → D4b → D5 → D6. Gate after each D: `npm r
   follower's `virtualDesktopRightEdge` gets `app.displays.all()` and `dipToScreenRect(…, null)`;
   `writeClipboard` → `app.os.copyText`, `reveal` → `app.os.showItemInFolder` (harness branch gone);
   `isPackaged` → `app.isPackaged`; `userDataDir()` → `app.userDataDir`; `stageAvailability(
-  process.platform, app.env, { Q2L_UI_HARNESS: …, Q2L_UI_SESSION_TYPE: … })` takes its harness
+process.platform, app.env, { Q2L_UI_HARNESS: …, Q2L_UI_SESSION_TYPE: … })` takes its harness
   values from `app.harness.read(...)` (the `Q2L_UI_HARNESS` value as `app.harness.enabled ? '1' :
-  undefined`); `resolveOnPrimary(actual, …)` reads
+undefined`); `resolveOnPrimary(actual, …)` reads
   `app.harness.read('Q2L_UI_CINEMA_DISPLAY')`; `discoveryHomeDir`/`scanHoldMs` take `{ harness,
-  userData }` with no `process.env` default (adjust `src/main/modules/replays/stage.ts` /
+userData }` with no `process.env` default (adjust `src/main/modules/replays/stage.ts` /
   `cinema` helpers' signatures the same way if they default to `process.env`). Then delete
   `getMainWindow` from the `AppContext` interface and the context object in `src/main/context.ts`
   (the `createAppContext` option stays for `DialogService`/`createDisplaysService`) and fix the
@@ -291,7 +291,7 @@ Order: D1 → D2 → D3 → D4a → D4b → D5 → D6. Gate after each D: `npm r
   takes an `openExternal` dependency (the caller in `home/index.ts` passes `app.os.openExternal`);
   update `open-slide-url.test.ts`. `src/main/modules/home/news/harness.ts` +
   `news-service.ts`: `resolveNewsSource(harness)`, no `process.env` default. `src/main/modules/
-  downloads/index.ts`: `electronApp.isPackaged` → `app.isPackaged`, harness helpers get
+downloads/index.ts`: `electronApp.isPackaged` → `app.isPackaged`, harness helpers get
   `app.harness`; `downloads/bootstrap/target.ts` and `downloads/bootstrap/r1q2-setup.ts` take the
   env from `app.env` (no `process.env` default); `downloads/retail/sources.test.ts` stops mutating
   `process.env` and passes a harness. `src/main/modules/servers/index.ts`:

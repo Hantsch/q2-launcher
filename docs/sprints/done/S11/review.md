@@ -2,17 +2,17 @@
 
 ## Overview
 
-Goal: Controls becomes an editor of *my* config rather than a catalogue with my config laid over
+Goal: Controls becomes an editor of _my_ config rather than a catalogue with my config laid over
 it — categories and sub-categories on screen are the ones my file has, every row and category can
 be renamed/moved/deleted, extra keys group under the primary row, and a `drop_` alias is a drop
 wherever it lives.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 052 — Controls shows my categories, the template only seeds them | done | `220d89a` profile-owned categories, template-only seeds |
-| 053 — Sub-categories come from the file, and Controls shows them | done | `706d862` sub-categories come from the file |
-| 056 — Extra keys group under the primary row | done | `dc990fb` extra keys fold into indented sub-rows under one Key column |
-| 055 — A `drop_` alias is a drop, with two toggles instead of two checkboxes | done | `418d21d` drop_ alias is a drop, with two toggles |
+| Story                                                                       | Status | Commit                                                                |
+| --------------------------------------------------------------------------- | ------ | --------------------------------------------------------------------- |
+| 052 — Controls shows my categories, the template only seeds them            | done   | `220d89a` profile-owned categories, template-only seeds               |
+| 053 — Sub-categories come from the file, and Controls shows them            | done   | `706d862` sub-categories come from the file                           |
+| 056 — Extra keys group under the primary row                                | done   | `dc990fb` extra keys fold into indented sub-rows under one Key column |
+| 055 — A `drop_` alias is a drop, with two toggles instead of two checkboxes | done   | `418d21d` drop_ alias is a drop, with two toggles                     |
 
 All four stories in the sprint list are done. No blocked stories.
 
@@ -47,8 +47,7 @@ cluster.
 
 ## Findings & decisions
 
-- **Carry-over risk materialised as expected.** All three file-format-touching stories (052, 053,
-  055) needed at least one review-fix cycle against story 042's round-trip fixed-point property;
+- **Carry-over risk materialised as expected.** All three file-format-touching stories (052, 053, 055) needed at least one review-fix cycle against story 042's round-trip fixed-point property;
   052 and 053 each caught one real defect this way (052: category ordering lost for block-disjoint
   categories, fixed via a new `ord` tag; 053: a foreign outer header with unrecognised decoration
   silently dropped its sub-category markers, fixed via `mirroredWrapTitle` recognition). The
@@ -80,7 +79,7 @@ cluster.
     ammo (a direct consequence of the story's own ammo-recognition rule, not a bug); every
     `drops`-category entry is renamed `drop_*` regardless of body shape (cosmetic, self-correcting).
 - **Pre-existing, unrelated test-environment issue observed during 055's build**: 6 jsdom-based
-  test files (2 of them new, added by this story) fail to *start* under the current vitest/jsdom
+  test files (2 of them new, added by this story) fail to _start_ under the current vitest/jsdom
   combination due to a `webidl.util.markAsUncloneable` environment bug, confirmed identical
   before and after this story across three verification passes. `npm test` still reports
   81/81 files and 2217/2217 tests passing (exit 0) — this is an environment gap, not a regression,

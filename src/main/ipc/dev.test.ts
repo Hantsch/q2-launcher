@@ -38,7 +38,10 @@ vi.mock('electron', () => ({
 
 const fakeEvent = {} as unknown as IpcMainInvokeEvent
 
-async function setup(): Promise<{ jobs: JobsService; fn: (event: unknown, payload: unknown) => unknown }> {
+async function setup(): Promise<{
+  jobs: JobsService
+  fn: (event: unknown, payload: unknown) => unknown
+}> {
   const { registerDevIpc } = await import('./dev')
   const jobs = new JobsService(() => {})
   const app = { jobs } as unknown as AppContext
@@ -362,20 +365,23 @@ describe('dev:simulateAppUpdate', () => {
     ['offline', 'appUpdate.error.offline'],
     ['checksum', 'appUpdate.error.checksum'],
     ['cancelled', 'appUpdate.error.cancelled'],
-  ] as const)('scenario "error" with reason %s falls back to "available" with its key', async (reason, key) => {
-    const { update, fn } = await setupUpdate()
+  ] as const)(
+    'scenario "error" with reason %s falls back to "available" with its key',
+    async (reason, key) => {
+      const { update, fn } = await setupUpdate()
 
-    await fn(fakeEvent, { scenario: 'available', version: '9.9.9-dev' })
-    await fn(fakeEvent, { scenario: 'progress', ratio: 0.5 })
-    await fn(fakeEvent, { scenario: 'error', reason })
+      await fn(fakeEvent, { scenario: 'available', version: '9.9.9-dev' })
+      await fn(fakeEvent, { scenario: 'progress', ratio: 0.5 })
+      await fn(fakeEvent, { scenario: 'error', reason })
 
-    const state = await update.getState()
-    expect(state.phase).toBe('available')
-    expect(state.error).toEqual({ key })
-    expect(state.progress).toBeNull()
-    // AC7: the release itself is still known and offerable.
-    expect(state.update?.version).toBe('9.9.9-dev')
-  })
+      const state = await update.getState()
+      expect(state.phase).toBe('available')
+      expect(state.error).toEqual({ key })
+      expect(state.progress).toBeNull()
+      // AC7: the release itself is still known and offerable.
+      expect(state.update?.version).toBe('9.9.9-dev')
+    },
+  )
 
   it('scenario "upToDate" clears the known release, so the control has nothing to show', async () => {
     const { update, fn } = await setupUpdate()

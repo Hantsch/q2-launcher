@@ -45,9 +45,9 @@ const CLICK_TIMEOUT_MS = 8_000
 /** Every rendered row's stable identity, in DOM order - `role="rowgroup"` is the per-row sortable
  * item (`ControlsGrid.tsx`), `data-row-id` its id. Mirrors `screens.mjs`'s own row selectors. */
 async function rowOrder(page) {
-  return page.locator('[role="rowgroup"][data-row-id]').evaluateAll((elements) =>
-    elements.map((element) => element.getAttribute('data-row-id')),
-  )
+  return page
+    .locator('[role="rowgroup"][data-row-id]')
+    .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-row-id')))
 }
 
 /**
@@ -120,14 +120,19 @@ export default async function controlsDragReorder({ page, shot, step }) {
 
   step('record row order before any drag')
   const orderBefore = await rowOrder(page)
-  if (!orderBefore.includes('fixture-action-multibind') || !orderBefore.includes('fixture-action-attack')) {
-    throw new Error(`expected both fixture rows in the Movement grid, got: ${orderBefore.join(', ')}`)
+  if (
+    !orderBefore.includes('fixture-action-multibind') ||
+    !orderBefore.includes('fixture-action-attack')
+  ) {
+    throw new Error(
+      `expected both fixture rows in the Movement grid, got: ${orderBefore.join(', ')}`,
+    )
   }
 
   step('drag "Multi Bind" onto "Attack" - reorder within the same category')
   await realDrag(page, multibindRow.locator('.ctrl-grip-handle'), attackRow, { verticalOnly: true })
 
-  step('assert the Movement grid\'s row order actually changed')
+  step("assert the Movement grid's row order actually changed")
   const orderAfterReorder = await rowOrder(page)
   const beforeIndex = orderBefore.indexOf('fixture-action-multibind')
   const afterIndex = orderAfterReorder.indexOf('fixture-action-multibind')
@@ -159,7 +164,9 @@ export default async function controlsDragReorder({ page, shot, step }) {
   await shot('dropped-onto-category-chip-source')
 
   step('switch to Weapons and assert "Attack" landed at the end, appended')
-  await page.getByRole('button', { name: 'Weapons', exact: true }).click({ timeout: CLICK_TIMEOUT_MS })
+  await page
+    .getByRole('button', { name: 'Weapons', exact: true })
+    .click({ timeout: CLICK_TIMEOUT_MS })
   const movedRow = page.locator('[role="rowgroup"][data-row-id="fixture-action-attack"]')
   await movedRow.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
   const weaponsOrder = await rowOrder(page)

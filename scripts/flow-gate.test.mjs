@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { currentSprint, parseShard, runGate, selectShard, validateQuarantine } from './lib/flow-gate.mjs'
+import {
+  currentSprint,
+  parseShard,
+  runGate,
+  selectShard,
+  validateQuarantine,
+} from './lib/flow-gate.mjs'
 
 const entry = (over = {}) => ({ flow: 'flaky', reason: 'r', story: '1', since: 'S32', ...over })
 
@@ -56,7 +62,9 @@ describe('flow gate quarantine', () => {
     expect(validateQuarantine([entry({ since: 'next' })], ['flaky'])[0]).toContain('since')
     expect(validateQuarantine([entry({ platform: 'mac' })], ['flaky'])[0]).toContain('platform')
     expect(validateQuarantine([{ flow: 'flaky' }], ['flaky'])).toHaveLength(3)
-    const result = await gate({ flaky: [true] }, [entry({ flow: 'ghost' })], { knownFlows: ['flaky'] })
+    const result = await gate({ flaky: [true] }, [entry({ flow: 'ghost' })], {
+      knownFlows: ['flaky'],
+    })
     expect(result.ok).toBe(false)
     expect(result.configErrors[0]).toContain('ghost')
   })

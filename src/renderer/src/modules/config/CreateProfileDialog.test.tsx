@@ -34,7 +34,10 @@ afterEach(() => {
   createCalls = []
 })
 
-function renderDialog(onWantImport = vi.fn()): { onCreated: ReturnType<typeof vi.fn>; onWantImport: ReturnType<typeof vi.fn> } {
+function renderDialog(onWantImport = vi.fn()): {
+  onCreated: ReturnType<typeof vi.fn>
+  onWantImport: ReturnType<typeof vi.fn>
+} {
   const onCreated = vi.fn()
   render(
     createElement(CreateProfileDialog, {
@@ -55,12 +58,14 @@ describe('CreateProfileDialog', () => {
 
       const select = screen.getByTestId('config-create-source') as HTMLSelectElement
       const options = [...select.options]
-      expect(options.map((option) => ({ value: option.value, label: option.textContent }))).toEqual([
-        { value: 'empty', label: 'Empty profile' },
-        { value: 'template-right', label: 'Standard template (right-handed)' },
-        { value: 'template-left', label: 'Standard template (left-handed)' },
-        { value: 'import', label: 'Import from files' },
-      ])
+      expect(options.map((option) => ({ value: option.value, label: option.textContent }))).toEqual(
+        [
+          { value: 'empty', label: 'Empty profile' },
+          { value: 'template-right', label: 'Standard template (right-handed)' },
+          { value: 'template-left', label: 'Standard template (left-handed)' },
+          { value: 'import', label: 'Import from files' },
+        ],
+      )
 
       const nameInput = screen.getByPlaceholderText('My profile')
       const submit = screen.getByTestId('config-create-submit')

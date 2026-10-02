@@ -144,7 +144,10 @@ export async function readExisting(filePath: string): Promise<string | null> {
  * file is rewritten - the harmless direction: an unnecessary write, never a
  * skipped backup.
  */
-export async function writeTargetFile(filePath: string, content: string): Promise<WriteFileOutcome> {
+export async function writeTargetFile(
+  filePath: string,
+  content: string,
+): Promise<WriteFileOutcome> {
   const existing = await readExisting(filePath)
 
   if (existing !== null) {

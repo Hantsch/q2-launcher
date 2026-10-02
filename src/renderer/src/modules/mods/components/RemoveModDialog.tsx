@@ -41,7 +41,9 @@ export function RemoveModDialog({
     void previewRemoval(installationId, modId).then((outcome) => {
       if (stale) return
       setLoaded(
-        outcome.ok ? { kind: 'ready', preview: outcome.value } : { kind: 'refused', error: outcome.error },
+        outcome.ok
+          ? { kind: 'ready', preview: outcome.value }
+          : { kind: 'refused', error: outcome.error },
       )
     })
     return () => {
@@ -82,7 +84,12 @@ export function RemoveModDialog({
       closeLabel={t('common.close')}
       footer={
         <>
-          <Button variant="ghost" disabled={busy} onClick={onClose} data-testid="mods-remove-cancel">
+          <Button
+            variant="ghost"
+            disabled={busy}
+            onClick={onClose}
+            data-testid="mods-remove-cancel"
+          >
             {t('mods.remove.cancel')}
           </Button>
           <Button

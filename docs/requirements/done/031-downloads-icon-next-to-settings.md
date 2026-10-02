@@ -87,7 +87,7 @@ None — everything open was decided during refine, see `## Decisions (Sprint)`.
 - **The two `setRoute('/install')` repair links** (`ActionBar`, `ChecksList`) point at
   `/downloads`: repairing/downloading game files is still exactly this module's job.
 - **One `downloads` screen is added to `ui:verify`'s registry**: it is the only way to see the
-  active-state criterion in a screenshot; the *green* axe gate stays story [[037]]'s scope.
+  active-state criterion in a screenshot; the _green_ axe gate stays story [[037]]'s scope.
 - **Domain vocabulary is off limits**: `installationSchema`, `install-game-files`,
   `action.install`, `updateInstallation`, detection comments — a different concept, untouched.
 - **Module stays `status: 'planned'`** with unchanged `capabilities`/`requiresInstallation`, and
@@ -122,44 +122,44 @@ titlebar ([[030]]) — this plan assumes today's `--titlebar-h` and today's Sett
 ## Deliverables
 
 - [x] **D1 — Rename the module in the shared contract and the main process.**
-  Files: `src/shared/types/module.ts`, `src/main/lib/schemas.ts`, `src/main/ipc/dev.ts`,
-  `src/main/modules/index.ts` (doc comment), `src/main/modules/library/index.ts` (doc comment).
-  Acceptance: `npm run typecheck` and `npm run build` green; `MODULE_MANIFESTS` has
-  `id: 'downloads'`, `route: '/downloads'`, `ipcNamespace: 'module:downloads'`,
-  `nav: { section: 'secondary', order: 10 }`; no `'install'` left as a `ModuleId`, route or ipc
-  value under `src/shared` or `src/main`; installation/domain uses of the word "install"
-  untouched.
+      Files: `src/shared/types/module.ts`, `src/main/lib/schemas.ts`, `src/main/ipc/dev.ts`,
+      `src/main/modules/index.ts` (doc comment), `src/main/modules/library/index.ts` (doc comment).
+      Acceptance: `npm run typecheck` and `npm run build` green; `MODULE_MANIFESTS` has
+      `id: 'downloads'`, `route: '/downloads'`, `ipcNamespace: 'module:downloads'`,
+      `nav: { section: 'secondary', order: 10 }`; no `'install'` left as a `ModuleId`, route or ipc
+      value under `src/shared` or `src/main`; installation/domain uses of the word "install"
+      untouched.
 
 - [x] **D2 — Rename the module in the renderer and heal the remembered route.**
-  Files: `src/renderer/src/i18n/locales/en.json` (`module.install.*` → `module.downloads.*`,
-  title "Downloads", description text unchanged), `src/renderer/src/modules/index.ts`,
-  `src/renderer/src/components/shell/ActionBar.tsx`,
-  `src/renderer/src/components/installations/ChecksList.tsx`,
-  `src/renderer/src/views/SettingsView.tsx` (comment),
-  `src/renderer/src/store/useLauncher.ts`.
-  Acceptance: `npm run typecheck` green; the "Repair" action and the checks list route to
-  `/downloads`; a settings file carrying `lastRoute: '/install'` boots to Home instead of a route
-  no nav entry highlights; no `module.install` / `nav.install` key left in `en.json`
-  (`action.install` stays).
+      Files: `src/renderer/src/i18n/locales/en.json` (`module.install.*` → `module.downloads.*`,
+      title "Downloads", description text unchanged), `src/renderer/src/modules/index.ts`,
+      `src/renderer/src/components/shell/ActionBar.tsx`,
+      `src/renderer/src/components/installations/ChecksList.tsx`,
+      `src/renderer/src/views/SettingsView.tsx` (comment),
+      `src/renderer/src/store/useLauncher.ts`.
+      Acceptance: `npm run typecheck` green; the "Repair" action and the checks list route to
+      `/downloads`; a settings file carrying `lastRoute: '/install'` boots to Home instead of a route
+      no nav entry highlights; no `module.install` / `nav.install` key left in `en.json`
+      (`action.install` stays).
 
 - [x] **D3 — Move the entry into the titlebar's right cluster as an icon-only button.**
-  Files: `src/renderer/src/components/shell/TitleBar.tsx`, `CLAUDE.md` (Deviations row).
-  Mirror: the existing inline Settings `<button>` in that same file — `UtilityButton` is that
-  block extracted, and Settings is refactored onto it in the same pass.
-  Acceptance: the primary nav renders Home + Library + Config only; a Download-icon button with
-  `data-testid="nav-downloads"`, `aria-label`/`title` "Downloads" and no text sits directly left
-  of the Settings gear; clicking it renders `PlannedModuleView` for `downloads`; while
-  `/downloads` is the active route the button shows Settings' active treatment; focus-visible
-  ring intact.
+      Files: `src/renderer/src/components/shell/TitleBar.tsx`, `CLAUDE.md` (Deviations row).
+      Mirror: the existing inline Settings `<button>` in that same file — `UtilityButton` is that
+      block extracted, and Settings is refactored onto it in the same pass.
+      Acceptance: the primary nav renders Home + Library + Config only; a Download-icon button with
+      `data-testid="nav-downloads"`, `aria-label`/`title` "Downloads" and no text sits directly left
+      of the Settings gear; clicking it renders `PlannedModuleView` for `downloads`; while
+      `/downloads` is the active route the button shows Settings' active treatment; focus-visible
+      ring intact.
 
 - [x] **D4 — Cover the new surface in `ui:verify` and record the run.**
-  Files: `scripts/lib/screens.mjs` (one `downloads` entry, `variant: 'populated'`, both
-  viewports, `navigate` clicks `nav-downloads`).
-  Mirror: the `settings` entry in the same file.
-  Acceptance: `npm run ui:verify` completes and produces the `downloads` screenshots plus
-  refreshed shots of the existing screens showing the relocated button; if axe reports a new
-  violation *on the new screen*, note it in `## Done` for story [[037]] instead of widening this
-  story.
+      Files: `scripts/lib/screens.mjs` (one `downloads` entry, `variant: 'populated'`, both
+      viewports, `navigate` clicks `nav-downloads`).
+      Mirror: the `settings` entry in the same file.
+      Acceptance: `npm run ui:verify` completes and produces the `downloads` screenshots plus
+      refreshed shots of the existing screens showing the relocated button; if axe reports a new
+      violation _on the new screen_, note it in `## Done` for story [[037]] instead of widening this
+      story.
 
 Coverage: AC 1 → D1 + D2; AC 2, 3, 4, 6 → D3; AC 5 → D1 (route/manifest) + D3 (the click);
 AC 7 → D4.
@@ -204,6 +204,7 @@ module" wording in `en.json`'s create-installation copy and in `docs/ARCHITECTUR
 fixed directly after the review, and typecheck/build/test were re-run green afterward.
 
 **Decisions**
+
 - Fixed two review findings directly instead of a second review pass, since both were
   single-line prose corrections with no behavioural risk: `src/renderer/src/i18n/locales/en.json`
   (`create.body`/`create.notice` said "the install module" — now "the downloads module") and
@@ -225,6 +226,7 @@ fixed directly after the review, and typecheck/build/test were re-run green afte
 ```
 
 **Verification**
+
 - `npm run typecheck` — green (both `typecheck:node` and `typecheck:web`).
 - `npm run build` — green.
 - `npm test` — green, 51 files / 932 tests.

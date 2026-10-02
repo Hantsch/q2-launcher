@@ -98,16 +98,33 @@ export default async function replaysEditSidesTags({ page, shot, step }) {
   const side1Input = page.getByTestId('replays-side-1-add-player')
   await side1Input.fill('Zed')
   await side1Input.press('Enter')
-  await page.getByTestId('replays-side-1-player-0').filter({ hasText: 'Zed' }).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-side-1-player-0')
+    .filter({ hasText: 'Zed' })
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await side1Input.fill('Ana')
   await side1Input.press('Enter')
-  await page.getByTestId('replays-side-1-player-1').filter({ hasText: 'Ana' }).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-side-1-player-1')
+    .filter({ hasText: 'Ana' })
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
-  await page.getByTestId('replays-side-1-player-1').getByRole('button', { name: 'Move Ana up' }).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-side-1-player-0').filter({ hasText: 'Ana' }).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-side-1-player-1')
+    .getByRole('button', { name: 'Move Ana up' })
+    .click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-side-1-player-0')
+    .filter({ hasText: 'Ana' })
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
-  await page.getByTestId('replays-side-1-player-1').getByRole('button', { name: 'Remove Zed' }).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-side-1-player-1').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-side-1-player-1')
+    .getByRole('button', { name: 'Remove Zed' })
+    .click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-side-1-player-1')
+    .waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   step('removing side 2 entirely, then adding a new side again')
   await page.getByTestId('replays-side-1-remove').click({ timeout: TIMEOUT_MS })
@@ -123,7 +140,9 @@ export default async function replaysEditSidesTags({ page, shot, step }) {
   await option.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await option.click({ timeout: TIMEOUT_MS })
 
-  await page.getByTestId('replays-editor-description').fill('Flow description', { timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-editor-description')
+    .fill('Flow description', { timeout: TIMEOUT_MS })
 
   await shot('replays-edit-sides-tags')
 
@@ -146,19 +165,27 @@ export default async function replaysEditSidesTags({ page, shot, step }) {
   }
 
   if (!Array.isArray(written.sides) || written.sides.length !== 2) {
-    throw new Error(`replays-edit-sides-tags: expected 2 sides, got ${JSON.stringify(written.sides)}`)
+    throw new Error(
+      `replays-edit-sides-tags: expected 2 sides, got ${JSON.stringify(written.sides)}`,
+    )
   }
   if (written.sides[0].team !== 'Alpha' || written.sides[0].result !== '25') {
     throw new Error(`replays-edit-sides-tags: side 0 mismatch: ${JSON.stringify(written.sides[0])}`)
   }
   if (!written.sides[0].players.includes(firstChipName)) {
-    throw new Error(`replays-edit-sides-tags: side 0 should include the known player, got ${JSON.stringify(written.sides[0].players)}`)
+    throw new Error(
+      `replays-edit-sides-tags: side 0 should include the known player, got ${JSON.stringify(written.sides[0].players)}`,
+    )
   }
   if (written.sides[1].team !== 'Charlie') {
-    throw new Error(`replays-edit-sides-tags: side 1 (the re-added side) expected team "Charlie", got ${JSON.stringify(written.sides[1])}`)
+    throw new Error(
+      `replays-edit-sides-tags: side 1 (the re-added side) expected team "Charlie", got ${JSON.stringify(written.sides[1])}`,
+    )
   }
   if (!Array.isArray(written.tags) || !written.tags.includes(SEED_TAG)) {
-    throw new Error(`replays-edit-sides-tags: expected tag "${SEED_TAG}", got ${JSON.stringify(written.tags)}`)
+    throw new Error(
+      `replays-edit-sides-tags: expected tag "${SEED_TAG}", got ${JSON.stringify(written.tags)}`,
+    )
   }
 
   step('after the save, reading mode shows the saved description and tags')

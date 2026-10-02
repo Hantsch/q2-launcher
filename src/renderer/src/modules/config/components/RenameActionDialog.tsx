@@ -54,7 +54,10 @@ export function RenameActionDialog({
   // time - the file has one definition per name, so a collision means the loser's body is simply
   // gone on the next save.
   const otherAliasNames = useMemo(
-    () => actions.filter((other) => other.id !== action.id).flatMap((other) => renderedAliasNames(other)),
+    () =>
+      actions
+        .filter((other) => other.id !== action.id)
+        .flatMap((other) => renderedAliasNames(other)),
     [actions, action.id],
   )
 
@@ -95,7 +98,9 @@ export function RenameActionDialog({
       case 'action':
         return referrer.name
       case 'bind':
-        return t('config.controls.actions.renameDialog.refusal.handTypedBind', { key: referrer.key })
+        return t('config.controls.actions.renameDialog.refusal.handTypedBind', {
+          key: referrer.key,
+        })
       case 'override':
         return t('config.controls.actions.renameDialog.refusal.handTypedOverride', {
           key: referrer.key,
@@ -106,7 +111,9 @@ export function RenameActionDialog({
 
   const referrerLabels = renameRefused ? referrers.map(formatReferrer) : []
   const refusalMessage = renameRefused
-    ? t('config.controls.actions.renameDialog.refusal.message', { names: referrerLabels.join(', ') })
+    ? t('config.controls.actions.renameDialog.refusal.message', {
+        names: referrerLabels.join(', '),
+      })
     : undefined
 
   const canSubmit = name.trim().length > 0 && !submitting && aliasValidation.ok && !renameRefused
@@ -152,7 +159,11 @@ export function RenameActionDialog({
         </Field>
         <Field
           label={t('config.controls.actions.renameDialog.aliasName.label')}
-          hint={aliasError ? undefined : t('config.controls.actions.renameDialog.aliasName.hint', { placeholder })}
+          hint={
+            aliasError
+              ? undefined
+              : t('config.controls.actions.renameDialog.aliasName.hint', { placeholder })
+          }
           error={aliasError}
         >
           <Input

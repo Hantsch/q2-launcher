@@ -413,7 +413,7 @@ describe('story 048 D4 - the bigger default-filled file stays honest', () => {
     expect(rules(findings)).toEqual([])
   })
 
-  it('reports the real, larger byte count once default lines are appended, with the size rule\'s wording unchanged', () => {
+  it("reports the real, larger byte count once default lines are appended, with the size rule's wording unchanged", () => {
     const withoutDefaults = fileOfAtLeast(9 * 1024) // already over vanilla's 8190-byte buffer
     const bigger: StructureFile = {
       name: withoutDefaults.name,

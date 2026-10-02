@@ -12,7 +12,8 @@ vi.mock('./client', () => ({
   indexRead: (...args: unknown[]) => indexRead(...args),
 }))
 
-const { effectiveQuickValues, findRowReplaceId, useDemoEditorStore } = await import('./demo-editor-store')
+const { effectiveQuickValues, findRowReplaceId, useDemoEditorStore } =
+  await import('./demo-editor-store')
 
 const A = 'aaaaaaaaaaaaaaaa'
 const B = 'bbbbbbbbbbbbbbbb'
@@ -26,7 +27,13 @@ beforeEach(() => {
   sidecarWrite.mockReset()
   scanStart.mockReset()
   indexRead.mockReset()
-  useDemoEditorStore.setState({ selectedId: null, editingId: null, drafts: {}, quickPending: {}, pendingLeave: null })
+  useDemoEditorStore.setState({
+    selectedId: null,
+    editingId: null,
+    drafts: {},
+    quickPending: {},
+    pendingLeave: null,
+  })
 })
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
@@ -48,7 +55,15 @@ function fakeSidecar(initial: Record<string, unknown>, options: { broken?: boole
       new Promise((resolve) => {
         waiting.push(() => {
           if (disk.broken && fingerprint === undefined) {
-            resolve({ ok: true, value: { status: 'needsConfirmation', fileName: 'a.dm2.json', issues: [], fingerprint: 'f1' } })
+            resolve({
+              ok: true,
+              value: {
+                status: 'needsConfirmation',
+                fileName: 'a.dm2.json',
+                issues: [],
+                fingerprint: 'f1',
+              },
+            })
             return
           }
           disk.broken = false
@@ -99,7 +114,7 @@ describe('quick edits never lose a write (story 179)', () => {
     expect(store().drafts[A]?.saving).toBeFalsy()
   })
 
-  it('a quick edit keeps an open draft\'s unsaved changes and patches only favourite and rating', async () => {
+  it("a quick edit keeps an open draft's unsaved changes and patches only favourite and rating", async () => {
     const sidecar = fakeSidecar({ name: 'Old' })
     store().select(A)
     store().startEdit(A, { name: 'Old' })
@@ -132,7 +147,10 @@ describe('quick edits never lose a write (story 179)', () => {
 
     expect(sidecarWrite).toHaveBeenLastCalledWith(A, { favourite: true, rating: 3 }, 'f1')
     expect(sidecar.disk.values).toEqual({ favourite: true, rating: 3 })
-    expect(onRowPatched).toHaveBeenCalledWith(A, { state: { state: 'ok' }, values: { favourite: true, rating: 3 } })
+    expect(onRowPatched).toHaveBeenCalledWith(A, {
+      state: { state: 'ok' },
+      values: { favourite: true, rating: 3 },
+    })
     expect(store().drafts[A]?.replace).toBeUndefined()
   })
 
@@ -140,10 +158,16 @@ describe('quick edits never lose a write (story 179)', () => {
     const sidecar = fakeSidecar({ rating: 5 })
     const row = { rating: 5 }
     const favourite = store().quickEdit(A, { favourite: true }, vi.fn())
-    expect(effectiveQuickValues(store().quickPending[A], row)).toEqual({ favourite: true, rating: 5 })
+    expect(effectiveQuickValues(store().quickPending[A], row)).toEqual({
+      favourite: true,
+      rating: 5,
+    })
     const cleared = store().quickEdit(A, { rating: null }, vi.fn())
     // `null` is a cleared rating, not "no overlay".
-    expect(effectiveQuickValues(store().quickPending[A], row)).toEqual({ favourite: true, rating: null })
+    expect(effectiveQuickValues(store().quickPending[A], row)).toEqual({
+      favourite: true,
+      rating: null,
+    })
 
     await sidecar.settle(favourite)
     expect(store().quickPending[A]).toBeDefined() // the rating pick is still queued
@@ -229,7 +253,13 @@ describe('demo-editor-store', () => {
   it('a save over a broken sidecar asks before replacing it', async () => {
     store().startEdit(A, {})
     store().updateDraft(A, { name: 'Mine' })
-    const issues = [{ kind: 'invalidJson', key: 'replays.sidecar.issue.invalidJson', params: { line: 1, column: 2 } }]
+    const issues = [
+      {
+        kind: 'invalidJson',
+        key: 'replays.sidecar.issue.invalidJson',
+        params: { line: 1, column: 2 },
+      },
+    ]
     sidecarWrite.mockResolvedValueOnce({
       ok: true,
       value: { status: 'needsConfirmation', fileName: 'x.dm2.json', issues, fingerprint: 'f1' },
@@ -255,7 +285,10 @@ describe('demo-editor-store', () => {
 
     // Confirm re-saves with the fingerprint from the latest round.
     sidecarWrite.mockResolvedValueOnce({ ok: true, value: { status: 'saved', state: 'written' } })
-    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: { name: 'Mine' } } })
+    sidecarRead.mockResolvedValue({
+      ok: true,
+      value: { state: { state: 'ok' }, values: { name: 'Mine' } },
+    })
     await store().save(A, onRowPatched)
     expect(sidecarWrite).toHaveBeenLastCalledWith(A, { name: 'Mine' }, 'f2')
     expect(onRowPatched).toHaveBeenCalledTimes(1)
@@ -306,7 +339,10 @@ describe('demo-editor-store', () => {
   })
 
   it('a quick edit re-reads and keeps the other notes', async () => {
-    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: { name: 'x', tags: ['a'] } } })
+    sidecarRead.mockResolvedValue({
+      ok: true,
+      value: { state: { state: 'ok' }, values: { name: 'x', tags: ['a'] } },
+    })
     sidecarWrite.mockResolvedValue({ ok: true, value: { status: 'saved', state: 'written' } })
     const onRowPatched = vi.fn()
 
@@ -316,7 +352,10 @@ describe('demo-editor-store', () => {
     expect(sidecarWrite).toHaveBeenCalledWith(A, { name: 'x', tags: ['a'], favourite: true })
     expect(scanStart).not.toHaveBeenCalled()
     expect(indexRead).not.toHaveBeenCalled()
-    expect(onRowPatched).toHaveBeenCalledWith(A, { state: { state: 'ok' }, values: { name: 'x', tags: ['a'] } })
+    expect(onRowPatched).toHaveBeenCalledWith(A, {
+      state: { state: 'ok' },
+      values: { name: 'x', tags: ['a'] },
+    })
   })
 })
 
@@ -344,7 +383,10 @@ describe('edit mode', () => {
     store().startEdit(A, {})
     store().updateDraft(A, { name: 'New' })
     sidecarWrite.mockResolvedValue({ ok: true, value: { status: 'saved', state: 'written' } })
-    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: { name: 'New' } } })
+    sidecarRead.mockResolvedValue({
+      ok: true,
+      value: { state: { state: 'ok' }, values: { name: 'New' } },
+    })
     await store().save(A, vi.fn())
     expect(store().editingId).toBeNull()
   })
@@ -392,8 +434,17 @@ describe('edit mode', () => {
   })
 
   it("a selected row's quick-edit confirmation shows outside edit mode", async () => {
-    const issues = [{ kind: 'invalidJson', key: 'replays.sidecar.issue.invalidJson', params: { line: 1, column: 2 } }]
-    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'error', issues }, values: {} } })
+    const issues = [
+      {
+        kind: 'invalidJson',
+        key: 'replays.sidecar.issue.invalidJson',
+        params: { line: 1, column: 2 },
+      },
+    ]
+    sidecarRead.mockResolvedValue({
+      ok: true,
+      value: { state: { state: 'error', issues }, values: {} },
+    })
     sidecarWrite.mockResolvedValue({
       ok: true,
       value: { status: 'needsConfirmation', fileName: 'a.dm2.json', issues, fingerprint: 'f1' },

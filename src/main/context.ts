@@ -50,7 +50,9 @@ async function resolveUnlockPublicKeyPem(isDev: boolean): Promise<string> {
     try {
       return await readFile(overridePath, 'utf8')
     } catch (error) {
-      log.warn(`unlock: could not read Q2L_UNLOCK_PUBLIC_KEY_FILE, using the embedded key (${error})`)
+      log.warn(
+        `unlock: could not read Q2L_UNLOCK_PUBLIC_KEY_FILE, using the embedded key (${error})`,
+      )
     }
   }
   return UNLOCK_PUBLIC_KEY_PEM

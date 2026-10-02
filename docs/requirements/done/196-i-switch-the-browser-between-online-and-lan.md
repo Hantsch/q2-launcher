@@ -143,10 +143,10 @@ Contract-first, main before renderer, e2e last (it needs the full surface).
 
 - **D1 — LAN discovery core + harness seam.** New `src/main/modules/servers/lan-discovery.ts`
   (mirror the injectable `udpImpl`/`Clock` seam of `server-query.ts`; reuse `buildInfoQuery(
-  INFO_QUERY_PROTOCOL_VERSION)` and the `info` reply parser `server-query.ts` already uses from
+INFO_QUERY_PROTOCOL_VERSION)` and the `info` reply parser `server-query.ts` already uses from
   `src/shared/servers/protocol.ts`). API: `discoverLanServers({ settings: { timeoutMs, retries },
-  signal, onReply, deps: { networkInterfaces?, udpImpl?, clock?, targetsOverride? } }) →
-  Promise<{ failureKey: string | null }>`, `onReply({ address, reply, rttMs })` called once per
+signal, onReply, deps: { networkInterfaces?, udpImpl?, clock?, targetsOverride? } }) →
+Promise<{ failureKey: string | null }>`, `onReply({ address, reply, rttMs })` called once per
   `address:port` (first answer wins; later answers from other interfaces/repeats ignored). Interface
   selection: IPv4, `internal === false`, broadcast = `address | ~netmask`, port **27910** only. One
   socket per interface bound to its address with `setBroadcast(true)`; re-send `retries` times
@@ -162,7 +162,7 @@ Contract-first, main before renderer, e2e last (it needs the full surface).
   partial failure → `null`; abort closes sockets. Parser cases in `src/main/lib/ui-harness.test.ts`
   (create if absent, mirror the module's existing test if one exists).
 - **D2 — Contract + two-list scan service.** `src/shared/modules/servers.ts`: `ServersBrowseMode =
-  'online' | 'lan'`; `ScanOrigin` gains `'lan'`; handler id `scan.setMode` in `SERVERS_HANDLERS` with
+'online' | 'lan'`; `ScanOrigin` gains `'lan'`; handler id `scan.setMode` in `SERVERS_HANDLERS` with
   `scanSetModeInputSchema = z.object({ mode: z.enum(['online','lan']) })` added to the schema map;
   `ServersScanState.mode: ServersBrowseMode` (mode of the running/last scan); `ScanSnapshot` gains
   `mode` and `lan: { lastFinishedAt: string | null; failureKey: string | null }`; constants
@@ -265,6 +265,7 @@ Commit: `196: online/LAN switch in the server browser — per-interface LAN disc
 Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (170 files green after fixes) and `npm run ui:flow -- <servers-lan-mode|servers-lan-empty|servers-lan-unavailable|servers-lan-no-scan-while-playing>` all green. AC → test as in `## Acceptance Tests`, every named unit test and flow ran and passed (AC1–AC9). No manual residue. Review 1 (default): PASS with findings; fixed mount ordering (reset mode to online before announcing the view), mode-aware online empty state, reverted client.ts format churn. A one-off `profiles.test.ts` red in the first run was flaky and passed alone.
 
 Decisions:
+
 - `ScanServiceDeps.lanDiscovery` is an injectable function (`LanDiscoveryFn`); index.ts wraps D1 and injects the `Q2L_UI_LAN_TARGETS` override per round.
 - Watchlist data is online-only via `scanService.read('online')` (D-B). Unfixed, documented: a watchlist recheck (`start({scope:'server'})`) in LAN mode runs against the LAN list and stays pending.
 - LAN `server` refresh only updates an address the broadcast already found (keeps AC3). The `servers.scan.error.favouritesNotInLan` key exists but no UI path shows it (button disabled, reason in `servers-lan-favourites-reason`).

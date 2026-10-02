@@ -103,8 +103,7 @@ async function importAutoUpdater(): Promise<AutoUpdaterLike> {
   // retry logic in `createUpdateChecker` exists to recover from).
   const resolved = (mod.autoUpdater ??
     (mod as { default?: { autoUpdater?: unknown } }).default?.autoUpdater) as
-    | AutoUpdaterLike
-    | undefined
+    AutoUpdaterLike | undefined
   if (resolved === undefined) {
     throw new Error(
       'electron-updater exposed no `autoUpdater`, neither as a named export nor on `default`',
@@ -164,7 +163,10 @@ function htmlToText(html: string): string {
 export function releaseNotesHtmlToMarkdown(notes: string): string {
   if (!HTML_TAG.test(notes)) return notes
   return notes
-    .replace(/<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/gi, (_, inner: string) => `\n### ${htmlToText(inner)}\n`)
+    .replace(
+      /<h[1-6]\b[^>]*>([\s\S]*?)<\/h[1-6]>/gi,
+      (_, inner: string) => `\n### ${htmlToText(inner)}\n`,
+    )
     .replace(/<li\b[^>]*>([\s\S]*?)<\/li>/gi, (_, inner: string) => `\n- ${htmlToText(inner)}\n`)
     .split('\n')
     .map((line) => (/^(###|-) /.test(line) ? line : htmlToText(line)))

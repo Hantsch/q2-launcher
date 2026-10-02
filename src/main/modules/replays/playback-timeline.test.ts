@@ -19,7 +19,9 @@ const NO_SESSION = { ok: false, error: { key: 'replays.playback.error.noSession'
 function setup(format: DemoFormat | null) {
   const send = vi.fn((): Outcome<void> => (format ? ok(undefined) : (NO_SESSION as Outcome<void>)))
   const enterFullscreen = vi.fn((): Outcome<void> => ok(undefined))
-  const timeline = createPlaybackTimeline({ playback: { send, currentFormat: () => format, enterFullscreen } })
+  const timeline = createPlaybackTimeline({
+    playback: { send, currentFormat: () => format, enterFullscreen },
+  })
   return { send, enterFullscreen, timeline }
 }
 

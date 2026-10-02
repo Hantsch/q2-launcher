@@ -64,10 +64,14 @@ async function launchGeometry(page) {
   const deadline = Date.now() + 10_000
   for (;;) {
     const content = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
-    const line = content.split(/\r?\n/).filter((l) => l.includes('launching')).pop()
+    const line = content
+      .split(/\r?\n/)
+      .filter((l) => l.includes('launching'))
+      .pop()
     const m = line ? /\+set vid_geometry (\d+x\d+\+-?\d+\+-?\d+)/.exec(line) : null
     if (m) return m[1]
-    if (Date.now() >= deadline) fail(`main.log has no launching line with a vid_geometry: ${JSON.stringify(line)}`)
+    if (Date.now() >= deadline)
+      fail(`main.log has no launching line with a vid_geometry: ${JSON.stringify(line)}`)
     await new Promise((resolve) => setTimeout(resolve, 150))
   }
 }
@@ -77,7 +81,11 @@ export default async function replaysCinemaFullscreen({ page, app, log, step, sh
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForScan(page)
-  await page.getByTestId('replays-demo-row').filter({ hasText: REPLAYS_PLAY_CTF_DEMO }).first().click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-demo-row')
+    .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })
+    .first()
+    .click({ timeout: TIMEOUT_MS })
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await play.click({ timeout: TIMEOUT_MS })
@@ -106,11 +114,21 @@ export default async function replaysCinemaFullscreen({ page, app, log, step, sh
   await sleep(1_000)
   writeFileSync(files.keysFile, 'exec q2l_back.cfg\n')
   await until(() => commands().includes('vid_fullscreen 0'), 'vid_fullscreen 0 in the command log')
-  await until(() => geometry().length > geometryBefore, 'the stage geometry after the way back', 10_000)
+  await until(
+    () => geometry().length > geometryBefore,
+    'the stage geometry after the way back',
+    10_000,
+  )
   if (geometry().at(-1)?.slice('set vid_geometry '.length) !== stageGeometry) {
-    fail(`the newest geometry after the way back is ${geometry().at(-1)}, expected the stage geometry ${stageGeometry}`)
+    fail(
+      `the newest geometry after the way back is ${geometry().at(-1)}, expected the stage geometry ${stageGeometry}`,
+    )
   }
   const cinema = page.getByTestId('replays-timeline-cinema')
-  await until(async () => (await cinema.getAttribute('data-mode').catch(() => null)) === 'preview', 'the mode to read preview', 10_000)
+  await until(
+    async () => (await cinema.getAttribute('data-mode').catch(() => null)) === 'preview',
+    'the mode to read preview',
+    10_000,
+  )
   if (log.pageErrors.length > 0) fail(`page errors: ${JSON.stringify(log.pageErrors)}`)
 }

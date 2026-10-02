@@ -6,12 +6,12 @@ Goal: a deliberate release produces a versioned, published Windows build whose n
 the changelog; an installed launcher finds out once a day that a newer one exists; the user
 updates when they choose to, from the titlebar or About, seeing what they get for it.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 096 — A release ships from a changelog | done | `096: a release ships from a changelog` |
-| 097 — The launcher notices a new version | done | `097: the launcher notices a new version` |
-| 098 — I update when I choose to | done | `098: I update when I choose to` |
-| 099 — About tells me what changed | done | `099: About tells me what changed` |
+| Story                                    | Status | Commit                                    |
+| ---------------------------------------- | ------ | ----------------------------------------- |
+| 096 — A release ships from a changelog   | done   | `096: a release ships from a changelog`   |
+| 097 — The launcher notices a new version | done   | `097: the launcher notices a new version` |
+| 098 — I update when I choose to          | done   | `098: I update when I choose to`          |
+| 099 — About tells me what changed        | done   | `099: About tells me what changed`        |
 
 All four stories done, no blockers. Dependency chain (096 → 097 → 098 → 099) held as planned;
 each story built directly on the previous one's contract with no rework.
@@ -53,7 +53,7 @@ Aggregated from each story's `## Decisions (Sprint)` and the build/review cycles
   during the beta's prerelease phase (contradicting AC6), and a build/asset-check mismatch that
   made every run throw. A second cycle caught one more (a dry-run file revert not wrapped in
   try/finally). All fixed, both cycles ended clean.
-- **097**: state shape deliberately separates the last *attempt's* outcome from the last *known*
+- **097**: state shape deliberately separates the last _attempt's_ outcome from the last _known_
   update, so a later failed check can never hide an update already found; release notes are
   stored as one capped, untrusted string — rendering/sanitising was left to 099 by design.
 - **098 review** found one real bug (a narrow cancel-timing window in the real `checker.ts`) —
@@ -79,12 +79,12 @@ Per `.claude/ai-scrum.md`: `ac-tests-required: true`, `ui-acceptance-required: t
 about user actions are proven through `npm run ui:verify`/`ui:flow`; criteria without a user
 surface (core logic, IPC, the release process) are proven through `npm test`.
 
-| Story | Criterion → proof |
-| --- | --- |
-| 096 | AC1–AC3, AC5–AC7 → `scripts/lib/release/*.test.mjs`, `scripts/release.test.mjs` (pure-core unit tests: changelog parse/promote, version derivation, refusal paths, idempotency, override). AC8 → `.claude/ai-scrum.md`'s `changelog-path` flip, checked by inspection. |
-| 097 | AC1–AC6, AC8 → `src/main/services/update/{service,checker,store}.test.ts`, `src/main/ipc/update.test.ts` (24h window, state shape, persistence, packaged-only guard, IPC contract). AC7 (manual trigger) → proven at the real surface by 099's `check-now` button, exercised in `scripts/flows/about-release-notes.mjs`. |
-| 098 | AC1–AC7 → `npm run ui:flow app-update` (titlebar control, popover contents, download progress, staged restart confirm, dismiss-stays-quiet, refusal reasons) plus `src/main/services/update/service.actions.test.ts`. AC8 (control disappears post-update) → same flow's terminal state. |
-| 099 | AC1–AC6 → `npm run ui:flow about-release-notes` (own-version notes, pending-update notes marked not installed, external links via the harness-gated recorder, last-checked/check-now, empty states, structural markdown rendering) plus `src/shared/release-notes.test.ts`, `src/main/lib/release-notes.test.ts`. |
+| Story | Criterion → proof                                                                                                                                                                                                                                                                                                        |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 096   | AC1–AC3, AC5–AC7 → `scripts/lib/release/*.test.mjs`, `scripts/release.test.mjs` (pure-core unit tests: changelog parse/promote, version derivation, refusal paths, idempotency, override). AC8 → `.claude/ai-scrum.md`'s `changelog-path` flip, checked by inspection.                                                   |
+| 097   | AC1–AC6, AC8 → `src/main/services/update/{service,checker,store}.test.ts`, `src/main/ipc/update.test.ts` (24h window, state shape, persistence, packaged-only guard, IPC contract). AC7 (manual trigger) → proven at the real surface by 099's `check-now` button, exercised in `scripts/flows/about-release-notes.mjs`. |
+| 098   | AC1–AC7 → `npm run ui:flow app-update` (titlebar control, popover contents, download progress, staged restart confirm, dismiss-stays-quiet, refusal reasons) plus `src/main/services/update/service.actions.test.ts`. AC8 (control disappears post-update) → same flow's terminal state.                                 |
+| 099   | AC1–AC6 → `npm run ui:flow about-release-notes` (own-version notes, pending-update notes marked not installed, external links via the harness-gated recorder, last-checked/check-now, empty states, structural markdown rendering) plus `src/shared/release-notes.test.ts`, `src/main/lib/release-notes.test.ts`.        |
 
 **Manual residue** (declared per-story, does not block anything — see `testplan.md`):
 
@@ -98,7 +98,7 @@ surface (core logic, IPC, the release process) are proven through `npm test`.
 **Named gaps, not manual residue** (covered one level below the real surface, both by design of
 how the acceptance harness works, not a shortfall in either story):
 
-- 097 AC3's *network* failure paths (offline, malformed feed) are proven at the service/unit level,
+- 097 AC3's _network_ failure paths (offline, malformed feed) are proven at the service/unit level,
   not through a real failed network call in `ui:verify` — the harness never reaches the network by
   design (097 AC5).
 - 099's manual "check now" always resolves through the dev-simulation path in the harness for the

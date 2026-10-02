@@ -124,7 +124,10 @@ export function parseFrontmatter(text: string): ParsedFrontmatter | undefined {
     // anything else in the block is ignored
   }
 
-  const body = lines.slice(closingIndex + 1).join('\n').trim()
+  const body = lines
+    .slice(closingIndex + 1)
+    .join('\n')
+    .trim()
 
   return { data, body }
 }

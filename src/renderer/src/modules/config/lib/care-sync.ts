@@ -18,7 +18,11 @@
  * reported as `'failed'` (with Retry) and there is nothing left in between.
  */
 
-import type { ProfileFileSync, ProfileFileSyncStatus, ProfileSyncState } from '@shared/modules/config'
+import type {
+  ProfileFileSync,
+  ProfileFileSyncStatus,
+  ProfileSyncState,
+} from '@shared/modules/config'
 
 /** One row's sync state - `ProfileFileSyncStatus` with `'error'` renamed to `'failed'`. */
 export type CareSyncState = 'inSync' | 'outOfSync' | 'missing' | 'failed'

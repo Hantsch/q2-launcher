@@ -41,8 +41,16 @@ function profile(overrides: Partial<TestModeProfile> = {}): TestModeProfile {
 }
 
 describe('resolveTestPress', () => {
-  it('resolves a hold layer\'s trigger to kind trigger with mode hold and the +-prefixed alias', () => {
-    const layers = [layer({ id: 'l1', name: 'Weapons', mode: 'hold', triggerKey: 'q', overrides: { w: '+forward' } })]
+  it("resolves a hold layer's trigger to kind trigger with mode hold and the +-prefixed alias", () => {
+    const layers = [
+      layer({
+        id: 'l1',
+        name: 'Weapons',
+        mode: 'hold',
+        triggerKey: 'q',
+        overrides: { w: '+forward' },
+      }),
+    ]
 
     const result = resolveTestPress('q', profile({ layers }), null)
 
@@ -56,8 +64,16 @@ describe('resolveTestPress', () => {
     })
   })
 
-  it('resolves a toggle layer\'s trigger with its dispatch alias', () => {
-    const layers = [layer({ id: 'l1', name: 'Zoom', mode: 'toggle', triggerKey: 'v', overrides: { x: 'zoom_in' } })]
+  it("resolves a toggle layer's trigger with its dispatch alias", () => {
+    const layers = [
+      layer({
+        id: 'l1',
+        name: 'Zoom',
+        mode: 'toggle',
+        triggerKey: 'v',
+        overrides: { x: 'zoom_in' },
+      }),
+    ]
 
     const result = resolveTestPress('v', profile({ layers }), null)
 
@@ -73,25 +89,59 @@ describe('resolveTestPress', () => {
 
   it('resolves a layer whose triggerBind is null as kind trigger with alias null, never unbound', async () => {
     const { generateLayerAliases } = await import('@shared/config/alt-layers')
-    vi.mocked(generateLayerAliases).mockReturnValueOnce({ aliases: [], triggerBind: null, issues: [] })
+    vi.mocked(generateLayerAliases).mockReturnValueOnce({
+      aliases: [],
+      triggerBind: null,
+      issues: [],
+    })
 
-    const layers = [layer({ id: 'l1', name: 'Empty', mode: 'hold', triggerKey: 'q', overrides: {} })]
+    const layers = [
+      layer({ id: 'l1', name: 'Empty', mode: 'hold', triggerKey: 'q', overrides: {} }),
+    ]
 
     const result = resolveTestPress('q', profile({ layers }), null)
 
-    expect(result).toEqual({ key: 'q', kind: 'trigger', layerId: 'l1', layerName: 'Empty', mode: 'hold', alias: null })
+    expect(result).toEqual({
+      key: 'q',
+      kind: 'trigger',
+      layerId: 'l1',
+      layerName: 'Empty',
+      mode: 'hold',
+      alias: null,
+    })
   })
 
   it('with a layer displayed, a key with an override resolves kind override carrying the layer name', () => {
-    const layers = [layer({ id: 'l1', name: 'Weapons', mode: 'hold', triggerKey: 'q', overrides: { w: '+forward' } })]
+    const layers = [
+      layer({
+        id: 'l1',
+        name: 'Weapons',
+        mode: 'hold',
+        triggerKey: 'q',
+        overrides: { w: '+forward' },
+      }),
+    ]
 
     const result = resolveTestPress('w', profile({ layers }), 'l1')
 
-    expect(result).toEqual({ key: 'w', kind: 'override', command: '+forward', layerName: 'Weapons' })
+    expect(result).toEqual({
+      key: 'w',
+      kind: 'override',
+      command: '+forward',
+      layerName: 'Weapons',
+    })
   })
 
   it('with a layer displayed, a key without an override falls back to kind base', () => {
-    const layers = [layer({ id: 'l1', name: 'Weapons', mode: 'hold', triggerKey: 'q', overrides: { w: '+forward' } })]
+    const layers = [
+      layer({
+        id: 'l1',
+        name: 'Weapons',
+        mode: 'hold',
+        triggerKey: 'q',
+        overrides: { w: '+forward' },
+      }),
+    ]
 
     const result = resolveTestPress('e', profile({ layers, binds: { e: 'use blaster' } }), 'l1')
 
@@ -106,14 +156,30 @@ describe('resolveTestPress', () => {
 
   it('016-style fixture: resolving ALT reports the trigger, resolving R (with that layer displayed) reports the override (AC 7)', () => {
     const layers = [
-      layer({ id: 'alt', name: 'Alt', mode: 'hold', triggerKey: 'ALT', overrides: { r: 'q2l_action_1' } }),
+      layer({
+        id: 'alt',
+        name: 'Alt',
+        mode: 'hold',
+        triggerKey: 'ALT',
+        overrides: { r: 'q2l_action_1' },
+      }),
     ]
 
     const triggerResult = resolveTestPress('ALT', profile({ layers }), null)
-    expect(triggerResult).toMatchObject({ kind: 'trigger', layerId: 'alt', layerName: 'Alt', mode: 'hold' })
+    expect(triggerResult).toMatchObject({
+      kind: 'trigger',
+      layerId: 'alt',
+      layerName: 'Alt',
+      mode: 'hold',
+    })
 
     const overrideResult = resolveTestPress('r', profile({ layers }), 'alt')
-    expect(overrideResult).toEqual({ key: 'r', kind: 'override', command: 'q2l_action_1', layerName: 'Alt' })
+    expect(overrideResult).toEqual({
+      key: 'r',
+      kind: 'override',
+      command: 'q2l_action_1',
+      layerName: 'Alt',
+    })
   })
 })
 
@@ -126,12 +192,25 @@ describe('applyTriggerPress / applyTriggerRelease', () => {
     const initial = state({ displayedLayerId: 'base-selected' })
     const press = resolveTestPress(
       'q',
-      profile({ layers: [layer({ id: 'l1', name: 'Weapons', mode: 'hold', triggerKey: 'q', overrides: { w: '+forward' } })] }),
+      profile({
+        layers: [
+          layer({
+            id: 'l1',
+            name: 'Weapons',
+            mode: 'hold',
+            triggerKey: 'q',
+            overrides: { w: '+forward' },
+          }),
+        ],
+      }),
       initial.displayedLayerId,
     )
 
     const pressed = applyTriggerPress(initial, press)
-    expect(pressed).toEqual({ displayedLayerId: 'l1', heldTrigger: { key: 'q', restoreLayerId: 'base-selected' } })
+    expect(pressed).toEqual({
+      displayedLayerId: 'l1',
+      heldTrigger: { key: 'q', restoreLayerId: 'base-selected' },
+    })
 
     const released = applyTriggerRelease(pressed, 'q')
     expect(released).toEqual({ displayedLayerId: 'base-selected', heldTrigger: null })
@@ -145,22 +224,48 @@ describe('applyTriggerPress / applyTriggerRelease', () => {
 
   it('a second hold press replaces the currently held trigger', () => {
     const layers = [
-      layer({ id: 'l1', name: 'Weapons', mode: 'hold', triggerKey: 'q', overrides: { w: '+forward' } }),
-      layer({ id: 'l2', name: 'Grenades', mode: 'hold', triggerKey: 'g', overrides: { w: '+grenade' } }),
+      layer({
+        id: 'l1',
+        name: 'Weapons',
+        mode: 'hold',
+        triggerKey: 'q',
+        overrides: { w: '+forward' },
+      }),
+      layer({
+        id: 'l2',
+        name: 'Grenades',
+        mode: 'hold',
+        triggerKey: 'g',
+        overrides: { w: '+grenade' },
+      }),
     ]
     const initial = state({ displayedLayerId: null })
 
     const firstPress = resolveTestPress('q', profile({ layers }), initial.displayedLayerId)
     const afterFirst = applyTriggerPress(initial, firstPress)
-    expect(afterFirst).toEqual({ displayedLayerId: 'l1', heldTrigger: { key: 'q', restoreLayerId: null } })
+    expect(afterFirst).toEqual({
+      displayedLayerId: 'l1',
+      heldTrigger: { key: 'q', restoreLayerId: null },
+    })
 
     const secondPress = resolveTestPress('g', profile({ layers }), afterFirst.displayedLayerId)
     const afterSecond = applyTriggerPress(afterFirst, secondPress)
-    expect(afterSecond).toEqual({ displayedLayerId: 'l2', heldTrigger: { key: 'g', restoreLayerId: 'l1' } })
+    expect(afterSecond).toEqual({
+      displayedLayerId: 'l2',
+      heldTrigger: { key: 'g', restoreLayerId: 'l1' },
+    })
   })
 
   it('a toggle press flips layer<->base and is unaffected by a release', () => {
-    const layers = [layer({ id: 'l1', name: 'Zoom', mode: 'toggle', triggerKey: 'v', overrides: { x: 'zoom_in' } })]
+    const layers = [
+      layer({
+        id: 'l1',
+        name: 'Zoom',
+        mode: 'toggle',
+        triggerKey: 'v',
+        overrides: { x: 'zoom_in' },
+      }),
+    ]
     const initial = state({ displayedLayerId: null })
 
     const press = resolveTestPress('v', profile({ layers }), initial.displayedLayerId)

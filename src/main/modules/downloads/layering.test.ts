@@ -179,7 +179,7 @@ describe('downloads pipeline layering (story 071 AC7)', () => {
     expect(violations).toEqual([])
   })
 
-  it('leaves the production CSP unchanged (connect-src \'self\')', () => {
+  it("leaves the production CSP unchanged (connect-src 'self')", () => {
     expect(PRODUCTION_CSP).toContain("connect-src 'self'")
     expect(PRODUCTION_CSP).toBe(
       "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",

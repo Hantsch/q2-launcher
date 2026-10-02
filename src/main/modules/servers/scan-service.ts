@@ -194,7 +194,10 @@ function readServerInfoFields(
 > {
   const hostname = typeof serverinfo.hostname === 'string' ? serverinfo.hostname : undefined
   const map = typeof serverinfo.mapname === 'string' ? serverinfo.mapname : undefined
-  const mod = typeof serverinfo.gamename === 'string' && serverinfo.gamename !== '' ? serverinfo.gamename : undefined
+  const mod =
+    typeof serverinfo.gamename === 'string' && serverinfo.gamename !== ''
+      ? serverinfo.gamename
+      : undefined
   const maxclients = readIntKey(serverinfo, 'maxclients')
   // Story S25 D2: bit 0 of `needpass` is the password flag (3 -> true, 2 -> false); an absent key
   // keeps whatever the entry previously knew rather than clobbering it with `undefined`.
@@ -223,7 +226,8 @@ function readGamemode(
   serverinfo: Record<string, string>,
   existing: ServerListEntry | undefined,
 ): ServerListEntry['gamemode'] {
-  if (typeof serverinfo.gamename !== 'string' || serverinfo.gamename.trim() === '') return existing?.gamemode
+  if (typeof serverinfo.gamename !== 'string' || serverinfo.gamename.trim() === '')
+    return existing?.gamemode
   if (serverinfo.gamename.trim().toLowerCase() !== 'baseq2') return undefined
   return deriveGamemode(serverinfo) ?? existing?.gamemode
 }
@@ -238,7 +242,8 @@ function mergeSuccessfulReply(
   now: string,
 ): ServerListEntry {
   const fields = readServerInfoFields(result.reply.serverinfo, existing)
-  const players = result.kind === 'status' ? result.reply.players : result.reply.clients ?? existing?.players
+  const players =
+    result.kind === 'status' ? result.reply.players : (result.reply.clients ?? existing?.players)
 
   return {
     address: target.address,
@@ -258,7 +263,8 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
   const { getServersState, emit, launch, onStage2Row } = options
   const deps = options.deps ?? {}
 
-  const blockedReasonFor = (blocked: boolean): ScanBlockedReason | null => (blocked ? 'game-running' : null)
+  const blockedReasonFor = (blocked: boolean): ScanBlockedReason | null =>
+    blocked ? 'game-running' : null
 
   const lists: Record<ServersBrowseMode, ScanList> = { online: emptyList(), lan: emptyList() }
   let mode: ServersBrowseMode = 'online'
@@ -288,8 +294,12 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     result: Extract<ScanQueryResult, { ok: true }>,
   ): void {
     const now = new Date().toISOString()
-    list.entries.set(target.address, mergeSuccessfulReply(list.entries.get(target.address), target, result, now))
-    if (result.kind === 'status') list.statusInfo.set(target.address, { ...result.reply.serverinfo })
+    list.entries.set(
+      target.address,
+      mergeSuccessfulReply(list.entries.get(target.address), target, result, now),
+    )
+    if (result.kind === 'status')
+      list.statusInfo.set(target.address, { ...result.reply.serverinfo })
   }
 
   async function runOnlineRound(
@@ -299,7 +309,6 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     selectedAddress: string | undefined,
     signal: AbortSignal,
   ): Promise<void> {
-
     // Story 117 D3: only the 'all' scope uses source addresses, so only it resolves sources -
     // a favourites/single-server refresh never touches a master or list source's network, and
     // keeps the `sourceFailures: []` `start()` already reset it to.
@@ -340,7 +349,10 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
         if (row.result.ok) {
           answeredOnline.add(row.target.address)
           const existing = list.entries.get(row.target.address)
-          list.entries.set(row.target.address, mergeSuccessfulReply(existing, row.target, row.result, now))
+          list.entries.set(
+            row.target.address,
+            mergeSuccessfulReply(existing, row.target, row.result, now),
+          )
           if (row.result.kind === 'status') {
             list.statusInfo.set(row.target.address, { ...row.result.reply.serverinfo })
           }
@@ -436,10 +448,19 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       onReply: (reply) => {
         if (list.entries.has(reply.address)) return
         const target: ScanTarget = { address: reply.address, origins: ['lan'] }
-        const result: ScanQueryResult = { ok: true, kind: 'info', reply: reply.reply, rttMs: reply.rttMs }
+        const result: ScanQueryResult = {
+          ok: true,
+          kind: 'info',
+          reply: reply.reply,
+          rttMs: reply.rttMs,
+        }
         discovered.push(target)
         storeReply(list, target, result)
-        emit(SERVERS_EVENTS.scanServer, { stage: 'stage1', target, result } satisfies ScanServerPush)
+        emit(SERVERS_EVENTS.scanServer, {
+          stage: 'stage1',
+          target,
+          result,
+        } satisfies ScanServerPush)
         onProgress({ stage1Done: discovered.length, stage1Total: discovered.length })
       },
     })
@@ -449,7 +470,9 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     await runScan({
       targets: discovered,
       settings: current.scan,
-      selectedAddress: discovered.some((t) => t.address === selectedAddress) ? selectedAddress : undefined,
+      selectedAddress: discovered.some((t) => t.address === selectedAddress)
+        ? selectedAddress
+        : undefined,
       signal,
       deps: { queryServer: deps.queryServer },
       onServer,

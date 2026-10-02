@@ -156,10 +156,7 @@ export function registerInstallationsIpc(app: AppContext): void {
   })
 
   handleOutcome('installations:pickIconFile', pickIconFileInputSchema, async (input, event) => {
-    return app.icons.pickAndStore(
-      input.installationId,
-      BrowserWindow.fromWebContents(event.sender),
-    )
+    return app.icons.pickAndStore(input.installationId, BrowserWindow.fromWebContents(event.sender))
   })
 
   handle('installations:iconDataUrl', iconDataUrlInputSchema, (installationId) => {

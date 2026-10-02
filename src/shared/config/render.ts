@@ -30,7 +30,11 @@ import {
   sanitizeComment,
   section,
 } from '@shared/config/cfg-layout'
-import { META_FORMAT_VERSION, formatMetaTag, neutralizeProse } from '@shared/config/profile-metadata'
+import {
+  META_FORMAT_VERSION,
+  formatMetaTag,
+  neutralizeProse,
+} from '@shared/config/profile-metadata'
 import { limitsFor } from '@shared/config/engine-limits'
 import type { EngineKind } from '@shared/types/engine'
 import type { SwitchBindChainInput } from './switch-bind'
@@ -45,8 +49,7 @@ import { renderSwitchBindChain } from './switch-bind'
  * four-line shape (rule / name+tag / this sentence / rule) as understood decoration rather than an
  * unrecognised leftover - the same reason it already imports `OWNERSHIP_MARKER` from here.
  */
-export const HAND_EDIT_SENTENCE =
-  'Q2 Launcher - hand-edited changes to this file are read back'
+export const HAND_EDIT_SENTENCE = 'Q2 Launcher - hand-edited changes to this file are read back'
 
 /**
  * Label for cvars a profile carries that no `CvarDef` in `ALL_CVARS` recognizes (an engine cvar the
@@ -193,7 +196,10 @@ function entryTag(action: ConfigAction, anchor: AnchorTagFields = {}): string {
 function categoryTag(categoryId: string | null, ordinals: ReadonlyMap<string, number>): string {
   if (categoryId === null) return ''
   const ordinal = ordinals.get(categoryId)
-  return formatMetaTag({ cat: categoryId, ord: ordinal === undefined ? undefined : String(ordinal) })
+  return formatMetaTag({
+    cat: categoryId,
+    ord: ordinal === undefined ? undefined : String(ordinal),
+  })
 }
 
 /** The `[q2l sub=<id>]` tag for a second-level (sub-category) section banner (story 053 D2/story
@@ -404,7 +410,8 @@ function splitAliasLine(alias: GeneratedAlias): { head: string; body: string } {
  */
 function orderedCategoryIds(profile: ConfigProfile): string[] {
   const ids: string[] = []
-  for (const category of profile.categories ?? []) if (!ids.includes(category.id)) ids.push(category.id)
+  for (const category of profile.categories ?? [])
+    if (!ids.includes(category.id)) ids.push(category.id)
   return ids
 }
 
@@ -480,7 +487,9 @@ function withSubcategoryBuckets<T>(
   style: SectionHeaderStyle,
 ): string[] {
   const category: ConfigActionCategory | undefined =
-    categoryId === null ? undefined : (profile.categories ?? []).find((entry) => entry.id === categoryId)
+    categoryId === null
+      ? undefined
+      : (profile.categories ?? []).find((entry) => entry.id === categoryId)
   if (!category) return renderLines(items)
 
   const subcategories = category.subcategories ?? []
@@ -566,7 +575,12 @@ function proseText(text: string): string {
  * exactly one place that knows the effective value (`renderProfileFile` itself, `?? 'dashes'`), and
  * every other function just carries it. It changes only the decoration `banner()` draws around the
  * title/tag content computed above; the content itself is identical across all three styles. */
-function titledSection(title: string, tag: string, lines: string[], style: SectionHeaderStyle): string[] {
+function titledSection(
+  title: string,
+  tag: string,
+  lines: string[],
+  style: SectionHeaderStyle,
+): string[] {
   return section(fitProseAndTag(bannerText(title), tag, BANNER_CONTENT_BUDGET), lines, { style })
 }
 
@@ -576,8 +590,16 @@ function titledSection(title: string, tag: string, lines: string[], style: Secti
  * one level down: a user-created section with no cvars yet must not vanish on the next reload).
  * Built with `banner()` directly rather than through `section()`, which drops a banner outright
  * when its body is empty - exactly the case this function must keep. */
-function bannerSection(title: string, tag: string, lines: string[], style: SectionHeaderStyle): string[] {
-  return [...banner(fitProseAndTag(bannerText(title), tag, BANNER_CONTENT_BUDGET), { style }), ...lines]
+function bannerSection(
+  title: string,
+  tag: string,
+  lines: string[],
+  style: SectionHeaderStyle,
+): string[] {
+  return [
+    ...banner(fitProseAndTag(bannerText(title), tag, BANNER_CONTENT_BUDGET), { style }),
+    ...lines,
+  ]
 }
 
 /** The plain-English banner text for a category bucket. User-typed custom category names run
@@ -593,7 +615,11 @@ function categoryTitle(categoryId: string | null, profile: ConfigProfile): strin
  * builds a sub-banner for always names one of `category.subcategories` (`withSubcategoryBuckets`
  * only iterates that array) - an entry whose own `subcategoryId` matches nothing lands in the
  * category's ungrouped run instead, never in a synthesized sub-category bucket. */
-function subcategoryTitle(categoryId: string, subcategoryId: string, profile: ConfigProfile): string {
+function subcategoryTitle(
+  categoryId: string,
+  subcategoryId: string,
+  profile: ConfigProfile,
+): string {
   return sanitizeComment(subcategoryLabelFor(categoryId, subcategoryId, profile))
 }
 
@@ -606,7 +632,11 @@ function cvarSectionTitle(sectionId: string, profile: ConfigProfile): string {
 
 /** The plain-English banner text for a cvar sub-section (story 059 D2) - mirrors `subcategoryTitle`
  * one level down, same bare-label rule. */
-function cvarSubsectionTitle(sectionId: string, subsectionId: string, profile: ConfigProfile): string {
+function cvarSubsectionTitle(
+  sectionId: string,
+  subsectionId: string,
+  profile: ConfigProfile,
+): string {
   return sanitizeComment(cvarSubsectionLabelFor(sectionId, subsectionId, profile))
 }
 
@@ -1055,7 +1085,9 @@ function buildAnchorLines(
     // own alias name (the story's decision - the config text already carries it), and a tag
     // repeating it would be a second, driftable source for the same fact. With no alias line and no
     // bind line to read the mirrored value off, the tag is the only place it can live.
-    const aliasName = withAliasLine.has(action.id) ? undefined : action.aliasName?.trim() || undefined
+    const aliasName = withAliasLine.has(action.id)
+      ? undefined
+      : action.aliasName?.trim() || undefined
 
     // Every slot, in slot order - see the slot-order note in this function's doc comment.
     for (const slot of actionKeySlots(action)) {
@@ -1337,7 +1369,9 @@ function buildAnchorSections(
  * render path writes it any more.
  */
 function buildHeaderBlock(profile: ConfigProfile): string[] {
-  const [topRule, nameLine, bottomRule] = banner([bannerText(profile.name).trimEnd()], { fill: '=' })
+  const [topRule, nameLine, bottomRule] = banner([bannerText(profile.name).trimEnd()], {
+    fill: '=',
+  })
   const tag = formatMetaTag({ v: String(META_FORMAT_VERSION), id: profile.id })
   return [topRule!, nameLine!, bottomRule!, headerTagLine(tag)]
 }
@@ -1480,7 +1514,12 @@ function buildCvarSectionBlock(
       ),
     )
   }
-  return bannerSection(cvarSectionTitle(section.id, profile), cvarSectionTag(section.id), lines, style)
+  return bannerSection(
+    cvarSectionTitle(section.id, profile),
+    cvarSectionTag(section.id),
+    lines,
+    style,
+  )
 }
 
 function isCvarLine(line: CvarLine | undefined): line is CvarLine {
@@ -1542,12 +1581,12 @@ function buildCvarSections(profile: ConfigProfile, style: SectionHeaderStyle): s
   )
 
   if (profile.writeCatalogDefaults !== false) {
-    const defaultLines = ALL_CVARS.filter((def) => !placedCatalogIds.has(def.name.toLowerCase())).map(
-      (def) => {
-        const stored = claimed.get(def.name.toLowerCase())
-        return { name: stored?.name ?? def.name, value: writeValueFor(def, stored?.value) }
-      },
-    )
+    const defaultLines = ALL_CVARS.filter(
+      (def) => !placedCatalogIds.has(def.name.toLowerCase()),
+    ).map((def) => {
+      const stored = claimed.get(def.name.toLowerCase())
+      return { name: stored?.name ?? def.name, value: writeValueFor(def, stored?.value) }
+    })
     blocks.push(
       buildReservedCvarSection(
         CVAR_DEFAULTS_SECTION_LABEL,

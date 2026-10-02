@@ -34,7 +34,13 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
  * Never mentions "spectate"/"spectating"/"playing" (story 132 AC4) - `actions` is the only place a
  * join affordance can appear.
  */
-export function WatchlistMatchRow({ entryId, match, server, selected, actions }: WatchlistMatchRowProps) {
+export function WatchlistMatchRow({
+  entryId,
+  match,
+  server,
+  selected,
+  actions,
+}: WatchlistMatchRowProps) {
   const { t } = useTranslation()
   const name = server?.name || match.serverName || match.address
   const playerPing = Number.isFinite(match.ping) && match.ping >= 0 ? `${match.ping} ms` : '—'
@@ -52,7 +58,10 @@ export function WatchlistMatchRow({ entryId, match, server, selected, actions }:
         <div className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5 text-sm text-ink">
             {server?.favourite && (
-              <Star className="size-3.5 shrink-0 fill-flame-500 text-flame-500" aria-hidden="true" />
+              <Star
+                className="size-3.5 shrink-0 fill-flame-500 text-flame-500"
+                aria-hidden="true"
+              />
             )}
             <span className="truncate">{name}</span>
           </span>

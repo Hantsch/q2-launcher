@@ -166,7 +166,8 @@ function chipGrip(categoryId: string): HTMLButtonElement {
   const grip = [
     ...container.querySelectorAll<HTMLButtonElement>('button[aria-label="Drag to reorder"]'),
   ].find(
-    (button) => button.closest('[data-drop-category]')?.getAttribute('data-drop-category') === categoryId,
+    (button) =>
+      button.closest('[data-drop-category]')?.getAttribute('data-drop-category') === categoryId,
   )
   if (!grip) throw new Error(`no grip for category ${categoryId}`)
   return grip

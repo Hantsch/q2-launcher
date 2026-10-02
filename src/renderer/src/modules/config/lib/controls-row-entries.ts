@@ -31,7 +31,12 @@ import {
 } from '@shared/config/action-catalog'
 import { buildDemoRows } from '@shared/config/catalog-rows'
 import type { ConfigAction } from '@shared/modules/config'
-import { buildDropGroups, buildMovementRows, buildWeaponRows, type CatalogRow } from './catalog-binds'
+import {
+  buildDropGroups,
+  buildMovementRows,
+  buildWeaponRows,
+  type CatalogRow,
+} from './catalog-binds'
 
 /** What the catalogue knows about one of its rows: the row itself plus the i18n key naming it. */
 export interface CatalogRowInfo {
@@ -73,9 +78,18 @@ function buildCatalogRowIndex(): ReadonlyMap<string, CatalogRowInfo> {
   pair(useRows, WEAPON_ACTIONS)
   pair(extraRows, WEAPON_EXTRA_ACTIONS)
   const drops = buildDropGroups()
-  pair(drops.weapon, DROPPABLES.filter((d) => d.kind === 'weapon'))
-  pair(drops.ammo, DROPPABLES.filter((d) => d.kind === 'ammo'))
-  pair(drops.misc, DROPPABLES.filter((d) => d.kind === 'powerup' || d.kind === 'tech'))
+  pair(
+    drops.weapon,
+    DROPPABLES.filter((d) => d.kind === 'weapon'),
+  )
+  pair(
+    drops.ammo,
+    DROPPABLES.filter((d) => d.kind === 'ammo'),
+  )
+  pair(
+    drops.misc,
+    DROPPABLES.filter((d) => d.kind === 'powerup' || d.kind === 'tech'),
+  )
   pair(buildDemoRows(), DEMO_ACTIONS)
 
   return index
@@ -100,7 +114,9 @@ export function allCatalogRowInfos(): CatalogRowInfo[] {
  * a plain entry otherwise. */
 export function controlsRowEntryFor(action: ConfigAction): ControlsRowEntry {
   const info = catalogRowInfo(action.catalogId)
-  return info ? { kind: 'catalog', row: info.row, labelKey: info.labelKey, action } : { kind: 'action', action }
+  return info
+    ? { kind: 'catalog', row: info.row, labelKey: info.labelKey, action }
+    : { kind: 'action', action }
 }
 
 /**

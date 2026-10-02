@@ -101,7 +101,7 @@ export async function setup() {
   if (!spawnable) {
     console.warn(
       '  resources/bin/7za.exe is not vendored locally (run `npm run fetch:7za` first) - the ' +
-        "Play/launch half of this flow will be SKIPPED, loudly, at the step that needs it.",
+        'Play/launch half of this flow will be SKIPPED, loudly, at the step that needs it.',
     )
   }
 
@@ -135,7 +135,9 @@ export default async function linuxUserJourney({ page, step, shot }) {
   await engineBadge.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const engineBadgeText = await engineBadge.innerText()
   if (engineBadgeText !== 'Q2PRO') {
-    throw new Error(`expected the folder to classify as Q2PRO, got: ${JSON.stringify(engineBadgeText)}`)
+    throw new Error(
+      `expected the folder to classify as Q2PRO, got: ${JSON.stringify(engineBadgeText)}`,
+    )
   }
   const shownPath = await dialog.getByLabel('Installation folder').inputValue()
   if (shownPath !== journeyRoot) {
@@ -205,7 +207,9 @@ export default async function linuxUserJourney({ page, step, shot }) {
   await resultPanel.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('config-saved')
 
-  step("assert the profile's canonical file on disk now contains the typed line (AC9's 'real file')")
+  step(
+    "assert the profile's canonical file on disk now contains the typed line (AC9's 'real file')",
+  )
   const canonicalPath = join(variantUserDataDir('populated'), PLAIN_PROFILE_FILE_NAME)
   const onDisk = readFileSync(canonicalPath, 'latin1')
   if (!onDisk.includes(TYPED_LINE)) {
@@ -220,7 +224,7 @@ export default async function linuxUserJourney({ page, step, shot }) {
 
   if (!spawnable) {
     console.warn(
-      'SKIPPING the Play/launch assertions (AC9\'s launch half): resources/bin/7za.exe is not ' +
+      "SKIPPING the Play/launch assertions (AC9's launch half): resources/bin/7za.exe is not " +
         'vendored locally on this Windows machine, so the fixture install root only carries a ' +
         'non-executable placeholder, not a real spawn target. The add-installation and ' +
         'config-edit halves above both ran for real. Run `npm run fetch:7za` and re-run this flow ' +
@@ -252,7 +256,9 @@ export default async function linuxUserJourney({ page, step, shot }) {
   const runningIndex = phases.indexOf('running')
   const exitedIndex = phases.indexOf('exited')
   if (runningIndex === -1) {
-    throw new Error(`launch state never reported 'running' - observed phases: ${JSON.stringify(phases)}`)
+    throw new Error(
+      `launch state never reported 'running' - observed phases: ${JSON.stringify(phases)}`,
+    )
   }
   if (exitedIndex === -1 || exitedIndex < runningIndex) {
     throw new Error(

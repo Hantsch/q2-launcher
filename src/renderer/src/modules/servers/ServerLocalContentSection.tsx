@@ -135,7 +135,9 @@ export function ServerLocalContentSection({ mod, map }: ServerLocalContentSectio
   }, [installationId, installCatalogId])
 
   const trackedJobIds = [
-    ...(started && started.installationId === installationId && started.catalogId === installCatalogId
+    ...(started &&
+    started.installationId === installationId &&
+    started.catalogId === installCatalogId
       ? [started.jobId]
       : []),
     ...(elsewhere && elsewhere.installationId === installationId ? elsewhere.jobIds : []),
@@ -146,7 +148,8 @@ export function ServerLocalContentSection({ mod, map }: ServerLocalContentSectio
     if (installationId === null || installCatalogId === null) return
     setFailure(null)
     const outcome = await installMod(installationId, installCatalogId)
-    if (outcome.ok) setStarted({ installationId, catalogId: installCatalogId, jobId: outcome.value.jobId })
+    if (outcome.ok)
+      setStarted({ installationId, catalogId: installCatalogId, jobId: outcome.value.jobId })
     else setFailure(outcome.error)
   }
   const statusGameDir = status.kind === 'base' ? '' : status.gameDir
@@ -174,7 +177,10 @@ export function ServerLocalContentSection({ mod, map }: ServerLocalContentSectio
   if (installation === null) {
     return (
       <div className="space-y-1" data-testid="servers-detail-local-content">
-        <p className="text-sm text-ink-muted" data-testid="servers-detail-local-content-no-installation">
+        <p
+          className="text-sm text-ink-muted"
+          data-testid="servers-detail-local-content-no-installation"
+        >
           {t('servers.detail.localContent.noInstallation')}
         </p>
       </div>
@@ -209,7 +215,11 @@ export function ServerLocalContentSection({ mod, map }: ServerLocalContentSectio
               : t('servers.detail.localContent.install')}
           </Button>
           {failure && (
-            <p role="alert" className="text-sm text-danger" data-testid="servers-detail-mod-install-error">
+            <p
+              role="alert"
+              className="text-sm text-danger"
+              data-testid="servers-detail-mod-install-error"
+            >
               {t(failure.key, failure.params)}
             </p>
           )}

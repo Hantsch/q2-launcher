@@ -93,7 +93,11 @@ describe('CatalogService', () => {
 
     vi.setSystemTime(T0 + CATALOG_FRESHNESS_MS - 1000)
     const second = await service.getCatalog()
-    expect(second).toMatchObject({ status: 'ok', fromCache: false, ageMs: CATALOG_FRESHNESS_MS - 1000 })
+    expect(second).toMatchObject({
+      status: 'ok',
+      fromCache: false,
+      ageMs: CATALOG_FRESHNESS_MS - 1000,
+    })
     expect(fetchMock).toHaveBeenCalledTimes(1)
 
     await service.getCatalog({ refresh: true })
@@ -190,7 +194,17 @@ describe('mods catalog.get handler', () => {
     if (!outcome.ok || outcome.value.status !== 'ok') throw new Error('expected ok state')
     const entry = outcome.value.entries[0]
     expect(Object.keys(entry).sort()).toEqual(
-      ['description', 'gamedir', 'id', 'license', 'name', 'pinned', 'projectUrl', 'sourceUrl', 'versions'].sort(),
+      [
+        'description',
+        'gamedir',
+        'id',
+        'license',
+        'name',
+        'pinned',
+        'projectUrl',
+        'sourceUrl',
+        'versions',
+      ].sort(),
     )
     expect(entry.versions[0]).toEqual({ version: '1.0', prerelease: false })
   })

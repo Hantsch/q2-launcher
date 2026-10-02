@@ -10,7 +10,7 @@ created: 2026-08-22
 The `.cfg` is the artefact that matters. It is what the engine reads, what a player keeps for years,
 what gets shared on a forum, copied to a LAN machine, edited in Notepad at two in the morning.
 `state.json` is the launcher's own bookkeeping. Today that is inverted: `state.json` holds the
-profile and the `.cfg` is disposable output stamped *"generated, do not edit"*. Hand-edit the file
+profile and the `.cfg` is disposable output stamped _"generated, do not edit"_. Hand-edit the file
 and the next save silently overwrites it.
 
 Decided with the user: **the file becomes the real source of truth; `state.json` becomes a cache.**
@@ -79,7 +79,7 @@ Concretely, what changes for me as a user:
 Decided during refine (no user involvement):
 
 - **Change detection compares a hash, not stored text.** The cache keeps `fileHash` (sha-256 of
-  the latin1 file bytes the launcher last read *or* wrote) + `fileSeenAt`; "did the file change
+  the latin1 file bytes the launcher last read _or_ wrote) + `fileSeenAt`; "did the file change
   underneath us" is a byte-hash comparison, never a timestamp. The conflict view needs no stored
   copy — the launcher's side is `renderProfileFile(cache)`, the disk side is read live — so
   duplicating a 30 KB file inside `state.json` per profile buys nothing.
@@ -94,7 +94,7 @@ Decided during refine (no user involvement):
   written before the update. It switches to `ownedProfileId(firstLine) === profileId`
   (`writer.ts:237`, already the forgiving prefix parser every other call site uses).
 - **A rebuild from the launcher's own file keeps the sentinel id**, unlike 042 AC4's import rule:
-  a launcher-owned file's sentinel id *is* that profile's identity, so restoring it must not mint
+  a launcher-owned file's sentinel id _is_ that profile's identity, so restoring it must not mint
   a new one. Foreign import keeps minting a new id. The two paths therefore stay separate
   functions even though both end in `ProfilesStore`'s commit path.
 - **Re-read is scoped to the selected profile** on window focus and tab open, and to the whole
@@ -108,7 +108,7 @@ Decided during refine (no user involvement):
 - **No sixth sync state.** A profile with unsaved edits reports its canonical file as
   `outOfSync` with an explicit reason (`unsavedChanges` / `changedOnDisk`) carried in the existing
   `messageKey` field; 022 decision 5's five states keep their meanings (AC9). The only semantic
-  change is what `outOfSync` on the *canonical* row invites: adopt/compare, not "rewrite it".
+  change is what `outOfSync` on the _canonical_ row invites: adopt/compare, not "rewrite it".
 - **An unparseable file leaves the profile editable**, serving the last good cache, and a save
   over it is treated as a conflict (an unreadable file counts as "changed on disk"). Locking the
   profile read-only would be more scope and would strand a user whose only fix is in the UI.
@@ -131,7 +131,7 @@ Invert the direction: the canonical `<name>.cfg` is read before it is ever writt
 only happens when the user asks and the disk still looks the way the launcher last saw it.
 
 1. **Header wording first** (`render.ts` + `canonical.ts`): make ownership detection tolerant of
-   the sentinel's trailing clause, *then* replace "generated, do not edit" and
+   the sentinel's trailing clause, _then_ replace "generated, do not edit" and
    `HAND_EDIT_SENTENCE` with true wording. Re-baseline the five test files that pin the literal.
 2. **A read layer in main** — new `file-source.ts`: read the canonical file (latin1), hash it,
    parse it via 042's parser, and classify against the cached hash as
@@ -223,7 +223,7 @@ Not touched: `renderLoaderFile`, `OWNERSHIP_MARKER` itself, the per-installation
   re-reads first and refuses to write when the file changed underneath, returning a conflict
   instead; on a clean save it writes the canonical file, seeds the new hash, clears `dirty`, and
   runs the existing installation sync cascade unchanged; `assign`/`unassign`/`setDefault` still
-  sync installations immediately (they are not profile *content*); IPC contract/coverage tests green.
+  sync installations immediately (they are not profile _content_); IPC contract/coverage tests green.
 
 ### D5 — Re-read and conflict detection on the wire [x]
 
@@ -349,23 +349,23 @@ Not touched: `renderLoaderFile`, `OWNERSHIP_MARKER` itself, the per-installation
    in the list, rebuilt from its file, with the same name and content; only its installation
    assignment needs redoing.
 9. Care tab: the canonical row for an externally edited file offers Reload/Compare; hand-edit an
-   *installation* copy and confirm it still reports out-of-sync with a working Retry.
+   _installation_ copy and confirm it still reports out-of-sync with a working Retry.
 10. Launch the installation once and confirm Quake II starts with the profile applied.
 
 ## Coverage
 
-| AC | Deliverable |
-| --- | --- |
-| File is authoritative; `state.json` holds only list/assignments/mods/ids + cache | D2 (fields) + D4 (write cadence) + D5 (adoption) |
-| Deleting the cached entry loses nothing — list rebuilds from files | D3 |
-| External edit detected while open, UI reflects it, never a silent swap | D5 (main) + D7 (triggers + notice) |
-| Unparseable file: last good cache stays usable, error with file + line | D2 (diagnostic) + D5 (wire) + D7 (surface) |
-| Never overwrite an unread hand-edit; UI-vs-disk is a surfaced conflict | D2 (hash baseline) + D4 (save refuses) + D8 (dialog) |
-| Installation copies stay generated output; edited copy still out-of-sync | D4 (sync cascade unchanged) + D9 (Care copy) |
-| "generated, do not edit" replaced by true wording | D1 |
-| Migration: existing profiles keep working, files brought to 040/042 format | D3 |
-| Care + Raw File keep working; the five sync states still mean what they say | D9 |
-| S07 carry-over: adversarial re-render/re-parse pass | D10 |
+| AC                                                                               | Deliverable                                          |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| File is authoritative; `state.json` holds only list/assignments/mods/ids + cache | D2 (fields) + D4 (write cadence) + D5 (adoption)     |
+| Deleting the cached entry loses nothing — list rebuilds from files               | D3                                                   |
+| External edit detected while open, UI reflects it, never a silent swap           | D5 (main) + D7 (triggers + notice)                   |
+| Unparseable file: last good cache stays usable, error with file + line           | D2 (diagnostic) + D5 (wire) + D7 (surface)           |
+| Never overwrite an unread hand-edit; UI-vs-disk is a surfaced conflict           | D2 (hash baseline) + D4 (save refuses) + D8 (dialog) |
+| Installation copies stay generated output; edited copy still out-of-sync         | D4 (sync cascade unchanged) + D9 (Care copy)         |
+| "generated, do not edit" replaced by true wording                                | D1                                                   |
+| Migration: existing profiles keep working, files brought to 040/042 format       | D3                                                   |
+| Care + Raw File keep working; the five sync states still mean what they say      | D9                                                   |
+| S07 carry-over: adversarial re-render/re-parse pass                              | D10                                                  |
 
 ## Done
 

@@ -24,8 +24,8 @@ code, header only, typed failure instead of a throw.
 - [x] **AC2** — An `.mvd2` has no POV; the result says so explicitly rather than inventing one.
 - [x] **AC3** — An `.mvd2.gz` yields exactly the same facts as the same demo uncompressed.
 - [x] **AC4** — The result records the MVD protocol version, and a version outside 2009–2013 returns
-      a typed "unparsable" result naming the version. *(Range corrected from 2009–2012 at refine:
-      current Q2PRO writes 2013 — see Decisions (Sprint).)*
+      a typed "unparsable" result naming the version. _(Range corrected from 2009–2012 at refine:
+      current Q2PRO writes 2013 — see Decisions (Sprint).)_
 - [x] **AC5** — Header-only and bounded, like [[136]] AC8; garbage or truncation returns "unparsable"
       with a reason, never a throw.
 - [x] **AC6** — Format is detected from the content (the `MVD2` magic), not only from the extension:
@@ -106,79 +106,95 @@ Result shape (D1 exports it):
 
 ```ts
 type Mvd2Version = 2009 | 2010 | 2011 | 2012 | 2013
-type Mvd2Header = { ok: true; format: 'mvd2'; protocol: 37; mvdVersion: Mvd2Version
-  layout: 'original' | 'extended'; gameDir: string; levelName: string; map: string | null
-  pov: null; players: string[]; largestBlockBytes: number; bytesConsumed: number }
-type Mvd2Unparsable = { ok: false; reason: Dm2Unparsable['reason'] | 'unknown-version'
-  protocol?: number; version?: number }
-type DemoHeaderResult = (Dm2Header & { format: 'dm2' }) | Mvd2Header | Dm2Unparsable | Mvd2Unparsable
+type Mvd2Header = {
+  ok: true
+  format: 'mvd2'
+  protocol: 37
+  mvdVersion: Mvd2Version
+  layout: 'original' | 'extended'
+  gameDir: string
+  levelName: string
+  map: string | null
+  pov: null
+  players: string[]
+  largestBlockBytes: number
+  bytesConsumed: number
+}
+type Mvd2Unparsable = {
+  ok: false
+  reason: Dm2Unparsable['reason'] | 'unknown-version'
+  protocol?: number
+  version?: number
+}
+type DemoHeaderResult =
+  (Dm2Header & { format: 'dm2' }) | Mvd2Header | Dm2Unparsable | Mvd2Unparsable
 ```
 
 ## Deliverables
 
 - [x] **D1 — `.mvd2` header parser (pure) + format dispatcher + synthetic writer + tests.**
-  Files: new `src/shared/demos/mvd2-header.ts`, `src/shared/demos/mvd2-writer.ts`,
-  `src/shared/demos/demo-header.ts`, `src/shared/demos/mvd2-header.test.ts`,
-  `src/shared/demos/demo-header.test.ts`. Mirror `src/shared/demos/dm2-header.ts` /
-  `dm2-writer.ts` (story 136; pure, no `node:*`, no `Buffer`, `DataView`, `decodeLatin1` from
-  `src/shared/servers/protocol.ts`; import 136's layout tables and `Dm2Header`/`Dm2Unparsable`
-  types instead of redefining them).
-  Spec: export `MVD2_HEADER_MAX_BYTES = 65_541`, the types `Mvd2Version`, `Mvd2Header`,
-  `Mvd2Unparsable`, `DemoHeaderResult` exactly as:
-  `Mvd2Header = { ok: true; format: 'mvd2'; protocol: 37; mvdVersion: 2009|2010|2011|2012|2013;
-  layout: 'original'|'extended'; gameDir; levelName; map: string|null; pov: null; players:
-  string[]; largestBlockBytes; bytesConsumed }`, `Mvd2Unparsable = { ok: false; reason:
-  Dm2Unparsable['reason'] | 'unknown-version'; protocol?: number; version?: number }`,
-  `DemoHeaderResult = (Dm2Header & { format: 'dm2' }) | Mvd2Header | Dm2Unparsable | Mvd2Unparsable`.
-  `parseMvd2Header(bytes)` rules: length 0 → `empty`; first 4 bytes ≠ `MVD2` → `not-a-demo`;
-  fewer than 6 bytes, or block 1 (`uint16 LE` len at offset 4) reaching past the input →
-  `truncated`; len 0 → `not-a-demo`. Inside block 1 only: `cmd` byte, `cmd & 31` ≠ 4 →
-  `not-a-demo`; `int32 LE` protocol ≠ 37 → `unknown-protocol` + `protocol`; `uint16` version
-  outside 2009–2013 → `unknown-version` + `version`; flags = next `uint16` if version ≥ 2012, else
-  `cmd >> 5`; `int32` servercount; NUL-terminated gamedir; `int16` clientNum; then loop
-  `uint16` index: `== layout end` → done, `> end` → `not-a-demo`, else NUL-terminated string.
-  Layout `extended` iff version ≥ 2011 and `flags & 4`, else `original`. A field or string
-  running past the end of block 1, or no terminator before it → `not-a-demo` (block complete
-  but malformed). Facts as story 136: `gameDir` empty → `baseq2`; `levelName` = `CS_NAME`
-  (empty string if absent — MVD has no level string in serverdata); `map` = `CS_MODELS+1` minus
-  `maps/` / `.bsp` (case-insensitive) or `null`; `players` = each `CS_PLAYERSKINS` slot's name up
-  to the first `\`, slot order, empty skipped, **slot `clientNum` skipped when 0 ≤ clientNum <
-  256**, no dedup; `pov: null` always; `largestBlockBytes` = block 1 len; `bytesConsumed` =
-  `6 + len`. Never reads past `MVD2_HEADER_MAX_BYTES`, never throws (bounds checks, no
-  try/catch crutch), every loop advances.
-  `parseDemoHeader(bytes)` in `demo-header.ts`: `MVD2` magic → `parseMvd2Header`; else
-  `parseDm2Header`, and an `ok` dm2 result is returned with `format: 'dm2'` added.
-  Writer `buildMvd2(opts)` → `Uint8Array`: `version`, `flags`, `protocol` (default 37),
-  `gameDir`, `clientNum`, `configstrings: Record<number,string>`, `layout` (picks the terminator),
-  `trailingBlocks` (N filler frame blocks after block 1), `terminate` (append `uint16 0`); writes
-  flags as a word for ≥ 2012 and into `cmd >> 5` below.
-  Tests (names in Acceptance Tests): facts from a synthetic 2010 original-layout demo; a
-  2011/2012/2013 extended demo (flags 4) filled **only at extended indices** and an original one
-  only at original indices, so a wrong table fails; the flags-word vs. extrabits split (a 2012
-  demo whose `cmd` top bits say extended but flags word says not → `original`); `pov` null and
-  the `clientNum` slot excluded; versions 2008 and 2014 → `unknown-version` with `version`;
-  protocol 34 in an MVD2 → `unknown-protocol`; empty / cut / garbage → reasons; parsing stops at
-  block 1 regardless of 32 MiB of trailing blocks (`bytesConsumed` ≤ `MVD2_HEADER_MAX_BYTES`);
-  2000 seeded truncations/byte flips never throw; high-bit name bytes survive; the dispatcher
-  sends `MVD2…` bytes to the MVD path and a `buildDm2` demo to the dm2 path (`format` checked).
+      Files: new `src/shared/demos/mvd2-header.ts`, `src/shared/demos/mvd2-writer.ts`,
+      `src/shared/demos/demo-header.ts`, `src/shared/demos/mvd2-header.test.ts`,
+      `src/shared/demos/demo-header.test.ts`. Mirror `src/shared/demos/dm2-header.ts` /
+      `dm2-writer.ts` (story 136; pure, no `node:*`, no `Buffer`, `DataView`, `decodeLatin1` from
+      `src/shared/servers/protocol.ts`; import 136's layout tables and `Dm2Header`/`Dm2Unparsable`
+      types instead of redefining them).
+      Spec: export `MVD2_HEADER_MAX_BYTES = 65_541`, the types `Mvd2Version`, `Mvd2Header`,
+      `Mvd2Unparsable`, `DemoHeaderResult` exactly as:
+      `Mvd2Header = { ok: true; format: 'mvd2'; protocol: 37; mvdVersion: 2009|2010|2011|2012|2013;
+layout: 'original'|'extended'; gameDir; levelName; map: string|null; pov: null; players:
+string[]; largestBlockBytes; bytesConsumed }`, `Mvd2Unparsable = { ok: false; reason:
+Dm2Unparsable['reason'] | 'unknown-version'; protocol?: number; version?: number }`,
+      `DemoHeaderResult = (Dm2Header & { format: 'dm2' }) | Mvd2Header | Dm2Unparsable | Mvd2Unparsable`.
+      `parseMvd2Header(bytes)` rules: length 0 → `empty`; first 4 bytes ≠ `MVD2` → `not-a-demo`;
+      fewer than 6 bytes, or block 1 (`uint16 LE` len at offset 4) reaching past the input →
+      `truncated`; len 0 → `not-a-demo`. Inside block 1 only: `cmd` byte, `cmd & 31` ≠ 4 →
+      `not-a-demo`; `int32 LE` protocol ≠ 37 → `unknown-protocol` + `protocol`; `uint16` version
+      outside 2009–2013 → `unknown-version` + `version`; flags = next `uint16` if version ≥ 2012, else
+      `cmd >> 5`; `int32` servercount; NUL-terminated gamedir; `int16` clientNum; then loop
+      `uint16` index: `== layout end` → done, `> end` → `not-a-demo`, else NUL-terminated string.
+      Layout `extended` iff version ≥ 2011 and `flags & 4`, else `original`. A field or string
+      running past the end of block 1, or no terminator before it → `not-a-demo` (block complete
+      but malformed). Facts as story 136: `gameDir` empty → `baseq2`; `levelName` = `CS_NAME`
+      (empty string if absent — MVD has no level string in serverdata); `map` = `CS_MODELS+1` minus
+      `maps/` / `.bsp` (case-insensitive) or `null`; `players` = each `CS_PLAYERSKINS` slot's name up
+      to the first `\`, slot order, empty skipped, **slot `clientNum` skipped when 0 ≤ clientNum <
+      256**, no dedup; `pov: null` always; `largestBlockBytes` = block 1 len; `bytesConsumed` =
+      `6 + len`. Never reads past `MVD2_HEADER_MAX_BYTES`, never throws (bounds checks, no
+      try/catch crutch), every loop advances.
+      `parseDemoHeader(bytes)` in `demo-header.ts`: `MVD2` magic → `parseMvd2Header`; else
+      `parseDm2Header`, and an `ok` dm2 result is returned with `format: 'dm2'` added.
+      Writer `buildMvd2(opts)` → `Uint8Array`: `version`, `flags`, `protocol` (default 37),
+      `gameDir`, `clientNum`, `configstrings: Record<number,string>`, `layout` (picks the terminator),
+      `trailingBlocks` (N filler frame blocks after block 1), `terminate` (append `uint16 0`); writes
+      flags as a word for ≥ 2012 and into `cmd >> 5` below.
+      Tests (names in Acceptance Tests): facts from a synthetic 2010 original-layout demo; a
+      2011/2012/2013 extended demo (flags 4) filled **only at extended indices** and an original one
+      only at original indices, so a wrong table fails; the flags-word vs. extrabits split (a 2012
+      demo whose `cmd` top bits say extended but flags word says not → `original`); `pov` null and
+      the `clientNum` slot excluded; versions 2008 and 2014 → `unknown-version` with `version`;
+      protocol 34 in an MVD2 → `unknown-protocol`; empty / cut / garbage → reasons; parsing stops at
+      block 1 regardless of 32 MiB of trailing blocks (`bytesConsumed` ≤ `MVD2_HEADER_MAX_BYTES`);
+      2000 seeded truncations/byte flips never throw; high-bit name bytes survive; the dispatcher
+      sends `MVD2…` bytes to the MVD path and a `buildDm2` demo to the dm2 path (`format` checked).
 
 - [x] **D2 — main-side `readDemoHeader` + real-fixture tests.**
-  Files: `src/main/lib/demo-bytes.ts` (add `readDemoHeader`; leave 136's `readDm2Header` and
-  `readDemoPrefix` unchanged), `src/main/lib/demo-bytes.test.ts` (add a `describe` block).
-  Mirror 136's `readDm2Header` and its temp-dir tests.
-  Spec: `readDemoHeader(path): Promise<DemoHeaderResult>` = `readDemoPrefix(path,
-  DM2_HEADER_MAX_BYTES)` → `parseDemoHeader(bytes)`; `ok: false` → `{ ok: false, reason:
-  'unreadable' }`. Never rejects.
-  Tests: the real `docs/fixtures/demos/PFAU_20221127-053327_q2dm1.mvd2` (resolve from repo root)
-  deep-equals `{ ok: true, format: 'mvd2', protocol: 37, mvdVersion: 2010, layout: 'original',
-  gameDir: 'opentdm', levelName: 'The Edge', map: 'q2dm1', pov: null, players: ['lamb shanker',
-  'lamb shanker'], largestBlockBytes: 7123, bytesConsumed: 7129 }` (no `[MVDSPEC]`); its
-  `gzipSync` copy as a temp `.mvd2.gz` deep-equals the same; the `.mvd2` copied to a temp
-  `x.dm2` still yields `format: 'mvd2'`, and `test.dm2` copied to `x.mvd2` yields `format: 'dm2'`
-  with 136's facts (map `q2rdm2`); a 32 MiB synthetic MVD2 (plain and gzipped) is read with file
-  bytes **measured independently of the return value** (spy on `FileHandle.read` / sum the read
-  stream's `data` chunks) — plain ≤ `DM2_HEADER_MAX_BYTES`, gzip ≤ `DM2_HEADER_MAX_BYTES + 128 KiB`;
-  a gzip copy cut inside block 1 → `truncated`.
+      Files: `src/main/lib/demo-bytes.ts` (add `readDemoHeader`; leave 136's `readDm2Header` and
+      `readDemoPrefix` unchanged), `src/main/lib/demo-bytes.test.ts` (add a `describe` block).
+      Mirror 136's `readDm2Header` and its temp-dir tests.
+      Spec: `readDemoHeader(path): Promise<DemoHeaderResult>` = `readDemoPrefix(path,
+DM2_HEADER_MAX_BYTES)` → `parseDemoHeader(bytes)`; `ok: false` → `{ ok: false, reason:
+'unreadable' }`. Never rejects.
+      Tests: the real `docs/fixtures/demos/PFAU_20221127-053327_q2dm1.mvd2` (resolve from repo root)
+      deep-equals `{ ok: true, format: 'mvd2', protocol: 37, mvdVersion: 2010, layout: 'original',
+gameDir: 'opentdm', levelName: 'The Edge', map: 'q2dm1', pov: null, players: ['lamb shanker',
+'lamb shanker'], largestBlockBytes: 7123, bytesConsumed: 7129 }` (no `[MVDSPEC]`); its
+      `gzipSync` copy as a temp `.mvd2.gz` deep-equals the same; the `.mvd2` copied to a temp
+      `x.dm2` still yields `format: 'mvd2'`, and `test.dm2` copied to `x.mvd2` yields `format: 'dm2'`
+      with 136's facts (map `q2rdm2`); a 32 MiB synthetic MVD2 (plain and gzipped) is read with file
+      bytes **measured independently of the return value** (spy on `FileHandle.read` / sum the read
+      stream's `data` chunks) — plain ≤ `DM2_HEADER_MAX_BYTES`, gzip ≤ `DM2_HEADER_MAX_BYTES + 128 KiB`;
+      a gzip copy cut inside block 1 → `truncated`.
 
 ## Model Hints
 

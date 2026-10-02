@@ -10,11 +10,11 @@ story 043 introduced becomes legible: the orange row marker means "I edited this
 expanded into a before/after of what a Save would write, and edits can be discarded without
 touching the file. Plus one surface for the alias name space a real ninety-alias config needs.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| 048 — every setting is always written, reset-to-default is gone | done | `048: profile files always write every cvar, reset-to-default affordances removed` |
-| 049 — unsaved changes are reviewable and discardable | done | `049: unsaved changes are reviewable and discardable` |
-| 044 — one surface to manage every alias in a profile | done | `044: Aliases tab — one surface for the alias name space, backed by one reference graph` |
+| Story                                                           | Status | Commit                                                                                   |
+| --------------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------- |
+| 048 — every setting is always written, reset-to-default is gone | done   | `048: profile files always write every cvar, reset-to-default affordances removed`       |
+| 049 — unsaved changes are reviewable and discardable            | done   | `049: unsaved changes are reviewable and discardable`                                    |
+| 044 — one surface to manage every alias in a profile            | done   | `044: Aliases tab — one surface for the alias name space, backed by one reference graph` |
 
 All three stories in the sprint list are done. No blocked or carried-over stories.
 

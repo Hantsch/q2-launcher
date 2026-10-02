@@ -376,10 +376,9 @@ describe('diffProfileAgainstBaseline - actions', () => {
         { actions: [withKeys(action({}), { key: 'F1' })] },
         {
           actions: [
-            withKeys(
-              action({ commands: [{ kind: 'message', channel: 'say', text: 'gg' }] }),
-              { key: 'F2' },
-            ),
+            withKeys(action({ commands: [{ kind: 'message', channel: 'say', text: 'gg' }] }), {
+              key: 'F2',
+            }),
           ],
         },
       ),

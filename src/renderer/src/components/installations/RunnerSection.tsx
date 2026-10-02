@@ -100,16 +100,18 @@ export function RunnerSection({ installation }: { installation: Installation }) 
           {/* Story 105 D2: one wrapping row of inline chips, not full-width stacked buttons - the
               reasons for any unavailable options live below the row (not per-chip), each linked
               back to its chip via `aria-describedby` so a screen reader still announces it. */}
-          <div role="radiogroup" aria-label={t('runner.heading')} className="flex flex-wrap gap-1.5">
+          <div
+            role="radiogroup"
+            aria-label={t('runner.heading')}
+            className="flex flex-wrap gap-1.5"
+          >
             {runners.map((option) => (
               <RunnerChip
                 key={`${option.kind}-${option.id}`}
                 option={option}
                 selected={effectiveRunner === option.id}
                 reasonId={`installation-runner-reason-${installation.id}-${option.kind}`}
-                onSelect={() =>
-                  void updateInstallation({ id: installation.id, runner: option.id })
-                }
+                onSelect={() => void updateInstallation({ id: installation.id, runner: option.id })}
               />
             ))}
           </div>
@@ -179,7 +181,11 @@ export function RunnerSection({ installation }: { installation: Installation }) 
       )}
 
       {planResult?.ok && (
-        <p className="numeric text-xs text-ink-muted" data-testid="installation-runner-preview" data-selectable>
+        <p
+          className="numeric text-xs text-ink-muted"
+          data-testid="installation-runner-preview"
+          data-selectable
+        >
           <span className="text-ink-faint">{t('runner.preview.label')}: </span>
           {planResult.value.preview}
         </p>

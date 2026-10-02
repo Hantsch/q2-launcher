@@ -23,7 +23,7 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F15, F36, 
   it" — they landed (zero renderer hits); it is kept alive only by one test.
 - `toRestoreInput` exists twice (`import.ts` over `Record`s, `file-source.ts` over `Map`s) for
   the same `RestoreProfilePartsInput`; the field list `cvars, binds, actions, categories,
-  cvarSections, layers, writeUnbindall, sectionHeaderStyle` is re-spelled in four places and
+cvarSections, layers, writeUnbindall, sectionHeaderStyle` is re-spelled in four places and
   story-059 comments record that `cvarSections` was once dropped on one path only.
 - `main/modules/config/render.ts` and `switch-bind.ts` are one-line `export * from '@shared/config/…'`
   shims used by eight files; the 2,457-line main-side `render.test.ts` tests the pure shared

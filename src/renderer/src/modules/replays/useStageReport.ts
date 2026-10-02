@@ -33,7 +33,11 @@ export function useStageReport(ref: RefObject<HTMLElement | null>): void {
       const prev = last
       const nowOccluded = useOverlayRegistry.getState().occludes(rect)
       const moved =
-        prev === null || prev.x !== rect.x || prev.y !== rect.y || prev.width !== rect.width || prev.height !== rect.height
+        prev === null ||
+        prev.x !== rect.x ||
+        prev.y !== rect.y ||
+        prev.width !== rect.width ||
+        prev.height !== rect.height
       if (moved) {
         last = rect
         setStageRect(rect)

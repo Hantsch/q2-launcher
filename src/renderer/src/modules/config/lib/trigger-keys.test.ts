@@ -31,10 +31,7 @@ describe('resolveTriggerLayer', () => {
   })
 
   it('resolves a blank/absent triggerKey to null', () => {
-    const layers = [
-      layer({ id: 'l1', triggerKey: null }),
-      layer({ id: 'l2', triggerKey: '   ' }),
-    ]
+    const layers = [layer({ id: 'l1', triggerKey: null }), layer({ id: 'l2', triggerKey: '   ' })]
 
     expect(resolveTriggerLayer('q', layers, null)).toBeNull()
   })
@@ -66,7 +63,7 @@ describe('resolveTriggerLayer', () => {
 })
 
 describe('triggerSelectTarget', () => {
-  it('returns null for the active layer\'s own trigger (two-way toggle back to base)', () => {
+  it("returns null for the active layer's own trigger (two-way toggle back to base)", () => {
     const info: TriggerInfo = { layerId: 'l1', layerName: 'Weapons', isActive: true }
 
     expect(triggerSelectTarget(info)).toBeNull()

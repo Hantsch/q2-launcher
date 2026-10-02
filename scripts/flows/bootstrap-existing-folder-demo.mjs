@@ -161,7 +161,9 @@ export default async function bootstrapExistingFolderDemo({ page, shot, step }) 
     }
   }
   if (await page.getByTestId('bootstrap-target-blocked').count()) {
-    throw new Error('the existing-folder-demo fixture target was reported as blocked, not a clean pick')
+    throw new Error(
+      'the existing-folder-demo fixture target was reported as blocked, not a clean pick',
+    )
   }
   await next.click({ timeout: TIMEOUT_MS })
 
@@ -283,7 +285,9 @@ export default async function bootstrapExistingFolderDemo({ page, shot, step }) 
 
   const nextAfterUnusable = page.getByRole('button', { name: 'Next' })
   if (await nextAfterUnusable.isEnabled()) {
-    throw new Error('Next was enabled for an unusable folder verdict - AC5 says it must stay blocked')
+    throw new Error(
+      'Next was enabled for an unusable folder verdict - AC5 says it must stay blocked',
+    )
   }
 
   step('close the wizard without proceeding, and assert nothing was created (AC5)')

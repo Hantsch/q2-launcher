@@ -98,7 +98,12 @@ export class ProfilesStore {
               ...section,
               cvars: [...section.cvars],
               ...(section.subsections
-                ? { subsections: section.subsections.map((sub) => ({ ...sub, cvars: [...sub.cvars] })) }
+                ? {
+                    subsections: section.subsections.map((sub) => ({
+                      ...sub,
+                      cvars: [...sub.cvars],
+                    })),
+                  }
                 : {}),
             })),
           }
@@ -292,7 +297,12 @@ export class ProfilesStore {
 
     const next: ConfigProfile = {
       ...current,
-      layers: applyActionLayerMirror(input.layers, current.actions ?? [], randomUUID, current.actions ?? []),
+      layers: applyActionLayerMirror(
+        input.layers,
+        current.actions ?? [],
+        randomUUID,
+        current.actions ?? [],
+      ),
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
@@ -372,7 +382,12 @@ export class ProfilesStore {
       categories: [...input.categories],
       actions: [...input.actions],
       binds: applyActionBindMirror(current.binds, input.actions, current.actions ?? []),
-      layers: applyActionLayerMirror(current.layers ?? [], input.actions, randomUUID, current.actions ?? []),
+      layers: applyActionLayerMirror(
+        current.layers ?? [],
+        input.actions,
+        randomUUID,
+        current.actions ?? [],
+      ),
       updatedAt: new Date().toISOString(),
     }
     return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
@@ -454,7 +469,9 @@ export class ProfilesStore {
    * so a discarded profile is adopted exactly as it would be if this same content had just been
    * loaded from a file - never a discard-specific code path that could drift from the ordinary one.
    */
-  discard(profileId: string): { outcome: 'discarded'; profiles: ConfigProfile[] } | { outcome: 'noBaseline' } {
+  discard(
+    profileId: string,
+  ): { outcome: 'discarded'; profiles: ConfigProfile[] } | { outcome: 'noBaseline' } {
     const current = this.find(profileId)
     if (!current) throw new Error(`config profile not found: ${profileId}`)
     if (!current.baseline) return { outcome: 'noBaseline' }

@@ -53,7 +53,7 @@ is already the single source ([[096]] AC1).
   ([[096]] AC1) in the main process, plus a one-line ambient declaration — build-time bundling as
   the user decision requires, with no runtime file read and no `extraResources` entry to keep in
   sync.
-- **R4 — Only the running version's own section is shown.** AC1 asks what *this* version brought;
+- **R4 — Only the running version's own section is shown.** AC1 asks what _this_ version brought;
   the full history is AC3's link, so main resolves exactly one section and never concatenates.
 - **R5 — Installed notes travel over a new core channel `app:getReleaseNotes`**, not as a field on
   `AppInfo`: About is shell, not a module (`src/main/ipc/app.ts` is its home), and `AppInfo` is the
@@ -282,7 +282,7 @@ Under `isUiHarnessEnabled()` only, `app:openExternal` appends the URL to
 
 No `manual residue` in this story.
 
-**Named gap (not a residue, not downgraded):** the *real network* outcome of a manual check cannot
+**Named gap (not a residue, not downgraded):** the _real network_ outcome of a manual check cannot
 run inside `ui:verify`/`ui:flow`, because [[097]] AC5 forbids any check in a dev/unpackaged build —
 which is exactly what the harness launches. The flow therefore proves the surface (button, in-flight
 state, outcome line, seeded timestamp and seeded failure reason) and the dev-build outcome; the
@@ -291,14 +291,14 @@ manual step.
 
 ### Coverage gate
 
-| AC | Deliverable | Test |
-| --- | --- | --- |
-| AC1 | D2 + D3 | e2e `about-release-notes.mjs` + `src/main/lib/release-notes.test.ts` |
-| AC2 | D4 | e2e `about-release-notes.mjs` + `AboutPanel.update.test.tsx` |
-| AC3 | D3 + D6 | e2e `about-release-notes.mjs` (recorded URLs) |
-| AC4 | D5 | e2e `about-release-notes.mjs` + `UpdateCheckRow.test.tsx` |
+| AC  | Deliverable  | Test                                                                            |
+| --- | ------------ | ------------------------------------------------------------------------------- |
+| AC1 | D2 + D3      | e2e `about-release-notes.mjs` + `src/main/lib/release-notes.test.ts`            |
+| AC2 | D4           | e2e `about-release-notes.mjs` + `AboutPanel.update.test.tsx`                    |
+| AC3 | D3 + D6      | e2e `about-release-notes.mjs` (recorded URLs)                                   |
+| AC4 | D5           | e2e `about-release-notes.mjs` + `UpdateCheckRow.test.tsx`                       |
 | AC5 | D2 + D3 + D4 | e2e `about-release-notes.mjs` + `AboutPanel.test.tsx` + `release-notes.test.ts` |
-| AC6 | D1 + D3 + D7 | `src/shared/release-notes.test.ts` + e2e `about-release-notes.mjs` |
+| AC6 | D1 + D3 + D7 | `src/shared/release-notes.test.ts` + e2e `about-release-notes.mjs`              |
 
 ## Done
 
@@ -334,7 +334,7 @@ data, so a foreign release body can never inject markup — it can only ever ren
 - **AC → test mapping, as verified:**
   - AC1 → e2e `about-release-notes.mjs` ("About shows the running version's changelog section, or
     the documented empty state") + unit `src/main/lib/release-notes.test.ts` (running-version
-    selection out of a multi-version changelog) — both pass, using the *real* unbracketed
+    selection out of a multi-version changelog) — both pass, using the _real_ unbracketed
     `## <version> — <date>` heading format after the review-cycle fix (see Decisions).
   - AC2 → e2e `about-release-notes.mjs` + unit
     `src/renderer/src/components/about/AboutPanel.update.test.tsx` — pass.
@@ -349,11 +349,11 @@ data, so a foreign release body can never inject markup — it can only ever ren
   - AC6 → unit `src/shared/release-notes.test.ts` (raw HTML/`<script>` survive only as literal
     text) + e2e `about-release-notes.mjs` (seeded injection probe renders as text, produces no
     `img` element) — pass.
-- **Named gap (carried from the plan, not new):** the *real network* outcome of a manual check
+- **Named gap (carried from the plan, not new):** the _real network_ outcome of a manual check
   cannot run inside `ui:flow`/`ui:verify`, because a real `update:check` is a no-op whenever
   `supported` (`app.isPackaged`) is `false` — always true under this harness (097 AC5). The flow
   proves the real surface (button, last-checked text, a genuine dev-build no-op on click) and the
-  failure-reason *rendering* via the seeded `checkFailed` scenario; the real network behaviour of a
+  failure-reason _rendering_ via the seeded `checkFailed` scenario; the real network behaviour of a
   check remains 097's own acceptance. No manual residue — nothing here becomes a human click list.
 
 ### Decisions

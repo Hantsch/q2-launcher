@@ -234,10 +234,7 @@ describe('ControlsTab sub-category header drag (story 054 D6)', () => {
     expect(renderedSubcategoryIds()).toEqual(['sub-2', 'sub-1'])
     expect(savedCategories).toHaveLength(1)
     const weapons = savedCategories[0]!.find((category) => category.id === 'weapons')!
-    expect(weapons.subcategories?.map((subcategory) => subcategory.id)).toEqual([
-      'sub-2',
-      'sub-1',
-    ])
+    expect(weapons.subcategories?.map((subcategory) => subcategory.id)).toEqual(['sub-2', 'sub-1'])
   })
 
   it('leaves sub-category order untouched when the header is dropped back where it started', async () => {

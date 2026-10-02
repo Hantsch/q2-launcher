@@ -58,9 +58,7 @@ export function InstallationProfilesPanel({ profiles }: { profiles: ConfigProfil
                 key={installation.id}
                 className="flex flex-wrap items-center gap-2 rounded-sm border border-line px-2.5 py-2"
               >
-                <span className="min-w-0 truncate text-sm text-ink-dim">
-                  {installation.name}
-                </span>
+                <span className="min-w-0 truncate text-sm text-ink-dim">{installation.name}</span>
                 <span className="shrink-0">
                   <EngineBadge engineKind={installation.engineKind} />
                 </span>

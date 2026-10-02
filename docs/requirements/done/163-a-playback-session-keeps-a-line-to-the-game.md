@@ -90,7 +90,7 @@ play handler keeps calling `start(input)`; [[164]]'s Linux channel is the first 
   `start(input, options?: { playback?: true })` — a main-only argument, never part of
   `LaunchInput`. Without `playback` the spawn options stay exactly
   `{ cwd, stdio: 'ignore', windowsHide: false, detached: false }`. With it: `stdio:
-  ['pipe','pipe','ignore']`, `detached: false`, and a `PlaybackSession` (`installationId`,
+['pipe','pipe','ignore']`, `detached: false`, and a `PlaybackSession` (`installationId`,
   `write(text): boolean` — false once ended, `onStdout(cb: (chunk: Buffer) => void)` and `onEnd(cb)`
   both returning an unsubscribe, `ended`) returned by `getPlaybackSession()` (`undefined` when
   none). stdout gets its `'data'` listener at spawn and is drained whether or not anyone subscribed;
@@ -160,17 +160,18 @@ OK: `ui:flow` replays-play-q2pro, replays-play-mvd2, servers-join, servers-no-sc
 replays-copy-in. Full regression gate is the sprint's. Review (default, 1 cycle): PASS, no findings.
 AC -> test, all ran and passed: AC1 launch.test.ts "a playback launch spawns..." + playback-session.test.ts
 "write reaches the child's stdin..."; AC2 launch.test.ts "every launch without the playback option..."
-+ ipc/launch.test.ts "launch:start never passes a playback option..."; AC3 playback-session.test.ts
-"stdout is drained..."; AC4 launch.test.ts "the session ends exactly once..." + "releasePlaybackSession
-closes the pipes..." + playback-session.test.ts "a write after the child's stdin broke..."; AC5
-launch.test.ts "a second launch while a playback session runs..." + "a playback launch through a Steam
-handoff is refused...". No manual residue. No changelog entry (no user-facing change).
+
+- ipc/launch.test.ts "launch:start never passes a playback option..."; AC3 playback-session.test.ts
+  "stdout is drained..."; AC4 launch.test.ts "the session ends exactly once..." + "releasePlaybackSession
+  closes the pipes..." + playback-session.test.ts "a write after the child's stdin broke..."; AC5
+  launch.test.ts "a second launch while a playback session runs..." + "a playback launch through a Steam
+  handoff is refused...". No manual residue. No changelog entry (no user-facing change).
 
 Decisions:
+
 - Spawn throw: the session is opened only after `spawn()` returns, so a throw leaves no session (getter stays `undefined`); tested.
 - Error listeners stay on both pipes after the session ends, so a late EPIPE never becomes an uncaught exception in main.
 - Broken stdin does not end the session; `write()` returns false and logs. `onEnd` registered after the end fires immediately.
 - Known trade-off: `releasePlaybackSession()` destroys stdout per the plan; on Linux an engine that does not ignore SIGPIPE could die on its next print after a launcher release. Follow-up for [[164]] if it matters (alternative: keep draining).
 
 tiers: D 2 / hard 1 · review default · cycles 1 · agents 4
-

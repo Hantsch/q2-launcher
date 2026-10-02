@@ -6,7 +6,12 @@ import type { DownloadFailure } from '@shared/modules/downloads'
 import { useLauncher } from '../../store/useLauncher'
 import { formatBytes } from '../../lib/format'
 import { EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
-import { dismissDownloadFailure, getArchiveCacheStatus, getDownloadFailures, restoreDownloadFailure } from './client'
+import {
+  dismissDownloadFailure,
+  getArchiveCacheStatus,
+  getDownloadFailures,
+  restoreDownloadFailure,
+} from './client'
 import { JobRow } from './components/JobRow'
 import { FailureLogEntry } from './components/FailureLogEntry'
 

@@ -109,14 +109,14 @@ Order D1 → D2 → D3 → D4. No new user-visible strings (behaviour only; Wayl
 
 - **D1 — stage follower core.** New `src/main/modules/replays/stage-follow.ts` + `stage-follow.test.ts`
   (mirror the injected-deps style of `playback-timeline.ts`). `createStageFollower({ send, computeGeometry,
-  parkGeometry, now/setTimeout/clearTimeout })` with `update(input)` / `dispose()`. `send(line)` returns
+parkGeometry, now/setTimeout/clearTimeout })` with `update(input)` / `dispose()`. `send(line)` returns
   `Outcome<void>`; `computeGeometry(stageRect, window)` is 170's rect→`WxH+X+Y` function (find it in
   `src/main/modules/replays/`, reuse, do not duplicate the physical-pixel math); `parkGeometry` = same
   W×H, X = virtual-desktop right edge (physical px) + 64, same Y. Rules: (a) parked-state inputs
   (`stageRect === null`, `minimized`, or a move/resize tick within the last 250 ms) → send the park
   geometry **immediately** once; (b) otherwise send the placed geometry after **250 ms without a new
   input**; (c) never send a geometry equal to the last sent one; (d) `focused` false→`set
-  win_alwaysontop 0`, true→`1`, deduplicated; (e) initial state = placed at the launch geometry +
+win_alwaysontop 0`, true→`1`, deduplicated; (e) initial state = placed at the launch geometry +
   topmost 1, so no command until an input differs; (f) a `busy`/failed send keeps the value desired and
   retries on the next 250 ms tick; (g) `dispose()` clears timers and sends nothing. Tests (fake timers):
   "a drag parks once and places once at the end", "a stage-rect change alone places after quiet without
@@ -192,6 +192,7 @@ Order D1 → D2 → D3 → D4. No new user-visible strings (behaviour only; Wayl
 **Verification (narrow gate):** `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (89 files / 1445 tests) green; flows `replays-stage-follow`, `replays-stage-view-leave`, `replays-stage-overlays` plus regression `replays-console-command`, `replays-timeline`, `replays-stage` all OK. Full gate not run (sprint's). AC -> test: AC1 stage-follow unit + follow/view-leave flows; AC2, AC3 unit + follow flow; AC4 view-leave flow; AC5 overlay-registry unit + overlays flow — all ran and passed. Manual residue: AC2 real Q2PRO honours off-desktop `vid_geometry`; AC3 real OS topmost/z-order vs another program. Review: default stage, PASS, no fix cycle.
 
 **Decisions:**
+
 - D2 removed 170's `demoPlay.restage` (it would double-send beside the follower); its test became the session-lifecycle-hook test, covered by `stage-follow-session.test.ts`. A rect change now places after 250 ms, not at once (by design).
 - Follower parks once per drag (no repeat park lines while parked, even on diagonal drags); park Y is the stage Y at first park.
 - Follower uses the launch rect as stage until the renderer reports one; the stage reporter polls per animation frame (no ResizeObserver) and sends only on rounded-rect or occlusion change.

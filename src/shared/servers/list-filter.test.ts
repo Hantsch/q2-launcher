@@ -209,7 +209,10 @@ describe('active filters intersect', () => {
   })
 
   it('an unsatisfiable combination yields an empty result', () => {
-    const combined = filterServers(allRows, filter({ gamemode: 'deathmatch', mod: 'does-not-exist' }))
+    const combined = filterServers(
+      allRows,
+      filter({ gamemode: 'deathmatch', mod: 'does-not-exist' }),
+    )
     expect(combined).toEqual([])
   })
 })

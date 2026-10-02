@@ -134,7 +134,9 @@ export function parseManifestFile(
     const result = packageSchema.safeParse(row)
     if (!result.success) {
       const id = idOf(row)
-      log.warn(`manifest package at index ${index}${id ? ` (id: ${id})` : ''} dropped: ${result.error.message}`)
+      log.warn(
+        `manifest package at index ${index}${id ? ` (id: ${id})` : ''} dropped: ${result.error.message}`,
+      )
       continue
     }
     packages.push(result.data)
@@ -196,7 +198,9 @@ function resolvePinned(
 
     const pkg = survivorsById.get(id)
     if (pkg === undefined) {
-      log.warn(`manifest pin for engine "${engine}" dropped: package id "${id}" did not survive parsing`)
+      log.warn(
+        `manifest pin for engine "${engine}" dropped: package id "${id}" did not survive parsing`,
+      )
       continue
     }
     if (!packageRunsOnPlatform(pkg, platform)) {

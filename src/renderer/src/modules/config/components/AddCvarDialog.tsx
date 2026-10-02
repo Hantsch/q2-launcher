@@ -120,7 +120,9 @@ export function AddCvarDialog({
           label={t('config.settings.section.addCvarDialog.valueLabel')}
           error={
             collidesWithEmptyValue
-              ? t('config.settings.section.addCvarDialog.existingNameWarning', { name: trimmedName })
+              ? t('config.settings.section.addCvarDialog.existingNameWarning', {
+                  name: trimmedName,
+                })
               : undefined
           }
         >

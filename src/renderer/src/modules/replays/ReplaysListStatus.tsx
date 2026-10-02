@@ -8,7 +8,10 @@ import { describeReplaysScanProgress, type ReplaysListState } from './list-state
 /** Labels a `ReplaysSourceError`'s source: an installation's game dir the same way `DemoRow`'s
  * source cell does (`replays.list.source`), an extra folder via the existing
  * `replays.source.extraFolder` key. */
-function sourceLabel(t: (key: string, params?: Record<string, unknown>) => string, error: ReplaysSourceError): string {
+function sourceLabel(
+  t: (key: string, params?: Record<string, unknown>) => string,
+  error: ReplaysSourceError,
+): string {
   return error.source.kind === 'installation'
     ? t('replays.list.source', {
         installation: error.source.installationName,

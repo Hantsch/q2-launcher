@@ -150,7 +150,10 @@ function renderTileFrameState(props: DashboardTileFrameProps, t: TFunction): Rea
 
     case 'filled':
       return (
-        <TileFrameBoundary fallbackMessage={t('home.dashboard.tileFrame.renderError')} retryLabel={t('common.retry')}>
+        <TileFrameBoundary
+          fallbackMessage={t('home.dashboard.tileFrame.renderError')}
+          retryLabel={t('common.retry')}
+        >
           {props.children}
         </TileFrameBoundary>
       )
@@ -223,10 +226,7 @@ class TileFrameBoundary extends Component<TileFrameBoundaryProps, TileFrameBound
       )
     }
     return (
-      <div
-        data-testid="dashboard-tile-frame-filled"
-        className="flex min-h-0 flex-1 flex-col"
-      >
+      <div data-testid="dashboard-tile-frame-filled" className="flex min-h-0 flex-1 flex-col">
         {this.props.children}
       </div>
     )

@@ -152,7 +152,10 @@ export const setLayoutInputSchema = z.object({
  * handlers beyond news - kept as the one map covering every `HOME_HANDLERS` entry, not a second,
  * sibling one, so nothing can add a handler here without also adding its schema.
  */
-export const HOME_HANDLER_SCHEMAS: Record<(typeof HOME_HANDLERS)[keyof typeof HOME_HANDLERS], z.ZodTypeAny> = {
+export const HOME_HANDLER_SCHEMAS: Record<
+  (typeof HOME_HANDLERS)[keyof typeof HOME_HANDLERS],
+  z.ZodTypeAny
+> = {
   [HOME_HANDLERS.newsGet]: newsNoInputSchema,
   [HOME_HANDLERS.newsRefresh]: newsNoInputSchema,
   [HOME_HANDLERS.openSlideUrl]: openSlideUrlInputSchema,

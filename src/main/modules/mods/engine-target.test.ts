@@ -48,7 +48,10 @@ describe('engine target and variant selection', () => {
       [],
       reading('x86_64'),
     )
-    const sel = selectVariant(version([{ platform: 'win32', arch: 'x86', packages: [pkg('lib32')] }]), target)
+    const sel = selectVariant(
+      version([{ platform: 'win32', arch: 'x86', packages: [pkg('lib32')] }]),
+      target,
+    )
     expect(sel).toMatchObject({ contentOnly: true })
     expect('variant' in sel && sel.variant.packages[0]?.id).toBe('content')
   })

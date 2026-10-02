@@ -39,7 +39,7 @@ Order is dependency-driven, not size-driven:
 
 - **026 first** so 017–021 can be smoke-driven as they land instead of at the end.
 - **017 before 018**: 017 removes the edit-mode toggle and makes a keycap click open the bind
-  dialog, which changes what a click on a *trigger* keycap means; 018 then reuses that settled
+  dialog, which changes what a click on a _trigger_ keycap means; 018 then reuses that settled
   click semantics for its layer switching in test mode, and moves the readout into the header
   row 017 just emptied.
 - **019 before 020** (stated in both stories): 019 is the entry-type/ordering data model,

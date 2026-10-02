@@ -138,7 +138,12 @@ describe('discoverLanServers', () => {
       deps: {
         networkInterfaces: () => ({
           lo: [iface('127.0.0.1', '255.0.0.0', { internal: true })],
-          v6: [{ ...iface('fe80::1', 'ffff:ffff:ffff:ffff::'), family: 'IPv6' } as NetworkInterfaceInfo],
+          v6: [
+            {
+              ...iface('fe80::1', 'ffff:ffff:ffff:ffff::'),
+              family: 'IPv6',
+            } as NetworkInterfaceInfo,
+          ],
         }),
         udpImpl: net.impl,
       },

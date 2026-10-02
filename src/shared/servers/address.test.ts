@@ -70,16 +70,37 @@ describe('parseServerAddress', () => {
 
   it('rejects a host outside the documented character set', () => {
     expect(parseServerAddress(':27910')).toEqual({ ok: false, reason: 'host-empty' })
-    expect(parseServerAddress(`${'a'.repeat(254)}:27910`)).toEqual({ ok: false, reason: 'host-too-long' })
-    expect(parseServerAddress('bad_host.com:27910')).toEqual({ ok: false, reason: 'host-label-invalid' })
-    expect(parseServerAddress('-leading.com:27910')).toEqual({ ok: false, reason: 'host-label-invalid' })
-    expect(parseServerAddress('trailing-.com:27910')).toEqual({ ok: false, reason: 'host-label-invalid' })
-    expect(parseServerAddress(`${'a'.repeat(64)}.com:27910`)).toEqual({ ok: false, reason: 'host-label-invalid' })
+    expect(parseServerAddress(`${'a'.repeat(254)}:27910`)).toEqual({
+      ok: false,
+      reason: 'host-too-long',
+    })
+    expect(parseServerAddress('bad_host.com:27910')).toEqual({
+      ok: false,
+      reason: 'host-label-invalid',
+    })
+    expect(parseServerAddress('-leading.com:27910')).toEqual({
+      ok: false,
+      reason: 'host-label-invalid',
+    })
+    expect(parseServerAddress('trailing-.com:27910')).toEqual({
+      ok: false,
+      reason: 'host-label-invalid',
+    })
+    expect(parseServerAddress(`${'a'.repeat(64)}.com:27910`)).toEqual({
+      ok: false,
+      reason: 'host-label-invalid',
+    })
   })
 
   it('rejects an IPv4 octet out of range, including a leading-zero octet', () => {
-    expect(parseServerAddress('1.2.3.300:27910')).toEqual({ ok: false, reason: 'ipv4-octet-out-of-range' })
-    expect(parseServerAddress('10.0.0.010:27910')).toEqual({ ok: false, reason: 'ipv4-octet-out-of-range' })
+    expect(parseServerAddress('1.2.3.300:27910')).toEqual({
+      ok: false,
+      reason: 'ipv4-octet-out-of-range',
+    })
+    expect(parseServerAddress('10.0.0.010:27910')).toEqual({
+      ok: false,
+      reason: 'ipv4-octet-out-of-range',
+    })
   })
 
   it('rejects a non-4-label all-numeric host as an invalid hostname', () => {
@@ -144,7 +165,13 @@ describe('every rejection reason has its own i18n key', () => {
   function stringAt(path: string): string | undefined {
     const value: unknown = path
       .split('.')
-      .reduce<unknown>((acc, key) => (acc && typeof acc === 'object' && key in acc ? (acc as Record<string, unknown>)[key] : undefined), en)
+      .reduce<unknown>(
+        (acc, key) =>
+          acc && typeof acc === 'object' && key in acc
+            ? (acc as Record<string, unknown>)[key]
+            : undefined,
+        en,
+      )
     return typeof value === 'string' ? value : undefined
   }
 

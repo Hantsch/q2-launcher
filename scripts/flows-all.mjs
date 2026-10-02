@@ -24,14 +24,18 @@ function run(script, args) {
 }
 
 const DEFAULT_TIMEOUT_SECONDS = 300
-const USAGE = 'usage: npm run ui:flows [-- <flow>... --shard=i/n --timeout=<seconds>]  (1 <= i <= n, timeout > 0)'
+const USAGE =
+  'usage: npm run ui:flows [-- <flow>... --shard=i/n --timeout=<seconds>]  (1 <= i <= n, timeout > 0)'
 
 // A surviving Electron would make the next flow fail with "another instance is already running",
 // so the whole tree goes, and the caller awaits it.
 function killTree(child) {
   if (process.platform === 'win32') {
     return new Promise((resolve) => {
-      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' }).on('close', resolve)
+      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' }).on(
+        'close',
+        resolve,
+      )
     })
   }
   try {

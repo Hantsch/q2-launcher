@@ -27,7 +27,9 @@ function readRevealedPaths() {
 
 export default async function modsDetail({ page, shot, step }) {
   step('select the WriteDir installation, open Mods and click the ctf tile')
-  await page.getByRole('button', { name: WRITEDIR_NAME, exact: true }).click({ timeout: TIMEOUT_MS })
+  await page
+    .getByRole('button', { name: WRITEDIR_NAME, exact: true })
+    .click({ timeout: TIMEOUT_MS })
   await page.getByTestId('nav-mods').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('mods-tile-ctf').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('mods-detail-panel').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -54,11 +56,15 @@ export default async function modsDetail({ page, shot, step }) {
     throw new Error(`mods-detail: expected one new revealed path, got ${after.length - before}`)
   }
   const last = after[after.length - 1]
-  if (!last.endsWith('ctf')) throw new Error(`mods-detail: revealed path should end in ctf, got "${last}"`)
+  if (!last.endsWith('ctf'))
+    throw new Error(`mods-detail: revealed path should end in ctf, got "${last}"`)
 
   step('a manual directory shows the note and no Update/Remove control')
-  await page.getByTestId('mods-detail-manual-note').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('mods-detail-manual-note')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   for (const id of ['mods-detail-update', 'mods-detail-remove']) {
-    if ((await page.getByTestId(id).count()) !== 0) throw new Error(`mods-detail: ${id} must not exist`)
+    if ((await page.getByTestId(id).count()) !== 0)
+      throw new Error(`mods-detail: ${id} must not exist`)
   }
 }

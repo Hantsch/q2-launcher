@@ -109,11 +109,11 @@ user to type five `wait`s.
 - **`bindValueFor`** returns the dispatch alias for a toggle and `+<base>` for a press/release
   entry; neither ever takes the catalogue direct-bind fast path, which is scoped to a
   single-raw-command catalogue row.
-- **A `wait` command renders as `frames` literal `wait` segments**, and only a run of *literal*
+- **A `wait` command renders as `frames` literal `wait` segments**, and only a run of _literal_
   `wait` segments collapses back into one `{ kind: 'wait' }` command - a reference to a `waitN`
   alias stays a raw command so the reference graph and Care keep seeing that name.
 - **An imported `waitN` family** (`alias wait5 "wait;wait;wait;wait;wait"`, `alias wait20
-  "wait5;wait5;wait5;wait5"`) is recognised by resolving it to a frame count and stored as a single
+"wait5;wait5;wait5;wait5"`) is recognised by resolving it to a frame count and stored as a single
   `wait` command on the surviving alias entry: the entry, and therefore its name, is kept, so every
   other body referencing it stays valid. Resolution is depth- and frame-capped; over the cap the
   body stays raw.
@@ -141,7 +141,7 @@ Three `story-review-hard` rounds ran against this diff (the sprint's 3-cycle bud
 050 needed on this same code area). Round 1: 4 findings, all fixed (AC6's truncation-merge gate
 was exact-prose-only and silently split a two-part entry when comment-budget truncation differed
 between its two lines; `toggleCrossWired`/`pressWithoutRelease`/`releaseWithoutPress` only scanned
-`kind: 'alias'` entries and missed the realistic *bound* case; the generated `_s1`/`_s2` names were
+`kind: 'alias'` entries and missed the realistic _bound_ case; the generated `_s1`/`_s2` names were
 outside every alias-name-collision check; `restoreModifierSlots` could write a raw command into a
 two-part entry's `commands`). Round 2: 2 of those 4 fixes were incomplete (the cross-wired check
 still went silent when state 1 itself was the broken half; the truncation-tolerant merge gate
@@ -166,7 +166,7 @@ fixture corpus and adversarial test set) - not a shape any of this story's or 05
 produce, and not reachable through the UI without deliberately naming multiple entries as prefixes
 of each other. Two viable mitigations exist for a future story if this proves to matter in
 practice: use line order as a tie-breaker (a launcher-written toggle always emits state 1, state 2,
-dispatch in that order), or emit a `RestoreWarning` whenever a merge had to *prove* a truncation
+dispatch in that order), or emit a `RestoreWarning` whenever a merge had to _prove_ a truncation
 cut rather than find exact prose equality, making the ambiguity visible instead of silent. Neither
 was implemented here - the round-3 review explicitly scoped this as a 4th cycle requiring
 orchestrator sign-off, and the sprint's 3-cycle budget was already spent by the two prior rounds
@@ -174,7 +174,7 @@ closing four higher-severity findings each.
 
 Two further round-3 observations, both assessed by the reviewer as low-severity and not blocking
 acceptance: Care's message key for the "state 1 itself is broken" cross-wired shape differs from
-what the Test Plan step 6 wording implies (Care still reports *a* finding, under a more precise key
+what the Test Plan step 6 wording implies (Care still reports _a_ finding, under a more precise key
 than the plain "cross-wired" wording suggests); and the `codeWidth`-degrades-to-equality-only path
 (when a hand-edited line's comment has one space instead of two before `//`) declines a legitimate
 merge rather than performing one - the safe direction (over-split, never wrong-merge), left as is.
@@ -205,7 +205,7 @@ Build order follows the data flow: model -> text out -> text in -> checks -> UI.
    new lines get the (post-050) tag, plus the new `lbl` key for a state label.
 4. **Read side** - new pure `src/shared/config/entry-idioms.ts`: recognise the toggle trio, the
    press/release pair and the `waitN` family out of a list of alias definitions, all-or-nothing,
-   with a plain-alias fallback. Wired into `alias-import.ts` (foreign configs, story 041) *and*
+   with a plain-alias fallback. Wired into `alias-import.ts` (foreign configs, story 041) _and_
    `profile-restore.ts` (own file, story 042) - one recogniser, because 050 removes `k`.
 5. **Round-trip re-verification:** extend the fixture corpus (`profile-fixtures.ts`,
    `fixtures/profiles.ts`) with a toggle, a press/release and a wait-chain profile and re-run story
@@ -229,7 +229,7 @@ Each D lands with its own unit tests. Mirror file named where a pattern exists.
 Files: `src/shared/modules/config.ts`, `src/shared/config/engine-limits.ts`,
 `src/main/modules/config/schemas.ts`, `src/main/lib/schemas.ts` (+ both `schemas.test.ts`).
 Mirror: how `catalogId`/`aliasName` were added (optional, additive, no version bump).
-*Acceptance:* typecheck green repo-wide; the payload schema accepts a two-part entry and a `wait`
+_Acceptance:_ typecheck green repo-wide; the payload schema accepts a two-part entry and a `wait`
 command and rejects `frames` out of range or a non-two `parts` on the new kinds; the persisted
 schema drops a malformed row instead of the profile.
 
@@ -237,7 +237,7 @@ schema drops a malformed row instead of the profile.
 segments; a run of literal `wait` segments collapses back into one command; a `waitN` alias
 reference stays raw. Files: `src/shared/config/alias-render.ts`, `src/shared/config/alias-import.ts`
 (`configCommandFor` neighbourhood) + tests.
-*Acceptance:* frames=5 renders `wait; wait; wait; wait; wait`; parsing that back yields exactly one
+_Acceptance:_ frames=5 renders `wait; wait; wait; wait; wait`; parsing that back yields exactly one
 `{ kind: 'wait', frames: 5 }`; `wait;wait;use rl;wait` yields wait(2), raw, wait(1); the byte-budget
 preview counts the expanded form.
 
@@ -247,7 +247,7 @@ preview counts the expanded form.
 validates a press/release base name sign-free and reserves the state suffix.
 Files: `src/shared/config/alias-render.ts`, `alias-names.ts`, `alias-references.ts`,
 `action-mirror.ts` + tests. Mirror: `alt-layers.ts#buildHalf` for the per-part chunking.
-*Acceptance:* the story's `zoom` example renders byte-for-byte as the three-alias idiom with a
+_Acceptance:_ the story's `zoom` example renders byte-for-byte as the three-alias idiom with a
 `bind v "zoom"` mirror; a `+slow`/`-slow` entry renders two lines and one bind; a part long enough
 to split produces `_s1_p1`/`_s1_p2` and stays inside `MAX_LINE_BYTES`.
 
@@ -255,7 +255,7 @@ to split produces `_s1_p1`/`_s1_p2` and stays inside `MAX_LINE_BYTES`.
 pair; new `lbl` key in the registry (no version bump); doc updated.
 Files: `src/shared/config/render.ts`, `profile-metadata.ts`,
 `docs/systems/profile-file-format.md` + tests.
-*Acceptance:* every generated line of both kinds carries the entry's prose display name and no
+_Acceptance:_ every generated line of both kinds carries the entry's prose display name and no
 `e`/`k`/`slot`; a state label round-trips through `lbl` including escaping; the doc names `lbl` and
 both line families.
 
@@ -263,14 +263,14 @@ both line families.
 definitions: the toggle trio (structural wiring), the `+x`/`-x` pair, the `waitN` family - plus what
 did not match, for the plain-alias fallback. No import/restore wiring yet.
 Files: new `src/shared/config/entry-idioms.ts` + `entry-idioms.test.ts`.
-*Acceptance:* recognises the story's two examples and the launcher's own output from D3; rejects
+_Acceptance:_ recognises the story's two examples and the launcher's own output from D3; rejects
 (-> fallback) a cross-wired trio, a dispatch body with an extra segment, a third state, a body with
 a `bind` segment, a `+x` without `-x`; `waitN` resolution is cycle- and cap-safe.
 
 **D6 - import wiring (story 041).** `buildImportedActions` runs the recogniser before its
 per-definition loop and emits `toggle`/`press-release`/wait entries, everything else unchanged.
 Files: `src/shared/config/alias-import.ts` + `alias-import.test.ts`.
-*Acceptance:* the trio/pair/`wait5` cases produce one entry each with names kept verbatim; the
+_Acceptance:_ the trio/pair/`wait5` cases produce one entry each with names kept verbatim; the
 existing ambiguous-rebind and layer-alias paths are pinned unchanged (AC8); non-matching shapes
 still import as the same plain alias entries as before.
 
@@ -279,7 +279,7 @@ trio and the pair into one entry via the recogniser instead of a `k` tag, rebuil
 reads labels from `lbl`; fixture corpus and the fixed-point property extended.
 Files: `src/shared/config/profile-restore.ts`, `profile-fixtures.ts`, `fixtures/profiles.ts`,
 `src/main/modules/config/round-trip.test.ts`, `render-invariants.test.ts`.
-*Acceptance:* render -> parse -> restore -> render is byte-identical for the three new fixtures and
+_Acceptance:_ render -> parse -> restore -> render is byte-identical for the three new fixtures and
 still for the whole existing corpus; a hand-edited broken trio restores as plain alias entries with
 a warning, never as a half toggle.
 
@@ -287,7 +287,7 @@ a warning, never as a half toggle.
 entries; `buildAliasIndex` includes the new kinds' generated names.
 Files: `src/shared/config/validate-actions.ts`, `alias-references.ts`,
 `src/renderer/src/i18n/locales/en.json` + tests. Mirror: `aliasSelfReference` (story 039 D8).
-*Acceptance:* each of the three shapes yields exactly one finding with an i18n key (no prose in the
+_Acceptance:_ each of the three shapes yields exactly one finding with an i18n key (no prose in the
 validator); a healthy toggle/pair yields none; the new kinds' names no longer show up as
 `undefinedAlias`/`aliasUnreferenced` noise.
 
@@ -296,7 +296,7 @@ command-list section (with a label field per state for a toggle) and a `wait` ro
 count; rename writes the shared base name.
 Files: `src/renderer/src/modules/config/ControlsTab.tsx`, `components/ActionEditor.tsx`,
 `components/RenameActionDialog.tsx`, `src/renderer/src/i18n/locales/en.json`.
-*Acceptance:* a toggle and a press/release entry can be created, filled, labelled, bound and saved
+_Acceptance:_ a toggle and a press/release entry can be created, filled, labelled, bound and saved
 entirely through the UI; a `wait` row of 5 frames is added without typing `wait`; renaming a
 press/release entry moves both halves, deleting removes both.
 
@@ -306,22 +306,22 @@ entry as one row; `press-release.ts`'s name-pairing stand-in and its call site a
 Files: `src/renderer/src/modules/config/ControlsTab.tsx`, `components/ControlsRow.tsx`,
 `lib/controls-row-entries.ts`, `OverviewKeyboardPanel.tsx`, `src/shared/config/press-release.ts`
 (+ its test) deleted.
-*Acceptance:* key `V` in the overview reads `Zoom` with both state labels, not `zoom_s1`; no
+_Acceptance:_ key `V` in the overview reads `Zoom` with both state labels, not `zoom_s1`; no
 remaining import of `press-release.ts`; `npm run ui:verify` green with no new accessibility
 findings.
 
 ### Coverage (AC -> D)
 
-| AC | D |
-| --- | --- |
-| 1 toggle kind, three-alias idiom, 039 naming | D1, D3, D4 |
-| 2 bindable, overview shows one thing with two states | D3, D9, D10 |
-| 3 press/release kind, rename/delete moves both halves | D1, D3, D9 |
-| 4 import recognises both, falls back where the shape does not match | D5, D6 |
-| 5 `wait` helper by frame count, `waitN` family recognised | D1, D2, D5, D6, D9 |
-| 6 round-trip fixed point for all three | D7 (with D2/D4 at unit level) |
-| 7 Care: cross-wired toggle, `+x` without `-x`, release-only | D8 |
-| 8 key-rebinding `alias` stays out of scope | no D by design - pinned unchanged in D6's acceptance |
+| AC                                                                  | D                                                    |
+| ------------------------------------------------------------------- | ---------------------------------------------------- |
+| 1 toggle kind, three-alias idiom, 039 naming                        | D1, D3, D4                                           |
+| 2 bindable, overview shows one thing with two states                | D3, D9, D10                                          |
+| 3 press/release kind, rename/delete moves both halves               | D1, D3, D9                                           |
+| 4 import recognises both, falls back where the shape does not match | D5, D6                                               |
+| 5 `wait` helper by frame count, `waitN` family recognised           | D1, D2, D5, D6, D9                                   |
+| 6 round-trip fixed point for all three                              | D7 (with D2/D4 at unit level)                        |
+| 7 Care: cross-wired toggle, `+x` without `-x`, release-only         | D8                                                   |
+| 8 key-rebinding `alias` stays out of scope                          | no D by design - pinned unchanged in D6's acceptance |
 
 ## Model Hints
 
@@ -341,7 +341,7 @@ findings.
 
 Run against the real app (`npm run dev`, or the `ui:verify` build). Every step is a UI path.
 
-1. **Create a toggle.** Controls tab -> *New entry* -> kind **Toggle**, name `Zoom`. State 1:
+1. **Create a toggle.** Controls tab -> _New entry_ -> kind **Toggle**, name `Zoom`. State 1:
    commands `zoom_fov`, `zoom_sens`, label `In`. State 2: `norm_fov`, `norm_sens`, label `Out`.
    Bind key `V`. Save.
 2. **Check the file.** Raw File tab shows `alias zoom_s1 "zoom_fov; zoom_sens; alias zoom zoom_s2"`,
@@ -392,6 +392,7 @@ AC6 above — out of the sprint's 3-cycle review-fix budget, not silently left b
 **Commit message:** `045: toggles, press/release pairs and wait chains as first-class entries`
 
 **Verification.**
+
 - `npm run typecheck`: clean (shared+main+web).
 - `npm test`: 75 files / 2043 tests passed (stable across 3 consecutive runs).
 - `npm run build`: clean.
@@ -405,6 +406,7 @@ AC6 above — out of the sprint's 3-cycle review-fix budget, not silently left b
   UI acceptance path pending that pass.
 
 **Known gaps (documented, not fixed):**
+
 - The prefix-named-entry-triple residual limitation on AC6 (see above and `## Decisions (Sprint)`).
 - Test Plan step 6's wording implies one specific Care message key for the "state 1 itself broken"
   cross-wired shape; the actual finding fires but the reviewer found it may report under a more

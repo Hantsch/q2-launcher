@@ -18,11 +18,16 @@ import { usePlaybackStore } from '../playback-store'
 export function ConsoleCommandField() {
   const { t } = useTranslation()
   const reasonId = useId()
-  const live = usePlaybackStore((state) => state.session !== null && state.session.view?.ended !== true)
+  const live = usePlaybackStore(
+    (state) => state.session !== null && state.session.view?.ended !== true,
+  )
   const platform = useLauncher((state) => state.appInfo?.platform ?? '')
   const showStageHint = usePlaybackStore(
     (state) =>
-      platform === 'win32' && state.session !== null && state.session.view?.ended !== true && !state.session.fullscreen,
+      platform === 'win32' &&
+      state.session !== null &&
+      state.session.view?.ended !== true &&
+      !state.session.fullscreen,
   )
   const [line, setLine] = useState('')
   const [submitting, setSubmitting] = useState(false)

@@ -186,9 +186,7 @@ export function GameDataStep({
             </p>
           )}
 
-          {!checkingFolder && folderVerdict && (
-            <FolderVerdict verdict={folderVerdict} />
-          )}
+          {!checkingFolder && folderVerdict && <FolderVerdict verdict={folderVerdict} />}
         </div>
       )}
     </div>
@@ -209,7 +207,9 @@ function FolderVerdict({ verdict }: { verdict: GameDataSourceVerdict }) {
         data-testid="bootstrap-gamedata-folder-verdict-unusable"
       >
         <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
-        <span>{t(verdict.reason ?? 'bootstrapWizard.gameData.existingFolder.unusableFallback')}</span>
+        <span>
+          {t(verdict.reason ?? 'bootstrapWizard.gameData.existingFolder.unusableFallback')}
+        </span>
       </p>
     )
   }
@@ -221,9 +221,14 @@ function FolderVerdict({ verdict }: { verdict: GameDataSourceVerdict }) {
 
   if (verdict.kind === 'retail') {
     return (
-      <p className="flex items-start gap-2 text-xs leading-relaxed text-ink" data-testid="bootstrap-gamedata-folder-verdict-retail">
+      <p
+        className="flex items-start gap-2 text-xs leading-relaxed text-ink"
+        data-testid="bootstrap-gamedata-folder-verdict-retail"
+      >
         <Check className="mt-0.5 size-3.5 shrink-0 text-success" strokeWidth={3} />
-        <span>{t('bootstrapWizard.gameData.existingFolder.retailVerdict', { paks: pakNames })}</span>
+        <span>
+          {t('bootstrapWizard.gameData.existingFolder.retailVerdict', { paks: pakNames })}
+        </span>
       </p>
     )
   }
@@ -245,7 +250,9 @@ function sizeMismatchParams(
   inspection: DetectedRetailSource['inspection'],
   reasonKey: string,
 ): Record<string, string> {
-  const pak = (SIZE_MISMATCH_REASON_TO_PAK as Record<string, 'pak0' | 'pak1' | undefined>)[reasonKey]
+  const pak = (SIZE_MISMATCH_REASON_TO_PAK as Record<string, 'pak0' | 'pak1' | undefined>)[
+    reasonKey
+  ]
   if (!pak) return {}
   return { actualSize: formatBytes(inspection[pak].sizeBytes ?? undefined) }
 }

@@ -64,7 +64,9 @@ function railTile(page, name) {
  * the installation's own name heading, mirroring the structural approach other flows in this repo
  * use where no testid exists (e.g. `controls-drag-reorder.mjs`'s category-chip selector). */
 function libraryCard(page, name) {
-  return page.locator('div.items-start').filter({ has: page.getByRole('heading', { name, exact: true }) })
+  return page
+    .locator('div.items-start')
+    .filter({ has: page.getByRole('heading', { name, exact: true }) })
 }
 
 async function assertImgTile(locator, description) {
@@ -75,9 +77,12 @@ async function assertImgTile(locator, description) {
   }
   const alt = await img.getAttribute('alt')
   const ariaHidden = await img.getAttribute('aria-hidden')
-  if (alt !== '') throw new Error(`${description}'s icon <img> must have alt="", got ${JSON.stringify(alt)}`)
+  if (alt !== '')
+    throw new Error(`${description}'s icon <img> must have alt="", got ${JSON.stringify(alt)}`)
   if (ariaHidden !== 'true') {
-    throw new Error(`${description}'s icon <img> must have aria-hidden="true", got ${JSON.stringify(ariaHidden)}`)
+    throw new Error(
+      `${description}'s icon <img> must have aria-hidden="true", got ${JSON.stringify(ariaHidden)}`,
+    )
   }
   const src = await img.getAttribute('src')
   if (!src) throw new Error(`${description}'s icon <img> has no src`)
@@ -132,7 +137,9 @@ export default async function installationIconTile({ page, shot, step }) {
   }
   await assertCodeTile(libraryCard(page, ICONLESS_NAME), 'library card/iconless', 'FU')
 
-  step('AC8: the library card select-button keeps a distinguishing accessible name with an icon present')
+  step(
+    'AC8: the library card select-button keeps a distinguishing accessible name with an icon present',
+  )
   // Before an icon exists, this button's accessible name came from its content text (the code
   // span) - an icon replaces that content with a decorative `<img alt="">`, which contributes no
   // accessible text of its own. Resolving by role+name here (rather than reading an attribute) is
@@ -153,12 +160,17 @@ export default async function installationIconTile({ page, shot, step }) {
   await shot('library-cards')
 
   step('action bar: switching the active installation shows the same icon there too')
-  await libraryCard(page, CUSTOM_NAME).locator('button').first().click({ timeout: CLICK_TIMEOUT_MS })
+  await libraryCard(page, CUSTOM_NAME)
+    .locator('button')
+    .first()
+    .click({ timeout: CLICK_TIMEOUT_MS })
   const actionBarTile = page.locator('footer').filter({ hasText: CUSTOM_NAME }).first()
   await actionBarTile.waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
   const actionBarImg = page.locator('footer img')
   if ((await actionBarImg.count()) !== 1) {
-    throw new Error('expected the action bar to show exactly one <img> for the active custom-icon installation')
+    throw new Error(
+      'expected the action bar to show exactly one <img> for the active custom-icon installation',
+    )
   }
   const actionBarSrc = await actionBarImg.getAttribute('src')
   if (!actionBarSrc?.startsWith('data:')) {

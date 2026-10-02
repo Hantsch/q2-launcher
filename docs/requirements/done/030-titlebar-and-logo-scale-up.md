@@ -58,7 +58,7 @@ None — resolved during refine, see Decisions (Sprint).
   the Downloads button that [[031]] adds cannot drift in size.
 - **No focus-ring work.** `index.css:228-236` already gives the whole app one amber
   `:focus-visible` outline, so `/design-tokens`' focus requirement is met by inheritance — the
-  resized buttons only need to be *checked*, not changed.
+  resized buttons only need to be _checked_, not changed.
 - **Built on top of [[031]], which lands first.** 031 moves the Install/Downloads entry out of
   the primary nav into an icon-only button left of Settings; this story scales whatever shape it
   finds there and must not reintroduce a nav entry for it.
@@ -79,7 +79,7 @@ Presentation-only change, renderer only. Two files carry it, plus one deletion.
    `px-3.5` → `px-4`, active underline `inset-x-2` → `inset-x-3`. The buttons already stretch
    via `items-stretch`, so they fill 68px automatically — no height to set.
 4. **Right cluster** (`TitleBar.tsx`): pull the Settings button's classes into a local
-   `ChromeIconButton` sub-component (next to `WindowButton`) and use it for Settings *and* for
+   `ChromeIconButton` sub-component (next to `WindowButton`) and use it for Settings _and_ for
    the Downloads button 031 leaves behind, at `size-11` with a `size-5` icon. `WindowButton`
    goes `h-8 w-11` → `h-11 w-12`, icons `size-4` → `size-5` (`Square` `size-3.5` → `size-4`).
    Divider `h-5` → `h-7`. Leave the `no-drag`/`drag-region` classes, `aria-label`/`title` and
@@ -95,32 +95,32 @@ bar). 031 must be merged before this story starts.
 ## Deliverables
 
 - [x] **D1 — Taller bar, one source of truth.**
-  Files: `src/renderer/src/styles/index.css` (`--titlebar-h: 68px`),
-  `src/shared/constants.ts` (delete `TITLEBAR_HEIGHT`).
-  Acceptance: the bar renders 68px tall, the shell below it reflows with no gap or overlap,
-  `npm run typecheck` + `npm run build` + `npm test` green. *(covers AC 1)*
+      Files: `src/renderer/src/styles/index.css` (`--titlebar-h: 68px`),
+      `src/shared/constants.ts` (delete `TITLEBAR_HEIGHT`).
+      Acceptance: the bar renders 68px tall, the shell below it reflows with no gap or overlap,
+      `npm run typecheck` + `npm run build` + `npm test` green. _(covers AC 1)_
 
 - [x] **D2 — Wordmark at 2x.**
-  Files: `src/renderer/src/components/shell/TitleBar.tsx` (wordmark block only).
-  Acceptance: title 26px, tagline 18px, block vertically centred in the 68px bar, no clipping
-  or overlap with the first nav item at the 940px minimum window width. *(covers AC 2)*
+      Files: `src/renderer/src/components/shell/TitleBar.tsx` (wordmark block only).
+      Acceptance: title 26px, tagline 18px, block vertically centred in the 68px bar, no clipping
+      or overlap with the first nav item at the 940px minimum window width. _(covers AC 2)_
 
 - [x] **D3 — Nav, Settings/Downloads and window controls scale with the bar.**
-  Files: `src/renderer/src/components/shell/TitleBar.tsx` (`NavItem`, `WindowButton`, new local
-  `ChromeIconButton`, right-cluster markup). Mirror the existing local sub-component pattern in
-  the same file (`WindowButton`) for the new one.
-  Acceptance: no interactive element in the bar is smaller than 44px in its hit area; Settings
-  and the Downloads button from [[031]] share one sub-component and one size; nav items fill the
-  bar height; every button keeps its `no-drag`, `aria-label`/`title` and click handler; the
-  header is still one full-height `drag-region`, and double-click-to-maximize plus
-  minimize/maximize/close behave as before. *(covers AC 3, AC 4)*
+      Files: `src/renderer/src/components/shell/TitleBar.tsx` (`NavItem`, `WindowButton`, new local
+      `ChromeIconButton`, right-cluster markup). Mirror the existing local sub-component pattern in
+      the same file (`WindowButton`) for the new one.
+      Acceptance: no interactive element in the bar is smaller than 44px in its hit area; Settings
+      and the Downloads button from [[031]] share one sub-component and one size; nav items fill the
+      bar height; every button keeps its `no-drag`, `aria-label`/`title` and click handler; the
+      header is still one full-height `drag-region`, and double-click-to-maximize plus
+      minimize/maximize/close behave as before. _(covers AC 3, AC 4)_
 
 - [x] **D4 — Refreshed verification run.**
-  Files: none committed — the harness writes to the gitignored `.ui-verify/`
-  (`run.json`, `screenshots/`, `a11y.json`/`a11y.md`); see `docs/UI-VERIFICATION.md`.
-  Acceptance: `npm run ui:verify` exits 0, every screen's screenshot shows the new titlebar
-  proportions, no new critical/serious axe violation versus the previous report, no console
-  errors; the run's outcome is recorded in this story's `## Done`. *(covers AC 5)*
+      Files: none committed — the harness writes to the gitignored `.ui-verify/`
+      (`run.json`, `screenshots/`, `a11y.json`/`a11y.md`); see `docs/UI-VERIFICATION.md`.
+      Acceptance: `npm run ui:verify` exits 0, every screen's screenshot shows the new titlebar
+      proportions, no new critical/serious axe violation versus the previous report, no console
+      errors; the run's outcome is recorded in this story's `## Done`. _(covers AC 5)_
 
 ### Coverage
 
@@ -145,7 +145,7 @@ main-process and no state change; the regression surface is visual and D4's scre
    icon buttons and the three window buttons all look at home in the taller bar — nothing
    floating at the old small size.
 4. Drag the window by an empty part of the bar → the window moves. Click a nav item, the
-   Downloads button, the Settings button → they navigate and do *not* move the window.
+   Downloads button, the Settings button → they navigate and do _not_ move the window.
 5. Double-click an empty part of the bar → maximizes; double-click again → restores.
 6. Minimize, maximize/restore and close all work.
 7. Press `Tab` repeatedly from the wordmark → every nav item and every chrome button shows the
@@ -164,6 +164,7 @@ variable, doubled the wordmark (26px title, 18px tagline), deleted the stale unu
 meets the 44px hit-area floor. Renderer-only change, no IPC/main/preload touched.
 
 **Decisions.**
+
 - Reused the pre-existing `UtilityButton` sub-component (landed with story 031) instead
   of introducing a new `ChromeIconButton` as the plan's text literally named — 031 had
   already created exactly the shared, single-size sub-component the plan wanted for
@@ -176,6 +177,7 @@ meets the 44px hit-area floor. Renderer-only change, no IPC/main/preload touched
   out-of-scope pre-existing issues, not regressions introduced here.
 
 **Verification.**
+
 - `npm run typecheck`, `npm run build`, `npm test` (932 tests, 51 files) — all green
   after every deliverable.
 - `npm run ui:verify` — exit 0; screenshots (`.ui-verify/screenshots/`, gitignored)
@@ -188,6 +190,7 @@ meets the 44px hit-area floor. Renderer-only change, no IPC/main/preload touched
   deviation (UtilityButton reuse) judged acceptable.
 
 **Commit message.**
+
 ```
 030: scale up titlebar height and wordmark
 ```

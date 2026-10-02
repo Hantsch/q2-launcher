@@ -132,8 +132,7 @@ async function bindResponder() {
 }
 
 const RESPONDER_HOSTNAME = 'Fixture Live Server'
-const RESPONDER_INFO_LINE =
-  `\\gamename\\baseq2\\hostname\\${RESPONDER_HOSTNAME}\\mapname\\q2dm1\\clients\\2\\maxclients\\8\\version\\3.20`
+const RESPONDER_INFO_LINE = `\\gamename\\baseq2\\hostname\\${RESPONDER_HOSTNAME}\\mapname\\q2dm1\\clients\\2\\maxclients\\8\\version\\3.20`
 const RESPONDER_PLAYER_LINES = ['5 20 "Alpha"', '3 10 "Bravo"']
 
 /** Mirrors `SERVERS_HANDLERS.scanStart`/`scanRead` (`src/shared/modules/servers.ts`) by hand. */
@@ -243,8 +242,9 @@ async function readFinishedAt(page) {
 async function waitForRunning(page, running) {
   await page.waitForFunction(
     (expected) =>
-      document.querySelector('[data-testid="servers-scan-status"]')?.getAttribute('data-running') ===
-      expected,
+      document
+        .querySelector('[data-testid="servers-scan-status"]')
+        ?.getAttribute('data-running') === expected,
     String(running),
     { timeout: TIMEOUT_MS },
   )
@@ -318,9 +318,14 @@ export default async function serversNoScanWhilePlaying({ page, step, shot }) {
   }
   const refusal = await invokeScanStart(page)
   if (refusal?.ok !== true) {
-    throw new Error(`expected the module:invoke transport to succeed, got ${JSON.stringify(refusal)}`)
+    throw new Error(
+      `expected the module:invoke transport to succeed, got ${JSON.stringify(refusal)}`,
+    )
   }
-  if (refusal.value?.ok !== false || refusal.value.reasonKey !== SCAN_BLOCKED_GAME_RUNNING_REASON_KEY) {
+  if (
+    refusal.value?.ok !== false ||
+    refusal.value.reasonKey !== SCAN_BLOCKED_GAME_RUNNING_REASON_KEY
+  ) {
     throw new Error(
       `expected scan.start to refuse with ${JSON.stringify(SCAN_BLOCKED_GAME_RUNNING_REASON_KEY)}, ` +
         `got ${JSON.stringify(refusal.value)} (AC2)`,
@@ -359,7 +364,9 @@ export default async function serversNoScanWhilePlaying({ page, step, shot }) {
     throw new Error(`expected an entry for ${populatedAddress} to survive the resumed round (AC3)`)
   }
   if (entry.status !== 'stale') {
-    throw new Error(`expected ${populatedAddress}'s entry to be marked stale, got status ${JSON.stringify(entry.status)} (AC3)`)
+    throw new Error(
+      `expected ${populatedAddress}'s entry to be marked stale, got status ${JSON.stringify(entry.status)} (AC3)`,
+    )
   }
   const playerCount = playerCountOf(entry)
   if (playerCount !== RESPONDER_PLAYER_LINES.length) {

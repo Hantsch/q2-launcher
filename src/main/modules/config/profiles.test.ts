@@ -155,7 +155,12 @@ describe('ProfilesStore', () => {
     const [created] = profiles.create({ name: 'Vanilla', from: 'template-right' })
 
     expect(created!.categories).toHaveLength(4)
-    expect(created!.categories!.map((c) => c.id).sort()).toEqual(['demo', 'drops', 'movement', 'weapons'])
+    expect(created!.categories!.map((c) => c.id).sort()).toEqual([
+      'demo',
+      'drops',
+      'movement',
+      'weapons',
+    ])
     for (const category of created!.categories!) {
       const template = TEMPLATE_ACTION_CATEGORIES.find((t) => t.id === category.id)!
       expect(category.name).toBe(template.label)
@@ -1172,7 +1177,12 @@ describe('ProfilesStore', () => {
       expect(keySlotAt(jump, 0)?.key).toBe('MOUSE2')
       expect(keySlotAt(jump, 1)?.key).toBe('SPACE')
       // The binds themselves still say what they said - adoption re-encodes, it does not re-bind.
-      expect(updated.binds).toEqual({ w: '+forward', SPACE: '+moveup', MOUSE2: '+moveup', x: 'kill' })
+      expect(updated.binds).toEqual({
+        w: '+forward',
+        SPACE: '+moveup',
+        MOUSE2: '+moveup',
+        x: 'kill',
+      })
     })
 
     it('adopts a template profile the moment it is created', () => {
@@ -1186,7 +1196,13 @@ describe('ProfilesStore', () => {
       const result = profiles.setLayers({
         profileId: created!.id,
         layers: [
-          { id: 'l1', name: 'Alt', mode: 'hold', triggerKey: 'ALT', overrides: { q: 'drop shotgun; drop shells' } },
+          {
+            id: 'l1',
+            name: 'Alt',
+            mode: 'hold',
+            triggerKey: 'ALT',
+            overrides: { q: 'drop shotgun; drop shells' },
+          },
         ],
       })
 
@@ -1208,7 +1224,9 @@ describe('ProfilesStore', () => {
       await reloaded.load()
       const persisted = new ProfilesStore(reloaded).find(created!.id)!
 
-      const railgun = (persisted.actions ?? []).find((a) => a.catalogId === 'weaponUse:use_railgun')!
+      const railgun = (persisted.actions ?? []).find(
+        (a) => a.catalogId === 'weaponUse:use_railgun',
+      )!
       expect(keySlotAt(railgun, 0)?.key).toBe('q')
       expect(persisted.binds['q']).toBe(aliasNameFor(railgun))
     })

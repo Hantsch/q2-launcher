@@ -161,7 +161,7 @@ describe('FailureLogEntry diagnostic actions', () => {
     expect(invokeMock).not.toHaveBeenCalled()
   })
 
-  it('copy invokes app:copyText with exactly buildFailureReport\'s output and confirms visibly', async () => {
+  it("copy invokes app:copyText with exactly buildFailureReport's output and confirms visibly", async () => {
     renderEntry(makeFailure({ diagnostics }))
 
     fireEvent.click(screen.getByTestId('downloads-failure-copy-failure-1'))
@@ -204,7 +204,9 @@ describe('FailureLogEntry diagnostic actions', () => {
 
     const card = screen.getByTestId('downloads-failure-failure-1')
     expect(card.textContent).not.toContain('very-secret-log-line-marker')
-    expect(card.textContent).not.toContain('a raw developer log line that must never render as card text')
+    expect(card.textContent).not.toContain(
+      'a raw developer log line that must never render as card text',
+    )
     expect(card.textContent).not.toContain('D:\\Games\\Quake II')
   })
 })

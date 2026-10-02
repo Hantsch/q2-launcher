@@ -98,8 +98,16 @@ describe('applyActionLayerMirror', () => {
   })
 
   it('gives Alt+R and Ctrl+R two separate layers, each owning its own R', () => {
-    const altR = action({ id: 'alt-r-action', name: 'Alt R', keys: keySlots({ key: 'R', modifier: 'ALT' }) })
-    const ctrlR = action({ id: 'ctrl-r-action', name: 'Ctrl R', keys: keySlots({ key: 'R', modifier: 'CTRL' }) })
+    const altR = action({
+      id: 'alt-r-action',
+      name: 'Alt R',
+      keys: keySlots({ key: 'R', modifier: 'ALT' }),
+    })
+    const ctrlR = action({
+      id: 'ctrl-r-action',
+      name: 'Ctrl R',
+      keys: keySlots({ key: 'R', modifier: 'CTRL' }),
+    })
 
     const result = applyActionLayerMirror([], [altR, ctrlR], idSequence('alt-layer', 'ctrl-layer'))
 
@@ -113,7 +121,11 @@ describe('applyActionLayerMirror', () => {
 
   it('reuses a pre-existing hand-made ALT layer instead of creating a second one', () => {
     const handMade = layer({ id: 'hand-1', name: 'Rocketjump', triggerKey: 'ALT', overrides: {} })
-    const rocketJump = action({ id: 'rj-action', name: 'Rocket Jump', keys: keySlots({ key: 'R', modifier: 'ALT' }) })
+    const rocketJump = action({
+      id: 'rj-action',
+      name: 'Rocket Jump',
+      keys: keySlots({ key: 'R', modifier: 'ALT' }),
+    })
 
     const result = applyActionLayerMirror([handMade], [rocketJump], idSequence())
 
@@ -125,8 +137,16 @@ describe('applyActionLayerMirror', () => {
   })
 
   it('is idempotent: calling it twice with the same inputs yields the same result both times', () => {
-    const altR = action({ id: 'alt-r-action', name: 'Alt R', keys: keySlots({ key: 'R', modifier: 'ALT' }) })
-    const ctrlR = action({ id: 'ctrl-r-action', name: 'Ctrl R', keys: keySlots({ key: 'R', modifier: 'CTRL' }) })
+    const altR = action({
+      id: 'alt-r-action',
+      name: 'Alt R',
+      keys: keySlots({ key: 'R', modifier: 'ALT' }),
+    })
+    const ctrlR = action({
+      id: 'ctrl-r-action',
+      name: 'Ctrl R',
+      keys: keySlots({ key: 'R', modifier: 'CTRL' }),
+    })
     const actions = [altR, ctrlR]
 
     const first = applyActionLayerMirror([], actions, idSequence('alt-layer', 'ctrl-layer'))
@@ -147,9 +167,17 @@ describe('applyActionLayerMirror', () => {
     })
 
     // The action no longer carries a modifier at all (plain base bind now).
-    const stillPresentNoModifier = action({ id: 'stale', name: 'Stale', keys: keySlots({ key: 'G' }) })
+    const stillPresentNoModifier = action({
+      id: 'stale',
+      name: 'Stale',
+      keys: keySlots({ key: 'G' }),
+    })
 
-    const result = applyActionLayerMirror([altLayerWithStale], [stillPresentNoModifier], idSequence())
+    const result = applyActionLayerMirror(
+      [altLayerWithStale],
+      [stillPresentNoModifier],
+      idSequence(),
+    )
 
     const altLayer = result.find((candidate) => candidate.triggerKey === 'ALT')
     expect(altLayer?.overrides.G).toBeUndefined()
@@ -190,7 +218,9 @@ describe('applyActionLayerMirror', () => {
     it('leaves hand-made overrides alone, including one referencing the alias by hand', () => {
       const bound = ssgSg({ keys: keySlots({ key: 'g', modifier: 'ALT' }) })
 
-      const result = applyActionLayerMirror([altLayerWithHandMade()], [bound], idSequence(), [bound])
+      const result = applyActionLayerMirror([altLayerWithHandMade()], [bound], idSequence(), [
+        bound,
+      ])
 
       expect(result).toHaveLength(1)
       expect(result[0]!.overrides).toEqual({
@@ -283,7 +313,11 @@ describe('applyActionLayerMirror', () => {
     })
 
     it('strips the stale override of an entry that has just become an alias', () => {
-      const before = action({ id: 'turned', name: '+test', keys: keySlots({ key: 'R', modifier: 'ALT' }) })
+      const before = action({
+        id: 'turned',
+        name: '+test',
+        keys: keySlots({ key: 'R', modifier: 'ALT' }),
+      })
       const created = applyActionLayerMirror([], [before], idSequence('alt-layer'))
       expect(created[0]!.overrides).toEqual({ r: aliasNameFor(before) })
 
@@ -292,12 +326,9 @@ describe('applyActionLayerMirror', () => {
       // the ownership rule is value-based against what the action *used to* mirror, not against
       // what its now-`alias` self would mirror today, so the strip needs the pre-change object to
       // recognise its own stale override.
-      const result = applyActionLayerMirror(
-        created,
-        [{ ...before, kind: 'alias' }],
-        idSequence(),
-        [before],
-      )
+      const result = applyActionLayerMirror(created, [{ ...before, kind: 'alias' }], idSequence(), [
+        before,
+      ])
 
       expect(result[0]!.overrides).toEqual({})
     })
@@ -315,7 +346,11 @@ describe('applyActionLayerMirror', () => {
         kind: 'alias',
         keys: keySlots({ key: 'R', modifier: 'ALT' }),
       })
-      const bound = action({ id: 'bound', name: 'Rocket Jump', keys: keySlots({ key: 'G', modifier: 'ALT' }) })
+      const bound = action({
+        id: 'bound',
+        name: 'Rocket Jump',
+        keys: keySlots({ key: 'G', modifier: 'ALT' }),
+      })
 
       const result = applyActionLayerMirror([handMade], [aliasEntry, bound], idSequence())
 

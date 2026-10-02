@@ -3,11 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { pathExists } from '../../../lib/fs-utils'
-import {
-  enforceKeepSet,
-  planImageEviction,
-  type ImageCacheEntry,
-} from './image-cache'
+import { enforceKeepSet, planImageEviction, type ImageCacheEntry } from './image-cache'
 import { getNewsImagesCacheDir, isSafeNewsImageFileName, newsImageFileName } from './paths'
 
 /**
@@ -81,7 +77,7 @@ describe('paths: newsImageFileName / isSafeNewsImageFileName', () => {
 })
 
 describe('planImageEviction (pure)', () => {
-  it('eviction respects the item cap and never removes a current feed\'s image', () => {
+  it("eviction respects the item cap and never removes a current feed's image", () => {
     const keptA = imageName('kept-a')
     const keptB = imageName('kept-b')
     const oldest = imageName('oldest')
@@ -109,7 +105,9 @@ describe('planImageEviction (pure)', () => {
 
   it('respects the 24-item cap as the configured maxItems', () => {
     const keep = new Set<string>()
-    const entries = Array.from({ length: 26 }, (_, i) => entry(imageName(`img-${i}`), T0 + i * HOUR))
+    const entries = Array.from({ length: 26 }, (_, i) =>
+      entry(imageName(`img-${i}`), T0 + i * HOUR),
+    )
 
     const plan = planImageEviction({ entries, keep, maxItems: 24 })
 
@@ -144,10 +142,7 @@ describe('planImageEviction (pure)', () => {
   })
 
   it('excludes an unsafe name from consideration entirely, keeping it off both sides', () => {
-    const entries = [
-      entry('unsafe name.png', T0),
-      entry(imageName('safe'), T0 + HOUR),
-    ]
+    const entries = [entry('unsafe name.png', T0), entry(imageName('safe'), T0 + HOUR)]
 
     // Cap of 0: only the safe candidate is evictable, the unsafe one is simply not this module's
     // business, so it must not appear in the plan.
@@ -229,9 +224,9 @@ describe('enforceKeepSet', () => {
   it('is a no-op on a cache directory that does not exist yet', async () => {
     const fresh = await mkdtemp(join(tmpdir(), 'q2-launcher-image-cache-fresh-'))
     try {
-      expect(
-        await enforceKeepSet({ userDataPath: fresh, keep: new Set(), maxItems: 0 }),
-      ).toEqual({ removedCount: 0 })
+      expect(await enforceKeepSet({ userDataPath: fresh, keep: new Set(), maxItems: 0 })).toEqual({
+        removedCount: 0,
+      })
     } finally {
       await rm(fresh, { recursive: true, force: true })
     }

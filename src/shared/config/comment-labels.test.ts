@@ -32,7 +32,13 @@ import { categoryLabelFor, commentLabelFor } from './comment-labels'
 function stringAt(path: string): string {
   const value: unknown = path
     .split('.')
-    .reduce<unknown>((acc, key) => (acc && typeof acc === 'object' && key in acc ? (acc as Record<string, unknown>)[key] : undefined), en)
+    .reduce<unknown>(
+      (acc, key) =>
+        acc && typeof acc === 'object' && key in acc
+          ? (acc as Record<string, unknown>)[key]
+          : undefined,
+      en,
+    )
   if (typeof value !== 'string') throw new Error(`en.json has no string at "${path}"`)
   return value
 }
@@ -125,7 +131,9 @@ describe('categoryLabelFor', () => {
   })
 
   it('treats a profile with no categories field the same as an empty list (pre-story-008 profiles)', () => {
-    expect(categoryLabelFor('ghost-category', profile({ categories: undefined }))).toBe('ghost-category')
+    expect(categoryLabelFor('ghost-category', profile({ categories: undefined }))).toBe(
+      'ghost-category',
+    )
   })
 })
 
@@ -190,13 +198,14 @@ describe('DROP_ACTIONS labels', () => {
 })
 
 describe('TEMPLATE_ACTION_CATEGORIES labels', () => {
-  it.each(TEMPLATE_ACTION_CATEGORIES.map((category) => [category.id, category.labelKey, category.label] as const))(
-    '%s: label is non-empty ASCII and matches en.json',
-    (_id, labelKey, label) => {
-      expect(label).toMatch(ASCII_PRINTABLE)
-      expect(label).toBe(stringAt(labelKey))
-    },
-  )
+  it.each(
+    TEMPLATE_ACTION_CATEGORIES.map(
+      (category) => [category.id, category.labelKey, category.label] as const,
+    ),
+  )('%s: label is non-empty ASCII and matches en.json', (_id, labelKey, label) => {
+    expect(label).toMatch(ASCII_PRINTABLE)
+    expect(label).toBe(stringAt(labelKey))
+  })
 })
 
 describe('CVAR_GROUP_LABELS', () => {

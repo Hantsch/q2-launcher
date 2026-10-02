@@ -24,8 +24,7 @@ type Rect = { x: number; y: number; w: number; h: number }
  * `result.layout === input`, not just a deep-equal.
  */
 export type LayoutOperationResult =
-  | { ok: true; layout: HomeLayout }
-  | { ok: false; reason: string; layout: HomeLayout }
+  { ok: true; layout: HomeLayout } | { ok: false; reason: string; layout: HomeLayout }
 
 /** True if two cell rectangles' areas actually overlap - touching edges do not count. */
 function rectsOverlap(a: Rect, b: Rect): boolean {
@@ -156,7 +155,11 @@ export function stack(layout: HomeLayout): TilePlacement[] {
  * row plus a generous margin (100 rows), which is always enough room to find a spot for any
  * `w`x`h` that can fit on the grid at all, and guarantees termination.
  */
-export function firstFreeSpot(layout: HomeLayout, w: number, h: number): { x: number; y: number } | null {
+export function firstFreeSpot(
+  layout: HomeLayout,
+  w: number,
+  h: number,
+): { x: number; y: number } | null {
   const lowestOccupiedRow = layout.tiles.reduce((max, tile) => Math.max(max, tile.y + tile.h), 0)
   const rowSearchBound = lowestOccupiedRow + 100
   for (let y = 0; y <= rowSearchBound; y++) {

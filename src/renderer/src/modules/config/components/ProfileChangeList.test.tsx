@@ -142,7 +142,9 @@ describe('ProfileChangeList', () => {
       ]),
     )
 
-    const rows = [...container.querySelectorAll('[data-testid="config-save-changes"] > div > ul > li')]
+    const rows = [
+      ...container.querySelectorAll('[data-testid="config-save-changes"] > div > ul > li'),
+    ]
     expect(rows.length).toBe(2)
     // The settings row's field name is translated, not the raw model key.
     const settingsRow = rows.find((row) => row.textContent?.includes('true'))!

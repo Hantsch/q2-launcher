@@ -102,7 +102,7 @@ describe('validateProfileForEngines - equally-weighted multi-engine runs', () =>
     expect(q2proFindings.some((f) => f.subject.id === 'r_maxfps')).toBe(false)
   })
 
-  it('does not merge or rank engines: one engine erroring does not affect the other engine\'s own findings', () => {
+  it("does not merge or rank engines: one engine erroring does not affect the other engine's own findings", () => {
     const p = profile({
       cvars: { ch_scale: '1' }, // absent on r1q2/vanilla, present on q2pro
       assignments: [
@@ -151,9 +151,9 @@ describe('validateProfileForEngines - equally-weighted multi-engine runs', () =>
     const result = validateProfileForEngines(p, installations)
     const findings = result.byEngine[0]!.findings
 
-    expect(findings.some((f) => f.messageKey.endsWith('quoteBroken') && f.subject.id === 'name')).toBe(
-      true,
-    )
+    expect(
+      findings.some((f) => f.messageKey.endsWith('quoteBroken') && f.subject.id === 'name'),
+    ).toBe(true)
   })
 })
 
@@ -163,7 +163,13 @@ describe('validateProfileForEngines - story 019 D8 alias-wiring findings', () =>
       assignments: [{ installationId: 'a', isDefault: true }],
       categories: [{ id: 'cat1', name: 'Custom' }],
       actions: [
-        { id: 'a1', categoryId: 'cat1', name: '-test', kind: 'alias', commands: [{ kind: 'raw', text: 'wait' }] },
+        {
+          id: 'a1',
+          categoryId: 'cat1',
+          name: '-test',
+          kind: 'alias',
+          commands: [{ kind: 'raw', text: 'wait' }],
+        },
         {
           id: 'b1',
           categoryId: 'cat1',
@@ -178,10 +184,14 @@ describe('validateProfileForEngines - story 019 D8 alias-wiring findings', () =>
     const result = validateProfileForEngines(p, installations)
     const findings = result.byEngine[0]!.findings
 
-    expect(findings.some((f) => f.messageKey.endsWith('undefinedAlias') && f.subject.id === 'Test binding')).toBe(
-      true,
-    )
-    expect(findings.some((f) => f.messageKey.endsWith('aliasUnreferenced') && f.subject.id === '-test')).toBe(true)
+    expect(
+      findings.some(
+        (f) => f.messageKey.endsWith('undefinedAlias') && f.subject.id === 'Test binding',
+      ),
+    ).toBe(true)
+    expect(
+      findings.some((f) => f.messageKey.endsWith('aliasUnreferenced') && f.subject.id === '-test'),
+    ).toBe(true)
   })
 
   it('produces no alias-wiring findings for a profile whose alias is defined and referenced', () => {
@@ -192,7 +202,13 @@ describe('validateProfileForEngines - story 019 D8 alias-wiring findings', () =>
       assignments: [{ installationId: 'a', isDefault: true }],
       categories: [{ id: 'cat1', name: 'Custom' }],
       actions: [
-        { id: 'a1', categoryId: 'cat1', name: 'test', kind: 'alias', commands: [{ kind: 'raw', text: 'wait' }] },
+        {
+          id: 'a1',
+          categoryId: 'cat1',
+          name: 'test',
+          kind: 'alias',
+          commands: [{ kind: 'raw', text: 'wait' }],
+        },
         {
           id: 'b1',
           categoryId: 'cat1',
@@ -230,6 +246,9 @@ describe('totalCounts', () => {
   })
 
   it('is zero for the empty scope states', () => {
-    expect(totalCounts(validateProfileForEngines(profile(), []))).toEqual({ errors: 0, warnings: 0 })
+    expect(totalCounts(validateProfileForEngines(profile(), []))).toEqual({
+      errors: 0,
+      warnings: 0,
+    })
   })
 })

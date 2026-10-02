@@ -577,7 +577,12 @@ export function ConfigCodeView({
           <div className="cfg-code-content-wrap">
             <pre className="cfg-code-content" aria-hidden="true">
               {editLines.map((line) =>
-                renderSearchableLine(line, editMatchesByLine, currentEditMatch, editCurrentMatchRef),
+                renderSearchableLine(
+                  line,
+                  editMatchesByLine,
+                  currentEditMatch,
+                  editCurrentMatchRef,
+                ),
               )}
             </pre>
             <textarea
@@ -632,7 +637,10 @@ export function ConfigCodeView({
       ? ''
       : matches.length === 0
         ? t('config.codeView.search.noMatches')
-        : t('config.codeView.search.count', { current: clampedMatchIndex + 1, total: matches.length })
+        : t('config.codeView.search.count', {
+            current: clampedMatchIndex + 1,
+            total: matches.length,
+          })
 
   return (
     <div
@@ -684,7 +692,9 @@ export function ConfigCodeView({
       <div className={cn('cfg-code', fill && 'cfg-code--fill')} tabIndex={0}>
         {renderGutter(lines, numberedLines)}
         <pre className="cfg-code-content" data-selectable>
-          {lines.map((line) => renderSearchableLine(line, matchesByLine, currentMatch, currentMatchRef))}
+          {lines.map((line) =>
+            renderSearchableLine(line, matchesByLine, currentMatch, currentMatchRef),
+          )}
         </pre>
       </div>
     </div>

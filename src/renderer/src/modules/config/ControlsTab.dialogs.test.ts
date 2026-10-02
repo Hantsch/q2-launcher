@@ -143,7 +143,9 @@ describe('CreateSubcategoryDialog', () => {
   })
 
   it('disables submit while the name is blank', () => {
-    render(createElement(CreateSubcategoryDialog, { onClose: () => {}, onSubmit: async () => true }))
+    render(
+      createElement(CreateSubcategoryDialog, { onClose: () => {}, onSubmit: async () => true }),
+    )
     expect(
       (screen.getByRole('button', { name: 'Create sub-category' }) as HTMLButtonElement).disabled,
     ).toBe(true)

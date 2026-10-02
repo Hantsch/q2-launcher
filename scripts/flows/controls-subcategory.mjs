@@ -34,7 +34,9 @@ export default async function controlsSubcategory({ page, shot, step }) {
   await group.waitFor({ timeout: 8000 })
   const emptyCount = await group.locator('.ctrl-group-eyebrow').last().innerText()
   if (!/\b0\b/.test(emptyCount)) {
-    throw new Error(`expected the freshly created sub-category to start empty, count read "${emptyCount}"`)
+    throw new Error(
+      `expected the freshly created sub-category to start empty, count read "${emptyCount}"`,
+    )
   }
   await shot('subcategory-created')
 
@@ -44,7 +46,10 @@ export default async function controlsSubcategory({ page, shot, step }) {
   await row.getByTestId('action-edit-fixture-action-weapons').click()
 
   step('move it into the new sub-category')
-  await page.getByRole('dialog').getByLabel('Sub-category', { exact: true }).selectOption({ label: SUBCATEGORY_NAME })
+  await page
+    .getByRole('dialog')
+    .getByLabel('Sub-category', { exact: true })
+    .selectOption({ label: SUBCATEGORY_NAME })
   await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click()
 
   step('assert "Weapon Combo" now renders under the new sub-category group')
@@ -69,7 +74,9 @@ export default async function controlsSubcategory({ page, shot, step }) {
   step('assert the group count updated from 0 to 1')
   const updatedCount = await group.locator('.ctrl-group-eyebrow').last().innerText()
   if (!/\b1\b/.test(updatedCount)) {
-    throw new Error(`expected the sub-category's count to read 1 after the move, count read "${updatedCount}"`)
+    throw new Error(
+      `expected the sub-category's count to read 1 after the move, count read "${updatedCount}"`,
+    )
   }
 
   // Scroll the header into view first: it sits above the row in DOM order, and `shot()`

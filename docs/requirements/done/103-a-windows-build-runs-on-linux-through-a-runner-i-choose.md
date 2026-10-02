@@ -39,10 +39,10 @@ Three defects stack up behind those three lines:
    "this is a Windows binary".
 
 This is CLAUDE.md's platform-parity rule violated in the direction it does not yet cover: not a
-feature silently *omitted* on Linux, but one silently *offered* there and failing.
+feature silently _omitted_ on Linux, but one silently _offered_ there and failing.
 
 The upside is larger than the bug. R1Q2 is Windows-only by decision (story 100 AC6,
-[analysis B3](../linux-support-analysis.md)), so today the launcher's *primary* engine cannot run on
+[analysis B3](../linux-support-analysis.md)), so today the launcher's _primary_ engine cannot run on
 Linux at all. A wine runner makes it run — a much cheaper answer to blocker B1 than
 [story 102](102-a-linux-q2pro-is-built-and-mirrored.md)'s standing obligation to build Q2PRO from
 source and mirror it.
@@ -103,7 +103,7 @@ why, because each one bounds a deliverable.
 umu-run are supported runners; raw Proton is detected and offered only as a umu-run target, never
 driven directly.** `wine <exe> <args>` and `umu-run <exe> <args>` are one-line wrappers; raw Proton
 needs `STEAM_COMPAT_CLIENT_INSTALL_PATH`, a `STEAM_COMPAT_DATA_PATH` prefix the launcher would then
-own, and behaves differently across Proton versions. For a *Steam-owned* installation "run it under
+own, and behaves differently across Proton versions. For a _Steam-owned_ installation "run it under
 Proton" is answered by [story 104](104-steam-launches-the-client-i-choose.md)'s handoff anyway, so
 driving Proton directly would only buy something for a Windows build Steam does not own — which is
 exactly the case umu-run exists for.
@@ -124,8 +124,8 @@ If r1q2 runs under wine, blocker B1 has a second, far cheaper answer than buildi
 Q2PRO from source forever. 103 does not decide 102's fate; it makes the decision possible.
 
 **Q5 — Is the engine table's `supported` flag the right shape here? — RESOLVED: no change to
-`supported`.** A runner changes *whether the binary executes*, not *whether the config module can
-manage that engine*. Steam's vanilla `quake2.exe` under wine is still an engine the launcher only
+`supported`.** A runner changes _whether the binary executes_, not _whether the config module can
+manage that engine_. Steam's vanilla `quake2.exe` under wine is still an engine the launcher only
 partly manages, and the existing `supported: false` messaging stays exactly as it is. The runner
 picker says nothing about engine support, and the two texts sit side by side without either
 contradicting the other.
@@ -137,7 +137,7 @@ exists. Executable selection today is only a fix button inside `ChecksList`, and
 (D7) is therefore new UI, and it is also the **first implementation anywhere in the app** of
 CLAUDE.md's disabled-with-visible-reason rule — there is no prior component to copy.
 
-*Adjacent and deliberately excluded:* the roadmap's standing "crash detection — a non-zero exit
+_Adjacent and deliberately excluded:_ the roadmap's standing "crash detection — a non-zero exit
 shortly after start is worth surfacing" follow-up. The tester's exit was code **0**, so that
 follow-up would not have caught this; it is its own story.
 
@@ -177,8 +177,8 @@ in `ChecksList` for now).
 in `src/main/lib/fs-utils.ts`, reading only the first 4 bytes and returning `'unknown'` for an
 unreadable or too-short file (never throwing). Mirror the neighbouring helpers' shape
 (`looksExecutable` L169, `findChild` L140). Plus its test in `src/main/lib/fs-utils.test.ts`.
-*Files:* `src/main/lib/fs-utils.ts`, `src/main/lib/fs-utils.test.ts`.
-*Accepted when:* an `MZ` file reports `'pe'`, an ELF file reports `'elf'`, a missing file reports
+_Files:_ `src/main/lib/fs-utils.ts`, `src/main/lib/fs-utils.test.ts`.
+_Accepted when:_ an `MZ` file reports `'pe'`, an ELF file reports `'elf'`, a missing file reports
 `'unknown'`, and nothing else in the module changed.
 
 **D2 — Native-first ranking, off Windows only.** `rankExecutables()`
@@ -189,11 +189,11 @@ pre-computed kind map — implementer's call, but the header read must not happe
 The chosen executable's kind lands on `ValidationResult` and is persisted on the installation
 (`executableKind?: BinaryKind`, following `src/main/lib/schemas.ts:92`'s `.optional()` convention —
 no migration step, per `src/main/services/migrations.ts`'s own rule).
-*Files:* `src/main/services/inspector.ts`, `src/main/services/inspector.test.ts`,
+_Files:_ `src/main/services/inspector.ts`, `src/main/services/inspector.test.ts`,
 `src/shared/types/installation.ts`, `src/main/lib/schemas.ts`.
-*Mirror:* the existing rank helpers in `inspector.ts`; `stubPlatform()` from
+_Mirror:_ the existing rank helpers in `inspector.ts`; `stubPlatform()` from
 `src/test-support/platform.ts` for the platform branch in tests.
-*Accepted when:* a fixture folder holding `quake2.exe` (PE) and `quake2` (ELF) yields `quake2` first
+_Accepted when:_ a fixture folder holding `quake2.exe` (PE) and `quake2` (ELF) yields `quake2` first
 under a stubbed `linux` and `quake2.exe` first under a stubbed `win32`.
 
 **D3 — The `executable-runnable` check.** New `ValidationCheckId` member `'executable-runnable'` and
@@ -202,11 +202,11 @@ inspector raises the check off Windows when the selected executable is `'pe'`, w
 file name as a param. New i18n keys under `validation.` and `validation.fix.`. Renderer: one new
 case in `useFixAction()` (`src/renderer/src/components/installations/ChecksList.tsx:81-130`) that
 focuses the Runner section D7 adds (a `#`-anchor/`scrollIntoView` + focus is enough — no dialog).
-*Files:* `src/shared/types/installation.ts`, `src/main/services/inspector.ts`,
+_Files:_ `src/shared/types/installation.ts`, `src/main/services/inspector.ts`,
 `src/main/services/inspector.test.ts`, `src/renderer/src/components/installations/ChecksList.tsx`,
 `src/renderer/src/i18n/locales/en.json`.
-*Mirror:* the `executable`/`validation.noExecutable` check at `inspector.ts:236-247`.
-*Accepted when:* a Linux-stubbed inspection of a PE-only folder returns a check with the new id, the
+_Mirror:_ the `executable`/`validation.noExecutable` check at `inspector.ts:236-247`.
+_Accepted when:_ a Linux-stubbed inspection of a PE-only folder returns a check with the new id, the
 new message key and the file name in `params`; Windows returns no such check.
 
 **D4 — Runner detection.** New `src/shared/types/runner.ts` (`RunnerKind = 'native' | 'wine' |
@@ -216,9 +216,9 @@ Proton builds found under each Steam library's `steamapps/common/Proton*`. Requi
 `steamLibraryRoots()` from `src/main/services/detection/providers.ts:62` (currently module-private)
 — export it, change nothing about it. On `win32` the function returns the native runner only and
 touches neither `PATH` nor the Steam libraries.
-*Files:* `src/shared/types/runner.ts`, `src/main/services/runners.ts`,
+_Files:_ `src/shared/types/runner.ts`, `src/main/services/runners.ts`,
 `src/main/services/runners.test.ts`, `src/main/services/detection/providers.ts`.
-*Accepted when:* with a stubbed `PATH` containing a `wine` script the result contains a wine runner
+_Accepted when:_ with a stubbed `PATH` containing a `wine` script the result contains a wine runner
 with that path; with an empty `PATH` it contains the same entry marked `available: false`; on a
 stubbed `win32` the result is native-only.
 
@@ -233,10 +233,10 @@ executable, `plan()` fails with a new `launch.error.noRunner` (params: executabl
 means `start()` (L129-130) refuses before `spawn` with no extra code (AC7). No `env` is set
 (Q2: machine-default prefix). Playtime, write guard and `launch:state` are untouched by
 construction (AC5).
-*Files:* `src/shared/types/installation.ts`, `src/main/lib/schemas.ts`,
+_Files:_ `src/shared/types/installation.ts`, `src/main/lib/schemas.ts`,
 `src/main/services/runners.ts`, `src/main/services/launch.ts`, `src/main/services/launch.test.ts`,
 `src/renderer/src/i18n/locales/en.json`.
-*Accepted when:* a Linux-stubbed plan for a PE with a wine runner yields
+_Accepted when:_ a Linux-stubbed plan for a PE with a wine runner yields
 `executablePath = <wine>` and `args[0] = <the exe>` with the generated `+set` args after it; the
 same plan on `win32` is identical to today's; a PE with no available runner fails with
 `launch.error.noRunner` and `start()` spawns nothing.
@@ -246,10 +246,10 @@ res: `Outcome<RunnerOption[]>` — each option carrying kind, label key, availab
 unavailable, its reason key) declared in `src/shared/ipc.ts` first, added to `INVOKE_CHANNELS`, with
 its zod schema in `src/shared/ipc-schemas.ts` and its handler alongside the existing installation
 handlers. Setting the choice needs no new channel — it rides `installations:update`.
-*Files:* `src/shared/ipc.ts`, `src/shared/ipc-schemas.ts`, `src/main/ipc/installations.ts`,
+_Files:_ `src/shared/ipc.ts`, `src/shared/ipc-schemas.ts`, `src/main/ipc/installations.ts`,
 `src/main/ipc/installations.test.ts`.
-*Mirror:* `installations:validate` (`src/shared/ipc.ts:96`) and its handler; the IPC coverage test.
-*Accepted when:* the channel round-trips through the real registrar, the preload allowlist derives
+_Mirror:_ `installations:validate` (`src/shared/ipc.ts:96`) and its handler; the IPC coverage test.
+_Accepted when:_ the channel round-trips through the real registrar, the preload allowlist derives
 it without edits, and the coverage/exhaustiveness tests pass.
 
 **D7 — Runner section in the installation detail.** New
@@ -261,10 +261,10 @@ Shows the resolved command from `launch:plan`. On `win32` the section is not ren
 there is exactly one runner and nothing to choose). Testids: `installation-runner`,
 `installation-runner-option-<kind>`, `installation-runner-reason-<kind>`,
 `installation-runner-preview`. New i18n keys under `runner.`.
-*Files:* `src/renderer/src/components/installations/RunnerSection.tsx`,
+_Files:_ `src/renderer/src/components/installations/RunnerSection.tsx`,
 `src/renderer/src/components/installations/RunnerSection.test.tsx`,
 `src/renderer/src/views/LibraryView.tsx`, `src/renderer/src/i18n/locales/en.json`.
-*Accepted when:* the component test renders an unavailable wine entry as a disabled control whose
+_Accepted when:_ the component test renders an unavailable wine entry as a disabled control whose
 reason text is in the DOM as text, and selecting an available runner calls `installations:update`
 with the new runner id.
 
@@ -273,6 +273,7 @@ builder in `scripts/lib/fixture.mjs` that writes an install root containing a re
 `quake2.exe` and (for the ranking half) a native `quake2`. Two branches off one fixture, the way
 `linux-user-journey.mjs` already branches on vendored-binary availability — loudly, never a silent
 no-op:
+
 - **Linux:** add the PE-only folder → assert the visible check text (AC2) and the Runner section's
   disabled wine entry with its reason (AC6) on a scrubbed `PATH`; press Play → assert the refusal
   and that **no** `launch:state` `running` is broadcast (AC7); then put a stub `wine` shell script
@@ -281,21 +282,21 @@ no-op:
   listener pattern (L232-263).
 - **Windows:** the same fixture adds with `quake2.exe` selected, no Runner section, and the launch
   preview unchanged (AC8).
-Wire the flow into the ubuntu xvfb job at `.github/workflows/ci.yml:101`.
-*Files:* `scripts/flows/windows-build-on-linux.mjs`, `scripts/lib/fixture.mjs`,
-`.github/workflows/ci.yml`.
-*Mirror:* `scripts/flows/linux-user-journey.mjs` — its `setup()`/`Q2L_UI_PICK_FOLDER` stub, its
-launch-state listener, its loud-skip gate.
-*Accepted when:* `npm run ui:flow -- windows-build-on-linux` passes on Windows and the ubuntu job
-runs the Linux branch green.
+  Wire the flow into the ubuntu xvfb job at `.github/workflows/ci.yml:101`.
+  _Files:_ `scripts/flows/windows-build-on-linux.mjs`, `scripts/lib/fixture.mjs`,
+  `.github/workflows/ci.yml`.
+  _Mirror:_ `scripts/flows/linux-user-journey.mjs` — its `setup()`/`Q2L_UI_PICK_FOLDER` stub, its
+  launch-state listener, its loud-skip gate.
+  _Accepted when:_ `npm run ui:flow -- windows-build-on-linux` passes on Windows and the ubuntu job
+  runs the Linux branch green.
 
 **D9 — Changelog and the 102 note.** A `### Added`/`### Fixed` entry in `CHANGELOG.md` (house style
 per `.claude/ai-scrum.md`'s Notes: Keep-a-Changelog headings, current version section only), and one
 paragraph in `docs/linux-support-analysis.md` recording that blocker B1 now has a second answer and
 that [story 102](102-a-linux-q2pro-is-built-and-mirrored.md) waits on real-machine confirmation
 (Q4).
-*Files:* `CHANGELOG.md`, `docs/linux-support-analysis.md`.
-*Accepted when:* a user reading the changelog understands that Windows builds now run on Linux
+_Files:_ `CHANGELOG.md`, `docs/linux-support-analysis.md`.
+_Accepted when:_ a user reading the changelog understands that Windows builds now run on Linux
 through wine/umu and that the launcher refuses instead of pretending when they cannot.
 
 ## Model Hints
@@ -306,7 +307,7 @@ through wine/umu and that the launcher refuses instead of pretending when they c
   the engine chosen for existing Windows users.
 - **D5 → `deliverable-hard`.** Cross-module subtlety: `plan()` is shared by the preview and by
   `start()`, and the rewrite has to leave the write guard, playtime recording and the `launch:state`
-  sequence untouched while introducing a refusal path that must fire *before* `spawn` — the exact
+  sequence untouched while introducing a refusal path that must fire _before_ `spawn` — the exact
   seam where the reported bug lives.
 - D1, D3, D4, D6, D7, D8, D9 → default.
 - **Review: → `story-review-hard`.** The story's headline promise is a negative one (AC8: Windows
@@ -348,8 +349,8 @@ through wine/umu and that the launcher refuses instead of pretending when they c
 genuine Windows build. The automated Linux branch proves the launcher builds the right command,
 hands it to a real `wine` on `PATH` and reports the real process lifecycle, but the runner on CI is
 a stub script — a real wine prefix plus a licensed Windows Quake II build is neither installable nor
-distributable on the CI image. *Reason: external third-party software and copyrighted game data not
-available to CI.* One walk-through on the beta tester's machine closes it.
+distributable on the CI image. _Reason: external third-party software and copyrighted game data not
+available to CI._ One walk-through on the beta tester's machine closes it.
 
 **No gap:** every AC above maps to the `e2e` command from the profile's `## Verify`
 (`npm run ui:verify` / `npm run ui:flow`) where it describes something the user does, and to `test`
@@ -390,6 +391,7 @@ raw invoke; one new RunnerSection test only asserted non-empty text rather than 
 sentence) and 3 documented, not fixed (below).
 
 **Verification.**
+
 - `npm run build` — clean.
 - `npm run typecheck` — clean (node + web).
 - `npm test` — 4158 passed, 2 pre-existing failures unrelated to this story
@@ -403,6 +405,7 @@ sentence) and 3 documented, not fixed (below).
   (`.github/workflows/ci.yml`), verified by static read-through in both review rounds.
 
 **AC → test mapping, as verified:**
+
 - AC1 → `fs-utils.test.ts` › "reads a PE header as pe and an ELF header as elf" (passed) +
   `inspector.test.ts` › "on linux a native binary outranks a windows one in the same folder"
   (skipped on this Windows host — execute bits aren't real on NTFS — runs on ubuntu CI)
@@ -412,7 +415,7 @@ sentence) and 3 documented, not fixed (below).
   (win32-native-only half passed here; PATH/Proton half runs on ubuntu CI)
 - AC4 → e2e Linux branch, explicit-choice-changes-preview (ubuntu-CI-only, rewritten in review
   round 2 to use two available runners so the assertion can't pass on the cascade default alone)
-  + `runners.test.ts` › "the default runner is native when a native executable exists" (passed)
+  - `runners.test.ts` › "the default runner is native when a native executable exists" (passed)
 - AC5 → e2e Linux branch, real Play click reaches running → exited (ubuntu-CI-only) +
   `launch.test.ts` › "a wine plan keeps the generated args, the working directory and the array
   spawn form" (passed)
@@ -432,6 +435,7 @@ on the beta tester's machine.
 
 **Documented, not fixed** (round 2 findings, non-blocking — overall verdict PASS with these
 present):
+
 - `runner.unavailable.native` and the original `runner.unavailable.proton` i18n keys are now dead
   (native is always reported available; Proton's reason uses the more specific
   `runner.unavailable.protonNotDriven` added during the fix). Harmless, cheap follow-up cleanup.

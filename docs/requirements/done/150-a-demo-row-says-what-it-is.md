@@ -98,9 +98,9 @@ duration (`readDemoDuration`), sidecar state and favourite/rating are built but 
 1. **Index facts (D1, main + shared contract).** Extend `discoveredDemoSchema` with `gameDir`,
    `pov`, `players`, `durationMs`; fill them in `readDemoFacts` (loose file: header + full-file
    duration) and `zip-demos.ts` (entry buffer: header + frame counter); carry them through
-   `toRow` on the fresh *and* cache-hit path; bump `REPLAYS_INDEX_CACHE_VERSION`.
+   `toRow` on the fresh _and_ cache-hit path; bump `REPLAYS_INDEX_CACHE_VERSION`.
 2. **Row composition (D2, main).** New `demoRowSchema` = `DiscoveredDemo` + `sidecar { state,
-   values }` + `effective` (`EffectiveValues`). A pure `buildDemoRow(demo, sidecarRead)` calls
+values }` + `effective` (`EffectiveValues`). A pure `buildDemoRow(demo, sidecarRead)` calls
    `resolveEffectiveValues`; `index.read` maps the scan snapshot through it with bounded-concurrency
    `sidecarStore.read`.
 3. **Row UI (D3, renderer).** `DemoRow` + `DemoListHeader` on a shared CSS grid template
@@ -120,114 +120,114 @@ screen depend on them — every D that touches the list re-runs those flows.
 ## Deliverables
 
 - [x] **D1 — the index row carries header facts and duration.** In `src/shared/modules/replays.ts`
-  add to `discoveredDemoSchema`: `gameDir: z.string().nullable()`, `pov: z.string().nullable()`,
-  `players: z.array(z.string())` (empty when unknown), `durationMs: z.number().int().nonnegative()
-  .nullable()`. In `src/main/modules/replays/scan-service.ts` extend `DemoHeaderFacts` with the same
-  four fields; `readDemoFacts` fills them from `readDemoHeader` (`gameDir`/`pov`/`players` of an ok
-  header) and `readDemoDuration` (`src/main/lib/demo-bytes.ts`; `ok` → `durationMs`, else `null`;
-  skip the duration read for an unreadable header); `toRow` picks all four from `facts` — note
-  `runScan` calls `toRow(entry.file, entry.parsed)` for cache hits, so the pick must work on a cached
-  row too. In `src/main/modules/replays/zip-demos.ts` fill the four from the entry's in-memory bytes:
-  header fields from `parseDemoHeader`'s ok result, duration by pushing the same bytes through
-  `createDm2FrameCounter`/`createMvd2FrameCounter` (`src/shared/demos/dm2-frames.ts`,
-  `mvd2-frames.ts`, chosen by `header.format`) and `finish()`. Bump
-  `REPLAYS_INDEX_CACHE_VERSION` to 2 in `src/main/modules/replays/index-cache.ts`. In
-  `src/main/modules/replays/index.ts`'s `demos.list` mapping pass the new fields through (discovery's
-  values, or `null`/`[]`). Tests: `scan-service.test.ts` — "a fresh parse carries gameDir, pov,
-  players and durationMs" and "a cache hit keeps gameDir, pov, players and durationMs" (use
-  `docs/fixtures/demos/test.dm2` → 41 000 ms); `zip-demos.test.ts` — "a zip entry carries its
-  header facts and duration"; `index-cache.test.ts` — "a version-1 cache is discarded".
+      add to `discoveredDemoSchema`: `gameDir: z.string().nullable()`, `pov: z.string().nullable()`,
+      `players: z.array(z.string())` (empty when unknown), `durationMs: z.number().int().nonnegative()
+.nullable()`. In `src/main/modules/replays/scan-service.ts` extend `DemoHeaderFacts` with the same
+      four fields; `readDemoFacts` fills them from `readDemoHeader` (`gameDir`/`pov`/`players` of an ok
+      header) and `readDemoDuration` (`src/main/lib/demo-bytes.ts`; `ok` → `durationMs`, else `null`;
+      skip the duration read for an unreadable header); `toRow` picks all four from `facts` — note
+      `runScan` calls `toRow(entry.file, entry.parsed)` for cache hits, so the pick must work on a cached
+      row too. In `src/main/modules/replays/zip-demos.ts` fill the four from the entry's in-memory bytes:
+      header fields from `parseDemoHeader`'s ok result, duration by pushing the same bytes through
+      `createDm2FrameCounter`/`createMvd2FrameCounter` (`src/shared/demos/dm2-frames.ts`,
+      `mvd2-frames.ts`, chosen by `header.format`) and `finish()`. Bump
+      `REPLAYS_INDEX_CACHE_VERSION` to 2 in `src/main/modules/replays/index-cache.ts`. In
+      `src/main/modules/replays/index.ts`'s `demos.list` mapping pass the new fields through (discovery's
+      values, or `null`/`[]`). Tests: `scan-service.test.ts` — "a fresh parse carries gameDir, pov,
+      players and durationMs" and "a cache hit keeps gameDir, pov, players and durationMs" (use
+      `docs/fixtures/demos/test.dm2` → 41 000 ms); `zip-demos.test.ts` — "a zip entry carries its
+      header facts and duration"; `index-cache.test.ts` — "a version-1 cache is discarded".
 - [x] **D2 — `index.read` answers composed demo rows.** In `src/shared/modules/replays.ts` add
-  `effectiveSchema(inner)` (`{ value, source: enum VALUE_SOURCES }` or `{ value: null, source: null
-  }`), `effectiveValuesSchema` (name, map, mod, gamemode, sides, date, pov, host — mirror
-  `EffectiveValues` in `src/shared/demos/effective-values.ts`, sides as `{ team?, result?, players
-  }[]`), and `demoRowSchema = discoveredDemoSchema.extend({ sidecar: z.object({ state: z.enum(['none',
-  'ok', 'error']), values: sidecarFieldsSchema.partial() }), effective: effectiveValuesSchema })`;
-  point `replaysIndexReadResultSchema` at `z.array(demoRowSchema)` and export `type DemoRow`. New
-  `src/main/modules/replays/demo-rows.ts`: pure `buildDemoRow(demo: DiscoveredDemo, sidecar: {
-  state: SidecarState; values } | null): DemoRow` — builds the `ResolveEffectiveValuesInputs.header`
-  as `{ ok: true, gameDir, map, pov, players }` from the row when `readable && gameDir !== null`,
-  else `null`; `sidecar === null` (archive entry / unknown id / read failure) → `{ state: 'none',
-  values: {} }`; an `error` sidecar still feeds its valid `values` into resolution; never throws.
-  Plus `composeDemoRows(demos, readSidecar, concurrency = 16)`. In `src/main/modules/replays/index.ts`
-  wire `indexRead` to `composeDemoRows(await scanService.read(), (id) => sidecarStore.read(id))`
-  (unwrap the store's `Outcome`; a failed outcome → `null`). `src/renderer/src/modules/replays/client.ts`:
-  `indexRead` resolves to `DemoRow[]`. Tests in `src/main/modules/replays/demo-rows.test.ts`: "a
-  sidecar name, favourite and rating win over the file name", "a header-only row resolves map, mod,
-  sides and a guessed gamemode from the demo", "an unreadable row with no sidecar resolves name and
-  file-time date only", "an error sidecar keeps its valid values and reports state error", "an
-  archive entry has sidecar state none", "3000 demos compose with at most 16 sidecar reads in
-  flight".
+      `effectiveSchema(inner)` (`{ value, source: enum VALUE_SOURCES }` or `{ value: null, source: null
+}`), `effectiveValuesSchema` (name, map, mod, gamemode, sides, date, pov, host — mirror
+      `EffectiveValues` in `src/shared/demos/effective-values.ts`, sides as `{ team?, result?, players
+}[]`), and `demoRowSchema = discoveredDemoSchema.extend({ sidecar: z.object({ state: z.enum(['none',
+'ok', 'error']), values: sidecarFieldsSchema.partial() }), effective: effectiveValuesSchema })`;
+      point `replaysIndexReadResultSchema` at `z.array(demoRowSchema)` and export `type DemoRow`. New
+      `src/main/modules/replays/demo-rows.ts`: pure `buildDemoRow(demo: DiscoveredDemo, sidecar: {
+state: SidecarState; values } | null): DemoRow` — builds the `ResolveEffectiveValuesInputs.header`
+      as `{ ok: true, gameDir, map, pov, players }` from the row when `readable && gameDir !== null`,
+      else `null`; `sidecar === null` (archive entry / unknown id / read failure) → `{ state: 'none',
+values: {} }`; an `error` sidecar still feeds its valid `values` into resolution; never throws.
+      Plus `composeDemoRows(demos, readSidecar, concurrency = 16)`. In `src/main/modules/replays/index.ts`
+      wire `indexRead` to `composeDemoRows(await scanService.read(), (id) => sidecarStore.read(id))`
+      (unwrap the store's `Outcome`; a failed outcome → `null`). `src/renderer/src/modules/replays/client.ts`:
+      `indexRead` resolves to `DemoRow[]`. Tests in `src/main/modules/replays/demo-rows.test.ts`: "a
+      sidecar name, favourite and rating win over the file name", "a header-only row resolves map, mod,
+      sides and a guessed gamemode from the demo", "an unreadable row with no sidecar resolves name and
+      file-time date only", "an error sidecar keeps its valid values and reports state error", "an
+      archive entry has sidecar state none", "3000 demos compose with at most 16 sidecar reads in
+      flight".
 - [x] **D3 — a demo row that says what it is.** Mirror `src/renderer/src/modules/servers/ServerRow.tsx`
-  and `list-grid.ts`. New in `src/renderer/src/modules/replays/`: `list-grid.ts` (`DEMO_LIST_GRID`
-  template: identity cell, then map, mod, players/sides, date, duration, favourite/rating; fixed row
-  height constant `DEMO_ROW_HEIGHT = 56`); `row-format.ts` — pure `sidesText(sides)` (sides join " vs
-  "; a side shows its team name when set, else its players; one unsided list of exactly two players
-  → "A vs B"; more than three names → first three + a `+n` suffix from i18n), `formatDemoDate(ms,
-  locale)` (`Intl.DateTimeFormat`, date + short time; non-finite → `null`), `formatLabel(format,
-  gzip)`; `components/DemoRow.tsx` — props `{ row: DemoRow; selected; onSelect; }`, `role="button"`,
-  `tabIndex=0`, Enter/Space select, `aria-pressed`, `data-testid="replays-demo-row"`,
-  `data-demo-id`, `data-archive-entry` when an archive entry; identity cell: `replays-demo-name`
-  (effective name), secondary line `replays-demo-gamemode` (via `describeGamemode` from
-  `src/shared/demos/gamemode.ts`; guessed → visible `replays.gamemode.guessed` text),
-  `replays-demo-format`, `replays-demo-source` (reuse the existing `replays.list.source` /
-  `replays.list.archiveSource` / `replays.source.extraFolder` keys); markers
-  `replays-marker-sidecar` (`sidecar.state !== 'none'`), `replays-marker-sidecar-error`
-  (`state === 'error'`, visible text), `replays-marker-archive` (`archiveEntry !== null`),
-  `replays-marker-unreadable` (`!readable`, visible text, existing `replays.unreadable.marker`) —
-  lucide icons with distinct shapes, each with an accessible name, never colour alone; columns
-  `replays-demo-map`, `replays-demo-mod`, `replays-demo-sides`, `replays-demo-date`,
-  `replays-demo-duration` (`formatDemoDuration` from `src/shared/demos/duration-format.ts`),
-  `replays-demo-favourite` (star icon + accessible name, only when `sidecar.values.favourite`) and
-  `replays-demo-rating` (`n/10`, only when set). Every unknown value renders `UnknownValue` (visible
-  "–" `aria-hidden`, sr-only `replays.row.unknown`). `components/DemoListHeader.tsx` — static column
-  labels on the same grid. Keys under `replays.row.*`, `replays.column.*`, `replays.format.*`,
-  `replays.marker.*` in `src/renderer/src/i18n/locales/en.json`; demo/sidecar text is data. Design
-  tokens only, no raw palette classes. Tests in `components/DemoRow.test.tsx` (jsdom, mirror
-  `servers/ServerRow.test.tsx`): "shows every known value", "a guessed gamemode is marked guessed",
-  "favourite and rating show only when the sidecar sets them", "each marker appears exactly when it
-  applies", "an all-unknown row renders placeholders and never throws", "Enter selects the row"; and
-  `row-format.test.ts`: "team names read A vs B", "two unsided players read A vs B", "long player
-  lists are capped with +n", "a non-finite date formats to null".
+      and `list-grid.ts`. New in `src/renderer/src/modules/replays/`: `list-grid.ts` (`DEMO_LIST_GRID`
+      template: identity cell, then map, mod, players/sides, date, duration, favourite/rating; fixed row
+      height constant `DEMO_ROW_HEIGHT = 56`); `row-format.ts` — pure `sidesText(sides)` (sides join " vs
+      "; a side shows its team name when set, else its players; one unsided list of exactly two players
+      → "A vs B"; more than three names → first three + a `+n` suffix from i18n), `formatDemoDate(ms,
+locale)` (`Intl.DateTimeFormat`, date + short time; non-finite → `null`), `formatLabel(format,
+gzip)`; `components/DemoRow.tsx` — props `{ row: DemoRow; selected; onSelect; }`, `role="button"`,
+      `tabIndex=0`, Enter/Space select, `aria-pressed`, `data-testid="replays-demo-row"`,
+      `data-demo-id`, `data-archive-entry` when an archive entry; identity cell: `replays-demo-name`
+      (effective name), secondary line `replays-demo-gamemode` (via `describeGamemode` from
+      `src/shared/demos/gamemode.ts`; guessed → visible `replays.gamemode.guessed` text),
+      `replays-demo-format`, `replays-demo-source` (reuse the existing `replays.list.source` /
+      `replays.list.archiveSource` / `replays.source.extraFolder` keys); markers
+      `replays-marker-sidecar` (`sidecar.state !== 'none'`), `replays-marker-sidecar-error`
+      (`state === 'error'`, visible text), `replays-marker-archive` (`archiveEntry !== null`),
+      `replays-marker-unreadable` (`!readable`, visible text, existing `replays.unreadable.marker`) —
+      lucide icons with distinct shapes, each with an accessible name, never colour alone; columns
+      `replays-demo-map`, `replays-demo-mod`, `replays-demo-sides`, `replays-demo-date`,
+      `replays-demo-duration` (`formatDemoDuration` from `src/shared/demos/duration-format.ts`),
+      `replays-demo-favourite` (star icon + accessible name, only when `sidecar.values.favourite`) and
+      `replays-demo-rating` (`n/10`, only when set). Every unknown value renders `UnknownValue` (visible
+      "–" `aria-hidden`, sr-only `replays.row.unknown`). `components/DemoListHeader.tsx` — static column
+      labels on the same grid. Keys under `replays.row.*`, `replays.column.*`, `replays.format.*`,
+      `replays.marker.*` in `src/renderer/src/i18n/locales/en.json`; demo/sidecar text is data. Design
+      tokens only, no raw palette classes. Tests in `components/DemoRow.test.tsx` (jsdom, mirror
+      `servers/ServerRow.test.tsx`): "shows every known value", "a guessed gamemode is marked guessed",
+      "favourite and rating show only when the sidecar sets them", "each marker appears exactly when it
+      applies", "an all-unknown row renders placeholders and never throws", "Enter selects the row"; and
+      `row-format.test.ts`: "team names read A vs B", "two unsided players read A vs B", "long player
+      lists are capped with +n", "a non-finite date formats to null".
 - [x] **D4 — a virtualised, selectable list with a detail shell.** New
-  `src/renderer/src/modules/replays/visible-range.ts`: pure `visibleRange({ scrollTop,
-  viewportHeight, rowHeight, count, overscan })` → `{ start, end }` (clamped, empty count → empty).
-  New `components/VirtualDemoList.tsx`: one scroll container (`data-testid="replays-demo-scroll"`,
-  focusable), an inner spacer of `count × DEMO_ROW_HEIGHT` (from `list-grid.ts`), only
-  `rows[start..end)` rendered as `<li>` (with `aria-setsize`/`aria-posinset`) inside
-  `<ul data-testid="replays-demo-list">`, `DemoListHeader` sticky above; viewport height from a
-  `ResizeObserver` with an injectable initial height so jsdom tests render rows. In
-  `src/renderer/src/modules/replays/ReplaysView.tsx`: state becomes `DemoRow[]`, replace the plain
-  `<ul>` with `VirtualDemoList` (keep the loading/empty paragraphs and the refresh button as they
-  are), add `selectedId`; when set, render a side panel `<aside data-testid="replays-demo-detail">`
-  next to the list with the selected row's effective name as heading
-  (`replays-demo-detail-title`) and a close button (`replays-demo-detail-close`, default size) — the
-  shell [[155]] fills. A row that vanishes on a re-read clears the selection. Tests:
-  `visible-range.test.ts` — "the first window starts at row 0", "the window follows scrollTop",
-  "the window is clamped at the end", "an empty list has an empty window"; `ReplaysView.test.tsx`
-  (extend) — "3000 rows render at most one window of row elements", "selecting a row opens its
-  detail panel", "closing the detail panel clears the selection".
+      `src/renderer/src/modules/replays/visible-range.ts`: pure `visibleRange({ scrollTop,
+viewportHeight, rowHeight, count, overscan })` → `{ start, end }` (clamped, empty count → empty).
+      New `components/VirtualDemoList.tsx`: one scroll container (`data-testid="replays-demo-scroll"`,
+      focusable), an inner spacer of `count × DEMO_ROW_HEIGHT` (from `list-grid.ts`), only
+      `rows[start..end)` rendered as `<li>` (with `aria-setsize`/`aria-posinset`) inside
+      `<ul data-testid="replays-demo-list">`, `DemoListHeader` sticky above; viewport height from a
+      `ResizeObserver` with an injectable initial height so jsdom tests render rows. In
+      `src/renderer/src/modules/replays/ReplaysView.tsx`: state becomes `DemoRow[]`, replace the plain
+      `<ul>` with `VirtualDemoList` (keep the loading/empty paragraphs and the refresh button as they
+      are), add `selectedId`; when set, render a side panel `<aside data-testid="replays-demo-detail">`
+      next to the list with the selected row's effective name as heading
+      (`replays-demo-detail-title`) and a close button (`replays-demo-detail-close`, default size) — the
+      shell [[155]] fills. A row that vanishes on a re-read clears the selection. Tests:
+      `visible-range.test.ts` — "the first window starts at row 0", "the window follows scrollTop",
+      "the window is clamped at the end", "an empty list has an empty window"; `ReplaysView.test.tsx`
+      (extend) — "3000 rows render at most one window of row elements", "selecting a row opens its
+      detail panel", "closing the detail panel clears the selection".
 - [x] **D5 — the rows on the real surface.** In `scripts/lib/fixture.mjs` add two variants via
-  `writePopulatedFixture({ variant, stateOverrides })` (mirror `writeServersListFixture`), each with
-  one extra folder **under the variant's own userData dir** (`variantUserDataDir(variant)`, never
-  `gameRoot()` — see the story-143 regression note on `writeReplaysDemosFixture()`), registered in
-  `writeFixture`: `replays-rows` — a copy of `docs/fixtures/demos/test.dm2` with a valid sidecar
-  (`name`, `gamemode: "tdm"`, `favourite: true`, `rating: 8`, two `sides` with team names), a second
-  copy of `test.dm2` whose sidecar holds only two single-player `sides` and no gamemode (→ `duel`,
-  guessed), a copy of the PFAU `.mvd2` without sidecar, a demo with a broken sidecar (`{"rating": 99}`), an unreadable placeholder file,
-  and — only when `vendoredExtractorExists()` — a zip holding a copy of `test.dm2`; `replays-scale`
-  — 3 000 placeholder `.dm2` files (`scale-0001.dm2` …). Export the file names for the flows. New
-  flows (mirror `scripts/flows/replays-discovered-list.mjs`, `export const variant`):
-  `scripts/flows/replays-demo-rows.mjs` and `scripts/flows/replays-list-scale.mjs`. Add a
-  `replays-rows` screen to `scripts/lib/screens.mjs` (variant `replays-rows`, both viewports, mirror
-  the `replays-list` entry). Re-run the existing `replays-*` flows and the `replays-list` screen. If
-  any interactive element ended up below 44px, add a CLAUDE.md deviation row with the desktop-only
-  rationale.
+      `writePopulatedFixture({ variant, stateOverrides })` (mirror `writeServersListFixture`), each with
+      one extra folder **under the variant's own userData dir** (`variantUserDataDir(variant)`, never
+      `gameRoot()` — see the story-143 regression note on `writeReplaysDemosFixture()`), registered in
+      `writeFixture`: `replays-rows` — a copy of `docs/fixtures/demos/test.dm2` with a valid sidecar
+      (`name`, `gamemode: "tdm"`, `favourite: true`, `rating: 8`, two `sides` with team names), a second
+      copy of `test.dm2` whose sidecar holds only two single-player `sides` and no gamemode (→ `duel`,
+      guessed), a copy of the PFAU `.mvd2` without sidecar, a demo with a broken sidecar (`{"rating": 99}`), an unreadable placeholder file,
+      and — only when `vendoredExtractorExists()` — a zip holding a copy of `test.dm2`; `replays-scale`
+      — 3 000 placeholder `.dm2` files (`scale-0001.dm2` …). Export the file names for the flows. New
+      flows (mirror `scripts/flows/replays-discovered-list.mjs`, `export const variant`):
+      `scripts/flows/replays-demo-rows.mjs` and `scripts/flows/replays-list-scale.mjs`. Add a
+      `replays-rows` screen to `scripts/lib/screens.mjs` (variant `replays-rows`, both viewports, mirror
+      the `replays-list` entry). Re-run the existing `replays-*` flows and the `replays-list` screen. If
+      any interactive element ended up below 44px, add a CLAUDE.md deviation row with the desktop-only
+      rationale.
 
 ## Model Hints
 
 - D1 → deliverable-hard: `runScan` rebuilds cache-hit rows through `toRow(entry.file,
-  entry.parsed)` and zip entries never go through `readDemoFacts`, so a field wired on only one of
+entry.parsed)` and zip entries never go through `readDemoFacts`, so a field wired on only one of
   the three paths (fresh file, cache hit, zip entry) passes a first-launch check and silently turns
   into `null` duration/mod on the second launch or for archives.
 - D2, D3, D4, D5 → default.

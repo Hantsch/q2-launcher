@@ -13,7 +13,10 @@ const MODE_OPTIONS: { value: WatchlistMatchMode; labelKey: string }[] = [
 ]
 
 export interface WatchlistAddFormProps {
-  add: (input: { name: string; mode: WatchlistMatchMode }) => Promise<Outcome<WatchlistMutationResult>>
+  add: (input: {
+    name: string
+    mode: WatchlistMatchMode
+  }) => Promise<Outcome<WatchlistMutationResult>>
 }
 
 /**

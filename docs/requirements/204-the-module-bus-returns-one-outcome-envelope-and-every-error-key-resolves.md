@@ -48,9 +48,9 @@ mods has no typed error keys (12 `'mods.error.*'` literals, outcomes typed `key:
 ## Open Questions
 
 - ~~**Q1**~~ answered → Decisions (Sprint) — The review's value judge recommends typing `handle`'s return so the compiler, not a
-      runtime `isOutcome` sniff, enforces the single envelope — i.e. require every handler to
-      return `Outcome<R>` and convert the few plain-value handlers. Which is it: sniff-and-wrap
-      (zero handler edits) or compile-time (safer, ~20 handler edits)?
+  runtime `isOutcome` sniff, enforces the single envelope — i.e. require every handler to
+  return `Outcome<R>` and convert the few plain-value handlers. Which is it: sniff-and-wrap
+  (zero handler edits) or compile-time (safer, ~20 handler edits)?
 
 ## Decisions (Sprint)
 
@@ -141,7 +141,7 @@ ARCHITECTURE.md, updated in D1).
   (`ModuleHandler = (payload: unknown) => Promise<Outcome<unknown>> | Outcome<unknown>`;
   `handle: <T, R>(type, schema: ZodType<T>, handler: (payload: T) => Outcome<R> | Promise<Outcome<R>>, options?)`
   — no plain-`R` arm; update the doc comment), `src/main/modules/registry.ts` (`invoke`: `const
-  result = await entry.handler(parsed.data)`; if `isOutcome(result)` return it; else
+result = await entry.handler(parsed.data)`; if `isOutcome(result)` return it; else
   `log.error(...)` and return `fail('modules.error.handlerFailed', { moduleId, type })`; the
   throw path is unchanged), `src/main/modules/registry.test.ts` (tests: "a handler's ok outcome
   arrives as one envelope", "a handler's fail outcome passes through unchanged", "a handler that
@@ -210,7 +210,7 @@ ARCHITECTURE.md, updated in D1).
 - **D7 — every error key main sends is proven to resolve.** New file `src/main/error-keys.test.ts`
   (mirror the `stringAt` lookup of `src/renderer/src/i18n/gamemode-keys.test.ts`; import
   `../renderer/src/i18n/locales/en.json`). Contents: a pure `scanKeys(source: string, patterns:
-  RegExp[]): string[]` with today's one pattern — `fail(` then optional whitespace/newlines then a
+RegExp[]): string[]` with today's one pattern — `fail(` then optional whitespace/newlines then a
   `'…'` or `"…"` literal; a walk over every non-test `src/main/**/*.ts` via `node:fs`. Tests:
   "every fail() literal in main resolves in en.json" (also asserts at least 80 keys were found);
   "every exported *_ERROR_KEYS member resolves" (imports `DOWNLOADS_ERROR_KEYS` and

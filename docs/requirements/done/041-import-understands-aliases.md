@@ -24,7 +24,7 @@ The alias idioms real configs actually use, all present in my files:
 - Plain command aliases: `alias s_ok "say_team $g [ OK / COMING ] ... $loc_here $g"`
 - Press/release pairs: `alias +slow "..."` / `alias -slow "..."`, bound as `bind SHIFT +slow`
 - Alias calling alias: `alias lol "lol1;lol2;lol3"`, `alias blaster "use blaster; ...;
-  blaster_settings"`, `alias dall "…"`
+blaster_settings"`, `alias dall "…"`
 - Empty aliases used as user-editable hooks: `alias blaster_settings ""`
 - Aliases that rebind keys: `alias cali "bind KP_END fuck; bind KP_DOWNARROW hure; …"` — the same
   construct the launcher's own hold layers generate
@@ -98,12 +98,12 @@ The alias idioms real configs actually use, all present in my files:
 
 - **Tokenizer is extracted, not copied.** `stripLineComment`/`splitTopLevelSemicolons`/`tokenize`
   move from `config-parser.ts` into `src/shared/config/command-tokenizer.ts`, because AC1 demands
-  the alias-body splitter use *the same* rules and the splitter lives in shared code.
+  the alias-body splitter use _the same_ rules and the splitter lives in shared code.
 - **Bare top-level commands stay preserved.** `echo`, `norm_fov`, `m_filter 1`, `wait`,
   `vid_restart`, `clear`, `skin "…"` and the fixtures' ASCII banners are not entries and get no
   parser branch — they are startup commands, and inventing entries for them would lose their
   position in the file.
-- **AC12's "at most" is made measurable.** The fixture test asserts an *explicit expected list* of
+- **AC12's "at most" is made measurable.** The fixture test asserts an _explicit expected list_ of
   preserved lines, each classified (comment / `echo` banner / banner junk / bare command), plus
   "no line starting with `alias ` remains preserved" — a bare count is not falsifiable.
 - **Alias body → `ConfigCommand[]`.** Each top-level `;` segment becomes a command; a `say`/
@@ -114,10 +114,10 @@ The alias idioms real configs actually use, all present in my files:
   editor while still modelling their chat part.
 - **Empty-body aliases are entries.** `alias blaster_settings ""` imports as `kind: 'alias'` with
   `commands: []` and must still render as `alias blaster_settings ""`; the writer's "no usable
-  commands → no alias line" rule stays scoped to *generated* action aliases (story 038 AC6), because
+  commands → no alias line" rule stays scoped to _generated_ action aliases (story 038 AC6), because
   swallowing a user-authored hook alias on the first save would be silent data loss.
 - **A nested `alias` inside a body is a raw command, never a definition.** `alias zoomin
-  "…;alias zoom zoomout"` must not register `zoom` a second time, or the User-decided
+"…;alias zoom zoomout"` must not register `zoom` a second time, or the User-decided
   "self-rewriting toggles import as plain aliases" would come back out as a duplicate report.
 - **Imported names are kept verbatim.** `ConfigAction.name` and story 039's own-alias-name field
   both get the source name (`drop_rail`, `+slow`) unchanged, so the first write-back reproduces the
@@ -145,14 +145,14 @@ The alias idioms real configs actually use, all present in my files:
   as `overrides`, `triggerKey: null` when nothing binds the alias (nothing binds `cali` in
   `dm.cfg`) — `AltLayer.triggerKey` is already nullable for exactly this "not reachable yet" state.
 - **Colour-cvar recognition is value-driven and narrow.** A `$name` whose profile cvar value
-  consists *entirely* of high-bit/alt-charset bytes is a colour token; it renders through the
+  consists _entirely_ of high-bit/alt-charset bytes is a colour token; it renders through the
   existing `q2-charset.toDisplaySegments` plus a chip naming the cvar. `tokenizeMessage`'s contract
   is left alone — the recognition lives in its own `src/shared/config/color-cvars.ts`.
 - **`$loc_here` (single `$`) is imported verbatim.** The existing `findSingleDollarLocMistakes` Care
   rule already names it; an importer that silently rewrites the player's text is worse than a
   warning.
 - **The fixture test builds its own entry file.** None of the three fixtures is an engine entry
-  file (`dm.cfg` only reaches `dmalias.cfg` through a *bind value*), so the test writes a temp
+  file (`dm.cfg` only reaches `dmalias.cfg` through a _bind value_), so the test writes a temp
   gamedir with `autoexec.cfg` = `exec dm.cfg` / `exec dmalias.cfg` / `exec gfx.cfg` and reads the
   committed fixtures latin-1, read-only.
 - **No new backlog story is filed** for the User's alias-management note: story 044 (alias manager)
@@ -210,7 +210,7 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
   `src/main/modules/config/core/import-reader.test.ts`, `src/shared/modules/config.ts`
   (`DuplicateAliasLine`, mirroring `DuplicateBindLine`).
 - **Acceptance:** `ImportResult.aliases: ImportedAlias[]` in document order with `{ name, body,
-  file, line }`, last definition winning across files and `exec` depth; `duplicateAliases` names
+file, line }`, last definition winning across files and `exec` depth; `duplicateAliases` names
   the earlier definition's site and the later one that took effect; an alias defined in an exec'd
   file is present for the parent file's binds; `unbindall` still clears binds accumulated so far
   and lets the stream continue (regression test with an alias before and after it); the guards
@@ -264,7 +264,7 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
   `src/main/modules/config/import.test.ts`, `src/main/modules/config/profiles.test.ts`.
 - **Acceptance:** contract changed **first** (`/typed-ipc`): `ImportPreviewResult` gains
   `aliasCount`, `messageCount`, `duplicateAliases`, `ambiguousRebindAliases[{ name, body, file,
-  line }]`; `ImportCommitInput` gains `layerAliases: string[]`, validated by a strict schema
+line }]`; `ImportCommitInput` gains `layerAliases: string[]`, validated by a strict schema
   (never trust the renderer — an unknown alias name is rejected, not ignored);
   `previewImport`/`commitImport` call `buildImportedActions` and `createFromImport` stores
   `actions`/`categories`/`layers` alongside `cvars`/`binds`/`unrecognized`; the existing
@@ -316,20 +316,20 @@ Order: D1 → D2 → D3 → (D4, D5 parallel) → D6 → (D7, D8 parallel) → D
 
 ### Coverage (every acceptance criterion has a deliverable)
 
-| AC | Delivered by |
-| --- | --- |
-| 1 `alias` becomes a real entry | D1 (parse) + D3 (entry) |
-| 2 `+x`/`-x` recognised as a pair | D3 (entries) + D5 (pairing + UI) |
-| 3 bare-token bind resolves to the alias entry | D4 (+ D3 for the entry) |
-| 4 raw `+command` bind, no invented alias | D3 (explicitly produces none), asserted in D9 |
-| 5 `say`/`say_team` alias → message entry, macros verbatim | D3, asserted in D9 |
-| 6 `bind`-containing alias body not mangled | D3 + D7 (review step) |
-| 7 `unbindall` honoured in file order | D2, asserted in D9 |
-| 8 `exec` chains + cross-file alias resolution | D2 + D3 |
-| 9 order-independent alias→alias resolution | D3 |
-| 10 duplicate alias name reported | D2 (detect) + D6/D7 (surface in preview) |
-| 11 unparseable content still preserved verbatim | D1 (only `alias` lines leave `preserved`) + D9 (explicit expected list) |
-| 12 fixture import produces entries, few preserved lines | D9 (+ D7 for the Controls-tab surface, manual step 4) |
+| AC                                                        | Delivered by                                                            |
+| --------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 1 `alias` becomes a real entry                            | D1 (parse) + D3 (entry)                                                 |
+| 2 `+x`/`-x` recognised as a pair                          | D3 (entries) + D5 (pairing + UI)                                        |
+| 3 bare-token bind resolves to the alias entry             | D4 (+ D3 for the entry)                                                 |
+| 4 raw `+command` bind, no invented alias                  | D3 (explicitly produces none), asserted in D9                           |
+| 5 `say`/`say_team` alias → message entry, macros verbatim | D3, asserted in D9                                                      |
+| 6 `bind`-containing alias body not mangled                | D3 + D7 (review step)                                                   |
+| 7 `unbindall` honoured in file order                      | D2, asserted in D9                                                      |
+| 8 `exec` chains + cross-file alias resolution             | D2 + D3                                                                 |
+| 9 order-independent alias→alias resolution                | D3                                                                      |
+| 10 duplicate alias name reported                          | D2 (detect) + D6/D7 (surface in preview)                                |
+| 11 unparseable content still preserved verbatim           | D1 (only `alias` lines leave `preserved`) + D9 (explicit expected list) |
+| 12 fixture import produces entries, few preserved lines   | D9 (+ D7 for the Controls-tab surface, manual step 4)                   |
 
 ## Model Hints
 
@@ -381,6 +381,7 @@ unreachable and left as documented follow-ups.
 **Commit message:** `041: import understands aliases, press/release pairs and unbindall`
 
 **Verification:**
+
 - `npm run typecheck` — clean (node + web).
 - `npm run build` — clean.
 - `npm test` — 64 files / 1321 tests, all green (final run, after fixes).
@@ -405,13 +406,14 @@ unreachable and left as documented follow-ups.
      fixture pairs (`slow`, `dj`, `rj`, `kl`, `zoom`) are genuinely unbound/dead in the source config —
      but the fix is verified correct via a synthetic bound-pair test and guards a real config that does
      bind its pairs.
-  Second review-fix cycle not needed; full suite re-verified clean after all three fixes (1321/1321).
+     Second review-fix cycle not needed; full suite re-verified clean after all three fixes (1321/1321).
 
 **Decisions made during implementation (documenting per the sprint's "no user reachable" rule):**
+
 - D3: `AltLayer.triggerKey` for an "attempt as layer" alias is resolved from the real `binds` input
   (the sorted-first key whose value tokenizes to exactly the alias name) rather than always `null` —
   `null` only when nothing actually binds the alias, matching the story's own wording ("`triggerKey:
-  null` when nothing binds the alias (nothing binds `cali` in `dm.cfg`)") as a condition, not a
+null` when nothing binds the alias (nothing binds `cali` in `dm.cfg`)") as a condition, not a
   constant.
 - D3: alias folding is case-sensitive by name (mirrors `import-reader.ts`'s `applyAlias` and the
   engine's `strcmp`), so `alias dup`/`alias DUP` are kept as two separate entries rather than merged —

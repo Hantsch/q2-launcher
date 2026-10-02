@@ -145,7 +145,8 @@ describe('resolveProfileFileNames', () => {
     const shuffled = resolveProfileFileNames([d, c, b, a])
     const reversed = resolveProfileFileNames([d, b, a, c])
 
-    const asEntries = (m: Map<string, string>) => [...m.entries()].sort(([x], [y]) => (x < y ? -1 : 1))
+    const asEntries = (m: Map<string, string>) =>
+      [...m.entries()].sort(([x], [y]) => (x < y ? -1 : 1))
 
     expect(asEntries(shuffled)).toEqual(asEntries(forward))
     expect(asEntries(reversed)).toEqual(asEntries(forward))

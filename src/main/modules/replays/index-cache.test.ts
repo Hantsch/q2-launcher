@@ -85,9 +85,7 @@ describe('ReplaysIndexCache', () => {
   })
 
   it('a cache with another cacheVersion is discarded, not misread', async () => {
-    await writeRawCacheFile(
-      JSON.stringify({ cacheVersion: 0, entries: { 'entry-1': demoA } }),
-    )
+    await writeRawCacheFile(JSON.stringify({ cacheVersion: 0, entries: { 'entry-1': demoA } }))
     await expect(new ReplaysIndexCache().read()).resolves.toEqual(new Map())
 
     const entries = new Map<string, CachedDemo>([['entry-1', demoA]])

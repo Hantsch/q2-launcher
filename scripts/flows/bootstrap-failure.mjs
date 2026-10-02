@@ -201,7 +201,7 @@ export default async function bootstrapFailure({ page, shot, step }) {
   }
 
   step(
-    'assert the target verdict/checks section is absent - see this file\'s header comment for ' +
+    "assert the target verdict/checks section is absent - see this file's header comment for " +
       'exactly why a real packageIncomplete run can never reach it',
   )
   if (causeText.includes('Installation check')) {
@@ -217,7 +217,9 @@ export default async function bootstrapFailure({ page, shot, step }) {
   step('assert nothing outside the loopback fixture server was ever asked for')
   const unexpected = server.requested.filter((path) => path === '/' || path.startsWith('/..'))
   if (unexpected.length > 0) {
-    throw new Error(`the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`)
+    throw new Error(
+      `the fixture server saw unexpected request paths: ${JSON.stringify(unexpected)}`,
+    )
   }
   console.log(`fixture server served: ${JSON.stringify([...new Set(server.requested)])}`)
 

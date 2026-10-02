@@ -49,17 +49,17 @@ and CFG-11.
    the same name; the UI pre-selects only identical findings, non-identical ones stay unchecked —
    reason: Quake II mods keep their cfgs at the gamedir root, and a differing file (typically an
    engine-written `config.cfg`) is a judgement call that belongs to the user, not to the scanner.
-4. **A delete is "backup, then unlink":** the file is copied to `<file>.q2l-backup` *before*
+4. **A delete is "backup, then unlink":** the file is copied to `<file>.q2l-backup` _before_
    `unlink`, using story 004's exact suffix and backup-once helper — reason: AC 3 asks for "the
    same backup contract this module already uses for writes, adapted for a delete", and reusing
    the suffix means one recovery convention the user already knows from the write pipeline.
 5. **An existing `.q2l-backup` always wins and is never clobbered:** if a backup is already there
    (from an earlier write of that same file), the current file is deleted without re-copying —
-   reason: story 004 decision 6 says the backup holds the user's *original*, and overwriting it
+   reason: story 004 decision 6 says the backup holds the user's _original_, and overwriting it
    with a later copy would destroy the very thing it protects.
 6. **Undo is a real UI action, not "go rename the file yourself":** `cleanup.apply` returns what it
    removed, and the result panel offers "Undo removal", which calls a `cleanup.restore` handler
-   that copies each backup back (only when the target does not exist again) and *keeps* the backup
+   that copies each backup back (only when the target does not exist again) and _keeps_ the backup
    — reason: `ui-acceptance-required: true`, so "recoverable" (AC 3) needs a path through the real
    UI; the undo offer is session-scoped (until the panel is left), the on-disk backup is permanent.
 7. **Addressed by ids, never by a path:** the renderer sends
@@ -84,7 +84,7 @@ and CFG-11.
     `isInstallationRunning(app.launch.getState(), id)` from `write-plan.ts`) — reason: story 004
     already skips writes to a running installation, and deleting a cfg out from under a live engine
     is strictly worse than writing one; the scan is read-only and always safe.
-13. **UI home is a `CleanupPanel` on the config *list* screen**, next to `InstallationProfilesPanel`,
+13. **UI home is a `CleanupPanel` on the config _list_ screen**, next to `InstallationProfilesPanel`,
     with an installation picker — and rendered even when no profile exists — reason: cleanup is
     per-installation and profile-independent (concept §3), so a per-profile detail tab would be the
     wrong place and would hide the feature behind having a profile.
@@ -130,7 +130,7 @@ the only renderer work and the acceptance path.
   `scanRedundantCopies(installation): Promise<CleanupFinding[]>`, new `cleanup.test.ts`.
   Uses `listDir`/`isFile`/`fileSize` from `src/main/lib/fs-utils.ts` and `OWNERSHIP_MARKER` from
   `render.ts`. Mirror: `import.ts`'s `scanImportCandidates` for shape, `writer.test.ts` for the
-  temp-dir test style. *Accepted when:* tests over a temp installation tree prove a duplicate is
+  temp-dir test style. _Accepted when:_ tests over a temp installation tree prove a duplicate is
   found, `autoexec.cfg` is never found, a launcher-generated file (sentinel first line) is never
   found, a mod-only cfg with no `baseq2` twin is never found, subdirectories are ignored, and
   `identical` is true only for a byte-equal pair. `writer.test.ts` still green (no behaviour
@@ -141,19 +141,19 @@ the only renderer work and the acceptance path.
   untouched; restore copies back only when the target file is absent and never deletes the backup;
   every entry passes `gameDirBelongsToInstallation` (from `import.ts`) plus a bare
   `^[A-Za-z0-9_.-]+\.cfg$` name check, and is intersected with a fresh scan — rejects are returned,
-  not thrown. *Accepted when:* tests prove backup-then-delete, that a pre-existing backup is not
+  not thrown. _Accepted when:_ tests prove backup-then-delete, that a pre-existing backup is not
   clobbered, that restore brings the file back byte-for-byte and is a no-op if the file reappeared,
   and that a `gameDir`/`fileName` outside the installation's known folders (incl. `..`, an absolute
   path, `baseq2`) never reaches the filesystem. **Covers AC 3 (disk side), AC 4 (removal side).**
 - **D3 — Contract + handlers with the running guard.** `src/shared/modules/config.ts`
   (`cleanupScan: 'cleanup.scan'`, `cleanupApply: 'cleanup.apply'`, `cleanupRestore:
-  'cleanup.restore'` in `CONFIG_HANDLERS`, plus `CleanupFinding`, `CleanupEntry`,
+'cleanup.restore'` in `CONFIG_HANDLERS`, plus `CleanupFinding`, `CleanupEntry`,
   `CleanupScanInput/Result`, `CleanupApplyInput/Result`, `CleanupRestoreInput/Result`),
   `src/main/modules/config/schemas.ts` (zod payloads, `gameDir`/`fileName` capped like the import
   schemas), `src/main/modules/config/index.ts` (three handlers using `safeParse` + `fail`/`ok`,
   `app.installations.find`, and `isInstallationRunning` from `write-plan.ts` refusing
   apply/restore with `config.error.installationRunning`). Mirror: the `import.*` handlers in the
-  same file. *Accepted when:* a test drives scan → apply → restore against a temp installation and
+  same file. _Accepted when:_ a test drives scan → apply → restore against a temp installation and
   a faked running launch state makes apply fail without touching disk.
   **Covers AC 2 (main side: apply only ever acts on explicitly passed entries), AC 4 (contract).**
 - **D4 — Cleanup panel in the config view.** New
@@ -186,7 +186,7 @@ the only renderer work and the acceptance path.
 
 1. Prepare an installation on disk: put `<install>/baseq2/gl_settings.cfg` there, copy the same
    file into a known mod folder (e.g. `<install>/rogue/gl_settings.cfg`), and additionally create
-   `<install>/rogue/config.cfg` with content that *differs* from `<install>/baseq2/config.cfg`.
+   `<install>/rogue/config.cfg` with content that _differs_ from `<install>/baseq2/config.cfg`.
 2. `npm run dev` → Config. On the profile list screen, the Cleanup panel is visible; pick that
    installation and press Scan.
 3. Expect: `rogue/gl_settings.cfg` listed and pre-checked (identical), `rogue/config.cfg` listed
@@ -212,6 +212,7 @@ config module's list screen drives scan → review (identical findings pre-check
 ones flagged) → confirm → remove → optional "Undo removal".
 
 **Files changed/new:**
+
 - New: `src/main/modules/config/backup.ts`, `src/main/modules/config/cleanup.ts`,
   `src/main/modules/config/cleanup.test.ts`, `src/renderer/src/modules/config/CleanupPanel.tsx`.
 - Modified: `src/main/modules/config/writer.ts` (backup helpers extracted, re-exported;
@@ -225,6 +226,7 @@ ones flagged) → confirm → remove → optional "Undo removal".
   `config.cleanup.*`).
 
 **Decisions made during implementation** (beyond the sprint decisions already in this file):
+
 1. **Second gamedir-safety layer in `entryIsTrusted`:** on top of `gameDirBelongsToInstallation`
    (decision 10), D2 also reuses `writer.ts`'s `isSafeGameDirName` (now exported) as a second,
    independent check — `gameDirBelongsToInstallation` alone only asks "did the installation
@@ -251,6 +253,7 @@ ones flagged) → confirm → remove → optional "Undo removal".
    already sets in this module.
 
 **Verification:**
+
 - `npm run build`: green.
 - `npm test`: green, 415 tests across 25 files (includes `cleanup.test.ts`'s D1/D2 coverage of
   the scan/remove/restore logic — backup-before-unlink ordering, no-clobber of an existing
@@ -282,6 +285,7 @@ ones flagged) → confirm → remove → optional "Undo removal".
   can move to `done`.
 
 **Commit message (prepared, not yet committed):**
+
 ```
 010: add config cleanup scan/remove/restore with undo
 ```

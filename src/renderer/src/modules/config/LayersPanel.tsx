@@ -74,10 +74,7 @@ export function LayersPanel({
     return result.ok
   }
 
-  const handleCreate = async (input: {
-    name: string
-    mode: AltLayerMode
-  }): Promise<boolean> => {
+  const handleCreate = async (input: { name: string; mode: AltLayerMode }): Promise<boolean> => {
     const layer: AltLayer = {
       id: crypto.randomUUID(),
       name: input.name,
@@ -145,7 +142,9 @@ export function LayersPanel({
         </Button>
       </div>
 
-      {layers.length > 0 && <p className="text-xs text-ink-muted">{t('config.layersPanel.hint')}</p>}
+      {layers.length > 0 && (
+        <p className="text-xs text-ink-muted">{t('config.layersPanel.hint')}</p>
+      )}
 
       {layers.length === 0 ? (
         <p className="text-xs text-ink-muted">{t('config.layersPanel.empty.compact')}</p>
@@ -154,9 +153,7 @@ export function LayersPanel({
           {layers.map((layer) => {
             const expanded = expandedIds.has(layer.id)
             const isPendingDelete = pendingDeleteId === layer.id
-            const preview = expanded
-              ? generateLayerAliases(layer, profile.binds ?? {})
-              : null
+            const preview = expanded ? generateLayerAliases(layer, profile.binds ?? {}) : null
             const visibleIssues = preview?.issues.filter((issue) =>
               VISIBLE_ISSUE_KEYS.has(issue.key),
             )

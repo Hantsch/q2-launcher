@@ -10,13 +10,7 @@ import type { ModuleId } from './module'
  * driven entirely by this type, so the download module only has to emit jobs.
  */
 export type JobStatus =
-  | 'queued'
-  | 'running'
-  | 'paused'
-  | 'waiting'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
+  'queued' | 'running' | 'paused' | 'waiting' | 'succeeded' | 'failed' | 'cancelled'
 
 export interface JobProgress {
   /** 0..1, or null when the total is not known yet (indeterminate bar). */

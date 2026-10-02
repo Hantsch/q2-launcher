@@ -44,7 +44,12 @@ function baseRow(overrides: Partial<DemoRow> = {}): DemoRow {
     fileName: 'final.dm2',
     format: 'dm2',
     gzip: false,
-    source: { kind: 'installation', installationId: 'inst-1', installationName: 'Main', gameDir: 'baseq2' },
+    source: {
+      kind: 'installation',
+      installationId: 'inst-1',
+      installationName: 'Main',
+      gameDir: 'baseq2',
+    },
     archiveEntry: null,
     map: 'q2dm1',
     unparsableReason: null,
@@ -84,14 +89,31 @@ describe('buildDemoDetail', () => {
     expect(byId.get('map')).toMatchObject({ value: 'q2dm1', source: 'demo' })
 
     const ids: string[] = detail.fields.map((f) => f.id)
-    for (const removed of ['name', 'host', 'format', 'source', 'levelName', 'description', 'tags', 'favourite', 'rating']) {
+    for (const removed of [
+      'name',
+      'host',
+      'format',
+      'source',
+      'levelName',
+      'description',
+      'tags',
+      'favourite',
+      'rating',
+    ]) {
       expect(ids).not.toContain(removed)
     }
   })
 
   it('a fact with no value anywhere is omitted', () => {
-    const row = baseRow({ durationMs: undefined, pov: null, nameFacts: { map: 'q2dm3', players: [] } })
-    const detail = buildDemoDetail({ ...row, effective: { ...row.effective, pov: { value: null, source: null } } }, {})
+    const row = baseRow({
+      durationMs: undefined,
+      pov: null,
+      nameFacts: { map: 'q2dm3', players: [] },
+    })
+    const detail = buildDemoDetail(
+      { ...row, effective: { ...row.effective, pov: { value: null, source: null } } },
+      {},
+    )
     const ids = detail.fields.map((f) => f.id)
     expect(ids).not.toContain('pov')
     expect(ids).not.toContain('duration')

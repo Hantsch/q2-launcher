@@ -75,14 +75,19 @@ describe('RunningStep', () => {
   it('a failed job renders the same cause detail as the Downloads tab', () => {
     render(
       createElement(RunningStep, {
-        job: makeJob({ status: 'failed', error: { key: 'downloads.error.installationNotPlayable' } }),
+        job: makeJob({
+          status: 'failed',
+          error: { key: 'downloads.error.installationNotPlayable' },
+        }),
         failure: makeFailure({ diagnostics }),
       }),
     )
 
     // The existing single-line error stays.
     expect(
-      screen.getByText('The files were downloaded, but the result was not a usable Quake II installation.'),
+      screen.getByText(
+        'The files were downloaded, but the result was not a usable Quake II installation.',
+      ),
     ).toBeTruthy()
 
     // The same shared detail as `FailureLogEntry` mounts, closed by default, with the same content.
@@ -101,13 +106,18 @@ describe('RunningStep', () => {
   it('a failed job with no matching/diagnostics-less failure entry keeps just the error line', () => {
     render(
       createElement(RunningStep, {
-        job: makeJob({ status: 'failed', error: { key: 'downloads.error.installationNotPlayable' } }),
+        job: makeJob({
+          status: 'failed',
+          error: { key: 'downloads.error.installationNotPlayable' },
+        }),
         failure: undefined,
       }),
     )
 
     expect(
-      screen.getByText('The files were downloaded, but the result was not a usable Quake II installation.'),
+      screen.getByText(
+        'The files were downloaded, but the result was not a usable Quake II installation.',
+      ),
     ).toBeTruthy()
     expect(document.querySelector('details')).toBeNull()
   })

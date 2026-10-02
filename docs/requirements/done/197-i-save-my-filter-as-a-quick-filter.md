@@ -16,8 +16,8 @@ Concept: [game-browser.md](../concepts/game-browser.md) §8, GB-L5, GB-P1.
 
 ## Acceptance Criteria
 
-- [x] **AC1** — While at least one filter criterion is active, the filter bar offers *Save as quick
-      filter*, which asks for a name. With no criterion active the action is disabled and says why
+- [x] **AC1** — While at least one filter criterion is active, the filter bar offers _Save as quick
+      filter_, which asks for a name. With no criterion active the action is disabled and says why
       as visible text.
 - [x] **AC2** — A saved quick filter appears as a chip in the filter bar. Clicking it replaces the
       current filter with exactly the saved criteria.
@@ -58,10 +58,10 @@ Concept: [game-browser.md](../concepts/game-browser.md) §8, GB-L5, GB-P1.
 - **Q5 Online/LAN:** quick filters apply in both modes and need no mode-specific code — they are plain criteria over `ServerListRow`s, and story 196 does not change the filter type.
 - **Criteria shape:** a quick filter stores `ServerListFilter` minus `search` (`mod, gamemode, map, empty, hideBotsOnly, waitingForOpponent`) — the binding "search stays out" decision, as its own type so a saved search can never sneak in.
 - **Search is left alone:** applying a chip, and clearing via a pressed chip, replace/clear only the structured criteria and keep the current search text — search is not part of a quick filter, so a chip must not touch it.
-- **"Active criterion" (AC1) and "equals" (AC3) mean structured criteria only:** a search-only filter does not enable *Save*, and the pressed check ignores the search — consistent with the decision above.
-- **Cap behaviour:** at 8 saved filters *Save as quick filter* is disabled with visible text ("You can keep 8 quick filters — delete one first"), and main refuses a 9th as a value — one rule, visible before the user types a name.
+- **"Active criterion" (AC1) and "equals" (AC3) mean structured criteria only:** a search-only filter does not enable _Save_, and the pressed check ignores the search — consistent with the decision above.
+- **Cap behaviour:** at 8 saved filters _Save as quick filter_ is disabled with visible text ("You can keep 8 quick filters — delete one first"), and main refuses a 9th as a value — one rule, visible before the user types a name.
 - **Names:** trimmed, 1–32 characters, unique case-insensitively; 32 keeps a chip on one line in the rail.
-- **Overwrite (AC5):** a taken name in the save dialog shows the reason plus an explicit *Overwrite* button; rename to a taken name is refused without an overwrite offer — overwriting on rename would silently delete another filter.
+- **Overwrite (AC5):** a taken name in the save dialog shows the reason plus an explicit _Overwrite_ button; rename to a taken name is refused without an overwrite offer — overwriting on rename would silently delete another filter.
 - **Rename/delete trigger (AC4):** a kebab `Menu` on each custom chip (mirrors `ControlsCategoryMenu`), `size="sm"` — recorded as a CLAUDE.md deviation row by the implementing D, like every other dense kebab.
 - **Persistence:** `ServersState.quickFilters` with per-row `safeParse` in `parseServersState` (envelope `.catch([])`); unknown gamemode, bad name, no active criterion, duplicate name or rows beyond the 8th are skipped silently — AC8 and the cap hold even for a hand-edited file.
 - **IPC:** new `quickFilters.*` handlers inside the existing `servers` module namespace (`SERVERS_HANDLERS` + `SERVERS_HANDLER_SCHEMAS`), no new `ipc.ts` channel — the module bus already carries servers traffic.
@@ -78,7 +78,7 @@ Concept: [game-browser.md](../concepts/game-browser.md) §8, GB-L5, GB-P1.
 2. **Main (D2):** pure list ops `src/main/modules/servers/quick-filter-entries.ts` (`save` with
    `overwrite`, `rename`, `remove`; `{ok:true,list}|{ok:false,reasonKey}`), four handlers
    `quickFilters.list/save/rename/remove` + payload schemas, persisted via `setServersState`.
-3. **Renderer save + apply (D3):** client methods, `useQuickFilters` hook, *Save as quick filter*
+3. **Renderer save + apply (D3):** client methods, `useQuickFilters` hook, _Save as quick filter_
    button + name dialog with overwrite, custom chips under the built-ins with apply/pressed/clear,
    cap and no-criteria reasons as visible text, new flow `servers-quick-filters`.
 4. **Renderer rename/delete + resilience (D4):** chip kebab menu (rename dialog, delete), CLAUDE.md
@@ -111,7 +111,7 @@ Order: D1 → D2 → D3 → D4. Nothing in the shell changes; all work lives in 
 
 - **D2 — Main quick-filter handlers.** Create `src/main/modules/servers/quick-filter-entries.ts`
   (pure, mirror `watchlist-entries.ts` incl. injectable `mintId`): `saveQuickFilter(list, {name,
-  criteria, overwrite}, mintId)` — refuses `servers.quickFilter.error.noCriteria` (via `hasCriteria`),
+criteria, overwrite}, mintId)` — refuses `servers.quickFilter.error.noCriteria` (via `hasCriteria`),
   `.empty`, `.tooLong`, `.taken` (only when `overwrite` is false; with `overwrite: true` replaces the
   criteria of the same-named entry **in place**, keeping its id and position), `.cap` when adding a
   new one at `QUICK_FILTER_MAX`; stores the trimmed name; appends new entries (creation order).
@@ -119,9 +119,9 @@ Order: D1 → D2 → D3 → D4. Nothing in the shell changes; all work lives in 
   itself; no overwrite on rename). `removeQuickFilter(list, {id})` — idempotent. Results are
   `{ok:true, list} | {ok:false, reasonKey}`. In `src/shared/modules/servers.ts` add to
   `SERVERS_HANDLERS`: `quickFiltersList: 'quickFilters.list'`, `quickFiltersSave:
-  'quickFilters.save'`, `quickFiltersRename: 'quickFilters.rename'`, `quickFiltersRemove:
-  'quickFilters.remove'`, their strict zod payload schemas (`z.void()`, `{name, criteria:
-  quickFilterCriteriaSchema, overwrite: boolean}`, `{id, name}`, `{id}`) in
+'quickFilters.save'`, `quickFiltersRename: 'quickFilters.rename'`, `quickFiltersRemove:
+'quickFilters.remove'`, their strict zod payload schemas (`z.void()`, `{name, criteria:
+quickFilterCriteriaSchema, overwrite: boolean}`, `{id, name}`, `{id}`) in
   `SERVERS_HANDLER_SCHEMAS` (~l.911), and a `QuickFiltersResult` type. In
   `src/main/modules/servers/index.ts` register the handlers (always, not behind the watchlist
   unlock gate) with the read/replace/persist pattern of `listSetSort` (~l.319-335) over
@@ -138,14 +138,14 @@ Order: D1 → D2 → D3 → D4. Nothing in the shell changes; all work lives in 
   `src/renderer/src/modules/servers/QuickFilterNameDialog.tsx` (mirror
   `src/renderer/src/modules/replays/RenameDemoDialog.tsx`: `Modal`/`Field`/`Input`/`Button`, live
   `validateQuickFilterName` error in the field's error slot; on `taken` shows the reason plus an
-  *Overwrite* button that re-submits with `overwrite: true`; a main refusal shows its `reasonKey` in
+  _Overwrite_ button that re-submits with `overwrite: true`; a main refusal shows its `reasonKey` in
   the same slot; props allow a rename mode without the overwrite button for D4);
   `src/renderer/src/modules/servers/ServerListFilterBar.tsx` (new props `quickFilters`, `onSaveQuickFilter`,
   plus whatever D4 needs; in the existing "quick" section, after the three built-in `FilterChip`s
   which stay **unchanged**, one chip per saved filter in list order, `data-testid="servers-quickfilter-chip"`,
   label = name, `active = sameCriteria(criteriaOf(filter), qf.criteria)` rendered with the same
   flame edge + `Check` + `aria-pressed` as `FilterChip`; click → `onChange(active ? clearCriteria(filter) :
-  applyCriteria(filter, qf.criteria))`; below the chips a *Save as quick filter* `Button`
+applyCriteria(filter, qf.criteria))`; below the chips a _Save as quick filter_ `Button`
   `data-testid="servers-quickfilter-save"`, disabled with a visible reason line
   `servers-quickfilter-save-reason` when `!hasCriteria(criteriaOf(filter))` ("Set a mod, gamemode,
   map or quick toggle first") or at `QUICK_FILTER_MAX` ("You can keep 8 quick filters — delete one
@@ -159,7 +159,7 @@ Order: D1 → D2 → D3 → D4. Nothing in the shell changes; all work lives in 
   `src/renderer/src/modules/servers/QuickFilterChipMenu.tsx` (mirror
   `src/renderer/src/modules/config/components/ControlsCategoryMenu.tsx`: `Menu`/`MenuItem` +
   `size="sm"` `IconButton` with `MoreVertical`, `data-testid="servers-quickfilter-menu"`, items
-  *Rename* → `QuickFilterNameDialog` in rename mode, *Delete* → `remove(id)` only — never calls
+  _Rename_ → `QuickFilterNameDialog` in rename mode, _Delete_ → `remove(id)` only — never calls
   `onChange`, so the current filter is untouched); `ServerListFilterBar.tsx` (place the kebab beside
   each custom chip); `ServersView.tsx` (wire rename/remove); en locale keys; add a `/design-tokens`
   deviation row to `CLAUDE.md` for the 28px kebab (reason: desktop mouse-and-keyboard app, this

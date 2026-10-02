@@ -41,11 +41,17 @@ export function validateQuarantine(entries, knownFlows) {
         problems.push(`${label}: missing field "${field}"`)
       }
     }
-    if (typeof entry.since === 'string' && entry.since !== '' && sprintNumber(entry.since) === null) {
+    if (
+      typeof entry.since === 'string' &&
+      entry.since !== '' &&
+      sprintNumber(entry.since) === null
+    ) {
       problems.push(`${label}: "since" must look like S32, got "${entry.since}"`)
     }
     if ('platform' in entry && !PLATFORMS.includes(entry.platform)) {
-      problems.push(`${label}: "platform" must be one of ${PLATFORMS.join(', ')}, got "${entry.platform}"`)
+      problems.push(
+        `${label}: "platform" must be one of ${PLATFORMS.join(', ')}, got "${entry.platform}"`,
+      )
     }
     if (typeof entry.flow === 'string' && entry.flow !== '' && !knownFlows.includes(entry.flow)) {
       problems.push(`${label}: no flow named "${entry.flow}" in scripts/flows/`)
@@ -126,7 +132,8 @@ export async function runGate({
 }
 
 export function summaryLines(result, total, seconds) {
-  const passed = total - result.failed.length - result.expectedFails.length - result.unexpectedPasses.length
+  const passed =
+    total - result.failed.length - result.expectedFails.length - result.unexpectedPasses.length
   const lines = [`${passed}/${total} flows passed in ${seconds}s`]
   if (result.failed.length > 0) lines.push(`failed: ${result.failed.join(', ')}`)
   lines.push(...result.notes)

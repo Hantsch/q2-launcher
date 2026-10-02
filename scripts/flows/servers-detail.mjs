@@ -226,7 +226,9 @@ export default async function serversDetail({ page, step, shot }) {
   }
   const occupancyA = await fieldText(page, 'occupancy')
   if (occupancyA !== '3/16') {
-    throw new Error(`expected server A's occupancy to read "3/16", got ${JSON.stringify(occupancyA)}`)
+    throw new Error(
+      `expected server A's occupancy to read "3/16", got ${JSON.stringify(occupancyA)}`,
+    )
   }
   const passwordA = await fieldText(page, 'password')
   if (!passwordA || !passwordA.includes('Password')) {
@@ -268,9 +270,9 @@ export default async function serversDetail({ page, step, shot }) {
   await page.getByTestId('servers-detail-players-sort-ping').click({ timeout: TIMEOUT_MS })
   await page.waitForFunction(
     () =>
-      document.querySelector('[data-testid="servers-detail-player-row"]')?.textContent?.includes(
-        'Alpha2',
-      ) ?? false,
+      document
+        .querySelector('[data-testid="servers-detail-player-row"]')
+        ?.textContent?.includes('Alpha2') ?? false,
     { timeout: TIMEOUT_MS },
   )
   await shot('detail-server-a-players-sorted-by-ping')
@@ -322,13 +324,16 @@ export default async function serversDetail({ page, step, shot }) {
 
   step('closing the pane')
   await page.getByTestId('servers-detail-close').click({ timeout: TIMEOUT_MS })
-  await page.waitForSelector('[data-testid="servers-detail"]', { state: 'detached', timeout: TIMEOUT_MS })
+  await page.waitForSelector('[data-testid="servers-detail"]', {
+    state: 'detached',
+    timeout: TIMEOUT_MS,
+  })
   await shot('detail-closed')
 
   console.log(
     'servers-detail: selecting a row opens the detail pane and shows its header fields - engine ' +
       '"R1Q2"/protocol 35/gamemode "Deathmatch"/occupancy "3/16"/password marker/a real ping for a ' +
-      "well-formed server, and a dash for engine/protocol/mod (while name/map/address still render) " +
+      'well-formed server, and a dash for engine/protocol/mod (while name/map/address still render) ' +
       'for a malformed one - and the close button dismisses the pane.',
   )
 }

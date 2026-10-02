@@ -6,12 +6,19 @@ import { listQuickFilters, removeQuickFilter, renameQuickFilter, saveQuickFilter
 
 export interface UseQuickFiltersResult {
   list: QuickFilter[]
-  save: (input: { name: string; criteria: QuickFilterCriteria; overwrite: boolean }) => Promise<QuickFiltersResult>
+  save: (input: {
+    name: string
+    criteria: QuickFilterCriteria
+    overwrite: boolean
+  }) => Promise<QuickFiltersResult>
   rename: (input: { id: string; name: string }) => Promise<QuickFiltersResult>
   remove: (id: string) => Promise<QuickFiltersResult>
 }
 
-const TRANSPORT_FAILED: QuickFiltersResult = { ok: false, reasonKey: 'servers.quickFilter.error.failed' }
+const TRANSPORT_FAILED: QuickFiltersResult = {
+  ok: false,
+  reasonKey: 'servers.quickFilter.error.failed',
+}
 
 /**
  * Story 197 D3: the saved quick filters. A one-shot read on mount (a failed read leaves `[]` and

@@ -116,7 +116,10 @@ describe('adoptRawBinds - base binds', () => {
       keys: [{ key: 'w' }],
     }
 
-    const result = adoptRawBinds({ binds: { UPARROW: '+forward' }, actions: [existing] }, idFactory())
+    const result = adoptRawBinds(
+      { binds: { UPARROW: '+forward' }, actions: [existing] },
+      idFactory(),
+    )
 
     expect(result.actions).toHaveLength(1)
     expect(result.actions[0]!.keys).toEqual([{ key: 'w' }, { key: 'UPARROW' }])
@@ -175,7 +178,10 @@ describe('adoptRawBinds - base binds', () => {
       categoryId: 'drops',
       name: 'Drop rockets',
       kind: 'bind',
-      commands: [{ kind: 'raw', text: 'drop rockets' }, { kind: 'raw', text: 'say dropped' }],
+      commands: [
+        { kind: 'raw', text: 'drop rockets' },
+        { kind: 'raw', text: 'say dropped' },
+      ],
       keys: [{ key: '1' }],
     }
     const binds = { g: 'drop rockets' }
@@ -255,7 +261,9 @@ describe('adoptRawBinds - layer overrides', () => {
   it('leaves a layer whose trigger is not a modifier completely alone', () => {
     // A slot's `modifier` only knows ALT/CTRL/SHIFT, so an override in a layer triggered by `-`
     // has no representation in `actions` at all.
-    const layers = [layer({ id: 'l2', name: 'test', triggerKey: '-', overrides: { w: '+forward' } })]
+    const layers = [
+      layer({ id: 'l2', name: 'test', triggerKey: '-', overrides: { w: '+forward' } }),
+    ]
     const result = adoptRawBinds({ binds: {}, layers }, idFactory())
 
     expect(result.adopted).toBe(0)
@@ -265,7 +273,10 @@ describe('adoptRawBinds - layer overrides', () => {
 
   it('keeps a base slot and a modifier slot on the same row apart', () => {
     const result = adoptRawBinds(
-      { binds: { g: 'drop railgun; drop slugs' }, layers: [layer({ overrides: { g: 'drop shotgun; drop shells' } })] },
+      {
+        binds: { g: 'drop railgun; drop slugs' },
+        layers: [layer({ overrides: { g: 'drop shotgun; drop shells' } })],
+      },
       idFactory(),
     )
 

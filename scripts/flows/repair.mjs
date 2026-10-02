@@ -170,7 +170,10 @@ async function selectInstallation(page, name) {
   const card = libraryCard(page, name)
   await card.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await card.getByRole('button', { name, exact: true }).click({ timeout: TIMEOUT_MS })
-  await page.locator('footer').filter({ hasText: name }).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .locator('footer')
+    .filter({ hasText: name })
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   return card
 }
 
@@ -228,19 +231,27 @@ export default async function repair({ page, shot, step }) {
   step('AC1: select the engine-executable-less installation')
   const engineCard = await selectInstallation(page, INSTALL_REPAIR_ENGINE_NAME)
 
-  step('AC1: the action bar offers Repair (pak0Missing => invalid), and the dialog offers reinstall-engine')
+  step(
+    'AC1: the action bar offers Repair (pak0Missing => invalid), and the dialog offers reinstall-engine',
+  )
   let dialog = await openRepairFromActionBar(page)
-  await dialog.getByTestId('repair-offer-reinstall-engine').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await dialog
+    .getByTestId('repair-offer-reinstall-engine')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('engine-offer-actionbar')
   await closeDialog(page)
 
   step('AC1: the checks list (Get game files, from pak0Missing) reaches the very same dialog')
   dialog = await openRepairFromChecksList(page, engineCard)
-  await dialog.getByTestId('repair-offer-reinstall-engine').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await dialog
+    .getByTestId('repair-offer-reinstall-engine')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   step('AC1: run the engine repair against the real fixture server')
   await dialog.getByTestId('repair-offer-reinstall-engine').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('bootstrap-running-step').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('bootstrap-running-step')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page
     .locator('[data-testid="bootstrap-running-step"][data-status="succeeded"]')
     .waitFor({ state: 'visible', timeout: JOB_TIMEOUT_MS })
@@ -256,11 +267,13 @@ export default async function repair({ page, shot, step }) {
     }
   }
   if (existsSync(installationConfigFilePath(INSTALL_REPAIR_ENGINE_ID, 'pak0.pak'))) {
-    throw new Error('pak0.pak appeared after the engine repair - it must touch engine files only (AC1/AC7)')
+    throw new Error(
+      'pak0.pak appeared after the engine repair - it must touch engine files only (AC1/AC7)',
+    )
   }
 
   step(
-    "AC9 (the half this fixture can prove): pak0Missing is still unresolved, so the action bar " +
+    'AC9 (the half this fixture can prove): pak0Missing is still unresolved, so the action bar ' +
       'honestly keeps showing Repair rather than being hand-set to healthy',
   )
   await repairAction(page).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -296,7 +309,9 @@ export default async function repair({ page, shot, step }) {
   await waitingStep.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const waitingText = await waitingStep.innerText()
   if (!/waiting for the game to close/i.test(waitingText)) {
-    throw new Error(`expected the waiting job to name the running game (AC8), got: ${JSON.stringify(waitingText)}`)
+    throw new Error(
+      `expected the waiting job to name the running game (AC8), got: ${JSON.stringify(waitingText)}`,
+    )
   }
   if (readdirSync(baseq2Dir).sort().join(',') !== filesBefore.join(',')) {
     throw new Error('the waiting job wrote to baseq2 before the game exited (AC8)')
@@ -315,16 +330,26 @@ export default async function repair({ page, shot, step }) {
   step('AC2: on disk, only baseq2/pak2.pak appeared - pak0.pak/pak1.pak are untouched')
   const filesAfter = readdirSync(baseq2Dir).sort()
   if (filesAfter.join(',') !== ['pak0.pak', 'pak1.pak', 'pak2.pak'].join(',')) {
-    throw new Error(`expected exactly pak0/pak1/pak2.pak in baseq2 (AC2), found ${filesAfter.join(', ')}`)
+    throw new Error(
+      `expected exactly pak0/pak1/pak2.pak in baseq2 (AC2), found ${filesAfter.join(', ')}`,
+    )
   }
-  const pak0Size = statSync(installationConfigFilePath(INSTALL_REPAIR_POINT_RELEASE_ID, 'pak0.pak')).size
-  const pak1Size = statSync(installationConfigFilePath(INSTALL_REPAIR_POINT_RELEASE_ID, 'pak1.pak')).size
-  const pak2Size = statSync(installationConfigFilePath(INSTALL_REPAIR_POINT_RELEASE_ID, 'pak2.pak')).size
+  const pak0Size = statSync(
+    installationConfigFilePath(INSTALL_REPAIR_POINT_RELEASE_ID, 'pak0.pak'),
+  ).size
+  const pak1Size = statSync(
+    installationConfigFilePath(INSTALL_REPAIR_POINT_RELEASE_ID, 'pak1.pak'),
+  ).size
+  const pak2Size = statSync(
+    installationConfigFilePath(INSTALL_REPAIR_POINT_RELEASE_ID, 'pak2.pak'),
+  ).size
   if (pak0Size !== RETAIL_PAK_SIZES['pak0.pak'] || pak1Size !== RETAIL_PAK_SIZES['pak1.pak']) {
     throw new Error('pak0.pak/pak1.pak changed size during the pak2 repair (AC2)')
   }
   if (pak2Size !== RETAIL_PAK_SIZES['pak2.pak']) {
-    throw new Error(`expected pak2.pak to be ${RETAIL_PAK_SIZES['pak2.pak']} bytes (AC2), got ${pak2Size}`)
+    throw new Error(
+      `expected pak2.pak to be ${RETAIL_PAK_SIZES['pak2.pak']} bytes (AC2), got ${pak2Size}`,
+    )
   }
 
   // ================================================================================================
@@ -337,7 +362,9 @@ export default async function repair({ page, shot, step }) {
     throw new Error('expected Play (not Repair) for an info-only finding (isPlayable("ok"))')
   }
   dialog = await openRepairFromChecksList(page, demoCard)
-  await dialog.getByTestId('repair-offer-retail-copy').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await dialog
+    .getByTestId('repair-offer-retail-copy')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('demo-retail-copy-offer')
 
   step("AC3: clicking retail-copy opens 090's retail-upgrade picker")
@@ -353,17 +380,23 @@ export default async function repair({ page, shot, step }) {
   step('AC4: select the retail-pak-less installation and open Repair from the action bar')
   const retailCard = await selectInstallation(page, INSTALL_REPAIR_RETAIL_NAME)
   dialog = await openRepairFromActionBar(page)
-  await dialog.getByTestId('repair-offer-retail-copy').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await dialog
+    .getByTestId('repair-offer-retail-copy')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('retail-pak-less-offer')
 
   step('AC4: the checks list reaches the very same dialog too')
   await closeDialog(page)
   dialog = await openRepairFromChecksList(page, retailCard)
-  await dialog.getByTestId('repair-offer-retail-copy').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await dialog
+    .getByTestId('repair-offer-retail-copy')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
   step('AC4: with no store installation detected, the picker says so instead of an empty list')
   await dialog.getByTestId('repair-offer-retail-copy').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('retail-upgrade-no-sources').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('retail-upgrade-no-sources')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if (await page.getByTestId('retail-upgrade-source-list').count()) {
     throw new Error('the source picker rendered with zero detected sources (AC4)')
   }
@@ -383,7 +416,9 @@ export default async function repair({ page, shot, step }) {
   step('AC5: select the non-writable-location installation and open Repair from the action bar')
   await selectInstallation(page, INSTALL_REPAIR_WRITEDIR_NAME)
   dialog = await openRepairFromActionBar(page)
-  await dialog.getByTestId('repair-offer-set-write-dir').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await dialog
+    .getByTestId('repair-offer-set-write-dir')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await shot('set-write-dir-offer')
   await closeDialog(page)
 
@@ -407,7 +442,7 @@ export default async function repair({ page, shot, step }) {
       'real engine and pak2 repairs each wrote exactly their own narrow file set (and the pak2 ' +
       'repair genuinely waited for a simulated running game before writing); retail-copy switched ' +
       "to 090's picker for both the demo and the retail-pak-less installation, showing the " +
-      "no-detected-sources state for the latter; the non-writable installation offered set-write-dir; " +
+      'no-detected-sources state for the latter; the non-writable installation offered set-write-dir; ' +
       'and the unrepairable installation offered nothing at all.',
   )
 }

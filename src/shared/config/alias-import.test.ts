@@ -356,9 +356,7 @@ describe('buildImportedActions - aliases that rebind keys', () => {
   it('reports an alias with a top-level bind as ambiguous and imports it as a plain alias', () => {
     const { actions, layers, ambiguous } = build([cali])
 
-    expect(ambiguous).toEqual([
-      { name: 'cali', body: cali.body, file: 'dmalias.cfg', line: 147 },
-    ])
+    expect(ambiguous).toEqual([{ name: 'cali', body: cali.body, file: 'dmalias.cfg', line: 147 }])
     expect(layers).toEqual([])
     expect(actions).toHaveLength(1)
     expect(actions[0]!.kind).toBe('alias')

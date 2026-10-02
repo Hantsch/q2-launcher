@@ -30,7 +30,7 @@ redemption), an **issued-at** and a **redeem-by** timestamp (the activation wind
 **feature expiry**, and an optional **label** for the user's own benefit.
 
 **Redemption window and feature expiry are two different clocks, and conflating them would be a
-bug.** The window only gates *activation* — once a code has been redeemed inside it, the window
+bug.** The window only gates _activation_ — once a code has been redeemed inside it, the window
 stops mattering entirely and the unlock lives as long as the feature expiry says (or forever, if
 none was set). Without that distinction, a tester's unlock would silently die the moment the
 original short window closed, which is not what §13.2 describes.
@@ -106,7 +106,7 @@ Refine decisions (2026-09-25):
   `redemptionWindowElapsed` (redeem only) → `featureExpired`. That is cheapest-first and matches
   §13.6 plus AC9's "before any signature check"; 129 maps these five to its five messages.
 - **Unknown feature names are accepted and simply granted** — the verifier checks syntax only, so a
-  code issued for a newer build still redeems. What a name *does* is 130's business.
+  code issued for a newer build still redeems. What a name _does_ is 130's business.
 - **`issuedAt` is informational** — not-yet-valid is not checked; clock tampering is out of scope
   (§13.4).
 - **Code name `launcherInstallId`**, UI label "installation id" — `installationId` already means a
@@ -120,10 +120,10 @@ Refine decisions (2026-09-25):
 - **Stored codes that fail re-verification stay stored and inactive**, each with its last verdict.
   129 needs that verdict to say "expired" (its AC5), and redeeming the same code twice de-duplicates.
 - **Redemption state is a new top-level `unlock` key in `state.json`** (`{ codes: [{ code,
-  redeemedAt }] }`), with a forgiving schema. It follows the `servers`/`homeLayout` precedent: no
+redeemedAt }] }`), with a forgiving schema. It follows the `servers`/`homeLayout` precedent: no
   schema-version bump.
 - **Verification lives in main only**, in `src/main/services/unlock/`, a shell service (like
-  `update`) and not a module: 130 has to query it *before* modules and IPC register. `src/shared/`
+  `update`) and not a module: 130 has to query it _before_ modules and IPC register. `src/shared/`
   gets only node-free types and formatting.
 - **No IPC in this story.** The renderer surface (installation id, redeem, verdicts) is 129's; 128
   exposes the service that 129's handlers call.
@@ -141,8 +141,8 @@ What 128 produces, for 129 and 130 to reference:
 
 - `src/shared/unlock.ts` (node-free): `UNLOCK_CODE_PREFIX = 'q2l1'`,
   `type UnlockRejection = 'malformed'|'badSignature'|'wrongInstallation'|'redemptionWindowElapsed'|'featureExpired'`
-  + `UNLOCK_REJECTIONS`, `FEATURE_NAME_PATTERN`, `formatLauncherInstallId(id) → 'XXXX-XXXX-XXXX'`,
-  `normalizeLauncherInstallId(input) → string|null`, `UnlockSnapshot` type (below).
+  - `UNLOCK_REJECTIONS`, `FEATURE_NAME_PATTERN`, `formatLauncherInstallId(id) → 'XXXX-XXXX-XXXX'`,
+    `normalizeLauncherInstallId(input) → string|null`, `UnlockSnapshot` type (below).
 - `verifyUnlockCode(code, { publicKey, launcherInstallId, now, mode: 'redeem'|'reverify' })` →
   `{ ok: true, payload } | { ok: false, reason: UnlockRejection }` (pure, main,
   `src/main/services/unlock/verify.ts`).
@@ -150,7 +150,7 @@ What 128 produces, for 129 and 130 to reference:
   `init()` (awaited in `createAppContext` **before** `registerModules`), `isUnlocked(feature): boolean`
   — **the** "this code proves X is unlocked" check 130 gates on — `unlockedFeatures(): ReadonlySet<string>`,
   `redeem(code): UnlockVerdict`, `snapshot(): UnlockSnapshot` = `{ launcherInstallId: string|null,
-  codes: [{ features, label, expiresAt, redeemedAt, status: 'active'|UnlockRejection }] }`.
+codes: [{ features, label, expiresAt, redeemedAt, status: 'active'|UnlockRejection }] }`.
   Redeem updates the in-memory set at once. Whether a newly unlocked gate takes effect live or on
   restart is 130's decision.
 
@@ -173,8 +173,8 @@ Order: D1 (format + verify) → D2 (install id) → D3 (issuing script + product
   `{ payload, signedBytes: Buffer.from('q2l1.' + payloadB64, 'ascii'), signature }`. Add
   `encodeUnlockPayload(payload)` → the `q2l1.<payloadB64>` string to sign. Create
   `src/main/services/unlock/verify.ts`: `verifyUnlockCode(code, { publicKey: KeyObject | string
-  (PEM), launcherInstallId: string | null, now: Date, mode })`. It uses `crypto.verify(null,
-  signedBytes, publicKey, signature)` in `try/catch` → `badSignature`. The installation id must be
+(PEM), launcherInstallId: string | null, now: Date, mode })`. It uses `crypto.verify(null,
+signedBytes, publicKey, signature)` in `try/catch` → `badSignature`. The installation id must be
   equal and non-null, else `wrongInstallation`. **Only in `mode: 'redeem'`** does `now > redeemBy`
   → `redemptionWindowElapsed`. `expiresAt` present and `now >= expiresAt` → `featureExpired`. Order
   exactly as listed. Tests (throwaway `generateKeyPairSync('ed25519')` per suite) in
@@ -182,7 +182,7 @@ Order: D1 (format + verify) → D2 (install id) → D3 (issuing script + product
   Tests. Mirror: pure-service + colocated test style of `src/main/services/launch-plan.ts`.
 - **D2 — Launcher installation id.** Create `src/main/services/unlock/launcher-install-id.ts`:
   `deriveLauncherInstallId(raw: string): string` (pure: `sha256('q2-launcher/unlock/v1' +
-  raw.trim().toLowerCase())`, first 60 bits → 12 base32 chars A–Z2–7), and
+raw.trim().toLowerCase())`, first 60 bits → 12 base32 chars A–Z2–7), and
   `resolveLauncherInstallId(deps = { platform, readRegistry: regReadValue, readFile })` → `Promise<string|null>`.
   On win32 it uses `regReadValue('HKLM\\SOFTWARE\\Microsoft\\Cryptography', 'MachineGuid')`; on
   linux, `/etc/machine-id`, then falls back to `/var/lib/dbus/machine-id`. Any other platform, an
@@ -201,7 +201,7 @@ Order: D1 (format + verify) → D2 (install id) → D3 (issuing script + product
   `Q2L_UNLOCK_SIGNING_KEY_FILE`, else `~/.q2-launcher/unlock-signing-key.pem`. It **throws if the
   resolved path is inside the repo root**. There are two CLI forms. The first is
   `node scripts/issue-unlock-code.mjs --features watchlist[,x] --install-id XXXX-XXXX-XXXX
-  [--expires <ISO date> | --expires-in-days N] [--label "…"] [--key <path>]`, which prints the code
+[--expires <ISO date> | --expires-in-days N] [--label "…"] [--key <path>]`, which prints the code
   plus a one-line summary. The second, `… keygen [--out <path>]`, writes a new pkcs8 PEM private
   key; it refuses paths inside the repo and refuses to overwrite, then prints the SPKI public PEM.
   Run `keygen` once, to the default home path. Put the printed public PEM into
@@ -217,7 +217,7 @@ Order: D1 (format + verify) → D2 (install id) → D3 (issuing script + product
   `parseServersState`. In `src/main/services/state.ts`, add an `unlock` top-level key,
   `unlockState()` / `setUnlockState()` (mirror `serversState`/`setServersState`), with no
   schema-version bump. Create `src/main/services/unlock/service.ts`: `UnlockService({ state,
-  publicKey, resolveLauncherInstallId, now = () => new Date(), log })`. `init()` resolves the id
+publicKey, resolveLauncherInstallId, now = () => new Date(), log })`. `init()` resolves the id
   once, then re-verifies every stored code with `mode: 'reverify'` (the window is never checked);
   the active features form the in-memory set, and a failing code stays stored with that status.
   `redeem(code)` verifies with `mode: 'redeem'`; on success it persists `{ code, redeemedAt: now }`,
@@ -302,6 +302,7 @@ launcher-install-id.test.ts "…12 base32 characters". All passed.
 in the issuing-script test; a near-tautological AC6 service test whose fake resolver never
 threaded a raw secret through code the service could touch) and re-verified green.
 Hard-tier (`story-review-hard`) FAIL → four real findings, all fixed and re-verified green:
+
 - **The repo-path guard in `issue-unlock-code.mjs` was case-insensitive-unsafe on Windows** —
   `assertOutsideRepo` compared resolved paths with a plain `startsWith` with no case
   normalization, so `c:\development\...\key.pem` (different case) bypassed the "refuse paths
@@ -317,6 +318,6 @@ Hard-tier (`story-review-hard`) FAIL → four real findings, all fixed and re-ve
   order. Fixed: `redeem` now explicitly keeps the newest 32 by `redeemedAt`.
 - **Dedupe in `redeem` used the untrimmed code string**, so the same code with/without trailing
   whitespace stored twice. Fixed: trim before using as the dedupe key.
-No findings left unfixed.
+  No findings left unfixed.
 
 tiers: D 4 / hard 1 · review default+hard · cycles 2 · agents 10

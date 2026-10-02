@@ -17,11 +17,7 @@ export type { ServerGamemode } from '../servers/row-markers'
  * and colocated with `row-markers.ts`, so the types/constant travel through this module the same
  * way `ServerGamemode` right above does.
  */
-export type {
-  ServerListSort,
-  ServerSortColumn,
-  ServerSortDirection,
-} from '../servers/list-sort'
+export type { ServerListSort, ServerSortColumn, ServerSortDirection } from '../servers/list-sort'
 export { SERVER_SORT_COLUMNS } from '../servers/list-sort'
 
 /**
@@ -265,8 +261,7 @@ export const SERVER_HISTORY_CAP = 200
  * no separate IPC-only shape.
  */
 export type ManualServerAddResult =
-  | { ok: true; entry: ManualServerEntry }
-  | { ok: false; reasonKey: string }
+  { ok: true; entry: ManualServerEntry } | { ok: false; reasonKey: string }
 
 /**
  * Story 115 D1: bounded-choice constants for every numeric scan-settings knob (GB-N4), mirroring
@@ -483,7 +478,13 @@ export interface ServersState {
   quickFilters: QuickFilter[]
 }
 
-const serverGamemodeSchema = z.enum(['ctf', 'team', 'deathmatch', 'coop', 'single'] as const satisfies readonly ServerGamemode[])
+const serverGamemodeSchema = z.enum([
+  'ctf',
+  'team',
+  'deathmatch',
+  'coop',
+  'single',
+] as const satisfies readonly ServerGamemode[])
 
 export const quickFilterCriteriaSchema = z
   .object({
@@ -601,14 +602,10 @@ export const sourcesReorderInputSchema = z.object({
  * handler's own payload schema/JSDoc, not this type.
  */
 export type MasterSourcesRejectionReason =
-  | MasterSourceAddressRejection
-  | 'not-found'
-  | 'duplicate-address'
-  | 'invalid-reorder'
+  MasterSourceAddressRejection | 'not-found' | 'duplicate-address' | 'invalid-reorder'
 
 export type MasterSourcesResult =
-  | { ok: true; sources: MasterSource[] }
-  | { ok: false; reason: MasterSourcesRejectionReason }
+  { ok: true; sources: MasterSource[] } | { ok: false; reason: MasterSourcesRejectionReason }
 
 /**
  * Story 112 D1: payload schemas for the three `favourites.*` handlers. `favouritesList` takes no
@@ -843,9 +840,7 @@ export const SERVERS_LAN_ERROR_SOCKET_REFUSED_KEY = 'servers.lan.error.socketRef
  * renderer surfaces that pick it (D5-D6) are later deliverables of this story.
  */
 export type ScanScope =
-  | { kind: 'all' }
-  | { kind: 'favourites' }
-  | { kind: 'server'; address: string }
+  { kind: 'all' } | { kind: 'favourites' } | { kind: 'server'; address: string }
 
 export const scanScopeSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('all') }),
@@ -966,7 +961,8 @@ export interface ServerDetail {
 }
 
 /** Story 197 D2: result of a quick-filter mutation - the persisted list or a refusal reason key. */
-export type QuickFiltersResult = { ok: true; list: QuickFilter[] } | { ok: false; reasonKey: string }
+export type QuickFiltersResult =
+  { ok: true; list: QuickFilter[] } | { ok: false; reasonKey: string }
 
 export const quickFiltersListInputSchema = serversNoInputSchema
 export const quickFiltersSaveInputSchema = z

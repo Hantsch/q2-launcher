@@ -135,11 +135,11 @@ Order D1 → D2 → D3 → D4. Nothing platform-specific (no parity gap).
 
 - **D1 — Watchlist client + `useWatchlist` hook.** Files: `src/renderer/src/modules/servers/client.ts`
   (add `readWatchlist()`, `addWatchlistEntry({ name, mode })`, `updateWatchlistEntry({ id, name,
-  mode })`, `removeWatchlistEntry(id)`, `recheckWatchlistEntry(id)`, `onWatchlistChanged(listener)`
+mode })`, `removeWatchlistEntry(id)`, `recheckWatchlistEntry(id)`, `onWatchlistChanged(listener)`
   over `callModule`/`onModuleEvent` with `SERVERS_WATCHLIST_HANDLERS` / `SERVERS_EVENTS.watchlistChanged`
   from `src/shared/modules/servers.ts` — mirror `startScan`/`onScanChanged` in the same file). New
   `src/renderer/src/modules/servers/watchlist/useWatchlist.ts`: returns `{ snapshot:
-  WatchlistSnapshot | null, add, update, remove, recheck }`. It reads on mount and replaces the
+WatchlistSnapshot | null, add, update, remove, recheck }`. It reads on mount and replaces the
   snapshot on every `watchlist.changed` and on every ok add/update/remove result. It unsubscribes on
   unmount. `add`/`update` return 131's `{ ok, reasonKey }` unchanged, so the caller can render the
   reason. Test `src/renderer/src/modules/servers/watchlist/useWatchlist.test.tsx` (mock `callModule`/
@@ -210,7 +210,7 @@ Order D1 → D2 → D3 → D4. Nothing platform-specific (no parity gap).
     - "open-detail switches to the list and opens that server's detail"
 - **D4 — e2e flow `servers-watchlist`.** New `scripts/flows/servers-watchlist.mjs`.
   - Mirror `scripts/flows/unlock-code.mjs` (129 D4: `setup()` returning `{ env:
-    { Q2L_UI_UNLOCK_PUBLIC_KEY } }`, code signing, restart over a copy of `state.json`),
+{ Q2L_UI_UNLOCK_PUBLIC_KEY } }`, code signing, restart over a copy of `state.json`),
     `scripts/flows/servers-scoped-refresh.mjs` (loopback UDP `bindResponder`, `writePopulatedFixture`)
     and `scripts/flows/servers-join.mjs` / `servers-spectate.mjs` (the launch stub fixture and the
     `main.log` assertions).
@@ -291,6 +291,7 @@ body's own `FeatureGate` wrapper doubled the tab button's).
 **Commit message:** `132: the watchlist tells me where someone is`
 
 **Decisions:**
+
 - The watchlist panel body's gate (`ServersView.tsx`) was changed from wrapping in
   `<FeatureGate feature="watchlist">` to a plain `useFeatureUnlocked('watchlist')` boolean check,
   found and fixed during review: two independent `<FeatureGate>` wrappers (tab button + panel body)

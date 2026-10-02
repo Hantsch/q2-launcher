@@ -105,6 +105,7 @@ parallel.
 ## Deliverables
 
 **D1 — Pure trigger-resolution helper + tests**
+
 - Files: `src/renderer/src/modules/config/lib/trigger-keys.ts` (new),
   `src/renderer/src/modules/config/lib/trigger-keys.test.ts` (new).
 - Mirror: `src/renderer/src/modules/config/lib/validation-scope.ts` / `.test.ts` for module shape
@@ -117,6 +118,7 @@ parallel.
 - Covers: AC2, AC3 (the label-state rule), AC4 (the target rule).
 
 **D2 — Trigger keycap appearance, label and legend entry**
+
 - Files: `src/renderer/src/modules/config/OverviewKeyboardPanel.tsx`,
   `src/renderer/src/i18n/locales/en.json`.
 - Uses D1's helper. Only `keyVisual()`, `keyLabel()` and the legend row change; the mode toggles,
@@ -130,6 +132,7 @@ parallel.
 - Covers: AC1, AC2, AC3, AC5, AC6.
 
 **D3 — Click a trigger key on the board to switch the shown layer**
+
 - Files: `src/renderer/src/modules/config/OverviewKeyboardPanel.tsx`,
   `src/renderer/src/modules/config/ConfigView.tsx`.
 - Acceptance: with neither test nor edit mode active, clicking a trigger key switches the board
@@ -191,8 +194,9 @@ wiring from story 013 already covers this. No IPC, main, schema or persistence s
 **Decisions** (implementation-detail calls made without a user to ask, verified against plan +
 acceptance criteria — beyond the 12 already recorded under "Decisions (Sprint)" above, which the
 implementation followed as written):
+
 - The base-bind reference slot (`baseReferenceLabel`) now fires whenever `baseBound &&
-  (trigger || hasOverride)`, not only `hasOverride && baseBound` as before — a trigger key's own
+(trigger || hasOverride)`, not only `hasOverride && baseBound` as before — a trigger key's own
   base bind must stay visible under the trigger label (AC5, decision 4) independent of whether
   the active layer happens to also override that same key.
 - The trigger arrow's second-line text uses a new, slightly lighter tint (`text-strogg-300/90`)
@@ -205,11 +209,13 @@ implementation followed as written):
   flagged this as a negligible, non-blocking duplication (see Verification below).
 
 **Commit message:**
+
 ```
 014: show trigger keys on the keyboard overview, click to switch layers
 ```
 
 **Verification:**
+
 - `npx tsc -p tsconfig.web.json --noEmit` — clean.
 - `npx tsc -p tsconfig.node.json --noEmit` — clean.
 - `npm run build` — green (main/preload/renderer all built).
@@ -229,11 +235,11 @@ implementation followed as written):
     intentional per decision 9, not accidental drift.
   - An already-invalid edge case (a layer's trigger key also appears in that same layer's own
     `overrides`, i.e. the existing `layer.selfbind` error state) doesn't surface the override
-    command on the keycap — outside AC5's literal scope (AC5 is about a *base* bind conflict).
+    command on the keycap — outside AC5's literal scope (AC5 is about a _base_ bind conflict).
   - Trivial opacity mismatch between the legend swatch (`bg-strogg-900/40`, from the existing
     shared `Badge` component) and the keycap (`bg-strogg-900/35`, per decision 1's exact token
     choice) — cosmetic only, both are the same `strogg` semantic family.
-  No re-review cycle was needed.
+    No re-review cycle was needed.
 - **Live UI smoke (P2): not performed.** This environment has no way to interactively drive the
   Electron window — no Playwright installed in this project, no `ui-verify` harness scaffolded
   yet, and the available Playwright MCP tools only drive a browser page, not an Electron app. Per

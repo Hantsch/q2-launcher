@@ -15,9 +15,9 @@ an image should be, which formats survive, or which part of it the launcher will
 Two things follow from that.
 
 **First, the launcher is missing a layout.** The three templates (`split`, `banner`, `text`) all
-render their image as a *framed box beside or above the text* — a 45% column, or a 45% strip, each
+render their image as a _framed box beside or above the text_ — a 45% column, or a 45% strip, each
 `object-fit: cover` and centred (`src/renderer/src/styles/home-hero.css`). None of them puts the
-image *behind* the text. An announcement slide built around one wide artwork — text over the quiet
+image _behind_ the text. An announcement slide built around one wide artwork — text over the quiet
 left half, the subject pinned to the right edge so it survives every window width — cannot be
 expressed with any of them. That is a launcher change, never a content change (concept
 `docs/concepts/home-screen.md` §6.3: "A new template is a change **in the launcher**").
@@ -101,13 +101,13 @@ All five resolved — see the Decisions below. Nothing blocks `status: ready`.
 
 - **R1 — `schemaVersion` stays `1`.** Adding a template value is backwards-compatible (AC4), and
   bumping to `2` would make every older launcher show `schemaAhead` on a feed it renders correctly.
-  The contract docs gain an explicit sentence: *template additions do not bump the schema version*.
+  The contract docs gain an explicit sentence: _template additions do not bump the schema version_.
 - **R2 — Kit example images are generated placeholders**, not screenshots — extending the existing
   `scripts/generate-news-images.mjs` (sharp), matching the ~17 KB weight of today's
   `news/img/split-bootstrap.png`. They are binary weight in a repo every launcher fetches from, so
   they stay small and synthetic.
 - **R3 — AC2 is not provable by axe.** `color-contrast` cannot compute a ratio against a background
-  *image* — it reports `incomplete`, never a violation. The proof is a pixel probe in a `ui:flow`:
+  _image_ — it reports `incomplete`, never a violation. The proof is a pixel probe in a `ui:flow`:
   render `cover` over a deliberately white test image, hide the text nodes, screenshot the text
   band, take the **lightest** pixel behind each text element and assert ≥ 4.5:1 against the rendered
   text colour. That machinery does not exist and is its own deliverable.
@@ -135,7 +135,7 @@ object-position: 100% 50%`), a gradient scrim above it, and the content above th
 
 **Geometry the docs depend on.** The hero is 320 px tall at full content width. A 4:1 source crosses
 over at a slide width of **~1280 px**: narrower → `cover` scales by height and crops horizontally
-*from the left* (that is AC1); wider → it scales by width and crops vertically, centred. D3 measures
+_from the left_ (that is AC1); wider → it scales by width and crops vertically, centred. D3 measures
 the real numbers on the real surface and D4/D6 write those measured numbers into the kit — so D3
 runs before the docs.
 
@@ -160,7 +160,7 @@ Add `'cover'` to `NewsTemplate`, a `newsCoverContentSchema` (base shape + option
 - Mirror: `newsSplitContentSchema` (`home.ts:268-273`), `templateIsSatisfied` (`feed-pipeline.ts:147-149`)
 - Tests in `src/main/modules/home/news/feed-pipeline.test.ts` — extend the existing template-fallback
   table (`:181-218`) with `cover-ok → cover` and `cover-no-image → text`, plus the AC4 case: a
-  template value that is *not* in `NEWS_TEMPLATES` still resolves to `text`, keeps the entry, emits
+  template value that is _not_ in `NEWS_TEMPLATES` still resolves to `text`, keeps the entry, emits
   exactly one warning and leaves the neighbouring entries untouched.
 - Accepted when: `npm test` and `npm run typecheck` green, and every `Record<NewsTemplate, …>` in the
   repo still type-checks exhaustively.
@@ -284,7 +284,7 @@ template's own recommended source size, ≤ 25 KB each.
   repo, and it has to distinguish "the scrim carries the contrast" from "the test image happened to be
   dark"; a wrong implementation passes silently and AC2 is then unproven.
 - D1, D2, D4, D5, D6, D7, D8 → default. Each follows an existing file it can mirror line for line.
-- Review: → `story-review-hard` — the story widens a shared contract that an *external* repository
+- Review: → `story-review-hard` — the story widens a shared contract that an _external_ repository
   writes against and claims a backwards-compatibility guarantee (AC4) that no single diff hunk shows;
   the review also has to check content files in two repositories against each other, which no
   per-deliverable acceptance covers.
@@ -323,19 +323,19 @@ No `manual residue` in this story.
 
 ### Coverage gate
 
-| AC | Deliverable | Test |
-| --- | --- | --- |
-| AC1 | D2 + D3 | e2e `news-cover-template.mjs` |
-| AC2 | D2 + D3 | e2e `news-cover-template.mjs` |
-| AC3 | D1 | `feed-pipeline.test.ts` |
-| AC4 | D1 | `feed-pipeline.test.ts` |
-| AC5 | D4 + D6 | `templates-kit.test.ts` |
-| AC6 | D4 | `templates-kit.test.ts` |
-| AC7 | D5 | `templates-kit.test.ts` |
-| AC8 | D5 | `templates-kit.test.ts` |
-| AC9 | D7 | `news-fixture-contract.test.ts` |
-| AC10 | D8 | `news-fixture-contract.test.ts` |
-| AC11 | D8 | `news-fixture-contract.test.ts` + the two `git -C` commands above |
+| AC   | Deliverable | Test                                                              |
+| ---- | ----------- | ----------------------------------------------------------------- |
+| AC1  | D2 + D3     | e2e `news-cover-template.mjs`                                     |
+| AC2  | D2 + D3     | e2e `news-cover-template.mjs`                                     |
+| AC3  | D1          | `feed-pipeline.test.ts`                                           |
+| AC4  | D1          | `feed-pipeline.test.ts`                                           |
+| AC5  | D4 + D6     | `templates-kit.test.ts`                                           |
+| AC6  | D4          | `templates-kit.test.ts`                                           |
+| AC7  | D5          | `templates-kit.test.ts`                                           |
+| AC8  | D5          | `templates-kit.test.ts`                                           |
+| AC9  | D7          | `news-fixture-contract.test.ts`                                   |
+| AC10 | D8          | `news-fixture-contract.test.ts`                                   |
+| AC11 | D8          | `news-fixture-contract.test.ts` + the two `git -C` commands above |
 
 ## Done
 
@@ -370,7 +370,9 @@ The community-welcome image was re-exported from the checkout's source artwork w
 await sharp('C:/development/Hantsch/q2_community_content/news/community_welcome/community.png')
   .resize(2560, 640, { fit: 'cover', position: 'right' })
   .png({ compressionLevel: 9, quality: 85 })
-  .toFile('C:/development/Hantsch/q2-launcher/content/q2_community_content/news/img/cover-community-welcome.png')
+  .toFile(
+    'C:/development/Hantsch/q2-launcher/content/q2_community_content/news/img/cover-community-welcome.png',
+  )
 ```
 
 Result: 545,203 bytes (well under the 1.5 MB budget), 2560×640.
@@ -383,9 +385,9 @@ Result: 545,203 bytes (well under the 1.5 MB budget), 2560×640.
   an `npm run ui:flow -- news-cover-template` proof measuring the real anchoring and contrast
   geometry (crossover at 1101px slide width, safe zone fractions 0.775/0.601).
 - The community content repository gained a `news/_templates/<template>/` starter kit (skeleton
-  + README + example image) for all four templates, an overview README, and an updated
-  top-level README with no remaining "three templates" claims — authored in this repo's mirror
-  and copied byte-for-byte (LF) into the local checkout, never committed there.
+  - README + example image) for all four templates, an overview README, and an updated
+    top-level README with no remaining "three templates" claims — authored in this repo's mirror
+    and copied byte-for-byte (LF) into the local checkout, never committed there.
 - A real community-welcome entry ships using the new template (`order: 40`), and the checked-in
   fixture now resolves all four entries with zero warnings, excludes `_templates/` from the feed,
   and is proven to touch no network (`fetch` stubbed to throw).

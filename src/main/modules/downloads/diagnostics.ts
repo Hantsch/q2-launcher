@@ -88,7 +88,10 @@ export function redactHome(value: string, homeDir: string = homedir()): string {
 
 /** Builds the regex source matching `home` with every separator run generalised to `[\\/]+`. */
 function homeDirPattern(home: string): string {
-  return home.split(/[\\/]+/).map(escapeForRegExp).join('[\\\\/]+')
+  return home
+    .split(/[\\/]+/)
+    .map(escapeForRegExp)
+    .join('[\\\\/]+')
 }
 
 function escapeForRegExp(value: string): string {

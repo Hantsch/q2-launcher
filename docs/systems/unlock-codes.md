@@ -15,9 +15,9 @@ Operator guide: set up the signing key, issue codes, redeem them. Background: st
 
 ## Unlockable features
 
-| Feature name | Unlocks |
-| --- | --- |
-| `watchlist` | *Watchlist* tab in the Servers view (marked experimental) |
+| Feature name | Unlocks                                                   |
+| ------------ | --------------------------------------------------------- |
+| `watchlist`  | _Watchlist_ tab in the Servers view (marked experimental) |
 
 Feature names are plain strings; a new gated feature is added in code (`<FeatureGate feature="…">`
 in the renderer, `{ feature: '…' }` on the module's IPC handlers).
@@ -26,9 +26,9 @@ in the renderer, `{ feature: '…' }` on the module's IPC handlers).
 
 Requirements: Node (repo checkout), Bitwarden desktop or web vault.
 
-1. **Create the key** — Bitwarden → *New item* → *SSH key*. Key type must be **Ed25519** (default).
+1. **Create the key** — Bitwarden → _New item_ → _SSH key_. Key type must be **Ed25519** (default).
    RSA keys are refused.
-2. **Embed the public key** — copy the *Public key* field (`ssh-ed25519 AAAA…`) and convert it:
+2. **Embed the public key** — copy the _Public key_ field (`ssh-ed25519 AAAA…`) and convert it:
 
    ```sh
    node scripts/issue-unlock-code.mjs pubkey "ssh-ed25519 AAAA… comment"
@@ -36,9 +36,10 @@ Requirements: Node (repo checkout), Bitwarden desktop or web vault.
 
    Paste the printed `-----BEGIN PUBLIC KEY----- …` block into `UNLOCK_PUBLIC_KEY_PEM` in
    [src/main/services/unlock/public-key.ts](../../src/main/services/unlock/public-key.ts).
+
 3. **Ship it** — build and release the launcher. Only builds containing the new key accept your
    codes.
-4. **Store the private key for issuing** — copy the *Private key* field
+4. **Store the private key for issuing** — copy the _Private key_ field
    (`-----BEGIN OPENSSH PRIVATE KEY-----`, no passphrase) into
    `~/.q2-launcher/unlock-signing-key.pem` (Windows: `%USERPROFILE%\.q2-launcher\…`).
    Other location: pass `--key <path>` or set `Q2L_UNLOCK_SIGNING_KEY_FILE`.
@@ -65,14 +66,14 @@ Key file rules:
 3. Output: line 1 is the code (`q2l1.….…`), line 2 a summary (features, id, redeem-by, expiry,
    label). Send line 1 to the user.
 
-| Option | Required | Meaning |
-| --- | --- | --- |
-| `--features a,b` | yes | 1–16 feature names, comma-separated |
-| `--install-id <id>` | yes | installation id; case and hyphens don't matter |
-| `--expires <date>` | no | features stop working at this date (ISO, e.g. `2027-01-01`) |
-| `--expires-in-days <n>` | no | same, relative; not combinable with `--expires` |
-| `--label <text>` | no | 1–64 chars, shown to the user next to the code |
-| `--key <path>` | no | private key file (default `~/.q2-launcher/unlock-signing-key.pem`) |
+| Option                  | Required | Meaning                                                            |
+| ----------------------- | -------- | ------------------------------------------------------------------ |
+| `--features a,b`        | yes      | 1–16 feature names, comma-separated                                |
+| `--install-id <id>`     | yes      | installation id; case and hyphens don't matter                     |
+| `--expires <date>`      | no       | features stop working at this date (ISO, e.g. `2027-01-01`)        |
+| `--expires-in-days <n>` | no       | same, relative; not combinable with `--expires`                    |
+| `--label <text>`        | no       | 1–64 chars, shown to the user next to the code                     |
+| `--key <path>`          | no       | private key file (default `~/.q2-launcher/unlock-signing-key.pem`) |
 
 Fixed rules:
 
@@ -85,23 +86,23 @@ Fixed rules:
 2. Accepted: features and expiry are listed. **Takes effect at the next launcher start.**
 3. Rejected — the message says why:
 
-| Message | Cause | Fix |
-| --- | --- | --- |
-| doesn't look like an unlock code | truncated / garbled | copy the full line again |
-| isn't valid | signed with a different key than the launcher embeds | check key pair / launcher version |
-| issued for a different installation | wrong installation id | issue a new code for the correct id |
-| redemption window has passed | older than 24 h | issue a new code |
-| features have already expired | `--expires` in the past | issue a new code |
+| Message                             | Cause                                                | Fix                                 |
+| ----------------------------------- | ---------------------------------------------------- | ----------------------------------- |
+| doesn't look like an unlock code    | truncated / garbled                                  | copy the full line again            |
+| isn't valid                         | signed with a different key than the launcher embeds | check key pair / launcher version   |
+| issued for a different installation | wrong installation id                                | issue a new code for the correct id |
+| redemption window has passed        | older than 24 h                                      | issue a new code                    |
+| features have already expired       | `--expires` in the past                              | issue a new code                    |
 
-Stored codes: in `state.json` under *Launcher data* (path shown in Settings → About), max 32.
+Stored codes: in `state.json` under _Launcher data_ (path shown in Settings → About), max 32.
 Expired codes stay listed as expired and unlock nothing.
 
 ## Troubleshooting
 
-| Symptom | Check |
-| --- | --- |
-| `pubkey`: expected "ssh-ed25519 AAAA" | key type is not Ed25519, or the line was cut off |
-| issue: signing key must be Ed25519 | wrong key file |
-| issue: refusing a signing-key path inside the repo | move the key file out of the repo |
-| every code shows "isn't valid" | public key in `public-key.ts` doesn't match your private key — rerun `pubkey`, compare |
-| code accepted, feature missing | restart the launcher |
+| Symptom                                            | Check                                                                                  |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `pubkey`: expected "ssh-ed25519 AAAA"              | key type is not Ed25519, or the line was cut off                                       |
+| issue: signing key must be Ed25519                 | wrong key file                                                                         |
+| issue: refusing a signing-key path inside the repo | move the key file out of the repo                                                      |
+| every code shows "isn't valid"                     | public key in `public-key.ts` doesn't match your private key — rerun `pubkey`, compare |
+| code accepted, feature missing                     | restart the launcher                                                                   |

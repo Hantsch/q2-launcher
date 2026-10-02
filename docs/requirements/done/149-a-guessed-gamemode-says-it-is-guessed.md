@@ -94,9 +94,9 @@ Order: D1 → D2. No IPC, no main, no renderer component changes.
     `export interface EffectiveGamemode { value: string | null; source: GamemodeSource }`
     (`value` is a `KnownGamemode` id or free text; `null` only with `source: 'none'`).
   - `resolveGamemode(input: { sidecar?: string; nameFact?: string; gameDir?: string;
-    matchedPatternId?: string; playerCount?: number }): EffectiveGamemode` — rungs in order:
+matchedPatternId?: string; playerCount?: number }): EffectiveGamemode` — rungs in order:
     sidecar (trimmed, non-empty) → `nameFact` (trimmed, non-empty) → heuristic → `{ value: null,
-    source: 'none' }`. Sidecar/name values equal to a known id case-insensitively are normalised
+source: 'none' }`. Sidecar/name values equal to a known id case-insensitively are normalised
     to the id. Use the OpenTDM pattern id exported by story 139's engine in `src/shared/demos/`
     (grep for it; do not hard-code a second copy of the string).
   - Heuristic table as an exported ordered array `GAMEMODE_HEURISTICS` of `{ id, mode, test }`,
@@ -105,7 +105,7 @@ Order: D1 → D2. No IPC, no main, no renderer component changes.
     Result source is `'guessed'`.
   - `describeGamemode(g): { labelKey?: string; text?: string; guessedKey?: string }` — known id →
     `labelKey: 'replays.gamemode.<id>'`; free text → `text`; `none` → `labelKey:
-    'replays.gamemode.unknown'`; `guessedKey: 'replays.gamemode.guessed'` only when source is
+'replays.gamemode.unknown'`; `guessedKey: 'replays.gamemode.guessed'` only when source is
     `guessed`. Export `GAMEMODE_I18N_KEYS` (all five keys) for D2's key test.
   - `gamemodeFilterMatches(g, filter: { gamemode: string | null; excludeGuessed: boolean })` —
     `gamemode: null` = any; otherwise value must equal it (case-insensitive); `excludeGuessed`

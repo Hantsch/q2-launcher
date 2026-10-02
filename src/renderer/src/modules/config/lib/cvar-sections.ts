@@ -230,7 +230,11 @@ export function cvarPlacementOptions(
     const label = sectionLabel(section)
     options.push({ sectionId: section.id, label })
     for (const subsection of section.subsections ?? []) {
-      options.push({ sectionId: section.id, subsectionId: subsection.id, label: `${label} / ${subsection.name}` })
+      options.push({
+        sectionId: section.id,
+        subsectionId: subsection.id,
+        label: `${label} / ${subsection.name}`,
+      })
     }
   }
   return options

@@ -87,9 +87,7 @@ describe('engine installation-id schemas', () => {
       })
 
       it('rejects unknown extra keys', () => {
-        expect(
-          schema.safeParse({ installationId: 'inst-1', extra: 'nope' }).success,
-        ).toBe(false)
+        expect(schema.safeParse({ installationId: 'inst-1', extra: 'nope' }).success).toBe(false)
       })
 
       it('rejects a missing installationId', () => {
@@ -111,9 +109,9 @@ describe('setBleedingEdgeInputSchema', () => {
   })
 
   it('rejects a non-string installationId', () => {
-    expect(
-      setBleedingEdgeInputSchema.safeParse({ installationId: 7, enabled: true }).success,
-    ).toBe(false)
+    expect(setBleedingEdgeInputSchema.safeParse({ installationId: 7, enabled: true }).success).toBe(
+      false,
+    )
   })
 
   it('rejects a non-boolean enabled', () => {

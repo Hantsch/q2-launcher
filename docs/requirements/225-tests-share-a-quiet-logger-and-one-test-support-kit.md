@@ -50,7 +50,7 @@ re-invented 2,000 lines apart).
 ## Open Questions
 
 - ~~**Q1**~~ answered → Decisions (Sprint) — Migrate the 73–96 `mkdtemp` sites now or opportunistically? Recommendation:
-      builders now, temp dirs when a file is next touched.
+  builders now, temp dirs when a file is next touched.
 
 ## Decisions (Sprint)
 

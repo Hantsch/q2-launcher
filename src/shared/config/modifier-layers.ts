@@ -312,7 +312,10 @@ export function stripAliasActionBinds(
  * an untouched layer stays untouched by identity too - same convention as
  * `applyActionLayerMirror`'s own strip pass.
  */
-export function stripAliasActionOverrides(layers: AltLayer[], aliasActions: ConfigAction[]): AltLayer[] {
+export function stripAliasActionOverrides(
+  layers: AltLayer[],
+  aliasActions: ConfigAction[],
+): AltLayer[] {
   const staleNames = new Set(aliasActions.map(staleAliasSyntheticName))
   if (staleNames.size === 0) return layers
 
@@ -327,4 +330,3 @@ export function stripAliasActionOverrides(layers: AltLayer[], aliasActions: Conf
     return { ...layer, overrides }
   })
 }
-

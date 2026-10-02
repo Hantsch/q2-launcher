@@ -7,12 +7,12 @@ stream in, player data follows for the servers that have anyone on them — and 
 the user's own cadence settings, never competes with a running game, and can be narrowed to just
 favourites or just one server instead of always reloading everything.
 
-| Story | Status | Commit |
-| --- | --- | --- |
-| [114 — a scan sweeps the servers in two stages](../../requirements/done/114-a-scan-sweeps-the-servers-in-two-stages.md) | done | `114: sweep servers in two stages` |
-| [115 — how hard the scan works is a setting](../../requirements/done/115-how-hard-the-scan-works-is-a-setting.md) | done | `115: how hard the scan works is a setting` |
-| [116 — no scan runs while the game does](../../requirements/done/116-no-scan-runs-while-the-game-does.md) | done | `116: no scan runs while the game does` |
-| [117 — a refresh only reloads what changed](../../requirements/done/117-a-refresh-only-reloads-what-changed.md) | done | `117: a refresh only reloads what changed` |
+| Story                                                                                                                   | Status | Commit                                      |
+| ----------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------- |
+| [114 — a scan sweeps the servers in two stages](../../requirements/done/114-a-scan-sweeps-the-servers-in-two-stages.md) | done   | `114: sweep servers in two stages`          |
+| [115 — how hard the scan works is a setting](../../requirements/done/115-how-hard-the-scan-works-is-a-setting.md)       | done   | `115: how hard the scan works is a setting` |
+| [116 — no scan runs while the game does](../../requirements/done/116-no-scan-runs-while-the-game-does.md)               | done   | `116: no scan runs while the game does`     |
+| [117 — a refresh only reloads what changed](../../requirements/done/117-a-refresh-only-reloads-what-changed.md)         | done   | `117: a refresh only reloads what changed`  |
 
 All four stories built, clean-agent-reviewed and committed on `sprint/S24`. No story was blocked.
 
@@ -63,7 +63,7 @@ All four stories built, clean-agent-reviewed and committed on `sprint/S24`. No s
   handling, out of scope for this sprint.
 - **An in-flight scan is not aborted when a game session starts** (116, PLAUSIBLE, not fixed): it
   keeps sweeping in the background until it finishes on its own. No acceptance criterion asked for
-  an abort; the guard's job is to skip/refuse *new* attempts, which it does.
+  an abort; the guard's job is to skip/refuse _new_ attempts, which it does.
 - **A scoped refresh (117) overwrites a row's `origins` instead of merging them.** Currently inert —
   nothing in the renderer or main reads `ServerListEntry.origins` yet — but worth fixing before
   story 131's watchlist work is likely to read it.
@@ -106,6 +106,7 @@ manual-residue item.
 the shell's `PlannedModuleView` fallback for list UI (that lands with stories 118/121 in S25), so
 every criterion here is main-process/IPC behaviour proven one level down instead of through the
 real surface — a named, deliberate gap, not a silently-dropped one.
+
 - AC1 (rows stream before the sweep finishes) — `scan-runner.test.ts` + `scan-integration.test.ts`'s
   real-socket test.
 - AC2 (stage 2 = non-empty ∪ selected, nothing twice) — `scan-runner.test.ts` + the same integration
@@ -116,6 +117,7 @@ real surface — a named, deliberate gap, not a silently-dropped one.
 - AC6 (union dedupe, origins preserved) — `address-set.test.ts` + the same integration test.
 
 **115 — how hard the scan works is a setting.**
+
 - AC1 (seven user-changeable settings) — e2e flow `servers-scan-settings` + `scan-cadence.test.ts`.
 - AC2 (defaults justified by a real measurement) — `scan-measurement.test.ts`, against the method,
   environment and result table recorded in the story's own `## Measurement (AC2)` section.
@@ -123,6 +125,7 @@ real surface — a named, deliberate gap, not a silently-dropped one.
 - AC4 (a due auto scan while one runs is skipped, not queued) — `scan-cadence.test.ts`.
 
 **116 — no scan runs while the game does.**
+
 - AC1 (a due auto-refresh while playing is skipped, reason visible) — e2e flow
   `servers-no-scan-while-playing` + `scan-cadence.test.ts`.
 - AC2 (a manual scan while playing is refused, same reason) — the same e2e flow +
@@ -132,6 +135,7 @@ real surface — a named, deliberate gap, not a silently-dropped one.
 - AC4 (scanning resumes the moment the session ends) — the same e2e flow + `scan-cadence.test.ts`.
 
 **117 — a refresh only reloads what changed.**
+
 - AC1 ("Refresh servers" is the same sweep, not a parallel one) — e2e flow
   `servers-scoped-refresh` + `scan-scope.test.ts` (deep-equals 114's own address-set resolver).
 - AC2 ("Refresh favourites" queries only favourites) — the same e2e flow + `scan-scope.test.ts` +

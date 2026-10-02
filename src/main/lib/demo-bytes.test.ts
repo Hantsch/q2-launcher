@@ -154,7 +154,10 @@ describe('readDm2Header', () => {
   })
 })
 
-const MVD2_FIXTURE_PATH = join(__dirname, '../../../docs/fixtures/demos/PFAU_20221127-053327_q2dm1.mvd2')
+const MVD2_FIXTURE_PATH = join(
+  __dirname,
+  '../../../docs/fixtures/demos/PFAU_20221127-053327_q2dm1.mvd2',
+)
 
 const EXPECTED_MVD2_FACTS = {
   ok: true,
@@ -327,7 +330,13 @@ describe('readDemoDuration', () => {
     }
 
     for (const version of [2009, 2013] as const) {
-      const headerBytes = buildMvd2({ version, gameDir: 'baseq2', clientNum: 0, configstrings: {}, terminate: false })
+      const headerBytes = buildMvd2({
+        version,
+        gameDir: 'baseq2',
+        clientNum: 0,
+        configstrings: {},
+        terminate: false,
+      })
       const stream = concatBytes([headerBytes, buildMvd2FrameBlock(3), MVD2_TERMINATOR])
       const path = join(dir, `synthetic-${version}.mvd2`)
       await writeFile(path, stream)
@@ -389,7 +398,11 @@ describe('readDemoDuration', () => {
         if (raw[p] !== SVC_FRAME) continue
         const serverframe = raw.readInt32LE(p + 1)
         const deltaframe = raw.readInt32LE(p + 5)
-        if (serverframe >= 0 && serverframe < 10_000_000 && (deltaframe === -1 || deltaframe === serverframe - 1)) {
+        if (
+          serverframe >= 0 &&
+          serverframe < 10_000_000 &&
+          (deltaframe === -1 || deltaframe === serverframe - 1)
+        ) {
           if (first === null) first = serverframe
           last = serverframe
           break // a block carries at most one frame

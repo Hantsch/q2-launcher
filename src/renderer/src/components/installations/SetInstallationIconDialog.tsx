@@ -25,16 +25,24 @@ export function SetInstallationIconDialog({ installationId }: { installationId: 
   const setInstallationIcon = useLauncher((state) => state.setInstallationIcon)
   const pickInstallationIconFile = useLauncher((state) => state.pickInstallationIconFile)
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState<{ key: string; params?: Record<string, string | number> } | null>(
-    null,
-  )
+  const [error, setError] = useState<{
+    key: string
+    params?: Record<string, string | number>
+  } | null>(null)
 
   if (!installation) return null
 
   const hasIcon = Boolean(installation.icon)
 
   const applyOutcome = (result: Awaited<ReturnType<typeof setInstallationIcon>>): void => {
-    setError(result.ok ? null : { key: result.error.key, ...(result.error.params ? { params: result.error.params } : {}) })
+    setError(
+      result.ok
+        ? null
+        : {
+            key: result.error.key,
+            ...(result.error.params ? { params: result.error.params } : {}),
+          },
+    )
   }
 
   const pickShipped = async (id: string): Promise<void> => {
@@ -67,11 +75,7 @@ export function SetInstallationIconDialog({ installationId }: { installationId: 
       closeLabel={t('common.close')}
       footer={
         <>
-          <Button
-            variant="ghost"
-            disabled={!hasIcon || pending}
-            onClick={() => void clear()}
-          >
+          <Button variant="ghost" disabled={!hasIcon || pending} onClick={() => void clear()}>
             {t('dialog.installationIcon.clear')}
           </Button>
           <Button variant="primary" onClick={closeDialog}>
@@ -93,7 +97,8 @@ export function SetInstallationIconDialog({ installationId }: { installationId: 
           </p>
           <div className="grid grid-cols-6 gap-2">
             {SHIPPED_ICONS.map((shipped) => {
-              const selected = installation.icon?.kind === 'shipped' && installation.icon.id === shipped.id
+              const selected =
+                installation.icon?.kind === 'shipped' && installation.icon.id === shipped.id
               return (
                 <button
                   key={shipped.id}

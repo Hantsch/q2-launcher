@@ -11,7 +11,10 @@ import { scopedLogger } from '../../lib/logger'
 import { createLinuxChannel } from './playback-channel/linux-channel'
 import { POSITION_PUSH_MS } from './playback-channel/protocol'
 import type { EngineIo, PlaybackChannel } from './playback-channel/types'
-import { createWindowsChannel, type WindowsChannelOptions } from './playback-channel/windows-channel'
+import {
+  createWindowsChannel,
+  type WindowsChannelOptions,
+} from './playback-channel/windows-channel'
 
 /**
  * Story 164 D4: the one owner of the running demo's playback channel. `prepare` picks the platform's
@@ -36,7 +39,11 @@ export interface PlaybackControlDeps {
   launch: PlaybackControlLaunch
   platform?: string
   makeWindows?: (options: WindowsChannelOptions) => PlaybackChannel
-  makeLinux?: (deps: { io: EngineIo; log: ReturnType<typeof scopedLogger>; gameDirPath: string }) => PlaybackChannel
+  makeLinux?: (deps: {
+    io: EngineIo
+    log: ReturnType<typeof scopedLogger>
+    gameDirPath: string
+  }) => PlaybackChannel
   /** Story 187 D5: whether the cinema overlay is open and whether cinema could run now - read each
    * time a display event is built. Defaults to no cinema (tests that do not care). */
   cinema?: () => { open: boolean; availability: CinemaAvailability }
@@ -49,7 +56,11 @@ export interface PlaybackPrepared {
 
 export interface PlaybackControl {
   /** Picks the channel; on Windows also starts it (writes its files) so they exist before the game is spawned. */
-  prepare(input: { gameDirPath: string; durationMs: number | null; format: DemoFormat }): Promise<PlaybackPrepared>
+  prepare(input: {
+    gameDirPath: string
+    durationMs: number | null
+    format: DemoFormat
+  }): Promise<PlaybackPrepared>
   /** The game is up: start the channel on Linux (it needs the engine's pipes); Windows started in `prepare`. */
   attach(io?: EngineIo): Promise<void>
   /** Drops a prepared channel whose launch never started - no events. */
@@ -100,7 +111,9 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
   let session: Session | null = null
   const displayListeners = new Set<(fullscreen: boolean) => void>()
   const stateListeners = new Set<(state: ReplaysPlaybackState['state']) => void>()
-  const cinema = deps.cinema ?? (() => ({ open: false, availability: { available: true } as CinemaAvailability }))
+  const cinema =
+    deps.cinema ??
+    (() => ({ open: false, availability: { available: true } as CinemaAvailability }))
 
   const pushState = (state: ReplaysPlaybackState['state']): void => {
     emit(REPLAYS_EVENTS.playbackState, { state } satisfies ReplaysPlaybackState)
@@ -111,7 +124,12 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
     const live = session && !session.ending ? session : null
     const fullscreen = live?.fullscreen ?? false
     const c = cinema()
-    return { fullscreen, cinema: !fullscreen && c.open, speed: live?.speed ?? 1, cinemaAvailability: c.availability }
+    return {
+      fullscreen,
+      cinema: !fullscreen && c.open,
+      speed: live?.speed ?? 1,
+      cinemaAvailability: c.availability,
+    }
   }
 
   const emitDisplay = (): void => {
@@ -196,7 +214,16 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
       if (!p) return
       prepared = null
       p.bindIo(io)
-      const s: Session = { ...p, timer: null, finished: false, offFinished: () => undefined, offDisplay: () => undefined, fullscreen: false, ending: false, speed: 1 }
+      const s: Session = {
+        ...p,
+        timer: null,
+        finished: false,
+        offFinished: () => undefined,
+        offDisplay: () => undefined,
+        fullscreen: false,
+        ending: false,
+        speed: 1,
+      }
       session = s
       try {
         if (!p.startedEarly) await p.channel.start()

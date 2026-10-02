@@ -42,7 +42,9 @@ describe('aliasNameFor', () => {
   })
 
   it('truncates the slug to the 26-character derived-name budget', () => {
-    const name = aliasNameFor(action({ name: 'A Really Very Long Action Name', id: 'ffeeddcc-1111' }))
+    const name = aliasNameFor(
+      action({ name: 'A Really Very Long Action Name', id: 'ffeeddcc-1111' }),
+    )
 
     expect(name).toBe('a_really_very_long_action')
     expect(name.length).toBeLessThanOrEqual(26)
@@ -87,9 +89,7 @@ describe('aliasNameFor', () => {
    * over the derived name below it.
    */
   it('returns aliasName verbatim (sign kept) when set', () => {
-    expect(aliasNameFor(action({ name: 'Slow', id: 'ab12cd34', aliasName: '+slow' }))).toBe(
-      '+slow',
-    )
+    expect(aliasNameFor(action({ name: 'Slow', id: 'ab12cd34', aliasName: '+slow' }))).toBe('+slow')
   })
 
   it('falls back to the derived name when aliasName is unset', () => {
@@ -100,9 +100,7 @@ describe('aliasNameFor', () => {
   })
 
   it('treats an empty-string aliasName the same as unset', () => {
-    expect(aliasNameFor(action({ name: 'Drop RL', id: 'ab12cd34', aliasName: '' }))).toBe(
-      'drop_rl',
-    )
+    expect(aliasNameFor(action({ name: 'Drop RL', id: 'ab12cd34', aliasName: '' }))).toBe('drop_rl')
   })
 })
 
@@ -144,7 +142,9 @@ describe('derivedAliasName: the launcher`s own drops (story 055, D2)', () => {
 
     expect(derivedAliasName(entry)).toBe('drop_rail_gun')
     // The old, display-name-only derivation, still what any other category gets.
-    expect(derivedAliasName({ ...entry, categoryId: 'weapons', catalogId: undefined })).toBe('rail_gun')
+    expect(derivedAliasName({ ...entry, categoryId: 'weapons', catalogId: undefined })).toBe(
+      'rail_gun',
+    )
   })
 
   it('recognises a drop catalogue row the user moved into a category of their own', () => {
@@ -203,9 +203,7 @@ describe('derivedAliasName: the launcher`s own drops (story 055, D2)', () => {
 
   it('does not prefix a signed `kind: alias` entry - the sign is the engine`s press/release idiom', () => {
     expect(
-      derivedAliasName(
-        action({ name: '+slow', kind: 'alias', categoryId: 'drops', commands: [] }),
-      ),
+      derivedAliasName(action({ name: '+slow', kind: 'alias', categoryId: 'drops', commands: [] })),
     ).toBe('+slow')
   })
 
@@ -216,9 +214,9 @@ describe('derivedAliasName: the launcher`s own drops (story 055, D2)', () => {
    * renamed by the rule above.
    */
   it('never overrides an explicit aliasName, in either direction', () => {
-    expect(
-      aliasNameFor(action({ name: 'Rail Gun', categoryId: 'drops', aliasName: 'rail' })),
-    ).toBe('rail')
+    expect(aliasNameFor(action({ name: 'Rail Gun', categoryId: 'drops', aliasName: 'rail' }))).toBe(
+      'rail',
+    )
     expect(
       aliasNameFor(
         action({
@@ -252,9 +250,7 @@ describe('renderActionAlias', () => {
   it('renders a single-command action unquoted', () => {
     const { aliases } = renderActionAlias(action({ name: 'Drop RL', id: 'ab12cd34' }))
 
-    expect(aliases).toEqual([
-      { name: 'drop_rl', body: 'drop rl', line: 'alias drop_rl drop rl' },
-    ])
+    expect(aliases).toEqual([{ name: 'drop_rl', body: 'drop rl', line: 'alias drop_rl drop rl' }])
   })
 
   it('renders a short multi-command action as exactly one quoted line', () => {
@@ -457,7 +453,11 @@ describe('renderActionAlias auto-split', () => {
 
   it('emits an over-long single command rather than dropping it', () => {
     const huge = `echo ${'y'.repeat(2000)}`
-    const hugeAction = action({ name: 'Huge', id: 'ab12cd34', commands: [{ kind: 'raw', text: huge }] })
+    const hugeAction = action({
+      name: 'Huge',
+      id: 'ab12cd34',
+      commands: [{ kind: 'raw', text: huge }],
+    })
     const { aliases } = renderActionAlias(hugeAction)
 
     expect(aliases).toHaveLength(2)
@@ -547,7 +547,11 @@ describe('aliasLineBudget', () => {
   it('reports one chunk and the real, under-budget byte count for a short body', () => {
     const budget = aliasLineBudget(action({ name: 'Drop RL', id: 'ab12cd34' }))
 
-    expect(budget).toEqual({ bytes: 'alias drop_rl drop rl'.length, max: MAX_LINE_BYTES, chunks: 1 })
+    expect(budget).toEqual({
+      bytes: 'alias drop_rl drop rl'.length,
+      max: MAX_LINE_BYTES,
+      chunks: 1,
+    })
     expect(budget.bytes).toBeLessThan(budget.max)
   })
 
@@ -574,7 +578,12 @@ describe('aliasLineBudget', () => {
    */
   it('reports the split even when the unsplit line is under max but inside the headroom', () => {
     const command = { kind: 'raw' as const, text: `echo ${'x'.repeat(495)}` }
-    const edge = action({ name: 'Edge', id: 'ab12cd34', aliasName: 'edge', commands: [command, command] })
+    const edge = action({
+      name: 'Edge',
+      id: 'ab12cd34',
+      aliasName: 'edge',
+      commands: [command, command],
+    })
     const budget = aliasLineBudget(edge)
 
     // `alias edge "` (12) + two 500-byte commands joined by `'; '` (1002) + `"` (1).
@@ -622,10 +631,18 @@ describe('aliasLineBudget', () => {
       ['three parts', action({ name: 'Long Action', id: 'ab12cd34', commands: filler(25) }), 3],
       [
         'one over-long command',
-        action({ name: 'Huge', id: 'ab12cd34', commands: [{ kind: 'raw', text: `echo ${'y'.repeat(2000)}` }] }),
+        action({
+          name: 'Huge',
+          id: 'ab12cd34',
+          commands: [{ kind: 'raw', text: `echo ${'y'.repeat(2000)}` }],
+        }),
         1,
       ],
-      ['signed alias entry, split', action({ name: '+spam', kind: 'alias', commands: filler(15) }), 2],
+      [
+        'signed alias entry, split',
+        action({ name: '+spam', kind: 'alias', commands: filler(15) }),
+        2,
+      ],
       ['no line at all', action({ commands: [] }), 0],
       [
         'keepEmptyAlias',
@@ -845,18 +862,23 @@ describe('kind: toggle entries', () => {
 
     // Both states under one name: the engine keeps one definition per name, so this would silently
     // lose a half. Same for a state named after the dispatch alias, and for a half-named pair.
-    expect(names([
-      { aliasName: 'zoomin', commands: [] },
-      { aliasName: 'ZoomIn', commands: [] },
-    ])).toEqual(['zoom_s1', 'zoom_s2', 'zoom'])
-    expect(names([
-      { aliasName: 'zoom', commands: [] },
-      { aliasName: 'zoomout', commands: [] },
-    ])).toEqual(['zoom_s1', 'zoom_s2', 'zoom'])
-    expect(names([
-      { aliasName: 'zoomin', commands: [] },
-      { commands: [] },
-    ])).toEqual(['zoom_s1', 'zoom_s2', 'zoom'])
+    expect(
+      names([
+        { aliasName: 'zoomin', commands: [] },
+        { aliasName: 'ZoomIn', commands: [] },
+      ]),
+    ).toEqual(['zoom_s1', 'zoom_s2', 'zoom'])
+    expect(
+      names([
+        { aliasName: 'zoom', commands: [] },
+        { aliasName: 'zoomout', commands: [] },
+      ]),
+    ).toEqual(['zoom_s1', 'zoom_s2', 'zoom'])
+    expect(names([{ aliasName: 'zoomin', commands: [] }, { commands: [] }])).toEqual([
+      'zoom_s1',
+      'zoom_s2',
+      'zoom',
+    ])
   })
 
   it('still emits all three lines for a toggle whose states carry no commands at all', () => {
@@ -864,7 +886,11 @@ describe('kind: toggle entries', () => {
     // none of the `keepEmptyAlias` spelling.
     expect(
       renderActionAliasLines([action({ ...zoom, parts: [{ commands: [] }, { commands: [] }] })]),
-    ).toEqual(['alias zoom_s1 alias zoom zoom_s2', 'alias zoom_s2 alias zoom zoom_s1', 'alias zoom zoom_s1'])
+    ).toEqual([
+      'alias zoom_s1 alias zoom zoom_s2',
+      'alias zoom_s2 alias zoom zoom_s1',
+      'alias zoom zoom_s1',
+    ])
   })
 
   it('chunks a long state under its own state name, numbered per half', () => {
@@ -965,7 +991,10 @@ describe('kind: press-release entries', () => {
       ],
     })
 
-    expect(renderActionAliasLines([named])).toEqual(['alias +walk cl_run 0', 'alias -walk cl_run 1'])
+    expect(renderActionAliasLines([named])).toEqual([
+      'alias +walk cl_run 0',
+      'alias -walk cl_run 1',
+    ])
   })
 
   it('emits both halves even when one is empty, spelled as an explicit empty body', () => {
@@ -983,7 +1012,10 @@ describe('kind: press-release entries', () => {
       text: `echo ${String(index).padStart(2, '0')}${'x'.repeat(89)}`,
     }))
     const { aliases } = renderActionAlias(
-      action({ ...slow, parts: [{ commands: longHalf }, { commands: [{ kind: 'raw', text: 'cl_run 1' }] }] }),
+      action({
+        ...slow,
+        parts: [{ commands: longHalf }, { commands: [{ kind: 'raw', text: 'cl_run 1' }] }],
+      }),
     )
 
     expect(aliases.map((alias) => alias.name)).toEqual([

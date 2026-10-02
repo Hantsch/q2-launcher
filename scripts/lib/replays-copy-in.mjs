@@ -31,7 +31,9 @@ export async function selectDemo(page, fileName) {
     .filter({ hasText: fileName })
     .first()
     .click({ timeout: TIMEOUT_MS })
-  await page.locator('[data-testid="actionbar-play"][data-action="view"]').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page
+    .locator('[data-testid="actionbar-play"][data-action="view"]')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 }
 
 export function copiesIn(demosDir) {

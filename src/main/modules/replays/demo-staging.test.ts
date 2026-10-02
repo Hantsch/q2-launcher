@@ -42,9 +42,13 @@ async function makeZip(zipName: string, files: Record<string, string>): Promise<
   await mkdir(zipSrc, { recursive: true })
   for (const [name, content] of Object.entries(files)) await writeFile(join(zipSrc, name), content)
   const archive = join(dir, zipName)
-  execFileSync(realBinary.path, ['a', '-tzip', '-y', '-spd', '--', archive, ...Object.keys(files)], {
-    cwd: zipSrc,
-  })
+  execFileSync(
+    realBinary.path,
+    ['a', '-tzip', '-y', '-spd', '--', archive, ...Object.keys(files)],
+    {
+      cwd: zipSrc,
+    },
+  )
   return archive
 }
 

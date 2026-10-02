@@ -317,7 +317,7 @@ describe('reconcileOwnedProfileFiles', () => {
     expect(await read('baseq2', 'Name.cfg')).toBe(bannerOwn)
   })
 
-  it("backs up a hand-written file sitting at the rename destination before replacing it", async () => {
+  it('backs up a hand-written file sitting at the rename destination before replacing it', async () => {
     // Review finding: a migrating file's destination name is not guaranteed
     // to be empty - the user may have their own hand-written cfg that happens
     // to share the profile's new name. `rename()` replaces a destination

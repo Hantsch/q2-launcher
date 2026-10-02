@@ -65,7 +65,7 @@ None open. Resolved in refine (2026-09-23):
    folds every `proton` `RunnerOption` into one: `id: 'proton'`, `available: false`,
    `reasonKey: 'runner.unavailable.protonNotDriven'`, new `reasonParams: { count }`. None when
    zero builds. `RunnerOption` (`src/shared/ipc.ts`) gains `reasonParams?: Record<string, string |
-   number>` (same shape as `Outcome` error `params`). `protonNotDriven` becomes a plural key
+number>` (same shape as `Outcome` error `params`). `protonNotDriven` becomes a plural key
    (`_one`/`_other`) naming the count. `resolveRunner()` is untouched — it never picks Proton.
 2. **Compact renderer.** `RunnerSection.tsx`: heading + `role="radiogroup"` of inline chips in one
    wrapping row (not full-width buttons); under it, one reason line per unavailable option
@@ -165,11 +165,13 @@ proven identically on Windows and Linux CI, and a new e2e flow plus updated `ste
 prove all six acceptance criteria on the real app.
 
 **Commit message:**
+
 ```
 105: collapse Proton to one option and compact the Runner section into chips
 ```
 
 **Verification — narrow gate:**
+
 - `npm run build` — clean. `npm run typecheck` — clean (confirmed after every deliverable and
   again at the end).
 - Tests: full `npx vitest run` (touched files span main/renderer broadly enough that the story
@@ -181,18 +183,18 @@ prove all six acceptance criteria on the real app.
   — pass, AC3's caveat-timing assertions updated and green (Windows leg; Linux leg skips here as
   it always has). `npm run ui:flow -- windows-build-on-linux` — pass, unaffected.
 - AC → test mapping as verified: AC1 unit (`installations.test.ts` "four Proton builds collapse…")
-  + e2e ("Proton is listed once…") both green. AC2 unit ("no two runner options share a reason
-  key") + e2e ("no two disabled reasons read the same") both green. AC3 renderer ("the Steam
-  caveat shows only while Steam is selected") + e2e (`steam-handoff.mjs`, caveat count 0 before
-  selection / visible after) both green. AC4 renderer ("unavailable runners keep a visible reason
-  on win32 and linux") + e2e ("every unavailable runner stays visible…", proven via the harness
-  override with no platform-conditional skip on this assertion) both green. AC5 e2e ("the runner
-  section is no taller than…", run against the "Fixture Failed Install" row since it's the
-  fixture with checks rendered, documented in the flow's own header comment — the harness
-  override is process-wide so every installation gets the same tall runner list; the checks
-  wrapper's presence is asserted before measuring) green. AC6 e2e (keyboard pick + remount
-  persistence + off-win32 preview change) + existing flows staying green + renderer's existing
-  select/preview/keyboard cases all green.
+  - e2e ("Proton is listed once…") both green. AC2 unit ("no two runner options share a reason
+    key") + e2e ("no two disabled reasons read the same") both green. AC3 renderer ("the Steam
+    caveat shows only while Steam is selected") + e2e (`steam-handoff.mjs`, caveat count 0 before
+    selection / visible after) both green. AC4 renderer ("unavailable runners keep a visible reason
+    on win32 and linux") + e2e ("every unavailable runner stays visible…", proven via the harness
+    override with no platform-conditional skip on this assertion) both green. AC5 e2e ("the runner
+    section is no taller than…", run against the "Fixture Failed Install" row since it's the
+    fixture with checks rendered, documented in the flow's own header comment — the harness
+    override is process-wide so every installation gets the same tall runner list; the checks
+    wrapper's presence is asserted before measuring) green. AC6 e2e (keyboard pick + remount
+    persistence + off-win32 preview change) + existing flows staying green + renderer's existing
+    select/preview/keyboard cases all green.
 - No `manual residue` — all six criteria are covered by automated tests.
 - Code review (fresh agent, default tier): **PASS**, no findings. Confirmed no weakened tests,
   no scope creep beyond one cosmetic reformat in `runners.test.ts`, `/design-tokens` compliance

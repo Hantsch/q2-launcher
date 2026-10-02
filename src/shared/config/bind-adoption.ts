@@ -108,7 +108,8 @@ function buildCatalogIndex(): Map<string, CatalogMatch> {
   }
   for (const row of allCatalogRows()) {
     register(signature(row.commands), { row, withAmmo: false })
-    if (row.ammoCommand) register(signature([...row.commands, row.ammoCommand]), { row, withAmmo: true })
+    if (row.ammoCommand)
+      register(signature([...row.commands, row.ammoCommand]), { row, withAmmo: true })
   }
   return index
 }
@@ -174,7 +175,8 @@ function alreadyHolds(
   modifier: ModifierTrigger | undefined,
 ): boolean {
   return actionKeySlots(action).some(
-    (slot) => slot.key.trim() && normalizeBindKey(slot.key) === normalizedKey && slot.modifier === modifier,
+    (slot) =>
+      slot.key.trim() && normalizeBindKey(slot.key) === normalizedKey && slot.modifier === modifier,
   )
 }
 
@@ -199,7 +201,9 @@ function withSlot(
  * name). */
 function modifierForLayer(layer: AltLayer): ModifierTrigger | undefined {
   const normalized = normalizeBindKey(layer.triggerKey ?? '')
-  return normalized === 'ALT' || normalized === 'CTRL' || normalized === 'SHIFT' ? normalized : undefined
+  return normalized === 'ALT' || normalized === 'CTRL' || normalized === 'SHIFT'
+    ? normalized
+    : undefined
 }
 
 /**

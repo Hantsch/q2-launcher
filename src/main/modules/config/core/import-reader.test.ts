@@ -345,10 +345,7 @@ describe('readImportableConfig', () => {
   })
 
   it('lets an alias defined in an exec’d file resolve for a bind in the parent file', async () => {
-    await write(
-      'baseq2/config.cfg',
-      lines('exec aliases.cfg', 'bind mouse2 "quickquit"'),
-    )
+    await write('baseq2/config.cfg', lines('exec aliases.cfg', 'bind mouse2 "quickquit"'))
     await write('baseq2/aliases.cfg', lines('alias quickquit "quit"'))
 
     const result = await readImportableConfig(root, 'baseq2')
@@ -493,7 +490,11 @@ describe('readImportableConfig', () => {
   it('carries a cvar/bind comment through exec folding, the exec’d definition winning', async () => {
     await write(
       'baseq2/config.cfg',
-      lines('set name "before" // parent note', 'exec extra.cfg', 'bind w "+forward" // parent bind'),
+      lines(
+        'set name "before" // parent note',
+        'exec extra.cfg',
+        'bind w "+forward" // parent bind',
+      ),
     )
     await write('baseq2/extra.cfg', lines('set name "from-extra" // extra note'))
 
@@ -524,7 +525,14 @@ describe('readImportableConfig', () => {
     const result = await readImportableConfig(root, 'baseq2')
 
     expect(result.aliases).toEqual([
-      { name: 'qq', body: 'disconnect', file: 'config.cfg', line: 2, comment: ' second', codeWidth: 22 },
+      {
+        name: 'qq',
+        body: 'disconnect',
+        file: 'config.cfg',
+        line: 2,
+        comment: ' second',
+        codeWidth: 22,
+      },
     ])
     // And its own code width with it (story-045 review round 2): the number is the offset of that
     // line's `//`, i.e. everything the writer put in front of the comment, so a reader can work out

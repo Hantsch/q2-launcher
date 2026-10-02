@@ -23,8 +23,20 @@ import { buildAssemblePlan, GLOB_DIRS } from './assemble'
  */
 
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..', '..')
-const ENGINES_MANIFEST_PATH = join(REPO_ROOT, 'content', 'q2_community_content', 'engines', 'manifest.json')
-const GAMEDATA_MANIFEST_PATH = join(REPO_ROOT, 'content', 'q2_community_content', 'gamedata', 'manifest.json')
+const ENGINES_MANIFEST_PATH = join(
+  REPO_ROOT,
+  'content',
+  'q2_community_content',
+  'engines',
+  'manifest.json',
+)
+const GAMEDATA_MANIFEST_PATH = join(
+  REPO_ROOT,
+  'content',
+  'q2_community_content',
+  'gamedata',
+  'manifest.json',
+)
 const ARCHIVE_LAYOUTS_PATH = join(REPO_ROOT, 'docs', 'fixtures', 'archive-layouts.json')
 
 interface ArchiveLayoutPackage {

@@ -297,7 +297,9 @@ export function formatMetaTag(fields: Record<string, string | undefined>): strin
   }
 
   const unknownKeys = Object.keys(fields)
-    .filter((key) => fields[key] !== undefined && !(KNOWN_META_KEYS as readonly string[]).includes(key))
+    .filter(
+      (key) => fields[key] !== undefined && !(KNOWN_META_KEYS as readonly string[]).includes(key),
+    )
     .sort()
   for (const key of unknownKeys) {
     parts.push(`${key}=${escapeMetaValue(fields[key]!)}`)

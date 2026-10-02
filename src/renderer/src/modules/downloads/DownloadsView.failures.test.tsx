@@ -2,7 +2,11 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { ArchiveCacheStatus, DownloadDiagnostics, DownloadFailure } from '@shared/modules/downloads'
+import type {
+  ArchiveCacheStatus,
+  DownloadDiagnostics,
+  DownloadFailure,
+} from '@shared/modules/downloads'
 import type { Job } from '@shared/types'
 import type { AppInfo } from '@shared/types/common'
 import { initI18n } from '../../i18n'
@@ -185,7 +189,7 @@ describe('DownloadsView failure log', () => {
     await waitFor(() => expect(getDownloadFailures.mock.calls.length).toBeGreaterThanOrEqual(2))
   })
 
-  it('passes the store\'s appInfo down so a diagnostics entry offers the reveal-log action in its expanded detail', async () => {
+  it("passes the store's appInfo down so a diagnostics entry offers the reveal-log action in its expanded detail", async () => {
     // Story 078 D6: reveal-log moved out of the always-visible header cluster into the
     // `FailureCauseDetail` footer, reachable only after expanding.
     useLauncher.setState({ appInfo: stubAppInfo })

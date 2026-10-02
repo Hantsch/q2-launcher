@@ -30,11 +30,11 @@ belongs to which — and where the game is actually being played tonight.
 
 ## Compatibility
 
-| Platform              | Status                                                               |
-| --------------------- | -------------------------------------------------------------------- |
-| Windows 10 / 11 (x64) | **Supported** — the primary target, developed and tested here        |
+| Platform              | Status                                                              |
+| --------------------- | ------------------------------------------------------------------- |
+| Windows 10 / 11 (x64) | **Supported** — the primary target, developed and tested here       |
 | Linux (x86_64)        | **Experimental** — AppImage, built but not regularly tested (below) |
-| macOS                 | Not supported, not planned                                           |
+| macOS                 | Not supported, not planned                                          |
 
 **Linux is not tested to the same standard as Windows.** The code is written to
 run there and the AppImage is built, but the maintainer does not run or test
