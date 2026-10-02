@@ -432,3 +432,6 @@
 - 2026-10-02 18:14:09 · gate · short suites · started
 - 2026-10-02 18:16:58 · gate · short suites · done · green
 - 2026-10-02 18:16:58 · gate · e2e-all · started
+- 2026-10-02 19:07:01 · gate · e2e-all · done · 134/138 in 2985s, red: bootstrap-wizard mods-view quit-persists-state
+- 2026-10-02 19:14:24 · gate · attribution · done · 209 bootstrap-wizard, 220 quit-persists-state, mods-view pre-existing
+- 2026-10-02 19:14:30 · gate · fix 209 220 · started

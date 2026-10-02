@@ -4,5 +4,11 @@
     "reason": "flaky: step 'resetting remembered mods asks again' fails 1–2 of ~6 runs",
     "story": "223",
     "since": "S32"
+  },
+  {
+    "flow": "mods-view",
+    "reason": "pre-existing: ModsView.tsx uppercases the installation name (story 188); the flow asserts the untransformed text",
+    "story": "188",
+    "since": "S32"
   }
 ]
