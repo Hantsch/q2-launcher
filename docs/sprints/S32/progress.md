@@ -18,3 +18,17 @@
 - 2026-10-02 10:18:55 · 223 · review 1 · started
 - 2026-10-02 10:20:26 · 223 · review 1 · done
 - 2026-10-02 10:20:48 · 223 · story · done
+- 2026-10-02 10:21:03 · 226 · build · started
+- 2026-10-02 10:21:27 · 226 · D1 LF + format commit + format:check · started
+- 2026-10-02 10:27:25 · 226 · D1 LF + format commit + format:check · done
+- 2026-10-02 10:27:46 · 226 · D2 drop patch-package · started
+- 2026-10-02 10:29:59 · 226 · D2 drop patch-package · done
+- 2026-10-02 10:29:59 · 226 · D3 dependencies current · started
+- 2026-10-02 10:36:24 · 226 · D3 dependencies current · done
+- 2026-10-02 10:36:24 · 226 · D4 dependabot + audit step + cleanup · started
+- 2026-10-02 10:38:20 · 226 · D4 dependabot + audit step + cleanup · done
+- 2026-10-02 10:40:00 · 226 · verify · started
+- 2026-10-02 10:41:39 · 226 · verify · done (verify:release not runnable: Docker daemon down)
+- 2026-10-02 10:41:39 · 226 · review 1 · started
+- 2026-10-02 10:42:36 · 226 · review 1 · done
+- 2026-10-02 10:43:21 · 226 · story · done

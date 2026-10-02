@@ -31,6 +31,8 @@ run.
 | `npm run icon`        | regenerates `build/icon.{png,ico}` from `scripts/generate-icon.mjs` |
 | `npm run package:win` | typecheck, build, then an NSIS installer + zip in `release/`        |
 
+CI runs `npm run format:check`; run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once so `git blame` skips the one-time format commit.
+
 ### Before a PR into main: `npm run verify:release`
 
 One command that answers "will the PR checks go green, and will the release

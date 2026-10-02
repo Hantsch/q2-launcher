@@ -14,11 +14,12 @@
 //      that a GitHub checkout never has.
 //
 // So this script: computes the PR's merge tree (`git merge-tree --write-tree`, no commit, no ref,
-// no index touched), checks it out into two throwaway snapshot folders - one with this machine's
-// line endings for the host phase, one with LF for the Linux phase - and runs in them:
+// no index touched), checks it out into two throwaway snapshot folders - one for the host phase,
+// one for the Linux phase - and runs in them (.gitattributes' `eol=lf` makes both LF whatever
+// core.autocrlf says; the pins below only keep each checkout matching its runner's git):
 //   host  (the `test (windows-latest)` leg + the release job's own Windows steps):
 //         npm ci, typecheck, test, release plan, ui:verify (screens + axe), package:win|linux
-//   linux (every PR workflow, through act + Docker, from the LF snapshot):
+//   linux (every PR workflow, through act + Docker, from the Linux snapshot):
 //         ci.yml, linux-verify.yml, linux-update.yml
 // What is verified is the working tree as `git add -A` would commit it (HEAD plus uncommitted and
 // untracked, non-ignored files), captured through a throwaway index into an unreferenced snapshot

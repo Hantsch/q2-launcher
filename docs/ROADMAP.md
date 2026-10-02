@@ -105,7 +105,9 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
   finishes) flagged by its review and left as a documented, non-blocking limitation — worth closing
   once anyone hits it in practice. [S21 review](../sprints/S21/review.md)
 - ESLint is absent (`typescript-eslint@8` caps TS `<6.1.0`; project is on TS7) — revisit when it
-  supports TS7. Vite is pinned to 7.x (`electron-vite@5` constraint) — revisit at `electron-vite@6`.
+  supports TS7.
+- Make `ci.yml`'s `npm audit` step blocking (drop `continue-on-error`) on 2026-10-09, after S33.
+  [story 226]
 - Per-installation launch profiles (cvar overrides, safe mode, connect-to-server).
 - Crash detection: a non-zero exit shortly after start is worth surfacing.
 - Only `en` ships; adding a locale is one JSON file plus one entry in `i18n/index.ts`.

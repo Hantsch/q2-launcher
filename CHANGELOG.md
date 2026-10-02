@@ -24,6 +24,10 @@ version section when a release actually ships.
 - **Servers** — Switch between Online and LAN to find servers on your local network.
 - **Servers** — Save your server filter as a named quick filter and reapply it with one click.
 
+### Security
+
+- Updated Electron to 43.7.7 for upstream security fixes.
+
 ## 0.6.0 — 2026-09-30
 
 ### Added
