@@ -146,8 +146,8 @@ export function downloadFailureWithoutDiagnostics() {
   return {
     id: DOWNLOAD_FAILURE_WITHOUT_DIAGNOSTICS_ID,
     jobId: 'fixture-download-job-plain',
-    // Mirrors src/main/modules/downloads.ts's non-bootstrap job label key.
-    labelKey: 'downloads.job.download',
+    // The bootstrap job's label key (src/main/modules/downloads/bootstrap/job.ts).
+    labelKey: 'downloads.job.bootstrap',
     labelParams: { name: 'Q2PRO Engine' },
     error: { key: 'downloads.error.network' },
     createdAt: Date.parse('2026-09-01T09:00:00.000Z'),

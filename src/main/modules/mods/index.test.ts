@@ -40,7 +40,10 @@ function installation(gameDirs: string[], moduleData?: Record<string, unknown>) 
 
 const emitted: unknown[][] = []
 
-async function registryFor(inst: ReturnType<typeof installation>) {
+async function registryFor(
+  inst: ReturnType<typeof installation>,
+  manifest: { getManifest: () => Promise<unknown> } = { getManifest: async () => ({ packages: [] }) },
+) {
   const app = {
     isDev: false,
     harness: resolveUiHarness({}),
@@ -48,6 +51,7 @@ async function registryFor(inst: ReturnType<typeof installation>) {
     userDataDir: '',
     os: { openPath },
     persistence: new PersistenceRegistry(),
+    content: { manifest },
     installations: { find: (id: string) => (id === inst.id ? inst : undefined) },
     broadcast: { emit: (...args: unknown[]) => emitted.push(args) },
   } as unknown as AppContext
@@ -369,6 +373,24 @@ describe('mods module update (story 194)', () => {
   })
 })
 
+describe('mods module manifest', () => {
+  it("mods reads the app's one ManifestService", async () => {
+    const getManifest = vi.fn(async () => ({ packages: [] }))
+    vi.mocked(startModInstall).mockReset()
+    vi.mocked(startModInstall).mockImplementation(async (deps) => {
+      await deps.enginePackages()
+      return { ok: false, error: { key: 'mods.error.notFound' } } as never
+    })
+    const r = await registryFor(installation(['rogue']), { getManifest })
+    await r.invoke({
+      moduleId: 'mods',
+      type: MODS_HANDLERS.install,
+      payload: { installationId: 'inst-1', catalogId: 'rogue' },
+    })
+    expect(getManifest).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('mods module persistence', () => {
   it('registers its caches with app.persistence', async () => {
     const labels: string[] = []
@@ -376,9 +398,10 @@ describe('mods module persistence', () => {
       isDev: false,
       harness: resolveUiHarness({}),
       persistence: { register: (label: string) => void labels.push(label) },
+      content: { manifest: {} },
       installations: { find: () => undefined },
     } as unknown as AppContext
     await new MainModuleRegistry().register(modsModule, app)
-    expect(labels.sort()).toEqual(['mods-catalog', 'mods-manifest'])
+    expect(labels.sort()).toEqual(['mods-catalog'])
   })
 })

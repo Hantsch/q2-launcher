@@ -20,7 +20,7 @@ function service(): { jobs: JobsService; broadcast: ReturnType<typeof vi.fn> } {
 }
 
 function create(jobs: JobsService, moduleId: Job['moduleId'] = 'downloads'): string {
-  return jobs.create({ moduleId, kind: 'download', labelKey: 'downloads.job.download' }).id
+  return jobs.create({ moduleId, kind: 'download', labelKey: 'downloads.job.bootstrap' }).id
 }
 
 describe('JobsService broadcast (unchanged by story 073 D2)', () => {

@@ -81,8 +81,12 @@ export interface BuildAssemblePlanInput {
    * engine-role entries at all rather than defaulting to one engine's binaries.
    */
   engine?: EngineKind
-  /** Whether the wizard's video/players toggle is on - see the module doc comment above. */
-  includeVideoAndPlayers: boolean
+  /**
+   * `core` plans the allowlist (never a glob dir); `extras` plans only `GLOB_DIRS` (the wizard's
+   * video/players toggle), never an allowlist file - so the two passes can never name the same
+   * target and a file is recorded and copied once.
+   */
+  scope: 'core' | 'extras'
   /**
    * Story 088 D3: which game-data block this plan copies - the demo + point-release archives
    * (`'free-download'`, [[074]]'s original and only source) or a detected retail installation's
@@ -306,11 +310,22 @@ function selectGameDataEntries(input: BuildAssemblePlanInput): AssembleFileEntry
  * (story 088 D3's `copyRetailGameData`, which copies game data only) - the plan then carries no
  * engine-role entries at all.
  */
-export function buildAssemblePlan(input: BuildAssemblePlanInput): AssembleFileEntry[] {
-  // `video/*`/`players/*` are not literal entries here - a glob is not a relative path. When the
-  // toggle is on, `assembleInstallation` expands GLOB_DIRS at copy time against whichever source
-  // dir actually has them, rather than this pure function guessing file names in advance.
-  void input.includeVideoAndPlayers
+export function buildAssemblePlan(
+  input: BuildAssemblePlanInput & { scope: 'extras' },
+): GlobDirEntry[]
+export function buildAssemblePlan(
+  input: BuildAssemblePlanInput & { scope: 'core' },
+): AssembleFileEntry[]
+export function buildAssemblePlan(
+  input: BuildAssemblePlanInput,
+): AssembleFileEntry[] | GlobDirEntry[]
+export function buildAssemblePlan(
+  input: BuildAssemblePlanInput,
+): AssembleFileEntry[] | GlobDirEntry[] {
+  // `video/*`/`players/*` are not literal entries - a glob is not a relative path.
+  // `assembleInstallation` expands them at copy time against whichever source dir has them,
+  // rather than this pure function guessing file names in advance.
+  if (input.scope === 'extras') return GLOB_DIRS.map((dir) => ({ from: dir.from, to: dir.to }))
 
   const gameData = selectGameDataEntries(input)
 
@@ -355,7 +370,8 @@ export interface AssembleInstallationInput {
    * (story 088 D3): `copyRetailGameData` assembles game data only, with no engine entries.
    */
   engine?: EngineKind
-  includeVideoAndPlayers: boolean
+  /** Forwarded to `buildAssemblePlan` - see its own doc comment. */
+  scope: 'core' | 'extras'
   /** Story 088 D3 / 089 D3: forwarded to `buildAssemblePlan` - see its own doc comment. */
   dataSource?: 'free-download' | 'store-copy' | 'existing-folder'
   /** Story 089 D3: forwarded to `buildAssemblePlan` - see its own doc comment. */
@@ -486,7 +502,7 @@ export async function assembleInstallation(
     sources,
     targetRoot,
     engine,
-    includeVideoAndPlayers,
+    scope,
     dataSource,
     folderPakNames,
     restrictTo,
@@ -495,7 +511,34 @@ export async function assembleInstallation(
   const missingRequired: { role: AssembleFileRole; from: string[] }[] = []
   const entries: AssembleEntryResult[] = []
 
-  const fullPlan = buildAssemblePlan({ engine, includeVideoAndPlayers, dataSource, folderPakNames })
+  if (scope === 'extras') {
+    for (const globDir of buildAssemblePlan({ scope, engine, dataSource, folderPakNames })) {
+      const expanded = await expandGlobDir(sources, globDir.from)
+      if (!expanded) {
+        entries.push({ from: globDir.from.join(' | '), to: globDir.to, found: false })
+        continue
+      }
+
+      entries.push({
+        from: expanded.relativePath,
+        to: globDir.to,
+        found: true,
+        sourcePackageId: expanded.packageId,
+      })
+
+      for (const name of expanded.names) {
+        const source = join(expanded.absoluteDir, name)
+        const toRelative = join(globDir.to, name)
+        const dest = join(targetRoot, toRelative)
+        await mkdir(dirname(dest), { recursive: true })
+        await cp(source, dest, { recursive: true, dereference: true })
+        copiedFiles.push(toRelative)
+      }
+    }
+    return { copiedFiles, missingRequired, entries }
+  }
+
+  const fullPlan = buildAssemblePlan({ scope, engine, dataSource, folderPakNames })
   const plan =
     restrictTo === undefined
       ? fullPlan
@@ -544,32 +587,6 @@ export async function assembleInstallation(
     // not the independent copy AC3 promises. Forced true so the target is always real bytes.
     await cp(source.absolutePath, dest, { dereference: true })
     copiedFiles.push(entry.to)
-  }
-
-  if (includeVideoAndPlayers) {
-    for (const globDir of GLOB_DIRS) {
-      const expanded = await expandGlobDir(sources, globDir.from)
-      if (!expanded) {
-        entries.push({ from: globDir.from.join(' | '), to: globDir.to, found: false })
-        continue
-      }
-
-      entries.push({
-        from: expanded.relativePath,
-        to: globDir.to,
-        found: true,
-        sourcePackageId: expanded.packageId,
-      })
-
-      for (const name of expanded.names) {
-        const source = join(expanded.absoluteDir, name)
-        const toRelative = join(globDir.to, name)
-        const dest = join(targetRoot, toRelative)
-        await mkdir(dirname(dest), { recursive: true })
-        await cp(source, dest, { recursive: true, dereference: true })
-        copiedFiles.push(toRelative)
-      }
-    }
   }
 
   return { copiedFiles, missingRequired, entries }

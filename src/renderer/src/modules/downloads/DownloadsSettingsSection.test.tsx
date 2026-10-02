@@ -127,15 +127,37 @@ describe('DownloadsSettingsSection', () => {
     await waitFor(() => expect(getArchiveCacheStatus).toHaveBeenCalledTimes(2))
   })
 
-  it('refetches cache status after a settings patch (a lowered budget evicts server-side)', async () => {
+  it('concurrency and download-while-playing are disabled and show the reason', async () => {
     render(createElement(DownloadsSettingsSection))
 
     const concurrency = (await screen.findByTestId('downloads-settings-concurrency')).querySelector(
       'select',
     ) as HTMLSelectElement
+    const whilePlaying = (
+      await screen.findByTestId('downloads-settings-while-playing')
+    ).querySelector('[role="switch"]') as HTMLButtonElement
     await waitFor(() => expect(concurrency.value).toBe('3'))
 
-    fireEvent.change(concurrency, { target: { value: '2' } })
+    const reason = 'Not available yet: downloads run one at a time'
+    const concurrencyReason = screen.getByTestId('downloads-settings-concurrency-reason')
+    const whilePlayingReason = screen.getByTestId('downloads-settings-while-playing-reason')
+    expect(concurrency.disabled).toBe(true)
+    expect(whilePlaying.disabled).toBe(true)
+    expect(concurrencyReason.textContent).toBe(reason)
+    expect(whilePlayingReason.textContent).toBe(reason)
+    expect(concurrency.getAttribute('aria-describedby')).toBe(concurrencyReason.id)
+    expect(whilePlaying.getAttribute('aria-describedby')).toBe(whilePlayingReason.id)
+  })
+
+  it('refetches cache status after a settings patch (a lowered budget evicts server-side)', async () => {
+    render(createElement(DownloadsSettingsSection))
+
+    const budget = (await screen.findByTestId('downloads-settings-cache-budget')).querySelector(
+      'select',
+    ) as HTMLSelectElement
+    await waitFor(() => expect(budget.value).toBe('10'))
+
+    fireEvent.change(budget, { target: { value: '5' } })
 
     await waitFor(() => expect(patchDownloadsSettings).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(getArchiveCacheStatus).toHaveBeenCalledTimes(2))

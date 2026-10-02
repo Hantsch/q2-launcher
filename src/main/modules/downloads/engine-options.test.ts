@@ -7,6 +7,7 @@ import { DOWNLOADS_HANDLERS, type BootstrapEngineOptionsResult } from '@shared/m
 import type { Logger } from '../../lib/logger'
 import { JobsService } from '../../services/jobs'
 import { resolveUiHarness } from '../../lib/ui-harness'
+import { ManifestService } from '../../services/content/manifest-service'
 import { PersistenceRegistry } from '../../services/persistence'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { fail } from '@shared/types'
@@ -223,6 +224,7 @@ async function setUpModule(): Promise<Map<string, ModuleHandler>> {
       env: {},
       isPackaged: false,
       persistence: new PersistenceRegistry(),
+      content: { manifest: new ManifestService({ log: fakeLogger() }) },
       state: fakeSectionState(),
     } as unknown as ModuleSetup['app'],
     log: fakeLogger(),

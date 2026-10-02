@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, rm, rmdir } from 'node:fs/promises'
+import { readdir, rmdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import {
@@ -31,15 +31,16 @@ import {
   type RemoveInstallationInput,
   type UpdateInstallationInput,
 } from '@shared/types'
-import { canonicalizePath } from '../../../lib/fs-utils'
+import { canonicalizePath, removeDir } from '../../../lib/fs-utils'
+import { clamp01 } from '../../../lib/math'
 import type { CreateJobInput } from '../../../services/jobs'
 import { isWriteCancelled } from '../../../services/write-guard'
 import { EXTRACTION_LISTING_CAP } from '../diagnostics'
-import { markVerified, type ExtractorHandle } from '../../../lib/archive/extractor'
+import type { ExtractorHandle } from '../../../lib/archive/extractor'
 import type { FetchImpl } from '../../../lib/net/fetcher'
 import type { InstallationEngineState } from '../../../services/engine-state'
 import { isSafeDownloadFileName } from '../../../lib/net/download-cache-paths'
-import { getExtractDir } from '../../../services/package-staging'
+import { getExtractDir, stagePackage } from '../../../services/package-staging'
 import {
   assembleInstallation,
   type AssembleEntryResult,
@@ -47,7 +48,6 @@ import {
   type AssembleSource,
 } from './assemble'
 import {
-  asExtractionErrorKey,
   GAME_DATA_SOURCE_UNUSABLE,
   LOCAL_FAILURE,
   MISSING_RUNTIME,
@@ -75,15 +75,13 @@ import { computeTargetVerdict } from './target'
  *
  * ## One job, three packages
  *
- * This deliberately does not go through `pipeline.ts`. That file's unit of work is "one package =
- * one `Job`", and this story's acceptance is about *the* job, singular: one progress bar, one
- * cancel button, one `playableAtRatio` transition across three downloads, two assemble passes and
- * two revalidations. So this file creates its own `Job` and calls the same lower-level pieces
- * `pipeline.ts` composes (`downloadPackage`, `extractArchive`), reached through the ports in
- * `ports.ts`. What it *does* borrow from `pipeline.ts` is the discipline: a `report()` that goes
- * silent once cancelled (because `JobsService.progress()` unconditionally sets `status: 'running'`
- * and would otherwise resurrect a cancelled job), a `failed()` helper that ends the job exactly
- * once, and an explicit cancel check after every `await` that could span one.
+ * This story's acceptance is about *the* job, singular: one progress bar, one cancel button, one
+ * `playableAtRatio` transition across three downloads, two assemble passes and two revalidations.
+ * So this file creates its own `Job` and calls the lower-level pieces (`downloadPackage`,
+ * `extractArchive`), reached through the ports in `ports.ts`. The discipline: a `report()` that
+ * goes silent once cancelled (because `JobsService.progress()` unconditionally sets
+ * `status: 'running'` and would otherwise resurrect a cancelled job), a `failed()` helper that
+ * ends the job exactly once, and an explicit cancel check after every `await` that could span one.
  *
  * ## The order is the acceptance criterion
  *
@@ -124,7 +122,7 @@ import { computeTargetVerdict } from './target'
  * 5. Per package, in order: download (verified by the fetcher) then extract, each into its own
  *    `<cache>/extract/<jobId>/<packageId>` directory - one per package, since a single job now
  *    holds three archives.
- * 6. **Assemble core** - `assembleInstallation({ includeVideoAndPlayers: false })`, D3's allowlist.
+ * 6. **Assemble core** - `assembleInstallation({ scope: 'core' })`, D3's allowlist.
  *    Story 088 D4: a `store-copy` run adds the verified retail root to `sources` as a plain
  *    `AssembleSource` with `role: 'retail'` (Decisions (Sprint): "the retail install root is just
  *    another assemble source") and passes `dataSource: 'store-copy'`, so this one pass copies the
@@ -719,11 +717,6 @@ export async function buildBootstrapSummary(
   })
 }
 
-function clamp01(value: number): number {
-  if (!Number.isFinite(value)) return 0
-  return Math.min(1, Math.max(0, value))
-}
-
 /**
  * Story 078 D3 (AC8): what one package's extraction actually produced, at its top level only -
  * names, sorted, capped at `EXTRACTION_LISTING_CAP`. Enough to see that a self-extracting installer
@@ -748,15 +741,6 @@ async function listExtraction(
   } catch (error) {
     log?.warn(`the extraction at ${dir} could not be listed: ${String(error)}`)
     return undefined
-  }
-}
-
-/** Best-effort: a directory that cannot be removed must not also fail (or un-fail) the job. */
-async function removeDir(dir: string, log?: BootstrapLog): Promise<void> {
-  try {
-    await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
-  } catch (error) {
-    log?.warn(`the directory ${dir} could not be removed: ${String(error)}`)
   }
 }
 
@@ -1230,11 +1214,6 @@ export async function startBootstrap(
      *
      * Pure bookkeeping over values already in hand: it is never awaited and never sits between a
      * failure and its `cleanUp()`.
-     *
-     * The auxiliary pass re-plans the fixed allowlist as well as the two glob dirs (that is what
-     * `buildAssemblePlan` returns), so a run with the extras on records those entries twice - once
-     * per pass, in the order they were tried. Deduplicating would hide which pass saw what, and the
-     * cleanup set (`copied`, a `Set`) already handles the repetition where it matters.
      */
     const assembled: AssembleEntryResult[] = []
     const recordAssembly = (entries: AssembleEntryResult[]): void => {
@@ -1284,10 +1263,17 @@ export async function startBootstrap(
         })
       }
 
-      const fetched = await deps.fetcher.fetch(entry.source, {
+      // Download, verify, create `extractDir` (7za is spawned with `cwd: extractDir`) and extract.
+      // The stager publishes the extractor handle with no `await` after its own cancel check, so
+      // `onCancel` can always kill a running 7za.
+      const staged = await stagePackage({
+        source: entry.source,
+        jobId,
+        index,
+        extractDir,
         userDataPath: deps.userDataPath,
         signal: controller.signal,
-        onProgress: ({ receivedBytes }) =>
+        onProgress: (receivedBytes) =>
           report({
             ratio: packagesProgress(
               doneBytes,
@@ -1298,47 +1284,7 @@ export async function startBootstrap(
             bytesTotal: totalBytes,
             filesRemaining,
           }),
-        ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
-        ...(jobLog ? { log: jobLog } : {}),
-      })
-
-      if (!fetched.ok) {
-        // A cancel is not a failure needing a reason, and the fixed key set has no member for
-        // "the user changed their mind" - so it never surfaces `fetched.key`.
-        if (fetched.cancelled || cancelled) return cancelledOutcome()
-        // The URL last attempted - the mirror, when the fallback got that far - and not the
-        // manifest's primary: "where it actually came from" is the useful line in a bug report.
-        // The declared size, since nothing verified arrived.
-        recordPackage(
-          fetched.attempts[fetched.attempts.length - 1]?.url ?? entry.pkg.url,
-          entry.pkg.sizeBytes,
-          false,
-          false,
-        )
-        return failed(fetched.key, `${entry.pkg.id}: ${fetched.reason}`)
-      }
-
-      if (cancelled) return cancelledOutcome()
-
-      // 7za is spawned with `cwd: extractDir`, so the directory has to exist before the spawn.
-      try {
-        await mkdir(extractDir, { recursive: true })
-      } catch (error) {
-        recordPackage(fetched.url, fetched.sizeBytes, true, false)
-        return failed(LOCAL_FAILURE, `mkdir ${extractDir} failed: ${String(error)}`)
-      }
-
-      if (cancelled) return cancelledOutcome()
-
-      const extractorPath = deps.resolveExtractor()
-      // No `await` between the check above and the assignment below, so a cancel can never land in
-      // a gap where the extractor is running but `onCancel` cannot see it yet.
-      extractor = deps.extractor.extract({
-        archive: markVerified(fetched.path),
-        extractDir,
-        extractorPath: extractorPath.path,
-        extractorExists: extractorPath.exists,
-        onProgress: (ratio) =>
+        onExtractProgress: (ratio) =>
           report({
             ratio: packagesProgress(
               doneBytes,
@@ -1349,19 +1295,42 @@ export async function startBootstrap(
             bytesTotal: totalBytes,
             filesRemaining,
           }),
+        onExtractor: (handle) => {
+          extractor = handle
+        },
+        resolveExtractor: deps.resolveExtractor,
+        download: deps.fetcher.fetch,
+        extract: deps.extractor.extract,
+        options: {
+          ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
+          ...(jobLog ? { log: jobLog } : {}),
+        },
       })
 
-      const extracted = await extractor.result
-
-      // Before `extracted.ok`, on purpose: a kill that lost the race against 7za's own clean exit
-      // must not turn a cancelled job into a succeeded one.
+      // Before the result, on purpose: a kill that lost the race against 7za's own clean exit must
+      // not turn a cancelled job into a succeeded one. A cancel is not a failure needing a reason,
+      // and the fixed key set has no member for "the user changed their mind" - so it never
+      // surfaces the stager's key.
       if (cancelled) return cancelledOutcome()
-      if (!extracted.ok) {
-        recordPackage(fetched.url, fetched.sizeBytes, true, false)
-        return failed(
-          asExtractionErrorKey(extracted.error.key),
-          `extracting ${entry.pkg.id} failed`,
+      if (!staged.ok) {
+        if (staged.cancelled) return cancelledOutcome()
+        if (staged.stage === 'download') {
+          // The URL last attempted - the mirror, when the fallback got that far - and not the
+          // manifest's primary: "where it actually came from" is the useful line in a bug report.
+          // The declared size, since nothing verified arrived.
+          recordPackage(staged.url ?? entry.pkg.url, entry.pkg.sizeBytes, false, false)
+          return failed(staged.key, `${entry.pkg.id}: ${staged.reason}`)
+        }
+        // Past the download, so the archive was verified; it just never got extracted.
+        recordPackage(
+          staged.url ?? entry.pkg.url,
+          staged.sizeBytes ?? entry.pkg.sizeBytes,
+          true,
+          false,
         )
+        return staged.stage === 'prepare'
+          ? failed(staged.key, staged.reason)
+          : failed(staged.key, `extracting ${entry.pkg.id} failed`)
       }
 
       // Story 078 D3 (AC8): the only `await` this story adds to the loop, and deliberately on the
@@ -1374,7 +1343,7 @@ export async function startBootstrap(
       // Verified by the fetcher and extracted by 7za. Whether it went on to *contribute* anything
       // is `recordAssembly`'s to say, further down - a package can extract perfectly and still
       // leave the installation unplayable, which is the failure this story exists for.
-      recordPackage(fetched.url, fetched.sizeBytes, true, true, listing)
+      recordPackage(staged.url, staged.sizeBytes, true, true, listing)
 
       doneBytes += packageBytes
       sources.push({ packageId: entry.pkg.id, dir: extractDir, role: entry.role })
@@ -1441,7 +1410,7 @@ export async function startBootstrap(
           sources,
           targetRoot,
           engine: input.engine,
-          includeVideoAndPlayers: false,
+          scope: 'core',
           dataSource,
           ...(folderPakNames ? { folderPakNames } : {}),
         })
@@ -1576,7 +1545,7 @@ export async function startBootstrap(
             sources,
             targetRoot,
             engine: input.engine,
-            includeVideoAndPlayers: true,
+            scope: 'extras',
             dataSource,
             ...(folderPakNames ? { folderPakNames } : {}),
           })

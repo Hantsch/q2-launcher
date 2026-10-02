@@ -1,4 +1,5 @@
-import { constants as FS } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { constants as FS, createReadStream } from 'node:fs'
 import {
   access,
   cp,
@@ -12,6 +13,7 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, posix, resolve, sep, win32 } from 'node:path'
+import { pipeline } from 'node:stream/promises'
 import type { BinaryKind } from '@shared/types'
 import { foldPathCase, isWindows } from './platform'
 
@@ -373,4 +375,45 @@ export async function moveFile(from: string, to: string): Promise<void> {
     await cp(from, to, { dereference: true })
     await rm(from, { force: true, maxRetries: 3, retryDelay: 50 })
   }
+}
+
+/** Best-effort: a directory that cannot be removed must not also fail (or un-fail) the caller. */
+export async function removeDir(dir: string, log?: { warn(message: string): void }): Promise<void> {
+  try {
+    await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+  } catch (error) {
+    log?.warn(`the directory ${dir} could not be removed: ${String(error)}`)
+  }
+}
+
+/** Streams `path` once; the size is the bytes actually hashed, not a separate stat. */
+export async function hashFile(path: string): Promise<{ sha256: string; sizeBytes: number }> {
+  const hash = createHash('sha256')
+  let sizeBytes = 0
+  await pipeline(createReadStream(path), async (source) => {
+    for await (const chunk of source as AsyncIterable<Buffer>) {
+      sizeBytes += chunk.length
+      hash.update(chunk)
+    }
+  })
+  return { sha256: hash.digest('hex'), sizeBytes }
+}
+
+/**
+ * Every non-directory entry under `dir`, depth-first, with `rel` always forward-slashed. `isFile`
+ * is false for symlinks and special files so a caller can refuse them. Read errors propagate; a
+ * caller that tolerates a missing directory catches them itself.
+ */
+export async function listFilesRecursive(
+  dir: string,
+  prefix = '',
+): Promise<{ rel: string; abs: string; isFile: boolean }[]> {
+  const out: { rel: string; abs: string; isFile: boolean }[] = []
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const abs = join(dir, entry.name)
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name
+    if (entry.isDirectory()) out.push(...(await listFilesRecursive(abs, rel)))
+    else out.push({ rel, abs, isFile: entry.isFile() })
+  }
+  return out
 }

@@ -5,8 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { stubPlatform } from '../../test-support/platform'
 import {
   dirReadFailureReason,
+  hashFile,
   isInside,
   listDir,
+  listFilesRecursive,
   looksExecutable,
   readBinaryArch,
   readBinaryKind,
@@ -337,5 +339,34 @@ describe('readBinaryArch', () => {
       expect(await readBinaryArch(file), name).toBe(expected)
     }
     expect(await readBinaryArch(join(dir, 'does-not-exist'))).toBe('unknown')
+  })
+})
+
+describe('shared file helpers', () => {
+  let root: string
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), 'fs-utils-shared-'))
+  })
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('listFilesRecursive lists nested files with forward slashes', async () => {
+    await mkdir(join(root, 'a', 'b'), { recursive: true })
+    await writeFile(join(root, 'top.txt'), 'x')
+    await writeFile(join(root, 'a', 'b', 'deep.txt'), 'y')
+    const listed = await listFilesRecursive(root)
+    expect(listed.map((e) => e.rel).sort()).toEqual(['a/b/deep.txt', 'top.txt'])
+    expect(listed.every((e) => e.isFile)).toBe(true)
+    expect(listed.find((e) => e.rel === 'a/b/deep.txt')?.abs).toBe(join(root, 'a', 'b', 'deep.txt'))
+  })
+
+  it('hashFile returns sha256 and size', async () => {
+    const file = join(root, 'abc.txt')
+    await writeFile(file, 'abc')
+    expect(await hashFile(file)).toEqual({
+      sha256: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+      sizeBytes: 3,
+    })
   })
 })

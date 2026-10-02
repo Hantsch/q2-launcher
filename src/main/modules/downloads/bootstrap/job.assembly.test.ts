@@ -102,6 +102,23 @@ describe('startBootstrap', () => {
     expect(await exists(join(targetPath, 'baseq2', 'players', 'male', 'tris.md2'))).toBe(true)
   })
 
+  it('a run with the extras on records each file once', async () => {
+    const box = harness()
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      includeVideoAndPlayers: true,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    await started.value.settled
+
+    const targets = (recordFor(box, started.value.jobId)?.assembly ?? []).map((entry) => entry.to)
+    expect(targets).toContain('baseq2/video')
+    expect(new Set(targets).size).toBe(targets.length)
+  })
+
   it('takes the installation status from inspectInstallation and records playableAtRatio once', async () => {
     const box = harness()
     const markPlayable = vi.spyOn(box.jobs, 'markPlayable')

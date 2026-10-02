@@ -102,7 +102,7 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
     // Defaults to the `'free-download'` data source (no `dataSource` passed), so this plan never
     // contains a `'retail'`-role entry (story 088 D3) - `layoutsByRole`'s keys predate that role
     // and only cover the manifest-sourced packages this test is about.
-    const plan = buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })
+    const plan = buildAssemblePlan({ engine: 'q2pro', scope: 'core' })
     // Only `required` entries are checked here: `baseq2/q2pro.menu` is `required: false` and is
     // deliberately excluded from the recorded listing (it was never independently measured - see
     // the story's Decisions). Filtering to `required === true` already excludes it; this comment
@@ -230,7 +230,7 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
     // is not "measured", so it counts as accounted-for here too - resolved from `assemble.ts`'s
     // own `required` flag rather than a second, hand-typed literal.
     const optionalTargetsByRole = new Map<string, Set<string>>()
-    for (const entry of buildAssemblePlan({ engine: 'q2pro', includeVideoAndPlayers: false })) {
+    for (const entry of buildAssemblePlan({ engine: 'q2pro', scope: 'core' })) {
       if (entry.required) continue
       const set = optionalTargetsByRole.get(entry.role) ?? new Set<string>()
       set.add(entry.to)

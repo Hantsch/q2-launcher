@@ -8,7 +8,6 @@ import {
   type DownloadsSettings,
   type EngineUpdateChannel,
   type EngineUpdateStatus,
-  type PackageSource,
   type RepairPlan,
   type StartEngineUpdateResult,
   type StartRepairResult,
@@ -52,14 +51,7 @@ import { startEngineRollback, type EngineRollbackDeps } from './engine/rollback-
 import { readEngineState, type InstallationEngineState } from '../../services/engine-state'
 import { setEngineState, withEngineState } from './engine/record-engine-state'
 import { appendFailure, dismissFailure, restoreFailure } from './failure-log'
-import { ManifestService, ManifestUnavailableError } from '../../services/content/manifest-service'
-import { PRODUCTION_DOWNLOAD_SOURCE, resolveDownloadSource } from '../../services/content/source'
-import {
-  createDownloadPipeline,
-  type DownloadPipeline,
-  type PipelineLog,
-  type StartedDownload,
-} from './pipeline'
+import { type ManifestService, ManifestUnavailableError } from '../../services/content/manifest-service'
 import { startRepair, type RepairDeps } from './repair/job'
 import { resolveRepairPlan, type RepairPlanDeps } from './repair/plan'
 import { detectedRetailSourcesFor } from './retail/sources'
@@ -101,32 +93,13 @@ const BYTES_PER_GB = 1024 * 1024 * 1024
  * (wizard/Downloads tab UI) is a later story, and `MainModuleRegistry.manifests()` already
  * reports a module's status as `'planned'` unless its main half AND the manifest both say
  * otherwise - this file registering a handler does not by itself flip that.
- *
- * Story 071 D4 adds the download+extract pipeline to the same `setup()`, and no IPC channel
- * (Decisions (Sprint), "No IPC channel in this story"): the pipeline is reached by
- * `startDownload(app, source)` below, a plain main-process call, not through `module:invoke`.
  */
 export const downloadsModule: MainModule = {
   id: 'downloads',
 
   setup({ handle, app, log, onDispose }) {
     const persisted = downloadsState(app.state)
-    // Story 074 D8: resolved exactly once, here, and then only ever passed around as a value -
-    // see `harness.ts`. Without `Q2L_UI_HARNESS=1` (which a real shipped build never sets, and
-    // which is not reachable from its UI) this is `PRODUCTION_DOWNLOAD_SOURCE`, and no later
-    // change of environment can alter it.
-    const source = resolveDownloadSource(app.harness)
-    if (source !== PRODUCTION_DOWNLOAD_SOURCE) {
-      log.warn(`UI harness: download source overridden to ${source.baseUrl} (dev build only)`)
-    }
-    const manifestService = new ManifestService({ log, source })
-    app.persistence.register('downloads-manifest', manifestService)
-
-    // Story 071 D4: builds the queue (and with it the pipeline) at startup, so the module owns
-    // exactly one queue per `AppContext` no matter who calls `startDownload()` first. Nothing on
-    // `app` is dereferenced here - every dependency below is a getter the pipeline calls when a
-    // download actually starts, which is also what keeps the concurrency limit live ([[072]]).
-    createPipelineFor(app, log)
+    const manifestService = app.content.manifest
 
     // Story 073 D2: start observing job changes before any handler is registered, so no failure
     // can slip past between setup and the first renderer call.
@@ -244,7 +217,7 @@ export const downloadsModule: MainModule = {
     /**
      * Story 074 D4 (AC5/AC6): starts the bootstrap job and answers its id. Deliberately does not
      * await the job - `startBootstrap` returns as soon as the installation is registered and the
-     * job exists, exactly like `startDownload` above, so the wizard can switch to the progress
+     * job exists, so the wizard can switch to the progress
      * step instead of blocking on a several-hundred-megabyte download.
      */
     handle(
@@ -662,45 +635,13 @@ async function resolveEngineUpdateTarget(
 }
 
 /**
- * One pipeline per `AppContext`, rather than one per process: a module-level singleton would be
- * shared by two contexts in the same process (which is exactly what a test does), and the
- * download cache and job registry it owns belong to a context, not to a process. Weakly keyed so
- * a discarded context takes its pipeline with it.
- */
-const pipelines = new WeakMap<AppContext, DownloadPipeline>()
-
-function createPipelineFor(app: AppContext, log?: PipelineLog): DownloadPipeline {
-  const existing = pipelines.get(app)
-  if (existing) return existing
-
-  const pipeline = createDownloadPipeline({
-    getJobs: () => app.jobs,
-    getUserDataPath: () => userDataDir(),
-    getConcurrency: () => downloadsState(app.state).settings.get().concurrentJobs,
-    // Resolved per extraction, and deliberately with the real `electron.app` rather than an
-    // injected value: this is the production wiring, and `7za-path.ts` already takes its inputs
-    // as parameters so that its own tests need no Electron runtime.
-    resolveExtractor: () =>
-      resolveExtractorPath({
-        isPackaged: app.isPackaged,
-        resourcesPath: process.resourcesPath,
-      }),
-    ...(log ? { log } : {}),
-  })
-
-  pipelines.set(app, pipeline)
-  return pipeline
-}
-
-/**
- * Story 074 D4: the production wiring for the bootstrap job (`bootstrap/job.ts`). Built per call
- * rather than per context: unlike the download pipeline, a bootstrap job owns no queue and no
- * cross-call state, so there is nothing to keep alive between two of them.
+ * Story 074 D4: the production wiring for the bootstrap job (`bootstrap/job.ts`). Built per call:
+ * a bootstrap job owns no cross-call state, so there is nothing to keep alive between two of them.
  *
- * The extractor is resolved per extraction with the real `electron.app` (like `createPipelineFor`
- * above), and `app.installations` is the shell's real `InstallationsService` - the job's narrow
- * `BootstrapInstallationsHost` is satisfied structurally, so nothing in this module can reach past
- * `create`/`validate`/`remove` into the library.
+ * The extractor is resolved per extraction with the real `electron.app`. `app.installations` is
+ * the shell's real `InstallationsService`; the job's narrow `BootstrapInstallationsHost` is
+ * satisfied structurally, so nothing in this module can reach past `create`/`validate`/`remove`
+ * into the library.
  */
 function bootstrapDepsFor(
   app: AppContext,
@@ -863,19 +804,4 @@ function engineRollbackDepsFor(app: AppContext, log: Logger): EngineRollbackDeps
     writeGuard: app.writeGuard,
     log,
   }
-}
-
-/**
- * Story 071 D4: starts a verified download of `source` and, on success, extracts it - as one
- * `Job` created through the shell's `JobsService`, admitted by the module's own concurrency queue
- * (`queue.ts`).
- *
- * A plain function, on purpose. This story adds no IPC channel and no renderer half, so there is
- * nothing for `module:invoke` to carry; the caller is main-process code ([[074]]'s install
- * wizard), which calls this directly. Returns as soon as the job exists - `jobId` is what
- * `jobs:cancel` takes, and `settled` resolves once the job has reached a terminal state (it never
- * rejects, and awaiting it is optional: the job itself is the progress and status surface).
- */
-export function startDownload(app: AppContext, source: PackageSource): StartedDownload {
-  return createPipelineFor(app).start(source)
 }

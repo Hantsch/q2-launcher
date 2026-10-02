@@ -112,7 +112,7 @@ export function fakeFetcher(
         ok: true,
         path: join(userDataPath, 'cache', 'downloads', source.fileName),
         sizeBytes: source.sizeBytes,
-        sha256: source.sha256,
+        sha256: source.sha256 ?? 'f'.repeat(64),
         url: source.url,
         attempts: [],
       }

@@ -147,6 +147,7 @@ export function Switch({
   hint,
   disabled,
   testId,
+  describedBy,
 }: {
   checked: boolean
   onChange: (next: boolean) => void
@@ -154,6 +155,8 @@ export function Switch({
   hint?: string
   disabled?: boolean
   testId?: string
+  /** Id of an element that explains the control, e.g. why it is disabled. */
+  describedBy?: string
 }) {
   const id = useId()
   return (
@@ -170,6 +173,7 @@ export function Switch({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-describedby={describedBy}
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(

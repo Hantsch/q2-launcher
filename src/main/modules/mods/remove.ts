@@ -1,11 +1,8 @@
-import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
 import { lstat, realpath, rmdir, unlink } from 'node:fs/promises'
 import { basename, dirname, join, sep } from 'node:path'
-import { pipeline } from 'node:stream/promises'
 import type { ModInstallFile, ModInstallRecord } from '@shared/modules/mods'
 import { isSafeGameDirName } from '@shared/mods/gamedir'
-import { isInside, pathKey } from '../../lib/fs-utils'
+import { hashFile, isInside, pathKey } from '../../lib/fs-utils'
 import { isSafeRecordedPath } from './install-records'
 
 /**
@@ -143,14 +140,6 @@ async function resolveRemoval(
   return { gameDirPath, realGameDir, entries }
 }
 
-async function sha256Of(path: string): Promise<string> {
-  const hash = createHash('sha256')
-  await pipeline(createReadStream(path), async (source) => {
-    for await (const chunk of source as AsyncIterable<Buffer>) hash.update(chunk)
-  })
-  return hash.digest('hex')
-}
-
 /** Is this still the file the launcher wrote? Size first; the hash only when sizes match. */
 async function stateOf(entry: ResolvedEntry): Promise<EntryState> {
   if (entry.target === null) return { kind: 'missing' }
@@ -163,7 +152,7 @@ async function stateOf(entry: ResolvedEntry): Promise<EntryState> {
   if (!stats.isFile()) return { kind: 'notAFile' }
   if (stats.size !== entry.file.sizeBytes) return { kind: 'file', changed: true }
   try {
-    const actual = await sha256Of(entry.target)
+    const actual = (await hashFile(entry.target)).sha256
     return { kind: 'file', changed: actual !== entry.file.sha256.toLowerCase() }
   } catch (error) {
     if (isGone(error)) return { kind: 'missing' }

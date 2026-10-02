@@ -1,8 +1,5 @@
-import { createHash } from 'node:crypto'
-import { createReadStream } from 'node:fs'
-import { copyFile, lstat, mkdir, readdir, rename, rm, rmdir } from 'node:fs/promises'
+import { copyFile, lstat, mkdir, rename, rm, rmdir } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path'
-import { pipeline } from 'node:stream/promises'
 import type { DownloadsErrorKey, PackageSource } from '@shared/modules/downloads'
 import type { ModInstallFile, ModInstallRecord, ModsErrorKey } from '@shared/modules/mods'
 import { isSafeGameDirName } from '@shared/mods/gamedir'
@@ -16,8 +13,10 @@ import {
 } from '@shared/types'
 import {
   findChild,
+  hashFile,
   isDirectory,
   isInside,
+  listFilesRecursive,
   pathKey,
   plannedDestination,
   resolveRelaxed,
@@ -220,39 +219,11 @@ export function isSafeRelative(rel: string): boolean {
     .every((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
 }
 
-export async function hashFile(path: string): Promise<{ sha256: string; sizeBytes: number }> {
-  const hash = createHash('sha256')
-  let sizeBytes = 0
-  await pipeline(createReadStream(path), async (source) => {
-    for await (const chunk of source as AsyncIterable<Buffer>) {
-      sizeBytes += chunk.length
-      hash.update(chunk)
-    }
-  })
-  return { sha256: hash.digest('hex'), sizeBytes }
-}
-
-// Not a shared walker: throws on read errors and refuses symlinks/special files (null).
 /** Regular files under `dir`, relative with forward slashes; `null` on a link or special file. */
-async function collectFiles(
-  dir: string,
-  prefix = '',
-): Promise<{ rel: string; abs: string }[] | null> {
-  const out: { rel: string; abs: string }[] = []
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const abs = join(dir, entry.name)
-    const rel = prefix ? `${prefix}/${entry.name}` : entry.name
-    if (entry.isDirectory()) {
-      const nested = await collectFiles(abs, rel)
-      if (nested === null) return null
-      out.push(...nested)
-    } else if (entry.isFile()) {
-      out.push({ rel, abs })
-    } else {
-      return null
-    }
-  }
-  return out
+async function collectFiles(dir: string): Promise<{ rel: string; abs: string }[] | null> {
+  const entries = await listFilesRecursive(dir)
+  if (entries.some((entry) => !entry.isFile)) return null
+  return entries.map(({ rel, abs }) => ({ rel, abs }))
 }
 
 interface PlannedFile {

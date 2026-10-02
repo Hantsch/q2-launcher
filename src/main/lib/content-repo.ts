@@ -8,7 +8,10 @@
  * `CONTENT_REPO_RAW_BASE` or `contentRepoUrl()` rather than duplicating it.
  */
 
+import { z } from 'zod'
 import { fetchWithPolicy } from './http'
+import { JsonStore } from './json-store'
+import type { Logger } from './logger'
 
 const MAX_MANIFEST_BYTES = 4 * 1024 * 1024
 
@@ -75,4 +78,142 @@ export async function fetchContentJson<T = unknown>(
     throw new Error(`content repo request failed: ${outcome.reason} ${url}`)
   }
   return JSON.parse(new TextDecoder().decode(outcome.body)) as T
+}
+
+export interface CachedContentDocumentOptions<T extends object> {
+  filePath: string
+  /** How long a value this process fetched itself is served again without refetching. */
+  freshnessMs: number
+  /** Version of the cache file's own layout; a different version on disk discards the file. */
+  cacheVersion: number
+  /**
+   * Validates the document body (everything but `cacheVersion`/`fetchedAt`) read off disk. A
+   * failure discards the cache; the first issue's message is logged as the reason.
+   */
+  schema: z.ZodType<T, unknown>
+  /** Names the document in log lines, e.g. "manifest". */
+  label: string
+  log: Logger
+  /** One live attempt; rejects with an `Error` whose message is the reason it produced nothing. */
+  fetch: () => Promise<T>
+}
+
+export type CachedContentResult<T> =
+  | {
+      status: 'ok'
+      data: T
+      fetchedAt: string
+      ageMs: number
+      /** True only when a live fetch failed and the persisted copy answered. */
+      fromCache: boolean
+      /** Why the live attempt failed; set exactly when `fromCache` is true. */
+      fallbackReason?: string
+    }
+  | { status: 'unavailable'; reason: string }
+
+const cacheEnvelopeSchema = z.object({ cacheVersion: z.number(), fetchedAt: z.string().min(1) })
+
+/**
+ * A remote JSON document with a fresh-in-memory window and a persisted last-good copy.
+ *
+ * Only a live fetch made by this instance counts as fresh; a value read off disk never does, or
+ * the first `get()` after a restart would skip the refresh the user expects. The persisted copy
+ * answers only when a live fetch failed. The file is the body's own fields next to
+ * `cacheVersion` and `fetchedAt`.
+ */
+export class CachedContentDocument<T extends object> {
+  private readonly options: CachedContentDocumentOptions<T>
+  private readonly store: JsonStore<Record<string, unknown>>
+  private loaded = false
+  private fresh: { data: T; fetchedAt: string; fetchedAtMs: number } | null = null
+  /** Mirrors the store: set by a live fetch and by `parseDocument`, the only disk validation. */
+  private cached: { data: T; fetchedAt: string } | null = null
+
+  constructor(options: CachedContentDocumentOptions<T>) {
+    this.options = options
+    // Nothing is read or fetched here; the store loads on the first `get()`.
+    this.store = new JsonStore<Record<string, unknown>>({
+      filePath: options.filePath,
+      defaults: () => this.emptyDocument(),
+      parse: (raw) => this.parseDocument(raw),
+    })
+  }
+
+  async get(opts: { refresh?: boolean } = {}): Promise<CachedContentResult<T>> {
+    if (opts.refresh !== true && this.fresh !== null) {
+      const age = Date.now() - this.fresh.fetchedAtMs
+      if (age >= 0 && age < this.options.freshnessMs) {
+        return {
+          status: 'ok',
+          data: this.fresh.data,
+          fetchedAt: this.fresh.fetchedAt,
+          ageMs: age,
+          fromCache: false,
+        }
+      }
+    }
+
+    if (!this.loaded) {
+      await this.store.load()
+      this.loaded = true
+    }
+
+    let reason: string
+    try {
+      const data = await this.options.fetch()
+      const fetchedAt = new Date().toISOString()
+      this.fresh = { data, fetchedAt, fetchedAtMs: Date.parse(fetchedAt) }
+      this.cached = { data, fetchedAt }
+      this.store.set({ cacheVersion: this.options.cacheVersion, fetchedAt, ...data })
+      // `JsonStore` logs write failures itself; awaiting only makes "persisted" true on return.
+      await this.store.settle()
+      return { status: 'ok', data, fetchedAt, ageMs: 0, fromCache: false }
+    } catch (error) {
+      reason = error instanceof Error ? error.message : String(error)
+    }
+
+    if (this.cached !== null) {
+      return {
+        status: 'ok',
+        data: this.cached.data,
+        fetchedAt: this.cached.fetchedAt,
+        // Clamped: a clock that moved backwards must not report a negative age.
+        ageMs: Math.max(0, Date.now() - Date.parse(this.cached.fetchedAt)),
+        fromCache: true,
+        fallbackReason: reason,
+      }
+    }
+    return { status: 'unavailable', reason }
+  }
+
+  /** Resolves once pending writes have reached the disk; `ok: false` if one failed. */
+  settle(): Promise<{ ok: boolean }> {
+    return this.store.settle()
+  }
+
+  private emptyDocument(): Record<string, unknown> {
+    return { cacheVersion: this.options.cacheVersion, fetchedAt: null }
+  }
+
+  /** Never throws; anything not fully vouched for becomes "nothing cached". */
+  private parseDocument(raw: unknown): Record<string, unknown> {
+    const { label, log, cacheVersion } = this.options
+    const discard = (why: string): Record<string, unknown> => {
+      log.warn(`${label} cache discarded: ${why}`)
+      this.cached = null
+      return this.emptyDocument()
+    }
+    const envelope = cacheEnvelopeSchema.safeParse(raw)
+    if (!envelope.success) return discard('malformed cache envelope')
+    if (envelope.data.cacheVersion !== cacheVersion) {
+      return discard(`cacheVersion ${envelope.data.cacheVersion} (expected ${cacheVersion})`)
+    }
+    if (Number.isNaN(Date.parse(envelope.data.fetchedAt))) {
+      return discard('unreadable fetchedAt (its age could not be computed)')
+    }
+    const body = this.options.schema.safeParse(raw)
+    if (!body.success) return discard(body.error.issues[0]?.message ?? 'invalid content')
+    this.cached = { data: body.data, fetchedAt: envelope.data.fetchedAt }
+    return { cacheVersion, fetchedAt: envelope.data.fetchedAt, ...body.data }
+  }
 }

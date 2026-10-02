@@ -172,9 +172,22 @@ function harness(options: { stages: StageSpec[]; arch?: BinaryArch; activeJobs?:
     const spec = options.stages[input.index]!
     const extractDir = getExtractDir(input.userDataPath, `${input.jobId}-${input.index}`)
     await mkdir(extractDir, { recursive: true })
-    if ('fail' in spec) return { ok: false, key: spec.fail as DownloadsErrorKey, cancelled: false }
+    if ('fail' in spec)
+      return {
+        ok: false,
+        key: spec.fail as DownloadsErrorKey,
+        cancelled: false,
+        stage: 'download',
+        reason: 'test',
+      }
     await writeTree(extractDir, spec.files)
-    return { ok: true, archivePath: join(userData, 'a.zip'), extractDir }
+    return {
+      ok: true,
+      archivePath: join(userData, 'a.zip'),
+      extractDir,
+      url: 'https://example.test/a.zip',
+      sizeBytes: 1,
+    }
   })
 
   const deps: ModUpdateDeps = {

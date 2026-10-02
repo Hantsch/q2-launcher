@@ -93,7 +93,7 @@ export function DownloadsView() {
   // `startedFadeIdsRef` remembers which job ids have already had their fade-out timer started,
   // independent of React state, so this effect only ever schedules ONE timer per job for the
   // job's entire fade lifecycle. Without this, the effect re-running on every `jobs` store
-  // change (e.g. another job's progress tick, `concurrentJobs` default of 2 makes this common)
+  // change (e.g. another job's progress tick)
   // would see the job's id already present in `fadingIds` and just skip it - fine - but the
   // previous implementation instead returned a cleanup that cleared the in-flight timeout on
   // every re-run and never rescheduled it, leaving the row stuck at opacity:0 forever. Tracking

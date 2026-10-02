@@ -2,8 +2,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import type { EngineKind } from '@shared/types'
 import type { ManifestPackage, ManifestSnapshot } from '@shared/modules/downloads'
-import { fetchContentJson } from '../../lib/content-repo'
-import { JsonStore } from '../../lib/json-store'
+import { CachedContentDocument, fetchContentJson } from '../../lib/content-repo'
 import type { Logger } from '../../lib/logger'
 import { userDataDir } from '../../lib/paths'
 import { PRODUCTION_DOWNLOAD_SOURCE, type DownloadSource } from './source'
@@ -75,18 +74,16 @@ export class ManifestUnavailableError extends Error {
 }
 
 /**
- * The packages/pins of one merged manifest, plus when they were fetched.
+ * The packages/pins of one merged manifest; when they were fetched is the document's `fetchedAt`.
  *
  * Story 100 D5: `PlatformTaggedManifestPackage`, so the manifest's own `platforms` tag survives
  * statically as far as `pinnedEnginePackage()`'s re-check. The shared `ManifestSnapshot` the
  * renderer receives stays plain `ManifestPackage[]` - by then the pin is already resolved for
  * this host, so the renderer has no platform decision left to make.
  */
-interface SnapshotContent {
+interface ManifestBody {
   packages: PlatformTaggedManifestPackage[]
   pinned: Partial<Record<EngineKind, string>>
-  /** ISO timestamp of the successful fetch these packages came from. */
-  fetchedAt: string
   /**
    * Story 100 D7: whether either merged file's raw `pinned` object configured at least one entry
    * for any engine, on any platform - `parseManifestFile`'s own `hasAnyPin`, ORed across both
@@ -97,107 +94,12 @@ interface SnapshotContent {
   hasAnyPin: boolean
 }
 
-/** The cache file's document. `fetchedAt: null` is "nothing has ever been cached". */
-interface ManifestCacheDocument {
-  cacheVersion: number
-  fetchedAt: string | null
-  /** Story 100 D5: carries the `platforms` tag through persistence, same as `SnapshotContent`. */
-  packages: PlatformTaggedManifestPackage[]
-  pinned: Partial<Record<EngineKind, string>>
-  /**
-   * Story 100 D7: re-derived on every load from the cached `pinned`/`packages` via
-   * `parseManifestFile` (`parseCacheDocument` below), not read back verbatim - `cacheEnvelopeSchema`
-   * never requires this field, so an older cache file written before this deliverable loads exactly
-   * like one written after it.
-   */
-  hasAnyPin: boolean
-}
-
-/**
- * Structural check on the cache file only. The `packages`/`pinned` payload is
- * re-validated row by row further down by `parseManifestFile` - the same parser
- * the network path uses, rather than a second copy of its rules, because a
- * hand-edited or half-migrated cache file deserves exactly the same suspicion as
- * a downloaded one.
- */
-const cacheEnvelopeSchema = z.object({
-  cacheVersion: z.number(),
-  fetchedAt: z.string().min(1),
-  packages: z.array(z.unknown()),
-  pinned: z.record(z.string(), z.string()).optional(),
-})
-
-function emptyCache(): ManifestCacheDocument {
-  return {
-    cacheVersion: MANIFEST_CACHE_VERSION,
-    fetchedAt: null,
-    packages: [],
-    pinned: {},
-    hasAnyPin: false,
-  }
-}
-
-/**
- * Never throws (a `JsonStore` `parse` may not). Anything it cannot fully vouch
- * for becomes "nothing cached", which makes a failed fetch an error rather than
- * a snapshot built from junk.
- */
-function parseCacheDocument(
-  raw: unknown,
-  log: Logger,
-  /** Story 074 D8: the same URL rule the network path used, so a manifest this very process
-   * fetched and persisted is not discarded on the next read for a rule it never had to satisfy. */
-  httpsOnly: boolean,
-  /** Story 100 D5: likewise the same platform the network path resolves pins for - a cache file
-   * written by an older build carries no `platforms` on its packages, which reads as `win32` and
-   * so still resolves on Windows and resolves to nothing on Linux, exactly like a fresh fetch. */
-  platform: NodeJS.Platform,
-): ManifestCacheDocument {
-  const envelope = cacheEnvelopeSchema.safeParse(raw)
-  if (!envelope.success) {
-    log.warn('manifest cache discarded: malformed cache envelope')
-    return emptyCache()
-  }
-  if (envelope.data.cacheVersion !== MANIFEST_CACHE_VERSION) {
-    log.warn(
-      `manifest cache discarded: cacheVersion ${envelope.data.cacheVersion} (expected ${MANIFEST_CACHE_VERSION})`,
-    )
-    return emptyCache()
-  }
-  if (Number.isNaN(Date.parse(envelope.data.fetchedAt))) {
-    log.warn('manifest cache discarded: unreadable fetchedAt (its age could not be computed)')
-    return emptyCache()
-  }
-
-  const parsed = parseManifestFile(
-    {
-      schemaVersion: 1,
-      packages: envelope.data.packages,
-      pinned: envelope.data.pinned,
-    },
-    log,
-    { httpsOnly, platform },
-  )
-  if (!parsed.ok) {
-    log.warn(`manifest cache discarded: ${parsed.reason}`)
-    return emptyCache()
-  }
-
-  return {
-    cacheVersion: MANIFEST_CACHE_VERSION,
-    fetchedAt: envelope.data.fetchedAt,
-    packages: parsed.packages,
-    pinned: parsed.pinned,
-    hasAnyPin: parsed.hasAnyPin,
-  }
-}
-
 export interface ManifestServiceOptions {
   log: Logger
   /**
    * Story 074 D8: where manifests are fetched from and how strictly package URLs are validated,
-   * resolved **once** by `resolveDownloadSource()` (`harness.ts`) at module registration
-   * (`index.ts`). Defaults to `PRODUCTION_DOWNLOAD_SOURCE`, so every existing caller and every
+   * resolved **once** by `resolveDownloadSource()` (`harness.ts`) when the app context is
+   * built (`context.ts`). Defaults to `PRODUCTION_DOWNLOAD_SOURCE`, so every existing caller and every
    * test keeps the production behaviour without passing anything.
    */
   source?: DownloadSource
@@ -214,34 +116,50 @@ export interface GetManifestOptions {
   refresh?: boolean
 }
 
-type FetchAttempt = { ok: true; content: SnapshotContent } | { ok: false; reason: string }
-
 export class ManifestService {
   private readonly log: Logger
   /** Resolved once by the caller; never re-read from the environment. See `harness.ts`. */
   private readonly source: DownloadSource
   /** Story 100 D5: resolved once by the caller (or from the host); never re-read per call. */
   private readonly platform: NodeJS.Platform
-  private readonly store: JsonStore<ManifestCacheDocument>
-  private cacheLoaded = false
-  /** Set only by a live fetch in this process - see the in-memory freshness note above. */
-  private fresh: { content: SnapshotContent; fetchedAtMs: number } | null = null
+  private readonly document: CachedContentDocument<ManifestBody>
   /** Whatever `getManifest()` last handed out, for `pinnedEnginePackage()`. */
-  private current: SnapshotContent | null = null
+  private current: ManifestBody | null = null
 
   constructor(options: ManifestServiceOptions) {
     this.log = options.log
-    // Assigned before the store below, whose `parse` closure reads it.
+    // Assigned before the document below, whose schema closure reads them.
     this.source = options.source ?? PRODUCTION_DOWNLOAD_SOURCE
     // platform-read: injectable default, tests pass their own
     this.platform = options.platform ?? process.platform
-    // Nothing is fetched and nothing is read here: the store is loaded lazily on
+    // Nothing is fetched and nothing is read here: the cache is loaded lazily on
     // the first `getManifest()`, so constructing this service is free (AC: zero
     // fetches at construction, no manifest traffic at boot).
-    this.store = new JsonStore<ManifestCacheDocument>({
+    this.document = new CachedContentDocument<ManifestBody>({
       filePath: manifestCacheFilePath(),
-      defaults: emptyCache,
-      parse: (raw) => parseCacheDocument(raw, this.log, this.source.httpsOnly, this.platform),
+      freshnessMs: MANIFEST_FRESHNESS_MS,
+      cacheVersion: MANIFEST_CACHE_VERSION,
+      label: 'manifest',
+      log: this.log,
+      // Structural check only; the rows are re-validated by `parseManifestFile`, the parser the
+      // network path uses, because a hand-edited cache file deserves the same suspicion as a
+      // downloaded one. `hasAnyPin` is re-derived, never read back, so a cache written before it
+      // existed loads like a new one. (Story 074 D8, story 100 D5: same URL rule and platform.)
+      schema: z
+        .object({ packages: z.array(z.unknown()), pinned: z.record(z.string(), z.string()).optional() })
+        .transform((body, ctx): ManifestBody => {
+          const parsed = parseManifestFile(
+            { schemaVersion: 1, packages: body.packages, pinned: body.pinned },
+            this.log,
+            { httpsOnly: this.source.httpsOnly, platform: this.platform },
+          )
+          if (!parsed.ok) {
+            ctx.addIssue({ code: 'custom', message: parsed.reason })
+            return z.NEVER
+          }
+          return { packages: parsed.packages, pinned: parsed.pinned, hasAnyPin: parsed.hasAnyPin }
+        }),
+      fetch: () => this.fetchAndMerge(),
     })
   }
 
@@ -252,42 +170,18 @@ export class ManifestService {
    * neither a usable fetch nor a cached copy.
    */
   async getManifest(options: GetManifestOptions = {}): Promise<ManifestSnapshot> {
-    const now = Date.now()
-
-    if (options.refresh !== true && this.fresh !== null) {
-      const age = now - this.fresh.fetchedAtMs
-      if (age >= 0 && age < MANIFEST_FRESHNESS_MS) {
-        // Still fresh, not "from cache": no network, no disk, honest age.
-        return this.serve(this.fresh.content, { fromCache: false, ageMs: age })
-      }
+    const result = await this.document.get(options)
+    if (result.status === 'unavailable') {
+      this.log.error(`manifest unavailable and no cached copy exists: ${result.reason}`)
+      throw new ManifestUnavailableError(result.reason)
     }
-
-    await this.ensureCacheLoaded()
-
-    const attempt = await this.fetchAndMerge()
-    if (attempt.ok) {
-      this.fresh = { content: attempt.content, fetchedAtMs: Date.parse(attempt.content.fetchedAt) }
-      await this.persist(attempt.content)
-      return this.serve(attempt.content, { fromCache: false, ageMs: 0 })
+    if (result.fromCache) {
+      this.log.warn(`serving the cached manifest: ${result.fallbackReason}`)
     }
-
-    const cached = this.store.get()
-    if (cached.fetchedAt !== null) {
-      this.log.warn(`serving the cached manifest: ${attempt.reason}`)
-      return this.serve(
-        {
-          packages: cached.packages,
-          pinned: cached.pinned,
-          fetchedAt: cached.fetchedAt,
-          hasAnyPin: cached.hasAnyPin,
-        },
-        // Clamped: a clock that moved backwards must not report a negative age.
-        { fromCache: true, ageMs: Math.max(0, Date.now() - Date.parse(cached.fetchedAt)) },
-      )
-    }
-
-    this.log.error(`manifest unavailable and no cached copy exists: ${attempt.reason}`)
-    throw new ManifestUnavailableError(attempt.reason)
+    return this.serve(result.data, result.fetchedAt, {
+      fromCache: result.fromCache,
+      ageMs: result.ageMs,
+    })
   }
 
   /**
@@ -342,7 +236,8 @@ export class ManifestService {
   }
 
   private serve(
-    content: SnapshotContent,
+    content: ManifestBody,
+    fetchedAt: string,
     meta: { fromCache: boolean; ageMs: number },
   ): ManifestSnapshot {
     this.current = content
@@ -350,29 +245,10 @@ export class ManifestService {
       schemaVersion: 1,
       packages: content.packages,
       pinned: content.pinned,
-      fetchedAt: content.fetchedAt,
+      fetchedAt,
       ageMs: meta.ageMs,
       fromCache: meta.fromCache,
     }
-  }
-
-  private async ensureCacheLoaded(): Promise<void> {
-    if (this.cacheLoaded) return
-    await this.store.load()
-    this.cacheLoaded = true
-  }
-
-  private async persist(content: SnapshotContent): Promise<void> {
-    this.store.set({
-      cacheVersion: MANIFEST_CACHE_VERSION,
-      fetchedAt: content.fetchedAt,
-      packages: content.packages,
-      pinned: content.pinned,
-      hasAnyPin: content.hasAnyPin,
-    })
-    // `JsonStore` swallows write failures (it logs them); awaiting the flush only
-    // makes "the fetch has been persisted" true by the time we answer.
-    await this.store.settle()
   }
 
   /**
@@ -388,7 +264,7 @@ export class ManifestService {
    * downstream from "the content repo dropped those packages" - so the last
    * complete copy from the cache is strictly better information.
    */
-  private async fetchAndMerge(): Promise<FetchAttempt> {
+  private async fetchAndMerge(): Promise<ManifestBody> {
     const paths = [ENGINES_MANIFEST_PATH, GAMEDATA_MANIFEST_PATH]
     const results = await Promise.allSettled(
       paths.map((path) => fetchContentJson(path, { baseUrl: this.source.baseUrl })),
@@ -402,14 +278,14 @@ export class ManifestService {
       const path = paths[index]
       if (result.status === 'rejected') {
         this.log.warn(`fetching ${path} failed: ${String(result.reason)}`)
-        return { ok: false, reason: `fetching ${path} failed` }
+        throw new Error(`fetching ${path} failed`)
       }
       const parsed = parseManifestFile(result.value, this.log, {
         httpsOnly: this.source.httpsOnly,
         platform: this.platform,
       })
       if (!parsed.ok) {
-        return { ok: false, reason: `${path} was refused (${parsed.reason})` }
+        throw new Error(`${path} was refused (${parsed.reason})`)
       }
       packages.push(...parsed.packages)
       pins.push(parsed.pinned)
@@ -419,9 +295,7 @@ export class ManifestService {
     }
 
     return {
-      ok: true,
-      content: {
-        packages,
+      packages,
         // Each file's pins were already resolved (by id, against that file's own
         // survivors) by `parseManifestFile`, so a gamedata file cannot smuggle in
         // an engine pin id that never existed; merging in fetch order keeps
@@ -430,14 +304,12 @@ export class ManifestService {
         // package matching the pinned kind - `pinnedEnginePackage()` re-checks
         // `kind`/`engine` before handing a package back.
         pinned: pins.reduceRight((merged, pin) => ({ ...merged, ...pin }), {}),
-        fetchedAt: new Date().toISOString(),
-        hasAnyPin,
-      },
+      hasAnyPin,
     }
   }
 
   /** Resolves once pending writes have reached the disk; `ok: false` if one failed. */
   settle(): Promise<{ ok: boolean }> {
-    return this.store.settle()
+    return this.document.settle()
   }
 }

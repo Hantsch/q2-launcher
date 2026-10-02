@@ -13,6 +13,8 @@ import { resolveFeatureGate, type FeatureGate } from './features/gate'
 import { MainModuleRegistry } from './modules/registry'
 import { MODULE_MIGRATIONS, registerModules } from './modules'
 import { Broadcaster } from './services/broadcast'
+import { ManifestService } from './services/content/manifest-service'
+import { PRODUCTION_DOWNLOAD_SOURCE, resolveDownloadSource } from './services/content/source'
 import { DetectionService } from './services/detection'
 import { DialogService } from './services/dialog'
 import { deleteStoredIcon, InstallationIconsService } from './services/installation-icons'
@@ -114,6 +116,9 @@ export interface AppContext {
    * re-verified unlock state and then frozen for the process lifetime - a code redeemed
    * mid-session takes effect only at the next start. `modules` was built with this same gate. */
   features: FeatureGate
+  /** Shared content documents; one `ManifestService` per app, since every consumer reads the same
+   * `manifest-cache.json` and two writers would race on it. */
+  content: { manifest: ManifestService }
   /** Every persisted store registers here; shutdown settles them all through it. */
   persistence: PersistenceRegistry
 }
@@ -225,6 +230,15 @@ export async function createAppContext(options: {
   // from stored tokens directly - and has to exist before the registry, which it is handed to.
   const features = resolveFeatureGate(unlock)
 
+  // Resolved exactly once and then passed around as a value: without the UI harness (which a
+  // shipped build never sets) this is the production source and no later env change can alter it.
+  const downloadSource = resolveDownloadSource(harness)
+  if (downloadSource !== PRODUCTION_DOWNLOAD_SOURCE) {
+    log.warn(`UI harness: download source overridden to ${downloadSource.baseUrl} (dev build only)`)
+  }
+  const manifest = new ManifestService({ log: scopedLogger('manifest'), source: downloadSource })
+  persistence.register('content-manifest', manifest)
+
   const context: AppContext = {
     isDev: options.isDev,
     harness,
@@ -251,6 +265,7 @@ export async function createAppContext(options: {
     update,
     unlock,
     features,
+    content: { manifest },
     persistence,
   }
 

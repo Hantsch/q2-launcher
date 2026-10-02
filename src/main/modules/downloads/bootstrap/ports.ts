@@ -7,7 +7,7 @@ import {
   ManifestUnavailableError,
   type ManifestService,
 } from '../../../services/content/manifest-service'
-import type { DownloadFn, ExtractFn } from '../pipeline'
+import type { StageDownloadFn, StageExtractFn } from '../../../services/package-staging'
 import { installR1q2Notices, probeX86Runtime, realFileExists, seedR1glConfig } from './r1q2-setup'
 
 /**
@@ -20,7 +20,7 @@ import { installR1q2Notices, probeX86Runtime, realFileExists, seedR1glConfig } f
  * playable, clean up on cancel), and proving a sequence needs fetches and extractions that resolve
  * instantly and deterministically - not a real 190 MB download and a real `7za.exe`.
  *
- * The two function-shaped ports deliberately reuse `DownloadFn`/`ExtractFn` from `../pipeline`:
+ * The two function-shaped ports deliberately reuse `StageDownloadFn`/`StageExtractFn` from `package-staging`:
  * those aliases already describe exactly `downloadPackage`/`extractArchive`, and a second,
  * hand-copied description of the same two functions is how the two flows would drift apart.
  */
@@ -43,12 +43,12 @@ export interface ManifestSource {
 
 /** Narrow view of `downloadPackage` (`../fetcher`). */
 export interface PackageFetcher {
-  fetch: DownloadFn
+  fetch: StageDownloadFn
 }
 
 /** Narrow view of `extractArchive` (`../extractor`). */
 export interface Extractor {
-  extract: ExtractFn
+  extract: StageExtractFn
 }
 
 /**

@@ -22,6 +22,7 @@ export function fakeAppContext(overrides: Partial<AppContext> = {}): AppContext 
     features: createFeatureGate([]),
     installations: { list: () => [] },
     persistence: new PersistenceRegistry(),
+    content: { manifest: { getManifest: async () => ({ packages: [] }) } },
     displays: {
       primary: () => ({ id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 }, scaleFactor: 1 }),
       all: () => [{ id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 }, scaleFactor: 1 }],

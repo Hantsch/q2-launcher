@@ -1,8 +1,10 @@
 import { unwrapOk } from '../../../test-support/outcome'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, open, readdir, rm, truncate, utimes, writeFile } from 'node:fs/promises'
 import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DEFAULT_DOWNLOADS_SETTINGS,
@@ -16,6 +18,7 @@ import type { Logger } from '../../lib/logger'
 import { JobsService } from '../../services/jobs'
 import { MainModuleRegistry } from '../registry'
 import { resolveUiHarness } from '../../lib/ui-harness'
+import { ManifestService } from '../../services/content/manifest-service'
 import { PersistenceRegistry } from '../../services/persistence'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { createDiagnosticsCollector, diagnosticsRegistrySize } from './diagnostics'
@@ -160,6 +163,7 @@ async function setUpModule(
       env: {},
       isPackaged: false,
       persistence: new PersistenceRegistry(),
+      content: { manifest: new ManifestService({ log: fakeLogger() }) },
       state: fakeSectionState(),
       ...app,
     } as ModuleSetup['app'],
@@ -370,7 +374,7 @@ describe('downloadsModule failure log', () => {
     return jobs.create({
       moduleId: 'downloads',
       kind: 'download',
-      labelKey: 'downloads.job.download',
+      labelKey: 'downloads.job.bootstrap',
       labelParams: { name: 'q2pro 1.0.0' },
       installationId: 'inst-1',
     }).id
@@ -396,7 +400,7 @@ describe('downloadsModule failure log', () => {
     expect(failures).toHaveLength(1)
     expect(failures[0]).toMatchObject({
       jobId: id,
-      labelKey: 'downloads.job.download',
+      labelKey: 'downloads.job.bootstrap',
       labelParams: { name: 'q2pro 1.0.0' },
       installationId: 'inst-1',
       error: { key: 'downloads.error.verificationFailed', params: { file: 'q2pro.zip' } },
@@ -469,6 +473,7 @@ describe('downloadsModule failure log', () => {
       await registry.register(downloadsModule, {
         ...observed[i],
         persistence: new PersistenceRegistry(),
+        content: { manifest: new ManifestService({ log: fakeLogger() }) },
       } as unknown as ModuleSetup['app'])
     }
 
@@ -731,11 +736,59 @@ describe('downloadsModule repair.plan', () => {
 })
 
 describe('downloadsModule persistence', () => {
-  it('registers its cache with app.persistence', async () => {
+  it('leaves the manifest cache to the app context', async () => {
     const labels: string[] = []
     await setUpModule({
       persistence: { register: (label: string) => void labels.push(label) },
     } as unknown as Partial<ModuleSetup['app']>)
-    expect(labels).toEqual(['downloads-manifest'])
+    expect(labels).toEqual([])
+  })
+})
+
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url))
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name)
+    if (entry.isDirectory()) return sourceFiles(path)
+    return entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts') ? [path] : []
+  })
+}
+
+describe('every exported job starter is reachable from a handler', () => {
+  const definingFile = new Map<string, string>()
+  for (const file of sourceFiles(MODULE_DIR)) {
+    for (const match of readFileSync(file, 'utf8').matchAll(
+      /^export (?:async )?function (start[A-Z]\w*)/gm,
+    )) {
+      definingFile.set(match[1] as string, file)
+    }
+  }
+  const starters = [...definingFile.keys()]
+  const index = readFileSync(join(MODULE_DIR, 'index.ts'), 'utf8')
+
+  it('finds the job starters', () => {
+    expect(starters.length).toBeGreaterThan(0)
+  })
+
+  it.each(starters)('%s is imported and called by index.ts', (name) => {
+    const imports = [
+      ...index.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*'([^']+)'/g),
+    ].filter((match) => new RegExp(String.raw`\b${name}\b`).test(match[1] as string))
+    expect(imports.length).toBeGreaterThan(0)
+    const definedIn = definingFile.get(name) as string
+    const resolvesToDefinition = imports.some((match) => {
+      const target = resolve(MODULE_DIR, match[2] as string)
+      return [target + '.ts', join(target, 'index.ts')].includes(definedIn)
+    })
+    expect(resolvesToDefinition).toBe(true)
+    const withoutImports = index.replace(/import\s*(?:type\s*)?\{[^}]*\}\s*from\s*'[^']+'/g, '')
+    expect(withoutImports).toMatch(new RegExp(String.raw`\b${name}\(`))
+  })
+})
+
+describe('the dead download pipeline is gone', () => {
+  it.each(['pipeline.ts', 'queue.ts'])('%s does not exist', (name) => {
+    expect(existsSync(join(MODULE_DIR, name))).toBe(false)
   })
 })

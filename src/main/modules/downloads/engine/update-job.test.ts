@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BASE_GAME_DIR } from '@shared/constants'
 import type { EngineBackupInfo, ManifestPackage } from '@shared/modules/downloads'
 import type { Installation, Job } from '@shared/types'
+import type { StageDownloadFn } from '../../../services/package-staging'
 import { InstallationsService } from '../../../services/installations'
 import { JobsService } from '../../../services/jobs'
 import { InstallationWriteGuard } from '../../../services/write-guard'
@@ -27,7 +28,6 @@ import {
   ENGINE_BACKUP_DIR_NAME,
   ENGINE_UPDATE_JOB_KIND,
   startEngineUpdate,
-  type EngineArchiveDownload,
   type EngineUpdateDeps,
 } from './update-job'
 
@@ -160,12 +160,19 @@ async function waitFor(condition: () => boolean, what: string): Promise<void> {
 }
 
 /** A download that produces nothing but a path - the archive itself is the extractor fake's fiction. */
-function fakeDownload(): EngineArchiveDownload {
-  return async ({ userDataPath: cache, target }) => {
-    const path = join(cache, target.fileName)
+function fakeDownload(): StageDownloadFn {
+  return async (source, { userDataPath: cache }) => {
+    const path = join(cache, source.fileName)
     await mkdir(dirname(path), { recursive: true })
     await writeFile(path, 'archive')
-    return { ok: true, path }
+    return {
+      ok: true,
+      path,
+      sizeBytes: 7,
+      sha256: 'f'.repeat(64),
+      url: source.url,
+      attempts: [{ url: source.url, requests: 1, outcome: 'verified' }],
+    }
   }
 }
 
@@ -183,7 +190,9 @@ interface Harness {
 async function harness(
   options: {
     staged?: Record<string, string>
-    download?: EngineArchiveDownload
+    download?: StageDownloadFn
+    /** Opts the installation into the bleeding-edge channel, probed at this size. */
+    bleedingEdgeSize?: number
     /** Runs inside `runWrite`, before the job's own swap - see the suite comment. */
     beforeWrite?: (extractDir: string) => Promise<void>
     /** The version the installation has on record before the update; `undefined` means none. */
@@ -217,6 +226,7 @@ async function harness(
   const recorded = setEngineState(service, added.value.id, {
     version: recordedVersion,
     packageId: `q2pro-${recordedVersion}`,
+    ...(options.bleedingEdgeSize !== undefined ? { bleedingEdge: true } : {}),
     ...(options.recordedBackup ? { backup: options.recordedBackup } : {}),
   })
   if (!recorded.ok) throw new Error('the fixture engine state could not be recorded')
@@ -264,6 +274,16 @@ async function harness(
       userDataPath,
       resolveExtractor: () => ({ path: join(dir, '7za.exe'), exists: true }),
       download: options.download ?? fakeDownload(),
+      ...(options.bleedingEdgeSize !== undefined
+        ? {
+            probeBleedingEdge: () =>
+              Promise.resolve({
+                version: 'nightly-1',
+                sizeBytes: options.bleedingEdgeSize!,
+                url: PINNED_PACKAGE.url,
+              }),
+          }
+        : {}),
     },
     jobs,
     launch,
@@ -383,12 +403,13 @@ describe('the engine update job', () => {
   })
 
   it('a verification failure leaves every engine file untouched and creates no backup', async () => {
-    const failingDownload: EngineArchiveDownload = () =>
+    const failingDownload: StageDownloadFn = () =>
       Promise.resolve({
         ok: false,
         key: 'downloads.error.verificationFailed',
         reason: 'sha256: expected a..., got b...',
         cancelled: false,
+        attempts: [],
       })
     const test = await harness({ download: failingDownload })
     const before = await snapshotTree(installRoot)
@@ -409,6 +430,30 @@ describe('the engine update job', () => {
       '1.0',
     )
     expect(test.validateCalls).toEqual([])
+  })
+
+  it('a bleeding-edge update downloads through downloadPackage in size-only mode', async () => {
+    const received: unknown[] = []
+    const inner = fakeDownload()
+    const test = await harness({
+      bleedingEdgeSize: 1234,
+      download: (source, options) => {
+        received.push({ source, verify: options.verify })
+        return inner(source, options)
+      },
+    })
+
+    const started = await startEngineUpdate(test.deps, { installationId: test.installation.id })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    await expect(started.value.settled).resolves.toMatchObject({ status: 'succeeded' })
+
+    expect(received).toHaveLength(1)
+    expect(received[0]).toMatchObject({
+      verify: { sizeOnly: true },
+      source: { sizeBytes: 1234, fileName: 'nightly-q2pro-2.0.zip' },
+    })
+    expect(received[0]).not.toHaveProperty('source.sha256')
   })
 
   it('a failure during the copy restores the backup, leaving a complete previous engine', async () => {

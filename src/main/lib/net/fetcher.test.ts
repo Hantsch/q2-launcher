@@ -320,6 +320,49 @@ describe('downloadPackage', () => {
     expect(await pathExists(finalPath())).toBe(false)
   })
 
+  it('a size-only download that stalls fails on the stall timeout and leaves no file', async () => {
+    const good = randomBytes(4000)
+    const url = route('/stalls-size-only.zip', stallsAfter(good, 500))
+    const { sha256: _omitted, ...source } = pkg({ url, sizeBytes: good.byteLength })
+
+    const result = failed(
+      await downloadPackage(
+        source,
+        options({ verify: { sizeOnly: true }, stallTimeoutMs: 150, transportRetries: 0 }),
+      ),
+    )
+
+    expect(result.attempts[0]).toMatchObject({ outcome: 'transport-failed', requests: 1 })
+    expect(result.attempts[0].reason).toContain('no bytes received')
+    expect(await pathExists(partPath())).toBe(false)
+    expect(await pathExists(finalPath())).toBe(false)
+  })
+
+  it('a size-only download accepts any hash and refuses a wrong size', async () => {
+    const good = randomBytes(2000)
+    const { sha256: _omitted, ...source } = pkg({
+      url: route('/size-only-ok.zip', serves(good)),
+      sizeBytes: good.byteLength,
+    })
+    const accepted = verified(
+      await downloadPackage(source, options({ verify: { sizeOnly: true } })),
+    )
+    expect(await readFile(accepted.path)).toEqual(good)
+
+    const wrong = failed(
+      await downloadPackage(
+        {
+          ...source,
+          url: route('/size-only-wrong.zip', serves(good)),
+          sizeBytes: good.byteLength + 1,
+        },
+        options({ verify: { sizeOnly: true } }),
+      ),
+    )
+    expect(wrong.attempts.every((attempt) => attempt.outcome === 'verification-failed')).toBe(true)
+    expect(await pathExists(partPath())).toBe(false)
+  })
+
   it('a server that never answers fails on the headers timeout', async () => {
     const url = route('/silent.zip', neverAnswers())
 

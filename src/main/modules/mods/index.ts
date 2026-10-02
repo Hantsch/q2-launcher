@@ -16,7 +16,6 @@ import { readBinaryArch } from '../../lib/fs-utils'
 import type { MainModule } from '../types'
 import { readModsState, recordedGameDirs } from './install-records'
 import { resolveDownloadSource } from '../../services/content/source'
-import { ManifestService } from '../../services/content/manifest-service'
 import { resolveVendoredExtractor, stagePackage } from '../../services/package-staging'
 import { toCatalogEntryDto } from './catalog-parse'
 import { CatalogService } from './catalog-service'
@@ -109,8 +108,7 @@ export const modsModule: MainModule = {
     const catalog = new CatalogService({ log, source })
     app.persistence.register('mods-catalog', catalog)
     // The engines manifest, only to learn the arch of the package an installation came from.
-    const manifest = new ManifestService({ log, source })
-    app.persistence.register('mods-manifest', manifest)
+    const manifest = app.content.manifest
 
     // Running installs and their pending decisions, keyed by job id; dropped when the job settles.
     const pending = new Map<string, (choice: ModInstallDecision) => void>()

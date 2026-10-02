@@ -50,9 +50,8 @@ transport the [home-screen concept](home-screen.md) already fixed.
   There is no "install anyway".
 - **Archives are extracted with a bundled 7-Zip binary** — the free game data ships as Windows
   self-extractors, and one tool covers those plus every engine ZIP.
-- **Jobs:** parallel with a user-configurable limit, pause/resume with HTTP range resume across
-  restarts, cancel cleans up. Downloading while the game runs is a user setting; **writing** into a
-  running installation always waits.
+- **Jobs:** one at a time, no pause/resume yet, cancel cleans up. **Writing** into a running
+  installation always waits.
 - **Three settings**, and the Settings view learns to render **module-contributed sections** to
   hold them: concurrency limit, archive-cache budget (with current size and a clear button that
   says what it will delete), and download-while-playing.
@@ -94,8 +93,8 @@ asset packs and config templates belong to their own modules.
 - A **bootstrap wizard**, started from the Library: engine → data source → target folder → run.
 - A **curated manifest** in `Hantsch/q2_community_content` covering engine builds and free
   game-data packages, with mirrors, sizes and SHA256; fetched by main, validated with zod, cached.
-- **Downloading** with progress, pause/resume (HTTP range, surviving app restarts), cancel with
-  cleanup, and parallelism up to a user-set limit.
+- **Downloading** with progress, one download at a time, and cancel with cleanup (pause/resume and
+  parallel downloads are not available yet).
 - **Verification** of every downloaded file against the manifest's size and SHA256, with mirror
   fallback and hard failure.
 - **Extraction** via a bundled 7-Zip binary: Windows self-extractors (`q2-314-demo-x86.exe`,
@@ -160,8 +159,8 @@ asset packs and config templates belong to their own modules.
 | Hash mismatch                    | **Hard abort**: delete the file, try the next mirror, fail the job if all fail. No override                                                                                             | We execute foreign code from the network                                                                                                     |
 | Install target                   | The user picks any folder; a target under `Program Files` produces a **hard warning** that can be acknowledged                                                                          | Freedom, but the damage is named before it happens                                                                                           |
 | Non-empty target folder          | Always warn, listing what is in there, with "continue anyway"                                                                                                                           | The user decides                                                                                                                             |
-| Job parallelism                  | **Parallel with a limit the user sets in the settings**                                                                                                                                 | Different machines and connections want different answers                                                                                    |
-| Pause / resume / cancel          | Resume (HTTP range, across app restarts), an explicit pause control, and cancel that removes partial files and the half-built installation                                              | Full control over a long-running operation                                                                                                   |
+| Job parallelism                  | **Parallel with a limit the user sets in the settings**                                                                                                                                 | Different machines and connections want different answers (superseded: downloads run one at a time, see §9)                                  |
+| Pause / resume / cancel          | Resume (HTTP range, across app restarts), an explicit pause control, and cancel that removes partial files and the half-built installation                                              | Full control over a long-running operation (superseded: downloads run one at a time, see §9)                                                 |
 | Downloaded archives              | **Kept in a cache with a budget**, configurable in the settings, which also shows the current cache size and offers a clear action that states what it will delete                      | A second installation and every repair should not re-download                                                                                |
 | Downloading while the game runs  | A **user setting**                                                                                                                                                                      | The user knows their bandwidth situation                                                                                                     |
 | Writing while the game runs      | Always deferred: the download may run, extraction and copying wait for the process to exit                                                                                              | Never mutate the files of a running game                                                                                                     |
@@ -310,10 +309,9 @@ stops saying `invalid`/`missing`, even while the job continues.
 
 - Jobs are the shell's `Job` objects, produced by this module for the first time. `JobProgress`
   already carries bytes, speed, ETA, files remaining and `playableAtRatio`.
-- **Parallelism** up to the user's limit; the rest queue. The count of active jobs is what
-  [story 032](../requirements/032-downloads-badge-active-count.md)'s titlebar badge shows.
-- **Pause** puts a job into the existing `paused` status. **Resume** continues from the byte offset
-  recorded next to the partial file, using an HTTP range request, and survives an app restart.
+- **Downloads run one at a time.** There is no parallelism, no queue limit and no pause/resume. The
+  count of active jobs is what [story 032](../requirements/032-downloads-badge-active-count.md)'s
+  titlebar badge shows.
 - **Cancel** removes partial files and, for a bootstrap job, the half-built installation.
 - **A running game** never blocks downloading (subject to the user's setting) but always blocks
   writing: extraction and copying into that installation wait for the process to exit and then
@@ -321,13 +319,15 @@ stops saying `invalid`/`missing`, even while the job continues.
 - **The Downloads tab** shows running jobs, a failure log that persists until dismissed, and the
   archive cache with its size.
 
-Three settings, in a Settings section the module contributes:
+Three settings, in a Settings section the module contributes. Concurrent jobs and download while
+playing are still persisted but shown disabled, with the visible reason "Not available yet:
+downloads run one at a time":
 
 | Setting                | Effect                                                                                                                                        |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Concurrent jobs        | Upper bound on simultaneously running jobs                                                                                                    |
+| Concurrent jobs        | Disabled; would bound simultaneously running jobs                                                                                             |
 | Archive cache budget   | Maximum cache size; oldest archives are evicted first. Shows the current size and offers a clear action that first states what it will delete |
-| Download while playing | Whether downloads may run while Quake II is running (writing always waits)                                                                    |
+| Download while playing | Disabled; would allow downloads while Quake II runs (writing always waits)                                                                    |
 
 ## 10. Update and rollback
 
@@ -336,7 +336,9 @@ Three settings, in a Settings section the module contributes:
 - An update downloads and verifies the package, then replaces the engine files, moving the previous
   ones into a backup inside the installation. **Rollback** restores that backup in one step.
 - **Bleeding edge** is a per-installation opt-in: instead of the pinned version, the launcher asks
-  upstream what the newest build is. The exact probe and its trust model are open (§15).
+  upstream what the newest build is. The exact probe and its trust model are open (§15). A
+  bleeding-edge update uses the same downloader as a pinned one (stall timer, retry/mirror loop,
+  size cap) with a size-only check instead of sha256.
 - The installation's recorded engine version is a natural candidate to finally populate
   `detectedVersion`, which is defined in the model but never written today.
 
@@ -468,10 +470,10 @@ which today only navigates to the Downloads tab — do something.
 - **INST-J1** — The module produces `Job` objects through `JobsService`; no parallel progress
   mechanism is introduced.
 - **INST-J2** — At most as many jobs run simultaneously as the concurrency setting allows; the rest
-  are `queued`.
+  are `queued`. (superseded: downloads run one at a time, see §9)
 - **INST-J3** — A job can be paused and resumed; resume continues at the recorded byte offset via
-  an HTTP range request.
-- **INST-J4** — A resumable download survives an app restart.
+  an HTTP range request. (superseded: downloads run one at a time, see §9)
+- **INST-J4** — A resumable download survives an app restart. (superseded: downloads run one at a time, see §9)
 - **INST-J5** — Cancelling removes partial files and, for a bootstrap job, the half-built
   installation.
 - **INST-J6** — `playableAtRatio` is set from the point at which `inspectInstallation` first stops

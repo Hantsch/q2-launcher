@@ -110,3 +110,37 @@ describe('spawn/network layering', () => {
     ).toEqual([])
   })
 })
+
+describe('archive verification layering', () => {
+  // `markVerified` is the extractor's only way in; keeping it to the staging routine means no
+  // archive reaches 7za without having gone through the download's size/SHA256 check.
+  it('only the staging routine calls markVerified', () => {
+    const callers = productionFiles('src/main').filter((file) =>
+      readRepoFile(file).includes('markVerified('),
+    )
+    expect(callers.sort()).toEqual([
+      'src/main/lib/archive/extractor.ts',
+      'src/main/services/package-staging.ts',
+    ])
+  })
+})
+
+describe('shared helper layering', () => {
+  it('clamp01, removeDir and hashFile are defined only in src/main/lib', () => {
+    const declaration = /(?:\bfunction\s+|\b(?:const|let)\s+)(?:clamp01|removeDir|hashFile)\b/
+    const offenders = listSourceFiles('src/main')
+      .filter((file) => !isTestFile(file) && !file.startsWith('src/main/lib/'))
+      .filter((file) => declaration.test(readRepoFile(file)))
+    expect(offenders).toEqual([])
+  })
+})
+
+describe('one ManifestService per app', () => {
+  it('new ManifestService appears only in context.ts', () => {
+    const offenders = listSourceFiles('src/main')
+      .filter((file) => !isTestFile(file))
+      .filter((file) => readRepoFile(file).includes('new ManifestService('))
+      .map((file) => file.split('\\').join('/'))
+    expect(offenders).toEqual(['src/main/context.ts'])
+  })
+})

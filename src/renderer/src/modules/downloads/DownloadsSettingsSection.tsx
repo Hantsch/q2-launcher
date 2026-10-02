@@ -95,20 +95,31 @@ export function DownloadsSettingsSection() {
     <>
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="space-y-1.5 block" data-testid="downloads-settings-concurrency">
-            <span className="stencil block">
-              {t('module.downloads.settings.concurrency.label')}
-            </span>
-            <Select
-              value={settings ? String(settings.concurrentJobs) : ''}
-              disabled={!settings}
-              onChange={(event) => void applyPatch({ concurrentJobs: Number(event.target.value) })}
-              options={CONCURRENCY_CHOICES.map((value) => ({
-                value: String(value),
-                label: String(value),
-              }))}
-            />
-          </label>
+          <div className="space-y-1.5" data-testid="downloads-settings-concurrency">
+            <label className="block space-y-1.5">
+              <span className="stencil block">
+                {t('module.downloads.settings.concurrency.label')}
+              </span>
+              {/* Downloads run one at a time, so the persisted value is shown but cannot be
+                  changed; main still validates and stores it. */}
+              <Select
+                value={settings ? String(settings.concurrentJobs) : ''}
+                disabled
+                aria-describedby="downloads-settings-concurrency-reason"
+                options={CONCURRENCY_CHOICES.map((value) => ({
+                  value: String(value),
+                  label: String(value),
+                }))}
+              />
+            </label>
+            <p
+              id="downloads-settings-concurrency-reason"
+              className="text-xs text-ink-muted"
+              data-testid="downloads-settings-concurrency-reason"
+            >
+              {t('module.downloads.settings.queueUnavailable')}
+            </p>
+          </div>
 
           <label className="space-y-1.5 block" data-testid="downloads-settings-cache-budget">
             <span className="stencil block">
@@ -134,11 +145,17 @@ export function DownloadsSettingsSection() {
           <Switch
             label={t('module.downloads.settings.whilePlaying.label')}
             checked={settings?.downloadWhilePlayingAllowed ?? false}
-            disabled={!settings}
-            onChange={(downloadWhilePlayingAllowed) =>
-              void applyPatch({ downloadWhilePlayingAllowed })
-            }
+            disabled
+            describedBy="downloads-settings-while-playing-reason"
+            onChange={() => undefined}
           />
+          <p
+            id="downloads-settings-while-playing-reason"
+            className="text-xs text-ink-muted"
+            data-testid="downloads-settings-while-playing-reason"
+          >
+            {t('module.downloads.settings.queueUnavailable')}
+          </p>
         </div>
 
         <div className="flex items-center justify-between gap-3 pt-1">

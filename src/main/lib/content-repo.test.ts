@@ -1,5 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ContentRepoHttpError, contentRepoUrl, fetchContentJson } from './content-repo'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { z } from 'zod'
+import {
+  CachedContentDocument,
+  ContentRepoHttpError,
+  contentRepoUrl,
+  fetchContentJson,
+} from './content-repo'
+import type { Logger } from './logger'
 
 function jsonResponse(body: unknown, init?: { ok?: boolean; status?: number }): Response {
   const status = init?.status ?? (init?.ok === false ? 500 : 200)
@@ -97,5 +107,64 @@ describe('content-repo', () => {
     await expect(fetchContentJson('engines/manifest.json', { timeoutMs: 20 })).rejects.toThrow(
       /no response within 20ms/,
     )
+  })
+})
+
+describe('CachedContentDocument', () => {
+  let dir: string
+  const log = (): Logger =>
+    ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) as unknown as Logger
+  const make = (fetchBody: () => Promise<{ items: string[] }>, logger = log()) =>
+    new CachedContentDocument<{ items: string[] }>({
+      filePath: join(dir, 'doc.json'),
+      freshnessMs: 60_000,
+      cacheVersion: 2,
+      label: 'doc',
+      log: logger,
+      schema: z.object({ items: z.array(z.string()) }),
+      fetch: fetchBody,
+    })
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'cached-doc-'))
+  })
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('a cache read off disk is never fresh', async () => {
+    await writeFile(
+      join(dir, 'doc.json'),
+      JSON.stringify({ cacheVersion: 2, fetchedAt: new Date().toISOString(), items: ['old'] }),
+    )
+    const fetchBody = vi.fn().mockResolvedValue({ items: ['new'] })
+    const result = await make(fetchBody).get()
+    expect(fetchBody).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({ status: 'ok', fromCache: false, data: { items: ['new'] } })
+  })
+
+  it('serves the disk copy only when the live fetch failed', async () => {
+    await writeFile(
+      join(dir, 'doc.json'),
+      JSON.stringify({ cacheVersion: 2, fetchedAt: new Date().toISOString(), items: ['old'] }),
+    )
+    const result = await make(() => Promise.reject(new Error('offline'))).get()
+    expect(result).toMatchObject({
+      status: 'ok',
+      fromCache: true,
+      fallbackReason: 'offline',
+      data: { items: ['old'] },
+    })
+  })
+
+  it('a cacheVersion mismatch discards the cache', async () => {
+    await writeFile(
+      join(dir, 'doc.json'),
+      JSON.stringify({ cacheVersion: 1, fetchedAt: new Date().toISOString(), items: ['old'] }),
+    )
+    const logger = log()
+    const result = await make(() => Promise.reject(new Error('offline')), logger).get()
+    expect(result).toEqual({ status: 'unavailable', reason: 'offline' })
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('cache discarded'))
   })
 })

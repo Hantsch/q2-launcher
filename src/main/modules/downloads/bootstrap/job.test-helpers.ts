@@ -8,7 +8,6 @@ import {
   type DetectedRetailSource,
   type GameDataSourceVerdict,
   type ManifestPackage,
-  type PackageSource,
   type RetailSourceInspection,
 } from '@shared/modules/downloads'
 import type { Job } from '@shared/types'
@@ -19,7 +18,11 @@ import { JobsService } from '../../../services/jobs'
 import { InstallationWriteGuard } from '../../../services/write-guard'
 import { fakeLaunch, fakeManifest, fakeState } from '../test-support'
 import { type ExtractArchiveInput, type ExtractorHandle } from '../../../lib/archive/extractor'
-import { type DownloadPackageOptions, type DownloadPackageResult } from '../../../lib/net/fetcher'
+import {
+  type DownloadPackageOptions,
+  type DownloadPackageResult,
+  type DownloadSource,
+} from '../../../lib/net/fetcher'
 import { createDiagnosticsCollector, diagnosticsFor } from '../diagnostics'
 import { type BootstrapDeps } from './job'
 import {
@@ -197,11 +200,11 @@ export function harness(
   options: {
     manifest?: ManifestSource
     /** Called before each fake fetch resolves; may await, cancel, or both. */
-    onFetch?: (source: PackageSource, fetchOptions: DownloadPackageOptions) => Promise<void>
+    onFetch?: (source: DownloadSource, fetchOptions: DownloadPackageOptions) => Promise<void>
     /** Overrides the fixture contents a package's extraction produces. */
     contents?: Record<string, string[]>
     /** The URL that "actually served" a package - a mirror, when it differs from `source.url`. */
-    servingUrl?: (source: PackageSource) => string
+    servingUrl?: (source: DownloadSource) => string
     /** `PackageSource.fileName` whose download fails (transport), instead of resolving verified. */
     failFetchFor?: string
     /** `ManifestPackage.id` whose extraction fails, instead of writing its fixture tree. */
@@ -255,7 +258,7 @@ export function harness(
 
   const fetcher: PackageFetcher = {
     fetch: async (
-      source: PackageSource,
+      source: DownloadSource,
       fetchOptions: DownloadPackageOptions,
     ): Promise<DownloadPackageResult> => {
       fetched.push(source.fileName)
@@ -290,7 +293,7 @@ export function harness(
         ok: true,
         path,
         sizeBytes: source.sizeBytes,
-        sha256: source.sha256,
+        sha256: source.sha256 ?? 'f'.repeat(64),
         url: servingUrl,
         attempts: [{ url: servingUrl, requests: 1, outcome: 'verified' }],
       }

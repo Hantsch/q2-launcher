@@ -100,6 +100,7 @@
         "whilePlaying": {
           "label": "Allow downloads while playing"
         },
+        "queueUnavailable": "Not available yet: downloads run one at a time",
         "cacheSize": {
           "value": "Cache: {{size}} ({{count}} archives)"
         },
@@ -3271,7 +3272,6 @@
 
   "downloads": {
     "job": {
-      "download": "Downloading {{name}}",
       "bootstrap": "Setting up {{name}}",
       "retailUpgrade": "Importing retail data into {{name}}",
       "engineUpdate": "Updating the engine of {{name}}",

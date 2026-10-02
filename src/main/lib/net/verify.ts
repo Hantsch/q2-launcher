@@ -23,7 +23,9 @@ import { dirname } from 'node:path'
 /** What the package declares. Both are compared; neither alone is sufficient. */
 export interface VerifyExpectation {
   sizeBytes: number
-  sha256: string
+  /** `null` is the explicit size-only mode (a moving target with no pinned digest); an empty or
+   * malformed string is still refused, so a missing digest can never silently downgrade a pinned check. */
+  sha256: string | null
 }
 
 export interface VerifyAndPromoteInput {
@@ -103,8 +105,8 @@ export async function verifyAndPromote(
   // before anything is compared. Without this, a manifest carrying `sha256: ''` would only be
   // caught by the digest comparison happening to differ - correct today, but resting on the
   // accident that a real digest is never empty.
-  const expectedDigest = normalizeDigest(expected.sha256)
-  if (!HEX_SHA256.test(expectedDigest)) {
+  const expectedDigest = expected.sha256 === null ? null : normalizeDigest(expected.sha256)
+  if (expectedDigest !== null && !HEX_SHA256.test(expectedDigest)) {
     return refuse(
       partPath,
       'expectation',
@@ -142,7 +144,7 @@ export async function verifyAndPromote(
   }
 
   const actualDigest = normalizeDigest(actualSha256)
-  if (actualDigest !== expectedDigest) {
+  if (expectedDigest !== null && actualDigest !== expectedDigest) {
     return refuse(partPath, 'sha256', `expected sha256 ${expectedDigest}, got ${actualDigest}`)
   }
 

@@ -13,6 +13,7 @@ import {
   type Outcome,
 } from '@shared/types'
 import {
+  hashFile,
   isInside,
   moveFile,
   pathKey,
@@ -25,7 +26,6 @@ import { getExtractDir } from '../../services/package-staging'
 import type { ModCatalogEntryParsed } from './catalog-schema'
 import {
   collectPackageFiles,
-  hashFile,
   isSafeRelative,
   isStrictlyInside,
   PART_SUFFIX,

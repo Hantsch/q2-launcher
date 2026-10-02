@@ -175,6 +175,7 @@ describe('mods catalog.get handler', () => {
       isDev: false,
       harness: resolveUiHarness({}),
       persistence: new PersistenceRegistry(),
+      content: { manifest: {} },
       installations: { find: () => undefined },
     } as unknown as AppContext
     const r = new MainModuleRegistry()

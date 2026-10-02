@@ -100,6 +100,129 @@ describe('stagePackage', () => {
     if (result.ok) expect(result.extractDir).toContain('job1-0')
   })
 
+  it('a failed extraction reports stage extract with the download url', async () => {
+    const extract: StageExtractFn = () => ({
+      result: Promise.resolve({ ok: false, error: { key: 'downloads.error.extractionFailed' } }),
+      kill: () => {},
+    })
+    const result = await stagePackage({
+      ...baseInput({ url: `${baseUrl}/good.bin` }),
+      extract,
+      options: { fetchImpl: (url, init) => fetch(url, init) },
+    })
+    expect(result).toMatchObject({
+      ok: false,
+      stage: 'extract',
+      key: 'downloads.error.extractionFailed',
+      url: `${baseUrl}/good.bin`,
+    })
+  })
+
+  it('a failed extraction keeps the extractor key and the archive size', async () => {
+    const extract: StageExtractFn = () => ({
+      result: Promise.resolve({ ok: false, error: { key: 'extractor.unlisted' } }),
+      kill: () => {},
+    })
+    const result = await stagePackage({
+      ...baseInput({ url: `${baseUrl}/good.bin` }),
+      extract,
+      options: { fetchImpl: (url, init) => fetch(url, init) },
+    })
+    expect(result).toMatchObject({
+      ok: false,
+      stage: 'extract',
+      key: 'downloads.error.extractionFailed',
+      extractorKey: 'extractor.unlisted',
+      sizeBytes: PAYLOAD.length,
+    })
+  })
+
+  it('a staging directory that cannot be created reports stage prepare with the archive url and size', async () => {
+    const blocker = join(userData, 'blocker')
+    await writeFile(blocker, 'not a directory')
+    const extract = vi.fn()
+    const result = await stagePackage({
+      ...baseInput({ url: `${baseUrl}/good.bin` }),
+      extractDir: join(blocker, 'extract'),
+      extract: extract as unknown as StageExtractFn,
+      options: { fetchImpl: (url, init) => fetch(url, init) },
+    })
+    expect(result).toMatchObject({
+      ok: false,
+      cancelled: false,
+      stage: 'prepare',
+      key: 'downloads.error.diskWrite',
+      url: `${baseUrl}/good.bin`,
+      sizeBytes: PAYLOAD.length,
+    })
+    expect(extract).not.toHaveBeenCalled()
+  })
+
+  it('a signal aborted before the download is cancelled without fetching or extracting', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    const extract = vi.fn()
+    const result = await stagePackage({
+      ...baseInput({ url: `${baseUrl}/good.bin` }),
+      signal: controller.signal,
+      extract: extract as unknown as StageExtractFn,
+      options: { fetchImpl: (url, init) => fetch(url, init) },
+    })
+    expect(result).toMatchObject({ ok: false, cancelled: true })
+    expect(hits).toEqual([])
+    expect(extract).not.toHaveBeenCalled()
+  })
+
+  it('a signal aborted once the download finished is cancelled without extracting', async () => {
+    const controller = new AbortController()
+    const extract = vi.fn()
+    const result = await stagePackage({
+      ...baseInput({ url: `${baseUrl}/good.bin` }),
+      signal: controller.signal,
+      extract: extract as unknown as StageExtractFn,
+      options: {
+        fetchImpl: async (url, init) => {
+          const response = await fetch(url, init)
+          const bytes = Buffer.from(await response.arrayBuffer())
+          controller.abort()
+          return new Response(bytes, {
+            status: 200,
+            headers: { 'content-length': `${bytes.length}` },
+          })
+        },
+      },
+    })
+    expect(result).toMatchObject({ ok: false, cancelled: true })
+    expect(extract).not.toHaveBeenCalled()
+  })
+
+  it('the extractor handle reaches onExtractor before the extraction result settles', async () => {
+    const order: string[] = []
+    let release!: () => void
+    const pending = new Promise<{ ok: true; value: undefined }>((resolve) => {
+      release = () => resolve({ ok: true, value: undefined })
+    })
+    const handle = { result: pending, kill: () => {} }
+    const extract: StageExtractFn = () => {
+      order.push('extract')
+      return handle
+    }
+    const staged = stagePackage({
+      ...baseInput({ url: `${baseUrl}/good.bin` }),
+      extract,
+      onExtractor: (received) => {
+        order.push(received === handle ? 'onExtractor' : 'onExtractor:other')
+        // The result is still pending here: the callback must not wait on it.
+        order.push('result-pending')
+        setTimeout(release, 0)
+      },
+      options: { fetchImpl: (url, init) => fetch(url, init) },
+    })
+    const result = await staged
+    expect(order).toEqual(['extract', 'onExtractor', 'result-pending'])
+    expect(result.ok).toBe(true)
+  })
+
   it('a .tar.gz is extracted in two passes', async () => {
     const passes: string[] = []
     const extract: StageExtractFn = (input) => {

@@ -1,4 +1,4 @@
-import { mkdir, rm } from 'node:fs/promises'
+import { rm } from 'node:fs/promises'
 import type {
   DownloadsErrorKey,
   ManifestPackage,
@@ -22,7 +22,6 @@ import type { CreateJobInput } from '../../../services/jobs'
 import { isWriteCancelled } from '../../../services/write-guard'
 import { assembleInstallation, type AssembleFileRole } from '../bootstrap/assemble'
 import {
-  asExtractionErrorKey,
   INSTALLATION_NOT_FOUND,
   LOCAL_FAILURE,
   PACKAGE_INCOMPLETE,
@@ -32,8 +31,9 @@ import {
 import { getBootstrapExtractDir, getBootstrapExtractRoot, toPackageSource } from '../bootstrap/job'
 import type { BootstrapLog, Extractor, ManifestSource, PackageFetcher } from '../bootstrap/ports'
 import { engineAllowlistFor } from '../engine/update-job'
-import { markVerified, type ExtractorHandle } from '../../../lib/archive/extractor'
+import type { ExtractorHandle } from '../../../lib/archive/extractor'
 import type { FetchImpl } from '../../../lib/net/fetcher'
+import { stagePackage } from '../../../services/package-staging'
 import { buildRepairPlan } from './plan'
 
 /**
@@ -415,59 +415,50 @@ async function runRepair(args: {
 
     // 3. Download and extract, into `userData/cache/downloads/` - outside the installation and
     // outside the guard, because reading and downloading are never gated ([[091]] AC4).
-    for (const step of steps) {
+    for (const [index, step] of steps.entries()) {
       if (isCancelled()) return cancelledOutcome()
 
-      const fetched = await deps.fetcher.fetch(step.source, {
+      // Download, verify, create `step.extractDir` (7za is spawned with `cwd: extractDir`) and
+      // extract. The stager publishes the extractor handle with no `await` after its own cancel
+      // check, so `onCancel` can always kill a running 7za.
+      const staged = await stagePackage({
+        source: step.source,
+        jobId,
+        index,
+        extractDir: step.extractDir,
         userDataPath: deps.userDataPath,
         signal,
-        onProgress: ({ receivedBytes }) =>
+        onProgress: (receivedBytes) =>
           report({
             ratio: ((doneBytes + receivedBytes) / safeTotal) * DOWNLOAD_SHARE,
             bytesDone: doneBytes + receivedBytes,
             bytesTotal,
             filesRemaining: steps.length,
           }),
-        ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
-        ...(log ? { log } : {}),
+        onExtractor: setExtractor,
+        resolveExtractor: deps.resolveExtractor,
+        download: deps.fetcher.fetch,
+        extract: deps.extractor.extract,
+        options: {
+          ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
+          ...(log ? { log } : {}),
+        },
       })
-      if (!fetched.ok) {
-        // A cancel is not a failure needing a reason, and the fixed key set has no member for "the
-        // user changed their mind" - so it never surfaces `fetched.key`.
-        if (fetched.cancelled || isCancelled()) return cancelledOutcome()
-        return failed(fetched.key, `downloading ${step.pkg.id} failed: ${fetched.reason}`)
-      }
 
+      // Before the result, on purpose: a kill that lost the race against 7za's own clean exit must
+      // not turn a cancelled job into a succeeded one. A cancel is not a failure needing a reason,
+      // and the fixed key set has no member for "the user changed their mind" - so it never
+      // surfaces the stager's key.
       if (isCancelled()) return cancelledOutcome()
-
-      // 7za is spawned with `cwd: extractDir`, so the directory has to exist before the spawn.
-      try {
-        await mkdir(step.extractDir, { recursive: true })
-      } catch (error) {
-        return failed(LOCAL_FAILURE, `mkdir ${step.extractDir} failed: ${String(error)}`)
-      }
-
-      if (isCancelled()) return cancelledOutcome()
-
-      const extractorPath = deps.resolveExtractor()
-      // No `await` between the check above and the assignment below, so a cancel can never land in
-      // a gap where the extractor runs but `onCancel` cannot see it yet.
-      const handle = deps.extractor.extract({
-        archive: markVerified(fetched.path),
-        extractDir: step.extractDir,
-        extractorPath: extractorPath.path,
-        extractorExists: extractorPath.exists,
-      })
-      setExtractor(handle)
-      const extracted = await handle.result
-
-      // Before `extracted.ok`, on purpose: a kill that lost the race against 7za's own clean exit
-      // must not turn a cancelled job into a succeeded one.
-      if (isCancelled()) return cancelledOutcome()
-      if (!extracted.ok) {
+      if (!staged.ok) {
+        if (staged.cancelled) return cancelledOutcome()
+        if (staged.stage === 'download') {
+          return failed(staged.key, `downloading ${step.pkg.id} failed: ${staged.reason}`)
+        }
+        if (staged.stage === 'prepare') return failed(staged.key, staged.reason)
         return failed(
-          asExtractionErrorKey(extracted.error.key),
-          `extracting ${step.pkg.id} failed with ${extracted.error.key}`,
+          staged.key,
+          `extracting ${step.pkg.id} failed with ${staged.extractorKey ?? staged.key}`,
         )
       }
 
@@ -493,7 +484,7 @@ async function runRepair(args: {
           sources: [{ packageId: step.pkg.id, dir: step.extractDir, role: step.role }],
           targetRoot: installation.rootPath,
           ...(step.engine ? { engine: step.engine } : {}),
-          includeVideoAndPlayers: false,
+          scope: 'core',
           restrictTo: step.restrictTo,
         })
 

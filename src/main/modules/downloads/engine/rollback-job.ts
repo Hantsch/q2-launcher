@@ -1,5 +1,5 @@
-import { mkdir, readdir, rm } from 'node:fs/promises'
-import { dirname, join, relative } from 'node:path'
+import { mkdir, rm } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import type { DownloadsErrorKey } from '@shared/modules/downloads'
 import {
   fail,
@@ -10,7 +10,7 @@ import {
   type JobProgress,
   type Outcome,
 } from '@shared/types'
-import { moveFile, plannedDestination, resolveRelaxed } from '../../../lib/fs-utils'
+import { listFilesRecursive, moveFile, plannedDestination, resolveRelaxed } from '../../../lib/fs-utils'
 import type { CreateJobInput } from '../../../services/jobs'
 import { isWriteCancelled } from '../../../services/write-guard'
 import { INSTALLATION_NOT_FOUND, LOCAL_FAILURE } from '../bootstrap/errors'
@@ -238,7 +238,7 @@ async function runRollback(args: {
 
     let relatives: string[]
     try {
-      relatives = await listFilesRecursive(backupDir)
+      relatives = await listBackupFiles(backupDir)
     } catch (error) {
       return failed(
         ENGINE_REPLACE_FAILED,
@@ -333,31 +333,15 @@ async function runRollback(args: {
 }
 
 /**
- * Every file under `dir`, as paths relative to it (`baseq2/gamex86_64.dll`-style, forward slashes
- * only regardless of platform, matching the allowlist's own spelling) - the backup directory's own
- * contents *are* the file list this job restores, see the module comment. Answers an empty array for
- * a directory that does not exist, rather than throwing: that is for the caller above to treat as
- * "nothing to restore", not as a filesystem error of its own.
+ * Every file under `dir`, relative with forward slashes (the allowlist's own spelling) - the backup
+ * directory's own contents *are* the file list this job restores. A directory that does not exist
+ * (or cannot be read) answers an empty array: that is for the caller to treat as "nothing to
+ * restore", not as a filesystem error of its own.
  */
-// Not a shared walker: swallows read errors (unreadable dir = no files) and yields relative forward-slash paths.
-async function listFilesRecursive(dir: string): Promise<string[]> {
-  const out: string[] = []
-  const walk = async (current: string): Promise<void> => {
-    let entries
-    try {
-      entries = await readdir(current, { withFileTypes: true })
-    } catch {
-      return
-    }
-    for (const entry of entries) {
-      const full = join(current, entry.name)
-      if (entry.isDirectory()) {
-        await walk(full)
-        continue
-      }
-      out.push(relative(dir, full).replace(/\\/g, '/'))
-    }
+async function listBackupFiles(dir: string): Promise<string[]> {
+  try {
+    return (await listFilesRecursive(dir)).map((entry) => entry.rel)
+  } catch {
+    return []
   }
-  await walk(dir)
-  return out
 }

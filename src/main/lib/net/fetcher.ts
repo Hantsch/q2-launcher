@@ -84,7 +84,16 @@ export interface DownloadProgress {
   totalBytes: number | null
 }
 
+/** A `PackageSource` whose digest may be absent - only meaningful with `verify: { sizeOnly: true }`. */
+export type DownloadSource = Omit<PackageSource, 'sha256'> & { sha256?: string }
+
 export interface DownloadPackageOptions {
+  /**
+   * `'sha256'` (default) checks size and digest. `{ sizeOnly: true }` is for a moving target with no
+   * pinned digest (the bleeding-edge engine build); everything else - stall timer, retries, mirror
+   * advance, overrun abort - runs unchanged.
+   */
+  verify?: 'sha256' | { sizeOnly: true }
   /** Root of the launcher's user data; the cache directory is built from it (`download-cache-paths.ts`). */
   userDataPath: string
   fetchImpl?: FetchImpl
@@ -200,7 +209,8 @@ async function discardFile(file: ReturnType<typeof createWriteStream>): Promise<
 
 interface AttemptContext {
   url: string
-  source: PackageSource
+  source: DownloadSource
+  sizeOnly: boolean
   partPath: string
   finalPath: string
   fetchImpl: FetchImpl
@@ -215,7 +225,7 @@ interface AttemptContext {
  * promote. Returns - never throws - so the mirror/retry state machine above stays readable.
  */
 async function attemptDownload(context: AttemptContext): Promise<AttemptResult> {
-  const { url, source, partPath, finalPath, fetchImpl, onProgress } = context
+  const { url, source, sizeOnly, partPath, finalPath, fetchImpl, onProgress } = context
 
   if (context.signal?.aborted === true) return { kind: 'cancelled' }
 
@@ -367,7 +377,7 @@ async function attemptDownload(context: AttemptContext): Promise<AttemptResult> 
     const verified = await verifyAndPromote({
       partPath,
       finalPath,
-      expected: { sizeBytes: source.sizeBytes, sha256: source.sha256 },
+      expected: { sizeBytes: source.sizeBytes, sha256: sizeOnly ? null : (source.sha256 ?? '') },
       actualSha256: hash.digest('hex'),
       receivedBytes: received,
     })
@@ -398,13 +408,14 @@ async function attemptDownload(context: AttemptContext): Promise<AttemptResult> 
  * module comment for what retries against one URL and what advances to the next.
  */
 export async function downloadPackage(
-  source: PackageSource,
+  source: DownloadSource,
   options: DownloadPackageOptions,
 ): Promise<DownloadPackageResult> {
   const attempts: UrlAttempt[] = []
   const log = options.log
   const transportRetries = options.transportRetries ?? DEFAULT_TRANSPORT_RETRIES
   const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS
+  const sizeOnly = typeof options.verify === 'object'
 
   let partPath: string
   let finalPath: string
@@ -435,6 +446,7 @@ export async function downloadPackage(
       result = await attemptDownload({
         url,
         source,
+        sizeOnly,
         partPath,
         finalPath,
         fetchImpl: options.fetchImpl ?? electronNetFetch,

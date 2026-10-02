@@ -1,7 +1,7 @@
 ---
 id: 220
 title: package staging is one path and the dead download queue is gone
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -34,27 +34,27 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F12, F13, 
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `pipeline.ts`, `queue.ts`, their tests, `startDownload` and the `createPipelineFor`
+- [x] **AC1** — `pipeline.ts`, `queue.ts`, their tests, `startDownload` and the `createPipelineFor`
       call are deleted (`getExtractDir` moves to staging); `concurrentJobs` and
       `downloadWhilePlayingAllowed` controls stay visible in Settings but disabled with a visible
       i18n reason ("Not available yet: downloads run one at a time") per the platform-parity
       rule, or are removed together with their persisted fields via a migration — decision
       recorded; install-module.md §9 matches.
-- [ ] **AC2** — bootstrap, repair and engine update stage through `stagePackage` (extended with
+- [x] **AC2** — bootstrap, repair and engine update stage through `stagePackage` (extended with
       `onProgress` and `verify: 'sha256' | { sizeOnly: true }`); `downloadUnpinnedAsset` is
       deleted and the unpinned branch goes through `downloadPackage` in size-only mode, so stall
       timer, retry/mirror loop and size-overrun abort apply; a test proves a stalled unpinned
       download times out.
-- [ ] **AC3** — `clamp01`, `removeDir`, `hashFile` live once in `src/main/lib/`; the three
+- [x] **AC3** — `clamp01`, `removeDir`, `hashFile` live once in `src/main/lib/`; the three
       recursive listers are one (`fs-utils`, with story 199).
-- [ ] **AC4** — One `ManifestService` lives on `AppContext` (or a `content` service) and is
+- [x] **AC4** — One `ManifestService` lives on `AppContext` (or a `content` service) and is
       injected into downloads and mods; a generic `CachedContentDocument<T>` in
       `src/main/lib/content-repo.ts` carries path, freshness, `cacheVersion` and envelope
       validation, and both `ManifestService` and `CatalogService` are thin wrappers over it.
-- [ ] **AC5** — `assembleInstallation`/`buildAssemblePlan` take `scope: 'core' | 'extras'`;
+- [x] **AC5** — `assembleInstallation`/`buildAssemblePlan` take `scope: 'core' | 'extras'`;
       `assemble.test.ts` asserts the two plans are disjoint; the bootstrap flow records each file
       once.
-- [ ] **AC6** — Every downloads/mods unit test and flow (bootstrap, repair, engine update, mod
+- [x] **AC6** — Every downloads/mods unit test and flow (bootstrap, repair, engine update, mod
       install/update) passes; `index.test.ts` asserts every exported job starter is reachable
       from a handler.
 
@@ -308,4 +308,13 @@ settings-downloads-section`); §9 doc match checked by the default review agains
 
 ## Done
 
-<!-- Filled by /build 220. -->
+Dead download pipeline/queue and `startDownload` deleted; bootstrap, repair and engine update stage through one `stagePackage` (bleeding-edge now via `downloadPackage` size-only: stall timer, retry, size cap); `clamp01`/`removeDir`/`hashFile`/`listFilesRecursive` live once in `lib`; one `ManifestService` on `AppContext.content`, `ManifestService`/`CatalogService` wrap `CachedContentDocument`; assemble takes `scope: 'core' | 'extras'`; the two queue settings are shown disabled with a visible reason.
+
+Commit message: `220: one package-staging path, dead download queue removed, bleeding-edge downloads hardened, one ManifestService, assemble scope core/extras`
+
+Verification (narrow gate: `npx vitest run --changed HEAD` 2690 passed; src/main 3179 passed; build, typecheck, lint green; `npm run ui:flow -- <name>`): green flows settings-downloads-section (after `npm run ui:seed`), bootstrap-r1q2, bootstrap-failure, bootstrap-incomplete-package, repair, engine-update, mods-install, mod-update, downloads-tab. Every AC maps to its named test (all ran and passed; the apostrophe-less name "...with the download url" is the real package-staging test title). Review: default tier, PASS; findings fixed (starter-reachability regex, layering const/let, stale comments/doc, staging cancel + sync-handle tests), second review over the fix PASS with minor notes (one stale comment fixed).
+- Pre-existing, not caused here: `bootstrap-wizard` red on bare HEAD (verified in a HEAD worktree: Program Files warning never appears at step AC2). `settings-downloads-section`/`downloads-tab` "N archives" mismatch is a polluted `.ui-verify` fixture cache (count varies with earlier flow runs); green after `npm run ui:seed`.
+- Decisions: queue settings disabled with reason, no migration (User); `CachedContentDocument` cache file stays flat `{cacheVersion, fetchedAt, ...body}` (existing cache shape and tests); job-level extras test asserts unique assembly `to` values (`copiedFiles` is not exposed at job level); bleeding-edge transport failure now ends `allMirrorsFailed` (was `network`), as pinned downloads; bootstrap/repair/engine gain the lone-`.tar` second pass; `Switch` got an optional `describedBy`; `downloads.job.download` key removed, fixtures use `downloads.job.bootstrap`; persistence labels `downloads-manifest`/`mods-manifest` became `content-manifest`; historical install-module.md rows annotated "superseded".
+- Manual residue: none.
+
+tiers: D 8 / hard 1 · review default · cycles 1 · agents 13

@@ -308,3 +308,4 @@ second roadmap.
 - 209 — modules reach Electron and the harness only through the shell · S32 · app.os/displays/harness/env on AppContext, downloads infrastructure hoisted to shell-owned lib/services, architecture test enforces zero electron/process.env in modules
 - 221 — HTTP fetches share one timeout and size policy · S32 · lib/http.ts fetchWithPolicy backs feed, image, list-source, content-repo and probe fetches; a stalled or oversized server-list source no longer hangs a scan.
 - 222 — platform rules live in one module · S32 · lib/platform.ts answers platform questions, createListenerSet replaces ten emitters, looksLikeQuake2 defined once
+- 220 — package staging is one path, dead download queue gone · S32 · one stagePackage for bootstrap/repair/engine update, bleeding-edge downloads hardened, one ManifestService, assemble scope core/extras, queue settings shown disabled with a reason

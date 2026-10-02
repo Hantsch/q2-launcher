@@ -32,7 +32,7 @@ export function makeJob(overrides: Partial<Job> = {}): Job {
     id: 'job-1',
     moduleId: 'downloads',
     kind: 'download-game',
-    labelKey: 'downloads.job.download',
+    labelKey: 'downloads.job.bootstrap',
     labelParams: { name: 'Base game' },
     status: 'running',
     progress: { ratio: 0.42, bytesDone: 420_000, bytesTotal: 1_000_000, bytesPerSecond: 50_000 },

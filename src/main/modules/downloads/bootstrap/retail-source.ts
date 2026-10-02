@@ -187,10 +187,13 @@ export async function copyRetailGameData(input: {
     { packageId: 'retail-source', dir: input.sourceRoot, role: 'retail' },
   ]
 
-  return assembleInstallation({
-    sources,
-    targetRoot: input.targetRoot,
-    includeVideoAndPlayers: input.includeVideoAndPlayers,
-    dataSource: 'store-copy',
-  })
+  const base = { sources, targetRoot: input.targetRoot, dataSource: 'store-copy' } as const
+  const core = await assembleInstallation({ ...base, scope: 'core' })
+  if (!input.includeVideoAndPlayers) return core
+  const extras = await assembleInstallation({ ...base, scope: 'extras' })
+  return {
+    copiedFiles: [...core.copiedFiles, ...extras.copiedFiles],
+    missingRequired: [...core.missingRequired, ...extras.missingRequired],
+    entries: [...core.entries, ...extras.entries],
+  }
 }

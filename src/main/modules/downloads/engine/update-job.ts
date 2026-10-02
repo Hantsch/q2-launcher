@@ -1,8 +1,5 @@
-import { createWriteStream } from 'node:fs'
-import { cp, mkdir, rename, rm, stat } from 'node:fs/promises'
+import { cp, mkdir, rm, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { Readable } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
 import type {
   DownloadsErrorKey,
   EngineBackupInfo,
@@ -21,11 +18,11 @@ import {
   type Outcome,
 } from '@shared/types'
 import { moveFile, plannedDestination, resolveRelaxed } from '../../../lib/fs-utils'
+import { clamp01 } from '../../../lib/math'
 import type { CreateJobInput } from '../../../services/jobs'
 import { isWriteCancelled } from '../../../services/write-guard'
 import { buildAssemblePlan, type AssembleFileEntry } from '../bootstrap/assemble'
 import {
-  asExtractionErrorKey,
   INSTALLATION_NOT_FOUND,
   LOCAL_FAILURE,
   NOT_PLAYABLE,
@@ -34,15 +31,14 @@ import {
 } from '../bootstrap/errors'
 import { toPackageSource } from '../bootstrap/job'
 import type { BootstrapLog, Extractor, ManifestSource } from '../bootstrap/ports'
-import { markVerified, type ExtractorHandle } from '../../../lib/archive/extractor'
-import { downloadPackage, electronNetFetch, type FetchImpl } from '../../../lib/net/fetcher'
+import type { ExtractorHandle } from '../../../lib/archive/extractor'
+import type { FetchImpl } from '../../../lib/net/fetcher'
+import { isSafeDownloadFileName } from '../../../lib/net/download-cache-paths'
 import {
-  ensureDownloadsCacheDir,
-  getFinalPath,
-  getPartPath,
-  isSafeDownloadFileName,
-} from '../../../lib/net/download-cache-paths'
-import { getExtractDir } from '../../../services/package-staging'
+  getExtractDir,
+  stagePackage,
+  type StageDownloadFn,
+} from '../../../services/package-staging'
 import {
   BleedingEdgeProbeFailedError,
   BleedingEdgeUnsupportedError,
@@ -149,8 +145,6 @@ const BLEEDING_EDGE_UNSUPPORTED: DownloadsErrorKey = 'downloads.error.bleedingEd
 
 const BLEEDING_EDGE_PROBE_FAILED: DownloadsErrorKey = 'downloads.error.bleedingEdgeProbeFailed'
 
-const NETWORK_FAILURE: DownloadsErrorKey = 'downloads.error.network'
-
 /**
  * What a backup records as the version it holds when the installation had no recorded engine
  * version at all ("an installation with no recorded engine version counts as differs", Decisions
@@ -241,24 +235,6 @@ export interface EngineUpdateTarget {
   sha256?: string
 }
 
-export interface EngineArchiveDownloadRequest {
-  target: EngineUpdateTarget
-  userDataPath: string
-  signal: AbortSignal
-  onProgress?: (receivedBytes: number) => void
-  fetchImpl?: FetchImpl
-  log?: BootstrapLog
-}
-
-export type EngineArchiveDownloadResult =
-  | { ok: true; path: string }
-  | { ok: false; key: DownloadsErrorKey; reason: string; cancelled: boolean }
-
-/** How the job gets the target archive onto disk. Injected so a test never moves real bytes. */
-export type EngineArchiveDownload = (
-  request: EngineArchiveDownloadRequest,
-) => Promise<EngineArchiveDownloadResult>
-
 export interface EngineUpdateDeps {
   jobs: EngineUpdateJobsHost
   installations: EngineUpdateInstallationsHost
@@ -277,11 +253,11 @@ export interface EngineUpdateDeps {
   /** `resolveExtractorPath(...)` (`7za-path.ts`), called per extraction like the pipeline does. */
   resolveExtractor: () => { path: string; exists: boolean }
   /**
-   * The real `downloadEngineArchive` unless a test substitutes one. Optional where `writeGuard`
+   * The real `downloadPackage` unless a test substitutes one. Optional where `writeGuard`
    * above is required, and the difference is the one `BootstrapDeps` already draws: the default
    * below *is* the production implementation, so there is no wiring in which this goes unchecked.
    */
-  download?: EngineArchiveDownload
+  download?: StageDownloadFn
   /** D4's `probeBleedingEdge` unless a test substitutes one - same reasoning as `download`. */
   probeBleedingEdge?: (
     engine: EngineKind,
@@ -320,7 +296,7 @@ interface PlannedSwap {
  */
 export function engineAllowlistFor(engine: EngineKind): AssembleFileEntry[] {
   try {
-    return buildAssemblePlan({ engine, includeVideoAndPlayers: false }).filter(
+    return buildAssemblePlan({ engine, scope: 'core' }).filter(
       (entry) => entry.role === 'engine',
     )
   } catch {
@@ -529,11 +505,21 @@ async function runUpdate(args: {
     report({ ratio: 0, bytesDone: 0, bytesTotal, filesRemaining: allowlist.length })
     if (isCancelled()) return cancelledOutcome()
 
-    // 2. Download + verify. Outside the write guard, always: reading and downloading are never
-    // gated, only the mutation of the installation's own files is (AC6).
-    const download = deps.download ?? downloadEngineArchive
-    const downloaded = await download({
-      target,
+    // 2-3. Download + verify, then extract into a directory outside the installation - see the
+    // module comment. Outside the write guard, always: reading and downloading are never gated,
+    // only the mutation of the installation's own files is (AC6).
+    const stagedArchive = await stagePackage({
+      source: {
+        fileName: target.fileName,
+        url: target.url,
+        mirrors: target.mirrors,
+        sizeBytes: target.sizeBytes,
+        ...(target.sha256 !== undefined ? { sha256: target.sha256 } : {}),
+      },
+      verify: target.sha256 ? 'sha256' : { sizeOnly: true },
+      jobId,
+      index: 0,
+      extractDir: stagingRoot,
       userDataPath: deps.userDataPath,
       signal,
       onProgress: (receivedBytes) =>
@@ -543,43 +529,42 @@ async function runUpdate(args: {
           bytesTotal,
           filesRemaining: allowlist.length,
         }),
-      ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
-      ...(log ? { log } : {}),
+      onExtractProgress: (ratio) =>
+        report({
+          ratio:
+            ratio === null
+              ? DOWNLOAD_RATIO
+              : clamp01(DOWNLOAD_RATIO + ratio * (EXTRACT_RATIO - DOWNLOAD_RATIO)),
+          bytesDone: bytesTotal,
+          bytesTotal,
+        }),
+      onExtractor: setExtractor,
+      resolveExtractor: deps.resolveExtractor,
+      ...(deps.download ? { download: deps.download } : {}),
+      extract: deps.extractor.extract,
+      options: {
+        ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
+        ...(log ? { log } : {}),
+      },
     })
-    if (!downloaded.ok) {
-      if (downloaded.cancelled || isCancelled()) return cancelledOutcome()
-      return failed(downloaded.key, `downloading ${target.url} failed: ${downloaded.reason}`)
-    }
-    if (isCancelled()) return cancelledOutcome()
-    report({ ratio: DOWNLOAD_RATIO, bytesDone: bytesTotal, bytesTotal })
 
-    // 3. Extract, into a directory outside the installation - see the module comment.
-    try {
-      await mkdir(stagingRoot, { recursive: true })
-    } catch (error) {
-      return failed(LOCAL_FAILURE, `mkdir ${stagingRoot} failed: ${String(error)}`)
-    }
-    if (isCancelled()) return cancelledOutcome()
-
-    const extractorPath = deps.resolveExtractor()
-    // No `await` between the check above and the assignment below, so a cancel can never land in a
-    // gap where the extractor runs but `onCancel` cannot see it yet.
-    const handle = deps.extractor.extract({
-      archive: markVerified(downloaded.path),
-      extractDir: stagingRoot,
-      extractorPath: extractorPath.path,
-      extractorExists: extractorPath.exists,
-    })
-    setExtractor(handle)
-    const extracted = await handle.result
-
-    // Before `extracted.ok`, on purpose: a kill that lost the race against 7za's own clean exit
-    // must not turn a cancelled job into a succeeded one.
-    if (isCancelled()) return cancelledOutcome()
-    if (!extracted.ok) {
+    // Before reading the result, on purpose: a kill that lost the race against 7za's own clean
+    // exit must not turn a cancelled job into a succeeded one.
+    if (isCancelled() || (!stagedArchive.ok && stagedArchive.cancelled)) return cancelledOutcome()
+    if (!stagedArchive.ok) {
+      // A nightly has no digest, so a mirror whose every attempt failed verification served a
+      // wrong-sized file - the one failure the user is told about in those words.
+      const sizeMismatch =
+        !target.sha256 &&
+        stagedArchive.stage === 'download' &&
+        (stagedArchive.attempts?.length ?? 0) > 0 &&
+        stagedArchive.attempts?.every((attempt) => attempt.outcome === 'verification-failed') ===
+          true
       return failed(
-        asExtractionErrorKey(extracted.error.key),
-        `extracting ${downloaded.path} failed with ${extracted.error.key}`,
+        sizeMismatch ? BLEEDING_EDGE_SIZE_MISMATCH : stagedArchive.key,
+        stagedArchive.stage === 'download'
+          ? `downloading ${target.url} failed: ${stagedArchive.reason}`
+          : stagedArchive.reason,
       )
     }
     report({ ratio: EXTRACT_RATIO, bytesDone: bytesTotal, bytesTotal })
@@ -831,11 +816,6 @@ async function runUpdate(args: {
   }
 }
 
-function clamp01(value: number): number {
-  if (!Number.isFinite(value)) return 0
-  return Math.min(1, Math.max(0, value))
-}
-
 /**
  * The first candidate of an allowlist entry that the staging tree actually holds. Case-sensitive
  * `join`, exactly like `assemble.ts` does for `role: 'engine'`: a staging tree is this launcher's
@@ -852,132 +832,4 @@ async function findStaged(stagingRoot: string, candidates: string[]): Promise<st
     }
   }
   return null
-}
-
-/**
- * The production `EngineArchiveDownload`. Two channels, one difference (Decisions (Sprint)):
- *
- *  - **pinned** goes through `downloadPackage` - mirrors, transport retries, and the size + SHA256
- *    verification INST-V1-V3 asks for, with the archive only ever leaving `.part` once both matched.
- *  - **bleeding edge** has no pinned digest to verify against, so it gets the size-only sanity check
- *    the user decided on: stream to `.part`, compare the bytes that landed against what the probe's
- *    `HEAD` reported, and promote only on a match. A mismatch fails with
- *    `downloads.error.bleedingEdgeSizeMismatch` and leaves nothing behind.
- */
-export const downloadEngineArchive: EngineArchiveDownload = async (request) => {
-  const { target } = request
-  if (target.sha256 !== undefined) {
-    const result = await downloadPackage(
-      {
-        fileName: target.fileName,
-        url: target.url,
-        mirrors: target.mirrors,
-        sizeBytes: target.sizeBytes,
-        sha256: target.sha256,
-      },
-      {
-        userDataPath: request.userDataPath,
-        signal: request.signal,
-        ...(request.onProgress
-          ? { onProgress: ({ receivedBytes }) => request.onProgress?.(receivedBytes) }
-          : {}),
-        ...(request.fetchImpl ? { fetchImpl: request.fetchImpl } : {}),
-        ...(request.log ? { log: request.log } : {}),
-      },
-    )
-    if (result.ok) return { ok: true, path: result.path }
-    return { ok: false, key: result.key, reason: result.reason, cancelled: result.cancelled }
-  }
-  return downloadUnpinnedAsset(request)
-}
-
-/** The bleeding-edge half of `downloadEngineArchive` - see its doc comment. */
-async function downloadUnpinnedAsset(
-  request: EngineArchiveDownloadRequest,
-): Promise<EngineArchiveDownloadResult> {
-  const { target, signal } = request
-
-  let partPath: string
-  let finalPath: string
-  try {
-    finalPath = getFinalPath(request.userDataPath, target.fileName)
-    partPath = getPartPath(request.userDataPath, target.fileName)
-    await ensureDownloadsCacheDir(request.userDataPath)
-  } catch (error) {
-    return {
-      ok: false,
-      key: LOCAL_FAILURE,
-      reason: `the downloads cache could not be prepared: ${String(error)}`,
-      cancelled: false,
-    }
-  }
-
-  const fetchImpl = request.fetchImpl ?? electronNetFetch
-  try {
-    const response = await fetchImpl(target.url, { signal })
-    if (!response.ok) {
-      return {
-        ok: false,
-        key: NETWORK_FAILURE,
-        reason: `unexpected status ${response.status}`,
-        cancelled: false,
-      }
-    }
-    if (response.body === null) {
-      return { ok: false, key: NETWORK_FAILURE, reason: 'response had no body', cancelled: false }
-    }
-    let received = 0
-    const body = Readable.fromWeb(response.body as Parameters<typeof Readable.fromWeb>[0])
-    body.on('data', (chunk: Buffer) => {
-      received += chunk.length
-      request.onProgress?.(received)
-    })
-    await pipeline(body, createWriteStream(partPath), { signal })
-  } catch (error) {
-    await rm(partPath, { force: true }).catch(() => {})
-    if (signal.aborted) {
-      return { ok: false, key: NETWORK_FAILURE, reason: 'cancelled', cancelled: true }
-    }
-    return { ok: false, key: NETWORK_FAILURE, reason: String(error), cancelled: false }
-  }
-
-  let actualBytes: number
-  try {
-    actualBytes = (await stat(partPath)).size
-  } catch (error) {
-    return {
-      ok: false,
-      key: LOCAL_FAILURE,
-      reason: `${partPath} could not be read back: ${String(error)}`,
-      cancelled: false,
-    }
-  }
-  if (actualBytes !== target.sizeBytes) {
-    await rm(partPath, { force: true }).catch(() => {})
-    return {
-      ok: false,
-      key: BLEEDING_EDGE_SIZE_MISMATCH,
-      reason: `the probe reported ${target.sizeBytes} bytes, the download holds ${actualBytes}`,
-      cancelled: false,
-    }
-  }
-
-  // Only now does it stop being a `.part` - the same "a file becomes usable by being renamed" rule
-  // `verify.ts` enforces for the pinned path.
-  try {
-    await rm(finalPath, { force: true })
-    await rename(partPath, finalPath)
-  } catch (error) {
-    await rm(partPath, { force: true }).catch(() => {})
-    return {
-      ok: false,
-      key: LOCAL_FAILURE,
-      reason: `could not move the downloaded file into place: ${String(error)}`,
-      cancelled: false,
-    }
-  }
-  request.log?.info(
-    `downloaded the bleeding-edge engine build ${target.version} (${actualBytes} bytes)`,
-  )
-  return { ok: true, path: finalPath }
 }

@@ -1,4 +1,4 @@
-import { DOWNLOADS_ERROR_KEYS, type DownloadsErrorKey } from '@shared/modules/downloads'
+import type { DownloadsErrorKey } from '@shared/modules/downloads'
 
 /**
  * Story 074 D4: the mapping from "what went wrong in the bootstrap job" to the fixed
@@ -108,19 +108,10 @@ export const REPAIR_NOT_APPLICABLE = 'downloads.error.repairNotApplicable'
 
 /**
  * The catch-all for a local operation that failed for an unforeseen reason - a refused path, a
- * copy that threw, an `mkdir` that could not run. Same choice `pipeline.ts` makes for its own
- * unexpected-error path, and the key `fetcher.ts` already uses for a refused local path: of the
+ * copy that threw, an `mkdir` that could not run. The choice every job's
+ * unexpected-error path makes, and the key `fetcher.ts` already uses for a refused local path: of the
  * fixed set, this is the only member that describes "this machine, not the network".
  */
 export const LOCAL_FAILURE: DownloadsErrorKey = 'downloads.error.diskWrite'
 
-/**
- * The extractor's `Outcome` carries a plain string, so only a member of the fixed set may reach a
- * job. Same narrowing `pipeline.ts` applies - an unrecognised key becomes
- * `downloads.error.extractionFailed`, which is what the caller was extracting when it happened.
- */
-export function asExtractionErrorKey(key: string): DownloadsErrorKey {
-  return (DOWNLOADS_ERROR_KEYS as readonly string[]).includes(key)
-    ? (key as DownloadsErrorKey)
-    : 'downloads.error.extractionFailed'
-}
+export { asExtractionErrorKey } from '../../../services/package-staging'

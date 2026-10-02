@@ -72,7 +72,7 @@ function makeFailure(overrides: Partial<DownloadFailure> = {}): DownloadFailure 
   return {
     id: 'failure-1',
     jobId: 'job-1',
-    labelKey: 'downloads.job.download',
+    labelKey: 'downloads.job.bootstrap',
     labelParams: { name: 'Base game' },
     error: { key: 'downloads.error.network' },
     createdAt: Date.now(),

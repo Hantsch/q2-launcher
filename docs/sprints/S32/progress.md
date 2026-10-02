@@ -360,3 +360,29 @@
 - 2026-10-02 16:35:01 · 222 · review 1 · started
 - 2026-10-02 16:36:11 · 222 · review 1 · done
 - 2026-10-02 16:36:11 · 222 · story · done
+- 2026-10-02 16:36:27 · 220 · build · started
+- 2026-10-02 16:36:56 · 220 · D1 delete dead pipeline · started
+- 2026-10-02 16:38:42 · 220 · D1 delete dead pipeline · done
+- 2026-10-02 16:38:42 · 220 · D2 settings disabled with reason · started
+- 2026-10-02 16:40:37 · 220 · D2 settings disabled with reason · done
+- 2026-10-02 16:40:37 · 220 · D3 size-only download + engine update staging · started
+- 2026-10-02 16:43:53 · 220 · D3 size-only download + engine update staging · done
+- 2026-10-02 16:43:53 · 220 · D4 bootstrap+repair via stagePackage (hard) · started
+- 2026-10-02 16:47:23 · 220 · D4 bootstrap+repair via stagePackage (hard) · done
+- 2026-10-02 16:47:23 · 220 · D5 assemble scope core/extras · started
+- 2026-10-02 16:48:59 · 220 · D5 assemble scope core/extras · done
+- 2026-10-02 16:48:59 · 220 · D6 shared lib helpers · started
+- 2026-10-02 16:48:59 · 220 · D7 CachedContentDocument · started
+- 2026-10-02 16:51:42 · 220 · D6 shared lib helpers · done
+- 2026-10-02 16:51:42 · 220 · D7 CachedContentDocument · done
+- 2026-10-02 16:51:42 · 220 · D8 one ManifestService on AppContext · started
+- 2026-10-02 16:53:30 · 220 · D8 one ManifestService on AppContext · done
+- 2026-10-02 16:53:30 · 220 · verify · started
+- 2026-10-02 17:01:28 · 220 · verify · done
+- 2026-10-02 17:01:28 · 220 · review 1 · started
+- 2026-10-02 17:03:58 · 220 · review 1 · done
+- 2026-10-02 17:03:58 · 220 · review-fix 1 · started
+- 2026-10-02 17:05:29 · 220 · review-fix 1 · done
+- 2026-10-02 17:05:29 · 220 · review 2 · started
+- 2026-10-02 17:06:48 · 220 · review 2 · done
+- 2026-10-02 17:06:50 · 220 · story · done
