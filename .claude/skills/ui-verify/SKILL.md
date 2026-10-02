@@ -3,7 +3,7 @@ name: ui-verify
 description: "Drive a built Electron app through Playwright's _electron to produce screenshots of every screen and an axe-core accessibility report, without anyone starting the app by hand. Use when: asked to verify, screenshot, smoke-test or look at the UI of an Electron app; setting up UI verification or a visual check; a story needs a live smoke test on a running app; writing functional acceptance or e2e tests that drive the real Electron UI; making a test run stay off the desktop and out of the keyboard focus; splitting e2e runs into one flow per story and all flows per sprint; adding an accessibility gate to CI; reviewing whether a UI change actually renders. DO NOT USE FOR: unit or component tests; web-only apps (use plain Playwright); Electron layering or IPC questions."
 ---
 
-<!-- tech-rules:managed 2.1.0 -->
+<!-- tech-rules:managed 2.3.0 -->
 
 # UI Verification for Electron
 
@@ -24,6 +24,7 @@ fail a criterion.
 scripts/
   lib/app-harness.mjs   starts the built app, scrubs the env, collects console output
   lib/screens.mjs       the screen list and how to navigate to each one
+  lib/steps.mjs         steps more than one flow needs (see Flows)
   seed.mjs              builds the demo fixture the app runs against
   shot.mjs              screenshots every screen -> .screenshots/
   a11y.mjs              axe-core over every screen -> .screenshots/a11y.json
@@ -131,9 +132,24 @@ window.once('ready-to-show', () => {
 - **`showInactive()` and `focusable: false` together.** `focusable: false` alone leaves Electron
   requesting a focus the window then refuses; `showInactive()` paints without asking for activation.
   On Windows `focusable: false` also keeps the window off the taskbar.
+- **Every window, from one place.** The flags, the offscreen position and the throttling switch
+  live in one shared module (`window-shared.ts`: `HARNESS`, `OFFSCREEN`, `OFFSCREEN_MARGIN`,
+  `rendererWebPreferences()`), and every `new BrowserWindow` uses it - overlays, secondary windows,
+  a settings window, not just the main one. The window that forgot is the one that pops up, and an
+  always-on-top overlay forgetting covers the whole desktop. A window sized to a display goes left
+  of every display at that display's width; `focusable: false` and `showInactive()` apply to it the
+  same way.
 - **The harness keeps it there.** A `resize()` helper must not `center()` the window; it re-derives
   the offscreen position from the new width. Anything else that moves the window - maximize,
   fullscreen, restoring a saved position - is skipped offscreen.
+- **The harness picks windows by identity, not by index.** Once a second window can be open,
+  `BrowserWindow.getAllWindows()[0]` is whichever was created last; `resize()` and the offscreen
+  flow select the main window by its URL (or an id the main process exposes).
+- **On a mixed-DPI Windows desktop an offscreen frameless window's content comes out larger than
+  asked** (measured: +16x+8 at 940x620), so a flow "at 940 px" measures 956. After `setSize`, read
+  `getContentSize()`; if it is off, lift the minimum size, re-size by the measured delta, re-place
+  the window, wait for the move to land (~200 ms) and restore the minimum - restoring it earlier
+  clamps straight back.
 - **`APP_UI_VISIBLE=1` puts the window back on screen** (prefix both variables with the app's name).
   That is the debugging path, not a mode a run needs.
 - **One flow checks all of it** (`flows/harness-offscreen.mjs`): the window's bounds intersect no
@@ -207,6 +223,15 @@ The seed script is where a project's shape shows most, so keep it honest:
   of the run.
 - `ensureDemoVault`-style behaviour: if the fixture is missing when `verify` runs, build it rather than
   failing.
+- **One deterministic builder.** Every flow's fixture comes from the same builder, with fixed
+  inputs - no clock, no random ids. A flow that needs another starting state asks the builder for a
+  variant; it does not grow a private copy.
+- **The fixture is tested against the app's real state loader.** A test loads every fixture variant
+  through the loader the app itself uses and fails on a migration warning or a dropped row. The
+  fixture is hand-written data in the app's persisted shape, so it drifts the moment that shape
+  changes - and the screens then show a state the app can no longer produce.
+- **Constants the fixture shares with the app are imported, not retyped** - schema versions,
+  default ids, file names. A retyped constant is the same drift, one value at a time.
 
 ## Screenshots
 
@@ -232,8 +257,10 @@ The seed script is where a project's shape shows most, so keep it honest:
   threshold that fails on everything gets disabled within a week, which is worse than not having one.
 - If the project has its own numeric floor - minimum hit area, contrast ratio - check it alongside
   axe by reading the value out of the stylesheet rather than hardcoding it in the script, so the gate
-  and the design tokens cannot drift apart. A mouse-driven desktop app with no tap-target token has
-  no such floor, and inventing one in the harness is a design decision the harness does not own.
+  and the design tokens cannot drift apart. A mouse-and-keyboard-only desktop app records one
+  project-wide deviation naming its own floor (see `design-tokens`); the gate reads that value from
+  the stylesheet, not from the deviation row. Inventing a floor in the harness is a design decision
+  the harness does not own.
 - Write the report as JSON next to the screenshots. It is evidence for a review, not console output
   that scrolls away.
 
@@ -269,6 +296,25 @@ Two runners, matching the split in Shape:
   passed in <s>s` at the end, list the failed ones by name and exit `1` if there are any. This is
   the sprint's regression gate (`e2e-all`); ai-scrum runs it in the background with its output
   teed into a log, so the progress lines are what the developer watches instead of a window.
+- **Quarantine is a list, not a skipped test.** `flows` reads an expected-failure list - entries of
+  `{ flow, reason, story, since }`, at the path ai-scrum's profile key `e2e-quarantine` names. A
+  quarantined flow that fails prints `expected-fail`; one that passes prints `unexpected-pass`, the
+  cue to delete its entry. The run exits `0` only when every non-quarantined flow is green. A red
+  gate then means one new thing, and the quarantined flow stays visible with an owner and a date.
+
+### What a flow may assert
+
+A flow asserts **user-visible outcomes and `data-testid`s**. It never asserts a literal config or
+cvar value, an element or Tab count, a fixture ordinal ("the third row") or pixel geometry. Those
+are another story's implementation details: the next story that adds a Tab or reorders the fixture
+turns this flow red, and the sprint gate fails on a change that broke nothing a user can see. Where
+a count or position is the criterion, the story names it and owns that flow.
+
+- One deterministic fixture builder serves every flow (see The fixture); a flow does not hard-code
+  what that builder happens to produce.
+- **Shared steps live in `lib/`.** Waiting for a scan, answering a probe, opening a dialog: written
+  once in `lib/steps.mjs`, imported by the flows. A helper declared in more than three flows is a
+  finding - the fourth copy is where the fixes start to miss one.
 
 ## Procedure
 
@@ -290,12 +336,21 @@ Two runners, matching the split in Shape:
 - [ ] `ELECTRON_RUN_AS_NODE` scrubbed from the environment
 - [ ] The run neither takes the keyboard focus nor appears on the desktop: offscreen, still
       painting, `showInactive()`; a visible opt-out; normal launches unchanged; one flow checks it
+- [ ] Every `BrowserWindow` - overlays and secondary windows included - takes the harness flags
+      from the one shared module; harness helpers select windows by identity, not by index
 - [ ] Test run split: screen pass per story, one flow by name per story, every flow once per
       sprint - each flow in its own process on a freshly written fixture, a subset by name
 - [ ] One session per fixture variant, `reload()` between screens, a new app only for declared
       cold-start screens and after a crash
 - [ ] Fixture rewritten at the start of every run, covering empty/populated/error states - and
       switching off the boot-time side effects that would reach outside it
+- [ ] One deterministic fixture builder; a test loads every variant through the app's real state
+      loader and fails on a migration warning or a dropped row; shared constants imported, not retyped
+- [ ] Flows assert user-visible outcomes and `data-testid`s - no literal config values, element or
+      Tab counts, fixture ordinals or pixel geometry
+- [ ] Shared steps in `lib/`; no helper declared in more than three flows
+- [ ] `flows` reads the expected-failure list (`e2e-quarantine`), prints expected-fail and
+      unexpected-pass, exits `0` only when every non-quarantined flow is green
 - [ ] Screenshot and axe come from the same visit to the screen
 - [ ] Console output attributed per screen, not per session
 - [ ] Wide and narrow viewports, resized inside the session; narrow also visits detail states
@@ -303,5 +358,5 @@ Two runners, matching the split in Shape:
 - [ ] Stale images renamed, not silently kept; a partial run says it is partial
 - [ ] Unreachable screens reported, not skipped quietly
 - [ ] Exit codes distinguish clean / harness failure / accessibility findings
-- [ ] `serious`/`critical` fail the run; the project's own numeric floor, if it has one, read from
-      the stylesheet
+- [ ] `serious`/`critical` fail the run; the project's own numeric floor (for a desktop app, the one
+      its single recorded deviation names) read from the stylesheet

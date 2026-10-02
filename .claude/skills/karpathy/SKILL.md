@@ -4,7 +4,7 @@ description: Behavioral guidelines that reduce the four recurring LLM coding mis
 license: MIT
 ---
 
-<!-- tech-rules:managed 2.1.0 -->
+<!-- tech-rules:managed 2.3.0 -->
 
 # Karpathy Guidelines
 

@@ -57,13 +57,13 @@ Two TS projects: `tsconfig.node.json` (main/preload/shared) and
   on Linux: …") — not only a tooltip. The reason is an i18n key like every other label, and the
   unavailability plus its reason are part of the feature's spec, not an implementation detail.
 
-<!-- tech-rules:managed:start 2.1.0 -->
 - **The changelog tells users what is new — short, not a story.** `CHANGELOG.md` is read by users
   (it is baked into Settings > About). One line per user-visible feature or fix, no more than ~15
   words of detail. A feature is one entry, not one per story: refinements, polish and fixes of
   something still under `## Unreleased` are folded into its entry, never listed separately. No
   internals, no "where did this come from" explanations. A release section should fit on one screen.
 
+<!-- tech-rules:managed:start 2.3.0 -->
 ## House rules
 
 These rules live in this repository as project skills, so they apply to everyone who works here —
@@ -72,12 +72,12 @@ no plugin needed. Installed and updated with `/tech-rules:setup` (plugin `tech-r
 | Read before | Skill |
 | --- | --- |
 | any code change | `/karpathy` |
-| touching `src/renderer` | `/frontend-guidelines`, `/design-tokens` |
+| touching `src/renderer` | `/renderer-guidelines`, `/design-tokens` |
 | main / preload / renderer, IPC, `webPreferences` | `/electron-arch`, `/typed-ipc`, `/ui-verify` |
 
 Do not edit a skill to make it fit this project. A deviation is recorded **here**, with its
-reason, and wins over the skill; a deviation without a reason is a violation that has been
-written down.
+reason, and wins over the skill — one row per rule deviated from, listing the places, never one
+row per control; a deviation without a reason is a violation that has been written down.
 <!-- tech-rules:managed:end -->
 
 ## Deviations
