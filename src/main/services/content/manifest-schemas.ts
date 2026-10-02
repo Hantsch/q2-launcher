@@ -35,7 +35,7 @@ function manifestPackageBaseSchemaWith(urlSchema: z.ZodType<string>) {
     contents: z.array(manifestPackageContentEntrySchema).min(1),
     /**
      * Story 100 D5: the host platforms this package's payload can actually run on, spelled the
-     * way `process.platform` spells them (`'win32'`, `'linux'`, `'darwin'`).
+     * way the Node platform string spells them (`'win32'`, `'linux'`, `'darwin'`).
      *
      * **Optional, and deliberately not defaulted here** - the "absent reads as `['win32']`" rule
      * is a compatibility reading of an *external* document and lives in exactly one place,

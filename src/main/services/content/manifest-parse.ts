@@ -80,7 +80,7 @@ export function packagePlatforms(pkg: PlatformTaggedManifestPackage): readonly s
   return pkg.platforms ?? IMPLIED_PLATFORMS
 }
 
-/** Whether `platform` (as `process.platform` spells it) can run `pkg`'s payload. */
+/** Whether `platform` (as the Node platform string spells it) can run `pkg`'s payload. */
 export function packageRunsOnPlatform(
   pkg: PlatformTaggedManifestPackage,
   platform: string,
@@ -99,7 +99,7 @@ export interface ParseManifestFileOptions {
    */
   httpsOnly?: boolean
   /**
-   * Story 100 D5: the host platform the pins are resolved for, spelled the way `process.platform`
+   * Story 100 D5: the host platform the pins are resolved for, spelled the way the Node platform string
    * spells it. Defaults to the running platform, so no existing caller changes; it is threaded in
    * as a plain value for the same reason `httpsOnly` above is - a test can then prove the Linux
    * reading on a Windows host (and the other way round) without stubbing anything global.
@@ -146,6 +146,7 @@ export function parseManifestFile(
   )
 
   // Read once, here, from the option the caller was handed - not deep inside the resolver.
+  // platform-read: injectable default, tests pass their own
   const platform: string = options.platform ?? process.platform
   const pinned = resolvePinned(envelope.data.pinned, packages, platform, log)
   const hasAnyPin = Object.keys(envelope.data.pinned ?? {}).length > 0

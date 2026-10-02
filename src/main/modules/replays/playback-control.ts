@@ -212,6 +212,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
       const bindIo: Prepared['bindIo'] = (io) => {
         bound = io
       }
+      // platform-read: injectable default, tests pass their own
       const platform = deps.platform ?? process.platform
       if (platform === 'win32') {
         channel = makeWindows({ gameDirPath, log })

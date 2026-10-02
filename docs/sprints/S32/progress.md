@@ -342,3 +342,21 @@
 - 2026-10-02 16:20:12 · 221 · review 2 · started
 - 2026-10-02 16:20:44 · 221 · review 2 · done
 - 2026-10-02 16:20:44 · 221 · story · done
+- 2026-10-02 16:21:00 · 222 · build · started
+- 2026-10-02 16:21:38 · 222 · D1 platform module · started
+- 2026-10-02 16:22:44 · 222 · D1 platform module · done
+- 2026-10-02 16:22:44 · 222 · D2 services/lib helpers · started
+- 2026-10-02 16:23:13 · 222 · D2 services/lib helpers · done
+- 2026-10-02 16:23:13 · 222 · D3 modules helpers + count guard · started
+- 2026-10-02 16:27:19 · 222 · D3 modules helpers + count guard · done
+- 2026-10-02 16:27:19 · 222 · D4 listener helper services · started
+- 2026-10-02 16:28:37 · 222 · D4 listener helper services · done
+- 2026-10-02 16:28:37 · 222 · D5 listener sites window/replays · started
+- 2026-10-02 16:29:59 · 222 · D5 listener sites window/replays · done
+- 2026-10-02 16:29:59 · 222 · D6 looksLikeQuake2 once · started
+- 2026-10-02 16:34:09 · 222 · D6 looksLikeQuake2 once · done
+- 2026-10-02 16:34:09 · 222 · verify · started
+- 2026-10-02 16:35:01 · 222 · verify · done
+- 2026-10-02 16:35:01 · 222 · review 1 · started
+- 2026-10-02 16:36:11 · 222 · review 1 · done
+- 2026-10-02 16:36:11 · 222 · story · done

@@ -87,7 +87,7 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
   `it.skipIf`-gated until someone with network access runs it once. [S16 review](../sprints/done/S16/review.md)
 - `setPlayedMods`/`setSwitchBind` (022) still bypass the sync engine — a stale switch-bind chain
   can `exec` an unmigrated filename until the next real sync touches that profile.
-- 9 non-blocking findings from story 010's review (case-folding inconsistencies, restore-primitive
+- 9 non-blocking findings from story 010's review (restore-primitive
   scope, locally-redeclared types) — see `docs/sprints/done/S02/review.md`.
 - Executable/marker names for engines other than r1q2/Q2PRO are unverified (now cosmetic-only
   since story 068 made "supported" a data flag).

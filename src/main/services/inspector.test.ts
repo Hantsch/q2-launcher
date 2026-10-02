@@ -1,10 +1,10 @@
-import { chmod, mkdir, mkdtemp, rm, truncate, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, truncate, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
 import { stubPlatform } from '../../test-support/platform'
-import { inspectInstallation } from './inspector'
+import { inspectInstallation, looksLikeQuake2 } from './inspector'
 
 /**
  * Story 093 D1: the inspector used to report one message, `validation.retailPaksMissing`, for two
@@ -359,5 +359,29 @@ describe('steam appid detection', () => {
     const result = await inspectInstallation(installRoot)
 
     expect(result.steamAppId).toBe('2320')
+  })
+})
+
+describe('looksLikeQuake2 is the one rule for what counts as a game folder', () => {
+  it('looksLikeQuake2 accepts a base-game or known-engine folder and rejects a missing one', async () => {
+    expect(looksLikeQuake2(await inspectInstallation(rootPath))).toBe(true)
+    expect(looksLikeQuake2(await inspectInstallation(join(dir, 'nope')))).toBe(false)
+  })
+
+  it('looksLikeQuake2 is defined only in inspector.ts', async () => {
+    const srcMain = join(__dirname, '..')
+    const files = (await readdir(srcMain, { recursive: true })).filter(
+      (f) => f.endsWith('.ts') && !/.test.ts$|.test-helpers.ts$/.test(f),
+    )
+    const definers: string[] = []
+    const qualifiers: string[] = []
+    for (const f of files) {
+      const text = await readFile(join(srcMain, f), 'utf8')
+      const rel = f.replaceAll('\\', '/')
+      if (text.includes('function looksLikeQuake2(')) definers.push(rel)
+      if (text.includes('function qualifies')) qualifiers.push(rel)
+    }
+    expect(definers).toEqual(['services/inspector.ts'])
+    expect(qualifiers).toEqual([])
   })
 })

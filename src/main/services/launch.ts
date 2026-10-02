@@ -19,6 +19,7 @@ import {
   type Outcome,
 } from '@shared/types'
 import { isFile } from '../lib/fs-utils'
+import { createListenerSet } from '../lib/listeners'
 import { scopedLogger } from '../lib/logger'
 import {
   buildLaunchArgs,
@@ -123,7 +124,7 @@ export class LaunchService {
    */
   private readonly broadcast: LaunchStateListener
   /** Story 091 D2's additive observers - see `onStateChange()`. */
-  private readonly listeners = new Set<LaunchStateListener>()
+  private readonly listeners = createListenerSet<LaunchState>(log, 'a launch onStateChange')
   private readonly getWriteGuard: (() => WriteLockReader | null) | undefined
   private readonly detectRunners: () => Promise<DetectedRunner[]>
   private current: LaunchState = IDLE_LAUNCH_STATE
@@ -141,7 +142,7 @@ export class LaunchService {
    * `releasePlaybackSession()`: letting go of the pipes leaves the game running.
    */
   private playbackChild: ChildProcess | undefined
-  private readonly beforeReleaseListeners = new Set<() => void>()
+  private readonly beforeReleaseListeners = createListenerSet(log, 'an onBeforePlaybackRelease')
 
   constructor(deps: LaunchDeps) {
     this.installations = deps.installations
@@ -166,10 +167,7 @@ export class LaunchService {
    * logged and skipped.
    */
   onStateChange(listener: LaunchStateListener): () => void {
-    this.listeners.add(listener)
-    return () => {
-      this.listeners.delete(listener)
-    }
+    return this.listeners.add(listener)
   }
 
   /** Story 104 D4: `'handed-off'` is deliberately absent - Steam, not us, runs that game. */
@@ -276,10 +274,7 @@ export class LaunchService {
    * session's stdin is ended, so a last console line can still be written. Errors are logged, never thrown.
    */
   onBeforePlaybackRelease(listener: () => void): () => void {
-    this.beforeReleaseListeners.add(listener)
-    return () => {
-      this.beforeReleaseListeners.delete(listener)
-    }
+    return this.beforeReleaseListeners.add(listener)
   }
 
   /**
@@ -290,13 +285,7 @@ export class LaunchService {
   releasePlaybackSession(): void {
     const handle = this.playback
     if (!handle) return
-    for (const listener of [...this.beforeReleaseListeners]) {
-      try {
-        listener()
-      } catch (error) {
-        log.error('an onBeforePlaybackRelease listener threw', error)
-      }
-    }
+    this.beforeReleaseListeners.emit()
     this.playback = undefined
     handle.end()
   }
@@ -610,12 +599,6 @@ export class LaunchService {
   private setState(next: LaunchState): void {
     this.current = next
     this.broadcast(next)
-    for (const listener of [...this.listeners]) {
-      try {
-        listener(next)
-      } catch (error) {
-        log.error('a launch onStateChange listener threw', error)
-      }
-    }
+    this.listeners.emit(next)
   }
 }

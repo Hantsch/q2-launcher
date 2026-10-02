@@ -33,7 +33,7 @@ function makeIo() {
   return { io, stdout, written }
 }
 
-const log = { debug: vi.fn(), warn: vi.fn() }
+const log = { debug: vi.fn(), warn: vi.fn(), error: vi.fn() }
 let gameDirPath = ''
 
 describe('linux playback channel', () => {

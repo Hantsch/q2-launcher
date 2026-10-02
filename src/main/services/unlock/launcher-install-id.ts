@@ -53,6 +53,7 @@ export interface ResolveLauncherInstallIdDeps {
 
 function defaultDeps(): ResolveLauncherInstallIdDeps {
   return {
+    // platform-read: injectable default, tests pass their own
     platform: process.platform,
     readRegistry: regReadValue,
     readFile: (path: string) => fs.readFile(path, 'utf8'),

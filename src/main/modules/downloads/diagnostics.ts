@@ -7,6 +7,7 @@ import type {
 } from '@shared/modules/downloads'
 import type { Job } from '@shared/types'
 import type { BootstrapLog } from './bootstrap/ports'
+import { isCaseInsensitiveFs } from '../../lib/platform'
 
 /**
  * Story 075 D2: redaction, the collector that builds up one job's `DownloadDiagnostics` while it
@@ -78,7 +79,7 @@ export function redactHome(value: string, homeDir: string = homedir()): string {
   const home = stripTrailingSeparators(homeDir)
   if (home.length === 0) return value
 
-  const caseInsensitive = process.platform === 'win32'
+  const caseInsensitive = isCaseInsensitiveFs()
   const pattern = new RegExp(
     `${homeDirPattern(home)}(?![A-Za-z0-9_-])`,
     caseInsensitive ? 'gi' : 'g',

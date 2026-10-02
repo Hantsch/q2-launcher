@@ -12,6 +12,7 @@ import {
   type RetailSourceInspection,
 } from '@shared/modules/downloads'
 import type { Job } from '@shared/types'
+import { isWindows } from '../../../lib/platform'
 import { InstallationsService } from '../../../services/installations'
 import { withEngineState } from '../engine/record-engine-state'
 import { JobsService } from '../../../services/jobs'
@@ -319,7 +320,7 @@ export function harness(
           // drives needs it too - on non-Windows, `looksExecutable` (fs-utils.ts) checks the mode
           // bit rather than a `.exe` extension, so a plain `writeFile` alone leaves every package's
           // binary looking non-executable and the installation reads back as 'invalid'.
-          if (process.platform !== 'win32') await chmod(absolute, 0o755)
+          if (!isWindows()) await chmod(absolute, 0o755)
         }
         return { ok: true as const, value: undefined }
       })()

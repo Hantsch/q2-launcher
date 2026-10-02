@@ -11,6 +11,7 @@ import { isFile, listDir, looksExecutable } from '../lib/fs-utils'
 import { resolveUiHarness, uiHarnessDetectedRunners, uiHarnessSteamExecutable } from '../lib/ui-harness'
 import { findSteamRoot, steamLibraryRoots } from './detection/providers'
 import { scopedLogger } from '../lib/logger'
+import { isWindows } from '../lib/platform'
 
 const log = scopedLogger('runners')
 
@@ -41,7 +42,7 @@ export async function detectRunners(): Promise<DetectedRunner[]> {
   const override = uiHarnessDetectedRunners(resolveUiHarness(process.env))
   if (override !== undefined) return override
 
-  if (process.platform === 'win32') return [NATIVE_RUNNER, await findSteam()]
+  if (isWindows()) return [NATIVE_RUNNER, await findSteam()]
 
   const [wine, umu, steam, proton] = await Promise.all([
     findOnPath('wine', 'wine'),
@@ -104,7 +105,7 @@ export type RunnerRelevantInstallation = Pick<
  * On `win32` this is the single branch that keeps AC8's promise: nothing below it ever runs there.
  */
 export function needsCompatRunner(installation: RunnerRelevantInstallation): boolean {
-  return process.platform !== 'win32' && installation.executableKind === 'pe'
+  return !isWindows() && installation.executableKind === 'pe'
 }
 
 /**
@@ -194,7 +195,7 @@ async function findSteam(): Promise<DetectedRunner> {
   const override = uiHarnessSteamExecutable(resolveUiHarness(process.env))
   if (override !== undefined) return steamRunner((await isFile(override)) ? override : undefined)
 
-  if (process.platform !== 'win32') return findOnPath('steam', 'steam')
+  if (!isWindows()) return findOnPath('steam', 'steam')
 
   const steamRoot = await findSteamRoot()
   const executable = steamRoot ? join(steamRoot, 'steam.exe') : undefined

@@ -1,6 +1,7 @@
 import { unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fail, ok, type Outcome } from '@shared/types'
+import { createListenerSet } from '../../../lib/listeners'
 import type { Logger } from '../../../lib/logger'
 import {
   BACK_TO_WINDOW_CFG,
@@ -24,13 +25,13 @@ import type { EngineIo, PlaybackChannel } from './types'
  */
 export function createLinuxChannel(deps: {
   io: EngineIo
-  log: Pick<Logger, 'debug' | 'warn'>
+  log: Pick<Logger, 'debug' | 'warn' | 'error'>
   gameDirPath: string
 }): PlaybackChannel {
   const { io, log } = deps
   const backCfgPath = join(deps.gameDirPath, BACK_TO_WINDOW_CFG)
   let display: 'stage' | 'fullscreen' = 'stage'
-  const displayCbs = new Set<(d: 'stage' | 'fullscreen') => void>()
+  const displayCbs = createListenerSet<'stage' | 'fullscreen'>(log, 'playback onDisplayChange')
   const args = linuxLaunchArgs()
   let unsubscribe: (() => void) | null = null
   let timer: ReturnType<typeof setInterval> | null = null
@@ -62,13 +63,7 @@ export function createLinuxChannel(deps: {
         const next = parsed.fullscreen ? 'fullscreen' : 'stage'
         if (next !== display) {
           display = next
-          for (const cb of [...displayCbs]) {
-            try {
-              cb(next)
-            } catch (e) {
-              log.warn('playback: onDisplayChange listener threw', e)
-            }
-          }
+          displayCbs.emit(next)
         }
       }
     } else if (parsed.kind === 'finished' && !finished) {
@@ -101,8 +96,7 @@ export function createLinuxChannel(deps: {
       return display
     },
     onDisplayChange(cb) {
-      displayCbs.add(cb)
-      return () => displayCbs.delete(cb)
+      return displayCbs.add(cb)
     },
     send(line): Outcome<void> {
       if (finished || closed) return fail('replays.playback.error.noSession')

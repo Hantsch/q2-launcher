@@ -13,6 +13,7 @@ import {
 } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, posix, resolve, sep, win32 } from 'node:path'
 import type { BinaryKind } from '@shared/types'
+import { foldPathCase, isWindows } from './platform'
 
 export async function pathExists(target: string): Promise<boolean> {
   try {
@@ -99,12 +100,7 @@ export function pathKey(target: string): string {
   while (normalized.length > 3 && normalized.endsWith(sep)) {
     normalized = normalized.slice(0, -1)
   }
-  return foldCase(normalized)
-}
-
-/** Linux filesystems are case-sensitive; Windows and macOS default to case-insensitive. */
-function foldCase(value: string): string {
-  return process.platform === 'linux' ? value : value.toLowerCase()
+  return foldPathCase(normalized)
 }
 
 /**
@@ -120,8 +116,8 @@ function foldCase(value: string): string {
  * macOS root outside it.
  */
 export function isInside(root: string, target: string): boolean {
-  const p = process.platform === 'win32' ? win32 : posix
-  const rel = p.relative(foldCase(p.resolve(root)), foldCase(p.resolve(target)))
+  const p = isWindows() ? win32 : posix
+  const rel = p.relative(foldPathCase(p.resolve(root)), foldPathCase(p.resolve(target)))
   if (rel === '') return true
   // Only a whole `..` segment escapes; a child literally named `..foo` is inside. An absolute
   // result is win32's answer for a target on another drive or UNC share.
@@ -251,7 +247,7 @@ export async function resolveRelaxed(root: string, relativePath: string): Promis
  * carrying an execute bit, which is why this is async - it stats (story 100 D3).
  */
 export async function looksExecutable(dir: string, name: string): Promise<boolean> {
-  if (process.platform === 'win32') return name.toLowerCase().endsWith('.exe')
+  if (isWindows()) return name.toLowerCase().endsWith('.exe')
 
   try {
     const stats = await stat(join(dir, name))

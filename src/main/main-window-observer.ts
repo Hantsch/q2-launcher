@@ -1,3 +1,5 @@
+import { createListenerSet } from './lib/listeners'
+
 /**
  * Story 171 D2: a read-only view of the main window for modules - its current content bounds, scale,
  * minimized and focused state, and the window events that change them. Modules never touch the
@@ -52,7 +54,10 @@ export function createMainWindowEvents(deps: {
   displayFor: (bounds: MainWindowBounds) => { id: number; scaleFactor: number }
   onListenerError?: (error: unknown) => void
 }): MainWindowEvents {
-  const listeners = new Set<(event: MainWindowEvent) => void>()
+  const listeners = createListenerSet<MainWindowEvent>(
+    { error: (_message, error) => deps.onListenerError?.(error) },
+    'main window',
+  )
   let lastBounds: MainWindowBounds | null = null
   let lastOuterBounds: MainWindowBounds | null = null
   // Focus follows the focus/blur events once one has arrived; before that the window is asked.
@@ -87,12 +92,7 @@ export function createMainWindowEvents(deps: {
   return {
     observer: {
       snapshot,
-      on(listener) {
-        listeners.add(listener)
-        return () => {
-          listeners.delete(listener)
-        }
-      },
+      on: (listener) => listeners.add(listener),
     },
     notify(event) {
       if (event === 'focus') focusedByEvent = true
@@ -102,13 +102,7 @@ export function createMainWindowEvents(deps: {
         lastBounds = { ...win.getContentBounds() }
         lastOuterBounds = { ...win.getBounds() }
       }
-      for (const listener of [...listeners]) {
-        try {
-          listener(event)
-        } catch (error) {
-          deps.onListenerError?.(error)
-        }
-      }
+      listeners.emit(event)
     },
   }
 }

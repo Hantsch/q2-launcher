@@ -23,6 +23,7 @@ import {
 import { inspectInstallation } from '../services/inspector'
 import { detectRunners, steamUnavailableReason } from '../services/runners'
 import type { AppContext } from '../context'
+import { isWindows } from '../lib/platform'
 import { handle, handleOutcome } from './index'
 
 export function registerInstallationsIpc(app: AppContext): void {
@@ -134,7 +135,7 @@ export function registerInstallationsIpc(app: AppContext): void {
       title: options.title,
       properties: ['openFile'],
       filters:
-        process.platform === 'win32'
+        isWindows()
           ? [{ name: 'Executables', extensions: ['exe'] }]
           : [{ name: 'All files', extensions: ['*'] }],
       ...(options.buttonLabel ? { buttonLabel: options.buttonLabel } : {}),

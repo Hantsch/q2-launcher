@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import type { EngineKind, Installation, LauncherSettings, LaunchState } from '@shared/types'
 import { IDLE_LAUNCH_STATE, ok } from '@shared/types'
 import type { ManifestPackage } from '@shared/modules/downloads'
+import { isWindows } from '../../lib/platform'
 import type { StateStore } from '../../services/state'
 import type { LaunchHost } from '../../services/write-guard'
 import type { Extractor, ManifestSource, PackageFetcher } from './bootstrap/ports'
@@ -69,7 +70,7 @@ export function fakeExtractor(files: (extractDir: string) => Record<string, stri
           const target = join(extractDir, relativePath)
           await mkdir(dirname(target), { recursive: true })
           await writeFile(target, content)
-          if (process.platform !== 'win32') await chmod(target, 0o755)
+          if (!isWindows()) await chmod(target, 0o755)
         }
         return ok(undefined)
       })(),

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { fail, ok, type Job, type JobProgress, type ModuleId, type Outcome } from '@shared/types'
+import { createListenerSet } from '../lib/listeners'
 import { scopedLogger } from '../lib/logger'
 
 const log = scopedLogger('jobs')
@@ -42,7 +43,7 @@ export class JobsService {
    */
   private readonly broadcast: JobsListener
   /** Story 073 D2's additive observers - see `onChange()`. */
-  private readonly listeners = new Set<JobsListener>()
+  private readonly listeners = createListenerSet<Job[]>(log, 'a jobs onChange')
 
   constructor(broadcast: JobsListener) {
     this.broadcast = broadcast
@@ -63,10 +64,7 @@ export class JobsService {
    *    the already-delivered broadcast are unaffected.
    */
   onChange(listener: JobsListener): () => void {
-    this.listeners.add(listener)
-    return () => {
-      this.listeners.delete(listener)
-    }
+    return this.listeners.add(listener)
   }
 
   list(): Job[] {
@@ -216,12 +214,6 @@ export class JobsService {
   private emit(): void {
     const snapshot = this.list()
     this.broadcast(snapshot)
-    for (const listener of [...this.listeners]) {
-      try {
-        listener(snapshot)
-      } catch (error) {
-        log.error('a jobs onChange listener threw', error)
-      }
-    }
+    this.listeners.emit(snapshot)
   }
 }

@@ -2,9 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, sep } from 'node:path'
 import type { BootstrapTargetVerdict } from '@shared/modules/downloads'
-import type { ValidationResult } from '@shared/types'
 import { canonicalizePath, isDirectory, isInside, listDir } from '../../../lib/fs-utils'
-import { inspectInstallation } from '../../../services/inspector'
+import { inspectInstallation, looksLikeQuake2 } from '../../../services/inspector'
 
 /**
  * Story 074 D2: computes the target-folder verdict the bootstrap wizard's target-folder step
@@ -62,20 +61,6 @@ export interface ComputeTargetVerdictOptions {
    * deliverable).
    */
   protectedDirs?: string[]
-}
-
-/**
- * `looksLikeQuake2` from `src/main/services/installations.ts`, replicated rather than imported:
- * that function is not exported, and this deliverable must not change `installations.ts`'s
- * behavior to get at it. Keep this in sync with that copy if the "what counts as installed" rule
- * ever changes.
- */
-function looksLikeQuake2(result: ValidationResult): boolean {
-  if (result.status === 'missing') return false
-  const missingBaseDir = result.checks.some(
-    (check) => check.id === 'base-game-dir' && check.severity === 'error',
-  )
-  return !missingBaseDir || result.engineKind !== 'unknown'
 }
 
 /** Case-insensitive prefix match against `%ProgramFiles%`/`%ProgramFiles(x86)%`, when set. */

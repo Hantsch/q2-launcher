@@ -133,7 +133,7 @@ export async function scanHoldMs({ harness, userData }: ScanHoldMsOptions): Prom
 /**
  * The replays module - story 135 D2 registered its main half with a single handler,
  * `overview.read`, answering a hardcoded zeroed overview. There is no demo scan yet: no
- * filesystem access, no `process.platform` checks - that is a later deliverable of this story.
+ * filesystem access, no platform checks - that is a later deliverable of this story.
  * Mirrors `src/main/modules/servers/index.ts`'s D2 shape (`overview.read` answering a hardcoded
  * zeroed overview before any real service exists) and `src/main/modules/home/index.ts`'s shape -
  * `setup()` registers handlers and does nothing else.
@@ -164,6 +164,7 @@ export const replaysModule: MainModule = {
         resourcesPath: process.resourcesPath,
       })
       return {
+        // platform-read: injectable default, tests pass their own
         platform: process.platform,
         homeDir: discoveryHomeDir({ harness: app.harness, userData: app.userDataDir }),
         zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists },
@@ -284,6 +285,7 @@ export const replaysModule: MainModule = {
     }
     const harnessFlag = app.harness.enabled ? '1' : undefined
     const currentStageAvailability = () =>
+      // platform-read: host platform, decided at call time
       stageAvailability(process.platform, app.env, {
         Q2L_UI_HARNESS: harnessFlag,
         Q2L_UI_SESSION_TYPE: app.harness.read('Q2L_UI_SESSION_TYPE'),
@@ -387,6 +389,7 @@ export const replaysModule: MainModule = {
       resolveFile: (id) => scanService.resolveFile(id),
       installations: () => app.installations.list(),
       activeInstallationId: () => app.state.settings().activeInstallationId,
+      // platform-read: injectable default, tests pass their own
       platform: process.platform,
       launch: app.launch,
       sessions: playbackSessions,

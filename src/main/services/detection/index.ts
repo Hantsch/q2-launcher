@@ -5,11 +5,10 @@ import type {
   DetectionProgress,
   DetectionResult,
   ScanOptions,
-  ValidationResult,
 } from '@shared/types'
 import { canonicalizePath, pathKey } from '../../lib/fs-utils'
 import { scopedLogger } from '../../lib/logger'
-import { inspectInstallation, suggestName } from '../inspector'
+import { inspectInstallation, looksLikeQuake2, suggestName } from '../inspector'
 import { deepScan, listDrives } from './deep-scan'
 import { collectFastCandidates, type CandidatePath } from './providers'
 
@@ -76,7 +75,7 @@ export class DetectionService {
       seen.add(key)
 
       const result = await inspectInstallation(canonical)
-      if (!qualifies(result)) return
+      if (!looksLikeQuake2(result)) return
 
       candidates.push({
         rootPath: canonical,
@@ -140,19 +139,6 @@ export class DetectionService {
     )
     return { scanId, candidates, cancelled, durationMs }
   }
-}
-
-/**
- * A candidate is worth showing if the folder still exists and either holds the
- * base game or a recognisable engine. This keeps store folders for unrelated
- * games (matched only by a fuzzy name) out of the results.
- */
-function qualifies(result: ValidationResult): boolean {
-  if (result.status === 'missing') return false
-  const missingBaseDir = result.checks.some(
-    (check) => check.id === 'base-game-dir' && check.severity === 'error',
-  )
-  return !missingBaseDir || result.engineKind !== 'unknown'
 }
 
 export { listDrives }

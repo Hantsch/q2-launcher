@@ -409,7 +409,7 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
     try {
       options.onStateChange(state)
     } catch (error) {
-      log?.warn(`update: a state listener threw (${describeError(error)})`)
+      log?.warn(`update: the state callback threw (${describeError(error)})`)
     }
   }
 

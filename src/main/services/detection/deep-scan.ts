@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import { listDir } from '../../lib/fs-utils'
 import type { CandidatePath } from './providers'
+import { isWindows } from '../../lib/platform'
 
 /**
  * The optional, user-triggered pass over whole drives.
@@ -112,7 +113,7 @@ export async function deepScan(options: DeepScanOptions): Promise<CandidatePath[
  * spawning `wmic` (removed on recent Windows) or PowerShell.
  */
 export async function listDrives(): Promise<string[]> {
-  if (process.platform !== 'win32') return ['/']
+  if (!isWindows()) return ['/']
 
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
   const results = await Promise.all(

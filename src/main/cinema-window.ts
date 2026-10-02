@@ -1,4 +1,5 @@
 import { BrowserWindow, screen } from 'electron'
+import { createListenerSet } from './lib/listeners'
 import { scopedLogger } from './lib/logger'
 import type { UiHarness } from './lib/ui-harness'
 import { rendererCinemaUrl, type RendererSource } from './lib/renderer-source'
@@ -26,7 +27,7 @@ export function createCinemaWindow(
   rendererSource: RendererSource,
 ): CinemaWindow {
   let window: BrowserWindow | null = null
-  const listeners = new Set<() => void>()
+  const listeners = createListenerSet(log, 'cinema onClosed')
 
   const isOpen = (): boolean => window !== null && !window.isDestroyed()
 
@@ -66,13 +67,7 @@ export function createCinemaWindow(
 
     created.on('closed', () => {
       if (window === created) window = null
-      for (const cb of [...listeners]) {
-        try {
-          cb()
-        } catch (error) {
-          log.warn(`cinema onClosed listener failed: ${String(error)}`)
-        }
-      }
+      listeners.emit()
     })
 
     created.once('ready-to-show', () => {
@@ -99,9 +94,6 @@ export function createCinemaWindow(
     open,
     close,
     isOpen,
-    onClosed: (cb) => {
-      listeners.add(cb)
-      return () => listeners.delete(cb)
-    },
+    onClosed: (cb) => listeners.add(cb),
   }
 }

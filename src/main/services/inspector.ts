@@ -19,6 +19,7 @@ import {
   resolveRelaxed,
 } from '../lib/fs-utils'
 import { readSteamAppId } from './steam'
+import { isWindows } from '../lib/platform'
 
 /**
  * Decides whether a folder is a usable Quake II installation, what engine it
@@ -127,7 +128,7 @@ async function rankExecutables(
 
   const byName = (a: string, b: string): number => rank(a) - rank(b) || a.localeCompare(b)
 
-  if (process.platform === 'win32') return executables.sort(byName)
+  if (isWindows()) return executables.sort(byName)
 
   const kinds = new Map<string, BinaryKind>()
   for (const name of executables) {
@@ -151,7 +152,7 @@ async function rankExecutables(
  * caller's own `executablePath`, which does not have to be one of the root's ranked candidates.
  */
 async function chosenExecutableKind(executablePath: string): Promise<BinaryKind | undefined> {
-  if (process.platform === 'win32') return undefined
+  if (isWindows()) return undefined
   return readBinaryKind(executablePath)
 }
 
@@ -299,7 +300,7 @@ export async function inspectInstallation(
   // to `LaunchService.plan()` (`launch.error.noRunner`, D5), which fires before `spawn` and is
   // toasted by the store's generic launch-error path; this check's job is only to *say* so up
   // front, in visible text (AC2) - which `warn` does, while leaving the installation startable.
-  if (executablePath && process.platform !== 'win32' && executableKind === 'pe') {
+  if (executablePath && !isWindows() && executableKind === 'pe') {
     checks.push(
       check('executable-runnable', 'warn', 'validation.executableRunnable', {
         params: { executable: basename(executablePath) },
@@ -340,6 +341,18 @@ export async function inspectInstallation(
     ...(steamAppId ? { steamAppId } : {}),
     checkedAt,
   }
+}
+
+/**
+ * The single "is this folder a Quake II install" rule: the folder exists and holds either the base
+ * game or a recognisable engine. Keeps store folders for unrelated games out of every caller.
+ */
+export function looksLikeQuake2(result: ValidationResult): boolean {
+  if (result.status === 'missing') return false
+  const missingBaseDir = result.checks.some(
+    (check) => check.id === 'base-game-dir' && check.severity === 'error',
+  )
+  return !missingBaseDir || result.engineKind !== 'unknown'
 }
 
 /**

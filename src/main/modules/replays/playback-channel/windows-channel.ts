@@ -12,6 +12,7 @@ import {
 import { join } from 'node:path'
 import { StringDecoder } from 'node:string_decoder'
 import { fail, ok, type Outcome } from '@shared/types'
+import { createListenerSet } from '../../../lib/listeners'
 import type { Logger } from '../../../lib/logger'
 import {
   ACK_TIMEOUT_MS,
@@ -95,8 +96,8 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   const logPath = join(gameDirPath, ...LOG_FILE_RELATIVE.split('/'))
   const { argsBeforeDemo, argsAfterDemo } = windowsLaunchArgs()
   const tail = createLogTail(logPath)
-  const listeners = new Set<() => void>()
-  const displayListeners = new Set<(display: Display) => void>()
+  const listeners = createListenerSet(log, 'playback onFinished')
+  const displayListeners = createListenerSet<Display>(log, 'playback onDisplayChange')
   /**
    * Commands not handed to the game yet: before `start`, and behind a pending fullscreen switch
    * (dropped once fullscreen). Everything else goes straight to `inFlight`.
@@ -203,13 +204,7 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
   }
 
   function emitDisplay(display: Display): void {
-    for (const cb of [...displayListeners]) {
-      try {
-        cb(display)
-      } catch (err) {
-        log.warn(`onDisplayChange listener threw: ${describe(err)}`)
-      }
-    }
+    displayListeners.emit(display)
   }
 
   /**
@@ -256,13 +251,7 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
     queue.length = 0
     inFlight.clear()
     writeControl(toCfgText(buildStopFile()))
-    for (const cb of [...listeners]) {
-      try {
-        cb()
-      } catch (err) {
-        log.warn(`onFinished listener threw: ${describe(err)}`)
-      }
-    }
+    listeners.emit()
   }
 
   /** `batch[index]` is the line to handle; the rest of the batch tells a late-flushed line apart. */
@@ -433,16 +422,10 @@ export function createWindowsChannel({ gameDirPath, log }: WindowsChannelOptions
       return mode === 'fullscreen' ? 'fullscreen' : 'stage'
     },
     onDisplayChange(cb) {
-      displayListeners.add(cb)
-      return () => {
-        displayListeners.delete(cb)
-      }
+      return displayListeners.add(cb)
     },
     onFinished(cb) {
-      listeners.add(cb)
-      return () => {
-        listeners.delete(cb)
-      }
+      return listeners.add(cb)
     },
 
     async close() {

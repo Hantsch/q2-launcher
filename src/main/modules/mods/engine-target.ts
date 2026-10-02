@@ -2,6 +2,7 @@ import type { EngineKind } from '@shared/types/engine'
 import type { ModsErrorKey } from '@shared/modules/mods'
 import type { Installation } from '@shared/types/installation'
 import type { BinaryArch } from '../../lib/fs-utils'
+import { isWindows } from '../../lib/platform'
 import { readEngineState } from '../../services/engine-state'
 import type { ModCatalogEntryParsed } from './catalog-schema'
 
@@ -45,7 +46,7 @@ export async function resolveEngineTarget(
       ? 'win32'
       : installation.executableKind === 'elf'
         ? 'linux'
-        : process.platform === 'win32'
+        : isWindows()
           ? 'win32'
           : 'linux'
   return { platform, arch, engineKind: installation.engineKind }

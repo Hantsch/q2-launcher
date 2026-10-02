@@ -16,6 +16,7 @@ import { parseWindowState } from './lib/schemas'
 import type { AppContext } from './context'
 import type { MainWindowEvent } from './main-window-observer'
 import { hardenWebContents, OFFSCREEN_MARGIN, rendererWebPreferences } from './window-shared'
+import { isWindows } from './lib/platform'
 
 const log = scopedLogger('window')
 
@@ -28,7 +29,7 @@ const BACKGROUND_COLOR = '#0b0b0d'
  * generated source asset directly from build/.
  */
 function mainWindowIconPath(): string {
-  const fileName = process.platform === 'win32' ? 'icon.ico' : 'icon.png'
+  const fileName = isWindows() ? 'icon.ico' : 'icon.png'
   return electronApp.isPackaged
     ? join(process.resourcesPath, fileName)
     : join(__dirname, '../../build', fileName)

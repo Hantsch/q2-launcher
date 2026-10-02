@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { executableFileName } from '../platform'
 
 /**
  * Story 071 D3: resolves the absolute path to the vendored 7-Zip binary.
@@ -45,11 +46,11 @@ export interface ExtractorPathResult {
 
 /**
  * Story 100 D9: read live rather than cached at module scope, so a test can stub
- * `process.platform` (via `src/test-support/platform.ts`'s `stubPlatform`) and see it reflected
+ * the Node platform string (via `src/test-support/platform.ts`'s `stubPlatform`) and see it reflected
  * without needing to reload the module.
  */
 function getBinaryName(): string {
-  return process.platform === 'win32' ? '7za.exe' : '7zz'
+  return executableFileName('7za', '7zz')
 }
 
 /** The marker file that identifies the repo root - this repo has exactly one, at the root. */

@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { scopedLogger } from './logger'
+import { isWindows } from './platform'
 
 const log = scopedLogger('registry')
 
@@ -22,7 +23,7 @@ export async function regQuery(
   key: string,
   options: { valueName?: string; recursive?: boolean; timeoutMs?: number } = {},
 ): Promise<RegistryValue[]> {
-  if (process.platform !== 'win32') return []
+  if (!isWindows()) return []
 
   const args = ['query', key]
   if (options.valueName) args.push('/v', options.valueName)

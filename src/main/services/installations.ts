@@ -21,7 +21,7 @@ import {
 import { canonicalizePath, isDirectory, pathKey } from '../lib/fs-utils'
 import { scopedLogger } from '../lib/logger'
 import { deleteInstallationFolder } from './installation-removal'
-import { inspectInstallation, suggestName } from './inspector'
+import { inspectInstallation, looksLikeQuake2, suggestName } from './inspector'
 import type { StateStore } from './state'
 
 const log = scopedLogger('installations')
@@ -702,10 +702,3 @@ function applyInspectionResult(installation: Installation, result: ValidationRes
 }
 
 /** Same rule the detection scan uses, so both agree on what counts as a game folder. */
-function looksLikeQuake2(result: ValidationResult): boolean {
-  if (result.status === 'missing') return false
-  const missingBaseDir = result.checks.some(
-    (check) => check.id === 'base-game-dir' && check.severity === 'error',
-  )
-  return !missingBaseDir || result.engineKind !== 'unknown'
-}

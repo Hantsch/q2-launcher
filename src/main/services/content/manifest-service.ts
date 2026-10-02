@@ -233,6 +233,7 @@ export class ManifestService {
     this.log = options.log
     // Assigned before the store below, whose `parse` closure reads it.
     this.source = options.source ?? PRODUCTION_DOWNLOAD_SOURCE
+    // platform-read: injectable default, tests pass their own
     this.platform = options.platform ?? process.platform
     // Nothing is fetched and nothing is read here: the store is loaded lazily on
     // the first `getManifest()`, so constructing this service is free (AC: zero

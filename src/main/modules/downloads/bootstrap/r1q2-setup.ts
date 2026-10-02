@@ -1,4 +1,5 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { isWindows } from '../../../lib/platform'
 import { join } from 'node:path'
 import { findRepoRoot } from '../../../lib/archive/7za-path'
 import type { BootstrapLog } from './ports'
@@ -28,7 +29,7 @@ export async function probeX86Runtime(deps: {
   // Story 100 D6 (AC6): R1Q2 is Windows-only - D5 already keeps it from ever being pinned/offered
   // off Windows, but this is a belt-and-braces guard so the probe is a hard no-op even if called
   // directly. `vcruntime140.dll` is a Windows concept; there is nothing to probe for elsewhere.
-  if (process.platform !== 'win32') return false
+  if (!isWindows()) return false
   const systemRoot = deps.env['SystemRoot'] ?? 'C:\\Windows'
   const candidates = [
     join(systemRoot, 'SysWOW64', 'vcruntime140.dll'),
@@ -62,7 +63,7 @@ export async function seedR1glConfig(targetRoot: string): Promise<void> {
   // Story 100 D6 (AC6): same belt-and-braces guard as `probeX86Runtime` above - R1Q2 is
   // Windows-only, so seeding its `vid_ref "r1gl"` off Windows would just be wrong, even though D5
   // already prevents R1Q2 from ever being pinned/offered off Windows in the first place.
-  if (process.platform !== 'win32') return
+  if (!isWindows()) return
   const path = join(targetRoot, 'baseq2', 'autoexec.cfg')
   try {
     await access(path)
