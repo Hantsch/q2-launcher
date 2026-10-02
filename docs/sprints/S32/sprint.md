@@ -1,7 +1,7 @@
 ---
 sprint: S32
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress
+branch: sprint/S32
 milestone: 11.1 — Codebase health, part 1 — a green gate, safe foundations, one module bus
 ---
 
