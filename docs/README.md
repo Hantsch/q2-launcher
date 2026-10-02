@@ -54,3 +54,5 @@ docs/
 ## Project-specific
 
 - **How the app is put together** → [ARCHITECTURE.md](ARCHITECTURE.md).
+- **What a whole-codebase review found, and which stories address it** →
+  [reviews/](reviews/) (one dated report per review; findings table + story map).
