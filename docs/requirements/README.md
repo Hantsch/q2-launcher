@@ -70,8 +70,11 @@ exhausted. Anything found later is a **new** story, not a reopened one.
 
 ## Document sections (see `_TEMPLATE.md`)
 
-`Requirement` · `Acceptance Criteria` · `Open Questions` · `Plan` · `Deliverables` ·
-`Model Hints` · `Acceptance Tests` · `Done`.
+`Requirement` · `Acceptance Criteria` · `Open Questions` · `Decisions (Sprint)` · `Plan` ·
+`Deliverables` · `Model Hints` · `Acceptance Tests` · `Done`.
+
+`Decisions (Sprint)` records what the user decided during a sprint; `/sprint`'s clarification
+round and `/refine` inside a sprint fill it.
 
 Stories written before the test mapping existed carry `Test Plan (manual acceptance)` in place
 of `Acceptance Tests` — the commands treat it as equivalent and do not restructure the file.

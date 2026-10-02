@@ -14,7 +14,7 @@
   update those files (`/ai-scrum:setup`). Hashes of the managed copies: .claude/ai-scrum.lock
 -->
 
-ai-scrum-version: 4.4.0
+ai-scrum-version: 4.5.0
 project: Q2 Launcher
 
 ## Verify
@@ -48,6 +48,9 @@ e2e-cleanup: none <!-- e.g. taskkill /F /IM electron.exe | pkill -f electron | n
   (scripts/flows-all.mjs). `e2e` (ui:verify) does not cover it: it only screenshots and
   audits screens, and running all flows together is what caught S18's regression.
 -->
+
+test-support: src/test-support/ <!-- shared fixtures, builders and fakes — pasted into every deliverable prompt by /build -->
+e2e-quarantine: none <!-- e.g. tests/e2e/quarantine.json | none — the expected-failure list the e2e-all runner reads; /sprint's regression gate writes a pre-existing or flaky test into it -->
 
 ## Conventions
 

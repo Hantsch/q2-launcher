@@ -5,7 +5,7 @@ model: sonnet
 effort: medium
 ---
 
-<!-- ai-scrum:managed 4.4.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
+<!-- ai-scrum:managed 4.5.0 - plugin-owned, written by /ai-scrum:setup. Do not edit:
      setup diffs this file on update and asks before replacing it. Project facts go in .claude/ai-scrum.md. -->
 
 Run sprint **$1**.
@@ -303,7 +303,7 @@ story builds together.
      the one sanctioned wait in this command (see Rules): the task's exit notification wakes
      this session. When it arrives, read only the runner's summary — `tail -n 40` of the log —
      never the whole file; the attribution agent gets the log path.
-2. **Green** → record it (step 5) and go to phase 3.
+2. **Green**, or red only in quarantined tests (step 3) → record it (step 5), go to phase 3.
 3. **Red → attribute it to a story.** Delegate to ONE fresh `Agent` (`model: "sonnet"`,
    `run_in_background: false`) with the failing tests, the gate log's path, the sprint's story
    commits (`git log --oneline <branch-base>..HEAD`), the `build` command, the ceiling rule from
@@ -323,10 +323,19 @@ story builds together.
      (`042: …`, or `WIP 042: …` for a blocked one). Always finish with `git bisect reset`, and
      confirm the branch is back on its `HEAD` with a clean tree.
    - Returns at most 10 lines: per failing test the verdict (`flaky` / `pre-existing` /
-     `story <id>, commit <sha>`).
+     `story <id>, commit <sha>`), and for `flaky` / `pre-existing` the cause in one line.
    Without per-story commits (`auto-commit-per-story: false`) there is nothing to bisect: the
    agent attributes by which story's changed files the failing test exercises, and says that
    the attribution is a judgment, not a bisect result.
+   **`flaky` and `pre-existing` are quarantined, not just reported.** Each such test gets an
+   entry in the list at the profile's `e2e-quarantine` — `{ flow, reason, story, since: $1 }`,
+   `flow` being the test or flow name and the reason the agent's one-line cause — and one
+   follow-up line in phase 3's roadmap update. A quarantined test that fails again is an
+   expected failure: it does not turn the gate red and is not attributed again; one that
+   passes is reported as an unexpected pass. Still quarantined two sprints later, it is a story at the next
+   `/roadmap plan`, not a follow-up. With `e2e-quarantine: none` the follow-up line is all
+   there is, and the review says the project has no quarantine yet. Measured without this:
+   four flows red for five sprints, re-attributed at ~10 minutes per gate.
 4. **Fix it on the sprint branch, or report it as a blocker.** Per attributed story, ONE fresh
    `Agent` (`model: "sonnet"`, `run_in_background: false`) gets the story file, the failing
    tests, the bisected commit's diff and the build rules that still hold: fix the cause, never
@@ -342,8 +351,9 @@ story builds together.
    commands that ran with their measured minutes (the next sprint's status lines quote them),
    green/red, the commit it ran on, and per failure its verdict and outcome (fixed in `<sha>` /
    blocker / pre-existing / flaky / `unattributed — budget exhausted after <n> launches`;
-   `unattributed` counts as a merge blocker). This is the resume marker, and the source for the
-   review. Recording the gate closes it: before writing this section, `TaskStop` every gate
+   `unattributed` counts as a merge blocker), the quarantine entries written and any
+   unexpected pass. This is the resume marker, and the source for the review. Recording the
+   gate closes it: before writing this section, `TaskStop` every gate
    launch that is still running — a result that arrives after the record cannot change it, and
    its notification after the final report would restart the sprint (`## Closing the run`) —
    and delete `<sprints>/$1/gate-*.log`; the record is what survives.
@@ -356,7 +366,11 @@ story builds together.
    - **Implemented stories:** 1–3 lines each on what was built.
    - **Findings & decisions:** aggregated from the `## Decisions (Sprint)` sections, the
      build feedback and the review findings — input for the next sprint planning
-     (corrections, direction decisions).
+     (corrections, direction decisions). Every review finding left deliberately unfixed
+     leaves the review in this step: as a story draft (`<requirements>/_TEMPLATE.md`,
+     `status: draft`) or, if small and decision-free, as a follow-up line for step 3. This
+     section links to them and keeps no list of its own. Measured without it: ~15 and ~25
+     unfixed findings in two sprints' reviews, none of which ever left them.
    - **Blocked / open:** blocked stories with their reason and the question the user has to
      decide.
    - **Regression gate:** from `## Regression gate` in `sprint.md` — the commands, the
@@ -402,11 +416,10 @@ story builds together.
      "Gaps/notes" paragraph.
    - **"Follow-ups worth doing":** one line per finding that is worth doing, needs no decision
      and is not a story yet, with `[SNN review](…/review.md)` as its source. Remove lines this
-     sprint has made obsolete. Anything bigger is a story proposal for the review's findings
-     section, not a roadmap line.
+     sprint has made obsolete. Anything bigger is a story draft (step 1), not a roadmap line.
    - **"Where we stand"** and "As of": rewrite the block (max. five lines) — what was just
      finished, what is next, what is waiting on the user (the merge).
-   If a concept is thereby fully implemented (all stories done): `git mv` it to
+   If every milestone of a concept's phase is thereby `done`: `git mv` the concept to
    `systems-path` and update its status line.
 4. **If `changelog-path` is set in the profile:** check that every story done in this sprint
    with a user-facing change has its entry there, under `# Features` / `# Fixes` of the current
@@ -420,8 +433,8 @@ story builds together.
    finished, and a story stays open only for a blocker that makes it genuinely
    uncompletable (normally caught in refinement, not here).
 6. Final commit: `$1: sprint review + roadmap` — it carries the `## Regression gate` record
-   in `sprint.md` too (add `+ testplan` only if a `testplan.md` was
-   actually written).
+   in `sprint.md` and the `e2e-quarantine` file the gate edited, if any, too (add `+ testplan`
+   only if a `testplan.md` was actually written).
 
 ## Closing the run — before the final report
 
