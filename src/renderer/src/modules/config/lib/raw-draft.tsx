@@ -34,7 +34,8 @@ import type {
   SaveRawTextSaved,
   UnrecognizedConfigLine,
 } from '@shared/modules/config'
-import type { Outcome } from '@shared/types'
+import type { LocalizedMessage, Outcome } from '@shared/types'
+import { toastOutcomeError } from '../../../lib/toast'
 import { useLauncher } from '../../../store/useLauncher'
 import { ConfigConflictDialog } from '../ConfigConflictDialog'
 import { saveConfigProfileRawText } from '../client'
@@ -85,7 +86,7 @@ export function isRawDraftDirty(text: string, baseline: string): boolean {
 export type RawSaveAction =
   | { type: 'saved'; result: SaveRawTextSaved }
   | { type: 'conflict'; conflict: SaveProfileConflict }
-  | { type: 'toast'; messageKey: string; params?: Record<string, string | number> }
+  | { type: 'toast'; error: LocalizedMessage }
 
 /**
  * Turns a `saveConfigProfileRawText` outcome into exactly one action.
@@ -98,11 +99,7 @@ export type RawSaveAction =
  */
 export function resolveRawSaveOutcome(outcome: Outcome<SaveRawTextResult>): RawSaveAction {
   if (!outcome.ok) {
-    return {
-      type: 'toast',
-      messageKey: outcome.error.key,
-      ...(outcome.error.params ? { params: outcome.error.params } : {}),
-    }
+    return { type: 'toast', error: outcome.error }
   }
 
   const result = outcome.value
@@ -111,11 +108,13 @@ export function resolveRawSaveOutcome(outcome: Outcome<SaveRawTextResult>): RawS
 
   return {
     type: 'toast',
-    messageKey:
-      result.reason === 'unparseable'
-        ? 'config.save.unreadableUnparseable'
-        : 'config.save.unreadableReadError',
-    params: { message: result.message },
+    error: {
+      key:
+        result.reason === 'unparseable'
+          ? 'config.save.unreadableUnparseable'
+          : 'config.save.unreadableReadError',
+      params: { message: result.message },
+    },
   }
 }
 
@@ -299,12 +298,7 @@ export function RawDraftProvider({
       return false
     }
 
-    pushToast({
-      level: 'error',
-      messageKey: action.messageKey,
-      timeoutMs: 0,
-      ...(action.params ? { params: action.params } : {}),
-    })
+    toastOutcomeError(pushToast, { ok: false, error: action.error })
     return false
   }
 

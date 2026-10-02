@@ -8,6 +8,7 @@ import { sidecarFieldsSchema } from '../replays/sidecar'
 import { timelineActionSchema } from '../replays/timeline'
 import { absolutePathSchema } from '../schemas'
 import type { CinemaAvailability } from '../replays/cinema'
+import type { DomainResult } from '../types'
 
 /**
  * The replays module's contract.
@@ -436,9 +437,16 @@ export const extraFoldersRemoveSchema = z.object({ id: z.string().min(1) })
  * `MasterSourcesResult` uses in `servers.ts` - a returned value, not a thrown error, so the
  * refusal reason survives the IPC boundary.
  */
-export type ExtraFoldersResult =
-  | { ok: true; folders: ReplaysExtraFolder[] }
-  | { ok: false; reason: 'notAbsolute' | 'unresolvable' | 'notAFolder' | 'alreadyListed' }
+export type ExtraFoldersRefusalKey =
+  | 'replays.extraFolders.error.notAbsolute'
+  | 'replays.extraFolders.error.unresolvable'
+  | 'replays.extraFolders.error.notAFolder'
+  | 'replays.extraFolders.error.alreadyListed'
+
+export type ExtraFoldersResult = DomainResult<
+  { folders: ReplaysExtraFolder[] },
+  ExtraFoldersRefusalKey
+>
 
 /** A demo id (`discoveredDemoSchema.id`'s standalone counterpart): looser than the content-derived
  * hex fingerprint on purpose, so a `sidecar.*` payload naming an id the index no longer knows about
@@ -456,8 +464,10 @@ export const replaysDemoFileActionSchema = z.object({ demoId: replaysDemoIdSchem
 
 /** `demos.reveal`/`demos.copyPath`'s result: the path itself never crosses IPC, only whether the
  * action ran and, on refusal, why - mirrors `ExtraFoldersResult`'s ok/refusal union shape above. */
-export type DemoFileActionResult =
-  { ok: true } | { ok: false; reason: 'unknownDemo' | 'fileMissing' }
+export type DemoFileActionResult = DomainResult<
+  Record<never, never>,
+  'replays.fileActions.unknownDemo' | 'replays.fileActions.fileMissing'
+>
 
 /** `demo.rename`'s payload (story 157): the demo id plus the new name STEM - never a path; main
  * validates the stem itself (`validateDemoRename`) and resolves the id to the real file. `.strict()`
@@ -496,7 +506,7 @@ export type ReplaysPlaybackCinemaPayload = z.infer<typeof replaysPlaybackCinemaS
 export const replaysPlaybackDisplayReadSchema = z.object({}).strict()
 
 /** Story 170 D1: what `demo.play` reports about the stage - `null` when no rect was sent. */
-export type ReplaysStageResult = { placed: true } | { placed: false; reason: { key: string } }
+export type ReplaysStageResult = DomainResult<Record<never, never>>
 export interface ReplaysDemoPlayResult {
   stage: ReplaysStageResult | null
 }

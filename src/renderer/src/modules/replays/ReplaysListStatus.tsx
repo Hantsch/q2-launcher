@@ -5,6 +5,16 @@ import { Button } from '../../components/ui/Button'
 import { Spinner } from '../../components/ui/primitives'
 import { describeReplaysScanProgress, type ReplaysListState } from './list-state'
 
+const SOURCE_ERROR_REASON_KEYS: Record<ReplaysSourceError['reason'], string> = {
+  missing: 'replays.list.sourceErrorReason.missing',
+  notAFolder: 'replays.list.sourceErrorReason.notAFolder',
+  permissionDenied: 'replays.list.sourceErrorReason.permissionDenied',
+  unreadable: 'replays.list.sourceErrorReason.unreadable',
+  'extractor-missing': 'replays.list.sourceErrorReason.extractor-missing',
+  'archive-unreadable': 'replays.list.sourceErrorReason.archive-unreadable',
+  'archive-too-large': 'replays.list.sourceErrorReason.archive-too-large',
+}
+
 /** Labels a `ReplaysSourceError`'s source: an installation's game dir the same way `DemoRow`'s
  * source cell does (`replays.list.source`), an extra folder via the existing
  * `replays.source.extraFolder` key. */
@@ -80,7 +90,7 @@ export function ReplaysListStatus({
         <div className="space-y-1" data-testid="replays-list-source-errors">
           {progress.sourceErrors.map((error, index) => {
             const source = sourceLabel(t, error)
-            const reason = t(`replays.list.sourceErrorReason.${error.reason}`)
+            const reason = t(SOURCE_ERROR_REASON_KEYS[error.reason])
             const label =
               error.archiveName !== null
                 ? t('replays.list.sourceErrorArchive', { base: source, archive: error.archiveName })

@@ -48,7 +48,7 @@ function run(over: Partial<DemoPlayInput> = {}) {
 }
 
 function keyOf(r: ReturnType<typeof run>): string | null {
-  return r.ok ? null : r.reason.key
+  return r.ok ? null : r.reasonKey
 }
 
 const P = 'replays.play.unavailable.'
@@ -106,7 +106,8 @@ describe('demoPlayEligibility', () => {
     const r = run({ demo: demo({ gameDir: 'zaero' }) })
     expect(r).toEqual({
       ok: false,
-      reason: { key: P + 'modMissing', params: { gameDir: 'zaero' } },
+      reasonKey: P + 'modMissing',
+      params: { gameDir: 'zaero' },
       acknowledgeable: true,
     })
   })
@@ -118,7 +119,8 @@ describe('demoPlayEligibility', () => {
     })
     expect(r).toEqual({
       ok: false,
-      reason: { key: P + 'modMissing', params: { gameDir: 'rogue' } },
+      reasonKey: P + 'modMissing',
+      params: { gameDir: 'rogue' },
       acknowledgeable: true,
     })
   })

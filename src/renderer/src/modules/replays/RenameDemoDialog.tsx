@@ -36,7 +36,7 @@ export function RenameDemoDialog({
   const validation = validateDemoRename(stem, demo.fileName)
   const localError = validation.ok
     ? undefined
-    : t(`replays.rename.error.${validation.reason}`, validation.params)
+    : t(validation.reasonKey, validation.params)
   const error = localError ?? (serverError ? t(serverError.key, serverError.params) : undefined)
 
   const unchanged = validation.ok && validation.fileName === demo.fileName

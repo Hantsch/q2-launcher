@@ -16,8 +16,7 @@ export interface DemoFileActionsProps {
 /** One failed file action's message: either one of this module's own two i18n keys (a domain
  * refusal - `fileMissing`/`unknownDemo`), or a transport-level `LocalizedMessage` rendered
  * verbatim, same convention as `ReplaysSettingsSection.tsx`'s `error` state. */
-type FileActionError =
-  { kind: 'domain'; key: string } | { kind: 'transport'; message: LocalizedMessage }
+type FileActionError = { kind: 'domain' | 'transport'; message: LocalizedMessage }
 
 /**
  * Story 156 D2 / 178 D2: "Reveal in file manager" / "Copy path" / "Rename" for one demo as icon
@@ -47,7 +46,10 @@ export function DemoFileActions({ demo, onRenamed }: DemoFileActionsProps) {
       return
     }
     if (!result.value.ok) {
-      setError({ kind: 'domain', key: `replays.fileActions.${result.value.reason}` })
+      setError({
+        kind: 'domain',
+        message: { key: result.value.reasonKey, params: result.value.params },
+      })
     }
   }
 
@@ -59,7 +61,10 @@ export function DemoFileActions({ demo, onRenamed }: DemoFileActionsProps) {
       return
     }
     if (!result.value.ok) {
-      setError({ kind: 'domain', key: `replays.fileActions.${result.value.reason}` })
+      setError({
+        kind: 'domain',
+        message: { key: result.value.reasonKey, params: result.value.params },
+      })
       return
     }
     pushToast({ level: 'success', messageKey: 'replays.fileActions.pathCopied', timeoutMs: 4000 })
@@ -103,7 +108,7 @@ export function DemoFileActions({ demo, onRenamed }: DemoFileActionsProps) {
           role="alert"
           data-testid="replays-demo-file-action-error"
         >
-          {error.kind === 'domain' ? t(error.key) : t(error.message.key, error.message.params)}
+          {t(error.message.key, error.message.params)}
         </p>
       )}
       {renaming && (

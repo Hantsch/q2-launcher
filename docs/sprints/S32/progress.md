@@ -189,3 +189,32 @@
 - 2026-10-02 13:23:31 · 204 · verify · started
 - 2026-10-02 13:25:17 · 204 · verify · done
 - 2026-10-02 13:25:17 · 204 · story · done
+- 2026-10-02 13:25:47 · 206 · build · started
+- 2026-10-02 13:26:29 · 206 · D1 refusal shape · started
+- 2026-10-02 13:27:24 · 206 · D1 refusal shape · done
+- 2026-10-02 13:27:24 · 206 · D2 servers master sources+manual add · started
+- 2026-10-02 13:29:14 · 206 · D2 servers master sources+manual add · done
+- 2026-10-02 13:29:14 · 206 · D3 quick filters/scan/watchlist · started
+- 2026-10-02 13:30:35 · 206 · D3 quick filters/scan/watchlist · done
+- 2026-10-02 13:30:35 · 206 · D4 replays in-band results · started
+- 2026-10-02 13:32:38 · 206 · D4 replays in-band results · done
+- 2026-10-02 13:32:38 · 206 · D5 demo-play/rename validators · started
+- 2026-10-02 13:34:09 · 206 · D5 demo-play/rename validators · done
+- 2026-10-02 13:34:09 · 206 · D6 name-template validator · started
+- 2026-10-02 13:34:58 · 206 · D6 name-template validator · done
+- 2026-10-02 13:34:58 · 206 · D7 one toast path · started
+- 2026-10-02 13:36:08 · 206 · D7 one toast path · done
+- 2026-10-02 13:36:08 · 206 · D8 remaining toast literals · started
+- 2026-10-02 13:39:50 · 206 · D8 remaining toast literals · done
+- 2026-10-02 13:39:50 · 206 · D9 renderer reason templates · started
+- 2026-10-02 13:40:57 · 206 · D9 renderer reason templates · done
+- 2026-10-02 13:40:57 · 206 · D10 refusal keys resolve · started
+- 2026-10-02 13:42:38 · 206 · D10 refusal keys resolve · done
+- 2026-10-02 13:42:38 · 206 · verify · started
+- 2026-10-02 13:45:17 · 206 · verify · done
+- 2026-10-02 13:45:17 · 206 · review 1 · started
+- 2026-10-02 13:47:43 · 206 · review 1 · done
+- 2026-10-02 13:47:43 · 206 · review fix 1 · done
+- 2026-10-02 13:47:43 · 206 · review 2 · started
+- 2026-10-02 13:48:40 · 206 · review 2 · done
+- 2026-10-02 13:48:40 · 206 · story · done

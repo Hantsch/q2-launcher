@@ -10,13 +10,13 @@ import {
 
 function compile(text: string): CompiledNameTemplate {
   const r = compileNameTemplate(text)
-  if (!r.ok) throw new Error(`expected ${text} to compile, got ${r.error.key}`)
+  if (!r.ok) throw new Error(`expected ${text} to compile, got ${r.reasonKey}`)
   return r.template
 }
 
 function rejection(text: string): NameTemplateErrorKey | null {
   const r = compileNameTemplate(text)
-  return r.ok ? null : r.error.key
+  return r.ok ? null : r.reasonKey
 }
 
 function match(template: string, fileName: string): ReturnType<typeof matchNameTemplate> {
@@ -42,9 +42,19 @@ describe('compileNameTemplate rejections', () => {
     const r = compileNameTemplate('{mapp}-{host}')
     expect(r).toEqual({
       ok: false,
-      error: { key: NAME_TEMPLATE_ERROR.unknownToken, params: { token: 'mapp' } },
+      reasonKey: NAME_TEMPLATE_ERROR.unknownToken,
+      params: { token: 'mapp' },
     })
     expect(rejection('{}')).toBe(NAME_TEMPLATE_ERROR.unknownToken)
+  })
+
+  it('a failed compile is a Refusal with its key and params', () => {
+    expect(compileNameTemplate('')).toEqual({ ok: false, reasonKey: NAME_TEMPLATE_ERROR.empty })
+    expect(compileNameTemplate('{map')).toEqual({
+      ok: false,
+      reasonKey: NAME_TEMPLATE_ERROR.unclosedBrace,
+      params: { position: 0 },
+    })
   })
 
   it('rejects a duplicated token, counting shorthands as their parts, but lets {skip} repeat', () => {

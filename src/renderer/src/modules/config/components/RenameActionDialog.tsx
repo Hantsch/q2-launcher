@@ -9,6 +9,18 @@ import { Button } from '../../../components/ui/Button'
 import { Field, Input } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
 
+const ALIAS_NAME_ERROR_KEYS: Record<
+  Extract<ReturnType<typeof validateAliasName>, { ok: false }>['reason'],
+  string
+> = {
+  empty: 'config.controls.actions.renameDialog.aliasName.error.empty',
+  illegalCharacters: 'config.controls.actions.renameDialog.aliasName.error.illegalCharacters',
+  tooLong: 'config.controls.actions.renameDialog.aliasName.error.tooLong',
+  reserved: 'config.controls.actions.renameDialog.aliasName.error.reserved',
+  duplicate: 'config.controls.actions.renameDialog.aliasName.error.duplicate',
+  signedBaseName: 'config.controls.actions.renameDialog.aliasName.error.signedBaseName',
+}
+
 /**
  * Renames one action. Mirrors `RenameProfileDialog`'s shape, plus - since story 039 - a second,
  * optional "own alias name" field and the rename-refusal check that field is the escape hatch for.
@@ -70,10 +82,7 @@ export function RenameActionDialog({
       : { ok: true as const }
   const aliasError = aliasValidation.ok
     ? undefined
-    : t(
-        `config.controls.actions.renameDialog.aliasName.error.${aliasValidation.reason}`,
-        aliasValidation.params,
-      )
+    : t(ALIAS_NAME_ERROR_KEYS[aliasValidation.reason], aliasValidation.params)
 
   // Rename refusal (story 039, D9): only the entry's *current* alias name - resolved before any
   // edit in this dialog - and only while the display name is actually changing. Changing solely the

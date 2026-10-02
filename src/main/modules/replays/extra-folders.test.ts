@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { refuse } from '@shared/types'
 import { canonicalizePath } from '../../lib/fs-utils'
 import { appendExtraFolder, removeExtraFolder, resolveExtraFolder } from './extra-folders'
 
@@ -21,12 +23,15 @@ describe('resolveExtraFolder and appendExtraFolder', () => {
     const filePath = join(dir, 'not-a-folder.txt')
     await writeFile(filePath, 'x')
 
-    expect(await resolveExtraFolder('relative/path')).toEqual({ ok: false, reason: 'notAbsolute' })
-    expect(await resolveExtraFolder(filePath)).toEqual({ ok: false, reason: 'notAFolder' })
-    expect(await resolveExtraFolder(join(dir, 'does-not-exist'))).toEqual({
-      ok: false,
-      reason: 'unresolvable',
-    })
+    expect(await resolveExtraFolder('relative/path')).toEqual(
+      refuse('replays.extraFolders.error.notAbsolute'),
+    )
+    expect(await resolveExtraFolder(filePath)).toEqual(
+      refuse('replays.extraFolders.error.notAFolder'),
+    )
+    expect(await resolveExtraFolder(join(dir, 'does-not-exist'))).toEqual(
+      refuse('replays.extraFolders.error.unresolvable'),
+    )
   })
 
   it('a folder already listed under another spelling is rejected as already listed', async () => {
@@ -39,10 +44,9 @@ describe('resolveExtraFolder and appendExtraFolder', () => {
     const trailingSep = `${dir}${dir.endsWith('\\') || dir.endsWith('/') ? '' : '/'}`
     const second = await resolveExtraFolder(trailingSep)
     if (!second.ok) throw new Error('expected ok')
-    expect(appendExtraFolder(added.folders, second.canonical, now, randomUUID())).toEqual({
-      ok: false,
-      reason: 'alreadyListed',
-    })
+    expect(appendExtraFolder(added.folders, second.canonical, now, randomUUID())).toEqual(
+      refuse('replays.extraFolders.error.alreadyListed'),
+    )
   })
 
   it('a resolved folder is canonicalized and appended without mutating the list', async () => {
@@ -100,3 +104,43 @@ async function listing(dir: string): Promise<string[]> {
     .map((entry) => join(entry.parentPath, entry.name))
     .sort()
 }
+
+describe('refusal keys', () => {
+  it('a refused folder carries the full replays.extraFolders.error key', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'q2-launcher-extra-folders-keys-'))
+    try {
+      const filePath = join(dir, 'file.txt')
+      await writeFile(filePath, 'x')
+      const first = await resolveExtraFolder(dir)
+      if (!first.ok) throw new Error('expected ok')
+      const listed = appendExtraFolder([], first.canonical, 'now', 'id1')
+      if (!listed.ok) throw new Error('expected ok')
+
+      const refusals = [
+        await resolveExtraFolder('relative/path'),
+        await resolveExtraFolder(join(dir, 'gone')),
+        await resolveExtraFolder(filePath),
+        appendExtraFolder(listed.folders, first.canonical, 'now', 'id2'),
+      ]
+      const keys = refusals.map((result) => (result.ok ? null : result.reasonKey))
+      expect(keys).toEqual([
+        'replays.extraFolders.error.notAbsolute',
+        'replays.extraFolders.error.unresolvable',
+        'replays.extraFolders.error.notAFolder',
+        'replays.extraFolders.error.alreadyListed',
+      ])
+
+      const en = JSON.parse(
+        readFileSync(join(process.cwd(), 'src/renderer/src/i18n/locales/en.json'), 'utf-8'),
+      ) as Record<string, unknown>
+      for (const key of keys) {
+        const value = (key as string)
+          .split('.')
+          .reduce<unknown>((acc, part) => (acc as Record<string, unknown> | undefined)?.[part], en)
+        expect(typeof value).toBe('string')
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+    }
+  })
+})

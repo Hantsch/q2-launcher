@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Outcome } from '@shared/types'
-import { WATCHLIST_NAME_MAX, type WatchlistMatchMode } from '@shared/modules/servers'
+import {
+  WATCHLIST_NAME_MAX,
+  type WatchlistMatchMode,
+  type WatchlistMutationResult,
+} from '@shared/modules/servers'
 import { Button } from '../../../components/ui/Button'
 import { Select } from '../../../components/ui/controls'
-import type { WatchlistMutationResult } from '../client'
 
 const MODE_OPTIONS: { value: WatchlistMatchMode; labelKey: string }[] = [
   { value: 'exact', labelKey: 'servers.watchlist.mode.exact' },

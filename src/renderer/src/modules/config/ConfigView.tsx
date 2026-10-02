@@ -15,6 +15,7 @@ import { cn } from '../../lib/cn'
 import { formatRelativeTime } from '../../lib/format'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Badge, EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
+import { toastOutcomeError } from '../../lib/toast'
 import { useLauncher } from '../../store/useLauncher'
 import { AliasesTab } from './AliasesTab'
 import { ControlsTab } from './ControlsTab'
@@ -508,12 +509,7 @@ export function ConfigView() {
       pushToast({ level: 'error', messageKey: 'config.fileSource.conflict', timeoutMs: 0 })
       return
     }
-    pushToast({
-      level: 'error',
-      messageKey: action.messageKey,
-      timeoutMs: 0,
-      ...(action.params ? { params: action.params } : {}),
-    })
+    toastOutcomeError(pushToast, { ok: false, error: action.error })
   }
 
   /**

@@ -36,7 +36,7 @@ function validateText(text: string): ValidationResult {
   if (text.length === 0) return { ok: false, error: { key: 'replays.nameTemplate.error.empty' } }
   const compiled = compileNameTemplate(text)
   if (compiled.ok) return { ok: true }
-  return { ok: false, error: { key: compiled.error.key, params: compiled.error.params } }
+  return { ok: false, error: { key: compiled.reasonKey, params: compiled.params } }
 }
 
 export function NameTemplatesList() {

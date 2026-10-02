@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Save, Undo2 } from 'lucide-react'
 import type { ConfigProfile, SaveProfileConflict } from '@shared/modules/config'
 import { Button } from '../../../components/ui/Button'
+import { toastOutcomeError } from '../../../lib/toast'
 import { useLauncher } from '../../../store/useLauncher'
 import { ConfigConflictDialog } from '../ConfigConflictDialog'
 import { DiscardChangesDialog } from '../DiscardChangesDialog'
@@ -70,12 +71,7 @@ export function ProfileSaveActions({
     // `action.type === 'toast'`: covers the transport-level error and the unreadable-file cases -
     // neither calls `onSaved`, so `dirty` is left exactly as it was and nothing the user typed is
     // lost.
-    pushToast({
-      level: 'error',
-      messageKey: action.messageKey,
-      timeoutMs: 0,
-      ...(action.params ? { params: action.params } : {}),
-    })
+    toastOutcomeError(pushToast, { ok: false, error: action.error })
   }
 
   const canDiscard = dirty && profile.baseline !== undefined

@@ -27,6 +27,7 @@
 
 import { useState } from 'react'
 import type { ConfigProfile, SaveProfileConflict } from '@shared/modules/config'
+import { toastOutcomeError } from '../../../lib/toast'
 import { useLauncher } from '../../../store/useLauncher'
 import {
   openProfileFile,
@@ -102,12 +103,7 @@ export function useCareSync({
     if (outcome.ok) {
       refetchSyncState()
     } else {
-      pushToast({
-        level: 'error',
-        messageKey: outcome.error.key,
-        timeoutMs: 0,
-        ...(outcome.error.params ? { params: outcome.error.params } : {}),
-      })
+      toastOutcomeError(pushToast, outcome)
     }
   }
 
@@ -139,12 +135,7 @@ export function useCareSync({
       setConflict(action.conflict)
       return
     }
-    pushToast({
-      level: 'error',
-      messageKey: action.messageKey,
-      timeoutMs: 0,
-      ...(action.params ? { params: action.params } : {}),
-    })
+    toastOutcomeError(pushToast, { ok: false, error: action.error })
   }
 
   /** Story 079 D9's "Sync now" (AC7): rewrites one installation's copy from the profile's canonical
@@ -158,12 +149,7 @@ export function useCareSync({
     if (outcome.ok) {
       refetchSyncState()
     } else {
-      pushToast({
-        level: 'error',
-        messageKey: outcome.error.key,
-        timeoutMs: 0,
-        ...(outcome.error.params ? { params: outcome.error.params } : {}),
-      })
+      toastOutcomeError(pushToast, outcome)
     }
   }
 
@@ -176,12 +162,7 @@ export function useCareSync({
       mode,
     })
     if (!outcome.ok) {
-      pushToast({
-        level: 'error',
-        messageKey: outcome.error.key,
-        timeoutMs: 0,
-        ...(outcome.error.params ? { params: outcome.error.params } : {}),
-      })
+      toastOutcomeError(pushToast, outcome)
     }
   }
 

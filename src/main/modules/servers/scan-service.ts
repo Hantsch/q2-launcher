@@ -1,3 +1,4 @@
+import { refuse } from '@shared/types'
 import {
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY,
@@ -517,11 +518,11 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     // shows, never queued, and checked before single-flight so the reason is always the game.
     if (isScanBlocked(launch.getState())) {
       syncBlockedReason(true)
-      return { ok: false, reasonKey: SCAN_BLOCKED_GAME_RUNNING_REASON_KEY }
+      return refuse(SCAN_BLOCKED_GAME_RUNNING_REASON_KEY)
     }
 
     if (scanState.running) {
-      return { ok: false, reasonKey: SCAN_ALREADY_RUNNING_REASON_KEY }
+      return refuse(SCAN_ALREADY_RUNNING_REASON_KEY)
     }
 
     const scope: ScanScope = options.scope ?? { kind: 'all' }
@@ -529,7 +530,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     // handed to the sweep, so a `setMode` mid-round never redirects its writes.
     const sweepMode = mode
     if (sweepMode === 'lan' && scope.kind === 'favourites') {
-      return { ok: false, reasonKey: SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY }
+      return refuse(SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY)
     }
     const list = lists[sweepMode]
     const controller = new AbortController()

@@ -73,7 +73,7 @@ export function nameTemplatesAdd(
   input: NameTemplatesAddInput,
 ): Outcome<NameTemplatesView> {
   const compiled = compileNameTemplate(input.template)
-  if (!compiled.ok) return fail(compiled.error.key, compiled.error.params)
+  if (!compiled.ok) return fail(compiled.reasonKey, compiled.params)
 
   const merged = currentMerged(app)
   if (merged.entries.length >= NAME_TEMPLATES_MAX) {
@@ -93,7 +93,7 @@ export function nameTemplatesUpdate(
   input: NameTemplatesUpdateInput,
 ): Outcome<NameTemplatesView> {
   const compiled = compileNameTemplate(input.template)
-  if (!compiled.ok) return fail(compiled.error.key, compiled.error.params)
+  if (!compiled.ok) return fail(compiled.reasonKey, compiled.params)
 
   const merged = currentMerged(app)
   if (!merged.entries.some((entry) => entry.id === input.id)) {

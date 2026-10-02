@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SERVERS_STATE, type MasterSource } from '@shared/modules/servers'
 import { parseServersState } from '../../lib/schemas'
@@ -79,15 +81,15 @@ describe('addSource', () => {
   it('refuses a malformed address with its own reason code and returns no list', () => {
     expect(addSource(list(), { type: 'udp-master', address: 'master.example.com:99999' })).toEqual({
       ok: false,
-      reason: 'port-out-of-range',
+      reasonKey: 'servers.sources.reject.port-out-of-range',
     })
     expect(addSource(list(), { type: 'http-list', address: 'not a url' })).toEqual({
       ok: false,
-      reason: 'invalid-url',
+      reasonKey: 'servers.sources.reject.invalid-url',
     })
     expect(addSource(list(), { type: 'http-list', address: 'ftp://example.com/list' })).toEqual({
       ok: false,
-      reason: 'unsupported-protocol',
+      reasonKey: 'servers.sources.reject.unsupported-protocol',
     })
   })
 
@@ -95,7 +97,7 @@ describe('addSource', () => {
     // `master.q2servers.com` normalizes onto the stored `master.q2servers.com:27900`.
     expect(addSource(list(), { type: 'udp-master', address: 'master.q2servers.com' })).toEqual({
       ok: false,
-      reason: 'duplicate-address',
+      reasonKey: 'servers.sources.reject.duplicate-address',
     })
   })
 
@@ -131,7 +133,10 @@ describe('removeSource', () => {
   })
 
   it('refuses an unknown id instead of silently doing nothing', () => {
-    expect(removeSource(list(), { id: 'nope' })).toEqual({ ok: false, reason: 'not-found' })
+    expect(removeSource(list(), { id: 'nope' })).toEqual({
+      ok: false,
+      reasonKey: 'servers.sources.reject.not-found',
+    })
   })
 
   it('leaves the list it was given untouched', () => {
@@ -170,26 +175,26 @@ describe('updateSource - address edit', () => {
   })
 
   it('refuses a malformed address', () => {
-    expect(updateSource(list(), { id: 'a', type: 'http-list', address: 'nope' })).toEqual({
+    expect(updateSource(list(), { id: 'a', type: 'http-list', address: 'not an address' })).toEqual({
       ok: false,
-      reason: 'invalid-url',
+      reasonKey: 'servers.sources.reject.invalid-url',
     })
   })
 
   it('refuses an unknown id', () => {
     expect(
       updateSource(list(), { id: 'nope', type: 'udp-master', address: 'master.example.com' }),
-    ).toEqual({ ok: false, reason: 'not-found' })
+    ).toEqual({ ok: false, reasonKey: 'servers.sources.reject.not-found' })
     expect(updateSource(list(), { id: 'nope', enabled: false })).toEqual({
       ok: false,
-      reason: 'not-found',
+      reasonKey: 'servers.sources.reject.not-found',
     })
   })
 
   it('refuses an address another source already holds, but allows a no-op re-save of its own', () => {
     expect(
       updateSource(list(), { id: 'a', type: 'udp-master', address: 'master.quakeservers.net' }),
-    ).toEqual({ ok: false, reason: 'duplicate-address' })
+    ).toEqual({ ok: false, reasonKey: 'servers.sources.reject.duplicate-address' })
 
     const sources = expectOk(
       updateSource(list(), { id: 'a', type: 'udp-master', address: 'master.q2servers.com' }),
@@ -216,7 +221,10 @@ describe('updateSource - payload shape', () => {
   it('refuses a payload that is neither shape, or both at once', () => {
     // Unreachable over IPC (D1's zod union rejects both first) - defended anyway, because this
     // function is also callable directly.
-    expect(updateSource(list(), { id: 'a' } as never)).toEqual({ ok: false, reason: 'empty' })
+    expect(updateSource(list(), { id: 'a' } as never)).toEqual({
+      ok: false,
+      reasonKey: 'servers.sources.reject.empty',
+    })
     expect(
       updateSource(list(), {
         id: 'a',
@@ -224,7 +232,7 @@ describe('updateSource - payload shape', () => {
         address: 'master.example.com',
         enabled: false,
       } as never),
-    ).toEqual({ ok: false, reason: 'empty' })
+    ).toEqual({ ok: false, reasonKey: 'servers.sources.reject.empty' })
   })
 })
 
@@ -242,19 +250,19 @@ describe('reorderSources', () => {
     // Missing one, an extra one, a duplicate, and an unknown id at the right length.
     expect(reorderSources(list(), { ids: ['a', 'b'] })).toEqual({
       ok: false,
-      reason: 'invalid-reorder',
+      reasonKey: 'servers.sources.reject.invalid-reorder',
     })
     expect(reorderSources(list(), { ids: ['a', 'b', 'c', 'd'] })).toEqual({
       ok: false,
-      reason: 'invalid-reorder',
+      reasonKey: 'servers.sources.reject.invalid-reorder',
     })
     expect(reorderSources(list(), { ids: ['a', 'a', 'b'] })).toEqual({
       ok: false,
-      reason: 'invalid-reorder',
+      reasonKey: 'servers.sources.reject.invalid-reorder',
     })
     expect(reorderSources(list(), { ids: ['a', 'b', 'zzz'] })).toEqual({
       ok: false,
-      reason: 'invalid-reorder',
+      reasonKey: 'servers.sources.reject.invalid-reorder',
     })
   })
 
@@ -302,5 +310,30 @@ describe('every accepted list survives parseServersState unchanged', () => {
   it('a reordered list keeps its order on the next load', () => {
     const sources = expectOk(reorderSources(list(), { ids: ['c', 'a', 'b'] }))
     expect(roundTrip(sources)).toEqual(sources)
+  })
+})
+
+describe('refusal keys', () => {
+  it('a refused mutation carries the full servers.sources.reject key', () => {
+    const en = JSON.parse(
+      readFileSync(join(process.cwd(), 'src/renderer/src/i18n/locales/en.json'), 'utf-8'),
+    ) as Record<string, unknown>
+    const resolve = (key: string): unknown =>
+      key
+        .split('.')
+        .reduce<unknown>((acc, part) => (acc as Record<string, unknown> | undefined)?.[part], en)
+
+    const refusals = [
+      addSource([udp], { type: 'udp-master', address: 'not an address' }),
+      addSource([udp], { type: 'udp-master', address: udp.address }),
+      removeSource([udp], { id: 'missing' }),
+      reorderSources([udp, http], { ids: ['a'] }),
+    ]
+    for (const result of refusals) {
+      expect(result.ok).toBe(false)
+      if (result.ok) continue
+      expect(result.reasonKey.startsWith('servers.sources.reject.')).toBe(true)
+      expect(typeof resolve(result.reasonKey)).toBe('string')
+    }
   })
 })

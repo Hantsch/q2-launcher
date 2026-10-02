@@ -5,6 +5,7 @@ import type {
   RefreshedProfileResult,
 } from '@shared/modules/config'
 import type { Outcome, ToastMessage } from '@shared/types'
+import { toastOutcomeError } from '../../../lib/toast'
 
 /**
  * The pure decision + merge logic behind `useFileSourceRefresh.ts` (story 043 D7), split out the
@@ -165,12 +166,7 @@ export async function adoptProfileFromFile(deps: {
   })
 
   if (!outcome.ok) {
-    deps.pushToast({
-      level: 'error',
-      messageKey: outcome.error.key,
-      timeoutMs: 0,
-      ...(outcome.error.params ? { params: outcome.error.params } : {}),
-    })
+    toastOutcomeError(deps.pushToast, outcome)
     return { kind: 'failed' }
   }
 

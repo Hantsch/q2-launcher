@@ -11,6 +11,7 @@ import { Input, Switch } from '../../components/ui/controls'
 import { DragHandle, SortableItem, SortableZone, type SortableDropMeta } from '../../components/dnd'
 import { cn } from '../../lib/cn'
 import { useLauncher } from '../../store/useLauncher'
+import { toastOutcomeError } from '../../lib/toast'
 import { AddCvarDialog } from './components/AddCvarDialog'
 import { CreateCvarSectionDialog } from './components/CreateCvarSectionDialog'
 import { CreateCvarSubsectionDialog } from './components/CreateCvarSubsectionDialog'
@@ -344,12 +345,7 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
       // Story 059 review Fix 2: surface the rejection instead of leaving the dialog open with no
       // explanation - same `pushToast`/`error.key`/`timeoutMs: 0` shape `RawFileTab.tsx`'s
       // `openFile` uses for a failed action.
-      pushToast({
-        level: 'error',
-        messageKey: result.error.key,
-        timeoutMs: 0,
-        ...(result.error.params ? { params: result.error.params } : {}),
-      })
+      toastOutcomeError(pushToast, result)
       setStatus('idle')
     }
     return result.ok

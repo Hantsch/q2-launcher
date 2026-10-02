@@ -204,7 +204,10 @@ describe('replays extra folders', () => {
         return Promise.resolve({ ok: true, value: [] })
       }
       if (payload?.type === 'extraFolders.add') {
-        return Promise.resolve({ ok: true, value: { ok: false, reason: 'notAFolder' } })
+        return Promise.resolve({
+          ok: true,
+          value: { ok: false, reasonKey: 'replays.extraFolders.error.notAFolder' },
+        })
       }
       return defaultInvoke(channel, payload)
     })

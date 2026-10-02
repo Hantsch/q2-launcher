@@ -40,10 +40,23 @@
 
 import type { TidyUpOp } from '@shared/config/tidy-up'
 import { engineLabel } from '@shared/types/engine'
-import { canonicalOutOfSyncReason, type CareSyncRow } from './care-sync'
+import {
+  canonicalOutOfSyncReason,
+  type CanonicalOutOfSyncReason,
+  type CareSyncRow,
+} from './care-sync'
 import { dedupKey } from './care-summary'
 import type { TidyUpFinding, TidyUpFindingKind } from './tidy-up-findings'
 import type { ProfileValidation } from './validation-scope'
+
+const CANONICAL_TITLE_KEYS: Record<CanonicalOutOfSyncReason, string> = {
+  unsavedChanges: 'config.care.sync.canonical.unsavedChanges',
+  externalEdit: 'config.care.sync.canonical.externalEdit',
+}
+const CANONICAL_HINT_KEYS: Record<CanonicalOutOfSyncReason, string> = {
+  unsavedChanges: 'config.care.sync.canonical.unsavedChangesHint',
+  externalEdit: 'config.care.sync.canonical.externalEditHint',
+}
 
 /** The three areas AC 3 groups rows by, in the order they are rendered. */
 export type CareItemGroup = 'health' | 'files' | 'tidy'
@@ -279,11 +292,9 @@ function fileItems(rows: CareSyncRow[], profileDirty: boolean | undefined): Care
       id,
       group: 'files',
       level: fileLevel(row),
-      titleKey: reason
-        ? `config.care.sync.canonical.${reason}`
-        : `config.care.sync.state.${row.state}`,
+      titleKey: reason ? CANONICAL_TITLE_KEYS[reason] : `config.care.sync.state.${row.state}`,
       consequenceKey: reason
-        ? `config.care.sync.canonical.${reason}Hint`
+        ? CANONICAL_HINT_KEYS[reason]
         : `${FILES_CONSEQUENCE_PREFIX}${row.state}`,
       params: {
         target: row.target,

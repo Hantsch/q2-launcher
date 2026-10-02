@@ -4,6 +4,7 @@ import type { ConfigProfile } from '@shared/modules/config'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { useLauncher } from '../../store/useLauncher'
+import { toastOutcomeError } from '../../lib/toast'
 import { discardConfigProfile } from './client'
 
 /**
@@ -42,7 +43,7 @@ export function DiscardChangesDialog({
     setSubmitting(false)
 
     if (!outcome.ok) {
-      pushToast({ level: 'error', messageKey: outcome.error.key, timeoutMs: 0 })
+      toastOutcomeError(pushToast, outcome)
       onClose()
       return
     }

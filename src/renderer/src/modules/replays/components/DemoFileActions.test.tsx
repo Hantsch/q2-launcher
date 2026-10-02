@@ -70,7 +70,10 @@ describe('DemoFileActions (story 156 D2)', () => {
   })
 
   it('fileMissing shows a persistent inline alert (AC5)', async () => {
-    copyDemoPath.mockResolvedValue({ ok: true, value: { ok: false, reason: 'fileMissing' } })
+    copyDemoPath.mockResolvedValue({
+      ok: true,
+      value: { ok: false, reasonKey: 'replays.fileActions.fileMissing' },
+    })
 
     render(createElement(DemoFileActions, { demo: BASE_DEMO, onRenamed: vi.fn() }))
     screen.getByTestId('replays-demo-copy-path').click()

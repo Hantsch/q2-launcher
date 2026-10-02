@@ -84,7 +84,7 @@ function reasonText(row: DemoRow): string {
   const { result } = hook(row)
   const eligibility = result.current.eligibility
   if (eligibility === null || eligibility.ok) throw new Error('expected a refusal')
-  return i18n.t(eligibility.reason.key, eligibility.reason.params)
+  return i18n.t(eligibility.reasonKey, eligibility.params)
 }
 
 const PLAYED = { ok: true, value: { stage: null } }
@@ -123,7 +123,7 @@ describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
       expect(usePlaybackStore.getState().stageArmed).toBe(true)
       return {
         ok: true,
-        value: { stage: { placed: false, reason: { key: 'replays.stage.unavailable.wayland' } } },
+        value: { stage: { ok: false, reasonKey: 'replays.stage.unavailable.wayland' } },
       }
     })
     const { result } = hook()

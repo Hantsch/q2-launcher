@@ -8,12 +8,11 @@ import {
   type WatchlistMatch,
   type WatchlistMatchMode,
 } from '@shared/modules/servers'
-import type { ScanStartResult } from '@shared/modules/servers'
+import type { ScanStartResult, WatchlistMutationResult } from '@shared/modules/servers'
 import { formatRelativeTime } from '../../../lib/format'
 import { Button, IconButton } from '../../../components/ui/Button'
 import { Select } from '../../../components/ui/controls'
 import { Pencil, Trash2 } from 'lucide-react'
-import type { WatchlistMutationResult } from '../client'
 import { WatchlistMatchRow } from './WatchlistMatchRow'
 
 const MODE_OPTIONS: { value: WatchlistMatchMode; labelKey: string }[] = [

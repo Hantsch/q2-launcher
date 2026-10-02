@@ -6,16 +6,20 @@ import {
   type QuickFilter,
   type QuickFilterCriteria,
 } from '@shared/servers/quick-filters'
+import type { QuickFilterRefusalKey, QuickFiltersResult } from '@shared/modules/servers'
+import { refuse } from '@shared/types'
 
 /**
  * Story 197 D2: the saved quick filters' three operations, pure functions over
  * `ServersState['quickFilters']` - no I/O, mirroring `watchlist-entries.ts`: an injectable `mintId`
  * and a `{ ok: true; list } | { ok: false; reasonKey }` result instead of a thrown error.
  */
-export type QuickFilterMutationResult =
-  { ok: true; list: QuickFilter[] } | { ok: false; reasonKey: string }
+export type QuickFilterMutationResult = QuickFiltersResult
 
-const KEY = 'servers.quickFilter.error.'
+const NAME_PROBLEM_KEYS: Record<'empty' | 'tooLong', QuickFilterRefusalKey> = {
+  empty: 'servers.quickFilter.error.empty',
+  tooLong: 'servers.quickFilter.error.tooLong',
+}
 
 /**
  * Saves `criteria` under `name`. An empty criteria set, an empty/too long name, or (unless
@@ -28,13 +32,12 @@ export function saveQuickFilter(
   input: { name: string; criteria: QuickFilterCriteria; overwrite: boolean },
   mintId: () => string = randomUUID,
 ): QuickFilterMutationResult {
-  if (!hasCriteria(input.criteria)) return { ok: false, reasonKey: `${KEY}noCriteria` }
+  if (!hasCriteria(input.criteria)) return refuse('servers.quickFilter.error.noCriteria')
   const problem = validateQuickFilterName(input.name, list)
   const name = input.name.trim()
-  if (problem === 'empty' || problem === 'tooLong')
-    return { ok: false, reasonKey: `${KEY}${problem}` }
+  if (problem === 'empty' || problem === 'tooLong') return refuse(NAME_PROBLEM_KEYS[problem])
   if (problem === 'taken') {
-    if (!input.overwrite) return { ok: false, reasonKey: `${KEY}taken` }
+    if (!input.overwrite) return refuse('servers.quickFilter.error.taken')
     const key = name.toLowerCase()
     return {
       ok: true,
@@ -43,7 +46,7 @@ export function saveQuickFilter(
       ),
     }
   }
-  if (list.length >= QUICK_FILTER_MAX) return { ok: false, reasonKey: `${KEY}cap` }
+  if (list.length >= QUICK_FILTER_MAX) return refuse('servers.quickFilter.error.cap')
   return { ok: true, list: [...list, { id: mintId(), name, criteria: input.criteria }] }
 }
 
@@ -52,9 +55,10 @@ export function renameQuickFilter(
   list: readonly QuickFilter[],
   input: { id: string; name: string },
 ): QuickFilterMutationResult {
-  if (!list.some((q) => q.id === input.id)) return { ok: false, reasonKey: `${KEY}notFound` }
+  if (!list.some((q) => q.id === input.id)) return refuse('servers.quickFilter.error.notFound')
   const problem = validateQuickFilterName(input.name, list, input.id)
-  if (problem !== null) return { ok: false, reasonKey: `${KEY}${problem}` }
+  if (problem === 'taken') return refuse('servers.quickFilter.error.taken')
+  if (problem !== null) return refuse(NAME_PROBLEM_KEYS[problem])
   const name = input.name.trim()
   return { ok: true, list: list.map((q) => (q.id === input.id ? { ...q, name } : q)) }
 }

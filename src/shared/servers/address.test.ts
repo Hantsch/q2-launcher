@@ -175,6 +175,14 @@ describe('every rejection reason has its own i18n key', () => {
     return typeof value === 'string' ? value : undefined
   }
 
+  it('every address rejection maps to a literal servers.address.reject key', () => {
+    for (const reason of ALL_REASONS) {
+      const key = serverAddressRejectionKey(reason)
+      expect(key.startsWith('servers.address.reject.')).toBe(true)
+      expect(stringAt(key)).toBeTruthy()
+    }
+  })
+
   it.each(ALL_REASONS)('%s resolves to a non-empty en.json string', (reason) => {
     const key = serverAddressRejectionKey(reason)
     const message = stringAt(key)

@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -907,7 +907,7 @@ describe('demo.play on the stage (story 170 D2)', () => {
       const h = harness({ demos: [BASE_DEMO], files: ctfFiles(), platform, playback })
       expect(await h.play('base', 'q2pro-a', { stage: STAGE })).toEqual({
         ok: true,
-        value: { stage: { placed: true } },
+        value: { stage: { ok: true } },
       })
       const args = argsOf(h)
       const demoAt = args.indexOf('+demo')
@@ -926,12 +926,34 @@ describe('demo.play on the stage (story 170 D2)', () => {
     })
     expect(await h.play('base', 'q2pro-a', { stage: STAGE })).toEqual({
       ok: true,
-      value: { stage: { placed: false, reason } },
+      value: { stage: { ok: false, reasonKey: reason.key } },
     })
     const args = argsOf(h)
     expect(args.join(' ')).toContain('+set vid_fullscreen 0 +demo')
     expect(args).not.toContain('vid_geometry')
     expect(args).not.toContain('win_noborder')
+  })
+
+  it('an unplaced stage is a Refusal with its key', async () => {
+    const reason = { key: 'replays.stage.unavailable.wayland' } as const
+    const h = harness({
+      demos: [BASE_DEMO],
+      files: ctfFiles(),
+      stageAvail: { available: false, reason },
+    })
+    const result = await h.play('base', 'q2pro-a', { stage: STAGE })
+    if (!result.ok || !result.value.stage) throw new Error('expected a stage result')
+    const stage = result.value.stage
+    expect(stage.ok).toBe(false)
+    if (stage.ok) return
+    expect(stage.reasonKey).toBe('replays.stage.unavailable.wayland')
+    const en = JSON.parse(
+      readFileSync(join(process.cwd(), 'src/renderer/src/i18n/locales/en.json'), 'utf-8'),
+    ) as Record<string, unknown>
+    const resolved = stage.reasonKey
+      .split('.')
+      .reduce<unknown>((acc, part) => (acc as Record<string, unknown> | undefined)?.[part], en)
+    expect(typeof resolved).toBe('string')
   })
 
   it('no stage rect keeps the args as they are today', async () => {

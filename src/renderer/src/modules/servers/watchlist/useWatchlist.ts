@@ -3,6 +3,7 @@ import type { Outcome } from '@shared/types'
 import type {
   ScanStartResult,
   WatchlistMatchMode,
+  WatchlistMutationResult,
   WatchlistSnapshot,
 } from '@shared/modules/servers'
 import {
@@ -12,7 +13,6 @@ import {
   recheckWatchlistEntry,
   removeWatchlistEntry,
   updateWatchlistEntry,
-  type WatchlistMutationResult,
 } from '../client'
 
 export interface UseWatchlistResult {

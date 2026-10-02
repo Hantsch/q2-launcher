@@ -297,7 +297,7 @@ export function ReplaysView() {
   // warning off or trusted this mod; the readout carries no permanent warning text.
   const askFirst = eligibility !== null && !eligibility.ok && eligibility.acknowledgeable === true
   const modGameDir =
-    eligibility !== null && !eligibility.ok ? String(eligibility.reason.params?.gameDir ?? '') : ''
+    eligibility !== null && !eligibility.ok ? String(eligibility.params?.gameDir ?? '') : ''
   const [confirmingModMissing, setConfirmingModMissing] = useState(false)
   // Story 193 D1: the catalog entry offered for install in the mod-missing dialog, if any.
   const [modOffer, setModOffer] = useState<{ id: string; name: string } | null>(null)
@@ -381,7 +381,7 @@ export function ReplaysView() {
       labelKey: 'installation.action.view',
       disabled: !hasSelection || eligibility === null || (!eligibility.ok && !askFirst) || playBusy,
       ...(hasSelection && eligibility !== null && !eligibility.ok && !askFirst
-        ? { reason: eligibility.reason }
+        ? { reason: { key: eligibility.reasonKey, params: eligibility.params } }
         : {}),
       ...(playError ? { error: playError } : {}),
       run: runPlay,

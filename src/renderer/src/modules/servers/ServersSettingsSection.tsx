@@ -112,7 +112,7 @@ export function ServersSettingsSection() {
     }
     const domain = result.value
     if (!domain.ok) {
-      setError({ key: `servers.sources.reject.${domain.reason}` })
+      setError({ key: domain.reasonKey, ...(domain.params ? { params: domain.params } : {}) })
       return
     }
     setSources(domain.sources)

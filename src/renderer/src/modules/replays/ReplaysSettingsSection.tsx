@@ -60,7 +60,7 @@ function ExtraFoldersList() {
     }
     const domain = result.value
     if (!domain.ok) {
-      setError({ key: `replays.extraFolders.error.${domain.reason}` })
+      setError({ key: domain.reasonKey, params: domain.params })
       return
     }
     setFolders(domain.folders)

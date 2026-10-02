@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { DomainResult } from '../types'
 import { serverAddressSchema } from '../schemas'
 import type { InfoReplySuccess } from '../servers/info-reply'
 import { SERVER_SORT_COLUMNS } from '../servers/list-sort'
@@ -260,8 +261,7 @@ export const SERVER_HISTORY_CAP = 200
  * `ManualServerEntry`/`ServerHistoryEntry` rows the module already persists (story 110) - there is
  * no separate IPC-only shape.
  */
-export type ManualServerAddResult =
-  { ok: true; entry: ManualServerEntry } | { ok: false; reasonKey: string }
+export type ManualServerAddResult = DomainResult<{ entry: ManualServerEntry }>
 
 /**
  * Story 115 D1: bounded-choice constants for every numeric scan-settings knob (GB-N4), mirroring
@@ -604,8 +604,32 @@ export const sourcesReorderInputSchema = z.object({
 export type MasterSourcesRejectionReason =
   MasterSourceAddressRejection | 'not-found' | 'duplicate-address' | 'invalid-reorder'
 
-export type MasterSourcesResult =
-  { ok: true; sources: MasterSource[] } | { ok: false; reason: MasterSourcesRejectionReason }
+export type MasterSourcesRefusalKey =
+  | 'servers.sources.reject.empty'
+  | 'servers.sources.reject.extra-tokens'
+  | 'servers.sources.reject.forbidden-character'
+  | 'servers.sources.reject.argument-token'
+  | 'servers.sources.reject.missing-port'
+  | 'servers.sources.reject.port-not-numeric'
+  | 'servers.sources.reject.port-out-of-range'
+  | 'servers.sources.reject.too-many-colons'
+  | 'servers.sources.reject.ipv6-not-supported'
+  | 'servers.sources.reject.host-empty'
+  | 'servers.sources.reject.host-too-long'
+  | 'servers.sources.reject.host-label-invalid'
+  | 'servers.sources.reject.ipv4-octet-out-of-range'
+  | 'servers.sources.reject.url-too-long'
+  | 'servers.sources.reject.invalid-url'
+  | 'servers.sources.reject.unsupported-protocol'
+  | 'servers.sources.reject.credentials-not-allowed'
+  | 'servers.sources.reject.not-found'
+  | 'servers.sources.reject.duplicate-address'
+  | 'servers.sources.reject.invalid-reorder'
+
+export type MasterSourcesResult = DomainResult<
+  { sources: MasterSource[] },
+  MasterSourcesRefusalKey
+>
 
 /**
  * Story 112 D1: payload schemas for the three `favourites.*` handlers. `favouritesList` takes no
@@ -797,7 +821,10 @@ export interface ServersScanState {
  * above. A successful start carries no data of its own - the caller learns everything through the
  * `scan.changed`/`scan.server` pushes (AC5), not through this return value.
  */
-export type ScanStartResult = { ok: true } | { ok: false; reasonKey: string }
+export type ScanStartResult = DomainResult<Record<never, never>>
+
+/** A watchlist add/update/remove answers the new snapshot or a refusal reason key. */
+export type WatchlistMutationResult = DomainResult<{ snapshot: WatchlistSnapshot }>
 
 /**
  * Story 116 D1: the `reasonKey` a refused `scan.start` (or a `blockedReason: 'game-running'`
@@ -961,8 +988,16 @@ export interface ServerDetail {
 }
 
 /** Story 197 D2: result of a quick-filter mutation - the persisted list or a refusal reason key. */
-export type QuickFiltersResult =
-  { ok: true; list: QuickFilter[] } | { ok: false; reasonKey: string }
+export type QuickFilterRefusalKey =
+  | 'servers.quickFilter.error.failed'
+  | 'servers.quickFilter.error.noCriteria'
+  | 'servers.quickFilter.error.empty'
+  | 'servers.quickFilter.error.tooLong'
+  | 'servers.quickFilter.error.taken'
+  | 'servers.quickFilter.error.cap'
+  | 'servers.quickFilter.error.notFound'
+
+export type QuickFiltersResult = DomainResult<{ list: QuickFilter[] }, QuickFilterRefusalKey>
 
 export const quickFiltersListInputSchema = serversNoInputSchema
 export const quickFiltersSaveInputSchema = z

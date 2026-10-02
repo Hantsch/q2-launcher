@@ -14,7 +14,11 @@
     // Story 081 D3: this guard test lives under components/shell/ (what it scans) but needs
     // `node:fs`/`node:path`/`node:url`, so it typechecks here instead - see tsconfig.web.json's
     // matching exclude.
-    "src/renderer/src/components/shell/shell-home-ownership.test.ts"
+    "src/renderer/src/components/shell/shell-home-ownership.test.ts",
+    "src/renderer/src/lib/toast.test.ts",
+    "src/renderer/src/i18n/reason-templates.test.ts",
+    "src/test-support/source-files.ts",
+    "src/renderer/src/lib/toast.ts"
   ],
   "compilerOptions": {
     "composite": true,

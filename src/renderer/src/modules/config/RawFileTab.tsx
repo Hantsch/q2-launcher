@@ -8,6 +8,7 @@ import { Checkbox, Select } from '../../components/ui/controls'
 import { HoverCard } from '../../components/ui/HoverCard'
 import { Badge, Panel, Spinner } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
+import { toastOutcomeError } from '../../lib/toast'
 import {
   getRawFiles,
   openProfileFile,
@@ -75,12 +76,7 @@ export function RawFileTab({
   const openFile = async (mode: 'open' | 'reveal'): Promise<void> => {
     const outcome = await openProfileFile({ profileId: profile.id, installationId: null, mode })
     if (!outcome.ok) {
-      pushToast({
-        level: 'error',
-        messageKey: outcome.error.key,
-        timeoutMs: 0,
-        ...(outcome.error.params ? { params: outcome.error.params } : {}),
-      })
+      toastOutcomeError(pushToast, outcome)
     }
   }
 

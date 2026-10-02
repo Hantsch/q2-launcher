@@ -245,15 +245,15 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
 
     expect(await invoke('sources.remove', { id: 'no-such-source' })).toEqual({
       ok: true,
-      value: { ok: false, reason: 'not-found' },
+      value: { ok: false, reasonKey: 'servers.sources.reject.not-found' },
     })
     expect(await invoke('sources.add', { type: 'http-list', address: 'not a url' })).toEqual({
       ok: true,
-      value: { ok: false, reason: 'invalid-url' },
+      value: { ok: false, reasonKey: 'servers.sources.reject.invalid-url' },
     })
     expect(await invoke('sources.reorder', { ids: ['only-one'] })).toEqual({
       ok: true,
-      value: { ok: false, reason: 'invalid-reorder' },
+      value: { ok: false, reasonKey: 'servers.sources.reject.invalid-reorder' },
     })
 
     expect(state.serversState()).toEqual(before)
@@ -266,7 +266,7 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
 
     expect(await invoke('sources.remove', { id: 'no-such-source' })).toEqual({
       ok: true,
-      value: { ok: false, reason: 'not-found' },
+      value: { ok: false, reasonKey: 'servers.sources.reject.not-found' },
     })
 
     // The very same live object: a refusal neither replaced the slice nor dropped the favourite.

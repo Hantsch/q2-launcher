@@ -7,6 +7,7 @@ import { engineLabel } from '@shared/types/engine'
 import { Panel, SectionLabel, Spinner } from '../../components/ui/primitives'
 import { Button } from '../../components/ui/Button'
 import { useLauncher } from '../../store/useLauncher'
+import { toastOutcomeError } from '../../lib/toast'
 import { CareBatchFixDialog } from './CareBatchFixDialog'
 import { CareItemRow } from './CareItemRow'
 import { ConfigConflictDialog } from './ConfigConflictDialog'
@@ -379,12 +380,7 @@ function TidyUpGroup({
     })
 
     if (!outcome.ok) {
-      pushToast({
-        level: 'error',
-        messageKey: outcome.error.key,
-        timeoutMs: 0,
-        ...(outcome.error.params ? { params: outcome.error.params } : {}),
-      })
+      toastOutcomeError(pushToast, outcome)
       return false
     }
     const updated = outcome.value.find((candidate) => candidate.id === profile.id)
@@ -456,12 +452,7 @@ function TidyUpGroup({
     })
 
     if (!outcome.ok) {
-      pushToast({
-        level: 'error',
-        messageKey: outcome.error.key,
-        timeoutMs: 0,
-        ...(outcome.error.params ? { params: outcome.error.params } : {}),
-      })
+      toastOutcomeError(pushToast, outcome)
       return
     }
     if (outcome.value.rejected.length > 0) {

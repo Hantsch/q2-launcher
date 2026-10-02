@@ -4,6 +4,7 @@ import {
   type WatchlistEntry,
   type WatchlistMatchMode,
 } from '@shared/modules/servers'
+import { refuse, type DomainResult } from '@shared/types'
 
 /**
  * Story 131 D2: the watchlist entry collection's three operations, as pure functions over
@@ -18,12 +19,19 @@ import {
  * later deliverable's worker, not this file.
  */
 
-export type WatchlistEntryMutationResult =
-  { ok: true; list: WatchlistEntry[] } | { ok: false; reasonKey: string }
+export type WatchlistEntryMutationResult = DomainResult<{ list: WatchlistEntry[] }>
+
+type WatchlistNameRefusalKey =
+  | 'servers.watchlist.error.empty'
+  | 'servers.watchlist.error.tooLong'
+  | 'servers.watchlist.error.invalidRegex'
 
 /** Validates `name`/`mode` in the fixed order the story specifies: empty, too long, then (for
  * `'regex'` only) whether the pattern compiles at all. Returns `null` when the input is valid. */
-function validateNameAndMode(name: string, mode: WatchlistMatchMode): string | null {
+function validateNameAndMode(
+  name: string,
+  mode: WatchlistMatchMode,
+): WatchlistNameRefusalKey | null {
   const trimmed = name.trim()
   if (trimmed.length === 0) {
     return 'servers.watchlist.error.empty'
@@ -54,7 +62,7 @@ export function addWatchlistEntry(
 ): WatchlistEntryMutationResult {
   const reasonKey = validateNameAndMode(input.name, input.mode)
   if (reasonKey !== null) {
-    return { ok: false, reasonKey }
+    return refuse(reasonKey)
   }
 
   const entry: WatchlistEntry = {
@@ -77,12 +85,12 @@ export function updateWatchlistEntry(
 ): WatchlistEntryMutationResult {
   const reasonKey = validateNameAndMode(input.name, input.mode)
   if (reasonKey !== null) {
-    return { ok: false, reasonKey }
+    return refuse(reasonKey)
   }
 
   const index = list.findIndex((entry) => entry.id === input.id)
   if (index === -1) {
-    return { ok: false, reasonKey: 'servers.watchlist.error.notFound' }
+    return refuse('servers.watchlist.error.notFound')
   }
 
   const next = [...list]

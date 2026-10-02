@@ -18,6 +18,7 @@ import {
   type ServersScanState,
   SERVERS_WATCHLIST_HANDLERS,
   type WatchlistMatchMode,
+  type WatchlistMutationResult,
   type WatchlistSnapshot,
 } from '@shared/modules/servers'
 import type { QuickFilter, QuickFilterCriteria } from '@shared/servers/quick-filters'
@@ -199,9 +200,6 @@ export function readServerDetail(address: string): Promise<Outcome<ServerDetail 
  * arrives later via `watchlist.changed`, exactly like a scan's own `scanStart`/`scan.changed`
  * split.
  */
-export type WatchlistMutationResult =
-  { ok: true; snapshot: WatchlistSnapshot } | { ok: false; reasonKey: string }
-
 export function readWatchlist(): Promise<Outcome<WatchlistSnapshot>> {
   return callModule<WatchlistSnapshot>('servers', SERVERS_WATCHLIST_HANDLERS.read)
 }

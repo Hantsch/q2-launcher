@@ -5,6 +5,14 @@ import type { RedeemResult, UnlockState } from '@shared/types'
 import { invoke } from '../../lib/bridge'
 import { Button, IconButton } from '../ui/Button'
 
+const REJECT_KEYS: Record<Extract<RedeemResult, { ok: false }>['reason'], string> = {
+  'not-a-code': 'settings.unlock.reject.not-a-code',
+  'bad-signature': 'settings.unlock.reject.bad-signature',
+  'wrong-installation': 'settings.unlock.reject.wrong-installation',
+  'redeem-window-elapsed': 'settings.unlock.reject.redeem-window-elapsed',
+  'feature-expired': 'settings.unlock.reject.feature-expired',
+}
+
 /**
  * Story 129 D2: the Settings panel that lets a user see their installation id, send a code
  * through `unlock:redeem`, and see what they already have. Mirrors `ServersSettingsSection.tsx`'s
@@ -122,7 +130,7 @@ export function UnlockCodePanel() {
 
       {result && !result.ok && (
         <p className="text-xs text-danger" role="alert" data-testid="unlock-result-rejected">
-          {t(`settings.unlock.reject.${result.reason}`)}
+          {t(REJECT_KEYS[result.reason])}
         </p>
       )}
 

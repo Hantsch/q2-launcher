@@ -12,6 +12,8 @@
  * Pure by contract: this file lives in `src/shared`, so no `node:*` import, no DOM types, no IPC.
  */
 
+import { refuse, type DomainResult } from '../types/common'
+
 /** Tokens matching any non-empty run of characters. `skip` matches but contributes no fact. */
 export const NAME_TEMPLATE_TEXT_TOKENS = [
   'map',
@@ -64,11 +66,6 @@ export const NAME_TEMPLATE_ERROR = {
 
 export type NameTemplateErrorKey = (typeof NAME_TEMPLATE_ERROR)[keyof typeof NAME_TEMPLATE_ERROR]
 
-export interface NameTemplateError {
-  key: NameTemplateErrorKey
-  params?: Record<string, string | number>
-}
-
 /** One piece of a compiled template. Literal text is stored ASCII-lower-cased. */
 export type NameTemplateSegment =
   | { kind: 'literal'; text: string }
@@ -83,8 +80,10 @@ export interface CompiledNameTemplate {
   readonly segments: readonly NameTemplateSegment[]
 }
 
-export type CompileNameTemplateResult =
-  { ok: true; template: CompiledNameTemplate } | { ok: false; error: NameTemplateError }
+export type CompileNameTemplateResult = DomainResult<
+  { template: CompiledNameTemplate },
+  NameTemplateErrorKey
+>
 
 export interface NameFacts {
   date?: {
@@ -153,13 +152,6 @@ function isShorthand(name: string): name is (typeof NAME_TEMPLATE_SHORTHANDS)[nu
   return (NAME_TEMPLATE_SHORTHANDS as readonly string[]).includes(name)
 }
 
-function fail(
-  key: NameTemplateErrorKey,
-  params?: Record<string, string | number>,
-): CompileNameTemplateResult {
-  return { ok: false, error: params === undefined ? { key } : { key, params } }
-}
-
 type RawPiece = { kind: 'literal'; text: string } | { kind: 'token'; name: string }
 
 /**
@@ -168,7 +160,7 @@ type RawPiece = { kind: 'literal'; text: string } | { kind: 'token'; name: strin
  * without date — the first failing rule is reported.
  */
 export function compileNameTemplate(text: string): CompileNameTemplateResult {
-  if (text === '') return fail(NAME_TEMPLATE_ERROR.empty)
+  if (text === '') return refuse(NAME_TEMPLATE_ERROR.empty)
 
   const pieces: RawPiece[] = []
   let literal = ''
@@ -179,13 +171,13 @@ export function compileNameTemplate(text: string): CompileNameTemplateResult {
       let j = i + 1
       while (j < text.length && text[j] !== '}' && text[j] !== '{') j++
       if (j >= text.length || text[j] === '{')
-        return fail(NAME_TEMPLATE_ERROR.unclosedBrace, { position: i })
+        return refuse(NAME_TEMPLATE_ERROR.unclosedBrace, { position: i })
       if (literal !== '') pieces.push({ kind: 'literal', text: literal })
       literal = ''
       pieces.push({ kind: 'token', name: text.slice(i + 1, j) })
       i = j + 1
     } else if (ch === '}') {
-      return fail(NAME_TEMPLATE_ERROR.strayBrace, { position: i })
+      return refuse(NAME_TEMPLATE_ERROR.strayBrace, { position: i })
     } else {
       literal += ch
       i++
@@ -200,7 +192,7 @@ export function compileNameTemplate(text: string): CompileNameTemplateResult {
       !isDigitToken(p.name) &&
       !isShorthand(p.name)
     ) {
-      return fail(NAME_TEMPLATE_ERROR.unknownToken, { token: p.name })
+      return refuse(NAME_TEMPLATE_ERROR.unknownToken, { token: p.name })
     }
   }
 
@@ -209,7 +201,7 @@ export function compileNameTemplate(text: string): CompileNameTemplateResult {
     let at = lowerText.indexOf(ext)
     while (at !== -1) {
       if (at + ext.length !== lowerText.length) {
-        return fail(NAME_TEMPLATE_ERROR.misplacedExtension, { extension: ext })
+        return refuse(NAME_TEMPLATE_ERROR.misplacedExtension, { extension: ext })
       }
       at = lowerText.indexOf(ext, at + 1)
     }
@@ -247,7 +239,7 @@ export function compileNameTemplate(text: string): CompileNameTemplateResult {
   const seen = new Set<string>()
   for (const s of segments) {
     if (s.kind === 'literal' || s.token === 'skip') continue
-    if (seen.has(s.token)) return fail(NAME_TEMPLATE_ERROR.duplicateToken, { token: s.token })
+    if (seen.has(s.token)) return refuse(NAME_TEMPLATE_ERROR.duplicateToken, { token: s.token })
     seen.add(s.token)
   }
 
@@ -255,17 +247,17 @@ export function compileNameTemplate(text: string): CompileNameTemplateResult {
     const a = segments[k - 1]
     const b = segments[k]
     if (a.kind === 'text' && b.kind === 'text') {
-      return fail(NAME_TEMPLATE_ERROR.adjacentTextTokens, { first: a.token, second: b.token })
+      return refuse(NAME_TEMPLATE_ERROR.adjacentTextTokens, { first: a.token, second: b.token })
     }
   }
 
-  if (seen.size === 0) return fail(NAME_TEMPLATE_ERROR.capturesNothing)
+  if (seen.size === 0) return refuse(NAME_TEMPLATE_ERROR.capturesNothing)
 
   const dateParts = (['year', 'month', 'day'] as const).filter((t) => seen.has(t)).length
-  if (dateParts === 1 || dateParts === 2) return fail(NAME_TEMPLATE_ERROR.incompleteDate)
+  if (dateParts === 1 || dateParts === 2) return refuse(NAME_TEMPLATE_ERROR.incompleteDate)
   const hasTime = seen.has('hour') || seen.has('min') || seen.has('sec')
   if ((hasTime && dateParts !== 3) || (seen.has('hour') && !seen.has('min'))) {
-    return fail(NAME_TEMPLATE_ERROR.timeWithoutDate)
+    return refuse(NAME_TEMPLATE_ERROR.timeWithoutDate)
   }
 
   return { ok: true, template: { source: text, extension, segments } }

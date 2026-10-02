@@ -215,9 +215,26 @@ export function formatServerAddress(host: string, port: number): string {
   return `${host.toLowerCase()}:${port}`
 }
 
-/** Maps a rejection reason to its i18n key, `servers.address.reject.<reason>`. The actual `en.json`
- * entries are added by a later deliverable (story 107, D3) — this is just the deterministic naming
- * function. */
-export function serverAddressRejectionKey(reason: ServerAddressRejection): string {
-  return `servers.address.reject.${reason}`
+/** Every rejection's i18n key as a visible literal, so a key scan and the type checker see the same
+ * set; adding a `ServerAddressRejection` without an entry here fails the build. */
+export const SERVER_ADDRESS_REJECTION_KEYS = {
+  empty: 'servers.address.reject.empty',
+  'extra-tokens': 'servers.address.reject.extra-tokens',
+  'forbidden-character': 'servers.address.reject.forbidden-character',
+  'argument-token': 'servers.address.reject.argument-token',
+  'missing-port': 'servers.address.reject.missing-port',
+  'port-not-numeric': 'servers.address.reject.port-not-numeric',
+  'port-out-of-range': 'servers.address.reject.port-out-of-range',
+  'too-many-colons': 'servers.address.reject.too-many-colons',
+  'ipv6-not-supported': 'servers.address.reject.ipv6-not-supported',
+  'host-empty': 'servers.address.reject.host-empty',
+  'host-too-long': 'servers.address.reject.host-too-long',
+  'host-label-invalid': 'servers.address.reject.host-label-invalid',
+  'ipv4-octet-out-of-range': 'servers.address.reject.ipv4-octet-out-of-range',
+} as const satisfies Record<ServerAddressRejection, `servers.address.reject.${string}`>
+
+export function serverAddressRejectionKey(
+  reason: ServerAddressRejection,
+): (typeof SERVER_ADDRESS_REJECTION_KEYS)[ServerAddressRejection] {
+  return SERVER_ADDRESS_REJECTION_KEYS[reason]
 }

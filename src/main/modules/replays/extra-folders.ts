@@ -1,11 +1,14 @@
 import { stat } from 'node:fs/promises'
 import { isAbsolute } from 'node:path'
-import type { ExtraFoldersResult, ReplaysExtraFolder } from '@shared/modules/replays'
+import type {
+  ExtraFoldersRefusalKey,
+  ExtraFoldersResult,
+  ReplaysExtraFolder,
+} from '@shared/modules/replays'
+import { refuse, type DomainResult } from '@shared/types'
 import { canonicalizePath, pathKey } from '../../lib/fs-utils'
 
-export type ResolvedExtraFolder =
-  | { ok: true; canonical: string }
-  | { ok: false; reason: 'notAbsolute' | 'unresolvable' | 'notAFolder' }
+export type ResolvedExtraFolder = DomainResult<{ canonical: string }, ExtraFoldersRefusalKey>
 
 /**
  * Story 142 D2: validates a user-picked extra demo folder. This is the one place a
@@ -26,15 +29,15 @@ export type ResolvedExtraFolder =
  *    use. It runs on the live list after the awaits above, so a concurrent change is seen.
  */
 export async function resolveExtraFolder(rawPath: string): Promise<ResolvedExtraFolder> {
-  if (!isAbsolute(rawPath)) return { ok: false, reason: 'notAbsolute' }
+  if (!isAbsolute(rawPath)) return refuse('replays.extraFolders.error.notAbsolute')
 
   let stats
   try {
     stats = await stat(rawPath)
   } catch {
-    return { ok: false, reason: 'unresolvable' }
+    return refuse('replays.extraFolders.error.unresolvable')
   }
-  if (!stats.isDirectory()) return { ok: false, reason: 'notAFolder' }
+  if (!stats.isDirectory()) return refuse('replays.extraFolders.error.notAFolder')
 
   return { ok: true, canonical: await canonicalizePath(rawPath) }
 }
@@ -51,7 +54,7 @@ export function appendExtraFolder(
 ): ExtraFoldersResult {
   const key = pathKey(canonical)
   if (current.some((row) => pathKey(row.path) === key)) {
-    return { ok: false, reason: 'alreadyListed' }
+    return refuse('replays.extraFolders.error.alreadyListed')
   }
   return { ok: true, folders: [...current, { id, path: canonical, addedAt: now }] }
 }

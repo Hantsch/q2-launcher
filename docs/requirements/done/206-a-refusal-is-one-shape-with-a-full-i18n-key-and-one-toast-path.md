@@ -1,7 +1,7 @@
 ---
 id: 206
 title: a refusal is one shape with a full i18n key and one toast path
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -24,21 +24,21 @@ Depends on story 204 (single `Outcome` envelope).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `src/shared/types/common.ts` exports `Refusal<R> = { ok: false; reasonKey: R; params? }`,
+- [x] **AC1** — `src/shared/types/common.ts` exports `Refusal<R> = { ok: false; reasonKey: R; params? }`,
       `DomainResult<T, R>` and `refuse()`; the five to seven local `fail`/`refuse` copies are
       deleted.
-- [ ] **AC2** — The servers and replays in-band result types (`ManualServerAddResult`,
+- [x] **AC2** — The servers and replays in-band result types (`ManualServerAddResult`,
       `MasterSourcesResult`, `ScanStartResult`, `QuickFiltersResult`, `WatchlistMutationResult`,
       `ExtraFoldersResult`, `DemoFileActionResult`, `ReplaysStageResult`) are expressed as
       `DomainResult` and main sends full i18n keys; no renderer file builds a key from a
       `${reason}` template (grep-zero for `` `.*\.\${reason`` in `src/renderer`).
-- [ ] **AC3** — `src/renderer/src/lib/toast.ts` exports `toastOutcomeError`/`toastRefusal`;
+- [x] **AC3** — `src/renderer/src/lib/toast.ts` exports `toastOutcomeError`/`toastRefusal`;
       the 12 inline toast literals use them; params are never dropped.
-- [ ] **AC4** — Story 204's error-key test also scans `reasonKey` literals in main and the keys
+- [x] **AC4** — Story 204's error-key test also scans `reasonKey` literals in main and the keys
       are all present in `en.json`.
-- [ ] **AC5** — docs/ARCHITECTURE.md documents the two shapes (`Outcome` for transport/unexpected,
+- [x] **AC5** — docs/ARCHITECTURE.md documents the two shapes (`Outcome` for transport/unexpected,
       `Refusal` for a domain "no") in one paragraph.
-- [ ] **AC6** — The affected flows (`servers-master-sources`, `servers-quick-filters`,
+- [x] **AC6** — The affected flows (`servers-master-sources`, `servers-quick-filters`,
       `replays-extra-folders`, watchlist and demo file actions) stay green or are fixed inside
       this story.
 
@@ -86,7 +86,7 @@ D4 → `replays-extra-folders`, `replays-demo-file-actions`. No user-visible tex
 
 ## Deliverables
 
-- [ ] **D1 — the refusal shape.** In `src/shared/types/common.ts` (next to `Outcome`/`ok`/`fail`) add:
+- [x] **D1 — the refusal shape.** In `src/shared/types/common.ts` (next to `Outcome`/`ok`/`fail`) add:
       `export type Refusal<R extends string = string> = { ok: false; reasonKey: R; params?: Record<string, string | number> }`;
       `export type DomainResult<T extends object, R extends string = string> = ({ ok: true } & T) | Refusal<R>`
       (bare success: `T = Record<never, never>`); `export function refuse<R extends string>(reasonKey: R, params?): Refusal<R>`
@@ -98,7 +98,7 @@ D4 → `replays-extra-folders`, `replays-demo-file-actions`. No user-visible tex
       `toastOutcomeError`/`toastRefusal` in `src/renderer/src/lib/toast.ts`. Tests: new `src/shared/types/common.test.ts` ›
       "refuse() builds a Refusal and omits absent params" and › "ARCHITECTURE.md documents Outcome and Refusal" (reads
       `docs/ARCHITECTURE.md`, asserts one paragraph names `Outcome<T>`, `Refusal<R>`, `refuse()` and `toastRefusal`).
-- [ ] **D2 — servers master sources and manual add send full keys.** Files: `src/shared/modules/servers.ts`
+- [x] **D2 — servers master sources and manual add send full keys.** Files: `src/shared/modules/servers.ts`
       (`MasterSourcesResult = DomainResult<{ sources: MasterSource[] }, MasterSourcesRefusalKey>`, `ManualServerAddResult =
 DomainResult<{ entry: ManualServerEntry }>`; `MasterSourcesRefusalKey` = literal union of the 20 `servers.sources.reject.*`
       keys in `en.json`), `src/main/modules/servers/master-sources.ts` (delete the local `refuse`; export
@@ -111,7 +111,7 @@ DomainResult<{ entry: ManualServerEntry }>`; `MasterSourcesRefusalKey` = literal
       — no template). Tests: `master-sources.test.ts` › "a refused mutation carries the full servers.sources.reject key",
       `src/shared/servers/address.test.ts` › "every address rejection maps to a literal servers.address.reject key".
       Run flow `servers-master-sources`.
-- [ ] **D3 — quick filters, scan start and watchlist are DomainResults.** Files: `src/shared/modules/servers.ts`
+- [x] **D3 — quick filters, scan start and watchlist are DomainResults.** Files: `src/shared/modules/servers.ts`
       (`QuickFiltersResult = DomainResult<{ list: QuickFilter[] }, QuickFilterRefusalKey>` with the literal union of the 7
       `servers.quickFilter.error.*` keys; `ScanStartResult = DomainResult<Record<never, never>>`; move
       `WatchlistMutationResult = DomainResult<{ snapshot: WatchlistSnapshot }>` here from the renderer client),
@@ -123,7 +123,7 @@ DomainResult<{ entry: ManualServerEntry }>`; `MasterSourcesRefusalKey` = literal
       (`useWatchlist.ts`, `WatchlistAddForm.tsx`, `WatchlistRow.tsx`) — import from shared, no re-export shim. Wire field names are
       unchanged (`ok`/`reasonKey`). Test: `quick-filter-entries.test.ts` › "every refusal carries a literal servers.quickFilter.error key".
       Run flows `servers-quick-filters` and `servers-watchlist`.
-- [ ] **D4 — replays in-band results send full keys.** Files: `src/shared/modules/replays.ts`
+- [x] **D4 — replays in-band results send full keys.** Files: `src/shared/modules/replays.ts`
       (`ExtraFoldersResult = DomainResult<{ folders: ReplaysExtraFolder[] }, ExtraFoldersRefusalKey>` with the 4
       `replays.extraFolders.error.*` keys; `DemoFileActionResult = DomainResult<Record<never, never>, 'replays.fileActions.unknownDemo' | 'replays.fileActions.fileMissing'>`;
       `ReplaysStageResult = DomainResult<Record<never, never>>` replacing `{ placed }`),
@@ -134,7 +134,7 @@ DomainResult<{ entry: ManualServerEntry }>`; `MasterSourcesRefusalKey` = literal
       "a refused folder carries the full replays.extraFolders.error key", `file-actions.test.ts` ›
       "a refused file action carries the full replays.fileActions key", `demo-play.test.ts` › "an unplaced stage is a Refusal with its key".
       Run flows `replays-extra-folders` and `replays-demo-file-actions`.
-- [ ] **D5 — demo-play and demo-rename validators use `refuse()`.** Files: `src/shared/replays/demo-play.ts` (delete local
+- [x] **D5 — demo-play and demo-rename validators use `refuse()`.** Files: `src/shared/replays/demo-play.ts` (delete local
       `refuse`; `DemoPlayEligibility = DomainResult<…existing success fields…, DemoPlayReasonKey>`: `reason: { key, params }` becomes
       `reasonKey`/`params`), `src/shared/replays/demo-rename.ts` (delete local `fail`; `ValidateDemoRenameResult` refusal carries the
       full `replays.rename.error.<reason>` key as a literal union `DemoRenameRefusalKey`; any caller that branched on the reason code
@@ -144,13 +144,13 @@ DomainResult<{ entry: ManualServerEntry }>`; `MasterSourcesRefusalKey` = literal
       `RenameDemoDialog.tsx` (`t(validation.reasonKey, validation.params)`, no template). Tests: existing
       `src/shared/replays/demo-play.test.ts` and `demo-rename.test.ts` updated to the new shape, plus `demo-rename.test.ts` ›
       "a rejected stem carries the full replays.rename.error key".
-- [ ] **D6 — name-template validator uses `refuse()`.** Files: `src/shared/replays/name-template.ts` (delete local `fail`;
+- [x] **D6 — name-template validator uses `refuse()`.** Files: `src/shared/replays/name-template.ts` (delete local `fail`;
       `CompileNameTemplateResult = DomainResult<…existing success fields…, NameTemplateErrorKey>`: `error: { key, params }` becomes
       `reasonKey`/`params`), its callers `src/shared/replays/name-patterns.ts`, `src/main/modules/replays/name-templates.ts`,
       `src/main/modules/replays/scan-service.ts`, `src/renderer/src/modules/replays/NameTemplatesList.tsx` (where a caller forwards
       the error as an `Outcome`, use `fail(r.reasonKey, r.params)`). Tests: existing `name-template.test.ts`, `name-templates.test.ts`,
       `name-patterns.test.ts` updated; `name-template.test.ts` › "a failed compile is a Refusal with its key and params".
-- [ ] **D7 — one toast path.** New `src/renderer/src/lib/toast.ts`:
+- [x] **D7 — one toast path.** New `src/renderer/src/lib/toast.ts`:
       `type PushToast = (toast: Omit<ToastMessage, 'id'>) => void` (`ToastMessage` from `@shared/types/toast`);
       `toastOutcomeError(push, failure: { ok: false; error: LocalizedMessage })` and `toastRefusal(push, refusal: Refusal)` both push
       `{ level: 'error', messageKey, timeoutMs: 0, ...(params ? { params } : {}) }` — params never dropped. No store import.
@@ -159,12 +159,12 @@ DomainResult<{ entry: ManualServerEntry }>`; `MasterSourcesRefusalKey` = literal
       `src/renderer/src/modules/config/DiscardChangesDialog.tsx` (today omits params), `SettingsTab.tsx`, `RawFileTab.tsx`,
       `CareTab.tsx` (2 sites). Test: new `src/renderer/src/lib/toast.test.ts` › "toastOutcomeError forwards key and params, sticky" and
       "toastRefusal forwards reasonKey and params, sticky".
-- [ ] **D8 — the remaining toast literals.** Replace the same inline literal with `toastOutcomeError(deps.pushToast | pushToast, outcome)`
+- [x] **D8 — the remaining toast literals.** Replace the same inline literal with `toastOutcomeError(deps.pushToast | pushToast, outcome)`
       from `src/renderer/src/lib/toast.ts` in `src/renderer/src/modules/config/lib/file-source-refresh.ts`, `lib/raw-draft.tsx`,
       `lib/save-bar.ts`, `lib/use-care-sync.ts` (3 sites). Add to `src/renderer/src/lib/toast.test.ts` a guard ›
       "no inline error-toast literal remains outside toast.ts": scan non-test `src/renderer/src/**/*.{ts,tsx}` for
       `/messageKey:\s*\w+\.error\.key/` and expect zero hits outside `lib/toast.ts`.
-- [ ] **D9 — no renderer key is templated from a reason.** Replace ``t(`prefix.${x.reason}`)`` with a local literal
+- [x] **D9 — no renderer key is templated from a reason.** Replace ``t(`prefix.${x.reason}`)`` with a local literal
       `Record<ReasonUnion, string>` lookup (keys unchanged, all exist in `en.json`) in
       `src/renderer/src/components/unlock/UnlockCodePanel.tsx` (`settings.unlock.reject.*`),
       `src/renderer/src/modules/config/components/RenameActionDialog.tsx` (`config.controls.actions.renameDialog.aliasName.error.*`),
@@ -172,7 +172,7 @@ DomainResult<{ entry: ManualServerEntry }>`; `MasterSourcesRefusalKey` = literal
       `src/renderer/src/modules/config/lib/care-items.ts` (`config.care.sync.canonical.<reason>` and `<reason>Hint`). New guard test
       `src/renderer/src/i18n/reason-templates.test.ts` › "no renderer file builds an i18n key from a reason": scan non-test
       `src/renderer/src/**/*.{ts,tsx}` for `/\.\$\{[\w.]*reason\}/` and expect zero hits (this also proves D2/D4/D5's sites are gone).
-- [ ] **D10 — every refusal key resolves.** Extend the error-key test story 204 added (204 AC3:
+- [x] **D10 — every refusal key resolves.** Extend the error-key test story 204 added (204 AC3:
       `src/renderer/src/i18n/error-keys.test.ts`; if 204's Done section names another file, extend that one — reuse its scanner and
       its `en.json` leaf resolver, no second copy) so it also collects from non-test `src/main/**/*.ts` and `src/shared/**/*.ts`:
       `reasonKey: '…'` literals, `refuse('…'` literals, and `Object.values` of `MASTER_SOURCES_REFUSAL_KEYS` and
@@ -199,7 +199,7 @@ Review: → default
   `src/renderer/src/i18n/reason-templates.test.ts` › "no renderer file builds an i18n key from a reason" (D2, D3, D4, D9).
 - AC3 → unit `src/renderer/src/lib/toast.test.ts` › "toastOutcomeError forwards key and params, sticky",
   "toastRefusal forwards reasonKey and params, sticky", "no inline error-toast literal remains outside toast.ts" (D7, D8).
-- AC4 → unit `src/renderer/src/i18n/error-keys.test.ts` (story 204's file) › "every reasonKey and refuse() literal resolves in en.json",
+- AC4 → unit `src/main/error-keys.test.ts` (story 204's file) › "every reasonKey and refuse() literal resolves in en.json",
   "no refusal key is built from a template", "a misspelled reasonKey literal fails the scan" (D10).
 - AC5 → unit `src/shared/types/common.test.ts` › "ARCHITECTURE.md documents Outcome and Refusal" (D1).
 - AC6 → e2e `scripts/flows/servers-master-sources.mjs` › servers-master-sources (D2);
@@ -210,4 +210,13 @@ Review: → default
 
 ## Done
 
-<!-- Filled by /build 206. -->
+Every servers/replays in-band result is now a `DomainResult` with a full i18n key (`Refusal`/`refuse()` in `@shared/types`); master-sources and address keys come from literal maps; the four named local refusal helpers are gone. `lib/toast.ts` (`toastOutcomeError`/`toastRefusal`) replaced all inline error-toast literals; four renderer reason-templated keys became literal records; `src/main/error-keys.test.ts` now also proves every refusal key resolves. ARCHITECTURE.md documents `Outcome` vs `Refusal`.
+
+Commit message: `206: refusals are one shape (Refusal/DomainResult/refuse) with full i18n keys; one toast helper (lib/toast.ts); refusal keys proven to resolve`
+
+Verification (narrow gate): build, typecheck green; `vitest run --changed HEAD` 240 files green; flows servers-master-sources, servers-quick-filters, servers-watchlist, replays-extra-folders, replays-demo-file-actions green. After the review fix: `npx vitest run src/main src/shared` (4860 passed) and typecheck green. AC to test: AC1 common.test.ts + typecheck + D5/D6 tests; AC2 master-sources/quick-filter-entries/extra-folders/file-actions/demo-play tests + reason-templates.test.ts; AC3 toast.test.ts (3 tests); AC4 error-keys.test.ts (3 tests); AC5 common.test.ts; AC6 the five flows. No manual residue.
+
+Decisions: (1) AC4 lives in `src/main/error-keys.test.ts` (story 204's file), not the renderer path. (2) `DemoPlayEligibility` = DomainResult success member + `Refusal & { acknowledgeable? }` (the flag predates the story). (3) `scan-service.ts` (ScanStartResult producer) also changed; scan, name-template and similar refusals pass named `*_REASON_KEY`/`NAME_TEMPLATE_ERROR` constants, covered by the key test through imports/definition scans. (4) Stage refusal passes only the key because `StageAvailability.reason` has no params. (5) `resolveSaveOutcome`/`resolveRawSaveOutcome` toast actions now carry `error: LocalizedMessage` so consumers call `toastOutcomeError`. (6) New guard tests using node:fs are excluded from tsconfig.web and included in tsconfig.node; shared walker in `src/test-support/source-files.ts`. (7) master-sources.test input `'nope'` became `'not an address'` because the udp-master rulebook defaults a missing port.
+Review 1 (default): PASS with one real finding (the key test's `resolves()` accepted `_other` plurals for all checks); fixed with a narrow `PLURAL_REASON_KEYS` allow-list, second review pass PASS. Unfixed, out of scope: `master-source-address.ts` `masterSourceAddressRejectionKey` template (test-only user) and `${reason}` fail templates in playback-console/userinfo/master-records/installations; `toastRefusal` has no production caller yet (spec-mandated helper); error-keys template scan does not cover `fail(\`...\`)`. No CHANGELOG entry.
+
+tiers: D 10 / hard 0 � review default � cycles 1 � agents 14

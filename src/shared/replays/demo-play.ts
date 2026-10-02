@@ -8,6 +8,7 @@
  */
 
 import type { DiscoveredDemo } from '../modules/replays'
+import { refuse, type DomainResult, type Refusal } from '../types/common'
 import type { Installation } from '../types/installation'
 import { STEAM_RUNNER_CHOICE } from '../types/runner'
 
@@ -21,26 +22,24 @@ export type DemoPlayReasonKey =
   | 'replays.play.unavailable.gameRunning'
   | 'replays.play.unavailable.unsafeName'
 
-export interface DemoPlayReason {
-  key: DemoPlayReasonKey
-  params?: Record<string, string | number>
-}
+/** `acknowledgeable` marks a warning, not a blocker: playing is allowed once the user has acknowledged it (`acknowledgeModMissing`). */
+export type DemoPlayRefusal = Refusal<DemoPlayReasonKey> & { acknowledgeable?: true }
 
 export type DemoPlayEligibility =
-  | {
-      ok: true
-      installationId: string
-      gameDir: string
-      /** True when the demo may be played by its own name from the installation (`extraArgs`); else a copy is staged. */
-      inPlace: boolean
-      extraArgs: string[]
-    }
-  | {
-      ok: false
-      reason: DemoPlayReason
-      /** A warning, not a blocker: playing is allowed once the user has acknowledged it (`acknowledgeModMissing`). */
-      acknowledgeable?: true
-    }
+  | Exclude<
+      DomainResult<
+        {
+          installationId: string
+          gameDir: string
+          /** True when the demo may be played by its own name from the installation (`extraArgs`); else a copy is staged. */
+          inPlace: boolean
+          extraArgs: string[]
+        },
+        DemoPlayReasonKey
+      >,
+      Refusal
+    >
+  | DemoPlayRefusal
 
 export interface DemoPlayInput {
   demo: DiscoveredDemo
@@ -82,15 +81,6 @@ function hasGameDir(gameDirs: readonly string[], dir: string): boolean {
   return sameDir(dir, DEMO_BASE_GAME_DIR) || gameDirs.some((d) => sameDir(d, dir))
 }
 
-function refuse(
-  key: DemoPlayReasonKey,
-  params?: Record<string, string | number>,
-): DemoPlayEligibility {
-  return params === undefined
-    ? { ok: false, reason: { key } }
-    : { ok: false, reason: { key, params } }
-}
-
 export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
   const { demo, installations, activeInstallationId, platform, gameRunning } = input
   const gameDir = demoGameDir(demo)
@@ -112,8 +102,7 @@ export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
   // a demo that could not be played anyway.
   if (!hasGameDir(active.gameDirs, gameDir) && !input.acknowledgeModMissing) {
     return {
-      ok: false,
-      reason: { key: 'replays.play.unavailable.modMissing', params: { gameDir } },
+      ...refuse('replays.play.unavailable.modMissing', { gameDir }),
       acknowledgeable: true,
     }
   }

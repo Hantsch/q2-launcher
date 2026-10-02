@@ -1,4 +1,6 @@
 import type { ManualServerEntry } from '@shared/modules/servers'
+import { refuse } from '@shared/types'
+import type { DomainResult } from '@shared/types'
 import { parseServerAddress, serverAddressRejectionKey } from '@shared/servers/address'
 
 /**
@@ -43,12 +45,10 @@ function normalizeForLookup(address: string): string {
 export function addManualServer(
   list: readonly ManualServerEntry[],
   input: { address: string },
-):
-  | { ok: true; entry: ManualServerEntry; list: ManualServerEntry[] }
-  | { ok: false; reasonKey: string } {
+): DomainResult<{ entry: ManualServerEntry; list: ManualServerEntry[] }> {
   const parsed = parseServerAddress(input.address)
   if (!parsed.ok) {
-    return { ok: false, reasonKey: serverAddressRejectionKey(parsed.reason) }
+    return refuse(serverAddressRejectionKey(parsed.reason))
   }
 
   const existing = list.find((entry) => entry.address === parsed.normalized)

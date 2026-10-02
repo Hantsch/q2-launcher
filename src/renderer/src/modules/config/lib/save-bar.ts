@@ -1,5 +1,5 @@
 import type { ConfigProfile, SaveProfileConflict, SaveProfileResult } from '@shared/modules/config'
-import type { Outcome } from '@shared/types'
+import type { LocalizedMessage, Outcome } from '@shared/types'
 
 /**
  * The pure decision logic behind `ProfileSaveActions` (story 043 D6), split out the same way
@@ -21,7 +21,7 @@ export function isProfileDirty(profile: Pick<ConfigProfile, 'dirty'>): boolean {
 /** What `ProfileSaveActions` should do once a `saveConfigProfile` call settles. */
 export type SaveBarAction =
   | { type: 'saved'; profile: ConfigProfile }
-  | { type: 'toast'; messageKey: string; params?: Record<string, string | number> }
+  | { type: 'toast'; error: LocalizedMessage }
   /**
    * Story 043 D8: the file changed underneath the launcher, so nothing was written. Carries the
    * whole-file conflict payload so `ProfileSaveActions` can open `ConfigConflictDialog` with it -
@@ -44,11 +44,7 @@ export type SaveBarAction =
  */
 export function resolveSaveOutcome(outcome: Outcome<SaveProfileResult>): SaveBarAction {
   if (!outcome.ok) {
-    return {
-      type: 'toast',
-      messageKey: outcome.error.key,
-      ...(outcome.error.params ? { params: outcome.error.params } : {}),
-    }
+    return { type: 'toast', error: outcome.error }
   }
 
   const result = outcome.value
@@ -63,10 +59,12 @@ export function resolveSaveOutcome(outcome: Outcome<SaveProfileResult>): SaveBar
   // result.status === 'unreadable'
   return {
     type: 'toast',
-    messageKey:
-      result.reason === 'unparseable'
-        ? 'config.save.unreadableUnparseable'
-        : 'config.save.unreadableReadError',
-    params: { message: result.message },
+    error: {
+      key:
+        result.reason === 'unparseable'
+          ? 'config.save.unreadableUnparseable'
+          : 'config.save.unreadableReadError',
+      params: { message: result.message },
+    },
   }
 }

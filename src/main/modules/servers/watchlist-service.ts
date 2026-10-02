@@ -6,8 +6,10 @@ import type {
   WatchlistEntry,
   WatchlistMatch,
   WatchlistMatchMode,
+  WatchlistMutationResult,
   WatchlistSnapshot,
 } from '@shared/modules/servers'
+import { refuse } from '@shared/types'
 import type { ServerPlayer } from '@shared/servers/status-reply'
 import { addWatchlistEntry, removeWatchlistEntry, updateWatchlistEntry } from './watchlist-entries'
 import {
@@ -36,8 +38,7 @@ import type { RegexHost } from './watchlist-regex-host'
  * `scan-service.ts` already relies on).
  */
 
-export type WatchlistServiceMutationResult =
-  { ok: true; snapshot: WatchlistSnapshot } | { ok: false; reasonKey: string }
+export type WatchlistServiceMutationResult = WatchlistMutationResult
 
 /** The scan-service surface this service needs - just enough to start a single-server recheck
  * round, never the full `ScanService` (this file must not depend on scan-service.ts's own types
@@ -364,12 +365,12 @@ export function createWatchlistService(options: CreateWatchlistServiceOptions): 
   function recheck(input: { id: string }): ScanStartResult {
     const entry = getEntries().find((candidate) => candidate.id === input.id)
     if (entry === undefined) {
-      return { ok: false, reasonKey: 'servers.watchlist.error.notFound' }
+      return refuse('servers.watchlist.error.notFound')
     }
 
     const matches = aggregateMatchesForEntry(entry.id)
     if (matches.length === 0) {
-      return { ok: false, reasonKey: 'servers.watchlist.error.notFound' }
+      return refuse('servers.watchlist.error.notFound')
     }
 
     // Most recently seen wins; ties keep the first in encounter order (a stable sort over the

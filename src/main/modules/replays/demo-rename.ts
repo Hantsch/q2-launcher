@@ -107,7 +107,7 @@ export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameSe
     if (row === undefined) return fail('replays.rename.error.unknownDemo')
 
     const validated = validateDemoRename(name, row.fileName)
-    if (!validated.ok) return fail(`replays.rename.error.${validated.reason}`, validated.params)
+    if (!validated.ok) return fail(validated.reasonKey, validated.params)
     const newFileName = validated.fileName
     if (newFileName === row.fileName) return ok({ demo: row })
 

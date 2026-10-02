@@ -70,6 +70,8 @@ neither prose nor a path ever crosses IPC: the shell wrappers answer with
 `handle` rejects with an `Error` whose message is the key) and the module bus
 (`MainModuleRegistry.invoke`) with `modules.error.handlerFailed`.
 
+`Outcome<T>` is the transport/unexpected envelope (schema reject, throw, missing handler, I/O failure); `Refusal<R>` / `DomainResult<T, R>` is a handler's expected domain "no", returned _inside_ `Outcome.value`, always carrying a full i18n key (never a reason code the renderer must template), built with `refuse()`; the renderer toasts either through `toastOutcomeError`/`toastRefusal` in `src/renderer/src/lib/toast.ts`.
+
 Schemas live in `src/shared/schemas.ts` (primitives shared with the persisted-state
 schemas: `engineKindSchema`, `sourceSchema`, `absolutePathSchema`,
 `settingsObjectSchema`) and `src/shared/ipc-schemas.ts` (one schema per invoke

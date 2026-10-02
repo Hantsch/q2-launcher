@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   QUICK_FILTER_MAX,
@@ -137,5 +139,46 @@ describe('removeQuickFilter', () => {
     const list = [entry('a', 'A'), entry('b', 'B')]
     expect(removeQuickFilter(list, { id: 'a' })).toEqual({ ok: true, list: [entry('b', 'B')] })
     expect(removeQuickFilter(list, { id: 'zzz' })).toEqual({ ok: true, list })
+  })
+})
+
+describe('refusal keys', () => {
+  it('every refusal carries a literal servers.quickFilter.error key', () => {
+    const en = JSON.parse(
+      readFileSync(resolve(__dirname, '../../../renderer/src/i18n/locales/en.json'), 'utf8'),
+    ) as Record<string, unknown>
+    const resolves = (key: string): boolean =>
+      typeof key.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], en) ===
+      'string'
+    const full = Array.from({ length: QUICK_FILTER_MAX }, (_, i) => entry(`id-${i}`, `Filter ${i}`))
+    const list = [entry('a', 'My CTF')]
+    const refusals = [
+      saveQuickFilter(list, { name: 'x', criteria: NONE, overwrite: false }),
+      saveQuickFilter(list, { name: '  ', criteria: CTF, overwrite: false }),
+      saveQuickFilter(list, {
+        name: 'n'.repeat(QUICK_FILTER_NAME_MAX + 1),
+        criteria: CTF,
+        overwrite: false,
+      }),
+      saveQuickFilter(list, { name: 'my ctf', criteria: CTF, overwrite: false }),
+      saveQuickFilter(full, { name: 'brand new', criteria: CTF, overwrite: false }),
+      renameQuickFilter(list, { id: 'zzz', name: 'x' }),
+      renameQuickFilter(list, { id: 'a', name: '' }),
+      renameQuickFilter(list, { id: 'a', name: 'n'.repeat(QUICK_FILTER_NAME_MAX + 1) }),
+      renameQuickFilter([...list, entry('b', 'Other')], { id: 'b', name: 'my ctf' }),
+    ]
+    const keys = refusals.map((r) => (r.ok ? 'OK' : r.reasonKey))
+    expect(keys).toEqual([
+      'servers.quickFilter.error.noCriteria',
+      'servers.quickFilter.error.empty',
+      'servers.quickFilter.error.tooLong',
+      'servers.quickFilter.error.taken',
+      'servers.quickFilter.error.cap',
+      'servers.quickFilter.error.notFound',
+      'servers.quickFilter.error.empty',
+      'servers.quickFilter.error.tooLong',
+      'servers.quickFilter.error.taken',
+    ])
+    for (const key of keys) expect(resolves(key)).toBe(true)
   })
 })

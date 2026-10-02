@@ -111,7 +111,7 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
       } else {
         const placement = result.value.stage
         playback.beginSession(demo.fileName, demo.durationMs)
-        playback.setStageReason(placement && !placement.placed ? placement.reason : null)
+        playback.setStageReason(placement && !placement.ok ? { key: placement.reasonKey } : null)
       }
     } finally {
       setBusy(false)

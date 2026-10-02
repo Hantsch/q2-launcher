@@ -8,6 +8,8 @@
  * no electron.
  */
 
+import { refuse, type DomainResult } from '../types/common'
+
 const DEMO_EXTENSIONS = ['.dm2.gz', '.mvd2.gz', '.dm2', '.mvd2'] as const
 
 function asciiLower(s: string): string {
@@ -37,12 +39,16 @@ export function demoExtension(fileName: string): string {
 
 export const DEMO_RENAME_MAX_STEM = 100
 
-export type DemoRenameReason =
-  'empty' | 'separator' | 'dotDot' | 'invalidChar' | 'trailingDotOrSpace' | 'reserved' | 'tooLong'
+export type DemoRenameRefusalKey =
+  | 'replays.rename.error.empty'
+  | 'replays.rename.error.separator'
+  | 'replays.rename.error.dotDot'
+  | 'replays.rename.error.invalidChar'
+  | 'replays.rename.error.trailingDotOrSpace'
+  | 'replays.rename.error.reserved'
+  | 'replays.rename.error.tooLong'
 
-export type ValidateDemoRenameResult =
-  | { ok: true; fileName: string }
-  | { ok: false; reason: DemoRenameReason; params?: Record<string, string | number> }
+export type ValidateDemoRenameResult = DomainResult<{ fileName: string }, DemoRenameRefusalKey>
 
 const INVALID_CHARS = '<>:"|?*'
 
@@ -71,13 +77,6 @@ const RESERVED_NAMES = new Set([
   'LPT9',
 ])
 
-function fail(
-  reason: DemoRenameReason,
-  params?: Record<string, string | number>,
-): ValidateDemoRenameResult {
-  return params === undefined ? { ok: false, reason } : { ok: false, reason, params }
-}
-
 /**
  * Validates a candidate rename stem against `currentFileName`'s recognised extension. Checks run
  * in a fixed order (empty, separator, dotDot, invalidChar, trailingDotOrSpace, reserved, tooLong)
@@ -95,29 +94,30 @@ export function validateDemoRename(
     s = s.slice(0, s.length - ext.length)
   }
 
-  if (s.length === 0) return fail('empty')
+  if (s.length === 0) return refuse('replays.rename.error.empty')
 
-  if (s.includes('/') || s.includes('\\')) return fail('separator')
+  if (s.includes('/') || s.includes('\\')) return refuse('replays.rename.error.separator')
 
-  if (s.includes('..')) return fail('dotDot')
+  if (s.includes('..')) return refuse('replays.rename.error.dotDot')
 
   for (let i = 0; i < s.length; i++) {
     const ch = s[i]
     const code = s.charCodeAt(i)
     if (INVALID_CHARS.includes(ch) || (code >= 0 && code <= 0x1f)) {
-      return fail('invalidChar', { char: ch })
+      return refuse('replays.rename.error.invalidChar', { char: ch })
     }
   }
 
-  if (s.endsWith('.') || s.endsWith(' ')) return fail('trailingDotOrSpace')
+  if (s.endsWith('.') || s.endsWith(' ')) return refuse('replays.rename.error.trailingDotOrSpace')
 
   const dotIndex = s.indexOf('.')
   const namePart = dotIndex === -1 ? s : s.slice(0, dotIndex)
   if (RESERVED_NAMES.has(namePart.toUpperCase())) {
-    return fail('reserved', { name: namePart })
+    return refuse('replays.rename.error.reserved', { name: namePart })
   }
 
-  if (s.length > DEMO_RENAME_MAX_STEM) return fail('tooLong', { max: DEMO_RENAME_MAX_STEM })
+  if (s.length > DEMO_RENAME_MAX_STEM)
+    return refuse('replays.rename.error.tooLong', { max: DEMO_RENAME_MAX_STEM })
 
   return { ok: true, fileName: s + ext }
 }

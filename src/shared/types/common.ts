@@ -75,3 +75,25 @@ export function isOutcome(value: unknown): value is Outcome<unknown> {
 export function fail(key: string, params?: Record<string, string | number>): Outcome<never> {
   return { ok: false, error: params ? { key, params } : { key } }
 }
+
+/**
+ * A handler's expected domain "no", returned inside `Outcome.value`. `reasonKey` is always a full
+ * i18n key the renderer can show as-is - never a code it has to template into a key.
+ */
+export type Refusal<R extends string = string> = {
+  ok: false
+  reasonKey: R
+  params?: Record<string, string | number>
+}
+
+/** A domain result: success carrying `T` (bare success: `Record<never, never>`) or a `Refusal`. */
+export type DomainResult<T extends object, R extends string = string> =
+  | ({ ok: true } & T)
+  | Refusal<R>
+
+export function refuse<R extends string>(
+  reasonKey: R,
+  params?: Record<string, string | number>
+): Refusal<R> {
+  return params ? { ok: false, reasonKey, params } : { ok: false, reasonKey }
+}

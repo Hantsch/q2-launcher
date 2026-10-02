@@ -24,11 +24,19 @@
   // Story 172 D1: `demo-guard.test.ts` drives the node-side command-buffer simulator
   // (`src/test-support/q2-cbuf-sim.ts`), which only the node project includes - so it is excluded
   // here and typechecks under `tsconfig.node.json` instead (`src/shared/**/*.ts` covers it there).
+  // `common.test.ts` reads docs/ARCHITECTURE.md with `node:fs` (node-only), so it typechecks under
+  // `tsconfig.node.json` only.
+  // `lib/toast.test.ts` scans the renderer sources with `node:fs` (node-only), so it is excluded here
+  // too.
   "exclude": [
     "src/renderer/src/components/shell/shell-home-ownership.test.ts",
     "src/shared/servers/address.test.ts",
     "src/shared/servers/protocol.test.ts",
-    "src/shared/replays/demo-guard.test.ts"
+    "src/shared/replays/demo-guard.test.ts",
+    "src/shared/types/common.test.ts",
+    "src/renderer/src/lib/toast.test.ts",
+    "src/renderer/src/i18n/reason-templates.test.ts",
+    "src/test-support/source-files.ts"
   ],
   "compilerOptions": {
     "composite": true,

@@ -11,6 +11,7 @@ import { DEMO_BASE_GAME_DIR, demoPlayEligibility } from '@shared/replays/demo-pl
 import {
   fail,
   ok,
+  refuse,
   type Installation,
   type LaunchInput,
   type LaunchPhase,
@@ -278,12 +279,12 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       const availability = deps.stageAvailability()
       if (!availability.available) {
         stageArgs = normalWindowArgs()
-        stageResult = { placed: false, reason: availability.reason }
+        stageResult = refuse(availability.reason.key)
       } else {
         const geometry = deps.toGeometry(stage)
         if (geometry !== null) {
           stageArgs = stageLaunchArgs(geometry)
-          stageResult = { placed: true }
+          stageResult = { ok: true }
           stageGeometry = geometry
         }
       }
@@ -412,7 +413,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
 
       // Eligibility no longer cares where the demo is; whether it is a candidate for in-place play is
       // `inPlace`, and main still verifies containment below. Everything else is played from a copy.
-      if (!eligibility.ok) return fail(eligibility.reason.key, eligibility.reason.params)
+      if (!eligibility.ok) return fail(eligibility.reasonKey, eligibility.params)
       const target = {
         installationId: eligibility.installationId,
         gameDir: eligibility.gameDir,

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { z } from 'zod'
 import type {
   MasterSource,
+  MasterSourcesRefusalKey,
   MasterSourcesRejectionReason,
   MasterSourcesResult,
   sourcesAddInputSchema,
@@ -9,6 +10,7 @@ import type {
   sourcesReorderInputSchema,
   sourcesUpdateInputSchema,
 } from '@shared/modules/servers'
+import { refuse } from '@shared/types'
 import { validateMasterSourceAddress } from '@shared/servers/master-source-address'
 
 /**
@@ -41,8 +43,32 @@ type ReorderSourcesInput = z.infer<typeof sourcesReorderInputSchema>
 /** Mints an id for a new source. Injectable so tests can pin ids; main uses `randomUUID`. */
 export type MintSourceId = () => string
 
-function refuse(reason: MasterSourcesRejectionReason): MasterSourcesResult {
-  return { ok: false, reason }
+/** Visible literals so a key scan sees every refusal key; a new reason without an entry fails the build. */
+export const MASTER_SOURCES_REFUSAL_KEYS = {
+  empty: 'servers.sources.reject.empty',
+  'extra-tokens': 'servers.sources.reject.extra-tokens',
+  'forbidden-character': 'servers.sources.reject.forbidden-character',
+  'argument-token': 'servers.sources.reject.argument-token',
+  'missing-port': 'servers.sources.reject.missing-port',
+  'port-not-numeric': 'servers.sources.reject.port-not-numeric',
+  'port-out-of-range': 'servers.sources.reject.port-out-of-range',
+  'too-many-colons': 'servers.sources.reject.too-many-colons',
+  'ipv6-not-supported': 'servers.sources.reject.ipv6-not-supported',
+  'host-empty': 'servers.sources.reject.host-empty',
+  'host-too-long': 'servers.sources.reject.host-too-long',
+  'host-label-invalid': 'servers.sources.reject.host-label-invalid',
+  'ipv4-octet-out-of-range': 'servers.sources.reject.ipv4-octet-out-of-range',
+  'url-too-long': 'servers.sources.reject.url-too-long',
+  'invalid-url': 'servers.sources.reject.invalid-url',
+  'unsupported-protocol': 'servers.sources.reject.unsupported-protocol',
+  'credentials-not-allowed': 'servers.sources.reject.credentials-not-allowed',
+  'not-found': 'servers.sources.reject.not-found',
+  'duplicate-address': 'servers.sources.reject.duplicate-address',
+  'invalid-reorder': 'servers.sources.reject.invalid-reorder',
+} as const satisfies Record<MasterSourcesRejectionReason, MasterSourcesRefusalKey>
+
+function refuseReason(reason: MasterSourcesRejectionReason): MasterSourcesResult {
+  return refuse(MASTER_SOURCES_REFUSAL_KEYS[reason])
 }
 
 function accept(sources: MasterSource[]): MasterSourcesResult {
@@ -94,8 +120,8 @@ export function addSource(
   mintId: MintSourceId = randomUUID,
 ): MasterSourcesResult {
   const address = validateMasterSourceAddress(input.type, input.address)
-  if (!address.ok) return refuse(address.reason)
-  if (addressTaken(sources, address.normalized)) return refuse('duplicate-address')
+  if (!address.ok) return refuseReason(address.reason)
+  if (addressTaken(sources, address.normalized)) return refuseReason('duplicate-address')
 
   const id = mintUniqueId(new Set(sources.map((source) => source.id)), mintId)
   return accept([
@@ -109,7 +135,7 @@ export function removeSource(
   sources: readonly MasterSource[],
   input: RemoveSourceInput,
 ): MasterSourcesResult {
-  if (!sources.some((source) => source.id === input.id)) return refuse('not-found')
+  if (!sources.some((source) => source.id === input.id)) return refuseReason('not-found')
   return accept(cloneList(sources.filter((source) => source.id !== input.id)))
 }
 
@@ -153,10 +179,10 @@ export function updateSource(
   input: UpdateSourceInput,
 ): MasterSourcesResult {
   const index = sources.findIndex((source) => source.id === input.id)
-  if (index === -1) return refuse('not-found')
+  if (index === -1) return refuseReason('not-found')
 
   const update = narrowUpdate(input)
-  if (update === null) return refuse('empty')
+  if (update === null) return refuseReason('empty')
 
   const next = cloneList(sources)
   const current = next[index]!
@@ -167,8 +193,9 @@ export function updateSource(
   }
 
   const address = validateMasterSourceAddress(update.type, update.address)
-  if (!address.ok) return refuse(address.reason)
-  if (addressTaken(sources, address.normalized, current.id)) return refuse('duplicate-address')
+  if (!address.ok) return refuseReason(address.reason)
+  if (addressTaken(sources, address.normalized, current.id))
+    return refuseReason('duplicate-address')
 
   next[index] = { ...current, type: update.type, address: address.normalized }
   return accept(next)
@@ -185,14 +212,14 @@ export function reorderSources(
   sources: readonly MasterSource[],
   input: ReorderSourcesInput,
 ): MasterSourcesResult {
-  if (input.ids.length !== sources.length) return refuse('invalid-reorder')
-  if (new Set(input.ids).size !== input.ids.length) return refuse('invalid-reorder')
+  if (input.ids.length !== sources.length) return refuseReason('invalid-reorder')
+  if (new Set(input.ids).size !== input.ids.length) return refuseReason('invalid-reorder')
 
   const byId = new Map(sources.map((source) => [source.id, source]))
   const reordered: MasterSource[] = []
   for (const id of input.ids) {
     const source = byId.get(id)
-    if (source === undefined) return refuse('invalid-reorder')
+    if (source === undefined) return refuseReason('invalid-reorder')
     reordered.push({ ...source })
   }
   return accept(reordered)

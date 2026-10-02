@@ -28,6 +28,7 @@ import {
 import { changeLocale } from '../i18n'
 import { invoke, onEvent } from '../lib/bridge'
 import { newId } from '../lib/id'
+import { toastOutcomeError } from '../lib/toast'
 
 export const ROUTE_HOME = '/home'
 export const ROUTE_SETTINGS = '/settings'
@@ -373,7 +374,7 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
       })
       await get().setActiveInstallation(result.value.id)
     } else {
-      toastError(get, result)
+      toastOutcomeError(get().pushToast, result)
     }
     return result
   },
@@ -389,14 +390,14 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
       })
       await get().setActiveInstallation(result.value.id)
     } else {
-      toastError(get, result)
+      toastOutcomeError(get().pushToast, result)
     }
     return result
   },
 
   updateInstallation: async (input) => {
     const result = await invoke('installations:update', input)
-    if (!result.ok) toastError(get, result)
+    if (!result.ok) toastOutcomeError(get().pushToast, result)
     return result
   },
 
@@ -432,13 +433,13 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
         timeoutMs: 6000,
       })
     } else {
-      toastError(get, result)
+      toastOutcomeError(get().pushToast, result)
     }
   },
 
   validateInstallation: async (id) => {
     const result = await invoke('installations:validate', id)
-    if (!result.ok) toastError(get, result)
+    if (!result.ok) toastOutcomeError(get().pushToast, result)
   },
 
   validateAll: async () => {
@@ -462,7 +463,7 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
         timeoutMs: 4000,
       })
     } else {
-      toastError(get, result)
+      toastOutcomeError(get().pushToast, result)
     }
   },
 
@@ -480,12 +481,12 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
     const id = installationId ?? get().settings.activeInstallationId
     if (!id) return
     const result = await invoke('launch:start', { installationId: id, ...options })
-    if (!result.ok) toastError(get, result)
+    if (!result.ok) toastOutcomeError(get().pushToast, result)
   },
 
   cancelJob: async (jobId) => {
     const result = await invoke('jobs:cancel', jobId)
-    if (!result.ok) toastError(get, result)
+    if (!result.ok) toastOutcomeError(get().pushToast, result)
   },
 
   checkForUpdates: async () => {
@@ -496,14 +497,14 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
   startDownload: async () => {
     const result = await invoke('update:download')
     if (result.ok) set({ update: result.value })
-    else toastError(get, result)
+    else toastOutcomeError(get().pushToast, result)
     return result
   },
 
   cancelDownload: async () => {
     const result = await invoke('update:cancelDownload')
     if (result.ok) set({ update: result.value })
-    else toastError(get, result)
+    else toastOutcomeError(get().pushToast, result)
     return result
   },
 
@@ -519,18 +520,6 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
     return result
   },
 }))
-
-function toastError(
-  get: () => LauncherStore,
-  outcome: Extract<Outcome<unknown>, { ok: false }>,
-): void {
-  get().pushToast({
-    level: 'error',
-    messageKey: outcome.error.key,
-    timeoutMs: 0,
-    ...(outcome.error.params ? { params: outcome.error.params } : {}),
-  })
-}
 
 // ---------------------------------------------------------------------------
 // Selectors. Kept as plain functions so components subscribe to the narrowest

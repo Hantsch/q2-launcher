@@ -27,7 +27,7 @@ correct error message where they used to see English prose or a path.
 - [x] 202 — state slices are mutated in place, never replaced from a snapshot
 - [x] 203 — forgiving row parsing is one helper
 - [x] 204 — the module bus returns one Outcome envelope and every error key resolves
-- [ ] 206 — a refusal is one shape with a full i18n key and one toast path
+- [x] 206 — a refusal is one shape with a full i18n key and one toast path
 - [ ] 205 — module handlers are typed from a contract and every declared handler is live
 - [ ] 207 — modules own their persisted state
 - [ ] 208 — layer rules are a test and a linter, not a convention
