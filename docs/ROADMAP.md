@@ -3,10 +3,10 @@
 ## Where we stand
 
 _As of 2026-10-02._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31).
-Current: Phase 11, codebase health. The 2026-10-01 review's stories 199–231 are cut into S32 (gate,
-foundations, module bus) and S33 (config + renderer layers, docs, X11 stage story 198).
-Next: `/sprint S32`, then `/sprint S33` once S32 is merged. Waiting on the user: the manual residue in
-the S28–S30 testplans, and 102's Q1–Q4.
+Current: Phase 11, codebase health. S32 (gate, foundations, module bus; 18 stories) is finished on
+`sprint/S32` ([review](sprints/S32/review.md)); S33 (config + renderer layers, docs, X11 stage story 198) is next.
+Waiting on the user: merging `sprint/S32` into `dev` (S33 starts after it), the manual residue in the
+S28–S30 and [S32](sprints/S32/testplan.md) testplans, 102's Q1–Q4, and a decision on story drafts 232–236.
 
 ## Phase overview
 
@@ -30,7 +30,7 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 
 | #    | Milestone                                                  | Status  | Sprint(s)                    | Note                                                              |
 | ---- | ---------------------------------------------------------- | ------- | ---------------------------- | ----------------------------------------------------------------- |
-| 11.1 | A green gate, safe foundations, one module bus             | planned | [S32](sprints/S32/sprint.md) | 18 stories, main side and infra; 223 (green gate) goes first.     |
+| 11.1 | A green gate, safe foundations, one module bus             | done 2026-10-02 | [S32](sprints/S32/review.md) | 18 stories, main side and infra; merge into `dev` waits on the user. |
 | 11.2 | Config module and renderer on shared layers, docs as built | planned | [S33](sprints/S33/sprint.md) | 16 stories incl. X11 stage story 198; starts after S32 is merged. |
 
 ## Open / unprioritised
@@ -45,7 +45,7 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 
 ## Follow-ups worth doing
 
-- `replays-mod-warning` is quarantined as flaky (step 'resetting remembered mods asks again', 1–2 of ~6 runs) — fix it and drop its quarantine entry. [S31 review](sprints/done/S31/review.md)
+- `replays-mod-warning` is quarantined as flaky (step 'resetting remembered mods asks again', 1–2 of ~6 runs) — fix it and drop its quarantine entry (now part of story [233](requirements/233-the-flow-gate-has-no-quarantined-flows-and-catches-cross-story-breakage.md)). [S31 review](sprints/done/S31/review.md)
 - OpenTDM on 64-bit Q2PRO is refused (`mods.error.noVariant`, empty `contentOnly.packages`) — give it a content-only variant or a 64-bit build. [S31 review](sprints/done/S31/review.md)
 - Play anyway on a mod whose game dir does not exist on disk fails in main (ENOENT writing `q2l_back.cfg`) and is not shown to the user as a play error. [S30 review](sprints/done/S30/review.md)
 - Measure the Linux channel's control latency / stdout buffering on a real Linux Q2PRO; no Linux lever was applied in 185. [S30 review](sprints/done/S30/review.md)
@@ -53,10 +53,11 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 - Stage cvar restore edges: a launcher quit while the game runs lets the stage values persist, and negative display origins (`+-X` in `vid_geometry`) are unverified against real Q2PRO. [S29 review](sprints/done/S29/review.md)
 - A stop whose kill succeeds but never yields an `exit` event leaves the UI on "Stopping…" (e.g. a Linux wine wrapper). [S29 review](sprints/done/S29/review.md)
 - Story 157's AC6 (rename while playing) can now get its real-playback e2e. [S28 review](sprints/done/S28/review.md)
+- S32 review drafts: [232](requirements/232-every-modules-handlers-are-typed-from-a-contract.md) typed handlers for the five unconverted modules, [233](requirements/233-the-flow-gate-has-no-quarantined-flows-and-catches-cross-story-breakage.md) empty quarantine and cross-story flow selection, [234](requirements/234-release-verification-and-ci-rehearsals-run-before-a-merge-to-main.md) `verify:release` and `act` rehearsals, [235](requirements/235-shutdown-state-store-and-job-edge-cases-are-closed.md) lifecycle edges, [236](requirements/236-the-layer-and-error-key-rules-have-no-known-holes.md) layer and error-key holes. [S32 review](sprints/S32/review.md)
+- `dedupeByKey` (`lib/forgiving.ts`) and `toastRefusal` (`lib/toast.ts`) have no production caller — wire them at first use or delete them. [S32 review](sprints/S32/review.md)
+- Test tidy-up: split test files still carry story numbers in `describe` titles, a few `as never` casts sit in client-mock overrides, and the renderer handler-reference regex also matches comments. [S32 review](sprints/S32/review.md)
+- Missing tests: darwin cases at the steam/diagnostics call sites and a thin `looksLikeQuake2` test (222); swapped-argument order of `isInside` at the remove/update/target/install call sites (199). [S32 review](sprints/S32/review.md)
 
-- `docs/ARCHITECTURE.md#adding-a-module` should name `src/shared/ipc-schemas.ts`'s hardcoded
-  `moduleId` z.enum as a step — it is not extended automatically, and 106 rediscovered that.
-  [S22 review](../sprints/S22/review.md)
 - A scoped refresh ("Refresh favourites" / "Refresh this server") overwrites a row's `origins`
   instead of merging them into the existing entry — currently inert since nothing reads `origins`
   yet, but worth fixing before story 131's watchlist work is likely to. [S24 review](../sprints/S24/review.md)
@@ -70,8 +71,6 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
   recorded engine, slightly stricter than the plan's offer gate — latent today since the shipped
   manifest only pins the two engines both paths already require; worth re-checking once a third
   engine is added. [S20 review](../sprints/S20/review.md)
-- `bootstrap/job.ts`'s toggle-on extras pass re-copies the whole assemble plan a second time when
-  `includeVideoAndPlayers` is set (pre-existing since story 074, confirmed still present by 088 and 090) — worth a fix once that toggle sees more use. [S19 review](../sprints/done/S19/review.md)
 - `docs/concepts/home-screen.md` §6 still says the content repository holds "only a LICENSE" —
   story 080 added `engines/` and `gamedata/`. A small doc correction, next time that concept is
   touched. [S18 review](../sprints/done/S18/review.md)

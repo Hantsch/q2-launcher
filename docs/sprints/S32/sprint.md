@@ -1,6 +1,6 @@
 ---
 sprint: S32
-status: in-progress
+status: done
 branch: sprint/S32
 milestone: 11.1 — Codebase health, part 1 — a green gate, safe foundations, one module bus
 ---
@@ -60,4 +60,21 @@ correct error message where they used to see English prose or a path.
 
 ## Regression gate
 
-<!-- Filled by `/sprint` phase 2b: the commands run, minutes taken, result, commit, and a verdict per failure. -->
+Ran on `376e5fe` (sprint branch HEAD after two fix commits).
+
+| Command | Minutes | Result |
+| --- | --- | --- |
+| `npm run build` / `typecheck` / `lint` | ~0.2 | green |
+| `npm test` | 0.4 | green (524 files, 6563 passed, 8 skipped) |
+| `npm run ui:verify` | 1.9 | green (60/60 screens, 0 axe violations) |
+| `npm run ui:flows` (first run, on `b9f3c76`) | 49.8 | red: 134/138 |
+| `npm run ui:flows` (confirmation, on `376e5fe`) | 49.4 | green: 136/138, `mods-view` expected fail |
+
+`verify:release` was not run (Docker daemon down, run exceeds the 10-minute call ceiling).
+
+First-run failures and verdicts:
+
+- `bootstrap-wizard` — story 209, commit 9a5b2ec: `bootEnv` copied `process.env` case-sensitively, so `ProgramFiles` was not found on Windows. **Fixed in 4d8f9e7.**
+- `quit-persists-state` — story 220, commit dd4e2a3 (attributed from the code, no bisect): the flow from 201 clicked a switch 220 now disables. **Fixed in 26a7c24** (flow flips the enabled Replays missing-mod switch).
+- `mods-view` — **pre-existing** (red at the merge-base): `uppercase` class on the installation name since story 188. Quarantined in `scripts/flows/quarantine.json` (376e5fe).
+- `replays-mod-warning` (already quarantined, flaky) reported an unexpected pass; kept in quarantine as a known 1–2 of ~6 flake.

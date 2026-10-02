@@ -435,3 +435,6 @@
 - 2026-10-02 19:07:01 · gate · e2e-all · done · 134/138 in 2985s, red: bootstrap-wizard mods-view quit-persists-state
 - 2026-10-02 19:14:24 · gate · attribution · done · 209 bootstrap-wizard, 220 quit-persists-state, mods-view pre-existing
 - 2026-10-02 19:14:30 · gate · fix 209 220 · started
+- 2026-10-02 19:17:25 · gate · fix 209 220 · done · 2 fix commits
+- 2026-10-02 19:17:25 · gate · e2e-all (confirm) · started
+- 2026-10-02 20:06:58 · gate · e2e-all (confirm) · done
