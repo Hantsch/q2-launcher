@@ -145,9 +145,9 @@ export const modsModule: MainModule = {
         // `askDecision` runs only after staging (async), by which time `running.set` below has run.
         const started = await startModInstall(
           {
+            runner: app.jobRunner,
             jobs: app.jobs,
             installations: app.installations,
-            writeGuard: app.writeGuard,
             catalog,
             enginePackages: async () => {
               try {
@@ -207,9 +207,8 @@ export const modsModule: MainModule = {
     })
 
     const removeDeps = {
-      jobs: app.jobs,
+      runner: app.jobRunner,
       installations: app.installations,
-      writeGuard: app.writeGuard,
       broadcast: app.broadcast,
       log,
     }
@@ -227,9 +226,8 @@ export const modsModule: MainModule = {
     })
 
     const updateDeps = {
-      jobs: app.jobs,
+      runner: app.jobRunner,
       installations: app.installations,
-      writeGuard: app.writeGuard,
       catalog,
       enginePackages: async () => {
         try {

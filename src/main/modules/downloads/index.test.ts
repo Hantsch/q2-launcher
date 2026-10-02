@@ -420,13 +420,19 @@ describe('downloadsModule failure log', () => {
     expect(downloadsState(state).failures.get()).toEqual([])
   })
 
-  it('another module failing is not this log entry', async () => {
+  it('a failed mods job is recorded in the failure log', async () => {
     const { jobs, state } = await setUpFailureLog()
 
     const id = jobs.create({ moduleId: 'mods', kind: 'install', labelKey: 'mods.job.install' }).id
     jobs.finish(id, { status: 'failed', error: { key: 'mods.error.whatever' } })
 
-    expect(downloadsState(state).failures.get()).toEqual([])
+    const failures = downloadsState(state).failures.get()
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toMatchObject({
+      jobId: id,
+      labelKey: 'mods.job.install',
+      error: { key: 'mods.error.whatever' },
+    })
   })
 
   it('a failed job carrying no reason still leaves one entry', async () => {

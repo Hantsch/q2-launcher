@@ -335,6 +335,91 @@ describe('startBootstrap retry adoption', () => {
     expect(list[0]?.name).toBe(WIZARD_NAME)
   })
 
+  it('a retry into an installation another job is writing is refused as busy', async () => {
+    const box = harness()
+    const first = await runFailingFirstPass(box)
+    vi.restoreAllMocks()
+    const failureBefore = box.installations.find(first.installationId)?.lastFailure
+    expect(failureBefore?.jobId).toBe(first.jobId)
+
+    const release = deferred()
+    const other = box.deps.runner.run(
+      {
+        moduleId: 'mods',
+        kind: 'test-other',
+        labelKey: 'jobs.simulatedWrite',
+        installationId: first.installationId,
+      },
+      async () => {
+        await release.promise
+        return { status: 'succeeded' }
+      },
+    )
+    if (!other.ok) throw new Error('the other job did not start')
+    const jobsBefore = box.jobs.list().length
+
+    const retry = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      name: RETRY_NAME,
+      includeVideoAndPlayers: false,
+    })
+
+    expect(retry.ok).toBe(false)
+    if (retry.ok) return
+    expect(retry.error.key).toBe('jobs.error.installationBusy')
+    expect(box.jobs.list()).toHaveLength(jobsBefore)
+    const after = box.installations.find(first.installationId)
+    expect(after?.lastFailure).toEqual(failureBefore)
+    // The refusal happens before the adoption rewrites the record: the name is still the first run's.
+    expect(after?.name).toBe(WIZARD_NAME)
+
+    release.resolve()
+    await other.value.settled
+  })
+
+  it('a retry refused at admission, after the early busy check passed, leaves the record untouched', async () => {
+    const box = harness()
+    const first = await runFailingFirstPass(box)
+    vi.restoreAllMocks()
+    const before = box.installations.find(first.installationId)
+
+    const release = deferred()
+    const other = box.deps.runner.run(
+      {
+        moduleId: 'mods',
+        kind: 'test-other',
+        labelKey: 'jobs.simulatedWrite',
+        installationId: first.installationId,
+      },
+      async () => {
+        await release.promise
+        return { status: 'succeeded' }
+      },
+    )
+    if (!other.ok) throw new Error('the other job did not start')
+    const jobsBefore = box.jobs.list().length
+    // The early check answers "free" (as it would before the other job started); the runner's own
+    // admission then sees the other job.
+    vi.spyOn(box.deps.runner, 'isInstallationBusy').mockReturnValueOnce(false)
+
+    const retry = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      name: RETRY_NAME,
+      includeVideoAndPlayers: false,
+    })
+
+    expect(retry.ok).toBe(false)
+    if (retry.ok) return
+    expect(retry.error.key).toBe('jobs.error.installationBusy')
+    expect(box.jobs.list()).toHaveLength(jobsBefore)
+    expect(box.installations.find(first.installationId)).toEqual(before)
+
+    release.resolve()
+    await other.value.settled
+  })
+
   it('AC4: an adopted retry clears the previous failure when it starts', async () => {
     // The retry parks inside its first download, so what is asserted below is the state *while the
     // job is running* - "cleared when it starts", not "cleared because it succeeded".

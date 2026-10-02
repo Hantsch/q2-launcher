@@ -1,7 +1,7 @@
 ---
 id: 219
 title: jobs share one runner, one busy rule and one failure log
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -32,26 +32,26 @@ Depends on story 220 (staging) landing first so the runner wraps the final stagi
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `src/main/services/job-runner.ts` (or `JobsService.run`) takes
+- [x] **AC1** — `src/main/services/job-runner.ts` (or `JobsService.run`) takes
       `spec = { moduleId, kind, labelKey, installationId?, exclusive?: 'installation' }` and a
       `body(ctx)` where `ctx` provides `jobId`, `signal`, `report`, `fail`, `cancelled`,
       `write(installationId, fn)` and `setExtractor`; it owns the AbortController, settled
       promise, local-failure catch and write-guard cancel mapping; one `JobOutcome<K>` type and
       one set of host interfaces are exported from `src/main/modules/ports.ts`. Unit tests cover
       success, local failure, cancel before write, cancel during write.
-- [ ] **AC2** — With `exclusive: 'installation'`, starting a job while any active job of any
+- [x] **AC2** — With `exclusive: 'installation'`, starting a job while any active job of any
       module targets the same installation refuses with `jobs.error.installationBusy` (i18n key,
       visible in the dialogs); a test starts a mod update and asserts a mod install and an engine
       update are refused.
-- [ ] **AC3** — The runner revalidates the installation in a `finally` once the write phase was
+- [x] **AC3** — The runner revalidates the installation in a `finally` once the write phase was
       entered, before `jobs.finish`; one shared test "a failing write still revalidates"; the
       two roadmap follow-up lines are removed.
-- [ ] **AC4** — All nine jobs run on the runner; `git grep -n 'LOCAL_FAILURE =\|new AbortController' src/main/modules`
+- [x] **AC4** — All nine jobs run on the runner; `git grep -n 'LOCAL_FAILURE =\|new AbortController' src/main/modules`
       returns only the runner; the mods `inFlight` sets and `BUSY_KINDS` literals are deleted.
-- [ ] **AC5** — The failure log and diagnostics record jobs of every `moduleId` (Downloads tab
+- [x] **AC5** — The failure log and diagnostics record jobs of every `moduleId` (Downloads tab
       filters by module if needed); `missingChecks` carry `params` (paths reduced to basename per
       story 075); a renderer test renders each `validation.*` key with params and finds no `{{`.
-- [ ] **AC6** — docs/ARCHITECTURE.md's Jobs paragraph describes the runner and the exclusivity
+- [x] **AC6** — docs/ARCHITECTURE.md's Jobs paragraph describes the runner and the exclusivity
       rule (and no longer says "No module produces jobs yet"); every downloads and mods flow
       passes.
 
@@ -285,8 +285,7 @@ writeGuard, installations, launch }` built from real `JobsService` + `Installati
   `scripts/flows/jobs-installation-busy.mjs` › `jobs-installation-busy` (D7)
 - AC3 → unit `src/main/services/job-runner.test.ts` › "a failing write still revalidates" (D1);
   unit `src/main/modules/downloads/repair/job.test.ts` › "a repair whose write fails leaves the
-  installation revalidated" (D3); unit `src/main/modules/downloads/retail/upgrade-job.test.ts` › "a
-  mid-copy PACKAGE_INCOMPLETE failure leaves the installation revalidated" (D4); roadmap lines →
+  installation revalidated" (D3); unit `src/main/modules/downloads/retail/upgrade-job.test.ts` › "a mid-copy retailCopyIncomplete failure leaves the installation revalidated" (D4); roadmap lines →
   unit `src/main/services/job-runner.test.ts` › "the architecture doc describes the runner" (D10)
 - AC4 → unit `src/main/services/job-runner.test.ts` › "no module job builds its own lifecycle" (D6);
   existing per-job test files stay green after D2–D6
@@ -306,4 +305,17 @@ writeGuard, installations, launch }` built from real `JobsService` + `Installati
 
 ## Done
 
-<!-- Filled by /build 219. -->
+Every job (bootstrap, engine update/rollback, repair, retail upgrade, mods install/update/remove,
+dev `writing`) now runs on `JobRunner` (`src/main/services/job-runner.ts`, `AppContext.jobRunner`): one
+AbortController/settled/local-failure/write-guard/revalidate/finish-once lifecycle, and one
+installation-wide busy rule (`jobs.error.installationBusy`). The failure log records every module's
+failed jobs (rendered via any resolvable key), `missingChecks` carry basename params, docs and roadmap updated.
+
+Commit message: `219: jobs share one JobRunner (lifecycle, exclusive-per-installation busy rule, revalidate-after-write); failure log covers every module, missingChecks carry params`
+
+Verification (narrow gate): build, typecheck, lint green; `vitest run src/main src/shared src/test-support src/renderer` 6379 passed; flows green: jobs-installation-busy, bootstrap-{r1q2,failure,failure-retry,incomplete-package,existing-folder,retail-import,no-engine-for-platform}, engine-update, repair, retail-upgrade, job-waits-for-running-game, mods-install{,-refused,-waits,-over-manual,-content-only}, mod-update, mods-remove, replays-mod-install, downloads-tab. Pre-existing red, not ours: `bootstrap-wizard` (Program Files warning). Review: default + hard, 3 fix cycles, a second review over each fix; last reviewer PASS after the exclusivity-scan test was repaired.
+AC -> test: AC1/AC3 job-runner.test.ts (success, local failure, cancel before/during write, failing write revalidates, revalidated-once); AC2 mods update-job.test.ts "a running mod update refuses a mod install and an engine update" + job-runner.test.ts exclusive + per-job busy tests + flow jobs-installation-busy; AC3 also repair "a repair whose write fails leaves the installation revalidated", retail "a mid-copy retailCopyIncomplete failure leaves the installation revalidated"; AC4 "no module job builds its own lifecycle" + "every job that runs through the runner is exclusive on its installation"; AC5 downloads/index.test.ts "a failed mods job is recorded in the failure log", bootstrap/job.diagnostics.test.ts "missingChecks carry basename params", FailureCauseDetail.test.tsx "every validation key renders with its params and no placeholder", FailureLogEntry.test.tsx; AC6 "the architecture doc describes the runner" + the flows above. No manual residue.
+
+Decisions: (1) runner types live in services/job-runner.ts and are re-exported by modules/ports.ts (shell may not import modules). (2) Failures inside a write are thrown as small local errors and mapped to `ctx.fail` after `ctx.write`. (3) mods disk-write failure key is now the shared `downloads.error.diskWrite`; dead keys `mods.remove.refused.busy`/`mods.error.diskWrite` deleted. (4) Added optional `state.settle()` dep: a job that wrote awaits the debounced state flush before `jobs.finish` (fixed a race in mods-install-over-manual). (5) The runner keeps an in-flight map so a cancelled job still blocks its installation until its body ends. (6) Bootstrap is exclusive only for a retry adopting an existing installation; the adoption mutation now happens after admission (`commitAdoption`). (7) FailureLogEntry shows any key that resolves in i18n. (8) Retail test is named after `retailCopyIncomplete` (that job has no PACKAGE_INCOMPLETE key); the missingChecks test lives in job.diagnostics.test.ts. Open (low): a throw inside `commitAdoption` after the failure is cleared is outside bootstrap's catch (only reachable if installations.update rejects).
+
+tiers: D 10 / hard 1 � review default+hard � cycles 3 � agents 20

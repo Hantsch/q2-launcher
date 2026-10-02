@@ -113,7 +113,9 @@ function buildVerdictSection(
   const verdictLabel = t(statusTone(target.verdict).labelKey)
   const missingChecks =
     target.missingChecks.length > 0
-      ? target.missingChecks.map((check) => `- ${check.id}: ${t(check.messageKey)}`).join('\n')
+      ? target.missingChecks
+          .map((check) => `- ${check.id}: ${t(check.messageKey, check.params ?? {})}`)
+          .join('\n')
       : `- ${t('downloads.failures.report.noMissingChecks')}`
 
   const lines = [

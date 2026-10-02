@@ -66,9 +66,6 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
   redeem-triggering channel reads it directly), but worth hardening — e.g. freezing/hiding `unlock`
   from module handlers — before a future feature adds one. [S25 review](../sprints/S25/review.md)
 
-- A mid-copy `PACKAGE_INCOMPLETE` failure can leave an installation's status stale until the next
-  revalidation — a pattern shared by `retail/upgrade-job.ts` (090) and `repair/job.ts` (093); worth
-  a fix once a job triggers it in practice. [S20 review](../sprints/S20/review.md)
 - 093's `reinstall-engine` repair gates on the manifest being able to supply the installation's
   recorded engine, slightly stricter than the plan's offer gate — latent today since the shipped
   manifest only pins the two engines both paths already require; worth re-checking once a third
@@ -78,10 +75,6 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 - `docs/concepts/home-screen.md` §6 still says the content repository holds "only a LICENSE" —
   story 080 added `engines/` and `gamedata/`. A small doc correction, next time that concept is
   touched. [S18 review](../sprints/done/S18/review.md)
-- A `missingChecks` entry whose translation interpolates a variable (e.g. `validation.rootMissing`'s
-  `{{path}}`) renders that placeholder unfilled wherever a failure's target verdict is now shown
-  on screen — `DownloadDiagnosticsTarget.missingChecks` has stored only `{id, messageKey}` since
-  075's redaction boundary, with no `params`. [S17 review](../sprints/done/S17/review.md)
 - `scripts/fetch-7za.mjs` (071) has never run end-to-end in this environment (no network access
   to 7-zip.org) — the wiring is correct but unverified against a real download; three tests stay
   `it.skipIf`-gated until someone with network access runs it once. [S16 review](../sprints/done/S16/review.md)

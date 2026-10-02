@@ -64,6 +64,7 @@ export function stubbedAppContext(overrides: Partial<AppContext> = {}): AppConte
     'detection',
     'jobs',
     'writeGuard',
+    'jobRunner',
     'dialog',
     'mainWindow',
     'cinemaWindow',

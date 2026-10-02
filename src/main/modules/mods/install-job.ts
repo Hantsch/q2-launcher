@@ -3,14 +3,7 @@ import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path'
 import type { DownloadsErrorKey, PackageSource } from '@shared/modules/downloads'
 import type { ModInstallFile, ModInstallRecord, ModsErrorKey } from '@shared/modules/mods'
 import { isSafeGameDirName } from '@shared/mods/gamedir'
-import {
-  fail,
-  ok,
-  type Installation,
-  type Job,
-  type JobProgress,
-  type Outcome,
-} from '@shared/types'
+import { fail, ok, type Installation, type Job, type Outcome } from '@shared/types'
 import {
   findChild,
   hashFile,
@@ -21,12 +14,19 @@ import {
   plannedDestination,
   resolveRelaxed,
 } from '../../lib/fs-utils'
-import type { CreateJobInput } from '../../services/jobs'
 import { isSafeEarlyToken } from '../../services/launch-plan'
-import { isWriteCancelled } from '../../services/write-guard'
 import type { ExtractorHandle } from '../../lib/archive/extractor'
 import { isSafeDownloadFileName } from '../../lib/net/download-cache-paths'
 import { getExtractDir } from '../../services/package-staging'
+import type {
+  InstallationsHost,
+  JobContext,
+  JobLocalFailureKey,
+  JobLogHost,
+  JobOutcome,
+  JobRunnerHost,
+  StartedJob,
+} from '../ports'
 import type { StagePackageInput, StagePackageResult } from '../../services/package-staging'
 import type { CatalogSnapshot } from './catalog-service'
 import { isSafeContentsFrom, type ModCatalogEntryParsed } from './catalog-schema'
@@ -79,7 +79,6 @@ const UNKNOWN_MOD = 'mods.error.unknownMod'
 const ALREADY_INSTALLED = 'mods.error.alreadyInstalled'
 const BAD_PACKAGE = 'mods.error.badPackage'
 const WRITE_FAILED = 'mods.error.writeFailed'
-const LOCAL_FAILURE = 'mods.error.diskWrite'
 
 /** Suffix of a file being written; only renamed onto its real name once fully copied and hashed. */
 export const PART_SUFFIX = '.q2l-part'
@@ -97,19 +96,17 @@ export interface ModInstallDecisionRequest {
   conflicts: string[]
 }
 
-/** A mod job fails with its own key, or with the key the package staging step reported. */
-export type ModJobFailureKey = ModsErrorKey | DownloadsErrorKey
+/** A mod job fails with its own key, the key the package staging step reported, or the shared one. */
+export type ModJobFailureKey = ModsErrorKey | DownloadsErrorKey | JobLocalFailureKey
 
-export type ModInstallOutcome =
-  | { status: 'succeeded'; gameDir: string; files: ModInstallFile[] }
-  | { status: 'failed'; key: ModJobFailureKey }
-  | { status: 'cancelled' }
-
-export interface StartedModInstall {
-  jobId: string
-  /** Resolves once the job is terminal. Never rejects. */
-  settled: Promise<ModInstallOutcome>
+interface ModInstallSuccess {
+  gameDir: string
+  files: ModInstallFile[]
 }
+
+export type ModInstallOutcome = JobOutcome<ModJobFailureKey, ModInstallSuccess>
+
+export type StartedModInstall = StartedJob<ModJobFailureKey, ModInstallSuccess>
 
 export interface StartModInstallInput {
   installationId: string
@@ -118,30 +115,9 @@ export interface StartModInstallInput {
   version?: string
 }
 
-export interface ModInstallJobsHost {
-  create(input: CreateJobInput): Job
-  progress(id: string, progress: JobProgress): void
+/** The one lifecycle step the runner has no verb for: parking the job on the user's answer. */
+export interface ModInstallWaitingHost {
   setWaiting(id: string, reason: NonNullable<Job['waitingReason']>): void
-  finish(
-    id: string,
-    outcome: { status: 'succeeded' | 'failed' | 'cancelled'; error?: Job['error'] },
-  ): void
-}
-
-/** No `update`: the status and `gameDirs` are re-derived by the inspector, never hand-set. */
-export interface ModInstallInstallationsHost {
-  find(id: string): Installation | undefined
-  validate(id: string): Promise<Outcome<Installation>>
-  setModuleData(id: string, moduleId: string, value: unknown): Outcome<Installation>
-}
-
-export interface ModInstallWriteGuardHost {
-  runWrite(
-    installationId: string,
-    jobId: string,
-    signal: AbortSignal,
-    fn: () => Promise<void>,
-  ): Promise<void>
 }
 
 /** `CatalogService` satisfies this structurally. */
@@ -149,18 +125,12 @@ export interface ModInstallCatalogHost {
   getCatalog(): Promise<CatalogSnapshot>
 }
 
-export interface ModInstallLog {
-  info(message: string): void
-  warn(message: string): void
-}
-
 type EnginePackageLike = Parameters<typeof resolveEngineTarget>[1][number]
 
 export interface ModInstallDeps {
-  jobs: ModInstallJobsHost
-  installations: ModInstallInstallationsHost
-  /** Required: a wiring without it would write into the gamedir of a running game. */
-  writeGuard: ModInstallWriteGuardHost
+  runner: JobRunnerHost
+  jobs: ModInstallWaitingHost
+  installations: InstallationsHost
   catalog: ModInstallCatalogHost
   enginePackages: () => Promise<readonly EnginePackageLike[]> | readonly EnginePackageLike[]
   /** D3's `stagePackage`. */
@@ -170,7 +140,7 @@ export interface ModInstallDeps {
   askDecision: (jobId: string, request: ModInstallDecisionRequest) => Promise<ModInstallDecision>
   /** `app.getPath('userData')`; staging and backup dirs live under its downloads cache. */
   userDataPath: string
-  log?: ModInstallLog
+  log?: JobLogHost
 }
 
 type CatalogVersion = ModCatalogEntryParsed['versions'][number]
@@ -238,9 +208,6 @@ interface PlannedFile {
   kind: 'new' | 'identical' | 'conflict'
 }
 
-/** Installs running right now, keyed by installation and lower-cased game directory name. */
-const inFlight = new Set<string>()
-
 /** Pre-flight: everything that can be refused without a job. */
 async function preflight(
   deps: ModInstallDeps,
@@ -254,7 +221,6 @@ async function preflight(
     sources: PackageSource[]
     contentOnly: boolean
     variantId: string
-    slot: string
     arch: ModInstallRecord['arch']
     platform: ModInstallRecord['platform']
   }>
@@ -277,20 +243,9 @@ async function preflight(
     return fail(ALREADY_INSTALLED)
   }
 
-  // Reserved synchronously with the check: a second call for the same folder would otherwise see
-  // the first one's files as a manual game directory.
-  const slot = `${installation.id}|${entry.gamedir.toLowerCase()}`
-  if (inFlight.has(slot)) return fail(ALREADY_INSTALLED)
-  inFlight.add(slot)
-  let handedOver = false
-  try {
-    const variant = await resolveModVariant(deps, installation, versionEntry)
-    if (!variant.ok) return variant
-    handedOver = true
-    return ok({ installation, slot, entry, version, ...variant.value })
-  } finally {
-    if (!handedOver) inFlight.delete(slot)
-  }
+  const variant = await resolveModVariant(deps, installation, versionEntry)
+  if (!variant.ok) return variant
+  return ok({ installation, entry, version, ...variant.value })
 }
 
 export interface ResolvedModVariant {
@@ -434,67 +389,33 @@ export async function startModInstall(
   }
   const plan = checked.value
 
-  const cancellation = new AbortController()
-  let extractor: ExtractorHandle | undefined
-  let job: Job
-  try {
-    job = deps.jobs.create({
+  // The runner's admission check and `jobs.create` share one synchronous turn, so a concurrent
+  // second install (or any other job on the installation) is refused there.
+  return deps.runner.run<ModJobFailureKey, ModInstallSuccess>(
+    {
       moduleId: 'mods',
       kind: MOD_INSTALL_JOB_KIND,
       labelKey: MOD_INSTALL_JOB_LABEL_KEY,
       labelParams: { name: plan.entry.name },
       installationId: plan.installation.id,
-      cancellable: true,
-      onCancel: () => {
-        cancellation.abort()
-        extractor?.kill()
-      },
-    })
-  } catch (error) {
-    inFlight.delete(plan.slot)
-    throw error
-  }
-
-  const settled = (async (): Promise<ModInstallOutcome> => {
-    try {
-      return await runInstall(deps, job.id, plan, cancellation.signal, (handle) => {
-        extractor = handle
-      })
-    } catch (error) {
-      deps.log?.warn(`installing ${plan.entry.id} threw: ${String(error)}`)
-      deps.jobs.finish(job.id, { status: 'failed', error: { key: LOCAL_FAILURE } })
-      return { status: 'failed', key: LOCAL_FAILURE }
-    } finally {
-      inFlight.delete(plan.slot)
-    }
-  })()
-
-  return ok({ jobId: job.id, settled })
+      exclusive: 'installation',
+    },
+    (ctx) => runInstall(deps, ctx, plan),
+  )
 }
+
+/** A failure found inside the write; thrown so the body can end the job with its key. */
+class InstallFailed extends Error {}
 
 async function runInstall(
   deps: ModInstallDeps,
-  jobId: string,
+  ctx: JobContext<ModJobFailureKey, ModInstallSuccess>,
   plan: Extract<Awaited<ReturnType<typeof preflight>>, { ok: true }>['value'],
-  signal: AbortSignal,
-  setExtractor: (handle: ExtractorHandle) => void,
 ): Promise<ModInstallOutcome> {
   const { installation, entry, packages, sources } = plan
+  const { jobId, signal } = ctx
   const log = deps.log
   const root = installation.rootPath
-  const isCancelled = (): boolean => signal.aborted
-  const report = (progress: JobProgress): void => {
-    if (!isCancelled()) deps.jobs.progress(jobId, progress)
-  }
-  const failed = (key: ModJobFailureKey, reason: string): ModInstallOutcome => {
-    log?.warn(`installing ${entry.id} into ${installation.name} failed with ${key}: ${reason}`)
-    deps.jobs.finish(jobId, { status: 'failed', error: { key } })
-    return { status: 'failed', key }
-  }
-  const cancelledOutcome = (): ModInstallOutcome => {
-    log?.info(`installing ${entry.id} was cancelled (job ${jobId})`)
-    return { status: 'cancelled' }
-  }
 
   const stagingDirs = sources.map((_, index) =>
     getExtractDir(deps.userDataPath, `${jobId}-${index}`),
@@ -505,7 +426,7 @@ async function runInstall(
   const bytesTotal = sources.reduce((sum, s) => sum + s.sizeBytes, 0)
 
   try {
-    report({ ratio: 0, bytesDone: 0, bytesTotal })
+    ctx.report({ ratio: 0, bytesDone: 0, bytesTotal })
 
     // Stage every package before anything in the installation is touched.
     const stagedPackages = await stagePackages({
@@ -513,28 +434,28 @@ async function runInstall(
       jobId,
       sources,
       signal,
-      onExtractor: setExtractor,
+      onExtractor: ctx.setExtractor,
       onProgress: (done) =>
-        report({
+        ctx.report({
           ratio: (done / Math.max(1, bytesTotal)) * STAGE_RATIO,
           bytesDone: done,
           bytesTotal,
         }),
     })
     if (!stagedPackages.ok) {
-      if (stagedPackages.cancelled) return cancelledOutcome()
-      return failed(stagedPackages.key, stagedPackages.reason)
+      if (stagedPackages.cancelled) return ctx.cancelled()
+      return ctx.fail(stagedPackages.key, stagedPackages.reason)
     }
-    report({ ratio: STAGE_RATIO, bytesDone: bytesTotal, bytesTotal })
+    ctx.report({ ratio: STAGE_RATIO, bytesDone: bytesTotal, bytesTotal })
 
     // Plan: staged trees -> gamedir-relative paths.
     const collected = await collectPackageFiles(packages, stagedPackages.extractDirs)
-    if (!collected.ok) return failed(BAD_PACKAGE, collected.reason)
+    if (!collected.ok) return ctx.fail(BAD_PACKAGE, collected.reason)
     const staged = collected.files
 
     const existingFolder = await findChild(root, entry.gamedir)
     if (existingFolder !== null && !(await isDirectory(existingFolder))) {
-      return failed(WRITE_FAILED, `${existingFolder} exists and is not a folder`)
+      return ctx.fail(WRITE_FAILED, `${existingFolder} exists and is not a folder`)
     }
     const gameDirPath = existingFolder ?? join(root, entry.gamedir)
     const folder = basename(gameDirPath)
@@ -545,10 +466,10 @@ async function runInstall(
       const rel = placedGameLibraryName(file.rel)
       const key = rel.toLowerCase()
       if (!isSafeRelative(rel) || seen.has(key))
-        return failed(BAD_PACKAGE, `bad or duplicate ${rel}`)
+        return ctx.fail(BAD_PACKAGE, `bad or duplicate ${rel}`)
       seen.add(key)
       if (!isStrictlyInside(join(gameDirPath, rel), gameDirPath)) {
-        return failed(BAD_PACKAGE, `${rel} leaves the game directory`)
+        return ctx.fail(BAD_PACKAGE, `${rel} leaves the game directory`)
       }
       const hashed = await hashFile(file.abs)
       const existing = existingFolder ? await resolveRelaxed(gameDirPath, rel) : null
@@ -559,8 +480,8 @@ async function runInstall(
       }
       planned.push({ rel, abs: file.abs, ...hashed, existing, kind })
     }
-    if (isCancelled()) return cancelledOutcome()
-    report({ ratio: PLAN_RATIO, bytesDone: bytesTotal, bytesTotal })
+    if (signal.aborted) return ctx.cancelled()
+    ctx.report({ ratio: PLAN_RATIO, bytesDone: bytesTotal, bytesTotal })
 
     // A folder that exists without a record is the user's: always ask, naming it.
     let decision: ModInstallDecision = 'overwrite'
@@ -570,11 +491,7 @@ async function runInstall(
         .map((p) => relative(gameDirPath, p.existing!).split(sep).join('/'))
       deps.jobs.setWaiting(jobId, { key: MOD_INSTALL_WAITING_KEY, params: { folder } })
       const answer = await raceAbort(signal, () => deps.askDecision(jobId, { folder, conflicts }))
-      if (answer === 'aborted' || isCancelled()) return cancelledOutcome()
-      if (answer === 'cancel') {
-        deps.jobs.finish(jobId, { status: 'cancelled' })
-        return cancelledOutcome()
-      }
+      if (answer === 'aborted' || answer === 'cancel' || signal.aborted) return ctx.cancelled()
       decision = answer
     }
 
@@ -583,64 +500,57 @@ async function runInstall(
       (p) => p.kind === 'new' || (p.kind === 'conflict' && decision === 'overwrite'),
     )
 
-    const writePhase: ModInstallOutcome[] = []
+    let written: ModInstallFile[] = []
+    let result: 'done' | 'cancelled'
     try {
-      await deps.writeGuard.runWrite(installation.id, jobId, signal, async () => {
-        writePhase.push(
-          await writeFiles({
-            deps,
-            installationId: installation.id,
-            gameDirPath,
-            toWrite,
-            backupRoot,
-            signal,
-            record: (files) => ({
-              catalogId: entry.id,
-              gameDir: folder,
-              version: plan.version,
-              variantId: plan.variantId,
-              engineKind: installation.engineKind,
-              arch: plan.arch,
-              platform: plan.platform,
-              contentOnly: plan.contentOnly,
-              ...(installation.engineKind === 'r1q2' &&
-              files.some((f) => f.path.toLowerCase().endsWith('.pkz'))
-                ? { pkzUnsupported: true }
-                : {}),
-              installedAt: Date.now(),
-              files,
-            }),
-            onRestoreIncomplete: () => {
-              keepBackup = true
-            },
-            log,
-          }).then((result): ModInstallOutcome => {
-            if (result.ok) return { status: 'succeeded', gameDir: folder, files: result.files }
-            if (result.cancelled) return cancelledOutcome()
-            return failed(WRITE_FAILED, result.reason)
+      result = await ctx.write(installation.id, async () => {
+        const wrote = await writeFiles({
+          deps,
+          installationId: installation.id,
+          gameDirPath,
+          toWrite,
+          backupRoot,
+          signal,
+          record: (files) => ({
+            catalogId: entry.id,
+            gameDir: folder,
+            version: plan.version,
+            variantId: plan.variantId,
+            engineKind: installation.engineKind,
+            arch: plan.arch,
+            platform: plan.platform,
+            contentOnly: plan.contentOnly,
+            ...(installation.engineKind === 'r1q2' &&
+            files.some((f) => f.path.toLowerCase().endsWith('.pkz'))
+              ? { pkzUnsupported: true }
+              : {}),
+            installedAt: Date.now(),
+            files,
           }),
-        )
+          onRestoreIncomplete: () => {
+            keepBackup = true
+          },
+          log,
+        })
+        if (wrote.ok) written = wrote.files
+        else if (!wrote.cancelled) throw new InstallFailed(wrote.reason)
       })
     } catch (error) {
-      if (isWriteCancelled(error) || isCancelled()) return cancelledOutcome()
+      if (error instanceof InstallFailed) return ctx.fail(WRITE_FAILED, error.message)
       throw error
     }
-    const outcome = writePhase[0]
-    if (!outcome || outcome.status !== 'succeeded') return outcome ?? cancelledOutcome()
+    if (result === 'cancelled') return ctx.cancelled()
 
-    const revalidated = await deps.installations.validate(installation.id)
+    const revalidated = await ctx.revalidate(installation.id)
     if (!revalidated.ok) {
       log?.warn(`revalidating ${installation.id} after installing ${entry.id} failed`)
     } else if (!revalidated.value.gameDirs.some((d) => d.toLowerCase() === folder.toLowerCase())) {
       log?.warn(`${folder} is installed but the inspector does not list it as a game directory`)
     }
 
-    report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
-    deps.jobs.finish(jobId, { status: 'succeeded' })
-    log?.info(
-      `installed ${entry.id} ${plan.version} into ${gameDirPath} (${outcome.files.length} files)`,
-    )
-    return outcome
+    ctx.report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
+    log?.info(`installed ${entry.id} ${plan.version} into ${gameDirPath} (${written.length} files)`)
+    return { status: 'succeeded', gameDir: folder, files: written }
   } finally {
     for (const dir of keepBackup ? stagingDirs : [...stagingDirs, backupRoot]) {
       await rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 }).catch(
@@ -689,7 +599,7 @@ async function writeFiles(args: {
   signal: AbortSignal
   record: (files: ModInstallFile[]) => ModInstallRecord
   onRestoreIncomplete: () => void
-  log: ModInstallLog | undefined
+  log: JobLogHost | undefined
 }): Promise<WriteResult> {
   const { deps, installationId, gameDirPath, toWrite, backupRoot, signal, log } = args
   const createdDirs: string[] = []

@@ -227,7 +227,11 @@ describe('startBootstrap', () => {
     if (!started.ok) return
     const outcome = await started.value.settled
 
-    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.packageIncomplete' })
+    expect(outcome).toEqual({
+      status: 'failed',
+      key: 'downloads.error.packageIncomplete',
+      params: { packageId: DEMO_PACKAGE.id },
+    })
     // The package id, not the role, and as `params` rather than prose - so `en.json`'s sentence
     // can name the archive.
     expect(box.jobs.list()[0]?.error).toEqual({
@@ -630,7 +634,11 @@ describe('startBootstrap', () => {
     if (!started.ok) return
     const outcome = await started.value.settled
 
-    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.packageIncomplete' })
+    expect(outcome).toEqual({
+      status: 'failed',
+      key: 'downloads.error.packageIncomplete',
+      params: { packageId: R1Q2_ENGINE_PACKAGE.id },
+    })
     expect(box.jobs.list()[0]?.error).toEqual({
       key: 'downloads.error.packageIncomplete',
       params: { packageId: R1Q2_ENGINE_PACKAGE.id },
@@ -673,7 +681,11 @@ describe('startBootstrap', () => {
     if (!started.ok) return
     const outcome = await started.value.settled
 
-    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.packageIncomplete' })
+    expect(outcome).toEqual({
+      status: 'failed',
+      key: 'downloads.error.packageIncomplete',
+      params: { packageId: R1Q2_ENGINE_PACKAGE.id },
+    })
     expect(box.jobs.list()[0]?.error).toEqual({
       key: 'downloads.error.packageIncomplete',
       params: { packageId: R1Q2_ENGINE_PACKAGE.id },

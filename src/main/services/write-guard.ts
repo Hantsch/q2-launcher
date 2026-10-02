@@ -93,10 +93,10 @@ export class InstallationWriteGuard implements WriteLockReader {
   /**
    * Installation id -> the job ids currently writing into it.
    *
-   * A set rather than a single id: nothing in the job pipeline stops two jobs
-   * from targeting one installation (this story deliberately adds no admission
-   * control), and with a single slot the first writer's release would clear the
-   * lock out from under the second - re-opening the launch refusal mid-write.
+   * A set rather than a single id: the guard itself does not exclude concurrent
+   * writers (exclusivity is the job runner's `exclusive: 'installation'` rule), and
+   * with a single slot the first writer's release would clear the lock out from
+   * under the second - re-opening the launch refusal mid-write.
    */
   private readonly writers = new Map<string, Set<string>>()
 

@@ -18,10 +18,10 @@ import type { EngineBackupInfo, ManifestPackage } from '@shared/modules/download
 import type { Installation, Job } from '@shared/types'
 import type { StageDownloadFn } from '../../../services/package-staging'
 import { InstallationsService } from '../../../services/installations'
-import { JobsService } from '../../../services/jobs'
-import { InstallationWriteGuard } from '../../../services/write-guard'
+import { JobRunner } from '../../../services/job-runner'
+import { makeJobRunner } from '../../../../test-support/job-runner'
 import type { ManifestSource } from '../bootstrap/ports'
-import { fakeExtractor, fakeLaunch, fakeState } from '../test-support'
+import { fakeExtractor, fakeState } from '../test-support'
 import { readEngineState } from '../../../services/engine-state'
 import { setEngineState } from './record-engine-state'
 import {
@@ -178,8 +178,8 @@ function fakeDownload(): StageDownloadFn {
 
 interface Harness {
   deps: EngineUpdateDeps
-  jobs: JobsService
-  launch: ReturnType<typeof fakeLaunch>
+  jobs: ReturnType<typeof makeJobRunner>['jobs']
+  launch: ReturnType<typeof makeJobRunner>['launch']
   installations: InstallationsService
   installation: Installation
   validateCalls: string[]
@@ -204,7 +204,13 @@ async function harness(
 ): Promise<Harness> {
   await writeTree(installRoot, { ...OLD_FILES, ...UNRELATED_FILES })
 
-  const jobs = new JobsService(() => {})
+  const validateCalls: string[] = []
+  const harnessRunner = makeJobRunner({
+    validate: (id) => {
+      validateCalls.push(id)
+      return service.validate(id)
+    },
+  })
   const service = new InstallationsService({
     state: fakeState(),
     onChange: () => {},
@@ -231,13 +237,9 @@ async function harness(
   })
   if (!recorded.ok) throw new Error('the fixture engine state could not be recorded')
 
-  const validateCalls: string[] = []
   const installations = {
     find: (id: string) => service.find(id),
-    validate: (id: string) => {
-      validateCalls.push(id)
-      return service.validate(id)
-    },
+    validate: harnessRunner.installations.validate,
     setEngineState: (id: string, patch: Parameters<typeof setEngineState>[2]) =>
       setEngineState(service, id, patch),
   }
@@ -248,22 +250,25 @@ async function harness(
     resolveGameDataPackage: () => Promise.resolve(undefined),
   }
 
-  const launch = fakeLaunch()
-  const guard = new InstallationWriteGuard({ launch: launch.host, jobs })
+  // The sabotage hook runs inside the guarded write, so the runner gets a guard that calls it first.
+  const runner = new JobRunner({
+    jobs: harnessRunner.jobs,
+    installations: harnessRunner.installations,
+    writeGuard: {
+      runWrite: (installationId, jobId, signal, fn) =>
+        harnessRunner.writeGuard.runWrite(installationId, jobId, signal, async () => {
+          if (options.beforeWrite) await options.beforeWrite(extractDirs[0])
+          await fn()
+        }),
+    },
+  })
   const extractDirs: string[] = []
   const inner = fakeExtractor(() => options.staged ?? NEW_FILES)
 
   return {
     deps: {
-      jobs,
+      runner,
       installations,
-      writeGuard: {
-        runWrite: (installationId, jobId, signal, fn) =>
-          guard.runWrite(installationId, jobId, signal, async () => {
-            if (options.beforeWrite) await options.beforeWrite(extractDirs[0])
-            await fn()
-          }),
-      },
       manifest,
       extractor: {
         extract: (input) => {
@@ -285,8 +290,8 @@ async function harness(
           }
         : {}),
     },
-    jobs,
-    launch,
+    jobs: harnessRunner.jobs,
+    launch: harnessRunner.launch,
     installations: service,
     installation: recorded.value,
     validateCalls,
@@ -525,6 +530,36 @@ describe('the engine update job', () => {
     expect(existsSync(join(installRoot, ENGINE_BACKUP_DIR_NAME))).toBe(false)
   })
 
+  it('the engine update is refused while another job targets the installation', async () => {
+    const test = await harness()
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const other = test.deps.runner.run(
+      {
+        moduleId: 'mods',
+        kind: 'test-other',
+        labelKey: 'jobs.simulatedWrite',
+        installationId: test.installation.id,
+      },
+      async () => {
+        await held
+        return { status: 'succeeded' }
+      },
+    )
+    if (!other.ok) throw new Error('the other job did not start')
+    const jobsBefore = test.jobs.list().map((job) => job.id)
+
+    const started = await startEngineUpdate(test.deps, { installationId: test.installation.id })
+
+    expect(started).toMatchObject({ ok: false, error: { key: 'jobs.error.installationBusy' } })
+    expect(test.jobs.list().map((job) => job.id)).toEqual(jobsBefore)
+
+    release()
+    await other.value.settled
+  })
+
   it('refuses an installation the library no longer holds', async () => {
     const test = await harness()
 
@@ -645,6 +680,7 @@ describe('the engine update job', () => {
     await expect(started.value.settled).resolves.toEqual({
       status: 'failed',
       key: 'downloads.error.packageIncomplete',
+      params: { packageId: 'q2pro-2.0' },
     })
 
     expect(changedPaths(before, await snapshotTree(installRoot))).toEqual([])

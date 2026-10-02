@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { readdir, rmdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, win32 } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import {
   DEFAULT_BOOTSTRAP_INSTALLATION_NAME,
@@ -25,18 +25,20 @@ import {
   type InstallationIcon,
   type InstallationLastFailure,
   type InstallationStatus,
-  type Job,
-  type JobProgress,
   type Outcome,
   type RemoveInstallationInput,
   type UpdateInstallationInput,
 } from '@shared/types'
 import { canonicalizePath, removeDir } from '../../../lib/fs-utils'
 import { clamp01 } from '../../../lib/math'
-import type { CreateJobInput } from '../../../services/jobs'
-import { isWriteCancelled } from '../../../services/write-guard'
+import {
+  JOB_INSTALLATION_BUSY,
+  type JobContext,
+  type JobOutcome,
+  type JobRunnerHost,
+  type StartedJob,
+} from '../../ports'
 import { EXTRACTION_LISTING_CAP } from '../diagnostics'
-import type { ExtractorHandle } from '../../../lib/archive/extractor'
 import type { FetchImpl } from '../../../lib/net/fetcher'
 import type { InstallationEngineState } from '../../../services/engine-state'
 import { isSafeDownloadFileName } from '../../../lib/net/download-cache-paths'
@@ -77,11 +79,12 @@ import { computeTargetVerdict } from './target'
  *
  * This story's acceptance is about *the* job, singular: one progress bar, one cancel button, one
  * `playableAtRatio` transition across three downloads, two assemble passes and two revalidations.
- * So this file creates its own `Job` and calls the lower-level pieces (`downloadPackage`,
- * `extractArchive`), reached through the ports in `ports.ts`. The discipline: a `report()` that
- * goes silent once cancelled (because `JobsService.progress()` unconditionally sets
- * `status: 'running'` and would otherwise resurrect a cancelled job), a `failed()` helper that
- * ends the job exactly once, and an explicit cancel check after every `await` that could span one.
+ * So this file is one body on the shared `JobRunner`, which owns
+ * admission, cancellation, the silent-once-cancelled `ctx.report()`, the write guard and the single
+ * `jobs.finish`; it calls the lower-level pieces (`downloadPackage`, `extractArchive`) through the
+ * ports in `ports.ts`. What stays here is a `failed()` helper that cleans up and records the failure
+ * before the body returns its outcome, and an explicit cancel check after every `await` that could
+ * span one.
  *
  * ## The order is the acceptance criterion
  *
@@ -297,31 +300,18 @@ function iconIdForEngine(engine: EngineKind): string {
   return engine === 'r1q2' ? 'r1q2-logo' : DEFAULT_BOOTSTRAP_ICON_ID
 }
 
-/** What became of one bootstrap. A one-shot value, never a second status source next to the job. */
-export type BootstrapOutcome =
-  | { status: 'succeeded'; installationId: string; installationStatus: InstallationStatus }
-  | { status: 'failed'; key: DownloadsErrorKey }
-  | { status: 'cancelled' }
-
-export interface StartedBootstrap {
-  /** The `Job.id` - what `jobs:cancel` takes, and what the UI renders. */
-  jobId: string
-  /** The installation registered in step 3; already in `InstallationsService.list()`. */
+/** What a succeeded bootstrap adds to the shared job outcome. */
+export interface BootstrapSuccess {
   installationId: string
-  /** Resolves once the job has reached a terminal state. Never rejects. */
-  settled: Promise<BootstrapOutcome>
+  installationStatus: InstallationStatus
 }
 
-/** The `JobsService` surface this job uses. `JobsService` satisfies it structurally. */
-export interface BootstrapJobsHost {
-  create(input: CreateJobInput): Job
-  progress(id: string, progress: JobProgress): void
-  /** Story 074 D4's additive `JobsService` method - see its doc comment there. */
-  markPlayable(id: string, ratio: number): void
-  finish(
-    id: string,
-    outcome: { status: 'succeeded' | 'failed' | 'cancelled'; error?: Job['error'] },
-  ): void
+/** What became of one bootstrap. A one-shot value, never a second status source next to the job. */
+export type BootstrapOutcome = JobOutcome<DownloadsErrorKey, BootstrapSuccess>
+
+export interface StartedBootstrap extends StartedJob<DownloadsErrorKey, BootstrapSuccess> {
+  /** The installation registered in step 3; already in `InstallationsService.list()`. */
+  installationId: string
 }
 
 /**
@@ -369,33 +359,13 @@ export interface BootstrapInstallationsHost {
   setEngineState(id: string, patch: Partial<InstallationEngineState>): Outcome<Installation>
 }
 
-/**
- * Story 091 D6: the `InstallationWriteGuard` surface this job uses - `runWrite` only, mirroring
- * `RetailUpgradeWriteGuardHost` (`retail/upgrade-job.ts`). `InstallationWriteGuard` satisfies it
- * structurally, so this job cannot reach past the one seam into `isBlockedFor`/`isWriting` and
- * decide for itself whether to wait: that decision, the `'waiting'` status and the write lock all
- * belong to the guard.
- */
-export interface BootstrapWriteGuardHost {
-  runWrite(
-    installationId: string,
-    jobId: string,
-    signal: AbortSignal,
-    fn: () => Promise<void>,
-  ): Promise<void>
-}
-
 export interface BootstrapDeps {
-  jobs: BootstrapJobsHost
-  installations: BootstrapInstallationsHost
   /**
-   * Story 091 D6: the shell's `InstallationWriteGuard`, wrapped around the two `assembleInstallation`
-   * passes (steps 6 and 8) and only those - step 5's download/extract loop stays outside it (AC4).
-   * Required, like `retailSources` below and for the same reason: a wiring that forgot it would copy
-   * game files over a live game's own folder, so its absence has to be a compile error rather than an
-   * ungated run.
+   * The shared job lifecycle. Its write guard wraps the two `assembleInstallation` passes (steps 6
+   * and 8) and only those - step 5's download/extract loop stays outside it.
    */
-  writeGuard: BootstrapWriteGuardHost
+  runner: JobRunnerHost
+  installations: BootstrapInstallationsHost
   manifest: ManifestSource
   /**
    * Story 088 D4: main's own, freshly computed list of detected retail sources -
@@ -911,34 +881,48 @@ export async function startBootstrap(
    */
   let previousFailure: InstallationLastFailure | undefined
   let installation: Installation
+  /** An adopted retry rewrites the record only once the runner has admitted the job (see the body). */
+  let commitAdoption: (() => Promise<void>) | undefined
+  /** Settles once the admitted job's body has rewritten the adopted record, so the caller sees it done. */
+  let adoptionCommitted: Promise<void> = Promise.resolve()
+  let markAdoptionCommitted = (): void => {}
   if (adoptable) {
+    // Early refusal; the runner's exclusive admission below is the one that cannot race.
+    if (deps.runner.isInstallationBusy(adoptable.id)) return fail(JOB_INSTALLATION_BUSY)
     wasAdopted = true
-    // The wizard's name is the only field adoption changes going in (Decisions (Refine): "Adoption
-    // updates the name from the wizard, not the engine" - `UpdateInstallationInput` has no
-    // `engineKind` path and the wizard offers Q2PRO only). The id, engine kind, icon and sortOrder
-    // are what the user's library already shows, so the rail's position and any assignments survive.
-    // Both writes are best-effort in the same sense the write-dir remedy below is: a rename or a
-    // clear that fails is not a reason to refuse a retry the user is entitled to.
-    let adopted = adoptable
-    const renamed = await deps.installations.update({ id: adopted.id, name })
-    if (renamed.ok) adopted = renamed.value
-    else log?.warn(`bootstrap could not rename the adopted ${adopted.id}: ${renamed.error.key}`)
-
-    // AC4: the previous failure goes as soon as the retry *starts*, not only if it succeeds - the
-    // installation is being worked on again, so a red mark on it is already stale. A failure of this
-    // run writes a fresh record through `failed()` below, on this same id. Kept in hand first
-    // (finding fix F2): a *cancelled* retry has to put it back, or the installation is left
-    // registered with no failure record - a state the adoption predicate above refuses, which would
-    // dead-end every later retry on this folder at `installations.error.duplicate`.
     previousFailure = adoptable.lastFailure
-    const cleared = deps.installations.setLastFailure(adopted.id, null)
-    if (cleared.ok) adopted = cleared.value
-    else {
-      log?.warn(`bootstrap could not clear the failure on ${adopted.id}: ${cleared.error.key}`)
-    }
+    installation = { ...adoptable, name }
+    adoptionCommitted = new Promise<void>((resolve) => {
+      markAdoptionCommitted = resolve
+    })
+    commitAdoption = async () => {
+      // The wizard's name is the only field adoption changes going in (Decisions (Refine): "Adoption
+      // updates the name from the wizard, not the engine" - `UpdateInstallationInput` has no
+      // `engineKind` path and the wizard offers Q2PRO only). The id, engine kind, icon and sortOrder
+      // are what the user's library already shows, so the rail's position and any assignments survive.
+      // Both writes are best-effort in the same sense the write-dir remedy below is: a rename or a
+      // clear that fails is not a reason to refuse a retry the user is entitled to.
+      let adopted = adoptable
+      const renamed = await deps.installations.update({ id: adopted.id, name })
+      if (renamed.ok) adopted = renamed.value
+      else log?.warn(`bootstrap could not rename the adopted ${adopted.id}: ${renamed.error.key}`)
 
-    installation = adopted
-    log?.info(`bootstrap adopted the failed installation ${adopted.id} at ${adopted.rootPath}`)
+      // AC4: the previous failure goes as soon as the retry *starts*, not only if it succeeds - the
+      // installation is being worked on again, so a red mark on it is already stale. A failure of
+      // this run writes a fresh record through `failed()` below, on this same id. `previousFailure`
+      // is what a *cancelled* retry puts back, or the installation is left registered with no
+      // failure record - a state the adoption predicate above refuses, which would dead-end every
+      // later retry on this folder at `installations.error.duplicate`.
+      const cleared = deps.installations.setLastFailure(adopted.id, null)
+      if (cleared.ok) adopted = cleared.value
+      else {
+        log?.warn(`bootstrap could not clear the failure on ${adopted.id}: ${cleared.error.key}`)
+      }
+
+      installation = adopted
+      log?.info(`bootstrap adopted the failed installation ${adopted.id} at ${adopted.rootPath}`)
+      await applyWriteDir()
+    }
   } else {
     const created = await deps.installations.create({
       rootPath: verdict.targetPath,
@@ -971,7 +955,8 @@ export async function startBootstrap(
   // AC2's remedy, persisted the same way `ChecksList.tsx`'s existing `set-write-dir` remedy does -
   // best-effort: a failure here must not fail the whole bootstrap, since the installation is
   // already registered and playable regardless of this field.
-  if (input.writeDirPath) {
+  const applyWriteDir = async (): Promise<void> => {
+    if (!input.writeDirPath) return
     const updated = await deps.installations.update({
       id: installation.id,
       writeDirPath: input.writeDirPath,
@@ -980,663 +965,690 @@ export async function startBootstrap(
       log?.warn(`bootstrap could not set writeDirPath on ${installation.id}: ${updated.error.key}`)
     }
   }
+  if (!commitAdoption) await applyWriteDir()
 
   // 4. From here on there is something to cancel, so from here on there is a job.
-  const controller = new AbortController()
-  let cancelled = false
-  let extractor: ExtractorHandle | undefined
-  let jobId = ''
+  const body = async (
+    ctx: JobContext<DownloadsErrorKey, BootstrapSuccess>,
+  ): Promise<BootstrapOutcome> => {
+    const jobId = ctx.jobId
+    try {
+      await commitAdoption?.()
+    } finally {
+      markAdoptionCommitted()
+    }
 
-  const job = deps.jobs.create({
+    /**
+     * Story 075 D3: this job's diagnostics collector - created here because the registry is keyed by
+     * the job id, which exists only now, and the job's log teed into it: every line written from
+     * this point on still reaches `deps.log` exactly as before *and* lands (redacted) in the
+     * diagnostics ring (Decisions (Refine)).
+     *
+     * Everything above this point ran before the job existed, so there is no record to capture it
+     * into and those lines keep using `log` directly. `jobLog` is `undefined` for exactly the same
+     * inputs `log` is, so no call site's "log if there is a logger" shape changes.
+     */
+    const diagnostics = deps.diagnostics?.(jobId, BOOTSTRAP_JOB_KIND)
+    const jobLog = diagnostics && log ? diagnostics.tee(log) : log
+
+    const extractRoot = getBootstrapExtractRoot(deps.userDataPath, jobId)
+    const totalBytes = packages.reduce((total, entry) => total + entry.pkg.sizeBytes, 0)
+    /** Guards the ratio math against a manifest that (impossibly, per its schema) declares 0 bytes. */
+    const safeTotal = Math.max(1, totalBytes)
+
+    /** Target-relative paths this job copied, for the cleanup. A set: the auxiliary pass re-copies
+     * the fixed allowlist (D3's `buildAssemblePlan` always includes it), and a path is removed once. */
+    const copied = new Set<string>()
+    let playableMarked = false
+
+    /** Maps "package `index` is `within` (0-1) through its own download+extract" onto the job's bar. */
+    const packagesProgress = (bytesBefore: number, packageBytes: number, within: number): number =>
+      clamp01(((bytesBefore + packageBytes * clamp01(within)) / safeTotal) * PACKAGES_RATIO)
+
+    /**
+     * AC6: the marker is recorded the first time a *real* verdict is neither `invalid` nor `missing`
+     * - `'ok'` and `'warning'` both mean playable (a warning is "playable, but something is off",
+     * `InstallationStatus`). Marked before the call, like `observeFailedJobs`'s seen-set discipline,
+     * so nothing can fire it twice.
+     */
+    const markPlayableIfReady = (status: InstallationStatus): void => {
+      if (playableMarked || ctx.signal.aborted) return
+      if (status === 'invalid' || status === 'missing') return
+      playableMarked = true
+      ctx.markPlayable(PLAYABLE_AT_RATIO)
+    }
+
+    /**
+     * Files first, registration second - see the module comment. Best-effort throughout: cleanup
+     * that fails must not turn a cancelled job into a failed one, or a failed one into a hang.
+     *
+     * Story 077 D2: the two callers no longer want the same thing, so both halves that are *not*
+     * "undo this job's own file writes" are passed in rather than assumed. The extracted trees go
+     * either way - they are this job's scratch space and are of no use to anyone afterwards.
+     */
+    const cleanUp = async (mode: CleanUpMode): Promise<void> => {
+      await removeAssembled(targetRoot, copied, mode.removeRoot, jobLog)
+      if (mode.unregister) {
+        const removed = await deps.installations.remove({
+          id: installation.id,
+          deleteFromDisk: false,
+        })
+        if (!removed.ok) {
+          jobLog?.warn(
+            `the half-built installation ${installation.id} could not be dropped: ${removed.error.key}`,
+          )
+        }
+      }
+      await removeDir(extractRoot, jobLog)
+    }
+
+    /**
+     * The job is already `cancelled` in `JobsService` (`cancel()` finishes it); the leftovers are
+     * ours. Story 077 D2 (AC2): unchanged from 074 for a freshly-created installation - the user's
+     * explicit "never mind" takes the library entry with it, and takes the target root too when this
+     * job is the reason it exists.
+     *
+     * Finding fix: `unregister` now mirrors `removeRoot`'s own "did this job bring it into being?"
+     * test rather than firing unconditionally. A cancelled retry that *adopted* a pre-existing failed
+     * installation (D3) must not delete a registration that predates this job - that would put the
+     * user back at the empty-library problem story 077 exists to fix.
+     *
+     * Second finding fix (F2): the adopted case also *restores* the `lastFailure` D3 cleared when the
+     * retry started. A cancel is the user's own "never mind" about this run, so the installation goes
+     * back to exactly the state it was in before they clicked retry - same badge, same sentence -
+     * rather than being left registered with no failure on record. That in-between state is the one
+     * the adoption predicate above refuses, so leaving it would dead-end every later retry on this
+     * folder at `installations.error.duplicate`: the empty-library problem again, one door along. No
+     * *new* failure is ever written here - a cancel is not a recorded failure - and a run that created
+     * its own installation has no `previousFailure` and is unregistered outright anyway.
+     *
+     * `validate()` runs after the restore (so a - here impossible - playable verdict would retire the
+     * record it just put back, per D1's clear-on-playable rule) and only for the adopted case: the
+     * non-adopted branch unregisters the installation outright, so there is nothing left to revalidate.
+     */
+    const cancelledOutcome = async (): Promise<BootstrapOutcome> => {
+      await cleanUp({ unregister: !wasAdopted, removeRoot: !targetPreexisted })
+      if (wasAdopted) {
+        if (previousFailure) {
+          const restored = deps.installations.setLastFailure(installation.id, previousFailure)
+          if (!restored.ok) {
+            jobLog?.warn(
+              `the previous failure of ${installation.id} could not be restored after cancel: ${restored.error.key}`,
+            )
+          }
+        }
+        const revalidated = await ctx.revalidate(installation.id)
+        if (!revalidated.ok) {
+          jobLog?.warn(
+            `the adopted installation ${installation.id} could not be revalidated after cancel: ${revalidated.error.key}`,
+          )
+        }
+      }
+      jobLog?.info(`bootstrap of ${installation.name} cancelled (job ${jobId})`)
+      return ctx.cancelled()
+    }
+
+    /**
+     * `params` (story 076 D3) is the *data* half of a failure - a manifest package id, not prose -
+     * and is the only thing besides the key that crosses to the renderer, where `en.json`'s sentence
+     * interpolates it. Optional and last, so every existing call site keeps its two-argument shape,
+     * and attached only when present so a plain failure's `Job.error` stays exactly `{ key }`.
+     */
+    const failed = async (
+      key: DownloadsErrorKey,
+      reason: string,
+      params?: Record<string, string | number>,
+    ): Promise<BootstrapOutcome> => {
+      // The reason is prose and stays in the log: `Job.error` carries an i18n key, and CLAUDE.md's
+      // "main sends i18n keys, never prose" rules out shipping it to the renderer. Story 075: the
+      // same line is teed into the diagnostics ring, which is developer-facing by design and where
+      // the reason is exactly what a bug report needs.
+      jobLog?.warn(`bootstrap of ${installation.name} failed with ${key}: ${reason}`)
+      // Story 077 D2. The four steps below are one atom, and their order is the acceptance criterion:
+      //
+      // 1. The files this job wrote go - but not the registration and not the target root (AC1, and
+      //    Decisions (Sprint) Q1: an honest empty folder beats a half-built one).
+      // 2. The failure is recorded on the surviving installation (AC3) with the *same* key the
+      //    `Job.error` below carries, so the library and the Downloads tab can never disagree. This
+      //    has to precede step 3, not follow it (review fix): `applyInspectionResult`'s engine-preservation
+      //    guard is scoped to "does this installation already carry a `lastFailure`" so it cannot
+      //    touch an ordinary, never-failed installation (AC8) - for a first failure that is only true
+      //    once this write lands, and step 3 is what reads it.
+      // 3. `validate()` re-derives `status`/`checks` from the folder as it now is - nothing in this
+      //    file ever writes a status. It cannot see a playable folder here (its files were just
+      //    deleted), but if it somehow did, D1's clear-on-playable rule would drop the record it just
+      //    wrote, which is the right answer rather than a stale red mark (AC4).
+      // 4. Only then does the job flip to `failed`. That is what still guarantees "no observer sees a
+      //    `failed` job next to a half-built installation" now that the installation survives. A
+      //    renderer subscribed between steps 2 and 3 can observe the failure record next to a
+      //    not-yet-revalidated status for one commit; accepted as a narrower window than the one this
+      //    ordering closes, and still bounded by step 4 - the *job* never reports `failed` early.
+      await cleanUp({ unregister: false, removeRoot: false })
+      // Finding fix: the *same* `params` object this exit returns as the failed outcome, not a second
+      // one computed here - `downloads.error.packageIncomplete`'s sentence reads `{{packageId}}`, and
+      // the library card and the Downloads tab render that same sentence. Attached only when present,
+      // so a plain failure's record stays exactly `{ errorKey, at, jobId }`.
+      //
+      // Deliberately *before* `validate()` below, even though that briefly lets a renderer observe
+      // the record next to a not-yet-revalidated status: `applyInspectionResult`'s engine-preservation guard
+      // (review fix, installations.ts) is scoped to "does this installation already carry a
+      // `lastFailure`" so it never touches an installation that isn't a bootstrap failure (AC8) - and
+      // for a *first* failure that is only true once this write has landed. Recording first is what
+      // lets the very `validate()` call below preserve the wizard's engine choice instead of resetting
+      // it to `unknown` when the emptied folder inspects with no detectable engine.
+      const recorded = deps.installations.setLastFailure(installation.id, {
+        errorKey: key,
+        at: Date.now(),
+        jobId,
+        ...(params ? { params } : {}),
+      })
+      if (!recorded.ok) {
+        jobLog?.warn(
+          `the failure of ${installation.id} could not be recorded: ${recorded.error.key}`,
+        )
+      }
+      // Best-effort like every other step of this cleanup: a revalidation that fails leaves the
+      // stored status stale, which is a worse status - not a reason to leave the job running.
+      const revalidated = await ctx.revalidate(installation.id)
+      if (!revalidated.ok) {
+        jobLog?.warn(
+          `the failed installation ${installation.id} could not be revalidated: ${revalidated.error.key}`,
+        )
+      }
+      return ctx.fail(key, reason, params)
+    }
+
+    const run = async (): Promise<BootstrapOutcome> => {
+      ctx.report({
+        ratio: 0,
+        bytesDone: 0,
+        bytesTotal: totalBytes,
+        filesRemaining: packages.length,
+      })
+
+      // 5. Sequentially, one package at a time: simpler to reason about than three concurrent
+      // downloads sharing one cancel, one progress bar and one disk, and the wall-clock difference
+      // is bounded by the mirror's bandwidth either way.
+      //
+      // Story 078 D2/D3: each extraction is carried with the id of the package that produced it, so
+      // the assembly record can say *which archive* served a file rather than only that some source
+      // did. The order is unchanged (engine, demo, point release) and it is still the order
+      // `assembleInstallation` searches in, so who wins a file two archives both contain is exactly
+      // what it was.
+      const sources: AssembleSource[] = []
+      let doneBytes = 0
+
+      /**
+       * Story 078 D3 (AC7): both assemble passes' entries, concatenated in call order, so the copied
+       * report reads as one table. Handed over after each pass rather than once at the end because a
+       * run can *fail between them* - `missingRequired` below is the 2026-09-08 failure's own exit,
+       * and it is precisely the run whose assembly record has to survive. `recordAssembly` replaces
+       * rather than appends (see its doc comment), so the collector ends up with one record either
+       * way, and it re-derives each package's `contributed` from it (AC1).
+       *
+       * Pure bookkeeping over values already in hand: it is never awaited and never sits between a
+       * failure and its `cleanUp()`.
+       */
+      const assembled: AssembleEntryResult[] = []
+      const recordAssembly = (entries: AssembleEntryResult[]): void => {
+        assembled.push(...entries)
+        diagnostics?.recordAssembly(assembled)
+      }
+
+      for (const [index, entry] of packages.entries()) {
+        if (ctx.signal.aborted) return cancelledOutcome()
+
+        const packageBytes = entry.pkg.sizeBytes
+        const filesRemaining = packages.length - index
+        const extractDir = getBootstrapExtractDir(deps.userDataPath, jobId, entry.pkg.id)
+
+        /**
+         * Story 075 D3 (AC1): what this package contributed. Called at each of this iteration's
+         * exits - the fetch failure, the `mkdir` failure, the extraction failure and the success -
+         * rather than once at the top or the bottom of the loop, because those exits are the whole
+         * point: the 2026-09-08 run got all the way past this loop, and the report still has to name
+         * the package that brought nothing. Pure bookkeeping over values already in hand; it is
+         * never awaited and never sits between a failure and its `cleanUp()`.
+         *
+         * Story 078 D3 (AC8): `listing` is what the extraction produced, and is passed only by the
+         * one exit that has an extraction to describe - every other exit leaves `contents` absent
+         * rather than empty, which is the difference between "it produced nothing" and "it never got
+         * that far".
+         */
+        const recordPackage = (
+          url: string,
+          sizeBytes: number,
+          verified: boolean,
+          extracted: boolean,
+          listing?: { contents: string[]; contentsTruncated: boolean },
+        ): void => {
+          diagnostics?.recordPackage({
+            id: entry.pkg.id,
+            url,
+            sizeBytes,
+            verified,
+            extracted,
+            ...(listing
+              ? {
+                  contents: listing.contents,
+                  ...(listing.contentsTruncated ? { contentsTruncated: true } : {}),
+                }
+              : {}),
+          })
+        }
+
+        // Download, verify, create `extractDir` (7za is spawned with `cwd: extractDir`) and extract.
+        // The stager publishes the extractor handle with no `await` after its own cancel check, so
+        // `onCancel` can always kill a running 7za.
+        const staged = await stagePackage({
+          source: entry.source,
+          jobId,
+          index,
+          extractDir,
+          userDataPath: deps.userDataPath,
+          signal: ctx.signal,
+          onProgress: (receivedBytes) =>
+            ctx.report({
+              ratio: packagesProgress(
+                doneBytes,
+                packageBytes,
+                DOWNLOAD_SHARE * (receivedBytes / Math.max(1, packageBytes)),
+              ),
+              bytesDone: doneBytes + receivedBytes,
+              bytesTotal: totalBytes,
+              filesRemaining,
+            }),
+          onExtractProgress: (ratio) =>
+            ctx.report({
+              ratio: packagesProgress(
+                doneBytes,
+                packageBytes,
+                DOWNLOAD_SHARE + (1 - DOWNLOAD_SHARE) * (ratio ?? 0),
+              ),
+              bytesDone: doneBytes + packageBytes,
+              bytesTotal: totalBytes,
+              filesRemaining,
+            }),
+          onExtractor: ctx.setExtractor,
+          resolveExtractor: deps.resolveExtractor,
+          download: deps.fetcher.fetch,
+          extract: deps.extractor.extract,
+          options: {
+            ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
+            ...(jobLog ? { log: jobLog } : {}),
+          },
+        })
+
+        // Before the result, on purpose: a kill that lost the race against 7za's own clean exit must
+        // not turn a cancelled job into a succeeded one. A cancel is not a failure needing a reason,
+        // and the fixed key set has no member for "the user changed their mind" - so it never
+        // surfaces the stager's key.
+        if (ctx.signal.aborted) return cancelledOutcome()
+        if (!staged.ok) {
+          if (staged.cancelled) return cancelledOutcome()
+          if (staged.stage === 'download') {
+            // The URL last attempted - the mirror, when the fallback got that far - and not the
+            // manifest's primary: "where it actually came from" is the useful line in a bug report.
+            // The declared size, since nothing verified arrived.
+            recordPackage(staged.url ?? entry.pkg.url, entry.pkg.sizeBytes, false, false)
+            return failed(staged.key, `${entry.pkg.id}: ${staged.reason}`)
+          }
+          // Past the download, so the archive was verified; it just never got extracted.
+          recordPackage(
+            staged.url ?? entry.pkg.url,
+            staged.sizeBytes ?? entry.pkg.sizeBytes,
+            true,
+            false,
+          )
+          return staged.stage === 'prepare'
+            ? failed(staged.key, staged.reason)
+            : failed(staged.key, `extracting ${entry.pkg.id} failed`)
+        }
+
+        // Story 078 D3 (AC8): the only `await` this story adds to the loop, and deliberately on the
+        // success path only - the failed-extraction exits above have already returned. It cannot
+        // change the job's fate (`listExtraction` never throws) and it cannot move a `cleanUp()`: the
+        // next thing that reads `cancelled` is the loop's own top-of-iteration check, exactly as it
+        // was for a cancel arriving during the extraction itself.
+        const listing = await listExtraction(extractDir, jobLog)
+
+        // Verified by the fetcher and extracted by 7za. Whether it went on to *contribute* anything
+        // is `recordAssembly`'s to say, further down - a package can extract perfectly and still
+        // leave the installation unplayable, which is the failure this story exists for.
+        recordPackage(staged.url, staged.sizeBytes, true, true, listing)
+
+        doneBytes += packageBytes
+        sources.push({ packageId: entry.pkg.id, dir: extractDir, role: entry.role })
+        ctx.report({
+          ratio: packagesProgress(doneBytes, 0, 0),
+          bytesDone: doneBytes,
+          bytesTotal: totalBytes,
+          filesRemaining: packages.length - index - 1,
+        })
+      }
+
+      if (ctx.signal.aborted) return cancelledOutcome()
+
+      /**
+       * Story 088 D4 (AC4): the verified retail root joins `sources` as one more `AssembleSource`,
+       * with the `'retail'` role D3's allowlist block is keyed by - so the core pass below copies
+       * pak0/pak1(+pak2) out of it in exactly the place a free-download run copies them out of the
+       * demo/point-release extractions, and therefore strictly before the first revalidation. It is
+       * *main's* path (`copySource.rootPath`, off the list main itself just produced), never the
+       * renderer's string, and it is added after the download loop so nothing about the engine
+       * package's own fetch/extract order changes.
+       */
+      if (copySource) {
+        sources.push({
+          packageId: RETAIL_SOURCE_PACKAGE_ID,
+          dir: copySource.rootPath,
+          role: 'retail',
+        })
+      }
+
+      /**
+       * Story 089 D3 (AC3/AC4/AC7): the picked folder joins `sources` the same way, with the
+       * `'folder'` role, and its *plan* is the pak list the pre-`create()` inspection found there
+       * (`folderPakNames` below) - so a demo folder is planned with the one pak it has and a retail
+       * folder with two or three, without this file re-deciding what "retail" means. Everything else
+       * is shared with the `store-copy` path above: one assemble pass copies the engine payload and
+       * the paks together, strictly before the first revalidation, and every copied file lands in
+       * `copied` for the cleanup exactly as a downloaded one does.
+       *
+       * `folderSource.rootPath` is the very string `inspectGameDataSource` just approved - not a
+       * second reading of `input.copySourcePath` - so the folder that was judged and the folder that
+       * is copied from cannot come apart.
+       */
+      if (folderSource) {
+        sources.push({
+          packageId: FOLDER_SOURCE_PACKAGE_ID,
+          dir: folderSource.rootPath,
+          role: 'folder',
+        })
+      }
+      const folderPakNames = folderSource?.paks.map((pak) => pak.name)
+
+      // 6. Assemble core - the engine payload and the baseq2 paks, allowlisted by 074 D3 and
+      // corrected against the real archives by 076 D1. Declared outside the `try` only so its
+      // `missingRequired` can be read below; a *thrown* assemble is still the local failure it was.
+      // Story 091 D6: the write into the installation's own folder, gated on the guard - deferred for
+      // as long as this installation's own game is running (AC4). `core` escapes the closure the same
+      // way as in `retail/upgrade-job.ts`: `ctx.write` answers no value, and TypeScript's flow
+      // analysis does not follow an assignment made inside the callback.
+      let core: AssembleInstallationResult | undefined
+      try {
+        const written = await ctx.write(installation.id, async () => {
+          core = await assembleInstallation({
+            sources,
+            targetRoot,
+            engine: input.engine,
+            scope: 'core',
+            dataSource,
+            ...(folderPakNames ? { folderPakNames } : {}),
+          })
+          for (const file of core.copiedFiles) copied.add(file)
+          recordAssembly(core.entries)
+        })
+        if (written === 'cancelled') return cancelledOutcome()
+      } catch (error) {
+        return failed(LOCAL_FAILURE, `assembling ${targetRoot} failed: ${String(error)}`)
+      }
+      if (!core) return failed(LOCAL_FAILURE, `assembling ${targetRoot} produced no result`)
+
+      if (ctx.signal.aborted) return cancelledOutcome()
+      ctx.report({ ratio: ASSEMBLE_CORE_RATIO, bytesDone: totalBytes, bytesTotal: totalBytes })
+
+      /**
+       * Story 076 D3 (AC5). A package can download, verify and extract perfectly and still contain
+       * none of the paths one of its *required* allowlist entries accepts - the 2026-09-08 failure,
+       * where the run got all the way to step 9 and reported only "not playable", naming no archive.
+       * Checked here, straight after the pass that knows it and before the first revalidation, so the
+       * job fails on the specific thing that went wrong rather than on the verdict it causes.
+       *
+       * No cancel check of its own: there is no `await` between the one above and this branch, so
+       * `cancelled` cannot have changed, and `failed()` runs the same `cleanUp()` every other failure
+       * exit here runs - this adds a reason, not a second way out.
+       */
+      const [firstMissing] = core.missingRequired
+      if (firstMissing) {
+        // Every missing entry, with the candidate paths that were looked for: `failed()` warns this
+        // through the teed log, so it is what story 075's `DownloadDiagnostics.logTail` carries into
+        // a bug report - and "which paths were expected" is the half that makes it actionable.
+        const reason = core.missingRequired
+          .map((missing) => `role ${missing.role} contributed none of ${missing.from.join(' or ')}`)
+          .join('; ')
+
+        // Story 088 fix cycle (review F1): a `store-copy` run has no manifest package behind its
+        // `'retail'` role - `packages` only ever resolves `engine` (plus `demo`/`point-release` for a
+        // `free-download` run, see `resolvePackages`) - so a `'retail'` miss here means the detected
+        // source verified at the D4 pre-check and then came up empty during the actual copy (moved or
+        // deleted in between). That gets its own key and no `packageId` param, rather than
+        // `PACKAGE_INCOMPLETE` falling back to the literal string `'retail'` and claiming a download
+        // happened when nothing was fetched.
+        if (firstMissing.role === 'retail') {
+          return failed(
+            RETAIL_COPY_INCOMPLETE,
+            `copying retail source into ${targetRoot}: ${reason}`,
+          )
+        }
+
+        // Story 089 D3: the same argument for the other copy source. A `'folder'` miss means the
+        // folder `inspectGameDataSource` read a moment ago no longer holds a pak it reported (edited
+        // or emptied out from under the wizard), which is what `GAME_DATA_SOURCE_UNUSABLE` names -
+        // and nothing was downloaded for this role either, so the generic branch below would fall
+        // back to the literal string `'folder'` as a `packageId` and claim a download that never
+        // happened. There is no new pre-job refusal here: AC5's refusal is step 1c's, and this is the
+        // narrow window after it.
+        if (firstMissing.role === 'folder') {
+          return failed(
+            GAME_DATA_SOURCE_UNUSABLE,
+            `copying the chosen folder into ${targetRoot}: ${reason}`,
+          )
+        }
+
+        // `packages` is the role -> `ManifestPackage.id` mapping this file already holds (Decisions
+        // (Sprint): the allowlist entry carries a role, `job.ts` resolves it). Every non-`'retail'`
+        // role in `missingRequired` came from an allowlist entry, so it is always one of the resolved
+        // packages; the role itself is the fallback rather than shipping `undefined` as a param.
+        const packageId =
+          packages.find((entry) => entry.role === firstMissing.role)?.pkg.id ?? firstMissing.role
+        return failed(PACKAGE_INCOMPLETE, `assembling ${targetRoot}: ${reason}`, { packageId })
+      }
+
+      /**
+       * Story 080 D3 (AC5). R1Q2's pinned build imports the x86 VC++ runtime and the archive carries
+       * none of it - a fresh machine without that redistributable installed can have every file on
+       * disk and still be unable to run `r1q2.exe`. Checked here, after the files exist and before
+       * the first revalidation (which cannot see this at all - the files are present, so
+       * `inspectInstallation` would happily call the folder playable), same pattern as the
+       * `missingRequired` check just above: the specific, actionable cause rather than a generic
+       * not-playable verdict.
+       */
+      if (input.engine === 'r1q2') {
+        const runtimePresent = await deps.r1q2Setup.probeX86Runtime()
+        if (ctx.signal.aborted) return cancelledOutcome()
+        if (!runtimePresent) {
+          return failed(MISSING_RUNTIME, `${targetRoot}: the x86 VC++ runtime was not found`)
+        }
+
+        /**
+         * AC4/AC8, right after the runtime check passes: force `vid_ref "r1gl"` on a fresh install
+         * (the pinned package ships `ref_r1gl.dll`, not `ref_gl.dll`, so R1Q2's own `gl` default
+         * would leave a first launch without a renderer) and install the GPLv3 license text
+         * alongside the game files. Both best-effort, like every other piece of bookkeeping in this
+         * file (`removeDir`/`listExtraction`): a failure here is not a reason to fail a bootstrap
+         * whose game files are already correctly assembled.
+         *
+         * Tracked in `copied` like every assembled file: a failed run's cleanup (`removeAssembled`)
+         * has to be able to empty `baseq2` again, or a stray `autoexec.cfg`/license file left behind
+         * would make `computeTargetVerdict` call the folder `alreadyInstalled` on every later retry -
+         * the same folder story 077's adoption flow depends on being fully emptied by a failure.
+         */
+        try {
+          await deps.r1q2Setup.seedR1glConfig(targetRoot)
+          copied.add(join(BASE_GAME_DIR, 'autoexec.cfg'))
+        } catch (error) {
+          jobLog?.warn(`could not seed ${targetRoot}'s r1gl config: ${String(error)}`)
+        }
+        try {
+          await deps.r1q2Setup.installR1q2Notices(targetRoot, deps.resolveR1q2LicensePath(), jobLog)
+          copied.add('LICENSE-r1q2-GPL-3.0.txt')
+        } catch (error) {
+          jobLog?.warn(
+            `could not install R1Q2's license notices into ${targetRoot}: ${String(error)}`,
+          )
+        }
+      }
+
+      // 7. Revalidate. `validate()` re-runs `inspectInstallation` and stores its verdict - this file
+      // never inspects the folder itself and never writes a status.
+      const afterCore = await ctx.revalidate(installation.id)
+      if (!afterCore.ok) {
+        return failed(
+          LOCAL_FAILURE,
+          `revalidating ${installation.id} failed: ${afterCore.error.key}`,
+        )
+      }
+      markPlayableIfReady(afterCore.value.status)
+
+      // 8. The optional extras, only now - after the installation is already playable.
+      if (includeVideoAndPlayers) {
+        if (ctx.signal.aborted) return cancelledOutcome()
+        // Story 091 D6: the second write, gated the same way as step 6's.
+        try {
+          const written = await ctx.write(installation.id, async () => {
+            const auxiliary = await assembleInstallation({
+              sources,
+              targetRoot,
+              engine: input.engine,
+              scope: 'extras',
+              dataSource,
+              ...(folderPakNames ? { folderPakNames } : {}),
+            })
+            for (const file of auxiliary.copiedFiles) copied.add(file)
+            recordAssembly(auxiliary.entries)
+          })
+          if (written === 'cancelled') return cancelledOutcome()
+        } catch (error) {
+          return failed(
+            LOCAL_FAILURE,
+            `assembling the extras into ${targetRoot} failed: ${String(error)}`,
+          )
+        }
+        if (ctx.signal.aborted) return cancelledOutcome()
+        ctx.report({ ratio: ASSEMBLE_AUX_RATIO, bytesDone: totalBytes, bytesTotal: totalBytes })
+      }
+
+      // 9. The last word on the installation's status, again from `inspectInstallation`.
+      const afterAll = await ctx.revalidate(installation.id)
+      if (!afterAll.ok) {
+        return failed(
+          LOCAL_FAILURE,
+          `revalidating ${installation.id} failed: ${afterAll.error.key}`,
+        )
+      }
+      markPlayableIfReady(afterAll.value.status)
+
+      if (ctx.signal.aborted) return cancelledOutcome()
+
+      /**
+       * Story 075 D3 (AC2): the inspector's last word on the target, recorded *before* the branch
+       * that acts on it - so the not-playable failure and the success record the same thing and no
+       * later edit to that branch can quietly stop recording it. `severity !== 'ok'` rather than
+       * only `'error'`: a warning ("no write access", "missing mission packs") is exactly the kind
+       * of detail the person reading the report needs, and the record is size-capped anyway
+       * (`capDiagnostics`, `failure-log.ts`). The check's `messageKey` is an i18n key, never prose.
+       */
+      diagnostics?.recordTarget({
+        targetPath: targetRoot,
+        verdict: afterAll.value.status,
+        missingChecks: afterAll.value.checks
+          .filter((check) => check.severity !== 'ok')
+          .map((check) => ({
+            id: check.id,
+            messageKey: check.messageKey,
+            ...(check.params ? { params: basenameParams(check.params) } : {}),
+          })),
+      })
+
+      if (afterAll.value.status === 'invalid' || afterAll.value.status === 'missing') {
+        // Everything downloaded, verified and copied, and the inspector still says this is not a
+        // usable installation. Succeeding here would hand the user a library entry that cannot
+        // launch; failing runs the same cleanup every other failure does.
+        return failed(
+          NOT_PLAYABLE,
+          `${targetRoot} is still ${afterAll.value.status} after assembly`,
+        )
+      }
+
+      /**
+       * Story 092 D2: records the engine build this run just installed - version and manifest
+       * package id only; `bleedingEdge`/`backup` stay unset (there is no per-installation opt-in or
+       * backup yet at bootstrap time). Best-effort like every other piece of bookkeeping in this file
+       * (`setIcon` above): a write that fails here leaves the installation exactly as playable as it
+       * already is, just without a recorded version until the next update job's own write succeeds.
+       */
+      const enginePackage = packages.find((entry) => entry.role === 'engine')
+      if (enginePackage) {
+        const recorded = deps.installations.setEngineState(installation.id, {
+          version: enginePackage.pkg.version,
+          packageId: enginePackage.pkg.id,
+        })
+        if (!recorded.ok) {
+          jobLog?.warn(
+            `bootstrap could not record the engine version on ${installation.id}: ${recorded.error.key}`,
+          )
+        }
+      }
+
+      ctx.report({ ratio: 1, bytesDone: totalBytes, bytesTotal: totalBytes, filesRemaining: 0 })
+      // The extracted trees have served their purpose; the verified archives stay in the cache.
+      await removeDir(extractRoot, jobLog)
+      jobLog?.info(`bootstrapped ${installation.name} into ${targetRoot} (job ${jobId})`)
+      return {
+        status: 'succeeded',
+        installationId: installation.id,
+        installationStatus: afterAll.value.status,
+      }
+    }
+
+    try {
+      return await run()
+    } catch (error) {
+      // Nothing in `run()` is expected to throw; if something does, the leftovers still go and the
+      // job ends - a `running` job nobody finishes is worse than a slightly wrong key.
+      if (ctx.signal.aborted) return cancelledOutcome()
+      return failed(LOCAL_FAILURE, `unexpected bootstrap error: ${String(error)}`)
+    }
+  }
+
+  const spec = {
     moduleId: 'downloads',
     kind: BOOTSTRAP_JOB_KIND,
     labelKey: BOOTSTRAP_JOB_LABEL_KEY,
     labelParams: { name: installation.name },
     installationId: installation.id,
-    cancellable: true,
-    // Every cancel moment in one callback; each action is a no-op in the states it does not apply
-    // to, so there is no state to branch on and therefore no state this can get wrong.
-    onCancel: () => {
-      cancelled = true
-      controller.abort()
-      extractor?.kill()
-    },
-  })
-  jobId = job.id
+  } as const
+  const started = deps.runner.run<DownloadsErrorKey, BootstrapSuccess>(
+    wasAdopted ? { ...spec, exclusive: 'installation' } : spec,
+    body,
+  )
+  // A refusal happened before the body ran, so the record was never touched.
+  if (!started.ok) return started
+  await adoptionCommitted
+  return ok({ ...started.value, installationId: installation.id })
+}
 
-  /**
-   * Story 075 D3: this job's diagnostics collector - created here because the registry is keyed by
-   * the job id, which exists only now, and the job's log teed into it: every line written from
-   * this point on still reaches `deps.log` exactly as before *and* lands (redacted) in the
-   * diagnostics ring (Decisions (Refine)).
-   *
-   * Everything above this point ran before the job existed, so there is no record to capture it
-   * into and those lines keep using `log` directly. `jobLog` is `undefined` for exactly the same
-   * inputs `log` is, so no call site's "log if there is a logger" shape changes.
-   */
-  const diagnostics = deps.diagnostics?.(jobId, BOOTSTRAP_JOB_KIND)
-  const jobLog = diagnostics && log ? diagnostics.tee(log) : log
-
-  const extractRoot = getBootstrapExtractRoot(deps.userDataPath, jobId)
-  const totalBytes = packages.reduce((total, entry) => total + entry.pkg.sizeBytes, 0)
-  /** Guards the ratio math against a manifest that (impossibly, per its schema) declares 0 bytes. */
-  const safeTotal = Math.max(1, totalBytes)
-
-  /** Target-relative paths this job copied, for the cleanup. A set: the auxiliary pass re-copies
-   * the fixed allowlist (D3's `buildAssemblePlan` always includes it), and a path is removed once. */
-  const copied = new Set<string>()
-  let playableMarked = false
-
-  /** Every progress report in this file. Silent once cancelled - see the module comment. */
-  const report = (progress: JobProgress): void => {
-    if (cancelled) return
-    deps.jobs.progress(jobId, progress)
-  }
-
-  /** Maps "package `index` is `within` (0-1) through its own download+extract" onto the job's bar. */
-  const packagesProgress = (bytesBefore: number, packageBytes: number, within: number): number =>
-    clamp01(((bytesBefore + packageBytes * clamp01(within)) / safeTotal) * PACKAGES_RATIO)
-
-  /**
-   * AC6: the marker is recorded the first time a *real* verdict is neither `invalid` nor `missing`
-   * - `'ok'` and `'warning'` both mean playable (a warning is "playable, but something is off",
-   * `InstallationStatus`). Marked before the call, like `observeFailedJobs`'s seen-set discipline,
-   * so nothing can fire it twice.
-   */
-  const markPlayableIfReady = (status: InstallationStatus): void => {
-    if (playableMarked || cancelled) return
-    if (status === 'invalid' || status === 'missing') return
-    playableMarked = true
-    deps.jobs.markPlayable(jobId, PLAYABLE_AT_RATIO)
-  }
-
-  /**
-   * Files first, registration second - see the module comment. Best-effort throughout: cleanup
-   * that fails must not turn a cancelled job into a failed one, or a failed one into a hang.
-   *
-   * Story 077 D2: the two callers no longer want the same thing, so both halves that are *not*
-   * "undo this job's own file writes" are passed in rather than assumed. The extracted trees go
-   * either way - they are this job's scratch space and are of no use to anyone afterwards.
-   */
-  const cleanUp = async (mode: CleanUpMode): Promise<void> => {
-    await removeAssembled(targetRoot, copied, mode.removeRoot, jobLog)
-    if (mode.unregister) {
-      const removed = await deps.installations.remove({
-        id: installation.id,
-        deleteFromDisk: false,
-      })
-      if (!removed.ok) {
-        jobLog?.warn(
-          `the half-built installation ${installation.id} could not be dropped: ${removed.error.key}`,
-        )
-      }
-    }
-    await removeDir(extractRoot, jobLog)
-  }
-
-  /**
-   * The job is already `cancelled` in `JobsService` (`cancel()` finishes it); the leftovers are
-   * ours. Story 077 D2 (AC2): unchanged from 074 for a freshly-created installation - the user's
-   * explicit "never mind" takes the library entry with it, and takes the target root too when this
-   * job is the reason it exists.
-   *
-   * Finding fix: `unregister` now mirrors `removeRoot`'s own "did this job bring it into being?"
-   * test rather than firing unconditionally. A cancelled retry that *adopted* a pre-existing failed
-   * installation (D3) must not delete a registration that predates this job - that would put the
-   * user back at the empty-library problem story 077 exists to fix.
-   *
-   * Second finding fix (F2): the adopted case also *restores* the `lastFailure` D3 cleared when the
-   * retry started. A cancel is the user's own "never mind" about this run, so the installation goes
-   * back to exactly the state it was in before they clicked retry - same badge, same sentence -
-   * rather than being left registered with no failure on record. That in-between state is the one
-   * the adoption predicate above refuses, so leaving it would dead-end every later retry on this
-   * folder at `installations.error.duplicate`: the empty-library problem again, one door along. No
-   * *new* failure is ever written here - a cancel is not a recorded failure - and a run that created
-   * its own installation has no `previousFailure` and is unregistered outright anyway.
-   *
-   * `validate()` runs after the restore (so a - here impossible - playable verdict would retire the
-   * record it just put back, per D1's clear-on-playable rule) and only for the adopted case: the
-   * non-adopted branch unregisters the installation outright, so there is nothing left to revalidate.
-   */
-  const cancelledOutcome = async (): Promise<BootstrapOutcome> => {
-    await cleanUp({ unregister: !wasAdopted, removeRoot: !targetPreexisted })
-    if (wasAdopted) {
-      if (previousFailure) {
-        const restored = deps.installations.setLastFailure(installation.id, previousFailure)
-        if (!restored.ok) {
-          jobLog?.warn(
-            `the previous failure of ${installation.id} could not be restored after cancel: ${restored.error.key}`,
-          )
-        }
-      }
-      const revalidated = await deps.installations.validate(installation.id)
-      if (!revalidated.ok) {
-        jobLog?.warn(
-          `the adopted installation ${installation.id} could not be revalidated after cancel: ${revalidated.error.key}`,
-        )
-      }
-    }
-    jobLog?.info(`bootstrap of ${installation.name} cancelled (job ${jobId})`)
-    return { status: 'cancelled' }
-  }
-
-  /**
-   * `params` (story 076 D3) is the *data* half of a failure - a manifest package id, not prose -
-   * and is the only thing besides the key that crosses to the renderer, where `en.json`'s sentence
-   * interpolates it. Optional and last, so every existing call site keeps its two-argument shape,
-   * and attached only when present so a plain failure's `Job.error` stays exactly `{ key }`.
-   */
-  const failed = async (
-    key: DownloadsErrorKey,
-    reason: string,
-    params?: Record<string, string | number>,
-  ): Promise<BootstrapOutcome> => {
-    // The reason is prose and stays in the log: `Job.error` carries an i18n key, and CLAUDE.md's
-    // "main sends i18n keys, never prose" rules out shipping it to the renderer. Story 075: the
-    // same line is teed into the diagnostics ring, which is developer-facing by design and where
-    // the reason is exactly what a bug report needs.
-    jobLog?.warn(`bootstrap of ${installation.name} failed with ${key}: ${reason}`)
-    // Story 077 D2. The four steps below are one atom, and their order is the acceptance criterion:
-    //
-    // 1. The files this job wrote go - but not the registration and not the target root (AC1, and
-    //    Decisions (Sprint) Q1: an honest empty folder beats a half-built one).
-    // 2. The failure is recorded on the surviving installation (AC3) with the *same* key the
-    //    `Job.error` below carries, so the library and the Downloads tab can never disagree. This
-    //    has to precede step 3, not follow it (review fix): `applyInspectionResult`'s engine-preservation
-    //    guard is scoped to "does this installation already carry a `lastFailure`" so it cannot
-    //    touch an ordinary, never-failed installation (AC8) - for a first failure that is only true
-    //    once this write lands, and step 3 is what reads it.
-    // 3. `validate()` re-derives `status`/`checks` from the folder as it now is - nothing in this
-    //    file ever writes a status. It cannot see a playable folder here (its files were just
-    //    deleted), but if it somehow did, D1's clear-on-playable rule would drop the record it just
-    //    wrote, which is the right answer rather than a stale red mark (AC4).
-    // 4. Only then does the job flip to `failed`. That is what still guarantees "no observer sees a
-    //    `failed` job next to a half-built installation" now that the installation survives. A
-    //    renderer subscribed between steps 2 and 3 can observe the failure record next to a
-    //    not-yet-revalidated status for one commit; accepted as a narrower window than the one this
-    //    ordering closes, and still bounded by step 4 - the *job* never reports `failed` early.
-    await cleanUp({ unregister: false, removeRoot: false })
-    // Finding fix: the *same* `params` object this exit hands `jobs.finish` below, not a second
-    // one computed here - `downloads.error.packageIncomplete`'s sentence reads `{{packageId}}`, and
-    // the library card and the Downloads tab render that same sentence. Attached only when present,
-    // so a plain failure's record stays exactly `{ errorKey, at, jobId }`.
-    //
-    // Deliberately *before* `validate()` below, even though that briefly lets a renderer observe
-    // the record next to a not-yet-revalidated status: `applyInspectionResult`'s engine-preservation guard
-    // (review fix, installations.ts) is scoped to "does this installation already carry a
-    // `lastFailure`" so it never touches an installation that isn't a bootstrap failure (AC8) - and
-    // for a *first* failure that is only true once this write has landed. Recording first is what
-    // lets the very `validate()` call below preserve the wizard's engine choice instead of resetting
-    // it to `unknown` when the emptied folder inspects with no detectable engine.
-    const recorded = deps.installations.setLastFailure(installation.id, {
-      errorKey: key,
-      at: Date.now(),
-      jobId,
-      ...(params ? { params } : {}),
-    })
-    if (!recorded.ok) {
-      jobLog?.warn(`the failure of ${installation.id} could not be recorded: ${recorded.error.key}`)
-    }
-    // Best-effort like every other step of this cleanup: a revalidation that fails leaves the
-    // stored status stale, which is a worse status - not a reason to leave the job running.
-    const revalidated = await deps.installations.validate(installation.id)
-    if (!revalidated.ok) {
-      jobLog?.warn(
-        `the failed installation ${installation.id} could not be revalidated: ${revalidated.error.key}`,
-      )
-    }
-    deps.jobs.finish(jobId, { status: 'failed', error: { key, ...(params ? { params } : {}) } })
-    return { status: 'failed', key }
-  }
-
-  const run = async (): Promise<BootstrapOutcome> => {
-    report({ ratio: 0, bytesDone: 0, bytesTotal: totalBytes, filesRemaining: packages.length })
-
-    // 5. Sequentially, one package at a time: simpler to reason about than three concurrent
-    // downloads sharing one cancel, one progress bar and one disk, and the wall-clock difference
-    // is bounded by the mirror's bandwidth either way.
-    //
-    // Story 078 D2/D3: each extraction is carried with the id of the package that produced it, so
-    // the assembly record can say *which archive* served a file rather than only that some source
-    // did. The order is unchanged (engine, demo, point release) and it is still the order
-    // `assembleInstallation` searches in, so who wins a file two archives both contain is exactly
-    // what it was.
-    const sources: AssembleSource[] = []
-    let doneBytes = 0
-
-    /**
-     * Story 078 D3 (AC7): both assemble passes' entries, concatenated in call order, so the copied
-     * report reads as one table. Handed over after each pass rather than once at the end because a
-     * run can *fail between them* - `missingRequired` below is the 2026-09-08 failure's own exit,
-     * and it is precisely the run whose assembly record has to survive. `recordAssembly` replaces
-     * rather than appends (see its doc comment), so the collector ends up with one record either
-     * way, and it re-derives each package's `contributed` from it (AC1).
-     *
-     * Pure bookkeeping over values already in hand: it is never awaited and never sits between a
-     * failure and its `cleanUp()`.
-     */
-    const assembled: AssembleEntryResult[] = []
-    const recordAssembly = (entries: AssembleEntryResult[]): void => {
-      assembled.push(...entries)
-      diagnostics?.recordAssembly(assembled)
-    }
-
-    for (const [index, entry] of packages.entries()) {
-      if (cancelled) return cancelledOutcome()
-
-      const packageBytes = entry.pkg.sizeBytes
-      const filesRemaining = packages.length - index
-      const extractDir = getBootstrapExtractDir(deps.userDataPath, jobId, entry.pkg.id)
-
-      /**
-       * Story 075 D3 (AC1): what this package contributed. Called at each of this iteration's
-       * exits - the fetch failure, the `mkdir` failure, the extraction failure and the success -
-       * rather than once at the top or the bottom of the loop, because those exits are the whole
-       * point: the 2026-09-08 run got all the way past this loop, and the report still has to name
-       * the package that brought nothing. Pure bookkeeping over values already in hand; it is
-       * never awaited and never sits between a failure and its `cleanUp()`.
-       *
-       * Story 078 D3 (AC8): `listing` is what the extraction produced, and is passed only by the
-       * one exit that has an extraction to describe - every other exit leaves `contents` absent
-       * rather than empty, which is the difference between "it produced nothing" and "it never got
-       * that far".
-       */
-      const recordPackage = (
-        url: string,
-        sizeBytes: number,
-        verified: boolean,
-        extracted: boolean,
-        listing?: { contents: string[]; contentsTruncated: boolean },
-      ): void => {
-        diagnostics?.recordPackage({
-          id: entry.pkg.id,
-          url,
-          sizeBytes,
-          verified,
-          extracted,
-          ...(listing
-            ? {
-                contents: listing.contents,
-                ...(listing.contentsTruncated ? { contentsTruncated: true } : {}),
-              }
-            : {}),
-        })
-      }
-
-      // Download, verify, create `extractDir` (7za is spawned with `cwd: extractDir`) and extract.
-      // The stager publishes the extractor handle with no `await` after its own cancel check, so
-      // `onCancel` can always kill a running 7za.
-      const staged = await stagePackage({
-        source: entry.source,
-        jobId,
-        index,
-        extractDir,
-        userDataPath: deps.userDataPath,
-        signal: controller.signal,
-        onProgress: (receivedBytes) =>
-          report({
-            ratio: packagesProgress(
-              doneBytes,
-              packageBytes,
-              DOWNLOAD_SHARE * (receivedBytes / Math.max(1, packageBytes)),
-            ),
-            bytesDone: doneBytes + receivedBytes,
-            bytesTotal: totalBytes,
-            filesRemaining,
-          }),
-        onExtractProgress: (ratio) =>
-          report({
-            ratio: packagesProgress(
-              doneBytes,
-              packageBytes,
-              DOWNLOAD_SHARE + (1 - DOWNLOAD_SHARE) * (ratio ?? 0),
-            ),
-            bytesDone: doneBytes + packageBytes,
-            bytesTotal: totalBytes,
-            filesRemaining,
-          }),
-        onExtractor: (handle) => {
-          extractor = handle
-        },
-        resolveExtractor: deps.resolveExtractor,
-        download: deps.fetcher.fetch,
-        extract: deps.extractor.extract,
-        options: {
-          ...(deps.fetchImpl ? { fetchImpl: deps.fetchImpl } : {}),
-          ...(jobLog ? { log: jobLog } : {}),
-        },
-      })
-
-      // Before the result, on purpose: a kill that lost the race against 7za's own clean exit must
-      // not turn a cancelled job into a succeeded one. A cancel is not a failure needing a reason,
-      // and the fixed key set has no member for "the user changed their mind" - so it never
-      // surfaces the stager's key.
-      if (cancelled) return cancelledOutcome()
-      if (!staged.ok) {
-        if (staged.cancelled) return cancelledOutcome()
-        if (staged.stage === 'download') {
-          // The URL last attempted - the mirror, when the fallback got that far - and not the
-          // manifest's primary: "where it actually came from" is the useful line in a bug report.
-          // The declared size, since nothing verified arrived.
-          recordPackage(staged.url ?? entry.pkg.url, entry.pkg.sizeBytes, false, false)
-          return failed(staged.key, `${entry.pkg.id}: ${staged.reason}`)
-        }
-        // Past the download, so the archive was verified; it just never got extracted.
-        recordPackage(
-          staged.url ?? entry.pkg.url,
-          staged.sizeBytes ?? entry.pkg.sizeBytes,
-          true,
-          false,
-        )
-        return staged.stage === 'prepare'
-          ? failed(staged.key, staged.reason)
-          : failed(staged.key, `extracting ${entry.pkg.id} failed`)
-      }
-
-      // Story 078 D3 (AC8): the only `await` this story adds to the loop, and deliberately on the
-      // success path only - the failed-extraction exits above have already returned. It cannot
-      // change the job's fate (`listExtraction` never throws) and it cannot move a `cleanUp()`: the
-      // next thing that reads `cancelled` is the loop's own top-of-iteration check, exactly as it
-      // was for a cancel arriving during the extraction itself.
-      const listing = await listExtraction(extractDir, jobLog)
-
-      // Verified by the fetcher and extracted by 7za. Whether it went on to *contribute* anything
-      // is `recordAssembly`'s to say, further down - a package can extract perfectly and still
-      // leave the installation unplayable, which is the failure this story exists for.
-      recordPackage(staged.url, staged.sizeBytes, true, true, listing)
-
-      doneBytes += packageBytes
-      sources.push({ packageId: entry.pkg.id, dir: extractDir, role: entry.role })
-      report({
-        ratio: packagesProgress(doneBytes, 0, 0),
-        bytesDone: doneBytes,
-        bytesTotal: totalBytes,
-        filesRemaining: packages.length - index - 1,
-      })
-    }
-
-    if (cancelled) return cancelledOutcome()
-
-    /**
-     * Story 088 D4 (AC4): the verified retail root joins `sources` as one more `AssembleSource`,
-     * with the `'retail'` role D3's allowlist block is keyed by - so the core pass below copies
-     * pak0/pak1(+pak2) out of it in exactly the place a free-download run copies them out of the
-     * demo/point-release extractions, and therefore strictly before the first revalidation. It is
-     * *main's* path (`copySource.rootPath`, off the list main itself just produced), never the
-     * renderer's string, and it is added after the download loop so nothing about the engine
-     * package's own fetch/extract order changes.
-     */
-    if (copySource) {
-      sources.push({
-        packageId: RETAIL_SOURCE_PACKAGE_ID,
-        dir: copySource.rootPath,
-        role: 'retail',
-      })
-    }
-
-    /**
-     * Story 089 D3 (AC3/AC4/AC7): the picked folder joins `sources` the same way, with the
-     * `'folder'` role, and its *plan* is the pak list the pre-`create()` inspection found there
-     * (`folderPakNames` below) - so a demo folder is planned with the one pak it has and a retail
-     * folder with two or three, without this file re-deciding what "retail" means. Everything else
-     * is shared with the `store-copy` path above: one assemble pass copies the engine payload and
-     * the paks together, strictly before the first revalidation, and every copied file lands in
-     * `copied` for the cleanup exactly as a downloaded one does.
-     *
-     * `folderSource.rootPath` is the very string `inspectGameDataSource` just approved - not a
-     * second reading of `input.copySourcePath` - so the folder that was judged and the folder that
-     * is copied from cannot come apart.
-     */
-    if (folderSource) {
-      sources.push({
-        packageId: FOLDER_SOURCE_PACKAGE_ID,
-        dir: folderSource.rootPath,
-        role: 'folder',
-      })
-    }
-    const folderPakNames = folderSource?.paks.map((pak) => pak.name)
-
-    // 6. Assemble core - the engine payload and the baseq2 paks, allowlisted by 074 D3 and
-    // corrected against the real archives by 076 D1. Declared outside the `try` only so its
-    // `missingRequired` can be read below; a *thrown* assemble is still the local failure it was.
-    // Story 091 D6: the write into the installation's own folder, gated on the guard - deferred for
-    // as long as this installation's own game is running (AC4). `core` escapes the closure the same
-    // way `retail/upgrade-job.ts`'s `writePhase` array does: `runWrite` answers `void`, and
-    // TypeScript's flow analysis does not follow an assignment made inside the callback.
-    let core: AssembleInstallationResult | undefined
-    try {
-      await deps.writeGuard.runWrite(installation.id, jobId, controller.signal, async () => {
-        core = await assembleInstallation({
-          sources,
-          targetRoot,
-          engine: input.engine,
-          scope: 'core',
-          dataSource,
-          ...(folderPakNames ? { folderPakNames } : {}),
-        })
-        for (const file of core.copiedFiles) copied.add(file)
-        recordAssembly(core.entries)
-      })
-    } catch (error) {
-      // AC6: a cancel that arrives while the write is still deferred rejects `runWrite` the same
-      // way a cancel mid-assemble would - the same exit as every other cancel checkpoint here.
-      if (isWriteCancelled(error) || cancelled) return cancelledOutcome()
-      return failed(LOCAL_FAILURE, `assembling ${targetRoot} failed: ${String(error)}`)
-    }
-    if (!core) return failed(LOCAL_FAILURE, `assembling ${targetRoot} produced no result`)
-
-    if (cancelled) return cancelledOutcome()
-    report({ ratio: ASSEMBLE_CORE_RATIO, bytesDone: totalBytes, bytesTotal: totalBytes })
-
-    /**
-     * Story 076 D3 (AC5). A package can download, verify and extract perfectly and still contain
-     * none of the paths one of its *required* allowlist entries accepts - the 2026-09-08 failure,
-     * where the run got all the way to step 9 and reported only "not playable", naming no archive.
-     * Checked here, straight after the pass that knows it and before the first revalidation, so the
-     * job fails on the specific thing that went wrong rather than on the verdict it causes.
-     *
-     * No cancel check of its own: there is no `await` between the one above and this branch, so
-     * `cancelled` cannot have changed, and `failed()` runs the same `cleanUp()` every other failure
-     * exit here runs - this adds a reason, not a second way out.
-     */
-    const [firstMissing] = core.missingRequired
-    if (firstMissing) {
-      // Every missing entry, with the candidate paths that were looked for: `failed()` warns this
-      // through the teed log, so it is what story 075's `DownloadDiagnostics.logTail` carries into
-      // a bug report - and "which paths were expected" is the half that makes it actionable.
-      const reason = core.missingRequired
-        .map((missing) => `role ${missing.role} contributed none of ${missing.from.join(' or ')}`)
-        .join('; ')
-
-      // Story 088 fix cycle (review F1): a `store-copy` run has no manifest package behind its
-      // `'retail'` role - `packages` only ever resolves `engine` (plus `demo`/`point-release` for a
-      // `free-download` run, see `resolvePackages`) - so a `'retail'` miss here means the detected
-      // source verified at the D4 pre-check and then came up empty during the actual copy (moved or
-      // deleted in between). That gets its own key and no `packageId` param, rather than
-      // `PACKAGE_INCOMPLETE` falling back to the literal string `'retail'` and claiming a download
-      // happened when nothing was fetched.
-      if (firstMissing.role === 'retail') {
-        return failed(RETAIL_COPY_INCOMPLETE, `copying retail source into ${targetRoot}: ${reason}`)
-      }
-
-      // Story 089 D3: the same argument for the other copy source. A `'folder'` miss means the
-      // folder `inspectGameDataSource` read a moment ago no longer holds a pak it reported (edited
-      // or emptied out from under the wizard), which is what `GAME_DATA_SOURCE_UNUSABLE` names -
-      // and nothing was downloaded for this role either, so the generic branch below would fall
-      // back to the literal string `'folder'` as a `packageId` and claim a download that never
-      // happened. There is no new pre-job refusal here: AC5's refusal is step 1c's, and this is the
-      // narrow window after it.
-      if (firstMissing.role === 'folder') {
-        return failed(
-          GAME_DATA_SOURCE_UNUSABLE,
-          `copying the chosen folder into ${targetRoot}: ${reason}`,
-        )
-      }
-
-      // `packages` is the role -> `ManifestPackage.id` mapping this file already holds (Decisions
-      // (Sprint): the allowlist entry carries a role, `job.ts` resolves it). Every non-`'retail'`
-      // role in `missingRequired` came from an allowlist entry, so it is always one of the resolved
-      // packages; the role itself is the fallback rather than shipping `undefined` as a param.
-      const packageId =
-        packages.find((entry) => entry.role === firstMissing.role)?.pkg.id ?? firstMissing.role
-      return failed(PACKAGE_INCOMPLETE, `assembling ${targetRoot}: ${reason}`, { packageId })
-    }
-
-    /**
-     * Story 080 D3 (AC5). R1Q2's pinned build imports the x86 VC++ runtime and the archive carries
-     * none of it - a fresh machine without that redistributable installed can have every file on
-     * disk and still be unable to run `r1q2.exe`. Checked here, after the files exist and before
-     * the first revalidation (which cannot see this at all - the files are present, so
-     * `inspectInstallation` would happily call the folder playable), same pattern as the
-     * `missingRequired` check just above: the specific, actionable cause rather than a generic
-     * not-playable verdict.
-     */
-    if (input.engine === 'r1q2') {
-      const runtimePresent = await deps.r1q2Setup.probeX86Runtime()
-      if (cancelled) return cancelledOutcome()
-      if (!runtimePresent) {
-        return failed(MISSING_RUNTIME, `${targetRoot}: the x86 VC++ runtime was not found`)
-      }
-
-      /**
-       * AC4/AC8, right after the runtime check passes: force `vid_ref "r1gl"` on a fresh install
-       * (the pinned package ships `ref_r1gl.dll`, not `ref_gl.dll`, so R1Q2's own `gl` default
-       * would leave a first launch without a renderer) and install the GPLv3 license text
-       * alongside the game files. Both best-effort, like every other piece of bookkeeping in this
-       * file (`removeDir`/`listExtraction`): a failure here is not a reason to fail a bootstrap
-       * whose game files are already correctly assembled.
-       *
-       * Tracked in `copied` like every assembled file: a failed run's cleanup (`removeAssembled`)
-       * has to be able to empty `baseq2` again, or a stray `autoexec.cfg`/license file left behind
-       * would make `computeTargetVerdict` call the folder `alreadyInstalled` on every later retry -
-       * the same folder story 077's adoption flow depends on being fully emptied by a failure.
-       */
-      try {
-        await deps.r1q2Setup.seedR1glConfig(targetRoot)
-        copied.add(join(BASE_GAME_DIR, 'autoexec.cfg'))
-      } catch (error) {
-        jobLog?.warn(`could not seed ${targetRoot}'s r1gl config: ${String(error)}`)
-      }
-      try {
-        await deps.r1q2Setup.installR1q2Notices(targetRoot, deps.resolveR1q2LicensePath(), jobLog)
-        copied.add('LICENSE-r1q2-GPL-3.0.txt')
-      } catch (error) {
-        jobLog?.warn(
-          `could not install R1Q2's license notices into ${targetRoot}: ${String(error)}`,
-        )
-      }
-    }
-
-    // 7. Revalidate. `validate()` re-runs `inspectInstallation` and stores its verdict - this file
-    // never inspects the folder itself and never writes a status.
-    const afterCore = await deps.installations.validate(installation.id)
-    if (!afterCore.ok) {
-      return failed(LOCAL_FAILURE, `revalidating ${installation.id} failed: ${afterCore.error.key}`)
-    }
-    markPlayableIfReady(afterCore.value.status)
-
-    // 8. The optional extras, only now - after the installation is already playable.
-    if (includeVideoAndPlayers) {
-      if (cancelled) return cancelledOutcome()
-      // Story 091 D6: the second write, gated the same way as step 6's.
-      try {
-        await deps.writeGuard.runWrite(installation.id, jobId, controller.signal, async () => {
-          const auxiliary = await assembleInstallation({
-            sources,
-            targetRoot,
-            engine: input.engine,
-            scope: 'extras',
-            dataSource,
-            ...(folderPakNames ? { folderPakNames } : {}),
-          })
-          for (const file of auxiliary.copiedFiles) copied.add(file)
-          recordAssembly(auxiliary.entries)
-        })
-      } catch (error) {
-        if (isWriteCancelled(error) || cancelled) return cancelledOutcome()
-        return failed(
-          LOCAL_FAILURE,
-          `assembling the extras into ${targetRoot} failed: ${String(error)}`,
-        )
-      }
-      if (cancelled) return cancelledOutcome()
-      report({ ratio: ASSEMBLE_AUX_RATIO, bytesDone: totalBytes, bytesTotal: totalBytes })
-    }
-
-    // 9. The last word on the installation's status, again from `inspectInstallation`.
-    const afterAll = await deps.installations.validate(installation.id)
-    if (!afterAll.ok) {
-      return failed(LOCAL_FAILURE, `revalidating ${installation.id} failed: ${afterAll.error.key}`)
-    }
-    markPlayableIfReady(afterAll.value.status)
-
-    if (cancelled) return cancelledOutcome()
-
-    /**
-     * Story 075 D3 (AC2): the inspector's last word on the target, recorded *before* the branch
-     * that acts on it - so the not-playable failure and the success record the same thing and no
-     * later edit to that branch can quietly stop recording it. `severity !== 'ok'` rather than
-     * only `'error'`: a warning ("no write access", "missing mission packs") is exactly the kind
-     * of detail the person reading the report needs, and the record is size-capped anyway
-     * (`capDiagnostics`, `failure-log.ts`). The check's `messageKey` is an i18n key, never prose.
-     */
-    diagnostics?.recordTarget({
-      targetPath: targetRoot,
-      verdict: afterAll.value.status,
-      missingChecks: afterAll.value.checks
-        .filter((check) => check.severity !== 'ok')
-        .map((check) => ({ id: check.id, messageKey: check.messageKey })),
-    })
-
-    if (afterAll.value.status === 'invalid' || afterAll.value.status === 'missing') {
-      // Everything downloaded, verified and copied, and the inspector still says this is not a
-      // usable installation. Succeeding here would hand the user a library entry that cannot
-      // launch; failing runs the same cleanup every other failure does.
-      return failed(NOT_PLAYABLE, `${targetRoot} is still ${afterAll.value.status} after assembly`)
-    }
-
-    /**
-     * Story 092 D2: records the engine build this run just installed - version and manifest
-     * package id only; `bleedingEdge`/`backup` stay unset (there is no per-installation opt-in or
-     * backup yet at bootstrap time). Best-effort like every other piece of bookkeeping in this file
-     * (`setIcon` above): a write that fails here leaves the installation exactly as playable as it
-     * already is, just without a recorded version until the next update job's own write succeeds.
-     */
-    const enginePackage = packages.find((entry) => entry.role === 'engine')
-    if (enginePackage) {
-      const recorded = deps.installations.setEngineState(installation.id, {
-        version: enginePackage.pkg.version,
-        packageId: enginePackage.pkg.id,
-      })
-      if (!recorded.ok) {
-        jobLog?.warn(
-          `bootstrap could not record the engine version on ${installation.id}: ${recorded.error.key}`,
-        )
-      }
-    }
-
-    report({ ratio: 1, bytesDone: totalBytes, bytesTotal: totalBytes, filesRemaining: 0 })
-    // The extracted trees have served their purpose; the verified archives stay in the cache.
-    await removeDir(extractRoot, jobLog)
-    deps.jobs.finish(jobId, { status: 'succeeded' })
-    jobLog?.info(`bootstrapped ${installation.name} into ${targetRoot} (job ${jobId})`)
-    return {
-      status: 'succeeded',
-      installationId: installation.id,
-      installationStatus: afterAll.value.status,
-    }
-  }
-
-  const settled = (async (): Promise<BootstrapOutcome> => {
-    try {
-      return await run()
-    } catch (error) {
-      // Nothing in `run()` is expected to throw; if something does, the job must still end - a
-      // `running` job nobody finishes is worse than a slightly wrong key.
-      if (cancelled) return cancelledOutcome()
-      return failed(LOCAL_FAILURE, `unexpected bootstrap error: ${String(error)}`)
-    }
-  })()
-
-  return ok({ jobId, installationId: installation.id, settled })
+/**
+ * Check params end up in a report the user may paste into an issue: every string value is reduced
+ * to its last path segment so no absolute path (and no account name in it) leaves the machine.
+ * `win32.basename` splits on both `/` and `\`, so a Windows path is reduced on Linux too.
+ */
+function basenameParams(params: Record<string, string | number>): Record<string, string | number> {
+  return Object.fromEntries(
+    Object.entries(params).map(([key, value]) => [
+      key,
+      typeof value === 'string' ? win32.basename(value) : value,
+    ]),
+  )
 }

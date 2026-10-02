@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModInstallRecord } from '@shared/modules/mods'
-import { ok, type Installation, type Job } from '@shared/types'
+import { ok, type Installation } from '@shared/types'
+import { makeJobRunner, type JobRunnerHarness } from '../../../test-support/job-runner'
 import { readModsState } from './install-records'
 import { startModRemove, previewModRemoval, type ModRemoveDeps } from './remove-job'
 
@@ -53,14 +54,13 @@ function record(files: Record<string, string>): ModInstallRecord {
 interface Harness {
   deps: ModRemoveDeps
   installation: Installation
-  finished: { id: string; status: string; error?: Job['error'] }[]
+  jobs: JobRunnerHarness['jobs']
   toasts: unknown[][]
   validate: ReturnType<typeof vi.fn>
   release: () => void
-  guardCalls: string[]
 }
 
-/** `gate` holds the write guard closed until `release()`. */
+/** `gate` keeps the write guard closed (the game is running) until `release()`. */
 function harness(
   rec: ModInstallRecord | undefined,
   opts: { activeGameDir?: string; gate?: boolean; revalidatedActive?: string } = {},
@@ -74,44 +74,23 @@ function harness(
     moduleData: rec ? { mods: { records: [rec] }, other: 1 } : {},
   } as unknown as Installation
   const state = { installation }
-  const finished: Harness['finished'] = []
   const toasts: unknown[][] = []
-  const guardCalls: string[] = []
-  let release = (): void => {}
-  const gate = opts.gate ? new Promise<void>((resolve) => (release = resolve)) : Promise.resolve()
-  const validate = vi.fn(async () =>
-    ok({ ...state.installation, activeGameDir: opts.revalidatedActive ?? '' } as Installation),
-  )
-  const jobs: Job[] = []
+  const job = makeJobRunner({
+    validate: async () =>
+      ok({ ...state.installation, activeGameDir: opts.revalidatedActive ?? '' } as Installation),
+  })
+  if (opts.gate) job.launch.startGame('inst-1')
   const deps: ModRemoveDeps = {
-    jobs: {
-      create: (input) => {
-        const job = { id: `job-${jobs.length + 1}`, status: 'running', ...input } as unknown as Job
-        jobs.push(job)
-        return job
-      },
-      progress: () => {},
-      finish: (id, outcome) => {
-        finished.push({ id, ...outcome })
-      },
-      list: () => jobs,
-    },
+    runner: job.runner,
     installations: {
       find: (id) => (id === state.installation.id ? state.installation : undefined),
-      validate,
+      validate: job.installations.validate,
       setModuleData: (_id, moduleId, value) => {
         state.installation = {
           ...state.installation,
           moduleData: { ...(state.installation.moduleData as object), [moduleId]: value },
         } as Installation
         return ok(state.installation)
-      },
-    },
-    writeGuard: {
-      runWrite: async (_id, jobId, _signal, fn) => {
-        await gate
-        guardCalls.push(jobId)
-        await fn()
       },
     },
     broadcast: { toast: (...args: unknown[]) => toasts.push(args) },
@@ -121,11 +100,10 @@ function harness(
     get installation() {
       return state.installation
     },
-    finished,
+    jobs: job.jobs,
     toasts,
-    validate,
-    release: () => release(),
-    guardCalls,
+    validate: job.installations.validate,
+    release: () => job.launch.exitGame(),
   } as Harness
 }
 
@@ -160,7 +138,7 @@ describe('startModRemove', () => {
     const preview = await previewModRemoval(h.deps, { installationId: 'inst-1', modId: 'other' })
     expect(preview.ok).toBe(false)
     expect(existsSync(join(root, 'rogue', 'pak0.pak'))).toBe(true)
-    expect(h.guardCalls).toEqual([])
+    expect(h.jobs.list()).toEqual([])
   })
 
   it('nothing is deleted before the write guard grants the lock', async () => {
@@ -192,7 +170,7 @@ describe('startModRemove', () => {
     expect(readModsState(h.installation.moduleData).records).toEqual([])
     expect((h.installation.moduleData as Record<string, unknown>).other).toBe(1)
     expect(h.validate).toHaveBeenCalledWith('inst-1')
-    expect(h.finished[0]).toMatchObject({ status: 'succeeded' })
+    expect(h.jobs.list()[0]).toMatchObject({ status: 'succeeded' })
     expect(existsSync(join(root, 'rogue'))).toBe(false)
   })
 
@@ -222,10 +200,14 @@ describe('startModRemove', () => {
     })
     if (!started.ok) throw new Error('expected a started job')
     const outcome = await started.value.settled
-    expect(outcome).toEqual({ status: 'failed', key: 'mods.remove.failed.locked' })
+    expect(outcome).toEqual({
+      status: 'failed',
+      key: 'mods.remove.failed.locked',
+      params: { path: 'maps/x.bsp' },
+    })
     const files = readModsState(h.installation.moduleData).records[0].files.map((f) => f.path)
     expect(files).toEqual(['maps/x.bsp'])
-    expect(h.finished[0].error).toEqual({
+    expect(h.jobs.list()[0].error).toEqual({
       key: 'mods.remove.failed.locked',
       params: { path: 'maps/x.bsp' },
     })
@@ -245,8 +227,39 @@ describe('startModRemove', () => {
       modId: 'rogue',
       changedFiles: 'delete',
     })
-    expect(second).toMatchObject({ ok: false, error: { key: 'mods.remove.refused.busy' } })
+    expect(second).toMatchObject({ ok: false, error: { key: 'jobs.error.installationBusy' } })
     h.release()
     await first.value.settled
+  })
+
+  it('a removal is refused while another job targets the installation', async () => {
+    await seed(FILES)
+    const h = harness(record(FILES))
+    const other = h.jobs.create({
+      moduleId: 'mods',
+      kind: 'mod-install',
+      labelKey: 'mods.job.install',
+      installationId: 'inst-1',
+      cancellable: true,
+    })
+    const refused = { ok: false, error: { key: 'jobs.error.installationBusy' } }
+
+    expect(
+      startModRemove(h.deps, { installationId: 'inst-1', modId: 'rogue', changedFiles: 'delete' }),
+    ).toMatchObject(refused)
+    expect(await previewModRemoval(h.deps, { installationId: 'inst-1', modId: 'rogue' })).toMatchObject(
+      refused,
+    )
+    expect(existsSync(join(root, 'rogue', 'pak0.pak'))).toBe(true)
+    expect(h.jobs.list()).toHaveLength(1)
+
+    h.jobs.finish(other.id, { status: 'succeeded' })
+    const started = startModRemove(h.deps, {
+      installationId: 'inst-1',
+      modId: 'rogue',
+      changedFiles: 'delete',
+    })
+    expect(started.ok).toBe(true)
+    if (started.ok) await started.value.settled
   })
 })

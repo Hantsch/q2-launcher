@@ -19,6 +19,7 @@ import { DetectionService } from './services/detection'
 import { DialogService } from './services/dialog'
 import { deleteStoredIcon, InstallationIconsService } from './services/installation-icons'
 import { InstallationsService } from './services/installations'
+import { JobRunner } from './services/job-runner'
 import { JobsService } from './services/jobs'
 import { LaunchService } from './services/launch'
 import { createDisplaysService, type DisplaysService, type ScreenLike } from './services/displays'
@@ -90,6 +91,8 @@ export interface AppContext {
   jobs: JobsService
   /** Story 091: every job's write phase into an installation folder goes through this. */
   writeGuard: InstallationWriteGuard
+  /** Every module job's lifecycle - admission, cancel, write guard, revalidation, finish. */
+  jobRunner: JobRunner
   modules: MainModuleRegistry
   broadcast: Broadcaster
   /** Story 066 D4: the config-file picker modules reach through `ModuleSetup.app`, never `dialog` directly. */
@@ -192,6 +195,7 @@ export async function createAppContext(options: {
   // Resolved now that the guard exists, reusing its own already-tested `isBlockedFor` predicate
   // (091) rather than duplicating its `phase === 'starting' || phase === 'running'` check here.
   installationIsRunning = (id) => writeGuard!.isBlockedFor(id)
+  const jobRunner = new JobRunner({ jobs, writeGuard, installations, state })
 
   const dialog = new DialogService({
     getMainWindow: options.getMainWindow,
@@ -252,6 +256,7 @@ export async function createAppContext(options: {
     launch,
     jobs,
     writeGuard,
+    jobRunner,
     modules: new MainModuleRegistry(features),
     broadcast,
     dialog,

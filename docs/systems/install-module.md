@@ -317,7 +317,10 @@ stops saying `invalid`/`missing`, even while the job continues.
   writing: extraction and copying into that installation wait for the process to exit and then
   continue on their own, with the reason visible in the UI.
 - **The Downloads tab** shows running jobs, a failure log that persists until dismissed, and the
-  archive cache with its size.
+  archive cache with its size. The failure log covers every module's jobs (there is no module
+  filter), and writing jobs are exclusive per installation: while any job targets an installation,
+  a second writing job on it is refused with `jobs.error.installationBusy`. Every job's lifecycle
+  (cancel, write guard, revalidation, the single finish) is owned by the shared `JobRunner`.
 
 Three settings, in a Settings section the module contributes. Concurrent jobs and download while
 playing are still persisted but shown disabled, with the visible reason "Not available yet:

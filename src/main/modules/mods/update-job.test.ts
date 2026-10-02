@@ -5,12 +5,14 @@ import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DownloadsErrorKey } from '@shared/modules/downloads'
 import type { ModInstallRecord } from '@shared/modules/mods'
-import { fail, ok, type Installation, type Job } from '@shared/types'
+import { fail, ok, type Installation } from '@shared/types'
 import type { BinaryArch } from '../../lib/fs-utils'
-import type { CreateJobInput } from '../../services/jobs'
+import { makeJobRunner } from '../../../test-support/job-runner'
 import { getExtractDir } from '../../services/package-staging'
 import type { StagePackageInput, StagePackageResult } from '../../services/package-staging'
 import type { ModCatalogEntryParsed } from './catalog-schema'
+import { startEngineUpdate } from '../downloads/engine/update-job'
+import { startModInstall } from './install-job'
 import { readModsState } from './install-records'
 import type { ModUpdatePolicy } from './update-plan'
 import {
@@ -124,7 +126,7 @@ async function readTree(dir: string, prefix = ''): Promise<Tree> {
   return out
 }
 
-function harness(options: { stages: StageSpec[]; arch?: BinaryArch; activeJobs?: Job[] }) {
+function harness(options: { stages: StageSpec[]; arch?: BinaryArch }) {
   const installation = {
     id: 'inst1',
     name: 'Quake II',
@@ -138,36 +140,29 @@ function harness(options: { stages: StageSpec[]; arch?: BinaryArch; activeJobs?:
 
   const events: string[] = []
   let inGuard = false
-  const finished: { status: string; error?: Job['error'] }[] = []
-  const jobs = {
-    create: vi.fn((_input: CreateJobInput) => ({ id: 'job1' }) as Job),
-    progress: vi.fn(),
-    finish: vi.fn((_id: string, outcome: { status: string; error?: Job['error'] }) => {
-      finished.push(outcome)
-    }),
-    list: vi.fn(() => options.activeJobs ?? []),
-  }
   const installations = {
     find: (id: string) => (id === installation.id ? installation : undefined),
-    validate: vi.fn(async () => ok(installation)),
+    validate: vi.fn(async (_id: string) => ok(installation)),
     setModuleData: vi.fn((_id: string, moduleId: string, value: unknown) => {
       events.push(inGuard ? 'record-in-guard' : 'record-outside-guard')
       installation.moduleData = { ...installation.moduleData, [moduleId]: value }
       return ok(installation)
     }),
   }
-  const writeGuard = {
-    runWrite: vi.fn(async (_i: string, _j: string, _s: AbortSignal, fn: () => Promise<void>) => {
-      events.push('guard-enter')
-      inGuard = true
-      try {
-        await fn()
-      } finally {
-        inGuard = false
-        events.push('guard-exit')
-      }
-    }),
-  }
+  const { runner, jobs, writeGuard } = makeJobRunner({
+    validate: (id) => installations.validate(id),
+  })
+  const realRunWrite = writeGuard.runWrite.bind(writeGuard)
+  const runWrite = vi.spyOn(writeGuard, 'runWrite').mockImplementation(async (i, j, s, fn) => {
+    events.push('guard-enter')
+    inGuard = true
+    try {
+      await realRunWrite(i, j, s, fn)
+    } finally {
+      inGuard = false
+      events.push('guard-exit')
+    }
+  })
   const stage = vi.fn(async (input: StagePackageInput): Promise<StagePackageResult> => {
     const spec = options.stages[input.index]!
     const extractDir = getExtractDir(input.userDataPath, `${input.jobId}-${input.index}`)
@@ -191,9 +186,8 @@ function harness(options: { stages: StageSpec[]; arch?: BinaryArch; activeJobs?:
   })
 
   const deps: ModUpdateDeps = {
-    jobs,
+    runner,
     installations,
-    writeGuard,
     catalog: {
       getCatalog: async () => ({
         status: 'ok',
@@ -211,6 +205,7 @@ function harness(options: { stages: StageSpec[]; arch?: BinaryArch; activeJobs?:
   }
 
   const records = (): ModInstallRecord[] => readModsState(installation.moduleData).records
+  let lastJobId = ''
   const run = async (changedPolicy: ModUpdatePolicy = 'overwrite') => {
     const started = await startModUpdate(deps, {
       installationId: 'inst1',
@@ -218,17 +213,23 @@ function harness(options: { stages: StageSpec[]; arch?: BinaryArch; activeJobs?:
       changedPolicy,
     })
     if (!started.ok) throw new Error(started.error.key)
+    lastJobId = started.value.jobId
     return started.value.settled
   }
+  /** The terminal state of every job, read from the job list the way the UI sees it. */
+  const finished = () =>
+    jobs.list().map((job) => ({ status: job.status, ...(job.error ? { error: job.error } : {}) }))
   return {
     deps,
+    runner,
     installation,
     jobs,
     installations,
-    writeGuard,
+    writeGuard: { runWrite },
     stage,
     events,
     finished,
+    jobId: () => lastJobId,
     records,
     run,
   }
@@ -256,14 +257,14 @@ describe('startModUpdate', () => {
     })
     const outcome = await h.run()
     expect(outcome.status).toBe('succeeded')
-    expect(h.jobs.create).toHaveBeenCalledWith(
+    expect(h.jobs.list()).toEqual([
       expect.objectContaining({
         kind: 'mod-update',
         labelKey: 'mods.job.update',
         labelParams: { name: 'Fixture Mod', version: '2.0' },
         installationId: 'inst1',
       }),
-    )
+    ])
     expect(h.events).toEqual(['guard-enter', 'record-in-guard', 'guard-exit'])
     expect(await readTree(gameDir)).toEqual({
       'gamex86_64.dll': 'lib-v2',
@@ -289,7 +290,7 @@ describe('startModUpdate', () => {
       fileOf('pak0.pak', 'new-pak'),
       fileOf('readme.txt', 'readme-v2'),
     ])
-    expect(h.finished).toEqual([{ status: 'succeeded' }])
+    expect(h.finished()).toEqual([{ status: 'succeeded' }])
     expect(h.installations.validate).toHaveBeenCalledWith('inst1')
     expect(await slotLeft()).toEqual({})
     expect(await stagingLeft()).toEqual({})
@@ -341,7 +342,7 @@ describe('startModUpdate', () => {
       })
       const outcome = await h.run()
       expect(outcome).toEqual({ status: 'failed', key })
-      expect(h.finished).toEqual([{ status: 'failed', error: { key } }])
+      expect(h.finished()).toEqual([{ status: 'failed', error: { key } }])
       expect(h.writeGuard.runWrite).not.toHaveBeenCalled()
       expect(h.installations.setModuleData).not.toHaveBeenCalled()
       expect(h.records()).toEqual([oldRecord()])
@@ -356,13 +357,13 @@ describe('startModUpdate', () => {
     })
     // `zz.pak` vanishes from staging after planning: its copy fails once `a-new.txt` was created,
     // `pak0.pak` overwritten and the obsolete `maps/old.bsp`/`readme.txt` moved into the slot.
-    h.writeGuard.runWrite.mockImplementationOnce(async (_i, _j, _s, fn) => {
-      await rm(join(getExtractDir(userData, 'job1-0'), 'zz.pak'))
+    h.writeGuard.runWrite.mockImplementationOnce(async (_i, jobId, _s, fn) => {
+      await rm(join(getExtractDir(userData, `${jobId}-0`), 'zz.pak'))
       await fn()
     })
     const outcome = await h.run()
     expect(outcome).toEqual({ status: 'failed', key: 'mods.error.writeFailed' })
-    expect(h.finished).toEqual([{ status: 'failed', error: { key: 'mods.error.writeFailed' } }])
+    expect(h.finished()).toEqual([{ status: 'failed', error: { key: 'mods.error.writeFailed' } }])
     expect(await readTree(gameDir)).toEqual({ ...OLD_FILES, 'maps/': '' })
     expect(h.installations.setModuleData).not.toHaveBeenCalled()
     expect(h.records()).toEqual([oldRecord()])
@@ -418,26 +419,36 @@ describe('startModUpdate', () => {
   })
 
   it('is refused before any job exists when busy, up to date or not recorded', async () => {
-    const busy = harness({
-      stages: [],
-      activeJobs: [
-        {
-          id: 'j0',
-          moduleId: 'mods',
-          kind: 'mods-remove',
-          installationId: 'inst1',
-          status: 'running',
-        } as Job,
-      ],
-    })
+    const busy = harness({ stages: [] })
+    let release!: () => void
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const other = busy.runner.run(
+      {
+        moduleId: 'mods',
+        kind: 'mods-remove',
+        labelKey: 'mods.job.remove',
+        installationId: 'inst1',
+        exclusive: 'installation',
+      },
+      async () => {
+        await held
+        return { status: 'succeeded' }
+      },
+    )
+    expect(other.ok).toBe(true)
     expect(
       await startModUpdate(busy.deps, {
         installationId: 'inst1',
         catalogId: 'fixturemod',
         changedPolicy: 'keep',
       }),
-    ).toEqual(fail('mods.remove.refused.busy'))
-    expect(busy.jobs.create).not.toHaveBeenCalled()
+    ).toEqual(fail('jobs.error.installationBusy'))
+    expect(
+      await previewModUpdate(busy.deps, { installationId: 'inst1', catalogId: 'fixturemod' }),
+    ).toEqual(fail('jobs.error.installationBusy'))
+    expect(busy.jobs.list()).toHaveLength(1)
+    release()
+    if (other.ok) await other.value.settled
 
     const current = harness({ stages: [] })
     current.installation.moduleData = { mods: { records: [{ ...oldRecord(), version: '2.0' }] } }
@@ -458,8 +469,88 @@ describe('startModUpdate', () => {
         changedPolicy: 'keep',
       }),
     ).toEqual(fail('mods.update.refused.noRecord'))
-    expect(current.jobs.create).not.toHaveBeenCalled()
+    expect(current.jobs.list()).toEqual([])
     expect(manual.stage).not.toHaveBeenCalled()
     expect(await readTree(gameDir)).toEqual({ ...OLD_FILES, 'maps/': '' })
+  })
+
+  it('a running mod update refuses a mod install and an engine update', async () => {
+    const h = harness({ stages: [{ files: { 'pak0.pak': 'new-pak' } }] })
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const realStage = h.stage.getMockImplementation()!
+    h.stage.mockImplementationOnce(async (input) => {
+      await gate
+      return realStage(input)
+    })
+    const update = await startModUpdate(h.deps, {
+      installationId: 'inst1',
+      catalogId: 'fixturemod',
+      changedPolicy: 'overwrite',
+    })
+    expect(update.ok).toBe(true)
+
+    // A different mod: the recorded one would be refused as already installed, not as busy.
+    const other = { ...entry, id: 'othermod', gamedir: 'othermod' }
+    const install = await startModInstall(
+      {
+        ...h.deps,
+        jobs: { setWaiting: vi.fn() },
+        askDecision: async () => 'cancel',
+        catalog: {
+          getCatalog: async () => ({
+            status: 'ok',
+            entries: [entry, other],
+            fetchedAt: new Date().toISOString(),
+            fromCache: false,
+            ageMs: 0,
+          }),
+        },
+      },
+      { installationId: 'inst1', catalogId: 'othermod' },
+    )
+    expect(install).toEqual(fail('jobs.error.installationBusy'))
+
+    // Real engine update, past every pre-flight refusal: it is the runner that turns it away.
+    const engineHost = {
+      ...h.installation,
+      moduleData: {
+        ...h.installation.moduleData,
+        downloads: { version: '1.0', packageId: 'q2pro-1.0' },
+      },
+    }
+    const engine = await startEngineUpdate(
+      {
+        runner: h.runner,
+        installations: {
+          find: () => engineHost,
+          validate: h.installations.validate,
+          setEngineState: vi.fn(),
+        },
+        manifest: {
+          resolveEnginePackage: async () => ({
+            kind: 'engine',
+            engine: 'q2pro',
+            id: 'q2pro-2.0',
+            version: '2.0',
+            sizeBytes: 4096,
+            sha256: 'a'.repeat(64),
+            url: 'https://content.example.test/engines/q2pro-2.0.zip',
+            mirrors: [],
+            contents: [],
+          }),
+          resolveGameDataPackage: async () => undefined,
+        },
+        extractor: { extract: vi.fn() },
+        userDataPath: userData,
+        resolveExtractor: () => ({ path: '7za', exists: true }),
+      },
+      { installationId: 'inst1' },
+    )
+    expect(engine).toEqual(fail('jobs.error.installationBusy'))
+    expect(h.jobs.list()).toHaveLength(1)
+
+    release()
+    if (update.ok) expect((await update.value.settled).status).toBe('succeeded')
   })
 })

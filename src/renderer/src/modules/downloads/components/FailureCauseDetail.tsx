@@ -89,7 +89,7 @@ export function FailureCauseDetail({ diagnostics, footer }: FailureCauseDetailPr
                     className="text-xs leading-relaxed text-ink-dim"
                     data-selectable
                   >
-                    {t(check.messageKey)}
+                    {t(check.messageKey, check.params ?? {})}
                   </li>
                 ))}
               </ul>

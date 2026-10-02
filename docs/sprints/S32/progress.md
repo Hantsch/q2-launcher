@@ -386,3 +386,46 @@
 - 2026-10-02 17:05:29 · 220 · review 2 · started
 - 2026-10-02 17:06:48 · 220 · review 2 · done
 - 2026-10-02 17:06:50 · 220 · story · done
+- 2026-10-02 17:07:04 · 219 · build · started
+- 2026-10-02 17:07:24 · 219 · D1 job runner · started
+- 2026-10-02 17:12:37 · 219 · D1 job runner · done
+- 2026-10-02 17:12:37 · 219 · D2 rollback+mods remove · started
+- 2026-10-02 17:17:35 · 219 · D2 rollback+mods remove · done
+- 2026-10-02 17:17:35 · 219 · D3 engine update+repair · started
+- 2026-10-02 17:19:55 · 219 · D3 engine update+repair · done
+- 2026-10-02 17:19:55 · 219 · D4 retail upgrade · started
+- 2026-10-02 17:21:47 · 219 · D4 retail upgrade · done
+- 2026-10-02 17:21:47 · 219 · D5 mods install+update · started
+- 2026-10-02 17:25:46 · 219 · D5 mods install+update · done
+- 2026-10-02 17:25:46 · 219 · D6 bootstrap · started
+- 2026-10-02 17:29:17 · 219 · D6 bootstrap · done
+- 2026-10-02 17:29:17 · 219 · D7 busy refusal flow · started
+- 2026-10-02 17:31:59 · 219 · D7 busy refusal flow · done
+- 2026-10-02 17:31:59 · 219 · D8 failure log all modules · started
+- 2026-10-02 17:34:09 · 219 · D8 failure log all modules · done
+- 2026-10-02 17:34:09 · 219 · D9 failure detail renders params · started
+- 2026-10-02 17:35:03 · 219 · D9 failure detail renders params · done
+- 2026-10-02 17:35:03 · 219 · D10 docs · started
+- 2026-10-02 17:35:48 · 219 · D10 docs · done
+- 2026-10-02 17:35:48 · 219 · verify · started
+- 2026-10-02 17:44:59 · 219 · verify · blocked: mods-install-over-manual red, fixing
+- 2026-10-02 17:44:59 · 219 · D11 fix over-manual · started
+- 2026-10-02 17:49:46 · 219 · D11 fix over-manual · done
+- 2026-10-02 17:49:46 · 219 · verify · done (re-verified flows after fix by D11 agent)
+- 2026-10-02 17:49:46 · 219 · review 1 · started
+- 2026-10-02 17:52:07 · 219 · review 1 · done
+- 2026-10-02 17:52:07 · 219 · review-fix 1 · started
+- 2026-10-02 17:53:31 · 219 · review-fix 1 · done
+- 2026-10-02 17:53:31 · 219 · review 2 (hard) · started
+- 2026-10-02 17:59:44 · 219 · review 2 (hard) · done
+- 2026-10-02 17:59:44 · 219 · review-fix 2 · started
+- 2026-10-02 18:02:52 · 219 · review-fix 2 · done
+- 2026-10-02 18:02:52 · 219 · verify 2 · started
+- 2026-10-02 18:02:52 · 219 · review 3 · started
+- 2026-10-02 18:12:15 · 219 · verify 2 · done
+- 2026-10-02 18:12:15 · 219 · review 3 · done
+- 2026-10-02 18:12:15 · 219 · review-fix 3 · started
+- 2026-10-02 18:13:01 · 219 · review-fix 3 · done
+- 2026-10-02 18:13:01 · 219 · review 4 · started
+- 2026-10-02 18:13:52 · 219 · review 4 · done
+- 2026-10-02 18:13:52 · 219 · story · done

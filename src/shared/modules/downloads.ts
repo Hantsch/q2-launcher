@@ -507,7 +507,12 @@ export interface DownloadDiagnosticsTarget {
   verdict: InstallationStatus
   /** The failing `ValidationCheck`s that made `verdict` what it is - id and i18n `messageKey`,
    * never prose. */
-  missingChecks: { id: ValidationCheckId; messageKey: string }[]
+  missingChecks: {
+    id: ValidationCheckId
+    messageKey: string
+    /** Message params; string values are reduced to their basename so no full path is reported. */
+    params?: Record<string, string | number>
+  }[]
 }
 
 /**

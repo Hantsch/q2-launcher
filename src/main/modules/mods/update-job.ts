@@ -3,15 +3,7 @@ import { copyFile, lstat, mkdir, realpath, rename, rm, rmdir } from 'node:fs/pro
 import { dirname, join, relative, sep } from 'node:path'
 import type { ModInstallFile, ModInstallRecord } from '@shared/modules/mods'
 import { isSafeGameDirName } from '@shared/mods/gamedir'
-import {
-  fail,
-  isJobActive,
-  ok,
-  type Installation,
-  type Job,
-  type JobProgress,
-  type Outcome,
-} from '@shared/types'
+import { fail, ok, type Installation, type Outcome } from '@shared/types'
 import {
   hashFile,
   isInside,
@@ -20,9 +12,15 @@ import {
   plannedDestination,
   resolveRelaxed,
 } from '../../lib/fs-utils'
-import { isWriteCancelled } from '../../services/write-guard'
-import type { ExtractorHandle } from '../../lib/archive/extractor'
 import { getExtractDir } from '../../services/package-staging'
+import {
+  JOB_INSTALLATION_BUSY,
+  JOB_LOCAL_FAILURE,
+  type JobContext,
+  type JobLogHost,
+  type JobOutcome,
+  type StartedJob,
+} from '../ports'
 import type { ModCatalogEntryParsed } from './catalog-schema'
 import {
   collectPackageFiles,
@@ -34,8 +32,6 @@ import {
   stagePackages,
   type ModInstallDeps,
   type ModJobFailureKey,
-  type ModInstallJobsHost,
-  type ModInstallLog,
   type ResolvedModVariant,
 } from './install-job'
 import { isSafeRecordedPath, readModsState, withRecord } from './install-records'
@@ -79,14 +75,9 @@ const INSTALLATION_NOT_FOUND = 'installations.error.notFound'
 const UNKNOWN_MOD = 'mods.error.unknownMod'
 const BAD_PACKAGE = 'mods.error.badPackage'
 const WRITE_FAILED = 'mods.error.writeFailed'
-const BUSY = 'mods.remove.refused.busy'
 const NO_RECORD = 'mods.update.refused.noRecord'
 const UP_TO_DATE = 'mods.update.refused.upToDate'
 const UNSAFE_PATH = 'mods.update.refused.unsafePath'
-const LOCAL_FAILURE = 'mods.error.diskWrite'
-
-/** Any of these running for the installation makes an update busy (and an update makes them busy). */
-const BUSY_KINDS = new Set(['mod-install', 'mods-remove', MOD_UPDATE_JOB_KIND])
 
 /** Stands in for the hash of a recorded file that is changed, unreadable or no longer a regular file. */
 const CHANGED_ON_DISK = 'changed-on-disk'
@@ -94,14 +85,8 @@ const CHANGED_ON_DISK = 'changed-on-disk'
 const STAGE_RATIO = 0.8
 const PLAN_RATIO = 0.85
 
-export interface ModUpdateJobsHost extends Omit<ModInstallJobsHost, 'setWaiting'> {
-  list(): Job[]
-}
-
-/** 190's install deps, minus the decision prompt, plus the job list for the busy check. */
-export type ModUpdateDeps = Omit<ModInstallDeps, 'jobs' | 'askDecision'> & {
-  jobs: ModUpdateJobsHost
-}
+/** 190's install deps, minus the decision prompt: an update never asks. */
+export type ModUpdateDeps = Omit<ModInstallDeps, 'jobs' | 'askDecision'>
 
 export interface ModUpdateRequest {
   installationId: string
@@ -124,24 +109,23 @@ export interface ModUpdatePreview {
 }
 
 /** An update fails like an install, or with one of its own refusal keys. */
-type ModUpdateFailureKey = ModJobFailureKey | typeof INSTALLATION_NOT_FOUND | typeof NO_RECORD | typeof UP_TO_DATE | typeof UNSAFE_PATH
+type ModUpdateFailureKey =
+  | ModJobFailureKey
+  | typeof INSTALLATION_NOT_FOUND
+  | typeof NO_RECORD
+  | typeof UP_TO_DATE
+  | typeof UNSAFE_PATH
 
-export type ModUpdateOutcome =
-  | {
-      status: 'succeeded'
-      gameDir: string
-      version: string
-      files: ModInstallFile[]
-      kept: string[]
-    }
-  | { status: 'failed'; key: ModUpdateFailureKey }
-  | { status: 'cancelled' }
-
-export interface StartedModUpdate {
-  jobId: string
-  /** Resolves once the job is terminal. Never rejects. */
-  settled: Promise<ModUpdateOutcome>
+interface ModUpdateSuccess {
+  gameDir: string
+  version: string
+  files: ModInstallFile[]
+  kept: string[]
 }
+
+export type ModUpdateOutcome = JobOutcome<ModUpdateFailureKey, ModUpdateSuccess>
+
+export type StartedModUpdate = StartedJob<ModUpdateFailureKey, ModUpdateSuccess>
 
 type CatalogVersion = ModCatalogEntryParsed['versions'][number]
 
@@ -151,9 +135,6 @@ interface Resolved {
   entry: ModCatalogEntryParsed
   versionEntry: CatalogVersion
 }
-
-/** Updates in flight, keyed by installation - the job list does not see one before `jobs.create`. */
-const inFlight = new Set<string>()
 
 /** A job id as one safe path segment: no separators, dots or NULs can reach the slot path. */
 function slotKey(jobId: string): string {
@@ -201,22 +182,6 @@ async function resolveUpdate(
   return ok({ installation, record, entry, versionEntry })
 }
 
-/** Synchronous, so the check and `inFlight.add`/`jobs.create` after it cannot interleave with another start. */
-function isBusy(deps: ModUpdateDeps, installationId: string): boolean {
-  return (
-    inFlight.has(installationId) ||
-    deps.jobs
-      .list()
-      .some(
-        (j) =>
-          j.moduleId === 'mods' &&
-          BUSY_KINDS.has(j.kind) &&
-          j.installationId === installationId &&
-          isJobActive(j),
-      )
-  )
-}
-
 /**
  * The disk state of every recorded file, in `planModUpdate`'s terms: absent = gone from disk, the
  * record's own hash = unchanged, {@link CHANGED_ON_DISK} = changed (or unreadable, or not a regular
@@ -246,7 +211,7 @@ export async function previewModUpdate(
   const resolved = await resolveUpdate(deps, request)
   if (!resolved.ok) return resolved
   const { installation, record, entry, versionEntry } = resolved.value
-  if (isBusy(deps, installation.id)) return fail(BUSY)
+  if (deps.runner.isInstallationBusy(installation.id)) return fail(JOB_INSTALLATION_BUSY)
   try {
     const hashes = await recordedDiskHashes(installation.rootPath, record)
     return ok({
@@ -263,7 +228,7 @@ export async function previewModUpdate(
       return fail(UNSAFE_PATH)
     }
     deps.log?.warn(`previewing the update of ${record.catalogId} threw: ${String(error)}`)
-    return fail(LOCAL_FAILURE)
+    return fail(JOB_LOCAL_FAILURE)
   }
 }
 
@@ -285,53 +250,29 @@ export async function startModUpdate(
     return variant
   }
 
-  // From here to `jobs.create` nothing awaits: the busy check and the reservation are one step.
-  if (isBusy(deps, installation.id)) return fail(BUSY)
-  inFlight.add(installation.id)
-
-  const cancellation = new AbortController()
-  let extractor: ExtractorHandle | undefined
-  let job: Job
-  try {
-    job = deps.jobs.create({
+  // The runner's admission check and `jobs.create` share one synchronous turn; no other job may
+  // target the installation while this one replaces the files its record describes.
+  return deps.runner.run<ModUpdateFailureKey, ModUpdateSuccess>(
+    {
       moduleId: 'mods',
       kind: MOD_UPDATE_JOB_KIND,
       labelKey: MOD_UPDATE_JOB_LABEL_KEY,
       labelParams: { name: entry.name, version: versionEntry.version },
       installationId: installation.id,
-      cancellable: true,
-      onCancel: () => {
-        cancellation.abort()
-        extractor?.kill()
-      },
-    })
-  } catch (error) {
-    inFlight.delete(installation.id)
-    throw error
-  }
+      exclusive: 'installation',
+    },
+    (ctx) => runUpdate(deps, ctx, resolved.value, variant.value, input.changedPolicy),
+  )
+}
 
-  const settled = (async (): Promise<ModUpdateOutcome> => {
-    try {
-      return await runUpdate(
-        deps,
-        job.id,
-        resolved.value,
-        variant.value,
-        input.changedPolicy,
-        cancellation.signal,
-        (h) => {
-          extractor = h
-        },
-      )
-    } catch (error) {
-      deps.log?.warn(`updating ${entry.id} threw: ${String(error)}`)
-      deps.jobs.finish(job.id, { status: 'failed', error: { key: LOCAL_FAILURE } })
-      return { status: 'failed', key: LOCAL_FAILURE }
-    } finally {
-      inFlight.delete(installation.id)
-    }
-  })()
-  return ok({ jobId: job.id, settled })
+/** A failure found inside the write; thrown so the body can end the job with its key. */
+class UpdateFailed extends Error {
+  constructor(
+    readonly key: ModUpdateFailureKey,
+    reason: string,
+  ) {
+    super(reason)
+  }
 }
 
 interface NewFile {
@@ -344,27 +285,14 @@ interface NewFile {
 
 async function runUpdate(
   deps: ModUpdateDeps,
-  jobId: string,
-  ctx: Resolved,
+  ctx: JobContext<ModUpdateFailureKey, ModUpdateSuccess>,
+  resolved: Resolved,
   variant: ResolvedModVariant,
   policy: ModUpdatePolicy,
-  signal: AbortSignal,
-  setExtractor: (handle: ExtractorHandle) => void,
 ): Promise<ModUpdateOutcome> {
-  const { installation, entry } = ctx
+  const { installation, entry } = resolved
+  const { jobId, signal } = ctx
   const log = deps.log
-  const report = (progress: JobProgress): void => {
-    if (!signal.aborted) deps.jobs.progress(jobId, progress)
-  }
-  const failed = (key: ModUpdateFailureKey, reason: string): ModUpdateOutcome => {
-    log?.warn(`updating ${entry.id} in ${installation.name} failed with ${key}: ${reason}`)
-    deps.jobs.finish(jobId, { status: 'failed', error: { key } })
-    return { status: 'failed', key }
-  }
-  const cancelledOutcome = (): ModUpdateOutcome => {
-    log?.info(`updating ${entry.id} was cancelled (job ${jobId})`)
-    return { status: 'cancelled' }
-  }
 
   const stagingDirs = variant.sources.map((_, index) =>
     getExtractDir(deps.userDataPath, `${jobId}-${index}`),
@@ -375,7 +303,7 @@ async function runUpdate(
   const bytesTotal = variant.sources.reduce((sum, s) => sum + s.sizeBytes, 0)
 
   try {
-    report({ ratio: 0, bytesDone: 0, bytesTotal })
+    ctx.report({ ratio: 0, bytesDone: 0, bytesTotal })
 
     // Download, verify, extract - before anything in the installation is touched.
     const staged = await stagePackages({
@@ -383,71 +311,69 @@ async function runUpdate(
       jobId,
       sources: variant.sources,
       signal,
-      onExtractor: setExtractor,
+      onExtractor: ctx.setExtractor,
       onProgress: (done) =>
-        report({
+        ctx.report({
           ratio: (done / Math.max(1, bytesTotal)) * STAGE_RATIO,
           bytesDone: done,
           bytesTotal,
         }),
     })
-    if (!staged.ok) return staged.cancelled ? cancelledOutcome() : failed(staged.key, staged.reason)
-    report({ ratio: STAGE_RATIO, bytesDone: bytesTotal, bytesTotal })
+    if (!staged.ok) {
+      return staged.cancelled ? ctx.cancelled() : ctx.fail(staged.key, staged.reason)
+    }
+    ctx.report({ ratio: STAGE_RATIO, bytesDone: bytesTotal, bytesTotal })
 
     const collected = await collectPackageFiles(variant.packages, staged.extractDirs)
-    if (!collected.ok) return failed(BAD_PACKAGE, collected.reason)
+    if (!collected.ok) return ctx.fail(BAD_PACKAGE, collected.reason)
     const newFiles: { rel: string; abs: string; sha256: string; sizeBytes: number }[] = []
     const seen = new Set<string>()
     for (const file of collected.files) {
       const rel = placedGameLibraryName(file.rel)
       const key = rel.toLowerCase()
       if (!isSafeRelative(rel) || !isSafeRecordedPath(rel) || seen.has(key)) {
-        return failed(BAD_PACKAGE, `bad or duplicate ${rel}`)
+        return ctx.fail(BAD_PACKAGE, `bad or duplicate ${rel}`)
       }
       seen.add(key)
       newFiles.push({ rel, abs: file.abs, ...(await hashFile(file.abs)) })
     }
-    if (signal.aborted) return cancelledOutcome()
-    report({ ratio: PLAN_RATIO, bytesDone: bytesTotal, bytesTotal })
+    if (signal.aborted) return ctx.cancelled()
+    ctx.report({ ratio: PLAN_RATIO, bytesDone: bytesTotal, bytesTotal })
 
-    const writePhase: ModUpdateOutcome[] = []
+    let updated: ModUpdateSuccess | undefined
+    let result: 'done' | 'cancelled'
     try {
-      await deps.writeGuard.runWrite(installation.id, jobId, signal, async () => {
-        writePhase.push(
-          await applyUpdate({
-            deps,
-            ctx,
-            variant,
-            newFiles,
-            policy,
-            slot,
-            signal,
-            failed,
-            cancelled: cancelledOutcome,
-            onRestoreIncomplete: () => {
-              keepSlot = true
-            },
-            log,
-          }),
-        )
+      result = await ctx.write(installation.id, async () => {
+        const applied = await applyUpdate({
+          deps,
+          ctx: resolved,
+          variant,
+          newFiles,
+          policy,
+          slot,
+          signal,
+          onRestoreIncomplete: () => {
+            keepSlot = true
+          },
+          log,
+        })
+        if (applied !== 'cancelled') updated = applied
       })
     } catch (error) {
-      if (isWriteCancelled(error) || signal.aborted) return cancelledOutcome()
+      if (error instanceof UpdateFailed) return ctx.fail(error.key, error.message)
       throw error
     }
-    const outcome = writePhase[0]
-    if (!outcome || outcome.status !== 'succeeded') return outcome ?? cancelledOutcome()
+    if (result === 'cancelled' || !updated) return ctx.cancelled()
 
-    const revalidated = await deps.installations.validate(installation.id)
+    const revalidated = await ctx.revalidate(installation.id)
     if (!revalidated.ok)
       log?.warn(`revalidating ${installation.id} after updating ${entry.id} failed`)
 
-    report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
-    deps.jobs.finish(jobId, { status: 'succeeded' })
+    ctx.report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
     log?.info(
-      `updated ${entry.id} to ${outcome.version} in ${installation.name} (${outcome.files.length} files)`,
+      `updated ${entry.id} to ${updated.version} in ${installation.name} (${updated.files.length} files)`,
     )
-    return outcome
+    return { status: 'succeeded', ...updated }
   } finally {
     for (const dir of stagingDirs) {
       await rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 }).catch(
@@ -479,35 +405,36 @@ async function applyUpdate(args: {
   policy: ModUpdatePolicy
   slot: string
   signal: AbortSignal
-  failed: (key: ModUpdateFailureKey, reason: string) => ModUpdateOutcome
-  cancelled: () => ModUpdateOutcome
   onRestoreIncomplete: () => void
-  log: ModInstallLog | undefined
-}): Promise<ModUpdateOutcome> {
-  const { deps, ctx, variant, policy, slot, signal, failed, log } = args
+  log: JobLogHost | undefined
+}): Promise<ModUpdateSuccess | 'cancelled'> {
+  const { deps, ctx, variant, policy, slot, signal, log } = args
   const installationId = ctx.installation.id
 
   // Re-read inside the guard: whatever waited before this may have changed or removed the record.
   const current = deps.installations.find(installationId)
-  if (!current) return failed(INSTALLATION_NOT_FOUND, `${installationId} disappeared`)
+  if (!current) throw new UpdateFailed(INSTALLATION_NOT_FOUND, `${installationId} disappeared`)
   const record = readModsState(current.moduleData).records.find((r) => r.catalogId === ctx.entry.id)
   if (!record || record.gameDir.toLowerCase() !== ctx.record.gameDir.toLowerCase()) {
-    return failed(NO_RECORD, `the record of ${ctx.entry.id} changed while the update waited`)
+    throw new UpdateFailed(
+      NO_RECORD,
+      `the record of ${ctx.entry.id} changed while the update waited`,
+    )
   }
   if (record.version === ctx.versionEntry.version)
-    return failed(UP_TO_DATE, `${record.version} is already installed`)
+    throw new UpdateFailed(UP_TO_DATE, `${record.version} is already installed`)
   if (
     !isSafeGameDirName(record.gameDir) ||
     !record.files.every((f) => isSafeRecordedPath(f.path))
   ) {
-    return failed(UNSAFE_PATH, `record of ${record.gameDir} holds an unsafe path`)
+    throw new UpdateFailed(UNSAFE_PATH, `record of ${record.gameDir} holds an unsafe path`)
   }
 
   let diskHashes: Map<string, string>
   try {
     diskHashes = await recordedDiskHashes(current.rootPath, record)
   } catch (error) {
-    if (error instanceof RemovalRefusedError) return failed(UNSAFE_PATH, error.detail)
+    if (error instanceof RemovalRefusedError) throw new UpdateFailed(UNSAFE_PATH, error.detail)
     throw error
   }
 
@@ -597,7 +524,7 @@ async function applyUpdate(args: {
     for (const path of toMove) {
       if (signal.aborted) {
         await restore()
-        return args.cancelled()
+        return 'cancelled'
       }
       const target = await recordedTarget(path)
       const info = await lstat(target)
@@ -614,7 +541,7 @@ async function applyUpdate(args: {
     for (const file of toWrite) {
       if (signal.aborted) {
         await restore()
-        return args.cancelled()
+        return 'cancelled'
       }
       const dest = await plannedDestination(realGameDir, file.path)
       if (!isStrictlyInside(dest, realGameDir)) throw new Error(`${dest} leaves ${realGameDir}`)
@@ -684,7 +611,6 @@ async function applyUpdate(args: {
     }
 
     return {
-      status: 'succeeded',
       gameDir: record.gameDir,
       version: next.version,
       files,
@@ -692,6 +618,6 @@ async function applyUpdate(args: {
     }
   } catch (error) {
     await restore()
-    return failed(WRITE_FAILED, String(error))
+    throw new UpdateFailed(WRITE_FAILED, String(error))
   }
 }

@@ -90,6 +90,10 @@ const downloadDiagnosticsTargetSchema = z.object({
         'write-access',
       ]),
       messageKey: z.string().min(1),
+      params: z
+        .record(z.string(), z.union([z.string(), z.number()]))
+        .optional()
+        .catch(undefined),
     }),
   ),
 })

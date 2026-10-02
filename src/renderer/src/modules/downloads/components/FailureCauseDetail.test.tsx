@@ -4,6 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { DownloadDiagnostics } from '@shared/modules/downloads'
 import { initI18n } from '../../../i18n'
+import en from '../../../i18n/locales/en.json'
 import { FailureCauseDetail } from './FailureCauseDetail'
 
 /**
@@ -131,6 +132,40 @@ describe('FailureCauseDetail', () => {
         'pak0.pak is missing, but other pak files are present. This may be a repacked or remastered install.',
       ),
     ).toBeTruthy()
+  })
+
+  it('every validation key renders with its params and no placeholder', () => {
+    const leaves: [string, string][] = []
+    const walk = (node: unknown, path: string): void => {
+      if (typeof node === 'string') leaves.push([path, node])
+      else if (node && typeof node === 'object') {
+        for (const [k, v] of Object.entries(node)) walk(v, `${path}.${k}`)
+      }
+    }
+    for (const [k, v] of Object.entries(en.validation)) {
+      if (k !== 'fix') walk(v, `validation.${k}`)
+    }
+    expect(leaves.length).toBeGreaterThan(0)
+
+    for (const [key, text] of leaves) {
+      const params = Object.fromEntries(
+        [...text.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((m) => [m[1], 'value']),
+      )
+      const diagnostics = makeDiagnostics({
+        target: {
+          targetPath: 'D:/Games/Quake II',
+          verdict: 'invalid',
+          missingChecks: [{ id: 'base-paks', messageKey: key, params }],
+        },
+      })
+
+      render(createElement(FailureCauseDetail, { diagnostics }))
+      const item = document.querySelector('details li')
+
+      expect(item?.textContent, key).toBeTruthy()
+      expect(item?.textContent, key).not.toContain('{{')
+      cleanup()
+    }
   })
 
   it('the detail is closed on first render', () => {

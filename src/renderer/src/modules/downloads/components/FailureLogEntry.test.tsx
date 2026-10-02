@@ -210,3 +210,17 @@ describe('FailureLogEntry diagnostic actions', () => {
     expect(card.textContent).not.toContain('D:\\Games\\Quake II')
   })
 })
+
+describe('FailureLogEntry failure reasons', () => {
+  it.each(['mods.error.writeFailed', 'jobs.error.installationBusy'])(
+    'a failed mod job shows its own failure reason (%s)',
+    (key) => {
+      renderEntry(makeFailure({ labelKey: 'downloads.job.bootstrap', error: { key } }))
+
+      const expected = i18next.t(key)
+      expect(expected).not.toBe(key)
+      expect(screen.getByText(expected)).toBeTruthy()
+      expect(screen.queryByText(i18next.t('downloads.error.unknown'))).toBeNull()
+    },
+  )
+})

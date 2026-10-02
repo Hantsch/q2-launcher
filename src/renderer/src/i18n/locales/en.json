@@ -733,7 +733,6 @@
       "noVariant": "This mod has no build for your engine.",
       "badPackage": "The mod's download is not usable.",
       "writeFailed": "Could not write the mod's files. Nothing was changed.",
-      "diskWrite": "The file could not be written to disk. Check your available space and try again.",
       "noPendingDecision": "This install is no longer waiting for an answer."
     },
     "update": {
@@ -764,7 +763,6 @@
       "confirm": "Remove",
       "refused": {
         "noRecord": "The launcher did not install this mod, so it will not remove it.",
-        "busy": "Another job is already working on this mod.",
         "unsafePath": "The install record points outside the mod folder. Nothing was removed."
       },
       "failed": {
@@ -3263,7 +3261,8 @@
     },
     "error": {
       "notFound": "That job has already finished.",
-      "notCancellable": "This job cannot be cancelled."
+      "notCancellable": "This job cannot be cancelled.",
+      "installationBusy": "Another job is changing this installation. Try again when it has finished."
     },
     "waiting": {
       "gameRunning": "Waiting for the game to close"

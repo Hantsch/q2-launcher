@@ -1,19 +1,20 @@
 import { rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
-import type { DetectedRetailSource, StartRetailUpgradeInput } from '@shared/modules/downloads'
+import type {
+  DetectedRetailSource,
+  DownloadsErrorKey,
+  StartRetailUpgradeInput,
+} from '@shared/modules/downloads'
 import {
   fail,
   ok,
   type Installation,
   type InstallationStatus,
-  type Job,
-  type JobProgress,
   type Outcome,
 } from '@shared/types'
 import { canonicalizePath, findChild, resolveRelaxed } from '../../../lib/fs-utils'
-import type { CreateJobInput } from '../../../services/jobs'
-import { isWriteCancelled } from '../../../services/write-guard'
+import type { JobContext, JobOutcome, JobRunnerHost, StartedJob } from '../../ports'
 import type { AssembleInstallationResult } from '../bootstrap/assemble'
 import {
   INSTALLATION_NOT_FOUND,
@@ -31,9 +32,9 @@ import { copyRetailGameData, findDetectedRetailSource } from '../bootstrap/retai
  * replace its game data with `pak0.pak`/`pak1.pak` copied out of a store installation the launcher
  * itself detected", without re-running the wizard and without re-downloading the engine (INST-D4).
  *
- * Shaped after `bootstrap/job.ts` - a `JobsService` job with a cancel callback, a `report()` that
- * goes silent once cancelled, one `failed()` exit, and `downloads.error.*` keys instead of prose
- * (CLAUDE.md). What it is *not* is a call into that job: nothing here routes through
+ * A body on the shared `JobRunner`, which owns admission (one job per installation), cancellation,
+ * the write guard and the closing revalidation; failures are `downloads.error.*` keys instead of
+ * prose (CLAUDE.md). What it is *not* is a call into that job: nothing here routes through
  * `startBootstrap`, so the two-pass extras logic that re-copies the whole allowlist a second time
  * (story 088's finding F6, `job.ts` steps 7-8) is unreachable from this file. This story copies
  * with `includeVideoAndPlayers: false` always (Decisions (Sprint): "paks only"), which is the one
@@ -56,28 +57,19 @@ import { copyRetailGameData, findDetectedRetailSource } from '../bootstrap/retai
  * `jobs.create`** - so a refusal leaves no job, no progress bar, no failure-log entry, and (AC6)
  * nothing copied.
  *
- * 3. **Copy, then rename** (AC4), behind [[091]]'s write guard. See `runUpgrade` below.
+ * 3. **Copy, then rename** (AC4), behind the write guard. See `runUpgrade` below.
  * 4. **`InstallationsService.validate(id)`** (AC5). This file never writes a status, never touches
  *    `Installation.source`, and has no way to: `RetailUpgradeInstallationsHost` exposes exactly
  *    `find` and `validate`, so "the status is re-derived, never hand-set" is checkable by reading
  *    the type rather than the whole flow.
  *
- * ## The write waits, it does not refuse (story 091 D4)
+ * ## The write waits, it does not refuse
  *
- * [[090]] shipped a pre-`jobs.create` refusal between steps 1 and 2: while that installation's own
- * game was running, `startRetailUpgrade` answered `INSTALLATION_RUNNING` and no job existed.
- * [[091]] removes it, because that refusal is now one job kind disagreeing with every other one -
- * the launcher has a single seam for "no job writes into an installation while its game runs"
- * (`InstallationWriteGuard`, `services/write-guard.ts`, INST-J7), and that seam *defers* the write
- * rather than rejecting the user's action. 090's AC7 ("rather than overwriting files out from under
- * a running game") is satisfied strictly better by waiting: the upgrade happens, just not yet.
- *
- * So the job is now always created, and `runUpgrade` runs its copy+promote block inside
- * `writeGuard.runWrite(...)`. Everything before that block - resolving the installation, re-listing
- * and re-verifying the source, resolving the base directory - only reads, and reading is never
- * gated (AC4). Cancellation is the job's own `AbortSignal`, handed to `runWrite`, so a cancel while
- * the write is still deferred comes back out of the same `catch` as a cancel mid-copy and leaves
- * through the same `finally` (AC6) - waiting is not a special case for cancel.
+ * While that installation's own game runs the job is still created; only its copy+promote block
+ * runs inside `ctx.write(...)`, which defers it until the game exits. Everything before that block -
+ * resolving the installation, re-listing and re-verifying the source, resolving the base directory -
+ * only reads, and reading is never gated. A cancel while the write is deferred and a cancel
+ * mid-copy leave through the same `finally`.
  *
  * ## Why a staging directory rather than `<baseDir>/<name>.part`
  *
@@ -130,28 +122,14 @@ const STAGING_DIR_PREFIX = '.q2launcher-upgrade-'
 /** The job's progress coordinate once the copy is done and only the renames are left. */
 const COPY_DONE_RATIO = 0.95
 
+interface UpgradeSuccess {
+  installationStatus: InstallationStatus
+}
+
 /** What became of one upgrade. A one-shot value, never a second status source next to the job. */
-export type RetailUpgradeOutcome =
-  | { status: 'succeeded'; installationStatus: InstallationStatus }
-  | { status: 'failed'; key: string }
-  | { status: 'cancelled' }
+export type RetailUpgradeOutcome = JobOutcome<DownloadsErrorKey, UpgradeSuccess>
 
-export interface StartedRetailUpgrade {
-  /** The `Job.id` - what `jobs:cancel` takes, and what the UI renders. */
-  jobId: string
-  /** Resolves once the job has reached a terminal state. Never rejects. */
-  settled: Promise<RetailUpgradeOutcome>
-}
-
-/** The `JobsService` surface this job uses. `JobsService` satisfies it structurally. */
-export interface RetailUpgradeJobsHost {
-  create(input: CreateJobInput): Job
-  progress(id: string, progress: JobProgress): void
-  finish(
-    id: string,
-    outcome: { status: 'succeeded' | 'failed' | 'cancelled'; error?: Job['error'] },
-  ): void
-}
+export type StartedRetailUpgrade = StartedJob<DownloadsErrorKey, UpgradeSuccess>
 
 /**
  * The `InstallationsService` surface this job uses. Two methods, and deliberately neither `update`
@@ -164,21 +142,6 @@ export interface RetailUpgradeInstallationsHost {
   validate(id: string): Promise<Outcome<Installation>>
 }
 
-/**
- * The `InstallationWriteGuard` surface this job uses (story 091 D4) - `runWrite` only.
- * `InstallationWriteGuard` satisfies it structurally, so this job cannot reach past the one seam
- * into `isBlockedFor`/`isWriting` and decide for itself whether to wait: that decision, the
- * `'waiting'` status and the write lock all belong to the guard.
- */
-export interface RetailUpgradeWriteGuardHost {
-  runWrite(
-    installationId: string,
-    jobId: string,
-    signal: AbortSignal,
-    fn: () => Promise<void>,
-  ): Promise<void>
-}
-
 /** [[088]]'s copy routine, as this job reaches it. Injected so a test can drive the job without
  * moving 197 MB; production passes nothing and gets `copyRetailGameData` itself. */
 export type RetailGameDataCopy = (input: {
@@ -188,14 +151,8 @@ export type RetailGameDataCopy = (input: {
 }) => Promise<AssembleInstallationResult>
 
 export interface RetailUpgradeDeps {
-  jobs: RetailUpgradeJobsHost
+  runner: JobRunnerHost
   installations: RetailUpgradeInstallationsHost
-  /**
-   * Story 091 D4: the shell's `InstallationWriteGuard`. Required, like `retailSources` below and
-   * for the same reason - a wiring that forgot it would copy 197 MB over a live game's pak files,
-   * so its absence has to be a compile error rather than an ungated run.
-   */
-  writeGuard: RetailUpgradeWriteGuardHost
   /**
    * Main's own, freshly computed list of detected retail sources - `detectedRetailSourcesFor(app)`
    * (`retail/sources.ts`) in production, the same resolution the wizard's picker and the bootstrap
@@ -243,44 +200,17 @@ export async function startRetailUpgrade(
   const source = verified.value
 
   // From here on there is work to cancel, so from here on there is a job.
-  //
-  // Story 091 D4: one `AbortController` is the whole of this job's cancellation now. `onCancel`
-  // aborts it, and its signal is both what the checkpoints below read (`signal.aborted`) and what
-  // `writeGuard.runWrite` waits on - so a cancel that arrives while the write is deferred and a
-  // cancel that arrives mid-copy are the same event, seen by the same object. A second boolean
-  // beside it would be a second answer to "was this cancelled" that could disagree.
-  const cancellation = new AbortController()
-  const job = deps.jobs.create({
-    moduleId: 'downloads',
-    kind: RETAIL_UPGRADE_JOB_KIND,
-    labelKey: RETAIL_UPGRADE_JOB_LABEL_KEY,
-    labelParams: { name: installation.name },
-    installationId: installation.id,
-    cancellable: true,
-    onCancel: () => {
-      cancellation.abort()
+  return deps.runner.run<DownloadsErrorKey, UpgradeSuccess>(
+    {
+      moduleId: 'downloads',
+      kind: RETAIL_UPGRADE_JOB_KIND,
+      labelKey: RETAIL_UPGRADE_JOB_LABEL_KEY,
+      labelParams: { name: installation.name },
+      installationId: installation.id,
+      exclusive: 'installation',
     },
-  })
-
-  const settled = (async (): Promise<RetailUpgradeOutcome> => {
-    try {
-      return await runUpgrade({
-        deps,
-        job,
-        installation,
-        source,
-        signal: cancellation.signal,
-      })
-    } catch (error) {
-      // Nothing in `runUpgrade` is expected to throw; if something does, the job must still end -
-      // an unfinished job would sit in the Downloads tab forever.
-      log?.warn(`the upgrade of ${installation.name} threw: ${String(error)}`)
-      deps.jobs.finish(job.id, { status: 'failed', error: { key: LOCAL_FAILURE } })
-      return { status: 'failed', key: LOCAL_FAILURE }
-    }
-  })()
-
-  return ok({ jobId: job.id, settled })
+    (ctx) => runUpgrade(ctx, { deps, installation, source }),
+  )
 }
 
 /**
@@ -319,49 +249,39 @@ async function verifyUpgradeSource(
   return ok(match)
 }
 
+
+/** A write-phase step that failed; thrown inside the write so the body can end the job with its reason. */
+class UpgradeRefused extends Error {
+  constructor(
+    readonly key: DownloadsErrorKey,
+    reason: string,
+  ) {
+    super(reason)
+  }
+}
+
 /**
  * Steps 3-4: copy into a staging directory, promote exactly `pak0.pak`/`pak1.pak` by rename, then
  * let the inspector have the last word. Split out of `startRetailUpgrade` so the pre-flight
  * refusals above and the job's own body read as two separate things, which is what they are: the
  * first two steps can still answer the caller, everything here can only answer the `Job`.
  */
-async function runUpgrade(args: {
-  deps: RetailUpgradeDeps
-  job: Job
-  installation: Installation
-  source: DetectedRetailSource
-  /** The job's `onCancel` controller (story 091 D4) - see `startRetailUpgrade`. */
-  signal: AbortSignal
-}): Promise<RetailUpgradeOutcome> {
-  const { deps, job, installation, source, signal } = args
+async function runUpgrade(
+  ctx: JobContext<DownloadsErrorKey, UpgradeSuccess>,
+  args: { deps: RetailUpgradeDeps; installation: Installation; source: DetectedRetailSource },
+): Promise<RetailUpgradeOutcome> {
+  const { deps, installation, source } = args
   const log = deps.log
-  const jobId = job.id
-
-  /** The single reading of "was this job cancelled", for every checkpoint below. */
-  const isCancelled = (): boolean => signal.aborted
-
-  /** Every progress report in this file. Silent once cancelled, because `JobsService.progress()`
-   * unconditionally sets `status: 'running'` and would otherwise resurrect a cancelled job. */
-  const report = (progress: JobProgress): void => {
-    if (isCancelled()) return
-    deps.jobs.progress(jobId, progress)
-  }
-
-  /** The one failing exit: log the (prose) reason, end the job with the i18n key. */
-  const failed = (key: string, reason: string): RetailUpgradeOutcome => {
-    log?.warn(`the upgrade of ${installation.name} failed with ${key}: ${reason}`)
-    deps.jobs.finish(jobId, { status: 'failed', error: { key } })
-    return { status: 'failed', key }
-  }
+  const jobId = ctx.jobId
 
   /** `jobs.cancel()` has already finished the job as cancelled; nothing more to report. */
-  const cancelledOutcome = (): RetailUpgradeOutcome => {
+  const cancelled = (): RetailUpgradeOutcome => {
     log?.info(`the upgrade of ${installation.name} was cancelled (job ${jobId})`)
-    return { status: 'cancelled' }
+    return ctx.cancelled()
   }
 
   const bytesTotal = UPGRADE_PAK_NAMES.reduce((total, name) => total + RETAIL_PAK_SIZES[name], 0)
-  report({ ratio: null, bytesDone: 0, bytesTotal, filesRemaining: UPGRADE_PAK_NAMES.length })
+  ctx.report({ ratio: null, bytesDone: 0, bytesTotal, filesRemaining: UPGRADE_PAK_NAMES.length })
 
   /**
    * The base directory, resolved case-insensitively exactly the way `inspector.ts` resolves it
@@ -372,7 +292,7 @@ async function runUpgrade(args: {
    */
   const baseDir = await resolveRelaxed(installation.rootPath, BASE_GAME_DIR)
   if (baseDir === null) {
-    return failed(
+    return ctx.fail(
       LOCAL_FAILURE,
       `${installation.rootPath} has no ${BASE_GAME_DIR} directory to upgrade`,
     )
@@ -382,20 +302,16 @@ async function runUpgrade(args: {
 
   /**
    * Everything this job writes into the installation's own folder, and nothing else - which is
-   * exactly the extent story 091's write guard is wrapped around below. The staging directory is
-   * part of it rather than an ungated "download into the cache": it is carved out of the
-   * installation's `baseq2` (see the module comment on why it has to be), so creating it is already
-   * a write into the folder a running game owns.
-   *
-   * Answers `null` for "keep going" and a `RetailUpgradeOutcome` for "this run is over" - the same
-   * early exits as before, unchanged; `runWrite` only takes a `() => Promise<void>`, so its caller
-   * below carries the value back out.
+   * exactly the extent of the write guard. The staging directory is part of it rather than an
+   * ungated "download into the cache": it is carved out of the installation's `baseq2` (see the
+   * module comment on why it has to be), so creating it is already a write into the folder a running
+   * game owns. A failure is thrown as `UpgradeRefused`; a cancel returns early and `ctx.write`
+   * reports it.
    */
-  const copyAndPromote = async (): Promise<RetailUpgradeOutcome | null> => {
+  const copyAndPromote = async (): Promise<void> => {
     // 3a. [[088]]'s copy routine, into this job's own staging directory. `includeVideoAndPlayers`
-    // is false, always (Decisions (Sprint): "paks only"), which is also what keeps this run clear
-    // of the extras pass that re-copies a whole plan (story 088's finding F6) - that pass lives in
-    // `bootstrap/job.ts` and is gated on this flag; nothing here calls into it either way.
+    // is false, always (paks only), which is also what keeps this run clear of the extras pass that
+    // re-copies a whole plan - that pass lives in `bootstrap/job.ts` and is gated on this flag.
     const copy = deps.copyGameData ?? copyRetailGameData
     let copied: AssembleInstallationResult
     try {
@@ -405,15 +321,18 @@ async function runUpgrade(args: {
         includeVideoAndPlayers: false,
       })
     } catch (error) {
-      return failed(LOCAL_FAILURE, `copying from ${source.rootPath} failed: ${String(error)}`)
+      throw new UpgradeRefused(
+        LOCAL_FAILURE,
+        `copying from ${source.rootPath} failed: ${String(error)}`,
+      )
     }
 
-    if (isCancelled()) return cancelledOutcome()
+    if (ctx.signal.aborted) return
 
     // The source verified as retail moments ago and could still have been moved, unplugged or
-    // emptied since - the same window `RETAIL_COPY_INCOMPLETE` was minted for in [[088]].
+    // emptied since - the same window `RETAIL_COPY_INCOMPLETE` was minted for.
     if (copied.missingRequired.length > 0) {
-      return failed(
+      throw new UpgradeRefused(
         RETAIL_COPY_INCOMPLETE,
         `${source.rootPath} no longer provided ${copied.missingRequired.map((entry) => entry.from.join('|')).join(', ')}`,
       )
@@ -426,18 +345,18 @@ async function runUpgrade(args: {
     }))
     const missing = staged.filter((entry) => !copied.copiedFiles.includes(entry.relative))
     if (missing.length > 0) {
-      return failed(
+      throw new UpgradeRefused(
         RETAIL_COPY_INCOMPLETE,
         `the copy produced no ${missing.map((entry) => entry.name).join(', ')}`,
       )
     }
 
-    report({ ratio: COPY_DONE_RATIO, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
+    ctx.report({ ratio: COPY_DONE_RATIO, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
 
     // 3b. The point of no return, and the last place a cancel is honoured: once the first rename
     // has landed, the second one has to follow, or the installation is left with a retail
     // `pak0.pak` and a demo-era `pak1.pak` - a state no later run would notice as half-done.
-    if (isCancelled()) return cancelledOutcome()
+    if (ctx.signal.aborted) return
 
     for (const entry of staged) {
       // Promote onto the file that is actually there, by its real spelling: a `PAK0.PAK` next to a
@@ -450,47 +369,31 @@ async function runUpgrade(args: {
       try {
         await rename(entry.from, target)
       } catch (error) {
-        return failed(
+        throw new UpgradeRefused(
           LOCAL_FAILURE,
           `renaming ${entry.from} onto ${target} failed: ${String(error)}`,
         )
       }
     }
-
-    return null
   }
 
   try {
-    if (isCancelled()) return cancelledOutcome()
+    if (ctx.signal.aborted) return cancelled()
 
-    /**
-     * Story 091 D4 (AC5's retrofit): the write phase, and only the write phase, runs with the
-     * installation's write lock held - deferred for as long as that installation's own game is
-     * running, and resumed by the guard when it exits. A one-slot list rather than a `let`, because
-     * `runWrite` answers `void` and TypeScript's flow analysis does not follow an assignment made
-     * inside the callback.
-     */
-    const writePhase: RetailUpgradeOutcome[] = []
+    let written: 'done' | 'cancelled'
     try {
-      await deps.writeGuard.runWrite(installation.id, jobId, signal, async () => {
-        const outcome = await copyAndPromote()
-        if (outcome) writePhase.push(outcome)
-      })
+      written = await ctx.write(installation.id, copyAndPromote)
     } catch (error) {
-      // AC6: the one new way out. `runWrite` rejects when the job was cancelled while its write was
-      // still deferred - the same cancellation the checkpoints inside `copyAndPromote` answer, so
-      // it takes the same exit, through the same `finally` below. Anything else is a real failure
-      // and keeps travelling to `startRetailUpgrade`'s catch, exactly as it did before.
-      if (isWriteCancelled(error) || isCancelled()) return cancelledOutcome()
+      if (error instanceof UpgradeRefused) return ctx.fail(error.key, error.message)
       throw error
     }
-    if (writePhase.length > 0) return writePhase[0]
+    if (written === 'cancelled') return cancelled()
 
-    // 4. AC5: the status is whatever `inspectInstallation` now makes of the folder. This file never
+    // 4. The status is whatever `inspectInstallation` now makes of the folder. This file never
     // writes one, and `RetailUpgradeInstallationsHost` gives it no way to.
-    const revalidated = await deps.installations.validate(installation.id)
+    const revalidated = await ctx.revalidate(installation.id)
     if (!revalidated.ok) {
-      return failed(
+      return ctx.fail(
         LOCAL_FAILURE,
         `revalidating ${installation.id} failed: ${revalidated.error.key}`,
       )
@@ -501,14 +404,13 @@ async function runUpgrade(args: {
       // Succeeding here would tell the user the upgrade worked while the library shows a broken
       // entry; the files stay either way - they are the retail data, and putting the demo back is
       // not something this job has kept a copy for.
-      return failed(
+      return ctx.fail(
         NOT_PLAYABLE,
         `${installation.rootPath} is ${revalidated.value.status} after the upgrade`,
       )
     }
 
-    report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
-    deps.jobs.finish(jobId, { status: 'succeeded' })
+    ctx.report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
     log?.info(
       `upgraded ${installation.name} with retail data from ${source.rootPath} (job ${jobId})`,
     )

@@ -12,14 +12,11 @@ import {
   type EngineKind,
   type Installation,
   type InstallationStatus,
-  type Job,
-  type JobProgress,
   type Outcome,
   type ValidationResult,
 } from '@shared/types'
 import { inspectInstallation, type InspectOptions } from '../../../services/inspector'
-import type { CreateJobInput } from '../../../services/jobs'
-import { isWriteCancelled } from '../../../services/write-guard'
+import type { JobContext, JobOutcome, JobRunnerHost, StartedJob } from '../../ports'
 import { assembleInstallation, type AssembleFileRole } from '../bootstrap/assemble'
 import {
   INSTALLATION_NOT_FOUND,
@@ -31,7 +28,6 @@ import {
 import { getBootstrapExtractDir, getBootstrapExtractRoot, toPackageSource } from '../bootstrap/job'
 import type { BootstrapLog, Extractor, ManifestSource, PackageFetcher } from '../bootstrap/ports'
 import { engineAllowlistFor } from '../engine/update-job'
-import type { ExtractorHandle } from '../../../lib/archive/extractor'
 import type { FetchImpl } from '../../../lib/net/fetcher'
 import { stagePackage } from '../../../services/package-staging'
 import { buildRepairPlan } from './plan'
@@ -40,9 +36,8 @@ import { buildRepairPlan } from './plan'
  * Story 093 D4: the repair job - "download what this already-registered installation is missing and
  * put exactly that back, without touching anything else".
  *
- * Shaped after `engine/update-job.ts` and `retail/upgrade-job.ts` (job creation, the
- * `report`/`failed`/`cancelledOutcome` trio, the one-slot `writePhase` array around [[091]]'s guard,
- * the closing `installations.validate()`), and after `bootstrap/job.ts` for the download/extract
+ * Shaped after `engine/update-job.ts` (a body on the shared `JobRunner`, which owns admission,
+ * cancellation, the write guard and the closing revalidation), and after `bootstrap/job.ts` for the download/extract
  * path - which it composes out of the same pieces (`toPackageSource`, `getBootstrapExtractDir`,
  * the `PackageFetcher`/`Extractor` ports, `assembleInstallation`) rather than calling
  * `startBootstrap`: that function registers/adopts installations and drives the wizard's phase
@@ -83,7 +78,7 @@ import { buildRepairPlan } from './plan'
  *
  * Downloading, verifying and extracting all happen in `userData/cache/downloads/`, outside the
  * installation and outside the guard (091's AC4). Only the assemble pass runs inside
- * `writeGuard.runWrite(...)`, which defers it for as long as that installation's own game is running
+ * `ctx.write(...)`, which defers it for as long as that installation's own game is running
  * and resumes it when the game exits. This job implements no refusal, no polling and no backoff of
  * its own - `InstallationWriteGuard` owns all three.
  *
@@ -137,33 +132,16 @@ const DOWNLOAD_SHARE = 0.8
 /** Reached once every package is extracted and only the write into the installation is left. */
 const EXTRACT_DONE_RATIO = 0.9
 
+interface RepairSuccess {
+  /** The offers that were actually acted on - the fresh plan's word, not the caller's. */
+  performed: RepairOfferKind[]
+  installationStatus: InstallationStatus
+}
+
 /** What became of one repair run. A one-shot value, never a second status source next to the job. */
-export type RepairOutcome =
-  | {
-      status: 'succeeded'
-      /** The offers that were actually acted on - the fresh plan's word, not the caller's. */
-      performed: RepairOfferKind[]
-      installationStatus: InstallationStatus
-    }
-  | { status: 'failed'; key: DownloadsErrorKey }
-  | { status: 'cancelled' }
+export type RepairOutcome = JobOutcome<DownloadsErrorKey, RepairSuccess>
 
-export interface StartedRepair {
-  /** The `Job.id` - what `jobs:cancel` takes, and what the UI renders. */
-  jobId: string
-  /** Resolves once the job has reached a terminal state. Never rejects. */
-  settled: Promise<RepairOutcome>
-}
-
-/** The `JobsService` surface this job uses. `JobsService` satisfies it structurally. */
-export interface RepairJobsHost {
-  create(input: CreateJobInput): Job
-  progress(id: string, progress: JobProgress): void
-  finish(
-    id: string,
-    outcome: { status: 'succeeded' | 'failed' | 'cancelled'; error?: Job['error'] },
-  ): void
-}
+export type StartedRepair = StartedJob<DownloadsErrorKey, RepairSuccess>
 
 /**
  * The `InstallationsService` surface this job uses - `find` and `validate`, deliberately nothing
@@ -182,30 +160,9 @@ export interface RepairInstallationsHost {
   setRecordedEngineKind(id: string, engine: EngineKind): Outcome<Installation>
 }
 
-/**
- * The `InstallationWriteGuard` surface this job uses ([[091]]) - `runWrite` only, mirroring
- * `RetailUpgradeWriteGuardHost`/`EngineUpdateWriteGuardHost`. `InstallationWriteGuard` satisfies it
- * structurally, so this job cannot reach past the one seam into `isBlockedFor`/`isWriting` and
- * decide for itself whether to wait.
- */
-export interface RepairWriteGuardHost {
-  runWrite(
-    installationId: string,
-    jobId: string,
-    signal: AbortSignal,
-    fn: () => Promise<void>,
-  ): Promise<void>
-}
-
 export interface RepairDeps {
-  jobs: RepairJobsHost
+  runner: JobRunnerHost
   installations: RepairInstallationsHost
-  /**
-   * [[091]]'s write guard. Required, never optional, for the same reason `RetailUpgradeDeps.
-   * writeGuard` is: a wiring that forgot it would overwrite the binaries of a running game, so its
-   * absence has to be a compile error rather than an ungated run.
-   */
-  writeGuard: RepairWriteGuardHost
   /** The manifest, through `bootstrap/ports.ts`'s existing port (INST-M1: no URLs in launcher code). */
   manifest: ManifestSource
   fetcher: PackageFetcher
@@ -224,6 +181,17 @@ export interface RepairDeps {
   /** Handed to the fetcher; the real Electron client unless overridden. */
   fetchImpl?: FetchImpl
   log?: BootstrapLog
+}
+
+/** A write-phase step that failed; thrown inside the write so the body can end the job with its reason. */
+class CopyRefused extends Error {
+  constructor(
+    readonly key: DownloadsErrorKey,
+    reason: string,
+    readonly params?: Record<string, string | number>,
+  ) {
+    super(reason)
+  }
 }
 
 /** One repair, fully resolved: which package supplies it, and where its archive is extracted to. */
@@ -265,47 +233,18 @@ export async function startRepair(
     return fail(REPAIR_NOT_APPLICABLE)
   }
 
-  // From here on there is work to cancel, so from here on there is a job. One `AbortController` is
-  // the whole of this job's cancellation ([[091]] D4): its signal is what the checkpoints read and
-  // what `writeGuard.runWrite` waits on, so a cancel while the write is still deferred and a cancel
-  // mid-download are the same event, seen by the same object.
-  const cancellation = new AbortController()
-  let extractor: ExtractorHandle | undefined
-  const job = deps.jobs.create({
-    moduleId: 'downloads',
-    kind: REPAIR_JOB_KIND,
-    labelKey: REPAIR_JOB_LABEL_KEY,
-    labelParams: { name: installation.name },
-    installationId: installation.id,
-    cancellable: true,
-    onCancel: () => {
-      cancellation.abort()
-      extractor?.kill()
+  // From here on there is work to cancel, so from here on there is a job.
+  return deps.runner.run<DownloadsErrorKey, RepairSuccess>(
+    {
+      moduleId: 'downloads',
+      kind: REPAIR_JOB_KIND,
+      labelKey: REPAIR_JOB_LABEL_KEY,
+      labelParams: { name: installation.name },
+      installationId: installation.id,
+      exclusive: 'installation',
     },
-  })
-
-  const settled = (async (): Promise<RepairOutcome> => {
-    try {
-      return await runRepair({
-        deps,
-        job,
-        installation,
-        requested,
-        signal: cancellation.signal,
-        setExtractor: (handle) => {
-          extractor = handle
-        },
-      })
-    } catch (error) {
-      // Nothing in `runRepair` is expected to throw; if something does, the job must still end - an
-      // unfinished job would sit in the Downloads tab forever.
-      log?.warn(`the repair of ${installation.name} threw: ${String(error)}`)
-      deps.jobs.finish(job.id, { status: 'failed', error: { key: LOCAL_FAILURE } })
-      return { status: 'failed', key: LOCAL_FAILURE }
-    }
-  })()
-
-  return ok({ jobId: job.id, settled })
+    (ctx) => runRepair(ctx, { deps, installation, requested }),
+  )
 }
 
 /**
@@ -314,49 +253,19 @@ export async function startRepair(
  * the last word. Split out of `startRepair` so the pre-flight refusals (which can still answer the
  * caller) and the job body (which can only answer the `Job`) read as the two things they are.
  */
-async function runRepair(args: {
-  deps: RepairDeps
-  job: Job
-  installation: Installation
-  requested: JobRepairKind[]
-  signal: AbortSignal
-  setExtractor: (handle: ExtractorHandle) => void
-}): Promise<RepairOutcome> {
-  const { deps, job, installation, requested, signal, setExtractor } = args
+async function runRepair(
+  ctx: JobContext<DownloadsErrorKey, RepairSuccess>,
+  args: { deps: RepairDeps; installation: Installation; requested: JobRepairKind[] },
+): Promise<RepairOutcome> {
+  const { deps, installation, requested } = args
   const log = deps.log
-  const jobId = job.id
-
-  /** The single reading of "was this job cancelled", for every checkpoint below. */
-  const isCancelled = (): boolean => signal.aborted
-
-  /** Silent once cancelled: `JobsService.progress()` unconditionally sets `status: 'running'`. */
-  const report = (progress: JobProgress): void => {
-    if (isCancelled()) return
-    deps.jobs.progress(jobId, progress)
-  }
-
-  /** The one failing exit: log the (prose) reason, end the job with the i18n key. */
-  const failed = (
-    key: DownloadsErrorKey,
-    reason: string,
-    params?: Record<string, string | number>,
-  ): RepairOutcome => {
-    log?.warn(`the repair of ${installation.name} failed with ${key}: ${reason}`)
-    deps.jobs.finish(jobId, { status: 'failed', error: { key, ...(params ? { params } : {}) } })
-    return { status: 'failed', key }
-  }
-
-  /** `jobs.cancel()` has already finished the job as cancelled; nothing more to report. */
-  const cancelledOutcome = (): RepairOutcome => {
-    log?.info(`the repair of ${installation.name} was cancelled (job ${jobId})`)
-    return { status: 'cancelled' }
-  }
+  const jobId = ctx.jobId
 
   const extractRoot = getBootstrapExtractRoot(deps.userDataPath, jobId)
 
   try {
-    report({ ratio: 0, bytesDone: 0, bytesTotal: 0, filesRemaining: requested.length })
-    if (isCancelled()) return cancelledOutcome()
+    ctx.report({ ratio: 0, bytesDone: 0, bytesTotal: 0, filesRemaining: requested.length })
+    if (ctx.signal.aborted) return ctx.cancelled()
 
     // 1. AC1: the verdict this run acts on, read now, from the disk, exactly once.
     const inspect = deps.inspect ?? inspectInstallation
@@ -384,7 +293,7 @@ async function runRepair(args: {
       )
     }
 
-    if (isCancelled()) return cancelledOutcome()
+    if (ctx.signal.aborted) return ctx.cancelled()
 
     // 2. Every package, resolved before a single byte is fetched and long before anything is
     // written: a manifest that cannot supply one of the repairs fails the whole run here, with the
@@ -400,7 +309,7 @@ async function runRepair(args: {
       const recordedEngine = installation.recordedEngineKind ?? installation.engineKind
       const resolved = await resolveStep(deps, kind, recordedEngine, jobId)
       if (!resolved.ok) {
-        return failed(
+        return ctx.fail(
           PACKAGE_UNAVAILABLE,
           `no usable package for ${kind} on ${installation.name}: ${resolved.error.key}`,
           { role: kind },
@@ -416,7 +325,7 @@ async function runRepair(args: {
     // 3. Download and extract, into `userData/cache/downloads/` - outside the installation and
     // outside the guard, because reading and downloading are never gated ([[091]] AC4).
     for (const [index, step] of steps.entries()) {
-      if (isCancelled()) return cancelledOutcome()
+      if (ctx.signal.aborted) return ctx.cancelled()
 
       // Download, verify, create `step.extractDir` (7za is spawned with `cwd: extractDir`) and
       // extract. The stager publishes the extractor handle with no `await` after its own cancel
@@ -427,15 +336,15 @@ async function runRepair(args: {
         index,
         extractDir: step.extractDir,
         userDataPath: deps.userDataPath,
-        signal,
+        signal: ctx.signal,
         onProgress: (receivedBytes) =>
-          report({
+          ctx.report({
             ratio: ((doneBytes + receivedBytes) / safeTotal) * DOWNLOAD_SHARE,
             bytesDone: doneBytes + receivedBytes,
             bytesTotal,
             filesRemaining: steps.length,
           }),
-        onExtractor: setExtractor,
+        onExtractor: ctx.setExtractor,
         resolveExtractor: deps.resolveExtractor,
         download: deps.fetcher.fetch,
         extract: deps.extractor.extract,
@@ -449,21 +358,21 @@ async function runRepair(args: {
       // not turn a cancelled job into a succeeded one. A cancel is not a failure needing a reason,
       // and the fixed key set has no member for "the user changed their mind" - so it never
       // surfaces the stager's key.
-      if (isCancelled()) return cancelledOutcome()
+      if (ctx.signal.aborted) return ctx.cancelled()
       if (!staged.ok) {
-        if (staged.cancelled) return cancelledOutcome()
+        if (staged.cancelled) return ctx.cancelled()
         if (staged.stage === 'download') {
-          return failed(staged.key, `downloading ${step.pkg.id} failed: ${staged.reason}`)
+          return ctx.fail(staged.key, `downloading ${step.pkg.id} failed: ${staged.reason}`)
         }
-        if (staged.stage === 'prepare') return failed(staged.key, staged.reason)
-        return failed(
+        if (staged.stage === 'prepare') return ctx.fail(staged.key, staged.reason)
+        return ctx.fail(
           staged.key,
           `extracting ${step.pkg.id} failed with ${staged.extractorKey ?? staged.key}`,
         )
       }
 
       doneBytes += step.pkg.sizeBytes
-      report({
+      ctx.report({
         ratio: (doneBytes / safeTotal) * EXTRACT_DONE_RATIO,
         bytesDone: doneBytes,
         bytesTotal,
@@ -471,14 +380,14 @@ async function runRepair(args: {
       })
     }
 
-    if (isCancelled()) return cancelledOutcome()
+    if (ctx.signal.aborted) return ctx.cancelled()
 
     /**
      * 4. The only code in this file that writes inside the installation, and therefore the only code
      * the guard wraps. Answers `null` for "keep going" and a `RepairOutcome` for "this run is over" -
      * `runWrite` only takes a `() => Promise<void>`, so its caller below carries the value back out.
      */
-    const copyIn = async (): Promise<RepairOutcome | null> => {
+    const copyIn = async (): Promise<void> => {
       for (const step of steps) {
         const assembled = await assembleInstallation({
           sources: [{ packageId: step.pkg.id, dir: step.extractDir, role: step.role }],
@@ -489,7 +398,7 @@ async function runRepair(args: {
         })
 
         if (assembled.missingRequired.length > 0) {
-          return failed(
+          throw new CopyRefused(
             PACKAGE_INCOMPLETE,
             `${step.pkg.id} arrived intact and held none of ${assembled.missingRequired
               .map((entry) => entry.from.join(' | '))
@@ -498,7 +407,7 @@ async function runRepair(args: {
           )
         }
         if (assembled.copiedFiles.length === 0) {
-          return failed(PACKAGE_INCOMPLETE, `${step.pkg.id} contributed no file at all`, {
+          throw new CopyRefused(PACKAGE_INCOMPLETE, `${step.pkg.id} contributed no file at all`, {
             packageId: step.pkg.id,
           })
         }
@@ -507,33 +416,21 @@ async function runRepair(args: {
           `${step.kind} on ${installation.name} restored ${assembled.copiedFiles.join(', ')} (job ${jobId})`,
         )
       }
-      return null
     }
 
     /**
-     * [[091]] D4: the write phase, and only the write phase, runs with the installation's write lock
-     * held - deferred for as long as that installation's own game is running, resumed by the guard
-     * when it exits (AC7). A one-slot list rather than a `let`, because `runWrite` answers `void` and
-     * TypeScript's flow analysis does not follow an assignment made inside the callback.
-     *
-     * A run with nothing left to do still goes through the guard rather than around it: `runWrite`
+     * A run with nothing left to do still goes through the guard rather than around it: `ctx.write`
      * is also where a cancelled job stops, and "no repair was justified" must not become the one
      * path that ignores a cancel.
      */
-    const writePhase: RepairOutcome[] = []
+    let written: 'done' | 'cancelled'
     try {
-      await deps.writeGuard.runWrite(installation.id, jobId, signal, async () => {
-        const outcome = await copyIn()
-        if (outcome) writePhase.push(outcome)
-      })
+      written = await ctx.write(installation.id, copyIn)
     } catch (error) {
-      // `runWrite` rejects when the job was cancelled while its write was still deferred - the same
-      // cancellation the checkpoints above answer, so it takes the same exit through the same
-      // `finally`. Anything else is a real failure and keeps travelling to `startRepair`'s catch.
-      if (isWriteCancelled(error) || isCancelled()) return cancelledOutcome()
+      if (error instanceof CopyRefused) return ctx.fail(error.key, error.message, error.params)
       throw error
     }
-    if (writePhase.length > 0) return writePhase[0]
+    if (written === 'cancelled') return ctx.cancelled()
 
     // 4b. Story 093 finding fix (AC1): a successful `reinstall-engine` just confirmed which engine
     // this installation actually is - refresh the one-way memory so a *future* repair (after another
@@ -552,9 +449,9 @@ async function runRepair(args: {
 
     // 5. AC9: the status is whatever `inspectInstallation` now makes of the folder. This file never
     // writes one, and `RepairInstallationsHost` gives it no way to.
-    const revalidated = await deps.installations.validate(installation.id)
+    const revalidated = await ctx.revalidate(installation.id)
     if (!revalidated.ok) {
-      return failed(
+      return ctx.fail(
         LOCAL_FAILURE,
         `revalidating ${installation.id} failed: ${revalidated.error.key}`,
       )
@@ -567,8 +464,7 @@ async function runRepair(args: {
       )
     }
 
-    report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
-    deps.jobs.finish(jobId, { status: 'succeeded' })
+    ctx.report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
     log?.info(
       `repaired ${installation.name}: ${performed.join(', ') || 'nothing left to do'} (job ${jobId})`,
     )

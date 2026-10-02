@@ -4,6 +4,7 @@ import { DEV_ONLY_CHANNELS } from '@shared/ipc'
 import type { LaunchState, UpdateState } from '@shared/types'
 import { JobsService } from '../services/jobs'
 import { LaunchService } from '../services/launch'
+import { JobRunner } from '../services/job-runner'
 import { InstallationWriteGuard } from '../services/write-guard'
 import type { InstallationsService } from '../services/installations'
 import { createUpdateService, type UpdateService } from '../services/update/service'
@@ -90,7 +91,12 @@ async function setupWriting(): Promise<{
     onStateChange: () => {},
   })
   const guard = new InstallationWriteGuard({ launch, jobs })
-  const app = { jobs, writeGuard: guard } as unknown as AppContext
+  const jobRunner = new JobRunner({
+    jobs,
+    writeGuard: guard,
+    installations: { validate: async () => ({ ok: false as const, error: { key: 'x' } }) },
+  })
+  const app = { jobs, writeGuard: guard, jobRunner } as unknown as AppContext
   registerDevIpc(app)
   return { jobs, launch, guard, fn: registered.get('dev:simulateJob')! }
 }

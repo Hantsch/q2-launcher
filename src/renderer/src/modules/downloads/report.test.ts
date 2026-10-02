@@ -265,4 +265,23 @@ describe('buildFailureReport', () => {
     expect(report).not.toMatch(/[A-Za-z]:\\Users\\[^\\]+/)
     expect(report).not.toMatch(/\/home\/[^/]+/)
   })
+
+  it('a check with params renders no placeholder in the report', async () => {
+    const { t } = await makeT()
+    const withParams = makeFailure({
+      diagnostics: {
+        ...diagnostics,
+        target: {
+          ...target,
+          missingChecks: [
+            { id: 'base-paks', messageKey: 'validation.rootMissing', params: { path: 'Quake II' } },
+          ],
+        },
+      },
+    })
+    const report = buildFailureReport({ failure: withParams, appInfo, t })
+
+    expect(report).toContain('The installation folder is gone: Quake II')
+    expect(report).not.toContain('{{')
+  })
 })

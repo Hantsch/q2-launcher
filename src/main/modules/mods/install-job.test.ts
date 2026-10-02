@@ -5,11 +5,11 @@ import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DownloadsErrorKey } from '@shared/modules/downloads'
 import type { ModInstallRecord } from '@shared/modules/mods'
-import { fail, ok, type Installation, type Job } from '@shared/types'
+import { fail, ok, type Installation } from '@shared/types'
 import type { BinaryArch } from '../../lib/fs-utils'
 import { inspectInstallation } from '../../services/inspector'
-import type { CreateJobInput } from '../../services/jobs'
 import { WriteCancelledError } from '../../services/write-guard'
+import { makeJobRunner } from '../../../test-support/job-runner'
 import { getExtractDir } from '../../services/package-staging'
 import type { StagePackageInput, StagePackageResult } from '../../services/package-staging'
 import type { ModCatalogEntryParsed } from './catalog-schema'
@@ -113,18 +113,9 @@ function harness(options: {
 
   const events: string[] = []
   let inGuard = false
-  const finished: { status: string; error?: Job['error'] }[] = []
-  const jobs = {
-    create: vi.fn((_input: CreateJobInput) => ({ id: 'job1' }) as Job),
-    progress: vi.fn(),
-    setWaiting: vi.fn(),
-    finish: vi.fn((_id: string, outcome: { status: string; error?: Job['error'] }) => {
-      finished.push(outcome)
-    }),
-  }
   const installations = {
     find: (id: string) => (id === installation.id ? installation : undefined),
-    validate: vi.fn(async () => {
+    validate: vi.fn(async (_id: string) => {
       const result = await inspectInstallation(root)
       installation.gameDirs = result.gameDirs
       return ok(installation)
@@ -135,18 +126,21 @@ function harness(options: {
       return ok(installation)
     }),
   }
-  const writeGuard = {
-    runWrite: vi.fn(async (_i: string, _j: string, _s: AbortSignal, fn: () => Promise<void>) => {
-      events.push('guard-enter')
-      inGuard = true
-      try {
-        await fn()
-      } finally {
-        inGuard = false
-        events.push('guard-exit')
-      }
-    }),
-  }
+  const { runner, jobs, writeGuard } = makeJobRunner({
+    validate: (id) => installations.validate(id),
+  })
+  const realRunWrite = writeGuard.runWrite.bind(writeGuard)
+  const runWrite = vi.spyOn(writeGuard, 'runWrite').mockImplementation(async (i, j, s, fn) => {
+    events.push('guard-enter')
+    inGuard = true
+    try {
+      await realRunWrite(i, j, s, fn)
+    } finally {
+      inGuard = false
+      events.push('guard-exit')
+    }
+  })
+  const waiting = { setWaiting: vi.fn() }
   const stage = vi.fn(async (input: StagePackageInput): Promise<StagePackageResult> => {
     const spec = options.stages[input.index]!
     const extractDir = getExtractDir(input.userDataPath, `${input.jobId}-${input.index}`)
@@ -172,9 +166,9 @@ function harness(options: {
   const askDecision = vi.fn(async () => options.decision ?? 'overwrite')
 
   const deps: ModInstallDeps = {
-    jobs,
+    runner,
+    jobs: waiting,
     installations,
-    writeGuard,
     catalog: {
       getCatalog: async () => ({
         status: 'ok',
@@ -193,24 +187,31 @@ function harness(options: {
   }
 
   const records = (): ModInstallRecord[] => readModsState(installation.moduleData).records
+  let lastJobId = ''
   const run = async () => {
     const started = await startModInstall(deps, {
       installationId: 'inst1',
       catalogId: 'fixturemod',
     })
     if (!started.ok) throw new Error(started.error.key)
+    lastJobId = started.value.jobId
     return started.value.settled
   }
+  /** The terminal state of every job, read from the job list the way the UI sees it. */
+  const finished = () =>
+    jobs.list().map((job) => ({ status: job.status, ...(job.error ? { error: job.error } : {}) }))
   return {
     deps,
     installation,
     jobs,
+    waiting,
     installations,
-    writeGuard,
+    writeGuard: { runWrite },
     stage,
     askDecision,
     events,
     finished,
+    jobId: () => lastJobId,
     records,
     run,
   }
@@ -238,7 +239,7 @@ describe('startModInstall', () => {
     })
     const outcome = await h.run()
     expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.verificationFailed' })
-    expect(h.finished).toEqual([
+    expect(h.finished()).toEqual([
       { status: 'failed', error: { key: 'downloads.error.verificationFailed' } },
     ])
     expect(await listTree(root)).toEqual(['baseq2/'])
@@ -261,12 +262,14 @@ describe('startModInstall', () => {
     expect(await stagingLeft()).toEqual([])
   })
 
-  it('a disk write failure reports mods.error.diskWrite', async () => {
+  it('a disk write failure reports the shared downloads.error.diskWrite', async () => {
     const h = harness({ stages: [{ files: { 'pak0.pak': 'data' } }] })
     h.stage.mockRejectedValueOnce(new Error('ENOSPC'))
     const outcome = await h.run()
-    expect(outcome).toEqual({ status: 'failed', key: 'mods.error.diskWrite' })
-    expect(h.finished).toEqual([{ status: 'failed', error: { key: 'mods.error.diskWrite' } }])
+    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.diskWrite' })
+    expect(h.finished()).toEqual([
+      { status: 'failed', error: { key: 'downloads.error.diskWrite' } },
+    ])
   })
 
   it('the write runs inside runWrite', async () => {
@@ -275,9 +278,9 @@ describe('startModInstall', () => {
     })
     // The write is deferred (a running game) and the user cancels while it waits: nothing may
     // reach the installation before the guard runs the write.
-    h.writeGuard.runWrite.mockImplementationOnce(async () => {
+    h.writeGuard.runWrite.mockImplementationOnce(async (_i, jobId) => {
       expect(await listTree(root)).toEqual(['baseq2/'])
-      h.jobs.create.mock.calls[0]![0].onCancel?.()
+      h.jobs.cancel(jobId)
       throw new WriteCancelledError()
     })
     expect(await h.run()).toEqual({ status: 'cancelled' })
@@ -288,7 +291,7 @@ describe('startModInstall', () => {
     expect(outcome.status).toBe('succeeded')
     expect(h.writeGuard.runWrite).toHaveBeenLastCalledWith(
       'inst1',
-      'job1',
+      h.jobId(),
       expect.any(AbortSignal),
       expect.any(Function),
     )
@@ -329,7 +332,7 @@ describe('startModInstall', () => {
       'maps/q2dm1.bsp',
       'pak0.pak',
     ])
-    expect(h.finished).toEqual([{ status: 'succeeded' }])
+    expect(h.finished()).toEqual([{ status: 'succeeded' }])
     expect(await stagingLeft()).toEqual([])
   })
 
@@ -344,12 +347,12 @@ describe('startModInstall', () => {
     })
     const outcome = await h.run()
     expect(outcome.status).toBe('succeeded')
-    expect(h.askDecision).toHaveBeenCalledWith('job1', {
+    expect(h.askDecision).toHaveBeenCalledWith(h.jobId(), {
       folder: 'FixtureMod',
       conflicts: ['pak0.pak'],
     })
-    expect(h.jobs.setWaiting).toHaveBeenCalledWith(
-      'job1',
+    expect(h.waiting.setWaiting).toHaveBeenCalledWith(
+      h.jobId(),
       expect.objectContaining({ key: 'mods.job.waitingForDecision' }),
     )
     expect(await readFile(join(root, 'FixtureMod', 'pak0.pak'), 'utf8')).toBe('mine')
@@ -394,7 +397,7 @@ describe('startModInstall', () => {
     })
     const outcome = await h.run()
     expect(outcome).toEqual({ status: 'cancelled' })
-    expect(h.finished).toEqual([{ status: 'cancelled' }])
+    expect(h.finished()).toEqual([{ status: 'cancelled' }])
     expect(h.writeGuard.runWrite).not.toHaveBeenCalled()
     expect(await listTree(join(root, 'fixturemod'))).toEqual(['pak0.pak'])
     expect(await readFile(join(root, 'fixturemod', 'pak0.pak'), 'utf8')).toBe('mine')
@@ -415,7 +418,7 @@ describe('startModInstall', () => {
     })
     const outcome = await h.run()
     expect(outcome).toEqual({ status: 'failed', key: 'mods.error.writeFailed' })
-    expect(h.finished).toEqual([{ status: 'failed', error: { key: 'mods.error.writeFailed' } }])
+    expect(h.finished()).toEqual([{ status: 'failed', error: { key: 'mods.error.writeFailed' } }])
     expect(await readFile(join(root, 'fixturemod', 'pak0.pak'), 'utf8')).toBe('mine')
     expect(await listTree(join(root, 'fixturemod'))).toEqual([
       'pak0.pak',
@@ -461,7 +464,7 @@ describe('startModInstall', () => {
       catalogId: 'fixturemod',
     })
     expect(started).toEqual(fail('mods.error.alreadyInstalled'))
-    expect(h.jobs.create).not.toHaveBeenCalled()
+    expect(h.jobs.list()).toEqual([])
     expect(h.stage).not.toHaveBeenCalled()
     expect(await listTree(root)).toEqual(['baseq2/'])
 
@@ -476,7 +479,7 @@ describe('startModInstall', () => {
       version: '9.9',
     })
     expect(badVersion).toEqual(fail('mods.error.unknownMod'))
-    expect(h.jobs.create).not.toHaveBeenCalled()
+    expect(h.jobs.list()).toEqual([])
   })
 
   it('a content-only variant records contentOnly', async () => {
@@ -504,7 +507,7 @@ describe('startModInstall', () => {
     expect(record).toMatchObject({ contentOnly: true, arch: 'unknown' })
   })
 
-  it('a second install of the same gamedir while one runs is refused before any job exists', async () => {
+  it('a second install while one runs is refused as busy before any job exists', async () => {
     const h = harness({
       stages: [{ files: { 'gamex86_64.dll': 'lib' } }, { files: { 'pak0.pak': 'data' } }],
     })
@@ -524,8 +527,8 @@ describe('startModInstall', () => {
       installationId: 'inst1',
       catalogId: 'fixturemod',
     })
-    expect(second).toEqual(fail('mods.error.alreadyInstalled'))
-    expect(h.jobs.create).toHaveBeenCalledTimes(1)
+    expect(second).toEqual(fail('jobs.error.installationBusy'))
+    expect(h.jobs.list()).toHaveLength(1)
     release()
     if (first.ok) expect((await first.value.settled).status).toBe('succeeded')
   })

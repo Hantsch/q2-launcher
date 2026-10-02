@@ -106,12 +106,7 @@ export const INSTALLATION_NOT_FOUND = 'installations.error.notFound'
  */
 export const REPAIR_NOT_APPLICABLE = 'downloads.error.repairNotApplicable'
 
-/**
- * The catch-all for a local operation that failed for an unforeseen reason - a refused path, a
- * copy that threw, an `mkdir` that could not run. The choice every job's
- * unexpected-error path makes, and the key `fetcher.ts` already uses for a refused local path: of the
- * fixed set, this is the only member that describes "this machine, not the network".
- */
-export const LOCAL_FAILURE: DownloadsErrorKey = 'downloads.error.diskWrite'
+/** The shared local-failure key (`JOB_LOCAL_FAILURE`), kept under the name this module's jobs use. */
+export { JOB_LOCAL_FAILURE as LOCAL_FAILURE } from '../../ports'
 
 export { asExtractionErrorKey } from '../../../services/package-staging'

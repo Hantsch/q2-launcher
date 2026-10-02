@@ -17,10 +17,9 @@ import type { DetectedRetailSource, RetailSourceInspection } from '@shared/modul
 import { IDLE_LAUNCH_STATE, type Installation, type Job } from '@shared/types'
 import { InstallationsService } from '../../../services/installations'
 import { inspectInstallation } from '../../../services/inspector'
-import { JobsService } from '../../../services/jobs'
-import { InstallationWriteGuard } from '../../../services/write-guard'
+import { makeJobRunner } from '../../../../test-support/job-runner'
 import type { AssembleInstallationResult } from '../bootstrap/assemble'
-import { fakeLaunch, fakeState } from '../test-support'
+import { fakeState } from '../test-support'
 import {
   RETAIL_UPGRADE_JOB_KIND,
   startRetailUpgrade,
@@ -172,13 +171,12 @@ async function waitFor(condition: () => boolean, what: string): Promise<void> {
 
 interface Harness {
   deps: RetailUpgradeDeps
-  jobs: JobsService
+  jobs: ReturnType<typeof makeJobRunner>['jobs']
   /** The launch state the write guard reads; `set()` is "the game started"/"the game exited". */
-  launch: ReturnType<typeof fakeLaunch>
+  launch: ReturnType<typeof makeJobRunner>['launch']
   installations: InstallationsService
   installation: Installation
   copyCalls: CopyCall[]
-  snapshots: Job[][]
   /** How often the job asked main for its own detected-source list. */
   sourceListCalls: { count: number }
   validateCalls: string[]
@@ -194,8 +192,6 @@ async function harness(
 ): Promise<Harness> {
   await createDemoInstallation(options.baseDirName)
 
-  const snapshots: Job[][] = []
-  const jobs = new JobsService((list) => snapshots.push(list))
   const service = new InstallationsService({
     state: fakeState(),
     onChange: () => {},
@@ -206,25 +202,25 @@ async function harness(
   if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)
 
   const validateCalls: string[] = []
-  const installations = {
-    find: (id: string) => service.find(id),
-    validate: (id: string) => {
+  const { runner, jobs, launch, installations: runnerInstallations } = makeJobRunner({
+    validate: (id) => {
       validateCalls.push(id)
       return service.validate(id)
     },
+  })
+  const installations = {
+    find: (id: string) => service.find(id),
+    validate: runnerInstallations.validate,
   }
 
   const copyCalls = options.copyCalls ?? []
   const sourceListCalls = { count: 0 }
   const sources = options.sources ?? [detectedSource(sourceRoot)]
 
-  const launch = fakeLaunch()
-
   return {
     deps: {
-      jobs,
+      runner,
       installations,
-      writeGuard: new InstallationWriteGuard({ launch: launch.host, jobs }),
       retailSources: () => {
         sourceListCalls.count += 1
         return Promise.resolve(sources)
@@ -236,7 +232,6 @@ async function harness(
     installations: service,
     installation: added.value,
     copyCalls,
-    snapshots,
     sourceListCalls,
     validateCalls,
   }
@@ -648,6 +643,58 @@ describe('the retail upgrade job', () => {
       status: 'failed',
       error: { key: 'downloads.error.retailCopyIncomplete' },
     })
+  })
+
+  it('a mid-copy retailCopyIncomplete failure leaves the installation revalidated', async () => {
+    const copyCalls: CopyCall[] = []
+    const test = await harness({ copyCalls, copy: fakeCopy(copyCalls, { stage: ['pak0.pak'] }) })
+
+    const started = await startRetailUpgrade(test.deps, {
+      installationId: test.installation.id,
+      sourceRootPath: sourceRoot,
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    await expect(started.value.settled).resolves.toMatchObject({
+      status: 'failed',
+      key: 'downloads.error.retailCopyIncomplete',
+    })
+
+    // The write began, so files may have changed: the runner re-derives the status either way.
+    expect(test.validateCalls).toEqual([test.installation.id])
+  })
+
+  it('the retail upgrade is refused while another job targets the installation', async () => {
+    const test = await harness()
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const other = test.deps.runner.run(
+      {
+        moduleId: 'mods',
+        kind: 'test-other',
+        labelKey: 'jobs.simulatedWrite',
+        installationId: test.installation.id,
+      },
+      async () => {
+        await held
+        return { status: 'succeeded' }
+      },
+    )
+    if (!other.ok) throw new Error('the other job did not start')
+    const jobsBefore = test.jobs.list().map((job) => job.id)
+
+    const started = await startRetailUpgrade(test.deps, {
+      installationId: test.installation.id,
+      sourceRootPath: sourceRoot,
+    })
+
+    expect(started).toMatchObject({ ok: false, error: { key: 'jobs.error.installationBusy' } })
+    expect(test.jobs.list().map((job) => job.id)).toEqual(jobsBefore)
+
+    release()
+    await other.value.settled
   })
 
   it('refuses an installation the library no longer holds', async () => {

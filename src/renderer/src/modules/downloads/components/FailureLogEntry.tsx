@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Copy, FolderOpen, RotateCcw, X } from 'lucide-react'
-import { DOWNLOADS_ERROR_KEYS, type DownloadFailure } from '@shared/modules/downloads'
+import type { DownloadFailure } from '@shared/modules/downloads'
 import type { AppInfo } from '@shared/types/common'
 import { useInstallationById, useLauncher } from '../../../store/useLauncher'
 import { formatRelativeTime } from '../../../lib/format'
@@ -37,8 +37,6 @@ export interface FailureLogEntryProps {
   appInfo: AppInfo | null
 }
 
-const KNOWN_ERROR_KEYS = new Set<string>(DOWNLOADS_ERROR_KEYS)
-
 export function FailureLogEntry({
   failure,
   dismissed,
@@ -46,12 +44,11 @@ export function FailureLogEntry({
   onRestore,
   appInfo,
 }: FailureLogEntryProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const installation = useInstallationById(failure.installationId ?? null)
   const pushToast = useLauncher((state) => state.pushToast)
-  const errorKey = KNOWN_ERROR_KEYS.has(failure.error.key)
-    ? failure.error.key
-    : 'downloads.error.unknown'
+  // Every module's failed job is recorded here, so any key the locale resolves is shown as is.
+  const errorKey = i18n.exists(failure.error.key) ? failure.error.key : 'downloads.error.unknown'
   const timestamp = formatRelativeTime(new Date(failure.createdAt).toISOString())
 
   function handleCopyReport() {

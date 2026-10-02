@@ -504,7 +504,7 @@ export const downloadsModule: MainModule = {
 export { UNKNOWN_DOWNLOAD_FAILURE_KEY }
 
 /**
- * Story 073 D2 (AC2): appends one failure-log entry per `downloads` job that reaches `failed`
+ * Story 073 D2 (AC2): appends one failure-log entry per job of any module that reaches `failed`
  * (Decisions (Sprint): "the downloads main module observes job transitions ... so the log is
  * truthful for any producer").
  *
@@ -531,8 +531,6 @@ function observeFailedJobs(app: AppContext, log: Logger): () => void {
 
   return app.jobs.onChange((jobs) => {
     for (const job of jobs) {
-      if (job.moduleId !== 'downloads') continue
-
       if (job.status === 'failed' && !recorded.has(job.id)) {
         recorded.add(job.id)
 
@@ -649,10 +647,8 @@ function bootstrapDepsFor(
   log: Logger,
 ): BootstrapDeps {
   return {
-    jobs: app.jobs,
+    runner: app.jobRunner,
     installations: withEngineState(app.installations),
-    // Story 091 D6: the shell's real write guard, wrapped around the job's two assemble passes.
-    writeGuard: app.writeGuard,
     manifest: manifestSourceFrom(manifestService, log),
     // Story 088 D4: main's own list, re-derived per run - never anything the renderer sent.
     retailSources: () => detectedRetailSourcesFor(app),
@@ -708,9 +704,8 @@ function repairPlanDepsFor(manifestService: ManifestService, log: Logger): Repai
  */
 function repairDepsFor(app: AppContext, manifestService: ManifestService, log: Logger): RepairDeps {
   return {
-    jobs: app.jobs,
+    runner: app.jobRunner,
     installations: app.installations,
-    writeGuard: app.writeGuard,
     manifest: manifestSourceFrom(manifestService, log),
     fetcher: realPackageFetcher,
     extractor: realExtractor,
@@ -729,22 +724,19 @@ function repairDepsFor(app: AppContext, manifestService: ManifestService, log: L
  * per call, like `bootstrapDepsFor` above and for the same reason - the job owns no queue and no
  * cross-call state.
  *
- * `app.installations` and `app.writeGuard` are the shell's real services; the job's narrow
- * `RetailUpgradeInstallationsHost`/`RetailUpgradeWriteGuardHost` are satisfied structurally, so
- * nothing in this module can reach past `find`/`validate` into the library or past `runWrite` into
- * the guard's lock bookkeeping. `copyGameData` is deliberately not passed: its default *is*
+ * `app.installations` is the shell's real service; the job's narrow
+ * `RetailUpgradeInstallationsHost` is satisfied structurally, so nothing in this module can reach
+ * past `find`/`validate` into the library. The job runner owns the write guard. `copyGameData` is deliberately not passed: its default *is*
  * [[088]]'s `copyRetailGameData`, so there is no wiring in which the copy could come from somewhere
  * else.
  *
- * Story 091 D4: `app.launch` is gone from here. The job no longer reads the launch state at all -
- * "is this installation's game running" is the write guard's question now, asked once, inside the
- * one `runWrite` that wraps the copy.
+ * The job does not read the launch state: "is this installation's game running" is the write
+ * guard's question, asked once, inside the write that wraps the copy.
  */
 function retailUpgradeDepsFor(app: AppContext, log: Logger): RetailUpgradeDeps {
   return {
-    jobs: app.jobs,
+    runner: app.jobRunner,
     installations: app.installations,
-    writeGuard: app.writeGuard,
     // Main's own list, re-derived per run - never anything the renderer sent, and the same
     // resolution the wizard's picker and the bootstrap job use.
     retailSources: () => detectedRetailSourcesFor(app),
@@ -757,10 +749,10 @@ function retailUpgradeDepsFor(app: AppContext, log: Logger): RetailUpgradeDeps {
  * call, like `bootstrapDepsFor`/`retailUpgradeDepsFor` above and for the same reason - the job owns
  * no queue and no cross-call state.
  *
- * `app.installations` and `app.writeGuard` are the shell's real services; the job's narrow
- * `EngineUpdateInstallationsHost`/`EngineUpdateWriteGuardHost` are satisfied structurally, so
- * nothing here can reach past `find`/`validate`/`setEngineState` into the library (no `update`, so
- * the status stays the inspector's to decide) or past `runWrite` into the guard's lock bookkeeping.
+ * `app.installations` is the shell's real service; the job's narrow
+ * `EngineUpdateInstallationsHost` is satisfied structurally, so nothing here can reach past
+ * `find`/`validate`/`setEngineState` into the library (no `update`, so the status stays the
+ * inspector's to decide). The job runner owns the write guard.
  *
  * `download` and `probeBleedingEdge` are deliberately not passed: their defaults *are* the
  * production implementations, so there is no wiring in which the archive could come from somewhere
@@ -772,9 +764,8 @@ function engineUpdateDepsFor(
   log: Logger,
 ): EngineUpdateDeps {
   return {
-    jobs: app.jobs,
+    runner: app.jobRunner,
     installations: withEngineState(app.installations),
-    writeGuard: app.writeGuard,
     manifest: manifestSourceFrom(manifestService, log),
     extractor: realExtractor,
     userDataPath: userDataDir(),
@@ -792,16 +783,15 @@ function engineUpdateDepsFor(
  * per call, like `engineUpdateDepsFor` above and for the same reason - the job owns no queue and no
  * cross-call state.
  *
- * `app.installations` and `app.writeGuard` are the shell's real services; the job's narrow
- * `EngineRollbackInstallationsHost`/`EngineRollbackWriteGuardHost` are satisfied structurally, the
- * same containment `engineUpdateDepsFor` relies on. No `manifest`/`extractor`/`resolveExtractor`
+ * `app.installations` is the shell's real service; the job's narrow
+ * `EngineRollbackInstallationsHost` is satisfied structurally, the
+ * same containment `engineUpdateDepsFor` relies on. The job runner owns the write guard. No `manifest`/`extractor`/`resolveExtractor`
  * here - the rollback moves only files that are already on disk, so it needs none of them.
  */
 function engineRollbackDepsFor(app: AppContext, log: Logger): EngineRollbackDeps {
   return {
-    jobs: app.jobs,
+    runner: app.jobRunner,
     installations: withEngineState(app.installations),
-    writeGuard: app.writeGuard,
     log,
   }
 }

@@ -6,9 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BASE_GAME_DIR } from '@shared/constants'
 import type { Installation, Job } from '@shared/types'
 import { InstallationsService } from '../../../services/installations'
-import { JobsService } from '../../../services/jobs'
-import { InstallationWriteGuard } from '../../../services/write-guard'
-import { fakeLaunch, fakeState } from '../test-support'
+import { makeJobRunner, type JobRunnerHarness } from '../../../../test-support/job-runner'
+import { fakeState } from '../test-support'
 import { readEngineState } from '../../../services/engine-state'
 import { setEngineState } from './record-engine-state'
 import { ENGINE_BACKUP_DIR_NAME } from './update-job'
@@ -20,7 +19,7 @@ import {
 
 /**
  * Story 092 D6. Mirrors `update-job.test.ts`'s own approach: a real `InstallationsService`, a real
- * inspector and real files on a temp disk, and a real write guard driven by a fake `LaunchHost` - the
+ * inspector and real files on a temp disk, and a real job runner and write guard driven by a fake `LaunchHost` - the
  * assertions here are statements about actual bytes, not about calls a mock recorded. There is
  * nothing to fake for the restore itself (no download, no manifest, no extractor), which is the
  * point of this job being this small.
@@ -79,8 +78,8 @@ async function waitFor(condition: () => boolean, what: string): Promise<void> {
 
 interface Harness {
   deps: EngineRollbackDeps
-  jobs: JobsService
-  launch: ReturnType<typeof fakeLaunch>
+  jobs: JobRunnerHarness['jobs']
+  launch: JobRunnerHarness['launch']
   installations: InstallationsService
   installation: Installation
   validateCalls: string[]
@@ -94,7 +93,13 @@ async function harness(options: { withBackup?: boolean } = {}): Promise<Harness>
     await writeTree(join(installRoot, ENGINE_BACKUP_DIR_NAME), BACKED_UP_FILES)
   }
 
-  const jobs = new JobsService(() => {})
+  const validateCalls: string[] = []
+  const job = makeJobRunner({
+    validate: (id) => {
+      validateCalls.push(id)
+      return service.validate(id)
+    },
+  })
   const service = new InstallationsService({
     state: fakeState(),
     onChange: () => {},
@@ -113,31 +118,17 @@ async function harness(options: { withBackup?: boolean } = {}): Promise<Harness>
   })
   if (!recorded.ok) throw new Error('the fixture engine state could not be recorded')
 
-  const validateCalls: string[] = []
   const installations = {
     find: (id: string) => service.find(id),
-    validate: (id: string) => {
-      validateCalls.push(id)
-      return service.validate(id)
-    },
+    validate: (id: string) => service.validate(id),
     setEngineState: (id: string, patch: Parameters<typeof setEngineState>[2]) =>
       setEngineState(service, id, patch),
   }
 
-  const launch = fakeLaunch()
-  const guard = new InstallationWriteGuard({ launch: launch.host, jobs })
-
   return {
-    deps: {
-      jobs,
-      installations,
-      writeGuard: {
-        runWrite: (installationId, jobId, signal, fn) =>
-          guard.runWrite(installationId, jobId, signal, fn),
-      },
-    },
-    jobs,
-    launch,
+    deps: { runner: job.runner, installations },
+    jobs: job.jobs,
+    launch: job.launch,
     installations: service,
     installation: recorded.value,
     validateCalls,
@@ -232,6 +223,36 @@ describe('the engine rollback job', () => {
     expect(changedPaths(before, await snapshotTree(installRoot))).toEqual([])
   })
 
+  it('the engine rollback is refused while another job targets the installation', async () => {
+    const test = await harness()
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const other = test.deps.runner.run(
+      {
+        moduleId: 'mods',
+        kind: 'test-other',
+        labelKey: 'jobs.simulatedWrite',
+        installationId: test.installation.id,
+      },
+      async () => {
+        await held
+        return { status: 'succeeded' }
+      },
+    )
+    if (!other.ok) throw new Error('the other job did not start')
+    const jobsBefore = test.jobs.list().map((job) => job.id)
+
+    const started = await startEngineRollback(test.deps, { installationId: test.installation.id })
+
+    expect(started).toMatchObject({ ok: false, error: { key: 'jobs.error.installationBusy' } })
+    expect(test.jobs.list().map((job) => job.id)).toEqual(jobsBefore)
+
+    release()
+    await other.value.settled
+  })
+
   it('refuses an installation the library no longer holds', async () => {
     const test = await harness()
 
@@ -259,7 +280,7 @@ describe('the engine rollback job', () => {
 
   it('the rollback waits while the game is running and continues once it exits', async () => {
     const test = await harness()
-    test.launch.set({ phase: 'running', installationId: test.installation.id, pid: 4242 })
+    test.launch.startGame(test.installation.id)
     const before = await snapshotTree(installRoot)
 
     const started = await startEngineRollback(test.deps, { installationId: test.installation.id })
@@ -274,7 +295,7 @@ describe('the engine rollback job', () => {
     expect(existsSync(join(installRoot, ENGINE_BACKUP_DIR_NAME))).toBe(true)
 
     // The game exits and the job resumes by itself - no user action anywhere in this test.
-    test.launch.set({ phase: 'exited', installationId: test.installation.id, exitCode: 0 })
+    test.launch.exitGame()
     await expect(started.value.settled).resolves.toMatchObject({ status: 'succeeded' })
     expect(await contentsOf(installRoot, 'q2pro.exe')).toBe(BACKED_UP_FILES['q2pro.exe'])
   })

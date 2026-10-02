@@ -27,10 +27,12 @@ version section when a release actually ships.
 ### Changed
 
 - **Downloads** — Settings now say which options are not available yet.
+- **Mods** — A second job on an installation that is already busy is now refused with an explanation.
 
 ### Fixed
 
 - An unexpected launcher error now shows a translated message instead of raw system text.
+- **Downloads** — A failed mod install now shows up in the Downloads failure log.
 - Bleeding-edge engine downloads now time out, retry and refuse oversized files.
 - Your last change before quitting is saved, and a failed settings write now tells you.
 - **Servers** — A stalled or oversized server-list source no longer hangs a scan.

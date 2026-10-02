@@ -17,12 +17,10 @@ import type { ManifestPackage, RepairOfferKind } from '@shared/modules/downloads
 import type { EngineKind, Installation, Job } from '@shared/types'
 import { InstallationsService } from '../../../services/installations'
 import { inspectInstallation } from '../../../services/inspector'
-import { JobsService } from '../../../services/jobs'
-import { InstallationWriteGuard } from '../../../services/write-guard'
+import { makeJobRunner } from '../../../../test-support/job-runner'
 import {
   fakeExtractor,
   fakeFetcher,
-  fakeLaunch,
   fakeManifest,
   fakeState,
   type ManifestCalls,
@@ -34,7 +32,7 @@ import { resolveRepairPlan } from './plan'
  * Story 093 D4. The job's correctness is a *blast-radius and freshness* property, so this suite runs
  * the real `JobsService`, the real `InstallationsService` (over an in-memory `StateStore` stand-in),
  * the real `inspectInstallation`, the real `assembleInstallation` and the real
- * `InstallationWriteGuard` against real files in a temp directory, and fakes exactly the three
+ * `InstallationWriteGuard` (through `makeJobRunner`) against real files in a temp directory, and fakes exactly the three
  * things that would otherwise need the network, 7za and a child process: the manifest, the package
  * fetcher and the extractor. The split mirrors `retail/upgrade-job.test.ts`'s -
  *
@@ -195,8 +193,8 @@ function archiveFiles(extractDir: string): Record<string, string> {
 
 interface Harness {
   deps: RepairDeps
-  jobs: JobsService
-  launch: ReturnType<typeof fakeLaunch>
+  jobs: ReturnType<typeof makeJobRunner>['jobs']
+  launch: ReturnType<typeof makeJobRunner>['launch']
   installations: InstallationsService
   installation: Installation
   fetchCalls: string[]
@@ -210,9 +208,11 @@ async function harness(
     executablePath?: string
     manifest?: { engine?: ManifestPackage | undefined; pointRelease?: ManifestPackage | undefined }
     fetchGate?: () => Promise<void>
+    /** What the fake archive of a package holds once extracted; defaults to `ARCHIVE_LAYOUTS`. */
+    archive?: (extractDir: string) => Record<string, string>
   } = {},
 ): Promise<Harness> {
-  const jobs = new JobsService(() => {})
+  const validateCalls: string[] = []
   const service = new InstallationsService({
     state: fakeState(),
     onChange: () => {},
@@ -226,14 +226,16 @@ async function harness(
   })
   if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)
 
-  const validateCalls: string[] = []
-  const recordedEngineCalls: EngineKind[] = []
-  const installations = {
-    find: (id: string) => service.find(id),
-    validate: (id: string) => {
+  const harnessRunner = makeJobRunner({
+    validate: (id) => {
       validateCalls.push(id)
       return service.validate(id)
     },
+  })
+  const recordedEngineCalls: EngineKind[] = []
+  const installations = {
+    find: (id: string) => service.find(id),
+    validate: harnessRunner.installations.validate,
     setRecordedEngineKind: (id: string, engine: EngineKind) => {
       recordedEngineCalls.push(engine)
       return service.setRecordedEngineKind(id, engine)
@@ -242,7 +244,6 @@ async function harness(
 
   const fetchCalls: string[] = []
   const manifestCalls: ManifestCalls = { engine: [], gameData: [] }
-  const launch = fakeLaunch()
   // An explicit `undefined` means "the manifest has no such package", not "use the default".
   const manifestOptions = options.manifest ?? {}
   const manifestPackages = [
@@ -252,21 +253,20 @@ async function harness(
 
   return {
     deps: {
-      jobs,
+      runner: harnessRunner.runner,
       installations,
-      writeGuard: new InstallationWriteGuard({ launch: launch.host, jobs }),
       manifest: fakeManifest(manifestPackages, manifestCalls),
       fetcher: fakeFetcher(
         userDataPath,
         fetchCalls,
         options.fetchGate ? { gate: options.fetchGate } : {},
       ),
-      extractor: fakeExtractor(archiveFiles),
+      extractor: fakeExtractor(options.archive ?? archiveFiles),
       userDataPath,
       resolveExtractor: () => ({ path: join(userDataPath, '7za.exe'), exists: true }),
     },
-    jobs,
-    launch,
+    jobs: harnessRunner.jobs,
+    launch: harnessRunner.launch,
     installations: service,
     installation: added.value,
     fetchCalls,
@@ -497,6 +497,7 @@ describe('the repair job', () => {
     await expect(started.value.settled).resolves.toEqual({
       status: 'failed',
       key: 'downloads.error.packageUnavailable',
+      params: { role: 'install-point-release' },
     })
 
     expect(test.fetchCalls).toEqual([])
@@ -531,6 +532,7 @@ describe('the repair job', () => {
     await expect(started.value.settled).resolves.toEqual({
       status: 'failed',
       key: 'downloads.error.packageUnavailable',
+      params: { role: 'reinstall-engine' },
     })
     expect(test.fetchCalls).toEqual([])
     expect(changedPaths(before, await snapshotTree(installRoot))).toEqual([])
@@ -606,6 +608,35 @@ describe('the repair job', () => {
     expect(persisted.checks).toEqual(independent.checks)
   })
 
+  it('a repair whose write fails leaves the installation revalidated', async () => {
+    await createEngineMissingInstallation()
+    // The archive arrives intact but holds only one of the engine files, so the write is refused
+    // after it has already copied that file in.
+    const test = await harness({
+      executablePath: join(installRoot, 'r1q2.exe'),
+      archive: () => ({ 'baseq2/gamex86.dll': 'partial engine' }),
+    })
+
+    const started = await startRepair(test.deps, {
+      installationId: test.installation.id,
+      offers: ['reinstall-engine'],
+    })
+    expect(started.ok).toBe(true)
+    if (!started.ok) return
+    await expect(started.value.settled).resolves.toEqual({
+      status: 'failed',
+      key: 'downloads.error.packageIncomplete',
+      params: { packageId: 'r1q2-b8012' },
+    })
+
+    // Files were written, so the library's record is re-derived from the disk even though the job failed.
+    expect(test.validateCalls).toEqual([test.installation.id])
+    expect(test.jobs.list()[0]).toMatchObject({
+      status: 'failed',
+      error: { key: 'downloads.error.packageIncomplete' },
+    })
+  })
+
   it('refuses a request naming no repair this job performs, before a job exists', async () => {
     await createPointReleaseMissingInstallation()
     const test = await harness()
@@ -621,6 +652,40 @@ describe('the repair job', () => {
     })
     expect(test.jobs.list()).toEqual([])
     expect(test.fetchCalls).toEqual([])
+  })
+
+  it('the repair job is refused while another job targets the installation', async () => {
+    await createPointReleaseMissingInstallation()
+    const test = await harness()
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const other = test.deps.runner.run(
+      {
+        moduleId: 'mods',
+        kind: 'test-other',
+        labelKey: 'jobs.simulatedWrite',
+        installationId: test.installation.id,
+      },
+      async () => {
+        await held
+        return { status: 'succeeded' }
+      },
+    )
+    if (!other.ok) throw new Error('the other job did not start')
+    const jobsBefore = test.jobs.list().map((job) => job.id)
+
+    const started = await startRepair(test.deps, {
+      installationId: test.installation.id,
+      offers: ['install-point-release'],
+    })
+
+    expect(started).toMatchObject({ ok: false, error: { key: 'jobs.error.installationBusy' } })
+    expect(test.jobs.list().map((job) => job.id)).toEqual(jobsBefore)
+
+    release()
+    await other.value.settled
   })
 
   it('refuses an installation the library no longer holds', async () => {

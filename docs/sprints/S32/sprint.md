@@ -35,7 +35,7 @@ correct error message where they used to see English prose or a path.
 - [x] 221 — HTTP fetches share one timeout and size policy
 - [x] 222 — platform rules live in one module
 - [x] 220 — package staging is one path and the dead download queue is gone
-- [ ] 219 — jobs share one runner, one busy rule and one failure log
+- [x] 219 — jobs share one runner, one busy rule and one failure log
 
 ## Notes
 

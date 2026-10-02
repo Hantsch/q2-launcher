@@ -10,13 +10,12 @@ import {
   type ManifestPackage,
   type RetailSourceInspection,
 } from '@shared/modules/downloads'
-import type { Job } from '@shared/types'
 import { isWindows } from '../../../lib/platform'
 import { InstallationsService } from '../../../services/installations'
 import { withEngineState } from '../engine/record-engine-state'
-import { JobsService } from '../../../services/jobs'
-import { InstallationWriteGuard } from '../../../services/write-guard'
-import { fakeLaunch, fakeManifest, fakeState } from '../test-support'
+import type { JobsService } from '../../../services/jobs'
+import { makeJobRunner, type ControllableLaunch } from '../../../../test-support/job-runner'
+import { fakeManifest, fakeState } from '../test-support'
 import { type ExtractArchiveInput, type ExtractorHandle } from '../../../lib/archive/extractor'
 import {
   type DownloadPackageOptions,
@@ -175,8 +174,7 @@ export interface Harness {
   installations: InstallationsService
   /** Story 091 D6: the launch state the write guard reads; `set()` is "the game
    * started"/"the game exited". */
-  launch: ReturnType<typeof fakeLaunch>
-  snapshots: Job[][]
+  launch: ControllableLaunch
   fetched: string[]
   /** Story 075 D3: every line the job's `BootstrapLog` was handed, in order. */
   logLines: string[]
@@ -241,18 +239,16 @@ export function harness(
     gameDataSource?: (rootPath: string) => GameDataSourceVerdict
   } = {},
 ): Harness {
-  const snapshots: Job[][] = []
-  const jobs = new JobsService((list) => snapshots.push(list))
   const installations = new InstallationsService({
     state: fakeState(),
     onChange: () => {},
     onSettingsChange: () => {},
   })
-  // Story 091 D6: the real `InstallationWriteGuard` over a fake launch host, idle by default - so
-  // every test written before this story keeps running its assemble passes immediately, exactly as
-  // it did without a guard. Only the new AC4 test below moves the launch state to `running`.
-  const launch = fakeLaunch()
-  const writeGuard = new InstallationWriteGuard({ launch: launch.host, jobs })
+  // The real runner, job list and write guard over a launch host that is idle by default - so every
+  // test runs its assemble passes immediately, and only the write-deferral test moves the launch
+  // state to `running`. Revalidation goes to the real service, looked up per call so a test's spy on
+  // `installations.validate` sees the runner's calls too.
+  const { runner, jobs, launch } = makeJobRunner({ validate: (id) => installations.validate(id) })
   const fetched: string[] = []
   const contents = options.contents ?? FIXTURE_CONTENTS
 
@@ -376,15 +372,13 @@ export function harness(
     jobs,
     installations,
     launch,
-    snapshots,
     fetched,
     logLines,
     gameDataRequests,
     retailSourceCalls,
     deps: {
-      jobs,
+      runner,
       installations: withEngineState(installations),
-      writeGuard,
       manifest,
       retailSources: () => {
         retailSourceCalls.count += 1

@@ -13,14 +13,11 @@ import {
   type EngineKind,
   type Installation,
   type InstallationStatus,
-  type Job,
-  type JobProgress,
   type Outcome,
 } from '@shared/types'
 import { moveFile, plannedDestination, resolveRelaxed } from '../../../lib/fs-utils'
 import { clamp01 } from '../../../lib/math'
-import type { CreateJobInput } from '../../../services/jobs'
-import { isWriteCancelled } from '../../../services/write-guard'
+import type { JobContext, JobOutcome, JobRunnerHost, StartedJob } from '../../ports'
 import { buildAssemblePlan, type AssembleFileEntry } from '../bootstrap/assemble'
 import {
   INSTALLATION_NOT_FOUND,
@@ -31,7 +28,6 @@ import {
 } from '../bootstrap/errors'
 import { toPackageSource } from '../bootstrap/job'
 import type { BootstrapLog, Extractor, ManifestSource } from '../bootstrap/ports'
-import type { ExtractorHandle } from '../../../lib/archive/extractor'
 import type { FetchImpl } from '../../../lib/net/fetcher'
 import { isSafeDownloadFileName } from '../../../lib/net/download-cache-paths'
 import {
@@ -52,9 +48,8 @@ import { computeEngineUpdateStatus } from './update-status'
  * Story 092 D5 (AC2/AC6/AC7/AC8): the engine-update job - "replace this already-playable
  * installation's engine files with the build it should be on, and keep the ones it had".
  *
- * Shaped after `retail/upgrade-job.ts` (job creation, `report`/`failed`/`cancelledOutcome`, the
- * `writePhase` one-slot array around [[091]]'s guard) and after `bootstrap/job.ts`'s
- * download/verify/extract path. What makes this the risky deliverable of the story is none of that
+ * Shaped after `bootstrap/job.ts`'s download/verify/extract path, run on the shared `JobRunner`
+ * (admission, cancellation, the write guard, the revalidation after a write). What makes this the risky deliverable of the story is none of that
  * scaffolding: it is the *order* of the file moves, because this is the first job in the launcher
  * that overwrites files a user's working installation is already made of.
  *
@@ -76,7 +71,7 @@ import { computeEngineUpdateStatus } from './update-status'
  * 4. **Completeness check** against the engine allowlist: every *required* `role: 'engine'` entry of
  *    `buildAssemblePlan({ engine })` has to be present in that staging tree, or the run fails here -
  *    still before the first move.
- * 5. **Back up, inside `deps.writeGuard.runWrite`** (AC6): the current engine files - the same
+ * 5. **Back up, inside `ctx.write`** (AC6): the current engine files - the same
  *    allowlist, resolved case-insensitively against the installation as it really is - are `rename`d
  *    into `<root>/.q2launcher-engine-backup/`, the single slot (Decisions (Sprint)).
  * 6. **Copy** the new files out of staging onto those same paths.
@@ -170,28 +165,15 @@ const EXTRACT_RATIO = 0.9
 /** Progress coordinate once the files are swapped and only the revalidation is left. */
 const SWAP_DONE_RATIO = 0.98
 
+interface UpdateSuccess {
+  version: string
+  installationStatus: InstallationStatus
+}
+
 /** What became of one update. A one-shot value, never a second status source next to the job. */
-export type EngineUpdateOutcome =
-  | { status: 'succeeded'; version: string; installationStatus: InstallationStatus }
-  | { status: 'failed'; key: DownloadsErrorKey }
-  | { status: 'cancelled' }
+export type EngineUpdateOutcome = JobOutcome<DownloadsErrorKey, UpdateSuccess>
 
-export interface StartedEngineUpdate {
-  /** The `Job.id` - what `jobs:cancel` takes, and what the UI renders. */
-  jobId: string
-  /** Resolves once the job has reached a terminal state. Never rejects. */
-  settled: Promise<EngineUpdateOutcome>
-}
-
-/** The `JobsService` surface this job uses. `JobsService` satisfies it structurally. */
-export interface EngineUpdateJobsHost {
-  create(input: CreateJobInput): Job
-  progress(id: string, progress: JobProgress): void
-  finish(
-    id: string,
-    outcome: { status: 'succeeded' | 'failed' | 'cancelled'; error?: Job['error'] },
-  ): void
-}
+export type StartedEngineUpdate = StartedJob<DownloadsErrorKey, UpdateSuccess>
 
 /**
  * The `InstallationsService` surface this job uses. Deliberately no `update`, for the same reason
@@ -204,20 +186,6 @@ export interface EngineUpdateInstallationsHost {
   find(id: string): Installation | undefined
   validate(id: string): Promise<Outcome<Installation>>
   setEngineState(id: string, patch: Partial<InstallationEngineState>): Outcome<Installation>
-}
-
-/**
- * The `InstallationWriteGuard` surface this job uses (story 091 D4) - `runWrite` only, mirroring
- * `RetailUpgradeWriteGuardHost`. `InstallationWriteGuard` satisfies it structurally, so this job
- * cannot reach past the one seam and decide for itself whether to wait.
- */
-export interface EngineUpdateWriteGuardHost {
-  runWrite(
-    installationId: string,
-    jobId: string,
-    signal: AbortSignal,
-    fn: () => Promise<void>,
-  ): Promise<void>
 }
 
 /** Where the target build comes from, and what it must weigh to be believed. */
@@ -236,14 +204,8 @@ export interface EngineUpdateTarget {
 }
 
 export interface EngineUpdateDeps {
-  jobs: EngineUpdateJobsHost
+  runner: JobRunnerHost
   installations: EngineUpdateInstallationsHost
-  /**
-   * Story 091's write guard. Required, never optional, for the same reason
-   * `RetailUpgradeDeps.writeGuard` is: a wiring that forgot it would replace the binaries of a
-   * running game, so its absence has to be a compile error rather than an ungated run.
-   */
-  writeGuard: EngineUpdateWriteGuardHost
   /** The manifest, through `bootstrap/ports.ts`'s existing port - the pinned build, and the URL
    * D4's bleeding-edge probe derives itself from (INST-M1: no download URL in launcher code). */
   manifest: ManifestSource
@@ -267,6 +229,9 @@ export interface EngineUpdateDeps {
   fetchImpl?: FetchImpl
   log?: BootstrapLog
 }
+
+/** A write-phase step that failed; thrown inside the write so the body can end the job with its reason. */
+class SwapFailed extends Error {}
 
 /** One engine file this run is about to replace, resolved on both sides. */
 interface PlannedSwap {
@@ -296,9 +261,7 @@ interface PlannedSwap {
  */
 export function engineAllowlistFor(engine: EngineKind): AssembleFileEntry[] {
   try {
-    return buildAssemblePlan({ engine, scope: 'core' }).filter(
-      (entry) => entry.role === 'engine',
-    )
+    return buildAssemblePlan({ engine, scope: 'core' }).filter((entry) => entry.role === 'engine')
   } catch {
     return []
   }
@@ -410,100 +373,43 @@ export async function startEngineUpdate(
     return fail(ENGINE_UPDATE_UNAVAILABLE)
   }
 
-  // From here on there is work to cancel, so from here on there is a job. One `AbortController` is
-  // the whole of this job's cancellation (story 091 D4): its signal is what the checkpoints read
-  // and what `writeGuard.runWrite` waits on, so a cancel while the write is still deferred and a
-  // cancel mid-download are the same event seen by the same object.
-  const cancellation = new AbortController()
-  let extractor: ExtractorHandle | undefined
-  const job = deps.jobs.create({
-    moduleId: 'downloads',
-    kind: ENGINE_UPDATE_JOB_KIND,
-    labelKey: ENGINE_UPDATE_JOB_LABEL_KEY,
-    labelParams: { name: installation.name },
-    installationId: installation.id,
-    cancellable: true,
-    onCancel: () => {
-      cancellation.abort()
-      extractor?.kill()
+  // From here on there is work to cancel, so from here on there is a job.
+  return deps.runner.run<DownloadsErrorKey, UpdateSuccess>(
+    {
+      moduleId: 'downloads',
+      kind: ENGINE_UPDATE_JOB_KIND,
+      labelKey: ENGINE_UPDATE_JOB_LABEL_KEY,
+      labelParams: { name: installation.name },
+      installationId: installation.id,
+      exclusive: 'installation',
     },
-  })
-
-  const settled = (async (): Promise<EngineUpdateOutcome> => {
-    try {
-      return await runUpdate({
-        deps,
-        job,
-        installation,
-        recorded,
-        target,
-        allowlist,
-        signal: cancellation.signal,
-        setExtractor: (handle) => {
-          extractor = handle
-        },
-      })
-    } catch (error) {
-      // Nothing in `runUpdate` is expected to throw; if something does, the job must still end -
-      // an unfinished job would sit in the Downloads tab forever.
-      log?.warn(`the engine update of ${installation.name} threw: ${String(error)}`)
-      deps.jobs.finish(job.id, { status: 'failed', error: { key: LOCAL_FAILURE } })
-      return { status: 'failed', key: LOCAL_FAILURE }
-    }
-  })()
-
-  return ok({ jobId: job.id, settled })
+    (ctx) => runUpdate(ctx, { deps, installation, recorded, target, allowlist }),
+  )
 }
 
 /** Steps 2-8. Split out of `startEngineUpdate` so the pre-flight refusals (which can still answer
  * the caller) and the job body (which can only answer the `Job`) read as the two things they are. */
-async function runUpdate(args: {
-  deps: EngineUpdateDeps
-  job: Job
-  installation: Installation
-  recorded: InstallationEngineState
-  target: EngineUpdateTarget
-  allowlist: AssembleFileEntry[]
-  signal: AbortSignal
-  setExtractor: (handle: ExtractorHandle) => void
-}): Promise<EngineUpdateOutcome> {
-  const { deps, job, installation, recorded, target, allowlist, signal, setExtractor } = args
+async function runUpdate(
+  ctx: JobContext<DownloadsErrorKey, UpdateSuccess>,
+  args: {
+    deps: EngineUpdateDeps
+    installation: Installation
+    recorded: InstallationEngineState
+    target: EngineUpdateTarget
+    allowlist: AssembleFileEntry[]
+  },
+): Promise<EngineUpdateOutcome> {
+  const { deps, installation, recorded, target, allowlist } = args
   const log = deps.log
-  const jobId = job.id
+  const jobId = ctx.jobId
   const root = installation.rootPath
-
-  /** The single reading of "was this job cancelled", for every checkpoint below. */
-  const isCancelled = (): boolean => signal.aborted
-
-  /** Silent once cancelled: `JobsService.progress()` unconditionally sets `status: 'running'`. */
-  const report = (progress: JobProgress): void => {
-    if (isCancelled()) return
-    deps.jobs.progress(jobId, progress)
-  }
-
-  /** The one failing exit: log the (prose) reason, end the job with the i18n key. */
-  const failed = (
-    key: DownloadsErrorKey,
-    reason: string,
-    params?: Record<string, string | number>,
-  ): EngineUpdateOutcome => {
-    log?.warn(`the engine update of ${installation.name} failed with ${key}: ${reason}`)
-    deps.jobs.finish(jobId, { status: 'failed', error: { key, ...(params ? { params } : {}) } })
-    return { status: 'failed', key }
-  }
-
-  /** `jobs.cancel()` has already finished the job as cancelled; nothing more to report. */
-  const cancelledOutcome = (): EngineUpdateOutcome => {
-    log?.info(`the engine update of ${installation.name} was cancelled (job ${jobId})`)
-    return { status: 'cancelled' }
-  }
 
   const bytesTotal = target.sizeBytes
   const stagingRoot = getExtractDir(deps.userDataPath, jobId)
 
   try {
-    report({ ratio: 0, bytesDone: 0, bytesTotal, filesRemaining: allowlist.length })
-    if (isCancelled()) return cancelledOutcome()
+    ctx.report({ ratio: 0, bytesDone: 0, bytesTotal, filesRemaining: allowlist.length })
+    if (ctx.signal.aborted) return ctx.cancelled()
 
     // 2-3. Download + verify, then extract into a directory outside the installation - see the
     // module comment. Outside the write guard, always: reading and downloading are never gated,
@@ -521,16 +427,16 @@ async function runUpdate(args: {
       index: 0,
       extractDir: stagingRoot,
       userDataPath: deps.userDataPath,
-      signal,
+      signal: ctx.signal,
       onProgress: (receivedBytes) =>
-        report({
+        ctx.report({
           ratio: clamp01((receivedBytes / Math.max(1, bytesTotal)) * DOWNLOAD_RATIO),
           bytesDone: Math.min(receivedBytes, bytesTotal),
           bytesTotal,
           filesRemaining: allowlist.length,
         }),
       onExtractProgress: (ratio) =>
-        report({
+        ctx.report({
           ratio:
             ratio === null
               ? DOWNLOAD_RATIO
@@ -538,7 +444,7 @@ async function runUpdate(args: {
           bytesDone: bytesTotal,
           bytesTotal,
         }),
-      onExtractor: setExtractor,
+      onExtractor: ctx.setExtractor,
       resolveExtractor: deps.resolveExtractor,
       ...(deps.download ? { download: deps.download } : {}),
       extract: deps.extractor.extract,
@@ -550,7 +456,7 @@ async function runUpdate(args: {
 
     // Before reading the result, on purpose: a kill that lost the race against 7za's own clean
     // exit must not turn a cancelled job into a succeeded one.
-    if (isCancelled() || (!stagedArchive.ok && stagedArchive.cancelled)) return cancelledOutcome()
+    if (ctx.signal.aborted || (!stagedArchive.ok && stagedArchive.cancelled)) return ctx.cancelled()
     if (!stagedArchive.ok) {
       // A nightly has no digest, so a mirror whose every attempt failed verification served a
       // wrong-sized file - the one failure the user is told about in those words.
@@ -560,14 +466,14 @@ async function runUpdate(args: {
         (stagedArchive.attempts?.length ?? 0) > 0 &&
         stagedArchive.attempts?.every((attempt) => attempt.outcome === 'verification-failed') ===
           true
-      return failed(
+      return ctx.fail(
         sizeMismatch ? BLEEDING_EDGE_SIZE_MISMATCH : stagedArchive.key,
         stagedArchive.stage === 'download'
           ? `downloading ${target.url} failed: ${stagedArchive.reason}`
           : stagedArchive.reason,
       )
     }
-    report({ ratio: EXTRACT_RATIO, bytesDone: bytesTotal, bytesTotal })
+    ctx.report({ ratio: EXTRACT_RATIO, bytesDone: bytesTotal, bytesTotal })
 
     // 4. Completeness. Every *required* engine entry has to be in the staging tree; an optional one
     // that is absent is simply not part of this swap (see the module comment's second refinement).
@@ -576,7 +482,7 @@ async function runUpdate(args: {
       const from = await findStaged(stagingRoot, entry.from)
       if (from === null) {
         if (entry.required) {
-          return failed(
+          return ctx.fail(
             PACKAGE_INCOMPLETE,
             `the extracted ${target.version} archive holds none of ${entry.from.join(' | ')}`,
             { packageId: target.packageId ?? target.fileName },
@@ -587,19 +493,22 @@ async function runUpdate(args: {
       staged.push({ relative: entry.to, from })
     }
     if (staged.length === 0) {
-      return failed(PACKAGE_INCOMPLETE, `the extracted ${target.version} archive holds no engine`, {
-        packageId: target.packageId ?? target.fileName,
-      })
+      return ctx.fail(
+        PACKAGE_INCOMPLETE,
+        `the extracted ${target.version} archive holds no engine`,
+        {
+          packageId: target.packageId ?? target.fileName,
+        },
+      )
     }
 
-    if (isCancelled()) return cancelledOutcome()
+    if (ctx.signal.aborted) return ctx.cancelled()
 
     /**
-     * Steps 5-7, and the only code in this file that writes inside the installation. Answers `null`
-     * for "keep going" and an `EngineUpdateOutcome` for "this run is over" - `runWrite` only takes a
-     * `() => Promise<void>`, so its caller below carries the value back out through `writePhase`.
+     * Steps 5-7, and the only code in this file that writes inside the installation. A refusal is
+     * thrown as `SwapFailed`, because `ctx.write` only carries "done" or "cancelled" back out.
      */
-    const swap = async (): Promise<EngineUpdateOutcome | null> => {
+    const swap = async (): Promise<void> => {
       const backupDir = join(root, ENGINE_BACKUP_DIR_NAME)
 
       // The recorded pointer goes *before* the directory it describes, not after: from the moment
@@ -610,8 +519,7 @@ async function runUpdate(args: {
       // whatever happens to be sitting in it under the old pointer's version (AC7/AC8).
       const dropped = deps.installations.setEngineState(installation.id, { backup: undefined })
       if (!dropped.ok) {
-        return failed(
-          ENGINE_REPLACE_FAILED,
+        throw new SwapFailed(
           `clearing the backup pointer of ${installation.id} failed: ${dropped.error.key}`,
         )
       }
@@ -622,7 +530,7 @@ async function runUpdate(args: {
         await rm(backupDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 })
         await mkdir(backupDir, { recursive: true })
       } catch (error) {
-        return failed(ENGINE_REPLACE_FAILED, `preparing ${backupDir} failed: ${String(error)}`)
+        throw new SwapFailed(`preparing ${backupDir} failed: ${String(error)}`)
       }
 
       const swaps: PlannedSwap[] = []
@@ -703,8 +611,7 @@ async function runUpdate(args: {
           planned.backedUp = true
         } catch (error) {
           await restore()
-          return failed(
-            ENGINE_REPLACE_FAILED,
+          throw new SwapFailed(
             `backing up ${current} into ${planned.backupPath} failed: ${String(error)}`,
           )
         }
@@ -718,8 +625,7 @@ async function runUpdate(args: {
           planned.copied = true
         } catch (error) {
           await restore()
-          return failed(
-            ENGINE_REPLACE_FAILED,
+          throw new SwapFailed(
             `copying ${planned.from} onto ${planned.dest} failed: ${String(error)}`,
           )
         }
@@ -748,42 +654,28 @@ async function runUpdate(args: {
       })
       if (!written.ok) {
         await restore()
-        return failed(
-          ENGINE_REPLACE_FAILED,
+        throw new SwapFailed(
           `recording engine version ${target.version} on ${installation.id} failed: ${written.error.key}`,
         )
       }
 
-      report({ ratio: SWAP_DONE_RATIO, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
-      return null
+      ctx.report({ ratio: SWAP_DONE_RATIO, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
     }
 
-    /**
-     * Story 091 D4: the write phase, and only the write phase, runs with the installation's write
-     * lock held - deferred for as long as that installation's own game is running, resumed by the
-     * guard when it exits (AC6). A one-slot list rather than a `let`, because `runWrite` answers
-     * `void` and TypeScript's flow analysis does not follow an assignment made inside the callback.
-     */
-    const writePhase: EngineUpdateOutcome[] = []
+    let written: 'done' | 'cancelled'
     try {
-      await deps.writeGuard.runWrite(installation.id, jobId, signal, async () => {
-        const outcome = await swap()
-        if (outcome) writePhase.push(outcome)
-      })
+      written = await ctx.write(installation.id, swap)
     } catch (error) {
-      // `runWrite` rejects when the job was cancelled while its write was still deferred - the same
-      // cancellation the checkpoints above answer, so it takes the same exit through the same
-      // `finally`. Anything else is a real failure and keeps travelling to `startEngineUpdate`.
-      if (isWriteCancelled(error) || isCancelled()) return cancelledOutcome()
+      if (error instanceof SwapFailed) return ctx.fail(ENGINE_REPLACE_FAILED, error.message)
       throw error
     }
-    if (writePhase.length > 0) return writePhase[0]
+    if (written === 'cancelled') return ctx.cancelled()
 
     // 8. The status is whatever `inspectInstallation` now makes of the folder. This file never
     // writes one, and `EngineUpdateInstallationsHost` gives it no way to.
-    const revalidated = await deps.installations.validate(installation.id)
+    const revalidated = await ctx.revalidate(installation.id)
     if (!revalidated.ok) {
-      return failed(
+      return ctx.fail(
         LOCAL_FAILURE,
         `revalidating ${installation.id} failed: ${revalidated.error.key}`,
       )
@@ -792,11 +684,13 @@ async function runUpdate(args: {
       // The new engine is in place and the inspector still says this is not a usable installation.
       // The files stay - rolling back is `engine.rollbackStart`'s job (D6), and the backup this run
       // just took is exactly what it needs; succeeding here would claim an update that did not work.
-      return failed(NOT_PLAYABLE, `${root} is ${revalidated.value.status} after the engine update`)
+      return ctx.fail(
+        NOT_PLAYABLE,
+        `${root} is ${revalidated.value.status} after the engine update`,
+      )
     }
 
-    report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
-    deps.jobs.finish(jobId, { status: 'succeeded' })
+    ctx.report({ ratio: 1, bytesDone: bytesTotal, bytesTotal, filesRemaining: 0 })
     log?.info(
       `updated the engine of ${installation.name} to ${target.version} (${target.channel}, job ${jobId})`,
     )

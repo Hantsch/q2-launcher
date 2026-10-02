@@ -342,9 +342,26 @@ than merely described.
 
 Long-running module work uses `JobsService`. A module creates a `Job`, reports
 progress, and the action bar's download readout — bytes, speed, files remaining,
-the `PLAYABLE` threshold marker — updates for free. No module produces jobs yet;
-`dev:simulateJob` (development builds only) emits a fake one so the UI can be
-worked on before the downloads module exists.
+the `PLAYABLE` threshold marker — updates for free.
+
+A module does not drive `JobsService` itself: `JobRunner.run(spec, body)`
+(`services/job-runner.ts`) owns the lifecycle and hands the body a `ctx`. The
+runner owns the `AbortController` (the job's cancel aborts `ctx.signal` and kills
+the handle registered with `ctx.setExtractor`), a `settled` promise that never
+rejects, and the catch for a body that throws (it ends as
+`downloads.error.diskWrite`). Writes go through `ctx.write`, which runs the
+installation write guard and maps a cancelled write to `'cancelled'`. `jobs.finish`
+is called once, and never over a job the user already cancelled. Every
+installation a job wrote into is revalidated in a `finally`-style step before the
+job finishes, even when the write or the body failed.
+
+Exclusivity: a spec with `exclusive: 'installation'` is refused with
+`jobs.error.installationBusy` while any module's active job targets that
+installation. The check and `jobs.create` share one synchronous turn, so two
+starts cannot both pass.
+
+`dev:simulateJob` (development builds only) emits a fake job so the UI can be
+worked on without a real download.
 
 ## Renderer
 

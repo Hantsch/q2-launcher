@@ -55,7 +55,11 @@ describe('startBootstrap diagnostics', () => {
 
     const { jobId, outcome, record } = await run(box)
 
-    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.packageIncomplete' })
+    expect(outcome).toEqual({
+      status: 'failed',
+      key: 'downloads.error.packageIncomplete',
+      params: { packageId: DEMO_PACKAGE.id },
+    })
     expect(record?.jobId).toBe(jobId)
     expect(record?.kind).toBe(BOOTSTRAP_JOB_KIND)
     expect(record?.errorKey).toBe('downloads.error.packageIncomplete')
@@ -111,6 +115,42 @@ describe('startBootstrap diagnostics', () => {
     }
   })
 
+  it('missingChecks carry basename params', async () => {
+    const box = harness()
+    breakTargetBeforeValidate(box)
+    const brokenValidate = box.installations.validate.bind(box.installations)
+    // Assigned, not spied: `breakTargetBeforeValidate` already spies this method.
+    box.installations.validate = async (id) => {
+      const result = await brokenValidate(id)
+      if (!result.ok) return result
+      return {
+        ...result,
+        value: {
+          ...result.value,
+          checks: [
+            ...result.value.checks,
+            {
+              id: 'write-access' as const,
+              severity: 'warn' as const,
+              messageKey: 'validation.notWritable',
+              params: {
+                path: join(targetPath, 'baseq2'),
+                windowsPath: 'C:\\Users\\jane\\Quake II',
+                count: 3,
+              },
+            },
+          ],
+        },
+      }
+    }
+
+    const { record } = await run(box)
+
+    const check = record?.target?.missingChecks.find((entry) => entry.id === 'write-access')
+    expect(check?.params).toEqual({ path: 'baseq2', windowsPath: 'Quake II', count: 3 })
+    expect(JSON.stringify(record?.target)).not.toContain('jane')
+  })
+
   it('a package that extracted nothing is identifiable in the diagnostics', async () => {
     // The demo archive "extracts" perfectly and still contributes no `baseq2/pak0.pak` (story
     // 076's real bug). Nothing about the demo's own row looks wrong - verified, extracted, off the
@@ -120,7 +160,11 @@ describe('startBootstrap diagnostics', () => {
 
     const { outcome, record } = await run(box)
 
-    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.packageIncomplete' })
+    expect(outcome).toEqual({
+      status: 'failed',
+      key: 'downloads.error.packageIncomplete',
+      params: { packageId: DEMO_PACKAGE.id },
+    })
     expect(record?.packages.map((pkg) => pkg.id)).toEqual([
       ENGINE_PACKAGE.id,
       DEMO_PACKAGE.id,
@@ -232,6 +276,7 @@ describe('startBootstrap diagnostics', () => {
     expect(instrumented.outcome).toEqual({
       status: 'failed',
       key: 'downloads.error.packageIncomplete',
+      params: { packageId: DEMO_PACKAGE.id },
     })
     expect(await readdir(targetPath)).toEqual([])
     expect(withCollector.installations.list()).toHaveLength(1)
@@ -268,7 +313,11 @@ describe('startBootstrap diagnostics', () => {
 
     const { outcome, record } = await run(box)
 
-    expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.packageIncomplete' })
+    expect(outcome).toEqual({
+      status: 'failed',
+      key: 'downloads.error.packageIncomplete',
+      params: { packageId: DEMO_PACKAGE.id },
+    })
     // One entry per allowlist entry, each reporting the candidate it looked for and that nothing
     // served it - and no entry claiming a source.
     expect(record?.assembly?.length).toBeGreaterThan(0)

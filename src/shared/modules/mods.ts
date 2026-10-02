@@ -183,7 +183,6 @@ export const MODS_ERROR_KEYS = [
   'mods.error.badPackage',
   'mods.error.writeFailed',
   'mods.error.noPendingDecision',
-  'mods.error.diskWrite',
 ] as const
 
 export type ModsErrorKey = (typeof MODS_ERROR_KEYS)[number]
