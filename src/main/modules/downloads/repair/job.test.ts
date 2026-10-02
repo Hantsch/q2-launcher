@@ -14,21 +14,19 @@ import { dirname, join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
 import type { ManifestPackage, RepairOfferKind } from '@shared/modules/downloads'
-import {
-  IDLE_LAUNCH_STATE,
-  ok,
-  type EngineKind,
-  type Installation,
-  type Job,
-  type LauncherSettings,
-  type LaunchState,
-} from '@shared/types'
+import type { EngineKind, Installation, Job } from '@shared/types'
 import { InstallationsService } from '../../../services/installations'
 import { inspectInstallation } from '../../../services/inspector'
 import { JobsService } from '../../../services/jobs'
-import type { StateStore } from '../../../services/state'
-import { InstallationWriteGuard, type LaunchHost } from '../../../services/write-guard'
-import type { Extractor, ManifestSource, PackageFetcher } from '../bootstrap/ports'
+import { InstallationWriteGuard } from '../../../services/write-guard'
+import {
+  fakeExtractor,
+  fakeFetcher,
+  fakeLaunch,
+  fakeManifest,
+  fakeState,
+  type ManifestCalls,
+} from '../test-support'
 import { startRepair, type RepairDeps } from './job'
 import { resolveRepairPlan } from './plan'
 
@@ -173,127 +171,6 @@ async function createPointReleaseMissingInstallation(withPak2 = false): Promise<
   await writeFile(join(installRoot, BASE_GAME_DIR, 'config.cfg'), 'bind w +forward')
 }
 
-/** In-memory stand-in for the four `StateStore` methods `InstallationsService` reaches for. */
-function fakeState(): StateStore {
-  let installations: Installation[] = []
-  let settings = { activeInstallationId: null } as LauncherSettings
-  return {
-    installations: () => installations,
-    setInstallations: (next: Installation[]) => {
-      installations = next
-    },
-    settings: () => settings,
-    patchSettings: (patch: Partial<LauncherSettings>) => {
-      settings = { ...settings, ...patch }
-      return settings
-    },
-  } as unknown as StateStore
-}
-
-interface ManifestCalls {
-  engine: EngineKind[]
-  gameData: string[]
-}
-
-function fakeManifest(
-  calls: ManifestCalls,
-  options: {
-    engine?: ManifestPackage | undefined
-    pointRelease?: ManifestPackage | undefined
-  } = {},
-): ManifestSource {
-  const engine = 'engine' in options ? options.engine : ENGINE_PACKAGE
-  const pointRelease = 'pointRelease' in options ? options.pointRelease : POINT_RELEASE_PACKAGE
-  return {
-    resolveEnginePackage: async (kind) => {
-      calls.engine.push(kind)
-      return engine !== undefined && engine.kind === 'engine' && engine.engine === kind
-        ? engine
-        : undefined
-    },
-    resolveGameDataPackage: async (role) => {
-      calls.gameData.push(role)
-      return pointRelease !== undefined &&
-        pointRelease.kind === 'gamedata' &&
-        pointRelease.role === role
-        ? pointRelease
-        : undefined
-    },
-  }
-}
-
-/** Never moves a byte: the archive path it answers is only ever handed to the fake extractor. */
-function fakeFetcher(
-  calls: string[],
-  options: { gate?: () => Promise<void> } = {},
-): PackageFetcher {
-  return {
-    fetch: async (source) => {
-      calls.push(source.fileName)
-      if (options.gate) await options.gate()
-      return {
-        ok: true,
-        path: join(userDataPath, 'cache', 'downloads', source.fileName),
-        sizeBytes: source.sizeBytes,
-        sha256: source.sha256,
-        url: source.url,
-        attempts: [],
-      }
-    },
-  }
-}
-
-/**
- * Writes `ARCHIVE_LAYOUTS` for whichever package's archive it was handed, into the extract dir -
- * keyed off the extract dir's own last segment, which the job builds from the manifest package id
- * (`getBootstrapExtractDir`); the archive's *file name* comes from its URL and need not resemble it.
- */
-function fakeExtractor(): Extractor {
-  return {
-    extract: ({ extractDir }) => ({
-      result: (async () => {
-        const packageId = Object.keys(ARCHIVE_LAYOUTS).find((id) => extractDir.endsWith(id))
-        for (const relativePath of ARCHIVE_LAYOUTS[packageId ?? ''] ?? []) {
-          const target = join(extractDir, relativePath)
-          await mkdir(dirname(target), { recursive: true })
-          await writeFile(target, `${packageId}:${relativePath}`)
-          // A real archive preserves the exec bit on its client binary; on non-Windows,
-          // `looksExecutable` (fs-utils.ts) checks the mode bit rather than a `.exe` extension, so
-          // the real `inspectInstallation` this suite drives needs it set too (see
-          // `bootstrap/job.test.ts`'s identical fake extractor).
-          if (process.platform !== 'win32') await chmod(target, 0o755)
-        }
-        return ok(undefined)
-      })(),
-      kill: () => {},
-    }),
-  }
-}
-
-/**
- * The `LaunchHost` the real `InstallationWriteGuard` reads, with a setter the test drives - "the
- * game starts" and "the game exits" are `set(...)` calls. Mirrors `retail/upgrade-job.test.ts`'s.
- */
-function fakeLaunch(): { host: LaunchHost; set: (next: LaunchState) => void } {
-  let state: LaunchState = IDLE_LAUNCH_STATE
-  const listeners = new Set<(next: LaunchState) => void>()
-  return {
-    host: {
-      getState: () => state,
-      onStateChange: (listener) => {
-        listeners.add(listener)
-        return () => {
-          listeners.delete(listener)
-        }
-      },
-    },
-    set: (next) => {
-      state = next
-      for (const listener of [...listeners]) listener(next)
-    },
-  }
-}
-
 /** Mirrors `pipeline.test.ts`'s helper - a job that waits has no promise to await. */
 async function waitFor(condition: () => boolean, what: string): Promise<void> {
   const deadline = Date.now() + 5000
@@ -302,6 +179,18 @@ async function waitFor(condition: () => boolean, what: string): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 10))
   }
   throw new Error(`timed out waiting for ${what}`)
+}
+
+/**
+ * Writes `ARCHIVE_LAYOUTS` for whichever package's archive it was handed - keyed off the extract
+ * dir's own last segment, which the job builds from the manifest package id
+ * (`getBootstrapExtractDir`); the archive's *file name* comes from its URL and need not resemble it.
+ */
+function archiveFiles(extractDir: string): Record<string, string> {
+  const packageId = Object.keys(ARCHIVE_LAYOUTS).find((id) => extractDir.endsWith(id))
+  return Object.fromEntries(
+    (ARCHIVE_LAYOUTS[packageId ?? ''] ?? []).map((path) => [path, `${packageId}:${path}`]),
+  )
 }
 
 interface Harness {
@@ -354,15 +243,25 @@ async function harness(
   const fetchCalls: string[] = []
   const manifestCalls: ManifestCalls = { engine: [], gameData: [] }
   const launch = fakeLaunch()
+  // An explicit `undefined` means "the manifest has no such package", not "use the default".
+  const manifestOptions = options.manifest ?? {}
+  const manifestPackages = [
+    'engine' in manifestOptions ? manifestOptions.engine : ENGINE_PACKAGE,
+    'pointRelease' in manifestOptions ? manifestOptions.pointRelease : POINT_RELEASE_PACKAGE,
+  ].filter((pkg): pkg is ManifestPackage => pkg !== undefined)
 
   return {
     deps: {
       jobs,
       installations,
       writeGuard: new InstallationWriteGuard({ launch: launch.host, jobs }),
-      manifest: fakeManifest(manifestCalls, options.manifest ?? {}),
-      fetcher: fakeFetcher(fetchCalls, options.fetchGate ? { gate: options.fetchGate } : {}),
-      extractor: fakeExtractor(),
+      manifest: fakeManifest(manifestPackages, manifestCalls),
+      fetcher: fakeFetcher(
+        userDataPath,
+        fetchCalls,
+        options.fetchGate ? { gate: options.fetchGate } : {},
+      ),
+      extractor: fakeExtractor(archiveFiles),
       userDataPath,
       resolveExtractor: () => ({ path: join(userDataPath, '7za.exe'), exists: true }),
     },

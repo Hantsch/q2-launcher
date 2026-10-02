@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { I18nextProvider } from 'react-i18next'
 import { createInstance, type i18n as I18nInstance } from 'i18next'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { NameTemplatesView } from '@shared/replays/name-templates'
 import type { Outcome } from '@shared/types'
 import en from '../../i18n/locales/en.json'
@@ -32,15 +33,17 @@ function transportOk(domain: Outcome<NameTemplatesView>): Outcome<Outcome<NameTe
   return { ok: true, value: domain }
 }
 
-vi.mock('./client', () => ({
-  listNameTemplates: () => listNameTemplates(),
-  addNameTemplate: (template: string) => addNameTemplate(template),
-  updateNameTemplate: (id: string, template: string) => updateNameTemplate(id, template),
-  removeNameTemplate: (id: string) => removeNameTemplate(id),
-  reorderNameTemplates: (ids: string[]) => reorderNameTemplates(ids),
-  resetNameTemplate: (id: string) => resetNameTemplate(id),
-  restoreNameTemplates: () => restoreNameTemplates(),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    listNameTemplates: () => listNameTemplates(),
+    addNameTemplate: (template: string) => addNameTemplate(template),
+    updateNameTemplate: (id: string, template: string) => updateNameTemplate(id, template),
+    removeNameTemplate: (id: string) => removeNameTemplate(id),
+    reorderNameTemplates: (ids: string[]) => reorderNameTemplates(ids),
+    resetNameTemplate: (id: string) => resetNameTemplate(id),
+    restoreNameTemplates: () => restoreNameTemplates(),
+  }),
+)
 
 let NameTemplatesList: typeof import('./NameTemplatesList').NameTemplatesList
 

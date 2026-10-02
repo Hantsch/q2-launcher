@@ -1,7 +1,7 @@
 ---
 id: 225
 title: tests share a quiet logger and one test-support kit
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -27,24 +27,24 @@ re-invented 2,000 lines apart).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `src/test-support/setup.ts` is wired as `test.setupFiles` and silences the
+- [x] **AC1** — `src/test-support/setup.ts` is wired as `test.setupFiles` and silences the
       logger (mock `electron-log/main` or `console.level = false` under `VITEST`); a guard
       asserts the dot run emits zero `stdout |` blocks; main tests no longer need the Electron
       binary installed (CI workaround removed where it only served tests).
-- [ ] **AC2** — `src/test-support/` provides `useTempDir(prefix)` with automatic cleanup,
+- [x] **AC2** — `src/test-support/` provides `useTempDir(prefix)` with automatic cleanup,
       `fakeAppContext(overrides)`, and `fixtures.ts` with `makeInstallation`, `makeJob`,
       `makeConfigProfile`; `src/main/modules/downloads/test-support.ts` provides `fakeState`,
       `fakeLaunch`, `fakeExtractor`, `fakeManifest`, `fakeFetcher`; the builder sites are
       migrated (grep-zero for `function makeInstallation(` outside test-support).
-- [ ] **AC3** — `src/renderer/src/test-support/mockClient(path, overrides)` uses
+- [x] **AC3** — `src/renderer/src/test-support/mockClient(path, overrides)` uses
       `importOriginal` so a renamed client export fails typecheck in every test that mocks it;
       the 38 hand-listed mocks use it.
-- [ ] **AC4** — `round-trip.test.ts` is split into `round-trip/` with a `helpers.ts` and
+- [x] **AC4** — `round-trip.test.ts` is split into `round-trip/` with a `helpers.ts` and
       behaviour-named files; story numbers appear only in `it()` names; no test file exceeds
       1,500 lines (soft cap in story 208's architecture test).
-- [ ] **AC5** — docs/ARCHITECTURE.md gains a short "Testing" section: conventions, where the
+- [x] **AC5** — docs/ARCHITECTURE.md gains a short "Testing" section: conventions, where the
       kit lives, real temp dirs over fs mocks, the size cap.
-- [ ] **AC6** — Full `npm test` green with the same test count (minus deliberately merged
+- [x] **AC6** — Full `npm test` green with the same test count (minus deliberately merged
       duplicates, listed in Done).
 
 ## Open Questions
@@ -270,4 +270,13 @@ No criterion describes a user action through the UI, so no `ui:flow` line applie
 
 ## Done
 
-<!-- Filled by /build 225. -->
+Test runs are quiet and no longer need the Electron binary (vitest aliases `electron` and `electron-log/main` to stubs plus `setup.ts`; CI test jobs skip the binary). `src/test-support/` now holds `useTempDir`, `fakeAppContext`, `fixtures.ts` (`makeInstallation`, `makeJob`, `makeConfigProfile`); downloads has its own `test-support.ts`; 42 renderer client mocks go through `mockClient`; eight oversized test files are split and a 1,500-line cap guard plus an ARCHITECTURE.md `## Testing` section land.
+
+Commit message: `225: quiet test run, one test-support kit, mockClient, test files split under 1,500 lines`
+
+Verification (narrow gate replaced by the full `npm test` as the brief allows; ran in ~25 s): `npm run build` green, `npm run typecheck` green, full `npx vitest run`: 482 files, 6275 passed, 8 skipped (pre-existing), dot run prints 0 `stdout |`/`stderr |` blocks (re-checked on the one file that printed after the last full run). Review: default tier, 1 cycle, PASS with F1 (retries in `useTempDir`), F2 (test for the i18n default-value branch), F4 (story ref in vitest.config.ts), F5 (`const fakeAppContext` form in guard) fixed. Not run: `ui:verify`/`ui:flows` (no UI criterion; sprint gate).
+AC to test: AC1 `scripts/quiet-test-run.test.mjs` (passed, also fails when either alias is removed, checked by hand); AC2 `src/test-support/temp-dir.test.ts` + four `scripts/test-kit.test.mjs` guards (passed); AC3 `mock-client.test.ts` + guard widened to all `src/renderer` (passed, `@ts-expect-error` consumed by typecheck); AC4 "no test file exceeds 1,500 lines" and "round-trip describes carry no story numbers" (passed); AC5 ARCHITECTURE.md Testing guard (passed); AC6 full suite green. No manual residue.
+
+Decisions: (1) Test count: `vitest list` 6260 before, 6275 after (+15 new tests: 8 guards, quiet run, 2 temp-dir, 3 mock-client, 2 i18n minus nothing); every split proved equal per-file `it` counts (round-trip 239, index 103, render 91, bootstrap job 68, profile-restore 106, schemas 96, profiles 78, scan-service 43); no duplicates merged; only describe titles lost story prefixes. (2) A 8th file over the cap, `servers/scan-service.test.ts` (1,717), was split too because the cap has an empty allowlist. (3) Electron binary: the install step lives in the composite action `setup-node-electron`, so ci.yml `test` and release.yml test job pass `electron: 'false'` instead of deleting a step. (4) Product change `renderer/i18n/index.ts` `parseMissingKeyHandler` now returns the caller's `defaultValue` (previously the key; also no warn) so the quiet run needs no console mute; now tested. (5) `forbid-electron.cjs` checks the resolved entry file as well as the bare name; the acceptance grep's `^` anchor never matched dot-reporter output, so the guard uses the unanchored pattern. (6) Splits other than round-trip keep story numbers in some describe titles (the round-trip guard is the AC); `fakeLaunch` copies outside downloads stay (D-l); `as never` casts in a few client-mock overrides keep types loose where the real client's return types are broader (accepted). (7) `mockClient` stubs `window.q2` during `importOriginal` so no per-file bridge mocks are needed.
+
+tiers: D 17 / hard 1 · review default · cycles 1 · agents 23

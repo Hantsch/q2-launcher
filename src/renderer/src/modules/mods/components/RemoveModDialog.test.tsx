@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import { initI18n } from '../../../i18n'
 
 const { previewRemoval, removeMod } = vi.hoisted(() => ({
@@ -16,7 +17,10 @@ const { previewRemoval, removeMod } = vi.hoisted(() => ({
   })),
   removeMod: vi.fn(async () => ({ ok: true as const, value: { jobId: 'job-9' } })),
 }))
-vi.mock('../client', () => ({ previewRemoval, removeMod }))
+// Importing the real client module evaluates the preload bridge accessor.
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, { previewRemoval, removeMod }),
+)
 
 const { RemoveModDialog } = await import('./RemoveModDialog')
 

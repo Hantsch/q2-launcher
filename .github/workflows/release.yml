@@ -150,6 +150,9 @@ jobs:
           ref: ${{ github.ref_name }}
 
       - uses: ./.github/actions/setup-node-electron
+        with:
+          # Unit tests resolve `electron` to a stub (vitest.config.ts) and never need the binary.
+          electron: 'false'
 
       - name: Test
         run: npm test

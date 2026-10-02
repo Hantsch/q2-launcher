@@ -11,11 +11,13 @@ import type {
   WatchlistSnapshot,
 } from '@shared/modules/servers'
 import type { ServerListSort } from '@shared/servers/list-sort'
-import { DEFAULT_SETTINGS, type Installation } from '@shared/types'
+import { DEFAULT_SETTINGS } from '@shared/types'
 import { initI18n } from '../../i18n'
+import { mockClient } from '../../test-support/mock-client'
 import { usePrimaryActionStore } from '../../lib/primary-action'
 import { useLauncher } from '../../store/useLauncher'
 import { ActionBar } from '../../components/shell/ActionBar'
+import { makeInstallation } from '../../../../test-support/fixtures'
 
 /**
  * Story 181 D2. The Servers tab publishes "Join" into the action bar; these tests render the real
@@ -61,25 +63,27 @@ const {
   onWatchlistChangedMock: vi.fn(() => () => {}),
 }))
 
-vi.mock('./client', () => ({
-  listQuickFilters: async () => ({ ok: true as const, value: [] }),
-  readScan: readScanMock,
-  startScan: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
-  setScanViewActive: setScanViewActiveMock,
-  setMode: async () => ({ ok: true as const, value: undefined }),
-  onScanChanged: onScanChangedMock,
-  onScanServer: onScanServerMock,
-  listMasterSources: listMasterSourcesMock,
-  getListSort: getListSortMock,
-  setListSort: setListSortMock,
-  readServerDetail: readServerDetailMock,
-  readWatchlist: readWatchlistMock,
-  onWatchlistChanged: onWatchlistChangedMock,
-  addWatchlistEntry: vi.fn(),
-  updateWatchlistEntry: vi.fn(),
-  removeWatchlistEntry: vi.fn(),
-  recheckWatchlistEntry: vi.fn(),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    listQuickFilters: async () => ({ ok: true as const, value: [] }),
+    readScan: readScanMock,
+    startScan: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
+    setScanViewActive: setScanViewActiveMock,
+    setMode: async () => ({ ok: true as const, value: undefined }),
+    onScanChanged: onScanChangedMock,
+    onScanServer: onScanServerMock,
+    listMasterSources: listMasterSourcesMock,
+    getListSort: getListSortMock,
+    setListSort: setListSortMock,
+    readServerDetail: readServerDetailMock,
+    readWatchlist: readWatchlistMock,
+    onWatchlistChanged: onWatchlistChangedMock,
+    addWatchlistEntry: vi.fn(),
+    updateWatchlistEntry: vi.fn(),
+    removeWatchlistEntry: vi.fn(),
+    recheckWatchlistEntry: vi.fn(),
+  }),
+)
 
 let ServersView: typeof import('./ServersView').ServersView
 
@@ -89,26 +93,6 @@ beforeAll(async () => {
 })
 
 const playMock = vi.fn(async () => {})
-
-function makeInstallation(): Installation {
-  return {
-    id: 'inst-1',
-    name: 'Test Install',
-    rootPath: 'C:\\Games\\Q2',
-    engineKind: 'r1q2',
-    launchArgs: [],
-    activeGameDir: '',
-    source: 'manual',
-    status: 'ok',
-    checks: [],
-    gameDirs: [],
-    favorite: false,
-    sortOrder: 0,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    totalPlaytimeSeconds: 0,
-  }
-}
 
 function seedLauncher(withInstallation: boolean, unlocked: string[] = []): void {
   useLauncher.setState({

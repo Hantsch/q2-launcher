@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { Installation, ValidationCheck } from '@shared/types'
 import type { RepairOffer, RepairPlan } from '@shared/modules/downloads'
 import { initI18n } from '../../../i18n'
@@ -26,10 +27,12 @@ vi.hoisted(() => {
 const getRepairPlan = vi.fn()
 const startRepair = vi.fn()
 
-vi.mock('../client', () => ({
-  getRepairPlan: (...args: unknown[]) => getRepairPlan(...(args as [])),
-  startRepair: (...args: unknown[]) => startRepair(...(args as [])),
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    getRepairPlan: (...args: unknown[]) => getRepairPlan(...(args as [])),
+    startRepair: (...args: unknown[]) => startRepair(...(args as [])),
+  }),
+)
 
 const runFixMock = vi.fn(async () => {})
 

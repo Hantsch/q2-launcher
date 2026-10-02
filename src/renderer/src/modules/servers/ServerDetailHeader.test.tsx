@@ -4,16 +4,19 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ServerDetail } from '@shared/modules/servers'
 import { initI18n } from '../../i18n'
+import { mockClient } from '../../test-support/mock-client'
 
 const { addFavouriteMock, removeFavouriteMock } = vi.hoisted(() => ({
   addFavouriteMock: vi.fn(async () => ({ ok: true as const, value: [] })),
   removeFavouriteMock: vi.fn(async () => ({ ok: true as const, value: [] })),
 }))
 
-vi.mock('./client', () => ({
-  addFavourite: addFavouriteMock,
-  removeFavourite: removeFavouriteMock,
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    addFavourite: addFavouriteMock,
+    removeFavourite: removeFavouriteMock,
+  }),
+)
 
 let ServerDetailHeader: typeof import('./ServerDetailHeader').ServerDetailHeader
 

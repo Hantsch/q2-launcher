@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 
 const handlers = vi.hoisted(() => ({
   position: null as null | ((p: { positionMs: number | null; durationMs: number | null }) => void),
@@ -9,23 +10,25 @@ const handlers = vi.hoisted(() => ({
   timeline: vi.fn(),
 }))
 
-vi.mock('./client', () => ({
-  playbackCinema: vi.fn(),
-  playbackDisplayRead: () => new Promise(() => {}),
-  playbackTimeline: (a: unknown) => handlers.timeline(a),
-  onPlaybackPosition: (l: typeof handlers.position) => {
-    handlers.position = l
-    return handlers.offPosition
-  },
-  onPlaybackState: (l: typeof handlers.state) => {
-    handlers.state = l
-    return handlers.offState
-  },
-  onPlaybackDisplay: (l: typeof handlers.display) => {
-    handlers.display = l
-    return () => {}
-  },
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    playbackCinema: vi.fn(),
+    playbackDisplayRead: () => new Promise(() => {}),
+    playbackTimeline: (a: unknown) => handlers.timeline(a),
+    onPlaybackPosition: (l: unknown) => {
+      handlers.position = l as typeof handlers.position
+      return handlers.offPosition
+    },
+    onPlaybackState: (l: typeof handlers.state) => {
+      handlers.state = l
+      return handlers.offState
+    },
+    onPlaybackDisplay: (l: unknown) => {
+      handlers.display = l as typeof handlers.display
+      return () => {}
+    },
+  }),
+)
 
 import { usePlaybackStore } from './playback-store'
 import { expected } from './optimistic-timeline'

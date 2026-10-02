@@ -319,6 +319,26 @@ cannot satisfy the check as a prefix) and collects the page's
 `ui:verify` run the same way a console error does. Note that `ui:flow` shares the
 collector but does not read it — a flow's pass/fail only reflects its own steps.
 
+## Testing
+
+Vitest runs main, shared and renderer tests (`.tsx` opts into jsdom with a docblock). The shared
+kit keeps runs quiet and binary-free:
+
+- `src/test-support/setup.ts` runs before every file; `vitest.config.ts` aliases `electron` and
+  `electron-log/main` to `electron-stub.ts` / `electron-log-stub.ts`, so no Electron binary is
+  needed and the logger prints nothing. A per-file `vi.mock('electron')` still wins; there is no
+  global `console` mute, so a new warning shows up in the run.
+- The kit lives in `src/test-support/` (`useTempDir`, `fakeAppContext`, `fixtures.ts` with
+  `makeInstallation` / `makeJob` / `makeConfigProfile`), `src/renderer/src/test-support/mock-client.ts`
+  and `src/main/modules/downloads/test-support.ts` (downloads fakes). Do not redefine them locally.
+- Renderer client mocks go through `mockClient`:
+  `vi.mock('./client', (importOriginal) => mockClient<typeof import('./client')>(importOriginal, {...}))`.
+  Every function export becomes a `vi.fn()`; `overrides` are typed against the module.
+- Prefer real temp dirs (`useTempDir(prefix)`, removed after each test) over fs mocks.
+- Test files are named for behaviour, not stories; story numbers appear only in `it()` names.
+- A test file stays under 1,500 lines. Split as `<name>.<behaviour>.test.ts` with shared setup in
+  `<name>.test-helpers.ts`. `scripts/test-kit.test.mjs` enforces the cap and the kit rules above.
+
 ## Window chrome
 
 `frame: false` with a React title bar, matching the reference launchers. The

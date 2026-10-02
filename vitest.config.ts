@@ -13,6 +13,15 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // The real `electron` only resolves (and lazily downloads) the Electron binary outside an
+    // Electron process, and `electron-log/main` prints every log line; tests get inert stubs
+    // instead. A per-file `vi.mock('electron', ...)` still wins: it resolves through this same
+    // alias, so it replaces the stub module itself.
+    alias: {
+      electron: resolve(__dirname, 'src/test-support/electron-stub.ts'),
+      'electron-log/main': resolve(__dirname, 'src/test-support/electron-log-stub.ts'),
+    },
+    setupFiles: ['src/test-support/setup.ts'],
     // .tsx tests render React components and need a DOM (story 054 D1's first one); they opt in
     // per-file with a `// @vitest-environment jsdom` docblock so plain .ts tests stay on the
     // faster `node` environment.

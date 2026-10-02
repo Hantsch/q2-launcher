@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import { initI18n } from '../../../i18n'
 
 /** Story 166 D4. Stubbed client, real store - same idiom as `DemoTimeline.test.tsx`. */
@@ -10,14 +11,16 @@ vi.hoisted(() => {
 })
 
 const consoleSend = vi.fn()
-vi.mock('../client', () => ({
-  consoleSend: (...args: unknown[]) => consoleSend(...args),
-  playbackTimeline: vi.fn(),
-  onPlaybackPosition: () => () => {},
-  onPlaybackState: () => () => {},
-  onPlaybackDisplay: () => () => {},
-  playbackDisplayRead: () => new Promise(() => {}),
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    consoleSend: (...args: unknown[]) => consoleSend(...args),
+    playbackTimeline: vi.fn(),
+    onPlaybackPosition: () => () => {},
+    onPlaybackState: () => () => {},
+    onPlaybackDisplay: () => () => {},
+    playbackDisplayRead: () => new Promise(() => {}),
+  }),
+)
 
 let ConsoleCommandField: typeof import('./ConsoleCommandField').ConsoleCommandField
 let usePlaybackStore: typeof import('../playback-store').usePlaybackStore

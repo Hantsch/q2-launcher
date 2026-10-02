@@ -14,19 +14,13 @@ import { join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
 import type { DetectedRetailSource, RetailSourceInspection } from '@shared/modules/downloads'
-import {
-  IDLE_LAUNCH_STATE,
-  type Installation,
-  type Job,
-  type LaunchState,
-  type LauncherSettings,
-} from '@shared/types'
+import { IDLE_LAUNCH_STATE, type Installation, type Job } from '@shared/types'
 import { InstallationsService } from '../../../services/installations'
 import { inspectInstallation } from '../../../services/inspector'
 import { JobsService } from '../../../services/jobs'
-import type { StateStore } from '../../../services/state'
-import { InstallationWriteGuard, type LaunchHost } from '../../../services/write-guard'
+import { InstallationWriteGuard } from '../../../services/write-guard'
 import type { AssembleInstallationResult } from '../bootstrap/assemble'
+import { fakeLaunch, fakeState } from '../test-support'
 import {
   RETAIL_UPGRADE_JOB_KIND,
   startRetailUpgrade,
@@ -104,23 +98,6 @@ async function createDemoInstallation(baseDirName = BASE_GAME_DIR): Promise<void
   await writeFile(join(installRoot, 'xatrix', 'pak0.pak'), 'mission pack data')
 }
 
-/** In-memory stand-in for the four `StateStore` methods `InstallationsService` reaches for. */
-function fakeState(): StateStore {
-  let installations: Installation[] = []
-  let settings = { activeInstallationId: null } as LauncherSettings
-  return {
-    installations: () => installations,
-    setInstallations: (next: Installation[]) => {
-      installations = next
-    },
-    settings: () => settings,
-    patchSettings: (patch: Partial<LauncherSettings>) => {
-      settings = { ...settings, ...patch }
-      return settings
-    },
-  } as unknown as StateStore
-}
-
 /** A verified store source, as `listDetectedRetailSources` would report one. */
 function detectedSource(
   rootPath: string,
@@ -180,33 +157,6 @@ function fakeCopy(
       missingRequired: [],
       entries: [],
     }
-  }
-}
-
-/**
- * Story 091 D4: the `LaunchHost` surface the real `InstallationWriteGuard` reads, with a setter the
- * test drives - "the game starts" and "the game exits" are `set(...)` calls that notify the guard's
- * observer exactly as `LaunchService.onStateChange` would.
- *
- * Mirrors `services/write-guard.test.ts`'s own `fakeLaunch`.
- */
-function fakeLaunch(): { host: LaunchHost; set: (next: LaunchState) => void } {
-  let state: LaunchState = IDLE_LAUNCH_STATE
-  const listeners = new Set<(next: LaunchState) => void>()
-  return {
-    host: {
-      getState: () => state,
-      onStateChange: (listener) => {
-        listeners.add(listener)
-        return () => {
-          listeners.delete(listener)
-        }
-      },
-    },
-    set: (next) => {
-      state = next
-      for (const listener of [...listeners]) listener(next)
-    },
   }
 }
 

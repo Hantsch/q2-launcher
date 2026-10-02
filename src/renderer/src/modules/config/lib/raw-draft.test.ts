@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type {
   SaveProfileConflict,
   SaveProfileUnreadable,
@@ -23,11 +24,8 @@ import {
  * nothing here uses either of them.
  */
 vi.mock('../../../store/useLauncher', () => ({ useLauncher: () => vi.fn() }))
-vi.mock('../client', () => ({
-  saveConfigProfileRawText: vi.fn(),
-  saveConfigProfile: vi.fn(),
-  refreshProfilesFromFiles: vi.fn(),
-}))
+// Importing the real client module evaluates the preload bridge accessor.
+vi.mock('../client', (importOriginal) => mockClient<typeof import('../client')>(importOriginal))
 
 describe('rawEditingMode', () => {
   it('offers no editing while the canonical file is not on disk', () => {

@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { initI18n } from '../../i18n'
 import { AliasesTab } from './AliasesTab'
@@ -20,12 +21,15 @@ import { AliasesTab } from './AliasesTab'
  * `.tsx` file.
  */
 
-vi.mock('./client', () => ({
-  updateProfileActions: vi.fn(async (input: { actions: ConfigAction[] }) => ({
-    ok: true,
-    value: [{ ...baseProfile(), actions: input.actions }],
-  })),
-}))
+// Importing the real client module evaluates the preload bridge accessor.
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    updateProfileActions: vi.fn(async (input: { actions: ConfigAction[] }) => ({
+      ok: true as const,
+      value: [{ ...baseProfile(), actions: input.actions }],
+    })),
+  }),
+)
 
 beforeAll(async () => {
   await initI18n('en')

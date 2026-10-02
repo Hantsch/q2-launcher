@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
+import { makeJob } from '../../../../test-support/fixtures'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { ArchiveCacheStatus } from '@shared/modules/downloads'
-import type { Job } from '@shared/types'
 import { initI18n } from '../../i18n'
 import { formatBytes, formatSpeed } from '../../lib/format'
 import { useLauncher } from '../../store/useLauncher'
@@ -23,39 +24,26 @@ import { DownloadsView } from './DownloadsView'
 // tests goes through the mocked store action instead.
 vi.hoisted(() => {
   ;(globalThis as unknown as { q2: unknown }).q2 = {
-    invoke: vi.fn(async () => ({ ok: true })),
+    invoke: vi.fn(async () => ({ ok: true as const })),
     on: vi.fn(() => () => {}),
   }
 })
 
 const stubCacheStatus: ArchiveCacheStatus = { totalBytes: 3 * 1024 * 1024, itemCount: 4 }
 
-const getArchiveCacheStatus = vi.fn(async () => ({ ok: true, value: stubCacheStatus }))
-const getDownloadFailures = vi.fn(async () => ({ ok: true, value: [] }))
+const getArchiveCacheStatus = vi.fn(async () => ({ ok: true as const, value: stubCacheStatus }))
+const getDownloadFailures = vi.fn(async () => ({ ok: true as const, value: [] }))
 
-vi.mock('./client', () => ({
-  getArchiveCacheStatus: (...args: unknown[]) => getArchiveCacheStatus(...(args as [])),
-  getDownloadFailures: (...args: unknown[]) => getDownloadFailures(...(args as [])),
-  dismissDownloadFailure: vi.fn(async () => ({ ok: true, value: [] })),
-  restoreDownloadFailure: vi.fn(async () => ({ ok: true, value: [] })),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    getArchiveCacheStatus: (...args: unknown[]) => getArchiveCacheStatus(...(args as [])),
+    getDownloadFailures: (...args: unknown[]) => getDownloadFailures(...(args as [])),
+    dismissDownloadFailure: vi.fn(async () => ({ ok: true as const, value: [] })),
+    restoreDownloadFailure: vi.fn(async () => ({ ok: true as const, value: [] })),
+  }),
+)
 
 const { cancelJobMock } = vi.hoisted(() => ({ cancelJobMock: vi.fn(async () => {}) }))
-
-function makeJob(overrides: Partial<Job> = {}): Job {
-  return {
-    id: 'job-1',
-    moduleId: 'downloads',
-    kind: 'download-game',
-    labelKey: 'downloads.job.download',
-    labelParams: { name: 'Base game' },
-    status: 'running',
-    progress: { ratio: 0.42, bytesDone: 420_000, bytesTotal: 1_000_000, bytesPerSecond: 50_000 },
-    cancellable: true,
-    startedAt: new Date().toISOString(),
-    ...overrides,
-  }
-}
 
 beforeAll(async () => {
   await initI18n('en')

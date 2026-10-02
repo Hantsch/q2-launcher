@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Installation } from '@shared/types'
 import { InstallationTile } from './InstallationTile'
+import { makeInstallation } from '../../../../test-support/fixtures'
 
 /**
  * `useInstallationIcon` reads/writes `useLauncher`'s `iconDataUrls` cache and
@@ -29,27 +29,6 @@ vi.mock('../../store/useLauncher', () => ({
  * from the source before it was refactored to use this component - any
  * change here is a visual regression, not a style-guide nit.
  */
-function makeInstallation(overrides: Partial<Installation> = {}): Installation {
-  return {
-    id: 'inst-1',
-    name: 'Test Install',
-    rootPath: 'C:\\Games\\Q2',
-    engineKind: 'r1q2',
-    launchArgs: [],
-    activeGameDir: '',
-    source: 'manual',
-    status: 'ok',
-    checks: [],
-    gameDirs: [],
-    favorite: false,
-    sortOrder: 0,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    totalPlaytimeSeconds: 0,
-    ...overrides,
-  }
-}
-
 function classesOf(element: Element): string[] {
   return element.className.split(/\s+/).filter(Boolean)
 }

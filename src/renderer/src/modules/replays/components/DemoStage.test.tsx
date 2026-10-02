@@ -1,28 +1,34 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
 import { initI18n } from '../../../i18n'
 
 vi.hoisted(() => {
   ;(globalThis as unknown as { q2: unknown }).q2 = { invoke: vi.fn(), on: vi.fn(() => () => {}) }
 })
-vi.mock('../client', () => ({
-  indexRead: async () => ({ ok: true, value: [] }),
-  scanStart: async () => ({ ok: true, value: { started: true } }),
-  onScanProgress: () => () => {},
-  getListSort: async () => ({ ok: true, value: null }),
-  setListSort: async (sort: unknown) => ({ ok: true, value: sort }),
-  getListFilter: async () => ({ ok: true, value: EMPTY_DEMO_LIST_FILTER }),
-  setListFilter: async (filter: unknown) => ({ ok: true, value: filter }),
-  sidecarRead: async () => ({ ok: true, value: { state: { state: 'none' }, values: {} } }),
-  playbackTimeline: vi.fn(),
-  sendStageRect: vi.fn(async () => ({ ok: true, value: { ok: true, value: undefined } })),
-  onPlaybackPosition: () => () => {},
-  onPlaybackState: () => () => {},
-  onPlaybackDisplay: () => () => {},
-  playbackDisplayRead: () => new Promise(() => {}),
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    indexRead: async () => ({ ok: true, value: [] }),
+    scanStart: async () => ({ ok: true, value: { started: true } }),
+    onScanProgress: () => () => {},
+    getListSort: async () => ({ ok: true, value: null }),
+    setListSort: async (sort: unknown) => ({ ok: true, value: sort }) as never,
+    getListFilter: async () => ({ ok: true, value: EMPTY_DEMO_LIST_FILTER }),
+    setListFilter: async (filter: unknown) => ({ ok: true, value: filter }) as never,
+    sidecarRead: async () => ({ ok: true, value: { state: { state: 'none' }, values: {} } }),
+    playbackTimeline: vi.fn(),
+    sendStageRect: vi.fn(async () => ({
+      ok: true,
+      value: { ok: true, value: undefined },
+    })) as never,
+    onPlaybackPosition: () => () => {},
+    onPlaybackState: () => () => {},
+    onPlaybackDisplay: () => () => {},
+    playbackDisplayRead: () => new Promise(() => {}),
+  }),
+)
 
 import * as client from '../client'
 

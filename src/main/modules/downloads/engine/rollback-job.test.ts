@@ -4,17 +4,11 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { BASE_GAME_DIR } from '@shared/constants'
-import {
-  IDLE_LAUNCH_STATE,
-  type Installation,
-  type Job,
-  type LaunchState,
-  type LauncherSettings,
-} from '@shared/types'
+import type { Installation, Job } from '@shared/types'
 import { InstallationsService } from '../../../services/installations'
 import { JobsService } from '../../../services/jobs'
-import type { StateStore } from '../../../services/state'
-import { InstallationWriteGuard, type LaunchHost } from '../../../services/write-guard'
+import { InstallationWriteGuard } from '../../../services/write-guard'
+import { fakeLaunch, fakeState } from '../test-support'
 import { readEngineState } from './installation-state'
 import { ENGINE_BACKUP_DIR_NAME } from './update-job'
 import {
@@ -69,44 +63,6 @@ async function writeTree(root: string, files: Record<string, string>): Promise<v
     const target = join(root, relativePath)
     await mkdir(dirname(target), { recursive: true })
     await writeFile(target, content)
-  }
-}
-
-/** In-memory stand-in for the four `StateStore` methods `InstallationsService` reaches for. */
-function fakeState(): StateStore {
-  let installations: Installation[] = []
-  let settings = { activeInstallationId: null } as LauncherSettings
-  return {
-    installations: () => installations,
-    setInstallations: (next: Installation[]) => {
-      installations = next
-    },
-    settings: () => settings,
-    patchSettings: (patch: Partial<LauncherSettings>) => {
-      settings = { ...settings, ...patch }
-      return settings
-    },
-  } as unknown as StateStore
-}
-
-/** Mirrors `services/write-guard.test.ts`'s own `fakeLaunch`. */
-function fakeLaunch(): { host: LaunchHost; set: (next: LaunchState) => void } {
-  let state: LaunchState = IDLE_LAUNCH_STATE
-  const listeners = new Set<(next: LaunchState) => void>()
-  return {
-    host: {
-      getState: () => state,
-      onStateChange: (listener) => {
-        listeners.add(listener)
-        return () => {
-          listeners.delete(listener)
-        }
-      },
-    },
-    set: (next) => {
-      state = next
-      for (const listener of [...listeners]) listener(next)
-    },
   }
 }
 

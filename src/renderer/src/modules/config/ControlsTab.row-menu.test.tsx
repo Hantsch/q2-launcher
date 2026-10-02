@@ -166,7 +166,7 @@ describe('ControlsTab row menu (story 054 D8)', () => {
     expect(() => menuTriggerFor('My own bind')).not.toThrow()
   })
 
-  it('moves a catalogue row down through the kebab menu and persists the swap', () => {
+  it('moves a catalogue row down through the kebab menu and persists the swap', async () => {
     renderTab()
     openMenu('Forward')
 
@@ -177,6 +177,7 @@ describe('ControlsTab row menu (story 054 D8)', () => {
     expect(menuItems()[1]!.disabled).toBe(false)
 
     clickMenuItem('Move entry down')
+    await act(async () => {})
 
     expect(saved).toHaveLength(1)
     expect(saved[0]!.map((entry) => entry.id)).toEqual(['free', 'f'])
@@ -184,10 +185,12 @@ describe('ControlsTab row menu (story 054 D8)', () => {
     expect(document.querySelector('[role="menu"]')).toBeNull()
   })
 
-  it('moves a free-form row up through the kebab menu and persists the swap', () => {
+  it('moves a free-form row up through the kebab menu and persists the swap', async () => {
     renderTab()
     openMenu('My own bind')
     clickMenuItem('Move entry up')
+    // The save settles after the click; flush it so its state update lands inside act().
+    await act(async () => {})
 
     expect(saved).toHaveLength(1)
     expect(saved[0]!.map((entry) => entry.id)).toEqual(['free', 'f'])

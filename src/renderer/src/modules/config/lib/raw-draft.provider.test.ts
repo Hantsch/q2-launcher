@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { createElement, type ReactNode } from 'react'
 import { act, cleanup, render, renderHook, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
+import { initI18n } from '../../../i18n'
 import type { ConfigProfile, SaveRawTextResult } from '@shared/modules/config'
 import { fail, ok, type Outcome } from '@shared/types'
 import { RawDraftProvider, useRawDraft, type RawDraftHandle } from './raw-draft'
@@ -25,12 +27,12 @@ vi.mock('../../../store/useLauncher', () => ({
     selector({ pushToast }),
 }))
 
-vi.mock('../client', () => ({
-  saveConfigProfileRawText: vi.fn(),
-  // Pulled in by `ConfigConflictDialog`, which this provider mounts for a raw conflict.
-  saveConfigProfile: vi.fn(),
-  refreshProfilesFromFiles: vi.fn(),
-}))
+// Importing the real client module evaluates the preload bridge accessor.
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    saveConfigProfileRawText: vi.fn(),
+  }),
+)
 
 const saveRawText = vi.mocked(saveConfigProfileRawText)
 
@@ -77,6 +79,10 @@ function mount(current: ConfigProfile = profile()) {
   const { result } = renderHook(() => useRawDraft(), { wrapper })
   return { result, onSaved }
 }
+
+beforeAll(async () => {
+  await initI18n('en')
+})
 
 beforeEach(() => {
   pushToast.mockReset()

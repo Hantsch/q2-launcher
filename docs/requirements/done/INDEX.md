@@ -294,3 +294,4 @@ second roadmap.
 - 134 — a native helper steers Q2PRO when cfg polling cannot · — · withdrawn: spike 133 ended in go for cfg polling, so no native helper is built.
 - 223 — the flow gate is green or says why · S32 · four red flows fixed, quarantine list, --shard/--timeout, one setup action, ui-flows CI + Windows leg, flow assertion rules
 - 226 — the repo is formatted once and its dependencies are current · S32 · LF via .gitattributes, one blame-ignored format commit, format:check in CI, patch-package gone, Electron 43.7.7 with zero high advisories, dependabot (verify:release still to run)
+- 225 — tests share a quiet logger and one test-support kit · S32 · quiet binary-free test run, shared fixtures/temp dir/mockClient, 8 oversized test files split under a 1,500-line guard

@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { DemoRow } from '@shared/modules/replays'
 import { initI18n } from '../../i18n'
 
@@ -13,10 +14,12 @@ import { initI18n } from '../../i18n'
 const renameDemo = vi.fn()
 const sidecarRead = vi.fn()
 
-vi.mock('./client', () => ({
-  renameDemo: (...args: unknown[]) => renameDemo(...args),
-  sidecarRead: (...args: unknown[]) => sidecarRead(...args),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    renameDemo: (...args: unknown[]) => renameDemo(...args),
+    sidecarRead: (...args: unknown[]) => sidecarRead(...args),
+  }),
+)
 
 let RenameDemoDialog: typeof import('./RenameDemoDialog').RenameDemoDialog
 

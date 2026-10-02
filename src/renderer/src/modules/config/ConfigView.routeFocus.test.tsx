@@ -2,6 +2,7 @@
 import { StrictMode } from 'react'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
 import { initI18n } from '../../i18n'
@@ -60,10 +61,12 @@ vi.stubGlobal(
   },
 )
 
-vi.mock('./client', async () => {
-  const actual = await vi.importActual<typeof import('./client')>('./client')
-  return { ...actual, listConfigProfiles: () => listConfigProfiles() }
-})
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    listConfigProfiles: () => listConfigProfiles(),
+    getSwitchBinds: async () => ({ ok: true as const, value: {} }),
+  }),
+)
 
 vi.mock('./lib/use-drift-state', () => ({
   useDriftState: () => ({ status: { kind: 'loading' as const }, refetch: () => {} }),

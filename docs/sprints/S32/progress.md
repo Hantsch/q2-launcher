@@ -32,3 +32,48 @@
 - 2026-10-02 10:41:39 · 226 · review 1 · started
 - 2026-10-02 10:42:36 · 226 · review 1 · done
 - 2026-10-02 10:43:21 · 226 · story · done
+- 2026-10-02 10:43:39 · 225 · build · started
+- 2026-10-02 10:43:59 · 225 · story · started
+- 2026-10-02 10:44:50 · 225 · D1 quiet binary-free test run · started
+- 2026-10-02 10:56:16 · 225 · D1 quiet binary-free test run · done
+- 2026-10-02 10:56:22 · 225 · D2 useTempDir + fakeAppContext · started
+- 2026-10-02 10:58:05 · 225 · D2 useTempDir + fakeAppContext · done
+- 2026-10-02 10:58:05 · 225 · D3 downloads test-support · started
+- 2026-10-02 10:59:54 · 225 · D3 downloads test-support · done
+- 2026-10-02 10:59:54 · 225 · D4 makeInstallation · started
+- 2026-10-02 11:03:41 · 225 · D4 makeInstallation · done
+- 2026-10-02 11:03:41 · 225 · D5 makeJob + makeConfigProfile · started
+- 2026-10-02 11:04:52 · 225 · D5 makeJob + makeConfigProfile · done
+- 2026-10-02 11:04:52 · 225 · D6 mockClient + config/mods · started
+- 2026-10-02 11:08:26 · 225 · D6 mockClient + config/mods · done
+- 2026-10-02 11:08:26 · 225 · D7 client mocks replays · started
+- 2026-10-02 11:08:26 · 225 · D8 client mocks downloads+home · started
+- 2026-10-02 11:08:26 · 225 · D9 client mocks servers · started
+- 2026-10-02 11:10:50 · 225 · D7 client mocks replays · done
+- 2026-10-02 11:10:50 · 225 · D8 client mocks downloads+home · done
+- 2026-10-02 11:10:50 · 225 · D9 client mocks servers · done
+- 2026-10-02 11:11:27 · 225 · D10 split round-trip · started
+- 2026-10-02 11:11:27 · 225 · D11 split config index · started
+- 2026-10-02 11:11:27 · 225 · D12 split bootstrap job · started
+- 2026-10-02 11:11:27 · 225 · D13 split render · started
+- 2026-10-02 11:11:28 · 225 · D14 split profile-restore · started
+- 2026-10-02 11:11:28 · 225 · D15 split schemas+profiles · started
+- 2026-10-02 11:18:07 · 225 · D10 split round-trip · done
+- 2026-10-02 11:18:07 · 225 · D11 split config index · done
+- 2026-10-02 11:18:07 · 225 · D12 split bootstrap job · done
+- 2026-10-02 11:18:07 · 225 · D13 split render · done
+- 2026-10-02 11:18:07 · 225 · D14 split profile-restore · done
+- 2026-10-02 11:18:07 · 225 · D15 split schemas+profiles · done
+- 2026-10-02 11:18:32 · 225 · D16 size cap + Testing docs · started
+- 2026-10-02 11:19:25 · 225 · D16 size cap + Testing docs · done (found 8th file over cap)
+- 2026-10-02 11:19:25 · 225 · D16b split servers scan-service test · started
+- 2026-10-02 11:24:27 · 225 · D16b split servers scan-service test · done
+- 2026-10-02 11:24:27 · 225 · verify · started
+- 2026-10-02 11:25:58 · 225 · verify · done (quiet-run sample path fixed)
+- 2026-10-02 11:25:58 · 225 · review 1 · started
+- 2026-10-02 11:27:45 · 225 · review 1 · done (PASS, 4 findings -> fix cycle)
+- 2026-10-02 11:27:45 · 225 · review-fix 1 · started
+- 2026-10-02 11:28:45 · 225 · review-fix 1 · done
+- 2026-10-02 11:28:45 · 225 · verify 2 · started
+- 2026-10-02 11:30:04 · 225 · verify 2 · done
+- 2026-10-02 11:30:18 · 225 · story · done

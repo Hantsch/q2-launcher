@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { describe, expect, it, vi } from 'vitest'
-import type { AppContext } from '../context'
+import { fakeAppContext } from '../../test-support/app-context'
 import { createFeatureGate } from '../features/gate'
 import { MainModuleRegistry } from './registry'
 import type { MainModule } from './types'
@@ -12,10 +12,6 @@ import type { MainModule } from './types'
  * `handleOutcome`) rather than a call into the handler at all, and a good
  * payload reaches the handler and comes back wrapped in `ok(...)`.
  */
-
-function fakeAppContext(): AppContext {
-  return {} as unknown as AppContext
-}
 
 describe('MainModuleRegistry', () => {
   it('rejects an invalid payload without ever calling the handler', async () => {

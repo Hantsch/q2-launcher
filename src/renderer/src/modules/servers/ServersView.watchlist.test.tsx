@@ -12,6 +12,7 @@ import type {
 } from '@shared/modules/servers'
 import type { ServerListSort } from '@shared/servers/list-sort'
 import { initI18n } from '../../i18n'
+import { mockClient } from '../../test-support/mock-client'
 import { useLauncher } from '../../store/useLauncher'
 
 /**
@@ -69,25 +70,27 @@ const {
   recheckWatchlistEntryMock: vi.fn(),
 }))
 
-vi.mock('./client', () => ({
-  listQuickFilters: async () => ({ ok: true as const, value: [] }),
-  readScan: readScanMock,
-  startScan: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
-  setScanViewActive: setScanViewActiveMock,
-  setMode: async () => ({ ok: true as const, value: undefined }),
-  onScanChanged: onScanChangedMock,
-  onScanServer: onScanServerMock,
-  listMasterSources: listMasterSourcesMock,
-  getListSort: getListSortMock,
-  setListSort: setListSortMock,
-  readServerDetail: readServerDetailMock,
-  readWatchlist: readWatchlistMock,
-  onWatchlistChanged: onWatchlistChangedMock,
-  addWatchlistEntry: addWatchlistEntryMock,
-  updateWatchlistEntry: updateWatchlistEntryMock,
-  removeWatchlistEntry: removeWatchlistEntryMock,
-  recheckWatchlistEntry: recheckWatchlistEntryMock,
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    listQuickFilters: async () => ({ ok: true as const, value: [] }),
+    readScan: readScanMock,
+    startScan: vi.fn(async () => ({ ok: true as const, value: { ok: true as const } })),
+    setScanViewActive: setScanViewActiveMock,
+    setMode: async () => ({ ok: true as const, value: undefined }),
+    onScanChanged: onScanChangedMock,
+    onScanServer: onScanServerMock,
+    listMasterSources: listMasterSourcesMock,
+    getListSort: getListSortMock,
+    setListSort: setListSortMock,
+    readServerDetail: readServerDetailMock,
+    readWatchlist: readWatchlistMock,
+    onWatchlistChanged: onWatchlistChangedMock,
+    addWatchlistEntry: addWatchlistEntryMock,
+    updateWatchlistEntry: updateWatchlistEntryMock,
+    removeWatchlistEntry: removeWatchlistEntryMock,
+    recheckWatchlistEntry: recheckWatchlistEntryMock,
+  }),
+)
 
 const joinServerButtonMock = vi.fn((_props: { row: unknown }) =>
   createElement('div', { 'data-testid': 'stub-join' }),

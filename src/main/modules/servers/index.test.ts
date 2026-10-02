@@ -16,8 +16,9 @@ import {
   type ServersState,
 } from '@shared/modules/servers'
 import { IDLE_LAUNCH_STATE, getModuleManifest, type LaunchState } from '@shared/types'
+import { fakeAppContext } from '../../../test-support/app-context'
 import type { AppContext } from '../../context'
-import { createFeatureGate, type FeatureGate } from '../../features/gate'
+import { createFeatureGate } from '../../features/gate'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
 import { serversModule } from './index'
@@ -37,34 +38,6 @@ import { serversModule } from './index'
  * for AC3 (favourite state survives an app restart, read back from the `servers` state key
  * unchanged via a second, independent `StateStore` over the same file).
  */
-
-/**
- * Story 114 D6 adds a `broadcast.emit` stub: `scan.start`'s handler now calls `ModuleSetup.emit`,
- * which the real registry wires to `app.broadcast.emit` (`src/main/modules/registry.ts`) - every
- * caller of this helper needs that seam to exist, even the tests that never assert on an emitted
- * event.
- */
-/**
- * Story 131 D5: every `fakeAppContext` now also carries `features` - `serversModule.setup()` reads
- * `app.features.isFeatureUnlocked('watchlist')` unconditionally, so a fake context missing it would
- * throw for every test in this file, not just the watchlist-specific ones below. Defaults to the
- * locked gate (nothing unlocked) - the same fail-closed default `MainModuleRegistry` itself uses -
- * so every pre-existing test in this file keeps exercising the servers module with the watchlist
- * feature locked, exactly as it did before this feature existed.
- */
-function fakeAppContext(
-  state?: StateStore,
-  launchState: LaunchState = IDLE_LAUNCH_STATE,
-  features: FeatureGate = createFeatureGate([]),
-): AppContext {
-  const broadcast = { emit: () => {} }
-  // Story 116 D3: the scan service/cadence read `app.launch` at construction - an idle, silent stub
-  // by default; story 117 D4's guard tests below pass a `'running'`/`'starting'` state instead.
-  const launch = { getState: () => launchState, onStateChange: () => () => {} }
-  return (state === undefined
-    ? { broadcast, launch, features }
-    : { state, broadcast, launch, features }) as unknown as AppContext
-}
 
 /**
  * Story 125 D3: a controllable `app.launch` - `set(...)` drives every listener that subscribed
@@ -95,6 +68,14 @@ function fakeAppContextWithControllableLaunch(state: StateStore): {
       for (const listener of [...listeners]) listener(next)
     },
   }
+}
+
+/** An `app.launch` stub frozen in `launchState`; the shared helper's default is idle. */
+function launchIn(launchState: LaunchState): AppContext['launch'] {
+  return {
+    getState: () => launchState,
+    onStateChange: () => () => {},
+  } as unknown as AppContext['launch']
 }
 
 describe('servers module', () => {
@@ -181,7 +162,7 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
     state = new StateStore(filePath)
     await state.load()
     registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext(state))
+    await registry.register(serversModule, fakeAppContext({ state }))
   })
 
   afterEach(async () => {
@@ -317,7 +298,7 @@ describe('servers module favourites handlers (story 112 D3)', () => {
 
   it('AC1: registers favourites.list/add/remove, reachable through setup() and behaving correctly', async () => {
     const registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext(state))
+    await registry.register(serversModule, fakeAppContext({ state }))
 
     const emptyList = await registry.invoke({
       moduleId: 'servers',
@@ -357,7 +338,7 @@ describe('servers module favourites handlers (story 112 D3)', () => {
 
   it("AC1: a favourites write never clobbers the rest of the servers state's snapshot", async () => {
     const registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext(state))
+    await registry.register(serversModule, fakeAppContext({ state }))
 
     const sourcesBefore = state.serversState().sources
 
@@ -374,7 +355,7 @@ describe('servers module favourites handlers (story 112 D3)', () => {
 
   it('AC3: favourites survive a restart of the state store', async () => {
     const registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext(state))
+    await registry.register(serversModule, fakeAppContext({ state }))
 
     const outcome = await registry.invoke({
       moduleId: 'servers',
@@ -411,7 +392,7 @@ describe('servers module manual.*/history.* handlers (story 113 D4)', () => {
     state = new StateStore(filePath)
     await state.load()
     registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext(state))
+    await registry.register(serversModule, fakeAppContext({ state }))
   })
 
   afterEach(async () => {
@@ -538,7 +519,7 @@ describe('servers module overview.read reflects the scan service (story 114 D6)'
       manualServers: [],
     })
     registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext(state))
+    await registry.register(serversModule, fakeAppContext({ state }))
   })
 
   afterEach(async () => {
@@ -605,7 +586,7 @@ describe('servers module scan.* settings handlers (story 115 D2)', () => {
     state = new StateStore(filePath)
     await state.load()
     registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext(state))
+    await registry.register(serversModule, fakeAppContext({ state }))
   })
 
   afterEach(async () => {
@@ -673,7 +654,7 @@ describe('servers module list.*Sort handlers (story 119 D2)', () => {
     state = new StateStore(filePath)
     await state.load()
     registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext(state))
+    await registry.register(serversModule, fakeAppContext({ state }))
   })
 
   afterEach(async () => {
@@ -735,7 +716,7 @@ describe('servers module quick filter handlers (story 197 D2)', () => {
     state = new StateStore(filePath)
     await state.load()
     registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext(state))
+    await registry.register(serversModule, fakeAppContext({ state }))
   })
 
   afterEach(async () => {
@@ -834,7 +815,7 @@ describe('servers module scan.start is guarded and single-flight per scope (stor
     const registry = new MainModuleRegistry()
     await registry.register(
       serversModule,
-      fakeAppContext(state, { phase: 'running', installationId: 'inst-1' }),
+      fakeAppContext({ state, launch: launchIn({ phase: 'running', installationId: 'inst-1' }) }),
     )
 
     const outcome = await registry.invoke({
@@ -851,7 +832,7 @@ describe('servers module scan.start is guarded and single-flight per scope (stor
 
   it('a scoped scan.start is refused, not queued, while a scan is already running', async () => {
     const registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext(state))
+    await registry.register(serversModule, fakeAppContext({ state }))
 
     expect(
       await registry.invoke({
@@ -973,7 +954,7 @@ describe('servers module watchlist.* handlers are feature-gated (story 131 D5)',
   it('a locked servers module registers no watchlist handler and attaches no scan observer', async () => {
     const gate = createFeatureGate([])
     const registry = new MainModuleRegistry(gate)
-    await registry.register(serversModule, fakeAppContext(state, IDLE_LAUNCH_STATE, gate))
+    await registry.register(serversModule, fakeAppContext({ state, features: gate }))
 
     const outcome = await registry.invoke({
       moduleId: 'servers',
@@ -1012,10 +993,7 @@ describe('servers module watchlist.* handlers are feature-gated (story 131 D5)',
     // touch `state.json`'s `watchlist` key at all.
     const lockedGate = createFeatureGate([])
     const lockedRegistry = new MainModuleRegistry(lockedGate)
-    await lockedRegistry.register(
-      serversModule,
-      fakeAppContext(state, IDLE_LAUNCH_STATE, lockedGate),
-    )
+    await lockedRegistry.register(serversModule, fakeAppContext({ state, features: lockedGate }))
 
     expect(
       await lockedRegistry.invoke({
@@ -1039,7 +1017,7 @@ describe('servers module watchlist.* handlers are feature-gated (story 131 D5)',
     const unlockedRegistry = new MainModuleRegistry(unlockedGate)
     await unlockedRegistry.register(
       serversModule,
-      fakeAppContext(state, IDLE_LAUNCH_STATE, unlockedGate),
+      fakeAppContext({ state, features: unlockedGate }),
     )
 
     const read = await unlockedRegistry.invoke({

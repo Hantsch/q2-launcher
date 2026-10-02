@@ -5,8 +5,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { REPLAYS_HANDLERS } from '@shared/modules/replays'
 import { nameTemplatesFingerprint, type NameTemplatesView } from '@shared/replays/name-templates'
-import type { AppContext } from '../../context'
-import { createFeatureGate } from '../../features/gate'
+import { fakeAppContext } from '../../../test-support/app-context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
 import { replaysModule } from './index'
@@ -28,13 +27,6 @@ vi.mock('electron', () => ({
  * via a second, independent `StateStore` - the only way to prove a mutation both persisted and
  * survived `parseReplaysState`. Mirrors `src/main/modules/servers/index.test.ts`'s `sources.*` block.
  */
-function fakeAppContext(state: StateStore): AppContext {
-  const broadcast = { emit: () => {} }
-  const launch = { getState: () => undefined, onStateChange: () => () => {} }
-  const features = createFeatureGate([])
-  return { state, broadcast, launch, features } as unknown as AppContext
-}
-
 type NameTemplatesOutcome =
   | { ok: true; value: NameTemplatesView }
   | { ok: false; error: { key: string; params?: Record<string, unknown> } }
@@ -52,7 +44,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
     userDataDirPath = await mkdtemp(join(tmpdir(), 'q2-launcher-name-templates-userdata-'))
     userDataBox.current = userDataDirPath
     registry = new MainModuleRegistry()
-    await registry.register(replaysModule, fakeAppContext(state))
+    await registry.register(replaysModule, fakeAppContext({ state }))
   })
 
   afterEach(async () => {
@@ -92,7 +84,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
     const reloaded = new StateStore(filePath)
     await reloaded.load()
     const reloadedRegistry = new MainModuleRegistry()
-    await reloadedRegistry.register(replaysModule, fakeAppContext(reloaded))
+    await reloadedRegistry.register(replaysModule, fakeAppContext({ state: reloaded }))
 
     const outcome = await reloadedRegistry.invoke({
       moduleId: 'replays',

@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { DemoRow } from '@shared/modules/replays'
 import { initI18n } from '../../../i18n'
 
@@ -14,10 +15,12 @@ import { initI18n } from '../../../i18n'
 const sidecarRead = vi.fn()
 const sidecarWrite = vi.fn()
 
-vi.mock('../client', () => ({
-  sidecarRead: (...args: unknown[]) => sidecarRead(...args),
-  sidecarWrite: (...args: unknown[]) => sidecarWrite(...args),
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    sidecarRead: (...args: unknown[]) => sidecarRead(...args),
+    sidecarWrite: (...args: unknown[]) => sidecarWrite(...args),
+  }),
+)
 
 let DemoDetailEditor: typeof import('./DemoDetailEditor').DemoDetailEditor
 let DemoDetailNameInput: typeof import('./DemoDetailEditor').DemoDetailNameInput

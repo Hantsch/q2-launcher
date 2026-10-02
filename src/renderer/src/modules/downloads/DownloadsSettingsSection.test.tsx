@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { ArchiveCacheStatus, DownloadsSettings } from '@shared/modules/downloads'
 import { initI18n } from '../../i18n'
 import { formatBytes } from '../../lib/format'
@@ -24,24 +25,26 @@ const stubCacheStatus: ArchiveCacheStatus = {
   itemCount: 7,
 }
 
-const getDownloadsSettings = vi.fn(async () => ({ ok: true, value: stubSettings }))
-const getArchiveCacheStatus = vi.fn(async () => ({ ok: true, value: stubCacheStatus }))
+const getDownloadsSettings = vi.fn(async () => ({ ok: true as const, value: stubSettings }))
+const getArchiveCacheStatus = vi.fn(async () => ({ ok: true as const, value: stubCacheStatus }))
 const patchDownloadsSettings = vi.fn(async (patch: Partial<DownloadsSettings>) => ({
-  ok: true,
+  ok: true as const,
   value: { ...stubSettings, ...patch },
 }))
 const clearArchiveCache = vi.fn(async () => ({
-  ok: true,
+  ok: true as const,
   value: { removedBytes: 0, removedCount: 0 },
 }))
 
-vi.mock('./client', () => ({
-  getDownloadsSettings: (...args: unknown[]) => getDownloadsSettings(...(args as [])),
-  getArchiveCacheStatus: (...args: unknown[]) => getArchiveCacheStatus(...(args as [])),
-  patchDownloadsSettings: (...args: unknown[]) =>
-    patchDownloadsSettings(...(args as [Partial<DownloadsSettings>])),
-  clearArchiveCache: (...args: unknown[]) => clearArchiveCache(...(args as [])),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    getDownloadsSettings: (...args: unknown[]) => getDownloadsSettings(...(args as [])),
+    getArchiveCacheStatus: (...args: unknown[]) => getArchiveCacheStatus(...(args as [])),
+    patchDownloadsSettings: (...args: unknown[]) =>
+      patchDownloadsSettings(...(args as [Partial<DownloadsSettings>])),
+    clearArchiveCache: (...args: unknown[]) => clearArchiveCache(...(args as [])),
+  }),
+)
 
 beforeAll(async () => {
   await initI18n('en')

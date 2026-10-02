@@ -11,6 +11,7 @@ import type {
 } from '@shared/modules/servers'
 import type { ServerListSort } from '@shared/servers/list-sort'
 import { initI18n } from '../../i18n'
+import { mockClient } from '../../test-support/mock-client'
 
 /**
  * Story 116 D5. Mirrors `DownloadsView.test.tsx`'s convention: the module's own typed client
@@ -60,19 +61,21 @@ const {
   })),
 }))
 
-vi.mock('./client', () => ({
-  listQuickFilters: async () => ({ ok: true as const, value: [] }),
-  readScan: readScanMock,
-  startScan: startScanMock,
-  setScanViewActive: setScanViewActiveMock,
-  onScanChanged: onScanChangedMock,
-  onScanServer: onScanServerMock,
-  listMasterSources: listMasterSourcesMock,
-  getListSort: getListSortMock,
-  setListSort: setListSortMock,
-  readServerDetail: readServerDetailMock,
-  setMode: setModeMock,
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    listQuickFilters: async () => ({ ok: true as const, value: [] }),
+    readScan: readScanMock,
+    startScan: startScanMock,
+    setScanViewActive: setScanViewActiveMock,
+    onScanChanged: onScanChangedMock,
+    onScanServer: onScanServerMock,
+    listMasterSources: listMasterSourcesMock,
+    getListSort: getListSortMock,
+    setListSort: setListSortMock,
+    readServerDetail: readServerDetailMock,
+    setMode: setModeMock,
+  }),
+)
 
 let ServersView: typeof import('./ServersView').ServersView
 

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import { createInstance, type i18n as I18nInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import type { NewsFeed } from '@shared/modules/home'
@@ -61,11 +62,13 @@ const refreshNews = vi.fn<() => Promise<Outcome<NewsFeed>>>(async () => ({
 }))
 const onNewsChanged = vi.fn<(listener: (feed: NewsFeed) => void) => () => void>(() => () => {})
 
-vi.mock('./client', () => ({
-  getNews: () => getNews(),
-  refreshNews: () => refreshNews(),
-  onNewsChanged: (listener: (feed: NewsFeed) => void) => onNewsChanged(listener),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    getNews: () => getNews(),
+    refreshNews: () => refreshNews(),
+    onNewsChanged: (listener: (feed: NewsFeed) => void) => onNewsChanged(listener),
+  }),
+)
 
 // `../index` pulls in the other modules' views -> the renderer store -> `lib/bridge.ts`, which
 // resolves `window.q2` at *module* scope. This test only asserts on the registry, never on IPC

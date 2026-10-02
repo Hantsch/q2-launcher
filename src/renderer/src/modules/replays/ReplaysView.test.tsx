@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type {
   DemoRow as DemoRowData,
   ReplaysScanProgress,
@@ -78,23 +79,25 @@ const sidecarReadMock = vi.fn(async () => ({
 }))
 const playDemoMock = vi.fn()
 
-vi.mock('./client', () => ({
-  indexRead: indexReadMock,
-  scanStart: scanStartMock,
-  onScanProgress: onScanProgressMock,
-  getListSort: getListSortMock,
-  setListSort: setListSortMock,
-  getListFilter: getListFilterMock,
-  setListFilter: setListFilterMock,
-  readModWarning: readModWarningMock,
-  trustModWarningMod: trustModWarningModMock,
-  sidecarRead: sidecarReadMock,
-  playDemo: (...args: unknown[]) => playDemoMock(...args),
-  onPlaybackPosition: () => () => {},
-  onPlaybackState: () => () => {},
-  onPlaybackDisplay: () => () => {},
-  playbackDisplayRead: () => new Promise(() => {}),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    indexRead: indexReadMock,
+    scanStart: scanStartMock,
+    onScanProgress: onScanProgressMock as never,
+    getListSort: getListSortMock,
+    setListSort: setListSortMock as never,
+    getListFilter: getListFilterMock,
+    setListFilter: setListFilterMock,
+    readModWarning: readModWarningMock,
+    trustModWarningMod: trustModWarningModMock,
+    sidecarRead: sidecarReadMock,
+    playDemo: (...args: unknown[]) => playDemoMock(...args),
+    onPlaybackPosition: () => () => {},
+    onPlaybackState: () => () => {},
+    onPlaybackDisplay: () => () => {},
+    playbackDisplayRead: () => new Promise(() => {}),
+  }),
+)
 
 // Story 193 D1: the mods client - the catalog read and the install start; defaults to "no catalog".
 const { getCatalogMock, installModMock } = vi.hoisted(() => ({
@@ -107,11 +110,13 @@ const { getCatalogMock, installModMock } = vi.hoisted(() => ({
     value: { jobId: 'job-1' },
   })),
 }))
-vi.mock('../mods/client', () => ({
-  getCatalog: getCatalogMock,
-  installMod: installModMock,
-  onInstallDecision: () => () => {},
-}))
+vi.mock('../mods/client', (importOriginal) =>
+  mockClient<typeof import('../mods/client')>(importOriginal, {
+    getCatalog: getCatalogMock as never,
+    installMod: installModMock as never,
+    onInstallDecision: () => () => {},
+  }),
+)
 
 let ReplaysView: typeof import('./ReplaysView').ReplaysView
 

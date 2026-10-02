@@ -3,6 +3,7 @@ import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initI18n } from '../../i18n'
+import { mockClient } from '../../test-support/mock-client'
 
 const { getMapPresenceMock, getCatalogMock, installModMock, listModsMock, activeRef, jobsRef } =
   vi.hoisted(() => ({
@@ -14,13 +15,15 @@ const { getMapPresenceMock, getCatalogMock, installModMock, listModsMock, active
     jobsRef: { current: [] as { id: string; status: string }[] },
   }))
 
-vi.mock('../mods/client', () => ({
-  getMapPresence: getMapPresenceMock,
-  getCatalog: getCatalogMock,
-  installMod: installModMock,
-  listMods: listModsMock,
-  onInstallDecision: () => () => {},
-}))
+vi.mock('../mods/client', (importOriginal) =>
+  mockClient<typeof import('../mods/client')>(importOriginal, {
+    getMapPresence: getMapPresenceMock,
+    getCatalog: getCatalogMock,
+    installMod: installModMock,
+    listMods: listModsMock,
+    onInstallDecision: () => () => {},
+  }),
+)
 vi.mock('../../store/useLauncher', () => ({
   useActiveInstallation: () => activeRef.current,
   useLauncher: (select: (s: { jobs: unknown[] }) => unknown) => select({ jobs: jobsRef.current }),

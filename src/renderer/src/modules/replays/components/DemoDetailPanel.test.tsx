@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { DemoRow } from '@shared/modules/replays'
 import type { Outcome } from '@shared/types'
 import { initI18n } from '../../../i18n'
@@ -22,13 +23,15 @@ vi.hoisted(() => {
 const sidecarRead = vi.fn()
 const sidecarWrite = vi.fn()
 
-vi.mock('../client', () => ({
-  sidecarRead: (demoId: string) => sidecarRead(demoId),
-  sidecarWrite: (...args: unknown[]) => sidecarWrite(...args),
-  revealDemo: vi.fn(async () => ({ ok: true, value: { ok: true } })),
-  copyDemoPath: vi.fn(async () => ({ ok: true, value: { ok: true } })),
-  renameDemo: vi.fn(async () => ({ ok: true, value: { ok: true } })),
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    sidecarRead: (demoId: string) => sidecarRead(demoId),
+    sidecarWrite: (...args: unknown[]) => sidecarWrite(...args),
+    revealDemo: vi.fn(async () => ({ ok: true, value: { ok: true } })) as never,
+    copyDemoPath: vi.fn(async () => ({ ok: true, value: { ok: true } })) as never,
+    renameDemo: vi.fn(async () => ({ ok: true, value: { ok: true } })) as never,
+  }),
+)
 
 let DemoDetailPanel: typeof import('./DemoDetailPanel').DemoDetailPanel
 let useDemoEditorStore: typeof import('../demo-editor-store').useDemoEditorStore

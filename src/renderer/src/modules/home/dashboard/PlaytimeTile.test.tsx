@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { LibraryStats } from '@shared/modules/library'
 import type { Outcome } from '@shared/types'
 import { initI18n } from '../../../i18n'
@@ -45,9 +46,11 @@ const getLibraryStats = vi.fn<() => Promise<Outcome<LibraryStats>>>(async () => 
   value: FILLED_STATS,
 }))
 
-vi.mock('../../library/client', () => ({
-  getLibraryStats: () => getLibraryStats(),
-}))
+vi.mock('../../library/client', (importOriginal) =>
+  mockClient<typeof import('../../library/client')>(importOriginal, {
+    getLibraryStats: () => getLibraryStats(),
+  }),
+)
 
 vi.hoisted(() => {
   ;(globalThis as unknown as { q2: unknown }).q2 = { invoke: vi.fn(), on: vi.fn(() => () => {}) }

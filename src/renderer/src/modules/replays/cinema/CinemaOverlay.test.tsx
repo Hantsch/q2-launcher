@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import { initI18n } from '../../../i18n'
 
 vi.hoisted(() => {
@@ -10,15 +11,17 @@ vi.hoisted(() => {
 
 const playbackTimeline = vi.fn()
 const playbackCinema = vi.fn()
-vi.mock('../client', () => ({
-  playbackTimeline: (...args: unknown[]) => playbackTimeline(...args),
-  playbackStop: vi.fn(),
-  playbackCinema: (...args: unknown[]) => playbackCinema(...args),
-  playbackDisplayRead: () => new Promise(() => {}),
-  onPlaybackPosition: () => () => {},
-  onPlaybackState: () => () => {},
-  onPlaybackDisplay: () => () => {},
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    playbackTimeline: (...args: unknown[]) => playbackTimeline(...args),
+    playbackStop: vi.fn(),
+    playbackCinema: (...args: unknown[]) => playbackCinema(...args),
+    playbackDisplayRead: () => new Promise(() => {}),
+    onPlaybackPosition: () => () => {},
+    onPlaybackState: () => () => {},
+    onPlaybackDisplay: () => () => {},
+  }),
+)
 
 let CinemaOverlay: typeof import('./CinemaOverlay').CinemaOverlay
 let usePlaybackStore: typeof import('../playback-store').usePlaybackStore

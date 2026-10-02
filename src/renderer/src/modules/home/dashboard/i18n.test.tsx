@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { ConfigProfile, ProfileSyncState, SyncProfileStateInput } from '@shared/modules/config'
 import type { LibraryStats } from '@shared/modules/library'
 import type { Outcome } from '@shared/types'
@@ -40,9 +41,11 @@ const EMPTY_STATS: LibraryStats = {
 
 const getLibraryStats = vi.fn<() => Promise<Outcome<LibraryStats>>>()
 
-vi.mock('../../library/client', () => ({
-  getLibraryStats: () => getLibraryStats(),
-}))
+vi.mock('../../library/client', (importOriginal) =>
+  mockClient<typeof import('../../library/client')>(importOriginal, {
+    getLibraryStats: () => getLibraryStats(),
+  }),
+)
 
 function profile(id: string, name: string): ConfigProfile {
   return {
@@ -69,10 +72,12 @@ const listConfigProfiles = vi.fn<() => Promise<Outcome<ConfigProfile[]>>>()
 const getProfileSyncState =
   vi.fn<(input: SyncProfileStateInput) => Promise<Outcome<ProfileSyncState>>>()
 
-vi.mock('../../config/client', () => ({
-  listConfigProfiles: () => listConfigProfiles(),
-  getProfileSyncState: (input: SyncProfileStateInput) => getProfileSyncState(input),
-}))
+vi.mock('../../config/client', (importOriginal) =>
+  mockClient<typeof import('../../config/client')>(importOriginal, {
+    listConfigProfiles: () => listConfigProfiles(),
+    getProfileSyncState: (input: SyncProfileStateInput) => getProfileSyncState(input),
+  }),
+)
 
 vi.hoisted(() => {
   ;(globalThis as unknown as { q2: unknown }).q2 = { invoke: vi.fn(), on: vi.fn(() => () => {}) }

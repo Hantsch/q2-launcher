@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { EngineKind } from '@shared/types/engine'
 import type { Installation } from '@shared/types/installation'
@@ -34,9 +35,11 @@ vi.hoisted(() => {
   }
 })
 
-vi.mock('./client', () => ({
-  getSwitchBinds: vi.fn(async () => ({ ok: true, value: {} })),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    getSwitchBinds: vi.fn(async () => ({ ok: true as const, value: {} })),
+  }),
+)
 
 beforeAll(async () => {
   await initI18n('en')

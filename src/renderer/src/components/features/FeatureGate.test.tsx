@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { initI18n } from '../../i18n'
 import { useLauncher } from '../../store/useLauncher'
 import { FeatureGate } from './FeatureGate'
 
@@ -15,6 +16,10 @@ vi.hoisted(() => {
     invoke: vi.fn(async () => ({ ok: true })),
     on: vi.fn(() => () => {}),
   }
+})
+
+beforeAll(async () => {
+  await initI18n('en')
 })
 
 beforeEach(() => {

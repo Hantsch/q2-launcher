@@ -2,11 +2,11 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Installation } from '@shared/types'
 import { initI18n } from '../../i18n'
 import { useLauncher } from '../../store/useLauncher'
 import { SHIPPED_ICONS } from '../../lib/installation-icons'
 import { SetInstallationIconDialog } from './SetInstallationIconDialog'
+import { makeInstallation } from '../../../../test-support/fixtures'
 
 /**
  * Story 067 D6, AC6: "a failed outcome shows a translated message and keeps the dialog open."
@@ -27,27 +27,6 @@ const { invokeMock } = vi.hoisted(() => {
   }
   return { invokeMock }
 })
-
-function makeInstallation(overrides: Partial<Installation> = {}): Installation {
-  return {
-    id: 'inst-1',
-    name: 'Test Install',
-    rootPath: 'C:\\Games\\Q2',
-    engineKind: 'r1q2',
-    launchArgs: [],
-    activeGameDir: '',
-    source: 'manual',
-    status: 'ok',
-    checks: [],
-    gameDirs: [],
-    favorite: false,
-    sortOrder: 0,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    totalPlaytimeSeconds: 0,
-    ...overrides,
-  }
-}
 
 beforeAll(async () => {
   await initI18n('en')

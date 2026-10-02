@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { DemoRow } from '@shared/modules/replays'
 import { initI18n } from '../../../i18n'
 
@@ -21,12 +22,14 @@ const copyDemoPath = vi.fn()
 const renameDemo = vi.fn()
 const sidecarRead = vi.fn()
 
-vi.mock('../client', () => ({
-  revealDemo: (demoId: string) => revealDemo(demoId),
-  copyDemoPath: (demoId: string) => copyDemoPath(demoId),
-  renameDemo: (...args: unknown[]) => renameDemo(...args),
-  sidecarRead: (...args: unknown[]) => sidecarRead(...args),
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    revealDemo: (demoId: string) => revealDemo(demoId),
+    copyDemoPath: (demoId: string) => copyDemoPath(demoId),
+    renameDemo: (...args: unknown[]) => renameDemo(...args),
+    sidecarRead: (...args: unknown[]) => sidecarRead(...args),
+  }),
+)
 
 let DemoFileActions: typeof import('./DemoFileActions').DemoFileActions
 let useLauncher: typeof import('../../../store/useLauncher').useLauncher

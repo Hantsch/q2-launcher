@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
+import { makeJob } from '../../../../../test-support/fixtures'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type {
   BootstrapEngineOption,
   BootstrapEngineOptionsEmptyReason,
@@ -35,7 +37,7 @@ vi.hoisted(() => {
 
 const invokeMock = vi.fn(async (...args: [string, ...unknown[]]) => {
   if (args[0] === 'installations:pickFolder') return 'D:\\Games\\Quake II'
-  return { ok: true }
+  return { ok: true as const }
 })
 
 vi.mock('../../../lib/bridge', () => ({
@@ -72,25 +74,28 @@ const summary: BootstrapSummary = {
 }
 
 const getDownloadFailures = vi.fn(async (): Promise<{ ok: true; value: DownloadFailure[] }> => ({
-  ok: true,
+  ok: true as const,
   value: [],
 }))
 
 // Story 100 D7: `getBootstrapEngineOptions` now answers `{ options, emptyReason }` - these fixtures
 // keep `emptyReason: null` throughout, since none of these tests are about an empty answer.
 const getBootstrapEngineOptions = vi.fn(async () => ({
-  ok: true,
+  ok: true as const,
   value: { options: engineOptions, emptyReason: null as BootstrapEngineOptionsEmptyReason },
 }))
 const startBootstrapInstall = vi.fn(async () => ({
-  ok: true,
+  ok: true as const,
   value: { jobId: 'job-1', installationId: 'inst-1' },
 }))
-const getBootstrapSummary = vi.fn(async () => ({ ok: true, value: summary }))
+const getBootstrapSummary = vi.fn(async () => ({ ok: true as const, value: summary }))
 // Story 088 D5: no detected sources by default - the existing (pre-088) flows never see the
 // copy choice at all, matching AC1's "absent when none is found".
 const getDetectedRetailSources = vi.fn(
-  async (): Promise<{ ok: true; value: DetectedRetailSource[] }> => ({ ok: true, value: [] }),
+  async (): Promise<{ ok: true; value: DetectedRetailSource[] }> => ({
+    ok: true as const,
+    value: [],
+  }),
 )
 
 // Story 089 D4: defaults to a `'retail'` verdict, so a test that only cares about reaching the
@@ -98,7 +103,7 @@ const getDetectedRetailSources = vi.fn(
 // for cases that override it.
 const getGameDataSourceVerdict = vi.fn(
   async (): Promise<{ ok: true; value: GameDataSourceVerdict }> => ({
-    ok: true,
+    ok: true as const,
     value: {
       rootPath: 'E:\\Owned\\Quake II',
       kind: 'retail',
@@ -110,28 +115,27 @@ const getGameDataSourceVerdict = vi.fn(
   }),
 )
 
-vi.mock('../client', () => ({
-  getBootstrapEngineOptions: (...args: unknown[]) => getBootstrapEngineOptions(...(args as [])),
-  getBootstrapTargetVerdict: vi.fn(async () => ({ ok: true, value: verdict })),
-  getBootstrapSummary: (...args: unknown[]) => getBootstrapSummary(...(args as [])),
-  startBootstrapInstall: (...args: unknown[]) => startBootstrapInstall(...(args as [])),
-  getDownloadFailures: (...args: unknown[]) => getDownloadFailures(...(args as [])),
-  getDetectedRetailSources: (...args: unknown[]) => getDetectedRetailSources(...(args as [])),
-  getGameDataSourceVerdict: (...args: unknown[]) => getGameDataSourceVerdict(...(args as [])),
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    getBootstrapEngineOptions: (...args: unknown[]) => getBootstrapEngineOptions(...(args as [])),
+    getBootstrapTargetVerdict: vi.fn(async () => ({ ok: true as const, value: verdict })),
+    getBootstrapSummary: (...args: unknown[]) => getBootstrapSummary(...(args as [])),
+    startBootstrapInstall: (...args: unknown[]) => startBootstrapInstall(...(args as [])),
+    getDownloadFailures: (...args: unknown[]) => getDownloadFailures(...(args as [])),
+    getDetectedRetailSources: (...args: unknown[]) => getDetectedRetailSources(...(args as [])),
+    getGameDataSourceVerdict: (...args: unknown[]) => getGameDataSourceVerdict(...(args as [])),
+  }),
+)
 
-function makeJob(overrides: Partial<Job> = {}): Job {
-  return {
-    id: 'job-1',
-    moduleId: 'downloads',
+function bootstrapJob(overrides: Partial<Job> = {}): Job {
+  return makeJob({
     kind: 'bootstrap-install',
     labelKey: 'downloads.job.bootstrap',
-    status: 'running',
+    labelParams: undefined,
     progress: { ratio: 0.5, bytesDone: 500_000, bytesTotal: 1_000_000 },
     cancellable: false,
-    startedAt: new Date().toISOString(),
     ...overrides,
-  }
+  })
 }
 
 const diagnosticsFailure: DownloadFailure = {
@@ -208,7 +212,7 @@ afterEach(() => {
 
 describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
   it('a running job triggers no fetch of getDownloadFailures at all', async () => {
-    useLauncher.setState({ jobs: [makeJob({ status: 'running' })] })
+    useLauncher.setState({ jobs: [bootstrapJob({ status: 'running' })] })
     await runToRunningStep()
 
     expect(screen.getByTestId('bootstrap-running-step').dataset.status).toBe('running')
@@ -216,13 +220,16 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
   })
 
   it('a succeeded job triggers no fetch of getDownloadFailures at all', async () => {
-    useLauncher.setState({ jobs: [makeJob({ status: 'running' })] })
+    useLauncher.setState({ jobs: [bootstrapJob({ status: 'running' })] })
     await runToRunningStep()
 
     act(() => {
       useLauncher.setState({
         jobs: [
-          makeJob({ status: 'succeeded', progress: { ratio: 1, bytesDone: 1, bytesTotal: 1 } }),
+          bootstrapJob({
+            status: 'succeeded',
+            progress: { ratio: 1, bytesDone: 1, bytesTotal: 1 },
+          }),
         ],
       })
     })
@@ -235,13 +242,13 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
 
   it('a failed job fetches once, matches by jobId, and RunningStep shows the same cause detail', async () => {
     getDownloadFailures.mockResolvedValueOnce({ ok: true, value: [diagnosticsFailure] })
-    useLauncher.setState({ jobs: [makeJob({ status: 'running' })] })
+    useLauncher.setState({ jobs: [bootstrapJob({ status: 'running' })] })
     await runToRunningStep()
 
     act(() => {
       useLauncher.setState({
         jobs: [
-          makeJob({
+          bootstrapJob({
             status: 'failed',
             error: { key: 'downloads.error.installationNotPlayable' },
           }),
@@ -267,7 +274,7 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
     act(() => {
       useLauncher.setState({
         jobs: [
-          makeJob({
+          bootstrapJob({
             status: 'failed',
             error: { key: 'downloads.error.installationNotPlayable' },
             progress: { ratio: 1, bytesDone: 2, bytesTotal: 2 },
@@ -284,13 +291,13 @@ describe('BootstrapWizard failure fetch (story 078 D7, AC4)', () => {
 
   it('a failed job with no matching failure entry keeps just the single error line', async () => {
     getDownloadFailures.mockResolvedValueOnce({ ok: true, value: [] })
-    useLauncher.setState({ jobs: [makeJob({ status: 'running' })] })
+    useLauncher.setState({ jobs: [bootstrapJob({ status: 'running' })] })
     await runToRunningStep()
 
     act(() => {
       useLauncher.setState({
         jobs: [
-          makeJob({
+          bootstrapJob({
             status: 'failed',
             error: { key: 'downloads.error.installationNotPlayable' },
           }),

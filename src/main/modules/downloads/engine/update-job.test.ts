@@ -15,20 +15,12 @@ import { dirname, join, relative } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BASE_GAME_DIR } from '@shared/constants'
 import type { EngineBackupInfo, ManifestPackage } from '@shared/modules/downloads'
-import {
-  IDLE_LAUNCH_STATE,
-  ok,
-  type Installation,
-  type Job,
-  type LaunchState,
-  type LauncherSettings,
-} from '@shared/types'
+import type { Installation, Job } from '@shared/types'
 import { InstallationsService } from '../../../services/installations'
 import { JobsService } from '../../../services/jobs'
-import type { StateStore } from '../../../services/state'
-import { InstallationWriteGuard, type LaunchHost } from '../../../services/write-guard'
-import type { Extractor, ManifestSource } from '../bootstrap/ports'
-import type { ExtractorHandle } from '../extractor'
+import { InstallationWriteGuard } from '../../../services/write-guard'
+import type { ManifestSource } from '../bootstrap/ports'
+import { fakeExtractor, fakeLaunch, fakeState } from '../test-support'
 import { readEngineState } from './installation-state'
 import {
   ENGINE_BACKUP_DIR_NAME,
@@ -156,44 +148,6 @@ async function writeTree(root: string, files: Record<string, string>): Promise<v
   }
 }
 
-/** In-memory stand-in for the four `StateStore` methods `InstallationsService` reaches for. */
-function fakeState(): StateStore {
-  let installations: Installation[] = []
-  let settings = { activeInstallationId: null } as LauncherSettings
-  return {
-    installations: () => installations,
-    setInstallations: (next: Installation[]) => {
-      installations = next
-    },
-    settings: () => settings,
-    patchSettings: (patch: Partial<LauncherSettings>) => {
-      settings = { ...settings, ...patch }
-      return settings
-    },
-  } as unknown as StateStore
-}
-
-/** Mirrors `services/write-guard.test.ts`'s own `fakeLaunch`. */
-function fakeLaunch(): { host: LaunchHost; set: (next: LaunchState) => void } {
-  let state: LaunchState = IDLE_LAUNCH_STATE
-  const listeners = new Set<(next: LaunchState) => void>()
-  return {
-    host: {
-      getState: () => state,
-      onStateChange: (listener) => {
-        listeners.add(listener)
-        return () => {
-          listeners.delete(listener)
-        }
-      },
-    },
-    set: (next) => {
-      state = next
-      for (const listener of [...listeners]) listener(next)
-    },
-  }
-}
-
 /** Mirrors `pipeline.test.ts`'s helper - a job that waits has no promise to await. */
 async function waitFor(condition: () => boolean, what: string): Promise<void> {
   const deadline = Date.now() + 5000
@@ -211,19 +165,6 @@ function fakeDownload(): EngineArchiveDownload {
     await mkdir(dirname(path), { recursive: true })
     await writeFile(path, 'archive')
     return { ok: true, path }
-  }
-}
-
-/** Writes `staged` into the extract dir, exactly as 7za would have unpacked the real archive. */
-function fakeExtractor(staged: Record<string, string>): Extractor {
-  return {
-    extract: ({ extractDir }): ExtractorHandle => ({
-      result: (async () => {
-        await writeTree(extractDir, staged)
-        return ok(undefined)
-      })(),
-      kill: () => {},
-    }),
   }
 }
 
@@ -299,7 +240,7 @@ async function harness(
   const launch = fakeLaunch()
   const guard = new InstallationWriteGuard({ launch: launch.host, jobs })
   const extractDirs: string[] = []
-  const inner = fakeExtractor(options.staged ?? NEW_FILES)
+  const inner = fakeExtractor(() => options.staged ?? NEW_FILES)
 
   return {
     deps: {

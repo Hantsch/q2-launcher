@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import { initI18n } from '../../../i18n'
 import type { ModTileModel } from '../merge-mod-tiles'
 
@@ -21,7 +22,9 @@ const { previewUpdate, updateMod, revealMod } = vi.hoisted(() => ({
   updateMod: vi.fn(async () => ({ ok: true as const, value: { jobId: 'job-9' } })),
   revealMod: vi.fn(async () => ({ ok: true as const, value: null })),
 }))
-vi.mock('../client', () => ({ previewUpdate, updateMod, revealMod }))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, { previewUpdate, updateMod, revealMod }),
+)
 vi.mock('../../../lib/bridge', () => ({ invoke: vi.fn() }))
 
 const { ModDetailPanel } = await import('./ModDetailPanel')

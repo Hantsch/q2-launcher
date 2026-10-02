@@ -44,8 +44,11 @@ export async function initI18n(setting: LocaleSetting): Promise<I18nInstance> {
       // React escapes for us; double-escaping mangles apostrophes and quotes.
       escapeValue: false,
     },
-    // A missing key is a bug we want to see, not a blank label in the UI.
-    parseMissingKeyHandler: (key) => {
+    // A missing key is a bug we want to see, not a blank label in the UI - unless the caller
+    // passed a `defaultValue`, which declares the miss expected (an open set such as unlock
+    // feature ids) and is what must render instead of the key.
+    parseMissingKeyHandler: (key, defaultValue) => {
+      if (defaultValue !== undefined) return defaultValue
       if (import.meta.env.DEV) console.warn(`[i18n] missing key: ${key}`)
       return key
     },

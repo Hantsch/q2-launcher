@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import { initI18n } from '../../../i18n'
 
 /** Story 165 D3. Stubbed client, real store - same idiom as `DemoPlayAction.test.tsx`. */
@@ -12,15 +13,17 @@ vi.hoisted(() => {
 const playbackTimeline = vi.fn()
 const playbackStop = vi.fn()
 const playbackCinema = vi.fn()
-vi.mock('../client', () => ({
-  playbackTimeline: (...args: unknown[]) => playbackTimeline(...args),
-  playbackStop: (...args: unknown[]) => playbackStop(...args),
-  playbackCinema: (...args: unknown[]) => playbackCinema(...args),
-  playbackDisplayRead: () => new Promise(() => {}),
-  onPlaybackPosition: () => () => {},
-  onPlaybackState: () => () => {},
-  onPlaybackDisplay: () => () => {},
-}))
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, {
+    playbackTimeline: (...args: unknown[]) => playbackTimeline(...args),
+    playbackStop: (...args: unknown[]) => playbackStop(...args),
+    playbackCinema: (...args: unknown[]) => playbackCinema(...args),
+    playbackDisplayRead: () => new Promise(() => {}),
+    onPlaybackPosition: () => () => {},
+    onPlaybackState: () => () => {},
+    onPlaybackDisplay: () => () => {},
+  }),
+)
 
 let DemoTimeline: typeof import('./DemoTimeline').DemoTimeline
 let usePlaybackStore: typeof import('../playback-store').usePlaybackStore

@@ -1,16 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 
 const sidecarRead = vi.fn()
 const sidecarWrite = vi.fn()
 const scanStart = vi.fn()
 const indexRead = vi.fn()
 
-vi.mock('./client', () => ({
-  sidecarRead: (...args: unknown[]) => sidecarRead(...args),
-  sidecarWrite: (...args: unknown[]) => sidecarWrite(...args),
-  scanStart: (...args: unknown[]) => scanStart(...args),
-  indexRead: (...args: unknown[]) => indexRead(...args),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    sidecarRead: (...args: unknown[]) => sidecarRead(...args),
+    sidecarWrite: (...args: unknown[]) => sidecarWrite(...args),
+    scanStart: (...args: unknown[]) => scanStart(...args),
+    indexRead: (...args: unknown[]) => indexRead(...args),
+  }),
+)
 
 const { effectiveQuickValues, findRowReplaceId, useDemoEditorStore } =
   await import('./demo-editor-store')

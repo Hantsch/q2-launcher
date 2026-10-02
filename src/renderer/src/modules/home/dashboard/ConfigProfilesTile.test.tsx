@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import type { ConfigProfile, ProfileSyncState, SyncProfileStateInput } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
 import { initI18n } from '../../../i18n'
@@ -43,10 +44,12 @@ const listConfigProfiles = vi.fn<() => Promise<Outcome<ConfigProfile[]>>>(async 
 const getProfileSyncState =
   vi.fn<(input: SyncProfileStateInput) => Promise<Outcome<ProfileSyncState>>>()
 
-vi.mock('../../config/client', () => ({
-  listConfigProfiles: () => listConfigProfiles(),
-  getProfileSyncState: (input: SyncProfileStateInput) => getProfileSyncState(input),
-}))
+vi.mock('../../config/client', (importOriginal) =>
+  mockClient<typeof import('../../config/client')>(importOriginal, {
+    listConfigProfiles: () => listConfigProfiles(),
+    getProfileSyncState: (input: SyncProfileStateInput) => getProfileSyncState(input),
+  }),
+)
 
 const setRoute = vi.fn()
 

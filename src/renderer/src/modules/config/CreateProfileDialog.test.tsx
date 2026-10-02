@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { ConfigProfile, CreateConfigProfileInput } from '@shared/modules/config'
 import { initI18n } from '../../i18n'
 import { CreateProfileDialog } from './CreateProfileDialog'
@@ -17,12 +18,15 @@ import { CreateProfileDialog } from './CreateProfileDialog'
 
 let createCalls: CreateConfigProfileInput[] = []
 
-vi.mock('./client', () => ({
-  createConfigProfile: vi.fn(async (input: CreateConfigProfileInput) => {
-    createCalls.push(input)
-    return { ok: true, value: [] as ConfigProfile[] }
+// Importing the real client module evaluates the preload bridge accessor.
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    createConfigProfile: vi.fn(async (input: CreateConfigProfileInput) => {
+      createCalls.push(input)
+      return { ok: true as const, value: [] as ConfigProfile[] }
+    }),
   }),
-}))
+)
 
 beforeAll(async () => {
   await initI18n('en')

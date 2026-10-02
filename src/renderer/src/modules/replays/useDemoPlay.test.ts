@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type { DemoRow } from '@shared/modules/replays'
 import { i18next as i18n, initI18n } from '../../i18n'
 
@@ -14,13 +15,15 @@ vi.hoisted(() => {
 })
 
 const playDemo = vi.fn()
-vi.mock('./client', () => ({
-  playDemo: (...args: unknown[]) => playDemo(...args),
-  onPlaybackPosition: () => () => {},
-  onPlaybackState: () => () => {},
-  onPlaybackDisplay: () => () => {},
-  playbackDisplayRead: () => new Promise(() => {}),
-}))
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    playDemo: (...args: unknown[]) => playDemo(...args),
+    onPlaybackPosition: () => () => {},
+    onPlaybackState: () => () => {},
+    onPlaybackDisplay: () => () => {},
+    playbackDisplayRead: () => new Promise(() => {}),
+  }),
+)
 
 let useDemoPlay: typeof import('./useDemoPlay').useDemoPlay
 let useLauncher: typeof import('../../store/useLauncher').useLauncher

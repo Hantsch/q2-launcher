@@ -2,12 +2,16 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../../test-support/mock-client'
 import { initI18n } from '../../../i18n'
 
 const { resolveInstall } = vi.hoisted(() => ({
   resolveInstall: vi.fn(async () => ({ ok: true as const, value: null })),
 }))
-vi.mock('../client', () => ({ resolveInstall }))
+// Importing the real client module evaluates the preload bridge accessor.
+vi.mock('../client', (importOriginal) =>
+  mockClient<typeof import('../client')>(importOriginal, { resolveInstall }),
+)
 
 const { InstallDecisionDialog } = await import('./InstallDecisionDialog')
 

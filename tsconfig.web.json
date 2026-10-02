@@ -4,6 +4,7 @@
     "src/renderer/src/**/*.tsx",
     "src/renderer/src/**/*.json",
     "src/shared/**/*.ts",
+    "src/test-support/fixtures.ts",
     "src/preload/index.d.ts"
   ],
   // Story 081 D3: `shell-home-ownership.test.ts` walks the filesystem with `node:fs`/`node:path`/

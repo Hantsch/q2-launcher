@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { UI_HARNESS_ENV } from '../../lib/ui-harness'
 import { getModuleManifest } from '@shared/types'
-import type { AppContext } from '../../context'
+import { fakeAppContext } from '../../../test-support/app-context'
 import { MainModuleRegistry } from '../registry'
 import { homeModule } from './index'
 
@@ -35,10 +35,6 @@ vi.mock('electron', () => ({
   app: { getPath: () => userDataBox.current },
 }))
 
-function fakeAppContext(): AppContext {
-  return { isDev: true } as unknown as AppContext
-}
-
 describe('home module', () => {
   let dir: string
 
@@ -64,7 +60,7 @@ describe('home module', () => {
     expect(manifest?.capabilities).toEqual(['network'])
 
     const registry = new MainModuleRegistry()
-    await registry.register(homeModule, fakeAppContext())
+    await registry.register(homeModule, fakeAppContext({ isDev: true }))
 
     const registeredManifest = registry.manifests().find((m) => m.id === 'home')
     expect(registeredManifest?.status).toBe('available')
@@ -118,7 +114,7 @@ describe('home module', () => {
 
       const { homeModule: testedHomeModule } = await import('./index')
       const registry = new MainModuleRegistry()
-      await registry.register(testedHomeModule, fakeAppContext())
+      await registry.register(testedHomeModule, fakeAppContext({ isDev: true }))
 
       expect(refreshNews).toHaveBeenCalledTimes(1)
     })

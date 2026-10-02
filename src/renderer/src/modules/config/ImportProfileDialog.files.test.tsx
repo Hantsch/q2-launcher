@@ -2,6 +2,7 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mockClient } from '../../test-support/mock-client'
 import type {
   ConfigProfile,
   ImportFilesCommitInput,
@@ -54,24 +55,27 @@ const PREVIEW_OK: ImportPreviewResult = {
   cvarSections: [],
 }
 
-vi.mock('./client', () => ({
-  pickImportFiles: vi.fn(async (): Promise<Outcome<PickedConfigFile[]>> => {
-    pickCalls += 1
-    return { ok: true, value: [FILE_A, FILE_B, FILE_C] }
+// Importing the real client module evaluates the preload bridge accessor.
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, {
+    pickImportFiles: vi.fn(async (): Promise<Outcome<PickedConfigFile[]>> => {
+      pickCalls += 1
+      return { ok: true, value: [FILE_A, FILE_B, FILE_C] }
+    }),
+    previewImportFiles: vi.fn(
+      async (input: ImportFilesPreviewInput): Promise<Outcome<ImportPreviewResult>> => {
+        previewCalls.push(input)
+        return { ok: true, value: PREVIEW_OK }
+      },
+    ),
+    commitImportFiles: vi.fn(
+      async (input: ImportFilesCommitInput): Promise<Outcome<ConfigProfile[]>> => {
+        commitCalls.push(input)
+        return { ok: true, value: [] }
+      },
+    ),
   }),
-  previewImportFiles: vi.fn(
-    async (input: ImportFilesPreviewInput): Promise<Outcome<ImportPreviewResult>> => {
-      previewCalls.push(input)
-      return { ok: true, value: PREVIEW_OK }
-    },
-  ),
-  commitImportFiles: vi.fn(
-    async (input: ImportFilesCommitInput): Promise<Outcome<ConfigProfile[]>> => {
-      commitCalls.push(input)
-      return { ok: true, value: [] }
-    },
-  ),
-}))
+)
 
 beforeAll(async () => {
   await initI18n('en')

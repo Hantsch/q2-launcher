@@ -14,6 +14,7 @@ import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
 import en from '../../../renderer/src/i18n/locales/en.json'
 import { canonicalizePath } from '../../lib/fs-utils'
 import { UI_HARNESS_ENV } from '../../lib/ui-harness'
+import { fakeAppContext } from '../../../test-support/app-context'
 import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
@@ -38,20 +39,16 @@ vi.mock('electron', () => ({
  * a successful round trip, a rejected bad payload) plus a check that the handler is only
  * reachable under this module's own id, not another module's.
  */
-function fakeAppContext(installations: unknown[] = []): AppContext {
-  const broadcast = { emit: () => {} }
-  return {
-    broadcast,
-    installations: { list: () => installations },
-    state: {
-      replaysState: () => ({
-        extraFolders: [],
-        listFilter: EMPTY_DEMO_LIST_FILTER,
-        modWarning: { enabled: true, trustedMods: [] },
-      }),
-    },
-  } as unknown as AppContext
-}
+const stubState = {
+  replaysState: () => ({
+    extraFolders: [],
+    listFilter: EMPTY_DEMO_LIST_FILTER,
+    modWarning: { enabled: true, trustedMods: [] },
+  }),
+} as unknown as StateStore
+
+const installationsOf = (list: unknown[]) =>
+  ({ list: () => list }) as unknown as AppContext['installations']
 
 describe('replays module', () => {
   it('the replays module registers its main half under its own id', async () => {
@@ -59,7 +56,7 @@ describe('replays module', () => {
     expect(manifest).toBeDefined()
 
     const registry = new MainModuleRegistry()
-    await registry.register(replaysModule, fakeAppContext())
+    await registry.register(replaysModule, fakeAppContext({ state: stubState }))
 
     expect(registry.registered()).toContain('replays')
 
@@ -112,7 +109,7 @@ describe('replays module', () => {
 
   it('a bad overview.read payload is rejected', async () => {
     const registry = new MainModuleRegistry()
-    await registry.register(replaysModule, fakeAppContext())
+    await registry.register(replaysModule, fakeAppContext({ state: stubState }))
 
     const outcome = await registry.invoke({
       moduleId: 'replays',
@@ -125,7 +122,7 @@ describe('replays module', () => {
 
   it("replays handlers are not reachable under another module's id", async () => {
     const registry = new MainModuleRegistry()
-    await registry.register(replaysModule, fakeAppContext())
+    await registry.register(replaysModule, fakeAppContext({ state: stubState }))
 
     for (const moduleId of ['servers', 'home'] as const) {
       const outcome = await registry.invoke({
@@ -172,7 +169,10 @@ describe('replays module', () => {
       }
 
       const registry = new MainModuleRegistry()
-      await registry.register(replaysModule, fakeAppContext([installation]))
+      await registry.register(
+        replaysModule,
+        fakeAppContext({ state: stubState, installations: installationsOf([installation]) }),
+      )
 
       const outcome = await registry.invoke({
         moduleId: 'replays',
@@ -191,7 +191,7 @@ describe('replays module', () => {
 
     it('a bad demos.list payload is rejected', async () => {
       const registry = new MainModuleRegistry()
-      await registry.register(replaysModule, fakeAppContext())
+      await registry.register(replaysModule, fakeAppContext({ state: stubState }))
 
       const outcome = await registry.invoke({
         moduleId: 'replays',
@@ -232,10 +232,13 @@ describe('replays module', () => {
       const registry = new MainModuleRegistry()
       await registry.register(
         replaysModule,
-        fakeAppContext([
-          installation('a', rootA, ['baseq2', 'ctf']),
-          installation('b', rootB, ['baseq2']),
-        ]),
+        fakeAppContext({
+          state: stubState,
+          installations: installationsOf([
+            installation('a', rootA, ['baseq2', 'ctf']),
+            installation('b', rootB, ['baseq2']),
+          ]),
+        }),
       )
 
       await vi.waitFor(async () => {
@@ -247,7 +250,7 @@ describe('replays module', () => {
 
       // A sweep that cannot even list the installations never breaks the module's start.
       const broken = {
-        ...fakeAppContext(),
+        ...fakeAppContext({ state: stubState }),
         installations: {
           list: () => {
             throw new Error('boom')
