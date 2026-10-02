@@ -606,6 +606,26 @@ registry's shape but isn't exercised by any entry yet. Each `coldStart: true`
 screen adds one extra `_electron.launch()` per viewport it lists, on top of
 its variant's one batched-session launch.
 
+## What a flow may assert
+
+A flow asserts user-visible outcomes and the `data-testid`s of its own story's
+surface. It never asserts:
+
+- literal cvar values (a default can change in any story);
+- Tab-key counts (the focus order of a screen is not the story's contract);
+- fixture ordinals ("the third installation", "row 2") — find the row by what
+  it shows, not by its position;
+- pixel geometry (sizes, offsets, line budgets) — unless the story is about
+  that geometry.
+
+New flows do not use `waitForTimeout`; they wait on a state (a testid
+appearing, text changing, a value settling). All fixture data comes from the
+one deterministic builder `scripts/lib/fixture.mjs`, seeded by
+`scripts/seed.mjs`; a flow does not invent its own data on disk.
+
+A flow that asserts another story's incidental detail is fixed in the flow,
+not in the product.
+
 ## How to write a flow
 
 Flows are for a free-form, story-shaped click-through — not a fixed registry
@@ -1475,6 +1495,38 @@ game server:
 Each screen's `navigate()` opens the Servers view and waits for `servers-scan-status[data-running=
 "false"]` before doing anything else, so the registry's run order never matters.
 
+### The flow gate: quarantine, shards, timeout
+
+`npm run ui:flows [-- <flow>... --shard=i/n --timeout=<seconds>]`
+(`scripts/flows-all.mjs`, decisions in `scripts/lib/flow-gate.mjs`) reseeds
+and runs every flow, or only the named ones.
+
+- `--shard=i/n` runs the i-th of n slices, 1-based and round robin (flow k
+  goes to shard `k % n + 1`), so slow neighbouring flows spread out.
+- `--timeout=<seconds>` (default 300, must be > 0) kills a flow that runs
+  longer — the whole process tree, so no Electron survives — and counts it
+  failed.
+- Exit code 0 when the gate is ok, 1 when any non-quarantined flow failed, a
+  quarantined flow passed twice, the quarantine list is invalid or stale, or
+  the arguments are malformed.
+
+`scripts/flows/quarantine.json` lists flows that are known broken. Each entry
+has `flow` (a name in `scripts/flows/`), `reason`, `story` (the story that
+wrote the entry) and `since` (a sprint like `S32`), plus an optional `platform`
+(`win32` or `linux`) to limit it to one OS. Outcomes for a quarantined flow:
+
+- fails: an expected fail, noted but not counted against the run;
+- passes, and passes again on an immediate re-run: an unexpected pass, which
+  fails the run — remove the entry;
+- passes once, then fails on the re-run: reported as flaky only, the run is
+  not failed.
+
+Entries are validated: missing fields, a malformed `since`, an unknown
+`platform` or an unknown flow name are errors, and while the list is invalid
+nothing is treated as quarantined. An entry also fails the run when the
+current sprint minus `since` is greater than 3 — fix the flow or make it a
+story.
+
 ## Baselines and CI
 
 Screenshots are **never diffed** against a committed reference, and this is
@@ -1482,9 +1534,18 @@ deliberate, not a gap to fill in later: a pixel baseline rots on every design
 change and turns into noise nobody trusts. They exist purely as evidence for
 a human to look at during manual review.
 
-**CI is out of scope for this harness.** It is local-only for now — there is
-no GitHub Actions job (or equivalent) that runs `ui:verify`, and adding one is
-a decision for a future story, not an implicit consequence of this one.
+**CI runs the harness through `.github/workflows/ui-flows.yml`**, which has
+two jobs:
+
+- `ui-flows` — every flow on `ubuntu-latest` under xvfb, split into 4 shards
+  (`npm run ui:flows -- --shard=<i>/4`).
+- `windows-verify` — on `windows-latest`: build, `npm run ui:verify`
+  (screenshots + axe-core) and three flows (`about-release-notes`,
+  `steam-handoff`, `open-keycap-dialog`).
+
+Both trigger on pull requests into `main` and on `workflow_dispatch` only; a
+push or schedule run would re-verify a tree that only changes through PRs.
+`npm run ci:local:flows` rehearses the Linux leg locally with `act`.
 
 ## Known blind spots
 

@@ -209,12 +209,16 @@ async function waitForStateJson(predicate, label) {
   }
 }
 
+// The bare `servers-row-` prefix also matches elements inside a row (`servers-row-copy-`,
+// `-favourite-`, `-gamemode-` ...); only the row itself carries an explicit `role="button"`.
+const ROW_SELECTOR = '[role="button"][data-testid^="servers-row-"]'
+
 /** Reads the DOM order of every `servers-row-<address>` row button, in the order they appear. */
 async function rowOrder(page) {
-  return page.evaluate(() =>
-    Array.from(document.querySelectorAll('[data-testid^="servers-row-"]'))
-      .filter((el) => el.tagName === 'BUTTON')
-      .map((el) => el.getAttribute('data-testid')),
+  return page.evaluate(
+    (selector) =>
+      Array.from(document.querySelectorAll(selector)).map((el) => el.getAttribute('data-testid')),
+    ROW_SELECTOR,
   )
 }
 
@@ -223,11 +227,10 @@ async function rowOrder(page) {
  * navigation lands. */
 async function waitForRowCount(page, count) {
   await page.waitForFunction(
-    (expected) =>
-      Array.from(document.querySelectorAll('[data-testid^="servers-row-"]')).filter(
-        (el) => el.tagName === 'BUTTON',
-      ).length >= expected,
-    count,
+    ({ selector, expected }) =>
+      Array.from(document.querySelectorAll(selector)).length >=
+      expected,
+    { selector: ROW_SELECTOR, expected: count },
     { timeout: TIMEOUT_MS },
   )
 }

@@ -45,6 +45,7 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 
 ## Follow-ups worth doing
 
+- `replays-mod-warning` is quarantined as flaky (step 'resetting remembered mods asks again', 1–2 of ~6 runs) — fix it and drop its quarantine entry. [S31 review](sprints/done/S31/review.md)
 - OpenTDM on 64-bit Q2PRO is refused (`mods.error.noVariant`, empty `contentOnly.packages`) — give it a content-only variant or a 64-bit build. [S31 review](sprints/done/S31/review.md)
 - Play anyway on a mod whose game dir does not exist on disk fails in main (ENOENT writing `q2l_back.cfg`) and is not shown to the user as a play error. [S30 review](sprints/done/S30/review.md)
 - Measure the Linux channel's control latency / stdout buffering on a real Linux Q2PRO; no Linux lever was applied in 185. [S30 review](sprints/done/S30/review.md)

@@ -22,21 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      # electron@43 has no postinstall: the binary is downloaded lazily, the first time something
-      # requires `electron`. Under `vitest run` that "something" is several test files at once
-      # (they import `src/main/lib/logger`, which loads `electron-log/main`, which requires
-      # `electron`), so concurrent install.js processes race for the same download and one of
-      # them loses with "Electron failed to install correctly". Downloading once, serially, up
-      # front removes the race - mirrors release.yml's "Install Electron binary" step.
-      - name: Install Electron binary
-        run: node node_modules/electron/install.js
+      - uses: ./.github/actions/setup-node-electron
 
       - name: Typecheck
         run: npm run typecheck
@@ -64,18 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      # Same race this workflow's own `test` job already guards against (see its "Install Electron
-      # binary" step above) - Playwright's `_electron` driver resolves the local `electron`
-      # devDependency, whose binary is otherwise downloaded lazily on first use.
-      - name: Install Electron binary
-        run: node node_modules/electron/install.js
+      - uses: ./.github/actions/setup-node-electron
 
       # `ubuntu-latest` does not ship `xvfb-run` - Electron needs a real display even for a
       # "headless" CI run on Linux.

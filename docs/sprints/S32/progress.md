@@ -1,2 +1,20 @@
 - 2026-10-02 09:36:43 · refine · 223 226 225 199 200 201 202 203 204 206 205 207 208 209 221 222 220 219 · started
 - 2026-10-02 09:46:30 · refine · done · 18 ready
+- 2026-10-02 09:46:35 · 223 · build · started
+- 2026-10-02 09:46:51 · 223 · D1 four red flows · started
+- 2026-10-02 10:05:20 · 223 · D1 four red flows · done
+- 2026-10-02 10:05:20 · 223 · D2 quarantine gate · started
+- 2026-10-02 10:06:57 · 223 · D2 quarantine gate · done
+- 2026-10-02 10:06:57 · 223 · D3 shards and timeout · started
+- 2026-10-02 10:08:55 · 223 · D3 shards and timeout · done
+- 2026-10-02 10:08:55 · 223 · D4 setup action · started
+- 2026-10-02 10:11:52 · 223 · D4 setup action · done
+- 2026-10-02 10:11:52 · 223 · D5 ui-flows workflow · started
+- 2026-10-02 10:15:44 · 223 · D5 ui-flows workflow · done
+- 2026-10-02 10:15:44 · 223 · D6 flow rules doc · started
+- 2026-10-02 10:16:32 · 223 · D6 flow rules doc · done
+- 2026-10-02 10:16:32 · 223 · verify · started
+- 2026-10-02 10:18:55 · 223 · verify · done
+- 2026-10-02 10:18:55 · 223 · review 1 · started
+- 2026-10-02 10:20:26 · 223 · review 1 · done
+- 2026-10-02 10:20:48 · 223 · story · done

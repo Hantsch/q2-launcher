@@ -50,7 +50,7 @@ e2e-cleanup: none <!-- e.g. taskkill /F /IM electron.exe | pkill -f electron | n
 -->
 
 test-support: src/test-support/ <!-- shared fixtures, builders and fakes — pasted into every deliverable prompt by /build -->
-e2e-quarantine: none <!-- e.g. tests/e2e/quarantine.json | none — the expected-failure list the e2e-all runner reads; /sprint's regression gate writes a pre-existing or flaky test into it -->
+e2e-quarantine: scripts/flows/quarantine.json <!-- e.g. tests/e2e/quarantine.json | none — the expected-failure list the e2e-all runner reads; /sprint's regression gate writes a pre-existing or flaky test into it -->
 
 ## Conventions
 
@@ -150,3 +150,5 @@ Keep this short — it is pasted into every subagent prompt.
 <!-- Free text. Never overwritten by setup/update. Project quirks worth knowing. -->
 
 This repo's CHANGELOG.md uses Keep-a-Changelog category headings (`### Added`/`### Changed`/`### Fixed`/`### Removed`/`### Security`), not the `changelog-path` comment's suggested `# Features`/`# Fixes` shape.
+
+Regression gate attribution and the sprint review judge a red flow against docs/UI-VERIFICATION.md#what-a-flow-may-assert — a flow asserting another story's incidental detail is fixed in the flow, not in the product.

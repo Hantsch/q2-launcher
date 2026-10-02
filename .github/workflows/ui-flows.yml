@@ -1,0 +1,102 @@
+name: ui-flows
+
+# Every UI flow on Linux (sharded) plus the Windows smoke set. PRs into main and manual dispatch
+# only: main changes solely through PRs, so a push or schedule run would re-verify the same tree.
+# Local rehearsal of the Linux leg: `npm run ci:local:flows` (act).
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ui-flows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ui-flows:
+    name: UI flows (ubuntu-latest, xvfb, shard ${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-node-electron
+
+      # `ubuntu-latest` does not ship `xvfb-run`; Electron needs a real display even in CI.
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      # Near no-op on ubuntu-latest; it makes the job self-contained under act, whose image has none
+      # of these libraries. Playwright's list is headless Chromium's and lacks GTK, which Electron links.
+      - name: Install Electron's runtime libraries
+        run: npx playwright install-deps chromium && sudo apt-get install -y libgtk-3-0t64
+
+      - name: Fetch 7-Zip
+        run: npm run fetch:7za
+
+      - name: Build
+        run: npm run build
+
+      - name: UI flows (shard ${{ matrix.shard }}/4)
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+        run: xvfb-run --auto-servernum npm run ui:flows -- --shard=${{ matrix.shard }}/4
+
+      - name: Upload screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-flows-shard-${{ matrix.shard }}
+          path: .ui-verify/screenshots/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+  windows-verify:
+    name: UI verify (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-node-electron
+
+      - name: Fetch 7-Zip
+        shell: bash
+        run: npm run fetch:7za
+
+      - name: Build
+        shell: bash
+        run: npm run build
+
+      - name: UI verify (screenshots + axe-core)
+        shell: bash
+        run: npm run ui:verify
+
+      - name: About release notes flow
+        shell: bash
+        run: npm run ui:flow -- about-release-notes
+
+      - name: Steam handoff flow
+        shell: bash
+        run: npm run ui:flow -- steam-handoff
+
+      - name: Open keycap dialog flow
+        shell: bash
+        run: npm run ui:flow -- open-keycap-dialog
+
+      - name: Upload screenshots and accessibility report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-ui-verify
+          path: |
+            .ui-verify/screenshots/**
+            .ui-verify/a11y.json
+            .ui-verify/a11y.md
+          if-no-files-found: error
+          retention-days: 14

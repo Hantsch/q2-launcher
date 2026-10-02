@@ -1,0 +1,52 @@
+name: Set up Node and Electron
+description: Node with the npm cache, `npm ci`, and (optionally) the Electron binary from a version-keyed cache.
+
+inputs:
+  node-version:
+    description: Node.js version
+    required: false
+    default: '22'
+  electron:
+    description: "'true' downloads the Electron binary (cached per Electron version), 'false' skips it"
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Resolve the Electron version
+      id: electron-version
+      if: inputs.electron == 'true'
+      shell: bash
+      run: echo "version=$(node -p "require('electron/package.json').version")" >> "$GITHUB_OUTPUT"
+
+    # Both runner OS cache locations are listed; the one that does not exist on a runner is ignored.
+    - name: Cache the Electron download
+      if: inputs.electron == 'true'
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/electron
+          ~\AppData\Local\electron\Cache
+        key: electron-${{ runner.os }}-${{ steps.electron-version.outputs.version }}
+
+    # electron has no postinstall: the binary is downloaded lazily, the first time something
+    # requires `electron`. Under `vitest run` that "something" is several test files at once
+    # (they import `src/main/lib/logger`, which loads `electron-log/main`, which requires
+    # `electron`), so concurrent install.js processes race for the same download and one of
+    # them loses with "Electron failed to install correctly". Downloading once, serially, up
+    # front removes the race; Playwright's `_electron` driver and the release build need the
+    # binary anyway.
+    - name: Install Electron binary
+      if: inputs.electron == 'true'
+      shell: bash
+      run: node node_modules/electron/install.js

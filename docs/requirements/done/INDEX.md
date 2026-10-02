@@ -291,3 +291,4 @@ second roadmap.
 - 196 — I switch the browser between online and LAN · S31 · Online/LAN toggle; LAN round broadcasts per interface and lists only answers, separate from the online list
 - 197 — I save my filter as a quick filter · S31 · save the structured filter under a name (max 8), apply/clear from a chip, rename/delete from its kebab; global, persisted in servers state
 - 134 — a native helper steers Q2PRO when cfg polling cannot · — · withdrawn: spike 133 ended in go for cfg polling, so no native helper is built.
+- 223 — the flow gate is green or says why · S32 · four red flows fixed, quarantine list, --shard/--timeout, one setup action, ui-flows CI + Windows leg, flow assertion rules

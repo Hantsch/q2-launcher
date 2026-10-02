@@ -40,6 +40,7 @@
     "format:check": "prettier --check .",
     "ci:local": "act workflow_dispatch -W .github/workflows/ci.yml --concurrent-jobs 1 --container-options --shm-size=2g",
     "ci:local:verify": "act workflow_dispatch -W .github/workflows/linux-verify.yml --container-options \"--privileged --shm-size=2g\"",
+    "ci:local:flows": "act workflow_dispatch -W .github/workflows/ui-flows.yml -j ui-flows --concurrent-jobs 1 --container-options \"--privileged --shm-size=2g\"",
     "ci:local:update": "act workflow_dispatch -W .github/workflows/linux-update.yml --container-options \"--privileged --shm-size=2g\"",
     "ci:local:all": "npm run ci:local && npm run ci:local:verify && npm run ci:local:update",
     "package:dir": "npm run icon && npm run fetch:7za && npm run build && electron-builder --dir --config electron-builder.yml --publish never",

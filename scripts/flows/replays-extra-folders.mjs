@@ -61,24 +61,23 @@ async function openDemosView(page) {
     state: 'visible',
     timeout: TIMEOUT_MS,
   })
+  await waitForDemosScanToFinish(page)
 }
 
 /**
- * Story 144 D4: opening the Demos view now renders whatever `index.read` already has (possibly a
- * stale snapshot from an earlier visit in this same app instance) before its own just-triggered
- * scan replaces it. Waiting for `replays-refresh` to go back to its enabled "Refresh" label is the
- * real signal that scan has finished and the list reflects the current on-disk state - a bare
- * `.count()` right after `openDemosView` can otherwise race an in-flight scan.
+ * Opening the Demos view renders whatever `index.read` already has (possibly a stale snapshot from
+ * an earlier visit in this same app instance) before its own just-triggered scan replaces it.
+ * `replays-refresh` mounts disabled (the view starts in its scanning state) and is enabled again
+ * only once that scan has finished, so its enabled state is the signal that the list reflects the
+ * current on-disk state - a bare `.count()` right after navigating can otherwise race the scan.
  */
 async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
+  await page.getByTestId('replays-refresh').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.waitForFunction(
+    () => document.querySelector('[data-testid="replays-refresh"]')?.disabled === false,
+    undefined,
+    { timeout: TIMEOUT_MS },
+  )
 }
 
 export default async function replaysExtraFolders({ page, shot, step, variant }) {
@@ -133,6 +132,9 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
   )
 
   step('re-adding the same folder is refused, and the Demos view still shows each file once (AC4)')
+  // The first window is still on the Demos view from AC2; the add button lives in Settings.
+  await openReplaysSettings(page)
+  await rowForPath(page, extraFolder).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('replays-extra-folders-add').click({ timeout: TIMEOUT_MS })
   const errorText = page.getByTestId('replays-extra-folders-error')
   await errorText.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
@@ -160,7 +162,6 @@ export default async function replaysExtraFolders({ page, shot, step, variant })
   await rowForPath(page, extraFolder).waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
 
   await openDemosView(page)
-  await waitForDemosScanToFinish(page)
   for (const fileName of ['a.dm2', 'B.MVD2']) {
     const count = await page
       .locator('[data-testid="replays-demo-row"]')

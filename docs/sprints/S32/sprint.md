@@ -18,7 +18,7 @@ correct error message where they used to see English prose or a path.
 
 ## Stories (in build order)
 
-- [ ] 223 — the flow gate is green or says why
+- [x] 223 — the flow gate is green or says why
 - [ ] 226 — the repo is formatted once and its dependencies are current
 - [ ] 225 — tests share a quiet logger and one test-support kit
 - [ ] 199 — path containment is one checked rule

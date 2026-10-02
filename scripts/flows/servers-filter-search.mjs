@@ -105,8 +105,10 @@ export async function setup() {
     needpass: true,
     extraInfoFlags: '\\deathmatch\\1',
   })
+  // The dm/coop/ctf flags only yield a gamemode on stock baseq2 - a mod's gamemode stays unknown -
+  // so the one CTF server is baseq2 running with the ctf flag.
   serverD = await bindResponder('Fixture Server D', ['1 1 "Zulu"', '2 2 "Yankee"', '3 3 "Xray"'], {
-    mod: 'ctf',
+    mod: 'baseq2',
     map: 'q2ctf1',
     maxclients: 16,
     extraInfoFlags: '\\ctf\\1',
@@ -204,13 +206,35 @@ export default async function serversFilterSearch({ page, step, shot }) {
   await waitForFinishedAtChange(page, finishedAtBefore, SCAN_SETTLE_TIMEOUT_MS)
   await page.getByTestId(`servers-row-${serverA.address}`).waitFor({ state: 'attached', timeout: TIMEOUT_MS })
 
+  // The `info` reply carries only hostname/map/player counts; mod (`gamename`) comes from `status`,
+  // which a full round skips for a server whose `info` reported 0 players - unless that server is
+  // the selected one. So the empty server C's mod is only known once a user has selected it during
+  // a refresh; without this, mod=baseq2 correctly cannot list C.
+  step('select the empty server C and refresh again, so its status (and mod) is read')
+  const rowC = page.getByTestId(`servers-row-${serverC.address}`)
+  await rowC.click({ timeout: TIMEOUT_MS })
+  await page.waitForFunction(
+    (testId) => document.querySelector(`[data-testid="${testId}"]`)?.getAttribute('aria-pressed') === 'true',
+    `servers-row-${serverC.address}`,
+    { timeout: TIMEOUT_MS },
+  )
+  const finishedAtBeforeSelected = await readFinishedAt(page)
+  await refreshAll.click({ timeout: TIMEOUT_MS })
+  await waitForFinishedAtChange(page, finishedAtBeforeSelected, SCAN_SETTLE_TIMEOUT_MS)
+  await rowC.click({ timeout: TIMEOUT_MS })
+  await page.waitForFunction(
+    (testId) => document.querySelector(`[data-testid="${testId}"]`)?.getAttribute('aria-pressed') === 'false',
+    `servers-row-${serverC.address}`,
+    { timeout: TIMEOUT_MS },
+  )
+
   step('AC3: with no filter, all four rows are visible, including the empty (0 player) server C')
   assertSet(await visibleLabels(page), ['A', 'B', 'C', 'D'], 'no filter')
   await shot('no-filter')
 
-  step('AC1: mod=baseq2 shows B and C')
+  step('AC1: mod=baseq2 shows B, C and D')
   await page.getByTestId('servers-filter-mod').selectOption('baseq2')
-  assertSet(await visibleLabels(page), ['B', 'C'], 'mod=baseq2')
+  assertSet(await visibleLabels(page), ['B', 'C', 'D'], 'mod=baseq2')
   await shot('filter-mod')
   await clearFilters(page)
 
@@ -260,7 +284,7 @@ export default async function serversFilterSearch({ page, step, shot }) {
 
   step('AC6: filter + sort combine without disturbing each other')
   await page.getByTestId('servers-filter-mod').selectOption('baseq2')
-  assertSet(await visibleLabels(page), ['B', 'C'], 'mod=baseq2 (pre-sort)')
+  assertSet(await visibleLabels(page), ['B', 'C', 'D'], 'mod=baseq2 (pre-sort)')
   // Default sort: favourites first (none here), then occupancy descending - B (2 players) above C (0).
   const rowsBeforeSort = await page.getByRole('button', { name: /Fixture Server B|Empty Cellar/ }).all()
   const orderBefore = []
@@ -270,7 +294,7 @@ export default async function serversFilterSearch({ page, step, shot }) {
   }
 
   await page.getByTestId('servers-sort-map').click({ timeout: TIMEOUT_MS })
-  assertSet(await visibleLabels(page), ['B', 'C'], 'mod=baseq2 (post-sort, still same set)')
+  assertSet(await visibleLabels(page), ['B', 'C', 'D'], 'mod=baseq2 (post-sort, still same set)')
   const modAfterSort = await page.getByTestId('servers-filter-mod').inputValue()
   if (modAfterSort !== 'baseq2') {
     throw new Error(`expected the mod filter to keep its value after sorting, got "${modAfterSort}"`)

@@ -36,18 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-
-      # Same race every other workflow in this repo already guards against (release.yml's and
-      # ci.yml's own "Install Electron binary" step): Playwright's `_electron` driver resolves the
-      # local `electron` devDependency, whose binary is otherwise downloaded lazily on first use.
-      - name: Install Electron binary
-        run: node node_modules/electron/install.js
+      - uses: ./.github/actions/setup-node-electron
 
       # `ubuntu-latest` ships neither a display nor (as of the 24.04 image) libfuse2, and an
       # AppImage's own runtime needs both: `xvfb-run` for a display to launch into, `libfuse2` to
