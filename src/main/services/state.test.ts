@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { rm, writeFile } from 'node:fs/promises'
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -240,7 +240,7 @@ describe('StateStore servers state (story 110 D3)', () => {
       watchlist: [],
       quickFilters: [],
     }
-    const written = state.setServersState(custom)
+    const written = state.updateSlice('servers', () => custom)
     await state.settle()
 
     const reloaded = new StateStore(filePath)
@@ -267,7 +267,7 @@ describe('StateStore servers state (story 110 D3)', () => {
       { address: '1.2.3.4:27910', connectedAt: '2026-01-03T00:00:00.000Z' },
     ]
 
-    state.setServersState({ ...state.serversState(), manualServers, history })
+    state.updateSlice('servers', (s) => ({ ...s, manualServers, history }))
     await state.settle()
 
     const reloaded = new StateStore(filePath)
@@ -310,7 +310,7 @@ describe('StateStore servers state (story 110 D3)', () => {
       { id: 'wl-regex', name: '^Player[0-9]+$', mode: 'regex', tooSlow: true },
     ]
 
-    state.setServersState({ ...state.serversState(), watchlist })
+    state.updateSlice('servers', (s) => ({ ...s, watchlist }))
     await state.settle()
 
     const reloaded = new StateStore(filePath)
@@ -409,7 +409,7 @@ describe('StateStore replays state (story 142 D1)', () => {
       { id: 'f1', path: 'C:\\Demos\\Extra', addedAt: '2026-01-01T00:00:00.000Z' },
     ]
 
-    state.setReplaysState({ ...state.replaysState(), extraFolders })
+    state.updateSlice('replays', (live) => ({ ...live, extraFolders }))
     await state.settle()
 
     const reloaded = new StateStore(filePath)
@@ -591,5 +591,59 @@ describe('StateStore persistence', () => {
     }
 
     expect(onPersistError).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('StateStore updateSlice', () => {
+  let filePath: string
+  let state: StateStore
+
+  beforeEach(async () => {
+    filePath = join(tmpdir(), `q2-launcher-state-update-slice-${randomUUID()}.json`)
+    state = new StateStore(filePath)
+    await state.load()
+    await state.settle()
+    vi.mocked(rename).mockClear()
+  })
+
+  afterEach(async () => {
+    await rm(filePath, { force: true })
+    await rm(`${filePath}.tmp`, { force: true })
+    await rm(`${filePath}.bak`, { force: true })
+  })
+
+  it('updateSlice hands the callback the live value and keeps sibling keys', () => {
+    const seen: unknown[] = []
+    state.updateSlice('configWriteFailures', (live) => {
+      seen.push(live)
+      return { ...live, a: { messageKey: 'k', at: 't' } }
+    })
+    state.updateSlice('configWriteFailures', (live) => {
+      seen.push(live)
+      return { ...live, b: { messageKey: 'k2', at: 't2' } }
+    })
+
+    expect(seen[0]).toEqual({})
+    expect(Object.keys(seen[1] as object)).toEqual(['a'])
+    expect(Object.keys(state.configWriteFailures())).toEqual(['a', 'b'])
+    expect(state.serversState()).toEqual(DEFAULT_SERVERS_STATE)
+  })
+
+  it('updateSlice schedules no write when the callback returns the same reference', async () => {
+    const returned = state.updateSlice('configWriteFailures', (live) => live)
+    await state.settle()
+
+    expect(returned).toBe(state.configWriteFailures())
+    expect(rename).not.toHaveBeenCalled()
+  })
+})
+
+describe('architecture doc', () => {
+  it('ARCHITECTURE.md states the slice-mutator rule', async () => {
+    const doc = await readFile(join(__dirname, '../../../docs/ARCHITECTURE.md'), 'utf8')
+    const section = doc.split(/^## /m).find((s) => s.startsWith('State and persistence')) ?? ''
+
+    expect(section).toContain('updateSlice')
+    expect(section).toMatch(/Never read\s+->\s+spread\s+->\s+set/)
   })
 })

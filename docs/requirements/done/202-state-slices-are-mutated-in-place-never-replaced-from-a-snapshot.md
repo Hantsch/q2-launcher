@@ -1,7 +1,7 @@
 ---
 id: 202
 title: state slices are mutated in place, never replaced from a snapshot
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -31,22 +31,22 @@ Config and downloads already got per-key setters, so the store API differs per s
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `StateStore` exposes synchronous section-scoped mutators (`updateServersState(fn)`,
+- [x] **AC1** — `StateStore` exposes synchronous section-scoped mutators (`updateServersState(fn)`,
       `updateReplaysState(fn)`, `updateConfigWriteFailures(fn)`, or one generic
       `updateSlice(key, fn)`) whose callback receives the live value; the whole-section
       `setServersState`/`setReplaysState` setters are deleted so a stale-snapshot write cannot
       compile.
-- [ ] **AC2** — Every former `set*({ ...current, … })` call site in servers, replays and
+- [x] **AC2** — Every former `set*({ ...current, … })` call site in servers, replays and
       name-templates uses a mutator; `git grep -n 'setServersState\|setReplaysState' src/main`
       returns nothing.
-- [ ] **AC3** — `InstallationsService` gets `patch(id, patch)` that merges at commit time, and
+- [x] **AC3** — `InstallationsService` gets `patch(id, patch)` that merges at commit time, and
       `update()` and `validateAll()` are rewritten so an entry added or changed during their
       awaits survives; unit tests interleave two awaited handlers and assert both writes land.
-- [ ] **AC4** — The config `writeFailures` path is serialised or mutator-based so concurrent
+- [x] **AC4** — The config `writeFailures` path is serialised or mutator-based so concurrent
       `syncAndPersist` calls cannot revert each other's failures; a test proves it.
-- [ ] **AC5** — The duplicated `listSetSort` handler bodies share one `setOrClearListSort`
+- [x] **AC5** — The duplicated `listSetSort` handler bodies share one `setOrClearListSort`
       helper.
-- [ ] **AC6** — docs/ARCHITECTURE.md's state section states the rule: a slice is changed through
+- [x] **AC6** — docs/ARCHITECTURE.md's state section states the rule: a slice is changed through
       its mutator, never read-spread-set.
 
 ## Open Questions
@@ -261,4 +261,14 @@ app.state.setServersState({ ...current, X })` with `app.state.updateSlice('serve
 
 ## Done
 
-<!-- Filled by /build 202. -->
+Summary: `StateStore.updateSlice(key, fn)` replaces the whole-section setters (`setServersState`, `setReplaysState`, `setConfigWriteFailures` deleted); servers, replays, name-templates and config write failures mutate the live slice. `InstallationsService.patch` plus pure `applyInspectionResult` make `update`/`validate`/`validateAll` merge at commit time. `setOrClearListSort` is shared; ARCHITECTURE.md states the rule.
+Commit message: `202: slice mutators (updateSlice) replace read-spread-set; installations patch/validate merge on live; write failures delta-merge`
+Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` green (205 files, 2892 passed) after fixing `fakeState` in `src/main/modules/downloads/test-support.ts` (lacked `updateSlice`). No e2e (S14). Clean-agent review: PASS, no findings needing a fix; the orphaned doc comment in `state.ts` was fixed.
+AC -> test (all ran and passed): AC1 state.test.ts "updateSlice hands the callback the live value…" + "…schedules no write…" and typecheck/grep; AC2 servers/index.test.ts "a refused sources mutation…", replays/index.test.ts "a sort change during extraFoldersAdd's await survives"; AC3 installations.test.ts four named tests; AC4 config/write-failures.test.ts + config/index.write-failures.test.ts; AC5 lib/list-sort.test.ts; AC6 state.test.ts "ARCHITECTURE.md states the slice-mutator rule". No manual residue.
+Decisions:
+- The AC4 concurrency test sits in a new sibling `index.write-failures.test.ts` (there is no `config/index.test.ts`); the failing keys are `p1|own`/`p2|own`.
+- `update()` with a blank name keeps the live name (no `name` key in the patch).
+- Stale `applyInspection` references in doc comments renamed to `applyInspectionResult`.
+- No CHANGELOG entry: no user-visible change.
+- Not done: weak spots noted by review (sibling-key assertion in state.test.ts is light) left as is.
+tiers: D 5 / hard 1 · review default · cycles 0 · agents 8

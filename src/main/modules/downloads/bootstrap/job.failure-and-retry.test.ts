@@ -115,7 +115,7 @@ describe('startBootstrap failure and cancel', () => {
       expect(list[0]?.id).toBe(installationId)
       expect(list[0]?.name).toBe(WIZARD_NAME)
       expect(list[0]?.rootPath).toBe(await realpath(root))
-      // `applyInspection` re-derives `engineKind` on every `validate()` for anything but a `custom`
+      // `applyInspectionResult` re-derives `engineKind` on every `validate()` for anything but a `custom`
       // kind ([installations.ts:433](../../../../services/installations.ts)), and an emptied folder
       // classifies as `unknown` - but it keeps a previously-known engine kind rather than clobbering
       // it with `unknown`, so the wizard's choice survives the failure path.

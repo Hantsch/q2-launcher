@@ -24,7 +24,7 @@ correct error message where they used to see English prose or a path.
 - [x] 199 — path containment is one checked rule
 - [x] 200 — a thrown shell handler answers with an i18n key, not prose
 - [x] 201 — the launcher shuts down in order and says when a write failed
-- [ ] 202 — state slices are mutated in place, never replaced from a snapshot
+- [x] 202 — state slices are mutated in place, never replaced from a snapshot
 - [ ] 203 — forgiving row parsing is one helper
 - [ ] 204 — the module bus returns one Outcome envelope and every error key resolves
 - [ ] 206 — a refusal is one shape with a full i18n key and one toast path

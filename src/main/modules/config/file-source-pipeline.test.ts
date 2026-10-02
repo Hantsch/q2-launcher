@@ -430,9 +430,9 @@ describe('conflicting simultaneous changes', () => {
     const fileName = fileNameOf(first.state)
     // A write that failed last session - one of the three retry triggers, and the one that runs
     // before the renderer (and therefore before any focus re-read) exists at all.
-    first.state.setConfigWriteFailures({
+    first.state.updateSlice('configWriteFailures', () => ({
       'p1|i1': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
-    })
+    }))
     await first.state.settle()
 
     const handEdited = `${await readFile(canonicalPath(fileName), 'latin1')}// edited between sessions\n`

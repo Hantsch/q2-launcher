@@ -109,7 +109,7 @@ export interface RepairPlanInstallation {
    * Story 093 finding fix (AC1): `Installation.recordedEngineKind` - a one-way memory of the engine,
    * set once when positively known and never overwritten by revalidation, unlike `engineKind` above
    * (which a fresh inspection *does* clobber to `'unknown'` the moment the executable goes missing,
-   * outside the narrow `lastFailure`-scoped exception in `InstallationsService.applyInspection`).
+   * outside the narrow `lastFailure`-scoped exception in `applyInspectionResult` (installations.ts)).
    * Preferred over `engineKind` when present; falling back to `engineKind` keeps this working for
    * installations that predate the field or were never bootstrapped/imported through a path that
    * sets it.

@@ -164,7 +164,7 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       watchlist: [],
       quickFilters: [],
     }
-    state.setServersState(seededState)
+    state.updateSlice('servers', () => seededState)
 
     emitted = []
     const appContext = {

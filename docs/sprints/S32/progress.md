@@ -133,3 +133,22 @@
 - 2026-10-02 12:31:45 · 201 · review 1 · started
 - 2026-10-02 12:34:20 · 201 · review 1 · done
 - 2026-10-02 12:34:36 · 201 · story · done
+- 2026-10-02 12:34:47 · 202 · build · started
+- 2026-10-02 12:35:01 · 202 · D1 slice mutator + sort helper · started
+- 2026-10-02 12:35:55 · 202 · D1 slice mutator + sort helper · done
+- 2026-10-02 12:35:55 · 202 · D2 servers use mutator · started
+- 2026-10-02 12:37:34 · 202 · D2 servers use mutator · done
+- 2026-10-02 12:37:34 · 202 · D3 replays + name templates · started
+- 2026-10-02 12:39:46 · 202 · D3 replays + name templates · done
+- 2026-10-02 12:39:46 · 202 · D4 installations merge at commit (hard) · started
+- 2026-10-02 12:43:17 · 202 · D4 installations merge at commit (hard) · done
+- 2026-10-02 12:43:17 · 202 · D5 config write failures merge · started
+- 2026-10-02 12:44:47 · 202 · D5 config write failures merge · done
+- 2026-10-02 12:44:47 · 202 · verify · started
+- 2026-10-02 12:45:27 · 202 · verify · blocked: 8 downloads job test files red (state stub lacks updateSlice)
+- 2026-10-02 12:45:27 · 202 · fix downloads stubs + stale comments · started
+- 2026-10-02 12:46:13 · 202 · fix downloads stubs + stale comments · done
+- 2026-10-02 12:46:13 · 202 · verify · done
+- 2026-10-02 12:46:13 · 202 · review 1 · started
+- 2026-10-02 12:47:16 · 202 · review 1 · done
+- 2026-10-02 12:47:28 · 202 · story · done

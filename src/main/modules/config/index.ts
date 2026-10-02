@@ -42,6 +42,7 @@ import type { MainModule } from '../types'
 import { readCanonicalOwnership, removeCanonicalProfileFile } from './canonical'
 import { corruptContentDiagnostic, hashCanonicalFileContent, readFileState } from './file-source'
 import { installationCopySource, syncProfile } from './sync'
+import { mergeWriteFailureChanges } from './write-failures'
 import { removeRedundantCopies, restoreRemovedCopies, scanRedundantCopies } from './cleanup'
 import { commitImportFiles, pickImportFiles, previewImportFiles } from './import'
 import { PickedFilesRegistry } from './picked-files'
@@ -310,6 +311,9 @@ async function syncAndPersist(
   } = {},
 ): Promise<ProfileSyncState | null> {
   try {
+    // The run is async: another run may change the slice while this one awaits, so only this
+    // run's own delta against what it started from is applied afterwards.
+    const before = app.state.configWriteFailures()
     const outcome = await syncProfile({
       profile,
       allProfiles,
@@ -318,7 +322,7 @@ async function syncAndPersist(
       playedModsFor: (installationId) => app.state.configPlayedMods()[installationId] ?? [],
       switchBindFor: (installationId) => app.state.configSwitchBinds()[installationId],
       canonicalBaseDir: userDataDir(),
-      writeFailures: app.state.configWriteFailures(),
+      writeFailures: before,
       targetInstallationId: options.targetInstallationId,
       canonicalWriteAllowed: (candidate, onDisk) => {
         // Story 079 D3: the cascade after a raw save (`saveRawText`) or an adopted external edit
@@ -372,7 +376,9 @@ async function syncAndPersist(
       },
       log,
     })
-    app.state.setConfigWriteFailures(outcome.writeFailures)
+    app.state.updateSlice('configWriteFailures', (live) =>
+      mergeWriteFailureChanges(live, before, outcome.writeFailures),
+    )
     const now = Date.now()
     for (const [profileId, fileHash] of Object.entries(outcome.canonicalHashes)) {
       // A profile that vanished mid-run (removed by another handler while this one awaited) is
@@ -678,13 +684,12 @@ export const configModule: MainModule = {
           log.error(`failed to remove canonical profile file for ${input.id}`, error)
         }
         try {
-          const failures = app.state.configWriteFailures()
-          const keptFailures = Object.fromEntries(
-            Object.entries(failures).filter(([key]) => !key.startsWith(`${input.id}|`)),
-          )
-          if (Object.keys(keptFailures).length !== Object.keys(failures).length) {
-            app.state.setConfigWriteFailures(keptFailures)
-          }
+          app.state.updateSlice('configWriteFailures', (live) => {
+            const kept = Object.fromEntries(
+              Object.entries(live).filter(([key]) => !key.startsWith(`${input.id}|`)),
+            )
+            return Object.keys(kept).length === Object.keys(live).length ? live : kept
+          })
         } catch (error) {
           log.error(`failed to drop stale sync bookkeeping for removed profile ${input.id}`, error)
         }

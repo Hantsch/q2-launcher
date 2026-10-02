@@ -34,6 +34,7 @@ import {
 } from '@shared/modules/replays'
 import { timelineActionSchema } from '@shared/replays/timeline'
 import { EMPTY_DEMO_LIST_FILTER, normalizeDemoListFilter } from '@shared/replays/list-filter'
+import { setOrClearListSort } from '../../lib/list-sort'
 import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harness'
 import { userDataDir } from '../../lib/paths'
 import type { MainModule } from '../types'
@@ -43,7 +44,7 @@ import { createDemoRename } from './demo-rename'
 import { sweepLauncherDirs } from './demo-staging'
 import { composeDemoRows } from './demo-rows'
 import { discoverDemos, type DiscoverContext } from './discovery'
-import { addExtraFolder, removeExtraFolder } from './extra-folders'
+import { appendExtraFolder, removeExtraFolder, resolveExtraFolder } from './extra-folders'
 import { createDemoFileActions } from './file-actions'
 import { ReplaysIndexCache } from './index-cache'
 import { createCinemaController } from './cinema-controller'
@@ -541,59 +542,62 @@ export const replaysModule: MainModule = {
       }))
     })
 
-    // Story 142 D2: the `extraFolders.*` handlers. `add`/`remove` mirror `servers/index.ts`'s
-    // `mutate()` pattern - read `replaysState()` once, run the op, on refusal return early without
-    // persisting, on success persist and return what `setReplaysState` actually stored (not the
-    // local candidate).
+    // Story 142 D2: the `extraFolders.*` handlers. Every write runs on the live slice inside
+    // `updateSlice`; a refusal returns the live slice unchanged (nothing persisted), and what comes
+    // back is what `updateSlice` actually stored, not the local candidate.
     handle(
       REPLAYS_HANDLERS.extraFoldersList,
       replaysNoInputSchema,
       () => app.state.replaysState().extraFolders,
     )
     handle(REPLAYS_HANDLERS.extraFoldersAdd, extraFoldersAddSchema, async (payload) => {
-      const current = app.state.replaysState()
-      const result: ExtraFoldersResult = await addExtraFolder(
-        current.extraFolders,
-        payload.path,
-        new Date().toISOString(),
-        randomUUID(),
-      )
-      if (!result.ok) return result
-      const persisted = app.state.setReplaysState({ ...current, extraFolders: result.folders })
+      // The awaits come first: the dedupe below must see the list as it is when it writes.
+      const resolved = await resolveExtraFolder(payload.path)
+      if (!resolved.ok) return resolved
+      let result: ExtraFoldersResult | undefined
+      const persisted = app.state.updateSlice('replays', (live) => {
+        result = appendExtraFolder(
+          live.extraFolders,
+          resolved.canonical,
+          new Date().toISOString(),
+          randomUUID(),
+        )
+        return result.ok ? { ...live, extraFolders: result.folders } : live
+      })
+      if (!result || !result.ok) return result as ExtraFoldersResult
       return { ok: true, folders: persisted.extraFolders } as ExtraFoldersResult
     })
     handle(REPLAYS_HANDLERS.extraFoldersRemove, extraFoldersRemoveSchema, (payload) => {
-      const current = app.state.replaysState()
-      const extraFolders = removeExtraFolder(current.extraFolders, payload.id)
-      const persisted = app.state.setReplaysState({ ...current, extraFolders })
+      const persisted = app.state.updateSlice('replays', (live) => ({
+        ...live,
+        extraFolders: removeExtraFolder(live.extraFolders, payload.id),
+      }))
       return { ok: true, folders: persisted.extraFolders } as ExtraFoldersResult
     })
 
     /**
-     * Story 152 D2: the `list.*` sort handlers - same read/replace/persist discipline as
+     * Story 152 D2: the `list.*` sort handlers - same live-slice discipline as
      * `SERVERS_HANDLERS.listGetSort`/`listSetSort` (`src/main/modules/servers/index.ts`).
      * `listSetSort` replaces the top-level `listSort` field wholesale while carrying every other
-     * `ReplaysState` key over from the same snapshot untouched; `null` clears it by destructuring it
-     * out of the persisted candidate rather than setting it to `undefined`, so a cleared sort is an
-     * absent key on disk, not a present `null`/`undefined` one. What's returned is what
-     * `setReplaysState` actually persisted (`?? null`), not the local candidate.
+     * `ReplaysState` key over from the live slice untouched; `null` clears it by removing the key
+     * (`setOrClearListSort`), so a cleared sort is an absent key on disk, not a present
+     * `null`/`undefined` one. What's returned is what `updateSlice` actually stored (`?? null`).
      */
     handle(
       REPLAYS_HANDLERS.listGetSort,
       listGetSortInputSchema,
       () => app.state.replaysState().listSort ?? null,
     )
-    handle(REPLAYS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) => {
-      const current = app.state.replaysState()
-      if (payload.sort === null) {
-        const { listSort: _listSort, ...withoutSort } = current
-        return app.state.setReplaysState(withoutSort).listSort ?? null
-      }
-      return app.state.setReplaysState({ ...current, listSort: payload.sort }).listSort ?? null
-    })
+    handle(
+      REPLAYS_HANDLERS.listSetSort,
+      listSetSortInputSchema,
+      (payload) =>
+        app.state.updateSlice('replays', (live) => setOrClearListSort(live, payload.sort))
+          .listSort ?? null,
+    )
 
     /**
-     * Story 153 D3: the `listFilter.*` handlers - same read/replace/persist discipline as
+     * Story 153 D3: the `listFilter.*` handlers - same live-slice discipline as
      * `listGetSort`/`listSetSort` right above. `listFilter` is never absent on `ReplaysState` (unlike
      * `listSort`), so there is no clear-to-null case to model here.
      */
@@ -603,51 +607,52 @@ export const replaysModule: MainModule = {
       () => app.state.replaysState().listFilter ?? EMPTY_DEMO_LIST_FILTER,
     )
     handle(REPLAYS_HANDLERS.listSetFilter, listSetFilterInputSchema, (payload) => {
-      const current = app.state.replaysState()
       // Normalizes the same way `parseReplaysState` does on read, so a structurally-valid but
       // semantically-invalid `date` (e.g. `from > to`, or both ends open) sent from the renderer
       // never round-trips through `state.json` un-normalized - paths/payloads from the renderer are
       // never trusted, and this is the write-side half of that same discipline.
       return (
-        app.state.setReplaysState({
-          ...current,
+        app.state.updateSlice('replays', (live) => ({
+          ...live,
           listFilter: normalizeDemoListFilter(payload.filter),
-        }).listFilter ?? EMPTY_DEMO_LIST_FILTER
+        })).listFilter ?? EMPTY_DEMO_LIST_FILTER
       )
     })
 
-    // Story 182 D1: the `modWarning.*` handlers - same read/spread/persist discipline as `listFilter`;
-    // every one returns what `setReplaysState` actually persisted.
+    // Story 182 D1: the `modWarning.*` handlers - same live-slice discipline as `listFilter`;
+    // every one returns what `updateSlice` actually stored.
     handle(
       REPLAYS_HANDLERS.modWarningRead,
       modWarningReadInputSchema,
       () => app.state.replaysState().modWarning,
     )
-    handle(REPLAYS_HANDLERS.modWarningSetEnabled, modWarningSetEnabledInputSchema, (payload) => {
-      const current = app.state.replaysState()
-      return app.state.setReplaysState({
-        ...current,
-        modWarning: { ...current.modWarning, enabled: payload.enabled },
-      }).modWarning
-    })
+    handle(
+      REPLAYS_HANDLERS.modWarningSetEnabled,
+      modWarningSetEnabledInputSchema,
+      (payload) =>
+        app.state.updateSlice('replays', (live) => ({
+          ...live,
+          modWarning: { ...live.modWarning, enabled: payload.enabled },
+        })).modWarning,
+    )
     handle(REPLAYS_HANDLERS.modWarningTrustMod, modWarningTrustModInputSchema, (payload) => {
-      const current = app.state.replaysState()
       const dir = payload.gameDir.toLowerCase()
-      const trustedMods = current.modWarning.trustedMods.includes(dir)
-        ? current.modWarning.trustedMods
-        : [...current.modWarning.trustedMods, dir]
-      return app.state.setReplaysState({
-        ...current,
-        modWarning: { ...current.modWarning, trustedMods },
+      return app.state.updateSlice('replays', (live) => {
+        const trustedMods = live.modWarning.trustedMods.includes(dir)
+          ? live.modWarning.trustedMods
+          : [...live.modWarning.trustedMods, dir]
+        return { ...live, modWarning: { ...live.modWarning, trustedMods } }
       }).modWarning
     })
-    handle(REPLAYS_HANDLERS.modWarningResetTrusted, modWarningResetTrustedInputSchema, () => {
-      const current = app.state.replaysState()
-      return app.state.setReplaysState({
-        ...current,
-        modWarning: { ...current.modWarning, trustedMods: [] },
-      }).modWarning
-    })
+    handle(
+      REPLAYS_HANDLERS.modWarningResetTrusted,
+      modWarningResetTrustedInputSchema,
+      () =>
+        app.state.updateSlice('replays', (live) => ({
+          ...live,
+          modWarning: { ...live.modWarning, trustedMods: [] },
+        })).modWarning,
+    )
 
     log.debug('replays module ready')
   },

@@ -178,7 +178,7 @@ describe('resolveRepairPlan', () => {
     // Story 093 finding fix (AC1): unlike the previous test, the fresh inspection here reports
     // `engineKind: 'unknown'` *and* the installation's own (live) `engineKind` field has already
     // been overwritten to `'unknown'` by a prior `validate()` - exactly what happens after the
-    // executable disappears and the app restarts (`InstallationsService.applyInspection`). Only
+    // executable disappears and the app restarts (`applyInspectionResult` (installations.ts)). Only
     // `recordedEngineKind`, the one-way memory, still says what this installation actually is.
     const freshResult: ValidationResult = {
       status: 'invalid',

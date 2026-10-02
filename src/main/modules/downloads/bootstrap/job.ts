@@ -182,7 +182,7 @@ import { computeTargetVerdict } from './target'
  * flip the job to `failed`. By the time anything can look, the installation is registered *and*
  * says it is not playable. (Review considered reversing "record the failure" and "validate" to
  * close the still-narrower window between those two writes, but that order is required elsewhere:
- * `applyInspection`'s engine-preservation guard only preserves a known engine kind for an
+ * `applyInspectionResult`'s engine-preservation guard only preserves a known engine kind for an
  * installation that already carries a `lastFailure`, which for a *first* failure is only true once
  * this write has landed - see the comment at the call site.)
  *
@@ -1156,7 +1156,7 @@ export async function startBootstrap(
     //    Decisions (Sprint) Q1: an honest empty folder beats a half-built one).
     // 2. The failure is recorded on the surviving installation (AC3) with the *same* key the
     //    `Job.error` below carries, so the library and the Downloads tab can never disagree. This
-    //    has to precede step 3, not follow it (review fix): `applyInspection`'s engine-preservation
+    //    has to precede step 3, not follow it (review fix): `applyInspectionResult`'s engine-preservation
     //    guard is scoped to "does this installation already carry a `lastFailure`" so it cannot
     //    touch an ordinary, never-failed installation (AC8) - for a first failure that is only true
     //    once this write lands, and step 3 is what reads it.
@@ -1176,7 +1176,7 @@ export async function startBootstrap(
     // so a plain failure's record stays exactly `{ errorKey, at, jobId }`.
     //
     // Deliberately *before* `validate()` below, even though that briefly lets a renderer observe
-    // the record next to a not-yet-revalidated status: `applyInspection`'s engine-preservation guard
+    // the record next to a not-yet-revalidated status: `applyInspectionResult`'s engine-preservation guard
     // (review fix, installations.ts) is scoped to "does this installation already carry a
     // `lastFailure`" so it never touches an installation that isn't a bootstrap failure (AC8) - and
     // for a *first* failure that is only true once this write has landed. Recording first is what

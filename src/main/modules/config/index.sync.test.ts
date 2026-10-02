@@ -452,9 +452,9 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     const { state } = await boot({
       seed: (s) => {
         s.setConfigProfiles([seeded])
-        s.setConfigWriteFailures({
+        s.updateSlice('configWriteFailures', () => ({
           'p1|own': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
-        })
+        }))
       },
     })
 
@@ -468,9 +468,9 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     const { state } = await boot({
       seed: (s) => {
         s.setConfigProfiles([])
-        s.setConfigWriteFailures({
+        s.updateSlice('configWriteFailures', () => ({
           'ghost|own': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
-        })
+        }))
       },
     })
 
@@ -521,9 +521,9 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
         // touched `configWriteFailures` at all, so this entry would have
         // survived a successful retry forever and `syncState` would have kept
         // reporting `error` regardless of what was actually on disk.
-        s.setConfigWriteFailures({
+        s.updateSlice('configWriteFailures', () => ({
           'p1|i1': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
-        })
+        }))
       },
     })
 

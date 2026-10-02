@@ -274,25 +274,31 @@ export class InstallationsService {
   // Editing
   // -------------------------------------------------------------------------
 
+  /**
+   * The user's edit is collected as a patch of only the fields the input names, and merged onto the
+   * live record at commit time - so whatever landed on the record during this method's awaits (an
+   * icon, a play session) survives the edit.
+   */
   async update(input: UpdateInstallationInput): Promise<Outcome<Installation>> {
-    const current = this.find(input.id)
-    if (!current) return fail('installations.error.notFound')
+    if (!this.find(input.id)) return fail('installations.error.notFound')
 
-    let next: Installation = { ...current, updatedAt: new Date().toISOString() }
+    const userPatch: InstallationPatch = { updatedAt: new Date().toISOString() }
 
-    if (input.name !== undefined) next.name = input.name.trim() || current.name
-    if (input.launchArgs !== undefined) next.launchArgs = input.launchArgs
-    if (input.favorite !== undefined) next.favorite = input.favorite
-    if (input.activeGameDir !== undefined) next.activeGameDir = input.activeGameDir
-    if (input.executablePath !== undefined) next.executablePath = input.executablePath
+    // A blank name keeps whatever name the record has.
+    const name = input.name?.trim()
+    if (name) userPatch.name = name
+    if (input.launchArgs !== undefined) userPatch.launchArgs = input.launchArgs
+    if (input.favorite !== undefined) userPatch.favorite = input.favorite
+    if (input.activeGameDir !== undefined) userPatch.activeGameDir = input.activeGameDir
+    if (input.executablePath !== undefined) userPatch.executablePath = input.executablePath
     // Story 103 D6: the runner choice `resolveRunner` (src/main/services/runners.ts) reads. Does
-    // not trigger revalidation below - it changes nothing `applyInspection` checks.
-    if (input.runner !== undefined) next.runner = input.runner
-    if (input.steamClient !== undefined) next.steamClient = input.steamClient
+    // not trigger revalidation below - it changes nothing an inspection checks.
+    if (input.runner !== undefined) userPatch.runner = input.runner
+    if (input.steamClient !== undefined) userPatch.steamClient = input.steamClient
 
     if (input.writeDirPath !== undefined) {
-      if (input.writeDirPath === null) delete next.writeDirPath
-      else next.writeDirPath = await canonicalizePath(input.writeDirPath)
+      userPatch.writeDirPath =
+        input.writeDirPath === null ? undefined : await canonicalizePath(input.writeDirPath)
     }
 
     // Relocating: the new folder must not already belong to another entry.
@@ -301,15 +307,13 @@ export class InstallationsService {
       const key = pathKey(rootPath)
       const clash = this.state
         .installations()
-        .find((other) => other.id !== current.id && pathKey(other.rootPath) === key)
+        .find((other) => other.id !== input.id && pathKey(other.rootPath) === key)
       if (clash) return fail('installations.error.duplicate', { name: clash.name })
 
-      next.rootPath = rootPath
+      userPatch.rootPath = rootPath
       // The old executable path points into the old folder; drop it and let the
       // inspection below pick a fresh one.
-      if (current.executablePath && input.executablePath === undefined) {
-        delete next.executablePath
-      }
+      if (input.executablePath === undefined) userPatch.executablePath = undefined
     }
 
     // Anything that can change the verdict triggers a fresh inspection.
@@ -317,12 +321,25 @@ export class InstallationsService {
       input.executablePath !== undefined ||
       input.writeDirPath !== undefined ||
       input.rootPath !== undefined
-    if (revalidate) {
-      next = await this.applyInspection(next)
-    }
+    if (!revalidate) return this.patch(input.id, userPatch)
 
-    this.commit(this.state.installations().map((i) => (i.id === next.id ? next : i)))
-    return ok(next)
+    const snapshot = this.find(input.id)
+    if (!snapshot) return fail('installations.error.notFound')
+    const result = await inspect(mergePatch(snapshot, userPatch))
+
+    const committed = this.mutateOne(input.id, (live) =>
+      applyInspectionResult(mergePatch(live, userPatch), result),
+    )
+    return committed ? ok(committed) : fail('installations.error.notFound')
+  }
+
+  /**
+   * Merges `patch` onto the live record inside the state mutator. A key present with the value
+   * `undefined` removes that field from the record - how a cleared optional field is expressed.
+   */
+  patch(id: string, patch: InstallationPatch): Outcome<Installation> {
+    const committed = this.mutateOne(id, (live) => mergePatch(live, patch))
+    return committed ? ok(committed) : fail('installations.error.notFound')
   }
 
   /**
@@ -351,8 +368,8 @@ export class InstallationsService {
    * `setIcon()` right above, its own field, its own `commit()` write.
    *
    * `null` removes the field entirely, the same "absent means none" convention `setIcon` uses for
-   * `icon`. The field is also cleared automatically the next time `applyInspection()` sees a
-   * playable verdict (see that method below) - this method is for the bootstrap job to set it (and
+   * `icon`. The field is also cleared automatically the next time `applyInspectionResult()` sees
+   * a playable verdict (see that function below) - this method is for the bootstrap job to set it (and
    * for tests/future callers to clear it explicitly), not the only place it can be cleared.
    */
   setLastFailure(id: string, failure: InstallationLastFailure | null): Outcome<Installation> {
@@ -519,12 +536,14 @@ export class InstallationsService {
   // -------------------------------------------------------------------------
 
   async validate(id: string): Promise<Outcome<Installation>> {
-    const current = this.find(id)
-    if (!current) return fail('installations.error.notFound')
+    const snapshot = this.find(id)
+    if (!snapshot) return fail('installations.error.notFound')
 
-    const next = await this.applyInspection(current)
-    this.commit(this.state.installations().map((i) => (i.id === id ? next : i)))
-    return ok(next)
+    const result = await inspect(snapshot)
+    const committed = this.commitVerdicts([{ inspected: snapshot, result }]).find(
+      (i) => i.id === id,
+    )
+    return committed ? ok(committed) : fail('installations.error.notFound')
   }
 
   /**
@@ -533,11 +552,11 @@ export class InstallationsService {
    * failing on the next launch.
    */
   async validateAll(): Promise<Installation[]> {
-    const validated: Installation[] = []
+    const verdicts: Verdict[] = []
     for (const installation of this.state.installations()) {
-      validated.push(await this.applyInspection(installation))
+      verdicts.push({ inspected: installation, result: await inspect(installation) })
     }
-    this.commit(validated)
+    this.commitVerdicts(verdicts)
     return this.list()
   }
 
@@ -557,73 +576,47 @@ export class InstallationsService {
   // internals
   // -------------------------------------------------------------------------
 
-  private async applyInspection(installation: Installation): Promise<Installation> {
-    const result = await inspectInstallation(installation.rootPath, {
-      ...(installation.executablePath ? { executablePath: installation.executablePath } : {}),
-      ...(installation.writeDirPath ? { writeDirPath: installation.writeDirPath } : {}),
+  /**
+   * Replaces one record with `fn(live)` inside the state mutator, so `fn` always sees the record as
+   * it is now, never a copy read before an await. `undefined` when the id is gone.
+   */
+  private mutateOne(
+    id: string,
+    fn: (live: Installation) => Installation,
+  ): Installation | undefined {
+    let found = false
+    const stored = this.state.updateSlice('installations', (live) => {
+      const index = live.findIndex((installation) => installation.id === id)
+      if (index === -1) return live
+      found = true
+      const next = fn(live[index])
+      return live.map((installation, i) => (i === index ? next : installation))
     })
+    if (!found) return undefined
+    this.onChange(this.list())
+    return stored.find((installation) => installation.id === id)
+  }
 
-    const next: Installation = {
-      ...installation,
-      status: result.status,
-      checks: result.checks,
-      gameDirs: result.gameDirs,
-      lastValidatedAt: result.checkedAt,
-      updatedAt: new Date().toISOString(),
-    }
-
-    // Story 077 D1: a playable verdict retires any stale failure record - same "playable" predicate
-    // `bootstrap/job.ts`'s `markPlayableIfReady` uses. An `invalid`/`missing` verdict leaves
-    // `lastFailure` exactly as it was; this is the only place other than `setLastFailure(id, null)`
-    // that clears it.
-    if (result.status !== 'invalid' && result.status !== 'missing') {
-      delete next.lastFailure
-    }
-
-    // A user-chosen engine kind is never overwritten by detection.
-    // Story 077 (review fix, AC1/AC8): an empty/unrecognizable folder inspects as `unknown` - for a
-    // *failed* installation (the folder this story's cleanup just emptied - Decisions (Sprint), Q1)
-    // that must not clobber the wizard's engine choice, or a restart would show "Unknown engine"
-    // next to a name and path it otherwise preserved exactly. Deliberately scoped to
-    // `installation.lastFailure`, the one field only a bootstrap failure ever sets: an *ordinary*
-    // installation (no `lastFailure` - AC8's "an installation without the new field") keeps today's
-    // unconditional overwrite, engineKind included, so this story changes nothing about how an
-    // untouched installation's engine badge behaves when its folder empties out for any other
-    // reason. A too-broad version of this guard (no `lastFailure` scoping) was caught in review:
-    // it silently changed the engine badge on installations that carry no `lastFailure` at all.
-    const preserveKnownEngine =
-      result.engineKind === 'unknown' &&
-      installation.engineKind !== 'unknown' &&
-      installation.lastFailure !== undefined
-    if (installation.engineKind !== 'custom' && !preserveKnownEngine) {
-      next.engineKind = result.engineKind
-    }
-
-    // Adopt a working executable if the stored one is gone.
-    if (!installation.executablePath && result.executables[0]) {
-      next.executablePath = result.executables[0]
-    }
-
-    // Story 103 D2: record what the chosen executable turned out to be. Written only when the
-    // inspection actually read a header (never on Windows - AC8: a revalidation there must leave
-    // the record exactly as it found it), so a kind read on another platform is kept rather than
-    // erased by a Windows run over the same state file.
-    if (result.executableKind) next.executableKind = result.executableKind
-
-    // Story 104 D2 (review fix, AC1): the Steam appid is *not* merged like `executableKind` above.
-    // It is derived purely from the root path, on every platform, so the new inspection's answer is
-    // the whole truth: an installation relocated out of a Steam library must lose its appid, or the
-    // Steam runner would stay selectable for a folder Steam does not own. The stored `steamClient`
-    // choice is left alone - it is simply inert without an appid.
-    if (result.steamAppId) next.steamAppId = result.steamAppId
-    else delete next.steamAppId
-
-    // The selected game dir may have been deleted behind our back.
-    if (next.activeGameDir && !result.gameDirs.includes(next.activeGameDir)) {
-      next.activeGameDir = ''
-    }
-
-    return next
+  /**
+   * Applies inspection verdicts to the live list in one write. A verdict lands only on a record
+   * that still points at the folder/executable/write dir it was inspected for: one whose target the
+   * user changed meanwhile was re-inspected by that `update()` itself, and an older verdict must not
+   * overwrite it. Records added meanwhile have no verdict and pass through; removed ones stay gone.
+   */
+  private commitVerdicts(verdicts: readonly Verdict[]): Installation[] {
+    const byId = new Map(verdicts.map((verdict) => [verdict.inspected.id, verdict]))
+    const stored = this.state.updateSlice('installations', (live) => {
+      let changed = false
+      const next = live.map((installation) => {
+        const verdict = byId.get(installation.id)
+        if (!verdict || !sameInspectionTarget(installation, verdict.inspected)) return installation
+        changed = true
+        return applyInspectionResult(installation, verdict.result)
+      })
+      return changed ? next : live
+    })
+    this.onChange(this.list())
+    return stored
   }
 
   private nextSortOrder(): number {
@@ -641,6 +634,104 @@ export class InstallationsService {
     this.state.setInstallations(installations)
     this.onChange(this.list())
   }
+}
+
+/** Every field but `id`; a key present with the value `undefined` deletes that field. */
+export type InstallationPatch = Omit<Partial<Installation>, 'id'>
+
+interface Verdict {
+  /** The record as it was when the inspection started. */
+  inspected: Installation
+  result: ValidationResult
+}
+
+function mergePatch(installation: Installation, patch: InstallationPatch): Installation {
+  const next: Installation = { ...installation, ...patch }
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) delete (next as unknown as Record<string, unknown>)[key]
+  }
+  return next
+}
+
+function inspect(installation: Installation): Promise<ValidationResult> {
+  return inspectInstallation(installation.rootPath, {
+    ...(installation.executablePath ? { executablePath: installation.executablePath } : {}),
+    ...(installation.writeDirPath ? { writeDirPath: installation.writeDirPath } : {}),
+  })
+}
+
+/** The three fields `inspect()` reads - equal on both records means the verdict still applies. */
+function sameInspectionTarget(live: Installation, inspected: Installation): boolean {
+  return (
+    live.rootPath === inspected.rootPath &&
+    live.executablePath === inspected.executablePath &&
+    live.writeDirPath === inspected.writeDirPath
+  )
+}
+
+/** Folds an inspection verdict into `installation`; pure apart from stamping `updatedAt`. */
+function applyInspectionResult(installation: Installation, result: ValidationResult): Installation {
+  const next: Installation = {
+    ...installation,
+    status: result.status,
+    checks: result.checks,
+    gameDirs: result.gameDirs,
+    lastValidatedAt: result.checkedAt,
+    updatedAt: new Date().toISOString(),
+  }
+
+  // Story 077 D1: a playable verdict retires any stale failure record - same "playable" predicate
+  // `bootstrap/job.ts`'s `markPlayableIfReady` uses. An `invalid`/`missing` verdict leaves
+  // `lastFailure` exactly as it was; this is the only place other than `setLastFailure(id, null)`
+  // that clears it.
+  if (result.status !== 'invalid' && result.status !== 'missing') {
+    delete next.lastFailure
+  }
+
+  // A user-chosen engine kind is never overwritten by detection.
+  // Story 077 (review fix, AC1/AC8): an empty/unrecognizable folder inspects as `unknown` - for a
+  // *failed* installation (the folder this story's cleanup just emptied - Decisions (Sprint), Q1)
+  // that must not clobber the wizard's engine choice, or a restart would show "Unknown engine"
+  // next to a name and path it otherwise preserved exactly. Deliberately scoped to
+  // `installation.lastFailure`, the one field only a bootstrap failure ever sets: an *ordinary*
+  // installation (no `lastFailure` - AC8's "an installation without the new field") keeps today's
+  // unconditional overwrite, engineKind included, so this story changes nothing about how an
+  // untouched installation's engine badge behaves when its folder empties out for any other
+  // reason. A too-broad version of this guard (no `lastFailure` scoping) was caught in review:
+  // it silently changed the engine badge on installations that carry no `lastFailure` at all.
+  const preserveKnownEngine =
+    result.engineKind === 'unknown' &&
+    installation.engineKind !== 'unknown' &&
+    installation.lastFailure !== undefined
+  if (installation.engineKind !== 'custom' && !preserveKnownEngine) {
+    next.engineKind = result.engineKind
+  }
+
+  // Adopt a working executable if the stored one is gone.
+  if (!installation.executablePath && result.executables[0]) {
+    next.executablePath = result.executables[0]
+  }
+
+  // Story 103 D2: record what the chosen executable turned out to be. Written only when the
+  // inspection actually read a header (never on Windows - AC8: a revalidation there must leave
+  // the record exactly as it found it), so a kind read on another platform is kept rather than
+  // erased by a Windows run over the same state file.
+  if (result.executableKind) next.executableKind = result.executableKind
+
+  // Story 104 D2 (review fix, AC1): the Steam appid is *not* merged like `executableKind` above.
+  // It is derived purely from the root path, on every platform, so the new inspection's answer is
+  // the whole truth: an installation relocated out of a Steam library must lose its appid, or the
+  // Steam runner would stay selectable for a folder Steam does not own. The stored `steamClient`
+  // choice is left alone - it is simply inert without an appid.
+  if (result.steamAppId) next.steamAppId = result.steamAppId
+  else delete next.steamAppId
+
+  // The selected game dir may have been deleted behind our back.
+  if (next.activeGameDir && !result.gameDirs.includes(next.activeGameDir)) {
+    next.activeGameDir = ''
+  }
+
+  return next
 }
 
 /** Same rule the detection scan uses, so both agree on what counts as a game folder. */

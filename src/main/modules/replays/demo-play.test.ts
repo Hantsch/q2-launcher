@@ -260,10 +260,10 @@ describe('demo.play with a trusted mod (story 182 D1)', () => {
     const stateFile = join(tmp, 'trusted-state.json')
     const store = new StateStore(stateFile)
     await store.load()
-    store.setReplaysState({
-      ...store.replaysState(),
+    store.updateSlice('replays', (live) => ({
+      ...live,
       modWarning: { enabled: false, trustedMods: ['opentdm'] },
-    })
+    }))
     await store.settle()
     expect(store.replaysState().modWarning.trustedMods).toEqual(['opentdm'])
 

@@ -156,7 +156,7 @@ export interface Installation {
    * (bootstrap's user-chosen engine, an import/detection scan that identified one, or a completed
    * `reinstall-engine` repair) and never touched by revalidation. Deliberately separate from
    * `engineKind`, which a fresh inspection *does* overwrite on every `validate()`/`validateAll()`
-   * call (see `InstallationsService.applyInspection`'s `preserveKnownEngine`) - `r1q2`/`q2pro` are
+   * call (see `applyInspectionResult` (installations.ts)'s `preserveKnownEngine`) - `r1q2`/`q2pro` are
    * identified solely by their own executable, so once that executable goes missing `engineKind`
    * flips to `'unknown'` even though the installation is still, say, an r1q2 one underneath.
    * `repair/plan.ts`'s `reinstall-engine` offer reads this (falling back to `engineKind`) so it

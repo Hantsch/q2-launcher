@@ -8,7 +8,7 @@ import type { LaunchHost } from '../../services/write-guard'
 import type { Extractor, ManifestSource, PackageFetcher } from './bootstrap/ports'
 import type { ExtractorHandle } from './extractor'
 
-/** In-memory stand-in for the four `StateStore` methods `InstallationsService` reaches for. */
+/** In-memory stand-in for the `StateStore` methods `InstallationsService` reaches for. */
 export function fakeState(): StateStore {
   let installations: Installation[] = []
   let settings = { activeInstallationId: null } as LauncherSettings
@@ -16,6 +16,11 @@ export function fakeState(): StateStore {
     installations: () => installations,
     setInstallations: (next: Installation[]) => {
       installations = next
+    },
+    updateSlice: (_key: 'installations', fn: (live: Installation[]) => Installation[]) => {
+      const next = fn(installations)
+      if (next !== installations) installations = next
+      return installations
     },
     settings: () => settings,
     patchSettings: (patch: Partial<LauncherSettings>) => {

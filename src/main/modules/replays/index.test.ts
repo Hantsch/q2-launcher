@@ -35,6 +35,20 @@ vi.mock('electron', () => ({
   app: { getPath: () => userDataBox.current },
 }))
 
+/** Lets a test hold `canonicalizePath` (the last await in `extraFolders.add`) open. */
+const canonicalizeGate = vi.hoisted(() => ({ wait: null as Promise<void> | null }))
+
+vi.mock('../../lib/fs-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/fs-utils')>()
+  return {
+    ...actual,
+    canonicalizePath: async (path: string) => {
+      const result = await actual.canonicalizePath(path)
+      await canonicalizeGate.wait
+      return result
+    },
+  }
+})
 /**
  * Story 135 D2: the replays module gets its main half - a single handler, `overview.read`,
  * answering a hardcoded zeroed overview. Mirrors
@@ -309,6 +323,47 @@ describe('replays module', () => {
       const expectedCanonical = await canonicalizePath(dir)
       expect(reloaded.replaysState().extraFolders).toEqual([
         expect.objectContaining({ path: expectedCanonical }),
+      ])
+    })
+
+    it("a sort change during extraFoldersAdd's await survives", async () => {
+      const appContext = {
+        broadcast: { emit: () => {} },
+        installations: { list: () => [] },
+        state,
+        persistence: new PersistenceRegistry(),
+      } as unknown as AppContext
+      const registry = new MainModuleRegistry()
+      await registry.register(replaysModule, appContext)
+
+      let release!: () => void
+      canonicalizeGate.wait = new Promise<void>((resolve) => (release = resolve))
+      try {
+        const pending = registry.invoke({
+          moduleId: 'replays',
+          type: REPLAYS_HANDLERS.extraFoldersAdd,
+          payload: { path: dir },
+        })
+        const sort = { column: 'players', direction: 'desc' }
+        const sortOutcome = await registry.invoke({
+          moduleId: 'replays',
+          type: REPLAYS_HANDLERS.listSetSort,
+          payload: { sort },
+        })
+        expect(sortOutcome).toEqual({ ok: true, value: sort })
+        release()
+        expect((await pending).ok).toBe(true)
+      } finally {
+        canonicalizeGate.wait = null
+        release()
+      }
+      await state.settle()
+
+      const reloaded = new StateStore(filePath)
+      await reloaded.load()
+      expect(reloaded.replaysState().listSort).toEqual({ column: 'players', direction: 'desc' })
+      expect(reloaded.replaysState().extraFolders).toEqual([
+        expect.objectContaining({ path: await canonicalizePath(dir) }),
       ])
     })
   })

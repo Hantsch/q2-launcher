@@ -31,6 +31,9 @@ import {
 } from '../lib/schemas'
 import { migrateStateDocument } from './migrations'
 
+/** Slices with no write invariant of their own; the others keep a dedicated setter. */
+export type MutableSliceKey = 'servers' | 'replays' | 'configWriteFailures' | 'installations'
+
 /** Everything the launcher persists about itself, except window geometry. */
 export interface LauncherStateDocument {
   schemaVersion: number
@@ -283,6 +286,20 @@ export class StateStore {
     })).settings
   }
 
+  /**
+   * Changes one slice through a synchronous callback that receives the live stored value. Returning
+   * the same reference means "no change": nothing is scheduled for writing.
+   */
+  updateSlice<K extends MutableSliceKey>(
+    key: K,
+    fn: (live: LauncherStateDocument[K]) => LauncherStateDocument[K],
+  ): LauncherStateDocument[K] {
+    const live = this.store.get()[key]
+    const next = fn(live)
+    if (next === live) return live
+    return this.store.update((doc) => ({ ...doc, [key]: next }))[key]
+  }
+
   setInstallations(installations: Installation[]): Installation[] {
     return this.store.update((current) => ({ ...current, installations })).installations
   }
@@ -297,12 +314,6 @@ export class StateStore {
 
   setConfigSwitchBinds(configSwitchBinds: Record<string, string>): Record<string, string> {
     return this.store.update((current) => ({ ...current, configSwitchBinds })).configSwitchBinds
-  }
-
-  setConfigWriteFailures(
-    configWriteFailures: Record<string, { messageKey: string; at: string }>,
-  ): Record<string, { messageKey: string; at: string }> {
-    return this.store.update((current) => ({ ...current, configWriteFailures })).configWriteFailures
   }
 
   setDownloadsSettings(downloads: DownloadsSettings): DownloadsSettings {
@@ -336,10 +347,6 @@ export class StateStore {
     return this.store.get().servers
   }
 
-  setServersState(servers: ServersState): ServersState {
-    return this.store.update((current) => ({ ...current, servers })).servers
-  }
-
   /** Story 128 D4: every unlock code redeemed on this machine. */
   unlockState(): UnlockState {
     return this.store.get().unlock
@@ -352,10 +359,6 @@ export class StateStore {
   /** Story 140 D2: the `replays` module's own persisted state (today just `nameTemplates`). */
   replaysState(): ReplaysState {
     return this.store.get().replays
-  }
-
-  setReplaysState(replays: ReplaysState): ReplaysState {
-    return this.store.update((current) => ({ ...current, replays })).replays
   }
 
   /** Waits for pending writes; called on quit. */

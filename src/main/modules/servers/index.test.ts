@@ -260,6 +260,22 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
     expect((await reloaded()).sources).toEqual(DEFAULT_MASTER_SOURCES)
   })
 
+  it('a refused sources mutation writes nothing and keeps a concurrent favourite', async () => {
+    await invoke('favourites.add', '1.2.3.4:27910')
+    const before = state.serversState()
+
+    expect(await invoke('sources.remove', { id: 'no-such-source' })).toEqual({
+      ok: true,
+      value: { ok: false, reason: 'not-found' },
+    })
+
+    // The very same live object: a refusal neither replaced the slice nor dropped the favourite.
+    expect(state.serversState()).toBe(before)
+    expect(state.serversState().favourites).toHaveLength(1)
+    await state.settle()
+    expect((await reloaded()).favourites).toEqual(before.favourites)
+  })
+
   it('rejects a payload that tries to bring its own id', async () => {
     // Ids are minted in main: `sources.add`'s schema has no `id` field, so a renderer-supplied one
     // is stripped by the schema rather than honoured.
@@ -379,7 +395,7 @@ describe('servers module favourites handlers (story 112 D3)', () => {
 /**
  * Story 113 D4: the `manual.*`/`history.*` handlers over story 110's state key. Same harness as the
  * `favourites.*` block above - a real `StateStore` over a temp file, driven through the real
- * registry so the shared payload schemas run too. History is seeded through `setServersState`
+ * registry so the shared payload schemas run too. History is seeded through `updateSlice`
  * directly rather than over IPC on purpose: there is no `history.record` channel (D-H), so main is
  * the only writer.
  */
@@ -468,7 +484,7 @@ describe('servers module manual.*/history.* handlers (story 113 D4)', () => {
       { address: '9.9.9.9:27910', connectedAt: '2026-01-03T00:00:00.000Z' },
       { address: '1.2.3.4:27910', connectedAt: '2026-01-02T00:00:00.000Z' },
     ]
-    state.setServersState({ ...state.serversState(), history })
+    state.updateSlice('servers', (s) => ({ ...s, history }))
 
     await invoke(SERVERS_HANDLERS.manualAdd, { address: '1.2.3.4:27910' })
     await invoke(SERVERS_HANDLERS.manualAdd, { address: '5.6.7.8:27911' })
@@ -513,12 +529,12 @@ describe('servers module overview.read reflects the scan service (story 114 D6)'
     filePath = join(tmpdir(), `q2-launcher-state-servers-scan-${randomUUID()}.json`)
     state = new StateStore(filePath)
     await state.load()
-    state.setServersState({
-      ...state.serversState(),
+    state.updateSlice('servers', (s) => ({
+      ...s,
       sources: [],
       favourites: [],
       manualServers: [],
-    })
+    }))
     registry = new MainModuleRegistry()
     await registry.register(serversModule, fakeAppContext({ state }))
   })
@@ -797,12 +813,12 @@ describe('servers module scan.start is guarded and single-flight per scope (stor
     filePath = join(tmpdir(), `q2-launcher-state-servers-scan-scope-${randomUUID()}.json`)
     state = new StateStore(filePath)
     await state.load()
-    state.setServersState({
-      ...state.serversState(),
+    state.updateSlice('servers', (s) => ({
+      ...s,
       sources: [],
       favourites: [],
       manualServers: [],
-    })
+    }))
   })
 
   afterEach(async () => {
@@ -987,7 +1003,7 @@ describe('servers module watchlist.* handlers are feature-gated (story 131 D5)',
 
   it('watchlist entries survive a locked start and come back unchanged when unlocked', async () => {
     const seeded = [{ id: 'entry-1', name: 'Ranger', mode: 'exact' as const, tooSlow: false }]
-    state.setServersState({ ...state.serversState(), watchlist: seeded })
+    state.updateSlice('servers', (s) => ({ ...s, watchlist: seeded }))
     await state.settle()
 
     // Locked: starting the module must not crash, must register no watchlist handler, and must not

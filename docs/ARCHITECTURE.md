@@ -116,6 +116,11 @@ Writes are debounced: `state.json` (and every other `JsonStore`) is flushed shor
 change, not on each one. A failed write is retried once; if the retry fails too, the store reports
 it and the user gets a toast instead of a silent loss.
 
+A slice is changed through its mutator (`updateSlice`, `patchSettings`,
+`InstallationsService.patch`), whose synchronous callback receives the live value. Never read ->
+spread -> set: that overwrites whatever changed in between. Async work happens before the mutator,
+never between a read and its write.
+
 Quit is a sequence the shell awaits (`src/main/shutdown.ts`). The first `before-quit` is held, the
 playback pipe is released synchronously, then module disposers run (reverse registration order),
 then `state`, the main window and every registered store settle in parallel - all bounded to 3 s.

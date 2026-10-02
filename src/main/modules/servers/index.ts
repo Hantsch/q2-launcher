@@ -46,6 +46,7 @@ import {
   saveQuickFilter,
   type QuickFilterMutationResult,
 } from './quick-filter-entries'
+import { setOrClearListSort } from '../../lib/list-sort'
 import { uiHarnessLanTargets } from '../../lib/ui-harness'
 import type { MainModule } from '../types'
 import { addFavourite, listFavourites, removeFavourite } from './favourites'
@@ -111,8 +112,7 @@ export const serversModule: MainModule = {
       watchlistService = createWatchlistService({
         getEntries: () => app.state.serversState().watchlist,
         setEntries: (list: WatchlistEntry[]) => {
-          const current = app.state.serversState()
-          app.state.setServersState({ ...current, watchlist: list })
+          app.state.updateSlice('servers', (s) => ({ ...s, watchlist: list }))
         },
         getKnownServers: () => scanServiceRef.current!.read('online').entries,
         scanService: watchlistScanHost,
@@ -178,8 +178,8 @@ export const serversModule: MainModule = {
      * failure mode of its own - same reasoning as `DOWNLOADS_HANDLERS.getSettings`. `scanPatchSettings`
      * follows the same read/merge/persist discipline as the `favourites.*`/`manual.*` handlers below:
      * only `scan` is replaced, every other `ServersState` key is carried over from the same snapshot
-     * untouched, and what's returned is what `setServersState` actually persisted, not the local
-     * `merged` candidate. Out-of-range/garbage fields never reach this handler at all -
+     * untouched, and what's returned is what `updateSlice` actually persisted, not the local
+     * merged candidate. Out-of-range/garbage fields never reach this handler at all -
      * `scanPatchSettingsInputSchema` already rejects them at the registry (per-field choice-list
      * `.refine()`), so there is nothing left for this handler itself to validate.
      */
@@ -189,9 +189,10 @@ export const serversModule: MainModule = {
       () => app.state.serversState().scan,
     )
     handle(SERVERS_HANDLERS.scanPatchSettings, scanPatchSettingsInputSchema, (patch) => {
-      const current = app.state.serversState()
-      const merged = { ...current.scan, ...patch }
-      const persisted = app.state.setServersState({ ...current, scan: merged }).scan
+      const persisted = app.state.updateSlice('servers', (live) => ({
+        ...live,
+        scan: { ...live.scan, ...patch },
+      })).scan
       // Story 115 D3: a changed interval (or auto-refresh on/off) reschedules immediately; every
       // other setting is read fresh at the next decision/scan anyway.
       scanCadence.onSettingsChanged()
@@ -206,21 +207,22 @@ export const serversModule: MainModule = {
     /**
      * Story 111 D3: the single read/mutate/persist path every `sources.*` mutation goes through.
      *
-     * - `serversState()` is read once, so the op and the write see the same snapshot.
-     * - A refusal returns before `setServersState` is reached: nothing is persisted, and the reason
+     * - The op runs on the live slice inside `updateSlice`, so the op and the write see the same value.
+     * - A refusal returns the live slice unchanged: nothing is persisted, and the reason
      *   code travels back as a value (a thrown error would collapse into the registry's generic
      *   `modules.error.handlerFailed` and lose it - story 111's Decisions).
-     * - Only `sources` is replaced; `favourites`/`manualServers`/`history`/`scan` are carried over
-     *   from the same snapshot untouched, so a source edit can never clip another part of story
-     *   110's state key.
-     * - What comes back is what `setServersState` actually stored, not the local candidate, so the
+     * - Only `sources` is replaced; every other key is carried over from the live slice untouched,
+     *   so a source edit can never clip another part of story 110's state key.
+     * - What comes back is what `updateSlice` actually stored, not the local candidate, so the
      *   renderer's list and `state.json` can never disagree.
      */
     const mutate = (op: (sources: MasterSource[]) => MasterSourcesResult): MasterSourcesResult => {
-      const current = app.state.serversState()
-      const result = op(current.sources)
-      if (!result.ok) return result
-      const persisted = app.state.setServersState({ ...current, sources: result.sources })
+      let result: MasterSourcesResult | undefined
+      const persisted = app.state.updateSlice('servers', (live) => {
+        result = op(live.sources)
+        return result.ok ? { ...live, sources: result.sources } : live
+      })
+      if (!result || !result.ok) return result as MasterSourcesResult
       return { ok: true, sources: persisted.sources }
     }
 
@@ -254,14 +256,16 @@ export const serversModule: MainModule = {
       listFavourites(app.state.serversState()),
     )
     handle(SERVERS_HANDLERS.favouritesAdd, favouritesAddInputSchema, (address) => {
-      const current = app.state.serversState()
-      const favourites = addFavourite(current, address)
-      return app.state.setServersState({ ...current, favourites }).favourites
+      return app.state.updateSlice('servers', (live) => ({
+        ...live,
+        favourites: addFavourite(live, address),
+      })).favourites
     })
     handle(SERVERS_HANDLERS.favouritesRemove, favouritesRemoveInputSchema, (address) => {
-      const current = app.state.serversState()
-      const favourites = removeFavourite(current, address)
-      return app.state.setServersState({ ...current, favourites }).favourites
+      return app.state.updateSlice('servers', (live) => ({
+        ...live,
+        favourites: removeFavourite(live, address),
+      })).favourites
     })
 
     /**
@@ -285,18 +289,21 @@ export const serversModule: MainModule = {
       () => app.state.serversState().manualServers,
     )
     handle(SERVERS_HANDLERS.manualAdd, manualAddInputSchema, (payload): ManualServerAddResult => {
-      const current = app.state.serversState()
-      const result = addManualServer(current.manualServers, payload)
-      if (!result.ok) return result
+      let result: ReturnType<typeof addManualServer> | undefined
+      app.state.updateSlice('servers', (live) => {
+        result = addManualServer(live.manualServers, payload)
+        return result.ok ? { ...live, manualServers: result.list } : live
+      })
+      if (!result || !result.ok) return result as ManualServerAddResult
       // `result.entry` is a member of `result.list`, which is what gets stored verbatim - so the
       // entry handed back is the persisted one, not a separate local candidate.
-      app.state.setServersState({ ...current, manualServers: result.list })
       return { ok: true, entry: result.entry }
     })
     handle(SERVERS_HANDLERS.manualRemove, manualRemoveInputSchema, (payload) => {
-      const current = app.state.serversState()
-      const manualServers = removeManualServer(current.manualServers, payload.address)
-      return app.state.setServersState({ ...current, manualServers }).manualServers
+      return app.state.updateSlice('servers', (live) => ({
+        ...live,
+        manualServers: removeManualServer(live.manualServers, payload.address),
+      })).manualServers
     })
     handle(SERVERS_HANDLERS.historyRead, historyReadInputSchema, () =>
       readServerHistory(app.state.serversState().history),
@@ -314,12 +321,14 @@ export const serversModule: MainModule = {
      */
     const unsubscribeHistory = app.launch.onStateChange((state) => {
       if (state.phase !== 'running' || !state.connect) return
-      const current = app.state.serversState()
-      const history = recordServerVisit(current.history, {
-        address: state.connect,
-        connectedAt: new Date().toISOString(),
-      })
-      app.state.setServersState({ ...current, history })
+      const connect = state.connect
+      app.state.updateSlice('servers', (live) => ({
+        ...live,
+        history: recordServerVisit(live.history, {
+          address: connect,
+          connectedAt: new Date().toISOString(),
+        }),
+      }))
     })
     onDispose(unsubscribeHistory)
 
@@ -330,7 +339,7 @@ export const serversModule: MainModule = {
      * every other `ServersState` key over from the same snapshot untouched; `null` clears it by
      * destructuring it out of the persisted candidate rather than setting it to `undefined`, so a
      * cleared sort is an absent key on disk, not a present `null`/`undefined` one. What's returned is
-     * what `setServersState` actually persisted (`?? null`), not the local candidate.
+     * what `updateSlice` actually persisted (`?? null`), not the local candidate.
      */
     handle(
       SERVERS_HANDLERS.listGetSort,
@@ -338,26 +347,26 @@ export const serversModule: MainModule = {
       () => app.state.serversState().listSort ?? null,
     )
     handle(SERVERS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) => {
-      const current = app.state.serversState()
-      if (payload.sort === null) {
-        const { listSort: _listSort, ...withoutSort } = current
-        return app.state.setServersState(withoutSort).listSort ?? null
-      }
-      return app.state.setServersState({ ...current, listSort: payload.sort }).listSort ?? null
+      return (
+        app.state.updateSlice('servers', (live) => setOrClearListSort(live, payload.sort)).listSort ??
+        null
+      )
     })
 
     /**
      * Story 197 D2: the saved quick filters. Always registered (not behind the watchlist gate); each
      * mutation reads one snapshot, runs the pure entry function, and on success replaces only the
-     * `quickFilters` slice, returning what `setServersState` actually persisted.
+     * `quickFilters` slice, returning what `updateSlice` actually persisted.
      */
     const mutateQuickFilters = (
       run: (list: readonly QuickFilter[]) => QuickFilterMutationResult,
     ): QuickFiltersResult => {
-      const current = app.state.serversState()
-      const result = run(current.quickFilters)
-      if (!result.ok) return result
-      const persisted = app.state.setServersState({ ...current, quickFilters: result.list })
+      let result: QuickFilterMutationResult | undefined
+      const persisted = app.state.updateSlice('servers', (live) => {
+        result = run(live.quickFilters)
+        return result.ok ? { ...live, quickFilters: result.list } : live
+      })
+      if (!result || !result.ok) return result as QuickFiltersResult
       return { ok: true, list: persisted.quickFilters }
     }
     handle(

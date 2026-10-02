@@ -5,7 +5,32 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fail, ok, type Installation, type InstallationSource } from '@shared/types'
 import { InstallationsService } from './installations'
 import { deleteInstallationFolder } from './installation-removal'
+import { inspectInstallation } from './inspector'
 import { StateStore } from './state'
+
+/**
+ * The real inspector, wrapped so a test can hold one inspection open (`holdNextInspection`) and
+ * change the state while the service awaits it. Every other call goes straight through.
+ */
+vi.mock('./inspector', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./inspector')>()
+  return { ...actual, inspectInstallation: vi.fn(actual.inspectInstallation) }
+})
+const inspectInstallationMock = vi.mocked(inspectInstallation)
+const realInspector = await vi.importActual<typeof import('./inspector')>('./inspector')
+
+/** Makes the next inspection wait for `release()` before it runs the real inspector. */
+function holdNextInspection(): { release: () => void } {
+  let release!: () => void
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  inspectInstallationMock.mockImplementationOnce(async (...args) => {
+    await held
+    return realInspector.inspectInstallation(...args)
+  })
+  return { release }
+}
 
 /**
  * Story 094 D2: `deleteInstallationFolder` is mocked at the module boundary, the same as
@@ -18,7 +43,7 @@ const deleteInstallationFolderMock = vi.mocked(deleteInstallationFolder)
 
 /**
  * Story 077 D1: the persisted-failure-record foundation - `setLastFailure`, `findByRootPath` and
- * the clear-on-playable rule `applyInspection` applies. `InstallationsService` needs no `electron`
+ * the clear-on-playable rule `applyInspectionResult` applies. `InstallationsService` needs no `electron`
  * mock (unlike `installation-icons.test.ts`): it only touches the filesystem and `StateStore`.
  */
 
@@ -48,6 +73,7 @@ beforeEach(async () => {
   removedIds = []
   runningOverride = undefined
   deleteInstallationFolderMock.mockReset()
+  inspectInstallationMock.mockClear()
 
   installations = new InstallationsService({
     state,
@@ -264,7 +290,7 @@ describe('AC4: a playable verdict clears the last failure, an invalid one keeps 
   })
 })
 
-describe('applyInspection keeps a known engineKind when inspection comes back unknown (review fix, scoped to a failed installation)', () => {
+describe('applyInspectionResult keeps a known engineKind when inspection comes back unknown (review fix, scoped to a failed installation)', () => {
   it('leaves engineKind as q2pro after validate() sees an empty/unrecognizable folder on a failed installation', async () => {
     const rootPath = join(dir, 'emptied')
     await writeInvalidRoot(rootPath)
@@ -420,6 +446,124 @@ describe('update', () => {
     expect(result.ok).toBe(true)
     expect(result.ok === true && result.value.steamAppId).toBeUndefined()
     expect(installations.find(INSTALLATION_ID)?.steamAppId).toBeUndefined()
+  })
+})
+
+describe('writes that land while an inspection is awaited are kept', () => {
+  it('an installation added during validateAll survives', async () => {
+    state.setInstallations([installation()])
+    const inspection = holdNextInspection()
+
+    const validating = installations.validateAll()
+    const addedRoot = join(dir, 'added-meanwhile')
+    await writePlayableRoot(addedRoot)
+    const added = await installations.addExisting({ rootPath: addedRoot })
+    if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)
+    inspection.release()
+    await validating
+
+    expect(installations.list().map((i) => i.id)).toEqual([INSTALLATION_ID, added.value.id])
+    expect(installations.find(INSTALLATION_ID)?.lastValidatedAt).toBeDefined()
+    expect(state.installations().map((i) => i.id)).toContain(added.value.id)
+  })
+
+  it('a play session recorded during validateAll is kept', async () => {
+    state.setInstallations([installation()])
+    const inspection = holdNextInspection()
+
+    const validating = installations.validateAll()
+    installations.recordPlaySession(INSTALLATION_ID, 120)
+    inspection.release()
+    await validating
+
+    const found = installations.find(INSTALLATION_ID)
+    expect(found?.totalPlaytimeSeconds).toBe(120)
+    expect(found?.lastPlayedAt).toBeDefined()
+    // The verdict still landed: the fixture root does not exist on disk.
+    expect(found?.status).toBe('missing')
+  })
+
+  it('setIcon during an awaited update() is not clobbered', async () => {
+    state.setInstallations([installation()])
+    const inspection = holdNextInspection()
+    const executablePath = join(dir, 'game', INSTALLATION_ID, PLAYABLE_EXECUTABLE)
+
+    const updating = installations.update({ id: INSTALLATION_ID, executablePath })
+    await vi.waitFor(() => expect(inspectInstallationMock).toHaveBeenCalled())
+    installations.setIcon(INSTALLATION_ID, { kind: 'shipped', id: 'strogg' })
+    inspection.release()
+    const result = await updating
+
+    expect(result.ok === true && result.value.icon).toEqual({ kind: 'shipped', id: 'strogg' })
+    const found = installations.find(INSTALLATION_ID)
+    expect(found?.icon).toEqual({ kind: 'shipped', id: 'strogg' })
+    expect(found?.executablePath).toBe(executablePath)
+    expect(found?.status).toBe('missing')
+  })
+
+  it('a validate() verdict for a folder the user has since relocated away from is dropped', async () => {
+    state.setInstallations([installation()])
+    const inspection = holdNextInspection()
+
+    const validating = installations.validate(INSTALLATION_ID)
+    const newRoot = join(dir, 'relocated')
+    await writePlayableRoot(newRoot)
+    const relocated = await installations.update({ id: INSTALLATION_ID, rootPath: newRoot })
+    expect(relocated.ok).toBe(true)
+    inspection.release()
+    const result = await validating
+
+    // The held verdict was for the old, missing root; the relocation's own inspection stands.
+    expect(result.ok === true && result.value.rootPath).toBe(newRoot)
+    expect(installations.find(INSTALLATION_ID)?.status).not.toBe('missing')
+  })
+
+  it('an update() whose installation is removed during its inspection reports notFound', async () => {
+    state.setInstallations([installation()])
+    const inspection = holdNextInspection()
+
+    const updating = installations.update({ id: INSTALLATION_ID, executablePath: 'q2pro.exe' })
+    await vi.waitFor(() => expect(inspectInstallationMock).toHaveBeenCalled())
+    await installations.remove({ id: INSTALLATION_ID })
+    inspection.release()
+
+    expect(await updating).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
+    expect(installations.list()).toEqual([])
+  })
+})
+
+describe('patch', () => {
+  it('patch merges onto the live record and an undefined key deletes the field', () => {
+    state.setInstallations([
+      installation({ writeDirPath: join(dir, 'write'), steamAppId: '2320', favorite: true }),
+    ])
+    const changes: string[][] = []
+    const observed = new InstallationsService({
+      state,
+      onChange: (list) => changes.push(list.map((i) => i.name)),
+      onSettingsChange: () => {},
+    })
+
+    const result = observed.patch(INSTALLATION_ID, { name: 'Renamed', writeDirPath: undefined })
+
+    expect(result.ok).toBe(true)
+    const stored = state.installations().find((i) => i.id === INSTALLATION_ID)
+    expect(stored?.name).toBe('Renamed')
+    expect(stored !== undefined && 'writeDirPath' in stored).toBe(false)
+    expect(stored?.steamAppId).toBe('2320')
+    expect(stored?.favorite).toBe(true)
+    expect(result.ok === true && result.value).toEqual(stored)
+    expect(changes).toEqual([['Renamed']])
+  })
+
+  it('patch reports an unknown installation instead of writing anything', () => {
+    state.setInstallations([installation()])
+
+    expect(installations.patch('nope', { name: 'x' })).toEqual({
+      ok: false,
+      error: { key: 'installations.error.notFound' },
+    })
+    expect(installations.find(INSTALLATION_ID)?.name).toBe('Fixture')
   })
 })
 

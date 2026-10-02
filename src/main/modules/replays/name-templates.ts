@@ -52,8 +52,7 @@ function currentMerged(app: AppContext): NameTemplatesState {
 
 /** Persists a reconciled `NameTemplatesState`, carrying the rest of `ReplaysState` over untouched. */
 function persist(app: AppContext, nameTemplates: NameTemplatesState): NameTemplatesState {
-  const current = app.state.replaysState()
-  return app.state.setReplaysState({ ...current, nameTemplates }).nameTemplates
+  return app.state.updateSlice('replays', (live) => ({ ...live, nameTemplates })).nameTemplates
 }
 
 function view(nameTemplates: NameTemplatesState): NameTemplatesView {
