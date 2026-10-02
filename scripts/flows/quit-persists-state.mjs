@@ -1,6 +1,8 @@
 // The real quit path: a change made inside the state.json write debounce must be on disk once the
 // Close button has quit the app. The process is gone when the assertion runs, so it reads the file
 // plainly - polling would hide a shutdown that did not wait for the write.
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
 import { readStateJson } from '../lib/state-json.mjs'
 
@@ -15,37 +17,44 @@ export default async function quitPersistsState({ page, app, step }) {
 
   step('open Settings')
   await page.getByTestId('nav-settings').click({ timeout: TIMEOUT_MS })
-  const whilePlayingSwitch = page
-    .getByTestId('downloads-settings-while-playing')
-    .getByRole('switch')
-  await whilePlayingSwitch.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  // The replays "missing-mod warning" switch: an enabled, state.json-persisted boolean
+  // (`replays.modWarning.enabled`, absent from a fresh file = on) that lives in Settings.
+  const modWarningSwitch = page.getByTestId('replays-mod-warning-enabled')
+  await modWarningSwitch.scrollIntoViewIfNeeded({ timeout: TIMEOUT_MS })
+  await modWarningSwitch.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.waitForFunction(
+    (id) => document.querySelector(`[data-testid="${id}"]`)?.hasAttribute('disabled') === false,
+    'replays-mod-warning-enabled',
+    { timeout: TIMEOUT_MS },
+  )
 
-  const before = readStateJson(userDataDir).downloads?.downloadWhilePlayingAllowed
-  if (typeof before !== 'boolean') {
-    throw new Error(`expected a boolean downloadWhilePlayingAllowed on disk, got ${before}`)
+  const file = join(userDataDir, 'state.json')
+  const seededText = readFileSync(file, 'utf8')
+  const readEnabled = () => {
+    const enabled = readStateJson(userDataDir).replays?.modWarning?.enabled ?? true
+    if (typeof enabled !== 'boolean') {
+      throw new Error(`expected a boolean replays.modWarning.enabled on disk, got ${enabled}`)
+    }
+    return enabled
   }
+  const before = readEnabled()
 
   step('flip the switch and press Close without waiting')
   const exited = app.waitForEvent('close', { timeout: EXIT_TIMEOUT_MS })
-  await whilePlayingSwitch.click({ timeout: TIMEOUT_MS })
+  await modWarningSwitch.click({ timeout: TIMEOUT_MS })
   await page.getByTestId('titlebar-close').click({ timeout: TIMEOUT_MS })
 
   step('the app exits')
   await exited
 
   step('state.json holds the flipped value')
-  const after = readStateJson(userDataDir).downloads?.downloadWhilePlayingAllowed
+  const after = readStateJson(userDataDir).replays?.modWarning?.enabled
   if (after !== !before) {
-    throw new Error(`expected downloadWhilePlayingAllowed ${!before} after quit, got ${after}`)
+    throw new Error(`expected replays.modWarning.enabled ${!before} after quit, got ${after}`)
   }
 
-  // ui:flow never reseeds: put the seeded value back so the next run starts from the same state.
-  // The app is gone, so this edits the file directly.
+  // ui:flow never reseeds: put the seeded file back so the next run starts from the same state.
+  // The app is gone, so this writes the file directly.
   step('restore the seeded value')
-  const { readFileSync, writeFileSync } = await import('node:fs')
-  const { join } = await import('node:path')
-  const file = join(userDataDir, 'state.json')
-  const doc = JSON.parse(readFileSync(file, 'utf8'))
-  doc.downloads.downloadWhilePlayingAllowed = before
-  writeFileSync(file, JSON.stringify(doc, null, 2))
+  writeFileSync(file, seededText)
 }

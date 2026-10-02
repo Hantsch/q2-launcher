@@ -104,8 +104,8 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F05, F50, 
 - **D-negative-reads** — A flow assertion that `state.json` did _not_ change waits
   `STATE_WRITE_GRACE_MS` (750 ms) before reading, because an immediate read would pass vacuously
   under the debounce.
-- **D-quit-flow** — AC7's flow `quit-persists-state` flips Settings › Downloads' "download while
-  playing" switch, clicks the titlebar Close button at once (inside the debounce window), waits for
+- **D-quit-flow** — AC7's flow `quit-persists-state` flips Settings › Replays' "missing-mod
+  warning" switch, clicks the titlebar Close button at once (inside the debounce window), waits for
   the process `close` event and reads `state.json`, because that is the user's real quit path
   (`window:close` → `window-all-closed` → `app.quit()`) and it fails if `before-quit` does not await.
 - **D-testid** — The titlebar Close `WindowButton` gets `data-testid="titlebar-close"`, because
@@ -297,8 +297,8 @@ void` and `settleAll(): Promise<{ label: string; ok: boolean }[]>` — settles i
   `src/renderer/src/components/shell/TitleBar.tsx`. Give the Close `WindowButton` (≈line 121)
   `data-testid="titlebar-close"` (add a `testId` prop like `NavItem` has). The flow (default
   `populated` variant; mirror `scripts/flows/settings-downloads-section.mjs`'s selectors): open
-  Settings (`nav-settings`), read `downloads.downloadWhilePlayingAllowed` with `readStateJson` from
-  `scripts/lib/state-json.mjs`, click `downloads-settings-while-playing`'s `switch`, then click
+  Settings (`nav-settings`), read `replays.modWarning.enabled` (default on when absent) with `readStateJson` from
+  `scripts/lib/state-json.mjs`, click `replays-mod-warning-enabled`, then click
   `titlebar-close` immediately (inside the 250 ms state debounce), `await app.waitForEvent('close')`
   (bounded), and assert `state.json` holds the flipped value with a plain `readStateJson` — no
   polling, the process is gone. Check that `withApp()`'s teardown on the already-closed app does not
