@@ -21,7 +21,7 @@ const NOISY_SAMPLE = [
   'src/main/modules/registry.test.ts',
   'src/main/modules/downloads/bootstrap/job.assembly.test.ts',
   // Imports `electron` directly without a vi.mock of its own: the alias is all that stands between it and the binary.
-  'src/main/modules/downloads/stage-package.test.ts',
+  'src/main/services/package-staging.test.ts',
   'src/main/services/installation-removal.test.ts',
   'src/renderer/src/modules/servers/ServerDetailView.test.tsx',
 ]

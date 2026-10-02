@@ -33,7 +33,8 @@ describe('shell layering', () => {
     const violations: string[] = []
     for (const file of shellFiles) {
       for (const specifier of specifiersOf(readFileSync(file, 'utf-8'))) {
-        if (/(^|\/)modules\//.test(specifier)) violations.push(`${file} -> ${specifier}`)
+        if (!specifier.startsWith('@shared/modules/') && /(^|\/)modules\//.test(specifier))
+          violations.push(`${file} -> ${specifier}`)
       }
     }
     expect(violations).toEqual([])

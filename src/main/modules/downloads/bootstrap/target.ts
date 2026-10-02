@@ -50,9 +50,8 @@ const RESERVED_DEVICE_NAMES = new Set([
 const DEVICE_PATH_RE = /^\\\\[.?]\\/
 
 export interface ComputeTargetVerdictOptions {
-  /** Overrides `process.env`, so a test can set `ProgramFiles`/`ProgramFiles(x86)` without
-   * touching the real environment. Defaults to `process.env`. */
-  env?: NodeJS.ProcessEnv
+  /** `AppContext.env`; only `ProgramFiles`/`ProgramFiles(x86)` are read. */
+  env: NodeJS.ProcessEnv
   /**
    * Absolute directories the target must never be inside of - the launcher's own installation
    * directory. Defaults to `[process.resourcesPath]` when it is set; `app.getAppPath()` is
@@ -136,9 +135,9 @@ export async function isUnsafeAbsolutePath(path: string): Promise<boolean> {
 
 export async function computeTargetVerdict(
   targetPath: string,
-  options: ComputeTargetVerdictOptions = {},
+  options: ComputeTargetVerdictOptions,
 ): Promise<BootstrapTargetVerdict> {
-  const env = options.env ?? process.env
+  const { env } = options
   const protectedDirs =
     options.protectedDirs ?? (process.resourcesPath ? [process.resourcesPath] : [])
 

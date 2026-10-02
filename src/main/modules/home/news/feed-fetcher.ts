@@ -69,7 +69,7 @@ export const NEWS_FETCH_RETRIES = 1
  * An index entry's `file` is foreign content used to build a URL, so it is refused unless it is one
  * boring path segment: ASCII letters/digits/`_`/`.`/`-`, starting with a letter or digit. That rules
  * out traversal (`..`), an absolute path, a scheme (`https://evil/x.md` - the `:` and `/` fail) and
- * a query in one check. Same shape as `isSafeDownloadFileName()` (`downloads/paths.ts`) and the mod
+ * a query in one check. Same shape as `isSafeDownloadFileName()` (`lib/net/download-cache-paths.ts`) and the mod
  * directory token in `docs/ARCHITECTURE.md`'s "Paths are never trusted"; the device-name rule is
  * absent because nothing here becomes a file name on disk.
  */

@@ -28,60 +28,11 @@ interface AllowedEdge extends Edge {
   reason: string
 }
 
-const MODS_ON_DOWNLOADS = 'mods installs through the downloads pipeline, not its own copy of it'
-const FETCHER = 'shares the downloads fetcher (budgets, timeouts) instead of a second HTTP client'
 const SHELL_HOSTS = 'the shell hosts a module surface directly instead of through a module slot'
 const INSTALL_DIALOG = 'offers the mods catalog install in place, through the mods client'
 
 /** One entry per production import edge that crosses a module seam today. */
 const ALLOWED: ReadonlyArray<AllowedEdge> = [
-  ...(
-    [
-      ['catalog-schema.ts', 'schemas', '189'],
-      ['catalog-service.ts', 'harness', '189'],
-      ['engine-target.ts', 'engine/installation-state', '190'],
-      ['index.ts', 'harness', '189'],
-      ['index.ts', 'manifest-service', '190'],
-      ['index.ts', 'stage-package', '190'],
-      ['install-job.ts', 'engine/update-job', '190'],
-      ['install-job.ts', 'extractor', '190'],
-      ['install-job.ts', 'paths', '190'],
-      ['install-job.ts', 'pipeline', '190'],
-      ['install-job.ts', 'stage-package', '190'],
-      ['update-job.ts', 'engine/update-job', '194'],
-      ['update-job.ts', 'extractor', '194'],
-      ['update-job.ts', 'pipeline', '194'],
-    ] as const
-  ).map(([file, target, story]) => ({
-    from: `src/main/modules/mods/${file}`,
-    to: `src/main/modules/downloads/${target}`,
-    story,
-    reason: MODS_ON_DOWNLOADS,
-  })),
-  {
-    from: 'src/main/modules/replays/index.ts',
-    to: 'src/main/modules/downloads/7za-path',
-    story: '143',
-    reason: 'scans zipped demos with the vendored 7-Zip that downloads resolves',
-  },
-  {
-    from: 'src/main/modules/servers/http-list-source.ts',
-    to: 'src/main/modules/downloads/fetcher',
-    story: '109',
-    reason: FETCHER,
-  },
-  {
-    from: 'src/main/modules/servers/scan-service.ts',
-    to: 'src/main/modules/downloads/fetcher',
-    story: '114',
-    reason: FETCHER,
-  },
-  {
-    from: 'src/main/modules/servers/source-resolution.ts',
-    to: 'src/main/modules/downloads/fetcher',
-    story: '114',
-    reason: FETCHER,
-  },
   {
     from: 'src/renderer/src/cinema/main.tsx',
     to: 'src/renderer/src/modules/replays/cinema/CinemaOverlay',
@@ -190,6 +141,16 @@ function readTsconfig(path: string): { include?: string[]; exclude?: string[]; l
   return { include: json.include, exclude: json.exclude, lib: json.compilerOptions?.lib }
 }
 
+/** Whether a production file reads `process.env` in code (comments do not count). */
+function readsProcessEnv(file: string): boolean {
+  const code = stripComments(TEXT.get(file) ?? '')
+  return (
+    /\bprocess\s*\??\.\s*env\b/.test(code) ||
+    /\bprocess\s*(?:\?\.)?\s*\[\s*['"`]env['"`]\s*\]/.test(code) ||
+    /\{[^}]*\}\s*=\s*(?:globalThis\.)?process\s*(?:[;\n)]|$)/.test(code)
+  )
+}
+
 function crossModule(root: string, edge: Edge): boolean {
   const a = moduleOf(edge.from, root)
   const b = moduleOf(edge.to, root)
@@ -289,6 +250,19 @@ describe('architecture', () => {
     ).toEqual([])
   })
 
+  it('no module imports modules/downloads internals', () => {
+    const downloads = `${MAIN_MODULES}/downloads`
+    expect(
+      offenders(
+        (edge) =>
+          under(edge.to, downloads) &&
+          moduleOf(edge.from, MAIN_MODULES) !== undefined &&
+          !under(edge.from, downloads),
+      ),
+    ).toEqual([])
+    expect(ALLOWED.filter((entry) => under(entry.to, downloads))).toEqual([])
+  })
+
   it('a renderer module imports another module only through an allowlisted edge', () => {
     expect(offenders((edge) => crossModule(RENDERER_MODULES, edge) && !isAllowed(edge))).toEqual([])
   })
@@ -337,6 +311,59 @@ describe('architecture', () => {
       'src/shared/servers/protocol.test.ts',
     ])
       expect(TEXT.get(file), file).not.toMatch(/describe\(\s*['"]purity['"]/)
+  })
+
+  it('no module source imports electron', () => {
+    const importers = PRODUCTION.filter(
+      (file) =>
+        under(file, MAIN_MODULES) &&
+        /(?:from\s+|import\s+|import\s*\(\s*|require\s*\(\s*)['"]electron(?:\/[\w./-]+)?['"]/.test(
+          stripComments(TEXT.get(file) ?? ''),
+        ),
+    )
+    expect(importers).toEqual([])
+  })
+
+  it('no module source reads process.env', () => {
+    expect(PRODUCTION.filter((file) => under(file, MAIN_MODULES) && readsProcessEnv(file))).toEqual(
+      [],
+    )
+  })
+
+  it('window-shared and ipc/index read no process.env', () => {
+    expect(
+      ['src/main/window-shared.ts', 'src/main/ipc/index.ts'].filter((file) =>
+        readsProcessEnv(file),
+      ),
+    ).toEqual([])
+  })
+
+  it('harness reveal and external-url recording is imported only by the os service', () => {
+    const recorders = /\brecordHarness(?:RevealedPath|ExternalUrl)\b/
+    const allowed = ['src/main/services/os.ts', 'src/main/lib/ui-harness.ts']
+    expect(
+      PRODUCTION.filter(
+        (file) => !allowed.includes(file) && recorders.test(stripComments(TEXT.get(file) ?? '')),
+      ),
+    ).toEqual([])
+  })
+
+  it('AppContext has no getMainWindow', () => {
+    const source = stripComments(readRepoFile('src/main/context.ts'))
+    const start = source.indexOf('export interface AppContext {')
+    expect(start).toBeGreaterThanOrEqual(0)
+    const body = source.slice(start, source.indexOf('\n}\n', start))
+    expect(body).not.toContain('getMainWindow')
+  })
+
+  it('the replays and mods index tests do not mock electron', () => {
+    for (const file of [
+      'src/main/modules/replays/index.test.ts',
+      'src/main/modules/mods/index.test.ts',
+    ])
+      expect(TEXT.get(file), file).not.toMatch(
+        /vi\.(?:mock|doMock)\(\s*['"]electron(?:\/[\w./-]+)?['"]/,
+      )
   })
 
   it('lint runs in ci.yml and verify:release', () => {

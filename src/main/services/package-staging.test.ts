@@ -7,8 +7,8 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resolveExtractorPath } from './7za-path'
-import { stagePackage, type StageExtractFn } from './stage-package'
+import { resolveExtractorPath } from '../lib/archive/7za-path'
+import { stagePackage, type StageExtractFn } from './package-staging'
 
 const PAYLOAD = Buffer.from('package bytes for the stager test\n')
 const SHA = createHash('sha256').update(PAYLOAD).digest('hex')

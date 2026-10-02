@@ -1,5 +1,4 @@
 import { mkdir, rm } from 'node:fs/promises'
-import { join } from 'node:path'
 import {
   DOWNLOADS_ERROR_KEYS,
   type DownloadsErrorKey,
@@ -12,14 +11,14 @@ import {
   markVerified,
   type ExtractArchiveInput,
   type ExtractorHandle,
-} from './extractor'
+} from '../../lib/archive/extractor'
 import {
   downloadPackage,
   type DownloadPackageOptions,
   type DownloadPackageResult,
   type FetchImpl,
-} from './fetcher'
-import { getDownloadsCacheDir } from './paths'
+} from '../../lib/net/fetcher'
+import { getExtractDir } from '../../services/package-staging'
 import { createDownloadQueue, type DownloadQueue } from './queue'
 
 /**
@@ -81,13 +80,6 @@ export const DOWNLOAD_JOB_KIND = 'download-package'
 /** `Job.labelKey`; resolved in the renderer with `{ name }` (never prose across the seam). */
 export const DOWNLOAD_JOB_LABEL_KEY = 'downloads.job.download'
 
-/** Directory segment under the downloads cache that holds one directory per job. */
-export const EXTRACT_SEGMENT = 'extract'
-
-/** Job ids are `randomUUID()`s from main; the guard keeps a future caller-supplied id out of the
- * path anyway - the same "refuse, do not sanitise" stance `paths.ts` takes for a file name. */
-const SAFE_JOB_ID = /^[A-Za-z0-9_-]{1,64}$/
-
 /** Structurally satisfied by `Logger` (`src/main/lib/logger.ts`). */
 export interface PipelineLog {
   info(message: string): void
@@ -147,12 +139,6 @@ export interface DownloadPipeline {
   start(source: PackageSource): StartedDownload
   /** The admission queue, exposed for diagnostics and tests - job depth, never job status. */
   queue: DownloadQueue
-}
-
-/** `userData/cache/downloads/extract/<jobId>` (Decisions (Sprint), "Paths"). */
-export function getExtractDir(userDataPath: string, jobId: string): string {
-  if (!SAFE_JOB_ID.test(jobId)) throw new Error(`refused job id ${JSON.stringify(jobId)}`)
-  return join(getDownloadsCacheDir(userDataPath), EXTRACT_SEGMENT, jobId)
 }
 
 /** The extractor's `Outcome` carries a plain string; only the fixed key set may reach a job. */

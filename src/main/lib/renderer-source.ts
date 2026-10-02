@@ -62,6 +62,14 @@ export function resolveRendererSource(input: ResolveRendererSourceInput): Render
   return { kind: 'scheme' }
 }
 
+/** `resolveRendererSource` over an environment: the dev server's presence decides, not `isDev`. */
+export function rendererSourceFromEnv(
+  env: Readonly<Record<string, string | undefined>>,
+): RendererSource {
+  const devServerUrl = env['ELECTRON_RENDERER_URL']
+  return resolveRendererSource({ isDev: Boolean(devServerUrl), devServerUrl })
+}
+
 /** The URL the cinema overlay loads: the dev server's `cinema.html`, or the scheme's in production. */
 export function rendererCinemaUrl(source: RendererSource): string {
   return source.kind === 'dev-server'

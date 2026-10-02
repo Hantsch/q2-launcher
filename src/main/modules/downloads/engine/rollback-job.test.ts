@@ -9,7 +9,7 @@ import { InstallationsService } from '../../../services/installations'
 import { JobsService } from '../../../services/jobs'
 import { InstallationWriteGuard } from '../../../services/write-guard'
 import { fakeLaunch, fakeState } from '../test-support'
-import { readEngineState } from './installation-state'
+import { readEngineState } from '../../../services/engine-state'
 import { setEngineState } from './record-engine-state'
 import { ENGINE_BACKUP_DIR_NAME } from './update-job'
 import {

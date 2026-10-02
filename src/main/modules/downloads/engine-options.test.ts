@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DOWNLOADS_HANDLERS, type BootstrapEngineOptionsResult } from '@shared/modules/downloads'
 import type { Logger } from '../../lib/logger'
 import { JobsService } from '../../services/jobs'
+import { resolveUiHarness } from '../../lib/ui-harness'
 import { PersistenceRegistry } from '../../services/persistence'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { fail } from '@shared/types'
@@ -218,6 +219,9 @@ async function setUpModule(): Promise<Map<string, ModuleHandler>> {
     onDispose: (cb) => void disposers.push(cb),
     app: {
       jobs: new JobsService(() => {}),
+      harness: resolveUiHarness({}),
+      env: {},
+      isPackaged: false,
       persistence: new PersistenceRegistry(),
       state: fakeSectionState(),
     } as unknown as ModuleSetup['app'],

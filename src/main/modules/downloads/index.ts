@@ -1,4 +1,3 @@
-import { app as electronApp } from 'electron'
 import {
   BOOTSTRAP_SUPPORTED_ENGINES,
   DOWNLOADS_HANDLERS,
@@ -24,14 +23,14 @@ import type { Logger } from '../../lib/logger'
 import { userDataDir } from '../../lib/paths'
 import type { AppContext } from '../../context'
 import type { MainModule } from '../types'
-import { resolveExtractorPath } from './7za-path'
+import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { buildBootstrapSummary, startBootstrap, type BootstrapDeps } from './bootstrap/job'
 import { inspectGameDataSource } from './bootstrap/game-data-source'
 import {
   manifestSourceFrom,
   realExtractor,
   realPackageFetcher,
-  realR1q2Setup,
+  createR1q2Setup,
 } from './bootstrap/ports'
 import { resolveR1q2LicensePath } from './bootstrap/r1q2-setup'
 import { computeTargetVerdict } from './bootstrap/target'
@@ -50,11 +49,11 @@ import {
 import { computeEngineUpdateStatus } from './engine/update-status'
 import { startEngineUpdate, type EngineUpdateDeps } from './engine/update-job'
 import { startEngineRollback, type EngineRollbackDeps } from './engine/rollback-job'
-import { readEngineState, type InstallationEngineState } from './engine/installation-state'
+import { readEngineState, type InstallationEngineState } from '../../services/engine-state'
 import { setEngineState, withEngineState } from './engine/record-engine-state'
 import { appendFailure, dismissFailure, restoreFailure } from './failure-log'
-import { PRODUCTION_DOWNLOAD_SOURCE, resolveDownloadSource } from './harness'
-import { ManifestService, ManifestUnavailableError } from './manifest-service'
+import { ManifestService, ManifestUnavailableError } from '../../services/content/manifest-service'
+import { PRODUCTION_DOWNLOAD_SOURCE, resolveDownloadSource } from '../../services/content/source'
 import {
   createDownloadPipeline,
   type DownloadPipeline,
@@ -116,7 +115,7 @@ export const downloadsModule: MainModule = {
     // see `harness.ts`. Without `Q2L_UI_HARNESS=1` (which a real shipped build never sets, and
     // which is not reachable from its UI) this is `PRODUCTION_DOWNLOAD_SOURCE`, and no later
     // change of environment can alter it.
-    const source = resolveDownloadSource({ isDev: app.isDev })
+    const source = resolveDownloadSource(app.harness)
     if (source !== PRODUCTION_DOWNLOAD_SOURCE) {
       log.warn(`UI harness: download source overridden to ${source.baseUrl} (dev build only)`)
     }
@@ -189,7 +188,7 @@ export const downloadsModule: MainModule = {
     handle(
       DOWNLOADS_HANDLERS.bootstrapTargetVerdict,
       bootstrapTargetVerdictInputSchema,
-      async ({ targetPath }) => ok(await computeTargetVerdict(targetPath)),
+      async ({ targetPath }) => ok(await computeTargetVerdict(targetPath, { env: app.env })),
     )
 
     /**
@@ -683,7 +682,7 @@ function createPipelineFor(app: AppContext, log?: PipelineLog): DownloadPipeline
     // as parameters so that its own tests need no Electron runtime.
     resolveExtractor: () =>
       resolveExtractorPath({
-        isPackaged: electronApp.isPackaged,
+        isPackaged: app.isPackaged,
         resourcesPath: process.resourcesPath,
       }),
     ...(log ? { log } : {}),
@@ -718,11 +717,12 @@ function bootstrapDepsFor(
     retailSources: () => detectedRetailSourcesFor(app),
     fetcher: realPackageFetcher,
     extractor: realExtractor,
-    r1q2Setup: realR1q2Setup,
+    r1q2Setup: createR1q2Setup(app.env),
+    env: app.env,
     userDataPath: userDataDir(),
     resolveExtractor: () =>
       resolveExtractorPath({
-        isPackaged: electronApp.isPackaged,
+        isPackaged: app.isPackaged,
         resourcesPath: process.resourcesPath,
       }),
     // Story 080 finding fix: resolved per call with the real `electron.app`, same as
@@ -730,7 +730,7 @@ function bootstrapDepsFor(
     // once `electron` is available).
     resolveR1q2LicensePath: () =>
       resolveR1q2LicensePath({
-        isPackaged: electronApp.isPackaged,
+        isPackaged: app.isPackaged,
         resourcesPath: process.resourcesPath,
       }),
     // Story 075 D3: a factory, not a collector - the registry is keyed by the job id, which
@@ -776,7 +776,7 @@ function repairDepsFor(app: AppContext, manifestService: ManifestService, log: L
     userDataPath: userDataDir(),
     resolveExtractor: () =>
       resolveExtractorPath({
-        isPackaged: electronApp.isPackaged,
+        isPackaged: app.isPackaged,
         resourcesPath: process.resourcesPath,
       }),
     log,
@@ -839,7 +839,7 @@ function engineUpdateDepsFor(
     userDataPath: userDataDir(),
     resolveExtractor: () =>
       resolveExtractorPath({
-        isPackaged: electronApp.isPackaged,
+        isPackaged: app.isPackaged,
         resourcesPath: process.resourcesPath,
       }),
     log,

@@ -11,7 +11,7 @@ import type { EngineKind, InstallationStatus, ValidationCheck, ValidationCheckId
  * Story 070 D1 adds only the contract and its wire types: the curated manifest
  * of downloadable engine builds / game-data packages, fetched from a public
  * GitHub content repo (D2/D3), validated and parsed by
- * `src/main/modules/downloads/manifest-parse.ts`.
+ * `src/main/services/content/manifest-parse.ts`.
  *
  * Story 071 D1 adds this module's own settings shape/defaults, its verified-download input type
  * and its fixed failure-reason key set - see each export's own doc comment below. No IPC channel
@@ -167,7 +167,7 @@ export type ManifestPackage = ManifestPackageBase &
  * (D4) hands the renderer. `schemaVersion` is always exactly `1` here: a
  * fetch that could not produce this (wrong version, malformed envelope) never
  * reaches this shape at all (see `parseManifestFile`,
- * `src/main/modules/downloads/manifest-parse.ts`).
+ * `src/main/services/content/manifest-parse.ts`).
  */
 export interface ManifestSnapshot {
   schemaVersion: 1
@@ -184,7 +184,7 @@ export interface ManifestSnapshot {
  * minimal input type, deliberately not `ManifestPackage` above (Decisions (Sprint): "the
  * pipeline takes its own minimal `PackageSource`... so this story stays buildable and testable
  * while the manifest shape is still in flight; the adapter lands with the caller, [[074]]"). Do
- * not import this into `main/modules/downloads/manifest-service.ts` or wire it into that file.
+ * not import this into `main/services/content/manifest-service.ts` or wire it into that file.
  */
 export interface PackageSource {
   /** Name the archive is written under, e.g. `<name>.part` while in flight. */

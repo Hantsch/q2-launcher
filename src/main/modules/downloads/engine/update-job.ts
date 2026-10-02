@@ -20,7 +20,7 @@ import {
   type JobProgress,
   type Outcome,
 } from '@shared/types'
-import { resolveRelaxed } from '../../../lib/fs-utils'
+import { moveFile, plannedDestination, resolveRelaxed } from '../../../lib/fs-utils'
 import type { CreateJobInput } from '../../../services/jobs'
 import { isWriteCancelled } from '../../../services/write-guard'
 import { buildAssemblePlan, type AssembleFileEntry } from '../bootstrap/assemble'
@@ -34,22 +34,22 @@ import {
 } from '../bootstrap/errors'
 import { toPackageSource } from '../bootstrap/job'
 import type { BootstrapLog, Extractor, ManifestSource } from '../bootstrap/ports'
-import { markVerified, type ExtractorHandle } from '../extractor'
-import { downloadPackage, electronNetFetch, type FetchImpl } from '../fetcher'
+import { markVerified, type ExtractorHandle } from '../../../lib/archive/extractor'
+import { downloadPackage, electronNetFetch, type FetchImpl } from '../../../lib/net/fetcher'
 import {
   ensureDownloadsCacheDir,
   getFinalPath,
   getPartPath,
   isSafeDownloadFileName,
-} from '../paths'
-import { getExtractDir } from '../pipeline'
+} from '../../../lib/net/download-cache-paths'
+import { getExtractDir } from '../../../services/package-staging'
 import {
   BleedingEdgeProbeFailedError,
   BleedingEdgeUnsupportedError,
   probeBleedingEdge as realProbeBleedingEdge,
   type BleedingEdgeProbe,
 } from './bleeding-edge'
-import { readEngineState, type InstallationEngineState } from './installation-state'
+import { readEngineState, type InstallationEngineState } from '../../../services/engine-state'
 import { computeEngineUpdateStatus } from './update-status'
 
 /**
@@ -232,7 +232,7 @@ export interface EngineUpdateTarget {
   version: string
   /** The `ManifestPackage.id` for a pinned build; absent for a nightly, which is not a package. */
   packageId?: string
-  /** The name the archive is cached under (`paths.ts` refuses anything that is not a plain name). */
+  /** The name the archive is cached under (`download-cache-paths.ts` refuses anything that is not a plain name). */
   fileName: string
   url: string
   mirrors: string[]
@@ -852,37 +852,6 @@ async function findStaged(stagingRoot: string, candidates: string[]): Promise<st
     }
   }
   return null
-}
-
-/**
- * Where a new engine file goes when the installation has none at that path yet: under the *existing*
- * spelling of its parent directory where there is one (a traditional `BASEQ2` install must not gain
- * a second, lowercase `baseq2` the inspector never looks at), under the canonical one otherwise.
- */
-export async function plannedDestination(root: string, relative: string): Promise<string> {
-  const segments = relative.split(/[\\/]+/).filter(Boolean)
-  const name = segments.pop()
-  if (name === undefined) return root
-  if (segments.length === 0) return join(root, name)
-  const parent = await resolveRelaxed(root, segments.join('/'))
-  return parent ? join(parent, name) : join(root, ...segments, name)
-}
-
-/**
- * `rename`, with a copy+delete fallback for the one case `rename` cannot serve: a `baseq2` that is a
- * junction or symlink onto another volume (legal, and something a user with a small SSD does on
- * purpose) makes the move into `<root>/.q2launcher-engine-backup/` a cross-device one, which
- * `rename` refuses with `EXDEV`. The fallback keeps the same before/after states - the file is at
- * the destination and gone from the source - at the cost of not being atomic.
- */
-export async function moveFile(from: string, to: string): Promise<void> {
-  try {
-    await rename(from, to)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException | null)?.code !== 'EXDEV') throw error
-    await cp(from, to, { dereference: true })
-    await rm(from, { force: true, maxRetries: 3, retryDelay: 50 })
-  }
 }
 
 /**

@@ -1,10 +1,9 @@
-import { shell } from 'electron'
 import { fail, ok, type Outcome } from '@shared/types'
 import { NEWS_BUTTON_HOST_ALLOWLIST } from '@shared/modules/home'
 import type { Logger } from '../../lib/logger'
 
 /**
- * Story 083 D5: opens a news slide button's `url` through `shell.openExternal`, but only after
+ * Story 083 D5: opens a news slide button's `url` through the `openExternal` it is given (`AppContext.os`), but only after
  * checking it is `http(s)` and its host is on `NEWS_BUTTON_HOST_ALLOWLIST` - the same allowlist
  * constant 082 defined for a button's `url` at parse time (`shared/modules/home.ts`). A feed URL
  * is foreign content, so this gets its own handler rather than reusing `app:openExternal`, which
@@ -18,7 +17,11 @@ import type { Logger } from '../../lib/logger'
  * refusal `Outcome` instead. Either outcome is logged, so a refusal is visible in support logs
  * even though nothing is shown to the user beyond the button silently not doing anything.
  */
-export async function openSlideUrl(url: string, log: Logger): Promise<Outcome<null>> {
+export async function openSlideUrl(
+  url: string,
+  openExternal: (url: string) => Promise<void>,
+  log: Logger,
+): Promise<Outcome<null>> {
   let parsed: URL
   try {
     parsed = new URL(url)
@@ -37,7 +40,7 @@ export async function openSlideUrl(url: string, log: Logger): Promise<Outcome<nu
     return fail('home.error.urlNotAllowed')
   }
 
-  await shell.openExternal(url)
+  await openExternal(url)
   log.info(`slide.openUrl: opened '${parsed.protocol}//${parsed.hostname}'`)
   return ok(null)
 }

@@ -315,9 +315,14 @@ every time (`ui:seed`'s idempotency guarantee):
 
 Every app instance the harness launches gets `Q2L_UI_HARNESS=1` in its
 environment (`childEnv()` in `scripts/lib/harness.mjs` sets it
-unconditionally, on top of the caller's own environment). `src/main/window.ts`
-reads it once at module load and, only when it is exactly `'1'`, changes how
-the main window is created:
+unconditionally, on top of the caller's own environment). `resolveUiHarness`
+(`src/main/lib/ui-harness.ts`) decides the gate once at boot, exposed as
+`app.harness` on the `AppContext`; only when it is exactly `'1'` is the gate
+open and `src/main/window.ts` changes how the main window is created. The
+gate and the offscreen decision are frozen, but the `Q2L_UI_*` fixture
+variables are read live (`app.harness.read(name)`, `undefined` while the gate
+is closed), because flows mutate them in the running process via
+`app.evaluate()`:
 
 - The `BrowserWindow` is constructed with `focusable: false` (Windows:
   `WS_EX_NOACTIVATE`), so it can never be activated and clicking it never
@@ -918,10 +923,10 @@ Four things about it are worth knowing before changing it:
   recreates the target folder.
 - **Two harness-only overrides, both behind the same gate** (`Q2L_UI_HARNESS === '1'`,
   `src/main/lib/ui-harness.ts` — never set by a real shipped build, and not reachable from its UI;
-  proven by the four gate cases in `src/main/modules/downloads/harness.test.ts`, which
+  proven by the four gate cases in `src/main/services/content/source.test.ts`, which
   mirror `dialog.test.ts`'s):
   `Q2L_UI_CONTENT_REPO_BASE` names the manifest/package base URL (`resolveDownloadSource()`,
-  `src/main/modules/downloads/harness.ts`) and is _refused_ unless it is a `127.0.0.1` origin, so it
+  `src/main/services/content/source.ts`) and is _refused_ unless it is a `127.0.0.1` origin, so it
   can never redirect a run somewhere public; the production package schema stays https-only and the
   harness path selects a separately named `harnessLoopbackManifestPackageSchema` rather than
   widening it. `Q2L_UI_PICK_FOLDER` is what `installations:pickFolder` answers instead of opening a

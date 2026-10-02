@@ -24,7 +24,7 @@ import {
  * assertion can see.
  *
  * One test at the bottom drives the real `node:dgram` default against a loopback responder on
- * `127.0.0.1` with real timers, mirroring `downloads/fetcher.test.ts`'s loopback HTTP server. No
+ * `127.0.0.1` with real timers, mirroring `lib/net/fetcher.test.ts`'s loopback HTTP server. No
  * test in this file addresses a real master (GB-A5).
  */
 

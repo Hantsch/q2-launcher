@@ -16,7 +16,7 @@ import { NEWS_INDEX_DOCUMENT } from './feed-fetcher'
  * Story 082 D5. Real files in an `mkdtemp` directory through the real `JsonStore` - the criterion
  * under test is what a *file on disk* does to the launcher, so a stubbed store would test nothing.
  *
- * `electron` is mocked exactly as in `src/main/modules/downloads/manifest-service.test.ts` (under
+ * `electron` is mocked exactly as in `src/main/services/content/manifest-service.test.ts` (under
  * plain vitest `import('electron')` resolves to a path string), so `app.getPath('userData')` - which
  * `newsFeedCacheFilePath()` is built from - points at a per-test temp folder.
  *

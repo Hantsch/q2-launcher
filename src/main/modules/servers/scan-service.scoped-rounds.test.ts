@@ -6,7 +6,7 @@ import {
   type ServersState,
 } from '@shared/modules/servers'
 import { IDLE_LAUNCH_STATE } from '@shared/types'
-import type { FetchImpl } from '../downloads/fetcher'
+import type { FetchImpl } from '../../lib/net/fetcher'
 import type { QueryServerFn } from './scan-runner'
 import type { ServerQueryResult } from './server-query'
 import { createScanService, SCAN_ALREADY_RUNNING_REASON_KEY } from './scan-service'

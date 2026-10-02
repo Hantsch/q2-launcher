@@ -18,6 +18,9 @@ function fakeWindow() {
   const listeners = new Set<(event: MainWindowEvent) => void>()
   let snap: MainWindowSnapshot | null = {
     contentBounds: { x: 0, y: 0, width: 1280, height: 800 },
+    bounds: { x: 0, y: 0, width: 1280, height: 800 },
+    zoomFactor: 1,
+    displayId: 1,
     scaleFactor: 1,
     minimized: false,
     focused: true,

@@ -14,15 +14,21 @@ import {
   type JobProgress,
   type Outcome,
 } from '@shared/types'
-import { findChild, isDirectory, isInside, pathKey, resolveRelaxed } from '../../lib/fs-utils'
+import {
+  findChild,
+  isDirectory,
+  isInside,
+  pathKey,
+  plannedDestination,
+  resolveRelaxed,
+} from '../../lib/fs-utils'
 import type { CreateJobInput } from '../../services/jobs'
 import { isSafeEarlyToken } from '../../services/launch-plan'
 import { isWriteCancelled } from '../../services/write-guard'
-import { plannedDestination } from '../downloads/engine/update-job'
-import type { ExtractorHandle } from '../downloads/extractor'
-import { isSafeDownloadFileName } from '../downloads/paths'
-import { getExtractDir } from '../downloads/pipeline'
-import type { StagePackageInput, StagePackageResult } from '../downloads/stage-package'
+import type { ExtractorHandle } from '../../lib/archive/extractor'
+import { isSafeDownloadFileName } from '../../lib/net/download-cache-paths'
+import { getExtractDir } from '../../services/package-staging'
+import type { StagePackageInput, StagePackageResult } from '../../services/package-staging'
 import type { CatalogSnapshot } from './catalog-service'
 import { isSafeContentsFrom, type ModCatalogEntryParsed } from './catalog-schema'
 import { resolveEngineTarget, selectVariant } from './engine-target'

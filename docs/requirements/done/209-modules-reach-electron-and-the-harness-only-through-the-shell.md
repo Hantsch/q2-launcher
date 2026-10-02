@@ -1,7 +1,7 @@
 ---
 id: 209
 title: modules reach Electron and the harness only through the shell
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -31,22 +31,22 @@ Depends on story 208 (the architecture test that keeps this true).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `AppContext` gains an `os` service (`openPath`, `showItemInFolder`,
+- [x] **AC1** — `AppContext` gains an `os` service (`openPath`, `showItemInFolder`,
       `openExternal`, `copyText`) that owns the harness-record branch once; the three copies are
       gone.
-- [ ] **AC2** — `MainWindowSnapshot` carries `zoomFactor`, `bounds` and display info (or a small
+- [x] **AC2** — `MainWindowSnapshot` carries `zoomFactor`, `bounds` and display info (or a small
       `app.displays` service); `getMainWindow` is removed from `AppContext` (it stays a
       `DialogService` constructor dep); replays' stage code reads the snapshot.
-- [ ] **AC3** — A frozen `app.harness` object is resolved once at boot in `context.ts` from
+- [x] **AC3** — A frozen `app.harness` object is resolved once at boot in `context.ts` from
       `process.env`; `window-shared.ts`, `ipc/index.ts` and every module read it from there;
       `process.env` reads under `src/main/modules/` are zero (architecture test), with the
       pre-ready read in `index.ts` and `dialog.ts` as the documented exemptions.
-- [ ] **AC4** — `from 'electron'` under `src/main/modules/` is zero (architecture test).
-- [ ] **AC5** — The infrastructure mods/servers/replays import from downloads is hoisted to
+- [x] **AC4** — `from 'electron'` under `src/main/modules/` is zero (architecture test).
+- [x] **AC5** — The infrastructure mods/servers/replays import from downloads is hoisted to
       shell-owned locations (`src/main/lib/net/`, `src/main/lib/archive/`,
       `src/main/services/package-staging.ts` or equivalents) and downloads imports them like every
       other module; the cross-module allowlist from story 208 has no `→ downloads` entries left.
-- [ ] **AC6** — Module index tests for replays and mods no longer mock `electron`.
+- [x] **AC6** — Module index tests for replays and mods no longer mock `electron`.
 
 ## Open Questions
 
@@ -226,9 +226,9 @@ pipeline.ts` into it (pipeline imports it back) and `electronApp.isPackaged` rep
   with reason "story 209: shell-owned download/extract infrastructure". Mechanical: if a file
   needs a logic change to move, stop and report it.
   Tests: the moved suites pass unchanged (`lib/net/fetcher.test.ts`, `lib/archive/extractor.test.ts`,
-  `services/package-staging` callers); `src/architecture.test.ts` › "no module imports another
-  module's internals outside the allowlist" stays green with the shrunk allowlist (use the name
-  story 208 gave that test if it differs, and say so in the D's Done note). Flows (regression):
+  `services/package-staging` callers); `src/architecture.test.ts` › "a main module imports another
+  module only through an allowlisted edge" stays green with the shrunk allowlist (the test is named so;
+  the spec said "no module imports another module's internals..."). Flows (regression):
   `mods-install`, `engine-update`, `servers-master-sources`.
 
 - **D4b — hoist content, engine state, fs helpers and schema primitives out of downloads.**
@@ -331,7 +331,7 @@ downloads/index.ts`: `electronApp.isPackaged` → `app.isPackaged`, harness help
 - AC2 → unit `src/main/main-window-observer.test.ts` › "the snapshot carries zoom factor, outer
   bounds and display id"; unit `src/main/services/displays.test.ts` › "dipToScreenRect uses the
   screen API when present and the display scale factor otherwise"; unit
-  `src/main/services/displays.test.ts` › "primary and all list the screen's displays"; unit
+  `src/main/services/displays.test.ts` › "primary and all list the screen displays"; unit
   `src/main/modules/replays/index.test.ts` › "stage geometry comes from the window snapshot and the
   displays service"; unit `src/main/modules/replays/index.test.ts` › "cinema is unavailable off the
   primary display"; unit `src/architecture.test.ts` › "AppContext has no getMainWindow"; e2e
@@ -347,7 +347,7 @@ downloads/index.ts`: `electronApp.isPackaged` → `app.isPackaged`, harness help
   `scripts/flows/replays-cinema-unavailable.mjs` › `replays-cinema-unavailable`
 - AC4 → unit `src/architecture.test.ts` › "no module source imports electron"
 - AC5 → unit `src/architecture.test.ts` › "no module imports modules/downloads internals"; unit
-  `src/architecture.test.ts` › "no module imports another module's internals outside the allowlist";
+  `src/architecture.test.ts` › "a main module imports another module only through an allowlisted edge";
   e2e `scripts/flows/mods-install.mjs` › `mods-install`; e2e `scripts/flows/engine-update.mjs` ›
   `engine-update`; e2e `scripts/flows/servers-master-sources.mjs` › `servers-master-sources`
 - AC6 → unit `src/architecture.test.ts` › "the replays and mods index tests do not mock electron";
@@ -359,4 +359,19 @@ regression run targets for the paths each AC rewires.
 
 ## Done
 
-<!-- Filled by /build 209. -->
+Modules now reach the OS, screen and harness only through `app`: `AppContext` gained `harness` (frozen gate, live fixture reads), `env` (Q2L_-stripped), `isPackaged`, `userDataDir`, `os` and `displays`; `MainWindowSnapshot` carries zoom/bounds/displayId and `getMainWindow` left `AppContext`. Downloads infrastructure moved to `lib/net`, `lib/archive`, `services/package-staging.ts`, `services/content/`, `services/engine-state.ts`, `lib/fs-utils.ts`; replays and the other modules were migrated; `architecture.test.ts` enforces it.
+
+Commit message: `209: modules reach electron/harness only via app (os, displays, harness, env); downloads infrastructure hoisted to the shell; architecture assertions`
+
+Verification (narrow gate): build, typecheck, lint, `npx vitest run --changed HEAD` (205 files) green; full `npm test` after the review fix green (521 files, 6492 passed); flows harness-offscreen, mods-detail, replays-demo-file-actions, replays-stage, replays-stage-follow, replays-cinema, replays-cinema-unavailable, bootstrap-retail-import, retail-upgrade, mods-install, engine-update, servers-master-sources, news-feed, servers-lan-mode all OK. AC1-AC6 map to the named tests in Acceptance Tests; all ran and passed. No manual residue. Review: default + story-review-hard, both PASS after one fix cycle (stage 1: loose architecture regexes, over-wide shell-layering exemption, stale path references; stage 2: doc/comment/name findings only, fixed; that comment-only follow-up got no third review).
+
+Decisions:
+- Test names as run: "primary and all list the screen displays"; the allowlist test is "a main module imports another module only through an allowlisted edge" (208's name). Acceptance Tests lines updated.
+- displays.ts: a `null`-anchored rect scales by the display the rect sits on (getDisplayMatching), not always the primary, so `virtualDesktopRightEdge` stays identical on mixed-DPI desktops (the spec's "primary" wording would have changed it).
+- `onPrimaryDisplay`/`geometryAt` read the snapshot (last un-minimized content bounds) instead of live outer bounds: identical for the frameless window, benign while minimized.
+- Extras beyond the plan, needed for zero `process.env`/`electron` in modules and window-shared: `lib/renderer-source.ts` (`rendererSourceFromEnv`, threaded into `hardenWebContents`/`createCinemaWindow`), `lib/native-image.ts` (home image decode), `ReplaysIndexCache` path from `app.userDataDir`.
+- `shell-layering.test.ts` exempts `@shared/modules/` specifiers (shared contract types, not module internals).
+- Residual, not test-enforced: modules still call `lib/paths.userDataDir()`, `lib/net/fetcher` and `lib/native-image` (narrow electron-backed shell libs); ARCHITECTURE.md/types.ts say so. `services/runners.ts` (outside modules) resolves the harness per call, same behaviour.
+- `docs/systems/install-module.md` does not exist; moved paths were updated in UI-VERIFICATION.md, concepts docs and comments instead. The quiet-test-run sample path follows the moved staging test.
+
+tiers: D 7 / hard 1 · review default+hard · cycles 2 · agents 12

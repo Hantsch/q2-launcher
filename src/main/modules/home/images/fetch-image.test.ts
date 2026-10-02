@@ -15,7 +15,7 @@ import {
 import { newsImageFileName } from '../../../lib/news-image-paths'
 
 /**
- * Story 084 D2 - integration, on purpose, exactly like `downloads/fetcher.test.ts` and
+ * Story 084 D2 - integration, on purpose, exactly like `lib/net/fetcher.test.ts` and
  * `news/feed-fetcher.test.ts`: a real `node:http` server on `127.0.0.1` answers real requests, and
  * `fetchImage()` talks to it through the real global `fetch` via the injected `fetchImpl`. Only
  * `decodeImage` is faked - that is the one seam the module was built with specifically so tests

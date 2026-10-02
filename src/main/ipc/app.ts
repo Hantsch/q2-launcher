@@ -1,11 +1,10 @@
-import { app as electronApp, clipboard, shell } from 'electron'
+import { app as electronApp } from 'electron'
 import { release } from 'node:os'
 import { fail, ok, type AppInfo, type Platform, type ReleaseNotes } from '@shared/types'
 import { isDirectory, isInside } from '../lib/fs-utils'
 import { logFilePath } from '../lib/logger'
 import { userDataDir } from '../lib/paths'
 import { installedReleaseNotes } from '../lib/release-notes'
-import { isUiHarnessEnabled, recordHarnessExternalUrl } from '../lib/ui-harness'
 import {
   appCopyTextSchema,
   appGetInfoSchema,
@@ -43,27 +42,17 @@ export function registerAppIpc(app: AppContext): void {
   // clipboard is ever touched - `handleOutcome` already turns that rejection into
   // a failed `Outcome` instead of throwing.
   handleOutcome('app:copyText', appCopyTextSchema, (text) => {
-    clipboard.writeText(text)
+    app.os.copyText(text)
     return ok(null)
   })
 
   // `urlSchema` allows only http(s), so a renderer cannot open `file:` or a
-  // custom protocol handler through this channel.
-  //
-  // Story 099 D6: under the harness gate (`isUiHarnessEnabled()`, `Q2L_UI_HARNESS === '1'` alone -
-  // `isDev` is not part of it, see `src/main/lib/ui-harness.ts`), record the url instead of actually
-  // opening it. A real user's build always takes the real `shell.openExternal` branch: the
-  // variable is never set by the app itself or by electron-builder, only by whoever launches the
-  // harness process.
+  // custom protocol handler through this channel. Recording under the harness is `app.os`'s job.
   handleOutcome(
     'app:openExternal',
     urlSchema,
     async (url) => {
-      if (isUiHarnessEnabled({ isDev: app.isDev })) {
-        await recordHarnessExternalUrl(url)
-        return ok(null)
-      }
-      await shell.openExternal(url)
+      await app.os.openExternal(url)
       return ok(null)
     },
     'app.error.invalidUrl',
@@ -81,10 +70,10 @@ export function registerAppIpc(app: AppContext): void {
       }
 
       if (await isDirectory(target)) {
-        const error = await shell.openPath(target)
+        const error = await app.os.openPath(target)
         return error ? fail('app.error.revealFailed', { message: error }) : ok(null)
       }
-      shell.showItemInFolder(target)
+      await app.os.showItemInFolder(target)
       return ok(null)
     },
     'app.error.invalidPath',

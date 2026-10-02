@@ -99,7 +99,7 @@ describe('home module', () => {
    * (called *inside* `refreshNews()`) that decides whether that turns into a real network request
    * or a no-op, based on the harness gate and whether a loopback base is configured
    * (`news/harness.ts`). An earlier version of `index.ts` gated the call itself behind
-   * `isUiHarnessEnabled()`, which broke any harness-gated launch that *did* name a loopback base
+   * the harness gate, which broke any harness-gated launch that *did* name a loopback base
    * (`scripts/flows/news-feed.mjs`) by never calling `refreshNews()` at all - a regression found by
    * running that flow against the full sprint branch. This test replaces `news/news-service` with a
    * bare double (`createNewsService` returning `refreshNews`/`getNews` spies, same shape

@@ -6,7 +6,7 @@ import type { ManifestPackage } from '@shared/modules/downloads'
 import type { StateStore } from '../../services/state'
 import type { LaunchHost } from '../../services/write-guard'
 import type { Extractor, ManifestSource, PackageFetcher } from './bootstrap/ports'
-import type { ExtractorHandle } from './extractor'
+import type { ExtractorHandle } from '../../lib/archive/extractor'
 
 /** In-memory stand-in for the `StateStore` methods `InstallationsService` reaches for. */
 export function fakeState(): StateStore {

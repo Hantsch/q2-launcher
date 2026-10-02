@@ -26,7 +26,7 @@ export const homeModule: MainModule = {
     const layout = homeState(app.state)
     const { handle, emit } = defineModule<HomeContract>('home', HOME_HANDLER_SCHEMAS).bind(setup)
     const newsService = createNewsService({
-      isDev: app.isDev,
+      harness: app.harness,
       persistence: app.persistence,
       log,
       onChanged: (feed) => emit(HOME_EVENTS.newsChanged, feed),
@@ -34,7 +34,7 @@ export const homeModule: MainModule = {
 
     handle(HOME_HANDLERS.newsGet, async () => ok(await newsService.getNews()))
     handle(HOME_HANDLERS.newsRefresh, async () => ok(await newsService.refreshNews()))
-    handle(HOME_HANDLERS.openSlideUrl, (url) => openSlideUrl(url, log))
+    handle(HOME_HANDLERS.openSlideUrl, (url) => openSlideUrl(url, app.os.openExternal, log))
 
     // Story 086 D1: `getLayout` returns the persisted layout verbatim - no failure mode, like
     // `downloads.getSettings`. `setLayout` re-validates the whole incoming layout through
@@ -55,7 +55,7 @@ export const homeModule: MainModule = {
     // `refreshNews()` makes no network call at all - which is what keeps the three hero screens
     // (`home-hero`/`home-hero-welcome`/`home-hero-stale`) fed purely from the fixture's seeded cache.
     // A harness-gated launch that *does* name a loopback base (e.g. `scripts/flows/news-feed.mjs`)
-    // must still fetch for real, so this call is never itself gated on `isUiHarnessEnabled` - doing
+    // must still fetch for real, so this call is never itself gated on the harness - doing
     // so would skip the fetch unconditionally under the harness, loopback base or not, and silently
     // starve any flow that relies on it. `refreshNews()` is designed to never reject (a failed/skipped
     // fetch resolves with the cached feed instead), but this `catch` is belt-and-suspenders against a

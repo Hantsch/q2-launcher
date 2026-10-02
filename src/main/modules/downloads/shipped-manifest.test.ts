@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { Logger } from '../../lib/logger'
-import { parseManifestFile } from './manifest-parse'
+import { parseManifestFile } from '../../services/content/manifest-parse'
 
 /**
  * Story 070 D5: the two shipped manifest files

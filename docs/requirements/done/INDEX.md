@@ -305,3 +305,4 @@ second roadmap.
 - 205 — module handlers are typed from a contract and every declared handler is live · S32 · defineModule/createModuleClient typed seam, home+servers converted, dead handlers removed, bus-wide coverage tests; config/downloads/mods/replays/library are follow-ups
 - 207 — modules own their persisted state · S32 · StateStore.section() + per-module persisted.ts/persisted-migrations.ts, shell no longer imports modules, lib/schemas.ts 165 lines, golden state test + layering test
 - 208 — layer rules are a test and a linter, not a convention · S32 · architecture.test.ts enforces layering with a story-referenced allowlist; oxlint runs as npm run lint in CI and verify:release.
+- 209 — modules reach Electron and the harness only through the shell · S32 · app.os/displays/harness/env on AppContext, downloads infrastructure hoisted to shell-owned lib/services, architecture test enforces zero electron/process.env in modules

@@ -15,6 +15,7 @@ import { fail, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
 import { JobsService } from '../../services/jobs'
 import { MainModuleRegistry } from '../registry'
+import { resolveUiHarness } from '../../lib/ui-harness'
 import { PersistenceRegistry } from '../../services/persistence'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { createDiagnosticsCollector, diagnosticsRegistrySize } from './diagnostics'
@@ -22,7 +23,7 @@ import { downloadsState } from './persisted'
 import type { StateStore } from '../../services/state'
 import { fakeSectionState } from '../../../test-support/state-sections'
 import { downloadsModule, UNKNOWN_DOWNLOAD_FAILURE_KEY } from './index'
-import { getDownloadsCacheDir } from './paths'
+import { getDownloadsCacheDir } from '../../lib/net/download-cache-paths'
 
 /**
  * The downloads module's main half.
@@ -163,6 +164,9 @@ async function setUpModule(
     onDispose: (cb) => void disposers.push(cb),
     app: {
       jobs: new JobsService(() => {}),
+      harness: resolveUiHarness({}),
+      env: {},
+      isPackaged: false,
       persistence: new PersistenceRegistry(),
       state: fakeSectionState(),
       ...app,

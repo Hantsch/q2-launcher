@@ -1,5 +1,4 @@
 import { join } from 'node:path'
-import { app as electronApp, shell } from 'electron'
 import {
   MODS_EVENTS,
   MODS_HANDLERS,
@@ -14,12 +13,11 @@ import {
 import type { ModsErrorKey } from '@shared/modules/mods'
 import { fail, ok, type Installation, type Outcome } from '@shared/types'
 import { readBinaryArch } from '../../lib/fs-utils'
-import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harness'
 import type { MainModule } from '../types'
 import { readModsState, recordedGameDirs } from './install-records'
-import { resolveDownloadSource } from '../downloads/harness'
-import { ManifestService } from '../downloads/manifest-service'
-import { resolveVendoredExtractor, stagePackage } from '../downloads/stage-package'
+import { resolveDownloadSource } from '../../services/content/source'
+import { ManifestService } from '../../services/content/manifest-service'
+import { resolveVendoredExtractor, stagePackage } from '../../services/package-staging'
 import { toCatalogEntryDto } from './catalog-parse'
 import { CatalogService } from './catalog-service'
 import { mapPresence } from './map-presence'
@@ -107,7 +105,7 @@ export const modsModule: MainModule = {
 
   setup({ handle, emit, app, log }) {
     // Resolved once, as in the downloads module; httpsOnly follows the harness result.
-    const source = resolveDownloadSource({ isDev: app.isDev })
+    const source = resolveDownloadSource(app.harness)
     const catalog = new CatalogService({ log, source })
     app.persistence.register('mods-catalog', catalog)
     // The engines manifest, only to learn the arch of the package an installation came from.
@@ -161,9 +159,9 @@ export const modsModule: MainModule = {
               }
             },
             stage: stagePackage,
-            resolveExtractor: resolveVendoredExtractor,
+            resolveExtractor: () => resolveVendoredExtractor(app.isPackaged),
             readArch: readBinaryArch,
-            userDataPath: electronApp.getPath('userData'),
+            userDataPath: app.userDataDir,
             askDecision: (jobId, request) =>
               new Promise<ModInstallDecision>((resolve) => {
                 const entry = running.get(jobId) ?? {
@@ -243,9 +241,9 @@ export const modsModule: MainModule = {
         }
       },
       stage: stagePackage,
-      resolveExtractor: resolveVendoredExtractor,
+      resolveExtractor: () => resolveVendoredExtractor(app.isPackaged),
       readArch: readBinaryArch,
-      userDataPath: electronApp.getPath('userData'),
+      userDataPath: app.userDataDir,
       log,
     }
 
@@ -309,7 +307,7 @@ export const modsModule: MainModule = {
       async (input): Promise<Outcome<ModMapPresence>> => {
         const installation = app.installations.find(input.installationId)
         if (!installation) return failMods('mods.error.installationNotFound')
-        const extractor = resolveVendoredExtractor()
+        const extractor = resolveVendoredExtractor(app.isPackaged)
         // The root comes from the installation record; only the two safe names come from the payload.
         const presence = await mapPresence(
           { rootPath: installation.rootPath, gameDir: input.gameDir, map: input.map },
@@ -326,11 +324,7 @@ export const modsModule: MainModule = {
       const entry = modGameDirs(installation).find((d) => d.gameDir.toLowerCase() === wanted)
       if (!entry) return failMods('mods.error.gameDirNotFound')
 
-      if (isUiHarnessEnabled({ isDev: app.isDev })) {
-        recordHarnessRevealedPath(entry.folderPath)
-        return ok(null)
-      }
-      const message = await shell.openPath(entry.folderPath)
+      const message = await app.os.openPath(entry.folderPath)
       if (message) return failMods('mods.error.revealFailed', { message })
       return ok(null)
     })

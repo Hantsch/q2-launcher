@@ -17,8 +17,8 @@ import { withEngineState } from '../engine/record-engine-state'
 import { JobsService } from '../../../services/jobs'
 import { InstallationWriteGuard } from '../../../services/write-guard'
 import { fakeLaunch, fakeManifest, fakeState } from '../test-support'
-import { type ExtractArchiveInput, type ExtractorHandle } from '../extractor'
-import { type DownloadPackageOptions, type DownloadPackageResult } from '../fetcher'
+import { type ExtractArchiveInput, type ExtractorHandle } from '../../../lib/archive/extractor'
+import { type DownloadPackageOptions, type DownloadPackageResult } from '../../../lib/net/fetcher'
 import { createDiagnosticsCollector, diagnosticsFor } from '../diagnostics'
 import { type BootstrapDeps } from './job'
 import {
@@ -397,6 +397,7 @@ export function harness(
       fetcher,
       extractor,
       r1q2Setup,
+      env: {},
       userDataPath,
       resolveExtractor: () => ({ path: join(dir, '7za.exe'), exists: true }),
       resolveR1q2LicensePath: () => join(dir, 'no-such-license.txt'),

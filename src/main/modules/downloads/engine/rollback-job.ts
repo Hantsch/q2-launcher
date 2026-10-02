@@ -10,18 +10,13 @@ import {
   type JobProgress,
   type Outcome,
 } from '@shared/types'
-import { resolveRelaxed } from '../../../lib/fs-utils'
+import { moveFile, plannedDestination, resolveRelaxed } from '../../../lib/fs-utils'
 import type { CreateJobInput } from '../../../services/jobs'
 import { isWriteCancelled } from '../../../services/write-guard'
 import { INSTALLATION_NOT_FOUND, LOCAL_FAILURE } from '../bootstrap/errors'
 import type { BootstrapLog } from '../bootstrap/ports'
-import {
-  ENGINE_BACKUP_DIR_NAME,
-  ENGINE_REPLACE_FAILED,
-  moveFile,
-  plannedDestination,
-} from './update-job'
-import { readEngineState, type InstallationEngineState } from './installation-state'
+import { ENGINE_BACKUP_DIR_NAME, ENGINE_REPLACE_FAILED } from './update-job'
+import { readEngineState, type InstallationEngineState } from '../../../services/engine-state'
 
 /**
  * Story 092 D6 (AC3/AC6/AC7): the engine-rollback job - "put the single backed-up build back over

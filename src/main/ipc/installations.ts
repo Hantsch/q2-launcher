@@ -89,7 +89,7 @@ export function registerInstallationsIpc(app: AppContext): void {
   /**
    * Story 074 D8 adds a **harness stub** to this channel, mirroring
    * `DialogService.pickConfigFiles()` (`src/main/services/dialog.ts`) exactly: when
-   * `Q2L_UI_HARNESS === '1'` (`isUiHarnessEnabled`, `src/main/lib/ui-harness.ts`) - and only that,
+   * `Q2L_UI_HARNESS === '1'` (`UiHarness.enabled`, `src/main/lib/ui-harness.ts`) - and only that,
    * `app.isDev` is deliberately not part of the gate, see that file's module comment - no dialog
    * opens at all and `Q2L_UI_PICK_FOLDER` supplies the folder instead. A real user's packaged
    * build still cannot reach this without deliberately exporting the variable before starting the
@@ -112,7 +112,7 @@ export function registerInstallationsIpc(app: AppContext): void {
    */
   let harnessFolderPicks = 0
   handle('installations:pickFolder', pickPathInputSchema, async (options, event) => {
-    const stubbed = uiHarnessPickedFolders({ isDev: app.isDev })
+    const stubbed = uiHarnessPickedFolders(app.harness)
     if (stubbed !== undefined) {
       if (stubbed.length === 0) return null
       const picked = stubbed[Math.min(harnessFolderPicks, stubbed.length - 1)]

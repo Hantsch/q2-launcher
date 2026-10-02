@@ -12,11 +12,16 @@ import {
   type JobProgress,
   type Outcome,
 } from '@shared/types'
-import { isInside, pathKey, resolveRelaxed } from '../../lib/fs-utils'
+import {
+  isInside,
+  moveFile,
+  pathKey,
+  plannedDestination,
+  resolveRelaxed,
+} from '../../lib/fs-utils'
 import { isWriteCancelled } from '../../services/write-guard'
-import { moveFile, plannedDestination } from '../downloads/engine/update-job'
-import type { ExtractorHandle } from '../downloads/extractor'
-import { getExtractDir } from '../downloads/pipeline'
+import type { ExtractorHandle } from '../../lib/archive/extractor'
+import { getExtractDir } from '../../services/package-staging'
 import type { ModCatalogEntryParsed } from './catalog-schema'
 import {
   collectPackageFiles,

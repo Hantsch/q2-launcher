@@ -9,29 +9,18 @@ import { getModuleManifest, ok } from '@shared/types'
 import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
 import en from '../../../renderer/src/i18n/locales/en.json'
 import { canonicalizePath } from '../../lib/fs-utils'
-import { UI_HARNESS_ENV } from '../../lib/ui-harness'
+import { UI_HARNESS_ENV, resolveUiHarness } from '../../lib/ui-harness'
 import { fakeAppContext } from '../../../test-support/app-context'
 import { makeInstallation } from '../../../test-support/fixtures'
 import { fakeSectionState } from '../../../test-support/state-sections'
 import { stubPlatform } from '../../../test-support/platform'
-import { PersistenceRegistry } from '../../services/persistence'
 import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
-import { resolveExtractorPath } from '../downloads/7za-path'
+import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { discoveryHomeDir, replaysModule, scanHoldMs } from './index'
 import { replaysState } from './persisted'
 
-/**
- * The module's discovery calls `discoveryHomeDir()` with no overrides, which falls back to `userDataDir()` -
- * `electron.app.getPath('userData')`. Mocked the same way `downloads/index.test.ts` mocks it: a
- * per-test temp folder, never the real userData dir.
- */
-const userDataBox = vi.hoisted(() => ({ current: '' }))
-
-vi.mock('electron', () => ({
-  app: { getPath: () => userDataBox.current },
-}))
 
 /** Lets a test hold `canonicalizePath` (the last await in `extraFolders.add`) open. */
 const canonicalizeGate = vi.hoisted(() => ({ wait: null as Promise<void> | null }))
@@ -141,7 +130,6 @@ describe('replays module', () => {
 
     beforeEach(async () => {
       dir = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-index-'))
-      userDataBox.current = dir
     })
 
     afterEach(async () => {
@@ -180,6 +168,7 @@ describe('replays module', () => {
         replaysModule,
         fakeAppContext({
           state: stubState,
+          userDataDir: dir,
           installations: installationsOf([
             installation('a', rootA, ['baseq2', 'ctf']),
             installation('b', rootB, ['baseq2']),
@@ -196,7 +185,7 @@ describe('replays module', () => {
 
       // A sweep that cannot even list the installations never breaks the module's start.
       const broken = {
-        ...fakeAppContext({ state: stubState }),
+        ...fakeAppContext({ state: stubState, userDataDir: dir }),
         installations: {
           list: () => {
             throw new Error('boom')
@@ -229,12 +218,10 @@ describe('replays module', () => {
     })
 
     it('extra folders added through the handler survive a new StateStore on the same file', async () => {
-      const appContext = {
-        broadcast: { emit: () => {} },
-        installations: { list: () => [] },
+      const appContext = fakeAppContext({
+        installations: installationsOf([]),
         state,
-        persistence: new PersistenceRegistry(),
-      } as unknown as AppContext
+      })
 
       const registry = new MainModuleRegistry()
       await registry.register(replaysModule, appContext)
@@ -256,12 +243,10 @@ describe('replays module', () => {
     })
 
     it("a sort change during extraFoldersAdd's await survives", async () => {
-      const appContext = {
-        broadcast: { emit: () => {} },
-        installations: { list: () => [] },
+      const appContext = fakeAppContext({
+        installations: installationsOf([]),
         state,
-        persistence: new PersistenceRegistry(),
-      } as unknown as AppContext
+      })
       const registry = new MainModuleRegistry()
       await registry.register(replaysModule, appContext)
 
@@ -315,12 +300,10 @@ describe('replays module', () => {
       state = new StateStore(filePath)
       await state.load()
       registry = new MainModuleRegistry()
-      const appContext = {
-        broadcast: { emit: () => {} },
-        installations: { list: () => [] },
+      const appContext = fakeAppContext({
+        installations: installationsOf([]),
         state,
-        persistence: new PersistenceRegistry(),
-      } as unknown as AppContext
+      })
       await registry.register(replaysModule, appContext)
     })
 
@@ -379,12 +362,10 @@ describe('replays module', () => {
       state = new StateStore(filePath)
       await state.load()
       registry = new MainModuleRegistry()
-      const appContext = {
-        broadcast: { emit: () => {} },
-        installations: { list: () => [] },
+      const appContext = fakeAppContext({
+        installations: installationsOf([]),
         state,
-        persistence: new PersistenceRegistry(),
-      } as unknown as AppContext
+      })
       await registry.register(replaysModule, appContext)
     })
 
@@ -451,12 +432,10 @@ describe('replays module', () => {
       state = new StateStore(filePath)
       await state.load()
       registry = new MainModuleRegistry()
-      await registry.register(replaysModule, {
-        broadcast: { emit: () => {} },
-        installations: { list: () => [] },
+      await registry.register(replaysModule, fakeAppContext({
+        installations: installationsOf([]),
         state,
-        persistence: new PersistenceRegistry(),
-      } as unknown as AppContext)
+      }))
     })
 
     afterEach(async () => {
@@ -525,7 +504,6 @@ describe('replays module', () => {
 
     beforeEach(async () => {
       dir = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-sidecar-'))
-      userDataBox.current = dir
       filePath = join(tmpdir(), `q2-launcher-replays-sidecar-state-${randomUUID()}.json`)
       state = new StateStore(filePath)
       await state.load()
@@ -571,13 +549,12 @@ describe('replays module', () => {
         writeDirPath: undefined,
       }
 
-      const appContext = {
-        broadcast: { emit: () => {} },
-        installations: { list: () => [installation] },
+      const appContext = fakeAppContext({
+        installations: installationsOf([installation]),
         state,
-        launch: { isRunning: () => false, isPlaybackRunning: () => false },
-        persistence: new PersistenceRegistry(),
-      } as unknown as AppContext
+        launch: { isRunning: () => false, isPlaybackRunning: () => false } as unknown as AppContext['launch'],
+        userDataDir: dir,
+      })
 
       const registry = new MainModuleRegistry()
       await registry.register(replaysModule, appContext)
@@ -650,13 +627,12 @@ describe('replays module', () => {
           writeDirPath: undefined,
         }
 
-        const appContext = {
-          broadcast: { emit: () => {} },
-          installations: { list: () => [installation] },
+        const appContext = fakeAppContext({
+          installations: installationsOf([installation]),
           state,
-          launch: { isRunning: () => false, isPlaybackRunning: () => false },
-          persistence: new PersistenceRegistry(),
-        } as unknown as AppContext
+          launch: { isRunning: () => false, isPlaybackRunning: () => false } as unknown as AppContext['launch'],
+          userDataDir: dir,
+        })
 
         const registry = new MainModuleRegistry()
         await registry.register(replaysModule, appContext)
@@ -719,13 +695,12 @@ describe('replays module', () => {
         writeDirPath: undefined,
       }
 
-      const appContext = {
-        broadcast: { emit: () => {} },
-        installations: { list: () => [installation] },
+      const appContext = fakeAppContext({
+        installations: installationsOf([installation]),
         state,
-        launch: { isRunning: () => false, isPlaybackRunning: () => false },
-        persistence: new PersistenceRegistry(),
-      } as unknown as AppContext
+        launch: { isRunning: () => false, isPlaybackRunning: () => false } as unknown as AppContext['launch'],
+        userDataDir: dir,
+      })
 
       const registry = new MainModuleRegistry()
       await registry.register(replaysModule, appContext)
@@ -813,15 +788,15 @@ describe('replays module', () => {
 
   describe('discoveryHomeDir', () => {
     it('the harness never reads the real home dir', () => {
-      const harnessEnv = { [UI_HARNESS_ENV]: '1' }
-      const disabledEnv = {}
+      const harnessOn = resolveUiHarness({ [UI_HARNESS_ENV]: '1' })
+      const harnessOff = resolveUiHarness({})
       const userData = 'C:\\fake\\userData'
       const osHome = 'C:\\fake\\real-home'
 
-      expect(discoveryHomeDir({ env: harnessEnv, userData, osHome })).toBe(
+      expect(discoveryHomeDir({ harness: harnessOn, userData, osHome })).toBe(
         join(userData, 'harness-home'),
       )
-      expect(discoveryHomeDir({ env: disabledEnv, userData, osHome })).toBe(osHome)
+      expect(discoveryHomeDir({ harness: harnessOff, userData, osHome })).toBe(osHome)
     })
   })
 
@@ -837,31 +812,31 @@ describe('replays module', () => {
     })
 
     it('is 0 outside the harness, reads the file under it, and ignores garbage', async () => {
-      const harnessEnv = { [UI_HARNESS_ENV]: '1' }
-      const disabledEnv = {}
+      const harnessOn = resolveUiHarness({ [UI_HARNESS_ENV]: '1' })
+      const harnessOff = resolveUiHarness({})
       const holdFile = join(userData, 'harness-replays-scan-hold-ms')
 
       // No file at all.
-      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(0)
+      expect(await scanHoldMs({ harness: harnessOn, userData })).toBe(0)
 
       await writeFile(holdFile, '250')
       // Outside the harness, the file is never read.
-      expect(await scanHoldMs({ env: disabledEnv, userData })).toBe(0)
-      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(250)
+      expect(await scanHoldMs({ harness: harnessOff, userData })).toBe(0)
+      expect(await scanHoldMs({ harness: harnessOn, userData })).toBe(250)
 
       // Garbage content reads back as 0.
       await writeFile(holdFile, 'not-a-number')
-      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(0)
+      expect(await scanHoldMs({ harness: harnessOn, userData })).toBe(0)
 
       await writeFile(holdFile, '-5')
-      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(0)
+      expect(await scanHoldMs({ harness: harnessOn, userData })).toBe(0)
 
       await writeFile(holdFile, '0')
-      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(0)
+      expect(await scanHoldMs({ harness: harnessOn, userData })).toBe(0)
 
       // Clamped to the ceiling.
       await writeFile(holdFile, '999999')
-      expect(await scanHoldMs({ env: harnessEnv, userData })).toBe(60_000)
+      expect(await scanHoldMs({ harness: harnessOn, userData })).toBe(60_000)
     })
   })
 })
@@ -886,7 +861,6 @@ describe('replays module lifecycle', () => {
     // The Windows channel needs no engine pipes, so a play gets as far as `playing` with a fake launch.
     restorePlatform = stubPlatform('win32')
     dir = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-lifecycle-'))
-    userDataBox.current = dir
   })
 
   afterEach(async () => {
@@ -895,7 +869,7 @@ describe('replays module lifecycle', () => {
   })
 
   /** A context whose launch service and main window count the listeners still subscribed. */
-  async function countingContext() {
+  async function countingContext(overrides: Partial<AppContext> = {}) {
     const demosDir = join(dir, 'baseq2', 'demos')
     await mkdir(demosDir, { recursive: true })
     await writeFile(join(demosDir, 'x.dm2'), 'x')
@@ -911,6 +885,7 @@ describe('replays module lifecycle', () => {
     const stateListeners = new Set<unknown>()
     const releaseListeners = new Set<unknown>()
     const playback = { running: false }
+    const launchArgs: string[][] = []
     const windowListeners = new Set<unknown>()
     const subscribe = (set: Set<unknown>) => (listener: unknown) => {
       set.add(listener)
@@ -918,12 +893,16 @@ describe('replays module lifecycle', () => {
     }
     const app = fakeAppContext({
       state,
+      userDataDir: dir,
       installations: installationsOf([installation]),
       launch: {
         isRunning: () => false,
         isPlaybackRunning: () => playback.running,
         terminatePlayback: () => false,
-        start: async () => ok({ phase: 'running', installationId: 'inst-1' }),
+        start: async (input: { extraArgs?: string[] }) => {
+          launchArgs.push(input.extraArgs ?? [])
+          return ok({ phase: 'running', installationId: 'inst-1' })
+        },
         onStateChange: subscribe(stateListeners),
         onBeforePlaybackRelease: subscribe(releaseListeners),
       } as unknown as AppContext['launch'],
@@ -937,18 +916,21 @@ describe('replays module lifecycle', () => {
         isOpen: () => false,
         onClosed: () => () => undefined,
       } as unknown as AppContext['cinemaWindow'],
-      getMainWindow: () => null,
+      ...overrides,
     })
     const live = () => ({
       launchState: stateListeners.size,
       playbackRelease: releaseListeners.size,
       mainWindow: windowListeners.size,
     })
-    return { app, live, playback }
+    return { app, live, playback, launchArgs }
   }
 
   /** Scans, then plays the one demo, so every lazily-taken subscription is live. */
-  async function registerAndPlay(app: AppContext): Promise<MainModuleRegistry> {
+  async function registerAndPlay(
+    app: AppContext,
+    stage?: { x: number; y: number; width: number; height: number },
+  ): Promise<MainModuleRegistry> {
     const registry = new MainModuleRegistry()
     await registry.register(replaysModule, app)
     const invoke = (type: string, payload?: unknown) =>
@@ -967,8 +949,9 @@ describe('replays module lifecycle', () => {
     const played = await invoke(REPLAYS_HANDLERS.demoPlay, {
       demoId: rows[0].id,
       installationId: 'inst-1',
+      stage,
     })
-    expect(played).toEqual({ ok: true, value: { stage: null } })
+    expect(played).toEqual({ ok: true, value: { stage: stage ? { ok: true } : null } })
     return registry
   }
 
@@ -996,5 +979,65 @@ describe('replays module lifecycle', () => {
     expect(live()).toEqual(one)
     await second.disposeAll()
     expect(live()).toEqual(none)
+  })
+
+  /** DIP rect scaled by `scale` - a stand-in for a display's DIP-to-physical conversion. */
+  const scaled = (r: { x: number; y: number; width: number; height: number }, scale: number) => ({
+    x: r.x * scale,
+    y: r.y * scale,
+    width: r.width * scale,
+    height: r.height * scale,
+  })
+  const primaryDisplay = { id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 }, scaleFactor: 2 }
+  /** A mixed-DPI desktop: the main window's display scales by 1.5, the primary display by 2. */
+  const mixedDpiDisplays: AppContext['displays'] = {
+    primary: () => primaryDisplay,
+    all: () => [primaryDisplay],
+    dipToScreenRect: (rect, window) => scaled(rect, window === 'main' ? 1.5 : 2),
+  }
+  const windowOn = (displayId: number): AppContext['mainWindow'] => ({
+    snapshot: () => ({
+      contentBounds: { x: 100, y: 50, width: 1280, height: 800 },
+      bounds: { x: 100, y: 20, width: 1280, height: 830 },
+      zoomFactor: 1.25,
+      displayId,
+      scaleFactor: 1.5,
+      minimized: false,
+      focused: true,
+    }),
+    on: () => () => undefined,
+  })
+
+  it('stage geometry comes from the window snapshot and the displays service', async () => {
+    const { app, launchArgs } = await countingContext({
+      mainWindow: windowOn(1),
+      displays: mixedDpiDisplays,
+    })
+    const registry = await registerAndPlay(app, { x: 10, y: 20, width: 640, height: 360 })
+    // Content origin + css * zoom 1.25 = DIP 112.5,75 800x450, converted at the main window's 1.5.
+    expect(launchArgs).toHaveLength(1)
+    expect(launchArgs[0]).toContain('1200x675+169+113')
+    await registry.disposeAll()
+  })
+
+  it('cinema is unavailable off the primary display', async () => {
+    const { app } = await countingContext({ mainWindow: windowOn(2), displays: mixedDpiDisplays })
+    const registry = new MainModuleRegistry()
+    await registry.register(replaysModule, app)
+    const display = await registry.invoke({
+      moduleId: 'replays',
+      type: REPLAYS_HANDLERS.playbackDisplayRead,
+      payload: {},
+    })
+    expect(display).toMatchObject({
+      ok: true,
+      value: {
+        cinemaAvailability: {
+          available: false,
+          reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
+        },
+      },
+    })
+    await registry.disposeAll()
   })
 })

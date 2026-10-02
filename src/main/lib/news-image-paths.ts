@@ -15,7 +15,7 @@ import { join } from 'node:path'
  * `isSafeNewsImageFileName()` be a single regexp rather than a blocklist.
  *
  * Every builder takes `userDataPath` as a parameter instead of calling `app.getPath('userData')`
- * itself, for the same reason `downloads/paths.ts` does: `image-cache.test.ts` writes real files
+ * itself, for the same reason `lib/net/download-cache-paths.ts` does: `image-cache.test.ts` writes real files
  * under an `mkdtemp` directory with no Electron runtime, and a scattered `app.getPath(...)` call is
  * how a cache path quietly becomes two slightly different cache paths. There is exactly one place
  * here that knows the layout.

@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { app as electronApp, clipboard, screen, shell } from 'electron'
 import {
   REPLAYS_HANDLERS,
   extraFoldersAddSchema,
@@ -36,10 +35,9 @@ import {
 import { timelineActionSchema } from '@shared/replays/timeline'
 import { EMPTY_DEMO_LIST_FILTER, normalizeDemoListFilter } from '@shared/replays/list-filter'
 import { setOrClearListSort } from '../../lib/list-sort'
-import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harness'
-import { userDataDir } from '../../lib/paths'
+import type { UiHarness } from '../../lib/ui-harness'
 import type { MainModule } from '../types'
-import { resolveExtractorPath } from '../downloads/7za-path'
+import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { SESSION_RESTORE_CVARS, createDemoPlay, launcherSweepDirs } from './demo-play'
 import { createDemoRename } from './demo-rename'
 import { sweepLauncherDirs } from './demo-staging'
@@ -47,7 +45,7 @@ import { composeDemoRows } from './demo-rows'
 import { discoverDemos, type DiscoverContext } from './discovery'
 import { appendExtraFolder, removeExtraFolder, resolveExtraFolder } from './extra-folders'
 import { createDemoFileActions } from './file-actions'
-import { ReplaysIndexCache } from './index-cache'
+import { REPLAYS_INDEX_CACHE_FILE, ReplaysIndexCache } from './index-cache'
 import { createCinemaController } from './cinema-controller'
 import { cinemaAvailability, displayGeometry, resolveOnPrimary } from './cinema'
 import { createPlaybackControl } from './playback-control'
@@ -77,34 +75,30 @@ import {
 } from './name-templates'
 
 export interface DiscoveryHomeDirOptions {
-  /** Defaults to `process.env`; a parameter so a test never touches the real environment. */
-  env?: NodeJS.ProcessEnv
-  /** Defaults to `userDataDir()`; a parameter so a test never touches the real userData path. */
-  userData?: string
+  harness: UiHarness
+  userData: string
   /** Defaults to the real `homedir()`; a parameter so a test never reads the real home dir. */
   osHome?: string
 }
 
 /**
  * The home dir `discoverDemos` uses to find Q2PRO's Linux write dir (`~/.q2pro`). Under the UI
- * harness (`isUiHarnessEnabled`) this is redirected to `<userData>/harness-home` - a folder inside
+ * harness (`harness.enabled`) this is redirected to `<userData>/harness-home` - a folder inside
  * the harness's own sandboxed userData dir - so a scripted UI-verification run never scans, and
  * never depends on, whatever happens to exist under the real operator's home directory.
  */
 export function discoveryHomeDir({
-  env = process.env,
-  userData = userDataDir(),
+  harness,
+  userData,
   osHome = homedir(),
-}: DiscoveryHomeDirOptions = {}): string {
-  if (isUiHarnessEnabled({ env, isDev: false })) return join(userData, 'harness-home')
+}: DiscoveryHomeDirOptions): string {
+  if (harness.enabled) return join(userData, 'harness-home')
   return osHome
 }
 
 export interface ScanHoldMsOptions {
-  /** Defaults to `process.env`; a parameter so a test never touches the real environment. */
-  env?: NodeJS.ProcessEnv
-  /** Defaults to `userDataDir()`; a parameter so a test never touches the real userData path. */
-  userData?: string
+  harness: UiHarness
+  userData: string
 }
 
 /** Upper bound `scanHoldMs` clamps a harness-provided value to - twice the harness's own default
@@ -121,11 +115,8 @@ const SCAN_HOLD_MS_MAX = 60_000
  * non-numeric content, zero/negative or non-integer values all read back as `0`. Mirrors
  * `discoveryHomeDir`'s own signature and harness gate exactly.
  */
-export async function scanHoldMs({
-  env = process.env,
-  userData = userDataDir(),
-}: ScanHoldMsOptions = {}): Promise<number> {
-  if (!isUiHarnessEnabled({ env, isDev: false })) return 0
+export async function scanHoldMs({ harness, userData }: ScanHoldMsOptions): Promise<number> {
+  if (!harness.enabled) return 0
   let raw: string
   try {
     raw = await readFile(join(userData, 'harness-replays-scan-hold-ms'), 'utf8')
@@ -169,19 +160,22 @@ export const replaysModule: MainModule = {
   setup({ handle, emit, app, log, onDispose }) {
     const discoveryContext = (): DiscoverContext => {
       const extractor = resolveExtractorPath({
-        isPackaged: electronApp.isPackaged,
+        isPackaged: app.isPackaged,
         resourcesPath: process.resourcesPath,
       })
       return {
         platform: process.platform,
-        homeDir: discoveryHomeDir(),
+        homeDir: discoveryHomeDir({ harness: app.harness, userData: app.userDataDir }),
         zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists },
       }
     }
 
     // Story 144 D3: the index scan service. Everything it reads (installations, extra folders,
     // name templates, launch phase) is read at scan time, never captured here.
-    const replaysIndexCache = new ReplaysIndexCache({ log })
+    const replaysIndexCache = new ReplaysIndexCache({
+      log,
+      filePath: join(app.userDataDir, REPLAYS_INDEX_CACHE_FILE),
+    })
     app.persistence.register('replays-index', replaysIndexCache)
     const scanService = createReplaysScanService({
       emit,
@@ -201,7 +195,7 @@ export const replaysModule: MainModule = {
       // Story 151 D2: the UI-verification harness's scan-hold seam - a no-op outside the harness
       // (`scanHoldMs` answers `0` there, and the sleep is skipped entirely).
       holdAfterDiscovery: async () => {
-        const ms = await scanHoldMs()
+        const ms = await scanHoldMs({ harness: app.harness, userData: app.userDataDir })
         if (ms > 0) await new Promise((resolve) => setTimeout(resolve, ms))
       },
       log,
@@ -220,18 +214,13 @@ export const replaysModule: MainModule = {
     })
 
     // Story 156: the demos.reveal/demos.copyPath actions - reveal/clipboard share the same
-    // resolve-id-then-check-file logic (`file-actions.ts`), and the `reveal` dependency itself
-    // routes through the UI harness gate the same way `app:openExternal` does (`ipc/app.ts`).
+    // resolve-id-then-check-file logic (`file-actions.ts`); `app.os` records a reveal under the UI
+    // harness instead of opening a file manager.
     const demoFileActions = createDemoFileActions({
       resolveFile: (id) => scanService.resolveFile(id),
       stat,
-      writeClipboard: (p) => clipboard.writeText(p),
-      reveal: (p) => {
-        if (isUiHarnessEnabled({ isDev: app.isDev })) {
-          return recordHarnessRevealedPath(p)
-        }
-        shell.showItemInFolder(p)
-      },
+      writeClipboard: (p) => app.os.copyText(p),
+      reveal: (p) => app.os.showItemInFolder(p),
     })
 
     // Story 157: demo rename - id + stem in, main resolves the path and validates the stem itself.
@@ -274,7 +263,7 @@ export const replaysModule: MainModule = {
     // started meanwhile snapshots only after this has run.
     const cvarRestore = createCvarRestore({
       names: SESSION_RESTORE_CVARS,
-      pendingPath: join(userDataDir(), SESSION_CVARS_PENDING_FILE),
+      pendingPath: join(app.userDataDir, SESSION_CVARS_PENDING_FILE),
     })
     void cvarRestore
       .applyPending()
@@ -282,39 +271,32 @@ export const replaysModule: MainModule = {
 
     // Story 170 D2: the stage rect (CSS px) as the engine's physical `vid_geometry`. Story 171 D2: the
     // follower passes the observer's content bounds (the last un-minimized ones) instead of asking.
+    // The DIP rect is converted against the main window ('main'), not the primary display: on a
+    // mixed-DPI desktop the window's own display decides the scale.
     const geometryAt = (rect: StageRect, bounds?: { x: number; y: number }): string | null => {
-      const win = app.getMainWindow()
+      const win = app.mainWindow.snapshot()
       if (!win) return null
-      const contentBounds = bounds ?? win.getContentBounds()
-      const toScreen = (dip: StageRect): StageRect => {
-        if (typeof screen.dipToScreenRect === 'function') return screen.dipToScreenRect(win, dip)
-        const scale = screen.getDisplayMatching(win.getContentBounds()).scaleFactor
-        return {
-          x: dip.x * scale,
-          y: dip.y * scale,
-          width: dip.width * scale,
-          height: dip.height * scale,
-        }
-      }
       return stageGeometry(
         rect,
-        { contentBounds, zoomFactor: win.webContents.getZoomFactor() },
-        toScreen,
+        { contentBounds: bounds ?? win.contentBounds, zoomFactor: win.zoomFactor },
+        (dip) => app.displays.dipToScreenRect(dip, 'main'),
       )
     }
+    const harnessFlag = app.harness.enabled ? '1' : undefined
     const currentStageAvailability = () =>
-      stageAvailability(process.platform, process.env, {
-        Q2L_UI_HARNESS: process.env['Q2L_UI_HARNESS'],
-        Q2L_UI_SESSION_TYPE: process.env['Q2L_UI_SESSION_TYPE'],
+      stageAvailability(process.platform, app.env, {
+        Q2L_UI_HARNESS: harnessFlag,
+        Q2L_UI_SESSION_TYPE: app.harness.read('Q2L_UI_SESSION_TYPE'),
       })
     // Story 187 D5: cinema covers the primary display, so it is offered only while the launcher is on it
     // (`Q2L_UI_CINEMA_DISPLAY` fakes that under the UI harness).
     const onPrimaryDisplay = (): boolean => {
-      const win = app.getMainWindow()
-      const actual = win
-        ? screen.getDisplayMatching(win.getBounds()).id === screen.getPrimaryDisplay().id
-        : true
-      return resolveOnPrimary(actual, process.env)
+      const win = app.mainWindow.snapshot()
+      const actual = win ? win.displayId === app.displays.primary().id : true
+      return resolveOnPrimary(actual, {
+        Q2L_UI_HARNESS: harnessFlag,
+        Q2L_UI_CINEMA_DISPLAY: app.harness.read('Q2L_UI_CINEMA_DISPLAY'),
+      })
     }
     const currentCinemaAvailability = () =>
       cinemaAvailability({
@@ -322,14 +304,8 @@ export const replaysModule: MainModule = {
         onPrimary: onPrimaryDisplay(),
         hasFollower: stageFollow.hasFollower(),
       })
-    const primaryDisplayGeometry = (): string => {
-      const primary = screen.getPrimaryDisplay()
-      if (typeof screen.dipToScreenRect === 'function')
-        return displayGeometry(screen.dipToScreenRect(null, primary.bounds))
-      const s = primary.scaleFactor
-      const b = primary.bounds
-      return displayGeometry({ x: b.x * s, y: b.y * s, width: b.width * s, height: b.height * s })
-    }
+    const primaryDisplayGeometry = (): string =>
+      displayGeometry(app.displays.dipToScreenRect(app.displays.primary().bounds, null))
 
     // Story 171 D2: a follower per placed stage session, fed by the main window's events and
     // `playback.stage`; it parks the game window beyond the virtual desktop's right edge.
@@ -344,11 +320,8 @@ export const replaysModule: MainModule = {
       parkGeometry: (geometry) =>
         parkGeometryAt(
           geometry,
-          virtualDesktopRightEdge(
-            screen.getAllDisplays(),
-            typeof screen.dipToScreenRect === 'function'
-              ? (dip) => screen.dipToScreenRect(null, dip)
-              : undefined,
+          virtualDesktopRightEdge(app.displays.all(), (dip) =>
+            app.displays.dipToScreenRect(dip, null),
           ),
         ),
     })

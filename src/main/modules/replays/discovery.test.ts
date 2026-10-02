@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import type { ReplaysExtraFolder } from '@shared/modules/replays'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ZipDeps } from '../../lib/zip-entries'
-import { resolveExtractorPath } from '../downloads/7za-path'
+import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import type { DiscoverableInstallation } from './discovery'
 import { discoverDemos, effectiveWriteDirs, recogniseDemoFile } from './discovery'
 

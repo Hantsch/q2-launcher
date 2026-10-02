@@ -1,15 +1,14 @@
 import { mkdir, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { app as electronApp } from 'electron'
 import {
   DOWNLOADS_ERROR_KEYS,
   type DownloadsErrorKey,
   type PackageSource,
 } from '@shared/modules/downloads'
-import { resolveExtractorPath } from './7za-path'
-import { extractArchive, markVerified, type ExtractorHandle } from './extractor'
-import { downloadPackage, type DownloadPackageOptions } from './fetcher'
-import { getExtractDir } from './pipeline'
+import { resolveExtractorPath } from '../lib/archive/7za-path'
+import { extractArchive, markVerified, type ExtractorHandle } from '../lib/archive/extractor'
+import { downloadPackage, type DownloadPackageOptions } from '../lib/net/fetcher'
+import { getDownloadsCacheDir } from '../lib/net/download-cache-paths'
 
 /**
  * Story 190 D3: download one package into the downloads cache, verify it, and extract it into a
@@ -44,11 +43,24 @@ export type StagePackageResult =
   | { ok: false; key: DownloadsErrorKey; cancelled: boolean }
 
 /** Production extractor resolution, so callers outside `downloads/` never touch the 7-Zip module. */
-export function resolveVendoredExtractor(): { path: string; exists: boolean } {
+export function resolveVendoredExtractor(isPackaged: boolean): { path: string; exists: boolean } {
   return resolveExtractorPath({
-    isPackaged: electronApp.isPackaged,
+    isPackaged,
     resourcesPath: process.resourcesPath,
   })
+}
+
+/** Directory segment under the downloads cache that holds one directory per job. */
+export const EXTRACT_SEGMENT = 'extract'
+
+/** Job ids are `randomUUID()`s from main; the guard keeps a future caller-supplied id out of the
+ * path anyway - the same "refuse, do not sanitise" stance `download-cache-paths.ts` takes for a file name. */
+const SAFE_JOB_ID = /^[A-Za-z0-9_-]{1,64}$/
+
+/** `userData/cache/downloads/extract/<jobId>` (Decisions (Sprint), "Paths"). */
+export function getExtractDir(userDataPath: string, jobId: string): string {
+  if (!SAFE_JOB_ID.test(jobId)) throw new Error(`refused job id ${JSON.stringify(jobId)}`)
+  return join(getDownloadsCacheDir(userDataPath), EXTRACT_SEGMENT, jobId)
 }
 
 function asErrorKey(key: string): DownloadsErrorKey {

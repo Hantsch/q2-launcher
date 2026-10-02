@@ -1,6 +1,6 @@
 import type { EngineUpdateChannel, EngineUpdateStatus } from '@shared/modules/downloads'
 import type { EngineKind } from '@shared/types/engine'
-import type { InstallationEngineState } from './installation-state'
+import type { InstallationEngineState } from '../../../services/engine-state'
 
 /**
  * Story 092 D3 (AC1): the update-check half of `EngineUpdateStatus` - pure comparison, no I/O.

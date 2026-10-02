@@ -3,7 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 /**
  * Story 143 D1: a bounded, read-only zip reader over the vendored 7-Zip.
  *
- * Spawn pattern mirrors `src/main/modules/downloads/extractor.ts`: arguments as an array,
+ * Spawn pattern mirrors `src/main/lib/archive/extractor.ts`: arguments as an array,
  * `shell: false`, `windowsHide: true`, stdin ignored, and the extractor path resolved once by the
  * caller (`resolveExtractorPath()` in `7za-path.ts`) and handed in as plain data.
  *

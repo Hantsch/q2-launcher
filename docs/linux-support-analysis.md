@@ -88,7 +88,7 @@ run in CI/sandboxes only, and neither has exercised an actual wine or umu-run la
 
 ### B2 — `7za.exe` is hardcoded
 
-`BINARY_NAME = '7za.exe'` in `src/main/modules/downloads/7za-path.ts`, the `extraResources` filter
+`BINARY_NAME = '7za.exe'` in `src/main/lib/archive/7za-path.ts`, the `extraResources` filter
 in `electron-builder.yml`, and `scripts/fetch-7za.mjs` all vendor the Windows binary only.
 
 7-Zip publishes official Linux console binaries (verified 2026-09-21, v26.03):

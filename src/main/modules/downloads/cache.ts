@@ -1,8 +1,12 @@
 import { readdir, stat, unlink } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import type { ArchiveCacheStatus, ClearArchiveCacheResult } from '@shared/modules/downloads'
-import { getDownloadsCacheDir, isSafeDownloadFileName, PART_SUFFIX } from './paths'
-import { MANIFEST_CACHE_FILE_NAME } from './manifest-service'
+import {
+  getDownloadsCacheDir,
+  isSafeDownloadFileName,
+  PART_SUFFIX,
+} from '../../lib/net/download-cache-paths'
+import { MANIFEST_CACHE_FILE_NAME } from '../../services/content/manifest-service'
 
 /**
  * The archive cache - story 072 D3 (AC3, AC4, AC5, AC6).
@@ -19,7 +23,7 @@ import { MANIFEST_CACHE_FILE_NAME } from './manifest-service'
  *    "`clearCache` deletes only evictable entries ... so AC4's stated size/count and the actual
  *    deletion cannot disagree").
  *
- * Layout and path safety are not re-implemented here: `./paths.ts` (story 071 D2) already owns
+ * Layout and path safety are not re-implemented here: `download-cache-paths.ts` (story 071 D2) already owns
  * `userData/cache/downloads`, the `.part` suffix and the refuse-unless-boring file-name check.
  * `src/main/lib/paths.ts` is deliberately left untouched - its `userDataDir()` is what the module
  * already passes in as `userDataPath` (`./index.ts:90`), and a second `downloadsCacheDir()` there
@@ -73,14 +77,14 @@ export interface EnforceBudgetInput extends CacheFsInput {
  *
  *  - **`*.part`** - an in-flight, unverified download. Deleting one eats the archive of a running
  *    job, which is the exact failure this whole file is careful about. Note that the suffix comes
- *    from `./paths.ts` rather than a literal, so the two halves cannot drift apart.
+ *    from `download-cache-paths.ts` rather than a literal, so the two halves cannot drift apart.
  *  - **the manifest cache file** - `./manifest-service.ts` stores its offline-fallback manifest at
  *    the same `userData/cache/downloads/` directory (`MANIFEST_CACHE_FILE_NAME`), and its name
  *    passes `isSafeDownloadFileName()` like any other boring name. It is not an archive the download
  *    pipeline wrote, so it must never be counted or deleted here - doing so would destroy the exact
  *    offline fallback `ManifestUnavailableError` exists to prevent losing.
  *  - **anything the download pipeline could not have written** - `isSafeDownloadFileName()` is the
- *    gate every path builder in `./paths.ts` passes before a byte is written, so a name it rejects
+ *    gate every path builder in `download-cache-paths.ts` passes before a byte is written, so a name it rejects
  *    was put there by something else (a stray `.tmp`, a user's own copy). We do not know what it
  *    is, therefore we do not delete it.
  *

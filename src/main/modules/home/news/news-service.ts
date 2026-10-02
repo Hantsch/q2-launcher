@@ -1,6 +1,6 @@
 import type { NewsFeed, NewsSlide } from '@shared/modules/home'
 import { userDataDir } from '../../../lib/paths'
-import type { UiHarnessGateInput } from '../../../lib/ui-harness'
+import type { UiHarness } from '../../../lib/ui-harness'
 import { resolveFeedImages } from '../images/resolve-feed-images'
 import { resolveNewsSource } from './harness'
 import { filterAndSortSlides, resolveFeed } from './feed-pipeline'
@@ -55,12 +55,10 @@ interface NewsServiceState extends NewsFeedCacheData {
 const NEVER_RETRIEVED = new Date(0).toISOString()
 
 export interface NewsServiceOptions {
-  /** `AppContext.isDev` - see `resolveNewsSource()`/`isUiHarnessEnabled()`. */
-  isDev: boolean
+  /** `AppContext.harness` - decides the fetch source, see `resolveNewsSource()`. */
+  harness: UiHarness
   /** Where the lazily built default cache registers itself so shutdown can settle it. */
   persistence?: PersistenceRegistry
-  /** Defaults to `process.env`; a parameter so tests never touch the real one. */
-  env?: NodeJS.ProcessEnv
   log: NewsServiceLog
   /** Called only when a refresh delivers a feed whose content differs from what was last
    * delivered (AC9). Never called for an `unchanged` fetch result, a `failed`/`skipped` one, or a
@@ -189,10 +187,6 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
     return state
   }
 
-  function gateInput(): UiHarnessGateInput {
-    return { isDev: options.isDev, ...(options.env !== undefined ? { env: options.env } : {}) }
-  }
-
   async function getNews(): Promise<NewsFeed> {
     const current = await ensureLoaded()
     return deliver(current, now())
@@ -200,7 +194,7 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
 
   async function refreshNews(): Promise<NewsFeed> {
     const before = await ensureLoaded()
-    const source = resolveNewsSource(gateInput())
+    const source = resolveNewsSource(options.harness)
 
     if (source.kind === 'skip') {
       // AC10/D4: no request at all when the harness gate is open but names no fixture base.

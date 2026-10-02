@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { MasterSource } from '@shared/modules/servers'
 import { MASTER_REPLY_HEADER, masterSourceFailureKey } from '@shared/servers/master-records'
-import type { FetchImpl } from '../downloads/fetcher'
+import type { FetchImpl } from '../../lib/net/fetcher'
 import { resolveSources, type ResolveSourcesDeps } from './source-resolution'
 import type { MasterUdpImpl } from './udp-master-source'
 

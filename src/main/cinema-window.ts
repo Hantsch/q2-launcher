@@ -1,14 +1,8 @@
 import { BrowserWindow, screen } from 'electron'
 import { scopedLogger } from './lib/logger'
-import { rendererCinemaUrl } from './lib/renderer-source'
-import {
-  hardenWebContents,
-  IS_UI_HARNESS,
-  IS_UI_HARNESS_OFFSCREEN,
-  OFFSCREEN_MARGIN,
-  RENDERER_SOURCE,
-  rendererWebPreferences,
-} from './window-shared'
+import type { UiHarness } from './lib/ui-harness'
+import { rendererCinemaUrl, type RendererSource } from './lib/renderer-source'
+import { hardenWebContents, OFFSCREEN_MARGIN, rendererWebPreferences } from './window-shared'
 
 const log = scopedLogger('cinema-window')
 
@@ -27,7 +21,10 @@ export interface CinemaWindow {
   onClosed: (cb: () => void) => () => void
 }
 
-export function createCinemaWindow(): CinemaWindow {
+export function createCinemaWindow(
+  harness: UiHarness,
+  rendererSource: RendererSource,
+): CinemaWindow {
   let window: BrowserWindow | null = null
   const listeners = new Set<() => void>()
 
@@ -38,7 +35,7 @@ export function createCinemaWindow(): CinemaWindow {
     const displays = screen.getAllDisplays()
     const bounds = screen.getPrimaryDisplay().bounds
     // Harness: placed left of every display, same size, so a run never covers the desktop.
-    const position = IS_UI_HARNESS_OFFSCREEN
+    const position = harness.offscreen
       ? {
           x:
             Math.min(...displays.map((display) => display.bounds.x)) -
@@ -60,12 +57,12 @@ export function createCinemaWindow(): CinemaWindow {
       skipTaskbar: true,
       show: false,
       // Harness: painted but never activated, like the main window.
-      ...(IS_UI_HARNESS ? { focusable: false } : {}),
-      webPreferences: rendererWebPreferences(),
+      ...(harness.enabled ? { focusable: false } : {}),
+      webPreferences: rendererWebPreferences(harness),
     })
     window = created
     created.setAlwaysOnTop(true, 'screen-saver')
-    hardenWebContents(created)
+    hardenWebContents(created, rendererSource)
 
     created.on('closed', () => {
       if (window === created) window = null
@@ -80,12 +77,12 @@ export function createCinemaWindow(): CinemaWindow {
 
     created.once('ready-to-show', () => {
       if (created.isDestroyed()) return
-      if (IS_UI_HARNESS) created.showInactive()
+      if (harness.enabled) created.showInactive()
       else created.show()
     })
 
     try {
-      await created.loadURL(rendererCinemaUrl(RENDERER_SOURCE))
+      await created.loadURL(rendererCinemaUrl(rendererSource))
     } catch (error) {
       // A page that never loaded must not stay up as an always-on-top blank overlay.
       if (!created.isDestroyed()) created.close()

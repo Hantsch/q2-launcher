@@ -5,6 +5,7 @@ import type { NewsFeed } from '@shared/modules/home'
 import type { NewsFeedCacheData } from './feed-cache'
 import type { FetchNewsResult } from './feed-fetcher'
 import type { PersistenceRegistry } from '../../../services/persistence'
+import { resolveUiHarness } from '../../../lib/ui-harness'
 import { createNewsService, type NewsServiceLog } from './news-service'
 
 vi.mock('./feed-cache', () => ({
@@ -83,7 +84,7 @@ describe('news-service source', () => {
     try {
       const fetchDocuments = vi.fn(async (): Promise<FetchNewsResult> => changedResult())
       const service = createNewsService({
-        isDev: false,
+        harness: resolveUiHarness({}),
         userDataPath: TEST_USER_DATA_PATH,
         log: fakeLog(),
         onChanged: vi.fn(),
@@ -119,7 +120,7 @@ describe('news-service: cold start', () => {
   it('no cache yet, no network attempted: an empty feed, not an error', async () => {
     const cache = fakeCache()
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
@@ -149,7 +150,7 @@ describe('news-service: AC7 a failed refresh delivers the cached feed with its r
       } satisfies FetchNewsResult)
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged,
@@ -186,7 +187,7 @@ describe('news-service: AC9 change detection', () => {
       )
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged,
@@ -213,7 +214,7 @@ describe('news-service: AC9 change detection', () => {
       .mockResolvedValueOnce({ kind: 'unchanged', etags: {} } satisfies FetchNewsResult)
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged,
@@ -262,7 +263,7 @@ describe('news-service: delivery-time visibility re-filter', () => {
     })
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
@@ -297,7 +298,7 @@ describe('news-service: a not-yet-visible cached slide surfaces once now catches
     )
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
@@ -315,7 +316,7 @@ describe('news-service: a not-yet-visible cached slide surfaces once now catches
     // with no fetch in between - a fresh in-memory instance reading the same on-disk cache is the
     // cleanest way to prove this without any in-process state helping it along).
     const laterService = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
@@ -352,7 +353,7 @@ describe('news-service: getNews() delivery-time sort', () => {
     )
 
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       userDataPath: TEST_USER_DATA_PATH,
       log: fakeLog(),
       onChanged: vi.fn(),
@@ -372,7 +373,7 @@ describe('news-service: persistence', () => {
     const labels: string[] = []
     const persistence = { register: (label: string) => void labels.push(label) }
     const service = createNewsService({
-      isDev: false,
+      harness: resolveUiHarness({}),
       persistence: persistence as unknown as PersistenceRegistry,
       log: fakeLog(),
       onChanged: () => {},

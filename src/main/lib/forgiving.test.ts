@@ -154,7 +154,7 @@ describe('module row loops', () => {
     const files = [
       'src/main/modules/mods/install-records.ts',
       'src/main/modules/mods/catalog-parse.ts',
-      'src/main/modules/downloads/manifest-parse.ts',
+      'src/main/services/content/manifest-parse.ts',
     ]
     for (const file of files) {
       const source = readFileSync(resolve(process.cwd(), file), 'utf8')

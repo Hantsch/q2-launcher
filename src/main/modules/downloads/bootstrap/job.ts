@@ -35,11 +35,11 @@ import { canonicalizePath } from '../../../lib/fs-utils'
 import type { CreateJobInput } from '../../../services/jobs'
 import { isWriteCancelled } from '../../../services/write-guard'
 import { EXTRACTION_LISTING_CAP } from '../diagnostics'
-import { markVerified, type ExtractorHandle } from '../extractor'
-import type { FetchImpl } from '../fetcher'
-import type { InstallationEngineState } from '../engine/installation-state'
-import { isSafeDownloadFileName } from '../paths'
-import { getExtractDir } from '../pipeline'
+import { markVerified, type ExtractorHandle } from '../../../lib/archive/extractor'
+import type { FetchImpl } from '../../../lib/net/fetcher'
+import type { InstallationEngineState } from '../../../services/engine-state'
+import { isSafeDownloadFileName } from '../../../lib/net/download-cache-paths'
+import { getExtractDir } from '../../../services/package-staging'
 import {
   assembleInstallation,
   type AssembleEntryResult,
@@ -250,7 +250,7 @@ export const PLAYABLE_AT_RATIO = ASSEMBLE_CORE_RATIO
 const ASSEMBLE_AUX_RATIO = 0.97
 
 /**
- * A single, boring path segment - the shape `paths.ts` demands of a download file name, applied
+ * A single, boring path segment - the shape `download-cache-paths.ts` demands of a download file name, applied
  * here to the directory segments built from a job id (a `randomUUID()`) and a `ManifestPackage.id`
  * (foreign content, straight out of a manifest fetched off the internet). Refused, never
  * sanitised.
@@ -439,6 +439,8 @@ export interface BootstrapDeps {
    * only through this port, never imported directly, so the job can be tested with fakes.
    */
   r1q2Setup: R1q2SetupPort
+  /** `AppContext.env`, for the target verdict's `ProgramFiles` check. */
+  env: NodeJS.ProcessEnv
   /**
    * Story 080 finding fix: `resolveR1q2LicensePath(...)` (`r1q2-setup.ts`), called right before
    * `r1q2Setup.installR1q2Notices` - the same "resolved per call with the real `electron.app`, only
@@ -482,7 +484,7 @@ export function getBootstrapExtractDir(
 /**
  * The `PackageSource` (`fetcher.ts`'s own minimal input type) for a manifest package. The file name
  * is the URL's last path segment, and it is *refused* rather than sanitised when it is not a single
- * safe segment - `paths.ts` would refuse it a moment later anyway, and refusing here means the
+ * safe segment - `download-cache-paths.ts` would refuse it a moment later anyway, and refusing here means the
  * refusal happens before anything is created.
  */
 export function toPackageSource(pkg: ManifestPackage): PackageSource | undefined {
@@ -817,7 +819,7 @@ export async function startBootstrap(
     dataSource === 'existing-folder' ? false : input.includeVideoAndPlayers
   // 1. The renderer's path, re-judged in main. `computeTargetVerdict` is the same function the
   // wizard's target step rendered, so main and the UI cannot disagree about this folder.
-  const verdict = await computeTargetVerdict(input.targetPath)
+  const verdict = await computeTargetVerdict(input.targetPath, { env: deps.env })
   if (verdict.blocked) {
     log?.warn(`bootstrap refused ${input.targetPath}: ${verdict.blockedReason ?? 'blocked'}`)
     return fail(TARGET_BLOCKED_KEY, { reason: verdict.blockedReason ?? 'unsafePath' })

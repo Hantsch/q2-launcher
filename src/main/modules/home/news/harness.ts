@@ -1,13 +1,12 @@
 import {
   HARNESS_CONTENT_REPO_BASE_ENV,
-  isUiHarnessEnabled,
   parseHarnessBaseUrl,
-  type UiHarnessGateInput,
+  type UiHarness,
 } from '../../../lib/ui-harness'
 
 /**
- * Story 082 D4: the news half of the same gated backdoor `downloads/harness.ts` already has (story
- * 074 D8). The gate itself (`isUiHarnessEnabled`) and the env var / loopback-base parser
+ * Story 082 D4: the news half of the same gated backdoor `services/content/source.ts` already has (story
+ * 074 D8). The gate itself (`UiHarness.enabled`) and the env var / loopback-base parser
  * (`HARNESS_CONTENT_REPO_BASE_ENV`, `parseHarnessBaseUrl`) live in `src/main/lib/ui-harness.ts` so
  * this file reuses them without importing from the `downloads` module.
  *
@@ -38,11 +37,10 @@ export type NewsSource =
  *  - gate open but the env var is unset, malformed, or names a non-loopback host: `skip` - never
  *    production, unlike downloads. See the file header for why.
  */
-export function resolveNewsSource(input: UiHarnessGateInput): NewsSource {
-  if (!isUiHarnessEnabled(input)) return { kind: 'production' }
+export function resolveNewsSource(harness: UiHarness): NewsSource {
+  if (!harness.enabled) return { kind: 'production' }
 
-  const env = input.env ?? process.env
-  const base = parseHarnessBaseUrl(env[HARNESS_CONTENT_REPO_BASE_ENV])
+  const base = parseHarnessBaseUrl(harness.read(HARNESS_CONTENT_REPO_BASE_ENV))
   if (base === undefined) return { kind: 'skip' }
 
   return { kind: 'loopback', base }

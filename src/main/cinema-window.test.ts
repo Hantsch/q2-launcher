@@ -42,7 +42,9 @@ async function load(harness: boolean) {
   else delete process.env['Q2L_UI_HARNESS']
   const { createCinemaWindow } = await import('./cinema-window')
   const { rendererWebPreferences } = await import('./window-shared')
-  return { service: createCinemaWindow(), rendererWebPreferences }
+  const { resolveUiHarness } = await import('./lib/ui-harness')
+  const harnessGate = resolveUiHarness(process.env)
+  return { service: createCinemaWindow(harnessGate, { kind: 'scheme' }), rendererWebPreferences, harnessGate }
 }
 
 describe('cinema window', () => {
@@ -51,11 +53,11 @@ describe('cinema window', () => {
   })
 
   it("the overlay window uses the main window's preload and webPreferences", async () => {
-    const { service, rendererWebPreferences } = await load(false)
+    const { service, rendererWebPreferences, harnessGate } = await load(false)
     await service.open()
 
     const { options, win } = created[0]!
-    expect(options['webPreferences']).toEqual(rendererWebPreferences())
+    expect(options['webPreferences']).toEqual(rendererWebPreferences(harnessGate))
     expect(options['webPreferences']).toMatchObject({
       contextIsolation: true,
       sandbox: true,

@@ -8,7 +8,7 @@ import {
   ensureDownloadsCacheDir,
   getFinalPath,
   getPartPath,
-} from './paths'
+} from './download-cache-paths'
 import { verifyAndPromote } from './verify'
 
 /**
@@ -84,7 +84,7 @@ export interface DownloadProgress {
 }
 
 export interface DownloadPackageOptions {
-  /** Root of the launcher's user data; the cache directory is built from it (`paths.ts`). */
+  /** Root of the launcher's user data; the cache directory is built from it (`download-cache-paths.ts`). */
   userDataPath: string
   fetchImpl?: FetchImpl
   headersTimeoutMs?: number
@@ -425,7 +425,7 @@ export async function downloadPackage(
   let finalPath: string
   try {
     // A `fileName` originates in a manifest fetched off the internet, so the path it would build
-    // is refused rather than sanitised (`paths.ts`). Nothing is requested if it is not a name.
+    // is refused rather than sanitised (`download-cache-paths.ts`). Nothing is requested if it is not a name.
     finalPath = getFinalPath(options.userDataPath, source.fileName)
     partPath = getPartPath(options.userDataPath, source.fileName)
     await ensureDownloadsCacheDir(options.userDataPath)

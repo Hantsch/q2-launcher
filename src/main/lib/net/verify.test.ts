@@ -3,8 +3,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { pathExists } from '../../lib/fs-utils'
-import { PART_SUFFIX } from './paths'
+import { pathExists } from '../fs-utils'
+import { PART_SUFFIX } from './download-cache-paths'
 import { verifyAndPromote } from './verify'
 
 /**

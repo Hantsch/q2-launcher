@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import type { DiscoveredDemo } from '@shared/modules/replays'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ZipDeps } from '../../lib/zip-entries'
-import { resolveExtractorPath } from '../downloads/7za-path'
+import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { removeStagedCopy, stageDemo, stagedFileName, sweepLauncherDirs } from './demo-staging'
 
 const NO_ZIP: ZipDeps = { extractorPath: 'unused', extractorExists: false }

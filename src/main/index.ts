@@ -13,7 +13,7 @@ import {
   RENDERER_INDEX_URL,
   RENDERER_SCHEME,
   createRendererProtocolHandler,
-  resolveRendererSource,
+  rendererSourceFromEnv,
   type RendererSource,
 } from './lib/renderer-source'
 import { getNewsImagesCacheDir } from './lib/news-image-paths'
@@ -49,6 +49,7 @@ protocol.registerSchemesAsPrivileged([
  * Windows occlusion tracking would then treat it as hidden and stop painting it, which stalls
  * screenshots - so the harness turns it off. Must be set before `ready`, hence module load.
  */
+// exempt: runs before `createAppContext`
 if (process.env['Q2L_UI_HARNESS'] === '1' && process.env['Q2L_UI_VISIBLE'] !== '1') {
   app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion')
 }
@@ -93,8 +94,22 @@ async function bootstrap(): Promise<void> {
   // Story 171 D2: the window's events reach modules through `context.mainWindow` (read-only);
   // `createMainWindow` gets the write side. Same late binding over `mainWindow` as below.
   const windowEvents = createMainWindowEvents({
-    getWindow: () => mainWindow?.window ?? null,
-    scaleFactorFor: (bounds) => screen.getDisplayMatching(bounds).scaleFactor,
+    getWindow: () => {
+      const win = mainWindow?.window
+      if (!win) return null
+      return {
+        isDestroyed: () => win.isDestroyed(),
+        getContentBounds: () => win.getContentBounds(),
+        getBounds: () => win.getBounds(),
+        getZoomFactor: () => win.webContents.getZoomFactor(),
+        isMinimized: () => win.isMinimized(),
+        isFocused: () => win.isFocused(),
+      }
+    },
+    displayFor: (bounds) => {
+      const { id, scaleFactor } = screen.getDisplayMatching(bounds)
+      return { id, scaleFactor }
+    },
     onListenerError: (error) => logger.warn(`main window listener failed: ${String(error)}`),
   })
   context = await createAppContext({
@@ -104,7 +119,8 @@ async function bootstrap(): Promise<void> {
     // than capturing today's (still-null) value.
     getMainWindow: () => mainWindow?.window ?? null,
     mainWindow: windowEvents.observer,
-    cinemaWindow: createCinemaWindow(),
+    screen,
+    createCinemaWindow,
   })
   registerAllIpc(context)
   mainWindow = await createMainWindow(context, windowEvents.notify)
@@ -168,8 +184,7 @@ async function revalidateOnStartup(app: AppContext): Promise<void> {
  * `window.ts` derives the same value from the same function; it is pure, so the two agree.
  */
 function currentRendererSource(): RendererSource {
-  const devServerUrl = process.env['ELECTRON_RENDERER_URL']
-  return resolveRendererSource({ isDev: Boolean(devServerUrl), devServerUrl })
+  return rendererSourceFromEnv(process.env)
 }
 
 /**

@@ -1,6 +1,6 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { findRepoRoot } from '../7za-path'
+import { findRepoRoot } from '../../../lib/archive/7za-path'
 import type { BootstrapLog } from './ports'
 
 /**
@@ -22,12 +22,14 @@ import type { BootstrapLog } from './ports'
  */
 export async function probeX86Runtime(deps: {
   fileExists: (path: string) => Promise<boolean>
+  /** `AppContext.env`; only `SystemRoot` is read. */
+  env: NodeJS.ProcessEnv
 }): Promise<boolean> {
   // Story 100 D6 (AC6): R1Q2 is Windows-only - D5 already keeps it from ever being pinned/offered
   // off Windows, but this is a belt-and-braces guard so the probe is a hard no-op even if called
   // directly. `vcruntime140.dll` is a Windows concept; there is nothing to probe for elsewhere.
   if (process.platform !== 'win32') return false
-  const systemRoot = process.env.SystemRoot ?? 'C:\\Windows'
+  const systemRoot = deps.env['SystemRoot'] ?? 'C:\\Windows'
   const candidates = [
     join(systemRoot, 'SysWOW64', 'vcruntime140.dll'),
     join(systemRoot, 'System32', 'vcruntime140.dll'),
@@ -74,7 +76,7 @@ export async function seedR1glConfig(targetRoot: string): Promise<void> {
 
 /**
  * Story 080 finding fix: resolves the absolute path to the checked-in R1Q2 GPL-3.0.txt license
- * text, mirroring `resolveExtractorPath`'s exact shape (`../7za-path.ts`) - the earlier
+ * text, mirroring `resolveExtractorPath`'s exact shape (`lib/archive/7za-path.ts`) - the earlier
  * `DEFAULT_LICENSE_SOURCE` hardcoded an absolute path on the author's own machine, which does not
  * exist on any other checkout, packaged build, or CI, so `installR1q2Notices` threw ENOENT
  * everywhere else and AC8's license notice was silently never installed for a real user.

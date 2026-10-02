@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { RETAIL_PAK_SIZES } from '@shared/constants'
 import type { DetectedInstallation, DetectionResult } from '@shared/types'
 import type { AppContext } from '../../../context'
+import { fakeAppContext } from '../../../../test-support/app-context'
+import { resolveUiHarness, UI_HARNESS_ENV, type UiHarness } from '../../../lib/ui-harness'
 import { HARNESS_STORE_SOURCES_ENV } from '../harness'
 import { detectedRetailSourcesFor } from './sources'
 
@@ -16,8 +18,6 @@ import { detectedRetailSourcesFor } from './sources'
  * `AppContext.detection` (the real module seam a handler is given, not a hand-built fake), and only
  * `steam`/`gog`/`epic` candidates - each carrying its store and its path - come out the other end.
  */
-
-const UI_HARNESS_ENV = 'Q2L_UI_HARNESS'
 
 let dir: string
 
@@ -49,11 +49,11 @@ function candidate(
   }
 }
 
-function fakeAppWithScan(result: DetectionResult): AppContext {
-  return {
-    isDev: false,
-    detection: { scan: async () => result },
-  } as unknown as AppContext
+function fakeAppWithScan(
+  result: DetectionResult,
+  harness: UiHarness = resolveUiHarness({}),
+): AppContext {
+  return fakeAppContext({ harness, detection: { scan: async () => result } as never })
 }
 
 describe('detectedRetailSourcesFor', () => {
@@ -91,75 +91,43 @@ describe('detectedRetailSourcesFor', () => {
     }
   })
 
-  it('packaged (isDev false) with Q2L_UI_HARNESS=1: the fixture override is used, not the real scan', async () => {
-    // Story 101 F3: the gate dropped its `isDev` requirement on purpose - the harness's CI job
-    // drives a real packaged AppImage, where `isDev` is always `false`, and needs this override
-    // reachable there. `isDev false` with the env var unset (the case above) still runs the real
-    // scan; this proves the env var alone is now sufficient.
-    const steamRoot = join(dir, 'steam')
-    const baseq2 = join(steamRoot, 'baseq2')
-    await mkdir(baseq2, { recursive: true })
-    await writePakOfSize(baseq2, 'pak0.pak', RETAIL_PAK_SIZES['pak0.pak'])
-    await writePakOfSize(baseq2, 'pak1.pak', RETAIL_PAK_SIZES['pak1.pak'])
+  it('with Q2L_UI_HARNESS=1 the fixture override is used, not the real scan', async () => {
+    const harness = resolveUiHarness({
+      [UI_HARNESS_ENV]: '1',
+      [HARNESS_STORE_SOURCES_ENV]: JSON.stringify([
+        { source: 'gog', rootPath: 'C:\fixture-only', inspection: {} },
+      ]),
+    })
+    const app = fakeAppWithScan(
+      {
+        scanId: 'scan-1',
+        cancelled: false,
+        durationMs: 1,
+        candidates: [candidate({ source: 'steam', rootPath: join(dir, 'steam') })],
+      },
+      harness,
+    )
 
-    const previousHarness = process.env[UI_HARNESS_ENV]
-    const previousFixture = process.env[HARNESS_STORE_SOURCES_ENV]
-    process.env[UI_HARNESS_ENV] = '1'
-    process.env[HARNESS_STORE_SOURCES_ENV] = JSON.stringify([
-      { source: 'gog', rootPath: 'C:\\fixture-only', inspection: {} },
-    ])
-    try {
-      const app: AppContext = {
-        isDev: false,
-        detection: {
-          scan: async () => ({
-            scanId: 'scan-1',
-            cancelled: false,
-            durationMs: 1,
-            candidates: [candidate({ source: 'steam', rootPath: steamRoot })],
-          }),
-        },
-      } as unknown as AppContext
+    const result = await detectedRetailSourcesFor(app)
 
-      const result = await detectedRetailSourcesFor(app)
-
-      expect(result.map((entry) => entry.source)).toEqual(['gog'])
-    } finally {
-      if (previousHarness === undefined) delete process.env[UI_HARNESS_ENV]
-      else process.env[UI_HARNESS_ENV] = previousHarness
-      if (previousFixture === undefined) delete process.env[HARNESS_STORE_SOURCES_ENV]
-      else process.env[HARNESS_STORE_SOURCES_ENV] = previousFixture
-    }
+    expect(result.map((entry) => entry.source)).toEqual(['gog'])
   })
 
-  it('packaged (isDev false) with Q2L_UI_HARNESS unset: the real scan still runs', async () => {
+  it('with Q2L_UI_HARNESS unset the real scan still runs', async () => {
     const steamRoot = join(dir, 'steam')
     const baseq2 = join(steamRoot, 'baseq2')
     await mkdir(baseq2, { recursive: true })
     await writePakOfSize(baseq2, 'pak0.pak', RETAIL_PAK_SIZES['pak0.pak'])
     await writePakOfSize(baseq2, 'pak1.pak', RETAIL_PAK_SIZES['pak1.pak'])
+    const app = fakeAppWithScan({
+      scanId: 'scan-1',
+      cancelled: false,
+      durationMs: 1,
+      candidates: [candidate({ source: 'steam', rootPath: steamRoot })],
+    })
 
-    const previousHarness = process.env[UI_HARNESS_ENV]
-    delete process.env[UI_HARNESS_ENV]
-    try {
-      const app: AppContext = {
-        isDev: false,
-        detection: {
-          scan: async () => ({
-            scanId: 'scan-1',
-            cancelled: false,
-            durationMs: 1,
-            candidates: [candidate({ source: 'steam', rootPath: steamRoot })],
-          }),
-        },
-      } as unknown as AppContext
+    const result = await detectedRetailSourcesFor(app)
 
-      const result = await detectedRetailSourcesFor(app)
-
-      expect(result.map((entry) => entry.source)).toEqual(['steam'])
-    } finally {
-      if (previousHarness === undefined) delete process.env[UI_HARNESS_ENV]
-      else process.env[UI_HARNESS_ENV] = previousHarness
-    }
+    expect(result.map((entry) => entry.source)).toEqual(['steam'])
   })
 })

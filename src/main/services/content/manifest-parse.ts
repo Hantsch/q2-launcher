@@ -8,7 +8,7 @@ import {
   manifestPackageSchema,
   type ManifestPinnedEntry,
   type PlatformTaggedManifestPackage,
-} from './schemas'
+} from './manifest-schemas'
 
 /**
  * The pure, main-process manifest parser (story 070 D1). Takes the already

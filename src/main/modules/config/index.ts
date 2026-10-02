@@ -1,6 +1,5 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { shell } from 'electron'
 import {
   CONFIG_HANDLERS,
   type CleanupApplyResult,
@@ -1691,7 +1690,7 @@ export const configModule: MainModule = {
      *    the same exact-sentinel rule `canonical.ts` uses before it renames or
      *    deletes anything, applied here before handing a path to the OS.
      *
-     * Only then is `shell` touched at all.
+     * Only then is the OS touched at all.
      */
     handle(CONFIG_HANDLERS.openFile, openFileInputSchema, async (input): Promise<Outcome<null>> => {
       const { profileId, installationId, mode } = input
@@ -1724,7 +1723,7 @@ export const configModule: MainModule = {
       // `readExisting` is the write pipeline's own ENOENT-only-swallowed read,
       // so "missing" means the same thing here as it does to `rawFiles`. A read
       // that fails for any OTHER reason propagates and the registry turns it
-      // into a failed outcome - which is the right direction: no `shell` call
+      // into a failed outcome - which is the right direction: no OS call
       // happens on a file we could not verify.
       const content = await readExisting(path)
       if (content === null) return fail('config.error.fileNotFound')
@@ -1733,12 +1732,12 @@ export const configModule: MainModule = {
       }
 
       if (mode === 'open') {
-        const error = await shell.openPath(path)
+        const error = await app.os.openPath(path)
         return error ? fail('config.error.openFailed', { message: error }) : ok(null)
       }
       // No error signal to surface - `showItemInFolder` returns void, same as
       // `app:revealPath`'s own reveal branch.
-      shell.showItemInFolder(path)
+      await app.os.showItemInFolder(path)
       return ok(null)
     })
 

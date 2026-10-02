@@ -37,7 +37,7 @@
 // flow already uses (`Q2L_UI_HARNESS === '1' && isDev`, `src/main/lib/ui-harness.ts`):
 //
 //   Q2L_UI_CONTENT_REPO_BASE  the manifest/package base URL (`resolveDownloadSource()`,
-//                             `src/main/modules/downloads/harness.ts`). Refused unless it names a
+//                             `src/main/services/content/source.ts`). Refused unless it names a
 //                             `127.0.0.1` origin.
 //
 // The fixture server (`startBootstrapFixtureServer()`) serves `/engines/manifest.json` pinning the

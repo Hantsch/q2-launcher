@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readEngineState, writeEngineState } from './installation-state'
+import { readEngineState, writeEngineState } from './engine-state'
 
 /**
  * Story 092 D2: `readEngineState`/`writeEngineState` - the defensive parser/merger

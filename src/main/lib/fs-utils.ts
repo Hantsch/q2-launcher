@@ -1,5 +1,16 @@
 import { constants as FS } from 'node:fs'
-import { access, mkdir, open, readdir, realpath, rename, stat, writeFile } from 'node:fs/promises'
+import {
+  access,
+  cp,
+  mkdir,
+  open,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, posix, resolve, sep, win32 } from 'node:path'
 import type { BinaryKind } from '@shared/types'
 
@@ -334,5 +345,36 @@ export async function readBinaryArch(path: string): Promise<BinaryArch> {
     return 'unknown'
   } finally {
     await handle.close()
+  }
+}
+
+/**
+ * Where a new engine file goes when the installation has none at that path yet: under the *existing*
+ * spelling of its parent directory where there is one (a traditional `BASEQ2` install must not gain
+ * a second, lowercase `baseq2` the inspector never looks at), under the canonical one otherwise.
+ */
+export async function plannedDestination(root: string, relative: string): Promise<string> {
+  const segments = relative.split(/[\\/]+/).filter(Boolean)
+  const name = segments.pop()
+  if (name === undefined) return root
+  if (segments.length === 0) return join(root, name)
+  const parent = await resolveRelaxed(root, segments.join('/'))
+  return parent ? join(parent, name) : join(root, ...segments, name)
+}
+
+/**
+ * `rename`, with a copy+delete fallback for the one case `rename` cannot serve: a `baseq2` that is a
+ * junction or symlink onto another volume (legal, and something a user with a small SSD does on
+ * purpose) makes the move into `<root>/.q2launcher-engine-backup/` a cross-device one, which
+ * `rename` refuses with `EXDEV`. The fallback keeps the same before/after states - the file is at
+ * the destination and gone from the source - at the cost of not being atomic.
+ */
+export async function moveFile(from: string, to: string): Promise<void> {
+  try {
+    await rename(from, to)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException | null)?.code !== 'EXDEV') throw error
+    await cp(from, to, { dereference: true })
+    await rm(from, { force: true, maxRetries: 3, retryDelay: 50 })
   }
 }

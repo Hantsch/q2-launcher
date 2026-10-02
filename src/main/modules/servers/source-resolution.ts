@@ -22,7 +22,7 @@ import type { ScanSourceFailure } from '@shared/modules/servers'
 import type { ParsedServerAddress } from '@shared/servers/address'
 import { parseServerAddress } from '@shared/servers/address'
 import { masterSourceFailureKey, type MasterSourceFailure } from '@shared/servers/master-records'
-import type { FetchImpl } from '../downloads/fetcher'
+import type { FetchImpl } from '../../lib/net/fetcher'
 import {
   dgramMasterUdp,
   resolveUdpMasterSource,

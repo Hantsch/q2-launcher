@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { listZipEntries, readZipEntry, type ZipDeps } from '../../lib/zip-entries'
-import { resolveExtractorPath } from './7za-path'
+import { resolveExtractorPath } from '../../lib/archive/7za-path'
 
 describe('real zip (only when the vendored binary is present)', () => {
   const realBinary = resolveExtractorPath({ isPackaged: false })

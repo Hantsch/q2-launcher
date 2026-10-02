@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { isSafeGameDirName } from '@shared/mods/gamedir'
-import { harnessLoopbackUrlSchema, httpsUrlSchema, sha256Schema } from '../downloads/schemas'
+import { harnessLoopbackUrlSchema, httpsUrlSchema, sha256Schema } from '@shared/schemas'
 
 /**
  * Runtime validation for the mod catalog (`mods/manifest.json` in the content repository).
@@ -61,7 +61,7 @@ function entrySchemaWith(urlSchema: z.ZodType<string>) {
 
 export const modCatalogEntrySchema = entrySchemaWith(httpsUrlSchema)
 
-/** Harness only: also accepts a plain-http `127.0.0.1` package/mirror URL (see downloads/schemas). */
+/** Harness only: also accepts a plain-http `127.0.0.1` package/mirror URL (see `@shared/schemas`). */
 export const harnessLoopbackModCatalogEntrySchema = entrySchemaWith(harnessLoopbackUrlSchema)
 
 export type ModCatalogEntryParsed = z.infer<typeof modCatalogEntrySchema>

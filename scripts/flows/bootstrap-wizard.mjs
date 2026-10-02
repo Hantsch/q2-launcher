@@ -15,10 +15,10 @@
 //
 // Two harness-only overrides, both under the SAME double gate (`Q2L_UI_HARNESS === '1' && isDev`,
 // `src/main/lib/ui-harness.ts`), both provably unreachable in a packaged build where `isDev` is
-// always `false` - see `src/main/modules/downloads/harness.test.ts`:
+// always `false` - see `src/main/services/content/source.test.ts`:
 //
 //   Q2L_UI_CONTENT_REPO_BASE  the manifest/package base URL (`resolveDownloadSource()`,
-//                             `src/main/modules/downloads/harness.ts`). Refused unless it names a
+//                             `src/main/services/content/source.ts`). Refused unless it names a
 //                             `127.0.0.1` origin, so it can never redirect a run somewhere public.
 //   Q2L_UI_PICK_FOLDER        the folders `installations:pickFolder` answers with instead of
 //                             opening a native OS dialog (`src/main/ipc/installations.ts`), in

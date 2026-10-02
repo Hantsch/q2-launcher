@@ -194,7 +194,7 @@ entries this is the source note the licence asks for if we ever mirror the binar
 
 ## 8. Mirror readiness
 
-- Every package keeps the existing `url` + `mirrors[]` shape (`downloads/schemas.ts`, repo fact),
+- Every package keeps the existing `url` + `mirrors[]` shape (`services/content/manifest-schemas.ts`, repo fact),
   and the mods module reads `mirrors[]` the same way the install module does.
 - In v1, `url` is the original source and `mirrors[]` is empty for every mod package.
 - Mirroring later means: put the file into our hosting, add its URL to `mirrors[]` (or swap it into
@@ -258,7 +258,7 @@ entries this is the source note the licence asks for if we ever mirror the binar
   precedent of `manifest-parse.ts`). Transport, cache and the offline "as of …" behaviour are the
   install module's.
 - **State:** install records in `Installation.moduleData['mods']`, parsed defensively like
-  `downloads/engine/installation-state.ts`.
+  `services/engine-state.ts`.
 - **Cross-module calls:** the servers and replays modules ask the mods module "is this gamedir in
   the catalog / installed?" and "install it". How a module exposes that to another module without
   editing the shell is open (§14 item 5).

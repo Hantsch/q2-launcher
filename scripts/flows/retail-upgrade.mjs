@@ -28,7 +28,7 @@
 //
 // One harness-only override, the same double-gated backdoor 088/089 already use
 // (`Q2L_UI_HARNESS === '1' && isDev`, `src/main/lib/ui-harness.ts`, unreachable in a packaged
-// build - see `src/main/modules/downloads/harness.test.ts`):
+// build - see `src/main/services/content/source.test.ts`):
 //
 //   Q2L_UI_HARNESS_STORE_SOURCES  story 088 D2's own override: the `DetectedRetailSource[]` this
 //                                 dialog's `getDetectedRetailSources()` reads instead of running a

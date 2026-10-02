@@ -302,3 +302,27 @@
 - 2026-10-02 15:11:28 · 208 · review 2 · started
 - 2026-10-02 15:12:47 · 208 · review 2 · done
 - 2026-10-02 15:12:47 · 208 · story · done
+- 2026-10-02 15:12:59 · 209 · build · started
+- 2026-10-02 15:13:20 · 209 · D1 boot facts on AppContext · started
+- 2026-10-02 15:16:24 · 209 · D1 boot facts on AppContext · done
+- 2026-10-02 15:16:24 · 209 · D2 app.os service · started
+- 2026-10-02 15:17:49 · 209 · D2 app.os service · done
+- 2026-10-02 15:17:49 · 209 · D3 app.displays + snapshot · started
+- 2026-10-02 15:19:30 · 209 · D3 app.displays + snapshot · done
+- 2026-10-02 15:19:30 · 209 · D4a hoist net/archive/staging · started
+- 2026-10-02 15:23:31 · 209 · D4a hoist net/archive/staging · done
+- 2026-10-02 15:23:31 · 209 · D4b hoist content/engine-state/fs/schemas · started
+- 2026-10-02 15:28:53 · 209 · D4b hoist content/engine-state/fs/schemas · done
+- 2026-10-02 15:28:53 · 209 · D5 replays onto the shell (hard) · started
+- 2026-10-02 15:37:11 · 209 · D5 replays onto the shell (hard) · done
+- 2026-10-02 15:37:11 · 209 · D6 other modules + architecture assertions · started
+- 2026-10-02 15:47:57 · 209 · D6 other modules + architecture assertions · done
+- 2026-10-02 15:47:57 · 209 · verify · started
+- 2026-10-02 15:54:22 · 209 · verify · done
+- 2026-10-02 15:54:22 · 209 · review 1 · started
+- 2026-10-02 15:56:52 · 209 · review 1 · done
+- 2026-10-02 15:56:52 · 209 · review fix 1 · started
+- 2026-10-02 15:59:07 · 209 · review fix 1 · done
+- 2026-10-02 15:59:07 · 209 · review 2 (hard) · started
+- 2026-10-02 16:08:25 · 209 · review 2 (hard) · done
+- 2026-10-02 16:08:25 · 209 · story · done

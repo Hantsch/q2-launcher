@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resolveHttpListSource } from './http-list-source'
 
 /**
- * Story 109 D4 - mirrors `src/main/modules/downloads/fetcher.test.ts`'s loopback setup: a real
+ * Story 109 D4 - mirrors `src/main/lib/net/fetcher.test.ts`'s loopback setup: a real
  * `node:http` server on `127.0.0.1`, and the real global `fetch` injected as the `FetchImpl`, so
  * the seam is proven against genuine socket/HTTP behaviour without an Electron runtime and without
  * ever reaching q2servers.com (GB-A5, GB-A6).

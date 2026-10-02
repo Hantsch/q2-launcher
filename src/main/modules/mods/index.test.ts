@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MODS_HANDLERS, type ModInstallChoice, type ModsListResult } from '@shared/modules/mods'
 import type { Outcome } from '@shared/types'
 import type { AppContext } from '../../context'
+import { resolveUiHarness } from '../../lib/ui-harness'
 import { PersistenceRegistry } from '../../services/persistence'
 import { MainModuleRegistry } from '../registry'
 import { modsModule } from './index'
@@ -21,17 +22,15 @@ vi.mock('./catalog-service', () => ({
     getCatalog = catalogGet
   },
 }))
-vi.mock('../downloads/stage-package', () => ({
+vi.mock('../../services/package-staging', () => ({
   stagePackage,
-  resolveVendoredExtractor: () => ({ path: '', exists: false }),
+  resolveVendoredExtractor: (_isPackaged: boolean) => ({ path: '', exists: false }),
 }))
 
-const openPath = vi.hoisted(() => vi.fn<(p: string) => Promise<string>>())
+// The cache services resolve their file under `userDataDir()`; point it at a harmless relative path.
+vi.mock('../../lib/paths', () => ({ userDataDir: () => '' }))
 
-vi.mock('electron', () => ({
-  app: { getPath: () => '' },
-  shell: { openPath },
-}))
+const openPath = vi.fn<(p: string) => Promise<string>>()
 
 const ROOT = join('games', 'q2')
 
@@ -44,6 +43,10 @@ const emitted: unknown[][] = []
 async function registryFor(inst: ReturnType<typeof installation>) {
   const app = {
     isDev: false,
+    harness: resolveUiHarness({}),
+    isPackaged: false,
+    userDataDir: '',
+    os: { openPath },
     persistence: new PersistenceRegistry(),
     installations: { find: (id: string) => (id === inst.id ? inst : undefined) },
     broadcast: { emit: (...args: unknown[]) => emitted.push(args) },
@@ -371,6 +374,7 @@ describe('mods module persistence', () => {
     const labels: string[] = []
     const app = {
       isDev: false,
+      harness: resolveUiHarness({}),
       persistence: { register: (label: string) => void labels.push(label) },
       installations: { find: () => undefined },
     } as unknown as AppContext

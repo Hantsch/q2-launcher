@@ -1,12 +1,14 @@
 import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import type { BrowserWindow } from 'electron'
-import { app as electronApp } from 'electron'
+import { app as electronApp, clipboard, shell } from 'electron'
 import { stateFilePath, userDataDir } from './lib/paths'
 import type { CinemaWindow } from './cinema-window'
 import type { MainWindowObserver } from './main-window-observer'
 import { scopedLogger } from './lib/logger'
-import { UI_HARNESS_ENV } from './lib/ui-harness'
+import { bootEnv } from './lib/boot-env'
+import { rendererSourceFromEnv, type RendererSource } from './lib/renderer-source'
+import { resolveUiHarness, type UiHarness } from './lib/ui-harness'
 import { resolveFeatureGate, type FeatureGate } from './features/gate'
 import { MainModuleRegistry } from './modules/registry'
 import { MODULE_MIGRATIONS, registerModules } from './modules'
@@ -17,6 +19,8 @@ import { deleteStoredIcon, InstallationIconsService } from './services/installat
 import { InstallationsService } from './services/installations'
 import { JobsService } from './services/jobs'
 import { LaunchService } from './services/launch'
+import { createDisplaysService, type DisplaysService, type ScreenLike } from './services/displays'
+import { createOsService, type OsService } from './services/os'
 import { PersistenceRegistry } from './services/persistence'
 import { StateStore } from './services/state'
 import { createUpdateBackend, createUpdateChecker } from './services/update/checker'
@@ -35,17 +39,17 @@ const log = scopedLogger('context')
  * The one override - reading a different PEM from `Q2L_UNLOCK_PUBLIC_KEY_FILE` - exists only so a
  * test-signing key can be used end-to-end without ever touching the production key pair, and it is
  * gated by **exactly** the same condition `src/main/ipc/index.ts` uses to decide whether
- * `registerDevIpc` runs on a packaged build (`app.isDev || process.env[UI_HARNESS_ENV] === '1'`) -
+ * `registerDevIpc` runs on a packaged build (`app.isDev || app.harness.enabled`) -
  * reused, not re-derived, so the override can never be reachable in a real packaged, non-harness
  * build without also making every dev-only IPC channel reachable there too.
  */
-async function resolveUnlockPublicKeyPem(isDev: boolean): Promise<string> {
+async function resolveUnlockPublicKeyPem(isDev: boolean, harness: UiHarness): Promise<string> {
   // Story 129: the UI harness's inline test key, behind its own stricter double gate (harness AND
   // dev) - `null` everywhere else, so it never shadows anything outside a harness run.
   const harnessKey = harnessUnlockPublicKeyOverride({ isDev })
   if (harnessKey !== null) return harnessKey
 
-  const overrideAllowed = isDev || process.env[UI_HARNESS_ENV] === '1'
+  const overrideAllowed = isDev || harness.enabled
   const overridePath = process.env['Q2L_UNLOCK_PUBLIC_KEY_FILE']
   if (overrideAllowed && overridePath) {
     try {
@@ -69,6 +73,12 @@ async function resolveUnlockPublicKeyPem(isDev: boolean): Promise<string> {
  */
 export interface AppContext {
   isDev: boolean
+  /** The harness gate, resolved once at boot; modules read fixture variables through it. */
+  harness: UiHarness
+  /** The process env without `Q2L_*` keys, frozen. */
+  env: Readonly<Record<string, string | undefined>>
+  isPackaged: boolean
+  userDataDir: string
   state: StateStore
   installations: InstallationsService
   /** Story 067: the per-installation icon store (`userData/installation-icons/`). */
@@ -82,8 +92,10 @@ export interface AppContext {
   broadcast: Broadcaster
   /** Story 066 D4: the config-file picker modules reach through `ModuleSetup.app`, never `dialog` directly. */
   dialog: DialogService
-  /** Story 170: the tracked main window (null before it exists) - for placing the game over the stage. */
-  getMainWindow: () => BrowserWindow | null
+  /** Open/reveal/copy/record - the only path to `shell` and `clipboard`; harness-aware. */
+  os: OsService
+  /** Display list and DIP-to-screen conversion - the only path to electron's `screen`. */
+  displays: DisplaysService
   /** Story 171 D2: the main window's bounds/state and its move/resize/minimize/restore/focus/blur
    * events, read-only - how a module follows the window without touching the `BrowserWindow`. */
   mainWindow: MainWindowObserver
@@ -117,8 +129,11 @@ export async function createAppContext(options: {
   getMainWindow: () => BrowserWindow | null
   /** Story 171 D2: fed by `window.ts` (via `index.ts`), which owns the window's event wiring. */
   mainWindow: MainWindowObserver
-  cinemaWindow: CinemaWindow
+  /** Electron's `screen`, injected so the displays service stays testable. */
+  screen: ScreenLike
+  createCinemaWindow: (harness: UiHarness, rendererSource: RendererSource) => CinemaWindow
 }): Promise<AppContext> {
+  const harness = resolveUiHarness(process.env)
   const broadcast = new Broadcaster()
   const persistence = new PersistenceRegistry()
 
@@ -195,7 +210,7 @@ export async function createAppContext(options: {
 
   const unlock = createUnlockService({
     state,
-    publicKey: await resolveUnlockPublicKeyPem(options.isDev),
+    publicKey: await resolveUnlockPublicKeyPem(options.isDev, harness),
     resolveLauncherInstallId,
     log: scopedLogger('unlock'),
   })
@@ -212,6 +227,10 @@ export async function createAppContext(options: {
 
   const context: AppContext = {
     isDev: options.isDev,
+    harness,
+    env: bootEnv(process.env),
+    isPackaged: electronApp.isPackaged,
+    userDataDir: userDataDir(),
     state,
     installations,
     icons,
@@ -222,9 +241,13 @@ export async function createAppContext(options: {
     modules: new MainModuleRegistry(features),
     broadcast,
     dialog,
-    getMainWindow: options.getMainWindow,
+    os: createOsService({ harness, shell, clipboard }),
+    displays: createDisplaysService({
+      screen: options.screen,
+      getMainWindow: options.getMainWindow,
+    }),
     mainWindow: options.mainWindow,
-    cinemaWindow: options.cinemaWindow,
+    cinemaWindow: options.createCinemaWindow(harness, rendererSourceFromEnv(process.env)),
     update,
     unlock,
     features,

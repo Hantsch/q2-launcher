@@ -85,7 +85,7 @@ const NEWS_STALE_TIMESTAMP = '2025-01-01T00:00:00.000Z'
 // disk before the app ever starts, not a round trip through the code under test.
 //
 // The home module's app-start fetch is unconditionally skipped under the UI-verification harness
-// (`src/main/modules/home/index.ts`, gated via `isUiHarnessEnabled()`), so this file is the ONLY
+// (`src/main/modules/home/index.ts`, gated via `resolveUiHarness` / `app.harness`), so this file is the ONLY
 // source of truth for the three `home-hero*` screens - no fetch, loopback or otherwise, ever runs
 // during `ui:verify`/`ui:flow`. `lastRefreshFailed` is a story 083 D6 addition to the persisted
 // schema (`feed-cache.ts`) purely so the `news-stale` variant's aged cache can carry it verbatim,
@@ -528,8 +528,8 @@ function makeInstallation({
   // Story 092 D8: mirrors `icon`/`lastFailure`'s spread-only-when-present convention -
   // `Installation.moduleData` (`src/shared/types/installation.ts`). Only
   // `INSTALL_ENGINE_UPDATE_ID` below passes one (its recorded, out-of-date engine version, the
-  // shape `readEngineState`/`writeEngineState` - `src/main/modules/downloads/engine/
-  // installation-state.ts` - read/write under `moduleData['downloads']`); every other caller stays
+  // shape `readEngineState`/`writeEngineState` - `src/main/services/
+  // engine-state.ts` - read/write under `moduleData['downloads']`); every other caller stays
   // `undefined`, exactly as before this story.
   moduleData,
   // Story 094 D4: an optional `InstallationSource` override, defaulting to the `'manual'` every
@@ -690,7 +690,7 @@ const RETAIL_UPGRADE_MARKER_CONTENT =
  * it is assigned to no config profile.
  *
  * `moduleData` records the OLD version directly (`ENGINE_UPDATE_OLD_VERSION`) - the exact shape
- * `readEngineState()` (`src/main/modules/downloads/engine/installation-state.ts`) reads back under
+ * `readEngineState()` (`src/main/services/engine-state.ts`) reads back under
  * `moduleData['downloads']`. Retail-sized `pak0.pak`/`pak1.pak`/`pak2.pak` (truncated, never real
  * bytes - the same trick `writeRetailSourceTree()` uses below) keep `inspectInstallation` reporting a
  * plain `ok` status with no demo-data check, so this installation reads as an ordinary, already-
@@ -1388,7 +1388,7 @@ function populatedConfigProfiles() {
 // --- downloads.ts DownloadsSettings shape + archive-cache fixture ----------
 // Mirrors src/shared/modules/downloads.ts's `DownloadsSettings`/
 // `DEFAULT_DOWNLOADS_SETTINGS` (2 / 5 GB / true) and
-// src/main/modules/downloads/paths.ts's `userData/cache/downloads/<fileName>` layout
+// src/main/lib/net/download-cache-paths.ts's `userData/cache/downloads/<fileName>` layout
 // (verified files, no `.part` suffix).
 //
 // Story 072 D6: deliberately non-default on every field, so the
@@ -4539,7 +4539,7 @@ const BOOTSTRAP_SERVE_CHUNK_DELAY_MS = 45
  * Starts the loopback fixture server and returns `{ baseUrl, packages, totalSizeBytes, close }`.
  *
  * **Bound to `127.0.0.1` explicitly, on an OS-assigned port.** The address is not decoration: the
- * app's harness override (`src/main/modules/downloads/harness.ts`) refuses any base URL whose
+ * app's harness override (`src/main/services/content/source.ts`) refuses any base URL whose
  * hostname is not literally `127.0.0.1`, and so does the harness-only package-URL schema
  * (`harnessLoopbackUrlSchema`) - a fixture server on any other interface could not be reached even
  * with both gates open.

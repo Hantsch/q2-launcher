@@ -9,7 +9,6 @@ import {
 } from '@shared/ipc'
 import { fail, type Outcome } from '@shared/types'
 import { scopedLogger } from '../lib/logger'
-import { UI_HARNESS_ENV } from '../lib/ui-harness'
 import type { AppContext } from '../context'
 import { registerAppIpc } from './app'
 import { registerDetectionIpc } from './detection'
@@ -157,7 +156,7 @@ export function registerAllIpc(app: AppContext): void {
   // and screens need to reach. The variable is never set by the app itself or by electron-builder,
   // so a real user's packaged install never registers this without deliberately exporting it
   // before starting the binary.
-  if (app.isDev || process.env[UI_HARNESS_ENV] === '1') registerDevIpc(app)
+  if (app.isDev || app.harness.enabled) registerDevIpc(app)
 
   assertContractFullyHandled(app.isDev)
   log.info(`registered ${registeredChannels.size} IPC channels`)

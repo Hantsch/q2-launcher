@@ -12,7 +12,7 @@
 // the wizard names the gap and its action reaches the add-installation dialog.
 //
 // Mirrors `bootstrap-wizard.mjs`'s `setup()`/`teardown()` shape and its `Q2L_UI_CONTENT_REPO_BASE`
-// harness override (`src/main/modules/downloads/harness.ts`, gated the same way - read that file's
+// harness override (`src/main/services/content/source.ts`, gated the same way - read that file's
 // own top comment for how the loopback override is proven unreachable in a packaged build). Unlike
 // that flow, nothing is ever downloaded or installed here, so there is no `Q2L_UI_PICK_FOLDER` and
 // no vendored-extractor precondition - the flow never gets past the engine step.

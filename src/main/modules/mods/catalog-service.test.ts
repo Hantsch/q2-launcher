@@ -7,6 +7,7 @@ import type { Outcome } from '@shared/types'
 import type { AppContext } from '../../context'
 import type { Logger } from '../../lib/logger'
 import { MainModuleRegistry } from '../registry'
+import { resolveUiHarness } from '../../lib/ui-harness'
 import { PersistenceRegistry } from '../../services/persistence'
 import { CATALOG_FRESHNESS_MS, CatalogService } from './catalog-service'
 import { modsModule } from './index'
@@ -172,6 +173,7 @@ describe('mods catalog.get handler', () => {
   async function registry() {
     const app = {
       isDev: false,
+      harness: resolveUiHarness({}),
       persistence: new PersistenceRegistry(),
       installations: { find: () => undefined },
     } as unknown as AppContext

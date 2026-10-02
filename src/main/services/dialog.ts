@@ -59,6 +59,7 @@ export class DialogService {
    * e2e harness must produce values in this exact format.
    */
   async pickConfigFiles({ defaultPath }: { defaultPath?: string }): Promise<string[]> {
+    // exempt: shipped security gate, story 066
     if (process.env['Q2L_UI_HARNESS'] === '1') {
       const picked = parseHarnessPickedFiles(process.env['Q2L_UI_PICK_FILES'])
       log.info(`harness stub: returning ${picked.length} fixture path(s) instead of a real dialog`)

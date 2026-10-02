@@ -7,7 +7,7 @@ import type { EngineKind } from '@shared/types/engine'
  * (Decisions (Sprint): "Fetch Q2PRO's version.txt next to the nightly release asset ... not the
  * GitHub Releases API - no rate limit, simpler parsing").
  *
- * Deliberately not routed through `harness.ts`'s `DownloadSource`/`fetchContentJson()`: that
+ * Deliberately not routed through `services/content/source.ts`'s `DownloadSource`/`fetchContentJson()`: that
  * abstraction exists to redirect the *curated content repo's own fixed host* (`CONTENT_REPO_RAW_
  * BASE`) under the UI harness's gate. This probe's URL is never a hardcoded host to begin with -
  * it is derived, at call time, from the manifest's own pinned `ManifestPackage.url` (INST-M1: "no

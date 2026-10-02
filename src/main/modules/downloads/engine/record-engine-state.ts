@@ -4,7 +4,7 @@ import {
   readEngineState,
   writeEngineState,
   type InstallationEngineState,
-} from './installation-state'
+} from '../../../services/engine-state'
 
 /**
  * Records (or extends) an installation's engine state under `moduleData['downloads']` and mirrors

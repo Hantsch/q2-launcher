@@ -52,6 +52,10 @@ file to `ALLOWED_MAIN_SPAWN_NETWORK_FILES` requires a row here.
 | `src/main/modules/home/images/fetch-image.ts` | only mentions `net.fetch` in a comment; fetches with global `fetch` |
 | `src/main/lib/zip-entries.ts`                 | spawns the vendored 7-Zip to list and read zip entries              |
 | `src/main/modules/replays/index.ts`           | resolves the vendored 7-Zip path; spawns nothing itself             |
+| `src/main/lib/net/fetcher.ts` | story 209: shell-owned download/extract infrastructure |
+| `src/main/lib/archive/extractor.ts` | story 209: shell-owned download/extract infrastructure |
+| `src/main/lib/archive/7za-path.ts` | story 209: shell-owned download/extract infrastructure |
+| `src/main/services/package-staging.ts` | story 209: shell-owned download/extract infrastructure |
 
 ## The IPC contract
 
@@ -304,8 +308,11 @@ shell never needs editing to add one.
    in `src/main/modules/index.ts`. It receives `handle`, `emit`, `app` (the
    services), a scoped logger and `onDispose`. Build it with
    `defineModule<XContract>(id, schemas).bind(setup)`, which types `handle` and `emit`
-   against the contract and requires a schema for every handler. It never touches `ipcMain`
-   or `BrowserWindow`. Persisted state lives in `src/main/modules/<id>/persisted.ts` (schema,
+   against the contract and requires a schema for every handler. It never touches `ipcMain`,
+   `BrowserWindow`, `electron` or `process.env`: its only way to the OS, the screen and the
+   harness is `app.os` (open, reveal, copy), `app.displays`, `app.harness` (the resolved
+   `Q2L_UI_*` gate), `app.env` (a frozen environment copy), `app.isPackaged` and
+   `app.userDataDir`; `src/architecture.test.ts` enforces it. The only other electron-backed paths are the narrow shell libs a module may import (`lib/paths`, `lib/net/fetcher`, `lib/native-image`), which are not a general electron handle. Persisted state lives in `src/main/modules/<id>/persisted.ts` (schema,
    forgiving parse, defaults, `<id>State(app.state)` over `app.state.section()`); a shape change
    adds a step to `persisted-migrations.ts` (see State and persistence). `setup()` keeps its state in its closure
    (no module-level `let`) and releases it through `onDispose`; the registry runs

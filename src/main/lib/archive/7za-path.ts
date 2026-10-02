@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path'
  * segments cannot work here, because the number of levels differs per context:
  * electron-vite bundles the whole main process into a single `out/main/index.js`
  * (so `__dirname` is `<repo>/out/main`), while under vitest this module is not
- * bundled at all (`__dirname` is `<repo>/src/main/modules/downloads`). The
+ * bundled at all (`__dirname` is `<repo>/src/main/lib/archive`). The
  * walk-up is correct for both, and for any future bundle layout. If no marker is
  * found within `MAX_WALK_UP_LEVELS`, it falls back to `process.cwd()`.
  * Packaged: `process.resourcesPath/bin/<binary>`, matching this module's
@@ -55,7 +55,7 @@ function getBinaryName(): string {
 /** The marker file that identifies the repo root - this repo has exactly one, at the root. */
 const REPO_ROOT_MARKER = 'package.json'
 
-/** Enough to cover both `out/main` (2) and `src/main/modules/downloads` (4) with room to spare. */
+/** Enough to cover both `out/main` (2) and `src/main/lib/archive` (4) with room to spare. */
 const MAX_WALK_UP_LEVELS = 12
 
 /**

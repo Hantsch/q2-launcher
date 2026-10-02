@@ -1,5 +1,5 @@
 // Story 071 D3: vendors the standalone `7za.exe` (+ its licence) into `resources/bin/`, the
-// binary `src/main/modules/downloads/extractor.ts` spawns via `7za-path.ts` and
+// binary `src/main/lib/archive/extractor.ts` spawns via `7za-path.ts` and
 // `electron-builder.yml`'s `extraResources` ships alongside the packaged app.
 // Story 100 D9: added a non-Windows branch that vendors the official 7-Zip Linux console build
 // (`7zz`) the same way, so the extractor works on the Linux target `docs/ROADMAP.md` describes.
@@ -52,7 +52,7 @@ const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
 const BIN_DIR = join(REPO_ROOT, 'resources', 'bin')
 
 const IS_WINDOWS = process.platform === 'win32'
-// Story 100 D9: matches `BINARY_NAME` in `src/main/modules/downloads/7za-path.ts` - the two must
+// Story 100 D9: matches `BINARY_NAME` in `src/main/lib/archive/7za-path.ts` - the two must
 // stay in lockstep, since that module is what resolves this file's output at runtime.
 const BINARY_NAME = IS_WINDOWS ? '7za.exe' : '7zz'
 const TARGET_BINARY = join(BIN_DIR, BINARY_NAME)

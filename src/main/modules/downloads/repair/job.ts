@@ -32,8 +32,8 @@ import {
 import { getBootstrapExtractDir, getBootstrapExtractRoot, toPackageSource } from '../bootstrap/job'
 import type { BootstrapLog, Extractor, ManifestSource, PackageFetcher } from '../bootstrap/ports'
 import { engineAllowlistFor } from '../engine/update-job'
-import { markVerified, type ExtractorHandle } from '../extractor'
-import type { FetchImpl } from '../fetcher'
+import { markVerified, type ExtractorHandle } from '../../../lib/archive/extractor'
+import type { FetchImpl } from '../../../lib/net/fetcher'
 import { buildRepairPlan } from './plan'
 
 /**

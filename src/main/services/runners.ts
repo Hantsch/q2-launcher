@@ -8,7 +8,7 @@ import {
   type RunnerKind,
 } from '@shared/types'
 import { isFile, listDir, looksExecutable } from '../lib/fs-utils'
-import { uiHarnessDetectedRunners, uiHarnessSteamExecutable } from '../lib/ui-harness'
+import { resolveUiHarness, uiHarnessDetectedRunners, uiHarnessSteamExecutable } from '../lib/ui-harness'
 import { findSteamRoot, steamLibraryRoots } from './detection/providers'
 import { scopedLogger } from '../lib/logger'
 
@@ -38,8 +38,7 @@ const NATIVE_RUNNER: DetectedRunner = { kind: 'native', id: 'native', path: '', 
  * happened.
  */
 export async function detectRunners(): Promise<DetectedRunner[]> {
-  // `isDev` is part of the gate's input type but not read by it (see ui-harness.ts).
-  const override = uiHarnessDetectedRunners({ isDev: false })
+  const override = uiHarnessDetectedRunners(resolveUiHarness(process.env))
   if (override !== undefined) return override
 
   if (process.platform === 'win32') return [NATIVE_RUNNER, await findSteam()]
@@ -185,15 +184,14 @@ async function findOnPath(
  * Story 104 D3: the Steam client's executable. Always returns an entry - `available: false` with an
  * empty path when none was found - like `findOnPath` does for wine/umu-run.
  *
- *  - harness override (`Q2L_UI_STEAM_EXECUTABLE`, only behind `isUiHarnessEnabled`) on any
+ *  - harness override (`Q2L_UI_STEAM_EXECUTABLE`, only behind `UiHarness.enabled`) on any
  *    platform - still required to be a real file;
  *  - off Windows: `steam` on `PATH`;
  *  - on Windows: `steam.exe` in the Steam root the registry names (`findSteamRoot`) - no `PATH`
  *    walk, no library scan.
  */
 async function findSteam(): Promise<DetectedRunner> {
-  // `isDev` is part of the gate's input type but not read by it (see ui-harness.ts).
-  const override = uiHarnessSteamExecutable({ isDev: false })
+  const override = uiHarnessSteamExecutable(resolveUiHarness(process.env))
   if (override !== undefined) return steamRunner((await isFile(override)) ? override : undefined)
 
   if (process.platform !== 'win32') return findOnPath('steam', 'steam')

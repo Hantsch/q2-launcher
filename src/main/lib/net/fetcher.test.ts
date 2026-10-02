@@ -7,10 +7,10 @@ import { join } from 'node:path'
 import type { AddressInfo } from 'node:net'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { PackageSource } from '@shared/modules/downloads'
-import { pathExists } from '../../lib/fs-utils'
+import { pathExists } from '../fs-utils'
 import { downloadPackage } from './fetcher'
 import type { DownloadPackageOptions, DownloadPackageResult, DownloadProgress } from './fetcher'
-import { PART_SUFFIX } from './paths'
+import { PART_SUFFIX } from './download-cache-paths'
 
 /**
  * Story 071 D2, AC3/AC4 - integration, on purpose.
@@ -411,7 +411,7 @@ describe('downloadPackage', () => {
 
     const result = failed(
       await downloadPackage(
-        pkg({ url, fileName: '../escaped.zip', sizeBytes: 16, sha256: 'a'.repeat(64) }),
+        pkg({ url, fileName: '../../modules/escaped.zip', sizeBytes: 16, sha256: 'a'.repeat(64) }),
         options(),
       ),
     )

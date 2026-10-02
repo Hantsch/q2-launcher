@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ZipDeps } from '../../lib/zip-entries'
-import { resolveExtractorPath } from '../downloads/7za-path'
+import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { mapPresence } from './map-presence'
 import { mapPresenceInputSchema } from './schemas'
 

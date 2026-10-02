@@ -10,17 +10,17 @@ import type { PackageSource } from '@shared/modules/downloads'
 import { fail, ok, type Job, type Outcome } from '@shared/types'
 import { pathExists } from '../../lib/fs-utils'
 import { JobsService } from '../../services/jobs'
-import type { DownloadPackageResult } from './fetcher'
+import type { DownloadPackageResult } from '../../lib/net/fetcher'
 import {
   createDownloadPipeline,
   DOWNLOAD_JOB_KIND,
   DOWNLOAD_JOB_LABEL_KEY,
-  getExtractDir,
   type DownloadFn,
   type DownloadPipelineDeps,
   type ExtractFn,
 } from './pipeline'
-import { PART_SUFFIX } from './paths'
+import { PART_SUFFIX } from '../../lib/net/download-cache-paths'
+import { getExtractDir } from '../../services/package-staging'
 
 /**
  * Story 071 D4, AC1 and AC6.

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { DEV_ONLY_CHANNELS, INVOKE_CHANNELS } from '@shared/ipc'
 import type { AppContext } from '../context'
+import { resolveUiHarness } from '../lib/ui-harness'
 import en from '../../renderer/src/i18n/locales/en.json'
 
 /**
@@ -62,7 +63,7 @@ const iconsMock = {
 }
 
 function fakeApp(isDev: boolean): AppContext {
-  return { isDev, icons: iconsMock } as unknown as AppContext
+  return { isDev, harness: resolveUiHarness(process.env), icons: iconsMock } as unknown as AppContext
 }
 
 beforeEach(() => {

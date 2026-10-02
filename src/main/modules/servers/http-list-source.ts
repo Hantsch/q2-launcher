@@ -3,7 +3,7 @@
  * over an injectable `FetchImpl` and hands the response body to the matching pure codec
  * (`src/shared/servers/http-list.ts`, D2).
  *
- * `FetchImpl` is reused from `src/main/modules/downloads/fetcher.ts` rather than re-declared —
+ * `FetchImpl` is reused from `src/main/lib/net/fetcher.ts` rather than re-declared —
  * the same seam the news feed and the package downloader already inject a real `fetch` through in
  * their loopback tests. Unlike that module, this one has no Electron-based default of its own to
  * lazily import: `fetchImpl` is a required parameter, so this file never imports `electron` and
@@ -21,7 +21,7 @@
 import type { ParsedServerAddress } from '@shared/servers/address'
 import { parseHttpListBinary, parseHttpListText } from '@shared/servers/http-list'
 import type { MasterSourceFailure } from '@shared/servers/master-records'
-import type { FetchImpl } from '../downloads/fetcher'
+import type { FetchImpl } from '../../lib/net/fetcher'
 
 /** `?raw=1` is the text shape, `?raw=2` is the bare packed binary shape (see `http-list.ts`). */
 export type HttpListRaw = 1 | 2

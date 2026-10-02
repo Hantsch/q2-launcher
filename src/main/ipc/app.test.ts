@@ -1,6 +1,7 @@
 import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AppContext } from '../context'
+import { fakeAppContext } from '../../test-support/app-context'
 import { stubPlatform } from '../../test-support/platform'
 
 /**
@@ -16,7 +17,6 @@ const registered = vi.hoisted(
 
 const clipboardWriteText = vi.hoisted(() => vi.fn())
 const shellOpenExternal = vi.hoisted(() => vi.fn())
-const recordHarnessExternalUrl = vi.hoisted(() => vi.fn())
 
 vi.mock('electron', () => ({
   ipcMain: {
@@ -35,13 +35,6 @@ vi.mock('node:os', () => ({
   release: () => '10.0.26200',
 }))
 
-// Story 099 D6: `isUiHarnessEnabled` is left real (it's a pure gate, already covered by its own
-// tests) - only the file-writing half is stubbed, so this suite never touches disk.
-vi.mock('../lib/ui-harness', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../lib/ui-harness')>()
-  return { ...actual, recordHarnessExternalUrl }
-})
-
 const fakeEvent = {} as unknown as IpcMainInvokeEvent
 
 async function setup(
@@ -53,10 +46,16 @@ async function setup(
   openExternal: (event: unknown, payload: unknown) => unknown
 }> {
   const { registerAppIpc } = await import('./app')
-  const app = {
+  const app = fakeAppContext({
     isDev: options.isDev ?? false,
-    installations: { list: () => options.installations ?? [] },
-  } as unknown as AppContext
+    installations: { list: () => options.installations ?? [] } as unknown as AppContext['installations'],
+    os: {
+      openPath: vi.fn(async () => ''),
+      showItemInFolder: vi.fn(),
+      openExternal: shellOpenExternal,
+      copyText: clipboardWriteText,
+    },
+  })
   registerAppIpc(app)
   return {
     getInfo: registered.get('app:getInfo')!,
@@ -66,23 +65,11 @@ async function setup(
   }
 }
 
-const ORIGINAL_HARNESS_ENV = process.env.Q2L_UI_HARNESS
-
 beforeEach(() => {
   registered.clear()
   vi.resetModules()
   clipboardWriteText.mockClear()
   shellOpenExternal.mockClear()
-  recordHarnessExternalUrl.mockClear()
-  delete process.env.Q2L_UI_HARNESS
-})
-
-afterEach(() => {
-  if (ORIGINAL_HARNESS_ENV === undefined) {
-    delete process.env.Q2L_UI_HARNESS
-  } else {
-    process.env.Q2L_UI_HARNESS = ORIGINAL_HARNESS_ENV
-  }
 })
 
 describe('app:getInfo', () => {
@@ -187,69 +174,21 @@ describe('app:copyText', () => {
 })
 
 describe('app:openExternal', () => {
-  // Story 099 D6 (relaxed by story 101 F3): the harness-gated recorder requires only
-  // `Q2L_UI_HARNESS === '1'` - `isDev` is deliberately not part of the gate any more, since story
-  // 101's CI jobs drive a real packaged AppImage where `isDev` is always `false`. Mirrors the gate
-  // table used throughout `src/main/lib/ui-harness.test.ts` and `downloads/harness.test.ts`.
-  it('both flags off: calls shell.openExternal, never the recorder', async () => {
-    const { openExternal } = await setup({ isDev: false })
+  it('hands a valid url to app.os and resolves ok', async () => {
+    const { openExternal } = await setup()
 
     const result = await openExternal(fakeEvent, 'https://example.test/')
 
     expect(shellOpenExternal).toHaveBeenCalledWith('https://example.test/')
-    expect(recordHarnessExternalUrl).not.toHaveBeenCalled()
     expect(result).toEqual({ ok: true, value: null })
   })
 
-  it('only Q2L_UI_HARNESS=1 (isDev false): records the url instead - the env var alone is the gate', async () => {
-    process.env.Q2L_UI_HARNESS = '1'
-    const { openExternal } = await setup({ isDev: false })
-
-    const result = await openExternal(fakeEvent, 'https://example.test/')
-
-    expect(recordHarnessExternalUrl).toHaveBeenCalledWith('https://example.test/')
-    expect(shellOpenExternal).not.toHaveBeenCalled()
-    expect(result).toEqual({ ok: true, value: null })
-  })
-
-  it('only isDev=true (Q2L_UI_HARNESS unset): still calls shell.openExternal', async () => {
-    const { openExternal } = await setup({ isDev: true })
-
-    await openExternal(fakeEvent, 'https://example.test/')
-
-    expect(shellOpenExternal).toHaveBeenCalledWith('https://example.test/')
-    expect(recordHarnessExternalUrl).not.toHaveBeenCalled()
-  })
-
-  it('isDev=true and Q2L_UI_HARNESS set to something other than "1": still shell.openExternal', async () => {
-    process.env.Q2L_UI_HARNESS = 'true'
-    const { openExternal } = await setup({ isDev: true })
-
-    await openExternal(fakeEvent, 'https://example.test/')
-
-    expect(shellOpenExternal).toHaveBeenCalledWith('https://example.test/')
-    expect(recordHarnessExternalUrl).not.toHaveBeenCalled()
-  })
-
-  it('both flags on: records the url instead of calling shell.openExternal', async () => {
-    process.env.Q2L_UI_HARNESS = '1'
-    const { openExternal } = await setup({ isDev: true })
-
-    const result = await openExternal(fakeEvent, 'https://example.test/')
-
-    expect(recordHarnessExternalUrl).toHaveBeenCalledWith('https://example.test/')
-    expect(shellOpenExternal).not.toHaveBeenCalled()
-    expect(result).toEqual({ ok: true, value: null })
-  })
-
-  it('rejects an invalid url without touching either shell.openExternal or the recorder', async () => {
-    process.env.Q2L_UI_HARNESS = '1'
-    const { openExternal } = await setup({ isDev: true })
+  it('rejects an invalid url without reaching app.os', async () => {
+    const { openExternal } = await setup()
 
     const result = await openExternal(fakeEvent, 'not-a-url')
 
     expect(shellOpenExternal).not.toHaveBeenCalled()
-    expect(recordHarnessExternalUrl).not.toHaveBeenCalled()
     expect(result).toEqual({ ok: false, error: { key: 'app.error.invalidUrl' } })
   })
 })

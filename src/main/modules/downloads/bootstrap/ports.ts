@@ -1,9 +1,12 @@
 import type { EngineKind } from '@shared/types'
 import type { ManifestPackage } from '@shared/modules/downloads'
 import type { DiagnosticsCollector } from '../diagnostics'
-import { extractArchive } from '../extractor'
-import { downloadPackage } from '../fetcher'
-import { ManifestUnavailableError, type ManifestService } from '../manifest-service'
+import { extractArchive } from '../../../lib/archive/extractor'
+import { downloadPackage } from '../../../lib/net/fetcher'
+import {
+  ManifestUnavailableError,
+  type ManifestService,
+} from '../../../services/content/manifest-service'
 import type { DownloadFn, ExtractFn } from '../pipeline'
 import { installR1q2Notices, probeX86Runtime, realFileExists, seedR1glConfig } from './r1q2-setup'
 
@@ -150,8 +153,10 @@ export interface R1q2SetupPort {
 }
 
 /** The production `R1q2SetupPort`, over `r1q2-setup.ts`'s real implementations. */
-export const realR1q2Setup: R1q2SetupPort = {
-  probeX86Runtime: () => probeX86Runtime({ fileExists: realFileExists }),
-  seedR1glConfig,
-  installR1q2Notices,
+export function createR1q2Setup(env: NodeJS.ProcessEnv): R1q2SetupPort {
+  return {
+    probeX86Runtime: () => probeX86Runtime({ fileExists: realFileExists, env }),
+    seedR1glConfig,
+    installR1q2Notices,
+  }
 }

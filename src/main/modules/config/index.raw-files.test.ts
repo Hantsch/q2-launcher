@@ -226,6 +226,7 @@ describe('CONFIG_HANDLERS.openFile handler (story 023 D2)', () => {
         },
         launch: { getState: () => idleState() },
         state,
+        os: shellMock,
       } as unknown as AppContext,
       log,
     })

@@ -18,7 +18,7 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 // A direct `expect(...)` assertion against `process.platform` - the pattern this guard forbids.
 // Conditional branches like `if (process.platform === 'win32')` or a ternary that picks a
 // platform-appropriate fixture value are not assertions about the host and are fine; several
-// existing tests (e.g. `src/main/modules/downloads/extractor.test.ts`,
+// existing tests (e.g. `src/main/lib/archive/extractor.test.ts`,
 // `src/main/services/installations.test.ts`) rely on exactly that pattern to build
 // platform-correct behaviour rather than to assert the test host is a given platform.
 const FORBIDDEN_PATTERN = /expect\((?:[^()]|\([^()]*\))*process\.platform/g

@@ -7,7 +7,7 @@ import {
   type ServersScanState,
   type ServersState,
 } from '@shared/modules/servers'
-import type { FetchImpl } from '../downloads/fetcher'
+import type { FetchImpl } from '../../lib/net/fetcher'
 import type { LanDiscoveryOptions, LanReply } from './lan-discovery'
 import type { QueryServerFn } from './scan-runner'
 import {

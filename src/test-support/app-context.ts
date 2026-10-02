@@ -1,6 +1,8 @@
 import type { AppContext } from '../main/context'
 import { IDLE_LAUNCH_STATE } from '@shared/types'
 import { createFeatureGate, type FeatureGate } from '../main/features/gate'
+import { bootEnv } from '../main/lib/boot-env'
+import { resolveUiHarness } from '../main/lib/ui-harness'
 import { PersistenceRegistry } from '../main/services/persistence'
 
 /**
@@ -13,9 +15,19 @@ export function fakeAppContext(overrides: Partial<AppContext> = {}): AppContext 
   return {
     broadcast: { emit: () => {} },
     launch: { getState: () => IDLE_LAUNCH_STATE, onStateChange: () => () => {} },
+    harness: resolveUiHarness({}),
+    env: bootEnv({}),
+    isPackaged: false,
+    userDataDir: '',
     features: createFeatureGate([]),
     installations: { list: () => [] },
     persistence: new PersistenceRegistry(),
+    displays: {
+      primary: () => ({ id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 }, scaleFactor: 1 }),
+      all: () => [{ id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 }, scaleFactor: 1 }],
+      dipToScreenRect: (rect: unknown) => rect,
+    },
+    os: { openPath: async () => '', showItemInFolder: () => {}, openExternal: async () => {}, copyText: () => {} },
     ...overrides,
   } as unknown as AppContext
 }
@@ -61,7 +73,6 @@ export function stubbedAppContext(overrides: Partial<AppContext> = {}): AppConte
   return fakeAppContext({
     ...(stubs as Partial<AppContext>),
     features: ALL_UNLOCKED_FEATURE_GATE,
-    getMainWindow: () => null,
     ...overrides,
   })
 }

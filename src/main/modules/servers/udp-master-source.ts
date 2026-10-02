@@ -44,7 +44,7 @@ import { OOB_PREFIX, encodeLatin1 } from '@shared/servers/protocol'
  * addresses is such a body defect reported as the source's failure reason.
  *
  * The socket sits behind an injectable seam (`MasterUdpImpl`) exactly like `FetchImpl` in
- * `src/main/modules/downloads/fetcher.ts`, and `node:dgram` is imported lazily inside the default
+ * `src/main/lib/net/fetcher.ts`, and `node:dgram` is imported lazily inside the default
  * implementation for the same reason `electron` is there: importing this module must not require a
  * socket-capable environment, and the whole state machine above is unit-testable with no socket at
  * all. The clock is injectable for the same reason - the quiet-period rule is proven against fake

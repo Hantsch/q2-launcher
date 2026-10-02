@@ -25,7 +25,7 @@
 //
 // Two harness-only overrides, both under the SAME double gate (`Q2L_UI_HARNESS === '1' && isDev`,
 // `src/main/lib/ui-harness.ts`), both provably unreachable in a packaged build where `isDev` is
-// always `false` - see `src/main/modules/downloads/harness.test.ts`. Same two
+// always `false` - see `src/main/services/content/source.test.ts`. Same two
 // `bootstrap-wizard.mjs` already uses:
 //
 //   Q2L_UI_CONTENT_REPO_BASE  the manifest/package base URL, refused unless it names a `127.0.0.1`

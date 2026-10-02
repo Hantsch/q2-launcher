@@ -6,9 +6,9 @@ import { fetchContentJson } from '../../lib/content-repo'
 import { JsonStore } from '../../lib/json-store'
 import type { Logger } from '../../lib/logger'
 import { userDataDir } from '../../lib/paths'
-import { PRODUCTION_DOWNLOAD_SOURCE, type DownloadSource } from './harness'
+import { PRODUCTION_DOWNLOAD_SOURCE, type DownloadSource } from './source'
 import { packagePlatforms, packageRunsOnPlatform, parseManifestFile } from './manifest-parse'
-import type { PlatformTaggedManifestPackage } from './schemas'
+import type { PlatformTaggedManifestPackage } from './manifest-schemas'
 
 /**
  * Story 070 D3: the manifest pipeline's stateful half - fetch both manifest

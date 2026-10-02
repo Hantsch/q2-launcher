@@ -4,12 +4,12 @@ import { fetchContentJson } from '../../lib/content-repo'
 import { JsonStore } from '../../lib/json-store'
 import type { Logger } from '../../lib/logger'
 import { userDataDir } from '../../lib/paths'
-import { PRODUCTION_DOWNLOAD_SOURCE, type DownloadSource } from '../downloads/harness'
+import { PRODUCTION_DOWNLOAD_SOURCE, type DownloadSource } from '../../services/content/source'
 import type { ModCatalogEntryParsed } from './catalog-schema'
 import { parseModCatalog } from './catalog-parse'
 
 /**
- * The mod catalog's stateful half, mirroring `downloads/manifest-service.ts`: fetch
+ * The mod catalog's stateful half, mirroring `services/content/manifest-service.ts`: fetch
  * `mods/manifest.json`, persist the last good copy, and serve it (with its real age) when a
  * fetch fails or the file is refused. A failure with nothing cached is `unavailable`, never an
  * empty catalog. A cache read off disk never counts as fresh; only this process's own fetch does.

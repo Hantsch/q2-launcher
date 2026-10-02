@@ -48,9 +48,8 @@ export interface LaunchDeps {
   installations: InstallationsService
   onStateChange: LaunchStateListener
   /**
-   * Story 091 D2: the installation write guard, as a getter for the same reason
-   * `AppContext.getMainWindow` is one - the guard is built *from* this service,
-   * so it does not exist yet when this service is constructed.
+   * Story 091 D2: the installation write guard, as a getter - the guard is built *from* this
+   * service, so it does not exist yet when this service is constructed.
    */
   getWriteGuard?: () => WriteLockReader | null
   /**

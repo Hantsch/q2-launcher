@@ -51,7 +51,7 @@
 // use:
 //
 //   Q2L_UI_CONTENT_REPO_BASE     the manifest/package base URL (`resolveDownloadSource()`,
-//                                 `src/main/modules/downloads/harness.ts`) - refused unless it names
+//                                 `src/main/services/content/source.ts`) - refused unless it names
 //                                 a `127.0.0.1` origin. Points at `startBootstrapFixtureServer({
 //                                 includeR1q2: true })`, which serves BOTH the Q2PRO and R1Q2 fixture
 //                                 engine packages (090/092 only ever needed one).

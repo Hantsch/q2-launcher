@@ -2,7 +2,7 @@ import type { EngineKind } from '@shared/types/engine'
 import type { ModsErrorKey } from '@shared/modules/mods'
 import type { Installation } from '@shared/types/installation'
 import type { BinaryArch } from '../../lib/fs-utils'
-import { readEngineState } from '../downloads/engine/installation-state'
+import { readEngineState } from '../../services/engine-state'
 import type { ModCatalogEntryParsed } from './catalog-schema'
 
 /** What a mod variant has to match: the platform and CPU architecture of the installation's engine. */

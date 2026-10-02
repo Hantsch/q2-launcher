@@ -13,7 +13,7 @@ import { computeEngineUpdateStatus } from './update-status'
  *
  * `fetch` is stubbed globally, the same convention `manifest-service.test.ts` uses for
  * `fetchContentJson`'s own network calls (`vi.stubGlobal('fetch', fetchMock)`) - this probe never
- * goes through `harness.ts`'s `DownloadSource` seam (see `bleeding-edge.ts`'s own doc comment for
+ * goes through `services/content/source.ts`'s `DownloadSource` seam (see `bleeding-edge.ts`'s own doc comment for
  * why), so there is nothing else to substitute.
  */
 

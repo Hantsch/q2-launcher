@@ -49,6 +49,10 @@ const ALLOWED_MAIN_SPAWN_NETWORK_FILES = new Set([
   'src/main/modules/home/images/fetch-image.ts',
   'src/main/lib/zip-entries.ts',
   'src/main/modules/replays/index.ts',
+  'src/main/lib/net/fetcher.ts', // story 209: shell-owned download/extract infrastructure
+  'src/main/lib/archive/extractor.ts', // story 209: shell-owned download/extract infrastructure
+  'src/main/lib/archive/7za-path.ts', // story 209: shell-owned download/extract infrastructure
+  'src/main/services/package-staging.ts', // story 209: shell-owned download/extract infrastructure
 ])
 
 const productionFiles = (root: string): string[] =>

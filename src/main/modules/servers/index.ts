@@ -114,7 +114,7 @@ export const serversModule: MainModule = {
             ...options,
             deps: {
               ...options.deps,
-              targetsOverride: uiHarnessLanTargets({ isDev: app.isDev, env: process.env }),
+              targetsOverride: uiHarnessLanTargets(app.harness),
             },
           }),
       },

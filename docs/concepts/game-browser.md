@@ -210,7 +210,7 @@ not things it asks of you. The default state is: open it, look at it, join somet
 | Unlock code format | A compact signed token (payload + detached signature, Ed25519 via `node:crypto`), public key embedded in the app, verified **in main only**, re-verified on every start                                                                                                                        | Offline verification, expiry works without a server, the renderer never decides what is unlocked                      |
 | Persistence        | A new top-level `state.json` key owned by the module (favourites, history, custom servers, watchlist, scan settings); the unlock token gets its own launcher-level key                                                                                                                         | `LauncherSettings` is a closed shape; the `home` layout set the precedent for module-owned keys                       |
 | `dmflags` decoding | A table in the launcher, marked as "vanilla meaning; mods may reuse bits"                                                                                                                                                                                                                      | The bits are not standardised across mods                                                                             |
-| Tests              | The protocol codecs (query build, response parse, infostring split, player-line parse, master record unpack), the sort/filter engine, the matcher and the token verifier are pure, unit-tested modules; the UDP socket is behind an injectable seam like `FetchImpl` in `downloads/fetcher.ts` | The acceptance criteria live in pure code, not in a live network                                                      |
+| Tests              | The protocol codecs (query build, response parse, infostring split, player-line parse, master record unpack), the sort/filter engine, the matcher and the token verifier are pure, unit-tested modules; the UDP socket is behind an injectable seam like `FetchImpl` in `lib/net/fetcher.ts` | The acceptance criteria live in pure code, not in a live network                                                      |
 
 ## 5. Core terms & model
 
@@ -712,7 +712,7 @@ for Linux at all — see [linux-support-analysis.md](../linux-support-analysis.m
   master or a real server.
 - **Tests:** codecs, matcher, sorter/filter and token verifier are pure modules with unit tests; the
   UDP socket sits behind an injectable seam so a test can drive a local `node:dgram` responder, the
-  way `downloads/fetcher.ts` points a `FetchImpl` at a local HTTP server.
+  way `lib/net/fetcher.ts` points a `FetchImpl` at a local HTTP server.
 
 ## 17. Requirements
 

@@ -1,46 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { CONTENT_REPO_RAW_BASE } from '../../lib/content-repo'
 import { delimiter } from 'node:path'
 import {
-  isUiHarnessEnabled,
+  resolveUiHarness,
   uiHarnessPickedFolders,
   UI_HARNESS_ENV,
   UI_HARNESS_PICK_FOLDER_ENV,
 } from '../../lib/ui-harness'
-import {
-  HARNESS_CONTENT_REPO_BASE_ENV,
-  HARNESS_STORE_SOURCES_ENV,
-  PRODUCTION_DOWNLOAD_SOURCE,
-  resolveDetectedRetailSourcesOverride,
-  resolveDownloadSource,
-} from './harness'
-import { parseManifestFile } from './manifest-parse'
-import { harnessLoopbackManifestPackageSchema, manifestPackageSchema } from './schemas'
-import type { Logger } from '../../lib/logger'
-
-/**
- * Story 074 D8 (relaxed by story 101 F3): the harness-only download-source override is a
- * security-relevant backdoor - it can point the launcher's manifest and package traffic at a
- * different server - so it must be provably unreachable unless `Q2L_UI_HARNESS === '1'` is set.
- * `isDev` is deliberately NOT part of the gate any more (see `src/main/lib/ui-harness.ts`'s module
- * comment): story 101's CI jobs drive a real packaged AppImage, where `isDev` is always `false`,
- * and the harness needs this override reachable there. This file's gate cases:
- *
- *   1. both flags off                    -> production path
- *   2. only `Q2L_UI_HARNESS=1`, isDev false -> harness path (the env var alone is now the gate)
- *   3. only `isDev`, env var unset        -> production path (isDev alone is never enough)
- *   4. `isDev` + a non-'1' value          -> production path
- *   5. both on                            -> harness path
- *
- * and then adds what is specific to *this* backdoor: the override is refused unless it names a
- * `127.0.0.1` loopback origin, and the production package schema is not widened by any of it.
- *
- * The environment is passed in as a value rather than mutated on `process.env`, which is what lets
- * every combination be asserted without any `beforeEach`/`afterEach` bookkeeping - and which is
- * also the property that makes the gate auditable in the first place (nothing caches a decision).
- */
-
-const LOOPBACK_BASE = 'http://127.0.0.1:53129'
+import { HARNESS_STORE_SOURCES_ENV, resolveDetectedRetailSourcesOverride } from './harness'
 
 /**
  * `Q2L_UI_PICK_FOLDER` fixture paths: platform-appropriate, since `uiHarnessPickedFolders` splits
@@ -55,159 +21,11 @@ const FIXTURE_FOLDER_BOOTSTRAP_TARGET =
 /** A harness-launched environment, regardless of `isDev`. */
 const HARNESS_ENV = {
   [UI_HARNESS_ENV]: '1',
-  [HARNESS_CONTENT_REPO_BASE_ENV]: LOOPBACK_BASE,
   [UI_HARNESS_PICK_FOLDER_ENV]: `${FIXTURE_FOLDER_PROGRAM_FILES}${delimiter}${FIXTURE_FOLDER_BOOTSTRAP_TARGET}`,
 } as NodeJS.ProcessEnv
 
-function silentLogger(): Logger {
-  return { warn: () => {}, info: () => {}, error: () => {}, debug: () => {} } as unknown as Logger
-}
-
-/** A manifest package row whose URL and mirror are plain-http loopback URLs. */
-function loopbackPackageRow(): unknown {
-  return {
-    kind: 'engine',
-    engine: 'q2pro',
-    id: 'q2pro-fixture',
-    version: '1.0',
-    sizeBytes: 1234,
-    sha256: 'a'.repeat(64),
-    url: `${LOOPBACK_BASE}/packages/q2pro-fixture.zip`,
-    mirrors: [`${LOOPBACK_BASE}/mirror/q2pro-fixture.zip`],
-    contents: [{ from: '.', to: 'root' }],
-  }
-}
-
-describe('the download-source override requires Q2L_UI_HARNESS - isDev is not part of the gate', () => {
-  it('both flags off: the production content repo is used, Q2L_UI_CONTENT_REPO_BASE is ignored', () => {
-    const source = resolveDownloadSource({
-      isDev: false,
-      env: { [HARNESS_CONTENT_REPO_BASE_ENV]: LOOPBACK_BASE },
-    })
-
-    expect(source).toBe(PRODUCTION_DOWNLOAD_SOURCE)
-    expect(source.baseUrl).toBe(CONTENT_REPO_RAW_BASE)
-    expect(source.httpsOnly).toBe(true)
-  })
-
-  it('only Q2L_UI_HARNESS=1 (isDev false): the loopback base is used - the env var alone is the gate', () => {
-    const source = resolveDownloadSource({ isDev: false, env: HARNESS_ENV })
-
-    expect(source.baseUrl).toBe(LOOPBACK_BASE)
-    expect(source.httpsOnly).toBe(false)
-  })
-
-  it('only isDev=true (Q2L_UI_HARNESS unset): the production content repo is still used', () => {
-    const source = resolveDownloadSource({
-      isDev: true,
-      env: { [HARNESS_CONTENT_REPO_BASE_ENV]: LOOPBACK_BASE },
-    })
-
-    expect(source).toBe(PRODUCTION_DOWNLOAD_SOURCE)
-    expect(source.httpsOnly).toBe(true)
-  })
-
-  it('only isDev=true and Q2L_UI_HARNESS set to something other than "1": still production', () => {
-    const source = resolveDownloadSource({
-      isDev: true,
-      env: { ...HARNESS_ENV, [UI_HARNESS_ENV]: 'true' },
-    })
-
-    expect(source).toBe(PRODUCTION_DOWNLOAD_SOURCE)
-    expect(source.httpsOnly).toBe(true)
-  })
-
-  it('both flags on: the loopback base is used and the https-only rule is relaxed', () => {
-    const source = resolveDownloadSource({ isDev: true, env: HARNESS_ENV })
-
-    expect(source.baseUrl).toBe(LOOPBACK_BASE)
-    expect(source.httpsOnly).toBe(false)
-  })
-
-  it('Q2L_UI_HARNESS=1 but Q2L_UI_CONTENT_REPO_BASE unset: still the production source', () => {
-    const source = resolveDownloadSource({ isDev: true, env: { [UI_HARNESS_ENV]: '1' } })
-
-    expect(source).toBe(PRODUCTION_DOWNLOAD_SOURCE)
-  })
-})
-
-describe('even inside the harness branch, the override must name a loopback origin', () => {
-  const refused = [
-    'https://raw.githubusercontent.com/evil/content/main',
-    'http://example.test:8080',
-    'http://localhost:53129',
-    'http://127.0.0.2:53129',
-    'file:///C:/tmp/manifests',
-    'not-a-url',
-    '',
-  ]
-
-  for (const value of refused) {
-    it(`refuses ${JSON.stringify(value)} and falls back to production`, () => {
-      const source = resolveDownloadSource({
-        isDev: true,
-        env: { [UI_HARNESS_ENV]: '1', [HARNESS_CONTENT_REPO_BASE_ENV]: value },
-      })
-
-      expect(source).toBe(PRODUCTION_DOWNLOAD_SOURCE)
-    })
-  }
-
-  it('normalises a trailing slash away so the joined manifest URL has exactly one', () => {
-    const source = resolveDownloadSource({
-      isDev: true,
-      env: { [UI_HARNESS_ENV]: '1', [HARNESS_CONTENT_REPO_BASE_ENV]: `${LOOPBACK_BASE}/` },
-    })
-
-    expect(source.baseUrl).toBe(LOOPBACK_BASE)
-  })
-})
-
-describe('the production package schema is never widened by the harness variant', () => {
-  it('manifestPackageSchema still refuses a plain-http loopback URL', () => {
-    expect(manifestPackageSchema.safeParse(loopbackPackageRow()).success).toBe(false)
-  })
-
-  it('harnessLoopbackManifestPackageSchema accepts it', () => {
-    expect(harnessLoopbackManifestPackageSchema.safeParse(loopbackPackageRow()).success).toBe(true)
-  })
-
-  it('harnessLoopbackManifestPackageSchema still refuses a plain-http NON-loopback URL', () => {
-    const row = loopbackPackageRow() as Record<string, unknown>
-    row.url = 'http://example.test/packages/q2pro-fixture.zip'
-
-    expect(harnessLoopbackManifestPackageSchema.safeParse(row).success).toBe(false)
-  })
-
-  it('harnessLoopbackManifestPackageSchema still requires size, sha256, mirrors and contents', () => {
-    const row = loopbackPackageRow() as Record<string, unknown>
-    delete row.sha256
-
-    expect(harnessLoopbackManifestPackageSchema.safeParse(row).success).toBe(false)
-  })
-
-  it('parseManifestFile drops a loopback row by default and keeps it only with httpsOnly: false', () => {
-    const file = {
-      schemaVersion: 1,
-      packages: [loopbackPackageRow()],
-      pinned: { q2pro: 'q2pro-fixture' },
-    }
-
-    // Story 100 D5: the fixture uses the pre-platform manifest shape (bare-string pin, no
-    // `platforms`), which reads as Windows-only - so both calls say which platform they resolve
-    // for, keeping this test about the URL rule it is actually named after on any host.
-    const production = parseManifestFile(file, silentLogger(), { platform: 'win32' })
-    const harness = parseManifestFile(file, silentLogger(), { httpsOnly: false, platform: 'win32' })
-
-    expect(production.ok && production.packages).toEqual([])
-    expect(production.ok && production.pinned).toEqual({})
-    expect(harness.ok && harness.packages).toHaveLength(1)
-    expect(harness.ok && harness.pinned).toEqual({ q2pro: 'q2pro-fixture' })
-  })
-})
-
 /**
- * Story 088 D2 (relaxed by story 101 F3): mirrors the gate cases above one for one, for the new
+ * Story 088 D2 (relaxed by story 101 F3): mirrors the gate cases of the download-source override (`services/content/source.test.ts`) one for one, for the new
  * `Q2L_UI_HARNESS_STORE_SOURCES` override (`resolveDetectedRetailSourcesOverride`) - the same
  * security-relevant backdoor discipline, since this one substitutes fixture Steam/GOG/Epic sources
  * for a real detection scan. `Q2L_UI_HARNESS === '1'` alone is the gate; `isDev` is not part of it.
@@ -231,61 +49,59 @@ describe('the detected-retail-sources override requires only Q2L_UI_HARNESS', ()
   const FIXTURE_ENV = { [HARNESS_STORE_SOURCES_ENV]: JSON.stringify(FIXTURE_SOURCES) }
 
   it('both flags off: undefined, so the caller runs the real detection scan', () => {
-    expect(resolveDetectedRetailSourcesOverride({ isDev: false, env: FIXTURE_ENV })).toBeUndefined()
+    expect(resolveDetectedRetailSourcesOverride(resolveUiHarness(FIXTURE_ENV))).toBeUndefined()
   })
 
   it('only Q2L_UI_HARNESS=1 (isDev false): the fixture sources come back - the env var alone is the gate', () => {
     expect(
-      resolveDetectedRetailSourcesOverride({
-        isDev: false,
-        env: { ...FIXTURE_ENV, [UI_HARNESS_ENV]: '1' },
-      }),
+      resolveDetectedRetailSourcesOverride(
+        resolveUiHarness({ ...FIXTURE_ENV, [UI_HARNESS_ENV]: '1' }),
+      ),
     ).toEqual(FIXTURE_SOURCES)
   })
 
   it('only isDev=true (Q2L_UI_HARNESS unset): still the real detection scan', () => {
-    expect(resolveDetectedRetailSourcesOverride({ isDev: true, env: FIXTURE_ENV })).toBeUndefined()
+    expect(resolveDetectedRetailSourcesOverride(resolveUiHarness(FIXTURE_ENV))).toBeUndefined()
   })
 
   it('only isDev=true and Q2L_UI_HARNESS set to something other than "1": still the real scan', () => {
     expect(
-      resolveDetectedRetailSourcesOverride({
-        isDev: true,
-        env: { ...FIXTURE_ENV, [UI_HARNESS_ENV]: 'true' },
-      }),
+      resolveDetectedRetailSourcesOverride(
+        resolveUiHarness({ ...FIXTURE_ENV, [UI_HARNESS_ENV]: 'true' }),
+      ),
     ).toBeUndefined()
   })
 
   it('both flags on: the fixture sources come back verbatim, and no real scan is involved', () => {
     expect(
-      resolveDetectedRetailSourcesOverride({
-        isDev: true,
-        env: { ...FIXTURE_ENV, [UI_HARNESS_ENV]: '1' },
-      }),
+      resolveDetectedRetailSourcesOverride(
+        resolveUiHarness({ ...FIXTURE_ENV, [UI_HARNESS_ENV]: '1' }),
+      ),
     ).toEqual(FIXTURE_SOURCES)
   })
 
   it('both flags on but the variable is unset: still undefined, not an empty list', () => {
     expect(
-      resolveDetectedRetailSourcesOverride({ isDev: true, env: { [UI_HARNESS_ENV]: '1' } }),
+      resolveDetectedRetailSourcesOverride(resolveUiHarness({ [UI_HARNESS_ENV]: '1' })),
     ).toBeUndefined()
   })
 
   it('both flags on but the variable holds malformed JSON: falls back to undefined', () => {
     expect(
-      resolveDetectedRetailSourcesOverride({
-        isDev: true,
-        env: { [UI_HARNESS_ENV]: '1', [HARNESS_STORE_SOURCES_ENV]: 'not-json' },
-      }),
+      resolveDetectedRetailSourcesOverride(
+        resolveUiHarness({ [UI_HARNESS_ENV]: '1', [HARNESS_STORE_SOURCES_ENV]: 'not-json' }),
+      ),
     ).toBeUndefined()
   })
 
   it('both flags on but the variable holds a JSON object, not an array: falls back to undefined', () => {
     expect(
-      resolveDetectedRetailSourcesOverride({
-        isDev: true,
-        env: { [UI_HARNESS_ENV]: '1', [HARNESS_STORE_SOURCES_ENV]: '{"not":"an array"}' },
-      }),
+      resolveDetectedRetailSourcesOverride(
+        resolveUiHarness({
+          [UI_HARNESS_ENV]: '1',
+          [HARNESS_STORE_SOURCES_ENV]: '{"not":"an array"}',
+        }),
+      ),
     ).toBeUndefined()
   })
 })
@@ -293,15 +109,12 @@ describe('the detected-retail-sources override requires only Q2L_UI_HARNESS', ()
 describe('the folder-picker stub requires only Q2L_UI_HARNESS - isDev is not part of the gate', () => {
   it('both flags off: undefined, so the caller opens the real dialog', () => {
     expect(
-      uiHarnessPickedFolders({
-        isDev: false,
-        env: { [UI_HARNESS_PICK_FOLDER_ENV]: 'C:\\fixtures' },
-      }),
+      uiHarnessPickedFolders(resolveUiHarness({ [UI_HARNESS_PICK_FOLDER_ENV]: 'C:\\fixtures' })),
     ).toBeUndefined()
   })
 
   it('only Q2L_UI_HARNESS=1 (isDev false): the fixture paths come back, no dialog involved', () => {
-    expect(uiHarnessPickedFolders({ isDev: false, env: HARNESS_ENV })).toEqual([
+    expect(uiHarnessPickedFolders(resolveUiHarness(HARNESS_ENV))).toEqual([
       FIXTURE_FOLDER_PROGRAM_FILES,
       FIXTURE_FOLDER_BOOTSTRAP_TARGET,
     ])
@@ -309,44 +122,43 @@ describe('the folder-picker stub requires only Q2L_UI_HARNESS - isDev is not par
 
   it('only isDev=true (Q2L_UI_HARNESS unset): still the real dialog', () => {
     expect(
-      uiHarnessPickedFolders({
-        isDev: true,
-        env: { [UI_HARNESS_PICK_FOLDER_ENV]: 'C:\\fixtures' },
-      }),
+      uiHarnessPickedFolders(resolveUiHarness({ [UI_HARNESS_PICK_FOLDER_ENV]: 'C:\\fixtures' })),
     ).toBeUndefined()
   })
 
   it('only isDev=true and Q2L_UI_HARNESS set to something other than "1": still the real dialog', () => {
     expect(
-      uiHarnessPickedFolders({ isDev: true, env: { ...HARNESS_ENV, [UI_HARNESS_ENV]: 'true' } }),
+      uiHarnessPickedFolders(resolveUiHarness({ ...HARNESS_ENV, [UI_HARNESS_ENV]: 'true' })),
     ).toBeUndefined()
   })
 
   it('both flags on: the fixture paths come back in order, and no dialog is involved', () => {
-    expect(uiHarnessPickedFolders({ isDev: true, env: HARNESS_ENV })).toEqual([
+    expect(uiHarnessPickedFolders(resolveUiHarness(HARNESS_ENV))).toEqual([
       FIXTURE_FOLDER_PROGRAM_FILES,
       FIXTURE_FOLDER_BOOTSTRAP_TARGET,
     ])
   })
 
   it('both flags on but Q2L_UI_PICK_FOLDER unset: an empty list (a cancel), still without a dialog', () => {
-    expect(uiHarnessPickedFolders({ isDev: true, env: { [UI_HARNESS_ENV]: '1' } })).toEqual([])
+    expect(uiHarnessPickedFolders(resolveUiHarness({ [UI_HARNESS_ENV]: '1' }))).toEqual([])
   })
 
   it('drops empty segments, so a trailing delimiter is not a phantom pick', () => {
     const fixtureOne = process.platform === 'win32' ? 'C:\\one' : '/one'
     expect(
-      uiHarnessPickedFolders({
-        isDev: true,
-        env: { [UI_HARNESS_ENV]: '1', [UI_HARNESS_PICK_FOLDER_ENV]: `${fixtureOne}${delimiter}` },
-      }),
+      uiHarnessPickedFolders(
+        resolveUiHarness({
+          [UI_HARNESS_ENV]: '1',
+          [UI_HARNESS_PICK_FOLDER_ENV]: `${fixtureOne}${delimiter}`,
+        }),
+      ),
     ).toEqual([fixtureOne])
   })
 
-  it('agrees with isUiHarnessEnabled: the env var alone decides, isDev is irrelevant', () => {
-    expect(isUiHarnessEnabled({ isDev: false, env: {} })).toBe(false)
-    expect(isUiHarnessEnabled({ isDev: false, env: { [UI_HARNESS_ENV]: '1' } })).toBe(true)
-    expect(isUiHarnessEnabled({ isDev: true, env: {} })).toBe(false)
-    expect(isUiHarnessEnabled({ isDev: true, env: { [UI_HARNESS_ENV]: '1' } })).toBe(true)
+  it('agrees with UiHarness.enabled: the env var alone decides, isDev is irrelevant', () => {
+    expect(resolveUiHarness({}).enabled).toBe(false)
+    expect(resolveUiHarness({ [UI_HARNESS_ENV]: '1' }).enabled).toBe(true)
+    expect(resolveUiHarness({}).enabled).toBe(false)
+    expect(resolveUiHarness({ [UI_HARNESS_ENV]: '1' }).enabled).toBe(true)
   })
 })

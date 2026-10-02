@@ -11,18 +11,11 @@ import { chromeState } from './lib/chrome-state'
 import { JsonStore } from './lib/json-store'
 import { scopedLogger } from './lib/logger'
 import { windowStateFilePath } from './lib/paths'
-import { RENDERER_INDEX_URL } from './lib/renderer-source'
+import { RENDERER_INDEX_URL, rendererSourceFromEnv } from './lib/renderer-source'
 import { parseWindowState } from './lib/schemas'
 import type { AppContext } from './context'
 import type { MainWindowEvent } from './main-window-observer'
-import {
-  hardenWebContents,
-  IS_UI_HARNESS,
-  IS_UI_HARNESS_OFFSCREEN,
-  OFFSCREEN_MARGIN,
-  RENDERER_SOURCE,
-  rendererWebPreferences,
-} from './window-shared'
+import { hardenWebContents, OFFSCREEN_MARGIN, rendererWebPreferences } from './window-shared'
 
 const log = scopedLogger('window')
 
@@ -86,6 +79,7 @@ export async function createMainWindow(
   /** Story 171 D2: receives the window events `AppContext.mainWindow` republishes to modules. */
   onWindowEvent?: (event: MainWindowEvent) => void,
 ): Promise<MainWindow> {
+  const rendererSource = rendererSourceFromEnv(app.env)
   const store = new JsonStore<WindowState>({
     filePath: windowStateFilePath(),
     defaults: defaultWindowState,
@@ -95,7 +89,7 @@ export async function createMainWindow(
   })
 
   const saved = withVisiblePosition(await store.load())
-  const position = IS_UI_HARNESS_OFFSCREEN
+  const position = app.harness.offscreen
     ? {
         x:
           Math.min(...screen.getAllDisplays().map((display) => display.bounds.x)) -
@@ -121,7 +115,7 @@ export async function createMainWindow(
     // raise it. Spread conditionally rather than passed as `focusable: true`, so
     // a normal launch hands Electron exactly the options it got before — Windows
     // also derives `skipTaskbar: true` from `focusable: false`.
-    ...(IS_UI_HARNESS ? { focusable: false } : {}),
+    ...(app.harness.enabled ? { focusable: false } : {}),
     backgroundColor: BACKGROUND_COLOR,
     icon: mainWindowIconPath(),
     // Fully custom chrome: the title bar is a React component, matching the
@@ -131,7 +125,7 @@ export async function createMainWindow(
     frame: false,
     autoHideMenuBar: true,
     title: 'Q2 Launcher',
-    webPreferences: rendererWebPreferences(),
+    webPreferences: rendererWebPreferences(app.harness),
   })
 
   // --- geometry persistence -------------------------------------------------
@@ -182,25 +176,25 @@ export async function createMainWindow(
   // --- navigation hardening -------------------------------------------------
   // Nothing in the launcher should ever navigate the window or open a popup;
   // external links go to the user's browser instead.
-  hardenWebContents(window)
+  hardenWebContents(window, rendererSource)
 
   window.once('ready-to-show', () => {
     // Skipped offscreen: maximize/fullscreen would pull the window back onto a display.
-    if (!IS_UI_HARNESS_OFFSCREEN) {
+    if (!app.harness.offscreen) {
       if (saved.fullScreen) window.setFullScreen(true)
       else if (saved.maximized) window.maximize()
     }
     // `show()` shows *and* focuses; `showInactive()` shows without asking for
     // activation. The harness path needs the second one — `focusable: false`
     // alone would leave Electron requesting a focus the window then refuses.
-    if (IS_UI_HARNESS) window.showInactive()
+    if (app.harness.enabled) window.showInactive()
     else window.show()
   })
 
   // Production loads over `q2launcher://`, not `loadFile`: a `file://` document has no origin the
   // header hook can reach, which is how the CSP came to be absent from every packaged build.
-  if (RENDERER_SOURCE.kind === 'dev-server') {
-    await window.loadURL(RENDERER_SOURCE.url)
+  if (rendererSource.kind === 'dev-server') {
+    await window.loadURL(rendererSource.url)
   } else {
     await window.loadURL(RENDERER_INDEX_URL)
   }

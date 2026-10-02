@@ -43,7 +43,11 @@ export interface ModuleSetup {
   ) => void
   /** Pushes a namespaced event to the UI. */
   emit: (type: string, payload: unknown) => void
-  /** Access to the shell's services: installations, jobs, settings, ... */
+  /**
+   * Access to the shell's services: installations, jobs, settings, ... A module reaches the OS,
+   * the screen and the harness only through `app.os`, `app.displays`, `app.harness`, `app.env`,
+   * `app.isPackaged` and `app.userDataDir` - never `electron` or `process.env` itself (narrow shell libs such as `lib/paths` are the only other route).
+   */
   app: AppContext
   log: Logger
   /**

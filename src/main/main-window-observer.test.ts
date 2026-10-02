@@ -11,10 +11,14 @@ function fakeWin(
     minimized: boolean
     focused: boolean
     destroyed: boolean
+    outer: { x: number; y: number; width: number; height: number }
+    zoom: number
   }> = {},
 ) {
   const s = {
     bounds: { x: 1, y: 2, width: 300, height: 200 },
+    outer: { x: 0, y: 0, width: 320, height: 240 },
+    zoom: 1,
     minimized: false,
     focused: false,
     destroyed: false,
@@ -23,6 +27,8 @@ function fakeWin(
   const win: ObservedWindow = {
     isDestroyed: () => s.destroyed,
     getContentBounds: () => ({ ...s.bounds }),
+    getBounds: () => ({ ...s.outer }),
+    getZoomFactor: () => s.zoom,
     isMinimized: () => s.minimized,
     isFocused: () => s.focused,
   }
@@ -34,7 +40,7 @@ describe('main window observer', () => {
     let current: ObservedWindow | null = null
     const { observer } = createMainWindowEvents({
       getWindow: () => current,
-      scaleFactorFor: () => 1,
+      displayFor: () => ({ id: 1, scaleFactor: 1 }),
     })
     expect(observer.snapshot()).toBeNull()
     const { s, win } = fakeWin({ destroyed: true })
@@ -43,6 +49,9 @@ describe('main window observer', () => {
     s.destroyed = false
     expect(observer.snapshot()).toEqual({
       contentBounds: { x: 1, y: 2, width: 300, height: 200 },
+      bounds: { x: 0, y: 0, width: 320, height: 240 },
+      zoomFactor: 1,
+      displayId: 1,
       scaleFactor: 1,
       minimized: false,
       focused: false,
@@ -54,7 +63,7 @@ describe('main window observer', () => {
     const onListenerError = vi.fn()
     const { observer, notify } = createMainWindowEvents({
       getWindow: () => win,
-      scaleFactorFor: () => 1,
+      displayFor: () => ({ id: 1, scaleFactor: 1 }),
       onListenerError,
     })
     const seen: MainWindowEvent[] = []
@@ -73,7 +82,7 @@ describe('main window observer', () => {
     const { win } = fakeWin({ focused: false })
     const { observer, notify } = createMainWindowEvents({
       getWindow: () => win,
-      scaleFactorFor: () => 1,
+      displayFor: () => ({ id: 1, scaleFactor: 1 }),
     })
     expect(observer.snapshot()?.focused).toBe(false)
     notify('focus')
@@ -84,18 +93,38 @@ describe('main window observer', () => {
 
   it('while minimized, reports the last un-minimized bounds and the scale for them', () => {
     const { s, win } = fakeWin()
-    const scaleFactorFor = vi.fn(() => 1.5)
-    const { observer, notify } = createMainWindowEvents({ getWindow: () => win, scaleFactorFor })
+    const displayFor = vi.fn(() => ({ id: 7, scaleFactor: 1.5 }))
+    const { observer, notify } = createMainWindowEvents({ getWindow: () => win, displayFor })
     notify('move')
     s.minimized = true
     s.bounds = { x: -32000, y: -32000, width: 160, height: 28 }
+    s.outer = { x: -32000, y: -32000, width: 160, height: 28 }
     notify('minimize')
     expect(observer.snapshot()).toEqual({
       contentBounds: { x: 1, y: 2, width: 300, height: 200 },
+      bounds: { x: 0, y: 0, width: 320, height: 240 },
+      zoomFactor: 1,
+      displayId: 7,
       scaleFactor: 1.5,
       minimized: true,
       focused: false,
     })
-    expect(scaleFactorFor).toHaveBeenLastCalledWith({ x: 1, y: 2, width: 300, height: 200 })
+    expect(displayFor).toHaveBeenLastCalledWith({ x: 1, y: 2, width: 300, height: 200 })
+  })
+})
+
+describe('main window snapshot', () => {
+  it('the snapshot carries zoom factor, outer bounds and display id', () => {
+    const { win } = fakeWin({ zoom: 1.25, outer: { x: 5, y: 6, width: 400, height: 300 } })
+    const { observer } = createMainWindowEvents({
+      getWindow: () => win,
+      displayFor: () => ({ id: 42, scaleFactor: 2 }),
+    })
+    expect(observer.snapshot()).toMatchObject({
+      zoomFactor: 1.25,
+      bounds: { x: 5, y: 6, width: 400, height: 300 },
+      displayId: 42,
+      scaleFactor: 2,
+    })
   })
 })

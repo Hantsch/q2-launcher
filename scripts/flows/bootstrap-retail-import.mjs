@@ -27,10 +27,10 @@
 //
 // Three harness-only overrides, all under the SAME double gate (`Q2L_UI_HARNESS === '1' && isDev`,
 // `src/main/lib/ui-harness.ts`), all provably unreachable in a packaged build where `isDev` is
-// always `false` - see `src/main/modules/downloads/harness.test.ts`:
+// always `false` - see `src/main/services/content/source.test.ts`:
 //
 //   Q2L_UI_CONTENT_REPO_BASE      the manifest/package base URL (`resolveDownloadSource()`,
-//                                 `src/main/modules/downloads/harness.ts`), refused unless it names
+//                                 `src/main/services/content/source.ts`), refused unless it names
 //                                 a `127.0.0.1` origin. Same as `bootstrap-wizard.mjs`.
 //   Q2L_UI_PICK_FOLDER            what `installations:pickFolder` answers instead of opening a
 //                                 native OS dialog. One entry (this target is fresh and outside
@@ -60,7 +60,7 @@
 // fixture list before the real run. `'[]'` is an override that says "there are zero sources", NOT
 // an unset variable - an unset one would fall through to the real `listDetectedRetailSources()` and
 // its real detection scan, which is exactly what this harness must never do. The double gate is
-// untouched by any of this: `isUiHarnessEnabled()` still has to be true for the value to be read at
+// untouched by any of this: the UI harness (`resolveUiHarness` / `app.harness`) still has to be enabled for the value to be read at
 // all.
 //
 // ## Selectors, not guesses
