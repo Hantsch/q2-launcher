@@ -1,6 +1,14 @@
-import { HOME_EVENTS, HOME_HANDLERS, type HomeLayout, type NewsFeed } from '@shared/modules/home'
+import {
+  HOME_EVENTS,
+  HOME_HANDLERS,
+  type HomeContract,
+  type HomeLayout,
+  type NewsFeed,
+} from '@shared/modules/home'
 import type { Outcome } from '@shared/types'
-import { callModule, onModuleEvent } from '../moduleClient'
+import { createModuleClient } from '../moduleClient'
+
+const client = createModuleClient<HomeContract>('home')
 
 /**
  * Typed client for the home module's community news feed (story 082 D7). One
@@ -10,11 +18,11 @@ import { callModule, onModuleEvent } from '../moduleClient'
  * transport 083 builds its UI on top of.
  */
 export function getNews(): Promise<Outcome<NewsFeed>> {
-  return callModule<NewsFeed>('home', HOME_HANDLERS.newsGet)
+  return client.call(HOME_HANDLERS.newsGet)
 }
 
 export function refreshNews(): Promise<Outcome<NewsFeed>> {
-  return callModule<NewsFeed>('home', HOME_HANDLERS.newsRefresh)
+  return client.call(HOME_HANDLERS.newsRefresh)
 }
 
 /**
@@ -23,7 +31,7 @@ export function refreshNews(): Promise<Outcome<NewsFeed>> {
  * allowed to open, it only ever passes it through this call.
  */
 export function openSlideUrl(url: string): Promise<Outcome<null>> {
-  return callModule<null>('home', HOME_HANDLERS.openSlideUrl, url)
+  return client.call(HOME_HANDLERS.openSlideUrl, url)
 }
 
 /**
@@ -35,18 +43,18 @@ export function openSlideUrl(url: string): Promise<Outcome<null>> {
  * results are trusted elsewhere in this client layer.
  */
 export function onNewsChanged(listener: (feed: NewsFeed) => void): () => void {
-  return onModuleEvent<NewsFeed>('home', HOME_EVENTS.newsChanged, listener)
+  return client.on(HOME_EVENTS.newsChanged, listener)
 }
 
 /** Story 086 D1: the persisted dashboard tile arrangement. */
 export function getHomeLayout(): Promise<Outcome<HomeLayout>> {
-  return callModule<HomeLayout>('home', HOME_HANDLERS.getLayout)
+  return client.call(HOME_HANDLERS.getLayout)
 }
 
 export function setHomeLayout(layout: HomeLayout): Promise<Outcome<HomeLayout>> {
-  return callModule<HomeLayout>('home', HOME_HANDLERS.setLayout, layout)
+  return client.call(HOME_HANDLERS.setLayout, layout)
 }
 
 export function resetHomeLayout(): Promise<Outcome<HomeLayout>> {
-  return callModule<HomeLayout>('home', HOME_HANDLERS.resetLayout)
+  return client.call(HOME_HANDLERS.resetLayout)
 }

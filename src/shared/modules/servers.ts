@@ -48,24 +48,10 @@ export const SERVERS_HANDLERS = {
   sourcesUpdate: 'sources.update',
   /** Applies a full permutation of source ids; refuses when the id set doesn't match exactly. */
   sourcesReorder: 'sources.reorder',
-  /** Story 112 D1: favourites.* handler ids. Handler logic (main) is a later D - here they only
-   * need names and payload schemas. */
-  /** Resolves to the current favourites list, in persisted order. */
-  favouritesList: 'favourites.list',
   /** Adds an address to the favourites list. */
   favouritesAdd: 'favourites.add',
   /** Removes an address from the favourites list. */
   favouritesRemove: 'favourites.remove',
-  /** Story 113 D1: manual.* and history.* handler ids. Handler logic (main) is a later D - here
-   * they only need names and payload schemas, same as story 112 D1's favourites.* entries above. */
-  /** Resolves to the current manually-added servers list. */
-  manualList: 'manual.list',
-  /** Adds a raw, unvalidated candidate address; refuses (never throws) on a malformed one via
-   * `ManualServerAddResult`. */
-  manualAdd: 'manual.add',
-  /** Removes a manually-added server by address; idempotent - an address that was never stored
-   * still succeeds as a no-op. */
-  manualRemove: 'manual.remove',
   /** Resolves to the connection history, most-recent-first. Read-only over IPC - there is no
    * `history.record` channel; only main itself ever appends to history (a later story). */
   historyRead: 'history.read',
@@ -257,7 +243,7 @@ export const SERVER_HISTORY_CAP = 200
  * `serverAddressRejectionKey()` (`src/shared/servers/address.ts`) produced for the
  * `ServerAddressRejection` the handler's call to `parseServerAddress` returned - already a
  * `servers.address.reject.<reason>` i18n key, not a raw reason code, so the renderer never needs to
- * re-derive it. Per D-K, `manual.list`/`manual.add`/`history.read` resolve to the same
+ * re-derive it. Per D-K, `history.read` resolves to the same
  * `ManualServerEntry`/`ServerHistoryEntry` rows the module already persists (story 110) - there is
  * no separate IPC-only shape.
  */
@@ -453,16 +439,16 @@ export const watchlistRecheckInputSchema = z.object({ id: z.string() }).strict()
 
 export const watchlistReadInputSchema = z.void()
 
-export const SERVERS_WATCHLIST_HANDLER_SCHEMAS: Record<
-  (typeof SERVERS_WATCHLIST_HANDLERS)[keyof typeof SERVERS_WATCHLIST_HANDLERS],
-  z.ZodTypeAny
-> = {
+export const SERVERS_WATCHLIST_HANDLER_SCHEMAS = {
   [SERVERS_WATCHLIST_HANDLERS.read]: watchlistReadInputSchema,
   [SERVERS_WATCHLIST_HANDLERS.add]: watchlistAddInputSchema,
   [SERVERS_WATCHLIST_HANDLERS.update]: watchlistUpdateInputSchema,
   [SERVERS_WATCHLIST_HANDLERS.remove]: watchlistRemoveInputSchema,
   [SERVERS_WATCHLIST_HANDLERS.recheck]: watchlistRecheckInputSchema,
-}
+} satisfies Record<
+  (typeof SERVERS_WATCHLIST_HANDLERS)[keyof typeof SERVERS_WATCHLIST_HANDLERS],
+  z.ZodTypeAny
+>
 
 export interface ServersState {
   sources: ServerSourceEntry[]
@@ -626,48 +612,18 @@ export type MasterSourcesRefusalKey =
   | 'servers.sources.reject.duplicate-address'
   | 'servers.sources.reject.invalid-reorder'
 
-export type MasterSourcesResult = DomainResult<
-  { sources: MasterSource[] },
-  MasterSourcesRefusalKey
->
+export type MasterSourcesResult = DomainResult<{ sources: MasterSource[] }, MasterSourcesRefusalKey>
 
 /**
- * Story 112 D1: payload schemas for the three `favourites.*` handlers. `favouritesList` takes no
- * payload, same `z.void()` convention as `serversNoInputSchema` above (kept as its own alias so
- * each handler's schema reads self-documenting at the call site). `favouritesAdd`/`favouritesRemove`
- * take just the address - no wrapper object - validated with the shared `serverAddressSchema`
- * (`src/shared/schemas.ts`), which normalizes a `host:port` via `parseServerAddress` and rejects a
- * malformed one. The result shape (what these resolve to) is `FavouriteServerEntry`/
- * `FavouriteServerEntry[]` above - handler logic and any result union are a later deliverable, not
- * this one.
+ * Payload schemas for the `favourites.*` handlers: just the address - no wrapper object -
+ * validated with the shared `serverAddressSchema` (`src/shared/schemas.ts`), which normalizes a
+ * `host:port` via `parseServerAddress` and rejects a malformed one.
  */
-export const favouritesListInputSchema = serversNoInputSchema
-
 export const favouritesAddInputSchema = serverAddressSchema
 
 export const favouritesRemoveInputSchema = serverAddressSchema
 
-/**
- * Story 113 D1: payload schemas for the four `manual.*`/`history.*` handlers. `manualList`/
- * `historyRead` take no payload, same `z.void()` convention as `favouritesListInputSchema` above.
- * `manualAdd`'s payload is deliberately *not* `serverAddressSchema` (unlike `favouritesAdd`): it is
- * raw, unvalidated user input wrapped in `{ address }`, whose malformed case is a returned
- * `ManualServerAddResult` refusal (D-checked by the handler, a later D), not a schema-parse failure
- * at this boundary. `manualRemove` takes the same loose `{ address }` shape for the same reason as
- * `removeFavourite` (`src/main/modules/servers/favourites.ts`) is unconditionally idempotent: even a
- * currently-unparseable address must still be removable as a no-op, so this boundary cannot reject
- * it either.
- */
-export const manualListInputSchema = serversNoInputSchema
-
-export const manualAddInputSchema = z.object({
-  address: z.string(),
-})
-
-export const manualRemoveInputSchema = z.object({
-  address: z.string(),
-})
-
+/** `history.read` takes no payload, same `z.void()` convention as `serversNoInputSchema`. */
 export const historyReadInputSchema = serversNoInputSchema
 
 /**
@@ -1006,22 +962,15 @@ export const quickFiltersSaveInputSchema = z
 export const quickFiltersRenameInputSchema = z.object({ id: z.string(), name: z.string() }).strict()
 export const quickFiltersRemoveInputSchema = z.object({ id: z.string() }).strict()
 
-export const SERVERS_HANDLER_SCHEMAS: Record<
-  (typeof SERVERS_HANDLERS)[keyof typeof SERVERS_HANDLERS],
-  z.ZodTypeAny
-> = {
+export const SERVERS_HANDLER_SCHEMAS = {
   [SERVERS_HANDLERS.overviewRead]: serversNoInputSchema,
   [SERVERS_HANDLERS.sourcesList]: sourcesListInputSchema,
   [SERVERS_HANDLERS.sourcesAdd]: sourcesAddInputSchema,
   [SERVERS_HANDLERS.sourcesRemove]: sourcesRemoveInputSchema,
   [SERVERS_HANDLERS.sourcesUpdate]: sourcesUpdateInputSchema,
   [SERVERS_HANDLERS.sourcesReorder]: sourcesReorderInputSchema,
-  [SERVERS_HANDLERS.favouritesList]: favouritesListInputSchema,
   [SERVERS_HANDLERS.favouritesAdd]: favouritesAddInputSchema,
   [SERVERS_HANDLERS.favouritesRemove]: favouritesRemoveInputSchema,
-  [SERVERS_HANDLERS.manualList]: manualListInputSchema,
-  [SERVERS_HANDLERS.manualAdd]: manualAddInputSchema,
-  [SERVERS_HANDLERS.manualRemove]: manualRemoveInputSchema,
   [SERVERS_HANDLERS.historyRead]: historyReadInputSchema,
   [SERVERS_HANDLERS.scanStart]: scanStartInputSchema,
   [SERVERS_HANDLERS.scanRead]: scanReadInputSchema,
@@ -1036,4 +985,125 @@ export const SERVERS_HANDLER_SCHEMAS: Record<
   [SERVERS_HANDLERS.quickFiltersSave]: quickFiltersSaveInputSchema,
   [SERVERS_HANDLERS.quickFiltersRename]: quickFiltersRenameInputSchema,
   [SERVERS_HANDLERS.quickFiltersRemove]: quickFiltersRemoveInputSchema,
+} satisfies Record<(typeof SERVERS_HANDLERS)[keyof typeof SERVERS_HANDLERS], z.ZodTypeAny>
+
+/** Every servers handler's payload schema, including the feature-gated watchlist ones. */
+export const SERVERS_CONTRACT_SCHEMAS = {
+  ...SERVERS_HANDLER_SCHEMAS,
+  ...SERVERS_WATCHLIST_HANDLER_SCHEMAS,
+}
+
+type ServersSchemas = typeof SERVERS_CONTRACT_SCHEMAS
+
+/** The servers module's typed contract; `req` is each schema's parsed output. */
+export type ServersContract = {
+  handlers: {
+    [SERVERS_HANDLERS.overviewRead]: {
+      req: z.infer<ServersSchemas['overview.read']>
+      res: ServersOverview
+    }
+    [SERVERS_HANDLERS.sourcesList]: {
+      req: z.infer<ServersSchemas['sources.list']>
+      res: MasterSource[]
+    }
+    [SERVERS_HANDLERS.sourcesAdd]: {
+      req: z.infer<ServersSchemas['sources.add']>
+      res: MasterSourcesResult
+    }
+    [SERVERS_HANDLERS.sourcesRemove]: {
+      req: z.infer<ServersSchemas['sources.remove']>
+      res: MasterSourcesResult
+    }
+    [SERVERS_HANDLERS.sourcesUpdate]: {
+      req: z.infer<ServersSchemas['sources.update']>
+      res: MasterSourcesResult
+    }
+    [SERVERS_HANDLERS.sourcesReorder]: {
+      req: z.infer<ServersSchemas['sources.reorder']>
+      res: MasterSourcesResult
+    }
+    [SERVERS_HANDLERS.favouritesAdd]: {
+      req: z.infer<ServersSchemas['favourites.add']>
+      res: FavouriteServerEntry[]
+    }
+    [SERVERS_HANDLERS.favouritesRemove]: {
+      req: z.infer<ServersSchemas['favourites.remove']>
+      res: FavouriteServerEntry[]
+    }
+    [SERVERS_HANDLERS.historyRead]: {
+      req: z.infer<ServersSchemas['history.read']>
+      res: ServerHistoryEntry[]
+    }
+    [SERVERS_HANDLERS.scanStart]: {
+      req: z.infer<ServersSchemas['scan.start']>
+      res: ScanStartResult
+    }
+    [SERVERS_HANDLERS.scanRead]: { req: z.infer<ServersSchemas['scan.read']>; res: ScanSnapshot }
+    [SERVERS_HANDLERS.scanGetSettings]: {
+      req: z.infer<ServersSchemas['scan.getSettings']>
+      res: ServersScanSettings
+    }
+    [SERVERS_HANDLERS.scanPatchSettings]: {
+      req: z.infer<ServersSchemas['scan.patchSettings']>
+      res: ServersScanSettings
+    }
+    [SERVERS_HANDLERS.scanSetViewActive]: {
+      req: z.infer<ServersSchemas['scan.setViewActive']>
+      res: undefined
+    }
+    [SERVERS_HANDLERS.listGetSort]: {
+      req: z.infer<ServersSchemas['list.getSort']>
+      res: ServerListSort | null
+    }
+    [SERVERS_HANDLERS.listSetSort]: {
+      req: z.infer<ServersSchemas['list.setSort']>
+      res: ServerListSort | null
+    }
+    [SERVERS_HANDLERS.detailRead]: {
+      req: z.infer<ServersSchemas['detail.read']>
+      res: ServerDetail | null
+    }
+    [SERVERS_HANDLERS.scanSetMode]: { req: z.infer<ServersSchemas['scan.setMode']>; res: undefined }
+    [SERVERS_HANDLERS.quickFiltersList]: {
+      req: z.infer<ServersSchemas['quickFilters.list']>
+      res: QuickFilter[]
+    }
+    [SERVERS_HANDLERS.quickFiltersSave]: {
+      req: z.infer<ServersSchemas['quickFilters.save']>
+      res: QuickFiltersResult
+    }
+    [SERVERS_HANDLERS.quickFiltersRename]: {
+      req: z.infer<ServersSchemas['quickFilters.rename']>
+      res: QuickFiltersResult
+    }
+    [SERVERS_HANDLERS.quickFiltersRemove]: {
+      req: z.infer<ServersSchemas['quickFilters.remove']>
+      res: QuickFiltersResult
+    }
+    [SERVERS_WATCHLIST_HANDLERS.read]: {
+      req: z.infer<ServersSchemas['watchlist.read']>
+      res: WatchlistSnapshot
+    }
+    [SERVERS_WATCHLIST_HANDLERS.add]: {
+      req: z.infer<ServersSchemas['watchlist.add']>
+      res: WatchlistMutationResult
+    }
+    [SERVERS_WATCHLIST_HANDLERS.update]: {
+      req: z.infer<ServersSchemas['watchlist.update']>
+      res: WatchlistMutationResult
+    }
+    [SERVERS_WATCHLIST_HANDLERS.remove]: {
+      req: z.infer<ServersSchemas['watchlist.remove']>
+      res: WatchlistMutationResult
+    }
+    [SERVERS_WATCHLIST_HANDLERS.recheck]: {
+      req: z.infer<ServersSchemas['watchlist.recheck']>
+      res: ScanStartResult
+    }
+  }
+  events: {
+    [SERVERS_EVENTS.scanChanged]: ServersScanState
+    [SERVERS_EVENTS.scanServer]: ScanServerPush
+    [SERVERS_EVENTS.watchlistChanged]: WatchlistSnapshot
+  }
 }

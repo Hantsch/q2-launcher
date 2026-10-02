@@ -302,3 +302,4 @@ second roadmap.
 - 203 — forgiving row parsing is one helper · S32 · persisted-row parsing goes through lib/forgiving.ts; schemas.ts and three module loops use it, behaviour unchanged
 - 204 — the module bus returns one Outcome envelope and every error key resolves · S32 · handlers return Outcome, registry passes it through, flatteners removed; mods error keys closed and an error-keys test proves main's keys resolve
 - 206 — a refusal is one shape with a full i18n key and one toast path · S32 · servers/replays results are DomainResults with full keys, one toast helper, refusal keys proven to resolve
+- 205 — module handlers are typed from a contract and every declared handler is live · S32 · defineModule/createModuleClient typed seam, home+servers converted, dead handlers removed, bus-wide coverage tests; config/downloads/mods/replays/library are follow-ups

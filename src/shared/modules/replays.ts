@@ -39,8 +39,6 @@ export const REPLAYS_HANDLERS = {
   nameTemplatesReset: 'nameTemplates.reset',
   /** Clears every removed-shipped tombstone. */
   nameTemplatesRestore: 'nameTemplates.restore',
-  /** Resolves to every discovered demo across every known installation (story 141). */
-  demosList: 'demos.list',
   /** Resolves to the current user-added extra demo folder list (story 142 D2). */
   extraFoldersList: 'extraFolders.list',
   /** Adds a user-picked extra demo folder; refuses on an invalid/unresolvable/duplicate path. */
@@ -305,8 +303,6 @@ export const discoveredDemoSchema = z.object({
   nameFacts: nameFactsSchema.nullable(),
 })
 
-export const demosListResultSchema = z.array(discoveredDemoSchema)
-
 export type DemoFormat = z.infer<typeof demoFormatSchema>
 export type DemoSource = z.infer<typeof demoSourceSchema>
 export type DiscoveredDemo = z.infer<typeof discoveredDemoSchema>
@@ -405,8 +401,7 @@ export const demoRowSchema = discoveredDemoSchema.extend({
 })
 export type DemoRow = z.infer<typeof demoRowSchema>
 
-/** `index.read`'s result - composed demo rows (story 150 D2; used to be the bare `demos.list`
- * row shape before the sidecar/effective-values composition existed). */
+/** `index.read`'s result - composed demo rows (a discovered demo plus sidecar and effective values). */
 export const replaysIndexReadResultSchema = z.array(demoRowSchema)
 
 /** `scan.progress`'s payload: per-source `scanned` / `total` counts, keyed by `demoSourceKey`, plus
@@ -597,7 +592,6 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.nameTemplatesReorder]: nameTemplatesReorderSchema,
   [REPLAYS_HANDLERS.nameTemplatesReset]: nameTemplatesResetSchema,
   [REPLAYS_HANDLERS.nameTemplatesRestore]: replaysNoInputSchema,
-  [REPLAYS_HANDLERS.demosList]: replaysNoInputSchema,
   [REPLAYS_HANDLERS.extraFoldersList]: replaysNoInputSchema,
   [REPLAYS_HANDLERS.extraFoldersAdd]: extraFoldersAddSchema,
   [REPLAYS_HANDLERS.extraFoldersRemove]: extraFoldersRemoveSchema,

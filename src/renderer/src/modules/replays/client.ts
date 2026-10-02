@@ -76,11 +76,6 @@ export function restoreNameTemplates(): Promise<Outcome<NameTemplatesView>> {
   return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesRestore)
 }
 
-/** Story 141 D4: every discovered demo across every known installation - the `ReplaysView`'s list. */
-export function listDemos(): Promise<Outcome<DiscoveredDemo[]>> {
-  return callModule<DiscoveredDemo[]>('replays', REPLAYS_HANDLERS.demosList)
-}
-
 /**
  * Story 142 D4: the `extraFolders.*` handlers' renderer-side transport, mirroring
  * `servers/client.ts`'s `listMasterSources`/`addMasterSource`/`removeMasterSource` exactly -

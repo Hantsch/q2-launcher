@@ -152,16 +152,30 @@ export const setLayoutInputSchema = z.object({
  * handlers beyond news - kept as the one map covering every `HOME_HANDLERS` entry, not a second,
  * sibling one, so nothing can add a handler here without also adding its schema.
  */
-export const HOME_HANDLER_SCHEMAS: Record<
-  (typeof HOME_HANDLERS)[keyof typeof HOME_HANDLERS],
-  z.ZodTypeAny
-> = {
+export const HOME_HANDLER_SCHEMAS = {
   [HOME_HANDLERS.newsGet]: newsNoInputSchema,
   [HOME_HANDLERS.newsRefresh]: newsNoInputSchema,
   [HOME_HANDLERS.openSlideUrl]: openSlideUrlInputSchema,
   [HOME_HANDLERS.getLayout]: homeLayoutNoInputSchema,
   [HOME_HANDLERS.setLayout]: setLayoutInputSchema,
   [HOME_HANDLERS.resetLayout]: homeLayoutNoInputSchema,
+} satisfies Record<(typeof HOME_HANDLERS)[keyof typeof HOME_HANDLERS], z.ZodTypeAny>
+
+type HomeSchemas = typeof HOME_HANDLER_SCHEMAS
+
+/** The home module's typed contract; `req` is each schema's parsed output. */
+export type HomeContract = {
+  handlers: {
+    [HOME_HANDLERS.newsGet]: { req: z.infer<HomeSchemas['news.get']>; res: NewsFeed }
+    [HOME_HANDLERS.newsRefresh]: { req: z.infer<HomeSchemas['news.refresh']>; res: NewsFeed }
+    [HOME_HANDLERS.openSlideUrl]: { req: z.infer<HomeSchemas['slide.openUrl']>; res: null }
+    [HOME_HANDLERS.getLayout]: { req: z.infer<HomeSchemas['layout.get']>; res: HomeLayout }
+    [HOME_HANDLERS.setLayout]: { req: z.infer<HomeSchemas['layout.set']>; res: HomeLayout }
+    [HOME_HANDLERS.resetLayout]: { req: z.infer<HomeSchemas['layout.reset']>; res: HomeLayout }
+  }
+  events: {
+    [HOME_EVENTS.newsChanged]: NewsFeed
+  }
 }
 
 /**

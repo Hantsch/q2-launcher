@@ -13,6 +13,7 @@ import {
   type ServerDetail,
   type ServerListEntry,
   type ServersBrowseMode,
+  type ServersContract,
   type ServersOverview,
   type ServersScanState,
   type ServersState,
@@ -21,6 +22,7 @@ import type { ParsedServerAddress } from '@shared/servers/address'
 import { readIntKey } from '@shared/servers/infostring'
 import { deriveGamemode } from '@shared/servers/row-markers'
 import type { LaunchHost } from '../../services/write-guard'
+import type { BoundModule } from '../define-module'
 import { electronNetFetch, type FetchImpl } from '../downloads/fetcher'
 import { discoverLanServers } from './lan-discovery'
 import { isScanBlocked } from './scan-guard'
@@ -107,7 +109,7 @@ export interface CreateScanServiceOptions {
   /** Reads the current `ServersState` fresh at call time - sources/favourites/manual servers can
    * change between scans, so this must never be a snapshot captured once at `setup()` time. */
   getServersState: () => ServersState
-  emit: (type: string, payload: unknown) => void
+  emit: BoundModule<ServersContract>['emit']
   /** Story 116 D3 (D-E): the structural launch seam, never `LaunchService` itself. */
   launch: LaunchHost
   deps?: ScanServiceDeps

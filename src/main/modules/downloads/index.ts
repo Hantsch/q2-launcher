@@ -9,7 +9,6 @@ import {
   type DownloadsSettings,
   type EngineUpdateChannel,
   type EngineUpdateStatus,
-  type ManifestSnapshot,
   type PackageSource,
   type RepairPlan,
   type StartEngineUpdateResult,
@@ -75,7 +74,6 @@ import {
   dismissFailureInputSchema,
   downloadsNoInputSchema,
   engineUpdateStatusInputSchema,
-  manifestGetInputSchema,
   patchDownloadsSettingsInputSchema,
   repairPlanInputSchema,
   restoreFailureInputSchema,
@@ -95,14 +93,7 @@ const BYTES_PER_GB = 1024 * 1024 * 1024
  * The downloads module - story 070 D4.
  *
  * Mirrors `../config/index.ts`'s shape: a `MainModule` whose `setup` registers handlers on the
- * shell's `module:invoke` channel and does nothing else. The one handler this deliverable adds,
- * `manifest.get`, is a thin IPC wrapper around `ManifestService` (D3) - it owns no manifest logic
- * of its own, only the request/response translation:
- *
- *  - success hands the renderer the `ManifestSnapshot` as-is;
- *  - `ManifestUnavailableError` (nothing fetchable and nothing cached) becomes the i18n key
- *    `downloads.error.manifestUnavailable` - never the thrown error's own prose message, per
- *    CLAUDE.md's "main sends i18n keys, never prose, across IPC" rule.
+ * shell's `module:invoke` channel and does nothing else.
  *
  * `MODULE_MANIFESTS`' `downloads` entry (`@shared/types/module.ts`) deliberately stays
  * `status: 'planned'` even though this file registers a working main half: the renderer side
@@ -138,22 +129,6 @@ export const downloadsModule: MainModule = {
     // Story 073 D2: start observing job changes before any handler is registered, so no failure
     // can slip past between setup and the first renderer call.
     onDispose(observeFailedJobs(app, log))
-
-    handle(
-      DOWNLOADS_HANDLERS.manifestGet,
-      manifestGetInputSchema,
-      async (input): Promise<Outcome<ManifestSnapshot>> => {
-        try {
-          const snapshot = await manifestService.getManifest({ refresh: input.refresh })
-          return ok(snapshot)
-        } catch (error) {
-          if (error instanceof ManifestUnavailableError) {
-            return fail('downloads.error.manifestUnavailable')
-          }
-          throw error
-        }
-      },
-    )
 
     /**
      * Story 074 D1 (AC1): lists the engines the bootstrap wizard can offer - only the ones both
@@ -194,7 +169,8 @@ export const downloadsModule: MainModule = {
           })
         }
 
-        if (options.length > 0) return ok<BootstrapEngineOptionsResult>({ options, emptyReason: null })
+        if (options.length > 0)
+          return ok<BootstrapEngineOptionsResult>({ options, emptyReason: null })
         return ok<BootstrapEngineOptionsResult>({
           options,
           emptyReason: manifestService.hasAnyPinnedEntries() ? 'none-for-platform' : 'none-pinned',
@@ -246,10 +222,8 @@ export const downloadsModule: MainModule = {
      * resolved once at `setup()`), because a flow needs to change its fixture between wizard runs
      * within the same launch.
      */
-    handle(
-      DOWNLOADS_HANDLERS.bootstrapRetailSources,
-      bootstrapRetailSourcesInputSchema,
-      async () => ok(await detectedRetailSourcesFor(app)),
+    handle(DOWNLOADS_HANDLERS.bootstrapRetailSources, bootstrapRetailSourcesInputSchema, async () =>
+      ok(await detectedRetailSourcesFor(app)),
     )
 
     /**
@@ -421,14 +395,12 @@ export const downloadsModule: MainModule = {
      * its own (same convention as `engineUpdateStatus` above): an installation id the library no
      * longer has answers `undefined`.
      */
-    handle(
-      DOWNLOADS_HANDLERS.repairPlan,
-      repairPlanInputSchema,
-      async ({ installationId }) => {
-        const installation = app.installations.find(installationId)
-        if (!installation) return ok<RepairPlan | undefined>(undefined)
+    handle(DOWNLOADS_HANDLERS.repairPlan, repairPlanInputSchema, async ({ installationId }) => {
+      const installation = app.installations.find(installationId)
+      if (!installation) return ok<RepairPlan | undefined>(undefined)
 
-        return ok<RepairPlan | undefined>(await resolveRepairPlan(repairPlanDepsFor(manifestService, log), {
+      return ok<RepairPlan | undefined>(
+        await resolveRepairPlan(repairPlanDepsFor(manifestService, log), {
           id: installation.id,
           rootPath: installation.rootPath,
           engineKind: installation.engineKind,
@@ -437,9 +409,9 @@ export const downloadsModule: MainModule = {
             : {}),
           ...(installation.executablePath ? { executablePath: installation.executablePath } : {}),
           ...(installation.writeDirPath ? { writeDirPath: installation.writeDirPath } : {}),
-        }))
-      },
-    )
+        }),
+      )
+    })
 
     /**
      * Story 093 D4 (AC1/AC2/AC7/AC8/AC9): starts the repair job. A thin wrapper around `startRepair`
@@ -463,9 +435,7 @@ export const downloadsModule: MainModule = {
       },
     )
 
-    // Story 072 D4: reads the persisted settings verbatim - no failure mode of its own, so (like
-    // `library`'s `stats` and `config`'s `list`) it returns the plain value rather than an
-    // `Outcome`; `manifestGet` above only wraps because it has a real failure to report.
+    // Story 072 D4: reads the persisted settings verbatim - no failure mode of its own.
     handle(DOWNLOADS_HANDLERS.getSettings, downloadsNoInputSchema, () =>
       ok(app.state.getDownloadsSettings()),
     )
@@ -484,49 +454,41 @@ export const downloadsModule: MainModule = {
      * anything. Best-effort: a failed eviction is logged, not surfaced as a failed patch - the
      * settings themselves were already persisted successfully, and the next lower/clear retries it.
      */
-    handle(
-      DOWNLOADS_HANDLERS.patchSettings,
-      patchDownloadsSettingsInputSchema,
-      async (patch) => {
-        const previous = app.state.getDownloadsSettings()
-        const merged: DownloadsSettings = { ...previous, ...patch }
-        app.state.setDownloadsSettings(merged)
+    handle(DOWNLOADS_HANDLERS.patchSettings, patchDownloadsSettingsInputSchema, async (patch) => {
+      const previous = app.state.getDownloadsSettings()
+      const merged: DownloadsSettings = { ...previous, ...patch }
+      app.state.setDownloadsSettings(merged)
 
-        if (
-          patch.archiveCacheBudgetGB !== undefined &&
-          patch.archiveCacheBudgetGB < previous.archiveCacheBudgetGB
-        ) {
-          try {
-            await enforceBudget({
-              userDataPath: userDataDir(),
-              budgetBytes: patch.archiveCacheBudgetGB * BYTES_PER_GB,
-              isInUse: NOTHING_IN_USE,
-              log,
-            })
-          } catch (error) {
-            log.error('failed to enforce the lowered archive cache budget', error)
-          }
+      if (
+        patch.archiveCacheBudgetGB !== undefined &&
+        patch.archiveCacheBudgetGB < previous.archiveCacheBudgetGB
+      ) {
+        try {
+          await enforceBudget({
+            userDataPath: userDataDir(),
+            budgetBytes: patch.archiveCacheBudgetGB * BYTES_PER_GB,
+            isInUse: NOTHING_IN_USE,
+            log,
+          })
+        } catch (error) {
+          log.error('failed to enforce the lowered archive cache budget', error)
         }
+      }
 
-        return ok(merged)
-      },
-    )
+      return ok(merged)
+    })
 
     // Story 072 D4 (AC3): the archive cache's current size/count - a thin pass-through to D3's
     // `cache.status`, which already owns the "what counts as evictable" rule.
-    handle(
-      DOWNLOADS_HANDLERS.cacheStatus,
-      downloadsNoInputSchema,
-      async () => ok(await status({ userDataPath: userDataDir(), log })),
+    handle(DOWNLOADS_HANDLERS.cacheStatus, downloadsNoInputSchema, async () =>
+      ok(await status({ userDataPath: userDataDir(), log })),
     )
 
     // Story 072 D4 (AC4): deletes every evictable cache entry and reports exactly what went -
     // D3's `cache.clear` already guarantees the report matches the deletion, so this does not
     // reshape or recompute its result.
-    handle(
-      DOWNLOADS_HANDLERS.clearCache,
-      downloadsNoInputSchema,
-      async () => ok(await clear({ userDataPath: userDataDir(), isInUse: NOTHING_IN_USE, log })),
+    handle(DOWNLOADS_HANDLERS.clearCache, downloadsNoInputSchema, async () =>
+      ok(await clear({ userDataPath: userDataDir(), isInUse: NOTHING_IN_USE, log })),
     )
 
     // Story 073 D2 (AC2): the failure log. All three handlers read through
@@ -540,18 +502,12 @@ export const downloadsModule: MainModule = {
     // Both mutating handlers answer the *new* list rather than nothing, so the renderer's dismiss/
     // restore call is also its refetch - one round trip, and no window in which the tab shows a
     // list main has already moved past.
-    handle(
-      DOWNLOADS_HANDLERS.dismissFailure,
-      dismissFailureInputSchema,
-      ({ id }) =>
-        ok(app.state.setDownloadFailures(dismissFailure(app.state.getDownloadFailures(), id))),
+    handle(DOWNLOADS_HANDLERS.dismissFailure, dismissFailureInputSchema, ({ id }) =>
+      ok(app.state.setDownloadFailures(dismissFailure(app.state.getDownloadFailures(), id))),
     )
 
-    handle(
-      DOWNLOADS_HANDLERS.restoreFailure,
-      restoreFailureInputSchema,
-      ({ id }) =>
-        ok(app.state.setDownloadFailures(restoreFailure(app.state.getDownloadFailures(), id))),
+    handle(DOWNLOADS_HANDLERS.restoreFailure, restoreFailureInputSchema, ({ id }) =>
+      ok(app.state.setDownloadFailures(restoreFailure(app.state.getDownloadFailures(), id))),
     )
 
     log.debug('downloads module ready')

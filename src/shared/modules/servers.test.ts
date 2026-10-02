@@ -30,7 +30,7 @@ describe('servers module contract (story 106 D1)', () => {
     }
   })
 
-  it("names every handler exactly, including story 111 D1's five sources.* handlers, story 112 D1's three favourites.* handlers, story 113 D1's four manual.*/history.* handlers, story 114 D1's two scan.* handlers and story 115 D1's three scan.*Settings/setViewActive handlers", () => {
+  it('SERVERS_HANDLERS lists exactly the live handlers', () => {
     expect(SERVERS_HANDLERS).toEqual({
       overviewRead: 'overview.read',
       sourcesList: 'sources.list',
@@ -38,12 +38,8 @@ describe('servers module contract (story 106 D1)', () => {
       sourcesRemove: 'sources.remove',
       sourcesUpdate: 'sources.update',
       sourcesReorder: 'sources.reorder',
-      favouritesList: 'favourites.list',
       favouritesAdd: 'favourites.add',
       favouritesRemove: 'favourites.remove',
-      manualList: 'manual.list',
-      manualAdd: 'manual.add',
-      manualRemove: 'manual.remove',
       historyRead: 'history.read',
       scanStart: 'scan.start',
       scanRead: 'scan.read',
@@ -251,19 +247,9 @@ describe('master sources (story 111 D1)', () => {
 
 describe('favourites (story 112 D1)', () => {
   it('every favourites.* handler has a payload schema registered', () => {
-    for (const name of [
-      SERVERS_HANDLERS.favouritesList,
-      SERVERS_HANDLERS.favouritesAdd,
-      SERVERS_HANDLERS.favouritesRemove,
-    ]) {
+    for (const name of [SERVERS_HANDLERS.favouritesAdd, SERVERS_HANDLERS.favouritesRemove]) {
       expect(SERVERS_HANDLER_SCHEMAS[name]).toBeDefined()
     }
-  })
-
-  it('favouritesList accepts undefined (no payload)', () => {
-    expect(
-      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.favouritesList].safeParse(undefined).success,
-    ).toBe(true)
   })
 
   it('favouritesAdd/favouritesRemove accept a well-formed ip:port address', () => {
@@ -286,55 +272,24 @@ describe('favourites (story 112 D1)', () => {
   })
 })
 
-describe('manual servers and history (story 113 D1)', () => {
-  it('every manual.*/history.* handler has a payload schema registered', () => {
-    for (const name of [
-      SERVERS_HANDLERS.manualList,
-      SERVERS_HANDLERS.manualAdd,
-      SERVERS_HANDLERS.manualRemove,
-      SERVERS_HANDLERS.historyRead,
-    ]) {
+describe('manual servers and history', () => {
+  it('history.read has a payload schema registered', () => {
+    for (const name of [SERVERS_HANDLERS.historyRead]) {
       expect(SERVERS_HANDLER_SCHEMAS[name]).toBeDefined()
     }
   })
 
-  it('manualList/historyRead accept undefined (no payload)', () => {
-    expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualList].safeParse(undefined).success).toBe(
-      true,
-    )
+  it('historyRead accepts undefined (no payload)', () => {
     expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.historyRead].safeParse(undefined).success).toBe(
       true,
     )
-  })
-
-  it('manualAdd/manualRemove accept { address } as raw, unvalidated input - including a malformed one, unlike favouritesAdd/favouritesRemove', () => {
-    expect(
-      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualAdd].safeParse({ address: '1.2.3.4:27910' })
-        .success,
-    ).toBe(true)
-    expect(
-      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualAdd].safeParse({ address: 'not-an-address' })
-        .success,
-    ).toBe(true)
-    expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualAdd].safeParse({}).success).toBe(false)
-
-    expect(
-      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualRemove].safeParse({ address: '1.2.3.4:27910' })
-        .success,
-    ).toBe(true)
-    expect(
-      SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualRemove].safeParse({
-        address: 'not-an-address',
-      }).success,
-    ).toBe(true)
-    expect(SERVERS_HANDLER_SCHEMAS[SERVERS_HANDLERS.manualRemove].safeParse({}).success).toBe(false)
   })
 
   it('SERVER_HISTORY_CAP is 200', () => {
     expect(SERVER_HISTORY_CAP).toBe(200)
   })
 
-  it("manualServerEntrySchema (the shared row manual.list/manual.add resolve to, per D-K) requires origin: 'manual'", () => {
+  it("manualServerEntrySchema (the persisted row) requires origin: 'manual'", () => {
     expect(
       manualServerEntrySchema.safeParse({
         address: '1.2.3.4:27911',

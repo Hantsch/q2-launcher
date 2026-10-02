@@ -1,4 +1,11 @@
 import type { ModuleId, Outcome } from '@shared/types'
+import type {
+  EventPayload,
+  HandlerReq,
+  HandlerRes,
+  ModuleContract,
+  PayloadArgs,
+} from '@shared/modules/contract'
 import { invoke, onEvent } from '../lib/bridge'
 
 /**
@@ -47,4 +54,28 @@ export function onModuleEvent<T = unknown>(
     }
     listener(event.payload as T)
   })
+}
+
+/**
+ * A module client typed from the module's contract: `call` infers the payload and the
+ * `Outcome<Res>` per handler, `on` the event payload. This is the single place the untyped
+ * `callModule`/`onModuleEvent` generics are cast; callers never write `callModule<T>` themselves.
+ *
+ * `call` and `on` are plain closures (no `this`), so they are safe to destructure.
+ */
+export function createModuleClient<H extends ModuleContract>(id: ModuleId) {
+  return {
+    call<K extends keyof H['handlers'] & string>(
+      type: K,
+      ...args: PayloadArgs<HandlerReq<H, K>>
+    ): Promise<Outcome<HandlerRes<H, K>>> {
+      return callModule<HandlerRes<H, K>>(id, type, args[0])
+    },
+    on<E extends keyof H['events'] & string>(
+      type: E,
+      listener: (payload: EventPayload<H, E>) => void,
+    ): () => void {
+      return onModuleEvent<EventPayload<H, E>>(id, type, listener)
+    },
+  }
 }

@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import type { z } from 'zod'
 import {
   HOME_EVENTS,
   HOME_HANDLERS,
   HOME_HANDLER_SCHEMAS,
+  type HomeContract,
   NEWS_BUTTON_HOST_ALLOWLIST,
   NEWS_SCHEMA_VERSION,
   isAllowedButtonHost,
@@ -125,5 +127,16 @@ describe('NEWS_BUTTON_HOST_ALLOWLIST / isAllowedButtonHost', () => {
     expect(isAllowedButtonHost('https://gist.github.com/x')).toBe(false)
     expect(isAllowedButtonHost('https://example.com/x')).toBe(false)
     expect(isAllowedButtonHost('not-a-url')).toBe(false)
+  })
+})
+
+describe('HomeContract', () => {
+  it('HomeContract req types are derived from HOME_HANDLER_SCHEMAS', () => {
+    type Schemas = typeof HOME_HANDLER_SCHEMAS
+    expectTypeOf<HomeContract['handlers']['slide.openUrl']['req']>().toEqualTypeOf<string>()
+    expectTypeOf<HomeContract['handlers']['news.get']['req']>().toEqualTypeOf<void>()
+    expectTypeOf<HomeContract['handlers']['layout.set']['req']>().toEqualTypeOf<
+      z.infer<Schemas['layout.set']>
+    >()
   })
 })

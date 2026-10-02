@@ -28,7 +28,7 @@ correct error message where they used to see English prose or a path.
 - [x] 203 — forgiving row parsing is one helper
 - [x] 204 — the module bus returns one Outcome envelope and every error key resolves
 - [x] 206 — a refusal is one shape with a full i18n key and one toast path
-- [ ] 205 — module handlers are typed from a contract and every declared handler is live
+- [x] 205 — module handlers are typed from a contract and every declared handler is live
 - [ ] 207 — modules own their persisted state
 - [ ] 208 — layer rules are a test and a linter, not a convention
 - [ ] 209 — modules reach Electron and the harness only through the shell

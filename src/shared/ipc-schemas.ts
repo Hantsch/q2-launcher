@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { IpcInvokeMap } from './ipc'
 import type { InstallationIcon } from './types'
+import { MODULE_MANIFESTS, type ModuleId } from './types/module'
 import {
   absolutePathSchema,
   engineKindSchema,
@@ -250,16 +251,8 @@ export const jobsListSchema: z.ZodType<IpcInvokeMap['jobs:list']['req']> = z.voi
 export const modulesListSchema: z.ZodType<IpcInvokeMap['modules:list']['req']> = z.void()
 
 export const moduleInvokeSchema: z.ZodType<IpcInvokeMap['module:invoke']['req']> = z.object({
-  moduleId: z.enum([
-    'home',
-    'library',
-    'config',
-    'downloads',
-    'mods',
-    'assets',
-    'servers',
-    'replays',
-  ]),
+  // z.enum needs a non-empty tuple; MODULE_MANIFESTS is a non-empty constant list.
+  moduleId: z.enum(MODULE_MANIFESTS.map((m) => m.id) as [ModuleId, ...ModuleId[]]),
   type: z.string().min(1).max(80),
   payload: z.unknown().optional(),
 })

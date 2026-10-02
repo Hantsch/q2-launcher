@@ -61,6 +61,15 @@ export class MainModuleRegistry {
     return [...this.modules.keys()]
   }
 
+  /** Handler types registered under `moduleId`, sorted. Feature-locked handlers are absent by design. */
+  handlerTypes(moduleId: ModuleId): string[] {
+    const prefix = `${moduleId}/`
+    return [...this.handlers.keys()]
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => key.slice(prefix.length))
+      .sort()
+  }
+
   async register(module: MainModule, app: AppContext): Promise<void> {
     const manifest = MODULE_MANIFESTS.find((entry) => entry.id === module.id)
     if (!manifest) {

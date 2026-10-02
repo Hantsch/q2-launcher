@@ -5,7 +5,7 @@ import { SERVER_HISTORY_CAP } from '@shared/modules/servers'
  * Story 113 D3: the connection history's pure rules (mirrors
  * `main/modules/downloads/failure-log.ts` - no I/O, no electron, plain-array-in/plain-array-out).
  * `entry.address` is already a normalized address string by the time it reaches this module; the
- * manual-servers store (a different deliverable) owns validating/normalizing raw user input, not
+ * address validation/normalization of raw user input happens elsewhere, not
  * this one.
  */
 

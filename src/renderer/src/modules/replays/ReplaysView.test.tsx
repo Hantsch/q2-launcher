@@ -18,7 +18,7 @@ import { initI18n } from '../../i18n'
  * .tsx`'s convention: the module's own typed client (`./client`) is stubbed directly via
  * `vi.mock`, rather than going through `window.q2`'s `invoke`/`on` plumbing.
  *
- * Story 144 D4: the view reads the index (`indexRead`) instead of the one-shot `listDemos`, kicks
+ * Story 144 D4: the view reads the index (`indexRead`), kicks
  * off a background scan (`scanStart`) on mount, and subscribes to its progress (`onScanProgress`)
  * for its lifetime - the mocks below cover all three.
  *

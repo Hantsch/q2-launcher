@@ -10,8 +10,6 @@ import {
   SCAN_BLOCKED_GAME_RUNNING_REASON_KEY,
   SERVERS_HANDLERS,
   type FavouriteServerEntry,
-  type ManualServerAddResult,
-  type ManualServerEntry,
   type ServerHistoryEntry,
   type ServersOverview,
   type ServersState,
@@ -313,15 +311,9 @@ describe('servers module favourites handlers (story 112 D3)', () => {
     await rm(`${filePath}.bak`, { force: true })
   })
 
-  it('AC1: registers favourites.list/add/remove, reachable through setup() and behaving correctly', async () => {
+  it('AC1: registers favourites.add/remove, reachable through setup() and behaving correctly', async () => {
     const registry = new MainModuleRegistry()
     await registry.register(serversModule, fakeAppContext({ state }))
-
-    const emptyList = await registry.invoke({
-      moduleId: 'servers',
-      type: SERVERS_HANDLERS.favouritesList,
-    })
-    expect(emptyList).toEqual({ ok: true, value: [] })
 
     const afterAdd = await registry.invoke({
       moduleId: 'servers',
@@ -332,12 +324,7 @@ describe('servers module favourites handlers (story 112 D3)', () => {
     const added = (afterAdd as { ok: true; value: FavouriteServerEntry[] }).value
     expect(added).toHaveLength(1)
     expect(added[0]).toMatchObject({ address: '1.2.3.4:27910' })
-
-    const listAfterAdd = await registry.invoke({
-      moduleId: 'servers',
-      type: SERVERS_HANDLERS.favouritesList,
-    })
-    expect(listAfterAdd).toEqual({ ok: true, value: added })
+    expect(state.serversState().favourites).toEqual(added)
 
     const afterRemove = await registry.invoke({
       moduleId: 'servers',
@@ -345,12 +332,7 @@ describe('servers module favourites handlers (story 112 D3)', () => {
       payload: '1.2.3.4:27910',
     })
     expect(afterRemove).toEqual({ ok: true, value: [] })
-
-    const listAfterRemove = await registry.invoke({
-      moduleId: 'servers',
-      type: SERVERS_HANDLERS.favouritesList,
-    })
-    expect(listAfterRemove).toEqual({ ok: true, value: [] })
+    expect(state.serversState().favourites).toEqual([])
   })
 
   it("AC1: a favourites write never clobbers the rest of the servers state's snapshot", async () => {
@@ -392,20 +374,14 @@ describe('servers module favourites handlers (story 112 D3)', () => {
   })
 })
 
-/**
- * Story 113 D4: the `manual.*`/`history.*` handlers over story 110's state key. Same harness as the
- * `favourites.*` block above - a real `StateStore` over a temp file, driven through the real
- * registry so the shared payload schemas run too. History is seeded through `updateSlice`
- * directly rather than over IPC on purpose: there is no `history.record` channel (D-H), so main is
- * the only writer.
- */
-describe('servers module manual.*/history.* handlers (story 113 D4)', () => {
+/** `history.read` over the state slice; history is seeded through `updateSlice` because main is the only writer. */
+describe('servers module history.read handler', () => {
   let filePath: string
   let state: StateStore
   let registry: MainModuleRegistry
 
   beforeEach(async () => {
-    filePath = join(tmpdir(), `q2-launcher-state-servers-manual-${randomUUID()}.json`)
+    filePath = join(tmpdir(), `q2-launcher-state-servers-history-${randomUUID()}.json`)
     state = new StateStore(filePath)
     await state.load()
     registry = new MainModuleRegistry()
@@ -423,91 +399,16 @@ describe('servers module manual.*/history.* handlers (story 113 D4)', () => {
     return registry.invoke({ moduleId: 'servers', type, payload })
   }
 
-  it('registers manual.list/add/remove and history.read, reachable through setup()', async () => {
-    expect(await invoke(SERVERS_HANDLERS.manualList)).toEqual({ ok: true, value: [] })
+  it('history.read is reachable through setup() and answers the stored history', async () => {
     expect(await invoke(SERVERS_HANDLERS.historyRead)).toEqual({ ok: true, value: [] })
-    expect(await invoke(SERVERS_HANDLERS.manualAdd, { address: '1.2.3.4:27910' })).toMatchObject({
-      ok: true,
-      value: { ok: true },
-    })
-    expect(await invoke(SERVERS_HANDLERS.manualRemove, { address: '1.2.3.4:27910' })).toEqual({
-      ok: true,
-      value: [],
-    })
-  })
 
-  it('manual servers round-trip through add, list and remove', async () => {
-    const added = (await invoke(SERVERS_HANDLERS.manualAdd, { address: '1.2.3.4:27910' })) as {
-      ok: true
-      value: ManualServerAddResult
-    }
-    expect(added.value).toEqual({
-      ok: true,
-      entry: { address: '1.2.3.4:27910', origin: 'manual', addedAt: expect.any(String) },
-    })
-
-    const listed = (await invoke(SERVERS_HANDLERS.manualList)) as {
-      ok: true
-      value: ManualServerEntry[]
-    }
-    expect(listed.value).toEqual([
-      { address: '1.2.3.4:27910', origin: 'manual', addedAt: expect.any(String) },
-    ])
-
-    expect(await invoke(SERVERS_HANDLERS.manualRemove, { address: '1.2.3.4:27910' })).toEqual({
-      ok: true,
-      value: [],
-    })
-    expect(await invoke(SERVERS_HANDLERS.manualList)).toEqual({ ok: true, value: [] })
-
-    // ...and it survived the trip to disk, not just the in-memory copy.
-    await state.settle()
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-    expect(reloaded.serversState().manualServers).toEqual([])
-  })
-
-  it('a malformed address is refused as a value and persists nothing', async () => {
-    const outcome = (await invoke(SERVERS_HANDLERS.manualAdd, { address: 'not a server' })) as {
-      ok: true
-      value: ManualServerAddResult
-    }
-    expect(outcome.value).toEqual({
-      ok: false,
-      reasonKey: 'servers.address.reject.extra-tokens',
-    })
-    expect(state.serversState().manualServers).toEqual([])
-  })
-
-  it('removing one manual server leaves the other manual entries and the history untouched', async () => {
     const history: ServerHistoryEntry[] = [
       { address: '9.9.9.9:27910', connectedAt: '2026-01-03T00:00:00.000Z' },
       { address: '1.2.3.4:27910', connectedAt: '2026-01-02T00:00:00.000Z' },
     ]
     state.updateSlice('servers', (s) => ({ ...s, history }))
 
-    await invoke(SERVERS_HANDLERS.manualAdd, { address: '1.2.3.4:27910' })
-    await invoke(SERVERS_HANDLERS.manualAdd, { address: '5.6.7.8:27911' })
-    const sourcesBefore = state.serversState().sources
-
-    const remaining = (await invoke(SERVERS_HANDLERS.manualRemove, {
-      address: '1.2.3.4:27910',
-    })) as { ok: true; value: ManualServerEntry[] }
-
-    // The other manual entry is still there - only the named one went.
-    expect(remaining.value).toEqual([
-      { address: '5.6.7.8:27911', origin: 'manual', addedAt: expect.any(String) },
-    ])
-    // ...and the history is untouched, including its row for the very address just removed.
-    expect(state.serversState().history).toEqual(history)
     expect(await invoke(SERVERS_HANDLERS.historyRead)).toEqual({ ok: true, value: history })
-    expect(state.serversState().sources).toEqual(sourcesBefore)
-
-    await state.settle()
-    const reloaded = new StateStore(filePath)
-    await reloaded.load()
-    expect(reloaded.serversState().history).toEqual(history)
-    expect(reloaded.serversState().manualServers).toEqual(remaining.value)
   })
 })
 

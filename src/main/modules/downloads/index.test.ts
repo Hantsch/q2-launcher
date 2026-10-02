@@ -9,7 +9,6 @@ import {
   DOWNLOADS_HANDLERS,
   type DownloadFailure,
   type DownloadsSettings,
-  type ManifestSnapshot,
   type RepairPlan,
 } from '@shared/modules/downloads'
 import { fail, type Outcome } from '@shared/types'
@@ -23,10 +22,7 @@ import { downloadsModule, UNKNOWN_DOWNLOAD_FAILURE_KEY } from './index'
 import { getDownloadsCacheDir } from './paths'
 
 /**
- * Story 070 D4: the downloads module's main half. Covers the acceptance line verbatim - the
- * handler is registered under the exact channel `downloads/manifest.get`, a successful fetch
- * answers `ok` with a `ManifestSnapshot`, and a dead network with a cold cache answers a failure
- * `Outcome` carrying the i18n key `downloads.error.manifestUnavailable` - never prose.
+ * The downloads module's main half.
  *
  * `electron` and `fetch` are mocked exactly as `manifest-service.test.ts` mocks them (this
  * handler constructs a real `ManifestService` internally, so there is no separate seam to fake):
@@ -73,17 +69,7 @@ const enginePackage = {
   platforms: [HOST_PLATFORM],
 }
 
-const enginesManifest = { schemaVersion: 1, packages: [enginePackage], pinned: {} }
 const gamedataManifest = { schemaVersion: 1, packages: [] }
-
-/** Both manifest files answer 200, routed by URL - same helper `manifest-service.test.ts` uses. */
-function serveGoodManifests(fetchMock: ReturnType<typeof vi.fn>): void {
-  fetchMock.mockImplementation((url: unknown) =>
-    Promise.resolve(
-      jsonResponse(String(url).includes('engines/') ? enginesManifest : gamedataManifest),
-    ),
-  )
-}
 
 /**
  * Story 092: the same engines manifest, but with the pin `engineUpdateStatus` resolves its target
@@ -120,11 +106,6 @@ function servePinnedManifests(fetchMock: ReturnType<typeof vi.fn>): void {
     }
     return Promise.resolve(jsonResponse(gamedataManifest))
   })
-}
-
-/** The network is gone: every request rejects, as `fetch` does when offline. */
-function serveOffline(fetchMock: ReturnType<typeof vi.fn>): void {
-  fetchMock.mockImplementation(() => Promise.reject(new Error('getaddrinfo ENOTFOUND')))
 }
 
 /** Collects `handle()` calls the way `MainModuleRegistry.invoke()` actually dispatches them. */
@@ -177,7 +158,11 @@ async function setUpModule(
     handle: collectHandlers(handlers),
     emit: vi.fn(),
     onDispose: (cb) => void disposers.push(cb),
-    app: { jobs: new JobsService(() => {}), persistence: new PersistenceRegistry(), ...app } as ModuleSetup['app'],
+    app: {
+      jobs: new JobsService(() => {}),
+      persistence: new PersistenceRegistry(),
+      ...app,
+    } as ModuleSetup['app'],
     log: fakeLogger(),
   })
   return handlers
@@ -216,13 +201,6 @@ function fakeDownloadsState(initial: DownloadsSettings): {
 }
 
 describe('downloadsModule', () => {
-  it('registers manifest.get under the exact channel name', async () => {
-    const handlers = await setUpModule()
-
-    expect(handlers.has(DOWNLOADS_HANDLERS.manifestGet)).toBe(true)
-    expect(DOWNLOADS_HANDLERS.manifestGet).toBe('manifest.get')
-  })
-
   // Story 074 D4: the wizard's three channels, under the exact names the contract declares.
   it('registers the bootstrap channels under their exact names', async () => {
     const handlers = await setUpModule()
@@ -237,37 +215,6 @@ describe('downloadsModule', () => {
     expect(DOWNLOADS_HANDLERS.bootstrapStart).toBe('bootstrap.start')
     expect(DOWNLOADS_HANDLERS.bootstrapGameDataSource).toBe('bootstrap.gameDataSource')
   })
-
-  it('returns ok with a ManifestSnapshot on a successful fetch', async () => {
-    serveGoodManifests(fetchMock)
-    const handlers = await setUpModule()
-    const handler = handlers.get(DOWNLOADS_HANDLERS.manifestGet)!
-
-    const outcome = (await handler({})) as Outcome<ManifestSnapshot>
-
-    expect(outcome.ok).toBe(true)
-    if (outcome.ok) {
-      expect(outcome.value.schemaVersion).toBe(1)
-      expect(outcome.value.packages.map((pkg) => pkg.id)).toEqual(['q2pro-1.0.0'])
-      expect(outcome.value.fromCache).toBe(false)
-    }
-  })
-
-  it('returns the i18n key (never prose) when nothing is available', async () => {
-    serveOffline(fetchMock)
-    const handlers = await setUpModule()
-    const handler = handlers.get(DOWNLOADS_HANDLERS.manifestGet)!
-
-    const outcome = (await handler({})) as Outcome<ManifestSnapshot>
-
-    expect(outcome.ok).toBe(false)
-    if (!outcome.ok) {
-      expect(outcome.error.key).toBe('downloads.error.manifestUnavailable')
-      // Proves this is a key, not a human-readable sentence: no spaces, matches the
-      // dotted-key shape every other i18n error key in this codebase uses.
-      expect(outcome.error.key).not.toMatch(/\s/)
-    }
-  })
 })
 
 /**
@@ -276,8 +223,7 @@ describe('downloadsModule', () => {
  * `getSettings`/`patchSettings`/`cacheStatus`/`clearCache` cover a persisted-settings slot
  * (`fakeDownloadsState`, an in-memory stand-in for `AppContext['state']` - persistence itself is
  * D2's job, already covered by `state.test.ts`) plus real archive-cache files under the mocked
- * `userDataBox.current` (the same `electron.app.getPath` stub `manifestGet`'s own suite above
- * uses), so eviction is proven against an actual directory listing, not just a return value - the
+ * `userDataBox.current` (the same `electron.app.getPath` stub the suite above uses), so eviction is proven against an actual directory listing, not just a return value - the
  * same "trust the disk, not the report" discipline `cache.test.ts` (D3) already applies.
  */
 describe('downloadsModule settings + cache handlers', () => {
@@ -321,9 +267,11 @@ describe('downloadsModule settings + cache handlers', () => {
     const handlers = await setUpModule({ state } as unknown as ModuleSetup['app'])
     const patchSettings = handlers.get(DOWNLOADS_HANDLERS.patchSettings)!
 
-    const result = unwrapOk<DownloadsSettings>(await patchSettings({
-      downloadWhilePlayingAllowed: false,
-    }))
+    const result = unwrapOk<DownloadsSettings>(
+      await patchSettings({
+        downloadWhilePlayingAllowed: false,
+      }),
+    )
 
     expect(result).toEqual({ ...DEFAULT_DOWNLOADS_SETTINGS, downloadWhilePlayingAllowed: false })
     expect(state.getDownloadsSettings()).toEqual(result)
@@ -563,21 +511,25 @@ describe('downloadsModule failure log', () => {
     const id = downloadJob(jobs)
     jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.diskWrite' } })
 
-    const listed = unwrapOk<DownloadFailure[]>(await handlers.get(DOWNLOADS_HANDLERS.failures)!(
-      undefined,
-    ))
+    const listed = unwrapOk<DownloadFailure[]>(
+      await handlers.get(DOWNLOADS_HANDLERS.failures)!(undefined),
+    )
     expect(listed).toHaveLength(1)
     const entryId = listed[0]!.id
 
-    const dismissed = unwrapOk<DownloadFailure[]>(await handlers.get(DOWNLOADS_HANDLERS.dismissFailure)!({
-      id: entryId,
-    }))
+    const dismissed = unwrapOk<DownloadFailure[]>(
+      await handlers.get(DOWNLOADS_HANDLERS.dismissFailure)!({
+        id: entryId,
+      }),
+    )
     expect(typeof dismissed[0]?.dismissedAt).toBe('number')
     expect(state.getDownloadFailures()[0]?.dismissedAt).toBe(dismissed[0]?.dismissedAt)
 
-    const restored = unwrapOk<DownloadFailure[]>(await handlers.get(DOWNLOADS_HANDLERS.restoreFailure)!({
-      id: entryId,
-    }))
+    const restored = unwrapOk<DownloadFailure[]>(
+      await handlers.get(DOWNLOADS_HANDLERS.restoreFailure)!({
+        id: entryId,
+      }),
+    )
     expect(restored).toHaveLength(1)
     expect(restored[0]?.dismissedAt).toBeUndefined()
     expect(state.getDownloadFailures()[0]?.dismissedAt).toBeUndefined()

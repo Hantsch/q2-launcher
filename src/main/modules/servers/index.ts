@@ -1,40 +1,11 @@
 import { ok } from '@shared/types'
+import { defineModule } from '../define-module'
 import {
   SERVERS_EVENTS,
+  SERVERS_CONTRACT_SCHEMAS,
   SERVERS_HANDLERS,
+  type ServersContract,
   SERVERS_WATCHLIST_HANDLERS,
-  detailReadInputSchema,
-  favouritesAddInputSchema,
-  favouritesListInputSchema,
-  favouritesRemoveInputSchema,
-  historyReadInputSchema,
-  listGetSortInputSchema,
-  listSetSortInputSchema,
-  manualAddInputSchema,
-  manualListInputSchema,
-  manualRemoveInputSchema,
-  quickFiltersListInputSchema,
-  quickFiltersRemoveInputSchema,
-  quickFiltersRenameInputSchema,
-  quickFiltersSaveInputSchema,
-  scanGetSettingsInputSchema,
-  scanPatchSettingsInputSchema,
-  scanReadInputSchema,
-  scanSetModeInputSchema,
-  scanSetViewActiveInputSchema,
-  scanStartInputSchema,
-  serversNoInputSchema,
-  sourcesAddInputSchema,
-  sourcesListInputSchema,
-  sourcesRemoveInputSchema,
-  sourcesReorderInputSchema,
-  sourcesUpdateInputSchema,
-  watchlistAddInputSchema,
-  watchlistReadInputSchema,
-  watchlistRecheckInputSchema,
-  watchlistRemoveInputSchema,
-  watchlistUpdateInputSchema,
-  type ManualServerAddResult,
   type MasterSource,
   type MasterSourcesResult,
   type QuickFiltersResult,
@@ -50,9 +21,8 @@ import {
 import { setOrClearListSort } from '../../lib/list-sort'
 import { uiHarnessLanTargets } from '../../lib/ui-harness'
 import type { MainModule } from '../types'
-import { addFavourite, listFavourites, removeFavourite } from './favourites'
+import { addFavourite, removeFavourite } from './favourites'
 import { readServerHistory, recordServerVisit } from './history-log'
-import { addManualServer, removeManualServer } from './manual-servers'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
 import { discoverLanServers } from './lan-discovery'
 import { createScanCadence } from './scan-cadence'
@@ -84,7 +54,12 @@ import {
 export const serversModule: MainModule = {
   id: 'servers',
 
-  setup({ handle, emit, app, log, onDispose }) {
+  setup(setup) {
+    const { app, log, onDispose } = setup
+    const { handle, emit } = defineModule<ServersContract>(
+      'servers',
+      SERVERS_CONTRACT_SCHEMAS,
+    ).bind(setup)
     // Reads `app.state.serversState()` live at call time, never a snapshot captured here - sources/
     // favourites/manual servers can be mutated by the handlers below in between two scans.
     // Story 116 D3: both halves take `app.launch` (structurally a `LaunchHost`) and each reads it
@@ -153,9 +128,9 @@ export const serversModule: MainModule = {
     })
     onDispose(() => scanCadence.dispose())
 
-    handle(SERVERS_HANDLERS.overviewRead, serversNoInputSchema, async () => ok(await scanService.overview()))
+    handle(SERVERS_HANDLERS.overviewRead, async () => ok(await scanService.overview()))
 
-    handle(SERVERS_HANDLERS.scanStart, scanStartInputSchema, async (payload) =>
+    handle(SERVERS_HANDLERS.scanStart, async (payload) =>
       ok(
         await scanService.start({
           scope: payload?.scope,
@@ -163,10 +138,10 @@ export const serversModule: MainModule = {
         }),
       ),
     )
-    handle(SERVERS_HANDLERS.scanRead, scanReadInputSchema, async () => ok(await scanService.read()))
+    handle(SERVERS_HANDLERS.scanRead, async () => ok(await scanService.read()))
     // Story 196 D3: the active list is main's in-memory state; a first visit to a never-scanned
     // mode lets the cadence apply the same view-open auto trigger.
-    handle(SERVERS_HANDLERS.scanSetMode, scanSetModeInputSchema, (payload) => {
+    handle(SERVERS_HANDLERS.scanSetMode, (payload) => {
       scanService.setMode(payload.mode)
       scanCadence.onModeChanged()
       return ok(undefined)
@@ -175,7 +150,7 @@ export const serversModule: MainModule = {
     // Story 122 D2: `detailReadInputSchema` is a bare `serverAddressSchema` (like
     // `favouritesAddInputSchema`), not a `{ address }` wrapper, so the payload arrives already
     // normalized as a plain string - no destructuring needed.
-    handle(SERVERS_HANDLERS.detailRead, detailReadInputSchema, async (address) =>
+    handle(SERVERS_HANDLERS.detailRead, async (address) =>
       ok(await scanService.readDetail(address)),
     )
 
@@ -183,19 +158,15 @@ export const serversModule: MainModule = {
      * Story 115 D2: the two `scan.*` settings handlers, mirroring `DOWNLOADS_HANDLERS.getSettings`/
      * `patchSettings` (`src/main/modules/downloads/index.ts`). `scanGetSettings` is a plain read, no
      * failure mode of its own - same reasoning as `DOWNLOADS_HANDLERS.getSettings`. `scanPatchSettings`
-     * follows the same read/merge/persist discipline as the `favourites.*`/`manual.*` handlers below:
+     * follows the same read/merge/persist discipline as the `favourites.*` handlers below:
      * only `scan` is replaced, every other `ServersState` key is carried over from the same snapshot
      * untouched, and what's returned is what `updateSlice` actually persisted, not the local
      * merged candidate. Out-of-range/garbage fields never reach this handler at all -
      * `scanPatchSettingsInputSchema` already rejects them at the registry (per-field choice-list
      * `.refine()`), so there is nothing left for this handler itself to validate.
      */
-    handle(
-      SERVERS_HANDLERS.scanGetSettings,
-      scanGetSettingsInputSchema,
-      () => ok(app.state.serversState().scan),
-    )
-    handle(SERVERS_HANDLERS.scanPatchSettings, scanPatchSettingsInputSchema, (patch) => {
+    handle(SERVERS_HANDLERS.scanGetSettings, () => ok(app.state.serversState().scan))
+    handle(SERVERS_HANDLERS.scanPatchSettings, (patch) => {
       const persisted = app.state.updateSlice('servers', (live) => ({
         ...live,
         scan: { ...live.scan, ...patch },
@@ -207,7 +178,7 @@ export const serversModule: MainModule = {
     })
     // Story 115 D3: the renderer's view-active signal drives both automatic triggers. The manual
     // `scan.start` handler above stays a bare, ungated `scanService.start()` call on purpose (AC3).
-    handle(SERVERS_HANDLERS.scanSetViewActive, scanSetViewActiveInputSchema, (payload) => {
+    handle(SERVERS_HANDLERS.scanSetViewActive, (payload) => {
       scanCadence.onViewActive(payload.active)
       return ok(undefined)
     })
@@ -234,21 +205,17 @@ export const serversModule: MainModule = {
       return { ok: true, sources: persisted.sources }
     }
 
-    handle(
-      SERVERS_HANDLERS.sourcesList,
-      sourcesListInputSchema,
-      () => ok(app.state.serversState().sources),
-    )
-    handle(SERVERS_HANDLERS.sourcesAdd, sourcesAddInputSchema, (payload) =>
+    handle(SERVERS_HANDLERS.sourcesList, () => ok(app.state.serversState().sources))
+    handle(SERVERS_HANDLERS.sourcesAdd, (payload) =>
       ok(mutate((sources) => addSource(sources, payload))),
     )
-    handle(SERVERS_HANDLERS.sourcesRemove, sourcesRemoveInputSchema, (payload) =>
+    handle(SERVERS_HANDLERS.sourcesRemove, (payload) =>
       ok(mutate((sources) => removeSource(sources, payload))),
     )
-    handle(SERVERS_HANDLERS.sourcesUpdate, sourcesUpdateInputSchema, (payload) =>
+    handle(SERVERS_HANDLERS.sourcesUpdate, (payload) =>
       ok(mutate((sources) => updateSource(sources, payload))),
     )
-    handle(SERVERS_HANDLERS.sourcesReorder, sourcesReorderInputSchema, (payload) =>
+    handle(SERVERS_HANDLERS.sourcesReorder, (payload) =>
       ok(mutate((sources) => reorderSources(sources, payload))),
     )
 
@@ -260,10 +227,7 @@ export const serversModule: MainModule = {
      * `sources`/`manualServers`/`history`/`scan` over untouched, same discipline as `mutate()`),
      * and returns what was actually persisted (D-E) - not the local candidate.
      */
-    handle(SERVERS_HANDLERS.favouritesList, favouritesListInputSchema, () =>
-      ok(listFavourites(app.state.serversState())),
-    )
-    handle(SERVERS_HANDLERS.favouritesAdd, favouritesAddInputSchema, (address) => {
+    handle(SERVERS_HANDLERS.favouritesAdd, (address) => {
       return ok(
         app.state.updateSlice('servers', (live) => ({
           ...live,
@@ -271,7 +235,7 @@ export const serversModule: MainModule = {
         })).favourites,
       )
     })
-    handle(SERVERS_HANDLERS.favouritesRemove, favouritesRemoveInputSchema, (address) => {
+    handle(SERVERS_HANDLERS.favouritesRemove, (address) => {
       return ok(
         app.state.updateSlice('servers', (live) => ({
           ...live,
@@ -281,45 +245,10 @@ export const serversModule: MainModule = {
     })
 
     /**
-     * Story 113 D4: the `manual.*`/`history.*` handlers - same read/run/persist discipline as the
-     * `favourites.*` block above, not `mutate()`'s: `addManualServer` already carries its own
-     * ok/refusal union (`ManualServerAddResult`'s shape), so a refusal is returned as a value
-     * *before* anything is written, and `removeManualServer` cannot refuse at all (D-I: removing an
-     * address that was never stored is a successful no-op).
-     *
-     * Each write replaces exactly one collection and carries `sources`/`favourites` plus the other
-     * of `manualServers`/`history` over from the same snapshot, so a manual add or remove can never
-     * clip the history (AC6's cross-collection half) or any other part of story 110's state key.
-     *
-     * `history.read` is read-only on purpose (D-H): there is no `history.record` channel, because
-     * only main ever appends to the history - story 125 D3's `app.launch.onStateChange` subscription
-     * below is the second (and, so far, only other) writer, alongside `manual.add`/`manual.remove`.
+     * `history.read` is read-only on purpose: there is no `history.record` channel, because only
+     * main appends to the history (the `app.launch.onStateChange` subscription below).
      */
-    handle(
-      SERVERS_HANDLERS.manualList,
-      manualListInputSchema,
-      () => ok(app.state.serversState().manualServers),
-    )
-    handle(SERVERS_HANDLERS.manualAdd, manualAddInputSchema, (payload) => {
-      let result: ReturnType<typeof addManualServer> | undefined
-      app.state.updateSlice('servers', (live) => {
-        result = addManualServer(live.manualServers, payload)
-        return result.ok ? { ...live, manualServers: result.list } : live
-      })
-      if (!result || !result.ok) return ok(result as ManualServerAddResult)
-      // `result.entry` is a member of `result.list`, which is what gets stored verbatim - so the
-      // entry handed back is the persisted one, not a separate local candidate.
-      return ok<ManualServerAddResult>({ ok: true, entry: result.entry })
-    })
-    handle(SERVERS_HANDLERS.manualRemove, manualRemoveInputSchema, (payload) => {
-      return ok(
-        app.state.updateSlice('servers', (live) => ({
-          ...live,
-          manualServers: removeManualServer(live.manualServers, payload.address),
-        })).manualServers,
-      )
-    })
-    handle(SERVERS_HANDLERS.historyRead, historyReadInputSchema, () =>
+    handle(SERVERS_HANDLERS.historyRead, () =>
       ok(readServerHistory(app.state.serversState().history)),
     )
 
@@ -355,15 +284,11 @@ export const serversModule: MainModule = {
      * cleared sort is an absent key on disk, not a present `null`/`undefined` one. What's returned is
      * what `updateSlice` actually persisted (`?? null`), not the local candidate.
      */
-    handle(
-      SERVERS_HANDLERS.listGetSort,
-      listGetSortInputSchema,
-      () => ok(app.state.serversState().listSort ?? null),
-    )
-    handle(SERVERS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) => {
+    handle(SERVERS_HANDLERS.listGetSort, () => ok(app.state.serversState().listSort ?? null))
+    handle(SERVERS_HANDLERS.listSetSort, (payload) => {
       return ok(
-        app.state.updateSlice('servers', (live) => setOrClearListSort(live, payload.sort)).listSort ??
-          null,
+        app.state.updateSlice('servers', (live) => setOrClearListSort(live, payload.sort))
+          .listSort ?? null,
       )
     })
 
@@ -383,18 +308,14 @@ export const serversModule: MainModule = {
       if (!result || !result.ok) return result as QuickFiltersResult
       return { ok: true, list: persisted.quickFilters }
     }
-    handle(
-      SERVERS_HANDLERS.quickFiltersList,
-      quickFiltersListInputSchema,
-      () => ok(app.state.serversState().quickFilters),
-    )
-    handle(SERVERS_HANDLERS.quickFiltersSave, quickFiltersSaveInputSchema, (payload) =>
+    handle(SERVERS_HANDLERS.quickFiltersList, () => ok(app.state.serversState().quickFilters))
+    handle(SERVERS_HANDLERS.quickFiltersSave, (payload) =>
       ok(mutateQuickFilters((list) => saveQuickFilter(list, payload))),
     )
-    handle(SERVERS_HANDLERS.quickFiltersRename, quickFiltersRenameInputSchema, (payload) =>
+    handle(SERVERS_HANDLERS.quickFiltersRename, (payload) =>
       ok(mutateQuickFilters((list) => renameQuickFilter(list, payload))),
     )
-    handle(SERVERS_HANDLERS.quickFiltersRemove, quickFiltersRemoveInputSchema, (payload) =>
+    handle(SERVERS_HANDLERS.quickFiltersRemove, (payload) =>
       ok(mutateQuickFilters((list) => removeQuickFilter(list, payload))),
     )
 
@@ -411,30 +332,24 @@ export const serversModule: MainModule = {
      */
     if (watchlistService !== undefined) {
       const service = watchlistService
-      handle(SERVERS_WATCHLIST_HANDLERS.read, watchlistReadInputSchema, async () => ok(await service.read()), {
+      handle(SERVERS_WATCHLIST_HANDLERS.read, async () => ok(await service.read()), {
+        feature: 'watchlist',
+      })
+      handle(SERVERS_WATCHLIST_HANDLERS.add, async (payload) => ok(await service.add(payload)), {
         feature: 'watchlist',
       })
       handle(
-        SERVERS_WATCHLIST_HANDLERS.add,
-        watchlistAddInputSchema,
-        async (payload) => ok(await service.add(payload)),
-        { feature: 'watchlist' },
-      )
-      handle(
         SERVERS_WATCHLIST_HANDLERS.update,
-        watchlistUpdateInputSchema,
         async (payload) => ok(await service.update(payload)),
         { feature: 'watchlist' },
       )
       handle(
         SERVERS_WATCHLIST_HANDLERS.remove,
-        watchlistRemoveInputSchema,
         async (payload) => ok(await service.remove(payload)),
         { feature: 'watchlist' },
       )
       handle(
         SERVERS_WATCHLIST_HANDLERS.recheck,
-        watchlistRecheckInputSchema,
         async (payload) => ok(await service.recheck(payload)),
         { feature: 'watchlist' },
       )

@@ -85,8 +85,10 @@ sibling files (`schemas.ts`, `ipc-schemas.ts`) instead.
 
 The module seam (`ModuleSetup.handle` in `src/main/modules/types.ts`) mirrors the
 same required-schema idea one level down, for `module:invoke`'s per-module-handler
-payloads. Schemas for those live in `src/main/modules/config/schemas.ts`, main-only,
-never exposed to the renderer.
+payloads. A module's request schemas live in its shared contract map
+(`<MODULE>_HANDLER_SCHEMAS` in `src/shared/modules/<id>.ts`, see `home.ts`), never exposed
+as paths to trust. A main-only `schemas.ts` (`config`, `downloads`, `mods`) is the
+not-yet-converted state and is to move to shared.
 
 **Paths are never trusted.** `app:revealPath` only opens folders belonging to a
 registered installation or the launcher's own data directories. A mod directory is
@@ -236,19 +238,25 @@ The public surface other code reaches through is `AppContext.unlock`:
 Everything past the shell is a module: `config`, `downloads`, `mods`, `assets`. The
 shell never needs editing to add one.
 
-1. **Contract** — `src/shared/modules/<id>.ts`: the handler names and the data
-   shapes. See `library.ts`.
+1. **Contract** — `src/shared/modules/<id>.ts`: a schema map
+   (`<ID>_HANDLER_SCHEMAS ... satisfies Record<string, ZodTypeAny>`) and a
+   `type <Id>Contract` alias satisfying `ModuleContract` (`src/shared/modules/contract.ts`):
+   `handlers` as `{ req, res }` per name (`req` via `z.infer` of the schema map, `res` the
+   value inside `Outcome`) and `events` as name to payload. See `HomeContract` in `home.ts`.
 2. **Manifest** — add the id to `ModuleId` and an entry to `MODULE_MANIFESTS` in
    `src/shared/types/module.ts` (title/description i18n keys, icon, route, nav
    placement, capabilities). Manifests already exist for all four planned modules.
 3. **Main half** — a `MainModule` in `src/main/modules/<id>/index.ts`, registered
    in `src/main/modules/index.ts`. It receives `handle`, `emit`, `app` (the
-   services), a scoped logger and `onDispose`. It never touches `ipcMain`,
+   services), a scoped logger and `onDispose`. Build it with
+   `defineModule<XContract>(id, schemas).bind(setup)`, which types `handle` and `emit`
+   against the contract and requires a schema for every handler. It never touches `ipcMain`,
    `BrowserWindow` or the state file. `setup()` keeps its state in its closure
    (no module-level `let`) and releases it through `onDispose`; the registry runs
    the disposers in reverse registration order at shutdown.
 4. **Renderer half** — a view, registered in `src/renderer/src/modules/index.ts`,
-   plus a typed client over `callModule()`.
+   plus `createModuleClient<XContract>(id)` (`src/renderer/src/modules/moduleClient.ts`):
+   `call` infers `Promise<Outcome<Res>>` and `on` the event payload.
 5. **Strings** — add the i18n keys.
 
 Until step 4 exists, the route renders `PlannedModuleView`, which states what the
@@ -258,8 +266,9 @@ rather than only in a file.
 Module request traffic goes through one shell-owned channel, `module:invoke`, with
 a `{ moduleId, type, payload }` envelope. Handlers are keyed `moduleId/type`, so
 modules cannot answer for each other and — more importantly — a module can never
-widen the renderer's IPC surface. Type safety per call is the module's own job,
-which is what its typed client is for. Every handler returns `Outcome<R>` and the
+widen the renderer's IPC surface. The contract gives per-call type safety end to
+end. Bus-wide coverage tests assert every declared handler is registered and referenced by
+the module's client. Every handler returns `Outcome<R>` and the
 registry passes it through unchanged, so a client receives exactly `Outcome<R>`.
 
 `library` is the working reference implementation. Its stats row in the library

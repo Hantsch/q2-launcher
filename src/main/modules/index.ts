@@ -11,7 +11,7 @@ import type { MainModule } from './types'
 /**
  * Every main-process module the shell loads, in order.
  *
- * Story 070 D4: `downloads` now has a working main half (`manifest.get`), so it is registered
+ * Story 070 D4: `downloads` has a working main half, so it is registered
  * here like every other module - its `MODULE_MANIFESTS` entry (`src/shared/types/module.ts`)
  * deliberately keeps `status: 'planned'` regardless, since the renderer half (wizard/Downloads
  * tab UI) is a later story. Story 188 registers `mods` (list/reveal); `assets` remains parked with
@@ -19,7 +19,7 @@ import type { MainModule } from './types'
  * single line - see `src/main/modules/library/index.ts` for the reference shape and
  * docs/ARCHITECTURE.md for the full checklist.
  */
-const MODULES: readonly MainModule[] = [
+export const MODULES: readonly MainModule[] = [
   homeModule,
   libraryModule,
   configModule,

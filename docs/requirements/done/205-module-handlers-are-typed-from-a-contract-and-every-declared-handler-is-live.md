@@ -1,7 +1,7 @@
 ---
 id: 205
 title: module handlers are typed from a contract, and every declared handler is live
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -30,27 +30,27 @@ This is the hottest area of the codebase: since 2026-08-01, 73 commits touched a
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — A per-module contract type exists in `src/shared/modules/<id>.ts` shaped like
+- [x] **AC1** — A per-module contract type exists in `src/shared/modules/<id>.ts` shaped like
       `IpcInvokeMap` (`'news.get': { req: void; res: NewsFeed }`, plus an events branch), with
       the request type derived from the existing zod schema via `z.infer` so no schema is
       rewritten.
-- [ ] **AC2** — Main has `defineModule<H>(id)` whose `handle<K extends keyof H>` derives payload
+- [x] **AC2** — Main has `defineModule<H>(id)` whose `handle<K extends keyof H>` derives payload
       and result types and registers the schema from the contract's schema map, so a handler with
       a missing schema or a wrong result type is a compile error; renderer has
       `createModuleClient<H>(id)` whose `call('news.get')` infers `Promise<Outcome<NewsFeed>>`.
       Both are additive beside the existing `handle`/`callModule` (registry runtime untouched).
-- [ ] **AC3** — `home` (6 handlers) is fully converted as the reference; at least one further
+- [x] **AC3** — `home` (6 handlers) is fully converted as the reference; at least one further
       module (`servers` or `replays`) is converted in this story; the remaining modules are listed
       as follow-up deliverables with no `callModule<` generic left in a converted module's client.
-- [ ] **AC4** — `MainModuleRegistry` exposes `handlerTypes(moduleId)`; one parameterised test
+- [x] **AC4** — `MainModuleRegistry` exposes `handlerTypes(moduleId)`; one parameterised test
       asserts, for every module, that the registered set equals `Object.values(X_HANDLERS)` in
       both directions.
-- [ ] **AC5** — A renderer test asserts every handler constant is referenced by its module's
+- [x] **AC5** — A renderer test asserts every handler constant is referenced by its module's
       `client.ts` (flow-only names on an explicit allowlist); `demos.list` is removed end to end
       and the six unused handlers are either wired or removed, each with a one-line reason in the
       story's Decisions.
-- [ ] **AC6** — `moduleInvokeSchema`'s module-id enum derives from `MODULE_MANIFESTS`.
-- [ ] **AC7** — docs/ARCHITECTURE.md "Adding a module" step 1 describes the contract type and
+- [x] **AC6** — `moduleInvokeSchema`'s module-id enum derives from `MODULE_MANIFESTS`.
+- [x] **AC7** — docs/ARCHITECTURE.md "Adding a module" step 1 describes the contract type and
       `defineModule`/`createModuleClient`, and the "type safety per call is the module's own job"
       sentence is gone.
 
@@ -320,4 +320,18 @@ proof, not acceptance of a user action.
 
 ## Done
 
-<!-- Filled by /build 205. -->
+Typed module seam shipped: `ModuleContract` types (`shared/modules/contract.ts`), `defineModule<H>(id, schemas).bind(setup)` in main, `createModuleClient<H>(id)` in the renderer, both additive beside `handle`/`callModule`. `home` and `servers` are fully converted (no `callModule<`/`onModuleEvent<` left); six dead handlers and `demos.list` are gone; `registry.handlerTypes()` backs a bus-wide registered-vs-declared test and a renderer reference test; `moduleInvokeSchema` ids derive from `MODULE_MANIFESTS`; ARCHITECTURE.md describes the seam.
+
+Commit message: `205: typed module contract (defineModule/createModuleClient), home+servers converted, dead handlers removed, handler-coverage tests`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck` green; `npx vitest run --changed HEAD` (183 files, 2434 tests) plus an explicit run of src/main/modules, src/shared and the touched renderer module dirs (336 files, 4728 passed, 1 skipped) green; flows via `npm run ui:flow -- <name>`: news-feed, home-dashboard-arrange, servers-join, servers-watchlist, servers-quick-filters all green. AC -> test as walked (all ran and passed): AC1 contract.test.ts + home.test.ts; AC2 define-module.test.ts (3 tests, `@ts-expect-error` proven by typecheck) + moduleClient.test.ts; AC3 renderer handler-coverage.test.ts + 5 flows; AC4 registry.test.ts + main handler-coverage.test.ts; AC5 renderer handler-coverage.test.ts, replays index.test.ts, servers.test.ts; AC6 ipc-schemas.test.ts; AC7 architecture-doc.test.ts. No manual residue. Review 1 (default tier): PASS; two comment-only findings fixed (stale `manual.*` mention, undocumented tuple cast), the rest accepted below. Full regression gate pending (sprint's).
+
+Decisions:
+- `ExplicitContract` and `SingleKey` guards in contract.ts reject string-keyed contracts and union handler types, so a missing type argument cannot silently fall back to `string`; a contract must be a `type` alias (an `interface` does not satisfy the `Record` bound).
+- `scan-service.ts`'s `emit` is typed `BoundModule<ServersContract>['emit']` instead of `(string, unknown)` so the typed emit is assignable.
+- `handler-coverage.test.ts` (main) declares `Partial<Record<ModuleId, ...>>` because `assets` has no main half; a second test asserts the map's keys equal the loaded `MODULES`. The shared `stubbedAppContext()` / `ALL_UNLOCKED_FEATURE_GATE` live in src/test-support/app-context.ts.
+- Removing `manifestGet` left no handler producing `downloads.error.manifestUnavailable`; its "key never prose" assertion was dropped with it (the `none-pinned` path stays covered in engine-options.test.ts); the locale key stays.
+- `moduleClient.test.ts` stubs `globalThis.q2` (the file's existing seam) rather than mocking `../lib/bridge`.
+- Accepted review notes: renderer reference regex also matches comments; pre-existing `as MasterSourcesResult`/`QuickFiltersResult` casts in servers/index.ts are untouched; "(story 205)" trailing pointers in comments.
+
+tiers: D 11 / hard 1 · review default · cycles 1 · agents 13

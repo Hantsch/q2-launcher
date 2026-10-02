@@ -195,7 +195,7 @@ describe('decideAutoTrigger / autoRefreshDelayMs (pure)', () => {
     // unmediated call into `scanService.start` - no cadence module, no spacing check.
     const indexSource = readSource('./index.ts')
     expect(indexSource).toMatch(
-      /handle\(SERVERS_HANDLERS\.scanStart, scanStartInputSchema, async \(payload\) =>\s*ok\(\s*await scanService\.start\(\{\s*scope: payload\?\.scope,\s*selectedAddress: payload\?\.selectedAddress,?\s*\}\),?\s*\),?\s*\)/,
+      /handle\(SERVERS_HANDLERS.scanStart, async \(payload\) =>\s*ok\(\s*await scanService\.start\(\{\s*scope: payload\?\.scope,\s*selectedAddress: payload\?\.selectedAddress,?\s*\}\),?\s*\),?\s*\)/,
     )
   })
 })

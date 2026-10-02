@@ -151,7 +151,7 @@ export async function scanHoldMs({
  * wires each handler's payload schema to its handler body, same as `servers/index.ts` does for
  * `sources.*`.
  *
- * Story 141 D3 adds `demos.list`, the first handler to actually touch the filesystem: it runs
+ * Discovery touches the filesystem: it runs
  * `discoverDemos` (`discovery.ts`, D2) over every known installation and strips each result's
  * `absolutePath` via an explicit field pick before it crosses IPC - a demo is named by its id, never
  * its real path (CLAUDE.md: "Paths from the renderer are never trusted"). `discoveryHomeDir` is the
@@ -427,9 +427,8 @@ export const replaysModule: MainModule = {
 
     handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, async () => ok(await scanService.overview()))
     handle(REPLAYS_HANDLERS.scanStart, replaysNoInputSchema, async () => ok(await scanService.start()))
-    // Story 150 D2: `index.read` now answers composed rows - each demo plus its sidecar and
-    // resolved effective values - rather than the bare discovered-demo shape `demos.list` still
-    // answers. A failed sidecar read (the store's own `Outcome` came back `ok: false`) becomes a
+    // `index.read` answers composed rows - each demo plus its sidecar and resolved effective
+    // values. A failed sidecar read (the store's own `Outcome` came back `ok: false`) becomes a
     // `null` sidecar input, same as an archive entry or an id the index doesn't know about.
     handle(REPLAYS_HANDLERS.indexRead, replaysNoInputSchema, async () =>
       ok(
@@ -512,38 +511,6 @@ export const replaysModule: MainModule = {
     handle(REPLAYS_HANDLERS.nameTemplatesRestore, replaysNoInputSchema, () =>
       nameTemplatesRestore(app),
     )
-
-    // Left on fresh discovery (no header parse, no cache) on purpose: `index.read` is the cached,
-    // parsed view; switching this handler's callers over is the renderer's deliverable.
-    handle(REPLAYS_HANDLERS.demosList, replaysNoInputSchema, async () => {
-      const { demos } = await discoverDemos(
-        app.installations.list(),
-        app.state.replaysState().extraFolders,
-        discoveryContext(),
-      )
-      return ok(demos.map((d) => ({
-        id: d.id,
-        fileName: d.fileName,
-        format: d.format,
-        gzip: d.gzip,
-        source: d.source,
-        archiveEntry: d.archiveEntry,
-        map: d.map,
-        unparsableReason: d.unparsableReason,
-        // No header parse here (see comment above): readable/fileTime/nameFacts stay the neutral
-        // placeholders discovery itself sets, never a real answer.
-        readable: d.readable,
-        unreadable: d.unreadable,
-        // Discovery's own values: a zip entry's real header facts/duration, a loose file's
-        // null/[] placeholders (no header parse here, see above).
-        gameDir: d.gameDir,
-        pov: d.pov,
-        players: d.players,
-        durationMs: d.durationMs,
-        fileTime: d.fileTime,
-        nameFacts: d.nameFacts,
-      })))
-    })
 
     // Story 142 D2: the `extraFolders.*` handlers. Every write runs on the live slice inside
     // `updateSlice`; a refusal returns the live slice unchanged (nothing persisted), and what comes

@@ -1319,7 +1319,7 @@ export const SCREENS = [
     // demo files across two installations/game dirs (`scripts/lib/fixture.mjs`'s
     // `REPLAYS_FIXTURE_DEMOS`, written by `writeReplaysDemosFixture()`), plus decoys the scan must
     // never surface. Waits for `replays-demo-list` (ReplaysView.tsx) rather than just the nav click,
-    // since the list is fetched once on mount via `demos.list` and a screenshot could otherwise race
+    // since the list is read once on mount via `index.read` and a screenshot could otherwise race
     // that first render.
     navigate: async (page) => {
       await click(page, 'nav-replays')

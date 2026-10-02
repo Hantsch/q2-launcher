@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  demosListResultSchema,
   REPLAYS_HANDLERS,
   REPLAYS_SIDECAR_WRITING_HANDLERS,
 } from '@shared/modules/replays'
@@ -25,7 +24,7 @@ import { resolveExtractorPath } from '../downloads/7za-path'
 import { discoveryHomeDir, replaysModule, scanHoldMs } from './index'
 
 /**
- * `demos.list` calls `discoveryHomeDir()` with no overrides, which falls back to `userDataDir()` -
+ * The module's discovery calls `discoveryHomeDir()` with no overrides, which falls back to `userDataDir()` -
  * `electron.app.getPath('userData')`. Mocked the same way `downloads/index.test.ts` mocks it: a
  * per-test temp folder, never the real userData dir.
  */
@@ -83,45 +82,6 @@ describe('replays module', () => {
       payload: undefined,
     })
     expect(outcome).toEqual({ ok: true, value: { scanning: false, demoCount: 0 } })
-
-    // Story 140 D2 registers the seven `nameTemplates.*` handlers alongside `overview.read` -
-    // `Object.values(REPLAYS_HANDLERS)` is exactly this module's full registered set.
-    expect(Object.values(REPLAYS_HANDLERS)).toEqual([
-      'overview.read',
-      'nameTemplates.list',
-      'nameTemplates.add',
-      'nameTemplates.update',
-      'nameTemplates.remove',
-      'nameTemplates.reorder',
-      'nameTemplates.reset',
-      'nameTemplates.restore',
-      'demos.list',
-      'extraFolders.list',
-      'extraFolders.add',
-      'extraFolders.remove',
-      'scan.start',
-      'index.read',
-      'sidecar.read',
-      'sidecar.write',
-      'list.getSort',
-      'list.setSort',
-      'listFilter.read',
-      'listFilter.write',
-      'modWarning.read',
-      'modWarning.setEnabled',
-      'modWarning.trustMod',
-      'modWarning.resetTrusted',
-      'demos.reveal',
-      'demos.copyPath',
-      'demo.rename',
-      'demo.play',
-      'playback.timeline',
-      'playback.consoleSend',
-      'playback.stage',
-      'playback.stop',
-      'playback.cinema',
-      'playback.display.read',
-    ])
   })
 
   it('a bad overview.read payload is rejected', async () => {
@@ -158,7 +118,26 @@ describe('replays module', () => {
     }
   })
 
-  describe('demos.list', () => {
+  it('demos.list is gone: invoking it answers modules.error.notImplemented', async () => {
+    const registry = new MainModuleRegistry()
+    await registry.register(replaysModule, fakeAppContext({ state: stubState }))
+
+    const outcome = await registry.invoke({
+      moduleId: 'replays',
+      type: 'demos.list',
+      payload: undefined,
+    })
+
+    expect(outcome).toEqual({
+      ok: false,
+      error: {
+        key: 'modules.error.notImplemented',
+        params: { moduleId: 'replays', type: 'demos.list' },
+      },
+    })
+  })
+
+  describe('startup sweep', () => {
     let dir: string
 
     beforeEach(async () => {
@@ -168,55 +147,6 @@ describe('replays module', () => {
 
     afterEach(async () => {
       await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
-    })
-
-    it('demos.list returns the discovered demos without paths', async () => {
-      const demosDir = join(dir, 'baseq2', 'demos')
-      await mkdir(demosDir, { recursive: true })
-      await writeFile(join(demosDir, 'x.dm2'), 'x')
-
-      const installation = {
-        id: 'inst-1',
-        name: 'Installation One',
-        rootPath: dir,
-        gameDirs: ['baseq2'],
-        engineKind: 'r1q2',
-        recordedEngineKind: undefined,
-        writeDirPath: undefined,
-      }
-
-      const registry = new MainModuleRegistry()
-      await registry.register(
-        replaysModule,
-        fakeAppContext({ state: stubState, installations: installationsOf([installation]) }),
-      )
-
-      const outcome = await registry.invoke({
-        moduleId: 'replays',
-        type: REPLAYS_HANDLERS.demosList,
-        payload: undefined,
-      })
-
-      expect(outcome.ok).toBe(true)
-      if (!outcome.ok) throw new Error('expected ok outcome')
-      const parsed = demosListResultSchema.parse(outcome.value)
-      expect(parsed.map((d) => d.fileName)).toEqual(['x.dm2'])
-      for (const entry of parsed) {
-        expect(entry).not.toHaveProperty('absolutePath')
-      }
-    })
-
-    it('a bad demos.list payload is rejected', async () => {
-      const registry = new MainModuleRegistry()
-      await registry.register(replaysModule, fakeAppContext({ state: stubState }))
-
-      const outcome = await registry.invoke({
-        moduleId: 'replays',
-        type: REPLAYS_HANDLERS.demosList,
-        payload: { foo: 'bar' },
-      })
-
-      expect(outcome).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
     })
 
     // Story 160 D2: module setup sweeps leftover staged copies, fire-and-forget.
@@ -807,7 +737,6 @@ describe('replays module', () => {
 
       const payloadFor: Record<string, unknown> = {
         [REPLAYS_HANDLERS.overviewRead]: undefined,
-        [REPLAYS_HANDLERS.demosList]: undefined,
         [REPLAYS_HANDLERS.extraFoldersList]: undefined,
         [REPLAYS_HANDLERS.indexRead]: undefined,
         [REPLAYS_HANDLERS.nameTemplatesList]: undefined,

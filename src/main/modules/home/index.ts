@@ -1,12 +1,11 @@
 import { ok } from '@shared/types'
+import { defineModule } from '../define-module'
 import {
   DEFAULT_HOME_LAYOUT,
   HOME_EVENTS,
   HOME_HANDLERS,
-  homeLayoutNoInputSchema,
-  newsNoInputSchema,
-  openSlideUrlInputSchema,
-  setLayoutInputSchema,
+  HOME_HANDLER_SCHEMAS,
+  type HomeContract,
 } from '@shared/modules/home'
 import { parseHomeLayout } from '../../lib/schemas'
 import type { MainModule } from '../types'
@@ -23,7 +22,9 @@ import { openSlideUrl } from './open-slide-url'
 export const homeModule: MainModule = {
   id: 'home',
 
-  setup({ handle, emit, app, log }) {
+  setup(setup) {
+    const { app, log } = setup
+    const { handle, emit } = defineModule<HomeContract>('home', HOME_HANDLER_SCHEMAS).bind(setup)
     const newsService = createNewsService({
       isDev: app.isDev,
       persistence: app.persistence,
@@ -31,25 +32,27 @@ export const homeModule: MainModule = {
       onChanged: (feed) => emit(HOME_EVENTS.newsChanged, feed),
     })
 
-    handle(HOME_HANDLERS.newsGet, newsNoInputSchema, async () => ok(await newsService.getNews()))
-    handle(HOME_HANDLERS.newsRefresh, newsNoInputSchema, async () => ok(await newsService.refreshNews()))
-    handle(HOME_HANDLERS.openSlideUrl, openSlideUrlInputSchema, (url) => openSlideUrl(url, log))
+    handle(HOME_HANDLERS.newsGet, async () => ok(await newsService.getNews()))
+    handle(HOME_HANDLERS.newsRefresh, async () => ok(await newsService.refreshNews()))
+    handle(HOME_HANDLERS.openSlideUrl, (url) => openSlideUrl(url, log))
 
     // Story 086 D1: `getLayout` returns the persisted layout verbatim - no failure mode, like
     // `downloads.getSettings`. `setLayout` re-validates the whole incoming layout through
     // `parseHomeLayout` before persisting it - the shared schema is deliberately permissive on
     // `moduleId`, so an unknown module is dropped here, server-side, rather than rejected at the
     // IPC boundary.
-    handle(HOME_HANDLERS.getLayout, homeLayoutNoInputSchema, () => ok(app.state.homeLayout()))
-    handle(HOME_HANDLERS.setLayout, setLayoutInputSchema, (layout) =>
+    handle(HOME_HANDLERS.getLayout, () => ok(app.state.homeLayout()))
+    handle(HOME_HANDLERS.setLayout, (layout) =>
       ok(app.state.setHomeLayout(parseHomeLayout(layout))),
     )
     // Story 086 D1 review fix: clone `tiles` rather than passing `DEFAULT_HOME_LAYOUT` by
     // reference - it is a shared, module-level singleton, and this would otherwise let anything
     // that later mutated the persisted layout's `tiles` array in place corrupt the shipped default
     // too.
-    handle(HOME_HANDLERS.resetLayout, homeLayoutNoInputSchema, () =>
-      ok(app.state.setHomeLayout({ tiles: DEFAULT_HOME_LAYOUT.tiles.map((tile) => ({ ...tile })) })),
+    handle(HOME_HANDLERS.resetLayout, () =>
+      ok(
+        app.state.setHomeLayout({ tiles: DEFAULT_HOME_LAYOUT.tiles.map((tile) => ({ ...tile })) }),
+      ),
     )
 
     // AC1: exactly one fetch happens on its own, right here at registration - fire-and-forget, so a

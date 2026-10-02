@@ -57,6 +57,29 @@ describe('MainModuleRegistry', () => {
     expect(result).toEqual({ ok: true, value: { answer: 42 } })
   })
 
+  it("handlerTypes lists a module's registered types only", async () => {
+    const registry = new MainModuleRegistry()
+    const schema = z.undefined()
+    await registry.register(
+      {
+        id: 'library',
+        setup: ({ handle }) => {
+          handle('stats', schema, () => ok(1))
+          handle('a.first', schema, () => ok(1))
+        },
+      },
+      fakeAppContext(),
+    )
+    await registry.register(
+      { id: 'home', setup: ({ handle }) => handle('other', schema, () => ok(1)) },
+      fakeAppContext(),
+    )
+
+    expect(registry.handlerTypes('library')).toEqual(['a.first', 'stats'])
+    expect(registry.handlerTypes('home')).toEqual(['other'])
+    expect(registry.handlerTypes('mods')).toEqual([])
+  })
+
   it("a module's handlers are not reachable under another module's id", async () => {
     const registry = new MainModuleRegistry()
     const libraryHandler = vi.fn().mockResolvedValue(ok({ from: 'library' }))

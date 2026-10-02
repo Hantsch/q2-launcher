@@ -190,16 +190,6 @@ export const manifestEnvelopeSchema = z.object({
 })
 
 /**
- * D4: `manifest.get`'s IPC payload - matches `ManifestService.getManifest`'s own
- * `GetManifestOptions` (`manifest-service.ts`). `refresh` is optional: a caller not asking for a
- * forced refetch simply omits it, same "every invoke channel still carries a schema, even a small
- * one" convention as `writeStateInputSchema`/`listInputSchema` in `main/modules/config/schemas.ts`.
- */
-export const manifestGetInputSchema = z.object({
-  refresh: z.boolean().optional(),
-})
-
-/**
  * Story 072 D4: `getSettings`/`cacheStatus`/`clearCache` take no meaningful input - same `z.void()`
  * convention as `listInputSchema`/`writeStateInputSchema` in `main/modules/config/schemas.ts`.
  */
@@ -229,8 +219,7 @@ export const restoreFailureInputSchema = dismissFailureInputSchema
  * what keeps the two from ever drifting apart.
  *
  * Unlike that persisted schema, this one is strict rather than forgiving: this file's convention
- * (see `manifestGetInputSchema`'s own doc comment) is "a bad payload is a caller bug, not a state to
- * repair", so an out-of-range value here is rejected outright by `MainModuleRegistry.invoke()`
+ * is "a bad payload is a caller bug, not a state to repair", so an out-of-range value here is rejected outright by `MainModuleRegistry.invoke()`
  * (`fail('ipc.error.invalidPayload')`) before any handler runs, rather than silently degraded to a
  * default the way a hand-edited `state.json` would be.
  */
@@ -293,7 +282,7 @@ const bootstrapDataSourceSchema = z.enum(['free-download', 'store-copy', 'existi
  * Story 088 D4: `copySourcePath` is meaningful for exactly one `dataSource`, so both halves of that
  * are enforced here rather than left to the handler - a `'store-copy'` payload without a source
  * path, and any other payload carrying one, are equally caller bugs and this file's convention is to
- * reject a caller bug outright (see `manifestGetInputSchema`'s own doc comment). Shared by the two
+ * reject a caller bug outright. Shared by the two
  * schemas below so "when is a copy source required" cannot come to differ between the confirm step's
  * summary and the run it summarises.
  *

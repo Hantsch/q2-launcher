@@ -12,16 +12,9 @@ import {
   updateGetStateSchema,
 } from './ipc-schemas'
 
-/**
- * `moduleInvokeSchema`'s `moduleId` is a hand-written zod enum with no structural link to
- * `ModuleId`/`MODULE_MANIFESTS` (`src/shared/types/module.ts`) - a reviewer found it had silently
- * omitted `'home'`, which made the whole module unreachable through real IPC while the rest of the
- * test suite stayed green (nothing else exercises the enum against the manifest list). This test is
- * the coupling guard: a future module added to `MODULE_MANIFESTS` without a matching update here
- * fails immediately instead of silently breaking IPC.
- */
+/** `moduleInvokeSchema`'s `moduleId` enum is derived from `MODULE_MANIFESTS`; this pins that. */
 describe('moduleInvokeSchema', () => {
-  it('accepts exactly the module ids known to MODULE_MANIFESTS, no more, no fewer', () => {
+  it('moduleInvokeSchema accepts exactly the manifest ids', () => {
     const manifestIds = MODULE_MANIFESTS.map((manifest) => manifest.id).sort()
 
     for (const id of manifestIds) {

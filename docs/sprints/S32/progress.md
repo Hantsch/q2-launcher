@@ -218,3 +218,31 @@
 - 2026-10-02 13:47:43 · 206 · review 2 · started
 - 2026-10-02 13:48:40 · 206 · review 2 · done
 - 2026-10-02 13:48:40 · 206 · story · done
+- 2026-10-02 13:48:52 · 205 · build · started
+- 2026-10-02 13:49:11 · 205 · D1 contract types + defineModule · started
+- 2026-10-02 13:52:43 · 205 · D1 contract types + defineModule · done
+- 2026-10-02 13:52:43 · 205 · D2 createModuleClient · started
+- 2026-10-02 13:52:43 · 205 · D3 remove five dead handlers · started
+- 2026-10-02 13:52:43 · 205 · D4 remove demos.list · started
+- 2026-10-02 13:57:08 · 205 · D2 createModuleClient · done
+- 2026-10-02 13:57:08 · 205 · D3 remove five dead handlers · done
+- 2026-10-02 13:57:08 · 205 · D4 remove demos.list · done
+- 2026-10-02 13:57:08 · 205 · D5 convert home · started
+- 2026-10-02 13:57:57 · 205 · D5 convert home · done
+- 2026-10-02 13:57:57 · 205 · D6 servers main · started
+- 2026-10-02 13:59:39 · 205 · D6 servers main · done
+- 2026-10-02 13:59:39 · 205 · D7 servers client · started
+- 2026-10-02 13:59:39 · 205 · D8 handlerTypes + coverage test · started
+- 2026-10-02 13:59:39 · 205 · D10 moduleInvokeSchema enum · started
+- 2026-10-02 13:59:39 · 205 · D11 architecture doc · started
+- 2026-10-02 14:02:36 · 205 · D7 servers client · done
+- 2026-10-02 14:02:36 · 205 · D8 handlerTypes + coverage test · done
+- 2026-10-02 14:02:36 · 205 · D10 moduleInvokeSchema enum · done
+- 2026-10-02 14:02:36 · 205 · D11 architecture doc · done
+- 2026-10-02 14:02:38 · 205 · D9 renderer reference test · started
+- 2026-10-02 14:03:50 · 205 · D9 renderer reference test · done
+- 2026-10-02 14:03:50 · 205 · verify · started
+- 2026-10-02 14:07:15 · 205 · verify · done
+- 2026-10-02 14:07:15 · 205 · review 1 · started
+- 2026-10-02 14:08:38 · 205 · review 1 · done
+- 2026-10-02 14:09:19 · 205 · story · done
