@@ -375,3 +375,5 @@ Decisions:
 - `docs/systems/install-module.md` does not exist; moved paths were updated in UI-VERIFICATION.md, concepts docs and comments instead. The quiet-test-run sample path follows the moved staging test.
 
 tiers: D 7 / hard 1 · review default+hard · cycles 2 · agents 12
+
+Regression fix: `bootEnv` copied `process.env` into a case-sensitive object, so `env.ProgramFiles` missed `PROGRAMFILES` on Windows and the bootstrap wizard's Program Files warning vanished (flow `bootstrap-wizard`); the frozen copy now keeps the platform's lookup casing (case-folded fallback on win32, exact on linux), tested in `boot-env.test.ts`.

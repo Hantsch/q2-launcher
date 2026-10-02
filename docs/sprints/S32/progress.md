@@ -429,3 +429,6 @@
 - 2026-10-02 18:13:01 · 219 · review 4 · started
 - 2026-10-02 18:13:52 · 219 · review 4 · done
 - 2026-10-02 18:13:52 · 219 · story · done
+- 2026-10-02 18:14:09 · gate · short suites · started
+- 2026-10-02 18:16:58 · gate · short suites · done · green
+- 2026-10-02 18:16:58 · gate · e2e-all · started
