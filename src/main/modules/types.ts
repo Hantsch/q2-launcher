@@ -57,8 +57,9 @@ export interface ModuleSetup {
 /**
  * The main-process half of a module.
  *
- * A module never touches `ipcMain`, `BrowserWindow` or the state file directly -
- * it goes through `ModuleSetup`. That keeps the security surface fixed (the
+ * A module never touches `ipcMain` or `BrowserWindow` directly. It owns its persisted state
+ * through its own `persisted.ts`, built on `app.state.section()`; everything else goes through
+ * `ModuleSetup`. That keeps the security surface fixed (the
  * preload allowlist cannot grow) and means the shell can load, skip or later
  * unload modules without special cases.
  */

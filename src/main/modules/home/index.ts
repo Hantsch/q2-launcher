@@ -1,16 +1,15 @@
 import { ok } from '@shared/types'
 import { defineModule } from '../define-module'
 import {
-  DEFAULT_HOME_LAYOUT,
   HOME_EVENTS,
   HOME_HANDLERS,
   HOME_HANDLER_SCHEMAS,
   type HomeContract,
 } from '@shared/modules/home'
-import { parseHomeLayout } from '../../lib/schemas'
 import type { MainModule } from '../types'
 import { createNewsService } from './news/news-service'
 import { openSlideUrl } from './open-slide-url'
+import { defaultHomeLayout, homeState, parseHomeLayout } from './persisted'
 
 /**
  * The home module - story 081 D1 registered it with nothing to add yet. Story 082 D6 gives it its
@@ -24,6 +23,7 @@ export const homeModule: MainModule = {
 
   setup(setup) {
     const { app, log } = setup
+    const layout = homeState(app.state)
     const { handle, emit } = defineModule<HomeContract>('home', HOME_HANDLER_SCHEMAS).bind(setup)
     const newsService = createNewsService({
       isDev: app.isDev,
@@ -41,19 +41,11 @@ export const homeModule: MainModule = {
     // `parseHomeLayout` before persisting it - the shared schema is deliberately permissive on
     // `moduleId`, so an unknown module is dropped here, server-side, rather than rejected at the
     // IPC boundary.
-    handle(HOME_HANDLERS.getLayout, () => ok(app.state.homeLayout()))
-    handle(HOME_HANDLERS.setLayout, (layout) =>
-      ok(app.state.setHomeLayout(parseHomeLayout(layout))),
+    handle(HOME_HANDLERS.getLayout, () => ok(layout.get()))
+    handle(HOME_HANDLERS.setLayout, (incoming) =>
+      ok(layout.update(() => parseHomeLayout(incoming))),
     )
-    // Story 086 D1 review fix: clone `tiles` rather than passing `DEFAULT_HOME_LAYOUT` by
-    // reference - it is a shared, module-level singleton, and this would otherwise let anything
-    // that later mutated the persisted layout's `tiles` array in place corrupt the shipped default
-    // too.
-    handle(HOME_HANDLERS.resetLayout, () =>
-      ok(
-        app.state.setHomeLayout({ tiles: DEFAULT_HOME_LAYOUT.tiles.map((tile) => ({ ...tile })) }),
-      ),
-    )
+    handle(HOME_HANDLERS.resetLayout, () => ok(layout.update(() => defaultHomeLayout())))
 
     // AC1: exactly one fetch happens on its own, right here at registration - fire-and-forget, so a
     // slow or unreachable content repo never delays the app finishing startup. Story 082 D4's

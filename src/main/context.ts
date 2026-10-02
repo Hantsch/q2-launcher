@@ -9,7 +9,7 @@ import { scopedLogger } from './lib/logger'
 import { UI_HARNESS_ENV } from './lib/ui-harness'
 import { resolveFeatureGate, type FeatureGate } from './features/gate'
 import { MainModuleRegistry } from './modules/registry'
-import { registerModules } from './modules'
+import { MODULE_MIGRATIONS, registerModules } from './modules'
 import { Broadcaster } from './services/broadcast'
 import { DetectionService } from './services/detection'
 import { DialogService } from './services/dialog'
@@ -123,6 +123,7 @@ export async function createAppContext(options: {
   const persistence = new PersistenceRegistry()
 
   const state = new StateStore(stateFilePath(), {
+    migrations: MODULE_MIGRATIONS,
     onPersistError: () => broadcast.toast('error', 'app.toast.statePersistFailed'),
   })
   await state.load()

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { UI_HARNESS_ENV } from '../../lib/ui-harness'
 import { getModuleManifest } from '@shared/types'
 import { fakeAppContext } from '../../../test-support/app-context'
+import { fakeSectionState } from '../../../test-support/state-sections'
 import { MainModuleRegistry } from '../registry'
 import { homeModule } from './index'
 
@@ -60,7 +61,7 @@ describe('home module', () => {
     expect(manifest?.capabilities).toEqual(['network'])
 
     const registry = new MainModuleRegistry()
-    await registry.register(homeModule, fakeAppContext({ isDev: true }))
+    await registry.register(homeModule, fakeAppContext({ isDev: true, state: fakeSectionState() }))
 
     const registeredManifest = registry.manifests().find((m) => m.id === 'home')
     expect(registeredManifest?.status).toBe('available')
@@ -82,7 +83,7 @@ describe('home module', () => {
   it('a refused slide url arrives as a failure, not as a success wrapping one', async () => {
     vi.stubEnv(UI_HARNESS_ENV, '1')
     const registry = new MainModuleRegistry()
-    await registry.register(homeModule, fakeAppContext({ isDev: true }))
+    await registry.register(homeModule, fakeAppContext({ isDev: true, state: fakeSectionState() }))
 
     const outcome = await registry.invoke({
       moduleId: 'home',
@@ -128,7 +129,10 @@ describe('home module', () => {
 
       const { homeModule: testedHomeModule } = await import('./index')
       const registry = new MainModuleRegistry()
-      await registry.register(testedHomeModule, fakeAppContext({ isDev: true }))
+      await registry.register(
+        testedHomeModule,
+        fakeAppContext({ isDev: true, state: fakeSectionState() }),
+      )
 
       expect(refreshNews).toHaveBeenCalledTimes(1)
     })

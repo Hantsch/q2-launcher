@@ -1,8 +1,9 @@
 import type { KeyObject } from 'node:crypto'
 import type { UnlockRejection, UnlockSnapshot, UnlockVerdict } from '@shared/unlock'
-import { MAX_UNLOCK_CODES, type UnlockCodeEntry, type UnlockState } from '../../lib/schemas'
+import type { StateStore } from '../state'
 import { parseUnlockCode } from './code'
 import { resolveLauncherInstallId as defaultResolveLauncherInstallId } from './launcher-install-id'
+import { MAX_UNLOCK_CODES, unlockState, type UnlockCodeEntry } from './persisted'
 import { verifyUnlockCode } from './verify'
 
 /**
@@ -28,13 +29,8 @@ export interface UnlockServiceLog {
   error(message: string): void
 }
 
-export interface UnlockServiceState {
-  unlockState(): UnlockState
-  setUnlockState(state: UnlockState): UnlockState
-}
-
 export interface UnlockServiceOptions {
-  state: UnlockServiceState
+  state: StateStore
   publicKey: KeyObject | string
   /** Defaults to the real machine-derived resolver; injectable for tests. */
   resolveLauncherInstallId?: () => Promise<string | null>
@@ -64,6 +60,7 @@ export function createUnlockService(options: UnlockServiceOptions): UnlockServic
   const resolveInstallId = options.resolveLauncherInstallId ?? defaultResolveLauncherInstallId
   const now = options.now ?? ((): Date => new Date())
   const log = options.log
+  const section = unlockState(options.state)
 
   let launcherInstallId: string | null = null
   let activeFeatures = new Set<string>()
@@ -120,7 +117,7 @@ export function createUnlockService(options: UnlockServiceOptions): UnlockServic
   }
 
   function recomputeActiveFeatures(): void {
-    const codes = options.state.unlockState().codes
+    const codes = section.get().codes
     const next = new Set<string>()
     for (const entry of codes) {
       const classified = classify(entry)
@@ -155,7 +152,7 @@ export function createUnlockService(options: UnlockServiceOptions): UnlockServic
     // that same trimmed form, or the same logical code pasted with/without surrounding whitespace
     // produces two distinct stored rows.
     const code = rawCode.trim()
-    const current = options.state.unlockState()
+    const current = section.get()
 
     // Story 129: an already-stored code is idempotent - judged the way a stored code always is
     // (`reverify`, so a since-closed redemption window does not matter, but expiry does) and never
@@ -193,7 +190,7 @@ export function createUnlockService(options: UnlockServiceOptions): UnlockServic
       (a, b) => Date.parse(a.redeemedAt) - Date.parse(b.redeemedAt),
     )
     const capped = combined.slice(Math.max(0, combined.length - MAX_UNLOCK_CODES))
-    options.state.setUnlockState({ codes: capped })
+    section.update(() => ({ codes: capped }))
 
     for (const feature of verdict.payload.features) activeFeatures.add(feature)
 
@@ -202,7 +199,7 @@ export function createUnlockService(options: UnlockServiceOptions): UnlockServic
   }
 
   function snapshot(): UnlockSnapshot {
-    const codes = options.state.unlockState().codes.map((entry) => {
+    const codes = section.get().codes.map((entry) => {
       const classified = classify(entry)
       return {
         features: classified.features,

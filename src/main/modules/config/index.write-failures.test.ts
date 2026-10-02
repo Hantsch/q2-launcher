@@ -16,6 +16,8 @@ import {
   useConfigTestDir,
   userDataBox,
 } from './index.test-helpers'
+import { configState } from './persisted'
+import { seedConfigProfiles } from '../../../test-support/config-state'
 
 vi.mock('./writer', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./writer')>()
@@ -61,7 +63,7 @@ describe('config write failures under overlapping sync runs', () => {
     const i1 = installation({ id: 'i1', rootPath: join(dir, 'one') })
     const i2 = installation({ id: 'i2', rootPath: join(dir, 'two') })
     const { handlers, state } = await boot([i1, i2])
-    state.setConfigProfiles([
+    seedConfigProfiles(state, [
       profile({
         id: 'p1',
         name: 'First',
@@ -92,12 +94,12 @@ describe('config write failures under overlapping sync runs', () => {
     const first = save('p1')
     await vi.waitFor(() => expect(calls).toBe(1))
     await save('p2')
-    expect(Object.keys(state.configWriteFailures())).toEqual(['p2|own'])
+    expect(Object.keys(configState(state).writeFailures.get())).toEqual(['p2|own'])
     releaseFirst()
     await first
     await state.settle()
 
-    expect(Object.keys(state.configWriteFailures()).sort()).toEqual(['p1|own', 'p2|own'])
+    expect(Object.keys(configState(state).writeFailures.get()).sort()).toEqual(['p1|own', 'p2|own'])
     vi.mocked(writeTargetFile).mockReset()
   })
 })

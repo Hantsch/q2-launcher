@@ -10,6 +10,7 @@ import { PersistenceRegistry } from '../../services/persistence'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { fail } from '@shared/types'
 import { stubPlatform } from '../../../test-support/platform'
+import { fakeSectionState } from '../../../test-support/state-sections'
 import { downloadsModule } from './index'
 
 /**
@@ -215,7 +216,11 @@ async function setUpModule(): Promise<Map<string, ModuleHandler>> {
     handle: collectHandlers(handlers),
     emit: vi.fn(),
     onDispose: (cb) => void disposers.push(cb),
-    app: { jobs: new JobsService(() => {}), persistence: new PersistenceRegistry() } as unknown as ModuleSetup['app'],
+    app: {
+      jobs: new JobsService(() => {}),
+      persistence: new PersistenceRegistry(),
+      state: fakeSectionState(),
+    } as unknown as ModuleSetup['app'],
     log: fakeLogger(),
   })
   return handlers

@@ -20,6 +20,7 @@ import { keySlotAt } from '@shared/config/action-slots'
 import { diffProfileAgainstBaseline } from '@shared/config/profile-diff'
 import { ProfilesStore } from './profiles'
 import { renderProfileFile } from './render'
+import { configState } from './persisted'
 
 /**
  * One rendered bind/alias line stripped back to the bare command: story 040 D3's trailing
@@ -282,8 +283,8 @@ describe('ProfilesStore', () => {
   it('persists changes through the state store', () => {
     profiles.create({ name: 'Persisted', from: 'empty' })
 
-    expect(state.configProfiles()).toHaveLength(1)
-    expect(state.configProfiles()[0]!.name).toBe('Persisted')
+    expect(configState(state).profiles.get()).toHaveLength(1)
+    expect(configState(state).profiles.get()[0]!.name).toBe('Persisted')
   })
 
   it("replaces a profile's whole binds map, touching only binds and updatedAt", async () => {

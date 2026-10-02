@@ -16,11 +16,13 @@ import {
 } from '@shared/modules/servers'
 import { IDLE_LAUNCH_STATE, getModuleManifest, type LaunchState } from '@shared/types'
 import { fakeAppContext } from '../../../test-support/app-context'
+import { fakeSectionState } from '../../../test-support/state-sections'
 import type { AppContext } from '../../context'
 import { createFeatureGate } from '../../features/gate'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
 import { serversModule } from './index'
+import { serversState } from './persisted'
 
 /**
  * Story 106 D2: the servers module gets its main half - a single handler,
@@ -83,14 +85,14 @@ describe('servers module', () => {
     expect(manifest).toBeDefined()
 
     const registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext())
+    await registry.register(serversModule, fakeAppContext({ state: fakeSectionState() }))
 
     expect(registry.registered()).toContain('servers')
   })
 
   it('overview.read resolves the zeroed overview through the registry', async () => {
     const registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext())
+    await registry.register(serversModule, fakeAppContext({ state: fakeSectionState() }))
 
     const outcome = await registry.invoke({
       moduleId: 'servers',
@@ -106,7 +108,7 @@ describe('servers module', () => {
 
   it('rejects a bad payload to overview.read', async () => {
     const registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext())
+    await registry.register(serversModule, fakeAppContext({ state: fakeSectionState() }))
 
     const outcome = await registry.invoke({
       moduleId: 'servers',
@@ -119,7 +121,7 @@ describe('servers module', () => {
 
   it('scan.setMode exists and rejects an unknown mode', async () => {
     const registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext())
+    await registry.register(serversModule, fakeAppContext({ state: fakeSectionState() }))
 
     expect(
       await registry.invoke({
@@ -139,7 +141,7 @@ describe('servers module', () => {
 
   it('detail.read rejects a malformed address payload', async () => {
     const registry = new MainModuleRegistry()
-    await registry.register(serversModule, fakeAppContext())
+    await registry.register(serversModule, fakeAppContext({ state: fakeSectionState() }))
 
     const outcome = await registry.invoke({
       moduleId: 'servers',
@@ -180,7 +182,7 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
     await state.settle()
     const store = new StateStore(filePath)
     await store.load()
-    return store.serversState()
+    return serversState(store).get()
   }
 
   it('sources.list answers the shipped default list without writing anything', async () => {
@@ -188,7 +190,7 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
   })
 
   it('sources.add persists the new list and leaves the other servers-state keys alone', async () => {
-    const before = state.serversState()
+    const before = serversState(state).get()
 
     const outcome = (await invoke('sources.add', {
       type: 'udp-master',
@@ -239,7 +241,7 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
   })
 
   it('a refusal carries a reason code and persists nothing', async () => {
-    const before = state.serversState()
+    const before = serversState(state).get()
 
     expect(await invoke('sources.remove', { id: 'no-such-source' })).toEqual({
       ok: true,
@@ -254,13 +256,13 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
       value: { ok: false, reasonKey: 'servers.sources.reject.invalid-reorder' },
     })
 
-    expect(state.serversState()).toEqual(before)
+    expect(serversState(state).get()).toEqual(before)
     expect((await reloaded()).sources).toEqual(DEFAULT_MASTER_SOURCES)
   })
 
   it('a refused sources mutation writes nothing and keeps a concurrent favourite', async () => {
     await invoke('favourites.add', '1.2.3.4:27910')
-    const before = state.serversState()
+    const before = serversState(state).get()
 
     expect(await invoke('sources.remove', { id: 'no-such-source' })).toEqual({
       ok: true,
@@ -268,8 +270,8 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
     })
 
     // The very same live object: a refusal neither replaced the slice nor dropped the favourite.
-    expect(state.serversState()).toBe(before)
-    expect(state.serversState().favourites).toHaveLength(1)
+    expect(serversState(state).get()).toBe(before)
+    expect(serversState(state).get().favourites).toHaveLength(1)
     await state.settle()
     expect((await reloaded()).favourites).toEqual(before.favourites)
   })
@@ -324,7 +326,7 @@ describe('servers module favourites handlers (story 112 D3)', () => {
     const added = (afterAdd as { ok: true; value: FavouriteServerEntry[] }).value
     expect(added).toHaveLength(1)
     expect(added[0]).toMatchObject({ address: '1.2.3.4:27910' })
-    expect(state.serversState().favourites).toEqual(added)
+    expect(serversState(state).get().favourites).toEqual(added)
 
     const afterRemove = await registry.invoke({
       moduleId: 'servers',
@@ -332,14 +334,14 @@ describe('servers module favourites handlers (story 112 D3)', () => {
       payload: '1.2.3.4:27910',
     })
     expect(afterRemove).toEqual({ ok: true, value: [] })
-    expect(state.serversState().favourites).toEqual([])
+    expect(serversState(state).get().favourites).toEqual([])
   })
 
   it("AC1: a favourites write never clobbers the rest of the servers state's snapshot", async () => {
     const registry = new MainModuleRegistry()
     await registry.register(serversModule, fakeAppContext({ state }))
 
-    const sourcesBefore = state.serversState().sources
+    const sourcesBefore = serversState(state).get().sources
 
     await registry.invoke({
       moduleId: 'servers',
@@ -347,9 +349,9 @@ describe('servers module favourites handlers (story 112 D3)', () => {
       payload: '1.2.3.4:27910',
     })
 
-    expect(state.serversState().sources).toEqual(sourcesBefore)
-    expect(state.serversState().manualServers).toEqual([])
-    expect(state.serversState().history).toEqual([])
+    expect(serversState(state).get().sources).toEqual(sourcesBefore)
+    expect(serversState(state).get().manualServers).toEqual([])
+    expect(serversState(state).get().history).toEqual([])
   })
 
   it('AC3: favourites survive a restart of the state store', async () => {
@@ -367,8 +369,8 @@ describe('servers module favourites handlers (story 112 D3)', () => {
     const reloaded = new StateStore(filePath)
     await reloaded.load()
 
-    expect(reloaded.serversState().favourites).toEqual(state.serversState().favourites)
-    expect(reloaded.serversState().favourites).toEqual([
+    expect(serversState(reloaded).get().favourites).toEqual(serversState(state).get().favourites)
+    expect(serversState(reloaded).get().favourites).toEqual([
       { address: '5.6.7.8:27911', addedAt: expect.any(String) },
     ])
   })
@@ -406,7 +408,7 @@ describe('servers module history.read handler', () => {
       { address: '9.9.9.9:27910', connectedAt: '2026-01-03T00:00:00.000Z' },
       { address: '1.2.3.4:27910', connectedAt: '2026-01-02T00:00:00.000Z' },
     ]
-    state.updateSlice('servers', (s) => ({ ...s, history }))
+    serversState(state).update((s) => ({ ...s, history }))
 
     expect(await invoke(SERVERS_HANDLERS.historyRead)).toEqual({ ok: true, value: history })
   })
@@ -430,7 +432,7 @@ describe('servers module overview.read reflects the scan service (story 114 D6)'
     filePath = join(tmpdir(), `q2-launcher-state-servers-scan-${randomUUID()}.json`)
     state = new StateStore(filePath)
     await state.load()
-    state.updateSlice('servers', (s) => ({
+    serversState(state).update((s) => ({
       ...s,
       sources: [],
       favourites: [],
@@ -519,7 +521,7 @@ describe('servers module scan.* settings handlers (story 115 D2)', () => {
   }
 
   it('scan.getSettings returns the persisted scan object', async () => {
-    const before = state.serversState()
+    const before = serversState(state).get()
 
     expect(await invoke(SERVERS_HANDLERS.scanGetSettings)).toEqual({
       ok: true,
@@ -528,7 +530,7 @@ describe('servers module scan.* settings handlers (story 115 D2)', () => {
   })
 
   it('scan.patchSettings round-trips a partial patch through state.json and leaves the other keys untouched', async () => {
-    const before = state.serversState()
+    const before = serversState(state).get()
 
     const outcome = await invoke(SERVERS_HANDLERS.scanPatchSettings, { concurrency: 16 })
     expect(outcome).toEqual({
@@ -539,7 +541,7 @@ describe('servers module scan.* settings handlers (story 115 D2)', () => {
     await state.settle()
     const reloaded = new StateStore(filePath)
     await reloaded.load()
-    const persisted = reloaded.serversState()
+    const persisted = serversState(reloaded).get()
 
     expect(persisted.scan).toEqual({ ...before.scan, concurrency: 16 })
     expect(persisted.sources).toEqual(before.sources)
@@ -553,7 +555,7 @@ describe('servers module scan.* settings handlers (story 115 D2)', () => {
       ok: false,
       error: { key: 'ipc.error.invalidPayload' },
     })
-    expect(state.serversState().scan.concurrency).toBe(DEFAULT_SERVERS_STATE.scan.concurrency)
+    expect(serversState(state).get().scan.concurrency).toBe(DEFAULT_SERVERS_STATE.scan.concurrency)
   })
 })
 
@@ -600,7 +602,7 @@ describe('servers module list.*Sort handlers (story 119 D2)', () => {
     await state.settle()
     const reloaded = new StateStore(filePath)
     await reloaded.load()
-    expect(reloaded.serversState().listSort).toEqual(sort)
+    expect(serversState(reloaded).get().listSort).toEqual(sort)
   })
 
   it('list.setSort null clears the persisted sort', async () => {
@@ -613,14 +615,14 @@ describe('servers module list.*Sort handlers (story 119 D2)', () => {
     await state.settle()
     const reloaded = new StateStore(filePath)
     await reloaded.load()
-    expect(reloaded.serversState().listSort).toBeUndefined()
+    expect(serversState(reloaded).get().listSort).toBeUndefined()
   })
 
   it('list.setSort rejects an unknown column', async () => {
     expect(
       await invoke(SERVERS_HANDLERS.listSetSort, { sort: { column: 'nope', direction: 'asc' } }),
     ).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
-    expect(state.serversState().listSort).toBeUndefined()
+    expect(serversState(state).get().listSort).toBeUndefined()
   })
 })
 
@@ -672,7 +674,7 @@ describe('servers module quick filter handlers (story 197 D2)', () => {
     await state.settle()
     const reloaded = new StateStore(filePath)
     await reloaded.load()
-    expect(reloaded.serversState().quickFilters).toEqual([{ id, name: 'Capture', criteria }])
+    expect(serversState(reloaded).get().quickFilters).toEqual([{ id, name: 'Capture', criteria }])
 
     // A refusal persists nothing.
     expect(
@@ -682,10 +684,10 @@ describe('servers module quick filter handlers (story 197 D2)', () => {
         overwrite: false,
       }),
     ).toEqual({ ok: true, value: { ok: false, reasonKey: 'servers.quickFilter.error.taken' } })
-    expect(state.serversState().quickFilters).toHaveLength(1)
+    expect(serversState(state).get().quickFilters).toHaveLength(1)
 
     await invoke(SERVERS_HANDLERS.quickFiltersRemove, { id })
-    expect(state.serversState().quickFilters).toEqual([])
+    expect(serversState(state).get().quickFilters).toEqual([])
   })
 
   it('quick filter save rejects a payload with an unknown criteria key', async () => {
@@ -714,7 +716,7 @@ describe('servers module scan.start is guarded and single-flight per scope (stor
     filePath = join(tmpdir(), `q2-launcher-state-servers-scan-scope-${randomUUID()}.json`)
     state = new StateStore(filePath)
     await state.load()
-    state.updateSlice('servers', (s) => ({
+    serversState(state).update((s) => ({
       ...s,
       sources: [],
       favourites: [],
@@ -816,14 +818,14 @@ describe('servers module records a history visit on a successful join (story 125
       exitCode: 0,
     })
 
-    expect(state.serversState().history).toEqual([
+    expect(serversState(state).get().history).toEqual([
       { address: '1.2.3.4:27910', connectedAt: expect.any(String) },
     ])
 
     await state.settle()
     const reloaded = new StateStore(filePath)
     await reloaded.load()
-    expect(reloaded.serversState().history).toEqual(state.serversState().history)
+    expect(serversState(reloaded).get().history).toEqual(serversState(state).get().history)
   })
 
   it('a launch without connect, a failed launch or a refused join records nothing', async () => {
@@ -839,7 +841,7 @@ describe('servers module records a history visit on a successful join (story 125
     })
     setLaunchState({ phase: 'handed-off', installationId: 'inst-1' })
 
-    expect(state.serversState().history).toEqual([])
+    expect(serversState(state).get().history).toEqual([])
   })
 })
 
@@ -904,7 +906,7 @@ describe('servers module watchlist.* handlers are feature-gated (story 131 D5)',
 
   it('watchlist entries survive a locked start and come back unchanged when unlocked', async () => {
     const seeded = [{ id: 'entry-1', name: 'Ranger', mode: 'exact' as const, tooSlow: false }]
-    state.updateSlice('servers', (s) => ({ ...s, watchlist: seeded }))
+    serversState(state).update((s) => ({ ...s, watchlist: seeded }))
     await state.settle()
 
     // Locked: starting the module must not crash, must register no watchlist handler, and must not
@@ -926,7 +928,7 @@ describe('servers module watchlist.* handlers are feature-gated (story 131 D5)',
         params: { moduleId: 'servers', type: 'watchlist.read' },
       },
     })
-    expect(state.serversState().watchlist).toEqual(seeded)
+    expect(serversState(state).get().watchlist).toEqual(seeded)
 
     await lockedRegistry.disposeAll()
 
@@ -947,7 +949,7 @@ describe('servers module watchlist.* handlers are feature-gated (story 131 D5)',
       ok: true,
       value: { asOf: null, entries: [{ entry: seeded[0], state: 'offline', recheck: null }] },
     })
-    expect(state.serversState().watchlist).toEqual(seeded)
+    expect(serversState(state).get().watchlist).toEqual(seeded)
   })
 })
 

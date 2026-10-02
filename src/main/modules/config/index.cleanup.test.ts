@@ -27,6 +27,8 @@ import {
   useConfigTestDir,
   userDataBox,
 } from './index.test-helpers'
+import { configState } from './persisted'
+import { seedConfigProfiles } from '../../../test-support/config-state'
 
 vi.mock('electron', async () => {
   const h = await import('./index.test-helpers')
@@ -168,10 +170,10 @@ describe('CONFIG_HANDLERS.tidyUpApply handler (story 025 D3)', () => {
       } as unknown as AppContext,
       log,
     })
-    state.setConfigProfiles([seeded])
+    seedConfigProfiles(state, [seeded])
     await state.settle()
     // Spied only *after* seeding, so the count is the handler's own commits.
-    const spy = vi.spyOn(state, 'setConfigProfiles')
+    const spy = vi.spyOn(configState(state).profiles, 'update')
     return {
       handler: handlers.get(CONFIG_HANDLERS.tidyUpApply)!,
       handlers,
@@ -235,7 +237,7 @@ describe('CONFIG_HANDLERS.tidyUpApply handler (story 025 D3)', () => {
     // One bump for the whole batch, and the value the handler returned is the
     // value that got persisted - not one of three intermediate ones.
     expect(updated.updatedAt).not.toBe(seeded.updatedAt)
-    expect(state.configProfiles()[0]!.updatedAt).toBe(updated.updatedAt)
+    expect(configState(state).profiles.get()[0]!.updatedAt).toBe(updated.updatedAt)
     // Two commits, not one, since story 043 D4: the batch itself is still exactly ONE content
     // commit (the `updatedAt` assertions right above are what that means), and the second is the
     // sync run seeding the profile's `fileHash` baseline from the bytes it just confirmed on disk -
@@ -292,7 +294,7 @@ describe('CONFIG_HANDLERS.tidyUpApply handler (story 025 D3)', () => {
     expect(canonicalAfter).toBe(expected)
     expect(canonicalAfter).not.toContain('MOUSE1')
     expect(await readFile(tidyUpCopyPath('Profile.cfg'), 'latin1')).toBe(canonicalAfter)
-    expect(state.configProfiles()[0]!.fileHash).toBe(hashCanonicalFileContent(expected))
+    expect(configState(state).profiles.get()[0]!.fileHash).toBe(hashCanonicalFileContent(expected))
 
     const synced = (await handlers.get(CONFIG_HANDLERS.syncState)!({
       profileId: 'p1',
@@ -342,7 +344,7 @@ describe('CONFIG_HANDLERS.tidyUpApply handler (story 025 D3)', () => {
     if (!result.ok) throw new Error('expected tidyUp.apply to succeed')
     // The mutation is still committed - the tidy-up itself is never lost.
     expect(result.value.profile.binds).toEqual({ mouse1: 'echo two' })
-    expect(state.configProfiles()[0]!.binds).toEqual({ mouse1: 'echo two' })
+    expect(configState(state).profiles.get()[0]!.binds).toEqual({ mouse1: 'echo two' })
 
     // But the canonical file, having moved underneath, keeps the hand-edited bytes verbatim.
     expect(await readFile(tidyUpCanonicalPath('Profile.cfg'), 'latin1')).toBe(handEdited)
@@ -370,7 +372,7 @@ describe('CONFIG_HANDLERS.tidyUpApply handler (story 025 D3)', () => {
     expect(result.value.rejected).toEqual([stale])
     expect(result.value.profile.updatedAt).toBe(seeded.updatedAt)
     expect(result.value.profile.layers).toHaveLength(1)
-    expect(state.configProfiles()[0]!.updatedAt).toBe(seeded.updatedAt)
+    expect(configState(state).profiles.get()[0]!.updatedAt).toBe(seeded.updatedAt)
     expect(commits()).toBe(0)
     // Nothing changed, so nothing was written - not even the canonical copy.
     expect(await pathExists(join(userDataBox.current, 'Profile.cfg'))).toBe(false)

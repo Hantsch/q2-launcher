@@ -187,7 +187,7 @@ asset packs and config templates belong to their own modules.
 | Manifest format          | JSON with `schemaVersion`, validated with zod in main; unvalidated data never reaches the renderer                                                                                             | The repo's validation convention                                                                                                |
 | Job state                | The existing `JobsService` and `Job`/`JobProgress` types; the module is their first producer                                                                                                   | Built for exactly this, unused so far                                                                                           |
 | Module state             | A new top-level key in `state.json` with its own zod schema and defensive parse (the `configProfiles` precedent) for the module's settings, the failure log and resumable-download bookkeeping | `LauncherSettings` is a closed shape                                                                                            |
-| Installation-scoped data | `Installation.moduleData['downloads']` for what belongs to one installation (pinned engine version, bleeding-edge flag, backup pointer)                                                        | The slot the model reserves for exactly this, with a worked migration example in `migrations.ts`                                |
+| Installation-scoped data | `Installation.moduleData['downloads']` for what belongs to one installation (pinned engine version, bleeding-edge flag, backup pointer)                                                        | The slot the model reserves for exactly this, with a migration step in the owner's `persisted-migrations.ts` when its shape changes                                |
 | Cache location           | `userData/cache/downloads/` for archives, partial files as `<name>.part` plus a sidecar with URL, size, hash and offset                                                                        | Not in `state.json`; a cache is files                                                                                           |
 
 ## 5. Core terms & model
@@ -386,9 +386,9 @@ which today only navigates to the Downloads tab — do something.
 - **Jobs** use `JobsService` and the `jobs:changed` broadcast unchanged. The dev-only
   `dev:simulateJob` channel keeps working and stays the fixture path for UI verification.
 - **Persistence:** module settings, the failure log and resume bookkeeping become a new top-level
-  key in `state.json` with its own schema and defensive parse; per-installation data goes into
+  key in `state.json`, owned by `src/main/modules/downloads/persisted.ts` (schema, defensive parse, `downloadsState` section handles); per-installation data goes into
   `Installation.moduleData['downloads']`. Anything that changes the `Installation` shape (the demo
-  state) needs a `MIGRATIONS` step — `migrations.ts` carries a worked example for exactly this.
+  state) needs a `MIGRATIONS` step in the owner's `persisted-migrations.ts` plus a `STATE_SCHEMA_VERSION` bump.
 - **Inspector:** the single source of truth for health stays `inspectInstallation`. The module
   calls it, it does not re-implement validation. Its `pak0NotRetail` warning is what the demo state
   builds on.

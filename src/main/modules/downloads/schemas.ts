@@ -213,7 +213,7 @@ export const restoreFailureInputSchema = dismissFailureInputSchema
 
 /**
  * Story 072 D4: `patchSettings`'s payload - a partial `DownloadsSettings`. Each present field is
- * validated against the exact same bounds `main/lib/schemas.ts`'s `downloadsSettingsSchema` uses to
+ * validated against the exact same bounds `main/modules/downloads/persisted.ts`'s `downloadsSettingsSchema` uses to
  * parse the persisted value (`MIN_CONCURRENT_DOWNLOAD_JOBS`-`MAX_CONCURRENT_DOWNLOAD_JOBS`,
  * `ARCHIVE_CACHE_BUDGET_CHOICES_GB`) - reusing those same constants, not a hand-copied range, is
  * what keeps the two from ever drifting apart.

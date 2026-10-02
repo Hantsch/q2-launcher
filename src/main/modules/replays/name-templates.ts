@@ -26,6 +26,7 @@ import {
 } from '@shared/replays/name-templates'
 import { fail, ok, type Outcome } from '@shared/types/common'
 import type { AppContext } from '../../context'
+import { replaysState } from './persisted'
 
 /**
  * Story 140 D2: the `nameTemplates.*` handler bodies. Each op follows the same three steps -
@@ -47,12 +48,12 @@ type NameTemplatesResetInput = z.infer<typeof nameTemplatesResetSchema>
 
 /** The persisted state, reconciled against the currently shipped pattern list. */
 function currentMerged(app: AppContext): NameTemplatesState {
-  return mergeWithShipped(app.state.replaysState().nameTemplates, SHIPPED_NAME_PATTERNS)
+  return mergeWithShipped(replaysState(app.state).get().nameTemplates, SHIPPED_NAME_PATTERNS)
 }
 
 /** Persists a reconciled `NameTemplatesState`, carrying the rest of `ReplaysState` over untouched. */
 function persist(app: AppContext, nameTemplates: NameTemplatesState): NameTemplatesState {
-  return app.state.updateSlice('replays', (live) => ({ ...live, nameTemplates })).nameTemplates
+  return replaysState(app.state).update((live) => ({ ...live, nameTemplates })).nameTemplates
 }
 
 function view(nameTemplates: NameTemplatesState): NameTemplatesView {

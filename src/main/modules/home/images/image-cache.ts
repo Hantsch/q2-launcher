@@ -1,6 +1,6 @@
 import { readdir, stat, unlink } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
-import { getNewsImagesCacheDir, isSafeNewsImageFileName } from './paths'
+import { getNewsImagesCacheDir, isSafeNewsImageFileName } from '../../../lib/news-image-paths'
 
 /**
  * The news-image cache - story 084 D1 (AC5).

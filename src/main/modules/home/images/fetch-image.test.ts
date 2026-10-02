@@ -12,7 +12,7 @@ import {
   type DecodeImage,
   type FetchImageOptions,
 } from './fetch-image'
-import { newsImageFileName } from './paths'
+import { newsImageFileName } from '../../../lib/news-image-paths'
 
 /**
  * Story 084 D2 - integration, on purpose, exactly like `downloads/fetcher.test.ts` and

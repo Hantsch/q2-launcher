@@ -25,6 +25,8 @@ import {
   useConfigTestDir,
   userDataBox,
 } from './index.test-helpers'
+import { configState } from './persisted'
+import { seedConfigProfiles } from '../../../test-support/config-state'
 
 vi.mock('electron', async () => {
   const h = await import('./index.test-helpers')
@@ -114,7 +116,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
   it('setCvars persists the edit and marks the profile dirty, and writes no file at all (story 043 D4)', async () => {
     const inst = installation()
     const { handlers, state } = await boot({ installations: [inst] })
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
 
     const list = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.setCvars)!({
@@ -129,8 +131,8 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     const updated = list.find((p) => p.id === 'p1')!
     expect(updated.cvars['sensitivity']).toBe('7')
     expect(updated.dirty).toBe(true)
-    expect(state.configProfiles()[0]!.cvars['sensitivity']).toBe('7')
-    expect(state.configProfiles()[0]!.dirty).toBe(true)
+    expect(configState(state).profiles.get()[0]!.cvars['sensitivity']).toBe('7')
+    expect(configState(state).profiles.get()[0]!.dirty).toBe(true)
     expect(await pathExists(join(userDataBox.current, 'Profile.cfg'))).toBe(false)
     expect(await pathExists(join(dir, 'baseq2', 'Profile.cfg'))).toBe(false)
   })
@@ -138,7 +140,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
   it('every content mutation marks the profile dirty and leaves an existing canonical file byte-identical (story 043 D4)', async () => {
     const inst = installation()
     const { handlers, state } = await boot({ installations: [inst] })
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     // One save first, so there ARE files the mutations below could have clobbered.
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
@@ -175,7 +177,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
   it('discard restores the baseline and leaves both files byte-identical (story 049 D3)', async () => {
     const inst = installation()
     const { handlers, state } = await boot({ installations: [inst] })
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     // The save is what seeds the baseline, and what puts the files there that a discard could clobber.
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
@@ -201,7 +203,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     expect(restored.binds).toEqual({})
     expect(restored.name).toBe('Profile')
     expect(restored.dirty).toBe(false)
-    expect(state.configProfiles()[0]!.name).toBe('Profile')
+    expect(configState(state).profiles.get()[0]!.name).toBe('Profile')
 
     // ...and getting there wrote nothing: same bytes in both places, and no file under the name the
     // profile briefly had. Rendering the restored profile reproduces the file it never touched.
@@ -266,7 +268,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     }
     const cvarSectionTwo = { id: 'cvs-2', name: 'Network', cvars: [] }
 
-    state.setConfigProfiles([
+    seedConfigProfiles(state, [
       profile({
         categories: [categoryA, categoryB],
         actions: [actionA1, actionA2],
@@ -341,7 +343,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
   it('setSectionHeaderStyle (story 042 D7) persists the new style, marks the profile dirty and writes nothing until a save', async () => {
     const inst = installation()
     const { handlers, state } = await boot({ installations: [inst] })
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
 
     const list = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.setSectionHeaderStyle)!({
@@ -371,7 +373,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     // Story 059 decision: `cvarSections: []` is what an imported/empty-seeded profile looks like -
     // no real section places `sensitivity`, so it is the catalogue cvar `Defaults` either does or
     // does not pick up depending on the toggle.
-    state.setConfigProfiles([profile({ cvarSections: [] })])
+    seedConfigProfiles(state, [profile({ cvarSections: [] })])
     await state.settle()
 
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
@@ -406,7 +408,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     // The default `profile()` fixture carries `STANDARD_TEMPLATE.cvarSections`, which places every
     // catalogue cvar in a real section - nothing is ever unplaced, so `Defaults` never has anything
     // to hold regardless of the toggle (D1/D2's design).
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
 
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
@@ -425,7 +427,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
   it('syncState reports inSync for both copies right after a save synced them', async () => {
     const inst = installation()
     const { handlers, state } = await boot({ installations: [inst] })
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '7' } })
     // Story 043 D4: the mutation alone no longer syncs anything - the save does.
@@ -452,8 +454,8 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     const seeded = profile({ assignments: [] })
     const { state } = await boot({
       seed: (s) => {
-        s.setConfigProfiles([seeded])
-        s.updateSlice('configWriteFailures', () => ({
+        seedConfigProfiles(s, [seeded])
+        configState(s).writeFailures.update(() => ({
           'p1|own': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
         }))
       },
@@ -462,14 +464,14 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toBe(
       renderProfileFile(seeded),
     )
-    expect(state.configWriteFailures()).toEqual({})
+    expect(configState(state).writeFailures.get()).toEqual({})
   })
 
   it('setup() skips stale bookkeeping for a profile that no longer exists, without throwing', async () => {
     const { state } = await boot({
       seed: (s) => {
-        s.setConfigProfiles([])
-        s.updateSlice('configWriteFailures', () => ({
+        seedConfigProfiles(s, [])
+        configState(s).writeFailures.update(() => ({
           'ghost|own': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
         }))
       },
@@ -477,13 +479,13 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
 
     // Resolved without throwing (getting here is the assertion) and the
     // dangling entries are simply left alone - cleaning them up is not D7's job.
-    expect(state.configWriteFailures()['ghost|own']).toBeDefined()
+    expect(configState(state).writeFailures.get()['ghost|own']).toBeDefined()
     expect(await pathExists(userDataBox.current)).toBe(false)
   })
 
   it('syncState fails with profileNotFound for an unknown id', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
 
     const result = await handlers.get(CONFIG_HANDLERS.syncState)!({ profileId: 'nope' })
@@ -493,7 +495,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
 
   it('syncState is read-only: reports missing and creates nothing', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     const canonical = join(userDataBox.current, 'Profile.cfg')
     expect(await pathExists(canonical)).toBe(false)
@@ -515,14 +517,14 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     const { handlers, state } = await boot({
       installations: [inst],
       seed: (s) => {
-        s.setConfigProfiles([profile()])
+        seedConfigProfiles(s, [profile()])
         // Simulates a previous mutation's sync run having failed to write this
         // installation's copy (e.g. a locked directory that has since been
         // fixed) - before story 022 D7's write-handler fix, `write` never
         // touched `configWriteFailures` at all, so this entry would have
         // survived a successful retry forever and `syncState` would have kept
         // reporting `error` regardless of what was actually on disk.
-        s.updateSlice('configWriteFailures', () => ({
+        configState(s).writeFailures.update(() => ({
           'p1|i1': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
         }))
       },
@@ -534,7 +536,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
 
     if (!result.ok) throw new Error('expected write to succeed')
     expect(result.value).toEqual([{ installationId: 'i1', status: 'written' }])
-    expect(state.configWriteFailures()).toEqual({})
+    expect(configState(state).writeFailures.get()).toEqual({})
 
     const synced = (await handlers.get(CONFIG_HANDLERS.syncState)!({
       profileId: 'p1',

@@ -3,7 +3,8 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UnlockPayload } from '@shared/unlock'
 import type { AppContext } from '../context'
-import type { UnlockState as StoredUnlockState } from '../lib/schemas'
+import { fakeSectionState } from '../../test-support/state-sections'
+import { unlockState } from '../services/unlock/persisted'
 import { resolveFeatureGate } from '../features/gate'
 import { encodeUnlockPayload } from '../services/unlock/code'
 import {
@@ -11,6 +12,7 @@ import {
   UI_HARNESS_UNLOCK_PUBLIC_KEY_ENV,
   UNLOCK_PUBLIC_KEY_PEM,
 } from '../services/unlock/public-key'
+import type { StateStore } from '../services/state'
 import { createUnlockService, type UnlockService } from '../services/unlock/service'
 
 /**
@@ -64,20 +66,13 @@ function issueCode(
   return `${unsigned}.${signature.toString('base64url')}`
 }
 
-function memoryState(initial: StoredUnlockState = { codes: [] }): {
-  unlockState(): StoredUnlockState
-  setUnlockState(next: StoredUnlockState): StoredUnlockState
-} {
-  let current = initial
-  return {
-    unlockState: () => current,
-    setUnlockState: (next) => (current = next),
-  }
+function memoryState(): StateStore {
+  return fakeSectionState()
 }
 
 async function startService(
   options: {
-    state?: ReturnType<typeof memoryState>
+    state?: StateStore
     publicKey?: string
     now?: Date
   } = {},
@@ -199,7 +194,11 @@ describe('unlock:redeem', () => {
     expect(gate.unlockedFeatures()).not.toContain('pro-servers')
     expect(restarted.isUnlocked('pro-servers')).toBe(false)
     // Kept, not deleted: the record is still in storage.
-    expect(state.unlockState().codes.map((entry) => entry.code)).toEqual([code])
+    expect(
+      unlockState(state)
+        .get()
+        .codes.map((entry) => entry.code),
+    ).toEqual([code])
   })
 
   it('re-redeeming a stored code does not duplicate it', async () => {
@@ -211,7 +210,7 @@ describe('unlock:redeem', () => {
     const once = await firstIpc.redeem(fakeEvent, code)
     const twice = await firstIpc.redeem(fakeEvent, ` ${code} `)
     expect(twice).toEqual(once)
-    const storedRow = state.unlockState().codes[0]
+    const storedRow = unlockState(state).get().codes[0]
 
     // Even once its redemption window has closed, the stored code is still an idempotent success.
     registered.clear()
@@ -220,7 +219,7 @@ describe('unlock:redeem', () => {
     const { redeem } = await setup(later)
     expect(await redeem(fakeEvent, code)).toEqual(once)
 
-    expect(state.unlockState().codes).toEqual([storedRow])
+    expect(unlockState(state).get().codes).toEqual([storedRow])
   })
 
   it('the test public key is ignored outside the harness double gate', async () => {

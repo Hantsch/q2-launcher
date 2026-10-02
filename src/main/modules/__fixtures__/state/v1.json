@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "settings": {
+    "locale": "en",
+    "motion": "system",
+    "activeInstallationId": "inst-1",
+    "lastRoute": "/home",
+    "minimizeOnLaunch": true,
+    "closeAfterLaunch": false,
+    "confirmBeforeRemoving": true,
+    "scanOnFirstRun": false,
+    "deepScanDrives": []
+  },
+  "installations": [
+    {
+      "id": "inst-1",
+      "rootPath": "/games/inst-1",
+      "name": "Quake II inst-1",
+      "engineKind": "unknown",
+      "launchArgs": [
+        "+set",
+        "fov",
+        "100"
+      ],
+      "activeGameDir": "baseq2",
+      "source": "unknown",
+      "status": "unknown",
+      "checks": [],
+      "gameDirs": [
+        "baseq2"
+      ],
+      "favorite": true,
+      "sortOrder": 1,
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-02T00:00:00.000Z",
+      "totalPlaytimeSeconds": 120
+    }
+  ],
+  "configProfiles": [
+    {
+      "id": "p1",
+      "name": "Pre-existing profile",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "cvars": {
+        "sensitivity": "5",
+        "rate": "25000",
+        "my_custom_cvar": "hello"
+      },
+      "binds": {
+        "UPARROW": "+forward",
+        "SPACE": "+moveup"
+      },
+      "assignments": [
+        {
+          "installationId": "inst-1",
+          "isDefault": true
+        }
+      ],
+      "actions": [
+        {
+          "id": "a-fwd",
+          "categoryId": "movement",
+          "name": "Forward",
+          "kind": "bind",
+          "catalogId": "movement:forward",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "+forward"
+            }
+          ]
+        },
+        {
+          "id": "a-free",
+          "categoryId": "custom",
+          "name": "Quicksave",
+          "kind": "bind",
+          "commands": [
+            {
+              "kind": "raw",
+              "text": "save quick"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

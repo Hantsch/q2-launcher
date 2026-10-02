@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { pathExists } from '../../../lib/fs-utils'
 import { enforceKeepSet, planImageEviction, type ImageCacheEntry } from './image-cache'
-import { getNewsImagesCacheDir, isSafeNewsImageFileName, newsImageFileName } from './paths'
+import { getNewsImagesCacheDir, isSafeNewsImageFileName, newsImageFileName } from '../../../lib/news-image-paths'
 
 /**
  * Story 084 D1. Mirrors `downloads/cache.test.ts`'s split: `planImageEviction` is pure and gets

@@ -10,6 +10,7 @@ import { JobsService } from '../../../services/jobs'
 import { InstallationWriteGuard } from '../../../services/write-guard'
 import { fakeLaunch, fakeState } from '../test-support'
 import { readEngineState } from './installation-state'
+import { setEngineState } from './record-engine-state'
 import { ENGINE_BACKUP_DIR_NAME } from './update-job'
 import {
   ENGINE_ROLLBACK_JOB_KIND,
@@ -103,7 +104,7 @@ async function harness(options: { withBackup?: boolean } = {}): Promise<Harness>
   const added = await service.addExisting({ rootPath: installRoot, source: 'manual' })
   if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)
 
-  const recorded = service.setEngineState(added.value.id, {
+  const recorded = setEngineState(service, added.value.id, {
     version: '2.0',
     packageId: 'q2pro-2.0',
     ...(withBackup
@@ -119,8 +120,8 @@ async function harness(options: { withBackup?: boolean } = {}): Promise<Harness>
       validateCalls.push(id)
       return service.validate(id)
     },
-    setEngineState: (id: string, patch: Parameters<InstallationsService['setEngineState']>[1]) =>
-      service.setEngineState(id, patch),
+    setEngineState: (id: string, patch: Parameters<typeof setEngineState>[2]) =>
+      setEngineState(service, id, patch),
   }
 
   const launch = fakeLaunch()

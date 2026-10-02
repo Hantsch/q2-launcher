@@ -28,6 +28,8 @@ import {
   useConfigTestDir,
   userDataBox,
 } from './index.test-helpers'
+import { configState } from './persisted'
+import { seedConfigProfiles } from '../../../test-support/config-state'
 
 /**
  * Story 043 D5: `readFileState` is wrapped (delegating to the real implementation by default) so
@@ -84,7 +86,7 @@ describe('CONFIG_HANDLERS.rawFiles handler (story 023 D1)', () => {
 
   it('reports canonical onDisk: false for a freshly created, unassigned profile, then true after an explicit save', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
 
     const before = (await handlers.get(CONFIG_HANDLERS.rawFiles)!({
@@ -116,7 +118,7 @@ describe('CONFIG_HANDLERS.rawFiles handler (story 023 D1)', () => {
   it('reports matches: true right after a save, and false once the on-disk copy is edited independently', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9' } })
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
@@ -150,7 +152,7 @@ describe('CONFIG_HANDLERS.rawFiles handler (story 023 D1)', () => {
     const inst2 = installation({ id: 'i2', rootPath: join(dir, 'inst2') })
     await mkdir(join(inst2.rootPath, 'baseq2'), { recursive: true })
     const { handlers, state } = await boot([inst1, inst2])
-    state.setConfigProfiles([
+    seedConfigProfiles(state, [
       profile({
         assignments: [
           { installationId: 'i1', isDefault: true },
@@ -169,11 +171,11 @@ describe('CONFIG_HANDLERS.rawFiles handler (story 023 D1)', () => {
     expect(result.value.installations.map((i) => i.installationId).sort()).toEqual(['i1', 'i2'])
   })
 
-  it('echoes playedMods from app.state.configPlayedMods() for each installation entry', async () => {
+  it('echoes playedMods from configState(app.state).playedMods.get() for each installation entry', async () => {
     const inst = installation({ gameDirs: ['baseq2', 'ctf'] })
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
-    state.setConfigPlayedMods({ i1: ['ctf'] })
+    seedConfigProfiles(state, [profile()])
+    configState(state).playedMods.update(() => ({ i1: ['ctf'] }))
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '9' } })
 
@@ -189,7 +191,7 @@ describe('CONFIG_HANDLERS.rawFiles handler (story 023 D1)', () => {
 
   it('fails with config.error.profileNotFound for an unknown profile id', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([])
+    seedConfigProfiles(state, [])
     await state.settle()
 
     const result = await handlers.get(CONFIG_HANDLERS.rawFiles)!({ profileId: 'nope' })
@@ -239,7 +241,7 @@ describe('CONFIG_HANDLERS.openFile handler (story 023 D2)', () => {
     seeded: ConfigProfile = profile({ assignments: [] }),
   ): Promise<Map<string, ModuleHandler>> {
     const { handlers, state } = await boot(installations)
-    state.setConfigProfiles([seeded])
+    seedConfigProfiles(state, [seeded])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.setCvars)!({
       profileId: seeded.id,
@@ -348,7 +350,7 @@ describe('CONFIG_HANDLERS.openFile handler (story 023 D2)', () => {
     // No sync ran, so the canonical file was never written - AC 5's "the file is
     // not on disk" half, surfaced as the reason the UI disables the action with.
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     expect(await pathExists(join(userDataBox.current, 'Profile.cfg'))).toBe(false)
 
@@ -368,7 +370,7 @@ describe('CONFIG_HANDLERS.openFile handler (story 023 D2)', () => {
     // being read - the open-in-editor guard must still recognise it as p1's
     // own file via the legacy sentinel, not only the new banner shape.
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await mkdir(userDataBox.current, { recursive: true })
     await writeFile(
@@ -389,7 +391,7 @@ describe('CONFIG_HANDLERS.openFile handler (story 023 D2)', () => {
 
   it("refuses a foreign file sitting at the resolved path - not this profile's own file", async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     // Exists, is a `.cfg`, sits exactly where this profile's canonical file
     // would - and is somebody else's. The sentinel is what tells them apart.
@@ -474,14 +476,16 @@ describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
 
   /** A saved profile plus the exact bytes its canonical file holds - the editor's starting point. */
   async function seeded(handlers: Map<string, ModuleHandler>, state: StateStore): Promise<string> {
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
     return readFile(canonicalPath(), 'latin1')
   }
 
   function only(state: StateStore, profileId = 'p1'): ConfigProfile {
-    return state.configProfiles().find((p) => p.id === profileId)!
+    return configState(state)
+      .profiles.get()
+      .find((p) => p.id === profileId)!
   }
 
   it('writes exactly the given bytes, latin-1, with no reformatting of any kind', async () => {
@@ -622,7 +626,7 @@ describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
 
   it("rejects text carrying the OTHER profile's ownership tag", async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([
+    seedConfigProfiles(state, [
       profile({ id: 'p1', name: 'Profile', assignments: [] }),
       profile({ id: 'p2', name: 'Second', assignments: [] }),
     ])
@@ -715,7 +719,7 @@ describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
 
   it('reports a file it cannot read at all instead of writing over it', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
     const onDisk = await readFile(canonicalPath(), 'latin1')
@@ -763,7 +767,7 @@ describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
   it('saveRawText cascades the typed bytes to every assigned installation', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
     const onDisk = await readFile(canonicalPath(), 'latin1')
@@ -793,7 +797,7 @@ describe('CONFIG_HANDLERS.saveRawText handler (story 057 D4)', () => {
   it("saveRawText's cascade leaves a dirty sibling on the same installation untouched", async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([
+    seedConfigProfiles(state, [
       profile({
         id: 'p1',
         name: 'Profile',

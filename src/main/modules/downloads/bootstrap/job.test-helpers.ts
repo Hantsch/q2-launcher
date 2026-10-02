@@ -13,6 +13,7 @@ import {
 } from '@shared/modules/downloads'
 import type { Job } from '@shared/types'
 import { InstallationsService } from '../../../services/installations'
+import { withEngineState } from '../engine/record-engine-state'
 import { JobsService } from '../../../services/jobs'
 import { InstallationWriteGuard } from '../../../services/write-guard'
 import { fakeLaunch, fakeManifest, fakeState } from '../test-support'
@@ -378,7 +379,7 @@ export function harness(
     retailSourceCalls,
     deps: {
       jobs,
-      installations,
+      installations: withEngineState(installations),
       writeGuard,
       manifest,
       retailSources: () => {

@@ -9,6 +9,7 @@ import { fakeAppContext } from '../../../test-support/app-context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
 import { replaysModule } from './index'
+import { replaysState } from './persisted'
 
 /**
  * Story 144 D3 made module setup construct a `ReplaysIndexCache`, which resolves its file path
@@ -110,7 +111,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
   })
 
   it('a payload over the length cap or with a non-printable character is rejected at the seam', async () => {
-    const beforeState = state.replaysState()
+    const beforeState = replaysState(state).get()
 
     const tooLong = await registry.invoke({
       moduleId: 'replays',
@@ -126,7 +127,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
     })
     expect(nonPrintable).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
 
-    expect(state.replaysState()).toEqual(beforeState)
+    expect(replaysState(state).get()).toEqual(beforeState)
   })
 
   it('reorder, remove, reset and restore persist', async () => {
@@ -187,7 +188,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
     await state.settle()
     const reloaded = new StateStore(filePath)
     await reloaded.load()
-    expect(reloaded.replaysState().nameTemplates.removedShippedIds).toEqual([])
+    expect(replaysState(reloaded).get().nameTemplates.removedShippedIds).toEqual([])
   })
 
   it("an unknown id on update/remove/reset returns 'notFound'", async () => {

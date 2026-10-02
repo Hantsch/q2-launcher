@@ -125,7 +125,7 @@ export const setProfileBindsInputSchema = z.object({
 
 /**
  * One `AltLayer`'s shape, validated strictly - this is the IPC payload schema,
- * not the persisted-state one (`main/lib/schemas.ts`'s `layers` field): a bad
+ * not the persisted-state one (`main/modules/config/persisted.ts`'s `layers` field): a bad
  * payload here is a caller bug and `.parse()` is meant to throw, while the
  * persisted schema degrades a mangled value to `[]` instead.
  *
@@ -156,7 +156,7 @@ export const setProfileLayersInputSchema = z.object({
  * `sanitizeCommand` enforces for layer bodies, applied here at the schema
  * boundary instead of by silent stripping, since the story explicitly wants
  * this class of input *rejected*, not mangled). Exported so
- * `main/lib/schemas.ts`'s forgiving persisted schema can reuse the same rule
+ * `main/modules/config/persisted.ts`'s forgiving persisted schema can reuse the same rule
  * (via `isLatin1Text` directly there, to stay a `.safeParse`-per-row check
  * rather than importing this strict schema).
  */
@@ -226,7 +226,7 @@ const configActionCategorySchema = z.object({
  * Story 019: what the entry is. Required and strict on purpose - a renderer payload is never
  * trusted, and defaulting a missing value here would silently retype an entry (a message saved as
  * a bind) instead of failing the call. The forgiving derive lives only in the persisted schema
- * (`main/lib/schemas.ts`), where the input is an old `state.json` rather than a caller.
+ * (`main/modules/config/persisted.ts`), where the input is an old `state.json` rather than a caller.
  */
 // Story 045 D1: adds the two-part `'toggle'`/`'press-release'` kinds, cross-validated against
 // `parts` below.

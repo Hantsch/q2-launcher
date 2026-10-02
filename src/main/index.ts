@@ -16,7 +16,7 @@ import {
   resolveRendererSource,
   type RendererSource,
 } from './lib/renderer-source'
-import { getNewsImagesCacheDir } from './modules/home/images/paths'
+import { getNewsImagesCacheDir } from './lib/news-image-paths'
 import { installShutdown } from './shutdown'
 import { createMainWindow, type MainWindow } from './window'
 

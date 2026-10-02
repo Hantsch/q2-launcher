@@ -150,7 +150,7 @@ const UNBINDALL_LINE = /^[ \t]*unbindall[ \t]*(\/\/.*)?\r?$/m
  * render of this profile to reproduce the file it was rebuilt from.
  *
  * Read from the file rather than defaulted, because the persisted default is `true`
- * (`main/lib/schemas.ts`) and defaulting would silently flip the setting *on* for a user who turned
+ * (`main/modules/config/persisted.ts`) and defaulting would silently flip the setting *on* for a user who turned
  * it off - the next save would then add a line to their file that they had deliberately removed.
  */
 export function detectWriteUnbindall(content: string): boolean {
@@ -433,7 +433,7 @@ async function migrateCanonicalFiles(
  * table.
  *
  * "Corrupt record" needs no separate detection here. `parseConfigProfile`
- * (`main/lib/schemas.ts`) already drops an unparseable profile row on its own during load, so a
+ * (`main/modules/config/persisted.ts`) already drops an unparseable profile row on its own during load, so a
  * corrupt record *is* a missing record by the time this runs - which is exactly the case this
  * handles.
  */

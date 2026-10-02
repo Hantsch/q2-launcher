@@ -30,6 +30,8 @@ import {
   useConfigTestDir,
   userDataBox,
 } from './index.test-helpers'
+import { configState } from './persisted'
+import { seedConfigProfiles } from '../../../test-support/config-state'
 
 /**
  * Story 175 D1: `writeTargetFile` is wrapped the same way (delegating to the real writer by
@@ -100,13 +102,15 @@ describe('story 043 D4: explicit save', () => {
   }
 
   function only(state: StateStore, profileId = 'p1'): ConfigProfile {
-    return state.configProfiles().find((p) => p.id === profileId)!
+    return configState(state)
+      .profiles.get()
+      .find((p) => p.id === profileId)!
   }
 
   it('writes the canonical file and the installation copy, clears dirty and seeds the hash baseline', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '7' } })
 
@@ -138,7 +142,7 @@ describe('story 043 D4: explicit save', () => {
   it('a save while the game runs writes the copy and reads inSync, nothing is persisted as pending', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst], undefined, runningState(inst.id))
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
 
     const result = await save(handlers)
@@ -169,7 +173,7 @@ describe('story 043 D4: explicit save', () => {
   it('refuses to write and reports a whole-file conflict when the file changed underneath', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
     const seededHash = only(state).fileHash
@@ -198,7 +202,7 @@ describe('story 043 D4: explicit save', () => {
   it('story 043 D8: force: true bypasses the conflict, writes our version and clears dirty', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
 
@@ -231,7 +235,7 @@ describe('story 043 D4: explicit save', () => {
 
   it('looks the file up by its ownership sentinel, so a rename cannot make a hand-edit invisible', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await save(handlers)
 
@@ -255,7 +259,7 @@ describe('story 043 D4: explicit save', () => {
 
   it('saving a renamed profile with nothing changed on disk moves the file to its new name', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await save(handlers)
     await handlers.get(CONFIG_HANDLERS.rename)!({ id: 'p1', name: 'Renamed' })
@@ -274,7 +278,7 @@ describe('story 043 D4: explicit save', () => {
 
   it('reports a file it cannot read at all instead of writing over it', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     // A directory where the canonical file should be: unreadable, and specifically NOT ENOENT - so
     // it must not be treated as "nothing there, free to create".
@@ -291,7 +295,7 @@ describe('story 043 D4: explicit save', () => {
   it('assign of a DIRTY profile writes the installation from the canonical FILE, never from the unsaved edits', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await save(handlers)
     const savedFile = await readFile(canonicalPath('Profile.cfg'), 'latin1')
@@ -322,7 +326,7 @@ describe('story 043 D4: explicit save', () => {
   it("the retry trigger `write` publishes the canonical file too, not a dirty profile's unsaved edits", async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
     const savedFile = await readFile(canonicalPath('Profile.cfg'), 'latin1')
@@ -351,7 +355,7 @@ describe('story 043 D4: explicit save', () => {
   it('write with installationId backs up a foreign copy once, then overwrites', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
     const canonical = await readFile(canonicalPath('Profile.cfg'), 'latin1')
@@ -371,7 +375,7 @@ describe('story 043 D4: explicit save', () => {
     expect(await readFile(`${copyPath('Profile.cfg')}.q2l-backup`, 'latin1')).toBe(foreign)
     // Overwritten with the canonical file's own bytes.
     expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(canonical)
-    expect(state.configWriteFailures()).toEqual({})
+    expect(configState(state).writeFailures.get()).toEqual({})
 
     // "Once, forever": a later foreign edit does not clobber the first backup.
     const secondForeign = 'set sensitivity "99"\n'
@@ -388,7 +392,7 @@ describe('story 043 D4: explicit save', () => {
   it("write with installationId on a dirty profile writes the canonical file's bytes, never the unsaved edits", async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
     const savedFile = await readFile(canonicalPath('Profile.cfg'), 'latin1')
@@ -415,7 +419,7 @@ describe('story 043 D4: explicit save', () => {
   it('write rejects an unknown installationId and writes nothing', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
     const before = await readFile(copyPath('Profile.cfg'), 'latin1')
@@ -436,7 +440,7 @@ describe('story 043 D4: explicit save', () => {
     await mkdir(join(i1.rootPath, 'baseq2'), { recursive: true })
     await mkdir(join(i2.rootPath, 'baseq2'), { recursive: true })
     const { handlers, state } = await boot([i1, i2])
-    state.setConfigProfiles([
+    seedConfigProfiles(state, [
       profile({
         assignments: [
           { installationId: 'i1', isDefault: true },
@@ -483,7 +487,7 @@ describe('story 043 D4: explicit save', () => {
   it('write with installationId after a non-fixed-point raw save never re-renders the canonical file, and syncs the installation from its exact bytes', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
 
@@ -528,7 +532,7 @@ describe('story 043 D4: explicit save', () => {
   it('is per profile: syncing a clean profile does not publish a DIRTY sibling assigned to the same installation', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([
+    seedConfigProfiles(state, [
       profile({ id: 'p1', name: 'One' }),
       profile({ id: 'p2', name: 'Two', assignments: [{ installationId: 'i1', isDefault: false }] }),
     ])
@@ -539,7 +543,11 @@ describe('story 043 D4: explicit save', () => {
 
     // The sibling has unsaved edits; the OTHER profile is the one being synced.
     await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p2', cvars: { sensitivity: '99' } })
-    const siblingUnsaved = renderProfileFile(state.configProfiles().find((p) => p.id === 'p2')!)
+    const siblingUnsaved = renderProfileFile(
+      configState(state)
+        .profiles.get()
+        .find((p) => p.id === 'p2')!,
+    )
     await handlers.get(CONFIG_HANDLERS.setDefault)!({ profileId: 'p1', installationId: 'i1' })
 
     // `syncOneProfile` writes EVERY profile assigned to the installation, so the sibling's copy was
@@ -547,13 +555,17 @@ describe('story 043 D4: explicit save', () => {
     expect(await readFile(canonicalPath('Two.cfg'), 'latin1')).toBe(siblingFile)
     expect(await readFile(copyPath('Two.cfg'), 'latin1')).toBe(siblingFile)
     expect(await readFile(copyPath('Two.cfg'), 'latin1')).not.toBe(siblingUnsaved)
-    expect(state.configProfiles().find((p) => p.id === 'p2')!.dirty).toBe(true)
+    expect(
+      configState(state)
+        .profiles.get()
+        .find((p) => p.id === 'p2')!.dirty,
+    ).toBe(true)
   })
 
   it('assign still syncs a NON-dirty profile immediately, exactly as before', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await save(handlers)
 
@@ -572,7 +584,7 @@ describe('story 043 D4: explicit save', () => {
   it("syncState and rawFiles judge a dirty profile's installation copy against the FILE, so a retry can still clear it", async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
     await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '99' } })
@@ -616,7 +628,7 @@ describe('story 043 D4: explicit save', () => {
   it('syncState and rawFiles judge a CLEAN profile’s installation copy against the canonical file’s bytes, never its render (story 079 D2)', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
     // A raw save (story 057): the canonical file now holds exactly the typed text - clean profile,
@@ -655,7 +667,7 @@ describe('story 043 D4: explicit save', () => {
   it('a canonical file that moved underneath the launcher is neither published nor judged from (story 079 D2)', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
     const savedFile = await readFile(canonicalPath('Profile.cfg'), 'latin1')
@@ -687,12 +699,12 @@ describe('story 043 D4: explicit save', () => {
     expect(await readFile(canonicalPath('Profile.cfg'), 'latin1')).toBe(external)
     expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(savedFile)
     expect(only(state).dirty).toBe(false)
-    expect(state.configWriteFailures()).toEqual({})
+    expect(configState(state).writeFailures.get()).toEqual({})
   })
 
   it('save fails with profileNotFound for an unknown id and writes nothing', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
 
     const result = await save(handlers, 'nope')
@@ -747,12 +759,14 @@ describe('story 175: commitCvars', () => {
   }
 
   function only(state: StateStore): ConfigProfile {
-    return state.configProfiles().find((p) => p.id === 'p1')!
+    return configState(state)
+      .profiles.get()
+      .find((p) => p.id === 'p1')!
   }
 
   it('a clean profile gets the cvar on disk and in its installation copy and stays clean', async () => {
     const { handlers, state } = await boot([installation()])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
 
@@ -777,7 +791,7 @@ describe('story 175: commitCvars', () => {
 
   it('a dirty profile writes only the committed cvar: pending cvar and bind edits stay off disk and stay unsaved', async () => {
     const { handlers, state } = await boot([installation()])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
     await handlers.get(CONFIG_HANDLERS.setCvars)!({
@@ -813,7 +827,7 @@ describe('story 175: commitCvars', () => {
 
   it('a canonical file changed on disk is not overwritten and nothing changes', async () => {
     const { handlers, state } = await boot([installation()])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
     const handEdited = `${await readFile(canonicalPath('Profile.cfg'), 'latin1')}// hand-edited\n`
@@ -830,7 +844,7 @@ describe('story 175: commitCvars', () => {
 
   it('a write failure leaves the file and the profile record untouched', async () => {
     const { handlers, state } = await boot([installation()])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await save(handlers)
     const fileBefore = await readFile(canonicalPath('Profile.cfg'), 'latin1')
@@ -847,7 +861,7 @@ describe('story 175: commitCvars', () => {
 
   it('a clean profile without a baseline commits against its live fields and stays clean', async () => {
     const { handlers, state } = await boot([installation()])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     expect(only(state).baseline).toBeUndefined()
 
@@ -870,7 +884,7 @@ describe('story 175: commitCvars', () => {
 
   it('a dirty profile without a baseline is refused', async () => {
     const { handlers, state } = await boot([installation()])
-    state.setConfigProfiles([profile({ dirty: true })])
+    seedConfigProfiles(state, [profile({ dirty: true })])
     await state.settle()
     const before = only(state)
 
@@ -883,7 +897,7 @@ describe('story 175: commitCvars', () => {
 
   it('a dirty rename writes to the file the profile still owns, not to a new name', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await save(handlers)
     await handlers.get(CONFIG_HANDLERS.rename)!({ id: 'p1', name: 'Renamed' })

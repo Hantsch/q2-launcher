@@ -23,7 +23,7 @@ import { validateMasterSourceAddress } from '@shared/servers/master-source-addre
  * of four.
  *
  * Two invariants everything here upholds, because `parseServersState`
- * (`src/main/lib/schemas.ts`, story 111 D2) *drops* rows that break them on the next load - a
+ * (`src/main/modules/servers/persisted.ts`) *drops* rows that break them on the next load - a
  * violation would not throw, it would silently lose a user's source on the next start:
  *
  * - every stored `address` is the normalized output of `validateMasterSourceAddress` for that row's

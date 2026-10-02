@@ -21,6 +21,8 @@ import {
   runFileSourceStartup,
   type FileSourceStartupDeps,
 } from './rebuild'
+import { configState } from './persisted'
+import { seedConfigProfiles } from '../../../test-support/config-state'
 
 /**
  * Story 043 D3. Everything below runs against a real temp directory and a real, temp-file-backed
@@ -65,8 +67,8 @@ function deps(overrides: Partial<FileSourceStartupDeps> = {}): FileSourceStartup
     listProfiles: () => profiles.list(),
     replaceProfile: (profile) => void profiles.replaceProfile(profile),
     addProfile: (profile) => void profiles.addRebuilt(profile),
-    migratedAt: () => state.configFileSourceMigratedAt(),
-    setMigratedAt: (at) => void state.setConfigFileSourceMigratedAt(at),
+    migratedAt: () => configState(state).fileSourceMigratedAt.get(),
+    setMigratedAt: (at) => void configState(state).fileSourceMigratedAt.markDone(at),
     log,
     now: () => NOW,
     ...overrides,
@@ -101,7 +103,7 @@ describe('runFileSourceStartup: rebuilding a lost record', () => {
     const original = await seedProfileWithFile('Frag Setup')
     // "Deleting the profile's record from state.json" - the store is left with no record at all,
     // exactly what a hand-deleted (or dropped-because-unparseable) row leaves behind.
-    state.setConfigProfiles([])
+    seedConfigProfiles(state, [])
     expect(profiles.list()).toEqual([])
 
     const report = await runFileSourceStartup(deps())
@@ -136,7 +138,7 @@ describe('runFileSourceStartup: rebuilding a lost record', () => {
       cvars: { ...profile.cvars, sensitivity: '4.25' },
       assignments: [{ installationId: 'inst-1', isDefault: true }],
     }))
-    state.setConfigProfiles([])
+    seedConfigProfiles(state, [])
 
     await runFileSourceStartup(deps())
 
@@ -169,7 +171,7 @@ describe('runFileSourceStartup: rebuilding a lost record', () => {
   it('seeds the rebuilt record with the hash of the bytes on disk, so the next read is unchanged', async () => {
     const original = await seedProfileWithFile('Hashed')
     const fileName = resolveProfileFileNames([original]).get(original.id)!
-    state.setConfigProfiles([])
+    seedConfigProfiles(state, [])
 
     await runFileSourceStartup(deps())
 
@@ -187,7 +189,7 @@ describe('runFileSourceStartup: rebuilding a lost record', () => {
       writeUnbindall: false,
       sectionHeaderStyle: 'brackets',
     }))
-    state.setConfigProfiles([])
+    seedConfigProfiles(state, [])
 
     await runFileSourceStartup(deps())
 
@@ -254,7 +256,7 @@ describe('runFileSourceStartup: rebuilding a lost record', () => {
   it('reports the file and leaves it on disk when the record cannot be stored', async () => {
     const original = await seedProfileWithFile('Unstorable')
     const fileName = resolveProfileFileNames([original]).get(original.id)!
-    state.setConfigProfiles([])
+    seedConfigProfiles(state, [])
 
     const report = await runFileSourceStartup(
       deps({
@@ -301,7 +303,7 @@ describe('runFileSourceStartup: AC8 one-time migration', () => {
   it('brings every existing profile file to the current format and seeds its fileHash', async () => {
     const first = await seedProfileWithLegacyFile('One')
     const second = await seedProfileWithLegacyFile('Two')
-    expect(state.configFileSourceMigratedAt()).toBeNull()
+    expect(configState(state).fileSourceMigratedAt.get()).toBeNull()
 
     const report = await runFileSourceStartup(deps())
 
@@ -334,7 +336,7 @@ describe('runFileSourceStartup: AC8 one-time migration', () => {
 
     const first = await runFileSourceStartup(deps())
     expect(first.migration).toBe('completed')
-    const guard = state.configFileSourceMigratedAt()
+    const guard = configState(state).fileSourceMigratedAt.get()
     expect(guard).toBe(new Date(NOW).toISOString())
 
     // A hand-edit made *after* the migration ran. A second run must leave it exactly as it is -
@@ -352,7 +354,7 @@ describe('runFileSourceStartup: AC8 one-time migration', () => {
     expect(await readFile(path, 'latin1')).toBe(handEdited)
     expect((await stat(path)).mtimeMs).toBe(before.mtimeMs)
     // Write-once: the guard keeps its original value even though the second run had a later clock.
-    expect(state.configFileSourceMigratedAt()).toBe(guard)
+    expect(configState(state).fileSourceMigratedAt.get()).toBe(guard)
   })
 
   it('deletes nothing and creates no backup file while migrating our own file', async () => {
@@ -370,7 +372,7 @@ describe('runFileSourceStartup: AC8 one-time migration', () => {
 
     expect(report.migration).toBe('completed')
     expect(report.migratedProfileIds).toEqual([])
-    expect(state.configFileSourceMigratedAt()).toBe(new Date(NOW).toISOString())
+    expect(configState(state).fileSourceMigratedAt.get()).toBe(new Date(NOW).toISOString())
   })
 
   it('leaves the guard unset when a profile fails to migrate, so the next start retries', async () => {
@@ -395,7 +397,7 @@ describe('runFileSourceStartup: AC8 one-time migration', () => {
 
     expect(report.failedProfileIds).toContain(seeded.profile.id)
     expect(report.migration).toBe('incomplete')
-    expect(state.configFileSourceMigratedAt()).toBeNull()
+    expect(configState(state).fileSourceMigratedAt.get()).toBeNull()
     // Neither file was clobbered: the blocked profile's own file is still where it was, and the
     // squatter's content survived (its own migration step, later in the same loop, renamed it onto
     // its properly resolved name rather than losing it).
@@ -416,7 +418,7 @@ describe('runFileSourceStartup: AC8 one-time migration', () => {
     const path = join(canonicalDir(), fileName)
     const withComment = `${await readFile(path, 'latin1')}// a line only the file knows about\n`
     await writeFile(path, withComment, 'latin1')
-    state.setConfigProfiles([])
+    seedConfigProfiles(state, [])
 
     const report = await runFileSourceStartup(deps())
 

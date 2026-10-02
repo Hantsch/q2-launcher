@@ -175,16 +175,17 @@ central, assigned to installations) and the UI (launcher design system) change.
   Manifest already exists (`MODULE_MANIFESTS.config`); only `status` moves off `'planned'` once
   the renderer view is registered.
 - **Persistence**: central profiles are a new top-level array in `state.json` (alongside
-  `installations`), written through the existing `JsonStore` atomic-write pattern
-  (`src/main/lib/json-store.ts`) and covered by the existing migration framework
-  (`src/main/services/migrations.ts`) — not `Installation.moduleData`, since a profile is not
+  `installations`), owned by the config module (`src/main/modules/config/persisted.ts`, read and written through
+  `StateStore.section()`), written through the `JsonStore` atomic-write pattern
+  (`src/main/lib/json-store.ts`) and covered by the module's migration steps
+  (`src/main/modules/config/persisted-migrations.ts`, run by `src/main/services/migrations.ts`) — not `Installation.moduleData`, since a profile is not
   owned by one installation. `Installation` gains `assignedProfiles` (profile id + `isDefault`)
   and `playedMods`.
 - **`state.json` is a cache, the `.cfg` is the source of truth** (story 043). Two startup steps in
   `src/main/modules/config/rebuild.ts`, run in this fixed order by `configModule.setup()`:
   1. **One-time format migration** (AC8), gated by the new top-level state key
      `configFileSourceMigratedAt` (an ISO timestamp; a _new key_, not a `STATE_SCHEMA_VERSION`
-     bump — `MIGRATIONS` stays empty, same precedent as `configPlayedMods`). On the first start
+     bump — an additive key needs only a forgiving parse in `persisted.ts`, same precedent as `configPlayedMods`). On the first start
      after the update, every profile record already in `state.json` has its canonical `.cfg`
      rewritten from cached state into the current 040/042 format through the normal write path
      (`writeCanonicalProfileFile`), and its `fileHash` seeded from what was written — so the first
@@ -246,7 +247,7 @@ central, assigned to installations) and the UI (launcher design system) change.
 - **Filesystem writes**: go through the same path-trust rules as the rest of main — profile
   writes only ever target `<installation.path>/baseq2` and `<installation.path>/<mod>` for
   mods already known to the installation, never an arbitrary renderer-supplied path
-  (`src/main/lib/schemas.ts`).
+  (`src/shared/schemas.ts`).
 - **Game-lifecycle**: a running installation no longer defers the write (story 079, reversing
   story 004 decision 3 above) — an installation copy is written whenever its canonical file
   changes, running or not, since the engine only reads a config at `exec` time and holds no

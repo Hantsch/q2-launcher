@@ -1,4 +1,4 @@
-import { isSafeNewsImageFileName } from '../modules/home/images/paths'
+import { isSafeNewsImageFileName } from './news-image-paths'
 
 /**
  * Story 035: the whole decidable part of "how does the renderer document get to the window,
@@ -83,7 +83,7 @@ const MIME_TYPES: Record<string, string> = {
   '.ico': 'image/vnd.microsoft.icon',
   '.json': 'application/json',
   // Story 084 D3: the remaining extensions the news-image cache is ever allowed to hold
-  // (`SAFE_NEWS_IMAGE_EXTENSIONS` in `modules/home/images/paths.ts`; `.png` is already above).
+  // (`SAFE_NEWS_IMAGE_EXTENSIONS` in `lib/news-image-paths.ts`; `.png` is already above).
   // Cached slide images are served through the same content-type inference as the bundle.
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -183,7 +183,7 @@ export function createRendererProtocolHandler(
    * Story 084 D3: serves one cached slide image, given the decoded path *after* the
    * `/news-image/` prefix. This branch never falls through to the renderer root - every failure
    * returns a 404 here - and it accepts nothing but a bare file name: `isSafeNewsImageFileName`
-   * (the one owner of what the cache may ever contain, `modules/home/images/paths.ts`) matches
+   * (the one owner of what the cache may ever contain, `lib/news-image-paths.ts`) matches
    * 64 lowercase hex characters plus an allowed extension and therefore rejects a `/` or `\`
    * separator, a `..` token, a nested path and an unexpected extension in a single check - a name
    * validated as a name, not a path sanitised after the fact.

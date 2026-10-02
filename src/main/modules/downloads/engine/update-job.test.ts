@@ -22,6 +22,7 @@ import { InstallationWriteGuard } from '../../../services/write-guard'
 import type { ManifestSource } from '../bootstrap/ports'
 import { fakeExtractor, fakeLaunch, fakeState } from '../test-support'
 import { readEngineState } from './installation-state'
+import { setEngineState } from './record-engine-state'
 import {
   ENGINE_BACKUP_DIR_NAME,
   ENGINE_UPDATE_JOB_KIND,
@@ -213,7 +214,7 @@ async function harness(
     })
   }
   const recordedVersion = options.recordedVersion ?? '1.0'
-  const recorded = service.setEngineState(added.value.id, {
+  const recorded = setEngineState(service, added.value.id, {
     version: recordedVersion,
     packageId: `q2pro-${recordedVersion}`,
     ...(options.recordedBackup ? { backup: options.recordedBackup } : {}),
@@ -227,8 +228,8 @@ async function harness(
       validateCalls.push(id)
       return service.validate(id)
     },
-    setEngineState: (id: string, patch: Parameters<InstallationsService['setEngineState']>[1]) =>
-      service.setEngineState(id, patch),
+    setEngineState: (id: string, patch: Parameters<typeof setEngineState>[2]) =>
+      setEngineState(service, id, patch),
   }
 
   const manifest: ManifestSource = {

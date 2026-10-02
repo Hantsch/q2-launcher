@@ -1,136 +1,17 @@
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
-import type { ConfigProfile } from '@shared/modules/config'
-import {
-  DEFAULT_DOWNLOADS_SETTINGS,
-  type DownloadFailure,
-  type DownloadsSettings,
-} from '@shared/modules/downloads'
 import { DEFAULT_SETTINGS, type Installation, type LauncherSettings } from '@shared/types'
-import { DEFAULT_HOME_LAYOUT, type HomeLayout } from '@shared/modules/home'
-import { DEFAULT_SERVERS_STATE, type ServersState } from '@shared/modules/servers'
-import { DEFAULT_NAME_TEMPLATES_STATE } from '@shared/replays/name-templates'
-import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
 import { JsonStore } from '../lib/json-store'
-import { pruneFailures } from '../modules/downloads/failure-log'
-import {
-  parseConfigFileSourceMigratedAt,
-  parseConfigPlayedMods,
-  parseConfigProfiles,
-  parseConfigSwitchBinds,
-  parseConfigWriteFailures,
-  parseDownloadFailures,
-  parseDownloadsSettings,
-  parseHomeLayout,
-  parseInstallations,
-  parseReplaysState,
-  parseServersState,
-  parseSettings,
-  parseUnlockState,
-  type ReplaysState,
-  type UnlockState,
-} from '../lib/schemas'
-import { migrateStateDocument } from './migrations'
+import { parseInstallations, parseSettings } from '../lib/schemas'
+import { migrateStateDocument, type MigrationStep } from './migrations'
 
 /** Slices with no write invariant of their own; the others keep a dedicated setter. */
-export type MutableSliceKey = 'servers' | 'replays' | 'configWriteFailures' | 'installations'
+export type MutableSliceKey = 'installations'
 
 /** Everything the launcher persists about itself, except window geometry. */
 export interface LauncherStateDocument {
   schemaVersion: number
   settings: LauncherSettings
   installations: Installation[]
-  /**
-   * Config profiles are central, not owned by an installation, so they live
-   * next to the installation list rather than inside `moduleData`. Files
-   * written before this key existed simply lack it and load as an empty list -
-   * no schema bump, no migration.
-   */
-  configProfiles: ConfigProfile[]
-  /**
-   * installationId -> mod folder names the user has marked "played" for it.
-   * Central per-installation data the config module owns, next to but not
-   * part of `Installation` - same reasoning as `configProfiles` above. Files
-   * written before this key existed simply lack it and load as `{}`.
-   */
-  configPlayedMods: Record<string, string[]>
-  /**
-   * installationId -> engine key name bound to story 007's in-session
-   * profile-switch chain. Central per-installation data the config module
-   * owns, next to but not part of `Installation` - same reasoning as
-   * `configPlayedMods` above. Files written before this key existed simply
-   * lack it and load as `{}`.
-   *
-   * Story 079 D4 (review note, not a field of this interface): retired the sibling
-   * `configPendingWrites` key (installationId -> id of the profile whose last write attempt found
-   * it running) - a running game defers nothing now, so nothing is ever pending. Not migrated away:
-   * a `state.json` still carrying the old key from before this story simply has it ignored on parse
-   * (nothing in `StateStore`'s `parse` reads it any more).
-   */
-  configSwitchBinds: Record<string, string>
-  /**
-   * `<profileId>|<installationId|'own'>` -> the last failed/deferred write attempt for that
-   * target (story 022, D5 - persisted only; the sync engine, a later deliverable, is what
-   * constructs and interprets the key). Central per-profile data the config module owns, next to
-   * but not part of `ConfigProfile` - same reasoning as `configPlayedMods` above. Files written
-   * before this key existed simply lack it and load as `{}`.
-   */
-  configWriteFailures: Record<string, { messageKey: string; at: string }>
-  /**
-   * ISO timestamp of when story 043's one-time canonical-file format migration completed, or
-   * `null` while it has not run (AC8). Files written before this key existed simply lack it and
-   * load as `null` - i.e. "not migrated yet" - which is the whole point: the very first start
-   * after the update is the one that finds it absent. Same "new top-level key, no schema bump, no
-   * migration entry" reasoning as `configPlayedMods` above; see
-   * `main/lib/schemas.ts#configFileSourceMigratedAtSchema` for why an unreadable value degrades
-   * to `null` rather than to "already done".
-   */
-  configFileSourceMigratedAt: string | null
-  /**
-   * Story 071 D1: the `downloads` module's own settings (`concurrentJobs`, [[072]]'s UI section
-   * lives over this same shape). A new top-level key, not a `STATE_SCHEMA_VERSION` bump - same
-   * "new key, no schema bump" precedent as `configPlayedMods`. Files written before this key
-   * existed simply lack it and load as `DEFAULT_DOWNLOADS_SETTINGS`.
-   */
-  downloads: DownloadsSettings
-  /**
-   * Story 073 D1: the Downloads tab's global failure log (AC2) - one entry per `downloads` job
-   * that reached `failed`, kept until the user dismisses it and then for 7 more days. A new
-   * top-level key, same "no `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles`
-   * above: it is purely additive, and a file written before this story simply lacks it and loads as
-   * `[]`. Retention (the 7-day prune, the 50-entry cap) is `main/modules/downloads/failure-log.ts`'s
-   * job, not this store's - `getDownloadFailures()` below just applies it on read.
-   */
-  downloadFailures: DownloadFailure[]
-  /**
-   * Story 086 D1: the dashboard's tile arrangement (`home` module). A new top-level key, same
-   * "no `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles` above: it is
-   * purely additive, and a file written before this story simply lacks it and loads as
-   * `DEFAULT_HOME_LAYOUT`.
-   */
-  homeLayout: HomeLayout
-  /**
-   * Story 110 D3: the `servers` module's own top-level `state.json` key (`ServersState` - sources,
-   * favourites, manual servers, history, scan settings). A new top-level key, same "no
-   * `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles`/`homeLayout` above: it
-   * is purely additive, and a file written before this story simply lacks it and loads as
-   * `DEFAULT_SERVERS_STATE`.
-   */
-  servers: ServersState
-  /**
-   * Story 128 D4: the unlock-code module's own top-level `state.json` key - every code the user has
-   * redeemed on this machine (`code`, `redeemedAt`). A new top-level key, same "no
-   * `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles`/`servers` above: it is
-   * purely additive, and a file written before this story simply lacks it and loads as `{ codes: [] }`.
-   */
-  unlock: UnlockState
-  /**
-   * Story 140 D2: the `replays` module's own top-level `state.json` key - today just
-   * `nameTemplates` (the user's ordered list of demo file-name templates). A new top-level key,
-   * same "no `STATE_SCHEMA_VERSION` bump, no migration" precedent as `configProfiles`/`servers`/
-   * `unlock` above: it is purely additive, and a file written before this story simply lacks it and
-   * loads as `{ nameTemplates: DEFAULT_NAME_TEMPLATES_STATE }`.
-   */
-  replays: ReplaysState
 }
 
 function defaults(): LauncherStateDocument {
@@ -138,32 +19,42 @@ function defaults(): LauncherStateDocument {
     schemaVersion: STATE_SCHEMA_VERSION,
     settings: { ...DEFAULT_SETTINGS },
     installations: [],
-    configProfiles: [],
-    configPlayedMods: {},
-    configSwitchBinds: {},
-    configWriteFailures: {},
-    configFileSourceMigratedAt: null,
-    downloads: { ...DEFAULT_DOWNLOADS_SETTINGS },
-    downloadFailures: [],
-    // Story 086 D1 review fix: a shallow spread of `DEFAULT_HOME_LAYOUT` would leave `tiles`
-    // pointing at the same array (and the same tile objects) as the shared, module-level
-    // `DEFAULT_HOME_LAYOUT` constant. Nothing mutates a `HomeLayout.tiles` array in place today,
-    // but cloning here means nothing ever could corrupt the shipped default for the rest of the
-    // process's lifetime.
-    homeLayout: { tiles: DEFAULT_HOME_LAYOUT.tiles.map((tile) => ({ ...tile })) },
-    // Same reasoning as `homeLayout` above: a deep clone so nothing can mutate the shared
-    // module-level `DEFAULT_SERVERS_STATE` constant for the rest of the process's lifetime.
-    servers: structuredClone(DEFAULT_SERVERS_STATE),
-    unlock: { codes: [] },
-    // Same reasoning as `servers` above: a deep clone so nothing can mutate the shared
-    // module-level `DEFAULT_NAME_TEMPLATES_STATE` constant for the rest of the process's lifetime.
-    replays: {
-      nameTemplates: structuredClone(DEFAULT_NAME_TEMPLATES_STATE),
-      extraFolders: [],
-      listFilter: { ...EMPTY_DEMO_LIST_FILTER },
-      modWarning: { enabled: true, trustedMods: [] },
-    },
   }
+}
+
+/**
+ * Keys the store parses itself at `load()` and exposes through its own accessors. Exactly one
+ * owner per key: none of these can be registered as a section, and none is kept raw.
+ */
+const STORE_OWNED_KEYS: ReadonlySet<string> = new Set(Object.keys(defaults()))
+
+/**
+ * The cached document: the store-owned keys typed, every other top-level key exactly as it was
+ * read - raw until a section parses it, its parsed value from then on. Stays flat, so it is
+ * written to disk as it is.
+ */
+type StoredDocument = LauncherStateDocument & Record<string, unknown>
+
+function unownedKeys(doc: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(doc).filter(([key]) => !STORE_OWNED_KEYS.has(key)))
+}
+
+/** How a module's top-level `state.json` key is read. */
+export interface StateSectionSpec<T> {
+  key: string
+  /** Turns the raw JSON under `key` into a valid `T`. Must never throw. */
+  parse: (raw: unknown) => T
+  /** The value when the key is absent from the file. */
+  defaults: () => T
+}
+
+export interface StateSection<T> {
+  get(): T
+  /**
+   * Changes the value through a synchronous callback that receives the live value. Returning the
+   * same reference means "no change": nothing is scheduled for writing.
+   */
+  update(fn: (live: T) => T): T
 }
 
 /**
@@ -173,13 +64,34 @@ function defaults(): LauncherStateDocument {
  * their whole library.
  */
 export class StateStore {
-  private readonly store: JsonStore<LauncherStateDocument>
+  private readonly store: JsonStore<StoredDocument>
+  private readonly sections = new Map<
+    string,
+    { spec: StateSectionSpec<unknown>; handle: StateSection<unknown> }
+  >()
+  /**
+   * Section keys whose value in the cached document is already the parsed one. Parsing waits for
+   * the first access, so a section can register before or after `load()`; every load starts over
+   * from the raw values it read.
+   */
+  private readonly parsedSections = new Set<string>()
 
-  constructor(filePath: string, options: { onPersistError?: () => void } = {}) {
+  constructor(
+    filePath: string,
+    options: {
+      onPersistError?: () => void
+      /**
+       * The modules' migration steps, validated against `STATE_SCHEMA_VERSION` on every load.
+       * Omitted only by tests that never read an older file: the document is then taken as
+       * current and no step runs.
+       */
+      migrations?: readonly MigrationStep[]
+    } = {},
+  ) {
     // One notice per session: a disk that fails once usually keeps failing, and the user needs
     // to hear it once, not on every debounced retry.
     let reported = false
-    this.store = new JsonStore<LauncherStateDocument>({
+    this.store = new JsonStore<StoredDocument>({
       filePath,
       debounceMs: 250,
       onPersistError: () => {
@@ -187,33 +99,76 @@ export class StateStore {
         reported = true
         options.onPersistError?.()
       },
-      defaults,
+      defaults: () => ({ ...defaults() }),
       parse: (raw) => {
-        const { doc } = migrateStateDocument(raw)
-        return {
+        const doc = options.migrations
+          ? migrateStateDocument(raw, options.migrations).doc
+          : typeof raw === 'object' && raw !== null
+            ? (raw as Record<string, unknown>)
+            : {}
+        const owned: LauncherStateDocument = {
           schemaVersion: STATE_SCHEMA_VERSION,
           settings: parseSettings(doc['settings']),
           installations: parseInstallations(doc['installations']),
-          configProfiles: parseConfigProfiles(doc['configProfiles']),
-          configPlayedMods: parseConfigPlayedMods(doc['configPlayedMods']),
-          configSwitchBinds: parseConfigSwitchBinds(doc['configSwitchBinds']),
-          configWriteFailures: parseConfigWriteFailures(doc['configWriteFailures']),
-          configFileSourceMigratedAt: parseConfigFileSourceMigratedAt(
-            doc['configFileSourceMigratedAt'],
-          ),
-          downloads: parseDownloadsSettings(doc['downloads']),
-          downloadFailures: parseDownloadFailures(doc['downloadFailures']),
-          homeLayout: parseHomeLayout(doc['homeLayout']),
-          servers: parseServersState(doc['servers']),
-          unlock: parseUnlockState(doc['unlock']),
-          replays: parseReplaysState(doc['replays']),
         }
+        // Keys this build does not own (a disabled module's, a newer launcher's) are carried
+        // verbatim, so every save - the backup-recovery rewrite included - writes them back.
+        return { ...owned, ...unownedKeys(doc) }
       },
     })
   }
 
   async load(): Promise<LauncherStateDocument> {
-    return this.store.load()
+    const doc = await this.store.load()
+    this.parsedSections.clear()
+    return doc
+  }
+
+  /**
+   * Registers a module's own top-level key. Its raw value is parsed on first access (absent ->
+   * `spec.defaults()`), and from then on the parsed value is what every save writes under the same
+   * key. Registering the same spec object again returns the same handle.
+   */
+  section<T>(spec: StateSectionSpec<T>): StateSection<T> {
+    if (STORE_OWNED_KEYS.has(spec.key)) {
+      throw new Error(`state key "${spec.key}" is owned by the state store`)
+    }
+    const existing = this.sections.get(spec.key)
+    if (existing) {
+      if (existing.spec !== spec) {
+        throw new Error(`state section "${spec.key}" is already registered with another spec`)
+      }
+      return existing.handle as StateSection<T>
+    }
+    const handle: StateSection<T> = {
+      get: () => {
+        this.parseSection(spec)
+        return this.store.get()[spec.key] as T
+      },
+      update: (fn) => {
+        this.parseSection(spec)
+        return this.updateKey(spec.key, fn)
+      },
+    }
+    this.sections.set(spec.key, { spec, handle })
+    return handle
+  }
+
+  /** Swaps the raw value for the parsed one without a write: the data on disk is unchanged. */
+  private parseSection<T>(spec: StateSectionSpec<T>): void {
+    if (this.parsedSections.has(spec.key)) return
+    const doc = this.store.get()
+    const value = Object.hasOwn(doc, spec.key) ? spec.parse(doc[spec.key]) : spec.defaults()
+    this.store.adopt({ ...doc, [spec.key]: value })
+    this.parsedSections.add(spec.key)
+  }
+
+  private updateKey<V>(key: string, fn: (live: V) => V): V {
+    const live = this.store.get()[key] as V
+    const next = fn(live)
+    if (next === live) return live
+    this.store.update((doc) => ({ ...doc, [key]: next }))
+    return next
   }
 
   /** Non-null when the file on disk was damaged and we fell back. */
@@ -227,56 +182,6 @@ export class StateStore {
 
   installations(): Installation[] {
     return this.store.get().installations
-  }
-
-  configProfiles(): ConfigProfile[] {
-    return this.store.get().configProfiles
-  }
-
-  configPlayedMods(): Record<string, string[]> {
-    return this.store.get().configPlayedMods
-  }
-
-  configSwitchBinds(): Record<string, string> {
-    return this.store.get().configSwitchBinds
-  }
-
-  configWriteFailures(): Record<string, { messageKey: string; at: string }> {
-    return this.store.get().configWriteFailures
-  }
-
-  configFileSourceMigratedAt(): string | null {
-    return this.store.get().configFileSourceMigratedAt
-  }
-
-  getDownloadsSettings(): DownloadsSettings {
-    return this.store.get().downloads
-  }
-
-  /**
-   * Story 073 D1: the failure log, pruned (retention is applied "on read and on write" per the
-   * story's Decisions) - a dismissed entry older than 7 days never reaches a caller even if it is
-   * still sitting in a `state.json` written before this access ran.
-   */
-  getDownloadFailures(): DownloadFailure[] {
-    return pruneFailures(this.store.get().downloadFailures, Date.now())
-  }
-
-  /**
-   * Records that story 043's one-time canonical-file migration has completed (AC8).
-   *
-   * **Write-once, on purpose.** An already-set value is returned unchanged and nothing is
-   * persisted, so no caller - including a future one - can reset the guard and make the migration
-   * run a second time over files that are, by then, the source of truth and may carry hand-edits
-   * the cache never saw. The one legitimate way to re-run it is a `state.json` that genuinely has
-   * no value yet (a fresh install, or a hand-cleared key), which is exactly what
-   * `parseConfigFileSourceMigratedAt` produces for an absent/garbled key.
-   */
-  setConfigFileSourceMigratedAt(at: string): string | null {
-    const current = this.store.get().configFileSourceMigratedAt
-    if (current !== null) return current
-    return this.store.update((state) => ({ ...state, configFileSourceMigratedAt: at }))
-      .configFileSourceMigratedAt
   }
 
   patchSettings(patch: Partial<LauncherSettings>): LauncherSettings {
@@ -294,71 +199,11 @@ export class StateStore {
     key: K,
     fn: (live: LauncherStateDocument[K]) => LauncherStateDocument[K],
   ): LauncherStateDocument[K] {
-    const live = this.store.get()[key]
-    const next = fn(live)
-    if (next === live) return live
-    return this.store.update((doc) => ({ ...doc, [key]: next }))[key]
+    return this.updateKey(key, fn)
   }
 
   setInstallations(installations: Installation[]): Installation[] {
     return this.store.update((current) => ({ ...current, installations })).installations
-  }
-
-  setConfigProfiles(configProfiles: ConfigProfile[]): ConfigProfile[] {
-    return this.store.update((current) => ({ ...current, configProfiles })).configProfiles
-  }
-
-  setConfigPlayedMods(configPlayedMods: Record<string, string[]>): Record<string, string[]> {
-    return this.store.update((current) => ({ ...current, configPlayedMods })).configPlayedMods
-  }
-
-  setConfigSwitchBinds(configSwitchBinds: Record<string, string>): Record<string, string> {
-    return this.store.update((current) => ({ ...current, configSwitchBinds })).configSwitchBinds
-  }
-
-  setDownloadsSettings(downloads: DownloadsSettings): DownloadsSettings {
-    return this.store.update((current) => ({ ...current, downloads })).downloads
-  }
-
-  /**
-   * Persists the failure log, pruning again on the way in - the caller (a later deliverable's
-   * `append`/`dismiss`/`restore` handlers) already prunes via `failure-log.ts`'s own functions, but
-   * pruning here too means nothing can ever write an unpruned list to disk, whichever call site it
-   * comes from.
-   */
-  setDownloadFailures(downloadFailures: DownloadFailure[]): DownloadFailure[] {
-    return this.store.update((current) => ({
-      ...current,
-      downloadFailures: pruneFailures(downloadFailures, Date.now()),
-    })).downloadFailures
-  }
-
-  /** Story 086 D1: the dashboard's persisted tile arrangement. */
-  homeLayout(): HomeLayout {
-    return this.store.get().homeLayout
-  }
-
-  setHomeLayout(homeLayout: HomeLayout): HomeLayout {
-    return this.store.update((current) => ({ ...current, homeLayout })).homeLayout
-  }
-
-  /** Story 110 D3: the `servers` module's own persisted state (sources, favourites, manual servers, history, scan settings). */
-  serversState(): ServersState {
-    return this.store.get().servers
-  }
-
-  /** Story 128 D4: every unlock code redeemed on this machine. */
-  unlockState(): UnlockState {
-    return this.store.get().unlock
-  }
-
-  setUnlockState(unlock: UnlockState): UnlockState {
-    return this.store.update((current) => ({ ...current, unlock })).unlock
-  }
-
-  /** Story 140 D2: the `replays` module's own persisted state (today just `nameTemplates`). */
-  replaysState(): ReplaysState {
-    return this.store.get().replays
   }
 
   /** Waits for pending writes; called on quit. */

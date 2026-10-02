@@ -18,6 +18,9 @@ import { MainModuleRegistry } from '../registry'
 import { PersistenceRegistry } from '../../services/persistence'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { createDiagnosticsCollector, diagnosticsRegistrySize } from './diagnostics'
+import { downloadsState } from './persisted'
+import type { StateStore } from '../../services/state'
+import { fakeSectionState } from '../../../test-support/state-sections'
 import { downloadsModule, UNKNOWN_DOWNLOAD_FAILURE_KEY } from './index'
 import { getDownloadsCacheDir } from './paths'
 
@@ -161,6 +164,7 @@ async function setUpModule(
     app: {
       jobs: new JobsService(() => {}),
       persistence: new PersistenceRegistry(),
+      state: fakeSectionState(),
       ...app,
     } as ModuleSetup['app'],
     log: fakeLogger(),
@@ -168,36 +172,9 @@ async function setUpModule(
   return handlers
 }
 
-/**
- * A minimal stand-in for `AppContext['state']`, holding only the two methods this module's D4
- * handlers call. Kept in-memory rather than backed by a real `StateStore` (json-store + disk):
- * persistence itself is D2/`state.test.ts`'s job, this suite only needs to prove the handlers read
- * and write through whatever `app.state` gives them.
- */
-function fakeDownloadsState(initial: DownloadsSettings): {
-  getDownloadsSettings: () => DownloadsSettings
-  setDownloadsSettings: (next: DownloadsSettings) => DownloadsSettings
-  getDownloadFailures: () => DownloadFailure[]
-  setDownloadFailures: (next: DownloadFailure[]) => DownloadFailure[]
-} {
-  let current = initial
-  // Story 073 D2: the failure log lives here too, verbatim - the real `StateStore` prunes on both
-  // read and write, and that retention is `failure-log.test.ts`'s and `state.test.ts`'s to prove.
-  // Keeping this stand-in dumb is the point: what these tests must show is that the module writes
-  // through `app.state` at all, and exactly once.
-  let failures: DownloadFailure[] = []
-  return {
-    getDownloadsSettings: () => current,
-    setDownloadsSettings: (next) => {
-      current = next
-      return current
-    },
-    getDownloadFailures: () => failures,
-    setDownloadFailures: (next) => {
-      failures = next
-      return failures
-    },
-  }
+/** In-memory `app.state` seeded with the downloads settings; no state file involved. */
+function fakeDownloadsState(initial: DownloadsSettings): StateStore {
+  return fakeSectionState({ downloads: initial })
 }
 
 describe('downloadsModule', () => {
@@ -259,7 +236,7 @@ describe('downloadsModule settings + cache handlers', () => {
     if (!tooLow.ok) expect(tooLow.error.key).toBe('ipc.error.invalidPayload')
 
     // None of the three rejected patches touched the persisted value.
-    expect(state.getDownloadsSettings()).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
+    expect(downloadsState(state).settings.get()).toEqual(DEFAULT_DOWNLOADS_SETTINGS)
   })
 
   it('a valid patch merges onto (and persists over) the previous settings', async () => {
@@ -274,7 +251,7 @@ describe('downloadsModule settings + cache handlers', () => {
     )
 
     expect(result).toEqual({ ...DEFAULT_DOWNLOADS_SETTINGS, downloadWhilePlayingAllowed: false })
-    expect(state.getDownloadsSettings()).toEqual(result)
+    expect(downloadsState(state).settings.get()).toEqual(result)
   })
 
   /** Grows `path` to `sizeBytes` without writing real content - a truncate-grow is a metadata
@@ -419,7 +396,7 @@ describe('downloadsModule failure log', () => {
     jobs.finish(other, { status: 'succeeded' })
     jobs.clearFinished()
 
-    const failures = state.getDownloadFailures()
+    const failures = downloadsState(state).failures.get()
     expect(failures).toHaveLength(1)
     expect(failures[0]).toMatchObject({
       jobId: id,
@@ -440,7 +417,7 @@ describe('downloadsModule failure log', () => {
     const cancelled = downloadJob(jobs)
     jobs.cancel(cancelled)
 
-    expect(state.getDownloadFailures()).toEqual([])
+    expect(downloadsState(state).failures.get()).toEqual([])
   })
 
   it('another module failing is not this log entry', async () => {
@@ -449,7 +426,7 @@ describe('downloadsModule failure log', () => {
     const id = jobs.create({ moduleId: 'mods', kind: 'install', labelKey: 'mods.job.install' }).id
     jobs.finish(id, { status: 'failed', error: { key: 'mods.error.whatever' } })
 
-    expect(state.getDownloadFailures()).toEqual([])
+    expect(downloadsState(state).failures.get()).toEqual([])
   })
 
   it('a failed job carrying no reason still leaves one entry', async () => {
@@ -458,8 +435,10 @@ describe('downloadsModule failure log', () => {
 
     jobs.finish(id, { status: 'failed' })
 
-    expect(state.getDownloadFailures()).toHaveLength(1)
-    expect(state.getDownloadFailures()[0]?.error).toEqual({ key: UNKNOWN_DOWNLOAD_FAILURE_KEY })
+    expect(downloadsState(state).failures.get()).toHaveLength(1)
+    expect(downloadsState(state).failures.get()[0]?.error).toEqual({
+      key: UNKNOWN_DOWNLOAD_FAILURE_KEY,
+    })
   })
 
   it('observing failures leaves the jobs:changed broadcast intact', async () => {
@@ -481,7 +460,7 @@ describe('downloadsModule failure log', () => {
     const id = downloadJob(jobs)
     jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.network' } })
 
-    expect(state.getDownloadFailures()).toEqual([])
+    expect(downloadsState(state).failures.get()).toEqual([])
   })
 
   it('disposeAll releases every job subscription', async () => {
@@ -502,7 +481,7 @@ describe('downloadsModule failure log', () => {
     for (const { jobs, state } of observed) {
       const id = downloadJob(jobs)
       jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.network' } })
-      expect(state.getDownloadFailures()).toEqual([])
+      expect(downloadsState(state).failures.get()).toEqual([])
     }
   })
 
@@ -523,7 +502,7 @@ describe('downloadsModule failure log', () => {
       }),
     )
     expect(typeof dismissed[0]?.dismissedAt).toBe('number')
-    expect(state.getDownloadFailures()[0]?.dismissedAt).toBe(dismissed[0]?.dismissedAt)
+    expect(downloadsState(state).failures.get()[0]?.dismissedAt).toBe(dismissed[0]?.dismissedAt)
 
     const restored = unwrapOk<DownloadFailure[]>(
       await handlers.get(DOWNLOADS_HANDLERS.restoreFailure)!({
@@ -532,7 +511,7 @@ describe('downloadsModule failure log', () => {
     )
     expect(restored).toHaveLength(1)
     expect(restored[0]?.dismissedAt).toBeUndefined()
-    expect(state.getDownloadFailures()[0]?.dismissedAt).toBeUndefined()
+    expect(downloadsState(state).failures.get()[0]?.dismissedAt).toBeUndefined()
   })
 
   /**
@@ -554,7 +533,7 @@ describe('downloadsModule failure log', () => {
 
     jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.installationNotPlayable' } })
 
-    const failures = state.getDownloadFailures()
+    const failures = downloadsState(state).failures.get()
     expect(failures).toHaveLength(1)
     expect(failures[0]?.diagnostics).toMatchObject({
       jobId: id,
@@ -580,7 +559,7 @@ describe('downloadsModule failure log', () => {
 
     jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.network' } })
 
-    const failures = state.getDownloadFailures()
+    const failures = downloadsState(state).failures.get()
     expect(failures).toHaveLength(1)
     expect(failures[0]?.diagnostics).toBeUndefined()
   })
@@ -608,7 +587,7 @@ describe('downloadsModule failure log', () => {
     expect(missing.ok).toBe(false)
     expect(extra.ok).toBe(false)
     if (!empty.ok) expect(empty.error.key).toBe('ipc.error.invalidPayload')
-    expect(state.getDownloadFailures()).toEqual([])
+    expect(downloadsState(state).failures.get()).toEqual([])
   })
 })
 

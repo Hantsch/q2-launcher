@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { configWriteFailuresSchema, parseConfigWriteFailures } from '../../lib/schemas'
+import { configWriteFailuresSchema, parseConfigWriteFailures } from './persisted'
 import {
   actionTextSchema,
   commitProfileCvarsInputSchema,
@@ -162,7 +162,7 @@ describe('setProfileActionsInputSchema', () => {
   /**
    * Story 019: `kind` is required here and nowhere defaulted. A renderer payload is never trusted,
    * and guessing a missing kind would silently retype the entry - the forgiving derive belongs to
-   * the persisted schema (`main/lib/schemas.test.ts`), whose input is an old file, not a caller.
+   * the persisted schema (`main/modules/config/persisted.test.ts`), whose input is an old file, not a caller.
    */
   it('rejects an action row with no kind at all', () => {
     const { kind: _kind, ...action } = validPayload.actions[0]!
@@ -462,7 +462,7 @@ describe('setProfileActionsInputSchema - toggle/press-release parts, wait comman
  * Story 050: `keys` replaces the old fixed `key`/`secondaryKey`/`keyModifier`/
  * `secondaryKeyModifier` fields, with arbitrary length rather than the previous two-slot cap.
  * `normalizeActionKeys` also still accepts the legacy shape here, not just in the persisted
- * schema (`main/lib/schemas.test.ts`), so a caller that has not yet moved to `keys` still gets a
+ * schema (`main/modules/config/persisted.test.ts`), so a caller that has not yet moved to `keys` still gets a
  * valid payload rather than a thrown error.
  */
 describe('configActionSchema - keys (story 050)', () => {
@@ -558,7 +558,7 @@ describe('writeProfileInputSchema (story 079 D8)', () => {
  * Story 022 (D5): the persisted map of write failures survived across a restart -
  * `<profileId>|<installationId|'own'>` -> the last failed/deferred write attempt. No engine logic
  * yet, just the round-trip and the forgiving-on-bad-data behavior described in
- * `main/lib/schemas.ts`'s doc comment on `configWriteFailuresSchema`.
+ * `main/modules/config/persisted.ts`'s doc comment on `configWriteFailuresSchema`.
  */
 describe('configWriteFailuresSchema / parseConfigWriteFailures', () => {
   it('round-trips a well-formed map unchanged', () => {

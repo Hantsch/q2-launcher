@@ -22,6 +22,7 @@ import {
   useConfigTestDir,
   userDataBox,
 } from './index.test-helpers'
+import { seedConfigProfiles } from '../../../test-support/config-state'
 
 vi.mock('electron', async () => {
   const h = await import('./index.test-helpers')
@@ -168,7 +169,7 @@ describe('CONFIG_HANDLERS.preview handler', () => {
       } as unknown as AppContext,
       log,
     })
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     return handlers.get(CONFIG_HANDLERS.preview)!
   }
@@ -227,7 +228,7 @@ describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
       } as unknown as AppContext,
       log,
     })
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
 
     const category = { id: 'movement', name: 'Movement' }

@@ -51,6 +51,7 @@ import { computeEngineUpdateStatus } from './engine/update-status'
 import { startEngineUpdate, type EngineUpdateDeps } from './engine/update-job'
 import { startEngineRollback, type EngineRollbackDeps } from './engine/rollback-job'
 import { readEngineState, type InstallationEngineState } from './engine/installation-state'
+import { setEngineState, withEngineState } from './engine/record-engine-state'
 import { appendFailure, dismissFailure, restoreFailure } from './failure-log'
 import { PRODUCTION_DOWNLOAD_SOURCE, resolveDownloadSource } from './harness'
 import { ManifestService, ManifestUnavailableError } from './manifest-service'
@@ -84,6 +85,7 @@ import {
   startRepairInputSchema,
   startRetailUpgradeInputSchema,
 } from './schemas'
+import { downloadsState } from './persisted'
 
 /** `DownloadsSettings.archiveCacheBudgetGB` is denominated in GB; `cache.ts` wants bytes. One
  * place to do that conversion, so it cannot happen differently in two call sites. */
@@ -109,6 +111,7 @@ export const downloadsModule: MainModule = {
   id: 'downloads',
 
   setup({ handle, app, log, onDispose }) {
+    const persisted = downloadsState(app.state)
     // Story 074 D8: resolved exactly once, here, and then only ever passed around as a value -
     // see `harness.ts`. Without `Q2L_UI_HARNESS=1` (which a real shipped build never sets, and
     // which is not reachable from its UI) this is `PRODUCTION_DOWNLOAD_SOURCE`, and no later
@@ -381,7 +384,7 @@ export const downloadsModule: MainModule = {
           return fail('downloads.error.bleedingEdgeUnsupported')
         }
 
-        const updated = app.installations.setEngineState(installationId, { bleedingEdge: enabled })
+        const updated = setEngineState(app.installations, installationId, { bleedingEdge: enabled })
         if (!updated.ok) return updated
         return ok(undefined)
       },
@@ -437,7 +440,7 @@ export const downloadsModule: MainModule = {
 
     // Story 072 D4: reads the persisted settings verbatim - no failure mode of its own.
     handle(DOWNLOADS_HANDLERS.getSettings, downloadsNoInputSchema, () =>
-      ok(app.state.getDownloadsSettings()),
+      ok(persisted.settings.get()),
     )
 
     /**
@@ -455,9 +458,9 @@ export const downloadsModule: MainModule = {
      * settings themselves were already persisted successfully, and the next lower/clear retries it.
      */
     handle(DOWNLOADS_HANDLERS.patchSettings, patchDownloadsSettingsInputSchema, async (patch) => {
-      const previous = app.state.getDownloadsSettings()
+      const previous = persisted.settings.get()
       const merged: DownloadsSettings = { ...previous, ...patch }
-      app.state.setDownloadsSettings(merged)
+      persisted.settings.update(() => merged)
 
       if (
         patch.archiveCacheBudgetGB !== undefined &&
@@ -492,22 +495,20 @@ export const downloadsModule: MainModule = {
     )
 
     // Story 073 D2 (AC2): the failure log. All three handlers read through
-    // `state.getDownloadFailures()`, which prunes on the way out, and write through
-    // `state.setDownloadFailures()`, which prunes again on the way in - so retention is applied
+    // `persisted.failures.get()`, which prunes on the way out, and write through
+    // `persisted.failures.update()`, which prunes again on the way in - so retention is applied
     // whichever of them a call goes through, and none of them re-implements it.
-    handle(DOWNLOADS_HANDLERS.failures, downloadsNoInputSchema, () =>
-      ok(app.state.getDownloadFailures()),
-    )
+    handle(DOWNLOADS_HANDLERS.failures, downloadsNoInputSchema, () => ok(persisted.failures.get()))
 
     // Both mutating handlers answer the *new* list rather than nothing, so the renderer's dismiss/
     // restore call is also its refetch - one round trip, and no window in which the tab shows a
     // list main has already moved past.
     handle(DOWNLOADS_HANDLERS.dismissFailure, dismissFailureInputSchema, ({ id }) =>
-      ok(app.state.setDownloadFailures(dismissFailure(app.state.getDownloadFailures(), id))),
+      ok(persisted.failures.update((live) => dismissFailure(live, id))),
     )
 
     handle(DOWNLOADS_HANDLERS.restoreFailure, restoreFailureInputSchema, ({ id }) =>
-      ok(app.state.setDownloadFailures(restoreFailure(app.state.getDownloadFailures(), id))),
+      ok(persisted.failures.update((live) => restoreFailure(live, id))),
     )
 
     log.debug('downloads module ready')
@@ -564,9 +565,7 @@ function observeFailedJobs(app: AppContext, log: Logger): () => void {
         recorded.add(job.id)
 
         try {
-          app.state.setDownloadFailures(
-            appendFailure(app.state.getDownloadFailures(), failureFor(job)),
-          )
+          downloadsState(app.state).failures.update((live) => appendFailure(live, failureFor(job)))
         } catch (error) {
           log.error(`failed to record the failure of job ${job.id}`, error)
         }
@@ -678,7 +677,7 @@ function createPipelineFor(app: AppContext, log?: PipelineLog): DownloadPipeline
   const pipeline = createDownloadPipeline({
     getJobs: () => app.jobs,
     getUserDataPath: () => userDataDir(),
-    getConcurrency: () => app.state.getDownloadsSettings().concurrentJobs,
+    getConcurrency: () => downloadsState(app.state).settings.get().concurrentJobs,
     // Resolved per extraction, and deliberately with the real `electron.app` rather than an
     // injected value: this is the production wiring, and `7za-path.ts` already takes its inputs
     // as parameters so that its own tests need no Electron runtime.
@@ -711,7 +710,7 @@ function bootstrapDepsFor(
 ): BootstrapDeps {
   return {
     jobs: app.jobs,
-    installations: app.installations,
+    installations: withEngineState(app.installations),
     // Story 091 D6: the shell's real write guard, wrapped around the job's two assemble passes.
     writeGuard: app.writeGuard,
     manifest: manifestSourceFrom(manifestService, log),
@@ -833,7 +832,7 @@ function engineUpdateDepsFor(
 ): EngineUpdateDeps {
   return {
     jobs: app.jobs,
-    installations: app.installations,
+    installations: withEngineState(app.installations),
     writeGuard: app.writeGuard,
     manifest: manifestSourceFrom(manifestService, log),
     extractor: realExtractor,
@@ -860,7 +859,7 @@ function engineUpdateDepsFor(
 function engineRollbackDepsFor(app: AppContext, log: Logger): EngineRollbackDeps {
   return {
     jobs: app.jobs,
-    installations: app.installations,
+    installations: withEngineState(app.installations),
     writeGuard: app.writeGuard,
     log,
   }

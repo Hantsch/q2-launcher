@@ -303,3 +303,4 @@ second roadmap.
 - 204 — the module bus returns one Outcome envelope and every error key resolves · S32 · handlers return Outcome, registry passes it through, flatteners removed; mods error keys closed and an error-keys test proves main's keys resolve
 - 206 — a refusal is one shape with a full i18n key and one toast path · S32 · servers/replays results are DomainResults with full keys, one toast helper, refusal keys proven to resolve
 - 205 — module handlers are typed from a contract and every declared handler is live · S32 · defineModule/createModuleClient typed seam, home+servers converted, dead handlers removed, bus-wide coverage tests; config/downloads/mods/replays/library are follow-ups
+- 207 — modules own their persisted state · S32 · StateStore.section() + per-module persisted.ts/persisted-migrations.ts, shell no longer imports modules, lib/schemas.ts 165 lines, golden state test + layering test

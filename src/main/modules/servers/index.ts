@@ -25,6 +25,7 @@ import { addFavourite, removeFavourite } from './favourites'
 import { readServerHistory, recordServerVisit } from './history-log'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
 import { discoverLanServers } from './lan-discovery'
+import { serversState } from './persisted'
 import { createScanCadence } from './scan-cadence'
 import { createScanService, type ScanService } from './scan-service'
 import { createRegexHost } from './watchlist-regex-host'
@@ -56,11 +57,12 @@ export const serversModule: MainModule = {
 
   setup(setup) {
     const { app, log, onDispose } = setup
+    const servers = serversState(app.state)
     const { handle, emit } = defineModule<ServersContract>(
       'servers',
       SERVERS_CONTRACT_SCHEMAS,
     ).bind(setup)
-    // Reads `app.state.serversState()` live at call time, never a snapshot captured here - sources/
+    // Reads `servers.get()` live at call time, never a snapshot captured here - sources/
     // favourites/manual servers can be mutated by the handlers below in between two scans.
     // Story 116 D3: both halves take `app.launch` (structurally a `LaunchHost`) and each reads it
     // live at decision time, so neither depends on the other's `onStateChange` listener running
@@ -86,9 +88,9 @@ export const serversModule: MainModule = {
       }
 
       watchlistService = createWatchlistService({
-        getEntries: () => app.state.serversState().watchlist,
+        getEntries: () => servers.get().watchlist,
         setEntries: (list: WatchlistEntry[]) => {
-          app.state.updateSlice('servers', (s) => ({ ...s, watchlist: list }))
+          servers.update((s) => ({ ...s, watchlist: list }))
         },
         getKnownServers: () => scanServiceRef.current!.read('online').entries,
         scanService: watchlistScanHost,
@@ -100,7 +102,7 @@ export const serversModule: MainModule = {
     }
 
     const scanService = createScanService({
-      getServersState: () => app.state.serversState(),
+      getServersState: () => servers.get(),
       emit,
       launch: app.launch,
       onStage2Row: watchlistService?.onStage2Row,
@@ -121,7 +123,7 @@ export const serversModule: MainModule = {
     scanServiceRef.current = scanService
 
     const scanCadence = createScanCadence({
-      getServersState: () => app.state.serversState(),
+      getServersState: () => servers.get(),
       scanService,
       launch: app.launch,
       onError: (error) => log.warn('automatic scan trigger failed', error),
@@ -165,9 +167,9 @@ export const serversModule: MainModule = {
      * `scanPatchSettingsInputSchema` already rejects them at the registry (per-field choice-list
      * `.refine()`), so there is nothing left for this handler itself to validate.
      */
-    handle(SERVERS_HANDLERS.scanGetSettings, () => ok(app.state.serversState().scan))
+    handle(SERVERS_HANDLERS.scanGetSettings, () => ok(servers.get().scan))
     handle(SERVERS_HANDLERS.scanPatchSettings, (patch) => {
-      const persisted = app.state.updateSlice('servers', (live) => ({
+      const persisted = servers.update((live) => ({
         ...live,
         scan: { ...live.scan, ...patch },
       })).scan
@@ -197,7 +199,7 @@ export const serversModule: MainModule = {
      */
     const mutate = (op: (sources: MasterSource[]) => MasterSourcesResult): MasterSourcesResult => {
       let result: MasterSourcesResult | undefined
-      const persisted = app.state.updateSlice('servers', (live) => {
+      const persisted = servers.update((live) => {
         result = op(live.sources)
         return result.ok ? { ...live, sources: result.sources } : live
       })
@@ -205,7 +207,7 @@ export const serversModule: MainModule = {
       return { ok: true, sources: persisted.sources }
     }
 
-    handle(SERVERS_HANDLERS.sourcesList, () => ok(app.state.serversState().sources))
+    handle(SERVERS_HANDLERS.sourcesList, () => ok(servers.get().sources))
     handle(SERVERS_HANDLERS.sourcesAdd, (payload) =>
       ok(mutate((sources) => addSource(sources, payload))),
     )
@@ -229,7 +231,7 @@ export const serversModule: MainModule = {
      */
     handle(SERVERS_HANDLERS.favouritesAdd, (address) => {
       return ok(
-        app.state.updateSlice('servers', (live) => ({
+        servers.update((live) => ({
           ...live,
           favourites: addFavourite(live, address),
         })).favourites,
@@ -237,7 +239,7 @@ export const serversModule: MainModule = {
     })
     handle(SERVERS_HANDLERS.favouritesRemove, (address) => {
       return ok(
-        app.state.updateSlice('servers', (live) => ({
+        servers.update((live) => ({
           ...live,
           favourites: removeFavourite(live, address),
         })).favourites,
@@ -248,9 +250,7 @@ export const serversModule: MainModule = {
      * `history.read` is read-only on purpose: there is no `history.record` channel, because only
      * main appends to the history (the `app.launch.onStateChange` subscription below).
      */
-    handle(SERVERS_HANDLERS.historyRead, () =>
-      ok(readServerHistory(app.state.serversState().history)),
-    )
+    handle(SERVERS_HANDLERS.historyRead, () => ok(readServerHistory(servers.get().history)))
 
     /**
      * Story 125 D3: a successful join records one history visit. `state.connect` is only set once a
@@ -265,7 +265,7 @@ export const serversModule: MainModule = {
     const unsubscribeHistory = app.launch.onStateChange((state) => {
       if (state.phase !== 'running' || !state.connect) return
       const connect = state.connect
-      app.state.updateSlice('servers', (live) => ({
+      servers.update((live) => ({
         ...live,
         history: recordServerVisit(live.history, {
           address: connect,
@@ -284,12 +284,9 @@ export const serversModule: MainModule = {
      * cleared sort is an absent key on disk, not a present `null`/`undefined` one. What's returned is
      * what `updateSlice` actually persisted (`?? null`), not the local candidate.
      */
-    handle(SERVERS_HANDLERS.listGetSort, () => ok(app.state.serversState().listSort ?? null))
+    handle(SERVERS_HANDLERS.listGetSort, () => ok(servers.get().listSort ?? null))
     handle(SERVERS_HANDLERS.listSetSort, (payload) => {
-      return ok(
-        app.state.updateSlice('servers', (live) => setOrClearListSort(live, payload.sort))
-          .listSort ?? null,
-      )
+      return ok(servers.update((live) => setOrClearListSort(live, payload.sort)).listSort ?? null)
     })
 
     /**
@@ -301,14 +298,14 @@ export const serversModule: MainModule = {
       run: (list: readonly QuickFilter[]) => QuickFilterMutationResult,
     ): QuickFiltersResult => {
       let result: QuickFilterMutationResult | undefined
-      const persisted = app.state.updateSlice('servers', (live) => {
+      const persisted = servers.update((live) => {
         result = run(live.quickFilters)
         return result.ok ? { ...live, quickFilters: result.list } : live
       })
       if (!result || !result.ok) return result as QuickFiltersResult
       return { ok: true, list: persisted.quickFilters }
     }
-    handle(SERVERS_HANDLERS.quickFiltersList, () => ok(app.state.serversState().quickFilters))
+    handle(SERVERS_HANDLERS.quickFiltersList, () => ok(servers.get().quickFilters))
     handle(SERVERS_HANDLERS.quickFiltersSave, (payload) =>
       ok(mutateQuickFilters((list) => saveQuickFilter(list, payload))),
     )

@@ -23,6 +23,8 @@ import {
   useConfigTestDir,
   userDataBox,
 } from './index.test-helpers'
+import { configState } from './persisted'
+import { seedConfigProfiles } from '../../../test-support/config-state'
 
 /**
  * Story 043 D5: `readFileState` is wrapped (delegating to the real implementation by default) so
@@ -85,10 +87,10 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
 
   it('reports unchanged and leaves state.json untouched when the file matches the cached hash', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
-    const before = state.configProfiles()[0]!
+    const before = configState(state).profiles.get()[0]!
 
     const result = await refresh(handlers, 'p1')
 
@@ -97,12 +99,12 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
       { profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' },
     ])
     // Nothing in state.json changed - not even a re-stamped `fileSeenAt`.
-    expect(state.configProfiles()[0]).toEqual(before)
+    expect(configState(state).profiles.get()[0]).toEqual(before)
   })
 
   it('adopts a hand-edit (cvar value and header display name) when the profile carries no unsaved edits', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
     const path = join(userDataBox.current, 'Profile.cfg')
@@ -130,7 +132,7 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
     expect(entry.profile.fileHash).toBe(newHash)
 
     // The store itself was updated, not just the response.
-    const stored = state.configProfiles()[0]!
+    const stored = configState(state).profiles.get()[0]!
     expect(stored.id).toBe('p1')
     expect(stored.assignments).toEqual([])
     expect(stored.cvars['sensitivity']).toBe('5')
@@ -142,12 +144,12 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
 
   it('reports a conflict and adopts nothing when the file changed on disk while the profile carries unsaved edits', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
     // An unsaved UI edit - marks the profile dirty without writing the file.
     await handlers.get(CONFIG_HANDLERS.setCvars)!({ profileId: 'p1', cvars: { sensitivity: '7' } })
-    const before = state.configProfiles()[0]!
+    const before = configState(state).profiles.get()[0]!
     expect(before.dirty).toBe(true)
 
     const path = join(userDataBox.current, 'Profile.cfg')
@@ -168,12 +170,12 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
     expect(entry.conflict.ourContent).toBe(renderProfileFile(before))
 
     // Nothing about the cached profile was touched - byte-identical to before the call.
-    expect(state.configProfiles()[0]).toEqual(before)
+    expect(configState(state).profiles.get()[0]).toEqual(before)
   })
 
   it('story 043 D8: discardLocalEdits: true adopts the disk version even though the profile is dirty', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
     // An unsaved UI edit - marks the profile dirty without writing the file.
@@ -200,7 +202,7 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
     expect(entry.profile.fileHash).toBe(newHash)
 
     // The store itself reflects the discard: no longer dirty, disk content adopted.
-    const stored = state.configProfiles()[0]!
+    const stored = configState(state).profiles.get()[0]!
     expect(stored.dirty).toBe(false)
     expect(stored.cvars['sensitivity']).toBe('9')
     expect(stored.fileHash).toBe(newHash)
@@ -208,10 +210,10 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
 
   it('sets fileState: missing and never deletes the record when the file is gone', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
-    const before = state.configProfiles()[0]!
+    const before = configState(state).profiles.get()[0]!
     await rm(join(userDataBox.current, 'Profile.cfg'))
 
     const result = await refresh(handlers, 'p1')
@@ -219,7 +221,7 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
     if (!result.ok) throw new Error('expected refreshFromFiles to succeed')
     expect(result.value).toEqual([{ profileId: 'p1', outcome: 'missing', fileState: 'missing' }])
 
-    const stored = state.configProfiles()[0]!
+    const stored = configState(state).profiles.get()[0]!
     expect(stored.id).toBe('p1')
     expect(stored.fileState).toBe('missing')
     // Untouched: neither dirty nor the hash baseline are disturbed by a missing file.
@@ -230,10 +232,10 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
 
   it('reports the unparseable diagnostic and leaves the cached profile fully usable', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
-    const before = state.configProfiles()[0]!
+    const before = configState(state).profiles.get()[0]!
 
     vi.mocked(readFileState).mockResolvedValueOnce({
       state: 'unparseable',
@@ -258,7 +260,7 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
 
     // The last good cache stays exactly as usable as it was: same content, still listed, still
     // renderable - only the display hint changed.
-    const stored = state.configProfiles()[0]!
+    const stored = configState(state).profiles.get()[0]!
     expect(stored.cvars).toEqual(before.cvars)
     expect(stored.dirty).toBe(before.dirty)
     expect(stored.fileHash).toBe(before.fileHash)
@@ -270,10 +272,10 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
 
   it('reports readError conservatively, touching nothing about the cached profile but the hint', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([profile({ assignments: [] })])
+    seedConfigProfiles(state, [profile({ assignments: [] })])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
-    const before = state.configProfiles()[0]!
+    const before = configState(state).profiles.get()[0]!
 
     vi.mocked(readFileState).mockResolvedValueOnce({
       state: 'readError',
@@ -291,7 +293,7 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
         message: 'EACCES (contrived for this test)',
       },
     ])
-    const stored = state.configProfiles()[0]!
+    const stored = configState(state).profiles.get()[0]!
     expect(stored.cvars).toEqual(before.cvars)
     expect(stored.dirty).toBe(before.dirty)
     expect(stored.fileHash).toBe(before.fileHash)
@@ -300,7 +302,7 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
 
   it('checks only the given profile when profileId is passed, and every profile when it is omitted', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([
+    seedConfigProfiles(state, [
       profile({ id: 'p1', name: 'One', assignments: [] }),
       profile({ id: 'p2', name: 'Two', cvars: { sensitivity: '4' }, assignments: [] }),
     ])
@@ -334,7 +336,7 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
   it('refreshFromFiles cascades the adopted file', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
     const path = join(userDataBox.current, 'Profile.cfg')
@@ -362,7 +364,7 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
   it('taking the file in a conflict cascades it', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([profile()])
+    seedConfigProfiles(state, [profile()])
     await state.settle()
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
     // An unsaved UI edit - marks the profile dirty without writing the file.

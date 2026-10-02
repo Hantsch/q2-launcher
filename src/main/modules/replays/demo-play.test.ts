@@ -18,6 +18,7 @@ import {
 import type { PlaybackControl } from './playback-control'
 import type { StageAvailability } from './stage'
 import { LAUNCHER_DIR_NAME } from './demo-staging'
+import { replaysState } from './persisted'
 
 /**
  * Story 159 D2: `demo.play` in main. Real temp folders on disk (containment is a realpath question,
@@ -260,12 +261,12 @@ describe('demo.play with a trusted mod (story 182 D1)', () => {
     const stateFile = join(tmp, 'trusted-state.json')
     const store = new StateStore(stateFile)
     await store.load()
-    store.updateSlice('replays', (live) => ({
+    replaysState(store).update((live) => ({
       ...live,
       modWarning: { enabled: false, trustedMods: ['opentdm'] },
     }))
     await store.settle()
-    expect(store.replaysState().modWarning.trustedMods).toEqual(['opentdm'])
+    expect(replaysState(store).get().modWarning.trustedMods).toEqual(['opentdm'])
 
     await mkdir(join(q2proRoot, 'opentdm', 'demos'), { recursive: true })
     await writeFile(join(q2proRoot, 'opentdm', 'demos', 'o.dm2'), 'demo')

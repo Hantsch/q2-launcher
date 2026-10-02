@@ -246,3 +246,39 @@
 - 2026-10-02 14:07:15 · 205 · review 1 · started
 - 2026-10-02 14:08:38 · 205 · review 1 · done
 - 2026-10-02 14:09:19 · 205 · story · done
+- 2026-10-02 14:09:30 · 207 · build · started
+- 2026-10-02 14:09:52 · 207 · D1 golden characterization test · started
+- 2026-10-02 14:11:37 · 207 · D1 golden characterization test · done
+- 2026-10-02 14:11:37 · 207 · D2 news-image paths + zip test move · started
+- 2026-10-02 14:12:31 · 207 · D2 news-image paths + zip test move · done
+- 2026-10-02 14:12:31 · 207 · D3 setEngineState to downloads · started
+- 2026-10-02 14:13:51 · 207 · D3 setEngineState to downloads · done
+- 2026-10-02 14:13:51 · 207 · D4 StateStore.section (hard) · started
+- 2026-10-02 14:18:46 · 207 · D4 StateStore.section (hard) · done
+- 2026-10-02 14:18:46 · 207 · D5 downloads persisted · started
+- 2026-10-02 14:21:26 · 207 · D5 downloads persisted · done
+- 2026-10-02 14:21:26 · 207 · D6 home persisted · started
+- 2026-10-02 14:23:30 · 207 · D6 home persisted · done
+- 2026-10-02 14:23:30 · 207 · D7 unlock persisted · started
+- 2026-10-02 14:25:02 · 207 · D7 unlock persisted · done
+- 2026-10-02 14:25:02 · 207 · D8 servers persisted · started
+- 2026-10-02 14:27:57 · 207 · D8 servers persisted · done
+- 2026-10-02 14:27:57 · 207 · D9 replays persisted · started
+- 2026-10-02 14:31:23 · 207 · D9 replays persisted · done
+- 2026-10-02 14:31:24 · 207 · D10a config schema move · started
+- 2026-10-02 14:32:48 · 207 · D10a config schema move · done
+- 2026-10-02 14:32:48 · 207 · D10b config sections · started
+- 2026-10-02 14:37:28 · 207 · D10b config sections · done
+- 2026-10-02 14:37:28 · 207 · D11 config migrations move · started
+- 2026-10-02 14:39:39 · 207 · D11 config migrations move · done
+- 2026-10-02 14:39:39 · 207 · D12 docs + layering gate · started
+- 2026-10-02 14:41:11 · 207 · D12 docs + layering gate · done
+- 2026-10-02 14:41:11 · 207 · verify · started
+- 2026-10-02 14:45:47 · 207 · verify · done
+- 2026-10-02 14:45:47 · 207 · review 1 · started
+- 2026-10-02 14:47:48 · 207 · review 1 · done
+- 2026-10-02 14:47:48 · 207 · review fix 1 · started
+- 2026-10-02 14:49:29 · 207 · review fix 1 · done
+- 2026-10-02 14:49:29 · 207 · review 2 · started
+- 2026-10-02 14:50:11 · 207 · review 2 · done
+- 2026-10-02 14:50:29 · 207 · story · done

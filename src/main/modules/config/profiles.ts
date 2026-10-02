@@ -22,7 +22,7 @@ import {
   type UnrecognizedConfigLine,
 } from '@shared/modules/config'
 import type { AltLayer } from '@shared/config/alt-layers'
-import type { StateStore } from '../../services/state'
+import type { StateSection, StateStore } from '../../services/state'
 import { applyActionBindMirror } from '@shared/config/action-mirror'
 import { adoptRawBinds } from '@shared/config/bind-adoption'
 import { stripCatalogDefaults } from '@shared/config/cvar-defaults'
@@ -34,6 +34,7 @@ import {
   setDefault as setDefaultProfile,
   reconcileAssignments,
 } from './assignments'
+import { configState } from './persisted'
 
 /**
  * CRUD over config profiles.
@@ -46,18 +47,18 @@ import {
  * functions).
  */
 export class ProfilesStore {
-  private readonly state: StateStore
+  private readonly profiles: StateSection<ConfigProfile[]>
 
   constructor(state: StateStore) {
-    this.state = state
+    this.profiles = configState(state).profiles
   }
 
   list(): ConfigProfile[] {
-    return this.state.configProfiles()
+    return this.profiles.get()
   }
 
   find(id: string): ConfigProfile | undefined {
-    return this.state.configProfiles().find((profile) => profile.id === id)
+    return this.profiles.get().find((profile) => profile.id === id)
   }
 
   create(input: CreateConfigProfileInput): ConfigProfile[] {
@@ -111,7 +112,7 @@ export class ProfilesStore {
       assignments: [],
     }
 
-    return this.commit([...this.state.configProfiles(), profile])
+    return this.commit([...this.profiles.get(), profile])
   }
 
   /**
@@ -163,7 +164,7 @@ export class ProfilesStore {
       cvarSections: input.cvarSections,
     }
 
-    return this.commit([...this.state.configProfiles(), profile])
+    return this.commit([...this.profiles.get(), profile])
   }
 
   /**
@@ -189,7 +190,7 @@ export class ProfilesStore {
     // Story 049 D1: a rebuild reads the file and seeds `fileHash` from it, so it is one of the
     // points the baseline is seeded at too - see `seedBaseline` for why the seeding happens here,
     // after the adoption pass, rather than inside `rebuild.ts#buildRebuiltProfile` next to the hash.
-    return this.commit([...this.state.configProfiles(), this.seedBaseline(profile)])
+    return this.commit([...this.profiles.get(), this.seedBaseline(profile)])
   }
 
   rename(input: RenameConfigProfileInput): ConfigProfile[] {
@@ -201,14 +202,14 @@ export class ProfilesStore {
       name: input.name,
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   remove(input: RemoveConfigProfileInput): ConfigProfile[] {
     const current = this.find(input.id)
     if (!current) throw new Error(`config profile not found: ${input.id}`)
 
-    return this.commit(this.state.configProfiles().filter((p) => p.id !== input.id))
+    return this.commit(this.profiles.get().filter((p) => p.id !== input.id))
   }
 
   assign(input: AssignProfileInput): ConfigProfile[] {
@@ -245,7 +246,7 @@ export class ProfilesStore {
       ...(input.cvarSections !== undefined ? { cvarSections: input.cvarSections } : {}),
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -261,7 +262,7 @@ export class ProfilesStore {
       binds: { ...input.binds },
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -305,7 +306,7 @@ export class ProfilesStore {
       ),
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -390,7 +391,7 @@ export class ProfilesStore {
       ),
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -408,7 +409,7 @@ export class ProfilesStore {
       writeUnbindall: input.writeUnbindall,
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -425,7 +426,7 @@ export class ProfilesStore {
       writeCatalogDefaults: input.writeCatalogDefaults,
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -442,7 +443,7 @@ export class ProfilesStore {
       sectionHeaderStyle: input.sectionHeaderStyle,
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -510,7 +511,7 @@ export class ProfilesStore {
     }
     return {
       outcome: 'discarded',
-      profiles: this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p))),
+      profiles: this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p))),
     }
   }
 
@@ -528,7 +529,7 @@ export class ProfilesStore {
     if (!current) throw new Error(`config profile not found: ${profileId}`)
 
     const next: ConfigProfile = { ...current, dirty }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -559,7 +560,7 @@ export class ProfilesStore {
       fileState: 'unchanged',
     }
     return this.commit(
-      this.state.configProfiles().map((p) => (p.id === next.id ? this.seedBaseline(next) : p)),
+      this.profiles.get().map((p) => (p.id === next.id ? this.seedBaseline(next) : p)),
     )
   }
 
@@ -608,7 +609,7 @@ export class ProfilesStore {
       fileState: 'unchanged',
       updatedAt: new Date().toISOString(),
     }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -630,7 +631,7 @@ export class ProfilesStore {
     if (!current) throw new Error(`config profile not found: ${profileId}`)
 
     const next: ConfigProfile = { ...current, fileState }
-    return this.commit(this.state.configProfiles().map((p) => (p.id === next.id ? next : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === next.id ? next : p)))
   }
 
   /**
@@ -710,7 +711,7 @@ export class ProfilesStore {
     // change. Captured from `next`, i.e. from the *stripped* cvars and the adopted fields as they
     // are about to be stored - never from `fields` as read.
     return this.commit(
-      this.state.configProfiles().map((p) => (p.id === next.id ? this.seedBaseline(next) : p)),
+      this.profiles.get().map((p) => (p.id === next.id ? this.seedBaseline(next) : p)),
     )
   }
 
@@ -734,7 +735,7 @@ export class ProfilesStore {
    */
   replaceProfile(profile: ConfigProfile): ConfigProfile[] {
     if (!this.find(profile.id)) throw new Error(`config profile not found: ${profile.id}`)
-    return this.commit(this.state.configProfiles().map((p) => (p.id === profile.id ? profile : p)))
+    return this.commit(this.profiles.get().map((p) => (p.id === profile.id ? profile : p)))
   }
 
   reconcile(knownInstallationIds: string[]): ConfigProfile[] {
@@ -761,7 +762,7 @@ export class ProfilesStore {
    * is a re-encoding of what the profile already said, not a user edit.
    */
   private commit(profiles: ConfigProfile[]): ConfigProfile[] {
-    return this.state.setConfigProfiles(profiles.map((profile) => adoptProfileBinds(profile)))
+    return this.profiles.update(() => profiles.map((profile) => adoptProfileBinds(profile)))
   }
 
   /**

@@ -23,6 +23,7 @@ import {
 } from './import'
 import { PickedFilesRegistry } from './picked-files'
 import { renderLoaderFile, renderProfileFile } from './render'
+import { configState } from './persisted'
 
 /**
  * Story 005 D3 / story 066 D5: the handler logic in `import.ts`, tested directly against a
@@ -524,7 +525,7 @@ describe('story 066 D5: import from picked files', () => {
     })) as { ok: boolean; value: ConfigProfile[] }
     expect(commit.ok).toBe(true)
     expect(commit.value.map((profile) => profile.name)).toEqual(['No selection'])
-    expect(state.configProfiles()[0]!.cvars).toEqual({ sensitivity: '3' })
+    expect(configState(state).profiles.get()[0]!.cvars).toEqual({ sensitivity: '3' })
   })
 
   it('preview and commit work on an empty installation list', async () => {
@@ -556,7 +557,7 @@ describe('story 066 D5: import from picked files', () => {
     expect(commit.ok).toBe(true)
     expect(commit.value).toHaveLength(1)
     expect(commit.value[0]!.assignments).toEqual([])
-    expect(state.configProfiles()).toHaveLength(1)
+    expect(configState(state).profiles.get()).toHaveLength(1)
   })
 
   /**
@@ -605,7 +606,7 @@ describe('story 066 D5: import from picked files', () => {
     }
 
     expect(preview.ok).toBe(true)
-    expect(state.configProfiles()).toEqual([])
+    expect(configState(state).profiles.get()).toEqual([])
     // The picked file itself is byte-identical, and no sibling was created next to it.
     expect(await readFile(join(root, 'picked', 'dm.cfg'), 'latin1')).toBe(sourceBefore)
     expect(await readdir(join(root, 'picked'))).toEqual(['dm.cfg'])
@@ -618,7 +619,7 @@ describe('story 066 D5: import from picked files', () => {
       ok: boolean
     }
     expect(commit.ok).toBe(true)
-    expect(state.configProfiles()).toHaveLength(1)
+    expect(configState(state).profiles.get()).toHaveLength(1)
   })
 
   /**

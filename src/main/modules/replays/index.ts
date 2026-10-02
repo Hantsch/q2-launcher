@@ -61,6 +61,7 @@ import { createPlaybackTimeline } from './playback-timeline'
 import { createPlaybackConsole } from './playback-console'
 import { createPlaybackStop } from './playback-stop'
 import { createPlaybackSessions } from './playback-sessions'
+import { replaysState } from './persisted'
 import { createReplaysScanService, nameMatcherFor, readDemoFacts } from './scan-service'
 import { SESSION_CVARS_PENDING_FILE, createCvarRestore } from './session-cvar-restore'
 import { createSidecarStore } from './sidecar-store'
@@ -188,7 +189,7 @@ export const replaysModule: MainModule = {
       discover: () =>
         discoverDemos(
           app.installations.list(),
-          app.state.replaysState().extraFolders,
+          replaysState(app.state).get().extraFolders,
           discoveryContext(),
         ),
       parse: readDemoFacts,
@@ -425,8 +426,12 @@ export const replaysModule: MainModule = {
       onStageSession: (start) => stageFollow.begin(start),
     })
 
-    handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, async () => ok(await scanService.overview()))
-    handle(REPLAYS_HANDLERS.scanStart, replaysNoInputSchema, async () => ok(await scanService.start()))
+    handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, async () =>
+      ok(await scanService.overview()),
+    )
+    handle(REPLAYS_HANDLERS.scanStart, replaysNoInputSchema, async () =>
+      ok(await scanService.start()),
+    )
     // `index.read` answers composed rows - each demo plus its sidecar and resolved effective
     // values. A failed sidecar read (the store's own `Outcome` came back `ok: false`) becomes a
     // `null` sidecar input, same as an archive entry or an id the index doesn't know about.
@@ -515,17 +520,15 @@ export const replaysModule: MainModule = {
     // Story 142 D2: the `extraFolders.*` handlers. Every write runs on the live slice inside
     // `updateSlice`; a refusal returns the live slice unchanged (nothing persisted), and what comes
     // back is what `updateSlice` actually stored, not the local candidate.
-    handle(
-      REPLAYS_HANDLERS.extraFoldersList,
-      replaysNoInputSchema,
-      () => ok(app.state.replaysState().extraFolders),
+    handle(REPLAYS_HANDLERS.extraFoldersList, replaysNoInputSchema, () =>
+      ok(replaysState(app.state).get().extraFolders),
     )
     handle(REPLAYS_HANDLERS.extraFoldersAdd, extraFoldersAddSchema, async (payload) => {
       // The awaits come first: the dedupe below must see the list as it is when it writes.
       const resolved = await resolveExtraFolder(payload.path)
       if (!resolved.ok) return ok<ExtraFoldersResult>(resolved)
       let result: ExtraFoldersResult | undefined
-      const persisted = app.state.updateSlice('replays', (live) => {
+      const persisted = replaysState(app.state).update((live) => {
         result = appendExtraFolder(
           live.extraFolders,
           resolved.canonical,
@@ -538,7 +541,7 @@ export const replaysModule: MainModule = {
       return ok({ ok: true, folders: persisted.extraFolders } as ExtraFoldersResult)
     })
     handle(REPLAYS_HANDLERS.extraFoldersRemove, extraFoldersRemoveSchema, (payload) => {
-      const persisted = app.state.updateSlice('replays', (live) => ({
+      const persisted = replaysState(app.state).update((live) => ({
         ...live,
         extraFolders: removeExtraFolder(live.extraFolders, payload.id),
       }))
@@ -553,19 +556,14 @@ export const replaysModule: MainModule = {
      * (`setOrClearListSort`), so a cleared sort is an absent key on disk, not a present
      * `null`/`undefined` one. What's returned is what `updateSlice` actually stored (`?? null`).
      */
-    handle(
-      REPLAYS_HANDLERS.listGetSort,
-      listGetSortInputSchema,
-      () => ok(app.state.replaysState().listSort ?? null),
+    handle(REPLAYS_HANDLERS.listGetSort, listGetSortInputSchema, () =>
+      ok(replaysState(app.state).get().listSort ?? null),
     )
-    handle(
-      REPLAYS_HANDLERS.listSetSort,
-      listSetSortInputSchema,
-      (payload) =>
-        ok(
-          app.state.updateSlice('replays', (live) => setOrClearListSort(live, payload.sort))
-            .listSort ?? null,
-        ),
+    handle(REPLAYS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) =>
+      ok(
+        replaysState(app.state).update((live) => setOrClearListSort(live, payload.sort)).listSort ??
+          null,
+      ),
     )
 
     /**
@@ -573,10 +571,8 @@ export const replaysModule: MainModule = {
      * `listGetSort`/`listSetSort` right above. `listFilter` is never absent on `ReplaysState` (unlike
      * `listSort`), so there is no clear-to-null case to model here.
      */
-    handle(
-      REPLAYS_HANDLERS.listGetFilter,
-      listGetFilterInputSchema,
-      () => ok(app.state.replaysState().listFilter ?? EMPTY_DEMO_LIST_FILTER),
+    handle(REPLAYS_HANDLERS.listGetFilter, listGetFilterInputSchema, () =>
+      ok(replaysState(app.state).get().listFilter ?? EMPTY_DEMO_LIST_FILTER),
     )
     handle(REPLAYS_HANDLERS.listSetFilter, listSetFilterInputSchema, (payload) => {
       // Normalizes the same way `parseReplaysState` does on read, so a structurally-valid but
@@ -584,7 +580,7 @@ export const replaysModule: MainModule = {
       // never round-trips through `state.json` un-normalized - paths/payloads from the renderer are
       // never trusted, and this is the write-side half of that same discipline.
       return ok(
-        app.state.updateSlice('replays', (live) => ({
+        replaysState(app.state).update((live) => ({
           ...live,
           listFilter: normalizeDemoListFilter(payload.filter),
         })).listFilter ?? EMPTY_DEMO_LIST_FILTER,
@@ -593,43 +589,35 @@ export const replaysModule: MainModule = {
 
     // Story 182 D1: the `modWarning.*` handlers - same live-slice discipline as `listFilter`;
     // every one returns what `updateSlice` actually stored.
-    handle(
-      REPLAYS_HANDLERS.modWarningRead,
-      modWarningReadInputSchema,
-      () => ok(app.state.replaysState().modWarning),
+    handle(REPLAYS_HANDLERS.modWarningRead, modWarningReadInputSchema, () =>
+      ok(replaysState(app.state).get().modWarning),
     )
-    handle(
-      REPLAYS_HANDLERS.modWarningSetEnabled,
-      modWarningSetEnabledInputSchema,
-      (payload) =>
-        ok(
-          app.state.updateSlice('replays', (live) => ({
-            ...live,
-            modWarning: { ...live.modWarning, enabled: payload.enabled },
-          })).modWarning,
-        ),
+    handle(REPLAYS_HANDLERS.modWarningSetEnabled, modWarningSetEnabledInputSchema, (payload) =>
+      ok(
+        replaysState(app.state).update((live) => ({
+          ...live,
+          modWarning: { ...live.modWarning, enabled: payload.enabled },
+        })).modWarning,
+      ),
     )
     handle(REPLAYS_HANDLERS.modWarningTrustMod, modWarningTrustModInputSchema, (payload) => {
       const dir = payload.gameDir.toLowerCase()
       return ok(
-        app.state.updateSlice('replays', (live) => {
-        const trustedMods = live.modWarning.trustedMods.includes(dir)
-          ? live.modWarning.trustedMods
-          : [...live.modWarning.trustedMods, dir]
-        return { ...live, modWarning: { ...live.modWarning, trustedMods } }
-      }).modWarning,
+        replaysState(app.state).update((live) => {
+          const trustedMods = live.modWarning.trustedMods.includes(dir)
+            ? live.modWarning.trustedMods
+            : [...live.modWarning.trustedMods, dir]
+          return { ...live, modWarning: { ...live.modWarning, trustedMods } }
+        }).modWarning,
       )
     })
-    handle(
-      REPLAYS_HANDLERS.modWarningResetTrusted,
-      modWarningResetTrustedInputSchema,
-      () =>
-        ok(
-          app.state.updateSlice('replays', (live) => ({
-            ...live,
-            modWarning: { ...live.modWarning, trustedMods: [] },
-          })).modWarning,
-        ),
+    handle(REPLAYS_HANDLERS.modWarningResetTrusted, modWarningResetTrustedInputSchema, () =>
+      ok(
+        replaysState(app.state).update((live) => ({
+          ...live,
+          modWarning: { ...live.modWarning, trustedMods: [] },
+        })).modWarning,
+      ),
     )
 
     log.debug('replays module ready')

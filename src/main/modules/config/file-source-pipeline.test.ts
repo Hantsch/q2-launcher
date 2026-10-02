@@ -30,6 +30,8 @@ import type { ModuleHandler, ModuleSetup } from '../types'
 import { hashCanonicalFileContent, readFileState } from './file-source'
 import { renderProfileFile } from './render'
 import { configModule } from './index'
+import { seedConfigProfiles } from '../../../test-support/config-state'
+import { configState } from './persisted'
 
 /**
  * Story 043 D10 - the S07 carry-over rule's adversarial pass, but over the *pipeline* D1-D9 built
@@ -176,11 +178,13 @@ function seededProfile(base: ConfigProfile, overrides: Partial<ConfigProfile> = 
 }
 
 function only(state: StateStore, profileId = 'p1'): ConfigProfile {
-  return state.configProfiles().find((p) => p.id === profileId)!
+  return configState(state)
+    .profiles.get()
+    .find((p) => p.id === profileId)!
 }
 
 function fileNameOf(state: StateStore, profileId = 'p1'): string {
-  return resolveProfileFileNames(state.configProfiles()).get(profileId)!
+  return resolveProfileFileNames(configState(state).profiles.get()).get(profileId)!
 }
 
 function canonicalPath(fileName: string): string {
@@ -284,7 +288,7 @@ describe('external edit while the UI carries unsaved edits', () => {
   > {
     const inst = installation()
     const booted = await boot([inst])
-    booted.state.setConfigProfiles([
+    seedConfigProfiles(booted.state, [
       seededProfile(holdLayerProfile, { assignments: [{ installationId: 'i1', isDefault: true }] }),
     ])
     await booted.state.settle()
@@ -391,7 +395,7 @@ describe('conflicting simultaneous changes', () => {
   it('an assign never writes over a hand-edit the launcher has not read (AC5)', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([seededProfile(holdLayerProfile)])
+    seedConfigProfiles(state, [seededProfile(holdLayerProfile)])
     await state.settle()
     const saved = await save(handlers)
     if (!saved.ok || saved.value.status !== 'saved') throw new Error('expected the save to work')
@@ -421,7 +425,7 @@ describe('conflicting simultaneous changes', () => {
   it('the startup retry sweep never writes over a hand-edit made while the launcher was closed', async () => {
     const inst = installation()
     const first = await boot([inst])
-    first.state.setConfigProfiles([
+    seedConfigProfiles(first.state, [
       seededProfile(holdLayerProfile, { assignments: [{ installationId: 'i1', isDefault: true }] }),
     ])
     await first.state.settle()
@@ -430,7 +434,7 @@ describe('conflicting simultaneous changes', () => {
     const fileName = fileNameOf(first.state)
     // A write that failed last session - one of the three retry triggers, and the one that runs
     // before the renderer (and therefore before any focus re-read) exists at all.
-    first.state.updateSlice('configWriteFailures', () => ({
+    configState(first.state).writeFailures.update(() => ({
       'p1|i1': { messageKey: 'config.error.writeFailed', at: '2026-01-01T00:00:00.000Z' },
     }))
     await first.state.settle()
@@ -447,7 +451,7 @@ describe('conflicting simultaneous changes', () => {
   it('a save and an assign in flight at the same time leave one coherent file and no phantom bookkeeping', async () => {
     const inst = installation()
     const { handlers, state } = await boot([inst])
-    state.setConfigProfiles([seededProfile(holdLayerProfile)])
+    seedConfigProfiles(state, [seededProfile(holdLayerProfile)])
     await state.settle()
     await save(handlers)
     // An unsaved edit, then both actions fired without awaiting the first - two sync runs over the
@@ -474,7 +478,7 @@ describe('conflicting simultaneous changes', () => {
     expect(onDisk).toBe(renderProfileFile(final))
     expect(final.dirty).toBe(false)
     expect(final.fileHash).toBe(hashCanonicalFileContent(onDisk))
-    expect(state.configWriteFailures()).toEqual({})
+    expect(configState(state).writeFailures.get()).toEqual({})
     expect(await refresh(handlers, { profileId: 'p1' })).toEqual([
       { profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' },
     ])
@@ -482,7 +486,7 @@ describe('conflicting simultaneous changes', () => {
 
   it('a rename cascade moves both files, destroys neither and leaves the bookkeeping true', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([
+    seedConfigProfiles(state, [
       seededProfile(holdLayerProfile, { id: 'p1', name: 'Duel' }),
       seededProfile(layeredTwoSlotEntryProfile, {
         id: 'p2',
@@ -514,7 +518,7 @@ describe('conflicting simultaneous changes', () => {
       expect(profile.fileHash).toBe(hashCanonicalFileContent(content))
       expectNothingLost(before[profileId], inventory(profile), `${profileId} after the cascade`)
     }
-    expect(state.configWriteFailures()).toEqual({})
+    expect(configState(state).writeFailures.get()).toEqual({})
     // Neither profile may be reported as changed-on-disk or missing after a cascade that wrote both.
     expect(await refresh(handlers)).toEqual([
       { profileId: 'p1', outcome: 'unchanged', fileState: 'unchanged' },
@@ -524,7 +528,7 @@ describe('conflicting simultaneous changes', () => {
 
   it('a renamed-but-unsaved profile is never reported as "file missing" - its file is still there under the old name', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([seededProfile(holdLayerProfile)])
+    seedConfigProfiles(state, [seededProfile(holdLayerProfile)])
     await state.settle()
     await save(handlers)
     const oldFileName = fileNameOf(state)
@@ -552,7 +556,7 @@ describe('conflicting simultaneous changes', () => {
 describe('corrupt files', () => {
   async function bootSaved(): Promise<Booted & { fileName: string; good: ConfigProfile }> {
     const booted = await boot()
-    booted.state.setConfigProfiles([seededProfile(latin1CategoryNameProfile)])
+    seedConfigProfiles(booted.state, [seededProfile(latin1CategoryNameProfile)])
     await booted.state.settle()
     const saved = await save(booted.handlers)
     if (!saved.ok || saved.value.status !== 'saved') throw new Error('expected the save to work')
@@ -641,7 +645,7 @@ describe('corrupt files', () => {
     // The file is the source of truth, so "the user emptied it" is a legitimate statement about
     // content - what must never happen is the record disappearing or the launcher crashing.
     expect(results[0]!.outcome).toBe('adopted')
-    expect(state.configProfiles()).toHaveLength(1)
+    expect(configState(state).profiles.get()).toHaveLength(1)
     expect(only(state).id).toBe('p1')
   })
 })
@@ -654,7 +658,7 @@ describe('a canonical file deleted outside the launcher', () => {
   for (const dirty of [false, true]) {
     it(`reports missing and keeps the record for a ${dirty ? 'dirty' : 'clean'} profile`, async () => {
       const { handlers, state } = await boot()
-      state.setConfigProfiles([seededProfile(holdLayerProfile)])
+      seedConfigProfiles(state, [seededProfile(holdLayerProfile)])
       await state.settle()
       await save(handlers)
       const fileName = fileNameOf(state)
@@ -670,7 +674,7 @@ describe('a canonical file deleted outside the launcher', () => {
       const results = await refresh(handlers, { profileId: 'p1' })
 
       expect(results).toEqual([{ profileId: 'p1', outcome: 'missing', fileState: 'missing' }])
-      expect(state.configProfiles()).toHaveLength(1)
+      expect(configState(state).profiles.get()).toHaveLength(1)
       expectNothingLost(before, inventory(only(state)), 'missing file')
       expect(only(state).dirty).toBe(dirty)
 
@@ -722,11 +726,11 @@ describe('AC8 migration of a pre-042 profile', () => {
     const record = pre043Record()
     const fileName = resolveProfileFileNames([record]).get('p1')!
     const { state } = await boot([], async (s) => {
-      s.setConfigProfiles([record])
+      seedConfigProfiles(s, [record])
       await writeFile(canonicalPath(fileName), PRE_040_FILE, 'latin1')
     })
 
-    expect(state.configFileSourceMigratedAt()).not.toBeNull()
+    expect(configState(state).fileSourceMigratedAt.get()).not.toBeNull()
     const migrated = only(state)
     // Content: exactly what the cache said, in the current format - not a re-parse of the old file.
     expectNothingLost(inventory(record), inventory(migrated), 'migration')
@@ -746,16 +750,16 @@ describe('AC8 migration of a pre-042 profile', () => {
     const record = pre043Record()
     const fileName = resolveProfileFileNames([record]).get('p1')!
     const first = await boot([], async (s) => {
-      s.setConfigProfiles([record])
+      seedConfigProfiles(s, [record])
       await writeFile(canonicalPath(fileName), PRE_040_FILE, 'latin1')
     })
-    const migratedAt = first.state.configFileSourceMigratedAt()
+    const migratedAt = configState(first.state).fileSourceMigratedAt.get()
     const afterFirst = await readFile(canonicalPath(fileName), 'latin1')
     const statFirst = await stat(canonicalPath(fileName))
 
     const second = await boot()
 
-    expect(second.state.configFileSourceMigratedAt()).toBe(migratedAt)
+    expect(configState(second.state).fileSourceMigratedAt.get()).toBe(migratedAt)
     expect(await readFile(canonicalPath(fileName), 'latin1')).toBe(afterFirst)
     expect((await stat(canonicalPath(fileName))).mtimeMs).toBe(statFirst.mtimeMs)
     expect(await refresh(second.handlers)).toEqual([
@@ -766,7 +770,7 @@ describe('AC8 migration of a pre-042 profile', () => {
   it('migrates a profile that never had a file at all', async () => {
     const record = pre043Record()
     const fileName = resolveProfileFileNames([record]).get('p1')!
-    const { state, handlers } = await boot([], (s) => void s.setConfigProfiles([record]))
+    const { state, handlers } = await boot([], (s) => void seedConfigProfiles(s, [record]))
 
     const onDisk = await readFile(canonicalPath(fileName), 'latin1')
     expect(onDisk).toBe(renderProfileFile(only(state)))
@@ -784,7 +788,7 @@ describe('AC8 migration of a pre-042 profile', () => {
 describe('rebuild from the file with the sentinel id', () => {
   it('restores a deleted record with the same id and no loss of content', async () => {
     const first = await boot()
-    first.state.setConfigProfiles([seededProfile(layeredTwoSlotEntryProfile)])
+    seedConfigProfiles(first.state, [seededProfile(layeredTwoSlotEntryProfile)])
     await first.state.settle()
     const saved = await save(first.handlers)
     if (!saved.ok || saved.value.status !== 'saved') throw new Error('expected the save to work')
@@ -793,14 +797,14 @@ describe('rebuild from the file with the sentinel id', () => {
     const onDisk = await readFile(canonicalPath(fileName), 'latin1')
 
     // The crash/hand-edit case: the record is gone, the file is not.
-    first.state.setConfigProfiles([])
+    seedConfigProfiles(first.state, [])
     await first.state.settle()
     // A foreign `.cfg` next to it must not be adopted as a profile.
     await writeFile(canonicalPath('hand-written.cfg'), 'set sensitivity "5"\n', 'latin1')
 
     const second = await boot()
 
-    const profiles = second.state.configProfiles()
+    const profiles = configState(second.state).profiles.get()
     expect(profiles).toHaveLength(1)
     const rebuilt = profiles[0]!
     expect(rebuilt.id).toBe('p1')
@@ -818,7 +822,7 @@ describe('rebuild from the file with the sentinel id', () => {
 
   it('rebuilds a record whose persisted row is corrupt, keeping the id', async () => {
     const first = await boot()
-    first.state.setConfigProfiles([seededProfile(holdLayerProfile)])
+    seedConfigProfiles(first.state, [seededProfile(holdLayerProfile)])
     await first.state.settle()
     await save(first.handlers)
     // The save writes the new file hash back onto the record, i.e. it schedules another debounced
@@ -840,7 +844,7 @@ describe('rebuild from the file with the sentinel id', () => {
 
     const second = await boot()
 
-    const profiles = second.state.configProfiles()
+    const profiles = configState(second.state).profiles.get()
     expect(profiles).toHaveLength(1)
     expect(profiles[0]!.id).toBe('p1')
     expectNothingLost(before, inventory(profiles[0]!), 'rebuild from a corrupt row')
@@ -862,7 +866,7 @@ describe('write -> external edit -> re-read -> render over every 042 fixture', (
   for (const fixture of ROUND_TRIP_FIXTURES) {
     it(`keeps every bind, entry, category and layer of "${fixture.name}"`, async () => {
       const { handlers, state } = await boot()
-      state.setConfigProfiles([{ ...fixture, id: 'p1', assignments: [] }])
+      seedConfigProfiles(state, [{ ...fixture, id: 'p1', assignments: [] }])
       await state.settle()
 
       const saved = await save(handlers)
@@ -912,7 +916,7 @@ describe('write -> external edit -> re-read -> render over every 042 fixture', (
      */
     it(`refresh -> syncState reads inSync without a save in between for "${fixture.name}"`, async () => {
       const { handlers, state } = await boot()
-      state.setConfigProfiles([{ ...fixture, id: 'p1', assignments: [] }])
+      seedConfigProfiles(state, [{ ...fixture, id: 'p1', assignments: [] }])
       await state.settle()
 
       const saved = await save(handlers)
@@ -951,7 +955,7 @@ describe('write -> external edit -> re-read -> render over every 042 fixture', (
   it('a duplicated or empty grouping tag is minted, not adopted, and the record still comes back', async () => {
     const fixture = twoCategoriesWithSubcategoriesProfile
     const { handlers, state } = await boot()
-    state.setConfigProfiles([{ ...fixture, id: 'p1', assignments: [] }])
+    seedConfigProfiles(state, [{ ...fixture, id: 'p1', assignments: [] }])
     await state.settle()
     await save(handlers)
     const fileName = fileNameOf(state)
@@ -1018,7 +1022,7 @@ describe('write -> external edit -> re-read -> render over every 042 fixture', (
   it('carries the one shape the file used to lose: a keyless catalogue entry, command and all', async () => {
     const fixture = ROUND_TRIP_FIXTURES.find((f) => f.name === 'Keyless catalogue entry')!
     const { handlers, state } = await boot()
-    state.setConfigProfiles([{ ...fixture, id: 'p1', assignments: [] }])
+    seedConfigProfiles(state, [{ ...fixture, id: 'p1', assignments: [] }])
     await state.settle()
     await save(handlers)
     const fileName = fileNameOf(state)
@@ -1033,7 +1037,7 @@ describe('write -> external edit -> re-read -> render over every 042 fixture', (
     const results = await refresh(handlers, { profileId: 'p1' })
 
     expect(results[0]!.outcome).toBe('adopted')
-    expect(state.configProfiles()).toHaveLength(1)
+    expect(configState(state).profiles.get()).toHaveLength(1)
     // The row survives the adopt with everything the unbound line records.
     expectNothingLost(before, inventory(only(state)), 'keyless catalogue entry after adopting')
   })
@@ -1060,7 +1064,7 @@ describe('write -> external edit -> re-read -> render over every 042 fixture', (
 describe('two entries deriving one alias name', () => {
   it('reports the entry the reload loses instead of dropping it silently', async () => {
     const { handlers, state } = await boot()
-    state.setConfigProfiles([seededProfile(collidingAliasNameProfile)])
+    seedConfigProfiles(state, [seededProfile(collidingAliasNameProfile)])
     await state.settle()
     const saved = await save(handlers)
     if (!saved.ok || saved.value.status !== 'saved') throw new Error('expected the save to work')
@@ -1100,7 +1104,7 @@ describe('two entries deriving one alias name', () => {
     // with a hold layer (whose own generated alias family is the most alias-dense thing the writer
     // emits) reports no dropped alias at all.
     const { handlers, state } = await boot()
-    state.setConfigProfiles([seededProfile(holdLayerProfile)])
+    seedConfigProfiles(state, [seededProfile(holdLayerProfile)])
     await state.settle()
     await save(handlers)
     const fileName = fileNameOf(state)

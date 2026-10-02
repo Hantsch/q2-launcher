@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SERVERS_STATE, type MasterSource } from '@shared/modules/servers'
-import { parseServersState } from '../../lib/schemas'
+import { parseServersState } from './persisted'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
 
 /**

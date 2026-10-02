@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { UnlockPayload } from '@shared/unlock'
 import { StateStore } from '../state'
+import { unlockState } from './persisted'
 import { createUnlockService, type UnlockServiceLog } from './service'
 import { encodeUnlockPayload } from './code'
 import { deriveLauncherInstallId } from './launcher-install-id'
@@ -77,8 +78,8 @@ describe('UnlockService (story 128 D4)', () => {
 
     expect(verdict).toEqual({ ok: true, features: ['pro-servers'] })
     expect(service.isUnlocked('pro-servers')).toBe(true)
-    expect(state.unlockState().codes).toHaveLength(1)
-    expect(state.unlockState().codes[0].code).toBe(code)
+    expect(unlockState(state).get().codes).toHaveLength(1)
+    expect(unlockState(state).get().codes[0].code).toBe(code)
   })
 
   it('a redeemed code stays unlocked after its redemption window has closed (AC4)', async () => {
@@ -124,7 +125,7 @@ describe('UnlockService (story 128 D4)', () => {
       issuedAt: seconds(now) - 10,
       redeemBy: seconds(now) + 1000,
     })
-    state.setUnlockState({ codes: [{ code, redeemedAt: now.toISOString() }] })
+    unlockState(state).update(() => ({ codes: [{ code, redeemedAt: now.toISOString() }] }))
 
     const service = createUnlockService({
       state,
@@ -194,7 +195,7 @@ describe('UnlockService (story 128 D4)', () => {
     await restarted.init()
     restarted.snapshot()
 
-    const persisted = JSON.stringify(state.unlockState())
+    const persisted = JSON.stringify(unlockState(state).get())
     expect(persisted).not.toContain(RAW_MACHINE_VALUE)
     for (const message of log.messages) {
       expect(message).not.toContain(RAW_MACHINE_VALUE)
@@ -210,9 +211,9 @@ describe('UnlockService (story 128 D4)', () => {
       redeemBy: seconds(now) - 10_000,
       expiresAt: seconds(now) - 1_000, // already expired relative to `now`
     })
-    state.setUnlockState({
+    unlockState(state).update(() => ({
       codes: [{ code, redeemedAt: new Date(now.getTime() - 20_000_000).toISOString() }],
-    })
+    }))
 
     const service = createUnlockService({
       state,
@@ -252,7 +253,7 @@ describe('UnlockService (story 128 D4)', () => {
     }
     await state.settle()
 
-    const stored = state.unlockState().codes
+    const stored = unlockState(state).get().codes
     expect(stored.length).toBeLessThanOrEqual(32)
     expect(stored.some((entry) => entry.code === codes[0])).toBe(false)
     expect(stored.some((entry) => entry.code === codes[32])).toBe(true)
@@ -279,7 +280,7 @@ describe('UnlockService (story 128 D4)', () => {
     expect(service.redeem(`  ${code}\n`)).toEqual({ ok: true, features: ['pro-servers'] })
     await state.settle()
 
-    expect(state.unlockState().codes).toHaveLength(1)
-    expect(state.unlockState().codes[0].code).toBe(code)
+    expect(unlockState(state).get().codes).toHaveLength(1)
+    expect(unlockState(state).get().codes[0].code).toBe(code)
   })
 })

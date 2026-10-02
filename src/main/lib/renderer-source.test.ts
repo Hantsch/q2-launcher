@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SAFE_NEWS_IMAGE_EXTENSIONS } from '../modules/home/images/paths'
+import { SAFE_NEWS_IMAGE_EXTENSIONS } from './news-image-paths'
 import {
   createRendererProtocolHandler,
   DEV_CSP,

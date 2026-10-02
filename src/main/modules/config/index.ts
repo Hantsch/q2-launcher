@@ -100,6 +100,7 @@ import {
   writeInstallationFiles,
   writeTargetFile,
 } from './writer'
+import { configState } from './persisted'
 
 /**
  * The exact files a `write` of `profile` would put on `installation`'s disk,
@@ -313,14 +314,15 @@ async function syncAndPersist(
   try {
     // The run is async: another run may change the slice while this one awaits, so only this
     // run's own delta against what it started from is applied afterwards.
-    const before = app.state.configWriteFailures()
+    const before = configState(app.state).writeFailures.get()
     const outcome = await syncProfile({
       profile,
       allProfiles,
       installations: app.installations,
       launchState: app.launch.getState(),
-      playedModsFor: (installationId) => app.state.configPlayedMods()[installationId] ?? [],
-      switchBindFor: (installationId) => app.state.configSwitchBinds()[installationId],
+      playedModsFor: (installationId) =>
+        configState(app.state).playedMods.get()[installationId] ?? [],
+      switchBindFor: (installationId) => configState(app.state).switchBinds.get()[installationId],
       canonicalBaseDir: userDataDir(),
       writeFailures: before,
       targetInstallationId: options.targetInstallationId,
@@ -376,7 +378,7 @@ async function syncAndPersist(
       },
       log,
     })
-    app.state.updateSlice('configWriteFailures', (live) =>
+    configState(app.state).writeFailures.update((live) =>
       mergeWriteFailureChanges(live, before, outcome.writeFailures),
     )
     const now = Date.now()
@@ -684,7 +686,7 @@ export const configModule: MainModule = {
           log.error(`failed to remove canonical profile file for ${input.id}`, error)
         }
         try {
-          app.state.updateSlice('configWriteFailures', (live) => {
+          configState(app.state).writeFailures.update((live) => {
             const kept = Object.fromEntries(
               Object.entries(live).filter(([key]) => !key.startsWith(`${input.id}|`)),
             )
@@ -1547,7 +1549,7 @@ export const configModule: MainModule = {
           profile,
           profiles.list(),
           installation,
-          app.state.configSwitchBinds()[installation.id],
+          configState(app.state).switchBinds.get()[installation.id],
         )
         return ok({
           files: await Promise.all(
@@ -1582,7 +1584,7 @@ export const configModule: MainModule = {
         const fileNames = resolveProfileFileNames(allProfiles)
         // `profile` came out of `allProfiles`, so this lookup cannot miss.
         const fileName = fileNames.get(profile.id)!
-        const failures = app.state.configWriteFailures()
+        const failures = configState(app.state).writeFailures.get()
         const expectedContent = renderProfileFile(profile)
 
         const ownPath = join(userDataDir(), fileName)
@@ -1656,7 +1658,7 @@ export const configModule: MainModule = {
           profiles.list(),
           app.installations,
           userDataDir(),
-          (installationId) => app.state.configPlayedMods()[installationId] ?? [],
+          (installationId) => configState(app.state).playedMods.get()[installationId] ?? [],
         )
         return ok(result)
       },
@@ -1745,10 +1747,10 @@ export const configModule: MainModule = {
       if (!installation) return fail('config.error.installationNotFound')
 
       const validated = validatePlayedMods(installation.gameDirs, input.playedMods)
-      app.state.setConfigPlayedMods({
-        ...app.state.configPlayedMods(),
+      configState(app.state).playedMods.update((live) => ({
+        ...live,
         [installation.id]: validated,
-      })
+      }))
       return ok(validated)
     })
 
@@ -1756,7 +1758,7 @@ export const configModule: MainModule = {
     // profiles in-session. Per-installation, not part of a profile (decision
     // 1) - see `SetSwitchBindInput`'s doc comment.
     handle(CONFIG_HANDLERS.switchBinds, switchBindsInputSchema, () =>
-      ok(app.state.configSwitchBinds()),
+      ok(configState(app.state).switchBinds.get()),
     )
 
     handle(
@@ -1766,11 +1768,11 @@ export const configModule: MainModule = {
         const installation = app.installations.find(input.installationId)
         if (!installation) return fail('config.error.installationNotFound')
 
-        const current = app.state.configSwitchBinds()
+        const current = configState(app.state).switchBinds.get()
         const next = { ...current }
         if (input.key === null) delete next[installation.id]
         else next[installation.id] = input.key
-        app.state.setConfigSwitchBinds(next)
+        configState(app.state).switchBinds.update(() => next)
 
         // Decision 12/13: write immediately for this one installation only,
         // through the unchanged story-004 pipeline (`writeInstallationFiles`);
@@ -1811,7 +1813,7 @@ export const configModule: MainModule = {
                     }
                   : undefined,
               ),
-              playedMods: app.state.configPlayedMods()[installation.id] ?? [],
+              playedMods: configState(app.state).playedMods.get()[installation.id] ?? [],
             })
           } catch (error) {
             log.error(`failed to write switch bind for installation ${installation.id}`, error)
@@ -1997,8 +1999,8 @@ export const configModule: MainModule = {
         listProfiles: () => profiles.list(),
         replaceProfile: (profile) => void profiles.replaceProfile(profile),
         addProfile: (profile) => void profiles.addRebuilt(profile),
-        migratedAt: () => app.state.configFileSourceMigratedAt(),
-        setMigratedAt: (at) => void app.state.setConfigFileSourceMigratedAt(at),
+        migratedAt: () => configState(app.state).fileSourceMigratedAt.get(),
+        setMigratedAt: (at) => void configState(app.state).fileSourceMigratedAt.markDone(at),
         log,
       })
       if (report.migration !== 'skipped' || report.rebuiltProfileIds.length > 0) {
@@ -2023,7 +2025,7 @@ export const configModule: MainModule = {
     //
     // Story 079 D4: no longer also sweeps a persisted "pending" map - a running game defers nothing,
     // so nothing is ever left pending across a restart to retry.
-    const failures = app.state.configWriteFailures()
+    const failures = configState(app.state).writeFailures.get()
     const retryIds = new Set<string>()
     for (const key of Object.keys(failures)) {
       // Keys are `<profileId>|own` or `<profileId>|<installationId>`.

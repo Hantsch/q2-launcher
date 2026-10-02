@@ -6,7 +6,7 @@ import type { NewsSlide } from '@shared/modules/home'
 import { NEWS_IMAGE_PATH_PREFIX, RENDERER_ORIGIN } from '../../../lib/renderer-source'
 import { NEWS_DIRECTORY } from '../news/feed-fetcher'
 import { contentRepoUrl } from '../../../lib/content-repo'
-import { getNewsImagesCacheDir, newsImageFileName } from './paths'
+import { getNewsImagesCacheDir, newsImageFileName } from '../../../lib/news-image-paths'
 import { resolveFeedImages, type ResolveFeedImagesOptions } from './resolve-feed-images'
 
 /**

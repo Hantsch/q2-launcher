@@ -92,6 +92,17 @@ export class JsonStore<T> {
     return next
   }
 
+  /**
+   * Replaces the value without scheduling a write of its own: for a value that carries the same
+   * data in another form, such as a parsed value replacing the raw JSON it was parsed from. A write
+   * that is already waiting on the debounce picks the new value up.
+   */
+  adopt(next: T): T {
+    this.cache = next
+    if (this.writeTimer) this.schedule(next)
+    return next
+  }
+
   /** Applies a change to the current value and schedules a write. */
   update(mutate: (current: T) => T): T {
     return this.set(mutate(this.get()))

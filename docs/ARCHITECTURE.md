@@ -100,8 +100,10 @@ absolute paths and reserved device names in one check. Every "is this path insid
 
 Two files under `app.getPath('userData')`:
 
-- `state.json` — `schemaVersion`, settings, installations. Written only on real
-  changes.
+- `state.json` — flat. The shell owns `schemaVersion`, `settings` and `installations`; every other
+  top-level key belongs to one module (`config`, `downloads`, `home`, ...), and unlock codes to the
+  unlock service. Written only on real changes. Unknown top-level keys are preserved verbatim across
+  load and save, so a disabled module loses nothing.
 - `window-state.json` — window geometry. Its own file because it changes on every
   resize and that write churn has no business near the installation list.
 
@@ -114,8 +116,26 @@ via a toast — losing an installation list silently is not acceptable.
 Parsing is deliberately forgiving. Every settings field has a `.catch()` default,
 and installations are parsed row by row so one bad entry is dropped instead of
 taking the file with it. Row-level dropping, dedupe and envelope fallback all go
-through `src/main/lib/forgiving.ts`. Migrations live in `src/main/services/migrations.ts`;
-`MIGRATIONS` is empty at v1 and carries a worked example in its doc comment.
+through `src/main/lib/forgiving.ts`. The runner lives in `src/main/services/migrations.ts` and takes its steps as an argument;
+each module owns its steps (`config/persisted-migrations.ts`) and `MODULE_MIGRATIONS` in
+`src/main/modules/index.ts` concatenates them for the `StateStore`, which `src/main/context.ts`
+builds with `{ migrations }`.
+
+A module owns its persisted keys in `src/main/modules/<id>/persisted.ts` (unlock, a shell service,
+in `src/main/services/unlock/persisted.ts`): the schema, the forgiving parse, the defaults and a
+`<id>State(state)` helper returning `StateStore.section()` handles. A handle is `{ get(), update(fn) }`
+for one top-level key; `update` takes a synchronous callback over the live value. The shell never
+imports module code (`src/main/shell-layering.test.ts`).
+
+Changing a persisted shape follows a two-tier rule:
+
+- **Additive optional key** — a forgiving parse with a default in the owner's `persisted.ts`. No
+  version bump.
+- **Shape change** (rename, move, reinterpret, split) — a step in the owner's
+  `persisted-migrations.ts` plus a `STATE_SCHEMA_VERSION` bump. The runner validates the steps
+  against the version on every load.
+
+No new parse-time rewrites: a parser never silently reshapes old data, a migration step does.
 
 Writes are debounced: `state.json` (and every other `JsonStore`) is flushed shortly after the last
 change, not on each one. A failed write is retried once; if the retry fails too, the store reports
@@ -124,7 +144,9 @@ it and the user gets a toast instead of a silent loss.
 A slice is changed through its mutator (`updateSlice`, `patchSettings`,
 `InstallationsService.patch`), whose synchronous callback receives the live value. Never read ->
 spread -> set: that overwrites whatever changed in between. Async work happens before the mutator,
-never between a read and its write.
+never between a read and its write. A module's section handle (`app.state.section()`) has the same
+semantics through `update(fn)`: synchronous, live value, an identical returned reference means no
+write. `updateSlice` is only for the shell key `installations`.
 
 Quit is a sequence the shell awaits (`src/main/shutdown.ts`). The first `before-quit` is held, the
 playback pipe is released synchronously, then module disposers run (reverse registration order),
@@ -250,8 +272,10 @@ shell never needs editing to add one.
    in `src/main/modules/index.ts`. It receives `handle`, `emit`, `app` (the
    services), a scoped logger and `onDispose`. Build it with
    `defineModule<XContract>(id, schemas).bind(setup)`, which types `handle` and `emit`
-   against the contract and requires a schema for every handler. It never touches `ipcMain`,
-   `BrowserWindow` or the state file. `setup()` keeps its state in its closure
+   against the contract and requires a schema for every handler. It never touches `ipcMain`
+   or `BrowserWindow`. Persisted state lives in `src/main/modules/<id>/persisted.ts` (schema,
+   forgiving parse, defaults, `<id>State(app.state)` over `app.state.section()`); a shape change
+   adds a step to `persisted-migrations.ts` (see State and persistence). `setup()` keeps its state in its closure
    (no module-level `let`) and releases it through `onDispose`; the registry runs
    the disposers in reverse registration order at shutdown.
 4. **Renderer half** — a view, registered in `src/renderer/src/modules/index.ts`,

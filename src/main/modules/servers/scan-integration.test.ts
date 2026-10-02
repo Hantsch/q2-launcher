@@ -21,6 +21,7 @@ import { IDLE_LAUNCH_STATE } from '@shared/types'
 import type { AppContext } from '../../context'
 import { createFeatureGate } from '../../features/gate'
 import { StateStore } from '../../services/state'
+import { serversState } from './persisted'
 import { MainModuleRegistry } from '../registry'
 import { serversModule } from './index'
 import type { ScanServerResult } from './scan-runner'
@@ -164,7 +165,7 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       watchlist: [],
       quickFilters: [],
     }
-    state.updateSlice('servers', () => seededState)
+    serversState(state).update(() => seededState)
 
     emitted = []
     const appContext = {

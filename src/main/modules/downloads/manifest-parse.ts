@@ -26,7 +26,7 @@ import {
  *    (D3's business) - never a partial result.
  *  - one PACKAGE row fails: it is dropped, with a `log.warn` line, and every
  *    other row is still parsed. Mirrors the row-by-row drop convention in
- *    `src/main/lib/schemas.ts` (`parseForgivingRows`) - except here it isn't a
+ *    `src/main/lib/forgiving.ts` (`parseForgivingRows`) - except here it isn't a
  *    forgiving *coercion*, a bad row is simply excluded, not defaulted.
  */
 export type ManifestParseResult =

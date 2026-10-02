@@ -16,7 +16,7 @@ import {
   ensureNewsImagesCacheDir,
   getNewsImagesCacheDir,
   newsImageFileName,
-} from './paths'
+} from '../../../lib/news-image-paths'
 
 /**
  * Story 084 D4: the pipeline step between 082's validated feed and its IPC delivery. Turns each

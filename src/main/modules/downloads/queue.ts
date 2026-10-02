@@ -56,7 +56,7 @@ export interface QueueStats {
 export interface DownloadQueueOptions {
   /**
    * The live limit, called at every admission decision - see property 1 above. In production this
-   * is `app.state.getDownloadsSettings().concurrentJobs`.
+   * is `downloadsState(app.state).settings.get().concurrentJobs`.
    */
   getConcurrency: () => number
   log?: QueueLog

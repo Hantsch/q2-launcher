@@ -1,5 +1,7 @@
 import type { AppContext } from '../context'
+import type { MigrationStep } from '../services/migrations'
 import { configModule } from './config'
+import { CONFIG_MIGRATIONS } from './config/persisted-migrations'
 import { downloadsModule } from './downloads'
 import { homeModule } from './home'
 import { libraryModule } from './library'
@@ -28,6 +30,13 @@ export const MODULES: readonly MainModule[] = [
   replaysModule,
   modsModule,
 ]
+
+/**
+ * Every module's `state.json` migration steps in one ascending list (the shell's runner validates
+ * that it ends at `STATE_SCHEMA_VERSION`). Only config has any; a module adding steps keeps the
+ * concatenation sorted by `to`.
+ */
+export const MODULE_MIGRATIONS: readonly MigrationStep[] = [...CONFIG_MIGRATIONS]
 
 export async function registerModules(app: AppContext): Promise<void> {
   for (const module of MODULES) {

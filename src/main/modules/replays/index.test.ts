@@ -4,10 +4,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  REPLAYS_HANDLERS,
-  REPLAYS_SIDECAR_WRITING_HANDLERS,
-} from '@shared/modules/replays'
+import { REPLAYS_HANDLERS, REPLAYS_SIDECAR_WRITING_HANDLERS } from '@shared/modules/replays'
 import { getModuleManifest, ok } from '@shared/types'
 import { EMPTY_DEMO_LIST_FILTER } from '@shared/replays/list-filter'
 import en from '../../../renderer/src/i18n/locales/en.json'
@@ -15,6 +12,7 @@ import { canonicalizePath } from '../../lib/fs-utils'
 import { UI_HARNESS_ENV } from '../../lib/ui-harness'
 import { fakeAppContext } from '../../../test-support/app-context'
 import { makeInstallation } from '../../../test-support/fixtures'
+import { fakeSectionState } from '../../../test-support/state-sections'
 import { stubPlatform } from '../../../test-support/platform'
 import { PersistenceRegistry } from '../../services/persistence'
 import type { AppContext } from '../../context'
@@ -22,6 +20,7 @@ import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
 import { resolveExtractorPath } from '../downloads/7za-path'
 import { discoveryHomeDir, replaysModule, scanHoldMs } from './index'
+import { replaysState } from './persisted'
 
 /**
  * The module's discovery calls `discoveryHomeDir()` with no overrides, which falls back to `userDataDir()` -
@@ -55,13 +54,13 @@ vi.mock('../../lib/fs-utils', async (importOriginal) => {
  * a successful round trip, a rejected bad payload) plus a check that the handler is only
  * reachable under this module's own id, not another module's.
  */
-const stubState = {
-  replaysState: () => ({
+const stubState = fakeSectionState({
+  replays: {
     extraFolders: [],
     listFilter: EMPTY_DEMO_LIST_FILTER,
     modWarning: { enabled: true, trustedMods: [] },
-  }),
-} as unknown as StateStore
+  },
+})
 
 const installationsOf = (list: unknown[]) =>
   ({ list: () => list }) as unknown as AppContext['installations']
@@ -251,7 +250,7 @@ describe('replays module', () => {
       const reloaded = new StateStore(filePath)
       await reloaded.load()
       const expectedCanonical = await canonicalizePath(dir)
-      expect(reloaded.replaysState().extraFolders).toEqual([
+      expect(replaysState(reloaded).get().extraFolders).toEqual([
         expect.objectContaining({ path: expectedCanonical }),
       ])
     })
@@ -291,8 +290,11 @@ describe('replays module', () => {
 
       const reloaded = new StateStore(filePath)
       await reloaded.load()
-      expect(reloaded.replaysState().listSort).toEqual({ column: 'players', direction: 'desc' })
-      expect(reloaded.replaysState().extraFolders).toEqual([
+      expect(replaysState(reloaded).get().listSort).toEqual({
+        column: 'players',
+        direction: 'desc',
+      })
+      expect(replaysState(reloaded).get().extraFolders).toEqual([
         expect.objectContaining({ path: await canonicalizePath(dir) }),
       ])
     })
@@ -336,7 +338,7 @@ describe('replays module', () => {
     it('list.setSort persists the sort and list.getSort returns it; null clears it', async () => {
       expect(await invoke(REPLAYS_HANDLERS.listGetSort)).toEqual({ ok: true, value: null })
 
-      const before = state.replaysState()
+      const before = replaysState(state).get()
 
       const sort = { column: 'players', direction: 'desc' }
       const setOutcome = await invoke(REPLAYS_HANDLERS.listSetSort, { sort })
@@ -347,9 +349,9 @@ describe('replays module', () => {
       await state.settle()
       const reloaded = new StateStore(filePath)
       await reloaded.load()
-      expect(reloaded.replaysState().listSort).toEqual(sort)
-      expect(reloaded.replaysState().extraFolders).toEqual(before.extraFolders)
-      expect(reloaded.replaysState().nameTemplates).toEqual(before.nameTemplates)
+      expect(replaysState(reloaded).get().listSort).toEqual(sort)
+      expect(replaysState(reloaded).get().extraFolders).toEqual(before.extraFolders)
+      expect(replaysState(reloaded).get().nameTemplates).toEqual(before.nameTemplates)
 
       const clearOutcome = await invoke(REPLAYS_HANDLERS.listSetSort, { sort: null })
       expect(clearOutcome).toEqual({ ok: true, value: null })
@@ -403,7 +405,7 @@ describe('replays module', () => {
         value: EMPTY_DEMO_LIST_FILTER,
       })
 
-      const before = state.replaysState()
+      const before = replaysState(state).get()
 
       const filter = { ...EMPTY_DEMO_LIST_FILTER, search: 'frag', favouritesOnly: true }
       const setOutcome = await invoke(REPLAYS_HANDLERS.listSetFilter, { filter })
@@ -414,9 +416,9 @@ describe('replays module', () => {
       await state.settle()
       const reloaded = new StateStore(filePath)
       await reloaded.load()
-      expect(reloaded.replaysState().listFilter).toEqual(filter)
-      expect(reloaded.replaysState().extraFolders).toEqual(before.extraFolders)
-      expect(reloaded.replaysState().nameTemplates).toEqual(before.nameTemplates)
+      expect(replaysState(reloaded).get().listFilter).toEqual(filter)
+      expect(replaysState(reloaded).get().extraFolders).toEqual(before.extraFolders)
+      expect(replaysState(reloaded).get().nameTemplates).toEqual(before.nameTemplates)
     })
 
     it('listFilter.write normalizes an invalid date filter (from > to) to null before persisting', async () => {
@@ -435,7 +437,7 @@ describe('replays module', () => {
       await state.settle()
       const reloaded = new StateStore(filePath)
       await reloaded.load()
-      expect(reloaded.replaysState().listFilter?.date).toBeNull()
+      expect(replaysState(reloaded).get().listFilter?.date).toBeNull()
     })
   })
 
@@ -489,7 +491,7 @@ describe('replays module', () => {
       await state.settle()
       const reloaded = new StateStore(filePath)
       await reloaded.load()
-      expect(reloaded.replaysState().modWarning).toEqual({
+      expect(replaysState(reloaded).get().modWarning).toEqual({
         enabled: false,
         trustedMods: ['opentdm'],
       })
@@ -512,7 +514,7 @@ describe('replays module', () => {
           error: { key: 'ipc.error.invalidPayload' },
         })
       }
-      expect(state.replaysState().modWarning.trustedMods).toEqual([])
+      expect(replaysState(state).get().modWarning.trustedMods).toEqual([])
     })
   })
 
