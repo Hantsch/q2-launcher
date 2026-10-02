@@ -87,7 +87,7 @@ function reasonText(row: DemoRow): string {
   return i18n.t(eligibility.reason.key, eligibility.reason.params)
 }
 
-const PLAYED = { ok: true, value: { ok: true, value: { stage: null } } }
+const PLAYED = { ok: true, value: { stage: null } }
 
 describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
   it('an eligible demo is playable and play sends only ids', async () => {
@@ -123,10 +123,7 @@ describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
       expect(usePlaybackStore.getState().stageArmed).toBe(true)
       return {
         ok: true,
-        value: {
-          ok: true,
-          value: { stage: { placed: false, reason: { key: 'replays.stage.unavailable.wayland' } } },
-        },
+        value: { stage: { placed: false, reason: { key: 'replays.stage.unavailable.wayland' } } },
       }
     })
     const { result } = hook()
@@ -154,8 +151,8 @@ describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
   it('a failure disarms the stage again and reports the translated error', async () => {
     setStore({})
     playDemo.mockResolvedValue({
-      ok: true,
-      value: { ok: false, error: { key: 'replays.play.error.fileMissing' } },
+      ok: false,
+      error: { key: 'replays.play.error.fileMissing' },
     })
     const { result } = hook()
     await act(() => result.current.play())
@@ -168,8 +165,8 @@ describe('useDemoPlay (story 180 D2, cases from story 159 D3)', () => {
   it('the error clears when another demo is selected', async () => {
     setStore({})
     playDemo.mockResolvedValue({
-      ok: true,
-      value: { ok: false, error: { key: 'replays.play.error.fileMissing' } },
+      ok: false,
+      error: { key: 'replays.play.error.fileMissing' },
     })
     const { result, rerender } = hook()
     await act(() => result.current.play())

@@ -11,6 +11,7 @@ import {
   type ModUpdatePreview,
   type ModsListResult,
 } from '@shared/modules/mods'
+import type { ModsErrorKey } from '@shared/modules/mods'
 import { fail, ok, type Installation, type Outcome } from '@shared/types'
 import { readBinaryArch } from '../../lib/fs-utils'
 import { isUiHarnessEnabled, recordHarnessRevealedPath } from '../../lib/ui-harness'
@@ -38,6 +39,10 @@ import {
   updateInputSchema,
   updatePreviewInputSchema,
 } from './schemas'
+
+/** The mods module only ever answers with keys from its closed set. */
+const failMods = (key: ModsErrorKey, params?: Record<string, string | number>): Outcome<never> =>
+  fail(key, params)
 
 /**
  * The mods module. Lists an installation's persisted game directories (no disk scan) minus
@@ -197,7 +202,7 @@ export const modsModule: MainModule = {
 
     handle(MODS_HANDLERS.resolveInstall, resolveInstallInputSchema, (input): Outcome<null> => {
       const resolve = pending.get(input.jobId)
-      if (!resolve) return fail('mods.error.noPendingDecision')
+      if (!resolve) return failMods('mods.error.noPendingDecision')
       pending.delete(input.jobId)
       const entry = running.get(input.jobId)
       if (entry) delete entry.decision
@@ -247,7 +252,7 @@ export const modsModule: MainModule = {
     /** Both update handlers: a mod the launcher did not install has no record to update from. */
     const checkUpdatable = (installationId: string, catalogId: string): Outcome<null> => {
       const installation = app.installations.find(installationId)
-      if (!installation) return fail('mods.error.installationNotFound')
+      if (!installation) return failMods('mods.error.installationNotFound')
       const hasRecord = readModsState(installation.moduleData).records.some(
         (r) => r.catalogId === catalogId,
       )
@@ -279,7 +284,7 @@ export const modsModule: MainModule = {
 
     handle(MODS_HANDLERS.list, listInputSchema, async (input): Promise<Outcome<ModsListResult>> => {
       const installation = app.installations.find(input.installationId)
-      if (!installation) return fail('mods.error.installationNotFound')
+      if (!installation) return failMods('mods.error.installationNotFound')
       // Only the catalog (never the gamedir, never a package) is consulted, and only when a record exists.
       const catalogEntries = new Map<string, { pinned: string }>()
       if (readModsState(installation.moduleData).records.length > 0) {
@@ -303,7 +308,7 @@ export const modsModule: MainModule = {
       mapPresenceInputSchema,
       async (input): Promise<Outcome<ModMapPresence>> => {
         const installation = app.installations.find(input.installationId)
-        if (!installation) return fail('mods.error.installationNotFound')
+        if (!installation) return failMods('mods.error.installationNotFound')
         const extractor = resolveVendoredExtractor()
         // The root comes from the installation record; only the two safe names come from the payload.
         const presence = await mapPresence(
@@ -316,17 +321,17 @@ export const modsModule: MainModule = {
 
     handle(MODS_HANDLERS.reveal, revealInputSchema, async (input): Promise<Outcome<null>> => {
       const installation = app.installations.find(input.installationId)
-      if (!installation) return fail('mods.error.installationNotFound')
+      if (!installation) return failMods('mods.error.installationNotFound')
       const wanted = input.gameDir.toLowerCase()
       const entry = modGameDirs(installation).find((d) => d.gameDir.toLowerCase() === wanted)
-      if (!entry) return fail('mods.error.gameDirNotFound')
+      if (!entry) return failMods('mods.error.gameDirNotFound')
 
       if (isUiHarnessEnabled({ isDev: app.isDev })) {
         recordHarnessRevealedPath(entry.folderPath)
         return ok(null)
       }
       const message = await shell.openPath(entry.folderPath)
-      if (message) return fail('mods.error.revealFailed', { message })
+      if (message) return failMods('mods.error.revealFailed', { message })
       return ok(null)
     })
 

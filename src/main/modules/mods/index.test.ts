@@ -53,11 +53,9 @@ async function registryFor(inst: ReturnType<typeof installation>) {
   return registry
 }
 
-/** The registry wraps a handler's result in its own `{ ok, value }` envelope; unwrap to the module's Outcome. */
+/** The registry passes the module's own Outcome through unchanged. */
 async function unwrap<T>(p: Promise<unknown>): Promise<Outcome<T>> {
-  const envelope = (await p) as { ok: true; value: Outcome<T> }
-  expect(envelope.ok).toBe(true)
-  return envelope.value
+  return (await p) as Outcome<T>
 }
 const list = (r: MainModuleRegistry, installationId = 'inst-1') =>
   unwrap<ModsListResult>(

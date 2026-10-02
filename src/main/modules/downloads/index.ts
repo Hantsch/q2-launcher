@@ -2,18 +2,13 @@ import { app as electronApp } from 'electron'
 import {
   BOOTSTRAP_SUPPORTED_ENGINES,
   DOWNLOADS_HANDLERS,
-  type ArchiveCacheStatus,
   type BootstrapEngineOption,
   type BootstrapEngineOptionsResult,
   type BootstrapSummary,
-  type BootstrapTargetVerdict,
-  type ClearArchiveCacheResult,
-  type DetectedRetailSource,
   type DownloadFailure,
   type DownloadsSettings,
   type EngineUpdateChannel,
   type EngineUpdateStatus,
-  type GameDataSourceVerdict,
   type ManifestSnapshot,
   type PackageSource,
   type RepairPlan,
@@ -177,12 +172,12 @@ export const downloadsModule: MainModule = {
     handle(
       DOWNLOADS_HANDLERS.bootstrapEngineOptions,
       bootstrapEngineOptionsInputSchema,
-      async (): Promise<BootstrapEngineOptionsResult> => {
+      async () => {
         try {
           await manifestService.getManifest()
         } catch (error) {
           if (error instanceof ManifestUnavailableError) {
-            return { options: [], emptyReason: 'none-pinned' }
+            return ok<BootstrapEngineOptionsResult>({ options: [], emptyReason: 'none-pinned' })
           }
           throw error
         }
@@ -199,11 +194,11 @@ export const downloadsModule: MainModule = {
           })
         }
 
-        if (options.length > 0) return { options, emptyReason: null }
-        return {
+        if (options.length > 0) return ok<BootstrapEngineOptionsResult>({ options, emptyReason: null })
+        return ok<BootstrapEngineOptionsResult>({
           options,
           emptyReason: manifestService.hasAnyPinnedEntries() ? 'none-for-platform' : 'none-pinned',
-        }
+        })
       },
     )
 
@@ -215,7 +210,7 @@ export const downloadsModule: MainModule = {
     handle(
       DOWNLOADS_HANDLERS.bootstrapTargetVerdict,
       bootstrapTargetVerdictInputSchema,
-      ({ targetPath }): Promise<BootstrapTargetVerdict> => computeTargetVerdict(targetPath),
+      async ({ targetPath }) => ok(await computeTargetVerdict(targetPath)),
     )
 
     /**
@@ -254,7 +249,7 @@ export const downloadsModule: MainModule = {
     handle(
       DOWNLOADS_HANDLERS.bootstrapRetailSources,
       bootstrapRetailSourcesInputSchema,
-      (): Promise<DetectedRetailSource[]> => detectedRetailSourcesFor(app),
+      async () => ok(await detectedRetailSourcesFor(app)),
     )
 
     /**
@@ -267,7 +262,7 @@ export const downloadsModule: MainModule = {
     handle(
       DOWNLOADS_HANDLERS.bootstrapGameDataSource,
       bootstrapGameDataSourceInputSchema,
-      ({ rootPath }): Promise<GameDataSourceVerdict> => inspectGameDataSource(rootPath),
+      async ({ rootPath }) => ok(await inspectGameDataSource(rootPath)),
     )
 
     /**
@@ -326,9 +321,9 @@ export const downloadsModule: MainModule = {
     handle(
       DOWNLOADS_HANDLERS.engineUpdateStatus,
       engineUpdateStatusInputSchema,
-      async ({ installationId }): Promise<EngineUpdateStatus | undefined> => {
+      async ({ installationId }) => {
         const installation = app.installations.find(installationId)
-        if (!installation) return undefined
+        if (!installation) return ok<EngineUpdateStatus | undefined>(undefined)
 
         const recorded = readEngineState(installation.moduleData)
         const target = await resolveEngineUpdateTarget(
@@ -338,7 +333,9 @@ export const downloadsModule: MainModule = {
           log,
         )
 
-        return computeEngineUpdateStatus(installationId, installation.engineKind, recorded, target)
+        return ok<EngineUpdateStatus | undefined>(
+          computeEngineUpdateStatus(installationId, installation.engineKind, recorded, target),
+        )
       },
     )
 
@@ -427,11 +424,11 @@ export const downloadsModule: MainModule = {
     handle(
       DOWNLOADS_HANDLERS.repairPlan,
       repairPlanInputSchema,
-      async ({ installationId }): Promise<RepairPlan | undefined> => {
+      async ({ installationId }) => {
         const installation = app.installations.find(installationId)
-        if (!installation) return undefined
+        if (!installation) return ok<RepairPlan | undefined>(undefined)
 
-        return resolveRepairPlan(repairPlanDepsFor(manifestService, log), {
+        return ok<RepairPlan | undefined>(await resolveRepairPlan(repairPlanDepsFor(manifestService, log), {
           id: installation.id,
           rootPath: installation.rootPath,
           engineKind: installation.engineKind,
@@ -440,7 +437,7 @@ export const downloadsModule: MainModule = {
             : {}),
           ...(installation.executablePath ? { executablePath: installation.executablePath } : {}),
           ...(installation.writeDirPath ? { writeDirPath: installation.writeDirPath } : {}),
-        })
+        }))
       },
     )
 
@@ -469,8 +466,8 @@ export const downloadsModule: MainModule = {
     // Story 072 D4: reads the persisted settings verbatim - no failure mode of its own, so (like
     // `library`'s `stats` and `config`'s `list`) it returns the plain value rather than an
     // `Outcome`; `manifestGet` above only wraps because it has a real failure to report.
-    handle(DOWNLOADS_HANDLERS.getSettings, downloadsNoInputSchema, (): DownloadsSettings =>
-      app.state.getDownloadsSettings(),
+    handle(DOWNLOADS_HANDLERS.getSettings, downloadsNoInputSchema, () =>
+      ok(app.state.getDownloadsSettings()),
     )
 
     /**
@@ -490,7 +487,7 @@ export const downloadsModule: MainModule = {
     handle(
       DOWNLOADS_HANDLERS.patchSettings,
       patchDownloadsSettingsInputSchema,
-      async (patch): Promise<DownloadsSettings> => {
+      async (patch) => {
         const previous = app.state.getDownloadsSettings()
         const merged: DownloadsSettings = { ...previous, ...patch }
         app.state.setDownloadsSettings(merged)
@@ -511,7 +508,7 @@ export const downloadsModule: MainModule = {
           }
         }
 
-        return merged
+        return ok(merged)
       },
     )
 
@@ -520,7 +517,7 @@ export const downloadsModule: MainModule = {
     handle(
       DOWNLOADS_HANDLERS.cacheStatus,
       downloadsNoInputSchema,
-      (): Promise<ArchiveCacheStatus> => status({ userDataPath: userDataDir(), log }),
+      async () => ok(await status({ userDataPath: userDataDir(), log })),
     )
 
     // Story 072 D4 (AC4): deletes every evictable cache entry and reports exactly what went -
@@ -529,16 +526,15 @@ export const downloadsModule: MainModule = {
     handle(
       DOWNLOADS_HANDLERS.clearCache,
       downloadsNoInputSchema,
-      (): Promise<ClearArchiveCacheResult> =>
-        clear({ userDataPath: userDataDir(), isInUse: NOTHING_IN_USE, log }),
+      async () => ok(await clear({ userDataPath: userDataDir(), isInUse: NOTHING_IN_USE, log })),
     )
 
     // Story 073 D2 (AC2): the failure log. All three handlers read through
     // `state.getDownloadFailures()`, which prunes on the way out, and write through
     // `state.setDownloadFailures()`, which prunes again on the way in - so retention is applied
     // whichever of them a call goes through, and none of them re-implements it.
-    handle(DOWNLOADS_HANDLERS.failures, downloadsNoInputSchema, (): DownloadFailure[] =>
-      app.state.getDownloadFailures(),
+    handle(DOWNLOADS_HANDLERS.failures, downloadsNoInputSchema, () =>
+      ok(app.state.getDownloadFailures()),
     )
 
     // Both mutating handlers answer the *new* list rather than nothing, so the renderer's dismiss/
@@ -547,15 +543,15 @@ export const downloadsModule: MainModule = {
     handle(
       DOWNLOADS_HANDLERS.dismissFailure,
       dismissFailureInputSchema,
-      ({ id }): DownloadFailure[] =>
-        app.state.setDownloadFailures(dismissFailure(app.state.getDownloadFailures(), id)),
+      ({ id }) =>
+        ok(app.state.setDownloadFailures(dismissFailure(app.state.getDownloadFailures(), id))),
     )
 
     handle(
       DOWNLOADS_HANDLERS.restoreFailure,
       restoreFailureInputSchema,
-      ({ id }): DownloadFailure[] =>
-        app.state.setDownloadFailures(restoreFailure(app.state.getDownloadFailures(), id)),
+      ({ id }) =>
+        ok(app.state.setDownloadFailures(restoreFailure(app.state.getDownloadFailures(), id))),
     )
 
     log.debug('downloads module ready')

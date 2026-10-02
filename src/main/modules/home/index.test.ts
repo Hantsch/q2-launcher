@@ -79,6 +79,20 @@ describe('home module', () => {
     })
   })
 
+  it('a refused slide url arrives as a failure, not as a success wrapping one', async () => {
+    vi.stubEnv(UI_HARNESS_ENV, '1')
+    const registry = new MainModuleRegistry()
+    await registry.register(homeModule, fakeAppContext({ isDev: true }))
+
+    const outcome = await registry.invoke({
+      moduleId: 'home',
+      type: 'slide.openUrl',
+      payload: 'https://not-on-the-allowlist.invalid/x',
+    })
+
+    expect(outcome).toEqual({ ok: false, error: { key: 'home.error.urlNotAllowed' } })
+  })
+
   /**
    * The app-start `refreshNews()` call itself is unconditional - it is `resolveNewsSource()`
    * (called *inside* `refreshNews()`) that decides whether that turns into a real network request

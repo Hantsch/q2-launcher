@@ -121,68 +121,56 @@ export function getGameDataSourceVerdict(
 /**
  * Story 074 D4 (AC4): the packages a bootstrap would download and their summed size.
  *
- * The main handler answers an `Outcome` as the transport-level `Outcome`'s own value, so a raw
- * `callModule` here would yield `Outcome<Outcome<BootstrapSummary>>`; this flattens that one level,
- * the same way `assignConfigProfile` (`modules/config/client.ts`) does.
- *
  * Story 088 D5: `dataSource`/`copySourcePath` are optional and mean exactly what
  * `StartBootstrapInput`'s own fields mean - so the confirm step's summary is always computed from
  * the same payload the run would start with.
  */
-export async function getBootstrapSummary(input: {
+export function getBootstrapSummary(input: {
   engine: EngineKind
   targetPath: string
   includeVideoAndPlayers: boolean
   dataSource?: BootstrapDataSource
   copySourcePath?: string
 }): Promise<Outcome<BootstrapSummary>> {
-  const result = await callModule<Outcome<BootstrapSummary>>(
-    'downloads',
-    DOWNLOADS_HANDLERS.bootstrapSummary,
-    input,
-  )
-  return result.ok ? result.value : result
+  return callModule<BootstrapSummary>('downloads', DOWNLOADS_HANDLERS.bootstrapSummary, input)
 }
 
 /**
  * Story 074 D4 (AC5): starts the bootstrap job and answers its `Job.id` plus the id of the
  * installation it registered. Returns as soon as the job exists - progress arrives through
- * `jobs:changed`, never through this promise. Flattened for the same reason as above.
+ * `jobs:changed`, never through this promise.
  */
-export async function startBootstrapInstall(
+export function startBootstrapInstall(
   input: StartBootstrapInput,
 ): Promise<Outcome<{ jobId: string; installationId: string }>> {
-  const result = await callModule<Outcome<{ jobId: string; installationId: string }>>(
+  return callModule<{ jobId: string; installationId: string }>(
     'downloads',
     DOWNLOADS_HANDLERS.bootstrapStart,
     input,
   )
-  return result.ok ? result.value : result
 }
 
 /**
  * Story 090 D1/D2: starts the retail-upgrade job for one demo installation (INST-D4). Main's
  * `retail.upgradeStart` handler (`src/main/modules/downloads/index.ts`) is a thin wrapper around
  * D2's real `startRetailUpgrade` (`src/main/modules/downloads/retail/upgrade-job.ts`).
- * Flattened for the same reason as `startBootstrapInstall` above.
+ *
  */
-export async function startRetailUpgrade(
+export function startRetailUpgrade(
   input: StartRetailUpgradeInput,
 ): Promise<Outcome<StartRetailUpgradeResult>> {
-  const result = await callModule<Outcome<StartRetailUpgradeResult>>(
+  return callModule<StartRetailUpgradeResult>(
     'downloads',
     DOWNLOADS_HANDLERS.retailUpgradeStart,
     input,
   )
-  return result.ok ? result.value : result
 }
 
 /**
  * Story 092 D7: one installation's `EngineUpdateStatus` (AC1/AC4/AC5) - a thin wrapper around
  * main's `engine.updateStatus` handler (`src/main/modules/downloads/index.ts`), which has no
  * failure mode of its own and answers `undefined` for an installation it no longer knows about
- * (same "every answer is a verdict" convention as `getBootstrapTargetVerdict`). Not flattened:
- * unlike `startRetailUpgrade`, the handler's own return value is not itself an `Outcome`.
+ * (same "every answer is a verdict" convention as `getBootstrapTargetVerdict`).
  */
 export function getEngineUpdateStatus(
   installationId: string,
@@ -195,53 +183,44 @@ export function getEngineUpdateStatus(
 }
 
 /**
- * Story 092 D7: starts the engine-update job for one installation (AC2/AC6/AC7/AC8). Mirrors
- * `startRetailUpgrade`'s flattening - `engine.updateStart`'s handler answers its own `Outcome`.
+ * Story 092 D7: starts the engine-update job for one installation (AC2/AC6/AC7/AC8).
  */
-export async function startEngineUpdate(
+export function startEngineUpdate(
   input: StartEngineUpdateInput,
 ): Promise<Outcome<StartEngineUpdateResult>> {
-  const result = await callModule<Outcome<StartEngineUpdateResult>>(
+  return callModule<StartEngineUpdateResult>(
     'downloads',
     DOWNLOADS_HANDLERS.engineUpdateStart,
     input,
   )
-  return result.ok ? result.value : result
 }
 
 /**
- * Story 092 D7: starts the engine-rollback job for one installation (AC3/AC6/AC7). Same shape and
- * flattening as `startEngineUpdate` above - `engine.rollbackStart` answers a `StartEngineUpdateResult`
+ * Story 092 D7: starts the engine-rollback job for one installation (AC3/AC6/AC7). Same shape as
+ * `startEngineUpdate` above - `engine.rollbackStart` answers a `StartEngineUpdateResult`
  * too (`@shared/modules/downloads`'s own doc comment on that type).
  */
-export async function startEngineRollback(
+export function startEngineRollback(
   input: StartEngineUpdateInput,
 ): Promise<Outcome<StartEngineUpdateResult>> {
-  const result = await callModule<Outcome<StartEngineUpdateResult>>(
+  return callModule<StartEngineUpdateResult>(
     'downloads',
     DOWNLOADS_HANDLERS.engineRollbackStart,
     input,
   )
-  return result.ok ? result.value : result
 }
 
 /**
  * Story 092 D7: flips one installation's engine-update channel (AC4/AC5). `engine.setBleedingEdge`
- * answers `Outcome<void>` itself, so this flattens the same way the job-starting methods above do.
+ * answers `Outcome<void>` itself.
  */
-export async function setEngineBleedingEdge(input: SetBleedingEdgeInput): Promise<Outcome<void>> {
-  const result = await callModule<Outcome<void>>(
-    'downloads',
-    DOWNLOADS_HANDLERS.engineSetBleedingEdge,
-    input,
-  )
-  return result.ok ? result.value : result
+export function setEngineBleedingEdge(input: SetBleedingEdgeInput): Promise<Outcome<void>> {
+  return callModule<void>('downloads', DOWNLOADS_HANDLERS.engineSetBleedingEdge, input)
 }
 
 /**
  * Story 093 D2 (AC6/AC7): one installation's `RepairPlan`, built from a fresh inspection on every
- * call - main's `repair.plan` handler never reads a stored/cached checks snapshot. Not flattened:
- * like `getEngineUpdateStatus`, `repair.plan` answers its own value directly, not an `Outcome`, and
+ * call - main's `repair.plan` handler never reads a stored/cached checks snapshot.
  * `undefined` (installation not found) is a legitimate answer rather than a failure.
  */
 export function getRepairPlan(installationId: string): Promise<Outcome<RepairPlan | undefined>> {
@@ -252,13 +231,8 @@ export function getRepairPlan(installationId: string): Promise<Outcome<RepairPla
 
 /**
  * Story 093 D4/D5: starts the repair job for the offers the repair dialog's user authorised.
- * Mirrors `startEngineUpdate`'s flattening - `repair.start`'s handler answers its own `Outcome`.
+ *
  */
-export async function startRepair(input: StartRepairInput): Promise<Outcome<StartRepairResult>> {
-  const result = await callModule<Outcome<StartRepairResult>>(
-    'downloads',
-    DOWNLOADS_HANDLERS.repairStart,
-    input,
-  )
-  return result.ok ? result.value : result
+export function startRepair(input: StartRepairInput): Promise<Outcome<StartRepairResult>> {
+  return callModule<StartRepairResult>('downloads', DOWNLOADS_HANDLERS.repairStart, input)
 }

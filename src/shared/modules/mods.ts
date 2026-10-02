@@ -171,3 +171,19 @@ export interface ModInstallRecord {
   installedAt: number
   files: ModInstallFile[]
 }
+
+/** Every `mods.error.*` key the mods module sends across IPC or reports on a job - closed, so each one resolves in the locale. */
+export const MODS_ERROR_KEYS = [
+  'mods.error.installationNotFound',
+  'mods.error.gameDirNotFound',
+  'mods.error.revealFailed',
+  'mods.error.unknownMod',
+  'mods.error.alreadyInstalled',
+  'mods.error.noVariant',
+  'mods.error.badPackage',
+  'mods.error.writeFailed',
+  'mods.error.noPendingDecision',
+  'mods.error.diskWrite',
+] as const
+
+export type ModsErrorKey = (typeof MODS_ERROR_KEYS)[number]

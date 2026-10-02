@@ -26,7 +26,7 @@ correct error message where they used to see English prose or a path.
 - [x] 201 — the launcher shuts down in order and says when a write failed
 - [x] 202 — state slices are mutated in place, never replaced from a snapshot
 - [x] 203 — forgiving row parsing is one helper
-- [ ] 204 — the module bus returns one Outcome envelope and every error key resolves
+- [x] 204 — the module bus returns one Outcome envelope and every error key resolves
 - [ ] 206 — a refusal is one shape with a full i18n key and one toast path
 - [ ] 205 — module handlers are typed from a contract and every declared handler is live
 - [ ] 207 — modules own their persisted state

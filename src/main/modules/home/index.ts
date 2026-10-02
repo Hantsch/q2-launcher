@@ -1,3 +1,4 @@
+import { ok } from '@shared/types'
 import {
   DEFAULT_HOME_LAYOUT,
   HOME_EVENTS,
@@ -30,8 +31,8 @@ export const homeModule: MainModule = {
       onChanged: (feed) => emit(HOME_EVENTS.newsChanged, feed),
     })
 
-    handle(HOME_HANDLERS.newsGet, newsNoInputSchema, () => newsService.getNews())
-    handle(HOME_HANDLERS.newsRefresh, newsNoInputSchema, () => newsService.refreshNews())
+    handle(HOME_HANDLERS.newsGet, newsNoInputSchema, async () => ok(await newsService.getNews()))
+    handle(HOME_HANDLERS.newsRefresh, newsNoInputSchema, async () => ok(await newsService.refreshNews()))
     handle(HOME_HANDLERS.openSlideUrl, openSlideUrlInputSchema, (url) => openSlideUrl(url, log))
 
     // Story 086 D1: `getLayout` returns the persisted layout verbatim - no failure mode, like
@@ -39,16 +40,16 @@ export const homeModule: MainModule = {
     // `parseHomeLayout` before persisting it - the shared schema is deliberately permissive on
     // `moduleId`, so an unknown module is dropped here, server-side, rather than rejected at the
     // IPC boundary.
-    handle(HOME_HANDLERS.getLayout, homeLayoutNoInputSchema, () => app.state.homeLayout())
+    handle(HOME_HANDLERS.getLayout, homeLayoutNoInputSchema, () => ok(app.state.homeLayout()))
     handle(HOME_HANDLERS.setLayout, setLayoutInputSchema, (layout) =>
-      app.state.setHomeLayout(parseHomeLayout(layout)),
+      ok(app.state.setHomeLayout(parseHomeLayout(layout))),
     )
     // Story 086 D1 review fix: clone `tiles` rather than passing `DEFAULT_HOME_LAYOUT` by
     // reference - it is a shared, module-level singleton, and this would otherwise let anything
     // that later mutated the persisted layout's `tiles` array in place corrupt the shipped default
     // too.
     handle(HOME_HANDLERS.resetLayout, homeLayoutNoInputSchema, () =>
-      app.state.setHomeLayout({ tiles: DEFAULT_HOME_LAYOUT.tiles.map((tile) => ({ ...tile })) }),
+      ok(app.state.setHomeLayout({ tiles: DEFAULT_HOME_LAYOUT.tiles.map((tile) => ({ ...tile })) })),
     )
 
     // AC1: exactly one fetch happens on its own, right here at registration - fire-and-forget, so a

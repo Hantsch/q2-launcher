@@ -1,3 +1,4 @@
+import { unwrapOk } from '../../../test-support/outcome'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -256,16 +257,16 @@ describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
     ]
 
     const setActions = handlers.get(CONFIG_HANDLERS.setActions)!
-    const setResult = (await setActions({
+    const setResult = unwrapOk<ConfigProfile[]>(await setActions({
       profileId: 'p1',
       categories: [category, other],
       actions: orderedActions,
-    })) as ConfigProfile[]
+    }))
     const setProfile = setResult.find((p) => p.id === 'p1')!
     expect(setProfile.actions!.map((a) => a.id)).toEqual(['a3', 'a1', 'a2'])
 
     const list = handlers.get(CONFIG_HANDLERS.list)!
-    const listResult = (await list(undefined)) as ConfigProfile[]
+    const listResult = unwrapOk<ConfigProfile[]>(await list(undefined))
     const listedProfile = listResult.find((p) => p.id === 'p1')!
     expect(listedProfile.actions!.map((a) => a.id)).toEqual(['a3', 'a1', 'a2'])
     expect(listedProfile.actions).toEqual(setProfile.actions)

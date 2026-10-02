@@ -462,6 +462,22 @@ export interface RestoreWarning {
   subject?: string
 }
 
+/** `RestoreWarningReason` -> the i18n key it crosses the module boundary as. A total record, so a
+ * new reason fails the build until it has a key. */
+export const RESTORE_WARNING_KEYS: Record<RestoreWarningReason, string> = {
+  'metadata-version-newer': 'config.import.warning.metadata-version-newer',
+  'metadata-version-invalid': 'config.import.warning.metadata-version-invalid',
+  'metadata-version-missing': 'config.import.warning.metadata-version-missing',
+  'tag-malformed': 'config.import.warning.tag-malformed',
+  'tag-missing': 'config.import.warning.tag-missing',
+  'tag-unknown-keys': 'config.import.warning.tag-unknown-keys',
+  'tag-modifier-unknown': 'config.import.warning.tag-modifier-unknown',
+  'entry-section-unknown': 'config.import.warning.entry-section-unknown',
+  'entry-alias-duplicate': 'config.import.warning.entry-alias-duplicate',
+  'layer-mode-contradicted': 'config.import.warning.layer-mode-contradicted',
+  'layer-trigger-contradicted': 'config.import.warning.layer-trigger-contradicted',
+}
+
 export interface RestoreProfilePartsResult {
   actions: ConfigAction[]
   /** Only the categories that had to be created locally - a built-in `cat` id is adopted, not created. */

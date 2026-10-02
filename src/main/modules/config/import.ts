@@ -30,8 +30,10 @@ import type { AltLayer } from '@shared/config/alt-layers'
 import {
   foreignBannerCommentText,
   restoreProfileParts,
+  RESTORE_WARNING_KEYS,
   type RestoreCommentLine,
   type RestoreProfilePartsInput,
+  type RestoreWarningReason,
 } from '@shared/config/profile-restore'
 import {
   type ConfigAction,
@@ -239,10 +241,15 @@ function preservedLinesFor<T extends { file: string; line: number }>(
  * later without a second naming pass here.
  */
 function toMetadataWarnings(
-  warnings: readonly { reason: string; file: string; line: number; subject?: string }[],
+  warnings: readonly {
+    reason: RestoreWarningReason
+    file: string
+    line: number
+    subject?: string
+  }[],
 ): ImportMetadataWarning[] {
   return warnings.map((warning) => ({
-    key: `config.import.warning.${warning.reason}`,
+    key: RESTORE_WARNING_KEYS[warning.reason],
     file: warning.file,
     line: warning.line,
     ...(warning.subject !== undefined ? { subject: warning.subject } : {}),

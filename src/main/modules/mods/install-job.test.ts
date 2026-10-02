@@ -249,6 +249,14 @@ describe('startModInstall', () => {
     expect(await stagingLeft()).toEqual([])
   })
 
+  it('a disk write failure reports mods.error.diskWrite', async () => {
+    const h = harness({ stages: [{ files: { 'pak0.pak': 'data' } }] })
+    h.stage.mockRejectedValueOnce(new Error('ENOSPC'))
+    const outcome = await h.run()
+    expect(outcome).toEqual({ status: 'failed', key: 'mods.error.diskWrite' })
+    expect(h.finished).toEqual([{ status: 'failed', error: { key: 'mods.error.diskWrite' } }])
+  })
+
   it('the write runs inside runWrite', async () => {
     const h = harness({
       stages: [{ files: { 'gamex86_64.dll': 'lib' } }, { files: { 'pak0.pak': 'data' } }],

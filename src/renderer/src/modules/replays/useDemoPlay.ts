@@ -108,11 +108,8 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
       if (!result.ok) {
         playback.disarmStage()
         setError(result.error)
-      } else if (!result.value.ok) {
-        playback.disarmStage()
-        setError(result.value.error)
       } else {
-        const placement = result.value.value.stage
+        const placement = result.value.stage
         playback.beginSession(demo.fileName, demo.durationMs)
         playback.setStageReason(placement && !placement.placed ? placement.reason : null)
       }

@@ -1,3 +1,4 @@
+import { unwrapOk } from '../../../test-support/outcome'
 import { describe, expect, it, vi } from 'vitest'
 import type { Installation } from '@shared/types'
 import type { LibraryStats } from '@shared/modules/library'
@@ -38,7 +39,7 @@ async function setUpLibraryModule(installations: Installation[]): Promise<Librar
 
   const handler = handlers.get(LIBRARY_HANDLERS.stats)
   if (!handler) throw new Error('stats handler was never registered')
-  return (await handler(undefined)) as LibraryStats
+  return unwrapOk<LibraryStats>(await handler(undefined))
 }
 
 const BASE_INSTALLATION: Installation = {

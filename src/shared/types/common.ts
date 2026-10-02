@@ -52,6 +52,26 @@ export function ok<T>(value: T): Outcome<T> {
   return { ok: true, value }
 }
 
+/**
+ * Strict envelope check. A domain union that merely carries `ok: true` (`{ ok: true, list: [] }`)
+ * is deliberately not an Outcome: only an own `value` key (success) or a keyed `error` (failure)
+ * counts, so a handler's own result shape is never mistaken for the envelope.
+ */
+export function isOutcome(value: unknown): value is Outcome<unknown> {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as Record<string, unknown>
+  if (candidate.ok === true) return Object.prototype.hasOwnProperty.call(candidate, 'value')
+  if (candidate.ok === false) {
+    const error = candidate.error
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      typeof (error as Record<string, unknown>).key === 'string'
+    )
+  }
+  return false
+}
+
 export function fail(key: string, params?: Record<string, string | number>): Outcome<never> {
   return { ok: false, error: params ? { key, params } : { key } }
 }

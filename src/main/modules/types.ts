@@ -1,6 +1,6 @@
 import type { ZodType } from 'zod'
 import type { FeatureName } from '@shared/features'
-import type { ModuleId } from '@shared/types'
+import type { ModuleId, Outcome } from '@shared/types'
 import type { Logger } from '../lib/logger'
 import type { AppContext } from '../context'
 
@@ -10,7 +10,7 @@ import type { AppContext } from '../context'
  * forgets the concrete type - `ModuleSetup.handle` is where schema and handler
  * are tied together.
  */
-export type ModuleHandler = (payload: unknown) => Promise<unknown> | unknown
+export type ModuleHandler = (payload: unknown) => Promise<Outcome<unknown>> | Outcome<unknown>
 
 /** What the shell hands a module during registration. */
 export interface ModuleSetup {
@@ -24,6 +24,10 @@ export interface ModuleSetup {
    * to `handler` at the call site - a schema that parses to the wrong shape is
    * a compile error there. A handler that takes no payload passes `z.void()`.
    *
+   * A handler returns an `Outcome<R>`, never a bare value: the registry passes it through
+   * unchanged (a non-Outcome return is answered with `modules.error.handlerFailed`), so the
+   * client receives exactly `Outcome<R>`, never a nested envelope.
+   *
    * Story 130: `options.feature` gates the handler behind an unlockable feature. When that
    * feature is locked in this process, the handler is never registered at all - `module:invoke`
    * for that type then answers exactly like an unknown type (`modules.error.notImplemented`),
@@ -31,10 +35,10 @@ export interface ModuleSetup {
    * reveal to a caller probing blind that the feature exists. Without `options.feature` the
    * handler is ungated and always registered.
    */
-  handle: <T>(
+  handle: <T, R>(
     type: string,
     schema: ZodType<T>,
-    handler: (payload: T) => Promise<unknown> | unknown,
+    handler: (payload: T) => Outcome<R> | Promise<Outcome<R>>,
     options?: { feature?: FeatureName },
   ) => void
   /** Pushes a namespaced event to the UI. */

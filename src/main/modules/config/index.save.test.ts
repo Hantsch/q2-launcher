@@ -163,7 +163,7 @@ describe('story 043 D4: explicit save', () => {
 
     // Nothing is left behind to retry, and `writeState` (the pending-write report) is empty.
     const writeState = await handlers.get(CONFIG_HANDLERS.writeState)!(undefined)
-    expect(writeState).toEqual({})
+    expect(writeState).toEqual({ ok: true, value: {} })
   })
 
   it('refuses to write and reports a whole-file conflict when the file changed underneath', async () => {

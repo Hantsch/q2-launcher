@@ -33,8 +33,8 @@ vi.mock('./client', (importOriginal) =>
 import { usePlaybackStore } from './playback-store'
 import { expected } from './optimistic-timeline'
 
-const okResult = { ok: true, value: { ok: true } }
-const refused = { ok: true, value: { ok: false, error: { key: 'replays.timeline.refused' } } }
+const okResult = { ok: true, value: undefined }
+const refused = { ok: false, error: { key: 'replays.timeline.refused' } }
 
 beforeEach(() => {
   usePlaybackStore.getState().endSession()

@@ -164,3 +164,28 @@
 - 2026-10-02 12:51:28 · 203 · review 1 · started
 - 2026-10-02 12:52:56 · 203 · review 1 · done
 - 2026-10-02 12:53:05 · 203 · story · done
+- 2026-10-02 12:53:18 · 204 · build · started
+- 2026-10-02 12:53:33 · 204 · D1 envelope contract · started
+- 2026-10-02 12:54:22 · 204 · D1 envelope contract · done
+- 2026-10-02 12:54:22 · 204 · D2 plain-value handlers · started
+- 2026-10-02 13:00:56 · 204 · D2 plain-value handlers · done
+- 2026-10-02 13:00:56 · 204 · D3 config/downloads/home/mods clients · started
+- 2026-10-02 13:02:13 · 204 · D3 config/downloads/home/mods clients · done
+- 2026-10-02 13:02:13 · 204 · D4 replays client · started
+- 2026-10-02 13:04:46 · 204 · D4 replays client · done
+- 2026-10-02 13:04:46 · 204 · D5 mods error keys · started
+- 2026-10-02 13:04:46 · 204 · D6 restore-warning record · started
+- 2026-10-02 13:06:43 · 204 · D5 mods error keys · done
+- 2026-10-02 13:06:43 · 204 · D6 restore-warning record · done
+- 2026-10-02 13:06:43 · 204 · D7 error-key test · started
+- 2026-10-02 13:07:34 · 204 · D7 error-key test · done
+- 2026-10-02 13:07:34 · 204 · verify · started
+- 2026-10-02 13:12:48 · 204 · verify · blocked: rechecking downloads-tab/home-tile-states
+- 2026-10-02 13:20:26 · 204 · verify · done
+- 2026-10-02 13:20:26 · 204 · review 1 · started
+- 2026-10-02 13:22:03 · 204 · review 1 · done
+- 2026-10-02 13:22:04 · 204 · review fix 1 · started
+- 2026-10-02 13:23:31 · 204 · review fix 1 · done
+- 2026-10-02 13:23:31 · 204 · verify · started
+- 2026-10-02 13:25:17 · 204 · verify · done
+- 2026-10-02 13:25:17 · 204 · story · done

@@ -166,9 +166,9 @@ async function installThrowAllFault(app) {
  * or `ConfigProfilesTile.tsx`/`profile-rows.ts` would throw trying to read them:
  * - `list` (`CONFIG_HANDLERS.list`): `client.ts#listConfigProfiles` returns `callModule`'s result
  *   as-is, so the resolved value here is `ConfigProfile[]` directly - not double-wrapped.
- * - `syncState` (`CONFIG_HANDLERS.syncState`): `client.ts#getProfileSyncState` unwraps one more
- *   layer (`result.ok ? result.value : result`), so the resolved value here must itself be an
- *   `Outcome<ProfileSyncState>`.
+ * - `syncState` (`CONFIG_HANDLERS.syncState`): `client.ts#getProfileSyncState` also returns
+ *   `callModule`'s result as-is, so the resolved value here is the single
+ *   `Outcome<ProfileSyncState>` envelope.
  */
 async function installRejectLibraryFault(app) {
   await app.evaluate(({ ipcMain }) => {
@@ -209,7 +209,7 @@ async function installRejectLibraryFault(app) {
         return Promise.resolve({ ok: true, value: [fixtureProfile] })
       }
       if (request?.moduleId === 'config' && request?.type === 'syncState') {
-        return Promise.resolve({ ok: true, value: { ok: true, value: fixtureSyncState } })
+        return Promise.resolve({ ok: true, value: fixtureSyncState })
       }
       return new Promise(() => {})
     })

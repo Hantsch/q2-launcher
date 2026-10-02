@@ -1,3 +1,4 @@
+import { unwrapOk } from '../../../test-support/outcome'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -263,7 +264,7 @@ describe('CONFIG_HANDLERS.refreshFromFiles handler (story 043 D5)', () => {
     expect(stored.fileHash).toBe(before.fileHash)
     expect(stored.fileState).toBe('unparseable')
     expect(() => renderProfileFile(stored)).not.toThrow()
-    const list = (await handlers.get(CONFIG_HANDLERS.list)!(undefined)) as ConfigProfile[]
+    const list = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.list)!(undefined))
     expect(list.map((p) => p.id)).toEqual(['p1'])
   })
 

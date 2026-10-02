@@ -2,6 +2,7 @@ import type {
   ModInstallRecord,
   ModRemovalPreview,
   ModRemoveChangedFiles,
+  ModsErrorKey,
 } from '@shared/modules/mods'
 import {
   fail,
@@ -32,16 +33,22 @@ const INSTALLATION_NOT_FOUND = 'installations.error.notFound'
 const NO_RECORD = 'mods.remove.refused.noRecord'
 const BUSY = 'mods.remove.refused.busy'
 const LOCKED = 'mods.remove.failed.locked'
-const LOCAL_FAILURE = 'downloads.error.diskWrite'
+const LOCAL_FAILURE = 'mods.error.diskWrite'
 
 /**
  * An install (story 190) or update (story 194) running for the installation makes it busy: the
  * removal works from the record it read at the start, which either of them may replace.
  */
+/** A removal fails with a mods key, the locked-file key, or a refusal reason from the removal planner. */
+type ModRemoveFailureKey =
+  | ModsErrorKey
+  | typeof LOCKED
+  | RemovalRefusedError['reason']
+
 const BUSY_KINDS = new Set(['mod-install', 'mod-update'])
 
 export type ModRemoveOutcome =
-  { status: 'succeeded' } | { status: 'failed'; key: string } | { status: 'cancelled' }
+  { status: 'succeeded' } | { status: 'failed'; key: ModRemoveFailureKey } | { status: 'cancelled' }
 
 export interface StartedModRemove {
   jobId: string
@@ -197,7 +204,7 @@ async function run(
 ): Promise<ModRemoveOutcome> {
   const jobId = job.id
   const failed = (
-    errorKey: string,
+    errorKey: ModRemoveFailureKey,
     reason: string,
     params?: Record<string, string | number>,
   ): ModRemoveOutcome => {

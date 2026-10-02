@@ -748,14 +748,11 @@ describe('replays module', () => {
           type: REPLAYS_HANDLERS.sidecarWrite,
           payload: { demoId: archiveEntryId, fields: { name: 'x' } },
         })
-        // Story 146: `sidecarStore.write` returns its own Outcome as the handler's *value* - the
-        // registry always wraps a successfully-invoked handler in `ok(...)` regardless of what the
-        // handler's own result says (`registry.ts`'s `invoke`), so a typed rejection from the sidecar
-        // store surfaces as `{ ok: true, value: { ok: false, error: { key } } }` here, same shape
-        // `sidecar-store.test.ts` asserts directly against the service.
+        // `sidecarStore.write` returns its own Outcome and the registry passes it through unchanged,
+        // so a typed rejection from the sidecar store surfaces as `{ ok: false, error: { key } }`.
         expect(writeOutcome).toEqual({
-          ok: true,
-          value: { ok: false, error: { key: 'replays.sidecar.error.archiveEntry' } },
+          ok: false,
+          error: { key: 'replays.sidecar.error.archiveEntry' },
         })
 
         const renameOutcome = await registry.invoke({
@@ -764,8 +761,8 @@ describe('replays module', () => {
           payload: { id: archiveEntryId, name: 'renamed' },
         })
         expect(renameOutcome).toEqual({
-          ok: true,
-          value: { ok: false, error: { key: 'replays.rename.error.archiveEntry' } },
+          ok: false,
+          error: { key: 'replays.rename.error.archiveEntry' },
         })
 
         const filesAfter = (await readdir(demosDir)).sort()
@@ -1040,7 +1037,7 @@ describe('replays module lifecycle', () => {
       demoId: rows[0].id,
       installationId: 'inst-1',
     })
-    expect(played).toEqual({ ok: true, value: { ok: true, value: { stage: null } } })
+    expect(played).toEqual({ ok: true, value: { stage: null } })
     return registry
   }
 

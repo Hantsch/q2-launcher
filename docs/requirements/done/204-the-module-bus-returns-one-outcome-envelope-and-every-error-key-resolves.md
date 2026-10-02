@@ -1,7 +1,7 @@
 ---
 id: 204
 title: the module bus returns one Outcome envelope and every error key resolves
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -27,22 +27,22 @@ mods has no typed error keys (12 `'mods.error.*'` literals, outcomes typed `key:
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `src/shared/types/common.ts` exports `isOutcome(value)`; `MainModuleRegistry.invoke`
+- [x] **AC1** — `src/shared/types/common.ts` exports `isOutcome(value)`; `MainModuleRegistry.invoke`
       passes a handler's own `Outcome` through and wraps only plain values; `ModuleSetup.handle`'s
       handler type is `(p: T) => R | Outcome<R> | Promise<…>`. Registry tests cover both shapes
       and a handler that returns `fail(...)`.
-- [ ] **AC2** — Every client flattener (`result.ok ? result.value : result` and the mods `call<T>`
+- [x] **AC2** — Every client flattener (`result.ok ? result.value : result` and the mods `call<T>`
       unwrap) and every component-side `.value.ok` unwrap is deleted; `git grep -n 'double-unwrap'`
       and `git grep -n '\.value\.ok' src/renderer` return nothing; replays' client signatures are
       single-envelope.
-- [ ] **AC3** — A test (`src/renderer/src/i18n/error-keys.test.ts` or in main) scans
+- [x] **AC3** — A test (`src/renderer/src/i18n/error-keys.test.ts` or in main) scans
       `src/main/**/*.ts` for `fail('…')` literals and exported error-key constants and asserts each
       resolves to a leaf in `en.json`; it fails on a deliberately misspelled key.
-- [ ] **AC4** — mods has `MODS_ERROR_KEYS`/`ModsErrorKey` mirroring downloads; all mods job
+- [x] **AC4** — mods has `MODS_ERROR_KEYS`/`ModsErrorKey` mirroring downloads; all mods job
       outcomes are typed with it; `mods.error.diskWrite` exists instead of borrowing downloads'.
-- [ ] **AC5** — `toMetadataWarnings` is typed on `RestoreWarningReason` with a
+- [x] **AC5** — `toMetadataWarnings` is typed on `RestoreWarningReason` with a
       `Record<RestoreWarningReason, key>` and a test that every reason resolves.
-- [ ] **AC6** — Every existing module client test and the module index tests pass; no flow
+- [x] **AC6** — Every existing module client test and the module index tests pass; no flow
       changes (the wire shape for plain-value handlers is unchanged).
 
 ## Open Questions
@@ -254,4 +254,12 @@ Review: → default
 
 ## Done
 
-<!-- Filled by /build 204. -->
+Module handlers now return `Outcome<R>` (compile-time, per the (User) decision); the registry passes it through with a fail-closed `isOutcome` guard, so clients receive a single envelope. All flatteners, the mods `call<T>` unwrap and the replays `flattenOutcome` are gone; mods has a closed `MODS_ERROR_KEYS` set; restore warnings map through `RESTORE_WARNING_KEYS`; `src/main/error-keys.test.ts` proves every fail() literal and exported error-key list resolves in en.json.
+
+Commit message: `204: module bus returns one Outcome envelope; flatteners gone; error keys proven to resolve (MODS_ERROR_KEYS, restore-warning record)`
+
+Verification (narrow gate): build and typecheck green; full `npm test` 6399 passed, 1 red = `scripts/repo-hygiene.test.mjs` (CRLF in 4 files this story does not touch: scripts/flow.mjs, scripts/lib/harness.mjs, TitleBar.tsx, done/199; pre-existing, not fixed here). e2e green: servers-watchlist, servers-quick-filters, servers-master-sources, replays-name-templates, replays-stage, replays-timeline, mods-install, import-from-files, home-tile-states. `downloads-tab` red ("4 archives" vs expected 2) identically on bare HEAD (stash-checked): pre-existing fixture/cache-state issue. AC to test: AC1 registry.test.ts + common.test.ts; AC2 grep-zero + typecheck + config/downloads/mods/replays client.test.ts; AC3/AC4/AC5 error-keys.test.ts + install-job.test.ts; AC6 module tests + flows above. No manual residue.
+
+Decisions: (1) job failure keys are `ModJobFailureKey = ModsErrorKey | DownloadsErrorKey` (install) and own unions for update/remove, since jobs pass through staging/installation keys from other namespaces. (2) error-keys test also lists UPDATE_ERROR_KEYS and APP_UPDATE_ERROR_KEYS (found by the D-j equality scan). (3) The wire for handlers that already returned an Outcome did change (double to single envelope), so scripts/flows/home-tile-states.mjs, which faked the old shape, was corrected; no other flow faked it. (4) Review 1 found a real double envelope (home slide.openUrl wrapped an Outcome in ok()); fixed with a behaviour test, audit of all ok() wrappers found no other; stale nested renderer mocks flattened. Unfixed: stale unused `renameDemo` mock in DemoDetailPanel.test.tsx:32 (cast, never used); pre-existing prettier drift in several index.ts files left alone. No second review pass after the fix (verified by full npm test + 3 flows). No CHANGELOG entry (no user-visible change).
+
+tiers: D 7 / hard 0 · review default · cycles 1 · agents 10

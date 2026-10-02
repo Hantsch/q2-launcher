@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { describe, expect, it, vi } from 'vitest'
 import { fakeAppContext } from '../../test-support/app-context'
 import { createFeatureGate } from '../features/gate'
+import { fail, ok, type Outcome } from '@shared/types'
 import { MainModuleRegistry } from './registry'
 import type { MainModule } from './types'
 
@@ -35,9 +36,9 @@ describe('MainModuleRegistry', () => {
     expect(handler).not.toHaveBeenCalled()
   })
 
-  it('reaches the handler with a valid payload and wraps its return value in ok()', async () => {
+  it('reaches the handler with a valid payload and answers with its outcome', async () => {
     const registry = new MainModuleRegistry()
-    const handler = vi.fn().mockResolvedValue({ answer: 42 })
+    const handler = vi.fn().mockResolvedValue(ok({ answer: 42 }))
     const module: MainModule = {
       id: 'library',
       setup: ({ handle }) => {
@@ -58,7 +59,7 @@ describe('MainModuleRegistry', () => {
 
   it("a module's handlers are not reachable under another module's id", async () => {
     const registry = new MainModuleRegistry()
-    const libraryHandler = vi.fn().mockResolvedValue({ from: 'library' })
+    const libraryHandler = vi.fn().mockResolvedValue(ok({ from: 'library' }))
     const libraryMod: MainModule = {
       id: 'library',
       setup: ({ handle }) => {
@@ -95,7 +96,7 @@ describe('MainModuleRegistry', () => {
  * registered, and gating one handler leaves its ungated siblings alone.
  */
 describe('MainModuleRegistry feature gating', () => {
-  function gatedModule(watch: () => unknown, stats: () => unknown): MainModule {
+  function gatedModule(watch: () => Outcome<unknown>, stats: () => Outcome<unknown>): MainModule {
     return {
       id: 'library',
       setup: ({ handle }) => {
@@ -107,7 +108,7 @@ describe('MainModuleRegistry feature gating', () => {
 
   it('a locked gated handler answers exactly like a type that was never registered', async () => {
     const registry = new MainModuleRegistry(createFeatureGate([]))
-    const watch = vi.fn().mockResolvedValue({ watching: true })
+    const watch = vi.fn().mockResolvedValue(ok({ watching: true }))
     await registry.register(gatedModule(watch, vi.fn()), fakeAppContext())
 
     // The same request against a registry where 'watch' was never declared at all.
@@ -133,7 +134,7 @@ describe('MainModuleRegistry feature gating', () => {
 
   it('an unlocked gated handler is registered and reached', async () => {
     const registry = new MainModuleRegistry(createFeatureGate(['test-only-feature']))
-    const watch = vi.fn().mockResolvedValue({ watching: true })
+    const watch = vi.fn().mockResolvedValue(ok({ watching: true }))
     await registry.register(gatedModule(watch, vi.fn()), fakeAppContext())
 
     const result = await registry.invoke({ moduleId: 'library', type: 'watch', payload: {} })
@@ -164,7 +165,7 @@ describe('MainModuleRegistry feature gating', () => {
     ['unlocked', createFeatureGate(['test-only-feature'])],
   ])('an ungated sibling of a gated handler works while the feature is %s', async (_, gate) => {
     const registry = new MainModuleRegistry(gate)
-    const stats = vi.fn().mockResolvedValue({ answer: 42 })
+    const stats = vi.fn().mockResolvedValue(ok({ answer: 42 }))
     await registry.register(gatedModule(vi.fn(), stats), fakeAppContext())
 
     const result = await registry.invoke({ moduleId: 'library', type: 'stats', payload: {} })
@@ -172,6 +173,61 @@ describe('MainModuleRegistry feature gating', () => {
     expect(result).toEqual({ ok: true, value: { answer: 42 } })
     expect(stats).toHaveBeenCalledWith({})
     expect(registry.registered()).toEqual(['library'])
+  })
+})
+
+describe('MainModuleRegistry outcome pass-through', () => {
+  async function invokeWith(handler: () => unknown) {
+    const registry = new MainModuleRegistry()
+    await registry.register(
+      {
+        id: 'library',
+        setup: ({ handle }) => {
+          handle('stats', z.object({}), handler as () => Outcome<unknown>)
+        },
+      },
+      fakeAppContext(),
+    )
+    return registry.invoke({ moduleId: 'library', type: 'stats', payload: {} })
+  }
+  const handlerFailed = {
+    ok: false,
+    error: { key: 'modules.error.handlerFailed', params: { moduleId: 'library', type: 'stats' } },
+  }
+
+  it("a handler's ok outcome arrives as one envelope", async () => {
+    expect(await invokeWith(() => ok({ answer: 42 }))).toEqual({ ok: true, value: { answer: 42 } })
+  })
+
+  it("a handler's fail outcome passes through unchanged", async () => {
+    expect(await invokeWith(() => fail('library.error.x', { n: 1 }))).toEqual({
+      ok: false,
+      error: { key: 'library.error.x', params: { n: 1 } },
+    })
+  })
+
+  it('a handler that returns a non-Outcome is answered with handlerFailed', async () => {
+    expect(await invokeWith(() => ({ answer: 42 }))).toEqual(handlerFailed)
+    expect(await invokeWith(() => ({ ok: true, list: [] }))).toEqual(handlerFailed)
+  })
+
+  it('a handler that throws is answered with handlerFailed', async () => {
+    expect(
+      await invokeWith(() => {
+        throw new Error('boom')
+      }),
+    ).toEqual(handlerFailed)
+  })
+
+  it('a plain-value handler is a compile error', () => {
+    const module: MainModule = {
+      id: 'library',
+      setup: ({ handle }) => {
+        // @ts-expect-error handlers must return an Outcome, not a bare value
+        handle('stats', z.object({}), () => ({ answer: 42 }))
+      },
+    }
+    expect(module.id).toBe('library')
   })
 })
 

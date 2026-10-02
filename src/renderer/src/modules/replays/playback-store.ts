@@ -225,8 +225,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     if (action.kind === 'fullscreen') {
       try {
         const result = await playbackTimeline(action)
-        if (!result.ok) return result.error
-        return result.value.ok ? null : result.value.error
+        return result.ok ? null : result.error
       } catch {
         return { key: 'replays.timeline.error' }
       }
@@ -243,7 +242,6 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     try {
       const result = await playbackTimeline(action)
       if (!result.ok) return fail(result.error)
-      if (!result.value.ok) return fail(result.value.error)
     } catch {
       return fail({ key: 'replays.timeline.error' })
     }

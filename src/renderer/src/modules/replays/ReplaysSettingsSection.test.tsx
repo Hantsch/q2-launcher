@@ -27,7 +27,7 @@ function defaultInvoke(
     // doc comment on `listNameTemplates`. This stub mirrors that nesting.
     return Promise.resolve({
       ok: true,
-      value: { ok: true, value: { entries: [], canRestore: false } },
+      value: { entries: [], canRestore: false },
     })
   }
   if (payload?.type === 'modWarning.read') {

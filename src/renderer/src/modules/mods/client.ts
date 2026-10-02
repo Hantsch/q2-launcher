@@ -14,23 +14,13 @@ import {
 import type { Outcome } from '@shared/types'
 import { callModule, onModuleEvent } from '../moduleClient'
 
-/**
- * Typed client for the mods module. One function per handler in its contract.
- *
- * The module handlers return their own `Outcome`, which `module:invoke` wraps in another one -
- * flattened here so callers see a single `Outcome<T>`.
- */
-async function call<T>(type: string, payload: unknown): Promise<Outcome<T>> {
-  const outer = await callModule<Outcome<T>>('mods', type, payload)
-  return outer.ok ? outer.value : outer
-}
-
+/** Typed client for the mods module. One function per handler in its contract. */
 export function listMods(installationId: string): Promise<Outcome<ModsListResult>> {
-  return call<ModsListResult>(MODS_HANDLERS.list, { installationId })
+  return callModule<ModsListResult>('mods', MODS_HANDLERS.list, { installationId })
 }
 
 export function revealMod(installationId: string, gameDir: string): Promise<Outcome<null>> {
-  return call<null>(MODS_HANDLERS.reveal, { installationId, gameDir })
+  return callModule<null>('mods', MODS_HANDLERS.reveal, { installationId, gameDir })
 }
 
 /** Whether a map file is on disk for a server's map: `gameDir` narrows the lookup to that mod's
@@ -40,11 +30,11 @@ export function getMapPresence(input: {
   gameDir?: string
   map: string
 }): Promise<Outcome<ModMapPresence>> {
-  return call<ModMapPresence>(MODS_HANDLERS.mapPresence, input)
+  return callModule<ModMapPresence>('mods', MODS_HANDLERS.mapPresence, input)
 }
 
 export function getCatalog(): Promise<Outcome<ModCatalogState>> {
-  return call<ModCatalogState>(MODS_HANDLERS.catalogGet, {})
+  return callModule<ModCatalogState>('mods', MODS_HANDLERS.catalogGet, {})
 }
 
 export function installMod(
@@ -52,7 +42,7 @@ export function installMod(
   catalogId: string,
   version?: string,
 ): Promise<Outcome<{ jobId: string }>> {
-  return call<{ jobId: string }>(MODS_HANDLERS.install, {
+  return callModule<{ jobId: string }>('mods', MODS_HANDLERS.install, {
     installationId,
     catalogId,
     ...(version !== undefined ? { version } : {}),
@@ -60,7 +50,7 @@ export function installMod(
 }
 
 export function resolveInstall(jobId: string, choice: ModInstallChoice): Promise<Outcome<null>> {
-  return call<null>(MODS_HANDLERS.resolveInstall, { jobId, choice })
+  return callModule<null>('mods', MODS_HANDLERS.resolveInstall, { jobId, choice })
 }
 
 export function onInstallDecision(listener: (event: ModInstallDecisionEvent) => void): () => void {
@@ -71,7 +61,10 @@ export function previewRemoval(
   installationId: string,
   modId: string,
 ): Promise<Outcome<ModRemovalPreview>> {
-  return call<ModRemovalPreview>(MODS_HANDLERS.removalPreview, { installationId, modId })
+  return callModule<ModRemovalPreview>('mods', MODS_HANDLERS.removalPreview, {
+    installationId,
+    modId,
+  })
 }
 
 export function removeMod(
@@ -79,14 +72,21 @@ export function removeMod(
   modId: string,
   changedFiles: ModRemoveChangedFiles,
 ): Promise<Outcome<{ jobId: string }>> {
-  return call<{ jobId: string }>(MODS_HANDLERS.remove, { installationId, modId, changedFiles })
+  return callModule<{ jobId: string }>('mods', MODS_HANDLERS.remove, {
+    installationId,
+    modId,
+    changedFiles,
+  })
 }
 
 export function previewUpdate(
   installationId: string,
   catalogId: string,
 ): Promise<Outcome<ModUpdatePreview>> {
-  return call<ModUpdatePreview>(MODS_HANDLERS.updatePreview, { installationId, catalogId })
+  return callModule<ModUpdatePreview>('mods', MODS_HANDLERS.updatePreview, {
+    installationId,
+    catalogId,
+  })
 }
 
 export function updateMod(
@@ -94,5 +94,9 @@ export function updateMod(
   catalogId: string,
   changedPolicy: ModUpdateChangedPolicy,
 ): Promise<Outcome<{ jobId: string }>> {
-  return call<{ jobId: string }>(MODS_HANDLERS.update, { installationId, catalogId, changedPolicy })
+  return callModule<{ jobId: string }>('mods', MODS_HANDLERS.update, {
+    installationId,
+    catalogId,
+    changedPolicy,
+  })
 }

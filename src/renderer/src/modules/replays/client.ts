@@ -32,25 +32,14 @@ export function getReplaysOverview(): Promise<Outcome<ReplaysOverview>> {
   return callModule<ReplaysOverview>('replays', REPLAYS_HANDLERS.overviewRead)
 }
 
-/**
- * Story 140 D3: the `nameTemplates.*` handlers' renderer-side transport. Every one of them is a
- * main handler that itself returns `Outcome<NameTemplatesView>` (its own refusal for an invalid
- * template, an unknown id, ...) - and the module registry (`MainModuleRegistry.invoke`) always
- * wraps a handler's return value in its own transport-level `ok(...)`, the same way it wraps
- * `servers.sources.*`'s `MasterSourcesResult`. So what actually crosses IPC is a **nested**
- * `Outcome<Outcome<NameTemplatesView>>`: the outer layer is transport (an unknown handler, a bad
- * payload, a thrown exception), the inner layer is this module's own domain refusal. Fixed post-140:
- * the original single-layer typing here let a real refusal's `entries` reach `SortableZone` as
- * `undefined` (a nested `{ ok, value }` has no `entries` of its own), crashing the whole Settings
- * view - `NameTemplatesList.tsx` unwraps both layers now, the same way
- * `ServersSettingsSection.tsx`'s `mutate()` does for `MasterSourcesResult`.
- */
-export function listNameTemplates(): Promise<Outcome<Outcome<NameTemplatesView>>> {
-  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesList)
+/** The `nameTemplates.*` handlers answer their own `Outcome<NameTemplatesView>` (a refusal for an
+ * invalid template, an unknown id, ...); the registry passes it through, so one envelope arrives. */
+export function listNameTemplates(): Promise<Outcome<NameTemplatesView>> {
+  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesList)
 }
 
-export function addNameTemplate(template: string): Promise<Outcome<Outcome<NameTemplatesView>>> {
-  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesAdd, {
+export function addNameTemplate(template: string): Promise<Outcome<NameTemplatesView>> {
+  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesAdd, {
     template,
   })
 }
@@ -58,33 +47,33 @@ export function addNameTemplate(template: string): Promise<Outcome<Outcome<NameT
 export function updateNameTemplate(
   id: string,
   template: string,
-): Promise<Outcome<Outcome<NameTemplatesView>>> {
-  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesUpdate, {
+): Promise<Outcome<NameTemplatesView>> {
+  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesUpdate, {
     id,
     template,
   })
 }
 
-export function removeNameTemplate(id: string): Promise<Outcome<Outcome<NameTemplatesView>>> {
-  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesRemove, {
+export function removeNameTemplate(id: string): Promise<Outcome<NameTemplatesView>> {
+  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesRemove, {
     id,
   })
 }
 
-export function reorderNameTemplates(ids: string[]): Promise<Outcome<Outcome<NameTemplatesView>>> {
-  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesReorder, {
+export function reorderNameTemplates(ids: string[]): Promise<Outcome<NameTemplatesView>> {
+  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesReorder, {
     ids,
   })
 }
 
-export function resetNameTemplate(id: string): Promise<Outcome<Outcome<NameTemplatesView>>> {
-  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesReset, {
+export function resetNameTemplate(id: string): Promise<Outcome<NameTemplatesView>> {
+  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesReset, {
     id,
   })
 }
 
-export function restoreNameTemplates(): Promise<Outcome<Outcome<NameTemplatesView>>> {
-  return callModule<Outcome<NameTemplatesView>>('replays', REPLAYS_HANDLERS.nameTemplatesRestore)
+export function restoreNameTemplates(): Promise<Outcome<NameTemplatesView>> {
+  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesRestore)
 }
 
 /** Story 141 D4: every discovered demo across every known installation - the `ReplaysView`'s list. */
@@ -120,34 +109,30 @@ export function revealDemo(demoId: string): Promise<Outcome<DemoFileActionResult
   return callModule<DemoFileActionResult>('replays', REPLAYS_HANDLERS.demosReveal, { demoId })
 }
 
-/** Story 159 D3: `demo.play` - plays one demo in the active Q2PRO installation. The handler itself
- * returns an `Outcome<void>` (its own refusal keys), so the wire shape is nested like the
- * `nameTemplates.*` handlers' above. */
+/** `demo.play` - plays one demo in the active Q2PRO installation; refusals arrive as the handler's
+ * own `fail` keys. */
 export function playDemo(payload: {
   demoId: string
   installationId: string
   acknowledgeModMissing?: boolean
   stage?: ReplaysStageRect
-}): Promise<Outcome<Outcome<ReplaysDemoPlayResult>>> {
-  return callModule<Outcome<ReplaysDemoPlayResult>>('replays', REPLAYS_HANDLERS.demoPlay, payload)
+}): Promise<Outcome<ReplaysDemoPlayResult>> {
+  return callModule<ReplaysDemoPlayResult>('replays', REPLAYS_HANDLERS.demoPlay, payload)
 }
 
 /** Story 170 D5: re-places the running demo's window after the stage picture's box changed. */
-export function sendStageRect(rect: ReplaysStageRect | null): Promise<Outcome<Outcome<void>>> {
-  return callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackStage, { rect })
+export function sendStageRect(rect: ReplaysStageRect | null): Promise<Outcome<void>> {
+  return callModule<void>('replays', REPLAYS_HANDLERS.playbackStage, { rect })
 }
 
-/** Story 165 D3: steers the running demo. Nested like `playDemo` (the handler answers its own
- * `Outcome<void>`, e.g. the typed no-session error). */
-export function playbackTimeline(action: TimelineAction): Promise<Outcome<Outcome<void>>> {
-  return callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackTimeline, action)
+/** Steers the running demo; the typed no-session error arrives as a `fail`. */
+export function playbackTimeline(action: TimelineAction): Promise<Outcome<void>> {
+  return callModule<void>('replays', REPLAYS_HANDLERS.playbackTimeline, action)
 }
 
-/** Story 187 D6: enters or leaves cinema mode. Flattens like `playbackStop`. */
-export async function playbackCinema(enter: boolean): Promise<Outcome<void>> {
-  return flattenOutcome(
-    await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackCinema, { enter }),
-  )
+/** Enters or leaves cinema mode. */
+export function playbackCinema(enter: boolean): Promise<Outcome<void>> {
+  return callModule<void>('replays', REPLAYS_HANDLERS.playbackCinema, { enter })
 }
 
 /** Story 187 D6: the current display state, read once when a session begins. */
@@ -178,43 +163,20 @@ export function copyDemoPath(demoId: string): Promise<Outcome<DemoFileActionResu
   return callModule<DemoFileActionResult>('replays', REPLAYS_HANDLERS.demosCopyPath, { demoId })
 }
 
-/**
- * Story 157 D4: the `demos.rename` handler's renderer-side transport - a demo id and the user's
- * typed stem in, the freshly discovered demo out, nested `Outcome<Outcome<...>>` like
- * `sidecarWrite` above (the module registry's own transport layer wraps the handler's domain
- * `Outcome`), so this flattens the same way.
- */
-export async function renameDemo(
-  id: string,
-  name: string,
-): Promise<Outcome<{ demo: DiscoveredDemo }>> {
-  return flattenOutcome(
-    await callModule<Outcome<{ demo: DiscoveredDemo }>>('replays', REPLAYS_HANDLERS.demoRename, {
-      id,
-      name,
-    }),
-  )
+/** The `demos.rename` handler: a demo id and the user's typed stem in, the freshly discovered demo out. */
+export function renameDemo(id: string, name: string): Promise<Outcome<{ demo: DiscoveredDemo }>> {
+  return callModule<{ demo: DiscoveredDemo }>('replays', REPLAYS_HANDLERS.demoRename, { id, name })
 }
 
-/**
- * Story 166 D4: sends one console line to the running demo's engine. The module registry wraps the
- * handler's own `Outcome`, so this flattens like `renameDemo` - a transport failure and a domain
- * refusal (`replays.console.error.*`) reach the caller the same way.
- */
-export async function consoleSend(line: string): Promise<Outcome<void>> {
-  return flattenOutcome(
-    await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackConsoleSend, { line }),
-  )
+/** Sends one console line to the running demo's engine; a refusal is `replays.console.error.*`. */
+export function consoleSend(line: string): Promise<Outcome<void>> {
+  return callModule<void>('replays', REPLAYS_HANDLERS.playbackConsoleSend, { line })
 }
 
-/**
- * Story 173 D1: ends the running demo (quit, then terminate - main owns the timeout). Flattens like
- * `consoleSend`; no playback launch running is `replays.playback.error.noSession`.
- */
-export async function playbackStop(): Promise<Outcome<void>> {
-  return flattenOutcome(
-    await callModule<Outcome<void>>('replays', REPLAYS_HANDLERS.playbackStop, undefined),
-  )
+/** Ends the running demo (quit, then terminate - main owns the timeout); no running launch is
+ * `replays.playback.error.noSession`. */
+export function playbackStop(): Promise<Outcome<void>> {
+  return callModule<void>('replays', REPLAYS_HANDLERS.playbackStop, undefined)
 }
 
 /**
@@ -264,40 +226,26 @@ export function setListSort(sort: DemoListSort | null): Promise<Outcome<DemoList
  * `index.read`) drops them. `sidecarWrite` is unused by this read-only deliverable but added
  * alongside it so the pair mirrors the shared contract 1:1.
  */
-/** Collapses the registry's transport `Outcome` and the handler's own domain `Outcome` into one:
- * a transport failure and a domain refusal (`replays.sidecar.error.*`) reach the caller the same way. */
-function flattenOutcome<T>(outcome: Outcome<Outcome<T>>): Outcome<T> {
-  return outcome.ok ? outcome.value : outcome
-}
-
-/** What actually crosses IPC for both sidecar handlers is a nested `Outcome<Outcome<T>>` (the
- * module registry wraps the handler's own `Outcome` - see `listNameTemplates` above); story 155 D1
- * typed it single-layer, which let `DemoDetailPanel` read `.state` off the inner Outcome and crash.
- * Both wrappers flatten here, so callers only ever see one `Outcome`. */
-export async function sidecarRead(
+export function sidecarRead(
   demoId: string,
 ): Promise<Outcome<{ state: SidecarState; values: Partial<SidecarFields> }>> {
-  return flattenOutcome(
-    await callModule<Outcome<{ state: SidecarState; values: Partial<SidecarFields> }>>(
-      'replays',
-      REPLAYS_HANDLERS.sidecarRead,
-      { demoId },
-    ),
+  return callModule<{ state: SidecarState; values: Partial<SidecarFields> }>(
+    'replays',
+    REPLAYS_HANDLERS.sidecarRead,
+    { demoId },
   )
 }
 
-export async function sidecarWrite(
+export function sidecarWrite(
   demoId: string,
   fields: Partial<SidecarFields>,
   confirmReplace?: string,
 ): Promise<Outcome<SidecarSaveResult>> {
-  return flattenOutcome(
-    await callModule<Outcome<SidecarSaveResult>>('replays', REPLAYS_HANDLERS.sidecarWrite, {
-      demoId,
-      fields,
-      confirmReplace,
-    }),
-  )
+  return callModule<SidecarSaveResult>('replays', REPLAYS_HANDLERS.sidecarWrite, {
+    demoId,
+    fields,
+    confirmReplace,
+  })
 }
 
 export function getListFilter(): Promise<Outcome<DemoListFilter>> {

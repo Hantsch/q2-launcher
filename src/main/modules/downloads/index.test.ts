@@ -1,3 +1,4 @@
+import { unwrapOk } from '../../../test-support/outcome'
 import { mkdir, mkdtemp, open, readdir, rm, truncate, utimes, writeFile } from 'node:fs/promises'
 import { BASE_GAME_DIR, RETAIL_PAK_SIZES } from '@shared/constants'
 import { tmpdir } from 'node:os'
@@ -292,7 +293,7 @@ describe('downloadsModule settings + cache handlers', () => {
 
     const result = await handlers.get(DOWNLOADS_HANDLERS.getSettings)!(undefined)
 
-    expect(result).toEqual(nonDefault)
+    expect(result).toEqual({ ok: true, value: nonDefault })
   })
 
   it('patchSettings refuses a value outside the allowed range', async () => {
@@ -320,9 +321,9 @@ describe('downloadsModule settings + cache handlers', () => {
     const handlers = await setUpModule({ state } as unknown as ModuleSetup['app'])
     const patchSettings = handlers.get(DOWNLOADS_HANDLERS.patchSettings)!
 
-    const result = (await patchSettings({
+    const result = unwrapOk<DownloadsSettings>(await patchSettings({
       downloadWhilePlayingAllowed: false,
-    })) as DownloadsSettings
+    }))
 
     expect(result).toEqual({ ...DEFAULT_DOWNLOADS_SETTINGS, downloadWhilePlayingAllowed: false })
     expect(state.getDownloadsSettings()).toEqual(result)
@@ -356,7 +357,7 @@ describe('downloadsModule settings + cache handlers', () => {
     const handlers = await setUpModule({ state } as unknown as ModuleSetup['app'])
     const patchSettings = handlers.get(DOWNLOADS_HANDLERS.patchSettings)!
 
-    const result = (await patchSettings({ archiveCacheBudgetGB: 1 })) as DownloadsSettings
+    const result = unwrapOk<DownloadsSettings>(await patchSettings({ archiveCacheBudgetGB: 1 }))
 
     expect(result.archiveCacheBudgetGB).toBe(1)
     // The oldest archive was evicted; the newer one, which alone fits the new budget, stays.
@@ -389,7 +390,7 @@ describe('downloadsModule settings + cache handlers', () => {
 
     const result = await handlers.get(DOWNLOADS_HANDLERS.cacheStatus)!(undefined)
 
-    expect(result).toEqual({ totalBytes: 1234 + 4321, itemCount: 2 })
+    expect(result).toEqual({ ok: true, value: { totalBytes: 1234 + 4321, itemCount: 2 } })
   })
 
   it('clearCache reports what it removed', async () => {
@@ -402,10 +403,10 @@ describe('downloadsModule settings + cache handlers', () => {
       state: fakeDownloadsState({ ...DEFAULT_DOWNLOADS_SETTINGS }),
     } as unknown as ModuleSetup['app'])
 
-    const result = (await handlers.get(DOWNLOADS_HANDLERS.clearCache)!(undefined)) as {
+    const result = unwrapOk<{
       removedBytes: number
       removedCount: number
-    }
+    }>(await handlers.get(DOWNLOADS_HANDLERS.clearCache)!(undefined))
 
     expect(result).toEqual({ removedBytes: 1500, removedCount: 2 })
     // What was reported removed is what actually disappeared from disk.
@@ -562,21 +563,21 @@ describe('downloadsModule failure log', () => {
     const id = downloadJob(jobs)
     jobs.finish(id, { status: 'failed', error: { key: 'downloads.error.diskWrite' } })
 
-    const listed = (await handlers.get(DOWNLOADS_HANDLERS.failures)!(
+    const listed = unwrapOk<DownloadFailure[]>(await handlers.get(DOWNLOADS_HANDLERS.failures)!(
       undefined,
-    )) as DownloadFailure[]
+    ))
     expect(listed).toHaveLength(1)
     const entryId = listed[0]!.id
 
-    const dismissed = (await handlers.get(DOWNLOADS_HANDLERS.dismissFailure)!({
+    const dismissed = unwrapOk<DownloadFailure[]>(await handlers.get(DOWNLOADS_HANDLERS.dismissFailure)!({
       id: entryId,
-    })) as DownloadFailure[]
+    }))
     expect(typeof dismissed[0]?.dismissedAt).toBe('number')
     expect(state.getDownloadFailures()[0]?.dismissedAt).toBe(dismissed[0]?.dismissedAt)
 
-    const restored = (await handlers.get(DOWNLOADS_HANDLERS.restoreFailure)!({
+    const restored = unwrapOk<DownloadFailure[]>(await handlers.get(DOWNLOADS_HANDLERS.restoreFailure)!({
       id: entryId,
-    })) as DownloadFailure[]
+    }))
     expect(restored).toHaveLength(1)
     expect(restored[0]?.dismissedAt).toBeUndefined()
     expect(state.getDownloadFailures()[0]?.dismissedAt).toBeUndefined()
@@ -699,12 +700,15 @@ describe('downloadsModule engine.updateStatus', () => {
     })
 
     expect(status).toMatchObject({
-      installationId: installations.installationId,
-      engine: 'q2pro',
-      current: '0.9',
-      target: '1.0.0',
-      channel: 'pinned',
-      updateAvailable: true,
+      ok: true,
+      value: {
+        installationId: installations.installationId,
+        engine: 'q2pro',
+        current: '0.9',
+        target: '1.0.0',
+        channel: 'pinned',
+        updateAvailable: true,
+      },
     })
   })
 
@@ -718,9 +722,8 @@ describe('downloadsModule engine.updateStatus', () => {
     const onBleedingEdge = await updateStatus({ installationId: installations.installationId })
 
     expect(onBleedingEdge).toMatchObject({
-      channel: 'bleeding-edge',
-      target: '2026-09-12-nightly',
-      updateAvailable: true,
+      ok: true,
+      value: { channel: 'bleeding-edge', target: '2026-09-12-nightly', updateAvailable: true },
     })
 
     // The very same installation, with the flag turned off again: the next check compares against
@@ -729,9 +732,8 @@ describe('downloadsModule engine.updateStatus', () => {
     const onPinned = await updateStatus({ installationId: installations.installationId })
 
     expect(onPinned).toMatchObject({
-      channel: 'pinned',
-      target: '1.0.0',
-      updateAvailable: true,
+      ok: true,
+      value: { channel: 'pinned', target: '1.0.0', updateAvailable: true },
     })
   })
 })
@@ -783,7 +785,7 @@ describe('downloadsModule repair.plan', () => {
     const handlers = await setUpModule({ installations } as unknown as ModuleSetup['app'])
     const repairPlan = handlers.get(DOWNLOADS_HANDLERS.repairPlan)!
 
-    const plan = (await repairPlan({ installationId })) as RepairPlan
+    const plan = unwrapOk<RepairPlan>(await repairPlan({ installationId }))
 
     // The real disk disagrees with the stale `checks: []` - a missing executable is exactly what a
     // fresh `inspectInstallation` run over `installRoot` finds.
@@ -797,7 +799,7 @@ describe('downloadsModule repair.plan', () => {
     const handlers = await setUpModule({ installations } as unknown as ModuleSetup['app'])
     const repairPlan = handlers.get(DOWNLOADS_HANDLERS.repairPlan)!
 
-    expect(await repairPlan({ installationId: 'gone' })).toBeUndefined()
+    expect(await repairPlan({ installationId: 'gone' })).toEqual({ ok: true, value: undefined })
   })
 })
 

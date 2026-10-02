@@ -1,4 +1,5 @@
 import type { EngineKind } from '@shared/types/engine'
+import type { ModsErrorKey } from '@shared/modules/mods'
 import type { Installation } from '@shared/types/installation'
 import type { BinaryArch } from '../../lib/fs-utils'
 import { readEngineState } from '../downloads/engine/installation-state'
@@ -17,7 +18,7 @@ type CatalogVariant = CatalogVersion['variants'][number]
 
 export type VariantSelection =
   | { variant: CatalogVariant | CatalogVersion['contentOnly']; contentOnly: boolean }
-  | { refused: 'mods.error.noVariant' }
+  | { refused: Extract<ModsErrorKey, 'mods.error.noVariant'> }
 
 /**
  * The manifest package the installation was installed from knows its arch; otherwise the

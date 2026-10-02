@@ -647,7 +647,7 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
 
   it('View plays the demo selected now, even through an action published for an earlier one', async () => {
     playableSetup()
-    playDemoMock.mockResolvedValue({ ok: true, value: { ok: true, value: { stage: null } } })
+    playDemoMock.mockResolvedValue({ ok: true, value: { stage: null } })
     await renderView([DEMO, SECOND])
     const rowFor = (id: string) =>
       screen
@@ -673,7 +673,7 @@ describe('ReplaysView - the action bar View plays the selected demo (story 180 D
     async function selectModMissing(): Promise<void> {
       playableSetup()
       playDemoMock.mockReset()
-      playDemoMock.mockResolvedValue({ ok: true, value: { ok: true, value: { stage: null } } })
+      playDemoMock.mockResolvedValue({ ok: true, value: { stage: null } })
       await renderView([{ ...DEMO, gameDir: 'opentdm' } as DemoRowData])
       fireEvent.click(screen.getByTestId('replays-demo-row'))
       await screen.findByTestId('replays-detail')

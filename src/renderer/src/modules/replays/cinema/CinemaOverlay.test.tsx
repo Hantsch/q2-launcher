@@ -33,7 +33,7 @@ beforeAll(async () => {
 })
 
 beforeEach(() => {
-  playbackTimeline.mockResolvedValue({ ok: true, value: { ok: true, value: undefined } })
+  playbackTimeline.mockResolvedValue({ ok: true, value: undefined })
   playbackCinema.mockResolvedValue({ ok: true, value: undefined })
   act(() => {
     usePlaybackStore.getState().beginSession('a.dm2', 100_000)

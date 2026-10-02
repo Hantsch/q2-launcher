@@ -732,6 +732,7 @@
       "noVariant": "This mod has no build for your engine.",
       "badPackage": "The mod's download is not usable.",
       "writeFailed": "Could not write the mod's files. Nothing was changed.",
+      "diskWrite": "The file could not be written to disk. Check your available space and try again.",
       "noPendingDecision": "This install is no longer waiting for an answer."
     },
     "update": {

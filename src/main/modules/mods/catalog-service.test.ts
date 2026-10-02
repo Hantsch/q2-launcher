@@ -192,9 +192,7 @@ describe('mods catalog.get handler', () => {
   it('returns only the DTO fields, never variants or packages', async () => {
     fetchMock.mockResolvedValue(jsonResponse(catalog))
     const r = await registry()
-    const envelope = (await invoke(r, {})) as { ok: true; value: Outcome<ModCatalogState> }
-    expect(envelope.ok).toBe(true)
-    const outcome = envelope.value
+    const outcome = (await invoke(r, {})) as Outcome<ModCatalogState>
     expect(outcome.ok).toBe(true)
     if (!outcome.ok || outcome.value.status !== 'ok') throw new Error('expected ok state')
     const entry = outcome.value.entries[0]

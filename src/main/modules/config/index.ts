@@ -627,14 +627,14 @@ export const configModule: MainModule = {
     const markUnsaved = (profileId: string): ConfigProfile[] =>
       withLiveAssignments(profiles.setDirty(profileId, true))
 
-    handle(CONFIG_HANDLERS.list, listInputSchema, (): ConfigProfile[] =>
-      withLiveAssignments(profiles.list()),
+    handle(CONFIG_HANDLERS.list, listInputSchema, () =>
+      ok(withLiveAssignments(profiles.list())),
     )
 
     handle(
       CONFIG_HANDLERS.create,
       createConfigProfileInputSchema,
-      async (input): Promise<ConfigProfile[]> => {
+      async (input) => {
         const list = withLiveAssignments(profiles.create(input))
         // The new profile is the LAST element: `ProfilesStore.create` appends it
         // to the end of the array it hands `commit()`, and every transform in
@@ -646,7 +646,7 @@ export const configModule: MainModule = {
         // cache, a profile whose file was never written would be lost by the very rebuild pass that
         // makes the cache disposable. It is not dirty at this point, so the write goes through.
         await syncAndPersist(app, log, profiles, created, list)
-        return list
+        return ok(list)
       },
     )
 
@@ -657,16 +657,16 @@ export const configModule: MainModule = {
      * profile, which is how `save` and the sync engine find it again); the rename of the file, and
      * the cascade for any sibling this displaces, happen inside that save.
      */
-    handle(CONFIG_HANDLERS.rename, renameConfigProfileInputSchema, (input): ConfigProfile[] => {
+    handle(CONFIG_HANDLERS.rename, renameConfigProfileInputSchema, (input) => {
       // A rename cannot remove the profile, so it is always in the new list.
       profiles.rename(input)
-      return markUnsaved(input.id)
+      return ok(markUnsaved(input.id))
     })
 
     handle(
       CONFIG_HANDLERS.remove,
       removeConfigProfileInputSchema,
-      async (input): Promise<ConfigProfile[]> => {
+      async (input) => {
         const list = withLiveAssignments(profiles.remove(input))
 
         // Nothing left to sync for the removed profile, so instead of a sync run:
@@ -694,13 +694,13 @@ export const configModule: MainModule = {
           log.error(`failed to drop stale sync bookkeeping for removed profile ${input.id}`, error)
         }
 
-        return list
+        return ok(list)
       },
     )
 
-    handle(CONFIG_HANDLERS.setCvars, setProfileCvarsInputSchema, (input): ConfigProfile[] => {
+    handle(CONFIG_HANDLERS.setCvars, setProfileCvarsInputSchema, (input) => {
       profiles.setCvars(input)
-      return markUnsaved(input.profileId)
+      return ok(markUnsaved(input.profileId))
     })
 
     /**
@@ -782,19 +782,19 @@ export const configModule: MainModule = {
       },
     )
 
-    handle(CONFIG_HANDLERS.setBinds, setProfileBindsInputSchema, (input): ConfigProfile[] => {
+    handle(CONFIG_HANDLERS.setBinds, setProfileBindsInputSchema, (input) => {
       profiles.setBinds(input)
-      return markUnsaved(input.profileId)
+      return ok(markUnsaved(input.profileId))
     })
 
-    handle(CONFIG_HANDLERS.setLayers, setProfileLayersInputSchema, (input): ConfigProfile[] => {
+    handle(CONFIG_HANDLERS.setLayers, setProfileLayersInputSchema, (input) => {
       profiles.setLayers(input)
-      return markUnsaved(input.profileId)
+      return ok(markUnsaved(input.profileId))
     })
 
-    handle(CONFIG_HANDLERS.setActions, setProfileActionsInputSchema, (input): ConfigProfile[] => {
+    handle(CONFIG_HANDLERS.setActions, setProfileActionsInputSchema, (input) => {
       profiles.setActions(input)
-      return markUnsaved(input.profileId)
+      return ok(markUnsaved(input.profileId))
     })
 
     // Story 040 D4: a dedicated setter for one boolean, not routed through the whole-field
@@ -806,9 +806,9 @@ export const configModule: MainModule = {
     handle(
       CONFIG_HANDLERS.setWriteUnbindall,
       setWriteUnbindallInputSchema,
-      (input): ConfigProfile[] => {
+      (input) => {
         profiles.setWriteUnbindall(input)
-        return markUnsaved(input.profileId)
+        return ok(markUnsaved(input.profileId))
       },
     )
 
@@ -818,9 +818,9 @@ export const configModule: MainModule = {
     handle(
       CONFIG_HANDLERS.setWriteCatalogDefaults,
       setWriteCatalogDefaultsInputSchema,
-      (input): ConfigProfile[] => {
+      (input) => {
         profiles.setWriteCatalogDefaults(input)
-        return markUnsaved(input.profileId)
+        return ok(markUnsaved(input.profileId))
       },
     )
 
@@ -833,9 +833,9 @@ export const configModule: MainModule = {
     handle(
       CONFIG_HANDLERS.setSectionHeaderStyle,
       setSectionHeaderStyleInputSchema,
-      (input): ConfigProfile[] => {
+      (input) => {
         profiles.setSectionHeaderStyle(input)
-        return markUnsaved(input.profileId)
+        return ok(markUnsaved(input.profileId))
       },
     )
 
@@ -850,10 +850,13 @@ export const configModule: MainModule = {
      * "no baseline to discard from" case is a typed result, not an error, and is reported as such
      * rather than mapped onto `fail(...)`.
      */
-    handle(CONFIG_HANDLERS.discard, discardProfileInputSchema, (input): DiscardProfileResult => {
+    handle(CONFIG_HANDLERS.discard, discardProfileInputSchema, (input) => {
       const outcome = profiles.discard(input.profileId)
-      if (outcome.outcome === 'noBaseline') return { status: 'noBaseline' }
-      return { status: 'discarded', profiles: withLiveAssignments(outcome.profiles) }
+      if (outcome.outcome === 'noBaseline') return ok<DiscardProfileResult>({ status: 'noBaseline' })
+      return ok<DiscardProfileResult>({
+        status: 'discarded',
+        profiles: withLiveAssignments(outcome.profiles),
+      })
     })
 
     handle(
@@ -1558,7 +1561,7 @@ export const configModule: MainModule = {
     // more - this channel's shared contract (`WriteState`, a later deliverable's concern) is kept
     // alive by always answering "nothing pending" rather than by persisting a map that can never
     // gain an entry.
-    handle(CONFIG_HANDLERS.writeState, writeStateInputSchema, (): WriteState => ({}))
+    handle(CONFIG_HANDLERS.writeState, writeStateInputSchema, () => ok<WriteState>({}))
 
     /**
      * Story 022 D7: read-only report of where every copy of this profile stands.
@@ -1752,8 +1755,8 @@ export const configModule: MainModule = {
     // Story 007: which key (if any) cycles an installation's assigned
     // profiles in-session. Per-installation, not part of a profile (decision
     // 1) - see `SetSwitchBindInput`'s doc comment.
-    handle(CONFIG_HANDLERS.switchBinds, switchBindsInputSchema, (): Record<string, string> =>
-      app.state.configSwitchBinds(),
+    handle(CONFIG_HANDLERS.switchBinds, switchBindsInputSchema, () =>
+      ok(app.state.configSwitchBinds()),
     )
 
     handle(

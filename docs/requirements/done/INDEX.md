@@ -300,3 +300,4 @@ second roadmap.
 - 201 — the launcher shuts down in order and says when a write failed · S32 · awaited 3 s shutdown, retry-once + one toast on a failed state write, 250 ms debounced state.json, onDispose lifecycle
 - 202 — state slices are mutated in place, never replaced from a snapshot · S32 · `updateSlice` replaces the whole-section setters; installations patch/validate and config write failures merge onto live state
 - 203 — forgiving row parsing is one helper · S32 · persisted-row parsing goes through lib/forgiving.ts; schemas.ts and three module loops use it, behaviour unchanged
+- 204 — the module bus returns one Outcome envelope and every error key resolves · S32 · handlers return Outcome, registry passes it through, flatteners removed; mods error keys closed and an error-keys test proves main's keys resolve

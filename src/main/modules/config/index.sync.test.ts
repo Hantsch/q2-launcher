@@ -1,3 +1,4 @@
+import { unwrapOk } from '../../../test-support/outcome'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -81,10 +82,10 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
   it('create returns the unchanged profile list and the canonical file is already on disk', async () => {
     const { handlers } = await boot({ installations: [installation()] })
 
-    const list = (await handlers.get(CONFIG_HANDLERS.create)!({
+    const list = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.create)!({
       name: 'Fresh',
       from: 'empty',
-    })) as ConfigProfile[]
+    }))
 
     // Contract unchanged: still a plain `ConfigProfile[]`.
     expect(list).toHaveLength(1)
@@ -99,10 +100,10 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
   it('creating a profile with no installation at all still produces the canonical file', async () => {
     const { handlers } = await boot()
 
-    const list = (await handlers.get(CONFIG_HANDLERS.create)!({
+    const list = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.create)!({
       name: 'Solo',
       from: 'empty',
-    })) as ConfigProfile[]
+    }))
 
     expect(list[0]!.assignments).toEqual([])
     expect(await readFile(join(userDataBox.current, 'Solo.cfg'), 'latin1')).toBe(
@@ -116,10 +117,10 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     state.setConfigProfiles([profile()])
     await state.settle()
 
-    const list = (await handlers.get(CONFIG_HANDLERS.setCvars)!({
+    const list = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.setCvars)!({
       profileId: 'p1',
       cvars: { sensitivity: '7' },
-    })) as ConfigProfile[]
+    }))
 
     // Story 022 decision 8, deliberately inverted by story 043 D4: the edit is in `state.json`
     // immediately (a crash must not lose it) and marked as not-yet-in-the-file, but nothing on disk
@@ -161,7 +162,7 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     for (const [type, payload] of mutations) {
       // Each mutation is checked on its own: one handler still calling the sync engine would show
       // up here as a changed file, and nowhere else.
-      const list = (await handlers.get(type)!(payload)) as ConfigProfile[]
+      const list = unwrapOk<ConfigProfile[]>(await handlers.get(type)!(payload))
       expect(list.find((p) => p.id === 'p1')!.dirty, `${type} marks the profile dirty`).toBe(true)
       expect(await readFile(canonical, 'latin1'), `${type} wrote no canonical file`).toBe(saved)
       expect(await readFile(installationCopy, 'latin1'), `${type} wrote no copy`).toBe(savedCopy)
@@ -188,9 +189,9 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     await handlers.get(CONFIG_HANDLERS.setBinds)!({ profileId: 'p1', binds: { x: '+attack' } })
     await handlers.get(CONFIG_HANDLERS.rename)!({ id: 'p1', name: 'Renamed' })
 
-    const result = (await handlers.get(CONFIG_HANDLERS.discard)!({
+    const result = unwrapOk<DiscardProfileResult>(await handlers.get(CONFIG_HANDLERS.discard)!({
       profileId: 'p1',
-    })) as DiscardProfileResult
+    }))
     expect(result.status).toBe('discarded')
     if (result.status !== 'discarded') throw new Error('unreachable')
 
@@ -283,11 +284,11 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
       ...categoryA,
       subcategories: [categoryA.subcategories[1]!, categoryA.subcategories[0]!],
     }
-    const actionsResult = (await handlers.get(CONFIG_HANDLERS.setActions)!({
+    const actionsResult = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.setActions)!({
       profileId: 'p1',
       categories: [categoryB, reorderedCategoryA],
       actions: [actionA2, actionA1],
-    })) as ConfigProfile[]
+    }))
     const afterActionsReorder = actionsResult.find((p) => p.id === 'p1')!
     expect(afterActionsReorder.categories!.map((c) => c.id)).toEqual(['cat-b', 'cat-a'])
     expect(
@@ -305,11 +306,11 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
       ...cvarSectionOne,
       subsections: [cvarSectionOne.subsections[1]!, cvarSectionOne.subsections[0]!],
     }
-    const cvarsResult = (await handlers.get(CONFIG_HANDLERS.setCvars)!({
+    const cvarsResult = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.setCvars)!({
       profileId: 'p1',
       cvars: profile().cvars,
       cvarSections: [cvarSectionTwo, reorderedCvarSectionOne],
-    })) as ConfigProfile[]
+    }))
     const afterCvarsReorder = cvarsResult.find((p) => p.id === 'p1')!
     expect(afterCvarsReorder.cvarSections!.map((s) => s.id)).toEqual(['cvs-2', 'cvs-1'])
     expect(
@@ -319,9 +320,9 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
 
     // AC2: Discard puts every one of those arrays back to the saved order - categories, the
     // sub-categories inside them, the actions array and the cvar sections/sub-sections alike.
-    const discardResult = (await handlers.get(CONFIG_HANDLERS.discard)!({
+    const discardResult = unwrapOk<DiscardProfileResult>(await handlers.get(CONFIG_HANDLERS.discard)!({
       profileId: 'p1',
-    })) as DiscardProfileResult
+    }))
     expect(discardResult.status).toBe('discarded')
     if (discardResult.status !== 'discarded') throw new Error('unreachable')
     const restored = discardResult.profiles.find((p) => p.id === 'p1')!
@@ -343,10 +344,10 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     state.setConfigProfiles([profile()])
     await state.settle()
 
-    const list = (await handlers.get(CONFIG_HANDLERS.setSectionHeaderStyle)!({
+    const list = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.setSectionHeaderStyle)!({
       profileId: 'p1',
       sectionHeaderStyle: 'brackets',
-    })) as ConfigProfile[]
+    }))
 
     expect(list.map((p) => p.id)).toEqual(['p1'])
     const updated = list.find((p) => p.id === 'p1')!
@@ -377,10 +378,10 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     const onText = await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')
     expect(onText).toContain('Defaults')
 
-    const toggledOff = (await handlers.get(CONFIG_HANDLERS.setWriteCatalogDefaults)!({
+    const toggledOff = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.setWriteCatalogDefaults)!({
       profileId: 'p1',
       writeCatalogDefaults: false,
-    })) as ConfigProfile[]
+    }))
     const updated = toggledOff.find((p) => p.id === 'p1')!
     expect(updated.writeCatalogDefaults).toBe(false)
     expect(updated.dirty).toBe(true)
@@ -390,10 +391,10 @@ describe('story 022 D7: on-disk sync wired into the config handlers', () => {
     expect(offText).not.toContain('Defaults')
 
     // Toggling back on restores the section - the flag round-trips through state, not just render.
-    const toggledOn = (await handlers.get(CONFIG_HANDLERS.setWriteCatalogDefaults)!({
+    const toggledOn = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.setWriteCatalogDefaults)!({
       profileId: 'p1',
       writeCatalogDefaults: true,
-    })) as ConfigProfile[]
+    }))
     expect(toggledOn.find((p) => p.id === 'p1')!.writeCatalogDefaults).toBe(true)
     await handlers.get(CONFIG_HANDLERS.save)!({ profileId: 'p1' })
     expect(await readFile(join(userDataBox.current, 'Profile.cfg'), 'latin1')).toContain('Defaults')

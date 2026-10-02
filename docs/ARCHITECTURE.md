@@ -257,7 +257,8 @@ Module request traffic goes through one shell-owned channel, `module:invoke`, wi
 a `{ moduleId, type, payload }` envelope. Handlers are keyed `moduleId/type`, so
 modules cannot answer for each other and — more importantly — a module can never
 widen the renderer's IPC surface. Type safety per call is the module's own job,
-which is what its typed client is for.
+which is what its typed client is for. Every handler returns `Outcome<R>` and the
+registry passes it through unchanged, so a client receives exactly `Outcome<R>`.
 
 `library` is the working reference implementation. Its stats row in the library
 view is fetched over `module:invoke`, so the seam is exercised end to end rather

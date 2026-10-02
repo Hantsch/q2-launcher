@@ -35,7 +35,7 @@ beforeAll(async () => {
 })
 
 beforeEach(() => {
-  playbackTimeline.mockResolvedValue({ ok: true, value: { ok: true, value: undefined } })
+  playbackTimeline.mockResolvedValue({ ok: true, value: undefined })
 })
 
 afterEach(() => {
@@ -175,8 +175,8 @@ describe('DemoTimeline (story 165 D3)', () => {
     begin(60_000, 0)
     render(createElement(DemoTimeline))
     playbackTimeline.mockResolvedValueOnce({
-      ok: true,
-      value: { ok: false, error: { key: 'replays.timeline.error' } },
+      ok: false,
+      error: { key: 'replays.timeline.error' },
     })
     fireEvent.click(testid('toggle'))
     expect((await screen.findByTestId('replays-timeline-error')).textContent).toContain('could not')
@@ -203,8 +203,8 @@ describe('DemoTimeline (story 165 D3)', () => {
     begin(60_000, 1000)
     render(createElement(DemoTimeline))
     playbackTimeline.mockResolvedValueOnce({
-      ok: true,
-      value: { ok: false, error: { key: 'replays.playback.error.fullscreen' } },
+      ok: false,
+      error: { key: 'replays.playback.error.fullscreen' },
     })
     fireEvent.click(testid('fullscreen'))
     expect((await screen.findByTestId('replays-timeline-error')).textContent).toBeTruthy()

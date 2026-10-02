@@ -55,16 +55,9 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
     await rm(userDataDirPath, { recursive: true, force: true })
   })
 
-  /** Every handler's outcome is wrapped once by the registry (`ok(await handler(...))`) and, on
-   * top of that, the handler itself already returns an `Outcome<T>` (same "flattening" convention
-   * `config`'s import handlers use) - so a successful call looks like
-   * `{ ok: true, value: { ok: true, value: T } }` and a refusal like
-   * `{ ok: true, value: { ok: false, error } }`. This unwraps the outer layer only, returning the
-   * handler's own `Outcome`. */
+  /** The registry passes each handler's own `Outcome<T>` through unchanged. */
   async function invoke(type: string, payload?: unknown): Promise<NameTemplatesOutcome> {
-    const outcome = await registry.invoke({ moduleId: 'replays', type, payload })
-    expect(outcome.ok).toBe(true)
-    return (outcome as { ok: true; value: NameTemplatesOutcome }).value
+    return (await registry.invoke({ moduleId: 'replays', type, payload })) as NameTemplatesOutcome
   }
 
   async function listIds(): Promise<string[]> {
@@ -91,7 +84,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
       type: REPLAYS_HANDLERS.nameTemplatesList,
       payload: undefined,
     })
-    const result = (outcome as { ok: true; value: NameTemplatesOutcome }).value
+    const result = outcome as NameTemplatesOutcome
     expect(result.ok).toBe(true)
     if (!result.ok) return
     expect(result.value.entries.map((entry) => entry.id)).toEqual(beforeIds)

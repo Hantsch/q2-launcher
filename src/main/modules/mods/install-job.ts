@@ -3,8 +3,8 @@ import { createReadStream } from 'node:fs'
 import { copyFile, lstat, mkdir, readdir, rename, rm, rmdir } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path'
 import { pipeline } from 'node:stream/promises'
-import type { PackageSource } from '@shared/modules/downloads'
-import type { ModInstallFile, ModInstallRecord } from '@shared/modules/mods'
+import type { DownloadsErrorKey, PackageSource } from '@shared/modules/downloads'
+import type { ModInstallFile, ModInstallRecord, ModsErrorKey } from '@shared/modules/mods'
 import { isSafeGameDirName } from '@shared/mods/gamedir'
 import {
   fail,
@@ -74,7 +74,7 @@ const UNKNOWN_MOD = 'mods.error.unknownMod'
 const ALREADY_INSTALLED = 'mods.error.alreadyInstalled'
 const BAD_PACKAGE = 'mods.error.badPackage'
 const WRITE_FAILED = 'mods.error.writeFailed'
-const LOCAL_FAILURE = 'downloads.error.diskWrite'
+const LOCAL_FAILURE = 'mods.error.diskWrite'
 
 /** Suffix of a file being written; only renamed onto its real name once fully copied and hashed. */
 export const PART_SUFFIX = '.q2l-part'
@@ -92,9 +92,12 @@ export interface ModInstallDecisionRequest {
   conflicts: string[]
 }
 
+/** A mod job fails with its own key, or with the key the package staging step reported. */
+export type ModJobFailureKey = ModsErrorKey | DownloadsErrorKey
+
 export type ModInstallOutcome =
   | { status: 'succeeded'; gameDir: string; files: ModInstallFile[] }
-  | { status: 'failed'; key: string }
+  | { status: 'failed'; key: ModJobFailureKey }
   | { status: 'cancelled' }
 
 export interface StartedModInstall {
@@ -363,7 +366,7 @@ export async function resolveModVariant(
 export type StagePackagesResult =
   | { ok: true; extractDirs: string[] }
   | { ok: false; cancelled: true }
-  | { ok: false; cancelled: false; key: string; reason: string }
+  | { ok: false; cancelled: false; key: ModJobFailureKey; reason: string }
 
 /** Stages every package in order; the first failure (or a cancel) ends it. Touches no installation. */
 export async function stagePackages(args: {
@@ -506,7 +509,7 @@ async function runInstall(
   const report = (progress: JobProgress): void => {
     if (!isCancelled()) deps.jobs.progress(jobId, progress)
   }
-  const failed = (key: string, reason: string): ModInstallOutcome => {
+  const failed = (key: ModJobFailureKey, reason: string): ModInstallOutcome => {
     log?.warn(`installing ${entry.id} into ${installation.name} failed with ${key}: ${reason}`)
     deps.jobs.finish(jobId, { status: 'failed', error: { key } })
     return { status: 'failed', key }

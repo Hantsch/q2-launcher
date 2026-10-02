@@ -28,6 +28,7 @@ import {
   resolveModVariant,
   stagePackages,
   type ModInstallDeps,
+  type ModJobFailureKey,
   type ModInstallJobsHost,
   type ModInstallLog,
   type ResolvedModVariant,
@@ -77,7 +78,7 @@ const BUSY = 'mods.remove.refused.busy'
 const NO_RECORD = 'mods.update.refused.noRecord'
 const UP_TO_DATE = 'mods.update.refused.upToDate'
 const UNSAFE_PATH = 'mods.update.refused.unsafePath'
-const LOCAL_FAILURE = 'downloads.error.diskWrite'
+const LOCAL_FAILURE = 'mods.error.diskWrite'
 
 /** Any of these running for the installation makes an update busy (and an update makes them busy). */
 const BUSY_KINDS = new Set(['mod-install', 'mods-remove', MOD_UPDATE_JOB_KIND])
@@ -117,6 +118,9 @@ export interface ModUpdatePreview {
   changedFiles: string[]
 }
 
+/** An update fails like an install, or with one of its own refusal keys. */
+type ModUpdateFailureKey = ModJobFailureKey | typeof INSTALLATION_NOT_FOUND | typeof NO_RECORD | typeof UP_TO_DATE | typeof UNSAFE_PATH
+
 export type ModUpdateOutcome =
   | {
       status: 'succeeded'
@@ -125,7 +129,7 @@ export type ModUpdateOutcome =
       files: ModInstallFile[]
       kept: string[]
     }
-  | { status: 'failed'; key: string }
+  | { status: 'failed'; key: ModUpdateFailureKey }
   | { status: 'cancelled' }
 
 export interface StartedModUpdate {
@@ -347,7 +351,7 @@ async function runUpdate(
   const report = (progress: JobProgress): void => {
     if (!signal.aborted) deps.jobs.progress(jobId, progress)
   }
-  const failed = (key: string, reason: string): ModUpdateOutcome => {
+  const failed = (key: ModUpdateFailureKey, reason: string): ModUpdateOutcome => {
     log?.warn(`updating ${entry.id} in ${installation.name} failed with ${key}: ${reason}`)
     deps.jobs.finish(jobId, { status: 'failed', error: { key } })
     return { status: 'failed', key }
@@ -470,7 +474,7 @@ async function applyUpdate(args: {
   policy: ModUpdatePolicy
   slot: string
   signal: AbortSignal
-  failed: (key: string, reason: string) => ModUpdateOutcome
+  failed: (key: ModUpdateFailureKey, reason: string) => ModUpdateOutcome
   cancelled: () => ModUpdateOutcome
   onRestoreIncomplete: () => void
   log: ModInstallLog | undefined

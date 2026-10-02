@@ -158,43 +158,22 @@ export function discardConfigProfile(
   return callModule<DiscardProfileResult>('config', CONFIG_HANDLERS.discard, input)
 }
 
-/**
- * `assign`/`unassign`/`setDefault` each return, as the transport-level
- * `Outcome`'s own value, an inner `Outcome<ConfigProfile[]>` built by the main
- * process handler - so a raw `callModule` call here yields
- * `Outcome<Outcome<ConfigProfile[]>>`. These three functions flatten that one
- * level so every other file only ever sees a flat `Outcome<ConfigProfile[]>`,
- * same as `create`/`rename`/`remove` above.
- */
-export async function assignConfigProfile(
-  input: AssignProfileInput,
-): Promise<Outcome<ConfigProfile[]>> {
-  const result = await callModule<Outcome<ConfigProfile[]>>('config', CONFIG_HANDLERS.assign, input)
-  return result.ok ? result.value : result
+export function assignConfigProfile(input: AssignProfileInput): Promise<Outcome<ConfigProfile[]>> {
+  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.assign, input)
 }
 
 /** Unassigns a profile from an installation and returns the full, updated profile list. */
-export async function unassignConfigProfile(
+export function unassignConfigProfile(
   input: UnassignProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  const result = await callModule<Outcome<ConfigProfile[]>>(
-    'config',
-    CONFIG_HANDLERS.unassign,
-    input,
-  )
-  return result.ok ? result.value : result
+  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.unassign, input)
 }
 
 /** Marks a profile as an installation's default and returns the full, updated profile list. */
-export async function setDefaultConfigProfile(
+export function setDefaultConfigProfile(
   input: SetDefaultProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  const result = await callModule<Outcome<ConfigProfile[]>>(
-    'config',
-    CONFIG_HANDLERS.setDefault,
-    input,
-  )
-  return result.ok ? result.value : result
+  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setDefault, input)
 }
 
 /** Writes a profile's content to every installation it is assigned to. */
@@ -208,42 +187,22 @@ export function writeConfigProfile(
  * Story 043 D6: explicit save - re-reads the canonical file, checks it still looks the way the
  * launcher last saw it, and only then writes the profile's unsaved edits to disk and re-syncs
  * installations.
- *
- * Same double-unwrap gotcha as `previewConfigProfile`/`getProfileSyncState`/`getRawFiles` above:
- * the `save` main-process handler returns an `Outcome<SaveProfileResult>` itself, and
- * `MainModuleRegistry.invoke` (`src/main/modules/registry.ts`) wraps every handler's return in its
- * own `Outcome` unconditionally - so the raw `callModule` response here is
- * `Outcome<Outcome<SaveProfileResult>>`, flattened the same way. The outer `Outcome` is only ever
- * an error for things like "profile not found"; `SaveProfileResult`'s own `status` discriminates
- * saved / conflict / unreadable.
+
  */
-export async function saveConfigProfile(
-  input: SaveProfileInput,
-): Promise<Outcome<SaveProfileResult>> {
-  const result = await callModule<Outcome<SaveProfileResult>>('config', CONFIG_HANDLERS.save, input)
-  return result.ok ? result.value : result
+export function saveConfigProfile(input: SaveProfileInput): Promise<Outcome<SaveProfileResult>> {
+  return callModule<SaveProfileResult>('config', CONFIG_HANDLERS.save, input)
 }
 
 /**
  * Story 057 D4: saves the Raw file tab's edited text - writes exactly `input.text` to the profile's
  * canonical file under the same conflict guard `saveConfigProfile` above uses, then reads it back
  * into the profile.
- *
- * Same double-unwrap gotcha as `saveConfigProfile` above, and the same division of labour between
- * the two `Outcome`s - with one addition worth knowing at the call site: the outer `Outcome` is also
- * where a *rejected* text lands (`config.error.rawTextNotOwned` when the ownership header was edited
- * away, `config.error.rawTextNotLatin1` when the text holds characters a `.cfg` cannot carry), so a
- * caller that only switches on `status` would show those as a generic failure.
+
  */
-export async function saveConfigProfileRawText(
+export function saveConfigProfileRawText(
   input: SaveRawTextInput,
 ): Promise<Outcome<SaveRawTextResult>> {
-  const result = await callModule<Outcome<SaveRawTextResult>>(
-    'config',
-    CONFIG_HANDLERS.saveRawText,
-    input,
-  )
-  return result.ok ? result.value : result
+  return callModule<SaveRawTextResult>('config', CONFIG_HANDLERS.saveRawText, input)
 }
 
 /**
@@ -252,42 +211,22 @@ export async function saveConfigProfileRawText(
  * edits, or came back unparseable/unreadable/missing. `useFileSourceRefresh` (D7) is the only
  * caller today and always passes a `profileId` (the story's own "Decided during refine": the
  * renderer scopes re-reads to the selected profile, never the whole list).
- *
- * Same double-unwrap gotcha as `saveConfigProfile` above: the `refreshFromFiles` main-process
- * handler returns an `Outcome<RefreshFromFilesResult>` itself, and `MainModuleRegistry.invoke`
- * (`src/main/modules/registry.ts`) wraps every handler's return in its own `Outcome`
- * unconditionally - so the raw `callModule` response here is
- * `Outcome<Outcome<RefreshFromFilesResult>>`, flattened the same way.
+
  */
-export async function refreshProfilesFromFiles(
+export function refreshProfilesFromFiles(
   input: RefreshFromFilesInput,
 ): Promise<Outcome<RefreshFromFilesResult>> {
-  const result = await callModule<Outcome<RefreshFromFilesResult>>(
-    'config',
-    CONFIG_HANDLERS.refreshFromFiles,
-    input,
-  )
-  return result.ok ? result.value : result
+  return callModule<RefreshFromFilesResult>('config', CONFIG_HANDLERS.refreshFromFiles, input)
 }
 
 /**
  * Previews the exact files a write would put on an installation's disk, without writing them.
- *
- * Same double-unwrap gotcha as `getRawFiles`/`getProfileSyncState`/`openProfileFile` above: the
- * `preview` main-process handler returns an `Outcome<PreviewProfileResult>` itself, and
- * `MainModuleRegistry.invoke` (`src/main/modules/registry.ts`) wraps every handler's return in its
- * own `Outcome` unconditionally - so the raw `callModule` response here is
- * `Outcome<Outcome<PreviewProfileResult>>`, flattened the same way.
+
  */
-export async function previewConfigProfile(
+export function previewConfigProfile(
   input: PreviewProfileInput,
 ): Promise<Outcome<PreviewProfileResult>> {
-  const result = await callModule<Outcome<PreviewProfileResult>>(
-    'config',
-    CONFIG_HANDLERS.preview,
-    input,
-  )
-  return result.ok ? result.value : result
+  return callModule<PreviewProfileResult>('config', CONFIG_HANDLERS.preview, input)
 }
 
 /** Installations currently waiting for a retry, keyed by installation id. */
@@ -298,40 +237,21 @@ export function getWriteState(): Promise<Outcome<WriteState>> {
 /**
  * Read-only: the profile's canonical file plus one entry per assigned installation, with live
  * status. Never writes.
- *
- * `syncState`'s main-process handler returns an `Outcome<ProfileSyncState>` itself, and
- * `MainModuleRegistry.invoke` (`src/main/modules/registry.ts`) wraps every handler's return value
- * in its own `Outcome` unconditionally - so the raw `callModule` response here is
- * `Outcome<Outcome<ProfileSyncState>>`. Same flattening as `assignConfigProfile`/`unassignConfigProfile`/
- * `setDefaultConfigProfile` above, needed for the same reason.
+
  */
-export async function getProfileSyncState(
+export function getProfileSyncState(
   input: SyncProfileStateInput,
 ): Promise<Outcome<ProfileSyncState>> {
-  const result = await callModule<Outcome<ProfileSyncState>>(
-    'config',
-    CONFIG_HANDLERS.syncState,
-    input,
-  )
-  return result.ok ? result.value : result
+  return callModule<ProfileSyncState>('config', CONFIG_HANDLERS.syncState, input)
 }
 
 /**
  * Read-only: the profile's own canonical file plus one entry per assigned installation (story 023
  * D1). Never writes.
- *
- * Same double-unwrap gotcha as `getProfileSyncState` above: the `rawFiles` main-process handler
- * returns an `Outcome<RawFilesResult>` itself, and `MainModuleRegistry.invoke` wraps every
- * handler's return value in its own `Outcome` unconditionally - so the raw `callModule` response
- * here is `Outcome<Outcome<RawFilesResult>>`, flattened the same way.
+
  */
-export async function getRawFiles(input: RawFilesInput): Promise<Outcome<RawFilesResult>> {
-  const result = await callModule<Outcome<RawFilesResult>>(
-    'config',
-    CONFIG_HANDLERS.rawFiles,
-    input,
-  )
-  return result.ok ? result.value : result
+export function getRawFiles(input: RawFilesInput): Promise<Outcome<RawFilesResult>> {
+  return callModule<RawFilesResult>('config', CONFIG_HANDLERS.rawFiles, input)
 }
 
 /**
@@ -342,29 +262,18 @@ export async function getRawFiles(input: RawFilesInput): Promise<Outcome<RawFile
  * a non-null value is that installation's copy. Main resolves the real path itself and refuses
  * anything that is not this profile's own `.cfg` (AC 8), so there is deliberately nothing
  * path-shaped to pass here.
- *
- * Same double-unwrap as `getRawFiles`/`getProfileSyncState` above, for the same reason: the
- * handler's own return value is already an `Outcome<null>`, and `MainModuleRegistry.invoke`
- * (`src/main/modules/registry.ts`) wraps every handler return in a second `Outcome`
- * unconditionally.
+
  */
-export async function openProfileFile(input: OpenProfileFileInput): Promise<Outcome<null>> {
-  const result = await callModule<Outcome<null>>('config', CONFIG_HANDLERS.openFile, input)
-  return result.ok ? result.value : result
+export function openProfileFile(input: OpenProfileFileInput): Promise<Outcome<null>> {
+  return callModule<null>('config', CONFIG_HANDLERS.openFile, input)
 }
 
 /**
  * Sets which mods an installation is considered to have been played with.
- *
- * Same double-unwrap gotcha as `getRawFiles`/`getProfileSyncState`/`openProfileFile` above: the
- * `setPlayedMods` main-process handler returns an `Outcome<string[]>` itself, and
- * `MainModuleRegistry.invoke` (`src/main/modules/registry.ts`) wraps every handler's return in its
- * own `Outcome` unconditionally - so the raw `callModule` response here is
- * `Outcome<Outcome<string[]>>`, flattened the same way.
+
  */
-export async function setPlayedMods(input: SetPlayedModsInput): Promise<Outcome<string[]>> {
-  const result = await callModule<Outcome<string[]>>('config', CONFIG_HANDLERS.setPlayedMods, input)
-  return result.ok ? result.value : result
+export function setPlayedMods(input: SetPlayedModsInput): Promise<Outcome<string[]>> {
+  return callModule<string[]>('config', CONFIG_HANDLERS.setPlayedMods, input)
 }
 
 /** installationId -> the key bound to cycle its assigned profiles in-session, if configured. */
@@ -378,11 +287,6 @@ export function setSwitchBind(input: SetSwitchBindInput): Promise<Outcome<Record
 }
 
 /**
- * Import from files (story 066 D5/D7): `importPickFiles`/`importPreviewFiles`/`importCommitFiles`
- * each return, as the transport-level `Outcome`'s own value, an inner `Outcome<T>` built by the
- * main process handler - same flattening as `assign`/`unassign`/`setDefault` above, needed so
- * callers only ever see a flat `Outcome<T>`.
- *
  * None of the three takes or returns a path: `pickImportFiles` opens the real OS picker and hands
  * back opaque `PickedConfigFile` handles (id + display-only `fileName`/`dirName`), and the other
  * two are addressed entirely by the ids this function returned - see `PickedConfigFile`'s own doc
@@ -390,24 +294,15 @@ export function setSwitchBind(input: SetSwitchBindInput): Promise<Outcome<Record
  */
 
 /** Opens the native multi-select config-file picker and registers what came back. */
-export async function pickImportFiles(): Promise<Outcome<PickedConfigFile[]>> {
-  const result = await callModule<Outcome<PickedConfigFile[]>>(
-    'config',
-    CONFIG_HANDLERS.importPickFiles,
-  )
-  return result.ok ? result.value : result
+export function pickImportFiles(): Promise<Outcome<PickedConfigFile[]>> {
+  return callModule<PickedConfigFile[]>('config', CONFIG_HANDLERS.importPickFiles)
 }
 
 /** Previews what importing the given, ordered picked files would produce, without writing anything. */
-export async function previewImportFiles(
+export function previewImportFiles(
   input: ImportFilesPreviewInput,
 ): Promise<Outcome<ImportPreviewResult>> {
-  const result = await callModule<Outcome<ImportPreviewResult>>(
-    'config',
-    CONFIG_HANDLERS.importPreviewFiles,
-    input,
-  )
-  return result.ok ? result.value : result
+  return callModule<ImportPreviewResult>('config', CONFIG_HANDLERS.importPreviewFiles, input)
 }
 
 /**
@@ -415,69 +310,32 @@ export async function previewImportFiles(
  * returning the full, updated profile list. `input.layerAliases` (story 041 D7) carries the names
  * `ImportProfileDialog`'s review step flipped to "attempt as layer".
  */
-export async function commitImportFiles(
+export function commitImportFiles(
   input: ImportFilesCommitInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  const result = await callModule<Outcome<ConfigProfile[]>>(
-    'config',
-    CONFIG_HANDLERS.importCommitFiles,
-    input,
-  )
-  return result.ok ? result.value : result
+  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.importCommitFiles, input)
 }
 
-/**
- * Cleanup (story 010): `cleanupScan`/`cleanupApply`/`cleanupRestore` each
- * return, as the transport-level `Outcome`'s own value, an inner `Outcome<T>`
- * built by the main process handler - same flattening as the import wrappers
- * above.
- */
-
 /** Mod-folder `.cfg` files on an installation that duplicate a same-named `baseq2` file. Always safe to call, even while the installation is running. */
-export async function scanCleanupFindings(
-  input: CleanupScanInput,
-): Promise<Outcome<CleanupScanResult>> {
-  const result = await callModule<Outcome<CleanupScanResult>>(
-    'config',
-    CONFIG_HANDLERS.cleanupScan,
-    input,
-  )
-  return result.ok ? result.value : result
+export function scanCleanupFindings(input: CleanupScanInput): Promise<Outcome<CleanupScanResult>> {
+  return callModule<CleanupScanResult>('config', CONFIG_HANDLERS.cleanupScan, input)
 }
 
 /** Backs up and removes the given redundant copies. Fails with `config.error.installationRunning` while the installation is running. */
-export async function applyCleanup(input: CleanupApplyInput): Promise<Outcome<CleanupApplyResult>> {
-  const result = await callModule<Outcome<CleanupApplyResult>>(
-    'config',
-    CONFIG_HANDLERS.cleanupApply,
-    input,
-  )
-  return result.ok ? result.value : result
+export function applyCleanup(input: CleanupApplyInput): Promise<Outcome<CleanupApplyResult>> {
+  return callModule<CleanupApplyResult>('config', CONFIG_HANDLERS.cleanupApply, input)
 }
 
 /** Restores the given entries from their backup. Fails with `config.error.installationRunning` while the installation is running. */
-export async function restoreCleanup(
-  input: CleanupRestoreInput,
-): Promise<Outcome<CleanupRestoreResult>> {
-  const result = await callModule<Outcome<CleanupRestoreResult>>(
-    'config',
-    CONFIG_HANDLERS.cleanupRestore,
-    input,
-  )
-  return result.ok ? result.value : result
+export function restoreCleanup(input: CleanupRestoreInput): Promise<Outcome<CleanupRestoreResult>> {
+  return callModule<CleanupRestoreResult>('config', CONFIG_HANDLERS.cleanupRestore, input)
 }
 
 /**
  * Tidy-up (story 025 D3/D5): applies one atomic batch of `TidyUpOp`s
  * (`@shared/config/tidy-up`) to a profile and returns the committed profile
- * plus which ops applied vs. were rejected as stale. Same double-unwrap
- * gotcha as `scanCleanupFindings`/`applyCleanup` above.
+ * plus which ops applied vs. were rejected as stale.
  */
-export async function applyTidyUp(input: TidyUpApplyInput): Promise<Outcome<TidyUpApplyResult>> {
-  const result = await callModule<Outcome<TidyUpApplyResult>>(
-    'config',
-    CONFIG_HANDLERS.tidyUpApply,
-    input,
-  )
-  return result.ok ? result.value : result
+export function applyTidyUp(input: TidyUpApplyInput): Promise<Outcome<TidyUpApplyResult>> {
+  return callModule<TidyUpApplyResult>('config', CONFIG_HANDLERS.tidyUpApply, input)
 }

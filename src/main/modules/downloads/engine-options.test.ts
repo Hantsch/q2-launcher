@@ -1,3 +1,4 @@
+import { unwrapOk } from '../../../test-support/outcome'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -233,7 +234,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
     const handlers = await setUpModule()
     const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-    const result = (await handler(undefined)) as BootstrapEngineOptionsResult
+    const result = unwrapOk<BootstrapEngineOptionsResult>(await handler(undefined))
 
     expect(result.options).toHaveLength(1)
     expect(result.options[0]).toMatchObject({
@@ -251,7 +252,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
     const handlers = await setUpModule()
     const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-    const result = (await handler(undefined)) as BootstrapEngineOptionsResult
+    const result = unwrapOk<BootstrapEngineOptionsResult>(await handler(undefined))
 
     expect(result.options).toHaveLength(2)
     expect(result.options).toContainEqual({
@@ -276,7 +277,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
       const handlers = await setUpModule()
       const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-      const result = (await handler(undefined)) as BootstrapEngineOptionsResult
+      const result = unwrapOk<BootstrapEngineOptionsResult>(await handler(undefined))
 
       expect(result.options.some((option) => option.engine === 'r1q2')).toBe(false)
       expect(result.options).toContainEqual({
@@ -295,7 +296,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
     const handlers = await setUpModule()
     const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-    const result = (await handler(undefined)) as BootstrapEngineOptionsResult
+    const result = unwrapOk<BootstrapEngineOptionsResult>(await handler(undefined))
 
     expect(result.options).toEqual([])
     expect(result.emptyReason).toBe('none-pinned')
@@ -313,7 +314,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
       const handlers = await setUpModule()
       const handler = handlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-      const result = (await handler(undefined)) as BootstrapEngineOptionsResult
+      const result = unwrapOk<BootstrapEngineOptionsResult>(await handler(undefined))
 
       expect(result.options).toEqual([])
       expect(result.emptyReason).toBe('none-for-platform')
@@ -326,7 +327,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
     const noPinHandlers = await setUpModule()
     const noPinHandler = noPinHandlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-    const noPinResult = (await noPinHandler(undefined)) as BootstrapEngineOptionsResult
+    const noPinResult = unwrapOk<BootstrapEngineOptionsResult>(await noPinHandler(undefined))
 
     expect(noPinResult.options).toEqual([])
     expect(noPinResult.emptyReason).toBe('none-pinned')
@@ -336,7 +337,7 @@ describe('downloadsModule bootstrapEngineOptions', () => {
     const normalHandlers = await setUpModule()
     const normalHandler = normalHandlers.get(DOWNLOADS_HANDLERS.bootstrapEngineOptions)!
 
-    const normalResult = (await normalHandler(undefined)) as BootstrapEngineOptionsResult
+    const normalResult = unwrapOk<BootstrapEngineOptionsResult>(await normalHandler(undefined))
 
     expect(normalResult.options.length).toBeGreaterThan(0)
     expect(normalResult.emptyReason).toBeNull()

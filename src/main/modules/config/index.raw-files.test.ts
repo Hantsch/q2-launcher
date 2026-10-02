@@ -1,3 +1,4 @@
+import { unwrapOk } from '../../../test-support/outcome'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -106,7 +107,7 @@ describe('CONFIG_HANDLERS.rawFiles handler (story 023 D1)', () => {
     })) as Outcome<RawFilesResult>
     if (!after.ok) throw new Error('expected rawFiles to succeed')
     expect(after.value.canonical.onDisk).toBe(true)
-    const updated = (await handlers.get(CONFIG_HANDLERS.list)!(undefined)) as ConfigProfile[]
+    const updated = unwrapOk<ConfigProfile[]>(await handlers.get(CONFIG_HANDLERS.list)!(undefined))
     expect(after.value.canonical.content).toBe(
       renderProfileFile(updated.find((p) => p.id === 'p1')!),
     )

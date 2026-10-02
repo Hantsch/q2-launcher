@@ -19,10 +19,7 @@ vi.mock('../client', (importOriginal) =>
     setListFilter: async (filter: unknown) => ({ ok: true, value: filter }) as never,
     sidecarRead: async () => ({ ok: true, value: { state: { state: 'none' }, values: {} } }),
     playbackTimeline: vi.fn(),
-    sendStageRect: vi.fn(async () => ({
-      ok: true,
-      value: { ok: true, value: undefined },
-    })) as never,
+    sendStageRect: vi.fn(async () => ({ ok: true, value: undefined })) as never,
     onPlaybackPosition: () => () => {},
     onPlaybackState: () => () => {},
     onPlaybackDisplay: () => () => {},

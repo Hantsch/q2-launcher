@@ -2,7 +2,7 @@ import type { ZodType } from 'zod'
 import {
   MODULE_MANIFESTS,
   fail,
-  ok,
+  isOutcome,
   type ModuleId,
   type ModuleInvokeRequest,
   type ModuleManifest,
@@ -141,7 +141,14 @@ export class MainModuleRegistry {
     }
 
     try {
-      return ok(await entry.handler(parsed.data))
+      const result = await entry.handler(parsed.data)
+      if (isOutcome(result)) return result
+      // Never wrap: wrapping a non-envelope would hand the client a shape it cannot type.
+      log.error(`module '${request.moduleId}' handler '${request.type}' returned a non-Outcome`)
+      return fail('modules.error.handlerFailed', {
+        moduleId: request.moduleId,
+        type: request.type,
+      })
     } catch (error) {
       log.error(`module '${request.moduleId}' handler '${request.type}' threw`, error)
       return fail('modules.error.handlerFailed', {
