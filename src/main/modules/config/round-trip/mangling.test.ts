@@ -10,10 +10,10 @@ import {
   countConfigLines,
   expectEveryLineSurvivesRerender,
   restoreFromText,
-  useRoundTripRoot,
+  installRoundTripRoot,
 } from './helpers'
 
-useRoundTripRoot()
+installRoundTripRoot()
 
 // ---------------------------------------------------------------------------
 // Adversarial mangling: hand-corrupt the rendered text, re-import, and confirm

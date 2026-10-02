@@ -41,25 +41,6 @@ function windowLines() {
     .filter((l) => l.length > 0)
 }
 
-/** Waits until the log has grown by `expected.length` lines, settles, then wants exactly those. */
-async function expectNewLines(from, expected, label) {
-  const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (windowLines().length - from < expected.length) {
-    if (Date.now() >= deadline)
-      fail(
-        `${label}: window log got ${JSON.stringify(windowLines().slice(from))}, expected ${JSON.stringify(expected)}`,
-      )
-    await sleep(50)
-  }
-  await sleep(SETTLE_MS)
-  const got = windowLines().slice(from)
-  if (JSON.stringify(got) !== JSON.stringify(expected)) {
-    fail(
-      `${label}: window log got ${JSON.stringify(got)}, expected exactly ${JSON.stringify(expected)}`,
-    )
-  }
-}
-
 const geometryLines = (lines) => lines.filter((l) => l.startsWith('set vid_geometry '))
 
 async function waitForScan(page) {
@@ -165,7 +146,7 @@ export default async function replaysStageViewLeave({ page, app, step, shot }) {
     if (Date.now() >= liveBy) fail('the playback session never went live')
     await sleep(100)
   }
-  const launched = await launchGeometry(logPath)
+  await launchGeometry(logPath)
   await sleep(SETTLE_MS)
   if (windowLines().length > 0)
     fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)

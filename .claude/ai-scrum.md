@@ -24,7 +24,7 @@ step does not exist in this project.
 
 build: npm run build
 test: npm test
-lint: none
+lint: npm run lint
 typecheck: npm run typecheck
 e2e: npm run ui:verify
 <!--

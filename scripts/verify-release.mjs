@@ -340,6 +340,7 @@ function main() {
           run(process.execPath, ['node_modules/electron/install.js'], { cwd: H, env: R }) === 0,
       },
       { label: 'typecheck', run: () => npm(['run', 'typecheck'], H, R) === 0 },
+      { label: 'lint', run: () => npm(['run', 'lint'], H, R) === 0 },
       { label: 'test', run: () => npm(['test'], H, R) === 0 },
       {
         // release.yml's `plan` job, against the merged tree - but the tags live in this repo's

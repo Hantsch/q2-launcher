@@ -41,6 +41,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Lint
+        run: npm run lint
+
       # Story 100 D9: vendors the real 7-Zip Linux binary so extractor.test.ts's real-archive
       # block (gated on the binary's presence via resolveExtractorPath) actually runs here instead
       # of skipping. Ubuntu-only: the Windows leg's real-archive coverage is unchanged by this

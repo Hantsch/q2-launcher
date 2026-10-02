@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import { serverAddressSchema } from '../schemas'
@@ -188,17 +185,5 @@ describe('every rejection reason has its own i18n key', () => {
     const message = stringAt(key)
     expect(typeof message).toBe('string')
     expect(message?.length).toBeGreaterThan(0)
-  })
-})
-
-describe('purity', () => {
-  it('imports nothing from node, electron or the IPC layer', () => {
-    const here = dirname(fileURLToPath(import.meta.url))
-    const source = readFileSync(join(here, 'address.ts'), 'utf-8')
-
-    expect(source).not.toMatch(/from\s+['"]node:/)
-    expect(source).not.toMatch(/from\s+['"]electron['"]/)
-    expect(source).not.toMatch(/from\s+['"][^'"]*\/(ipc|preload)[^'"]*['"]/)
-    expect(source).not.toMatch(/from\s+['"]\.\.\/ipc['"]/)
   })
 })

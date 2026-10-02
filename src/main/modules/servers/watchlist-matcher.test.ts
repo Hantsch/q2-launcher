@@ -74,7 +74,7 @@ describe('matchRegexNames', () => {
   })
 
   it('is fully self-contained: toString()+eval reproduces the same behaviour with no outer references', () => {
-    // eslint-disable-next-line no-eval -- proving D3's exact serialize-then-eval mechanism works.
+    // oxlint-disable-next-line no-eval -- proving the exact serialize-then-eval mechanism works.
     const rebuilt = eval(`(${matchRegexNames.toString()})`) as typeof matchRegexNames
 
     expect(rebuilt('^a.*e$', ['Alice', 'Bob', 'aXe'])).toEqual([true, false, true])

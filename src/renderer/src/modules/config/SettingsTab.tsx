@@ -351,7 +351,7 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
     return result.ok
   }
 
-  const sections = draft.cvarSections ?? []
+  const sections = useMemo(() => draft.cvarSections ?? [], [draft.cvarSections])
 
   const scopeStatus = useMemo(
     () => engineScope(profile, installations).status,

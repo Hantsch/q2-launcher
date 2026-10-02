@@ -3,9 +3,9 @@ import type { ConfigProfile } from '@shared/modules/config'
 import { generateLayerAliases } from '@shared/config/alt-layers'
 import { renderProfileFile } from '@shared/config/render'
 import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
-import { normalize, slotsOf, reimportProfile, findFixture, useRoundTripRoot } from './helpers'
+import { normalize, slotsOf, reimportProfile, findFixture, installRoundTripRoot } from './helpers'
 
-useRoundTripRoot()
+installRoundTripRoot()
 
 describe('an entry bound only through a modifier keeps its identity', () => {
   for (const name of ['Modifier-only catalogue entry', 'Self-mirroring alias']) {

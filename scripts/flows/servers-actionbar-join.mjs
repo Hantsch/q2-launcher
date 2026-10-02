@@ -4,19 +4,14 @@
 // action bar, never from the list toolbar's or the detail header's own Join button.
 import { createSocket } from 'node:dgram'
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { SERVERS_DISABLED_SOURCES, writeJoinFixture } from '../lib/fixture.mjs'
 
 export const variant = 'servers-actionbar-join'
 
 const TIMEOUT_MS = 8_000
 const SCAN_SETTLE_TIMEOUT_MS = 15_000
-/** A real handoff spawn/exit, end to end - generous, but this is never a download job (mirrors
- * `steam-handoff.mjs`'s own `LAUNCH_TIMEOUT_MS`). */
-const LAUNCH_TIMEOUT_MS = 15_000
 const LOG_POLL_TIMEOUT_MS = 10_000
 const CONNECT_CFG_NAME = 'q2launcher-connect.cfg'
-const BASE_GAME_DIR = 'baseq2'
 
 const OOB_PREFIX = Buffer.from([0xff, 0xff, 0xff, 0xff])
 
@@ -90,7 +85,6 @@ const FIXED_ADDED_AT = '2026-01-01T00:00:00.000Z'
 let serverA = null
 let serverB = null
 let responders = []
-let installRoot = null
 let spawnable = true
 
 export async function setup() {
@@ -123,7 +117,6 @@ export async function setup() {
       },
     },
   })
-  installRoot = fixture.installRoot
   spawnable = fixture.spawnable
 
   return {}

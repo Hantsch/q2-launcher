@@ -207,7 +207,7 @@ true, true, listing)`; failure keys and reason strings unchanged. Same in
   `src/main/modules/downloads/repair/job.ts` (loop ~lines 418–476, `onExtractor: setExtractor`).
   Drop the now-unused `markVerified`/`mkdir` imports. Existing `bootstrap/job.test.ts` and
   `repair/job.test.ts` must pass with at most mechanical fixture changes (they inject
-  `fetcher`/`extractor` ports, which stay). Test in `src/main/modules/downloads/layering.test.ts` ›
+  `fetcher`/`extractor` ports, which stay). Test in `src/main/layering.test.ts` ›
   "only the staging routine calls markVerified" — walks `src/main` non-test files; the only files
   containing `markVerified(` are `extractor.ts` and the staging file.
 - **D5 — the extras pass copies only the extras.** In
@@ -235,7 +235,7 @@ true, true, listing)`; failure keys and reason strings unchanged. Same in
   fs-utils, use it instead of adding one. Tests in `src/main/lib/fs-utils.test.ts` ›
   "listFilesRecursive lists nested files with forward slashes" and › "hashFile returns sha256 and
   size", and a `src/main/lib/math.test.ts` › "clamp01 clamps and maps NaN to 0"; plus a test in
-  `src/main/modules/downloads/layering.test.ts` › "clamp01, removeDir and hashFile are defined only
+  `src/main/layering.test.ts` › "clamp01, removeDir and hashFile are defined only
   in src/main/lib" (no `function clamp01|removeDir|hashFile` outside `src/main/lib`).
 - **D7 — one cached-document routine behind both content services.** In
   `src/main/lib/content-repo.ts` add `CachedContentDocument<T>`: constructor `{ filePath, freshnessMs,
@@ -257,7 +257,7 @@ cacheVersion, schema (zod for T), log, fetch: () => Promise<T> }`; `get({ refres
   `app.content.manifest` and no longer call `new ManifestService`. Extend the shared fake app
   context in `src/test-support/` with `content`. Test in `src/main/modules/mods/index.test.ts` ›
   "mods reads the app's one ManifestService" (the fake context's instance is the one used) and in
-  `src/main/modules/downloads/layering.test.ts` › "new ManifestService appears only in context.ts".
+  `src/main/layering.test.ts` › "new ManifestService appears only in context.ts".
 
 ## Model Hints
 
@@ -282,11 +282,11 @@ settings-downloads-section`); §9 doc match checked by the default review agains
   and refuses a wrong size"
 - AC2 → unit `src/main/modules/downloads/engine/update-job.test.ts` › "a bleeding-edge update
   downloads through downloadPackage in size-only mode"
-- AC2 → unit `src/main/modules/downloads/layering.test.ts` › "only the staging routine calls
+- AC2 → unit `src/main/layering.test.ts` › "only the staging routine calls
   markVerified"
 - AC2 → unit `src/main/modules/downloads/stage-package.test.ts` › "a failed extraction reports
   stage extract with the download's url"
-- AC3 → unit `src/main/modules/downloads/layering.test.ts` › "clamp01, removeDir and hashFile are
+- AC3 → unit `src/main/layering.test.ts` › "clamp01, removeDir and hashFile are
   defined only in src/main/lib"
 - AC3 → unit `src/main/lib/fs-utils.test.ts` › "listFilesRecursive lists nested files with forward
   slashes"; › "hashFile returns sha256 and size"; `src/main/lib/math.test.ts` › "clamp01 clamps and
@@ -294,7 +294,7 @@ settings-downloads-section`); §9 doc match checked by the default review agains
 - AC4 → unit `src/main/lib/content-repo.test.ts` › "a cache read off disk is never fresh"; › "a
   cacheVersion mismatch discards the cache"
 - AC4 → unit `src/main/modules/mods/index.test.ts` › "mods reads the app's one ManifestService";
-  `src/main/modules/downloads/layering.test.ts` › "new ManifestService appears only in context.ts"
+  `src/main/layering.test.ts` › "new ManifestService appears only in context.ts"
 - AC5 → unit `src/main/modules/downloads/bootstrap/assemble.test.ts` › "core and extras plans are
   disjoint"
 - AC5 → unit `src/main/modules/downloads/bootstrap/job.test.ts` › "a run with the extras on records

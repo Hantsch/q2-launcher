@@ -8,7 +8,6 @@
 import { spawn, execFileSync } from 'node:child_process'
 import {
   copyFileSync,
-  createReadStream,
   existsSync,
   mkdirSync,
   readFileSync,

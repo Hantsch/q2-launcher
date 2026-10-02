@@ -20,7 +20,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
-import { readStateJson, waitForStateJson } from '../lib/state-json.mjs'
+import { waitForStateJson } from '../lib/state-json.mjs'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { AXE_RUN_OPTIONS } from '../lib/session.mjs'
 import {
@@ -106,14 +106,6 @@ async function waitForVisibleSet(page, expected, label) {
     )
   }, label)
   assertVisibleSet(await visibleNames(page), expected, label)
-}
-
-function assertEqual(actual, expected, label) {
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    throw new Error(
-      `expected ${label} to equal ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
-    )
-  }
 }
 
 /** Mirrors `writeReplaysDateFilterFixture()`'s own `daysAgoLocal()` (`scripts/lib/fixture.mjs`) -

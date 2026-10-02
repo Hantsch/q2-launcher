@@ -25,7 +25,7 @@ import {
   log,
   profile,
   shellMock,
-  useConfigTestDir,
+  installConfigTestDir,
   userDataBox,
 } from './index.test-helpers'
 import { configState } from './persisted'
@@ -46,7 +46,7 @@ vi.mock('electron', async () => {
   return { app: { getPath: () => h.userDataBox.current }, shell: h.shellMock }
 })
 
-const getDir = useConfigTestDir()
+const getDir = installConfigTestDir()
 let dir: string
 beforeEach(() => {
   dir = getDir()

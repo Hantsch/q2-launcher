@@ -31,7 +31,7 @@ re-invented 2,000 lines apart).
       logger (mock `electron-log/main` or `console.level = false` under `VITEST`); a guard
       asserts the dot run emits zero `stdout |` blocks; main tests no longer need the Electron
       binary installed (CI workaround removed where it only served tests).
-- [x] **AC2** — `src/test-support/` provides `useTempDir(prefix)` with automatic cleanup,
+- [x] **AC2** — `src/test-support/` provides `installTempDir(prefix)` with automatic cleanup,
       `fakeAppContext(overrides)`, and `fixtures.ts` with `makeInstallation`, `makeJob`,
       `makeConfigProfile`; `src/main/modules/downloads/test-support.ts` provides `fakeState`,
       `fakeLaunch`, `fakeExtractor`, `fakeManifest`, `fakeFetcher`; the builder sites are
@@ -55,7 +55,7 @@ re-invented 2,000 lines apart).
 ## Decisions (Sprint)
 
 - **(User)** mkdtemp migration: Builders now; temp dirs opportunistically when a file is next touched.
-- **D-a** `useTempDir` ships with a test and at most the call sites a D already edits; no blanket
+- **D-a** `installTempDir` ships with a test and at most the call sites a D already edits; no blanket
   `mkdtemp` sweep — this follows the (User) decision above.
 - **D-b** Main tests stop needing the Electron binary through a vitest `resolve.alias` from
   `electron` to a stub plus a quiet `electron-log/main` stub, not one global `vi.mock`, because an
@@ -117,7 +117,7 @@ guard and the docs.
    aliases `electron` → `src/test-support/electron-stub.ts` and `electron-log/main` →
    `src/test-support/electron-log-stub.ts`; a guard spawns vitest over a sample with an
    electron-forbidding preload; the binary install step goes from the two test-only CI jobs.
-2. **Main kit (D2, D3).** `useTempDir`, `fakeAppContext` (5 sites);
+2. **Main kit (D2, D3).** `installTempDir`, `fakeAppContext` (5 sites);
    `src/main/modules/downloads/test-support.ts` (5 job tests).
 3. **Shared fixtures (D4, D5).** `src/test-support/fixtures.ts` with `makeInstallation`
    (10 sites), `makeJob` (6 sites), `makeConfigProfile`.
@@ -153,10 +153,10 @@ their `it()`. Format only touched files with prettier, never a glob (CRLF worktr
   `.github/workflows/ci.yml`'s `test` job and `release.yml`'s test job. Keep it in ci.yml's
   user-journey job, `linux-verify.yml` and `linux-update.yml`. Files: `vitest.config.ts`, the 3 stubs/setup
   files, `scripts/lib/forbid-electron.cjs`, the guard, 2 workflows.
-- **D2 — `useTempDir` + `fakeAppContext`.** `src/test-support/temp-dir.ts`:
-  `useTempDir(prefix): () => string` registers `beforeEach` mkdtemp under `os.tmpdir()` and
+- **D2 — `installTempDir` + `fakeAppContext`.** `src/test-support/temp-dir.ts`:
+  `installTempDir(prefix): () => string` registers `beforeEach` mkdtemp under `os.tmpdir()` and
   `afterEach` `rm(…, { recursive: true, force: true })`, and returns a getter. Test
-  `src/test-support/temp-dir.test.ts` › "useTempDir gives each test a fresh dir and removes it
+  `src/test-support/temp-dir.test.ts` › "installTempDir gives each test a fresh dir and removes it
   afterwards". `src/test-support/app-context.ts`: `fakeAppContext(overrides?: Partial<AppContext>)`
   (type from `src/main/modules/`'s `AppContext`). Build it as the union of the 5 hand-written
   copies in `src/main/modules/{home/index,registry,replays/index,replays/name-templates,servers/index}.test.ts`
@@ -229,10 +229,10 @@ their `it()`. Format only touched files with prettier, never a glob (CRLF worktr
   `ALLOWED_OVER_CAP` map (file → reason). Add a short `## Testing` section to `docs/ARCHITECTURE.md`
   (≤ 30 lines): `setup.ts` + stubs (quiet, no binary), where the kit lives (`src/test-support/`,
   `src/renderer/src/test-support/`, `downloads/test-support.ts`), `mockClient` usage, real temp
-  dirs via `useTempDir` over fs mocks, behaviour-named files with story numbers in `it()` only,
+  dirs via `installTempDir` over fs mocks, behaviour-named files with story numbers in `it()` only,
   and the 1,500-line cap with its guard. Add guard "ARCHITECTURE.md has a Testing section naming
-  the kit, useTempDir and the 1,500-line cap": it checks for the `## Testing` heading and the
-  strings `src/test-support/`, `useTempDir` and `1,500` under it. Run the full `npm test` and `npm run typecheck`; record
+  the kit, installTempDir and the 1,500-line cap": it checks for the `## Testing` heading and the
+  strings `src/test-support/`, `installTempDir` and `1,500` under it. Run the full `npm test` and `npm run typecheck`; record
   the total test count vs. the pre-story count and any deliberately merged duplicates in Done.
 
 ## Model Hints
@@ -251,7 +251,7 @@ Review: → default
 - AC1 → unit `scripts/quiet-test-run.test.mjs` › "a dot run of the noisy sample prints no stdout
   or stderr blocks and loads no real electron" (D1); CI proof: `ci.yml` `test` job runs
   `npm test` without the install step (D1).
-- AC2 → unit `src/test-support/temp-dir.test.ts` › "useTempDir gives each test a fresh dir and
+- AC2 → unit `src/test-support/temp-dir.test.ts` › "installTempDir gives each test a fresh dir and
   removes it afterwards" (D2); `scripts/test-kit.test.mjs` › "no main test defines its own
   fakeAppContext" (D2), › "downloads job tests define no local fakeState/fakeLaunch/fakeExtractor/fakeManifest/fakeFetcher"
   (D3), › "no test under src defines its own makeInstallation" (D4), › "no test defines its own
@@ -262,7 +262,7 @@ Review: → default
 - AC4 → unit `scripts/test-kit.test.mjs` › "no test file exceeds 1,500 lines" (D16, after
   D10–D15), › "round-trip describes carry no story numbers" (D10).
 - AC5 → unit `scripts/test-kit.test.mjs` › "ARCHITECTURE.md has a Testing section naming the
-  kit, useTempDir and the 1,500-line cap" (D16)
+  kit, installTempDir and the 1,500-line cap" (D16)
 - AC6 → suite gate: full `npm test` green (D16), with the per-split `vitest list` count diffs
   (D10–D15) and the total count before/after recorded in Done.
 
@@ -270,11 +270,11 @@ No criterion describes a user action through the UI, so no `ui:flow` line applie
 
 ## Done
 
-Test runs are quiet and no longer need the Electron binary (vitest aliases `electron` and `electron-log/main` to stubs plus `setup.ts`; CI test jobs skip the binary). `src/test-support/` now holds `useTempDir`, `fakeAppContext`, `fixtures.ts` (`makeInstallation`, `makeJob`, `makeConfigProfile`); downloads has its own `test-support.ts`; 42 renderer client mocks go through `mockClient`; eight oversized test files are split and a 1,500-line cap guard plus an ARCHITECTURE.md `## Testing` section land.
+Test runs are quiet and no longer need the Electron binary (vitest aliases `electron` and `electron-log/main` to stubs plus `setup.ts`; CI test jobs skip the binary). `src/test-support/` now holds `installTempDir`, `fakeAppContext`, `fixtures.ts` (`makeInstallation`, `makeJob`, `makeConfigProfile`); downloads has its own `test-support.ts`; 42 renderer client mocks go through `mockClient`; eight oversized test files are split and a 1,500-line cap guard plus an ARCHITECTURE.md `## Testing` section land.
 
 Commit message: `225: quiet test run, one test-support kit, mockClient, test files split under 1,500 lines`
 
-Verification (narrow gate replaced by the full `npm test` as the brief allows; ran in ~25 s): `npm run build` green, `npm run typecheck` green, full `npx vitest run`: 482 files, 6275 passed, 8 skipped (pre-existing), dot run prints 0 `stdout |`/`stderr |` blocks (re-checked on the one file that printed after the last full run). Review: default tier, 1 cycle, PASS with F1 (retries in `useTempDir`), F2 (test for the i18n default-value branch), F4 (story ref in vitest.config.ts), F5 (`const fakeAppContext` form in guard) fixed. Not run: `ui:verify`/`ui:flows` (no UI criterion; sprint gate).
+Verification (narrow gate replaced by the full `npm test` as the brief allows; ran in ~25 s): `npm run build` green, `npm run typecheck` green, full `npx vitest run`: 482 files, 6275 passed, 8 skipped (pre-existing), dot run prints 0 `stdout |`/`stderr |` blocks (re-checked on the one file that printed after the last full run). Review: default tier, 1 cycle, PASS with F1 (retries in `installTempDir`), F2 (test for the i18n default-value branch), F4 (story ref in vitest.config.ts), F5 (`const fakeAppContext` form in guard) fixed. Not run: `ui:verify`/`ui:flows` (no UI criterion; sprint gate).
 AC to test: AC1 `scripts/quiet-test-run.test.mjs` (passed, also fails when either alias is removed, checked by hand); AC2 `src/test-support/temp-dir.test.ts` + four `scripts/test-kit.test.mjs` guards (passed); AC3 `mock-client.test.ts` + guard widened to all `src/renderer` (passed, `@ts-expect-error` consumed by typecheck); AC4 "no test file exceeds 1,500 lines" and "round-trip describes carry no story numbers" (passed); AC5 ARCHITECTURE.md Testing guard (passed); AC6 full suite green. No manual residue.
 
 Decisions: (1) Test count: `vitest list` 6260 before, 6275 after (+15 new tests: 8 guards, quiet run, 2 temp-dir, 3 mock-client, 2 i18n minus nothing); every split proved equal per-file `it` counts (round-trip 239, index 103, render 91, bootstrap job 68, profile-restore 106, schemas 96, profiles 78, scan-service 43); no duplicates merged; only describe titles lost story prefixes. (2) A 8th file over the cap, `servers/scan-service.test.ts` (1,717), was split too because the cap has an empty allowlist. (3) Electron binary: the install step lives in the composite action `setup-node-electron`, so ci.yml `test` and release.yml test job pass `electron: 'false'` instead of deleting a step. (4) Product change `renderer/i18n/index.ts` `parseMissingKeyHandler` now returns the caller's `defaultValue` (previously the key; also no warn) so the quiet run needs no console mute; now tested. (5) `forbid-electron.cjs` checks the resolved entry file as well as the bare name; the acceptance grep's `^` anchor never matched dot-reporter output, so the guard uses the unanchored pattern. (6) Splits other than round-trip keep story numbers in some describe titles (the round-trip guard is the AC); `fakeLaunch` copies outside downloads stay (D-l); `as never` casts in a few client-mock overrides keep types loose where the real client's return types are broader (accepted). (7) `mockClient` stubs `window.q2` during `importOriginal` so no per-file bridge mocks are needed.

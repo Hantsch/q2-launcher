@@ -175,7 +175,7 @@ describe('mods module', () => {
         {},
         { installationId: '', catalogId: 'rogue' },
         { installationId: 'inst-1', catalogId: '' },
-        { installationId: 'inst-1', catalogId: 'rogue', path: 'C:\evil' },
+        { installationId: 'inst-1', catalogId: 'rogue', path: 'C:\\evil' },
       ]) {
         const envelope = (await r.invoke({
           moduleId: 'mods',

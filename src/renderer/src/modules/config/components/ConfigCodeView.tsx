@@ -263,6 +263,9 @@ export function ConfigCodeView({
   const clampedEditMatchIndex =
     editMatches.length > 0 ? Math.min(editMatchIndex, editMatches.length - 1) : 0
   const currentEditMatch = editMatches.length > 0 ? editMatches[clampedEditMatchIndex] : undefined
+  const matchLine = currentEditMatch?.line
+  const matchStart = currentEditMatch?.start
+  const matchEnd = currentEditMatch?.end
   const currentEditMatchKey = currentEditMatch
     ? `${currentEditMatch.line}:${currentEditMatch.start}:${currentEditMatch.end}`
     : ''
@@ -288,15 +291,13 @@ export function ConfigCodeView({
   // the match's own identity, not the index, for the same reason as the read-only search branch
   // below (a keystroke that leaves the same match highlighted must not re-select/re-scroll).
   useEffect(() => {
-    if (editable !== true || currentEditMatchKey === '' || currentEditMatch === undefined) return
+    if (editable !== true || currentEditMatchKey === '' || matchLine === undefined) return
     const el = textareaRef.current
     if (!el) return
-    const lineOffset = editLineStartOffsets[currentEditMatch.line - 1] ?? 0
-    el.setSelectionRange(lineOffset + currentEditMatch.start, lineOffset + currentEditMatch.end)
+    const lineOffset = editLineStartOffsets[matchLine - 1] ?? 0
+    el.setSelectionRange(lineOffset + (matchStart ?? 0), lineOffset + (matchEnd ?? 0))
     editCurrentMatchRef.current?.scrollIntoView({ block: 'nearest' })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `currentEditMatch` is intentionally
-    // not a dependency: only its identity (`currentEditMatchKey`) should retrigger this effect.
-  }, [editable, currentEditMatchKey, editLineStartOffsets])
+  }, [editable, currentEditMatchKey, matchLine, matchStart, matchEnd, editLineStartOffsets])
 
   // Focuses (and selects, so a repeat search overwrites the old query instead of appending to it)
   // the find input once React has actually committed the bar into the DOM - replacing a

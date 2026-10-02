@@ -10,7 +10,7 @@ import { fail } from '@shared/types'
 import { inspectInstallation } from '../../../services/inspector'
 import { PLAYABLE_AT_RATIO, startBootstrap } from './job'
 import {
-  useBootstrapTempDirs,
+  installBootstrapTempDirs,
   type Harness,
   harness,
   exists,
@@ -21,7 +21,7 @@ import {
   targetPath,
 } from './job.test-helpers'
 
-useBootstrapTempDirs()
+installBootstrapTempDirs()
 
 /**
  * Story 088 D4. The second data source rewires a job that mutates a registered installation

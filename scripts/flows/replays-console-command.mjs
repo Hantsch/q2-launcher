@@ -70,7 +70,6 @@ async function waitForScan(page) {
 
 export default async function replaysConsoleCommand({ page, step, shot }) {
   const input = page.getByTestId('replays-console-input')
-  const sendButton = page.getByTestId('replays-console-send')
   const reason = page.getByTestId('replays-console-reason')
 
   step('with no demo playing there is no console field and no no-session text')

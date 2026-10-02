@@ -159,10 +159,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
    * `renderCatalogSlot`/`renderPlainSlot`/the Options cell can each ask "is my own key in here"
    * without re-scanning the whole profile per row.
    */
-  const conflicts = useMemo(
-    () => findBindConflicts(draft),
-    [draft.binds, draft.actions, draft.layers],
-  )
+  const conflicts = useMemo(() => findBindConflicts(draft), [draft])
   const conflictIndex = useMemo(() => indexBindConflicts(conflicts), [conflicts])
   const layers = draft.layers ?? []
   // Story 052 D7: no category is special any more - the rail's initial selection is simply the
@@ -305,6 +302,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
     // Story 054 D8: a "Move to…" picker names a row of the profile being switched away from, and
     // its submit would land on the wrong profile's actions - same reasoning as the message editor.
     setMovingEntry(null)
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- reseeds on a profile switch only, not on every categories edit.
   }, [profile.id])
 
   useEffect(() => clearPendingSave, [])
@@ -339,7 +337,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
     if (!action) return
     setSelectedCategoryId(action.categoryId)
     setPendingFocusActionId(action.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- fires on the focus request only; the rows are read as of that moment.
   }, [focusActionId])
 
   /**

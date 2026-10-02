@@ -21,6 +21,38 @@ imports; an ESM preload has to be `.mjs` and loads asynchronously, which races
 import `node:*`, `electron`, or use DOM types — that constraint is what lets the
 same domain model and IPC contract be used on both sides without duplication.
 
+## Layering and security guards
+
+The layer rules, enforced by `src/architecture.test.ts` over the real import graph of the
+production sources:
+
+- `src/shared` imports no `node:*`, `electron`, or main/renderer/preload code, and is typechecked
+  without DOM types.
+- `src/renderer` imports no `electron`, `node:*` or `src/main`.
+- A main module imports another module only through an allowlisted edge; a main shell file imports
+  only `modules/index` and `modules/registry` (the shell allowlist stays empty).
+- A renderer module imports another module only through an allowlisted edge; a renderer shell file
+  imports only the modules root files.
+
+To add an allowlist entry in `src/architecture.test.ts`, name the story that introduces the edge and
+give a one-line reason. The list only shrinks: an entry whose import is gone fails the test and must
+be deleted.
+
+Spawn and network use is confined by `src/main/layering.test.ts`: `child_process`, `net.fetch`,
+`7za` and `spawn(` appear nowhere in `src/renderer/src` or `src/preload`, and in `src/main` only in
+the downloads module and the files below. The production CSP keeps `connect-src 'self'`. Adding a
+file to `ALLOWED_MAIN_SPAWN_NETWORK_FILES` requires a row here.
+
+| File                                          | Why it is allowed                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------- |
+| `src/main/services/launch.ts`                 | spawns the game executable                                          |
+| `src/main/lib/win-registry.ts`                | runs `reg.exe` to read the Windows registry                         |
+| `src/main/lib/renderer-source.ts`             | only mentions `net.fetch` in a comment                              |
+| `src/main/modules/home/news/feed-fetcher.ts`  | only mentions `net.fetch` in a comment; fetches with global `fetch` |
+| `src/main/modules/home/images/fetch-image.ts` | only mentions `net.fetch` in a comment; fetches with global `fetch` |
+| `src/main/lib/zip-entries.ts`                 | spawns the vendored 7-Zip to list and read zip entries              |
+| `src/main/modules/replays/index.ts`           | resolves the vendored 7-Zip path; spawns nothing itself             |
+
 ## The IPC contract
 
 `src/shared/ipc.ts` is the single source of truth. One map declares every
@@ -389,13 +421,13 @@ kit keeps runs quiet and binary-free:
   `electron-log/main` to `electron-stub.ts` / `electron-log-stub.ts`, so no Electron binary is
   needed and the logger prints nothing. A per-file `vi.mock('electron')` still wins; there is no
   global `console` mute, so a new warning shows up in the run.
-- The kit lives in `src/test-support/` (`useTempDir`, `fakeAppContext`, `fixtures.ts` with
+- The kit lives in `src/test-support/` (`installTempDir`, `fakeAppContext`, `fixtures.ts` with
   `makeInstallation` / `makeJob` / `makeConfigProfile`), `src/renderer/src/test-support/mock-client.ts`
   and `src/main/modules/downloads/test-support.ts` (downloads fakes). Do not redefine them locally.
 - Renderer client mocks go through `mockClient`:
   `vi.mock('./client', (importOriginal) => mockClient<typeof import('./client')>(importOriginal, {...}))`.
   Every function export becomes a `vi.fn()`; `overrides` are typed against the module.
-- Prefer real temp dirs (`useTempDir(prefix)`, removed after each test) over fs mocks.
+- Prefer real temp dirs (`installTempDir(prefix)`, removed after each test) over fs mocks.
 - Test files are named for behaviour, not stories; story numbers appear only in `it()` names.
 - A test file stays under 1,500 lines. Split as `<name>.<behaviour>.test.ts` with shared setup in
   `<name>.test-helpers.ts`. `scripts/test-kit.test.mjs` enforces the cap and the kit rules above.

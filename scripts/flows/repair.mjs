@@ -83,21 +83,17 @@
 // the checks list's own fix button           ChecksList.tsx - addressed by its translated label,
 //                                              same as every other un-testid'd button this harness
 //                                              already selects by accessible name.
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { dirname } from 'node:path'
 import {
   BOOTSTRAP_R1Q2_ENGINE_FIXTURE_LAYOUT,
-  INSTALL_DEMO_UPGRADE_ID,
   INSTALL_DEMO_UPGRADE_NAME,
   INSTALL_REPAIR_ENGINE_ID,
   INSTALL_REPAIR_ENGINE_NAME,
   INSTALL_REPAIR_POINT_RELEASE_ID,
   INSTALL_REPAIR_POINT_RELEASE_NAME,
-  INSTALL_REPAIR_RETAIL_ID,
   INSTALL_REPAIR_RETAIL_NAME,
-  INSTALL_REPAIR_UNREPAIRABLE_ID,
   INSTALL_REPAIR_UNREPAIRABLE_NAME,
-  INSTALL_REPAIR_WRITEDIR_ID,
   INSTALL_REPAIR_WRITEDIR_NAME,
   RETAIL_PAK_SIZES,
   installationConfigFilePath,

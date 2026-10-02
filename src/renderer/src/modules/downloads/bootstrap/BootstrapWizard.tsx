@@ -280,7 +280,7 @@ export function BootstrapWizard() {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- the effect re-runs on the listed inputs only; the remaining closure values are read as of that run.
   }, [
     step,
     engine,

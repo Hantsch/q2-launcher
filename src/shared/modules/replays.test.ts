@@ -107,7 +107,6 @@ function findPathLeak(schema: z.ZodTypeAny, keyName?: string): string | undefine
     return `key "${keyName}" looks like a filesystem path`
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const def = (schema as any).def as Record<string, unknown> | undefined
   if (!def) return undefined
 

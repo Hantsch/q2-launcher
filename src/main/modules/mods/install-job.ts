@@ -217,7 +217,7 @@ export function isSafeRelative(rel: string): boolean {
 export async function hashFile(path: string): Promise<{ sha256: string; sizeBytes: number }> {
   const hash = createHash('sha256')
   let sizeBytes = 0
-  await pipeline(createReadStream(path), async function* (source) {
+  await pipeline(createReadStream(path), async (source) => {
     for await (const chunk of source as AsyncIterable<Buffer>) {
       sizeBytes += chunk.length
       hash.update(chunk)

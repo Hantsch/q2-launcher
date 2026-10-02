@@ -73,7 +73,7 @@ export function RetailUpgradeDialog({ installationId }: { installationId: string
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- the source scan runs once on mount.
   }, [])
 
   const selectedSource = sources?.find((candidate) => candidate.rootPath === selectedPath)

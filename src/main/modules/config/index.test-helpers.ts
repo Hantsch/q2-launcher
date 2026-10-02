@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { beforeEach, vi } from 'vitest'
-import { useTempDir } from '../../../test-support/temp-dir'
+import { installTempDir } from '../../../test-support/temp-dir'
 import { STANDARD_TEMPLATE, type ConfigProfile } from '@shared/modules/config'
 import { fail, type Installation, type LaunchState } from '@shared/types'
 import { scopedLogger } from '../../lib/logger'
@@ -53,8 +53,8 @@ let currentDir = ''
  * Registers the per-test temp folder, points `userDataBox` at its `userData` child and clears the
  * `shell` spies. Returns a getter for the folder; call at file top level.
  */
-export function useConfigTestDir(): () => string {
-  const tempDir = useTempDir('q2-launcher-config-index-')
+export function installConfigTestDir(): () => string {
+  const tempDir = installTempDir('q2-launcher-config-index-')
   beforeEach(() => {
     currentDir = tempDir()
     userDataBox.current = join(currentDir, 'userData')

@@ -16,7 +16,7 @@ import {
   FIXTURE_CONTENTS,
   waitFor,
   deferred,
-  useBootstrapTempDirs,
+  installBootstrapTempDirs,
   harness,
   recordFor,
   breakTargetBeforeValidate,
@@ -29,7 +29,7 @@ import {
   targetPath,
 } from './job.test-helpers'
 
-useBootstrapTempDirs()
+installBootstrapTempDirs()
 
 describe('startBootstrap', () => {
   it('fetches, extracts and assembles baseq2, and the job succeeds', async () => {

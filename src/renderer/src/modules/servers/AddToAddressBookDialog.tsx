@@ -78,7 +78,7 @@ export function AddToAddressBookDialog({
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- the list is re-read each time the dialog opens, not when other closure values change.
   }, [open])
 
   // Story AC5: switching profiles re-reads fresh rather than trusting the list already in state -

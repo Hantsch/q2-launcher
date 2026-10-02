@@ -82,7 +82,7 @@ describe('formatMetaTag', () => {
 
   it('drops characters above the latin-1 range rather than emitting them', () => {
     const tag = formatMetaTag({ key: 'a\u{1F600}b' })
-    // eslint-disable-next-line no-control-regex
+    // oxlint-disable-next-line no-control-regex -- the pattern asserts control bytes are stripped.
     expect(/^[\x00-\xff]*$/.test(tag)).toBe(true)
     expect(tag).toBe('[q2l key=ab]')
   })
@@ -313,7 +313,7 @@ describe('formatMetaComment', () => {
   it('emits a tag portion that is always latin-1 safe, even when a value carries non-latin1 input', () => {
     const comment = formatMetaComment('prose', { key: 'a\u{1F600}b/c%d]e' })
     const tag = comment.slice(comment.indexOf('[q2l'))
-    // eslint-disable-next-line no-control-regex
+    // oxlint-disable-next-line no-control-regex -- the pattern asserts control bytes are stripped.
     expect(/^[\x00-\xff]*$/.test(tag)).toBe(true)
   })
 

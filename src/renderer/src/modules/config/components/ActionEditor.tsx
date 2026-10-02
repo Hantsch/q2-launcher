@@ -397,10 +397,13 @@ export function ActionEditor({
   // previewed and saved - not `commands`, which only ever holds the
   // command-payload draft (kept around, untouched, while the message
   // payload is active, so toggling back to "command" does not lose it).
-  const effectiveCommands: ConfigCommand[] =
-    payloadType === 'message'
-      ? [{ kind: 'message', channel: messageChannel, text: messageText }]
-      : commands
+  const effectiveCommands: ConfigCommand[] = useMemo(
+    () =>
+      payloadType === 'message'
+        ? [{ kind: 'message', channel: messageChannel, text: messageText }]
+        : commands,
+    [payloadType, messageChannel, messageText, commands],
+  )
 
   // Story 045 D9: a two-part entry's preview has to go through `renderActionAlias`'s two-part
   // branch (`action.commands` is always `[]` for these kinds, so the single-list draft below would

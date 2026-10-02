@@ -84,7 +84,6 @@ import { nextVersion } from './lib/release/version.mjs'
 const FIXTURE_VARIANT = 'empty'
 /** Distinct from `FIXTURE_VARIANT`: only names this script's own scratch directory
  * (`XDG_CONFIG_HOME`, the derived build config) under `.ui-verify/`, never a fixture userData. */
-const VARIANT = 'linux-update'
 const WORK_DIR = join(UI_VERIFY_ROOT, 'linux-update')
 /** Becomes the relaunched process's `app.getPath('appData')` - see the header. */
 const XDG_CONFIG_HOME = join(WORK_DIR, 'xdg-config')

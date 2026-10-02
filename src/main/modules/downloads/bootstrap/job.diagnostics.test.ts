@@ -8,7 +8,7 @@ import {
   DEMO_PACKAGE,
   POINT_RELEASE_PACKAGE,
   FIXTURE_CONTENTS,
-  useBootstrapTempDirs,
+  installBootstrapTempDirs,
   type Harness,
   harness,
   recordFor,
@@ -19,7 +19,7 @@ import {
   targetPath,
 } from './job.test-helpers'
 
-useBootstrapTempDirs()
+installBootstrapTempDirs()
 
 /**
  * Story 075 D3. The collector itself (redaction, the ring, the registry) is D2's suite; what is

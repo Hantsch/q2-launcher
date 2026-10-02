@@ -29,7 +29,7 @@ const reading = (arch: BinaryArch) => async () => arch
 describe('engine target and variant selection', () => {
   it('r1q2 on Windows selects the x86 library variant', async () => {
     const target = await resolveEngineTarget(
-      { engineKind: 'r1q2', executablePath: 'C:\q2\r1q2.exe', executableKind: 'pe' },
+      { engineKind: 'r1q2', executablePath: 'C:\\q2\\r1q2.exe', executableKind: 'pe' },
       [],
       reading('x86'),
     )
@@ -44,7 +44,7 @@ describe('engine target and variant selection', () => {
 
   it('an x86-only mod for a 64-bit Q2PRO selects content-only', async () => {
     const target = await resolveEngineTarget(
-      { engineKind: 'q2pro', executablePath: 'C:\q2\q2pro.exe', executableKind: 'pe' },
+      { engineKind: 'q2pro', executablePath: 'C:\\q2\\q2pro.exe', executableKind: 'pe' },
       [],
       reading('x86_64'),
     )
@@ -60,7 +60,7 @@ describe('engine target and variant selection', () => {
     const target = await resolveEngineTarget(
       {
         engineKind: 'q2pro',
-        executablePath: 'C:\q2\q2pro.exe',
+        executablePath: 'C:\\q2\\q2pro.exe',
         executableKind: 'pe',
         moduleData: { downloads: { packageId: 'q2pro-nightly-win64' } },
       },

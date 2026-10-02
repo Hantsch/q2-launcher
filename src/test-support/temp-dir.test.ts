@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs'
 import { afterAll, describe, expect, it } from 'vitest'
-import { useTempDir } from './temp-dir'
+import { installTempDir } from './temp-dir'
 
-describe('useTempDir gives each test a fresh dir and removes it afterwards', () => {
-  const dir = useTempDir('q2-launcher-temp-dir-test-')
+describe('installTempDir gives each test a fresh dir and removes it afterwards', () => {
+  const dir = installTempDir('q2-launcher-temp-dir-test-')
   const seen: string[] = []
 
   afterAll(() => {

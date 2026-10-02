@@ -10,7 +10,7 @@
 // mods-remove-confirm.
 import { existsSync } from 'node:fs'
 import { variantUserDataDir } from '../lib/harness.mjs'
-import { STATE_WRITE_GRACE_MS, readStateJson, waitForStateJson } from '../lib/state-json.mjs'
+import { readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import {
   INSTALL_MODS_REMOVE_ID,
   INSTALL_MODS_REMOVE_NAME,

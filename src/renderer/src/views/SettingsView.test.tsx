@@ -79,9 +79,7 @@ describe('SettingsView', () => {
     const position1 = libraryPanel.compareDocumentPosition(stubPanel)
     const position2 = stubPanel.compareDocumentPosition(aboutPanel)
 
-    // eslint-disable-next-line no-bitwise
     expect(position1 & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // eslint-disable-next-line no-bitwise
     expect(position2 & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 

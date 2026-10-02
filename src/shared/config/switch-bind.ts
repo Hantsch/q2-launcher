@@ -116,6 +116,7 @@ function cleanEchoText(text: string): string {
       // C0 controls and DEL: a newline or tab inside the body would cut the
       // generated line in half. High-ASCII is kept — it round-trips latin1 and
       // the engine renders it, so "Bjørn" stays "Bjørn".
+      // oxlint-disable-next-line no-control-regex -- the pattern exists to strip control bytes.
       .replace(/[\u0000-\u001F\u007F]/g, ' ')
       // `"` cannot be escaped in Quake 2 and would break the line split; `;`
       // would end the step's command list; `$` triggers macro expansion; `//`

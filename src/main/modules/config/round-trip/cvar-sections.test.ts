@@ -28,10 +28,10 @@ import {
   cvarPlacements,
   cvarNames,
   KNOWN_UNWRITTEN_CVARS,
-  useRoundTripRoot,
+  installRoundTripRoot,
 } from './helpers'
 
-useRoundTripRoot()
+installRoundTripRoot()
 
 describe('cvar sections survive the round trip', () => {
   /** Two sections, one with a sub-section, over a mix of catalogue and unknown cvars - plus one

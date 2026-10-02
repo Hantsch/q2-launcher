@@ -1,0 +1,89 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "import", "unicorn", "oxc"],
+  "ignorePatterns": ["out/", "dist/", "release/", "node_modules/", "vendor/"],
+  "categories": { "correctness": "error" },
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "error",
+    "no-unused-vars": "error",
+    // React-compiler rules stay off until the compiler refactor lands (story 213).
+    "react/set-state-in-effect": "off",
+    "react/refs": "off",
+    "react/globals": "off",
+    "react/purity": "off",
+    "react/immutability": "off",
+    "react/static-components": "off",
+    // stylistic rules, deliberately off.
+    "unicorn/no-useless-spread": "off",
+    "unicorn/no-new-array": "off",
+    "unicorn/no-useless-fallback-in-spread": "off",
+    "unicorn/prefer-string-starts-ends-with": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/shared/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              "node:*",
+              "electron",
+              "@main/*",
+              "@renderer/*",
+              "**/main/**",
+              "**/renderer/**"
+            ],
+            "paths": [
+              "fs",
+              "fs/promises",
+              "path",
+              "child_process",
+              "os",
+              "crypto",
+              "net",
+              "http",
+              "https",
+              "zlib",
+              "stream",
+              "worker_threads",
+              "url"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/renderer/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": ["node:*", "electron", "@main/*", "**/main/**"],
+            "paths": [
+              "fs",
+              "fs/promises",
+              "path",
+              "child_process",
+              "os",
+              "crypto",
+              "net",
+              "http",
+              "https",
+              "zlib",
+              "stream",
+              "worker_threads",
+              "url"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      // createElement's typed props require `children` as a prop; there is no JSX in the .ts tests.
+      "rules": { "no-restricted-imports": "off", "react/no-children-prop": "off" }
+    }
+  ]
+}

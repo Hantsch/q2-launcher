@@ -172,6 +172,7 @@ export function ServerLocalContentSection({ mod, map }: ServerLocalContentSectio
       cancelled = true
     }
     // `target` is derived from exactly these inputs; `lookupKey` stands for it.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `target` is derived from these inputs; its identity would refetch needlessly.
   }, [installationId, gameDirsKey, statusGameDir, map, lookupKey])
 
   if (installation === null) {

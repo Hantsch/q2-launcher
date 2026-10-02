@@ -14,7 +14,7 @@ import { StateStore } from '../../../services/state'
 import { ProfilesStore } from '../profiles'
 import { hashCanonicalFileContent } from '../file-source'
 import { detectSectionHeaderStyle, detectWriteUnbindall, recoverProfileName } from '../rebuild'
-import { useTempDir } from '../../../../test-support/temp-dir'
+import { installTempDir } from '../../../../test-support/temp-dir'
 
 let getRoot: () => string
 
@@ -24,8 +24,8 @@ const openStores: StateStore[] = []
 
 /** Registers the per-test temp directory every helper below reads from. Call once at the top level
  * of each test file. */
-export function useRoundTripRoot(): void {
-  getRoot = useTempDir('q2-launcher-round-trip-')
+export function installRoundTripRoot(): void {
+  getRoot = installTempDir('q2-launcher-round-trip-')
   afterEach(async () => {
     for (const store of openStores) await store.settle()
     openStores.length = 0

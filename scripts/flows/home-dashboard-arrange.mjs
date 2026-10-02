@@ -158,11 +158,6 @@ async function waitForTileAtCell(page, moduleId, expected, label) {
   assertTileAtCell(await tileGridCell(page, moduleId), expected, label)
 }
 
-/** `state.json`'s `homeLayout` as it is on disk right now - read fresh, no restart (AC10). */
-function readPersistedHomeLayout() {
-  return readStateJson(variantUserDataDir('populated')).homeLayout
-}
-
 /** Waits for the layout the app just wrote; `unchanged` first lets a pending debounced write land. */
 async function assertPersistedLayout(expected, label, { unchanged = false } = {}) {
   if (unchanged) await new Promise((resolve) => setTimeout(resolve, STATE_WRITE_GRACE_MS))

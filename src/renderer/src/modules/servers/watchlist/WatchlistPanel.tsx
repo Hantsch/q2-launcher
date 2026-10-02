@@ -31,7 +31,6 @@ export function WatchlistPanel({
 }: WatchlistPanelProps) {
   const { snapshot, add, update, remove, recheck } = useWatchlist()
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [, setTick] = useState(0)
   useEffect(() => {
     const interval = setInterval(() => setTick((value) => value + 1), RELATIVE_TIME_REFRESH_MS)

@@ -152,7 +152,6 @@ const TOO_SLOW_ENTRY_NAME = 'Ghost'
 let serverA = null
 let serverB = null
 let responders = []
-let installRoot = null
 let spawnable = true
 
 export async function setup() {
@@ -190,7 +189,6 @@ export async function setup() {
       },
     },
   })
-  installRoot = fixture.installRoot
   spawnable = fixture.spawnable
 
   return { env: { [PUBLIC_KEY_ENV_VAR]: signingPublicKeyPem } }
@@ -286,13 +284,6 @@ async function entryIdByName(page, name) {
     )
   }
   return matches[0].entry.id
-}
-
-async function statusByEntryId(page, id) {
-  const snapshot = await readWatchlistSnapshot(page)
-  const status = snapshot.entries.find((candidate) => candidate.entry.id === id)
-  if (!status) throw new Error(`expected a watchlist entry with id ${JSON.stringify(id)}`)
-  return status
 }
 
 function rowLocator(page, id) {

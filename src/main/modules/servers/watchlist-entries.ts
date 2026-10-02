@@ -41,7 +41,6 @@ function validateNameAndMode(
   }
   if (mode === 'regex') {
     try {
-      // eslint-disable-next-line no-new -- compiling only, never run against any string here.
       new RegExp(trimmed, 'i')
     } catch {
       return 'servers.watchlist.error.invalidRegex'

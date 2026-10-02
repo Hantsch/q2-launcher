@@ -36,8 +36,8 @@
 - 2026-10-02 10:43:59 · 225 · story · started
 - 2026-10-02 10:44:50 · 225 · D1 quiet binary-free test run · started
 - 2026-10-02 10:56:16 · 225 · D1 quiet binary-free test run · done
-- 2026-10-02 10:56:22 · 225 · D2 useTempDir + fakeAppContext · started
-- 2026-10-02 10:58:05 · 225 · D2 useTempDir + fakeAppContext · done
+- 2026-10-02 10:56:22 · 225 · D2 installTempDir + fakeAppContext · started
+- 2026-10-02 10:58:05 · 225 · D2 installTempDir + fakeAppContext · done
 - 2026-10-02 10:58:05 · 225 · D3 downloads test-support · started
 - 2026-10-02 10:59:54 · 225 · D3 downloads test-support · done
 - 2026-10-02 10:59:54 · 225 · D4 makeInstallation · started
@@ -282,3 +282,23 @@
 - 2026-10-02 14:49:29 · 207 · review 2 · started
 - 2026-10-02 14:50:11 · 207 · review 2 · done
 - 2026-10-02 14:50:29 · 207 · story · done
+- 2026-10-02 14:50:49 · 208 · build · started
+- 2026-10-02 14:51:10 · 208 · D1 architecture test + scanner · started
+- 2026-10-02 14:56:53 · 208 · D1 architecture test + scanner · done
+- 2026-10-02 14:56:53 · 208 · D2 layering move + docs · started
+- 2026-10-02 14:58:22 · 208 · D2 layering move + docs · done
+- 2026-10-02 14:58:22 · 208 · D3 oxlint + main clean · started
+- 2026-10-02 15:01:00 · 208 · D3 oxlint + main clean · done
+- 2026-10-02 15:01:00 · 208 · D4 renderer clean + wiring · started
+- 2026-10-02 15:06:36 · 208 · D4 renderer clean + wiring · done
+- 2026-10-02 15:06:36 · 208 · D5 docs pointers · started
+- 2026-10-02 15:07:05 · 208 · D5 docs pointers · done
+- 2026-10-02 15:07:05 · 208 · verify · started
+- 2026-10-02 15:08:37 · 208 · verify · done
+- 2026-10-02 15:08:37 · 208 · review 1 · started
+- 2026-10-02 15:10:16 · 208 · review 1 · done
+- 2026-10-02 15:10:16 · 208 · review fix 1 · started
+- 2026-10-02 15:11:28 · 208 · review fix 1 · done
+- 2026-10-02 15:11:28 · 208 · review 2 · started
+- 2026-10-02 15:12:47 · 208 · review 2 · done
+- 2026-10-02 15:12:47 · 208 · story · done

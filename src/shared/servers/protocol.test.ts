@@ -1,7 +1,3 @@
-import { readdirSync, readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -80,25 +76,5 @@ describe('readConnectionlessReply', () => {
       ok: true,
       body: '\\hostname\\my server\n',
     })
-  })
-})
-
-describe('purity', () => {
-  it('no codec in the servers folder imports node, electron or the IPC layer', () => {
-    const here = dirname(fileURLToPath(import.meta.url))
-    const files = readdirSync(here).filter(
-      (name: string) => name.endsWith('.ts') && !name.endsWith('.test.ts'),
-    )
-
-    expect(files.length).toBeGreaterThan(0)
-
-    for (const file of files) {
-      const source = readFileSync(join(here, file), 'utf-8')
-      expect(source, `${file} imports node:*`).not.toMatch(/from\s+['"]node:/)
-      expect(source, `${file} imports electron`).not.toMatch(/from\s+['"]electron['"]/)
-      expect(source, `${file} imports the IPC layer`).not.toMatch(
-        /from\s+['"][^'"]*\/ipc[^'"]*['"]/,
-      )
-    }
   })
 })

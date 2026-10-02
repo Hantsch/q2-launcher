@@ -217,7 +217,6 @@ export function ConfigView() {
     if (!pending || profiles.length === 0) return
     pendingFocusIdRef.current = null
     if (profiles.some((profile) => profile.id === pending)) openProfile(pending)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profiles, consumeRouteFocus])
 
   useEffect(() => {
@@ -286,7 +285,10 @@ export function ConfigView() {
   // Story 079 D7 (AC6): the badge also counts non-`inSync` Files rows, so a drifted/missing/failed
   // copy shows up the same way an unresolved finding does - `driftState.status` is only `'loaded'`
   // once the fetch resolves, so there is nothing to add while it is still loading or has errored.
-  const driftRows = driftState.status.kind === 'loaded' ? driftState.status.rows : []
+  const driftRows = useMemo(
+    () => (driftState.status.kind === 'loaded' ? driftState.status.rows : []),
+    [driftState.status],
+  )
   // Story 079 review (finding 4): `selected.dirty`, not `draftOrSelected`'s - same profile
   // `tidyUpFindings` above reads, and what tells `dedupedFindingCounts` a canonical `outOfSync` row
   // is merely unsaved edits (excluded from the count) rather than a genuine external edit (still
@@ -341,7 +343,7 @@ export function ConfigView() {
     if (activeTab !== 'overview' || !tabState.focusLayerName) return
     const layer = selected?.layers?.find((candidate) => candidate.name === tabState.focusLayerName)
     if (layer) setActiveLayerId(layer.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `selected` is read at the moment the focus request lands, not a trigger.
   }, [tabState])
 
   /**

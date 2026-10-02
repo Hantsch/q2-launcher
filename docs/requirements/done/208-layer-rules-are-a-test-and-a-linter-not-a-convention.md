@@ -1,7 +1,7 @@
 ---
 id: 208
 title: layer rules are a test and a linter, not a convention
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -27,26 +27,26 @@ by typescript-eslint vs TS 7 (roadmap); `oxlint` is TS-version independent.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — One node-project vitest file `src/architecture.test.ts` walks the tree and
+- [x] **AC1** — One node-project vitest file `src/architecture.test.ts` walks the tree and
       asserts: `src/shared/**` imports no `node:`, `electron` or DOM types; `src/renderer/**`
       imports no `electron`/`node:`; `src/main/modules/<a>/**` imports nothing from
       `src/main/modules/<b>/` except `../types` and entries on an explicit allowlist that names
       the story that decided each; shell files under `src/main` import only `modules/index` and
       `modules/registry` from the modules tree; renderer `components/**`/`views/**` import nothing
       from `modules/**` except `modules/index` and the allowlisted cases.
-- [ ] **AC2** — The four per-file purity tests and the matching `tsconfig.web.json` excludes are
+- [x] **AC2** — The four per-file purity tests and the matching `tsconfig.web.json` excludes are
       deleted; the whole-tree spawn/network guard moves from the downloads module to
       `src/main/layering.test.ts` with its allowlist documented in docs/ARCHITECTURE.md's security
       section.
-- [ ] **AC3** — The allowlist is empty for `shell → modules` after story 207 and otherwise
+- [x] **AC3** — The allowlist is empty for `shell → modules` after story 207 and otherwise
       shrinks only; adding an entry requires a story reference (the test fails on an entry
       without one).
-- [ ] **AC4** — `oxlint` runs as `npm run lint` with react, react-hooks and import plugins and
+- [x] **AC4** — `oxlint` runs as `npm run lint` with react, react-hooks and import plugins and
       per-directory `no-restricted-imports` mirroring AC1; it is green on `dev` and part of
       `ci.yml` and `verify:release`.
-- [ ] **AC5** — The 29 stale `eslint-disable` comments are deleted or converted to the linter's
+- [x] **AC5** — The 29 stale `eslint-disable` comments are deleted or converted to the linter's
       syntax with a reason; no new `as any` is introduced.
-- [ ] **AC6** — CLAUDE.md's "Key rules" point at `src/architecture.test.ts` as the enforcement of
+- [x] **AC6** — CLAUDE.md's "Key rules" point at `src/architecture.test.ts` as the enforcement of
       the layering rules.
 
 ## Open Questions
@@ -151,7 +151,7 @@ fixed (mechanical: unused vars/imports, hook deps, escapes).
 
 ## Deliverables
 
-- [ ] **D1 — the architecture test and its scanner.** Create `src/test-support/source-tree.ts`
+- [x] **D1 — the architecture test and its scanner.** Create `src/test-support/source-tree.ts`
       exporting `listSourceFiles(dirRepoRel)` (recursive, `.ts`/`.tsx`, repo-relative POSIX paths — use
       `/` on Windows too), `isTestFile(path)` (`.test.ts(x)`/`.spec.ts(x)`), `scanImports(sourceText)`
       (returns every module specifier) and `resolveSpecifier(fromFile, spec)` (relative →
@@ -198,7 +198,7 @@ fixed (mechanical: unused vars/imports, hook deps, escapes).
       Acceptance: `npx vitest run src/architecture.test.ts src/test-support/source-tree.test.ts` green;
       `npm run typecheck` green.
 
-- [ ] **D2 — the spawn/network guard is repo-level and documented.** Move
+- [x] **D2 — the spawn/network guard is repo-level and documented.** Move
       `src/main/modules/downloads/layering.test.ts` to `src/main/layering.test.ts` (`git mv`), rewrite
       its walk on `listSourceFiles` from `src/test-support/source-tree.ts`, fix its `REPO_ROOT`/import of
       `../../lib/renderer-source` → `./lib/renderer-source`, and drop its part 1 ("not imported by any file
@@ -212,7 +212,7 @@ fixed (mechanical: unused vars/imports, hook deps, escapes).
       appears in `docs/ARCHITECTURE.md`. Acceptance: `npx vitest run src/main/layering.test.ts` green and
       the old file is gone.
 
-- [ ] **D3 — oxlint runs, and main/preload/shared/scripts are clean.** `npm i -D oxlint` (exact
+- [x] **D3 — oxlint runs, and main/preload/shared/scripts are clean.** `npm i -D oxlint` (exact
       current version, lockfile updated). Create `.oxlintrc.json` with plugins
       `["typescript","react","import","unicorn","oxc"]`, `ignorePatterns` for `out/`, `dist/`,
       `release/`, `node_modules/`, `vendor/` and any build output present; rules: default `correctness`
@@ -235,7 +235,7 @@ fixed (mechanical: unused vars/imports, hook deps, escapes).
       `npm run lint -- src/main src/preload src/shared scripts` exits 0; `npm test` and
       `npm run typecheck` green.
 
-- [ ] **D4 — the renderer is clean and lint is a gate.** With the `.oxlintrc.json` and `npm run
+- [x] **D4 — the renderer is clean and lint is a gate.** With the `.oxlintrc.json` and `npm run
 lint` from D3, fix every finding under `src/renderer` the same way (unused vars/imports, hook deps
       — a missing dep is added or the hook restructured, never silenced without a reason; stale
       `eslint-disable` comments deleted, needed ones rewritten as
@@ -249,7 +249,7 @@ lint` from D3, fix every finding under `src/renderer` the same way (unused vars/
       `no-restricted-imports` overrides with `electron` and `node:*`. Acceptance: `npm run lint` exits 0
       on the whole repo; `npm test`, `npm run typecheck`, `npm run build` green.
 
-- [ ] **D5 — the rules point at their enforcement.** In `CLAUDE.md` "Key rules" add one bullet:
+- [x] **D5 — the rules point at their enforcement.** In `CLAUDE.md` "Key rules" add one bullet:
       layering (shared pure, renderer no node/electron, modules don't import each other, shell doesn't
       import module internals) is enforced by `src/architecture.test.ts` and `npm run lint`; an exception
       is an allowlist entry with a story number. In `docs/ROADMAP.md` delete the follow-up about the
@@ -289,4 +289,25 @@ No AC describes a user action; no e2e flow applies.
 
 ## Done
 
-<!-- Filled by /build 208. -->
+Summary: `src/architecture.test.ts` (scanner in `src/test-support/source-tree.ts`) enforces the layer
+rules with a story-referenced allowlist; the spawn/network guard moved to `src/main/layering.test.ts`
+and is documented in ARCHITECTURE.md; `oxlint` 1.86.0 runs as `npm run lint` (CI, verify:release,
+ai-scrum profile) and the repo is green; CLAUDE.md points at the test.
+
+Commit message: `208: layer rules are a test (architecture.test.ts) and a linter (oxlint, npm run lint); spawn/network guard repo-level`
+
+Verification (narrow gate, no e2e applies): `npm run build`, `npm run typecheck`, `npm run lint`, `npx vitest run --changed HEAD`
+and full `npm test` all green (516 files, 6480 passed, 8 skipped). All 19 named tests in `## Acceptance Tests`
+ran and passed (AC1-AC6 map as written). Clean-agent review PASS; fixes applied and re-reviewed (PASS).
+
+Decisions:
+- `AS_ANY_BASELINE` is 0: all 28 `as any` hits are in comments; the ratchet strips comments.
+- `tsconfig.web.json` exclude stays at 5 node-only entries (demo-guard, common, lib/toast, i18n/reason-templates, test-support/source-files); the test pins that exact list. Moving the other four is out of scope.
+- `views/LibraryView.tsx -> modules/library/client` predates the story log; allowlisted under story 208 with a reason.
+- Shell -> modules allowlist is empty; no 207 defect found.
+- Review fixes: bare Node builtins now count as node imports (rules + `paths` in `.oxlintrc.json`); added rules that module files do not import `modules/index`/`registry`.
+- `react/no-children-prop` is off for tests only (typed props need `children` in `createElement`).
+- Test helpers `useXxx` were renamed `installXxx` because oxlint reads `use*` as hooks.
+- Known gap: oxlint's builtin `paths` list is shorter than the test predicate, which covers every builtin.
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 10

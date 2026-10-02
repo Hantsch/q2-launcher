@@ -185,35 +185,6 @@ async function waitForFinishedAtChange(page, previous, timeout) {
   )
 }
 
-/** Reads the set of visible row addresses (as their bound loopback port suffix) among A-D, by
- * checking which of the four `servers-row-<address>` testids are currently attached. */
-async function visibleLabels(page) {
-  const labels = {
-    [serverA.address]: 'A',
-    [serverB.address]: 'B',
-    [serverC.address]: 'C',
-    [serverD.address]: 'D',
-  }
-  const visible = []
-  for (const responder of [serverA, serverB, serverC, serverD]) {
-    const count = await page.getByTestId(`servers-row-${responder.address}`).count()
-    if (count > 0) visible.push(labels[responder.address])
-  }
-  return visible.sort()
-}
-
-function assertSet(actual, expected, label) {
-  const a = [...actual].sort()
-  const e = [...expected].sort()
-  if (a.join(',') !== e.join(',')) {
-    throw new Error(`${label}: expected {${e.join(',')}}, got {${a.join(',')}}`)
-  }
-}
-
-async function clearFilters(page) {
-  await page.getByTestId('servers-filter-clear').click({ timeout: TIMEOUT_MS })
-}
-
 const chips = (page) => page.getByTestId('servers-quickfilter-chip')
 const chipNamed = (page, name) => chips(page).filter({ hasText: name })
 

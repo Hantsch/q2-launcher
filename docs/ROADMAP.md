@@ -57,9 +57,6 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 - `docs/ARCHITECTURE.md#adding-a-module` should name `src/shared/ipc-schemas.ts`'s hardcoded
   `moduleId` z.enum as a step — it is not extended automatically, and 106 rediscovered that.
   [S22 review](../sprints/S22/review.md)
-- The node-only "imports nothing from node/electron/IPC" purity self-check now needs a one-off
-  `tsconfig.web.json` exclude per test file (three entries for one pattern); a shared helper or a
-  glob would be cleaner. [S22 review](../sprints/S22/review.md)
 - `resolveHttpListSource`'s master/list sources have no bounded timeout of their own — only the
   scan's shared abort signal can end a hung fetch, so a stalled source could in principle hang a
   scan indefinitely. [S24 review](../sprints/S24/review.md)
@@ -104,8 +101,6 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 - 098's real `checker.ts` has a narrow cancel-timing window (a cancel racing the moment a download
   finishes) flagged by its review and left as a documented, non-blocking limitation — worth closing
   once anyone hits it in practice. [S21 review](../sprints/S21/review.md)
-- ESLint is absent (`typescript-eslint@8` caps TS `<6.1.0`; project is on TS7) — revisit when it
-  supports TS7.
 - Make `ci.yml`'s `npm audit` step blocking (drop `continue-on-error`) on 2026-10-09, after S33.
   [story 226]
 - Per-installation launch profiles (cvar overrides, safe mode, connect-to-server).

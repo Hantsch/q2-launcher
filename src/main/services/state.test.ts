@@ -12,7 +12,7 @@ import { STATE_SCHEMA_VERSION } from '@shared/constants'
 import { DEFAULT_SETTINGS, type Installation } from '@shared/types'
 import { rename } from 'node:fs/promises'
 import { StateStore, type StateSectionSpec } from './state'
-import { useTempDir } from '../../test-support/temp-dir'
+import { installTempDir } from '../../test-support/temp-dir'
 
 /** The top-level keys a fresh store writes; anything else in a file came from the file. */
 const STATE_KEYS = ['schemaVersion', 'settings', 'installations']
@@ -132,7 +132,7 @@ describe('StateStore updateSlice', () => {
 })
 
 describe('StateStore sections', () => {
-  const dir = useTempDir('q2l-state-section-')
+  const dir = installTempDir('q2l-state-section-')
   let filePath: string
 
   interface Notes {

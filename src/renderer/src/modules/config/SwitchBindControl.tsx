@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../components/ui/Button'
 import { Badge } from '../../components/ui/primitives'
@@ -32,6 +32,17 @@ export function SwitchBindControl({
   const { t } = useTranslation()
   const [capturing, setCapturing] = useState(false)
 
+  const applyKey = useCallback(
+    async (key: string | null): Promise<void> => {
+      const result = await setSwitchBind({ installationId, key })
+      if (result.ok) {
+        onChanged(result.value)
+        setCapturing(false)
+      }
+    },
+    [installationId, onChanged],
+  )
+
   useEffect(() => {
     if (!capturing) return
     const handleKeyDown = (event: KeyboardEvent): void => {
@@ -43,15 +54,7 @@ export function SwitchBindControl({
     }
     window.addEventListener('keydown', handleKeyDown, true)
     return () => window.removeEventListener('keydown', handleKeyDown, true)
-  }, [capturing, installationId])
-
-  const applyKey = async (key: string | null): Promise<void> => {
-    const result = await setSwitchBind({ installationId, key })
-    if (result.ok) {
-      onChanged(result.value)
-      setCapturing(false)
-    }
-  }
+  }, [capturing, applyKey])
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">

@@ -27,10 +27,10 @@ import {
   headerOf,
   preservedLines,
   rerenderFromFile,
-  useRoundTripRoot,
+  installRoundTripRoot,
 } from './helpers'
 
-useRoundTripRoot()
+installRoundTripRoot()
 
 describe('a profile of drops is a fixed point under the `drop_<slug>` naming', () => {
   const dropsProfile = buildFixtureProfile({

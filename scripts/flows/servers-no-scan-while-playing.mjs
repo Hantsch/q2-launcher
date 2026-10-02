@@ -136,8 +136,6 @@ const RESPONDER_INFO_LINE = `\\gamename\\baseq2\\hostname\\${RESPONDER_HOSTNAME}
 const RESPONDER_PLAYER_LINES = ['5 20 "Alpha"', '3 10 "Bravo"']
 
 /** Mirrors `SERVERS_HANDLERS.scanStart`/`scanRead` (`src/shared/modules/servers.ts`) by hand. */
-const SCAN_START_TYPE = 'scan.start'
-const SCAN_READ_TYPE = 'scan.read'
 /** Mirrors `SCAN_BLOCKED_GAME_RUNNING_REASON_KEY` (`src/shared/modules/servers.ts`) by hand. */
 const SCAN_BLOCKED_GAME_RUNNING_REASON_KEY = 'servers.scan.blocked.gameRunning'
 

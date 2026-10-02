@@ -43,10 +43,13 @@ export function ModsView() {
   const [removeStarted, setRemoveStarted] = useState<string[]>([])
   const jobs = useLauncher((s) => s.jobs)
   // A result for another installation is not this one's: treat it as still loading.
-  const state: ListState =
-    loaded.kind !== 'loading' && loaded.installationId !== installationId
-      ? { kind: 'loading' }
-      : loaded
+  const state: ListState = useMemo(
+    () =>
+      loaded.kind !== 'loading' && loaded.installationId !== installationId
+        ? { kind: 'loading' }
+        : loaded,
+    [loaded, installationId],
+  )
 
   // The catalog is fetched once per view; `unavailable` also covers a failed call.
   const [catalog, setCatalog] = useState<ModCatalogState | null>(null)

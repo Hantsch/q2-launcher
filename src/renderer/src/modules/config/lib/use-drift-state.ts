@@ -59,7 +59,6 @@ export function useDriftState(
   useEffect(() => {
     if (profileId) fetchFor(profileId)
     // profileUpdatedAt is read only to trigger this refetch; fetchFor itself already captures the id.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileId, profileUpdatedAt, fetchFor])
 
   const refetch = useCallback((): void => {

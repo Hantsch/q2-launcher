@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import { renderProfileFile } from '@shared/config/render'
 import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
-import { adoptRendered, setLines, useRoundTripRoot } from './helpers'
+import { adoptRendered, setLines, installRoundTripRoot } from './helpers'
 
-useRoundTripRoot()
+installRoundTripRoot()
 
 describe("adopting the launcher's own file back does not inflate profile.cvars", () => {
   for (const profile of ROUND_TRIP_FIXTURES) {

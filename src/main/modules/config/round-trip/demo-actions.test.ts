@@ -8,9 +8,9 @@ import { readAutorecord } from '@shared/config/autorecord'
 import { buildDemoRows } from '@shared/config/catalog-rows'
 import { renderProfileFile } from '@shared/config/render'
 import { buildFixtureProfile } from '@shared/config/fixtures/profiles'
-import { reimport, normalize, slotsOf, reimportProfile, useRoundTripRoot } from './helpers'
+import { reimport, normalize, slotsOf, reimportProfile, installRoundTripRoot } from './helpers'
 
-useRoundTripRoot()
+installRoundTripRoot()
 
 describe('a bound demo speed action', () => {
   const speedIds = ['demoSpeedUp', 'demoSpeedDown'] as const

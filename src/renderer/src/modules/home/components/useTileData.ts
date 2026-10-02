@@ -59,7 +59,6 @@ export function useTileData<T>(fetcher: () => Promise<T>): UseTileDataResult<T> 
       cancelled = true
     }
     // `attempt` is the only intentional trigger - see the doc comment above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt])
 
   const retry = useCallback(() => setAttempt((n) => n + 1), [])

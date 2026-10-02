@@ -2244,7 +2244,6 @@ export function replaysZipPackArchivePath() {
  */
 export function writeReplaysZipPackArchive() {
   if (!vendoredExtractorExists()) return
-  const oneDemosDir = join(gameRoot(), INSTALL_ONE_ID, 'baseq2', 'demos')
   const staging = join(bootstrapStagingDir(), 'replays-zip-pack')
   rmSync(staging, { recursive: true, force: true })
   mkdirSync(join(staging, 'sub'), { recursive: true })

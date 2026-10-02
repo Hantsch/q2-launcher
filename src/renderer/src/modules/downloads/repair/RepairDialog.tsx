@@ -74,7 +74,7 @@ export function RepairDialog({ installationId }: { installationId: string }) {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- the scan runs once per installation; the rest of the closure is read as of that run.
   }, [installationId])
 
   async function startOffer(kind: RepairOfferKind): Promise<void> {

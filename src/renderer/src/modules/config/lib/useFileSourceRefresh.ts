@@ -86,7 +86,6 @@ export function useFileSourceRefresh(params: {
       runRefresh(params.profileId)
       onAfterRefreshRef.current?.(params.profileId)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.profileId])
 
   // Trigger 2: window focus regained.

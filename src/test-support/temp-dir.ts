@@ -9,7 +9,7 @@ import { afterEach, beforeEach } from 'vitest'
  * valid between `beforeEach` and `afterEach`. Removal retries: on Windows a just-closed file
  * handle is not always released yet (ENOTEMPTY/EBUSY).
  */
-export function useTempDir(prefix: string): () => string {
+export function installTempDir(prefix: string): () => string {
   let current: string | undefined
   beforeEach(async () => {
     current = await mkdtemp(join(tmpdir(), prefix))
@@ -21,7 +21,7 @@ export function useTempDir(prefix: string): () => string {
       await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
   })
   return () => {
-    if (current === undefined) throw new Error('useTempDir: dir read outside a test')
+    if (current === undefined) throw new Error('installTempDir: dir read outside a test')
     return current
   }
 }

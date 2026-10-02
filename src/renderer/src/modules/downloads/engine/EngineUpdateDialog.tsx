@@ -64,7 +64,7 @@ export function EngineUpdateDialog({ installationId }: { installationId: string 
 
   useEffect(() => {
     void refreshStatus()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- status is re-read when the installation changes; refreshStatus is a fresh closure each render.
   }, [installationId])
 
   async function start(action: 'update' | 'rollback'): Promise<void> {

@@ -9,7 +9,7 @@ import {
   FIXTURE_CONTENTS,
   type Deferred,
   deferred,
-  useBootstrapTempDirs,
+  installBootstrapTempDirs,
   type Harness,
   harness,
   breakTargetBeforeValidate,
@@ -19,7 +19,7 @@ import {
   targetPath,
 } from './job.test-helpers'
 
-useBootstrapTempDirs()
+installBootstrapTempDirs()
 
 /**
  * Story 077 D2. The one destructive path in this file now behaves differently for its two callers,

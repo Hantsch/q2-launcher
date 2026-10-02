@@ -8,7 +8,7 @@ import { serversState } from './servers/persisted'
 import { replaysState } from './replays/persisted'
 import { StateStore } from '../services/state'
 import { unlockState } from '../services/unlock/persisted'
-import { useTempDir } from '../../test-support/temp-dir'
+import { installTempDir } from '../../test-support/temp-dir'
 import { configState } from './config/persisted'
 import { MODULE_MIGRATIONS } from './index'
 
@@ -62,7 +62,7 @@ async function readExpected(name: string): Promise<unknown> {
 }
 
 describe('loading persisted state', () => {
-  const dir = useTempDir('q2l-golden-')
+  const dir = installTempDir('q2l-golden-')
 
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] })

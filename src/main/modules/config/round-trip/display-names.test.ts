@@ -9,10 +9,10 @@ import {
   findFixture,
   sortedEntryShapes,
   categoryNames,
-  useRoundTripRoot,
+  installRoundTripRoot,
 } from './helpers'
 
-useRoundTripRoot()
+installRoundTripRoot()
 
 describe('an unbound entry with no commands at all', () => {
   it('"Unbound entries with no commands": three `//bind` lines, three entries, none merged', async () => {

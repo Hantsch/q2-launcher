@@ -11,10 +11,10 @@ import {
   slotsOf,
   reimportProfile,
   findFixture,
-  useRoundTripRoot,
+  installRoundTripRoot,
 } from './helpers'
 
-useRoundTripRoot()
+installRoundTripRoot()
 
 describe('render(parse(render(p))) is a fixed point over the fixture corpus', () => {
   for (const profile of ROUND_TRIP_FIXTURES) {

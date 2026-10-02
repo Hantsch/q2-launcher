@@ -93,6 +93,7 @@ export type ServerAddressResult =
   ({ ok: true } & ParsedServerAddress) | { ok: false; reason: ServerAddressRejection }
 
 /** Control bytes, bytes above 126, and the shell/argument metacharacters `'`, `"`, `\`, `;`. */
+// oxlint-disable-next-line no-control-regex -- the pattern exists to reject control bytes.
 const FORBIDDEN_CHARACTER_PATTERN = /[\u0000-\u001f\u007f-\uffff'"\\;]/
 
 /** One dotted-decimal label: all digits, used to detect an IPv4-shaped candidate. */

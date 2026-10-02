@@ -22,10 +22,10 @@ import {
   restoreFromText,
   sortedEntryShapes,
   categoryNames,
-  useRoundTripRoot,
+  installRoundTripRoot,
 } from './helpers'
 
-useRoundTripRoot()
+installRoundTripRoot()
 
 describe('sub-categories come back off the file', () => {
   /** The restored profile's sub-category names per category, and each entry's `(category,

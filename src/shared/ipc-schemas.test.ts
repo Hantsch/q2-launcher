@@ -24,7 +24,6 @@ describe('moduleInvokeSchema', () => {
 
     // `moduleInvokeSchema` is exported as the widened `z.ZodType`, so its object/enum shape is only
     // reachable at runtime - `as any` here is a test-only introspection, not a production cast.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const enumSchema = (moduleInvokeSchema as any).shape.moduleId
     expect([...enumSchema.options].sort()).toEqual(manifestIds)
 

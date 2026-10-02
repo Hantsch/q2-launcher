@@ -72,8 +72,6 @@ const PROTON_BUILD_COUNT = 4
 
 /** Mirrors src/renderer/src/i18n/locales/en.json's `runner.unavailable.*` - asserted verbatim, the
  * same way `steam-handoff.mjs`/`windows-build-on-linux.mjs` assert their own reason texts. */
-const STEAM_NOT_OWNER_TEXT =
-  'this folder is not a Steam install — Steam can only start games it owns'
 const PROTON_REASON_TEXT =
   `${PROTON_BUILD_COUNT} Proton builds are used through umu-run, not launched directly — ` +
   'pick umu-run instead'

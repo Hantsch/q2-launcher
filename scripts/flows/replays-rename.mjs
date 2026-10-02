@@ -79,7 +79,7 @@ async function waitForDemosScanToFinish(page) {
   throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
 }
 
-export default async function replaysRename({ page, app, shot, step }) {
+export default async function replaysRename({ page, shot, step }) {
   step('an invalid name shows its reason and blocks saving')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })

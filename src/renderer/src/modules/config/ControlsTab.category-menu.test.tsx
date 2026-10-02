@@ -25,7 +25,6 @@ const bridge = vi.hoisted(() => {
   return stub
 })
 
-// eslint-disable-next-line import/first -- must be imported after the bridge stub above exists.
 const { ControlsTab } = await import('./ControlsTab')
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 

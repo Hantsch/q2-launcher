@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { chmod, mkdir, realpath, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { beforeEach, expect, vi } from 'vitest'
-import { useTempDir } from '../../../../test-support/temp-dir'
+import { installTempDir } from '../../../../test-support/temp-dir'
 import { RETAIL_PAK_SIZES } from '@shared/constants'
 import {
   type DetectedRetailSource,
@@ -155,8 +155,8 @@ export let userDataPath: string
 export let targetPath: string
 
 /** Registers the per-test temp directory hooks; call once at the top of each suite file. */
-export function useBootstrapTempDirs(): void {
-  const tempDir = useTempDir('q2-launcher-bootstrap-')
+export function installBootstrapTempDirs(): void {
+  const tempDir = installTempDir('q2-launcher-bootstrap-')
   beforeEach(async () => {
     dir = await realpath(tempDir())
     userDataPath = join(dir, 'userData')

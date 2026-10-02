@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { actionKeySlots } from '@shared/config/action-slots'
 import { renderProfileFile } from '@shared/config/render'
 import { buildFixtureProfile } from '@shared/config/fixtures/profiles'
-import { normalize, slotsOf, reimportProfile, findFixture, useRoundTripRoot } from './helpers'
+import { normalize, slotsOf, reimportProfile, findFixture, installRoundTripRoot } from './helpers'
 
-useRoundTripRoot()
+installRoundTripRoot()
 
 describe('a fully keyless catalogue entry rides on its unbound line', () => {
   it('"Keyless catalogue entry": the unbound line is written and read back with its command', async () => {
