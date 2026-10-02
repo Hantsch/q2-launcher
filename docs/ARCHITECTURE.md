@@ -63,6 +63,13 @@ existing, user-visible i18n key (e.g. `app:openExternal` ->
 through the same bookkeeping path, so `assertContractFullyHandled()` and the
 registered-channel count don't care which one a handler uses.
 
+Expected failures are an `Outcome`; a throw is a bug. Both surfaces turn a throw
+into an i18n key and log the original error with the channel/handler, so
+neither prose nor a path ever crosses IPC: the shell wrappers answer with
+`ipc.error.handlerFailed` (`handleOutcome` resolves `fail(…, { channel })`,
+`handle` rejects with an `Error` whose message is the key) and the module bus
+(`MainModuleRegistry.invoke`) with `modules.error.handlerFailed`.
+
 Schemas live in `src/shared/schemas.ts` (primitives shared with the persisted-state
 schemas: `engineKindSchema`, `sourceSchema`, `absolutePathSchema`,
 `settingsObjectSchema`) and `src/shared/ipc-schemas.ts` (one schema per invoke

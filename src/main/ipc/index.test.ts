@@ -1,7 +1,11 @@
 import type { IpcMainInvokeEvent } from 'electron'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 import { DEV_ONLY_CHANNELS, INVOKE_CHANNELS } from '@shared/ipc'
 import type { AppContext } from '../context'
+import en from '../../renderer/src/i18n/locales/en.json'
 
 /**
  * Story 036 D8: covers `registerAllIpc()`'s two public wrappers (`handle`,
@@ -31,6 +35,18 @@ vi.mock('electron', () => ({
   clipboard: { writeText: vi.fn() },
 }))
 
+const logSpy = vi.hoisted(() => ({
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+}))
+
+vi.mock('../lib/logger', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../lib/logger')>()),
+  scopedLogger: () => logSpy,
+}))
+
 const fakeEvent = {} as unknown as IpcMainInvokeEvent
 
 /**
@@ -52,6 +68,7 @@ function fakeApp(isDev: boolean): AppContext {
 beforeEach(() => {
   registered.clear()
   vi.resetModules()
+  logSpy.error.mockClear()
   iconsMock.clear.mockClear()
   iconsMock.setShipped.mockClear()
   iconsMock.dataUrl.mockClear()
@@ -243,5 +260,85 @@ describe('registerAllIpc', () => {
     const fn = registered.get('installations:iconDataUrl')!
     await expect(fn(fakeEvent, 'some-id')).resolves.toBe('data:image/png;base64,AAAA')
     expect(iconsMock.dataUrl).toHaveBeenCalledWith('some-id')
+  })
+})
+
+describe('a throwing handler', () => {
+  const secretError = () =>
+    new Error("EPERM: operation not permitted, open 'C:\\secret\\q2\\baseq2'")
+  const anySchema = z.any() as never
+
+  it('handleOutcome resolves a thrown handler to ipc.error.handlerFailed with the channel and logs it', async () => {
+    const { handleOutcome } = await import('./index')
+    handleOutcome('installations:inspectPath', anySchema, () => {
+      throw secretError()
+    })
+
+    const result = await registered.get('installations:inspectPath')!(fakeEvent, 'x')
+
+    expect(result).toEqual({
+      ok: false,
+      error: { key: 'ipc.error.handlerFailed', params: { channel: 'installations:inspectPath' } },
+    })
+    expect(JSON.stringify(result)).not.toContain('EPERM')
+    expect(JSON.stringify(result)).not.toContain('secret')
+    expect(logSpy.error).toHaveBeenCalledWith(
+      expect.stringContaining('installations:inspectPath'),
+      expect.anything(),
+    )
+  })
+
+  it('handleOutcome resolves a rejected async handler to ipc.error.handlerFailed', async () => {
+    const { handleOutcome } = await import('./index')
+    handleOutcome('installations:inspectPath', anySchema, () => Promise.reject(secretError()))
+
+    const result = await registered.get('installations:inspectPath')!(fakeEvent, 'x')
+
+    expect(result).toEqual({
+      ok: false,
+      error: { key: 'ipc.error.handlerFailed', params: { channel: 'installations:inspectPath' } },
+    })
+    expect(JSON.stringify(result)).not.toContain('EPERM')
+    expect(JSON.stringify(result)).not.toContain('secret')
+    expect(logSpy.error).toHaveBeenCalledWith(
+      expect.stringContaining('installations:inspectPath'),
+      expect.anything(),
+    )
+  })
+
+  it('handle rejects a thrown handler with a sanitised ipc.error.handlerFailed error', async () => {
+    const { handle } = await import('./index')
+    handle('window:getState', anySchema, () => {
+      throw secretError()
+    })
+
+    const rejection = await Promise.resolve(
+      registered.get('window:getState')!(fakeEvent, undefined),
+    ).then(
+        () => null,
+        (error: unknown) => error,
+      )
+
+    expect(rejection).toBeInstanceOf(Error)
+    const message = (rejection as Error).message
+    expect(message).toBe('ipc.error.handlerFailed')
+    expect(message).not.toContain('EPERM')
+    expect(message).not.toContain('C:\\')
+    expect(logSpy.error).toHaveBeenCalledWith(
+      expect.stringContaining('window:getState'),
+      expect.anything(),
+    )
+  })
+})
+
+describe('handlerFailed documentation and copy', () => {
+  it('ipc.error.handlerFailed resolves to a string in en.json', () => {
+    expect(typeof en.ipc.error.handlerFailed).toBe('string')
+  })
+
+  it('ARCHITECTURE.md states that both surfaces turn a throw into handlerFailed', () => {
+    const doc = readFileSync(resolve(__dirname, '../../../docs/ARCHITECTURE.md'), 'utf8')
+    expect(doc).toContain('ipc.error.handlerFailed')
+    expect(doc).toContain('modules.error.handlerFailed')
   })
 })

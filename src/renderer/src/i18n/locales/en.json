@@ -3580,7 +3580,8 @@
 
   "ipc": {
     "error": {
-      "invalidPayload": "The launcher sent an invalid request. This is a bug."
+      "invalidPayload": "The launcher sent an invalid request. This is a bug.",
+      "handlerFailed": "The launcher failed while handling \u201c{{channel}}\u201d. This is a bug."
     }
   },
 

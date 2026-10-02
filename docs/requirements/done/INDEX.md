@@ -296,3 +296,4 @@ second roadmap.
 - 226 — the repo is formatted once and its dependencies are current · S32 · LF via .gitattributes, one blame-ignored format commit, format:check in CI, patch-package gone, Electron 43.7.7 with zero high advisories, dependabot (verify:release still to run)
 - 225 — tests share a quiet logger and one test-support kit · S32 · quiet binary-free test run, shared fixtures/temp dir/mockClient, 8 oversized test files split under a 1,500-line guard
 - 199 — path containment is one checked rule · S32 · `isInside` is the single containment rule; reveal check, mods/downloads copies and `absolutePathSchema` now honest and pinned by a guard test
+- 200 — a thrown shell handler answers with an i18n key, not prose · S32 · `handle`/`handleOutcome` turn a throw into `ipc.error.handlerFailed`, logged with the channel; documented and pinned by tests

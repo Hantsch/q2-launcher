@@ -1,7 +1,7 @@
 ---
 id: 200
 title: a thrown shell handler answers with an i18n key, not prose
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -22,20 +22,20 @@ the two surfaces disagree.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `handleOutcome` catches a thrown handler, logs it with the channel name at `error`
+- [x] **AC1** — `handleOutcome` catches a thrown handler, logs it with the channel name at `error`
       level, and resolves `fail('ipc.error.handlerFailed', { channel })`. A test in
       `src/main/ipc/index.test.ts` with a throwing handler proves the outcome and that the
       resolved value contains no part of the thrown message.
-- [ ] **AC2** — Plain `handle` logs the same way and rethrows a sanitised `Error` whose message is
+- [x] **AC2** — Plain `handle` logs the same way and rethrows a sanitised `Error` whose message is
       the key `ipc.error.handlerFailed`; the test proves the rejection text contains neither the
       original message nor a path.
-- [ ] **AC3** — `ipc.error.handlerFailed` exists in `src/renderer/src/i18n/locales/en.json` and
+- [x] **AC3** — `ipc.error.handlerFailed` exists in `src/renderer/src/i18n/locales/en.json` and
       is covered by the error-key test introduced by story 204 (or a minimal check in this story
       if 204 has not landed).
-- [ ] **AC4** — docs/ARCHITECTURE.md's IPC section states the rule in one paragraph: expected
+- [x] **AC4** — docs/ARCHITECTURE.md's IPC section states the rule in one paragraph: expected
       failures are `Outcome`, a throw is a bug, and both surfaces turn a throw into
       `*.error.handlerFailed`.
-- [ ] **AC5** — No handler behaviour changes for the success and `Outcome`-failure paths (existing
+- [x] **AC5** — No handler behaviour changes for the success and `Outcome`-failure paths (existing
       `src/main/ipc/*.test.ts` stay green unchanged).
 
 ## Open Questions
@@ -157,4 +157,12 @@ Success and `Outcome`-failure return values pass through untouched.
 
 ## Done
 
-<!-- Filled by /build 200. -->
+Both shell IPC wrappers now catch a throwing handler (sync or rejected): `handleOutcome` resolves `fail('ipc.error.handlerFailed', { channel })`, `handle` rejects with `Error('ipc.error.handlerFailed')`; both log the original error with the channel. en.json key, ARCHITECTURE.md paragraph and a CHANGELOG line added.
+
+Commit: `200: thrown shell IPC handler answers with ipc.error.handlerFailed key, not prose`
+
+Verification (narrow gate): `npm run build`, `npm run typecheck`, `npx vitest run --changed HEAD` (120 files / 992 tests) green; no e2e (no `ui:flow` line, bridge untouched). AC1-AC5 mapped to the five tests in `src/main/ipc/index.test.ts` (names as in Acceptance Tests), all ran and passed; AC5: diff of the test file is additions only. No manual residue. Review (default): PASS, 1 cycle.
+
+Decisions: handler-only wrapping per sprint decisions; AC3 minimal en.json leaf check (204 supersedes). Deliberately unfixed review nits: logged-error argument asserted via `expect.anything()` (channel in message is asserted); first two tests share assertions; one `.then(` continuation indented off-style (repo not prettier-clean, no prettier run).
+
+tiers: D 1 / hard 0 · review default · cycles 1 · agents 3

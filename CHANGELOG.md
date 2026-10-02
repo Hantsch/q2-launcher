@@ -24,6 +24,10 @@ version section when a release actually ships.
 - **Servers** — Switch between Online and LAN to find servers on your local network.
 - **Servers** — Save your server filter as a named quick filter and reapply it with one click.
 
+### Fixed
+
+- An unexpected launcher error now shows a translated message instead of raw system text.
+
 ### Security
 
 - Updated Electron to 43.7.7 for upstream security fixes.

@@ -93,3 +93,11 @@
 - 2026-10-02 11:35:26 · 199 · review 1 · started
 - 2026-10-02 11:36:11 · 199 · review 1 · done
 - 2026-10-02 11:36:11 · 199 · story · done
+- 2026-10-02 11:36:21 · 200 · build · started
+- 2026-10-02 11:36:35 · 200 · D1 shell IPC wrappers handlerFailed · started
+- 2026-10-02 11:38:26 · 200 · D1 shell IPC wrappers handlerFailed · done
+- 2026-10-02 11:38:26 · 200 · verify · started
+- 2026-10-02 11:39:16 · 200 · verify · done
+- 2026-10-02 11:39:16 · 200 · review 1 · started
+- 2026-10-02 11:39:51 · 200 · review 1 · done
+- 2026-10-02 11:39:54 · 200 · story · done
