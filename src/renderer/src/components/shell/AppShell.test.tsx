@@ -25,7 +25,7 @@ function HomeModuleStub() {
 
 const homeManifest: ModuleManifest = {
   id: 'home',
-  titleKey: 'module.home.title',
+  titleKey: 'common.label.home',
   descriptionKey: 'module.home.description',
   icon: 'Home',
   route: '/home',
@@ -38,7 +38,7 @@ const homeManifest: ModuleManifest = {
 
 const stubManifest: ModuleManifest = {
   id: 'downloads',
-  titleKey: 'module.downloads.title',
+  titleKey: 'common.label.downloads',
   descriptionKey: 'module.downloads.description',
   icon: 'Download',
   route: '/downloads',

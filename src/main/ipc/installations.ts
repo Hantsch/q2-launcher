@@ -167,7 +167,7 @@ export function registerInstallationsIpc(app: AppContext): void {
 
 /**
  * Story 103 D6: `DetectedRunner` -> `RunnerOption`. `labelKey`/`reasonKey` follow the `runner.`
- * i18n namespace (`src/renderer/src/i18n/locales/en.json`) - `runner.kind.<kind>` for every
+ * i18n namespace (`src/renderer/src/i18n/locales/en.shell.json`) - `runner.kind.<kind>` for every
  * option's label, `runner.unavailable.<kind>` for the reason an unavailable one carries.
  *
  * `proton` is the one kind this mapping overrides regardless of what `detectRunners()` reported:

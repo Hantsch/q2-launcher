@@ -253,7 +253,7 @@ export function NameTemplatesList() {
           disabled={!canAdd}
           data-testid="replays-name-template-add"
         >
-          {t('replays.nameTemplates.add')}
+          {t('common.action.add')}
         </Button>
       </div>
       {addError && (
@@ -359,16 +359,16 @@ function NameTemplateRow({
       {isEditing ? (
         <>
           <Button size="sm" variant="neutral" onClick={onSaveEdit} disabled={!canSaveEdit}>
-            {t('replays.nameTemplates.save')}
+            {t('common.action.save')}
           </Button>
           <Button size="sm" variant="ghost" onClick={onCancelEdit} disabled={saving}>
-            {t('replays.nameTemplates.cancel')}
+            {t('common.action.cancel')}
           </Button>
         </>
       ) : (
         <>
           <IconButton
-            label={t('replays.nameTemplates.edit')}
+            label={t('common.action.edit')}
             size="sm"
             variant="ghost"
             onClick={onStartEdit}
@@ -389,7 +389,7 @@ function NameTemplateRow({
             </IconButton>
           )}
           <IconButton
-            label={t('replays.nameTemplates.remove')}
+            label={t('common.action.remove')}
             size="sm"
             variant="ghost"
             onClick={onRemove}

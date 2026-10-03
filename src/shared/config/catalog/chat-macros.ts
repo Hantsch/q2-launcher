@@ -5,7 +5,7 @@
  * Ported from the external q2-config-manager project (`src/core/macros.ts`).
  * All prose (`label`, `description`, `requires`, suggestion `label`, respawn
  * `label`) is replaced here by i18n key fields; the English text lives in
- * `src/renderer/src/i18n/locales/en.json` under `config.chatMacros.*`. `token`,
+ * `src/renderer/src/modules/config/locale/en.json` under `config.chatMacros.*`. `token`,
  * `scope` and `supportedBy` stay literal — they are data/citations (which
  * engine or mod actually understands this token), not UI prose, the same
  * distinction `cvar-facts.ts`'s `source:` field draws.
@@ -39,7 +39,7 @@ export const CHAT_MACROS: ChatMacro[] = [
     descriptionKey: 'config.chatMacros.locThere.description',
     scope: 'client',
     supportedBy: ['r1q2', 'q2pro'],
-    requiresKey: 'config.chatMacros.locThere.requires',
+    requiresKey: 'config.chatMacros.locHere.requires',
   },
   {
     token: '%l',

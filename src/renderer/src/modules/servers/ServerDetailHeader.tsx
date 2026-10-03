@@ -137,7 +137,7 @@ export function ServerDetailHeader({
           </IconButton>
           <IconButton
             label={t(
-              row.favourite ? 'servers.detail.favourite.remove' : 'servers.detail.favourite.add',
+              row.favourite ? 'common.action.removeFromFavourites' : 'servers.detail.favourite.add',
             )}
             variant="neutral"
             size="lg"
@@ -182,35 +182,35 @@ export function ServerDetailHeader({
 
       <div className="grid grid-cols-3 gap-px overflow-hidden rounded-sm border border-line bg-line">
         <StatCell
-          label={t('servers.detail.field.occupancy')}
+          label={t('common.label.players')}
           testId="servers-detail-field-occupancy"
         >
           <span className="numeric">{formatOccupancy(row)}</span>
         </StatCell>
-        <StatCell label={t('servers.detail.field.ping')} testId="servers-detail-field-ping">
+        <StatCell label={t('common.label.ping')} testId="servers-detail-field-ping">
           <span className="numeric">{formatPing(row)}</span>
         </StatCell>
-        <StatCell label={t('servers.detail.field.map')} testId="servers-detail-field-map">
+        <StatCell label={t('common.label.map')} testId="servers-detail-field-map">
           <span className="numeric">{orDash(row.map)}</span>
         </StatCell>
-        <StatCell label={t('servers.detail.field.mod')} testId="servers-detail-field-mod">
+        <StatCell label={t('common.label.mod')} testId="servers-detail-field-mod">
           {orDash(mod)}
         </StatCell>
-        <StatCell label={t('servers.detail.field.gamemode')} testId="servers-detail-field-gamemode">
+        <StatCell label={t('common.label.gamemode')} testId="servers-detail-field-gamemode">
           {row.gamemode !== undefined ? t(`servers.gamemode.${row.gamemode}`) : '—'}
         </StatCell>
-        <StatCell label={t('servers.detail.field.password')} testId="servers-detail-field-password">
+        <StatCell label={t('common.label.password')} testId="servers-detail-field-password">
           {row.needpass === true ? (
             <Badge tone="warning">
               <Lock className="size-3" aria-hidden="true" />
-              {t('servers.row.password')}
+              {t('common.label.password')}
             </Badge>
           ) : (
             '—'
           )}
         </StatCell>
         <StatCell
-          label={t('servers.detail.field.engine')}
+          label={t('common.label.engine')}
           testId="servers-detail-field-engine"
           className="col-span-2"
         >

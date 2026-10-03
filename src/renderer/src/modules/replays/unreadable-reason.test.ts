@@ -33,10 +33,7 @@ describe('unreadable-reason', () => {
     expect(t(versionMessage.key, versionMessage.params)).toBe('Unknown MVD version 2008')
   })
 
-  it('the unreadable marker and play-disabled reason have en strings', () => {
+  it('the unreadable marker has an en string', () => {
     expect(t('replays.unreadable.marker')).toBe('Unreadable')
-    expect(t('replays.unreadable.playDisabled')).toBe(
-      "Can't play: this demo's header could not be read, so its mod is unknown.",
-    )
   })
 })

@@ -48,13 +48,13 @@ async function resolveAndCheck(
   deps: Pick<DemoFileActionsDeps, 'resolveFile' | 'stat'>,
 ): Promise<{ file: ResolvedDemoFile } | { refusal: DemoFileActionResult }> {
   const file = deps.resolveFile(demoId)
-  if (!file) return { refusal: refuse('replays.fileActions.unknownDemo') }
+  if (!file) return { refusal: refuse('replays.play.error.notFound') }
 
   try {
     await deps.stat(file.absolutePath)
   } catch (error) {
     if (hasErrnoCode(error, 'ENOENT') || hasErrnoCode(error, 'ENOTDIR')) {
-      return { refusal: refuse('replays.fileActions.fileMissing') }
+      return { refusal: refuse('replays.play.error.fileMissing') }
     }
     // Any other stat error (e.g. a transient permission hiccup) never blocks the action - proceed
     // as if stat succeeded.

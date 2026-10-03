@@ -42,14 +42,14 @@ export function MoveEntryDialog({
       size="sm"
       title={t('config.controls.moveEntryDialog.title', { name: entryName })}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('config.controls.moveEntryDialog.submit')}
+            {t('common.action.move')}
           </Button>
         </>
       }
@@ -57,7 +57,7 @@ export function MoveEntryDialog({
       {targets.length === 0 ? (
         <p className="text-sm text-ink-muted">{t('config.controls.moveEntryDialog.empty')}</p>
       ) : (
-        <Field label={t('config.controls.moveEntryDialog.targetLabel')}>
+        <Field label={t('common.label.moveTo')}>
           <Select
             value={String(index)}
             onChange={(event) => setIndex(Number(event.target.value))}

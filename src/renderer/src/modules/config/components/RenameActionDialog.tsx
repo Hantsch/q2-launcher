@@ -128,7 +128,7 @@ export function RenameActionDialog({
   return (
     <NameDialog
       titleKey="config.controls.actions.renameDialog.title"
-      labelKey="config.controls.actions.renameDialog.label"
+      labelKey="common.label.name"
       initialName={action.name}
       maxLength={120}
       error={refusalMessage}

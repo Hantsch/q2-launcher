@@ -268,7 +268,7 @@ describe('ActionBar', () => {
         owner: '/servers',
         action: {
           id: 'join-server',
-          labelKey: 'servers.join.action',
+          labelKey: 'common.action.join',
           disabled: false,
           run,
           ...over,

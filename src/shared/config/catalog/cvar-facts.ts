@@ -9,7 +9,7 @@
  * stays trustworthy. Upstream's free-text prose (`label`, `description`,
  * `note`, `warning`, value-note `meaning`, choice `label`) is replaced here
  * by i18n key fields; the English text lives in
- * `src/renderer/src/i18n/locales/en.json` under `config.cvar.*`.
+ * `src/renderer/src/modules/config/locale/en.json` under `config.cvar.*`.
  *
  * `byEngine` is where engines are allowed to disagree. A cvar can be absent,
  * start from a different engine default, clamp to a different range, or —

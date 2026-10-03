@@ -107,7 +107,7 @@ export function ProfileSaveActions() {
             disabled={saving || rawDraft.saving}
             onClick={() => (rawEdited ? rawDraft.save() : void handleSave())}
           >
-            {saving || rawDraft.saving ? t('config.save.saving') : t('config.save.action')}
+            {saving || rawDraft.saving ? t('common.action.saving') : t('common.action.save')}
           </Button>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import en from './locales/en.json'
+import { en } from './bundle'
 
 /**
  * Story 068 D2: the launcher must call the concept "engine", never "client", anywhere a user can
@@ -50,8 +50,7 @@ describe('en.json vocabulary', () => {
   })
 
   it('the executable labels name the engine executable', () => {
-    expect(stringAt('installation.engineExecutable')).toBe('Engine executable')
-    expect(stringAt('library.column.engine')).toBe('Engine')
+    expect(stringAt('common.label.engineExecutable')).toBe('Engine executable')
     expect(stringAt('installation.engine')).toBeUndefined()
     expect(stringAt('library.column.client')).toBeUndefined()
   })

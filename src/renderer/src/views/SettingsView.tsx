@@ -67,9 +67,9 @@ export function SettingsView(props: SettingsViewProps = {}) {
     { id: anchor('updates'), label: t('settings.nav.updates') },
     { id: anchor('appearance'), label: t('settings.section.appearance') },
     { id: anchor('launch'), label: t('settings.section.launch') },
-    { id: anchor('library'), label: t('settings.section.library') },
+    { id: anchor('library'), label: t('common.label.library') },
     ...contributedSections.map(({ id, titleKey }) => ({ id: anchor(id), label: t(titleKey) })),
-    { id: anchor('unlock'), label: t('settings.section.unlock') },
+    { id: anchor('unlock'), label: t('common.label.unlockCode') },
     { id: anchor('about'), label: t('settings.section.about') },
     ...(appInfo?.isDev ? [{ id: anchor('development'), label: t('settings.devTools') }] : []),
   ]
@@ -83,7 +83,7 @@ export function SettingsView(props: SettingsViewProps = {}) {
 
         <div className="min-w-0 flex-1 space-y-4" data-testid="settings-content">
           <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
-            {t('settings.title')}
+            {t('common.label.settings')}
           </h1>
 
           <AppVersionCard id={anchor('updates')} className="scroll-mt-6" />
@@ -153,7 +153,7 @@ export function SettingsView(props: SettingsViewProps = {}) {
 
           <SettingsSection
             id={anchor('library')}
-            title={t('settings.section.library')}
+            title={t('common.label.library')}
             description={t('settings.sectionHint.library')}
           >
             <div className="space-y-1">
@@ -185,7 +185,7 @@ export function SettingsView(props: SettingsViewProps = {}) {
 
           <SettingsSection
             id={anchor('unlock')}
-            title={t('settings.section.unlock')}
+            title={t('common.label.unlockCode')}
             description={t('settings.sectionHint.unlock')}
             data-testid="settings-unlock"
           >

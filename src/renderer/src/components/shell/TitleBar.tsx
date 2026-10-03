@@ -57,10 +57,10 @@ export function TitleBar() {
       </div>
 
       {/* Primary nav */}
-      <nav className="flex items-stretch" aria-label={t('nav.home')}>
+      <nav className="flex items-stretch" aria-label={t('common.label.home')}>
         <NavItem
           icon={<Home className="size-4.5" />}
-          label={t('nav.home')}
+          label={t('common.label.home')}
           active={route === ROUTE_HOME}
           onClick={() => setRoute(ROUTE_HOME)}
           testId="nav-home"

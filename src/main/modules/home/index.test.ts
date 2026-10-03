@@ -91,7 +91,7 @@ describe('home module', () => {
       payload: 'https://not-on-the-allowlist.invalid/x',
     })
 
-    expect(outcome).toEqual({ ok: false, error: { key: 'home.error.urlNotAllowed' } })
+    expect(outcome).toEqual({ ok: false, error: { key: 'app.error.invalidUrl' } })
   })
 
   /**

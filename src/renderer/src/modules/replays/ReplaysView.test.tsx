@@ -10,7 +10,7 @@ import type {
 } from '@shared/modules/replays'
 import { EMPTY_DEMO_LIST_FILTER, type DemoListFilter } from '@shared/replays/list-filter'
 import type { DemoListSort } from '@shared/replays/list-sort'
-import en from '../../i18n/locales/en.json'
+import { en } from '../../i18n/bundle'
 import { initI18n } from '../../i18n'
 
 /**
@@ -252,7 +252,7 @@ describe('ReplaysView (story 141 D4)', () => {
     await renderView([DEMO])
 
     const heading = await screen.findByRole('heading', { name: 'Demos' })
-    expect(heading.textContent).toBe(stringAt('replays.view.title'))
+    expect(heading.textContent).toBe(stringAt('common.label.demos'))
 
     const source = screen.getByTestId('replays-demo-source')
     if (DEMO.source.kind !== 'installation') throw new Error('expected an installation source')
@@ -266,15 +266,14 @@ describe('ReplaysView (story 141 D4)', () => {
 
     // Every i18n key this view renders lives under the top-level `replays` block.
     for (const key of [
-      'replays.view.title',
-      'replays.list.label',
+      'common.label.demos',
       'replays.list.loading',
       'replays.list.empty',
       'replays.list.source',
       'replays.list.refresh',
-      'replays.list.refreshing',
+      'common.action.scanning',
     ]) {
-      expect(key).toMatch(/^replays\./)
+      expect(key).toMatch(/^(replays|common[.](action|label))[.]/)
       expect(typeof stringAt(key)).toBe('string')
     }
   })
@@ -418,7 +417,7 @@ describe('ReplaysView - virtualised, selectable list with a detail shell (story 
 
     // The spacer still reserves the full scrollable height for all 3000 rows.
     const list = screen.getByTestId('replays-demo-list')
-    expect(list.getAttribute('aria-label')).toBe(stringAt('replays.list.label'))
+    expect(list.getAttribute('aria-label')).toBe(stringAt('common.label.demos'))
   })
 
   it('selecting a row opens its detail panel', async () => {

@@ -22,8 +22,8 @@ function renderDialog(
   const onSubmit = props.onSubmit ?? vi.fn()
   render(
     <NameDialog
-      titleKey="common.save"
-      labelKey="common.cancel"
+      titleKey="common.action.save"
+      labelKey="common.action.cancel"
       initialName={props.initialName ?? ''}
       maxLength={20}
       validate={props.validate}
@@ -41,7 +41,7 @@ function renderDialog(
 
 describe('NameDialog', () => {
   it('one canSubmit gates the button and the Enter key', () => {
-    const validate = (s: string): string | null => (s === 'bad' ? 'common.close' : null)
+    const validate = (s: string): string | null => (s === 'bad' ? 'common.action.close' : null)
     const { onSubmit, input, submit } = renderDialog({ validate })
 
     // Empty: both refuse.
@@ -78,8 +78,8 @@ describe('NameDialog', () => {
   it('submittable gates the button, suffix renders, error gets its own alert', () => {
     render(
       <NameDialog
-        titleKey="common.save"
-        labelKey="common.cancel"
+        titleKey="common.action.save"
+        labelKey="common.action.cancel"
         initialName="a"
         maxLength={20}
         submittable={(s) => s !== 'a'}
@@ -101,8 +101,8 @@ describe('NameDialog', () => {
     const onSubmit = vi.fn()
     render(
       <NameDialog
-        titleKey="common.save"
-        labelKey="common.cancel"
+        titleKey="common.action.save"
+        labelKey="common.action.cancel"
         initialName=""
         maxLength={20}
         onSubmit={onSubmit}

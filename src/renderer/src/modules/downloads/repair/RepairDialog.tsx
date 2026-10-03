@@ -56,7 +56,7 @@ export function RepairDialog({ installationId }: { installationId: string }) {
     planQuery.state === 'error' && planQuery.error
       ? t(planQuery.error.key, planQuery.error.params ?? {})
       : planQuery.state === 'success' && !planQuery.data
-        ? t('repair.notFound')
+        ? t('engineUpdate.notFound')
         : null
 
   const { start, starting, refusal, jobId, job } = useStartJob(startRepair)
@@ -93,7 +93,7 @@ export function RepairDialog({ installationId }: { installationId: string }) {
       dismissTestId="repair-dismiss"
       footer={
         <Button variant="ghost" onClick={closeDialog}>
-          {t('common.close')}
+          {t('common.action.close')}
         </Button>
       }
     >

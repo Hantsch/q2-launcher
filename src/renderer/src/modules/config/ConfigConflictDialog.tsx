@@ -133,11 +133,11 @@ export function ConfigConflictDialog({
       title={t('config.conflictDialog.title')}
       description={t('config.conflictDialog.description')}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" disabled={busy !== null} onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button
             data-testid="config-conflict-take-file"
@@ -164,7 +164,7 @@ export function ConfigConflictDialog({
     >
       <div className="grid grid-cols-2 gap-3" data-testid="config-conflict-dialog">
         <div className="min-w-0 space-y-1.5">
-          <SectionLabel>{t('config.conflictDialog.onDisk')}</SectionLabel>
+          <SectionLabel>{t('common.label.onDisk')}</SectionLabel>
           <ConfigCodeView text={conflict.diskContent} searchable />
         </div>
         <div className="min-w-0 space-y-1.5">

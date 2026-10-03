@@ -59,7 +59,7 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
     // `downloads` status flips to `available` alongside this.
     View: DownloadsView,
     settingsSection: {
-      titleKey: 'module.downloads.settings.title',
+      titleKey: 'common.label.downloads',
       descriptionKey: 'module.downloads.settings.description',
       order: 10,
       Section: DownloadsSettingsSection,
@@ -75,7 +75,7 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
     id: 'servers',
     View: ServersView,
     settingsSection: {
-      titleKey: 'module.servers.settings.title',
+      titleKey: 'common.label.servers',
       descriptionKey: 'module.servers.settings.description',
       order: 20,
       Section: ServersSettingsSection,
@@ -89,7 +89,7 @@ export const RENDERER_MODULES: readonly RendererModule[] = [
     id: 'replays',
     View: ReplaysView,
     settingsSection: {
-      titleKey: 'replays.settings.title',
+      titleKey: 'common.label.demos',
       descriptionKey: 'replays.settings.description',
       order: 25,
       Section: ReplaysSettingsSection,

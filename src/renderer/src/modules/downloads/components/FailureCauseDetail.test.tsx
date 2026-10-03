@@ -4,7 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { DownloadDiagnostics } from '@shared/modules/downloads'
 import { initI18n } from '../../../i18n'
-import en from '../../../i18n/locales/en.json'
+import { en } from '../../../i18n/bundle'
 import { FailureCauseDetail } from './FailureCauseDetail'
 
 /**

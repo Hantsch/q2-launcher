@@ -461,7 +461,7 @@ export const replaysDemoFileActionSchema = z.object({ demoId: replaysDemoIdSchem
  * action ran and, on refusal, why - mirrors `ExtraFoldersResult`'s ok/refusal union shape above. */
 export type DemoFileActionResult = DomainResult<
   Record<never, never>,
-  'replays.fileActions.unknownDemo' | 'replays.fileActions.fileMissing'
+  'replays.play.error.notFound' | 'replays.play.error.fileMissing'
 >
 
 /** `demo.rename`'s payload (story 157): the demo id plus the new name STEM - never a path; main

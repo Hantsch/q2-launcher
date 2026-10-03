@@ -323,8 +323,8 @@ export function CvarRow({
             // a helpful visual cue, this is the non-colour signal that makes the same fact.
             <span
               role="img"
-              aria-label={t('config.cvar.unsavedLabel')}
-              title={t('config.cvar.unsavedLabel')}
+              aria-label={t('common.label.unsavedChange')}
+              title={t('common.label.unsavedChange')}
               className="shrink-0 text-flame-500"
             >
               <PencilLine aria-hidden className="size-3" />
@@ -439,8 +439,8 @@ export function PlainCvarRow({ name, value, edited, onChange }: PlainCvarRowProp
           {edited && (
             <span
               role="img"
-              aria-label={t('config.cvar.unsavedLabel')}
-              title={t('config.cvar.unsavedLabel')}
+              aria-label={t('common.label.unsavedChange')}
+              title={t('common.label.unsavedChange')}
               className="shrink-0 text-flame-500"
             >
               <PencilLine aria-hidden className="size-3" />

@@ -11,7 +11,7 @@ import {
 // A static import, not a runtime `fs.readFile`: mirrors `src/shared/config/render/comment-labels.test.ts`
 // (story 040 D1) - `tsconfig.node.json` lists this one renderer data file explicitly so `tsc`
 // accepts the cross-project import here too (see the comment there).
-import en from '../../../renderer/src/i18n/locales/en.json'
+import { en } from '../../../renderer/src/i18n/bundle'
 
 /**
  * Story 098 D1 acceptance tests: the staged actions and the restart guard. Split from

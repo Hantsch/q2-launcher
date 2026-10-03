@@ -39,7 +39,7 @@ export function JoinServerButton({
           data-testid="servers-join"
           icon={<Play className="size-4" fill="currentColor" />}
         >
-          {t('servers.join.action')}
+          {t('common.action.join')}
         </PlayButton>
       ) : (
         <Button
@@ -48,7 +48,7 @@ export function JoinServerButton({
           disabled={!installation}
           data-testid="servers-join"
         >
-          {t('servers.join.action')}
+          {t('common.action.join')}
         </Button>
       )}
       {!installation && (

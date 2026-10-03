@@ -83,7 +83,7 @@ export function ControlsOptionsCell({
       {unavailableReason}
     </span>
   ) : (
-    <span className="text-xs text-ink-faint">{t('config.controls.options.none')}</span>
+    <span className="text-xs text-ink-faint">{t('common.label.noValue')}</span>
   )
 
   return (

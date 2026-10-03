@@ -52,10 +52,10 @@ file to `ALLOWED_MAIN_SPAWN_NETWORK_FILES` requires a row here.
 | `src/main/modules/home/images/fetch-image.ts` | only mentions `net.fetch` in a comment; fetches with global `fetch` |
 | `src/main/lib/zip-entries.ts`                 | spawns the vendored 7-Zip to list and read zip entries              |
 | `src/main/modules/replays/index.ts`           | resolves the vendored 7-Zip path; spawns nothing itself             |
-| `src/main/lib/net/fetcher.ts` | story 209: shell-owned download/extract infrastructure |
-| `src/main/lib/archive/extractor.ts` | story 209: shell-owned download/extract infrastructure |
-| `src/main/lib/archive/7za-path.ts` | story 209: shell-owned download/extract infrastructure |
-| `src/main/services/package-staging.ts` | story 209: shell-owned download/extract infrastructure |
+| `src/main/lib/net/fetcher.ts`                 | story 209: shell-owned download/extract infrastructure              |
+| `src/main/lib/archive/extractor.ts`           | story 209: shell-owned download/extract infrastructure              |
+| `src/main/lib/archive/7za-path.ts`            | story 209: shell-owned download/extract infrastructure              |
+| `src/main/services/package-staging.ts`        | story 209: shell-owned download/extract infrastructure              |
 
 ## The IPC contract
 
@@ -320,7 +320,9 @@ shell never needs editing to add one.
 4. **Renderer half** — a view, registered in `src/renderer/src/modules/index.ts`,
    plus `createModuleClient<XContract>(id)` (`src/renderer/src/modules/moduleClient.ts`):
    `call` infers `Promise<Outcome<Res>>` and `on` the event payload.
-5. **Strings** — add the i18n keys.
+5. **Strings** — `src/renderer/src/modules/<id>/locale/en.json`, registered in
+   `src/renderer/src/modules/locales.ts`; shell strings live in
+   `src/renderer/src/i18n/locales/en.shell.json`.
 
 Until step 4 exists, the route renders `PlannedModuleView`, which states what the
 module will do and which capabilities it needs. The roadmap lives in the product

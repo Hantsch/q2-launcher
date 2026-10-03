@@ -39,12 +39,12 @@ export function ConfirmDialog({
       size={size}
       title={title}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       preventClose={busy}
       footer={
         <>
           <Button variant="ghost" disabled={busy} onClick={onClose} data-testid={testIds?.cancel}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button
             variant={tone}

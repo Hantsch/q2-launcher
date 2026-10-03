@@ -50,7 +50,7 @@ function nullableOptions(
 ): SelectOption[] {
   const values = current !== null && !known.includes(current) ? [...known, current] : known
   return [
-    { value: '', label: t('servers.filter.any') },
+    { value: '', label: t('common.label.any') },
     ...values.map((value) => ({ value, label: value })),
   ]
 }
@@ -118,7 +118,7 @@ export function ServerListFilterBar({
   const modOptions = nullableOptions(options.mods, filter.mod, t)
   const mapOptions = nullableOptions(options.maps, filter.map, t)
   const gamemodeOptions: SelectOption[] = [
-    { value: '', label: t('servers.filter.any') },
+    { value: '', label: t('common.label.any') },
     ...GAMEMODE_OPTIONS.map((gamemode) => ({
       value: gamemode,
       label: t(`servers.gamemode.${gamemode}`),
@@ -142,7 +142,7 @@ export function ServerListFilterBar({
         />
         <Input
           type="search"
-          aria-label={t('servers.filter.search')}
+          aria-label={t('common.label.search')}
           value={filter.search}
           placeholder={t('servers.filter.searchPlaceholder')}
           onChange={(event) => onChange({ ...filter, search: event.target.value })}
@@ -163,7 +163,7 @@ export function ServerListFilterBar({
         <FilterChip
           active={filter.empty}
           icon={<UserX />}
-          label={t('servers.filter.empty')}
+          label={t('common.label.empty')}
           onToggle={() => onChange({ ...filter, empty: !filter.empty })}
           testId="servers-filter-empty"
         />
@@ -214,7 +214,7 @@ export function ServerListFilterBar({
       </div>
 
       <div className="space-y-3">
-        <Field label={t('servers.filter.mod')}>
+        <Field label={t('common.label.mod')}>
           <Select
             value={filter.mod ?? ''}
             options={modOptions}
@@ -225,7 +225,7 @@ export function ServerListFilterBar({
           />
         </Field>
 
-        <Field label={t('servers.filter.gamemode')}>
+        <Field label={t('common.label.gamemode')}>
           <Select
             value={filter.gamemode ?? ''}
             options={gamemodeOptions}
@@ -239,7 +239,7 @@ export function ServerListFilterBar({
           />
         </Field>
 
-        <Field label={t('servers.filter.map')}>
+        <Field label={t('common.label.map')}>
           <Select
             value={filter.map ?? ''}
             options={mapOptions}
@@ -260,11 +260,11 @@ export function ServerListFilterBar({
           disabled={!active}
           data-testid="servers-filter-clear"
         >
-          {t('servers.filter.clear')}
+          {t('common.action.clearFilters')}
         </Button>
         {active && (
           <span className="px-2.5 text-xs text-ink-muted" data-testid="servers-filter-count">
-            {t('servers.filter.count', { shown, total })}
+            {t('common.label.showingCount', { shown, total })}
           </span>
         )}
       </div>

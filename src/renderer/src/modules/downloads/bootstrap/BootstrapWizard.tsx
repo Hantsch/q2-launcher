@@ -258,7 +258,7 @@ export function BootstrapWizard() {
   async function pickTargetFolder(): Promise<void> {
     const picked = await invoke('installations:pickFolder', {
       title: t('bootstrapWizard.target.pickTitle'),
-      buttonLabel: t('bootstrapWizard.target.pickButton'),
+      buttonLabel: t('common.action.useThisFolder'),
     })
     if (picked) setTargetPath(picked)
   }
@@ -270,7 +270,7 @@ export function BootstrapWizard() {
   async function pickGameDataSourceFolder(): Promise<void> {
     const picked = await invoke('installations:pickFolder', {
       title: t('bootstrapWizard.gameData.existingFolder.pickTitle'),
-      buttonLabel: t('bootstrapWizard.gameData.existingFolder.pickButton'),
+      buttonLabel: t('common.action.useThisFolder'),
     })
     if (!picked) return
     setGameDataFolderPath(picked)
@@ -364,17 +364,17 @@ export function BootstrapWizard() {
       title={t('bootstrapWizard.title')}
       description={t(`bootstrapWizard.step.${step}`)}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       preventClose={starting}
       footer={
         running ? (
           <Button variant="primary" onClick={closeDialog} data-testid="bootstrap-running-dismiss">
-            {t('bootstrapWizard.running.dismiss')}
+            {t('common.action.runInBackground')}
           </Button>
         ) : (
           <>
             <Button variant="ghost" onClick={closeDialog} disabled={starting}>
-              {t('common.cancel')}
+              {t('common.action.cancel')}
             </Button>
             {step !== 'engine' && (
               <Button variant="ghost" onClick={goBack} disabled={starting}>

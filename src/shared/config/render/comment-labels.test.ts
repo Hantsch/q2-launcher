@@ -15,7 +15,7 @@ import { buildMovementRows } from '@shared/config/catalog/catalog-rows'
 // (docs/ARCHITECTURE.md), even in a test, since this file type-checks under `tsconfig.web.json`
 // too (which carries no node types at all). `tsconfig.node.json` lists this one file explicitly
 // so `tsc` accepts the import on that side as well - see the comment there.
-import en from '../../../renderer/src/i18n/locales/en.json'
+import { en } from '../../../renderer/src/i18n/bundle'
 import { categoryLabelFor, commentLabelFor } from './comment-labels'
 
 /**

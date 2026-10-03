@@ -21,7 +21,7 @@ export function DiscardDemoNotesDialog({
           {t('replays.editor.discardDialog.body')}
         </p>
       }
-      confirmLabel={t('replays.editor.discardDialog.confirm')}
+      confirmLabel={t('common.action.discardChanges')}
       tone="danger"
       onConfirm={onDiscard}
       onClose={onKeepEditing}

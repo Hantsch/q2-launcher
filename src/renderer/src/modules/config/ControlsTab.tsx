@@ -404,7 +404,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
             <SectionLabel>{t('config.controls.label')}</SectionLabel>
             {status !== 'idle' && (
               <span className="text-xs text-ink-muted">
-                {status === 'saving' ? t('config.settings.saving') : t('config.settings.saved')}
+                {status === 'saving' ? t('common.action.saving') : t('common.label.saved')}
               </span>
             )}
           </div>

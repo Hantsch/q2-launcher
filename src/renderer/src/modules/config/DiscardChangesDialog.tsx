@@ -58,7 +58,7 @@ export function DiscardChangesDialog({
     <ConfirmDialog
       title={t('config.discardDialog.title')}
       body={t('config.discardDialog.body')}
-      confirmLabel={submitting ? t('config.save.discarding') : t('config.discardDialog.confirm')}
+      confirmLabel={submitting ? t('config.save.discarding') : t('common.action.discardChanges')}
       tone="danger"
       busy={submitting}
       onClose={onClose}

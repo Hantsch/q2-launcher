@@ -52,7 +52,7 @@ export function RenameDemoDialog({
   return (
     <NameDialog
       titleKey="replays.rename.title"
-      labelKey="replays.rename.label"
+      labelKey="common.label.name"
       initialName={initialStem}
       suffix={ext !== '' ? ext : undefined}
       error={error}

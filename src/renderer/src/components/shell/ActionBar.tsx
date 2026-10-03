@@ -107,7 +107,7 @@ export function ActionBar() {
         <div className="min-w-0 space-y-1">
           <div className="flex min-w-0 items-center gap-2">
             <div className="truncate font-display text-sm tracking-[0.08em] text-ink uppercase">
-              {installation?.name ?? t('actionbar.noInstallation')}
+              {installation?.name ?? t('common.label.noInstallationSelected')}
             </div>
             {installation && (
               <span className="flex shrink-0 items-center gap-1.5">
@@ -293,7 +293,7 @@ function JobReadout({ job, onCancel }: { job: Job; onCancel: () => void }) {
         </div>
 
         {job.cancellable && (
-          <IconButton label={t('actionbar.cancelJob')} size="sm" onClick={onCancel}>
+          <IconButton label={t('common.action.cancel')} size="sm" onClick={onCancel}>
             <X className="size-3.5" />
           </IconButton>
         )}
@@ -367,7 +367,7 @@ function LaunchReadout({
   // unlabelled path floating in the middle of the bar.
   return (
     <div className="min-w-0 space-y-0.5">
-      <div className="stencil text-[9px]">{t('installation.engineExecutable')}</div>
+      <div className="stencil text-[9px]">{t('common.label.engineExecutable')}</div>
       <p
         className="numeric truncate text-[11px] text-ink-muted"
         title={installation.executablePath ?? ''}
@@ -412,7 +412,7 @@ function resolvePrimaryAction(
         disabled: true,
       }
     }
-    return { kind: 'busy', labelKey: 'installation.action.play', tone: 'flame', disabled: true }
+    return { kind: 'busy', labelKey: 'common.action.play', tone: 'flame', disabled: true }
   }
 
   const running =
@@ -423,7 +423,7 @@ function resolvePrimaryAction(
     if (demo.active) {
       return {
         kind: 'stop',
-        labelKey: demo.stopping ? 'installation.action.stopping' : 'installation.action.stopDemo',
+        labelKey: demo.stopping ? 'common.action.stopping' : 'common.action.stopDemo',
         tone: 'danger',
         disabled: demo.stopping,
       }
@@ -456,7 +456,7 @@ function resolvePrimaryAction(
     if (!playableNow) {
       return {
         kind: 'busy',
-        labelKey: 'installation.action.install',
+        labelKey: 'common.action.install',
         tone: 'neutral',
         disabled: true,
       }
@@ -491,5 +491,5 @@ function resolvePrimaryAction(
     }
   }
 
-  return { kind: 'play', labelKey: 'installation.action.play', tone: 'flame', disabled: false }
+  return { kind: 'play', labelKey: 'common.action.play', tone: 'flame', disabled: false }
 }

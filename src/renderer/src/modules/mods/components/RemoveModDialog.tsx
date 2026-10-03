@@ -68,7 +68,7 @@ export function RemoveModDialog({
           : t('mods.remove.titleLoading')
       }
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button
@@ -77,7 +77,7 @@ export function RemoveModDialog({
             onClick={onClose}
             data-testid="mods-remove-cancel"
           >
-            {t('mods.remove.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button
             variant="danger"
@@ -85,7 +85,7 @@ export function RemoveModDialog({
             onClick={() => void start(changed.length > 0 ? choice : 'keep')}
             data-testid="mods-remove-confirm"
           >
-            {t('mods.remove.confirm')}
+            {t('common.action.remove')}
           </Button>
         </>
       }

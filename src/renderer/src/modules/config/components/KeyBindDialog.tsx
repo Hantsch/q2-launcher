@@ -206,14 +206,14 @@ export function KeyBindDialog({
       size="sm"
       title={t('config.keyBindDialog.title', { key: keyLabel })}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="danger" disabled={busy || !bound} onClick={() => void save('')}>
-            {t('config.keyBindDialog.clear')}
+            {t('common.action.clear')}
           </Button>
           <Button variant="primary" disabled={!canAssign} onClick={() => void save(command)}>
             {t('config.keyBindDialog.assign')}
@@ -231,13 +231,13 @@ export function KeyBindDialog({
         <p className="text-xs text-ink-muted">
           {bound
             ? t('config.keyBindDialog.currentLabel', { command: currentCommand })
-            : t('config.overview.testMode.noBind')}
+            : t('common.label.notBound')}
         </p>
 
         {layer && (
           <p className="text-xs text-ink-muted">
             {t('config.keyBindDialog.baseBindLabel', {
-              command: baseBound ? baseCommand : t('config.overview.testMode.noBind'),
+              command: baseBound ? baseCommand : t('common.label.notBound'),
             })}
           </p>
         )}
@@ -263,12 +263,12 @@ export function KeyBindDialog({
         <Field label={t('config.keyBindDialog.pickListLabel')}>
           <Input
             value={filter}
-            placeholder={t('config.keyBindDialog.filterPlaceholder')}
+            placeholder={t('config.controls.editor.filterPlaceholder')}
             onChange={(event) => setFilter(event.target.value)}
           />
           <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
             {filteredCatalog.length === 0 ? (
-              <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.none')}</p>
+              <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.label.none')}</p>
             ) : (
               filteredCatalog.map((entry) => (
                 <button
@@ -285,7 +285,7 @@ export function KeyBindDialog({
           </div>
         </Field>
 
-        <Field label={t('config.keyBindDialog.rawCommandLabel')}>
+        <Field label={t('common.label.command')}>
           <Input
             value={command}
             autoFocus
@@ -305,7 +305,7 @@ export function KeyBindDialog({
         {!layer && layers.length > 0 && (
           <Field
             className="border-t border-line pt-3"
-            label={t('config.keyBindDialog.trigger.label')}
+            label={t('common.label.layerTrigger')}
           >
             <p className="text-xs text-ink-muted">
               {triggerOwner

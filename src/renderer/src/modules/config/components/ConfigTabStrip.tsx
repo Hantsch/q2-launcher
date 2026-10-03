@@ -59,9 +59,9 @@ export function ConfigTabStrip({
 
   const items: { id: DetailTab; label: string; badge?: ReactNode }[] = [
     { id: 'overview', label: t('config.tabs.overview') },
-    { id: 'settings', label: t('config.tabs.settings') },
+    { id: 'settings', label: t('common.label.settings') },
     { id: 'controls', label: t('config.tabs.controls') },
-    { id: 'aliases', label: t('config.tabs.aliases') },
+    { id: 'aliases', label: t('common.label.aliases') },
     { id: 'raw', label: t('config.tabs.raw') },
     // Always present (never conditional on findings existing) - see `ValidationPanel`.
     {

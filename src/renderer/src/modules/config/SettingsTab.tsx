@@ -748,12 +748,12 @@ export function SettingsTab() {
     <div className="mx-auto max-w-[1000px] space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-display text-sm tracking-[0.06em] text-ink uppercase">
-          {t('config.settings.title')}
+          {t('common.label.settings')}
         </h3>
         <div className="flex items-center gap-3">
           {status !== 'idle' && (
             <span className="text-xs text-ink-muted">
-              {status === 'saving' ? t('config.settings.saving') : t('config.settings.saved')}
+              {status === 'saving' ? t('common.action.saving') : t('common.label.saved')}
             </span>
           )}
           <Button
@@ -840,7 +840,7 @@ export function SettingsTab() {
               const sectionActions = movable && group.section && (
                 <div className="flex items-center gap-0.5">
                   <IconButton
-                    label={t('config.settings.section.addCvar')}
+                    label={t('common.action.addCvar')}
                     size="sm"
                     onClick={() =>
                       setAddingCvarTo({ sectionId: group.section!.id, label: groupLabel(group) })
@@ -1083,7 +1083,7 @@ export function SettingsTab() {
       <p className="flex flex-wrap items-center gap-4 text-xs text-ink-faint">
         <span className="flex items-center gap-1.5">
           <span aria-hidden className="inline-block h-3 w-0.5 bg-flame-600" />
-          {t('config.settings.legend.unsaved')}
+          {t('common.label.unsavedChange')}
         </span>
         <span>{t('config.settings.legend.default')}</span>
       </p>

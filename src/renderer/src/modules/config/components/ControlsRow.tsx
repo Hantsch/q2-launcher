@@ -160,8 +160,8 @@ export function ControlsRow({
             // `CvarRow.tsx`'s identical treatment (story 049 D7).
             <span
               role="img"
-              aria-label={t('config.controls.unsavedLabel')}
-              title={t('config.controls.unsavedLabel')}
+              aria-label={t('common.label.unsavedChange')}
+              title={t('common.label.unsavedChange')}
               className="ctrl-unsaved-glyph"
             >
               <PencilLine aria-hidden className="size-3" />

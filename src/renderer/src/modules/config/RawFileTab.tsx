@@ -184,7 +184,7 @@ export function RawFileTab() {
           {canonical.path}
         </p>
         <Badge tone={canonical.onDisk ? 'success' : 'neutral'}>
-          {canonical.onDisk ? t('config.raw.onDisk') : t('config.raw.notOnDisk')}
+          {canonical.onDisk ? t('common.label.onDisk') : t('config.raw.notOnDisk')}
         </Badge>
         {/* Story 069 D2: while `mode === 'lockedByChanges'` the "why can't I type" hint used to be
             a standalone paragraph below the whole row (costing a full extra line); it now lives in
@@ -280,7 +280,7 @@ export function RawFileTab() {
         >
           <div className="flex items-center gap-1.5">
             <span id={sectionHeaderStyleLabelId} className="stencil shrink-0">
-              {t('config.raw.sectionHeaderStyle')}
+              {t('common.label.sectionHeaderStyle')}
             </span>
             <Select
               aria-labelledby={sectionHeaderStyleLabelId}

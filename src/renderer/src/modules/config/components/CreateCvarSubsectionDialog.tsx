@@ -11,7 +11,7 @@ export function CreateCvarSubsectionDialog({
   return (
     <NameDialog
       titleKey="config.settings.section.subsection.createDialog.title"
-      labelKey="config.settings.section.subsection.createDialog.nameLabel"
+      labelKey="common.label.name"
       submitLabelKey="config.settings.section.subsection.createDialog.submit"
       initialName=""
       maxLength={120}

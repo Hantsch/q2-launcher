@@ -48,10 +48,10 @@ function formatKnownValue(value: RuleValue, t: TFunction): string {
     case 'flag':
       return t(value.on ? 'servers.detail.rules.on' : 'servers.detail.rules.off')
     case 'limit':
-      return value.value === 0 ? t('servers.detail.rules.limit.none') : String(value.value)
+      return value.value === 0 ? t('common.label.none') : String(value.value)
     case 'minutes':
       return value.value === 0
-        ? t('servers.detail.rules.minutes.none')
+        ? t('common.label.none')
         : t('servers.detail.rules.minutes.value', { count: value.value })
     case 'duration':
       return formatDuration(value.seconds)
@@ -104,7 +104,7 @@ function RawRow({ row, t }: { row: RawRuleRow; t: TFunction }) {
     >
       <span className="numeric shrink-0 text-xs text-ink-muted">{row.key}</span>
       <span className="numeric min-w-0 truncate text-right text-xs text-ink-dim">
-        {row.value === '' ? t('servers.detail.rules.emptyValue') : row.value}
+        {row.value === '' ? t('common.label.emptyValue') : row.value}
       </span>
     </div>
   )

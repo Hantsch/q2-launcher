@@ -187,7 +187,7 @@ export class LaunchService {
    */
   async plan(input: LaunchInput): Promise<Outcome<LaunchPlan>> {
     const installation = this.installations.find(input.installationId)
-    if (!installation) return fail('launch.error.notFound')
+    if (!installation) return fail('installations.error.notFound')
 
     if (!installation.executablePath) {
       return fail('launch.error.noExecutable', { name: installation.name })

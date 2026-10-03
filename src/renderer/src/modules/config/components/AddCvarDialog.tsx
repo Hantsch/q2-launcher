@@ -68,14 +68,14 @@ export function AddCvarDialog({
       size="sm"
       title={t('config.settings.section.addCvarDialog.title', { section: sectionLabel })}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('config.settings.section.addCvarDialog.submit')}
+            {t('common.action.addCvar')}
           </Button>
         </>
       }

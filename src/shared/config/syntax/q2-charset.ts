@@ -7,7 +7,7 @@
  * on-disk encoding step and belong elsewhere; they are out of scope here.
  *
  * `Q2Glyph.label` is replaced by an i18n key field; the English text lives in
- * `src/renderer/src/i18n/locales/en.json` under `config.q2Charset.*`. `ascii`
+ * `src/renderer/src/modules/config/locale/en.json` under `config.q2Charset.*`. `ascii`
  * stays literal — it is a rendering stand-in, not UI prose.
  *
  * Pure by contract: this file lives in `src/shared`, so no `node:*` import,

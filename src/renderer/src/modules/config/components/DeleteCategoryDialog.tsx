@@ -55,7 +55,7 @@ export function DeleteCategoryDialog({
 
   return (
     <ConfirmDialog
-      title={t('config.controls.deleteCategoryDialog.title', { name: categoryLabel })}
+      title={t('config.deleteDialog.title', { name: categoryLabel })}
       confirmLabel={t('config.controls.deleteCategoryDialog.confirm')}
       tone="danger"
       busy={submitting}

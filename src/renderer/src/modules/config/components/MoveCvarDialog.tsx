@@ -40,16 +40,16 @@ export function MoveCvarDialog({
     <Modal
       open
       size="sm"
-      title={t('config.settings.section.moveCvarDialog.title', { name: cvarName })}
+      title={t('config.controls.moveEntryDialog.title', { name: cvarName })}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('config.settings.section.moveCvarDialog.submit')}
+            {t('common.action.move')}
           </Button>
         </>
       }
@@ -59,7 +59,7 @@ export function MoveCvarDialog({
           {t('config.settings.section.moveCvarDialog.empty')}
         </p>
       ) : (
-        <Field label={t('config.settings.section.moveCvarDialog.targetLabel')}>
+        <Field label={t('common.label.moveTo')}>
           <Select
             value={String(index)}
             onChange={(event) => setIndex(Number(event.target.value))}

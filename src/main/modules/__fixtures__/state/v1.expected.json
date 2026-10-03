@@ -80,7 +80,7 @@
         {
           "id": "demo",
           "name": "Demo playback",
-          "nameKey": "config.controls.categories.demo",
+          "nameKey": "common.label.demoPlayback",
           "subcategories": []
         }
       ],

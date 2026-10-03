@@ -143,7 +143,7 @@ export function WatchlistRow({
               disabled={saving || editName.trim().length === 0}
               data-testid={`servers-watchlist-edit-save-${entry.id}`}
             >
-              {t('servers.watchlist.edit.save')}
+              {t('common.action.save')}
             </Button>
             <Button
               size="sm"
@@ -152,7 +152,7 @@ export function WatchlistRow({
               disabled={saving}
               data-testid={`servers-watchlist-edit-cancel-${entry.id}`}
             >
-              {t('servers.watchlist.edit.cancel')}
+              {t('common.action.cancel')}
             </Button>
           </div>
         ) : (
@@ -177,7 +177,7 @@ export function WatchlistRow({
               </IconButton>
             )}
             <IconButton
-              label={t('servers.watchlist.edit.label')}
+              label={t('common.action.edit')}
               size="sm"
               variant="ghost"
               onClick={startEdit}
@@ -186,7 +186,7 @@ export function WatchlistRow({
               <Pencil className="size-3.5" aria-hidden="true" />
             </IconButton>
             <IconButton
-              label={t('servers.watchlist.remove.label')}
+              label={t('common.action.remove')}
               size="sm"
               variant="ghost"
               onClick={handleRemove}

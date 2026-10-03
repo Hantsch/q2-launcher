@@ -131,14 +131,14 @@ export function DownloadsView() {
       <div className="mx-auto max-w-3xl space-y-4 p-6">
         <header className="space-y-1">
           <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
-            {t('module.downloads.title')}
+            {t('common.label.downloads')}
           </h1>
           <p className="text-xs text-ink-muted">{t('module.downloads.description')}</p>
         </header>
 
         <Panel className="space-y-2 p-4">
           <SectionLabel>{t('downloads.cache.title')}</SectionLabel>
-          <KeyValue label={t('downloads.cache.size')}>
+          <KeyValue label={t('common.label.size')}>
             {cacheStatus
               ? t('module.downloads.settings.cacheSize.value', {
                   size: formatBytes(cacheStatus.totalBytes),

@@ -174,15 +174,15 @@ export function GameDataStep({
           <div data-testid="bootstrap-gamedata-folder-path">
             <PathPicker
               value={folderPath ?? ''}
-              placeholder={t('bootstrapWizard.gameData.existingFolder.placeholder')}
+              placeholder={t('bootstrapWizard.target.placeholder')}
               onBrowse={onBrowseFolder}
-              browseLabel={t('common.browse')}
+              browseLabel={t('common.label.browse')}
             />
           </div>
 
           {checkingFolder && (
             <p className="text-xs text-ink-muted" data-testid="bootstrap-gamedata-folder-checking">
-              {t('bootstrapWizard.gameData.existingFolder.checking')}
+              {t('common.label.checkingFolder')}
             </p>
           )}
 

@@ -82,7 +82,7 @@ export function ConfigProfilesTile() {
         title={title}
         state="empty"
         empty={{
-          title: t('home.dashboard.tiles.configProfiles.empty.title'),
+          title: t('common.label.noConfigProfiles'),
           body: t('home.dashboard.tiles.configProfiles.empty.body'),
           actions: (
             <Button
@@ -141,7 +141,7 @@ function ConfigProfileRowItem({ row, onOpen }: { row: ConfigProfileRow; onOpen: 
             tone={STATE_TONE[row.installations]}
             testId={`config-profiles-tile-installations-${row.id}`}
           >
-            {t('home.dashboard.tiles.configProfiles.installations.label')}:{' '}
+            {t('common.label.installations')}:{' '}
             {t(`home.dashboard.tiles.configProfiles.state.${row.installations}`)}
           </Badge>
         </span>

@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
+import { en as enBundle } from '../../../renderer/src/i18n/bundle'
 import { createDemoFileActions, type DemoFileActionsDeps } from './file-actions'
 
 function makeDeps(overrides: Partial<DemoFileActionsDeps> = {}): {
@@ -69,8 +68,8 @@ describe('createDemoFileActions', () => {
     const revealResult = await actions.reveal('missing')
     const copyResult = await actions.copyPath('missing')
 
-    expect(revealResult).toEqual({ ok: false, reasonKey: 'replays.fileActions.unknownDemo' })
-    expect(copyResult).toEqual({ ok: false, reasonKey: 'replays.fileActions.unknownDemo' })
+    expect(revealResult).toEqual({ ok: false, reasonKey: 'replays.play.error.notFound' })
+    expect(copyResult).toEqual({ ok: false, reasonKey: 'replays.play.error.notFound' })
     expect(reveal).not.toHaveBeenCalled()
     expect(writeClipboard).not.toHaveBeenCalled()
   })
@@ -86,8 +85,8 @@ describe('createDemoFileActions', () => {
     const revealResult = await actions.reveal('known')
     const copyResult = await actions.copyPath('known')
 
-    expect(revealResult).toEqual({ ok: false, reasonKey: 'replays.fileActions.fileMissing' })
-    expect(copyResult).toEqual({ ok: false, reasonKey: 'replays.fileActions.fileMissing' })
+    expect(revealResult).toEqual({ ok: false, reasonKey: 'replays.play.error.fileMissing' })
+    expect(copyResult).toEqual({ ok: false, reasonKey: 'replays.play.error.fileMissing' })
     expect(reveal).not.toHaveBeenCalled()
     expect(writeClipboard).not.toHaveBeenCalled()
   })
@@ -108,9 +107,7 @@ describe('createDemoFileActions', () => {
 })
 
 function resolvesInEn(key: string): boolean {
-  const en = JSON.parse(
-    readFileSync(join(process.cwd(), 'src/renderer/src/i18n/locales/en.json'), 'utf-8'),
-  ) as Record<string, unknown>
+  const en = enBundle as Record<string, unknown>
   const value = key
     .split('.')
     .reduce<unknown>((acc, part) => (acc as Record<string, unknown> | undefined)?.[part], en)
@@ -134,10 +131,10 @@ describe('refusal keys', () => {
       await missing.copyPath('known'),
     ].map((result) => (result.ok ? null : result.reasonKey))
     expect(keys).toEqual([
-      'replays.fileActions.unknownDemo',
-      'replays.fileActions.unknownDemo',
-      'replays.fileActions.fileMissing',
-      'replays.fileActions.fileMissing',
+      'replays.play.error.notFound',
+      'replays.play.error.notFound',
+      'replays.play.error.fileMissing',
+      'replays.play.error.fileMissing',
     ])
     for (const key of keys) expect(resolvesInEn(key as string)).toBe(true)
   })

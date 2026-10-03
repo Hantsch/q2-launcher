@@ -43,7 +43,7 @@ export function InstallationRail() {
   const addItems: MenuItem[] = [
     {
       id: 'add-existing',
-      label: t('rail.addExisting'),
+      label: t('common.action.addExistingInstallation'),
       icon: <FolderOpen className="size-4" />,
       onSelect: () => openDialog({ kind: 'add-existing' }),
     },
@@ -247,7 +247,7 @@ function RailTile({
       {installation.favorite && (
         <span
           className="absolute bottom-0 left-0 size-0 border-r-8 border-b-8 border-r-transparent border-b-flame-500"
-          title={t('installation.action.unfavorite')}
+          title={t('common.action.removeFromFavourites')}
         />
       )}
     </button>
@@ -277,7 +277,7 @@ function RailCard({ installation }: { installation: Installation }) {
             void play(installation.id)
           }}
         >
-          {t('rail.quickPlay')}
+          {t('common.action.play')}
         </Button>
 
         {/* Story 090 D4: the tile itself (074) only has room for the CSS microtag, so the

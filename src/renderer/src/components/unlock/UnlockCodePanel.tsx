@@ -100,7 +100,7 @@ export function UnlockCodePanel() {
 
       <div className="flex items-end gap-2">
         <label className="min-w-0 flex-1 space-y-1.5">
-          <span className="stencil block text-xs">{t('settings.unlock.code.label')}</span>
+          <span className="stencil block text-xs">{t('common.label.unlockCode')}</span>
           <input
             value={code}
             onChange={(event) => setCode(event.target.value)}

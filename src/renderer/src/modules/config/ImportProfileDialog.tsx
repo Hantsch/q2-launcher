@@ -180,21 +180,21 @@ export function ImportProfileDialog({
       size="md"
       title={t('config.importDialog.title')}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" disabled={!canSubmit} onClick={() => void run(submit)}>
-            {t('config.importDialog.submit')}
+            {t('config.createDialog.submit')}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <SectionLabel>{t('config.importDialog.filesLabel')}</SectionLabel>
+          <SectionLabel>{t('common.label.files')}</SectionLabel>
           <Button
             size="sm"
             icon={<FolderOpen className="size-3.5" />}
@@ -296,13 +296,13 @@ export function ImportProfileDialog({
                 )}
 
                 <div className="space-y-1.5 rounded-sm border border-line p-2.5">
-                  <KeyValue label={t('config.importDialog.cvarCount')}>
+                  <KeyValue label={t('common.label.cvars')}>
                     {previewResult.value.cvarCount}
                   </KeyValue>
                   <KeyValue label={t('config.importDialog.bindCount')}>
                     {previewResult.value.bindCount}
                   </KeyValue>
-                  <KeyValue label={t('config.importDialog.aliasCount')}>
+                  <KeyValue label={t('common.label.aliases')}>
                     {previewResult.value.aliasCount}
                   </KeyValue>
                   <KeyValue label={t('config.importDialog.messageCount')}>
@@ -498,10 +498,10 @@ export function ImportProfileDialog({
               </div>
             )}
 
-            <Field label={t('config.importDialog.nameLabel')}>
+            <Field label={t('common.label.name')}>
               <Input
                 value={name}
-                placeholder={t('config.importDialog.namePlaceholder')}
+                placeholder={t('config.createDialog.namePlaceholder')}
                 onChange={(event) => {
                   setNameTouched(true)
                   setName(event.target.value)

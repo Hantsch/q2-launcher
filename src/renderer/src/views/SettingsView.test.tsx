@@ -131,7 +131,7 @@ describe('SettingsView', () => {
     }
     const moduleFirst: RendererModule = {
       id: 'downloads',
-      settingsSection: { titleKey: 'settings.section.library', order: 1, Section: StubSection },
+      settingsSection: { titleKey: 'common.label.library', order: 1, Section: StubSection },
     }
 
     render(

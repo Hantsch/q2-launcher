@@ -55,7 +55,7 @@ export function DemoDetailNameInput({ row }: { row: DemoRow }) {
     <Input
       form={editorFormId(row.id)}
       className="min-w-0 flex-1 text-lg font-semibold"
-      aria-label={t('replays.editor.field.name')}
+      aria-label={t('common.label.name')}
       value={entry.draft.name}
       maxLength={200}
       placeholder={editorPlaceholder(row, 'name', t)}
@@ -191,10 +191,10 @@ export function DemoDetailEditor({
               onClick={() => cancelEdit(demoId)}
               data-testid="replays-editor-cancel"
             >
-              {t('common.cancel')}
+              {t('common.action.cancel')}
             </Button>
             <Button type="submit" disabled={!canSave} data-testid="replays-editor-save">
-              {saving ? t('replays.editor.saving') : t('common.save')}
+              {saving ? t('common.action.saving') : t('common.action.save')}
             </Button>
           </div>
         </fieldset>

@@ -209,7 +209,7 @@ describe('CONFIG_HANDLERS.openFile handler', () => {
       mode: 'open',
     })
 
-    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationNotFound' } })
+    expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
     expect(shellMock.openPath).not.toHaveBeenCalled()
     expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
   })
@@ -227,7 +227,7 @@ describe('CONFIG_HANDLERS.openFile handler', () => {
       mode: 'reveal',
     })
 
-    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationNotFound' } })
+    expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
     expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
   })
 

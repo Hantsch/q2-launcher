@@ -20,7 +20,7 @@ const TIMEOUT_MS = 8_000
 const files = replaysTimelineEngineFiles()
 const en = JSON.parse(
   readFileSync(
-    fileURLToPath(new URL('../../src/renderer/src/i18n/locales/en.json', import.meta.url)),
+    fileURLToPath(new URL('../../src/renderer/src/modules/replays/locale/en.json', import.meta.url)),
     'utf8',
   ),
 )

@@ -11,7 +11,7 @@ export function CreateCvarSectionDialog({
   return (
     <NameDialog
       titleKey="config.settings.section.createDialog.title"
-      labelKey="config.settings.section.createDialog.nameLabel"
+      labelKey="common.label.name"
       submitLabelKey="config.settings.section.createDialog.submit"
       initialName=""
       maxLength={120}

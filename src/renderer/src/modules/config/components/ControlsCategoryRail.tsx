@@ -311,7 +311,7 @@ export function ControlsCategoryRail({
                             disabled={saving}
                             onClick={() => setPendingDeleteCategoryId(null)}
                           >
-                            {t('common.cancel')}
+                            {t('common.action.cancel')}
                           </Button>
                           <Button
                             variant="danger"
@@ -319,7 +319,7 @@ export function ControlsCategoryRail({
                             disabled={saving}
                             onClick={() => void handleDeleteCategory(category.id)}
                           >
-                            {t('config.controls.deleteConfirmAction')}
+                            {t('common.action.confirmDelete')}
                           </Button>
                         </>
                       ) : (

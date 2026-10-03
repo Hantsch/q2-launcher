@@ -599,7 +599,7 @@ describe('sync triggers that are not a save', () => {
 
     const result = await h.writes.write({ profileId: 'p1', installationId: 'nope' })
 
-    expect(result).toEqual({ ok: false, error: { key: 'config.error.installationNotFound' } })
+    expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
     expect(await readFile(copyPath('Profile.cfg'), 'latin1')).toBe(before)
     expect(only(h).dirty).toBe(false)
   })

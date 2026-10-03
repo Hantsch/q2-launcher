@@ -82,10 +82,10 @@ export function MasterSourceRow({
             className="h-7 min-w-0 flex-1 rounded-sm border border-line-strong bg-void/60 px-2 text-xs text-ink"
           />
           <Button size="sm" variant="neutral" onClick={saveEdit} disabled={saving}>
-            {t('module.servers.settings.edit.save')}
+            {t('common.action.save')}
           </Button>
           <Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
-            {t('module.servers.settings.edit.cancel')}
+            {t('common.action.cancel')}
           </Button>
         </div>
       ) : (

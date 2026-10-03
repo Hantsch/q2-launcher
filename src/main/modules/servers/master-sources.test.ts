@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { en as enBundle } from '../../../renderer/src/i18n/bundle'
 import { DEFAULT_SERVERS_STATE, type MasterSource } from '@shared/modules/servers'
 import { parseServersState } from './persisted'
 import { addSource, removeSource, reorderSources, updateSource } from './master-sources'
@@ -81,7 +80,7 @@ describe('addSource', () => {
   it('refuses a malformed address with its own reason code and returns no list', () => {
     expect(addSource(list(), { type: 'udp-master', address: 'master.example.com:99999' })).toEqual({
       ok: false,
-      reasonKey: 'servers.sources.reject.port-out-of-range',
+      reasonKey: 'servers.address.reject.port-out-of-range',
     })
     expect(addSource(list(), { type: 'http-list', address: 'not a url' })).toEqual({
       ok: false,
@@ -175,10 +174,12 @@ describe('updateSource - address edit', () => {
   })
 
   it('refuses a malformed address', () => {
-    expect(updateSource(list(), { id: 'a', type: 'http-list', address: 'not an address' })).toEqual({
-      ok: false,
-      reasonKey: 'servers.sources.reject.invalid-url',
-    })
+    expect(updateSource(list(), { id: 'a', type: 'http-list', address: 'not an address' })).toEqual(
+      {
+        ok: false,
+        reasonKey: 'servers.sources.reject.invalid-url',
+      },
+    )
   })
 
   it('refuses an unknown id', () => {
@@ -314,10 +315,8 @@ describe('every accepted list survives parseServersState unchanged', () => {
 })
 
 describe('refusal keys', () => {
-  it('a refused mutation carries the full servers.sources.reject key', () => {
-    const en = JSON.parse(
-      readFileSync(join(process.cwd(), 'src/renderer/src/i18n/locales/en.json'), 'utf-8'),
-    ) as Record<string, unknown>
+  it('a refused mutation carries a full reject key', () => {
+    const en = enBundle as Record<string, unknown>
     const resolve = (key: string): unknown =>
       key
         .split('.')
@@ -332,7 +331,7 @@ describe('refusal keys', () => {
     for (const result of refusals) {
       expect(result.ok).toBe(false)
       if (result.ok) continue
-      expect(result.reasonKey.startsWith('servers.sources.reject.')).toBe(true)
+      expect(result.reasonKey).toMatch(/^servers\.(sources|address)\.reject\./)
       expect(typeof resolve(result.reasonKey)).toBe('string')
     }
   })

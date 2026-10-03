@@ -76,16 +76,16 @@ export function CareBatchFixDialog({
       size="md"
       title={t('config.care.tidyUp.batch.title')}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         applied ? (
           <Button variant="neutral" onClick={onClose}>
-            {t('common.close')}
+            {t('common.action.close')}
           </Button>
         ) : (
           <>
             <Button variant="ghost" disabled={submitting} onClick={onClose}>
-              {t('common.cancel')}
+              {t('common.action.cancel')}
             </Button>
             <Button variant="danger" disabled={submitting} onClick={() => void run(handleApply)}>
               {submitting

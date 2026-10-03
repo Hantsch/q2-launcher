@@ -27,7 +27,7 @@ export async function openSlideUrl(
     parsed = new URL(url)
   } catch {
     log.warn(`slide.openUrl: refused a malformed url`)
-    return fail('home.error.urlNotAllowed')
+    return fail('app.error.invalidUrl')
   }
 
   const schemeAllowed = parsed.protocol === 'http:' || parsed.protocol === 'https:'
@@ -37,7 +37,7 @@ export async function openSlideUrl(
     log.warn(
       `slide.openUrl: refused '${parsed.protocol}//${parsed.hostname}' (not on the allowlist)`,
     )
-    return fail('home.error.urlNotAllowed')
+    return fail('app.error.invalidUrl')
   }
 
   await openExternal(url)

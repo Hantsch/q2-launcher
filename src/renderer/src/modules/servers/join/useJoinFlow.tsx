@@ -135,7 +135,7 @@ export function useJoinFlow(): {
         size="sm"
         title={t('servers.join.password.title')}
         onClose={closePassword}
-        closeLabel={t('common.close')}
+        closeLabel={t('common.action.close')}
         footer={
           <>
             <Button
@@ -143,7 +143,7 @@ export function useJoinFlow(): {
               onClick={closePassword}
               data-testid="servers-join-password-cancel"
             >
-              {t('servers.join.password.cancel')}
+              {t('common.action.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -151,13 +151,13 @@ export function useJoinFlow(): {
               disabled={!passwordValidation.ok}
               data-testid="servers-join-password-submit"
             >
-              {t('servers.join.password.submit')}
+              {t('common.action.join')}
             </Button>
           </>
         }
       >
         <div data-testid="servers-join-password">
-          <Field label={t('servers.join.password.label')} error={passwordError ?? undefined}>
+          <Field label={t('common.label.password')} error={passwordError ?? undefined}>
             <Input
               type="password"
               value={password}

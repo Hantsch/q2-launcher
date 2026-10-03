@@ -11,7 +11,7 @@ export function RenameInstallationDialog({ installationId }: { installationId: s
   return (
     <NameDialog
       titleKey="dialog.rename.title"
-      labelKey="dialog.rename.label"
+      labelKey="common.label.name"
       initialName={installation.name}
       maxLength={120}
       onClose={closeDialog}

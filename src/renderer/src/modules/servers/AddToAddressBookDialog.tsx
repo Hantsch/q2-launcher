@@ -161,11 +161,11 @@ export function AddToAddressBookDialog({
       title={t('servers.addressBook.title')}
       description={t('servers.addressBook.description')}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('servers.addressBook.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button
             variant="primary"
@@ -173,7 +173,7 @@ export function AddToAddressBookDialog({
             disabled={!canConfirm}
             onClick={() => void handleConfirm()}
           >
-            {t('servers.addressBook.confirm')}
+            {t('common.action.add')}
           </Button>
         </>
       }
@@ -237,7 +237,7 @@ export function AddToAddressBookDialog({
                                   ? slot === slotName
                                     ? t('servers.addressBook.replaces', { value: entry.value })
                                     : entry.value
-                                  : t('servers.addressBook.slotEmpty')}
+                                  : t('common.label.empty')}
                               </span>
                             </>
                           }

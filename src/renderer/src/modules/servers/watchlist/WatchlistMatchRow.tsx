@@ -73,7 +73,7 @@ export function WatchlistMatchRow({
             {server?.needpass === true && (
               <Badge tone="warning">
                 <Lock className="size-3" aria-hidden="true" />
-                {t('servers.row.password')}
+                {t('common.label.password')}
               </Badge>
             )}
           </div>
@@ -105,7 +105,7 @@ export function WatchlistMatchRow({
           <span className="numeric text-ink">{match.score}</span>
         </span>
         <span>
-          {t('servers.watchlist.match.ping')} <span className="numeric text-ink">{playerPing}</span>
+          {t('common.label.ping')} <span className="numeric text-ink">{playerPing}</span>
         </span>
         <span className="ml-auto text-ink-muted">
           {t('servers.watchlist.match.seen', { rel: formatRelativeTime(match.seenAt) })}

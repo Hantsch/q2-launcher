@@ -54,7 +54,7 @@ export function UpdateModDialog({
         installation: preview.installationName,
       })}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button
@@ -63,14 +63,14 @@ export function UpdateModDialog({
             onClick={onClose}
             data-testid="mods-update-cancel"
           >
-            {t('mods.update.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button
             disabled={busy}
             onClick={() => void start(choice)}
             data-testid="mods-update-confirm"
           >
-            {t('mods.update.confirm')}
+            {t('common.action.update')}
           </Button>
         </>
       }

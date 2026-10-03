@@ -18,7 +18,7 @@ export function ResetLayoutDialog({
     <ConfirmDialog
       title={t('dialog.resetLayout.title')}
       body={t('dialog.resetLayout.body')}
-      confirmLabel={t('dialog.resetLayout.confirm')}
+      confirmLabel={t('common.action.resetToDefault')}
       tone="danger"
       onConfirm={onConfirm}
       onClose={onClose}

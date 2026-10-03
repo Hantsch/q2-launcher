@@ -14,7 +14,8 @@
   // `common.test.ts` reads docs/ARCHITECTURE.md with `node:fs` (node-only), so it typechecks under
   // `tsconfig.node.json` only.
   // `lib/toast.test.ts` scans the renderer sources with `node:fs` (node-only), so it is excluded here
-  // too. `modules/config/config-structure.test.ts` does the same through `src/test-support/source-tree.ts`.
+  // too. `modules/config/config-structure.test.ts` and `i18n/keys.test.ts` do the same through
+  // `src/test-support/source-tree.ts`.
   "exclude": [
     "src/shared/replays/demo-guard.test.ts",
     "src/shared/fixture-constants.test.ts",
@@ -22,6 +23,8 @@
     "src/renderer/src/lib/toast.test.ts",
     "src/renderer/src/modules/config/config-structure.test.ts",
     "src/renderer/src/i18n/reason-templates.test.ts",
+    "src/renderer/src/i18n/keys.test.ts",
+    "src/renderer/src/i18n/bundle.test.ts",
     "src/test-support/source-files.ts"
   ],
   "compilerOptions": {

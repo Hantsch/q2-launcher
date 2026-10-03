@@ -215,7 +215,12 @@ function ControlsEntryRowImpl({ entry, odd, grip, ctx }: ControlsEntryRowProps) 
     const rows: ReactNode[] = []
     for (let slotIndex = 1; slotIndex < keys.length; slotIndex += 1) {
       rows.push(
-        <div key={`key-${slotIndex}`} className="ctrl-keysub-row" data-row-id={action.id} role="row">
+        <div
+          key={`key-${slotIndex}`}
+          className="ctrl-keysub-row"
+          data-row-id={action.id}
+          role="row"
+        >
           <div className="ctrl-keysub" role="cell">
             {renderSlot(slotIndex)}
             <IconButton
@@ -323,14 +328,14 @@ function ControlsEntryRowImpl({ entry, odd, grip, ctx }: ControlsEntryRowProps) 
                 <SlidersHorizontal className="size-3.5" />
               </IconButton>
               <IconButton
-                label={t('config.controls.actions.rename')}
+                label={t('common.action.renameEllipsis')}
                 size="sm"
                 onClick={() => ctx.onRename(action)}
               >
                 <Pencil className="size-3.5" />
               </IconButton>
               <IconButton
-                label={t('config.controls.actions.remove')}
+                label={t('common.action.removeEllipsis')}
                 size="sm"
                 variant="danger"
                 onClick={() => ctx.onRemove(action.id)}

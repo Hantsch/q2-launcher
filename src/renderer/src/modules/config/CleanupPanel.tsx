@@ -161,7 +161,7 @@ export function CleanupPanel({ installationId }: { installationId: string }) {
           disabled={!installationId || scanning}
           onClick={() => void handleScan()}
         >
-          {scanning ? t('config.cleanup.scanning') : t('config.cleanup.scan')}
+          {scanning ? t('common.action.scanning') : t('config.cleanup.scan')}
         </Button>
 
         {scanning && (
@@ -265,7 +265,7 @@ export function CleanupPanel({ installationId }: { installationId: string }) {
       {confirmOpen && (
         <ConfirmDialog
           title={t('config.cleanup.confirmDialog.title')}
-          confirmLabel={t('config.cleanup.confirmDialog.confirm')}
+          confirmLabel={t('common.action.remove')}
           tone="danger"
           // While the apply is in flight this dialog is the only place holding the removed-entries
           // list `handleUndo` needs, so `busy` also blocks dismissing it.

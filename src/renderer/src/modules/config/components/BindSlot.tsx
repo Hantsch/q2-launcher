@@ -441,7 +441,7 @@ export function BindSlot({
         })}
       </span>
       <Button variant="ghost" size="sm" onClick={() => setPendingModifier(null)}>
-        {t('common.cancel')}
+        {t('common.action.cancel')}
       </Button>
       <Button
         variant="danger"
@@ -464,7 +464,7 @@ export function BindSlot({
         })}
       </span>
       <Button variant="ghost" size="sm" onClick={() => setPending(null)}>
-        {t('common.cancel')}
+        {t('common.action.cancel')}
       </Button>
       <Button
         variant="danger"
@@ -517,7 +517,7 @@ export function BindSlot({
       ? boundModifier
         ? `${boundModifier} ${boundKey}`
         : boundKey
-      : t('config.controls.editor.empty')
+      : t('common.label.empty')
 
   return (
     <>
@@ -553,7 +553,7 @@ export function BindSlot({
         ) : compactAdd ? (
           <Plus aria-hidden className="size-3.5" />
         ) : (
-          <span className="ctrl-slot-empty">{t('config.controls.editor.empty')}</span>
+          <span className="ctrl-slot-empty">{t('common.label.empty')}</span>
         )}
       </button>
 

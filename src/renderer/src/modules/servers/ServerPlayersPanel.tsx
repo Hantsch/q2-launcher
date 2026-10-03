@@ -29,7 +29,7 @@ function PanelTitle({ count }: { count?: number }) {
   return (
     <h3 className="stencil mb-2 flex items-center gap-1.5">
       <Users className="size-3.5" aria-hidden="true" />
-      {t('servers.detail.players.title')}
+      {t('common.label.players')}
       {count !== undefined && <span className="numeric text-ink-dim">{count}</span>}
     </h3>
   )

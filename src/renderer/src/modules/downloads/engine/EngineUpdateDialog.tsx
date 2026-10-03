@@ -92,7 +92,7 @@ export function EngineUpdateDialog({ installationId }: { installationId: string 
       dismissTestId="engine-update-dismiss"
       footer={
         <Button variant="ghost" onClick={closeDialog}>
-          {t('common.close')}
+          {t('common.action.close')}
         </Button>
       }
     >
@@ -113,13 +113,13 @@ export function EngineUpdateDialog({ installationId }: { installationId: string 
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-ink-muted">{t('engineUpdate.current')}</dt>
                 <dd className="numeric text-ink" data-testid="engine-update-current">
-                  {status.current ?? t('engineUpdate.unknownVersion')}
+                  {status.current ?? t('common.label.unknown')}
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-ink-muted">{t('engineUpdate.target')}</dt>
                 <dd className="numeric text-ink" data-testid="engine-update-target">
-                  {status.target ?? t('engineUpdate.unknownVersion')}
+                  {status.target ?? t('common.label.unknown')}
                 </dd>
               </div>
             </dl>
@@ -131,7 +131,7 @@ export function EngineUpdateDialog({ installationId }: { installationId: string 
                 onClick={() => void start('update')}
                 data-testid="engine-update-confirm"
               >
-                {t('engineUpdate.update')}
+                {t('common.action.update')}
               </Button>
               <Button
                 variant="neutral"

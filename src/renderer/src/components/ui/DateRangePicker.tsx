@@ -170,7 +170,7 @@ export function DateRangePicker({ value, onChange, presets, label, testId }: Dat
             data-testid={testId ? `${testId}-clear` : undefined}
             onClick={handleClear}
           >
-            {t('common.dateRange.clear')}
+            {t('common.action.clear')}
           </Button>
         </div>
       )}

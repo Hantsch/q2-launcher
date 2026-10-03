@@ -190,7 +190,7 @@ export function DemoTimeline() {
   return (
     <section
       className="flex flex-col gap-1 border-t border-line bg-panel px-5 pt-1 pb-2"
-      aria-label={t('replays.timeline.label')}
+      aria-label={t('common.label.demoPlayback')}
       data-testid="replays-timeline"
     >
       {/* YouTube-style: the seek bar spans the full strip above the controls; the element itself is
@@ -234,7 +234,7 @@ export function DemoTimeline() {
       <div className="flex items-center gap-1">
         <IconButton
           size="lg"
-          label={paused ? t('replays.timeline.play') : t('replays.timeline.pause')}
+          label={paused ? t('common.action.play') : t('replays.timeline.pause')}
           disabled={fullscreen}
           onClick={() => void send({ kind: 'togglePause' })}
           className={FOCUS_RING}
@@ -336,7 +336,7 @@ export function DemoTimeline() {
             </IconButton>
             <IconButton
               size="lg"
-              label={t('replays.timeline.fullscreen')}
+              label={t('common.label.fullscreen')}
               disabled={ended}
               onClick={() => void enterFullscreen()}
               className={FOCUS_RING}
@@ -348,7 +348,7 @@ export function DemoTimeline() {
         )}
         <IconButton
           size="lg"
-          label={session.stopping ? t('replays.timeline.stopping') : t('replays.timeline.stop')}
+          label={session.stopping ? t('common.action.stopping') : t('common.action.stopDemo')}
           disabled={session.stopping}
           onClick={() => void stop()}
           className={FOCUS_RING}

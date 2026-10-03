@@ -120,7 +120,7 @@ function renderTileFrameState(props: DashboardTileFrameProps, t: TFunction): Rea
           className="flex flex-1 items-center justify-center gap-2 text-xs text-ink-muted"
         >
           <Spinner />
-          <span>{t('home.dashboard.tileFrame.loading')}</span>
+          <span>{t('common.label.loading')}</span>
         </div>
       )
 
@@ -129,7 +129,7 @@ function renderTileFrameState(props: DashboardTileFrameProps, t: TFunction): Rea
         <TileFrameErrorFallback
           testId="dashboard-tile-frame-error"
           message={props.message ?? t('home.dashboard.tileFrame.error')}
-          retryLabel={t('common.retry')}
+          retryLabel={t('common.action.retry')}
           onRetry={props.onRetry}
         />
       )
@@ -156,7 +156,7 @@ function renderTileFrameState(props: DashboardTileFrameProps, t: TFunction): Rea
             <TileFrameErrorFallback
               testId="dashboard-tile-frame-error"
               message={t('home.dashboard.tileFrame.renderError')}
-              retryLabel={t('common.retry')}
+              retryLabel={t('common.action.retry')}
               onRetry={reset}
             />
           )}

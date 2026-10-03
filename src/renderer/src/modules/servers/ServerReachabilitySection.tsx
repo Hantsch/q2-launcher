@@ -20,7 +20,7 @@ function SampleLine({ sample, t }: { sample: RttSample; t: TFunction }) {
   const atIsValid = time !== null
   let text: string
   if (!atIsValid || (sample.rttMs !== null && !Number.isFinite(sample.rttMs))) {
-    text = t('servers.detail.reachability.sample.unknown')
+    text = t('common.label.unknown')
   } else if (sample.rttMs === null) {
     text = t('servers.detail.reachability.sample.noAnswer')
   } else {

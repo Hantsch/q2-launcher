@@ -72,14 +72,14 @@ export function SetInstallationIconDialog({ installationId }: { installationId: 
       size="sm"
       title={t('dialog.installationIcon.title', { name: installation.name })}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" disabled={!hasIcon || pending} onClick={() => void clear()}>
             {t('dialog.installationIcon.clear')}
           </Button>
           <Button variant="primary" onClick={closeDialog}>
-            {t('common.close')}
+            {t('common.action.close')}
           </Button>
         </>
       }

@@ -1105,7 +1105,7 @@ async function assign(
   input: AssignProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   if (!deps.installations.find(input.installationId)) {
-    return fail('config.error.installationNotFound')
+    return fail('installations.error.notFound')
   }
   let list: ConfigProfile[]
   try {
@@ -1127,7 +1127,7 @@ async function unassign(
   input: UnassignProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   if (!deps.installations.find(input.installationId)) {
-    return fail('config.error.installationNotFound')
+    return fail('installations.error.notFound')
   }
   let list: ConfigProfile[]
   try {
@@ -1161,7 +1161,7 @@ async function setDefault(
   input: SetDefaultProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
   if (!deps.installations.find(input.installationId)) {
-    return fail('config.error.installationNotFound')
+    return fail('installations.error.notFound')
   }
   let list: ConfigProfile[]
   try {
@@ -1199,7 +1199,7 @@ async function write(
   // string - same "validate against the installations the launcher actually knows about"
   // rule `assign`/`unassign`/`setDefault` already apply to their own `installationId`.
   if (input.installationId && !deps.installations.find(input.installationId)) {
-    return fail('config.error.installationNotFound')
+    return fail('installations.error.notFound')
   }
 
   // Story 022: `write` is one of the three retry triggers (decision 13), so
@@ -1244,7 +1244,7 @@ async function setSwitchBind(
 ): Promise<Outcome<Record<string, string>>> {
   const { config, log, profiles } = deps
   const installation = deps.installations.find(input.installationId)
-  if (!installation) return fail('config.error.installationNotFound')
+  if (!installation) return fail('installations.error.notFound')
 
   const next = { ...config.switchBinds.get() }
   if (input.key === null) delete next[installation.id]

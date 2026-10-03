@@ -60,7 +60,7 @@
 // ## Selectors, not guesses
 //
 // Every testid/label this flow drives against is real: `nav-library`/`nav-config`
-// (`InstallationRail.tsx`/shell), `library.addExisting`/`Browse…`/`Add installation`
+// (`InstallationRail.tsx`/shell), `common.action.addExisting`/`Browse…`/`Add installation`
 // (`AddExistingDialog.tsx`, identical to `linux-user-journey.mjs`'s own dialog half),
 // `installation-remove-<id>` (`LibraryView.tsx`, the one per-installation testid stable enough to
 // scope every other assertion below to THIS flow's own row - `RunnerSection`'s own testids

@@ -67,7 +67,7 @@ export function ModInstallState({
             data-testid={`mods-tile-status-${id}`}
           >
             <ArrowUpCircle className="size-3.5 shrink-0" aria-hidden="true" />
-            {t('mods.status.updateAvailable')}
+            {t('common.label.updateAvailable')}
           </p>
         ) : (
           <p className="text-sm text-success" data-testid={`mods-tile-status-${id}`}>
@@ -91,7 +91,7 @@ export function ModInstallState({
             onClick={onUpdate}
             data-testid={updateTestId}
           >
-            {t('mods.action.update')}
+            {t('common.action.update')}
           </Button>
         )}
         {local.contentOnly && (
@@ -138,7 +138,7 @@ export function ModInstallState({
           onClick={onInstall}
           data-testid={installTestId}
         >
-          {t('mods.action.install')}
+          {t('common.action.install')}
         </Button>
       )}
     </div>

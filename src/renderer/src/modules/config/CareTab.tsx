@@ -197,7 +197,7 @@ function ConfigHealthGroup({
           {validation.status === 'unassigned'
             ? t('config.validation.empty.unassigned')
             : validation.status === 'unresolved'
-              ? t('config.validation.empty.unresolved')
+              ? t('config.engineScope.unresolved')
               : t('config.validation.empty.noFacts', {
                   engines: validation.omitted.map(engineLabel).join(', '),
                 })}
@@ -262,7 +262,7 @@ function FilesGroup({
     if (syncStatus.kind === 'loading') {
       return (
         <div className="space-y-2">
-          <SectionLabel>{t('config.care.group.files')}</SectionLabel>
+          <SectionLabel>{t('common.label.files')}</SectionLabel>
           <p className="flex items-center gap-2 text-xs text-ink-dim" data-selectable>
             <Spinner className="size-3.5" />
             {t('config.care.files.loading')}
@@ -273,7 +273,7 @@ function FilesGroup({
     if (syncStatus.kind === 'error') {
       return (
         <div className="space-y-2">
-          <SectionLabel>{t('config.care.group.files')}</SectionLabel>
+          <SectionLabel>{t('common.label.files')}</SectionLabel>
           <p className="flex items-start gap-2 text-xs text-danger" data-selectable>
             <CircleX className="mt-0.5 size-3.5 shrink-0" />
             {t('config.care.files.error')}
@@ -291,7 +291,7 @@ function FilesGroup({
 
   return (
     <div className="space-y-2">
-      <SectionLabel>{t('config.care.group.files')}</SectionLabel>
+      <SectionLabel>{t('common.label.files')}</SectionLabel>
       <ul className="space-y-1.5">
         {items.map((item) => {
           const target = String(item.params['target'] ?? '')

@@ -50,15 +50,13 @@ export function ServersToolbar({
   const isBusy = scanState.running
   const isRefreshDisabled = isBlocked || isBusy
   const isLan = mode === 'lan'
-  const stateLabel = t(
-    isBusy ? 'module.servers.view.status.scanning' : 'module.servers.view.status.idle',
-  )
+  const stateLabel = t(isBusy ? 'common.action.scanning' : 'module.servers.view.status.idle')
 
   return (
     <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-line px-5 py-4">
       <div className="min-w-0 space-y-1">
         <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
-          {t('module.servers.title')}
+          {t('common.label.servers')}
         </h1>
         <p className="flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
           <StatusDot className={isBusy ? 'bg-strogg-500' : 'bg-ink-faint'} pulse={isBusy} />

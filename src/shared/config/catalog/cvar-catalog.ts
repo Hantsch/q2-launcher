@@ -12,7 +12,7 @@
  *
  * All prose (label, description, warning, note, value-note meaning, choice
  * label) has been replaced by i18n key fields; the English text lives in
- * `src/renderer/src/i18n/locales/en.json` under `config.cvar.*`.
+ * `src/renderer/src/modules/config/locale/en.json` under `config.cvar.*`.
  *
  * Story 021 D1: every entry now carries an explicit `common: true | false` -
  * audited by hand rather than left to whatever a given entry happened to
@@ -187,7 +187,7 @@ export const PLAYER_CVARS: CvarDef[] = [
     default: '1',
     common: true,
     choices: [
-      { value: '0', labelKey: 'config.cvar.crosshair.choice.0' },
+      { value: '0', labelKey: 'common.label.none' },
       { value: '1', labelKey: 'config.cvar.crosshair.choice.1' },
       { value: '2', labelKey: 'config.cvar.crosshair.choice.2' },
       { value: '3', labelKey: 'config.cvar.crosshair.choice.3' },
@@ -349,7 +349,7 @@ export const PLAYER_CVARS: CvarDef[] = [
 export const GRAPHICS_CVARS: CvarDef[] = [
   {
     name: 'vid_fullscreen',
-    labelKey: 'config.cvar.vid_fullscreen.label',
+    labelKey: 'common.label.fullscreen',
     kind: 'toggle',
     group: 'graphics',
     descriptionKey: 'config.cvar.vid_fullscreen.description',

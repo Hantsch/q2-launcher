@@ -196,9 +196,7 @@ export function ServerLocalContentSection({ mod, map }: ServerLocalContentSectio
             onClick={() => void startInstall()}
             data-testid="servers-detail-mod-install"
           >
-            {installing
-              ? t('servers.detail.localContent.installing')
-              : t('servers.detail.localContent.install')}
+            {installing ? t('servers.detail.localContent.installing') : t('common.action.install')}
           </Button>
           {failure && (
             <p

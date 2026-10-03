@@ -72,7 +72,7 @@ describe('DemoFileActions (story 156 D2)', () => {
   it('fileMissing shows a persistent inline alert (AC5)', async () => {
     copyDemoPath.mockResolvedValue({
       ok: true,
-      value: { ok: false, reasonKey: 'replays.fileActions.fileMissing' },
+      value: { ok: false, reasonKey: 'replays.play.error.fileMissing' },
     })
 
     render(createElement(DemoFileActions, { demo: BASE_DEMO, onRenamed: vi.fn() }))

@@ -68,7 +68,7 @@ export interface ModuleManifest {
 export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   {
     id: 'home',
-    titleKey: 'module.home.title',
+    titleKey: 'common.label.home',
     descriptionKey: 'module.home.description',
     icon: 'Home',
     route: '/home',
@@ -81,7 +81,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   },
   {
     id: 'library',
-    titleKey: 'module.library.title',
+    titleKey: 'common.label.library',
     descriptionKey: 'module.library.description',
     icon: 'LayoutGrid',
     route: '/library',
@@ -93,7 +93,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   },
   {
     id: 'downloads',
-    titleKey: 'module.downloads.title',
+    titleKey: 'common.label.downloads',
     descriptionKey: 'module.downloads.description',
     plannedIntroKey: 'module.planned.downloads.intro',
     plannedHighlightKeys: [
@@ -111,7 +111,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   },
   {
     id: 'config',
-    titleKey: 'module.config.title',
+    titleKey: 'common.label.config',
     descriptionKey: 'module.config.description',
     icon: 'SlidersHorizontal',
     route: '/config',
@@ -159,7 +159,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   },
   {
     id: 'servers',
-    titleKey: 'module.servers.title',
+    titleKey: 'common.label.servers',
     descriptionKey: 'module.servers.description',
     plannedIntroKey: 'module.planned.servers.intro',
     plannedHighlightKeys: [
@@ -177,7 +177,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
   },
   {
     id: 'replays',
-    titleKey: 'replays.module.title',
+    titleKey: 'common.label.demos',
     descriptionKey: 'replays.module.description',
     plannedIntroKey: 'replays.planned.intro',
     plannedHighlightKeys: [

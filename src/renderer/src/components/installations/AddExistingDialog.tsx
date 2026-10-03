@@ -34,7 +34,7 @@ export function AddExistingDialog() {
   const pickFolder = async (): Promise<void> => {
     const picked = await invoke('installations:pickFolder', {
       title: t('dialog.addExisting.pickTitle'),
-      buttonLabel: t('dialog.addExisting.pickButton'),
+      buttonLabel: t('common.action.useThisFolder'),
     })
     if (!picked) return
 
@@ -86,11 +86,11 @@ export function AddExistingDialog() {
       title={t('dialog.addExisting.title')}
       description={t('dialog.addExisting.body')}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={closeDialog}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
             {t('dialog.addExisting.submit')}
@@ -99,12 +99,12 @@ export function AddExistingDialog() {
       }
     >
       <div className="space-y-4">
-        <Field label={t('dialog.addExisting.folderLabel')}>
+        <Field label={t('common.label.installationFolder')}>
           <PathPicker
             value={rootPath}
             placeholder={t('dialog.addExisting.folderPlaceholder')}
             onBrowse={() => void pickFolder()}
-            browseLabel={t('common.browse')}
+            browseLabel={t('common.label.browse')}
             disabled={inspecting || submitting}
           />
         </Field>
@@ -112,7 +112,7 @@ export function AddExistingDialog() {
         {inspecting && (
           <div className="flex items-center gap-2 text-xs text-ink-dim">
             <Spinner />
-            {t('dialog.addExisting.inspecting')}
+            {t('common.label.checkingFolder')}
           </div>
         )}
 
@@ -161,7 +161,7 @@ export function AddExistingDialog() {
 
             {inspection.executables.length > 1 && (
               <Field
-                label={t('dialog.addExisting.executableLabel')}
+                label={t('common.label.engineExecutable')}
                 hint={t('dialog.addExisting.executableHint')}
               >
                 <Select

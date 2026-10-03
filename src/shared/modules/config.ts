@@ -155,7 +155,7 @@ export const TEMPLATE_ACTION_CATEGORIES: readonly BuiltInActionCategory[] = [
   { id: 'movement', labelKey: 'config.controls.categories.movement', label: 'Movement' },
   { id: 'weapons', labelKey: 'config.controls.categories.weapons', label: 'Weapons' },
   { id: 'drops', labelKey: 'config.controls.categories.drops', label: 'Weapon dropping' },
-  { id: 'demo', labelKey: 'config.controls.categories.demo', label: 'Demo playback' },
+  { id: 'demo', labelKey: 'common.label.demoPlayback', label: 'Demo playback' },
 ]
 
 /**
@@ -802,7 +802,7 @@ export interface WriteProfileInput {
    * profile is assigned to is left untouched. Optional and additive: a caller that omits it (every
    * call site before this deliverable) keeps the old whole-profile behaviour, writing every assigned
    * installation. Validated against known installation ids in main
-   * (`config.error.installationNotFound`), the same way `assign`/`unassign`/`setDefault` already do -
+   * (`installations.error.notFound`), the same way `assign`/`unassign`/`setDefault` already do -
    * never trusted as a bare string. This is "Sync now" (AC7): the targeted installation's copy (and
    * its loader) is rewritten from the profile's canonical file - never from a `dirty` profile's
    * unsaved edits (AC9), the same "installation copies only ever come from the canonical file" rule

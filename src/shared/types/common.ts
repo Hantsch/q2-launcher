@@ -38,7 +38,7 @@ export type ReleaseNotes = {
  * A message the main process wants the UI to render.
  *
  * Main never sends prose: it sends an i18n key plus parameters, so all
- * user-visible text lives in `src/renderer/src/i18n/locales/*.json`.
+ * user-visible text lives in `src/renderer/src/i18n/locales/` and each module's `locale/` folder.
  */
 export interface LocalizedMessage {
   key: string

@@ -55,7 +55,7 @@ export function LibraryView() {
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div className="space-y-1">
             <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
-              {t('library.title')}
+              {t('common.label.library')}
             </h1>
             <p className="text-xs text-ink-muted">
               {t('library.subtitle', { count: installations.length })}
@@ -69,7 +69,7 @@ export function LibraryView() {
               icon={<FolderOpen className="size-3.5" />}
               onClick={() => openDialog({ kind: 'add-existing' })}
             >
-              {t('library.addExisting')}
+              {t('common.action.addExisting')}
             </Button>
             <Button
               variant="neutral"
@@ -123,15 +123,15 @@ export function LibraryView() {
 
         {stats && installations.length > 0 && (
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            <StatTile label={t('library.stats.total')} value={String(stats.total)} />
-            <StatTile label={t('library.stats.ok')} value={String(stats.ok)} tone="text-success" />
+            <StatTile label={t('common.label.installations')} value={String(stats.total)} />
+            <StatTile label={t('common.label.ready')} value={String(stats.ok)} tone="text-success" />
             <StatTile
               label={t('library.stats.needsAttention')}
               value={String(stats.needsAttention)}
               tone={stats.needsAttention > 0 ? 'text-warning' : undefined}
             />
             <StatTile
-              label={t('library.stats.missing')}
+              label={t('common.label.missing')}
               value={String(stats.missing)}
               tone={stats.missing > 0 ? 'text-danger' : undefined}
             />
@@ -156,7 +156,7 @@ export function LibraryView() {
                     icon={<FolderOpen className="size-4" />}
                     onClick={() => openDialog({ kind: 'add-existing' })}
                   >
-                    {t('rail.addExisting')}
+                    {t('common.action.addExistingInstallation')}
                   </Button>
                   <Button
                     variant="neutral"
@@ -322,13 +322,13 @@ function InstallationRow({ installation }: { installation: Installation }) {
               void play(installation.id)
             }}
           >
-            {t('installation.action.play')}
+            {t('common.action.play')}
           </Button>
 
           <IconButton
             label={
               installation.favorite
-                ? t('installation.action.unfavorite')
+                ? t('common.action.removeFromFavourites')
                 : t('installation.action.favorite')
             }
             size="sm"
@@ -357,7 +357,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
           </IconButton>
 
           <IconButton
-            label={t('installation.action.rename')}
+            label={t('common.action.renameEllipsis')}
             size="sm"
             onClick={() => openDialog({ kind: 'rename', installationId: installation.id })}
           >
@@ -412,7 +412,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
           <div className="mx-1 h-5 w-px bg-line" />
 
           <IconButton
-            label={t('installation.action.remove')}
+            label={t('common.action.removeEllipsis')}
             size="sm"
             variant="danger"
             data-testid={`installation-remove-${installation.id}`}

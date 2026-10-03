@@ -35,7 +35,7 @@ export function UpdateButton() {
         <span className="relative inline-flex">
           <UtilityButton
             testId="nav-update"
-            label={t(attention ? 'appUpdate.action.labelAvailable' : 'appUpdate.action.label')}
+            label={t(attention ? 'common.label.updateAvailable' : 'common.action.update')}
             active={open}
             onClick={toggle}
           >

@@ -413,7 +413,7 @@ export function ReplaysView() {
       <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 border-b border-line px-5 py-4">
         <div className="min-w-0 space-y-1">
           <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
-            {t('replays.view.title')}
+            {t('common.label.demos')}
           </h1>
         </div>
         <Button
@@ -422,7 +422,7 @@ export function ReplaysView() {
           disabled={scanning}
           data-testid="replays-refresh"
         >
-          {scanning ? t('replays.list.refreshing') : t('replays.list.refresh')}
+          {scanning ? t('common.action.scanning') : t('replays.list.refresh')}
         </Button>
       </header>
 
@@ -438,7 +438,7 @@ export function ReplaysView() {
             'w-56 shrink-0 overflow-y-auto border-r border-line bg-panel/60 p-4',
             stageMode && 'hidden',
           )}
-          aria-label={t('replays.filter.title')}
+          aria-label={t('common.label.filters')}
         >
           <DemoListFilterBar
             filter={filter}
@@ -471,7 +471,7 @@ export function ReplaysView() {
                     onClick={() => handleFilterChange(EMPTY_DEMO_LIST_FILTER)}
                     data-testid="replays-filter-no-match-clear"
                   >
-                    {t('replays.filter.clear')}
+                    {t('common.action.clearFilters')}
                   </Button>
                 </div>
               )}

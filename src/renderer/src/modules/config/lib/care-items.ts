@@ -264,7 +264,7 @@ function fileItems(rows: CareSyncRow[], profileDirty: boolean | undefined): Care
     const offersSyncNow = !isCanonical && (row.state === 'outOfSync' || row.state === 'missing')
 
     if (row.state === 'failed') {
-      actions.push({ key: `${id}:retry`, kind: 'retry', labelKey: 'config.care.sync.retry' })
+      actions.push({ key: `${id}:retry`, kind: 'retry', labelKey: 'common.action.retry' })
     }
     if (reason === 'externalEdit') {
       actions.push(

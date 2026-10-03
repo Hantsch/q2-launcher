@@ -46,7 +46,7 @@ export function TestModeReadout({
   const renderChain = (command: string) => {
     const chain = resolveAliasChain(command, actions)
     if (chain.length === 0) {
-      return <span className="text-ink-muted">{t('config.overview.testMode.noBind')}</span>
+      return <span className="text-ink-muted">{t('common.label.notBound')}</span>
     }
     return chain.map((step, index) => {
       const resolved = resolveCommandLabel(step)
@@ -71,7 +71,7 @@ export function TestModeReadout({
       return (
         <>
           <span className="stencil shrink-0">{press.key}</span>
-          <span className="text-ink-muted">{t('config.overview.testMode.noBind')}</span>
+          <span className="text-ink-muted">{t('common.label.notBound')}</span>
         </>
       )
     }

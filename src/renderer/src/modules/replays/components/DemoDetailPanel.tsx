@@ -161,7 +161,7 @@ export function DemoDetailPanel({
           {!editing && <DemoFileActions demo={row} onRenamed={onRenamed} />}
           {!editing && (
             <IconButton
-              label={t('replays.detail.edit')}
+              label={t('common.action.edit')}
               size="sm"
               disabled={archived}
               aria-describedby={archived ? 'replays-archive-readonly-edit' : undefined}
@@ -172,7 +172,7 @@ export function DemoDetailPanel({
             </IconButton>
           )}
           <IconButton
-            label={t('replays.detail.close')}
+            label={t('common.action.close')}
             size="sm"
             onClick={onClose}
             data-testid="replays-detail-close"

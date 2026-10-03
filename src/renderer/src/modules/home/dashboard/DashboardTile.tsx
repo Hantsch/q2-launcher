@@ -184,7 +184,7 @@ export function DashboardTile({
               </h2>
               <p className="text-sm text-ink-dim">{t('home.dashboard.tileFrame.renderError')}</p>
               <Button size="sm" onClick={reset} data-testid="dashboard-tile-render-error-retry">
-                {t('common.retry')}
+                {t('common.action.retry')}
               </Button>
             </div>
           )}

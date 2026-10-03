@@ -44,7 +44,7 @@ export function NameDialog({
   onSubmit,
   onClose,
   children,
-  submitLabelKey = 'common.save',
+  submitLabelKey = 'common.action.save',
   error,
   description,
   placeholder,
@@ -78,11 +78,11 @@ export function NameDialog({
       title={t(titleKey)}
       description={description}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} data-testid={testIds?.cancel}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button
             variant="primary"

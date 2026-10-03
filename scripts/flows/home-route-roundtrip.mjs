@@ -67,7 +67,7 @@ async function waitForHome(page) {
   // The placeholder card this used to wait on (`home.title`'s `<h1>` plus `home.lead`) is gone -
   // it only cost vertical space above the dashboard. What is unambiguously "home is mounted" now
   // is the news hero itself plus the dashboard container below it, both by test id, so neither
-  // wait can be satisfied by the titlebar's own `nav-home` button (`nav.home` is also translated
+  // wait can be satisfied by the titlebar's own `nav-home` button (`common.label.home` is also translated
   // "Home", which is why a bare `getByText('Home')` was never usable here).
   await page.getByTestId('home-hero-live').waitFor({ state: 'attached', timeout: TIMEOUT_MS })
   await page.getByTestId('home-dashboard').waitFor({ state: 'visible', timeout: TIMEOUT_MS })

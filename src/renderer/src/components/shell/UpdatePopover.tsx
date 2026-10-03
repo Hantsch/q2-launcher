@@ -48,7 +48,7 @@ export function UpdatePopover({ onClose }: { onClose: () => void }) {
     <div className="space-y-3" data-testid="update-popover">
       <div className="space-y-1">
         <p className="text-sm font-medium text-ink" data-testid="update-popover-version">
-          {version ? t('appUpdate.version', { version }) : t('appUpdate.popover.label')}
+          {version ? t('common.label.version', { version }) : t('appUpdate.popover.label')}
         </p>
         <Button
           variant="link"

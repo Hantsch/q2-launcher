@@ -165,7 +165,7 @@ export function DownloadsSettingsSection() {
             onClick={openConfirm}
             data-testid="downloads-settings-clear-cache"
           >
-            {t('module.downloads.settings.clearCache.button')}
+            {t('common.action.clearCache')}
           </Button>
         </div>
 
@@ -193,7 +193,7 @@ export function DownloadsSettingsSection() {
               })}
             </p>
           }
-          confirmLabel={t('module.downloads.settings.clearCache.confirm')}
+          confirmLabel={t('common.action.clearCache')}
           tone="danger"
           busy={clearing}
           onConfirm={() => void handleConfirmClear()}

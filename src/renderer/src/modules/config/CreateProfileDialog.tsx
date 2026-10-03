@@ -55,7 +55,7 @@ export function CreateProfileDialog({
   return (
     <NameDialog
       titleKey="config.createDialog.title"
-      labelKey="config.createDialog.nameLabel"
+      labelKey="common.label.name"
       initialName=""
       maxLength={120}
       placeholder={t('config.createDialog.namePlaceholder')}

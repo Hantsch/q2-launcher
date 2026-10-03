@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import en from '../../renderer/src/i18n/locales/en.json'
+import { en } from '../../renderer/src/i18n/bundle'
 import {
   CONNECT_CFG_NAME,
   parseUserinfoValue,

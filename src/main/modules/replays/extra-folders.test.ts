@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { en as enBundle } from '../../../renderer/src/i18n/bundle'
 import { refuse } from '@shared/types'
 import { canonicalizePath } from '../../lib/fs-utils'
 import { appendExtraFolder, removeExtraFolder, resolveExtraFolder } from './extra-folders'
@@ -130,9 +130,7 @@ describe('refusal keys', () => {
         'replays.extraFolders.error.alreadyListed',
       ])
 
-      const en = JSON.parse(
-        readFileSync(join(process.cwd(), 'src/renderer/src/i18n/locales/en.json'), 'utf-8'),
-      ) as Record<string, unknown>
+      const en = enBundle as Record<string, unknown>
       for (const key of keys) {
         const value = (key as string)
           .split('.')

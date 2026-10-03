@@ -48,11 +48,11 @@ const SECTION_ORDER: readonly ProfileChangeSection[] = [
 ]
 
 const SECTION_LABEL_KEYS: Record<ProfileChangeSection, string> = {
-  cvars: 'config.save.changes.section.cvars',
+  cvars: 'common.label.cvars',
   binds: 'config.save.changes.section.binds',
   actions: 'config.save.changes.section.actions',
   layers: 'config.save.changes.section.layers',
-  settings: 'config.save.changes.section.settings',
+  settings: 'common.label.settings',
   unrecognized: 'config.save.changes.section.unrecognized',
 }
 
@@ -84,7 +84,7 @@ export function ProfileChangeList({ changeSet }: { changeSet: ProfileChangeSet }
 const SETTINGS_LABEL_KEYS: Record<string, string> = {
   name: 'config.save.changes.settingsLabel.name',
   writeUnbindall: 'config.save.changes.settingsLabel.writeUnbindall',
-  sectionHeaderStyle: 'config.save.changes.settingsLabel.sectionHeaderStyle',
+  sectionHeaderStyle: 'common.label.sectionHeaderStyle',
 }
 
 /** Badge tone per kind - text is the actual AC2 marker (below), the tone is a secondary,

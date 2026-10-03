@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import en from './locales/en.json'
+import { en } from './bundle'
 import { GAMEMODE_I18N_KEYS } from '../../../shared/demos/gamemode'
 
 /**

@@ -52,7 +52,7 @@ describe('openSlideUrl', () => {
     const result = await openSlideUrl('https://evil.example.com/x', shellOpenExternal, log)
 
     expect(shellOpenExternal).not.toHaveBeenCalled()
-    expect(result).toEqual({ ok: false, error: { key: 'home.error.urlNotAllowed' } })
+    expect(result).toEqual({ ok: false, error: { key: 'app.error.invalidUrl' } })
   })
 
   it('refuses a non-http(s) scheme even when the host string matches the allowlist', async () => {
@@ -72,6 +72,6 @@ describe('openSlideUrl', () => {
     const result = await openSlideUrl('not-a-url', shellOpenExternal, log)
 
     expect(shellOpenExternal).not.toHaveBeenCalled()
-    expect(result).toEqual({ ok: false, error: { key: 'home.error.urlNotAllowed' } })
+    expect(result).toEqual({ ok: false, error: { key: 'app.error.invalidUrl' } })
   })
 })

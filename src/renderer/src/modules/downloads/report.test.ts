@@ -8,7 +8,7 @@ import type {
   DownloadFailure,
 } from '@shared/modules/downloads'
 import type { AppInfo } from '@shared/types/common'
-import en from '../../i18n/locales/en.json'
+import { en } from '../../i18n/bundle'
 import { buildFailureReport } from './report'
 
 /**

@@ -108,7 +108,7 @@ type TileState = (typeof STATES)[number]
 
 /** No raw dotted i18n key survives into rendered text - that shape only appears when `t()` falls
  * back to echoing a missing/misspelled key back. Deliberately not scoped to `home.dashboard.*`:
- * these tiles also render keys from other namespaces (e.g. `common.retry` via
+ * these tiles also render keys from other namespaces (e.g. `common.action.retry` via
  * `DashboardTileFrame.tsx`'s error state), and a leak there would look exactly as wrong to a user
  * as one under this tile's own namespace, so the regex recognises any lowercase-led, dotted token
  * of two or more segments (every real key in this codebase is `lowerCamel(.lowerCamel)+`) rather

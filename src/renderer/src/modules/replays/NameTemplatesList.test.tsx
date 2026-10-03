@@ -7,7 +7,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { mockClient } from '../../test-support/mock-client'
 import type { NameTemplatesView } from '@shared/replays/name-templates'
 import type { Outcome } from '@shared/types'
-import en from '../../i18n/locales/en.json'
+import { en } from '../../i18n/bundle'
 import { initI18n } from '../../i18n'
 
 /**
@@ -182,7 +182,7 @@ describe('every string comes from the replays block', () => {
     const ownTexts = texts.filter((text) => !text.startsWith('dnd.'))
     expect(ownTexts.length).toBeGreaterThan(0)
     for (const text of ownTexts) {
-      expect(text).toMatch(/^replays\./)
+      expect(text).toMatch(/^(replays|common[.]action)[.]/)
     }
 
     expect(texts).toContain('replays.nameTemplates.heading')

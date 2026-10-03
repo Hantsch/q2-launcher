@@ -83,7 +83,7 @@ export function VirtualDemoList({
       <div style={{ position: 'relative', height: rows.length * DEMO_ROW_HEIGHT }}>
         <ul
           data-testid="replays-demo-list"
-          aria-label={t('replays.list.label')}
+          aria-label={t('common.label.demos')}
           style={{ position: 'absolute', top: start * DEMO_ROW_HEIGHT, left: 0, right: 0 }}
         >
           {visibleRows.map((row, index) => (

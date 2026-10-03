@@ -18,7 +18,7 @@ export function DemoBadge({ installation }: { installation: Installation }) {
   if (!isDemoData(installation.checks)) return null
   return (
     <Badge tone="warning" testId="demo-badge">
-      {t('installation.demoBadge')}
+      {t('common.label.demo')}
     </Badge>
   )
 }

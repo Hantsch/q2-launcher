@@ -84,7 +84,7 @@ export function RetailUpgradeDialog({ installationId }: { installationId: string
       footer={
         <>
           <Button variant="ghost" onClick={closeDialog} disabled={starting}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button
             variant="primary"

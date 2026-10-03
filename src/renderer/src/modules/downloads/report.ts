@@ -59,7 +59,7 @@ export function buildFailureReport({ failure, appInfo, t }: BuildFailureReportIn
 
 function buildVersionsSection(appInfo: AppInfo, t: TFunction): string {
   const lines = [
-    `## ${t('downloads.failures.report.versionsHeading')}`,
+    `## ${t('common.label.versions')}`,
     '',
     `- ${t('downloads.failures.report.appVersion')}: ${appInfo.appVersion}`,
     `- ${t('downloads.failures.report.electronVersion')}: ${appInfo.electronVersion}`,
@@ -82,7 +82,7 @@ function buildPackagesSection(
   const header = [
     t('downloads.failures.report.columnPackage'),
     t('downloads.failures.report.columnUrl'),
-    t('downloads.failures.report.columnSize'),
+    t('common.label.size'),
     t('downloads.failures.report.columnVerified'),
     t('downloads.failures.report.columnExtracted'),
   ]
@@ -116,12 +116,12 @@ function buildVerdictSection(
       ? target.missingChecks
           .map((check) => `- ${check.id}: ${t(check.messageKey, check.params ?? {})}`)
           .join('\n')
-      : `- ${t('downloads.failures.report.noMissingChecks')}`
+      : `- ${t('common.label.none')}`
 
   const lines = [
     `## ${t('downloads.failures.report.verdictHeading')}`,
     '',
-    `- ${t('downloads.failures.report.targetPath')}: ${target.targetPath}`,
+    `- ${t('common.label.targetPath')}: ${target.targetPath}`,
     `- ${t('downloads.failures.report.verdictLabel')}: ${verdictLabel}`,
     '',
     `### ${t('downloads.failures.report.missingChecksHeading')}`,
@@ -145,7 +145,7 @@ function buildAssemblySection(
 ): string {
   const header = [
     t('downloads.failures.report.columnFrom'),
-    t('downloads.failures.report.columnTo'),
+    t('common.label.targetPath'),
     t('downloads.failures.report.columnFound'),
     t('downloads.failures.report.columnSourcePackage'),
   ]

@@ -80,7 +80,7 @@ export function EngineStep({
               onClick={onAddExisting}
               data-testid="bootstrap-engine-empty-action"
             >
-              {t('bootstrapWizard.engine.empty.action')}
+              {t('common.action.addExistingInstallation')}
             </Button>
           }
         />
@@ -119,7 +119,7 @@ export function EngineStep({
                   {engineLabel(option.engine)}
                 </p>
                 <p className="text-xs text-ink-muted">
-                  {t('bootstrapWizard.engine.version', { version: option.version })}
+                  {t('common.label.version', { version: option.version })}
                 </p>
               </div>
             </button>

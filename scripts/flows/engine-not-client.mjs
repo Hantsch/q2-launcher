@@ -49,7 +49,7 @@ const SUPPORTED_INSTALL_NAME = INSTALL_DEMO_UPGRADE_NAME
 /** Mirrors `SUPPORTED_ENGINE_DEFINITIONS`' labels (src/shared/types/engine.ts) - AC2's whole list. */
 const SUPPORTED_ENGINE_OPTIONS = ['R1Q2', 'Q2PRO']
 
-/** `dialog.create.engineLabel` (en.json), as the DOM holds it - the CSS uppercases it. */
+/** `common.label.engine` (en.json), as the DOM holds it - the CSS uppercases it. */
 const ENGINE_FIELD_LABEL = 'Engine'
 
 /** `engine.unsupportedLabel` applied to `engineLabel('unknown')` (lib/engine-display.ts). */

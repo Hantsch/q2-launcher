@@ -55,12 +55,12 @@ export function ControlsCategoryMenu({
     },
     {
       id: 'rename',
-      label: t('config.controls.rename'),
+      label: t('common.action.renameEllipsis'),
       onSelect: onRename,
     },
     {
       id: 'delete',
-      label: t('config.controls.delete'),
+      label: t('common.action.deleteEllipsis'),
       onSelect: onDelete,
     },
   ]

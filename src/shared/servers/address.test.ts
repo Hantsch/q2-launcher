@@ -11,7 +11,7 @@ import {
 // (docs/ARCHITECTURE.md), even in a test, since this file type-checks under `tsconfig.web.json`
 // too (which carries no node types at all). See `src/shared/config/render/comment-labels.test.ts` for the
 // same pattern.
-import en from '../../renderer/src/i18n/locales/en.json'
+import { en } from '../../renderer/src/i18n/bundle'
 
 describe('parseServerAddress', () => {
   it('accepts a hostname and an IPv4 literal with a port', () => {

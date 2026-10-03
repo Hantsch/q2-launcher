@@ -41,7 +41,7 @@ export function InstallDecisionDialog({
       size="md"
       title={t('mods.decision.title')}
       onClose={() => void answer('cancel')}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button
@@ -50,7 +50,7 @@ export function InstallDecisionDialog({
             onClick={() => void answer('cancel')}
             data-testid="mods-install-decision-cancel"
           >
-            {t('mods.decision.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button
             disabled={busy}
@@ -65,7 +65,7 @@ export function InstallDecisionDialog({
             onClick={() => void answer('overwrite')}
             data-testid="mods-install-decision-overwrite"
           >
-            {t('mods.decision.overwrite')}
+            {t('common.action.overwrite')}
           </Button>
         </>
       }

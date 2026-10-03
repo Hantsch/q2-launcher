@@ -19,7 +19,7 @@ export function RenameProfileDialog({
   return (
     <NameDialog
       titleKey="config.renameDialog.title"
-      labelKey="config.renameDialog.label"
+      labelKey="common.label.name"
       initialName={profile.name}
       maxLength={120}
       onClose={onClose}

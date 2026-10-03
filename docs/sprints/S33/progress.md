@@ -233,3 +233,19 @@
 - 2026-10-03 14:30 · 213 · verify · started (after review fix)
 - 2026-10-03 14:34 · 213 · verify · done
 - 2026-10-03 14:34 · 213 · story · done
+- 2026-10-03 14:34 · 231 · build · started
+- 2026-10-03 14:34 · 231 · D1 keys test + dead keys · started
+- 2026-10-03 14:42 · 231 · D1 keys test + dead keys · done
+- 2026-10-03 14:42 · 231 · D2 common.action consolidation · started
+- 2026-10-03 14:45 · 231 · D2 common.action consolidation · done
+- 2026-10-03 14:45 · 231 · D3 common.label consolidation · started
+- 2026-10-03 14:51 · 231 · D3 common.label consolidation · done
+- 2026-10-03 14:51 · 231 · D4 bundle.ts import point · started
+- 2026-10-03 14:53 · 231 · D4 bundle.ts import point · done
+- 2026-10-03 14:53 · 231 · D5 split locales · started
+- 2026-10-03 14:58 · 231 · D5 split locales · done
+- 2026-10-03 14:58 · 231 · verify · started
+- 2026-10-03 15:00 · 231 · verify · done
+- 2026-10-03 15:00 · 231 · review 1 · started
+- 2026-10-03 15:05 · 231 · review 1 · done
+- 2026-10-03 15:07 · 231 · story · done

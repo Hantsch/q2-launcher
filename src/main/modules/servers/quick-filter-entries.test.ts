@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { en as enBundle } from '../../../renderer/src/i18n/bundle'
 import {
   QUICK_FILTER_MAX,
   QUICK_FILTER_NAME_MAX,
@@ -144,9 +143,7 @@ describe('removeQuickFilter', () => {
 
 describe('refusal keys', () => {
   it('every refusal carries a literal servers.quickFilter.error key', () => {
-    const en = JSON.parse(
-      readFileSync(resolve(__dirname, '../../../renderer/src/i18n/locales/en.json'), 'utf8'),
-    ) as Record<string, unknown>
+    const en = enBundle as Record<string, unknown>
     const resolves = (key: string): boolean =>
       typeof key.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], en) ===
       'string'

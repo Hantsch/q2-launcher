@@ -118,7 +118,7 @@ export function ModDetailPanel({
                 onClick={() => void invoke('app:openExternal', catalog.projectUrl)}
                 data-testid="mods-detail-project-link"
               >
-                {t('mods.detail.projectPage')}
+                {t('common.label.projectPage')}
               </Button>
               <Button
                 icon={<ExternalLink className="size-3.5" aria-hidden="true" />}
@@ -170,7 +170,7 @@ export function ModDetailPanel({
               )}
             </div>
             <div className="space-y-1">
-              <p className="text-xs text-ink-muted">{t('mods.detail.versions')}</p>
+              <p className="text-xs text-ink-muted">{t('common.label.versions')}</p>
               <ul className="space-y-1" data-testid="mods-detail-versions">
                 {catalog.versions.map((entry) => (
                   <li
@@ -193,7 +193,7 @@ export function ModDetailPanel({
         {local && (
           <>
             <div className="space-y-1">
-              <p className="text-xs text-ink-muted">{t('mods.detail.path')}</p>
+              <p className="text-xs text-ink-muted">{t('common.label.folder')}</p>
               <p className="text-sm break-all text-ink select-text" data-testid="mods-detail-path">
                 {local.folderPath}
               </p>
@@ -227,7 +227,7 @@ export function ModDetailPanel({
               onClick={() => setRemoving(true)}
               data-testid="mods-detail-remove"
             >
-              {t('mods.remove.action')}
+              {t('common.action.remove')}
             </Button>
           </div>
         )}

@@ -12,7 +12,7 @@ import type { ParsedServerAddress } from './address'
 // (docs/ARCHITECTURE.md), even in a test, since this file type-checks under `tsconfig.web.json`
 // too (which carries no node types at all). See `src/shared/servers/address.test.ts` for the same
 // pattern.
-import en from '../../renderer/src/i18n/locales/en.json'
+import { en } from '../../renderer/src/i18n/bundle'
 
 function record(a: number, b: number, c: number, d: number, port: number): number[] {
   return [a, b, c, d, (port >> 8) & 0xff, port & 0xff]

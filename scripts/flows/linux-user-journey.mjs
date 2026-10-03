@@ -47,8 +47,8 @@
 //
 // ## Selectors, not guesses
 //
-// `library.addExisting` ("Add existing", `LibraryView.tsx`'s own header button - not to be
-// confused with the sidebar's longer `rail.addExisting`, "Add existing installation…", which
+// `common.action.addExisting` ("Add existing", `LibraryView.tsx`'s own header button - not to be
+// confused with the sidebar's longer `common.action.addExistingInstallation`, "Add existing installation…", which
 // opens the identical dialog from a different trigger), the real `AddExistingDialog.tsx` (a
 // `role="dialog"` with no dedicated testids - its `Field`/`Input` controls have real accessible
 // labels via `Field`'s `htmlFor`, so `getByLabel` finds them; its engine verdict is `EngineBadge`'s
@@ -75,9 +75,9 @@ const RUN_SUFFIX = Date.now().toString(36)
 const TYPED_LINE = `// q2l_flow_linux_journey_${RUN_SUFFIX}`
 
 /** Mirrors `src/renderer/src/i18n/locales/en.json`'s real strings - this flow drives the real
- * `AddExistingDialog`, which carries no dedicated testids of its own. `library.addExisting` (the
+ * `AddExistingDialog`, which carries no dedicated testids of its own. `common.action.addExisting` (the
  * library header's own button) is the SHORT "Add existing" - not to be confused with
- * `rail.addExisting`'s longer "Add existing installation…", used by the sidebar's own trigger. */
+ * `common.action.addExistingInstallation`'s longer "Add existing installation…", used by the sidebar's own trigger. */
 const ADD_EXISTING_BUTTON_LABEL = 'Add existing'
 const BROWSE_LABEL = 'Browse…'
 const SUBMIT_LABEL = 'Add installation'
@@ -118,7 +118,7 @@ export default async function linuxUserJourney({ page, step, shot }) {
   step('open the library and start "Add existing"')
   await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
   // `exact: true`: the rail's own trigger is labelled "Add existing installation…"
-  // (`rail.addExisting`), which contains this button's own "Add existing" (`library.addExisting`)
+  // (`common.action.addExistingInstallation`), which contains this button's own "Add existing" (`common.action.addExisting`)
   // as a substring - Playwright's default name match is substring, so both would otherwise match.
   await page
     .getByRole('button', { name: ADD_EXISTING_BUTTON_LABEL, exact: true })

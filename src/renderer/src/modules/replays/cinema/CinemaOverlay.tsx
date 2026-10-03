@@ -165,7 +165,7 @@ export function CinemaOverlay() {
           <div className="flex items-center gap-1">
             <IconButton
               size="lg"
-              label={paused ? t('replays.timeline.play') : t('replays.timeline.pause')}
+              label={paused ? t('common.action.play') : t('replays.timeline.pause')}
               onClick={() => void send({ kind: 'togglePause' })}
               className={FOCUS_RING}
               data-testid="cinema-toggle"
@@ -242,7 +242,7 @@ export function CinemaOverlay() {
             </IconButton>
             <IconButton
               size="lg"
-              label={t('replays.timeline.fullscreen')}
+              label={t('common.label.fullscreen')}
               onClick={() => void fullscreen()}
               className={FOCUS_RING}
               data-testid="cinema-fullscreen"

@@ -53,11 +53,11 @@ export function CreateInstallationDialog() {
       title={t('dialog.create.title')}
       description={t('dialog.create.body')}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={closeDialog}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
             {t('dialog.create.submit')}
@@ -66,16 +66,16 @@ export function CreateInstallationDialog() {
       }
     >
       <div className="space-y-4">
-        <Field label={t('dialog.create.locationLabel')}>
+        <Field label={t('common.label.folder')}>
           <PathPicker
             value={rootPath}
             onBrowse={() => void pickFolder()}
-            browseLabel={t('common.browse')}
+            browseLabel={t('common.label.browse')}
             disabled={submitting}
           />
         </Field>
 
-        <Field label={t('dialog.create.nameLabel')}>
+        <Field label={t('common.label.name')}>
           <Input
             value={name}
             placeholder={t('dialog.create.namePlaceholder')}
@@ -84,7 +84,7 @@ export function CreateInstallationDialog() {
           />
         </Field>
 
-        <Field label={t('dialog.create.engineLabel')}>
+        <Field label={t('common.label.engine')}>
           <Select
             value={engineKind}
             onChange={(event) => setEngineKind(event.target.value as EngineKind)}

@@ -40,12 +40,12 @@ export function JobActionDialog({
       title={title}
       description={description}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       preventClose={starting}
       footer={
         running ? (
           <Button variant="primary" onClick={onClose} data-testid={dismissTestId}>
-            {t('jobs.dismiss')}
+            {t('common.action.runInBackground')}
           </Button>
         ) : (
           footer

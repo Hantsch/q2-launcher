@@ -51,7 +51,7 @@ export function PlaytimeTile() {
               data-testid="playtime-tile-empty-action"
               onClick={() => openDialog({ kind: 'add-existing' })}
             >
-              {t('home.dashboard.tiles.playtime.empty.action')}
+              {t('common.action.addExisting')}
             </Button>
           ),
         }}
@@ -77,12 +77,12 @@ export function PlaytimeTile() {
             tone="text-success"
           />
           <StatBlock
-            label={t('home.dashboard.tiles.playtime.status.needsAttention')}
+            label={t('common.label.needsAttention')}
             value={formatCount(data.needsAttention)}
             tone={data.needsAttention > 0 ? 'text-warning' : undefined}
           />
           <StatBlock
-            label={t('home.dashboard.tiles.playtime.status.missing')}
+            label={t('common.label.missing')}
             value={formatCount(data.missing)}
             tone={data.missing > 0 ? 'text-danger' : undefined}
           />

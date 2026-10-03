@@ -58,11 +58,11 @@ export function QuickFilterNameDialog({
           : 'servers.quickFilter.dialog.saveTitle',
       )}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           {canOverwrite && (
             <Button
@@ -70,7 +70,7 @@ export function QuickFilterNameDialog({
               onClick={() => void submit(true)}
               data-testid="servers-quickfilter-overwrite"
             >
-              {t('servers.quickFilter.dialog.overwrite')}
+              {t('common.action.overwrite')}
             </Button>
           )}
           <Button
@@ -79,13 +79,13 @@ export function QuickFilterNameDialog({
             onClick={() => void submit(false)}
             data-testid="servers-quickfilter-dialog-save"
           >
-            {t('common.save')}
+            {t('common.action.save')}
           </Button>
         </>
       }
     >
       <div data-testid="servers-quickfilter-dialog">
-        <Field label={t('servers.quickFilter.dialog.label')} error={error}>
+        <Field label={t('common.label.name')} error={error}>
           <Input
             value={name}
             autoFocus

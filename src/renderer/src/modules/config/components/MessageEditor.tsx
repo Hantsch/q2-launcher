@@ -248,14 +248,14 @@ export function MessageEditor({
       size="lg"
       title={t('config.controls.messageEditor.title', { name: titleName ?? action.name })}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" data-testid="message-editor-save" onClick={save}>
-            {t('common.save')}
+            {t('common.action.save')}
           </Button>
         </>
       }
@@ -399,7 +399,7 @@ export function MessageEditor({
 
         {showKeyCapture && (
           <div className="space-y-1.5">
-            <span className="stencil block">{t('config.controls.editor.keyLabel')}</span>
+            <span className="stencil block">{t('common.label.key')}</span>
             <div className="flex flex-wrap items-center gap-1.5">
               {capturingKey ? (
                 <Badge tone="warning">{t('config.controls.editor.capturing')}</Badge>
@@ -407,17 +407,17 @@ export function MessageEditor({
                 <Badge tone="flame">{key}</Badge>
               ) : (
                 <span className="text-xs text-ink-muted">
-                  {t('config.controls.editor.keyNotSet')}
+                  {t('common.label.notBound')}
                 </span>
               )}
               {!capturingKey && (
                 <Button variant="ghost" size="sm" onClick={() => setCapturingKey(true)}>
-                  {t('config.controls.editor.captureKey')}
+                  {t('config.controls.editor.capturing')}
                 </Button>
               )}
               {!capturingKey && key && (
                 <Button variant="danger" size="sm" onClick={() => setKey(undefined)}>
-                  {t('config.controls.editor.clearKey')}
+                  {t('common.action.clear')}
                 </Button>
               )}
             </div>

@@ -289,7 +289,11 @@ describe('architecture', () => {
   })
 
   it('a renderer shell file imports only modules root files or an allowlisted edge', () => {
-    const rootFiles = [`${RENDERER_MODULES}/index`, `${RENDERER_MODULES}/moduleClient`]
+    const rootFiles = [
+      `${RENDERER_MODULES}/index`,
+      `${RENDERER_MODULES}/moduleClient`,
+      `${RENDERER_MODULES}/locales`,
+    ]
     expect(
       offenders(
         (edge) =>
@@ -362,6 +366,8 @@ describe('architecture', () => {
       'src/renderer/src/lib/toast.test.ts',
       'src/renderer/src/modules/config/config-structure.test.ts',
       'src/renderer/src/i18n/reason-templates.test.ts',
+      'src/renderer/src/i18n/keys.test.ts',
+      'src/renderer/src/i18n/bundle.test.ts',
       'src/test-support/source-files.ts',
     ])
     expect(readTsconfig('tsconfig.node.json').include).not.toContain(

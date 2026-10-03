@@ -59,7 +59,7 @@ export function WatchlistAddForm({ add }: WatchlistAddFormProps) {
   return (
     <div className="flex items-end gap-2">
       <label className="min-w-0 flex-1 space-y-1.5">
-        <span className="stencil block text-xs">{t('servers.watchlist.add.name.label')}</span>
+        <span className="stencil block text-xs">{t('common.label.name')}</span>
         <input
           value={name}
           onChange={(event) => setName(event.target.value)}
@@ -85,7 +85,7 @@ export function WatchlistAddForm({ add }: WatchlistAddFormProps) {
         disabled={submitting || name.trim().length === 0}
         data-testid="servers-watchlist-add-submit"
       >
-        {t('servers.watchlist.add.submit')}
+        {t('common.action.add')}
       </Button>
 
       {errorKey && (

@@ -1,8 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { en as enBundle } from '../../../renderer/src/i18n/bundle'
 import { engineKindSchema } from '@shared/schemas'
 import { replaysDemoPlaySchema, type DiscoveredDemo } from '@shared/modules/replays'
 import { ok, type Installation, type LaunchInput, type LaunchState } from '@shared/types'
@@ -948,9 +949,7 @@ describe('demo.play on the stage (story 170 D2)', () => {
     expect(stage.ok).toBe(false)
     if (stage.ok) return
     expect(stage.reasonKey).toBe('replays.stage.unavailable.wayland')
-    const en = JSON.parse(
-      readFileSync(join(process.cwd(), 'src/renderer/src/i18n/locales/en.json'), 'utf-8'),
-    ) as Record<string, unknown>
+    const en = enBundle as Record<string, unknown>
     const resolved = stage.reasonKey
       .split('.')
       .reduce<unknown>((acc, part) => (acc as Record<string, unknown> | undefined)?.[part], en)

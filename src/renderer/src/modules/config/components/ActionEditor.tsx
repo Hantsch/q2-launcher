@@ -205,7 +205,7 @@ function CommandListSection({
             // silently does nothing (review follow-up finding).
             disabled={!sanitizeCommand(rawCommandText)}
           >
-            {t('config.controls.editor.addCommand')}
+            {t('common.action.add')}
           </Button>
         </div>
       </Field>
@@ -237,7 +237,7 @@ function CommandListSection({
         />
         <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
           {filteredCatalog.length === 0 ? (
-            <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.none')}</p>
+            <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.label.none')}</p>
           ) : (
             filteredCatalog.map((entry) => (
               <button
@@ -523,14 +523,14 @@ export function ActionEditor({
       size="lg"
       title={t('config.controls.editor.title', { name: action.name })}
       onClose={onClose}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           <Button variant="primary" onClick={save}>
-            {t('common.save')}
+            {t('common.action.save')}
           </Button>
         </>
       }
@@ -567,7 +567,7 @@ export function ActionEditor({
               value={payloadType}
               onChange={(event) => setPayloadType(event.target.value as 'command' | 'message')}
               options={[
-                { value: 'command', label: t('config.controls.editor.payloadType.command') },
+                { value: 'command', label: t('common.label.command') },
                 { value: 'message', label: t('config.controls.editor.payloadType.message') },
               ]}
             />
@@ -689,7 +689,7 @@ export function ActionEditor({
             section - `!isAlias` alone already gets that right. */}
         {!isAlias && (
           <div className="space-y-1.5">
-            <span className="stencil block">{t('config.controls.editor.keyLabel')}</span>
+            <span className="stencil block">{t('common.label.key')}</span>
             <div className="flex flex-wrap items-center gap-1.5">
               {capturingKey ? (
                 <Badge tone="warning">{t('config.controls.editor.capturing')}</Badge>
@@ -697,17 +697,17 @@ export function ActionEditor({
                 <Badge tone="flame">{key}</Badge>
               ) : (
                 <span className="text-xs text-ink-muted">
-                  {t('config.controls.editor.keyNotSet')}
+                  {t('common.label.notBound')}
                 </span>
               )}
               {!capturingKey && (
                 <Button variant="ghost" size="sm" onClick={() => setCapturingKey(true)}>
-                  {t('config.controls.editor.captureKey')}
+                  {t('config.controls.editor.capturing')}
                 </Button>
               )}
               {!capturingKey && key && (
                 <Button variant="danger" size="sm" onClick={() => setKey(undefined)}>
-                  {t('config.controls.editor.clearKey')}
+                  {t('common.action.clear')}
                 </Button>
               )}
             </div>

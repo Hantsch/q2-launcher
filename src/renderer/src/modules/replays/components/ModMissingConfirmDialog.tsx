@@ -36,11 +36,11 @@ export function ModMissingConfirmDialog({
       size="sm"
       title={t('replays.play.modMissingConfirm.title')}
       onClose={onCancel}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <>
           <Button variant="ghost" onClick={onCancel} data-testid="replays-mod-missing-cancel">
-            {t('common.cancel')}
+            {t('common.action.cancel')}
           </Button>
           {installOffer && onInstall && (
             <Button

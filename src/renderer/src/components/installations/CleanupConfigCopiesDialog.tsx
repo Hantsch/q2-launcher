@@ -31,10 +31,10 @@ export function CleanupConfigCopiesDialog({ installationId }: { installationId: 
       title={t('dialog.cleanup.title')}
       description={t('dialog.cleanup.description', { name: installation.name })}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
+      closeLabel={t('common.action.close')}
       footer={
         <Button variant="ghost" onClick={closeDialog}>
-          {t('common.close')}
+          {t('common.action.close')}
         </Button>
       }
     >

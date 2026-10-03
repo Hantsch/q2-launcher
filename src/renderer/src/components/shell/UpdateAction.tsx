@@ -82,7 +82,7 @@ export function UpdateAction() {
             onClick={() => void cancelDownload()}
             data-testid="update-popover-cancel"
           >
-            {t('appUpdate.action.cancel')}
+            {t('common.action.cancel')}
           </Button>
         </div>
       )}

@@ -22,7 +22,7 @@ export function ConfigListScreen({
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
           <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
-            {t('config.title')}
+            {t('common.label.config')}
           </h1>
           <p className="text-xs text-ink-muted">
             {t('config.subtitle', { count: profiles.length })}
@@ -44,7 +44,7 @@ export function ConfigListScreen({
         <Panel className="mt-6">
           <EmptyState
             icon={<SlidersHorizontal className="size-6" />}
-            title={t('config.empty.title')}
+            title={t('common.label.noConfigProfiles')}
             body={t('config.empty.body')}
             hint={t('config.empty.hint')}
           />

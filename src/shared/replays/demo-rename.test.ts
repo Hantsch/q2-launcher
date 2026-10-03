@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import en from '../../renderer/src/i18n/locales/en.json'
+import { en } from '../../renderer/src/i18n/bundle'
 import { DEMO_RENAME_MAX_STEM, demoExtension, validateDemoRename } from './demo-rename'
 
 describe('demoExtension', () => {

@@ -33,7 +33,7 @@ export function UnsavedChangesTab() {
     return (
       <EmptyState
         icon={<CircleCheck className="size-6" />}
-        title={t('config.save.saved')}
+        title={t('common.label.saved')}
         body={t('config.save.upToDate')}
       />
     )

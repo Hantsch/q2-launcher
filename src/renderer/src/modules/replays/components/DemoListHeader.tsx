@@ -31,7 +31,7 @@ export function DemoListHeader({ sort, onSort }: DemoListHeaderProps) {
       )}
     >
       <span className="stencil flex h-9 items-center justify-start">
-        {t('replays.column.name')}
+        {t('common.label.demo')}
       </span>
       {DEMO_SORT_COLUMNS.map((column) => {
         const isActive = sort?.column === column

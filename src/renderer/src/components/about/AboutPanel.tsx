@@ -52,7 +52,7 @@ export function AboutPanel() {
           data-testid="about-link-repository"
           onClick={() => void invoke('app:openExternal', APP_REPO_URL)}
         >
-          {t('settings.repository')}
+          {t('common.label.projectPage')}
         </Button>
         <Button
           variant="link"

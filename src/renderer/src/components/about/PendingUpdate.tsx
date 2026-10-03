@@ -27,7 +27,7 @@ export function PendingUpdate() {
     >
       <div className="flex items-center gap-2">
         <p className="text-sm font-medium text-ink" data-testid="about-update-version">
-          {t('appUpdate.version', { version: update.update.version })}
+          {t('common.label.version', { version: update.update.version })}
         </p>
         <Badge tone="flame">{t('settings.about.notInstalled')}</Badge>
       </div>

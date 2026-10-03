@@ -282,7 +282,7 @@ export const configModule: MainModule = {
         const profile = profiles.find(input.profileId)
         if (!profile) return fail('config.error.profileNotFound')
         const installation = app.installations.find(input.installationId)
-        if (!installation) return fail('config.error.installationNotFound')
+        if (!installation) return fail('installations.error.notFound')
 
         const files = previewProfileFiles(
           profile,
@@ -355,7 +355,7 @@ export const configModule: MainModule = {
         // Both misses collapse into one key on purpose: from the caller's side
         // "no such installation" and "that installation is not a target of this
         // profile" are the same answer - not a valid target for this profile.
-        if (!installation || !isAssigned) return fail('config.error.installationNotFound')
+        if (!installation || !isAssigned) return fail('installations.error.notFound')
         path = join(installation.rootPath, BASE_GAME_DIR, fileName)
       }
 
@@ -388,7 +388,7 @@ export const configModule: MainModule = {
 
     handle(CONFIG_HANDLERS.setPlayedMods, setPlayedModsInputSchema, (input): Outcome<string[]> => {
       const installation = app.installations.find(input.installationId)
-      if (!installation) return fail('config.error.installationNotFound')
+      if (!installation) return fail('installations.error.notFound')
 
       const validated = validatePlayedMods(installation.gameDirs, input.playedMods)
       configState(app.state).playedMods.update((live) => ({
@@ -458,7 +458,7 @@ export const configModule: MainModule = {
       cleanupScanInputSchema,
       async (input): Promise<Outcome<CleanupScanResult>> => {
         const installation = app.installations.find(input.installationId)
-        if (!installation) return fail('config.error.installationNotFound')
+        if (!installation) return fail('installations.error.notFound')
 
         const findings = await scanRedundantCopies(installation)
         return ok({ findings })
@@ -470,7 +470,7 @@ export const configModule: MainModule = {
       cleanupApplyInputSchema,
       async (input): Promise<Outcome<CleanupApplyResult>> => {
         const installation = app.installations.find(input.installationId)
-        if (!installation) return fail('config.error.installationNotFound')
+        if (!installation) return fail('installations.error.notFound')
 
         return applyCleanupIfNotRunning(installation, input.entries, app.launch.getState())
       },
@@ -481,7 +481,7 @@ export const configModule: MainModule = {
       cleanupRestoreInputSchema,
       async (input): Promise<Outcome<CleanupRestoreResult>> => {
         const installation = app.installations.find(input.installationId)
-        if (!installation) return fail('config.error.installationNotFound')
+        if (!installation) return fail('installations.error.notFound')
 
         return restoreCleanupIfNotRunning(installation, input.entries, app.launch.getState())
       },

@@ -78,7 +78,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
       )}
 
       {runnersQuery.state === 'loading' && (
-        <p className="text-xs text-ink-muted">{t('common.loading')}</p>
+        <p className="text-xs text-ink-muted">{t('common.label.loading')}</p>
       )}
 
       {runners.length > 0 && (
@@ -172,7 +172,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
           data-testid="installation-runner-preview"
           data-selectable
         >
-          <span className="text-ink-faint">{t('runner.preview.label')}: </span>
+          <span className="text-ink-faint">{t('common.label.command')}: </span>
           {planQuery.data.preview}
         </p>
       )}

@@ -197,7 +197,7 @@ export function ControlsGrid({
             <span className="sr-only">{t('config.controls.grid.colReset')}</span>
           </span>
           <span className="ctrl-colhead-slot" role="columnheader">
-            {t('config.controls.grid.colKey')}
+            {t('common.label.key')}
           </span>
           <span role="columnheader">{t('config.controls.grid.colOptions')}</span>
         </div>

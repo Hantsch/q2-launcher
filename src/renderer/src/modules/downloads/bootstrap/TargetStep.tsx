@@ -46,18 +46,18 @@ export function TargetStep({
 
   return (
     <div className="space-y-4">
-      <Field label={t('bootstrapWizard.target.label')}>
+      <Field label={t('common.label.installationFolder')}>
         <div data-testid="bootstrap-target-path-input">
           <PathPicker
             value={targetPath}
             placeholder={t('bootstrapWizard.target.placeholder')}
             onBrowse={onBrowse}
-            browseLabel={t('common.browse')}
+            browseLabel={t('common.label.browse')}
           />
         </div>
       </Field>
 
-      {checking && <p className="text-xs text-ink-muted">{t('bootstrapWizard.target.checking')}</p>}
+      {checking && <p className="text-xs text-ink-muted">{t('common.label.checkingFolder')}</p>}
 
       {verdict?.blocked && (
         <WarningBox testId="bootstrap-target-blocked" tone="danger">
@@ -86,7 +86,7 @@ export function TargetStep({
             <Checkbox
               checked={ackProgramFiles}
               onChange={onAckProgramFilesChange}
-              label={t('bootstrapWizard.target.programFiles.acknowledge')}
+              label={t('common.action.understandContinue')}
               className="pt-1"
             />
           </div>
@@ -100,7 +100,7 @@ export function TargetStep({
             <Checkbox
               checked={ackNotWritable}
               onChange={onAckNotWritableChange}
-              label={t('bootstrapWizard.target.notWritable.acknowledge')}
+              label={t('common.action.understandContinue')}
               className="pt-1"
             />
           </div>

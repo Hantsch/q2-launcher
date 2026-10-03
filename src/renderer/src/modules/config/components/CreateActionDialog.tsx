@@ -58,7 +58,7 @@ export function CreateActionDialog({
   return (
     <NameDialog
       titleKey="config.controls.actions.createDialog.title"
-      labelKey="config.controls.actions.createDialog.nameLabel"
+      labelKey="common.label.name"
       submitLabelKey="config.controls.actions.createDialog.submit"
       initialName=""
       maxLength={120}
@@ -75,16 +75,16 @@ export function CreateActionDialog({
           onChange={(event) => setKind(event.target.value as ActionEntryKind)}
         />
       </Field>
-      <Field label={t('config.controls.actions.createDialog.suggestions.label')}>
+      <Field label={t('config.controls.editor.pickListLabel')}>
         <Input
           value={filter}
-          placeholder={t('config.controls.actions.createDialog.suggestions.filterPlaceholder')}
-          aria-label={t('config.controls.actions.createDialog.suggestions.filterPlaceholder')}
+          placeholder={t('config.controls.filter.placeholder')}
+          aria-label={t('config.controls.filter.placeholder')}
           onChange={(event) => setFilter(event.target.value)}
         />
         <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
           {suggestions.length === 0 ? (
-            <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.none')}</p>
+            <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.label.none')}</p>
           ) : (
             suggestions.map((info) => (
               <button

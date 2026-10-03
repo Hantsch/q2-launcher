@@ -129,13 +129,13 @@ export function ServerRow({ row, selected, onSelect }: ServerRowProps) {
             {row.needpass === true && (
               <Badge tone="warning" testId={`servers-row-password-${row.address}`}>
                 <Lock className="size-3" aria-hidden="true" />
-                {t('servers.row.password')}
+                {t('common.label.password')}
               </Badge>
             )}
             {row.favourite && (
               <Badge tone="flame" testId={`servers-row-favourite-${row.address}`}>
                 <Star className="size-3" aria-hidden="true" />
-                {t('servers.row.favourite')}
+                {t('common.label.favourite')}
               </Badge>
             )}
             {waiting && (

@@ -11,7 +11,7 @@
  *
  * All prose (`label`, `description`) has been replaced by `labelKey`/
  * `descriptionKey` i18n fields; the English text lives in
- * `src/renderer/src/i18n/locales/en.json` under `config.actionCatalog.*`.
+ * `src/renderer/src/modules/config/locale/en.json` under `config.actionCatalog.*`.
  * `command`, `item`, `ammo`, `kind`, `category` and `continuous` stay
  * literal — they are game data, not UI prose.
  *

@@ -14,7 +14,7 @@ export function RenameCategoryDialog({
   return (
     <NameDialog
       titleKey="config.controls.renameDialog.title"
-      labelKey="config.controls.renameDialog.label"
+      labelKey="common.label.name"
       initialName={category.name}
       maxLength={120}
       onClose={onClose}

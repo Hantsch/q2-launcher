@@ -30,7 +30,7 @@ export function CreateCategoryDialog({
   return (
     <NameDialog
       titleKey="config.controls.createDialog.title"
-      labelKey="config.controls.createDialog.nameLabel"
+      labelKey="common.label.name"
       submitLabelKey="config.controls.createDialog.submit"
       initialName=""
       maxLength={120}

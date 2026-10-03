@@ -12,10 +12,15 @@
     // English strings, so it needs this one renderer data file - listed explicitly rather than
     // widening the include to all of `src/renderer` (which stays out of the node project on
     // purpose; see docs/ARCHITECTURE.md).
-    "src/renderer/src/i18n/locales/en.json",
+    "src/renderer/src/i18n/locales/en.shell.json",
+    "src/renderer/src/modules/*/locale/en.json",
+    "src/renderer/src/modules/locales.ts",
+    "src/renderer/src/i18n/bundle.ts",
     "src/renderer/src/lib/toast.test.ts",
     "src/renderer/src/modules/config/config-structure.test.ts",
     "src/renderer/src/i18n/reason-templates.test.ts",
+    "src/renderer/src/i18n/keys.test.ts",
+    "src/renderer/src/i18n/bundle.test.ts",
     "src/test-support/source-files.ts",
     "src/renderer/src/lib/toast.ts"
   ],

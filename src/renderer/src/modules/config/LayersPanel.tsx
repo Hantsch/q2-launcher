@@ -170,8 +170,8 @@ export function LayersPanel({
                       // treatment (story 049 D7/D8).
                       <span
                         role="img"
-                        aria-label={t('config.layersPanel.unsavedLabel')}
-                        title={t('config.layersPanel.unsavedLabel')}
+                        aria-label={t('common.label.unsavedChange')}
+                        title={t('common.label.unsavedChange')}
                         className="shrink-0 text-flame-500"
                       >
                         <PencilLine aria-hidden className="size-3" />
@@ -179,7 +179,7 @@ export function LayersPanel({
                     )}
                     <div className="w-28 shrink-0">
                       <Select
-                        aria-label={t('config.layersPanel.modeLabel')}
+                        aria-label={t('common.label.mode')}
                         value={layer.mode}
                         disabled={saving}
                         onChange={(event) =>
@@ -221,7 +221,7 @@ export function LayersPanel({
                           disabled={saving}
                           onClick={() => setPendingDeleteId(null)}
                         >
-                          {t('common.cancel')}
+                          {t('common.action.cancel')}
                         </Button>
                         <Button
                           variant="danger"
@@ -229,20 +229,20 @@ export function LayersPanel({
                           disabled={saving}
                           onClick={() => void handleDelete(layer.id)}
                         >
-                          {t('config.layersPanel.deleteConfirmAction')}
+                          {t('common.action.confirmDelete')}
                         </Button>
                       </>
                     ) : (
                       <>
                         <IconButton
-                          label={t('config.layersPanel.rename')}
+                          label={t('common.action.renameEllipsis')}
                           size="sm"
                           onClick={() => setRenamingLayer(layer)}
                         >
                           <Pencil className="size-3.5" />
                         </IconButton>
                         <IconButton
-                          label={t('config.layersPanel.delete')}
+                          label={t('common.action.deleteEllipsis')}
                           size="sm"
                           variant="danger"
                           onClick={() => setPendingDeleteId(layer.id)}
@@ -332,7 +332,7 @@ function CreateLayerDialog({
   return (
     <NameDialog
       titleKey="config.layersPanel.createDialog.title"
-      labelKey="config.layersPanel.createDialog.nameLabel"
+      labelKey="common.label.name"
       initialName=""
       maxLength={120}
       placeholder={t('config.layersPanel.createDialog.namePlaceholder')}
@@ -340,7 +340,7 @@ function CreateLayerDialog({
       onClose={onClose}
       onSubmit={(name) => onSubmit({ name, mode })}
     >
-      <Field label={t('config.layersPanel.createDialog.modeLabel')}>
+      <Field label={t('common.label.mode')}>
         <Select
           value={mode}
           onChange={(event) => setMode(event.target.value as AltLayerMode)}
@@ -367,7 +367,7 @@ function RenameLayerDialog({
   return (
     <NameDialog
       titleKey="config.layersPanel.renameDialog.title"
-      labelKey="config.layersPanel.renameDialog.label"
+      labelKey="common.label.name"
       initialName={layer.name}
       maxLength={120}
       onClose={onClose}

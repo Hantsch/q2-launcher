@@ -229,7 +229,7 @@ export function ModsView() {
             <div data-testid="mods-no-installation">
               <EmptyState
                 icon={<Boxes className="size-6" />}
-                title={t('mods.noInstallation.title')}
+                title={t('common.label.noInstallationSelected')}
                 body={t('mods.noInstallation.body')}
               />
             </div>

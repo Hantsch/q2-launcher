@@ -14,7 +14,7 @@ export function RenameCvarSubsectionDialog({
   return (
     <NameDialog
       titleKey="config.settings.section.subsection.renameDialog.title"
-      labelKey="config.settings.section.subsection.renameDialog.label"
+      labelKey="common.label.name"
       initialName={subsection.name}
       maxLength={120}
       onSubmit={onSubmit}

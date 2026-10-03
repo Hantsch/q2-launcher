@@ -539,7 +539,7 @@ export function OverviewKeyboardPanel({
           <Badge tone="warning" className={cn(!displayedLayer && 'opacity-60')}>
             {t('config.overview.legend.altLayer')}
           </Badge>
-          <Badge tone="strogg">{t('config.overview.legend.trigger')}</Badge>
+          <Badge tone="strogg">{t('common.label.layerTrigger')}</Badge>
           <Badge tone="neutral" className="ring-2 ring-inset ring-ink">
             {t('config.overview.legend.pressed')}
           </Badge>

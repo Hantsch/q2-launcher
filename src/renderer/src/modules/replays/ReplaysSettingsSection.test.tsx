@@ -5,7 +5,7 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { vi } from 'vitest'
 import { getModuleManifest } from '@shared/types'
 import type { ReplaysExtraFolder } from '@shared/modules/replays'
-import en from '../../i18n/locales/en.json'
+import { en } from '../../i18n/bundle'
 import { initI18n } from '../../i18n'
 import { moduleIcon } from '../../components/shell/moduleIcons'
 import type { ReplaysSettingsSection as ReplaysSettingsSectionType } from './ReplaysSettingsSection'
@@ -122,7 +122,7 @@ describe('replays module registration', () => {
 
     for (const key of keys) {
       expect(key).toBeDefined()
-      expect(key as string).toMatch(/^replays\./)
+      expect(key as string).toMatch(/^(replays|common\.label)\./)
       const value = stringAt(key as string)
       expect(typeof value).toBe('string')
       expect((value as string).length).toBeGreaterThan(0)

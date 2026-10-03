@@ -133,7 +133,7 @@ export function ServersView() {
             : undefined
     return {
       id: 'join-server',
-      labelKey: 'servers.join.action',
+      labelKey: 'common.action.join',
       disabled: joinRow === undefined || reason !== undefined,
       ...(reason ? { reason } : {}),
       run: () => {
@@ -200,7 +200,7 @@ export function ServersView() {
           onClick={() => setFilter(EMPTY_SERVER_LIST_FILTER)}
           data-testid="servers-filter-no-match-clear"
         >
-          {t('servers.filter.clear')}
+          {t('common.action.clearFilters')}
         </Button>
       </div>
     ) : (
@@ -226,7 +226,7 @@ export function ServersView() {
     <div className="flex h-full min-h-0">
       <aside
         className="w-56 shrink-0 overflow-y-auto border-r border-line bg-panel/60 p-4"
-        aria-label={t('servers.filter.title')}
+        aria-label={t('common.label.filters')}
       >
         <ServerListFilterBar
           filter={filter}

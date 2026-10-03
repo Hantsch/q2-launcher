@@ -607,7 +607,7 @@ describe('LaunchService join with a password', () => {
 
     expect(await launch.start({ installationId: 'no-such-installation' })).toEqual({
       ok: false,
-      error: { key: 'launch.error.notFound' },
+      error: { key: 'installations.error.notFound' },
     })
     expect(broadcast).not.toHaveBeenCalled()
     expect((await launch.start({ installationId: INSTALLATION })).ok).toBe(true)

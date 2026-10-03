@@ -61,7 +61,7 @@ export function SwitchBindControl({
       <span className="stencil">{t('config.switchBind.label')}</span>
 
       {capturing ? (
-        <Badge tone="warning">{t('config.switchBind.capturing')}</Badge>
+        <Badge tone="warning">{t('config.controls.editor.capturing')}</Badge>
       ) : currentKey ? (
         <Badge tone="flame">{currentKey}</Badge>
       ) : (
@@ -82,7 +82,7 @@ export function SwitchBindControl({
 
       {!capturing && currentKey && (
         <Button variant="danger" size="sm" onClick={() => void applyKey(null)}>
-          {t('config.switchBind.clear')}
+          {t('common.action.clear')}
         </Button>
       )}
     </div>

@@ -93,7 +93,7 @@ export function useFixAction(): (installation: Installation, fix: ValidationFix)
       case 'locate-root': {
         const picked = await invoke('installations:pickFolder', {
           title: t('dialog.addExisting.pickTitle'),
-          buttonLabel: t('dialog.addExisting.pickButton'),
+          buttonLabel: t('common.action.useThisFolder'),
         })
         if (picked) await updateInstallation({ id: installation.id, rootPath: picked })
         return

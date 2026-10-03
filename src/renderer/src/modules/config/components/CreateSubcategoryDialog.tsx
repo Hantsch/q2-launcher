@@ -12,7 +12,7 @@ export function CreateSubcategoryDialog({
   return (
     <NameDialog
       titleKey="config.controls.subcategory.createDialog.title"
-      labelKey="config.controls.subcategory.createDialog.nameLabel"
+      labelKey="common.label.name"
       submitLabelKey="config.controls.subcategory.createDialog.submit"
       initialName=""
       maxLength={120}

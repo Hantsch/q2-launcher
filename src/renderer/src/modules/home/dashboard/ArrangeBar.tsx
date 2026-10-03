@@ -69,7 +69,7 @@ export function ArrangeBar({
         data-testid="dashboard-reset-trigger"
         onClick={() => setResetDialogOpen(true)}
       >
-        {t('home.dashboard.arrangeBar.reset')}
+        {t('common.action.resetToDefault')}
       </Button>
 
       {resetDialogOpen && (

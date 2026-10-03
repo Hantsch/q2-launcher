@@ -37,7 +37,7 @@ function UnknownValue() {
   return (
     <span>
       <span aria-hidden="true">–</span>
-      <span className="sr-only">{t('replays.row.unknown')}</span>
+      <span className="sr-only">{t('common.label.unknown')}</span>
     </span>
   )
 }
@@ -239,7 +239,7 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
           <span
             data-testid="replays-demo-favourite"
             role="img"
-            aria-label={t('replays.row.favourite')}
+            aria-label={t('common.label.favourite')}
             className="inline-flex items-center"
           >
             <Star className="size-3.5 fill-flame-500 text-flame-500" aria-hidden="true" />
@@ -298,7 +298,7 @@ export function DemoRow({ row, selected, onSelect, onRowPatched }: DemoRowProps)
               )
           }}
         >
-          <option value="">{t('replays.row.quick.noRating')}</option>
+          <option value="">{t('common.label.noValue')}</option>
           {RATING_OPTIONS.map((value) => (
             <option key={value} value={value}>
               {value}

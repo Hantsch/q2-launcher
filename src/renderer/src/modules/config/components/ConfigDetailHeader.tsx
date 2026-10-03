@@ -20,10 +20,12 @@ function RenameHeaderButton({ onClick }: { onClick: () => void }) {
   const rawDraft = useRawDraft()
   return (
     <IconButton
-      label={t('config.detail.rename')}
+      label={t('common.action.renameEllipsis')}
       size="sm"
       disabled={rawDraft.active}
-      title={rawDraft.active ? t('config.raw.tabsLockedByDraft') : t('config.detail.rename')}
+      title={
+        rawDraft.active ? t('config.raw.tabsLockedByDraft') : t('common.action.renameEllipsis')
+      }
       onClick={onClick}
     >
       <Pencil className="size-3.5" />
@@ -101,7 +103,7 @@ export function ConfigDetailHeader({
         <div className="flex items-center gap-1">
           <RenameHeaderButton onClick={onRename} />
           <IconButton
-            label={t('config.detail.delete')}
+            label={t('common.action.deleteEllipsis')}
             size="sm"
             variant="danger"
             onClick={onDelete}
