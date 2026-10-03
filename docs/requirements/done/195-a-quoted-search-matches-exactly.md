@@ -13,7 +13,7 @@ for `ffa` finds every server with "ffa" somewhere in it; searching for `"ffa"` f
 that is called exactly that. Without quotes, search behaves as it does today.
 
 Idea taken from a review of ozy24/q2connect, whose search does the same.
-Concept: [game-browser.md](../concepts/game-browser.md) §8, GB-L5.
+Concept: [game-browser.md](../../concepts/game-browser.md) §8, GB-L5.
 
 ## Acceptance Criteria
 

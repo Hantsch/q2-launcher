@@ -17,8 +17,8 @@ import {
  * persisted-state schemas in `src/main/lib/schemas.ts`).
  *
  * One exported schema per `IpcInvokeMap` channel, in the same section order as
- * that map. Not yet wired into any `handle()` call - that is a later
- * deliverable of story 036; for now these are exported-but-unused by design.
+ * that map. Wired in: each `handle()` in `src/main/ipc/` takes its channel's schema as a
+ * required parameter and parses the payload before the handler runs.
  */
 
 // ---- app --------------------------------------------------------------------

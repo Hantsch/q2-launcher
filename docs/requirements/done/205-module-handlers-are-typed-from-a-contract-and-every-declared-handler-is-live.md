@@ -12,7 +12,7 @@ IPC already is, so that a renamed handler, a changed response shape or a wrong g
 compile error instead of a runtime failure at click time. And I want a declared handler that is
 never registered, or registered but never called, to fail a test.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F03, F29, F30): 138 bus
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F03, F29, F30): 138 bus
 handlers (config 35, replays 34, servers 31, downloads 21, mods 10, home 6, library 1) against 50
 shell channels — 73 % of the IPC surface. `ModuleSetup.handle` types only the payload;
 `callModule<T>` ends in `result as Outcome<T>` (125 hand-chosen generics across seven

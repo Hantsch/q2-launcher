@@ -7,7 +7,7 @@ created: 2026-09-12
 
 ## Requirement
 
-The [install-module concept](../concepts/install-module.md) (INST-X1–X3) closes the last open
+The [install-module concept](../../systems/install-module.md) (INST-X1–X3) closes the last open
 part of Phase 4 M1: today removing an installation only removes its entry from the library,
 never the files on disk. Since the launcher now creates installation folders itself (the
 bootstrap wizard, retail import, updates), entry-only removal is no longer enough. Removal

@@ -161,8 +161,8 @@ launching, jobs:
 - **Paths from the renderer are never trusted.** Every invoke channel carries a
   required zod payload schema (`src/shared/ipc-schemas.ts`, primitives in
   `src/shared/schemas.ts`).
-- **Adding a feature is a module** (`config`, `install`, `mods`, `assets`) —
-  never edit the shell. Five-step checklist:
+- **Adding a feature is a module** (`home`, `library`, `config`, `downloads`, `mods`, `servers`, `replays`; `assets` is planned) —
+  never edit the shell. Step-by-step checklist:
   [docs/ARCHITECTURE.md#adding-a-module](docs/ARCHITECTURE.md#adding-a-module).
 - **No image assets in the UI** — every surface is CSS or inline SVG.
 

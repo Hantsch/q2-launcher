@@ -12,7 +12,7 @@ again, and to be told during the session if the launcher cannot write its state 
 maintainer I want the module lifecycle the registry was built for to actually run, so that
 modules stop keeping module-level singletons to work around a `dispose()` nobody calls.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F05, F50, F08):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F05, F50, F08):
 
 - `src/main/index.ts` `before-quit` fires `void Promise.all([mainWindow?.settle(), context?.state.settle()])`
   without `preventDefault()` and without awaiting; window-state has `debounceMs: 400`, so a resize

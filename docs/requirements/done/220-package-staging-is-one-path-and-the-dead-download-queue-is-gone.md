@@ -13,7 +13,7 @@ cap) as a pinned one. As the maintainer I want download → verify → extract t
 the content manifest to be read by one service, so that a staging fix is applied once and two
 modules stop writing the same cache file.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F12, F13, F43, F45):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F12, F13, F43, F45):
 
 - `startDownload(app, source)` is the only caller of `pipeline.start()` and has zero callers in
   main; `createPipelineFor` still runs at setup; `concurrentJobs` is consumed only by the dead

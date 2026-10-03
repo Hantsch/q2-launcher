@@ -12,7 +12,7 @@ carry the full i18n key, and reach the user through one toast helper, so that a 
 from the type how a refusal arrives, a generic refusal-to-toast path exists, and no key is
 assembled by string template where a key-coverage test cannot see it.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F04 part 3–4): 43
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F04 part 3–4): 43
 non-test files declare their own `{ ok: false … }` union — field named `reason` 31x, `reasonKey`
 11x, `error` 3x, `code` 2x; `ReplaysStageResult` uses `placed`; seven local `fail`/`refuse`
 helpers re-implement `@shared/types.fail`; the renderer assembles keys like

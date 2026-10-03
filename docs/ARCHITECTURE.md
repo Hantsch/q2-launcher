@@ -124,7 +124,7 @@ same required-schema idea one level down, for `module:invoke`'s per-module-handl
 payloads. A module's request schemas live in its shared contract map
 (`<MODULE>_HANDLER_SCHEMAS` in `src/shared/modules/<id>.ts`, see `home.ts`), never exposed
 as paths to trust. A main-only `schemas.ts` (`config`, `downloads`, `mods`) is the
-not-yet-converted state and is to move to shared.
+not-yet-converted state and moves to shared (planned in story 232).
 
 **Paths are never trusted.** `app:revealPath` only opens folders belonging to a
 registered installation or the launcher's own data directories. A mod directory is
@@ -291,63 +291,151 @@ The public surface other code reaches through is `AppContext.unlock`:
 - `redeem(code)` — the only path that can add a new persisted code;
 - `snapshot()` — every stored code with its current status, for the settings UI.
 
+## Modules as built
+
+Everything past the shell is a module, one of the eight `ModuleId`s in
+`src/shared/types/module.ts`: seven are built, `assets` is planned.
+
+- `home` — the home screen: the community news carousel (feed fetched by `home/news/`, slide
+  images cached by `home/images/` and served over `q2launcher://news-image/`) and the dashboard
+  grid of tiles the user arranges.
+- `library` — the installation library view; its one handler, `stats`, feeds the stats row.
+- `config` — config profiles: the settings, controls, aliases and raw-file editors, assigning a
+  profile to installations and writing it into the game's files
+  ([system doc](systems/config-module.md)).
+- `downloads` — installing and maintaining the game: the bootstrap wizard, engine update and
+  rollback, repair and retail upgrade, each a job, plus the Downloads tab
+  ([system doc](systems/install-module.md)).
+- `mods` — the mod catalog, installing, updating and removing mods as jobs, listing and revealing
+  installed mods, and whether an installation has a server's map.
+- `servers` — the server browser: master and HTTP list sources, LAN discovery, server queries,
+  favourites, history, saved quick filters, and the watchlist behind the `watchlist` feature.
+- `replays` — demos: discovery across installations, extra folders and zip archives with an
+  index cache, per-demo details in sidecars (favourite, rating, sides), rename, and playback with
+  timeline, console, stage and cinema modes.
+- `assets` — planned: a `MODULE_MANIFESTS` entry with `status: 'planned'` and nothing else, so its
+  route renders `PlannedModuleView` (what the module will do, which capabilities it needs).
+
+The seams a module is built on, each described once:
+
+- **The module bus.** Requests go through one shell-owned channel, `module:invoke`, with a
+  `{ moduleId, type, payload }` envelope; events come back on `module:event`. Handlers are keyed
+  `moduleId/type`, so modules cannot answer for each other and a module never widens the
+  renderer's IPC surface. `MainModuleRegistry.invoke` (`src/main/modules/registry.ts`) returns
+  one `Outcome` envelope: a handler's `Outcome<R>` passes through unchanged, an unknown handler is
+  `modules.error.notImplemented`, a bad payload `ipc.error.invalidPayload`, and a throw or a
+  non-`Outcome` result `modules.error.handlerFailed` (see [The IPC contract](#the-ipc-contract)).
+  A module typed from a contract builds its half with `defineModule<XContract>(id, schemas)`
+  (`src/main/modules/define-module.ts`) and its client with `createModuleClient<XContract>(id)`,
+  so request and result types come from the contract instead of a cast. Two coverage tests keep
+  the bus honest: `src/main/modules/handler-coverage.test.ts` (every declared handler of every
+  loaded module is registered) and `src/renderer/src/modules/handler-coverage.test.ts` (every
+  handler constant is referenced by its module's client).
+- **Jobs.** Long-running work runs through the one `JobRunner`, `app.jobRunner` — see
+  [Jobs](#jobs). `downloads` and `mods` produce jobs.
+- **Persisted state.** Each module owns its `state.json` key in `src/main/modules/<id>/persisted.ts`
+  and its shape-change steps in `persisted-migrations.ts` (only `config` has steps) — see
+  [State and persistence](#state-and-persistence).
+- **Features and unlock.** `app.features` (`src/main/features/gate.ts`) is a frozen snapshot of
+  the unlocked features, resolved once at boot from the `UnlockService` (see
+  [Unlock codes](#unlock-codes)). A handler registered with `{ feature }` is not registered at
+  all while that feature is locked; the renderer reads the same set over `features:getUnlocked`
+  and gates UI with `components/features/FeatureGate.tsx`.
+- **The protocol handler.** `src/main/index.ts` registers the privileged `q2launcher` scheme and,
+  in production, serves the renderer bundle from it with `PRODUCTION_CSP`, plus the cached news
+  images under `q2launcher://news-image/` on the same origin (see
+  [Dynamic styles under the production CSP](#dynamic-styles-under-the-production-csp)).
+- **The UI harness.** `app.harness` is the `Q2L_UI_*` environment gate resolved once at boot
+  (`resolveUiHarness` in `src/main/lib/ui-harness.ts`); a module reads its fixture overrides
+  through it, never through `process.env` — see
+  [Harness mode](UI-VERIFICATION.md#harness-mode-q2l_ui_harness).
+- **The main-window observer.** `app.mainWindow` (`src/main/main-window-observer.ts`) is a
+  read-only view of the main window — bounds, scale, minimized and focused state, and its
+  move/resize/minimize/restore/focus/blur events — so a module never touches the `BrowserWindow`.
+  The cinema overlay is the matching write-side service, see
+  [Decisions: shell service for the cinema overlay](#decisions-shell-service-for-the-cinema-overlay).
+- **Shutdown.** `src/main/shutdown.ts` runs the quit sequence: playback pipe release, module
+  disposers in reverse registration order, then the stores settle — see
+  [State and persistence](#state-and-persistence).
+
 ## Adding a module
 
-Everything past the shell is a module: `config`, `downloads`, `mods`, `assets`. The
-shell never needs editing to add one.
+The shell never needs editing to add a module. The steps, walked through `replays`
+(`src/shared/modules/replays.ts`, `src/main/modules/replays/`, `src/renderer/src/modules/replays/`):
 
-1. **Contract** — `src/shared/modules/<id>.ts`: a schema map
-   (`<ID>_HANDLER_SCHEMAS ... satisfies Record<string, ZodTypeAny>`) and a
-   `type <Id>Contract` alias satisfying `ModuleContract` (`src/shared/modules/contract.ts`):
-   `handlers` as `{ req, res }` per name (`req` via `z.infer` of the schema map, `res` the
-   value inside `Outcome`) and `events` as name to payload. See `HomeContract` in `home.ts`.
-2. **Manifest** — add the id to `ModuleId` and an entry to `MODULE_MANIFESTS` in
-   `src/shared/types/module.ts` (title/description i18n keys, icon, route, nav
-   placement, capabilities). Manifests already exist for all four planned modules.
-3. **Main half** — a `MainModule` in `src/main/modules/<id>/index.ts`, registered
-   in `src/main/modules/index.ts`. It receives `handle`, `emit`, `app` (the
-   services), a scoped logger and `onDispose`. Build it with
-   `defineModule<XContract>(id, schemas).bind(setup)`, which types `handle` and `emit`
-   against the contract and requires a schema for every handler. It never touches `ipcMain`,
+1. **Contract** — `src/shared/modules/<id>.ts` declares the handler names
+   (`REPLAYS_HANDLERS`), the event names (`REPLAYS_EVENTS`), a zod schema per request and the
+   result types. A module typed from a contract adds a schema map
+   (`<ID>_HANDLER_SCHEMAS ... satisfies Record<string, ZodTypeAny>`) and a `type <Id>Contract`
+   satisfying `ModuleContract` (`src/shared/modules/contract.ts`): `handlers` as `{ req, res }`
+   per name (`req` via `z.infer` of the schema map, `res` the value inside `Outcome`) and
+   `events` as name to payload — see `HomeContract` in `home.ts` and `ServersContract` in
+   `servers.ts`. `library`, `config`, `downloads`, `mods` and `replays` do not have a contract
+   type yet (planned in story 232).
+2. **`ModuleId` + manifest** — add the id to `ModuleId` and an entry to `MODULE_MANIFESTS` in
+   `src/shared/types/module.ts`: title/description i18n keys, icon, route, nav placement,
+   `status`, capabilities, `ipcNamespace`.
+3. **State slot** — `src/main/modules/<id>/persisted.ts`: the schema, the forgiving parse, the
+   defaults and `<id>State(app.state)` over `app.state.section()` (replays: `replaysState`, key
+   `replays`), plus the module's line in the golden document of
+   `src/main/modules/persisted-state.golden.test.ts`. A shape change adds a step to the module's
+   `persisted-migrations.ts`, concatenated into `MODULE_MIGRATIONS` in `src/main/modules/index.ts`
+   (see [State and persistence](#state-and-persistence)).
+4. **Main half + registry** — `src/main/modules/<id>/index.ts` exports a `MainModule`
+   (`replaysModule`), added to `MODULES` in `src/main/modules/index.ts`, which registers it with
+   the `MainModuleRegistry` (`src/main/modules/registry.ts`) at boot, and to `DECLARED` in
+   `src/main/modules/handler-coverage.test.ts`. `setup()` receives `handle`, `emit`, `app` (the
+   services), a scoped `log` and `onDispose`. A contract-typed module binds them with
+   `defineModule<XContract>(id, schemas).bind(setup)`, which types `handle` and `emit` against
+   the contract and requires a schema for every handler. It never touches `ipcMain`,
    `BrowserWindow`, `electron` or `process.env`: its only way to the OS, the screen and the
    harness is `app.os` (open, reveal, copy), `app.displays`, `app.harness` (the resolved
    `Q2L_UI_*` gate), `app.env` (a frozen environment copy), `app.isPackaged` and
-   `app.userDataDir`; `src/architecture.test.ts` enforces it. The only other electron-backed paths are the narrow shell libs a module may import (`lib/paths`, `lib/net/fetcher`, `lib/native-image`), which are not a general electron handle. Persisted state lives in `src/main/modules/<id>/persisted.ts` (schema,
-   forgiving parse, defaults, `<id>State(app.state)` over `app.state.section()`); a shape change
-   adds a step to `persisted-migrations.ts` (see State and persistence). `setup()` keeps its state in its closure
-   (no module-level `let`) and releases it through `onDispose`; the registry runs
-   the disposers in reverse registration order at shutdown.
-4. **Renderer half** — a view, registered in `src/renderer/src/modules/index.ts`,
-   plus `createModuleClient<XContract>(id)` (`src/renderer/src/modules/moduleClient.ts`):
-   `call` infers `Promise<Outcome<Res>>` and `on` the event payload.
-5. **Strings** — `src/renderer/src/modules/<id>/locale/en.json`, registered in
-   `src/renderer/src/modules/locales.ts`; shell strings live in
-   `src/renderer/src/i18n/locales/en.shell.json`.
+   `app.userDataDir`; `src/architecture.test.ts` enforces it. The only other electron-backed
+   paths are the narrow shell libs a module may import (`lib/paths`, `lib/net/fetcher`,
+   `lib/native-image`), which are not a general electron handle.
+5. **Strings** — `src/renderer/src/modules/<id>/locale/en.json`, added to `MODULE_LOCALES_EN` in
+   `src/renderer/src/modules/locales.ts` (replays keeps its keys under `replays.`); shell strings
+   live in `src/renderer/src/i18n/locales/en.shell.json`. Main sends keys, never prose.
+6. **Every handler returns `Outcome`** — `ok(value)` or `fail(key)` from `@shared/types`; a
+   domain "no" is a `Refusal` built with `refuse()` inside `Outcome.value`. The registry passes
+   the `Outcome` through unchanged (see [Modules as built](#modules-as-built)).
+7. **Dispose via `onDispose`** — `setup()` keeps its state in its closure (no module-level `let`)
+   and releases it through `onDispose`; replays registers one for each playback service
+   (control, stop, stage follow, cinema) and one for its main-window subscription. The registry runs the disposers in reverse registration order at
+   shutdown.
+8. **Renderer half + client** — a view (and optionally a `settingsSection`) registered in
+   `src/renderer/src/modules/index.ts` (replays: `ReplaysView`, `ReplaysSettingsSection`), and
+   `src/renderer/src/modules/<id>/client.ts` over `moduleClient.ts`: a contract-typed module uses
+   `createModuleClient<XContract>(id)`, whose `call` infers `Promise<Outcome<Res>>` and `on` the
+   event payload; replays' client still calls `callModule`/`onModuleEvent` (planned in story
+   232). Add the handler map to `GROUPS` in `src/renderer/src/modules/handler-coverage.test.ts`.
+9. **Flows and screens** — the module's user-facing behaviour is proven by flows in
+   `scripts/flows/` (`replays-cinema.mjs`, `replays-copy-in.mjs`, ...), run with
+   `npm run ui:flow -- <name>`, and every screen it adds is an entry in `SCREENS` in
+   `scripts/lib/screens.mjs` (`replays-list`, `replays-detail`) — see
+   [How to write a flow](UI-VERIFICATION.md#how-to-write-a-flow) and
+   [How to add a screen to the registry](UI-VERIFICATION.md#how-to-add-a-screen-to-the-registry).
+10. **Layering allowlist** — a module imports no other module; an edge that cannot be avoided is
+    an `ALLOWED` entry in `src/architecture.test.ts` with its story number and reason (see
+    [Layering and security guards](#layering-and-security-guards)).
+11. **Docs** — the module's line in [Modules as built](#modules-as-built) and its system doc in
+    `docs/systems/<id>.md` (planned in story 228; today `config` and `downloads` have one, as
+    `config-module.md` and `install-module.md`).
 
-Until step 4 exists, the route renders `PlannedModuleView`, which states what the
-module will do and which capabilities it needs. The roadmap lives in the product
-rather than only in a file.
-
-Module request traffic goes through one shell-owned channel, `module:invoke`, with
-a `{ moduleId, type, payload }` envelope. Handlers are keyed `moduleId/type`, so
-modules cannot answer for each other and — more importantly — a module can never
-widen the renderer's IPC surface. The contract gives per-call type safety end to
-end. Bus-wide coverage tests assert every declared handler is registered and referenced by
-the module's client. Every handler returns `Outcome<R>` and the
-registry passes it through unchanged, so a client receives exactly `Outcome<R>`.
-
-`library` is the working reference implementation. Its stats row in the library
-view is fetched over `module:invoke`, so the seam is exercised end to end rather
-than merely described.
+Until the module's renderer half exists (step 8), the route renders `PlannedModuleView`, which states what the module will do
+and which capabilities it needs. The roadmap lives in the product rather than only in a file.
 
 ### Jobs
 
-Long-running module work uses `JobsService`. A module creates a `Job`, reports
-progress, and the action bar's download readout — bytes, speed, files remaining,
-the `PLAYABLE` threshold marker — updates for free.
+Long-running module work is a `Job` in `JobsService`: the downloads module's bootstrap, engine
+update and rollback, repair and retail-upgrade jobs and the mods module's install, update and
+remove jobs. A job reports progress, and the action bar's download readout — bytes, speed, files
+remaining, the `PLAYABLE` threshold marker — updates for free.
 
-A module does not drive `JobsService` itself: `JobRunner.run(spec, body)`
-(`services/job-runner.ts`) owns the lifecycle and hands the body a `ctx`. The
+A module does not drive `JobsService` itself: every job runs through the one
+`JobRunner.run(spec, body)` (`services/job-runner.ts`, `app.jobRunner`), which owns the lifecycle
+and hands the body a `ctx`. The
 runner owns the `AbortController` (the job's cancel aborts `ctx.signal` and kills
 the handle registered with `ctx.setExtractor`), a `settled` promise that never
 rejects, and the catch for a body that throws (it ends as
@@ -368,7 +456,10 @@ worked on without a real download.
 ## Renderer
 
 The shell store (`store/useLauncher.ts`, Zustand) mirrors the main-process state
-the shell needs; main owns it and the store only ever applies what main pushes.
+the shell needs; main owns it and the store only ever applies what main pushes. It is one of six
+Zustand stores: two more are shell-wide (`usePrimaryActionStore` in `lib/primary-action.ts`,
+`useOverlayRegistry` in `lib/overlay-registry.ts`) and three belong to a module
+(`useConfigProfiles`, `useDemoEditorStore`, `usePlaybackStore`).
 Selectors are plain hooks so components subscribe to the narrowest slice they need.
 
 Routing is a `switch` in `AppShell.tsx`, not a router. There are a handful of
@@ -458,6 +549,41 @@ cannot satisfy the check as a prefix) and collects the page's
 `securitypolicyviolation` events into `RunLog.cspViolations`, so a violation fails a
 `ui:verify` run the same way a console error does. Note that `ui:flow` shares the
 collector but does not read it — a flow's pass/fail only reflects its own steps.
+
+## Errors and logging
+
+- **Expected failures are an `Outcome`**, returned to the caller (a refused write, a missing
+  file, a bad payload). **A bug throws**; nothing catches it to turn it into a value.
+- **A bare `catch` says what it swallows**: either a comment naming the failure class it
+  tolerates (`// the file may not exist yet`) or a call to `log.caught(message, error)` from
+  `scopedLogger` in `src/main/lib/logger.ts`, which logs at `warn` with the error last. Existing
+  bare catches are migrated file by file (planned in story 230).
+- **Levels.** `error` — a bug or lost user data. `warn` — degraded but handled. `info` —
+  lifecycle (start, stop, job finished). `debug` — developer detail.
+- **Always pass the `Error` object**, not `error.message`, so the stack reaches the log file.
+- **No secrets and no user paths at `info`** — the log file is what users attach to bug reports.
+
+## Renderer state
+
+Pick in this order:
+
+1. **Main-owned data** — a query hook (`useModuleQuery` / `useModuleMutation` in
+   `lib/useModuleQuery.ts`) or, for what the shell itself shows, the shell store's mirror.
+2. **Cross-view state of one module** — a module Zustand store.
+3. **State a subtree shares** — a React context (e.g. `ProfileDraftProvider` in `config`).
+4. **Everything else** — component state.
+
+## Inside a renderer module
+
+A module folder under `src/renderer/src/modules/<id>/` is laid out as:
+
+- The `View` and its tabs sit at the module root, next to `client.ts` and `locale/`.
+- `components/` — the module's presentational pieces and panels.
+- `dialogs/` — the module's dialogs.
+- `hooks/` — hooks, one per file, camelCase `useX.ts`.
+- `lib/` — React-free logic (no hooks, no JSX), unit-testable without a DOM.
+
+Not every module has every folder yet; a folder appears when the module needs it.
 
 ## Testing
 

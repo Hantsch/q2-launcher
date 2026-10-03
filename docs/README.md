@@ -53,6 +53,9 @@ docs/
 
 ## Project-specific
 
+- **Test paths for story/sprint templates** — e2e flows `scripts/flows/<name>.mjs`, run by
+  `npm run ui:flow -- <name>`; unit/component tests `src/**/*.test.ts(x)`; script tests
+  `scripts/**/*.test.mjs`.
 - **How the app is put together** → [ARCHITECTURE.md](ARCHITECTURE.md).
 - **What a whole-codebase review found, and which stories address it** →
   [reviews/](reviews/) (one dated report per review; findings table + story map).

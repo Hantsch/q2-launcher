@@ -9,10 +9,10 @@ favourites or just one server instead of always reloading everything.
 
 | Story                                                                                                                   | Status | Commit                                      |
 | ----------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------- |
-| [114 — a scan sweeps the servers in two stages](../../requirements/done/114-a-scan-sweeps-the-servers-in-two-stages.md) | done   | `114: sweep servers in two stages`          |
-| [115 — how hard the scan works is a setting](../../requirements/done/115-how-hard-the-scan-works-is-a-setting.md)       | done   | `115: how hard the scan works is a setting` |
-| [116 — no scan runs while the game does](../../requirements/done/116-no-scan-runs-while-the-game-does.md)               | done   | `116: no scan runs while the game does`     |
-| [117 — a refresh only reloads what changed](../../requirements/done/117-a-refresh-only-reloads-what-changed.md)         | done   | `117: a refresh only reloads what changed`  |
+| [114 — a scan sweeps the servers in two stages](../../../requirements/done/114-a-scan-sweeps-the-servers-in-two-stages.md) | done   | `114: sweep servers in two stages`          |
+| [115 — how hard the scan works is a setting](../../../requirements/done/115-how-hard-the-scan-works-is-a-setting.md)       | done   | `115: how hard the scan works is a setting` |
+| [116 — no scan runs while the game does](../../../requirements/done/116-no-scan-runs-while-the-game-does.md)               | done   | `116: no scan runs while the game does`     |
+| [117 — a refresh only reloads what changed](../../../requirements/done/117-a-refresh-only-reloads-what-changed.md)         | done   | `117: a refresh only reloads what changed`  |
 
 All four stories built, clean-agent-reviewed and committed on `sprint/S24`. No story was blocked.
 

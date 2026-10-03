@@ -12,7 +12,7 @@ fake `AppContext`, installation/job/profile builders and typed client mocks from
 that a shape change costs one edit instead of five to sixteen and mocks cannot silently drift
 from the real client.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F53, F54, F71):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F53, F54, F71):
 `src/main/lib/logger.ts` runs `log.initialize()` and sets `console.level = 'debug'` at import;
 50 main files import it and only 4 tests mock it; vitest has no `setupFiles`/`silent`; a
 dot-reporter run prints 622 `stdout |`/`stderr |` blocks and every test touching a module loads

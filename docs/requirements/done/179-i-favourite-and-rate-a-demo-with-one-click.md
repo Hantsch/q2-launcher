@@ -19,7 +19,7 @@ mode of [[178]].
 
 The roadmap carries a known race: `demo-editor-store.ts`'s `quickEdit` is a fire-and-forget
 read-merge-write, so a favourite toggle and a rating pick fired back-to-back on the same demo can
-drop one of them ([S27 review](../sprints/done/S27/review.md)). With both controls side by side in
+drop one of them ([S27 review](../../sprints/done/S27/review.md)). With both controls side by side in
 the header this becomes easy to hit, so this story closes it.
 
 ## Acceptance Criteria

@@ -12,7 +12,7 @@ in the launcher to behave the same — Enter submits once, focus lands in the fi
 keyboard-navigable. As the maintainer I want those to be primitives in `components/ui`, so that
 a UX or accessibility fix is one edit instead of twelve to eighteen.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F18, F74, F68):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F18, F74, F68):
 `const [submitting, setSubmitting]` appears in 29 renderer files, 12 paired with
 `[name, setName]`; `RenameCvarSectionDialog` and `RenameCvarSubsectionDialog` differ only in a
 type name and two i18n keys; each copy's comment says "Mirrors RenameCategoryDialog's shape".

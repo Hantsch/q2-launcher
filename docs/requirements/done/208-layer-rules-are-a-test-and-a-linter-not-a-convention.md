@@ -13,7 +13,7 @@ the shell, the shell does not import module internals — to fail a test when br
 hold without a reviewer remembering them. And I want a linter back, so that unused imports,
 hook-dependency mistakes and restricted imports are caught by a machine.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F56, F06, F59): there is
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F56, F06, F59): there is
 no eslint/oxlint/biome; `package.json` has only `typecheck`. Shared purity is checked by four
 hand-written tests that read their own source with `node:fs`, each needing its own
 `tsconfig.web.json` exclude (the roadmap already flags this). Nothing checks `src/renderer` for

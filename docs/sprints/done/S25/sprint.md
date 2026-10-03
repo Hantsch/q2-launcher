@@ -39,7 +39,7 @@ invisible until a code names `watchlist`.
 
 Merges the previously planned S25–S28 (milestones 9.4–9.7) into one sprint, the last of the
 game-browser milestone. It depends on S22–S24 (stories 106–117), which are done. Concept:
-[docs/concepts/game-browser.md](../../concepts/game-browser.md).
+[docs/concepts/game-browser.md](../../../concepts/game-browser.md).
 
 **Build order is a dependency chain.**
 

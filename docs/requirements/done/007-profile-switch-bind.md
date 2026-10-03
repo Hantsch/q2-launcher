@@ -12,7 +12,7 @@ cycles to the next assigned profile during play and echoes its new name to the c
 can switch between profiles without restarting the game — without it ever changing my
 installation's default profile.
 
-See [docs/concepts/config-module.md §4](../concepts/config-module.md#4-core-terms--model) and
+See [docs/concepts/config-module.md §4](../../systems/config-module.md#4-core-terms--model) and
 CFG-6. Reuses the self-rewriting alias-pair mechanism story 006 builds for toggle layers.
 
 ## Acceptance Criteria

@@ -13,7 +13,7 @@ setup, so that adding a module no longer means editing three shell files and two
 the shell can be typechecked and tested without every module, and the dependency direction the
 architecture doc promises is true again.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F02, F33, F08):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F02, F33, F08):
 `src/main/lib/schemas.ts` (1,655 lines, 55 commits since August — ~13 % of all commits touch
 this one file) holds persisted schemas for installations and config (~905 lines), downloads,
 home layout, servers, unlock and replays, importing five module contracts plus

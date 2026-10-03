@@ -13,7 +13,7 @@ optimistic apply and subscription are implemented once, behave the same in every
 place to grow caching later. As a user I want the server list not to re-sort hundreds of rows on
 every unrelated state change.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F19, F48, F61):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F19, F48, F61):
 `let cancelled = false` appears 36 times in 26 non-test renderer files, always wrapping a
 one-shot IPC read with `if (cancelled) return` and a cleanup. `useWatchlist` and
 `useQuickFilters` are the same hook under two names; `ServersSettingsSection` and

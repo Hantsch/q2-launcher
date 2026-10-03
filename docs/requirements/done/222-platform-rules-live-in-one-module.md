@@ -11,7 +11,7 @@ As the maintainer I want "is the filesystem case-insensitive here", "what is the
 name", "are we on Windows/Linux" to be answered by one module, so that the same product question
 is not answered in several spellings that can drift, and new platform code has a home.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F32, F64; the scatter is
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F32, F64; the scatter is
 a roadmap follow-up): `process.platform`/`'win32'`/`'linux'` appear in 29 non-test main files
 (~50 reads). Four places decide case-insensitivity and disagree: `pathKey` folds unless linux;
 `ipc/app.ts` re-implements it inline; `steam.ts` folds only on win32; `diagnostics.ts` likewise —

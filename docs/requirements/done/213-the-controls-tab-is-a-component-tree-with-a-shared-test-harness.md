@@ -12,7 +12,7 @@ function, so that a binds story edits a row component, a drag story edits a drag
 is applied once, and a Controls test costs a few lines on a shared harness instead of 150–280
 copied lines. As a user I want the Controls grid to stay smooth while dragging.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F16, F41, F42, F66):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F16, F41, F42, F66):
 `src/renderer/src/modules/config/ControlsTab.tsx` is 2,524 lines — 34 `useState`, 6 `useRef`,
 6 `useEffect`, 27 handlers, 11 `render*` JSX helpers, a 507-line `return` mounting 11 dialogs,
 and five more dialog components appended at the bottom; 20 commits since August, the most

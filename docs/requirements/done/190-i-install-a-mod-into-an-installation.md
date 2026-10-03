@@ -18,7 +18,7 @@ verification, archive cache, 7-Zip extraction. Its write phase runs inside the w
 waits while the game runs. The launcher keeps an install record of the files it wrote
 (`Installation.moduleData['mods']`). Stories 191 (remove) and 194 (update) work from that record.
 
-Concept: [mods.md](../concepts/mods.md) §6, §10; requirements MOD-5 to MOD-11.
+Concept: [mods.md](../../concepts/mods.md) §6, §10; requirements MOD-5 to MOD-11.
 
 ## Acceptance Criteria
 

@@ -13,7 +13,7 @@ installation already has, with each one labelled for where it came from. Today t
 both registries, its own IPC contract) and gives it its view: a tile catalog with a detail panel.
 Later stories fill the catalog with installable entries.
 
-Concept: [mods.md](../concepts/mods.md) §9, §12; requirements MOD-1, MOD-2, MOD-14.
+Concept: [mods.md](../../concepts/mods.md) §9, §12; requirements MOD-1, MOD-2, MOD-14.
 
 ## Acceptance Criteria
 

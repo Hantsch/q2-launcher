@@ -26,7 +26,7 @@ scratch.
 ## Notes
 
 This is the first of (at least) two sprints for the Config module — see
-[docs/concepts/config-module.md](../../concepts/config-module.md). Not covered here, planned
+[docs/concepts/config-module.md](../../../systems/config-module.md). Not covered here, planned
 for a follow-up sprint once this foundation is built and accepted: keyboard/overview tab with
 test mode, alternate binding layers, advanced tab (categories, messages, macros, symbol
 picker), the multi-engine validator, cleanup of redundant per-mod config copies, and the

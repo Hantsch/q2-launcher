@@ -27,11 +27,11 @@ timeline can stop the demo; the game console is no longer flooded by the launche
 ## Notes
 
 - Triggered by live use of S28: fullscreen hides the timeline, and `quit` typed in-game does
-  nothing. Spike 169 ([RESULT](../../../spikes/169-windowed-stage/RESULT.md)) found the cause — the
+  nothing. Spike 169 ([RESULT](../../../../spikes/169-windowed-stage/RESULT.md)) found the cause — the
   Windows control loop starves every command typed or bound in-game — which also means **story
   167's demo binds are dead on Windows while the launcher steers a demo**; 172 fixes that for
   fullscreen, 173 makes it visible on the stage.
-- Concept change: §3/§12 of [demo-browser.md](../../concepts/demo-browser.md) now make the windowed
+- Concept change: §3/§12 of [demo-browser.md](../../../concepts/demo-browser.md) now make the windowed
   stage the default and in-game binds the fullscreen path. Embedding (`SetParent`) stays a non-goal.
 - Highest regression risk: 170/171 change every demo playback's launch arguments and add window
   tracking in main; 172 touches [[164]]'s loop lifecycle and the config action catalog (migration,

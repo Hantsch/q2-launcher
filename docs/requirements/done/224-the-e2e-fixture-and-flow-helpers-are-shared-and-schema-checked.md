@@ -12,7 +12,7 @@ the real schema on every test run, and the helpers flows share to live in one pl
 schema or default change cannot silently desynchronise 136 flows and a protocol or test-id change
 is one edit instead of fifteen to twenty-two.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F22, F52):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F22, F52):
 `scripts/lib/fixture.mjs` is 5,737 lines with 231 exports and 97 "Mirrors src/â€¦" comments;
 `STATE_SCHEMA_VERSION = 1` (comment: "currently 2") while src is at 5; `DEFAULT_SETTINGS`,
 `WINDOW_STATE_FILE`, failure shapes and the controls seed are retyped by hand; variant dispatch
@@ -240,7 +240,7 @@ D3 after D2 (it imports the facade's `VARIANTS`/legacy exports).
 
 ## Done
 
-Fixture literals now come from src/shared/fixture-constants.json; ixture.mjs is a facade over 11 files under scripts/lib/fixture/ with a VARIANTS map (seed output byte-identical, 5,892 files hashed before/after); ixture-parity.test.ts loads every variant through the real StateStore. Duplicated flow helpers moved into servers-stub, servers-flow, eplays-copy-in, low-common; low-helper-duplication.test.mjs guards them.
+Fixture literals now come from src/shared/fixture-constants.json; ixture.mjs is a facade over 11 files under scripts/lib/fixture/ with a VARIANTS map (seed output byte-identical, 5,892 files hashed before/after); ixture-parity.test.ts loads every variant through the real StateStore. Duplicated flow helpers moved into servers-stub, servers-flow, eplays-copy-in, low-common; low-helper-duplication.test.mjs guards them.
 
 Commit message: `224: shared fixture constants, fixture facade split, StateStore parity test, shared flow helpers + duplication guard`
 

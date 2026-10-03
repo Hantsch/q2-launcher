@@ -6,12 +6,8 @@
  * (shared manifest), then registered twice - a service half in the main process
  * and a view half in the renderer - both keyed by `id`.
  *
- * Adding a module therefore never means editing the shell:
- *   1. add the id to `ModuleId`
- *   2. add a manifest to `MODULE_MANIFESTS`
- *   3. register a main-process service in `src/main/modules/index.ts`
- *   4. register a renderer view in `src/renderer/src/modules/index.ts`
- *   5. add its i18n keys
+ * Adding a module never means editing the shell; the steps are in
+ * docs/ARCHITECTURE.md#adding-a-module.
  */
 export type ModuleId =
   'home' | 'library' | 'config' | 'downloads' | 'mods' | 'assets' | 'servers' | 'replays'

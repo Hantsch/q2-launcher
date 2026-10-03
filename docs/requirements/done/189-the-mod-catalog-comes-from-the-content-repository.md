@@ -19,7 +19,7 @@ original source (GitHub releases, or the id 3.20 point release already in
 Each entry carries its gamedir, version, licence (SPDX), project page, source link and its
 variants per _(platform, engine architecture)_.
 
-Concept: [mods.md](../concepts/mods.md) §6–§8; requirements MOD-3, MOD-4.
+Concept: [mods.md](../../concepts/mods.md) §6–§8; requirements MOD-3, MOD-4.
 
 ## Acceptance Criteria
 

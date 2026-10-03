@@ -4,9 +4,9 @@
 
 _As of 2026-10-02._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31).
 Current: Phase 11, codebase health. S32 (gate, foundations, module bus; 18 stories) is finished on
-`sprint/S32` ([review](sprints/S32/review.md)); S33 (config + renderer layers, docs, X11 stage story 198) is next.
+`sprint/S32` ([review](sprints/done/S32/review.md)); S33 (config + renderer layers, docs, X11 stage story 198) is next.
 Waiting on the user: merging `sprint/S32` into `dev` (S33 starts after it), the manual residue in the
-S28–S30 and [S32](sprints/S32/testplan.md) testplans, 102's Q1–Q4, and a decision on story drafts 232–236.
+S28–S30 and [S32](sprints/done/S32/testplan.md) testplans, 102's Q1–Q4, and a decision on story drafts 232–236.
 
 ## Phase overview
 
@@ -30,7 +30,7 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 
 | #    | Milestone                                                  | Status  | Sprint(s)                    | Note                                                              |
 | ---- | ---------------------------------------------------------- | ------- | ---------------------------- | ----------------------------------------------------------------- |
-| 11.1 | A green gate, safe foundations, one module bus             | done 2026-10-02 | [S32](sprints/S32/review.md) | 18 stories, main side and infra; merge into `dev` waits on the user. |
+| 11.1 | A green gate, safe foundations, one module bus             | done 2026-10-02 | [S32](sprints/done/S32/review.md) | 18 stories, main side and infra; merge into `dev` waits on the user. |
 | 11.2 | Config module and renderer on shared layers, docs as built | planned | [S33](sprints/S33/sprint.md) | 16 stories incl. X11 stage story 198; starts after S32 is merged. |
 
 ## Open / unprioritised
@@ -53,30 +53,30 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 - Stage cvar restore edges: a launcher quit while the game runs lets the stage values persist, and negative display origins (`+-X` in `vid_geometry`) are unverified against real Q2PRO. [S29 review](sprints/done/S29/review.md)
 - A stop whose kill succeeds but never yields an `exit` event leaves the UI on "Stopping…" (e.g. a Linux wine wrapper). [S29 review](sprints/done/S29/review.md)
 - Story 157's AC6 (rename while playing) can now get its real-playback e2e. [S28 review](sprints/done/S28/review.md)
-- S32 review drafts: [232](requirements/232-every-modules-handlers-are-typed-from-a-contract.md) typed handlers for the five unconverted modules, [233](requirements/233-the-flow-gate-has-no-quarantined-flows-and-catches-cross-story-breakage.md) empty quarantine and cross-story flow selection, [234](requirements/234-release-verification-and-ci-rehearsals-run-before-a-merge-to-main.md) `verify:release` and `act` rehearsals, [235](requirements/235-shutdown-state-store-and-job-edge-cases-are-closed.md) lifecycle edges, [236](requirements/236-the-layer-and-error-key-rules-have-no-known-holes.md) layer and error-key holes. [S32 review](sprints/S32/review.md)
-- `dedupeByKey` (`lib/forgiving.ts`) and `toastRefusal` (`lib/toast.ts`) have no production caller — wire them at first use or delete them. [S32 review](sprints/S32/review.md)
-- Test tidy-up: split test files still carry story numbers in `describe` titles, a few `as never` casts sit in client-mock overrides, and the renderer handler-reference regex also matches comments. [S32 review](sprints/S32/review.md)
-- Missing tests: darwin cases at the steam/diagnostics call sites and a thin `looksLikeQuake2` test (222); swapped-argument order of `isInside` at the remove/update/target/install call sites (199). [S32 review](sprints/S32/review.md)
+- S32 review drafts: [232](requirements/232-every-modules-handlers-are-typed-from-a-contract.md) typed handlers for the five unconverted modules, [233](requirements/233-the-flow-gate-has-no-quarantined-flows-and-catches-cross-story-breakage.md) empty quarantine and cross-story flow selection, [234](requirements/234-release-verification-and-ci-rehearsals-run-before-a-merge-to-main.md) `verify:release` and `act` rehearsals, [235](requirements/235-shutdown-state-store-and-job-edge-cases-are-closed.md) lifecycle edges, [236](requirements/236-the-layer-and-error-key-rules-have-no-known-holes.md) layer and error-key holes. [S32 review](sprints/done/S32/review.md)
+- `dedupeByKey` (`lib/forgiving.ts`) and `toastRefusal` (`lib/toast.ts`) have no production caller — wire them at first use or delete them. [S32 review](sprints/done/S32/review.md)
+- Test tidy-up: split test files still carry story numbers in `describe` titles, a few `as never` casts sit in client-mock overrides, and the renderer handler-reference regex also matches comments. [S32 review](sprints/done/S32/review.md)
+- Missing tests: darwin cases at the steam/diagnostics call sites and a thin `looksLikeQuake2` test (222); swapped-argument order of `isInside` at the remove/update/target/install call sites (199). [S32 review](sprints/done/S32/review.md)
 
 - A scoped refresh ("Refresh favourites" / "Refresh this server") overwrites a row's `origins`
   instead of merging them into the existing entry — currently inert since nothing reads `origins`
-  yet, but worth fixing before story 131's watchlist work is likely to. [S24 review](../sprints/S24/review.md)
+  yet, but worth fixing before story 131's watchlist work is likely to. [S24 review](sprints/done/S24/review.md)
 - `AppContext` exposes both the frozen `features` gate and the live `unlock` service side by side —
   a future handler reading `app.unlock` directly (bypassing `app.features.isFeatureUnlocked`) could
   see a mid-session redemption before the boot-time gate does. Not exploitable today (no
   redeem-triggering channel reads it directly), but worth hardening — e.g. freezing/hiding `unlock`
-  from module handlers — before a future feature adds one. [S25 review](../sprints/S25/review.md)
+  from module handlers — before a future feature adds one. [S25 review](sprints/done/S25/review.md)
 
 - 093's `reinstall-engine` repair gates on the manifest being able to supply the installation's
   recorded engine, slightly stricter than the plan's offer gate — latent today since the shipped
   manifest only pins the two engines both paths already require; worth re-checking once a third
-  engine is added. [S20 review](../sprints/S20/review.md)
+  engine is added. [S20 review](sprints/done/S20/review.md)
 - `docs/concepts/home-screen.md` §6 still says the content repository holds "only a LICENSE" —
   story 080 added `engines/` and `gamedata/`. A small doc correction, next time that concept is
-  touched. [S18 review](../sprints/done/S18/review.md)
+  touched. [S18 review](sprints/done/S18/review.md)
 - `scripts/fetch-7za.mjs` (071) has never run end-to-end in this environment (no network access
   to 7-zip.org) — the wiring is correct but unverified against a real download; three tests stay
-  `it.skipIf`-gated until someone with network access runs it once. [S16 review](../sprints/done/S16/review.md)
+  `it.skipIf`-gated until someone with network access runs it once. [S16 review](sprints/done/S16/review.md)
 - `setPlayedMods`/`setSwitchBind` (022) still bypass the sync engine — a stale switch-bind chain
   can `exec` an unmigrated filename until the next real sync touches that profile.
 - 9 non-blocking findings from story 010's review (restore-primitive
@@ -89,7 +89,7 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
 - No `-safe` launch mode exists in r1q2 — one has to be a launcher-composed `+set` bundle.
 - 098's real `checker.ts` has a narrow cancel-timing window (a cancel racing the moment a download
   finishes) flagged by its review and left as a documented, non-blocking limitation — worth closing
-  once anyone hits it in practice. [S21 review](../sprints/S21/review.md)
+  once anyone hits it in practice. [S21 review](sprints/done/S21/review.md)
 - Make `ci.yml`'s `npm audit` step blocking (drop `continue-on-error`) on 2026-10-09, after S33.
   [story 226]
 - Per-installation launch profiles (cvar overrides, safe mode, connect-to-server).

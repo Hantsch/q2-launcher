@@ -11,7 +11,7 @@ As a user, I want my profile validated against every engine my assigned installa
 use, so I catch alias-name-length, loop-depth, buffer-size and per-engine cvar-meaning problems
 before they cause a silent failure in-game.
 
-See [docs/concepts/config-module.md §5](../concepts/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)
+See [docs/concepts/config-module.md §5](../../systems/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)
 and CFG-10. No primary/portability two-tier severity — every engine reached through an
 assignment is an equally-weighted error surface.
 

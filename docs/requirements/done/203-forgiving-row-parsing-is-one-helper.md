@@ -11,7 +11,7 @@ As the maintainer I want "parse this persisted list row by row, drop the bad row
 what was dropped" to be one helper with one policy, so that a new persisted collection costs one
 line instead of 10–20 and a change to the drop/dedupe/log policy is made once.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F25): `src/main/lib/schemas.ts`
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F25): `src/main/lib/schemas.ts`
 contains `parseForgivingRows` with the comment "generalized so categories and actions can reuse it
 instead of duplicating the map-safeParse-filter dance", yet the same file has 27 `safeParse`
 calls and 8 hand-written `parseXRow` helpers each followed by `.map(parseXRow).filter(row !== null)`;

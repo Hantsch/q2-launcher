@@ -10,10 +10,10 @@ created: 2026-10-01
 As a player looking at a server in the browser, I can see at once whether my active installation
 has the server's mod and its current map. If the mod is missing and the launcher's catalog has
 it, I can install it right there instead of hunting for it. This redeems GB-D5, which was cut from
-story 124 and is owned by the Mods module ([game-browser.md](../concepts/game-browser.md) GB-D5),
+story 124 and is owned by the Mods module ([game-browser.md](../../concepts/game-browser.md) GB-D5),
 extended with an install offer.
 
-Concept: [mods.md](../concepts/mods.md) §11; requirements MOD-15 to MOD-17.
+Concept: [mods.md](../../concepts/mods.md) §11; requirements MOD-15 to MOD-17.
 
 ## Acceptance Criteria
 

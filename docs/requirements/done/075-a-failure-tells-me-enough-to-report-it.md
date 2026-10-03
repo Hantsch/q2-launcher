@@ -122,7 +122,7 @@ verification. Nothing here changes `JobsService` or the `jobs:changed` broadcast
    through `BootstrapDeps` (`ports.ts`), injected by `bootstrapDepsFor()`
    ([index.ts:407](../../src/main/modules/downloads/index.ts#L407)).
 4. **Two plumbing bits** — `app:copyText` (contract → schema → preload allowlist → handler, per
-   [ARCHITECTURE.md#the-ipc-contract](../ARCHITECTURE.md#the-ipc-contract)) and
+   [ARCHITECTURE.md#the-ipc-contract](../../ARCHITECTURE.md#the-ipc-contract)) and
    `AppInfo.osVersion` from `os.release()`, which AC3's report header needs and `AppInfo` lacks.
 5. **The report** — a pure `report.ts` in the renderer turning failure + diagnostics + `AppInfo`
    into Markdown, every label via `t()`. Then the card's two `IconButton`s: copy (only when

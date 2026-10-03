@@ -11,7 +11,7 @@ As the maintainer I want every locale key to be proven used, repeated labels to 
 a module's strings to live next to the module's code, so that a wording fix is one edit, a second
 locale does not translate dead keys, and a module owns its strings the way it owns its code.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F62):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F62):
 `src/renderer/src/i18n/locales/en.json` is 3,614 lines, 2,398 leaf keys, 38 namespaces (`config`
 alone 1,006). 196 distinct values appear under more than one key (518 keys: "Name" x26,
 "Cancel" x12, "Map" x10, "Rename…" x6) while `common.*` has 29 keys; ~25 keys are dead after

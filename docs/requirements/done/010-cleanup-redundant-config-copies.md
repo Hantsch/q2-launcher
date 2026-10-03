@@ -12,7 +12,7 @@ the search path makes the base file reachable, and remove them under my review, 
 manually-copied or `q2-config-manager`-era files don't shadow the profile the launcher now
 manages.
 
-See [docs/concepts/config-module.md §5](../concepts/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)
+See [docs/concepts/config-module.md §5](../../systems/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)
 and CFG-11.
 
 ## Acceptance Criteria

@@ -13,7 +13,7 @@ in a service with an explicit dependency interface that a unit test can drive di
 they are no longer testable only by booting the whole module with a full `AppContext`, and so
 that the next config story does not add another hundred lines to one closure.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F07, confirmed by an
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F07, confirmed by an
 independent re-count): `src/main/modules/config/index.ts` is 2,035 lines; `setup()` spans lines
 593–2035 and registers 35 handlers of 41–58 lines each (replays' are one-liners); `save` is ~152
 lines, `saveRawText` ~166, `refreshFromFiles` ~176 with a 143-line loop body; ~480 lines of

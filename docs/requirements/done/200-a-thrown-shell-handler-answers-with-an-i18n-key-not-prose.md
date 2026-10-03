@@ -11,7 +11,7 @@ As a user I want a shell IPC call that fails unexpectedly (EPERM on a path, a mi
 a bug) to show a translated error, and as the maintainer I want both IPC surfaces to follow the
 same error contract, so that no new shell channel has to re-decide the policy.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F10): the 49 shell channels
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F10): the 49 shell channels
 are registered through `handle`/`handleOutcome` in `src/main/ipc/index.ts` and there is no `try`
 anywhere under `src/main/ipc`. `handleOutcome` maps only a failed `safeParse` to `fail(...)`; a
 throw from, say, `installations:inspectPath` rejects the renderer promise with Electron's

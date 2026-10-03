@@ -12,7 +12,7 @@ download-while-playing), but `LauncherSettings` is a closed shape and "a feature
 never edit the shell" forbids editing the Settings view for every module that needs a value. This
 story resolves that once: the Settings view learns to render sections contributed by modules,
 and the downloads module is the first to use it. The mechanism is meant to be reused by mods and
-assets later, per [concepts/install-module.md §12](../concepts/install-module.md).
+assets later, per [concepts/install-module.md §12](../../systems/install-module.md).
 
 ## Acceptance Criteria
 

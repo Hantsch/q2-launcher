@@ -13,7 +13,7 @@ and I want the profile list to live in one store, so that a rename from the dash
 address-book dialog is visible in an open Config view without a remount and `ConfigView` can
 shrink to layout.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F40):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F40):
 `src/renderer/src/modules/config/ConfigView.tsx` is 1,067 lines with 13 `useState`, 6 `useEffect`
 and a 450-line `return` mounting 11 surfaces; `profile`/`draft`/`patch`/`onChanged` are props of
 SettingsTab, ControlsTab and AliasesTab and `profile`/`onChanged` of eight more; `installations`

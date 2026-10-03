@@ -11,7 +11,7 @@ As the maintainer I want a module handler that changes one field of its persiste
 unable to overwrite a sibling field with a stale value, so that correctness no longer depends on
 "no `await` ever sneaks between the read and the write".
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F09): `StateStore` hands
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F09): `StateStore` hands
 out whole-section snapshots and whole-section setters. `setServersState` is called 11 times and
 `setReplaysState` 9 times, each as `const current = app.state.X(); … setX({ ...current, key: next })`;
 the `listSort` handler is byte-identical in servers and replays. Four sites already await between

@@ -11,7 +11,7 @@ As a player who wants to watch a demo recorded on a mod I do not have, the mod-m
 (story 182) lets me install that mod instead of only _Play anyway_ or _Cancel_, whenever the
 catalog has it. _Play anyway_ and the "asked once" behaviour stay as they are.
 
-Concept: [mods.md](../concepts/mods.md) §11; requirement MOD-18.
+Concept: [mods.md](../../concepts/mods.md) §11; requirement MOD-18.
 
 ## Acceptance Criteria
 

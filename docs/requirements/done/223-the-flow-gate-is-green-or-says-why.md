@@ -12,7 +12,7 @@ that names a new regression — so that a sprint review no longer spends an hour
 "pre-existing" failures, and I want the bulk of the e2e coverage to run in CI instead of only on
 one machine.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F21, F59, F72; the four
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F21, F59, F72; the four
 red flows are a roadmap follow-up three times over): `scripts/flows-all.mjs` is a 50-line loop
 with no expected-failure list, retry or per-flow timeout; `replays-extra-folders`,
 `servers-filter-search`, `servers-master-sources` and `servers-sort-order` have been red and
@@ -123,7 +123,7 @@ servers-master-sources replays-extra-folders servers-filter-search` is green **t
       `scripts/flow-gate.test.mjs`, `.claude/ai-scrum.md` (only the `e2e-quarantine:` value →
       `scripts/flows/quarantine.json`), `docs/ROADMAP.md` (one line under `## Follow-ups worth doing`:
       "`replays-mod-warning` is quarantined as flaky (step 'resetting remembered mods asks again', 1–2
-      of ~6 runs) — fix it and drop its quarantine entry. [S31 review](sprints/done/S31/review.md)").
+      of ~6 runs) — fix it and drop its quarantine entry. [S31 review](../../sprints/done/S31/review.md)").
       `quarantine.json` is an array of `{ flow, reason, story, since, platform? }` — `since` an `SNN`
       sprint ID, `platform` optional `"win32"|"linux"` (entry applies only there). Initial content: one
       entry `{ "flow": "replays-mod-warning", "reason": "flaky: step 'resetting remembered mods asks

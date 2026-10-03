@@ -92,7 +92,7 @@ All resolved 2026-09-07:
 - [x] **Read once, then standalone** (story 022). No source paths are persisted, no re-import
       surface, no stale paths in state.json.
 - [x] **The native picker gets a harness-only stub.** Playwright cannot drive an OS dialog at all
-      ([UI-VERIFICATION.md:701-706](../UI-VERIFICATION.md#L701-L706)), so a `DialogService` in main
+      ([UI-VERIFICATION.md:701-706](../../UI-VERIFICATION.md#L701-L706)), so a `DialogService` in main
       returns fixture paths when `Q2L_UI_HARNESS=1` **and** `isDev` — the precedent is
       `dev:simulateJob`'s `app.isDev` gate ([index.ts:120](../../src/main/ipc/index.ts#L120)).
       Everything after the paths arrive (list, reorder, remove, preview, create) is covered through
@@ -251,7 +251,7 @@ flow ends on a created profile carrying the fixture's binds and aliases.
   `src/main/modules/config/import.test.ts` › "an id the renderer invented is refused" (D5).
   **manual residue:** that the window the OS puts on screen is a real native multi-select file
   dialog — Playwright cannot drive an OS-native dialog at all
-  ([UI-VERIFICATION.md:701-706](../UI-VERIFICATION.md#L701-L706)); the stub covers everything from
+  ([UI-VERIFICATION.md:701-706](../../UI-VERIFICATION.md#L701-L706)); the stub covers everything from
   the resolved paths onward.
 - AC5 → e2e `scripts/flows/import-from-files.mjs` › steps "reorder: move dm.cfg down one row
   (AC5)" and "remove gfx.cfg ... (AC5)" (D8); unit
@@ -357,7 +357,7 @@ Tests` section above; every test name there was checked to exist and pass, not p
   the plan.
 - **Manual residue** (AC4): that the OS actually puts up a real native multi-select file dialog —
   Playwright cannot drive an OS-native dialog at all
-  ([UI-VERIFICATION.md:701-706](../UI-VERIFICATION.md#L701-L706)); the `Q2L_UI_HARNESS` stub
+  ([UI-VERIFICATION.md:701-706](../../UI-VERIFICATION.md#L701-L706)); the `Q2L_UI_HARNESS` stub
   covers everything from the resolved paths onward, which is where all other criteria live.
 - One pre-existing, unrelated flaky test was observed during development (`import-reader.test.ts`
   › the 512-file exec fan-out budget test occasionally times out at the default timeout only under

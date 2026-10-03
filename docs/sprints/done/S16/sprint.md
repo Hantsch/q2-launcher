@@ -12,7 +12,7 @@ milestone: Install — bootstrap, update and repair
 A user with no Quake II installed opens a wizard from the Library, picks Q2PRO, and gets a
 working, playable demo installation — engine and free game data downloaded from a curated
 manifest, verified, extracted, and assembled automatically. This is the first slice of the
-[Install concept](../../concepts/install-module.md): it stands up the manifest, the
+[Install concept](../../../systems/install-module.md): it stands up the manifest, the
 verified-download job pipeline, a module-contributed Settings section, and the Downloads tab,
 then wires all of it into one guided flow.
 
@@ -50,7 +50,7 @@ then wires all of it into one guided flow.
 
 ## Notes
 
-Derived from [concepts/install-module.md](../../concepts/install-module.md) (drafted
+Derived from [concepts/install-module.md](../../../systems/install-module.md) (drafted
 2026-09-08, 20 open points). This sprint deliberately resolves only the two blocking scope
 questions (engine, sprint depth) needed to cut it; the remaining open points are carried as
 per-story Open Questions for `/sprint`'s clarification round.

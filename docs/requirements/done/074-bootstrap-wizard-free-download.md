@@ -11,7 +11,7 @@ This is the sprint's playable moment: a user with nothing installed opens a wiza
 Library, picks Q2PRO, and ends up with a working installation running the freely-downloadable
 demo data — no forum thread, no manual file placement. This story wires the manifest ([[070]]),
 the verified-download pipeline ([[071]]), and the Downloads tab ([[073]]) into the bootstrap
-wizard described in [concepts/install-module.md §8](../concepts/install-module.md), scoped to
+wizard described in [concepts/install-module.md §8](../../systems/install-module.md), scoped to
 the **free-download data source only** — copying retail paks from a detected store installation,
 pointing at an existing folder, and the demo-to-retail upgrade action are explicitly out of this
 sprint (see sprint.md).

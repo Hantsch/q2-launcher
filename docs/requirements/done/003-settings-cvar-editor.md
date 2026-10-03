@@ -13,7 +13,7 @@ engine or discover surprises like `r_maxfps 0` meaning "5 FPS" on R1Q2 the hard 
 
 Engine facts (defaults, clamps, per-engine meaning of the same value) are carried over from
 q2-config-manager's `src/core/settings.ts` (source-cited against r1q2/Q2PRO/vanilla source —
-see [docs/concepts/config-module.md](../concepts/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)).
+see [docs/concepts/config-module.md](../../systems/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)).
 Cvar values are stored on the profile (story 001); which engines apply comes from the
 installations the profile is assigned to (story 002). Writing the result to disk is story 004.
 

@@ -12,7 +12,7 @@ just set up as a named quick filter of my own, and apply it again with one click
 asked for custom filters; the simplest form is to keep the current selection - mod, gamemode, map,
 empty, bots, waiting-for-opponent - under a name next to the built-in quick toggles.
 
-Concept: [game-browser.md](../concepts/game-browser.md) §8, GB-L5, GB-P1.
+Concept: [game-browser.md](../../concepts/game-browser.md) §8, GB-L5, GB-P1.
 
 ## Acceptance Criteria
 

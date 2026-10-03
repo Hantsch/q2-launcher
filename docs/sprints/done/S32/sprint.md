@@ -39,7 +39,7 @@ correct error message where they used to see English prose or a path.
 
 ## Notes
 
-- Source: [codebase review 2026-10-01](../../reviews/2026-10-01-codebase-review.md). The review
+- Source: [codebase review 2026-10-01](../../../reviews/2026-10-01-codebase-review.md). The review
   suggested five sprints, which this cut merges into two (S32, S33).
 - **Why two sprints, not one.** This sprint changes the contract every module sits on (envelope,
   refusal, typed handlers, persisted state, jobs). S33 rewrites the renderer and the config module

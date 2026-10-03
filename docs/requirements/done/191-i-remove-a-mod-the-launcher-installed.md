@@ -12,7 +12,7 @@ screenshots in that folder survive. The launcher deletes exactly the files its i
 (story 190) lists, removes the folder only if it is then empty, and never touches a manually
 installed mod.
 
-Concept: [mods.md](../concepts/mods.md) §10; requirements MOD-13, MOD-14.
+Concept: [mods.md](../../concepts/mods.md) §10; requirements MOD-13, MOD-14.
 
 ## Acceptance Criteria
 

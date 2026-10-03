@@ -1,7 +1,7 @@
 # Linux support — analysis
 
-**Status: background for stories [100](requirements/100-the-launcher-runs-on-linux.md) (`done`),
-[101](requirements/101-a-linux-release-ships-and-updates-itself.md) (`ready`) and
+**Status: background for stories [100](requirements/done/100-the-launcher-runs-on-linux.md) (`done`),
+[101](requirements/done/101-a-linux-release-ships-and-updates-itself.md) (`ready`) and
 [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md) (`draft`).** This document
 is deliberately parked at the `docs/` root rather than in `concepts/`, because a concept carries a
 line in [ROADMAP.md](ROADMAP.md) and that would mean the topic has been prioritised — it has not.
@@ -76,7 +76,7 @@ So there are exactly two ways to give the Linux bootstrap wizard something to in
 
 This is the one open question that changes the size of everything downstream. See §6.
 
-**Updated 2026-09-23 — [story 103](requirements/103-a-windows-build-runs-on-linux-through-a-runner-i-choose.md)
+**Updated 2026-09-23 — [story 103](requirements/done/103-a-windows-build-runs-on-linux-through-a-runner-i-choose.md)
 gives B1 a second answer.** Rather than only building and mirroring a native Linux Q2PRO forever
 (option 1 above), the launcher can now detect wine and umu-run on the machine, let the user pick
 one as a runner, and launch a Windows build (Steam's `quake2.exe`, a carried-over r1q2 install)
@@ -156,8 +156,8 @@ blockers in §3 are two stories, not eight.
 
 | #                                                                   | Story                                    | Status | Covers             | Blocked on    |
 | ------------------------------------------------------------------- | ---------------------------------------- | ------ | ------------------ | ------------- |
-| [100](requirements/100-the-launcher-runs-on-linux.md)               | the launcher runs on linux               | done   | B2, B3, B4, B6, B7 | —             |
-| [101](requirements/101-a-linux-release-ships-and-updates-itself.md) | a linux release ships and updates itself | ready  | B5                 | —             |
+| [100](requirements/done/100-the-launcher-runs-on-linux.md)               | the launcher runs on linux               | done   | B2, B3, B4, B6, B7 | —             |
+| [101](requirements/done/101-a-linux-release-ships-and-updates-itself.md) | a linux release ships and updates itself | ready  | B5                 | —             |
 | [102](requirements/102-a-linux-q2pro-is-built-and-mirrored.md)      | a linux q2pro is built and mirrored      | draft  | B1                 | its own Q1–Q4 |
 
 **Re-cut 2026-09-21.** 101 originally carried B1 as well. Its Q1 was resolved by splitting the

@@ -25,7 +25,7 @@ needs `mutates-installation` and `long-running-jobs` — refine confirms (Q1).
 ## Acceptance Criteria
 
 - [x] **AC1** — A `replays` module is registered per the 5-step checklist in
-      [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module): a shared contract file
+      [ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module): a shared contract file
       under `src/shared/modules/`, the `ModuleId` entry **and** the hardcoded `moduleId` z.enum in
       `src/shared/ipc-schemas.ts`, a `MODULE_MANIFESTS` row, a main half under
       `src/main/modules/replays/` and a renderer half — with no edit to any shell file.
@@ -98,7 +98,7 @@ needs `mutates-installation` and `long-running-jobs` — refine confirms (Q1).
 
 ## Plan
 
-Five-step module registration per [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module),
+Five-step module registration per [ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module),
 bottom-up, one layer per deliverable — the story 106 (`servers`) shape. No shell logic, no new IPC
 channel, no platform branch.
 

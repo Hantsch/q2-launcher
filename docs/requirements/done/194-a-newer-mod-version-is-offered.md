@@ -11,7 +11,7 @@ As a player, when the curated catalog pins a newer version of a mod I installed 
 launcher, the Mods view tells me so and lets me update with one click. It never updates by
 itself. This is the same model as engine updates: the manifest is the truth, the user decides.
 
-Concept: [mods.md](../concepts/mods.md) §10; requirement MOD-12.
+Concept: [mods.md](../../concepts/mods.md) §10; requirement MOD-12.
 
 ## Acceptance Criteria
 

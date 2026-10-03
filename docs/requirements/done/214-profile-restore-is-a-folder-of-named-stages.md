@@ -12,7 +12,7 @@ and tests instead of banner comments inside one 4,185-line module, so that a gro
 identity regression lands in a 300-line file and the hardest function in the repo is readable
 as named steps.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F14, F65, confirmed by an
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F14, F65, confirmed by an
 independent re-count): `src/shared/config/profile-restore.ts` has 4,185 lines, 63 top-level
 functions, two exported functions (`restoreProfileParts`, `foreignBannerCommentText`) plus nine
 exported types, nine `// ----` banner sections at lines 307/399/508/1518/1921/2138/2594/3042/3320,

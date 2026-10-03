@@ -12,7 +12,7 @@ As the maintainer I want one fetch wrapper with timeout, retry, byte cap and err
 classification, so that the policy exists once and the path that most needs it (a
 user-configurable URL) has it.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F20; the missing timeout is
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F20; the missing timeout is
 a roadmap follow-up since S24): `resolveHttpListSource` fetches a user-configurable URL with only
 the parent scan's abort signal — no `AbortSignal.timeout` — then `response.text()`/`arrayBuffer()`
 with no content-length check or byte cap. `feed-fetcher.ts` and `fetch-image.ts` each contain a

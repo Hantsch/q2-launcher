@@ -12,7 +12,7 @@ independent of each clone's git config, and the shipped Electron and the dev tre
 known high-severity advisories, so that diffs stop carrying formatting churn and dependency
 drift is caught weekly by a bot instead of at a release.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F57, F58; the
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F57, F58; the
 dependency items are a roadmap follow-up): `prettier --check .` reports 1,044 unformatted files
 (1,411 with the configured `endOfLine: lf`, because the Windows worktree is CRLF under
 `core.autocrlf=true` and `.gitattributes` is empty); `format:check` runs in no workflow;

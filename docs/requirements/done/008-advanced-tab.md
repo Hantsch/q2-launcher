@@ -13,7 +13,7 @@ for message text, and compose multi-command binds, so I can build the kind of ri
 action binds `q2-config-manager` supported without memorizing escape codes or byte limits by
 hand.
 
-See [docs/concepts/config-module.md §5](../concepts/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)
+See [docs/concepts/config-module.md §5](../../systems/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)
 ("Advanced").
 
 ## Acceptance Criteria

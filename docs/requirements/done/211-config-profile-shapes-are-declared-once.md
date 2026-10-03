@@ -12,7 +12,7 @@ change the compiler checks end to end, so that a missed twin schema can no longe
 the field on IPC or on load, and so that import and refresh feed the restore pipeline through one
 adapter instead of two.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F15, F36, F37):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F15, F36, F37):
 
 - The shapes exist three times: TS interfaces in `src/shared/modules/config.ts`; IPC zod in
   `src/main/modules/config/schemas.ts` (653 lines); persisted zod in `src/main/lib/schemas.ts`

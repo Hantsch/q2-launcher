@@ -12,7 +12,7 @@ one tested function, so that the one shell channel where the renderer supplies a
 authority (`app:revealPath`) is guarded at least as well as the module-private copies, and so
 that a containment bug is fixed once.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F01):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F01):
 
 - `isAllowedRevealTarget` in `src/main/ipc/app.ts` is `candidate.startsWith(normalize(root))` on
   the unresolved renderer string — no `path.resolve`, no separator boundary. `C:\Games\Quake2\..\..\Windows`

@@ -18,7 +18,7 @@ it, the home route is rendered by a registered `home` module, the shell no longe
 it, and the surfaces that are about to be replaced (the dead hero with its four wired-to-nothing
 carousel dots, and the planned-module cards) are gone rather than half-alive.
 
-See [concepts/home-screen.md](../concepts/home-screen.md) §9 and §10 — the ownership move is a
+See [concepts/home-screen.md](../../concepts/home-screen.md) §9 and §10 — the ownership move is a
 recorded rule decision, not an incidental refactor.
 
 ## Acceptance Criteria
@@ -88,7 +88,7 @@ recorded rule decision, not an incidental refactor.
 ## Plan
 
 A pure ownership move, in the order of the module checklist in
-[ARCHITECTURE.md](../ARCHITECTURE.md#adding-a-module), with the two dead surfaces deleted rather
+[ARCHITECTURE.md](../../ARCHITECTURE.md#adding-a-module), with the two dead surfaces deleted rather
 than carried along.
 
 1. **Manifest + main half.** `home` joins `ModuleId` and `MODULE_MANIFESTS`

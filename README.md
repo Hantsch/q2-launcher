@@ -13,11 +13,12 @@ Built around the [r1q2](https://www.r1ch.net/projects/r1q2) client, with Q2PRO
 and vanilla 3.20 as first-class citizens. Ships no game content — you bring your
 own Quake II, or start from the freely downloadable demo.
 
-> **Status: pre-release (0.3.0).** Library, installs, launching, the config
-> editor, the home screen and self-updates work on Windows; Linux is
-> experimental and untested (see [Compatibility](#compatibility)). The game
-> browser and the Linux runners (wine, umu-run, Steam) are built and ship with
-> the next release. Mods and asset packs are not started.
+> **Status: pre-release (0.6.0).** Library, installs, launching, the config
+> editor, the home screen, the server browser, demo replays, mod installs and
+> self-updates work on Windows; Linux is experimental and untested (see
+> [Compatibility](#compatibility)). The Linux runners (wine, umu-run, Steam)
+> are built and ship with the next release. Further mod features (milestone
+> 5.2) and asset packs are not started.
 
 ## Why
 
@@ -131,7 +132,7 @@ R1Q2, Q2PRO and vanilla 3.20; the installer downloads R1Q2 and Q2PRO (Windows).
 - **Switch while playing** — a bindable key cycles through an installation's
   assigned profiles and echoes the new one to the console.
 
-### Servers (next release)
+### Servers
 
 - **Server list** — pulled from master and list sources you can add, remove,
   reorder and switch off. Rows stream in live during a scan and show name, mod,
@@ -165,7 +166,7 @@ About tab shows the release notes of what you have and what is available.
 
 | Feature          | What it is                                                                                                                                             | Status      |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| **Mods**         | Discover, install and enable/disable game directories with their own config. The `+set game` half already exists.                                      | Not started |
+| **Mods**         | Discover, install and enable/disable game directories with their own config. The `+set game` half already exists.                                      | In progress  |
 | **Asset packs**  | Texture, model and sound packs, with conflict detection between packs touching the same files and a record of what a pack changed so it can be undone. | Not started |
 | **Linux engine** | A self-built, mirrored Linux Q2PRO so the bootstrap wizard can install a native engine on Linux too.                                                   | Open        |
 

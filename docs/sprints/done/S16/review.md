@@ -5,7 +5,7 @@
 Goal: a user with no Quake II installed opens a wizard from the Library, picks Q2PRO, and gets a
 working, playable demo installation — engine and free game data downloaded from a curated
 manifest, verified, extracted, and assembled automatically. This is the first slice of the
-[Install concept](../../concepts/install-module.md).
+[Install concept](../../../systems/install-module.md).
 
 | Story                                                                          | Status | Commit                                                                   |
 | ------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------ |

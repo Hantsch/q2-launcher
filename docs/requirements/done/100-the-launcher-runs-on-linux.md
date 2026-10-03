@@ -28,7 +28,7 @@ R1Q2's pinned build is an MSVC Windows binary and its setup path probes the Visu
 seeds a Windows-only renderer cvar. Because no Linux Q2PRO binary exists in the content repo yet
 (story 101 AC1), the honest outcome of this story on Linux is a bootstrap wizard with nothing to
 offer — which must be _said_, not shown as an empty list. Background and verified external facts:
-[linux-support-analysis.md](../linux-support-analysis.md).
+[linux-support-analysis.md](../../linux-support-analysis.md).
 
 ## Acceptance Criteria
 

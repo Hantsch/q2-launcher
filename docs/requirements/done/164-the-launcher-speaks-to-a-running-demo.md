@@ -18,7 +18,7 @@ DEMO-26, DEMO-27):
   ended in **go**; [[134]]'s native helper is withdrawn.
 
 Spike [[133]] is done and its result recorded in
-[`spikes/133-q2pro-control/RESULT.md`](../../spikes/133-q2pro-control/RESULT.md); the Windows
+[`spikes/133-q2pro-control/RESULT.md`](../../../spikes/133-q2pro-control/RESULT.md); the Windows
 implementation for this story is cfg polling, not the native helper.
 
 **Spike findings to carry over** (from RESULT.md's "Harness fixes found during the run"):

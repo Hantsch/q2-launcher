@@ -65,7 +65,7 @@ auto-created modifier layer — is not satisfied. See Blocked / open below.
   accepted.
 - **A committed Playwright/`_electron` harness would materially change this sprint's outcome.**
   The roadmap's existing "Tooling" note about a committed Playwright driver
-  ([docs/ROADMAP.md](../../ROADMAP.md)) is now directly actionable: with it, an autonomous sprint
+  ([docs/ROADMAP.md](../../../ROADMAP.md)) is now directly actionable: with it, an autonomous sprint
   could close the P2 gap above instead of deferring it every time.
 - **Story 015's review-fix cycle found two real, pre-ship bugs** (not just cosmetic
   findings): a capture-lock UX defect (Clear was required before a new capture could start on an
@@ -84,12 +84,12 @@ auto-created modifier layer — is not satisfied. See Blocked / open below.
   enforcing) a stronger command-text uniqueness guarantee across `action-catalog.ts` — that a
   build session should not make unilaterally. Full three-cycle review history and both superseded
   fix attempts are recorded in
-  [016's Done section](../../requirements/016-modifier-layer-on-bind-capture.md#done) for whoever
+  [016's Done section](../../../requirements/done/016-modifier-layer-on-bind-capture.md#done) for whoever
   picks this back up.
 - **This sprint's stories were UX-friction fixes filed after S02's live acceptance pass, not new
   concept scope** — the config-module concept itself already reached full feature parity at the
   end of S02. That framing held throughout: no story here needed to touch
-  [docs/systems/config-module.md](../../systems/config-module.md)'s scope, only its existing
+  [docs/systems/config-module.md](../../../systems/config-module.md)'s scope, only its existing
   surfaces.
 
 ## Blocked / open

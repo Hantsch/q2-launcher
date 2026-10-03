@@ -21,7 +21,7 @@ rather than create.
 
 The concept left the module's final id and label open (its own open point #8: the document uses
 `servers` throughout but the home concept once called the planned feature "Gamebrowser"). This
-story settles it: the module id is `servers`, following [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module)'s
+story settles it: the module id is `servers`, following [ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module)'s
 existing lowercase-noun convention (`library`, `config`, `downloads`, `mods`, `assets`), and its
 nav label is "Servers" — the plain, activity-neutral name a user would look for, not the
 implementation-flavoured "Gamebrowser". This is a decision, not an open question.
@@ -35,7 +35,7 @@ behaviour, consistent with `node:dgram` and `fetch` both being platform-neutral 
 ## Acceptance Criteria
 
 - [x] **AC1** — A `servers` module is registered per the 5-step checklist in
-      [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module): a shared contract file
+      [ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module): a shared contract file
       under `src/shared/modules/`, a `ModuleId` entry, a `MODULE_MANIFESTS` row, a main half, and a
       renderer half — with no edit to `AppShell.tsx` or any other shell file.
 - [x] **AC2** — The manifest's `nav` is `{ section: 'primary', order: … }`, placing "Servers" in the
@@ -107,7 +107,7 @@ guardrails — see `## Decisions (Sprint)`. -->
 
 ## Plan
 
-Five-step module registration per [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module),
+Five-step module registration per [ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module),
 bottom-up, one layer per deliverable. No shell logic, no new IPC channel, no platform branch.
 
 1. **Shared** (D1) — `src/shared/modules/servers.ts`: `SERVERS_HANDLERS = { overviewRead:

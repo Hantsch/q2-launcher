@@ -11,7 +11,7 @@ As a user, when I save a profile, I want it written to every installation it's a
 (except installations currently running), so the settings I configured actually take effect
 in the game — not just inside the launcher's own state.
 
-Per [docs/concepts/config-module.md](../concepts/config-module.md#4-core-terms--model): writes
+Per [docs/concepts/config-module.md](../../systems/config-module.md#4-core-terms--model): writes
 target `<installation>/baseq2`, and `autoexec.cfg` is additionally copied into every mod folder
 marked "played" for that installation (`FS_ExecAutoexec` never consults the search path, unlike
 everything else). Depends on stories 001–003 (profile content and assignment must exist).
@@ -34,7 +34,7 @@ folders of an already-registered installation, never an arbitrary path.
 ## Open Questions
 
 - ~~Detecting "currently running" needs the `game-lifecycle` guard called out for the `mods`
-  module in [ROADMAP.md](../ROADMAP.md#mods--game-directories).~~ **Resolved during refine** —
+  module in [ROADMAP.md](../../ROADMAP.md#mods--game-directories).~~ **Resolved during refine** —
   see Decision 1 below. No open questions remain.
 
 ## Decisions (Sprint)

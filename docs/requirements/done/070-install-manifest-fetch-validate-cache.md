@@ -10,10 +10,10 @@ created: 2026-09-08
 Every engine build and free game-data package the launcher will ever offer to download comes
 from one curated manifest in the public `Hantsch/q2_community_content` repository — the same
 `raw.githubusercontent` transport the home screen already uses for `news/` (see
-[concepts/home-screen.md](../concepts/home-screen.md)). No download URL is hardcoded in the
+[concepts/home-screen.md](../../concepts/home-screen.md)). No download URL is hardcoded in the
 launcher: a dead mirror or a new engine version costs one commit to the content repo, never a
 launcher release. This story delivers the manifest itself (real Q2PRO nightly + free
-game-data entries, per [concepts/install-module.md §6-7](../concepts/install-module.md)) and the
+game-data entries, per [concepts/install-module.md §6-7](../../systems/install-module.md)) and the
 main-process pipeline that fetches, validates, and caches it, so later stories (download,
 wizard) have real data to work against.
 

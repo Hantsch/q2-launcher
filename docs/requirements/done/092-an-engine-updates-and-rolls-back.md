@@ -7,7 +7,7 @@ created: 2026-09-12
 
 ## Requirement
 
-The [install-module concept](../concepts/install-module.md) §10 (INST-U1–U4) covers engine
+The [install-module concept](../../systems/install-module.md) §10 (INST-U1–U4) covers engine
 lifecycle after bootstrap: the pinned manifest version is compared against what an
 installation actually has, an update is offered (never automatic), applying it replaces the
 engine files while moving the previous ones into a backup inside the installation, and

@@ -24,7 +24,7 @@ moment they navigate away.
       cache section shows, [[072]]).
 - [x] **AC4** — The view replaces the `PlannedModuleView` fallback for the `downloads` module
       (`src/renderer/src/modules/index.ts`) and is registered per
-      [ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module).
+      [ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module).
 - [x] **AC5** — The tab renders correctly with zero jobs, one running job, and one failed job in
       the UI verification fixture, with no network access.
 
@@ -79,7 +79,7 @@ moment they navigate away.
 ## Plan
 
 The `downloads` module gets its real halves, bottom-up, per
-[ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module). Nothing here downloads
+[ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module). Nothing here downloads
 anything — this is the surface [[071]]'s jobs and [[072]]'s cache figure land on.
 
 1. **Contract + state** — `src/shared/modules/downloads.ts` declares `DOWNLOADS_HANDLERS`

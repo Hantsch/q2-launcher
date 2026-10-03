@@ -14,7 +14,7 @@ hand-editing alias lines.
 
 The overview tab (CFG-7, `OverviewKeyboardPanel.tsx`) is read-only by design; this story is
 the editor it defers to. See
-[docs/concepts/config-module.md §5](../concepts/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)
+[docs/concepts/config-module.md §5](../../systems/config-module.md#5-feature-areas-carried-over-from-q2-config-manager-redesigned)
 ("Alternate binding layers") and CFG-8.
 
 ## Acceptance Criteria

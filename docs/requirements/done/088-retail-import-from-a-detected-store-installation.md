@@ -9,7 +9,7 @@ created: 2026-09-11
 
 The bootstrap wizard ([[074]]) can only ever produce a demo installation today — its one data
 source is the free download. This story adds the wizard's second data source, described in
-[concepts/install-module.md §8](../concepts/install-module.md) step 2 and required by INST-D1,
+[concepts/install-module.md §8](../../systems/install-module.md) step 2 and required by INST-D1,
 INST-D2 and the "copy from a detected store installation" half of INST-W2: a user who owns Quake
 II on Steam, GOG or Epic picks that installation instead of downloading, and the wizard copies its
 retail `pak0.pak`/`pak1.pak` (plus, behind the same optional toggle [[074]] introduced,

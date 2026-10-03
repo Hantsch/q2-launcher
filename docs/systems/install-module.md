@@ -2,7 +2,7 @@
 
 Status: **Implemented.** v1 shipped across [S16](../sprints/done/S16/review.md) (bootstrap to a
 playable Q2PRO demo), [S17](../sprints/done/S17/review.md) (real-run gaps), [S19](../sprints/done/S19/review.md)
-(retail import + demo-to-retail upgrade, stories 088–090) and [S20](../sprints/S20/review.md)
+(retail import + demo-to-retail upgrade, stories 088–090) and [S20](../sprints/done/S20/review.md)
 (the write-guard, engine update/rollback, repair and removal from disk, stories 091–094), closing
 Phase 4 milestone 1. This document now describes the system as built, not a plan; the `downloads`
 module is a wizard that turns nothing into a playable Quake II installation, an engine manager that
@@ -25,7 +25,7 @@ builds on the shell's existing, unused job pipeline
 inspector ([inspector.ts](../../src/main/services/inspector.ts)), the store detection service
 ([detection/](../../src/main/services/detection/)), the engine table
 ([engine.ts](../../src/shared/types/engine.ts)) and the content repository whose layout and
-transport the [home-screen concept](home-screen.md) already fixed.
+transport the [home-screen concept](../concepts/home-screen.md) already fixed.
 
 ---
 
@@ -112,7 +112,7 @@ asset packs and config templates belong to their own modules.
   cache.
 - **Three settings** in a module-contributed Settings section.
 - Redeeming the shell's existing job pipeline — this module is its first real producer, which also
-  unblocks the parked [downloads badge story 032](../requirements/032-downloads-badge-active-count.md).
+  unblocks the parked [downloads badge story 032](../requirements/done/032-downloads-badge-active-count.md).
 
 ### Deliberately not in v1
 
@@ -263,7 +263,7 @@ site currently carries the note that the skuller Q2PRO download is offline and l
 ## 7. The manifest
 
 One curated JSON file per content type in `Hantsch/q2_community_content`, fetched over
-`raw.githubusercontent` on `main` — the transport the [home-screen concept](home-screen.md)
+`raw.githubusercontent` on `main` — the transport the [home-screen concept](../concepts/home-screen.md)
 already fixed for `news/`. The install module adds `engines/` and `gamedata/` next to the
 `packs/`, `mods/` and `config_templates/` directories that concept reserved.
 
@@ -310,7 +310,7 @@ stops saying `invalid`/`missing`, even while the job continues.
 - Jobs are the shell's `Job` objects, produced by this module for the first time. `JobProgress`
   already carries bytes, speed, ETA, files remaining and `playableAtRatio`.
 - **Downloads run one at a time.** There is no parallelism, no queue limit and no pause/resume. The
-  count of active jobs is what [story 032](../requirements/032-downloads-badge-active-count.md)'s
+  count of active jobs is what [story 032](../requirements/done/032-downloads-badge-active-count.md)'s
   titlebar badge shows.
 - **Cancel** removes partial files and, for a bootstrap job, the half-built installation.
 - **A running game** never blocks downloading (subject to the user's setting) but always blocks

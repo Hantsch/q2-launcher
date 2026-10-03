@@ -148,7 +148,7 @@ Order D1 → D2 → D3 (D3 writes rows D1 validates; D2's README bullet links D1
   `/ai-scrum:setup`), `.claude/ai-scrum.md` (only `## Notes`), `scripts/tech-debt.test.mjs`
   (add tests). Do not edit `.claude/commands/*.md` (plugin-managed).
   - README `## Project-specific`: a bullet "**Open defects and tech debt of an area** →
-    [TECH-DEBT.md](TECH-DEBT.md) — read the area's rows before touching it" and a bullet with the
+    TECH-DEBT.md — read the area's rows before touching it" and a bullet with the
     rule, stating it overrides the generated "Follow-ups" / "Gaps, findings" bullets above: a
     review finding left unfixed becomes a `TECH-DEBT.md` row (or a story draft), never a list in
     the review alone; the roadmap follow-ups hold only non-defect to-dos; a follow-up or row
@@ -185,7 +185,7 @@ Order D1 → D2 → D3 (D3 writes rows D1 validates; D2's README bullet links D1
     with its source link, no link to a story 199–231, plus the line "Upstream the tech-debt
     ageing rule (docs/README.md, `.claude/ai-scrum.md` Notes) into the ai-scrum plugin — for the
     user. [story 229]". "Open / unprioritised" gets one row: the
-    [codebase review 2026-10-01](reviews/2026-10-01-codebase-review.md), stories 199–231, cut as
+    [codebase review 2026-10-01](../reviews/2026-10-01-codebase-review.md), stories 199–231, cut as
     applied (S32 = 11.1, S33 = 11.2; the review's own five-group suggestion linked), and the S32
     review's drafts 232–236 awaiting a decision (this replaces their follow-up bullet).
   - Ledger: under `## Done`, one line per source item → `TD-NNN` / draft id / `deleted: <reason>`;

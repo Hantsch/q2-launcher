@@ -12,7 +12,7 @@ search to mean "exactly this" in the demo list as it does in the server list. As
 want one column-sort and one search-term implementation, so that a tweak is done and tested once
 and the `null`-vs-`undefined` glue between persisted sort and view disappears.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F47):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F47):
 `src/shared/servers/list-sort.ts` and `src/shared/replays/list-sort.ts` each define their own
 `compareStrings`, `NATURAL_DIRECTION`, favourite-first comparator, unknown-last rule and a 9-line
 `nextSort` identical except for the off-sentinel (`undefined` vs `null`); `player-sort.ts` and

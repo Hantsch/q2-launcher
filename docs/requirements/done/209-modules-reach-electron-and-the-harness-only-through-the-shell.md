@@ -12,7 +12,7 @@ the downloads module, so that the seam `modules/types.ts` describes ("a module n
 `ipcMain`, `BrowserWindow` or the state file directly") is true, the UI-harness switch has one
 definition, and shared infrastructure lives in the shell instead of in one module.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F27, F28, F26):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F27, F28, F26):
 
 - Six module files import `electron` directly (`shell`, `app`, `clipboard`, `screen`);
   `replays/index.ts` calls `app.getMainWindow()` then `getContentBounds`/`getZoomFactor`/

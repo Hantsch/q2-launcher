@@ -8,7 +8,7 @@ created: 2026-09-11
 ## Requirement
 
 The third and last data source the wizard needs, per
-[concepts/install-module.md §8](../concepts/install-module.md) step 2 and the "point at a folder
+[concepts/install-module.md §8](../../systems/install-module.md) step 2 and the "point at a folder
 that already has data" half of INST-W2: a user who already has Quake II data somewhere the store
 detection ([[088]]) does not recognise — a manual copy, an old install, a USB stick — points the
 wizard at that folder instead of downloading or picking a detected store installation. The wizard

@@ -31,7 +31,7 @@ a dedicated dual-bind (Primary/Secondary) editor with modifier-layer auto-creati
 
 All six stories were filed as drafts (2026-08-18) after S02's live acceptance pass surfaced real
 friction — not pulled from unimplemented concept scope, since the config-module concept
-([docs/systems/config-module.md](../../systems/config-module.md)) reached full q2-config-manager
+([docs/systems/config-module.md](../../../systems/config-module.md)) reached full q2-config-manager
 feature parity at the end of S02 and moved out of `concepts/`.
 
 Order matters: 011 changes how a layer's trigger key is assigned/reassigned, which 013's layout

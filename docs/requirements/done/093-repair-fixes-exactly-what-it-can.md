@@ -7,7 +7,7 @@ created: 2026-09-12
 
 ## Requirement
 
-The [install-module concept](../concepts/install-module.md) §11 (INST-R1–R3) redeems
+The [install-module concept](../../systems/install-module.md) §11 (INST-R1–R3) redeems
 `ValidationFix`'s `install-game-files`, reserved since the installation model was built for
 "the install/update module". Repair reads `inspectInstallation`'s own findings — it never
 invents a second diagnosis — and offers exactly what the manifest can supply (engine

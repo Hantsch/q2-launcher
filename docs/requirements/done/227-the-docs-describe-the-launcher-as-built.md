@@ -1,7 +1,7 @@
 ---
 id: 227
 title: the docs describe the launcher as built
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -14,7 +14,7 @@ placement rules — and the "Adding a module" checklist to be the real step list
 checklist cannot cost another rediscovery and a stale status line cannot invite re-scaffolding.
 And I want a test that catches the next drift.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F23, F33, F51, F60, F61,
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F23, F33, F51, F60, F61,
 F66, F73; partly a roadmap follow-up since S22): CLAUDE.md line 9 says "config/download/mods/asset
 modules are scaffolded but not implemented" after 197 stories and 0.6.0; CLAUDE.md and
 CONTRIBUTING.md name an `install`/`assets` module that does not exist; docs/ARCHITECTURE.md says
@@ -31,30 +31,30 @@ story and sprint templates cite `tests/e2e/*.spec.ts` paths that do not exist an
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — docs/ARCHITECTURE.md has a "Modules as built" section (the eight modules, the
+- [x] **AC1** — docs/ARCHITECTURE.md has a "Modules as built" section (the eight modules, the
       module bus and its contract after stories 204–205, jobs and the runner, per-module persisted
       state, features/unlock, protocol handler, harness, main-window observer, shutdown order) and
       an "Adding a module" checklist verified by walking `replays`: contract type, `ModuleId` +
       manifest, state slot, main and renderer index, i18n, flows/screen registry, `Outcome`
       return rule, dispose, docs touch. Sentences the review listed as false are gone.
-- [ ] **AC2** — docs/ARCHITECTURE.md gains three short sections: "Errors and logging"
+- [x] **AC2** — docs/ARCHITECTURE.md gains three short sections: "Errors and logging"
       (`Outcome` for expected failures, throw for bugs, a bare catch names the swallowed class in
       a comment, level definitions, always pass the `Error`, no secrets or user paths at
       `info`), "Renderer state" (main-owned data → query hook or mirror; cross-view → module
       store; subtree → context; else component state), and "Inside a renderer module" (View +
       tabs at root, `components/`, `dialogs/`, `hooks/` camelCase, `lib/` React-free). A
       `log.caught(message, error)` helper exists on `scopedLogger`.
-- [ ] **AC3** — CLAUDE.md's status line, module names and link targets are correct; the 15
+- [x] **AC3** — CLAUDE.md's status line, module names and link targets are correct; the 15
       `/design-tokens` 44px rows collapse into one project-wide deviation (desktop,
       mouse-and-keyboard only; floors 28px dense controls, 24px in-row selects; below 24px needs
       its own row) plus a short bullet list of the sub-28 cases; CLAUDE.md gains a one-paragraph
       comment convention (state the invariant or the non-obvious why; a story pointer only as a
       trailing `(story 052)`; never review-round narrative; deliverable/AC ids never in code).
-- [ ] **AC4** — README's version and status match `package.json` and the roadmap;
+- [x] **AC4** — README's version and status match `package.json` and the roadmap;
       `ipc-schemas.ts`'s header is current; the templates under `docs/requirements` and
       `docs/sprints/_TEMPLATE` carry the real test paths and the `Decisions (Sprint)` /
       `Regression gate` sections (via the project-specific block `/ai-scrum:setup` preserves).
-- [ ] **AC5** — `scripts/check-docs.mjs` runs in `npm test`: every relative `.md` link in
+- [x] **AC5** — `scripts/check-docs.mjs` runs in `npm test`: every relative `.md` link in
       CLAUDE.md, README.md, CONTRIBUTING.md and `docs/**` resolves, and the README version equals
       `package.json`'s; it is red before this story and green after.
 
@@ -113,7 +113,7 @@ Facts gathered in refine (for the Ds): `ModuleId` = home, library, config, downl
 
 ## Deliverables
 
-- [ ] **D1 — the docs checker exists.** New `scripts/check-docs.mjs` exporting
+- [x] **D1 — the docs checker exists.** New `scripts/check-docs.mjs` exporting
       `checkDocs(root)` → `{ brokenLinks: [{ file, target }], versionMismatch: null | { readme, pkg } }`
       and `fixDocs(root)`; CLI `node scripts/check-docs.mjs [--fix]` prints findings, exits 1 if
       any. Scope: `CLAUDE.md`, `README.md`, `CONTRIBUTING.md`, every `docs/**/*.md`. A link is
@@ -130,7 +130,7 @@ Facts gathered in refine (for the Ds): `ModuleId` = home, library, config, downl
       code spans, fences, external and anchor-only links are ignored", "a README version that
       differs from package.json is reported", "--fix rewrites a link to a uniquely moved file and
       leaves an ambiguous one".
-- [ ] **D2 — the repo's docs are link-clean.** Run `node scripts/check-docs.mjs --fix`, then fix
+- [x] **D2 — the repo's docs are link-clean.** Run `node scripts/check-docs.mjs --fix`, then fix
       the leftovers by hand (expected: `spikes/…/RESULT.md` links, `sprints/S32/…` links in
       `docs/ROADMAP.md` now under `sprints/done/S32/`, `home-screen.md` in
       `docs/systems/install-module.md`, links into concepts that moved); a target that no longer
@@ -140,7 +140,7 @@ Facts gathered in refine (for the Ds): `ModuleId` = home, library, config, downl
       test "the repo's docs have no broken links and README matches package.json" to
       `scripts/check-docs.test.mjs` (calls `checkDocs(repoRoot)`, expects empty). Record the
       pre-fix count in the Done section (red before, green after).
-- [ ] **D3 — ARCHITECTURE.md describes the modules as built.** In `docs/ARCHITECTURE.md`: a new
+- [x] **D3 — ARCHITECTURE.md describes the modules as built.** In `docs/ARCHITECTURE.md`: a new
       `## Modules as built` section — the eight `ModuleId`s (one line each, `assets` as planned),
       the module bus (`module:invoke`, `defineModule`, contract, `Outcome` envelope, coverage
       tests), jobs and `JobRunner`, per-module persisted state + `persisted-migrations.ts`,
@@ -164,7 +164,7 @@ Facts gathered in refine (for the Ds): `ModuleId` = home, library, config, downl
       Outcome, onDispose, architecture.test, docs/systems), "the sentences the review found false
       are gone", "every planned-in-story marker points at an open story" (marker's NNN has no file
       in `docs/requirements/done/`).
-- [ ] **D4 — errors, logging, renderer state and placement are written down.** In
+- [x] **D4 — errors, logging, renderer state and placement are written down.** In
       `docs/ARCHITECTURE.md` three short sections: `## Errors and logging` (`Outcome` for expected
       failures, throw for bugs; a bare `catch` names the swallowed failure class in a comment or
       calls `log.caught`; levels — `error` a bug or lost user data, `warn` degraded but handled,
@@ -179,7 +179,7 @@ Facts gathered in refine (for the Ds): `ModuleId` = home, library, config, downl
       `src/main/modules/architecture-doc.test.ts` › "the errors, renderer-state and placement
       sections exist with their rules" (asserts headings plus `Outcome`, `log.caught`, `query hook`,
       `components/`, `lib/`).
-- [ ] **D5 — CLAUDE.md and the small docs are current.** `CLAUDE.md`: status line describes the
+- [x] **D5 — CLAUDE.md and the small docs are current.** `CLAUDE.md`: status line describes the
       shipped launcher (no "scaffolded but not implemented"); the module names in Key rules are the
       real ids; all links resolve; the 15 `/design-tokens` 44px rows become one row (desktop,
       mouse-and-keyboard only; floors 28px dense controls, 24px in-row selects/toolbar; below
@@ -227,4 +227,20 @@ Facts gathered in refine (for the Ds): `ModuleId` = home, library, config, downl
 
 ## Done
 
-<!-- Filled by /build 227. -->
+Docs now describe the launcher as built: ARCHITECTURE.md gained Modules as built, the real 11-step Adding a module list (walked on replays), Errors and logging, Renderer state and Inside a renderer module. CLAUDE.md, CONTRIBUTING.md, README and the ipc-schemas header are current, the 15 44px deviation rows are one row, and `scripts/check-docs.mjs` (links + README version, `--fix`) runs in `npm test`. `scopedLogger` gained `caught()`.
+
+Commit message: 227: docs describe the launcher as built (ARCHITECTURE modules/errors/state, CLAUDE.md, check-docs in npm test, log.caught)
+
+Verification (narrow gate): build, lint, typecheck green; `npx vitest run --changed HEAD` green, then full `npm test` once for the hygiene test; scripts, architecture-doc, logger and i18n tests re-run green after the review fixes. Remaining red is pre-existing only (shell-layering "no shell file imports from modules", test-kit mockClient). No e2e: no user action, as the story says.
+AC1 -> architecture-doc.test.ts (4 tests); AC2 -> architecture-doc.test.ts + logger.test.ts; AC3 -> docs-facts.test.mjs + check-docs.test.mjs; AC4 -> check-docs.test.mjs + docs-facts.test.mjs; AC5 -> check-docs.test.mjs. All passed. check-docs before the fix: 146 findings (145 broken links + README 0.3.0 vs 0.6.0), now 0.
+
+Decisions:
+- Existing tests (shell-layering, i18n bundle) pin ARCHITECTURE.md order: Adding a module precedes `### Jobs` and step 5 is Strings; the checklist follows that instead of loosening those tests.
+- Story 205 is not fully built (only home and servers have a contract type); the doc says so, marked planned in story 232 (open). Per-module system docs are marked planned in 228, the catch/comment sweep in 230.
+- Six Zustand stores exist, not five; the doc says six.
+- `check-docs --fix` skips files with invalid UTF-8 (a round trip would corrupt bytes); four archive stories were hand-fixed instead.
+- The TECH-DEBT.md link in story 229 became plain text (file does not exist yet); check-docs is not made tolerant.
+- Removed stray CR characters in done/INDEX.md and done/224 (repo-hygiene red from another story).
+- Unfixed review points: keyword-level strength of the doc tests; `### State` vs `## Renderer state` overlap; checker ignores titled/reference-style links.
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 8

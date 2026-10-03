@@ -13,7 +13,7 @@ maintainer I want the debounce/optimistic-patch/revert/status machinery to exist
 the next save bug is fixed in one place and "mirrors ControlsTab exactly" comments stop being the
 glue between copies.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F17, F39):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F17, F39):
 
 - `SAVE_DEBOUNCE_MS = 500` and `type SaveStatus` are declared twice verbatim;
   `saveTimeout`/`clearPendingSave`/`setStatus('saving')` appear 18x in `ControlsTab.tsx` and 17x

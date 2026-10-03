@@ -12,7 +12,7 @@ As the maintainer I want a module handler that returns `Outcome<T>` to arrive in
 can no longer treat a failure as success, and the type tells the truth. And I want every error
 key main can send to be proven present in the locale by a test, not by discipline.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F04 part 1–2, F31):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F04 part 1–2, F31):
 `MainModuleRegistry.invoke` wraps every handler return in `ok(...)` unconditionally while config
 (46 `fail()` sites), downloads (44), replays (62) and mods (33) handlers already return their own
 `Outcome`. Clients cope four ways: 21 per-function flatteners in `config/client.ts` (each with a

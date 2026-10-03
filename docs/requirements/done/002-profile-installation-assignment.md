@@ -11,7 +11,7 @@ As a user, I want to assign a config profile to one or more of my installations,
 assigned profile per installation as the default, so the launcher knows which profile belongs
 on which installation and which one applies at launch.
 
-Per [docs/concepts/config-module.md](../concepts/config-module.md), assignment is many-to-many:
+Per [docs/concepts/config-module.md](../../systems/config-module.md), assignment is many-to-many:
 a profile can be assigned to several installations, and an installation can have several
 assigned profiles. Builds on story 001 (profile CRUD exists). Does not write anything to disk
 yet — that is story 004.

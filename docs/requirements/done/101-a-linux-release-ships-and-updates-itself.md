@@ -23,7 +23,7 @@ concern with its own trust and maintenance decision, and it is now story [[102]]
 here is self-contained and shippable on its own: a Linux user downloads a packaged launcher that
 self-updates and manages a Q2PRO they already have, which is exactly the outcome story 100's
 `none-for-platform` path was built to make coherent. Evidence for the engine question:
-[linux-support-analysis.md](../linux-support-analysis.md) §3 B1.
+[linux-support-analysis.md](../../linux-support-analysis.md) §3 B1.
 
 The release-side traps are already documented in the code that will have to change:
 `win.artifactName` in `electron-builder.yml` carries a long comment about why a space in the

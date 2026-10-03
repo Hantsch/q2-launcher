@@ -12,7 +12,7 @@ delete config profiles, so I can start managing my Quake 2 configs from inside t
 instead of the separate, discontinued q2-config-manager app.
 
 This is the foundation story for
-[docs/concepts/config-module.md](../concepts/config-module.md): it wires the `config` module
+[docs/concepts/config-module.md](../../systems/config-module.md): it wires the `config` module
 in (currently a `PlannedModuleView` placeholder) and introduces the central profile store.
 Profiles created here have no cvar/keybinding content yet — that lands in later stories. No
 installation assignment yet either (story 002) and nothing is written to disk yet (story 004).
@@ -53,7 +53,7 @@ None — all detail questions were decided during refine, see `## Decisions (Spr
 ## Plan
 
 Wire the `config` module along the 5-step checklist in
-[ARCHITECTURE.md#adding-a-module](../ARCHITECTURE.md#adding-a-module) and add the central
+[ARCHITECTURE.md#adding-a-module](../../ARCHITECTURE.md#adding-a-module) and add the central
 profile store the whole sprint builds on. No new IPC channel — everything rides the existing
 `module:invoke` envelope.
 

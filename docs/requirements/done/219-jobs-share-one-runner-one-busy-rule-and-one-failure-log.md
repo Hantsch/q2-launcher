@@ -13,7 +13,7 @@ explained in the Downloads failure log like a failed engine update. As the maint
 job lifecycle — cancel wiring, settled promise, local-failure catch, write-guard mapping,
 revalidation — to exist once, so that a lifecycle fix is one change instead of nine.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F11, F44, F55, F46):
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F11, F44, F55, F46):
 `JobsService` (227 lines) offers create/progress/finish/cancel; every one of nine job files
 re-implements `new AbortController()` + `onCancel`, the `settled = (async () => { try … catch { finish LOCAL_FAILURE } })()`
 IIFE, four identical closures (`isCancelled`/`report`/`failed`/`cancelledOutcome`, line-for-line

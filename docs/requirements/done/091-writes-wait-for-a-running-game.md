@@ -7,7 +7,7 @@ created: 2026-09-12
 
 ## Requirement
 
-The [install-module concept](../concepts/install-module.md) fixes INST-J7: while an
+The [install-module concept](../../systems/install-module.md) fixes INST-J7: while an
 installation's own Quake II process is running, no job may write into that installation's
 files — the job reports why it is waiting and continues by itself once the process exits.
 Nothing in the codebase implements this wait-then-continue mechanism today. The gap is

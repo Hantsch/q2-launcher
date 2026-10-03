@@ -42,9 +42,9 @@ This is CLAUDE.md's platform-parity rule violated in the direction it does not y
 feature silently _omitted_ on Linux, but one silently _offered_ there and failing.
 
 The upside is larger than the bug. R1Q2 is Windows-only by decision (story 100 AC6,
-[analysis B3](../linux-support-analysis.md)), so today the launcher's _primary_ engine cannot run on
+[analysis B3](../../linux-support-analysis.md)), so today the launcher's _primary_ engine cannot run on
 Linux at all. A wine runner makes it run — a much cheaper answer to blocker B1 than
-[story 102](102-a-linux-q2pro-is-built-and-mirrored.md)'s standing obligation to build Q2PRO from
+[story 102](../102-a-linux-q2pro-is-built-and-mirrored.md)'s standing obligation to build Q2PRO from
 source and mirror it.
 
 **Scope split (refine, 2026-09-23).** The tester's second round established that a Steam-owned
@@ -118,7 +118,7 @@ story needs.
 above: [story 104](104-steam-launches-the-client-i-choose.md). Q6 (where the client entries come
 from) and Q7 (`launch:state` for a handoff) moved there with it.
 
-**Q4 — What does this do to [story 102](102-a-linux-q2pro-is-built-and-mirrored.md)? — RESOLVED as
+**Q4 — What does this do to [story 102](../102-a-linux-q2pro-is-built-and-mirrored.md)? — RESOLVED as
 far as this story can: 102 is not cut into a sprint until 103 has landed on a real Linux machine.**
 If r1q2 runs under wine, blocker B1 has a second, far cheaper answer than building and mirroring
 Q2PRO from source forever. 103 does not decide 102's fate; it makes the decision possible.
@@ -293,7 +293,7 @@ no-op:
 **D9 — Changelog and the 102 note.** A `### Added`/`### Fixed` entry in `CHANGELOG.md` (house style
 per `.claude/ai-scrum.md`'s Notes: Keep-a-Changelog headings, current version section only), and one
 paragraph in `docs/linux-support-analysis.md` recording that blocker B1 now has a second answer and
-that [story 102](102-a-linux-q2pro-is-built-and-mirrored.md) waits on real-machine confirmation
+that [story 102](../102-a-linux-q2pro-is-built-and-mirrored.md) waits on real-machine confirmation
 (Q4).
 _Files:_ `CHANGELOG.md`, `docs/linux-support-analysis.md`.
 _Accepted when:_ a user reading the changelog understands that Windows builds now run on Linux

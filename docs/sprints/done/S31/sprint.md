@@ -32,7 +32,7 @@ browser gains an exact (quoted) search, an Online/LAN switch and saved quick fil
 
 ## Notes
 
-- Concept: [mods.md](../../concepts/mods.md), from the interview of 2026-09-30/10-01.
+- Concept: [mods.md](../../../concepts/mods.md), from the interview of 2026-09-30/10-01.
 - Downloads come only from the original sources. Mirroring is prepared (licence and source in the
   UI, `mirrors[]` read but empty) and deliberately not done.
 - Deliberately out of this sprint: Jump, mission packs/Zaero, singleplayer mods, per-mod config

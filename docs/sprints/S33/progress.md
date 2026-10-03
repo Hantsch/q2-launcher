@@ -275,3 +275,19 @@
 - 2026-10-03 15:35 · 198 · R2 fix geometry parser · started
 - 2026-10-03 15:36 · 198 · R2 fix geometry parser · done
 - 2026-10-03 15:39 · 198 · story · done
+- 2026-10-03 15:39 · 227 · build · started
+- 2026-10-03 15:39 · 227 · D1 docs checker · started
+- 2026-10-03 15:40 · 227 · D1 docs checker · done
+- 2026-10-03 15:40 · 227 · D2 link-clean docs · started
+- 2026-10-03 15:41 · 227 · D2 link-clean docs · done
+- 2026-10-03 15:41 · 227 · D3 modules as built (hard) · started
+- 2026-10-03 15:46 · 227 · D3 modules as built (hard) · done
+- 2026-10-03 15:46 · 227 · D4 errors/state/placement · started
+- 2026-10-03 15:47 · 227 · D4 errors/state/placement · done
+- 2026-10-03 15:47 · 227 · D5 CLAUDE.md and small docs · started
+- 2026-10-03 15:48 · 227 · D5 CLAUDE.md and small docs · done
+- 2026-10-03 15:48 · 227 · verify · started
+- 2026-10-03 15:50 · 227 · verify · done
+- 2026-10-03 15:50 · 227 · review 1 · started
+- 2026-10-03 15:54 · 227 · review 1 · done
+- 2026-10-03 15:55 · 227 · story · done
