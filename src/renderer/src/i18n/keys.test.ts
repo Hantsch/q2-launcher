@@ -87,6 +87,8 @@ export const DYNAMIC_KEY_PREFIXES: readonly string[] = [
   'config.validation.structure.',
   // ACTIONS_MESSAGE_PREFIX in src/shared/config/validation/validate-actions.ts
   'config.validation.actions.',
+  // t(`config.aliases.origin.${row.origin}`) in src/renderer/src/modules/config/AliasesTab.tsx
+  'config.aliases.origin.',
   // t(`config.care.level.${item.level}`) in src/renderer/src/modules/config/CareItemRow.tsx
   'config.care.level.',
   // TIDY_UP_MESSAGE_PREFIX in src/renderer/src/modules/config/lib/tidy-up-findings.ts, plus

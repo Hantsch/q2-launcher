@@ -527,6 +527,11 @@
         "splits_other": "splits into {{count}} parts",
         "value": "{{bytes}} / {{max}} bytes"
       },
+      "origin": {
+        "generated": "Generated",
+        "layer": "Layer",
+        "user": "User"
+      },
       "ownerLabel": "Owner: {{owner}}",
       "referrers": {
         "action": "entry “{{name}}”",

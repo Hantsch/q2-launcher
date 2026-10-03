@@ -2,6 +2,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QuickFilter } from '@shared/servers/quick-filters'
+import { mockClient } from '../../test-support/mock-client'
 
 const client = vi.hoisted(() => ({
   listQuickFilters: vi.fn(),
@@ -9,7 +10,9 @@ const client = vi.hoisted(() => ({
   renameQuickFilter: vi.fn(),
   removeQuickFilter: vi.fn(),
 }))
-vi.mock('./client', () => client)
+vi.mock('./client', (importOriginal) =>
+  mockClient<typeof import('./client')>(importOriginal, client),
+)
 
 import { useQuickFilters } from './useQuickFilters'
 

@@ -556,8 +556,8 @@ collector but does not read it — a flow's pass/fail only reflects its own step
   file, a bad payload). **A bug throws**; nothing catches it to turn it into a value.
 - **A bare `catch` says what it swallows**: either a comment naming the failure class it
   tolerates (`// the file may not exist yet`) or a call to `log.caught(message, error)` from
-  `scopedLogger` in `src/main/lib/logger.ts`, which logs at `warn` with the error last. Existing
-  bare catches are migrated file by file (planned in story 230).
+  `scopedLogger` in `src/main/lib/logger.ts`, which logs at `warn` with the error last. Bare catches that
+  predate the rule are not migrated; a file you edit gets its catches brought in line.
 - **Levels.** `error` — a bug or lost user data. `warn` — degraded but handled. `info` —
   lifecycle (start, stop, job finished). `debug` — developer detail.
 - **Always pass the `Error` object**, not `error.message`, so the stack reaches the log file.

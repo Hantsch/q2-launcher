@@ -359,3 +359,7 @@
 - 2026-10-03 17:20 · 229 · review 1 · started
 - 2026-10-03 17:21 · 229 · review 1 · done
 - 2026-10-03 17:21 · 229 · story · done
+- 2026-10-03 17:22 · gate · short suites · started
+- 2026-10-03 17:25 · gate · e2e-all · started
+- 2026-10-03 18:16 · gate · e2e-all · done
+- 2026-10-03 18:18 · gate · attribution+fix · started

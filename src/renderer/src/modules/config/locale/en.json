@@ -1376,6 +1376,11 @@
         "ascending": "Sorted A–Z. Click to sort Z–A.",
         "descending": "Sorted Z–A. Click to sort A–Z."
       },
+      "origin": {
+        "user": "User",
+        "generated": "Generated",
+        "layer": "Layer"
+      },
       "ownerLabel": "Owner: {{owner}}",
       "body": {
         "expandFor": "Show full body of “{{name}}”",

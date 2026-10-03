@@ -6,14 +6,14 @@ import log from 'electron-log/main'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { STATE_FILE, STATE_SCHEMA_VERSION } from '@shared/constants'
 import { DEFAULT_SETTINGS } from '@shared/types'
-import { MODULE_MIGRATIONS } from '../modules'
-import { configState } from '../modules/config/persisted'
-import { downloadsState } from '../modules/downloads/persisted'
-import { homeState } from '../modules/home/persisted'
-import { replaysState } from '../modules/replays/persisted'
-import { serversState } from '../modules/servers/persisted'
-import { StateStore, type StateSectionSpec } from './state'
-import { unlockState } from './unlock/persisted'
+import { MODULE_MIGRATIONS } from './index'
+import { configState } from './config/persisted'
+import { downloadsState } from './downloads/persisted'
+import { homeState } from './home/persisted'
+import { replaysState } from './replays/persisted'
+import { serversState } from './servers/persisted'
+import { StateStore, type StateSectionSpec } from '../services/state'
+import { unlockState } from '../services/unlock/persisted'
 
 type Doc = Record<string, unknown>
 
@@ -80,8 +80,10 @@ export function checkSeededState(
     const seeded = isRecord(raw['settings']) ? raw['settings'] : {}
     const parsed = isRecord(loaded['settings']) ? loaded['settings'] : {}
     for (const key of new Set([...Object.keys(seeded), ...Object.keys(parsed)])) {
-      if (!Object.hasOwn(parsed, key)) problems.push(`settings.${key} is seeded but not in the schema`)
-      else if (!Object.hasOwn(seeded, key)) problems.push(`settings.${key} is a default the seed lacks`)
+      if (!Object.hasOwn(parsed, key))
+        problems.push(`settings.${key} is seeded but not in the schema`)
+      else if (!Object.hasOwn(seeded, key))
+        problems.push(`settings.${key} is a default the seed lacks`)
       else if (!isDeepStrictEqual(seeded[key], parsed[key])) {
         problems.push(
           `settings.${key} seeded ${JSON.stringify(seeded[key])}, loaded ${JSON.stringify(parsed[key])}`,
@@ -157,7 +159,9 @@ describe('seeded fixture state', () => {
       unlockState(store)
       const specs = section.mock.calls.map(([spec]) => spec as StateSectionSpec<unknown>)
       section.mockRestore()
-      const sections = Object.fromEntries(specs.map((spec) => [spec.key, store.section(spec).get()]))
+      const sections = Object.fromEntries(
+        specs.map((spec) => [spec.key, store.section(spec).get()]),
+      )
 
       const loaded: Doc = {
         schemaVersion: doc.schemaVersion,

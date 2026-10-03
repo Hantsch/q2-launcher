@@ -2,7 +2,7 @@
 
 Defects and debt in existing code. Rows are removed when done; git is the history. A row older than three sprints is promoted to a story or deleted.
 
-Next id: TD-031
+Next id: TD-032
 
 | id     | since | area     | sev | item                                                                                                                                                                                              | source                                                                                                   |
 | ------ | ----- | -------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -36,3 +36,4 @@ Next id: TD-031
 | TD-028 | S33   | i18n     | low | About 13 flow comments and `scripts/lib/fixture/installations.mjs` still say `mirrors locales/en.json`; four comments name a deleted key                                                          | [story 231](requirements/done/231-i18n-keys-are-referenced-not-duplicated-and-live-with-their-module.md) |
 | TD-029 | S29   | replays  | low | Stage restore edges: stale desired geometry after a settings change and a switch back inside fullscreen are unobserved                                                                            | [S29 review](sprints/done/S29/review.md)                                                                 |
 | TD-030 | S30   | replays  | low | Demo polish edges: replace dialog shows the old value, `confirmingModMissing` survives a selection change, Join stays enabled for a filtered-out server, stale readback can clear the chain early | [S30 review](sprints/done/S30/review.md)                                                                 |
+| TD-031 | S33   | main     | low | About 114 bare catches predate the error policy and neither name the swallowed failure class nor call `log.caught`                                                                                | [story 227](requirements/done/227-the-docs-describe-the-launcher-as-built.md)                            |

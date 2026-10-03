@@ -75,7 +75,26 @@ export async function writeFileAtomic(
   const tmpPath = `${filePath}.tmp`
   await mkdir(dirname(filePath), { recursive: true })
   await writeFile(tmpPath, content, encoding)
-  await rename(tmpPath, filePath)
+  await renameWithRetry(tmpPath, filePath)
+}
+
+/** Windows refuses a rename over a file something else holds open for a moment (a virus scanner or
+ * indexer that just saw the previous write); the hold is released within milliseconds. */
+const TRANSIENT_RENAME_CODES = new Set(['EPERM', 'EBUSY', 'EACCES'])
+const RENAME_RETRY_DELAYS_MS = [10, 25, 50, 100, 200]
+
+async function renameWithRetry(from: string, to: string): Promise<void> {
+  for (const delay of RENAME_RETRY_DELAYS_MS) {
+    try {
+      await rename(from, to)
+      return
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (!isWindows() || code === undefined || !TRANSIENT_RENAME_CODES.has(code)) throw error
+      await new Promise<void>((resolve) => setTimeout(resolve, delay))
+    }
+  }
+  await rename(from, to)
 }
 
 /**
