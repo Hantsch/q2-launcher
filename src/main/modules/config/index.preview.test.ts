@@ -1,6 +1,6 @@
 import { unwrapOk } from '../../../test-support/outcome'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   CONFIG_HANDLERS,
@@ -11,8 +11,7 @@ import { type Installation, type Outcome } from '@shared/types'
 import { type AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { type ModuleHandler } from '../types'
-import { configModule, previewProfileFiles, validatePlayedMods } from './index'
-import { syncProfile } from './sync'
+import { configModule } from './index'
 import {
   collectHandlers,
   idleState,
@@ -20,7 +19,6 @@ import {
   log,
   profile,
   installConfigTestDir,
-  userDataBox,
 } from './index.test-helpers'
 import { seedConfigProfiles } from '../../../test-support/config-state'
 
@@ -35,114 +33,8 @@ beforeEach(() => {
   dir = getDir()
 })
 
-describe('previewProfileFiles', () => {
-  it('matches exactly what a write under the same conditions produces', async () => {
-    const inst = installation()
-    const p = profile()
-
-    const preview = previewProfileFiles(p, [p], inst)
-
-    const result = await syncProfile({
-      profile: p,
-      allProfiles: [p],
-      installations: { find: () => inst },
-      launchState: idleState(),
-      playedModsFor: () => [],
-      canonicalBaseDir: userDataBox.current,
-      writeFailures: {},
-      log,
-    })
-    expect(result.state.installations).toEqual([
-      {
-        installationId: 'i1',
-        path: join(dir, 'baseq2', 'Profile.cfg'),
-        fileName: 'Profile.cfg',
-        status: 'inSync',
-      },
-    ])
-
-    expect(preview).toHaveLength(2)
-    for (const file of preview) {
-      const onDisk = await readFile(file.path, 'latin1')
-      expect(onDisk).toBe(file.content)
-    }
-  })
-
-  it('renders the loader for whichever profile is the installation default, not the profile being previewed', () => {
-    // Named distinctly from `p` below so the two never collide under
-    // `resolveProfileFileNames` - this test is about which profile's file the
-    // loader execs, not about collision handling.
-    const other = profile({
-      id: 'p-default',
-      name: 'Default',
-      cvars: {},
-      assignments: [{ installationId: 'i1', isDefault: true }],
-    })
-    const p = profile({ id: 'p1', assignments: [{ installationId: 'i1', isDefault: false }] })
-    const inst = installation()
-
-    const [, , loader] = previewProfileFiles(p, [p, other], inst)
-
-    expect(loader!.content).toContain('p-default')
-    expect(loader!.content).not.toContain('exec Profile.cfg')
-  })
-
-  it("also includes the default profile's own file when previewing a different, non-default profile (F1)", () => {
-    // Named distinctly from `p` below so the two never collide under
-    // `resolveProfileFileNames`.
-    const defaultProfile = profile({
-      id: 'p-default',
-      name: 'Default',
-      // Not the catalogue default, for the same reason as the F1 write test above.
-      cvars: { crosshair: '3' },
-      assignments: [{ installationId: 'i1', isDefault: true }],
-    })
-    const p = profile({ id: 'p1', assignments: [{ installationId: 'i1', isDefault: false }] })
-    const inst = installation()
-
-    const files = previewProfileFiles(p, [defaultProfile, p], inst)
-
-    expect(files.map((f) => f.path.split(/[/\\]/).pop())).toEqual([
-      'Default.cfg',
-      'Profile.cfg',
-      'autoexec.cfg',
-    ])
-    expect(files[0]!.content).toContain('set crosshair   "3"')
-  })
-
-  it('story 007: includes the switch-bind chain in the loader preview when a key and 2 assigned profiles are given', () => {
-    const duel = profile({
-      id: 'p-duel',
-      name: 'Duel',
-      assignments: [{ installationId: 'i1', isDefault: true }],
-    })
-    const ctf = profile({
-      id: 'p-ctf',
-      name: 'CTF',
-      assignments: [{ installationId: 'i1', isDefault: false }],
-    })
-    const inst = installation()
-
-    const files = previewProfileFiles(duel, [duel, ctf], inst, 'F9')
-    const loader = files.find((f) => f.path.endsWith('autoexec.cfg'))
-
-    expect(loader!.content).toContain('q2l_switch')
-    expect(loader!.content).toContain('bind F9 q2l_switch')
-  })
-
-  it("story 007: omits the chain when no switchBindKey is given (today's default)", () => {
-    const p = profile()
-    const inst = installation()
-
-    const files = previewProfileFiles(p, [p], inst)
-    const loader = files.find((f) => f.path.endsWith('autoexec.cfg'))
-
-    expect(loader!.content).not.toContain('q2l_switch')
-  })
-})
-
 /**
- * D1 (story 012): unlike `previewProfileFiles` above, whether a rendered file
+ * Unlike the pure `previewProfileFiles`, whether a rendered file
  * already exists on disk is fs-dependent and so is only ever known by the
  * `preview` IPC handler itself, not by the pure function. Goes through
  * `configModule.setup()` with a minimal duck-typed `app` (only the pieces the
@@ -203,13 +95,12 @@ describe('CONFIG_HANDLERS.preview handler', () => {
 })
 
 /**
- * Story 019 D3: order is array position, and the Decisions require the IPC
- * contract itself (not just `ProfilesStore` directly) to preserve it -
+ * Order is array position, and the IPC contract itself (not just `ProfilesStore`) must preserve it:
  * `setActions`'s strict schema parse must not reorder, dedupe or otherwise
  * reshuffle the array before it reaches `ProfilesStore.setActions`, and
  * `list` must hand the same order back.
  */
-describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
+describe('CONFIG_HANDLERS.setActions / list round trip', () => {
   it('returns the actions array from list in the exact order sent through setActions', async () => {
     const state = new StateStore(join(dir, 'state.json'))
     await state.load()
@@ -220,9 +111,8 @@ describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
       onDispose: () => {},
       app: {
         installations: { find: () => undefined, list: () => [] },
-        // Story 022 D7: `setActions` now triggers a sync run, which reads the
-        // launch state to decide whether a target is running - so this fixture
-        // needs a `launch` even though this test is only about ordering.
+        // `setActions` reads the launch state to decide whether a target is running, so
+        // this fixture needs a `launch` even though the test is only about ordering.
         launch: { getState: () => idleState() },
         state,
       } as unknown as AppContext,
@@ -258,11 +148,13 @@ describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
     ]
 
     const setActions = handlers.get(CONFIG_HANDLERS.setActions)!
-    const setResult = unwrapOk<ConfigProfile[]>(await setActions({
-      profileId: 'p1',
-      categories: [category, other],
-      actions: orderedActions,
-    }))
+    const setResult = unwrapOk<ConfigProfile[]>(
+      await setActions({
+        profileId: 'p1',
+        categories: [category, other],
+        actions: orderedActions,
+      }),
+    )
     const setProfile = setResult.find((p) => p.id === 'p1')!
     expect(setProfile.actions!.map((a) => a.id)).toEqual(['a3', 'a1', 'a2'])
 
@@ -271,15 +163,5 @@ describe('CONFIG_HANDLERS.setActions / list round trip (story 019 D3)', () => {
     const listedProfile = listResult.find((p) => p.id === 'p1')!
     expect(listedProfile.actions!.map((a) => a.id)).toEqual(['a3', 'a1', 'a2'])
     expect(listedProfile.actions).toEqual(setProfile.actions)
-  })
-})
-
-describe('validatePlayedMods', () => {
-  it('keeps only names present in gameDirs', () => {
-    expect(validatePlayedMods(['baseq2', 'ctf'], ['ctf', 'not-a-real-mod'])).toEqual(['ctf'])
-  })
-
-  it('rejects everything when gameDirs is empty', () => {
-    expect(validatePlayedMods([], ['ctf'])).toEqual([])
   })
 })

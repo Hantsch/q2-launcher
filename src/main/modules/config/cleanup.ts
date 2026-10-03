@@ -2,11 +2,13 @@ import { copyFile, readFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import { isLauncherOwnedFile } from '@shared/config/file-ownership'
-import type { Installation } from '@shared/types'
+import type { CleanupApplyResult } from '@shared/modules/config'
+import { fail, ok, type Installation, type LaunchState, type Outcome } from '@shared/types'
 import { fileSize, isFile, listDir, pathExists } from '../../lib/fs-utils'
 import { BACKUP_SUFFIX, backupOnce } from './backup'
 import { gameDirBelongsToInstallation } from './import'
 import { isSafeGameDirName, LOADER_FILE_NAME } from './writer'
+import { isInstallationRunning } from './write-plan'
 
 /**
  * Story 010's redundancy scan: a mod-folder `.cfg` file is redundant when the
@@ -329,4 +331,39 @@ export async function restoreRemovedCopies(
   }
 
   return { restored, rejected }
+}
+
+/**
+ * Story 010, decision 12: `apply`/`restore` refuse a currently-running
+ * installation - unlike a profile write (story 079 D4: a running game defers
+ * nothing), a cleanup delete/restore actually removes files out from under
+ * the running engine, so this stays a hard refusal rather than a deferred
+ * write. `scan` is deliberately NOT gated by this (it is read-only and always
+ * safe) and so has no equivalent wrapper - `configModule.setup()`'s
+ * `cleanupScan` handler calls `scanRedundantCopies` directly.
+ *
+ * Pulled out of the handler closure so the running-guard itself is testable
+ * without booting `configModule.setup()`.
+ */
+export async function applyCleanupIfNotRunning(
+  installation: Installation,
+  entries: CleanupEntry[],
+  launchState: LaunchState,
+): Promise<Outcome<CleanupApplyResult>> {
+  if (isInstallationRunning(launchState, installation.id)) {
+    return fail('config.error.installationRunning')
+  }
+  return ok(await removeRedundantCopies(installation, entries))
+}
+
+/** Restore's half of the same running-guard - see `applyCleanupIfNotRunning` above. */
+export async function restoreCleanupIfNotRunning(
+  installation: Installation,
+  entries: CleanupEntry[],
+  launchState: LaunchState,
+): Promise<Outcome<CleanupRestoreResult>> {
+  if (isInstallationRunning(launchState, installation.id)) {
+    return fail('config.error.installationRunning')
+  }
+  return ok(await restoreRemovedCopies(installation, entries))
 }

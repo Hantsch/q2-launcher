@@ -29,7 +29,7 @@ function profileWithActions(actions: Record<string, unknown>[]): Record<string, 
   }
 }
 
-describe('migrations (story 052 D6)', () => {
+describe('migrations: profile baseline and file hash', () => {
   it('bumps the schema to 2, one past the pre-052 baseline', () => {
     expect(CONFIG_MIGRATIONS.find((step) => step.to === 2)).toBeDefined()
   })
@@ -222,7 +222,7 @@ function profileWithCvars(cvars: Record<string, string>): Record<string, unknown
   }
 }
 
-describe('migrations (story 059 D6)', () => {
+describe('migrations: cvar sections', () => {
   it('ships the cvarSections step as version 3 (the schema constant has moved on since)', () => {
     expect(CONFIG_MIGRATIONS.find((step) => step.to === 3)).toBeDefined()
   })
@@ -360,7 +360,7 @@ describe('migrations (story 059 D6)', () => {
 /** Story 167 D3: the demo step's own `apply`, called directly so it can run twice. */
 const migrateDemo = CONFIG_MIGRATIONS.find((step) => step.to === 4)!.apply
 
-describe('migrations (story 167 D3)', () => {
+describe('migrations: legacy profile fields', () => {
   const demoRows = buildDemoRows()
 
   function demoProfile(): Record<string, unknown> {
@@ -464,7 +464,7 @@ describe('migrations (story 167 D3)', () => {
 /** Story 172 D2: the back-to-window / guard step's own `apply`, called directly so it can run twice. */
 const migrateV5 = CONFIG_MIGRATIONS.find((step) => step.to === 5)!.apply
 
-describe('migrations (story 172 D2)', () => {
+describe('migrations: later profile fields', () => {
   const GUARD = 'if x$cl_demopos ne x$q2l_armpos then '
   const raw = (text: string) => ({ kind: 'raw', text })
 

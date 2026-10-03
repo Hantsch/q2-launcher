@@ -364,7 +364,7 @@ describe('syncProfile', () => {
    * memory. Asserting only the first half would pass while unsaved edits leaked into the
    * installation, which is the copy the engine actually loads.
    */
-  describe('canonicalWriteAllowed (story 043 D4)', () => {
+  describe('canonicalWriteAllowed', () => {
     it('leaves the canonical file alone and writes the installation copy from its bytes', async () => {
       const p = profile({ name: 'One', assignments: [{ installationId: 'i1', isDefault: true }] })
       const inst = installation()
@@ -507,7 +507,7 @@ describe('syncProfile', () => {
     })
   })
 
-  describe('installation copies mirror the canonical file’s bytes (story 079 D2)', () => {
+  describe('installation copies mirror the canonical file’s bytes', () => {
     /**
      * `index.ts`'s own `canonicalWriteAllowed` rule (`syncAndPersist`), mirrored here so these
      * tests exercise the predicate production actually passes in. `overwriteProfileId` is the
@@ -749,7 +749,7 @@ describe('syncProfile', () => {
    * `writeProfileToAssignedInstallations` (and, with it, these three tests) - `switchBindFor` is
    * still live, and `sync.ts`'s per-installation write is the path that consumes it now.
    */
-  describe('switchBindFor and the loader chain (story 007)', () => {
+  describe('switchBindFor and the loader chain', () => {
     it('a 2-profile installation with a switchBindFor key produces a loader containing the chain', async () => {
       const duel = profile({
         id: 'p-duel',

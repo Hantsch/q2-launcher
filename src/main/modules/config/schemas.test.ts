@@ -222,7 +222,7 @@ describe('setProfileActionsInputSchema', () => {
  * only: cvar names inside a section are never cross-validated against the catalogue, same rule
  * `subcategoryId` gets above.
  */
-describe('setProfileCvarsInputSchema - cvarSections (story 059)', () => {
+describe('setProfileCvarsInputSchema - cvarSections', () => {
   const validPayload = {
     profileId: 'p1',
     cvars: { sensitivity: '3' },
@@ -322,7 +322,7 @@ describe('setProfileCvarsInputSchema - cvarSections (story 059)', () => {
 })
 
 /** Story 175 D1: `commitCvars` commits a handful of named cvars - never nothing, never a whole map. */
-describe('commitProfileCvarsInputSchema (story 175)', () => {
+describe('commitProfileCvarsInputSchema', () => {
   const cvarsOf = (count: number): Record<string, string> =>
     Object.fromEntries(Array.from({ length: count }, (_, i) => [`adr${i}`, `10.0.0.${i}`]))
 
@@ -372,7 +372,7 @@ describe('commitProfileCvarsInputSchema (story 175)', () => {
  * halves live in `parts`, exactly two of them. `wait` is a new `ConfigCommand` kind, bounded by
  * `MAX_WAIT_FRAMES`.
  */
-describe('setProfileActionsInputSchema - toggle/press-release parts, wait command (story 045)', () => {
+describe('setProfileActionsInputSchema - toggle/press-release parts, wait command', () => {
   const validPayload = {
     profileId: 'p1',
     categories: [{ id: 'c1', name: 'My Category' }],
@@ -462,7 +462,7 @@ describe('setProfileActionsInputSchema - toggle/press-release parts, wait comman
  * Story 050: `keys` replaces the old fixed `key`/`secondaryKey`/`keyModifier`/
  * `secondaryKeyModifier` fields, with arbitrary length rather than the previous two-slot cap.
  */
-describe('configActionSchema - keys (story 050)', () => {
+describe('configActionSchema - keys', () => {
   const base = {
     id: 'a1',
     categoryId: 'c1',
@@ -524,7 +524,7 @@ describe('syncStateInputSchema', () => {
  * handler (`index.ts`'s `write`, mirroring `assign`/`unassign`/`setDefault`), not by this schema, so
  * that check has its own coverage in `index.test.ts` rather than here.
  */
-describe('writeProfileInputSchema (story 079 D8)', () => {
+describe('writeProfileInputSchema', () => {
   it('accepts a profileId with no installationId, unchanged from before this story', () => {
     expect(writeProfileInputSchema.safeParse({ profileId: 'p1' }).success).toBe(true)
   })

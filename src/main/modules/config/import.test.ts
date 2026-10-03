@@ -388,7 +388,7 @@ describe('commitImportFiles', () => {
 
   // Story 041 (D6): the answers to "attempt as layer" flow through to
   // `buildImportedActions`, validated against this import's own ambiguous list.
-  describe('layerAliases (story 041 D6)', () => {
+  describe('layerAliases', () => {
     async function writeAmbiguousFixture(): Promise<void> {
       await write(
         'baseq2/config.cfg',
@@ -457,7 +457,7 @@ describe('commitImportFiles', () => {
  * installation") and AC10 ("nothing is written until Create is pressed, and the commit re-reads
  * the picked files from disk").
  */
-describe('story 066 D5: import from picked files', () => {
+describe('import from picked files', () => {
   /** The whole flow, exactly as the module wires it: pick -> preview -> commit. */
   it('import from files needs no installation', async () => {
     await write('picked/dm.cfg', lines('set sensitivity "3"', 'bind x "+attack"'))
@@ -690,7 +690,7 @@ describe('story 066 D5: import from picked files', () => {
  * case the acceptance line calls out explicitly: the sentinel is only reached through the loader's
  * `exec` chain, never in the file the user actually picked.
  */
-describe('story 042 D5: ownWrittenFile / metadata restore', () => {
+describe('ownWrittenFile / metadata restore', () => {
   const sourceProfile: ConfigProfile = {
     id: 'source-profile-id',
     name: 'Source',

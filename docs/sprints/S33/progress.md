@@ -45,3 +45,21 @@
 - 2026-10-03 09:46 · 211 · review 2 (hard) · done
 - 2026-10-03 09:46 · 211 · review-fix 2 two-way type tests · started
 - 2026-10-03 09:48 · 211 · story · done
+- 2026-10-03 09:48 · 210 · build · started
+- 2026-10-03 09:49 · 210 · D1 profile-writes service + save · started
+- 2026-10-03 09:55 · 210 · D1 profile-writes service + save · done
+- 2026-10-03 09:55 · 210 · D2 saveRawText + refreshFromFiles · started
+- 2026-10-03 09:58 · 210 · D2 saveRawText + refreshFromFiles · done
+- 2026-10-03 09:58 · 210 · D3 remaining write-path handlers · started
+- 2026-10-03 10:04 · 210 · D3 remaining write-path handlers · done
+- 2026-10-03 10:04 · 210 · D4 startup.ts · started
+- 2026-10-03 10:05 · 210 · D4 startup.ts · done
+- 2026-10-03 10:05 · 210 · D5 pure helpers out of index.ts · started
+- 2026-10-03 10:07 · 210 · D5 pure helpers out of index.ts · done
+- 2026-10-03 10:07 · 210 · D6 handler tests, line cap, doc · started
+- 2026-10-03 10:12 · 210 · D6 handler tests, line cap, doc · done
+- 2026-10-03 10:12 · 210 · verify · started
+- 2026-10-03 10:19 · 210 · verify · done (unsaved-diff red: fixture action ids are UUIDs in the UI, untouched by this diff; A/B on HEAD not possible)
+- 2026-10-03 10:19 · 210 · review 1 · started
+- 2026-10-03 10:21 · 210 · review 1 · done
+- 2026-10-03 10:21 · 210 · story · done

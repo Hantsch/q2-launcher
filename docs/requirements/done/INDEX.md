@@ -312,3 +312,4 @@ second roadmap.
 - 219 — jobs share one runner, one busy rule and one failure log · S32 · every job runs on JobRunner (finish-once, revalidate-after-write, installation-exclusive busy refusal); failure log covers every module and missingChecks carry params
 - 224 — the e2e fixture and flow helpers are shared and schema-checked · S33 · fixture literals in one JSON, fixture split into a facade, every variant StateStore-checked, flow helpers shared and guarded
 - 211 — config profile shapes are declared once · S33 · one shared profile schema, one restore adapter, shims and fixtures out of main; IPC and persisted formats unchanged
+- 210 — the config module's main side is handlers, not business logic · S33 · write path moved to profile-writes service, startup.ts, index.ts 501 lines with a line-cap test

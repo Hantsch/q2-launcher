@@ -1,5 +1,9 @@
-import type { ConfigProfile } from '@shared/modules/config'
-import type { LaunchState } from '@shared/types'
+import { join } from 'node:path'
+import { renderLoaderFile, renderProfileFile } from '@shared/config/render'
+import { resolveProfileFileNames } from '@shared/config/profile-files'
+import type { ConfigProfile, PreviewFile } from '@shared/modules/config'
+import type { Installation, LaunchState } from '@shared/types'
+import { BASE_GAME_DIR, LOADER_FILE_NAME } from './writer'
 
 /**
  * The profile that is `installationId`'s current default, across ALL profiles
@@ -42,4 +46,68 @@ export function isInstallationRunning(launchState: LaunchState, installationId: 
     (launchState.phase === 'starting' || launchState.phase === 'running') &&
     launchState.installationId === installationId
   )
+}
+
+/**
+ * The exact files a `write` of `profile` would put on `installation`'s disk,
+ * without writing them - what `preview` answers and what `write` itself
+ * produces internally. Kept as one function so the two can never drift apart.
+ */
+export function previewProfileFiles(
+  profile: ConfigProfile,
+  allProfiles: ConfigProfile[],
+  installation: Pick<Installation, 'id' | 'rootPath'>,
+  switchBindKey?: string,
+): Omit<PreviewFile, 'onDisk'>[] {
+  const defaultProfile = defaultProfileFor(allProfiles, installation.id) ?? profile
+  const baseDir = join(installation.rootPath, BASE_GAME_DIR)
+  const fileNames = resolveProfileFileNames(allProfiles)
+  const assignedProfiles = assignedProfilesFor(allProfiles, installation.id).map((p) => ({
+    ...p,
+    // Every assigned profile comes from `allProfiles`, which `fileNames`
+    // was resolved from above, so this lookup cannot miss.
+    fileName: fileNames.get(p.id)!,
+  }))
+
+  const files: Omit<PreviewFile, 'onDisk'>[] = []
+  // Mirrors the `defaultProfile.id !== profile.id` branch `sync.ts`'s write
+  // loop follows for every assigned profile, so a preview never shows fewer
+  // files than an actual sync would put on disk.
+  if (defaultProfile.id !== profile.id) {
+    files.push({
+      // `defaultProfile` is drawn from `allProfiles` (or falls back to
+      // `profile`, itself always a member of `allProfiles`), so this lookup
+      // cannot miss.
+      path: join(baseDir, fileNames.get(defaultProfile.id)!),
+      content: renderProfileFile(defaultProfile),
+    })
+  }
+  files.push(
+    {
+      // `profile` is always a member of `allProfiles`, so this lookup cannot miss.
+      path: join(baseDir, fileNames.get(profile.id)!),
+      content: renderProfileFile(profile),
+    },
+    {
+      path: join(baseDir, LOADER_FILE_NAME),
+      content: renderLoaderFile(
+        defaultProfile,
+        fileNames.get(defaultProfile.id)!,
+        switchBindKey
+          ? { key: switchBindKey, profiles: assignedProfiles, defaultProfileId: defaultProfile.id }
+          : undefined,
+      ),
+    },
+  )
+  return files
+}
+
+/**
+ * Keeps only entries that are actually one of the installation's own game
+ * directories. The path-trust boundary for played-mod names lives in
+ * `writer.ts` too (it re-checks at write time); this is what keeps
+ * `state.json` itself from persisting a name that was never real.
+ */
+export function validatePlayedMods(gameDirs: string[], playedMods: string[]): string[] {
+  return playedMods.filter((mod) => gameDirs.includes(mod))
 }

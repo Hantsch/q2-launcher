@@ -186,7 +186,8 @@ central, assigned to installations) and the UI (launcher design system) change.
   IPC schemas add caps (`.max(n)`, extra `.min(1)`); `persisted.ts` adds forgiveness (`.catch()`,
   row-level drops, legacy fields) by `.extend()`ing only the fields that are forgiving on disk.
 - **`state.json` is a cache, the `.cfg` is the source of truth** (story 043). Two startup steps in
-  `src/main/modules/config/rebuild.ts`, run in this fixed order by `configModule.setup()`:
+  `src/main/modules/config/rebuild.ts`, run in this fixed order from `src/main/modules/config/startup.ts`
+  (still awaited by `configModule.setup()`, so the first `list` already sees the rebuilt profiles):
   1. **One-time format migration** (AC8), gated by the new top-level state key
      `configFileSourceMigratedAt` (an ISO timestamp; a _new key_, not a `STATE_SCHEMA_VERSION`
      bump — an additive key needs only a forgiving parse in `persisted.ts`, same precedent as `configPlayedMods`). On the first start
@@ -214,6 +215,11 @@ central, assigned to installations) and the UI (launcher design system) change.
 
   Neither step deletes anything, and neither adds backup logic: `writeTargetFile`'s existing
   diff-skip / backup-once / atomic-write contract and `state.json.bak` are untouched.
+
+- **Handlers and the write rule**: `index.ts` only registers handlers - each write channel is a
+  one-line delegation to `createProfileWrites` (`profile-writes.ts`). The central write rule lives in
+  `profile-writes.ts#syncAndPersist`, which reaches the app only through `ProfileWritesDeps` (no
+  `context`, `electron` or `lib/paths` import), so it is tested without booting the module.
 
 - **Write cadence: explicit save** (story 043 D4), the deliberate inversion of story 022's
   "every mutation writes immediately". Content mutations (`setCvars`, `setBinds`, `setLayers`,

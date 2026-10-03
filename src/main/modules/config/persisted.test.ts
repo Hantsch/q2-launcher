@@ -16,7 +16,7 @@ import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
  * dropping: one malformed row must not wipe the rest of the array. See `parseForgivingRows` in
  * `lib/forgiving.ts` for the mechanism.
  */
-describe('configProfileSchema - categories/actions (story 008)', () => {
+describe('configProfileSchema - categories/actions', () => {
   const baseProfile = {
     id: 'p1',
     name: 'My profile',
@@ -250,7 +250,7 @@ describe('configProfileSchema - categories/actions (story 008)', () => {
  * names are never cross-validated against the catalogue, and `writeCatalogDefaults` defaults to
  * `true` (today's own unconditional-write behaviour) like `writeUnbindall`.
  */
-describe('configProfileSchema - cvarSections/writeCatalogDefaults (story 059)', () => {
+describe('configProfileSchema - cvarSections/writeCatalogDefaults', () => {
   const baseProfile = {
     id: 'p1',
     name: 'My profile',
@@ -336,7 +336,7 @@ describe('configProfileSchema - cvarSections/writeCatalogDefaults (story 059)', 
  * legacy shape and normalises it into `keys` on read - the decision that keeps every profile
  * already on a dev machine from silently losing its binds on the next load.
  */
-describe('configProfileSchema - keys (story 050)', () => {
+describe('configProfileSchema - keys', () => {
   const baseProfile = {
     id: 'p1',
     name: 'My profile',
@@ -403,7 +403,7 @@ describe('configProfileSchema - keys (story 050)', () => {
  * missing/malformed value there defaults just that field to `null` instead of
  * dropping the whole layer row.
  */
-describe('configProfileSchema - layers.triggerKey (story 011)', () => {
+describe('configProfileSchema - layers.triggerKey', () => {
   const baseProfile = {
     id: 'p1',
     name: 'My profile',
@@ -447,7 +447,7 @@ describe('configProfileSchema - layers.triggerKey (story 011)', () => {
  * derived from its category's legacy `entryKind`. The derive runs at profile level because it needs
  * the sibling `categories` a row-level schema cannot see - see `normalizeConfigProfile`.
  */
-describe('configProfileSchema - entry kind derived on read (story 019)', () => {
+describe('configProfileSchema - entry kind derived on read', () => {
   const baseProfile = {
     id: 'p1',
     name: 'My profile',
@@ -706,7 +706,7 @@ describe('configProfileSchema - entry kind derived on read (story 019)', () => {
  * hand-written strings on purpose: the expected value is whatever the mirrors write *today*, which
  * is what keeps these tests meaningful across the D7 name flip instead of freezing today's format.
  */
-describe('configProfileSchema - legacy alias references migrated on read (story 039)', () => {
+describe('configProfileSchema - legacy alias references migrated on read', () => {
   const baseProfile = {
     id: 'p1',
     name: 'My profile',
@@ -828,7 +828,7 @@ describe('configProfileSchema - legacy alias references migrated on read (story 
  * the launcher would just quietly forget what "unsaved" means across a restart. Hence the round-trip
  * assertion below, next to the two forgiving cases the `.catch()` exists for.
  */
-describe('configProfileSchema - baseline (story 049)', () => {
+describe('configProfileSchema - baseline', () => {
   const baseProfile = {
     id: 'p1',
     name: 'My profile',

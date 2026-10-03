@@ -653,7 +653,7 @@ describe('ProfilesStore', () => {
   // (`applyActionLayerMirror`), and `setActions` stops writing a base bind for
   // a slot that carries a modifier. Own `category`/`action` fixtures rather
   // than reaching into the `setActions` block above's scope.
-  describe('story 016: modifier-bound slots', () => {
+  describe('modifier-bound slots', () => {
     const category: ConfigActionCategory = { id: 'drops', name: 'Weapon dropping' }
 
     function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
@@ -960,7 +960,7 @@ describe('ProfilesStore', () => {
   // Story 019 D2: an alias entry renders as its own alias and is never bound -
   // neither into `binds` nor into a layer override. Own fixtures, like the
   // story 016 block above.
-  describe('story 019: alias entries', () => {
+  describe('alias entries', () => {
     const category: ConfigActionCategory = { id: 'jumps', name: 'Jumps' }
 
     function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
@@ -1077,7 +1077,7 @@ describe('ProfilesStore', () => {
   // stored alongside the existing `cvars`/`binds`/`unrecognized` rather than
   // replacing them, and the pre-existing story 034 bind-adoption pass must not
   // double-count an imported alias entry.
-  describe('createFromImport (story 041 D6)', () => {
+  describe('createFromImport', () => {
     it('stores actions/categories/layers alongside cvars/binds/unrecognized', () => {
       const category: ConfigActionCategory = { id: 'imported', name: 'Imported' }
       const aliasAction: ConfigAction = {
@@ -1156,7 +1156,7 @@ describe('ProfilesStore', () => {
     })
   })
 
-  describe('story 034: raw binds are adopted into catalogue actions', () => {
+  describe('raw binds are adopted into catalogue actions', () => {
     it('adopts a bind saved from the Overview keyboard into its Controls row', () => {
       const [created] = profiles.create({ name: 'Original', from: 'empty' })
 
@@ -1234,7 +1234,7 @@ describe('ProfilesStore', () => {
    * over everything. A snapshot taken before that pass would differ from the stored profile in
    * `binds`/`actions` and make a freshly adopted profile report unsaved changes it does not have.
    */
-  describe('story 049: the last-saved baseline', () => {
+  describe('the last-saved baseline', () => {
     it('is absent on a profile whose file has never been confirmed', () => {
       const [created] = profiles.create({ name: 'Never saved', from: 'template-right' })
       expect(created!.baseline).toBeUndefined()
@@ -1325,7 +1325,7 @@ describe('ProfilesStore', () => {
    * `StateStore` pair the rest of this file already uses - no real filesystem profile file is ever
    * created for these tests, so there is nothing for `discard` to have touched.
    */
-  describe('discard (story 049 D3)', () => {
+  describe('discard', () => {
     it('restores every baseline-covered field, clears dirty, and bumps updatedAt', async () => {
       const [created] = profiles.create({ name: 'Saved', from: 'empty' })
       const seen = profiles

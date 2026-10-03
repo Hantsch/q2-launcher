@@ -164,7 +164,7 @@ async function commitPicked(
   return commitImportFiles(picked, log, { fileIds, ...input }, createProfile)
 }
 
-describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story 041 D9)', () => {
+describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures', () => {
   it('previews the fixtures with the real alias/preserved-line facts', async () => {
     const { dmLines, dmaliasLines, gfxLines } = await buildFixtureGamedir()
 
@@ -493,7 +493,7 @@ describe('import against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story
  * it neither adds a cvar/bind/alias nor a preserved line that the direct file list wouldn't also
  * produce, in the same order.
  */
-describe('readImportableFiles against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures (story 066 D2)', () => {
+describe('readImportableFiles against the real dm.cfg + dmalias.cfg + gfx.cfg fixtures', () => {
   function fixturePath(name: string): string {
     return join(FIXTURES_DIR, name)
   }
@@ -659,7 +659,7 @@ describe('readImportableFiles against the real dm.cfg + dmalias.cfg + gfx.cfg fi
  * line) - `m_filter`'s one and only real `set` is at line 233, under `Grafik Settings`, so that is
  * where it is placed. Confirmed against the real fixture text line by line, not assumed.
  */
-describe("story 059 D5: dm.cfg's own section banners become cvar sections", () => {
+describe("dm.cfg's own section banners become cvar sections", () => {
   const GENERAL_SETTINGS_CVARS = [
     'name',
     'crosshair',

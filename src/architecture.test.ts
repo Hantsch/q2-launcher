@@ -101,6 +101,11 @@ const ALLOWED: ReadonlyArray<AllowedEdge> = [
 /** Shrinks only: a new `as any` in production code needs a typed alternative instead. */
 const AS_ANY_BASELINE = 0
 
+/** A thinned module entry registers handlers and nothing more; growth past the cap is a smell. */
+const LINE_CAPS: Record<string, number> = {
+  'src/main/modules/config/index.ts': 600,
+}
+
 const SOURCES = listSourceFiles('src')
 const PRODUCTION = SOURCES.filter((file) => !isTestFile(file))
 const TEXT = new Map(SOURCES.map((file) => [file, readRepoFile(file)]))
@@ -308,7 +313,9 @@ describe('architecture', () => {
 
   it('no production file is an export-star re-export of a shared module', () => {
     const shims = PRODUCTION.filter((file) =>
-      /^\s*export\s+\*\s+from\s+'@shared\/[^']*'\s*;?\s*$/.test(stripComments(TEXT.get(file) ?? '')),
+      /^\s*export\s+\*\s+from\s+'@shared\/[^']*'\s*;?\s*$/.test(
+        stripComments(TEXT.get(file) ?? ''),
+      ),
     )
     expect(shims).toEqual([])
   })
@@ -427,5 +434,29 @@ describe('architecture', () => {
     const next = text.indexOf('\n## ', start + 1)
     const section = text.slice(start, next === -1 ? undefined : next)
     expect(section).toContain('src/architecture.test.ts')
+  })
+
+  it('a thinned module entry stays within its line cap', () => {
+    for (const [file, cap] of Object.entries(LINE_CAPS)) {
+      const lines = readRepoFile(file).split('\n').length
+      expect(lines, `${file} has ${lines} lines, cap ${cap}`).toBeLessThanOrEqual(cap)
+    }
+  })
+
+  it("config's index.ts imports no node:fs or electron", () => {
+    const file = 'src/main/modules/config/index.ts'
+    const bad = edgesOf([file])
+      .map((edge) => edge.to)
+      .filter((to) => isNodeOrElectron(to) && !/^(node:)?path$/.test(to))
+    expect(bad).toEqual([])
+  })
+
+  it("config's profile-writes reaches the app only through its deps", () => {
+    const file = 'src/main/modules/config/profile-writes.ts'
+    const forbidden = new Set(['src/main/context', 'electron', 'src/main/lib/paths'])
+    const bad = edgesOf([file])
+      .map((edge) => edge.to)
+      .filter((to) => forbidden.has(to))
+    expect(bad).toEqual([])
   })
 })
