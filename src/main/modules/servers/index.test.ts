@@ -615,14 +615,14 @@ describe('servers module list.*Sort handlers (story 119 D2)', () => {
     await state.settle()
     const reloaded = new StateStore(filePath)
     await reloaded.load()
-    expect(serversState(reloaded).get().listSort).toBeUndefined()
+    expect(serversState(reloaded).get().listSort).toBeNull()
   })
 
   it('list.setSort rejects an unknown column', async () => {
     expect(
       await invoke(SERVERS_HANDLERS.listSetSort, { sort: { column: 'nope', direction: 'asc' } }),
     ).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
-    expect(serversState(state).get().listSort).toBeUndefined()
+    expect(serversState(state).get().listSort).toBeNull()
   })
 })
 

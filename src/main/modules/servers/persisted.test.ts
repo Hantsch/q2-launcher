@@ -337,11 +337,11 @@ describe('parseServersState (story 110 D2)', () => {
       ...base,
       listSort: { column: 'nope', direction: 'desc' },
     })
-    expect(malformedColumn.listSort).toBeUndefined()
+    expect(malformedColumn.listSort).toBeNull()
     expect(malformedColumn.scan).toEqual(DEFAULT_SERVERS_STATE.scan)
 
     const malformedShape = parseServersState({ ...base, listSort: 'players-desc' })
-    expect(malformedShape.listSort).toBeUndefined()
+    expect(malformedShape.listSort).toBeNull()
   })
 
   it('a state file without listSort parses to the default order', () => {
@@ -352,10 +352,11 @@ describe('parseServersState (story 110 D2)', () => {
       history: [],
       scan: DEFAULT_SERVERS_STATE.scan,
     })
-    expect(result.listSort).toBeUndefined()
+    expect(result.listSort).toBeNull()
 
-    expect(parseServersState(undefined).listSort).toBeUndefined()
+    expect(parseServersState(undefined).listSort).toBeNull()
   })
+
 })
 
 describe('serversState', () => {
@@ -397,6 +398,7 @@ describe('serversState', () => {
       [
         'favourites',
         'history',
+        'listSort',
         'manualServers',
         'quickFilters',
         'scan',
@@ -410,6 +412,20 @@ describe('serversState', () => {
     expect('servers' in state.settings()).toBe(false)
   })
 
+  it('a set list sort reloads as set, and a cleared one reloads as null, through the real write path', async () => {
+    const sort = { column: 'players', direction: 'desc' } as const
+    serversState(state).update((current) => ({ ...current, listSort: sort }))
+    await state.settle()
+    const afterSet = new StateStore(filePath)
+    await afterSet.load()
+    expect(serversState(afterSet).get().listSort).toEqual(sort)
+
+    serversState(afterSet).update((current) => ({ ...current, listSort: null }))
+    await afterSet.settle()
+    const afterClear = new StateStore(filePath)
+    await afterClear.load()
+    expect(serversState(afterClear).get().listSort).toBeNull()
+  })
   it('servers state round-trips through state.json and touches no other setting', async () => {
     const settingsBefore = state.settings()
     const installationsBefore = state.installations()
@@ -432,6 +448,7 @@ describe('serversState', () => {
         autoRefreshEnabled: false,
         autoRefreshIntervalMs: 60000,
       },
+      listSort: null,
       watchlist: [],
       quickFilters: [],
     }

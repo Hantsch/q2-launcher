@@ -165,14 +165,12 @@ export function parseServersState(raw: unknown): ServersState {
   )
   const scan = parseServersScanSettings((raw as { scan?: unknown } | null)?.scan)
 
-  // Story 119 D2: `listSort` is field-level-forgiving - an absent or malformed value omits the key
+  // Story 119 D2: `listSort` is field-level-forgiving - an absent or malformed value parses to `null`
   // rather than degrading the rest of the state, so it is read straight off `raw`.
   const listSortResult = serverListSortSchema.safeParse(
     (raw as { listSort?: unknown } | null)?.listSort,
   )
-  const listSort: ServerListSort | undefined = listSortResult.success
-    ? listSortResult.data
-    : undefined
+  const listSort: ServerListSort | null = listSortResult.success ? listSortResult.data : null
 
   const watchlist = parseKeyedRows(watchlistEntrySchema, envelope.watchlist, {
     keyOf: (row) => row.id,
@@ -192,7 +190,7 @@ export function parseServersState(raw: unknown): ServersState {
     scan,
     watchlist,
     quickFilters,
-    ...(listSort ? { listSort } : {}),
+    listSort,
   }
 }
 

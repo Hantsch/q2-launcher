@@ -344,7 +344,7 @@ describe('replays module', () => {
       const rawJson = JSON.parse(await readFile(filePath, 'utf8')) as {
         replays?: { listSort?: unknown }
       }
-      expect(rawJson.replays?.listSort).toBeUndefined()
+      expect(rawJson.replays?.listSort).toBeNull()
     })
   })
 

@@ -24,7 +24,7 @@ describe('sortServerRows — default order', () => {
     const c = makeRow({ players: 10, favourite: false })
     const d = makeRow({ players: 0, favourite: false })
 
-    const result = sortServerRows([a, b, c, d], undefined)
+    const result = sortServerRows([a, b, c, d], null)
 
     expect(result).toEqual([b, c, a, d])
   })
@@ -35,7 +35,7 @@ describe('sortServerRows — default order', () => {
     const dm3 = makeRow({ players: 3, gamemode: 'deathmatch' })
     const ctf3 = makeRow({ players: 3, gamemode: 'ctf' })
 
-    const result = sortServerRows([dm1, ctf6, dm3, ctf3], undefined)
+    const result = sortServerRows([dm1, ctf6, dm3, ctf3], null)
 
     expect(result).toEqual([ctf6, dm3, ctf3, dm1])
   })
@@ -44,7 +44,7 @@ describe('sortServerRows — default order', () => {
     const zero = makeRow({ players: 0 })
     const unknown = makeRow({ players: undefined })
 
-    const result = sortServerRows([unknown, zero], undefined)
+    const result = sortServerRows([unknown, zero], null)
 
     expect(result).toEqual([zero, unknown])
   })
@@ -56,9 +56,9 @@ describe('sortServerRows — default order', () => {
 
     const expected = [alpha, bravo, charlie]
 
-    expect(sortServerRows([charlie, alpha, bravo], undefined)).toEqual(expected)
-    expect(sortServerRows([bravo, charlie, alpha], undefined)).toEqual(expected)
-    expect(sortServerRows([alpha, bravo, charlie], undefined)).toEqual(expected)
+    expect(sortServerRows([charlie, alpha, bravo], null)).toEqual(expected)
+    expect(sortServerRows([bravo, charlie, alpha], null)).toEqual(expected)
+    expect(sortServerRows([alpha, bravo, charlie], null)).toEqual(expected)
   })
 })
 
@@ -90,14 +90,14 @@ describe('sortServerRows — column sort', () => {
 
 describe('nextSort', () => {
   it('cycles natural, reversed, default', () => {
-    const natural = nextSort(undefined, 'ping')
+    const natural = nextSort(null, 'ping')
     expect(natural).toEqual({ column: 'ping', direction: NATURAL_DIRECTION.ping })
 
     const reversed = nextSort(natural, 'ping')
     expect(reversed).toEqual({ column: 'ping', direction: 'desc' })
 
     const backToDefault = nextSort(reversed, 'ping')
-    expect(backToDefault).toBeUndefined()
+    expect(backToDefault).toBeNull()
 
     // Switching to a different column always starts at that column's natural direction.
     const otherColumn = nextSort(reversed, 'name')
@@ -110,7 +110,7 @@ describe('sortServerRows — purity', () => {
     const rows = [makeRow({ players: 1 }), makeRow({ players: 5 }), makeRow({ players: 3 })]
     const original = [...rows]
 
-    sortServerRows(rows, undefined)
+    sortServerRows(rows, null)
     sortServerRows(rows, { column: 'players', direction: 'asc' })
 
     expect(rows).toEqual(original)

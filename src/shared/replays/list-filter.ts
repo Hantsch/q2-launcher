@@ -11,6 +11,7 @@
 import { z } from 'zod'
 import { describeGamemode, gamemodeFilterMatches, gamemodeFilterOptions } from '../demos/gamemode'
 import type { EffectiveGamemode, GamemodeSource } from '../demos/gamemode'
+import { equalsIgnoreCase, matchesTerm } from '../list/search'
 import type { DemoRow } from '../modules/replays'
 import {
   dateRangeValueSchema,
@@ -118,30 +119,25 @@ export function normalizeDemoListFilter(f: DemoListFilter): DemoListFilter {
  * Otherwise matches case-insensitively against the subject's name, file name, map, sidecar
  * description, every sidecar tag, every player of every sidecar side, every header player, and
  * every name-fact player. Never throws.
+ *
+ * Quoted mode (see `matchesTerm`): a term wrapped in double quotes (`"q2ctf5"`) must equal the
+ * whole value of any of those fields instead.
  */
 export function matchesDemoSearch(s: DemoFilterSubject, term: string): boolean {
-  const t = term.trim().toLowerCase()
-  if (t === '') return true
-
-  const includes = (value: string | undefined | null): boolean =>
-    value !== undefined && value !== null && value.toLowerCase().includes(t)
-
-  if (includes(s.name)) return true
-  if (includes(s.fileName)) return true
-  if (includes(s.map)) return true
-  if (includes(s.sidecar?.description)) return true
-
-  if (s.sidecar?.tags?.some((tag) => tag.toLowerCase().includes(t))) return true
-  if (s.sidecar?.sides?.some((side) => side.players.some((p) => p.toLowerCase().includes(t))))
-    return true
-  if (s.headerPlayers.some((p) => p.toLowerCase().includes(t))) return true
-  if (s.namePlayers.some((p) => p.toLowerCase().includes(t))) return true
-
-  return false
+  return matchesTerm(term, [
+    s.name,
+    s.fileName,
+    s.map,
+    s.sidecar?.description,
+    ...(s.sidecar?.tags ?? []),
+    ...(s.sidecar?.sides ?? []).flatMap((side) => side.players),
+    ...s.headerPlayers,
+    ...s.namePlayers,
+  ])
 }
 
 function matchesText(value: string | null, filterValue: string): boolean {
-  return value !== null && value.toLowerCase() === filterValue.toLowerCase()
+  return equalsIgnoreCase(value, filterValue)
 }
 
 /**

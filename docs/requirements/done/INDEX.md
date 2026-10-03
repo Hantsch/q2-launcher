@@ -317,3 +317,4 @@ second roadmap.
 - 212 — saving a profile edit is one hook and a new alias lands in a real category · S33 · useProfileSave hook for five surfaces, alias in first category, main refuses new orphan categories
 - 215 — main-owned data is read through one query hook · S33 · useModuleQuery/useModuleMutation + useListSort + useServerScan, three-wave migration (flag count 9), ServersView 345 lines, State docs
 - 216 — the UI kit has name, confirm, tabs and one error boundary · S33 · name/confirm/tabs/radio/textarea/error-boundary primitives, useSubmitting, useStartJob; dialogs, strips and boundaries migrated
+- 217 — list sort and search are shared · S33 · one shared sort/search implementation, null sort sentinel, quoted demo search

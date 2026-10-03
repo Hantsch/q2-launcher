@@ -541,7 +541,7 @@ describe('architecture', () => {
   it('config-module.md states the shared/config dependency direction', () => {
     const configDoc = readRepoFile('docs/systems/config-module.md')
     expect(configDoc).toContain('syntax → catalog → aliases/validation → profile → render')
-    const flatPath = /src\/shared\/config\/[\w.-]+\.tsx?/
+    const flatPath = /src\/shared\/config\/[\w.-]+\.tsx?\b/
     for (const doc of ['docs/systems/config-module.md', 'docs/systems/profile-file-format.md']) {
       expect(readRepoFile(doc), doc).not.toMatch(flatPath)
     }
@@ -564,5 +564,13 @@ describe('architecture', () => {
       const file = `src/renderer/src/modules/config/${surface}.tsx`
       expect(TEXT.get(file), file).toMatch(/import \{[^}]*\buseProfileSave\b[^}]*\} from/)
     }
+  })
+
+  it('no file outside src/shared/list implements nextSort or compareStrings', () => {
+    const implementation = /\bfunction\s+(?:nextSort|compareStrings)\b|\bconst\s+compareStrings\b/
+    const offenders = SOURCES.filter((file) => !under(file, 'src/shared/list')).filter((file) =>
+      implementation.test(stripComments(readRepoFile(file))),
+    )
+    expect(offenders).toEqual([])
   })
 })

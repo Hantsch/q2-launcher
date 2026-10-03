@@ -1,7 +1,7 @@
 ---
 id: 217
 title: list sort and search are shared
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -23,18 +23,18 @@ supports quoted exact match (story 195), replays' does not; each has its own
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `src/shared/list/sort.ts` exports `ListSort<C>`, `SortDirection`, a generic
+- [x] **AC1** — `src/shared/list/sort.ts` exports `ListSort<C>`, `SortDirection`, a generic
       `nextSort`, `compareBy`/`createColumnSorter` with the favourite-first and unknown-last
       rules; `src/shared/list/search.ts` exports `matchesTerm` with plain and quoted modes; both
       are unit-tested.
-- [ ] **AC2** — servers, replays, player-sort and alias-rows are re-expressed on top of them; the
+- [x] **AC2** — servers, replays, player-sort and alias-rows are re-expressed on top of them; the
       existing list-sort tests (118 + 219 lines) pass unchanged as the regression gate; no file
       outside `src/shared/list` declares its own `nextSort` or `compareStrings`.
-- [ ] **AC3** — The "no sort" sentinel is `null` end to end (persisted type, handler, view); the
+- [x] **AC3** — The "no sort" sentinel is `null` end to end (persisted type, handler, view); the
       `ServersView` mapping is deleted.
-- [ ] **AC4** — The demo list accepts a quoted search term with the same semantics as the server
+- [x] **AC4** — The demo list accepts a quoted search term with the same semantics as the server
       list; the search placeholder says so (i18n key); a replays flow covers it.
-- [ ] **AC5** — `servers-sort-order`, `replays-*` sort/filter flows pass.
+- [x] **AC5** — `servers-sort-order`, `replays-*` sort/filter flows pass.
 
 ## Open Questions
 
@@ -215,4 +215,17 @@ Coverage: AC1 ← D1 · AC2 ← D2 + D5 · AC3 ← D2 (view) + D3 + D4 · AC4 �
 
 ## Done
 
-<!-- Filled by /build 217. -->
+Shared `src/shared/list/{sort,search}.ts` (generic `nextSort`, `compareBy`, `createColumnSorter`, `matchesTerm`, `equalsIgnoreCase`); servers, replays, player-sort and alias-rows re-expressed on them; `listSort` is `null` end to end (both slices, `setOrClearListSort` deleted); demo list accepts quoted exact search.
+
+Commit message: `217: shared list sort/search (src/shared/list), null sort sentinel, quoted demo search`
+
+Verification (narrow gate: `npx vitest run --changed HEAD`, `npm run ui:flow -- <flow>` per mapped flow, build/typecheck/lint): green after one fix pass; review cycle 1 found a vacuous architecture regex (mangled ``), fixed and re-verified. All AC tests in the mapping ran and passed; flows servers-sort-order, replays-sort-order, replays-filter-search, servers-filter-search, servers-quoted-search, replays-quoted-search green. No manual residue.
+
+Decisions:
+- Persisted `null` changed the golden state fixtures (`__fixtures__/state/*.expected.json`) and `serversStateSchema` (lazy `listSort` key + key list in servers.test.ts); the two sort-order flows now wait for `listSort === null` instead of an absent key.
+- Replays `nextSort` is a `const` binding of the shared sorter so the architecture rule has no exception.
+- Flow quoted-search uses partial map `q2ctf` (unquoted >=2, quoted none) since unquoted `Zephyr` matches one demo.
+- Also fixed a second mangled `` regex (`flatPath`) in `src/architecture.test.ts`.
+- Changelog: one `### Changed` line under Unreleased.
+
+tiers: D 6 / hard 1 · review default · cycles 1 · agents 10

@@ -85,6 +85,28 @@ describe('ServerPlayersPanel (story 122 D4)', () => {
     expect(pingSort.closest('th')?.getAttribute('aria-sort')).toBe('descending')
   })
 
+  it('a third click on a column returns to score descending', () => {
+    renderPanel(
+      baseRow({
+        players: [
+          { name: 'Alpha1', score: 12, ping: 5 },
+          { name: 'Alpha2', score: 0, ping: 0 },
+          { name: 'Alpha3', score: 5, ping: 8 },
+        ],
+      }),
+    )
+
+    const pingSort = screen.getByTestId('servers-detail-players-sort-ping')
+    fireEvent.click(pingSort)
+    fireEvent.click(pingSort)
+    fireEvent.click(pingSort)
+
+    const rows = screen.getAllByTestId('servers-detail-player-row')
+    expect(rows[0]?.textContent).toContain('Alpha1') // score 12, the default order
+    const scoreSort = screen.getByTestId('servers-detail-players-sort-score')
+    expect(scoreSort.closest('th')?.getAttribute('aria-sort')).toBe('descending')
+  })
+
   it('a known zero shows the empty state; an unknown count does not', () => {
     renderPanel(baseRow({ players: 0 }))
     expect(screen.getByTestId('servers-detail-players-empty')).toBeTruthy()

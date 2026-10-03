@@ -28,6 +28,7 @@ version section when a release actually ships.
 
 - **Downloads** — Settings now say which options are not available yet.
 - **Mods** — A second job on an installation that is already busy is now refused with an explanation.
+- **Demos** — Quote a search term to match it exactly; a third click resets a sort.
 
 ### Fixed
 

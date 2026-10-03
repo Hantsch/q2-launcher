@@ -81,7 +81,7 @@ export function ServersView() {
   const isWatchlistUnlocked = useFeatureUnlocked('watchlist')
 
   const handleSort = (column: ServerSortColumn): void => {
-    setSort(nextSort(sort ?? undefined, column) ?? null)
+    setSort(nextSort(sort, column))
   }
 
   const handleModeChange: typeof scan.changeMode = (next) => {
@@ -166,7 +166,7 @@ export function ServersView() {
     )
   }
 
-  const sortedRows = useMemo(() => sortServerRows(entries, sort ?? undefined), [entries, sort])
+  const sortedRows = useMemo(() => sortServerRows(entries, sort), [entries, sort])
   const visible = useMemo(() => filterServers(sortedRows, filter), [sortedRows, filter])
 
   // A selection the filter hides is dropped - it would keep driving "Refresh this server" against
@@ -205,7 +205,7 @@ export function ServersView() {
       </div>
     ) : (
       <>
-        <ServerListHeader sort={sort ?? undefined} onSort={handleSort} />
+        <ServerListHeader sort={sort} onSort={handleSort} />
         {visible.map((entry) => (
           <ServerRow
             key={entry.address}

@@ -3,7 +3,7 @@
 // default order (favourites pinned, then occupancy descending, gamemode only breaking ties), a
 // column click's asc/desc cycle, that the choice survives navigating away and a full page reload,
 // that it is actually persisted in `state.json`'s `servers.listSort`, and that a third click on the
-// same column clears it back to the default order and removes the persisted key.
+// same column clears it back to the default order and persists listSort as null.
 //
 // Mirrors `servers-row-markers.mjs`'s `bindResponder`/fixture-seeding/`waitForFinishedAtChange`
 // pattern (copied, not imported - `scripts/*.mjs` never imports another flow file) and
@@ -244,8 +244,8 @@ export default async function serversSortOrder({ page, step, shot }) {
   )
   await waitForStateJson(
     variantUserDataDir(variant),
-    (state) => !('listSort' in (state.servers ?? {})),
-    'state.json to drop servers.listSort',
+    (state) => state.servers?.listSort === null,
+    'state.json servers.listSort to be null',
   )
   await shot('cleared-back-to-default')
 
@@ -253,6 +253,6 @@ export default async function serversSortOrder({ page, step, shot }) {
     'servers-sort-order: the default order pins favourites then sorts by occupancy with ' +
       'gamemode only breaking ties, a column click cycles asc -> desc -> default, the choice ' +
       'survives navigating away and a full reload, is persisted in state.json, and clearing it ' +
-      'removes the persisted key',
+      'persists null',
   )
 }

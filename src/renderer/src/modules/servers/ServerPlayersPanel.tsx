@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, Users } from 'lucide-react'
+import { nextSort } from '@shared/list/sort'
+import type { SortDirection } from '@shared/list/sort'
 import type { ServerListRow } from '@shared/modules/servers'
 import {
   DEFAULT_PLAYER_SORT,
-  naturalDir,
+  PLAYER_NATURAL_DIRECTION,
   sortPlayers,
   type PlayerSortKey,
 } from '@shared/servers/player-sort'
@@ -17,7 +19,7 @@ export interface ServerPlayersPanelProps {
 
 const COLUMNS: PlayerSortKey[] = ['name', 'score', 'ping']
 
-function ariaSort(active: boolean, dir: 'asc' | 'desc'): 'ascending' | 'descending' | 'none' {
+function ariaSort(active: boolean, dir: SortDirection): 'ascending' | 'descending' | 'none' {
   if (!active) return 'none'
   return dir === 'asc' ? 'ascending' : 'descending'
 }
@@ -44,7 +46,7 @@ function PanelTitle({ count }: { count?: number }) {
  */
 export function ServerPlayersPanel({ row }: ServerPlayersPanelProps) {
   const { t } = useTranslation()
-  const [sort, setSort] = useState<{ key: PlayerSortKey; dir: 'asc' | 'desc' }>(DEFAULT_PLAYER_SORT)
+  const [sort, setSort] = useState<{ key: PlayerSortKey; dir: SortDirection }>(DEFAULT_PLAYER_SORT)
 
   const { players } = row
 
@@ -52,11 +54,14 @@ export function ServerPlayersPanel({ row }: ServerPlayersPanelProps) {
     const sorted = sortPlayers(players, sort.key, sort.dir)
 
     const handleSort = (key: PlayerSortKey) => {
-      setSort((current) =>
-        current.key === key
-          ? { key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
-          : { key, dir: naturalDir(key) },
-      )
+      setSort((current) => {
+        const next = nextSort(
+          { column: current.key, direction: current.dir },
+          key,
+          PLAYER_NATURAL_DIRECTION,
+        )
+        return next === null ? DEFAULT_PLAYER_SORT : { key: next.column, dir: next.direction }
+      })
     }
 
     return (

@@ -457,7 +457,7 @@ export interface ServersState {
   history: ServerHistoryEntry[]
   scan: ServersScanSettings
   /** user-chosen list sort, story 119 */
-  listSort?: ServerListSort
+  listSort: ServerListSort | null
   /** Story 131 D1: the watchlist's persisted entries - see `WatchlistEntry` below. */
   watchlist: WatchlistEntry[]
   /** Story 197 D1: saved quick filters (named filter criteria), at most `QUICK_FILTER_MAX`. */
@@ -499,6 +499,8 @@ export const serversStateSchema = z.object({
   scan: serversScanSettingsSchema,
   watchlist: z.array(watchlistEntrySchema),
   quickFilters: z.array(quickFilterSchema),
+  // lazy: serverListSortSchema is declared further down the file
+  listSort: z.lazy(() => serverListSortSchema).nullable(),
 })
 
 /**
@@ -513,6 +515,7 @@ export const DEFAULT_SERVERS_STATE: ServersState = {
   favourites: [],
   manualServers: [],
   history: [],
+  listSort: null,
   scan: {
     // Measured, not invented (story 115 D6): the budget is the N=300 row concurrency 24 /
     // timeoutMs 1000 / retries 1 of `npm run measure:scan` (median full pass ~7.5 s over the

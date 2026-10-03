@@ -235,7 +235,8 @@
         "tooSlow": false
       }
     ],
-    "quickFilters": []
+    "quickFilters": [],
+    "listSort": null
   },
   "unlock": {
     "codes": [
@@ -280,6 +281,7 @@
       "trustedMods": [
         "rogue"
       ]
-    }
+    },
+    "listSort": null
   }
 }

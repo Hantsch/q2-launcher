@@ -20,6 +20,7 @@ describe('parseReplaysState (story 140 D2)', () => {
       extraFolders: [],
       listFilter: EMPTY_DEMO_LIST_FILTER,
       modWarning: { enabled: true, trustedMods: [] },
+      listSort: null,
     })
   })
 
@@ -91,6 +92,7 @@ describe('parseReplaysState (story 140 D2)', () => {
       extraFolders: [],
       listFilter: EMPTY_DEMO_LIST_FILTER,
       modWarning: { enabled: true, trustedMods: [] },
+      listSort: null,
     })
   })
 
@@ -123,19 +125,19 @@ describe('parseReplaysState (story 140 D2)', () => {
       ...base,
       listSort: { column: 'nope', direction: 'desc' },
     })
-    expect(malformedColumn.listSort).toBeUndefined()
+    expect(malformedColumn.listSort).toBeNull()
     expect(malformedColumn.nameTemplates).toEqual(base.nameTemplates)
 
     const malformedShape = parseReplaysState({ ...base, listSort: 'players-desc' })
-    expect(malformedShape.listSort).toBeUndefined()
+    expect(malformedShape.listSort).toBeNull()
 
     const missingDirection = parseReplaysState({
       ...base,
       listSort: { column: 'players' },
     })
-    expect(missingDirection.listSort).toBeUndefined()
+    expect(missingDirection.listSort).toBeNull()
 
-    expect(parseReplaysState(undefined).listSort).toBeUndefined()
+    expect(parseReplaysState(undefined).listSort).toBeNull()
   })
 
   // Story 153 D3.

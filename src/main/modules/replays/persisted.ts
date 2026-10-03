@@ -29,8 +29,8 @@ export interface ReplaysState {
   nameTemplates: NameTemplatesState
   /** User-added extra demo folders. */
   extraFolders: ReplaysExtraFolder[]
-  /** User-chosen demo list sort; absent means the default order. */
-  listSort?: DemoListSort
+  /** User-chosen demo list sort; `null` means the default order. Key is always present. */
+  listSort: DemoListSort | null
   /** Not optional: `EMPTY_DEMO_LIST_FILTER` is itself the "no filter applied" value. */
   listFilter: DemoListFilter
   /** The missing-mod warning: whether it is asked at all, and the lowercase game dirs the user
@@ -127,14 +127,12 @@ export function parseReplaysState(raw: unknown): ReplaysState {
   )
   const extraFolders = parseExtraFolders(raw)
 
-  // `listSort` is field-level-forgiving: an absent or malformed value omits the key (default
+  // `listSort` is field-level-forgiving: an absent or malformed value becomes `null` (default
   // order) rather than degrading the rest of the state.
   const listSortResult = demoListSortSchema.safeParse(
     (raw as { listSort?: unknown } | null)?.listSort,
   )
-  const listSort: DemoListSort | undefined = listSortResult.success
-    ? listSortResult.data
-    : undefined
+  const listSort: DemoListSort | null = listSortResult.success ? listSortResult.data : null
 
   // `listFilter` is forgiving the same way, but degrades to `EMPTY_DEMO_LIST_FILTER` rather than an
   // absent key, since that value already means "no filter".
@@ -147,7 +145,7 @@ export function parseReplaysState(raw: unknown): ReplaysState {
 
   const modWarning = modWarningSchema.parse((raw as { modWarning?: unknown } | null)?.modWarning)
 
-  return { nameTemplates, extraFolders, listFilter, modWarning, ...(listSort ? { listSort } : {}) }
+  return { nameTemplates, extraFolders, listFilter, modWarning, listSort }
 }
 
 const replaysSpec: StateSectionSpec<ReplaysState> = {
@@ -160,6 +158,7 @@ const replaysSpec: StateSectionSpec<ReplaysState> = {
     extraFolders: [],
     listFilter: { ...EMPTY_DEMO_LIST_FILTER },
     modWarning: { enabled: true, trustedMods: [] },
+    listSort: null,
   }),
 }
 

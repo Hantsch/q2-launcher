@@ -113,6 +113,7 @@ describe('servers persisted state (story 110 D1)', () => {
       [
         'favourites',
         'history',
+        'listSort',
         'manualServers',
         'quickFilters',
         'scan',

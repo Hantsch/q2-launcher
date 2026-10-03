@@ -163,3 +163,27 @@
 - 2026-10-03 12:53 · 216 · verify 2 · started
 - 2026-10-03 12:59 · 216 · verify 2 · done
 - 2026-10-03 12:59 · 216 · story · done
+- 2026-10-03 12:59 · 217 · build · started
+- 2026-10-03 13:00 · 217 · D1 shared sort and search primitives · started
+- 2026-10-03 13:02 · 217 · D1 shared sort and search primitives · done
+- 2026-10-03 13:02 · 217 · D2 servers sort on shared sorter · started
+- 2026-10-03 13:03 · 217 · D2 servers sort on shared sorter · done
+- 2026-10-03 13:03 · 217 · D3 servers main slice null · started
+- 2026-10-03 13:05 · 217 · D4 replays main slice null, helper deleted · started
+- 2026-10-03 13:07 · 217 · D3 servers main slice null · done
+- 2026-10-03 13:07 · 217 · D4 replays main slice null, helper deleted · done
+- 2026-10-03 13:07 · 217 · D5 replays/player/alias sort on shared + rule · started
+- 2026-10-03 13:08 · 217 · D5 replays/player/alias sort on shared + rule · done
+- 2026-10-03 13:08 · 217 · D6 shared search, quoted demo search, flow · started
+- 2026-10-03 13:11 · 217 · D6 shared search, quoted demo search, flow · done
+- 2026-10-03 13:11 · 217 · verify · started
+- 2026-10-03 13:14 · 217 · verify · blocked: golden persisted-state test, flows servers-sort-order + replays-sort-order expect dropped key (null now persisted) — fixing
+- 2026-10-03 13:14 · 217 · fix 1 null-persistence expectations · started
+- 2026-10-03 13:16 · 217 · fix 1 null-persistence expectations · done
+- 2026-10-03 13:16 · 217 · verify · done
+- 2026-10-03 13:16 · 217 · review 1 · started
+- 2026-10-03 13:22 · 217 · review 1 · done
+- 2026-10-03 13:22 · 217 · fix 2 review findings · started
+- 2026-10-03 13:26 · 217 · fix 2 review findings · done
+- 2026-10-03 13:26 · 217 · story · done
+- 2026-10-03 13:26 · 217 · story · done

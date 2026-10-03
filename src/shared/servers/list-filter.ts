@@ -6,6 +6,7 @@
  *
  * Pure by contract: this file lives in `src/shared`, so no `node:*` import, no DOM types, no IPC.
  */
+import { equalsIgnoreCase, matchesTerm } from '../list/search'
 import { isBotsOnly, isWaitingForOpponent, knownPlayerCount } from './row-markers'
 import type { ServerGamemode } from './row-markers'
 import type { ServerListEntry, ServerListRow } from '../modules/servers'
@@ -61,29 +62,15 @@ export function matchesSearch(
   row: Pick<ServerListEntry, 'name' | 'address' | 'players'>,
   term: string,
 ): boolean {
-  const raw = term.trim()
-  if (raw.length >= 3 && raw.startsWith('"') && raw.endsWith('"')) {
-    const inner = raw.slice(1, -1).toLowerCase()
-    if (row.name?.toLowerCase() === inner) return true
-    if (row.address.toLowerCase() === inner) return true
-    return Array.isArray(row.players) && row.players.some((p) => p.name.toLowerCase() === inner)
-  }
-
-  const t = raw.toLowerCase()
-  if (t === '') return true
-
-  if (row.name !== undefined && row.name.toLowerCase().includes(t)) return true
-  if (row.address.toLowerCase().includes(t)) return true
-
-  if (Array.isArray(row.players)) {
-    return row.players.some((player) => player.name.toLowerCase().includes(t))
-  }
-
-  return false
+  return matchesTerm(term, [
+    row.name,
+    row.address,
+    ...(Array.isArray(row.players) ? row.players.map((p) => p.name) : []),
+  ])
 }
 
 function matchesText(value: string | undefined, filterValue: string): boolean {
-  return value !== undefined && value.toLowerCase() === filterValue.toLowerCase()
+  return equalsIgnoreCase(value, filterValue)
 }
 
 /**

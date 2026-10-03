@@ -190,8 +190,8 @@ export default async function replaysSortOrder({ page, step, shot }) {
   await clickSort(page, 'date')
   await waitForStateJson(
     variantUserDataDir(variant),
-    (state) => !('listSort' in (state.replays ?? {})),
-    'state.json to drop replays.listSort',
+    (state) => state.replays?.listSort === null,
+    'state.json replays.listSort to be null',
   )
   await clickSort(page, 'map')
   await clickSort(page, 'map')
@@ -229,14 +229,14 @@ export default async function replaysSortOrder({ page, step, shot }) {
   assertOrder(clearedOrder, defaultOrder, 'the default (after clearing the sort)')
   await waitForStateJson(
     variantUserDataDir(variant),
-    (state) => !('listSort' in (state.replays ?? {})),
-    'state.json to drop replays.listSort',
+    (state) => state.replays?.listSort === null,
+    'state.json replays.listSort to be null',
   )
   await shot('cleared-back-to-default')
 
   console.log(
     'replays-sort-order: the default order groups favourites first then newest-first, a column ' +
       'click cycles asc -> desc -> default without ever re-pinning favourites, the choice survives ' +
-      'a full reload, is persisted in state.json, and clearing it removes the persisted key',
+      'a full reload, is persisted in state.json, and clearing it persists null',
   )
 }

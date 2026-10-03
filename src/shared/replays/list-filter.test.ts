@@ -64,6 +64,37 @@ describe('matchesDemoSearch', () => {
     expect(matchesDemoSearch(s, '   ')).toBe(true)
     expect(matchesDemoSearch(s, 'anything')).toBe(false)
   })
+
+  it('a quoted search matches a whole field exactly', () => {
+    const s = subject({
+      name: 'Grudge Match',
+      fileName: 'grudge_final.dm2',
+      map: 'q2ctf5',
+      sidecar: { description: 'Epic finale', tags: ['lan'], sides: [{ players: ['Tom'] }] },
+      headerPlayers: ['Rex'],
+      namePlayers: ['Zed'],
+    })
+    for (const whole of [
+      'GRUDGE MATCH',
+      'grudge_final.dm2',
+      'q2ctf5',
+      'epic finale',
+      'LAN',
+      'tom',
+      'rex',
+      'zed',
+    ]) {
+      expect(matchesDemoSearch(s, `"${whole}"`)).toBe(true)
+    }
+  })
+
+  it('a quoted partial value matches nothing', () => {
+    const s = subject({ map: 'q2ctf5', sidecar: { tags: ['final'] }, headerPlayers: ['WallFly'] })
+    expect(matchesDemoSearch(s, 'q2ctf')).toBe(true)
+    expect(matchesDemoSearch(s, '"q2ctf"')).toBe(false)
+    expect(matchesDemoSearch(s, '"fina"')).toBe(false)
+    expect(matchesDemoSearch(s, '"wall"')).toBe(false)
+  })
 })
 
 describe('matchesDemoFilter — one criterion at a time', () => {

@@ -162,6 +162,7 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
       ],
       history: [],
       scan: SCAN_SETTINGS,
+      listSort: null,
       watchlist: [],
       quickFilters: [],
     }

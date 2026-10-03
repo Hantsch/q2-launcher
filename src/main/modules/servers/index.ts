@@ -18,7 +18,6 @@ import {
   saveQuickFilter,
   type QuickFilterMutationResult,
 } from './quick-filter-entries'
-import { setOrClearListSort } from '../../lib/list-sort'
 import { uiHarnessLanTargets } from '../../lib/ui-harness'
 import type { MainModule } from '../types'
 import { addFavourite, removeFavourite } from './favourites'
@@ -279,14 +278,12 @@ export const serversModule: MainModule = {
      * Story 119 D2: the `list.*` sort handlers - same read/merge/persist discipline as
      * `scanGetSettings`/`scanPatchSettings` above. `listSetSort` replaces the top-level `listSort`
      * field wholesale (there is nothing to merge - a sort is either set or cleared) while carrying
-     * every other `ServersState` key over from the same snapshot untouched; `null` clears it by
-     * destructuring it out of the persisted candidate rather than setting it to `undefined`, so a
-     * cleared sort is an absent key on disk, not a present `null`/`undefined` one. What's returned is
-     * what `updateSlice` actually persisted (`?? null`), not the local candidate.
+     * every other `ServersState` key over from the same snapshot untouched; a cleared sort is a
+     * stored `null`. What's returned is what `update` actually persisted, not the local candidate.
      */
-    handle(SERVERS_HANDLERS.listGetSort, () => ok(servers.get().listSort ?? null))
+    handle(SERVERS_HANDLERS.listGetSort, () => ok(servers.get().listSort))
     handle(SERVERS_HANDLERS.listSetSort, (payload) => {
-      return ok(servers.update((live) => setOrClearListSort(live, payload.sort)).listSort ?? null)
+      return ok(servers.update((live) => ({ ...live, listSort: payload.sort })).listSort)
     })
 
     /**

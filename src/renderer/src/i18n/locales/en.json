@@ -1559,7 +1559,7 @@
     "filter": {
       "title": "Filters",
       "search": "Search",
-      "searchPlaceholder": "Name, map or player…",
+      "searchPlaceholder": "Name, map or player — \"quotes\" for exact",
       "any": "Any",
       "mod": "Mod",
       "gamemode": "Gamemode",

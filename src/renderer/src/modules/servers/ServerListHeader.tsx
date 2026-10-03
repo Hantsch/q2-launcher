@@ -10,7 +10,7 @@ import { cn } from '../../lib/cn'
 import { SERVER_LIST_GRID } from './list-grid'
 
 export interface ServerListHeaderProps {
-  sort: ServerListSort | undefined
+  sort: ServerListSort | null
   onSort: (column: ServerSortColumn) => void
 }
 

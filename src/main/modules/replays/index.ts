@@ -34,7 +34,6 @@ import {
 } from '@shared/modules/replays'
 import { timelineActionSchema } from '@shared/replays/timeline'
 import { EMPTY_DEMO_LIST_FILTER, normalizeDemoListFilter } from '@shared/replays/list-filter'
-import { setOrClearListSort } from '../../lib/list-sort'
 import type { UiHarness } from '../../lib/ui-harness'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../../lib/archive/7za-path'
@@ -528,18 +527,14 @@ export const replaysModule: MainModule = {
      * Story 152 D2: the `list.*` sort handlers - same live-slice discipline as
      * `SERVERS_HANDLERS.listGetSort`/`listSetSort` (`src/main/modules/servers/index.ts`).
      * `listSetSort` replaces the top-level `listSort` field wholesale while carrying every other
-     * `ReplaysState` key over from the live slice untouched; `null` clears it by removing the key
-     * (`setOrClearListSort`), so a cleared sort is an absent key on disk, not a present
-     * `null`/`undefined` one. What's returned is what `updateSlice` actually stored (`?? null`).
+     * `ReplaysState` key over from the live slice untouched; `null` clears it and is stored as
+     * `null`. What's returned is what `updateSlice` actually stored.
      */
     handle(REPLAYS_HANDLERS.listGetSort, listGetSortInputSchema, () =>
-      ok(replaysState(app.state).get().listSort ?? null),
+      ok(replaysState(app.state).get().listSort),
     )
     handle(REPLAYS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) =>
-      ok(
-        replaysState(app.state).update((live) => setOrClearListSort(live, payload.sort)).listSort ??
-          null,
-      ),
+      ok(replaysState(app.state).update((live) => ({ ...live, listSort: payload.sort })).listSort),
     )
 
     /**

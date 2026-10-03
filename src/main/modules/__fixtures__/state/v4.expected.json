@@ -147,6 +147,7 @@
     "favourites": [],
     "manualServers": [],
     "history": [],
+    "listSort": null,
     "scan": {
       "concurrency": 24,
       "timeoutMs": 1000,
@@ -181,6 +182,7 @@
     "modWarning": {
       "enabled": true,
       "trustedMods": []
-    }
+    },
+    "listSort": null
   }
 }
