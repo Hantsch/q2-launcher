@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { CircleCheck } from 'lucide-react'
-import type { ConfigProfile } from '@shared/modules/config'
 import { EmptyState } from '../../../components/ui/primitives'
+import { useProfileDraftContext } from '../lib/ProfileDraftProvider'
 import { useUnsavedState } from '../lib/unsaved-state'
 import { ProfileChangeList } from './ProfileChangeList'
 
@@ -24,8 +24,9 @@ import { ProfileChangeList } from './ProfileChangeList'
  * unreachable by keyboard - so the button renders disabled and this tab, the one surface that is
  * about the pending changes, states the reason as real text.
  */
-export function UnsavedChangesTab({ profile }: { profile: ConfigProfile }) {
+export function UnsavedChangesTab() {
   const { t } = useTranslation()
+  const { profile } = useProfileDraftContext()
   const { dirty, rawEdited, changeSet } = useUnsavedState(profile)
 
   if (!dirty && !rawEdited) {

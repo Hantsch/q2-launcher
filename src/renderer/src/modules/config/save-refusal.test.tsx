@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { act, useState } from 'react'
+import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import { initI18n } from '../../i18n'
 import { ProfileChangesProvider } from './lib/profile-changes'
+import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
 import { SAVE_DEBOUNCE_MS } from './lib/useProfileSave'
 
 // `lib/bridge.ts` resolves `window.q2` at module scope, so the stub must exist before the surfaces
@@ -69,39 +70,21 @@ afterEach(() => {
 })
 
 function ControlsHarness({ profile }: { profile: ConfigProfile }) {
-  const [draft, setDraft] = useState(profile)
   return (
     <ProfileChangesProvider profile={profile}>
-      <ControlsTab
-        profile={profile}
-        draft={draft}
-        patch={(partial) =>
-          setDraft((prev) => ({
-            ...prev,
-            ...(typeof partial === 'function' ? partial(prev) : partial),
-          }))
-        }
-        onChanged={() => {}}
-      />
+      <ProfileDraftProvider profile={profile}>
+        <ControlsTab />
+      </ProfileDraftProvider>
     </ProfileChangesProvider>
   )
 }
 
 function SettingsHarness({ profile }: { profile: ConfigProfile }) {
-  const [draft, setDraft] = useState(profile)
   return (
     <ProfileChangesProvider profile={profile}>
-      <SettingsTab
-        profile={profile}
-        draft={draft}
-        patch={(partial) =>
-          setDraft((prev) => ({
-            ...prev,
-            ...(typeof partial === 'function' ? partial(prev) : partial),
-          }))
-        }
-        onChanged={() => {}}
-      />
+      <ProfileDraftProvider profile={profile}>
+        <SettingsTab />
+      </ProfileDraftProvider>
     </ProfileChangesProvider>
   )
 }
@@ -167,14 +150,9 @@ describe('a refused profile save', () => {
     act(() => {
       root.render(
         <>
-          <AliasesTab
-            profile={profile}
-            draft={profile}
-            patch={() => {}}
-            onChanged={() => {}}
-            onNavigateToAction={() => {}}
-            onNavigateToLayer={() => {}}
-          />
+          <ProfileDraftProvider profile={profile}>
+            <AliasesTab onNavigateToAction={() => {}} onNavigateToLayer={() => {}} />
+          </ProfileDraftProvider>
           <Toasts />
         </>,
       )
@@ -195,12 +173,9 @@ describe('a refused profile save', () => {
       root.render(
         <>
           <ProfileChangesProvider profile={profile}>
-            <LayersPanel
-              profile={profile}
-              activeLayerId={null}
-              onSelectLayer={() => {}}
-              onChanged={() => {}}
-            />
+            <ProfileDraftProvider profile={profile}>
+              <LayersPanel activeLayerId={null} onSelectLayer={() => {}} />
+            </ProfileDraftProvider>
           </ProfileChangesProvider>
           <Toasts />
         </>,
@@ -224,7 +199,9 @@ describe('a refused profile save', () => {
     act(() => {
       root.render(
         <>
-          <ProfileAssignmentsPanel profile={profileFixture()} onChanged={() => {}} />
+          <ProfileDraftProvider profile={profileFixture()}>
+            <ProfileAssignmentsPanel />
+          </ProfileDraftProvider>
           <Toasts />
         </>,
       )

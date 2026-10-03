@@ -1,49 +1,46 @@
 import { useTranslation } from 'react-i18next'
-import type { ConfigProfile, ProfileSyncState } from '@shared/modules/config'
+import type { ProfileSyncState } from '@shared/modules/config'
 import { Button } from '../../../components/ui/Button'
 import { Badge, type BadgeTone } from '../../../components/ui/primitives'
 import { useLauncher } from '../../../store/useLauncher'
-import { getProfileSyncState, listConfigProfiles } from '../../config/client'
+import { getProfileSyncState } from '../../config/client'
+import { useConfigProfiles } from '../../config/config-profiles-store'
 import type { CareSyncState } from '../../config/lib/care-sync'
 import { DashboardTileFrame } from '../components/DashboardTileFrame'
 import { useTileData } from '../components/useTileData'
 import { toConfigProfileRows, type ConfigProfileRow } from './profile-rows'
 
-interface ConfigProfilesData {
-  profiles: ConfigProfile[]
-  /** Index-aligned with `profiles` - `undefined` marks a profile whose own `getProfileSyncState`
-   * call rejected or came back `!ok` (see `fetchConfigProfilesData` below). */
-  syncStates: Array<ProfileSyncState | undefined>
-}
+/** Sync state per profile id - `undefined` marks a profile whose own `getProfileSyncState` call
+ * rejected or came back `!ok` (see `fetchConfigProfilesData` below). */
+type SyncStates = Map<string, ProfileSyncState | undefined>
 
 /**
- * Unwraps `listConfigProfiles()`'s `Outcome` for `useTileData` - a failed call throws so the hook's
- * `state` becomes `'error'`, per that hook's contract (mirrors `PlaytimeTile.tsx`'s
- * `fetchPlaytimeStats`).
+ * Reloads the shared profile list through the config profiles store and fetches each profile's
+ * sync state - a failed list read throws so `useTileData`'s `state` becomes `'error'`, per that
+ * hook's contract (mirrors `PlaytimeTile.tsx`'s `fetchPlaytimeStats`). The rows themselves render
+ * from the store's `profiles`, so a rename elsewhere shows here without another read (story 218).
  *
- * Per-profile `getProfileSyncState` calls are fetched together via `Promise.all` (Decision
- * (Sprint): reuse the existing renderer clients rather than adding a batch IPC handler), but a
- * single profile's fetch failing - rejecting, or resolving to `!ok` - must not fail the whole tile:
- * each call is caught individually and turned into `undefined` at that profile's index, which
- * `profile-rows.ts` renders as a `failed` row rather than dropping the profile.
+ * Per-profile `getProfileSyncState` calls are fetched together via `Promise.all`, but a single
+ * profile's fetch failing - rejecting, or resolving to `!ok` - must not fail the whole tile: each
+ * call is caught individually and turned into `undefined`, which `profile-rows.ts` renders as a
+ * `failed` row rather than dropping the profile.
  */
-async function fetchConfigProfilesData(): Promise<ConfigProfilesData> {
-  const result = await listConfigProfiles()
+async function fetchConfigProfilesData(): Promise<SyncStates> {
+  const result = await useConfigProfiles.getState().load()
   if (!result.ok) throw new Error(result.error.key)
-  const profiles = result.value
 
-  const syncStates = await Promise.all(
-    profiles.map(async (profile): Promise<ProfileSyncState | undefined> => {
+  const entries = await Promise.all(
+    result.value.map(async (profile): Promise<[string, ProfileSyncState | undefined]> => {
       try {
         const sync = await getProfileSyncState({ profileId: profile.id })
-        return sync.ok ? sync.value : undefined
+        return [profile.id, sync.ok ? sync.value : undefined]
       } catch {
-        return undefined
+        return [profile.id, undefined]
       }
     }),
   )
 
-  return { profiles, syncStates }
+  return new Map(entries)
 }
 
 const STATE_TONE: Record<CareSyncState, BadgeTone> = {
@@ -65,13 +62,19 @@ const STATE_TONE: Record<CareSyncState, BadgeTone> = {
 export function ConfigProfilesTile() {
   const { t } = useTranslation()
   const setRoute = useLauncher((state) => state.setRoute)
+  const profiles = useConfigProfiles((s) => s.profiles)
   const { state, data, retry } = useTileData(fetchConfigProfilesData)
   const title = t('home.dashboard.tiles.configProfiles.title')
 
   if (state === 'loading') return <DashboardTileFrame title={title} state="loading" />
   if (state === 'error') return <DashboardTileFrame title={title} state="error" onRetry={retry} />
 
-  const rows = data ? toConfigProfileRows(data.profiles, data.syncStates) : []
+  const rows = data
+    ? toConfigProfileRows(
+        profiles,
+        profiles.map((profile) => data.get(profile.id)),
+      )
+    : []
 
   if (rows.length === 0) {
     return (

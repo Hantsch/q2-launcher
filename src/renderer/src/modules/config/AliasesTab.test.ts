@@ -6,6 +6,7 @@ import { mockClient } from '../../test-support/mock-client'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { initI18n } from '../../i18n'
 import { AliasesTab } from './AliasesTab'
+import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
 
 /**
  * Story 055 D4: the Aliases tab's own copy of the two drop toggles (the User's decision - they
@@ -96,13 +97,12 @@ function generatedDropLikeAction(): ConfigAction {
 function renderTab(actions: ConfigAction[]) {
   const profile = { ...baseProfile(), actions }
   return render(
-    createElement(AliasesTab, {
+    createElement(ProfileDraftProvider, {
       profile,
-      draft: profile,
-      patch: () => {},
-      onChanged: () => {},
-      onNavigateToAction: () => {},
-      onNavigateToLayer: () => {},
+      children: createElement(AliasesTab, {
+        onNavigateToAction: () => {},
+        onNavigateToLayer: () => {},
+      }),
     }),
   )
 }

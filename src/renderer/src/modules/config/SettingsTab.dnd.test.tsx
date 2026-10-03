@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
-import { act, useState } from 'react'
+import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConfigCvarSection, ConfigProfile } from '@shared/modules/config'
 import { initI18n } from '../../i18n'
 import { ProfileChangesProvider } from './lib/profile-changes'
+import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
 
 /**
  * Story 054 D10: Settings drags - sections, sub-sections and cvars each reorder/move by drag,
@@ -104,20 +105,11 @@ function stubRects(): void {
 }
 
 function Harness({ profile }: { profile: ConfigProfile }) {
-  const [draft, setDraft] = useState<ConfigProfile>(profile)
   return (
     <ProfileChangesProvider profile={profile}>
-      <SettingsTab
-        profile={profile}
-        draft={draft}
-        patch={(partial) =>
-          setDraft((prev) => ({
-            ...prev,
-            ...(typeof partial === 'function' ? partial(prev) : partial),
-          }))
-        }
-        onChanged={() => {}}
-      />
+      <ProfileDraftProvider profile={profile}>
+        <SettingsTab />
+      </ProfileDraftProvider>
     </ProfileChangesProvider>
   )
 }

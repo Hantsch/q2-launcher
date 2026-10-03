@@ -5,6 +5,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
 import { initI18n } from '../../i18n'
 import { ProfileChangesProvider } from './lib/profile-changes'
+import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
+import { useConfigProfiles } from './config-profiles-store'
 
 /**
  * Story 054 D8: the row menu takes over move up/down (and adds "Move to…") from the inline arrow
@@ -78,21 +80,13 @@ beforeAll(async () => {
 })
 
 function Harness() {
-  const [draft, setDraft] = useState<ConfigProfile>(profileFixture)
-  const profile = profileFixture()
+  // One stable profile per mount: a fresh object each render would reseed the provider's draft.
+  const [profile] = useState<ConfigProfile>(profileFixture)
   return (
     <ProfileChangesProvider profile={profile}>
-      <ControlsTab
-        profile={profile}
-        draft={draft}
-        patch={(partial) =>
-          setDraft((prev) => ({
-            ...prev,
-            ...(typeof partial === 'function' ? partial(prev) : partial),
-          }))
-        }
-        onChanged={() => {}}
-      />
+      <ProfileDraftProvider profile={profile}>
+        <ControlsTab />
+      </ProfileDraftProvider>
     </ProfileChangesProvider>
   )
 }
@@ -135,6 +129,7 @@ function clickMenuItem(label: string): void {
 }
 
 beforeEach(() => {
+  useConfigProfiles.setState({ profiles: [] })
   // jsdom implements no scrolling at all, so `scrollIntoView` does not even exist to be spied on;
   // `ControlsTab` scrolls the selected chip into view on every category change.
   HTMLElement.prototype.scrollIntoView = () => {}

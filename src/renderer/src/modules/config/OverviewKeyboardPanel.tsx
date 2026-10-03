@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Play, Square } from 'lucide-react'
 import type { AltLayer } from '@shared/config/aliases/alt-layers'
-import type { ConfigProfile } from '@shared/modules/config'
 import { cn } from '../../lib/cn'
 import { Button } from '../../components/ui/Button'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
@@ -10,6 +9,7 @@ import { KeyBindDialog } from './components/KeyBindDialog'
 import { LayerSwitcher } from './components/LayerSwitcher'
 import { TestModeReadout } from './components/TestModeReadout'
 import { keycapCommandLabel } from './lib/command-catalog'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import {
   ARROW_CLUSTER,
   KEYBOARD_ROWS,
@@ -83,17 +83,14 @@ const MOUSE_BUTTON_NAMES: Record<number, string> = {
  * that layer's own `overrides` (concept doc §5 "Alternate binding layers").
  */
 export function OverviewKeyboardPanel({
-  profile,
   activeLayer,
-  onChanged,
   onSelectLayer,
 }: {
-  profile: ConfigProfile
   activeLayer: AltLayer | null
-  onChanged: (profiles: ConfigProfile[]) => void
   onSelectLayer: (layerId: string | null) => void
 }) {
   const { t } = useTranslation()
+  const { profile, save } = useProfileDraftContext()
   const [testMode, setTestMode] = useState(false)
   const [press, setPress] = useState<TestPress | null>(null)
   const [editingKey, setEditingKey] = useState<{ key: string; label: string } | null>(null)
@@ -632,7 +629,7 @@ export function OverviewKeyboardPanel({
           layer={activeLayer}
           onClose={() => setEditingKey(null)}
           onSaved={(profiles) => {
-            onChanged(profiles)
+            save(profiles)
             setEditingKey(null)
           }}
         />

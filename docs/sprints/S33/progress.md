@@ -187,3 +187,21 @@
 - 2026-10-03 13:26 · 217 · fix 2 review findings · done
 - 2026-10-03 13:26 · 217 · story · done
 - 2026-10-03 13:26 · 217 · story · done
+- 2026-10-03 13:26 · 218 · build · started
+- 2026-10-03 13:26 · 218 · D1 useConfigProfiles store · started
+- 2026-10-03 13:30 · 218 · D1 useConfigProfiles store · done
+- 2026-10-03 13:30 · 218 · D2 tile and dialog subscribe · started
+- 2026-10-03 13:32 · 218 · D2 tile and dialog subscribe · done
+- 2026-10-03 13:32 · 218 · D3 ProfileDraftProvider · started
+- 2026-10-03 13:34 · 218 · D3 ProfileDraftProvider · done
+- 2026-10-03 13:34 · 218 · D4 ControlsTab reads provider · started
+- 2026-10-03 13:36 · 218 · D4 ControlsTab reads provider · done
+- 2026-10-03 13:36 · 218 · D5 eight panels read provider · started
+- 2026-10-03 13:38 · 218 · D5 eight panels read provider · done
+- 2026-10-03 13:38 · 218 · D6 ConfigView is layout · started
+- 2026-10-03 13:41 · 218 · D6 ConfigView is layout · done
+- 2026-10-03 13:41 · 218 · verify · started
+- 2026-10-03 13:52 · 218 · verify · done
+- 2026-10-03 13:52 · 218 · review 1 · started
+- 2026-10-03 13:54 · 218 · review 1 · done
+- 2026-10-03 13:54 · 218 · story · done

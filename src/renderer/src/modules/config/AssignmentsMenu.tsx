@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Link2 } from 'lucide-react'
-import type { ConfigProfile } from '@shared/modules/config'
 import { anchorRect } from '../../lib/anchor-rect'
 import { cn } from '../../lib/cn'
-import { useLauncher } from '../../store/useLauncher'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { ProfileAssignmentsPanel } from './ProfileAssignmentsPanel'
 
 /** Matches the `w-80` below. Known up front so no measurement is needed. */
@@ -29,15 +28,9 @@ interface Placement {
  * above/below depending on which half of the window it sits in - so it never
  * needs a measure-then-reposition pass.
  */
-export function AssignmentsMenu({
-  profile,
-  onChanged,
-}: {
-  profile: ConfigProfile
-  onChanged: (profiles: ConfigProfile[]) => void
-}) {
+export function AssignmentsMenu() {
   const { t } = useTranslation()
-  const installations = useLauncher((state) => state.installations)
+  const { profile, installations } = useProfileDraftContext()
   const anchorRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const [placement, setPlacement] = useState<Placement | null>(null)
@@ -117,7 +110,7 @@ export function AssignmentsMenu({
             }}
             className="panel-raised fixed z-50 w-80 overflow-y-auto rounded-md p-3"
           >
-            <ProfileAssignmentsPanel profile={profile} onChanged={onChanged} />
+            <ProfileAssignmentsPanel />
           </div>,
           document.body,
         )}

@@ -5,6 +5,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
 import { initI18n } from '../../i18n'
 import { ProfileChangesProvider } from './lib/profile-changes'
+import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
+import { useConfigProfiles } from './config-profiles-store'
 
 /**
  * Story 054 D7: category chips reorder by drag.
@@ -129,21 +131,13 @@ async function step(fire: () => void): Promise<void> {
 }
 
 function Harness() {
-  const [draft, setDraft] = useState<ConfigProfile>(profileFixture)
-  const profile = profileFixture()
+  // One stable profile per mount: a fresh object each render would reseed the provider's draft.
+  const [profile] = useState<ConfigProfile>(profileFixture)
   return (
     <ProfileChangesProvider profile={profile}>
-      <ControlsTab
-        profile={profile}
-        draft={draft}
-        patch={(partial) =>
-          setDraft((prev) => ({
-            ...prev,
-            ...(typeof partial === 'function' ? partial(prev) : partial),
-          }))
-        }
-        onChanged={() => {}}
-      />
+      <ProfileDraftProvider profile={profile}>
+        <ControlsTab />
+      </ProfileDraftProvider>
     </ProfileChangesProvider>
   )
 }
@@ -189,6 +183,7 @@ async function release(x: number, y: number): Promise<void> {
 }
 
 beforeEach(() => {
+  useConfigProfiles.setState({ profiles: [] })
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   HTMLElement.prototype.scrollIntoView = () => {}
   container = document.createElement('div')
@@ -261,17 +256,16 @@ describe('ControlsTab category chip drag (story 054 D7)', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    const remounted = {
+      ...profileFixture(),
+      categories: persisted.map((id) => ({ id, name: id })),
+    }
     act(() => {
       root.render(
-        <ProfileChangesProvider
-          profile={{ ...profileFixture(), categories: persisted.map((id) => ({ id, name: id })) }}
-        >
-          <ControlsTab
-            profile={{ ...profileFixture(), categories: persisted.map((id) => ({ id, name: id })) }}
-            draft={{ ...profileFixture(), categories: persisted.map((id) => ({ id, name: id })) }}
-            patch={() => {}}
-            onChanged={() => {}}
-          />
+        <ProfileChangesProvider profile={remounted}>
+          <ProfileDraftProvider profile={remounted}>
+            <ControlsTab />
+          </ProfileDraftProvider>
         </ProfileChangesProvider>,
       )
     })

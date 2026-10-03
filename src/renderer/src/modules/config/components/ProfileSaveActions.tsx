@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Save, Undo2 } from 'lucide-react'
-import type { ConfigProfile, SaveProfileConflict } from '@shared/modules/config'
+import type { SaveProfileConflict } from '@shared/modules/config'
 import { Button } from '../../../components/ui/Button'
 import { toastOutcomeError } from '../../../lib/toast'
 import { useLauncher } from '../../../store/useLauncher'
 import { ConfigConflictDialog } from '../ConfigConflictDialog'
 import { DiscardChangesDialog } from '../DiscardChangesDialog'
 import { saveConfigProfile } from '../client'
+import { useProfileDraftContext } from '../lib/ProfileDraftProvider'
 import { useRawDraft } from '../lib/raw-draft'
 import { resolveSaveOutcome } from '../lib/save-bar'
 import { useUnsavedState } from '../lib/unsaved-state'
@@ -34,17 +35,9 @@ import { useUnsavedState } from '../lib/unsaved-state'
  * has no room for a sentence, and a `title` on a disabled button is unreachable by keyboard. Discard
  * renders disabled in that case and `UnsavedChangesTab` states the reason in readable text instead.
  */
-export function ProfileSaveActions({
-  profile,
-  onSaved,
-  onDiscarded,
-}: {
-  profile: ConfigProfile
-  onSaved: (profile: ConfigProfile) => void
-  /** The full, updated profile list, per the config module's discard contract. */
-  onDiscarded: (profiles: ConfigProfile[]) => void
-}) {
+export function ProfileSaveActions() {
   const { t } = useTranslation()
+  const { profile, save, resetDraft } = useProfileDraftContext()
   const pushToast = useLauncher((state) => state.pushToast)
   const [saving, setSaving] = useState(false)
   const [conflict, setConflict] = useState<SaveProfileConflict | null>(null)
@@ -59,7 +52,7 @@ export function ProfileSaveActions({
 
     const action = resolveSaveOutcome(outcome)
     if (action.type === 'saved') {
-      onSaved(action.profile)
+      save(action.profile)
       return
     }
 
@@ -69,7 +62,7 @@ export function ProfileSaveActions({
     }
 
     // `action.type === 'toast'`: covers the transport-level error and the unreadable-file cases -
-    // neither calls `onSaved`, so `dirty` is left exactly as it was and nothing the user typed is
+    // neither calls `save`, so `dirty` is left exactly as it was and nothing the user typed is
     // lost.
     toastOutcomeError(pushToast, { ok: false, error: action.error })
   }
@@ -125,7 +118,12 @@ export function ProfileSaveActions({
           onClose={() => setShowDiscard(false)}
           onDiscarded={(profiles) => {
             setShowDiscard(false)
-            onDiscarded(profiles)
+            save(profiles)
+            // `discard` returns the full list; the reverted profile comes from it, not from `profile`
+            // (still pre-discard here), so the draft force-adopts the reverted baseline instead of
+            // keeping stale locally-patched values (story 218).
+            const discarded = profiles.find((candidate) => candidate.id === profile.id)
+            if (discarded) resetDraft(discarded)
           }}
         />
       )}
@@ -137,7 +135,7 @@ export function ProfileSaveActions({
           onClose={() => setConflict(null)}
           onResolved={(resolved) => {
             setConflict(null)
-            onSaved(resolved)
+            save(resolved)
           }}
         />
       )}

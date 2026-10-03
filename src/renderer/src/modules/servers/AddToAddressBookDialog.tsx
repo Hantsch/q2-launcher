@@ -10,7 +10,8 @@ import { Modal } from '../../components/ui/Modal'
 import { Radio, RadioGroup } from '../../components/ui/RadioGroup'
 import { useSubmitting } from '../../components/ui/useSubmitting'
 import { useLauncher } from '../../store/useLauncher'
-import { commitProfileCvars, listConfigProfiles } from '../config/client'
+import { commitProfileCvars } from '../config/client'
+import { useConfigProfiles } from '../config/config-profiles-store'
 import {
   ADDRESS_BOOK_SLOTS,
   pickPreselectedProfileId,
@@ -44,7 +45,11 @@ export function AddToAddressBookDialog({
   const pushToast = useLauncher((state) => state.pushToast)
   const activeInstallationId = useLauncher((state) => state.settings.activeInstallationId)
 
-  const [profiles, setProfiles] = useState<ConfigProfile[] | null>(null)
+  // `null` until this open's read answered; a failed read shows no profiles rather than a stale list.
+  const storedProfiles = useConfigProfiles((state) => state.profiles)
+  const [listState, setListState] = useState<'pending' | 'ready' | 'failed'>('pending')
+  const profiles: ConfigProfile[] | null =
+    listState === 'pending' ? null : listState === 'failed' ? [] : storedProfiles
   const [profileId, setProfileId] = useState<string | undefined>(undefined)
   const [slots, setSlots] = useState<AddressBookSlotValue[] | null>(null)
   const [slot, setSlot] = useState<AddressBookSlot | undefined>(undefined)
@@ -54,12 +59,12 @@ export function AddToAddressBookDialog({
 
   // Initial load, on every open: fetch the profile list fresh and preselect profile + slot.
   const listQuery = useModuleQuery<ConfigProfile[] | null>(
-    async () => (open ? listConfigProfiles() : ok(null)),
+    async () => (open ? useConfigProfiles.getState().load() : ok(null)),
     { deps: [open] },
   )
   useEffect(() => {
     if (!open) return
-    setProfiles(null)
+    setListState('pending')
     setSlots(null)
     setProfileId(undefined)
     setSlot(undefined)
@@ -71,12 +76,12 @@ export function AddToAddressBookDialog({
     if (!open) return
     if (listQuery.state === 'error') {
       setError(listQuery.error?.key ?? null)
-      setProfiles([])
+      setListState('failed')
       return
     }
     const list = listQuery.state === 'success' ? listQuery.data : null
     if (!list) return
-    setProfiles(list)
+    setListState('ready')
     const preselectedProfileId = pickPreselectedProfileId(list, activeInstallationId)
     setProfileId(preselectedProfileId)
     const preselectedProfile = list.find((p) => p.id === preselectedProfileId)
@@ -96,13 +101,13 @@ export function AddToAddressBookDialog({
     setSlot(undefined)
     setLoadingSlots(true)
     void (async () => {
-      const result = await listConfigProfiles()
+      const result = await useConfigProfiles.getState().load()
       if (!result.ok) {
         setError(result.error.key)
         setLoadingSlots(false)
         return
       }
-      setProfiles(result.value)
+      setListState('ready')
       const freshProfile = result.value.find((p) => p.id === nextProfileId)
       const freshSlots = readAddressBookSlots(freshProfile?.cvars ?? {})
       setSlots(freshSlots)
@@ -136,6 +141,7 @@ export function AddToAddressBookDialog({
         return
       }
 
+      useConfigProfiles.getState().upsert(result.value)
       pushToast({
         level: 'success',
         messageKey: 'servers.addressBook.saved',

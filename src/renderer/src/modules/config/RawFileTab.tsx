@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, FolderOpen } from 'lucide-react'
-import type { ConfigProfile, RawFilesResult } from '@shared/modules/config'
+import type { RawFilesResult } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
 import { IconButton } from '../../components/ui/Button'
 import { Checkbox, Select } from '../../components/ui/controls'
@@ -17,6 +17,7 @@ import {
 } from './client'
 import { ConfigCodeView } from './components/ConfigCodeView'
 import { useProfileChanges } from './lib/profile-changes'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { rawEditingMode, useRawDraft } from './lib/raw-draft'
 import { isProfileDirty } from './lib/save-bar'
 
@@ -33,14 +34,9 @@ import { isProfileDirty } from './lib/save-bar'
  * Module-local, props-based: owns its own fetch, no shell-store dependency
  * beyond `pushToast` for action failures.
  */
-export function RawFileTab({
-  profile,
-  onChanged,
-}: {
-  profile: ConfigProfile
-  onChanged: (profiles: ConfigProfile[]) => void
-}) {
+export function RawFileTab() {
   const { t } = useTranslation()
+  const { profile, save } = useProfileDraftContext()
   const pushToast = useLauncher((state) => state.pushToast)
   // Story 049 D8: this tab shows the on-disk file, so the honest statement about pending edits is
   // a notice, not a per-row border (the story's own Decisions) - the same change set the save bar
@@ -86,7 +82,7 @@ export function RawFileTab({
       writeUnbindall: checked,
     })
     if (outcome.ok) {
-      onChanged(outcome.value)
+      save(outcome.value)
     }
   }
 
@@ -98,7 +94,7 @@ export function RawFileTab({
       sectionHeaderStyle: style,
     })
     if (outcome.ok) {
-      onChanged(outcome.value)
+      save(outcome.value)
     }
   }
 

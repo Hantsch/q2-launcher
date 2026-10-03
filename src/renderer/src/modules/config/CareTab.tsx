@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CircleCheck, CircleHelp, CircleX } from 'lucide-react'
-import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
+import type { ConfigAction } from '@shared/modules/config'
 import type { Installation } from '@shared/types/installation'
 import { engineLabel } from '@shared/types/engine'
 import { Panel, SectionLabel, Spinner } from '../../components/ui/primitives'
@@ -15,6 +15,7 @@ import { RenameActionDialog } from './components/RenameActionDialog'
 import { applyTidyUp, updateProfileActions } from './client'
 import { buildCareItems, itemsInGroup, type CareItem, type CareItemAction } from './lib/care-items'
 import { careSummary, type CareSummary, type CareSyncStatus } from './lib/care-summary'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { analyzeTidyUp, type TidyUpFinding } from './lib/tidy-up-findings'
 import { useCareSync } from './lib/use-care-sync'
 import type { ProfileValidation } from './lib/validation-scope'
@@ -53,22 +54,13 @@ import type { ProfileValidation } from './lib/validation-scope'
  * so Care never reports on a manual scan it did not run (AC 2, AC 7).
  */
 export function CareTab({
-  profile,
   validation,
-  onProfileUpdated,
-  installations,
   syncStatus,
   onRefetchSyncState,
   onNavigateToAlias,
   onNavigateToAction,
 }: {
-  profile: ConfigProfile
   validation: ProfileValidation
-  onProfileUpdated: (profile: ConfigProfile) => void
-  /** Story 058 D6: only the Files group still needs these - to name the installation a sync row
-   * belongs to. The redundant-copies cleanup that used to pick an installation here is now an
-   * action on the installation row in Library. */
-  installations: Installation[]
   /** Story 079 D6: the drift rows, fetched by `ConfigView`'s `useDriftState` on the canonical
    * re-read triggers (mount/profile-open, window focus) plus a save - not by this tab itself, so a
    * changed/missing/stale installation copy is caught even while Care is never opened (AC5). Passed
@@ -86,11 +78,14 @@ export function CareTab({
    * Aliases tab's own "show on Controls" link already uses. */
   onNavigateToAction: (actionId: string) => void
 }) {
+  // The Files group names an installation per sync row; the saved profile (not the draft) is what
+  // tidy-up and sync answer against.
+  const { profile, installations, save } = useProfileDraftContext()
   const tidyUpFindings = useMemo(() => analyzeTidyUp(profile), [profile])
 
   const sync = useCareSync({
     profile,
-    onProfileUpdated,
+    onProfileUpdated: save,
     status: syncStatus,
     refetchSyncState: onRefetchSyncState,
   })
@@ -125,8 +120,6 @@ export function CareTab({
           <TidyUpGroup
             items={itemsInGroup(items, 'tidy')}
             autoFindings={tidyUpFindings.filter((finding) => finding.mode === 'auto')}
-            profile={profile}
-            onProfileUpdated={onProfileUpdated}
             onNavigateToAlias={onNavigateToAlias}
             onNavigateToAction={onNavigateToAction}
           />
@@ -338,19 +331,16 @@ function FilesGroup({
 function TidyUpGroup({
   items,
   autoFindings,
-  profile,
-  onProfileUpdated,
   onNavigateToAlias,
   onNavigateToAction,
 }: {
   items: CareItem[]
   autoFindings: TidyUpFinding[]
-  profile: ConfigProfile
-  onProfileUpdated: (profile: ConfigProfile) => void
   onNavigateToAlias: (aliasName: string, actionId?: string) => void
   onNavigateToAction: (actionId: string) => void
 }) {
   const { t } = useTranslation()
+  const { profile, save } = useProfileDraftContext()
   const pushToast = useLauncher((state) => state.pushToast)
   const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(new Set())
   const [batchDialogOpen, setBatchDialogOpen] = useState(false)
@@ -384,7 +374,7 @@ function TidyUpGroup({
       return false
     }
     const updated = outcome.value.find((candidate) => candidate.id === profile.id)
-    if (updated) onProfileUpdated(updated)
+    if (updated) save(updated)
     return true
   }
 
@@ -462,7 +452,7 @@ function TidyUpGroup({
         timeoutMs: 0,
       })
     }
-    onProfileUpdated(outcome.value.profile)
+    save(outcome.value.profile)
   }
 
   return (
@@ -491,7 +481,7 @@ function TidyUpGroup({
           profile={profile}
           findings={autoFindings}
           onClose={() => setBatchDialogOpen(false)}
-          onProfileUpdated={onProfileUpdated}
+          onProfileUpdated={save}
         />
       )}
 

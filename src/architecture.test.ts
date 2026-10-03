@@ -90,6 +90,14 @@ const ALLOWED: ReadonlyArray<AllowedEdge> = [
     story,
     reason: INSTALL_DIALOG,
   })),
+  ...(['home/dashboard/ConfigProfilesTile.tsx', 'servers/AddToAddressBookDialog.tsx'] as const).map(
+    (file) => ({
+      from: `src/renderer/src/modules/${file}`,
+      to: 'src/renderer/src/modules/config/config-profiles-store',
+      story: '218',
+      reason: 'reads the shared config profile list',
+    }),
+  ),
   {
     from: 'src/renderer/src/modules/servers/AddToAddressBookDialog.tsx',
     to: 'src/renderer/src/modules/config/client',
@@ -352,6 +360,7 @@ describe('architecture', () => {
       'src/shared/fixture-constants.test.ts',
       'src/shared/types/common.test.ts',
       'src/renderer/src/lib/toast.test.ts',
+      'src/renderer/src/modules/config/config-structure.test.ts',
       'src/renderer/src/i18n/reason-templates.test.ts',
       'src/test-support/source-files.ts',
     ])

@@ -9,6 +9,7 @@ import type { Installation } from '@shared/types/installation'
 import { initI18n } from '../../i18n'
 import { useLauncher } from '../../store/useLauncher'
 import { InstallationProfilesPanel } from './InstallationProfilesPanel'
+import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
 import { ProfileAssignmentsPanel } from './ProfileAssignmentsPanel'
 
 /**
@@ -134,9 +135,9 @@ describe('ProfileAssignmentsPanel', () => {
     })
 
     render(
-      createElement(ProfileAssignmentsPanel, {
+      createElement(ProfileDraftProvider, {
         profile: profile(),
-        onChanged: () => {},
+        children: createElement(ProfileAssignmentsPanel),
       }),
     )
 
@@ -156,9 +157,9 @@ describe('ProfileAssignmentsPanel', () => {
     })
 
     render(
-      createElement(ProfileAssignmentsPanel, {
+      createElement(ProfileDraftProvider, {
         profile: profile(),
-        onChanged: () => {},
+        children: createElement(ProfileAssignmentsPanel),
       }),
     )
 

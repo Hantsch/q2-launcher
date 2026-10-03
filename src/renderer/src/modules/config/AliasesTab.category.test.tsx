@@ -22,6 +22,7 @@ vi.mock('./client', (importOriginal) =>
 )
 
 const { AliasesTab } = await import('./AliasesTab')
+const { ProfileDraftProvider } = await import('./lib/ProfileDraftProvider')
 const { ControlsTab } = await import('./ControlsTab')
 const { updateProfileActions } = await import('./client')
 
@@ -41,14 +42,9 @@ function profileWith(categories: { id: string; name: string }[]): ConfigProfile 
 
 function renderAliases(profile: ConfigProfile) {
   return render(
-    <AliasesTab
-      profile={profile}
-      draft={profile}
-      patch={() => {}}
-      onChanged={() => {}}
-      onNavigateToAction={() => {}}
-      onNavigateToLayer={() => {}}
-    />,
+    <ProfileDraftProvider profile={profile}>
+      <AliasesTab onNavigateToAction={() => {}} onNavigateToLayer={() => {}} />
+    </ProfileDraftProvider>,
   )
 }
 
@@ -82,7 +78,9 @@ describe('AliasesTab new alias category', () => {
     const next = { ...profile, actions: payload.actions }
     render(
       <ProfileChangesProvider profile={next}>
-        <ControlsTab profile={next} draft={next} patch={() => {}} onChanged={() => {}} />
+        <ProfileDraftProvider profile={next}>
+          <ControlsTab />
+        </ProfileDraftProvider>
       </ProfileChangesProvider>,
     )
     expect(screen.getByTestId(`action-edit-${created.id}`)).toBeTruthy()

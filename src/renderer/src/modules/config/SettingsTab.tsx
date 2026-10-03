@@ -3,14 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowLeftRight, ArrowUp, FolderPlus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { closestCenter, type CollisionDetection, type UniqueIdentifier } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { ConfigCvarSection, ConfigCvarSubsection, ConfigProfile } from '@shared/modules/config'
+import type { ConfigCvarSection, ConfigCvarSubsection } from '@shared/modules/config'
 import type { EngineKind } from '@shared/types/engine'
 import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render/render'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Input, Switch } from '../../components/ui/controls'
 import { DragHandle, SortableItem, SortableZone, type SortableDropMeta } from '../../components/dnd'
 import { cn } from '../../lib/cn'
-import { useLauncher } from '../../store/useLauncher'
 import { useProfileSave } from './lib/useProfileSave'
 import { AddCvarDialog } from './components/AddCvarDialog'
 import { CreateCvarSectionDialog } from './components/CreateCvarSectionDialog'
@@ -47,6 +46,7 @@ import {
 import { assignedEngineKinds, engineScope } from './lib/engine-scope'
 import { AutorecordSetting } from './components/AutorecordSetting'
 import { useProfileChanges } from './lib/profile-changes'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { updateProfileCvars, updateProfileWriteCatalogDefaults } from './client'
 
 /**
@@ -148,16 +148,6 @@ const RESERVED_LABEL_KEY: Record<'defaults' | 'other', string> = {
   other: 'config.settings.reserved.other',
 }
 
-export interface SettingsTabProps {
-  profile: ConfigProfile
-  /** Story 009 D6: the shared in-progress draft, owned by `ConfigView`'s `useProfileDraft`. */
-  draft: ConfigProfile
-  patch: (
-    partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>),
-  ) => void
-  onChanged: (profiles: ConfigProfile[]) => void
-}
-
 /**
  * The settings/cvar section of a config profile's detail view (story 021 D4): a capped, dense list
  * of the profile's cvars in sticky-headed sections, with a header bar for the profile-wide counts,
@@ -211,14 +201,17 @@ export interface SettingsTabProps {
  * main-side at exactly those moments, so this tab, the save bar and every other row can never
  * disagree about what is pending (story 049, Decisions).
  */
-export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabProps) {
+export function SettingsTab() {
   const { t, i18n } = useTranslation()
-  const installations = useLauncher((state) => state.installations)
+  const { profile, draft, patch, installations, save } = useProfileDraftContext()
   // Story 049 D7: the change set every row's "edited"/"unsaved" indicator reads - `ConfigView`
   // mounts `ProfileChangesProvider` around this tab, so this always resolves rather than throwing.
   const changeSet = useProfileChanges()
   const [engine, setEngine] = useState<EngineKind | null>(null)
-  const { status, saving, schedule, saveNow } = useProfileSave({ profileId: profile.id, onChanged })
+  const { status, saving, schedule, saveNow } = useProfileSave({
+    profileId: profile.id,
+    onChanged: save,
+  })
 
   // Filter, "edited only" and the per-group Advanced collapse are session-local UI state (story
   // 021 Decisions: "not persisted per profile, no extra saved UI state") - reset below whenever the
@@ -649,7 +642,7 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
       writeCatalogDefaults: checked,
     })
     if (outcome.ok) {
-      onChanged(outcome.value)
+      save(outcome.value)
     }
   }
 

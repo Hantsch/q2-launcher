@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockClient } from '../../../test-support/mock-client'
 import type { ConfigProfile, ProfileSyncState, SyncProfileStateInput } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
@@ -63,9 +63,15 @@ vi.hoisted(() => {
 })
 
 const { ConfigProfilesTile } = await import('./ConfigProfilesTile')
+const { useConfigProfiles } = await import('../../config/config-profiles-store')
 
 beforeAll(async () => {
   await initI18n('en')
+})
+
+beforeEach(() => {
+  // The store outlives a mount, so each test starts from the empty list of a first visit.
+  useConfigProfiles.setState({ profiles: [] })
 })
 
 afterEach(() => {

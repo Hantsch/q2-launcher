@@ -1,11 +1,10 @@
 import { useTranslation } from 'react-i18next'
-import type { ConfigProfile } from '@shared/modules/config'
 import { Button } from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/controls'
 import { EngineBadge } from '../../components/ui/EngineBadge'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
-import { useLauncher } from '../../store/useLauncher'
 import { assignConfigProfile, setDefaultConfigProfile, unassignConfigProfile } from './client'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { useProfileSave } from './lib/useProfileSave'
 
 /**
@@ -14,20 +13,14 @@ import { useProfileSave } from './lib/useProfileSave'
  * and, once assigned, an affordance to mark it that installation's default.
  *
  * Every mutation round-trips through main (see `client.ts`) and only updates
- * the view via `onChanged` once the real outcome comes back - no optimistic
+ * the view via `save` once the real outcome comes back - no optimistic
  * local state, so a failed call simply leaves the row as it was.
  */
-export function ProfileAssignmentsPanel({
-  profile,
-  onChanged,
-}: {
-  profile: ConfigProfile
-  onChanged: (profiles: ConfigProfile[]) => void
-}) {
+export function ProfileAssignmentsPanel() {
   const { t } = useTranslation()
-  const installations = useLauncher((state) => state.installations)
+  const { profile, installations, save } = useProfileDraftContext()
 
-  const { saveNow } = useProfileSave({ profileId: profile.id, onChanged })
+  const { saveNow } = useProfileSave({ profileId: profile.id, onChanged: save })
 
   const toggle = async (installationId: string, next: boolean): Promise<void> => {
     await saveNow({

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import { CONFIG_HANDLERS } from '@shared/modules/config'
 import { initI18n } from '../../i18n'
 import type { useLauncher as useLauncherType } from '../../store/useLauncher'
+import type { useConfigProfiles as useConfigProfilesType } from '../config/config-profiles-store'
 import type { AddToAddressBookDialog as AddToAddressBookDialogType } from './AddToAddressBookDialog'
 
 function makeProfile(overrides: Partial<ConfigProfile> = {}): ConfigProfile {
@@ -57,11 +58,18 @@ function invokeImpl(_channel: string, args: { moduleId: string; type: string; pa
 
 let AddToAddressBookDialog: typeof AddToAddressBookDialogType
 let useLauncher: typeof useLauncherType
+let useConfigProfiles: typeof useConfigProfilesType
 
 beforeAll(async () => {
   await initI18n('en')
   ;({ AddToAddressBookDialog } = await import('./AddToAddressBookDialog'))
   ;({ useLauncher } = await import('../../store/useLauncher'))
+  ;({ useConfigProfiles } = await import('../config/config-profiles-store'))
+})
+
+beforeEach(() => {
+  // The store outlives a mount, so each test starts from the empty list of a first visit.
+  useConfigProfiles.setState({ profiles: [] })
 })
 
 afterEach(() => {

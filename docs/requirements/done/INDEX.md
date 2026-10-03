@@ -318,3 +318,4 @@ second roadmap.
 - 215 — main-owned data is read through one query hook · S33 · useModuleQuery/useModuleMutation + useListSort + useServerScan, three-wave migration (flag count 9), ServersView 345 lines, State docs
 - 216 — the UI kit has name, confirm, tabs and one error boundary · S33 · name/confirm/tabs/radio/textarea/error-boundary primitives, useSubmitting, useStartJob; dialogs, strips and boundaries migrated
 - 217 — list sort and search are shared · S33 · one shared sort/search implementation, null sort sentinel, quoted demo search
+- 218 — the config detail screen reads its profile from a provider · S33 · useConfigProfiles store + ProfileDraftProvider; ConfigView split to layout (310 lines)

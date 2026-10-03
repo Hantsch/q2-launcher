@@ -22,7 +22,6 @@ import {
   type ConfigAction,
   type ConfigActionCategory,
   type ConfigActionSubcategory,
-  type ConfigProfile,
 } from '@shared/modules/config'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Field, Input, Select } from '../../components/ui/controls'
@@ -32,7 +31,6 @@ import { EmptyState, SectionLabel } from '../../components/ui/primitives'
 import { DragHandle, SortableItem } from '../../components/dnd'
 import { ActionEditor } from './components/ActionEditor'
 import { BindSlot, BindSlotPlaceholder } from './components/BindSlot'
-import { useLauncher } from '../../store/useLauncher'
 import { demoActionUnavailableReason } from './lib/demo-action-availability'
 import { assignedEngineKinds } from './lib/engine-scope'
 import { ControlsCategoryMenu } from './components/ControlsCategoryMenu'
@@ -92,16 +90,10 @@ import {
   type EntryPlacementOption,
 } from './lib/entry-order'
 
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { useProfileSave } from './lib/useProfileSave'
 
 export interface ControlsTabProps {
-  profile: ConfigProfile
-  /** Story 009 D6: the shared in-progress draft, owned by `ConfigView`'s `useProfileDraft`. */
-  draft: ConfigProfile
-  patch: (
-    partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>),
-  ) => void
-  onChanged: (profiles: ConfigProfile[]) => void
   /** Story 044 D6: the owning action's id, when the Aliases tab's owner link for a `generated` row
    * asked to land here - selects that action's own category and focuses its row. Handled once on
    * mount only (see the focus effect below): `ConfigView` only ever mounts this tab fresh when the
@@ -126,7 +118,8 @@ export interface ControlsTabProps {
  * continuously, but so a burst of quick adds/removes does not fire one
  * `updateProfileActions` per click.
  */
-export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }: ControlsTabProps) {
+export function ControlsTab({ focusActionId }: ControlsTabProps) {
+  const { profile, draft, patch, installations, save } = useProfileDraftContext()
   const { t, i18n } = useTranslation()
   // Story 049 D8: the profile's pending change set, read once here so `renderCatalogRow`/
   // `renderPlainActionRow` can each ask "is my action id in `keys.actions`" - same predicate the
@@ -134,7 +127,6 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
   const changeSet = useProfileChanges()
   // Story 167 D4: the engines this profile is assigned to, which decide whether a demo-playback
   // row (`seek` / speed steps are Q2PRO verbs) can be bound at all - same read `SettingsTab` does.
-  const installations = useLauncher((state) => state.installations)
   const assignedEngines = useMemo(
     () => assignedEngineKinds(profile, installations),
     [profile, installations],
@@ -166,7 +158,10 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
     () => (profile.categories ?? [])[0]?.id ?? '',
   )
-  const { status, saving, schedule, saveNow } = useProfileSave({ profileId: profile.id, onChanged })
+  const { status, saving, schedule, saveNow } = useProfileSave({
+    profileId: profile.id,
+    onChanged: save,
+  })
   /** Story 020 D9: one entry per rendered category chip (built-in or custom), keyed by category
    * id, so the scroll-into-view effect below can find the selected chip's DOM node without a
    * ref per category living in component state - a plain mutable map updated by each chip's own

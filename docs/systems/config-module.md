@@ -297,6 +297,9 @@ central, assigned to installations) and the UI (launcher design system) change.
   `two-part.ts` (merge the toggle trio and `+x`/`-x` pairs), `layers.ts` (rebuild layers and
   modifier overrides), `entry-grouping.ts` (group alias/bind lines per entry), `entry-matching.ts`
   (match lines to their tags) and `index.ts` (drives the stages).
+- **Renderer profile state** is the `useConfigProfiles` store (the list) plus `ProfileDraftProvider` (the
+  selected profile, its draft and the `save` sink a confirmed save reports through); selection stays
+  in `ConfigView` via route focus.
 
 ## 7. Requirements
 

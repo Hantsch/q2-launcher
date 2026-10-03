@@ -7,7 +7,6 @@ import {
   type AltLayerMode,
   type LayerIssue,
 } from '@shared/config/aliases/alt-layers'
-import type { ConfigProfile } from '@shared/modules/config'
 import { cn } from '../../lib/cn'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Field, Select } from '../../components/ui/controls'
@@ -15,6 +14,7 @@ import { NameDialog } from '../../components/ui/NameDialog'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { updateProfileLayers } from './client'
 import { useProfileChanges } from './lib/profile-changes'
+import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { useProfileSave } from './lib/useProfileSave'
 
 /**
@@ -45,17 +45,14 @@ const VISIBLE_ISSUE_KEYS: ReadonlySet<LayerIssue['key']> = new Set([
  * `updateProfileLayers`, per the contract's replace-whole-map semantics.
  */
 export function LayersPanel({
-  profile,
   activeLayerId,
   onSelectLayer,
-  onChanged,
 }: {
-  profile: ConfigProfile
   activeLayerId: string | null
   onSelectLayer: (layerId: string | null) => void
-  onChanged: (profiles: ConfigProfile[]) => void
 }) {
   const { t } = useTranslation()
+  const { profile, save } = useProfileDraftContext()
   const layers = profile.layers ?? []
   // Story 049 D8: same "is this in the pending change set" predicate the save bar and the
   // Controls rows read (`useProfileChanges`, `lib/profile-changes.tsx`), applied to layers.
@@ -65,7 +62,7 @@ export function LayersPanel({
   const [renamingLayer, setRenamingLayer] = useState<AltLayer | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
-  const { saving, saveNow } = useProfileSave({ profileId: profile.id, onChanged })
+  const { saving, saveNow } = useProfileSave({ profileId: profile.id, onChanged: save })
 
   const persist = (next: AltLayer[]): Promise<boolean> =>
     saveNow({ run: () => updateProfileLayers({ profileId: profile.id, layers: next }) })
@@ -96,7 +93,7 @@ export function LayersPanel({
    * `updateProfileLayers` call with everything but `mode` unchanged. No dialog
    * to close on success (unlike rename/create): the select's own `value` is
    * `layer.mode` from the freshest `profile` prop, so a failed save simply
-   * leaves the select showing the last-confirmed mode once `onChanged` is not
+   * leaves the select showing the last-confirmed mode once `save` is not
    * called - the same "server response is the only source of truth" pattern
    * `ControlsTab.persistLayers` documents for the dual-bind editor's own
    * modifier-layer writes.
