@@ -249,3 +249,29 @@
 - 2026-10-03 15:00 · 231 · review 1 · started
 - 2026-10-03 15:05 · 231 · review 1 · done
 - 2026-10-03 15:07 · 231 · story · done
+- 2026-10-03 15:07 · 198 · build · started
+- 2026-10-03 15:07 · 198 · D1 X11 wire codec + xauth · started
+- 2026-10-03 15:13 · 198 · D1 X11 wire codec + xauth · done
+- 2026-10-03 15:13 · 198 · D2 X11 connection · started
+- 2026-10-03 15:15 · 198 · D2 X11 connection · done
+- 2026-10-03 15:15 · 198 · D3 stage window keeper · started
+- 2026-10-03 15:17 · 198 · D3 stage window keeper · done
+- 2026-10-03 15:17 · 198 · D4 stage/follower/cinema seams · started
+- 2026-10-03 15:19 · 198 · D4 stage/follower/cinema seams · done
+- 2026-10-03 15:19 · 198 · D5 main wiring + contract · started
+- 2026-10-03 15:21 · 198 · D5 main wiring + contract · done
+- 2026-10-03 15:21 · 198 · D6 renderer notice, i18n, flow, changelog · started
+- 2026-10-03 15:23 · 198 · D6 renderer notice, i18n, flow, changelog · done
+- 2026-10-03 15:23 · 198 · verify · started
+- 2026-10-03 15:25 · 198 · verify · done
+- 2026-10-03 15:25 · 198 · review 1 · started
+- 2026-10-03 15:27 · 198 · review 1 · done
+- 2026-10-03 15:27 · 198 · R1 fixes · started
+- 2026-10-03 15:28 · 198 · R1 fixes · done
+- 2026-10-03 15:28 · 198 · verify · started
+- 2026-10-03 15:30 · 198 · verify · done
+- 2026-10-03 15:30 · 198 · review 2 (hard) · started
+- 2026-10-03 15:35 · 198 · review 2 (hard) · done
+- 2026-10-03 15:35 · 198 · R2 fix geometry parser · started
+- 2026-10-03 15:36 · 198 · R2 fix geometry parser · done
+- 2026-10-03 15:39 · 198 · story · done

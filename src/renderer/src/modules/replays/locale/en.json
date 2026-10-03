@@ -69,6 +69,9 @@
       "label": "The demo plays here",
       "unavailable": {
         "wayland": "Not available on Wayland: the launcher cannot place the game window, so the demo plays in its own window"
+      },
+      "notOnTop": {
+        "x11": "Not kept on top on X11: the launcher could not reach the game window, so it may hide behind the launcher"
       }
     },
     "cinema": {
@@ -363,5 +366,15 @@
         "duration": "Length"
       }
     }
+  },
+  "x11": {
+    "noDisplay": "No X display is set",
+    "refused": "The X server refused the connection",
+    "closed": "The X connection is closed",
+    "timeout": "The X server did not answer in time",
+    "requestFailed": "The X server rejected a request",
+    "connectionLost": "The X server connection was lost",
+    "protocolError": "Could not understand the X server",
+    "noXResource": "The X server lacks the Resource extension"
   }
 }

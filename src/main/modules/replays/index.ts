@@ -1,7 +1,8 @@
-import { ok } from '@shared/types'
+import type { ReplaysStageRect } from '@shared/modules/replays'
+import { ok, type LaunchState } from '@shared/types'
 import { randomUUID } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
-import { homedir } from 'node:os'
+import { homedir, hostname } from 'node:os'
 import { join } from 'node:path'
 import {
   REPLAYS_HANDLERS,
@@ -48,10 +49,13 @@ import { REPLAYS_INDEX_CACHE_FILE, ReplaysIndexCache } from './index-cache'
 import { createCinemaController } from './cinema-controller'
 import { cinemaAvailability, displayGeometry, resolveOnPrimary } from './cinema'
 import { createPlaybackControl } from './playback-control'
-import { stageAvailability, stageGeometry, type StageRect } from './stage'
+import { stageAvailability, stageGeometry, stageWindowKeeper, type StageRect } from './stage'
+import { connectX11 } from './x11/connection'
+import { createX11StageWindow } from './x11/stage-window'
 import {
   createStageFollowSessions,
   parkGeometryAt,
+  type StageFollowSessions,
   virtualDesktopRightEdge,
 } from './stage-follow-session'
 import { createPlaybackTimeline } from './playback-timeline'
@@ -229,10 +233,12 @@ export const replaysModule: MainModule = {
     // Story 164 D4: the running demo's control channel (position/state pushes, console lines).
     // Story 187 D5: the display event also carries cinema (read from the controller below, which only
     // ever runs after setup) and whether cinema could run now.
+    let stageNotice: { key: string } | null = null
     const playbackControl = createPlaybackControl({
       emit,
       launch: app.launch,
       cinema: () => ({ open: cinema.isOpen(), availability: currentCinemaAvailability() }),
+      stageNotice: () => stageNotice,
     })
     // Registered first, so it runs last: the follower and the overlay are let go before the channel.
     onDispose(() => playbackControl.dispose())
@@ -283,12 +289,49 @@ export const replaysModule: MainModule = {
       )
     }
     const harnessFlag = app.harness.enabled ? '1' : undefined
+    const stageHarnessEnv = () => ({
+      Q2L_UI_HARNESS: harnessFlag,
+      Q2L_UI_SESSION_TYPE: app.harness.read('Q2L_UI_SESSION_TYPE'),
+    })
     const currentStageAvailability = () =>
       // platform-read: host platform, decided at call time
-      stageAvailability(process.platform, app.env, {
-        Q2L_UI_HARNESS: harnessFlag,
-        Q2L_UI_SESSION_TYPE: app.harness.read('Q2L_UI_SESSION_TYPE'),
+      stageAvailability(process.platform, app.env, stageHarnessEnv())
+    // The launcher restacks the game window itself only on X11; elsewhere none of this exists.
+    // platform-read: host platform, decided once at setup
+    const x11Keeper = stageWindowKeeper(process.platform, app.env, stageHarnessEnv()) === 'x11'
+
+    // One keeper per placed session. The game's PID is the one main's own spawn reported after the
+    // session began (never a renderer value); a keeper that gives up leaves a notice for the UI.
+    const beginKeptSession = (
+      start: { geometry: string; rect: ReplaysStageRect },
+      begin: StageFollowSessions['begin'],
+    ): (() => void) => {
+      let pid: number | undefined
+      const adopt = (state: LaunchState): void => {
+        if (state.phase === 'running' && state.pid !== undefined) pid = state.pid
+      }
+      adopt(app.launch.getState())
+      const offLaunch = app.launch.onStateChange(adopt)
+      const keeper = createX11StageWindow({
+        connect: () =>
+          connectX11({ env: app.env, readFile: (path) => readFile(path), hostname: hostname() }),
+        pid: () => pid,
+        onFailure: (cause) => {
+          log.warn(`stage keeper gave up: ${cause}`)
+          stageNotice = { key: 'replays.stage.notOnTop.x11' }
+          playbackControl.emitDisplay()
+        },
       })
+      const endFollow = begin({ ...start, windowState: keeper })
+      return () => {
+        endFollow()
+        offLaunch()
+        keeper.dispose()
+        if (stageNotice === null) return
+        stageNotice = null
+        playbackControl.emitDisplay()
+      }
+    }
     // Story 187 D5: cinema covers the primary display, so it is offered only while the launcher is on it
     // (`Q2L_UI_CINEMA_DISPLAY` fakes that under the UI harness).
     const onPrimaryDisplay = (): boolean => {
@@ -345,6 +388,7 @@ export const replaysModule: MainModule = {
       hasSession: () => playbackControl.currentFormat() !== null,
       enterFullscreen: () => playbackControl.enterFullscreen(),
       emitDisplay: () => playbackControl.emitDisplay(),
+      ...(x11Keeper ? { raiseOverlay: () => app.cinemaWindow.raise() } : {}),
     })
     onDispose(() => cinema.dispose())
 
@@ -398,7 +442,8 @@ export const replaysModule: MainModule = {
       cvarRestore,
       stageAvailability: currentStageAvailability,
       toGeometry: (rect) => geometryAt(rect),
-      onStageSession: (start) => stageFollow.begin(start),
+      onStageSession: (start) =>
+        x11Keeper ? beginKeptSession(start, stageFollow.begin) : stageFollow.begin(start),
     })
 
     handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, async () =>

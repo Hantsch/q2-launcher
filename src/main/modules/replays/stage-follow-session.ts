@@ -1,6 +1,7 @@
 import type { ReplaysStageRect } from '@shared/modules/replays'
 import { ok, type Outcome } from '@shared/types'
 import type { MainWindowEvent, MainWindowObserver } from '../../main-window-observer'
+import { parseGeometry } from './geometry'
 import type { StageRect } from './stage'
 import {
   createStageFollower,
@@ -17,13 +18,11 @@ import {
  */
 export const PARK_MARGIN_PX = 64
 
-const GEOMETRY = /^(\d+)x(\d+)\+(-?\d+)\+(-?\d+)$/
-
 /** `WxH+X+Y` with the same size and Y, X moved `PARK_MARGIN_PX` beyond `rightEdge` (physical px). */
 export function parkGeometryAt(geometry: string, rightEdge: number): string {
-  const m = GEOMETRY.exec(geometry)
-  if (!m) return geometry
-  return `${m[1]}x${m[2]}+${Math.round(rightEdge) + PARK_MARGIN_PX}+${m[4]}`
+  const g = parseGeometry(geometry)
+  if (!g) return geometry
+  return `${g.width}x${g.height}+${Math.round(rightEdge) + PARK_MARGIN_PX}+${g.y}`
 }
 
 /** The right edge of the virtual desktop in physical px: the rightmost display's right edge. */
@@ -48,7 +47,11 @@ export function virtualDesktopRightEdge(
 
 export interface StageFollowSessions {
   /** A placed stage session started at `geometry` for `rect`; returns its end (idempotent). */
-  begin(start: { geometry: string; rect: ReplaysStageRect }): () => void
+  begin(start: {
+    geometry: string
+    rect: ReplaysStageRect
+    windowState?: StageFollowerDeps['windowState']
+  }): () => void
   /** `playback.stage`: the stage moved (or is gone, `null`). */
   report(rect: ReplaysStageRect | null): Outcome<void>
   /** Story 172 D5: while the demo is fullscreen the game window is not moved or resized. */
@@ -95,7 +98,7 @@ export function createStageFollowSessions(deps: StageFollowSessionsDeps): StageF
   }
 
   return {
-    begin({ geometry, rect }) {
+    begin({ geometry, rect, windowState }) {
       suspended = false
       current?.unsubscribe()
       current?.follower.dispose()
@@ -104,6 +107,7 @@ export function createStageFollowSessions(deps: StageFollowSessionsDeps): StageF
         computeGeometry: deps.computeGeometry,
         parkGeometry: deps.parkGeometry,
         launchGeometry: geometry,
+        ...(windowState ? { windowState } : {}),
       })
       // Until the renderer reports one, the stage is where it was at launch.
       const session: NonNullable<typeof current> = { follower, rect, unsubscribe: () => undefined }

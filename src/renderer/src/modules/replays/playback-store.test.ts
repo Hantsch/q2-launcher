@@ -66,6 +66,23 @@ describe('playback store (story 165 D3)', () => {
     expect(usePlaybackStore.getState().session?.fullscreen).toBe(false)
   })
 
+  it('a display event with a stage notice shows it as the stage reason, and a null notice clears it', () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    handlers.display?.({ fullscreen: false, stageNotice: { key: 'replays.stage.notOnTop.x11' } })
+    expect(usePlaybackStore.getState().stageReason).toEqual({ key: 'replays.stage.notOnTop.x11' })
+    handlers.display?.({ fullscreen: false, stageNotice: null })
+    expect(usePlaybackStore.getState().stageReason).toBeNull()
+  })
+
+  it('a null stage notice keeps the Wayland refusal from demo.play', () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000)
+    usePlaybackStore.getState().setStageReason({ key: 'replays.stage.unavailable.wayland' })
+    handlers.display?.({ fullscreen: false, stageNotice: null })
+    expect(usePlaybackStore.getState().stageReason).toEqual({
+      key: 'replays.stage.unavailable.wayland',
+    })
+  })
+
   it('the display event sets mode, speed and cinema availability', () => {
     usePlaybackStore.getState().beginSession('a.dm2', 90_000)
     expect(usePlaybackStore.getState().session).toMatchObject({

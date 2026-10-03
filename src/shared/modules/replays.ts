@@ -138,6 +138,8 @@ export interface ReplaysPlaybackDisplay {
   cinema: boolean
   speed: number
   cinemaAvailability: CinemaAvailability
+  /** Why the staged game could not be kept on top (an i18n key), or null. */
+  stageNotice: { key: string } | null
 }
 
 export interface ReplaysPlaybackState {

@@ -36,6 +36,21 @@ export function stageAvailability(
   return { available: true }
 }
 
+/**
+ * Who keeps the game window above the launcher: 'x11' (the launcher restacks it itself) on a Linux
+ * X11 session, or the harness's forced x11; 'none' elsewhere (win32 relies on `win_alwaysontop`).
+ */
+export function stageWindowKeeper(
+  platform: NodeJS.Platform,
+  env: Record<string, string | undefined>,
+  harnessEnv: Record<string, string | undefined> = {},
+): 'x11' | 'none' {
+  if (!stageAvailability(platform, env, harnessEnv).available) return 'none'
+  const harnessX11 =
+    Boolean(harnessEnv['Q2L_UI_HARNESS']) && harnessEnv['Q2L_UI_SESSION_TYPE'] === 'x11'
+  return platform === 'linux' || harnessX11 ? 'x11' : 'none'
+}
+
 export interface StageRect {
   x: number
   y: number

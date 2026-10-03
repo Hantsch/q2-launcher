@@ -32,6 +32,7 @@ version section when a release actually ships.
 
 ### Fixed
 
+- **Demos** — On Linux X11 the staged demo stays on top of the launcher, borderless.
 - An unexpected launcher error now shows a translated message instead of raw system text.
 - **Downloads** — A failed mod install now shows up in the Downloads failure log.
 - Bleeding-edge engine downloads now time out, retry and refuse oversized files.

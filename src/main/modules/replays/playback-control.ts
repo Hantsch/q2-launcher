@@ -47,6 +47,8 @@ export interface PlaybackControlDeps {
   /** Story 187 D5: whether the cinema overlay is open and whether cinema could run now - read each
    * time a display event is built. Defaults to no cinema (tests that do not care). */
   cinema?: () => { open: boolean; availability: CinemaAvailability }
+  /** Why the staged game is not kept on top, read each time a display event is built (default none). */
+  stageNotice?: () => { key: string } | null
 }
 
 export interface PlaybackPrepared {
@@ -135,6 +137,7 @@ export function createPlaybackControl(deps: PlaybackControlDeps): PlaybackContro
       cinema: !fullscreen && c.open,
       speed: live?.speed ?? 1,
       cinemaAvailability: c.availability,
+      stageNotice: deps.stageNotice?.() ?? null,
     }
   }
 

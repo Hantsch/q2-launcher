@@ -79,6 +79,8 @@ interface PlaybackStoreState {
   stageRect: StageRect | null
   /** Why the stage could not place the game window (an i18n key), or null. */
   stageReason: { key: string } | null
+  /** Invariant: true only while `stageReason` came from a display-event notice; a null notice clears just those. */
+  stageReasonIsNotice: boolean
   armStage: () => void
   disarmStage: () => void
   setStageRect: (rect: StageRect | null) => void
@@ -153,8 +155,10 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   stageArmed: false,
   stageRect: null,
   stageReason: null,
+  stageReasonIsNotice: false,
   armStage: () => set({ stageArmed: true }),
-  disarmStage: () => set({ stageArmed: false, stageRect: null, stageReason: null }),
+  disarmStage: () =>
+    set({ stageArmed: false, stageRect: null, stageReason: null, stageReasonIsNotice: false }),
   setStageRect: (rect) =>
     set((s) => {
       const p = s.stageRect
@@ -170,7 +174,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         return s
       return { stageRect: rect }
     }),
-  setStageReason: (reason) => set({ stageReason: reason }),
+  setStageReason: (reason) => set({ stageReason: reason, stageReasonIsNotice: false }),
   beginSession: (demoName, knownDurationMs) => {
     unsubscribeAll()
     clearTimers()
@@ -204,7 +208,13 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
   endSession: () => {
     unsubscribeAll()
     clearTimers()
-    set({ session: null, stageArmed: false, stageRect: null, stageReason: null })
+    set({
+      session: null,
+      stageArmed: false,
+      stageRect: null,
+      stageReason: null,
+      stageReasonIsNotice: false,
+    })
   },
   requestStop: async () => {
     const setStopping = (stopping: boolean): void =>
@@ -284,7 +294,21 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       // The display event's speed is authoritative: the optimistic timeline (what the speed select shows)
       // follows it unless a speed change of this window's own is still pending.
       const followSpeed = c.optimistic.speed === null && c.optimistic.confirmed.speed !== speed
+      const notice = p.stageNotice
+      const noticeChange =
+        notice === undefined
+          ? null
+          : notice !== null
+            ? { stageReason: notice, stageReasonIsNotice: true }
+            : s.stageReasonIsNotice
+              ? { stageReason: null, stageReasonIsNotice: false }
+              : null
+      const noticeSame =
+        noticeChange === null ||
+        (s.stageReasonIsNotice === noticeChange.stageReasonIsNotice &&
+          JSON.stringify(s.stageReason) === JSON.stringify(noticeChange.stageReason))
       const same =
+        noticeSame &&
         c.fullscreen === p.fullscreen &&
         c.mode === mode &&
         c.speed === speed &&
@@ -295,6 +319,7 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
         ? { ...c.optimistic, confirmed: { ...c.optimistic.confirmed, speed } }
         : c.optimistic
       return {
+        ...(noticeChange ?? {}),
         session: { ...c, fullscreen: p.fullscreen, mode, speed, cinemaAvailability, optimistic },
       }
     }),

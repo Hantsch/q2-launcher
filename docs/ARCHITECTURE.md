@@ -495,10 +495,19 @@ cannot strand the window off-screen.
 ### Decisions: shell service for the cinema overlay
 
 Story 187's cinema mode lays a transparent, frameless window over the primary display. It is
-exposed to modules as `app.cinemaWindow` (`open()`, `close()`, `isOpen()`, `onClosed(cb)`,
+exposed to modules as `app.cinemaWindow` (`open()`, `close()`, `isOpen()`, `raise()`, `onClosed(cb)`,
 `src/main/cinema-window.ts`) - a narrow shell service like the main-window observer, because
 modules never touch a `BrowserWindow` and a window is not per-installation data. It shares the
 main window's preload and `webPreferences` (`rendererWebPreferences()`) and its popup/navigation
 guard (`hardenWebContents()`, both in `src/main/window-shared.ts`), so the overlay is exactly as
 privileged as the launcher window and no more. Its page, `cinema.html`, is served from the same
 origin, so the same CSP (response header in dev, protocol handler in production) covers it.
+
+### Decisions: the staged game stays on top on X11
+
+On an X11 session (`stageWindowKeeper()` in `replays/stage.ts`) the launcher restacks the staged
+game window itself: each placed stage session gets a keeper (`replays/x11/`, a minimal X11 client
+over `node:net`) that finds the window by the PID of main's own spawn, strips its decorations and
+sets or clears always-on-top as the follower asks. If it gives up, the `playback.display` event
+carries `stageNotice` and the view says so; cinema also raises the overlay via `app.cinemaWindow.raise()`.
+Windows and Wayland construct none of this.

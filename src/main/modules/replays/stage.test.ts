@@ -6,7 +6,13 @@ import {
   replaysPlaybackStageSchema,
   replaysStageRectSchema,
 } from '@shared/modules/replays'
-import { normalWindowArgs, stageAvailability, stageGeometry, stageLaunchArgs } from './stage'
+import {
+  normalWindowArgs,
+  stageAvailability,
+  stageGeometry,
+  stageLaunchArgs,
+  stageWindowKeeper,
+} from './stage'
 
 const WAYLAND = { available: false, reason: { key: 'replays.stage.unavailable.wayland' } }
 
@@ -169,6 +175,32 @@ describe('stage rect schema', () => {
       { rect: { ...ok, width: Number.POSITIVE_INFINITY } },
     ]) {
       expect(replaysPlaybackStageSchema.safeParse(bad).success).toBe(false)
+    }
+  })
+})
+
+describe('stageWindowKeeper', () => {
+  const H = { Q2L_UI_HARNESS: '1' }
+  it.each([
+    ['linux X11', 'linux', { XDG_SESSION_TYPE: 'x11' }, {}, 'x11'],
+    ['linux Wayland', 'linux', { XDG_SESSION_TYPE: 'wayland' }, {}, 'none'],
+    ['win32', 'win32', {}, {}, 'none'],
+    [
+      'win32 with the harness forcing x11',
+      'win32',
+      {},
+      { ...H, Q2L_UI_SESSION_TYPE: 'x11' },
+      'x11',
+    ],
+    ['win32 with x11 but no harness flag', 'win32', {}, { Q2L_UI_SESSION_TYPE: 'x11' }, 'none'],
+    ['the harness forcing wayland', 'linux', {}, { ...H, Q2L_UI_SESSION_TYPE: 'wayland' }, 'none'],
+  ] as const)('%s -> %s', (_name, platform, env, harness, expected) => {
+    expect(stageWindowKeeper(platform, env, harness)).toBe(expected)
+  })
+
+  it('the X11 keeper is never selected on win32', () => {
+    for (const env of [{}, { XDG_SESSION_TYPE: 'x11' }, { WAYLAND_DISPLAY: 'w' }]) {
+      expect(stageWindowKeeper('win32', env)).toBe('none')
     }
   })
 })

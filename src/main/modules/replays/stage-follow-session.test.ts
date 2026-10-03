@@ -189,3 +189,24 @@ describe('stage follow sessions dispose', () => {
     expect(t.win.listeners.size).toBe(0)
   })
 })
+
+describe('stage follow sessions window-state', () => {
+  it('begin hands the window-state owner to the follower', () => {
+    const created: Array<{ windowState?: unknown }> = []
+    const sessions = createStageFollowSessions({
+      window: fakeWindow().observer,
+      send: () => ok(undefined),
+      computeGeometry: () => '1x1+0+0',
+      parkGeometry: (g) => g,
+      createFollower: (d) => {
+        created.push(d)
+        return { update: () => undefined, pin: () => undefined, dispose: () => undefined }
+      },
+    })
+    const windowState = { setTop: () => ok(undefined), placed: () => undefined }
+    sessions.begin({ geometry: '800x600+0+0', rect: RECT, windowState })
+    sessions.begin({ geometry: '800x600+0+0', rect: RECT })
+    expect(created[0]?.windowState).toBe(windowState)
+    expect(created[1]).not.toHaveProperty('windowState')
+  })
+})

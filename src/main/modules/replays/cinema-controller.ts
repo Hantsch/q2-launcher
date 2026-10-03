@@ -34,6 +34,8 @@ export interface CinemaControllerDeps {
   hasSession: () => boolean
   /** The playback channel's own `enterFullscreen`. */
   enterFullscreen: () => Outcome<void>
+  /** Called once the overlay is open with cinema still active, so it can be stacked above the game. */
+  raiseOverlay?: () => void
   /** Pushes `playback.display`. */
   emitDisplay: () => void
 }
@@ -120,6 +122,7 @@ export function createCinemaController(deps: CinemaControllerDeps): CinemaContro
       if (deps.window.isOpen()) deps.window.close()
       return ok(undefined)
     }
+    deps.raiseOverlay?.()
     deps.emitDisplay()
     return ok(undefined)
   }

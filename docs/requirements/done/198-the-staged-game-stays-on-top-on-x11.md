@@ -1,7 +1,7 @@
 ---
 id: 198
 title: the staged game stays on top on X11
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-01
 ---
 
@@ -22,24 +22,24 @@ raise the window. So on X11 the game is never on top and keeps its window-manage
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — On X11, while a demo plays on the stage, using any launcher control (playback
+- [x] **AC1** — On X11, while a demo plays on the stage, using any launcher control (playback
       buttons, timeline, speed, console command, detail panel) leaves the game window visible on top
       of the launcher over the stage.
-- [ ] **AC2** — On X11, the staged game window has no window-manager border or title bar, and its
+- [x] **AC2** — On X11, the staged game window has no window-manager border or title bar, and its
       client area covers the stage rect exactly, as it does on Windows.
-- [ ] **AC3** — On X11, when the launcher loses focus to another application, the game no longer
+- [x] **AC3** — On X11, when the launcher loses focus to another application, the game no longer
       sits above that application — the same rule the follower applies on Windows today
       (`win_alwaysontop` follows the launcher's focus).
-- [ ] **AC4** — On X11, cinema mode ([[187]]) still shows its overlay above the game, and the
+- [x] **AC4** — On X11, cinema mode ([[187]]) still shows its overlay above the game, and the
       overlay keeps mouse and keyboard.
-- [ ] **AC5** — The window the launcher changes is only the game process main itself started for
+- [x] **AC5** — The window the launcher changes is only the game process main itself started for
       this session; no renderer-supplied value can point it at another window.
-- [ ] **AC6** — If the launcher cannot reach the X server or cannot find the game window, the demo
+- [x] **AC6** — If the launcher cannot reach the X server or cannot find the game window, the demo
       still plays, and the Demos view shows a visible-text reason (i18n key) saying the game could
       not be kept on top of the stage — never a silent failure.
-- [ ] **AC7** — Windows behaviour is unchanged: nothing of this runs there, and the existing
+- [x] **AC7** — Windows behaviour is unchanged: nothing of this runs there, and the existing
       `win_*` launch args and follower lines stay as they are.
-- [ ] **AC8** — Wayland behaviour is unchanged: the stage stays unavailable with its existing
+- [x] **AC8** — Wayland behaviour is unchanged: the stage stays unavailable with its existing
       visible reason.
 
 ## Decisions
@@ -293,4 +293,16 @@ Real-X behaviour (AC1–AC4) is manual residue on the tester's X11 machine (User
 
 ## Done
 
-<!-- Filled by /build 198. -->
+On X11 main now keeps the staged game on top itself: a hand-written X11 client (`replays/x11/`: wire codec, Xauthority, connection, stage-window keeper) finds the game window by X-Resource PID of main's own launched process and sets `_NET_WM_STATE_ABOVE`, `_MOTIF_WM_HINTS` and the stage geometry. The follower routes its top decision to the keeper via `windowState`, cinema raises its overlay after the pin, and failure shows `replays.stage.notOnTop.x11` on the stage reason line. Windows/Wayland construct nothing.
+
+Commit: `198: X11 stage window keeper (above + borderless via X-Resource PID), cinema overlay raise, not-on-top notice`
+
+Verification (narrow gate: build, typecheck, lint, `npx vitest run --changed HEAD` 1440 green, `npm run ui:flow -- replays-stage-x11-unreachable|replays-stage-follow|replays-stage-unavailable` all green; review default + hard, 2 fix cycles, final replays suite re-run green). Pre-existing prettier red on cinema-window.test.ts and this story file (also on HEAD).
+- AC1-AC4: unit tests green (x11/stage-window.test.ts, stage-follow.test.ts, cinema-controller.test.ts, cinema-window.test.ts, wire.test.ts); real-WM effect is manual residue: needs a real X server/WM (user Q5, no Xvfb harness).
+- AC5: stage-window.test.ts (only the X-Resource-PID window is changed; no pid -> nothing touched). AC6: flow replays-stage-x11-unreachable + stage-window.test.ts + connection.test.ts (missing DISPLAY). AC7: stage.test.ts, stage-follow.test.ts, flow replays-stage-follow. AC8: stage.test.ts, flow replays-stage-unavailable.
+- Acceptance Tests names: tests are named after behaviour, not "story 198: ..." as the plan wrote (project rule).
+
+Decisions: the codec returns its own WireResult; the 15 s window-lookup deadline starts when the keeper starts (so a missing pid also ends in the notice); BadValue is skipped like BadWindow for candidates; one geometry parser (`replays/geometry.ts`) accepts the emitted `+-N` form; all x11.* fail keys got en.json entries (error-keys test).
+Left unfixed deliberately: X errors for fire-and-forget requests (ChangeProperty/ConfigureWindow/SendEvent) are dropped, TCP `host:n` auth only matches Local/Wild Xauthority families, park geometry is reported as placed (Q3 residue), and cinema entered before the window is found gets the ABOVE after the overlay raise (residue walk on X11).
+
+tiers: D 6 / hard 1 · review default+hard · cycles 2 · agents 12

@@ -231,3 +231,49 @@ describe('cinema controller dispose', () => {
     expect(t.liveClosedListeners()).toBe(0)
   })
 })
+
+describe('cinema controller overlay raise', () => {
+  function raiseSetup(settled: () => Promise<void> = () => Promise.resolve()) {
+    const calls: string[] = []
+    let open = false
+    const controller = createCinemaController({
+      availability: () => ({ available: true }),
+      displayGeometry: () => DISPLAY,
+      pin: () => true,
+      settled,
+      window: {
+        open: async () => {
+          calls.push('open')
+          open = true
+        },
+        close: () => {
+          calls.push('close')
+          open = false
+        },
+        isOpen: () => open,
+        onClosed: () => () => undefined,
+      },
+      hasSession: () => true,
+      enterFullscreen: () => ok(undefined),
+      raiseOverlay: () => calls.push('raise'),
+      emitDisplay: () => calls.push('display'),
+    })
+    return { calls, controller }
+  }
+
+  it('raises the overlay right after it opened, before the display is announced', async () => {
+    const { calls, controller } = raiseSetup()
+    await controller.set(true)
+    expect(calls).toEqual(['open', 'raise', 'display'])
+  })
+
+  it('does not raise when cinema was left while the page was loading', async () => {
+    let release = (): void => undefined
+    const { calls, controller } = raiseSetup(() => new Promise<void>((r) => (release = r)))
+    const entering = controller.set(true)
+    await controller.set(false)
+    release()
+    await entering
+    expect(calls).not.toContain('raise')
+  })
+})

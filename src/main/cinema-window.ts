@@ -18,6 +18,8 @@ export interface CinemaWindow {
   open: () => Promise<void>
   close: () => void
   isOpen: () => boolean
+  /** Puts the open overlay back on top and focuses it; a no-op while closed. */
+  raise: () => void
   /** Runs `cb` whenever the overlay closes, however it got closed. Returns an unsubscribe. */
   onClosed: (cb: () => void) => () => void
 }
@@ -90,10 +92,17 @@ export function createCinemaWindow(
     if (window && !window.isDestroyed()) window.close()
   }
 
+  const raise = (): void => {
+    if (!window || window.isDestroyed()) return
+    window.moveTop()
+    window.focus()
+  }
+
   return {
     open,
     close,
     isOpen,
+    raise,
     onClosed: (cb) => listeners.add(cb),
   }
 }

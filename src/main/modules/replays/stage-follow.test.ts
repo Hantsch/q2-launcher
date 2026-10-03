@@ -139,3 +139,63 @@ describe('stage follower', () => {
     expect(lines).toEqual([geometryLine('1920x1080+0+0'), geometryLine('800x600+10+20')])
   })
 })
+
+describe('stage follower with a window-state owner', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  function withState() {
+    const lines: string[] = []
+    const tops: Array<0 | 1> = []
+    const placed: string[] = []
+    const follower = createStageFollower({
+      send: (line) => {
+        lines.push(line)
+        return ok(undefined)
+      },
+      launchGeometry: LAUNCH,
+      computeGeometry: (r) => `${r.width}x${r.height}+${r.x}+${r.y}`,
+      parkGeometry: (g) => g.replace(/\+\d+\+/, '+3904+'),
+      windowState: {
+        setTop: (top) => {
+          tops.push(top)
+          return ok(undefined)
+        },
+        placed: (g) => placed.push(g),
+      },
+    })
+    return { lines, tops, placed, follower }
+  }
+
+  it('reports the launch geometry once at creation', () => {
+    expect(withState().placed).toEqual([LAUNCH])
+  })
+
+  it('forwards focus to setTop and sends no win_alwaysontop line', () => {
+    const { lines, tops, follower } = withState()
+    follower.update({ stageRect: rect(), window: win({ focused: false }) })
+    follower.update({ stageRect: rect(), window: win({ focused: true }) })
+    expect(tops).toEqual([0, 1])
+    expect(lines.some((l) => l.includes('win_alwaysontop'))).toBe(false)
+  })
+
+  it('reports every geometry it sends', () => {
+    const { placed, follower } = withState()
+    follower.update({ stageRect: rect(30, 40), window: win(), tick: true })
+    vi.advanceTimersByTime(300)
+    expect(placed).toEqual([LAUNCH, '800x600+3904+40', '800x600+30+40'])
+  })
+
+  it('a pinned follower never calls setTop', () => {
+    const { tops, follower } = withState()
+    follower.pin('1920x1080+0+0')
+    follower.update({ stageRect: rect(), window: win({ focused: false }) })
+    expect(tops).toEqual([])
+  })
+
+  it('without it, win_alwaysontop is still sent as a console line', () => {
+    const { lines, follower } = setup()
+    follower.update({ stageRect: rect(), window: win({ focused: false }) })
+    expect(lines).toContain('set win_alwaysontop 0')
+  })
+})

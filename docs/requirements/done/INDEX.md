@@ -321,3 +321,4 @@ second roadmap.
 - 218 — the config detail screen reads its profile from a provider · S33 · useConfigProfiles store + ProfileDraftProvider; ConfigView split to layout (310 lines)
 - 213 — the Controls tab is a component tree with a shared test harness · S33 · ControlsTab 2,313 -> ~620 lines via rows/drag/actions hooks, ControlsEntryRow, category rail; shared config test harness
 - 231 — i18n keys are referenced, not duplicated, and live with their module · S33 · key-usage and duplicate-value tests, common.action/label consolidation, per-module locale files
+- 198 — the staged game stays on top on X11 · S33 · hand-written X11 keeper sets above/borderless by X-Resource PID, with a visible reason on failure

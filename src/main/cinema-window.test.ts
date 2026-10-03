@@ -9,6 +9,8 @@ vi.mock('electron', () => {
     handlers: Record<string, () => void> = {}
     webContents = { setWindowOpenHandler: vi.fn(), on: vi.fn() }
     setAlwaysOnTop = vi.fn()
+    moveTop = vi.fn()
+    focus = vi.fn()
     show = vi.fn()
     showInactive = vi.fn()
     isDestroyed = vi.fn(() => false)
@@ -117,5 +119,18 @@ describe('cinema window', () => {
     service.close()
     expect(service.isOpen()).toBe(false)
     expect(closed).toHaveBeenCalledTimes(1)
+  })
+
+  it('raise puts an open overlay on top and focuses it, and does nothing when closed', async () => {
+    const { service } = await load(false)
+    service.raise()
+    expect(created).toHaveLength(0)
+    await service.open()
+    service.raise()
+    expect(created[0]!.win['moveTop']).toHaveBeenCalledTimes(1)
+    expect(created[0]!.win['focus']).toHaveBeenCalledTimes(1)
+    service.close()
+    service.raise()
+    expect(created[0]!.win['moveTop']).toHaveBeenCalledTimes(1)
   })
 })

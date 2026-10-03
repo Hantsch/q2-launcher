@@ -2931,6 +2931,9 @@
     },
     "stage": {
       "label": "The demo plays here",
+      "notOnTop": {
+        "x11": "Not kept on top on X11: the launcher could not reach the game window, so it may hide behind the launcher"
+      },
       "unavailable": {
         "wayland": "Not available on Wayland: the launcher cannot place the game window, so the demo plays in its own window"
       }
@@ -3463,5 +3466,15 @@
     "pointReleaseMissing": "The 3.20 point release pak (pak2.pak) is missing.",
     "retailPaksMissing": "pak1.pak and pak2.pak are missing – this looks like the shareware demo rather than the full game.",
     "rootMissing": "The installation folder is gone: {{path}}"
+  },
+  "x11": {
+    "closed": "The X connection is closed",
+    "connectionLost": "The X server connection was lost",
+    "noDisplay": "No X display is set",
+    "noXResource": "The X server lacks the Resource extension",
+    "protocolError": "Could not understand the X server",
+    "refused": "The X server refused the connection",
+    "requestFailed": "The X server rejected a request",
+    "timeout": "The X server did not answer in time"
   }
 }

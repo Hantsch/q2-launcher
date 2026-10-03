@@ -70,7 +70,11 @@ const IO: EngineIo = { writeLine: () => undefined, onLine: () => () => undefined
 
 type Ev = { type: string; payload: unknown }
 
-function setup(platform: string, cinema?: Parameters<typeof createPlaybackControl>[0]['cinema']) {
+function setup(
+  platform: string,
+  cinema?: Parameters<typeof createPlaybackControl>[0]['cinema'],
+  stageNotice?: Parameters<typeof createPlaybackControl>[0]['stageNotice'],
+) {
   const order: string[] = []
   const win = fakeChannel('win', order)
   const lin = fakeChannel('lin', order)
@@ -89,6 +93,7 @@ function setup(platform: string, cinema?: Parameters<typeof createPlaybackContro
     makeWindows,
     makeLinux,
     cinema,
+    stageNotice,
   })
   return { control, events, order, win, lin, fl, makeWindows, makeLinux }
 }
@@ -279,6 +284,7 @@ describe('playback control', () => {
       cinema: false,
       speed: 1,
       cinemaAvailability: { available: true },
+      stageNotice: null,
     })
     await t.control.prepare({ gameDirPath: 'g', durationMs: null, format: 'dm2' })
     await t.control.attach()
@@ -294,6 +300,7 @@ describe('playback control', () => {
       cinema: true,
       speed: 2,
       cinemaAvailability: { available: true },
+      stageNotice: null,
     })
 
     // Fullscreen wins over an open overlay; availability is read at push time.
@@ -310,6 +317,7 @@ describe('playback control', () => {
         available: false,
         reason: { key: 'replays.cinema.unavailable.notPrimaryDisplay' },
       },
+      stageNotice: null,
     })
     expect(t.control.display()).toEqual(displays().at(-1))
 
@@ -319,6 +327,16 @@ describe('playback control', () => {
     expect(states).toEqual(['playing', 'finished', 'ended'])
     // The next session starts at normal speed.
     expect(t.control.display().speed).toBe(1)
+  })
+
+  it('the display carries the stage notice, null when none is wired', () => {
+    expect(setup('win32').control.display().stageNotice).toBeNull()
+    let notice: { key: string } | null = null
+    const t = setup('win32', undefined, () => notice)
+    expect(t.control.display().stageNotice).toBeNull()
+    notice = { key: 'replays.stage.notOnTop.x11' }
+    t.control.emitDisplay()
+    expect(t.events.at(-1)?.payload).toMatchObject({ stageNotice: notice })
   })
 
   it('enterFullscreen goes to the channel, and is NO_SESSION without a session', async () => {
