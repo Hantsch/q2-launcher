@@ -33,7 +33,7 @@ debt has one home with an ageing rule.
 - [x] 227 — the docs describe the launcher as built
 - [x] 228 — every shipped module has a system doc
 - [x] 230 — comments state invariants, not sprint history
-- [ ] 229 — tech debt has one home and an ageing rule
+- [x] 229 — tech debt has one home and an ageing rule
 
 ## Notes
 

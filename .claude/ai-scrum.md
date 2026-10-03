@@ -154,3 +154,5 @@ This repo's CHANGELOG.md uses Keep-a-Changelog category headings (`### Added`/`#
 Regression gate attribution and the sprint review judge a red flow against docs/UI-VERIFICATION.md#what-a-flow-may-assert — a flow asserting another story's incidental detail is fixed in the flow, not in the product.
 
 The sprint review (phase 3) checks that every story touching `src/main/modules/<id>/` or `src/renderer/src/modules/<id>/` also touched that module's doc under `docs/systems/`, and lists a miss as a finding.
+
+Unfixed review findings and ageing: in `/sprint` phase 3, an unfixed review finding that is a defect or debt goes into `docs/TECH-DEBT.md` as a row (next id, `since` = this sprint, source = this review) — not into a follow-up line and not into the review alone. `/roadmap check` step 4 runs `node scripts/check-docs.mjs --overdue` and lists every overdue row in its report for the maintainer to promote or delete (it does not delete rows itself). The plugin's follow-up ageing (older than three sprints -> draft or delete) applies unchanged. Overdue means current sprint minus `since` > 3.

@@ -325,3 +325,4 @@ second roadmap.
 - 227 — the docs describe the launcher as built · S33 · ARCHITECTURE/CLAUDE.md/README current, check-docs link+version guard in npm test, log.caught
 - 228 — every shipped module has a system doc · S33 · as-built docs for config/servers/replays/home/mods, concepts moved to systems, process rule + systems-docs test
 - 230 — comments state invariants, not sprint history · S33 · ids and sprint narrative swept from ~440 files, headers rewritten, guarded by src/comments.test.ts
+- 229 — tech debt has one home and an ageing rule · S33 · TECH-DEBT.md + check-docs validator, ageing rule in README/ai-scrum Notes, follow-ups triaged

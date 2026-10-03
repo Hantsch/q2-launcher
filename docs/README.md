@@ -61,3 +61,10 @@ docs/
 - **How the app is put together** → [ARCHITECTURE.md](ARCHITECTURE.md).
 - **What a whole-codebase review found, and which stories address it** →
   [reviews/](reviews/) (one dated report per review; findings table + story map).
+- **Open defects and tech debt of an area** → [TECH-DEBT.md](TECH-DEBT.md) — read the area's
+  rows before touching it.
+- **Where unfixed findings live (overrides the generated "Follow-ups" / "Gaps, findings"
+  bullets above)** — a review finding left unfixed becomes a [TECH-DEBT.md](TECH-DEBT.md) row
+  (or a story draft), never a list in the review alone; the roadmap's follow-ups hold only
+  non-defect to-dos; a follow-up or row older than three sprints is promoted to a story or
+  deleted; rows are removed when done (git is the history).

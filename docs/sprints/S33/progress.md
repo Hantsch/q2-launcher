@@ -347,3 +347,15 @@
 - 2026-10-03 17:09 · 230 · verify 3 · started
 - 2026-10-03 17:10 · 230 · verify 3 · done
 - 2026-10-03 17:12 · 230 · story · done
+- 2026-10-03 17:12 · 229 · build · started
+- 2026-10-03 17:13 · 229 · D1 TECH-DEBT.md + check-docs validator · started
+- 2026-10-03 17:14 · 229 · D1 TECH-DEBT.md + check-docs validator · done
+- 2026-10-03 17:14 · 229 · D2 rule in README + ai-scrum Notes · started
+- 2026-10-03 17:17 · 229 · D2 rule in README + ai-scrum Notes · done
+- 2026-10-03 17:17 · 229 · D3 triage + roadmap + ledger · started
+- 2026-10-03 17:19 · 229 · D3 triage + roadmap + ledger · done
+- 2026-10-03 17:19 · 229 · verify · started
+- 2026-10-03 17:20 · 229 · verify · done
+- 2026-10-03 17:20 · 229 · review 1 · started
+- 2026-10-03 17:21 · 229 · review 1 · done
+- 2026-10-03 17:21 · 229 · story · done

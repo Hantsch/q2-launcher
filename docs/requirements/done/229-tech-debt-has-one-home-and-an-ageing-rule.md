@@ -1,7 +1,7 @@
 ---
 id: 229
 title: tech debt has one home and an ageing rule
-status: ready # draft -> ready -> in-progress -> done
+status: done
 created: 2026-10-02
 ---
 
@@ -11,7 +11,7 @@ As the maintainer I want to see an area's open defects before touching it, and I
 follow-up to be promoted to a story or deleted before it is rediscovered at a later gate, so that
 sprint reviews stop re-listing the same items and the roadmap stays one screen.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F24): docs/ROADMAP.md
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F24): docs/ROADMAP.md
 "Follow-ups worth doing" holds 34 bullets, five older than six weeks; the four red flows appear
 three times; 12 source links are broken (`../sprints/S27/…` resolves outside `docs/`). Sprint
 reviews carry "Unfixed minor review findings" paragraphs (S30 ~25 items, S29 ~15, S31 6) that
@@ -20,20 +20,20 @@ never reach the roadmap; docs/README.md gives no ageing or escalation rule, and 
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `docs/TECH-DEBT.md` exists with one row per item (`id`, `since` sprint, area,
+- [x] **AC1** — `docs/TECH-DEBT.md` exists with one row per item (`id`, `since` sprint, area,
       severity, one line, source link) and is referenced from docs/README.md's "Where do I find…"
       table; the review's not-storied findings (F34, F49, F63, F67, F69, F75) are its first rows.
-- [ ] **AC2** — The 34 follow-ups and every "Unfixed" item from the S27–S31 reviews are triaged:
+- [x] **AC2** — The 34 follow-ups and every "Unfixed" item from the S27–S31 reviews are triaged:
       each becomes a story draft, a `TECH-DEBT.md` row, or is deleted with the reason in the
       commit; the roadmap's follow-up list is ≤ 10 lines and contains nothing a story 199–231
       already covers.
-- [ ] **AC3** — The roadmap's broken links are fixed (relative to `docs/`); `scripts/check-docs.mjs`
+- [x] **AC3** — The roadmap's broken links are fixed (relative to `docs/`); `scripts/check-docs.mjs`
       (story 227) covers `TECH-DEBT.md`.
-- [ ] **AC4** — docs/README.md and the `/roadmap check` and `/sprint` review instructions carry
+- [x] **AC4** — docs/README.md and the `/roadmap check` and `/sprint` review instructions carry
       the rule: a follow-up older than three sprints is promoted or deleted; an unfixed review
       finding goes into `TECH-DEBT.md`, not into the review alone; `/roadmap check` reports
       overdue rows.
-- [ ] **AC5** — docs/ROADMAP.md's "Open / unprioritised" lists the codebase review with its story
+- [x] **AC5** — docs/ROADMAP.md's "Open / unprioritised" lists the codebase review with its story
       range and the suggested sprint cut.
 
 ## Decisions (Sprint)
@@ -185,7 +185,7 @@ Order D1 → D2 → D3 (D3 writes rows D1 validates; D2's README bullet links D1
     with its source link, no link to a story 199–231, plus the line "Upstream the tech-debt
     ageing rule (docs/README.md, `.claude/ai-scrum.md` Notes) into the ai-scrum plugin — for the
     user. [story 229]". "Open / unprioritised" gets one row: the
-    [codebase review 2026-10-01](../reviews/2026-10-01-codebase-review.md), stories 199–231, cut as
+    [codebase review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), stories 199–231, cut as
     applied (S32 = 11.1, S33 = 11.2; the review's own five-group suggestion linked), and the S32
     review's drafts 232–236 awaiting a decision (this replaces their follow-up bullet).
   - Ledger: under `## Done`, one line per source item → `TD-NNN` / draft id / `deleted: <reason>`;
@@ -224,4 +224,78 @@ No AC describes a user action in the app; no e2e flow applies.
 
 ## Done
 
-<!-- Filled by /build 229. -->
+Summary: `docs/TECH-DEBT.md` is the home for defects and debt (30 rows, `Next id: TD-031`), validated by `scripts/check-docs.mjs` in `npm test` (`--overdue` lists age, never fails). The ageing/escalation rule sits in docs/README.md and `.claude/ai-scrum.md` Notes. Roadmap follow-ups cut from 34 bullets to 6 lines; "Open / unprioritised" has the codebase-review row.
+
+Commit message: `229: TECH-DEBT.md home + check-docs validator + ageing rule, follow-ups triaged to rows/deletions`
+
+Verification: narrow gate — `npm run typecheck`, `npm run lint`, `npx vitest run --changed HEAD`, tech-debt/check-docs/repo-hygiene tests, `node scripts/check-docs.mjs` all green; no e2e (no app surface). Pre-existing red (shell-layering, useQuickFilters mockClient) not in the narrow run. AC1-AC5 each proven by the named `scripts/tech-debt.test.mjs` tests (all ran and passed); AC2 completeness = ledger below, checked by review. Review 1 PASS; one fix cycle (see Decisions). No manual residue.
+
+Decisions:
+- Story 230's done-file link (`../reviews/` -> `../../reviews/`) fixed because the new link check flagged it.
+- Review F2 fixed: S29/S30 behavioural edges added as TD-029/TD-030 instead of being deleted as cosmetic.
+- Review F1 accepted: the `npm audit` blocking flip stays as a dated roadmap chore citing "(story 226)" in plain text — 226 added the step, the flip on 2026-10-09 is still open.
+- Six rows (TD-009/010/011/015/016/018) are overdue at creation because `since` is the source review's sprint (D-c); `--overdue` reports them, the maintainer promotes or deletes.
+- No story drafts: nothing needed a decision; `Review F3` (no "fixed by" deletions) accepted — deletion reasons are obsolete/cosmetic/not reproduced.
+
+tiers: D 3 / hard 0 · review default · cycles 1 · agents 5
+
+Triage ledger (source -> destination):
+# Triage ledger 229 (scratch)
+
+ROADMAP follow-ups
+- ROADMAP · replays-mod-warning flake -> deleted: covered by draft 233 (Open row)
+- ROADMAP · OpenTDM on 64-bit refused -> TD-007
+- ROADMAP · play anyway ENOENT on missing game dir -> TD-008
+- ROADMAP · Linux control latency measurement -> kept (follow-up: check to run)
+- ROADMAP · captureBaseline misses writeCatalogDefaults -> TD-009
+- ROADMAP · stage cvar restore edges -> TD-010
+- ROADMAP · stop without exit event -> TD-011
+- ROADMAP · 157 AC6 real-playback e2e -> kept (follow-up)
+- ROADMAP · S32 drafts 232-236 line -> deleted: moved into the Open row
+- ROADMAP · dedupeByKey/toastRefusal unused -> TD-012
+- ROADMAP · test tidy-up (story numbers, as never, regex) -> TD-013
+- ROADMAP · missing darwin/looksLikeQuake2/isInside tests -> TD-014
+- ROADMAP · scoped refresh overwrites origins (S24) -> TD-015
+- ROADMAP · AppContext exposes live unlock (S25) -> TD-016
+- ROADMAP · 093 reinstall-engine gate stricter than plan (S20) -> deleted: latent, no defect until a third engine ships
+- ROADMAP · fetch-7za never run end-to-end -> kept (follow-up: check to run)
+- ROADMAP · setPlayedMods/setSwitchBind bypass sync -> TD-017 (setPlayedMods now goes through the state store; only setSwitchBind remains)
+- ROADMAP · 9 findings of story 010 (S02) -> deleted: obsolete, restore code since reworked
+- ROADMAP · engine exe/marker names unverified -> deleted: cosmetic since 068
+- ROADMAP · detectedVersion unpopulated -> kept (follow-up: feature idea)
+- ROADMAP · no -safe mode in r1q2 -> kept, merged into the launch-profiles line
+- ROADMAP · 098 checker cancel-timing window (S21) -> deleted: unobserved, documented limitation
+- ROADMAP · ci.yml npm audit blocking on 2026-10-09 -> kept (dated chore, cited as plain "story 226")
+- ROADMAP · per-installation launch profiles; crash detection -> kept (feature ideas)
+- ROADMAP · only en ships -> deleted: statement of fact, not a to-do
+
+Reviews
+- S27 · quickEdit read-merge-write race -> TD-018
+- S27 · four servers/replays flows pre-existing red -> deleted: historic, not in quarantine.json today
+- S28 · 167 long speed-row alias names, conflict marker hides text -> deleted: cosmetic
+- S29 · 170/172 stage restore edges, Alt+Enter race -> TD-010 (merged)
+- S29 · 171 speed select parked after Escape, untested registry bits -> deleted: cosmetic/test-thin; stale-geometry and fullscreen-switch edges -> TD-029
+- S29 · 173 no exit event, silent stop refusal -> TD-011 (merged)
+- S29 · 174 SESSION_RESTORE_CVARS wiring untested -> deleted: minor test gap
+- S29 · 175 writeCatalogDefaults baseline -> TD-009 (merged); one flaky config index.test run -> deleted: not reproduced
+- S30 · 176/177 comment/test findings -> deleted: cosmetic; 179/180/181/184 behavioural edges -> TD-030
+- S30 · 182 runPlay re-entry, failed trustMod still plays -> TD-019
+- S31 · update keep/cancel untested, LAN recheck pending, double catalog fetch -> TD-020
+- S31 · remove dialog radios 20px without deviation row -> TD-021
+- S31 · replays-mod-warning flake -> deleted: covered by draft 233
+- S32 · rows routed to drafts 232-236 -> deleted: already tracked by the drafts
+- S32 · dedupeByKey/test tidy-up/missing tests -> TD-012/013/014 (see ROADMAP above)
+
+Story Done sections
+- 198 · X errors dropped, TCP auth, park geometry, cinema ABOVE -> TD-023
+- 210 · withLiveAssignments untested, stale mocks -> TD-024
+- 211 · keepEmptyAlias stripped by both schema trees -> TD-022
+- 212 · saveNow failure keeps optimistic edit; findings 1-5 low -> TD-025 (merged with 218)
+- 214 · grouping of profile-restore stages, contingent on a direction note -> deleted: contingent, no note exists
+- 215 · BootstrapWizard stale verdict, useServerScan noteState -> deleted: narrow, no observable effect
+- 216 · three low UI-kit points -> TD-026
+- 218 · load()/hint/listLoaded edges -> TD-025
+- 227 · doc test strength, State/Renderer state overlap, link checker gaps -> TD-027
+- 228 · reviewer minors (basename-only path check, no stale-handler check) -> TD-027; setSwitchBind bypass -> TD-017
+- 231 · stale "mirrors locales/en.json" comments -> TD-028
+- 213, 217, 224, 230 · no unfixed findings recorded -> deleted: nothing to triage

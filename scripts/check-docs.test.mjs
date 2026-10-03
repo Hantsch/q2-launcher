@@ -46,7 +46,7 @@ describe('check-docs', () => {
         '',
       ].join('\n'),
     })
-    expect(checkDocs(root)).toEqual({ brokenLinks: [], versionMismatch: null })
+    expect(checkDocs(root)).toEqual({ brokenLinks: [], versionMismatch: null, techDebtErrors: [] })
   })
 
   test('a README version that differs from package.json is reported', () => {

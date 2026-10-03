@@ -12,7 +12,7 @@ reason, not which deliverable of which review round introduced the line, so that
 files read as code again, headers are not the opposite of what the file does, and leftover
 diagnostics do not spam the user's log.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F38): ~4,800 story
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F38): ~4,800 story
 references in non-test source across 778 files; comment share is 55 % in `profile-restore.ts`
 (a 254-line header essay), 55 % in `render.ts`, 57 % in `shared/modules/servers.ts`, 26 % in
 `ControlsTab.tsx` (139 references), 135 of 580 lines in `useLauncher.ts`. Forms like "story-045
