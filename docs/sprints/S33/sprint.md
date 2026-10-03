@@ -1,7 +1,7 @@
 ---
 sprint: S33
-status: planned # planned | in-progress | done
-branch: # set by /sprint
+status: in-progress # planned | in-progress | done
+branch: sprint/S33
 milestone: 11.2 — Codebase health, part 2 — the config module and the renderer on shared layers, docs as built
 ---
 
