@@ -319,3 +319,4 @@ second roadmap.
 - 216 — the UI kit has name, confirm, tabs and one error boundary · S33 · name/confirm/tabs/radio/textarea/error-boundary primitives, useSubmitting, useStartJob; dialogs, strips and boundaries migrated
 - 217 — list sort and search are shared · S33 · one shared sort/search implementation, null sort sentinel, quoted demo search
 - 218 — the config detail screen reads its profile from a provider · S33 · useConfigProfiles store + ProfileDraftProvider; ConfigView split to layout (310 lines)
+- 213 — the Controls tab is a component tree with a shared test harness · S33 · ControlsTab 2,313 -> ~620 lines via rows/drag/actions hooks, ControlsEntryRow, category rail; shared config test harness

@@ -151,6 +151,18 @@ central, assigned to installations) and the UI (launcher design system) change.
   latin-1 high-ASCII character set (round-tripped byte-for-byte, never UTF-8). A whole-profile
   "Restore defaults" (`lib/restore-defaults.ts`) writes every catalogue row's suggested key back
   and clears entries with no catalogue default, behind a confirm dialog.
+
+  Component tree of the tab: `ControlsTab` (view state, dialog mounting) owns
+  `ControlsCategoryRail` (category chips, category/sub-category dialogs), `useControlsRows`
+  (filtered, grouped row entries and per-row state for the visible category), `useControlsDrag`
+  (drag/spring-load view state), `useControlsEntryActions` (every mutation of categories and
+  actions behind one identity-stable handler object) and `ControlsEntryRow` (one memoised row
+  fed through a context object). Tests share the harness in
+  `src/renderer/src/modules/config/test/` (bridge stub, profile fixture,
+  `renderWithProviders`); `src/architecture.test.ts` caps `ControlsTab.tsx` at 800 lines and
+  12 `useState` calls. Each open profile mounts under `key={selected.id}`, so a profile switch
+  gives the draft and every tab fresh state.
+
 - **Alternate binding layers** — since Quake 2 has no native modifiers, the editor generates
   both alias halves (`+layer`/`-layer` for hold, self-rewriting pair for toggle) and warns
   when a layer remaps a key carrying a `+command`, which would leave movement stuck on

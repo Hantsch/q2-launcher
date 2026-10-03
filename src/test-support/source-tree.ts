@@ -12,7 +12,8 @@ import { sourceFiles } from './source-files'
 export const REPO_ROOT = resolve(__dirname, '..', '..')
 
 const SOURCE_FILE = /\.tsx?$/
-const TEST_FILE = /\.(test|spec)\.tsx?$/
+// A `test/` directory holds a module's shared test harness, which is test code too.
+const TEST_FILE = /(\.(test|spec)\.tsx?$|\/test\/)/
 
 /** Every `.ts`/`.tsx` file under `dirRepoRel`, recursively, as sorted repo-relative POSIX paths. */
 export function listSourceFiles(dirRepoRel: string): string[] {

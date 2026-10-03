@@ -205,3 +205,31 @@
 - 2026-10-03 13:52 · 218 · review 1 · started
 - 2026-10-03 13:54 · 218 · review 1 · done
 - 2026-10-03 13:54 · 218 · story · done
+- 2026-10-03 13:54 · 213 · build · started
+- 2026-10-03 13:55 · 213 · D1 shared config test harness · started
+- 2026-10-03 13:57 · 213 · D1 shared config test harness · done
+- 2026-10-03 13:57 · 213 · D2 remaining suites on harness + guard · started
+- 2026-10-03 13:59 · 213 · D2 remaining suites on harness + guard · done
+- 2026-10-03 13:59 · 213 · D3 useControlsRows · started
+- 2026-10-03 14:01 · 213 · D3 useControlsRows · done
+- 2026-10-03 14:01 · 213 · D4 ControlsEntryRow one path (hard) · started
+- 2026-10-03 14:09 · 213 · D4 ControlsEntryRow one path (hard) · done
+- 2026-10-03 14:09 · 213 · D5 useControlsDrag · started
+- 2026-10-03 14:10 · 213 · D5 useControlsDrag · done
+- 2026-10-03 14:10 · 213 · D6 appended dialogs to components · started
+- 2026-10-03 14:11 · 213 · D6 appended dialogs to components · done
+- 2026-10-03 14:11 · 213 · D7 ControlsCategoryRail · started
+- 2026-10-03 14:13 · 213 · D7 ControlsCategoryRail · done
+- 2026-10-03 14:13 · 213 · D8 remount on profile switch, caps, doc · started
+- 2026-10-03 14:18 · 213 · D8 remount on profile switch, caps, doc · done
+- 2026-10-03 14:18 · 213 · D9 anchor tests · started
+- 2026-10-03 14:19 · 213 · D9 anchor tests · done
+- 2026-10-03 14:19 · 213 · verify · started
+- 2026-10-03 14:24 · 213 · verify · done
+- 2026-10-03 14:24 · 213 · review 1 · started
+- 2026-10-03 14:26 · 213 · review 1 · done
+- 2026-10-03 14:26 · 213 · review-fix 1 · started
+- 2026-10-03 14:30 · 213 · review-fix 1 · done
+- 2026-10-03 14:30 · 213 · verify · started (after review fix)
+- 2026-10-03 14:34 · 213 · verify · done
+- 2026-10-03 14:34 · 213 · story · done

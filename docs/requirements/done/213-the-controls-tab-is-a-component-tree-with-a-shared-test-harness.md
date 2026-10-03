@@ -1,7 +1,7 @@
 ---
 id: 213
 title: the Controls tab is a component tree with a shared test harness
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -32,27 +32,27 @@ committable slices rather than one line-count target.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `lib/useControlsRows.ts` computes entries, groups, move targets, bound count and a
+- [x] **AC1** — `lib/useControlsRows.ts` computes entries, groups, move targets, bound count and a
       per-entry `rowState` map in one `useMemo` (so `deriveRowState` runs once per entry), with a
       `renderHook` test; the tab reads rows from it.
-- [ ] **AC2** — One `components/ControlsEntryRow.tsx` (taking a `ControlsRowEntry` and a small
+- [x] **AC2** — One `components/ControlsEntryRow.tsx` (taking a `ControlsRowEntry` and a small
       context) replaces the six `render*` row/slot helpers; assign, clear and replace are tested
       for both catalog and plain rows; the "only difference is withCatalogBody" comment is gone
       because there is one path.
-- [ ] **AC3** — Drag state lives in `lib/useControlsDrag.ts`; the category rail and its dialogs
+- [x] **AC3** — Drag state lives in `lib/useControlsDrag.ts`; the category rail and its dialogs
       live in `components/ControlsCategoryRail.tsx`; the five dialog components appended to
       `ControlsTab.tsx` live under `components/` (or `dialogs/`, per the placement rule story 227
       writes) and `ControlsTab.dialogs.test.ts` imports them directly without loading the tab.
-- [ ] **AC4** — The detail tabs are mounted with `key={selected.id}` and the three
+- [x] **AC4** — The detail tabs are mounted with `key={selected.id}` and the three
       `[profile.id]` reset effects are deleted; `setFilterText('')` moves into a
       `selectCategory(id)` handler; the ConfigView "one-tick staleness" comment is gone.
-- [ ] **AC5** — `src/renderer/src/modules/config/test/` provides `profileFixture(overrides)`,
+- [x] **AC5** — `src/renderer/src/modules/config/test/` provides `profileFixture(overrides)`,
       `stubBridge()` and `renderWithProviders(ui)`; the seven ControlsTab suites plus the
       SettingsTab and AliasesTab tests use them on `@testing-library/react` only; no test file in
       the module declares its own `profileFixture`.
-- [ ] **AC6** — `ControlsTab.tsx` is under 800 lines and under 12 `useState` (soft caps for
+- [x] **AC6** — `ControlsTab.tsx` is under 800 lines and under 12 `useState` (soft caps for
       story 208's architecture test); the four `controls-*` flows and every config flow pass.
-- [ ] **AC7** — Focused tests exist for `BindSlot`, `CvarRow`, `KeyBindDialog` and `LayersPanel`
+- [x] **AC7** — Focused tests exist for `BindSlot`, `CvarRow`, `KeyBindDialog` and `LayersPanel`
       (one behaviour each is enough to anchor coverage).
 
 ## Decisions (Sprint)
@@ -125,7 +125,7 @@ ControlsTab suites and the four `controls-*` flows stay green.
 
 ## Deliverables
 
-- **D1 — Shared config test harness + first four suites.** Create
+- [x] **D1 — Shared config test harness + first four suites.** Create
   `src/renderer/src/modules/config/test/fixtures.ts` (`profileFixture(overrides)` wrapping
   `makeConfigProfile` from `src/test-support/fixtures.ts`, defaulting two categories `movement`/
   `weapons` and a catalogue + a plain action), `test/bridge.ts` (on import installs a
@@ -140,7 +140,7 @@ ControlsTab suites and the four `controls-*` flows stay green.
   `IS_REACT_ACT_ENVIRONMENT`/`vi.hoisted` bridge/local `profileFixture` onto the harness; keep
   every assertion. Test: `test/harness.test.tsx` › "renderWithProviders mounts with a stubbed
   bridge".
-- **D2 — Remaining suites on the harness + guard.** Migrate `ControlsTab.row-menu.test.tsx`,
+- [x] **D2 — Remaining suites on the harness + guard.** Migrate `ControlsTab.row-menu.test.tsx`,
   `ControlsTab.subcategory-drag.test.tsx`, `ControlsTab.dialogs.test.ts`,
   `SettingsTab.dnd.test.tsx`, `AliasesTab.test.ts` (all under
   `src/renderer/src/modules/config/`) onto `test/` from D1, `@testing-library/react` only (no
@@ -148,7 +148,7 @@ ControlsTab suites and the four `controls-*` flows stay green.
   › "config module tests use the shared harness": no `*.test.ts(x)` under
   `src/renderer/src/modules/config/` declares `function profileFixture`/`const profileFixture`,
   and none of the nine named suites imports `react-dom/client`.
-- **D3 — `useControlsRows`.** New `src/renderer/src/modules/config/lib/useControlsRows.ts`: one
+- [x] **D3 — `useControlsRows`.** New `src/renderer/src/modules/config/lib/useControlsRows.ts`: one
   `useMemo` over (category id, actions, filter text, …) that runs `buildControlsRowEntries`, the
   filter, `groupControlsRowEntries` (`lib/controls-row-groups.ts`), `buildMoveTargets`, the bound
   count, and a `rowState: Map<entryId, RowState>` with `deriveRowState` called once per catalogue
@@ -157,7 +157,7 @@ ControlsTab suites and the four `controls-*` flows stay green.
   `renderHook`: › "computes groups, move targets and bound count in one pass" and › "derives row
   state once per entry" (spy on `deriveRowState`, calls === catalogue entry count; a rerender with
   equal inputs adds no calls).
-- **D4 — `ControlsEntryRow`, one path.** New
+- [x] **D4 — `ControlsEntryRow`, one path.** New
   `src/renderer/src/modules/config/components/ControlsEntryRow.tsx`, `memo`-wrapped, props
   `{ entry: ControlsRowEntry; odd; grip; ctx }` where `ctx` is a `useMemo`'d object from the tab
   (draft actions, `rowState` map from D3, conflict index, handlers for assign/clear/replace/
@@ -173,14 +173,14 @@ ControlsTab suites and the four `controls-*` flows stay green.
   plain row (six cases, asserting the patched action keys). Add to `src/architecture.test.ts` ›
   "Controls rows have one slot path": `ControlsEntryRow.tsx` contains exactly one `<BindSlot`, and
   neither it nor `ControlsTab.tsx` references `deriveRowState`.
-- **D5 — `useControlsDrag`.** New `src/renderer/src/modules/config/lib/useControlsDrag.ts` owning
+- [x] **D5 — `useControlsDrag`.** New `src/renderer/src/modules/config/lib/useControlsDrag.ts` owning
   `draggingRowId`, `springCategoryId`, the spring-load timer (the `handleSpringLoad`
   `useCallback` + ref workaround moves inside) and the drag start/end/cancel handlers handed to
   `ControlsDragZone`; returns stable callbacks so a pointer move does not change `ControlsEntryRow`
   props. `ControlsTab.tsx` consumes it. Test `lib/useControlsDrag.test.ts` (`renderHook`, fake
   timers) › "spring-loads a category after the hover delay and cancels on drag end". The existing
   `ControlsTab.dnd`/`category-drag`/`subcategory-drag` suites must stay green.
-- **D6 — Appended dialogs into `components/`.** Move `CreateCategoryDialog`,
+- [x] **D6 — Appended dialogs into `components/`.** Move `CreateCategoryDialog`,
   `RenameCategoryDialog`, `CreateSubcategoryDialog`, `RenameSubcategoryDialog`, `CreateActionDialog`
   (+ `ENTRY_KIND_OPTIONS`) out of the bottom of `ControlsTab.tsx` into one file each under
   `src/renderer/src/modules/config/components/` (in whatever shape story 216 left them — thin
@@ -188,7 +188,7 @@ ControlsTab suites and the four `controls-*` flows stay green.
   `./components/…` and no longer imports `./ControlsTab`. Test: that suite, plus
   `src/architecture.test.ts` › "ControlsTab.dialogs.test does not load the tab" (source check: no
   `ControlsTab'` import).
-- **D7 — `ControlsCategoryRail`.** New
+- [x] **D7 — `ControlsCategoryRail`.** New
   `src/renderer/src/modules/config/components/ControlsCategoryRail.tsx` owning the category chip
   rail (sortable chips, `ControlsCategoryMenu`), the create/rename/delete category and
   create/rename subcategory dialog state and their persist handlers (via story 212's save hook),
@@ -198,7 +198,7 @@ ControlsTab suites and the four `controls-*` flows stay green.
   tab's single `DndContext` (story 054 D5). Test: `ControlsTab.category-menu.test.tsx` /
   `category-drag` stay green, plus new case in `ControlsTab.bindings.test.tsx` › "selecting a
   category clears the filter".
-- **D8 — Remount on profile switch, caps, doc.** In `ConfigView.tsx` (or 218's detail
+- [x] **D8 — Remount on profile switch, caps, doc.** In `ConfigView.tsx` (or 218's detail
   component) put `key={selected.id}` on the element that owns the draft (218's
   `ProfileDraftProvider`, else the detail-tab container) so tabs and draft mount fresh per profile;
   delete the `[profile.id]` reset effects in `ControlsTab.tsx`, `SettingsTab.tsx`,
@@ -211,7 +211,7 @@ ControlsTab suites and the four `controls-*` flows stay green.
   handlers into `lib/useControlsEntryActions.ts`. Update `docs/systems/config-module.md` §5
   "Controls" with the component tree (tab → rail / rows hook / drag hook / `ControlsEntryRow`) and
   the shared test harness path.
-- **D9 — Anchor tests.** On D1's harness, one behaviour each:
+- [x] **D9 — Anchor tests.** On D1's harness, one behaviour each:
   `components/BindSlot.test.tsx` › "an empty slot starts key capture",
   `components/CvarRow.test.tsx` › "editing the value reports the new cvar value",
   `components/KeyBindDialog.test.tsx` › "a captured key is confirmed to the caller",
@@ -268,4 +268,14 @@ the e2e lines prove the refactor kept the real surface working.
 
 ## Done
 
-<!-- Filled by /build 213. -->
+Controls tab is now a component tree: `lib/useControlsRows`, `lib/useControlsDrag`, `lib/useControlsEntryActions`, `components/ControlsEntryRow` (one `<BindSlot`), `components/ControlsCategoryRail`, five dialogs moved to `components/`; ControlsTab.tsx 2,313 -> ~620 lines, 10 `useState`. Detail tabs remount via `key={selected.id}` on `ProfileChangesProvider`; the `[profile.id]` reset effects and the filter-reset effect are gone. Shared harness in `modules/config/test/` used by the nine suites; four anchor tests added.
+
+Commit message: `213: Controls tab component tree (rows/drag/rail/actions hooks, ControlsEntryRow), shared config test harness, anchor tests`
+
+Verification (narrow gate): build, lint, typecheck green; `npx vitest run --changed HEAD` green (36 files); config + architecture + test-support vitest green (71 files / 700 tests). Flows green: controls-category-rename-reorder, custom-action-row, open-keycap-dialog, settings-section-rename-add-cvar, alias-rename-dialog, demo-actions-bind, controls-drag-reorder, grenade-rows-take-a-key, config-header-geometry. Not re-run on the fix pass: controls-extra-keys, unsaved-diff, drop-message-checkbox (known pre-existing red in the sprint). Full gate pending (sprint's).
+AC -> test, all passed: AC1 useControlsRows.test + architecture "Controls rows have one slot path"; AC2 ControlsEntryRow.test (6 cases) + same; AC3 useControlsDrag.test, ControlsTab.dialogs.test, architecture dialogs check, flow controls-category-rename-reorder; AC4 ConfigView.profile-switch.test (verified to fail without the key), ControlsTab.bindings "selecting a category clears the filter"; AC5 architecture "config module tests use the shared harness", harness.test; AC6 architecture "ControlsTab stays under its soft caps" + flows; AC7 BindSlot/CvarRow/KeyBindDialog/LayersPanel tests. No manual residue.
+
+Decisions: no CHANGELOG entry (refactor). `isTestFile` in src/test-support/source-tree.ts now matches any `/test/` dir (harness files must not count as production mounts). save-refusal.test.tsx moved onto the shared fixture too (had a local profileFixture). `useControlsDrag` test covers hook state only: the 600 ms hover delay lives in `CategoryDropTarget`. KeyBindDialog has no key-capture UI, so its test asserts the setBinds payload. Review fixes: stronger profile-switch/useControlsRows/KeyBindDialog tests, stable `viewActions`, shared `rawCommandText`.
+Open: `ControlsGrid` builds a new `grip` element per render, so `memo` on `ControlsEntryRow` cannot skip rows yet (ControlsGrid was outside this story). ControlsTab.tsx still carries older "Story NNN" history comments (pre-existing). ControlsEntryRow tests cover assign/clear/replace only (as planned), not compactAdd/extra-key rows/drop toggles.
+
+tiers: D 9 / hard 1 · review default · cycles 1 · agents 13

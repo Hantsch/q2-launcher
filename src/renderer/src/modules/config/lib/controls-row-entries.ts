@@ -99,6 +99,12 @@ const CATALOG_ROWS_BY_ID = buildCatalogRowIndex()
 
 /** What the catalogue knows about `catalogId`, or `undefined` for an entry with no `catalogId` and
  * for one naming a row the catalogue no longer has. */
+/** The first raw command of a free-form entry; an alias/message entry has no single one to show. */
+export function rawCommandText(action: ConfigAction): string | undefined {
+  const raw = action.commands.find((command) => command.kind === 'raw')
+  return raw?.kind === 'raw' ? raw.text : undefined
+}
+
 export function catalogRowInfo(catalogId: string | undefined): CatalogRowInfo | undefined {
   return catalogId ? CATALOG_ROWS_BY_ID.get(catalogId) : undefined
 }

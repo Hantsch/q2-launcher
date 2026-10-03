@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { act, useState } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
-import { initI18n } from '../../i18n'
-import { ProfileChangesProvider } from './lib/profile-changes'
-import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
+import { stubBridge } from './test/bridge'
+import { profileFixture as baseProfileFixture } from './test/fixtures'
+import { renderWithProviders } from './test/render'
+import { ControlsTab } from './ControlsTab'
 import { useConfigProfiles } from './config-profiles-store'
 
 /**
@@ -18,18 +18,6 @@ import { useConfigProfiles } from './config-profiles-store'
  * a row dropped *on* the chip (D5's own drop-target gesture, which these tests also re-check still
  * works over the reordered rail).
  */
-
-const bridge = vi.hoisted(() => {
-  const stub = {
-    invoke: vi.fn(() => Promise.resolve({ ok: true, value: [] })),
-    on: () => () => {},
-  }
-  ;(globalThis as unknown as { q2: unknown }).q2 = stub
-  return stub
-})
-
-const { ControlsTab } = await import('./ControlsTab')
-;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const CATEGORIES: ConfigActionCategory[] = [
   { id: 'movement', name: 'Movement' },
@@ -50,27 +38,15 @@ const ACTIONS: ConfigAction[] = [
 ]
 
 function profileFixture(): ConfigProfile {
-  return {
-    id: 'p1',
-    name: 'Profile',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    cvars: {},
-    binds: {},
-    assignments: [],
+  return baseProfileFixture({
     categories: CATEGORIES.map((category) => ({ ...category })),
     actions: ACTIONS.map((entry) => ({ ...entry })),
-  }
+  })
 }
 
-let container: HTMLDivElement
-let root: Root
+let container: HTMLElement
 /** Every `categories` array `ControlsTab` tried to persist, in order. */
 let savedCategories: ConfigActionCategory[][]
-
-beforeAll(async () => {
-  await initI18n('en')
-})
 
 function rect(left: number, top: number, width: number, height: number): DOMRect {
   return {
@@ -130,22 +106,12 @@ async function step(fire: () => void): Promise<void> {
   })
 }
 
-function Harness() {
-  // One stable profile per mount: a fresh object each render would reseed the provider's draft.
-  const [profile] = useState<ConfigProfile>(profileFixture)
-  return (
-    <ProfileChangesProvider profile={profile}>
-      <ProfileDraftProvider profile={profile}>
-        <ControlsTab />
-      </ProfileDraftProvider>
-    </ProfileChangesProvider>
-  )
-}
-
-function renderTab(): void {
-  act(() => {
-    root.render(<Harness />)
-  })
+function renderTab(
+  profile: ConfigProfile = profileFixture(),
+): ReturnType<typeof renderWithProviders> {
+  const result = renderWithProviders(<ControlsTab />, { profile })
+  ;({ container } = result)
+  return result
 }
 
 /** The category chips the rail is showing right now, in rendered order. */
@@ -186,24 +152,18 @@ beforeEach(() => {
   useConfigProfiles.setState({ profiles: [] })
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   HTMLElement.prototype.scrollIntoView = () => {}
-  container = document.createElement('div')
-  document.body.appendChild(container)
-  root = createRoot(container)
   savedCategories = []
-  bridge.invoke = vi.fn((_channel: string, payload: unknown) => {
-    const envelope = payload as {
-      type: string
+  stubBridge().invoke.mockImplementation((...args: unknown[]) => {
+    const envelope = args[1] as {
       payload?: { categories?: ConfigActionCategory[] }
     }
     if (envelope.payload?.categories) savedCategories.push(envelope.payload.categories)
     return Promise.resolve({ ok: true, value: [] })
-  }) as unknown as typeof bridge.invoke
+  })
   stubRects()
 })
 
 afterEach(() => {
-  act(() => root.unmount())
-  container.remove()
   vi.restoreAllMocks()
   vi.useRealTimers()
 })
@@ -239,7 +199,7 @@ describe('ControlsTab category chip drag (story 054 D7)', () => {
   })
 
   it('reads the reordered rail off persisted state, not local-only UI state - it survives a re-render', async () => {
-    renderTab()
+    const first = renderTab()
 
     await pickUpChip('weapons')
     await moveTo(chipCentreX(0), 15)
@@ -251,24 +211,8 @@ describe('ControlsTab category chip drag (story 054 D7)', () => {
     // A fresh mount (the story's "survives a tab switch" - nothing about the rail's order lives in
     // this component instance's own state) renders straight off the persisted array, not the
     // now-unmounted instance's derived order.
-    act(() => root.unmount())
-    container.remove()
-    container = document.createElement('div')
-    document.body.appendChild(container)
-    root = createRoot(container)
-    const remounted = {
-      ...profileFixture(),
-      categories: persisted.map((id) => ({ id, name: id })),
-    }
-    act(() => {
-      root.render(
-        <ProfileChangesProvider profile={remounted}>
-          <ProfileDraftProvider profile={remounted}>
-            <ControlsTab />
-          </ProfileDraftProvider>
-        </ProfileChangesProvider>,
-      )
-    })
+    first.unmount()
+    renderTab({ ...profileFixture(), categories: persisted.map((id) => ({ id, name: id })) })
     expect(renderedCategoryIds()).toEqual(persisted)
   })
 })

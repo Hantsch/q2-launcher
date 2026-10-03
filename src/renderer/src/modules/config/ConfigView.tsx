@@ -223,7 +223,7 @@ export function ConfigView() {
         )}
 
         {screen === 'detail' && selected && (
-          <ProfileChangesProvider profile={selected}>
+          <ProfileChangesProvider profile={selected} key={selected.id}>
             <ProfileDraftProvider profile={selected}>
               {/* The raw-text draft lives next to the structured change set, not inside it: one
                   provider per source of "unsaved", both wrapping the whole detail screen so the

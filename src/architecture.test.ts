@@ -582,4 +582,46 @@ describe('architecture', () => {
     )
     expect(offenders).toEqual([])
   })
+
+  it('config module tests use the shared harness', () => {
+    const dir = 'src/renderer/src/modules/config/'
+    const tests = SOURCES.filter((file) => file.startsWith(dir) && /\.test\.tsx?$/.test(file))
+    const localFixture = /(?:function|const)\s+profileFixture/
+    expect(tests.filter((file) => localFixture.test(stripComments(TEXT.get(file) ?? '')))).toEqual(
+      [],
+    )
+
+    const suites = [
+      ...tests.filter((file) => file.startsWith(`${dir}ControlsTab.`)),
+      `${dir}SettingsTab.dnd.test.tsx`,
+      `${dir}AliasesTab.test.ts`,
+    ]
+    expect(suites).toHaveLength(9)
+    expect(
+      suites.filter((file) => scanImports(TEXT.get(file) ?? '').includes('react-dom/client')),
+    ).toEqual([])
+  })
+
+  it('Controls rows have one slot path', () => {
+    const row = 'src/renderer/src/modules/config/components/ControlsEntryRow.tsx'
+    const tab = 'src/renderer/src/modules/config/ControlsTab.tsx'
+    const rowSource = stripComments(TEXT.get(row) ?? '')
+    expect(rowSource.match(/<BindSlot\b/g) ?? []).toHaveLength(1)
+    expect([row, tab].filter((file) => (TEXT.get(file) ?? '').includes('deriveRowState'))).toEqual(
+      [],
+    )
+  })
+
+  it('ControlsTab.dialogs.test does not load the tab', () => {
+    const test = 'src/renderer/src/modules/config/ControlsTab.dialogs.test.ts'
+    expect(scanImports(readRepoFile(test)).filter((spec) => /\/ControlsTab$/.test(spec))).toEqual(
+      [],
+    )
+  })
+
+  it('ControlsTab stays under its soft caps', () => {
+    const source = readRepoFile('src/renderer/src/modules/config/ControlsTab.tsx')
+    expect(source.split(/\r?\n/).length).toBeLessThan(800)
+    expect((source.match(/useState[(<]/g) ?? []).length).toBeLessThan(12)
+  })
 })

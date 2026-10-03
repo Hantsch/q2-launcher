@@ -24,8 +24,8 @@ const ProfileDraftContext = createContext<ProfileDraftContextValue | null>(null)
 
 /**
  * Owns the one `useProfileDraft` for the open profile so every tab edits and reads the same draft.
- * `draft` lags `profile` by one render after a profile switch (the hook reseeds in an effect), which
- * `draft ?? profile` hides from consumers (story 218).
+ * Mounted with `key={profile.id}` by its parent, so a profile switch remounts the draft and every
+ * tab under it instead of reseeding in place.
  */
 export function ProfileDraftProvider(props: { profile: ConfigProfile; children: ReactNode }) {
   const { profile } = props

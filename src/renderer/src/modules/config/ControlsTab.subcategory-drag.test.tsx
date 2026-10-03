@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { act, useState } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
-import { initI18n } from '../../i18n'
-import { ProfileChangesProvider } from './lib/profile-changes'
-import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
+import { act } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ConfigAction, ConfigActionCategory } from '@shared/modules/config'
+import { stubBridge } from './test/bridge'
+import { profileFixture } from './test/fixtures'
+import { renderWithProviders } from './test/render'
+import { ControlsTab } from './ControlsTab'
 import { useConfigProfiles } from './config-profiles-store'
 
 /**
@@ -16,18 +16,6 @@ import { useConfigProfiles } from './config-profiles-store'
  * sub-category's own grip has to move it among its category's other sub-categories, persist
  * through the same path the header's move up/down buttons already use, and never touch a row.
  */
-
-const bridge = vi.hoisted(() => {
-  const stub = {
-    invoke: vi.fn(() => Promise.resolve({ ok: true, value: [] })),
-    on: () => () => {},
-  }
-  ;(globalThis as unknown as { q2: unknown }).q2 = stub
-  return stub
-})
-
-const { ControlsTab } = await import('./ControlsTab')
-;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const CATEGORIES: ConfigActionCategory[] = [
   {
@@ -55,31 +43,9 @@ function action(id: string, subcategoryId?: string): ConfigAction {
 // render once a category has at least one entry) - it is never itself a drag target here.
 const ACTIONS: ConfigAction[] = [action('w0'), action('w1', 'sub-1'), action('w2', 'sub-2')]
 
-function profileFixture(): ConfigProfile {
-  return {
-    id: 'p1',
-    name: 'Profile',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    cvars: {},
-    binds: {},
-    assignments: [],
-    categories: CATEGORIES.map((category) => ({
-      ...category,
-      subcategories: category.subcategories?.map((subcategory) => ({ ...subcategory })),
-    })),
-    actions: ACTIONS.map((entry) => ({ ...entry })),
-  }
-}
-
-let container: HTMLDivElement
-let root: Root
+let container: HTMLElement
 /** Every `categories` array `ControlsTab` tried to persist, in order. */
 let savedCategories: ConfigActionCategory[][]
-
-beforeAll(async () => {
-  await initI18n('en')
-})
 
 function rect(left: number, top: number, width: number, height: number): DOMRect {
   return {
@@ -136,22 +102,16 @@ async function step(fire: () => void): Promise<void> {
   })
 }
 
-function Harness() {
-  // One stable profile per mount: a fresh object each render would reseed the provider's draft.
-  const [profile] = useState<ConfigProfile>(profileFixture)
-  return (
-    <ProfileChangesProvider profile={profile}>
-      <ProfileDraftProvider profile={profile}>
-        <ControlsTab />
-      </ProfileDraftProvider>
-    </ProfileChangesProvider>
-  )
-}
-
 function renderTab(): void {
-  act(() => {
-    root.render(<Harness />)
-  })
+  ;({ container } = renderWithProviders(<ControlsTab />, {
+    profile: profileFixture({
+      categories: CATEGORIES.map((category) => ({
+        ...category,
+        subcategories: category.subcategories?.map((subcategory) => ({ ...subcategory })),
+      })),
+      actions: ACTIONS.map((entry) => ({ ...entry })),
+    }),
+  }))
 }
 
 /** The sub-category headers the grid is showing right now, in rendered order. */
@@ -193,24 +153,16 @@ beforeEach(() => {
   useConfigProfiles.setState({ profiles: [] })
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   HTMLElement.prototype.scrollIntoView = () => {}
-  container = document.createElement('div')
-  document.body.appendChild(container)
-  root = createRoot(container)
   savedCategories = []
-  bridge.invoke = vi.fn((_channel: string, payload: unknown) => {
-    const envelope = payload as {
-      type: string
-      payload?: { categories?: ConfigActionCategory[] }
-    }
+  stubBridge().invoke.mockImplementation((...args: unknown[]) => {
+    const envelope = args[1] as { payload?: { categories?: ConfigActionCategory[] } }
     if (envelope.payload?.categories) savedCategories.push(envelope.payload.categories)
     return Promise.resolve({ ok: true, value: [] })
-  }) as unknown as typeof bridge.invoke
+  })
   stubRects()
 })
 
 afterEach(() => {
-  act(() => root.unmount())
-  container.remove()
   vi.restoreAllMocks()
   vi.useRealTimers()
 })

@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { act } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConfigCvarSection, ConfigProfile } from '@shared/modules/config'
-import { initI18n } from '../../i18n'
-import { ProfileChangesProvider } from './lib/profile-changes'
-import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
+import { stubBridge } from './test/bridge'
+import { profileFixture } from './test/fixtures'
+import { renderWithProviders } from './test/render'
+import { SettingsTab } from './SettingsTab'
 
 /**
  * Story 054 D10: Settings drags - sections, sub-sections and cvars each reorder/move by drag,
@@ -16,34 +16,15 @@ import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
  * exercised here, while the keyboard sensor dispatches plain `keydown` events and only needs the
  * stubbed rects below - the same `onDragEnd`/`onDropOutside` mapping this file is actually about,
  * whichever sensor drove it there.
- *
- * `SettingsTab`'s own `client.ts` reaches the shared `bridge`, so the same "stub `window.q2` before
- * the module is imported" idiom `ControlsTab.dnd.test.tsx` uses is needed here too.
  */
-const bridge = vi.hoisted(() => {
-  const stub = {
-    invoke: vi.fn(() => Promise.resolve({ ok: true, value: [] })),
-    on: () => () => {},
-  }
-  ;(globalThis as unknown as { q2: unknown }).q2 = stub
-  return stub
-})
-
-const { SettingsTab } = await import('./SettingsTab')
-;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-
 function baseProfile(
   cvarSections: ConfigCvarSection[],
   cvars: Record<string, string> = {},
 ): ConfigProfile {
-  return {
-    id: 'p1',
-    name: 'Profile',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
+  return profileFixture({
     cvars,
-    binds: {},
-    assignments: [],
+    categories: [],
+    actions: [],
     cvarSections: cvarSections.map((section) => ({
       ...section,
       cvars: [...section.cvars],
@@ -52,17 +33,12 @@ function baseProfile(
     // No unplaced catalogue cvars on screen - keeps the rendered row list to exactly the cvars a
     // test names, so a keyboard step count means what the test says it means.
     writeCatalogDefaults: false,
-  }
+  })
 }
 
-let container: HTMLDivElement
-let root: Root
+let container: HTMLElement
 /** Every `SetProfileCvarsInput`-shaped payload the tab tried to persist, in order. */
 let saved: { cvars: Record<string, string>; cvarSections?: ConfigCvarSection[] }[]
-
-beforeAll(async () => {
-  await initI18n('en')
-})
 
 function rectAt(index: number): DOMRect {
   const top = index >= 0 ? index * 40 : 0
@@ -104,20 +80,8 @@ function stubRects(): void {
   })
 }
 
-function Harness({ profile }: { profile: ConfigProfile }) {
-  return (
-    <ProfileChangesProvider profile={profile}>
-      <ProfileDraftProvider profile={profile}>
-        <SettingsTab />
-      </ProfileDraftProvider>
-    </ProfileChangesProvider>
-  )
-}
-
 function renderTab(profile: ConfigProfile): void {
-  act(() => {
-    root.render(<Harness profile={profile} />)
-  })
+  ;({ container } = renderWithProviders(<SettingsTab />, { profile }))
 }
 
 function gripInside(selector: string): HTMLButtonElement {
@@ -154,15 +118,15 @@ function setInputValue(input: HTMLInputElement, value: string): void {
 }
 
 beforeEach(() => {
-  container = document.createElement('div')
-  document.body.appendChild(container)
-  root = createRoot(container)
   saved = []
-  bridge.invoke = vi.fn((_channel: string, payload: unknown) => {
-    const envelope = payload as {
-      type: string
-      payload?: { cvars?: Record<string, string>; cvarSections?: ConfigCvarSection[] }
-    }
+  stubBridge().invoke.mockImplementation((...args: unknown[]) => {
+    const [, envelope] = args as [
+      string,
+      {
+        type: string
+        payload?: { cvars?: Record<string, string>; cvarSections?: ConfigCvarSection[] }
+      },
+    ]
     if (envelope.type === 'setCvars' && envelope.payload) {
       saved.push({
         cvars: envelope.payload.cvars ?? {},
@@ -170,13 +134,11 @@ beforeEach(() => {
       })
     }
     return Promise.resolve({ ok: true, value: [] })
-  }) as unknown as typeof bridge.invoke
+  })
   stubRects()
 })
 
 afterEach(() => {
-  act(() => root.unmount())
-  container.remove()
   vi.restoreAllMocks()
 })
 

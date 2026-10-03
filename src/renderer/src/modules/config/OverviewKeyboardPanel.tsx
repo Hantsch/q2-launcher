@@ -147,19 +147,6 @@ export function OverviewKeyboardPanel({
     [profile.binds, profile.layers, profile.actions],
   )
 
-  // Switching profile drops everything test mode was showing - AC 5's
-  // profile-switch teardown. Test mode itself goes off, so the seeded layer and
-  // any held trigger have to go with it or the next start would inherit a layer
-  // from the profile you just left.
-  useEffect(() => {
-    setTestMode(false)
-    setPress(null)
-    setEditingKey(null)
-    setPressedKeys(new Set())
-    heldPhysicalCodesRef.current.clear()
-    commitTestSwitch(IDLE_TEST_SWITCH)
-  }, [profile.id])
-
   /**
    * Start/stop test mode. Starting borrows the currently selected layer as the
    * displayed one, so the board does not change under you the moment you press

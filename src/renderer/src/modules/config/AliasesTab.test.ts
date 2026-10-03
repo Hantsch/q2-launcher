@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { fireEvent, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mockClient } from '../../test-support/mock-client'
-import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
-import { initI18n } from '../../i18n'
+import type { ConfigAction } from '@shared/modules/config'
+import { profileFixture } from './test/fixtures'
+import { renderWithProviders } from './test/render'
 import { AliasesTab } from './AliasesTab'
-import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
 
 /**
  * Story 055 D4: the Aliases tab's own copy of the two drop toggles (the User's decision - they
@@ -27,31 +27,14 @@ vi.mock('./client', (importOriginal) =>
   mockClient<typeof import('./client')>(importOriginal, {
     updateProfileActions: vi.fn(async (input: { actions: ConfigAction[] }) => ({
       ok: true as const,
-      value: [{ ...baseProfile(), actions: input.actions }],
+      value: [{ ...profileFixture(), actions: input.actions }],
     })),
   }),
 )
 
-beforeAll(async () => {
-  await initI18n('en')
-})
-
 afterEach(() => {
-  cleanup()
   vi.clearAllMocks()
 })
-
-function baseProfile(): ConfigProfile {
-  return {
-    id: 'profile-1',
-    name: 'Profile',
-    createdAt: '',
-    updatedAt: '',
-    cvars: {},
-    binds: {},
-    assignments: [],
-  }
-}
 
 /** A `drop_shotgun`-shaped alias, editable (`kind: 'alias'`), with a known-ammo item so the ammo
  * toggle starts enabled but off. */
@@ -95,15 +78,11 @@ function generatedDropLikeAction(): ConfigAction {
 }
 
 function renderTab(actions: ConfigAction[]) {
-  const profile = { ...baseProfile(), actions }
-  return render(
-    createElement(ProfileDraftProvider, {
-      profile,
-      children: createElement(AliasesTab, {
-        onNavigateToAction: () => {},
-        onNavigateToLayer: () => {},
-      }),
-    }),
+  // The fixture's default categories would add rows of their own; this tab only needs the actions.
+  const profile = profileFixture({ actions, categories: undefined })
+  return renderWithProviders(
+    createElement(AliasesTab, { onNavigateToAction: () => {}, onNavigateToLayer: () => {} }),
+    { profile },
   )
 }
 

@@ -2,14 +2,13 @@
 import { createElement } from 'react'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import './test/bridge'
 import { initI18n } from '../../i18n'
 import { DeleteCategoryDialog } from './components/DeleteCategoryDialog'
-import {
-  CreateActionDialog,
-  CreateCategoryDialog,
-  CreateSubcategoryDialog,
-  RenameSubcategoryDialog,
-} from './ControlsTab'
+import { CreateActionDialog } from './components/CreateActionDialog'
+import { CreateCategoryDialog } from './components/CreateCategoryDialog'
+import { CreateSubcategoryDialog } from './components/CreateSubcategoryDialog'
+import { RenameSubcategoryDialog } from './components/RenameSubcategoryDialog'
 
 /**
  * Story 052 D9: "Add action" and "New category" each gain a suggestions list next to their
@@ -22,18 +21,6 @@ import {
  * `vitest.config.ts`'s existing `src/**\/*.{test,spec}.ts` include pattern - `profile-changes.test.ts`
  * already sets this precedent for a renderer test that mounts real components.
  */
-
-// `ControlsTab`'s import chain reaches `lib/client.ts` -> `lib/bridge.ts`, which resolves
-// `window.q2` at *module* scope and throws when it is missing - so the bridge has to exist before
-// this file's own imports are evaluated, which is what `vi.hoisted` is for. Nothing in these
-// dialogs calls it (they hand their result to a callback and let the caller save), so a stub that
-// only has to exist is enough.
-vi.hoisted(() => {
-  ;(globalThis as unknown as { q2: unknown }).q2 = {
-    invoke: () => Promise.reject(new Error('IPC is not available in this test')),
-    on: () => () => {},
-  }
-})
 
 beforeAll(async () => {
   await initI18n('en')

@@ -6,6 +6,7 @@ import type { ConfigProfile } from '@shared/modules/config'
 import { initI18n } from '../../i18n'
 import { ProfileChangesProvider } from './lib/profile-changes'
 import { ProfileDraftProvider } from './lib/ProfileDraftProvider'
+import { profileFixture } from './test/fixtures'
 import { SAVE_DEBOUNCE_MS } from './lib/useProfileSave'
 
 // `lib/bridge.ts` resolves `window.q2` at module scope, so the stub must exist before the surfaces
@@ -30,18 +31,14 @@ const { useLauncher } = await import('../../store/useLauncher')
 
 const REFUSAL_TEXT = "Could not write this profile's files to disk."
 
-function profileFixture(): ConfigProfile {
-  return {
-    id: 'p1',
-    name: 'Profile',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
+function settingsProfile(): ConfigProfile {
+  return profileFixture({
     cvars: { name: 'player' },
-    binds: {},
-    assignments: [],
+    categories: undefined,
+    actions: undefined,
     cvarSections: [{ id: 's', name: 'Section', cvars: ['name'] }],
     writeCatalogDefaults: false,
-  }
+  })
 }
 
 let container: HTMLDivElement
@@ -100,7 +97,7 @@ describe('a refused profile save', () => {
     act(() => {
       root.render(
         <>
-          <SettingsHarness profile={profileFixture()} />
+          <SettingsHarness profile={settingsProfile()} />
           <Toasts />
         </>,
       )
@@ -118,7 +115,7 @@ describe('a refused profile save', () => {
 
   it('ControlsTab shows the refusal toast', async () => {
     const profile: ConfigProfile = {
-      ...profileFixture(),
+      ...settingsProfile(),
       categories: [{ id: 'movement', name: 'Movement' }],
       actions: [
         { id: 'free', categoryId: 'movement', name: 'My own bind', kind: 'bind', commands: [] },
@@ -141,7 +138,7 @@ describe('a refused profile save', () => {
 
   it('AliasesTab shows the refusal toast', async () => {
     const profile: ConfigProfile = {
-      ...profileFixture(),
+      ...settingsProfile(),
       categories: [{ id: 'movement', name: 'Movement' }],
       actions: [
         { id: 'own', categoryId: 'movement', name: 'My alias', kind: 'alias', commands: [] },
@@ -166,7 +163,7 @@ describe('a refused profile save', () => {
 
   it('LayersPanel shows the refusal toast', async () => {
     const profile: ConfigProfile = {
-      ...profileFixture(),
+      ...settingsProfile(),
       layers: [{ id: 'l1', name: 'Layer', mode: 'hold', triggerKey: null, overrides: {} }],
     }
     act(() => {
@@ -199,7 +196,7 @@ describe('a refused profile save', () => {
     act(() => {
       root.render(
         <>
-          <ProfileDraftProvider profile={profileFixture()}>
+          <ProfileDraftProvider profile={settingsProfile()}>
             <ProfileAssignmentsPanel />
           </ProfileDraftProvider>
           <Toasts />

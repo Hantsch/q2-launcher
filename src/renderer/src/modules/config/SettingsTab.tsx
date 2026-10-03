@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowLeftRight, ArrowUp, FolderPlus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { closestCenter, type CollisionDetection, type UniqueIdentifier } from '@dnd-kit/core'
@@ -245,14 +245,6 @@ export function SettingsTab() {
     () => assignedEngines.filter((kind) => kind !== engine),
     [assignedEngines, engine],
   )
-
-  // Re-seed the session-local filter/toggle/Advanced state whenever the selected profile changes.
-  // The draft's own content reseed is `useProfileDraft`'s job, keyed on the same `profile.id`.
-  useEffect(() => {
-    setFilter('')
-    setEditedOnly(false)
-    setExpandedSections(new Set())
-  }, [profile.id])
 
   // The optimistic patch is applied through `patch`'s functional form (reads `prev.cvars` at commit
   // time, so two edits in the same tick cannot lose one). The save sends the full cvars map, which is

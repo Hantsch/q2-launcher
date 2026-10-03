@@ -27,7 +27,7 @@ debt has one home with an ageing rule.
 - [x] 216 — the UI kit has name, confirm, tabs and one error boundary
 - [x] 217 — list sort and search are shared
 - [x] 218 — the config detail screen reads its profile from a provider
-- [ ] 213 — the Controls tab is a component tree with a shared test harness
+- [x] 213 — the Controls tab is a component tree with a shared test harness
 - [ ] 231 — i18n keys are referenced, not duplicated, and live with their module
 - [ ] 198 — the staged game stays on top on X11
 - [ ] 227 — the docs describe the launcher as built

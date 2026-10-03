@@ -102,6 +102,7 @@ describe('listSourceFiles', () => {
   it('tells test files from production files', () => {
     expect(isTestFile('src/a.test.ts')).toBe(true)
     expect(isTestFile('src/a.spec.tsx')).toBe(true)
+    expect(isTestFile('src/modules/config/test/fixtures.ts')).toBe(true)
     expect(isTestFile('src/a.ts')).toBe(false)
     expect(isTestFile('src/test-support/a.ts')).toBe(false)
   })
