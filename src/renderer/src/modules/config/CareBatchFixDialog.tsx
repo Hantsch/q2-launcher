@@ -5,6 +5,7 @@ import type { ConfigProfile, TidyUpApplyResult } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
+import { useSubmitting } from '../../components/ui/useSubmitting'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { KIND_ORDER, opPreview } from './CareItemRow'
 import { applyTidyUp } from './client'
@@ -25,8 +26,8 @@ import type { TidyUpFinding } from './lib/tidy-up-findings'
  * do - AC 6 requires nothing be applied without a preview, and "N operations"
  * would not be one.
  *
- * Owns the IPC call itself (mirrors `DeleteProfileDialog`, not
- * `CleanupPanel`'s inline confirm state, since this is a standalone file):
+ * Owns the IPC call itself. It stays a Modal rather than a ConfirmDialog because it
+ * swaps to a result summary with a Close-only footer after applying:
  * Cancel/backdrop/Escape never call `applyTidyUp` at all, so nothing changes
  * on disk or in state unless Apply is clicked. On success it reports the new
  * profile back via `onProfileUpdated` immediately (so the section behind the
@@ -47,7 +48,7 @@ export function CareBatchFixDialog({
   onProfileUpdated: (profile: ConfigProfile) => void
 }) {
   const { t } = useTranslation()
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
   const [outcome, setOutcome] = useState<Outcome<TidyUpApplyResult> | null>(null)
 
   const ops: TidyUpOp[] = useMemo(() => findings.flatMap((finding) => finding.ops), [findings])
@@ -62,9 +63,7 @@ export function CareBatchFixDialog({
   )
 
   const handleApply = async (): Promise<void> => {
-    setSubmitting(true)
     const result = await applyTidyUp({ profileId: profile.id, ops })
-    setSubmitting(false)
     setOutcome(result)
     if (result.ok) onProfileUpdated(result.value.profile)
   }
@@ -88,7 +87,7 @@ export function CareBatchFixDialog({
             <Button variant="ghost" disabled={submitting} onClick={onClose}>
               {t('common.cancel')}
             </Button>
-            <Button variant="danger" disabled={submitting} onClick={() => void handleApply()}>
+            <Button variant="danger" disabled={submitting} onClick={() => void run(handleApply)}>
               {submitting
                 ? t('config.care.tidyUp.applying')
                 : t('config.care.tidyUp.batch.confirm')}

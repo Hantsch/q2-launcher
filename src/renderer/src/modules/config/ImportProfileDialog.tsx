@@ -6,6 +6,8 @@ import type { Outcome } from '@shared/types'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Field, Input } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
+import { Radio, RadioGroup } from '../../components/ui/RadioGroup'
+import { useSubmitting } from '../../components/ui/useSubmitting'
 import { EmptyState, KeyValue, SectionLabel, Spinner } from '../../components/ui/primitives'
 import { commitImportFiles, pickImportFiles, previewImportFiles } from './client'
 import { ConfigCodeView } from './components/ConfigCodeView'
@@ -67,7 +69,7 @@ export function ImportProfileDialog({
 
   const [name, setName] = useState('')
   const [nameTouched, setNameTouched] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
   const [commitError, setCommitError] = useState<Outcome<ConfigProfile[]> | null>(null)
 
   // The review step's own rows (story 041 D7) - empty whenever the preview has nothing
@@ -154,7 +156,6 @@ export function ImportProfileDialog({
   }
 
   const submit = async (): Promise<void> => {
-    setSubmitting(true)
     setCommitError(null)
     // Story 041 (D7): only the names the user actually flipped to "attempt as layer" travel
     // to commit - everything else defaults to a plain alias by simply not being in this list.
@@ -166,7 +167,6 @@ export function ImportProfileDialog({
       name: name.trim(),
       layerAliases,
     })
-    setSubmitting(false)
     if (result.ok) {
       onCreated(result.value)
     } else {
@@ -186,7 +186,7 @@ export function ImportProfileDialog({
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
           </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
+          <Button variant="primary" disabled={!canSubmit} onClick={() => void run(submit)}>
             {t('config.importDialog.submit')}
           </Button>
         </>
@@ -474,32 +474,23 @@ export function ImportProfileDialog({
                           </div>
                         </div>
                         <ConfigCodeView text={alias.body} singleLine />
-                        <div className="flex flex-wrap items-center gap-4 text-xs text-ink">
-                          <label className="flex cursor-pointer items-center gap-1.5">
-                            <input
-                              type="radio"
-                              name={groupName}
-                              className="accent-flame-500"
-                              checked={!attemptAsLayer}
-                              onChange={() =>
-                                setLayerChoices((prev) => ({ ...prev, [alias.name]: false }))
-                              }
-                            />
-                            {t('config.importDialog.review.plainAlias')}
-                          </label>
-                          <label className="flex cursor-pointer items-center gap-1.5">
-                            <input
-                              type="radio"
-                              name={groupName}
-                              className="accent-flame-500"
-                              checked={attemptAsLayer}
-                              onChange={() =>
-                                setLayerChoices((prev) => ({ ...prev, [alias.name]: true }))
-                              }
-                            />
-                            {t('config.importDialog.review.attemptAsLayer')}
-                          </label>
-                        </div>
+                        <RadioGroup
+                          name={groupName}
+                          value={attemptAsLayer ? 'layer' : 'plain'}
+                          label={alias.name}
+                          onChange={(value) =>
+                            setLayerChoices((prev) => ({
+                              ...prev,
+                              [alias.name]: value === 'layer',
+                            }))
+                          }
+                        >
+                          <Radio value="plain" label={t('config.importDialog.review.plainAlias')} />
+                          <Radio
+                            value="layer"
+                            label={t('config.importDialog.review.attemptAsLayer')}
+                          />
+                        </RadioGroup>
                       </li>
                     )
                   })}

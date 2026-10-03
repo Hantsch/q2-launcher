@@ -50,7 +50,7 @@
 //   dashboard-tile-configProfiles     DashboardTile.tsx, same convention
 //   dashboard-tile-frame-loading      DashboardTileFrame.tsx
 //   dashboard-tile-frame-error        DashboardTileFrame.tsx
-//   dashboard-tile-frame-filled       DashboardTileFrame.tsx (via `TileFrameBoundary`, the non-error render path)
+//   dashboard-tile-frame-filled       DashboardTileFrame.tsx (inside the frame's `ErrorBoundary`, the non-error render path)
 //   dashboard-tile-frame-retry        DashboardTileFrame.tsx (the retry button inside the error state)
 //   dashboard-arrange-toggle          ArrangeToggle.tsx
 //   dashboard-catalog                 ArrangeBar.tsx

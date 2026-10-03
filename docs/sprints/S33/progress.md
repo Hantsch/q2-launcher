@@ -125,3 +125,41 @@
 - 2026-10-03 12:06 · 215 · review-fix 1 · started
 - 2026-10-03 12:11 · 215 · review-fix 1 · done
 - 2026-10-03 12:11 · 215 · story · done
+- 2026-10-03 12:12 · 216 · build · started
+- 2026-10-03 12:12 · 216 · D1 useSubmitting + NameDialog · started
+- 2026-10-03 12:15 · 216 · D1 useSubmitting + NameDialog · done
+- 2026-10-03 12:15 · 216 · D2 ConfirmDialog · started
+- 2026-10-03 12:15 · 216 · D3 Tabs RadioGroup TextArea token guard · started
+- 2026-10-03 12:15 · 216 · D4 one ErrorBoundary · started
+- 2026-10-03 12:19 · 216 · D2 ConfirmDialog · done
+- 2026-10-03 12:19 · 216 · D3 Tabs RadioGroup TextArea token guard · done
+- 2026-10-03 12:19 · 216 · D4 one ErrorBoundary · done
+- 2026-10-03 12:19 · 216 · D5 useStartJob + JobActionDialog · started
+- 2026-10-03 12:20 · 216 · D5 useStartJob + JobActionDialog · done
+- 2026-10-03 12:20 · 216 · D6 mods dialogs on useStartJob · started
+- 2026-10-03 12:20 · 216 · D7 tab strips on Tabs · started
+- 2026-10-03 12:20 · 216 · D8 installations dialogs · started
+- 2026-10-03 12:20 · 216 · D9 config profile dialogs · started
+- 2026-10-03 12:20 · 216 · D10 config settings dialogs · started
+- 2026-10-03 12:22 · 216 · D6 mods dialogs on useStartJob · done
+- 2026-10-03 12:22 · 216 · D7 tab strips on Tabs · done
+- 2026-10-03 12:22 · 216 · D8 installations dialogs · done
+- 2026-10-03 12:22 · 216 · D9 config profile dialogs · done
+- 2026-10-03 12:22 · 216 · D10 config settings dialogs · done
+- 2026-10-03 12:22 · 216 · D11 Controls dialogs (hard) · started
+- 2026-10-03 12:22 · 216 · D12 aliases layers replays servers · started
+- 2026-10-03 12:22 · 216 · D13 remaining confirms · started
+- 2026-10-03 12:27 · 216 · D11 Controls dialogs (hard) · done
+- 2026-10-03 12:27 · 216 · D12 aliases layers replays servers · done
+- 2026-10-03 12:27 · 216 · D13 remaining confirms · done
+- 2026-10-03 12:27 · 216 · D14 adoption guard + docs · started
+- 2026-10-03 12:28 · 216 · D14 adoption guard + docs · done
+- 2026-10-03 12:28 · 216 · verify · started
+- 2026-10-03 12:48 · 216 · verify · done
+- 2026-10-03 12:48 · 216 · review 1 · started
+- 2026-10-03 12:51 · 216 · review 1 · done
+- 2026-10-03 12:51 · 216 · review-fix 1 · started
+- 2026-10-03 12:53 · 216 · review-fix 1 · done
+- 2026-10-03 12:53 · 216 · verify 2 · started
+- 2026-10-03 12:59 · 216 · verify 2 · done
+- 2026-10-03 12:59 · 216 · story · done

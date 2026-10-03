@@ -1,10 +1,11 @@
-import { Component, type CSSProperties, type ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDraggable } from '@dnd-kit/core'
 import { GripVertical, Move, MoveDiagonal, X } from 'lucide-react'
 import type { DashboardModuleId, TilePlacement } from '@shared/modules/home'
 import { Panel } from '../../../components/ui/primitives'
 import { Button, IconButton } from '../../../components/ui/Button'
+import { ErrorBoundary } from '../../../components/ui/ErrorBoundary'
 import { DASHBOARD_MODULES } from './dashboard-modules'
 import { useTileLift, type UseTileLiftOptions } from './useTileLift'
 
@@ -32,16 +33,15 @@ export interface TileKeyboardHandlers {
  * chain collapses to content height - the exact bug that let a long Config Profiles list render
  * unclipped with no scrollbar.
  *
- * Review fix (post-087): `definition.Body` is wrapped in its own `DashboardTileBodyBoundary`
+ * Review fix (post-087): `definition.Body` is wrapped in its own `ErrorBoundary`
  * here, not just inside whatever `<DashboardTileFrame state="filled">` it renders internally.
- * `DashboardTileFrame`'s own `TileFrameBoundary` only covers the `children` a tile hands it -
+ * `DashboardTileFrame`'s own `ErrorBoundary` only covers the `children` a tile hands it -
  * that's a sibling/descendant relationship that starts only once the tile's function body has
  * already run. A tile computes derived data (`Object.entries(data.byEngine)`,
  * `toConfigProfileRows(...)`, ...) before it ever constructs that element, so a throw during that
- * computation happens one level above `TileFrameBoundary` and would otherwise propagate past this
+ * computation happens one level above the frame's boundary and would otherwise propagate past this
  * whole module straight to `App.tsx`'s top-level boundary, blanking the entire app instead of just
- * this tile (AC5). This boundary is deliberately a second, file-local class - it does not need to
- * share code with `TileFrameBoundary` in `DashboardTileFrame.tsx`, which stays unaware of anything
+ * this tile (AC5). This boundary is deliberately independent of the frame's, which stays unaware of anything
  * above it. Review fix (second cycle): the boundary is also handed this tile's own `title` (the
  * same string `DashboardTileFrame`'s heading would have shown) and renders it above the fallback
  * message, because the throw happens before `definition.Body` ever reaches `DashboardTileFrame` -
@@ -172,13 +172,25 @@ export function DashboardTile({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <DashboardTileBodyBoundary
-          title={title}
-          fallbackMessage={t('home.dashboard.tileFrame.renderError')}
-          retryLabel={t('common.retry')}
+        <ErrorBoundary
+          scope="dashboard tile"
+          fallback={(_error, reset) => (
+            <div
+              data-testid="dashboard-tile-render-error"
+              className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-6 text-center"
+            >
+              <h2 className="min-w-0 shrink-0 truncate font-display text-xs tracking-[0.08em] text-ink-dim uppercase">
+                {title}
+              </h2>
+              <p className="text-sm text-ink-dim">{t('home.dashboard.tileFrame.renderError')}</p>
+              <Button size="sm" onClick={reset} data-testid="dashboard-tile-render-error-retry">
+                {t('common.retry')}
+              </Button>
+            </div>
+          )}
         >
           <definition.Body />
-        </DashboardTileBodyBoundary>
+        </ErrorBoundary>
       </div>
 
       {arrangeMode && (
@@ -196,63 +208,4 @@ export function DashboardTile({
       )}
     </Panel>
   )
-}
-
-interface DashboardTileBodyBoundaryProps {
-  children: ReactNode
-  title: string
-  fallbackMessage: string
-  retryLabel: string
-}
-
-interface DashboardTileBodyBoundaryState {
-  hasError: boolean
-}
-
-/**
- * See the file doc comment above `DashboardTile` for why this exists as a second boundary,
- * separate from `DashboardTileFrame.tsx`'s internal `TileFrameBoundary`: this one wraps the whole
- * tile body component (`definition.Body`, i.e. `<PlaytimeTile />`/`<ConfigProfilesTile />`), so a
- * throw anywhere in that component's own render - including derived-data computation that runs
- * before it ever constructs a `<DashboardTileFrame>` element - is caught here instead of
- * propagating past this module to the app's top-level `ErrorBoundary` (AC5). Review fix (second
- * cycle): the fallback also renders `title` - the tile's own name, computed by `DashboardTile` the
- * same way `DashboardTileFrame` would have - since `DashboardTileFrame`'s heading never gets to
- * render when the throw happens above it.
- */
-class DashboardTileBodyBoundary extends Component<
-  DashboardTileBodyBoundaryProps,
-  DashboardTileBodyBoundaryState
-> {
-  override state: DashboardTileBodyBoundaryState = { hasError: false }
-
-  static getDerivedStateFromError(): DashboardTileBodyBoundaryState {
-    return { hasError: true }
-  }
-
-  override componentDidCatch(error: unknown): void {
-    console.error('[dashboard tile] body render error', error)
-  }
-
-  private readonly reset = (): void => this.setState({ hasError: false })
-
-  override render(): ReactNode {
-    if (this.state.hasError) {
-      return (
-        <div
-          data-testid="dashboard-tile-render-error"
-          className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-6 text-center"
-        >
-          <h2 className="min-w-0 shrink-0 truncate font-display text-xs tracking-[0.08em] text-ink-dim uppercase">
-            {this.props.title}
-          </h2>
-          <p className="text-sm text-ink-dim">{this.props.fallbackMessage}</p>
-          <Button size="sm" onClick={this.reset} data-testid="dashboard-tile-render-error-retry">
-            {this.props.retryLabel}
-          </Button>
-        </div>
-      )
-    }
-    return this.props.children
-  }
 }

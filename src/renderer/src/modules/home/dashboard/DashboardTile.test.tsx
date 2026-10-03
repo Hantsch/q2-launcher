@@ -6,11 +6,11 @@ import type { TilePlacement } from '@shared/modules/home'
 import { initI18n } from '../../../i18n'
 
 /**
- * Review fix (post-087, AC5): `DashboardTile`'s own `DashboardTileBodyBoundary` has to catch a
+ * Review fix (post-087, AC5): `DashboardTile`'s own `ErrorBoundary` has to catch a
  * throw from the tile body itself - not just from whatever `children` a tile hands
  * `DashboardTileFrame` - because a tile computes derived data (`Object.entries(data.byEngine)`,
  * `toConfigProfileRows(...)`, ...) before it ever constructs a `<DashboardTileFrame>` element, one
- * level above `DashboardTileFrame`'s own internal `TileFrameBoundary`. `dashboard-modules.tsx` is
+ * level above `DashboardTileFrame`'s own internal `ErrorBoundary`. `dashboard-modules.tsx` is
  * mocked here (the same registry-substitution pattern the rest of this directory's tests use for
  * client modules) so one tile's `Body` throws unconditionally while its sibling renders normally -
  * proving the fault is contained to the one tile instead of propagating past the grid.
@@ -80,7 +80,7 @@ describe('DashboardTile (AC5: a throwing tile body cannot unmount the grid)', ()
 
     // Review fix (second cycle, AC5): the fallback names the tile that failed - `DashboardTileFrame`'s
     // own heading never got a chance to render (the throw happened before `definition.Body` ever
-    // reached it), so `DashboardTileBodyBoundary` must show the title itself.
+    // reached it), so the tile-level `ErrorBoundary` must show the title itself.
     const playtimeTitle = screen
       .getByTestId('dashboard-tile-playtime')
       .querySelector('[data-testid="dashboard-tile-render-error"] h2')

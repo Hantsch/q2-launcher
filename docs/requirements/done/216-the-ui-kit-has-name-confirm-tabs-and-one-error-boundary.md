@@ -1,7 +1,7 @@
 ---
 id: 216
 title: the UI kit has name, confirm, tabs and one error boundary
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -27,23 +27,23 @@ fetch/start/track job state machine while mods dialogs use a different post-star
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `components/ui` exports `NameDialog({ titleKey, labelKey, initialName, maxLength,
+- [x] **AC1** — `components/ui` exports `NameDialog({ titleKey, labelKey, initialName, maxLength,
 validate?, onSubmit, onClose, children? })`, `ConfirmDialog({ title, body, confirmLabel,
 tone, busy, onConfirm, onClose })`, `Tabs` (roving tabindex, `role="tablist"`/`tab`/
       `tabpanel`, arrow-key navigation), `RadioGroup`/`Radio` and `TextArea`; each has a unit
       test, and `NameDialog` has one `canSubmit` that gates both the button and the Enter key.
-- [ ] **AC2** — The 12 name dialogs, the confirm dialogs and the three tab strips are rebuilt on
+- [x] **AC2** — The 12 name dialogs, the confirm dialogs and the three tab strips are rebuilt on
       the primitives keeping their existing `data-testid`s; `git grep -ln 'const \[submitting, setSubmitting\]' src/renderer`
       returns fewer than 5 files; `role="tablist"` appears only inside `Tabs`.
-- [ ] **AC3** — `ErrorBoundary` accepts `fallback`, `onError`, `resetKeys` and `scope`; the three
+- [x] **AC3** — `ErrorBoundary` accepts `fallback`, `onError`, `resetKeys` and `scope`; the three
       module-local boundary classes are deleted.
-- [ ] **AC4** — A `useStartJob(starter)` hook and a `JobActionDialog` molecule replace the three
+- [x] **AC4** — A `useStartJob(starter)` hook and a `JobActionDialog` molecule replace the three
       downloads dialogs' hand-rolled state machines, with their own `jobs.dismiss` key instead of
       borrowing `bootstrapWizard.running.dismiss`; the mods dialogs follow the same post-start
       convention (decision recorded).
-- [ ] **AC5** — The design-token checks still pass (no raw colours introduced) and the existing
+- [x] **AC5** — The design-token checks still pass (no raw colours introduced) and the existing
       a11y report (`ui:a11y`) has no new violations.
-- [ ] **AC6** — Every flow that opens a rename/confirm dialog or a tab strip stays green.
+- [x] **AC6** — Every flow that opens a rename/confirm dialog or a tab strip stays green.
 
 ## Decisions (Sprint)
 
@@ -299,3 +299,20 @@ hand-rolled) is caught by D14's adoption test, not left to the reviewer.
 ## Done
 
 <!-- Filled by /build 216. -->
+
+Primitives `NameDialog`, `ConfirmDialog`, `Tabs`/`TabPanel`, `RadioGroup`, `TextArea`, `useSubmitting`, one `ErrorBoundary`, `useStartJob` + `JobActionDialog`; ~45 dialogs/tab strips/boundaries migrated; adoption + token guards; flows tabs-keyboard, name-dialog-enter-once.
+
+Commit: `216: UI kit � NameDialog, ConfirmDialog, Tabs, RadioGroup, TextArea, useSubmitting, one ErrorBoundary, useStartJob`
+
+Verification (narrow gate): build, typecheck, lint green; `npm test` red only on pre-existing shell-layering, test-kit mockClient (useQuickFilters.test.ts) and LF of other stories' docs; `ui:verify` exit 0, a11y.json hash-identical to a11y-baseline-216.json; 31 AC6 flows via `npm run ui:flow -- <name>` green. AC1-AC6 mapped tests all ran and passed.
+Pre-existing red on bare HEAD (stash-checked): external-edit-cascades, drop-message-checkbox.
+
+Decisions:
+- Tabs/Enter: unit test uses a click (native Enter/Space); real Enter proven by flow tabs-keyboard. RadioGroup test is click + shared name (user-event absent); test names updated in Acceptance Tests.
+- NameDialog grew optional props (placeholder, nameOptional, submittable, suffix, onNameChange, function children, testIds.error/dialog, optional maxLength) to keep existing flows/behaviour; one canSubmit still gates button and Enter.
+- Stayed on Modal (choice dialogs, D-E): QuickFilterNameDialog (Overwrite), CareBatchFixDialog, KeyBindDialog, ModMissingConfirmDialog, InstallDecisionDialog. ControlsTab's empty-category delete confirm stays inline (unit test requires it); ActionEditor/MessageEditor had no confirms.
+- ConfirmDialog: `busy` disables Cancel + confirm + preventClose; `confirmDisabled` for the running-game block. Discard/mismatch cancel labels are now "Cancel"; create dialogs show Name above the extra fields.
+- Not fixed (low): DeleteCategoryDialog confirm not disabled by its own canSubmit (unreachable state); TabPanel aria-labelledby dangling while watchlist strip is hidden; AliasesTab import reformat.
+- Unused i18n keys left: replays.editor.discardDialog.keep, servers.join.mismatch.cancel.
+
+tiers: D 14 / hard 1 � review default � cycles 1 � agents 21

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ModRemoveChangedFiles } from '@shared/modules/mods'
-import type { LocalizedMessage } from '@shared/types'
 import { Button } from '../../../components/ui/Button'
 import { Modal } from '../../../components/ui/Modal'
+import { Radio, RadioGroup } from '../../../components/ui/RadioGroup'
+import { useStartJob } from '../../../components/jobs/useStartJob'
 import { useModuleQuery } from '../../../lib/useModuleQuery'
 import { previewRemoval, removeMod } from '../client'
 
@@ -28,8 +29,23 @@ export function RemoveModDialog({
 }) {
   const { t } = useTranslation()
   const [choice, setChoice] = useState<ModRemoveChangedFiles>('keep')
-  const [busy, setBusy] = useState(false)
-  const [refusal, setRefusal] = useState<LocalizedMessage | null>(null)
+  const {
+    start,
+    starting: busy,
+    refusal,
+  } = useStartJob(
+    useCallback(
+      async (policy: ModRemoveChangedFiles) => {
+        const outcome = await removeMod(installationId, modId, policy)
+        if (outcome.ok) {
+          onStarted(outcome.value.jobId)
+          onClose()
+        }
+        return outcome
+      },
+      [installationId, modId, onStarted, onClose],
+    ),
+  )
 
   const previewQuery = useModuleQuery(() => previewRemoval(installationId, modId), {
     deps: [installationId, modId],
@@ -38,19 +54,6 @@ export function RemoveModDialog({
   const preview = previewQuery.state === 'success' ? (previewQuery.data ?? null) : null
   const error = previewQuery.state === 'error' ? previewQuery.error : refusal
   const changed = preview?.changedFiles ?? []
-
-  const confirm = async (): Promise<void> => {
-    setBusy(true)
-    setRefusal(null)
-    const outcome = await removeMod(installationId, modId, changed.length > 0 ? choice : 'keep')
-    setBusy(false)
-    if (outcome.ok) {
-      onStarted(outcome.value.jobId)
-      onClose()
-    } else {
-      setRefusal(outcome.error)
-    }
-  }
 
   return (
     <Modal
@@ -79,7 +82,7 @@ export function RemoveModDialog({
           <Button
             variant="danger"
             disabled={busy || !preview}
-            onClick={() => void confirm()}
+            onClick={() => void start(changed.length > 0 ? choice : 'keep')}
             data-testid="mods-remove-confirm"
           >
             {t('mods.remove.confirm')}
@@ -108,28 +111,23 @@ export function RemoveModDialog({
                     </li>
                   ))}
                 </ul>
-                <label className="flex items-center gap-2 text-sm text-ink-dim">
-                  <input
-                    type="radio"
-                    name="mods-remove-changed"
-                    checked={choice === 'keep'}
-                    onChange={() => setChoice('keep')}
-                    data-testid="mods-remove-changed-keep"
-                    className="size-4 accent-flame-500 focus-visible:ring-2 focus-visible:ring-flame-500 focus-visible:outline-none"
+                <RadioGroup
+                  name="mods-remove-changed"
+                  value={choice}
+                  onChange={(value) => setChoice(value as ModRemoveChangedFiles)}
+                  label={t('mods.remove.changed', { count: changed.length })}
+                >
+                  <Radio
+                    value="keep"
+                    label={t('mods.remove.keepChanged')}
+                    testId="mods-remove-changed-keep"
                   />
-                  {t('mods.remove.keepChanged')}
-                </label>
-                <label className="flex items-center gap-2 text-sm text-ink-dim">
-                  <input
-                    type="radio"
-                    name="mods-remove-changed"
-                    checked={choice === 'delete'}
-                    onChange={() => setChoice('delete')}
-                    data-testid="mods-remove-changed-delete"
-                    className="size-4 accent-flame-500 focus-visible:ring-2 focus-visible:ring-flame-500 focus-visible:outline-none"
+                  <Radio
+                    value="delete"
+                    label={t('mods.remove.deleteChanged')}
+                    testId="mods-remove-changed-delete"
                   />
-                  {t('mods.remove.deleteChanged')}
-                </label>
+                </RadioGroup>
               </fieldset>
             )}
           </>

@@ -26,7 +26,8 @@ import {
 } from '@shared/modules/config'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Field, Input, Select } from '../../components/ui/controls'
-import { Modal } from '../../components/ui/Modal'
+import { NameDialog } from '../../components/ui/NameDialog'
+import { useSubmitting } from '../../components/ui/useSubmitting'
 import { EmptyState, SectionLabel } from '../../components/ui/primitives'
 import { DragHandle, SortableItem } from '../../components/dnd'
 import { ActionEditor } from './components/ActionEditor'
@@ -2100,77 +2101,43 @@ export function CreateCategoryDialog({
   onSubmit: (input: { name: string; templateId?: string }) => Promise<boolean>
 }) {
   const { t } = useTranslation()
-  const [name, setName] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  const canSubmit = name.trim().length > 0 && !submitting
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    const ok = await onSubmit({ name: name.trim() })
-    setSubmitting(false)
-    if (!ok) return
-  }
-
-  const pickTemplate = async (templateId: string): Promise<void> => {
-    setSubmitting(true)
-    await onSubmit({ name: '', templateId })
-    setSubmitting(false)
-  }
+  // One in-flight gate for both paths: a template pick and the name submit never run together.
+  const template = useSubmitting()
 
   const suggestions = TEMPLATE_ACTION_CATEGORIES.filter(
     (category) => !existingCategoryIds.includes(category.id),
   )
 
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.controls.createDialog.title')}
+    <NameDialog
+      titleKey="config.controls.createDialog.title"
+      labelKey="config.controls.createDialog.nameLabel"
+      submitLabelKey="config.controls.createDialog.submit"
+      initialName=""
+      maxLength={120}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('config.controls.createDialog.submit')}
-          </Button>
-        </>
-      }
+      onSubmit={(name) => template.run(() => onSubmit({ name }))}
     >
-      <div className="space-y-4">
-        {suggestions.length > 0 && (
-          <Field label={t('config.controls.createDialog.suggestions.label')}>
-            <div className="space-y-0.5 rounded-sm border border-line">
-              {suggestions.map((category) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => void pickTemplate(category.id)}
-                  className="flex w-full items-center px-2.5 py-1.5 text-left text-xs text-ink transition-colors duration-[--dur-fast] hover:bg-hover disabled:opacity-50"
-                >
-                  {t(category.labelKey)}
-                </button>
-              ))}
-            </div>
-          </Field>
-        )}
-        <Field label={t('config.controls.createDialog.nameLabel')}>
-          <Input
-            value={name}
-            autoFocus
-            maxLength={120}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && canSubmit) void submit()
-            }}
-          />
+      {suggestions.length > 0 && (
+        <Field label={t('config.controls.createDialog.suggestions.label')}>
+          <div className="space-y-0.5 rounded-sm border border-line">
+            {suggestions.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                disabled={template.submitting}
+                onClick={() =>
+                  void template.run(() => onSubmit({ name: '', templateId: category.id }))
+                }
+                className="flex w-full items-center px-2.5 py-1.5 text-left text-xs text-ink transition-colors duration-[--dur-fast] hover:bg-hover disabled:opacity-50"
+              >
+                {t(category.labelKey)}
+              </button>
+            ))}
+          </div>
         </Field>
-      </div>
-    </Modal>
+      )}
+    </NameDialog>
   )
 }
 
@@ -2184,48 +2151,15 @@ function RenameCategoryDialog({
   onClose: () => void
   onSubmit: (name: string) => Promise<boolean>
 }) {
-  const { t } = useTranslation()
-  const [name, setName] = useState(category.name)
-  const [submitting, setSubmitting] = useState(false)
-
-  const canSubmit = name.trim().length > 0 && !submitting
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    await onSubmit(name.trim())
-    setSubmitting(false)
-  }
-
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.controls.renameDialog.title')}
+    <NameDialog
+      titleKey="config.controls.renameDialog.title"
+      labelKey="config.controls.renameDialog.label"
+      initialName={category.name}
+      maxLength={120}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('common.save')}
-          </Button>
-        </>
-      }
-    >
-      <Field label={t('config.controls.renameDialog.label')}>
-        <Input
-          value={name}
-          autoFocus
-          maxLength={120}
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && name.trim().length > 0) void submit()
-          }}
-        />
-      </Field>
-    </Modal>
+      onSubmit={onSubmit}
+    />
   )
 }
 
@@ -2239,49 +2173,16 @@ export function CreateSubcategoryDialog({
   onClose: () => void
   onSubmit: (name: string) => Promise<boolean>
 }) {
-  const { t } = useTranslation()
-  const [name, setName] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  const canSubmit = name.trim().length > 0 && !submitting
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    const ok = await onSubmit(name.trim())
-    setSubmitting(false)
-    if (!ok) return
-  }
-
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.controls.subcategory.createDialog.title')}
+    <NameDialog
+      titleKey="config.controls.subcategory.createDialog.title"
+      labelKey="config.controls.subcategory.createDialog.nameLabel"
+      submitLabelKey="config.controls.subcategory.createDialog.submit"
+      initialName=""
+      maxLength={120}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('config.controls.subcategory.createDialog.submit')}
-          </Button>
-        </>
-      }
-    >
-      <Field label={t('config.controls.subcategory.createDialog.nameLabel')}>
-        <Input
-          value={name}
-          autoFocus
-          maxLength={120}
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && canSubmit) void submit()
-          }}
-        />
-      </Field>
-    </Modal>
+      onSubmit={onSubmit}
+    />
   )
 }
 
@@ -2295,48 +2196,15 @@ export function RenameSubcategoryDialog({
   onClose: () => void
   onSubmit: (name: string) => Promise<boolean>
 }) {
-  const { t } = useTranslation()
-  const [name, setName] = useState(subcategory.name)
-  const [submitting, setSubmitting] = useState(false)
-
-  const canSubmit = name.trim().length > 0 && !submitting
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    await onSubmit(name.trim())
-    setSubmitting(false)
-  }
-
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.controls.subcategory.renameDialog.title')}
+    <NameDialog
+      titleKey="config.controls.subcategory.renameDialog.title"
+      labelKey="config.controls.subcategory.renameDialog.label"
+      initialName={subcategory.name}
+      maxLength={120}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('common.save')}
-          </Button>
-        </>
-      }
-    >
-      <Field label={t('config.controls.subcategory.renameDialog.label')}>
-        <Input
-          value={name}
-          autoFocus
-          maxLength={120}
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && name.trim().length > 0) void submit()
-          }}
-        />
-      </Field>
-    </Modal>
+      onSubmit={onSubmit}
+    />
   )
 }
 
@@ -2350,11 +2218,14 @@ const ENTRY_KIND_OPTIONS: ActionEntryKind[] = [
 
 /**
  * Create-action form: name plus the kind (story 019 D4 - the entry, not the category, carries
- * the kind), plus (story 052 D9, AC 6) a catalogue suggestions list above the free-form fields.
+ * the kind), plus (story 052 D9, AC 6) a catalogue suggestions list next to the free-form fields.
  * Picking a suggestion submits immediately with that row's `catalogId` - the same "one entry, one
  * click" shape `ActionEditor`'s own "pick from the catalogue" list already uses for a command, just
  * one level up (an entire entry instead of one of its commands). Debounced-saved by the caller
  * either way, so this dialog never waits on a network round trip.
+ *
+ * The Name field and the catalogue filter stay separately addressable by accessible name: the
+ * `ui:flow` scripts that create a custom action locate the Name field by its label.
  *
  * Exported (like `CreateCategoryDialog`) so both suggestion lists can be unit-tested directly.
  */
@@ -2366,16 +2237,8 @@ export function CreateActionDialog({
   onSubmit: (name: string, kind: ActionEntryKind, catalogId?: string) => void
 }) {
   const { t } = useTranslation()
-  const [name, setName] = useState('')
   const [kind, setKind] = useState<ActionEntryKind>('bind')
   const [filter, setFilter] = useState('')
-
-  const canSubmit = name.trim().length > 0
-
-  const submit = (): void => {
-    if (!canSubmit) return
-    onSubmit(name.trim(), kind)
-  }
 
   /**
    * Story 052 review (finding 8): the *stored* name is the catalogue's own locale-independent one
@@ -2383,7 +2246,7 @@ export function CreateActionDialog({
    * verbatim into the `.cfg` comment by `render.ts`, so a translated label here would make the
    * user's file depend on the UI language it happened to be created in - and every other
    * catalogue-backed entry (`STANDARD_TEMPLATE`, the D6 migration, `bind-adoption.ts#materialise`)
-   * already uses `nameForCatalogRow` for exactly that reason. The list above still *shows* the
+   * already uses `nameForCatalogRow` for exactly that reason. The list still *shows* the
    * translated label: that is UI chrome, and the row renders under its translated label either way
    * once it exists, because it carries the `catalogId`.
    */
@@ -2398,83 +2261,56 @@ export function CreateActionDialog({
   }, [filter, t])
 
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.controls.actions.createDialog.title')}
+    <NameDialog
+      titleKey="config.controls.actions.createDialog.title"
+      labelKey="config.controls.actions.createDialog.nameLabel"
+      submitLabelKey="config.controls.actions.createDialog.submit"
+      initialName=""
+      maxLength={120}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={submit}>
-            {t('config.controls.actions.createDialog.submit')}
-          </Button>
-        </>
-      }
+      onSubmit={(name) => onSubmit(name, kind)}
     >
-      <div className="space-y-4">
-        <Field label={t('config.controls.actions.createDialog.suggestions.label')}>
-          <Input
-            value={filter}
-            placeholder={t('config.controls.actions.createDialog.suggestions.filterPlaceholder')}
-            aria-label={t('config.controls.actions.createDialog.suggestions.filterPlaceholder')}
-            onChange={(event) => setFilter(event.target.value)}
-          />
-          <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
-            {suggestions.length === 0 ? (
-              <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.none')}</p>
-            ) : (
-              suggestions.map((info) => (
-                <button
-                  key={info.row.catalogId}
-                  type="button"
-                  onClick={() => pickSuggestion(info)}
-                  className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-ink transition-colors duration-[--dur-fast] hover:bg-hover"
-                >
-                  <span>{t(info.labelKey)}</span>
-                  <code className="text-ink-muted">
-                    {info.row.commands.join('; ')}
-                    {info.row.ammoCommand
-                      ? ` +${t('config.controls.actions.createDialog.suggestions.ammoBadge')}`
-                      : ''}
-                  </code>
-                </button>
-              ))
-            )}
-          </div>
-        </Field>
-
-        <Field label={t('config.controls.actions.createDialog.nameLabel')}>
-          <Input
-            value={name}
-            // Story 052 review (finding 2): no `autoFocus` here, deliberately - `Modal` focuses the
-            // first control in its body on open (`Modal.tsx`), which since D9 put the suggestions
-            // list on top is the catalogue filter, and that wins over any `autoFocus` set here. The
-            // field is instead identified by its `Field` label ("Name"), which is what the two
-            // `ui:flow` scripts that fill it now locate it by, rather than by being the dialog's
-            // first text input.
-            maxLength={120}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && canSubmit) submit()
-            }}
-          />
-        </Field>
-        <Field label={t('config.controls.createDialog.entryKindLabel')}>
-          <Select
-            options={ENTRY_KIND_OPTIONS.map((option) => ({
-              value: option,
-              label: t(`config.controls.entryKind.${option}`),
-            }))}
-            value={kind}
-            onChange={(event) => setKind(event.target.value as ActionEntryKind)}
-          />
-        </Field>
-      </div>
-    </Modal>
+      <Field label={t('config.controls.createDialog.entryKindLabel')}>
+        <Select
+          options={ENTRY_KIND_OPTIONS.map((option) => ({
+            value: option,
+            label: t(`config.controls.entryKind.${option}`),
+          }))}
+          value={kind}
+          onChange={(event) => setKind(event.target.value as ActionEntryKind)}
+        />
+      </Field>
+      <Field label={t('config.controls.actions.createDialog.suggestions.label')}>
+        <Input
+          value={filter}
+          placeholder={t('config.controls.actions.createDialog.suggestions.filterPlaceholder')}
+          aria-label={t('config.controls.actions.createDialog.suggestions.filterPlaceholder')}
+          onChange={(event) => setFilter(event.target.value)}
+        />
+        <div className="mt-2 max-h-40 space-y-0.5 overflow-y-auto rounded-sm border border-line">
+          {suggestions.length === 0 ? (
+            <p className="px-2.5 py-2 text-xs text-ink-muted">{t('common.none')}</p>
+          ) : (
+            suggestions.map((info) => (
+              <button
+                key={info.row.catalogId}
+                type="button"
+                onClick={() => pickSuggestion(info)}
+                className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left text-xs text-ink transition-colors duration-[--dur-fast] hover:bg-hover"
+              >
+                <span>{t(info.labelKey)}</span>
+                <code className="text-ink-muted">
+                  {info.row.commands.join('; ')}
+                  {info.row.ammoCommand
+                    ? ` +${t('config.controls.actions.createDialog.suggestions.ammoBadge')}`
+                    : ''}
+                </code>
+              </button>
+            ))
+          )}
+        </div>
+      </Field>
+    </NameDialog>
   )
 }
 

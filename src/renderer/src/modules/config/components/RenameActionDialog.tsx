@@ -5,9 +5,8 @@ import { derivedAliasName, renderedAliasNames } from '@shared/config/aliases/ali
 import { validateAliasName } from '@shared/config/aliases/alias-names'
 import { findAliasReferrers, type AliasReferrer } from '@shared/config/aliases/alias-references'
 import type { ConfigAction } from '@shared/modules/config'
-import { Button } from '../../../components/ui/Button'
 import { Field, Input } from '../../../components/ui/controls'
-import { Modal } from '../../../components/ui/Modal'
+import { NameDialog } from '../../../components/ui/NameDialog'
 
 const ALIAS_NAME_ERROR_KEYS: Record<
   Extract<ReturnType<typeof validateAliasName>, { ok: false }>['reason'],
@@ -51,9 +50,9 @@ export function RenameActionDialog({
   onSubmit: (input: { name: string; aliasName: string | undefined }) => Promise<boolean>
 }) {
   const { t } = useTranslation()
+  // Mirrors the dialog's name field: the rename refusal below depends on the name being typed.
   const [name, setName] = useState(action.name)
   const [ownAliasName, setOwnAliasName] = useState(action.aliasName ?? '')
-  const [submitting, setSubmitting] = useState(false)
 
   const placeholder = derivedAliasName(action)
 
@@ -99,8 +98,9 @@ export function RenameActionDialog({
     () => findAliasReferrers(action, { actions, binds, layers }),
     [action, actions, binds, layers],
   )
-  const nameChanged = name.trim() !== action.name
-  const renameRefused = nameChanged && trimmedOwnAliasName.length === 0 && referrers.length > 0
+  const isRefused = (trimmedName: string): boolean =>
+    trimmedName !== action.name && trimmedOwnAliasName.length === 0 && referrers.length > 0
+  const renameRefused = isRefused(name.trim())
 
   const formatReferrer = (referrer: AliasReferrer): string => {
     switch (referrer.kind) {
@@ -125,47 +125,24 @@ export function RenameActionDialog({
       })
     : undefined
 
-  const canSubmit = name.trim().length > 0 && !submitting && aliasValidation.ok && !renameRefused
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    await onSubmit({
-      name: name.trim(),
-      aliasName: trimmedOwnAliasName.length > 0 ? trimmedOwnAliasName : undefined,
-    })
-    setSubmitting(false)
-  }
-
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.controls.actions.renameDialog.title')}
+    <NameDialog
+      titleKey="config.controls.actions.renameDialog.title"
+      labelKey="config.controls.actions.renameDialog.label"
+      initialName={action.name}
+      maxLength={120}
+      error={refusalMessage}
+      submittable={(trimmedName) => aliasValidation.ok && !isRefused(trimmedName)}
+      onNameChange={setName}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('common.save')}
-          </Button>
-        </>
+      onSubmit={(trimmedName) =>
+        onSubmit({
+          name: trimmedName,
+          aliasName: trimmedOwnAliasName.length > 0 ? trimmedOwnAliasName : undefined,
+        })
       }
     >
-      <div className="space-y-4">
-        <Field label={t('config.controls.actions.renameDialog.label')} error={refusalMessage}>
-          <Input
-            value={name}
-            autoFocus
-            maxLength={120}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && canSubmit) void submit()
-            }}
-          />
-        </Field>
+      {(submit) => (
         <Field
           label={t('config.controls.actions.renameDialog.aliasName.label')}
           hint={
@@ -187,11 +164,11 @@ export function RenameActionDialog({
             maxLength={120}
             onChange={(event) => setOwnAliasName(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' && canSubmit) void submit()
+              if (event.key === 'Enter') submit()
             }}
           />
         </Field>
-      </div>
-    </Modal>
+      )}
+    </NameDialog>
   )
 }

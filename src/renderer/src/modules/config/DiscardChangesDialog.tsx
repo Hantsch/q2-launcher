@@ -1,16 +1,15 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConfigProfile } from '@shared/modules/config'
-import { Button } from '../../components/ui/Button'
-import { Modal } from '../../components/ui/Modal'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { useSubmitting } from '../../components/ui/useSubmitting'
 import { useLauncher } from '../../store/useLauncher'
 import { toastOutcomeError } from '../../lib/toast'
 import { discardConfigProfile } from './client'
 
 /**
  * Story 049 D6: confirms throwing away a profile's unsaved edits and returning it to its last
- * saved/loaded baseline. Mirrors `DeleteProfileDialog`'s shape (Modal, ghost Cancel + danger
- * confirm footer, module-local props, no shell store beyond the toast) - discard is destructive to
+ * saved/loaded baseline. Mirrors `DeleteProfileDialog`'s shape (ConfirmDialog, danger
+ * confirm, module-local props, no shell store beyond the toast) - discard is destructive to
  * in-progress work the same way delete is destructive to the profile itself, so the same idiom
  * applies, just calling `discardConfigProfile` instead of `removeConfigProfile`.
  *
@@ -35,12 +34,10 @@ export function DiscardChangesDialog({
 }) {
   const { t } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
 
   const submit = async (): Promise<void> => {
-    setSubmitting(true)
     const outcome = await discardConfigProfile({ profileId: profile.id })
-    setSubmitting(false)
 
     if (!outcome.ok) {
       toastOutcomeError(pushToast, outcome)
@@ -58,24 +55,14 @@ export function DiscardChangesDialog({
   }
 
   return (
-    <Modal
-      open
-      size="sm"
+    <ConfirmDialog
       title={t('config.discardDialog.title')}
+      body={t('config.discardDialog.body')}
+      confirmLabel={submitting ? t('config.save.discarding') : t('config.discardDialog.confirm')}
+      tone="danger"
+      busy={submitting}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="danger" disabled={submitting} onClick={() => void submit()}>
-            {submitting ? t('config.save.discarding') : t('config.discardDialog.confirm')}
-          </Button>
-        </>
-      }
-    >
-      <p className="text-sm leading-relaxed text-ink-dim">{t('config.discardDialog.body')}</p>
-    </Modal>
+      onConfirm={() => void run(submit)}
+    />
   )
 }

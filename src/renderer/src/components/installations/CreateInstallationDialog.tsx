@@ -7,6 +7,7 @@ import { useLauncher } from '../../store/useLauncher'
 import { Button } from '../ui/Button'
 import { Field, Input, PathPicker, Select } from '../ui/controls'
 import { Modal } from '../ui/Modal'
+import { useSubmitting } from '../ui/useSubmitting'
 
 /**
  * Set up a fresh installation folder.
@@ -24,7 +25,7 @@ export function CreateInstallationDialog() {
   const [name, setName] = useState('')
   const [rootPath, setRootPath] = useState('')
   const [engineKind, setEngineKind] = useState<EngineKind>('r1q2')
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
 
   const pickFolder = async (): Promise<void> => {
     const picked = await invoke('installations:pickFolder', {
@@ -40,12 +41,11 @@ export function CreateInstallationDialog() {
 
   const canSubmit = name.trim().length > 0 && rootPath.length > 0 && !submitting
 
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    const result = await createInstallation({ name: name.trim(), rootPath, engineKind })
-    setSubmitting(false)
-    if (result.ok) closeDialog()
-  }
+  const submit = (): Promise<void | undefined> =>
+    run(async () => {
+      const result = await createInstallation({ name: name.trim(), rootPath, engineKind })
+      if (result.ok) closeDialog()
+    })
 
   return (
     <Modal

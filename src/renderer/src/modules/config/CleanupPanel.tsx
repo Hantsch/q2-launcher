@@ -9,7 +9,7 @@ import type {
 import type { Outcome } from '@shared/types'
 import { Button } from '../../components/ui/Button'
 import { Checkbox } from '../../components/ui/controls'
-import { Modal } from '../../components/ui/Modal'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Badge, EmptyState, Spinner } from '../../components/ui/primitives'
 import { formatBytes } from '../../lib/format'
 import { applyCleanup, restoreCleanup, scanCleanupFindings } from './client'
@@ -263,42 +263,28 @@ export function CleanupPanel({ installationId }: { installationId: string }) {
       </div>
 
       {confirmOpen && (
-        <Modal
-          open
-          size="sm"
+        <ConfirmDialog
           title={t('config.cleanup.confirmDialog.title')}
+          confirmLabel={t('config.cleanup.confirmDialog.confirm')}
+          tone="danger"
+          // While the apply is in flight this dialog is the only place holding the removed-entries
+          // list `handleUndo` needs, so `busy` also blocks dismissing it.
+          busy={applying}
           onClose={() => setConfirmOpen(false)}
-          closeLabel={t('common.close')}
-          // Story 058 review fix: while the apply is in flight, this dialog is the only place
-          // holding the removed-entries list `handleUndo` needs - an Escape/backdrop/close here
-          // must not unmount it and silently lose the "Undo removal" entry point.
-          preventClose={applying}
-          footer={
-            <>
-              <Button variant="ghost" disabled={applying} onClick={() => setConfirmOpen(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="danger"
-                disabled={applying}
-                onClick={() => void handleConfirmRemove()}
-              >
-                {t('config.cleanup.confirmDialog.confirm')}
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-2">
-            <p className="text-sm leading-relaxed text-ink-dim">
-              {t('config.cleanup.confirmDialog.body', { count: selectedFindings.length })}
-            </p>
-            {applyResult && !applyResult.ok && (
-              <p className="text-xs text-danger">
-                {t(applyResult.error.key, applyResult.error.params)}
+          onConfirm={() => void handleConfirmRemove()}
+          body={
+            <div className="space-y-2">
+              <p className="text-sm leading-relaxed text-ink-dim">
+                {t('config.cleanup.confirmDialog.body', { count: selectedFindings.length })}
               </p>
-            )}
-          </div>
-        </Modal>
+              {applyResult && !applyResult.ok && (
+                <p className="text-xs text-danger">
+                  {t(applyResult.error.key, applyResult.error.params)}
+                </p>
+              )}
+            </div>
+          }
+        />
       )}
     </>
   )

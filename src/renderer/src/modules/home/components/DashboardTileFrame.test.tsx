@@ -10,7 +10,7 @@ import { DashboardTileFrame } from './DashboardTileFrame'
  * working retry, empty with a sentence and an action, filled - through one shared tile frame."
  * Each state gets its own markup assertion; the error state's retry is exercised end to end; and a
  * throwing child in the `filled` slot must land on the error state instead of unmounting the tree,
- * which is what the frame's internal `TileFrameBoundary` exists for.
+ * which is what the frame's internal `ErrorBoundary` exists for.
  */
 
 function Thrower(): never {

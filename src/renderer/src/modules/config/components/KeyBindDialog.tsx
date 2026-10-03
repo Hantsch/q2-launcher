@@ -11,6 +11,7 @@ import {
 import { Button } from '../../../components/ui/Button'
 import { Field, Input, Select } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
+import { useSubmitting } from '../../../components/ui/useSubmitting'
 import { COMMAND_CATALOG } from '../lib/command-catalog'
 import { updateProfileBinds, updateProfileLayers } from '../client'
 
@@ -59,7 +60,6 @@ export function KeyBindDialog({
 
   const [command, setCommand] = useState(currentCommand)
   const [filter, setFilter] = useState('')
-  const [submitting, setSubmitting] = useState(false)
 
   const plusbindIssue = useMemo(() => {
     if (!layer) return null
@@ -89,16 +89,15 @@ export function KeyBindDialog({
   const [pickedTriggerLayerId, setPickedTriggerLayerId] = useState(
     triggerOwner?.id ?? layers[0]?.id ?? '',
   )
-  const [triggerSubmitting, setTriggerSubmitting] = useState(false)
-
   /**
    * One "a save is in flight" flag across both paths: they both write to the
    * same profile, and `onSaved` replaces the whole profile list, so letting the
    * bind save and the trigger save overlap would mean the second one persists a
    * `layers` array built from a stale `profile`. Each button still runs its own
-   * handler - this only gates *when* either may fire.
+   * handler - this only gates *when* either may fire, and `run`'s ref gate also
+   * refuses a second save started in the same tick.
    */
-  const busy = submitting || triggerSubmitting
+  const { submitting: busy, run } = useSubmitting()
 
   const pickedTriggerLayer = layers.find((entry) => entry.id === pickedTriggerLayerId) ?? null
 
@@ -147,13 +146,13 @@ export function KeyBindDialog({
    * a bind by taking the wrong branch.
    */
   const saveTrigger = async (layerId: string, key: string | null): Promise<void> => {
-    setTriggerSubmitting(true)
-    const result = await updateProfileLayers({
-      profileId: profile.id,
-      layers: assignLayerTrigger(layers, layerId, key),
-    })
-    setTriggerSubmitting(false)
-    if (result.ok) onSaved(result.value)
+    const result = await run(() =>
+      updateProfileLayers({
+        profileId: profile.id,
+        layers: assignLayerTrigger(layers, layerId, key),
+      }),
+    )
+    if (result?.ok) onSaved(result.value)
   }
 
   const filteredCatalog = useMemo(() => {
@@ -183,22 +182,22 @@ export function KeyBindDialog({
     // a layer body (review finding, story 006). Sanitizing here keeps both
     // paths honouring the same "no in-quote escaping" rule (AC5).
     const sanitized = sanitizeCommand(next)
-    setSubmitting(true)
-    const result = layer
-      ? await updateProfileLayers({
-          profileId: profile.id,
-          layers: (profile.layers ?? []).map((entry) =>
-            entry.id === layer.id
-              ? { ...entry, overrides: { ...entry.overrides, [keyName]: sanitized } }
-              : entry,
-          ),
-        })
-      : await updateProfileBinds({
-          profileId: profile.id,
-          binds: { ...profile.binds, [keyName]: sanitized },
-        })
-    setSubmitting(false)
-    if (result.ok) onSaved(result.value)
+    const result = await run(() =>
+      layer
+        ? updateProfileLayers({
+            profileId: profile.id,
+            layers: (profile.layers ?? []).map((entry) =>
+              entry.id === layer.id
+                ? { ...entry, overrides: { ...entry.overrides, [keyName]: sanitized } }
+                : entry,
+            ),
+          })
+        : updateProfileBinds({
+            profileId: profile.id,
+            binds: { ...profile.binds, [keyName]: sanitized },
+          }),
+    )
+    if (result?.ok) onSaved(result.value)
   }
 
   return (

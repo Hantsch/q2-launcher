@@ -14,6 +14,7 @@ import type { ConfigProfile, RefreshedProfileResult } from '@shared/modules/conf
 import { cn } from '../../lib/cn'
 import { formatRelativeTime } from '../../lib/format'
 import { Button, IconButton } from '../../components/ui/Button'
+import { Tabs, TabPanel } from '../../components/ui/Tabs'
 import { Badge, EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
 import { toastOutcomeError } from '../../lib/toast'
 import { useLauncher } from '../../store/useLauncher'
@@ -590,24 +591,17 @@ export function ConfigView() {
   // `py-1` rather than the old non-raw `py-1.5` because this is a density story - the shared header
   // has to fit inside the same 30-visible-line editor budget story 057's folded header bought for
   // the raw tab alone (AC4, measured by `scripts/flows/config-header-geometry.mjs`).
-  const tabButtons = tabs.map((tab) => (
-    <button
-      key={tab.id}
-      type="button"
-      data-testid={`config-tab-${tab.id}`}
-      onClick={() => goToTab(tab.id)}
-      className={cn(
-        'flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors duration-[--dur-fast]',
-        activeTab === tab.id
-          ? 'bg-flame-900/30 text-flame-200'
-          : 'text-ink-dim hover:bg-hover hover:text-ink',
-      )}
-    >
-      {tab.label}
-      {tab.badge && <Badge tone={tab.badgeTone ?? 'neutral'}>{tab.badge}</Badge>}
-      {tab.badgeNode}
-    </button>
-  ))
+  const tabItems = tabs.map((tab) => ({
+    id: tab.id,
+    label: tab.label,
+    testId: `config-tab-${tab.id}`,
+    badge: (
+      <>
+        {tab.badge && <Badge tone={tab.badgeTone ?? 'neutral'}>{tab.badge}</Badge>}
+        {tab.badgeNode}
+      </>
+    ),
+  }))
 
   // `scrollbar-gutter-stable`: tabs flip between overflowing and not (Overview <-> Settings);
   // without the reserve the content box width jumps when the scrollbar appears (story 028).
@@ -939,87 +933,96 @@ export function ConfigView() {
                   three uniform across every tab, which is what AC3 actually constrains. Verified,
                   not estimated: `npm run ui:flow -- config-header-geometry` reports 31 lines.
                 */}
-                <div
-                  data-testid="config-tab-strip"
-                  className="flex flex-wrap gap-1.5 border-b border-line"
-                >
-                  {tabButtons}
-                </div>
+                <Tabs
+                  idBase="config"
+                  ariaLabel={t('config.tabs.label')}
+                  testId="config-tab-strip"
+                  className="border-b border-line"
+                  value={activeTab}
+                  onChange={(id) => goToTab(id as DetailTab)}
+                  items={tabItems}
+                />
 
-                <Panel className={cn(isRawFill ? 'flex flex-1 min-h-0 flex-col p-0' : 'p-6')}>
-                  {activeTab === 'raw' ? (
-                    <div className="flex flex-1 min-h-0 flex-col">
-                      <RawFileTab profile={selected} onChanged={setProfiles} />
-                    </div>
-                  ) : activeTab === 'unsaved' ? (
-                    // Outside `StructuredTabsGuard` on purpose: this is the one tab whose content is
-                    // *about* the raw draft, so making it `inert` while a draft is open would hide
-                    // the only place that says what the draft is.
-                    <UnsavedChangesTab profile={selected} />
-                  ) : (
-                    <StructuredTabsGuard>
-                      {activeTab === 'overview' && (
-                        <div className="space-y-6">
-                          <OverviewKeyboardPanel
+                <TabPanel
+                  idBase="config"
+                  tabId={activeTab}
+                  className={cn(isRawFill && 'flex flex-1 min-h-0 flex-col')}
+                >
+                  <Panel className={cn(isRawFill ? 'flex flex-1 min-h-0 flex-col p-0' : 'p-6')}>
+                    {activeTab === 'raw' ? (
+                      <div className="flex flex-1 min-h-0 flex-col">
+                        <RawFileTab profile={selected} onChanged={setProfiles} />
+                      </div>
+                    ) : activeTab === 'unsaved' ? (
+                      // Outside `StructuredTabsGuard` on purpose: this is the one tab whose content is
+                      // *about* the raw draft, so making it `inert` while a draft is open would hide
+                      // the only place that says what the draft is.
+                      <UnsavedChangesTab profile={selected} />
+                    ) : (
+                      <StructuredTabsGuard>
+                        {activeTab === 'overview' && (
+                          <div className="space-y-6">
+                            <OverviewKeyboardPanel
+                              profile={selected}
+                              activeLayer={activeLayer}
+                              onChanged={setProfiles}
+                              onSelectLayer={setActiveLayerId}
+                            />
+                            <LayersPanel
+                              profile={selected}
+                              activeLayerId={activeLayerId}
+                              onSelectLayer={setActiveLayerId}
+                              onChanged={setProfiles}
+                            />
+                          </div>
+                        )}
+                        {activeTab === 'settings' && (
+                          <SettingsTab
                             profile={selected}
-                            activeLayer={activeLayer}
+                            draft={activeProfile(selected)}
+                            patch={patch}
                             onChanged={setProfiles}
-                            onSelectLayer={setActiveLayerId}
                           />
-                          <LayersPanel
+                        )}
+                        {activeTab === 'controls' && (
+                          <ControlsTab
                             profile={selected}
-                            activeLayerId={activeLayerId}
-                            onSelectLayer={setActiveLayerId}
+                            draft={activeProfile(selected)}
+                            patch={patch}
                             onChanged={setProfiles}
+                            focusActionId={tabState.focusActionId}
                           />
-                        </div>
-                      )}
-                      {activeTab === 'settings' && (
-                        <SettingsTab
-                          profile={selected}
-                          draft={activeProfile(selected)}
-                          patch={patch}
-                          onChanged={setProfiles}
-                        />
-                      )}
-                      {activeTab === 'controls' && (
-                        <ControlsTab
-                          profile={selected}
-                          draft={activeProfile(selected)}
-                          patch={patch}
-                          onChanged={setProfiles}
-                          focusActionId={tabState.focusActionId}
-                        />
-                      )}
-                      {activeTab === 'aliases' && (
-                        <AliasesTab
-                          profile={selected}
-                          draft={activeProfile(selected)}
-                          patch={patch}
-                          onChanged={setProfiles}
-                          focusAlias={tabState.focusAlias}
-                          focusAliasActionId={tabState.focusAliasActionId}
-                          onNavigateToAction={(actionId) => goToTab('controls', { actionId })}
-                          onNavigateToLayer={(layerName) => goToTab('overview', { layerName })}
-                        />
-                      )}
-                      {activeTab === 'care' && (
-                        <CareTab
-                          profile={selected}
-                          validation={validation}
-                          onProfileUpdated={handleProfileUpdated}
-                          installations={installations}
-                          syncStatus={driftState.status}
-                          onRefetchSyncState={driftState.refetch}
-                          onNavigateToAlias={(aliasName, actionId) =>
-                            goToTab('aliases', { alias: aliasName, aliasActionId: actionId })
-                          }
-                          onNavigateToAction={(actionId) => goToTab('controls', { actionId })}
-                        />
-                      )}
-                    </StructuredTabsGuard>
-                  )}
-                </Panel>
+                        )}
+                        {activeTab === 'aliases' && (
+                          <AliasesTab
+                            profile={selected}
+                            draft={activeProfile(selected)}
+                            patch={patch}
+                            onChanged={setProfiles}
+                            focusAlias={tabState.focusAlias}
+                            focusAliasActionId={tabState.focusAliasActionId}
+                            onNavigateToAction={(actionId) => goToTab('controls', { actionId })}
+                            onNavigateToLayer={(layerName) => goToTab('overview', { layerName })}
+                          />
+                        )}
+                        {activeTab === 'care' && (
+                          <CareTab
+                            profile={selected}
+                            validation={validation}
+                            onProfileUpdated={handleProfileUpdated}
+                            installations={installations}
+                            syncStatus={driftState.status}
+                            onRefetchSyncState={driftState.refetch}
+                            onNavigateToAlias={(aliasName, actionId) =>
+                              goToTab('aliases', { alias: aliasName, aliasActionId: actionId })
+                            }
+                            onNavigateToAction={(actionId) => goToTab('controls', { actionId })}
+                          />
+                        )}
+                      </StructuredTabsGuard>
+                    )}
+                  </Panel>
+                </TabPanel>
               </div>
             </RawDraftProvider>
           </ProfileChangesProvider>

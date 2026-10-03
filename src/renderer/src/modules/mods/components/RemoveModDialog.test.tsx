@@ -5,6 +5,14 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { mockClient } from '../../../test-support/mock-client'
 import { initI18n } from '../../../i18n'
 
+vi.hoisted(() => {
+  // The job store behind useStartJob evaluates the preload bridge accessor.
+  ;(globalThis as unknown as { q2: unknown }).q2 = {
+    invoke: vi.fn(async () => ({ ok: true })),
+    on: vi.fn(() => () => {}),
+  }
+})
+
 const { previewRemoval, removeMod } = vi.hoisted(() => ({
   previewRemoval: vi.fn(async () => ({
     ok: true as const,

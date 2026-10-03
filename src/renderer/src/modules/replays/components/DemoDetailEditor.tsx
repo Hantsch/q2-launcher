@@ -11,7 +11,7 @@ import {
   type SidecarDraft,
 } from '@shared/replays/sidecar-draft'
 import { Button } from '../../../components/ui/Button'
-import { Input } from '../../../components/ui/controls'
+import { Input, TextArea } from '../../../components/ui/controls'
 import { useDemoEditorStore, type RowPatcher } from '../demo-editor-store'
 import { ReplaceSidecarDialog } from './ReplaceSidecarDialog'
 import { SidesEditor } from './SidesEditor'
@@ -80,11 +80,6 @@ export interface DemoDetailEditorProps {
    * excludes the current draft's own tags). */
   otherDemosTags?: string[][]
 }
-
-const TEXTAREA_CLASS =
-  'min-h-20 w-full rounded-sm border border-line-strong bg-void/60 px-2.5 py-1.5 text-sm text-ink ' +
-  'placeholder:text-ink-faint focus:border-flame-600 focus:outline-none ' +
-  'transition-colors duration-[--dur-fast] disabled:opacity-50'
 
 const NO_KNOWN_PLAYERS = { demo: [], name: [] }
 const NO_OTHER_TAGS: string[][] = []
@@ -157,9 +152,8 @@ export function DemoDetailEditor({
               <label htmlFor={controlId('description')} className="text-sm text-ink-muted">
                 {t('replays.detail.field.description')}
               </label>
-              <textarea
+              <TextArea
                 id={controlId('description')}
-                className={TEXTAREA_CLASS}
                 value={draft.description}
                 maxLength={4000}
                 disabled={saving}

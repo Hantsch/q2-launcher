@@ -8,6 +8,7 @@ import {
 } from '@shared/modules/servers'
 import { Button } from '../../../components/ui/Button'
 import { Select } from '../../../components/ui/controls'
+import { useSubmitting } from '../../../components/ui/useSubmitting'
 
 const MODE_OPTIONS: { value: WatchlistMatchMode; labelKey: string }[] = [
   { value: 'exact', labelKey: 'servers.watchlist.mode.exact' },
@@ -34,15 +35,14 @@ export function WatchlistAddForm({ add }: WatchlistAddFormProps) {
   const [name, setName] = useState('')
   const [mode, setMode] = useState<WatchlistMatchMode>('exact')
   const [errorKey, setErrorKey] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
 
   const handleSubmit = async (): Promise<void> => {
     const trimmed = name.trim()
     if (trimmed.length === 0) return
 
-    setSubmitting(true)
-    const result = await add({ name, mode })
-    setSubmitting(false)
+    const result = await run(() => add({ name, mode }))
+    if (!result) return
 
     if (!result.ok) {
       setErrorKey(result.error.key)

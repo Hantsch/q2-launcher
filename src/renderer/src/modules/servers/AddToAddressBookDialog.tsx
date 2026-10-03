@@ -7,6 +7,8 @@ import { useModuleQuery } from '../../lib/useModuleQuery'
 import { Button } from '../../components/ui/Button'
 import { Select } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
+import { Radio, RadioGroup } from '../../components/ui/RadioGroup'
+import { useSubmitting } from '../../components/ui/useSubmitting'
 import { useLauncher } from '../../store/useLauncher'
 import { commitProfileCvars, listConfigProfiles } from '../config/client'
 import {
@@ -48,7 +50,7 @@ export function AddToAddressBookDialog({
   const [slot, setSlot] = useState<AddressBookSlot | undefined>(undefined)
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
 
   // Initial load, on every open: fetch the profile list fresh and preselect profile + slot.
   const listQuery = useModuleQuery<ConfigProfile[] | null>(
@@ -118,29 +120,30 @@ export function AddToAddressBookDialog({
     addressResult.ok &&
     (profiles?.length ?? 0) > 0
 
-  const handleConfirm = async (): Promise<void> => {
-    if (!canConfirm || !addressResult.ok || profileId === undefined || slot === undefined) return
-    setSubmitting(true)
-    setError(null)
-
-    const result = await commitProfileCvars({
-      profileId,
-      cvars: { [slot]: addressResult.normalized },
-    })
-    setSubmitting(false)
-
-    if (!result.ok) {
-      setError(result.error.key)
-      return
+  const handleConfirm = (): Promise<void | undefined> => {
+    if (!canConfirm || !addressResult.ok || profileId === undefined || slot === undefined) {
+      return Promise.resolve(undefined)
     }
+    return run(async () => {
+      setError(null)
+      const result = await commitProfileCvars({
+        profileId,
+        cvars: { [slot]: addressResult.normalized },
+      })
 
-    pushToast({
-      level: 'success',
-      messageKey: 'servers.addressBook.saved',
-      timeoutMs: 4000,
-      params: { profile: result.value.name, slot },
+      if (!result.ok) {
+        setError(result.error.key)
+        return
+      }
+
+      pushToast({
+        level: 'success',
+        messageKey: 'servers.addressBook.saved',
+        timeoutMs: 4000,
+        params: { profile: result.value.name, slot },
+      })
+      onClose()
     })
-    onClose()
   }
 
   const noProfiles = profiles !== null && profiles.length === 0
@@ -208,34 +211,35 @@ export function AddToAddressBookDialog({
                   {t('servers.addressBook.loading')}
                 </p>
               ) : (
-                <div className="space-y-1.5 text-sm text-ink">
+                <RadioGroup
+                  name="address-book-slot"
+                  value={slot ?? ''}
+                  onChange={(value) => setSlot(value as AddressBookSlot)}
+                  label={t('servers.addressBook.slotLabel')}
+                >
                   {ADDRESS_BOOK_SLOTS.map((slotName, index) => {
                     const entry = slots.find((s) => s.slot === slotName)
                     return (
-                      <label
-                        key={slotName}
-                        className="flex cursor-pointer items-center gap-2"
-                        data-testid={`servers-address-book-slot-${index}`}
-                      >
-                        <input
-                          type="radio"
-                          name="address-book-slot"
-                          className="accent-flame-500"
-                          checked={slot === slotName}
-                          onChange={() => setSlot(slotName)}
+                      <div key={slotName} data-testid={`servers-address-book-slot-${index}`}>
+                        <Radio
+                          value={slotName}
+                          label={
+                            <>
+                              <span className="text-ink">{slotName}</span>
+                              <span>
+                                {entry?.value
+                                  ? slot === slotName
+                                    ? t('servers.addressBook.replaces', { value: entry.value })
+                                    : entry.value
+                                  : t('servers.addressBook.slotEmpty')}
+                              </span>
+                            </>
+                          }
                         />
-                        <span>{slotName}</span>
-                        <span className="text-ink-dim">
-                          {entry?.value
-                            ? slot === slotName
-                              ? t('servers.addressBook.replaces', { value: entry.value })
-                              : entry.value
-                            : t('servers.addressBook.slotEmpty')}
-                        </span>
-                      </label>
+                      </div>
                     )
                   })}
-                </div>
+                </RadioGroup>
               )}
             </div>
           </>

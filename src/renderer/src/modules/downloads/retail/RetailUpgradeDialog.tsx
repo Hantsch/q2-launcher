@@ -6,9 +6,9 @@ import { formatBytes } from '../../../lib/format'
 import { useModuleQuery } from '../../../lib/useModuleQuery'
 import { useLauncher } from '../../../store/useLauncher'
 import { Button } from '../../../components/ui/Button'
-import { Modal } from '../../../components/ui/Modal'
 import { getDetectedRetailSources, startRetailUpgrade } from '../client'
-import { RunningStep } from '../bootstrap/RunningStep'
+import { useStartJob } from '../../../components/jobs/useStartJob'
+import { JobActionDialog } from '../components/JobActionDialog'
 
 /**
  * Story 090 D3: the retail-upgrade dialog - lets a demo installation import `pak0.pak`/`pak1.pak`
@@ -53,10 +53,8 @@ export function RetailUpgradeDialog({ installationId }: { installationId: string
   const sources = sourcesQuery.data ?? (sourcesQuery.state === 'error' ? [] : null)
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
 
-  const [starting, setStarting] = useState(false)
-  const [startError, setStartError] = useState<string | null>(null)
-  const [jobId, setJobId] = useState<string | null>(null)
-  const job = useLauncher((state) => state.jobs.find((candidate) => candidate.id === jobId))
+  const { start, starting, refusal, jobId, job } = useStartJob(startRetailUpgrade)
+  const startError = refusal ? t(refusal.key, refusal.params ?? {}) : null
 
   // Zero-click convenience, same default-selection convention as `BootstrapWizard`'s
   // `selectDataSource`: pick the first verified source so a single-source case needs no click
@@ -69,132 +67,108 @@ export function RetailUpgradeDialog({ installationId }: { installationId: string
   const selectedSource = sources?.find((candidate) => candidate.rootPath === selectedPath)
   const canConfirm = !!selectedSource?.inspection.verified && !starting
 
-  async function start(): Promise<void> {
+  function confirm(): void {
     if (!selectedSource?.inspection.verified) return
-    setStarting(true)
-    setStartError(null)
-    const result = await startRetailUpgrade({
-      installationId,
-      sourceRootPath: selectedSource.rootPath,
-    })
-    setStarting(false)
-    if (result.ok) {
-      setJobId(result.value.jobId)
-    } else {
-      setStartError(t(result.error.key, result.error.params ?? {}))
-    }
+    void start({ installationId, sourceRootPath: selectedSource.rootPath })
   }
 
-  const running = !!jobId
-
   return (
-    <Modal
-      open
+    <JobActionDialog
       title={t('retailUpgrade.title')}
       description={t('retailUpgrade.description')}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
-      preventClose={starting}
+      starting={starting}
+      jobId={jobId}
+      job={job}
+      dismissTestId="retail-upgrade-dismiss"
       footer={
-        running ? (
-          <Button variant="primary" onClick={closeDialog} data-testid="retail-upgrade-dismiss">
-            {t('bootstrapWizard.running.dismiss')}
+        <>
+          <Button variant="ghost" onClick={closeDialog} disabled={starting}>
+            {t('common.cancel')}
           </Button>
-        ) : (
-          <>
-            <Button variant="ghost" onClick={closeDialog} disabled={starting}>
-              {t('common.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              disabled={!canConfirm}
-              onClick={() => void start()}
-              data-testid="retail-upgrade-confirm"
-            >
-              {t('retailUpgrade.confirm')}
-            </Button>
-          </>
-        )
+          <Button
+            variant="primary"
+            disabled={!canConfirm}
+            onClick={confirm}
+            data-testid="retail-upgrade-confirm"
+          >
+            {t('retailUpgrade.confirm')}
+          </Button>
+        </>
       }
     >
-      {running ? (
-        <RunningStep job={job} />
-      ) : (
-        <div className="space-y-3" data-testid="retail-upgrade-dialog">
-          {sources === null && (
-            <p className="text-xs text-ink-muted">{t('retailUpgrade.loading')}</p>
-          )}
+      <div className="space-y-3" data-testid="retail-upgrade-dialog">
+        {sources === null && <p className="text-xs text-ink-muted">{t('retailUpgrade.loading')}</p>}
 
-          {sources !== null && sources.length === 0 && (
-            <p className="text-xs text-ink-muted" data-testid="retail-upgrade-no-sources">
-              {t('retailUpgrade.noSources')}
-            </p>
-          )}
+        {sources !== null && sources.length === 0 && (
+          <p className="text-xs text-ink-muted" data-testid="retail-upgrade-no-sources">
+            {t('retailUpgrade.noSources')}
+          </p>
+        )}
 
-          {sources !== null && sources.length > 0 && (
-            <div className="space-y-2" data-testid="retail-upgrade-source-list">
-              {sources.map((source, index) => {
-                const verified = source.inspection.verified
-                const isSelected = selectedPath === source.rootPath
-                return (
-                  <div key={source.rootPath} className="space-y-1">
-                    <button
-                      type="button"
-                      disabled={!verified}
-                      aria-pressed={isSelected}
-                      onClick={() => setSelectedPath(source.rootPath)}
-                      data-testid="retail-upgrade-source-item"
-                      data-source-path={source.rootPath}
-                      data-index={index}
-                      className={`flex w-full items-center gap-3 rounded-sm border p-3 text-left transition-colors ${
-                        !verified
-                          ? 'cursor-not-allowed border-line-strong bg-void/10 opacity-60'
-                          : isSelected
-                            ? 'border-flame-600 bg-void/40'
-                            : 'border-line-strong bg-void/10 hover:bg-void/25'
+        {sources !== null && sources.length > 0 && (
+          <div className="space-y-2" data-testid="retail-upgrade-source-list">
+            {sources.map((source, index) => {
+              const verified = source.inspection.verified
+              const isSelected = selectedPath === source.rootPath
+              return (
+                <div key={source.rootPath} className="space-y-1">
+                  <button
+                    type="button"
+                    disabled={!verified}
+                    aria-pressed={isSelected}
+                    onClick={() => setSelectedPath(source.rootPath)}
+                    data-testid="retail-upgrade-source-item"
+                    data-source-path={source.rootPath}
+                    data-index={index}
+                    className={`flex w-full items-center gap-3 rounded-sm border p-3 text-left transition-colors ${
+                      !verified
+                        ? 'cursor-not-allowed border-line-strong bg-void/10 opacity-60'
+                        : isSelected
+                          ? 'border-flame-600 bg-void/40'
+                          : 'border-line-strong bg-void/10 hover:bg-void/25'
+                    }`}
+                  >
+                    <span
+                      className={`grid size-6 shrink-0 place-items-center rounded-full ${
+                        isSelected ? 'bg-flame-500 text-flame-ink' : 'bg-transparent'
                       }`}
                     >
-                      <span
-                        className={`grid size-6 shrink-0 place-items-center rounded-full ${
-                          isSelected ? 'bg-flame-500 text-flame-ink' : 'bg-transparent'
-                        }`}
-                      >
-                        {isSelected && <Check className="size-3.5" strokeWidth={3} />}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-display text-sm tracking-[0.04em] text-ink uppercase">
-                          {t(`bootstrapWizard.gameData.store.${source.source}`)}
-                        </p>
-                        <p className="truncate text-xs text-ink-muted" title={source.rootPath}>
-                          {source.rootPath}
-                        </p>
-                      </div>
-                    </button>
-                    {!verified && source.inspection.unverifiedReason && (
-                      <p
-                        className="pl-3 text-xs text-danger"
-                        data-testid="retail-upgrade-source-item-unverified"
-                      >
-                        {t(
-                          source.inspection.unverifiedReason,
-                          sizeMismatchParams(source.inspection, source.inspection.unverifiedReason),
-                        )}
+                      {isSelected && <Check className="size-3.5" strokeWidth={3} />}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-display text-sm tracking-[0.04em] text-ink uppercase">
+                        {t(`bootstrapWizard.gameData.store.${source.source}`)}
                       </p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                      <p className="truncate text-xs text-ink-muted" title={source.rootPath}>
+                        {source.rootPath}
+                      </p>
+                    </div>
+                  </button>
+                  {!verified && source.inspection.unverifiedReason && (
+                    <p
+                      className="pl-3 text-xs text-danger"
+                      data-testid="retail-upgrade-source-item-unverified"
+                    >
+                      {t(
+                        source.inspection.unverifiedReason,
+                        sizeMismatchParams(source.inspection, source.inspection.unverifiedReason),
+                      )}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
 
-          {startError && (
-            <p className="text-xs text-danger" data-testid="retail-upgrade-error">
-              {startError}
-            </p>
-          )}
-        </div>
-      )}
-    </Modal>
+        {startError && (
+          <p className="text-xs text-danger" data-testid="retail-upgrade-error">
+            {startError}
+          </p>
+        )}
+      </div>
+    </JobActionDialog>
   )
 }
 

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ModUpdateChangedPolicy, ModUpdatePreview } from '@shared/modules/mods'
-import type { LocalizedMessage } from '@shared/types'
 import { Button } from '../../../components/ui/Button'
 import { Modal } from '../../../components/ui/Modal'
+import { Radio, RadioGroup } from '../../../components/ui/RadioGroup'
+import { useStartJob } from '../../../components/jobs/useStartJob'
 import { updateMod } from '../client'
 
 /**
@@ -25,36 +26,24 @@ export function UpdateModDialog({
 }) {
   const { t } = useTranslation()
   const [choice, setChoice] = useState<ModUpdateChangedPolicy>('keep')
-  const [busy, setBusy] = useState(false)
-  const [refusal, setRefusal] = useState<LocalizedMessage | null>(null)
-  const changed = preview.changedFiles
-
-  const confirm = async (): Promise<void> => {
-    setBusy(true)
-    setRefusal(null)
-    const outcome = await updateMod(installationId, catalogId, choice)
-    setBusy(false)
-    if (outcome.ok) {
-      onStarted(outcome.value.jobId)
-      onClose()
-    } else {
-      setRefusal(outcome.error)
-    }
-  }
-
-  const radio = (value: ModUpdateChangedPolicy, label: string) => (
-    <label className="flex items-center gap-2 text-sm text-ink-dim">
-      <input
-        type="radio"
-        name="mods-update-changed"
-        checked={choice === value}
-        onChange={() => setChoice(value)}
-        data-testid={`mods-update-changed-${value}`}
-        className="size-4 accent-flame-500 focus-visible:ring-2 focus-visible:ring-flame-500 focus-visible:outline-none"
-      />
-      {label}
-    </label>
+  const {
+    start,
+    starting: busy,
+    refusal,
+  } = useStartJob(
+    useCallback(
+      async (policy: ModUpdateChangedPolicy) => {
+        const outcome = await updateMod(installationId, catalogId, policy)
+        if (outcome.ok) {
+          onStarted(outcome.value.jobId)
+          onClose()
+        }
+        return outcome
+      },
+      [installationId, catalogId, onStarted, onClose],
+    ),
   )
+  const changed = preview.changedFiles
 
   return (
     <Modal
@@ -76,7 +65,11 @@ export function UpdateModDialog({
           >
             {t('mods.update.cancel')}
           </Button>
-          <Button disabled={busy} onClick={() => void confirm()} data-testid="mods-update-confirm">
+          <Button
+            disabled={busy}
+            onClick={() => void start(choice)}
+            data-testid="mods-update-confirm"
+          >
             {t('mods.update.confirm')}
           </Button>
         </>
@@ -104,8 +97,23 @@ export function UpdateModDialog({
               </li>
             ))}
           </ul>
-          {radio('keep', t('mods.update.keepChanged'))}
-          {radio('overwrite', t('mods.update.overwriteChanged'))}
+          <RadioGroup
+            name="mods-update-changed"
+            value={choice}
+            onChange={(value) => setChoice(value as ModUpdateChangedPolicy)}
+            label={t('mods.update.changed', { count: changed.length })}
+          >
+            <Radio
+              value="keep"
+              label={t('mods.update.keepChanged')}
+              testId="mods-update-changed-keep"
+            />
+            <Radio
+              value="overwrite"
+              label={t('mods.update.overwriteChanged')}
+              testId="mods-update-changed-overwrite"
+            />
+          </RadioGroup>
         </fieldset>
         {refusal && (
           <p role="alert" className="text-sm text-danger" data-testid="mods-update-error">

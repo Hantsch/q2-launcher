@@ -5,6 +5,7 @@ import { ok, type RedeemResult } from '@shared/types'
 import { invoke } from '../../lib/bridge'
 import { useModuleQuery } from '../../lib/useModuleQuery'
 import { Button, IconButton } from '../ui/Button'
+import { useSubmitting } from '../ui/useSubmitting'
 
 const REJECT_KEYS: Record<Extract<RedeemResult, { ok: false }>['reason'], string> = {
   'not-a-code': 'settings.unlock.reject.not-a-code',
@@ -32,7 +33,7 @@ export function UnlockCodePanel() {
   const state = data ?? null
   const [copied, setCopied] = useState(false)
   const [code, setCode] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
   const [result, setResult] = useState<RedeemResult | null>(null)
 
   function handleCopy() {
@@ -46,11 +47,10 @@ export function UnlockCodePanel() {
 
   function handleSubmit() {
     const value = code.trim()
-    if (value === '' || submitting) return
-    setSubmitting(true)
-    setResult(null)
-    void invoke('unlock:redeem', value).then((outcome) => {
-      setSubmitting(false)
+    if (value === '') return
+    void run(async () => {
+      setResult(null)
+      const outcome = await invoke('unlock:redeem', value)
       if (!outcome.ok) return
       setResult(outcome.value)
       if (outcome.value.ok) {

@@ -5,12 +5,14 @@ import { validateQuickFilterName, type QuickFilter } from '@shared/servers/quick
 import { Button } from '../../components/ui/Button'
 import { Field, Input } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
+import { useSubmitting } from '../../components/ui/useSubmitting'
 
 /**
- * Story 197 D3: asks for a quick filter's name - to save the current filter (default) or, with
- * `renameId`, to rename an existing one (no overwrite offer; D4). Live validation reuses the pure
+ * Asks for a quick filter's name - to save the current filter (default) or, with
+ * `renameId`, to rename an existing one (no overwrite offer). Live validation reuses the pure
  * `validateQuickFilterName`; a `taken` name additionally offers *Overwrite* (save mode only), and a
- * refusal from main shows its reason key in the very same error slot.
+ * refusal from main shows its reason key in the very same error slot. Its footer carries a third,
+ * conditional action, so it stays on `Modal`.
  */
 export function QuickFilterNameDialog({
   list,
@@ -27,7 +29,7 @@ export function QuickFilterNameDialog({
 }) {
   const { t } = useTranslation()
   const [name, setName] = useState(initialName)
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
   const [refusal, setRefusal] = useState<string | null>(null)
 
   const problem = validateQuickFilterName(name, list, renameId)
@@ -40,9 +42,8 @@ export function QuickFilterNameDialog({
 
   const submit = async (overwrite: boolean): Promise<void> => {
     if (!(overwrite ? canOverwrite : canSubmit)) return
-    setSubmitting(true)
-    const result = await onSubmit(name.trim(), overwrite)
-    setSubmitting(false)
+    const result = await run(() => onSubmit(name.trim(), overwrite))
+    if (!result) return
     if (result.ok) onClose()
     else setRefusal(result.reasonKey)
   }

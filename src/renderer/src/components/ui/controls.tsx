@@ -1,11 +1,13 @@
 import {
   createContext,
+  forwardRef,
   useContext,
   useId,
   type HTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
 } from 'react'
 import { Check, ChevronDown, FolderOpen } from 'lucide-react'
 import { cn } from '../../lib/cn'
@@ -70,6 +72,20 @@ export function Field({
 export function Input({ className, id, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input id={useControlId(id)} className={cn(FIELD_BASE, className)} {...rest} />
 }
+
+export const TextArea = forwardRef<
+  HTMLTextAreaElement,
+  TextareaHTMLAttributes<HTMLTextAreaElement>
+>(function TextArea({ className, id, ...rest }, ref) {
+  return (
+    <textarea
+      ref={ref}
+      id={useControlId(id)}
+      className={cn(FIELD_BASE, 'h-auto min-h-20 py-2', className)}
+      {...rest}
+    />
+  )
+})
 
 /** Read-only path display with a Browse button - the shape every file picker uses. */
 export function PathPicker({

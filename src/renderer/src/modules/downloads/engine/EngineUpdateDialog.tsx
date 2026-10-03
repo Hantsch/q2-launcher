@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import type { EngineUpdateStatus } from '@shared/modules/downloads'
 import { useLauncher } from '../../../store/useLauncher'
 import { Button } from '../../../components/ui/Button'
-import { Modal } from '../../../components/ui/Modal'
 import { Switch } from '../../../components/ui/controls'
 import {
   getEngineUpdateStatus,
@@ -11,7 +10,8 @@ import {
   startEngineRollback,
   startEngineUpdate,
 } from '../client'
-import { RunningStep } from '../bootstrap/RunningStep'
+import { useStartJob } from '../../../components/jobs/useStartJob'
+import { JobActionDialog } from '../components/JobActionDialog'
 
 /**
  * Story 092 D7: the engine-update dialog - current/target version, Update, Rollback, and (Q2PRO
@@ -40,10 +40,12 @@ export function EngineUpdateDialog({ installationId }: { installationId: string 
   const [status, setStatus] = useState<EngineUpdateStatus | null>(null)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
-  const [starting, setStarting] = useState(false)
-  const [startError, setStartError] = useState<string | null>(null)
-  const [jobId, setJobId] = useState<string | null>(null)
-  const job = useLauncher((state) => state.jobs.find((candidate) => candidate.id === jobId))
+  const { start, starting, refusal, jobId, job } = useStartJob((action: 'update' | 'rollback') =>
+    action === 'update'
+      ? startEngineUpdate({ installationId })
+      : startEngineRollback({ installationId }),
+  )
+  const startError = refusal ? t(refusal.key, refusal.params ?? {}) : null
 
   const [bleedingEdgeSaving, setBleedingEdgeSaving] = useState(false)
   const [bleedingEdgeError, setBleedingEdgeError] = useState<string | null>(null)
@@ -67,21 +69,6 @@ export function EngineUpdateDialog({ installationId }: { installationId: string 
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- status is re-read when the installation changes; refreshStatus is a fresh closure each render.
   }, [installationId])
 
-  async function start(action: 'update' | 'rollback'): Promise<void> {
-    setStarting(true)
-    setStartError(null)
-    const result =
-      action === 'update'
-        ? await startEngineUpdate({ installationId })
-        : await startEngineRollback({ installationId })
-    setStarting(false)
-    if (result.ok) {
-      setJobId(result.value.jobId)
-    } else {
-      setStartError(t(result.error.key, result.error.params ?? {}))
-    }
-  }
-
   async function toggleBleedingEdge(enabled: boolean): Promise<void> {
     setBleedingEdgeSaving(true)
     setBleedingEdgeError(null)
@@ -94,109 +81,98 @@ export function EngineUpdateDialog({ installationId }: { installationId: string 
     }
   }
 
-  const running = !!jobId
-
   return (
-    <Modal
-      open
+    <JobActionDialog
       title={t('engineUpdate.title')}
       description={t('engineUpdate.description')}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
-      preventClose={starting}
+      starting={starting}
+      jobId={jobId}
+      job={job}
+      dismissTestId="engine-update-dismiss"
       footer={
-        running ? (
-          <Button variant="primary" onClick={closeDialog} data-testid="engine-update-dismiss">
-            {t('bootstrapWizard.running.dismiss')}
-          </Button>
-        ) : (
-          <Button variant="ghost" onClick={closeDialog}>
-            {t('common.close')}
-          </Button>
-        )
+        <Button variant="ghost" onClick={closeDialog}>
+          {t('common.close')}
+        </Button>
       }
     >
-      {running ? (
-        <RunningStep job={job} />
-      ) : (
-        <div className="space-y-4" data-testid="engine-update-dialog">
-          {status === null && !fetchError && (
-            <p className="text-xs text-ink-muted">{t('engineUpdate.loading')}</p>
-          )}
+      <div className="space-y-4" data-testid="engine-update-dialog">
+        {status === null && !fetchError && (
+          <p className="text-xs text-ink-muted">{t('engineUpdate.loading')}</p>
+        )}
 
-          {fetchError && (
-            <p className="text-xs text-danger" data-testid="engine-update-fetch-error">
-              {fetchError}
-            </p>
-          )}
+        {fetchError && (
+          <p className="text-xs text-danger" data-testid="engine-update-fetch-error">
+            {fetchError}
+          </p>
+        )}
 
-          {status && (
-            <>
-              <dl className="space-y-1 text-xs">
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-ink-muted">{t('engineUpdate.current')}</dt>
-                  <dd className="numeric text-ink" data-testid="engine-update-current">
-                    {status.current ?? t('engineUpdate.unknownVersion')}
-                  </dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-ink-muted">{t('engineUpdate.target')}</dt>
-                  <dd className="numeric text-ink" data-testid="engine-update-target">
-                    {status.target ?? t('engineUpdate.unknownVersion')}
-                  </dd>
-                </div>
-              </dl>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="primary"
-                  disabled={!status.updateAvailable || starting}
-                  onClick={() => void start('update')}
-                  data-testid="engine-update-confirm"
-                >
-                  {t('engineUpdate.update')}
-                </Button>
-                <Button
-                  variant="neutral"
-                  disabled={!status.backup || starting}
-                  onClick={() => void start('rollback')}
-                  data-testid="engine-update-rollback"
-                >
-                  {t('engineUpdate.rollback')}
-                </Button>
+        {status && (
+          <>
+            <dl className="space-y-1 text-xs">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-ink-muted">{t('engineUpdate.current')}</dt>
+                <dd className="numeric text-ink" data-testid="engine-update-current">
+                  {status.current ?? t('engineUpdate.unknownVersion')}
+                </dd>
               </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-ink-muted">{t('engineUpdate.target')}</dt>
+                <dd className="numeric text-ink" data-testid="engine-update-target">
+                  {status.target ?? t('engineUpdate.unknownVersion')}
+                </dd>
+              </div>
+            </dl>
 
-              {startError && (
-                <p className="text-xs text-danger" data-testid="engine-update-error">
-                  {startError}
-                </p>
-              )}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                disabled={!status.updateAvailable || starting}
+                onClick={() => void start('update')}
+                data-testid="engine-update-confirm"
+              >
+                {t('engineUpdate.update')}
+              </Button>
+              <Button
+                variant="neutral"
+                disabled={!status.backup || starting}
+                onClick={() => void start('rollback')}
+                data-testid="engine-update-rollback"
+              >
+                {t('engineUpdate.rollback')}
+              </Button>
+            </div>
 
-              {/* Decisions (Sprint): bleeding edge is offered on Q2PRO installations only - the
+            {startError && (
+              <p className="text-xs text-danger" data-testid="engine-update-error">
+                {startError}
+              </p>
+            )}
+
+            {/* Decisions (Sprint): bleeding edge is offered on Q2PRO installations only - the
                   toggle is not rendered for any other engine. */}
-              {status.engine === 'q2pro' && (
-                <div className="border-t border-line pt-3">
-                  <Switch
-                    checked={status.channel === 'bleeding-edge'}
-                    onChange={(next) => void toggleBleedingEdge(next)}
-                    disabled={bleedingEdgeSaving}
-                    label={t('engineUpdate.bleedingEdge.label')}
-                    hint={t('engineUpdate.bleedingEdge.hint')}
-                  />
-                  {bleedingEdgeError && (
-                    <p
-                      className="text-xs text-danger"
-                      data-testid="engine-update-bleeding-edge-error"
-                    >
-                      {bleedingEdgeError}
-                    </p>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </Modal>
+            {status.engine === 'q2pro' && (
+              <div className="border-t border-line pt-3">
+                <Switch
+                  checked={status.channel === 'bleeding-edge'}
+                  onChange={(next) => void toggleBleedingEdge(next)}
+                  disabled={bleedingEdgeSaving}
+                  label={t('engineUpdate.bleedingEdge.label')}
+                  hint={t('engineUpdate.bleedingEdge.hint')}
+                />
+                {bleedingEdgeError && (
+                  <p
+                    className="text-xs text-danger"
+                    data-testid="engine-update-bleeding-edge-error"
+                  >
+                    {bleedingEdgeError}
+                  </p>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </JobActionDialog>
   )
 }

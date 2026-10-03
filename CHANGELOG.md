@@ -36,6 +36,7 @@ version section when a release actually ships.
 - Bleeding-edge engine downloads now time out, retry and refuse oversized files.
 - Your last change before quitting is saved, and a failed settings write now tells you.
 - **Config** — A refused profile save now shows its reason on every tab; a new alias lands in your first category.
+- Name dialogs submit once on Enter; tabs work with the arrow keys.
 - **Servers** — A stalled or oversized server-list source no longer hangs a scan.
 
 ### Security

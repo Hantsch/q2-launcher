@@ -3,18 +3,15 @@ import { useTranslation } from 'react-i18next'
 import type { DemoRow } from '@shared/modules/replays'
 import { demoExtension, validateDemoRename } from '@shared/replays/demo-rename'
 import type { LocalizedMessage } from '@shared/types'
-import { Button } from '../../components/ui/Button'
-import { Field, Input } from '../../components/ui/controls'
-import { Modal } from '../../components/ui/Modal'
+import { NameDialog } from '../../components/ui/NameDialog'
 import { renameDemo, sidecarRead } from './client'
 import { rowWithSidecar } from './row-patch'
 
 /**
- * Story 157 D4: renames a demo's on-disk file (via its stem - the fixed extension is shown as
- * static text, never editable). Mirrors `RenameProfileDialog.tsx`'s shape: props-based, no shell
- * store, talks to the replays client directly. Live validation reuses D1's pure
- * `validateDemoRename` on every keystroke; the server call only happens on submit, and its own
- * refusal (a `replays.rename.error.*` key) is shown in the very same error slot.
+ * Renames a demo's on-disk file via its stem - the fixed extension is shown as static text, never
+ * editable. Live validation reuses the pure `validateDemoRename` on every keystroke; the server call
+ * only happens on submit, and its own refusal (a `replays.rename.error.*` key) is shown in the very
+ * same error slot.
  */
 export function RenameDemoDialog({
   demo,
@@ -27,32 +24,18 @@ export function RenameDemoDialog({
 }) {
   const { t } = useTranslation()
   const ext = demoExtension(demo.fileName)
-  const [stem, setStem] = useState(() =>
-    ext !== '' ? demo.fileName.slice(0, demo.fileName.length - ext.length) : demo.fileName,
-  )
-  const [submitting, setSubmitting] = useState(false)
+  const initialStem =
+    ext !== '' ? demo.fileName.slice(0, demo.fileName.length - ext.length) : demo.fileName
+  const [stem, setStem] = useState(initialStem)
   const [serverError, setServerError] = useState<LocalizedMessage | null>(null)
 
   const validation = validateDemoRename(stem, demo.fileName)
-  const localError = validation.ok
-    ? undefined
-    : t(validation.reasonKey, validation.params)
+  const localError = validation.ok ? undefined : t(validation.reasonKey, validation.params)
   const error = localError ?? (serverError ? t(serverError.key, serverError.params) : undefined)
 
-  const unchanged = validation.ok && validation.fileName === demo.fileName
-  const canSubmit = validation.ok && !unchanged && !submitting
-
-  const handleStemChange = (value: string): void => {
-    setStem(value)
-    setServerError(null)
-  }
-
-  const submit = async (): Promise<void> => {
-    if (!canSubmit) return
-    setSubmitting(true)
+  const submit = async (trimmed: string): Promise<void> => {
     const oldId = demo.id
-    const outcome = await renameDemo(demo.id, stem.trim())
-    setSubmitting(false)
+    const outcome = await renameDemo(demo.id, trimmed)
     if (!outcome.ok) {
       setServerError(outcome.error)
       return
@@ -67,49 +50,25 @@ export function RenameDemoDialog({
   }
 
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('replays.rename.title')}
+    <NameDialog
+      titleKey="replays.rename.title"
+      labelKey="replays.rename.label"
+      initialName={initialStem}
+      suffix={ext !== '' ? ext : undefined}
+      error={error}
+      submittable={() => validation.ok && validation.fileName !== demo.fileName}
+      onNameChange={(value) => {
+        setStem(value)
+        setServerError(null)
+      }}
+      onSubmit={submit}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            disabled={!canSubmit}
-            onClick={() => void submit()}
-            data-testid="demo-rename-save"
-          >
-            {t('common.save')}
-          </Button>
-        </>
-      }
-    >
-      <div data-testid="demo-rename-dialog">
-        <Field label={t('replays.rename.label')}>
-          <div className="flex items-center gap-2">
-            <Input
-              value={stem}
-              autoFocus
-              data-testid="demo-rename-input"
-              onChange={(event) => handleStemChange(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && canSubmit) void submit()
-              }}
-            />
-            {ext !== '' && <span className="text-ink-muted">{ext}</span>}
-          </div>
-        </Field>
-        {error && (
-          <p className="text-xs text-danger" role="alert" data-testid="demo-rename-error">
-            {error}
-          </p>
-        )}
-      </div>
-    </Modal>
+      testIds={{
+        dialog: 'demo-rename-dialog',
+        input: 'demo-rename-input',
+        submit: 'demo-rename-save',
+        error: 'demo-rename-error',
+      }}
+    />
   )
 }

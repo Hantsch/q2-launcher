@@ -373,6 +373,15 @@ Routing is a `switch` in `AppShell.tsx`, not a router. There are a handful of
 top-level destinations, no URLs, no nesting and no history worth the name. If deep
 links (`quake2launcher://`) arrive later, `resolveView` is the one place to change.
 
+### UI kit
+
+`components/ui` holds the shared primitives; a feature uses them instead of rebuilding
+them: `NameDialog` (one text field, submits once), `ConfirmDialog`, `Tabs` (manual
+activation, arrow-key navigation), `RadioGroup`, the textarea in `controls.tsx`, and the
+single `ErrorBoundary`. `useSubmitting` owns the in-flight flag of a dialog action, and
+`useStartJob` in `components/jobs` starts a job and reports its refusal. `ui-kit-adoption.test.ts`
+guards that these stay the only implementations.
+
 ### State
 
 Four kinds of renderer state, picked in this order:

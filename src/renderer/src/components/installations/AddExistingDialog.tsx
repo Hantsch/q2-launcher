@@ -10,6 +10,7 @@ import { Field, Input, PathPicker, Select } from '../ui/controls'
 import { Badge, Spinner } from '../ui/primitives'
 import { EngineBadge } from '../ui/EngineBadge'
 import { Modal } from '../ui/Modal'
+import { useSubmitting } from '../ui/useSubmitting'
 
 /**
  * Add an installation that already exists on disk.
@@ -28,7 +29,7 @@ export function AddExistingDialog() {
   const [executablePath, setExecutablePath] = useState('')
   const [inspection, setInspection] = useState<ValidationResult | null>(null)
   const [inspecting, setInspecting] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
 
   const pickFolder = async (): Promise<void> => {
     const picked = await invoke('installations:pickFolder', {
@@ -69,16 +70,15 @@ export function AddExistingDialog() {
   const canSubmit =
     rootPath.length > 0 && inspection !== null && !notQuake2 && !inspecting && !submitting
 
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    const result = await addExisting({
-      rootPath,
-      ...(name.trim() ? { name: name.trim() } : {}),
-      ...(executablePath ? { executablePath } : {}),
+  const submit = (): Promise<void | undefined> =>
+    run(async () => {
+      const result = await addExisting({
+        rootPath,
+        ...(name.trim() ? { name: name.trim() } : {}),
+        ...(executablePath ? { executablePath } : {}),
+      })
+      if (result.ok) closeDialog()
     })
-    setSubmitting(false)
-    if (result.ok) closeDialog()
-  }
 
   return (
     <Modal

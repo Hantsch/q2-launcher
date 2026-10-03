@@ -804,6 +804,7 @@
 
   "servers": {
     "tabs": {
+      "label": "Servers views",
       "list": "Server list"
     },
     "address": {
@@ -1633,6 +1634,7 @@
       "back": "Back to profiles"
     },
     "tabs": {
+      "label": "Profile sections",
       "overview": "Overview",
       "settings": "Settings",
       "controls": "Controls",
@@ -2786,6 +2788,7 @@
         "confirm": "Delete category",
         "choiceMove": "Move its entries to another category",
         "choiceDelete": "Delete its entries with it",
+        "choiceLabel": "What happens to its entries",
         "targetLabel": "Move entries to",
         "bodyMove_one": "{{count}} entry will move to “{{target}}”.",
         "bodyMove_other": "{{count}} entries will move to “{{target}}”.",
@@ -3256,6 +3259,7 @@
   },
 
   "jobs": {
+    "dismiss": "Run in background",
     "simulatedDownload": "Simulated download (development)",
     "simulatedWrite": "Simulated installation write (development)",
     "status": {

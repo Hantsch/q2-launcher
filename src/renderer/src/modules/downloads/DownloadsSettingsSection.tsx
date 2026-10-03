@@ -10,7 +10,7 @@ import {
 } from '@shared/modules/downloads'
 import { Button } from '../../components/ui/Button'
 import { Select, Switch } from '../../components/ui/controls'
-import { Modal } from '../../components/ui/Modal'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { formatBytes } from '../../lib/format'
 import { useModuleQuery } from '../../lib/useModuleQuery'
 import {
@@ -31,7 +31,7 @@ const CONCURRENCY_CHOICES = Array.from(
  * `SectionLabel` chrome.
  *
  * Renders the three settings (AC2) and the live archive cache size (AC3); "Clear cache" opens a
- * `Modal` confirm that states the current size/count before `clearArchiveCache` is ever called
+ * `ConfirmDialog` that states the current size/count before `clearArchiveCache` is ever called
  * (AC4) - mirrors `config/CleanupPanel.tsx`'s scan-then-confirm-then-apply discipline.
  */
 export function DownloadsSettingsSection() {
@@ -180,39 +180,26 @@ export function DownloadsSettingsSection() {
       </div>
 
       {confirmOpen && cacheStatus && (
-        <Modal
-          open
-          size="sm"
+        <ConfirmDialog
           title={t('module.downloads.settings.clearCache.confirmTitle')}
-          onClose={() => setConfirmOpen(false)}
-          closeLabel={t('common.close')}
-          preventClose={clearing}
-          footer={
-            <>
-              <Button variant="ghost" disabled={clearing} onClick={() => setConfirmOpen(false)}>
-                {t('common.cancel')}
-              </Button>
-              <Button
-                variant="danger"
-                disabled={clearing}
-                onClick={() => void handleConfirmClear()}
-                data-testid="downloads-settings-clear-cache-confirm-button"
-              >
-                {t('module.downloads.settings.clearCache.confirm')}
-              </Button>
-            </>
+          body={
+            <p
+              className="text-sm leading-relaxed text-ink-dim"
+              data-testid="downloads-settings-clear-cache-confirm"
+            >
+              {t('module.downloads.settings.clearCache.confirmBody', {
+                size: formatBytes(cacheStatus.totalBytes),
+                count: cacheStatus.itemCount,
+              })}
+            </p>
           }
-        >
-          <p
-            className="text-sm leading-relaxed text-ink-dim"
-            data-testid="downloads-settings-clear-cache-confirm"
-          >
-            {t('module.downloads.settings.clearCache.confirmBody', {
-              size: formatBytes(cacheStatus.totalBytes),
-              count: cacheStatus.itemCount,
-            })}
-          </p>
-        </Modal>
+          confirmLabel={t('module.downloads.settings.clearCache.confirm')}
+          tone="danger"
+          busy={clearing}
+          onConfirm={() => void handleConfirmClear()}
+          onClose={() => setConfirmOpen(false)}
+          testIds={{ confirm: 'downloads-settings-clear-cache-confirm-button' }}
+        />
       )}
     </>
   )

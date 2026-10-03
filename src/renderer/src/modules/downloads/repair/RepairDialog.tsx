@@ -1,13 +1,12 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { RepairOffer, RepairOfferKind, RepairPlan } from '@shared/modules/downloads'
+import type { RepairOffer, RepairPlan } from '@shared/modules/downloads'
 import { useFixAction } from '../../../components/installations/ChecksList'
 import { useInstallationById, useLauncher } from '../../../store/useLauncher'
 import { useModuleQuery } from '../../../lib/useModuleQuery'
 import { Button } from '../../../components/ui/Button'
-import { Modal } from '../../../components/ui/Modal'
 import { getRepairPlan, startRepair } from '../client'
-import { RunningStep } from '../bootstrap/RunningStep'
+import { useStartJob } from '../../../components/jobs/useStartJob'
+import { JobActionDialog } from '../components/JobActionDialog'
 
 /**
  * Story 093 D5: the repair dialog - one row per offer a fresh `RepairPlan` (D2) carries for this
@@ -60,28 +59,14 @@ export function RepairDialog({ installationId }: { installationId: string }) {
         ? t('repair.notFound')
         : null
 
-  const [starting, setStarting] = useState<RepairOfferKind | null>(null)
-  const [startError, setStartError] = useState<string | null>(null)
-  const [jobId, setJobId] = useState<string | null>(null)
-  const job = useLauncher((state) => state.jobs.find((candidate) => candidate.id === jobId))
-
-  async function startOffer(kind: RepairOfferKind): Promise<void> {
-    setStarting(kind)
-    setStartError(null)
-    const result = await startRepair({ installationId, offers: [kind] })
-    setStarting(null)
-    if (result.ok) {
-      setJobId(result.value.jobId)
-    } else {
-      setStartError(t(result.error.key, result.error.params ?? {}))
-    }
-  }
+  const { start, starting, refusal, jobId, job } = useStartJob(startRepair)
+  const startError = refusal ? t(refusal.key, refusal.params ?? {}) : null
 
   function runOffer(offer: RepairOffer): void {
     switch (offer.kind) {
       case 'reinstall-engine':
       case 'install-point-release':
-        void startOffer(offer.kind)
+        void start({ installationId, offers: [offer.kind] })
         return
       case 'retail-copy':
         openDialog({
@@ -97,89 +82,78 @@ export function RepairDialog({ installationId }: { installationId: string }) {
     }
   }
 
-  const running = !!jobId
-
   return (
-    <Modal
-      open
+    <JobActionDialog
       title={t('repair.title')}
       description={t('repair.description')}
       onClose={closeDialog}
-      closeLabel={t('common.close')}
-      preventClose={!!starting}
+      starting={starting}
+      jobId={jobId}
+      job={job}
+      dismissTestId="repair-dismiss"
       footer={
-        running ? (
-          <Button variant="primary" onClick={closeDialog} data-testid="repair-dismiss">
-            {t('bootstrapWizard.running.dismiss')}
-          </Button>
-        ) : (
-          <Button variant="ghost" onClick={closeDialog}>
-            {t('common.close')}
-          </Button>
-        )
+        <Button variant="ghost" onClick={closeDialog}>
+          {t('common.close')}
+        </Button>
       }
     >
-      {running ? (
-        <RunningStep job={job} />
-      ) : (
-        <div className="space-y-3" data-testid="repair-dialog">
-          {plan === null && !fetchError && (
-            <p className="text-xs text-ink-muted">{t('repair.loading')}</p>
-          )}
+      <div className="space-y-3" data-testid="repair-dialog">
+        {plan === null && !fetchError && (
+          <p className="text-xs text-ink-muted">{t('repair.loading')}</p>
+        )}
 
-          {fetchError && (
-            <p className="text-xs text-danger" data-testid="repair-fetch-error">
-              {fetchError}
-            </p>
-          )}
+        {fetchError && (
+          <p className="text-xs text-danger" data-testid="repair-fetch-error">
+            {fetchError}
+          </p>
+        )}
 
-          {plan && (
-            <>
-              <ul className="space-y-1">
-                {plan.findings.map((finding) => (
-                  <li key={finding.id} className="text-xs text-ink-muted">
-                    {t(finding.messageKey, finding.params ?? {})}
+        {plan && (
+          <>
+            <ul className="space-y-1">
+              {plan.findings.map((finding) => (
+                <li key={finding.id} className="text-xs text-ink-muted">
+                  {t(finding.messageKey, finding.params ?? {})}
+                </li>
+              ))}
+            </ul>
+
+            {plan.offers.length === 0 ? (
+              <p className="text-xs text-ink-muted" data-testid="repair-empty">
+                {t('repair.nothingToRepair')}
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {plan.offers.map((offer, index) => (
+                  <li
+                    key={`${offer.kind}-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-sm border border-line-strong bg-void/10 p-3"
+                  >
+                    <p className="text-xs text-ink-dim">
+                      {t(offer.messageKey, offer.params ?? {})}
+                    </p>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={starting}
+                      onClick={() => runOffer(offer)}
+                      data-testid={`repair-offer-${offer.kind}`}
+                    >
+                      {t(`repair.offer.${offer.kind}`)}
+                    </Button>
                   </li>
                 ))}
               </ul>
+            )}
+          </>
+        )}
 
-              {plan.offers.length === 0 ? (
-                <p className="text-xs text-ink-muted" data-testid="repair-empty">
-                  {t('repair.nothingToRepair')}
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {plan.offers.map((offer, index) => (
-                    <li
-                      key={`${offer.kind}-${index}`}
-                      className="flex items-center justify-between gap-3 rounded-sm border border-line-strong bg-void/10 p-3"
-                    >
-                      <p className="text-xs text-ink-dim">
-                        {t(offer.messageKey, offer.params ?? {})}
-                      </p>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        disabled={!!starting}
-                        onClick={() => runOffer(offer)}
-                        data-testid={`repair-offer-${offer.kind}`}
-                      >
-                        {t(`repair.offer.${offer.kind}`)}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-
-          {startError && (
-            <p className="text-xs text-danger" data-testid="repair-error">
-              {startError}
-            </p>
-          )}
-        </div>
-      )}
-    </Modal>
+        {startError && (
+          <p className="text-xs text-danger" data-testid="repair-error">
+            {startError}
+          </p>
+        )}
+      </div>
+    </JobActionDialog>
   )
 }

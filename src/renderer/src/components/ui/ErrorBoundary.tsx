@@ -2,19 +2,26 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
 
 interface Props {
   children: ReactNode
+  fallback?: ReactNode | ((error: Error, reset: () => void) => ReactNode)
+  onError?: (error: Error, info: ErrorInfo) => void
+  /** A change (`Object.is`, per entry) in any key clears a caught error. */
+  resetKeys?: readonly unknown[]
+  /** Log prefix; defaults to `renderer`. */
+  scope?: string
 }
 
 interface State {
   error: Error | null
 }
 
+function keysChanged(a: readonly unknown[] = [], b: readonly unknown[] = []): boolean {
+  return a.length !== b.length || a.some((v, i) => !Object.is(v, b[i]))
+}
+
 /**
- * Last line of defence for the renderer.
- *
- * A crash inside a view must not leave the user with a black window and no way
- * out, so this renders the error and a reload button. Strings are hardcoded
- * English: if the i18n bundle is what broke, translating the error message would
- * fail too.
+ * The renderer's one error boundary. Without a `fallback` it renders the app-level crash screen
+ * with a reload button; strings there are hardcoded English because a broken i18n bundle must not
+ * break the error screen too.
  */
 export class ErrorBoundary extends Component<Props, State> {
   override state: State = { error: null }
@@ -24,12 +31,22 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error('[renderer] unhandled error', error, info.componentStack)
+    console.error(`[${this.props.scope ?? 'renderer'}] unhandled error`, error, info.componentStack)
+    this.props.onError?.(error, info)
   }
+
+  override componentDidUpdate(prev: Props): void {
+    if (this.state.error && keysChanged(prev.resetKeys, this.props.resetKeys)) this.reset()
+  }
+
+  private readonly reset = (): void => this.setState({ error: null })
 
   override render(): ReactNode {
     const { error } = this.state
     if (!error) return this.props.children
+    const { fallback } = this.props
+    if (typeof fallback === 'function') return fallback(error, this.reset)
+    if (fallback !== undefined) return fallback
 
     return (
       <div className="app-backdrop flex h-full items-center justify-center p-8">

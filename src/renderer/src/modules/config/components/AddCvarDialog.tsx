@@ -4,6 +4,7 @@ import { ALL_CVARS } from '@shared/config/catalog/cvar-catalog'
 import { Button } from '../../../components/ui/Button'
 import { Field, Input } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
+import { useSubmitting } from '../../../components/ui/useSubmitting'
 
 /**
  * Add-a-cvar-by-name-and-value form (story 059 D8), scoped to the section it was opened from -
@@ -37,7 +38,7 @@ export function AddCvarDialog({
   const { t } = useTranslation()
   const [name, setName] = useState('')
   const [value, setValue] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
 
   const trimmedName = name.trim()
   // Story 059 review Fix 6: a name that already has a stored value must not be submittable with an
@@ -48,10 +49,7 @@ export function AddCvarDialog({
 
   const submit = async (): Promise<void> => {
     if (!canSubmit) return
-    setSubmitting(true)
-    const ok = await onSubmit(trimmedName, value)
-    setSubmitting(false)
-    if (!ok) return
+    await run(() => onSubmit(trimmedName, value))
   }
 
   // Story 059 D8: a typeahead over the catalogue's own names, not a full "pick from the

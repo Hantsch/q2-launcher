@@ -34,6 +34,7 @@ import { QuickFilterNameDialog } from './QuickFilterNameDialog'
 import { ServerListHeader } from './ServerListHeader'
 import { ServerRow } from './ServerRow'
 import { ServersListStatus } from './ServersListStatus'
+import { TabPanel } from '../../components/ui/Tabs'
 import { ServersTabStrip, type ServersTab } from './ServersTabStrip'
 import { ServersToolbar } from './ServersToolbar'
 import { useQuickFilters } from './useQuickFilters'
@@ -337,9 +338,9 @@ export function ServersView() {
     <div className="flex h-full flex-col">
       {joinFlow.dialogs}
       <ServersTabStrip activeTab={activeTab} onChange={setActiveTab} />
-      <div className="min-h-0 flex-1">
+      <TabPanel idBase="servers" tabId={activeTab} className="min-h-0 flex-1">
         {activeTab === 'watchlist' ? isWatchlistUnlocked && watchlistAndDetail : listAndDetail}
-      </div>
+      </TabPanel>
     </div>
   )
 }

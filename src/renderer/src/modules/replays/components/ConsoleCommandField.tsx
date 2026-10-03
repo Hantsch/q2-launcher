@@ -7,6 +7,7 @@ import { Field, Input } from '../../../components/ui/controls'
 import { consoleSend } from '../client'
 import { useLauncher } from '../../../store/useLauncher'
 import { usePlaybackStore } from '../playback-store'
+import { useSubmitting } from '../../../components/ui/useSubmitting'
 
 /**
  * Story 166 D4 / 176 D1: the one-line console field next to the timeline. It only shows while a demo
@@ -30,7 +31,7 @@ export function ConsoleCommandField() {
       !state.session.fullscreen,
   )
   const [line, setLine] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const { submitting, run } = useSubmitting()
   const [serverError, setServerError] = useState<LocalizedMessage | null>(null)
 
   const validation = validateConsoleLine(line)
@@ -46,17 +47,16 @@ export function ConsoleCommandField() {
 
   async function submit(): Promise<void> {
     if (!canSend) return
-    setSubmitting(true)
     setServerError(null)
-    try {
-      const outcome = await consoleSend(line)
-      if (outcome.ok) setLine('')
-      else setServerError(outcome.error)
-    } catch {
-      setServerError({ key: 'replays.console.error.noSession' })
-    } finally {
-      setSubmitting(false)
-    }
+    await run(async () => {
+      try {
+        const outcome = await consoleSend(line)
+        if (outcome.ok) setLine('')
+        else setServerError(outcome.error)
+      } catch {
+        setServerError({ key: 'replays.console.error.noSession' })
+      }
+    })
   }
 
   return (

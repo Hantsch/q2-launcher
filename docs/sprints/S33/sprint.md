@@ -24,7 +24,7 @@ debt has one home with an ageing rule.
 - [x] 214 — profile-restore is a folder of named stages
 - [x] 212 — saving a profile edit is one hook, and a new alias lands in a real category
 - [x] 215 — main-owned data is read through one query hook
-- [ ] 216 — the UI kit has name, confirm, tabs and one error boundary
+- [x] 216 — the UI kit has name, confirm, tabs and one error boundary
 - [ ] 217 — list sort and search are shared
 - [ ] 218 — the config detail screen reads its profile from a provider
 - [ ] 213 — the Controls tab is a component tree with a shared test harness

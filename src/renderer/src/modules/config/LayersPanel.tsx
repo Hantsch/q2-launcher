@@ -10,8 +10,8 @@ import {
 import type { ConfigProfile } from '@shared/modules/config'
 import { cn } from '../../lib/cn'
 import { Button, IconButton } from '../../components/ui/Button'
-import { Field, Input, Select } from '../../components/ui/controls'
-import { Modal } from '../../components/ui/Modal'
+import { Field, Select } from '../../components/ui/controls'
+import { NameDialog } from '../../components/ui/NameDialog'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { updateProfileLayers } from './client'
 import { useProfileChanges } from './lib/profile-changes'
@@ -330,63 +330,30 @@ function CreateLayerDialog({
   onSubmit: (input: { name: string; mode: AltLayerMode }) => Promise<boolean>
 }) {
   const { t } = useTranslation()
-  const [name, setName] = useState('')
   const [mode, setMode] = useState<AltLayerMode>('hold')
-  const [submitting, setSubmitting] = useState(false)
-
-  const canSubmit = name.trim().length > 0 && !submitting
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    const ok = await onSubmit({ name: name.trim(), mode })
-    setSubmitting(false)
-    if (!ok) return
-  }
 
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.layersPanel.createDialog.title')}
+    <NameDialog
+      titleKey="config.layersPanel.createDialog.title"
+      labelKey="config.layersPanel.createDialog.nameLabel"
+      initialName=""
+      maxLength={120}
+      placeholder={t('config.layersPanel.createDialog.namePlaceholder')}
+      submitLabelKey="config.layersPanel.createDialog.submit"
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('config.layersPanel.createDialog.submit')}
-          </Button>
-        </>
-      }
+      onSubmit={(name) => onSubmit({ name, mode })}
     >
-      <div className="space-y-4">
-        <Field label={t('config.layersPanel.createDialog.nameLabel')}>
-          <Input
-            value={name}
-            autoFocus
-            maxLength={120}
-            placeholder={t('config.layersPanel.createDialog.namePlaceholder')}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && canSubmit) void submit()
-            }}
-          />
-        </Field>
-
-        <Field label={t('config.layersPanel.createDialog.modeLabel')}>
-          <Select
-            value={mode}
-            onChange={(event) => setMode(event.target.value as AltLayerMode)}
-            options={[
-              { value: 'hold', label: t('config.layersPanel.mode.hold') },
-              { value: 'toggle', label: t('config.layersPanel.mode.toggle') },
-            ]}
-          />
-        </Field>
-      </div>
-    </Modal>
+      <Field label={t('config.layersPanel.createDialog.modeLabel')}>
+        <Select
+          value={mode}
+          onChange={(event) => setMode(event.target.value as AltLayerMode)}
+          options={[
+            { value: 'hold', label: t('config.layersPanel.mode.hold') },
+            { value: 'toggle', label: t('config.layersPanel.mode.toggle') },
+          ]}
+        />
+      </Field>
+    </NameDialog>
   )
 }
 
@@ -400,47 +367,14 @@ function RenameLayerDialog({
   onClose: () => void
   onSubmit: (name: string) => Promise<boolean>
 }) {
-  const { t } = useTranslation()
-  const [name, setName] = useState(layer.name)
-  const [submitting, setSubmitting] = useState(false)
-
-  const canSubmit = name.trim().length > 0 && !submitting
-
-  const submit = async (): Promise<void> => {
-    setSubmitting(true)
-    await onSubmit(name.trim())
-    setSubmitting(false)
-  }
-
   return (
-    <Modal
-      open
-      size="sm"
-      title={t('config.layersPanel.renameDialog.title')}
+    <NameDialog
+      titleKey="config.layersPanel.renameDialog.title"
+      labelKey="config.layersPanel.renameDialog.label"
+      initialName={layer.name}
+      maxLength={120}
       onClose={onClose}
-      closeLabel={t('common.close')}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </Button>
-          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
-            {t('common.save')}
-          </Button>
-        </>
-      }
-    >
-      <Field label={t('config.layersPanel.renameDialog.label')}>
-        <Input
-          value={name}
-          autoFocus
-          maxLength={120}
-          onChange={(event) => setName(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && name.trim().length > 0) void submit()
-          }}
-        />
-      </Field>
-    </Modal>
+      onSubmit={onSubmit}
+    />
   )
 }

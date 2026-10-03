@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ErrorBoundary } from './components/ErrorBoundary'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { AppShell } from './components/shell/AppShell'
 import { BootSplash } from './components/shell/BootSplash'
 import { useLauncher } from './store/useLauncher'
