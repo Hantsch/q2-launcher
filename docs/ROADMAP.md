@@ -2,11 +2,11 @@
 
 ## Where we stand
 
-_As of 2026-10-02._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31).
-Current: Phase 11, codebase health. S32 (gate, foundations, module bus; 18 stories) is finished on
-`sprint/S32` ([review](sprints/done/S32/review.md)); S33 (config + renderer layers, docs, X11 stage story 198) is next.
-Waiting on the user: merging `sprint/S32` into `dev` (S33 starts after it), the manual residue in the
-S28–S30 and [S32](sprints/done/S32/testplan.md) testplans, 102's Q1–Q4, and a decision on story drafts 232–236.
+_As of 2026-10-03._ Phases 1–4 and 7–10 are done, and Mods milestone 5.1 is done (S31).
+Current: Phase 11, codebase health. S32 and S33 (config + renderer on shared layers, docs as built, X11 stage; 16 stories)
+are finished on `sprint/S32` and `sprint/S33` ([S33 review](sprints/S33/review.md)); next is Mods milestone 5.2 or drafts 232–236.
+Waiting on the user: merging `sprint/S32` and then `sprint/S33` into `dev` (S33 builds on S32), the manual residue in the S28–S30,
+[S32](sprints/done/S32/testplan.md) and [S33](sprints/S33/testplan.md) testplans, 102's Q1–Q4, and the decision on drafts 232–236.
 
 ## Phase overview
 
@@ -28,10 +28,10 @@ S28–S30 and [S32](sprints/done/S32/testplan.md) testplans, 102's Q1–Q4, and 
 
 Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-10-01-codebase-review.md).
 
-| #    | Milestone                                                  | Status          | Sprint(s)                         | Note                                                                 |
-| ---- | ---------------------------------------------------------- | --------------- | --------------------------------- | -------------------------------------------------------------------- |
-| 11.1 | A green gate, safe foundations, one module bus             | done 2026-10-02 | [S32](sprints/done/S32/review.md) | 18 stories, main side and infra; merge into `dev` waits on the user. |
-| 11.2 | Config module and renderer on shared layers, docs as built | planned         | [S33](sprints/S33/sprint.md)      | 16 stories incl. X11 stage story 198; starts after S32 is merged.    |
+| #    | Milestone                                                  | Status          | Sprint(s)                         | Note                                                                      |
+| ---- | ---------------------------------------------------------- | --------------- | --------------------------------- | ------------------------------------------------------------------------- |
+| 11.1 | A green gate, safe foundations, one module bus             | done 2026-10-02 | [S32](sprints/done/S32/review.md) | 18 stories, main side and infra; merge into `dev` waits on the user.      |
+| 11.2 | Config module and renderer on shared layers, docs as built | done 2026-10-03 | [S33](sprints/S33/review.md)      | 16 stories incl. X11 stage story 198; merge into `dev` waits on the user. |
 
 ## Open / unprioritised
 

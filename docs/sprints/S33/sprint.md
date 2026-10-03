@@ -1,6 +1,6 @@
 ---
 sprint: S33
-status: in-progress # planned | in-progress | done
+status: done
 branch: sprint/S33
 milestone: 11.2 — Codebase health, part 2 — the config module and the renderer on shared layers, docs as built
 ---
@@ -59,4 +59,14 @@ debt has one home with an ageing rule.
 
 ## Regression gate
 
-<!-- Filled by `/sprint` phase 2b: the commands run, minutes taken, result, commit, and a verdict per failure. -->
+Ran on `8186078`+fixes → fixes committed as `95522d3`; confirmation run on `95522d3`.
+
+- `npm run build` green (0.1 min); `npm test` 7028 passed / 8 skipped after fixes (first run 3 red, 0.5 min); `npm run ui:verify` exit 0 after fix (first run exit 1, 2.1 min); `npm run ui:flows` first run 140/143 in 51 min, confirmation run 142/143 in 50.5 min (remaining: quarantined `mods-view`, expected).
+- Failures and outcomes:
+  - `shell-layering` "no shell file imports from modules" → story 224 (`31b87f6`), fixed in `95522d3` (fixture-parity test moved next to the other module-importing golden test).
+  - `test-kit` mockClient offender `useQuickFilters.test.ts` → story 215, fixed in `95522d3`.
+  - `architecture-doc` planned-in-story marker for done story 230 → story 227, fixed in `95522d3` (sentence rewritten; TD-031 tracks the unmigrated bare catches).
+  - `ui:verify` `config-aliases` unreachable → story 231 (`afdb229`): key-usage sweep deleted dynamic `config.aliases.origin.*` keys (raw key shown in the UI), fixed in `95522d3`.
+  - flow `replays-detail-quick-edit` → flaky and pre-existing (fails ~40–50% already at the sprint base `7ae6851`): transient Windows EPERM on the atomic-write rename silently dropped the sidecar write. Fixed in product with a bounded rename retry (`95522d3`) rather than quarantined; 12/12 green afterwards.
+- Quarantine: `replays-mod-warning` removed (unexpected pass twice); no entries added.
+- Unattributed / blockers: none.

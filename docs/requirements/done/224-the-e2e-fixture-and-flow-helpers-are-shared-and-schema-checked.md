@@ -13,35 +13,35 @@ schema or default change cannot silently desynchronise 136 flows and a protocol 
 is one edit instead of fifteen to twenty-two.
 
 Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F22, F52):
-`scripts/lib/fixture.mjs` is 5,737 lines with 231 exports and 97 "Mirrors src/â€¦" comments;
+`scripts/lib/fixture.mjs` is 5,737 lines with 231 exports and 97 "Mirrors src/…" comments;
 `STATE_SCHEMA_VERSION = 1` (comment: "currently 2") while src is at 5; `DEFAULT_SETTINGS`,
 `WINDOW_STATE_FILE`, failure shapes and the controls seed are retyped by hand; variant dispatch
-is a 20-branch if-chain; nothing validates a seeded file against the real zod schema â€” the
+is a 20-branch if-chain; nothing validates a seeded file against the real zod schema — the
 fixture relies on four migrations running silently on every launch. Across `scripts/flows`,
 `buildStatusReplyBytes`/`buildInfoReplyBytes`/`bindResponder`/`closeResponder`/`decodeQueryKind`
 appear in 15 servers flows (14 identical, 1 drifted), `waitForScan` in 22, `waitForDemosScanToFinish`
-in 14 files in four variants, `rowFor` in 10, `libraryCard` in 7 â€” 595 module-level helpers in
+in 14 files in four variants, `rowFor` in 10, `libraryCard` in 7 — 595 module-level helpers in
 total.
 
 Depends on story 223 (quarantine and CI) so a fixture change is gated.
 
 ## Acceptance Criteria
 
-- [x] **AC1** â€” `src/main/services/fixture-parity.test.ts` writes every fixture variant into a
+- [x] **AC1** — `src/main/services/fixture-parity.test.ts` writes every fixture variant into a
       temp dir and loads it through the real `StateStore`, asserting zero migration warnings and
       zero dropped rows; it fails when `STATE_SCHEMA_VERSION` or a default drifts.
-- [x] **AC2** â€” Plain literals both sides need (`STATE_SCHEMA_VERSION`, `DEFAULT_SETTINGS`, file
+- [x] **AC2** — Plain literals both sides need (`STATE_SCHEMA_VERSION`, `DEFAULT_SETTINGS`, file
       names) come from one importable source (`src/shared/fixture-constants.json` or a tiny
       shared module) instead of being retyped.
-- [x] **AC3** â€” `fixture.mjs` is a facade over `scripts/lib/fixture/{core,installations,servers,
+- [x] **AC3** — `fixture.mjs` is a facade over `scripts/lib/fixture/{core,installations,servers,
 replays,news,controls}.mjs` with a `VARIANTS: Record<name, writer>` map; no file exceeds
       1,500 lines.
-- [x] **AC4** â€” UDP responder builders live in `scripts/lib/servers-stub.mjs`, scan-wait helpers
+- [x] **AC4** — UDP responder builders live in `scripts/lib/servers-stub.mjs`, scan-wait helpers
       in `scripts/lib/servers-flow.mjs`, the reconciled `waitForDemosScanToFinish` in
       `scripts/lib/replays-copy-in.mjs`; local copies are deleted.
-- [x] **AC5** â€” `scripts/flow-helper-duplication.test.mjs` fails when a function name is declared
+- [x] **AC5** — `scripts/flow-helper-duplication.test.mjs` fails when a function name is declared
       in more than three flow files.
-- [ ] **AC6** â€” `ui:flows` (non-quarantined) is green after the change.
+- [ ] **AC6** — `ui:flows` (non-quarantined) is green after the change.
 
 ## Open Questions
 
@@ -58,16 +58,16 @@ replays,news,controls}.mjs` with a `VARIANTS: Record<name, writer>` map; no file
 - **AC2's source is `src/shared/fixture-constants.json`** (the AC's own name), holding `stateFile`,
   `windowStateFile`, `stateSchemaVersion`, `defaultSettings`; `constants.ts`/`settings.ts` read it,
   `fixture.mjs` imports it with `with { type: 'json' }`. Reason: plain Node scripts cannot import
-  `.ts`, both TS projects already have `resolveJsonModule`, and Node â‰¥22.12 supports import attributes.
+  `.ts`, both TS projects already have `resolveJsonModule`, and Node ≥22.12 supports import attributes.
 - **Structured mirrors (controls seed, failure shapes, template categories) stay mirrored.** Reason:
   AC2 names plain literals only; AC1's real-schema load is what catches drift in structured data.
 - **The six named fixture files are a floor, not a cap.** A domain over 1,500 lines (or one the six
-  do not name â€” mods, downloads, gamedata stubs) gets its own file under `scripts/lib/fixture/`.
+  do not name — mods, downloads, gamedata stubs) gets its own file under `scripts/lib/fixture/`.
   Reason: AC3's binding limit is the 1,500 lines, and the fixture is now 5,961 lines, not 5,737.
 - **The facade re-exports every current export name unchanged.** Reason: ~100 flows and
   `harness.mjs`/`seed.mjs`/`flow.mjs` import from `fixture.mjs`; touching them is out of scope.
 - **The parity test seeds into a temp dir via a `Q2L_UI_VERIFY_ROOT` env override in
-  `scripts/lib/paths.mjs`.** Reason: every writer resolves through `variantUserDataDir()` â†’
+  `scripts/lib/paths.mjs`.** Reason: every writer resolves through `variantUserDataDir()` →
   `UI_VERIFY_ROOT`; one override is smaller than threading a root through ~30 writers.
 - **AC4's servers scan helpers go to a new `scripts/lib/servers-flow.mjs`; the demo-scan
   `waitForScan` (19 replays flows + `action-bar-view`) goes to `replays-copy-in.mjs`.** Reason: the
@@ -91,7 +91,7 @@ replays,news,controls}.mjs` with a `VARIANTS: Record<name, writer>` map; no file
 
 ## Plan
 
-Order D1 â†’ D2 â†’ D3 â†’ D4 â†’ D5 â†’ D6. D1 lands before D2 (the split carries the new imports), and
+Order D1 → D2 → D3 → D4 → D5 → D6. D1 lands before D2 (the split carries the new imports), and
 D3 after D2 (it imports the facade's `VARIANTS`/legacy exports).
 
 1. **Shared literals (D1).** New `src/shared/fixture-constants.json`; `constants.ts` and
@@ -111,7 +111,7 @@ D3 after D2 (it imports the facade's `VARIANTS`/legacy exports).
 
 ## Deliverables
 
-- [x] **D1 â€” plain literals have one source.** Create `src/shared/fixture-constants.json` with
+- [x] **D1 — plain literals have one source.** Create `src/shared/fixture-constants.json` with
       `stateFile: "state.json"`, `windowStateFile: "window-state.json"`, `stateSchemaVersion: 5`,
       `defaultSettings` (copy of today's `DEFAULT_SETTINGS` in `src/shared/types/settings.ts:22`).
       `src/shared/constants.ts` derives `STATE_FILE`, `WINDOW_STATE_FILE`, `STATE_SCHEMA_VERSION`
@@ -126,12 +126,12 @@ D3 after D2 (it imports the facade's `VARIANTS`/legacy exports).
       variant built on the populated state document); fix its comment (src is at 5, not 2) and keep
       the reason (story 052 D6's migration must run on every reseed). If `src/architecture.test.ts`
       or lint rejects a `.json` in `src/shared`, extend the purity rule to allow JSON data only.
-      Test (new) `src/shared/fixture-constants.test.ts` â€º "src constants and the fixture read one
+      Test (new) `src/shared/fixture-constants.test.ts` › "src constants and the fixture read one
       source": asserts the three constants and `DEFAULT_SETTINGS` equal the JSON, and that
       `scripts/lib/fixture.mjs` (read as text) declares none of `STATE_FILE =`,
       `WINDOW_STATE_FILE =`, `DEFAULT_SETTINGS =`, `CONTROLS_SEED_SCHEMA_VERSION = 5`.
       Verify with `npm run typecheck` and `npm test`.
-- [x] **D2 â€” the fixture is a facade over domain files.** Move `scripts/lib/fixture.mjs`'s content
+- [x] **D2 — the fixture is a facade over domain files.** Move `scripts/lib/fixture.mjs`'s content
       into `scripts/lib/fixture/{core,installations,servers,replays,news,controls}.mjs` (core:
       the JSON import, `writeJson`, `windowStateDocument`, legacy constants, the `populated`/`empty`
       state builders). Add further domain files such as `mods.mjs` or `downloads.mjs` when a domain
@@ -140,17 +140,17 @@ D3 after D2 (it imports the facade's `VARIANTS`/legacy exports).
       diff) plus `VARIANTS`, a `Record<variantName, writer>` replacing the if-chain in
       `writeFixture` (fixture.mjs:3346-3406; keep the `writeImportFilesFixture()` pre-step and the
       unknown-variant error). `FIXTURE_VARIANTS` stays exported and contains exactly the keys of
-      `VARIANTS`. Mind the existing circular import `harness.mjs` â†” `fixture.mjs`
+      `VARIANTS`. Mind the existing circular import `harness.mjs` ↔ `fixture.mjs`
       (`variantUserDataDir`, `writeImportFilesFixture`): no top-level code may read an import before
       both modules have finished evaluating. Update the `fixture.mjs` pointers in
       `docs/UI-VERIFICATION.md` (lines ~293, 436, 555, 628, 789) to the file the content moved to.
       Proof of no behaviour change: before the move run `npm run ui:seed` and hash every file under
       `.ui-verify/fixture/` (skip the `replays-date-filter` variant, which uses `Date.now()`); after
-      the move the hashes match. Test (new) `scripts/lib/fixture/fixture-layout.test.mjs` â€º
+      the move the hashes match. Test (new) `scripts/lib/fixture/fixture-layout.test.mjs` ›
       "every fixture file stays under 1,500 lines and every variant has a writer" (line count of
       `fixture.mjs` + every `fixture/*.mjs`; `VARIANTS` keys equal `FIXTURE_VARIANTS`; each value is
       a function; `writeFixture('nope')` throws).
-- [x] **D3 â€” every seeded state.json loads clean through the real StateStore.** (a)
+- [x] **D3 — every seeded state.json loads clean through the real StateStore.** (a)
       `scripts/lib/paths.mjs`: `UI_VERIFY_ROOT` honours `process.env.Q2L_UI_VERIFY_ROOT` when set
       (absolute path required, else throw `HarnessError`). (b) `scripts/lib/fixture.d.mts`: typings
       for what the test uses (`writeFixture`, `FIXTURE_VARIANTS`, `LEGACY_SEED_SCHEMA_VERSION`,
@@ -173,9 +173,9 @@ D3 after D2 (it imports the facade's `VARIANTS`/legacy exports).
       seeded settings, so a default key added or removed in src shows up as a difference. Negative
       tests on the checker: "a dropped installation row is reported", "a settings key the schema
       does not know is reported", "a stale schemaVersion on a current variant is reported".
-      Tests: `src/main/services/fixture-parity.test.ts` â€º "every fixture variant loads through the
+      Tests: `src/main/services/fixture-parity.test.ts` › "every fixture variant loads through the
       real StateStore without warnings or dropped rows" + the three negative tests.
-- [x] **D4 â€” servers flow helpers live in two lib files.** `scripts/lib/servers-stub.mjs`: export
+- [x] **D4 — servers flow helpers live in two lib files.** `scripts/lib/servers-stub.mjs`: export
       its existing private `encodeLatin1`, `buildStatusReplyBytes`, `buildInfoReplyBytes`,
       `decodeQueryKind`. Add `bindResponder(port, onQuery)` (a UDP socket bound on 127.0.0.1, with
       the per-flow reply decision passed in as `onQuery(kind, msg, rinfo)`) and `closeResponder`.
@@ -186,57 +186,57 @@ D3 after D2 (it imports the facade's `VARIANTS`/legacy exports).
       `grep -lE "function (bindResponder|waitForFinishedAtChange|waitForRowCount)" scripts/flows`)
       and import instead. The one flow whose `build*ReplyBytes` differs keeps its behaviour through
       a parameter, not a local copy. Verify every touched flow with `npm run ui:flow -- <name>`.
-- [x] **D5 â€” replays flow helpers live in `replays-copy-in.mjs`.** New `scripts/lib/flow-common.mjs`
+- [x] **D5 — replays flow helpers live in `replays-copy-in.mjs`.** New `scripts/lib/flow-common.mjs`
       with `sleep(ms)` and `makeFail(prefix)`, which returns a function that throws
       `new Error(prefix + ': ' + msg)` (match the existing `fail` copies' message shape).
       `replays-copy-in.mjs` and `harness.mjs` import `sleep` from it instead of keeping private
       copies. Add to `scripts/lib/replays-copy-in.mjs` (and update its header comment to say it
       holds the shared helpers of the replays flows): `waitForScan`, the reconciled
-      `waitForDemosScanToFinish` (5 variants â†’ one, with timeout and label as options), `rowFor`
+      `waitForDemosScanToFinish` (5 variants → one, with timeout and label as options), `rowFor`
       (testid/selector as a parameter), `commands(logPath)`, `windowLines`, `launchGeometry`, and
       the replays `waitForRowCount`. Delete the local copies in `scripts/flows/replays-*.mjs`,
       `action-bar-view.mjs`, the `demo-*` flow and the `mods` flow that declares `fail` (~22 files;
       locate them with `grep -lE "function (waitForScan|rowFor)|const (sleep|fail) =" scripts/flows`).
       `const fail = makeFail('<flow>')` replaces each `fail`. Verify every touched flow with
       `npm run ui:flow -- <name>`.
-- [x] **D6 â€” remaining shared helpers + duplication guard.** Move `libraryCard`, `railTile`,
+- [x] **D6 — remaining shared helpers + duplication guard.** Move `libraryCard`, `railTile`,
       `simulateLaunch`, `invoke` and `readLog` into `scripts/lib/flow-common.mjs` (parameterise the
       drifted `libraryCard`/`railTile`/`invoke` variants) and delete their local copies in the
       installation/engine/job/repair/retail/servers/about/app/replays flows. New
-      `scripts/flow-helper-duplication.test.mjs` â€º "no helper is declared in more than three flow
+      `scripts/flow-helper-duplication.test.mjs` › "no helper is declared in more than three flow
       files". It parses every `scripts/flows/*.mjs` (regex, or `acorn` if already a dependency) and
       collects module-level `function` declarations plus `const`/`let` bindings initialised with an
       arrow or `function` expression, exempting `default`, `setup`, `teardown`, `variant` and
       `expectExit`. It fails listing each name found in >3 files **and** each whitespace-normalised
-      body found in >3 files under any name. A second test, â€º "the guard catches a fourth copy",
+      body found in >3 files under any name. A second test, › "the guard catches a fourth copy",
       runs the checker on four in-memory sources declaring the same helper and expects a failure.
       Verify touched flows with `npm run ui:flow -- <name>`.
 
 ## Model Hints
 
-- D3 â†’ deliverable-hard: the test must reproduce the app's real load path (`MODULE_MIGRATIONS` +
+- D3 → deliverable-hard: the test must reproduce the app's real load path (`MODULE_MIGRATIONS` +
   every module's section spec, as `context.ts` wires them) and must provably fail on drift. A
   plausible-looking version that loads only the store-owned keys or never trips on a missing
   section passes vacuously, while 136 flows depend on it.
-- Review: â†’ default
+- Review: → default
 
 ## Acceptance Tests
 
-- AC1 â†’ unit `src/main/services/fixture-parity.test.ts` â€º "every fixture variant loads through the
-  real StateStore without warnings or dropped rows" (+ â€º "a dropped installation row is reported",
-  â€º "a settings key the schema does not know is reported", â€º "a stale schemaVersion on a current
+- AC1 → unit `src/main/services/fixture-parity.test.ts` › "every fixture variant loads through the
+  real StateStore without warnings or dropped rows" (+ › "a dropped installation row is reported",
+  › "a settings key the schema does not know is reported", › "a stale schemaVersion on a current
   variant is reported"). D3.
-- AC2 â†’ unit `src/shared/fixture-constants.test.ts` â€º "src constants and the fixture read one
+- AC2 → unit `src/shared/fixture-constants.test.ts` › "src constants and the fixture read one
   source". D1.
-- AC3 â†’ unit `scripts/lib/fixture/fixture-layout.test.mjs` â€º "every fixture file stays under 1,500
+- AC3 → unit `scripts/lib/fixture/fixture-layout.test.mjs` › "every fixture file stays under 1,500
   lines and every variant has a writer". D2.
-- AC4 â†’ unit `scripts/flow-helper-duplication.test.mjs` â€º "no helper is declared in more than three
+- AC4 → unit `scripts/flow-helper-duplication.test.mjs` › "no helper is declared in more than three
   flow files" (proves the local copies are gone), plus the touched flows run green via
   `npm run ui:flow -- <name>`. D4, D5, D6.
-- AC5 â†’ unit `scripts/flow-helper-duplication.test.mjs` â€º "no helper is declared in more than three
-  flow files" and â€º "the guard catches a fourth copy". D6.
-- AC6 â†’ e2e-all `npm run ui:flows` (non-quarantined flows, `scripts/flows/quarantine.json`) green at
-  story end. D2â€“D6.
+- AC5 → unit `scripts/flow-helper-duplication.test.mjs` › "no helper is declared in more than three
+  flow files" and › "the guard catches a fourth copy". D6.
+- AC6 → e2e-all `npm run ui:flows` (non-quarantined flows, `scripts/flows/quarantine.json`) green at
+  story end. D2–D6.
 
 ## Done
 

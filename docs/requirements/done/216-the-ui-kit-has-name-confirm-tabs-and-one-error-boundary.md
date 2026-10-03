@@ -302,7 +302,7 @@ hand-rolled) is caught by D14's adoption test, not left to the reviewer.
 
 Primitives `NameDialog`, `ConfirmDialog`, `Tabs`/`TabPanel`, `RadioGroup`, `TextArea`, `useSubmitting`, one `ErrorBoundary`, `useStartJob` + `JobActionDialog`; ~45 dialogs/tab strips/boundaries migrated; adoption + token guards; flows tabs-keyboard, name-dialog-enter-once.
 
-Commit: `216: UI kit — NameDialog, ConfirmDialog, Tabs, RadioGroup, TextArea, useSubmitting, one ErrorBoundary, useStartJob`
+Commit: `216: UI kit â€” NameDialog, ConfirmDialog, Tabs, RadioGroup, TextArea, useSubmitting, one ErrorBoundary, useStartJob`
 
 Verification (narrow gate): build, typecheck, lint green; `npm test` red only on pre-existing shell-layering, test-kit mockClient (useQuickFilters.test.ts) and LF of other stories' docs; `ui:verify` exit 0, a11y.json hash-identical to a11y-baseline-216.json; 31 AC6 flows via `npm run ui:flow -- <name>` green. AC1-AC6 mapped tests all ran and passed.
 Pre-existing red on bare HEAD (stash-checked): external-edit-cascades, drop-message-checkbox.
@@ -315,4 +315,4 @@ Decisions:
 - Not fixed (low): DeleteCategoryDialog confirm not disabled by its own canSubmit (unreachable state); TabPanel aria-labelledby dangling while watchlist strip is hidden; AliasesTab import reformat.
 - Unused i18n keys left: replays.editor.discardDialog.keep, servers.join.mismatch.cancel.
 
-tiers: D 14 / hard 1 · review default · cycles 1 · agents 21
+tiers: D 14 / hard 1 Â· review default Â· cycles 1 Â· agents 21
