@@ -1825,6 +1825,7 @@
     "error": {
       "installationNotFound": "That installation is no longer in your library.",
       "profileNotFound": "That config profile no longer exists.",
+      "unknownCategory": "That category no longer exists in this profile.",
       "notAssigned": "This profile is not assigned to that installation.",
       "writeFailed": "Could not write this profile's files to disk.",
       "commitConflict": "This profile's file changed on disk since the launcher last read it. Open the profile in Config to resolve that first.",
@@ -2967,6 +2968,7 @@
       "count_one": "{{count}} alias",
       "count_other": "{{count}} aliases",
       "create": "New alias",
+      "createNeedsCategory": "Add a category in Controls first.",
       "createDialog": {
         "title": "Create alias",
         "nameLabel": "Name",

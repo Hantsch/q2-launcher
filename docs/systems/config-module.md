@@ -230,7 +230,11 @@ central, assigned to installations) and the UI (launcher design system) change.
   sentinel line, both read through `file-ownership.ts` — not by the name the profile currently
   resolves to, so a renamed-but-unsaved profile is still checked against the file it actually has), refuses with a
   whole-file conflict when the file changed underneath or cannot be read, and otherwise writes it
-  and runs the unchanged installation cascade. Every other sync trigger (`assign`, `unassign`,
+  and runs the unchanged installation cascade. `setActions` refuses with
+  `config.error.unknownCategory` (changing nothing) when an action's `categoryId` is not in the
+  submitted `categories`, unless the stored profile already held that action id under that same
+  `categoryId` (`orphan-category.ts`) — restore/import "Other" entries and `categories: []`
+  profiles stay saveable. Renderer profile saves go through `lib/useProfileSave.ts`. Every other sync trigger (`assign`, `unassign`,
   `setDefault`, `write`, `create`, `tidyUp.apply`, the startup retry sweep) still syncs immediately,
   but under one rule enforced centrally in `syncAndPersist`: **a `dirty` profile's canonical file is
   never written by anything but `save`, and its per-installation copies are written from that file's

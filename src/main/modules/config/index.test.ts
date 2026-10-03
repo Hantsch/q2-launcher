@@ -1,7 +1,10 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CONFIG_HANDLERS, type ConfigProfile, type RawFilesResult } from '@shared/modules/config'
+import {
+  CONFIG_HANDLERS,
+  type ConfigAction,
+  type ConfigProfile, type RawFilesResult } from '@shared/modules/config'
 import type { Installation, Outcome } from '@shared/types'
 import { seedConfigProfiles } from '../../../test-support/config-state'
 import { unwrapOk } from '../../../test-support/outcome'
@@ -191,6 +194,14 @@ function pickedIds(answers: Answers): string[] {
   return picked.map((file) => file.id)
 }
 
+const orphanAction: ConfigAction = {
+  id: 'ab12cd34-0000-0000-0000-000000000000',
+  categoryId: 'gone',
+  name: 'Drop RL',
+  kind: 'bind',
+  commands: [{ kind: 'raw', text: 'drop rl' }],
+}
+
 describe('config module handlers', () => {
   it('registers every CONFIG_HANDLERS channel', async () => {
     const { handlers } = await boot()
@@ -211,6 +222,35 @@ describe('config module handlers', () => {
     expect(configState(state).profiles.get()).toEqual(before)
     expect(shellMock.openPath).not.toHaveBeenCalled()
     expect(shellMock.showItemInFolder).not.toHaveBeenCalled()
+  })
+
+  it('setActions refuses an action in a category the profile does not have', async () => {
+    const { handlers, state } = await boot()
+    const before = structuredClone(configState(state).profiles.get())
+
+    const result = await handlers.get(CONFIG_HANDLERS.setActions)!({
+      profileId: 'p1',
+      categories: [{ id: 'weapons', name: 'Weapons' }],
+      actions: [orphanAction],
+    })
+
+    expect(result).toEqual({ ok: false, error: { key: 'config.error.unknownCategory' } })
+    expect(configState(state).profiles.get()).toEqual(before)
+  })
+
+  it('setActions still saves a profile that already holds an orphaned entry', async () => {
+    const { handlers, state } = await boot()
+    seedConfigProfiles(state, [profile({ categories: [], actions: [orphanAction] })])
+    await state.settle()
+
+    const result = await handlers.get(CONFIG_HANDLERS.setActions)!({
+      profileId: 'p1',
+      categories: [],
+      actions: [{ ...orphanAction, name: 'Renamed' }],
+    })
+
+    expect(result).toMatchObject({ ok: true })
+    expect(configState(state).profiles.get()[0]!.actions?.[0]?.name).toBe('Renamed')
   })
 
   it('every channel answers its happy path', async () => {

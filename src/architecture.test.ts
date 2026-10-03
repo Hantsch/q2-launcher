@@ -546,4 +546,23 @@ describe('architecture', () => {
       expect(readRepoFile(doc), doc).not.toMatch(flatPath)
     }
   })
+
+  it('save debounce and status are declared once in the renderer', () => {
+    const hook = 'src/renderer/src/modules/config/lib/useProfileSave.ts'
+    const renderer = PRODUCTION.filter((file) => under(file, 'src/renderer'))
+    const declaring = (needle: string): string[] =>
+      renderer.filter((file) => TEXT.get(file)?.includes(needle))
+    expect(declaring('SAVE_DEBOUNCE_MS =')).toEqual([hook])
+    expect(declaring('type SaveStatus')).toEqual([hook])
+    for (const surface of [
+      'ControlsTab',
+      'SettingsTab',
+      'AliasesTab',
+      'LayersPanel',
+      'ProfileAssignmentsPanel',
+    ]) {
+      const file = `src/renderer/src/modules/config/${surface}.tsx`
+      expect(TEXT.get(file), file).toMatch(/import \{[^}]*\buseProfileSave\b[^}]*\} from/)
+    }
+  })
 })

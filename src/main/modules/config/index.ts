@@ -24,6 +24,7 @@ import {
   scanRedundantCopies,
 } from './cleanup'
 import { commitImportFiles, pickImportFiles, previewImportFiles } from './import'
+import { introducesOrphanCategory } from './orphan-category'
 import { PickedFilesRegistry } from './picked-files'
 import { ProfilesStore } from './profiles'
 import { runConfigStartup } from './startup'
@@ -194,6 +195,11 @@ export const configModule: MainModule = {
     })
 
     handle(CONFIG_HANDLERS.setActions, setProfileActionsInputSchema, (input) => {
+      const stored = profiles.find(input.profileId)
+      if (!stored) return fail('config.error.profileNotFound')
+      if (introducesOrphanCategory(stored.actions ?? [], input.actions, input.categories)) {
+        return fail('config.error.unknownCategory')
+      }
       profiles.setActions(input)
       return ok(markUnsaved(input.profileId))
     })

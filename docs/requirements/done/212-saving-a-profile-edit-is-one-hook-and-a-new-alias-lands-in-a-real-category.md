@@ -1,7 +1,7 @@
 ---
 id: 212
 title: saving a profile edit is one hook, and a new alias lands in a real category
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -31,22 +31,22 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F17, F39):
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `src/renderer/src/modules/config/lib/useProfileSave.ts` owns the single debounce
+- [x] **AC1** — `src/renderer/src/modules/config/lib/useProfileSave.ts` owns the single debounce
       timer, saving/status state, cancel-on-immediate, cancel on unmount and profile switch,
       optimistic `patch`, revert-on-failure and one uniform failure toast; it is unit-tested once
       for coalescing, cancel-on-immediate, revert and toast.
-- [ ] **AC2** — ControlsTab, SettingsTab, AliasesTab, LayersPanel and ProfileAssignmentsPanel
+- [x] **AC2** — ControlsTab, SettingsTab, AliasesTab, LayersPanel and ProfileAssignmentsPanel
       save through the hook; `git grep -n 'SAVE_DEBOUNCE_MS\|type SaveStatus' src/renderer` finds
       one declaration each.
-- [ ] **AC3** — A rejected save on each of the five surfaces shows the same visible error (flow
+- [x] **AC3** — A rejected save on each of the five surfaces shows the same visible error (flow
       or component test per surface, with the bridge stubbed to refuse).
-- [ ] **AC4** — AliasesTab creates a new alias in the profile's first category
+- [x] **AC4** — AliasesTab creates a new alias in the profile's first category
       (`draft.categories[0]?.id`) or asks via the existing `MoveEntryDialog`; with no categories
       "New alias" is disabled with a visible reason (i18n key). A renderer test creates an alias
       on a profile whose first category is custom and finds it in the Controls rail.
-- [ ] **AC5** — Main rejects an action whose `categoryId` is not in the profile's `categories`
+- [x] **AC5** — Main rejects an action whose `categoryId` is not in the profile's `categories`
       (`superRefine` in the config schemas) with a tested refusal key.
-- [ ] **AC6** — The seven `ControlsTab.*.test.tsx` suites and all config flows pass.
+- [x] **AC6** — The seven `ControlsTab.*.test.tsx` suites and all config flows pass.
 
 ## Decisions (Sprint)
 
@@ -108,7 +108,7 @@ is independent and can go anytime.
 
 ## Deliverables
 
-- [ ] **D1 — `useProfileSave` hook.** New `src/renderer/src/modules/config/lib/useProfileSave.ts`
+- [x] **D1 — `useProfileSave` hook.** New `src/renderer/src/modules/config/lib/useProfileSave.ts`
       and `useProfileSave.test.ts` beside it. Exports `SAVE_DEBOUNCE_MS = 500` and
       `type SaveStatus = 'idle' | 'saving' | 'saved'` (the only declarations in the renderer).
       API (names may be tuned, semantics not):
@@ -131,7 +131,7 @@ is independent and can go anytime.
       pending debounced save", "a refused debounced save reverts to the snapshot from the first
       edit", "a refused save pushes one error toast with the refusal key", "a profile switch drops
       the pending save". Mirror test style of `lib/useProfileDraft.test.ts`.
-- [ ] **D2 — SettingsTab saves through the hook.** `src/renderer/src/modules/config/SettingsTab.tsx`:
+- [x] **D2 — SettingsTab saves through the hook.** `src/renderer/src/modules/config/SettingsTab.tsx`:
       delete local `SAVE_DEBOUNCE_MS`, `SaveStatus`, `saveTimeout`, `clearPendingSave`,
       unmount/profile-switch effects (~l.153, 267-307); `handleChange` patches then calls
       `schedule({apply, revert, run: () => updateProfileCvars(...)})` — do NOT call it from inside
@@ -142,7 +142,7 @@ is independent and can go anytime.
       (idiom: `ControlsTab.row-menu.test.tsx:17-28`) plus the toast host
       `src/renderer/src/components/ui/Toasts.tsx`, make an edit, advance timers, assert the
       localized `config.error.writeFailed` text is visible. `SettingsTab.dnd.test.tsx` stays green.
-- [ ] **D3 — ControlsTab saves through the hook.** `src/renderer/src/modules/config/ControlsTab.tsx`:
+- [x] **D3 — ControlsTab saves through the hook.** `src/renderer/src/modules/config/ControlsTab.tsx`:
       delete local `SAVE_DEBOUNCE_MS` (l.94), `SaveStatus` (l.96), timer refs (l.171-173,
       277-281), `clearPendingSave` and its effects (l.284-308); `scheduleActionsSave` (~l.390)
       → `schedule` with revert = snapshot of `actions` before the edit; `persistCategoriesAndActions`
@@ -151,7 +151,7 @@ is independent and can go anytime.
       edit a row name, assert the same toast text). All seven suites stay green:
       `ControlsTab.{bindings,category-drag,category-menu,dnd,row-menu,subcategory-drag}.test.tsx`,
       `ControlsTab.dialogs.test.ts`.
-- [ ] **D4 — AliasesTab: hook + real category.** `src/renderer/src/modules/config/AliasesTab.tsx`
+- [x] **D4 — AliasesTab: hook + real category.** `src/renderer/src/modules/config/AliasesTab.tsx`
       (contains non-UTF8 bytes — use `grep -a`, preserve encoding of untouched lines):
       `persistActions` (~l.311) → `saveNow`, patch after success, `return ok` (dialog stays open on
       failure, toast now shown). `handleCreateAlias` (~l.337): `categoryId: draft.categories?.[0]?.id`
@@ -169,7 +169,7 @@ is independent and can go anytime.
       `scripts/flows/alias-rename-dialog.mjs`): seed a custom first category via
       `window.q2.invoke` setActions, create an alias in the Aliases tab, switch to Controls, assert
       the row is visible in that category.
-- [ ] **D5 — LayersPanel and ProfileAssignmentsPanel through the hook; AC2 pinned.**
+- [x] **D5 — LayersPanel and ProfileAssignmentsPanel through the hook; AC2 pinned.**
       `src/renderer/src/modules/config/LayersPanel.tsx` (`persist` l.69-75) and
       `ProfileAssignmentsPanel.tsx` (`toggle` l.29-34, `makeDefault` l.36-39) use `saveNow` (immediate
       only, no draft); failures now toast. Add both cases to `save-refusal.test.tsx` (same toast text
@@ -177,7 +177,7 @@ is independent and can go anytime.
       "save debounce and status are declared once in the renderer": scans `src/renderer` for
       `SAVE_DEBOUNCE_MS =` and `type SaveStatus` — exactly one each, in `lib/useProfileSave.ts` — and
       asserts the five surface files import `useProfileSave`.
-- [ ] **D6 — main refuses a new orphan category.** In the `setActions` path
+- [x] **D6 — main refuses a new orphan category.** In the `setActions` path
       (`src/main/modules/config/index.ts:796` → `profiles.setActions`): refuse with
       `fail('config.error.unknownCategory')` and change nothing when an action's `categoryId` is not
       in `input.categories` AND the stored profile did not already contain an action with the same
@@ -227,4 +227,26 @@ is independent and can go anytime.
 
 ## Done
 
-<!-- Filled by /build 212. -->
+Saving a profile edit now goes through one hook, `modules/config/lib/useProfileSave.ts` (debounce, optimistic patch,
+first-of-burst revert, uniform `toastOutcomeError`, cancel on unmount/profile switch), used by ControlsTab, SettingsTab,
+AliasesTab, LayersPanel and ProfileAssignmentsPanel. A new alias lands in `draft.categories[0]` (button disabled with a
+visible reason when there are none); main refuses new orphan category ids in `setActions` (grandfathering existing ones).
+
+Commit message: `212: useProfileSave hook for all profile saves, new alias in first category, main refuses new orphan categories`
+
+Verification (narrow gate): build, typecheck, lint green; `npx vitest run --changed HEAD` green (1237 tests) plus named
+tests run directly. Flows green: alias-new-lands-in-first-category, alias-rename-dialog, controls-category-rename-reorder,
+custom-action-row, settings-section-rename-add-cvar. Red and identical on bare HEAD (pre-existing, not fixed here):
+controls-drag-reorder, controls-extra-keys, controls-subcategory, settings-downloads-section, config-header-geometry,
+plus the known unsaved-diff, grenade-rows-take-a-key and shell-layering "no shell file imports from modules".
+AC1 useProfileSave.test.ts; AC2 architecture.test.ts; AC3 save-refusal.test.tsx (5 cases); AC4 AliasesTab.category.test.tsx
++ flow; AC5 index.test.ts (two named tests) + orphan-category.test.ts; AC6 ControlsTab.* suites green, flows above (red ones pre-existing).
+No manual residue. Review: default stage PASS.
+
+Decisions (sprint, no user available):
+- `saveNow` failing after cancelling a pending burst leaves that burst's optimistic edit in the draft (same as before the hook); unfixed, spec reverts debounced saves only.
+- Late results after profile switch/unmount drop `onChanged` (spec); superseded older success still calls `onChanged`, failure toasts without reverting. Edge cases accepted, not tested.
+- SettingsTab uses a `latestCvars` ref for same-tick edits; revert there uses the first-call closure value, equivalent to the snapshot in practice.
+- Orphan check is a handler check (D-f), not a payload superRefine. Review findings 1-5 deliberately unfixed (low, HEAD-equivalent).
+
+tiers: D 6 / hard 1 · review default · cycles 1 · agents 10

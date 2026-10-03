@@ -6,6 +6,7 @@ import { EngineBadge } from '../../components/ui/EngineBadge'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { useLauncher } from '../../store/useLauncher'
 import { assignConfigProfile, setDefaultConfigProfile, unassignConfigProfile } from './client'
+import { useProfileSave } from './lib/useProfileSave'
 
 /**
  * The profile-side half of assignment: for the currently selected profile,
@@ -26,16 +27,21 @@ export function ProfileAssignmentsPanel({
   const { t } = useTranslation()
   const installations = useLauncher((state) => state.installations)
 
+  const { saveNow } = useProfileSave({ profileId: profile.id, onChanged })
+
   const toggle = async (installationId: string, next: boolean): Promise<void> => {
-    const result = next
-      ? await assignConfigProfile({ profileId: profile.id, installationId })
-      : await unassignConfigProfile({ profileId: profile.id, installationId })
-    if (result.ok) onChanged(result.value)
+    await saveNow({
+      run: () =>
+        next
+          ? assignConfigProfile({ profileId: profile.id, installationId })
+          : unassignConfigProfile({ profileId: profile.id, installationId }),
+    })
   }
 
   const makeDefault = async (installationId: string): Promise<void> => {
-    const result = await setDefaultConfigProfile({ profileId: profile.id, installationId })
-    if (result.ok) onChanged(result.value)
+    await saveNow({
+      run: () => setDefaultConfigProfile({ profileId: profile.id, installationId }),
+    })
   }
 
   return (

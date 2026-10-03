@@ -15,6 +15,7 @@ import { Modal } from '../../components/ui/Modal'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
 import { updateProfileLayers } from './client'
 import { useProfileChanges } from './lib/profile-changes'
+import { useProfileSave } from './lib/useProfileSave'
 
 /**
  * Issue keys shown in D5's per-layer banner. `layer.plusbind` is now included:
@@ -64,15 +65,10 @@ export function LayersPanel({
   const [renamingLayer, setRenamingLayer] = useState<AltLayer | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set())
-  const [saving, setSaving] = useState(false)
+  const { saving, saveNow } = useProfileSave({ profileId: profile.id, onChanged })
 
-  const persist = async (next: AltLayer[]): Promise<boolean> => {
-    setSaving(true)
-    const result = await updateProfileLayers({ profileId: profile.id, layers: next })
-    setSaving(false)
-    if (result.ok) onChanged(result.value)
-    return result.ok
-  }
+  const persist = (next: AltLayer[]): Promise<boolean> =>
+    saveNow({ run: () => updateProfileLayers({ profileId: profile.id, layers: next }) })
 
   const handleCreate = async (input: { name: string; mode: AltLayerMode }): Promise<boolean> => {
     const layer: AltLayer = {

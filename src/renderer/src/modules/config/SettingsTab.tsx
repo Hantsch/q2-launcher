@@ -11,7 +11,7 @@ import { Input, Switch } from '../../components/ui/controls'
 import { DragHandle, SortableItem, SortableZone, type SortableDropMeta } from '../../components/dnd'
 import { cn } from '../../lib/cn'
 import { useLauncher } from '../../store/useLauncher'
-import { toastOutcomeError } from '../../lib/toast'
+import { useProfileSave } from './lib/useProfileSave'
 import { AddCvarDialog } from './components/AddCvarDialog'
 import { CreateCvarSectionDialog } from './components/CreateCvarSectionDialog'
 import { CreateCvarSubsectionDialog } from './components/CreateCvarSubsectionDialog'
@@ -134,8 +134,6 @@ const settingsCollisionDetection: CollisionDetection = (args) => {
   })
 }
 
-const SAVE_DEBOUNCE_MS = 500
-
 /** The one-line explanation each reserved bucket gets under its header - neither is a section the
  * profile owns, so saying why it is there (and that its structure is not editable) beats letting it
  * look like a section the user forgot creating. `'section'` groups get none: their name is the
@@ -149,8 +147,6 @@ const RESERVED_LABEL_KEY: Record<'defaults' | 'other', string> = {
   defaults: 'config.settings.reserved.defaults',
   other: 'config.settings.reserved.other',
 }
-
-type SaveStatus = 'idle' | 'saving' | 'saved'
 
 export interface SettingsTabProps {
   profile: ConfigProfile
@@ -218,18 +214,11 @@ export interface SettingsTabProps {
 export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabProps) {
   const { t, i18n } = useTranslation()
   const installations = useLauncher((state) => state.installations)
-  // Story 059 review Fix 2: same "no shell-store dependency beyond pushToast for action failures"
-  // idiom `RawFileTab.tsx` uses - a rejected structural save (schema validation failure or any
-  // other IPC error) must not just silently reset the status, or the dialog stays open with no
-  // explanation.
-  const pushToast = useLauncher((state) => state.pushToast)
   // Story 049 D7: the change set every row's "edited"/"unsaved" indicator reads - `ConfigView`
   // mounts `ProfileChangesProvider` around this tab, so this always resolves rather than throwing.
   const changeSet = useProfileChanges()
   const [engine, setEngine] = useState<EngineKind | null>(null)
-  const [status, setStatus] = useState<SaveStatus>('idle')
-  const [saving, setSaving] = useState(false)
-  const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { status, saving, schedule, saveNow } = useProfileSave({ profileId: profile.id, onChanged })
 
   // Filter, "edited only" and the per-group Advanced collapse are session-local UI state (story
   // 021 Decisions: "not persisted per profile, no extra saved UI state") - reset below whenever the
@@ -264,56 +253,27 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
     [assignedEngines, engine],
   )
 
-  const clearPendingSave = (): void => {
-    if (saveTimeout.current) {
-      clearTimeout(saveTimeout.current)
-      saveTimeout.current = null
-    }
-  }
-
-  // Re-seed the save/status UI and the session-local filter/toggle/Advanced state whenever the
-  // selected profile changes (switching profiles in the master list), dropping any save still
-  // pending for the profile being switched away from. The draft's own content reseed is
-  // `useProfileDraft`'s job now, keyed on the same `profile.id`.
+  // Re-seed the session-local filter/toggle/Advanced state whenever the selected profile changes.
+  // The draft's own content reseed is `useProfileDraft`'s job, keyed on the same `profile.id`.
   useEffect(() => {
-    setStatus('idle')
-    clearPendingSave()
     setFilter('')
     setEditedOnly(false)
     setExpandedSections(new Set())
   }, [profile.id])
 
-  useEffect(() => clearPendingSave, [])
-
-  const scheduleSave = (next: Record<string, string>): void => {
-    setStatus('saving')
-    clearPendingSave()
-    saveTimeout.current = setTimeout(() => {
-      saveTimeout.current = null
-      void updateProfileCvars({ profileId: profile.id, cvars: next }).then((result) => {
-        if (result.ok) {
-          onChanged(result.value)
-          setStatus('saved')
-        } else {
-          // Revert the optimistic patch: unlike a plain `useState` (which would self-correct on
-          // every remount), the shared draft (story 009 D6) survives a tab switch, so a failed save
-          // would otherwise leave a phantom edit in the draft - and therefore in the validator -
-          // indefinitely (review finding).
-          patch({ cvars: profile.cvars })
-          setStatus('idle')
-        }
-      })
-    }, SAVE_DEBOUNCE_MS)
-  }
-
-  // Functional form: reads `prev.cvars` at commit time rather than the `draft` closure captured
-  // when this callback was created, so two edits landing in the same tick can never lose one of
-  // them (same guarantee a plain `setLocalCvars(prev => ...)` had - review finding).
+  // The optimistic patch is applied through `patch`'s functional form (reads `prev.cvars` at commit
+  // time, so two edits in the same tick cannot lose one). The save sends the full cvars map, which is
+  // why it is rebuilt from the latest draft value kept in `latestCvars`.
+  const latestCvars = useRef(draft.cvars)
+  latestCvars.current = draft.cvars
   const handleChange = (name: string, value: string): void => {
-    patch((prev) => {
-      const next = { ...prev.cvars, [name]: value }
-      scheduleSave(next)
-      return { cvars: next }
+    const next = { ...latestCvars.current, [name]: value }
+    latestCvars.current = next
+    schedule({
+      apply: () => patch({ cvars: next }),
+      // The shared draft survives a tab switch, so a refused save must not leave a phantom edit in it.
+      revert: () => patch({ cvars: profile.cvars }),
+      run: () => updateProfileCvars({ profileId: profile.id, cvars: next }),
     })
   }
 
@@ -328,27 +288,16 @@ export function SettingsTab({ profile, draft, patch, onChanged }: SettingsTabPro
     nextCvars: Record<string, string>,
     nextSections: ConfigCvarSection[],
   ): Promise<boolean> => {
-    clearPendingSave()
-    setSaving(true)
-    setStatus('saving')
-    const result = await updateProfileCvars({
-      profileId: profile.id,
-      cvars: nextCvars,
-      cvarSections: nextSections,
+    const ok = await saveNow({
+      run: () =>
+        updateProfileCvars({
+          profileId: profile.id,
+          cvars: nextCvars,
+          cvarSections: nextSections,
+        }),
     })
-    setSaving(false)
-    if (result.ok) {
-      patch({ cvars: nextCvars, cvarSections: nextSections })
-      onChanged(result.value)
-      setStatus('saved')
-    } else {
-      // Story 059 review Fix 2: surface the rejection instead of leaving the dialog open with no
-      // explanation - same `pushToast`/`error.key`/`timeoutMs: 0` shape `RawFileTab.tsx`'s
-      // `openFile` uses for a failed action.
-      toastOutcomeError(pushToast, result)
-      setStatus('idle')
-    }
-    return result.ok
+    if (ok) patch({ cvars: nextCvars, cvarSections: nextSections })
+    return ok
   }
 
   const sections = useMemo(() => draft.cvarSections ?? [], [draft.cvarSections])

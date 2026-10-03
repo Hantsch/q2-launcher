@@ -81,3 +81,21 @@
 - 2026-10-03 10:46 · 214 · fix comment history · started
 - 2026-10-03 10:49 · 214 · fix comment history · done
 - 2026-10-03 10:49 · 214 · story · done
+- 2026-10-03 10:50 · 212 · build · started
+- 2026-10-03 10:50 · 212 · D1 useProfileSave hook · started
+- 2026-10-03 10:50 · 212 · D6 main refuses new orphan category · started
+- 2026-10-03 10:53 · 212 · D1 useProfileSave hook · done
+- 2026-10-03 10:53 · 212 · D6 main refuses new orphan category · done
+- 2026-10-03 10:53 · 212 · D2 SettingsTab through hook · started
+- 2026-10-03 10:54 · 212 · D2 SettingsTab through hook · done
+- 2026-10-03 10:54 · 212 · D3 ControlsTab through hook · started
+- 2026-10-03 10:56 · 212 · D3 ControlsTab through hook · done
+- 2026-10-03 10:56 · 212 · D4 AliasesTab hook + real category · started
+- 2026-10-03 11:00 · 212 · D4 AliasesTab hook + real category · done
+- 2026-10-03 11:00 · 212 · D5 Layers/Assignments panels through hook · started
+- 2026-10-03 11:00 · 212 · D5 Layers/Assignments panels through hook · done
+- 2026-10-03 11:00 · 212 · verify · started
+- 2026-10-03 11:09 · 212 · verify · done
+- 2026-10-03 11:09 · 212 · review 1 · started
+- 2026-10-03 11:13 · 212 · review 1 · done
+- 2026-10-03 11:13 · 212 · story · done

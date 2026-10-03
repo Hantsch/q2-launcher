@@ -91,9 +91,7 @@ import {
   type EntryPlacementOption,
 } from './lib/entry-order'
 
-const SAVE_DEBOUNCE_MS = 500
-
-type SaveStatus = 'idle' | 'saving' | 'saved'
+import { useProfileSave } from './lib/useProfileSave'
 
 export interface ControlsTabProps {
   profile: ConfigProfile
@@ -123,8 +121,7 @@ export interface ControlsTabProps {
  * Category CRUD is a handful of discrete dialog submits, so it saves
  * immediately (`persistCategoriesAndActions`), same reasoning `LayersPanel`
  * uses for its own immediate `persist()`. The action list's add/remove goes
- * through a debounced save instead, mirroring `SettingsTab`'s
- * `scheduleSave`/`clearPendingSave` - not because actions are typed
+ * through a debounced save instead (`useProfileSave`, as in `SettingsTab`) - not because actions are typed
  * continuously, but so a burst of quick adds/removes does not fire one
  * `updateProfileActions` per click.
  */
@@ -168,9 +165,7 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
     () => (profile.categories ?? [])[0]?.id ?? '',
   )
-  const [status, setStatus] = useState<SaveStatus>('idle')
-  const [saving, setSaving] = useState(false)
-  const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { status, saving, schedule, saveNow } = useProfileSave({ profileId: profile.id, onChanged })
   /** Story 020 D9: one entry per rendered category chip (built-in or custom), keyed by category
    * id, so the scroll-into-view effect below can find the selected chip's DOM node without a
    * ref per category living in component state - a plain mutable map updated by each chip's own
@@ -274,13 +269,6 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
     })
   }
 
-  const clearPendingSave = (): void => {
-    if (saveTimeout.current) {
-      clearTimeout(saveTimeout.current)
-      saveTimeout.current = null
-    }
-  }
-
   // Re-seed the save/status UI whenever the selected profile changes,
   // dropping any save still pending for the profile being switched away from
   // - same pattern as `SettingsTab`. The draft's own content reseed is
@@ -288,8 +276,6 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
   // `profile.id`.
   useEffect(() => {
     setSelectedCategoryId((profile.categories ?? [])[0]?.id ?? '')
-    setStatus('idle')
-    clearPendingSave()
     // Story 029 D4: the reveal set and an open message editor both name a row of the profile being
     // switched away from - carrying them over would show another profile's row as "has a message
     // pending" and let a Save land on the wrong profile's actions.
@@ -304,8 +290,6 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
     setMovingEntry(null)
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- reseeds on a profile switch only, not on every categories edit.
   }, [profile.id])
-
-  useEffect(() => clearPendingSave, [])
 
   // Story 020 D8: a filter typed while looking at one category must not silently hide rows once
   // the user switches categories - clear it on every category change, same reasoning the profile
@@ -370,50 +354,26 @@ export function ControlsTab({ profile, draft, patch, onChanged, focusActionId }:
     // debounce would have sent, since `scheduleActionsSave` patches the draft
     // synchronously - only the network round trip was ever delayed - so
     // cancelling it here loses no edit.
-    clearPendingSave()
-    setSaving(true)
-    setStatus('saving')
-    const result = await updateProfileActions({
-      profileId: profile.id,
-      categories: nextCategories,
-      actions: nextActions,
+    const ok = await saveNow({
+      run: () =>
+        updateProfileActions({
+          profileId: profile.id,
+          categories: nextCategories,
+          actions: nextActions,
+        }),
     })
-    setSaving(false)
-    if (result.ok) {
-      patch({ categories: nextCategories, actions: nextActions })
-      onChanged(result.value)
-      setStatus('saved')
-    } else {
-      setStatus('idle')
-    }
-    return result.ok
+    if (ok) patch({ categories: nextCategories, actions: nextActions })
+    return ok
   }
 
   const scheduleActionsSave = (nextActions: ConfigAction[]): void => {
-    patch({ actions: nextActions })
-    setStatus('saving')
-    clearPendingSave()
-    saveTimeout.current = setTimeout(() => {
-      saveTimeout.current = null
-      void updateProfileActions({
-        profileId: profile.id,
-        categories,
-        actions: nextActions,
-      }).then((result) => {
-        if (result.ok) {
-          onChanged(result.value)
-          setStatus('saved')
-        } else {
-          // Revert the optimistic patch applied above: the shared draft
-          // (story 009 D6) survives a tab switch (unlike the removed
-          // `useState`, which self-corrected on every remount), so a failed
-          // save would otherwise leave a phantom action in the draft - and
-          // therefore in the validator - indefinitely (review finding).
-          patch({ actions: profile.actions ?? [] })
-          setStatus('idle')
-        }
-      })
-    }, SAVE_DEBOUNCE_MS)
+    const before = actions
+    schedule({
+      apply: () => patch({ actions: nextActions }),
+      // The shared draft survives a tab switch, so a refused save must not leave a phantom action in it.
+      revert: () => patch({ actions: before }),
+      run: () => updateProfileActions({ profileId: profile.id, categories, actions: nextActions }),
+    })
   }
 
   /**
