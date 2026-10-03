@@ -1,3 +1,4 @@
+import { latin1RoundTrip } from './render.test-helpers'
 import { describe, expect, it } from 'vitest'
 import { MAX_ALIAS_NAME, MAX_LINE_BYTES } from '@shared/config/alt-layers'
 import {
@@ -82,7 +83,7 @@ describe('renderSwitchBindChain', () => {
       defaultProfileId: 'p1',
     })
 
-    expect(Buffer.from(chain, 'latin1').toString('latin1')).toBe(chain)
+    expect(latin1RoundTrip(chain)).toBe(chain)
   })
 })
 
@@ -290,7 +291,7 @@ describe('switch-bind engine limits', () => {
     })
 
     for (const line of lines) {
-      expect(Buffer.byteLength(line, 'latin1')).toBeLessThan(MAX_LINE_BYTES)
+      expect(line.length).toBeLessThan(MAX_LINE_BYTES)
     }
   })
 

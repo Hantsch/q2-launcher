@@ -12,7 +12,7 @@ import { type AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { type ModuleHandler } from '../types'
 import { hashCanonicalFileContent, readFileState } from './file-source'
-import { renderProfileFile } from './render'
+import { renderProfileFile } from '@shared/config/render'
 import { configModule } from './index'
 import {
   collectHandlers,

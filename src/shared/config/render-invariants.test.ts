@@ -8,7 +8,7 @@ import { generateLayerAliases } from './alt-layers'
 import { readOwnershipStamp } from './file-ownership'
 import { ROUND_TRIP_FIXTURES } from './fixtures/profiles'
 import { KNOWN_META_KEYS, META_FORMAT_VERSION, parseMetaTag } from './profile-metadata'
-import { PROFILE_FIXTURES, SELF_REFERENCE_FIXTURES } from './profile-fixtures'
+import { PROFILE_FIXTURES, SELF_REFERENCE_FIXTURES } from './fixtures/profile-fixtures'
 import {
   HAND_EDIT_SENTENCE,
   OWNERSHIP_MARKER,

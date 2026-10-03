@@ -1,3 +1,4 @@
+import { latin1RoundTrip } from './render.test-helpers'
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
 import { keySlotAt } from '@shared/config/action-slots'
@@ -508,7 +509,7 @@ describe('alias, layer and bind sections', () => {
       const rendered = renderProfileFile(richProfile())
 
       expect(rendered).toContain('Nähkampf')
-      expect(Buffer.from(rendered, 'latin1').toString('latin1')).toBe(rendered)
+      expect(latin1RoundTrip(rendered)).toBe(rendered)
     })
 
     it('is deterministic across repeated calls on a profile with every section kind', () => {

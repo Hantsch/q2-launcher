@@ -181,6 +181,10 @@ central, assigned to installations) and the UI (launcher design system) change.
   (`src/main/modules/config/persisted-migrations.ts`, run by `src/main/services/migrations.ts`) — not `Installation.moduleData`, since a profile is not
   owned by one installation. `Installation` gains `assignedProfiles` (profile id + `isDefault`)
   and `playedMods`.
+- **Profile sub-shapes are declared once** in `src/shared/config/profile-schema.ts` (story 211):
+  the rules both readers share, each as an extendable `z.object` plus a contract-typed schema. The
+  IPC schemas add caps (`.max(n)`, extra `.min(1)`); `persisted.ts` adds forgiveness (`.catch()`,
+  row-level drops, legacy fields) by `.extend()`ing only the fields that are forgiving on disk.
 - **`state.json` is a cache, the `.cfg` is the source of truth** (story 043). Two startup steps in
   `src/main/modules/config/rebuild.ts`, run in this fixed order by `configModule.setup()`:
   1. **One-time format migration** (AC8), gated by the new top-level state key

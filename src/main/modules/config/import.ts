@@ -26,7 +26,11 @@
 
 import { randomUUID } from 'node:crypto'
 import { BASE_GAME_DIR } from '@shared/constants'
-import type { AltLayer } from '@shared/config/alt-layers'
+import {
+  restoredToProfileFields,
+  toRestoreInput as sharedToRestoreInput,
+  type RestoredProfileFields,
+} from '@shared/config/profile-restore-input'
 import {
   foreignBannerCommentText,
   restoreProfileParts,
@@ -36,9 +40,6 @@ import {
   type RestoreWarningReason,
 } from '@shared/config/profile-restore'
 import {
-  type ConfigAction,
-  type ConfigActionCategory,
-  type ConfigCvarSection,
   type ConfigProfile,
   type ImportFilesCommitInput,
   type ImportFilesPreviewInput,
@@ -71,23 +72,9 @@ export interface ConfigFilePicker {
  * `categories`/`layers` - `buildImportedActions`'s own result, alongside the
  * cvars/binds/unrecognized story 005 already produced, never replacing them.
  */
-export type CreateProfileFromImport = (input: {
-  name: string
-  cvars: Record<string, string>
-  binds: Record<string, string>
-  unrecognized: UnrecognizedConfigLine[]
-  actions: ConfigAction[]
-  categories: ConfigActionCategory[]
-  layers: AltLayer[]
-  /**
-   * Story 059 D5: `restoreProfileParts`'s own `cvarSections`, passed through unchanged - the
-   * Settings-tab counterpart of `categories` above. Always an array (possibly empty, never
-   * `undefined`): a foreign config with no cvar-group banners at all files every cvar unplaced,
-   * which is exactly what an empty list means (see `profile-restore.ts`'s "Cvar sections" doc
-   * comment - the reserved `Other` bucket is the *absence* of a section, not a section of its own).
-   */
-  cvarSections: ConfigCvarSection[]
-}) => ConfigProfile[]
+export type CreateProfileFromImport = (
+  input: RestoredProfileFields & { name: string; unrecognized: UnrecognizedConfigLine[] },
+) => ConfigProfile[]
 
 /**
  * True when `gameDir` is really one of `installation`'s own gamedirs.
@@ -174,45 +161,40 @@ export function toRestoreInput(
   layerAliases: readonly string[] | undefined,
   newId: () => string,
 ): RestoreProfilePartsInput {
-  return {
-    aliases: result.aliases.map(({ name, body, file, line, comment, codeWidth }) => ({
-      name,
-      body,
-      file,
-      line,
-      comment,
-      codeWidth,
-    })),
-    binds: Object.entries(result.binds).map(([key, command]) => {
-      const position = result.bindLines[key]
-      return {
-        key,
-        command,
-        file: position?.file ?? '',
-        line: position?.line ?? 0,
-        comment: result.bindComments[key] ?? '',
-      }
-    }),
-    cvars: Object.entries(result.cvars).map(([name, value]) => {
-      const position = result.cvarLines[name]
-      // Story 059 review Fix 3: `firstFile`/`firstLine` carry the name's FIRST occurrence
-      // (`result.cvarFirstLines`) separately from `file`/`line`'s last-assignment-wins position -
-      // `restoreProfileParts`'s `readCvarSections` uses the former for section attribution, the
-      // rest of the pipeline keeps using the latter unchanged.
-      const firstPosition = result.cvarFirstLines[name]
-      return {
-        name,
-        value,
-        file: position?.file ?? '',
-        line: position?.line ?? 0,
-        comment: result.cvarComments[name] ?? '',
-        ...(firstPosition ? { firstFile: firstPosition.file, firstLine: firstPosition.line } : {}),
-      }
-    }),
-    comments: mergeForeignBannerComments(result),
-    layerAliases,
-    newId,
-  }
+  return sharedToRestoreInput(
+    '',
+    {
+      aliases: result.aliases,
+      binds: Object.entries(result.binds).map(([key, command]) => {
+        const position = result.bindLines[key]
+        return {
+          key,
+          command,
+          file: position?.file ?? '',
+          line: position?.line ?? 0,
+          comment: result.bindComments[key] ?? '',
+        }
+      }),
+      cvars: Object.entries(result.cvars).map(([name, value]) => {
+        const position = result.cvarLines[name]
+        // `firstFile`/`firstLine` carry the name's FIRST occurrence (`result.cvarFirstLines`)
+        // separately from `file`/`line`'s last-assignment-wins position - section attribution
+        // uses the former, the rest of the pipeline the latter.
+        const firstPosition = result.cvarFirstLines[name]
+        return {
+          name,
+          value,
+          file: position?.file ?? '',
+          line: position?.line ?? 0,
+          comment: result.cvarComments[name] ?? '',
+          ...(firstPosition
+            ? { firstFile: firstPosition.file, firstLine: firstPosition.line }
+            : {}),
+        }
+      }),
+    },
+    { comments: mergeForeignBannerComments(result), layerAliases, newId },
+  )
 }
 
 /**
@@ -472,8 +454,7 @@ export async function commitImportFiles(
 
   const profiles = createProfile({
     name: input.name,
-    cvars: result.cvars,
-    binds: result.binds,
+    ...restoredToProfileFields(result.cvars, result.binds, restored),
     // Story-042-review finding 5 (fix-cycle-5 continuation): `previewImportFiles` already filters
     // `restored.consumedCommentLines` out of what it calls "preserved" - the header block's
     // decoration, the sentinel, a well-formed section banner - because those are understood,
@@ -483,10 +464,6 @@ export async function commitImportFiles(
     // `unrecognized` list) then asked the user to tidy up the launcher's own metadata on every
     // restored profile. Same filter, same reasoning, applied where the data actually gets stored.
     unrecognized: preservedLinesFor(result.unrecognized, restored.consumedCommentLines),
-    actions: restored.actions,
-    categories: restored.categories,
-    layers: restored.layers,
-    cvarSections: restored.cvarSections,
   })
 
   return ok(profiles)

@@ -1,8 +1,19 @@
 import { z } from 'zod'
-import { MAX_WAIT_FRAMES } from '@shared/config/engine-limits'
 import { NAMED_KEYS, normalizeBindKey } from '@shared/config/key-names'
-import { isLatin1Text } from '@shared/config/q2-charset'
-import type { ModifierTrigger } from '@shared/config/modifier-layers'
+import {
+  actionEntryKindSchema,
+  actionEntryPartObjectSchema,
+  actionKeySlotObjectSchema,
+  actionTextSchema,
+  altLayerObjectSchema,
+  configActionCategoryObjectSchema,
+  configActionObjectSchema,
+  configActionSubcategoryObjectSchema,
+  configCommandSchema,
+  configCvarSectionObjectSchema,
+  configCvarSubsectionObjectSchema,
+  refineActionParts,
+} from '@shared/config/profile-schema'
 import type { TidyUpOp } from '@shared/config/tidy-up'
 import type { ConfigCvarSection, TidyUpApplyInput } from '@shared/modules/config'
 
@@ -47,39 +58,18 @@ export const unassignProfileInputSchema = assignProfileInputSchema
 export const setDefaultProfileInputSchema = assignProfileInputSchema
 
 /**
- * Story 059 D1: one cvar sub-section - the second and final level below a `ConfigCvarSection`. Same
- * shape and length rule as `configActionSubcategorySchema`'s own `name`, and same "cvar names are
- * shape-only, never cross-validated against the catalogue" rule as `cvars` on the section schema
- * below: a section carrying a name the catalogue does not recognise is not this schema's problem
- * to reject - the Settings tab (a later deliverable) simply has nothing to show for it.
+ * The cvar sub-section/section shapes come from the shared profile schema; this side adds the IPC
+ * caps. The cvar-name lists are a generous sanity ceiling (an imported file's single big section can
+ * legitimately hold far more than 64 names), not a structural cap - the structural cap is on
+ * `subsections`.
  */
-const configCvarSubsectionSchema = z.object({
-  id: z.string().min(1),
+const configCvarSubsectionSchema = configCvarSubsectionObjectSchema.extend({
   name: z.string().min(1).max(120),
-  // Story 059 review Fix 1: this caps how many cvar NAMES a sub-section can carry, not how many
-  // sub-sections a section can have (that cap lives on `subsections` below). A migrated or
-  // imported profile can legitimately hold a sub-section with far more than 64 cvar names (e.g. a
-  // foreign file's single large section), so this is a generous sanity ceiling, not a structural
-  // limit - it must never reject a real config file's cvar list.
   cvars: z.array(z.string().min(1)).max(512),
 })
 
-/**
- * Story 059 D1: one profile-owned cvar section - the Settings-tab counterpart of
- * `configActionCategorySchema` above. `nameKey` is carried through unstripped for the same reason
- * that schema's own `nameKey` is: a section seeded from `STANDARD_TEMPLATE.cvarSections` keeps its
- * display hint across an ordinary `setCvars` round-trip until a rename drops it. `subsections` is
- * capped at 64, same bound `configActionCategorySchema` gives its own `subcategories`.
- */
-const configCvarSectionSchema: z.ZodType<ConfigCvarSection> = z.object({
-  id: z.string().min(1),
+const configCvarSectionSchema: z.ZodType<ConfigCvarSection> = configCvarSectionObjectSchema.extend({
   name: z.string().min(1).max(120),
-  nameKey: z.string().min(1).optional(),
-  // Story 059 review Fix 1: same "generous sanity ceiling on cvar-name-list length, not a
-  // structural cap" reasoning as `configCvarSubsectionSchema.cvars` above - a section (e.g. an
-  // imported file's single big section, or the "Other" bucket) can legitimately hold far more than
-  // 64 cvar names. The *structural* cap this schema is meant to enforce is on `subsections`'s own
-  // length, right below.
   cvars: z.array(z.string().min(1)).max(512),
   subsections: z.array(configCvarSubsectionSchema).max(64).optional(),
 })
@@ -124,22 +114,14 @@ export const setProfileBindsInputSchema = z.object({
 })
 
 /**
- * One `AltLayer`'s shape, validated strictly - this is the IPC payload schema,
- * not the persisted-state one (`main/modules/config/persisted.ts`'s `layers` field): a bad
- * payload here is a caller bug and `.parse()` is meant to throw, while the
- * persisted schema degrades a mangled value to `[]` instead.
- *
- * `triggerKey` is nullable - `null` means "no trigger assigned yet" (story
- * 011), same nullable-field convention as `setSwitchBindInputSchema`'s `key`
- * below. `.min(1)` still rejects `''`; this deliberately stops at "non-empty
- * string or null" and does not layer `switchBindKeySchema`'s key-vocabulary
- * check on top, since the board's key set isn't proven identical to
- * `NAMED_KEYS` (story decision 9).
+ * One `AltLayer`, validated strictly - a bad payload here is a caller bug and `.parse()` throws,
+ * while the persisted schema degrades a mangled value instead. `triggerKey` `null` means "no trigger
+ * assigned yet"; `.min(1)` rejects `''` but deliberately stops short of the key vocabulary check
+ * (the board's key set is not proven identical to `NAMED_KEYS`).
  */
-const altLayerSchema = z.object({
+const altLayerSchema = altLayerObjectSchema.extend({
   id: z.string().min(1),
   name: z.string().min(1),
-  mode: z.enum(['hold', 'toggle']),
   triggerKey: z.string().min(1).nullable(),
   overrides: z.record(z.string().min(1), z.string()),
 })
@@ -149,182 +131,52 @@ export const setProfileLayersInputSchema = z.object({
   layers: z.array(altLayerSchema).max(64),
 })
 
-/**
- * Story 008: every action/message string. Latin-1 code points only
- * (U+0000-U+00FF) and no `"` - Quake has no in-quote escaping, so a literal
- * quote cannot be represented at all (same rule `alt-layers.ts`'s
- * `sanitizeCommand` enforces for layer bodies, applied here at the schema
- * boundary instead of by silent stripping, since the story explicitly wants
- * this class of input *rejected*, not mangled). Exported so
- * `main/modules/config/persisted.ts`'s forgiving persisted schema can reuse the same rule
- * (via `isLatin1Text` directly there, to stay a `.safeParse`-per-row check
- * rather than importing this strict schema).
- */
-export const actionTextSchema = z
-  .string()
-  .refine((value) => isLatin1Text(value), 'must be latin-1 (U+0000-U+00FF only)')
-  .refine((value) => !value.includes('"'), 'double quotes are not representable in Quake 2')
+export { actionTextSchema }
 
-/**
- * Story 045 D1: a `wait <frames>` step. `frames` is bounded by `MAX_WAIT_FRAMES` - a launcher
- * sanity cap, not an engine-enforced one (see that constant's doc comment) - so a payload asking
- * for an absurd wait is rejected here rather than accepted and only misbehaving later at render time.
- */
-const configWaitCommandSchema = z.object({
-  kind: z.literal('wait'),
-  frames: z.number().int().min(1).max(MAX_WAIT_FRAMES),
-})
-
-const configCommandSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('raw'), text: actionTextSchema }),
-  z.object({
-    kind: z.literal('message'),
-    channel: z.enum(['say', 'say_team']),
-    text: actionTextSchema,
-  }),
-  configWaitCommandSchema,
-])
-
-/**
- * Story 016: the modifier held during capture of `key`/`secondaryKey`. Typed against
- * `ModifierTrigger` (`@shared/config/modifier-layers`) rather than redeclaring the literal union,
- * so this schema and the type it validates cannot drift apart.
- */
-const modifierTriggerSchema: z.ZodType<ModifierTrigger> = z.enum(['ALT', 'CTRL', 'SHIFT'])
-
-/**
- * Story 019: a category is a named drawer and nothing else - the entry kind moved onto the entry
- * (`actionEntryKindSchema` below), so story 008's `entryKind` field is gone from this payload.
- *
- * `nameKey` (story 052 D1) is the optional i18n display hint `ConfigActionCategory.nameKey`
- * documents - carried through here (rather than stripped as an unrecognised field) so a category
- * seeded from `TEMPLATE_ACTION_CATEGORIES` keeps it across an ordinary `setActions` round-trip
- * until a rename drops it. Same "non-empty string, no further vocabulary check" rule as
- * `catalogId`/`aliasName` below - this schema only guards shape, not whether the key is one the
- * renderer actually recognises.
- */
-/**
- * Story 053 D1: one sub-category - the second and final level below a category. Same shape and
- * length rule as the category's own `name` field right below.
- */
-const configActionSubcategorySchema = z.object({
-  id: z.string().min(1),
+const configActionSubcategorySchema = configActionSubcategoryObjectSchema.extend({
   name: z.string().min(1).max(120),
 })
 
-const configActionCategorySchema = z.object({
-  id: z.string().min(1),
+const configActionCategorySchema = configActionCategoryObjectSchema.extend({
   name: z.string().min(1).max(120),
-  nameKey: z.string().min(1).optional(),
-  // Story 053 (D1): a category's own sub-categories. Optional (a category with none simply omits
-  // it) and capped the same way `categories`/`actions` are capped on `setProfileActionsInputSchema`
-  // below, so a renderer payload cannot grow this array without bound either.
   subcategories: z.array(configActionSubcategorySchema).max(64).optional(),
 })
 
-/**
- * Story 019: what the entry is. Required and strict on purpose - a renderer payload is never
- * trusted, and defaulting a missing value here would silently retype an entry (a message saved as
- * a bind) instead of failing the call. The forgiving derive lives only in the persisted schema
- * (`main/modules/config/persisted.ts`), where the input is an old `state.json` rather than a caller.
- */
-// Story 045 D1: adds the two-part `'toggle'`/`'press-release'` kinds, cross-validated against
-// `parts` below.
-const actionEntryKindSchema = z.enum(['bind', 'message', 'alias', 'toggle', 'press-release'])
-
-/**
- * Story 045 D1: one state's worth of commands for a two-part action, mirroring
- * `@shared/modules/config`'s `ActionEntryPart` exactly.
- */
-const actionEntryPartSchema = z.object({
+const actionEntryPartSchema = actionEntryPartObjectSchema.extend({
   commands: z.array(configCommandSchema).max(64),
   label: z.string().max(120).optional(),
   aliasName: z.string().min(1).optional(),
 })
 
-/** The `ActionEntryKind`s that require exactly two `parts` (story 045 D1). */
-const TWO_PART_ACTION_KINDS = new Set(['toggle', 'press-release'])
-
-/**
- * Story 050: one `ActionKeySlot` - a key plus the optional modifier held while capturing it. Same
- * length rule `key` always had, and the same modifier vocabulary `keyModifier` always had.
- */
-const actionKeySlotSchema = z.object({
+const actionKeySlotSchema = actionKeySlotObjectSchema.extend({
   key: z.string().max(20),
-  modifier: modifierTriggerSchema.optional(),
 })
 
-/**
- * Story 050: the pre-050 four-field shape (`key`/`secondaryKey`/`keyModifier`/
- * `secondaryKeyModifier`) is still accepted here and normalised into `keys` before validation -
- * every caller that has not yet moved to `keys` (renderer call sites land it in D3-D5) still gets
- * a valid payload rather than a thrown error. Input already carrying `keys` passes through
- * untouched; the two shapes are never merged.
- */
-function normalizeActionKeys(raw: unknown): unknown {
-  if (typeof raw !== 'object' || raw === null) return raw
-  const value = raw as Record<string, unknown>
-  if ('keys' in value) return raw
-
-  const slots: unknown[] = []
-  if (typeof value.key === 'string') {
-    slots.push({ key: value.key, modifier: value.keyModifier })
-  }
-  if (typeof value.secondaryKey === 'string') {
-    slots.push({ key: value.secondaryKey, modifier: value.secondaryKeyModifier })
-  }
-  if (slots.length === 0) return raw
-
-  const {
-    key: _key,
-    secondaryKey: _secondaryKey,
-    keyModifier: _keyModifier,
-    secondaryKeyModifier: _secondaryKeyModifier,
-    ...rest
-  } = value
-  return { ...rest, keys: slots }
-}
-
-export const configActionSchema = z.preprocess(
-  normalizeActionKeys,
-  z
-    .object({
-      id: z.string().min(1),
-      categoryId: z.string().min(1),
-      // Story 053 (D1): which of `categoryId`'s `subcategories` this entry sits under. Same
-      // "non-empty string, no cross-reference check" rule as `catalogId` below - a value naming a
-      // sub-category the category doesn't have is still a valid string; falling into the
-      // ungrouped bucket for that case is a render/grouping concern, not this schema's job.
-      subcategoryId: z.string().min(1).optional(),
-      name: z.string().min(1).max(120),
-      kind: actionEntryKindSchema,
-      commands: z.array(configCommandSchema).max(64),
-      // Story 050: replaces the old fixed `key`/`secondaryKey`/`keyModifier`/`secondaryKeyModifier`
-      // fields with an arbitrary-length array - see `ActionKeySlot`/`@shared/config/action-slots.ts`.
-      // `normalizeActionKeys` above accepts the legacy shape and folds it into this field first.
-      keys: z.array(actionKeySlotSchema).max(64).optional(),
-      // Story 015 (decision 2): opaque catalogue-row id, generated by the editor,
-      // never shown to the user - so only "non-empty string" is a meaningful rule here.
-      catalogId: z.string().min(1).optional(),
-      // Story 039 (D1): the human-readable alias name the user typed, rendered verbatim (sign kept)
-      // by `aliasNameFor` when set. Same "non-empty string" rule as `catalogId` - length/character
-      // limits belong to the render layer, not the payload schema.
-      aliasName: z.string().min(1).optional(),
-      // Story 045 (D1): the second half of a two-part `toggle`/`press-release` entry. Structurally
-      // optional here; the `superRefine` below is what actually requires it (and requires exactly
-      // two elements) for those two kinds.
-      parts: z.array(actionEntryPartSchema).optional(),
-    })
-    .superRefine((action, ctx) => {
-      if (!TWO_PART_ACTION_KINDS.has(action.kind)) return
-      if (Array.isArray(action.parts) && action.parts.length === 2) return
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `'${action.kind}' actions require exactly two 'parts'`,
-        path: ['parts'],
-      })
-    }),
-)
+// A payload is never trusted, so `kind` is required and never defaulted here (the forgiving derive
+// lives only in the persisted schema). Dropping and re-declaring the capped keys keeps the output
+// key order of the IPC tree (`kind` before `commands`), which callers serialise.
+export const configActionSchema = configActionObjectSchema
+  .omit({
+    name: true,
+    commands: true,
+    kind: true,
+    keys: true,
+    catalogId: true,
+    aliasName: true,
+    parts: true,
+    subcategoryId: true,
+  })
+  .extend({
+    subcategoryId: z.string().min(1).optional(),
+    name: z.string().min(1).max(120),
+    kind: actionEntryKindSchema,
+    commands: z.array(configCommandSchema).max(64),
+    keys: z.array(actionKeySlotSchema).max(64).optional(),
+    catalogId: z.string().min(1).optional(),
+    aliasName: z.string().min(1).optional(),
+    parts: z.array(actionEntryPartSchema).optional(),
+  })
+  .superRefine(refineActionParts)
 
 export const setProfileActionsInputSchema = z.object({
   profileId: z.string().min(1),

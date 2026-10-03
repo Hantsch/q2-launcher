@@ -30,18 +30,13 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { AltLayer } from '@shared/config/alt-layers'
+import { restoreProfileParts, type RestoreWarning } from '@shared/config/profile-restore'
 import {
-  restoreProfileParts,
-  type RestoreProfilePartsInput,
-  type RestoreWarning,
-} from '@shared/config/profile-restore'
-import type {
-  ConfigAction,
-  ConfigActionCategory,
-  ConfigCvarSection,
-  UnrecognizedConfigLine,
-} from '@shared/modules/config'
+  restoredToProfileFields,
+  toRestoreInput,
+  type RestoredProfileFields,
+} from '@shared/config/profile-restore-input'
+import type { UnrecognizedConfigLine } from '@shared/modules/config'
 import {
   parseConfigText,
   type ParsedAlias,
@@ -180,45 +175,6 @@ function discardedAliasWarnings(file: string, discarded: readonly ParsedAlias[])
   }))
 }
 
-/** `foldConfig`'s maps, shaped into `restoreProfileParts`'s input - every line tagged with `file`
- * (there is only one, the canonical file itself, unlike a multi-file installation import) since
- * `RestoreSourcePosition` requires it for section attribution. No `layerAliases`: that field only
- * matters on the untagged/foreign-config delegation path, where it stands for the user's own
- * "attempt as layer" answers - there are none yet at this pure read/classify stage. */
-function toRestoreInput(
-  file: string,
-  parsed: ParseConfigResult,
-  folded: FoldedConfig,
-  newId: () => string,
-): RestoreProfilePartsInput {
-  return {
-    aliases: [...folded.aliases.values()].map((alias) => ({
-      name: alias.name,
-      body: alias.body,
-      file,
-      line: alias.line,
-      comment: alias.comment,
-      codeWidth: alias.codeWidth,
-    })),
-    binds: [...folded.binds.values()].map((bind) => ({
-      key: bind.key,
-      command: bind.command,
-      file,
-      line: bind.line,
-      comment: bind.comment,
-    })),
-    cvars: [...folded.cvars.values()].map((cvar) => ({
-      name: cvar.name,
-      value: cvar.value,
-      file,
-      line: cvar.line,
-      comment: cvar.comment,
-    })),
-    comments: parsed.comments.map((comment) => ({ text: comment.text, file, line: comment.line })),
-    newId,
-  }
-}
-
 // ---------------------------------------------------------------------------
 // The result shape
 // ---------------------------------------------------------------------------
@@ -229,18 +185,12 @@ function toRestoreInput(
  * by combining this with the identity fields (`id`, `name`, `createdAt`, `assignments`, ...) that
  * live only in the persisted profile and that this module has no business inventing.
  */
-export interface ParsedCanonicalProfile {
-  cvars: Record<string, string>
-  binds: Record<string, string>
-  actions: ConfigAction[]
-  categories: ConfigActionCategory[]
-  /** The cvar sections the file's own banners state (story 059 D3) - the Settings-tab counterpart
+export interface ParsedCanonicalProfile extends RestoredProfileFields {
+  /** `cvarSections`: the cvar sections the file's own banners state (story 059 D3) - the Settings-tab counterpart
    * of `categories` above, carried through here for the same two consumers: `rebuild.ts`'s rebuilt
    * record and `ProfilesStore.adoptFromFile`'s overlay. Never carries the writer's reserved
    * `Defaults`/`Other` buckets, so the cvars under those read back as plain values in `cvars` and
    * stay unplaced - see `profile-restore.ts`' own doc comment. */
-  cvarSections: ConfigCvarSection[]
-  layers: AltLayer[]
   /** Every discrepancy reading this file back turned up - a malformed tag, a hand-deleted version
    * marker, a tag that disagreed with the config line it sat on (all `restoreProfileParts`'), plus
    * the `entry-alias-duplicate` reports from this module's own `alias` fold, which happens before
@@ -274,18 +224,29 @@ export interface ParsedCanonicalProfile {
 function parseCanonicalProfile(file: string, content: string): ParsedCanonicalProfile {
   const parsed = parseConfigText(content)
   const folded = foldConfig(parsed)
-  const restored = restoreProfileParts(toRestoreInput(file, parsed, folded, randomUUID))
+  // Every line is tagged with the one canonical `file`; no `layerAliases` - there are no
+  // "attempt as layer" answers at this read stage.
+  const restored = restoreProfileParts(
+    toRestoreInput(
+      file,
+      {
+        aliases: folded.aliases.values(),
+        binds: folded.binds.values(),
+        cvars: folded.cvars.values(),
+      },
+      { comments: parsed.comments, newId: randomUUID },
+    ),
+  )
   // Comment-ONLY lines, by line number - `parseConfigText` collects those into `comments`
   // additionally to `preserved`, never instead of it, so this is the exact set to subtract.
   const commentOnlyLines = new Set(parsed.comments.map((comment) => comment.line))
 
   return {
-    cvars: Object.fromEntries([...folded.cvars.values()].map((cvar) => [cvar.name, cvar.value])),
-    binds: Object.fromEntries([...folded.binds.values()].map((bind) => [bind.key, bind.command])),
-    actions: restored.actions,
-    categories: restored.categories,
-    cvarSections: restored.cvarSections,
-    layers: restored.layers,
+    ...restoredToProfileFields(
+      Object.fromEntries([...folded.cvars.values()].map((cvar) => [cvar.name, cvar.value])),
+      Object.fromEntries([...folded.binds.values()].map((bind) => [bind.key, bind.command])),
+      restored,
+    ),
     // The fold's own reports first: they are about lines `restoreProfileParts` was never handed,
     // and they name content that is missing from everything below them in this result.
     warnings: [...discardedAliasWarnings(file, folded.discardedAliases), ...restored.warnings],

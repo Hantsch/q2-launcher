@@ -162,6 +162,19 @@ describe('architecture', () => {
     expect(ALL_EDGES.length).toBeGreaterThan(500)
   })
 
+  it('src/shared/config/fixtures is imported only by tests and test-only helpers', () => {
+    const FIXTURES = 'src/shared/config/fixtures'
+    const importers = (file: string): string[] =>
+      ALL_EDGES.filter((edge) => edge.to === file.replace(/\.tsx?$/, '')).map((edge) => edge.from)
+    const testOnly = (file: string): boolean =>
+      isTestFile(file) || (importers(file).length > 0 && importers(file).every(isTestFile))
+    expect(
+      ALL_EDGES.filter(
+        (edge) => under(edge.to, FIXTURES) && !under(edge.from, FIXTURES) && !testOnly(edge.from),
+      ).map((edge) => `${edge.from} -> ${edge.to}`),
+    ).toEqual([])
+  })
+
   it('src/shared imports no node:, electron, main, renderer or preload module', () => {
     expect(
       offenders(
@@ -291,6 +304,13 @@ describe('architecture', () => {
       0,
     )
     expect(count).toBeLessThanOrEqual(AS_ANY_BASELINE)
+  })
+
+  it('no production file is an export-star re-export of a shared module', () => {
+    const shims = PRODUCTION.filter((file) =>
+      /^\s*export\s+\*\s+from\s+'@shared\/[^']*'\s*;?\s*$/.test(stripComments(TEXT.get(file) ?? '')),
+    )
+    expect(shims).toEqual([])
   })
 
   it('the per-file purity checks and their tsconfig excludes are gone', () => {

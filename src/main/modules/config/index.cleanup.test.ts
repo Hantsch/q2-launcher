@@ -15,7 +15,7 @@ import { StateStore } from '../../services/state'
 import { type ModuleHandler } from '../types'
 import { scanRedundantCopies } from './cleanup'
 import { hashCanonicalFileContent } from './file-source'
-import { renderProfileFile } from './render'
+import { renderProfileFile } from '@shared/config/render'
 import { applyCleanupIfNotRunning, configModule, restoreCleanupIfNotRunning } from './index'
 import {
   collectHandlers,

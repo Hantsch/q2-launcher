@@ -97,13 +97,12 @@ describe('setProfileActionsInputSchema (IPC payload validation)', () => {
     expect(setProfileActionsInputSchema.safeParse(payload({ key: 'f' })).success).toBe(true)
   })
 
-  it('rejects a secondaryKey longer than the key limit, same as key', () => {
+  it('rejects a key slot longer than the key limit, in any slot', () => {
     const tooLong = 'x'.repeat(21)
-    expect(setProfileActionsInputSchema.safeParse(payload({ secondaryKey: tooLong })).success).toBe(
-      false,
-    )
-    // The point is that the second slot is no laxer than the first.
-    expect(setProfileActionsInputSchema.safeParse(payload({ key: tooLong })).success).toBe(false)
+    expect(
+      setProfileActionsInputSchema.safeParse(payload({ keys: [{ key: 'f' }, { key: tooLong }] }))
+        .success,
+    ).toBe(false)
   })
 
   it('rejects an empty catalogId', () => {

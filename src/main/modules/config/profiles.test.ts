@@ -19,7 +19,7 @@ import { captureBaseline } from '@shared/config/profile-baseline'
 import { keySlotAt } from '@shared/config/action-slots'
 import { diffProfileAgainstBaseline } from '@shared/config/profile-diff'
 import { ProfilesStore } from './profiles'
-import { renderProfileFile } from './render'
+import { renderProfileFile } from '@shared/config/render'
 import { configState } from './persisted'
 
 /**

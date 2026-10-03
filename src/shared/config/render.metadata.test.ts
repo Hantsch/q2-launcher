@@ -1,3 +1,4 @@
+import { latin1RoundTrip } from './render.test-helpers'
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
@@ -174,7 +175,7 @@ describe('the [q2l ...] metadata the writer emits', () => {
     const rendered = renderProfileFile(build())
 
     expect(renderProfileFile(build())).toBe(rendered)
-    expect(Buffer.from(rendered, 'latin1').toString('latin1')).toBe(rendered)
+    expect(latin1RoundTrip(rendered)).toBe(rendered)
     // The two slots of the one entry: one catalogue tag, twice, with nothing left to tell the
     // two lines apart but the key each of them binds.
     const catalogue = { cid: 'weapon:blaster' }

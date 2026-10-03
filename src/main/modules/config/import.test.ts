@@ -22,7 +22,7 @@ import {
   previewImportFiles,
 } from './import'
 import { PickedFilesRegistry } from './picked-files'
-import { renderLoaderFile, renderProfileFile } from './render'
+import { renderLoaderFile, renderProfileFile } from '@shared/config/render'
 import { configState } from './persisted'
 
 /**

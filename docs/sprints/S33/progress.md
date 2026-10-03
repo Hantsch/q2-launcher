@@ -18,3 +18,30 @@
 - 2026-10-03 09:18 · 224 · review 1 · started
 - 2026-10-03 09:24 · 224 · review 1 · done
 - 2026-10-03 09:24 · 224 · story · done
+- 2026-10-03 09:24 · 211 · build · started
+- 2026-10-03 09:24 · 211 · D1 characterization gate · started
+- 2026-10-03 09:25 · 211 · D1 characterization gate · done
+- 2026-10-03 09:25 · 211 · D2 shared sub-shapes · started
+- 2026-10-03 09:31 · 211 · D2 shared sub-shapes · done
+- 2026-10-03 09:31 · 211 · D3 IPC tree derives from shared · started
+- 2026-10-03 09:33 · 211 · D3 IPC tree derives from shared · done
+- 2026-10-03 09:33 · 211 · D4 one restore adapter · started
+- 2026-10-03 09:34 · 211 · D4 one restore adapter · done
+- 2026-10-03 09:34 · 211 · D5 restored-fields type · started
+- 2026-10-03 09:37 · 211 · D5 restored-fields type · done
+- 2026-10-03 09:37 · 211 · D6 render tests move · started
+- 2026-10-03 09:38 · 211 · D6 render tests move · done
+- 2026-10-03 09:38 · 211 · D7 delete re-export shims · started
+- 2026-10-03 09:39 · 211 · D7 delete re-export shims · done
+- 2026-10-03 09:39 · 211 · D8 fixtures out of production graph · started
+- 2026-10-03 09:40 · 211 · D8 fixtures out of production graph · done
+- 2026-10-03 09:40 · 211 · verify · started
+- 2026-10-03 09:41 · 211 · verify · done
+- 2026-10-03 09:41 · 211 · review 1 · started
+- 2026-10-03 09:42 · 211 · review 1 · done
+- 2026-10-03 09:42 · 211 · review-fix 1 subcategoryId · started
+- 2026-10-03 09:43 · 211 · review-fix 1 subcategoryId · done
+- 2026-10-03 09:43 · 211 · review 2 (hard) · started
+- 2026-10-03 09:46 · 211 · review 2 (hard) · done
+- 2026-10-03 09:46 · 211 · review-fix 2 two-way type tests · started
+- 2026-10-03 09:48 · 211 · story · done

@@ -28,7 +28,7 @@ import { scopedLogger } from '../../lib/logger'
 import { StateStore } from '../../services/state'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { hashCanonicalFileContent, readFileState } from './file-source'
-import { renderProfileFile } from './render'
+import { renderProfileFile } from '@shared/config/render'
 import { configModule } from './index'
 import { seedConfigProfiles } from '../../../test-support/config-state'
 import { configState } from './persisted'
@@ -53,7 +53,7 @@ import { configState } from './persisted'
  * find.
  *
  * Note on the story's own D10 file list: it names `src/shared/config/render-invariants.test.ts` and
- * `src/shared/config/profile-fixtures.ts` as new files for this deliverable. Both already existed
+ * `src/shared/config/fixtures/profile-fixtures.ts` as new files for this deliverable. Both already existed
  * (stories 038-040) and have nothing to do with 043, so this pipeline pass lives here instead, next
  * to the main-process code it exercises.
  */

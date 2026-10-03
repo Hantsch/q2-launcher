@@ -461,9 +461,6 @@ describe('setProfileActionsInputSchema - toggle/press-release parts, wait comman
 /**
  * Story 050: `keys` replaces the old fixed `key`/`secondaryKey`/`keyModifier`/
  * `secondaryKeyModifier` fields, with arbitrary length rather than the previous two-slot cap.
- * `normalizeActionKeys` also still accepts the legacy shape here, not just in the persisted
- * schema (`main/modules/config/persisted.test.ts`), so a caller that has not yet moved to `keys` still gets a
- * valid payload rather than a thrown error.
  */
 describe('configActionSchema - keys (story 050)', () => {
   const base = {
@@ -490,24 +487,15 @@ describe('configActionSchema - keys (story 050)', () => {
     expect(result.keys?.[4]).toEqual({ key: 'Q', modifier: 'SHIFT' })
   })
 
-  it('normalises the legacy key/keyModifier/secondaryKey/secondaryKeyModifier shape into keys', () => {
-    const result = configActionSchema.parse({
-      ...base,
-      key: 'W',
-      keyModifier: 'ALT',
-      secondaryKey: 'X',
-    })
-
-    expect(result.keys).toEqual([{ key: 'W', modifier: 'ALT' }, { key: 'X' }])
-    expect(result).not.toHaveProperty('key')
-    expect(result).not.toHaveProperty('secondaryKey')
-    expect(result).not.toHaveProperty('keyModifier')
-    expect(result).not.toHaveProperty('secondaryKeyModifier')
-  })
-
   it('leaves an action with no key fields at all with no keys property', () => {
     const result = configActionSchema.parse(base)
     expect(result.keys).toBeUndefined()
+  })
+
+  it('rejects an empty subcategoryId on an action', () => {
+    expect(configActionSchema.safeParse({ ...base, subcategoryId: '' }).success).toBe(false)
+    expect(configActionSchema.safeParse({ ...base, subcategoryId: 's1' }).success).toBe(true)
+    expect(configActionSchema.safeParse(base).success).toBe(true)
   })
 })
 

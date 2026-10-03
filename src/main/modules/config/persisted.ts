@@ -5,13 +5,19 @@ import { migrateLegacyAliasReferences, normalizeLegacyActionKeys } from './persi
 import type { StateSection, StateSectionSpec, StateStore } from '../../services/state'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { adoptRawBinds } from '@shared/config/bind-adoption'
-import {
-  stripAliasActionBinds,
-  stripAliasActionOverrides,
-  type ModifierTrigger,
-} from '@shared/config/modifier-layers'
-import { MAX_WAIT_FRAMES } from '@shared/config/engine-limits'
+import { stripAliasActionBinds, stripAliasActionOverrides } from '@shared/config/modifier-layers'
 import type { ProfileBaseline } from '@shared/config/profile-baseline'
+import {
+  actionEntryKindSchema,
+  actionKeySlotObjectSchema,
+  altLayerObjectSchema,
+  configActionCategoryObjectSchema,
+  configActionObjectSchema,
+  configActionSubcategoryObjectSchema,
+  configCvarSectionObjectSchema,
+  configCvarSubsectionObjectSchema,
+  refineActionParts,
+} from '@shared/config/profile-schema'
 import type {
   ActionEntryKind,
   ConfigAction,
@@ -19,246 +25,92 @@ import type {
   ConfigCvarSection,
   ConfigProfile,
 } from '@shared/modules/config'
-import { isLatin1Text } from '@shared/config/q2-charset'
 
 const nowIso = (): string => new Date().toISOString()
 
-/**
- * One persisted `AltLayer` entry. Typed against the shared `AltLayer` shape so
- * the two stay in sync; not the same schema as
- * `main/modules/config/schemas.ts`'s `setProfileLayersInputSchema` - that one
- * is the strict IPC payload, this one is the forgiving persisted-state shape
- * used only via `configProfileSchema`'s `layers` field below.
+/*
+ * The persisted twins of `@shared/config/profile-schema`'s shapes. Each extends the shared object
+ * and overrides only the fields that are forgiving on disk; every other field - and its position in
+ * the output - is the shared one. Two kinds of forgiveness, chosen per field:
+ * - `.catch()` on the field degrades just that value, keeping the row;
+ * - no catch means a bad value fails the row, which `parseForgivingRows` then drops on its own -
+ *   one bad row among several good ones never wipes the rest. Command text that fails the
+ *   latin-1/no-quote rule, an out-of-range `wait`, or a malformed two-part `parts` all take this
+ *   path deliberately.
  */
-const altLayerPersistedSchema: z.ZodType<AltLayer> = z.object({
-  id: z.string(),
-  name: z.string(),
-  mode: z.enum(['hold', 'toggle']),
-  // Story 011: `null` means "no trigger assigned yet". A missing/malformed
-  // value degrades to `null` (same forgiving convention as the rest of this
-  // schema) rather than failing the whole row; a pre-011 string value passes
-  // through unchanged.
-  triggerKey: z.string().nullable().catch(null),
-  overrides: z.record(z.string(), z.string()),
+
+/** A missing/malformed `triggerKey` degrades to `null` ("no trigger yet") instead of failing the layer. */
+const altLayerPersistedSchema: z.ZodType<AltLayer> = altLayerObjectSchema.extend({
+  triggerKey: altLayerObjectSchema.shape.triggerKey.catch(null),
 })
 
 /**
- * Story 008: one persisted `ConfigActionCategory`/`ConfigAction`/`ConfigCommand` row -
- * structurally the strict shapes `main/modules/config/schemas.ts`'s
- * `configActionCategorySchema`/`configActionSchema`/`configCommandSchema` describe, but this file
- * follows the "forgiving, drop what fails" convention rather than "throw on bad payload": a
- * malformed row - including a command whose text fails the latin-1/no-quote rule, checked here
- * directly via `isLatin1Text` rather than by importing the strict module's `actionTextSchema` -
- * simply fails this row's `.safeParse` in `parseForgivingRows` below and is dropped alone. Unlike
- * `layers` right above, which degrades the *whole* field to `[]` via `.catch(() => [])`, this
- * story's own acceptance criterion requires row-level dropping: one bad row among several good
- * ones must not wipe the rest.
- */
-const persistedActionTextSchema = z
-  .string()
-  .refine((value) => isLatin1Text(value) && !value.includes('"'))
-
-/**
- * Story 045 D1: a `wait <frames>` step, persisted-schema mirror of the strict IPC schema's
- * `configWaitCommandSchema`. Deliberately not `.catch()`-softened on `frames`: an out-of-range or
- * non-integer value fails this command, which fails the whole `commands` array, which fails the
- * action row - the same "drop the row, not the field" treatment `persistedActionTextSchema`'s
- * latin-1/no-quote rule already gets for `raw`/`message` text.
- */
-const waitCommandPersistedSchema = z.object({
-  kind: z.literal('wait'),
-  frames: z.number().int().min(1).max(MAX_WAIT_FRAMES),
-})
-
-const configCommandPersistedSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('raw'), text: persistedActionTextSchema }),
-  z.object({
-    kind: z.literal('message'),
-    channel: z.enum(['say', 'say_team']),
-    text: persistedActionTextSchema,
-  }),
-  waitCommandPersistedSchema,
-])
-
-/** Story 019: what one entry is. Same vocabulary as the strict IPC schema's
- * `actionEntryKindSchema`. Story 045 D1 adds the two-part `'toggle'`/`'press-release'` kinds. */
-const actionEntryKindPersistedSchema = z.enum([
-  'bind',
-  'message',
-  'alias',
-  'toggle',
-  'press-release',
-])
-
-/**
- * Story 045 D1: one state's worth of commands for a two-part action, persisted-schema mirror of the
- * strict IPC schema's `actionEntryPartSchema`. Not `.catch()`-softened for the same "drop the row"
- * reason `waitCommandPersistedSchema` above is not: a malformed part means the row that needs it -
- * a `toggle`/`press-release` action - is itself malformed.
- */
-const actionEntryPartPersistedSchema = z.object({
-  commands: z.array(configCommandPersistedSchema),
-  label: z.string().optional(),
-  aliasName: z.string().optional(),
-})
-
-/** The `ActionEntryKind`s that require exactly two `parts` (story 045 D1). Same vocabulary as the
- * strict IPC schema's `TWO_PART_ACTION_KINDS`. */
-const TWO_PART_ACTION_KINDS = new Set(['toggle', 'press-release'])
-
-/**
- * Story 019: story 008's per-category entry kind. The field is gone from `ConfigActionCategory`,
- * but it is still *accepted* here - and forgivingly so (`.optional().catch(undefined)`, so even a
- * hand-mangled `entryKind: 42` cannot fail the row) - because dropping a whole category row over a
+ * The pre-019 per-category entry kind. Gone from `ConfigActionCategory` but still accepted -
+ * forgivingly, so even `entryKind: 42` cannot fail the row - because dropping a category over a
  * field the type no longer has would delete a user's drawer and every entry pointing at it.
- * `normalizeConfigProfile` below reads it to derive each entry's own `kind` and then leaves it out
- * of the parsed output: it exists on disk, never in memory.
+ * `normalizeConfigProfile` reads it to derive each entry's own `kind` and leaves it out of the
+ * output: it exists on disk, never in memory.
  */
-const legacyCategoryEntryKindSchema = actionEntryKindPersistedSchema.optional().catch(undefined)
+const legacyCategoryEntryKindSchema = actionEntryKindSchema.optional().catch(undefined)
 
-/**
- * Story 052 D1: the persisted-schema mirror of `ConfigActionCategory.nameKey` - forgiving like
- * every other field here (`.optional().catch(undefined)`), so a hand-mangled value degrades to
- * "no display hint" rather than dropping the whole category row.
- */
-const categoryNameKeyPersistedSchema = z.string().min(1).optional().catch(undefined)
+/** An unreadable display hint degrades to "none" rather than dropping the category/section. */
+const nameKeyPersistedSchema = configActionCategoryObjectSchema.shape.nameKey.catch(undefined)
 
-/**
- * Story 053 D1: the persisted-schema mirror of `ConfigActionSubcategory` - same "strict on the
- * fields that make the row meaningful" rule the category schema itself follows.
- */
-const configActionSubcategoryPersistedSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-})
-
-/**
- * Story 053 D1: the persisted-schema mirror of `ConfigActionCategory.subcategories`. Defaults to
- * `[]` rather than `undefined` - every category predating this field simply lacks the key on
- * disk, and "no sub-categories yet" reads the same as "field never existed" for every reader that
- * groups by it. A malformed row is dropped from the array (not the whole category) the same way
- * `parseForgivingRows` drops a malformed category/action from its own array.
- */
+/** Absent (any category predating sub-categories) reads as `[]`; a malformed row is dropped alone. */
 const configActionSubcategoriesPersistedSchema = z.preprocess(
-  (raw) => parseForgivingRows(configActionSubcategoryPersistedSchema, raw),
-  z.array(configActionSubcategoryPersistedSchema),
+  (raw) => parseForgivingRows(configActionSubcategoryObjectSchema, raw),
+  z.array(configActionSubcategoryObjectSchema),
 )
 
-const configActionCategoryPersistedSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  entryKind: legacyCategoryEntryKindSchema,
-  nameKey: categoryNameKeyPersistedSchema,
+/** The category as a baseline snapshot stores it - no legacy `entryKind`. */
+const configActionCategoryPersistedObjectSchema = configActionCategoryObjectSchema.extend({
+  nameKey: nameKeyPersistedSchema,
   subcategories: configActionSubcategoriesPersistedSchema,
 })
 
-/**
- * Story 059 D1: the persisted-schema mirror of `ConfigCvarSubsection` - same "strict on the fields
- * that make the row meaningful" rule `configActionSubcategoryPersistedSchema` follows. `cvars`
- * degrades to `[]` rather than dropping the row: a section that could not read its cvar list is
- * still a real, named drawer worth keeping, same reasoning `cvars`/`binds` on the profile itself get
- * a `.catch(() => [])`-equivalent default below.
- */
-const configCvarSubsectionPersistedSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  cvars: z.array(z.string()).catch(() => []),
+const configActionCategoryPersistedSchema = configActionCategoryPersistedObjectSchema.extend({
+  entryKind: legacyCategoryEntryKindSchema,
 })
 
-/**
- * Story 059 D1: the persisted-schema mirror of `ConfigCvarSection.subsections` - same defaults-to-
- * `[]`, drop-the-malformed-row convention as `configActionSubcategoriesPersistedSchema`.
- */
+/** A section that could not read its cvar list is still a named drawer worth keeping. */
+const cvarNamesPersistedSchema = configCvarSubsectionObjectSchema.shape.cvars.catch(() => [])
+
+const configCvarSubsectionPersistedSchema = configCvarSubsectionObjectSchema.extend({
+  cvars: cvarNamesPersistedSchema,
+})
+
+/** Same absent-reads-as-`[]`, drop-the-malformed-row convention as the action sub-categories. */
 const configCvarSubsectionsPersistedSchema = z.preprocess(
   (raw) => parseForgivingRows(configCvarSubsectionPersistedSchema, raw),
   z.array(configCvarSubsectionPersistedSchema),
 )
 
-/**
- * Story 059 D1: the persisted-schema mirror of `ConfigCvarSection` - the Settings-tab counterpart of
- * `configActionCategoryPersistedSchema` right above. No `entryKind`-style legacy field to carry:
- * this type is new as of this story, so there is nothing pre-059 to be forgiving about beyond the
- * usual "malformed row is dropped, not the whole profile" (`parseForgivingRows`, at the `cvarSections`
- * field below) and "cvar names are not cross-validated against the catalogue" rules.
- */
-const configCvarSectionPersistedSchema: z.ZodType<ConfigCvarSection> = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  nameKey: categoryNameKeyPersistedSchema,
-  cvars: z.array(z.string()).catch(() => []),
-  subsections: configCvarSubsectionsPersistedSchema,
-})
-
-// Story 016 (D6): same modifier vocabulary as the strict IPC schema
-// (`main/modules/config/schemas.ts`'s `modifierTriggerSchema`), but forgiving - an
-// unrecognized or malformed value degrades to `undefined` via `.catch()` rather than
-// dropping the whole action row the way an invalid `commands` entry would.
-const modifierTriggerPersistedSchema: z.ZodType<ModifierTrigger | undefined> = z
-  .enum(['ALT', 'CTRL', 'SHIFT'])
-  .optional()
-  .catch(undefined)
-
-/**
- * Story 050: one persisted `ActionKeySlot`, forgiving the way every field on
- * `configActionPersistedSchema` is - an unreadable `modifier` degrades to `undefined` rather than
- * dropping the slot, and (unlike the strict IPC schema) `key` carries no length rule either.
- */
-const actionKeySlotPersistedSchema = z.object({
-  key: z.string(),
-  modifier: modifierTriggerPersistedSchema,
-})
-
-/**
- * The object shape underneath `configActionPersistedSchema`'s legacy-key preprocess, kept as its
- * own `z.object` (rather than inlined) so `profileBaselinePersistedSchema` below can `.extend()`
- * it - a `ZodEffects` (what `z.preprocess` returns) has no `.extend`.
- */
-const configActionPersistedObjectSchema = z.object({
-  id: z.string().min(1),
-  categoryId: z.string().min(1),
-  // Story 053 (D1): which of `categoryId`'s `subcategories` this entry sits under. Optional and
-  // forgiving like `catalogId`/`aliasName` below - a row without it (every row written before this
-  // field existed) simply omits it, and one naming a sub-category the category no longer has is
-  // still a valid string, not a validation failure (schema-level, no cross-reference check; the
-  // ungrouped fallback is a render/grouping concern for a later deliverable).
-  subcategoryId: z.string().optional(),
-  name: z.string().min(1),
-  commands: z.array(configCommandPersistedSchema),
-  // Story 019: required on the type, deliberately optional-and-forgiving here - every row written
-  // before 019 simply has no `kind`, and an unreadable one carries no information either. Both end
-  // up `undefined` and are filled in by `normalizeConfigProfile`, which is the only place that can
-  // see the sibling `categories` the derive needs. A row is never dropped over this field.
-  kind: actionEntryKindPersistedSchema.optional().catch(undefined),
-  // Story 050: replaces the old fixed `key`/`secondaryKey`/`keyModifier`/`secondaryKeyModifier`
-  // fields - see `ActionKeySlot`/`@shared/config/action-slots.ts`. `normalizeLegacyActionKeys`
-  // above accepts the pre-050 shape and folds it into this field first, so a stored profile with
-  // up to two slots still loads with both intact.
-  keys: z.array(actionKeySlotPersistedSchema).optional().catch(undefined),
-  catalogId: z.string().optional(),
-  // Story 039 (D1): same additive, forgiving treatment as `catalogId` - a row without it (every
-  // row written before this field existed) simply omits it.
-  aliasName: z.string().optional(),
-  // Story 045 (D1): the second half of a two-part `toggle`/`press-release` entry. Structurally
-  // optional here, same as the strict IPC schema; `refineActionParts` below is what actually
-  // requires exactly two elements for those two kinds, dropping the row otherwise.
-  parts: z.array(actionEntryPartPersistedSchema).optional(),
-})
-
-/**
- * Story 045 D1: rejects (so the row is dropped by `parseForgivingRows`/`.safeParse`, never thrown)
- * a `toggle`/`press-release` action whose `parts` is not exactly two elements. Applied via
- * `.superRefine` at each of `configActionPersistedObjectSchema`'s two use sites below, rather than
- * on the object schema itself, because the baseline site needs `.extend()` first and `.extend` only
- * exists on a plain `ZodObject` - see `configActionPersistedObjectSchema`'s own doc comment.
- */
-function refineActionParts(action: { kind?: string; parts?: unknown }, ctx: z.RefinementCtx): void {
-  if (!action.kind || !TWO_PART_ACTION_KINDS.has(action.kind)) return
-  if (Array.isArray(action.parts) && action.parts.length === 2) return
-  ctx.addIssue({
-    code: z.ZodIssueCode.custom,
-    message: `'${action.kind}' actions require exactly two 'parts'`,
+const configCvarSectionPersistedSchema: z.ZodType<ConfigCvarSection> =
+  configCvarSectionObjectSchema.extend({
+    nameKey: nameKeyPersistedSchema,
+    cvars: cvarNamesPersistedSchema,
+    subsections: configCvarSubsectionsPersistedSchema,
   })
-}
+
+/** An unrecognised modifier degrades to "none" rather than dropping the slot. */
+const actionKeySlotPersistedSchema = actionKeySlotObjectSchema.extend({
+  modifier: actionKeySlotObjectSchema.shape.modifier.catch(undefined),
+})
+
+/**
+ * Kept as a plain `z.object` (not wrapped in the legacy-key preprocess) so
+ * `profileBaselinePersistedSchema` below can `.extend()` it.
+ *
+ * `kind` is required on the type but optional-and-forgiving here: a pre-019 row has none and an
+ * unreadable one carries no information either. Both come out `undefined` and are filled in by
+ * `normalizeConfigProfile`, the only place that can see the sibling `categories` the derive needs -
+ * a row is never dropped over this field. `keys` is folded from the pre-050 four-field shape by
+ * `normalizeLegacyActionKeys` before this schema sees it.
+ */
+const configActionPersistedObjectSchema = configActionObjectSchema.extend({
+  kind: actionEntryKindSchema.optional().catch(undefined),
+  keys: z.array(actionKeySlotPersistedSchema).optional().catch(undefined),
+})
 
 const configActionPersistedSchema = z.preprocess(
   normalizeLegacyActionKeys,
@@ -303,20 +155,13 @@ const profileBaselinePersistedSchema: z.ZodType<PersistedProfileBaseline> = z.ob
   cvars: z.record(z.string(), z.string()),
   binds: z.record(z.string(), z.string()),
   layers: z.array(altLayerPersistedSchema),
-  categories: z.array(
-    z.object({
-      id: z.string().min(1),
-      name: z.string().min(1),
-      nameKey: categoryNameKeyPersistedSchema,
-      subcategories: configActionSubcategoriesPersistedSchema,
-    }),
-  ),
+  categories: z.array(configActionCategoryPersistedObjectSchema),
   actions: z.array(
     z.preprocess(
       normalizeLegacyActionKeys,
       configActionPersistedObjectSchema
         .extend({
-          kind: actionEntryKindPersistedSchema.catch('bind'),
+          kind: actionEntryKindSchema.catch('bind'),
         })
         .superRefine(refineActionParts),
     ),
@@ -341,8 +186,10 @@ const profileBaselinePersistedSchema: z.ZodType<PersistedProfileBaseline> = z.ob
  * fields without which the record is meaningless (`id`, `name`) are strict, so
  * a hand-mangled profile is dropped on its own instead of taking the file - or
  * the installation list - with it.
+ *
+ * Exported for its type: every `ConfigProfile` key must be declared here, or zod strips it on read.
  */
-const configProfileObjectSchema = z.object({
+export const configProfileObjectSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   createdAt: z.string().catch(nowIso),
@@ -544,7 +391,9 @@ function normalizeConfigProfile(
   }
 }
 
-export const configProfileSchema = configProfileObjectSchema.transform(normalizeConfigProfile)
+/** `PersistedConfigProfile` is a `ConfigProfile` whose forgiving array fields are always present. */
+export const configProfileSchema: z.ZodType<PersistedConfigProfile, unknown> =
+  configProfileObjectSchema.transform(normalizeConfigProfile)
 
 /** installationId -> mod folder names the user has marked "played" for it. */
 export const configPlayedModsSchema = z

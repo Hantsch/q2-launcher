@@ -234,3 +234,12 @@ export function setLines(rendered: string): string[] {
 export function setName(line: string): string {
   return line.slice('set '.length).trimEnd().split(' ')[0]!
 }
+
+/**
+ * What survives writing `text` to a latin1 file and reading it back: every UTF-16 code unit above
+ * 0xFF is lost (as `?`), the rest is one byte each. Stands in for a `Buffer` round-trip, which this
+ * file must not use (it is compiled by the renderer's `tsconfig.web.json`, which has no node types).
+ */
+export function latin1RoundTrip(text: string): string {
+  return Array.from(text, (ch) => (ch.charCodeAt(0) > 0xff ? '?' : ch)).join('')
+}

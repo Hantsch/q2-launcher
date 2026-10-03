@@ -1,3 +1,4 @@
+import { latin1RoundTrip } from './render.test-helpers'
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction } from '@shared/modules/config'
 import type { AltLayer } from '@shared/config/alt-layers'
@@ -130,7 +131,7 @@ describe('renderProfileFile with actions', () => {
     const rendered = renderProfileFile(p)
 
     expect(rendered).toContain(`alias greet say ${text}`)
-    expect(Buffer.from(rendered, 'latin1').toString('latin1')).toBe(rendered)
+    expect(latin1RoundTrip(rendered)).toBe(rendered)
   })
 
   it('is deterministic across repeated calls on the same profile', () => {

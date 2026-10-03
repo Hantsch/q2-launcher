@@ -1,3 +1,4 @@
+import { latin1RoundTrip } from './render.test-helpers'
 import { describe, expect, it } from 'vitest'
 import type { AltLayer } from '@shared/config/alt-layers'
 import { generateLayerAliases } from '@shared/config/alt-layers'
@@ -102,7 +103,7 @@ describe('renderProfileFile', () => {
     })
 
     const rendered = renderProfileFile(p)
-    const roundTripped = Buffer.from(rendered, 'latin1').toString('latin1')
+    const roundTripped = latin1RoundTrip(rendered)
 
     expect(roundTripped).toBe(rendered)
   })
@@ -414,7 +415,7 @@ describe('renderLoaderFile', () => {
     }
 
     const rendered = renderLoaderFile(p, 'Bjorn.cfg', switchBind)
-    const roundTripped = Buffer.from(rendered, 'latin1').toString('latin1')
+    const roundTripped = latin1RoundTrip(rendered)
 
     expect(roundTripped).toBe(rendered)
   })

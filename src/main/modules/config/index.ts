@@ -30,6 +30,7 @@ import type { Installation, LaunchState } from '@shared/types'
 import { reconcileAssignments } from './assignments'
 import { isLatin1Text } from '@shared/config/q2-charset'
 import type { RestoreWarning } from '@shared/config/profile-restore'
+import { restoredToProfileFields } from '@shared/config/profile-restore-input'
 import { applyTidyUpOps } from '@shared/config/tidy-up'
 import { resolveProfileFileNames } from '@shared/config/profile-files'
 import { fail, ok, type Outcome } from '@shared/types'
@@ -52,7 +53,7 @@ import {
   recoverProfileName,
   runFileSourceStartup,
 } from './rebuild'
-import { renderLoaderFile, renderProfileFile } from './render'
+import { renderLoaderFile, renderProfileFile } from '@shared/config/render'
 import {
   assignProfileInputSchema,
   cleanupApplyInputSchema,
@@ -1314,12 +1315,11 @@ export const configModule: MainModule = {
             profile.id,
             {
               name: recoverProfileName(readBack.content) ?? profile.name,
-              cvars: readBack.profile.cvars,
-              binds: readBack.profile.binds,
-              actions: readBack.profile.actions,
-              categories: readBack.profile.categories,
-              cvarSections: readBack.profile.cvarSections,
-              layers: readBack.profile.layers,
+              ...restoredToProfileFields(
+                readBack.profile.cvars,
+                readBack.profile.binds,
+                readBack.profile,
+              ),
               writeUnbindall: detectWriteUnbindall(readBack.content),
               sectionHeaderStyle:
                 detectSectionHeaderStyle(readBack.content) ?? profile.sectionHeaderStyle,
@@ -1446,12 +1446,7 @@ export const configModule: MainModule = {
                 profile.id,
                 {
                   name: recoverProfileName(read.content) ?? profile.name,
-                  cvars: read.profile.cvars,
-                  binds: read.profile.binds,
-                  actions: read.profile.actions,
-                  categories: read.profile.categories,
-                  cvarSections: read.profile.cvarSections,
-                  layers: read.profile.layers,
+                  ...restoredToProfileFields(read.profile.cvars, read.profile.binds, read.profile),
                   writeUnbindall: detectWriteUnbindall(read.content),
                   sectionHeaderStyle:
                     detectSectionHeaderStyle(read.content) ?? profile.sectionHeaderStyle,

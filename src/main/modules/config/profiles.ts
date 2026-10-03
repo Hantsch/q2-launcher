@@ -2,9 +2,6 @@ import { randomUUID } from 'node:crypto'
 import {
   STANDARD_TEMPLATE,
   type AssignProfileInput,
-  type ConfigAction,
-  type ConfigActionCategory,
-  type ConfigCvarSection,
   type ConfigProfile,
   type CreateConfigProfileInput,
   type ProfileFileState,
@@ -21,11 +18,11 @@ import {
   type UnassignProfileInput,
   type UnrecognizedConfigLine,
 } from '@shared/modules/config'
-import type { AltLayer } from '@shared/config/alt-layers'
 import type { StateSection, StateStore } from '../../services/state'
 import { applyActionBindMirror } from '@shared/config/action-mirror'
 import { adoptRawBinds } from '@shared/config/bind-adoption'
 import { stripCatalogDefaults } from '@shared/config/cvar-defaults'
+import type { RestoredProfileFields } from '@shared/config/profile-restore-input'
 import { applyActionLayerMirror } from '@shared/config/modifier-layers'
 import { captureBaseline } from '@shared/config/profile-baseline'
 import {
@@ -134,20 +131,9 @@ export class ProfilesStore {
    * before it ever consults the catalogue, so this call cannot end up with two
    * entries for one bare-token bind.
    */
-  createFromImport(input: {
-    name: string
-    cvars: Record<string, string>
-    binds: Record<string, string>
-    unrecognized: UnrecognizedConfigLine[]
-    actions: ConfigAction[]
-    categories: ConfigActionCategory[]
-    layers: AltLayer[]
-    /** Story 059 D5: `restoreProfileParts`'s own cvar sections, stored alongside `categories`/
-     * `actions` above instead of being silently dropped - the Settings tab's own grouping for an
-     * imported profile, filed by the cvar-group banner each `set` line actually sat under in the
-     * source file. */
-    cvarSections: ConfigCvarSection[]
-  }): ConfigProfile[] {
+  createFromImport(
+    input: RestoredProfileFields & { name: string; unrecognized: UnrecognizedConfigLine[] },
+  ): ConfigProfile[] {
     const now = new Date().toISOString()
     const profile: ConfigProfile = {
       id: randomUUID(),
@@ -669,16 +655,8 @@ export class ProfilesStore {
    */
   adoptFromFile(
     profileId: string,
-    fields: {
+    fields: RestoredProfileFields & {
       name: string
-      cvars: Record<string, string>
-      binds: Record<string, string>
-      actions: ConfigAction[]
-      categories: ConfigActionCategory[]
-      /** Story 059 D3: the cvar sections the file's own banners state, adopted exactly like
-       * `categories` - the file is the source of truth for the grouping too. */
-      cvarSections: ConfigCvarSection[]
-      layers: AltLayer[]
       writeUnbindall: boolean
       sectionHeaderStyle: ConfigProfile['sectionHeaderStyle']
     },

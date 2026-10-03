@@ -7,6 +7,7 @@ import { actionKeySlots } from '@shared/config/action-slots'
 import { renderProfileFile } from '@shared/config/render'
 import { readOwnershipStamp } from '@shared/config/file-ownership'
 import { restoreProfileParts } from '@shared/config/profile-restore'
+import { restoredToProfileFields } from '@shared/config/profile-restore-input'
 import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
 import { readImportableConfig } from '../core/import-reader'
 import { toRestoreInput } from '../import'
@@ -30,6 +31,11 @@ export function installRoundTripRoot(): void {
     for (const store of openStores) await store.settle()
     openStores.length = 0
   })
+}
+
+/** The per-test temp root `reimport` writes under. */
+export function getRoundTripRoot(): string {
+  return getRoot()
 }
 
 /** Writes `text` as `<root>/baseq2/config.cfg` and reads it back through the real importer. */
@@ -265,12 +271,7 @@ export async function adoptRendered(
     id,
     {
       name: recoverProfileName(text1) ?? profile.name,
-      cvars: result.cvars,
-      binds: result.binds,
-      actions: restored.actions,
-      categories: restored.categories,
-      cvarSections: restored.cvarSections,
-      layers: restored.layers,
+      ...restoredToProfileFields(result.cvars, result.binds, restored),
       writeUnbindall: detectWriteUnbindall(text1),
       sectionHeaderStyle: detectSectionHeaderStyle(text1) ?? profile.sectionHeaderStyle,
     },

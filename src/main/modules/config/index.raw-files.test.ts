@@ -15,7 +15,7 @@ import { type AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { type ModuleHandler } from '../types'
 import { hashCanonicalFileContent, readFileState } from './file-source'
-import { renderProfileFile, sentinelLine } from './render'
+import { renderProfileFile, sentinelLine } from '@shared/config/render'
 import { MAX_RAW_CONFIG_TEXT_LENGTH } from './schemas'
 import { configModule } from './index'
 import {

@@ -14,7 +14,7 @@ import { pathExists } from '../../lib/fs-utils'
 import { type AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { type ModuleHandler } from '../types'
-import { renderProfileFile } from './render'
+import { renderProfileFile } from '@shared/config/render'
 import { configModule } from './index'
 import {
   collectHandlers,

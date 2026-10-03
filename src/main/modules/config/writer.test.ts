@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { Installation } from '@shared/types'
 import { pathExists } from '../../lib/fs-utils'
-import { OWNERSHIP_MARKER, renderProfileFile, sentinelLine } from './render'
+import { OWNERSHIP_MARKER, renderProfileFile, sentinelLine } from '@shared/config/render'
 import { BACKUP_SUFFIX, reconcileOwnedProfileFiles, writeInstallationFiles } from './writer'
 import type { WriteInstallationFilesOptions } from './writer'
 

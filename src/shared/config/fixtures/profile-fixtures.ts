@@ -25,10 +25,10 @@
  * above them.
  */
 
-import type { ConfigAction, ConfigProfile } from '../modules/config'
-import type { AltLayer } from './alt-layers'
-import { aliasNameFor } from './alias-render'
-import { bindValueFor } from './action-mirror'
+import type { ConfigAction, ConfigProfile } from '../../modules/config'
+import type { AltLayer } from '../alt-layers'
+import { aliasNameFor } from '../alias-render'
+import { bindValueFor } from '../action-mirror'
 
 const CREATED_AT = '2026-01-01T00:00:00.000Z'
 

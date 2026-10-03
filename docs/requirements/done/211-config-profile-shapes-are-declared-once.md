@@ -1,7 +1,7 @@
 ---
 id: 211
 title: config profile shapes are declared once
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -32,23 +32,23 @@ cvarSections, layers, writeUnbindall, sectionHeaderStyle` is re-spelled in four 
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `src/shared/config/profile-schema.ts` exports the shape schemas, each declared
+- [x] **AC1** — `src/shared/config/profile-schema.ts` exports the shape schemas, each declared
       `: z.ZodType<ContractType>`, so a drift between interface and schema fails `tsc`; an
       `expectTypeOf` test asserts `z.infer<typeof configActionSchema>` is assignable to and from
       `ConfigAction`.
-- [ ] **AC2** — `main/modules/config/schemas.ts` imports the shared shapes and adds only payload
+- [x] **AC2** — `main/modules/config/schemas.ts` imports the shared shapes and adds only payload
       caps; `main/lib/schemas.ts` (or, after story 207, `config/persisted.ts`) wraps them with
       its forgiving `.catch()` defaults and keeps `normalizeLegacyActionKeys`; the IPC-side
       `normalizeActionKeys` and its test are deleted.
-- [ ] **AC3** — One `toRestoreInput(file, folded)` next to `restoreProfileParts`, consumed by
+- [x] **AC3** — One `toRestoreInput(file, folded)` next to `restoreProfileParts`, consumed by
       import and refresh; one `RestoredProfileFields` type plus `restoredToProfileFields(...)`
       used by `parseCanonicalProfile`, `commitImportFiles`, `createFromImport` and
       `adoptFromFile`; the round-trip and file-source-pipeline tests pin both paths.
-- [ ] **AC4** — The two main-side re-export shims are deleted and their eight importers point at
+- [x] **AC4** — The two main-side re-export shims are deleted and their eight importers point at
       `@shared/config/*`; the main-side render test moves next to the shared one (merged, no
       duplicated cases); the fixture corpora live under `src/shared/config/fixtures/` or
       `src/test-support/` and are not part of a production import graph.
-- [ ] **AC5** — Every existing config test passes; the IPC wire format and the persisted format
+- [x] **AC5** — Every existing config test passes; the IPC wire format and the persisted format
       are byte-identical before and after (round-trip fixtures are the gate).
 
 ## Decisions (Sprint)
@@ -122,7 +122,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
 
 ## Deliverables
 
-- [ ] **D1 — Characterization gate for the two schema trees.** New test
+- [x] **D1 — Characterization gate for the two schema trees.** New test
       `src/main/modules/config/schema-parity.test.ts` (+ its `__snapshots__/` file via
       `toMatchFileSnapshot` or `toMatchSnapshot`), written against the **unchanged** code and green
       there. Two describes:
@@ -142,7 +142,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
       quote in text). Snapshot `success` plus `JSON.stringify(data)` per case. **Exclude** the legacy
       key shape from (b) — D3 deliberately changes it. Touches only the new test + snapshot.
 
-- [ ] **D2 — Shared sub-shapes; the persisted tree derives from them.** New
+- [x] **D2 — Shared sub-shapes; the persisted tree derives from them.** New
       `src/shared/config/profile-schema.ts` (zod only, no node/electron) exporting: `actionTextSchema`
       (latin-1 + no `"`, moved from `main/modules/config/schemas.ts:163`, messages kept),
       `modifierTriggerSchema`, `configCommandSchema` (raw/message/wait, `frames` int 1..`MAX_WAIT_FRAMES`),
@@ -171,7 +171,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
       declared once in `src/shared/config/profile-schema.ts`; IPC adds caps, `persisted.ts` adds
       forgiveness. Files: the two new shared files, `persisted.ts`, the systems doc.
 
-- [ ] **D3 — The IPC tree derives from the shared shapes.** In
+- [x] **D3 — The IPC tree derives from the shared shapes.** In
       `src/main/modules/config/schemas.ts` replace `configCvarSubsectionSchema`,
       `configCvarSectionSchema`, `altLayerSchema`, `actionTextSchema`, `configWaitCommandSchema`,
       `configCommandSchema`, `modifierTriggerSchema`, `configActionSubcategorySchema`,
@@ -187,7 +187,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
       its doc comment in `src/main/modules/config/schemas.test.ts` (~:462-505). Gate: D1's snapshot
       passes unregenerated; `schemas.test.ts` green. Files: `schemas.ts`, `schemas.test.ts`.
 
-- [ ] **D4 — One restore adapter.** New `src/shared/config/profile-restore-input.ts` (sibling of
+- [x] **D4 — One restore adapter.** New `src/shared/config/profile-restore-input.ts` (sibling of
       `profile-restore.ts`, which defines `RestoreProfilePartsInput` at :378) exporting
       `toRestoreInput(file, folded, options): RestoreProfilePartsInput` where `folded` is a structural
       `RestoreEntrySource = { aliases: Iterable<{name, body, line, comment, codeWidth, file?}>;
@@ -206,7 +206,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
       `round-trip/*.test.ts` green. Files: the two new shared files, `import.ts`, `file-source.ts`,
       `round-trip/helpers.ts`.
 
-- [ ] **D5 — One restored-fields type.** In `src/shared/config/profile-restore-input.ts` add
+- [x] **D5 — One restored-fields type.** In `src/shared/config/profile-restore-input.ts` add
       `RestoredProfileFields = Pick<ConfigProfile, 'cvars'|'binds'|'actions'|'categories'|'cvarSections'|'layers'>`
       and `restoredToProfileFields(cvars, binds, restored)` (restored = the `actions`/`categories`/
       `cvarSections`/`layers` of `restoreProfileParts`' result). Use it in
@@ -225,7 +225,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
       reason, never silently. Files: shared file + test, `file-source.ts`, `import.ts`, `profiles.ts`,
       `index.ts`, `round-trip/helpers.ts`, new test.
 
-- [ ] **D6 — Render tests live with the renderer.** `git mv` `src/main/modules/config/render.actions.test.ts`,
+- [x] **D6 — Render tests live with the renderer.** `git mv` `src/main/modules/config/render.actions.test.ts`,
       `render.cvars-and-header.test.ts`, `render.metadata.test.ts`, `render.profile-file.test.ts`,
       `render.sections.test.ts`, `render.test-helpers.ts` and `switch-bind.test.ts` into
       `src/shared/config/` (their `./render`/`./switch-bind` imports then resolve to the shared
@@ -234,7 +234,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
       The moved files must import nothing from `src/main` (architecture test). Gate: same total
       passing case count minus the removed duplicates (state the count in the D's done note).
 
-- [ ] **D7 — Delete the re-export shims.** Delete `src/main/modules/config/render.ts` and
+- [x] **D7 — Delete the re-export shims.** Delete `src/main/modules/config/render.ts` and
       `switch-bind.ts`; repoint every remaining `./render` / `./switch-bind` import in
       `src/main/modules/config/` (`index.ts`, `import.test.ts`, `index.{sync,save,refresh,cleanup,raw-files}.test.ts`,
       `file-source-pipeline.test.ts`, `profiles.test.ts`, `writer.test.ts`, and any other grep hit)
@@ -243,7 +243,7 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
       only statement is `export * from '@shared/…'`). Files: the two deletions, `index.ts`, the test
       importers (mechanical one-line edits), `architecture.test.ts`.
 
-- [ ] **D8 — Fixtures out of the production graph.** `git mv src/shared/config/profile-fixtures.ts
+- [x] **D8 — Fixtures out of the production graph.** `git mv src/shared/config/profile-fixtures.ts
       src/shared/config/fixtures/profile-fixtures.ts`, repoint `render-invariants.test.ts`. Add to
       `src/architecture.test.ts` › "src/shared/config/fixtures is imported only by tests and
       test-only helpers": every edge in `ALL_EDGES` into `src/shared/config/fixtures/` comes from an
@@ -284,4 +284,13 @@ D1 must stay green unchanged through D2–D3 (its snapshot is not regenerated); 
 
 ## Done
 
-<!-- Filled by /build 211. -->
+Profile sub-shapes are declared once in `src/shared/config/profile-schema.ts` (each `: z.ZodType<Contract>` plus an extendable object schema); the IPC tree adds caps, `persisted.ts` adds forgiveness. One `toRestoreInput` and `RestoredProfileFields` in `profile-restore-input.ts` feed import and refresh. Shims deleted, render tests and fixtures moved under `src/shared/config/`, two architecture rules added.
+
+Commit message: `211: config profile shapes declared once (shared schema, one restore adapter, shims/fixtures out of main)`
+
+Verification (narrow gate): build, lint, typecheck green; `npx vitest run --changed HEAD` 1184 passed; `npx vitest run src/shared src/main/modules/config src/architecture.test.ts` 2954 passed (re-run green after each review fix). No e2e lines (pure refactor). AC1-AC5 -> tests as named in Acceptance Tests, all ran and passed (schema-parity snapshot unregenerated, verified by the hard review against `HEAD` code). Open: `src/main/shell-layering.test.ts` "no shell file imports from modules" red, pre-existing (`src/main/services/fixture-parity.test.ts` from 31b87f6; red on stashed tree too), not fixed here.
+
+Decisions: `configProfileSchema` is typed `ZodType<PersistedConfigProfile, unknown>` (the narrower type the normaliser returns), key-set test lives in `persisted.profile-keys.test.ts` (shared tests cannot import main); `RestoredProfileFields` is `Required<Pick<...>>`; `import.ts` keeps a thin `toRestoreInput(result, ...)` wrapper that builds entry lists from `ImportResult` and calls the shared adapter, so `round-trip/helpers.ts` stays unchanged for that call; import-vs-refresh test sorts actions by name (the two readers scan in different order; action order equality not pinned); render tests: 150 cases before and after, no exact duplicate found, `Buffer` use replaced by `latin1RoundTrip()` to satisfy the web tsconfig; `(story 211)` header pointer kept.
+Findings fixed: IPC `subcategoryId` had lost `.min(1)` (restored + test); self-comparing type tests replaced by real two-way checks (bite-checked by loosening a contract field). Follow-up (own story): `ConfigAction.keepEmptyAlias` is stripped by both schema trees (also at HEAD), so the flag is lost on persisted load.
+
+tiers: D 8 / hard 1 · review default+hard · cycles 2 · agents 13
