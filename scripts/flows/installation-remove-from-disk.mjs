@@ -61,6 +61,7 @@
 // removable installation always opens the dialog (default `confirmBeforeRemoving: true`), so this
 // flow never has to touch that setting.
 import { existsSync, readFileSync } from 'node:fs'
+import { libraryCard, railTile, simulateLaunch } from '../lib/flow-common.mjs'
 import {
   INSTALL_REMOVE_DISK_ID,
   INSTALL_REMOVE_DISK_NAME,
@@ -77,30 +78,6 @@ const TIMEOUT_MS = 8_000
 export async function setup() {
   writePopulatedFixture()
   return {}
-}
-
-/** The library row's own wrapper - mirrors `retail-upgrade.mjs`'s own `libraryCard()`. */
-function libraryCard(page, name) {
-  return page
-    .locator('div.items-start')
-    .filter({ has: page.getByRole('heading', { name, exact: true }) })
-}
-
-/** Scopes the rail's own tile lookup to `<aside>` - mirrors `retail-upgrade.mjs`'s `railTile()`. */
-function railTile(page, name) {
-  return page.locator('aside').getByRole('button', { name, exact: true })
-}
-
-/** Verbatim from `retail-upgrade.mjs`/`repair.mjs` - the dev-only channel that flips an
- * installation's simulated launch phase without a real game process. */
-async function simulateLaunch(page, installationId, phase) {
-  const outcome = await page.evaluate(
-    ({ id, ph }) => window.q2.invoke('dev:simulateLaunch', { installationId: id, phase: ph }),
-    { id: installationId, ph: phase },
-  )
-  if (!outcome?.ok) {
-    throw new Error(`dev:simulateLaunch(${phase}) failed: ${JSON.stringify(outcome)}`)
-  }
 }
 
 /** Opens `installationId`'s remove dialog from its library-row trigger and waits for it to render. */

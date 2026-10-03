@@ -18,6 +18,7 @@ import {
   replaysListErrorMissingFolderPath,
   writeReplaysListErrorFixture,
 } from '../lib/fixture.mjs'
+import { waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-list-error'
 
@@ -32,21 +33,10 @@ export async function setup() {
   return {}
 }
 
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS * 4
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
-}
-
 export default async function replaysListError({ page, shot, step }) {
   step('opening the Demos view runs a scan that finds two failing sources')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await waitForDemosScanToFinish(page, { timeout: TIMEOUT_MS * 4 })
 
   const errors = page.getByTestId('replays-list-source-error')
   await errors.first().waitFor({ state: 'visible', timeout: TIMEOUT_MS })

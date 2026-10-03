@@ -69,13 +69,20 @@
 // half). `'scan.start'`/`'servers.scan.blocked.gameRunning'` below are hand-mirrored literals of
 // `SERVERS_HANDLERS.scanStart`/`SCAN_BLOCKED_GAME_RUNNING_REASON_KEY`
 // (`src/shared/modules/servers.ts`) - same mirror-not-import discipline as the wire protocol.
-import { createSocket } from 'node:dgram'
 import {
   INSTALL_ONE_ID,
   SERVERS_DISABLED_SOURCES,
   SERVERS_MANUAL_SERVER_ADDRESS,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import {
+  bindResponder as bindLoopbackResponder,
+  closeResponder,
+  buildInfoReplyBytes,
+  buildStatusReplyBytes,
+} from '../lib/servers-stub.mjs'
+import { readFinishedAt, waitForFinishedAtChange } from '../lib/servers-flow.mjs'
+import { simulateLaunch } from '../lib/flow-common.mjs'
 
 export const variant = 'servers-no-scan-while-playing'
 
@@ -92,45 +99,6 @@ const AUTO_REFRESH_DUE_WAIT_MS = 20_000
  * idle - the resumed round is a single dead (silenced) target on the same 500ms/0-retry budget. */
 const RESUME_TIMEOUT_MS = 15_000
 
-const OOB_PREFIX = Buffer.from([0xff, 0xff, 0xff, 0xff])
-
-function encodeLatin1(text) {
-  const bytes = Buffer.alloc(text.length)
-  for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 0xff
-  return bytes
-}
-
-function buildInfoReplyBytes(serverinfoLine) {
-  // A real `info` reply is not an infostring but Quake II's `"%16s %8s %2i/%2i\n"` summary line
-  // (`src/shared/servers/reply-fixtures.ts`'s `formatInfoLine`) - only these four keys survive.
-  const parts = serverinfoLine.split('\\').slice(1)
-  const kv = {}
-  for (let i = 0; i + 1 < parts.length; i += 2) kv[parts[i]] = parts[i + 1]
-  const count = (value) => (/^\d+$/.test(value ?? '') ? value : '0') // `%2i` always prints a number
-  const line =
-    `${(kv.hostname ?? '').padStart(16)} ${(kv.mapname ?? '').padStart(8)} ` +
-    `${count(kv.clients).padStart(2)}/${count(kv.maxclients).padStart(2)}\n`
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`info\n${line}`)])
-}
-
-function buildStatusReplyBytes(serverinfoLine, playerLines) {
-  const players = playerLines.map((line) => `\n${line}`).join('')
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`print\n${serverinfoLine}${players}`)])
-}
-
-function decodeQueryKind(message) {
-  const text = message.subarray(4).toString('latin1')
-  if (text.startsWith('info')) return 'info'
-  if (text.startsWith('status')) return 'status'
-  return 'unknown'
-}
-
-async function bindResponder() {
-  const socket = createSocket('udp4')
-  await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
-  return { socket, port: socket.address().port }
-}
-
 const RESPONDER_HOSTNAME = 'Fixture Live Server'
 const RESPONDER_INFO_LINE = `\\gamename\\baseq2\\hostname\\${RESPONDER_HOSTNAME}\\mapname\\q2dm1\\clients\\2\\maxclients\\8\\version\\3.20`
 const RESPONDER_PLAYER_LINES = ['5 20 "Alpha"', '3 10 "Bravo"']
@@ -140,30 +108,16 @@ const RESPONDER_PLAYER_LINES = ['5 20 "Alpha"', '3 10 "Bravo"']
 const SCAN_BLOCKED_GAME_RUNNING_REASON_KEY = 'servers.scan.blocked.gameRunning'
 
 let responder = null
-let responderClosed = true
 let populatedAddress = null
 
 async function closeResponderOnce() {
-  if (responder === null || responderClosed) return
-  responderClosed = true
-  await new Promise((resolve) => responder.socket.close(() => resolve()))
+  if (responder !== null) await closeResponder(responder)
 }
 
 export async function setup() {
-  responder = await bindResponder()
-  responderClosed = false
-
-  responder.socket.on('message', (message, rinfo) => {
-    const kind = decodeQueryKind(message)
-    if (kind === 'info') {
-      responder.socket.send(buildInfoReplyBytes(RESPONDER_INFO_LINE), rinfo.port, rinfo.address)
-    } else if (kind === 'status') {
-      responder.socket.send(
-        buildStatusReplyBytes(RESPONDER_INFO_LINE, RESPONDER_PLAYER_LINES),
-        rinfo.port,
-        rinfo.address,
-      )
-    }
+  responder = await bindLoopbackResponder(0, (kind) => {
+    if (kind === 'info') return buildInfoReplyBytes(RESPONDER_INFO_LINE)
+    if (kind === 'status') return buildStatusReplyBytes(RESPONDER_INFO_LINE, RESPONDER_PLAYER_LINES)
   })
 
   populatedAddress = `127.0.0.1:${responder.port}`
@@ -201,20 +155,9 @@ export async function setup() {
 
 export async function teardown() {
   // Constraint: never leak a bound socket across runs, whichever step the flow stopped at -
-  // step 3 below already closes it deliberately mid-flow (`responderClosed` is then already
+  // step 3 below already closes it deliberately mid-flow (`responder.closed` is then already
   // `true` and this is a no-op); this is the safety net for a throw anywhere before that.
   await closeResponderOnce()
-}
-
-/** Mirrors `job-waits-for-running-game.mjs`'s own helper verbatim. */
-async function simulateLaunch(page, installationId, phase) {
-  const outcome = await page.evaluate(
-    ({ id, ph }) => window.q2.invoke('dev:simulateLaunch', { installationId: id, phase: ph }),
-    { id: installationId, ph: phase },
-  )
-  if (!outcome?.ok) {
-    throw new Error(`dev:simulateLaunch(${phase}) failed: ${JSON.stringify(outcome)}`)
-  }
 }
 
 async function invokeScanStart(page) {
@@ -229,14 +172,6 @@ async function invokeScanRead(page) {
   )
 }
 
-function scanStatusLocator(page) {
-  return page.getByTestId('servers-scan-status')
-}
-
-async function readFinishedAt(page) {
-  return (await scanStatusLocator(page).getAttribute('data-finished-at')) ?? ''
-}
-
 async function waitForRunning(page, running) {
   await page.waitForFunction(
     (expected) =>
@@ -245,21 +180,6 @@ async function waitForRunning(page, running) {
         ?.getAttribute('data-running') === expected,
     String(running),
     { timeout: TIMEOUT_MS },
-  )
-}
-
-async function waitForFinishedAtChange(page, previous, timeout) {
-  await page.waitForFunction(
-    (before) => {
-      const el = document.querySelector('[data-testid="servers-scan-status"]')
-      return (
-        el?.getAttribute('data-running') === 'false' &&
-        (el?.getAttribute('data-finished-at') ?? '') !== before &&
-        (el?.getAttribute('data-finished-at') ?? '') !== ''
-      )
-    },
-    previous,
-    { timeout },
   )
 }
 

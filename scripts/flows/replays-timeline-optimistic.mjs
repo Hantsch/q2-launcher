@@ -5,7 +5,7 @@
 // `outputBurstMs` holds all engine output and writes it in one burst every N ms (Q2PRO's buffered
 // logfile). A launch cannot change its env per demo, so each phase writes the stub's levers file and
 // starts a fresh demo. Phase A: delay 1500 ms. Phase B: burst 1500 ms at 1x. Phase C: no lever.
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   REPLAYS_PLAY_CTF_DEMO,
@@ -13,6 +13,8 @@ import {
   replaysTimelineEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import { commands, waitForScan } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -34,24 +36,13 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-function fail(message) {
-  throw new Error(`replays-timeline-optimistic: ${message}`)
-}
-
-function commands() {
-  if (!existsSync(files.commandLog)) return []
-  return readFileSync(files.commandLog, 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l.length > 0)
-}
+const fail = makeFail('replays-timeline-optimistic')
 
 async function waitForCommands(count, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS * 2
-  while (commands().length < count) {
+  while (commands(files.commandLog).length < count) {
     if (Date.now() >= deadline)
-      fail(`${label}: engine ran ${JSON.stringify(commands())}, expected ${count}`)
+      fail(`${label}: engine ran ${JSON.stringify(commands(files.commandLog))}, expected ${count}`)
     await sleep(50)
   }
 }
@@ -67,16 +58,6 @@ const positionS = async (page) =>
 const positionMs = async (page) =>
   Number(await page.getByTestId('replays-timeline-seek').getAttribute('data-position-ms'))
 const toggleLabel = (page) => page.getByTestId('replays-timeline-toggle').getAttribute('aria-label')
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) fail('timed out waiting for the demo scan to finish')
-    await sleep(100)
-  }
-}
 
 /** A freshly started demo with the stub's levers set to `levers`. */
 async function startDemo(page, levers) {
@@ -132,12 +113,13 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
     await at(t0, 300)
     if ((await toggleLabel(page)) !== 'Play')
       fail(`AC1: at +300 ms the toggle reads ${await toggleLabel(page)}, expected Play`)
-    if (commands().includes('pause'))
+    if (commands(files.commandLog).includes('pause'))
       fail('AC1: the engine had already run pause at +300 ms - the delay lever is not holding it')
     await at(t0, 1200)
     if ((await toggleLabel(page)) !== 'Play')
       fail(`AC1: at +1200 ms the toggle reads ${await toggleLabel(page)}, expected Play`)
-    if (commands().includes('pause')) fail('AC1: the engine had already run pause at +1200 ms')
+    if (commands(files.commandLog).includes('pause'))
+      fail('AC1: the engine had already run pause at +1200 ms')
     await waitForCommands(1, 'AC1')
     await sleep(800)
     if ((await toggleLabel(page)) !== 'Play')
@@ -154,7 +136,7 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
       fail(`AC3: at +300 ms the speed shows ${await speed.inputValue()}, expected 2`)
     const label = await speed.evaluate((el) => el.options[el.selectedIndex]?.textContent ?? '')
     if (!label.includes('2')) fail(`AC3: speed label ${JSON.stringify(label)}`)
-    if (commands().some((c) => c === 'timescale 2'))
+    if (commands(files.commandLog).some((c) => c === 'timescale 2'))
       fail('AC3: the engine had already run timescale 2 at +300 ms')
     await waitForCommands(2, 'AC3')
     await sleep(800)
@@ -218,7 +200,7 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
   {
     await waitForCommands(6, 'AC5')
     await sleep(2_500)
-    const ran = commands()
+    const ran = commands(files.commandLog)
     const seekCmd = ran[4]
     if (!/^seek \d+$/.test(seekCmd ?? '')) fail(`AC5: the bar click ran ${JSON.stringify(seekCmd)}`)
     if (
@@ -247,7 +229,7 @@ export default async function replaysTimelineOptimistic({ page, step, shot }) {
   step('AC6 waiting text after 1 s, cleared on confirmation')
   {
     if (await waiting.isVisible()) fail('AC6: the waiting note shows with nothing in flight')
-    const before = await commands().length
+    const before = await commands(files.commandLog).length
     const t0 = Date.now()
     await forward.click({ timeout: TIMEOUT_MS })
     await at(t0, 500)

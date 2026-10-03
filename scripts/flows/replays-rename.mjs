@@ -26,6 +26,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { INSTALL_ONE_ID, installationConfigFilePath } from '../lib/fixture.mjs'
+import { rowFor, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -62,21 +63,6 @@ export async function teardown() {
   rmSync(TAKEN_DEMO, { force: true })
   rmSync(FINAL_DEMO, { force: true })
   rmSync(FINAL_SIDECAR, { force: true })
-}
-
-function rowFor(page, fileName) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: fileName })
-}
-
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
 }
 
 export default async function replaysRename({ page, shot, step }) {

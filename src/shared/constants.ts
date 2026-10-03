@@ -5,13 +5,17 @@
  * this folder is compiled into both the Node-flavoured and the browser-flavoured
  * TypeScript projects.
  */
+import fixtureConstants from './fixture-constants.json'
 
 /** File names of the launcher's own persisted state, inside `app.getPath('userData')`. */
-export const STATE_FILE = 'state.json'
-export const WINDOW_STATE_FILE = 'window-state.json'
+export const STATE_FILE: string = fixtureConstants.stateFile
+export const WINDOW_STATE_FILE: string = fixtureConstants.windowStateFile
 
-/** Bumped whenever the shape of `state.json` changes; see `src/main/services/migrations.ts`. */
-export const STATE_SCHEMA_VERSION = 5
+/**
+ * Bumped whenever the shape of `state.json` changes; see `src/main/services/migrations.ts`.
+ * Lives in the JSON so the plain-Node fixture writer reads the same value.
+ */
+export const STATE_SCHEMA_VERSION: number = fixtureConstants.stateSchemaVersion
 
 /** Window sizing. The shell layout below ~940x620 starts to break down. */
 export const WINDOW_DEFAULT_WIDTH = 1280

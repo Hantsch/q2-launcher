@@ -51,6 +51,7 @@
 // weaker, proof of AC5b.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { libraryCard, simulateLaunch } from '../lib/flow-common.mjs'
 import {
   INSTALL_DEMO_UPGRADE_ID,
   INSTALL_DEMO_UPGRADE_NAME,
@@ -86,24 +87,8 @@ export async function setup() {
   }
 }
 
-function libraryCard(page, name) {
-  return page
-    .locator('div.items-start')
-    .filter({ has: page.getByRole('heading', { name, exact: true }) })
-}
-
 function importRetailButton(scope) {
   return scope.getByRole('button', { name: IMPORT_RETAIL_LABEL })
-}
-
-async function simulateLaunch(page, installationId, phase) {
-  const outcome = await page.evaluate(
-    ({ id, ph }) => window.q2.invoke('dev:simulateLaunch', { installationId: id, phase: ph }),
-    { id: installationId, ph: phase },
-  )
-  if (!outcome?.ok) {
-    throw new Error(`dev:simulateLaunch(${phase}) failed: ${JSON.stringify(outcome)}`)
-  }
 }
 
 /** Reads back the one job the harness cares about - installation id plus status - rather than

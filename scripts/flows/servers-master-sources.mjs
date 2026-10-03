@@ -45,9 +45,14 @@ import { readFileSync, mkdirSync, copyFileSync } from 'node:fs'
 import { waitForStateJson } from '../lib/state-json.mjs'
 import { join } from 'node:path'
 import { REPO_ROOT } from '../lib/paths.mjs'
+import { waitForRowCount } from '../lib/servers-flow.mjs'
 import { variantUserDataDir, withApp } from '../lib/harness.mjs'
 
 const TIMEOUT_MS = 8_000
+const SOURCE_ROWS = {
+  selector: '[data-testid="servers-sources-list"] [data-testid^="servers-source-row-"]',
+  exact: true,
+}
 
 /** Mirrors `module.servers.settings.type.*` (`src/renderer/src/i18n/locales/en.json`). */
 const TYPE_LABEL = { 'udp-master': 'UDP master', 'http-list': 'HTTP list' }
@@ -132,17 +137,6 @@ async function readRow(page, id) {
   return { address, type, enabled }
 }
 
-async function waitForRowCount(page, count) {
-  await page.waitForFunction(
-    (expected) =>
-      document.querySelectorAll(
-        '[data-testid="servers-sources-list"] [data-testid^="servers-source-row-"]',
-      ).length === expected,
-    count,
-    { timeout: TIMEOUT_MS },
-  )
-}
-
 async function waitForRowOrder(page, expectedIds) {
   await page.waitForFunction(
     (expected) => {
@@ -199,7 +193,7 @@ export default async function serversMasterSources({ page, shot, step, variant }
   await openServersSettings(page)
 
   step('a fresh profile shows the shipped default sources, correctly typed (AC1)')
-  await waitForRowCount(page, DEFAULT_SOURCES.length)
+  await waitForRowCount(page, DEFAULT_SOURCES.length, SOURCE_ROWS)
   const initialIds = await rowIds(page)
   if (JSON.stringify(initialIds) !== JSON.stringify(DEFAULT_IDS)) {
     throw new Error(
@@ -231,7 +225,7 @@ export default async function serversMasterSources({ page, shot, step, variant }
       .getByTestId('servers-source-add-address')
       .fill(ADDED_ADDRESS, { timeout: TIMEOUT_MS })
     await page.getByTestId('servers-source-add-submit').click({ timeout: TIMEOUT_MS })
-    await waitForRowCount(page, expectedCount)
+    await waitForRowCount(page, expectedCount, SOURCE_ROWS)
     const row = rowsLocator(page).filter({ hasText: ADDED_ADDRESS })
     await row.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
     const id = (await row.getAttribute('data-testid')).replace('servers-source-row-', '')
@@ -244,7 +238,7 @@ export default async function serversMasterSources({ page, shot, step, variant }
 
   async function removeSource(id) {
     await rowLocator(page, id).getByTestId('servers-source-remove').click({ timeout: TIMEOUT_MS })
-    await waitForRowCount(page, DEFAULT_SOURCES.length)
+    await waitForRowCount(page, DEFAULT_SOURCES.length, SOURCE_ROWS)
     if ((await rowsLocator(page).filter({ hasText: ADDED_ADDRESS }).count()) !== 0) {
       throw new Error('the added source is still in the list after removing it')
     }
@@ -380,7 +374,7 @@ export default async function serversMasterSources({ page, shot, step, variant }
     { variant: restartVariant, viewport: { width: 1280, height: 800 } },
     async ({ page: secondPage }) => {
       await openServersSettings(secondPage)
-      await waitForRowCount(secondPage, reorderedIds.length)
+      await waitForRowCount(secondPage, reorderedIds.length, SOURCE_ROWS)
       const restartedIds = await rowIds(secondPage)
       if (JSON.stringify(restartedIds) !== JSON.stringify(reorderedIds)) {
         throw new Error(

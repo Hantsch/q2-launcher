@@ -4,7 +4,6 @@
 // movement and stay while the demo is paused; the keys Space, Right, Shift+Right and . reach the log;
 // Esc closes the overlay, the stub gets the stage geometry again and a launcher timeline click reaches
 // the log (AC6). Keys are dispatched to the overlay page via Playwright: the harness overlay is non-focusable.
-import { existsSync, readFileSync } from 'node:fs'
 import {
   REPLAYS_PLAY_CTF_DEMO,
   REPLAYS_TIMELINE_VARIANT,
@@ -12,6 +11,8 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { waitForWindow } from '../lib/harness.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import { commands, launchGeometry, waitForScan, windowLines } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -32,44 +33,24 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const fail = (message) => {
-  throw new Error(`replays-cinema: ${message}`)
-}
-const lines = (path) =>
-  existsSync(path)
-    ? readFileSync(path, 'utf8')
-        .split(/\r?\n/)
-        .filter((l) => l.length > 0)
-    : []
-const commands = () => lines(files.commandLog)
-const geometry = () => lines(files.windowLog).filter((l) => l.startsWith('set vid_geometry '))
+const fail = makeFail('replays-cinema')
+const geometry = () => windowLines(files.windowLog).filter((l) => l.startsWith('set vid_geometry '))
 const cinemaWindows = (app) => app.windows().filter((w) => w.url().includes('cinema.html'))
 
 /** Runs `act`, then waits until a command matching `expected` (string or regexp) was appended. */
 async function expectAppended(act, expected, label) {
-  const before = commands().length
+  const before = commands(files.commandLog).length
   await act()
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
   for (;;) {
-    const fresh = commands().slice(before)
+    const fresh = commands(files.commandLog).slice(before)
     const hit = fresh.find((c) => (expected instanceof RegExp ? expected.test(c) : c === expected))
     if (hit !== undefined) return hit
     if (Date.now() >= deadline)
       fail(
-        `${label}: engine ran ${JSON.stringify(fresh)} (all: ${JSON.stringify(commands())}), expected ${expected}`,
+        `${label}: engine ran ${JSON.stringify(fresh)} (all: ${JSON.stringify(commands(files.commandLog))}), expected ${expected}`,
       )
     await sleep(50)
-  }
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) fail('timed out waiting for the demo scan to finish')
-    await sleep(100)
   }
 }
 
@@ -79,24 +60,6 @@ async function waitAttr(locator, name, value, label, timeoutMs = 6_000) {
     if (Date.now() >= deadline)
       fail(`${label}: ${name} is ${await locator.getAttribute(name)}, expected ${value}`)
     await sleep(100)
-  }
-}
-
-/** The stage geometry the game was launched with (`+set vid_geometry` on the main.log launching line). */
-async function launchGeometry(page) {
-  const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
-  const deadline = Date.now() + 10_000
-  for (;;) {
-    const content = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
-    const line = content
-      .split(/\r?\n/)
-      .filter((l) => l.includes('launching'))
-      .pop()
-    const m = line ? /\+set vid_geometry (\d+x\d+\+-?\d+\+-?\d+)/.exec(line) : null
-    if (m) return m[1]
-    if (Date.now() >= deadline)
-      fail(`main.log has no launching line with a vid_geometry: ${JSON.stringify(line)}`)
-    await new Promise((resolve) => setTimeout(resolve, 150))
   }
 }
 
@@ -121,7 +84,8 @@ export default async function replaysCinema({ page, app, log, step, shot }) {
     await sleep(100)
   }
   // The stage geometry the stub was last given before cinema pinned the display rect (AC6 compares it).
-  const stageGeometry = await launchGeometry(page)
+  const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
+  const stageGeometry = (await launchGeometry(logPath, { fail })).raw
   await page.getByTestId('replays-timeline-cinema').click({ timeout: TIMEOUT_MS })
   const overlay = await waitForWindow(app, 'cinema.html', log)
   const root = overlay.getByTestId('cinema-root')
@@ -223,7 +187,9 @@ export default async function replaysCinema({ page, app, log, step, shot }) {
   const stageBy = Date.now() + ENGINE_TIMEOUT_MS
   while (geometry().length <= geometryBefore) {
     if (Date.now() >= stageBy)
-      fail(`the stub never got the stage geometry again: ${JSON.stringify(lines(files.windowLog))}`)
+      fail(
+        `the stub never got the stage geometry again: ${JSON.stringify(windowLines(files.windowLog))}`,
+      )
     await sleep(50)
   }
   if (geometry().at(-1)?.slice('set vid_geometry '.length) !== stageGeometry) {

@@ -14,6 +14,8 @@ import {
   replaysTimelineEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import { commands, waitForScan } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -30,43 +32,23 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const fail = (message) => {
-  throw new Error(`replays-stage: ${message}`)
-}
-
-function commands() {
-  if (!existsSync(files.commandLog)) return []
-  return readFileSync(files.commandLog, 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l.length > 0)
-}
+const fail = makeFail('replays-stage')
 
 async function expectCommands(expected, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (commands().length < expected.length) {
+  while (commands(files.commandLog).length < expected.length) {
     if (Date.now() >= deadline)
       fail(
-        `${label}: engine ran ${JSON.stringify(commands())}, expected ${JSON.stringify(expected)}`,
+        `${label}: engine ran ${JSON.stringify(commands(files.commandLog))}, expected ${JSON.stringify(expected)}`,
       )
     await sleep(50)
   }
   await sleep(SETTLE_MS)
-  const ran = commands()
+  const ran = commands(files.commandLog)
   if (JSON.stringify(ran) !== JSON.stringify(expected)) {
     fail(
       `${label}: engine ran ${JSON.stringify(ran)}, expected exactly ${JSON.stringify(expected)}`,
     )
-  }
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) fail('timed out waiting for the demo scan to finish')
-    await sleep(100)
   }
 }
 
@@ -205,7 +187,7 @@ export default async function replaysStage({ page, app, step, shot }) {
     )
   }
   // The box did not change, so no re-placement may have reached the engine.
-  const stray = commands().filter((c) => c.includes('vid_geometry'))
+  const stray = commands(files.commandLog).filter((c) => c.includes('vid_geometry'))
   if (stray.length > 0)
     fail(`an unchanged box must not re-place the game, command log has ${JSON.stringify(stray)}`)
   for (const arg of ['+set vid_fullscreen 0', '+set win_noborder 1', '+set win_alwaysontop 1']) {

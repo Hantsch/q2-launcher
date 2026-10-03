@@ -5,13 +5,15 @@
 //
 // Selectors: `replays-demo-row`, `actionbar-play[data-action="view"]` (story 159), `replays-timeline`,
 // `replays-console-{field,input,send,reason}` (`ConsoleCommandField.tsx`).
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import {
   REPLAYS_PLAY_CTF_DEMO,
   REPLAYS_TIMELINE_VARIANT,
   replaysTimelineEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
+import { sleep } from '../lib/flow-common.mjs'
+import { commands, waitForScan } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -29,42 +31,22 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-function commands() {
-  if (!existsSync(files.commandLog)) return []
-  return readFileSync(files.commandLog, 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l.length > 0)
-}
-
 async function expectCommands(expected, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (commands().length < expected.length) {
+  while (commands(files.commandLog).length < expected.length) {
     if (Date.now() >= deadline) {
       throw new Error(
-        `replays-console-command: ${label}: engine ran ${JSON.stringify(commands())}, expected ${JSON.stringify(expected)}`,
+        `replays-console-command: ${label}: engine ran ${JSON.stringify(commands(files.commandLog))}, expected ${JSON.stringify(expected)}`,
       )
     }
     await sleep(50)
   }
   await sleep(SETTLE_MS)
-  const ran = commands()
+  const ran = commands(files.commandLog)
   if (JSON.stringify(ran) !== JSON.stringify(expected)) {
     throw new Error(
       `replays-console-command: ${label}: engine ran ${JSON.stringify(ran)}, expected exactly ${JSON.stringify(expected)}`,
     )
-  }
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline)
-      throw new Error('replays-console-command: timed out waiting for the demo scan to finish')
-    await sleep(100)
   }
 }
 

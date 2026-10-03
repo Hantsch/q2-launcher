@@ -1,82 +1,28 @@
 // Story 197 D3: saving the current filter as a named quick filter and applying it from a chip, on the
 // real Servers surface. Same four loopback responders as servers-filter-search.mjs (helpers copied, not
 // imported). Steps are kept separate so D4 can append rename/delete/persistence/resilience steps.
-import { createSocket } from 'node:dgram'
 import { variantUserDataDir } from '../lib/harness.mjs'
 import { waitForStateJson } from '../lib/state-json.mjs'
 import { SERVERS_DISABLED_SOURCES, writePopulatedFixture } from '../lib/fixture.mjs'
+import { makeResponderBinder, closeResponder } from '../lib/servers-stub.mjs'
+import { readFinishedAt, waitForFinishedAtChange } from '../lib/servers-flow.mjs'
 
 export const variant = 'servers-quick-filters'
 
 const TIMEOUT_MS = 8_000
 const SCAN_SETTLE_TIMEOUT_MS = 15_000
 
-const OOB_PREFIX = Buffer.from([0xff, 0xff, 0xff, 0xff])
-
-function encodeLatin1(text) {
-  const bytes = Buffer.alloc(text.length)
-  for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 0xff
-  return bytes
-}
-
-function buildInfoReplyBytes(serverinfoLine) {
-  // A real `info` reply is not an infostring but Quake II's `"%16s %8s %2i/%2i\n"` summary line
-  // (`src/shared/servers/reply-fixtures.ts`'s `formatInfoLine`) - only these four keys survive.
-  const parts = serverinfoLine.split('\\').slice(1)
-  const kv = {}
-  for (let i = 0; i + 1 < parts.length; i += 2) kv[parts[i]] = parts[i + 1]
-  const count = (value) => (/^\d+$/.test(value ?? '') ? value : '0') // `%2i` always prints a number
-  const line =
-    `${(kv.hostname ?? '').padStart(16)} ${(kv.mapname ?? '').padStart(8)} ` +
-    `${count(kv.clients).padStart(2)}/${count(kv.maxclients).padStart(2)}\n`
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`info\n${line}`)])
-}
-
-function buildStatusReplyBytes(serverinfoLine, playerLines) {
-  const players = playerLines.map((line) => `\n${line}`).join('')
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`print\n${serverinfoLine}${players}`)])
-}
-
-function decodeQueryKind(message) {
-  const text = message.subarray(4).toString('latin1')
-  if (text.startsWith('info')) return 'info'
-  if (text.startsWith('status')) return 'status'
-  return 'unknown'
-}
-
 /** Binds one loopback responder with full control over its `gamename`/`mapname`/`maxclients`/
  * gamemode flags/`needpass`, so each of A-D can exercise a different filter field. */
-async function bindResponder(
-  hostname,
-  playerLines,
-  { mod, map, maxclients, extraInfoFlags = '', needpass = false },
-) {
-  const socket = createSocket('udp4')
-  await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
-  const port = socket.address().port
-  const address = `127.0.0.1:${port}`
-  const infoLine =
-    `\\gamename\\${mod}\\hostname\\${hostname}\\mapname\\${map}\\clients\\${playerLines.length}` +
-    `\\maxclients\\${maxclients}\\version\\3.20\\needpass\\${needpass ? 1 : 0}${extraInfoFlags}`
-  const responder = { socket, port, address, hostname, closed: false }
-
-  socket.on('message', (message, rinfo) => {
-    const kind = decodeQueryKind(message)
-    if (kind === 'info') {
-      socket.send(buildInfoReplyBytes(infoLine), rinfo.port, rinfo.address)
-    } else if (kind === 'status') {
-      socket.send(buildStatusReplyBytes(infoLine, playerLines), rinfo.port, rinfo.address)
-    }
-  })
-
-  return responder
-}
-
-async function closeResponder(responder) {
-  if (responder.closed) return
-  responder.closed = true
-  await new Promise((resolve) => responder.socket.close(() => resolve()))
-}
+const bindResponder = makeResponderBinder(
+  (hostname, playerLines, { mod, map, maxclients, extraInfoFlags = '', needpass = false }) => ({
+    infoLine:
+      `\\gamename\\${mod}\\hostname\\${hostname}\\mapname\\${map}\\clients\\${playerLines.length}` +
+      `\\maxclients\\${maxclients}\\version\\3.20\\needpass\\${needpass ? 1 : 0}${extraInfoFlags}`,
+    playerLines,
+    extra: { hostname },
+  }),
+)
 
 const NO_CRITERIA = {
   mod: null,
@@ -160,29 +106,6 @@ export async function setup() {
 
 export async function teardown() {
   await Promise.all(responders.map((responder) => closeResponder(responder)))
-}
-
-function scanStatusLocator(page) {
-  return page.getByTestId('servers-scan-status')
-}
-
-async function readFinishedAt(page) {
-  return (await scanStatusLocator(page).getAttribute('data-finished-at')) ?? ''
-}
-
-async function waitForFinishedAtChange(page, previous, timeout) {
-  await page.waitForFunction(
-    (before) => {
-      const el = document.querySelector('[data-testid="servers-scan-status"]')
-      return (
-        el?.getAttribute('data-running') === 'false' &&
-        (el?.getAttribute('data-finished-at') ?? '') !== before &&
-        (el?.getAttribute('data-finished-at') ?? '') !== ''
-      )
-    },
-    previous,
-    { timeout },
-  )
 }
 
 const chips = (page) => page.getByTestId('servers-quickfilter-chip')

@@ -33,6 +33,7 @@ import {
   removeReplaysDateFilterFixture,
   writeReplaysDateFilterFixture,
 } from '../lib/fixture.mjs'
+import { waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 const POLL_INTERVAL_MS = 100
@@ -62,18 +63,6 @@ async function waitForCondition(predicate, label, timeout = TIMEOUT_MS) {
     if (Date.now() >= deadline) throw new Error(`timed out waiting for ${label}`)
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
   }
-}
-
-/** Same reasoning/idiom as `replays-filter-search.mjs`'s own `waitForDemosScanToFinish`. */
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
 }
 
 /** Same reasoning as `replays-filter-search.mjs`'s own `visibleNames` - none of this fixture's four
@@ -437,7 +426,11 @@ export default async function replaysDateFilter({ page, step, shot }) {
   await page.getByTestId('replays-filter-date-clear').click({ timeout: TIMEOUT_MS })
   await waitForVisibleSet(page, ALL_NAMES, 'cleared at the end of the run')
 
-  await waitForStateJson(variantUserDataDir(variant), () => true, 'a settled state.json before exit')
+  await waitForStateJson(
+    variantUserDataDir(variant),
+    () => true,
+    'a settled state.json before exit',
+  )
 
   console.log(
     'replays-date-filter: presets and a custom from/to range each narrow the list correctly, an ' +

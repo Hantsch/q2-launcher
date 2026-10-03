@@ -33,30 +33,13 @@ import {
   REPLAYS_ROWS_ZIP_ARCHIVE,
   vendoredExtractorExists,
 } from '../lib/fixture.mjs'
+import { rowFor, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
 /** Runs against the `replays-rows` fixture variant, which it names itself (mirrors
  * `news-cover-template.mjs`'s own `export const variant`). */
 export const variant = 'replays-rows'
-
-function rowFor(page, fileName) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: fileName })
-}
-
-/** Same reasoning as `replays-extra-folders.mjs`'s own helper: the first `index.read` on mount can
- * render a stale/empty snapshot before the scan this same mount triggers finishes and swaps the
- * whole list in - waiting for `replays-refresh` to re-enable is the real "settled" signal. */
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
-}
 
 export default async function replaysDemoRows({ page, shot, step }) {
   step('navigating to the Demos view renders the discovered list')

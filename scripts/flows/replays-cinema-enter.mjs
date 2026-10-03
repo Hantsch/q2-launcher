@@ -12,6 +12,8 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { waitForWindow } from '../lib/harness.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import { waitForScan, windowLines } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -33,17 +35,7 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const fail = (message) => {
-  throw new Error(`replays-cinema-enter: ${message}`)
-}
-
-function windowLines() {
-  if (!existsSync(files.windowLog)) return []
-  return readFileSync(files.windowLog, 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l.length > 0)
-}
+const fail = makeFail('replays-cinema-enter')
 
 const launchCount = (logPath) =>
   existsSync(logPath)
@@ -51,16 +43,6 @@ const launchCount = (logPath) =>
         .split(/\r?\n/)
         .filter((l) => l.includes('launching')).length
     : 0
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) fail('timed out waiting for the demo scan to finish')
-    await sleep(100)
-  }
-}
 
 const cinemaWindows = (app) => app.windows().filter((w) => w.url().includes('cinema.html'))
 
@@ -93,8 +75,10 @@ export default async function replaysCinemaEnter({ page, app, log, step, shot })
   const mode = () => cinema.getAttribute('data-mode')
   if ((await mode()) !== 'preview') fail(`the mode before cinema is ${await mode()}`)
   await sleep(SETTLE_MS)
-  if (windowLines().length > 0)
-    fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
+  if (windowLines(files.windowLog).length > 0)
+    fail(
+      `an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines(files.windowLog))}`,
+    )
   const launches = launchCount(logPath)
   await shot('cinema-mode-switch')
 
@@ -115,12 +99,13 @@ export default async function replaysCinemaEnter({ page, app, log, step, shot })
   await cinema.click({ timeout: TIMEOUT_MS })
   await waitForWindow(app, 'cinema.html', log)
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (windowLines().filter((l) => l.startsWith('set vid_geometry ')).length < 1) {
-    if (Date.now() >= deadline) fail(`window log got ${JSON.stringify(windowLines())}`)
+  while (windowLines(files.windowLog).filter((l) => l.startsWith('set vid_geometry ')).length < 1) {
+    if (Date.now() >= deadline)
+      fail(`window log got ${JSON.stringify(windowLines(files.windowLog))}`)
     await sleep(50)
   }
   await sleep(SETTLE_MS)
-  const lines = windowLines()
+  const lines = windowLines(files.windowLog)
   const geometry = lines.filter((l) => l.startsWith('set vid_geometry '))
   if (geometry.length !== 1 || geometry[0] !== want)
     fail(`expected exactly [${want}], got ${JSON.stringify(lines)}`)

@@ -1,2 +1,20 @@
 - 2026-10-03 07:48 · refine · 16 stories · started
 - 2026-10-03 07:56 · refine · 16 stories · done
+- 2026-10-03 07:56 · 224 · build · started
+- 2026-10-03 07:56 · 224 · D1 shared literals · started
+- 2026-10-03 07:59 · 224 · D1 shared literals · done
+- 2026-10-03 07:59 · 224 · D2 fixture facade split · started
+- 2026-10-03 08:06 · 224 · D2 fixture facade split · done
+- 2026-10-03 08:06 · 224 · D3 parity test · started
+- 2026-10-03 08:11 · 224 · D3 parity test · done
+- 2026-10-03 08:11 · 224 · D4 servers helpers · started
+- 2026-10-03 08:22 · 224 · D4 servers helpers · done
+- 2026-10-03 08:22 · 224 · D5 replays helpers · started
+- 2026-10-03 08:42 · 224 · D5 replays helpers · done
+- 2026-10-03 08:42 · 224 · D6 remaining helpers and guard · started
+- 2026-10-03 08:52 · 224 · D6 remaining helpers and guard · done
+- 2026-10-03 08:52 · 224 · verify · started
+- 2026-10-03 09:18 · 224 · verify · done
+- 2026-10-03 09:18 · 224 · review 1 · started
+- 2026-10-03 09:24 · 224 · review 1 · done
+- 2026-10-03 09:24 · 224 · story · done

@@ -6,7 +6,6 @@
 // The "engine" is the fixture's stand-in client (see `replays-play-q2pro.mjs`); no real Quake II runs.
 // The final step resets the trusted list so the flow leaves defaults behind - later deliverables insert
 // their steps BEFORE that cleanup.
-import { existsSync, readFileSync } from 'node:fs'
 import { variantUserDataDir } from '../lib/harness.mjs'
 import { STATE_WRITE_GRACE_MS, readStateJson, waitForStateJson } from '../lib/state-json.mjs'
 import {
@@ -16,6 +15,8 @@ import {
   startBootstrapFixtureServer,
   writeReplaysPlayFixture,
 } from '../lib/fixture.mjs'
+import { waitForScan } from '../lib/replays-copy-in.mjs'
+import { readLog } from '../lib/flow-common.mjs'
 
 export const variant = 'replays-play'
 
@@ -36,21 +37,6 @@ export async function setup() {
 export async function teardown() {
   await server?.close()
   server = null
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refresh.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('replays-mod-warning: timed out waiting for the demo scan to finish')
-}
-
-function readLog(logPath) {
-  return existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
 }
 
 async function waitFor(predicate, what, timeoutMs = 10_000) {

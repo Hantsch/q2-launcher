@@ -35,6 +35,7 @@
 //     claim - the label reads "Engine" - is asserted exactly, on the associated `<label>`'s own
 //     `textContent` via `HTMLSelectElement.labels`.
 import { INSTALL_DEMO_UPGRADE_NAME, INSTALL_UNKNOWN_ENGINE_NAME } from '../lib/fixture.mjs'
+import { railTile } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -101,11 +102,6 @@ async function openRailCard(page, tile, card, name) {
   } catch (error) {
     throw new Error(`the rail hover card for "${name}" never opened: ${error.message}`)
   }
-}
-
-/** The rail tile for one installation, addressed by the `aria-label` the rail puts on it. */
-function railTile(page, name) {
-  return page.locator(`[data-testid="installation-tile"][aria-label="${name}"]`)
 }
 
 /** The name row of one installation's library card - the badge is the heading's own sibling. */
@@ -244,7 +240,7 @@ export default async function engineNotClient({ page, shot, step }) {
   step('assert the rail card of the unsupported-engine install is marked')
   await openRailCard(
     page,
-    railTile(page, INSTALL_UNKNOWN_ENGINE_NAME),
+    railTile(page, INSTALL_UNKNOWN_ENGINE_NAME, 'testid'),
     railCard,
     INSTALL_UNKNOWN_ENGINE_NAME,
   )
@@ -256,7 +252,12 @@ export default async function engineNotClient({ page, shot, step }) {
   await shot('rail-card-unsupported')
 
   step('assert the rail card of a supported-engine install carries no marker')
-  await openRailCard(page, railTile(page, SUPPORTED_INSTALL_NAME), railCard, SUPPORTED_INSTALL_NAME)
+  await openRailCard(
+    page,
+    railTile(page, SUPPORTED_INSTALL_NAME, 'testid'),
+    railCard,
+    SUPPORTED_INSTALL_NAME,
+  )
   await assertBadgeReads(
     railCard,
     `rail card for "${SUPPORTED_INSTALL_NAME}"`,

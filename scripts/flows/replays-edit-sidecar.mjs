@@ -26,6 +26,7 @@ import {
   REPLAYS_ROWS_MVD_DEMO,
   replaysRowsSidecarPath,
 } from '../lib/fixture.mjs'
+import { rowFor, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -34,21 +35,6 @@ export const variant = 'replays-rows'
 const NAME = 'Edited MVD final'
 const MOD = 'lithium'
 const DATE_TEXT = '2030-06-15 20:30'
-
-function rowFor(page, text) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: text })
-}
-
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
-}
 
 async function expectInlineError(page, field) {
   await page

@@ -12,7 +12,6 @@
 //
 // Selectors: servers-row-<address>, servers-detail, servers-detail-local-content,
 // servers-detail-mod-status / -map-status (data-state), servers-detail-mod-install (must be absent).
-import { createSocket } from 'node:dgram'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import {
@@ -25,49 +24,16 @@ import {
   vendoredExtractorExists,
   writeModsInstallFixture,
 } from '../lib/fixture.mjs'
+import { makeResponderBinder, closeResponder } from '../lib/servers-stub.mjs'
 
 export const variant = 'servers-detail-local-content'
 
 const TIMEOUT_MS = 8_000
 const SCAN_SETTLE_TIMEOUT_MS = 15_000
 const JOB_TIMEOUT_MS = 60_000
-const OOB_PREFIX = Buffer.from([0xff, 0xff, 0xff, 0xff])
 const FIXED_ADDED_AT = '2026-01-01T00:00:00.000Z'
 
-function encodeLatin1(text) {
-  const bytes = Buffer.alloc(text.length)
-  for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 0xff
-  return bytes
-}
-
-function buildInfoReplyBytes(serverinfoLine) {
-  const parts = serverinfoLine.split('\\').slice(1)
-  const kv = {}
-  for (let i = 0; i + 1 < parts.length; i += 2) kv[parts[i]] = parts[i + 1]
-  const count = (value) => (/^\d+$/.test(value ?? '') ? value : '0')
-  const line =
-    `${(kv.hostname ?? '').padStart(16)} ${(kv.mapname ?? '').padStart(8)} ` +
-    `${count(kv.clients).padStart(2)}/${count(kv.maxclients).padStart(2)}\n`
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`info\n${line}`)])
-}
-
-function buildStatusReplyBytes(serverinfoLine) {
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`print\n${serverinfoLine}\n`)])
-}
-
-async function bindResponder(infoLine) {
-  const socket = createSocket('udp4')
-  await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
-  const address = `127.0.0.1:${socket.address().port}`
-  socket.on('message', (message, rinfo) => {
-    const text = message.subarray(4).toString('latin1')
-    if (text.startsWith('info'))
-      socket.send(buildInfoReplyBytes(infoLine), rinfo.port, rinfo.address)
-    else if (text.startsWith('status'))
-      socket.send(buildStatusReplyBytes(infoLine), rinfo.port, rinfo.address)
-  })
-  return { socket, address, closed: false }
-}
+const bindResponder = makeResponderBinder((infoLine) => ({ infoLine, trailer: '\n' }))
 
 function serverInfo(name, map, modKey) {
   return (
@@ -152,12 +118,7 @@ export async function setup() {
 }
 
 export async function teardown() {
-  await Promise.all(
-    responders.map(
-      (r) =>
-        !r.closed && ((r.closed = true), new Promise((resolve) => r.socket.close(() => resolve()))),
-    ),
-  )
+  await Promise.all(responders.map((responder) => closeResponder(responder)))
   await catalogServer?.close()
 }
 

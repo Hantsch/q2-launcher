@@ -88,6 +88,7 @@
 //   demo-badge                                components/ui/DemoBadge.tsx - must vanish (AC5)
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { libraryCard, railTile, simulateLaunch } from '../lib/flow-common.mjs'
 import {
   INSTALL_DEMO_UPGRADE_ID,
   INSTALL_DEMO_UPGRADE_NAME,
@@ -136,22 +137,6 @@ export async function setup() {
   }
 }
 
-/** Scopes the rail's tile/hover-card lookups to `<aside>` - the rail's own landmark - so they
- * cannot resolve the library card's OWN `aria-label={installation.name}` button once both are
- * mounted (`installation-icon-tile.mjs`'s own review-finding comment documents the same hazard). */
-function railTile(page, name) {
-  return page.locator('aside').getByRole('button', { name, exact: true })
-}
-
-/** The library row - no dedicated testid, so this locates the same `items-start` wrapper
- * `installation-icon-tile.mjs`'s own `libraryCard()` helper does, which is what makes the row's
- * action-button cluster (this story's trigger among them) resolvable inside it. */
-function libraryCard(page, name) {
-  return page
-    .locator('div.items-start')
-    .filter({ has: page.getByRole('heading', { name, exact: true }) })
-}
-
 function importRetailButton(scope) {
   return scope.getByRole('button', { name: IMPORT_RETAIL_LABEL })
 }
@@ -196,16 +181,6 @@ async function setStoreSourcesOverride(app, value) {
   await app.evaluate((_electron, next) => {
     process.env.Q2L_UI_HARNESS_STORE_SOURCES = next
   }, value)
-}
-
-async function simulateLaunch(page, installationId, phase) {
-  const outcome = await page.evaluate(
-    ({ id, ph }) => window.q2.invoke('dev:simulateLaunch', { installationId: id, phase: ph }),
-    { id: installationId, ph: phase },
-  )
-  if (!outcome?.ok) {
-    throw new Error(`dev:simulateLaunch(${phase}) failed: ${JSON.stringify(outcome)}`)
-  }
 }
 
 /** AC2's "identified by its store and its path" / AC6's rejection reason, asserted on one rendered

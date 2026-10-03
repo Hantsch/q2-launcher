@@ -44,13 +44,20 @@
 // rather than parse the DOM for an opaque id" discipline `servers-scoped-refresh.mjs`'s own
 // `scan.read` calls follow.
 import { generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
-import { createSocket } from 'node:dgram'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { SERVERS_DISABLED_SOURCES, writeJoinFixture } from '../lib/fixture.mjs'
 import { variantUserDataDir, withApp } from '../lib/harness.mjs'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { readStateJson, waitForStateJson } from '../lib/state-json.mjs'
+import {
+  bindResponder as bindLoopbackResponder,
+  closeResponder,
+  buildInfoReplyBytes,
+  buildStatusReplyBytes,
+} from '../lib/servers-stub.mjs'
+import { readFinishedAt, waitForFinishedAtChange } from '../lib/servers-flow.mjs'
+import { invoke } from '../lib/flow-common.mjs'
 
 export const variant = 'servers-watchlist'
 
@@ -69,39 +76,6 @@ const CODE_PREFIX = 'q2l1'
 let signingPrivateKey = null
 let signingPublicKeyPem = null
 
-const OOB_PREFIX = Buffer.from([0xff, 0xff, 0xff, 0xff])
-
-function encodeLatin1(text) {
-  const bytes = Buffer.alloc(text.length)
-  for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i) & 0xff
-  return bytes
-}
-
-function buildInfoReplyBytes(serverinfoLine) {
-  // A real `info` reply is not an infostring but Quake II's `"%16s %8s %2i/%2i\n"` summary line
-  // (`src/shared/servers/reply-fixtures.ts`'s `formatInfoLine`) - only these four keys survive.
-  const parts = serverinfoLine.split('\\').slice(1)
-  const kv = {}
-  for (let i = 0; i + 1 < parts.length; i += 2) kv[parts[i]] = parts[i + 1]
-  const count = (value) => (/^\d+$/.test(value ?? '') ? value : '0') // `%2i` always prints a number
-  const line =
-    `${(kv.hostname ?? '').padStart(16)} ${(kv.mapname ?? '').padStart(8)} ` +
-    `${count(kv.clients).padStart(2)}/${count(kv.maxclients).padStart(2)}\n`
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`info\n${line}`)])
-}
-
-function buildStatusReplyBytes(serverinfoLine, playerLines) {
-  const players = playerLines.map((line) => `\n${line}`).join('')
-  return Buffer.concat([OOB_PREFIX, encodeLatin1(`print\n${serverinfoLine}${players}`)])
-}
-
-function decodeQueryKind(message) {
-  const text = message.subarray(4).toString('latin1')
-  if (text.startsWith('info')) return 'info'
-  if (text.startsWith('status')) return 'status'
-  return 'unknown'
-}
-
 function formatPlayerLine({ score, ping, name }) {
   return `${score} ${ping} "${name}"`
 }
@@ -115,32 +89,17 @@ function formatPlayerLine({ score, ping, name }) {
  * job, not a second mismatch-dialog proof.
  */
 async function bindResponder(hostname, initialPlayers) {
-  const socket = createSocket('udp4')
-  await new Promise((resolve) => socket.bind(0, '127.0.0.1', resolve))
-  const port = socket.address().port
-  const address = `127.0.0.1:${port}`
-  const responder = { socket, port, address, hostname, players: initialPlayers, closed: false }
-
-  socket.on('message', (message, rinfo) => {
-    const kind = decodeQueryKind(message)
+  const responder = await bindLoopbackResponder(0, (kind) => {
     const infoLine =
       `\\gamename\\baseq2\\hostname\\${responder.hostname}\\mapname\\q2dm1\\clients\\${responder.players.length}` +
       `\\maxclients\\8\\version\\3.20`
-    if (kind === 'info') {
-      socket.send(buildInfoReplyBytes(infoLine), rinfo.port, rinfo.address)
-    } else if (kind === 'status') {
-      const playerLines = responder.players.map(formatPlayerLine)
-      socket.send(buildStatusReplyBytes(infoLine, playerLines), rinfo.port, rinfo.address)
+    if (kind === 'info') return buildInfoReplyBytes(infoLine)
+    if (kind === 'status') {
+      return buildStatusReplyBytes(infoLine, responder.players.map(formatPlayerLine))
     }
   })
-
+  Object.assign(responder, { hostname, players: initialPlayers })
   return responder
-}
-
-async function closeResponder(responder) {
-  if (responder.closed) return
-  responder.closed = true
-  await new Promise((resolve) => responder.socket.close(() => resolve()))
 }
 
 const FIXED_ADDED_AT = '2026-01-01T00:00:00.000Z'
@@ -261,10 +220,6 @@ async function invokeModule(page, type, payload) {
   )
 }
 
-async function invoke(page, channel, payload) {
-  return page.evaluate(({ ch, p }) => window.q2.invoke(ch, p), { ch: channel, p: payload })
-}
-
 async function readWatchlistSnapshot(page) {
   const result = await invokeModule(page, 'watchlist.read')
   if (result?.ok !== true) {
@@ -294,29 +249,6 @@ async function fillAddForm(page, { name, mode }) {
   await page.getByTestId('servers-watchlist-add-name').fill(name, { timeout: TIMEOUT_MS })
   await page.getByTestId('servers-watchlist-add-mode').selectOption(mode, { timeout: TIMEOUT_MS })
   await page.getByTestId('servers-watchlist-add-submit').click({ timeout: TIMEOUT_MS })
-}
-
-function scanStatusLocator(page) {
-  return page.getByTestId('servers-scan-status')
-}
-
-async function readFinishedAt(page) {
-  return (await scanStatusLocator(page).getAttribute('data-finished-at')) ?? ''
-}
-
-async function waitForFinishedAtChange(page, previous, timeout) {
-  await page.waitForFunction(
-    (before) => {
-      const el = document.querySelector('[data-testid="servers-scan-status"]')
-      return (
-        el?.getAttribute('data-running') === 'false' &&
-        (el?.getAttribute('data-finished-at') ?? '') !== before &&
-        (el?.getAttribute('data-finished-at') ?? '') !== ''
-      )
-    },
-    previous,
-    { timeout },
-  )
 }
 
 /** Runs a full "Refresh servers" round from the list tab, then returns to the watchlist tab -

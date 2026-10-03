@@ -4,6 +4,7 @@
     "src/renderer/src/**/*.tsx",
     "src/renderer/src/**/*.json",
     "src/shared/**/*.ts",
+    "src/shared/fixture-constants.json",
     "src/test-support/fixtures.ts",
     "src/preload/index.d.ts"
   ],
@@ -16,6 +17,7 @@
   // too.
   "exclude": [
     "src/shared/replays/demo-guard.test.ts",
+    "src/shared/fixture-constants.test.ts",
     "src/shared/types/common.test.ts",
     "src/renderer/src/lib/toast.test.ts",
     "src/renderer/src/i18n/reason-templates.test.ts",

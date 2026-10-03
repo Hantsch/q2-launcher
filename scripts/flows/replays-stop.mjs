@@ -3,7 +3,7 @@
 // terminated by main after its timeout. Afterwards the launcher's q2l_* control/log files are gone.
 //
 // Selectors: `replays-demo-row`, `actionbar-play[data-action="view"]`, `replays-timeline`, `replays-timeline-stop`.
-import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   REPLAYS_PLAY_CTF_DEMO,
@@ -11,6 +11,8 @@ import {
   replaysTimelineEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
+import { sleep } from '../lib/flow-common.mjs'
+import { commands, waitForScan } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -33,15 +35,6 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-function commands() {
-  if (!existsSync(files.commandLog)) return []
-  return readFileSync(files.commandLog, 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l.length > 0)
-}
-
 /** The launcher's leftover q2l_* control/log files in the Quake II game dir. */
 function leftovers() {
   const found = []
@@ -53,17 +46,6 @@ function leftovers() {
   }
   if (existsSync(fixture.installRoot)) walk(fixture.installRoot)
   return found
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline)
-      throw new Error('replays-stop: timed out waiting for the demo scan to finish')
-    await sleep(100)
-  }
 }
 
 async function playDemo(page, timeline) {
@@ -122,7 +104,7 @@ export default async function replaysStop({ page, step, shot }) {
   await stop.click({ timeout: TIMEOUT_MS })
   await timeline.waitFor({ state: 'detached', timeout: 10_000 })
   await page.getByTestId('replays-console-field').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
-  const ran = commands()
+  const ran = commands(files.commandLog)
   if (ran[ran.length - 1] !== 'quit')
     throw new Error(
       `replays-stop: engine's last command was ${JSON.stringify(ran[ran.length - 1])}, expected quit`,

@@ -9,6 +9,8 @@ import {
   replaysStageFollowEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import { launchGeometry, waitForScan, windowLines } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -29,45 +31,9 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const fail = (message) => {
-  throw new Error(`replays-stage-view-leave: ${message}`)
-}
-
-function windowLines() {
-  if (!existsSync(files.windowLog)) return []
-  return readFileSync(files.windowLog, 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l.length > 0)
-}
+const fail = makeFail('replays-stage-view-leave')
 
 const geometryLines = (lines) => lines.filter((l) => l.startsWith('set vid_geometry '))
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) fail('timed out waiting for the demo scan to finish')
-    await sleep(100)
-  }
-}
-
-async function launchGeometry(logPath) {
-  const deadline = Date.now() + 10_000
-  for (;;) {
-    const content = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
-    const line = content
-      .split(/\r?\n/)
-      .filter((l) => l.includes('launching'))
-      .pop()
-    const m = line ? /\+set vid_geometry (\d+)x(\d+)\+(-?\d+)\+(-?\d+)/.exec(line) : null
-    if (m) return { w: Number(m[1]), h: Number(m[2]), x: Number(m[3]), y: Number(m[4]) }
-    if (line) fail(`the launching line has no vid_geometry: ${JSON.stringify(line)}`)
-    if (Date.now() >= deadline) fail('main.log never contained a launching line')
-    await sleep(150)
-  }
-}
 
 /** The `vid_geometry` line for the picture's box at the window's current place and display (the same
  * conversion `replays-stage.mjs` checks the launch against). */
@@ -114,13 +80,13 @@ const launchCount = (logPath) =>
 /** Waits for `n` new geometry lines, settles, and returns all new geometry lines. */
 async function newGeometry(from, n, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (geometryLines(windowLines().slice(from)).length < n) {
+  while (geometryLines(windowLines(files.windowLog).slice(from)).length < n) {
     if (Date.now() >= deadline)
-      fail(`${label}: window log got ${JSON.stringify(windowLines().slice(from))}`)
+      fail(`${label}: window log got ${JSON.stringify(windowLines(files.windowLog).slice(from))}`)
     await sleep(50)
   }
   await sleep(SETTLE_MS)
-  return geometryLines(windowLines().slice(from))
+  return geometryLines(windowLines(files.windowLog).slice(from))
 }
 
 export default async function replaysStageViewLeave({ page, app, step, shot }) {
@@ -146,10 +112,12 @@ export default async function replaysStageViewLeave({ page, app, step, shot }) {
     if (Date.now() >= liveBy) fail('the playback session never went live')
     await sleep(100)
   }
-  await launchGeometry(logPath)
+  await launchGeometry(logPath, { fail })
   await sleep(SETTLE_MS)
-  if (windowLines().length > 0)
-    fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
+  if (windowLines(files.windowLog).length > 0)
+    fail(
+      `an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines(files.windowLog))}`,
+    )
   const launches = launchCount(logPath)
 
   const edge = await app.evaluate(({ screen }) => {
@@ -174,7 +142,7 @@ export default async function replaysStageViewLeave({ page, app, step, shot }) {
   const isPark = (l) => parseGeo(l)?.x === parkX
 
   step('leaving the Demos view parks the game')
-  let from = windowLines().length
+  let from = windowLines(files.windowLog).length
   await page.getByTestId('nav-home').click({ timeout: TIMEOUT_MS })
   await picture.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   let lines = await newGeometry(from, 1, 'leave')
@@ -182,7 +150,7 @@ export default async function replaysStageViewLeave({ page, app, step, shot }) {
     fail(`leave: expected exactly one park line (x=${parkX}), got ${JSON.stringify(lines)}`)
 
   step('back on Demos the game is placed at the stage, the demo was not restarted')
-  from = windowLines().length
+  from = windowLines(files.windowLog).length
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await picture.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   lines = await newGeometry(from, 1, 'return')
@@ -194,7 +162,7 @@ export default async function replaysStageViewLeave({ page, app, step, shot }) {
 
   step('a bigger window: one park, one placed line at the new stage size')
   const before = parseGeo(want)
-  from = windowLines().length
+  from = windowLines(files.windowLog).length
   await app.evaluate(({ BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows()[0]
     const [w, h] = win.getSize()

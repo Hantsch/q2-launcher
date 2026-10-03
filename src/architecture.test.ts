@@ -297,6 +297,7 @@ describe('architecture', () => {
     // What remains are node-only test files, not purity checks.
     expect(readTsconfig('tsconfig.web.json').exclude).toEqual([
       'src/shared/replays/demo-guard.test.ts',
+      'src/shared/fixture-constants.test.ts',
       'src/shared/types/common.test.ts',
       'src/renderer/src/lib/toast.test.ts',
       'src/renderer/src/i18n/reason-templates.test.ts',

@@ -10,6 +10,7 @@ import {
   vendoredExtractorExists,
   writeReplaysPlayMvd2Fixture,
 } from '../lib/fixture.mjs'
+import { rowFor, waitForScan } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-play-mvd2'
 
@@ -19,21 +20,6 @@ const LAUNCH_TIMEOUT_MS = 15_000
 export async function setup() {
   writeReplaysPlayMvd2Fixture(variant)
   return {}
-}
-
-function rowFor(page, fileName) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: fileName })
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refresh.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('replays-play-mvd2: timed out waiting for the demo scan to finish')
 }
 
 async function waitForLog(logPath, substring) {

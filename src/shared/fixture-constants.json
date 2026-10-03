@@ -1,0 +1,16 @@
+{
+  "stateFile": "state.json",
+  "windowStateFile": "window-state.json",
+  "stateSchemaVersion": 5,
+  "defaultSettings": {
+    "locale": "system",
+    "motion": "system",
+    "activeInstallationId": null,
+    "lastRoute": "/home",
+    "minimizeOnLaunch": true,
+    "closeAfterLaunch": false,
+    "confirmBeforeRemoving": true,
+    "scanOnFirstRun": true,
+    "deepScanDrives": []
+  }
+}

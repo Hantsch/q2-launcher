@@ -7,6 +7,7 @@
 // Selectors: `actionbar-play` (+ `data-action`), `nav-home|library|replays`, `replays-demo-row`,
 // `replays-demo-play`, `replays-demo-play-anyway` (both must be gone), `installation-tile`.
 import { REPLAYS_PLAY_CTF_DEMO, writeReplaysPlayFixture } from '../lib/fixture.mjs'
+import { waitForScan } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-play'
 
@@ -30,17 +31,6 @@ async function expectAction(page, action, label, disabled) {
   if (disabled !== undefined && (await button.isDisabled()) !== disabled) {
     throw new Error(`action-bar-view: expected ${action} disabled=${disabled}`)
   }
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refresh.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('action-bar-view: timed out waiting for the demo scan to finish')
 }
 
 export default async function actionBarView({ page, step, shot }) {

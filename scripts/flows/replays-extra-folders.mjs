@@ -27,6 +27,7 @@ import { REPO_ROOT } from '../lib/paths.mjs'
 import { variantUserDataDir, withApp } from '../lib/harness.mjs'
 import { replaysExtraFolderFixturePath } from '../lib/fixture.mjs'
 import { waitForStateJson } from '../lib/state-json.mjs'
+import { waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -63,22 +64,6 @@ async function openDemosView(page) {
     timeout: TIMEOUT_MS,
   })
   await waitForDemosScanToFinish(page)
-}
-
-/**
- * Opening the Demos view renders whatever `index.read` already has (possibly a stale snapshot from
- * an earlier visit in this same app instance) before its own just-triggered scan replaces it.
- * `replays-refresh` mounts disabled (the view starts in its scanning state) and is enabled again
- * only once that scan has finished, so its enabled state is the signal that the list reflects the
- * current on-disk state - a bare `.count()` right after navigating can otherwise race the scan.
- */
-async function waitForDemosScanToFinish(page) {
-  await page.getByTestId('replays-refresh').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.waitForFunction(
-    () => document.querySelector('[data-testid="replays-refresh"]')?.disabled === false,
-    undefined,
-    { timeout: TIMEOUT_MS },
-  )
 }
 
 export default async function replaysExtraFolders({ page, shot, step, variant }) {

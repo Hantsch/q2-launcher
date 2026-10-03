@@ -185,9 +185,8 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
     const layouts = readArchiveLayouts()
     const layoutsByRole = new Map(layouts.packages.map((pkg) => [pkg.role, pkg]))
 
-    // @ts-expect-error -- scripts/lib/fixture.mjs is outside tsconfig.node.json's `include`
     const fixtureModule = await import('../../../../../scripts/lib/fixture.mjs')
-    const fixtureLayout = fixtureModule.BOOTSTRAP_FIXTURE_LAYOUT as Record<string, string[]>
+    const fixtureLayout = fixtureModule.BOOTSTRAP_FIXTURE_LAYOUT
 
     for (const role of ['engine', 'demo', 'point-release'] as const) {
       const recorded = layoutsByRole.get(role)
@@ -211,13 +210,9 @@ describe('archive-layouts.json matches the shipped manifests, the allowlist and 
     const layouts = readArchiveLayouts()
     const layoutsByRole = new Map(layouts.packages.map((pkg) => [pkg.role, pkg]))
 
-    // `scripts/` is plain Node ESM outside both TS projects (see `fixture.mjs`'s own doc
-    // comment), so `tsconfig.node.json` has no declaration for this module - a dynamic import of
-    // it is real and resolves fine at runtime (proven by this test passing), it just has no static
-    // type.
-    // @ts-expect-error -- scripts/lib/fixture.mjs is outside tsconfig.node.json's `include`
+    // `scripts/` is plain Node ESM outside both TS projects; `fixture.d.mts` types the import.
     const fixtureModule = await import('../../../../../scripts/lib/fixture.mjs')
-    const fixtureLayout = fixtureModule.BOOTSTRAP_FIXTURE_LAYOUT as Record<string, string[]>
+    const fixtureLayout = fixtureModule.BOOTSTRAP_FIXTURE_LAYOUT
 
     // `baseq2/q2pro.menu` ships in the fixture (it ships in the real engine package, per
     // buildFixedEntries()'s own comment) but is deliberately absent from archive-layouts.json's

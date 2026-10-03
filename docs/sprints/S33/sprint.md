@@ -18,7 +18,7 @@ debt has one home with an ageing rule.
 
 ## Stories (in build order)
 
-- [ ] 224 — the e2e fixture and flow helpers are shared and schema-checked
+- [x] 224 — the e2e fixture and flow helpers are shared and schema-checked
 - [ ] 211 — config profile shapes are declared once
 - [ ] 210 — the config module's main side is handlers, not business logic
 - [ ] 214 — profile-restore is a folder of named stages

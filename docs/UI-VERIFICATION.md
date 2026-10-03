@@ -290,7 +290,7 @@ variant doesn't pop `DetectDialog` with `autoStart: true` and call it anyway.
 
 ## The importable `config.cfg` fixture
 
-`scripts/lib/fixture.mjs` writes a fixed, deterministic `baseq2/config.cfg`
+`scripts/lib/fixture/populated.mjs` writes a fixed, deterministic `baseq2/config.cfg`
 (`FIXTURE_CONFIG_CFG`) under exactly one installation's game directory —
 `fixture-install-writedir` (display name "Fixture WriteDir Install"), never
 under `fixture-install-favorite` or any other seeded installation. It exists
@@ -433,7 +433,7 @@ of story 066 D8, replaced by one new entry, `config-import-files`:
   name), which triggers `DialogService`'s harness-only stub
   (`Q2L_UI_HARNESS==='1'`, `src/main/services/dialog.ts`) instead of
   a real OS dialog, handing back the three real fixture files
-  `scripts/lib/fixture.mjs` stages under `.ui-verify/fixture/import-files/`
+  `scripts/lib/fixture/installations.mjs` stages under `.ui-verify/fixture/import-files/`
   (`dm.cfg`, `dmalias.cfg`, `gfx.cfg` — the same three files
   `docs/fixtures/` and `import-fixtures.test.ts`'s corpus test use).
   `navigate()` waits for the third `config-import-file-row` to be visible.
@@ -552,7 +552,7 @@ Story 073 D6 updates one existing entry rather than adding a new one:
   "Fixture split" decision, this screen only ever shows the _zero-jobs_ state — a live job cannot
   be seeded through the static `state.json` fixture — which is what `variant: 'populated'` means
   here: "the real view, populated with its own UI" (the archive cache's real figure, from the two
-  dummy archives `scripts/lib/fixture.mjs` seeds under `cache/downloads/`), not "populated with
+  dummy archives `scripts/lib/fixture/downloads.mjs` seeds under `cache/downloads/`), not "populated with
   jobs". The running and failed states live in `scripts/flows/downloads-tab.mjs` instead (see
   "Flows shipped so far" below), since only a flow can trigger `dev:simulateJob`.
 
@@ -625,7 +625,7 @@ surface. It never asserts:
 
 New flows do not use `waitForTimeout`; they wait on a state (a testid
 appearing, text changing, a value settling). All fixture data comes from the
-one deterministic builder `scripts/lib/fixture.mjs`, seeded by
+one deterministic builder `scripts/lib/fixture/populated.mjs`, seeded by
 `scripts/seed.mjs`; a flow does not invent its own data on disk.
 
 A flow that asserts another story's incidental detail is fixed in the flow,
@@ -786,7 +786,7 @@ entry's translated reason persists across a `DownloadsView` remount, dismisses i
 "Dismissed" disclosure, and restores back into the visible list (AC2) — the only job source is
 `dev:simulateJob`, so the flow never touches the network (AC5). Story 075 D7 adds a further
 section after that dismiss/restore walk, exercised against the two static `downloadFailures`
-entries `scripts/lib/fixture.mjs`'s `populatedDownloadFailures()` seeds directly into `state.json`
+entries `scripts/lib/fixture/populated.mjs`'s `populatedDownloadFailures()` seeds directly into `state.json`
 (no job round trip, reachable fully offline, AC8): both the with-diagnostics and
 without-diagnostics entries render; only the diagnostics entry offers a copy action, the other
 renders none at all (not even a disabled stub, AC6); clicking copy and reading the OS clipboard
@@ -838,7 +838,7 @@ holding the write lock disables Play and makes `launch:start` refuse — its own
 
 Story 079 D3 adds two flows proving every content mutation now cascades to every one of Plain
 Profile's assigned installations, not just its own canonical file — the fixture gave Plain Profile a
-second assignment (`INSTALL_TWO_ID`, `scripts/lib/fixture.mjs`) so "every assigned installation" has
+second assignment (`INSTALL_TWO_ID`, `scripts/lib/fixture/core.mjs`) so "every assigned installation" has
 two real targets to check, not one. (story 079 D3) **`raw-save-cascades`** (AC1) — types a
 deliberately hand-formatted line (a leading tab, trailing spaces — never a `renderProfileFile`
 fixed point) into the Raw file tab's editor, saves it the same way `raw-inline-edit` does, then
@@ -973,7 +973,7 @@ above for what those are and why they are safe), and walks the wizard **twice** 
 
 - **Run 1** picks a genuinely fresh target folder (not the pre-seeded, deliberately-non-empty one
   `bootstrap-wizard.mjs` uses) and lets the job fail — the fixture server is started with a new
-  `startBootstrapFixtureServer({ failFirstAttemptFor })` option (`scripts/lib/fixture.mjs`) that
+  `startBootstrapFixtureServer({ failFirstAttemptFor })` option (`scripts/lib/fixture/bootstrap.mjs`) that
   404s one named package's PRIMARY _and_ MIRROR url on their first request only, then serves that
   same package normally ever after. This has to be a property of the _server_, not of the flow:
   `Q2L_UI_CONTENT_REPO_BASE` is fixed for the whole app session, so one flow covering both the
@@ -1014,7 +1014,7 @@ extraction, same two harness-only overrides) but is its own file, kept deliberat
 `bootstrap-wizard.mjs`'s passing happy path is never touched by it (per the story's own "Decided
 during refine" note).
 
-**The broken fixture.** `scripts/lib/fixture.mjs`'s `buildBootstrapPackages({ wrapperNestedLayout:
+**The broken fixture.** `scripts/lib/fixture/bootstrap.mjs`'s `buildBootstrapPackages({ wrapperNestedLayout:
 true })` moves every package's payload one wrapper level deeper than any candidate
 `assemble.ts`'s allowlist (`buildFixedEntries()`, story 076 D1) accepts — the demo and
 point-release archives nest under `Install/Data/` (the story's own fixture bullet, matching
@@ -1078,7 +1078,7 @@ bootstrap flows never race over one directory. Three things about it are worth k
   standing promise never to trigger `detection:scan`, which would shell out to `reg.exe` and walk
   the developer's own Steam/GOG directories.
 - **The fixture store installations are real files at the real retail sizes.**
-  `writeBootstrapStoreSources()` (`scripts/lib/fixture.mjs`) writes two of them under
+  `writeBootstrapStoreSources()` (`scripts/lib/fixture/bootstrap.mjs`) writes two of them under
   `.ui-verify/fixture/bootstrap/store-sources/`: a GOG one whose `pak0.pak` is the 8 MiB demo size
   (its only defect, so its verdict is exactly `pak0SizeMismatch`) and a Steam one whose
   pak0/pak1/pak2 match `RETAIL_PAK_SIZES` to the byte. Every pak is created empty and `truncate`d to
@@ -1172,7 +1172,7 @@ writeup of both), but needs no fixture HTTP server and no `7za.exe` extraction a
 test (`src/main/modules/downloads/retail/upgrade-job.ts`) only copies local files, it never
 downloads or extracts anything.
 
-**The fixture demo installation.** `scripts/lib/fixture.mjs`'s `populatedInstallations()` gains a
+**The fixture demo installation.** `scripts/lib/fixture/installations.mjs`'s `populatedInstallations()` gains a
 fifth, additive installation (`INSTALL_DEMO_UPGRADE_ID`, "Fixture Demo Upgrade Install") — the same
 convention `INSTALL_UNKNOWN_ENGINE_ID`/`INSTALL_FAILED_ID` already document (last `sortOrder`,
 assigned to no config profile). `writePopulatedFixture()` gives it real files: a demo-sized
@@ -1284,7 +1284,7 @@ update-job.ts`/`rollback-job.ts`) run a real verified download of the fixture's 
 a real `7za.exe` extraction, so this flow needs `resources/bin/7za.exe` (`npm run fetch:7za`) exactly
 like `bootstrap-wizard.mjs` does.
 
-**The fixture installation.** `scripts/lib/fixture.mjs`'s `populatedInstallations()` gains a sixth,
+**The fixture installation.** `scripts/lib/fixture/installations.mjs`'s `populatedInstallations()` gains a sixth,
 additive installation (`INSTALL_ENGINE_UPDATE_ID`, "Fixture Engine Update Install") - the same
 convention `INSTALL_DEMO_UPGRADE_ID` (090 D6) documents: last `sortOrder`, assigned to no config
 profile. Its `moduleData` records a recorded engine version (`ENGINE_UPDATE_OLD_VERSION`,
@@ -1308,7 +1308,7 @@ files" are on an EXISTING installation, so the fixture's pre-existing executable
 under the INSTALLED name (`ENGINE_INSTALLED_RELATIVE['q2pro64.exe']` = `'q2pro.exe'`), not the
 archive's own `q2pro64.exe` - an installation that still had a `q2pro64.exe` on disk would never be
 found or backed up by the real job at all, and the update would silently create a stray new
-`q2pro.exe` next to it instead of replacing anything. `ENGINE_INSTALLED_RELATIVE` in `fixture.mjs`
+`q2pro.exe` next to it instead of replacing anything. `ENGINE_INSTALLED_RELATIVE` in `fixture/installations.mjs`
 names this mapping explicitly so a future engine addition cannot reintroduce the same silent miss.
 
 **Warming the manifest cache.** `ManifestService.pinnedEnginePackage()` only ever answers from an
@@ -1369,7 +1369,7 @@ recorded `executablePath` next to a still-present, different engine file, `r1q2d
 the fresh and recorded engine kind equal) paired with an empty `baseq2` (`validation.pak0Missing`,
 error - purely so the action bar's Repair button exists to click at all).
 
-**The six fixture installations.** `scripts/lib/fixture.mjs`'s `populatedInstallations()` gains five
+**The six fixture installations.** `scripts/lib/fixture/installations.mjs`'s `populatedInstallations()` gains five
 additive installations (last `sortOrder`s, assigned to no config profile - the convention every
 fixture since 090 documents): `INSTALL_REPAIR_ENGINE_ID` (AC1: `executableMissing` + `pak0Missing`),
 `INSTALL_REPAIR_POINT_RELEASE_ID` (AC2: `pointReleaseMissing`, warn),
@@ -1448,7 +1448,7 @@ aggregate/summary tiles — so there is no dashboard surface this flow can addit
 library+rail is this story's whole per-installation surface.
 
 **The two fixture installations, and why AC5 reuses one instead of a third.**
-`scripts/lib/fixture.mjs`'s `populatedInstallations()` gains two additive installations (last
+`scripts/lib/fixture/installations.mjs`'s `populatedInstallations()` gains two additive installations (last
 `sortOrder`s, assigned to no config profile, the convention every fixture since 090 documents):
 `INSTALL_REMOVE_STORE_ID` (`source: 'steam'`, AC4's store-managed case) and `INSTALL_REMOVE_DISK_ID`
 (`source: 'manual'`, the one this flow actually deletes) — both plain, playable fixtures with no

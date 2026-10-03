@@ -6,9 +6,8 @@
 //
 // Structural sibling of `scripts/flows/app-update.mjs` (098 D5) and
 // `scripts/flows/settings-downloads-section.mjs` (072 D6): same harness (`withApp` via
-// `flow.mjs`), same `dev:simulateAppUpdate`-driven `invoke`/`invokeOk` idiom as the former (copied
-// here rather than imported - each flow file is a standalone module by this repo's own
-// convention), same on-disk-assertion idiom as the latter for AC3's recorded external-link clicks.
+// `flow.mjs`), same `dev:simulateAppUpdate`-driven `invoke`/`invokeOk` idiom as the former
+// (`invoke` comes from `scripts/lib/flow-common.mjs`), same on-disk-assertion idiom as the latter for AC3's recorded external-link clicks.
 //
 // A tiny, justified addition to the simulate mechanism backs AC4's other half: `checkFailed`
 // (`src/shared/types/update.ts`) is a *check* failure (`status: 'error'`), not a *download*
@@ -56,6 +55,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from '../lib/harness.mjs'
 import { REPO_ROOT } from '../lib/paths.mjs'
+import { invoke } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /**
@@ -75,10 +75,6 @@ const POLL_INTERVAL_MS = 100
  */
 const APP_REPO_URL = 'https://github.com/Hantsch/q2-launcher'
 const APP_CHANGELOG_URL = 'https://github.com/Hantsch/q2-launcher/blob/main/CHANGELOG.md'
-
-async function invoke(page, channel, payload) {
-  return page.evaluate(({ ch, p }) => window.q2.invoke(ch, p), { ch: channel, p: payload })
-}
 
 async function invokeOk(page, channel, payload, label) {
   const outcome = await invoke(page, channel, payload)

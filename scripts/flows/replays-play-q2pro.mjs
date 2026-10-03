@@ -18,6 +18,7 @@ import {
   vendoredExtractorExists,
   writeReplaysPlayFixture,
 } from '../lib/fixture.mjs'
+import { rowFor, waitForScan } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-play'
 
@@ -29,21 +30,6 @@ export async function setup() {
   return {}
 }
 const LAUNCH_TIMEOUT_MS = 15_000
-
-function rowFor(page, fileName) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: fileName })
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refresh.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('replays-play-q2pro: timed out waiting for the demo scan to finish')
-}
 
 async function selectDemo(page, fileName) {
   await rowFor(page, fileName).first().click({ timeout: TIMEOUT_MS })

@@ -33,6 +33,7 @@ import {
   removeReplaysFilterFixture,
   writeReplaysFilterFixture,
 } from '../lib/fixture.mjs'
+import { waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 const POLL_INTERVAL_MS = 100
@@ -62,20 +63,6 @@ async function waitForCondition(predicate, label, timeout = TIMEOUT_MS) {
     if (Date.now() >= deadline) throw new Error(`timed out waiting for ${label}`)
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
   }
-}
-
-/** Same reasoning as `replays-sort-order.mjs`'s own helper: the first `index.read` on mount can
- * render a stale/empty snapshot before the scan this same mount triggers finishes and swaps the
- * whole list in - waiting for `replays-refresh` to re-enable is the real "settled" signal. */
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
 }
 
 /** The displayed name of every mounted `replays-demo-row` - a demo with a sidecar `name` shows

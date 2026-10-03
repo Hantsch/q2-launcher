@@ -24,6 +24,7 @@ import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { REPLAYS_ROWS_MVD_DEMO, replaysRowsSidecarPath } from '../lib/fixture.mjs'
+import { rowFor, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -48,21 +49,6 @@ export async function setup() {
     JSON.stringify({ schemaVersion: 1, tags: [SEED_TAG] }, null, 2) + '\n',
     'utf8',
   )
-}
-
-function rowFor(page, text) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: text })
-}
-
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
 }
 
 export default async function replaysEditSidesTags({ page, shot, step }) {

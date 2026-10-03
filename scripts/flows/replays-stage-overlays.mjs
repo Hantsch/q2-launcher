@@ -1,13 +1,15 @@
 // Story 171 D4: e2e proof that an overlay over the stage parks the game and closing it places it again:
 // a Modal-backed dialog (add existing installation, opened from the rail) and the timeline's native speed select (mousedown -> change). Assertions are on the
 // engine stub's window log (`Q2L_UI_ENGINE_WINDOW_LOG`) and main.log's launching lines only.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import {
   REPLAYS_PLAY_CTF_DEMO,
   REPLAYS_TIMELINE_VARIANT,
   replaysStageFollowEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import { waitForScan, windowLines } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -28,29 +30,9 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const fail = (message) => {
-  throw new Error(`replays-stage-overlays: ${message}`)
-}
-
-function windowLines() {
-  if (!existsSync(files.windowLog)) return []
-  return readFileSync(files.windowLog, 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l.length > 0)
-}
+const fail = makeFail('replays-stage-overlays')
 
 const geometryLines = (lines) => lines.filter((l) => l.startsWith('set vid_geometry '))
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) fail('timed out waiting for the demo scan to finish')
-    await sleep(100)
-  }
-}
 
 /** The `vid_geometry` line for the picture's box at the window's current place and display (the same
  * conversion `replays-stage.mjs` checks the launch against). */
@@ -90,13 +72,13 @@ async function placedNow(page, app) {
 /** Waits for `n` new geometry lines, settles, and returns all new geometry lines. */
 async function newGeometry(from, n, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (geometryLines(windowLines().slice(from)).length < n) {
+  while (geometryLines(windowLines(files.windowLog).slice(from)).length < n) {
     if (Date.now() >= deadline)
-      fail(`${label}: window log got ${JSON.stringify(windowLines().slice(from))}`)
+      fail(`${label}: window log got ${JSON.stringify(windowLines(files.windowLog).slice(from))}`)
     await sleep(50)
   }
   await sleep(SETTLE_MS)
-  return geometryLines(windowLines().slice(from))
+  return geometryLines(windowLines(files.windowLog).slice(from))
 }
 
 export default async function replaysStageOverlays({ page, app, step, shot }) {
@@ -122,8 +104,10 @@ export default async function replaysStageOverlays({ page, app, step, shot }) {
     await sleep(100)
   }
   await sleep(SETTLE_MS)
-  if (windowLines().length > 0)
-    fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
+  if (windowLines(files.windowLog).length > 0)
+    fail(
+      `an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines(files.windowLog))}`,
+    )
 
   const edge = await app.evaluate(({ screen }) => {
     let right = 0
@@ -144,7 +128,7 @@ export default async function replaysStageOverlays({ page, app, step, shot }) {
     Number(/^set vid_geometry \d+x\d+\+(-?\d+)\+-?\d+$/.exec(l ?? '')?.[1]) === parkX
 
   step('a dialog over the stage parks the game, closing it places it again')
-  let from = windowLines().length
+  let from = windowLines(files.windowLog).length
   // The list and its detail panel are hidden while the stage shows, so the dialog comes from the
   // shell's rail (same Modal primitive): Add an installation -> Add existing installation.
   await page.getByRole('button', { name: 'Add an installation' }).click({ timeout: TIMEOUT_MS })
@@ -157,7 +141,7 @@ export default async function replaysStageOverlays({ page, app, step, shot }) {
   if (lines.length !== 1 || !isPark(lines[0]))
     fail(`dialog open: expected exactly one park line (x=${parkX}), got ${JSON.stringify(lines)}`)
   await shot('stage-overlays-dialog')
-  from = windowLines().length
+  from = windowLines(files.windowLog).length
   await page.keyboard.press('Escape')
   await dialog.waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   lines = await newGeometry(from, 1, 'dialog close')
@@ -167,12 +151,12 @@ export default async function replaysStageOverlays({ page, app, step, shot }) {
 
   step('the speed select parks the game from mousedown until change')
   const speed = page.getByTestId('replays-timeline-speed')
-  from = windowLines().length
+  from = windowLines(files.windowLog).length
   await speed.dispatchEvent('mousedown')
   lines = await newGeometry(from, 1, 'speed open')
   if (lines.length !== 1 || !isPark(lines[0]))
     fail(`speed open: expected exactly one park line (x=${parkX}), got ${JSON.stringify(lines)}`)
-  from = windowLines().length
+  from = windowLines(files.windowLog).length
   await speed.selectOption('2')
   lines = await newGeometry(from, 1, 'speed change')
   want = await placedNow(page, app)

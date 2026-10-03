@@ -25,6 +25,7 @@ import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { delimiter, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { _electron } from 'playwright'
+import { sleep } from './flow-common.mjs'
 import { importFilesFixturePaths, writeImportFilesFixture } from './fixture.mjs'
 import { assertInside, HarnessError, REPO_ROOT, UI_VERIFY_ROOT } from './paths.mjs'
 
@@ -51,7 +52,6 @@ const REQUIRED_CSP_DIRECTIVES = ["script-src 'self'", "style-src 'self';"]
 const LAUNCH_TIMEOUT_MS = 60_000
 /** How long `withApp()`'s teardown waits for Playwright's own `close()` — see its `finally`. */
 const CLOSE_TIMEOUT_MS = 15_000
-const sleep = (ms) => new Promise((done) => setTimeout(done, ms))
 /** Enough of the main process's stderr to explain a launch that died early. */
 const STDERR_LINE_LIMIT = 40
 

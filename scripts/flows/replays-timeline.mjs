@@ -8,7 +8,7 @@
 //
 // Selectors: `replays-demo-row`, `actionbar-play[data-action="view"]` (story 159), `replays-timeline`,
 // `replays-timeline-{toggle,back,forward,seek,speed,position,duration,seek-reason}` (`DemoTimeline.tsx`).
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import {
   REPLAYS_PLAY_CTF_DEMO,
   REPLAYS_PLAY_DEMO_MS,
@@ -16,6 +16,8 @@ import {
   replaysTimelineEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
+import { sleep } from '../lib/flow-common.mjs'
+import { commands, waitForScan } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -35,28 +37,19 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-function commands() {
-  if (!existsSync(files.commandLog)) return []
-  return readFileSync(files.commandLog, 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l.length > 0)
-}
-
 /** Waits until the engine has executed exactly `count` commands, then checks none repeats. */
 async function expectCommands(count, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (commands().length < count) {
+  while (commands(files.commandLog).length < count) {
     if (Date.now() >= deadline) {
       throw new Error(
-        `replays-timeline: ${label}: engine ran ${JSON.stringify(commands())}, expected ${count}`,
+        `replays-timeline: ${label}: engine ran ${JSON.stringify(commands(files.commandLog))}, expected ${count}`,
       )
     }
     await sleep(50)
   }
   await sleep(SETTLE_MS)
-  const ran = commands()
+  const ran = commands(files.commandLog)
   if (ran.length !== count) {
     throw new Error(
       `replays-timeline: ${label}: engine ran ${JSON.stringify(ran)} - expected exactly ${count}`,
@@ -91,17 +84,6 @@ async function waitForPosition(page, predicate, label) {
     seen = await positionS(page)
   }
   return seen
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline)
-      throw new Error('replays-timeline: timed out waiting for the demo scan to finish')
-    await sleep(100)
-  }
 }
 
 /** The focused element's testid, and whether it draws a visible focus outline. */

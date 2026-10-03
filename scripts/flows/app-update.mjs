@@ -70,6 +70,7 @@
 // `nav-downloads` is TitleBar.tsx's own pre-existing testid for the Downloads utility button, reused
 // here only as AC1's DOM-order reference point.
 import { INSTALL_ONE_ID } from '../lib/fixture.mjs'
+import { invoke } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -84,14 +85,6 @@ const ERROR_TEXT = {
   offline: 'Could not download the update. Check your internet connection.',
   checksum: 'The downloaded update failed verification and was discarded.',
   cancelled: 'The download was cancelled.',
-}
-
-async function invoke(page, channel, payload) {
-  const outcome = await page.evaluate(({ ch, p }) => window.q2.invoke(ch, p), {
-    ch: channel,
-    p: payload,
-  })
-  return outcome
 }
 
 async function invokeOk(page, channel, payload, label) {

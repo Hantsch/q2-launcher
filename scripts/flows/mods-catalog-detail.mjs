@@ -16,6 +16,7 @@ import {
   startModsCatalogFixtureServer,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { makeFail } from '../lib/flow-common.mjs'
 
 export const variant = 'populated'
 
@@ -39,9 +40,7 @@ export async function teardown() {
   await server?.close()
 }
 
-function fail(message) {
-  throw new Error(`mods-catalog-detail: ${message}`)
-}
+const fail = makeFail('mods-catalog-detail')
 
 /** Mirrors the idiom of `about-release-notes.mjs`: the harness records `app:openExternal` urls. */
 function recordedExternalUrls() {

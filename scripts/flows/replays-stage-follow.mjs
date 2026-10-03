@@ -13,13 +13,15 @@
 // re-send the park line as the stage's Y moves.
 //
 // Selectors: `replays-stage-picture`, `replays-timeline`, `replays-console-input`, `replays-demo-*`.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import {
   REPLAYS_PLAY_CTF_DEMO,
   REPLAYS_TIMELINE_VARIANT,
   replaysStageFollowEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import { launchGeometry, waitForScan, windowLines } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -43,30 +45,20 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const fail = (message) => {
-  throw new Error(`replays-stage-follow: ${message}`)
-}
-
-function windowLines() {
-  if (!existsSync(files.windowLog)) return []
-  return readFileSync(files.windowLog, 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l.length > 0)
-}
+const fail = makeFail('replays-stage-follow')
 
 /** Waits until the log has grown by `expected.length` lines, settles, then wants exactly those. */
 async function expectNewLines(from, expected, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (windowLines().length - from < expected.length) {
+  while (windowLines(files.windowLog).length - from < expected.length) {
     if (Date.now() >= deadline)
       fail(
-        `${label}: window log got ${JSON.stringify(windowLines().slice(from))}, expected ${JSON.stringify(expected)}`,
+        `${label}: window log got ${JSON.stringify(windowLines(files.windowLog).slice(from))}, expected ${JSON.stringify(expected)}`,
       )
     await sleep(50)
   }
   await sleep(SETTLE_MS)
-  const got = windowLines().slice(from)
+  const got = windowLines(files.windowLog).slice(from)
   if (JSON.stringify(got) !== JSON.stringify(expected)) {
     fail(
       `${label}: window log got ${JSON.stringify(got)}, expected exactly ${JSON.stringify(expected)}`,
@@ -75,32 +67,6 @@ async function expectNewLines(from, expected, label) {
 }
 
 const geometryLines = (lines) => lines.filter((l) => l.startsWith('set vid_geometry '))
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline) fail('timed out waiting for the demo scan to finish')
-    await sleep(100)
-  }
-}
-
-async function launchGeometry(logPath) {
-  const deadline = Date.now() + 10_000
-  for (;;) {
-    const content = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
-    const line = content
-      .split(/\r?\n/)
-      .filter((l) => l.includes('launching'))
-      .pop()
-    const m = line ? /\+set vid_geometry (\d+)x(\d+)\+(-?\d+)\+(-?\d+)/.exec(line) : null
-    if (m) return { w: Number(m[1]), h: Number(m[2]), x: Number(m[3]), y: Number(m[4]) }
-    if (line) fail(`the launching line has no vid_geometry: ${JSON.stringify(line)}`)
-    if (Date.now() >= deadline) fail('main.log never contained a launching line')
-    await sleep(150)
-  }
-}
 
 /** The `vid_geometry` line for the picture's box at the window's current place and display (the same
  * conversion `replays-stage.mjs` checks the launch against). */
@@ -160,10 +126,12 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
     if (Date.now() >= liveBy) fail('the playback session never went live')
     await sleep(100)
   }
-  const launched = await launchGeometry(logPath)
+  const launched = await launchGeometry(logPath, { fail })
   await sleep(SETTLE_MS)
-  if (windowLines().length > 0)
-    fail(`an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines())}`)
+  if (windowLines(files.windowLog).length > 0)
+    fail(
+      `an unmoved launcher must not re-place the game: ${JSON.stringify(windowLines(files.windowLog))}`,
+    )
   await shot('stage-follow-playing')
 
   // Where the launcher parks: the virtual desktop's right edge in physical px + 64, same size and Y.
@@ -189,7 +157,7 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
   const parked = `set vid_geometry ${size}+${edge + PARK_MARGIN_PX}+${launched.y}`
 
   step('AC1: a drag parks the game once, then places it once, moved by the delta')
-  let from = windowLines().length
+  let from = windowLines(files.windowLog).length
   await app.evaluate(
     async ({ BrowserWindow }, { steps, stepPx }) => {
       const win = BrowserWindow.getAllWindows()[0]
@@ -202,13 +170,13 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
     { steps: STEPS, stepPx: STEP_PX },
   )
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (geometryLines(windowLines().slice(from)).length < 2) {
+  while (geometryLines(windowLines(files.windowLog).slice(from)).length < 2) {
     if (Date.now() >= deadline)
-      fail(`drag: window log got ${JSON.stringify(windowLines().slice(from))}`)
+      fail(`drag: window log got ${JSON.stringify(windowLines(files.windowLog).slice(from))}`)
     await sleep(50)
   }
   await sleep(SETTLE_MS)
-  const dragged = geometryLines(windowLines().slice(from))
+  const dragged = geometryLines(windowLines(files.windowLog).slice(from))
   const pk = /^set vid_geometry (\d+x\d+)\+(-?\d+)\+(-?\d+)$/.exec(dragged[0] ?? '')
   const parkY = pk ? Number(pk[3]) : Number.NaN
   const yLo = Math.min(launched.y, launched.y + STEPS * STEP_PX * scale) - 1
@@ -242,10 +210,10 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
   const parkedAfter = `set vid_geometry ${size}+${edge + PARK_MARGIN_PX}+${m[3]}`
 
   step('AC2: minimize parks the game, restore places it back')
-  from = windowLines().length
+  from = windowLines(files.windowLog).length
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].minimize())
   await expectNewLines(from, [parkedAfter], 'minimize')
-  from = windowLines().length
+  from = windowLines(files.windowLog).length
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].restore())
   // Restoring the offscreen harness window can re-associate it with another display (another DPI):
   // the game is then re-parked at the new size before it is placed - never placed anywhere else.
@@ -258,15 +226,15 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
       Math.abs(Number(g[2]) - Number(m[3])) <= 1
     )
   }
-  while (!geometryLines(windowLines().slice(from)).some((l) => !isPark(l))) {
+  while (!geometryLines(windowLines(files.windowLog).slice(from)).some((l) => !isPark(l))) {
     if (Date.now() >= restoreBy)
       fail(
-        `restore: window log got ${JSON.stringify(windowLines().slice(from))}, expected a placed line`,
+        `restore: window log got ${JSON.stringify(windowLines(files.windowLog).slice(from))}, expected a placed line`,
       )
     await sleep(50)
   }
   await sleep(SETTLE_MS)
-  const restored = windowLines().slice(from)
+  const restored = windowLines(files.windowLog).slice(from)
   const wantPlaced = await placedNow(page, app)
   if (restored[restored.length - 1] !== wantPlaced || !restored.slice(0, -1).every(isPark)) {
     fail(
@@ -278,14 +246,14 @@ export default async function replaysStageFollow({ page, app, step, shot }) {
   // The harness window is never really focused, so focus is established first.
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].emit('focus'))
   await sleep(SETTLE_MS)
-  const tops = windowLines().filter((l) => l.startsWith('set win_alwaysontop '))
+  const tops = windowLines(files.windowLog).filter((l) => l.startsWith('set win_alwaysontop '))
   if (tops.length > 0 && tops[tops.length - 1] !== 'set win_alwaysontop 1') {
     fail(`after focus the game must be topmost, window log has ${JSON.stringify(tops)}`)
   }
-  from = windowLines().length
+  from = windowLines(files.windowLog).length
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].emit('blur'))
   await expectNewLines(from, ['set win_alwaysontop 0'], 'blur')
-  from = windowLines().length
+  from = windowLines(files.windowLog).length
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].emit('focus'))
   await expectNewLines(from, ['set win_alwaysontop 1'], 'focus')
   await shot('stage-follow-after')

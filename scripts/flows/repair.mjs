@@ -85,6 +85,7 @@
 //                                              already selects by accessible name.
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { libraryCard, simulateLaunch } from '../lib/flow-common.mjs'
 import {
   BOOTSTRAP_R1Q2_ENGINE_FIXTURE_LAYOUT,
   INSTALL_DEMO_UPGRADE_NAME,
@@ -148,22 +149,11 @@ export async function teardown() {
   }
 }
 
-/**
- * The library row's own `<li>` (`LibraryView.tsx`'s `installations.map(...)`) - no dedicated
- * testid. Unlike `retail-upgrade.mjs`'s own `libraryCard()` (`div.items-start`, which only reaches
- * that row's top flex line - avatar button, name, badges), this flow also needs the checks list,
- * which is a LATER sibling inside the same `<li>` but outside that inner div - so the `<li>` itself
- * is the scope this flow needs.
- */
-function libraryCard(page, name) {
-  return page.locator('li').filter({ has: page.getByRole('heading', { name, exact: true }) })
-}
-
 /** Selects `name` in the library and waits for the action bar to reflect it - the same two-step
  * every other flow in this repo uses before touching either trigger. */
 async function selectInstallation(page, name) {
   await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  const card = libraryCard(page, name)
+  const card = libraryCard(page, name, 'li')
   await card.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await card.getByRole('button', { name, exact: true }).click({ timeout: TIMEOUT_MS })
   await page
@@ -206,16 +196,6 @@ async function openRepairFromChecksList(page, card) {
 async function closeDialog(page) {
   await page.keyboard.press('Escape')
   await page.getByRole('dialog').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
-}
-
-async function simulateLaunch(page, installationId, phase) {
-  const outcome = await page.evaluate(
-    ({ id, ph }) => window.q2.invoke('dev:simulateLaunch', { installationId: id, phase: ph }),
-    { id: installationId, ph: phase },
-  )
-  if (!outcome?.ok) {
-    throw new Error(`dev:simulateLaunch(${phase}) failed: ${JSON.stringify(outcome)}`)
-  }
 }
 
 export default async function repair({ page, shot, step }) {

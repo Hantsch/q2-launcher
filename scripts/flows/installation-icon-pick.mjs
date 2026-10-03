@@ -24,6 +24,7 @@
 import { readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { libraryCard } from '../lib/flow-common.mjs'
 
 const CLICK_TIMEOUT_MS = 8_000
 
@@ -48,13 +49,6 @@ const ICONLESS_ID = 'fixture-install-unknown-long-name'
 const ICONLESS_NAME =
   'Fixture Unknown Engine Install With A Deliberately Very Long Display Name That Must Truncate Instead Of Pushing The Engine Badge Out Of Any Narrow Panel Row'
 const SHIPPED_ICON_ID = 'gate'
-
-/** The library card - no dedicated testid, mirrors `installation-icon-tile.mjs`'s own helper. */
-function libraryCard(page, name) {
-  return page
-    .locator('div.items-start')
-    .filter({ has: page.getByRole('heading', { name, exact: true }) })
-}
 
 export default async function installationIconPick({ page, shot, step }) {
   step('open Library and locate the iconless fixture install')

@@ -1,7 +1,7 @@
 // Story 187 D7: e2e proof of fullscreen from the cinema overlay. F in the overlay sends `vid_fullscreen 1`
 // and the overlay closes; the game's own "Back to window" key (simulated through the stub's keys file)
 // returns the stage: the stub gets the stage geometry again and the launcher's mode switch reads Preview.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import {
   REPLAYS_PLAY_CTF_DEMO,
   REPLAYS_TIMELINE_VARIANT,
@@ -9,6 +9,8 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { waitForWindow } from '../lib/harness.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import { commands, launchGeometry, waitForScan, windowLines } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -30,18 +32,8 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-const fail = (message) => {
-  throw new Error(`replays-cinema-fullscreen: ${message}`)
-}
-const lines = (path) =>
-  existsSync(path)
-    ? readFileSync(path, 'utf8')
-        .split(/\r?\n/)
-        .filter((l) => l.length > 0)
-    : []
-const commands = () => lines(files.commandLog)
-const geometry = () => lines(files.windowLog).filter((l) => l.startsWith('set vid_geometry '))
+const fail = makeFail('replays-cinema-fullscreen')
+const geometry = () => windowLines(files.windowLog).filter((l) => l.startsWith('set vid_geometry '))
 const cinemaWindows = (app) => app.windows().filter((w) => w.url().includes('cinema.html'))
 
 async function until(predicate, label, timeoutMs = ENGINE_TIMEOUT_MS) {
@@ -49,30 +41,6 @@ async function until(predicate, label, timeoutMs = ENGINE_TIMEOUT_MS) {
   while (!(await predicate())) {
     if (Date.now() >= deadline) fail(`timed out: ${label}`)
     await sleep(50)
-  }
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await until(async () => !(await refresh.isDisabled()), 'the demo scan to finish', TIMEOUT_MS)
-}
-
-/** The stage geometry the game was launched with (`+set vid_geometry` on the main.log launching line). */
-async function launchGeometry(page) {
-  const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
-  const deadline = Date.now() + 10_000
-  for (;;) {
-    const content = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
-    const line = content
-      .split(/\r?\n/)
-      .filter((l) => l.includes('launching'))
-      .pop()
-    const m = line ? /\+set vid_geometry (\d+x\d+\+-?\d+\+-?\d+)/.exec(line) : null
-    if (m) return m[1]
-    if (Date.now() >= deadline)
-      fail(`main.log has no launching line with a vid_geometry: ${JSON.stringify(line)}`)
-    await new Promise((resolve) => setTimeout(resolve, 150))
   }
 }
 
@@ -93,7 +61,8 @@ export default async function replaysCinemaFullscreen({ page, app, log, step, sh
   const input = page.getByTestId('replays-console-input')
   await until(async () => !(await input.isDisabled()), 'the playback session going live', 15_000)
   // The stage geometry the stub was last given before cinema pinned the display rect (AC7 compares it).
-  const stageGeometry = await launchGeometry(page)
+  const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
+  const stageGeometry = (await launchGeometry(logPath, { fail })).raw
   await page.getByTestId('replays-timeline-cinema').click({ timeout: TIMEOUT_MS })
   const overlay = await waitForWindow(app, 'cinema.html', log)
   const root = overlay.getByTestId('cinema-root')
@@ -105,7 +74,10 @@ export default async function replaysCinemaFullscreen({ page, app, log, step, sh
   await root.focus()
   // The window closes under the key press; the closing is what is asserted below.
   await overlay.keyboard.press('KeyF').catch(() => {})
-  await until(() => commands().includes('vid_fullscreen 1'), 'vid_fullscreen 1 in the command log')
+  await until(
+    () => commands(files.commandLog).includes('vid_fullscreen 1'),
+    'vid_fullscreen 1 in the command log',
+  )
   await until(() => cinemaWindows(app).length === 0, 'the overlay to close', 10_000)
   await shot('cinema-fullscreen')
 
@@ -113,7 +85,10 @@ export default async function replaysCinemaFullscreen({ page, app, log, step, sh
   // As in replays-fullscreen: let the fullscreen loop arm its position before a key press lands.
   await sleep(1_000)
   writeFileSync(files.keysFile, 'exec q2l_back.cfg\n')
-  await until(() => commands().includes('vid_fullscreen 0'), 'vid_fullscreen 0 in the command log')
+  await until(
+    () => commands(files.commandLog).includes('vid_fullscreen 0'),
+    'vid_fullscreen 0 in the command log',
+  )
   await until(
     () => geometry().length > geometryBefore,
     'the stage geometry after the way back',

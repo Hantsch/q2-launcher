@@ -69,6 +69,7 @@
 // the bleeding-edge toggle              a plain `Switch`, addressed by role="switch"/accessible name
 //                                       ("Bleeding edge", `engineUpdate.bleedingEdge.label`)
 import { existsSync, readFileSync } from 'node:fs'
+import { libraryCard } from '../lib/flow-common.mjs'
 import {
   BOOTSTRAP_ENGINE_FIXTURE_VERSION,
   ENGINE_FIXTURE_FILES,
@@ -134,14 +135,6 @@ export async function teardown() {
     await server.close()
     server = null
   }
-}
-
-/** The library row - no dedicated testid, so this locates the same `items-start` wrapper
- * `retail-upgrade.mjs`'s own `libraryCard()` helper does. */
-function libraryCard(page, name) {
-  return page
-    .locator('div.items-start')
-    .filter({ has: page.getByRole('heading', { name, exact: true }) })
 }
 
 /**

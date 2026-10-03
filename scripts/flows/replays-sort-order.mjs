@@ -25,6 +25,7 @@ import {
   REPLAYS_SORT_ORDER_VARIANT,
   writeReplaysSortOrderFixture,
 } from '../lib/fixture.mjs'
+import { waitForDemosScanToFinish, waitForRowCount } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -38,20 +39,6 @@ export async function setup() {
   return {}
 }
 
-/** Same reasoning as `replays-demo-rows.mjs`'s own helper: the first `index.read` on mount can
- * render a stale/empty snapshot before the scan this same mount triggers finishes and swaps the
- * whole list in - waiting for `replays-refresh` to re-enable is the real "settled" signal. */
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error('timed out waiting for replays-refresh to become enabled (scan finished)')
-}
-
 /** Reads the DOM order of every mounted `replays-demo-row`, as the `map` value each one shows -
  * the fixture's four maps are distinct and known, so this is a stable stand-in for "which fixture
  * row is this" without depending on the row's content-derived id (opaque/unpredictable) or its
@@ -61,14 +48,6 @@ async function rowOrder(page) {
     Array.from(document.querySelectorAll('[data-testid="replays-demo-row"]')).map(
       (row) => row.querySelector('[data-testid="replays-demo-map"]')?.textContent?.trim() ?? null,
     ),
-  )
-}
-
-async function waitForRowCount(page, count) {
-  await page.waitForFunction(
-    (expected) => document.querySelectorAll('[data-testid="replays-demo-row"]').length >= expected,
-    count,
-    { timeout: TIMEOUT_MS },
   )
 }
 

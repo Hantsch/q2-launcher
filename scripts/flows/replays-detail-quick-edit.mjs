@@ -9,33 +9,17 @@
 
 import { readFileSync } from 'node:fs'
 import { REPLAYS_ROWS_DUEL_DEMO, replaysRowsSidecarPath } from '../lib/fixture.mjs'
+import { rowFor, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
 export const variant = 'replays-rows'
 
-function rowFor(page, text) {
-  return page.getByTestId('replays-demo-row').filter({ hasText: text })
-}
-
-async function waitForDemosScanToFinish(page) {
-  const refreshButton = page.getByTestId('replays-refresh')
-  await refreshButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (Date.now() < deadline) {
-    if (!(await refreshButton.isDisabled())) return
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error(
-    'replays-detail-quick-edit: timed out waiting for replays-refresh to become enabled',
-  )
-}
-
 export default async function replaysDetailQuickEdit({ page, shot, step }) {
   step("noting the duel row's sidecar before the edit")
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
+  await waitForDemosScanToFinish(page, { label: 'replays-detail-quick-edit' })
   const before = JSON.parse(readFileSync(replaysRowsSidecarPath(REPLAYS_ROWS_DUEL_DEMO), 'utf8'))
   if (before.favourite === true) {
     throw new Error(

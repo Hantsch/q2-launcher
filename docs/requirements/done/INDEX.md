@@ -310,3 +310,4 @@ second roadmap.
 - 222 — platform rules live in one module · S32 · lib/platform.ts answers platform questions, createListenerSet replaces ten emitters, looksLikeQuake2 defined once
 - 220 — package staging is one path, dead download queue gone · S32 · one stagePackage for bootstrap/repair/engine update, bleeding-edge downloads hardened, one ManifestService, assemble scope core/extras, queue settings shown disabled with a reason
 - 219 — jobs share one runner, one busy rule and one failure log · S32 · every job runs on JobRunner (finish-once, revalidate-after-write, installation-exclusive busy refusal); failure log covers every module and missingChecks carry params
+- 224 — the e2e fixture and flow helpers are shared and schema-checked · S33 · fixture literals in one JSON, fixture split into a facade, every variant StateStore-checked, flow helpers shared and guarded

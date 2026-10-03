@@ -11,13 +11,15 @@
 // arming alias, so they run in the very frame that armed the position - deterministically "starved".
 //
 // Selectors: `replays-timeline-{toggle,back,forward,seek,fullscreen,keys}` (`DemoTimeline.tsx`).
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import {
   REPLAYS_PLAY_CTF_DEMO,
   REPLAYS_TIMELINE_VARIANT,
   replaysTimelineEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
+import { sleep } from '../lib/flow-common.mjs'
+import { commands, waitForScan } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -39,21 +41,12 @@ export async function setup() {
   }
 }
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
 /** `guardDemoCommand` in `src/shared/replays/demo-guard.ts`, spelled out. */
 const guarded = (command) => `if x$cl_demopos ne x$q2l_armpos then ${command}`
 /** `BACK_TO_WINDOW_COMMAND` in the same file. */
 const BACK = 'exec q2l_back.cfg'
 
-function commands() {
-  if (!existsSync(files.commandLog)) return []
-  return readFileSync(files.commandLog, 'utf8')
-    .split(/\r?\n/)
-    .filter((l) => l.length > 0)
-}
-
-const count = (command) => commands().filter((c) => c === command).length
+const count = (command) => commands(files.commandLog).filter((c) => c === command).length
 
 function press(...lines) {
   writeFileSync(files.keysFile, `${lines.join('\n')}\n`)
@@ -64,7 +57,7 @@ async function waitForCount(command, n, label) {
   while (count(command) < n) {
     if (Date.now() >= deadline) {
       throw new Error(
-        `replays-fullscreen: ${label}: engine ran ${JSON.stringify(commands())}, expected ${n} x ${command}`,
+        `replays-fullscreen: ${label}: engine ran ${JSON.stringify(commands(files.commandLog))}, expected ${n} x ${command}`,
       )
     }
     await sleep(50)
@@ -85,17 +78,6 @@ async function waitForPosition(page, predicate, label) {
     seen = await positionS(page)
   }
   return seen
-}
-
-async function waitForScan(page) {
-  const refresh = page.getByTestId('replays-refresh')
-  await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const deadline = Date.now() + TIMEOUT_MS
-  while (await refresh.isDisabled()) {
-    if (Date.now() >= deadline)
-      throw new Error('replays-fullscreen: timed out waiting for the demo scan to finish')
-    await sleep(100)
-  }
 }
 
 export default async function replaysFullscreen({ page, step, shot }) {
@@ -144,7 +126,9 @@ export default async function replaysFullscreen({ page, step, shot }) {
   }
   await sleep(SETTLE_MS)
   if (count('seek +60') !== 0)
-    throw new Error(`replays-fullscreen: a starved press ran: ${JSON.stringify(commands())}`)
+    throw new Error(
+      `replays-fullscreen: a starved press ran: ${JSON.stringify(commands(files.commandLog))}`,
+    )
   await shot('fullscreen-keys')
 
   step('a guarded press runs once the position moved (wait, press)')
@@ -152,7 +136,9 @@ export default async function replaysFullscreen({ page, step, shot }) {
   press(guarded('seek +10'))
   await waitForCount('seek +10', 1, 'guarded seek +10')
   if (count('seek +60') !== 0)
-    throw new Error(`replays-fullscreen: the starved press ran late: ${JSON.stringify(commands())}`)
+    throw new Error(
+      `replays-fullscreen: the starved press ran late: ${JSON.stringify(commands(files.commandLog))}`,
+    )
 
   step('Back to window leaves fullscreen and hands the loop back to the launcher')
   const before = await positionS(page)
