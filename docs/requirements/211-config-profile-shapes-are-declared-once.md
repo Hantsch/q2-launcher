@@ -51,9 +51,13 @@ cvarSections, layers, writeUnbindall, sectionHeaderStyle` is re-spelled in four 
 - [ ] **AC5** — Every existing config test passes; the IPC wire format and the persisted format
       are byte-identical before and after (round-trip fixtures are the gate).
 
+## Decisions (Sprint)
+
+- **(User)** Q1: Order vs. story 207: retype the wrappers here first; 207 moves them later (not in S33).
+
 ## Open Questions
 
-- [ ] **Q1** — Order relative to story 207: do the persisted wrappers move into the module first
+- [x] answered → Decisions (Sprint) — **Q1** — Order relative to story 207: do the persisted wrappers move into the module first
       (207) or get retyped here first? Either order works; avoid doing both in one sprint on the
       same file.
 

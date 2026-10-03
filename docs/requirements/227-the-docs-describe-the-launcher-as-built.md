@@ -58,9 +58,13 @@ story and sprint templates cite `tests/e2e/*.spec.ts` paths that do not exist an
       CLAUDE.md, README.md, CONTRIBUTING.md and `docs/**` resolves, and the README version equals
       `package.json`'s; it is red before this story and green after.
 
+## Decisions (Sprint)
+
+- **(User)** Q1: Write the target state now with a "planned in story NNN" marker; each story removes its marker.
+
 ## Open Questions
 
-- [ ] **Q1** — Which sections wait for the refactoring they describe (204/205 bus, 207 state,
+- [x] answered → Decisions (Sprint) — **Q1** — Which sections wait for the refactoring they describe (204/205 bus, 207 state,
       219 jobs, 201 shutdown) and which are written now as the target state with a "planned in
       story NNN" marker? Recommendation: write the target state now, mark it, and let each story
       remove its marker.

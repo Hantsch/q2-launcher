@@ -36,9 +36,14 @@ never reach the roadmap; docs/README.md gives no ageing or escalation rule, and 
 - [ ] **AC5** — docs/ROADMAP.md's "Open / unprioritised" lists the codebase review with its story
       range and the suggested sprint cut.
 
+## Decisions (Sprint)
+
+- **(User)** Q1: Rows are removed from TECH-DEBT.md when done; git is the history.
+- **(User)** AC4: Ageing rule goes into docs/README.md and `.claude/ai-scrum.md` Notes (plugin files are managed, not edited); add a follow-up "upstream the rule into the ai-scrum plugin" for the user.
+
 ## Open Questions
 
-- [ ] **Q1** — Is `TECH-DEBT.md` compacted by `/roadmap check` like the roadmap (rows removed
+- [x] answered → Decisions (Sprint) — **Q1** — Is `TECH-DEBT.md` compacted by `/roadmap check` like the roadmap (rows removed
       when done), or does it keep a done section as history? Recommendation: removed; git is the
       history.
 

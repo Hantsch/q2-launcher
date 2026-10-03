@@ -47,13 +47,18 @@ servers already follow the thinner "setup registers one-line delegations" patter
 - [ ] **AC6** — `round-trip.test.ts`, `file-source-pipeline.test.ts` and every config flow pass
       unchanged.
 
+## Decisions (Sprint)
+
+- **(User)** Q1: One `profile-writes.ts` for the write path, incremental, no rewrite.
+- **(User)** Q2: downloads/index.ts is NOT cut here; separate story later.
+
 ## Open Questions
 
-- [ ] **Q1** — One `profile-writes.ts` or several handler groups (`handlers/profiles.ts`,
+- [x] answered → Decisions (Sprint) — **Q1** — One `profile-writes.ts` or several handler groups (`handlers/profiles.ts`,
       `handlers/editing.ts`, `handlers/raw-files.ts`, `handlers/import.ts`, `handlers/cleanup.ts`)?
       The value judge recommends one incremental story around the write path only, not a
       rewrite.
-- [ ] **Q2** — Apply the same cut to `downloads/index.ts` here or as its own small story?
+- [x] answered → Decisions (Sprint) — **Q2** — Apply the same cut to `downloads/index.ts` here or as its own small story?
 
 ## Plan
 

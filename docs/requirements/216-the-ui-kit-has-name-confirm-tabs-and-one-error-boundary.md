@@ -45,9 +45,13 @@ tone, busy, onConfirm, onClose })`, `Tabs` (roving tabindex, `role="tablist"`/`t
       a11y report (`ui:a11y`) has no new violations.
 - [ ] **AC6** — Every flow that opens a rename/confirm dialog or a tab strip stays green.
 
+## Decisions (Sprint)
+
+- **(User)** Q1: Raw `<button>` sweep out of scope; dialogs, tabs, boundary only.
+
 ## Open Questions
 
-- [ ] **Q1** — Do the raw `<button>` elements (56 in 40 files) get a sweep here, or stay out of
+- [x] answered → Decisions (Sprint) — **Q1** — Do the raw `<button>` elements (56 in 40 files) get a sweep here, or stay out of
       scope? Recommendation: out of scope; this story is dialogs, tabs, boundary.
 
 ## Plan

@@ -48,9 +48,13 @@ Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F17, F39):
       (`superRefine` in the config schemas) with a tested refusal key.
 - [ ] **AC6** — The seven `ControlsTab.*.test.tsx` suites and all config flows pass.
 
+## Decisions (Sprint)
+
+- **(User)** Q1: Hook owns only the actually-duplicated write path; reseed only if duplicated across tabs.
+
 ## Open Questions
 
-- [ ] **Q1** — Does the hook also own the "reseed from server after save" step some tabs do, or
+- [x] answered → Decisions (Sprint) — **Q1** — Does the hook also own the "reseed from server after save" step some tabs do, or
       only the write path? The value judge recommends only what is actually duplicated.
 
 ## Plan

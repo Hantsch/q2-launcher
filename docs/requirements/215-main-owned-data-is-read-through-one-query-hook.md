@@ -47,9 +47,13 @@ Depends on story 206 (refusal shape) for the mutation hook's error mapping.
       sentence is corrected.
 - [ ] **AC5** — Every servers, replays, mods and downloads flow stays green.
 
+## Decisions (Sprint)
+
+- **(User)** Q1: Cache-free hook for now.
+
 ## Open Questions
 
-- [ ] **Q1** — Is a tiny cache (same `read` key → shared in-flight promise) wanted now, or is the
+- [x] answered → Decisions (Sprint) — **Q1** — Is a tiny cache (same `read` key → shared in-flight promise) wanted now, or is the
       hook deliberately cache-free until a story needs it?
 
 ## Plan

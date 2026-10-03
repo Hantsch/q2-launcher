@@ -39,9 +39,13 @@ Depends on stories 212 (save hook) and 215 (query hook).
 - [ ] **AC4** — The config header geometry flow (`config-header-geometry`) and every config flow
       pass.
 
+## Decisions (Sprint)
+
+- **(User)** Q1: Store owns the list only; selected profile id stays in useLauncher route focus.
+
 ## Open Questions
 
-- [ ] **Q1** — Does the store also own the selected profile id (today in `useLauncher`'s route
+- [x] answered → Decisions (Sprint) — **Q1** — Does the store also own the selected profile id (today in `useLauncher`'s route
       focus) or only the list?
 
 ## Plan

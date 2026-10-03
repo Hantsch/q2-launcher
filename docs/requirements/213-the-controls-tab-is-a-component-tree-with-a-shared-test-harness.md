@@ -55,9 +55,13 @@ committable slices rather than one line-count target.
 - [ ] **AC7** — Focused tests exist for `BindSlot`, `CvarRow`, `KeyBindDialog` and `LayersPanel`
       (one behaviour each is enough to anchor coverage).
 
+## Decisions (Sprint)
+
+- **(User)** Q1: Per-component tests only; no coverage threshold.
+
 ## Open Questions
 
-- [ ] **Q1** — Is a vitest coverage threshold for `modules/config/components/**` wanted, or is
+- [x] answered → Decisions (Sprint) — **Q1** — Is a vitest coverage threshold for `modules/config/components/**` wanted, or is
       the per-component test list enough?
 
 ## Plan

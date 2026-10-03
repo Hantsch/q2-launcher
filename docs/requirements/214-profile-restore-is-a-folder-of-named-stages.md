@@ -44,9 +44,13 @@ file-format story opens it, or as a quiet sprint filler.
       `src/shared/config` (syntax → catalog → aliases/validation → profile → render), and any
       sub-folder grouping done here follows it.
 
+## Decisions (Sprint)
+
+- **(User)** Q1: Group ALL of `src/shared/config` into sub-folders in this story (mechanical path rewrite over the renderer importers), not only `profile-restore/`.
+
 ## Open Questions
 
-- [ ] **Q1** — Group the whole `src/shared/config` into sub-folders in this story (mechanical path
+- [x] answered → Decisions (Sprint) — **Q1** — Group the whole `src/shared/config` into sub-folders in this story (mechanical path
       rewrite over 41 renderer importers) or only `profile-restore/`? Recommendation: only
       `profile-restore/` now, grouping as a follow-up once the direction note exists.
 
