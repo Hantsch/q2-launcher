@@ -11,7 +11,7 @@ import type { PersistenceRegistry } from '../persistence'
 import { UpdateCheckStore,type UpdateCheckStoreData } from './store'
 
 /**
- * Story 097 D3: the update-check service - the only thing that decides *whether* a check runs, and
+ * Story 097: the update-check service - the only thing that decides *whether* a check runs, and
  * the only owner of `UpdateState`. Mirrors `src/main/modules/home/news/news-service.ts`: injected
  * `now`, injected checker, injected store, never throws, and no timer anywhere in this file (the
  * 24h window is a comparison against a persisted timestamp, not an interval - a long-running
@@ -25,17 +25,17 @@ import { UpdateCheckStore,type UpdateCheckStoreData } from './store'
  * `installAndRestart` is the only call in the whole app that quits the launcher and overwrites its
  * own installation, so it is deliberately shaped guard-then-`fail(key)`, mirroring
  * `LaunchService.start()`'s `launch.error.installationBusy` refusal (story 091): it *reads*
- * `isGameRunning()` and the job list and refuses, and it cancels neither (AC6). A refusal is
+ * `isGameRunning()` and the job list and refuses, and it cancels neither. A refusal is
  * authoritative here in main - a disabled button in the renderer is a courtesy, never the thing
  * standing between a running game and a restart.
  *
- * The other half of AC4 is {@link UpdateBackend.autoInstallOnAppQuit}: left at `electron-updater`'s
+ * The other half of that is {@link UpdateBackend.autoInstallOnAppQuit}: left at `electron-updater`'s
  * default, a finished download installs itself on the next ordinary quit, which would make the
  * second confirmation meaningless. It is set to `false` when the service is built *and* again
  * before every download starts - the flag matters at the moment the download completes, which is
  * when `electron-updater` arms its quit handler.
  *
- * ## The seam D4 fills
+ * ## The seam the checker fills
  *
  * The service never imports `electron-updater`; it calls an injected {@link UpdateChecker} and
  * *relays* whatever that reports. In particular it never compares versions itself - per the
@@ -45,10 +45,10 @@ import { UpdateCheckStore,type UpdateCheckStoreData } from './store'
  * ## Why a failure can never quietly stop the launcher from checking
  *
  * `lastSuccessAt` is written *only* by a successful attempt and is the only thing the 24h window is
- * measured from, so AC4 ("a failed check does not burn the daily window") holds by construction
+ * measured from, so "a failed check does not burn the daily window") holds by construction
  * rather than by a special case: a failed attempt moves `lastCheckedAt` and nothing else. For the
  * same reason a failure never nulls out `update` - the last *known* release outlives the last
- * *attempt* (AC3), so an update found yesterday still shows after an offline start today.
+ * *attempt*, so an update found yesterday still shows after an offline start today.
  *
  * Two more things guard the "stuck forever" shapes of this file:
  *
@@ -58,11 +58,11 @@ import { UpdateCheckStore,type UpdateCheckStoreData } from './store'
  *  - a `lastSuccessAt` in the future (a clock that was wrong once, then corrected) counts as
  *    "window open", not as a window that closes 24h after some date in 2049.
  *
- * Nothing here toasts, retries or broadcasts: `onStateChange` is a plain callback and D5 is what
+ * Nothing here toasts, retries or broadcasts: `onStateChange` is a plain callback and the IPC layer is what
  * wires it to `update:state`.
  */
 
-/** The 24h auto-check window (AC1), measured from `lastSuccessAt`. */
+/** The 24h auto-check window, measured from `lastSuccessAt`. */
 export const UPDATE_CHECK_WINDOW_MS = 24 * 60 * 60 * 1000
 
 /** How long a single check may take before it counts as a failed attempt (Decisions: "a 20s
@@ -71,7 +71,7 @@ export const UPDATE_CHECK_TIMEOUT_MS = 20_000
 
 /**
  * Why a check attempt failed. Every value maps to its own `update.error.*` key
- * ({@link updateErrorKey}); D4's adapter classifies `electron-updater`'s errors into these.
+ * ({@link updateErrorKey}); the checker adapter classifies `electron-updater`'s errors into these.
  *
  * `'timeout'` is the one reason a checker must never return: the service produces it itself when
  * the call outruns {@link UPDATE_CHECK_TIMEOUT_MS}.
@@ -79,7 +79,7 @@ export const UPDATE_CHECK_TIMEOUT_MS = 20_000
 export type UpdateCheckFailureReason = 'network' | 'http' | 'notConfigured' | 'timeout' | 'unknown'
 
 /**
- * What D4's `checker.ts` resolves with. Deliberately a resolved value rather than a thrown error:
+ * What `checker.ts` resolves with. Deliberately a resolved value rather than a thrown error:
  * the reason is part of the result, not an exception. A checker that *does* throw is still safe -
  * the service treats it as `{ ok: false, reason: 'unknown' }`.
  *
@@ -108,18 +108,18 @@ export function updateErrorKey(reason: UpdateCheckFailureReason): string {
   return ERROR_KEYS[reason]
 }
 
-/** Every key this service can put into `UpdateState.error` - D6's `en.json` test reads this. */
+/** Every key this service can put into `UpdateState.error` - the `en.json` test reads this. */
 export const UPDATE_ERROR_KEYS: readonly string[] = Object.values(ERROR_KEYS)
 
 // ---- story 098: downloading, and the refusals -------------------------------------------------
 
 /**
- * Why a download attempt ended without a staged update (098 AC7). Every one of these leaves the
+ * Why a download attempt ended without a staged update (story 098). Every one of these leaves the
  * installed launcher untouched and the update still offerable - there is no reason here that means
  * "something on disk changed".
  *
  * `'cancelled'` is the user's own doing via {@link UpdateService.cancelDownload}; the other three
- * are D4's adapter classifying whatever `electron-updater` reported.
+ * are the checker adapter classifying whatever `electron-updater` reported.
  */
 export type UpdateDownloadFailureReason = 'offline' | 'checksum' | 'cancelled' | 'unknown'
 
@@ -153,17 +153,17 @@ export function updateDownloadErrorKey(reason: UpdateDownloadFailureReason): str
 export const APP_UPDATE_REFUSAL_KEYS = {
   /** Nothing to download: no release is known, or this build cannot update itself at all. */
   notAvailable: 'appUpdate.error.notAvailable',
-  /** AC4: asked to restart before the download finished. */
+  /** asked to restart before the download finished. */
   notReady: 'appUpdate.error.notReady',
-  /** AC6: a game this launcher started is running. */
+  /** a game this launcher started is running. */
   gameRunning: 'appUpdate.error.gameRunning',
-  /** AC6: a download job is in flight. */
+  /** a download job is in flight. */
   jobActive: 'appUpdate.error.jobActive',
   /** The updater itself refused to hand over at the last moment; nothing was installed. */
   installFailed: 'appUpdate.error.installFailed',
 } as const
 
-/** Every `appUpdate.error.*` key story 098 can produce - D3's `en.json` coverage test reads this. */
+/** Every `appUpdate.error.*` key story 098 can produce - the `en.json` coverage test reads this. */
 export const APP_UPDATE_ERROR_KEYS: readonly string[] = [
   ...Object.values(DOWNLOAD_ERROR_KEYS),
   ...Object.values(APP_UPDATE_REFUSAL_KEYS),
@@ -171,14 +171,14 @@ export const APP_UPDATE_ERROR_KEYS: readonly string[] = [
 
 /**
  * The seam between this service and whatever actually fetches and installs the release: the real
- * `electron-updater` adapter in `checker.ts` in production, a fake in tests and behind D4's
+ * `electron-updater` adapter in `checker.ts` in production, a fake in tests and behind the
  * `dev:simulateAppUpdate`. As with {@link UpdateChecker}, the service never imports
  * `electron-updater` itself.
  */
 export interface UpdateBackend {
   /**
    * Mirrors `electron-updater`'s flag of the same name, and is the reason it is on this interface
-   * at all: the service sets it to `false` and a test can read it back (098 AC4). A backend must
+   * at all: the service sets it to `false` and a test can read it back (story 098). A backend must
    * apply it to the real updater, not just store it.
    */
   autoInstallOnAppQuit: boolean
@@ -209,7 +209,7 @@ type DownloadStage = 'none' | 'downloading' | 'downloaded'
  *
  * A staged or in-flight download outranks everything: it is what the user is waiting on. Otherwise
  * a *known* release outranks a failed attempt, which is what makes two things true by construction
- * rather than by special case - 097 AC3 (a failed check never erases what is known) and 098 AC7 (a
+ * rather than by special case - story 097 (a failed check never erases what is known) and story 098 (a
  * failed download falls back to `available`, carrying its reason, with nothing installed).
  */
 export function resolveUpdatePhase(
@@ -265,12 +265,12 @@ function restoredStatus(data: UpdateCheckStoreData): UpdateState['status'] {
 
 export interface UpdateServiceOptions {
   /** `app.isPackaged`, injected as a plain boolean so no test needs Electron. `false` makes the
-   * whole service a no-op reporting `supported: false` (AC5) - no checker call, no store read. */
+   * whole service a no-op reporting `supported: false` - no checker call, no store read. */
   isPackaged: boolean
   /** `app.getVersion()`: a restored record whose known release *is* this version is stale - the
    * user installed it - and is dropped instead of offered again. */
   currentVersion: string
-  /** D4's adapter, injected. */
+  /** The checker adapter, injected. */
   check: UpdateChecker
   /**
    * Story 098: what actually downloads and installs. Required rather than optional on purpose -
@@ -279,15 +279,15 @@ export interface UpdateServiceOptions {
    */
   backend: UpdateBackend
   /**
-   * Story 098 AC6: `LaunchService.isRunning()`, injected as a plain predicate so the service stays
+   * Story 098: `LaunchService.isRunning()`, injected as a plain predicate so the service stays
    * Electron-free. Required for the same reason as `backend`: a guard that defaults to "nothing is
    * running" is a guard that silently is not there.
    */
   isGameRunning: () => boolean
-  /** Story 098 AC6: `JobsService.list()`. The *list*, not a boolean, so the "is anything active"
+  /** Story 098: `JobsService.list()`. The *list*, not a boolean, so the "is anything active"
    * question is answered by `isJobActive` from the shared contract rather than re-derived here. */
   listJobs: () => Job[]
-  /** Called on every state change; D5 wires it to `broadcast.emit('update:state', …)`. A listener
+  /** Called on every state change; the IPC layer wires it to `broadcast.emit('update:state', …)`. A listener
    * that throws is logged and ignored - it can never break a check. */
   onStateChange: (state: UpdateState) => void
   /** Defaults to a real {@link UpdateCheckStore}, built lazily (its path resolves through
@@ -301,14 +301,14 @@ export interface UpdateServiceOptions {
 }
 
 export interface UpdateService {
-  /** The current state, restoring the persisted record first if that has not happened yet (AC8).
+  /** The current state, restoring the persisted record first if that has not happened yet.
    * Never checks, never throws. */
   getState(): Promise<UpdateState>
-  /** A manual check (AC7): always runs, regardless of the 24h window, and resolves with the
+  /** A manual check: always runs, regardless of the 24h window, and resolves with the
    * resulting state - including a failure reason. Joins an already-running check instead of
    * starting a second one. Never rejects. */
   checkNow(): Promise<UpdateState>
-  /** The startup check (AC1/AC3): returns `void` *immediately*, without awaiting anything, which is
+  /** The startup check: returns `void` *immediately*, without awaiting anything, which is
    * what makes "does not block startup" true by construction. Checks only if the 24h window is
    * open and the build is packaged. */
   scheduleStartupCheck(): void
@@ -316,35 +316,35 @@ export interface UpdateService {
   // ---- story 098: the four staged actions ----------------------------------------------------
 
   /**
-   * Starts downloading the known release and resolves as soon as it has *started* (098 AC3) - the
+   * Starts downloading the known release and resolves as soon as it has *started* (story 098) - the
    * launcher stays usable and progress arrives through `onStateChange`. Refuses with
    * `appUpdate.error.notAvailable` when there is nothing to download; a call while a download is
    * already running or staged is a no-op reporting the current state.
    */
   startDownload(): Promise<Outcome<UpdateState>>
   /** Asks the backend to stop an in-flight download. The state returns to `available` carrying
-   * `appUpdate.error.cancelled` once the backend settles (AC7). A no-op otherwise. */
+   * `appUpdate.error.cancelled` once the backend settles. A no-op otherwise. */
   cancelDownload(): Outcome<UpdateState>
   /**
-   * The second, deliberate confirmation (AC4): quits the launcher and installs the staged release.
+   * The second, deliberate confirmation: quits the launcher and installs the staged release.
    * Refuses - and changes nothing at all - unless the download has finished
    * (`appUpdate.error.notReady`), no game this launcher started is running
    * (`appUpdate.error.gameRunning`) and no job is in flight (`appUpdate.error.jobActive`). It never
-   * cancels the game or the job it refuses for (AC6).
+   * cancels the game or the job it refuses for.
    */
   installAndRestart(): Promise<Outcome<null>>
-  /** AC5: drop the attention marker for this session. In-memory, never persisted; the control
+  /** drop the attention marker for this session. In-memory, never persisted; the control
    * itself stays reachable, and nothing about the update itself changes. */
   dismiss(): Outcome<UpdateState>
 
   /**
-   * Story 098 D4: drives a `dev:simulateAppUpdate` scenario through the exact same
+   * Story 098: drives a `dev:simulateAppUpdate` scenario through the exact same
    * `emit`/`publish` machinery every real transition in this file uses - fixture releases in e2e
    * tests are not real installers to check for or fetch, so this is the offline stand-in for a
    * real check/download. Mirrors `LaunchService.simulate()`: a permanent method on the real
    * service, reachable only through the dev-only IPC channel (`src/main/ipc/dev.ts`), never called
    * in production. It never touches `supported`, the checker or the backend - and it is not how
-   * AC6's restart guard is exercised: `installAndRestart()` itself is real and unfaked, called
+   * the restart guard is exercised: `installAndRestart()` itself is real and unfaked, called
    * directly once `simulate({ scenario: 'downloaded' })` has staged a release.
    */
   simulate(scenario: UpdateSimulateScenario): void
@@ -382,7 +382,7 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
   let restoring: Promise<void> | undefined
   let inFlight: Promise<UpdateState> | undefined
 
-  // Story 098 AC4, belt: off from the moment the service exists, not only once a download starts,
+  // Story 098, belt: off from the moment the service exists, not only once a download starts,
   // so a release staged by a *previous* session's `electron-updater` cannot install itself on this
   // session's next quit either.
   options.backend.autoInstallOnAppQuit = false
@@ -418,7 +418,7 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
     publish()
   }
 
-  /** Restores the persisted record exactly once, before any check can run (AC8). */
+  /** Restores the persisted record exactly once, before any check can run. */
   function ensureRestored(): Promise<void> {
     // An unpackaged build knows nothing and stores nothing - it does not even read the file.
     if (!supported) return Promise.resolve()
@@ -524,10 +524,10 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
         }
       : {
           status: 'error',
-          update: facts.update, // AC3: a failure never erases what is already known.
+          update: facts.update, // a failure never erases what is already known.
           error: { key: updateErrorKey(outcome.reason) },
           lastCheckedAt: completedAt,
-          lastSuccessAt: facts.lastSuccessAt, // AC4: untouched, so the window is not burnt.
+          lastSuccessAt: facts.lastSuccessAt, // untouched, so the window is not burnt.
           supported,
         }
 
@@ -587,7 +587,7 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
   }
 
   function scheduleStartupCheck(): void {
-    // Fire-and-forget on purpose (AC3): nothing awaits this, and `startupCheck()` cannot reject.
+    // Fire-and-forget on purpose: nothing awaits this, and `startupCheck()` cannot reject.
     void startupCheck().catch(() => undefined)
   }
 
@@ -639,13 +639,13 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
 
     if (outcome.ok) {
       // It finished, so it finished - even if a cancel was requested just too late. Nothing is
-      // installed by this: `phase: 'downloaded'` only *offers* the restart (AC4).
+      // installed by this: `phase: 'downloaded'` only *offers* the restart.
       stage = 'downloaded'
       emit({ ...facts, error: null })
       return
     }
 
-    // AC7: nothing was installed and nothing on disk changed, so the update stays offerable -
+    // nothing was installed and nothing on disk changed, so the update stays offerable -
     // `resolveUpdatePhase` puts a known release back at `available` on its own, and the reason
     // rides along in `error`.
     stage = 'none'
@@ -663,7 +663,7 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
     // the same release.
     if (stage !== 'none') return ok(state)
 
-    // AC4, braces to the constructor's belt: `electron-updater` arms its install-on-quit handler
+    // Braces to the constructor's belt: `electron-updater` arms its install-on-quit handler
     // when a download *completes*, so this is the last moment the flag can be turned off.
     options.backend.autoInstallOnAppQuit = false
 
@@ -674,7 +674,7 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
     // Clears a previous attempt's failure reason, and publishes the `downloading` phase.
     emit({ ...facts, error: null })
 
-    // Deliberately not awaited (AC3): the launcher stays fully usable while this runs, and every
+    // Deliberately not awaited: the launcher stays fully usable while this runs, and every
     // later state change arrives through `onStateChange`. `runDownload` cannot reject.
     void runDownload(downloadGeneration).catch((error: unknown) => {
       log?.warn(`update: the download ended unexpectedly (${describeError(error)})`)
@@ -699,15 +699,15 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
   async function installAndRestart(): Promise<Outcome<null>> {
     await ensureRestored()
 
-    // AC4: nothing is installed until there is something staged to install. Deliberately not also
-    // gated on `supported`: `simulate()` (098 D4) legitimately drives `stage` to `'downloaded'` on an
+    // nothing is installed until there is something staged to install. Deliberately not also
+    // gated on `supported`: `simulate()` (story 098) legitimately drives `stage` to `'downloaded'` on an
     // unpackaged build so the game/job guards below can be proven for real without a packaged
     // install - `download()` already refuses `!supported` on the real path, so `stage` cannot
     // reach `'downloaded'` there without simulation, and `checker.ts`'s `quitAndInstall()` still
     // throws on an unresolved updater as the last line of defence.
     if (stage !== 'downloaded') return fail(APP_UPDATE_REFUSAL_KEYS.notReady)
 
-    // AC6. Both guards *read* live state that main already tracks and return before anything is
+    // Both guards *read* live state that main already tracks and return before anything is
     // touched - the game keeps running, the job keeps running, and the staged update stays staged
     // so the user can come back to it. Nothing here cancels, kills or quits.
     if (options.isGameRunning()) {
@@ -780,7 +780,7 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
         return
 
       case 'error':
-        // AC7: falls back to `available` - `resolveUpdatePhase` does that on its own once `stage`
+        // falls back to `available` - `resolveUpdatePhase` does that on its own once `stage`
         // is `'none'` and `facts.update` is still non-null, same as a real failed download.
         stage = 'none'
         progress = null
@@ -788,7 +788,7 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
         return
 
       case 'upToDate':
-        // AC8: the same facts a real "up to date" check produces - `resolveUpdatePhase` returns
+        // the same facts a real "up to date" check produces - `resolveUpdatePhase` returns
         // `idle` once `update` is null and `status` is not `checking`/`error`, which is what makes
         // the control disappear.
         stage = 'none'
@@ -805,9 +805,9 @@ export function createUpdateService(options: UpdateServiceOptions): UpdateServic
         return
 
       case 'checkFailed':
-        // Story 099 D7: a failed *check*, mirroring `runAttempt()`'s own real failure branch above
-        // - a failed check never erases what is already known (AC3) and never touches
-        // `lastSuccessAt` (AC4), it only moves `lastCheckedAt` and reports the reason.
+        // Story 099: a failed *check*, mirroring `runAttempt()`'s own real failure branch above
+        // - a failed check never erases what is already known and never touches
+        // `lastSuccessAt`, it only moves `lastCheckedAt` and reports the reason.
         emit({
           status: 'error',
           update: facts.update,

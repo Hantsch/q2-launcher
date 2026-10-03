@@ -1,5 +1,5 @@
 /**
- * Layout primitives for the config-file writer (story 040 D2, extended by story 042 D2) — banners,
+ * Layout primitives for the config-file writer (story 040, extended by story 042) — banners,
  * per-section column alignment, budget-aware comment attachment (plain and, since 042, with a
  * machine-readable tail that outranks the prose) and comment sanitization. Pure, profile-agnostic:
  * this file knows nothing about `ConfigProfile`, cvars, binds or aliases — `render.ts` is the only
@@ -19,8 +19,8 @@
 export type BannerFill = '-' | '='
 
 /**
- * Per-profile decorative style for a *section* banner (story 042 D7) - meaningless for
- * `fill: '='` (the file's one header block, which stays byte-identical to what D2 wrote
+ * Per-profile decorative style for a *section* banner (story 042) - meaningless for
+ * `fill: '='` (the file's one header block, which stays byte-identical to what the writer wrote
  * regardless of this setting; only category/cvar/layer section banners honour it).
  *
  * - `'dashes'` - today's only format, and the implicit default (`.catch('dashes')` in
@@ -56,12 +56,12 @@ export const BANNER_WIDTH = 80
  *
  * - `fill: '='` — a full-width rule (`// ====...`) above and below every entry in `lines`, each
  *   emitted as its own `//  <line>` comment (`trimEnd()`ed, so a blank/whitespace-only entry never
- *   leaves a trailing-whitespace-only line). This is the file's header block: since story 051's D2
+ *   leaves a trailing-whitespace-only line). This is the file's header block: since story 051
  *   removed the hand-edit sentence from the render path, `lines` is just the profile name sitting
  *   between two rules, exactly like the story's own sketch. `style` is not consulted here - the
  *   header block is not a section banner.
  * - `fill: '-'` (default) — one line per entry in `lines`, decorated per `options.style` (story
- *   042 D7, defaulting to `'dashes'`, today's only format). This is a section banner.
+ *   042, defaulting to `'dashes'`, today's only format). This is a section banner.
  *
  * Never truncates or drops anything: a `line` longer than `width` still prints in full, just past
  * the nominal width — this function has no budget concept, unlike `attachComment`.
@@ -238,7 +238,7 @@ export function attachTaggedComment(
  * An empty `comment` is never attached at all — `code` alone is returned, so a caller does not have
  * to special-case "no comment" before calling this.
  *
- * `render.ts` routes every row through `attachTaggedComment` since story 042 D2 (an untagged row
+ * `render.ts` routes every row through `attachTaggedComment` since story 042 (an untagged row
  * passes `tag: ''` and lands on exactly this rule), so this is the primitive's untagged form rather
  * than a second implementation: it names the pre-042 contract that `fitProseAndTag` still falls
  * back to, and is the entry point for a caller that has only prose.

@@ -9,7 +9,7 @@ import { STANDARD_TEMPLATE, TEMPLATE_ACTION_CATEGORIES } from '@shared/modules/c
 /**
  * The three template categories as `STANDARD_TEMPLATE` seeds them (`{ id, name, nameKey }`).
  *
- * Story 052 D4: the file's category sections are `profile.categories`, in that array's order, and
+ * Story 052: the file's category sections are `profile.categories`, in that array's order, and
  * nothing else - the three former built-ins are no longer prepended by the writer. So a test profile
  * whose actions sit in `movement`/`weapons`/`drops` has to *carry* those categories, exactly as a
  * template-seeded profile does; without them its entries are uncategorised and land in the trailing
@@ -24,7 +24,7 @@ export const TEMPLATE_CATEGORIES: ConfigActionCategory[] = TEMPLATE_ACTION_CATEG
 )
 
 /**
- * Story 059 D2: the writer's cvar sections now come from `profile.cvarSections`, not from
+ * Story 059: the writer's cvar sections now come from `profile.cvarSections`, not from
  * `CvarDef.group`/`CVAR_GROUP_ORDER` directly - a test profile that carries no sections of its own
  * would put every catalogue cvar into the reserved `Defaults` bucket instead of the four
  * Player/Network/Graphics/Sound sections this file's literals below pin. Seeding the default
@@ -60,8 +60,8 @@ export function action(overrides: Partial<ConfigAction> = {}): ConfigAction {
 }
 
 /**
- * The four-line header block story 051 D2 now emits unconditionally, for the default `profile()`
- * name ("Test") - every exact-match test in this file that predates D2 has to grow this block,
+ * The four-line header block story 051 now emits unconditionally, for the default `profile()`
+ * name ("Test") - every exact-match test in this file that predates the profile header has to grow this block,
  * since it appears even for a profile with no cvars/binds at all, and it is now the *whole* header
  * (`renderProfileFile` no longer prepends `sentinelLine()` in front of it). Built once here as a
  * function of `id` (rather than hand-counted inline) so the fill width and the right-aligned tag's
@@ -82,13 +82,13 @@ export function testProfileHeader(id: string): string[] {
 
 /** Builds an action's `keys` array from a sparse list of slots - `undefined` entries are skipped,
  * so a caller can express "no primary slot, only a secondary one" as `keySlots(undefined, slot)`.
- * Same helper `action-mirror.test.ts` uses since story 050 D3. */
+ * Same helper `action-mirror.test.ts` uses since story 050. */
 export function keySlots(...slots: (ActionKeySlot | undefined)[]): ActionKeySlot[] {
   return slots.filter((slot): slot is ActionKeySlot => slot !== undefined)
 }
 
 /**
- * The `[q2l ...]` tag story 042 D2 attaches to one entry's generated line, as story 050 D6 cut it
+ * The `[q2l ...]` tag story 042 attaches to one entry's generated line, as story 050 cut it
  * down: `cid` when the entry is catalogue-backed, an anchor line's own `key`/`mod`/`an` where it
  * has them, and *nothing at all* otherwise - a fieldless entry line still carries the bare `[q2l]`
  * marker, which is what tells a generated line from a hand-typed one on read-back.
@@ -110,17 +110,17 @@ export function entryTag(
 }
 
 /**
- * Story 040 D4: `writeUnbindall` defaults to on, so `default `profile()`'s missing value renders
- * this line unconditionally too - same rebaselining reason `TEST_PROFILE_HEADER` documents for D2,
+ * Story 040: `writeUnbindall` defaults to on, so `default `profile()`'s missing value renders
+ * this line unconditionally too - same rebaselining reason `TEST_PROFILE_HEADER` documents for the header,
  * one line down from it since it is its own block (blank-line separated by `joinBlocks`).
  */
 export const TEST_PROFILE_UNBINDALL = ['', 'unbindall']
 
 /**
- * Story 048 D2: a rendered file now carries a `set` line for *every* cvar in `ALL_CVARS`, not only
+ * Story 048: a rendered file now carries a `set` line for *every* cvar in `ALL_CVARS`, not only
  * the ones the profile stored a value for - so this block appears in every rendered file, exactly
  * like `TEST_PROFILE_HEADER` and `TEST_PROFILE_UNBINDALL` do, and every exact-match test in this
- * file that predates D2 has to grow it.
+ * file that predates the header has to grow it.
  *
  * Spelled out as a literal rather than derived from `ALL_CVARS`: this is the byte-exact anchor for
  * the whole cvar block - the group order, the group banners, the catalog ordering inside a group,
@@ -173,7 +173,7 @@ export const TEST_PROFILE_CVAR_DEFAULTS = [
 
 /** The four cvar group banners `TEST_PROFILE_CVAR_DEFAULTS` carries, as `banners()` reports them -
  * every rendered file has all four now, since no group can be empty once every catalogue cvar is
- * written. Story 059 D2: each now carries its own `cvs=<id>` tag, since `profile()`'s default
+ * written. Story 059: each now carries its own `cvs=<id>` tag, since `profile()`'s default
  * `cvarSections` (`STANDARD_TEMPLATE.cvarSections`) makes these four real, profile-owned sections
  * rather than the old untagged catalogue groups. */
 export const CVAR_GROUP_BANNERS = [
@@ -207,7 +207,7 @@ export function cvarBlock(overrides: Record<string, string> = {}): string[] {
 }
 
 /**
- * One rendered bind/alias line stripped back to the bare command it was before story 040 D3
+ * One rendered bind/alias line stripped back to the bare command it was before story 040
  * aligned it and hung a `// <label>` off it: the trailing comment removed, and the multi-space
  * column padding collapsed back to the single space the old flat dump used.
  *

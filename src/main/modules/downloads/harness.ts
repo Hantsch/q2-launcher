@@ -2,7 +2,7 @@ import type { DetectedRetailSource } from '@shared/modules/downloads'
 import type { UiHarness, UiHarnessVar } from '../../lib/ui-harness'
 
 /**
- * Story 088 D2: the env var a UI-verification flow names its fixture Steam/GOG/Epic sources in -
+ * Story 088: the env var a UI-verification flow names its fixture Steam/GOG/Epic sources in -
  * JSON-encoded `DetectedRetailSource[]`. Only read under the same double gate as
  * `resolveDownloadSource` (`services/content/source.ts`); see that function's doc comment in `services/content/source.ts` for why this backdoor has to exist
  * at all (Playwright cannot plant a real Steam library, and `listDetectedRetailSources`'s only

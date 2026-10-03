@@ -30,7 +30,7 @@ export const listInputSchema = z.void()
 
 export const createConfigProfileInputSchema = z.object({
   name: z.string().min(1).max(120),
-  // Story 066 D3: `ConfigProfileSeed` split `'template'` into `'template-right'`/`'template-left'`
+  // Story 066: `ConfigProfileSeed` split `'template'` into `'template-right'`/`'template-left'`
   // (@shared/modules/config) - this enum mirrors that split so it cannot drift from the type it
   // validates.
   from: z.enum(['empty', 'template-right', 'template-left']),
@@ -80,7 +80,7 @@ const configCvarSectionSchema: z.ZodType<ConfigCvarSection> = configCvarSectionO
  * is a later story's job); it only rejects garbage shapes before they reach
  * `ProfilesStore`.
  *
- * `cvarSections` (story 059 D1) is optional - a caller not yet sending the profile's own sections
+ * `cvarSections` (story 059) is optional - a caller not yet sending the profile's own sections
  * (every renderer call site before a later deliverable wires this up) simply omits it, capped at 64
  * sections same as `setProfileActionsInputSchema`'s own `categories` cap.
  */
@@ -90,12 +90,12 @@ export const setProfileCvarsInputSchema = z.object({
   cvarSections: z.array(configCvarSectionSchema).max(64).optional(),
 })
 
-/** Story 175 D1: at most this many cvars in one `commitCvars` call - a commit names a handful of
+/** Story 175: at most this many cvars in one `commitCvars` call - a commit names a handful of
  * cvars the user just chose (an address list), never a whole profile's cvar map. */
 export const MAX_COMMIT_CVARS = 9
 
 /**
- * Story 175 D1: `commitCvars`' payload. The same structural cvar name/value rules as
+ * Story 175: `commitCvars`' payload. The same structural cvar name/value rules as
  * `setProfileCvarsInputSchema` above, plus: the map must name at least one cvar (committing nothing
  * would still be a disk write) and at most `MAX_COMMIT_CVARS`.
  */
@@ -185,7 +185,7 @@ export const setProfileActionsInputSchema = z.object({
 })
 
 /**
- * Story 079 D8: `write`'s payload gains an optional `installationId` - shape-only here (a non-empty
+ * Story 079: `write`'s payload gains an optional `installationId` - shape-only here (a non-empty
  * string), same as every other `installationId` field in this file (`assignProfileInputSchema`
  * etc.): whether it actually names a known installation is data (`app.installations`), not shape,
  * so that check lives in the handler, same division of labour those schemas already use.
@@ -196,7 +196,7 @@ export const writeProfileInputSchema = z.object({
 })
 
 /**
- * Story 043 (D4/D8): `save`'s input - a profile id plus `force` (D8), the "overwrite with my
+ * Story 043: `save`'s input - a profile id plus `force`, the "overwrite with my
  * version" resolution of `ConfigConflictDialog`: when true, the handler skips the
  * re-read/conflict check and writes unconditionally. No longer a bare alias of
  * `writeProfileInputSchema` now that it carries its own optional field.
@@ -207,7 +207,7 @@ export const saveProfileInputSchema = z.object({
 })
 
 /**
- * Story 057 D4: how much text one `saveRawText` call may carry - a bounding-one-payload's-work cap
+ * Story 057: how much text one `saveRawText` call may carry - a bounding-one-payload's-work cap
  * in the same spirit as `setProfileActionsInputSchema`'s 500 actions, sized for a *file* rather than
  * a field. A canonical profile `.cfg` the launcher writes is a few kilobytes; the largest
  * hand-written Quake II config anyone has ever produced is orders of magnitude below this, so the
@@ -216,7 +216,7 @@ export const saveProfileInputSchema = z.object({
 export const MAX_RAW_CONFIG_TEXT_LENGTH = 1_000_000
 
 /**
- * Story 057 D4: `saveRawText`'s payload - the whole file the Raw file tab's editor holds, plus the
+ * Story 057: `saveRawText`'s payload - the whole file the Raw file tab's editor holds, plus the
  * same `force` bypass `saveProfileInputSchema` above carries, and no path (see `SaveRawTextInput`).
  *
  * Deliberately shape-and-size only. The two content rules the story names - the ownership tag and
@@ -232,28 +232,28 @@ export const saveRawTextInputSchema = z.object({
   force: z.boolean().optional(),
 })
 
-/** Story 022 (D7): `writeState` takes no payload, same pattern as `listInputSchema` above. */
+/** Story 022: `writeState` takes no payload, same pattern as `listInputSchema` above. */
 export const writeStateInputSchema = z.void()
 
 /**
- * Story 043 (D5/D8): `refreshFromFiles`' payload - an optional profile id, so a missing/undefined
+ * Story 043: `refreshFromFiles`' payload - an optional profile id, so a missing/undefined
  * `profileId` means "check every profile" (main's own logic, not this schema's job to default),
- * plus `discardLocalEdits` (D8): the "take the file" resolution of `ConfigConflictDialog`.
+ * plus `discardLocalEdits`: the "take the file" resolution of `ConfigConflictDialog`.
  */
 export const refreshFromFilesInputSchema = z.object({
   profileId: z.string().min(1).optional(),
   discardLocalEdits: z.boolean().optional(),
 })
 
-/** Story 022 (D5): `syncState`'s input is shape-identical to `write`'s, same alias convention as
+/** Story 022: `syncState`'s input is shape-identical to `write`'s, same alias convention as
  * `unassignProfileInputSchema`/`setDefaultProfileInputSchema` above. */
 export const syncStateInputSchema = writeProfileInputSchema
 
-/** Story 023 (D1): `rawFiles`' input is shape-identical to `write`'s/`syncState`'s. */
+/** Story 023: `rawFiles`' input is shape-identical to `write`'s/`syncState`'s. */
 export const rawFilesInputSchema = writeProfileInputSchema
 
 /**
- * Story 023 (D2): which of a profile's files to open or reveal, addressed by ids only - a
+ * Story 023: which of a profile's files to open or reveal, addressed by ids only - a
  * nullable `installationId` (null = the profile's own canonical file) plus the action.
  * Deliberately has no path field at all: the handler resolves the real path from main's own
  * state, so there is nothing here a renderer could aim at another file.
@@ -286,7 +286,7 @@ export const setPlayedModsInputSchema = z.object({
  * that isn't a named key, control characters, non-ASCII - is rejected.
  *
  * The single-character branch additionally excludes space, `"`, `$` and `;`
- * (review finding, story 007): those pass a plain "printable ASCII" test but
+ * (story 007): those pass a plain "printable ASCII" test but
  * `switch-bind.ts`'s own `sanitizeKeyName` strips every one of them before
  * emitting the chain (the same reasons `alt-layers.ts` sanitizes command
  * bodies - `;` ends a step's command list early, `$` triggers macro
@@ -318,7 +318,7 @@ export const setSwitchBindInputSchema = z.object({
 export const switchBindsInputSchema = z.void()
 
 /**
- * Story 040 D4: `setWriteUnbindall`'s payload. Strict, same convention as every other config-module
+ * Story 040: `setWriteUnbindall`'s payload. Strict, same convention as every other config-module
  * IPC schema in this file - a bad payload is a caller bug, not a state to repair.
  */
 export const setWriteUnbindallInputSchema = z.object({
@@ -327,7 +327,7 @@ export const setWriteUnbindallInputSchema = z.object({
 })
 
 /**
- * Story 059 D9: `setWriteCatalogDefaults`'s payload. Same strict convention as
+ * Story 059: `setWriteCatalogDefaults`'s payload. Same strict convention as
  * `setWriteUnbindallInputSchema` right above - a bad payload is a caller bug, not a state to
  * repair.
  */
@@ -337,7 +337,7 @@ export const setWriteCatalogDefaultsInputSchema = z.object({
 })
 
 /**
- * Story 042 D7: `setSectionHeaderStyle`'s payload. Same strict convention as
+ * Story 042: `setSectionHeaderStyle`'s payload. Same strict convention as
  * `setWriteUnbindallInputSchema` right above - a bad payload is a caller bug, not a state to
  * repair.
  */
@@ -347,7 +347,7 @@ export const setSectionHeaderStyleInputSchema = z.object({
 })
 
 /**
- * Story 049 (D3): `discard`'s payload - a profile id, nothing else (see `DiscardProfileInput`'s own
+ * Story 049: `discard`'s payload - a profile id, nothing else (see `DiscardProfileInput`'s own
  * doc comment for why). Same strict convention as every other config-module IPC schema in this
  * file.
  */
@@ -356,7 +356,7 @@ export const discardProfileInputSchema = z.object({
 })
 
 /**
- * Story 066 D3: how many `PickedConfigFile` ids one `import.previewFiles`/`import.commitFiles` call
+ * Story 066: how many `PickedConfigFile` ids one `import.previewFiles`/`import.commitFiles` call
  * may fold. There is no existing precedent for a list-of-ids-from-a-native-picker payload in this
  * file to mirror exactly, so this is a fresh, generous sanity ceiling in the same spirit as
  * `cleanupApplyInputSchema`'s 256 entries and `layerAliases`' 256 above: a real multi-select pick of
@@ -375,7 +375,7 @@ export const MAX_IMPORT_FILE_IDS = 64
 const fileIdsSchema = z.array(z.string().min(1)).min(1).max(MAX_IMPORT_FILE_IDS)
 
 /**
- * Story 066 D5: `import.pickFiles` takes no payload - the picker's starting folder is main's own
+ * Story 066: `import.pickFiles` takes no payload - the picker's starting folder is main's own
  * business (`./index.ts` derives it from the selected installation), and the whole point of the
  * flow is that the renderer contributes no path to it. Same `z.void()` pattern as
  * `listInputSchema`/`switchBindsInputSchema` above.
@@ -383,7 +383,7 @@ const fileIdsSchema = z.array(z.string().min(1)).min(1).max(MAX_IMPORT_FILE_IDS)
 export const importPickFilesInputSchema = z.void()
 
 /**
- * Story 066 D3: `import.previewFiles`'s payload - `ImportFilesPreviewInput`'s shared shape,
+ * Story 066: `import.previewFiles`'s payload - `ImportFilesPreviewInput`'s shared shape,
  * addressed entirely by `fileIds` (the ordered list of picked-file ids to fold left-to-right), never
  * a path.
  */
@@ -392,9 +392,9 @@ export const importFilesPreviewInputSchema = z.object({
 })
 
 /**
- * Story 066 D3: `import.commitFiles`'s payload - `ImportFilesCommitInput`'s shared shape. Same
+ * Story 066: `import.commitFiles`'s payload - `ImportFilesCommitInput`'s shared shape. Same
  * `fileIds` addressing as `importFilesPreviewInputSchema` above, plus the new profile's `name` and
- * the optional `layerAliases` (story 041 D6's "attempt as layer" choice - shape-only here, since
+ * the optional `layerAliases` (story 041's "attempt as layer" choice - shape-only here, since
  * the ambiguous-list cross-check needs the parsed import result, which this schema never sees; that
  * check lives in `commitImportFiles`, `main/modules/config/import.ts`).
  */
@@ -435,7 +435,7 @@ export const cleanupApplyInputSchema = z.object({
 export const cleanupRestoreInputSchema = cleanupApplyInputSchema
 
 /**
- * Story 025 D3: `tidyUp.apply`'s payload - one profile id plus a batch of
+ * Story 025: `tidyUp.apply`'s payload - one profile id plus a batch of
  * `TidyUpOp` descriptors (`@shared/config/profile/tidy-up`).
  *
  * Structural validation only, and deliberately so: this schema's job is to keep

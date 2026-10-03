@@ -5,7 +5,7 @@ import { Badge } from './primitives'
 
 /**
  * The "Demo" marker shown wherever an installation's identity is surfaced
- * (library card, action bar, rail hover card) - story 074 D7.
+ * (library card, action bar, rail hover card) - story 074.
  *
  * Takes the whole `Installation` (unlike `EngineBadge`'s plain `engineKind`)
  * because the derivation itself (`isDemoData`) lives here rather than at each

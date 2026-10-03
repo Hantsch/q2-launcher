@@ -27,7 +27,7 @@ import type { StateSection, StateSectionSpec, StateStore } from '../../services/
 import { capServerHistory } from './history-log'
 
 /**
- * Story 110 D2: the persisted `servers` top-level `state.json` key. Defensive at two levels, same
+ * Story 110: the persisted `servers` top-level `state.json` key. Defensive at two levels, same
  * combination `parseHomeLayout`/`parseDownloadsSettings` use separately: an envelope check (a raw
  * value that isn't even "an object with array-ish collection keys" falls back to fresh defaults (`parseForgivingEnvelope`'s `fallback()`) - never the shared constant itself, so a caller mutating the result can't
  * corrupt the default for the next call) plus row-level dropping within each collection
@@ -48,7 +48,7 @@ import { capServerHistory } from './history-log'
  * keys from a hand-edited or foreign file" reasoning as `parseHomeLayout`'s `moduleId` dedupe pass.
  */
 /**
- * Story 115 D2, review fix: extends the four original knobs with the three settings D1 added, and
+ * Story 115: extends the four original knobs with the three added settings, and
  * checks every numeric field against its own `SCAN_*_CHOICES` list (not a bare `.min()/.max()`
  * range, which accepts an in-range value with no matching `<Select>` option, e.g. an old
  * pre-choice-list persisted value like `concurrency: 8`/`timeoutMs: 2000`/`minSpacingMs: 50`) -
@@ -96,7 +96,7 @@ function parseServersScanSettings(raw: unknown): ServersScanSettings {
  * anything that isn't even an object (or is `null`) fails outright and falls back to
  * fresh defaults wholesale.
  *
- * Story 111 D2: `sources` is the one field with a real, non-empty default -
+ * Story 111: `sources` is the one field with a real, non-empty default -
  * `DEFAULT_MASTER_SOURCES`, the one shipped master/list source - applied via a genuine zod
  * `.default()`, not read-time re-seeding logic (the story's own decision: "Defaults are the
  * `sources` field's zod default, not a re-seed on read"). `.catch([])` still sits underneath it for
@@ -115,11 +115,11 @@ const serversStateEnvelopeSchema = z.object({
   favourites: z.array(z.unknown()).catch([]),
   manualServers: z.array(z.unknown()).catch([]),
   history: z.array(z.unknown()).catch([]),
-  // Story 131 D1: missing entirely (every `state.json` predating this story) degrades to `[]` via
+  // Story 131: missing entirely (every `state.json` predating this story) degrades to `[]` via
   // `.catch([])`, same as every other collection here - no `.default()` needed since `[]` is also
   // this field's own out-of-the-box value (unlike `sources`, which seeds real rows).
   watchlist: z.array(z.unknown()).catch([]),
-  // Story 197 D1: absent (every `state.json` predating it) or malformed degrades to `[]`.
+  // Story 197: absent (every `state.json` predating it) or malformed degrades to `[]`.
   quickFilters: z.array(z.unknown()).catch([]),
 })
 
@@ -165,7 +165,7 @@ export function parseServersState(raw: unknown): ServersState {
   )
   const scan = parseServersScanSettings((raw as { scan?: unknown } | null)?.scan)
 
-  // Story 119 D2: `listSort` is field-level-forgiving - an absent or malformed value parses to `null`
+  // Story 119: `listSort` is field-level-forgiving - an absent or malformed value parses to `null`
   // rather than degrading the rest of the state, so it is read straight off `raw`.
   const listSortResult = serverListSortSchema.safeParse(
     (raw as { listSort?: unknown } | null)?.listSort,
@@ -176,7 +176,7 @@ export function parseServersState(raw: unknown): ServersState {
     keyOf: (row) => row.id,
   })
 
-  // Story 197 D1: case-insensitive duplicate names (first wins), then the first `QUICK_FILTER_MAX`
+  // Story 197: case-insensitive duplicate names (first wins), then the first `QUICK_FILTER_MAX`
   // kept - the cap is a store invariant like the history cap.
   const quickFilters = parseKeyedRows(quickFilterSchema, envelope.quickFilters, {
     keyOf: (row) => row.name.toLowerCase(),

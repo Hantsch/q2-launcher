@@ -40,7 +40,7 @@ import { planModUpdate, type ModUpdatePolicy } from './update-plan'
 import { computeModUpdateStatus } from './update-status'
 
 /**
- * Story 194 D2: update one catalog mod to its manifest's pinned version - the first record-driven
+ * Story 194: update one catalog mod to its manifest's pinned version - the first record-driven
  * REPLACE inside a folder the user shares with the mod. Built from story 190's install pieces
  * (variant picker, stager, record) and story 191's removal rules (record paths only, realpath
  * containment, no link following, busy checks).
@@ -203,7 +203,7 @@ async function recordedDiskHashes(
   return hashes
 }
 
-/** What D3's confirmation dialog shows; the same validation as the start, and never writes. */
+/** What the confirmation dialog shows; the same validation as the start, and never writes. */
 export async function previewModUpdate(
   deps: ModUpdateDeps,
   request: ModUpdateRequest,

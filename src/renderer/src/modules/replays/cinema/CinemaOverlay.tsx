@@ -33,7 +33,7 @@ const FOCUS_RING =
 const createEmpty = createTimeline({ view: null }, 0)
 
 /**
- * Story 187 D7: the controls of the transparent cinema overlay. The overlay window is its own
+ * Story 187: the controls of the transparent cinema overlay. The overlay window is its own
  * renderer, so it runs its own playback session in the shared store (fed by the position/display
  * events main broadcasts) and sends the same timeline actions as the launcher's strip.
  * The bar fades after `CINEMA_IDLE_MS` of no input; a click on the picture only brings it back.

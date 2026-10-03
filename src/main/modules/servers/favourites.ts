@@ -2,18 +2,18 @@ import type { FavouriteServerEntry, ServersState } from '@shared/modules/servers
 import { parseServerAddress } from '@shared/servers/address'
 
 /**
- * Story 112 D2: the favourites collection's three operations, as pure functions over
+ * Story 112: the favourites collection's three operations, as pure functions over
  * `ServersState['favourites']` - no I/O, no `AppContext`, mirroring `master-sources.ts` (story
- * 111 D3)'s shape for this exact module.
+ * 111)'s shape for this exact module.
  *
- * A favourite is keyed by its normalized address (D-B/AC4), never by a scan-result id, so marking
+ * A favourite is keyed by its normalized address (D-B), never by a scan-result id, so marking
  * the same address favourite twice never creates a duplicate row and unmarking by address removes
  * exactly that entry regardless of whether a scan ever produced it. Normalization goes through
  * `parseServerAddress` (D-C); by the time an address reaches here it should already be normalized
- * by `serverAddressSchema` at the IPC boundary (story 112 D1), but these functions call it anyway
+ * by `serverAddressSchema` at the IPC boundary (story 112), but these functions call it anyway
  * as defence in depth for any caller that bypasses the schema (e.g. a direct unit test). Unlike
  * `master-sources.ts`'s `validateMasterSourceAddress`, a failed parse here is not a refusal - D-G
- * requires an address that has never been live or scanned to still be accepted (AC5), and this
+ * requires an address that has never been live or scanned to still be accepted, and this
  * file's functions have no rejection path in their signature - so a candidate `parseServerAddress`
  * can't parse just falls back to its own trimmed, unnormalized form.
  *
@@ -56,7 +56,7 @@ export function listFavourites(state: ServersState): FavouriteServerEntry[] {
  * Adds `address` to the favourites list. If a favourite with that normalized address already
  * exists, returns the list unchanged (same `addedAt`, no duplicate row) - otherwise appends a new
  * entry with `addedAt` set to now and returns the new, sorted list. Never touches the network
- * (D-G): an address no scan has ever seen is accepted the same as any other (AC5).
+ * (D-G): an address no scan has ever seen is accepted the same as any other.
  */
 export function addFavourite(state: ServersState, address: string): FavouriteServerEntry[] {
   const normalized = normalizeAddress(address)

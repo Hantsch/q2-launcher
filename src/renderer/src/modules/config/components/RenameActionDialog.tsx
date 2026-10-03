@@ -30,7 +30,7 @@ const ALIAS_NAME_ERROR_KEYS: Record<
  * `findAliasReferrers` scans to decide whether changing the *display* name would leave a dangling
  * reference behind.
  *
- * Story 044, D5: extracted out of `ControlsTab.tsx` verbatim (same props, same behaviour) so both
+ * Story 044: extracted out of `ControlsTab.tsx` verbatim (same props, same behaviour) so both
  * that tab and `AliasesTab.tsx` share the one rename-refusal implementation - story 039's rule lives
  * in exactly one place rather than being duplicated for the second caller.
  */
@@ -57,9 +57,9 @@ export function RenameActionDialog({
   const placeholder = derivedAliasName(action)
 
   // The other entries' already-resolved alias names - `validateAliasName`'s duplicate check, same
-  // shape D2's own doc comment describes (`alias-names.ts`).
+  // shape the own doc comment describes (`alias-names.ts`).
   //
-  // `renderedAliasNames`, not `aliasNameFor` (story-045 review, finding 3): a two-part entry defines
+  // `renderedAliasNames`, not `aliasNameFor` (story-045: a two-part entry defines
   // more names than the one it is called by (a toggle's `_s1`/`_s2` states, a press/release pair's
   // `+`/`-` halves), and every one of them is a name this dialog must refuse to hand out a second
   // time - the file has one definition per name, so a collision means the loser's body is simply
@@ -83,7 +83,7 @@ export function RenameActionDialog({
     ? undefined
     : t(ALIAS_NAME_ERROR_KEYS[aliasValidation.reason], aliasValidation.params)
 
-  // Rename refusal (story 039, D9): only the entry's *current* alias name - resolved before any
+  // Rename refusal (story 039): only the entry's *current* alias name - resolved before any
   // edit in this dialog - and only while the display name is actually changing. Changing solely the
   // alias-name field is never refused; that field is the story's own escape hatch.
   //
@@ -158,7 +158,7 @@ export function RenameActionDialog({
             // Deliberately not `MAX_OWN_ALIAS_NAME_LENGTH`: an input-level `maxLength` at exactly
             // the budget would silently stop the keystroke instead of ever reaching
             // `validateAliasName`'s `tooLong` reason, so a name past the budget could never be
-            // rejected *with a reason* (AC6) - only ever truncated without one. `120` mirrors the
+            // rejected *with a reason* - only ever truncated without one. `120` mirrors the
             // display-name field above and is generous enough that a user typing past the real
             // budget still sees the `tooLong` error instead of a truncated string.
             maxLength={120}

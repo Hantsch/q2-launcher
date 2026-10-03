@@ -17,9 +17,9 @@ import type { DetailTab } from './ConfigTabStrip'
 import { UnsavedChangesTab } from './UnsavedChangesTab'
 
 /**
- * Story 044 D6: the active tab, widened to optionally carry a focus target for the tab it is
+ * the active tab, widened to optionally carry a focus target for the tab it is
  * switching to - the one cross-tab deep-link mechanism Care -> Aliases, Aliases -> Controls and
- * (review fix, finding 1) Aliases -> Overview all go through (`goToTab` below). Only one of
+ * Aliases -> Overview all go through (`goToTab` below). Only one of
  * `focusAlias`/`focusActionId`/`focusLayerName` is ever set at a time (the caller picks exactly
  * one), but there is no need to model that as a union: each target tab reads only the one field it
  * understands and ignores the others, and a plain tab-button click (`goToTab(tab.id)` with no
@@ -29,7 +29,7 @@ import { UnsavedChangesTab } from './UnsavedChangesTab'
 export interface TabFocusState {
   tab: DetailTab
   focusAlias?: string
-  /** Story 060 D1: the duplicate-alias finding's owning entry id, alongside `focusAlias` - lets the
+  /** the duplicate-alias finding's owning entry id, alongside `focusAlias` - lets the
    * Aliases tab's focus effect target one specific colliding row instead of "first row with this
    * name" when two entries share a name. Unset for every other deep link into Aliases, which still
    * resolves by name alone. */
@@ -39,7 +39,7 @@ export interface TabFocusState {
 }
 
 /**
- * Story 057 D5, the other half of AC7 ("raw editing and the structured tabs never hold two unsaved
+ * The other half of ("raw editing and the structured tabs never hold two unsaved
  * truths at once"): while the Raw file tab holds a typed-but-unsaved draft, every *other* tab's
  * content is `inert` - not focusable, not clickable, not reachable by assistive tech - with one line
  * saying why. Enforced in this one place rather than by threading a `disabled` prop through five

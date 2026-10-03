@@ -12,7 +12,7 @@ import { openSlideUrl } from './open-slide-url'
 import { defaultHomeLayout, homeState, parseHomeLayout } from './persisted'
 
 /**
- * The home module - story 081 D1 registered it with nothing to add yet. Story 082 D6 gives it its
+ * The home module - story 081 registered it with nothing to add yet. Story 082 gives it its
  * first handlers: `news.get`/`news.refresh`, backed by `news/news-service.ts`. Mirrors
  * `src/main/modules/library/index.ts`'s shape - `setup()` registers handlers and does nothing
  * else; all the news logic (fetch-or-not, cache, filter+sort, change detection) lives in the
@@ -36,7 +36,7 @@ export const homeModule: MainModule = {
     handle(HOME_HANDLERS.newsRefresh, async () => ok(await newsService.refreshNews()))
     handle(HOME_HANDLERS.openSlideUrl, (url) => openSlideUrl(url, app.os.openExternal, log))
 
-    // Story 086 D1: `getLayout` returns the persisted layout verbatim - no failure mode, like
+    // Story 086: `getLayout` returns the persisted layout verbatim - no failure mode, like
     // `downloads.getSettings`. `setLayout` re-validates the whole incoming layout through
     // `parseHomeLayout` before persisting it - the shared schema is deliberately permissive on
     // `moduleId`, so an unknown module is dropped here, server-side, rather than rejected at the
@@ -47,8 +47,8 @@ export const homeModule: MainModule = {
     )
     handle(HOME_HANDLERS.resetLayout, () => ok(layout.update(() => defaultHomeLayout())))
 
-    // AC1: exactly one fetch happens on its own, right here at registration - fire-and-forget, so a
-    // slow or unreachable content repo never delays the app finishing startup. Story 082 D4's
+    // exactly one fetch happens on its own, right here at registration - fire-and-forget, so a
+    // slow or unreachable content repo never delays the app finishing startup. Story 082's
     // `resolveNewsSource()` (`news/harness.ts`) already decides whether that fetch is a no-op: under
     // the UI-verification harness with no loopback base configured (every registry-driven
     // `ui:verify` screen, and any `ui:flow` script that does not set one), it answers `'skip'` and

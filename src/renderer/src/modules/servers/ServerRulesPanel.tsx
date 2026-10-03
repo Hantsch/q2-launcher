@@ -130,7 +130,7 @@ const DMFLAG_LABEL_KEY: Record<DmflagId, string> = {
 }
 
 /**
- * Story 123 D3: the detail pane's "rules a server plays by" section - built entirely out of the
+ * Story 123: the detail pane's "rules a server plays by" section - built entirely out of the
  * shared, pure `buildRuleTable`/`decodeDmflags` parsers (no re-parsing here), rendering three
  * subsections (known, raw, dmflags) that each degrade independently: a single malformed value never
  * blanks the whole panel, mirroring `ServerPlayersPanel.tsx`'s per-row defensiveness.

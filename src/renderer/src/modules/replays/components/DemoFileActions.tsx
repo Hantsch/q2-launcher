@@ -19,7 +19,7 @@ export interface DemoFileActionsProps {
 type FileActionError = { kind: 'domain' | 'transport'; message: LocalizedMessage }
 
 /**
- * Story 156 D2 / 178 D2: "Reveal in file manager" / "Copy path" / "Rename" for one demo as icon
+ * Story 156 / 178: "Reveal in file manager" / "Copy path" / "Rename" for one demo as icon
  * buttons, mounted into `DemoDetailPanel`'s header (the rename button's archive reason is rendered
  * by the panel, not here). Both buttons call the `demos.reveal`/`demos.copyPath` handlers by this demo's
  * id - the actual path never crosses IPC in either direction (CLAUDE.md: "paths from the renderer

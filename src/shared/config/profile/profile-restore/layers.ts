@@ -114,8 +114,8 @@ function applyHalfName(lines: LayerSectionLines, mode: AltLayerMode): string | n
 /**
  * One layer from its `[q2l layer=…]` section. `takenLayerIds` is the ids every layer built before
  * this one in the same restore got, so the tag's own id is adopted when it is well-formed and still
- * free and minted otherwise (story 079 D1, `adoptableId`) - a hand-duplicated layer tag yields two
- * layers, not one id twice.
+ * free and minted otherwise (`adoptableId`) - a hand-duplicated layer tag yields two layers, not
+ * one id twice. (story 079)
  */
 export function buildLayer(
   section: Section,
@@ -228,7 +228,7 @@ function holdsModifiedSlot(action: ConfigAction, key: string, modifier: Modifier
 }
 
 /**
- * Story 016's modifier slots, read back out of the layers that carry them.
+ * Modifier slots, read back out of the layers that carry them. (story 016)
  *
  * A captured `Alt+R` is not a bind line anywhere - it is an override in the `ALT`-triggered layer,
  * written as `bindValueFor(action)`. Two passes over the same stably-ordered override list

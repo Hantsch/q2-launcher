@@ -1,8 +1,8 @@
 import type { ConfigSyntaxLine } from '@shared/config/syntax/config-syntax'
 
 /**
- * Find-in-file support for `ConfigCodeView` (story 024 D3): a pure, DOM-free
- * substring search over the plain text of the tokenized lines D2 already
+ * Find-in-file support for `ConfigCodeView` (story 024): a pure, DOM-free
+ * substring search over the plain text of the tokenized lines the viewer already
  * produces, plus a per-token slicer the renderer uses to paint match
  * highlights without ever touching a token's own text content.
  *
@@ -98,7 +98,7 @@ function unmarked(tokenText: string): TokenMatchPiece[] {
  * `[tokenStart, tokenEnd)` against that one match's `[start, end)`, so both come out marked.
  *
  * Empty `lineMatches` (including the "no active search" case) returns the token completely
- * unmarked, in one piece - the D2 rendering path this replaces when a search is active but this
+ * unmarked, in one piece - the plain rendering path this replaces when a search is active but this
  * particular line has no match.
  */
 export function splitTokenByMatches(

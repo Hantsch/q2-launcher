@@ -11,7 +11,7 @@ import { Badge } from './primitives'
  *
  * Tone/label rule is intentionally the single place it lives: `r1q2` gets the
  * `flame` tone, every other engine (including `unknown`) gets `neutral`. Do not
- * add per-engine tones here - story 065 D1 keeps this identical to the rail/hero
+ * add per-engine tones here - story 065 keeps this identical to the rail/hero
  * badges it replaces.
  */
 export function EngineBadge({ engineKind }: { engineKind: EngineKind }) {

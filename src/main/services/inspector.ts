@@ -93,12 +93,12 @@ async function classifyEngine(
  * names, then anything else that looks runnable. Dedicated-server binaries are
  * pushed to the back so they are never auto-selected.
  *
- * Story 103 D2: off Windows, a native binary (`elf`/`script`) outranks a Windows `pe` before any
+ * Story 103: off Windows, a native binary (`elf`/`script`) outranks a Windows `pe` before any
  * of that name ranking applies - a folder holding both `quake2` and `quake2.exe` on Linux must
  * pick the one the machine can actually execute, and the name ranking alone picks the `.exe`. The
  * name ranking then decides the order *within* each of the two groups, unchanged.
  *
- * On Windows this function is exactly what it has always been (AC8): the platform branch returns
+ * On Windows this function is exactly what it has always been: the platform branch returns
  * before any header is read, so no installation on the platform ~80% of users are on can get a
  * different executable out of this than it did before the story.
  */
@@ -146,8 +146,8 @@ async function rankExecutables(
 }
 
 /**
- * Story 103 D2: the header kind of the executable an inspection settled on, or `undefined` on
- * Windows - where `.exe` is the whole question and AC8 forbids the read. Deliberately reads the
+ * Story 103: the header kind of the executable an inspection settled on, or `undefined` on
+ * Windows - where `.exe` is the whole question and the read is forbidden. Deliberately reads the
  * chosen path rather than reusing `rankExecutables`' map: the chosen executable may be the
  * caller's own `executablePath`, which does not have to be one of the root's ranked candidates.
  */
@@ -289,17 +289,17 @@ export async function inspectInstallation(
     )
   }
 
-  // Story 103 D3: off Windows, a `.exe` the machine cannot run natively is never silently
-  // playable - it needs a runner (Proton/Wine or similar), which D7 lets the user pick.
+  // Story 103: off Windows, a `.exe` the machine cannot run natively is never silently
+  // playable - it needs a runner (Proton/Wine or similar), which the runner picker lets the user pick.
   //
   // `warn`, not `error`, and that severity is load-bearing: `statusFrom` turns any `error` into
   // status `'invalid'`, which `isPlayable` (renderer `lib/status.ts`) refuses, so an `error` here
   // would grey out Play permanently - even after the user picks a working wine/umu runner in the
-  // Runner section (D7), making AC5's "a launch like any other" unreachable through the UI and
-  // AC7's "pressing Play refuses with that reason" unpressable. The refusal AC7 asks for belongs
-  // to `LaunchService.plan()` (`launch.error.noRunner`, D5), which fires before `spawn` and is
+  // Runner section, making "a launch like any other" unreachable through the UI and
+  // "pressing Play refuses with that reason" unpressable. The refusal belongs
+  // to `LaunchService.plan()` (`launch.error.noRunner`), which fires before `spawn` and is
   // toasted by the store's generic launch-error path; this check's job is only to *say* so up
-  // front, in visible text (AC2) - which `warn` does, while leaving the installation startable.
+  // front, in visible text - which `warn` does, while leaving the installation startable.
   if (executablePath && !isWindows() && executableKind === 'pe') {
     checks.push(
       check('executable-runnable', 'warn', 'validation.executableRunnable', {

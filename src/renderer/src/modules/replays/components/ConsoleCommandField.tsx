@@ -10,7 +10,7 @@ import { usePlaybackStore } from '../playback-store'
 import { useSubmitting } from '../../../components/ui/useSubmitting'
 
 /**
- * Story 166 D4 / 176 D1: the one-line console field next to the timeline. It only shows while a demo
+ * Story 166 / 176: the one-line console field next to the timeline. It only shows while a demo
  * plays: otherwise the band keeps its size (story 170: the stage box must not change when the session
  * goes live) but is invisible, inert and names no reason. The shared validator
  * gives the immediate reason (an empty line just disables Send, no error); main's refusal shows in

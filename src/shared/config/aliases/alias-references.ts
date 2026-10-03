@@ -13,7 +13,7 @@
  * untouched — that one has a `catalogId` exclusion and a sign requirement
  * neither asker here needs, and is still that module's own business.
  *
- * Story 044, D1 adds the third asker and folds all three onto one traversal:
+ * Story 044 adds the third asker and folds all three onto one traversal:
  * `buildAliasIndex` answers "which names does this profile define, who owns
  * each and what calls it" for the Aliases tab, and `validate-actions.ts`'s
  * duplicate/unreferenced/undefined checks now read that same index instead of
@@ -172,8 +172,8 @@ function allActionCommands(action: ConfigAction): ConfigCommand[] {
 }
 
 /** One thing that currently calls an alias name - what `findAliasReferrers` reports one of, what the
- * D9 rename-refusal dialog names in its message, and what fills an index row's `referrers` (story
- * 044, D1). */
+ * rename-refusal dialog names in its message, and what fills an index row's `referrers` (story
+ * 044). */
 export type AliasReferrer =
   | { kind: 'action'; name: string }
   | { kind: 'bind'; key: string }
@@ -181,7 +181,7 @@ export type AliasReferrer =
 
 /**
  * The two exclusions a caller asking "who calls this *other than the entry itself*" needs (story
- * 039, D9), shared by every public function below. Both default to "exclude nothing", so the graph
+ * 039), shared by every public function below. Both default to "exclude nothing", so the graph
  * a caller gets without options is the complete one - the safe side, per the file doc comment.
  */
 export interface AliasReferenceOptions {
@@ -204,7 +204,7 @@ export interface AliasReferenceOptions {
  * calls it, in source order (every action in array order, then `binds`, then each layer's
  * `overrides`).
  *
- * Story 044, D1 makes this the single traversal every public function in this module answers from -
+ * Story 044 makes this the single traversal every public function in this module answers from -
  * `collectAliasReferences` (its key set), `findAliasReferrers`/`findAliasReferrersByName` (one
  * bucket) and `buildAliasIndex` (one bucket per defined name). One graph, one scan: a reference
  * source added here reaches Care's tidy-up warnings and the Aliases tab in the same edit, which is
@@ -264,7 +264,7 @@ function buildReferrerIndex(
  * defined alias" set; the caller (`validate-actions.ts`'s `aliasUnreferenced`
  * pass, or `actionsWithAliasLine` below) decides what to do with membership.
  *
- * `options.ignoreOwnMirrorOf` (story 039, D9) excludes exactly the two
+ * `options.ignoreOwnMirrorOf` (story 039) excludes exactly the two
  * `binds`/layer-override slots `action`'s own mirror pass writes for it
  * (`ownMirrorBindKeys`/`ownMirrorLayerKeys` above) from the `sources.binds`/
  * `sources.layers` scan - never from `sources.actions`' command text, which
@@ -288,7 +288,7 @@ export function collectAliasReferences(
 
 /**
  * Every place in `sources` that calls `name` (case-insensitively), in source order - the by-name
- * core story 044 D1 generalises `findAliasReferrers` into, so a name with no owning action (a layer
+ * core story 044 generalises `findAliasReferrers` into, so a name with no owning action (a layer
  * alias, or a name a caller is merely considering) can be asked about too.
  *
  * Returns `[]` - never `undefined` - for a name nothing calls, so "nothing references this" is one
@@ -304,13 +304,13 @@ export function findAliasReferrersByName(
 
 /**
  * Every place other than `action`'s own two mirror slots that currently calls `aliasNameFor(action)`
- * by name (story 039, D9) - the detail `collectAliasReferences`'s flat token set does not carry, and
+ * by name (story 039) - the detail `collectAliasReferences`'s flat token set does not carry, and
  * the rename-refusal dialog needs so it can name what it is refusing to leave dangling.
  *
- * A thin wrapper over `findAliasReferrersByName` since story 044, D1 - only the two exclusions are
+ * A thin wrapper over `findAliasReferrersByName` since story 044 - only the two exclusions are
  * its own. `action`'s own command text is never scanned (only *other* actions' are) and its own
  * mirror slots are excluded from `sources.binds`/`sources.layers`; together these two exclusions are
- * exactly "the entry's own two mirror slots" the story's D9 text asks to ignore, restated in terms an
+ * exactly "the entry's own two mirror slots" the story asks to ignore, restated in terms an
  * open-ended reference count could not express (a boolean has no room to say "except these").
  */
 export function findAliasReferrers(
@@ -372,7 +372,7 @@ export interface AliasIndexRow {
 }
 
 /**
- * The profile's whole alias name space as one list (story 044, D1) - the single graph Care and the
+ * The profile's whole alias name space as one list (story 044) - the single graph Care and the
  * Aliases tab both read, so the two can never disagree about what is defined or what is referenced.
  *
  * ## One row per *definition*, not per name
@@ -395,7 +395,7 @@ export interface AliasIndexRow {
  * A two-part entry (`kind: 'toggle'`/`'press-release'`, story 045) renders under more than one alias
  * name - a toggle's dispatch plus its two states, a press/release pair's `+base`/`-base` - and every
  * one of those names has to be a known, referenceable row or it reads as `undefinedAlias`/
- * `aliasUnreferenced` noise (story 045, D8). The primary row (in array position) carries the name a
+ * `aliasUnreferenced` noise (story 045). The primary row (in array position) carries the name a
  * *bind* would use - `bindValueFor(action)`, which is the dispatch alias for a toggle and `+base` for
  * a press/release entry, not the sign-free `aliasNameFor` a press/release action's `commands`-based
  * kinds otherwise resolve to (`twoPartAliasNames`'s doc comment explains why `aliasNameFor` alone is
@@ -404,7 +404,7 @@ export interface AliasIndexRow {
  * two state names off `twoPartAliasNames`), one for a press/release entry (its release half, `-base`
  * - the press half is already the primary row). Both extra-row kinds share the owning action's
  * `owner`/`ownerActionId`, `origin: 'generated'` and `editable: false` - same as the primary row,
- * since renaming or deleting the entry moves every one of its names together (story 045 AC3).
+ * since renaming or deleting the entry moves every one of its names together (story 045).
  *
  * Layer rows follow the extra rows, per layer in `sources.layers` order and within a layer in
  * `generateLayerAliases`' own emission order.
@@ -418,7 +418,7 @@ export interface AliasIndexRow {
  *
  * ## What `referrers` covers, and what it deliberately does not
  *
- * Exactly the four sources story 044's D1 names, i.e. everything `buildReferrerIndex` scans: base
+ * Exactly the four sources story 044 names, i.e. everything `buildReferrerIndex` scans: base
  * binds, layer overrides, other aliases' bodies and other entries' commands - with **no**
  * exclusions, so an entry's own recursive body and its own bind mirror count as referrers too. That
  * is the safe side (the risk this index exists to avoid is a referenced alias reading as
@@ -672,7 +672,7 @@ export function isSelfMirroringAlias(action: ConfigAction): boolean {
  *
  * - `action.kind !== 'alias'` - a `kind: 'alias'` entry exists to be called by
  *   name and may legitimately be unreferenced (that is Care's
- *   `aliasUnreferenced` warning, not the writer's business - AC6).
+ *   `aliasUnreferenced` warning, not the writer's business).
  * - `bindValueFor(action) !== aliasNameFor(action)` - the action's own bind
  *   mirror does not go through the alias at all (a continuous catalogue row
  *   bound to its bare command, `action-mirror.ts`'s story 034 case), so the
@@ -698,7 +698,7 @@ export function actionsWithAliasLine(
 ): ConfigAction[] {
   const referenced = collectAliasReferences(sources)
   return actions.filter((action) => {
-    // Story 045, D3: a two-part entry's lines are always kept, checked before every other guard.
+    // Story 045: a two-part entry's lines are always kept, checked before every other guard.
     // Its internal wiring makes plain reference counting unreliable - a toggle's states are only
     // ever called by the dispatch alias and by each other's `alias <dispatch> <state>` rewrite,
     // and a press/release entry's `bindValueFor` is `+<base>`, which is *not* its own alias name,

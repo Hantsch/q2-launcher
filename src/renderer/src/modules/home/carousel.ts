@@ -1,6 +1,6 @@
 /**
- * Pure state machine for the home screen's news carousel (story 083 D1). No React, no DOM -
- * this is consumed by a React hook in D3, but is fully testable standalone.
+ * Pure state machine for the home screen's news carousel (story 083). No React, no DOM -
+ * this is consumed by a React hook, but is fully testable standalone.
  *
  * `isRunning` is derived, never stored directly: the timer may only advance the carousel when
  * nothing is holding it back. Hover and focus are transient booleans that come and go with the

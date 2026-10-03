@@ -1,11 +1,11 @@
 /**
- * Story 074 D8: the gate every UI-verification backdoor in main goes through, and the one such
+ * Story 074: the gate every UI-verification backdoor in main goes through, and the one such
  * backdoor that does not belong to a module (`installations:pickFolder`'s folder stub).
  *
  * ## The gate
  *
  * `Q2L_UI_HARNESS === '1'`, and only that - `isDev` is not part of the decision. A packaged
- * AppImage is the only way story 101's D5/D6 CI jobs can drive the real update/self-relaunch path,
+ * AppImage is the only way story 101's CI jobs can drive the real update/self-relaunch path,
  * and `isDev` (`is.dev` from `@electron-toolkit/utils`, `false` whenever `app.isPackaged`) is
  * unconditionally `false` there, so gating on `isDev` as well made every one of these backdoors
  * unreachable in exactly the build the harness has to run against. `Q2L_UI_HARNESS` is the real
@@ -16,7 +16,7 @@
  * starting the binary.
  *
  * This is the same gate `DialogService.pickConfigFiles()` (`src/main/services/dialog.ts`, story 066
- * D4) already writes out inline. It lives in a named function here because story 074 D8 needs the
+ * 4) already writes out inline. It lives in a named function here because story 074 needs the
  * same gate in two more places - `installations:pickFolder` below and the downloads module's
  * download-source override (`src/main/services/content/source.ts`) - and three hand-copied
  * `process.env[...] === '1'` expressions are three places one of them can drift. `DialogService`'s
@@ -48,8 +48,8 @@ export const UI_HARNESS_ENV = 'Q2L_UI_HARNESS' satisfies UiHarnessVar
  * A `path.delimiter`-joined **list**, in call order, exactly like `DialogService`'s
  * `Q2L_UI_PICK_FILES` - but consumed one entry per call rather than all at once, because a single
  * flow legitimately picks more than one folder: `scripts/flows/bootstrap-wizard.mjs` has to point
- * the wizard's target step at a `Program Files` path first (AC2's warning) and at its real fixture
- * target second (AC3's warning, and the folder the job then installs into). The last entry repeats
+ * the wizard's target step at a `Program Files` path first (the first warning) and at its real fixture
+ * target second (the second warning, and the folder the job then installs into). The last entry repeats
  * for every further call, so an extra pick - the write-dir remedy button, say - cannot exhaust the
  * list and turn into a surprise cancel.
  */
@@ -119,7 +119,7 @@ export function uiHarnessPickedFolders(harness: UiHarness): string[] | undefined
 }
 
 /**
- * Story 104 D3: the env var the harness names a stand-in Steam executable in, overriding the path
+ * Story 104: the env var the harness names a stand-in Steam executable in, overriding the path
  * `detectRunners()` (`src/main/services/runners.ts`) would otherwise resolve - `<steam root>/steam.exe`
  * on Windows, `steam` on `PATH` elsewhere. It exists for the Windows branch of the `steam-handoff`
  * flow, which cannot put a Steam install into the registry of the machine it runs on.
@@ -140,7 +140,7 @@ export function uiHarnessSteamExecutable(harness: UiHarness): string | undefined
  * The environment variable the harness names its fixture server's origin in, e.g.
  * `http://127.0.0.1:53129`. Only read when the double gate is open.
  *
- * Story 082 D4: moved here from `src/main/services/content/source.ts` (story 074 D8's original
+ * Story 082: moved here from `src/main/services/content/source.ts` (story 074's original
  * home) so `src/main/modules/home/news/harness.ts` can reuse the same variable and parser without a
  * module-to-module import - both downloads and news fetch from the same community-content repo, so
  * one variable names where "somewhere other than production" is for both.
@@ -170,8 +170,8 @@ export function parseHarnessBaseUrl(raw: string | undefined): string | undefined
 }
 
 /**
- * Story 099 D6: where a harness-launched run's `app:openExternal` calls land instead of a real
- * `shell.openExternal` - so the upcoming e2e flow (D7) can prove the About panel's external links
+ * Story 099: where a harness-launched run's `app:openExternal` calls land instead of a real
+ * `shell.openExternal` - so the upcoming e2e flow can prove the About panel's external links
  * "left through the external path and opened no app window" without a browser actually launching on
  * the test machine. Same double gate as everything else in this file (`UiHarness.enabled`); the
  * caller (`src/main/ipc/app.ts`) decides whether to record or to call `shell.openExternal`, this
@@ -207,10 +207,10 @@ export async function recordHarnessExternalUrl(
 }
 
 /**
- * Story 105 D3: the env var the harness names a fixture runner list in - a JSON `DetectedRunner[]`
+ * Story 105: the env var the harness names a fixture runner list in - a JSON `DetectedRunner[]`
  * (`src/shared/types/runner.ts`) - overriding what `detectRunners()`
  * (`src/main/services/runners.ts`) would otherwise detect for real. It exists so an e2e flow can
- * exercise the runner-choice UI (D2) against a known, deterministic list - Wine/umu-run/Proton/Steam
+ * exercise the runner-choice UI against a known, deterministic list - Wine/umu-run/Proton/Steam
  * detection depends on what happens to be installed on the machine running the harness, which a CI
  * runner cannot control the way it controls this variable.
  */
@@ -309,7 +309,7 @@ async function readHarnessJsonArray(filePath: string): Promise<string[]> {
 }
 
 /**
- * Story 196 D1: the harness's stand-in for LAN broadcast discovery. A real broadcast cannot be
+ * Story 196: the harness's stand-in for LAN broadcast discovery. A real broadcast cannot be
  * answered by a fixture server on a CI machine, so under this override discovery sends unicast
  * `info` queries to the named loopback fixture servers instead of enumerating interfaces.
  */

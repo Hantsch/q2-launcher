@@ -9,40 +9,40 @@ import {
 } from './server-query'
 
 /**
- * Story 114 D5: the two-stage sweep. One call runs one scan from start to finish (or abort); it
- * knows nothing about "already running" - single-flight is the service's job (D6, D-L).
+ * Story 114: the two-stage sweep. One call runs one scan from start to finish (or abort); it
+ * knows nothing about "already running" - single-flight is the service's job (D-L).
  *
  * - **Stage 1 (`info`)** runs a concurrency-capped pool over every target. Each pool slot awaits
  *   only *its own* query, and `onServer` fires in that slot's continuation, so a row is delivered
- *   the moment its reply lands - never after an `await` on the whole stage (AC1).
+ *   the moment its reply lands - never after an `await` on the whole stage.
  * - **Stage 2 (`status`)** starts once stage 1 has fully settled and runs the same pool over
- *   exactly {every target stage 1 reported worth checking} plus the selected address (AC2,
+ *   exactly {every target stage 1 reported worth checking} plus the selected address (
  *   widened). The selected address is queried in stage 2 whatever stage 1 said about it (empty,
  *   failed, or not in the address set at all - then it is queried with `origins: []`), and it goes
  *   first, since it is the server the user is looking at. Anything else stage 1 did not report
  *   worth checking is never queried again in this scan.
  * - **Worth checking** means a successful `info` reply whose `clients` count is *not known to be
  *   zero* - i.e. `clients > 0`, or `clients` absent entirely. Only a reply that positively reports
- *   `clients === 0` skips stage 2 (AC2's original efficiency case: a well-formed reply that really
+ *   `clients === 0` skips stage 2 (the original efficiency case: a well-formed reply that really
  *   is empty). A reply with no player count at all is not evidence of anything - some real servers
  *   (e.g. a very long `hostname` that eats the classic `info` reply's fixed-size summary buffer,
  *   leaving no room for the trailing `clients/maxclients` field) always fail to report a count -
  *   and treating "we could not tell" as "assume empty" would permanently hide such a server's name,
  *   map and roster, which only `status`'s uncapped infostring can recover.
- * - **Nothing twice per stage.** The target list is deduped by normalized address up front (D3
+ * - **Nothing twice per stage.** The target list is deduped by normalized address up front (the
  *   already does this; the runner does not rely on it), with origins merged.
  *
- * Inputs: the caller passes the already-built `ScanTarget[]` (D3's `buildScanAddressSet`) and
+ * Inputs: the caller passes the already-built `ScanTarget[]` (from `buildScanAddressSet`) and
  * `ServersState['scan']` directly as `settings` - concurrency/timeoutMs/retries are read from there
  * and nowhere else (D-F). `minSpacingMs` is accepted as part of that object but not used here; the
  * pacing budget is story 115's.
  *
- * Source failures do not flow through the runner: D4 has produced them before a sweep can even
- * start, so the service (D6) records them in the scan state itself. There is no `onSourceFailure`.
+ * Source failures do not flow through the runner: the source stage has produced them before a sweep can even
+ * start, so the service records them in the scan state itself. There is no `onSourceFailure`.
  *
  * Failures of one target never stop the sweep: `queryServer` resolves (it never rejects) and a
  * failed result is streamed like any other; a rejecting injected `queryServer` is treated as a
- * `transport-error` result for that one target (AC3 at the runner's level).
+ * `transport-error` result for that one target (at the runner's level).
  *
  * **Abort.** One internal `AbortController`, linked to the caller's `signal`, is handed to every
  * query, so an abort closes every in-flight socket through `queryServer`'s own handling. After an
@@ -84,7 +84,7 @@ export interface ScanProgress {
 }
 
 export interface RunScanOptions {
-  /** The address set for this scan (D3's `buildScanAddressSet`). */
+  /** The address set for this scan (from `buildScanAddressSet`). */
   targets: readonly ScanTarget[]
   /** `ServersState['scan']` (D-F). */
   settings: Pick<ServersScanSettings, 'concurrency' | 'timeoutMs' | 'retries'>

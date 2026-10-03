@@ -14,12 +14,12 @@ import { resolveSaveOutcome } from '../lib/save-bar'
 import { useUnsavedState } from '../lib/unsaved-state'
 
 /**
- * The explicit Save + Discard pair (stories 043 D6 / 049 D6 / 057 D5), now living in the detail
+ * The explicit Save + Discard pair (stories 043 / 049 / 057), now living in the detail
  * header's right-hand control cluster instead of the dedicated save-bar row that used to sit above
  * the tabs - the row itself is gone, its status went to the indicator next to the profile name
  * (`UnsavedIndicator`) and its change list became the Unsaved tab (`UnsavedChangesTab`).
  *
- * Renders nothing at all while there is nothing to save. Story 043 D6 deliberately kept Save
+ * Renders nothing at all while there is nothing to save. Story 043 deliberately kept Save
  * visible-but-disabled ("a stable layout beats a control that pops in and out"), which held while
  * this pair owned a row of its own; in the header cluster the opposite is true - a permanently
  * disabled primary button next to Rename/Delete reads as part of the profile's chrome, and the
@@ -31,7 +31,7 @@ import { useUnsavedState } from '../lib/unsaved-state'
  * still owned here (the same reason as before: this component triggers them, unlike
  * `DeleteProfileDialog`, which the header's delete button owns at `ConfigView` level).
  *
- * The "no baseline to discard back to" sentence (story 049 D6) is not repeated here - the header row
+ * The "no baseline to discard back to" sentence (story 049) is not repeated here - the header row
  * has no room for a sentence, and a `title` on a disabled button is unreachable by keyboard. Discard
  * renders disabled in that case and `UnsavedChangesTab` states the reason in readable text instead.
  */

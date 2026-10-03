@@ -48,9 +48,9 @@ import { DROP_CATALOG_ROW_KINDS } from '@shared/config/catalog/catalog-rows'
  * mirrored into a bind or a layer override at all (story 019), so it deliberately carries no
  * prefix - see `derivedAliasName`.
  *
- * Named `LEGACY_*` (story 039, D1) because the readable-name flip (D7) gives a plain action a name
+ * Named `LEGACY_*` (story 039) because the readable-name flip gives a plain action a name
  * that carries no such prefix at all - `derivedAliasName` below no longer produces this format, and
- * `ACTION_ALIAS_PREFIX` (the pre-D7 re-export of this constant) is gone: every call site now either
+ * `ACTION_ALIAS_PREFIX` (the former re-export of this constant) is gone: every call site now either
  * needs the current, key-scoped ownership rule (`action-mirror.ts#bindValueFor`) or this exact
  * legacy marker, never a live prefix test.
  */
@@ -77,7 +77,7 @@ const PART_SUFFIX_RESERVE = '_p'.length + 2
  * Length of the legacy format's name slug (decision 15), private to `legacyAliasNameFor` and
  * unchanged since before story 039: prefix (6) + slug (14) + `_` (1) + id (4) = 25, leaving 6 of
  * the usable 31 for `_p<n>`. `legacyAliasNameFor` must keep reproducing this exact format forever
- * (D6's migration depends on it), so this stays scoped to it rather than shared with the
+ * (the migration depends on it), so this stays scoped to it rather than shared with the
  * readable-name budget below.
  */
 const LEGACY_SLUG_LENGTH = Math.min(
@@ -90,7 +90,7 @@ const LEGACY_SLUG_LENGTH = Math.min(
 )
 
 /**
- * Content budget for a *derived* (readable) alias name (story 039, D7, "Plan": budget 26 chars):
+ * Content budget for a *derived* (readable) alias name (story 039, "Plan": budget 26 chars):
  * `USABLE_ALIAS_NAME` (31) minus the `_p<n>` chunk-suffix reserve (4) minus 1 for a sign that may
  * not even apply. The sign is reserved unconditionally rather than only when the entry actually
  * carries one - the same "reserve the maximum, not the sum" bias `alt-layers.ts#generateLayerAliases`
@@ -105,7 +105,7 @@ const DERIVED_ALIAS_NAME_BUDGET = USABLE_ALIAS_NAME - PART_SUFFIX_RESERVE - 1
 
 /**
  * Reserve for the `_s<n>` state suffix a toggle's two halves render under (`<dispatch>_s1`,
- * `<dispatch>_s2` - story 045, D3): `'_s'.length` plus one digit. Unlike `_p<n>` there is nothing
+ * `<dispatch>_s2` - story 045): `'_s'.length` plus one digit. Unlike `_p<n>` there is nothing
  * to grow into - a toggle has exactly two states, by its own kind's definition.
  */
 const STATE_SUFFIX_RESERVE = '_s'.length + 1
@@ -116,7 +116,7 @@ const STATE_SUFFIX_RESERVE = '_s'.length + 1
  *
  * This is the one place in the codebase where two affixes stack, which is why it is its own number
  * rather than `DERIVED_ALIAS_NAME_BUDGET` above: a toggle's chunk aliases hang off the *state*
- * name (`<dispatch>_s1_p2` - story 045, D3's acceptance), whereas
+ * name (`<dispatch>_s1_p2` - story 045's acceptance), whereas
  * `alt-layers.ts#generateLayerAliases` hangs its chunks off the bare base and can therefore
  * reserve the maximum of its affixes rather than their sum. A state name is what the chunker names
  * its parts after here, so the state suffix has to be paid for *before* the chunk suffix is
@@ -132,11 +132,11 @@ const TOGGLE_DERIVED_ALIAS_NAME_BUDGET =
   USABLE_ALIAS_NAME - STATE_SUFFIX_RESERVE - PART_SUFFIX_RESERVE
 
 /**
- * The prefix a *launcher-generated* drop entry's alias name carries (story 055, D2): the same
+ * The prefix a *launcher-generated* drop entry's alias name carries (story 055): the same
  * `drop_<slug>` shape a hand-written config uses for every one of its drops
  * (`docs/fixtures/dmalias.cfg:86-103` - `drop_rail`, `drop_shells`, `drop_tech`), so one rule -
  * `drop-entries.ts#isDropEntry`, "the name starts with `drop_` and the body carries a `drop <item>`
- * command" - recognises a hand-written and a generated drop alike (AC 2).
+ * command" - recognises a hand-written and a generated drop alike.
  *
  * Only the *derived* name gets it. An explicit `aliasName` still wins verbatim in `aliasNameFor`,
  * because story 039 made that name the user's contract; and an imported `drop_rail` already carries
@@ -230,7 +230,7 @@ function lineFits(name: string, body: string): boolean {
 export function commandLineFor(command: ConfigCommand): string {
   if (command.kind === 'wait') {
     // `frames` literal `wait` segments, `Cbuf_Execute`-joined the same way any other
-    // multi-command body is (story 045, D2). No per-command splitting is added here even
+    // multi-command body is (story 045). No per-command splitting is added here even
     // though a very long run could threaten a chunk's byte budget: no other single command
     // string gets that treatment either (the chunker in `renderActionAlias` below operates
     // on the list of line-strings, not on characters within one), and `MAX_WAIT_FRAMES`
@@ -257,7 +257,7 @@ function bodyCommandsFor(action: ConfigAction): string[] {
 /**
  * The same list for any `ConfigCommand[]` - one alias body's worth of commands, blanks dropped.
  *
- * Split out of `bodyCommandsFor` (story 045, D3) because a two-part entry's halves live in
+ * Split out of `bodyCommandsFor` (story 045) because a two-part entry's halves live in
  * `ConfigAction.parts[i].commands`, not in `action.commands`: both readers have to render and drop
  * commands identically, or a state's body would disagree with a plain action's about what a
  * sanitized-to-nothing command means.
@@ -283,8 +283,8 @@ function bodyLinesFor(commands: readonly ConfigCommand[]): string[] {
  * for the `binds` mirror it writes (decision 17) - the bind and the alias are
  * generated from one function, never from two implementations of one format.
  *
- * This function's body must **not** change (story 039, D6's migration and D3's legacy-strip pass
- * depend on its exact output staying stable forever) - unlike `derivedAliasName` below, which D7
+ * This function's body must **not** change (story 039's migration and the legacy-strip pass
+ * depend on its exact output staying stable forever) - unlike `derivedAliasName` below, which the later name change
  * gives its own, human-readable derivation instead of delegating here.
  */
 export function legacyAliasNameFor(action: ConfigAction): string {
@@ -296,7 +296,7 @@ export function legacyAliasNameFor(action: ConfigAction): string {
     // byte-for-byte (see the doc comment above), which used `slugAliasName`'s own default
     // ('layer') for a name that slugs to nothing. `derivedAliasName` below is the one that gets
     // the new 'entry' fallback - passing it here too would make this function's output disagree
-    // with what a pre-039 build already wrote to disk for such an action, breaking D6's migration
+    // with what a pre-039 build already wrote to disk for such an action, breaking the migration
     // match on read.
     return `${sign}${slugAliasName(raw.slice(sign.length), budget)}`
   }
@@ -311,7 +311,7 @@ export function legacyAliasNameFor(action: ConfigAction): string {
 }
 
 /**
- * The name an action derives to when it has no explicit `aliasName` (story 039, D7): a sign-aware
+ * The name an action derives to when it has no explicit `aliasName` (story 039): a sign-aware
  * slug of the display name, with no prefix and no id suffix - `ssg_sg`, not
  * `q2l_a_ssg_sg_9a2f`. This is the name shown as the alias-name field's placeholder, too, and what
  * `aliasNameFor` falls back to.
@@ -327,9 +327,9 @@ export function legacyAliasNameFor(action: ConfigAction): string {
  *
  * No id suffix means two entries that derive to the same name collide into one engine alias. That is
  * deliberate - the name is the contract with whatever binding calls it - and it is reported as a
- * duplicate rather than silently disambiguated (D8's validation).
+ * duplicate rather than silently disambiguated (the validation).
  *
- * Story 055, D2: one of the launcher's own drop entries (`isDropCatalogueEntry` above) derives
+ * Story 055: one of the launcher's own drop entries (`isDropCatalogueEntry` above) derives
  * `drop_<slug>` instead, under a budget reduced by exactly the prefix, so `drop_` + the slug still
  * fits the same 26 characters every other derived name does. Two properties this branch is built to
  * hold, both of them regression risks rather than niceties:
@@ -385,7 +385,7 @@ export interface RenderedActionAliases {
 }
 
 /**
- * A two-part entry's kinds (story 045, D1): the two whose halves live in `ConfigAction.parts`
+ * A two-part entry's kinds (story 045): the two whose halves live in `ConfigAction.parts`
  * instead of in `commands` - which stays `[]` for them, so every single-body reader sees an entry
  * with nothing in it rather than half of one.
  */
@@ -397,7 +397,7 @@ function isTwoPartKind(kind: ConfigAction['kind']): kind is 'toggle' | 'press-re
  * One half of a two-part entry's body, chunked exactly the way `renderActionAlias` chunks a plain
  * action's - same incremental fill-then-flush pass, same "a chunk always takes at least one
  * command" rule - but named off `name`, the half's *own* alias name, so a split state reads
- * `<dispatch>_s1_p1`/`<dispatch>_s1_p2` (story 045, D3's acceptance) and a split press half reads
+ * `<dispatch>_s1_p1`/`<dispatch>_s1_p2` (story 045's acceptance) and a split press half reads
  * `+slow_p1`.
  *
  * `chunks` empty means the whole half fits one line and `body` is it.
@@ -443,7 +443,7 @@ function chunkHalf(name: string, commands: string[]): { body: string; chunks: Ge
  *
  * Only a press/release half can actually be empty - a toggle state's body always carries its
  * dispatch rewrite - and it is still emitted rather than dropped: the pair is atomic (story 045
- * AC3, "renaming or deleting it moves both halves"), and the `+` half is what a key is bound to,
+ * "renaming or deleting it moves both halves"), and the `+` half is what a key is bound to,
  * so a silently missing `-` half would leave the key stuck down in-engine.
  */
 function halfAlias(name: string, body: string): GeneratedAlias {
@@ -456,7 +456,7 @@ function halfAlias(name: string, body: string): GeneratedAlias {
  * - `press-release`: always `+<base>`/`-<base>` off the entry's own (sign-free) `aliasNameFor`.
  *   `parts[i].aliasName` is deliberately **not** consulted (story 045's Decisions: "Press/release
  *   stores only the sign-free base name; `+`/`-` are appended at render time, so the two halves
- *   cannot drift"), which is what makes AC3 hold by construction instead of by bookkeeping.
+ *   cannot drift"), which is what makes that hold by construction instead of by bookkeeping.
  * - `toggle`: the state names the parts carry (an imported `zoomin`/`zoomout` trio keeps its own
  *   names verbatim - same Decisions), else the derived `<dispatch>_s1`/`<dispatch>_s2`.
  *
@@ -465,7 +465,7 @@ function halfAlias(name: string, body: string): GeneratedAlias {
  * would read as two unrelated aliases, and a repeat among the three would be worse than ugly: the
  * engine keeps one definition per name, so two states sharing a name - or a state named after the
  * dispatch alias - silently collapses the entry into a single, self-rewriting line. Recognising
- * such a shape at all is D5's all-or-nothing job; this is the floor under it, so a hand-edited
+ * such a shape at all is the all-or-nothing job; this is the floor under it, so a hand-edited
  * `state.json` cannot make the writer lose a half.
  */
 function twoPartHalfNames(
@@ -484,7 +484,7 @@ function twoPartHalfNames(
 }
 
 /**
- * Public wrapper around `twoPartHalfNames` (story 045, D4) - the two alias names a `toggle`/
+ * Public wrapper around `twoPartHalfNames` (story 045) - the two alias names a `toggle`/
  * `press-release` action's halves render under, for a caller outside this file that needs to tell
  * the two apart without recomputing the naming rule itself (`render.ts#buildAliasSections`, which
  * has to know which rendered line is which half so it can put the right `lbl` on the right tag).
@@ -503,7 +503,7 @@ export function twoPartAliasNames(action: ConfigAction): { first: string; second
 }
 
 /**
- * Every alias name `action` actually **defines** in the rendered file (story-045 review, finding 3).
+ * Every alias name `action` actually **defines** in the rendered file.
  *
  * One name for the three single-body kinds - `aliasNameFor`, as it has always been. Three for a
  * toggle (its dispatch plus both states) and two for a press/release entry (`+base`/`-base`, the
@@ -525,7 +525,7 @@ export function renderedAliasNames(action: ConfigAction): string[] {
 }
 
 /**
- * Render a two-part entry's alias family (story 045, D3).
+ * Render a two-part entry's alias family (story 045).
  *
  * **Toggle** - the engine has no toggle command, so a two-state switch is built out of an alias
  * that rewrites the alias the key is bound to. Three aliases: one per state, each ending in
@@ -603,13 +603,13 @@ function renderTwoPartAliases(action: ConfigAction): RenderedActionAliases {
  * with an empty body does not define an alias, it *prints* one, so emitting it
  * would put a line in the file that does nothing and binds a key to nothing.
  *
- * That rule is scoped to a *generated* action alias (story 038 AC6) and stays scoped there (story
- * 041, D3, "Decided in refine"): an action with `keepEmptyAlias` set - a user-authored hook like
+ * That rule is scoped to a *generated* action alias (story 038) and stays scoped there (story
+ * 041): an action with `keepEmptyAlias` set - a user-authored hook like
  * `alias blaster_settings ""` the importer preserved - still emits its one line with an empty body
  * even though it has zero usable commands, because that alias definition is the entry, not a
  * leftover of one, and dropping it on the first save would be silent data loss.
  *
- * A `toggle`/`press-release` entry (story 045, D3) never reaches any of that: its two halves live
+ * A `toggle`/`press-release` entry (story 045) never reaches any of that: its two halves live
  * in `action.parts`, `action.commands` is `[]`, and `renderTwoPartAliases` above renders the
  * three-alias toggle family or the `+`/`-` pair instead. Everything below is unchanged for the
  * three single-body kinds.
@@ -661,7 +661,7 @@ export function renderActionAlias(action: ConfigAction): RenderedActionAliases {
   return { aliases: [...chunks, makeAlias(name, chunkNames.join('; '))] }
 }
 
-/** What one action's commands cost against the engine's per-line buffer (story 044, D2). */
+/** What one action's commands cost against the engine's per-line buffer (story 044). */
 export interface AliasLineBudget {
   /**
    * Byte length of the line this action's commands would render as *unsplit* -
@@ -711,7 +711,7 @@ export interface AliasLineBudget {
  * halves are two independent lines with two independent budgets - so what it reports for one is
  * not meaningful (`bytes` falls out of the `commands.length === 0` branch, i.e. the first line the
  * family happens to emit). No caller passes one today: the editor's byte preview reads one command
- * list at a time, so the per-half readout is D9's to add when it grows the second list.
+ * list at a time, so the per-half readout is the to add when it grows the second list.
  */
 export function aliasLineBudget(action: ConfigAction): AliasLineBudget {
   const { aliases } = renderActionAlias(action)

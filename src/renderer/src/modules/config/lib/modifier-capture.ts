@@ -150,7 +150,7 @@ export function resolveModifierCapture(
 }
 
 /**
- * Review-fix (post-D3): on its own, `classifyModifierCapture` can never
+ * on its own, `classifyModifierCapture` can never
  * return `plain` for a bare modifier key, because the modifier's *own*
  * keydown always sets its own DOM flag (pressing Shift makes `shiftKey` true
  * on that very keydown) - so `heldCount` is always >= 1 for a lone modifier

@@ -10,14 +10,14 @@ import { Select } from '../ui/controls'
 import { SectionLabel } from '../ui/primitives'
 
 /**
- * Story 103 D7: which runner (native, or a Windows-compatibility layer found on a Linux host)
+ * Story 103: which runner (native, or a Windows-compatibility layer found on a Linux host)
  * launches this installation's executable, and the resolved command that choice produces.
  *
  * First implementation in the app of CLAUDE.md's platform-parity rule: an unavailable runner is
  * never hidden - it stays in the list, `disabled`, with its reason rendered as visible text right
  * under its label (not a `title`-only tooltip, which a screen reader and a glance both miss).
  *
- * Story 104 D5: now rendered on every platform, including `win32` - Steam (D3) is a real runner
+ * Story 104: now rendered on every platform, including `win32` - Steam is a real runner
  * choice there too (`detectRunners()` returns `[native, steam]` on Windows), so a Windows host has
  * an actual pick to make, not the single permanently-selected `native` option 103 shipped with.
  */
@@ -33,7 +33,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
   // the main process pushes a fresh `installations:changed` list, and the store hands this
   // component a new `installation` object with the new value (see LibraryView, which renders this
   // component from `state.installations`). Without `steamClient` here, picking a different Steam
-  // client (D5's "refreshes the preview") would leave the previous client's URL on screen until
+  // client (the preview must refresh) would leave the previous client's URL on screen until
   // something unrelated remounted the component.
   const deps = [installation.id, installation.runner, installation.steamClient]
   const runnersQuery = useModuleQuery(() => invoke('installations:listRunners', installation.id), {
@@ -53,7 +53,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
   // "no choice yet" state resolves to native there. Off win32, `resolveRunner()`'s unset-choice
   // default depends on `executableKind` (wine vs. umu vs. native) - defaulting to native here too
   // would show the wrong option checked against the preview below it, so this stays unset exactly
-  // as it did before story 104 (no D5 requirement covers the off-win32 default).
+  // as it did before story 104 (nothing covers the off-win32 default).
   const effectiveRunner =
     installation.runner ?? (platform === 'win32' ? NATIVE_RUNNER_CHOICE : undefined)
   const steamOption = runners.find((option) => option.kind === 'steam')
@@ -83,7 +83,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
 
       {runners.length > 0 && (
         <>
-          {/* Story 105 D2: one wrapping row of inline chips, not full-width stacked buttons - the
+          {/* Story 105: one wrapping row of inline chips, not full-width stacked buttons - the
               reasons for any unavailable options live below the row (not per-chip), each linked
               back to its chip via `aria-describedby` so a screen reader still announces it. */}
           <div
@@ -108,7 +108,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
                 .filter((option) => !option.available && option.reasonKey)
                 .map((option) => (
                   // Platform-parity rule (CLAUDE.md): the reason is visible text, not only a
-                  // `title` tooltip - a screen reader and a glance both miss that. AC1: Proton's
+                  // `title` tooltip - a screen reader and a glance both miss that. Proton's
                   // reason text carries the detected build count via `reasonParams.count` -
                   // `t()` resolves the i18next plural key from it.
                   <p
@@ -125,7 +125,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
         </>
       )}
 
-      {/* Story 104 D5, revised by 105 D2 AC3: Steam is not a real runner in the way native/wine/umu
+      {/* Story 104, revised by 105: Steam is not a real runner in the way native/wine/umu
           are - it hands the launch off to another process entirely - but the caveat now follows
           the *choice*, not just the option's presence in the list: it is shown only while Steam is
           the selected runner, not for every visitor who merely sees Steam listed (and unavailable,
@@ -143,7 +143,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
         <div className="flex items-center gap-2">
           {/* Mirrors `EngineScopeSelect.tsx`'s label/control pairing: a sibling `<label>` with
               `htmlFor` pointing at the `Select`'s own `id`, rather than an unassociated `<span>` -
-              the same fix story 037 D6 made for `Field`. */}
+              the same fix story 037 made for `Field`. */}
           <label className="stencil text-[9px]" htmlFor={steamClientSelectId}>
             {t('runner.steam.client.label')}
           </label>
@@ -177,7 +177,7 @@ export function RunnerSection({ installation }: { installation: Installation }) 
         </p>
       )}
 
-      {/* AC7's headline case (no runner available for a PE executable) surfaces here: a failed
+      {/* The headline case (no runner available for a PE executable) surfaces here: a failed
           `launch:plan` is exactly as visible as a failed `installations:listRunners` above, not
           silently dropped. */}
       {planQuery.state === 'error' && planQuery.error && (

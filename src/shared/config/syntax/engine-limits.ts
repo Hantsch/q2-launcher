@@ -3,7 +3,7 @@
  * module the story's plan calls "engine-limits.ts".
  *
  * Ported from the external q2-config-manager project (`src/core/engines.ts`)
- * — originally just its `COMMON` block; story 009 D1 extends this file with
+ * — originally just its `COMMON` block; story 009 extends this file with
  * upstream's per-engine `EngineLimits`/`ENGINES`/`compressedLength`/
  * `evaluateSize`, generalized from upstream's three-way `EngineId` to this
  * launcher's ten-way `EngineKind` the same way `cvar-facts.ts` did for the
@@ -268,7 +268,7 @@ export function effectiveSize(content: string, engine: EngineKind): number | und
  * Budget report for a config file against one engine's `execBufferBytes`.
  *
  * `overflowDiscardsWholeFile` and `sizeCountsAfterCompression` are carried
- * through from `EngineLimits` so a caller (D3's structural checks) can word
+ * through from `EngineLimits` so a caller (the structural checks) can word
  * the finding correctly without looking the engine up a second time: q2pro
  * rejects the whole file (EFBIG) measured on compressed bytes, r1q2 truncates
  * measured on raw bytes, vanilla discards the whole file measured on raw

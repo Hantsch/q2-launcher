@@ -11,19 +11,19 @@ import {
 } from './manifest-schemas'
 
 /**
- * The pure, main-process manifest parser (story 070 D1). Takes the already
+ * The pure, main-process manifest parser (story 070). Takes the already
  * `JSON.parse`d content of ONE manifest file (`engines/manifest.json` OR
  * `gamedata/manifest.json` - each has its own envelope) and turns it into
  * survivors-only packages plus a pin resolved against them, or a refusal.
  *
- * No network code here - fetching the file is D2/D3's job. This module only
+ * No network code here - fetching the file is the fetcher's job. This module only
  * has an opinion about a JSON value it is handed.
  *
  * Two failure modes, deliberately not conflated:
  *  - the ENVELOPE refuses the whole file (`ok: false`): either the
  *    `schemaVersion`/`packages` shape is structurally broken, or
  *    `schemaVersion` isn't exactly `1`. Treated upstream like a failed fetch
- *    (D3's business) - never a partial result.
+ *    (the caller's business) - never a partial result.
  *  - one PACKAGE row fails: it is dropped, with a `log.warn` line, and every
  *    other row is still parsed. Mirrors the row-by-row drop convention in
  *    `src/main/lib/forgiving.ts` (`parseForgivingRows`) - except here it isn't a
@@ -34,14 +34,14 @@ export type ManifestParseResult =
       ok: true
       packages: PlatformTaggedManifestPackage[]
       /**
-       * Story 100 D5: already resolved *for one platform* - an engine whose pin names no package
+       * Story 100: already resolved *for one platform* - an engine whose pin names no package
        * this host can run is simply absent here, never present with a package id the host cannot
        * execute. Every consumer downstream (the cache, `ManifestSnapshot.pinned`, the renderer)
        * therefore never has to know about platforms at all.
        */
       pinned: Partial<Record<EngineKind, string>>
       /**
-       * Story 100 D7: whether this file's raw `pinned` object configured at least one entry, for
+       * Story 100: whether this file's raw `pinned` object configured at least one entry, for
        * any engine, on any platform - read straight off the envelope before platform resolution
        * drops anything. Lets a caller distinguish "this file pins nothing at all" from "this file
        * pins something, just not for this host" once `pinned` above has come back empty either way.
@@ -53,7 +53,7 @@ export type ManifestParseResult =
 const SUPPORTED_SCHEMA_VERSION = 1
 
 /**
- * Story 100 D5: what a package row with **no** `platforms` field means. Every manifest published
+ * Story 100: what a package row with **no** `platforms` field means. Every manifest published
  * before that field existed - including the live remote one at the time of writing - lists
  * Windows-only payloads, so `['win32']` is what those files actually meant.
  *
@@ -65,7 +65,7 @@ const SUPPORTED_SCHEMA_VERSION = 1
 const IMPLIED_PLATFORMS: readonly string[] = ['win32']
 
 /**
- * Story 100 D5: the same reading for a bare-string `pinned` value (`{ q2pro: "<id>" }`, the shape
+ * Story 100: the same reading for a bare-string `pinned` value (`{ q2pro: "<id>" }`, the shape
  * every manifest published before this deliverable uses) - it pins for Windows and for nothing
  * else. An explicit `{ win32: "<id>" }` record means exactly the same thing.
  */
@@ -90,7 +90,7 @@ export function packageRunsOnPlatform(
 
 export interface ParseManifestFileOptions {
   /**
-   * Story 074 D8. Defaults to `true`: every package/mirror URL must be https, the production rule
+   * Story 074. Defaults to `true`: every package/mirror URL must be https, the production rule
    * this file has always applied. `false` selects the separately named
    * `harnessLoopbackManifestPackageSchema` instead, which additionally accepts a plain-http
    * `127.0.0.1` URL - the *only* producer of `false` is `resolveDownloadSource()`
@@ -99,7 +99,7 @@ export interface ParseManifestFileOptions {
    */
   httpsOnly?: boolean
   /**
-   * Story 100 D5: the host platform the pins are resolved for, spelled the way the Node platform string
+   * Story 100: the host platform the pins are resolved for, spelled the way the Node platform string
    * spells it. Defaults to the running platform, so no existing caller changes; it is threaded in
    * as a plain value for the same reason `httpsOnly` above is - a test can then prove the Linux
    * reading on a Windows host (and the other way round) without stubbing anything global.
@@ -163,13 +163,13 @@ function idOf(row: unknown): string | undefined {
 
 /**
  * Resolves `pinned` (an engine-kind-keyed map of package ids, e.g.
- * `{ q2pro: '<id>' }` or, since story 100 D5, `{ q2pro: { win32: '<id>' } }`)
+ * `{ q2pro: '<id>' }` or, since story 100, `{ q2pro: { win32: '<id>' } }`)
  * against the packages that survived parsing above - never against the raw
  * input. A pinned id that names a dropped (or never existent) package is
  * logged and simply has no pin for that engine: a dropped package must never
  * silently promote a different version to default (story's binding decision).
  *
- * Story 100 D5 adds one more way to have no pin, with the same rule behind it: a pin that names a
+ * Story 100 adds one more way to have no pin, with the same rule behind it: a pin that names a
  * package `platform` cannot run resolves to *nothing*, never to "the other platform's build". Two
  * independent gates have to agree - the pin has to be for this platform (a bare string is a
  * Windows pin, see `IMPLIED_PIN_PLATFORM`) *and* the package it names has to declare this
@@ -222,7 +222,7 @@ function resolvePinned(
 
 /**
  * The package id one `pinned` entry names for `platform`, or `undefined` when it names none.
- * A bare string is the pre-D5 shape and pins for Windows only (`IMPLIED_PIN_PLATFORM`); a record
+ * A bare string is the earlier shape and pins for Windows only (`IMPLIED_PIN_PLATFORM`); a record
  * is read by exact platform key, so an unknown or absent key is "nothing for this platform"
  * rather than a fallback to some other platform's build.
  */

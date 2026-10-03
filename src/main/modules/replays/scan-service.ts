@@ -23,9 +23,9 @@ import type { CachedDemo, ReplaysIndexCache } from './index-cache'
 import { runIncrementalScan, type IncrementalScanSource } from './incremental-scan'
 
 /**
- * Story 144 D3: the replays index scan service - the one stateful thing between discovery
- * (`discovery.ts`), the incremental scan core (`incremental-scan.ts`, D2) and the index cache
- * (`index-cache.ts`, D1). Shaped after `servers/scan-service.ts`:
+ * The replays index scan service - the one stateful thing between discovery
+ * (`discovery.ts`), the incremental scan core (`incremental-scan.ts`) and the index cache
+ * (`index-cache.ts`). Shaped after `servers/scan-service.ts`:
  *
  * - **Single-flight.** `start()` is synchronous: `{ started: false }` while a scan runs (nothing is
  *   queued, no second discovery or parse is kicked off), otherwise `{ started: true }` - the scan
@@ -42,32 +42,33 @@ import { runIncrementalScan, type IncrementalScanSource } from './incremental-sc
  *   leave the flag stuck. A throw from `cache.write` itself keeps the new (correct) snapshot and the
  *   in-memory cache; only persistence is lost, and the next successful scan writes it again.
  *
- * The scan writes nothing but the D1 cache file: never a sidecar, never `state.json`.
+ * The scan writes nothing but the index cache file: never a sidecar, never `state.json`.
  *
  * The cached `parsed` fact is the full IPC row (`DiscoveredDemo`, map/unparsableReason filled), so
  * the cache alone can answer `read()` before discovery has run. Rows from the file are validated
- * against `discoveredDemoSchema`; one that fails is dropped from the cache, i.e. re-parsed.
+ * against `discoveredDemoSchema`; one that fails is dropped from the cache, i.e. re-parsed
+ * (story 144)
  */
 
 /** The header facts one parse settles on - everything a row needs beyond what discovery knows.
- * `readable`/`unreadable` (story 145 D2) are D1's `demoReadability` projection of the same parse -
+ * `readable`/`unreadable` are the `demoReadability` projection of the same parse -
  * carried alongside `map`/`unparsableReason` rather than replacing them, so existing readers of
- * those two fields keep working unchanged. */
+ * those two fields keep working unchanged (story 145) */
 export interface DemoHeaderFacts {
   map: string | null
   unparsableReason: DemoUnparsableReason | null
   readable: boolean
   unreadable: DemoUnreadable | null
-  /** Story 150 D1: an ok header's game dir / POV / players (null/null/[] otherwise), and the frame
+  /** An ok header's game dir / POV / players (null/null/[] otherwise), and the frame
    * count's duration (null when it could not be counted, or the header was unreadable). Same
-   * shape as the row's fields, so a cached row (`entry.parsed`) satisfies this type as-is. */
+   * shape as the row's fields, so a cached row (`entry.parsed`) satisfies this type as-is (story 150) */
   gameDir: string | null
   pov: string | null
   players: string[]
   durationMs: number | null
 }
 
-/** A discovered demo plus the identity D2 compares against the cache. For a zip entry, `size`,
+/** A discovered demo plus the identity the incremental scan compares against the cache. For a zip entry, `size`,
  * `mtimeMs` and `birthtimeMs` are the archive's own (its `absolutePath` is the archive), so an entry
  * of an unchanged archive is a cache hit. */
 export type ReplaysScanFile = DiscoveredDemoFile & {
@@ -96,7 +97,7 @@ export interface CreateReplaysScanServiceOptions {
   nameMatcher: () => ReplaysNameMatcher
   /** Read once per scan, at its start - `app.launch.isRunning()` in production. */
   isGameRunning: () => boolean
-  /** Story 151 D2: awaited right after the post-discovery progress push (the one carrying the
+  /** Awaited right after the post-discovery progress push (the one carrying the
    * totals) and before the incremental scan itself - the harness's scan-hold seam
    * (`scanHoldMs`/`index.ts`). Skipped entirely when absent. */
   holdAfterDiscovery?: () => Promise<void>
@@ -108,19 +109,19 @@ export interface ReplaysScanService {
   start: () => ReplaysScanStartResult
   read: () => Promise<DiscoveredDemo[]>
   overview: () => Promise<ReplaysOverview>
-  /** Resolves a demo id to the file identity a sidecar store needs (story 146): its absolute path
+  /** Resolves a demo id to the file identity a sidecar store needs: its absolute path
    * and whether it's a zip entry. `undefined` before this process's first successful scan has seen
    * the id, same as any other id the index doesn't know about - never backfilled from the cache
-   * (the cache does not retain `absolutePath`). */
+   * (the cache does not retain `absolutePath`) (story 146) */
   resolveFile: (
     id: string,
   ) => { absolutePath: string; archiveEntry: DiscoveredDemo['archiveEntry'] } | undefined
-  /** Story 157: renames a demo's identity in place, without a re-scan. Looks the old id up in
+  /** Renames a demo's identity in place, without a re-scan. Looks the old id up in
    * `fileById`; `undefined` (a no-op) when it is not known - no successful scan has seen it, or a
    * later scan has already replaced it. Otherwise re-keys `snapshot`, `fileById` and `lastCache`
    * (persisted via `cache.write`, same as a normal scan) to the new id/path/name, re-matching
    * `nameFacts` against the current `nameMatcher()` since the name changed; every other parsed fact
-   * is carried over unchanged. Returns the updated row. */
+   * is carried over unchanged. Returns the updated row (story 157) */
   applyRename: (
     oldId: string,
     newAbsolutePath: string,
@@ -137,9 +138,9 @@ export interface ReplaysScanService {
  * on (the entry's own modified stamp, or the archive's) and is carried through unchanged via
  * `facts` - see `readDemoFacts`.
  *
- * `nameFacts` is never set here (story 145 D2: it comes from the incremental scan's own name
+ * `nameFacts` is never set here (it comes from the incremental scan's own name
  * matcher, resolved once name and header facts are both known - see `withNameFacts` below); every
- * row still gets the field so it always satisfies `discoveredDemoSchema`.
+ * row still gets the field so it always satisfies `discoveredDemoSchema` (story 145)
  */
 function toRow(file: ReplaysScanFile, facts: DemoHeaderFacts): DiscoveredDemo {
   return {
@@ -302,14 +303,14 @@ export function createReplaysScanService(
   let lastCache: Map<string, CachedDemo> | null = null
   /** The last successful scan's rows; `null` until this process's first scan succeeds. */
   let snapshot: DiscoveredDemo[] | null = null
-  /** Story 151 D2: the last successful scan's source errors - `[]` until any scan has succeeded.
+  /** The last successful scan's source errors - `[]` until any scan has succeeded.
    * Every push while a scan runs carries this (still the *previous* scan's), swapped for this
    * scan's own right after the snapshot swap, so the final `running: false` push carries the fresh
-   * set. A throwing scan leaves this untouched, same as `lastCache`/`snapshot`. */
+   * set. A throwing scan leaves this untouched, same as `lastCache`/`snapshot` (story 151) */
   let lastSourceErrors: ReplaysSourceError[] = []
-  /** Story 146: `id -> file` for the last successful scan's rows - the sidecar store's only index
+  /** `id -> file` for the last successful scan's rows - the sidecar store's only index
    * dependency (`resolveFile`), kept in lockstep with `snapshot`/`lastCache` and never populated on
-   * a failed scan. */
+   * a failed scan (story 146) */
   const fileById = new Map<string, ReplaysScanFile>()
 
   const loadCache = (): Promise<Map<string, CachedDemo>> =>
@@ -358,7 +359,7 @@ export function createReplaysScanService(
       // Hit or fresh, `parsed` is always a row this service built (the file's are validated by
       // `usableCache`); the row's discovery fields come from this scan's `file`, never the cache.
       // `withNameFacts` merges in this scan's own name match last, so a template change is
-      // reflected even on a cache hit that only re-matched the name (story 145 D2).
+      // reflected even on a cache hit that only re-matched the name (story 145)
       snapshot = [...result.entries.values()].map((entry) =>
         withNameFacts(toRow(entry.file, entry.parsed as DiscoveredDemo), entry.name),
       )

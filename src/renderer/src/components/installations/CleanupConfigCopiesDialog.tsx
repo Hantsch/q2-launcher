@@ -5,7 +5,7 @@ import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 
 /**
- * Story 058 D6: the redundant-config-copies cleanup as an action on the installation.
+ * Story 058: the redundant-config-copies cleanup as an action on the installation.
  *
  * Modal chrome only - the scan/apply/undo flow and its backup-once contract stay entirely in
  * `CleanupPanel` (config module) and its main-process half. Library contributes the trigger and

@@ -42,7 +42,7 @@ interface CatalogEntry {
  * One command list's worth of UI: the row list (with move/remove), the raw-command adder, the
  * wait-frame adder, and the pick-from-catalogue list.
  *
- * Story 045, D9: factored out of `ActionEditor`'s body so the same UI can be rendered once for a
+ * Story 045: factored out of `ActionEditor`'s body so the same UI can be rendered once for a
  * `bind`/`alias` entry's single command list, or twice for a `toggle`/`press-release` entry's two
  * parts, without three separate editor bodies ("one editor, not three" - the story's own Decisions).
  * Each instance owns its own raw-command text and catalogue filter - two independent drafts, not one
@@ -189,7 +189,7 @@ function CommandListSection({
               if (event.key === 'Enter') addRawCommand()
             }}
           />
-          {/* Story 019 D6: native datalist, no new dependency - typing `+` in the field above
+          {/* Story 019: native datalist, no new dependency - typing `+` in the field above
               offers the profile's own aliases, and picking one just writes that exact string
               (native `<input list>` behavior, no extra wiring needed). */}
           <datalist id={datalistId}>
@@ -210,7 +210,7 @@ function CommandListSection({
         </div>
       </Field>
 
-      {/* Story 045 D9: a `wait` row helper - appends `{ kind: 'wait', frames }` without the user
+      {/* Story 045: a `wait` row helper - appends `{ kind: 'wait', frames }` without the user
           typing the literal word `wait` themselves. */}
       <Field label={t('config.controls.editor.wait.frameCountLabel')}>
         <div className="flex gap-2">
@@ -258,24 +258,24 @@ function CommandListSection({
 }
 
 /**
- * Story 008 D7 / 019 D5: the multi-command composer and key-assignment
+ * Story 008 / 019: the multi-command composer and key-assignment
  * editor for one `ConfigAction` of `kind: 'bind'` or `kind: 'alias'` -
  * `kind: 'message'` gets `MessageEditor` instead (`ControlsTab` dispatches on
  * `action.kind`, never this file).
  *
- * Story 019 D5 split the two remaining kinds further:
+ * Story 019 split the two remaining kinds further:
  * - `bind`: the payload is either a command list (this editor's original
  *   shape) or a single message, switchable in place via `payloadType` - the
  *   engine sees both as "what the generated alias's body is", so toggling
  *   never touches `key`.
- * - `alias`: always a command list, and - the load-bearing part of D5 - the
+ * - `alias`: always a command list, and - the load-bearing part - the
  *   key section below is not rendered at all for this kind. An alias is
- *   never bound (story 019 decision, mirrored engine-side in D2's
+ *   never bound (story 019 decision, mirrored engine-side in the
  *   `binds`/`overrides` exclusion); rendering a disabled or hidden key
  *   control here would still be a path back to a control whose effect is
  *   silently discarded, which is exactly what the story rules out.
  *
- * Story 045 D9 adds the other two kinds:
+ * Story 045 adds the other two kinds:
  * - `toggle`/`press-release`: two independent command lists (`ConfigAction.parts`, always exactly
  *   two), rendered via two `CommandListSection`s instead of the single-list branch above. Both
  *   kinds ARE bindable (`@shared/config/aliases/action-mirror.ts#bindValueFor` handles both), so the key
@@ -300,7 +300,7 @@ export function ActionEditor({
 }: {
   action: ConfigAction
   /**
-   * Story 019 D6: the profile's full action list, so the raw-command input's
+   * Story 019: the profile's full action list, so the raw-command input's
    * suggestions can be computed from the profile's own alias entries. Passed
    * down rather than looked up here - `ControlsTab` already owns the one
    * `actions` array this editor is opened from, and a second, independent
@@ -309,7 +309,7 @@ export function ActionEditor({
    */
   actions: ConfigAction[]
   /**
-   * Story 053 D7: `action`'s own parent category, passed down so the sub-category select below can
+   * Story 053: `action`'s own parent category, passed down so the sub-category select below can
    * be scoped to `category.subcategories` - never another category's, and this editor has no
    * control to change `action.categoryId` itself, so there is nothing to recompute against a
    * "newly picked" category. Optional: `AliasesTab` opens this same editor for `kind: 'alias'`
@@ -325,7 +325,7 @@ export function ActionEditor({
   const isAlias = action.kind === 'alias'
   const isTwoPart = action.kind === 'toggle' || action.kind === 'press-release'
 
-  // Story 019 D5 (comment corrected, Finding 6): whether a `bind` action's
+  // Story 019 (comment corrected): whether a `bind` action's
   // payload is currently "message" or "command" is decided by whether ANY of
   // its `commands` is `kind: 'message'` - `.find` matches the first one it
   // meets, not "there is exactly one". In practice a message-payload row's
@@ -348,7 +348,7 @@ export function ActionEditor({
   )
   const [messageText, setMessageText] = useState(initialMessage?.text ?? '')
 
-  // Story 045 D9: a two-part entry's halves live in `action.parts`, not `action.commands` (which
+  // Story 045: a two-part entry's halves live in `action.parts`, not `action.commands` (which
   // stays `[]` for these two kinds) - see `ConfigAction.parts`'s doc comment.
   const [part1Commands, setPart1Commands] = useState<ConfigCommand[]>(
     action.parts?.[0]?.commands ?? [],
@@ -367,7 +367,7 @@ export function ActionEditor({
   const [key, setKey] = useState<string | undefined>(keySlotAt(action, 0)?.key || undefined)
   const [capturingKey, setCapturingKey] = useState(false)
 
-  // Story 053 D7: which of `category.subcategories` this entry sits under, or `undefined` for
+  // Story 053: which of `category.subcategories` this entry sits under, or `undefined` for
   // "no sub-category" - the select below is the only way to move an entry in and out of one.
   // Defaults to whatever the entry already has, matching every other identity field in this editor.
   const [subcategoryId, setSubcategoryId] = useState<string | undefined>(action.subcategoryId)
@@ -393,7 +393,7 @@ export function ActionEditor({
     return () => window.removeEventListener('keydown', handleKeyDown, true)
   }, [capturingKey])
 
-  // Story 019 D5: whichever payload is actually selected is what gets
+  // Story 019: whichever payload is actually selected is what gets
   // previewed and saved - not `commands`, which only ever holds the
   // command-payload draft (kept around, untouched, while the message
   // payload is active, so toggling back to "command" does not lose it).
@@ -405,7 +405,7 @@ export function ActionEditor({
     [payloadType, messageChannel, messageText, commands],
   )
 
-  // Story 045 D9: a two-part entry's preview has to go through `renderActionAlias`'s two-part
+  // Story 045: a two-part entry's preview has to go through `renderActionAlias`'s two-part
   // branch (`action.commands` is always `[]` for these kinds, so the single-list draft below would
   // render nothing) - built from both parts' current draft commands/labels, `parts[i].aliasName`
   // carried through untouched (this editor has no UI to change a part's own alias name).
@@ -472,7 +472,7 @@ export function ActionEditor({
     [],
   )
 
-  // Story 019 D6: the profile's own alias entries, offered as a native
+  // Story 019: the profile's own alias entries, offered as a native
   // datalist while typing a raw command - excludes non-alias entries (an
   // alias is the only thing a binding can call by name) and is derived from
   // `actions`, not `commands`/`action`, since a binding suggests *other*
@@ -496,8 +496,8 @@ export function ActionEditor({
     const withCommands: ConfigAction = { ...action, commands: effectiveCommands, subcategoryId }
 
     if (isAlias) {
-      // An alias entry has no key slot at all (D5) - every slot is dropped here (review fix,
-      // Finding 5: the `...action` spread above would otherwise still carry through key slots the
+      // An alias entry has no key slot at all - every slot is dropped here (review fix,
+      // The `...action` spread above would otherwise still carry through key slots the
       // row happened to hold before it became an alias) rather than trusting whatever the row/local
       // state happen to hold, so this editor can never be the path that leaves stale key data on an
       // alias even if some arrived pre-set.
@@ -511,7 +511,7 @@ export function ActionEditor({
     // of never itself setting/clearing a modifier. Any further slot (1+) the action already carries
     // is passed straight through by `withKeySlot`, untouched.
     //
-    // Story-050 review, finding 2: that preservation lives in `editorKeySlot` now rather than
+    // Story-050: that preservation lives in `editorKeySlot` now rather than
     // inline here, because `MessageEditor`'s save path needs the identical rule and had been
     // written without it - one helper, one behaviour, one place it is tested.
     onSave(withKeySlot(withCommands, 0, editorKeySlot(action, key)))
@@ -536,7 +536,7 @@ export function ActionEditor({
       }
     >
       <div className="space-y-5">
-        {/* Story 053 D7: move this entry in and out of one of `category`'s sub-categories - hidden
+        {/* Story 053: move this entry in and out of one of `category`'s sub-categories - hidden
             entirely (not disabled/empty) when the category has none, per the story's own "hides the
             control" accept criterion. The "no sub-category" option always maps to `undefined`, never
             an empty-string id, matching `ConfigAction.subcategoryId`'s own "no id is special" rule. */}
@@ -559,7 +559,7 @@ export function ActionEditor({
           </Field>
         )}
 
-        {/* Story 019 D5: only a `bind` entry's payload can be a message - an alias, toggle or
+        {/* Story 019: only a `bind` entry's payload can be a message - an alias, toggle or
             press/release entry is always a command list (or two), so none of them see this toggle. */}
         {!isAlias && !isTwoPart && (
           <Field label={t('config.controls.editor.payloadType.label')}>
@@ -682,7 +682,7 @@ export function ActionEditor({
           </>
         )}
 
-        {/* Story 019 D5 / 045 D9: the load-bearing bit - only an alias entry has no key slot at
+        {/* Story 019 / 045: the load-bearing bit - only an alias entry has no key slot at
             all. This branch is skipped entirely for `isAlias`, not hidden/disabled, so there is no
             control here whose effect binding a key to an alias would silently discard. `toggle` and
             `press-release` ARE bindable (`action-mirror.ts#bindValueFor`), so they keep this

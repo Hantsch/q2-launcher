@@ -14,9 +14,9 @@ import { feedState } from './feedState'
 import { useReducedMotion } from './useReducedMotion'
 
 /**
- * The home screen's news hero (story 083 D3): a fixed 320px carousel across the top of the home
- * view, driven by `carousel.ts`'s pure state machine (D1) and rendering one slide through the
- * three fixed templates (D2).
+ * The home screen's news hero (story 083): a fixed 320px carousel across the top of the home
+ * view, driven by `carousel.ts`'s pure state machine and rendering one slide through the
+ * three fixed templates.
  *
  * The timer is the delicate part, so it is deliberately structured to make the failure modes
  * impossible rather than unlikely:
@@ -26,20 +26,20 @@ import { useReducedMotion } from './useReducedMotion'
  * - The interval callback dispatches `tick` and reads *nothing* from the closure, so it can never
  *   advance from a stale index; `carouselReducer` computes the next index from the live state and
  *   `tick` is itself a no-op whenever `isRunning` is false (belt and braces with the effect).
- * - The three pause reasons stay independent, exactly as D1 tests them: hover and focus are
+ * - The three pause reasons stay independent, exactly as the carousel tests pin them: hover and focus are
  *   transient, `latched` is the pause button's own state and is never touched by a hover or focus
  *   transition - which is what lets a latched pause survive the pointer leaving.
  * - Reduced motion is a kill switch, not a pause: no interval is created at all (a zeroed
  *   `--dur-*` via `data-motion` cannot stop a timer, see `useReducedMotion.ts`) and no
  *   slide-change animation class is applied - while dots, prev and next keep working.
  *
- * Story 083 D4 adds the welcome/stale states on top of D3's carousel shell: `feedState.ts` maps
+ * Story 083 adds the welcome/stale states on top of the carousel shell: `feedState.ts` maps
  * `{ slides, lastRefreshFailed }` to `'welcome' | 'stale' | 'filled'` and this component renders
  * accordingly - a built-in, i18n-sourced welcome slide when there is no cached feed at all (no
  * `<img>`, nothing sent from main beyond keys), the real carousel plus an "as of" chip and a
  * refresh button when the cached feed's last refresh failed, and the plain carousel otherwise.
- * Opening a slide button's URL is D5's job: `SlideButtons` itself calls the home client's
- * `openSlideUrl` on click, so `onOpenUrl` below is only the D2-era callback kept for callers that
+ * Opening a slide button's URL is not this component's job: `SlideButtons` itself calls the home client's
+ * `openSlideUrl` on click, so `onOpenUrl` below is only a legacy callback kept for callers that
  * still want to observe the click.
  */
 
@@ -47,7 +47,7 @@ import { useReducedMotion } from './useReducedMotion'
 export const SLIDE_INTERVAL_MS = 8_000
 
 /**
- * Story 083 finding 6: AC7/D4 call the stale chip an "as of `<date>`" note - a date, not a fuzzy
+ * The stale chip is an an "as of `<date>`" note - a date, not a fuzzy
  * relative-time string (which is what `formatRelativeTime` alone renders as, e.g. "2 years ago").
  * `lib/format.ts` has no date-formatting helper today (checked before adding this), so this stays a
  * small local formatter rather than a new shared one for a single caller. Locale-aware via `Intl`,
@@ -72,13 +72,13 @@ export interface NewsHeroProps {
   /** ISO timestamp of the feed's last successful retrieval (`NewsFeed.retrievedAt`) - only read for
    * the stale chip's "as of" text. Omitted when there is no feed at all yet. */
   retrievedAt?: string
-  /** `NewsFeed.lastRefreshFailed` (story 083 D4). Defaults to `false`, matching a caller that has
-   * not wired the real feed in yet (D5). */
+  /** `NewsFeed.lastRefreshFailed` (story 083). Defaults to `false`, matching a caller that has
+   * not wired the real feed in yet. */
   lastRefreshFailed?: boolean
   /** Optional observer for a slide button click - `SlideButtons` calls the home client's
-   * `openSlideUrl` itself (D5), so nothing here needs to open a URL. */
+   * `openSlideUrl` itself, so nothing here needs to open a URL. */
   onOpenUrl?: (url: string) => void
-  /** Reuses the existing `news.refresh` handler via the caller's client wiring (082/D5) - this
+  /** Reuses the existing `news.refresh` handler via the caller's client wiring (082) - this
    * component never calls into `client.ts` or IPC directly. */
   onRefresh?: () => void
 }
@@ -156,7 +156,7 @@ export function NewsHero({
     >
       <div className="home-hero-stage">
         {heroState === 'welcome' ? (
-          // AC6: the built-in welcome slide - i18n keys only, no bitmap of any kind. Not one of the
+          // the built-in welcome slide - i18n keys only, no bitmap of any kind. Not one of the
           // three feed templates: it never has real slide data to render, so it renders its own
           // fixed markup instead of going through `resolveSlideTemplate`/`TEMPLATES`.
           <div className="home-hero-frame" data-testid="home-hero-welcome">
@@ -182,7 +182,7 @@ export function NewsHero({
         ) : null}
 
         {heroState === 'stale' ? (
-          // AC7: shown alongside the real feed, never instead of it - no toast, no dialog, just a
+          // shown alongside the real feed, never instead of it - no toast, no dialog, just a
           // chip and a button inside the hero itself (Decisions (Sprint)).
           <div className="home-hero-stale" data-testid="home-hero-stale">
             <span
@@ -231,7 +231,7 @@ export function NewsHero({
             ))}
           </div>
 
-          {/* AC9: the position is readable as text, not only as a lit dot. */}
+          {/* the position is readable as text, not only as a lit dot. */}
           <p className="home-hero-counter">
             {/* `total`, not `count`: an interpolation named `count` would send i18next looking
                 for a plural suffix this key deliberately does not have. */}

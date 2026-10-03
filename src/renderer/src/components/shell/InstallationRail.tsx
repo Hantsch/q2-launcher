@@ -211,10 +211,10 @@ function RailTile({
       }}
       aria-current={active ? 'true' : undefined}
       aria-label={installation.name}
-      // Story 067 review finding F2: a bare `<button>` defaults to `display: inline-block`, which
+      // A bare `<button>` defaults to `display: inline-block`, which
       // (unlike this rail's old `grid` button) leaves it sized by its inline-formatting-context
       // line box rather than its content - a few extra px below the tile that shifted every tile
-      // beneath it down the rail. `block` restores the pre-D2 block-level sizing without
+      // beneath it down the rail. `block` restores the earlier block-level sizing without
       // reintroducing `place-items-center` (the child `InstallationTile` centers its own content
       // now, the button itself no longer needs to).
       className="group relative block w-full"
@@ -280,9 +280,9 @@ function RailCard({ installation }: { installation: Installation }) {
           {t('common.action.play')}
         </Button>
 
-        {/* Story 090 D4: the tile itself (074) only has room for the CSS microtag, so the
+        {/* Story 090: the tile itself (074) only has room for the CSS microtag, so the
             demo-to-retail trigger lives here on the hover card, its own surface.
-            Story 091 D5: no longer disabled while it is running - the job now waits instead of
+            Story 091: no longer disabled while it is running - the job now waits instead of
             refusing (091 Decisions: "[[090]]'s refusal is replaced by a wait, including on the
             renderer"). */}
         {isDemoData(installation.checks) && (

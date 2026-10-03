@@ -21,7 +21,7 @@ export interface MasterSourceRowProps {
 }
 
 /**
- * Story 111 D4: one row of the master-source list - split out of `ServersSettingsSection.tsx` once
+ * Story 111: one row of the master-source list - split out of `ServersSettingsSection.tsx` once
  * the section (list + add form + inline edit) pushed past the ~150-line guideline in
  * `docs/ARCHITECTURE.md#adding-a-module`.
  *

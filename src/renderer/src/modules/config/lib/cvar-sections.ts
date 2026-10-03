@@ -2,7 +2,7 @@ import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render/render'
 import type { ConfigCvarSection, ConfigCvarSubsection } from '@shared/modules/config'
 
 /**
- * Story 059 D8: pure array math for editing `profile.cvarSections`, mirroring
+ * Story 059: pure array math for editing `profile.cvarSections`, mirroring
  * `lib/delete-category.ts`/`lib/entry-order.ts` and `ControlsTab.tsx`'s inline category/
  * sub-category handlers one level down (sections/sub-sections of cvars instead of categories/
  * sub-categories of actions). `SettingsTab.tsx` is the single owner of the draft and the save path,
@@ -15,7 +15,7 @@ export function createCvarSection(name: string): ConfigCvarSection {
 }
 
 /**
- * Story 052 D7's "a rename drops it" rule, applied to `nameKey` only: unlike
+ * Story 052's "a rename drops it" rule, applied to `nameKey` only: unlike
  * `ControlsTab#handleRenameCategory` (which rebuilds the whole object from just `{ id, name }`,
  * silently dropping `subcategories` too - an oversight that predates sub-categories existing at
  * all), a cvar section's `cvars`/`subsections` are its entire reason for being and must survive a
@@ -190,7 +190,7 @@ export interface CvarPlacementTarget {
 }
 
 /**
- * Moves `name` to `target`, removing it from wherever it already sat first (story 059 D8: "move a
+ * Moves `name` to `target`, removing it from wherever it already sat first (story 059: "move a
  * cvar to another section... changes which section's `cvars` array contains its name"). Also how a
  * freshly added cvar is placed into the section its "Add cvar" dialog was opened from - adding and
  * moving are the same array operation, only the caller's reason for calling it differs.
@@ -241,7 +241,7 @@ export function cvarPlacementOptions(
 }
 
 /**
- * Story 054 D9: index-position reorder for drag-and-drop, one level more precise than
+ * Story 054: index-position reorder for drag-and-drop, one level more precise than
  * `moveCvarSection`'s adjacent up/down swap - a drop needs "land at this exact index", not "nudge
  * one step". `Defaults`/`Other` (`cvar-rows.ts`'s reserved `CvarGroupKind`s) are never minted as
  * entries of `profile.cvarSections` in the first place - `buildCvarSectionGroups` computes and
@@ -264,7 +264,7 @@ function moveItemToIndex<T>(items: readonly T[], fromIndex: number, toIndex: num
   return next
 }
 
-/** Reorders top-level sections by index (story 054 D9). No-op for an unknown `sectionId` or one of
+/** Reorders top-level sections by index (story 054). No-op for an unknown `sectionId` or one of
  * the reserved bucket ids (see above) - never for a real section id, however far `toIndex` is out
  * of range: `moveItemToIndex` clamps that instead of refusing the move. */
 export function moveSectionToIndex(
@@ -278,7 +278,7 @@ export function moveSectionToIndex(
   return moveItemToIndex(sections, index, toIndex)
 }
 
-/** Reorders one section's sub-sections by index (story 054 D9), mirroring `moveSectionToIndex` one
+/** Reorders one section's sub-sections by index (story 054), mirroring `moveSectionToIndex` one
  * level down. Sub-sections have no reserved counterpart - the `Defaults`/`Other` buckets are always
  * top-level groups (`cvar-rows.ts#finishGroup` never nests one under a sub-section) - so there is no
  * reserved-id guard to mirror here. No-op for an unknown `subsectionId`. */
@@ -302,7 +302,7 @@ export interface CvarPositionTarget extends CvarPlacementTarget {
 }
 
 /**
- * Moves `name` to an exact index within `target`'s section (or sub-section) run (story 054 D9),
+ * Moves `name` to an exact index within `target`'s section (or sub-section) run (story 054),
  * the drag-and-drop counterpart to `moveCvarToSection`'s "append to this section" - reusing
  * `removeCvarFromSections` for the same "strip it from wherever it sits first" step so a cvar can
  * never end up listed twice.
@@ -313,7 +313,7 @@ export interface CvarPositionTarget extends CvarPlacementTarget {
  * Deliberately does *not* require `name` to already be present in `sections`: the reserved buckets
  * hold every catalogue/unplaced cvar the profile's sections do not mention (`cvar-rows.ts`), so a
  * name "moved out of Defaults/Other" is, from this array's point of view, a name `sections` has
- * never heard of - exactly the case D9 requires to work (moving out of a reserved bucket into a
+ * never heard of - exactly the case that has to to work (moving out of a reserved bucket into a
  * real section). Treating an unfamiliar name as an error would make that direction impossible, so
  * the only "unknown id" no-op here is the destination's, not the cvar's.
  */

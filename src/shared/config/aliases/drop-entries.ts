@@ -1,6 +1,6 @@
 /**
  * Recognising and editing a "drop" entry (story 055) - one small pure module, read by Controls, the
- * Aliases tab and the import path alike (D1's own scope stops at this file: nothing here is wired
+ * Aliases tab and the import path alike (its own scope stops at this file: nothing here is wired
  * into any of those three yet).
  *
  * ## What a drop is
@@ -31,7 +31,7 @@
  * `withDropAmmo`/`withDropMessage` splice *only* their own command in or out of `action.commands`,
  * by index, and hand back every other command untouched and in its original relative order. A
  * rebuild from a catalogue row (`commandsForRow`'s usual shape) would silently discard exactly the
- * extras the story's AC6 requires to survive - that is the Decisions section's "index-based command
+ * extras the story requires to survive - that is the Decisions section's "index-based command
  * surgery, not body rebuild from a catalogue row" line, spelled out in code.
  *
  * Pure by contract, like `alias-references.ts`/`action-mirror.ts`: no `fs`, no DOM, no electron.
@@ -73,7 +73,7 @@ function itemAmmoFor(item: string): string | undefined {
 /**
  * Is `action` a drop wherever it sits - see the file doc comment for the exact rule. False for an
  * entry whose name does not start with `drop_` (any category, any kind), and false for a `drop_`-
- * named entry whose body carries no `drop <item>` command at all (the hypothetical the story's D1
+ * named entry whose body carries no `drop <item>` command at all (the hypothetical the story's
  * acceptance names alongside `dall`).
  */
 export function isDropEntry(action: ConfigAction): boolean {
@@ -109,7 +109,7 @@ export interface DropState {
    * item (`itemAmmo`, so there is something to *add*) **or** the body already carries an ammo
    * command (`hasAmmo`, so there is something to *remove*).
    *
-   * The two halves matter because they are not the same set (story 055 review, finding 4). The
+   * The two halves matter because they are not the same set. The
    * fixture's ammo-item drops - `drop_shells` = `drop shells; drop shells; say_team ...`, and its
    * five siblings - carry a real ammo command (`hasAmmo` true) while their item, being an ammo item
    * itself, has no `ammo` field of its own (`itemAmmo` undefined). Deriving "disabled" from
@@ -223,7 +223,7 @@ export function withDropAmmo(action: ConfigAction, on: boolean): ConfigAction {
 /**
  * `action` with its `say`/`say_team` message added (`on: true`) or removed (`on: false`), every other
  * command left untouched and in its original relative order. Story 029's inline row + `MessageEditor`
- * stay the only way to edit the text itself (AC5) - this function only ever adds/removes/replaces the
+ * stay the only way to edit the text itself - this function only ever adds/removes/replaces the
  * one command.
  *
  * Turning on with an already-present message updates that command in place (new `message`/`channel`

@@ -12,7 +12,7 @@ import {
 import { getDownloadsCacheDir } from '../lib/net/download-cache-paths'
 
 /**
- * Story 190 D3: download one package into the downloads cache, verify it, and extract it into a
+ * Story 190: download one package into the downloads cache, verify it, and extract it into a
  * staging directory (`cache/downloads/extract/<jobId>-<index>`). It is the download/extract section
  * of `engine/update-job.ts` without the job: the caller owns the job (creation, progress, finish,
  * cancel wiring) and the staging directory's cleanup. Nothing is written outside the downloads

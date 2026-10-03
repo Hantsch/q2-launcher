@@ -13,8 +13,8 @@ const FOCUSABLE =
  * tell whether it is the topmost one before it reacts. All open Modals attach their own
  * `keydown` listener straight to `document` (there is no shared portal root to scope it to), so
  * `stopPropagation` on the event cannot stop a sibling listener on the very same target - only this
- * ordered check can single out "the one the user actually meant to close" (review finding: nested
- * Modal Escape used to close both the confirm dialog and the dialog underneath it in one keypress).
+ * ordered check can single out "the one the user actually meant to close" (nested
+ * Modal Escape would otherwise close both the confirm dialog and the dialog underneath it in one keypress).
  */
 const openModalStack: string[] = []
 
@@ -91,7 +91,7 @@ export function Modal({
         // Nothing inside the panel to trap focus on (e.g. preventClose disabled every
         // control and hid the close button) - anchor the trap on the panel itself so
         // Tab/Shift+Tab cannot leak focus to whatever sits behind this Modal in DOM
-        // order (review finding: leaked to an outer dialog's own close button, which
+        // order (focus would otherwise leak to an outer dialog's own close button, which
         // then discarded state this Modal's unmount would have lost).
         event.preventDefault()
         panel.focus()
@@ -149,7 +149,7 @@ export function Modal({
           document.body, so - unlike a view's own header inside <main> - these
           would map to a second `banner` and `contentinfo` landmark next to the
           title bar's and the action bar's (axe landmark-no-duplicate-banner /
-          -contentinfo / landmark-unique, story 037 D6). A dialog's title strip
+          -contentinfo / landmark-unique, story 037). A dialog's title strip
           is not a page banner; the dialog is named by aria-label already.
         */}
         <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">

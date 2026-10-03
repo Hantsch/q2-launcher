@@ -41,7 +41,7 @@ export const SESSION_RESTORE_CVARS = [
 ] as const
 
 /**
- * Story 159 D2: `demo.play` - the one path where a renderer-sent demo id becomes a spawned process.
+ * Story 159: `demo.play` - the one path where a renderer-sent demo id becomes a spawned process.
  * Same resolve-then-act shape as `file-actions.ts`, with every decision re-made on main's own data:
  *
  * 1. the id is looked up in main's index (row + resolved file) - never a renderer-supplied path;
@@ -52,7 +52,7 @@ export const SESSION_RESTORE_CVARS = [
  *    check, never a string prefix, so a sibling root such as `Quake2-other` is refused;
  * 4. only then is the launch started, and a playback session tracked until the game exits.
  *
- * Story 160 D2: a demo that is NOT in place (another installation's, an extra folder's, a zip entry,
+ * Story 160: a demo that is NOT in place (another installation's, an extra folder's, a zip entry,
  * or a file whose realpath is outside the demos folder) is no longer refused. It gets a temporary
  * copy in `<gamedir>/demos/_launcher/` (`demo-staging.ts`), the game plays that copy, and the copy
  * is removed when exactly that installation's game exits or fails, or when the launch never starts.
@@ -101,7 +101,7 @@ export interface DemoPlayLaunch {
     input: LaunchInput,
     options?: { playback?: true; demo?: true },
   ): Promise<Outcome<LaunchState>>
-  /** Story 164 D4: the piped session of a `{ playback: true }` launch (Linux). */
+  /** Story 164: the piped session of a `{ playback: true }` launch (Linux). */
   getPlaybackSession?(): PlaybackSession | undefined
   onStateChange(listener: (state: LaunchState) => void): () => void
 }
@@ -125,21 +125,21 @@ export interface DemoPlayDeps {
    * play right after start can never have its fresh copy swept away under it.
    */
   stagingReady?: () => Promise<void>
-  /** Story 164 D4: the running demo's control channel; absent, a demo plays without one. */
+  /** Story 164: the running demo's control channel; absent, a demo plays without one. */
   playback?: PlaybackControl
-  /** Story 170 D2: whether this platform/session can place the game window over the launcher's stage. */
+  /** Story 170: whether this platform/session can place the game window over the launcher's stage. */
   stageAvailability: () => StageAvailability
-  /** Story 170 D2: the stage rect (CSS px) as the engine's physical `vid_geometry`; null without a window. */
+  /** Story 170: the stage rect (CSS px) as the engine's physical `vid_geometry`; null without a window. */
   toGeometry: (rect: ReplaysStageRect) => string | null
-  /** Story 170 D3: puts the stage's archived cvars back into the user's config after the session. */
+  /** Story 170: puts the stage's archived cvars back into the user's config after the session. */
   cvarRestore?: Pick<CvarRestore, 'snapshot' | 'restore'>
-  /** Story 171 D2: a session launched placed over the stage began (at `geometry`, for `rect`); the
+  /** Story 171: a session launched placed over the stage began (at `geometry`, for `rect`); the
    * returned function runs once when that session ends. Never called for an unplaced play. */
   onStageSession?: (start: { geometry: string; rect: ReplaysStageRect }) => () => void
 }
 
 /**
- * Story 164 D4: the Linux `EngineIo` over a playback session's pipes - lines out with a newline, stdout
+ * Story 164: the Linux `EngineIo` over a playback session's pipes - lines out with a newline, stdout
  * chunks split into lines (an unterminated tail is held until its newline arrives).
  */
 export function engineIoFromSession(session: PlaybackSession): EngineIo {
@@ -225,7 +225,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
 
   /**
    * Story 160: runs `onEnd` exactly once, when the game of `installationId` - and no other
-   * installation's - reaches `exited` or `failed` (the staged copy's removal; story 170 D3: the stage
+   * installation's - reaches `exited` or `failed` (the staged copy's removal; story 170: the stage
    * cvars' restore). A hand-off leaves no process to follow (and never happens for a demo play:
    * eligibility refuses a Steam runner); the startup sweep / pending snapshot covers it.
    */
@@ -271,7 +271,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
   ): Promise<Outcome<ReplaysDemoPlayResult>> {
     const pipes = deps.platform !== 'win32'
     let input = launchInput
-    // Story 170 D2: stage args sit right before `+demo`, after the channel's args; only when a rect came.
+    // Story 170: stage args sit right before `+demo`, after the channel's args; only when a rect came.
     let stageArgs: string[] = []
     let stageResult: ReplaysStageResult | null = null
     let stageGeometry: string | null = null
@@ -314,7 +314,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
         extraArgs: [...argsBeforeDemo, ...withStage(launchInput.extraArgs ?? []), ...argsAfterDemo],
       }
     }
-    // Story 170 D3 / 174 D3: only a play whose final args `+set` a restore cvar has its archived cvars put
+    // Story 170 / 174: only a play whose final args `+set` a restore cvar has its archived cvars put
     // back once the game has exited (the engine writes its config on the way out). The snapshot is
     // taken - and persisted - before the process is spawned. A failed restore keeps the pending
     // snapshot on disk, so the next launcher start tries again.
@@ -354,7 +354,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
     if (copyPath !== null)
       onGameEnd(input.installationId, started.value.phase, () => void removeStagedCopy(copyPath))
     if (restoring) onGameEnd(input.installationId, started.value.phase, restoreCvars)
-    // Story 171 D2: only a placed session with a control channel is followed; ended with the session.
+    // Story 171: only a placed session with a control channel is followed; ended with the session.
     const endStage =
       stage && stageGeometry !== null && deps.playback && deps.onStageSession
         ? deps.onStageSession({ geometry: stageGeometry, rect: stage })
@@ -429,7 +429,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
         durationMs: demo.durationMs,
         format: demo.format,
       }
-      // Story 170 D3: where the engine writes its config for this game (Linux: Q2PRO's write dir).
+      // Story 170: where the engine writes its config for this game (Linux: Q2PRO's write dir).
       const configPath = sessionConfigPath(
         installation,
         target.gameDir,

@@ -36,11 +36,11 @@ function PanelTitle({ count }: { count?: number }) {
 }
 
 /**
- * Story 122 D4: the detail pane's players section. `row.players` carries four distinct shapes -
+ * Story 122: the detail pane's players section. `row.players` carries four distinct shapes -
  * a real roster (sortable table), a known-empty server (`0` or `[]`), a bare count with no roster
  * yet (a number > 0), or `undefined` (nothing fetched at all) - and each renders its own state.
  *
- * The roster table makes no spectator claim (AC4): every `<tr>` gets identical markup regardless
+ * The roster table makes no spectator claim: every `<tr>` gets identical markup regardless
  * of a player's score/ping value, so a score-0 or ping-0 row can never be told apart from any other
  * by its markup, only by its text - and `orDash` keeps one malformed cell from breaking the row.
  */

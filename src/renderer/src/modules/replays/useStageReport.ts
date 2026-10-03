@@ -4,7 +4,7 @@ import { sendStageRect } from './client'
 import { usePlaybackStore, type StageRect } from './playback-store'
 
 /**
- * Story 171 D3: keeps the main-side follower told where the stage is. The element's viewport rect is
+ * Story 171: keeps the main-side follower told where the stage is. The element's viewport rect is
  * read once per animation frame (a resize is not the only way the box moves - rows around it reflow),
  * so at most one `playback.stage` call leaves per frame, and only when the rounded rect changed.
  * - Before a session is live, measurements only record the baseline (the launch carries the rect).

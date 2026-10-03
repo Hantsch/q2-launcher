@@ -11,7 +11,7 @@ import { didFocusResume } from './file-source-refresh'
  * are no-ops while `profileId` is null (the list screen, nothing selected).
  *
  * - **Config tab open**: a profile becoming the selected one - depends on `params.profileId` itself
- *   (story 079 D6 review fix: this used to be a plain `useEffect(fn, [])`, which only ever fired once
+ *   (story 079 review fix: this used to be a plain `useEffect(fn, [])`, which only ever fired once
  *   for whatever profile happened to be selected at that exact instant - always `null`, since the
  *   view always lands on the profile list first. That meant "leave to Library and re-enter Config"
  *   re-read nothing at all; depending on `profileId` is what makes opening/switching to a profile
@@ -50,7 +50,7 @@ export function useFileSourceRefresh(params: {
   isSuspended: () => boolean
   onResult: (result: RefreshedProfileResult) => void
   /**
-   * Story 079 D6 (AC5): called once per trigger firing, right after `runRefresh` - regardless of
+   * Story 079: called once per trigger firing, right after `runRefresh` - regardless of
    * whether the refresh itself actually ran (`isSuspended` still suppresses `runRefresh`, never
    * this). `ConfigView` wires its `useDriftState` hook's `refetch` here so a changed, missing or
    * stale installation copy is checked on the exact same two triggers this hook already re-reads the

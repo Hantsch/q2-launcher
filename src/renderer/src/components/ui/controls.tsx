@@ -23,7 +23,7 @@ const FIELD_BASE =
  *
  * `Field`'s `<label>` is a *sibling* of the control, not a wrapper, so without a
  * matching id the control has no accessible name at all - axe's `label` and
- * `select-name` both fire (story 037 D6). Passing `htmlFor` per call site was
+ * `select-name` both fire (story 037). Passing `htmlFor` per call site was
  * the existing escape hatch, but only 2 of 30+ `Field` uses did it, so the id
  * is generated here instead and adopted by whichever control renders inside.
  * Every `Field` in the app holds exactly one control, so one id per `Field` is

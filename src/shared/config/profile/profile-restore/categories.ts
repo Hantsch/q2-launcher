@@ -10,28 +10,25 @@ import { taggedSubcategoryId, adoptableId } from './comment-parse'
  * same plain-English label `alias-import.ts` gives an import's leftovers. */
 export const FALLBACK_CATEGORY_NAME = 'Imported'
 
-/** Registry key of the shared fallback drawer - the one key that belongs to no section at all, which
- * is why it sorts last (`orderByFileSections`). Distinct by construction from every section-derived
- * key, which is either `cat:<id>` or `<kind>:<file>:<line>`. */
+/** Registry key of the shared fallback drawer - the one key that belongs to no section, which is why
+ * it sorts last (`orderByFileSections`). Distinct from every section-derived key (`cat:<id>` or
+ * `<kind>:<file>:<line>`). */
 export const FALLBACK_CATEGORY_KEY = 'fallback'
 
 /**
  * The registry key a section's entries are filed under - the identity a category's `Aliases: `,
- * `Binds: ` and `Entries: ` headers share (all three carry the same `cat=` tag), `null` for a
- * section that never mints a category at all (the reserved "Other" bucket).
+ * `Binds: ` and `Entries: ` headers share (all carry the same `cat=` tag), `null` for a section that
+ * never mints a category (the reserved "Other" bucket).
  *
- * Pure and side-effect free on purpose: `idFor` mints from it, and `orderByFileSections` re-derives
- * it for **every** header in the file - including the ones no entry happened to be filed under, so a
- * category whose `Binds:` header carries all its entries still takes its place in the `Aliases:`
- * block's sequence.
+ * Pure on purpose: `idFor` mints from it, and `orderByFileSections` re-derives it for every header
+ * in the file - including those no entry was filed under, so a category whose `Binds:` header holds
+ * all its entries still takes its place in the `Aliases:` block's sequence.
  */
 export function categoryKeyFor(section: Section | null): string | null {
   if (section === null) return FALLBACK_CATEGORY_KEY
-  // A sub-category section files its lines under its *parent*: the second level is a
-  // grouping inside a category, never a category of its own, so `categoryId` has to come out the
-  // same for an entry in a sub-category as for one in that category's ungrouped run. A sub-banner
-  // with no parent header at all (hand-edited) yields the shared fallback drawer, exactly like any
-  // other tagged line whose section cannot be determined.
+  // A sub-category files its lines under its parent: the second level is a grouping inside a
+  // category, so `categoryId` must match the category's ungrouped run. A sub-banner with no parent
+  // header (hand-edited) yields the fallback drawer like any other tagged line without a section.
   if (section.kind === 'subcategory') return categoryKeyFor(section.parent ?? null)
   if (section.kind === 'other') return null
   const tagged = section.fields.cat
@@ -40,51 +37,20 @@ export function categoryKeyFor(section: Section | null): string | null {
 }
 
 /**
- * The minted categories in the order their sections appear in the file.
+ * The minted categories in the order their sections appear in the file. Not "first header that
+ * mentions the category": `render.ts` writes categories in three passes (aliases, binds,
+ * `Entries:`), each only for categories with content, so document order is three interleaved
+ * subsequences of one order.
  *
- * Not simply "sort by the first header that mentions the category": `render.ts` writes the category
- * sections in three separate passes over `profile.categories` (aliases, then binds, then `Entries:`
- * anchors/unbound lines), and a category only gets a section in a pass that has something to put in
- * it. Document order is therefore three interleaved *subsequences* of one order - `Aliases: Alpha`
- * really does precede `Binds: Bewegung` in a file whose profile has Bewegung first - so the first
- * header alone reorders the rail exactly the way the bug being fixed here did, only more subtly.
+ * Each block (`Section.block`) gives its own sequence; they merge by an edge per consecutive pair,
+ * then a topological walk picks, among categories nothing waits on, the one whose first header
+ * comes first. A cyclic (contradictory) input takes the earliest remaining category rather than
+ * dropping it; the fallback drawer belongs to no section and sorts last.
  *
- * So each block (`Section.block`) contributes its own sequence, ordered within that block only, and
- * the sequences are merged: an edge per consecutive pair, then a topological walk that picks, among
- * the categories nothing is waiting on, the one whose first header comes first in the file. Since
- * every sequence is a subsequence of one and the same profile order, the merge reproduces that
- * order whenever the file states enough to determine it, and falls back to plain document order for
- * the pairs it does not (two categories that never share a block - possible only for a category
- * whose entries are all keyless aliases, where the file genuinely does not record the answer).
- *
- * Total and deterministic for any input, hand-edited files included: a contradictory pair of
- * sequences would leave a cycle with no zero-indegree node, and the loop then takes the earliest
- * remaining category by document position rather than dropping it. The fallback drawer belongs to no
- * section at all and so always sorts last.
- *
- * ## `ord`, and the pairs the sections genuinely cannot state
- *
- * The merge above is exact for every pair of categories that share a block, and *guesses* for the
- * rest - two categories whose blocks never meet have no header pair to compare, so it falls back to
- * document position, which only says which of their two blocks the writer emits first. That is not a
- * near-miss: a profile whose category Alpha has only unbound entries (an `Entries:` section) and
- * whose category Bravo has only bound ones (a `Binds:` section) renders **byte-identically** with
- * those two swapped, so the reader was not misreading a signal - there was none, and Alpha and Bravo
- * changed places in the rail on the first rebuild-from-file whichever way round the user had put
- * them.
- *
- * `render.ts#categoryOrdinals` therefore records each category's position in the header's own tag,
- * and it is applied *on top of* the merge rather than instead of it: the merged order stands, and
- * `ord` re-sorts it. That ordering keeps three things a plain "sort by `ord`" would not:
- *
- * - a file written before this field existed (or one whose tags were hand-deleted) orders exactly as
- *   it did, since a missing `ord` changes nothing;
- * - a category with no `ord` - a hand-added section in an otherwise launcher-written file, the
- *   fallback drawer - keeps its merged position *relative to the numbered ones* by carrying the last
- *   `ord` seen before it forward, instead of being swept to one end of the rail;
- * - hand-edited nonsense (a duplicated or non-numeric `ord`) degrades to the merged order for the
- *   categories it affects rather than reordering the file at random, because the sort is stable and
- *   an unreadable value is treated as absent.
+ * `ord`: categories whose blocks never meet (one only unbound, one only bound) render identically
+ * swapped, so `render.ts#categoryOrdinals` stamps each position into the header tag, applied on
+ * top of the merge: no `ord` keeps the merged order; a category without one carries the last
+ * `ord` seen forward; a duplicated or non-numeric `ord` counts as absent.
  */
 export function orderByFileSections(
   created: ReadonlyMap<string, ConfigActionCategory>,
@@ -93,20 +59,16 @@ export function orderByFileSections(
   const keys = [...created.keys()]
   const firstAt = new Map<string, number>()
   const sequences = new Map<string, string[]>()
-  /** The `ord` the file states for a category, from the first of its headers that carries a readable
-   * one - all three of a category's headers carry the same value when this writer wrote them, so
-   * "the first readable one wins" only ever picks between hand-edited disagreements, and it picks
-   * deterministically. */
+  /** The `ord` the file states for a category, from the first of its headers carrying a readable
+   * one. All three headers agree in a launcher-written file, so first-wins only arbitrates
+   * hand-edited disagreements, deterministically. */
   const statedOrdinals = new Map<string, number>()
 
   sections.forEach((section, index) => {
-    // A sub-category banner states nothing about the *category* order and must not be read as if it
-    // did. Its `categoryKeyFor` is its parent's, and its `block` is `undefined` (a
-    // sub-banner carries no `Aliases: `/`Binds: `/`Entries: ` prefix by design), so leaving it in
-    // would drop every category that has sub-categories into the one shared `''` sequence below -
-    // where the three per-block subsequences are interleaved rather than comparable, and an edge
-    // between two categories that share no block would be invented from nothing but which block the
-    // writer happens to emit first. That is precisely the pair `ord` exists to answer.
+    // A sub-category banner states nothing about category order. Its `categoryKeyFor` is its
+    // parent's and its `block` is `undefined`, so keeping it would put every category with
+    // sub-categories into the shared `''` sequence, inventing edges between categories that share no
+    // block from which block the writer happens to emit first - the pair `ord` exists to answer.
     if (section.kind === 'subcategory') return
     const key = categoryKeyFor(section)
     if (key === null || !created.has(key)) return
@@ -117,8 +79,8 @@ export function orderByFileSections(
     }
     const block = section.block ?? ''
     const sequence = sequences.get(block) ?? []
-    // A key repeated inside one block (only reachable by hand-editing two headers of the same
-    // category into the same block) keeps its first position rather than adding a self-edge.
+    // A key repeated inside one block (two hand-edited headers) keeps its first position rather
+    // than adding a self-edge.
     if (!sequence.includes(key)) sequence.push(key)
     sequences.set(block, sequence)
   })
@@ -162,10 +124,10 @@ export function orderByFileSections(
   return applyStatedOrdinals(ordered, created, statedOrdinals)
 }
 
-/** A category header's `ord` value as a number, or `null` when the header carries none or carries
- * something no writer of this format ever wrote (a hand-edited `ord=first`, a value past the safe
- * integer range). `null` means "this category is unnumbered", which `applyStatedOrdinals` handles as
- * a position to preserve rather than as an error - the file is never rejected over decoration. */
+/** A category header's `ord` as a number, or `null` when absent or something no writer of this
+ * format wrote (`ord=first`, past the safe-integer range). `null` means unnumbered, which
+ * `applyStatedOrdinals` treats as a position to preserve - the file is never rejected over
+ * decoration. */
 export function readOrdinal(value: string | undefined): number | null {
   if (value === undefined) return null
   const trimmed = value.trim()
@@ -176,15 +138,13 @@ export function readOrdinal(value: string | undefined): number | null {
 
 /**
  * `merged` re-sorted by the `ord` the file states for each category (`render.ts#categoryOrdinals`),
- * with the merged order kept wherever the file states nothing - see `orderByFileSections`' doc
- * comment for why both halves are needed.
+ * keeping the merged order wherever the file states nothing (see `orderByFileSections`).
  *
- * The sort key is `(ord, offset)`: a numbered category takes its own `ord` at offset 0, and every
- * unnumbered category takes the last `ord` seen before it in the merged order at a growing offset,
- * so it lands immediately behind the numbered category it already followed. A category before any
- * numbered one carries `-Infinity` and stays at the front, in merged order. The comparison is by
- * `<` rather than by subtraction, so an infinite carry never produces `NaN`, and it is stable, so
- * two categories a hand-edited file gives the same `ord` keep the merged order between them.
+ * The sort key is `(ord, offset)`: a numbered category takes its own `ord` at offset 0; an
+ * unnumbered one takes the last `ord` seen before it in merged order at a growing offset, landing
+ * right behind the numbered category it already followed. A category before any numbered one carries
+ * `-Infinity` and stays in front. Comparison is by `<`, not subtraction, so an infinite carry never
+ * yields `NaN`; the sort is stable, so equal `ord`s keep their merged order.
  */
 export function applyStatedOrdinals(
   merged: readonly ConfigActionCategory[],
@@ -228,26 +188,19 @@ export interface CategoryRegistryState {
 }
 
 /**
- * One sub-category section registered into its parent category - **eagerly**, before a single
- * entry has been read.
+ * One sub-category section registered into its parent category - eagerly, before any entry is read.
  *
- * That is the one place this registry is deliberately not lazy, and the reason is the shape the
- * lazy rule cannot see: a sub-category the user has just created holds no entries, so nothing
- * would ever ask for it, and `render.ts#withSubcategoryBuckets` writes its banner anyway
- * (`banner()` rather than `section()`, precisely so an empty one still leaves a trace). Registering
- * from the tag itself is what makes that trace mean something - it is story 052's "the file is the
- * source of truth for an empty row" mechanism one level down.
+ * This is the one deliberately non-lazy spot: a freshly created sub-category holds no entries, so
+ * nothing would ask for it, yet `render.ts#withSubcategoryBuckets` writes its banner anyway
+ * (`banner()` rather than `section()`, so an empty one still leaves a trace). Registering from the
+ * tag makes that trace meaningful - the file is the source of truth for an empty row, one level
+ * down. The parent is minted with it: a category whose only content is a sub-category
+ * still renders a section, and dropping the category would take the sub-category along.
  *
- * Minting the *parent* eagerly with it follows from the same file: a category whose only content
- * is a sub-category renders a section too, and dropping the category would take the sub-category
- * with it. A category with neither is still minted by nothing at all, so a cvar group's banner
- * stays what it always was.
- *
- * The `sub` id the file states is the *lookup key*, scoped to its parent's key, and
- * also the record's own id when it is well-formed and not yet taken in this restore
- * (`adoptableId`) - so two categories that happen to state the same `sub` id stay two
- * sub-categories, the second one minted. A heuristic sub-category's synthetic
- * `HEURISTIC_SUBCATEGORY_PREFIX` key is not something the file states and is never adopted.
+ * The stated `sub` id is the lookup key (scoped to the parent's key) and also the record's id when
+ * well-formed and not yet taken in this restore (`adoptableId`), so two categories stating the same
+ * `sub` id keep two sub-categories. A heuristic `HEURISTIC_SUBCATEGORY_PREFIX` key is not stated by
+ * the file and is never adopted.
  */
 export function registerSubcategory(
   state: CategoryRegistryState,
@@ -258,11 +211,10 @@ export function registerSubcategory(
   const stated = taggedSubcategoryId(section.fields)
   if (stated === null) return
   const key = categoryKeyFor(section)
-  // `null` is the reserved "Other" bucket, which is the *absence* of a category (see `idFor`) and
-  // so has nothing to hang a sub-category on. Nothing is registered; the lines under the banner
-  // still land where they would have.
+  // `null` is the reserved "Other" bucket, the absence of a category (see `idFor`), so there is
+  // nothing to hang a sub-category on; the lines under the banner still land where they would have.
   if (key === null) return
-  // Mints the parent if this is the first mention of it - see this function's doc comment.
+  // Mints the parent if this is its first mention.
   idFor(section)
   const category = created.get(key)
   if (!category) return
@@ -275,32 +227,22 @@ export function registerSubcategory(
     name: section.title,
   }
   known.set(stated, record)
-  // Attached in first-seen document order, which is the order `withSubcategoryBuckets` wrote them
-  // in: it walks `category.subcategories` for every one of the category's three sections, so all
-  // three state the same order and the first of them settles it. The field is only created once
-  // there is something to put in it, so a category with no sub-categories keeps the exact shape it
-  // had before this story.
+  // First-seen document order, which is the order `withSubcategoryBuckets` wrote them in (all three
+  // of a category's sections state the same order). The field is only created once non-empty, so a
+  // category without sub-categories keeps its shape.
   category.subcategories = [...(category.subcategories ?? []), record]
 }
 
 /**
- * Hands out category ids, lazily: one category per distinct `cat` id, one per untagged section, and
- * one shared fallback drawer. Lazy is what keeps a normal launcher file's cvar-group and
- * `Other binds` banners from minting categories nothing is ever filed under.
+ * Hands out category ids lazily: one per distinct `cat` id, one per untagged banner, one shared
+ * fallback drawer - so a launcher file's cvar-group and `Other binds` banners mint nothing.
  *
- * `created()` orders the minted categories by the file's own section order (`orderByFileSections`),
- * not by mint order: a category is minted the first time an **entry** asks for it, so mint order is
- * entry-discovery order and says nothing about where the sections sit in the file. Because
- * `orderedCategoryIds` follows `profile.categories`, this array *is* the next file's section order -
- * a different order would silently move sections nobody had touched (story 052 D5).
+ * `created()` orders by the file's section order (`orderByFileSections`), not mint order (entry
+ * discovery): `orderedCategoryIds` follows `profile.categories`, so this array is the next file's
+ * section order and a different one would silently move sections nobody touched.
  *
- * A *template* `cat` id (`movement`/`weapons`/`drops`) mints a real, ordinary category like any
- * other: a profile has exactly the categories it carries, so adopting an id without a record would
- * point the restored entries at a category the profile does not have, and the next render would
- * sweep them into the trailing "Other" bucket, losing the name and position the file stated. It only
- * keeps its *id* rather than getting a local one, so that
- * `cat=` tags, the template seed and the migration all keep meaning the same drawer (the story's
- * Decisions: "built-in ids stay `movement`/`weapons`/`drops`").
+ * A template `cat` id mints a real, ordinary category: leaving it without a record would point
+ * entries at a category the profile lacks, and the next render would sweep them into "Other".
  */
 export function categoryRegistry(
   newId: () => string,
@@ -316,11 +258,8 @@ export function categoryRegistry(
   /** Every category and sub-category id this registry has handed out - see `adoptableId`. */
   const taken = new Set<string>()
 
-  /**
-   * a `cat=` id the file states is adopted rather than re-minted (`adoptableId`), so
-   * the next render writes the same tag back. An untagged banner states nothing and mints, exactly
-   * as before.
-   */
+  /** A `cat=` id the file states is adopted (`adoptableId`) so the next render writes the same tag
+   * back; an untagged banner states nothing and mints. */
   const mint = (key: string, name: string, stated?: string): string => {
     const existing = created.get(key)
     if (existing) return existing.id
@@ -330,10 +269,9 @@ export function categoryRegistry(
   }
 
   /**
-   * A `cat` id that names a template category: the id verbatim, the header's own title as the name
-   * (a renamed category must come back renamed - AC 8), and the template's `nameKey` re-attached
-   * only when the title is still exactly the template's English default, per the story's Decisions.
-   * A renamed one is plain prose from here on, exactly like a user-created category.
+   * A `cat` id naming a template category: the id verbatim, the header's title as the name (a
+   * renamed category comes back renamed), and the template's `nameKey` re-attached only while the
+   * title is still the template's English default. A renamed one is plain prose from then on.
    */
   const mintTemplate = (
     key: string,
@@ -353,38 +291,26 @@ export function categoryRegistry(
   }
 
   /**
-   * The category id a section's lines are filed under, minting the category if this is the first
-   * thing to ask for it. Hoisted out of the returned object so the eager sub-category pass below can
-   * call it too - registering a sub-category has to mint its parent, or the second level would be
-   * attached to nothing.
+   * The category id a section's lines are filed under, minting the category on first ask. Hoisted so
+   * the eager sub-category pass can call it too: registering a sub-category must mint its parent.
    */
   const idFor = (section: Section | null): string => {
     if (section === null) return mint(FALLBACK_CATEGORY_KEY, FALLBACK_CATEGORY_NAME)
-    // A sub-category banner is not a category: its lines belong to the category it sits inside, so
-    // the whole question is delegated one level up. Delegating rather than reading
-    // `categoryKeyFor`'s parent key and minting from *this* section is what keeps the category's
-    // name the category's own - minting from here would name it after the sub-category.
+    // A sub-category's lines belong to the category it sits inside. Delegating (rather than minting
+    // from this section) keeps the category's name its own instead of the sub-category's.
     if (section.kind === 'subcategory') return idFor(section.parent ?? null)
-    // The reserved "Other"/"Other binds" bucket
-    // (`Section.kind === 'other'`) is deliberately never `mint()`-ed into a real, persisted
-    // `ConfigActionCategory` - `ConfigAction.categoryId` still has to be *some* real string (the
-    // field is non-nullable), but `render.ts`'s "Other" bucket is defined as "this categoryId
-    // matches nothing the profile has" (`groupByCategory`'s trailing bucket), not as a stored
-    // `null`. Handing back a fresh id from `newId()` that is never registered anywhere satisfies
-    // both: the action gets a valid id, and because that id was never added to any category list,
-    // the very next render buckets it right back into the untagged "Other" section - the same
-    // outcome the original (unrecoverable) orphaned id would have produced, and the fixed point AC2
-    // asks for. Minting a real "Other" category would create one the source profile never had.
-    // `categoryKeyFor` is `null` for exactly that bucket, and is the *only* place a key is
-    // derived from a section - `orderByFileSections` reads the same one back off the file.
+    // The reserved "Other" bucket is never minted into a persisted category: `render.ts` defines it
+    // as "this `categoryId` matches nothing the profile has" (`groupByCategory`'s trailing bucket).
+    // `ConfigAction.categoryId` is non-nullable, so a fresh `newId()` that is never registered gives
+    // the action a valid id, and the next render buckets it back into "Other" - the fixed point.
+    // Minting a real "Other" category would create one the source profile never had.
     const key = categoryKeyFor(section)
     if (key === null) return newId()
     const tagged = section.fields.cat
     if (tagged !== undefined && tagged.length > 0) {
-      // A template id keeps its id and gets its `nameKey` back - see this registry's doc comment.
-      // Any other `cat=` id is adopted too, named from the header's
-      // own title, so a colleague's category comes back as a real local category under the id
-      // their file states and the next render writes that same tag back.
+      // A template id keeps its id and gets its `nameKey` back; any other `cat=` id is adopted too,
+      // named from the header's title, so a colleague's category comes back under the id their file
+      // states and the next render writes that tag back.
       const template = TEMPLATE_ACTION_CATEGORIES.find((category) => category.id === tagged)
       return template
         ? mintTemplate(key, template, section.title)
@@ -413,27 +339,22 @@ export function categoryRegistry(
 }
 
 /**
- * How this section identifies its *category*, for the "within the same section" scope an anchor is
- * matched in (the story's decision).
+ * How this section identifies its category, for the "within the same section" scope an anchor is
+ * matched in.
  *
- * Not the `Section` object itself: one category writes three separate banners in a launcher file
- * (`Aliases: X`, `Binds: X`, `Entries: X` - `render.ts`), so an anchor and the entry it belongs to
- * sit under three *different* header lines of the same category by construction. A tagged header's
- * `cat` id is that identity; the reserved "Other" bucket is one shared scope (all three of its
- * banners are `kind: 'other'`); an untagged banner falls back to its own title, which is what a
- * category whose `cat=` tag was hand-deleted still has in common across its three banners. A layer
- * header stays per-line, since layer membership is positional and never shared.
+ * Not the `Section` object itself: one category writes three banners (`Aliases: X`, `Binds: X`,
+ * `Entries: X`), so an anchor and its entry sit under different header lines by construction. A
+ * tagged header's `cat` id is the identity; the reserved "Other" bucket is one shared scope; an
+ * untagged banner falls back to its title, which a category with a hand-deleted `cat=` still shares
+ * across its three banners. A layer header stays per-line - membership is positional.
  */
 export function sectionCategoryKey(section: Section | null): string {
   if (section === null) return 'none'
   if (section.kind === 'layer') return `layer:${section.file}:${section.line}`
   if (section.kind === 'other') return 'other'
-  // A sub-category narrows the scope rather than sharing its parent's. The three
-  // banners of one sub-category (its category's `Aliases: `/`Binds: `/`Entries: ` sections each carry
-  // it, `withSubcategoryBuckets`) state the same parent and the same `sub` id, so an entry's own
-  // lines still meet - and two entries the user named the same thing in two different
-  // sub-categories of one category stay two entries, for exactly the reason the scope was made
-  // per-category in the first place.
+  // A sub-category narrows the scope instead of sharing its parent's: its three banners state the
+  // same parent and `sub` id so an entry's lines still meet, while two same-named entries in
+  // different sub-categories of one category stay two entries.
   if (section.kind === 'subcategory') {
     return `${sectionCategoryKey(section.parent ?? null)}|sub:${taggedSubcategoryId(section.fields) ?? ''}`
   }

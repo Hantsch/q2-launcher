@@ -76,7 +76,7 @@ async function bootstrap(): Promise<void> {
   await app.whenReady()
 
   // The one line every support log should have had anyway: which build is actually running. It is
-  // also story 101 D6's out-of-process oracle - after an AppImage self-update the launcher re-execs
+  // also story 101's out-of-process oracle - after an AppImage self-update the launcher re-execs
   // itself through `$APPIMAGE`, so the relaunched process is a *different* process that no test
   // driver is still attached to; `scripts/linux-update-e2e.mjs` polls this line out of the log file
   // on disk to prove the new version really came back up. Logged after `whenReady()` because
@@ -91,7 +91,7 @@ async function bootstrap(): Promise<void> {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // Story 171 D2: the window's events reach modules through `context.mainWindow` (read-only);
+  // Story 171: the window's events reach modules through `context.mainWindow` (read-only);
   // `createMainWindow` gets the write side. Same late binding over `mainWindow` as below.
   const windowEvents = createMainWindowEvents({
     getWindow: () => {
@@ -132,7 +132,7 @@ async function bootstrap(): Promise<void> {
   // waits for something that is never coming again. The `await` above is itself the guarantee the
   // listener was there for - "the UI can display the result" is true the moment it returns.
   //
-  // Caught by `scripts/linux-update-e2e.mjs` (story 101 D6/AC6): its packaged AppImage sat at
+  // Caught by `scripts/linux-update-e2e.mjs` (story 101): its packaged AppImage sat at
   // `{ status: 'idle', lastCheckedAt: null, supported: true }` for the full 180s, i.e. a build that
   // supports updates had simply never checked for one.
 
@@ -140,9 +140,9 @@ async function bootstrap(): Promise<void> {
   // have been deleted, moved or unplugged while the launcher was closed.
   void revalidateOnStartup(context)
 
-  // Story 097 D5: the update-check's startup kick - fire-and-forget, after a short delay so it
+  // Story 097: the update-check's startup kick - fire-and-forget, after a short delay so it
   // never competes with the window's own first paint, and never awaited
-  // (`scheduleStartupCheck()` itself returns synchronously; AC3's "does not block startup").
+  // (`scheduleStartupCheck()` itself returns synchronously; so startup is not blocked).
   setTimeout(() => {
     context?.update.scheduleStartupCheck()
   }, 3_000)
@@ -229,7 +229,7 @@ function serveRendererFromScheme(): void {
       root: join(__dirname, '../renderer'),
       csp: PRODUCTION_CSP,
       readFile: (path) => readFile(path),
-      // Story 084 D3: cached slide images are served from their own root under `userData`, on the
+      // Story 084: cached slide images are served from their own root under `userData`, on the
       // same origin as the document (a second host would be a second origin and `img-src 'self'`
       // would need widening). The directory need not exist yet - it is created when the first
       // image is fetched, and until then every request here is simply a 404.

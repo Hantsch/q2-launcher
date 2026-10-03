@@ -1,5 +1,5 @@
 /**
- * Story 150 D2: composes `index.read`'s real rows - a discovered demo (`DiscoveredDemo`, D1) plus
+ * Story 150: composes `index.read`'s real rows - a discovered demo (`DiscoveredDemo`) plus
  * its sidecar and its resolved effective values (`resolveEffectiveValues`,
  * `src/shared/demos/effective-values.ts`) - so the renderer never runs the resolver itself.
  *

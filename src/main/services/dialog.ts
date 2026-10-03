@@ -23,7 +23,7 @@ export interface DialogServiceOptions {
 }
 
 /**
- * Story 066 D4: the one place that owns `dialog.showOpenDialog` for picking config files.
+ * Story 066: the one place that owns `dialog.showOpenDialog` for picking config files.
  *
  * Modules cannot touch `dialog` or `BrowserWindow` directly and get no invoke event to resolve a
  * window from (`modules/types.ts:41-44`), so this exists as its own service on `AppContext` instead
@@ -55,7 +55,7 @@ export class DialogService {
    * `Q2L_UI_PICK_FILES` format: paths joined with `path.delimiter` (`;` on Windows, `:` elsewhere) -
    * the same separator Node uses for `PATH` itself, and safe here because a `.cfg` path is most
    * unlikely to contain it (a real OS path list already relies on the same assumption). Empty
-   * segments are dropped, so a trailing delimiter or an unset/empty variable both yield `[]`. D8's
+   * segments are dropped, so a trailing delimiter or an unset/empty variable both yield `[]`. the
    * e2e harness must produce values in this exact format.
    */
   async pickConfigFiles({ defaultPath }: { defaultPath?: string }): Promise<string[]> {

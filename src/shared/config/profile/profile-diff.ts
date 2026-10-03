@@ -1,6 +1,6 @@
 /**
- * What a Save would change (story 049 D2): the live profile measured against its own
- * `baseline` (story 049 D1, `./profile-baseline`).
+ * What a Save would change (story 049): the live profile measured against its own
+ * `baseline` (story 049, `./profile-baseline`).
  *
  * The one place that answers "which of this profile's edits are not in the file yet" - for the
  * save bar's before/after list, for the per-row "unsaved" indicator, and for the counters that
@@ -11,7 +11,7 @@
  * ## The comparison is against what the file would say, not against the record
  *
  * Both sides are normalised through `captureBaseline` before anything is compared, so this module
- * never repeats D1's `?? []` / `!== false` / `?? 'dashes'` reads and can never disagree with the
+ * never repeats the `?? []` / `!== false` / `?? 'dashes'` reads and can never disagree with the
  * snapshot it is diffing against. On top of that, two per-section rules exist purely to keep the
  * answer aligned with `render.ts`:
  *
@@ -29,7 +29,7 @@
  * baseline and `dirty !== true` is treated as its own baseline"). For a legacy `dirty === true`
  * record from before this story there genuinely is no saved state to measure against, and this
  * function degrades to "nothing to show" rather than throwing or inventing a sentinel: the
- * "no known saved state" outcome, and the disabled discard that goes with it (D3/D6), keys off
+ * "no known saved state" outcome, and the disabled discard that goes with it, keys off
  * `profile.baseline` being absent - never off an empty change set, which is also what a perfectly
  * clean profile produces.
  *
@@ -79,7 +79,7 @@ export type ProfileChangeKind = 'added' | 'removed' | 'changed'
  *
  * `before`/`after` are plain, already-legible strings - never objects, never i18n keys - and the
  * missing side of an `added`/`removed` change is `undefined` rather than an empty string or a word
- * like "unbound": what to *show* for a side that does not exist is the renderer's decision (D5),
+ * like "unbound": what to *show* for a side that does not exist is the renderer's decision,
  * which is the only layer that may put translated prose on screen. Both properties are always
  * *present*, `undefined` value and all, so `'before' in change` never becomes a second, subtly
  * different way of asking what `kind` already answers.
@@ -97,7 +97,7 @@ export interface ProfileChange {
   before?: string
   after?: string
   /**
-   * Which *fields* of this entry differ (story 064 D1) - present only on the `changed` rows of the
+   * Which *fields* of this entry differ (story 064) - present only on the `changed` rows of the
    * `actions` and `layers` sections, the only ones whose `before`/`after` is a whole-entry summary
    * rather than the value itself.
    *
@@ -117,9 +117,9 @@ export interface ProfileChange {
  * lines the user had to compare by eye. It is per *field* and not per change - one changed entry
  * stays exactly one `ProfileChange` - because `count`, `keys` and the per-row unsaved indicators all
  * key off the change list, so splitting an action into five rows would inflate all three (story 064,
- * Decisions/AC4).
+ * Decisions).
  *
- * `field` is the profile's own field name, which is what a renderer translates on (story 064 D2),
+ * `field` is the profile's own field name, which is what a renderer translates on (story 064),
  * never prose. `before`/`after` follow `ProfileChange`'s rule exactly: plain legible strings, and
  * `undefined` for a side that has no value at all - the field is absent on that row, or holds the
  * one `null` the model allows (`AltLayer.triggerKey`, "no trigger assigned"). What to *show* for
@@ -133,7 +133,7 @@ export interface ProfileChangeDetail {
 
 /**
  * Every pending change, three ways: flat (the whole list, in section order), per section (empty
- * sections **absent**, so the save bar renders no group for them - story AC5), and as key sets.
+ * sections **absent**, so the save bar renders no group for them - per the story), and as key sets.
  *
  * The key sets are what make a per-row indicator affordable: a row asks
  * `changes.keys.cvars.has(cvarChangeKey(name))` in O(1) instead of scanning the flat list once per
@@ -153,7 +153,7 @@ export interface ProfileChangeSet {
  * what `findCvar` matches on) for a recognized cvar, the stored name verbatim for one the catalogue
  * does not know.
  *
- * Exported so a Settings row (D7) derives the key the same way this module does rather than
+ * Exported so a Settings row derives the key the same way this module does rather than
  * re-deriving the catalogue-vs-unknown rule. The two spaces cannot collide: a name that equals some
  * `def.name.toLowerCase()` is by definition one `findCvar` resolves, so it never takes the
  * unrecognized branch.
@@ -431,7 +431,7 @@ function describePart(part: ActionEntryPart, index: number): string {
 }
 
 /**
- * How each modelled field of an action or a layer is spelled in a detail row (story 064 D1).
+ * How each modelled field of an action or a layer is spelled in a detail row (story 064).
  *
  * This map is **not** the completeness rule - `entryDetails` takes the union of both rows' own keys,
  * so a field added to `ConfigAction` or `AltLayer` later shows up on its own (story 064, Decisions:
@@ -441,7 +441,7 @@ function describePart(part: ActionEntryPart, index: number): string {
  * gets a row, via `canonical`: a safety net, not the normal path.
  *
  * The multi-value fields are newline-joined rather than `; `-joined, so a multi-command body reads
- * one command per line (story 064, AC5) instead of as one long line the changed command hides in.
+ * one command per line (story 064) instead of as one long line the changed command hides in.
  */
 const DETAIL_FORMATTERS: Record<string, (value: unknown) => string> = {
   name: (value) => String(value),
@@ -535,7 +535,7 @@ function entryDetails(heldRow: object, liveRow: object): ProfileChangeDetail[] {
  * "Changed" is decided by a deep structural comparison (`canonical`), so every field counts -
  * including the ones no summary line shows (`catalogId`, `keepEmptyAlias`), which do reach the file
  * as `[q2l ...]` tag content. Such a row is not left summarising identically on both sides either:
- * `details` names each field that differs (story 064 D1), which is both what makes the row readable
+ * `details` names each field that differs (story 064), which is both what makes the row readable
  * as a diff and why the two sides never need to fall back to raw JSON.
  */
 function diffById<T extends { id: string }>(
@@ -597,14 +597,14 @@ function diffById<T extends { id: string }>(
  * `writeUnbindall` is already the `true` it renders as, and an absent `sectionHeaderStyle` is
  * already `'dashes'`.
  *
- * `name` is here rather than in a section of its own (review finding, story 049): a rename is
+ * `name` is here rather than in a section of its own: a rename is
  * pending file content like the other two - it is the header banner's text and the canonical file's
  * name, both written by the next save (story 043) - and the story fixes this diff's section list at
  * six, so `settings` is the bucket it belongs in. It is reported first because it is the coarsest of
  * the three.
  *
  * `before`/`after` are the values themselves as strings (`"true"`, `"dashes"`); `key` is the field
- * name, which is what a renderer translates on (D5), never this text.
+ * name, which is what a renderer translates on, never this text.
  */
 function diffSettings(before: ProfileBaseline, after: ProfileBaseline): ProfileChange[] {
   const changes: ProfileChange[] = []
@@ -737,7 +737,7 @@ export function diffProfileAgainstBaseline(profile: ConfigProfile): ProfileChang
   const baseline = profile.baseline
   if (!baseline) return buildChangeSet([])
 
-  // The live side goes through D1's own capture, so "what counts as a field, and how is it
+  // The live side goes through its own capture, so "what counts as a field, and how is it
   // normalised" is answered once, by the module that defines the snapshot.
   const live = captureBaseline(profile)
 

@@ -15,8 +15,8 @@
  * `command`, `item`, `ammo`, `kind`, `category` and `continuous` stay
  * literal — they are game data, not UI prose.
  *
- * Story 040 D1 adds a plain ASCII `label` alongside every `labelKey`: the
- * config-file writer (`render.ts`, D3) runs in main as well as the renderer
+ * Story 040 adds a plain ASCII `label` alongside every `labelKey`: the
+ * config-file writer (`render.ts`) runs in main as well as the renderer
  * and is never allowed to import i18n (see that story's Decisions), so every
  * row also carries the same text `labelKey` resolves to in the renderer,
  * literally. `comment-labels.test.ts` pins every `label` here against the
@@ -35,10 +35,10 @@ export type ActionCategoryId = 'movement' | 'weapons' | 'drops' | 'demo'
 export interface Action {
   id: string
   labelKey: string
-  /** Plain ASCII English text `labelKey` resolves to (story 040 D1) — see the file doc comment. */
+  /** Plain ASCII English text `labelKey` resolves to (story 040) — see the file doc comment. */
   label: string
   command: string
-  /** Story 167 D2: when set, the row's separate console commands (rendered as one generated alias
+  /** Story 167: when set, the row's separate console commands (rendered as one generated alias
    * body, like a drop row's pair); `command` is then their `; `-joined text. */
   commands?: string[]
   category: ActionCategoryId
@@ -168,7 +168,7 @@ export const MOVEMENT_ACTIONS: Action[] = [
 export interface WeaponDef {
   id: string
   labelKey: string
-  /** Plain ASCII English text `labelKey` resolves to (story 040 D1) — see the file doc comment. */
+  /** Plain ASCII English text `labelKey` resolves to (story 040) — see the file doc comment. */
   label: string
   /** Exact item name the `use` and `drop` commands expect. */
   item: string
@@ -300,8 +300,8 @@ export const WEAPON_EXTRA_ACTIONS: Action[] = [
 ]
 
 /**
- * Story 167 D1: demo-playback actions. `seek` is a Q2PRO verb, so these only work while a demo is
- * playing; every command except `demoBackToWindow` runs behind `guardDemoCommand` (story 172 D1). The jump seconds come from the timeline's own step constants (story 165), never copies.
+ * Story 167: demo-playback actions. `seek` is a Q2PRO verb, so these only work while a demo is
+ * playing; every command except `demoBackToWindow` runs behind `guardDemoCommand` (story 172). The jump seconds come from the timeline's own step constants (story 165), never copies.
  */
 export const DEMO_ACTIONS: Action[] = [
   {
@@ -344,7 +344,7 @@ export const DEMO_ACTIONS: Action[] = [
     category: 'demo',
     descriptionKey: 'config.actionCatalog.demoJumpForwardLong.description',
   },
-  // Story 167 D2: one timeline speed step per press, as a Q2PRO `if` chain (`demo-speed.ts`).
+  // Story 167: one timeline speed step per press, as a Q2PRO `if` chain (`demo-speed.ts`).
   {
     id: 'demoSpeedUp',
     labelKey: 'config.actionCatalog.demoSpeedUp.label',
@@ -363,7 +363,7 @@ export const DEMO_ACTIONS: Action[] = [
     category: 'demo',
     descriptionKey: 'config.actionCatalog.demoSpeedDown.description',
   },
-  // Story 172 D1: leaves fullscreen; unguarded here because `q2l_back.cfg` guards itself.
+  // Story 172: leaves fullscreen; unguarded here because `q2l_back.cfg` guards itself.
   {
     id: 'demoBackToWindow',
     labelKey: 'config.actionCatalog.demoBackToWindow.label',
@@ -377,7 +377,7 @@ export const DEMO_ACTIONS: Action[] = [
 export interface DroppableDef {
   id: string
   labelKey: string
-  /** Plain ASCII English text `labelKey` resolves to (story 040 D1) — see the file doc comment. */
+  /** Plain ASCII English text `labelKey` resolves to (story 040) — see the file doc comment. */
   label: string
   item: string
   ammo?: string
@@ -519,7 +519,7 @@ export const DROPPABLES: DroppableDef[] = [
 export interface DropAction {
   id: string
   labelKey: string
-  /** Plain ASCII English text `labelKey` resolves to (story 040 D1) — see the file doc comment. */
+  /** Plain ASCII English text `labelKey` resolves to (story 040) — see the file doc comment. */
   label: string
   /** One `drop <item>` command per droppable item; two when an ammo item exists (weapon + its ammo). */
   commands: string[]

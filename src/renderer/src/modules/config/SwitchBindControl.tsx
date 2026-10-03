@@ -6,9 +6,9 @@ import { resolveQuakeKeyName } from './lib/keyboard-layout'
 import { setSwitchBind } from './client'
 
 /**
- * Story 007 D4: one installation's in-session profile-switch bind. Shown by
+ * Story 007: one installation's in-session profile-switch bind. Shown by
  * `InstallationProfilesPanel` only when that installation has 2+ assigned
- * profiles (AC 5) - this component itself does not gate on that, it only
+ * profiles - this component itself does not gate on that, it only
  * renders the control for whichever installation it is given.
  *
  * Press-to-capture mirrors `OverviewKeyboardPanel`'s test-mode listener

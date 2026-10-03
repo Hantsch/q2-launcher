@@ -22,7 +22,7 @@ import {
 } from './lib/address-book'
 
 /**
- * Story 127 D1: lets the user write a server's address into one of Quake II's nine `adr0`-`adr8`
+ * Story 127: lets the user write a server's address into one of Quake II's nine `adr0`-`adr8`
  * cvars on a config profile of their choosing - the launcher-side counterpart of the engine's own
  * in-game address book.
  *
@@ -91,7 +91,7 @@ export function AddToAddressBookDialog({
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- preselection runs per delivered list only
   }, [listQuery.state, listQuery.data])
 
-  // Story AC5: switching profiles re-reads fresh rather than trusting the list already in state -
+  // Switching profiles re-reads fresh rather than trusting the list already in state -
   // guards against another surface (or another window) having changed the profile's cvars in the
   // meantime. While the read is in flight, `slots` is cleared so no stale value from the previous
   // profile is shown.

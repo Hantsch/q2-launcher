@@ -20,7 +20,7 @@
  * Mirrors `src/shared/config/validation/validation.ts`'s convention: a rejection carries a reason *code* (a
  * string-literal union), never a literal English message. A caller resolves the code to an i18n key
  * via `serverAddressRejectionKey()`; the actual `en.json` entries are a separate deliverable (story
- * 107, D3).
+ * 107).
  *
  * ## Scope: IPv4 and hostnames only, no IPv6 (story 107 decision)
  *
@@ -28,7 +28,7 @@
  * in this ecosystem. An IPv6 literal is rejected the same as any other malformed input, with its
  * own `ipv6-not-supported` reason code so the message is still specific.
  *
- * ## Character rule (AC3)
+ * ## Character rule
  *
  * The whole trimmed input must contain no control byte (code point < 0x20), no byte above 126
  * (code point > 0x7E), and none of `'`, `"`, `\`, `;` — this is strictly inside
@@ -43,7 +43,7 @@
  *
  * ## IPv6-looking literal vs. generic multi-colon garbage
  *
- * Both are rejected — v1 has no IPv6 support at all — but AC5 wants a reason a user can act on, so
+ * Both are rejected — v1 has no IPv6 support at all — but the story wants a reason a user can act on, so
  * the two get different codes. The candidate (the single whitespace-token remaining after the
  * earlier checks) enters this analysis when it contains `[` or `]`, or has more than one colon.
  * Inside that set, it is judged "recognizably IPv6" (`ipv6-not-supported`) when any of these hold:

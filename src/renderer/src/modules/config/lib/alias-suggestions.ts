@@ -2,7 +2,7 @@ import type { ConfigAction } from '@shared/modules/config'
 import { aliasNameFor } from '@shared/config/aliases/alias-render'
 
 /**
- * Story 019 D6: the names a binding's raw-command field can offer while the
+ * Story 019: the names a binding's raw-command field can offer while the
  * user types, so `+test` (an alias entry) is suggested rather than left for
  * the user to remember and retype exactly.
  *

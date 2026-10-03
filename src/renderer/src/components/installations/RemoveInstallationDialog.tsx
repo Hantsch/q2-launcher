@@ -10,9 +10,9 @@ import { useSubmitting } from '../ui/useSubmitting'
 type RemovalChoice = 'entry-only' | 'delete-from-disk'
 
 /**
- * Removal chooser (story 094 D3).
+ * Removal chooser (story 094).
  *
- * Step 1 (D1/D2, already merged): main can delete an installation's folder from disk when asked
+ * Step 1 (already merged): main can delete an installation's folder from disk when asked
  * to, refusing for a store-managed installation or while its game is running. This dialog is the
  * renderer half of that contract - it decides whether the choice exists at all, and if it does,
  * makes sure the user sees the exact folder before anything is deleted.
@@ -20,14 +20,14 @@ type RemovalChoice = 'entry-only' | 'delete-from-disk'
  * A store-managed installation (`isStoreManaged`) only ever gets entry-only removal: deleting its
  * folder behind the store's back would leave the store convinced the game is still installed. The
  * disk option is not rendered at all for it - not hidden, not disabled - so a `queryByTestId`
- * check can prove it is absent from the DOM (AC4).
+ * check can prove it is absent from the DOM.
  *
  * For a removable installation, "remove entry only" and "remove from disk" are a two-outcome
  * choice, entry-only pre-selected (today's default behaviour). Picking "remove from disk" only
  * reveals a second, in-place danger step naming the installation's `rootPath` - it does not call
- * `removeInstallation` itself (AC2: the path must be shown before anything happens). Only that
+ * `removeInstallation` itself (the path must be shown before anything happens). Only that
  * step's own "Delete folder" button submits. The disk choice is disabled (not hidden) while this
- * installation's own game is running (AC5), mirroring `ActionBar`'s
+ * installation's own game is running, mirroring `ActionBar`'s
  * `launch.installationId === installation.id && (launch.phase === 'running' || 'starting')` gate.
  */
 export function RemoveInstallationDialog({ installationId }: { installationId: string }) {

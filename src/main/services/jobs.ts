@@ -42,7 +42,7 @@ export class JobsService {
    * removable, and its call is the first thing `emit()` does.
    */
   private readonly broadcast: JobsListener
-  /** Story 073 D2's additive observers - see `onChange()`. */
+  /** Story 073's additive observers - see `onChange()`. */
   private readonly listeners = createListenerSet<Job[]>(log, 'a jobs onChange')
 
   constructor(broadcast: JobsListener) {
@@ -50,7 +50,7 @@ export class JobsService {
   }
 
   /**
-   * Story 073 D2: registers an additional observer of job changes, and returns its
+   * Story 073: registers an additional observer of job changes, and returns its
    * unsubscribe function. The downloads module uses this to append a failure-log
    * entry for every `downloads` job that reaches `failed`.
    *
@@ -100,14 +100,14 @@ export class JobsService {
   }
 
   /**
-   * Story 074 D4: records the ratio at which this job's installation became playable, once the
+   * Story 074: records the ratio at which this job's installation became playable, once the
    * job already exists.
    *
    * `CreateJobInput.playableAtRatio` can only state that up front, at creation - which is fine
    * for a job that knows its own threshold in advance, and wrong for the bootstrap job, whose
    * threshold is "the moment `inspectInstallation` stops calling the target `invalid`". That is a
    * fact about the disk that nobody can predict before the files are there, so it has to be
-   * settable mid-job (AC6).
+   * settable mid-job.
    *
    * Deliberately not part of `progress()`: `progress()` sets `status: 'running'`, and this marker
    * is a property of the job's *plan*, not a progress report - a paused, finished or cancelled job
@@ -121,7 +121,7 @@ export class JobsService {
   }
 
   /**
-   * Story 091 D1: puts a job into `'waiting'` and records why, for the write
+   * Story 091: puts a job into `'waiting'` and records why, for the write
    * guard to use while a job's write phase is deferred behind a running game.
    *
    * Mirrors `markPlayable()`'s shape: a targeted read-modify-write on one job,
@@ -135,7 +135,7 @@ export class JobsService {
   }
 
   /**
-   * Story 091 D1: records whether this job currently holds the installation
+   * Story 091: records whether this job currently holds the installation
    * write lock.
    *
    * `holding: true` is the transition out of `'waiting'` - the guard just

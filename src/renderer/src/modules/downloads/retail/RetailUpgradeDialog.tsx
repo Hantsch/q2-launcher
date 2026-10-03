@@ -11,11 +11,11 @@ import { useStartJob } from '../../../components/jobs/useStartJob'
 import { JobActionDialog } from '../components/JobActionDialog'
 
 /**
- * Story 090 D3: the retail-upgrade dialog - lets a demo installation import `pak0.pak`/`pak1.pak`
+ * Story 090: the retail-upgrade dialog - lets a demo installation import `pak0.pak`/`pak1.pak`
  * from a detected Steam/GOG/Epic source (`[[088]]`'s `bootstrap.retailSources`), turning it into a
- * normal, non-demo installation once D2's `retail.upgradeStart` job finishes (INST-D4). Opened via
+ * normal, non-demo installation once the `retail.upgradeStart` job finishes. Opened via
  * `openDialog({ kind: 'module', moduleId: 'downloads', view: 'retail-upgrade', installationId })` -
- * D4's trigger buttons are a separate deliverable; this component only needs to render correctly
+ * the trigger buttons live elsewhere; this component only needs to render correctly
  * once reached.
  *
  * Mirrors `BootstrapWizard`'s dialog shape: fetch-on-mount into `useState`, a `Modal` with a
@@ -27,17 +27,17 @@ import { JobActionDialog } from '../components/JobActionDialog'
  * The source list itself mirrors `GameDataStep`'s `store-copy` rendering (row shape, verified vs.
  * unverified-with-reason, the same `SIZE_MISMATCH_REASON_TO_PAK` interpolation) rather than
  * importing it - `GameDataStep`'s rendering is inline in that component, not an extractable piece,
- * and this dialog's `data-testid`s are deliberately its own (AC2/AC3/AC6, D6's later e2e flow):
+ * and this dialog's `data-testid`s are deliberately its own (the e2e flow relies on them):
  * `retail-upgrade-dialog` (the picker's container), `retail-upgrade-source-list`,
  * `retail-upgrade-source-item` (one per row, `data-source-path` naming which), `-unverified` (the
- * AC6 rejection reason, present only on an unverified row), `retail-upgrade-no-sources` (AC3's
+ * rejection reason, present only on an unverified row), `retail-upgrade-no-sources` (the
  * empty state, no picker rendered alongside it), `retail-upgrade-confirm`.
  *
- * AC3's "only a verified source is selectable" rule: an unverified row's button is `disabled` and
+ * The "only a verified source is selectable" rule: an unverified row's button is `disabled` and
  * shows `inspection.unverifiedReason` underneath instead - the same UX `GameDataStep` already uses
  * for the wizard's own copy step, per refine's Decisions ("mirror whatever 088 already does here
  * exactly, don't invent new UX"). The confirm button additionally requires a verified selection,
- * so D2's own `downloads.error.retailSourceUnverified` refusal is a defence-in-depth backstop, not
+ * so main's own `downloads.error.retailSourceUnverified` refusal is a defence-in-depth backstop, not
  * something this dialog relies on for its primary gate.
  */
 const SIZE_MISMATCH_REASON_TO_PAK = {

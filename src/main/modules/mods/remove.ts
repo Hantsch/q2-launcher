@@ -6,7 +6,7 @@ import { hashFile, isInside, pathKey } from '../../lib/fs-utils'
 import { isSafeRecordedPath } from './install-records'
 
 /**
- * Story 191 D1: removing a mod the launcher installed - filesystem only, no IPC, no job.
+ * Story 191: removing a mod the launcher installed - filesystem only, no IPC, no job.
  *
  * Only the files story 190's install record lists are ever deleted. This deletes on a user's disk,
  * so every step is the conservative one:

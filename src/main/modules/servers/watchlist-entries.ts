@@ -7,9 +7,9 @@ import {
 import { refuse, type DomainResult } from '@shared/types'
 
 /**
- * Story 131 D2: the watchlist entry collection's three operations, as pure functions over
+ * Story 131: the watchlist entry collection's three operations, as pure functions over
  * `ServersState['watchlist']` - no I/O, no `AppContext`, mirroring `manual-servers.ts` (story 113
- * D2)'s shape: an injectable `mintId` (defaulting to `randomUUID`) for new ids, and a returned
+ * story 113)'s shape: an injectable `mintId` (defaulting to `randomUUID`) for new ids, and a returned
  * `{ ok: true; list }` / `{ ok: false; reasonKey }` result rather than a thrown error, so a caller
  * never has to distinguish "domain refusal" from "IPC failure".
  *

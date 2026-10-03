@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs'
 import { regReadValue } from '../../lib/win-registry'
 
 /**
- * Derives this machine's launcher installation id (story 128 D2).
+ * Derives this machine's launcher installation id (story 128).
  *
  * The id is a one-way, salted hash of a platform machine identifier
  * (`MachineGuid` on Windows, `/etc/machine-id` on Linux), never the raw value

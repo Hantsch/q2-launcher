@@ -43,7 +43,7 @@ function UnknownValue() {
 }
 
 /**
- * D3: one row of the demos list - identity (name, gamemode, format, source) on the shared
+ * one row of the demos list - identity (name, gamemode, format, source) on the shared
  * `DEMO_LIST_GRID` template (so every cell lines up under `DemoListHeader`'s labels), plus a set of
  * status markers (sidecar/sidecar-error/archive/unreadable), each a visible icon with an accessible
  * name - status is never colour-only. Mirrors `../../servers/ServerRow.tsx`'s shape and

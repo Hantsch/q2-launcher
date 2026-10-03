@@ -112,7 +112,7 @@ export function updateProfileActions(
 }
 
 /**
- * Sets whether a profile's rendered file opens with `unbindall` (story 040 D4) and returns the
+ * Sets whether a profile's rendered file opens with `unbindall` (story 040) and returns the
  * full, updated profile list. Same direct (non-double-wrapped) shape as `updateProfileCvars`/
  * `updateProfileBinds`/`updateProfileLayers`/`updateProfileActions` above - the main handler
  * returns `ConfigProfile[]` itself, not a second `Outcome`.
@@ -125,7 +125,7 @@ export function updateProfileWriteUnbindall(
 
 /**
  * Sets whether a profile's writer still emits unplaced catalogue cvars into the reserved
- * `Defaults` section (story 059 D9) and returns the full, updated profile list. Mirrors
+ * `Defaults` section (story 059) and returns the full, updated profile list. Mirrors
  * `updateProfileWriteUnbindall` right above exactly.
  */
 export function updateProfileWriteCatalogDefaults(
@@ -135,9 +135,9 @@ export function updateProfileWriteCatalogDefaults(
 }
 
 /**
- * Sets a profile's rendered section-banner decoration (story 042 D7) and returns the full,
+ * Sets a profile's rendered section-banner decoration (story 042) and returns the full,
  * updated profile list. Mirrors `updateProfileWriteUnbindall` right above exactly. No UI control
- * calls this yet - that is story 042 D8's job (`RawFileTab.tsx`), a separate deliverable.
+ * calls this yet - that is story 042's job (`RawFileTab.tsx`), a separate deliverable.
  */
 export function updateProfileSectionHeaderStyle(
   input: SetSectionHeaderStyleInput,
@@ -146,7 +146,7 @@ export function updateProfileSectionHeaderStyle(
 }
 
 /**
- * Story 049 D3: restores a profile to its last-saved/loaded baseline, writing no file. Same direct
+ * Story 049: restores a profile to its last-saved/loaded baseline, writing no file. Same direct
  * (non-double-wrapped) shape as `updateProfileWriteUnbindall`/`updateProfileSectionHeaderStyle`
  * above - the main handler returns a `DiscardProfileResult` itself, not a second `Outcome` - the
  * `status` field on the resolved value then discriminates `'discarded'` (carries the full, updated
@@ -184,7 +184,7 @@ export function writeConfigProfile(
 }
 
 /**
- * Story 043 D6: explicit save - re-reads the canonical file, checks it still looks the way the
+ * Story 043: explicit save - re-reads the canonical file, checks it still looks the way the
  * launcher last saw it, and only then writes the profile's unsaved edits to disk and re-syncs
  * installations.
 
@@ -194,7 +194,7 @@ export function saveConfigProfile(input: SaveProfileInput): Promise<Outcome<Save
 }
 
 /**
- * Story 057 D4: saves the Raw file tab's edited text - writes exactly `input.text` to the profile's
+ * Story 057: saves the Raw file tab's edited text - writes exactly `input.text` to the profile's
  * canonical file under the same conflict guard `saveConfigProfile` above uses, then reads it back
  * into the profile.
 
@@ -206,9 +206,9 @@ export function saveConfigProfileRawText(
 }
 
 /**
- * Story 043 D7: the renderer's client wrapper for `refreshFromFiles` (D5) - re-reads the given
+ * Story 043: the renderer's client wrapper for `refreshFromFiles` - re-reads the given
  * profile's canonical file and reports whether it changed, was adopted, conflicts with unsaved
- * edits, or came back unparseable/unreadable/missing. `useFileSourceRefresh` (D7) is the only
+ * edits, or came back unparseable/unreadable/missing. `useFileSourceRefresh` is the only
  * caller today and always passes a `profileId` (the story's own "Decided during refine": the
  * renderer scopes re-reads to the selected profile, never the whole list).
 
@@ -247,7 +247,7 @@ export function getProfileSyncState(
 
 /**
  * Read-only: the profile's own canonical file plus one entry per assigned installation (story 023
- * D1). Never writes.
+ * Never writes.
 
  */
 export function getRawFiles(input: RawFilesInput): Promise<Outcome<RawFilesResult>> {
@@ -256,11 +256,11 @@ export function getRawFiles(input: RawFilesInput): Promise<Outcome<RawFilesResul
 
 /**
  * Opens one of the profile's own files in the OS default application for `.cfg`
- * (`mode: 'open'`), or reveals it in the file manager (`mode: 'reveal'`). Story 023 D2.
+ * (`mode: 'open'`), or reveals it in the file manager (`mode: 'reveal'`). Story 023.
  *
  * Addressed by ids, never by a path: `installationId: null` is the profile's own canonical file,
  * a non-null value is that installation's copy. Main resolves the real path itself and refuses
- * anything that is not this profile's own `.cfg` (AC 8), so there is deliberately nothing
+ * anything that is not this profile's own `.cfg`, so there is deliberately nothing
  * path-shaped to pass here.
 
  */
@@ -307,7 +307,7 @@ export function previewImportFiles(
 
 /**
  * Re-reads the given, ordered picked files from disk and creates a new profile from them,
- * returning the full, updated profile list. `input.layerAliases` (story 041 D7) carries the names
+ * returning the full, updated profile list. `input.layerAliases` (story 041) carries the names
  * `ImportProfileDialog`'s review step flipped to "attempt as layer".
  */
 export function commitImportFiles(
@@ -332,7 +332,7 @@ export function restoreCleanup(input: CleanupRestoreInput): Promise<Outcome<Clea
 }
 
 /**
- * Tidy-up (story 025 D3/D5): applies one atomic batch of `TidyUpOp`s
+ * Tidy-up (story 025): applies one atomic batch of `TidyUpOp`s
  * (`@shared/config/profile/tidy-up`) to a profile and returns the committed profile
  * plus which ops applied vs. were rejected as stale.
  */

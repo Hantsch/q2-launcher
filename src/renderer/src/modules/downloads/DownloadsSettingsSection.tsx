@@ -26,13 +26,13 @@ const CONCURRENCY_CHOICES = Array.from(
 )
 
 /**
- * Story 072 D5: the downloads module's Settings section - inner content only, the shell
- * (`SettingsView.tsx`, D1) already wraps every contributed section in its own `Panel` +
+ * Story 072: the downloads module's Settings section - inner content only, the shell
+ * (`SettingsView.tsx`) already wraps every contributed section in its own `Panel` +
  * `SectionLabel` chrome.
  *
- * Renders the three settings (AC2) and the live archive cache size (AC3); "Clear cache" opens a
+ * Renders the three settings and the live archive cache size; "Clear cache" opens a
  * `ConfirmDialog` that states the current size/count before `clearArchiveCache` is ever called
- * (AC4) - mirrors `config/CleanupPanel.tsx`'s scan-then-confirm-then-apply discipline.
+ * - mirrors `config/CleanupPanel.tsx`'s scan-then-confirm-then-apply discipline.
  */
 export function DownloadsSettingsSection() {
   const { t } = useTranslation()
@@ -75,7 +75,7 @@ export function DownloadsSettingsSection() {
     setClearing(false)
     if (result.ok) {
       setConfirmOpen(false)
-      // The confirm dialog's stated size/count and the actual deletion must never disagree (AC4) -
+      // The confirm dialog's stated size/count and the actual deletion must never disagree -
       // use what was actually removed, not an assumed "everything is now gone".
       setLastClearResult(result.value)
       await refreshCacheStatus()

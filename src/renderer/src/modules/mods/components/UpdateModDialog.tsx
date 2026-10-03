@@ -8,7 +8,7 @@ import { useStartJob } from '../../../components/jobs/useStartJob'
 import { updateMod } from '../client'
 
 /**
- * Story 194 D4: the update met recorded files the user changed. Lists them and sends the answer
+ * Story 194: the update met recorded files the user changed. Lists them and sends the answer
  * (overwrite or keep) with the start; Cancel starts nothing. A refusal is shown in place.
  */
 export function UpdateModDialog({

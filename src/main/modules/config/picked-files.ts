@@ -1,5 +1,5 @@
 /**
- * Story 066 D5: the session-scoped registry that stands between the file picker and the reader -
+ * Story 066: the session-scoped registry that stands between the file picker and the reader -
  * and with it, the whole path-trust boundary of the file-import flow.
  *
  * The rule it exists to enforce (CLAUDE.md: "paths from the renderer are never trusted"): main
@@ -108,7 +108,7 @@ export class PickedFilesRegistry implements PickedFileRegistrar, PickedFileResol
 
   /**
    * Resolves `ids` to absolute paths **in the order given** - the load order the fold depends on
-   * (AC5), so this must never reorder or deduplicate.
+   *, so this must never reorder or deduplicate.
    *
    * All or nothing: the first unknown id throws, before this returns anything and therefore before
    * the caller can read a single one of the *known* paths in the same request. That is what makes

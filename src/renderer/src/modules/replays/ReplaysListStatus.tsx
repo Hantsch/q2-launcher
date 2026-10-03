@@ -31,7 +31,7 @@ function sourceLabel(
 }
 
 /**
- * Story 151 D3: the status strip that sits above the demo rows - what `deriveReplaysListState`/
+ * Story 151: the status strip that sits above the demo rows - what `deriveReplaysListState`/
  * `describeReplaysScanProgress` (`list-state.ts`) say, turned into real text. Mirrors
  * `ServersListStatus.tsx`: renders at most one of the loading/empty blocks (mutually exclusive,
  * driven by `listState`), plus an independent source-errors block that can co-occur with either.

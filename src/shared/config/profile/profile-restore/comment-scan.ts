@@ -29,9 +29,8 @@ import {
   bannerTitle,
 } from './comment-parse'
 
-/** The reserved, non-user-configurable "Other"/"Other binds" bucket titles (`render.ts`) - see
- * `categoryRegistry`'s `'other'` kind for why these get their own `Section.kind` rather than
- * falling through the generic untagged-banner path. */
+/** The reserved, non-user-configurable "Other"/"Other binds" bucket titles (`render.ts`). They get
+ * their own `Section.kind` rather than the generic untagged-banner path (see `categoryRegistry`). */
 export const OTHER_BUCKET_TITLES = new Set<string>([OTHER_CATEGORY_LABEL, UNOWNED_BINDS_LABEL])
 
 export interface CommentScan {
@@ -43,9 +42,8 @@ export interface CommentScan {
   warnings: RestoreWarning[]
   /** Comment-only lines this pass fully understood - the header's version marker and every
    * well-formed section banner - so `restoreProfileParts` can tell the import preview these are
-   * not "we don't understand this" leftovers (see `RestoreProfilePartsResult.consumedCommentLines`).
-   * A malformed tag is deliberately excluded: it is not fully understood, so AC5's "never discard
-   * the line" still means keeping it visible in `preserved`. */
+   * not leftovers (`RestoreProfilePartsResult.consumedCommentLines`). A malformed tag is excluded:
+   * it is not fully understood, so the line stays visible in `preserved`. */
   consumed: RestoreSourcePosition[]
 }
 
@@ -53,31 +51,25 @@ export interface CommentScan {
 export const HEADER_RULE = /^=+$/
 
 /**
- * Is the `v` line at hand the **banner** header's own tag line rather than the
- * legacy header block's name+tag line?
+ * Is the `v` line at hand the banner header's own tag line rather than the legacy header block's
+ * name+tag line? Told apart by what the line itself carries (`file-ownership.ts#readOwnershipStamp`
+ * answers the same question from raw text and cannot be reused on parsed comment lines):
  *
- * The two shapes are told apart by what the line itself carries, since that is all this module ever
- * sees (`file-ownership.ts#readOwnershipStamp` answers the same question one layer up, from the raw
- * file text, and cannot be reused here - it takes a blob, this takes parsed comment lines):
+ * - a banner tag line is tag-only (`headerTagLine` writes it right-aligned, no prose) and carries
+ *   `id`;
+ * - a legacy tag rides on the name line, so it has prose, and never carries `id`.
  *
- * - a banner tag line is **tag-only** - `headerTagLine` writes the tag alone, right-aligned, with no
- *   prose beside it - and carries the `id` field;
- * - a legacy header's tag rides on the *name* line, so it always has prose, and never carries `id`
- *   (the field did not exist when that shape was written).
- *
- * Both conditions are required rather than either: `id` alone would let a hand-edit that pasted an
- * `id=` into an old name+tag line flip that file onto the backward branch, where the lines above it
- * are the wrong ones; empty prose alone would do the same for a pre-051 file whose profile name was
- * blank. A line failing this test simply takes the legacy branch, exactly as it did before.
+ * Both conditions are required: `id` alone would let a hand-pasted `id=` flip an old name+tag line
+ * onto the backward branch, where the lines above are the wrong ones; empty prose alone would do the
+ * same for a pre-051 file with a blank profile name. A failing line takes the legacy branch.
  */
 export function isBannerHeaderTagLine(parsed: ParsedComment): boolean {
   return (parsed.fields.id ?? '').trim().length > 0 && parsed.prose.trim().length === 0
 }
 
 /**
- * The comment line at `index`, but only when it really is the file's `line` (same file, that exact
- * line number) - the adjacency half of `consumeHeaderDecoration`'s positional check, in one place so
- * neither branch below can spell it differently.
+ * The comment line at `index`, but only when it really is the file's `line` (same file, exact line
+ * number) - the adjacency half of `consumeHeaderDecoration`'s positional check, in one place.
  */
 export function neighbourAt(
   comments: readonly RestoreCommentLine[],
@@ -90,36 +82,27 @@ export function neighbourAt(
 }
 
 /**
- * The header block's own decoration lines, consumed so they do not surface as "unrecognised"
- * leftovers - none of them carries a tag of its own, so without this they fall through to
- * `preserved`, which for a real file is both misleading (this *is* recognised, launcher-owned
- * decoration) and, being a single long line in a single-line code view, the source of an axe
+ * The header block's decoration lines, consumed so they do not surface as "unrecognised" leftovers:
+ * none carries a tag, so they would fall through to `preserved`, which is misleading (this is
+ * launcher-owned decoration) and, as one long line in a single-line code view, the source of an axe
  * `scrollable-region-focusable` violation in the import dialog.
  *
- * Two block shapes, and the tag sits at a different end of each - which is the whole reason this
- * function has two branches:
+ * Two block shapes with the tag at different ends, hence two branches:
  *
- * - **banner**: `=`-rule / name / `=`-rule / tag-only
- *   line. The tag is the block's **last** line, so the three decoration lines are consumed
- *   *backward* from it - `versionIndex - 1` is the closing rule, `- 2` the name, `- 3` the opening
- *   rule.
- * - **legacy** (pre-051, still read forever): `=`-rule / name+tag / `HAND_EDIT_SENTENCE` / `=`-rule.
- *   The tag sits in the block's middle, so its rule at `- 1` and the sentence and closing rule at
- *   `+ 1`/`+ 2` are consumed *forward*, exactly as before this deliverable - the branch is
- *   deliberately untouched.
+ * - **banner**: `=`-rule / name / `=`-rule / tag-only line. The tag is the last line, so the three
+ *   decoration lines are consumed backward from it.
+ * - **legacy** (pre-051, read forever): `=`-rule / name+tag / `HAND_EDIT_SENTENCE` / `=`-rule. The
+ *   tag is in the middle, so its rule at `- 1` and the sentence and closing rule at `+ 1`/`+ 2` are
+ *   consumed forward.
  *
- * Both branches stay positional-**and**-content-checked, not positional alone: a neighbour is
- * consumed only if it is immediately adjacent by line number (same file, `line ± n`) *and* matches
- * the exact shape the writer produces there. A hand-edited or missing neighbour is simply not
- * consumed and stays visible in `preserved` - never a crash, never a wrong guess. The one line whose
- * content cannot be checked is the banner's name line (a user-typed profile name is arbitrary text),
- * so it is consumed only when *both* `=` rules around it are really there: the sandwich is what
- * identifies it, not its own text.
+ * Both are positional and content-checked: a neighbour is consumed only if adjacent by line number
+ * (same file) and matching the shape the writer produces there; a hand-edited or missing neighbour
+ * stays visible in `preserved`. The banner's name line is arbitrary user text, so it is consumed only
+ * when both `=` rules around it are there - the sandwich identifies it.
  *
- * Note what consumption is and is not: this only marks lines as understood for the import preview's
- * `preserved` list. Section attribution happens independently in `scanComments`' own chain, so no
- * branch here can ever swallow a real section header - the worst a wrong guess could cost is one
- * line's visibility in `preserved`, never a category or the lines under it.
+ * Consumption only marks lines understood for the preview's `preserved` list; section attribution is
+ * independent (`scanComments`), so a wrong guess costs at most one line's visibility, never a
+ * category or the lines under it.
  */
 export function consumeHeaderDecoration(
   comments: readonly RestoreCommentLine[],
@@ -138,8 +121,8 @@ export function consumeHeaderDecoration(
     const openingRule = neighbourAt(comments, versionIndex - 3, file, line - 3)
     if (!nameLine || !openingRule) return
     if (!HEADER_RULE.test(openingRule.text.trim())) return
-    // A tag on the name line means this is not the plain `//  <name>` line `banner()` writes but
-    // some other launcher line that has a meaning of its own; leave it to whichever branch owns it.
+    // A tag on the name line means some other launcher line with a meaning of its own, not the
+    // plain `//  <name>` line `banner()` writes; leave it to whichever branch owns it.
     if (nameLine.text.includes(TAG_SIGIL)) return
     consumed.push({ file, line: nameLine.line })
     consumed.push({ file, line: openingRule.line })
@@ -178,14 +161,11 @@ export function readSentinel(state: ScanState, comment: RestoreCommentLine): boo
   const trimmed = comment.text.trim()
   if (!trimmed.startsWith(SENTINEL_TEXT)) return false
   const id = trimmed.slice(SENTINEL_TEXT.length).trim().split(/\s+/)[0] ?? ''
-  // A well-formed sentinel is understood (it is how `ownWrittenFile`/`sourceProfileId` get
-  // decided at all) - it must join `consumed` on the same terms as the version marker and
-  // section headers, or it drops out of `scan.consumed` and `preservedLinesFor` (import.ts)
-  // still lists it as an unrecognised leftover, which is both misleading and, for a long
-  // enough sentinel line, the axe `scrollable-region-focusable` violation on the import
-  // dialog's single-line code view (each `preserved` entry renders its own scrollable `pre`).
-  // An id-less sentinel is not fully understood, so it is left out and stays visible, same
-  // rule as a malformed tag elsewhere in this scan.
+  // A well-formed sentinel is understood and joins `consumed` on the same terms as the version
+  // marker and section headers; otherwise `preservedLinesFor` (import.ts) lists it as an
+  // unrecognised leftover, and a long one trips the axe `scrollable-region-focusable` violation in
+  // the import dialog. An id-less sentinel is not fully understood and stays visible, like a
+  // malformed tag.
   if (id.length > 0) {
     sentinels.push({ id, file })
     consumed.push({ file, line })
@@ -232,15 +212,12 @@ export function readVersionMarker(
     }
     state.version = { value: valid ? value : null, file, line }
     if (!parsed.malformed) {
-      // the banner header's tag line carries the profile id the legacy sentinel
-      // line carries on its own, so it is the ownership statement for this file and joins
-      // `sentinels` on exactly the sentinel branch's terms - a non-empty id, from a tag that
-      // parsed cleanly. That is what makes `sourceProfileId` (and therefore `import.ts`'s
-      // `ownWrittenFile`) resolve for a new-shape file at all, and it agrees with
-      // `file-ownership.ts#readOwnershipStamp`, which likewise skips a malformed tag rather than
-      // reading an id out of it. `preferred` below still prefers the id found in the *same* file
-      // as the version marker, so a profile file and its loader `autoexec.cfg` (whose sentinel
-      // names whichever profile is the installation's default) resolve to the profile's own id.
+      // The banner header's tag line carries the profile id the legacy sentinel line carries, so it
+      // is the file's ownership statement and joins `sentinels` on the same terms: a non-empty id
+      // from a cleanly parsed tag. That makes `sourceProfileId` (and `import.ts`'s `ownWrittenFile`)
+      // resolve for a new-shape file, in agreement with `readOwnershipStamp`, which also skips a
+      // malformed tag. `preferred` below still prefers the id in the version marker's own file, so a
+      // profile file wins over its loader `autoexec.cfg`.
       const ownershipId = (parsed.fields.id ?? '').trim()
       if (ownershipId.length > 0) sentinels.push({ id: ownershipId, file })
       consumed.push({ file, line })
@@ -262,16 +239,13 @@ export function pushTaggedSection(
     sections.push({ kind: 'category', title, block, fields: parsed.fields, file, line })
     if (!parsed.malformed) consumed.push({ file, line })
   } else if (taggedSubcategoryId(parsed.fields) !== null) {
-    // A second-level banner. Checked after `cat` and before `layer`, so a
-    // hand-edited line carrying two header markers at once resolves to the outer level rather
-    // than to whichever branch happens to come first - and never to no section at all.
+    // A second-level banner, checked after `cat` and before `layer` so a hand-edited line with two
+    // header markers resolves to the outer level rather than to no section at all.
     //
-    // Its parent is read here, while the sections seen so far are still in document order: the
-    // nearest preceding *category* header in this same file, which is where
-    // `render.ts#withSubcategoryBuckets` writes it. Never a preceding sub-banner - depth is
-    // exactly two levels (the story's own Decisions), so a sub-banner's parent is a category or
-    // nothing, and a chain of sub-banners under one category is a flat list of siblings rather
-    // than a nesting this reader would otherwise invent.
+    // Its parent is the nearest preceding category header in this file (where
+    // `render.ts#withSubcategoryBuckets` writes it), resolved while sections are still in document
+    // order. Never a preceding sub-banner: depth is two levels, so several sub-banners under one
+    // category are flat siblings.
     const parent = [...sections]
       .reverse()
       .find((candidate) => candidate.kind === 'category' && candidate.file === file)
@@ -289,21 +263,16 @@ export function pushTaggedSection(
     sections.push({ kind: 'layer', title, block, fields: parsed.fields, file, line })
     if (!parsed.malformed) consumed.push({ file, line })
   } else if (taggedCvarSectionId(parsed.fields) !== null) {
-    // A cvar section banner, the Settings tab's counterpart of the `cat=` branch
-    // above. Checked *before* the reserved-"Other" branch below on purpose: a section the user
-    // really did name "Other" carries a real `cvs=<id>` of its own, and the reserved bucket is
-    // defined by having no tag at all - so the tag decides, and a user-named "Other" section is
-    // an ordinary section rather than the writer's untagged leftovers bucket. The reserved
-    // `cvs=defaults` id is *not* filtered out here either: it opens a section boundary like any
-    // other banner (the lines under it must not be attributed to the section above), and it is
-    // `cvarSectionRegistry` that refuses to mint it - see its `cvarSectionKeyFor`.
+    // A cvar section banner, the Settings tab's counterpart of `cat=`. Checked before the reserved
+    // "Other" branch because the reserved bucket is defined by having no tag: a section the user
+    // named "Other" carries its own `cvs=<id>` and is an ordinary section. The reserved
+    // `cvs=defaults` still opens a boundary (lines under it must not be attributed to the section
+    // above); `cvarSectionKeyFor` is what refuses to mint it.
     sections.push({ kind: 'cvarsection', title, block, fields: parsed.fields, file, line })
     if (!parsed.malformed) consumed.push({ file, line })
   } else if (taggedCvarSubsectionId(parsed.fields) !== null) {
-    // The second level, parent resolved positionally exactly as the `sub=` branch
-    // above resolves a sub-category's: the nearest preceding cvar-section header in this same
-    // file, which is where `render.ts#buildCvarSectionBlock` writes it. Never a preceding
-    // sub-section - depth is exactly two levels, same as one namespace over.
+    // The second level, parent resolved positionally like the `sub=` branch: the nearest preceding
+    // cvar-section header in this file (`render.ts#buildCvarSectionBlock`), never a sub-section.
     const parent = [...sections]
       .reverse()
       .find((candidate) => candidate.kind === 'cvarsection' && candidate.file === file)
@@ -332,9 +301,8 @@ export function pushUntaggedSection(
   const { sections } = state
   const { file, line } = comment
   const { title, block } = bannerTitle(parsed.prose, parsed.tagSliced)
-  // computed once per line, ahead of the section-kind chain below, since the
-  // heuristic sub-category branch and its "did this qualify at all" condition need the same
-  // answer - see `heuristicSubcategoryParent`'s own doc comment for what "qualify" means.
+  // Computed once ahead of the section-kind chain: the heuristic sub-category branch and its
+  // "did this qualify" condition need the same answer (`heuristicSubcategoryParent`).
   const heuristicWrap = parsed.tagged ? null : decorationWrap(comment.text)
   const heuristicParent = heuristicSubcategoryParent(
     sections,
@@ -342,30 +310,21 @@ export function pushUntaggedSection(
     state.decorationTally,
     file,
   )
-  // the same "an untagged line the file itself decorated" question, one
-  // level up - see `mirroredWrapTitle`. Untagged only, for the same reason `heuristicWrap` is: a
-  // tagged line's tag has already said what the line is.
+  // The same question one level up (`mirroredWrapTitle`). Untagged only: a tag has already said what
+  // the line is.
   const mirroredTitle = parsed.tagged ? null : mirroredWrapTitle(comment.text)
   if (!claimedByEntryScan(parsed) && title.length > 0 && OTHER_BUCKET_TITLES.has(title)) {
-    // The reserved "Other"/"Other binds" bucket gets its
-    // own section kind, recognised by its fixed, non-user-configurable title rather than by
-    // `BANNER_RULE`'s decoration test - `plain` header style draws no decoration at all
-    // (`cfg-layout.ts#banner`'s `plain` branch), so `BANNER_RULE` can never flag this line as a
-    // section under that style, and every entry physically after it was silently re-filed into
-    // whichever *earlier* tagged category happened to precede it instead (`sectionFor` finds the
-    // nearest preceding section of any kind). Checked ahead of the generic untagged-banner branch
-    // below so `dashes`/`brackets` (where `BANNER_RULE` *would* otherwise match) get the same
-    // `'other'` kind too, instead of minting a real, persisted "Other" category - seeing
-    // `categoryRegistry`'s `'other'` case for why that minting broke AC2 one render later.
+    // The reserved "Other"/"Other binds" bucket is recognised by its fixed title, not by
+    // `BANNER_RULE`: the `plain` header style draws no decoration, so every entry after it would be
+    // re-filed into whichever earlier category `sectionFor` finds. Checked ahead of the generic
+    // banner branch so `dashes`/`brackets` also get `'other'` instead of minting a persisted "Other"
+    // category (see `categoryRegistry`).
     sections.push({ kind: 'other', title, block, fields: parsed.fields, file, line })
   } else if (!claimedByEntryScan(parsed) && heuristicWrap && heuristicParent) {
-    // an untagged, decorated comment-only line whose decoration recurs elsewhere in
-    // this file, sitting under a category-shaped header already seen - a foreign author's own
-    // second-level marker (`##### 1st row #####`), promoted to a real `Section.kind: 'subcategory'`
-    // exactly like a tagged `sub=` banner (D3), just detected from the file's own repetition
-    // instead of a tag. The synthetic `sub` key is never rendered or shown - it exists only so
-    // `registerSubcategory`/`categoryKeyFor`/`idFor` can key this section the same way they key a
-    // tagged one, without a second lookup mechanism for the same idea.
+    // An untagged decorated line whose decoration recurs in this file, under a category-shaped
+    // header: a foreign author's second-level marker (`##### 1st row #####`), promoted to a
+    // `'subcategory'` like a tagged `sub=` banner. The synthetic `sub` key is never shown; it only
+    // lets `registerSubcategory`/`categoryKeyFor`/`idFor` key it as they key a tagged one.
     sections.push({
       kind: 'subcategory',
       title: heuristicWrap.title,
@@ -380,45 +339,30 @@ export function pushUntaggedSection(
       (BANNER_RULE.test(comment.text) || CATEGORY_TITLE_PREFIX.test(comment.text.trim()))) ||
       mirroredTitle !== null)
   ) {
-    // An untagged banner - a cvar group, or a hand-written header in a file that is otherwise
-    // ours (never the reserved "Other"/"Other binds" bucket - that is claimed by the branch just
-    // above, regardless of header style). It opens a section all the same; whether anything is
-    // ever filed under it decides whether a category gets minted for it.
+    // An untagged banner - a cvar group, or a hand-written header in an otherwise launcher file
+    // (never the reserved "Other" bucket, claimed above). It opens a section; whether anything is
+    // filed under it decides whether a category is minted for it.
     //
-    // `claimedByEntryScan` first, and only then the decoration test: an entry line's prose is a
-    // user-typed display name and may contain anything at all, `---` included, so the tag decides
-    // what the line *is* and the decoration is only consulted for a line no tag has claimed.
+    // `claimedByEntryScan` comes first: an entry line's prose is a user-typed name that may contain
+    // `---`, so the tag decides what the line is and decoration is only consulted for unclaimed lines.
     //
-    // `BANNER_RULE` alone would leave a real category's header invisible as a section boundary under
-    // `plain` style whenever its `[q2l cat=…]` tag was hand-deleted but the plain
-    // `// Aliases: <name>` line survived - `plain` draws no decoration for `BANNER_RULE` to match, so
-    // the entry would silently join whichever *earlier* real category preceded it, with no warning.
-    // `CATEGORY_TITLE_PREFIX` closes that: every category section this writer emits, tagged or not,
-    // "Other" bucket included, carries one of exactly three fixed prefixes (`TITLE_PREFIXES`) -
-    // nothing else this writer emits (a cvar group's plain label, the hand-edit sentence, a layer's
-    // `Layer: ` title) starts with one of them, so this is a narrow, safe signal rather than the
-    // broader "any untagged comment-only line" heuristic considered and rejected for this same gap
-    // (that would just as easily misread an ordinary hand-typed inline comment as a brand new
-    // section, silently *splitting* a category instead of silently *merging* one).
+    // `BANNER_RULE` alone would leave a category's header invisible under `plain` style when its
+    // `[q2l cat=…]` tag was hand-deleted (no decoration to match), so its entries would silently join
+    // the earlier category. `CATEGORY_TITLE_PREFIX` closes that: every category section this writer
+    // emits carries one of three fixed prefixes and nothing else it emits does. The broader "any
+    // untagged comment line" rule was rejected because it would split a category at an ordinary
+    // inline comment instead of merely merging one.
     //
-    // The narrow signal is safe against realistic prose (a comment merely mentioning "Aliases:" or
-    // "Bind:" *without* the exact "word + colon + space at the very start of the line" shape never
-    // triggers this). The one accepted cost of "narrow" over "broad": a hand-typed comment that DOES
-    // happen to start with `Aliases: `/`Binds: `/`Entries: ` (e.g. a player's own note "Aliases: my
-    // stuff below") is indistinguishable from a real category header with its tag hand-deleted, and
-    // this branch cannot tell the two apart - it mints a section for it, silently, same as it would
-    // for the genuine case. No warning fires because nothing here is malformed or missing relative
-    // to what this line claims to be; the ambiguity is inherent to choosing this narrow, safe
-    // signal over a broader, less safe one, not a bug in the signal itself.
+    // Accepted cost: a hand-typed comment that starts with `Aliases: `/`Binds: `/`Entries: ` is
+    // indistinguishable from a header with its tag deleted and mints a section, without a warning
+    // since nothing is malformed relative to what the line claims to be.
     //
-    // Two *adjacent* untagged banners are simply two sections - nothing fuses them into one
-    // `Main / Sub` category or invents a name the file never states. The tagged `sub=` branch above
-    // reads this writer's own second level back, and recognising an *untagged* foreign pair as a
-    // real category + sub-category is the repeated-decoration heuristic's separate job (story 053 D4).
+    // Two adjacent untagged banners are simply two sections; nothing fuses them into `Main / Sub`.
+    // Reading an untagged foreign pair as category + sub-category is the repeated-decoration
+    // heuristic's job.
     //
-    // a mirror-wrapped foreign header (`mirroredWrapTitle`) lands here
-    // too, and brings its own stripped title - `bannerTitle` knows only this writer's three banner
-    // shapes, so for `.: Main Key's :.` it would hand back the whole decorated line as the name.
+    // A mirror-wrapped foreign header (`mirroredWrapTitle`) lands here with its own stripped title,
+    // since `bannerTitle` knows only this writer's three shapes and would return the whole line.
     sections.push({
       kind: 'plain',
       title: mirroredTitle ?? title,
@@ -434,12 +378,11 @@ export function pushUntaggedSection(
  * One pass over the comment-only lines: the ownership stamp, the `v` marker, and the section
  * headers in document order.
  *
- * Ownership arrives in either of two shapes and both land in the same `sentinels` list: a pre-051
- * `OWNERSHIP_MARKER` line, and the header banner's own tag line, whose `id` field
- * replaced that separate line in a profile file. The stamp found in the *same file* as the version
- * marker wins, since that is the profile file whose metadata is being read; a loader `autoexec.cfg`
- * still carries a sentinel of its own (naming whichever profile was the installation's default,
- * `renderLoaderFile` writes it unchanged) and must not outvote it.
+ * Ownership arrives in two shapes that land in one `sentinels` list: a pre-051 `OWNERSHIP_MARKER`
+ * line and the header banner's tag line (its `id` field). The stamp in the same file as the version
+ * marker wins, since that is the profile file being read; a loader `autoexec.cfg` carries its own
+ * sentinel (`renderLoaderFile` names whichever profile is the installation's default) and must not
+ * outvote it.
  */
 export function scanComments(comments: readonly RestoreCommentLine[]): CommentScan {
   const state: ScanState = {
@@ -449,10 +392,8 @@ export function scanComments(comments: readonly RestoreCommentLine[]): CommentSc
     consumed: [],
     version: null,
     anyTag: false,
-    // computed once, up front, since the heuristic needs to know the *whole* file's
-    // decoration usage before it can tell a real repeated marker from one stray decorated comment -
-    // a per-line, streaming count could not answer "does this recur?" the first time a decoration is
-    // seen.
+    // Computed up front: the heuristic needs the whole file's decoration usage to tell a repeated
+    // marker from a stray decorated comment, which a streaming count cannot answer at first sight.
     decorationTally: decorationCounts(comments),
   }
 

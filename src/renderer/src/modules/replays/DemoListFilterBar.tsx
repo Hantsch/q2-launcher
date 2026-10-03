@@ -45,7 +45,7 @@ function nullableOptions(
 const RATINGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
 
 /**
- * Story 153 D4: the demo list's filter/search rail — a controlled component over `DemoListFilter`
+ * Story 153: the demo list's filter/search rail — a controlled component over `DemoListFilter`
  * (`@shared/replays/list-filter`), the same "controller owns state, this component only renders it
  * and reports a change" shape as `ServerListFilterBar`. Every field writes its own partial update on
  * every interaction (no debounce, no local buffering) — the caller is the single source of truth for

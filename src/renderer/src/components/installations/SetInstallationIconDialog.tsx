@@ -7,15 +7,14 @@ import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 
 /**
- * Story 067 D6: lets the user give an installation an icon from the shipped set (D1's
- * `SHIPPED_ICONS`), pick their own image file, or clear back to the default code tile.
+ * Story 067: lets the user give an installation an icon from the shipped set (`SHIPPED_ICONS`), pick their own image file, or clear back to the default code tile.
  *
  * Mirrors `RenameInstallationDialog`'s shell/store-call/Outcome shape, but does not close on
- * success (unlike rename): AC5 exercises "pick a shipped icon, then clear" as two actions inside
+ * success (unlike rename): a user may do "pick a shipped icon, then clear" as two actions inside
  * one open dialog, and staying open also lets the user see the icon they just picked highlighted
- * in the grid before deciding whether to keep it. A failed `Outcome` (AC6) renders its i18n key
+ * in the grid before deciding whether to keep it. A failed `Outcome` renders its i18n key
  * inline and never closes the dialog or touches the installation's current icon - both handlers
- * (`installations:setIcon`/`installations:pickIconFile`, D4) already guarantee nothing is
+ * (`installations:setIcon`/`installations:pickIconFile`) already guarantee nothing is
  * persisted on failure; this only has to surface the message.
  */
 export function SetInstallationIconDialog({ installationId }: { installationId: string }) {

@@ -1,5 +1,5 @@
 /**
- * Story 082 D2: a hand-written, restricted-subset frontmatter reader.
+ * Story 082: a hand-written, restricted-subset frontmatter reader.
  *
  * Deliberately not a YAML parser - the repo has no YAML dependency, and the
  * input is foreign network text (fetched community news documents), so a
@@ -77,7 +77,7 @@ function parseButtonEntry(
  * has no leading `---` block at all) or unterminated (an opening `---` with
  * no matching closing `---`). Both are treated as malformed input, not as
  * "the whole text is body" - a document without a well-formed frontmatter
- * block carries no reliable `id`/`order`/etc., so the feed pipeline (D3)
+ * block carries no reliable `id`/`order`/etc., so the feed pipeline
  * cannot use it as a news entry.
  *
  * A valid block followed immediately by end of string, or only whitespace,

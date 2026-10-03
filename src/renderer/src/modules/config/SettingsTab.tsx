@@ -50,7 +50,7 @@ import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { updateProfileCvars, updateProfileWriteCatalogDefaults } from './client'
 
 /**
- * Story 054 D10: id-namespacing for the two header drag axes, mirroring `ControlsDragZone.tsx`'s
+ * Story 0540: id-namespacing for the two header drag axes, mirroring `ControlsDragZone.tsx`'s
  * `subcategoryDragId`/`categoryDragId` one level up - a section header's and a sub-section header's
  * own `SortableItem` ids can never collide with a cvar row's (a cvar's raw name, the primary zone's
  * `items`), so `settingsCollisionDetection` and the zone's `onDropOutside` can both tell "a header was
@@ -96,7 +96,7 @@ const RESERVED_SECTION_ID: Record<'defaults' | 'other', string> = {
 }
 
 /**
- * Three distinct sortable axes share the one `DndContext` `SortableZone` configures (story 054 D10,
+ * Three distinct sortable axes share the one `DndContext` `SortableZone` configures (story 0540,
  * mirroring `ControlsDragZone.tsx#controlsCollisionDetection` one level up): a section header may
  * only resolve against another section header, a sub-section header only against another header of
  * its *own* section, and a cvar row against anything else (another row, in any section/sub-section,
@@ -149,19 +149,19 @@ const RESERVED_LABEL_KEY: Record<'defaults' | 'other', string> = {
 }
 
 /**
- * The settings/cvar section of a config profile's detail view (story 021 D4): a capped, dense list
+ * The settings/cvar section of a config profile's detail view (story 021): a capped, dense list
  * of the profile's cvars in sticky-headed sections, with a header bar for the profile-wide counts,
  * a session-local filter and "unsaved only" toggle and a per-section Advanced collapse. Both reset
- * affordances ("Reset all" here and the per-row reset in `CvarRow`) were removed in story 048 D5;
+ * affordances ("Reset all" here and the per-row reset in `CvarRow`) were removed in story 048;
  * only the default-value text remains.
  *
- * Story 059 D7 changed what a section *is*: `buildCvarSectionGroups` groups the profile's own
- * `cvarSections` (D1), ungrouped run first, then sub-sections, then the two reserved buckets the
- * file writer appends (`Defaults`, `Other`). Story 059 D8 (this deliverable) makes that structure
+ * Story 059 changed what a section *is*: `buildCvarSectionGroups` groups the profile's own
+ * `cvarSections`, ungrouped run first, then sub-sections, then the two reserved buckets the
+ * file writer appends (`Defaults`, `Other`). Story 059 (this deliverable) makes that structure
  * editable: create/rename/reorder/delete a section and a sub-section from its own header (mirroring
  * `ControlsTab.tsx`'s category/sub-category CRUD, stories 052/053), move a cvar to another section,
  * and add/remove a cvar by name and value. Every one of those writes both `cvars` and
- * `cvarSections` through the same `updateProfileCvars` (`setCvars`) patch path D1 already extended
+ * `cvarSections` through the same `updateProfileCvars` (`setCvars`) patch path already extended
  * to carry `cvarSections` - see `persistSections` below.
  *
  * Only `'section'` groups (the profile's own, as opposed to the two reserved buckets) get CRUD
@@ -169,8 +169,8 @@ const RESERVED_LABEL_KEY: Record<'defaults' | 'other', string> = {
  * rename, reorder or delete (the same rule `cvar-rows.ts`'s own doc comment gives for why creating/
  * renaming/reordering/deleting only ever applies to `'section'`).
  *
- * Edits write into the shared `draft` (story 009 D6) immediately and persist to the main process.
- * Value edits (`handleChange`) stay debounced, same as before D8; every structural edit (section/
+ * Edits write into the shared `draft` (story 009) immediately and persist to the main process.
+ * Value edits (`handleChange`) stay debounced, same as before; every structural edit (section/
  * sub-section CRUD, move/add/remove-cvar) is a discrete click, so it saves immediately through
  * `persistSections` instead - the same "a click is not typed input" reasoning
  * `ControlsTab#persistCategoriesAndActions` documents for category/action CRUD.
@@ -192,10 +192,10 @@ const RESERVED_LABEL_KEY: Record<'defaults' | 'other', string> = {
  * assigned engines through `lib/engine-scope.ts`, so neither owns a second copy of story 002's
  * assignment cross-reference.
  *
- * Story 049 D7: the "edited"/"unsaved" signal for the row border, the filter and both counters comes
+ * Story 049: the "edited"/"unsaved" signal for the row border, the filter and both counters comes
  * from `useProfileChanges()` - the main-process-computed diff of the live profile against its own
  * `profile.baseline` (`@shared/config/profile/profile-diff`) - not from a renderer-local baseline snapshot
- * (the old `savedCvars` mechanism, story 048 D6, since removed from `useProfileDraft` for having no
+ * (the old `savedCvars` mechanism, story 048, since removed from `useProfileDraft` for having no
  * consumer left). That renderer-local baseline lagged an external file adopt or a conflict-dialog
  * resolution because it only reseeded on this hook's own effect; the change set is reseeded
  * main-side at exactly those moments, so this tab, the save bar and every other row can never
@@ -204,7 +204,7 @@ const RESERVED_LABEL_KEY: Record<'defaults' | 'other', string> = {
 export function SettingsTab() {
   const { t, i18n } = useTranslation()
   const { profile, draft, patch, installations, save } = useProfileDraftContext()
-  // Story 049 D7: the change set every row's "edited"/"unsaved" indicator reads - `ConfigView`
+  // Story 049: the change set every row's "edited"/"unsaved" indicator reads - `ConfigView`
   // mounts `ProfileChangesProvider` around this tab, so this always resolves rather than throwing.
   const changeSet = useProfileChanges()
   const [engine, setEngine] = useState<EngineKind | null>(null)
@@ -223,7 +223,7 @@ export function SettingsTab() {
   // from sharing an expand state with the reserved bucket of that name.
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
 
-  /** Story 059 D8: section/sub-section CRUD dialog state, mirroring `ControlsTab.tsx`'s own
+  /** Story 059: section/sub-section CRUD dialog state, mirroring `ControlsTab.tsx`'s own
    * `showCreateCategory`/`renamingCategory`/etc. one level down. */
   const [showCreateSection, setShowCreateSection] = useState(false)
   const [renamingSection, setRenamingSection] = useState<ConfigCvarSection | null>(null)
@@ -263,7 +263,7 @@ export function SettingsTab() {
   }
 
   /**
-   * Story 059 D8: the structural-edit save path - section/sub-section CRUD, move/add/remove-cvar
+   * Story 059: the structural-edit save path - section/sub-section CRUD, move/add/remove-cvar
    * all go through this, immediately (a discrete click, not typed input, same reasoning
    * `ControlsTab#persistCategoriesAndActions` gives for category/action CRUD). Cancels any pending
    * debounced value-edit save first, for the same "a stale debounce must not overwrite what this
@@ -292,7 +292,7 @@ export function SettingsTab() {
     [profile, installations],
   )
 
-  // Story 168 D2: computed off `draft.cvars` (which already holds a pending debounced plain-row
+  // Story 168: computed off `draft.cvars` (which already holds a pending debounced plain-row
   // edit) and saved through `persistSections`, which cancels that debounce - so both Q2PRO cvars
   // change in one save and a stale debounce can never overwrite the switch's result.
   const handleAutorecordChange = (next: Record<string, string>): void => {
@@ -360,7 +360,7 @@ export function SettingsTab() {
   }
 
   /**
-   * Story 059 D8: adds a cvar by name and value, placing it directly into the section whose
+   * Story 059: adds a cvar by name and value, placing it directly into the section whose
    * toolbar the dialog was opened from. `moveCvarToSection` also strips the name out of any
    * section it already sat in first, so re-"adding" an already-placed cvar under a new value
    * simply relocates it rather than listing it twice.
@@ -384,7 +384,7 @@ export function SettingsTab() {
     return ok
   }
 
-  /** Story 059 D8: see this component's own doc comment for the remove-vs-unplace judgement call.
+  /** Story 059: see this component's own doc comment for the remove-vs-unplace judgement call.
    * A catalogue row keeps its value (`removeCvarFromSections` only edits placement); a plain row's
    * key is deleted from `profile.cvars` outright, since a plain cvar's only reason to exist there
    * at all is the section that used to place it. */
@@ -399,7 +399,7 @@ export function SettingsTab() {
   }
 
   /**
-   * Story 054 D10: a section header was dropped on another section header - resolved to "move it to
+   * Story 0540: a section header was dropped on another section header - resolved to "move it to
    * this index", the over section's own index in `sections` before the move (the same semantics
    * `ControlsDragZone#handleCategoryChipDrop` resolves a category-chip drop with one level up).
    */
@@ -432,7 +432,7 @@ export function SettingsTab() {
     void persistSections(draft.cvars, nextSections)
   }
 
-  // One call for the whole tab now: grouping is the profile's section list (story 059 D7), so the
+  // One call for the whole tab now: grouping is the profile's section list (story 059), so the
   // per-group Advanced state travels in as `expandedSections` rather than as one call per group.
   // `total`/`edited` still come out right per group because `buildCvarSectionGroups` computes them
   // over that group's own rows before filter/editedOnly/the collapse are applied.
@@ -445,7 +445,7 @@ export function SettingsTab() {
       buildCvarSectionGroups({
         sections: draft.cvarSections,
         values: draft.cvars,
-        // Story 049 D7: `edited` (the filter, the counters below and `CvarRow`'s own indicator)
+        // Story 049: `edited` (the filter, the counters below and `CvarRow`'s own indicator)
         // is a lookup into the profile's pending change set, not a comparison against the
         // catalogue default or a renderer-local baseline - see `useProfileChanges`'s own doc
         // comment.
@@ -454,7 +454,7 @@ export function SettingsTab() {
         // `cvar-rows.ts` stays i18n-free (like every other `lib/*.ts` file here); resolving
         // `labelKey`/`descriptionKey` to the English text a user would actually type is this
         // component's job, since it already holds `t` (sprint decision: filter matches cvar name,
-        // label and description, not their i18n keys - review finding).
+        // label and description, not their i18n keys).
         labelText: (def) => t(def.labelKey),
         descriptionText: (def) => t(def.descriptionKey),
         editedOnly,
@@ -474,7 +474,7 @@ export function SettingsTab() {
   )
 
   // Summed over the very groups rendered below, so the header can never claim a size the sections
-  // do not add up to (story 059 AC8: no counter may disagree with the rows).
+  // do not add up to (story 059: no counter may disagree with the rows).
   const profileTotal = groups.reduce((sum, group) => sum + group.total, 0)
   const profileEdited = groups.reduce((sum, group) => sum + group.edited, 0)
   const profileVisible = groups.reduce((sum, group) => sum + visibleRowsOf(group).length, 0)
@@ -485,7 +485,7 @@ export function SettingsTab() {
   const narrowed = filter.trim() !== '' || editedOnly
 
   /**
-   * Story 054 D10: dragging a cvar row resolves to an exact index in the *underlying* section/
+   * Story 0540: dragging a cvar row resolves to an exact index in the *underlying* section/
    * sub-section array, computed from the *rendered* row order - which only agrees with that array
    * when every one of its cvars is actually on screen. A filter, "Unsaved only" or a collapsed
    * Advanced section can each hide some of them, and a drop between two visible rows then has no
@@ -498,7 +498,7 @@ export function SettingsTab() {
    * itself is never narrowed, only the cvars inside), so their own drag stays enabled regardless -
    * see the explicit `disabled={false}` on their `SortableItem`s below.
    *
-   * Review-fix (finding 4): `advancedHidden` is scoped to the *section the row is actually in*
+   * `advancedHidden` is scoped to the *section the row is actually in*
    * (`group.advancedHidden`, a single section's own rows plus its sub-sections), not summed with
    * `.some()` across every group on the page - a collapsed Advanced sub-section anywhere used to
    * disable dragging everywhere, which, since Advanced starts collapsed, made cvar drag practically
@@ -546,7 +546,7 @@ export function SettingsTab() {
   }
 
   /** The destination placement's real, unfiltered name list - `section.cvars`/`subsection.cvars`
-   * straight off `sections`, not `rowNamesByPlacementKey`'s rendered subset. Review-fix (finding 5):
+   * straight off `sections`, not `rowNamesByPlacementKey`'s rendered subset. 
    * `buildCvarSectionGroups`'s row resolver drops a name from rendering entirely - a duplicate
    * already claimed by an earlier section, or a non-catalogue name with no stored value
    * (`makeRowResolver`, `cvar-rows.ts`) - while it stays present in the underlying array
@@ -561,18 +561,18 @@ export function SettingsTab() {
   }
 
   /**
-   * A cvar row was dropped among another group's rows (story 054 D10) - resolved to an exact index
+   * A cvar row was dropped among another group's rows (story 0540) - resolved to an exact index
    * in the destination's (post-removal) cvars run, the same "rest = ... filter out the dragged
    * item, find where the hovered one now sits, before/after by direction" shape
    * `ControlsDragZone#handleDrop` uses for a Controls row one level up. Reaches every group
    * including a reserved `Defaults`/`Other` bucket - `moveCvarToPosition` itself is what turns "the
    * destination is a reserved bucket" into a no-op (`RESERVED_CVAR_SECTION_IDS`), so a cvar dragged
    * *into* one simply does not move, while a cvar dragged *out of* one (this function's `activeId`
-   * naming a name `sections` has never placed) moves normally - exactly D9's "out of the reserved
+   * naming a name `sections` has never placed) moves normally - exactly the "out of the reserved
    * bucket into a real section" case.
    *
    * The rendered position is found first (`rest`/`overIndex`, in rendered-only names), then mapped
-   * back onto `realNamesForPlacement`'s real array (review-fix, finding 5): the rendered name at (or
+   * back onto `realNamesForPlacement`'s real array the rendered name at (or
    * just before) the drop point is looked up by *value* in the real array, since ghost names never
    * appear in `rest` and so can never shift that lookup off by themselves.
    */
@@ -604,7 +604,7 @@ export function SettingsTab() {
     )
   }
 
-  /** A count readout that cannot disagree with the rows under it (story 059 AC8): the section's own
+  /** A count readout that cannot disagree with the rows under it (story 059): the section's own
    * size and unsaved count as before, plus - only while a filter or "Unsaved only" is narrowing the
    * view - how many rows are actually showing. `visible` is counted off the very row arrays the JSX
    * maps over, never recomputed from the predicates. */
@@ -623,7 +623,7 @@ export function SettingsTab() {
   }
 
   /**
-   * Story 059 D9: toggles the profile's `writeCatalogDefaults` flag - mirrors `RawFileTab.tsx`'s
+   * Story 059: toggles the profile's `writeCatalogDefaults` flag - mirrors `RawFileTab.tsx`'s
    * `toggleWriteUnbindall` exactly, a direct write-through with no debounce (a click, not typed
    * input), since it changes whether the `Defaults` bucket appears at all, here and in the Raw
    * File tab.
@@ -646,7 +646,7 @@ export function SettingsTab() {
       : t(RESERVED_LABEL_KEY[group.kind === 'defaults' ? 'defaults' : 'other'])
 
   /**
-   * Story 059 D8/review Fix 5: the move/remove icon-button pair next to a row. Story Decisions
+   * Story 059/review Fix 5: the move/remove icon-button pair next to a row. Story Decisions
    * text: "Settings shows the 'Defaults' section only while the toggle is on, read-only in
    * structure (no rename/delete/reorder) but a cvar can be dragged/moved out of it, which places it
    * in a real section" - so "move to..." (the non-drag mechanism this deliverable actually built)
@@ -703,7 +703,7 @@ export function SettingsTab() {
       )
     // Story 059 review Fix 5: every row - reserved-group ones included - gets the move affordance
     // now, so this no longer early-returns a bare, action-less row for a reserved group.
-    // Story 054 D10: every row - reserved-group ones included, per D9's "out of the reserved bucket
+    // Story 0540: every row - reserved-group ones included, per the "out of the reserved bucket
     // into a real section" - also gets a drag grip now, wired to `handleCvarDrop` through the
     // primary `SortableZone` below (`id={entry.name}`, the same identity `placementByCvarName`/
     // `rowNamesByPlacementKey` are keyed on).
@@ -809,7 +809,7 @@ export function SettingsTab() {
       />
 
       {/*
-        Story 054 D10: the one `DndContext` this tab drags inside (`SortableZone`, D1's single
+        Story 0540: the one `DndContext` this tab drags inside (`SortableZone`, the single
         dnd-kit configuration) - the primary axis is every rendered cvar row (`cvarRowIds`), in
         exactly the order the JSX below renders them in, so dnd-kit's index-to-item mapping matches
         the screen. Section and sub-section headers are not among `items`: their own `SortableItem`s
@@ -955,7 +955,7 @@ export function SettingsTab() {
                   {/* Sub-sections always render their own header, even with no rows left after the
                   filter and even when genuinely empty - an empty sub-section still has to be visible
                   so it can be renamed, reordered or deleted, exactly the rule `ControlsGrid` follows
-                  one level up (story 053 D5). Only a `'section'` group ever has one (`cvar-rows.ts`
+                  one level up (story 053). Only a `'section'` group ever has one (`cvar-rows.ts`
                   never gives a reserved bucket sub-sections), so `group.section!` below is always
                   defined here - no `movable`/`group.section` guard needed the way the header buttons
                   above still need one for a reserved group's *own* row. */}
@@ -1058,7 +1058,7 @@ export function SettingsTab() {
                     // Gated on `hasAdvanced` (does this group have an advanced section at all), not on
                     // `advancedHidden > 0` (how many rows the collapse is hiding *right now*) - the latter
                     // legitimately reads 0 once the group is expanded, which used to make this button
-                    // disappear and leave no way back to the collapsed state (review finding). The "N
+                    // disappear and leave no way back to the collapsed state. The "N
                     // more" count itself still comes from `advancedHidden`, post-filter/editedOnly, and is
                     // simply omitted when it would misleadingly read 0 or when the section is expanded.
                     <button

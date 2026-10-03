@@ -18,7 +18,7 @@ import {
 import { NameTemplatesList } from './NameTemplatesList'
 
 /**
- * Story 142 D4: the extra-demo-folders list a user actually edits - a sibling block to
+ * Story 142: the extra-demo-folders list a user actually edits - a sibling block to
  * `NameTemplatesList` in the same Settings section, mirroring `servers/ServersSettingsSection.tsx`'s
  * `mutate()`-through-`Outcome` discipline: every mutating action re-renders from the handler's
  * returned full list, never an optimistic local copy.
@@ -104,7 +104,7 @@ function ExtraFoldersList() {
 }
 
 /**
- * Story 182 D3: the missing-mod warning's switch and its remembered mods, a sibling of
+ * Story 182: the missing-mod warning's switch and its remembered mods, a sibling of
  * `ExtraFoldersList` with the same discipline: every action re-renders from the handler's returned
  * full state, never an optimistic local copy.
  */
@@ -163,15 +163,15 @@ function ModWarningSettings() {
 }
 
 /**
- * Story 135 D3: the replays module's Settings section - inner content only, the shell
+ * Story 135: the replays module's Settings section - inner content only, the shell
  * (`SettingsView.tsx`) already wraps every contributed section in its own `Panel` + `SectionLabel`
  * chrome, same as `servers/ServersSettingsSection.tsx`.
  *
- * Story 140 D3 replaces the placeholder paragraph with the naming-pattern list a user actually
- * edits (`NameTemplatesList`) - the module's first real control, mirroring story 111 D4's own
+ * Story 140 replaces the placeholder paragraph with the naming-pattern list a user actually
+ * edits (`NameTemplatesList`) - the module's first real control, mirroring story 111's own
  * replacement of `servers-settings-placeholder`.
  *
- * Story 142 D4 adds `ExtraFoldersList` as a sibling block below it - the second real control in
+ * Story 142 adds `ExtraFoldersList` as a sibling block below it - the second real control in
  * this section.
  */
 export function ReplaysSettingsSection() {

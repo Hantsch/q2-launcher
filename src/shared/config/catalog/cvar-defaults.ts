@@ -1,6 +1,6 @@
 /**
- * Story 048 D1: the shared rule for "is this cvar value the default" and "what should the writer
- * put in the file for it" — the two questions `render.ts`'s cvar section (D2/D3) and any future
+ * Story 048: the shared rule for "is this cvar value the default" and "what should the writer
+ * put in the file for it" — the two questions `render.ts`'s cvar section and any future
  * caller need answered the same way, so this is the one place that answers them.
  *
  * `sameValue` below is copied, not imported, from `cvar-facts.ts`'s private helper of the same

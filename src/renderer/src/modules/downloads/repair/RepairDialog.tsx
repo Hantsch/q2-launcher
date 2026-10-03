@@ -9,7 +9,7 @@ import { useStartJob } from '../../../components/jobs/useStartJob'
 import { JobActionDialog } from '../components/JobActionDialog'
 
 /**
- * Story 093 D5: the repair dialog - one row per offer a fresh `RepairPlan` (D2) carries for this
+ * Story 093: the repair dialog - one row per offer a fresh `RepairPlan` carries for this
  * installation, each routed to whatever actually resolves it. Opened via
  * `openDialog({ kind: 'module', moduleId: 'downloads', view: 'repair', installationId })` - the
  * shell's own trigger (ActionBar/ChecksList) is a separate deliverable; this component only needs
@@ -20,7 +20,7 @@ import { JobActionDialog } from '../components/JobActionDialog'
  * Unlike that dialog, a single screen can offer more than one action at once, because
  * `RepairPlan.offers` is a list - each offer kind routes independently:
  *
- * - `'reinstall-engine'` / `'install-point-release'` start the D4 `repair.start` job for that one
+ * - `'reinstall-engine'` / `'install-point-release'` start the `repair.start` job for that one
  *   offer kind and hand over to `RunningStep`, same as `RetailUpgradeDialog`'s single confirm.
  * - `'retail-copy'` does not start a job here at all - it switches the module dialog's `view` to
  *   the existing `'retail-upgrade'` view (090's flow), because copying retail paks from a detected
@@ -30,14 +30,14 @@ import { JobActionDialog } from '../components/JobActionDialog'
  *   `'set-write-dir'` handling directly, the same remedy the installation card's own checks list
  *   already offers (ActionBar's cross-directory usage of the same hook).
  *
- * AC6 (empty plan): `offers` can legitimately be empty while `findings` is not - "nothing here is
+ * Empty plan: `offers` can legitimately be empty while `findings` is not - "nothing here is
  * repairable by this dialog" still shows what is wrong. That state renders every finding plus a
  * plain "nothing can be repaired automatically" message, and no action button at all - it is a live
  * read of the plan already (the fetch happens on open), never a snapshot decided by the shell.
  *
- * `data-testid`s (D6's later e2e flow, `scripts/flows/repair.mjs`), mirroring
+ * `data-testid`s (the e2e flow `scripts/flows/repair.mjs`), mirroring
  * `RetailUpgradeDialog`'s own naming convention: `repair-dialog` (the container), `repair-offer-*`
- * keyed by offer kind (e.g. `repair-offer-reinstall-engine`), `repair-empty` (AC6's message),
+ * keyed by offer kind (e.g. `repair-offer-reinstall-engine`), `repair-empty` (the empty-plan message),
  * `repair-error`, `repair-dismiss` (closes a finished/running job) - `RunningStep` itself already
  * carries `bootstrap-running-step` as the progress handover's own testid, reused unchanged.
  */

@@ -30,7 +30,7 @@ export interface ServerListFilterBarProps {
   /** Story 197: the saved quick filters, rendered as chips after the built-in ones. */
   quickFilters?: readonly QuickFilter[]
   onSaveQuickFilter?: () => void
-  /** Story 197 D4 slot: rendered beside each saved chip (the rename/delete menu). */
+  /** Story 197 slot: rendered beside each saved chip (the rename/delete menu). */
   renderQuickFilterActions?: (quickFilter: QuickFilter) => ReactNode
 }
 
@@ -93,7 +93,7 @@ function FilterChip({
 }
 
 /**
- * Story 120 D2: the servers list's filter/search rail - a controlled component over
+ * Story 120: the servers list's filter/search rail - a controlled component over
  * `ServerListFilter` (`@shared/servers/list-filter`), the same "controller owns state, this
  * component only renders it and reports a change" shape as `ServerListHeader`. Every field writes
  * its own partial update on every interaction (no debounce, no local buffering) - `ServersView` is

@@ -1,5 +1,5 @@
 /**
- * Pure Keep-a-Changelog-subset parser, shared by main and renderer (story 099 D1).
+ * Pure Keep-a-Changelog-subset parser, shared by main and renderer (story 099).
  *
  * No node, no DOM, no electron, no other module import - same "shared has no runtime deps beyond
  * zod" rule as the rest of this folder (see `constants.ts`'s header comment), except this file

@@ -1,7 +1,7 @@
 import type { PlaybackView, TimelineAction } from '@shared/replays/timeline'
 
 /**
- * Story 184 D1: the demo timeline's expected state - the last accepted readback plus the commands
+ * Story 184: the demo timeline's expected state - the last accepted readback plus the commands
  * still in flight - and the position projected between readbacks.
  *
  * Pure by contract: no React, no timers, no IPC. Every time-dependent function takes `now` (ms,

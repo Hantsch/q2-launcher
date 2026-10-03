@@ -11,21 +11,21 @@ import { buildFailureReport } from '../report'
 import { FailureCauseDetail } from './FailureCauseDetail'
 
 /**
- * Story 073 D4 (AC2): one entry in the Downloads tab's failure log - either an always-visible
+ * Story 073: one entry in the Downloads tab's failure log - either an always-visible
  * undismissed entry (with a Dismiss action) or one shown inside the collapsed "dismissed"
  * disclosure (with a Restore action instead). Mirrors `JobRow`'s layout and primitive
  * conventions (`Panel`, `Badge`, `IconButton`) so the two lists read as one system.
  *
- * Story 075 D6 adds the failure's two diagnostic actions: copy (only rendered when the failure
- * carries `diagnostics` - AC6's pre-story entries offer no copy action at all, not a disabled
+ * Story 075 adds the failure's two diagnostic actions: copy (only rendered when the failure
+ * carries `diagnostics` - entries from before this story offer no copy action at all, not a disabled
  * stub) and reveal-log (disabled until `appInfo` has loaded, mirroring `SettingsView.tsx`'s
- * existing reveal-log-path pattern exactly - AC5).
+ * existing reveal-log-path pattern exactly).
  *
- * Story 078 D6 mounts the shared `FailureCauseDetail` below the header row and demotes
+ * Story 078 mounts the shared `FailureCauseDetail` below the header row and demotes
  * reveal-log out of the always-visible action cluster into the detail's footer slot - a closed
  * card now offers copy (the primary reporting action) and dismiss/restore only; reveal-log is
- * reachable after expanding. An entry with no `diagnostics` renders no detail at all (AC6), so it
- * genuinely has no way to reveal the log anymore - the intentional consequence of (User) Q1/AC5.
+ * reachable after expanding. An entry with no `diagnostics` renders no detail at all, so it
+ * genuinely has no way to reveal the log anymore - the intentional consequence of (User) Q1.
  */
 export interface FailureLogEntryProps {
   failure: DownloadFailure
@@ -33,7 +33,7 @@ export interface FailureLogEntryProps {
   dismissed: boolean
   onDismiss: (id: string) => void
   onRestore: (id: string) => void
-  /** `null` until the store's bootstrap fetch resolves - gates the reveal-log action (AC5). */
+  /** `null` until the store's bootstrap fetch resolves - gates the reveal-log action. */
   appInfo: AppInfo | null
 }
 

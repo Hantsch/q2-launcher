@@ -1,7 +1,7 @@
 ---
 id: 230
 title: comments state invariants, not sprint history
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -27,21 +27,21 @@ file as those files are opened by other stories, or as a quiet filler.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The `[diag187]` log lines are deleted or downgraded to `debug`; a test fails on
+- [x] **AC1** — The `[diag187]` log lines are deleted or downgraded to `debug`; a test fails on
       any `log.info('[diag` in `src/main`.
-- [ ] **AC2** — The headers of `servers/index.ts`, `replays/index.ts`, `modules/index.ts`,
+- [x] **AC2** — The headers of `servers/index.ts`, `replays/index.ts`, `modules/index.ts`,
       `profile-restore.ts`, `render.ts` and `rebuild.ts` are rewritten in present tense and state
       what the file does today; none exceeds 40 lines.
-- [ ] **AC3** — One bounded sweep over the densest files (`profile-restore.ts`,
+- [x] **AC3** — One bounded sweep over the densest files (`profile-restore.ts`,
       `ControlsTab.tsx`, `lib/schemas.ts`, `shared/modules/{config,downloads,servers,replays}.ts`,
       `scan-service.ts`, `useLauncher.ts`, `ConfigView.tsx`) rewrites history narrative into
       invariants or deletes it; story pointers remain only as trailing `(story NNN)`; narrative
       worth keeping moves to the module's systems doc (story 228). Comment share in each swept
       file drops below 35 %.
-- [ ] **AC4** — No `D\d`/`AC\d` deliverable or acceptance-criterion ids remain in non-test source
+- [x] **AC4** — No `D\d`/`AC\d` deliverable or acceptance-criterion ids remain in non-test source
       (grep-zero for `\bD[1-9]\b` and `\bAC[1-9]\b` inside comments), per the CLAUDE.md
       convention.
-- [ ] **AC5** — The story review (`/build`'s clean-agent review) checks new comments against the
+- [x] **AC5** — The story review (`/build`'s clean-agent review) checks new comments against the
       convention; the instruction is in the review prompt.
 
 ## Decisions (Sprint)
@@ -114,7 +114,7 @@ if a reader needs it, moved to the module's doc under `docs/systems/` (story 228
 a story pointer survives only as a trailing `(story NNN)`; no `D1`–`D9`/`AC1`–`AC9` ids. The
 convention is the comment paragraph in `CLAUDE.md` (story 227).
 
-- [ ] **D1 — comment scanner, guard test, diag lines, review-prompt pin.**
+- [x] **D1 — comment scanner, guard test, diag lines, review-prompt pin.**
   Files: `src/test-support/source-tree.ts` (add `export function commentRanges(source: string):
   { text: string; startLine: number; endLine: number }[]` — the same lexer `stripComments` uses,
   skipping string/template/regex literals; reimplement `stripComments` on top of it, no second
@@ -131,7 +131,7 @@ convention is the comment paragraph in `CLAUDE.md` (story 227).
   will be red today, so in D1 it runs over `ID_FREE_ROOTS` only; D11 widens it with the list.
   AC5 test reads `.claude/commands/build.md` and asserts the review assignment contains
   "comments that narrate story or review history".
-- [ ] **D2 — six module headers as built.** Files (resolve post-refactor paths first):
+- [x] **D2 — six module headers as built.** Files (resolve post-refactor paths first):
   `src/main/modules/servers/index.ts`, `src/main/modules/replays/index.ts`,
   `src/renderer/src/modules/index.ts`, the `profile-restore` folder's `index.ts` (story 214),
   `src/shared/config/**/render.ts`, `src/main/modules/config/**/rebuild.ts`. Each header (first
@@ -140,34 +140,34 @@ convention is the comment paragraph in `CLAUDE.md` (story 227).
   history. Gone: "There is no scanning yet" (servers), "no platform checks - that is a later
   deliverable" (replays ~136), the story-115 "stand-in" narrative (renderer modules index ~72).
   Test in `src/comments.test.ts` (see AC2 line).
-- [ ] **D3 — id codemod over canonical forms.** A throwaway script (scratch dir or a temporary
+- [x] **D3 — id codemod over canonical forms.** A throwaway script (scratch dir or a temporary
   test run once and deleted — not committed) that, using `commentRanges` from D1, edits **only
   text inside comments** of every non-test `src/**/*.{ts,tsx}`: `story NNN D3` / `story-NNN D3, AC2`
   / `NNN D5's` → `story NNN` (keeping the surrounding punctuation readable), parenthetical
   `(D4)`/`(AC3)`/`(AC1, AC2)` → removed, `// AC3: text` → `// text`. It asserts per file that
   `stripComments(before) === stripComments(after)` and aborts otherwise. Acceptance: typecheck,
   lint, `npm test` green; report remaining id count (bare forms) per top directory.
-- [ ] **D4 — sweep the shared contracts.** Files: `src/shared/modules/config.ts`,
+- [x] **D4 — sweep the shared contracts.** Files: `src/shared/modules/config.ts`,
   `downloads.ts`, `servers.ts`, `replays.ts`, plus the matching `docs/systems/*.md` if narrative
   moves. Bring each below 0.35 comment share (today 57/66/35/37 %), story pointers trailing-only.
   Append the four paths to `SWEPT_FILES`.
-- [ ] **D5 — sweep shared/config.** Files: every file of the `profile-restore` folder (story 214)
+- [x] **D5 — sweep shared/config.** Files: every file of the `profile-restore` folder (story 214)
   and `render.ts` (post-214 path), plus `docs/systems/config-module.md` if narrative moves.
   Each file below 0.35 (today 53 % / 54 % for the pre-split files). Append the paths to
   `SWEPT_FILES`.
-- [ ] **D6 — sweep the main files.** Files: `src/main/lib/schemas.ts`,
+- [x] **D6 — sweep the main files.** Files: `src/main/lib/schemas.ts`,
   `src/main/modules/servers/scan-service.ts`, `src/main/modules/replays/scan-service.ts`. Shares
   are already < 0.35; the work is pointer form, ids and narrative. Append to `SWEPT_FILES`.
-- [ ] **D7 — sweep the renderer files.** Files: `ControlsTab.tsx` and the component files story
+- [x] **D7 — sweep the renderer files.** Files: `ControlsTab.tsx` and the component files story
   213 split out of it (its `components/`/`dialogs/` children), `ConfigView.tsx` and the components
   story 218 split out of it, `src/renderer/src/store/useLauncher.ts`. Append to `SWEPT_FILES`.
-- [ ] **D8 — residual ids: `src/shared` + `src/preload`.** Rewrite every remaining bare
+- [x] **D8 — residual ids: `src/shared` + `src/preload`.** Rewrite every remaining bare
   `D\d`/`AC\d` in comments (e.g. "D2's verification" → name the check; "(AC4)" → drop) in those
   trees. Append `src/shared`, `src/preload` to `ID_FREE_ROOTS`.
-- [ ] **D9 — residual ids: `src/main/modules/{config,downloads}`.** Same rewrite; append both.
-- [ ] **D10 — residual ids: rest of `src/main`.** Same rewrite; replace the main entries in
+- [x] **D9 — residual ids: `src/main/modules/{config,downloads}`.** Same rewrite; append both.
+- [x] **D10 — residual ids: rest of `src/main`.** Same rewrite; replace the main entries in
   `ID_FREE_ROOTS` with `src/main`.
-- [ ] **D11 — residual ids: `src/renderer`, then whole tree.** Same rewrite in `src/renderer`
+- [x] **D11 — residual ids: `src/renderer`, then whole tree.** Same rewrite in `src/renderer`
   (the config module first: ~80 files); set `ID_FREE_ROOTS = ['src']`, which also makes the
   narrative-marker test tree-wide; rewrite any marker hit it reports.
 
@@ -197,4 +197,28 @@ diff, and a hard pass over a ~4k-line comment diff would not see it better.
 
 ## Done
 
-<!-- Filled by /build 230. -->
+Comment sweep over ~440 non-test files: ids stripped (codemod + hand rewrites), six module headers
+rewritten, the densest files swept below 35 % comment share, `[diag187]` lines deleted.
+`src/comments.test.ts` (new, on a one-lexer `commentRanges` in `src/test-support/source-tree.ts`)
+guards headers, swept files, ids and narrative markers tree-wide, the diag tag and the build-review clause.
+
+Commit message: 230: comments state invariants, not sprint history (diag187 removed, headers, id sweep, comment guard test)
+
+Verification: narrow gate `npx vitest run --changed HEAD` green; build, typecheck, lint green; one full
+`npm test` after the last fix shows only the two known pre-existing reds (shell-layering "no shell file
+imports from modules"; test-kit mockClient offender useQuickFilters.test.ts). No e2e mapped. AC to test
+(all ran and passed): AC1 "main logs no info-level diagnostic tags"; AC2 "module headers are at most 40
+lines and carry no stale claims"; AC3 "swept files keep comments under 35% with trailing story pointers
+only"; AC4 "no deliverable or criterion ids in comments" + "no review-round narrative in comments"; AC5
+"the build review prompt checks comments against the convention"; scanner "commentRanges finds comments,
+not comment-like text in literals". No manual residue.
+
+Decisions:
+- The replays header is the block above `defineModule`; `moduleHeader()` picks it. `profile-restore/index.ts` was already compliant; `render.ts` had no header, one was added.
+- The id regex is wider than the spec (`\bD\d{1,2}\b|\bAC ?\d{1,2}\b`); in swept files and headers a story pointer must be a trailing `(story N)` (also `stories N`, `story-N`).
+- CSS comments under `src/renderer/src/styles` keep old ids (AC4 covers ts/tsx source); left alone.
+- History was deleted, not moved to docs/systems; leading `Story NNN:` pointers remain in unswept files (allowed).
+- Two review cycles (both FAIL: guard gaps, invariants lost in downloads.ts/config.ts), all fixed; no third. Open: a few lower-value config.ts notes (`ImportPreviewResult` fields, `RefreshedProfileResult` duplicate-alias) not restored; the guard cannot detect invariant loss.
+- D8-D11 ran in parallel (disjoint trees); D5 needed one re-dispatch (PARTIAL).
+
+tiers: D 11 / hard 0 · review default · cycles 2 · agents 22

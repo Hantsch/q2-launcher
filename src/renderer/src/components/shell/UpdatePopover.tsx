@@ -4,12 +4,12 @@ import { ROUTE_SETTINGS, useLauncher } from '../../store/useLauncher'
 import { UpdateAction } from './UpdateAction'
 
 /**
- * Story 098 D3: the update popover's content, opened from `UpdateButton`. Reads the mirrored
+ * Story 098: the update popover's content, opened from `UpdateButton`. Reads the mirrored
  * `update` slice directly from the store (same convention as `ActionBar`'s `JobReadout`) rather
  * than taking it as a prop, so a real `useLauncher.setState` is enough to drive every phase in
  * tests.
  *
- * Story 099 D4: the phase-based primary action itself now lives in `UpdateAction.tsx` (R7),
+ * Story 099: the phase-based primary action itself now lives in `UpdateAction.tsx` (R7),
  * shared verbatim with About's pending-update block so both surfaces drive the exact same
  * download/cancel/restart logic. See that file for the per-phase behaviour (Decisions).
  *

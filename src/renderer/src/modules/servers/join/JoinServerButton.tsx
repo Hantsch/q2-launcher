@@ -6,7 +6,7 @@ import { useActiveInstallation } from '../../../store/useLauncher'
 import { useJoinFlow } from './useJoinFlow'
 
 /**
- * Story 125 D4: a single button over `useJoinFlow` (address check, mod-mismatch warning, password
+ * Story 125: a single button over `useJoinFlow` (address check, mod-mismatch warning, password
  * prompt, then `play()` with `+connect`/`userinfo`).
  *
  * `prominent` renders the button as the action bar's `PlayButton` (same look, label "Join") for

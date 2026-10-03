@@ -1,12 +1,12 @@
 /**
- * Validation for a user-typed own alias name (story 039, D2).
+ * Validation for a user-typed own alias name (story 039).
  *
  * `aliasNameFor` (`alias-render.ts`) already lets an action carry an explicit
  * `aliasName` that wins verbatim over the derived name. This module is the
  * gate in front of that field: it decides whether a string the user just
  * typed is a name the engine's `Cmd_Alias_f` can actually define, before it
  * is ever stored. Pure, `src/shared` - no `fs`, no DOM, no electron - because
- * D9's renderer dialog validates as the user types and D8's Care rule
+ * the renderer dialog validates as the user types and the Care rule
  * (`validate-actions.ts`) reuses the same reserved-name set after the fact;
  * neither side should have its own copy of these rules.
  *
@@ -35,7 +35,7 @@
  * ## Reserved names
  *
  * A name that collides with a known engine command would render a dead,
- * self-referential `alias weapnext weapnext` after story 039's D7 (see the
+ * self-referential `alias weapnext weapnext` after story 039 (see the
  * story's Decisions). "Known" here is deliberately the same, limited set the
  * rest of this codebase already has no fuller catalogue than (this repo
  * carries no complete engine command list - see `validate-actions.ts`'s file
@@ -91,14 +91,14 @@ const PART_SUFFIX_RESERVE = '_p'.length + 2
 
 /**
  * Reserve for the `_s<n>` state suffix a toggle's two halves render under (`<name>_s1`/`<name>_s2`
- * - story 045, D3; mirrors `alias-render.ts`'s own `STATE_SUFFIX_RESERVE`, restated for exactly
+ * - story 045; mirrors `alias-render.ts`'s own `STATE_SUFFIX_RESERVE`, restated for exactly
  * the reason `PART_SUFFIX_RESERVE` above is): `'_s'.length` plus one digit. A toggle has two
  * states by definition, so unlike the chunk suffix there is no growth to budget for.
  */
 const STATE_SUFFIX_RESERVE = '_s'.length + 1
 
 /**
- * The full budget for a user-typed own alias name, sign included. Exported so a UI hint (D9) can
+ * The full budget for a user-typed own alias name, sign included. Exported so a UI hint can
  * state the limit without re-deriving it.
  *
  * Unchanged by story 045, and deliberately: `Math.max(PART_SUFFIX_RESERVE, STATE_SUFFIX_RESERVE)`
@@ -111,7 +111,7 @@ export const MAX_OWN_ALIAS_NAME_LENGTH = USABLE_ALIAS_NAME - PART_SUFFIX_RESERVE
 /**
  * The budget for a user-typed own alias name of `kind`, which is `MAX_OWN_ALIAS_NAME_LENGTH` for
  * every kind that renders as one alias body, and tighter for the two that render as a family
- * (story 045, D3):
+ * (story 045):
  *
  * - `toggle` (24): the name is the dispatch alias, its states hang off it (`<name>_s1`) and a long
  *   state's chunks hang off *those* (`<name>_s1_p2`), so both suffixes have to be paid for - the
@@ -179,7 +179,7 @@ let cachedReservedAliasNames: Set<string> | undefined
 
 /**
  * Every reserved alias name: `action-catalog.ts`'s built-in commands (raw and sign-stripped) plus
- * `cvar-catalog.ts`'s `ALL_CVARS` names, all lower-cased. Exported so D8's Care rule
+ * `cvar-catalog.ts`'s `ALL_CVARS` names, all lower-cased. Exported so the Care rule
  * (`aliasShadowsCommand`) checks a resolved alias name against exactly this set rather than keeping
  * a second copy of it.
  */
@@ -196,8 +196,8 @@ export type AliasNameRejectReason =
   | 'reserved'
   | 'duplicate'
   /**
-   * A `press-release` entry's name carried a leading `+`/`-` (story 045, D3). Only reachable for
-   * that kind, so no existing call site can produce it; the renderer string for it lands with D9,
+   * A `press-release` entry's name carried a leading `+`/`-` (story 045). Only reachable for
+   * that kind, so no existing call site can produce it; the renderer string for it lands with the rename dialog,
    * which is what makes `ActionEditor`/`RenameActionDialog` pass a `kind` in the first place.
    */
   | 'signedBaseName'
@@ -214,13 +214,13 @@ export type AliasNameValidation =
  * comment's "Duplicates" section. Defaults to empty so a caller checking a name in isolation (e.g.
  * a unit test) does not have to pass one.
  *
- * `kind` (story 045, D3) is the entry the name is for, and changes three things for the two kinds
+ * `kind` (story 045) is the entry the name is for, and changes three things for the two kinds
  * that render as an alias *family* rather than as one body - every other kind, and a caller that
  * passes no kind at all, behaves byte-for-byte as before:
  *
  * - the length budget is `maxOwnAliasNameLength(kind)` (see there for the two numbers and why);
  * - the duplicate check runs over every name the family would define, not just the typed one
- *   (`renderedNamesFor` - story-045 review, finding 3), so a toggle called `zoom` is refused while a
+ *   (`renderedNamesFor`), so a toggle called `zoom` is refused while a
  *   user alias named `zoom_s1` exists. `params.name` then names the *colliding* name rather than the
  *   typed one, which is the only spelling that tells the user what the clash actually is;
  * - a `press-release` name is validated **sign-free** (`signedBaseName`). The stored name is the
@@ -275,7 +275,7 @@ export function validateAliasName(
 
 /**
  * Every alias name an entry of `kind` called `name` would actually define in the file - the set the
- * duplicate check has to run over, not just the typed string (story-045 review, finding 3).
+ * duplicate check has to run over, not just the typed string.
  *
  * For the three single-body kinds that is the name itself, exactly as before. The two family kinds
  * define more than they are called:

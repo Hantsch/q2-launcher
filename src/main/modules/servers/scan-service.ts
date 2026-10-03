@@ -34,41 +34,42 @@ import type { ServerQueryResult } from './server-query'
 import type { Clock, MasterUdpImpl } from './udp-master-source'
 
 /**
- * Story 114 D6: the scan service - the one stateful thing this module owns. Everything upstream
- * of this file (D2-D5) is pure or purely transport; this is where "a scan" becomes a thing with a
- * lifetime, a single-flight rule, and a memory that survives past any one sweep.
+ * The scan service - the one stateful thing this module owns. Everything upstream
+ * of this file is pure or purely transport; this is where "a scan" becomes a thing with a
+ * lifetime, a single-flight rule, and a memory that survives past any one sweep (story 114)
  *
- * - **D-L, single-flight.** `start()` is synchronous and answers immediately: a refusal when a
+ * - **Single-flight.** `start()` is synchronous and answers immediately: a refusal when a
  *   scan is already running, or `{ ok: true }` once the new scan's state has been reset and its
  *   `scan.changed` emitted - the sweep itself (`runSweep`) is fired with `void` and continues in the
  *   background. There is never a queue: a second `start()` while one is running does not schedule
  *   anything, it just says no.
- * - **D-J/D-K, the last-known map.** `entries` is a plain in-memory `Map`, never touched by
+ * - **The last-known map.** `entries` is a plain in-memory `Map`, never touched by
  *   `state.json` - it is rebuilt from nothing every process lifetime. A row is only ever added or
  *   refreshed by a successful (`ok: true`) reply; a failed reply for an address already in the map
  *   leaves that entry exactly as it was (never zeroed, never removed). At the end of a sweep, every
  *   target this round's address set named but that never produced a successful reply keeps its old
  *   entry with `status` flipped to `'stale'` - an address with no previous entry and no reply this
  *   round simply never gets a row.
- * - **D-D, `read()`.** A synchronous getter over the live state and the current entry map - no
+ * - **`read()`.** A synchronous getter over the live state and the current entry map - no
  *   polling anywhere in this file, so a renderer that mounts mid-scan just asks once.
  * - **`overview()`.** Feeds `servers` module's `overview.read` handler (index.ts) with the three
- *   numbers that used to be hardcoded. `lastScanAt` is tracked as its own field, separate from
+ *   overview numbers. `lastScanAt` is tracked as its own field, separate from
  *   `ServersScanState.finishedAt` - the latter is documented (shared/modules/servers.ts) to go back
  *   to `null` the moment a new scan starts, which is correct for the live scan state but wrong for
  *   "when did a scan last actually finish": that question should keep answering with the previous
  *   scan's timestamp for as long as the next one is still running, not flash back to "never".
- * - **Story 116 D3, the game-running guard.** `start()` refuses with
+ * - **The game-running guard.** `start()` refuses with
  *   `SCAN_BLOCKED_GAME_RUNNING_REASON_KEY` while `isScanBlocked(launch.getState())` - checked ahead
- *   of the single-flight rule, and the *only* extra condition on the manual path (D-Q). The launch
+ *   of the single-flight rule, and the *only* extra condition on the manual path. The launch
  *   state is always read live at call time, never cached, so the refusal cannot depend on the order
  *   in which `onStateChange` listeners run. `blockedReason` is a reactive mirror of that same
  *   predicate: set at construction and on every launch state change, so the view can show the
  *   reason (and disable its refresh control) for the whole session, and it clears the moment the
- *   session ends (AC4) without any scan attempt being needed first. An automatic trigger never
+ *   session ends without any scan attempt being needed first. An automatic trigger never
  *   reaches `start()` while blocked (scan-cadence.ts skips it with `'game-running'`), which is why
- *   the mirror - not a refusal - is what publishes the reason for AC1's skipped round.
- * - **Story 117 D3, scoped rounds.** `start()` takes an optional `ScanScope` (default `'all'`, so
+ *   the mirror - not a refusal - is what publishes the reason for the skipped automatic round
+ *   (story 116)
+ * - **Scoped rounds.** `start()` takes an optional `ScanScope` (default `'all'`, so
  *   every automatic trigger and "Refresh servers" are literally the same run). A scope only narrows
  *   the address set; the guard, single-flight, `runScan` and `mergeStaleRound` are the same calls for
  *   every scope - there is no second scan path. Two address sets exist per round and must not be
@@ -79,15 +80,15 @@ import type { Clock, MasterUdpImpl } from './udp-master-source'
  *   it, so a timed-out single-server refresh flips that row stale like any other unanswered target.
  *   An address outside `scopeTargets` is never queried, rewritten or staled by a scoped round.
  *   Source resolution only runs for `'all'`; the other scopes never use source addresses, so they
- *   make no master/list request and report no `sourceFailures`.
- * - **Story 196 D2, two lists.** The online list and the LAN list are separate `ScanList`s (each
+ *   make no master/list request and report no `sourceFailures` (story 117)
+ * - **Two lists.** The online list and the LAN list are separate `ScanList`s (each
  *   its own `entries`/`statusInfo`/`lastScanAt`); `setMode` (in memory, default `'online'`) picks
  *   which one `read()`/`readDetail()`/`overview()`/`start()` use. `start()` captures the active
  *   list for the whole round, so a mid-scan switch never redirects writes. A LAN `'all'` round
  *   replaces the LAN list: discovery broadcast, then `runScan` over the answers - no source
  *   resolution, no stale merge, no `onStage2Row`. Favourites are refused in LAN; a `'server'`
  *   round refreshes a row already in the LAN list and never adds one (only broadcast answers
- *   ever enter it).
+ *   ever enter it) (story 196)
  */
 
 /** Injectable seams for both `resolveSources` and `runScan`, all optional - each defaults to the
@@ -98,7 +99,7 @@ export interface ScanServiceDeps {
   udpImpl?: MasterUdpImpl
   clock?: Clock
   queryServer?: QueryServerFn
-  /** Story 196 D2: the LAN discovery round, defaulting to `discoverLanServers` - same injection
+  /** The LAN discovery round, defaulting to `discoverLanServers` - same injection
    * style as `queryServer`. The UI harness wraps the real one with its `targetsOverride`. */
   lanDiscovery?: LanDiscoveryFn
 }
@@ -110,46 +111,46 @@ export interface CreateScanServiceOptions {
    * change between scans, so this must never be a snapshot captured once at `setup()` time. */
   getServersState: () => ServersState
   emit: BoundModule<ServersContract>['emit']
-  /** Story 116 D3 (D-E): the structural launch seam, never `LaunchService` itself. */
+  /** The structural launch seam, never `LaunchService` itself (story 116) */
   launch: LaunchHost
   deps?: ScanServiceDeps
-  /** Story 131 D4: an optional hook fed one `ScanServerPush` per stage-2 row, purely as an
+  /** An optional hook fed one `ScanServerPush` per stage-2 row, purely as an
    * observer - the watchlist service is the only current consumer. Called synchronously from the
    * scan's own `onServer` callback, only for `stage === 'stage2'` rows, and only *after* this
    * service's own entry-merge-and-emit for that row (never reordered ahead of it). Wrapped in a
    * try/catch here and never awaited: a throwing or slow/hanging observer must never affect the
-   * scan's own results or timing (AC5/AC8 of story 131 - the scan must be byte-for-byte identical
-   * whether or not this is set). */
+   * scan's own results or timing - the scan must be byte-for-byte identical
+   * whether or not this is set (story 131) */
   onStage2Row?: (row: ScanServerPush) => void
 }
 
 export interface ScanStartOptions {
-  /** Which addresses this round touches (story 117). Omitted means `{ kind: 'all' }`. */
+  /** Which addresses this round touches. Omitted means `{ kind: 'all' }` (story 117) */
   scope?: ScanScope
-  /** Story 114's "currently selected server", queried in stage 2 of a full scan. Only honoured for
+  /** The "currently selected server", queried in stage 2 of a full scan. Only honoured for
    * the `'all'` scope - `'favourites'` ignores it, `'server'` already names its one address. */
   selectedAddress?: string
 }
 
 export interface ScanService {
   start: (options?: ScanStartOptions) => ScanStartResult
-  /** `listMode` (story 196 D3) reads that mode's list regardless of the active one - the watchlist
+  /** `listMode` reads that mode's list regardless of the active one - the watchlist
    * passes `'online'` so LAN rows never reach it. Omitted means the active mode. */
   read: (listMode?: ServersBrowseMode) => ScanSnapshot
   overview: () => ServersOverview
-  /** Story 122 D2: one server's detail - the row as `read()` already knows it (favourite/pending
+  /** One server's detail - the row as `read()` already knows it (favourite/pending
    * placeholders included) plus the last successful `status` reply's full `serverinfo`. `null` when
    * there is no row for the address at all. */
   readDetail: (address: string) => ServerDetail | null
-  /** Story 196 D2: switches the active list (in memory only). Never aborts or redirects a running
+  /** Switches the active list (in memory only). Never aborts or redirects a running
    * scan - that round keeps writing into the list it started with. */
   setMode: (mode: ServersBrowseMode) => void
   dispose: () => void
 }
 
-/** D-L's refusal reason, in the same `servers.<namespace>.error.<reason>` key convention
- * `masterSourceFailureKey`/`serverAddressRejectionKey` already use - matching `en.json` entry added
- * alongside this deliverable under `servers.scan.error.already-running`. */
+/** The already-running refusal reason, in the same `servers.<namespace>.error.<reason>` key convention
+ * `masterSourceFailureKey`/`serverAddressRejectionKey` already use - matching `en.json` entry
+ * `servers.scan.error.already-running`. */
 export const SCAN_ALREADY_RUNNING_REASON_KEY = 'servers.scan.error.already-running'
 
 function initialScanState(): ServersScanState {
@@ -169,9 +170,9 @@ function initialScanState(): ServersScanState {
   }
 }
 
-/** Story 196 D2: one mode's last-known rows. `statusInfo` is story 122 D2's last successful `status`
+/** One mode's last-known rows. `statusInfo` is the last successful `status`
  * serverinfo per address, replaced whole on each new one (an `info` or failed reply never touches
- * it); `lastScanAt` is when a round on this list last finished. */
+ * it); `lastScanAt` is when a round on this list last finished (story 196) */
 interface ScanList {
   entries: Map<string, ServerListEntry>
   statusInfo: Map<string, Record<string, string>>
@@ -202,12 +203,12 @@ function readServerInfoFields(
       ? serverinfo.gamename
       : undefined
   const maxclients = readIntKey(serverinfo, 'maxclients')
-  // Story S25 D2: bit 0 of `needpass` is the password flag (3 -> true, 2 -> false); an absent key
+  // Bit 0 of `needpass` is the password flag (3 -> true, 2 -> false); an absent key
   // keeps whatever the entry previously knew rather than clobbering it with `undefined`.
   const n = readIntKey(serverinfo, 'needpass')
   const needpass = n === undefined ? existing?.needpass : (n & 1) === 1
-  // Story 126: bit 1 of `needpass` is the spectator-password flag; an absent/invalid key keeps
-  // whatever the entry previously knew rather than clobbering it with `undefined`.
+  // Bit 1 of `needpass` is the spectator-password flag; an absent/invalid key keeps
+  // whatever the entry previously knew rather than clobbering it with `undefined` (story 126)
   const spectatorPass = n === undefined ? existing?.spectatorPass : (n & 2) !== 0
 
   return {
@@ -254,8 +255,8 @@ function mergeSuccessfulReply(
     status: 'online',
     ...fields,
     rttMs: result.rttMs,
-    // Story 124 D1: session history of measured round trips, oldest first - the single `rttMs`
-    // field above still tracks only the latest value, unchanged.
+    // Session history of measured round trips, oldest first - the single `rttMs`
+    // field above still tracks only the latest value (story 124)
     rttHistory: appendRttSample(existing?.rttHistory, { at: now, rttMs: result.rttMs }),
     players,
     lastSeenAt: now,
@@ -290,7 +291,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
 
   const unsubscribeLaunch = launch.onStateChange((state) => syncBlockedReason(isScanBlocked(state)))
 
-  /** Merges one successful reply into `list` (D-J/D-K: only an `ok` reply ever writes a row). */
+  /** Merges one successful reply into `list` (only an `ok` reply ever writes a row). */
   function storeReply(
     list: ScanList,
     target: ScanTarget,
@@ -312,9 +313,9 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     selectedAddress: string | undefined,
     signal: AbortSignal,
   ): Promise<void> {
-    // Story 117 D3: only the 'all' scope uses source addresses, so only it resolves sources -
+    // Only the 'all' scope uses source addresses, so only it resolves sources -
     // a favourites/single-server refresh never touches a master or list source's network, and
-    // keeps the `sourceFailures: []` `start()` already reset it to.
+    // keeps the `sourceFailures: []` `start()` already reset it to (story 117)
     let resolvedSourceAddresses: ParsedServerAddress[] = []
     if (scope.kind === 'all') {
       const resolveDeps: ResolveSourcesDeps = {
@@ -361,11 +362,11 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
           }
         }
         // A failed reply never creates or overwrites an entry here - it is left exactly as it
-        // was; D-K's `'stale'` flip only happens once, below, after the whole sweep settles.
+        // was; the `'stale'` flip only happens once, below, after the whole sweep settles.
         emit(SERVERS_EVENTS.scanServer, row)
-        // Story 131 D4: fired strictly after the scan's own merge+emit above, only for stage-2
+        // Fired strictly after the scan's own merge+emit above, only for stage-2
         // rows, never awaited and never allowed to throw out of this callback - see
-        // `onStage2Row`'s own doc comment on `CreateScanServiceOptions`.
+        // `onStage2Row`'s own doc comment on `CreateScanServiceOptions` (story 131)
         if (row.stage === 'stage2' && onStage2Row !== undefined) {
           try {
             onStage2Row(row)
@@ -381,7 +382,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       },
     })
 
-    // D-K (story 116 D4: now extracted into scan-merge.ts's `mergeStaleRound`): anything this
+    // Stale merge (`mergeStaleRound` in scan-merge.ts): anything this
     // round's address set named but that never answered successfully keeps its last-known row
     // (if it has one at all) but flagged stale - never removed, never reported as freshly empty.
     // Skipped entirely when the sweep was aborted - `runScan`'s own contract (scan-runner.ts) is
@@ -389,9 +390,10 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     // get to ask", not "the server was silent"; an aborted sweep leaves every entry exactly as
     // the last *completed* scan left it. `entries` stays the single mutable closure Map the
     // `onServer` callback above also writes into, so the merge's result is copied back in place
-    // rather than reassigning `entries` to a new object. Story 117 D3: `scopeTargets`, never
+    // rather than reassigning `entries` to a new object. `scopeTargets`, never
     // `runTargets` - the single-server scope's `runTargets` is empty, and its one address must
-    // still go stale on a timeout; and no address outside the scope may be named here at all.
+    // still go stale on a timeout; and no address outside the scope may be named here at all
+    // (story 117)
     for (const [address, entry] of mergeStaleRound(
       list.entries,
       scopeTargets,
@@ -403,10 +405,10 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     }
   }
 
-  /** Story 196 D2: a LAN round on the LAN list. `'all'` replaces the list with this round's
+  /** A LAN round on the LAN list. `'all'` replaces the list with this round's
    * broadcast answers, then runs the usual two stages over them; `'server'` refreshes one row
    * already in the list. Never resolves sources, never stale-merges, never feeds `onStage2Row`
-   * (the watchlist only follows online servers, D-B). `'favourites'` never gets here. */
+   * (the watchlist only follows online servers). `'favourites'` never gets here (story 196) */
   async function runLanRound(
     list: ScanList,
     current: ServersState,
@@ -440,7 +442,7 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
       return
     }
 
-    // D-E: the round replaces the list - a server that stopped answering is gone, not stale.
+    // The round replaces the list - a server that stopped answering is gone, not stale.
     list.entries.clear()
     list.statusInfo.clear()
     lanFailureKey = null
@@ -491,16 +493,15 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     signal: AbortSignal,
   ): Promise<void> {
     try {
-      // Review fix (story 114): reading the current state and building `resolveDeps` now happens
-      // *inside* the try - previously it ran before the try block, so a throwing `getServersState()`
-      // would skip `finally` below entirely and leave `running: true` stuck forever (D-L's
-      // single-flight guard would then refuse every future `scan.start` for the rest of the
-      // process's life).
+      // Reading the current state and building `resolveDeps` happens *inside* the try: a
+      // throwing `getServersState()` outside it would skip `finally` below entirely and leave
+      // `running: true` stuck forever (the single-flight guard would then refuse every future
+      // `scan.start` for the rest of the process's life).
       const current = getServersState()
       if (sweepMode === 'lan') await runLanRound(list, current, scope, selectedAddress, signal)
       else await runOnlineRound(list, current, scope, selectedAddress, signal)
     } catch {
-      // Review fix: `runSweep` is fire-and-forget (`start()` returns before this settles, `void
+      // `runSweep` is fire-and-forget (`start()` returns before this settles, `void
       // runSweep(...)` below has no `.catch()`), so an unexpected throw here (a `getServersState()`
       // failure, or `runScan` rethrowing a callback error once every pool slot has stopped) must
       // not become an unhandled rejection. `finally` below always resets `running` regardless.
@@ -514,10 +515,11 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
   }
 
   function start(options: ScanStartOptions = {}): ScanStartResult {
-    // Story 117 D3: the guard and single-flight below are scope-agnostic on purpose - a refusal is
+    // The guard and single-flight below are scope-agnostic on purpose - a refusal is
     // a refusal whatever scope was asked for, so the scope is only resolved once both have passed.
-    // Story 116 D3 (D-H, D-Q): main stays authoritative - refused regardless of what the renderer
-    // shows, never queued, and checked before single-flight so the reason is always the game.
+    // Main stays authoritative - refused regardless of what the renderer
+    // shows, never queued, and checked before single-flight so the reason is always the game
+    // (story 116)
     if (isScanBlocked(launch.getState())) {
       syncBlockedReason(true)
       return refuse(SCAN_BLOCKED_GAME_RUNNING_REASON_KEY)
@@ -528,8 +530,8 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
     }
 
     const scope: ScanScope = options.scope ?? { kind: 'all' }
-    // Story 196 D2: the round belongs to the mode active *now*; its list is captured here and
-    // handed to the sweep, so a `setMode` mid-round never redirects its writes.
+    // The round belongs to the mode active *now*; its list is captured here and
+    // handed to the sweep, so a `setMode` mid-round never redirects its writes (story 196)
     const sweepMode = mode
     if (sweepMode === 'lan' && scope.kind === 'favourites') {
       return refuse(SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY)
@@ -557,14 +559,14 @@ export function createScanService(options: CreateScanServiceOptions): ScanServic
   }
 
   function read(listMode: ServersBrowseMode = mode): ScanSnapshot {
-    // Story S25 D2: `favourite` is derived fresh from the live state on every `read()` (never
+    // `favourite` is derived fresh from the live state on every `read()` (never
     // cached alongside `entries`), same "read live at call time" rule `getServersState` itself
     // already carries - a favourites-list edit between two `read()` calls must be visible on the
     // very next one without needing a new scan.
     const current = getServersState()
     const favouriteAddresses = new Set(current.favourites.map((f) => f.address))
     const manualAddresses = new Set(current.manualServers.map((m) => m.address))
-    // Story 196 D2: the active mode's list only - never a mix of online and LAN rows.
+    // The active mode's list only - never a mix of online and LAN rows (story 196)
     const activeMode = listMode
     const entries = lists[activeMode].entries
 

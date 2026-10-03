@@ -174,7 +174,7 @@ export async function listDir(dir: string): Promise<DirListing> {
 
 /**
  * Classifies a failed directory read's error code into one of the reasons `discoverDemos` (story
- * 151 D1) reports per source: `ENOENT` -> missing, `ENOTDIR` -> notAFolder (a file sits where a
+ * 151) reports per source: `ENOENT` -> missing, `ENOTDIR` -> notAFolder (a file sits where a
  * folder was expected), `EACCES`/`EPERM` -> permissionDenied, anything else -> unreadable.
  */
 export function dirReadFailureReason(
@@ -188,7 +188,7 @@ export function dirReadFailureReason(
 
 /**
  * Same entry loop as `listDir`, but reports *why* a read failed instead of silently returning an
- * empty listing - story 151 D1 needs this to tell "there is nothing here" (not an error) apart
+ * empty listing - story 151 needs this to tell "there is nothing here" (not an error) apart
  * from "there is something here and it could not be read" (reported per source). `listDir` itself
  * is untouched: it has many callers that only ever want the forgiving empty-listing behaviour.
  */
@@ -246,7 +246,7 @@ export async function resolveRelaxed(root: string, relativePath: string): Promis
  * On Windows that is still a name question - the `.exe` extension is what makes a file
  * runnable - so nothing is read from disk. Everywhere else the name says nothing at all
  * (`README` and `q2pro` are equally extension-less): the file has to be a regular file
- * carrying an execute bit, which is why this is async - it stats (story 100 D3).
+ * carrying an execute bit, which is why this is async - it stats (story 100).
  */
 export async function looksExecutable(dir: string, name: string): Promise<boolean> {
   if (isWindows()) return name.toLowerCase().endsWith('.exe')

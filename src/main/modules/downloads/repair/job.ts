@@ -33,7 +33,7 @@ import { stagePackage } from '../../../services/package-staging'
 import { buildRepairPlan } from './plan'
 
 /**
- * Story 093 D4: the repair job - "download what this already-registered installation is missing and
+ * Story 093: the repair job - "download what this already-registered installation is missing and
  * put exactly that back, without touching anything else".
  *
  * Shaped after `engine/update-job.ts` (a body on the shared `JobRunner`, which owns admission,
@@ -43,12 +43,12 @@ import { buildRepairPlan } from './plan'
  * `startBootstrap`: that function registers/adopts installations and drives the wizard's phase
  * model, neither of which a repair of an existing entry has any business doing.
  *
- * ## The verdict this job acts on is its own, never the dialog's (AC1)
+ * ## The verdict this job acts on is its own, never the dialog's
  *
  * `StartRepairInput.offers` is what the *user authorised*, decided against a `RepairPlan` the dialog
  * fetched some seconds or minutes ago. It is not evidence about the disk. So the job re-runs
  * `inspectInstallation` itself, once, at the top of the run, rebuilds the plan from *that* verdict
- * (`buildRepairPlan`, D2 - the same pure mapping `repair.plan` uses, so the two can never disagree
+ * (`buildRepairPlan`- the same pure mapping `repair.plan` uses, so the two can never disagree
  * about what a finding means), and acts on the intersection:
  *
  *  - an authorised offer the fresh plan no longer carries is **skipped** - the finding is gone, and
@@ -68,16 +68,16 @@ import { buildRepairPlan } from './plan'
  * job does depend on how long the user played, which is harder to reason about than the narrow risk
  * it removes (the game itself cannot supply a missing engine binary or `pak2.pak`).
  *
- * ## The write is narrow by construction (AC2), and gated (AC7)
+ * ## The write is narrow by construction, and gated
  *
- * Each repair copies through `assembleInstallation`'s existing allowlist with D3's `restrictTo`
+ * Each repair copies through `assembleInstallation`'s existing allowlist with the `restrictTo`
  * filter - `roles: ['engine']` for `reinstall-engine`, `targets: ['baseq2/pak2.pak']` for
  * `install-point-release` - so "only the engine files" and "only pak2.pak" are properties of the
  * shared allowlist rather than of a filter written here. `includeVideoAndPlayers` is always false: a
  * repair replaces what is missing, it does not add extras nobody asked for.
  *
  * Downloading, verifying and extracting all happen in `userData/cache/downloads/`, outside the
- * installation and outside the guard (091's AC4). Only the assemble pass runs inside
+ * installation and outside the guard (story 091). Only the assemble pass runs inside
  * `ctx.write(...)`, which defers it for as long as that installation's own game is running
  * and resumes it when the game exits. This job implements no refusal, no polling and no backoff of
  * its own - `InstallationWriteGuard` owns all three.
@@ -103,7 +103,7 @@ export const REPAIR_JOB_LABEL_KEY = 'downloads.job.repair'
 
 /**
  * The offer kinds *this job* performs. `retail-copy` runs through [[090]]'s existing retail-upgrade
- * flow and `set-write-dir` through the installation card's own remedy - both are the dialog's (D5)
+ * flow and `set-write-dir` through the installation card's own remedy - both are the dialog's
  * to route, and neither downloads anything, which is the whole of what this job is.
  */
 export const REPAIRS_BY_JOB = [
@@ -151,7 +151,7 @@ export interface RepairInstallationsHost {
   find(id: string): Installation | undefined
   validate(id: string): Promise<Outcome<Installation>>
   /**
-   * Story 093 finding fix (AC1): the one write this job makes to the installation record before
+   * Story 093 finding fix: the one write this job makes to the installation record before
    * `validate()` - refreshing `Installation.recordedEngineKind` once a `reinstall-engine` repair
    * succeeds, so a future repair still knows the engine after another executable loss. Deliberately
    * not `update()`/a status field: this is the same one-way memory `create()`/`addExisting()` set at
@@ -267,7 +267,7 @@ async function runRepair(
     ctx.report({ ratio: 0, bytesDone: 0, bytesTotal: 0, filesRemaining: requested.length })
     if (ctx.signal.aborted) return ctx.cancelled()
 
-    // 1. AC1: the verdict this run acts on, read now, from the disk, exactly once.
+    // 1. The verdict this run acts on, read now, from the disk, exactly once.
     const inspect = deps.inspect ?? inspectInstallation
     const verdict = await inspect(installation.rootPath, {
       ...(installation.executablePath ? { executablePath: installation.executablePath } : {}),
@@ -281,7 +281,7 @@ async function runRepair(
      * skip it", i.e. into a run that reports success while the engine is still missing. This plan
      * answers only "which findings are repairable in principle"; whether the package for one of them
      * is actually obtainable is `resolveStep`'s to decide, and it fails the job with
-     * `downloads.error.packageUnavailable` (AC8) rather than quietly doing nothing.
+     * `downloads.error.packageUnavailable` rather than quietly doing nothing.
      */
     const plan = buildRepairPlan(installation.id, verdict, { canSupplyEngine: true })
 
@@ -297,14 +297,14 @@ async function runRepair(
 
     // 2. Every package, resolved before a single byte is fetched and long before anything is
     // written: a manifest that cannot supply one of the repairs fails the whole run here, with the
-    // installation untouched (AC8), rather than after the other repair has already been copied in.
+    // installation untouched, rather than after the other repair has already been copied in.
     const steps: RepairStep[] = []
     for (const kind of performed) {
       // The *recorded* engine kind, not `verdict.engineKind`: `reinstall-engine` exists precisely
       // for a missing/unusable executable, and for engines whose only markers are their own exe
       // (r1q2, q2pro) a fresh inspection of that installation reports `'unknown'` - the record is
       // what the launcher remembers to ask the manifest for again (see `repair/plan.ts`).
-      // `recordedEngineKind` (story 093 finding fix, AC1) is that record; `engineKind` alone is a
+      // `recordedEngineKind` (story 093) is that record; `engineKind` alone is a
       // fallback for installations that predate the field.
       const recordedEngine = installation.recordedEngineKind ?? installation.engineKind
       const resolved = await resolveStep(deps, kind, recordedEngine, jobId)
@@ -323,7 +323,7 @@ async function runRepair(
     let doneBytes = 0
 
     // 3. Download and extract, into `userData/cache/downloads/` - outside the installation and
-    // outside the guard, because reading and downloading are never gated ([[091]] AC4).
+    // outside the guard, because reading and downloading are never gated ([[091]]).
     for (const [index, step] of steps.entries()) {
       if (ctx.signal.aborted) return ctx.cancelled()
 
@@ -432,10 +432,10 @@ async function runRepair(
     }
     if (written === 'cancelled') return ctx.cancelled()
 
-    // 4b. Story 093 finding fix (AC1): a successful `reinstall-engine` just confirmed which engine
+    // 4b. Story 093 finding fix: a successful `reinstall-engine` just confirmed which engine
     // this installation actually is - refresh the one-way memory so a *future* repair (after another
     // executable loss) still knows it, exactly as `create()`/`addExisting()` set it at registration.
-    // A distinct, explicit write, not folded into `validate()` below - AC9's "status only from
+    // A distinct, explicit write, not folded into `validate()` below - the rule "status only from
     // `validate()`" stays true; this never touches `status`.
     const reinstalledEngine = steps.find((step) => step.kind === 'reinstall-engine')?.engine
     if (reinstalledEngine) {
@@ -447,7 +447,7 @@ async function runRepair(
       }
     }
 
-    // 5. AC9: the status is whatever `inspectInstallation` now makes of the folder. This file never
+    // 5. The status is whatever `inspectInstallation` now makes of the folder. This file never
     // writes one, and `RepairInstallationsHost` gives it no way to.
     const revalidated = await ctx.revalidate(installation.id)
     if (!revalidated.ok) {
@@ -491,7 +491,7 @@ async function runRepair(
  * package id would not make a safe path segment are the same problem with the same remedy.
  *
  * The `reinstall-engine` case adds one condition of its own, before the manifest is even asked: this
- * launcher has to be able to *enumerate* that engine's files (`engineAllowlistFor`, [[092]] D5). An
+ * launcher has to be able to *enumerate* that engine's files (`engineAllowlistFor`, [[092]]). An
  * engine the manifest can supply but `buildAssemblePlan` refuses is one whose files must not be
  * replaced by guesswork.
  */

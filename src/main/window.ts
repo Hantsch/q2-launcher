@@ -77,7 +77,7 @@ export interface MainWindow {
 
 export async function createMainWindow(
   app: AppContext,
-  /** Story 171 D2: receives the window events `AppContext.mainWindow` republishes to modules. */
+  /** Story 171: receives the window events `AppContext.mainWindow` republishes to modules. */
   onWindowEvent?: (event: MainWindowEvent) => void,
 ): Promise<MainWindow> {
   const rendererSource = rendererSourceFromEnv(app.env)
@@ -164,7 +164,7 @@ export async function createMainWindow(
   window.on('blur', emitChromeState)
   window.on('close', persistGeometry)
 
-  // --- story 171 D2: window events for AppContext.mainWindow ------------------
+  // --- story 171: window events for AppContext.mainWindow ------------------
   if (onWindowEvent) {
     window.on('move', () => onWindowEvent('move'))
     window.on('resize', () => onWindowEvent('resize'))

@@ -108,9 +108,9 @@ export interface ResolvedCvar {
 }
 
 /**
- * Fixed group order the whole app agrees on (story 040 D1): the Settings tab's own
+ * Fixed group order the whole app agrees on (story 040): the Settings tab's own
  * `GROUP_ORDER`/`GROUP_LABEL_KEY` (`SettingsTab.tsx`, `cvar-rows.ts`) now import this rather than
- * keeping a second copy, and the config-file writer (`render.ts`, D2) sections cvars by it too -
+ * keeping a second copy, and the config-file writer (`render.ts`) sections cvars by it too -
  * one order, not two that could drift apart.
  */
 export const CVAR_GROUP_ORDER: readonly CvarDef['group'][] = [
@@ -121,7 +121,7 @@ export const CVAR_GROUP_ORDER: readonly CvarDef['group'][] = [
 ]
 
 /**
- * Plain ASCII English label per cvar group (story 040 D1). The renderer keeps resolving its own
+ * Plain ASCII English label per cvar group (story 040). The renderer keeps resolving its own
  * group headers through i18n (`config.settings.groups.*`) unchanged - this is for the config-file
  * writer, which runs in main too and can never import i18n (see that story's Decisions). Pinned
  * against the matching `en.json` strings by `comment-labels.test.ts`.

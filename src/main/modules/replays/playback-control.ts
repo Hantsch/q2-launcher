@@ -17,7 +17,7 @@ import {
 } from './playback-channel/windows-channel'
 
 /**
- * Story 164 D4: the one owner of the running demo's playback channel. `prepare` picks the platform's
+ * Story 164: the one owner of the running demo's playback channel. `prepare` picks the platform's
  * channel and hands back the launch args it needs, `attach` starts it once the game is up and pushes
  * `playback.state` / `playback.position` to the renderer, `send` forwards a console line. The session
  * ends - with `playback.state ended` as the very last event - when the game exits or fails, or when the
@@ -44,7 +44,7 @@ export interface PlaybackControlDeps {
     log: ReturnType<typeof scopedLogger>
     gameDirPath: string
   }) => PlaybackChannel
-  /** Story 187 D5: whether the cinema overlay is open and whether cinema could run now - read each
+  /** Story 187: whether the cinema overlay is open and whether cinema could run now - read each
    * time a display event is built. Defaults to no cinema (tests that do not care). */
   cinema?: () => { open: boolean; availability: CinemaAvailability }
   /** Why the staged game is not kept on top, read each time a display event is built (default none). */
@@ -70,19 +70,19 @@ export interface PlaybackControl {
   send(line: string): Outcome<void>
   /** Story 187: every line sent so far has run in the game (see `PlaybackChannel.settled`). */
   settled(): Promise<void>
-  /** Format of the demo in the current session, or null with no live session (story 165 D2). */
+  /** Format of the demo in the current session, or null with no live session (story 165). */
   currentFormat(): DemoFormat | null
-  /** Story 172 D5: switch the running demo to fullscreen; no session is `NO_SESSION`. */
+  /** Story 172: switch the running demo to fullscreen; no session is `NO_SESSION`. */
   enterFullscreen(): Outcome<void>
-  /** Story 172 D5: the running demo went fullscreen (true) or came back to the stage (false). */
+  /** Story 172: the running demo went fullscreen (true) or came back to the stage (false). */
   onDisplayChange(cb: (fullscreen: boolean) => void): () => void
-  /** Story 187 D5: every `playback.state` push (`playing`, `finished`, `ended`), after it went out. */
+  /** Story 187: every `playback.state` push (`playing`, `finished`, `ended`), after it went out. */
   onStateChange(cb: (state: ReplaysPlaybackState['state']) => void): () => void
-  /** Story 187 D5: the display as a `playback.display` push would carry it now. */
+  /** Story 187: the display as a `playback.display` push would carry it now. */
   display(): ReplaysPlaybackDisplay
-  /** Story 187 D5: pushes `playback.display` now (cinema entered/left, availability changed). */
+  /** Story 187: pushes `playback.display` now (cinema entered/left, availability changed). */
   emitDisplay(): void
-  /** Story 187 D5: a `speed` timeline action reached the game - main holds the speed. */
+  /** Story 187: a `speed` timeline action reached the game - main holds the speed. */
   setSpeed(speed: number): void
   /**
    * Module shutdown: drops the launch subscriptions and closes whatever channel is still open. At

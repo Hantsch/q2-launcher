@@ -31,7 +31,7 @@ import {
 import { MasterSourceRow } from './MasterSourceRow'
 
 /**
- * Story 115 D4: formats one millisecond choice as a short human label for the timeout/min-spacing/
+ * Story 115: formats one millisecond choice as a short human label for the timeout/min-spacing/
  * auto-refresh-interval `<Select>`s (Decisions: "durations are stored in ms but rendered in
  * seconds/minutes in the UI"). `0` and anything under a second render in ms/seconds via the same
  * bucket, a whole multiple of a minute renders in minutes, everything else in seconds (which may
@@ -52,7 +52,7 @@ const TYPE_OPTIONS: { value: MasterSourceType; labelKey: string }[] = [
 ]
 
 /**
- * Story 111 D4: the master-source list a user actually edits - replaces story 106 D3's
+ * Story 111: the master-source list a user actually edits - replaces story 106's
  * placeholder. Inner content only, the shell (`SettingsView.tsx`) already wraps every contributed
  * section in its own `Panel` + `SectionLabel` chrome, same as `downloads/DownloadsSettingsSection.tsx`.
  *

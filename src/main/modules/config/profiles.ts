@@ -65,10 +65,10 @@ export class ProfilesStore {
       name: input.name,
       createdAt: now,
       updatedAt: now,
-      // Story 066 D3: `ConfigProfileSeed` split `'template'` into `'template-right'`/
+      // Story 066: `ConfigProfileSeed` split `'template'` into `'template-right'`/
       // `'template-left'` - both still seed identically from `STANDARD_TEMPLATE` for now (the two
       // handed layouts are a later story's content), so this branch keeps its pre-split behaviour
-      // for either value. Story 066 D6 additionally records *which* one was asked for
+      // for either value. Story 066 additionally records *which* one was asked for
       // (`seedFrom`) so a later story can fill in distinct content without re-touching this create
       // path again - never set for `'empty'`, which has no handedness to remember
       // (`ConfigProfile.seedFrom`'s own doc comment).
@@ -77,7 +77,7 @@ export class ProfilesStore {
             seedFrom: input.from,
             cvars: { ...STANDARD_TEMPLATE.cvars },
             binds: { ...STANDARD_TEMPLATE.binds },
-            // Story 052 D1: the template's own categories/actions, deep-copied (never the shared
+            // Story 052: the template's own categories/actions, deep-copied (never the shared
             // seed's own arrays/objects - `STANDARD_TEMPLATE` is reused by every "create from
             // template" call) with a fresh id per action so two profiles created from the template
             // never share an action id.
@@ -87,7 +87,7 @@ export class ProfilesStore {
               id: randomUUID(),
               commands: action.commands.map((command) => ({ ...command })),
             })),
-            // Story 059 D1: the template's own cvar sections, deep-copied for the same reason
+            // Story 059: the template's own cvar sections, deep-copied for the same reason
             // `categories`/`actions` are right above - `STANDARD_TEMPLATE` is one shared, reused
             // object, so a profile must never end up holding its arrays/objects by reference. Ids
             // are stable per group already (`buildTemplateCvarSections`), so - unlike `actions` -
@@ -120,7 +120,7 @@ export class ProfilesStore {
    * nothing downstream needs to know it came from an import rather than the
    * create-profile dialog.
    *
-   * Story 041 (D6): `actions`/`categories`/`layers` - `buildImportedActions`'s
+   * Story 041: `actions`/`categories`/`layers` - `buildImportedActions`'s
    * result (`import.ts#commitImport`) - are stored alongside `cvars`/`binds`/
    * `unrecognized`, never replacing them; a raw bind that merely *references*
    * one of these alias entries by name is left as a raw bind pointing at it
@@ -154,14 +154,14 @@ export class ProfilesStore {
   }
 
   /**
-   * Story 043 D3: appends an already-fully-built record - one `rebuild.ts` reconstructed from a
+   * Story 043: appends an already-fully-built record - one `rebuild.ts` reconstructed from a
    * launcher-owned `.cfg` file whose `state.json` record was lost or unreadable - through the same
    * `commit()` path `create`/`createFromImport` use, so a rebuilt profile is an ordinary profile by
    * construction (the `adoptRawBinds` pass included) and nothing about its persistence semantics
    * differs from a normally-created one.
    *
    * Deliberately **not** `createFromImport`, and deliberately not id-generating: that path mints a
-   * fresh id (story 042 AC4's import rule - importing a foreign file is a new profile), while a
+   * fresh id (story 042's import rule - importing a foreign file is a new profile), while a
    * rebuild has to keep the id the file's own ownership sentinel carries, or every installation
    * assignment and every other reference to that profile id would break (story 043's own decision:
    * "a rebuild from the launcher's own file keeps the sentinel id"). That is why the two stay
@@ -173,7 +173,7 @@ export class ProfilesStore {
    */
   addRebuilt(profile: ConfigProfile): ConfigProfile[] {
     if (this.find(profile.id)) throw new Error(`config profile already exists: ${profile.id}`)
-    // Story 049 D1: a rebuild reads the file and seeds `fileHash` from it, so it is one of the
+    // Story 049: a rebuild reads the file and seeds `fileHash` from it, so it is one of the
     // points the baseline is seeded at too - see `seedBaseline` for why the seeding happens here,
     // after the adoption pass, rather than inside `rebuild.ts#buildRebuiltProfile` next to the hash.
     return this.commit([...this.profiles.get(), this.seedBaseline(profile)])
@@ -213,10 +213,10 @@ export class ProfilesStore {
   /**
    * Replaces a profile's entire `cvars` map with `input.cvars`. Not a partial
    * merge - the renderer is expected to send the full map it wants persisted
-   * (see D4's debounced save), so a caller wanting to keep existing entries
+   * (see the debounced save), so a caller wanting to keep existing entries
    * must include them.
    *
-   * Story 059 D8: `input.cvarSections`, when sent, replaces the profile's own section list the
+   * Story 059: `input.cvarSections`, when sent, replaces the profile's own section list the
    * same whole-array way - optional and additive (the shared-layer doc comment on
    * `SetProfileCvarsInput.cvarSections`): a caller not yet updated to send it (every call site
    * before this deliverable) simply omits it, which leaves the profile's stored `cvarSections`
@@ -381,7 +381,7 @@ export class ProfilesStore {
   }
 
   /**
-   * Sets a profile's `writeUnbindall` flag outright (story 040 D4) - a single boolean, so this is
+   * Sets a profile's `writeUnbindall` flag outright (story 040) - a single boolean, so this is
    * a dedicated setter rather than routed through `setCvars`/`setBinds`/`setLayers`/`setActions`
    * (each of those replaces a whole field of its own). Mirrors `setCvars`/`setBinds` above: throws
    * if the profile is unknown, bumps `updatedAt`, and goes through the same `commit`.
@@ -399,7 +399,7 @@ export class ProfilesStore {
   }
 
   /**
-   * Sets a profile's `writeCatalogDefaults` flag outright (story 059 D9) - mirrors
+   * Sets a profile's `writeCatalogDefaults` flag outright (story 059) - mirrors
    * `setWriteUnbindall` above exactly, just a different boolean field: throws if the profile is
    * unknown, bumps `updatedAt`, and goes through the same `commit`.
    */
@@ -416,7 +416,7 @@ export class ProfilesStore {
   }
 
   /**
-   * Sets a profile's `sectionHeaderStyle` outright (story 042 D7) - mirrors `setWriteUnbindall`
+   * Sets a profile's `sectionHeaderStyle` outright (story 042) - mirrors `setWriteUnbindall`
    * right above exactly, just a 3-way enum in place of a boolean: throws if the profile is
    * unknown, bumps `updatedAt`, and goes through the same `commit`.
    */
@@ -433,7 +433,7 @@ export class ProfilesStore {
   }
 
   /**
-   * Story 049 D3: restores a profile's render-relevant fields to its `baseline` - the "go back to
+   * Story 049: restores a profile's render-relevant fields to its `baseline` - the "go back to
    * what I last saved" discard, and the only thing that survives the removal of 048's reset
    * affordances.
    *
@@ -466,7 +466,7 @@ export class ProfilesStore {
     const { baseline } = current
     const next: ConfigProfile = {
       ...current,
-      // Review finding (story 049): a `rename` marks the profile dirty and leaves both the header
+      // A `rename` marks the profile dirty and leaves both the header
       // banner and the file rename to the next save (story 043), so an un-restored name is a pending
       // edit the discard would have kept - the one field of the snapshot that is edited outside the
       // config tabs, and no less part of "the last saved state" for it.
@@ -479,8 +479,8 @@ export class ProfilesStore {
         ...action,
         commands: action.commands.map((command) => ({ ...command })),
       })),
-      // Story 054 D11: `cvarSections` is render-relevant exactly like `categories`/`actions` (story
-      // 059 D8 made `setCvars` replace it wholesale) and was missing from this restore entirely - a
+      // Story 0541: `cvarSections` is render-relevant exactly like `categories`/`actions` (story
+      // a later change made `setCvars` replace it wholesale) and was missing from this restore entirely - a
       // section/sub-section reorder, or a cvar moved between sections, survived a Discard untouched.
       cvarSections: baseline.cvarSections.map((section) => ({
         ...section,
@@ -502,7 +502,7 @@ export class ProfilesStore {
   }
 
   /**
-   * Story 043 D4: marks whether the profile carries edits that are not in its canonical `.cfg` yet.
+   * Story 043: marks whether the profile carries edits that are not in its canonical `.cfg` yet.
    *
    * Same shape as `setWriteUnbindall`/`setSectionHeaderStyle` above (one field, full replace, throws
    * on an unknown id) with one deliberate difference: `updatedAt` is NOT bumped. This flag is the
@@ -519,7 +519,7 @@ export class ProfilesStore {
   }
 
   /**
-   * Story 043 D2/D4: records that the profile's canonical file was just confirmed to hold exactly
+   * Story 043: records that the profile's canonical file was just confirmed to hold exactly
    * `fileHash`'s bytes, at `fileSeenAt` (epoch ms) - the baseline `readFileState` compares the next
    * read against, and the reason the launcher's own write is never mistaken for an external edit.
    *
@@ -529,7 +529,7 @@ export class ProfilesStore {
    * Clearing `dirty` is `save`'s own explicit step, through `setDirty` above. `updatedAt` is not
    * bumped either, same reasoning as `setDirty`.
    *
-   * Story 049 D1: this is also where the profile's `baseline` is reseeded, from `current` - the
+   * Story 049: this is also where the profile's `baseline` is reseeded, from `current` - the
    * record as it stands, which is exactly what the file was just confirmed to hold (this method is
    * only ever reached from a sync run that wrote or verified those bytes). Every save's write-back
    * comes through here (`index.ts`'s `syncAndPersist` -> `markFileSeen`), so the save path needs no
@@ -551,7 +551,7 @@ export class ProfilesStore {
   }
 
   /**
-   * Story 175 D1: records that `patch`'s cvars were just written into the profile's canonical file
+   * Story 175: records that `patch`'s cvars were just written into the profile's canonical file
    * on top of its last-saved baseline (`index.ts`'s `commitCvars`), and that the file now holds
    * exactly `fileHash`'s bytes, confirmed at `fileSeenAt`.
    *
@@ -599,7 +599,7 @@ export class ProfilesStore {
   }
 
   /**
-   * Story 043 D5: records `readFileState`'s classification as a display hint only, for the two
+   * Story 043: records `readFileState`'s classification as a display hint only, for the two
    * branches `refreshFromFiles` must never do anything else for:
    *
    * - `missing` - the file is gone outside the launcher; the story's own decision keeps the profile
@@ -621,7 +621,7 @@ export class ProfilesStore {
   }
 
   /**
-   * Story 043 D5: overlays freshly-read file content onto an EXISTING profile record - the "adopt"
+   * Story 043: overlays freshly-read file content onto an EXISTING profile record - the "adopt"
    * case of `refreshFromFiles` (the file changed on disk, no unsaved edits to lose). Mirrors
    * `rebuild.ts#buildRebuiltProfile`'s field mapping (same fields the file actually carries: the
    * recovered name, `cvars`/`binds`/`actions`/`categories`/`layers`, `writeUnbindall`,
@@ -636,13 +636,13 @@ export class ProfilesStore {
    * `updatedAt` IS bumped: unlike `setFileState`/`setDirty`/`markFileSeen` above (pure cache
    * bookkeeping), this genuinely replaces the profile's content with what is now on disk.
    *
-   * ## Story 048 D3: `cvars` is stripped back to the deviations on the way in
+   * ## Story 048: `cvars` is stripped back to the deviations on the way in
    *
-   * Since 048 D2 the writer emits a `set` line for EVERY catalogue cvar (`render.ts`'s
+   * Now the writer emits a `set` line for EVERY catalogue cvar (`render.ts`'s
    * `buildCvarSections`, `writeValueFor`), so a launcher-written file carries ~30 of them where the
    * profile stored one. Storing that map verbatim would turn "this was a default" into "the user
    * chose this" for every cvar the user never touched - which is what story 049's edited-and-unsaved
-   * indicator and story 042 AC3's round-trip both forbid. `stripCatalogDefaults` (048 D1, the same
+   * indicator and story 042's round-trip both forbid. `stripCatalogDefaults` (the same
    * module `writeValueFor` comes from, so the two rules cannot drift) removes exactly the catalogue
    * cvars sitting at `def.default` again, leaving genuine deviations and every foreign/unknown cvar
    * untouched.
@@ -683,7 +683,7 @@ export class ProfilesStore {
       fileSeenAt,
       fileState: 'unchanged',
     }
-    // Story 049 D1: the second of the two seeding points in this class, and the one AC9 rests on -
+    // The second of the two seeding points in this class, and the one that guarantee rests on -
     // "take the file" (and the ordinary adopt) must leave the baseline describing the file as it NOW
     // stands, or the very next edit would be measured against a snapshot that predates the external
     // change. Captured from `next`, i.e. from the *stripped* cvars and the adopted fields as they
@@ -695,7 +695,7 @@ export class ProfilesStore {
 
   /**
    * Commits an already-fully-built profile in place of the one with the same
-   * `id` - the smallest thing story 025 D3's `tidyUp.apply` needs, and
+   * `id` - the smallest thing story 025's `tidyUp.apply` needs, and
    * deliberately *not* a fifth field setter.
    *
    * A tidy-up batch mutates several fields at once (a re-classify writes
@@ -744,7 +744,7 @@ export class ProfilesStore {
   }
 
   /**
-   * Story 049 D1: `profile` with its `baseline` reseeded - the one place that snapshot is taken, so
+   * Story 049: `profile` with its `baseline` reseeded - the one place that snapshot is taken, so
    * the three seeding call sites above (`markFileSeen`, `adoptFromFile`, `addRebuilt`) cannot
    * disagree about how.
    *

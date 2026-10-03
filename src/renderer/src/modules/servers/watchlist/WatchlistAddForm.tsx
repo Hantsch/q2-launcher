@@ -24,7 +24,7 @@ export interface WatchlistAddFormProps {
 }
 
 /**
- * Story 132 D2: the watchlist's own add-a-name form, mirroring `ServersSettingsSection.tsx`'s
+ * Story 132: the watchlist's own add-a-name form, mirroring `ServersSettingsSection.tsx`'s
  * add-a-source form shape (type select + address input + submit, inline refusal rendered next to
  * the input) - here name + mode instead of type + address.
  */

@@ -12,7 +12,7 @@ import { NewsHero } from './NewsHero'
  * scrollable sein wenn overflow ist"). The hero still brings no horizontal padding of its own -
  * all padding lives on the dashboard region, never on both.
  *
- * This is the feed's data-fetching boundary (D4 fixup): `getNews()` is fetched
+ * This is the feed's data-fetching boundary: `getNews()` is fetched
  * once on mount, `onNewsChanged` keeps it live for the component's lifetime, and
  * `onRefresh` calls `refreshNews()` - mirrors `DownloadsView.tsx`'s
  * fetch-on-mount shape (a `cancelled` guard around a `client.ts` call, `Outcome`

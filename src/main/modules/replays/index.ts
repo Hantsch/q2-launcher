@@ -110,7 +110,7 @@ export interface ScanHoldMsOptions {
 const SCAN_HOLD_MS_MAX = 60_000
 
 /**
- * Story 151 D2: how long `runScan` pauses right after discovery (once the totals push has gone
+ * Story 151: how long `runScan` pauses right after discovery (once the totals push has gone
  * out) before the incremental scan proper starts - the UI-verification harness's seam for scripting
  * a flow against the "scan is running" state instead of racing a scan that finishes near-instantly
  * against fixture data. `0` (no hold) unless the UI harness gate is open and
@@ -134,28 +134,27 @@ export async function scanHoldMs({ harness, userData }: ScanHoldMsOptions): Prom
 }
 
 /**
- * The replays module - story 135 D2 registered its main half with a single handler,
- * `overview.read`, answering a hardcoded zeroed overview. There is no demo scan yet: no
- * filesystem access, no platform checks - that is a later deliverable of this story.
- * Mirrors `src/main/modules/servers/index.ts`'s D2 shape (`overview.read` answering a hardcoded
- * zeroed overview before any real service exists) and `src/main/modules/home/index.ts`'s shape -
- * `setup()` registers handlers and does nothing else.
+ * The replays module's main half: wires the demo library's and playback's handlers to the services
+ * behind them.
  *
- * Story 140 D2 adds the seven `nameTemplates.*` handlers on top - all the rules live in
- * `name-templates.ts` (read the persisted state, run the op, persist on success); this file just
- * wires each handler's payload schema to its handler body, same as `servers/index.ts` does for
- * `sources.*`.
+ * Registers `overview.read`, `scan.start`, `index.read`, the sidecar read/write, `demos.*` file
+ * actions, rename and play, the `playback.*` control channel (stage, timeline, console, stop, cinema,
+ * display), `nameTemplates.*`, `extraFolders.*`, `list.*` sort and filter, and `modWarning.*`.
+ * `setup()` registers and subscribes; the rules live in the files it composes.
  *
- * Discovery touches the filesystem: it runs
- * `discoverDemos` (`discovery.ts`, D2) over every known installation and strips each result's
- * `absolutePath` via an explicit field pick before it crosses IPC - a demo is named by its id, never
- * its real path (CLAUDE.md: "Paths from the renderer are never trusted"). `discoveryHomeDir` is the
- * one seam that decides which home dir the scan uses for Q2PRO's Linux write dir, redirected under
- * the UI harness so a scripted run never depends on the real operator's home directory.
- *
- * Story 144 D3 adds the index scan service (`scan-service.ts`): `scan.start` / `index.read`, the
- * `scan.progress` push, and `overview.read` now answering the service's real `scanning` /
- * `demoCount` instead of hardcoded zeros.
+ * - Discovery (`discoverDemos`) runs over every known installation plus the extra folders. Demos
+ *   cross IPC by id with an explicit field pick that drops `absolutePath`; main resolves the id back
+ *   to a path itself, so a renderer-supplied path is never trusted. `discoveryHomeDir` is the one
+ *   seam choosing the home dir for Q2PRO's Linux write dir, redirected under the UI harness.
+ * - The index scan service reads installations, extra folders, name templates and the launch phase
+ *   at scan time, never from a snapshot; the sidecar store resolves ids through it and builds no
+ *   index of its own.
+ * - Every state write runs on the live slice, replaces only its own key and returns what was
+ *   persisted.
+ * - Platform differences are decided at call time from the running platform:
+ *   stage availability, the X11 window keeper (X11 only) and cinema availability.
+ * - Everything `setup()` creates (playback control, stage follower, cinema, playback stop, window
+ *   watcher) is released through `onDispose`, in reverse creation order.
  */
 export const replaysModule: MainModule = {
   id: 'replays',
@@ -174,7 +173,7 @@ export const replaysModule: MainModule = {
       }
     }
 
-    // Story 144 D3: the index scan service. Everything it reads (installations, extra folders,
+    // Story 144: the index scan service. Everything it reads (installations, extra folders,
     // name templates, launch phase) is read at scan time, never captured here.
     const replaysIndexCache = new ReplaysIndexCache({
       log,
@@ -196,7 +195,7 @@ export const replaysModule: MainModule = {
         return nameMatcherFor(templates, fingerprint)
       },
       isGameRunning: () => app.launch.isRunning(),
-      // Story 151 D2: the UI-verification harness's scan-hold seam - a no-op outside the harness
+      // Story 151: the UI-verification harness's scan-hold seam - a no-op outside the harness
       // (`scanHoldMs` answers `0` there, and the sleep is skipped entirely).
       holdAfterDiscovery: async () => {
         const ms = await scanHoldMs({ harness: app.harness, userData: app.userDataDir })
@@ -230,8 +229,8 @@ export const replaysModule: MainModule = {
     // Story 157: demo rename - id + stem in, main resolves the path and validates the stem itself.
     // `playbackSessions` is filled by `demo.play` below (story 159).
     const playbackSessions = createPlaybackSessions()
-    // Story 164 D4: the running demo's control channel (position/state pushes, console lines).
-    // Story 187 D5: the display event also carries cinema (read from the controller below, which only
+    // Story 164: the running demo's control channel (position/state pushes, console lines).
+    // Story 187: the display event also carries cinema (read from the controller below, which only
     // ever runs after setup) and whether cinema could run now.
     let stageNotice: { key: string } | null = null
     const playbackControl = createPlaybackControl({
@@ -252,10 +251,10 @@ export const replaysModule: MainModule = {
       },
     })
 
-    // Story 159 D2: demo playback - id + installation id in, main re-runs eligibility on its own
+    // Story 159: demo playback - id + installation id in, main re-runs eligibility on its own
     // data, contains the file in that installation's demos folder, then starts the launch and
     // registers the playback session the rename guard above checks.
-    // Story 160 D2: a play from elsewhere stages a copy in `<gamedir>/demos/_launcher/` and removes
+    // Story 160: a play from elsewhere stages a copy in `<gamedir>/demos/_launcher/` and removes
     // it when the game ends; a copy the launcher could not remove (a crash, a hand-off) is swept here,
     // fire-and-forget. Deferred to a microtask and fully caught, so nothing in it - not even a
     // synchronous throw while listing installations - can block or break this module's start.
@@ -264,7 +263,7 @@ export const replaysModule: MainModule = {
         sweepLauncherDirs(launcherSweepDirs(app.installations.list(), discoveryContext()), log),
       )
       .catch((error: unknown) => log.warn(`demo staging sweep failed: ${String(error)}`))
-    // Story 170 D3: the stage's archived cvars are put back after each stage session; a snapshot a
+    // Story 170: the stage's archived cvars are put back after each stage session; a snapshot a
     // crashed launcher left behind is applied once here. Its operations are serialised, so a play
     // started meanwhile snapshots only after this has run.
     const cvarRestore = createCvarRestore({
@@ -275,7 +274,7 @@ export const replaysModule: MainModule = {
       .applyPending()
       .catch((error: unknown) => log.warn(`stage cvar restore at start failed: ${String(error)}`))
 
-    // Story 170 D2: the stage rect (CSS px) as the engine's physical `vid_geometry`. Story 171 D2: the
+    // Story 170: the stage rect (CSS px) as the engine's physical `vid_geometry`. Story 171: the
     // follower passes the observer's content bounds (the last un-minimized ones) instead of asking.
     // The DIP rect is converted against the main window ('main'), not the primary display: on a
     // mixed-DPI desktop the window's own display decides the scale.
@@ -332,7 +331,7 @@ export const replaysModule: MainModule = {
         playbackControl.emitDisplay()
       }
     }
-    // Story 187 D5: cinema covers the primary display, so it is offered only while the launcher is on it
+    // Story 187: cinema covers the primary display, so it is offered only while the launcher is on it
     // (`Q2L_UI_CINEMA_DISPLAY` fakes that under the UI harness).
     const onPrimaryDisplay = (): boolean => {
       const win = app.mainWindow.snapshot()
@@ -351,15 +350,11 @@ export const replaysModule: MainModule = {
     const primaryDisplayGeometry = (): string =>
       displayGeometry(app.displays.dipToScreenRect(app.displays.primary().bounds, null))
 
-    // Story 171 D2: a follower per placed stage session, fed by the main window's events and
+    // Story 171: a follower per placed stage session, fed by the main window's events and
     // `playback.stage`; it parks the game window beyond the virtual desktop's right edge.
     const stageFollow = createStageFollowSessions({
       window: app.mainWindow,
-      send: (line) => {
-        const result = playbackControl.send(line)
-        log.info(`[diag187] follower send "${line}" -> ${result.ok ? 'ok' : result.error.key}`)
-        return result
-      },
+      send: (line) => playbackControl.send(line),
       computeGeometry: (rect, window) => geometryAt(rect, window.contentBounds) ?? '0x0+0+0',
       parkGeometry: (geometry) =>
         parkGeometryAt(
@@ -371,19 +366,12 @@ export const replaysModule: MainModule = {
     })
     onDispose(() => stageFollow.dispose())
 
-    // Story 187 D5: the one owner of the cinema overlay. Pin before open, close before unpin.
+    // Story 187: the one owner of the cinema overlay. Pin before open, close before unpin.
     const cinema = createCinemaController({
       availability: currentCinemaAvailability,
       displayGeometry: primaryDisplayGeometry,
-      pin: (geometry) => {
-        const placed = stageFollow.pin(geometry)
-        log.info(`[diag187] cinema pin ${geometry ?? 'off'} -> ${placed}`)
-        return placed
-      },
-      settled: () =>
-        playbackControl
-          .settled()
-          .then(() => log.info('[diag187] cinema pin settled, opening overlay')),
+      pin: (geometry) => stageFollow.pin(geometry),
+      settled: () => playbackControl.settled(),
       window: app.cinemaWindow,
       hasSession: () => playbackControl.currentFormat() !== null,
       enterFullscreen: () => playbackControl.enterFullscreen(),
@@ -392,14 +380,14 @@ export const replaysModule: MainModule = {
     })
     onDispose(() => cinema.dispose())
 
-    // Story 172 D5: a fullscreen demo is not steered - the follower rests until it is back on the stage.
-    // Story 187 D5: back from a fullscreen entered in cinema, the controller unpins first, then the
+    // Story 172: a fullscreen demo is not steered - the follower rests until it is back on the stage.
+    // Story 187: back from a fullscreen entered in cinema, the controller unpins first, then the
     // follower resumes, so the stage geometry and the focus-driven always-on-top are sent again.
     playbackControl.onDisplayChange((fullscreen) => {
       cinema.onDisplayChange(fullscreen)
       stageFollow.setSuspended(fullscreen)
     })
-    // Story 187 D5: availability follows the main window across displays - pushed only when it changes.
+    // Story 187: availability follows the main window across displays - pushed only when it changes.
     // Subscribed when the first demo plays, so a module that never plays never touches the window.
     let lastAvailability: string | null = null
     let watchingWindow = false
@@ -491,7 +479,7 @@ export const replaysModule: MainModule = {
       stageFollow.report(payload.rect),
     )
 
-    // Story 187 D5: fullscreen goes through the cinema controller, so leaving cinema for it keeps the pin.
+    // Story 187: fullscreen goes through the cinema controller, so leaving cinema for it keeps the pin.
     const playbackTimeline = createPlaybackTimeline({
       playback: {
         send: (line) => playbackControl.send(line),
@@ -537,7 +525,7 @@ export const replaysModule: MainModule = {
       nameTemplatesRestore(app),
     )
 
-    // Story 142 D2: the `extraFolders.*` handlers. Every write runs on the live slice inside
+    // Story 142: the `extraFolders.*` handlers. Every write runs on the live slice inside
     // `updateSlice`; a refusal returns the live slice unchanged (nothing persisted), and what comes
     // back is what `updateSlice` actually stored, not the local candidate.
     handle(REPLAYS_HANDLERS.extraFoldersList, replaysNoInputSchema, () =>
@@ -569,7 +557,7 @@ export const replaysModule: MainModule = {
     })
 
     /**
-     * Story 152 D2: the `list.*` sort handlers - same live-slice discipline as
+     * Story 152: the `list.*` sort handlers - same live-slice discipline as
      * `SERVERS_HANDLERS.listGetSort`/`listSetSort` (`src/main/modules/servers/index.ts`).
      * `listSetSort` replaces the top-level `listSort` field wholesale while carrying every other
      * `ReplaysState` key over from the live slice untouched; `null` clears it and is stored as
@@ -583,7 +571,7 @@ export const replaysModule: MainModule = {
     )
 
     /**
-     * Story 153 D3: the `listFilter.*` handlers - same live-slice discipline as
+     * Story 153: the `listFilter.*` handlers - same live-slice discipline as
      * `listGetSort`/`listSetSort` right above. `listFilter` is never absent on `ReplaysState` (unlike
      * `listSort`), so there is no clear-to-null case to model here.
      */
@@ -603,7 +591,7 @@ export const replaysModule: MainModule = {
       )
     })
 
-    // Story 182 D1: the `modWarning.*` handlers - same live-slice discipline as `listFilter`;
+    // Story 182: the `modWarning.*` handlers - same live-slice discipline as `listFilter`;
     // every one returns what `updateSlice` actually stored.
     handle(REPLAYS_HANDLERS.modWarningRead, modWarningReadInputSchema, () =>
       ok(replaysState(app.state).get().modWarning),

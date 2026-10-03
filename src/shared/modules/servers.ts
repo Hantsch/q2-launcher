@@ -13,31 +13,18 @@ import type { ServerPlayer, StatusReplySuccess } from '../servers/status-reply'
 export type { ServerGamemode } from '../servers/row-markers'
 
 /**
- * Story 119 D2: re-exported from `../servers/list-sort` (already implemented in D1) rather than
- * redefined here - this file is the shared contract's home, but the sort engine itself is pure
- * and colocated with `row-markers.ts`, so the types/constant travel through this module the same
- * way `ServerGamemode` right above does.
+ * Re-exported from `../servers/list-sort` rather than redefined here - this file is the shared
+ * contract's home, but the sort engine itself is pure and colocated with `row-markers.ts`, so the
+ * types/constant travel through this module the same way `ServerGamemode` right above does.
  */
 export type { ServerListSort, ServerSortColumn, ServerSortDirection } from '../servers/list-sort'
 export { SERVER_SORT_COLUMNS } from '../servers/list-sort'
 
-/**
- * The servers module's contract.
- *
- * Each module owns one file under `src/shared/modules/` describing the data it
- * exchanges with the UI. Main implements the handlers, the renderer gets a typed
- * client, and neither side imports the other's code - this file is the only
- * thing they share. Same pattern as `home.ts`/`library.ts`/`downloads.ts`.
- *
- * Story 106 D1 adds only the shared contract: the shape of the servers
- * overview and the handler/schema map. The handler itself, the scanning
- * logic and the renderer view are later deliverables of this story.
- */
+/** The servers module's contract. */
 export const SERVERS_HANDLERS = {
   /** Resolves to the current `ServersOverview` - cache-first, no network of its own. */
   overviewRead: 'overview.read',
-  /** Story 111 D1: master-source-list handlers. Handler logic (main) is D3, not this D - here they
-   * only need names, payload schemas and a result union. */
+  /** Master-source-list handlers. */
   /** Resolves to the current master source list, in persisted order. */
   sourcesList: 'sources.list',
   /** Adds a new source; refuses on an invalid/duplicate address (`MasterSourcesResult`). */
@@ -52,41 +39,28 @@ export const SERVERS_HANDLERS = {
   favouritesAdd: 'favourites.add',
   /** Removes an address from the favourites list. */
   favouritesRemove: 'favourites.remove',
-  /** Resolves to the connection history, most-recent-first. Read-only over IPC - there is no
-   * `history.record` channel; only main itself ever appends to history (a later story). */
+  /** Resolves to the connection history, most-recent-first. */
   historyRead: 'history.read',
-  /** Story 114 D1: `scan.*` handler ids. Handler logic (`ScanService`, the two-stage runner) is a
-   * later D - here they only need names and payload schemas, same as story 111/112/113 D1's
-   * entries above. */
-  /** Starts a two-stage scan across the current address set (D-L: refused as a value while one is
-   * already running, never queued). */
+  /** `scan.*` handler ids. */
+  /** Starts a two-stage scan across the current address set. */
   scanStart: 'scan.start',
-  /** Resolves to a `ScanSnapshot` of the scan's current state and every last-known row (D-D) - a
-   * single catch-up read for a renderer that mounts mid-scan, never polled (AC5). */
+  /** Resolves to a `ScanSnapshot` of the scan's current state and every last-known row (D-D). */
   scanRead: 'scan.read',
-  /** Story 115 D1: `scan.*` settings handler ids. Handler logic (main) is a later D - here they
-   * only need names and payload schemas, same as story 114 D1's `scanStart`/`scanRead` above. */
+  /** `scan.*` settings handler ids. */
   /** Resolves to the full, persisted `ServersScanSettings`. */
   scanGetSettings: 'scan.getSettings',
-  /** Validates and persists a partial `ServersScanSettings` patch; resolves to the full
-   * merged+persisted settings (mirrors `DOWNLOADS_HANDLERS.patchSettings`). */
+  /** Validates and persists a partial `ServersScanSettings` patch. */
   scanPatchSettings: 'scan.patchSettings',
-  /** Reports whether the Servers view is currently mounted/visible - main's own signal for when
-   * auto-refresh/auto-scan-on-open are allowed to act. No meaningful return value. */
+  /** Reports whether the Servers view is currently mounted/visible. */
   scanSetViewActive: 'scan.setViewActive',
-  /** Story 119 D2: the persisted list-sort handlers. `listGetSort` resolves to the current
-   * `ServerListSort | null` (`null` meaning the default order); `listSetSort` validates and
-   * persists a new one (or clears it with `null`), resolving to what was actually persisted. */
+  /** The persisted list-sort handlers. */
   listGetSort: 'list.getSort',
   listSetSort: 'list.setSort',
-  /** Story 122 D2: resolves to a single server's `ServerDetail` - the row plus its last-known
-   * `serverinfo`, or `null` for an address the scan has no row for at all. */
+  /** Resolves to a single server's `ServerDetail`. */
   detailRead: 'detail.read',
-  /** Story 196 D2: switches the browser between the online list and the LAN list
-   * (`ServersBrowseMode`). In memory only, default `'online'`; never aborts a running scan. */
+  /** Switches the browser between the online list and the LAN list (`ServersBrowseMode`). */
   scanSetMode: 'scan.setMode',
-  /** Story 197 D2: the saved quick filters. List resolves to the stored list; save/rename resolve to
-   * a `QuickFiltersResult` (the new list or a refusal reason key); remove is idempotent. */
+  /** The saved quick filters. */
   quickFiltersList: 'quickFilters.list',
   quickFiltersSave: 'quickFilters.save',
   quickFiltersRename: 'quickFilters.rename',
@@ -94,17 +68,14 @@ export const SERVERS_HANDLERS = {
 } as const
 
 /**
- * Main-to-renderer push under the `servers` module's namespace (story 114 D-C): `scan.changed`
- * carries the scan's own progress/state, `scan.server` carries one resolved row - one event per
- * result, never batched. Mirrors `HOME_EVENTS` in `src/shared/modules/home.ts`.
+ * Main-to-renderer push under the `servers` module's namespace: `scan.changed` carries the scan's
+ * own progress/state, `scan.server` carries one resolved row - one event per result, never batched.
+ * Mirrors `HOME_EVENTS` in `src/shared/modules/home.ts`.
  */
 export const SERVERS_EVENTS = {
   scanChanged: 'scan.changed',
   scanServer: 'scan.server',
-  /** Story 131 D1: pushed whenever the watchlist's persisted entries or their computed statuses
-   * change - main-to-renderer, no payload of its own (the renderer re-reads via `watchlist.read`,
-   * same "event just says 'something changed', read carries the value" convention as
-   * `HOME_EVENTS`/`scanChanged`). */
+  /** Pushed whenever the watchlist's persisted entries or their computed statuses change. */
   watchlistChanged: 'watchlist.changed',
 } as const
 
@@ -132,11 +103,10 @@ export const serversOverviewSchema = z.object({
 })
 
 /**
- * Story 110 D1: the persisted shape of the `servers` module's own top-level `state.json` key -
- * global to the launcher, never per-installation (AC6). Mirrors `home.ts`'s `HomeLayout`/
- * `DEFAULT_HOME_LAYOUT` pattern: a plain interface, a `.strict()`-free `z.object()` schema (same
- * looseness as `serversOverviewSchema` above), and a default constant. Only the shape lands here -
- * no parse function (`main/lib/schemas.ts`) and no `StateStore` wiring; those are D2/D3.
+ * The persisted shape of the `servers` module's own top-level `state.json` key - global to the
+ * launcher, never per-installation. Mirrors `home.ts`'s `HomeLayout`/ `DEFAULT_HOME_LAYOUT`
+ * pattern: a plain interface, a `.strict()`-free `z.object()` schema (same looseness as
+ * `serversOverviewSchema` above), and a default constant.
  */
 
 /** One master/list source the scanner pulls candidate servers from. */
@@ -155,31 +125,18 @@ export const serverSourceEntrySchema = z.object({
 })
 
 /**
- * Story 111 D1: the source list is a thing the user edits (adds, removes, reorders, toggles), not
- * just a scanner input - so it gets its own vocabulary (`MasterSource`) even though the shape is
- * currently identical to `ServerSourceEntry` above (story 110's persisted-state element). Rather
- * than duplicate the fields, `MasterSource`/`masterSourceSchema` are aliases of
- * `ServerSourceEntry`/`serverSourceEntrySchema`: one shape, two names for two call sites (the
- * `sources` array in `ServersState` vs. the `sources.*` handler payloads/results below). If the two
- * ever need to diverge, split them then.
+ * The source list is a thing the user edits (adds, removes, reorders, toggles), not just a scanner
+ * input - so it gets its own vocabulary (`MasterSource`) even though the shape is currently
+ * identical to `ServerSourceEntry` above. Rather than duplicate the fields,
+ * `MasterSource`/`masterSourceSchema` are aliases of `ServerSourceEntry`/`serverSourceEntrySchema`:
+ * one shape, two names for two call sites (the `sources` array in `ServersState` vs. the
+ * `sources.*` handler payloads/results below). If the two ever need to diverge, split them then.
  */
 export type MasterSourceType = ServerSourceEntry['type']
 export type MasterSource = ServerSourceEntry
 export const masterSourceSchema = serverSourceEntrySchema
 
-/**
- * The one master/list source every fresh install ships with (story 111's concept, revised).
- * Originally three sources (two `udp-master` entries alongside this `http-list` one), but the two
- * UDP masters (`master.q2servers.com:27900`, `master.quakeservers.net:27900`) turned out to be
- * unreachable in practice: many networks only allow outbound UDP on well-known ports (53/443/etc),
- * silently dropping the `query` datagram on port 27900 (or its reply) while leaving generic UDP and
- * plain HTTP unaffected - confirmed by direct UDP probes against both masters (5 min, no reply)
- * alongside a working `curl` against the HTTP list on the same host. `udp-master` stays a supported
- * source type a user can add by hand; it is just no longer a shipped default. Fixed, documented
- * ids - never random uuids - so a state file, a bug report or this file's own diff can name one of
- * them stably across releases. `http-list` is stored as the absolute URL string, query string
- * included.
- */
+/** The one master/list source every fresh install ships with. */
 export const DEFAULT_MASTER_SOURCES: MasterSource[] = [
   {
     id: 'default-q2servers-http',
@@ -202,10 +159,9 @@ export const favouriteServerEntrySchema = z.object({
 
 /**
  * A server the user added by hand rather than discovered through a source. `origin` is always
- * `'manual'` here - a fixed literal, not a real choice - so the row stays self-describing (story
- * 113 D-A: "stored in a way that distinguishes it from a master-discovered one") if a later story
- * ever merges manual/favourite/scanned rows into one list; it is not persisted for any other
- * purpose than that tag.
+ * `'manual'` here - a fixed literal, not a real choice - so the row stays self-describing if a
+ * later story ever merges manual/favourite/scanned rows into one list; it is not persisted for any
+ * other purpose than that tag.
  */
 export interface ManualServerEntry {
   address: string
@@ -219,8 +175,10 @@ export const manualServerEntrySchema = z.object({
   addedAt: z.string(),
 })
 
-/** One entry in the connection history - the servers the user has actually connected to.
- * `connectedAt` is an ISO timestamp string (story 113 D-D's shape, verbatim field name). */
+/**
+ * One entry in the connection history - the servers the user has actually connected to.
+ * `connectedAt` is an ISO timestamp string.
+ */
 export interface ServerHistoryEntry {
   address: string
   connectedAt: string
@@ -232,31 +190,26 @@ export const serverHistoryEntrySchema = z.object({
 })
 
 /**
- * The cap on how many rows the connection history keeps (story 113). Enforced wherever history is
- * appended (main, a later D) - the oldest entries fall off once this is exceeded, never the newest.
+ * The cap on how many rows the connection history keeps. Enforced wherever history is appended
+ * (main, a later D) - the oldest entries fall off once this is exceeded, never the newest.
  */
 export const SERVER_HISTORY_CAP = 200
 
 /**
- * `manual.add`'s result (story 113 D1): a refusal is a returned result, never a thrown IPC error
- * (CLAUDE.md: main sends i18n keys, never prose, across IPC). `reasonKey` is whatever
- * `serverAddressRejectionKey()` (`src/shared/servers/address.ts`) produced for the
- * `ServerAddressRejection` the handler's call to `parseServerAddress` returned - already a
- * `servers.address.reject.<reason>` i18n key, not a raw reason code, so the renderer never needs to
- * re-derive it. Per D-K, `history.read` resolves to the same
- * `ManualServerEntry`/`ServerHistoryEntry` rows the module already persists (story 110) - there is
- * no separate IPC-only shape.
+ * `manual.add`'s result: a refusal is a returned result, never a thrown IPC error (CLAUDE.md: main
+ * sends i18n keys, never prose, across IPC). `reasonKey` is whatever `serverAddressRejectionKey()`
+ * (`src/shared/servers/address.ts`) produced for the `ServerAddressRejection` the handler's call to
+ * `parseServerAddress` returned - already a `servers.address.reject.<reason>` i18n key, not a raw
+ * reason code, so the renderer never needs to re-derive it.
  */
 export type ManualServerAddResult = DomainResult<{ entry: ManualServerEntry }>
 
 /**
- * Story 115 D1: bounded-choice constants for every numeric scan-settings knob (GB-N4), mirroring
+ * Bounded-choice constants for every numeric scan-settings knob mirroring
  * `MIN_CONCURRENT_DOWNLOAD_JOBS`/`MAX_CONCURRENT_DOWNLOAD_JOBS`/`ARCHIVE_CACHE_BUDGET_CHOICES_GB`
- * (`downloads.ts`): a `MIN_*`/`MAX_*` bound pair for schema validation plus a `SCAN_*_CHOICES` array
- * of the exact values the Settings UI's `<Select>`s offer - closed lists, not free-text ranges. D6
- * (this story's measurement deliverable) sets the actual shipped default from a real measurement and
- * may widen a choice list if the measured number is not already a member of it; these are the
- * starting choice lists, not the final ones.
+ * (`downloads.ts`): a `MIN_*`/`MAX_*` bound pair for schema validation plus a `SCAN_*_CHOICES`
+ * array of the exact values the Settings UI's `<Select>`s offer - closed lists, not free-text
+ * ranges.
  */
 
 /** How many in-flight queries one scan stage runs at once. */
@@ -274,8 +227,9 @@ export const MIN_SCAN_RETRIES = 0
 export const MAX_SCAN_RETRIES = 3
 export const SCAN_RETRIES_CHOICES = [0, 1, 2, 3] as const
 
-/** The minimum spacing between two *automatic* scans (GB-N4/this story's Decisions) - not a
- * per-query throttle. 0/15s/30s/60s/5min. */
+/**
+ * The minimum spacing between two *automatic* scans - not a per-query throttle. 0/15s/30s/60s/5min.
+ */
 export const MIN_SCAN_MIN_SPACING_MS = 0
 export const MAX_SCAN_MIN_SPACING_MS = 600_000
 export const SCAN_MIN_SPACING_CHOICES_MS = [0, 15_000, 30_000, 60_000, 300_000] as const
@@ -288,9 +242,8 @@ export const SCAN_AUTO_REFRESH_INTERVAL_CHOICES_MS = [
 ] as const
 
 /**
- * The scanner's budget knobs (GB-N4), turned into real user-facing settings by story 115. The
- * original four (`concurrency`/`timeoutMs`/`retries`/`minSpacingMs`) keep their shape; D1 adds three
- * more:
+ * The scanner's budget knobs, user-facing settings. Beyond `concurrency`/`timeoutMs`/
+ * `retries`/`minSpacingMs`:
  * - `autoScanOnOpen`: whether opening the Servers view kicks off a scan automatically.
  * - `autoRefreshEnabled`: whether the view keeps re-scanning on its own once open.
  * - `autoRefreshIntervalMs`: how often it does so while `autoRefreshEnabled` is on.
@@ -317,22 +270,20 @@ export const serversScanSettingsSchema = z.object({
 
 /**
  * The envelope persisted at the `servers` module's own top-level `state.json` key. Global to the
- * launcher (AC6) - none of its fields, at any level, carry an `installationId`; unlike
+ * launcher - none of its fields, at any level, carry an `installationId`; unlike
  * `configPlayedMods`/`configSwitchBinds` this is deliberately not scoped per installation.
  */
 /**
- * Story 131 D1: the watchlist's own vocabulary - a user names a player to keep an eye on, and the
- * launcher looks for that name across the servers it already knows about. This deliverable is the
- * contract/types/schema/persistence only: no matcher, no worker, no service, no wiring - those are
- * D2-D5.
+ * The watchlist's own vocabulary - a user names a player to keep an eye on, and the launcher looks
+ * for that name across the servers it already knows about.
  */
 
 /** How a watchlist entry's `name` is matched against a roster's player names. `'exact'` requires a
  * full match, `'substring'` a case-insensitive containment, `'regex'` a user-supplied pattern run
- * under `WATCHLIST_REGEX_BUDGET_MS`'s time budget (enforced by a later deliverable, not here). */
+ * under `WATCHLIST_REGEX_BUDGET_MS`'s time budget. */
 export type WatchlistMatchMode = 'exact' | 'substring' | 'regex'
 
-/** One entry the user is watching for. `tooSlow` (set by a later deliverable once a regex entry is
+/** One entry the user is watching for. `tooSlow` (set once a regex entry is
  * measured against `WATCHLIST_REGEX_BUDGET_MS`) marks an entry the matcher has given up running -
  * see the `'too-slow'` `WatchlistEntryStatus` variant below. */
 export interface WatchlistEntry {
@@ -349,17 +300,19 @@ export const watchlistEntrySchema = z.object({
   tooSlow: z.boolean(),
 })
 
-/** How long a watchlist entry's name may be (D-L, a later deliverable's UI validation reads this
- * same constant). */
+/** How long a watchlist entry's name may be (the UI validation reads this same
+ * constant). */
 export const WATCHLIST_NAME_MAX = 64
 
-/** The time budget a single regex entry gets against a roster before it is flagged `tooSlow` (a
- * later deliverable's matcher enforces this; this D only names the constant). */
+/** The time budget a single regex entry gets against a roster before it is flagged `tooSlow` (the
+ * matcher enforces this). */
 export const WATCHLIST_REGEX_BUDGET_MS = 100
 
-/** One roster hit for a watched name - `serverName` is optional because a row that has never
+/**
+ * One roster hit for a watched name - `serverName` is optional because a row that has never
  * received an `info`/`status` reply for its address has no name to show yet. `seenAt` is the
- * roster's own time (the scan round that produced this hit), not wall-clock "now". */
+ * roster's own time, not wall-clock "now".
+ */
 export interface WatchlistMatch {
   address: string
   serverName?: string
@@ -377,8 +330,7 @@ interface WatchlistEntryStatusBase {
 }
 
 /**
- * One entry's current computed status (a later deliverable's matcher/service produces this; this D
- * only shapes it). `'left'` means the watched name was seen at `address` as of a *previous* stage-2
+ * One entry's current computed status (produced by the matcher/service). `'left'` means the watched name was seen at `address` as of a *previous* stage-2
  * pass but is no longer there as of the latest one - `reasonKey` points at the fixed explanation
  * that state carries (a full rescan, not this status, is what would tell the user where the name
  * went instead).
@@ -405,10 +357,9 @@ export interface WatchlistSnapshot {
 }
 
 /**
- * Story 131 D1: `watchlist.*` handler ids, kept in a map separate from `SERVERS_HANDLERS` on
- * purpose - a later completeness gate that asserts "every handler is registered in
- * `SERVERS_HANDLERS`" must not have to know about this module yet (the handlers themselves are a
- * later deliverable), so this map is deliberately excluded from that check.
+ * `watchlist.*` handler ids, kept in a map separate from `SERVERS_HANDLERS` on purpose - the
+ * completeness gate that asserts "every handler is registered in `SERVERS_HANDLERS`" must not
+ * cover these, so this map is deliberately excluded from that check.
  */
 export const SERVERS_WATCHLIST_HANDLERS = {
   read: 'watchlist.read',
@@ -456,11 +407,11 @@ export interface ServersState {
   manualServers: ManualServerEntry[]
   history: ServerHistoryEntry[]
   scan: ServersScanSettings
-  /** user-chosen list sort, story 119 */
+  /** User-chosen list sort (story 119) */
   listSort: ServerListSort | null
-  /** Story 131 D1: the watchlist's persisted entries - see `WatchlistEntry` below. */
+  /** The watchlist's persisted entries - see `WatchlistEntry` below. */
   watchlist: WatchlistEntry[]
-  /** Story 197 D1: saved quick filters (named filter criteria), at most `QUICK_FILTER_MAX`. */
+  /** Saved quick filters (named filter criteria), at most `QUICK_FILTER_MAX`. */
   quickFilters: QuickFilter[]
 }
 
@@ -504,11 +455,10 @@ export const serversStateSchema = z.object({
 })
 
 /**
- * The out-of-the-box state (story 110 D1, updated story 111 D2). `favourites`/`manualServers`/
- * `history` stay empty - nothing to seed there - but `sources` now ships pre-populated with
- * `DEFAULT_MASTER_SOURCES`, the one shipped master/list source, so a fresh install (or a state
- * file missing this key) has a working source list from the very first read, not an empty one the
- * user has to build by hand.
+ * The out-of-the-box state. `favourites`/`manualServers`/ `history` stay empty - nothing to seed
+ * there - but `sources` now ships pre-populated with `DEFAULT_MASTER_SOURCES`, the one shipped
+ * master/list source, so a fresh install (or a state file missing this key) has a working source
+ * list from the very first read, not an empty one the user has to build by hand.
  */
 export const DEFAULT_SERVERS_STATE: ServersState = {
   sources: DEFAULT_MASTER_SOURCES,
@@ -517,11 +467,9 @@ export const DEFAULT_SERVERS_STATE: ServersState = {
   history: [],
   listSort: null,
   scan: {
-    // Measured, not invented (story 115 D6): the budget is the N=300 row concurrency 24 /
-    // timeoutMs 1000 / retries 1 of `npm run measure:scan` (median full pass ~7.5 s over the
-    // modelled loopback population); the cadence values are reasoned from that pass time. Method,
-    // numbers and limits: docs/requirements/115-how-hard-the-scan-works-is-a-setting.md,
-    // `## Measurement (AC2)`.
+    // Measured, not invented: the budget is the N=300 row concurrency 24 / timeoutMs 1000 /
+    // retries 1 of `npm run measure:scan` (median full pass ~7.5 s over the modelled loopback
+    // population); the cadence values are reasoned from that pass time.
     concurrency: 24,
     timeoutMs: 1000,
     retries: 1,
@@ -535,19 +483,10 @@ export const DEFAULT_SERVERS_STATE: ServersState = {
 }
 
 /**
- * Every `servers` handler paired with its payload schema - proves AC9's "every new channel exists
- * in the shared contract with a zod payload schema before its handler" for this module's own
- * handlers, and is what `servers.test.ts` iterates to check no handler is missing one.
+ * Every `servers` handler paired with its payload schema; `servers.test.ts` iterates it to check
+ * no handler is missing one.
  */
-/**
- * Story 111 D1: payload schemas for the five `sources.*` handlers.
- *
- * `sourcesUpdate`'s payload is a union of two shapes: re-validating an edited address (`type` +
- * `address`) and toggling `enabled` are different operations with different failure modes (a bad
- * address is a `MasterSourceAddressRejection`; a toggle can't fail on the address at all) sharing
- * one channel rather than two, since both only ever act on a single existing source by `id`. A
- * handler-side check (D3) rejects a payload that supplies neither pair.
- */
+/** Payload schemas for the five `sources.*` handlers. */
 export const masterSourceTypeSchema = z.enum(['udp-master', 'http-list'])
 
 export const sourcesListInputSchema = z.void()
@@ -578,7 +517,7 @@ export const sourcesUpdateInputSchema = z.union([
   sourcesUpdateEnabledInputSchema,
 ])
 
-/** A full permutation of the current source ids - not a partial move (story 111's Decisions). */
+/** A full permutation of the current source ids - not a partial move. */
 export const sourcesReorderInputSchema = z.object({
   ids: z.array(z.string()),
 })
@@ -586,9 +525,9 @@ export const sourcesReorderInputSchema = z.object({
 /**
  * What every `sources.*` mutation resolves to: the domain refusal is a returned result, not a
  * thrown error (mirrors `MasterSourceFailure`-shaped results in `src/main/modules/servers/` and
- * `AliasNameRejectReason` in `src/shared/config/aliases/alias-names.ts`). `sources.list` itself always
- * succeeds (it's a read), so it resolves to `MasterSource[]` directly, not this union - see the
- * handler's own payload schema/JSDoc, not this type.
+ * `AliasNameRejectReason` in `src/shared/config/aliases/alias-names.ts`). `sources.list` itself
+ * always succeeds (it's a read), so it resolves to `MasterSource[]` directly, not this union - see
+ * the handler's own payload schema/JSDoc, not this type.
  */
 export type MasterSourcesRejectionReason =
   MasterSourceAddressRejection | 'not-found' | 'duplicate-address' | 'invalid-reorder'
@@ -630,35 +569,33 @@ export const favouritesRemoveInputSchema = serverAddressSchema
 export const historyReadInputSchema = serversNoInputSchema
 
 /**
- * Story 114 D1: the scan's shared contract - types, event names, handler names and schemas, all
- * that this deliverable adds (Plan, step 1). The runner, the service and the renderer view are
- * later deliverables of the same story; nothing here has an implementation yet.
+ * The scan's shared contract - types, event names, handler names and schemas, all that this
+ * deliverable adds (Plan, step 1). The runner, the service and the renderer view are later
+ * deliverables of the same story; nothing here has an implementation yet.
  */
 
 /** Where one `ScanTarget` address was seen: an enabled master/list source (111), a favourite
  * (112) or a manually-added server (113). A target can carry more than one - see `ScanTarget`. */
 export type ScanOrigin = 'source' | 'favourite' | 'manual' | 'lan'
 
-/** Story 196: which list the servers browser shows and scans - the internet (sources, favourites,
- * manual servers) or the local network (broadcast answers only). */
+/**
+ * Which list the servers browser shows and scans - the internet (sources, favourites, manual
+ * servers) or the local network (broadcast answers only).
+ */
 export type ServersBrowseMode = 'online' | 'lan'
 
-/** One address the scan will sweep, plus every origin it was seen under (AC6: a duplicate
- * address from two origins collapses to one target that still carries both; AC4: a favourite is
- * always present even when no source returns it). */
+/** One address the scan will sweep, plus every origin it was seen under. */
 export interface ScanTarget {
   address: string
   origins: ScanOrigin[]
 }
 
 /**
- * Review fix (story 114, clean-agent pass): one query's outcome, exactly as
- * `src/main/modules/servers/server-query.ts`'s `queryServer()` resolves and as
- * `src/main/modules/servers/scan-runner.ts` streams it through `onServer`/`scan.server`. Defined
- * here - not in `server-query.ts` - so the renderer client (`modules/servers/client.ts`) can import
- * the real type for the `scan.server` push instead of hand-declaring a structurally-identical copy
- * that nothing keeps in sync if either side changes. `server-query.ts` re-exports its own
- * `ServerQueryResult` name as an alias of this type, so no main-side import site needed to change.
+ * Review fix: one query's outcome, exactly as `src/main/modules/servers/server-query.ts`'s
+ * `queryServer()` resolves and as `src/main/modules/servers/scan-runner.ts` streams it through
+ * `onServer`/`scan.server`. Defined here - not in `server-query.ts` - so the renderer client
+ * (`modules/servers/client.ts`) can import the real type for the `scan.server` push instead of
+ * hand-declaring a structurally-identical copy that nothing keeps in sync if either side changes.
  */
 export type ScanQueryResult =
   | { ok: true; kind: 'info'; reply: InfoReplySuccess; rttMs: number }
@@ -674,19 +611,16 @@ export interface ScanServerPush {
 }
 
 /**
- * One row of the servers list, as the scan and the renderer store hold it. `status: 'stale'`
- * marks a server that did not answer this scan - it keeps whatever it last reported rather than
- * being reported as empty or dropped (D-K, GB-N6). Every domain field below `status` is optional
- * because a target that has never yet answered (e.g. a favourite no source has ever returned)
- * still needs a row to exist. `players` starts out as the numeric count `info` reports and is
- * replaced by the full roster once stage 2's `status` reply for this address lands - the same
- * field, not two, so a consumer never has to reconcile a count against a list for one address.
+ * One row of the servers list, as the scan and the renderer store hold it. `status: 'stale'` marks
+ * a server that did not answer this scan - it keeps whatever it last reported rather than being
+ * reported as empty or dropped. Every domain field below `status` is optional because
+ * a target that has never yet answered (e.g. a favourite no source has ever returned) still needs a
+ * row to exist.
  */
 export interface ServerListEntry {
   address: string
   origins: ScanOrigin[]
-  /** `'pending'` is a row that has never yet received a reply (e.g. a favourite no source has
-   * returned) - distinct from `'stale'`, which did answer a past scan but not the current one. */
+  /** `'pending'` is a row that has never yet received a reply. */
   status: 'online' | 'stale' | 'pending'
   name?: string
   map?: string
@@ -696,19 +630,22 @@ export interface ServerListEntry {
   /** `needpass` bit 1: the server requires a spectator password. */
   spectatorPass?: boolean
   rttMs?: number
-  /** In-memory session history of this address's measured round trips, oldest first, newest
-   * appended last - never persisted to `state.json`, rebuilt from nothing every process lifetime
-   * exactly like `entries` itself. Capped at `RTT_HISTORY_LIMIT` entries. */
+  /**
+   * In-memory session history of this address's measured round trips, oldest first, newest
+   * appended last - never persisted to `state.json`, rebuilt from nothing every process
+   * lifetime exactly like `entries` itself.
+   */
   rttHistory?: RttSample[]
   players?: number | ServerPlayer[]
   gamemode?: ServerGamemode
-  /** ISO timestamp of the last reply (of either stage) actually received for this address, or
-   * `null` for a row that has never received one. */
+  /** ISO timestamp of the last reply. */
   lastSeenAt: string | null
 }
 
-/** One round's measured round trip for a `ServerListEntry`'s `rttHistory` - `rttMs: null` means the
- * address did not answer that round (a stale flip), not that it answered in zero time. */
+/**
+ * One round's measured round trip for a `ServerListEntry`'s `rttHistory` - `rttMs: null` means the
+ * address did not answer that round (a stale flip), not that it answered in zero time.
+ */
 export interface RttSample {
   at: string
   rttMs: number | null
@@ -725,8 +662,8 @@ export type ServerListRow = ServerListEntry & { favourite: boolean }
 /**
  * One source's scan-time failure (D-H): `reasonKey` is `masterSourceFailureKey()`
  * (`src/shared/servers/master-records.ts`) applied to whatever `resolveUdpMasterSource`/
- * `resolveHttpListSource` returned for that source - already a `servers.source.error.<reason>`
- * i18n key, not a raw reason code, same convention as `ManualServerAddResult.reasonKey` above
+ * `resolveHttpListSource` returned for that source - already a `servers.source.error.<reason>` i18n
+ * key, not a raw reason code, same convention as `ManualServerAddResult.reasonKey` above
  * (CLAUDE.md: main sends i18n keys across IPC, never prose).
  */
 export interface ScanSourceFailure {
@@ -738,9 +675,9 @@ export interface ScanSourceFailure {
 export type ScanPhase = 'idle' | 'stage1' | 'stage2'
 
 /**
- * Story 116 D1: why a scan is currently refused/held back from starting - a closed union so a
- * later reason (if any) is a compile-time-visible addition, unlike `ScanStartResult`'s/
- * `ManualServerAddResult`'s free-text `reasonKey`. Currently only one member: the game is running
+ * Why a scan is currently refused/held back from starting - a closed union so a later reason (if
+ * any) is a compile-time-visible addition, unlike `ScanStartResult`'s/ `ManualServerAddResult`'s
+ * free-text `reasonKey`. Currently only one member: the game is running
  * (docs/requirements/116-no-scan-runs-while-the-game-does.md).
  */
 export type ScanBlockedReason = 'game-running'
@@ -750,13 +687,7 @@ export type ScanBlockedReason = 'game-running'
  * size of that stage's address set at the moment the stage started - `stage2Total` is `0` until
  * stage 1 has finished and the non-empty-plus-selected set is known. `startedAt`/`finishedAt` are
  * ISO timestamps, `null` before the first scan has ever run (`finishedAt` also `null` while
- * `running` is true). `blockedReason` (story 116 D1) is `null` unless a scan is currently being
- * held back by something outside the scan itself (e.g. the game running) - `null` rather than
- * optional, same style as `startedAt`/`finishedAt` above. `scope` (story 117 D1) is `null` unless a
- * scan is currently running or has last run with a known scope - same "null unless something has
- * actually set it yet" convention as `blockedReason`. This D only adds the field to the type; a
- * later deliverable (D3, the 116->117 evolution of the scan state) is what actually populates and
- * resets it.
+ * `running` is true).
  */
 export interface ServersScanState {
   running: boolean
@@ -770,15 +701,15 @@ export interface ServersScanState {
   finishedAt: string | null
   blockedReason: ScanBlockedReason | null
   scope: ScanScope | null
-  /** Story 196: the mode of the running scan, or of the last one (`'online'` before any scan). */
+  /** The mode of the running scan, or of the last one (`'online'` before any scan). */
   mode: ServersBrowseMode
 }
 
 /**
- * `scan.start`'s result (D-L): starting is a returned refusal when a scan is already running, not
+ * `scan.start`'s result: starting is a returned refusal when a scan is already running, not
  * a thrown IPC error - same shape convention as `ManualServerAddResult`/`MasterSourcesResult`
  * above. A successful start carries no data of its own - the caller learns everything through the
- * `scan.changed`/`scan.server` pushes (AC5), not through this return value.
+ * `scan.changed`/`scan.server` pushes, not through this return value.
  */
 export type ScanStartResult = DomainResult<Record<never, never>>
 
@@ -786,13 +717,12 @@ export type ScanStartResult = DomainResult<Record<never, never>>
 export type WatchlistMutationResult = DomainResult<{ snapshot: WatchlistSnapshot }>
 
 /**
- * Story 116 D1: the `reasonKey` a refused `scan.start` (or a `blockedReason: 'game-running'`
- * scan state) carries when the game is running - a distinct i18n convention from
- * `SCAN_ALREADY_RUNNING_REASON_KEY` (`servers.scan.error.<reason>`, `scan-service.ts`) because
- * this is a *blocked* state rather than an *error*, mirroring `WAITING_REASON_GAME_RUNNING`
- * (`jobs.waiting.gameRunning`, `src/main/services/write-guard.ts`). Lives here rather than in
- * `scan-service.ts` because both a later main-side deliverable and a renderer i18n-key check need
- * it.
+ * The `reasonKey` a refused `scan.start` (or a `blockedReason: 'game-running'` scan state) carries
+ * when the game is running - a distinct i18n convention from `SCAN_ALREADY_RUNNING_REASON_KEY`
+ * (`servers.scan.error.<reason>`, `scan-service.ts`) because this is a *blocked* state rather than
+ * an *error*, mirroring `WAITING_REASON_GAME_RUNNING` (`jobs.waiting.gameRunning`,
+ * `src/main/services/write-guard.ts`). Lives here rather than in `scan-service.ts` because both a
+ * later main-side deliverable and a renderer i18n-key check need it.
  */
 export const SCAN_BLOCKED_GAME_RUNNING_REASON_KEY = 'servers.scan.blocked.gameRunning'
 
@@ -805,25 +735,23 @@ export interface ScanSnapshot {
   state: ServersScanState
   /** The active mode's rows only - never a mix of online and LAN rows. */
   entries: ServerListRow[]
-  /** Story 196: the browser's active mode (`state.mode` is the mode of the running/last scan). */
+  /** The browser's active mode (`state.mode` is the mode of the running/last scan). */
   mode: ServersBrowseMode
-  /** Story 196: the last LAN round - when it finished and, if discovery failed, why (i18n key). */
+  /** The last LAN round - when it finished and, if discovery failed, why (i18n key). */
   lan: { lastFinishedAt: string | null; failureKey: string | null }
 }
 
-/** Story 196: `scan.start` with the favourites scope is refused while the browser is in LAN mode. */
+/** `scan.start` with the favourites scope is refused while the browser is in LAN mode. */
 export const SCAN_FAVOURITES_NOT_IN_LAN_REASON_KEY = 'servers.scan.error.favouritesNotInLan'
 
-/** Story 196: `ScanSnapshot.lan.failureKey` values - must match `lan-discovery.ts`'s constants. */
+/** `ScanSnapshot.lan.failureKey` values - must match `lan-discovery.ts`'s constants. */
 export const SERVERS_LAN_ERROR_NO_INTERFACE_KEY = 'servers.lan.error.noInterface'
 export const SERVERS_LAN_ERROR_SOCKET_REFUSED_KEY = 'servers.lan.error.socketRefused'
 
 /**
- * Story 117 D1: which subset of servers a scan round touches. 'all' is exactly today's full scan
- * (114's union address set); 'favourites' touches only the favourites list; 'server' touches
- * exactly one address (allowed even when it is in no source/favourite/manual list). This is the
- * shared contract only - the scheduler/handler that actually branches on it (D2-D4) and the
- * renderer surfaces that pick it (D5-D6) are later deliverables of this story.
+ * Which subset of servers a scan round touches. 'all' is exactly today's full scan (114's union
+ * address set); 'favourites' touches only the favourites list; 'server' touches exactly one address
+ * (allowed even when it is in no source/favourite/manual list).
  */
 export type ScanScope =
   { kind: 'all' } | { kind: 'favourites' } | { kind: 'server'; address: string }
@@ -837,14 +765,9 @@ export const scanScopeSchema = z.discriminatedUnion('kind', [
 /**
  * `scan.start`'s payload (D-G): `selectedAddress` is optional and, when present, re-validated with
  * the same `serverAddressSchema` `favouritesAdd`/`favouritesRemove` already use above - it names
- * stage 2's "currently selected server" (AC2), which has no selection surface yet ([[118]]/[[122]]).
- * Accepts a call with no payload at all (`undefined`), same as every other optional-field handler
- * payload in this file that is still allowed to be omitted entirely.
- *
- * Story 117 D1 adds `scope` as a sibling field, also optional: a call that omits it (or the whole
- * payload) still validates, same convention as `selectedAddress`. A later deliverable (D4, not this
- * one) is responsible for defaulting a missing/omitted scope to `{ kind: 'all' }` - this schema only
- * has to accept the omission, not resolve it.
+ * stage 2's "currently selected server", which has no selection surface yet. Accepts a call with no
+ * payload at all (`undefined`), same as every other optional-field handler payload in this file
+ * that is still allowed to be omitted entirely.
  */
 export const scanStartInputSchema = z
   .object({
@@ -857,8 +780,8 @@ export const scanStartInputSchema = z
 export const scanReadInputSchema = serversNoInputSchema
 
 /**
- * Story 115 D1: payload schemas for the three `scan.*` settings handlers. `scanGetSettings` takes
- * no payload, same `z.void()` convention as `scanReadInputSchema` above.
+ * Payload schemas for the three `scan.*` settings handlers. `scanGetSettings` takes no payload,
+ * same `z.void()` convention as `scanReadInputSchema` above.
  */
 export const scanGetSettingsInputSchema = serversNoInputSchema
 
@@ -906,12 +829,12 @@ export const scanPatchSettingsInputSchema = z
  * (`false`). */
 export const scanSetViewActiveInputSchema = z.object({ active: z.boolean() })
 
-/** Story 196 D2: `scan.setMode`'s payload - the browse mode to switch to. */
+/** `scan.setMode`'s payload - the browse mode to switch to. */
 export const scanSetModeInputSchema = z.object({ mode: z.enum(['online', 'lan']) })
 
 /**
- * Story 119 D2: the persisted/IPC shape of a `ServerListSort` - `.strict()` so a payload carrying
- * an unknown key is rejected outright, same convention as `scanPatchSettingsInputSchema`.
+ * The persisted/IPC shape of a `ServerListSort` - `.strict()` so a payload carrying an unknown key
+ * is rejected outright, same convention as `scanPatchSettingsInputSchema`.
  */
 export const serverListSortSchema = z
   .object({
@@ -927,26 +850,25 @@ export const listGetSortInputSchema = serversNoInputSchema
 export const listSetSortInputSchema = z.object({ sort: serverListSortSchema.nullable() }).strict()
 
 /**
- * Story 122 D2: `detail.read`'s payload - just the address, validated the same way
- * `favouritesAddInputSchema` already is (a bare `serverAddressSchema`, no wrapper object).
+ * `detail.read`'s payload - just the address, validated the same way `favouritesAddInputSchema`
+ * already is (a bare `serverAddressSchema`, no wrapper object).
  */
 export const detailReadInputSchema = serverAddressSchema
 
 /**
- * `detail.read`'s result (story 122 D2): the row as `scan.read` already knows it (so a
- * favourite/pending placeholder still resolves rather than failing) plus the last successful
- * `status` reply's full key set. `serverinfo` is replaced whole on each new `status` reply - never
- * merged key-by-key - and is kept exactly as-is while the row goes stale (an unanswered round never
- * clears it); it stays `null` until the very first `status` reply for this address has ever landed.
- * Later stories (players, admin state, ...) extend this type with more fields alongside `row`/
- * `serverinfo`.
+ * `detail.read`'s result: the row as `scan.read` already knows it (so a favourite/pending
+ * placeholder still resolves rather than failing) plus the last successful `status` reply's full
+ * key set. `serverinfo` is replaced whole on each new `status` reply - never merged key-by-key -
+ * and is kept exactly as-is while the row goes stale; it stays `null` until the very first `status`
+ * reply for this address has ever landed. Later stories (players, admin state,...) extend this type
+ * with more fields alongside `row`/ `serverinfo`.
  */
 export interface ServerDetail {
   row: ServerListRow
   serverinfo: Record<string, string> | null
 }
 
-/** Story 197 D2: result of a quick-filter mutation - the persisted list or a refusal reason key. */
+/** Result of a quick-filter mutation - the persisted list or a refusal reason key. */
 export type QuickFilterRefusalKey =
   | 'servers.quickFilter.error.failed'
   | 'servers.quickFilter.error.noCriteria'

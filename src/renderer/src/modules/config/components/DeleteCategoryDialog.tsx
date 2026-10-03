@@ -7,7 +7,7 @@ import { useSubmitting } from '../../../components/ui/useSubmitting'
 import type { DeleteCategoryChoice } from '../lib/delete-category'
 
 /**
- * Deletion confirmation for a category that has entries (story 052 D9, mirroring
+ * Deletion confirmation for a category that has entries (story 052, mirroring
  * `DeleteProfileDialog.tsx`'s shape: title, body stating consequences, confirm/cancel). Unlike that
  * dialog's plain yes/no, deleting a category is a real choice - the story's own decision is "offer
  * both delete and move in the confirm dialog, default 'move'" - so this renders a radio pair
@@ -63,7 +63,7 @@ export function DeleteCategoryDialog({
       onClose={onClose}
       body={
         <div className="space-y-4">
-          {/* AC 9: states what happens to the entries, in words, for whichever choice is selected -
+          {/* States what happens to the entries, in words, for whichever choice is selected -
               not just for 'move': switching to 'delete' must update the sentence, not leave the
               'move' one showing. */}
           <p className="text-sm leading-relaxed text-ink-dim">

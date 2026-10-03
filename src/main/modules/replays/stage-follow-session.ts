@@ -11,7 +11,7 @@ import {
 } from './stage-follow'
 
 /**
- * Story 171 D2: wires D1's stage follower to a live stage session. A follower exists only between
+ * Story 171: wires the stage follower to a live stage session. A follower exists only between
  * `begin` (a demo launched placed over the stage) and the returned `end` (that session's game is
  * gone); the main window's events and `playback.stage` reports feed it. Outside a session, both are
  * no-ops - nothing reaches the engine.
@@ -54,9 +54,9 @@ export interface StageFollowSessions {
   }): () => void
   /** `playback.stage`: the stage moved (or is gone, `null`). */
   report(rect: ReplaysStageRect | null): Outcome<void>
-  /** Story 172 D5: while the demo is fullscreen the game window is not moved or resized. */
+  /** Story 172: while the demo is fullscreen the game window is not moved or resized. */
   setSuspended(suspended: boolean): void
-  /** Story 187 D2: pin the live session's game window to `geometry` (cinema); `null` unpins. */
+  /** Story 187: pin the live session's game window to `geometry` (cinema); `null` unpins. */
   pin(geometry: string | null): boolean
   /** A follower exists (a placed stage session is live), so a pin can take effect. */
   hasFollower(): boolean

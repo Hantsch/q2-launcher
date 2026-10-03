@@ -18,15 +18,15 @@ import { cn } from '../../../lib/cn'
 import { findMatches, splitTokenByMatches, type ConfigSearchMatch } from '../lib/config-search'
 import { dedentSelection, getIndentLineRange, indentSelection } from '../lib/textarea-indent'
 
-/** Tab / Shift+Tab insert or remove this many spaces at a time (story 057 D1). No convention for
+/** Tab / Shift+Tab insert or remove this many spaces at a time. No convention for
  * structural indentation could be found in the repo's own `.cfg` fixtures - they use tabs only as
  * a value separator between a cvar and its value - so this is the documented default from the
  * story's decisions. */
 const INDENT_UNIT = '  '
 
 /**
- * Read-only, syntax-highlighted view of raw Quake II config text (story 024
- * D2), with an optional in-view find-in-file (story 024 D3). Replaces the
+ * Read-only, syntax-highlighted view of raw Quake II config text
+ * with an optional in-view find-in-file. Replaces the
  * plain `CodeBlock` primitive wherever config text is shown; the styling
  * lives in `styles/config-syntax.css`.
  *
@@ -42,7 +42,7 @@ const INDENT_UNIT = '  '
  *    exact bytes are deliberately not reproduced). The line numbers are a
  *    sibling element, never a text node inside the `<pre>` and never a
  *    pseudo-element, so no gutter digit can reach the clipboard. The search
- *    highlight spans (D3) only ever wrap a sub-range of a token's own text in
+ *    highlight spans only ever wrap a sub-range of a token's own text in
  *    an extra inline `<span>` - `splitTokenByMatches` never adds, removes or
  *    reorders a character, so this guarantee survives an active search too.
  *  - **The gutter stays aligned.** Both columns share one scroll container and
@@ -51,27 +51,27 @@ const INDENT_UNIT = '  '
  *  - **A ~2000-line file paints without a stall.** Tokenization is memoized on
  *    `text`, and rendering is one flat pass over the memoized lines - no
  *    post-processing of the token stream, and deliberately no virtualization
- *    (story decision).
+ *
  */
 export interface ConfigCodeViewProps {
   /** Raw config text, already decoded to a JS string. */
   text: string
   className?: string
   /** Renders the text as a bare highlighted snippet: no gutter, no line numbers, no panel chrome.
-   * Search (D3) never applies in this mode - there is nowhere to put the search header, and this
+   * Search never applies in this mode - there is nowhere to put the search header, and this
    * mode exists for small inline previews rather than a file worth searching. */
   singleLine?: boolean
   /**
    * Renders an on-demand search header above the gutter+pre block - hidden until `Ctrl+F`/`Cmd+F`
    * opens and focuses it, closed again (and its query cleared) on `Escape` - with a text input, a
-   * live match-count region and previous/next controls (story 069 D1: this used to be
-   * always-visible; `isFindOpen` is now shared 1:1 with the `editable` branch below, D-13). Ignored
+   * live match-count region and previous/next controls (`isFindOpen` is shared 1:1
+   * with the `editable` branch below). Ignored
    * when `singleLine` is set - see that prop's doc comment.
    */
   searchable?: boolean
   /**
-   * Renders a transparent, editable `<textarea>` overlaid on the tokenised `<pre>` (story 057
-   * D1) instead of the read-only D2/D3 rendering. Mutually exclusive with `singleLine` and
+   * Renders a transparent, editable `<textarea>` overlaid on the tokenised `<pre>`
+   * instead of the read-only rendering. Mutually exclusive with `singleLine` and
    * `searchable` - callers that want editing get the same on-demand Ctrl+F find bar as the
    * `searchable` branch, reused against the textarea's own selection instead of the `<pre>`'s text.
    */
@@ -131,10 +131,10 @@ function renderGutter(lines: ConfigSyntaxLine[], numberedLines: number) {
  * with no terminator emits no break, so a file that does not end in a newline
  * does not grow one on copy.
  *
- * This is the D2 rendering path, unchanged: one `<span className="cfg-tok-<kind>">` per token,
+ * This is the plain rendering path: one `<span className="cfg-tok-<kind>">` per token,
  * nothing else. It is used verbatim whenever search is off, and per-token when a line has no
  * active match even while search is on, so the "no search" output is never structurally
- * different from D2's.
+ * different from it.
  */
 function renderLine(line: ConfigSyntaxLine) {
   return (
@@ -154,7 +154,7 @@ function renderLine(line: ConfigSyntaxLine) {
  * `splitTokenByMatches` so a matched sub-range can be wrapped in its own `cfg-match`/
  * `cfg-match-current` span. Lines with no match on them fall through to the exact same single-
  * span-per-token output as `renderLine` (the `lineMatches.length === 0` branch below), so an
- * unsearched or non-matching line is byte- and structure-identical to the D2 path.
+ * unsearched or non-matching line is byte- and structure-identical to the plain path.
  */
 function renderSearchableLine(
   line: ConfigSyntaxLine,
@@ -221,7 +221,7 @@ export function ConfigCodeView({
   // hook CALLS themselves must run in the same order on every render, or a future caller that
   // flips `editable` on an already-mounted instance would crash React with a hook-count mismatch.
 
-  // --- editable mode (story 057 D1) --------------------------------------------------------
+  // --- editable mode --------------------------------------------------------
   // A self-contained branch: the draft lives in local state (seeded from `text` once, like an
   // uncontrolled `<textarea defaultValue>`) rather than being fed back through the `text` prop on
   // every keystroke, so typing never depends on - or fights with - whatever the caller does with
@@ -302,7 +302,7 @@ export function ConfigCodeView({
   // Focuses (and selects, so a repeat search overwrites the old query instead of appending to it)
   // the find input once React has actually committed the bar into the DOM - replacing a
   // `requestAnimationFrame` guess that raced React's commit and could leave focus on the textarea
-  // instead (story 069 D-13 bug fix). Keyed on `isFindOpen` alone, not on `editable`, because this
+  // instead. Keyed on `isFindOpen` alone, not on `editable`, because this
   // effect is a no-op whenever the editable branch isn't the one rendering the bar: `editSearchBarRef`
   // only points at a mounted node when this branch's JSX is what actually rendered.
   useEffect(() => {
@@ -370,7 +370,7 @@ export function ConfigCodeView({
       // Closing the bar unmounts its focused input, which would otherwise drop focus to
       // `document.body` - and since Ctrl+F below is a container-scoped `onKeyDown`, a keydown
       // that never bubbles from a focused descendant of this panel would never reach it again
-      // (story 069 D-13 bug fix). `editPanelRef`'s target is `tabIndex={-1}` for exactly this.
+      // . `editPanelRef`'s target is `tabIndex={-1}` for exactly this.
       editPanelRef.current?.focus()
       return
     }
@@ -391,7 +391,7 @@ export function ConfigCodeView({
     }
   }
 
-  // --- read-only search-bar mode (story 024 D3) ---------------------------------------------
+  // --- read-only search-bar mode ---------------------------------------------
   // All of this branch's own hooks are declared here, unconditionally, alongside the editable
   // branch's hooks above and before any of this component's early returns below - see the
   // Rules-of-Hooks note on the `editable` prop in this file's doc comment.
@@ -407,7 +407,7 @@ export function ConfigCodeView({
   const currentMatchRef = useRef<HTMLSpanElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
 
-  // Gated on `isFindOpen` too (story 069 D1, D-13) - shared with the editable branch's own state
+  // Gated on `isFindOpen` too - shared with the editable branch's own state
   // above - so highlights and the "X of Y" count come and go with the bar itself, exactly like the
   // editable branch's `editMatches`.
   const matches = useMemo(
@@ -473,7 +473,7 @@ export function ConfigCodeView({
     )
   }
 
-  // Story 069 D1 (D-13): the bar itself is now on-demand, mirrored 1:1 from the editable branch's
+  // The bar itself is now on-demand, mirrored 1:1 from the editable branch's
   // `handleEditContainerKeyDown` above - Escape closes it (and clears the query) wherever focus is
   // within this component - the search input or the container itself, both of which bubble a
   // keydown up to this container - and never bubbles further, so a dialog this view happens to sit
@@ -493,7 +493,7 @@ export function ConfigCodeView({
       // Closing the bar unmounts its focused input, which would otherwise drop focus to
       // `document.body` - and since Ctrl+F below is a container-scoped `onKeyDown`, a keydown
       // that never bubbles from a focused descendant of this panel would never reach it again
-      // (story 069 D-13 bug fix). `panelRef`'s target is `tabIndex={-1}` for exactly this.
+      // . `panelRef`'s target is `tabIndex={-1}` for exactly this.
       panelRef.current?.focus()
       return
     }
@@ -607,8 +607,8 @@ export function ConfigCodeView({
       // tabIndex so a keyboard-only user can reach and scroll this element when its one line is
       // wider than its container (`.cfg-code-single`'s own `overflow-x: auto`, config-syntax.css) -
       // axe's scrollable-region-focusable rule, same reasoning as the non-singleLine branches'
-      // `tabIndex={0}` above. Every caller before story 066 D8 only ever fed this a short line, so
-      // the element never actually overflowed and the missing tabIndex went unnoticed; D8's
+      // `tabIndex={0}` above. Every caller only ever fed this a short line, so
+      // the element never actually overflowed and the missing tabIndex went unnoticed; the
       // `config-import-files` screen is the first to show a real long line here (dm.cfg's
       // box-drawing banner comments, surfaced through the preserved-lines list) and is what caught
       // it.

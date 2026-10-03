@@ -5,8 +5,8 @@ import { Menu, type MenuItem } from '../../../components/ui/Menu'
 import type { EntryMoveTarget } from '../lib/entry-order'
 
 /**
- * Story 054 D8: the row menu that takes over move up/down (and adds "Move to…") from the inline
- * arrow buttons every Controls row used to carry (`renderMoveButtons`, story 052 D8). A kebab in
+ * the row menu that takes over move up/down (and adds "Move to…") from inline
+ * arrow buttons on every Controls row. A kebab in
  * the row's action cluster, built on the existing `components/ui/Menu.tsx` - the same trigger/
  * portal/positioning `InstallationRail`'s "add" menu already uses, just with an `IconButton` as the
  * anchor instead of a plain styled button.
@@ -15,7 +15,7 @@ import type { EntryMoveTarget } from '../lib/entry-order'
  * and holds only ordering commands") - edit/rename/remove stay the icon buttons they are today,
  * right next to this one.
  *
- * Story 063 D4: `onMakeBindable`, passed only for a row that is currently inert (`kind: 'alias'`,
+ * `onMakeBindable`, passed only for a row that is currently inert (`kind: 'alias'`,
  * `ControlsTab.tsx`'s `inertSlots`), is the one deliberate exception to that "ordering only" rule -
  * there is nowhere else in an inert row's Options cell to put a repair action, and it is exactly as
  * situational as a menu item gets (most rows never show it at all).

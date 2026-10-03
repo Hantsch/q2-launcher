@@ -11,7 +11,7 @@ import type { StageDownloadFn, StageExtractFn } from '../../../services/package-
 import { installR1q2Notices, probeX86Runtime, realFileExists, seedR1glConfig } from './r1q2-setup'
 
 /**
- * Story 074 D4: the three seams the bootstrap job reaches the outside world through - the
+ * Story 074: the three seams the bootstrap job reaches the outside world through - the
  * manifest, the network and the extractor - plus their production adapters.
  *
  * Ports rather than direct imports, for the reason the sprint's decisions name: "070/071 are being
@@ -52,7 +52,7 @@ export interface Extractor {
 }
 
 /**
- * Story 075 D3: how the bootstrap job reaches the diagnostics collector (`../diagnostics.ts`).
+ * Story 075: how the bootstrap job reaches the diagnostics collector (`../diagnostics.ts`).
  *
  * A *factory*, not a collector: `createDiagnosticsCollector` is keyed by the job id, and that id
  * does not exist until `startBootstrap` has created the `Job` - long after `bootstrapDepsFor()`
@@ -62,8 +62,8 @@ export interface Extractor {
  * Optional on `BootstrapDeps`: a job without one records nothing and behaves exactly as it did
  * before this story. The collector observes the job; it never influences what the job does.
  *
- * Story 078 D3: the surface this port hands the job widened with `recordAssembly` (AC7) and with
- * `recordPackage`'s `contents`/`contentsTruncated`/`contributed` (AC8/AC1) - both on
+ * Story 078: the surface this port hands the job widened with `recordAssembly` and with
+ * `recordPackage`'s `contents`/`contentsTruncated`/`contributed` - both on
  * `DiagnosticsCollector` itself, which this alias is, so there is no second description of that
  * surface here to keep in step with it.
  */
@@ -134,17 +134,17 @@ export const realPackageFetcher: PackageFetcher = { fetch: downloadPackage }
 export const realExtractor: Extractor = { extract: extractArchive }
 
 /**
- * Story 080 D3: the seam `job.ts` calls R1Q2's own setup/runtime checks through
+ * Story 080: the seam `job.ts` calls R1Q2's own setup/runtime checks through
  * (`r1q2-setup.ts`) - a port for the same reason every other one here is: a fake lets the job's
  * tests exercise the x86-runtime gate and the config-seed/notice calls without touching the real
  * machine or a real external checkout.
  */
 export interface R1q2SetupPort {
-  /** Whether the x86 VC++ runtime `vcruntime140.dll` is present on this machine (AC5). */
+  /** Whether the x86 VC++ runtime `vcruntime140.dll` is present on this machine. */
   probeX86Runtime(): Promise<boolean>
   /** Forces `vid_ref "r1gl"` on a fresh install; a no-op if `baseq2/autoexec.cfg` already exists. */
   seedR1glConfig(targetRoot: string): Promise<void>
-  /** Copies the R1Q2 mirror's GPLv3 license text into the target (AC8). Best-effort. */
+  /** Copies the R1Q2 mirror's GPLv3 license text into the target. Best-effort. */
   installR1q2Notices(
     targetRoot: string,
     licenseSourceOverride?: string,

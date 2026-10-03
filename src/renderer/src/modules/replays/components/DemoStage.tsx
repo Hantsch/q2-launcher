@@ -12,7 +12,7 @@ export interface DemoStageProps {
 }
 
 /**
- * Story 170 D4: the free area of the Demos view while a demo plays (or is about to) - a centred 4:3
+ * Story 170: the free area of the Demos view while a demo plays (or is about to) - a centred 4:3
  * picture box whose measured viewport rect is what the launcher hands `demo.play` as the stage.
  */
 export function DemoStage({ reason }: DemoStageProps) {

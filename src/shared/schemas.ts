@@ -108,7 +108,7 @@ export const httpsUrlSchema = z
   .refine((value) => /^https:\/\//i.test(value), 'only https URLs are allowed')
 
 /**
- * Story 074 D8, harness only: the same shape as `httpsUrlSchema` above, plus a plain-http
+ * Story 074, harness only: the same shape as `httpsUrlSchema` above, plus a plain-http
  * **loopback** URL (`http://127.0.0.1[:port]/...`). Its consumers (the harness manifest-package and
  * mod-catalog schemas) are only ever selected under the `Q2L_UI_HARNESS === '1'` gate in
  * `src/main/services/content/source.ts`, so it stays unreachable in a shipped build.

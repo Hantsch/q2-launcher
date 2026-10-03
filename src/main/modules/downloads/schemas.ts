@@ -10,13 +10,13 @@ import {
 } from '@shared/modules/downloads'
 
 /**
- * Story 072 D4: `getSettings`/`cacheStatus`/`clearCache` take no meaningful input - same `z.void()`
+ * Story 072: `getSettings`/`cacheStatus`/`clearCache` take no meaningful input - same `z.void()`
  * convention as `listInputSchema`/`writeStateInputSchema` in `main/modules/config/schemas.ts`.
  */
 export const downloadsNoInputSchema = z.void()
 
 /**
- * Story 073 D2: `dismissFailure`/`restoreFailure`'s payload - one failure-log entry id and nothing
+ * Story 073: `dismissFailure`/`restoreFailure`'s payload - one failure-log entry id and nothing
  * else. Shape-identical, so the two alias one schema rather than duplicate it (same convention as
  * `unassignProfileInputSchema`/`setDefaultProfileInputSchema` in `main/modules/config/schemas.ts`),
  * and shape-only on purpose: whether the id names an entry the log actually holds depends on
@@ -32,7 +32,7 @@ export const dismissFailureInputSchema = z.object({ id: z.string().min(1) }).str
 export const restoreFailureInputSchema = dismissFailureInputSchema
 
 /**
- * Story 072 D4: `patchSettings`'s payload - a partial `DownloadsSettings`. Each present field is
+ * Story 072: `patchSettings`'s payload - a partial `DownloadsSettings`. Each present field is
  * validated against the exact same bounds `main/modules/downloads/persisted.ts`'s `downloadsSettingsSchema` uses to
  * parse the persisted value (`MIN_CONCURRENT_DOWNLOAD_JOBS`-`MAX_CONCURRENT_DOWNLOAD_JOBS`,
  * `ARCHIVE_CACHE_BUDGET_CHOICES_GB`) - reusing those same constants, not a hand-copied range, is
@@ -44,20 +44,20 @@ export const restoreFailureInputSchema = dismissFailureInputSchema
  * default the way a hand-edited `state.json` would be.
  */
 /**
- * Story 074 D1: `bootstrapEngineOptions` takes no input - same `z.void()` convention as
+ * Story 074: `bootstrapEngineOptions` takes no input - same `z.void()` convention as
  * `downloadsNoInputSchema` above; kept as its own named export so this handler's schema reads
  * self-documenting at the call site rather than reusing an unrelated-sounding name.
  */
 export const bootstrapEngineOptionsInputSchema = downloadsNoInputSchema
 
 /**
- * Story 088 D2: `bootstrap.retailSources` takes no input - same `z.void()` convention as
+ * Story 088: `bootstrap.retailSources` takes no input - same `z.void()` convention as
  * `bootstrapEngineOptionsInputSchema` above.
  */
 export const bootstrapRetailSourcesInputSchema = downloadsNoInputSchema
 
 /**
- * Story 074 D2: the eventual `bootstrap.targetVerdict` handler's payload - one absolute path, the
+ * Story 074: the eventual `bootstrap.targetVerdict` handler's payload - one absolute path, the
  * folder the wizard's target-folder step is considering. `.strict()` for the same "a bad payload is
  * a caller bug" reason as `dismissFailureInputSchema` above; `absolutePathSchema` (`@shared/schemas`)
  * already rejects a non-absolute path (empty, relative, drive-relative) and a NUL byte before this ever reaches `computeTargetVerdict`
@@ -69,7 +69,7 @@ export const bootstrapTargetVerdictInputSchema = z
   .strict()
 
 /**
- * Story 089 D1: the eventual `bootstrap.gameDataSource` handler's payload (D3 wires the handler) -
+ * Story 089: the eventual `bootstrap.gameDataSource` handler's payload (a later stage wires the handler) -
  * one absolute path, the folder the wizard's game-data step is asking about. Same
  * `bootstrapTargetVerdictInputSchema` convention: `.strict()` because a bad payload is a caller bug,
  * `absolutePathSchema` rejects a non-absolute path/NUL byte before anything looks at the filesystem, and
@@ -80,7 +80,7 @@ export const bootstrapGameDataSourceInputSchema = z
   .strict()
 
 /**
- * Story 074 D4: the engine a bootstrap may be asked for. Narrower than `engineKindSchema` on
+ * Story 074: the engine a bootstrap may be asked for. Narrower than `engineKindSchema` on
  * purpose - `BOOTSTRAP_SUPPORTED_ENGINES` is the wizard's own list ("offered by this sprint's
  * wizard", not "supported by the launcher in general", see its doc comment), and rejecting an
  * unsupported engine at the schema is better than resolving no package for it three steps later.
@@ -91,7 +91,7 @@ const bootstrapEngineSchema = engineKindSchema.refine(
 )
 
 /**
- * Story 088 D4: which game-data source a bootstrap run uses (`BootstrapDataSource`,
+ * Story 088: which game-data source a bootstrap run uses (`BootstrapDataSource`,
  * `@shared/modules/downloads`). Optional at both call sites below, defaulted in main rather than
  * here, so a payload written against [[074]]'s wizard keeps meaning `'free-download'` - the schema
  * only decides which values are *representable*.
@@ -99,7 +99,7 @@ const bootstrapEngineSchema = engineKindSchema.refine(
 const bootstrapDataSourceSchema = z.enum(['free-download', 'store-copy', 'existing-folder'])
 
 /**
- * Story 088 D4: `copySourcePath` is meaningful for exactly one `dataSource`, so both halves of that
+ * Story 088: `copySourcePath` is meaningful for exactly one `dataSource`, so both halves of that
  * are enforced here rather than left to the handler - a `'store-copy'` payload without a source
  * path, and any other payload carrying one, are equally caller bugs and this file's convention is to
  * reject a caller bug outright. Shared by the two
@@ -110,7 +110,7 @@ const bootstrapDataSourceSchema = z.enum(['free-download', 'store-copy', 'existi
  * whether that source still verifies as retail, is re-decided in main against its own fresh list
  * (`startBootstrap`, `downloads.error.retailSourceUnverified`) - a schema can know neither.
  *
- * Story 089 D1: `'existing-folder'` needs exactly the same `copySourcePath` a `'store-copy'` run
+ * Story 089: `'existing-folder'` needs exactly the same `copySourcePath` a `'store-copy'` run
  * does - a hand-picked folder is copied from the same way a detected retail install is - so it
  * joins `storeCopy` below rather than getting a second required-path branch.
  */
@@ -139,12 +139,12 @@ function refineCopySource(
 }
 
 /**
- * Story 074 D4: `bootstrap.summary`'s payload - the same facts `bootstrap.start` takes minus the
- * name, since a summary states what would be downloaded and how large it is (AC4), which no name can
+ * Story 074: `bootstrap.summary`'s payload - the same facts `bootstrap.start` takes minus the
+ * name, since a summary states what would be downloaded and how large it is, which no name can
  * change. `.strict()` for the same "a bad payload is a caller bug" reason as
  * `dismissFailureInputSchema` above.
  *
- * Story 088 D4 (AC5): plus the data source and, for a `'store-copy'` one, the path it would copy
+ * Story 088: plus the data source and, for a `'store-copy'` one, the path it would copy
  * from - so the confirm step's summary is computed from exactly the payload the run will be started
  * with, not from a subset of it.
  */
@@ -160,15 +160,15 @@ export const bootstrapSummaryInputSchema = z
   .superRefine(refineCopySource)
 
 /**
- * Story 074 D4: `bootstrap.start`'s payload. `targetPath` passes `absolutePathSchema` here and is
+ * Story 074: `bootstrap.start`'s payload. `targetPath` passes `absolutePathSchema` here and is
  * then re-judged in main by `computeTargetVerdict` (`bootstrap/target.ts`), which is where the real
  * path-safety decision lives - a schema cannot know whether a folder already holds a game.
  *
  * `name` is optional and only shape-checked: an installation name is user data, and main falls back
  * to `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` (or, for a `'store-copy'` run, the engine's label - story
- * 088 D4) for an absent or blank one rather than rejecting it.
+ * 088) for an absent or blank one rather than rejecting it.
  *
- * Story 088 D4: `copySourcePath` passes `absolutePathSchema` here and is then re-resolved in main
+ * Story 088: `copySourcePath` passes `absolutePathSchema` here and is then re-resolved in main
  * against its own freshly listed detected sources - the same "the schema checks the shape, main
  * makes the decision" split `targetPath` already has, and the reason a path that merely *looks*
  * fine still cannot get a run past `startBootstrap`.
@@ -179,7 +179,7 @@ export const startBootstrapInputSchema = z
     targetPath: absolutePathSchema,
     name: z.string().min(1).max(120).optional(),
     includeVideoAndPlayers: z.boolean(),
-    // Story 074 AC2's remedy: the write-dir path the user picked from the target step's
+    // Story 074's remedy: the write-dir path the user picked from the target step's
     // Program-Files warning, if any - same `absolutePathSchema` convention as `targetPath` above.
     writeDirPath: absolutePathSchema.optional(),
     dataSource: bootstrapDataSourceSchema.optional(),
@@ -189,11 +189,11 @@ export const startBootstrapInputSchema = z
   .superRefine(refineCopySource)
 
 /**
- * Story 090 D1: `retail.upgradeStart`'s payload - the demo installation to upgrade and which
+ * Story 090: `retail.upgradeStart`'s payload - the demo installation to upgrade and which
  * detected store source ([[088]]'s `DetectedRetailSource.rootPath`) to copy `pak0.pak`/`pak1.pak`
  * from. `.strict()` for the same "a bad payload is a caller bug" reason as
  * `dismissFailureInputSchema` above. Like `copySourcePath` elsewhere in this file, `sourceRootPath`
- * is never trusted as-is: D2's handler re-lists and re-verifies it against main's own fresh
+ * is never trusted as-is: the handler re-lists and re-verifies it against main's own fresh
  * `listDetectedRetailSources()` before copying anything (CLAUDE.md's "paths from the renderer are
  * never trusted").
  */
@@ -205,7 +205,7 @@ export const startRetailUpgradeInputSchema = z
   .strict()
 
 /**
- * Story 092 D1: `engineUpdateStatus`/`engineUpdateStart`/`engineRollbackStart`'s shared shape - one
+ * Story 092: `engineUpdateStatus`/`engineUpdateStart`/`engineRollbackStart`'s shared shape - one
  * installation id and nothing else. `.strict()` for the same "a bad payload is a caller bug"
  * reason as `dismissFailureInputSchema` above.
  */
@@ -218,14 +218,14 @@ export const engineUpdateStatusInputSchema = engineInstallationInputSchema
 export const startEngineUpdateInputSchema = engineInstallationInputSchema
 
 /**
- * Story 093 D2: `repair.plan`'s payload - one installation id, nothing else. Same single-field
+ * Story 093: `repair.plan`'s payload - one installation id, nothing else. Same single-field
  * shape as `engineInstallationInputSchema` above, kept as its own export since this module's
  * checklist is unrelated to the engine-update surface.
  */
 export const repairPlanInputSchema = z.object({ installationId: z.string().min(1) }).strict()
 
 /**
- * Story 093 D4: `repair.start`'s payload - the installation and the offer kinds the user
+ * Story 093: `repair.start`'s payload - the installation and the offer kinds the user
  * authorised. The enum is `REPAIR_OFFER_KINDS` (`@shared/modules/downloads`) itself, never a
  * hand-copied list, so a kind added to the contract cannot silently fail validation here.
  *
@@ -244,7 +244,7 @@ export const startRepairInputSchema = z
 export const startEngineRollbackInputSchema = engineInstallationInputSchema
 
 /**
- * Story 092 D1: `engineSetBleedingEdge`'s payload - the installation to flip and the channel to
+ * Story 092: `engineSetBleedingEdge`'s payload - the installation to flip and the channel to
  * flip it to. `.strict()` for the same reason as the schemas above.
  */
 export const setBleedingEdgeInputSchema = z

@@ -7,7 +7,7 @@ import { toastOutcomeError } from '../../lib/toast'
 import { discardConfigProfile } from './client'
 
 /**
- * Story 049 D6: confirms throwing away a profile's unsaved edits and returning it to its last
+ * Story 049: confirms throwing away a profile's unsaved edits and returning it to its last
  * saved/loaded baseline. Mirrors `DeleteProfileDialog`'s shape (ConfirmDialog, danger
  * confirm, module-local props, no shell store beyond the toast) - discard is destructive to
  * in-progress work the same way delete is destructive to the profile itself, so the same idiom

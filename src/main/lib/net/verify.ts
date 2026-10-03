@@ -2,13 +2,13 @@ import { mkdir, rename, rm, stat } from 'node:fs/promises'
 import { dirname } from 'node:path'
 
 /**
- * Story 071 D2, AC3/AC4: the gate every downloaded file passes through before anything else in
+ * Story 071: the gate every downloaded file passes through before anything else in
  * the launcher is allowed to look at it.
  *
  * The rule this file exists to enforce: **a file becomes usable by being renamed, and it is only
  * ever renamed after both the size and the SHA256 matched.** So "verified" is not a flag someone
  * could forget to check - an unverified download is still called `<name>.part`, and the only code
- * that can turn it into `<name>` is `verifyAndPromote()`. There is no override (AC4).
+ * that can turn it into `<name>` is `verifyAndPromote()`. There is no override.
  *
  * The digest is *not* recomputed here. It is handed in by `fetcher.ts`, which computed it while
  * the bytes were being written (hash-while-writing), so nothing is ever read back into memory and
@@ -91,7 +91,7 @@ async function refuse(
 /**
  * Compares the downloaded file against the package's declared size and SHA256 and, only if both
  * match, promotes `<name>.part` to `<name>`. On any mismatch the `.part` file is deleted and the
- * caller is told which comparison failed, so it can advance to the next mirror (AC4).
+ * caller is told which comparison failed, so it can advance to the next mirror.
  *
  * Never throws for an expected condition (missing file, mismatch, unwritable target); every one
  * of those is a returned failure with one of the module's fixed error keys.

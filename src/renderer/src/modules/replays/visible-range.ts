@@ -1,5 +1,5 @@
 /**
- * Story 158/159 D4: the pure windowing math behind `VirtualDemoList` - given a scroll position,
+ * Story 158/159: the pure windowing math behind `VirtualDemoList` - given a scroll position,
  * viewport size and row height, which row indices need a real DOM node right now. Kept separate
  * from the component so it's testable without React/jsdom and without a real `ResizeObserver`.
  *

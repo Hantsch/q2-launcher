@@ -14,10 +14,10 @@ import { refuse } from '@shared/types'
 import { validateMasterSourceAddress } from '@shared/servers/master-source-address'
 
 /**
- * Story 111 D3: the master-source list's four mutations, as pure functions over a `MasterSource[]`.
+ * Story 111: the master-source list's four mutations, as pure functions over a `MasterSource[]`.
  *
  * No I/O and no `AppContext`: each function takes the current list and returns either the full new
- * list or a refusal reason (`MasterSourcesResult`, story 111 D1). `index.ts` is the only place that
+ * list or a refusal reason (`MasterSourcesResult`, story 111). `index.ts` is the only place that
  * reads and writes `app.state`, which keeps "did the rule fire?" testable without a `StateStore`
  * and makes "nothing is persisted on a refusal" a property of one small function there rather than
  * of four.
@@ -140,7 +140,7 @@ export function removeSource(
 }
 
 /**
- * Narrows `sources.update`'s two-shape payload (story 111 D1's `z.union`). The union has already
+ * Narrows `sources.update`'s two-shape payload (story 111's `z.union`). The union has already
  * rejected anything else by the time a handler runs, so `null` here only ever means "called
  * directly with a hand-built object" - it is a defence, not a reachable IPC path.
  */
@@ -170,7 +170,7 @@ function narrowUpdate(input: UpdateSourceInput): NarrowedUpdate | null {
  * (`{ id, enabled }`) - never both. Toggling never touches `type`/`address`: disabling a source
  * keeps it in the list, intact, so re-enabling it needs no retyping (story 111's Decisions).
  *
- * A payload that is neither shape is refused as `'empty'`, the closest code in D1's reason union -
+ * A payload that is neither shape is refused as `'empty'`, the closest code in the reason union -
  * there is no dedicated "malformed payload" reason because the zod union makes it unreachable over
  * IPC, and an update carrying no address is indistinguishable from an empty one.
  */

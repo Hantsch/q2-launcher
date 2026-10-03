@@ -98,7 +98,7 @@ const SPEED_DOWN_OLD = [
 ]
 
 /**
- * Story 172 D2, frozen: the pre-172 (unguarded) commands of each demo action, keyed by catalogId,
+ * Story 172, frozen: the pre-172 (unguarded) commands of each demo action, keyed by catalogId,
  * with the guarded replacement. Hard-coded on purpose - never derived from the live catalogue, so a
  * later catalogue change cannot make this step guard (or miss) different text. A row is rewritten
  * only when its commands equal the old text exactly; an edited row is left alone.
@@ -114,7 +114,7 @@ const DEMO_GUARD_TABLE: Record<string, { old: string[]; guarded: string[] }> = {
 }
 
 /**
- * Story 172 D2: in a profile that has a `demo` category, appends the unbound `demoBackToWindow`
+ * Story 172: in a profile that has a `demo` category, appends the unbound `demoBackToWindow`
  * row when absent and swaps untouched pre-172 demo commands for their guarded form. Never throws,
  * never touches keys/binds, never re-adds a deleted category; `dirty` is set only on a change.
  */
@@ -160,7 +160,7 @@ function addBackToWindowAndGuard(raw: Record<string, unknown>): Record<string, u
 }
 
 /**
- * Story 167 D3: appends the `demo` category (only if no category has that id) and one unbound
+ * Story 167: appends the `demo` category (only if no category has that id) and one unbound
  * action per demo catalogue row the profile has no action for. Deliberately does NOT re-run
  * `materialiseTemplateCategories`: that would also re-add a movement/weapons/drops category the
  * user deleted. Existing categories/actions stay untouched; `binds` is never read or written, and
@@ -200,7 +200,7 @@ function addDemoCategory(raw: Record<string, unknown>): Record<string, unknown> 
 }
 
 /**
- * Story 052 D6: adds the three `TEMPLATE_ACTION_CATEGORIES` (movement/weapons/drops) to a profile's
+ * Story 052: adds the three `TEMPLATE_ACTION_CATEGORIES` (movement/weapons/drops) to a profile's
  * `categories` if not already present, and one action per `allCatalogRows()` row to `actions` for
  * any `catalogId` the profile does not already have an action for - existing categories/actions are
  * left exactly as they are (untouched, same position), new ones are appended at the end in the
@@ -269,8 +269,8 @@ const MIGRATED_OTHER_SECTION_ID = 'other'
 const MIGRATED_OTHER_SECTION_LABEL = 'Other'
 
 /**
- * Story 059 D6: seeds `cvarSections` once for a profile that predates the feature - every profile
- * whose `cvarSections` is missing entirely (a NEW profile created after D1 shipped already gets one
+ * Story 059: seeds `cvarSections` once for a profile that predates the feature - every profile
+ * whose `cvarSections` is missing entirely (a NEW profile created since then already gets one
  * from `create()`/import, so this only ever fires for an old one). Mirrors
  * `materialiseTemplateCategories` right above: idempotent by construction (a profile that already
  * has `cvarSections` - including one this step already seeded - is returned untouched, so a second
@@ -280,7 +280,7 @@ const MIGRATED_OTHER_SECTION_LABEL = 'Other'
  * Seeds all four groups with EVERY `ALL_CVARS` name, exactly like `STANDARD_TEMPLATE.cvarSections`
  * seeds a brand-new template profile - regardless of whether the migrating profile actually has a
  * stored value for a given catalogue cvar. This makes a migrated profile's Settings tab match a
- * template profile's shape (AC7 / Test Plan step 9: "catalogue ones in the four sections"), rather
+ * template profile's shape ("catalogue ones in the four sections"), rather
  * than a sparse subset that leaves most catalogue cvars to fall into the reserved `Defaults` bucket.
  *
  * Any key of `profile.cvars` that is not a catalogue cvar at all (`findCvar` - the same
@@ -342,10 +342,10 @@ export function normalizeLegacyActionKeys(raw: unknown): unknown {
 }
 
 /**
- * Story 039 (D6): the legacy alias name of every action that has one, mapped to the value the
+ * Story 039: the legacy alias name of every action that has one, mapped to the value the
  * mirrors write for that same action *today* (`bindValueFor`).
  *
- * Keyed by `legacyAliasNameFor`, which is stable across the D7 name flip - it keeps reproducing the
+ * Keyed by `legacyAliasNameFor`, which is stable across the alias name flip - it keeps reproducing the
  * `q2l_a_<slug>_<id4>` format an older version of this app generated, which is exactly what a
  * pre-039 `state.json` has in `binds`/`layers[].overrides`. The value side is `bindValueFor`, not
  * `aliasNameFor`, so a continuous catalogue row's reference migrates to its own `+command` rather
@@ -373,14 +373,14 @@ export function legacyAliasValueMap(actions: ConfigAction[]): Map<string, string
 }
 
 /**
- * One `binds`-shaped map, migrated (story 039 D6). Three cases per value, and the order of the
+ * One `binds`-shaped map, migrated (story 039). Three cases per value, and the order of the
  * first two is what makes this safe:
  *
  * 1. Not a `q2l_a_*` value at all -> kept verbatim. This is the hand-typed case (`bind x
  *    "some_alias"`, `bind r "+attack"`), and it is decided *first*, so nothing outside the legacy
  *    format can be rewritten or dropped by this pass at all.
  * 2. A `q2l_a_*` value that is some action's legacy name -> rewritten to that action's current
- *    mirrored value. Before D7 that value is byte-for-byte the legacy name again (nothing changes,
+ *    mirrored value. Before the name flip that value is byte-for-byte the legacy name again (nothing changes,
  *    which is what keeps this deliverable green on its own); after it, the readable name.
  * 3. A `q2l_a_*` value belonging to no action in this profile -> dropped. That is what the write
  *    path already does with such an orphan, permanently and for the same reason
@@ -420,7 +420,7 @@ export function migrateLegacyReferences(
 }
 
 /**
- * Story 039 (D6): rewrite every legacy `q2l_a_*` reference in `binds` and in every layer's
+ * Story 039: rewrite every legacy `q2l_a_*` reference in `binds` and in every layer's
  * `overrides` to the value the mirrors write for the owning action today, dropping the ones whose
  * action is gone - see `migrateLegacyReferences` for the per-value rule.
  *

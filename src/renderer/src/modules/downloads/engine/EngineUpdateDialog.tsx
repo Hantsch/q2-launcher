@@ -14,7 +14,7 @@ import { useStartJob } from '../../../components/jobs/useStartJob'
 import { JobActionDialog } from '../components/JobActionDialog'
 
 /**
- * Story 092 D7: the engine-update dialog - current/target version, Update, Rollback, and (Q2PRO
+ * Story 092: the engine-update dialog - current/target version, Update, Rollback, and (Q2PRO
  * only) the bleeding-edge toggle. Opened via
  * `openDialog({ kind: 'module', moduleId: 'downloads', view: 'engine-update', installationId })`,
  * the `EngineUpdateAction` trigger's own job.

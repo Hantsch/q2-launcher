@@ -174,7 +174,7 @@ function NavItem({
 /**
  * A utility-nav button for a module (e.g. Downloads): resolves its own active
  * job count and swaps in the count-aware, pluralised label when jobs are
- * active - story 032 D3. Kept generic over `moduleId`, never hardcoded to a
+ * active - story 032. Kept generic over `moduleId`, never hardcoded to a
  * specific module, so any current or future secondary module gets the badge
  * for free.
  */

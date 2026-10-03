@@ -35,7 +35,7 @@ function RenameHeaderButton({ onClick }: { onClick: () => void }) {
 
 /**
  * ONE header row, identical on all seven tabs - back left, the profile's identity centred, the
- * action cluster right - and no second identity block below it (story 218).
+ * action cluster right - and no second identity block below it.
  *
  * Three flex zones, not `grid-cols-[1fr_auto_1fr]`: the middle zone grows and wraps, where a rigid
  * three-column grid clips or overflows at the app's minimum 940px width. `gap-y-1` is what a wrapped

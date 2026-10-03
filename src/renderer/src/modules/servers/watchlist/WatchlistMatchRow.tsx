@@ -31,7 +31,7 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
 /**
  * One watchlist match, laid out like a server-list row: the server's name, address and markers,
  * its mod/map/players/ping stats, then the matched player's own name, score, ping and seen-time.
- * Never mentions "spectate"/"spectating"/"playing" (story 132 AC4) - `actions` is the only place a
+ * Never mentions "spectate"/"spectating"/"playing" (story 132) - `actions` is the only place a
  * join affordance can appear.
  */
 export function WatchlistMatchRow({

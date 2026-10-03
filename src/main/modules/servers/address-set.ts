@@ -8,8 +8,8 @@ import type { ParsedServerAddress } from '@shared/servers/address'
 import { parseServerAddress } from '@shared/servers/address'
 
 /**
- * Story 114 D3: the address set one scan round sweeps - a pure merge of three inputs of different
- * shape and provenance into the `ScanTarget[]` the runner (a later deliverable, D4+) iterates.
+ * Story 114: the address set one scan round sweeps - a pure merge of three inputs of different
+ * shape and provenance into the `ScanTarget[]` the runner (a later stage) iterates.
  *
  * ## Inputs
  *
@@ -17,23 +17,23 @@ import { parseServerAddress } from '@shared/servers/address'
  *   already flattened across all of them by the caller. Typed as `ParsedServerAddress[]` (not
  *   `string[]`) because that is exactly what `resolveUdpMasterSource`/`resolveHttpListSource`
  *   (`src/main/modules/servers/{udp-master-source,http-list-source}.ts`) hand back on success -
- *   reusing that shape means D4/D5/D6 never need to re-derive or re-parse anything to call this
+ *   reusing that shape means later stages never need to re-derive or re-parse anything to call this
  *   function; they just concatenate the two sources' `addresses` arrays.
  * - `favourites`: the current `ServersState['favourites']` list (`FavouriteServerEntry[]`, same
  *   shape `listFavourites()` in `./favourites.ts` returns).
  * - `manualServers`: the current `ServersState['manualServers']` list (`ManualServerEntry[]`).
  *
- * ## Keying and merge (AC6)
+ * ## Keying and merge
  *
  * Every address, regardless of which input it came from, is re-normalized through
  * `parseServerAddress`/`formatServerAddress` here (falling back to a trimmed string if parsing
  * fails, same defence-in-depth convention as `favourites.ts`'s `normalizeAddress` - a favourite or
- * manual entry that predates a stricter validator, or was accepted under AC5's "never seen live"
+ * manual entry that predates a stricter validator, or was accepted under the "never seen live"
  * allowance, must still land in the set rather than being dropped). The same normalized address
  * appearing under more than one input collapses to a single `ScanTarget` whose `origins` array
  * gathers every origin it was seen under, without duplicates.
  *
- * ## Every favourite is present (AC4)
+ * ## Every favourite is present
  *
  * Favourites are merged unconditionally, independent of whether `sourceAddresses` mentions them -
  * so a favourite an empty/failed source round didn't return is still a target this round.

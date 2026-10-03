@@ -1,7 +1,7 @@
 import type { ServersBrowseMode, ServersScanState } from '@shared/modules/servers'
 
 /**
- * Story 121 D1: pure derivation of the servers list's own display state from the scan's live
+ * Story 121: pure derivation of the servers list's own display state from the scan's live
  * state plus the current (unfiltered) row count - no React, no i18n, just the branching so
  * `list-state.test.ts` can cover it directly and `ServersListStatus.tsx` stays a thin renderer.
  *
@@ -14,7 +14,7 @@ import type { ServersBrowseMode, ServersScanState } from '@shared/modules/server
 export type ServersListState = 'loading' | 'empty' | 'lanEmpty' | 'idle' | 'populated'
 
 /**
- * Story 196 D4: `mode` is the mode the list *displays*; `state.mode` is the mode of the running/last
+ * Story 196: `mode` is the mode the list *displays*; `state.mode` is the mode of the running/last
  * scan. A scan of the other mode never drives this list's loading/empty states. In LAN mode the
  * "finished with no rows" signal is `lanLastFinishedAt` (the last LAN round), not `finishedAt`.
  */

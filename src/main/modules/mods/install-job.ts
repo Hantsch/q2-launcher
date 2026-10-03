@@ -34,7 +34,7 @@ import { resolveEngineTarget, selectVariant } from './engine-target'
 import { recordedGameDirs, withRecord } from './install-records'
 
 /**
- * Story 190 D4: install one catalog mod into one installation's game directory - the first job
+ * Story 190: install one catalog mod into one installation's game directory - the first job
  * that writes into a folder the user may already own. Shaped after `downloads/engine/update-job.ts`
  * (narrow hosts, one `AbortController`, `report` silent after cancel, one failing exit).
  *
@@ -42,7 +42,7 @@ import { recordedGameDirs, withRecord } from './install-records'
  *
  * 1. **Pre-flight, before `jobs.create`** - installation, catalog entry + version, game dir name,
  *    "already installed", variant. A refusal leaves no job and nothing on disk.
- * 2. **Stage every package** (D3) into `cache/downloads/extract/<jobId>-<index>`. The first failure
+ * 2. **Stage every package** into `cache/downloads/extract/<jobId>-<index>`. The first failure
  *    ends the job; the installation has not been looked at for writing yet.
  * 3. **Plan** the gamedir-relative file list from each package's `contents[]`, hash every staged
  *    file, and refuse anything that would land outside the game directory.
@@ -133,7 +133,7 @@ export interface ModInstallDeps {
   installations: InstallationsHost
   catalog: ModInstallCatalogHost
   enginePackages: () => Promise<readonly EnginePackageLike[]> | readonly EnginePackageLike[]
-  /** D3's `stagePackage`. */
+  /** The `stagePackage` step. */
   stage: (input: StagePackageInput) => Promise<StagePackageResult>
   resolveExtractor: () => { path: string; exists: boolean }
   readArch: Parameters<typeof resolveEngineTarget>[2]

@@ -1,5 +1,5 @@
 /**
- * The Care tab's item model — story 058 D1.
+ * The Care tab's item model — story 058.
  *
  * Care is a to-do list (story 058's requirement), so everything it can say is
  * one shape: a `CareItem` with a title, one sentence of consequence and the
@@ -22,7 +22,7 @@
  *    `validation.status !== 'ok'` there is no report to fold in and `byEngine`
  *    is empty, so no health item is produced — and `care-summary.ts` reads the
  *    same status as `notChecked`, never `clean`. That third state (story 025
- *    review finding F2, story 058 decision 3) belongs to neither side of the
+ *    story 058 decision 3) belongs to neither side of the
  *    item/all-clear split and is rendered by the tab from `validation.status`
  *    itself.
  * 2. **It never treats an unanswered source as clean.** A sync fetch that is
@@ -58,7 +58,7 @@ const CANONICAL_HINT_KEYS: Record<CanonicalOutOfSyncReason, string> = {
   externalEdit: 'config.care.sync.canonical.externalEditHint',
 }
 
-/** The three areas AC 3 groups rows by, in the order they are rendered. */
+/** The three areas rows are grouped by, in the order they are rendered. */
 export type CareItemGroup = 'health' | 'files' | 'tidy'
 
 /** A row's severity. `info` never reaches an item: the badge and `totalCounts`
@@ -66,7 +66,7 @@ export type CareItemGroup = 'health' | 'files' | 'tidy'
 export type CareItemLevel = 'error' | 'warning'
 
 /**
- * What a row's button does. The vocabulary AC 3 names.
+ * What a row's button does. The vocabulary the groups share.
  *
  * `ops` is set only for the three tidy-up actions - those post
  * `TidyUpOp[]` back through the existing apply path. Every other kind is a
@@ -140,7 +140,7 @@ export interface CareItem {
    * fully described by its own two sentences. */
   details?: CareItemDetail[]
   /** The `ConfigAction.id` this item names, when it names one - the "Show in
-   * Controls" deep link (story 058 D5) is wired off this. Carried straight
+   * Controls" deep link (story 058) is wired off this. Carried straight
    * through from the tidy-up finding it was built from (`tidyItems` below);
    * neither Config health nor Files ever set it. */
   actionId?: string
@@ -149,7 +149,7 @@ export interface CareItem {
    * still owes the user the fix hint when the validator emitted one; `ValidationPanel`'s (deleted)
    * `FindingRow` rendered this as a second line. Config health sets it from the finding; Tidy-up
    * sets it for the one caveat a duplicate-name row needs (every side unbound - see `tidyItems`).
-   * Story 079 D9 (AC8): Files sets it too, for a row carrying a `syncNow` action - the hint names
+   * Story 079: Files sets it too, for a row carrying a `syncNow` action - the hint names
    * the exact file Sync now is about to overwrite (`params.path`), which is what "Sync now says
    * which file it will overwrite" means as the user reads the row. */
   fixKey?: string
@@ -160,8 +160,8 @@ export interface CareItem {
 
 export interface CareItemsInput {
   validation: ProfileValidation
-  /** Every row `toCareSyncRows` produced; `inSync` rows are dropped here (AC 5
-   * counts them in the All clear block instead). Empty while the sync fetch is
+  /** Every row `toCareSyncRows` produced; `inSync` rows are dropped here (the
+   * All clear block counts them instead). Empty while the sync fetch is
    * unresolved - which is not the same as clean, see the file doc comment. */
   syncRows: CareSyncRow[]
   tidyUp: TidyUpFinding[]
@@ -171,7 +171,7 @@ export interface CareItemsInput {
   profileDirty?: boolean
 }
 
-/** Story 044 D6's `ALIAS_LINK_KINDS`, moved here with the row model: the three
+/** Story 044's `ALIAS_LINK_KINDS`, moved here with the row model: the three
  * kinds whose params name an alias the Aliases tab can focus. `shadowedBind`/
  * `emptyLayer`/`preservedLine` name a key, a layer or a file:line instead. */
 const ALIAS_LINK_KINDS: ReadonlySet<TidyUpFindingKind> = new Set([
@@ -192,7 +192,7 @@ const FILES_CONSEQUENCE_PREFIX = 'config.care.item.files.consequence.'
  *
  * Runs only when `validation.status === 'ok'`; `byEngine` is empty otherwise
  * anyway, but the guard is written out because the difference between "checked,
- * nothing found" and "nothing to check against" is the whole point of AC 8.
+ * nothing found" and "nothing to check against" is the whole point.
  */
 function healthItems(validation: ProfileValidation, covered: ReadonlySet<string>): CareItem[] {
   if (validation.status !== 'ok') return []
@@ -235,7 +235,7 @@ function fileLevel(row: CareSyncRow): CareItemLevel {
 }
 
 /**
- * The Files half: one item per row that is not `inSync` (AC 5). Every action
+ * The Files half: one item per row that is not `inSync`. Every action
  * offered here is one `CareSyncSection` already offered - a retry on a failed
  * write, and Reload/Compare on the canonical row when the file was changed
  * outside the launcher - plus Open/Reveal on the installation rows, which is
@@ -245,10 +245,10 @@ function fileLevel(row: CareSyncRow): CareItemLevel {
  * copy is stale because the user has edits in flight, and both Reload and a
  * retry would destroy or pre-empt them. Its consequence sentence says to save.
  *
- * Story 079 D9 (AC7): a drifted installation row - `outOfSync` (the copy was hand-edited/changed in
+ * Story 079: a drifted installation row - `outOfSync` (the copy was hand-edited/changed in
  * the game folder) or `missing` (deleted from under the launcher) - additionally gets `syncNow`,
  * which rewrites just that installation's copy from the profile's canonical file
- * (`WriteProfileInput.installationId`, D8). Never offered on `failed` (that row's problem is a write
+ * (`WriteProfileInput.installationId`). Never offered on `failed` (that row's problem is a write
  * that did not land, not a stale copy - Retry re-runs the same write instead) or on the canonical row
  * (there is no "canonical copy of the canonical file" to sync it from).
  */
@@ -302,7 +302,7 @@ function fileItems(rows: CareSyncRow[], profileDirty: boolean | undefined): Care
         ...(row.messageKey ? { messageKey: row.messageKey } : {}),
       },
       actions,
-      // AC8: names the exact file Sync now is about to overwrite - `params.path` above is already
+      // names the exact file Sync now is about to overwrite - `params.path` above is already
       // this row's real target path, so no separate param is needed.
       ...(offersSyncNow ? { fixKey: 'config.care.sync.syncNowHint' } : {}),
     })
@@ -315,7 +315,7 @@ function fileItems(rows: CareSyncRow[], profileDirty: boolean | undefined): Care
  * `CareTidyUpSection.actionsFor` offered - all of a finding's ops behind one
  * Apply for every kind but `preservedLine`, which splits its two ops into Drop
  * and Re-classify so the user chooses rather than being shown the line twice
- * (AC 4). A `'report'` finding has no ops and therefore no action, which is the
+ *. A `'report'` finding has no ops and therefore no action, which is the
  * honest rendering of "there is no fix this module may pick".
  */
 function tidyItems(findings: TidyUpFinding[]): CareItem[] {
@@ -363,7 +363,7 @@ function tidyItems(findings: TidyUpFinding[]): CareItem[] {
       })
     }
 
-    // Gated independently of the alias link above (story 058 D5) - a finding
+    // Gated independently of the alias link above (story 058) - a finding
     // could in principle name neither, and `shadowedBind` today names only
     // this one, never an alias.
     if (finding.actionId) {

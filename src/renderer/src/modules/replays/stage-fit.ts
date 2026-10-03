@@ -8,7 +8,7 @@ export interface FitRect extends FitBox {
   y: number
 }
 
-/** Story 170 D4: the largest `aspect` (width / height) rect centred inside `box`, whole pixels. */
+/** Story 170: the largest `aspect` (width / height) rect centred inside `box`, whole pixels. */
 export function fitAspect(box: FitBox, aspect: number): FitRect {
   if (box.width <= 0 || box.height <= 0) return { x: 0, y: 0, width: 0, height: 0 }
   let width = box.width

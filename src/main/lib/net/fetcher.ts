@@ -13,7 +13,7 @@ import { delay, describeFetchError, type FetchImpl } from '../http'
 import { verifyAndPromote } from './verify'
 
 /**
- * Story 071 D2, AC3/AC4: fetch one package and hand back a path only if the bytes at that path
+ * Story 071: fetch one package and hand back a path only if the bytes at that path
  * are provably the bytes the package declared.
  *
  * The three pieces of state machinery here are each subtle enough to be worth naming, because
@@ -38,7 +38,7 @@ import { verifyAndPromote } from './verify'
  * headers timeout, stall, 5xx) says "this URL might work if we ask again", so it is retried up to
  * `transportRetries` times against the *same* URL. A size or hash mismatch says "this URL served
  * the wrong bytes", and asking it again for the same wrong bytes is pointless - it deletes the
- * `.part` file and advances to the next mirror immediately, with no retry (AC4). Only when the
+ * `.part` file and advances to the next mirror immediately, with no retry. Only when the
  * primary URL and every mirror has been exhausted does the whole operation fail, always with
  * `downloads.error.allMirrorsFailed`. A local disk error is neither: no mirror can fix this
  * machine's disk, so it stops everything at once with `downloads.error.diskWrite`.
@@ -102,7 +102,7 @@ export interface DownloadPackageOptions {
   transportRetries?: number
   retryDelayMs?: number
   onProgress?: (progress: DownloadProgress) => void
-  /** Caller-owned cancellation (D4). Aborts the in-flight request and removes the `.part` file. */
+  /** Caller-owned cancellation. Aborts the in-flight request and removes the `.part` file. */
   signal?: AbortSignal
   log?: DownloadLog
 }

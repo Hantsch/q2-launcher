@@ -5,10 +5,10 @@ import { findRepoRoot } from '../../../lib/archive/7za-path'
 import type { BootstrapLog } from './ports'
 
 /**
- * Story 080 D3: the three small, independently testable pieces R1Q2 needs beyond what
+ * Story 080: the three small, independently testable pieces R1Q2 needs beyond what
  * `assemble.ts`/`job.ts` already do generically - detecting the x86 VC++ runtime its binaries
- * import (AC5), seeding the one cvar a fresh install needs to find its renderer (AC4), and
- * installing the license text that backs AC8's "the installed license files expose completed
+ * import, seeding the one cvar a fresh install needs to find its renderer, and
+ * installing the license text that backs the "the installed license files expose completed
  * license notices" claim. `job.ts` reaches these only through the `R1q2SetupPort` (`ports.ts`), so
  * it can be tested with fakes; the exports here are the real, production implementations.
  */
@@ -26,7 +26,7 @@ export async function probeX86Runtime(deps: {
   /** `AppContext.env`; only `SystemRoot` is read. */
   env: NodeJS.ProcessEnv
 }): Promise<boolean> {
-  // Story 100 D6 (AC6): R1Q2 is Windows-only - D5 already keeps it from ever being pinned/offered
+  // Story 100: R1Q2 is Windows-only - the platform gate already keeps it from ever being pinned/offered
   // off Windows, but this is a belt-and-braces guard so the probe is a hard no-op even if called
   // directly. `vcruntime140.dll` is a Windows concept; there is nothing to probe for elsewhere.
   if (!isWindows()) return false
@@ -52,7 +52,7 @@ export async function realFileExists(path: string): Promise<boolean> {
 }
 
 /**
- * Forces R1Q2's renderer choice on a fresh install (AC4): the pinned package only carries
+ * Forces R1Q2's renderer choice on a fresh install: the pinned package only carries
  * `ref_r1gl.dll`, not `ref_gl.dll`, so `win32/vid_dll.c`'s own default of `vid_ref "gl"` would leave
  * a first launch unable to find a renderer at all. Writes `baseq2/autoexec.cfg` with a single
  * `set vid_ref "r1gl"` line - but only when that file does not already exist, which is what makes a
@@ -60,8 +60,8 @@ export async function realFileExists(path: string): Promise<boolean> {
  * that case is a no-op, not an error.
  */
 export async function seedR1glConfig(targetRoot: string): Promise<void> {
-  // Story 100 D6 (AC6): same belt-and-braces guard as `probeX86Runtime` above - R1Q2 is
-  // Windows-only, so seeding its `vid_ref "r1gl"` off Windows would just be wrong, even though D5
+  // Story 100: same belt-and-braces guard as `probeX86Runtime` above - R1Q2 is
+  // Windows-only, so seeding its `vid_ref "r1gl"` off Windows would just be wrong, even though the platform gate
   // already prevents R1Q2 from ever being pinned/offered off Windows in the first place.
   if (!isWindows()) return
   const path = join(targetRoot, 'baseq2', 'autoexec.cfg')
@@ -80,7 +80,7 @@ export async function seedR1glConfig(targetRoot: string): Promise<void> {
  * text, mirroring `resolveExtractorPath`'s exact shape (`lib/archive/7za-path.ts`) - the earlier
  * `DEFAULT_LICENSE_SOURCE` hardcoded an absolute path on the author's own machine, which does not
  * exist on any other checkout, packaged build, or CI, so `installR1q2Notices` threw ENOENT
- * everywhere else and AC8's license notice was silently never installed for a real user.
+ * everywhere else and the license notice was silently never installed for a real user.
  *
  * Dev: `resources/licenses/r1q2/GPL-3.0.txt`, found by the same repo-root walk-up
  * `resolveExtractorPath` uses (`findRepoRoot`). Packaged: `process.resourcesPath/licenses/r1q2/
@@ -111,7 +111,7 @@ export function resolveR1q2LicensePath(input: R1q2LicensePathInput): string {
 }
 
 /**
- * Copies the R1Q2 mirror's GPLv3 license text into the installed target (AC8), so "the installed
+ * Copies the R1Q2 mirror's GPLv3 license text into the installed target, so "the installed
  * license files expose completed license notices" is literally true of the files on disk rather
  * than only of the wizard's own UI copy. `licenseSourceOverride` lets a test (or `job.ts`, which
  * resolves the real path through `resolveR1q2LicensePath`/`BootstrapDeps.resolveR1q2LicensePath`)

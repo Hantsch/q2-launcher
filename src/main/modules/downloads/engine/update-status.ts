@@ -3,15 +3,15 @@ import type { EngineKind } from '@shared/types/engine'
 import type { InstallationEngineState } from '../../../services/engine-state'
 
 /**
- * Story 092 D3 (AC1): the update-check half of `EngineUpdateStatus` - pure comparison, no I/O.
+ * Story 092: the update-check half of `EngineUpdateStatus` - pure comparison, no I/O.
  *
  * Deliberately takes an already-resolved `target` (version + channel) rather than a `ManifestService`
- * or a `ManifestSnapshot`: D4's bleeding-edge comparison needs a different source for "what would we
+ * or a `ManifestSnapshot`: the bleeding-edge comparison needs a different source for "what would we
  * update to" (a probed upstream build, not the manifest's pin), and this seam lets that later
  * deliverable swap the *caller*'s resolution without touching this function at all. `engineUpdateStatus`
- * (`index.ts`) is what resolves `target` for D3 - always `{ channel: 'pinned', version:
+ * (`index.ts`) is what resolves `target` for the status computation - always `{ channel: 'pinned', version:
  * manifestService.pinnedEnginePackage(engine)?.version }` this deliverable, since bleeding-edge tracking
- * itself is D4's job (Decisions (Sprint)).
+ * itself is the bleeding-edge probe's job.
  *
  * "An installation with no recorded engine version counts as 'differs'" (Decisions): `current`
  * undefined always reports `updateAvailable: true`, even though `current`/`target` are trivially

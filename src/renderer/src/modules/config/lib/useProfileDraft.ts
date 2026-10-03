@@ -6,12 +6,12 @@ import type { ConfigProfile } from '@shared/modules/config'
  * debounced save landing - `SettingsTab`'s cvars and cvarSections, `ControlsTab`'s categories
  * and actions. Every other field (assignments, layers, binds, name, ...) is
  * never locally patched by anything, so it is always safe - and, per the
- * review finding below, necessary - to take those straight from the freshest
+ * the reasoning below, necessary - to take those straight from the freshest
  * known `profile`.
  *
- * Story 059 D8: `cvarSections` joins the list - `SettingsTab`'s section/sub-section CRUD and its
+ * Story 059: `cvarSections` joins the list - `SettingsTab`'s section/sub-section CRUD and its
  * move/add/remove-cvar handlers all `patch({ cvarSections: ... })` ahead of their own save landing,
- * same reasoning D7 already gives `cvars` itself.
+ * same reasoning already gives `cvars` itself.
  */
 const LOCALLY_PATCHED_FIELDS = ['cvars', 'cvarSections', 'categories', 'actions'] as const
 
@@ -19,7 +19,7 @@ export type LocallyPatchedField = (typeof LOCALLY_PATCHED_FIELDS)[number]
 
 /** Deep value equality for the three locally-patched fields - plain JSON data (maps and arrays of
  * plain objects), so a stringify comparison is exact rather than approximate. Order-sensitive on
- * purpose: `setActions` round-trips the array in the order it was sent (story 019 D3), so a
+ * purpose: `setActions` round-trips the array in the order it was sent (story 019), so a
  * reordering *is* a difference. */
 function sameValue(a: unknown, b: unknown): boolean {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
@@ -83,7 +83,7 @@ export interface UseProfileDraftResult {
     partial: Partial<ConfigProfile> | ((prev: ConfigProfile) => Partial<ConfigProfile>),
   ) => void
   /**
-   * Story 049 D6: force-adopts `profile` as the draft outright, bypassing `mergeProfileUpdate`'s
+   * Story 049: force-adopts `profile` as the draft outright, bypassing `mergeProfileUpdate`'s
    * usual "keep locally-patched fields that have not echoed back yet" rule. A discard restores
    * `cvars`/`categories`/`actions` to the baseline *without* going through `patch()`, so from this
    * hook's point of view it looks like a same-id update whose incoming fields simply disagree with
@@ -98,7 +98,7 @@ export interface UseProfileDraftResult {
 
 /**
  * Holds `profile`'s in-progress, not-yet-necessarily-saved content — story
- * 009 D6.
+ * 009.
  *
  * Before this story, `SettingsTab` (cvars) and `ControlsTab` (categories +
  * actions) each kept their own local `useState`, entirely invisible outside
@@ -169,9 +169,9 @@ export function useProfileDraft(profile: ConfigProfile | null): UseProfileDraftR
   }
 
   /**
-   * Story 049 D6: see `UseProfileDraftResult.resetDraft`'s doc comment. Clears `dirtyRef` outright
+   * Story 049: see `UseProfileDraftResult.resetDraft`'s doc comment. Clears `dirtyRef` outright
    * (there is nothing left "in flight" once the caller has decided to force-adopt `profile`
-   * verbatim) - a discard clears `dirty` on the server profile (D3), so this mirrors what the
+   * verbatim) - a discard clears `dirty` on the server profile, so this mirrors what the
    * effect would do itself if `dirtyRef` were not in the way.
    */
   const resetDraft = (profile: ConfigProfile): void => {

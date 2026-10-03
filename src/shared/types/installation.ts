@@ -56,7 +56,7 @@ export type ValidationFix =
   | 'revalidate'
   /** Parked: handled by the install/update module. */
   | 'install-game-files'
-  /** Story 103 D3: the executable is a Windows PE off Windows - focuses the runner section (D7). */
+  /** Story 103: the executable is a Windows PE off Windows - focuses the runner section. */
   | 'choose-runner'
 
 export interface ValidationCheck {
@@ -87,14 +87,14 @@ export interface ValidationResult {
   engineKind: EngineKind
   detectedVersion?: string
   /**
-   * Story 103 D2: the header kind of the executable this verdict settled on (the caller's own
+   * Story 103: the header kind of the executable this verdict settled on (the caller's own
    * `executablePath` when it still exists, otherwise the first of `executables`). Absent on
-   * Windows - the header is never read there, where `.exe` is the whole question (AC8) - and
+   * Windows - the header is never read there, where `.exe` is the whole question - and
    * absent when no executable was found at all.
    */
   executableKind?: BinaryKind
   /**
-   * Story 104 D2: the Steam appid this install root was found under, recovered purely from disk
+   * Story 104: the Steam appid this install root was found under, recovered purely from disk
    * layout (`readSteamAppId`, `src/main/services/steam.ts`) - absent when the root does not sit
    * directly inside a Steam library's `steamapps/common/`, or no manifest's installdir matches.
    */
@@ -167,29 +167,29 @@ export interface Installation {
   /** Absolute path of the client executable to launch. */
   executablePath?: string
   /**
-   * Story 103 D2: what `executablePath` turned out to be by its header, recorded by the last
+   * Story 103: what `executablePath` turned out to be by its header, recorded by the last
    * inspection that read one. Absent on Windows (no header is read there), on an installation that
    * predates this field, and on one that has no executable yet - so "absent" never means "not
    * native", only "not known".
    */
   executableKind?: BinaryKind
   /**
-   * Story 103 D5: the runner the user picked for this installation - a `DetectedRunner.id`, or
+   * Story 103: the runner the user picked for this installation - a `DetectedRunner.id`, or
    * `'native'`. Absent means "never chosen", which is not the same as `'native'`: an absent value
-   * lets `resolveRunner` pick on its own (AC4's default cascade), and it is what every installation
+   * lets `resolveRunner` pick on its own (the default cascade), and it is what every installation
    * predating this field has. A stored id whose runner is not installed on this machine right now
    * is kept as-is and simply falls back to the cascade until that runner reappears.
    */
   runner?: RunnerChoice
   /**
-   * Story 104 D2: the Steam appid this installation was found under, recorded by the last
+   * Story 104: the Steam appid this installation was found under, recorded by the last
    * inspection that established one (see `ValidationResult.steamAppId`'s doc comment). Absent on
    * an installation that predates this field, was never Steam-sourced, or sits outside a Steam
    * library's `steamapps/common/`.
    */
   steamAppId?: string
   /**
-   * Story 104 D2: which of `STEAM_APP_CLIENTS[steamAppId]`'s entries (`src/shared/types/steam.ts`)
+   * Story 104: which of `STEAM_APP_CLIENTS[steamAppId]`'s entries (`src/shared/types/steam.ts`)
    * the user picked to launch through Steam, by `index`. Absent means "never chosen" - the table's
    * own `defaultIndex` decides - which is what every installation predating this field has, and
    * what a `steamAppId` with no client table (not in `STEAM_APP_CLIENTS`) also has, since there is
@@ -253,16 +253,16 @@ export interface UpdateInstallationInput {
   launchArgs?: string[]
   activeGameDir?: string
   favorite?: boolean
-  /** Story 103 D6: sets the runner choice (`RunnerChoice`) `installations:listRunners` offers. */
+  /** Story 103: sets the runner choice (`RunnerChoice`) `installations:listRunners` offers. */
   runner?: RunnerChoice
-  /** Story 104 D2: sets `Installation.steamClient`, the chosen `STEAM_APP_CLIENTS` entry index. */
+  /** Story 104: sets `Installation.steamClient`, the chosen `STEAM_APP_CLIENTS` entry index. */
   steamClient?: number
 }
 
 export interface RemoveInstallationInput {
   id: string
   /**
-   * Story 094 D2: when true, `InstallationsService.remove()` deletes the installation's folder
+   * Story 094: when true, `InstallationsService.remove()` deletes the installation's folder
    * from disk (via `deleteInstallationFolder`) before dropping the library entry, instead of only
    * dropping the entry. Refused - entry and files both left untouched - for a store-managed
    * installation (`isStoreManaged(source)`, `installations.error.deleteFromDiskStoreManaged`) and

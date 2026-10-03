@@ -41,8 +41,8 @@ export interface WatchlistRowProps {
 }
 
 /**
- * Story 132 D2: one watchlist entry's row. Never mentions "spectate"/"spectating"/"playing"
- * anywhere in its own text or attributes (AC4) - a match shows name/score/ping/seen-time only, the
+ * Story 132: one watchlist entry's row. Never mentions "spectate"/"spectating"/"playing"
+ * anywhere in its own text or attributes - a match shows name/score/ping/seen-time only, the
  * caller-supplied `renderMatchActions` is the only place any join/spectate affordance can appear.
  */
 export function WatchlistRow({

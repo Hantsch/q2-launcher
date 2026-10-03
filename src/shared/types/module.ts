@@ -70,7 +70,7 @@ export const MODULE_MANIFESTS: readonly ModuleManifest[] = [
     route: '/home',
     nav: null,
     status: 'available',
-    // Story 082 D6: the community news feed fetches over the network at startup and on demand.
+    // Story 082: the community news feed fetches over the network at startup and on demand.
     capabilities: ['network'],
     ipcNamespace: 'module:home',
     requiresInstallation: false,

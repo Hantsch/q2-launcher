@@ -37,16 +37,16 @@ type Step = 'engine' | 'gameData' | 'target' | 'confirm' | 'running'
 const STEP_ORDER: Step[] = ['engine', 'gameData', 'target', 'confirm', 'running']
 
 /**
- * Story 074 D6, extended by 080 D2, 088 D5 and 089 D4: the bootstrap wizard - engine choice
+ * Story 074, extended by 080, 088 and 089: the bootstrap wizard - engine choice
  * (Q2PRO, R1Q2 once both are pinned) -> game data (free download, a copy of a detected
  * Steam/GOG/Epic installation [[088]], or a hand-picked folder [[089]]) -> target folder (with the
- * D2 verdict's warnings) -> confirm (packages + size + target, AC4) -> run (hands off to the D4
- * job, AC5). Mirrors `CreateInstallationDialog.tsx` for dialog shape.
+ * verdict's warnings) -> confirm (packages + size + target) -> run (hands off to the
+ * download job). Mirrors `CreateInstallationDialog.tsx` for dialog shape.
  *
  * `dataSource`/`copySourcePath` hold the game-data step's choice; `detectedSources` is fetched
  * once on mount, same convention as `engineOptions` below - an empty array means the game-data
- * step never offers the copy choice at all (AC1). `gameDataFolderPath`/`gameDataFolderVerdict`
- * are the `'existing-folder'` choice's own state ([[089]] D4) - resolved on demand, whenever the
+ * step never offers the copy choice at all. `gameDataFolderPath`/`gameDataFolderVerdict`
+ * are the `'existing-folder'` choice's own state ([[089]]) - resolved on demand, whenever the
  * user browses, rather than fetched once like `detectedSources`. `copySourcePath` is reused
  * verbatim for that choice's own picked path when a run starts or a summary is fetched
  * (`StartBootstrapInput.copySourcePath`'s own doc comment) - it is never a second field.
@@ -72,7 +72,7 @@ export function BootstrapWizard() {
   // A failed read means "no options, no reason to give" (same as an empty list); `null` = loading.
   const engineOptions: BootstrapEngineOption[] | null =
     engineQuery.data?.options ?? (engineQuery.state === 'loading' ? null : [])
-  // Story 100 D7/D8: why `engineOptions` came back empty - `null` whenever it is non-empty (or
+  // Story 100: why `engineOptions` came back empty - `null` whenever it is non-empty (or
   // still loading). Rendered by `EngineStep`'s own empty state; never read for anything else.
   const engineOptionsEmptyReason: BootstrapEngineOptionsEmptyReason =
     engineQuery.data?.emptyReason ?? null
@@ -89,7 +89,7 @@ export function BootstrapWizard() {
   const [dataSource, setDataSource] = useState<BootstrapDataSource>('free-download')
   const [copySourcePath, setCopySourcePath] = useState<string | null>(null)
 
-  // Story 089 D4: the `'existing-folder'` choice's own path + resolved verdict - mirrors the
+  // Story 089: the `'existing-folder'` choice's own path + resolved verdict - mirrors the
   // `copySourcePath`/`detectedSources` pair above, but keyed on one hand-picked folder rather than
   // a list. `folderVerdict` is reset to `null` whenever the folder itself changes, same convention
   // as the target step's verdict reset on `targetPath` change below.
@@ -122,7 +122,7 @@ export function BootstrapWizard() {
   const [jobId, setJobId] = useState<string | null>(null)
   const job = useLauncher((state) => state.jobs.find((candidate) => candidate.id === jobId))
 
-  // Story 078 D7 (AC4): once the job turns `failed`, fetch the failure log the same way the
+  // Story 078: once the job turns `failed`, fetch the failure log the same way the
   // Downloads tab does (`getDownloadFailures()`) and match on `jobId` - no new IPC channel, no
   // widening of the `jobs:changed` payload (Decisions (Sprint)). `fetchedForJobId` guards against
   // refetching on every subsequent `jobs:changed` tick while the job stays `failed` - `job`'s
@@ -157,7 +157,7 @@ export function BootstrapWizard() {
       setCopySourcePath(null)
       return
     }
-    // Story 089 D4: `'existing-folder'` has no detected list to default from - it stays exactly
+    // Story 089: `'existing-folder'` has no detected list to default from - it stays exactly
     // whatever the user last browsed to (`gameDataFolderPath`/`gameDataFolderVerdict`, untouched
     // here), same "never overwrite what the user already picked" rule as the `store-copy` default
     // below just applies to a different piece of state.
@@ -178,7 +178,7 @@ export function BootstrapWizard() {
       ? (detectedSources ?? []).find((candidate) => candidate.rootPath === copySourcePath)
       : undefined
 
-  // Story 088 D5 (toggle availability rule): the chosen detected source is inspected up front -
+  // Story 088 (toggle availability rule): the chosen detected source is inspected up front -
   // when it has neither `baseq2/video` nor `baseq2/players`, the confirm step's toggle is disabled
   // with this reason rather than left enabled to fail the copy afterwards.
   const includeExtrasDisabledReason =
@@ -188,7 +188,7 @@ export function BootstrapWizard() {
       ? t('bootstrapWizard.confirm.includeExtrasDisabledReason')
       : undefined
 
-  // Story 089 D5 (Decisions: "no video/players toggle for this source in this story"): an
+  // Story 089 (Decisions: "no video/players toggle for this source in this story"): an
   // existing-folder run hides the toggle outright, rather than disabling it with a reason the way
   // `store-copy` does - 089's criteria never mention it, and the toggle's payload comes from the
   // point-release archive this source does not download.
@@ -219,7 +219,7 @@ export function BootstrapWizard() {
     setSummaryLoading(true)
     setSummaryError(null)
     let cancelled = false
-    // Story 089 D4: `'existing-folder'` reuses `copySourcePath` verbatim (`StartBootstrapInput`'s
+    // Story 089: `'existing-folder'` reuses `copySourcePath` verbatim (`StartBootstrapInput`'s
     // own doc comment) - the field already means "path to copy game data from", so this sends
     // `gameDataFolderPath` through it rather than adding a second field.
     void getBootstrapSummary({
@@ -263,9 +263,9 @@ export function BootstrapWizard() {
     if (picked) setTargetPath(picked)
   }
 
-  // Story 089 D4: browsing for the `'existing-folder'` game-data source - same `installations:
+  // Story 089: browsing for the `'existing-folder'` game-data source - same `installations:
   // pickFolder` call shape as `pickTargetFolder`/`pickWriteDirRemedy` above, then a
-  // `getGameDataSourceVerdict` round trip for AC2's "the wizard reports what it found there before
+  // `getGameDataSourceVerdict` round trip for "the wizard reports what it found there before
   // the user can proceed". A cancelled picker (no path) leaves the previous folder/verdict alone.
   async function pickGameDataSourceFolder(): Promise<void> {
     const picked = await invoke('installations:pickFolder', {
@@ -306,8 +306,8 @@ export function BootstrapWizard() {
     // someone click past before ever finding out a copy option exists - `GameDataStep` already
     // renders a loading message for `sources === null` (see its own `if (sources === null)`
     // branch), so this keeps Next disabled for exactly the same window that message is shown.
-    // Story 089 D4: `'existing-folder'` gates on a resolved, non-`'unusable'` verdict for the
-    // picked folder - `'retail'` and `'demo'` both proceed (AC4), `'unusable'` never does (AC5),
+    // Story 089: `'existing-folder'` gates on a resolved, non-`'unusable'` verdict for the
+    // picked folder - `'retail'` and `'demo'` both proceed, `'unusable'` never does,
     // and a folder that has not resolved yet (`null`, still checking, or never browsed) blocks
     // Next the same way `detectedSources === null` blocks it above.
     gameData:
@@ -405,7 +405,7 @@ export function BootstrapWizard() {
           emptyReason={engineOptionsEmptyReason}
           selected={engine}
           onSelect={selectEngine}
-          // Story 100 D8 (AC7): the empty state's action - the same `openDialog({ kind:
+          // Story 100: the empty state's action - the same `openDialog({ kind:
           // 'add-existing' })` call `DetectDialog.tsx`'s own "nothing found" empty state already
           // uses, not a second "add existing" mechanism. `Dialogs.tsx` mounts exactly one dialog
           // at a time off `store.dialog.kind`, so this alone swaps this wizard out for

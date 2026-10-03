@@ -5,7 +5,7 @@ import { scopedLogger } from '../lib/logger'
 const log = scopedLogger('playback')
 
 /**
- * Story 163 D1: the launcher's line to a game it started for demo playback - the child's stdin to
+ * Story 163: the launcher's line to a game it started for demo playback - the child's stdin to
  * send console commands down, and its stdout to hear what the engine prints. Main-only; it never
  * crosses IPC as an object.
  */

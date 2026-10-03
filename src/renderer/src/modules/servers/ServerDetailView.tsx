@@ -26,7 +26,7 @@ type DetailState =
   { status: 'loading' } | { status: 'loaded'; detail: ServerDetail | null } | { status: 'error' }
 
 /**
- * Story 122 D3: the detail container - reads `detail.read` for `address` on mount and whenever it
+ * Story 122: the detail container - reads `detail.read` for `address` on mount and whenever it
  * changes, and again whenever a `scan.changed` push reports a round that just finished (a new
  * `finishedAt`, mirroring `ServersView.tsx`'s own "a completed round is the moment to re-read"
  * discipline - still push-driven, never polled). A late response for an address that is no longer

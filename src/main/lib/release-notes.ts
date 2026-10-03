@@ -3,7 +3,7 @@ import { extractVersionSection, parseReleaseNotes } from '@shared/release-notes'
 import type { ReleaseNotes } from '@shared/types'
 
 /**
- * The installed version's release notes (story 099 AC1), resolved from the repo's own
+ * The installed version's release notes (story 099), resolved from the repo's own
  * `CHANGELOG.md` - the single source story 096 already publishes releases from.
  *
  * R3: the changelog enters the **bundle**, not the filesystem. This `?raw` import is inlined as a
@@ -25,13 +25,13 @@ import changelogRaw from '../../../CHANGELOG.md?raw'
  * fixture - the bundled changelog is whatever the working tree happens to hold, which is not
  * something a test may assert release-section shapes against.
  *
- * R4: exactly one section, never a concatenation - the full history is AC3's link.
+ * R4: exactly one section, never a concatenation - the full history is behind a link.
  */
 export function resolveReleaseNotes(changelog: string, version: string): ReleaseNotes {
   const section = extractVersionSection(changelog, version)
   if (!section) {
     // Not an error: a dev build, a build predating published releases, or a version bump whose
-    // changelog entry isn't written yet. AC5 renders this as an empty state.
+    // changelog entry isn't written yet. the renderer shows this as an empty state.
     return null
   }
 

@@ -6,7 +6,7 @@ import { Tabs } from '../../components/ui/Tabs'
 export type ServersTab = 'list' | 'watchlist'
 
 /**
- * Story 132 D3: the Servers view's tab strip, mirroring `ConfigView.tsx`'s own tab-strip idiom
+ * Story 132: the Servers view's tab strip, mirroring `ConfigView.tsx`'s own tab-strip idiom
  * (the shared `Tabs`, `data-testid="config-tab-${id}"`-style naming). The strip only
  * exists once the `watchlist` feature is unlocked - while locked it renders nothing at all, so the
  * pre-story single-screen `ServersView` stays visually identical (FeatureGate's own "nobody asks

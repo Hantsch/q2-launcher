@@ -16,10 +16,10 @@ import {
 import type { EngineIo, PlaybackChannel } from './types'
 
 /**
- * Story 164 D3: the Linux playback channel - console over the game's own stdin/stdout pipes
+ * Story 164: the Linux playback channel - console over the game's own stdin/stdout pipes
  * (`+set sys_console 1`). A 100 ms timer asks the engine for its position and fullscreen flag.
  *
- * Story 172 D5: the fullscreen switch is a plain `vid_fullscreen 1` over stdin; the display follows
+ * Story 172: the fullscreen switch is a plain `vid_fullscreen 1` over stdin; the display follows
  * the `FS` flag of every `pos` line both ways. The only file is `q2l_back.cfg` (the Back to window
  * bind's target), written at `start` and removed at `close`.
  */

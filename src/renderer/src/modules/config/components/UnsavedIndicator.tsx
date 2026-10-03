@@ -6,7 +6,7 @@ import { useUnsavedState } from '../lib/unsaved-state'
 
 /**
  * "Unsaved changes", right next to the profile name - the status half of the old `ProfileSaveBar`
- * row (story 043 D6), moved to the name it is actually about. Icon + text, never colour alone, the
+ * row (story 043), moved to the name it is actually about. Icon + text, never colour alone, the
  * same idiom the bar used.
  *
  * Nothing is rendered while the profile is saved: the bar's counterpart green "Saved" badge is gone

@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path'
 import { getNewsImagesCacheDir, isSafeNewsImageFileName } from '../../../lib/news-image-paths'
 
 /**
- * The news-image cache - story 084 D1 (AC5).
+ * The news-image cache - story 084.
  *
  * Mirrors `src/main/modules/downloads/cache.ts` one-to-one: `planImageEviction()` is pure and
  * decides *what* goes, `enforceKeepSet()` is the only thing that unlinks, and the statement that
@@ -59,7 +59,7 @@ export interface EnforceKeepSetResult {
  * Picks the cache entries to evict so that no more than `maxItems` unreferenced images remain:
  * oldest `mtimeMs` first, stopping the moment the remainder is at or under the cap.
  *
- * Pure by design - no `fs`, no clock, no randomness - which is what makes AC5's guarantee ("never
+ * Pure by design - no `fs`, no clock, no randomness - which is what makes the guarantee ("never
  * removes a currently visible slide's image") provable: every entry in `keep` is excluded from
  * consideration *entirely*, so it can never appear in the returned plan no matter what `maxItems`
  * is. A name `isSafeNewsImageFileName()` rejects is excluded the same way a `.part` file is
@@ -127,7 +127,7 @@ async function readCacheEntries(dir: string, log?: ImageCacheLog): Promise<Image
 }
 
 /**
- * Brings the cache down to `maxItems` unreferenced images by deleting the oldest ones (AC5).
+ * Brings the cache down to `maxItems` unreferenced images by deleting the oldest ones.
  * Called after every feed refresh, with that feed's image file names as `keep`.
  *
  * The only place in this module that unlinks a file. Every candidate `planImageEviction()` hands

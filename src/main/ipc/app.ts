@@ -31,7 +31,7 @@ export function registerAppIpc(app: AppContext): void {
     }
   })
 
-  // Story 099 AC1: the running version's notes, out of the changelog bundled at build time. No
+  // Story 099: the running version's notes, out of the changelog bundled at build time. No
   // filesystem access and nothing to fail over, so a plain `handle` (not `handleOutcome`) - the
   // "no notes for this version" case is `null`, which is part of the response type.
   handle('app:getReleaseNotes', appGetReleaseNotesSchema, (): ReleaseNotes => {

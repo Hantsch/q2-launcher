@@ -14,7 +14,7 @@
  * label) has been replaced by i18n key fields; the English text lives in
  * `src/renderer/src/modules/config/locale/en.json` under `config.cvar.*`.
  *
- * Story 021 D1: every entry now carries an explicit `common: true | false` -
+ * Story 021: every entry now carries an explicit `common: true | false` -
  * audited by hand rather than left to whatever a given entry happened to
  * have before, so the Settings tab's "Advanced" collapse
  * (`modules/config/lib/cvar-rows.ts`) hides something real. `true` is the

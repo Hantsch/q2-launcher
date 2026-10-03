@@ -1,7 +1,7 @@
 import type { NewsFeed } from '@shared/modules/home'
 
 /**
- * Story 083 D4: maps the delivered feed to one of three hero states.
+ * Story 083: maps the delivered feed to one of three hero states.
  *
  * Pure and main-agnostic on purpose - `NewsHero` renders from this answer, `feedState.test.ts`
  * proves the mapping in isolation, and no DOM or i18n is involved here at all.

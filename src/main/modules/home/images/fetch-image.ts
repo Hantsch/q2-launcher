@@ -6,7 +6,7 @@ import { NEWS_FETCH_RETRIES, NEWS_FETCH_TIMEOUT_MS, type NewsFetchLog } from '..
 import { SAFE_NEWS_IMAGE_EXTENSIONS, isSafeNewsImageFileName, newsImageFileName } from '../../../lib/news-image-paths'
 
 /**
- * Story 084 D2: fetch one slide image, decide whether it is safe to cache, and never leave an
+ * Story 084: fetch one slide image, decide whether it is safe to cache, and never leave an
  * invalid or partial file behind. Mirrors `lib/net/fetcher.ts` (injectable fetch, `.part`-then-
  * promote) and `lib/net/verify.ts` (a size gate that runs before anything is trusted) - minus
  * mirrors and manifest hashes, because a slide image has neither: there is one URL, and nothing
@@ -16,7 +16,7 @@ import { SAFE_NEWS_IMAGE_EXTENSIONS, isSafeNewsImageFileName, newsImageFileName 
  *
  * ## Why the network budget is borrowed, not reinvented
  *
- * `feed-fetcher.ts` (082 D5) already sets the launcher's opinion on how long an outbound request to
+ * `feed-fetcher.ts` (story 082) already sets the launcher's opinion on how long an outbound request to
  * the content repo gets before it counts as unreachable - 5s, one retry, only for a timeout,
  * network error or 5xx. An image fetch is the same kind of request against the same kind of
  * upstream, so it uses the *same* constants (`NEWS_FETCH_TIMEOUT_MS`, `NEWS_FETCH_RETRIES`) rather

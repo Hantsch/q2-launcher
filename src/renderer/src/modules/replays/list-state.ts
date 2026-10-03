@@ -1,7 +1,7 @@
 import type { ReplaysScanProgress } from '@shared/modules/replays'
 
 /**
- * Story 151 D3: pure derivation of the demo list's own display state - mirrors
+ * Story 151: pure derivation of the demo list's own display state - mirrors
  * `servers/list-state.ts`'s `deriveListState`/`describeScanProgress` shape so
  * `ReplaysListStatus.tsx` stays a thin renderer and this stays unit-testable without React/i18n.
  *

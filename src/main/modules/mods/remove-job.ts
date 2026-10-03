@@ -21,7 +21,7 @@ import { readModsState } from './install-records'
 import { planRemoval, removeRecordedFiles, RemovalRefusedError } from './remove'
 
 /**
- * Story 191 D2: remove one mod the launcher installed. Mirrors `downloads/engine/rollback-job.ts`:
+ * Story 191: remove one mod the launcher installed. Mirrors `downloads/engine/rollback-job.ts`:
  * every refusal happens before the job exists, deletion happens only inside the runner's write
  * guard, and the installation is revalidated outside it. Works from the install record alone - the
  * catalog is never consulted, so a mod that left the catalog can still be removed.

@@ -5,13 +5,13 @@ import type { BootstrapTargetVerdict } from '@shared/modules/downloads'
 import { Checkbox, Field, PathPicker } from '../../../components/ui/controls'
 
 /**
- * Story 074 D6, step 2: the target folder and the D2 verdict for it.
+ * Story 074, step 2: the target folder and the verdict for it.
  *
  * Every warning the verdict carries needs its own acknowledge before Next enables - the wizard
  * never re-derives "safe to proceed" from the raw fields, `BootstrapWizard` owns that gate and
  * this component only reports which acknowledges are checked.
  *
- * `data-testid`s (D8's e2e depends on these): `bootstrap-target-path-input`,
+ * `data-testid`s (the e2e flow depends on these): `bootstrap-target-path-input`,
  * `bootstrap-target-blocked`, `bootstrap-target-programfiles-warning`,
  * `bootstrap-target-programfiles-acknowledge`, `bootstrap-target-nonempty-warning`,
  * `bootstrap-target-nonempty-acknowledge`, `bootstrap-target-notwritable-warning`,

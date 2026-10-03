@@ -6,13 +6,13 @@ import { UtilityButton } from './UtilityButton'
 import { UpdatePopover } from './UpdatePopover'
 
 /**
- * Story 098 D3: the titlebar's update control. Placed left of `utilityModules.map(...)` in
+ * Story 098: the titlebar's update control. Placed left of `utilityModules.map(...)` in
  * `TitleBar.tsx` (Decisions: "the first secondary module").
  *
- * AC1: rendered only while 097's state names a known release (`update.update !== null`) - not
+ * rendered only while 097's state names a known release (`update.update !== null`) - not
  * gated on `phase`, so a background recheck of an already-known release (which reports
  * `phase: 'checking'`, `resolveUpdatePhase`'s own precedence) never makes the control flicker
- * away. Reuses D2's `UtilityButton` directly, wrapped in the new `Popover` primitive for the rich
+ * away. Reuses `UtilityButton` directly, wrapped in the new `Popover` primitive for the rich
  * content a `Menu` cannot carry.
  */
 export function UpdateButton() {
@@ -21,7 +21,7 @@ export function UpdateButton() {
 
   if (update.update === null) return null
 
-  // AC5: the dot marks "you have not looked at this yet" - it disappears the moment the user acts
+  // the dot marks "you have not looked at this yet" - it disappears the moment the user acts
   // (the phase moves past `available`, into `downloading`/`downloaded`) or dismisses, and for no
   // other reason.
   const attention = !update.dismissed && update.phase === 'available'

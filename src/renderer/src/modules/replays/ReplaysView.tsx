@@ -69,11 +69,11 @@ function detailSplit(detailOpen: boolean, stageMode: boolean): string {
 
 const DETAIL_PANE = 'min-h-0 overflow-y-auto border-line bg-panel/40'
 
-/** How long a filter change waits, un-typed, before it is persisted (story 153 D5) - mirrors the
+/** How long a filter change waits, un-typed, before it is persisted (story 153) - mirrors the
  * "debounce writes, flush on unmount" shape without pulling in a new dependency. */
 const FILTER_PERSIST_DEBOUNCE_MS = 300
 
-/** Story 152 D3: maps a `DemoRow` (150's row model) to the fields `sortDemoRows` needs - `players`
+/** Story 152: maps a `DemoRow` (150's row model) to the fields `sortDemoRows` needs - `players`
  * mirrors exactly what `DemoRow.tsx` shows for its sides cell (`sidesText`, no translated "+n"
  * suffix here since the sort only ever compares the text, never renders it). */
 function toSortFields(row: DemoRow): DemoSortFields {
@@ -99,12 +99,12 @@ const IDLE_SCAN_PROGRESS: ReplaysScanProgress = {
 }
 
 /**
- * Story 141 D4: a minimal Demos list view - just enough to make AC "every discovered demo across
+ * Story 141: a minimal Demos list view - just enough to make AC "every discovered demo across
  * every installation and mod is listed" provable on a real surface. Mirrors `ServersView`'s header
  * markup (the `h1`/status-line toolbar shape); everything else there (scan controls, sort, filter,
  * detail pane, tabs) is out of scope for this deliverable.
  *
- * Story 144 D4: the index is read once on mount (cache-first - whatever `index.read` already has,
+ * Story 144: the index is read once on mount (cache-first - whatever `index.read` already has,
  * rendered at once, even if it's a stale/previous-run snapshot) and a background scan is kicked off
  * right behind it. `onScanProgress` is subscribed for the component's lifetime; only once a push
  * reports `running: false` is the index re-read and the whole list swapped in one go - never a
@@ -112,8 +112,8 @@ const IDLE_SCAN_PROGRESS: ReplaysScanProgress = {
  * button re-triggers the same `scanStart()` and is disabled while the latest known progress says a
  * scan is running.
  *
- * Story 158/159 D4: the list itself is now `VirtualDemoList` (a virtualised, selectable body built
- * on the D3 row/header/grid pieces), and selecting a row opens a side detail panel - shell only,
+ * Story 158/159: the list itself is now `VirtualDemoList` (a virtualised, selectable body built
+ * on the row/header/grid pieces), and selecting a row opens a side detail panel - shell only,
  * a later story fills in its content. A row that vanishes on a re-read (its id no longer in the new
  * list) clears the selection rather than leaving it pointed at a row that no longer renders.
  */
@@ -121,7 +121,7 @@ export function ReplaysView() {
   const { t } = useTranslation()
   const setRoute = useLauncher((state) => state.setRoute)
   const [demos, setDemos] = useState<DemoRow[] | null>(null)
-  // Story 151 D3: the view always calls `scanStart()` on mount, so it starts out assuming a scan
+  // Story 151: the view always calls `scanStart()` on mount, so it starts out assuming a scan
   // is under way - flipped back to `false` only if that call itself resolves `ok: false` (refused
   // outright, never even started). A real `scan.progress` push takes over from there.
   const [scanning, setScanning] = useState(true)
@@ -141,9 +141,9 @@ export function ReplaysView() {
   // instead of losing the last, still-debounced change.
   const filterDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingFilterRef = useRef<DemoListFilter | null>(null)
-  // Story 157 D4: a rename can move the very row the active filter was matching on (e.g. a
-  // free-text search against the old file name) out from under itself. AC5 requires the renamed
-  // row to keep its selection regardless, so its new id is pinned into `visibleDemos` below until
+  // Story 157: a rename can move the very row the active filter was matching on (e.g. a
+  // free-text search against the old file name) out from under itself. The renamed
+  // row must keep its selection regardless, so its new id is pinned into `visibleDemos` below until
   // the user does something that supersedes the pin (picks a different filter, or another row).
   const pinnedRowIdRef = useRef<string | null>(null)
 
@@ -158,7 +158,7 @@ export function ReplaysView() {
     setFilterLoaded(true)
   }, [filterQuery.state, filterQuery.data])
 
-  // Story 153 D5: flushes a still-pending debounced write on unmount, so navigating away right
+  // Story 153: flushes a still-pending debounced write on unmount, so navigating away right
   // after a filter change never drops it.
   useEffect(() => {
     return () => {
@@ -226,7 +226,7 @@ export function ReplaysView() {
     }
   }, [])
 
-  // Story 151 D3: mirrors `ServersView.tsx`'s `handleOpenSourceSettings` - the route change lands
+  // Story 151: mirrors `ServersView.tsx`'s `handleOpenSourceSettings` - the route change lands
   // on the next render commit, so two rAFs (one for the commit, one for the browser's next paint)
   // is the smallest wait that reliably sees `settings-section-replays` in the DOM before scrolling.
   const handleOpenSettings = (): void => {
@@ -250,7 +250,7 @@ export function ReplaysView() {
     )
   }
 
-  // Story 157 D4: a rename swaps the row's id (and file name) out from under the selection - the
+  // Story 157: a rename swaps the row's id (and file name) out from under the selection - the
   // list is patched in place (old id -> the freshly composed row) and the selection follows the
   // new id, mirroring `handleRowPatched`'s "patch, never rescan" shape.
   const handleRenamed = (oldId: string, newRow: DemoRow): void => {
@@ -265,19 +265,19 @@ export function ReplaysView() {
   const listState = deriveReplaysListState({ scanning, rowCount })
   const selected = demos?.find((demo) => demo.id === selectedId) ?? null
 
-  // Story 180 D2: the action bar's primary button on this tab is "View" - it plays the selected
+  // Story 180: the action bar's primary button on this tab is "View" - it plays the selected
   // demo. The published object must stay stable (the contribution effect republishes on every new
   // identity), so `run` never changes; it reads the latest `play` - the one rendered for the
   // currently selected row - through a ref, never a stale closure over an earlier selection.
   const { eligibility, busy: playBusy, error: playError, play } = useDemoPlay(selected)
-  // Story 180 D3 / 182 D2: a mod-missing refusal is a warning, not a wall - View stays enabled and
+  // Story 180 / 182: a mod-missing refusal is a warning, not a wall - View stays enabled and
   // `run` asks first (the dialog below, the warning's only place) unless the user switched the
   // warning off or trusted this mod; the readout carries no permanent warning text.
   const askFirst = eligibility !== null && !eligibility.ok && eligibility.acknowledgeable === true
   const modGameDir =
     eligibility !== null && !eligibility.ok ? String(eligibility.params?.gameDir ?? '') : ''
   const [confirmingModMissing, setConfirmingModMissing] = useState(false)
-  // Story 193 D1: the catalog entry offered for install in the mod-missing dialog, if any.
+  // Story 193: the catalog entry offered for install in the mod-missing dialog, if any.
   const [modOffer, setModOffer] = useState<{ id: string; name: string } | null>(null)
   const [installError, setInstallError] = useState<string | null>(null)
   const activeInstallation = useActiveInstallation()
@@ -368,7 +368,7 @@ export function ReplaysView() {
   )
   usePrimaryActionContribution('/replays', viewAction)
   const sortedDemos = useMemo(() => sortDemoRows(demos ?? [], sort, toSortFields), [demos, sort])
-  // Story 153 D5: filtered AFTER sort, never touching sort state itself - filtering only narrows
+  // Story 153: filtered AFTER sort, never touching sort state itself - filtering only narrows
   // the already-sorted list. Options are computed over the whole index, not the filtered subset.
   const filterOptions = useMemo(
     () => demoFilterOptions((demos ?? []).map(demoFilterSubject)),
@@ -401,7 +401,7 @@ export function ReplaysView() {
     useDemoEditorStore.getState().deselectIfMissing(visibleDemos.map((demo) => demo.id))
   }, [demos, visibleDemos])
 
-  // Story 155 D6: a quick edit from the row (favourite/rating) reuses the very same
+  // Story 155: a quick edit from the row (favourite/rating) reuses the very same
   // `entry.replace`/`ReplaceSidecarDialog` mechanism the open editor's own Save uses - this only
   // renders it for a demo whose editor isn't the one already showing it (`DemoDetailEditor` renders
   // it itself while that demo is in edit mode, story 178).

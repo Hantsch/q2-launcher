@@ -48,17 +48,17 @@ function StatCell({
 }
 
 /**
- * Story 122 D3: the detail pane's header section - name, address, then a compact stat grid of
+ * Story 122: the detail pane's header section - name, address, then a compact stat grid of
  * mod, map, gamemode, occupancy, ping, password and the engine/protocol derived from the last-known
- * `serverinfo` (story 122 D2's `deriveEngine`/`deriveProtocol`). Every value is routed through
+ * `serverinfo` (story 122's `deriveEngine`/`deriveProtocol`). Every value is routed through
  * `server-format.ts`'s helpers so one malformed field (e.g. an unparseable `protocol`) renders `—`
  * without breaking the rest.
  *
- * Story 125 D5: the same `JoinServerButton` the watchlist uses sits here, wrapped under
+ * Story 125: the same `JoinServerButton` the watchlist uses sits here, wrapped under
  * `servers-detail-join` and rendered `prominent` (the action bar's Play look) - it is this pane's
  * primary action. Spectate was dropped: on most mods it behaved exactly like Join.
  *
- * Story 127 D2: a third action, wrapped under `servers-detail-address-book-open`, opens
+ * Story 127: a third action, wrapped under `servers-detail-address-book-open`, opens
  * `AddToAddressBookDialog` for this server's address. Its open flag is local state, same as every
  * dialog on this pane.
  *

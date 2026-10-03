@@ -21,8 +21,8 @@ import {
 import { recogniseDemoFile } from './discovery'
 
 /**
- * Story 143 D2: expands one zip archive into the `DiscoveredDemo` rows it contains, on top of D1's
- * bounded zip reader (`zip-entries.ts`). Never recurses into a nested archive (AC6) - an entry whose
+ * Story 143: expands one zip archive into the `DiscoveredDemo` rows it contains, on top of the
+ * bounded zip reader (`zip-entries.ts`). Never recurses into a nested archive - an entry whose
  * own name doesn't look like a demo file is skipped outright, so a `.zip` entry's contents are never
  * even listed, let alone read.
  */
@@ -90,7 +90,7 @@ function gunzipBounded(
 }
 
 /**
- * Story 150 D1: a zip entry's duration, from the same in-memory (already gunzipped) bytes its
+ * Story 150: a zip entry's duration, from the same in-memory (already gunzipped) bytes its
  * header was parsed from - the entry is never read a second time. `null` when the frame count
  * fails, same as a loose file's `readDemoDuration` failure.
  */
@@ -103,7 +103,7 @@ function durationOf(bytes: Uint8Array, format: DemoFormat): number | null {
 
 /**
  * Expands one zip archive's demo-like entries into `DiscoveredDemo` rows. `archiveMtimeMs` is
- * accepted for forward-compatibility with D3's call site but unused here - not surfaced yet, no
+ * accepted for forward-compatibility with the call site but unused here - not surfaced yet, no
  * UI/schema field for it in this story.
  */
 export async function expandZip(
@@ -125,7 +125,7 @@ export async function expandZip(
     const id = idFor(`${archivePath}\u0000${entry.path}`)
     const fileName = baseName(entry.path)
     const archiveEntry = { archivePath, entryPath: entry.path }
-    // Story 145 D2: a zip entry has no creation time of its own; `mtimeMs` is the entry's own
+    // Story 145: a zip entry has no creation time of its own; `mtimeMs` is the entry's own
     // modified stamp, falling back to the archive's when 7-Zip didn't report one.
     const fileTime = { birthtimeMs: 0, mtimeMs: entry.modified?.getTime() ?? archiveMtimeMs }
 

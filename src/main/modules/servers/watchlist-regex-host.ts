@@ -3,7 +3,7 @@ import { WATCHLIST_REGEX_BUDGET_MS } from '@shared/modules/servers'
 import { matchRegexNames } from './watchlist-matcher'
 
 /**
- * Story 131 D3: the only place a user-supplied watchlist regex is ever executed. A pattern like
+ * Story 131: the only place a user-supplied watchlist regex is ever executed. A pattern like
  * `(a+)+$` against a 31-character name backtracks for billions of steps, so it must never run on
  * Electron's main thread - it runs inside one long-lived `worker_threads` worker, under a hard
  * per-job time budget. When the budget expires the worker is terminated (which interrupts the

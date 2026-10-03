@@ -1,5 +1,5 @@
 /**
- * Care tab, Files group data - story 058 D3.
+ * Care tab, Files group data - story 058.
  *
  * Pulled out of `CareSyncSection.tsx` (now deleted): owns the profile's sync-state fetch and the
  * four actions a Files row can offer (Retry / Reload / Compare / Open / Reveal), so `CareTab.tsx`
@@ -15,9 +15,9 @@
  * and Tidy-up groups) only knows how to disable a button by that key - there is no longer a
  * dedicated "the canonical row is busy" flag to thread through a bespoke prop.
  *
- * Story 079 D6: this hook no longer owns the sync-state fetch itself. Its own fetch effect (keyed on
+ * Story 079: this hook no longer owns the sync-state fetch itself. Its own fetch effect (keyed on
  * `profile.id`/`profile.updatedAt`) only ever ran while `CareTab` was mounted, which is exactly what
- * made AC5 ("drift is checked without the Care tab being open") false - a changed/missing/stale
+ * made "drift is checked without the Care tab being open" false - a changed/missing/stale
  * installation copy went undetected until a user happened to open Care. The fetch moved up to
  * `ConfigView`'s `useDriftState` (`lib/use-drift-state.ts`), which runs for the whole detail view on
  * the canonical re-read triggers plus a save; `status`/`refetchSyncState` are now passed in from
@@ -41,7 +41,7 @@ import { adoptProfileFromFile } from './file-source-refresh'
 import { resolveSaveOutcome } from './save-bar'
 
 export interface UseCareSyncResult {
-  /** Story 025 D8's `CareSyncStatus` - `'loading'`/`'loaded'`/`'error'`, fed straight into
+  /** Story 025's `CareSyncStatus` - `'loading'`/`'loaded'`/`'error'`, fed straight into
    * `buildCareItems`/`careSummary` by `CareTab.tsx`, same contract `CareSyncSection` used to hand
    * up through its `onStatusChange` prop. */
   status: CareSyncStatus
@@ -67,10 +67,10 @@ export function useCareSync({
   refetchSyncState,
 }: {
   profile: ConfigProfile
-  /** Story 043 D9's single-profile merge-by-id callback - Reload and Compare's resolutions both
+  /** Story 043's single-profile merge-by-id callback - Reload and Compare's resolutions both
    * need it to propagate an adopted/overwritten profile to the rest of the UI. */
   onProfileUpdated: (profile: ConfigProfile) => void
-  /** Story 079 D6: the drift rows, fetched by `ConfigView`'s `useDriftState`, not by this hook - see
+  /** Story 079: the drift rows, fetched by `ConfigView`'s `useDriftState`, not by this hook - see
    * the file doc comment. */
   status: CareSyncStatus
   /** `useDriftState`'s `refetch`, called after an action that can change a row's state (retry,
@@ -138,11 +138,10 @@ export function useCareSync({
     toastOutcomeError(pushToast, { ok: false, error: action.error })
   }
 
-  /** Story 079 D9's "Sync now" (AC7): rewrites one installation's copy from the profile's canonical
-   * file, restricted to `installationId` via `WriteProfileInput.installationId` (D8) - every other
+  /** Story 079's "Sync now": rewrites one installation's copy from the profile's canonical
+   * file, restricted to `installationId` via `WriteProfileInput.installationId` - every other
    * installation this profile is assigned to is left untouched, and the write always comes from the
-   * canonical file on disk, never from `profile`'s own possibly-dirty in-memory state (AC9,
-   * unchanged from `retry` above, which already writes the whole profile the same way). Re-fetches
+   * canonical file on disk, never from `profile`'s own possibly-dirty in-memory state (* unchanged from `retry` above, which already writes the whole profile the same way). Re-fetches
    * on success so the row clears immediately, same idiom as `retry`. */
   const syncNow = async (installationId: string): Promise<void> => {
     const outcome = await writeConfigProfile({ profileId: profile.id, installationId })
@@ -153,7 +152,7 @@ export function useCareSync({
     }
   }
 
-  /** Story 057 D3's Open/Reveal, consolidated here per story 058 decision 6 - the exact
+  /** Story 057's Open/Reveal, consolidated here per story 058 decision 6 - the exact
    * `openProfileFile` call `RawFileTab` already makes, addressed by id, never by a path. */
   const openOrReveal = async (target: string, mode: 'open' | 'reveal'): Promise<void> => {
     const outcome = await openProfileFile({

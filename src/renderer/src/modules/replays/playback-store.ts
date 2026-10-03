@@ -31,7 +31,7 @@ import {
 } from './optimistic-timeline'
 
 /**
- * Story 165 D3: the renderer's view of the one running demo session.
+ * Story 165: the renderer's view of the one running demo session.
  *
  * When a session begins: on `demo.play` success (`useDemoPlay` calls `beginSession`), not on the
  * first position event. Only the play action knows the demo's name and its 138 `durationMs`, and
@@ -39,7 +39,7 @@ import {
  * Position events that arrive without a session are ignored; the session ends on a `state: ended`
  * event (or an explicit `endSession`). Event subscriptions live exactly as long as the session.
  */
-/** Story 187 D6: how the running demo is shown. */
+/** Story 187: how the running demo is shown. */
 export type PlaybackMode = 'preview' | 'cinema' | 'fullscreen'
 
 export interface PlaybackSession {
@@ -52,15 +52,15 @@ export interface PlaybackSession {
   speed: number
   /** Story 172: the game window is fullscreen; the strip shows the keys text instead of stale position. */
   fullscreen: boolean
-  /** Story 187 D6: preview (the stage), cinema (the overlay) or fullscreen, from the display event. */
+  /** Story 187: preview (the stage), cinema (the overlay) or fullscreen, from the display event. */
   mode: PlaybackMode
-  /** Story 187 D6: whether cinema can run now, and the reason key when it cannot. */
+  /** Story 187: whether cinema can run now, and the reason key when it cannot. */
   cinemaAvailability: CinemaAvailability
   /** Story 173: a stop was requested; the session still ends only on `state: ended`. */
   stopping: boolean
-  /** Story 184 D2: the expected timeline - last readback plus commands still in flight. */
+  /** Story 184: the expected timeline - last readback plus commands still in flight. */
   optimistic: OptimisticTimeline
-  /** Story 184 D2: chains whose oldest pending command has waited over 1 s for its readback. */
+  /** Story 184: chains whose oldest pending command has waited over 1 s for its readback. */
   waiting: ReadonlySet<TimelineChain>
 }
 
@@ -73,7 +73,7 @@ export interface StageRect {
 
 interface PlaybackStoreState {
   session: PlaybackSession | null
-  /** Story 170 D4: stage mode is on from the play click until the session ends. */
+  /** Story 170: stage mode is on from the play click until the session ends. */
   stageArmed: boolean
   /** The stage picture's last measured rect in viewport CSS px, or null. */
   stageRect: StageRect | null
@@ -89,7 +89,7 @@ interface PlaybackStoreState {
   endSession: () => void
   /** Asks main to end the demo; resolves to the refusal to show, or null when the request was accepted. */
   requestStop: () => Promise<LocalizedMessage | null>
-  /** Story 184 D2: sends a timeline action optimistically; resolves to the refusal to show, or null. */
+  /** Story 184: sends a timeline action optimistically; resolves to the refusal to show, or null. */
   sendTimeline: (action: TimelineAction) => Promise<LocalizedMessage | null>
   setSpeed: (speed: number) => void
   applyPosition: (
@@ -98,7 +98,7 @@ interface PlaybackStoreState {
     enginePaused?: boolean | null,
   ) => void
   applyState: (state: 'playing' | 'finished' | 'ended') => void
-  /** Story 187 D6: asks main to enter or leave cinema; resolves to the refusal to show, or null. */
+  /** Story 187: asks main to enter or leave cinema; resolves to the refusal to show, or null. */
   setCinema: (enter: boolean) => Promise<LocalizedMessage | null>
   applyDisplay: (p: DisplayUpdate) => void
 }

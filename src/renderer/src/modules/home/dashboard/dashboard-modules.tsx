@@ -4,8 +4,8 @@ import { PlaytimeTile } from './PlaytimeTile'
 import { ConfigProfilesTile } from './ConfigProfilesTile'
 
 /**
- * Story 086 D3: one entry per dashboard module, enough for `DashboardTile` to render a placeholder
- * frame (title only). Story 087 D6 adds `Body` - the tile's real content, rendered by
+ * Story 086: one entry per dashboard module, enough for `DashboardTile` to render a placeholder
+ * frame (title only). Story 087 adds `Body` - the tile's real content, rendered by
  * `DashboardTile.tsx` below its header. Kept as a `Record<DashboardModuleId, ...>` rather than a
  * plain array so adding/removing an id in `DASHBOARD_MODULE_IDS` (`src/shared/modules/home.ts`)
  * without updating this file is a compiler error, not a silent gap - the same exhaustiveness
@@ -21,7 +21,7 @@ export interface DashboardModuleDefinition {
   id: DashboardModuleId
   /** i18n key for the tile's title, under the `home.dashboard.tiles` namespace. */
   titleKey: string
-  /** The tile's real content (story 087 D6) - a self-contained component with no required props,
+  /** The tile's real content (story 087) - a self-contained component with no required props,
    * rendered by `DashboardTile.tsx` in the space below its header. */
   Body: ComponentType
 }

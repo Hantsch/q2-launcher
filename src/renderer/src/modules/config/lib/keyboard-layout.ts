@@ -210,17 +210,17 @@ export const NUMPAD_KEYS: KeyDef[] = [
  * creates. `actions` defaults to `[]` so every pre-story-008 call site keeps
  * compiling and behaving exactly as before.
  *
- * Looked up directly against `actions` by `aliasNameFor` (story 039, D5)
+ * Looked up directly against `actions` by `aliasNameFor` (story 039)
  * rather than gated by the legacy `q2l_a_` prefix first: once an alias name
  * can be any short readable word the user typed, there is no prefix left to
  * gate on, and the lookup alone is exactly as precise - a value that is not
  * any action's alias name falls through to the plain split below, whether or
  * not it happens to look like a generated name.
  *
- * Story 045 D10: a `toggle`/`press-release` action's bind value (`bindValueFor`) is not always
+ * Story 0450: a `toggle`/`press-release` action's bind value (`bindValueFor`) is not always
  * its `aliasNameFor` - a press/release entry binds to `+<base>` while `aliasNameFor` returns the
  * sign-free base, so the lookup also matches on `bindValueFor` to find these two kinds. Once
- * found, `action.commands` is always `[]` for them (story 045 D1 - their real content lives in
+ * found, `action.commands` is always `[]` for them (story 045 - their real content lives in
  * `action.parts`), so they get their own one-thing-not-two-states rendering instead of the
  * generic `commands.map(commandLineFor)` body:
  * - a **toggle** reads as its own name plus both state labels in one string, e.g.

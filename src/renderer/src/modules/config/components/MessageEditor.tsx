@@ -28,7 +28,7 @@ const FIELD_BASE =
   'transition-colors duration-[--dur-fast] disabled:opacity-50'
 
 /**
- * Story 041 D8: a single-dollar `$name` reference, the same syntax the `$loc_here`-vs-
+ * Story 041: a single-dollar `$name` reference, the same syntax the `$loc_here`-vs-
  * `$$loc_here` warning above already deals with. `(?<!\$)` skips the second `$` of a `$$token`
  * that `tokenizeMessage` did not recognise (e.g. an unknown `$$foo`) - that pair stays fully
  * literal rather than half-splitting into a bogus `$foo` reference.
@@ -61,7 +61,7 @@ function splitColorCvarRefs(
 }
 
 /**
- * Story 008 D8: the message-kind counterpart to D7's `ActionEditor` -
+ * Story 008: the message-kind counterpart to `ActionEditor` -
  * `ControlsTab` opens this one instead when the entry's own `kind` is
  * `'message'` (story 019). A message action's `commands` holds exactly one
  * `{ kind: 'message', channel, text }` entry (decision 7: a message is one
@@ -90,18 +90,18 @@ export function MessageEditor({
   action: ConfigAction
   onClose: () => void
   onSave: (draft: { channel: string; text: string; key?: string }) => void
-  /** Story 029 D2: drop rows own their key through the grid's `BindSlot`s and don't want a
+  /** Story 029: drop rows own their key through the grid's `BindSlot`s and don't want a
    * second, collision-blind key editor in this modal - hides the key-capture block entirely when
    * `false`. Defaults to `true` to preserve the "Team messages" editor's existing behaviour. */
   showKeyCapture?: boolean
-  /** Story 029 D2: lets a caller show a name other than the action's own in the modal title
+  /** Story 029: lets a caller show a name other than the action's own in the modal title
    * (e.g. a drop row's own label). Defaults to `action.name`. */
   titleName?: string
   /**
-   * Story 041 D8: the profile's own cvars, so the preview can recognise a `$name` reference in
+   * Story 041: the profile's own cvars, so the preview can recognise a `$name` reference in
    * the message as a colour cvar (`@shared/config/syntax/color-cvars`) and render its actual glyph
    * instead of dead literal text. Defaults to `{}` - a caller that has no cvars on hand (there is
-   * none today) just gets the pre-D8 literal-text behaviour back.
+   * none today) just gets the earlier literal-text behaviour back.
    */
   cvars?: Record<string, string>
 }) {
@@ -183,7 +183,7 @@ export function MessageEditor({
     return () => window.removeEventListener('keydown', handleKeyDown, true)
   }, [capturingKey])
 
-  // Story 041 D8: colour cvars are a rendering-layer concern layered on top of `tokenizeMessage`'s
+  // Story 041: colour cvars are a rendering-layer concern layered on top of `tokenizeMessage`'s
   // existing output, not a change to tokenization itself - its contract (macro/meta segments,
   // everything else as literal text) is untouched.
   const colorCvars = useMemo(() => colorCvarTokens(cvars ?? {}), [cvars])
@@ -306,7 +306,7 @@ export function MessageEditor({
             ) : (
               previewSegments.map((segment, index) =>
                 segment.kind === 'colorCvar' ? (
-                  // Story 041 D8: the glyph run through the same alt-charset styling every other
+                  // Story 041: the glyph run through the same alt-charset styling every other
                   // high-bit run in this preview gets, plus a badge naming the cvar - the badge is
                   // what tells the player which of their own colour cvars this reference resolves
                   // to, since the glyph run alone looks identical for any cvar carrying that same

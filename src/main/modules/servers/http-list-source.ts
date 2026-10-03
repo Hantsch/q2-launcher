@@ -1,7 +1,7 @@
 /**
- * The HTTP list transport seam (story 109, D4): fetches q2servers.com's `?raw=1`/`?raw=2` list
+ * The HTTP list transport seam (story 109): fetches q2servers.com's `?raw=1`/`?raw=2` list
  * over an injectable `FetchImpl` and hands the response body to the matching pure codec
- * (`src/shared/servers/http-list.ts`, D2).
+ * (`src/shared/servers/http-list.ts`).
  *
  * The fetch goes through `fetchWithPolicy`, so a source that stalls ends at its time budget and one
  * that streams without end stops at the size cap; the body read is inside that budget, so a body
@@ -11,8 +11,8 @@
  * A timeout, network error, abort or body-read error is `transport-error`; a body over the cap is
  * `truncated`; a non-2xx response is `http-status` carrying the status code (`MasterSourceFailure`
  * itself is not widened for it, since only this transport seam produces it). A 2xx body is handed
- * to D2's codec unchanged, so a codec-level defect (`empty-body`, `truncated`, ...) is reported
- * exactly as D2 already tests it.
+ * to the codec unchanged, so a codec-level defect (`empty-body`, `truncated`, ...) is reported
+ * exactly as the codec already tests it.
  */
 
 import type { ParsedServerAddress } from '@shared/servers/address'
@@ -35,7 +35,7 @@ export interface ResolveHttpListSourceOptions {
 }
 
 /**
- * Result of resolving one HTTP list source. Mirrors `HttpListResult` (D2) but widens the failure
+ * Result of resolving one HTTP list source. Mirrors `HttpListResult` but widens the failure
  * case with an optional `status`, carried only for `http-status` — defined locally rather than by
  * touching `master-records.ts` in this deliverable.
  */

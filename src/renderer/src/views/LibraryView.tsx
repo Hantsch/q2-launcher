@@ -89,9 +89,9 @@ export function LibraryView() {
             >
               {t('library.create')}
             </Button>
-            {/* Story 074 D5: the module-dialog seam's entry point - opens the downloads module's
+            {/* Story 074: the module-dialog seam's entry point - opens the downloads module's
                 own bootstrap-wizard modal via the generic 'module' dialog kind. The wizard itself
-                (D6) does not exist yet, so this is a no-op click until then. */}
+                does not exist yet, so this is a no-op click until then. */}
             <Button
               variant="neutral"
               size="sm"
@@ -240,8 +240,8 @@ function InstallationRow({ installation }: { installation: Installation }) {
           type="button"
           onClick={() => void setActive(installation.id)}
           title={t('rail.activeMarker')}
-          // Story 067 review finding F6: before an icon existed, this button's accessible name
-          // came from its content text (the code span, e.g. "R1") - AC8 requires that name to
+          // Before an icon existed, this button's accessible name
+          // came from its content text (the code span, e.g. "R1") - that name must
           // survive an icon being set, but an icon's content is `<img alt="">` (decorative,
           // contributes nothing), which would otherwise collapse every installation's card tile to
           // the same generic `title` fallback ("Active installation"), indistinguishable from one
@@ -364,7 +364,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
             <Pencil className="size-3.5" />
           </IconButton>
 
-          {/* Story 067 D6: the icon picker belongs to the installation, same scoping as rename. */}
+          {/* Story 067: the icon picker belongs to the installation, same scoping as rename. */}
           <IconButton
             label={t('installation.action.setIcon')}
             size="sm"
@@ -375,7 +375,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
             <ImagePlus className="size-3.5" />
           </IconButton>
 
-          {/* Story 058 D6: the redundant-config-copies cleanup belongs to the installation, not to
+          {/* Story 058: the redundant-config-copies cleanup belongs to the installation, not to
               a config profile's Care tab - so it opens from the row that names its scope, the same
               way rename does. The dialog itself removes nothing without a confirm. */}
           <IconButton
@@ -386,9 +386,9 @@ function InstallationRow({ installation }: { installation: Installation }) {
             <CopyX className="size-3.5" />
           </IconButton>
 
-          {/* Story 090 D4: only offered on a demo installation - the empty-store-sources case is
+          {/* Story 090: only offered on a demo installation - the empty-store-sources case is
               explained inside the dialog itself, not by hiding the trigger.
-              Story 091 D5: no longer disabled while the installation is running - the job now
+              Story 091: no longer disabled while the installation is running - the job now
               waits instead of refusing (091 Decisions: "[[090]]'s refusal is replaced by a
               wait, including on the renderer"). */}
           {isDemoData(installation.checks) && (
@@ -417,7 +417,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
             variant="danger"
             data-testid={`installation-remove-${installation.id}`}
             onClick={() => {
-              // Story 094 D3: a removable installation always opens the chooser now - there are
+              // Story 094: a removable installation always opens the chooser now - there are
               // two different, one-irreversible outcomes, so `confirmBeforeRemoving` can no longer
               // silently pick one. A store-managed installation still has only one possible
               // outcome (entry-only), so it keeps honouring the setting exactly like before 094.

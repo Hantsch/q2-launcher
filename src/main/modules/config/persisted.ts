@@ -121,7 +121,7 @@ const configActionPersistedSchema = z.preprocess(
 )
 
 /**
- * Story 049 D1: the persisted `ProfileBaseline` - the snapshot of the profile as its `.cfg` last
+ * Story 049: the persisted `ProfileBaseline` - the snapshot of the profile as its `.cfg` last
  * had it, which "unsaved change" is measured against and which a discard restores.
  *
  * Strict *within* the field, forgiving *about* it: every member but `name` (see below) is required
@@ -143,7 +143,7 @@ const configActionPersistedSchema = z.preprocess(
  * second, divergent normalisation rule at worst.
  *
  * `name` is the one member this schema does *not* require, and the one whose absence is not a
- * half-read snapshot: it joined `ProfileBaseline` after the field first shipped (review finding,
+ * half-read snapshot: it joined `ProfileBaseline` after the field first shipped (
  * story 049), so a baseline written in between carries every other member and simply no name.
  * Dropping the whole snapshot over it would disable discard and hide real pending changes;
  * `normalizeConfigProfile` below instead completes it from the profile's *current* name, which
@@ -169,7 +169,7 @@ const profileBaselinePersistedSchema: z.ZodType<PersistedProfileBaseline> = z.ob
         .superRefine(refineActionParts),
     ),
   ),
-  // Story 054 D11: `cvarSections` joined `ProfileBaseline` alongside `categories`/`actions` above.
+  // Story 0541: `cvarSections` joined `ProfileBaseline` alongside `categories`/`actions` above.
   // Unlike those, it must tolerate being *absent entirely* - review-fix: every baseline persisted
   // before this story has no `cvarSections` key at all, and this whole object is read through
   // `.optional().catch(undefined)` (below), so a required field here silently discarded every
@@ -231,7 +231,7 @@ export const configProfileObjectSchema = z.object({
     (raw) => parseForgivingRows(configActionPersistedSchema, raw),
     z.array(configActionPersistedSchema),
   ),
-  // Story 059 D1: the profile's own cvar sections/sub-sections - the Settings-tab counterpart of
+  // Story 059: the profile's own cvar sections/sub-sections - the Settings-tab counterpart of
   // `categories`/`actions` right above. Same forgiving, row-level-drop convention: a malformed
   // section is dropped on its own via `parseForgivingRows` rather than degrading the whole field to
   // `[]`, and a profile predating this story (or created with `from: 'empty'`) simply has no key
@@ -240,25 +240,25 @@ export const configProfileObjectSchema = z.object({
     (raw) => parseForgivingRows(configCvarSectionPersistedSchema, raw),
     z.array(configCvarSectionPersistedSchema),
   ),
-  // Story 040 D4: whether the rendered file opens with `unbindall`, right after the header.
+  // Story 040: whether the rendered file opens with `unbindall`, right after the header.
   // Defaults to true (the User decision) - a missing/malformed value, including every profile
   // persisted before this story, degrades to `true` rather than `false`, same forgiving
   // convention as `favorite` above. No migration entry: purely additive, same precedent as
   // story 039's `aliasName`.
   writeUnbindall: z.boolean().catch(true),
-  // Story 059 D1: whether the writer should keep emitting a `set` line for every catalogue cvar a
+  // Story 059: whether the writer should keep emitting a `set` line for every catalogue cvar a
   // profile's own `cvarSections` do not mention - `true` (today's own unconditional behaviour,
-  // story 048 D2) is the default a missing/malformed value degrades to, same `writeUnbindall`
+  // story 048) is the default a missing/malformed value degrades to, same `writeUnbindall`
   // precedent right above: no migration entry, and a profile persisted before this story renders
   // byte-identical to what it always did.
   writeCatalogDefaults: z.boolean().catch(true),
-  // Story 042 D7: which decoration a rendered file's section banners use. Defaults to `'dashes'`
+  // Story 042: which decoration a rendered file's section banners use. Defaults to `'dashes'`
   // (the User decision) - a missing/malformed value, including every profile persisted before
   // this deliverable, degrades to `'dashes'` rather than throwing, which is also today's only
   // format, so nothing already on disk renders any differently. No migration entry: purely
   // additive, same precedent as `writeUnbindall` right above.
   sectionHeaderStyle: z.enum(['dashes', 'brackets', 'plain']).catch('dashes'),
-  // Story 043 D2: the file-read layer's cache (`main/modules/config/file-source.ts`). All four are
+  // Story 043: the file-read layer's cache (`main/modules/config/file-source.ts`). All four are
   // additive and forgiving, same precedent as `writeUnbindall`/`sectionHeaderStyle` above - no
   // migration entry, and a profile predating this deliverable simply has none of them, which reads
   // back as "no baseline yet" (`fileHash`/`fileSeenAt` absent), "not known dirty" (`dirty: false`)
@@ -270,14 +270,14 @@ export const configProfileObjectSchema = z.object({
     .enum(['unchanged', 'changedOnDisk', 'missing', 'unparseable', 'readError'])
     .optional()
     .catch(undefined),
-  // Story 049 D1: the last-saved snapshot (`profileBaselinePersistedSchema` above). Additive and
+  // Story 049: the last-saved snapshot (`profileBaselinePersistedSchema` above). Additive and
   // forgiving in exactly the shape of `fileHash` right above - a profile persisted before this
   // story, or one whose canonical file has never been written, simply has no key here, and a
   // hand-mangled one degrades to the same absent value rather than dropping the profile. Both read
   // as "no known saved state": nothing is reported as unsaved and discard is unavailable, which is
   // the honest answer for one upgrade cycle (story 049, Decisions) - never a guessed baseline.
   baseline: profileBaselinePersistedSchema.optional().catch(undefined),
-  // Story 066 D3: which handed template (if any) this profile was created from - additive and
+  // Story 066: which handed template (if any) this profile was created from - additive and
   // forgiving in exactly the shape of `fileHash`/`fileState` above. A profile persisted before this
   // story, one created empty, or one created from an import simply has no key here; a hand-mangled
   // value degrades to absent rather than dropping the profile. `'template'` (this field's own
@@ -320,14 +320,14 @@ export type PersistedConfigProfile = ConfigProfile & {
  * The return type is annotated rather than inferred: it is what keeps the two row schemas above -
  * which are no longer each annotated with their shared type - in sync with `ConfigProfile`.
  *
- * Review fix (Finding 1): deriving `kind` here can retype a legacy row to `alias` on a plain read,
+ * Deriving `kind` here can retype a legacy row to `alias` on a plain read,
  * outside `setActions`'s own strip-then-rewrite mirrors - so once every action's `kind` is settled,
  * this also strips any `binds` entry and any layer `overrides` entry that mirrors one of the
  * resulting alias actions (`stripAliasActionBinds`/`stripAliasActionOverrides`,
  * `@shared/config/aliases/modifier-layers`), the exact same value-based exclusion `setActions` and
  * `applyActionLayerMirror` already apply on the write path - not a second, divergent rule.
  *
- * Story 039 (D6): the pass order on this path is now, and must stay,
+ * Story 039: the pass order on this path is now, and must stay,
  * `kind` derive -> `migrateLegacyAliasReferences` -> `stripAliasActionBinds`/
  * `stripAliasActionOverrides` -> `adoptRawBinds`. The migration is first of the three bind passes
  * because the other two apply the current-format, key-scoped ownership rule, and applying it to a
@@ -348,7 +348,7 @@ function normalizeConfigProfile(
   }))
   const aliasActions = actions.filter((action) => action.kind === 'alias')
 
-  // Story 039 (D6): the *first* thing that touches `binds`/`overrides` on this path. Every later
+  // Story 039: the *first* thing that touches `binds`/`overrides` on this path. Every later
   // pass here (the story 019 alias strip, `adoptRawBinds`) and everything downstream of the read
   // (the Controls grid, the conflict scans, the next save's mirrors) reasons about values in the
   // current format under the key-scoped ownership rule; a pre-039 profile's values are in the old
@@ -373,7 +373,7 @@ function normalizeConfigProfile(
     randomUUID,
   )
 
-  // Story 049 (review finding): complete a baseline written before `name` was part of the snapshot.
+  // Complete a baseline written before `name` was part of the snapshot.
   // Only reachable here, at profile level - the baseline's own schema cannot see the sibling `name`,
   // exactly like the `kind` derive above cannot see `categories`. Taken out of the spread rather
   // than written over it, so "no baseline" stays an absent key instead of a present `undefined` one.
@@ -409,7 +409,7 @@ export const configPlayedModsSchema = z
 /**
  * installationId -> engine key name bound to story 007's in-session profile-switch chain.
  *
- * Story 079 D4 (review note): the sibling `configPendingWritesSchema` that used to live here
+ * Story 079 (review note): the sibling `configPendingWritesSchema` that used to live here
  * (installationId -> id of the profile whose last write attempt found it running) is retired - a
  * running game defers nothing now, so nothing is ever pending. Not migrated: an old `state.json`
  * still carrying that key simply has it ignored (`StateStore`'s `parse` no longer reads it), the
@@ -427,7 +427,7 @@ export function parseConfigSwitchBinds(raw: unknown): Record<string, string> {
 
 /**
  * `<profileId>|<installationId|'own'>` -> the last failed/deferred write attempt for that target
- * (story 022, D5 - persisted only; nothing yet constructs or interprets the composite key). Files
+ * (story 022 - persisted only; nothing yet constructs or interprets the composite key). Files
  * written before this key existed simply lack it and load as `{}`.
  *
  * Unlike `configSwitchBindsSchema` above, where a single malformed value has no sensible per-entry
@@ -463,7 +463,7 @@ export function parseConfigWriteFailures(
 }
 
 /**
- * Story 043 D3 (AC8): when the one-time canonical-file format migration completed, as an ISO
+ * Story 043: when the one-time canonical-file format migration completed, as an ISO
  * timestamp - `null` while it has not run yet. A **new top-level state key**, not a
  * `STATE_SCHEMA_VERSION` bump and no `MIGRATIONS` entry: the migration it guards is an *on-disk*
  * action (bring each profile's `.cfg` up to the 040/042 format), not a change to the shape of

@@ -1,6 +1,6 @@
 /**
  * A small, committed corpus of `ConfigProfile`s covering the shapes story
- * 038's writer has to get right (story 038 D3, plan step 4).
+ * 038's writer has to get right (story 038, plan step 4).
  *
  * Why a corpus module instead of data inside a `.test.ts` (Decisions
  * (Sprint)): `fast-check` would be a new dev dependency plus a generator
@@ -13,7 +13,7 @@
  * `src/shared` contract as `render.ts`/`alias-references.ts` themselves.
  *
  * Each exported profile below is named after the shape it exists to cover
- * (see `render-invariants.test.ts`, which asserts AC4's file-level invariant
+ * (see `render-invariants.test.ts`, which asserts the file-level invariant
  * over every one of them); `PROFILE_FIXTURES` is the same set keyed by name,
  * for a caller that wants to iterate the whole corpus rather than name one
  * profile at a time.
@@ -83,7 +83,7 @@ export const plainProfile: ConfigProfile = baseProfile('fixture-plain', {
 // ---------------------------------------------------------------------------
 // 2. catalogueMirror - story 034/038's own case: a continuous catalogue row
 //    mirrored as its own bare `+command`, unreferenced. Its alias line must
-//    be entirely absent from the render (AC1).
+//    be entirely absent from the render.
 // ---------------------------------------------------------------------------
 
 const catalogueMirrorAction = baseAction({
@@ -102,7 +102,7 @@ export const catalogueMirrorProfile: ConfigProfile = baseProfile('fixture-catalo
 })
 
 // ---------------------------------------------------------------------------
-// 3. aliasEntry - a `kind: 'alias'` entry, unreferenced. AC6: the writer
+// 3. aliasEntry - a `kind: 'alias'` entry, unreferenced. The writer
 //    never drops this - that is Care's `aliasUnreferenced` business, not the
 //    writer's.
 // ---------------------------------------------------------------------------
@@ -149,7 +149,7 @@ export const keylessActionProfile: ConfigProfile = baseProfile('fixture-keyless-
 //    `catalogueMirrorProfile`. The whole family (parent and every chunk) must
 //    be absent from the render.
 //
-//    1000 filler bytes, not story 038 D2's 2000: that command is also
+//    1000 filler bytes, not story 038's 2000: that command is also
 //    written verbatim into `binds.w` below (the real `bindValueFor` mirror
 //    for a continuous catalogue row), and `bind w "<command>"` has to stay
 //    under `validate-structure.ts`'s own 1024-byte line limit on its own
@@ -216,7 +216,7 @@ export const modifierLayerProfile: ConfigProfile = baseProfile('fixture-modifier
 //    chain into its own helper alias (`<base>_c1`). The two actions are kept
 //    solely because that *generated* helper body names them - the concrete
 //    "kept because referenced from a hold layer's generated body" case story
-//    038 D2 tests directly.
+//    038 tests directly.
 // ---------------------------------------------------------------------------
 
 // Named exactly after their own commands on purpose (story 039 review fix): with the readable
@@ -345,7 +345,7 @@ const toggleAction: ConfigAction = {
   categoryId: 'movement',
   name: 'Zoom',
   kind: 'toggle',
-  // `[]` on purpose - a two-part entry's bodies live in `parts` (story 045, D1).
+  // `[]` on purpose - a two-part entry's bodies live in `parts` (story 045).
   commands: [],
   keys: [{ key: 'v' }],
   parts: [
@@ -410,7 +410,7 @@ export const pressReleaseProfile: ConfigProfile = baseProfile('fixture-press-rel
 
 // ---------------------------------------------------------------------------
 // 12. waitChain - an ordinary `kind: 'bind'` entry whose body carries two
-//     `{ kind: 'wait', frames }` commands (story 045, D2) with raw commands on
+//     `{ kind: 'wait', frames }` commands (story 045) with raw commands on
 //     either side of each, so the wait expansion is exercised mid-body rather
 //     than only as a whole body of its own.
 // ---------------------------------------------------------------------------

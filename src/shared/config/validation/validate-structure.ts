@@ -1,5 +1,5 @@
 /**
- * Structural profile checks - story 009 D3.
+ * Structural profile checks - story 009.
  *
  * Runs over the *rendered* text of a profile's files, never over 006's/008's
  * internal data shapes, because the rendered output is the one thing every
@@ -41,7 +41,7 @@
  *    `EngineLimits` exists its numbers are used in preference to the bare
  *    constants.
  *
- * Which engines are worth validating at all is D5's decision
+ * Which engines are worth validating at all is the decision
  * (`engineScope()`); this module stays callable for any of them without ever
  * attributing r1q2's numbers to another engine.
  */
@@ -63,7 +63,7 @@ export interface StructureFile {
   content: string
 }
 
-/** Shared prefix of every message key this module emits. D4 owns the sibling `config.validation.cvar.*`. */
+/** Shared prefix of every message key this module emits. The cvar validator owns the sibling `config.validation.cvar.*`. */
 export const STRUCTURE_MESSAGE_PREFIX = 'config.validation.structure.'
 
 /**
@@ -420,7 +420,7 @@ function chainRoots(
  * Structural findings for `files`, judged against `engine`.
  *
  * `files` is deliberately plain `{ name, content }` pairs rather than a
- * `ConfigProfile`: the caller (D5) hands over exactly what `render.ts`
+ * `ConfigProfile`: the caller hands over exactly what `render.ts`
  * produced, so a validated byte and a written byte can never disagree about
  * what they mean. Findings come back in a deterministic order - per file, its
  * size finding then its line findings top to bottom, then the alias findings
@@ -442,7 +442,7 @@ export function validateStructure(files: readonly StructureFile[], engine: Engin
   ): void => {
     findings.push({
       // Unique and stable within one run, and prefixed with the engine so
-      // D5's per-engine sections cannot collide on a React key.
+      // the per-engine sections cannot collide on a React key.
       id: `${engine}:structure:${rule}:${sequence++}`,
       level,
       engine,

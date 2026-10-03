@@ -11,7 +11,7 @@ import { createModuleClient } from '../moduleClient'
 const client = createModuleClient<HomeContract>('home')
 
 /**
- * Typed client for the home module's community news feed (story 082 D7). One
+ * Typed client for the home module's community news feed (story 082). One
  * function per handler/event in its contract - mirrors `modules/library/client.ts`.
  *
  * No component, no store, no i18n string lives here: this is purely the typed
@@ -26,7 +26,7 @@ export function refreshNews(): Promise<Outcome<NewsFeed>> {
 }
 
 /**
- * Opens a slide button's `url` (story 083 D5). Main re-checks the scheme and the host allowlist
+ * Opens a slide button's `url` (story 083). Main re-checks the scheme and the host allowlist
  * itself (`main/modules/home/open-slide-url.ts`) - the renderer never decides whether a url is
  * allowed to open, it only ever passes it through this call.
  */
@@ -35,7 +35,7 @@ export function openSlideUrl(url: string): Promise<Outcome<null>> {
 }
 
 /**
- * Subscribes to the `news.changed` push (D6) - emitted only when a refresh
+ * Subscribes to the `news.changed` push - emitted only when a refresh
  * actually changed the delivered feed. The main process is the only validator
  * of this payload's shape (it is built from the already-validated `NewsFeed`
  * `news.get`/`news.refresh` resolve to); the renderer trusts it rather than
@@ -46,7 +46,7 @@ export function onNewsChanged(listener: (feed: NewsFeed) => void): () => void {
   return client.on(HOME_EVENTS.newsChanged, listener)
 }
 
-/** Story 086 D1: the persisted dashboard tile arrangement. */
+/** Story 086: the persisted dashboard tile arrangement. */
 export function getHomeLayout(): Promise<Outcome<HomeLayout>> {
   return client.call(HOME_HANDLERS.getLayout)
 }

@@ -4,7 +4,7 @@ import { JsonStore } from '../../lib/json-store'
 import { userDataDir } from '../../lib/paths'
 
 /**
- * Story 144 D1: the replays/demos index's own disposable cache file under `userData`, mirroring
+ * Story 144: the replays/demos index's own disposable cache file under `userData`, mirroring
  * `src/main/modules/home/news/feed-cache.ts`.
  *
  * `replays-index.json` holds one entry per discovered demo, keyed by discovery's opaque entry id,

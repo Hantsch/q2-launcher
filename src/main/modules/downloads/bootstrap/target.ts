@@ -6,13 +6,13 @@ import { canonicalizePath, isDirectory, isInside, listDir } from '../../../lib/f
 import { inspectInstallation, looksLikeQuake2 } from '../../../services/inspector'
 
 /**
- * Story 074 D2: computes the target-folder verdict the bootstrap wizard's target-folder step
- * renders (AC3) - "the wizard renders verdicts, it never judges paths itself" (Decisions
+ * Story 074: computes the target-folder verdict the bootstrap wizard's target-folder step
+ * renders - "the wizard renders verdicts, it never judges paths itself" (Decisions
  * (Sprint)). Everything here is a pure fact-gathering pass over one folder; the wizard UI (a later
  * deliverable) decides what to *do* with a non-blocking warning.
  */
 
-/** How many directory entries `entries[]` carries at most - just enough for the AC3 warning list. */
+/** How many directory entries `entries[]` carries at most - just enough for the warning list. */
 export const MAX_TARGET_VERDICT_ENTRIES = 20
 
 /**
@@ -102,7 +102,7 @@ async function probeWritable(dir: string): Promise<boolean> {
 }
 
 /**
- * Story 089 D2: the path-shape half of `computeTargetVerdict`'s `unsafePath` check, pulled out so
+ * Story 089: the path-shape half of `computeTargetVerdict`'s `unsafePath` check, pulled out so
  * `game-data-source.ts`'s `inspectGameDataSource` can reject the same class of unsafe paths (device
  * paths, non-absolute paths, reserved Windows device names) without pulling in the target-specific
  * `protectedDirs`/writability/`alreadyInstalled` checks below, which need a *target* path and make

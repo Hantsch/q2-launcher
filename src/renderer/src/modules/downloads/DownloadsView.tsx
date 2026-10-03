@@ -20,19 +20,19 @@ import { FailureLogEntry } from './components/FailureLogEntry'
  * (Decisions (Sprint): "a `succeeded` job stays visible ~2 s with a token-based fade"). */
 const SUCCESS_FADE_MS = 2000
 
-// Story 091 D3: `waiting` is an active status (deferred behind the write guard, resumes on its
+// Story 091: `waiting` is an active status (deferred behind the write guard, resumes on its
 // own) - it belongs in the live list alongside `queued`/`running`/`paused`, not the failure log.
 const LIVE_STATUSES = new Set<Job['status']>(['queued', 'running', 'paused', 'waiting'])
 
 /**
- * Story 073 D3: the Downloads tab - the real view that replaces `PlannedModuleView` for the
- * `downloads` module (AC4).
+ * Story 073: the Downloads tab - the real view that replaces `PlannedModuleView` for the
+ * `downloads` module.
  *
  * Renders the store's `jobs` slice (no dedicated IPC call - main already broadcasts the full
  * list over `jobs:changed`, Decisions (Sprint)) as a live job list, plus the archive cache's
  * current size fetched once through the module client.
  *
- * Story 073 D4 adds the failure log below the live list: undismissed entries are always
+ * Story 073 adds the failure log below the live list: undismissed entries are always
  * visible, dismissed ones collapse into a `<details>` disclosure with a restore action
  * (Decisions (Sprint)). There is no push channel for the log - it is refetched on mount and on
  * every `jobs:changed` (the `jobs` dependency below), and the dismiss/restore calls apply the
@@ -42,7 +42,7 @@ export function DownloadsView() {
   const { t } = useTranslation()
   const jobs = useLauncher((state) => state.jobs)
   const cancelJob = useLauncher((state) => state.cancelJob)
-  // D6 (AC5): `appInfo` is fetched once at store bootstrap - reused here rather than a second
+  // `appInfo` is fetched once at store bootstrap - reused here rather than a second
   // fetch, mirroring `SettingsView.tsx`'s reveal-log-path pattern (`null` until it resolves).
   const appInfo = useLauncher((state) => state.appInfo)
   const cacheQuery = useModuleQuery(getArchiveCacheStatus)
@@ -50,7 +50,7 @@ export function DownloadsView() {
   const [fadingIds, setFadingIds] = useState<ReadonlySet<string>>(new Set())
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set())
 
-  // D4: the failure log has no push channel - it is refetched on mount and whenever the `jobs`
+  // the failure log has no push channel - it is refetched on mount and whenever the `jobs`
   // store slice changes, since a failure always coincides with a `jobs:changed` broadcast
   // (Decisions (Sprint)).
   const failuresQuery = useModuleQuery(getDownloadFailures, { deps: [jobs] })

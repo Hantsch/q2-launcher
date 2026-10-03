@@ -9,7 +9,7 @@ import {
 } from './discovery'
 
 /**
- * Story 170 D3: a stage play sets `vid_fullscreen`/`vid_geometry` on the command line, and Q2PRO
+ * Story 170: a stage play sets `vid_fullscreen`/`vid_geometry` on the command line, and Q2PRO
  * archives both into the user's own `q2config.cfg` when it exits. This puts back exactly those lines
  * afterwards - it never rewrites the file from a snapshot:
  *

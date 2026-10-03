@@ -35,12 +35,12 @@ import {
 import { installR1q2Notices, seedR1glConfig } from './r1q2-setup'
 
 /**
- * Story 074 D4. The job's correctness is a *sequencing* property, so this suite drives the real
+ * Story 074. The job's correctness is a *sequencing* property, so this suite drives the real
  * `JobsService`, the real `InstallationsService` (over an in-memory state stand-in) and the real
  * `inspectInstallation`, and fakes only the three ports (`ports.ts`): the manifest, the network and
  * the extractor. That split is deliberate -
  *
- *  - **real installations + real inspector**, because AC6 is "the status always comes from
+ *  - **real installations + real inspector**, because the rule is "the status always comes from
  *    `inspectInstallation`". A faked installations service would let the job hand-set a status and
  *    this suite would happily agree; with the real one, every status assertion below is a statement
  *    about the actual files on disk, re-derived independently in the test.
@@ -73,7 +73,7 @@ export const DEMO_PACKAGE: ManifestPackage = {
   contents: [{ from: 'baseq2/pak0.pak', to: 'baseq2' }],
 }
 
-/** Story 080 D2: the pinned R1Q2 engine package, standing in for `r1q2-b8012-msvs2022-win32`. */
+/** Story 080: the pinned R1Q2 engine package, standing in for `r1q2-b8012-msvs2022-win32`. */
 export const R1Q2_ENGINE_PACKAGE: ManifestPackage = {
   kind: 'engine',
   engine: 'r1q2',
@@ -108,18 +108,18 @@ export const DEFAULT_PACKAGES: ManifestPackage[] = [
  * What each package's archive "contains", written into its extract dir by the fake extractor.
  *
  * Story 076: every entry `assemble.ts` marks `required` is present here, because a fixture that is
- * missing one now fails the whole run with `downloads.error.packageIncomplete` (D3) rather than
- * quietly copying less - which is the point of D3, and the reason this constant carries the
+ * missing one now fails the whole run with `downloads.error.packageIncomplete` rather than
+ * quietly copying less - which is the point, and the reason this constant carries the
  * engine's `baseq2/gamex86_64.dll` and the point release's `baseq2/pak1.pak`. The extras sit under
- * `baseq2/video` and `baseq2/players`, the source layout D1 measured on the real archives (AC4).
+ * `baseq2/video` and `baseq2/players`, the source layout measured on the real archives.
  */
 export const FIXTURE_CONTENTS: Record<string, string[]> = {
   [ENGINE_PACKAGE.id]: ['q2pro.exe', 'baseq2/gamex86_64.dll'],
-  // Story 080 D2: the R1Q2 package's own three required files, plus `dedicated.exe` (AC3's
+  // Story 080: the R1Q2 package's own three required files, plus `dedicated.exe` (the
   // exclusion) - this suite would notice the wired-up job dragging that in.
   [R1Q2_ENGINE_PACKAGE.id]: ['r1q2.exe', 'ref_r1gl.dll', 'baseq2/gamex86.dll', 'dedicated.exe'],
   [DEMO_PACKAGE.id]: ['baseq2/pak0.pak'],
-  // `ctf/pak0.pak` is what the real 3.20 archive also ships and what AC8 forbids in the target -
+  // `ctf/pak0.pak` is what the real 3.20 archive also ships and what must never appear in the target -
   // included here so this suite would notice the wired-up job dragging it in.
   [POINT_RELEASE_PACKAGE.id]: [
     'baseq2/pak1.pak',
@@ -172,16 +172,16 @@ export interface Harness {
   deps: BootstrapDeps
   jobs: JobsService
   installations: InstallationsService
-  /** Story 091 D6: the launch state the write guard reads; `set()` is "the game
+  /** Story 091: the launch state the write guard reads; `set()` is "the game
    * started"/"the game exited". */
   launch: ControllableLaunch
   fetched: string[]
-  /** Story 075 D3: every line the job's `BootstrapLog` was handed, in order. */
+  /** Story 075: every line the job's `BootstrapLog` was handed, in order. */
   logLines: string[]
-  /** Story 088 D4: the game-data roles the manifest was asked to resolve, in order. Empty for a
-   * `store-copy` run, which downloads the engine build and nothing else (AC4). */
+  /** Story 088: the game-data roles the manifest was asked to resolve, in order. Empty for a
+   * `store-copy` run, which downloads the engine build and nothing else. */
   gameDataRequests: GameDataRole[]
-  /** Story 088 D4: how often the job re-listed main's own detected retail sources. */
+  /** Story 088: how often the job re-listed main's own detected retail sources. */
   retailSourceCalls: { count: number }
 }
 
@@ -189,9 +189,9 @@ export interface Harness {
  * A harness with working fakes. `onFetch` is the seam the cancel test uses to stop the world in the
  * middle of the second package; the fake extractor always writes that package's fixture tree.
  *
- * Story 075 D3 added the last four seams: a serving URL that differs from the manifest's (a mirror
+ * Story 075 added the last four seams: a serving URL that differs from the manifest's (a mirror
  * stand-in), a fetch and an extraction that fail for one named package, and a fixed `homeDir` for
- * the diagnostics collector - which is wired in for every run, since the whole point of D3 is that
+ * the diagnostics collector - which is wired in for every run, since the whole point is that
  * capture is not a special mode the job is put into.
  */
 export function harness(
@@ -214,7 +214,7 @@ export function harness(
      */
     homeDir?: string
     /**
-     * Story 080 D3: whether `deps.r1q2Setup.probeX86Runtime()` reports the x86 VC++ runtime
+     * Story 080: whether `deps.r1q2Setup.probeX86Runtime()` reports the x86 VC++ runtime
      * present. Defaults to `true` so every test written before this port existed keeps passing
      * unmodified; only the runtime-gate tests override it. `seedR1glConfig`/`installR1q2Notices`
      * are always the real implementations (real file I/O against this suite's own temp dirs, the
@@ -223,13 +223,13 @@ export function harness(
      */
     r1q2RuntimePresent?: boolean
     /**
-     * Story 088 D4: what `deps.retailSources()` - main's *own* freshly listed detected retail
+     * Story 088: what `deps.retailSources()` - main's *own* freshly listed detected retail
      * sources - answers this run. Defaults to none detected, so a `store-copy` run that does not
      * set this is refused, which is exactly what the negative tests are about.
      */
     retailSources?: DetectedRetailSource[]
     /**
-     * Story 089 D3: substitutes the verdict `deps.inspectGameDataSource` answers for the picked
+     * Story 089: substitutes the verdict `deps.inspectGameDataSource` answers for the picked
      * folder. Left unset, the job uses its production default - the *real* `inspectGameDataSource`
      * against the real fixture folder - which is what the refusal tests below want. It is only
      * overridden where a test needs a `retail` verdict, for the same reason `detectedSource()`
@@ -328,7 +328,7 @@ export function harness(
   }
 
   /**
-   * Story 088 D4: the manifest the deps get is the test's own, wrapped so every *game-data*
+   * Story 088: the manifest the deps get is the test's own, wrapped so every *game-data*
    * resolution is recorded. "A store-copy run resolves the engine package only" is a statement
    * about what the job asks the manifest for, not only about what it ends up downloading - a run
    * that resolved the demo and then never fetched it would still be wrong.
@@ -343,7 +343,7 @@ export function harness(
     },
   }
 
-  /** Story 088 D4: main's own detected-source list, and how often the job asked for it. */
+  /** Story 088: main's own detected-source list, and how often the job asked for it. */
   const retailSourceCalls = { count: 0 }
 
   const logLines: string[] = []
@@ -413,7 +413,7 @@ export function recordFor(box: Harness, jobId: string): ReturnType<typeof diagno
 }
 
 /**
- * Makes the *inspector's* verdict the thing that fails a run, now that story 076 D3 fails a run
+ * Makes the *inspector's* verdict the thing that fails a run, now that story 076 fails a run
  * whose sources were missing a required file long before the verdict is taken. Every package here
  * still contributes everything the allowlist requires; the assembled paks are then removed from the
  * target immediately before each revalidation, so `inspectInstallation` genuinely reads a folder
@@ -447,7 +447,7 @@ export function breakTargetOnSecondValidate(box: Harness): {
   let calls = 0
   vi.spyOn(box.installations, 'validate').mockImplementation(async (id) => {
     calls += 1
-    // Exactly the second call, not "the second and every later one": story 077 D2's failure path
+    // Exactly the second call, not "the second and every later one": story 077's failure path
     // revalidates once more *after* its cleanup, and that third call must not overwrite what this
     // observation recorded about the disk before anything was deleted.
     if (calls === 2) {
@@ -476,8 +476,8 @@ export async function exists(path: string): Promise<boolean> {
 }
 
 /**
- * Story 088 D4: a fixture "store installation" to copy from - `baseq2/pak0.pak`+`pak1.pak`, plus the
- * `ctf/` payload a real Steam/GOG install also carries and AC7 forbids in the target. The paks hold
+ * Story 088: a fixture "store installation" to copy from - `baseq2/pak0.pak`+`pak1.pak`, plus the
+ * `ctf/` payload a real Steam/GOG install also carries and that is forbidden in the target. The paks hold
  * a few bytes rather than their real retail sizes: what makes a source copyable in this suite is the
  * *verdict* `deps.retailSources()` hands the job (fabricated below), and measuring real sizes is
  * `retail-source.test.ts`'s subject, not this one's.

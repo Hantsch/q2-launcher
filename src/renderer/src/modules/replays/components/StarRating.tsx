@@ -14,7 +14,7 @@ export interface StarRatingProps {
   label: string
 }
 
-/** Story 179 D3: a 1-10 star radio group. Clicking the current star clears it. */
+/** Story 179: a 1-10 star radio group. Clicking the current star clears it. */
 export function StarRating({
   value,
   onChange,

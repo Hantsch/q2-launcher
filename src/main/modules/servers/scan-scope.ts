@@ -5,15 +5,15 @@ import { buildScanAddressSet } from './address-set'
 import { listFavourites } from './favourites'
 
 /**
- * Story 117 D2: maps a `ScanScope` to the exact `ScanTarget[]` this scan round will touch - pure,
+ * Story 117: maps a `ScanScope` to the exact `ScanTarget[]` this scan round will touch - pure,
  * no I/O. Mirrors `favourites.ts`'s pure-helper shape for this module.
  *
  * - `all` delegates to 114's own union resolver (`buildScanAddressSet`) unchanged, with the same
  *   inputs it always took, so "Refresh servers" and the auto-scan are provably the same address
- *   set, not a parallel implementation (AC1).
+ *   set, not a parallel implementation.
  * - `favourites` returns only the current favourites (`listFavourites(state)`), ignoring
  *   `resolvedSourceAddresses` and `state.manualServers` entirely - a favourites-only refresh never
- *   touches a non-favourite address (AC2).
+ *   touches a non-favourite address.
  * - `server` returns exactly one target for the given address, `origins: []` (mirrors
  *   `scan-runner.ts`'s own fallback for a selected address that is in no known list) - allowed
  *   even when that address is in no source/favourite/manual list.

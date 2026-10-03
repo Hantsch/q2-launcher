@@ -16,7 +16,7 @@
  * that was an earlier design's bug (two actions can render the identical
  * command, e.g. `dropWeapon:grenades`/`dropAmmo:hgrenades` both rendering
  * `drop grenades`) and this module's whole reason to exist is to make that
- * class of bug impossible. Story 016 D9 removed the last pieces that used to
+ * class of bug impossible. Story 016 removed the last pieces that used to
  * read *back* by command string (`upsertModifierLayerOverride`,
  * `findModifierOverrideOwner`, `findBindLocation`, plus `catalog-binds.ts`'s
  * reverse-parse helpers) once this mirror made them dead code - a command
@@ -63,7 +63,7 @@ const MODIFIER_LAYER_MODE: AltLayerMode = 'hold'
  * Derive, for every alt/ctrl/shift layer, the `overrides` mirror of `actions`'
  * modifier slots - the layer-side equivalent of `setActions`'s `binds` mirror
  * in `src/main/modules/config/profiles.ts` (decision 17 there; this is its
- * D7 counterpart for story 016's re-plan, decisions 14-21).
+ * name-format counterpart for story 016's re-plan, decisions 14-21).
  *
  * A modifier binding is a property of the `ConfigAction` itself (the
  * `modifier` of one of its key slots), never derived from command text -
@@ -136,7 +136,7 @@ export function applyActionLayerMirror(
   newId: () => string,
   previousActions: readonly ConfigAction[] = actions,
 ): AltLayer[] {
-  // The ownership rule (story 034, restated as *the* rule by story 039 D3):
+  // The ownership rule (story 034, restated as *the* rule by story 039):
   // an override is ours iff its value is `bindValueFor` of a previous action
   // *on a key that action held*. Value alone does not identify a mirror write -
   // a continuous catalogue row mirrors as its own `+command` and a readable
@@ -229,10 +229,10 @@ export function applyActionLayerMirror(
  * still `'bind'` recovers that historical value without duplicating its
  * slugging/id-suffix logic here.
  *
- * **Legacy-only, deliberately** (story 039 D6): the *legacy* generated name
+ * **Legacy-only, deliberately** (story 039): the *legacy* generated name
  * (`q2l_a_<slug>_<id4>`), not `aliasNameFor`'s current one. The entries these
  * two strip passes exist to clean up were all written by a pre-039 mirror, so
- * the legacy format is the only one they can ever have; and after the D7 name
+ * the legacy format is the only one they can ever have; and after the later name
  * flip an alias entry's "synthetic bind-era name" would be *identical to its
  * real, readable alias name* (`drop_shotgun`), so matching the current form
  * would delete a legitimate hand-typed `bind KP_END "drop_shotgun"` that
@@ -242,7 +242,7 @@ export function applyActionLayerMirror(
  *
  * Used by `stripAliasActionBinds`/`stripAliasActionOverrides` right below to
  * recognise *this specific action's own* stale mirrored entry by value, never
- * by which key slot it happens to sit in (review fix, Finding 1 respin): a
+ * by which key slot it happens to sit in: a
  * key is a slot, not an identity (the same point this file's own doc comment
  * makes about `aliasNameFor` itself), so a different, unrelated action that
  * later claims the very same key must never be swept up just because it
@@ -253,7 +253,7 @@ function staleAliasSyntheticName(action: ConfigAction): string {
 }
 
 /**
- * Story 019 D1 (review fix, Finding 1; respun after a follow-up review found
+ * Story 019 (found in review, and again after a follow-up review found
  * the first fix still matched by key/slot instead of by value): remove every
  * `binds` entry whose *value* is one of `aliasActions`' own stale synthetic
  * names - the exact value `setActions`'s bind mirror would have written for
@@ -271,7 +271,7 @@ function staleAliasSyntheticName(action: ConfigAction): string {
  * different action's legitimate bind, that happens to occupy the same key the
  * alias used to hold survives untouched - only an entry whose value is
  * literally that alias's own former *legacy* name is removed
- * (`staleAliasSyntheticName`, story 039 D6: never the current, readable name,
+ * (`staleAliasSyntheticName`, story 039: never the current, readable name,
  * which a user can legitimately reference by hand).
  *
  * Returns `binds` unchanged (same reference) when there is nothing to strip.
@@ -296,7 +296,7 @@ export function stripAliasActionBinds(
 }
 
 /**
- * Story 019 D1 (review fix, Finding 1; respun, see `stripAliasActionBinds`
+ * Story 019 (see `stripAliasActionBinds`
  * above): the layer-`overrides` counterpart, for exactly the same reason and
  * with the same value-based matching - the persisted-schema read derives a
  * legacy row's `kind` outside of `applyActionLayerMirror`'s own

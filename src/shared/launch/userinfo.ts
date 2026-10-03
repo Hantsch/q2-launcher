@@ -1,6 +1,6 @@
 /**
  * Contract for handing a server-join password (and, later, spectator flag) to the game without
- * ever putting it in argv (story 125 D1).
+ * ever putting it in argv (story 125).
  *
  * The concept problem: a password typed into the launcher must reach the engine's `userinfo`
  * cvars, but `+set password "<value>"` on the command line would put the password in `argv`

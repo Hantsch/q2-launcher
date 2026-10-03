@@ -8,7 +8,7 @@ import { hardenWebContents, OFFSCREEN_MARGIN, rendererWebPreferences } from './w
 const log = scopedLogger('cinema-window')
 
 /**
- * Story 187 D4: the cinema overlay - a transparent, frameless window laid over the primary display
+ * Story 187: the cinema overlay - a transparent, frameless window laid over the primary display
  * (over the borderless full-display game), showing the renderer's `cinema.html`. A narrow shell
  * service like the main-window observer: modules ask for `open()`/`close()`, they never touch a
  * `BrowserWindow`. Uses the same preload and `webPreferences` as the main window.

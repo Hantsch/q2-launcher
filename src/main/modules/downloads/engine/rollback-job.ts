@@ -10,14 +10,14 @@ import { ENGINE_BACKUP_DIR_NAME, ENGINE_REPLACE_FAILED } from './update-job'
 import { readEngineState, type InstallationEngineState } from '../../../services/engine-state'
 
 /**
- * Story 092 D6 (AC3/AC6/AC7): the engine-rollback job - "put the single backed-up build back over
+ * Story 092: the engine-rollback job - "put the single backed-up build back over
  * whatever this installation is currently running, and forget the backup". Far smaller than
  * `update-job.ts`: there is no network, no manifest and no extraction here, because the bytes this
  * job moves are already on disk.
  *
  * ## What "the backup's file list" means
  *
- * `EngineBackupInfo` (D1/D2) records only *what version* the slot holds, not *which files* -
+ * `EngineBackupInfo` records only *what version* the slot holds, not *which files* -
  * `<root>/.q2launcher-engine-backup/` itself is the file list, because the backup only ever
  * contains what an update actually moved into it (`update-job.ts`'s "the backup set is the copy
  * set"). Restoring therefore walks that directory rather than re-deriving one from
@@ -27,17 +27,17 @@ import { readEngineState, type InstallationEngineState } from '../../../services
  *
  * ## The order
  *
- * 1. **Resolve the installation** and its recorded engine state (D2). No `backup` on record fails
+ * 1. **Resolve the installation** and its recorded engine state. No `backup` on record fails
  *    outright with `downloads.error.engineNoBackup` - **before** the job exists, so a rollback with
  *    nothing to roll back to leaves no job and no progress bar, exactly like `startEngineUpdate`'s
  *    own pre-flight refusals.
- * 2. **Inside the write guard** (AC6, deferred for as long as this installation's own game is
+ * 2. **Inside the write guard** (deferred for as long as this installation's own game is
  *    running): every file under the backup slot is moved onto the installation path it came
  *    from - resolved case-insensitively against the installation as it stands today
  *    (`resolveRelaxed`), the same way `update-job.ts` resolves the *current* engine file before
  *    backing it up, falling back to the canonical spelling (`plannedDestination`) for a path the
  *    installation no longer has (the rolled-back build restores a file a later update had removed).
- * 3. **Drop the backup pointer and record the restored version** (`setEngineState`) - AC7: "current"
+ * 3. **Drop the backup pointer and record the restored version** (`setEngineState`) - "current"
  *    is whatever is now actually on disk, which after a rollback is the backed-up build.
  * 4. **Delete the now-consumed backup directory.**
  * 5. **Revalidate**, outside the guard - the status is re-derived by the inspector, never

@@ -2,7 +2,7 @@ import type { ConfigProfile, ProfileSyncState } from '@shared/modules/config'
 import { toCareSyncRows, type CareSyncState } from '../../config/lib/care-sync'
 
 /**
- * Story 087 D4: one row per config profile for the dashboard's Config profiles tile.
+ * Story 087: one row per config profile for the dashboard's Config profiles tile.
  *
  * - `own` ("sync state", Decisions (Sprint)): the profile's own canonical file's status -
  *   `toCareSyncRows(sync)[0].state`, the `'canonical'` row.
@@ -37,7 +37,7 @@ function buildRow(profile: ConfigProfile, sync: ProfileSyncState | undefined): C
   const counts = { assigned: profile.assignments.length }
 
   // The caller's per-profile `getProfileSyncState` fetch failed (rejected, or came back `!ok`) -
-  // this profile's row still renders (D4's own acceptance line), marked with the most severe state
+  // this profile's row still renders, marked with the most severe state
   // in both columns rather than being dropped or crashing the tile.
   if (!sync) {
     return { id: profile.id, name: profile.name, own: 'failed', installations: 'failed', counts }

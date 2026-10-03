@@ -28,15 +28,15 @@ import type { BootstrapLog } from '../bootstrap/ports'
 import { copyRetailGameData, findDetectedRetailSource } from '../bootstrap/retail-source'
 
 /**
- * Story 090 D2: the retail-upgrade job - "take this already-registered demo installation and
+ * Story 090: the retail-upgrade job - "take this already-registered demo installation and
  * replace its game data with `pak0.pak`/`pak1.pak` copied out of a store installation the launcher
- * itself detected", without re-running the wizard and without re-downloading the engine (INST-D4).
+ * itself detected", without re-running the wizard and without re-downloading the engine.
  *
  * A body on the shared `JobRunner`, which owns admission (one job per installation), cancellation,
  * the write guard and the closing revalidation; failures are `downloads.error.*` keys instead of
  * prose (CLAUDE.md). What it is *not* is a call into that job: nothing here routes through
  * `startBootstrap`, so the two-pass extras logic that re-copies the whole allowlist a second time
- * (story 088's finding F6, `job.ts` steps 7-8) is unreachable from this file. This story copies
+ * (story 088, `job.ts` steps 7-8) is unreachable from this file. This story copies
  * with `includeVideoAndPlayers: false` always (Decisions (Sprint): "paks only"), which is the one
  * input that pass is gated on, and it calls `copyRetailGameData` directly.
  *
@@ -44,7 +44,7 @@ import { copyRetailGameData, findDetectedRetailSource } from '../bootstrap/retai
  *
  * 1. **Resolve the installation.** An id the library no longer holds ends the call before anything
  *    else is looked at.
- * 2. **Re-verify the source** (AC6). `sourceRootPath` came from the renderer, so it is re-resolved
+ * 2. **Re-verify the source**. `sourceRootPath` came from the renderer, so it is re-resolved
  *    against main's own freshly listed detected sources (`deps.retailSources`, which re-inspects
  *    each entry) and refused unless it is among them *and* still verifies as retail - the same two
  *    conditions, decided by the same `findDetectedRetailSource` predicate, that `bootstrap/job.ts`
@@ -54,11 +54,11 @@ import { copyRetailGameData, findDetectedRetailSource } from '../bootstrap/retai
  *    this action could destroy data rather than replace it.
  *
  * Steps 1-2 both answer a failed `Outcome` from `startRetailUpgrade` itself, **before
- * `jobs.create`** - so a refusal leaves no job, no progress bar, no failure-log entry, and (AC6)
+ * `jobs.create`** - so a refusal leaves no job, no progress bar, no failure-log entry, and
  * nothing copied.
  *
- * 3. **Copy, then rename** (AC4), behind the write guard. See `runUpgrade` below.
- * 4. **`InstallationsService.validate(id)`** (AC5). This file never writes a status, never touches
+ * 3. **Copy, then rename**, behind the write guard. See `runUpgrade` below.
+ * 4. **`InstallationsService.validate(id)`**. This file never writes a status, never touches
  *    `Installation.source`, and has no way to: `RetailUpgradeInstallationsHost` exposes exactly
  *    `find` and `validate`, so "the status is re-derived, never hand-set" is checkable by reading
  *    the type rather than the whole flow.
@@ -106,7 +106,7 @@ export const RETAIL_UPGRADE_JOB_KIND = 'retail-upgrade'
 export const RETAIL_UPGRADE_JOB_LABEL_KEY = 'downloads.job.retailUpgrade'
 
 /**
- * The only two files this job ever writes into the installation (AC4, and Decisions (Sprint):
+ * The only two files this job ever writes into the installation (
  * "Upgrade scope: paks only"). `pak2.pak` is deliberately absent even though
  * `copyRetailGameData`'s allowlist offers it: leaving the demo state needs pak0+pak1, and this
  * story does not backfill anything else. Anything the copy staged beyond these two names is
@@ -133,7 +133,7 @@ export type StartedRetailUpgrade = StartedJob<DownloadsErrorKey, UpgradeSuccess>
 
 /**
  * The `InstallationsService` surface this job uses. Two methods, and deliberately neither `update`
- * nor `setIcon` nor anything else that could write a status or a flag: AC5 is "re-derived from the
+ * nor `setIcon` nor anything else that could write a status or a flag: the rule is "re-derived from the
  * inspector, never hand-set", and this type is what makes that a property of the code rather than
  * of the control flow below.
  */
@@ -189,7 +189,7 @@ export async function startRetailUpgrade(
   const installation = deps.installations.find(input.installationId)
   if (!installation) return fail(INSTALLATION_NOT_FOUND)
 
-  // 2. AC6, and CLAUDE.md's "paths from the renderer are never trusted".
+  // 2. CLAUDE.md's "paths from the renderer are never trusted".
   const verified = await verifyUpgradeSource(deps, input.sourceRootPath, installation.rootPath)
   if (!verified.ok) {
     log?.warn(
@@ -221,7 +221,7 @@ export async function startRetailUpgrade(
  * retail installation that the user had also registered in the library would otherwise be copied
  * onto itself through a staging directory carved out of its own `baseq2`.
  *
- * The failure carries `params: { reason }` as data for the log and D3's dialog - the source's own
+ * The failure carries `params: { reason }` as data for the log and the dialog - the source's own
  * `RetailSourceUnverifiedReasonKey` where there is one, never prose.
  */
 async function verifyUpgradeSource(

@@ -37,24 +37,24 @@ import {
 import type { PlaybackChannel } from './types'
 
 /**
- * Story 164 D2: the Windows playback channel. Q2PRO on Windows has no usable stdin, so the launcher
+ * Story 164: the Windows playback channel. Q2PRO on Windows has no usable stdin, so the launcher
  * talks to it through files in the game dir: the engine re-executes `q2l_ctl.cfg` every loop tick
  * (the guard `if $q2l_seq < N` makes each command run once), and its answers (`POS`, `ACK`,
  * `Demo finished`) arrive in the dedicated logfile, which this channel tails.
  *
- * Story 185 D2: a command goes to the game at once, never behind an earlier command's ACK. Every
+ * Story 185: a command goes to the game at once, never behind an earlier command's ACK. Every
  * unacknowledged seq has its own guard in the control file; the guards are monotone, so they run in
  * seq order, each exactly once, and an ACK for N retires every seq up to N. Each seq times out on its
  * own and is dropped from the file without holding up the ones after it.
  *
- * Story 166 D3: command N's console line lives alone in its own `q2l_cmd_N.cfg`, which the guard
+ * Story 166: command N's console line lives alone in its own `q2l_cmd_N.cfg`, which the guard
  * execs, so a free line never sits inside the guard's quoted string. That file is always on disk
  * before the control file that names it, and is removed once its ACK is seen (or on close).
  *
  * Every file operation is synchronous so a poll tick can never interleave with another tick, a send
  * or close; nothing a timer runs can reject.
  *
- * Story 172 D4: the fullscreen switch is one internal guarded command whose cfg runs
+ * Story 172: the fullscreen switch is one internal guarded command whose cfg runs
  * `vid_fullscreen 1` (unless the user already switched) and redefines `q2l_loop`, so the engine's
  * loop ends on its next call. `stage -> entering -> fullscreen`: once fullscreen, the control file
  * is rewritten idle - `exec q2l_loop.cfg` (Back to window) resets `q2l_seq` to 0, which would make

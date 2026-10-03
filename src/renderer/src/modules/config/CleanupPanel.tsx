@@ -20,23 +20,23 @@ function findingKey(entry: { gameDir: string; fileName: string }): string {
 }
 
 /**
- * Story 010 D4: scans an installation for mod-folder `.cfg` files that
+ * Story 010: scans an installation for mod-folder `.cfg` files that
  * duplicate a same-named `baseq2` file, and lets the user review, remove and
  * (per decision 6) undo that removal.
  *
- * Story 025 D7 moved it off the config module's list screen into the Care tab
+ * Story 025 moved it off the config module's list screen into the Care tab
  * with an installation picker and a "scan any installation" scope control;
- * story 058 D6 takes both away again. The panel is now mounted by
+ * story 058 takes both away again. The panel is now mounted by
  * `CleanupConfigCopiesDialog` from an installation row in Library, and the row
  * *is* the scope - there is one `installationId`, handed in as a prop, and
  * every scan, apply and restore call below uses it. Its `onStatusChange`
  * callback is gone with it: a manual scan is not a status, so Care no longer
- * reports on one (AC 2).
+ * reports on one.
  *
  * Nothing here is persisted (story 010 decision 14): the scan, the selection
  * and the last apply/restore result all live in this component's own state and
  * are lost on a re-scan or on closing the dialog - the on-disk backup that
- * makes undo possible is D2's job, already done in main.
+ * makes undo possible is the job, already done in main.
  *
  * Read-only until "Remove selected" is confirmed, mirroring
  * `ImportProfileDialog`'s discipline: `cleanup.scan` never writes anything, so

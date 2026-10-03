@@ -1,5 +1,5 @@
 /**
- * Sort/filter shaping for the Aliases tab's row list (story 044, D4).
+ * Sort/filter shaping for the Aliases tab's row list (story 044).
  *
  * Pure, like every other `lib/*.ts` file in this module (see `cvar-rows.ts`) - no DOM, no hooks, no
  * i18n - so sorting and filtering can be unit-tested without a component harness. Generic over the

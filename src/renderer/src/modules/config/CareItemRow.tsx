@@ -13,16 +13,16 @@ import type { CareItem, CareItemAction, CareItemDetail } from './lib/care-items'
 import type { TidyUpFindingKind } from './lib/tidy-up-findings'
 
 /**
- * Story 058 D2: the one row shape every Care group renders through — title,
+ * Story 058: the one row shape every Care group renders through — title,
  * one-sentence consequence, level badge (icon + text, never colour alone) and
  * an action cluster built straight from `item.actions`. Config health never
  * hands it an item with actions (nothing a list can fix, `lib/care-items.ts`'s
- * own doc comment); Files (D3) and Tidy-up (D4) both do, and D5's "Show in
+ * own doc comment); Files and Tidy-up both do, and the "Show in
  * Controls" reuses the same cluster — one shared row rather than a second one
  * per group.
  *
  * `KIND_ORDER` and `opPreview` below also moved here from the now-deleted
- * `CareTidyUpSection.tsx` (D4) — they are presentational helpers `CareBatchFixDialog` still needs
+ * `CareTidyUpSection.tsx` — they are presentational helpers `CareBatchFixDialog` still needs
  * for its own preview list, not part of the row itself.
  *
  * Mirrors `CareTidyUpSection`'s (pre-058) `FindingRow` for the row markup and
@@ -141,7 +141,7 @@ export function CareItemRow({
  *
  * The section name is resolved here, not in the model: `params.section` is the category's stored
  * prose and `params.sectionKey` its optional seed hint, and whether a hint this build may not carry
- * is trusted is `lib/category-display.ts`'s single decision (story 052 review, finding 9).
+ * is trusted is `lib/category-display.ts`'s single decision (story 052.
  */
 function CareDetailRow({
   detail,
@@ -205,7 +205,7 @@ function actionVariant(kind: CareItemAction['kind']): ButtonProps['variant'] {
 }
 
 /** Story 025's fixed tidy-up finding order, kept here (moved from the now-deleted
- * `CareTidyUpSection.tsx` in story 058 D4) purely as `CareBatchFixDialog`'s own grouping order for
+ * `CareTidyUpSection.tsx` in story 058) purely as `CareBatchFixDialog`'s own grouping order for
  * its preview list — the Tidy-up group itself no longer sub-groups by kind (one flat list under one
  * heading, same as Config health and Files). */
 export const KIND_ORDER: TidyUpFindingKind[] = [
@@ -248,7 +248,7 @@ function shadowedClaimSlotLabel(
 /** Before/after text for one op, built purely from the op's own fields (plus a
  * lookup on `profile` for the human-readable name a claim/layer/alias id
  * points at) - never a byte diff, this is a presentational rendering of data
- * the op and finding already carry. Moved here from `CareTidyUpSection.tsx` (story 058 D4) - still
+ * the op and finding already carry. Moved here from `CareTidyUpSection.tsx` (story 058) - still
  * used only by `CareBatchFixDialog`, which shows a per-op preview before applying a batch. */
 export function opPreview(
   profile: ConfigProfile,

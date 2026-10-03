@@ -127,7 +127,7 @@ export function useFixAction(): (installation: Installation, fix: ValidationFix)
         return
 
       case 'choose-runner': {
-        // The runner section itself is story 103 D7 - it just needs to expose this id so the fix
+        // The runner section itself is story 103 - it just needs to expose this id so the fix
         // action here has something to focus. The id is installation-scoped (RunnerSection renders
         // once per row in the library list) so this always targets the row the fix button was
         // pressed on, not whichever row happens to render first.

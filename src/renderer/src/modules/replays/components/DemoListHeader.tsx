@@ -18,7 +18,7 @@ export interface DemoListHeaderProps {
  * `DEMO_LIST_GRID` template as every `DemoRow`, so each label sits over its column. Mirrors
  * `../../servers/ServerListHeader.tsx`'s shape: `name` stays a plain unsortable label, every other
  * cell is a button carrying `aria-pressed` and an asc/desc arrow (never colour-only) on the active
- * column. Story 152 D3: turns the previously-static header (150/151) sortable.
+ * column. Story 152: turns the previously-static header (150/151) sortable.
  */
 export function DemoListHeader({ sort, onSort }: DemoListHeaderProps) {
   const { t } = useTranslation()

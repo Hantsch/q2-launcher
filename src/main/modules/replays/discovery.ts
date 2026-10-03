@@ -15,7 +15,7 @@ import type { ZipDeps } from '../../lib/zip-entries'
 import { expandZip } from './zip-demos'
 
 /**
- * Story 141 D2: finds demo files already sitting on disk, across every known installation's game
+ * Story 141: finds demo files already sitting on disk, across every known installation's game
  * dirs and (on Linux, for Q2PRO) its write dir - no download, no parsing of the demo's own header
  * yet (that is a later deliverable). This file never touches `ipcMain` or persisted state; it is a
  * pure-ish scan over the filesystem, called by the module's handler.
@@ -76,8 +76,8 @@ async function findDemosDir(gameDirPath: string): Promise<string | null> {
 
 /**
  * Every recognised demo file directly inside `demosDir` - one level, never recursive - plus the
- * names of any `.zip` archives sitting alongside them (story 143 D3), read from the same listing.
- * Story 151 D1: reports *why*, via `listDirOrReason`, when `demosDir` itself cannot be listed -
+ * names of any `.zip` archives sitting alongside them (story 143), read from the same listing.
+ * Story 151: reports *why*, via `listDirOrReason`, when `demosDir` itself cannot be listed -
  * distinct from a game dir simply having no `demos` folder at all (never an error, see
  * `findDemosDir`).
  */
@@ -187,12 +187,12 @@ async function expandZipsInto(
 
 /**
  * Scans every installation's game dirs (and, where applicable, its write dir), plus every
- * user-added extra demo folder (story 142 D3), for demo files. `installations`' order is
+ * user-added extra demo folder (story 142), for demo files. `installations`' order is
  * precedence order: the same resolved file reachable through two installations is only ever
  * reported once, under the first installation that finds it. Within one installation and game
  * dir, a write-dir file shadows a root-dir file of the same name. This never throws: a game dir
  * with no `demos` folder at all (or a write dir the engine never created) simply contributes
- * nothing and is not an error (story 151 D1) - but a `demos` folder `findDemosDir` did find, or an
+ * nothing and is not an error (story 151) - but a `demos` folder `findDemosDir` did find, or an
  * extra folder, that then cannot be listed (permission denied, replaced by a file, etc.) is
  * reported in `sourceErrors`, one entry per failing source, `archiveName: null`. A zip archive
  * that cannot be expanded is reported the same way, `archiveName` set to that zip's file name,

@@ -44,7 +44,7 @@ function isKnownRoute(route: string | undefined): route is string {
  * `iconDataUrls` without `installationId`'s entry, if it had one - a plain no-op copy otherwise
  * (`state` unchanged) so a `set()` call built from this never triggers a re-render for nothing.
  *
- * Story 067 review finding F1: `fetchIconDataUrl` caches by installation id and never expired that
+ * `fetchIconDataUrl` caches by installation id and never expired that
  * entry on its own. A custom icon's `{ kind: 'custom' }` shape does not change when the user
  * re-picks a different image or clears-then-repicks, so without this, every mounted tile kept
  * showing the *previous* `data:` URL from cache until the app was restarted - `setInstallationIcon`
@@ -63,7 +63,7 @@ function withoutIconDataUrl(
 
 /**
  * Nothing known, nothing attempted - the same shape `createUpdateService`'s `idleState(false)`
- * reports before `bootstrap`'s `update:getState` call resolves (story 097 D3). `supported: false`
+ * reports before `bootstrap`'s `update:getState` call resolves. `supported: false`
  * is the honest default for an instant that has not yet heard from main, matching an unpackaged
  * build's permanent state.
  */
@@ -87,18 +87,18 @@ export type DialogState =
   | { kind: 'create' }
   | { kind: 'remove'; installationId: string }
   | { kind: 'rename'; installationId: string }
-  /** Story 058 D6: the redundant-config-copies cleanup, scoped to one installation - the row it
+  /** the redundant-config-copies cleanup, scoped to one installation - the row it
    * was opened from *is* the scope, so the panel no longer picks an installation of its own. */
   | { kind: 'cleanup'; installationId: string }
-  /** Story 067 D6: the icon picker, scoped to one installation the same way `rename`/`cleanup` are. */
+  /** the icon picker, scoped to one installation the same way `rename`/`cleanup` are. */
   | { kind: 'installationIcon'; installationId: string }
   /**
-   * Story 074 D5: the generic escape hatch that lets a module own a modal without the shell
+   * the generic escape hatch that lets a module own a modal without the shell
    * importing anything module-specific. `view` is a free string the owning module defines for
    * itself (e.g. `'bootstrap-wizard'`) - the shell never interprets it, only ferries it through to
    * that module's own `Dialogs` component (see `RendererModule.Dialogs` in `modules/index.ts`).
    *
-   * Story 090 D3: `installationId` is an optional companion field, same "the shell never
+   * `installationId` is an optional companion field, same "the shell never
    * interprets it" rule as `view` - it exists only because the retail-upgrade dialog
    * (`'retail-upgrade'` view) is scoped to one installation the same way the shell's own
    * `remove`/`rename`/`cleanup`/`installationIcon` kinds already are, and a module dialog has no
@@ -115,19 +115,19 @@ interface LauncherStore {
   installations: Installation[]
   modules: ModuleManifest[]
   jobs: Job[]
-  /** Story 130: features unlocked by main's boot-time gate - populated once by `bootstrap`, never
-   * mutated by any renderer action (AC3: the renderer never decides its own unlock state). */
+  /** features unlocked by main's boot-time gate - populated once by `bootstrap`, never
+   * mutated by any renderer action. */
   unlockedFeatures: FeatureName[]
   launch: LaunchState
   chrome: WindowChromeState
-  /** Story 097 D6: mirrors the update-check service's state, pushed by main - the renderer never
+  /** mirrors the update-check service's state, pushed by main - the renderer never
    * decides whether/when to check, only reflects what `update:getState`/`update:state` report. */
   update: UpdateState
 
   // --- renderer-only UI state ---------------------------------------------
   route: string
   /**
-   * Story 087 D5: a one-shot "open this thing" hint handed along with a route switch, for a
+   * a one-shot "open this thing" hint handed along with a route switch, for a
    * destination view to pick up on mount (the dashboard's config-profiles tile opening one
    * profile's editor). Deliberately opaque at the shell level - the shell must not learn what a
    * config profile id is, so `focus` is `unknown` and only the view that reads it interprets it.
@@ -141,7 +141,7 @@ interface LauncherStore {
   dialog: DialogState
   toasts: ToastMessage[]
   /**
-   * Custom-icon data URLs (story 067 D5), keyed by installation id. A key is
+   * Custom-icon data URLs, keyed by installation id. A key is
    * present (even as `null`, meaning "no file found" or "fetch in flight")
    * the moment a fetch has been started, so `useInstallationIcon` never
    * issues a second `installations:iconDataUrl` call for the same
@@ -179,20 +179,20 @@ interface LauncherStore {
   createInstallation: (input: CreateInstallationInput) => Promise<Outcome<Installation>>
   updateInstallation: (input: UpdateInstallationInput) => Promise<Outcome<Installation>>
   /**
-   * Story 067 D6: sets a shipped icon, or clears the current one with `icon: null`. Deliberately
+   * sets a shipped icon, or clears the current one with `icon: null`. Deliberately
    * does not toast on failure the way `updateInstallation` does - the picker dialog shows the
-   * failed `Outcome`'s key inline itself (AC6), so a second, top-level toast would be redundant.
+   * failed `Outcome`'s key inline itself, so a second, top-level toast would be redundant.
    */
   setInstallationIcon: (
     installationId: string,
     icon: InstallationIcon | null,
   ) => Promise<Outcome<Installation>>
-  /** Story 067 D6: opens the native file-picker dialog in main, validates/stores the chosen image. */
+  /** opens the native file-picker dialog in main, validates/stores the chosen image. */
   pickInstallationIconFile: (installationId: string) => Promise<Outcome<Installation>>
   /**
-   * Story 094 D3: `deleteFromDisk` is passed through unset unless explicitly true, matching
+   * `deleteFromDisk` is passed through unset unless explicitly true, matching
    * `RemoveInstallationInput`'s optional field - the entry-only path (the default, and the only
-   * option for a store-managed installation) stays byte-for-byte the pre-094 request.
+   * option for a store-managed installation) stays the plain request.
    */
   removeInstallation: (id: string, deleteFromDisk?: boolean) => Promise<void>
   validateInstallation: (id: string) => Promise<void>
@@ -203,7 +203,7 @@ interface LauncherStore {
   fetchIconDataUrl: (installationId: string) => Promise<void>
 
   // --- playing -------------------------------------------------------------
-  /** `options` (story 125 D4, `spectate` added by 126 D2/D3): `connect`/`userinfo` for the join
+  /** `options`: `connect`/`userinfo` for the join
    * flow's `+connect`/password path, `spectate` to put the engine into spectator mode - all spread
    * straight into the `launch:start` payload, alongside every existing call site that omits
    * `options` entirely and keeps launching the installation's own default. */
@@ -213,27 +213,27 @@ interface LauncherStore {
   ) => Promise<void>
   cancelJob: (jobId: string) => Promise<void>
 
-  // --- app update (story 098) ----------------------------------------------
+  // --- app update ----------------------------------------------
   /**
-   * Story 099 D5: runs a check now (097's `update:check` channel). Mirrors `bootstrap`'s
+   * runs a check now (the `update:check` channel). Mirrors `bootstrap`'s
    * `update:getState` handling exactly - the response is a bare `UpdateState`, not an `Outcome`, so
    * there is nothing to toast on failure here; a failed check lands as `status: 'error'` (with
    * `error` set) inside the returned state itself.
    */
   checkForUpdates: () => Promise<void>
-  /** Starts the staged download (AC3). Refuses with `appUpdate.error.notAvailable` when nothing
+  /** Starts the staged download. Refuses with `appUpdate.error.notAvailable` when nothing
    * is known to download - toasted like any other refusal, since there is no dedicated inline
    * surface for it (unlike `installAndRestart`'s guard, which the popover shows itself). */
   startDownload: () => Promise<Outcome<UpdateState>>
   /** Asks main to stop an in-flight download (Decisions: "cancel during download is offered"). */
   cancelDownload: () => Promise<Outcome<UpdateState>>
   /**
-   * The second, deliberate confirmation (AC4). Deliberately does not toast on failure - mirrors
-   * `setInstallationIcon`: the popover shows the refused `Outcome`'s key inline itself (AC6), so a
+   * The second, deliberate confirmation. Deliberately does not toast on failure - mirrors
+   * `setInstallationIcon`: the popover shows the refused `Outcome`'s key inline itself, so a
    * second, top-level toast would be redundant.
    */
   installAndRestart: () => Promise<Outcome<null>>
-  /** AC5: drops the attention marker for this session; the control itself stays reachable. */
+  /** drops the attention marker for this session; the control itself stays reachable. */
   dismissUpdate: () => Promise<Outcome<UpdateState>>
 }
 
@@ -470,7 +470,7 @@ export const useLauncher = create<LauncherStore>()((set, get) => ({
   fetchIconDataUrl: async (installationId) => {
     // Reserved synchronously (before the `await`) so the rail/card/action-bar
     // tiles for the same installation, all mounting in the same tick, only
-    // ever cause one real request (AC9-adjacent: "once per installation").
+    // ever cause one real request.
     if (installationId in get().iconDataUrls) return
     set((state) => ({ iconDataUrls: { ...state.iconDataUrls, [installationId]: null } }))
     const url = await invoke('installations:iconDataUrl', installationId)
@@ -542,7 +542,7 @@ export function useInstallationById(id: string | null): Installation | null {
 
 /**
  * Whether the OS window currently has focus - mirrors `chrome.focused`, pushed by main through the
- * existing `window:state` event (subscribed once in `bootstrap` above). Story 043 D7: the signal
+ * existing `window:state` event (subscribed once in `bootstrap` above). the signal
  * the config module's file re-read hook (`useFileSourceRefresh`) watches for a false -> true
  * transition, instead of a DOM `focus` listener (which the story explicitly rules out).
  */
@@ -563,7 +563,7 @@ export function useActiveJob(installationId?: string | null): Job | null {
   })
 }
 
-/** Number of active (queued/running/paused) jobs owned by the given module - story 032 D3. */
+/** Number of active (queued/running/paused) jobs owned by the given module. */
 export function useActiveJobCount(moduleId: ModuleId): number {
   return useLauncher((state) => countActiveJobs(state.jobs, moduleId))
 }

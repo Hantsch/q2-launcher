@@ -6,7 +6,7 @@ import { Spinner } from '../../components/ui/primitives'
 import { describeScanProgress, type ServersListState } from './list-state'
 
 /**
- * Story 121 D1: the status strip that sits above the server rows - what `deriveListState`/
+ * Story 121: the status strip that sits above the server rows - what `deriveListState`/
  * `describeScanProgress` (`list-state.ts`) say, turned into real text. Renders at most one of the
  * loading/empty/idle blocks (mutually exclusive, driven by `listState`), plus an independent
  * source-failures block that can co-occur with any of them. Renders nothing at all once rows are

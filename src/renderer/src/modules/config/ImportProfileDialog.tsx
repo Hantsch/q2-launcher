@@ -14,7 +14,7 @@ import { ConfigCodeView } from './components/ConfigCodeView'
 
 /**
  * Imports the user's own, hand-picked config files into a new profile (story 005; re-addressed by
- * story 066 D7 from `{ installationId, gameDir }` to a file picker).
+ * story 066 from `{ installationId, gameDir }` to a file picker).
  *
  * Reached from `CreateProfileDialog` via its "Start from -> Import" option, exactly as before this
  * deliverable - `ConfigView` swaps that dialog for this one on `onWantImport`, and this component's
@@ -24,7 +24,7 @@ import { ConfigCodeView } from './components/ConfigCodeView'
  * `pickImportFiles()` returns opaque `PickedConfigFile` handles (`id` + display-only
  * `fileName`/`dirName` - see that type's own doc comment in `@shared/modules/config`), and every
  * call this dialog makes afterwards - `previewImportFiles`/`commitImportFiles` - is addressed
- * entirely by those ids, in the order the user arranged them (AC5, the load order). There is no
+ * entirely by those ids, in the order the user arranged them (the load order). There is no
  * path field anywhere in this file's state to audit away; there simply is no path to hold.
  *
  * Read-only until Create is pressed, same as before: `previewImportFiles` never writes anything
@@ -39,7 +39,7 @@ export function ImportProfileDialog({
   onCreated,
 }: {
   /**
-   * Story 042 (D6): the locally registered profiles, so a launcher-written file's
+   * Story 042: the locally registered profiles, so a launcher-written file's
    * `sourceProfileId` (`ImportPreviewResult`) can be resolved to a name when that profile still
    * exists here - `ConfigView` already holds this list for the profile rail, passed straight
    * through rather than this dialog re-fetching it.
@@ -51,7 +51,7 @@ export function ImportProfileDialog({
 }) {
   const { t } = useTranslation()
 
-  // The ordered list of picked files - its order IS the load order (AC5): `fileIds` sent to
+  // The ordered list of picked files - its order IS the load order: `fileIds` sent to
   // preview/commit is always `files.map((file) => file.id)`, nothing reorders or dedupes it apart
   // from what `choose`/`moveFile`/`removeFile` below do explicitly.
   const [files, setFiles] = useState<PickedConfigFile[]>([])
@@ -61,7 +61,7 @@ export function ImportProfileDialog({
   const [previewing, setPreviewing] = useState(false)
   const [previewResult, setPreviewResult] = useState<Outcome<ImportPreviewResult> | null>(null)
 
-  // Story 041 (D7): per-alias-name choice for the review step - `true` means "attempt as
+  // Story 041: per-alias-name choice for the review step - `true` means "attempt as
   // layer", absent/`false` means the default, "import as plain alias". Keyed by name rather
   // than by array index so a re-run of the preview effect (an order change) can simply reset
   // this to `{}` alongside `previewResult` without an index ever going stale.
@@ -72,17 +72,17 @@ export function ImportProfileDialog({
   const { submitting, run } = useSubmitting()
   const [commitError, setCommitError] = useState<Outcome<ConfigProfile[]> | null>(null)
 
-  // The review step's own rows (story 041 D7) - empty whenever the preview has nothing
+  // The review step's own rows (story 041) - empty whenever the preview has nothing
   // ambiguous, which is also what makes the step disappear entirely rather than render empty.
   const ambiguousAliases = previewResult?.ok ? previewResult.value.ambiguousRebindAliases : []
-  // Story 042 (D6): the file's own sentinel names a profile id, never adopted (AC4) but resolved
+  // Story 042: the file's own sentinel names a profile id, never adopted but resolved
   // to a name when that profile is still registered locally - `undefined` when `sourceProfileId`
   // is null (a foreign config) or names a profile this launcher no longer knows about.
   const sourceProfileName = previewResult?.ok
     ? profiles.find((profile) => profile.id === previewResult.value.sourceProfileId)?.name
     : undefined
 
-  // Preview re-runs on every order change - add, remove or move (AC5). `files` is only ever
+  // Preview re-runs on every order change - add, remove or move. `files` is only ever
   // replaced wholesale by `choose`/`moveFile`/`removeFile` below, never mutated in place, so this
   // effect fires on exactly those changes.
   useEffect(() => {
@@ -157,7 +157,7 @@ export function ImportProfileDialog({
 
   const submit = async (): Promise<void> => {
     setCommitError(null)
-    // Story 041 (D7): only the names the user actually flipped to "attempt as layer" travel
+    // Story 041: only the names the user actually flipped to "attempt as layer" travel
     // to commit - everything else defaults to a plain alias by simply not being in this list.
     const layerAliases = ambiguousAliases
       .filter((alias) => layerChoices[alias.name])
@@ -275,9 +275,9 @@ export function ImportProfileDialog({
 
             {!previewing && previewResult?.ok && (
               <div className="space-y-3">
-                {/* Story 042 (D6): a launcher-written file reads as a restore, not a
+                {/* Story 042: a launcher-written file reads as a restore, not a
                     best-effort import - and always says a NEW profile is created, since the
-                    id is never adopted (AC4) and a user restoring their own profile on a new
+                    id is never adopted and a user restoring their own profile on a new
                     machine could otherwise assume this merges into/overwrites it. */}
                 {previewResult.value.ownWrittenFile && (
                   <div
@@ -403,7 +403,7 @@ export function ImportProfileDialog({
                   </div>
                 )}
 
-                {/* Story 042 (D6): every discrepancy `restoreProfileParts` found between a
+                {/* Story 042: every discrepancy `restoreProfileParts` found between a
                     launcher-written file's metadata and its config lines - each entry's own
                     i18n key already ends in a translated "(file:line)" locator, interpolated
                     by `t()`, not built by string concatenation here. Empty renders nothing,
@@ -440,7 +440,7 @@ export function ImportProfileDialog({
               </div>
             )}
 
-            {/* Story 041 (D7): the review step, between preview and name. Present only when
+            {/* Story 041: the review step, between preview and name. Present only when
                 `ambiguousRebindAliases` is non-empty - `ambiguousAliases` is already `[]`
                 whenever the preview has nothing ambiguous, so there is no separate "skip"
                 branch to keep in sync with this one; the condition alone is the skip. */}

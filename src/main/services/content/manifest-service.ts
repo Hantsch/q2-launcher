@@ -10,7 +10,7 @@ import { packagePlatforms, packageRunsOnPlatform, parseManifestFile } from './ma
 import type { PlatformTaggedManifestPackage } from './manifest-schemas'
 
 /**
- * Story 070 D3: the manifest pipeline's stateful half - fetch both manifest
+ * Story 070: the manifest pipeline's stateful half - fetch both manifest
  * files, merge them into one `ManifestSnapshot`, persist the result, and serve
  * the last good copy when a fetch attempt cannot produce a new one.
  *
@@ -28,7 +28,7 @@ import type { PlatformTaggedManifestPackage } from './manifest-schemas'
  *    real `ageMs`.
  *  - **nothing cached at all**: a failed fetch with no cached copy is an error
  *    (`ManifestUnavailableError`), never an empty snapshot. Zero packages that
- *    look like valid data are worse than an explicit failure - D4 turns this
+ *    look like valid data are worse than an explicit failure - the IPC handler turns this
  *    error into the `downloads.error.manifestUnavailable` key.
  *
  * A failed fetch and a *refused* manifest (bad `schemaVersion`, broken envelope -
@@ -61,7 +61,7 @@ export function manifestCacheFilePath(): string {
 
 /**
  * Thrown when a fetch attempt produced nothing *and* no cached manifest exists.
- * Carries a stable `code` next to the `instanceof` check so D4's IPC handler can
+ * Carries a stable `code` next to the `instanceof` check so the IPC handler can
  * tell it apart from a programming error without matching on the message.
  */
 export class ManifestUnavailableError extends Error {
@@ -76,7 +76,7 @@ export class ManifestUnavailableError extends Error {
 /**
  * The packages/pins of one merged manifest; when they were fetched is the document's `fetchedAt`.
  *
- * Story 100 D5: `PlatformTaggedManifestPackage`, so the manifest's own `platforms` tag survives
+ * Story 100: `PlatformTaggedManifestPackage`, so the manifest's own `platforms` tag survives
  * statically as far as `pinnedEnginePackage()`'s re-check. The shared `ManifestSnapshot` the
  * renderer receives stays plain `ManifestPackage[]` - by then the pin is already resolved for
  * this host, so the renderer has no platform decision left to make.
@@ -85,7 +85,7 @@ interface ManifestBody {
   packages: PlatformTaggedManifestPackage[]
   pinned: Partial<Record<EngineKind, string>>
   /**
-   * Story 100 D7: whether either merged file's raw `pinned` object configured at least one entry
+   * Story 100: whether either merged file's raw `pinned` object configured at least one entry
    * for any engine, on any platform - `parseManifestFile`'s own `hasAnyPin`, ORed across both
    * files. Feeds `ManifestService.hasAnyPinnedEntries()`, which `bootstrapEngineOptions`
    * (`main/modules/downloads/index.ts`) uses to tell "nothing pinned at all" apart from "nothing
@@ -97,14 +97,14 @@ interface ManifestBody {
 export interface ManifestServiceOptions {
   log: Logger
   /**
-   * Story 074 D8: where manifests are fetched from and how strictly package URLs are validated,
+   * Story 074: where manifests are fetched from and how strictly package URLs are validated,
    * resolved **once** by `resolveDownloadSource()` (`harness.ts`) when the app context is
    * built (`context.ts`). Defaults to `PRODUCTION_DOWNLOAD_SOURCE`, so every existing caller and every
    * test keeps the production behaviour without passing anything.
    */
   source?: DownloadSource
   /**
-   * Story 100 D5: the host platform pins are resolved for. Defaults to the running platform, so
+   * Story 100: the host platform pins are resolved for. Defaults to the running platform, so
    * every existing caller keeps today's behaviour; injected as a plain value (same convention as
    * `source` above) so a test can prove the Linux reading without stubbing anything global.
    */
@@ -120,7 +120,7 @@ export class ManifestService {
   private readonly log: Logger
   /** Resolved once by the caller; never re-read from the environment. See `harness.ts`. */
   private readonly source: DownloadSource
-  /** Story 100 D5: resolved once by the caller (or from the host); never re-read per call. */
+  /** Story 100: resolved once by the caller (or from the host); never re-read per call. */
   private readonly platform: NodeJS.Platform
   private readonly document: CachedContentDocument<ManifestBody>
   /** Whatever `getManifest()` last handed out, for `pinnedEnginePackage()`. */
@@ -144,7 +144,7 @@ export class ManifestService {
       // Structural check only; the rows are re-validated by `parseManifestFile`, the parser the
       // network path uses, because a hand-edited cache file deserves the same suspicion as a
       // downloaded one. `hasAnyPin` is re-derived, never read back, so a cache written before it
-      // existed loads like a new one. (Story 074 D8, story 100 D5: same URL rule and platform.)
+      // existed loads like a new one. (Story 074, story 100: same URL rule and platform.)
       schema: z
         .object({ packages: z.array(z.unknown()), pinned: z.record(z.string(), z.string()).optional() })
         .transform((body, ctx): ManifestBody => {
@@ -192,7 +192,7 @@ export class ManifestService {
    * hand back a gamedata package or a different engine's build), or no
    * snapshot has been served yet.
    *
-   * Story 100 D5: or when the resolved package does not run on this host's platform. The pins in
+   * Story 100: or when the resolved package does not run on this host's platform. The pins in
    * the snapshot were already resolved for `this.platform` by `parseManifestFile`, so this is the
    * same belt-and-braces re-check the `kind`/`engine` test above is - it is what keeps a snapshot
    * that came from somewhere else (a cache file carried between machines, a future caller that
@@ -222,7 +222,7 @@ export class ManifestService {
   }
 
   /**
-   * Story 100 D7: whether the snapshot `getManifest()` last served configured at least one pin,
+   * Story 100: whether the snapshot `getManifest()` last served configured at least one pin,
    * for any engine, on any platform - regardless of whether any of those pins resolve for this
    * host. `false` when no snapshot has been served yet, same "nothing known yet" default as
    * `pinnedEnginePackage()` returning `undefined` in that case.
@@ -289,7 +289,7 @@ export class ManifestService {
       }
       packages.push(...parsed.packages)
       pins.push(parsed.pinned)
-      // Story 100 D7: either file configuring at least one pin is enough - a manifest genuinely
+      // Story 100: either file configuring at least one pin is enough - a manifest genuinely
       // pinning nothing at all needs BOTH files to pin nothing.
       hasAnyPin = hasAnyPin || parsed.hasAnyPin
     }

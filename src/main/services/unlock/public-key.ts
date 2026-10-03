@@ -1,7 +1,7 @@
 import { UI_HARNESS_ENV } from '../../lib/ui-harness'
 
 /**
- * Story 128 D3: the embedded production public key for unlock-code verification.
+ * Story 128: the embedded production public key for unlock-code verification.
  *
  * This is the SPKI PEM half of the Ed25519 key pair that signs real unlock codes. The matching
  * private key lives at `~/.q2-launcher/unlock-signing-key.pem` on the machine that ran

@@ -1,6 +1,6 @@
 /**
- * The finding model shared by every validation rule module (D3's
- * `validate-structure.ts`, D4's `validate-cvars.ts`, and D5's aggregation).
+ * The finding model shared by every validation rule module (the
+ * `validate-structure.ts`, the `validate-cvars.ts`, and the aggregation).
  *
  * Ported in spirit from the external q2-config-manager project
  * (`src/core/validator.ts`'s `Finding`/`summarise()`), generalized to this
@@ -20,7 +20,7 @@ import type { EngineKind } from '../../types/engine'
 export interface FindingSubject {
   kind: 'cvar' | 'bind' | 'alias' | 'file' | 'profile' | 'action'
   /**
-   * Cvar name, bind key, alias name, file name, profile id, or (story 019 D8)
+   * Cvar name, bind key, alias name, file name, profile id, or (story 019)
    * an entry's own display name - whatever `kind` implies. `'action'` is used
    * when a finding is about a `ConfigAction` itself (e.g. a binding calling an
    * undefined alias) rather than about the rendered `bind`/`alias` line it

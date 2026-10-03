@@ -47,7 +47,7 @@ export function OccupancyPips({ row }: { row: ServerListRow }) {
 }
 
 /**
- * Story 118 D3: one row of the real servers list - name/address, mod, map, players and ping on the
+ * Story 118: one row of the real servers list - name/address, mod, map, players and ping on the
  * shared `SERVER_LIST_GRID` template (so every cell lines up under `ServerListHeader`'s labels),
  * plus a set of status markers (password/gamemode/favourite/stale/waiting/pending) rendered on the
  * name cell's second line, each a visible `Badge` with an icon and i18n text (status is never

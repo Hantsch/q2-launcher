@@ -19,7 +19,7 @@ import {
 } from './client'
 
 /**
- * Story 140 D3: the naming-pattern list a user actually edits - replaces the settings section's
+ * Story 140: the naming-pattern list a user actually edits - replaces the settings section's
  * placeholder paragraph. Every mutating handler resolves to the whole, reconciled
  * `NameTemplatesView`, so - same discipline as `servers/ServersSettingsSection.tsx`'s `mutate` - this
  * component always re-renders from what main just persisted, never an optimistic local patch, with

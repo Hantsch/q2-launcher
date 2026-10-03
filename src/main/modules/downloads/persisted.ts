@@ -13,12 +13,12 @@ import type { StateSection, StateSectionSpec, StateStore } from '../../services/
 import { pruneFailures } from './failure-log'
 
 /**
- * Story 071 D1: the persisted `downloads` top-level `state.json` key. Forgiving, never throws: a malformed or out-of-range
+ * Story 071: the persisted `downloads` top-level `state.json` key. Forgiving, never throws: a malformed or out-of-range
  * `concurrentJobs` (not an integer, or outside 1-6) falls back to the default rather than
  * rejecting the whole file, and a `downloads` value that isn't even an object falls back to
  * `DEFAULT_DOWNLOADS_SETTINGS` wholesale.
  *
- * Story 072 D2 extends this with `archiveCacheBudgetGB` (must be one of
+ * Story 072 extends this with `archiveCacheBudgetGB` (must be one of
  * `ARCHIVE_CACHE_BUDGET_CHOICES_GB`) and `downloadWhilePlayingAllowed` (a plain boolean), each with
  * its own `.catch()` default so a corrupt field costs only that field.
  */
@@ -47,7 +47,7 @@ export function parseDownloadsSettings(raw: unknown): DownloadsSettings {
 }
 
 /**
- * Story 075 D1: one persisted `DownloadDiagnostics` record. Deliberately forgiving field-by-field
+ * Story 075: one persisted `DownloadDiagnostics` record. Deliberately forgiving field-by-field
  * (each optional field `.catch(undefined)`, same convention as the object it lives on) rather than
  * one big `.catch(undefined)` around the whole shape - a single malformed package or log line
  * should not have to cost the whole diagnostics record, only `downloadFailureObjectSchema`'s outer
@@ -60,13 +60,13 @@ const downloadDiagnosticsPackageSchema = z.object({
   sizeBytes: z.number().finite(),
   verified: z.boolean(),
   extracted: z.boolean(),
-  // Story 078 D1 (AC8): forgiving field-by-field like every other field on this row.
+  // Story 078: forgiving field-by-field like every other field on this row.
   contents: z.array(z.string()).optional().catch(undefined),
   contentsTruncated: z.boolean().optional().catch(undefined),
   contributed: z.boolean().optional().catch(undefined),
 })
 
-// Story 078 D1 (AC7): mirrors `downloadDiagnosticsPackageSchema`'s forgiving-field convention.
+// Story 078: mirrors `downloadDiagnosticsPackageSchema`'s forgiving-field convention.
 const downloadDiagnosticsAssemblyEntrySchema = z.object({
   from: z.string().min(1),
   to: z.string().min(1),
@@ -107,7 +107,7 @@ const downloadDiagnosticsSchema = z
     errorKey: z.string().min(1),
     packages: z.array(downloadDiagnosticsPackageSchema).catch([]),
     target: downloadDiagnosticsTargetSchema.optional().catch(undefined),
-    // Story 078 D1 (AC7): same optional-field convention as `target` - a malformed `assembly`
+    // Story 078: same optional-field convention as `target` - a malformed `assembly`
     // value costs only this field, never the whole diagnostics record.
     assembly: z.array(downloadDiagnosticsAssemblyEntrySchema).optional().catch(undefined),
     logTail: z.array(z.string()).catch([]),

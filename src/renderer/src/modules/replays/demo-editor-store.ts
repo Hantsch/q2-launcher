@@ -108,7 +108,7 @@ export interface DemoEditorState {
   save(id: string, onRowPatched: RowPatcher): Promise<void>
   /** The replace dialog's Cancel: closes it and forgets the fingerprint, so the next Save asks again. */
   cancelReplace(id: string): void
-  /** Story 155 D6 / 179: a favourite/rating toggle from the row itself, without opening the panel.
+  /** Story 155 / 179: a favourite/rating toggle from the row itself, without opening the panel.
    * The patch lands in `quickPending` at once; the write itself is queued behind any running or
    * queued write (quick edit or `save`) for the same demo - never dropped. When it runs it re-reads
    * the sidecar fresh, merges just the patch via `withQuickEdit` and writes it back, reusing

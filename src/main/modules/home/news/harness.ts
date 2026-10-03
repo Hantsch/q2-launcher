@@ -5,8 +5,8 @@ import {
 } from '../../../lib/ui-harness'
 
 /**
- * Story 082 D4: the news half of the same gated backdoor `services/content/source.ts` already has (story
- * 074 D8). The gate itself (`UiHarness.enabled`) and the env var / loopback-base parser
+ * Story 082: the news half of the same gated backdoor `services/content/source.ts` already has (story
+ * 074). The gate itself (`UiHarness.enabled`) and the env var / loopback-base parser
  * (`HARNESS_CONTENT_REPO_BASE_ENV`, `parseHarnessBaseUrl`) live in `src/main/lib/ui-harness.ts` so
  * this file reuses them without importing from the `downloads` module.
  *
@@ -16,11 +16,11 @@ import {
  * open but no valid loopback base was named - a manifest fetch is user-triggered (add/verify an
  * installation), so a harness run that forgot the variable just talks to production once.
  *
- * News is different: the story's AC1 fetches at *every app start*, not on demand. If this resolver
+ * News is different: the story fetches at *every app start*, not on demand. If this resolver
  * copied downloads' fallback, every `ui:verify` run - which sets `Q2L_UI_HARNESS=1` but does not
  * necessarily name a news fixture base - would make a real outbound request at startup and break
- * AC10 ("the whole test suite plus `ui:verify` run with no network access"). So here, "gate open but
- * no/invalid loopback base" resolves to `skip`: the caller (D5/D6) must not fetch at all, and the
+ * the guarantee that the whole test suite plus `ui:verify` run with no network access. So here, "gate open but
+ * no/invalid loopback base" resolves to `skip`: the caller must not fetch at all, and the
  * feed falls back to whatever is already cached.
  */
 

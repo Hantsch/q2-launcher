@@ -3,8 +3,8 @@ import type { EngineKind, ValidationCheck, ValidationResult } from '@shared/type
 import type { InspectOptions } from '../../../services/inspector'
 
 /**
- * Story 093 D2: `buildRepairPlan`'s mapping from `inspectInstallation`'s verdict to the offers a
- * repair dialog (D3) can show. Message keys, not `ValidationCheck.id`, are the switch - several
+ * Story 093: `buildRepairPlan`'s mapping from `inspectInstallation`'s verdict to the offers a
+ * repair dialog can show. Message keys, not `ValidationCheck.id`, are the switch - several
  * different sentences share one `id` (`'base-paks'` covers `pak0Missing`, `pak0NotRetail`,
  * `retailPaksMissing` and `pointReleaseMissing` alike, see `main/services/inspector.ts`), and the
  * mapping cares about the sentence, not the check that produced it.
@@ -56,9 +56,9 @@ export interface BuildRepairPlanOptions {
 }
 
 /**
- * Story 093 D2: pure mapping from one `inspectInstallation` verdict to a `RepairPlan` - no
+ * Story 093: pure mapping from one `inspectInstallation` verdict to a `RepairPlan` - no
  * filesystem access, no I/O. `findings` always carries every check the inspection produced, even
- * when none of them map to an offer (AC6: "nothing repairable" still shows what is wrong).
+ * when none of them map to an offer ("nothing repairable" still shows what is wrong).
  */
 export function buildRepairPlan(
   installationId: string,
@@ -81,7 +81,7 @@ export function buildRepairPlan(
 }
 
 /**
- * Story 093 D2 (AC7): the fresh-inspect-then-map order `repair.plan`'s handler wraps. Never reads
+ * Story 093: the fresh-inspect-then-map order `repair.plan`'s handler wraps. Never reads
  * `Installation.checks` or any other stored snapshot - `deps.inspect` is called on every single
  * invocation, exactly once, with whatever the installation record currently says its executable/
  * write-dir overrides are. `buildRepairPlan` itself stays pure; this is the only place in the
@@ -101,12 +101,12 @@ export interface RepairPlanInstallation {
    * inspection detects. A missing/unusable executable is exactly the case the fresh inspection
    * cannot identify an engine from - `r1q2`/`q2pro`'s only markers are their own executables, so
    * once the exe is gone `classifyEngine` reports `'unknown'` and gating on that would make
-   * `reinstall-engine` unreachable for the very installations AC1 is about. The record is what the
+   * `reinstall-engine` unreachable for the very installations this is about. The record is what the
    * launcher remembers the engine to be; that is what the manifest is asked to supply again.
    */
   engineKind: EngineKind
   /**
-   * Story 093 finding fix (AC1): `Installation.recordedEngineKind` - a one-way memory of the engine,
+   * Story 093 finding fix: `Installation.recordedEngineKind` - a one-way memory of the engine,
    * set once when positively known and never overwritten by revalidation, unlike `engineKind` above
    * (which a fresh inspection *does* clobber to `'unknown'` the moment the executable goes missing,
    * outside the narrow `lastFailure`-scoped exception in `applyInspectionResult` (installations.ts)).

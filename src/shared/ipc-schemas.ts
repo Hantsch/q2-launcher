@@ -107,11 +107,11 @@ export const updateInstallationInputSchema: z.ZodType<IpcInvokeMap['installation
       .refine((value) => value === '' || /^[A-Za-z0-9_.-]+$/.test(value), 'invalid game directory')
       .optional(),
     favorite: z.boolean().optional(),
-    // Story 103 D6: a `RunnerChoice` - `DetectedRunner.id` or `'native'` - a plain non-empty string,
+    // Story 103: a `RunnerChoice` - `DetectedRunner.id` or `'native'` - a plain non-empty string,
     // same as the persisted schema (`src/main/lib/schemas.ts`); resolving whether it is usable is
     // `resolveRunner`'s job, never the schema's.
     runner: z.string().min(1).optional(),
-    // Story 104 D2: the `STEAM_APP_CLIENTS` entry index the user picked, a plain positive integer -
+    // Story 104: the `STEAM_APP_CLIENTS` entry index the user picked, a plain positive integer -
     // resolving whether the installation's `steamAppId` even has a client table is not this schema's
     // job, same division of labour as `runner` right above.
     steamClient: z.number().int().positive().optional(),
@@ -135,7 +135,7 @@ export const nullableIdSchema: z.ZodType<IpcInvokeMap['installations:setActive']
 
 export const idSchema: z.ZodType<IpcInvokeMap['installations:validate']['req']> = z.string().min(1)
 
-/** Story 103 D6: `installations:listRunners` takes the same bare installation id as `validate`. */
+/** Story 103: `installations:listRunners` takes the same bare installation id as `validate`. */
 export const installationsListRunnersSchema: z.ZodType<
   IpcInvokeMap['installations:listRunners']['req']
 > = z.string().min(1)
@@ -208,7 +208,7 @@ export const launchInputSchema: z.ZodType<IpcInvokeMap['launch:plan']['req']> = 
   gameDir: z.string().max(64).optional(),
   connect: serverAddressSchema.optional(),
   extraArgs: z.array(z.string().max(500)).max(64).optional(),
-  // Story 125 D1: validated the same way a password would be checked on its own, never trusted
+  // Story 125: validated the same way a password would be checked on its own, never trusted
   // just because it arrived alongside a validated `connect`.
   userinfo: z
     .object({
@@ -260,8 +260,8 @@ export const moduleInvokeSchema: z.ZodType<IpcInvokeMap['module:invoke']['req']>
 // ---- development only (registered only when `is.dev`) --------------------------------
 
 /**
- * Story 073 D5: an unknown scenario string must be rejected here, not coerced.
- * Story 091 D7: the `'writing'` scenario needs a real installation id to take the
+ * Story 073: an unknown scenario string must be rejected here, not coerced.
+ * Story 091: the `'writing'` scenario needs a real installation id to take the
  * write lock on - a discriminated union so the other three scenarios keep taking
  * no `installationId` at all, matching every existing caller.
  */
@@ -271,7 +271,7 @@ export const devSimulateJobSchema: z.ZodType<IpcInvokeMap['dev:simulateJob']['re
     z.object({ scenario: z.literal('writing'), installationId: z.string().min(1) }),
   ])
 
-/** Story 090 D5: `dev:simulateLaunch`'s payload - a real installation id and a target phase. */
+/** Story 090: `dev:simulateLaunch`'s payload - a real installation id and a target phase. */
 export const devSimulateLaunchSchema: z.ZodType<IpcInvokeMap['dev:simulateLaunch']['req']> =
   z.object({
     installationId: z.string().min(1),
@@ -279,7 +279,7 @@ export const devSimulateLaunchSchema: z.ZodType<IpcInvokeMap['dev:simulateLaunch
   })
 
 /**
- * Story 098 D4: `dev:simulateAppUpdate`'s payload - one variant per scenario
+ * Story 098: `dev:simulateAppUpdate`'s payload - one variant per scenario
  * `UpdateService.simulate()` understands, same discriminated-union shape as `devSimulateJobSchema`.
  */
 export const devSimulateAppUpdateSchema: z.ZodType<IpcInvokeMap['dev:simulateAppUpdate']['req']> =

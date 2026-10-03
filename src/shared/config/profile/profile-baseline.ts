@@ -1,5 +1,5 @@
 /**
- * The "last saved/loaded" snapshot a profile is measured against (story 049 D1).
+ * The "last saved/loaded" snapshot a profile is measured against (story 049).
  *
  * Since story 043 the `.cfg` is the source of truth and saving is an explicit act, so "this profile
  * carries unsaved edits" is a real state - and answering *which* edits are unsaved needs something
@@ -14,15 +14,15 @@
  * change to anything in it is a change the file does not have yet, and a change to anything outside
  * it (assignments, played mods, the file-state cache) is not.
  *
- * `name` is in the subset (review finding, story 049) even though it is edited from the profile list
+ * `name` is in the subset even though it is edited from the profile list
  * rather than from a config tab: it is real file content twice over - `render.ts`'s
  * `buildHeaderBlock` prints it in the header banner, and a save renames the canonical `.cfg` to
  * match - and story 043 decided a `rename` only marks the profile dirty, leaving both to the next
  * save. A baseline without it meant a discard restored every cvar, bind, action and layer but left
- * the profile renamed, which is not "the last saved state" (AC6).
+ * the profile renamed, which is not "the last saved state".
  *
- * `cvarSections` (story 054 D11) is the same kind of render-relevant field as `categories`: story
- * 059 D8 made `setCvars` replace it wholesale, alongside the cvar values `cvars` already covered, so
+ * `cvarSections` (story 0541) is the same kind of render-relevant field as `categories`: story
+ * 059 made `setCvars` replace it wholesale, alongside the cvar values `cvars` already covered, so
  * a section/sub-section move (or a cvar moved between sections) is exactly as much "not in the file
  * yet" as a cvar value edit is - and `discard()` restoring `categories`/`actions` but not
  * `cvarSections` would put every Controls row back where it was while leaving Settings' own grouping
@@ -43,7 +43,7 @@ import type { AltLayer } from '../aliases/alt-layers'
 
 /**
  * The render-relevant subset of a `ConfigProfile`, **normalised**: every field is present, so a
- * consumer (the diff of D2, the discard of D3) never has to repeat the `?? []` / `!== false` /
+ * consumer (the diff, the discard) never has to repeat the `?? []` / `!== false` /
  * `?? 'dashes'` reads that the optional fields on `ConfigProfile` require.
  *
  * That normalisation is not a liberty: it is the same resolution the rest of the codebase already

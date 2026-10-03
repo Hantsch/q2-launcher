@@ -116,7 +116,7 @@ export function sanitizeProfileFileBase(name: string, id: string): string {
  * `<base>-3.cfg`, ... that is not already claimed (case-insensitively -
  * Windows/macOS fold filename case).
  *
- * This is a global claim, not a per-base-group one (review finding): two
+ * This is a global claim, not a per-base-group one: two
  * profiles literally named e.g. `Frag` and `Frag-2` sanitize to two DIFFERENT
  * bases (`frag`, `frag-2`), so grouping by base alone would let the second
  * `Frag` claim `Frag-2.cfg` - the exact same string the literal `Frag-2`

@@ -21,7 +21,7 @@ export interface DemoPlay {
 }
 
 /**
- * Story 180 D2 (moved out of story 159 D3's `DemoPlayAction`, behaviour unchanged): whether `demo`
+ * Story 180 (moved out of story 159's `DemoPlayAction`, behaviour unchanged): whether `demo`
  * can be played - decided by the shared `demoPlayEligibility`, the same function main re-runs
  * before launching - and the play itself. Only the demo id and installation id cross IPC, never a
  * path. `play` closes over the render's `demo`: a caller that keeps it past a re-render (the action
@@ -68,7 +68,7 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
     setBusy(true)
     const playback = usePlaybackStore.getState()
     try {
-      // Story 170 D5: stage mode first, so the picture box exists and can be measured for the launch.
+      // Story 170: stage mode first, so the picture box exists and can be measured for the launch.
       playback.armStage()
       // The stage picture is laid out and measured a few frames after mounting (and the rows around it
       // can still reflow) - wait, bounded, until its rect has been the same for a few frames.

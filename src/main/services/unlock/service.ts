@@ -7,11 +7,11 @@ import { MAX_UNLOCK_CODES, unlockState, type UnlockCodeEntry } from './persisted
 import { verifyUnlockCode } from './verify'
 
 /**
- * Story 128 D4: the unlock-code service - a shell service, not a module (it has no per-installation
+ * Story 128: the unlock-code service - a shell service, not a module (it has no per-installation
  * data and nothing renderer-writable to validate), constructed the same way `update`/`launch`/`jobs`
  * are in `context.ts`.
  *
- * Verification (`verifyUnlockCode`, D1-D3) is the only place a code is judged; this service is
+ * Verification (`verifyUnlockCode`) is the only place a code is judged; this service is
  * purely the persistence and in-memory-cache layer around it. `init()` resolves the launcher
  * installation id exactly once and caches it, then re-verifies every stored code in `'reverify'`
  * mode - the redemption window is redeem-only and is never checked again once a code is stored, so

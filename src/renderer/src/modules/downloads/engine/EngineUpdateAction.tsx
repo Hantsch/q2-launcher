@@ -11,7 +11,7 @@ import { getEngineUpdateStatus } from '../client'
  * How long after the renderer module first loads the very first automatic
  * `engineUpdateStatus` check waits before firing, so it never competes with the window's own
  * first paint - same rationale and magnitude as `scheduleStartupCheck()`'s own startup delay
- * (`src/main/index.ts`, story 097 D5: "fire-and-forget, after a short delay so it never competes
+ * (`src/main/index.ts`, story 097: "fire-and-forget, after a short delay so it never competes
  * with the window's own first paint"). Only the first automatic check (module load, i.e. app
  * boot) is held back; switching installations or a job finishing while the app is already up
  * answers immediately, same as before - those are real state changes a user is actively looking
@@ -22,10 +22,10 @@ const moduleLoadedAtMs = Date.now()
 let firstAutomaticCheckDone = false
 
 /**
- * Story 092 D7: the ActionBar's engine-update trigger, mirroring `RetailUpgradeDialog`'s own
- * trigger button (story 090 D4, inline in `ActionBar.tsx`'s utility cluster). Unlike that button -
+ * Story 092: the ActionBar's engine-update trigger, mirroring `RetailUpgradeDialog`'s own
+ * trigger button (story 090, inline in `ActionBar.tsx`'s utility cluster). Unlike that button -
  * which only needs to know "is this installation demo data" from the `Installation` it already has
- * - this one needs main's own verdict (AC1: "without downloading or changing anything on its own"),
+ * - this one needs main's own verdict ("without downloading or changing anything on its own"),
  * so it fetches `EngineUpdateStatus` itself on mount and on every installation switch, the same
  * fetch-on-mount convention `RetailUpgradeDialog` uses for its own source list - plus once more
  * whenever this installation's jobs finish, so the indicator stops claiming an update the moment
@@ -34,7 +34,7 @@ let firstAutomaticCheckDone = false
  * Always rendered for the current installation - there is no "this engine has no update feature"
  * guard here, because there is nothing engine-specific to gate on: `engineUpdateStatus` answers a
  * renderable status for every engine kind (Decisions: "an installation with no recorded engine
- * version counts as differs"; D3's own test: "engine with no manifest pin => no update and no
+ * version counts as differs"; the test: "engine with no manifest pin => no update and no
  * throw"). A vanished installation (main answers `undefined`) or a fetch failure both fall back to
  * "no status yet", which never renders the indicator and still opens a dialog that can retry.
  */

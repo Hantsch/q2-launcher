@@ -1,7 +1,7 @@
 import type { ReplaysStageRect } from '@shared/modules/replays'
 
 /**
- * Story 170 D1: pure helpers for playing a demo on the launcher's stage - whether the platform can
+ * Story 170: pure helpers for playing a demo on the launcher's stage - whether the platform can
  * place another process's window at all, the physical geometry of the stage rect, and the engine
  * arguments that make the game window borderless at that spot. No electron import: the display
  * conversion (`screen.dipToScreenRect`) is injected.

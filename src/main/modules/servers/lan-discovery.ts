@@ -13,7 +13,7 @@ import {
 } from './server-query'
 
 /**
- * Story 196 D1: LAN discovery. One `info` query is broadcast per usable IPv4 interface (directed
+ * Story 196: LAN discovery. One `info` query is broadcast per usable IPv4 interface (directed
  * broadcast `address | ~netmask`, port 27910), re-sent `retries` times `timeoutMs` apart; the first
  * answer per `address:port` wins. Same injectable seams as `server-query.ts` (udp, clock), plus the
  * interface list, so the whole thing is testable without a network.

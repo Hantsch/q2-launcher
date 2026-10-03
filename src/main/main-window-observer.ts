@@ -1,7 +1,7 @@
 import { createListenerSet } from './lib/listeners'
 
 /**
- * Story 171 D2: a read-only view of the main window for modules - its current content bounds, scale,
+ * Story 171: a read-only view of the main window for modules - its current content bounds, scale,
  * minimized and focused state, and the window events that change them. Modules never touch the
  * `BrowserWindow`; `window.ts` forwards the events through `notify`, the shell's write side.
  */

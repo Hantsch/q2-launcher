@@ -1,8 +1,8 @@
 /**
  * Reads a Quake II installation's hand-written config the way the engine
- * would load it, and folds it into one importable result (story 005, D2).
+ * would load it, and folds it into one importable result (story 005).
  *
- * ## Two entry points, one core (story 066, D1)
+ * ## Two entry points, one core (story 066)
  *
  * `readImportableConfig(root, gameDir)` follows an INSTALLATION: the gamedir's
  * entry files by fixed name, `exec` chains resolved along the engine's search
@@ -82,8 +82,8 @@
  * The chain is deliberately not a global "seen once" set: a file legitimately
  * exec'd twice (e.g. by `config.cfg` and again by `autoexec.cfg`, or twice in
  * a row) really is executed twice by the engine, and dropping the second run
- * would silently cost the user content - exactly the failure mode AC 4 is
- * about. Only re-entering a file that is still open above us is a cycle;
+ * would silently cost the user content - exactly the failure mode this
+ * guards against. Only re-entering a file that is still open above us is a cycle;
  * `MAX_EXEC_EXPANSIONS` is what keeps that choice from being exploitable.
  *
  * A refused or unresolvable `exec` never aborts the import: the line is kept
@@ -120,12 +120,12 @@
  *  - unrecognized lines: kept in overall document order, each tagged with
  *    the file it came from (the on-disk file NAME, not a path - the result
  *    travels to the renderer) and its 1-based line number in that file.
- *  - comment-only lines (story 042 D3): folded the same way as unrecognized
+ *  - comment-only lines (story 042): folded the same way as unrecognized
  *    lines - overall document order, tagged with file/line - and kept in
- *    `unrecognized` exactly as before this story (AC 8), plus ADDITIONALLY
- *    collected into their own `comments` bucket so D4 can find them without
+ *    `unrecognized` exactly as before this story, plus ADDITIONALLY
+ *    collected into their own `comments` bucket so a later stage can find them without
  *    re-scanning `unrecognized`.
- *  - trailing comments on cvars/binds/aliases (story 042 D3): the winning
+ *  - trailing comments on cvars/binds/aliases (story 042): the winning
  *    definition's own comment travels with it through the fold - `cvars`/
  *    `binds` keep their existing `Record<string, string>` shape and gain a
  *    parallel `cvarComments`/`bindComments` map (same last-assignment-wins
@@ -169,7 +169,7 @@ import type {
   PreservedLine,
 } from './config-parser'
 
-/** A line the importer did not understand, kept verbatim (AC 4). */
+/** A line the importer did not understand, kept verbatim. */
 export interface ImportedUnrecognizedLine {
   /** On-disk file name the line came from, e.g. `config.cfg`. */
   file: string
@@ -180,9 +180,9 @@ export interface ImportedUnrecognizedLine {
 
 /**
  * A comment-only line (no command at all), folded across every file and
- * exec depth in overall document order (story 042 D3) - mirrors
+ * exec depth in overall document order (story 042) - mirrors
  * `ImportedUnrecognizedLine`'s file/line tagging exactly, since a later
- * stage (D4) needs to locate these the same way it locates unrecognized
+ * stage needs to locate these the same way it locates unrecognized
  * lines, just from a bucket that was never conflated with them.
  */
 export interface ImportedCommentLine {
@@ -239,7 +239,7 @@ export interface ImportedAlias {
   body: string
   file: string
   line: number
-  /** The winning definition's trailing comment (story 042 D3), `''` when it had none. */
+  /** The winning definition's trailing comment (story 042), `''` when it had none. */
   comment: string
   /** The winning definition's own line width before its `//` marker - see `ParsedAlias.codeWidth`
    * for what a reader needs it for. */
@@ -252,7 +252,7 @@ export interface ImportedAlias {
  * pre-existing `Record<string, string>` shape (every caller already destructures them as plain
  * value maps) rather than becoming an array like `aliases`.
  *
- * Story 042 D5: `restoreProfileParts` (D4) needs a position for every line so it can attribute the
+ * Story 042: `restoreProfileParts` needs a position for every line so it can attribute the
  * line to a section (`RestoreBindLine`/`RestoreCvarLine` both extend `RestoreSourcePosition`), and
  * before this field existed a bind/cvar's file/line was folded away by the merge, leaving only its
  * winning comment - an entry whose alias line the writer drops (a bare catalogue row's own
@@ -281,14 +281,14 @@ export interface ImportResult {
   /** cvar name -> value, last assignment in the stream wins. */
   cvars: Record<string, string>
   /**
-   * cvar name -> the winning assignment's trailing comment (story 042 D3),
+   * cvar name -> the winning assignment's trailing comment (story 042),
    * `''` when it had none. Same last-assignment-wins fold as `cvars`, kept
    * as a parallel map rather than changing `cvars`' own shape, since every
    * existing caller already destructures `cvars` as a plain value map.
    */
   cvarComments: Record<string, string>
   /**
-   * cvar name -> the winning assignment's `file`/`line` (story 042 D5) - parallel to `cvars` the
+   * cvar name -> the winning assignment's `file`/`line` (story 042) - parallel to `cvars` the
    * same way `cvarComments` is.
    */
   cvarLines: Record<string, ImportedLinePosition>
@@ -303,14 +303,14 @@ export interface ImportResult {
   /** key name -> bound command, after `unbind`/`unbindall` were applied. */
   binds: Record<string, string>
   /**
-   * key name -> the currently-live bind's trailing comment (story 042 D3),
+   * key name -> the currently-live bind's trailing comment (story 042),
    * `''` when it had none. Cleared for a key exactly when `binds` itself
    * would clear it (`unbind`/`unbindall`), for the same reason `cvarComments`
    * is a parallel map rather than a shape change to `binds`.
    */
   bindComments: Record<string, string>
   /**
-   * key name -> the currently-live bind's `file`/`line` (story 042 D5) - parallel to `binds` the
+   * key name -> the currently-live bind's `file`/`line` (story 042) - parallel to `binds` the
    * same way `bindComments` is, and cleared for a key exactly when `binds` itself would clear it.
    */
   bindLines: Record<string, ImportedLinePosition>
@@ -364,7 +364,7 @@ export const ENTRY_FILE_NAMES = ['config.cfg', 'autoexec.cfg'] as const
  * `exec-missing` - never as an abort; see `refuseExec`).
  *
  * The ONE thing that differs between the two entry points, factored out so both share every other
- * line of the reader (story 066 D1). `containingFile` is the absolute path of the file the `exec`
+ * line of the reader (story 066). `containingFile` is the absolute path of the file the `exec`
  * line was read from: installation mode ignores it (the engine's search path is the same wherever
  * the line sits), file mode roots the lookup at its directory.
  *
@@ -414,7 +414,7 @@ type StreamItem =
  * (the two are mutually exclusive per line - see `config-parser.ts`), so
  * `comment`'s position at the end of this list never breaks a tie against
  * a cvar/bind/alias/exec. It DOES share its line number with its own
- * `preserved` counterpart (story 042 D3 keeps comment-only lines in both
+ * `preserved` counterpart (story 042 keeps comment-only lines in both
  * buckets), but `preserved`/`comment` feed different result arrays
  * (`unrecognized`/`comments`), so their relative order is never observable.
  */
@@ -700,7 +700,7 @@ function toImportResult(ctx: ReaderContext): ImportResult {
  * Reads the importable config of `<installationRoot>/<gameDir>`.
  *
  * `gameDir` is a plain folder name (`baseq2`, `xatrix`, ...); checking that it
- * really belongs to the installation happens at the IPC boundary (D3), which
+ * really belongs to the installation happens at the IPC boundary, which
  * is also where the installation root comes from - never from the renderer
  * (decision 2). Read-only: nothing is written (decision 14).
  *
@@ -723,7 +723,7 @@ export async function readImportableConfig(
 }
 
 /**
- * Reads N already-named config files as ONE import (story 066, D1) - the files a user picked,
+ * Reads N already-named config files as ONE import (story 066) - the files a user picked,
  * without an installation or a gamedir behind them.
  *
  * `paths` are absolute file paths in the order they are to be folded: the whole list is one ordered

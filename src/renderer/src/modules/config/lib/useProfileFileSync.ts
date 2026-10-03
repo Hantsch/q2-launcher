@@ -35,18 +35,18 @@ export function useProfileFileSync({
   const [rewriting, setRewriting] = useState(false)
 
   /**
-   * Story 043 D7: the outcome of one `useFileSourceRefresh` re-read for the selected profile.
+   * Story 043: the outcome of one `useFileSourceRefresh` re-read for the selected profile.
    * `applyRefreshedProfile` folds the outcome into `profiles` (a no-op for `unchanged`/`conflict`,
    * a full replace for `adopted`, a `fileState`-only patch for `missing`/`unparseable`/`readError` -
    * see its own doc comment); `noticeForRefreshedProfile` says what, if anything, needs surfacing
    * on top of that.
    *
-   * `adopted` is reported as a toast (AC3: "never a silent swap") - this module's existing one-shot
+   * `adopted` is reported as a toast ("never a silent swap") - this module's existing one-shot
    * transient-notice idiom, per `ProfileSaveActions`'s own `pushToast` usage. `conflict` is reported the
-   * same way `ProfileSaveActions`/`resolveSaveOutcome` (D6) stub it: a plain toast, no dialog - D5's own
+   * same way `ProfileSaveActions`/`resolveSaveOutcome` stub it: a plain toast, no dialog - the own
    * doc comment already says this pair of triggers should not realistically produce a conflict
    * (that needs a dirty profile plus an external edit in the same instant), and the real two-pane
-   * resolution is D8's job.
+   * resolution is the job.
    */
   const handleFileSourceResult = (result: RefreshedProfileResult): void => {
     replaceAll(applyRefreshedProfile(useConfigProfiles.getState().profiles, result))
@@ -54,11 +54,11 @@ export function useProfileFileSync({
     const notice = noticeForRefreshedProfile(result)
     if (notice?.kind === 'reloaded') {
       pushToast({ level: 'info', messageKey: 'config.fileSource.reloaded', timeoutMs: 6000 })
-      // Story-050 review (finding 4, second round): the reload kept only the last definition of an
+      // Story-050: the reload kept only the last definition of an
       // alias name the file spelled twice, so an entry's commands are gone from the profile that
       // just replaced the cached one. Its own toast next to the `info` one above, built by
       // `droppedAliasWarning` - the same single definition Care's Reload and the conflict dialog's
-      // "Take the file" push through `adoptProfileFromFile` (finding 1, third round), so the three
+      // "Take the file" push through `adoptProfileFromFile` , so the three
       // adopt paths can never word this differently or forget it.
       const warning = droppedAliasWarning(notice.droppedAliases)
       if (warning) pushToast(warning)
@@ -110,13 +110,13 @@ export function useProfileFileSync({
   })
 
   /**
-   * The "Rewrite from cache" action on the `fileState: 'missing'` banner (story 043 D7) - reuses
-   * D4's existing `save` handler exactly as-is: `save` writes from cache whenever the file is
+   * The "Rewrite from cache" action on the `fileState: 'missing'` banner (story 043) - reuses
+   * the existing `save` handler exactly as-is: `save` writes from cache whenever the file is
    * missing or unchanged, so there is nothing new to build on the main side. `resolveSaveOutcome`
-   * (D6, `lib/save-bar.ts`) is reused rather than re-implemented for the failure branches, so an
+   * (`lib/save-bar.ts`) is reused rather than re-implemented for the failure branches, so an
    * unreadable-file surprise here reports through the identical toast `ProfileSaveActions` would.
    *
-   * A `'conflict'` outcome (story 043 D8's new action type) is not expected on this path - the
+   * A `'conflict'` outcome (story 043's new action type) is not expected on this path - the
    * file was reported `missing` a moment ago, so a save reaching `changedOnDisk` here means it
    * reappeared between the banner rendering and this click. This deliberately does not open
    * `ConfigConflictDialog` for that vanishingly rare race (this button's whole point is a MISSING

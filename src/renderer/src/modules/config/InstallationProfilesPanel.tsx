@@ -11,7 +11,7 @@ import { SwitchBindControl } from './SwitchBindControl'
  * The installation-side half of assignment: for every registered
  * installation, which config profiles are currently assigned to it, with the
  * per-installation default called out, plus (story 007) that installation's
- * in-session profile-switch bind when it has 2+ assigned profiles (AC 5).
+ * in-session profile-switch bind when it has 2+ assigned profiles.
  *
  * Mostly derived and read-only - it does not fetch or mutate `profiles` or
  * `installations`. Every render re-derives assignment from `profiles` (owned

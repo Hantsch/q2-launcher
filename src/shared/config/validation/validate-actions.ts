@@ -1,8 +1,8 @@
 /**
- * Alias-wiring checks — story 019 D8.
+ * Alias-wiring checks — story 019.
  *
  * Runs over the profile's own `ConfigAction[]`, never over rendered text
- * (unlike D3's `validate-structure.ts`): the three things this module reports
+ * (unlike the `validate-structure.ts`): the three things this module reports
  * — a binding calling an alias that no longer exists, an alias nobody calls, a
  * duplicate alias name — are all about the *entries the user edited*, not
  * about the bytes `render.ts` would put on disk. A deleted alias entry leaves
@@ -27,7 +27,7 @@
  * either — `validate-structure.ts`'s own reference graph only ever looks at
  * alias *bodies*, never at bind commands, for exactly this reason). Reporting
  * every unmatched bare command as an "undefined alias" would flag every
- * ordinary movement/weapon bind a profile has — the opposite of AC 8's "a
+ * ordinary movement/weapon bind a profile has — the opposite of "a
  * clean profile produces none of them".
  *
  * Two narrowings keep this module from doing that:
@@ -42,7 +42,7 @@
  *   `+drops`/`-drops`). A bare command with no sign (`wait`, `centerview`) is
  *   left alone rather than guessed at.
  *
- * A third narrowing (review fix, Finding 2) keeps the sign check itself from
+ * A third narrowing keeps the sign check itself from
  * over-firing: `+forward`/`-attack`/`+moveup`/... are ordinary, hand-typeable
  * engine commands with no alias involved at all, and this module has no
  * built-in-command catalogue to tell them apart from a genuine (broken) alias
@@ -55,7 +55,7 @@
  * reference, and is excluded before the "is it a defined alias" check ever
  * runs. This is deliberately narrow (it recognises only the handful of
  * commands `action-catalog.ts` already knows about) rather than broad (e.g.
- * "any bare token that isn't a defined alias is fine") — AC 8 still needs a
+ * "any bare token that isn't a defined alias is fine") — it still needs a
  * hand-typed call to a genuinely deleted alias, whose name matches no known
  * engine command, to be reported.
  *
@@ -77,7 +77,7 @@
  * module cannot tell "ordinary uncatalogued engine command" apart from
  * "genuinely broken alias reference" for anything outside the two exclusion
  * lists above, `undefinedAlias` is reported at `warning`, not `error` (second
- * review fix): flagging it at all still serves AC 8, but claiming certainty
+ * review fix): flagging it at all still serves the clean-profile guarantee, but claiming certainty
  * ("this profile is broken") the available signal cannot support would not.
  *
  * "Never referenced" is checked the other way round and does not need this
@@ -88,7 +88,7 @@
  * signed or not) — and, since an alias has no key slot of its own and can
  * only be *called* from a hand-typed raw command, also over every bare token
  * in `profile.binds`'s values and every layer's `overrides` values (review
- * fix, Finding 3, now the shared collector's job too), further widened by a
+ * now the shared collector's job too), further widened by a
  * `bind <key> <token>` segment's target token (story 038, for story 041's
  * `alias cali "bind KP_END drop_shotgun"` shape): a `bind r "+test"` typed
  * straight on the raw Binds tab is exactly as real a reference as one typed
@@ -113,11 +113,11 @@
  * `validate-structure.ts`'s own `aliasDuplicate` check already applies to a
  * rendered file's `alias` lines.
  *
- * Story 039, D8 generalises `aliasDuplicate` from `kind: 'alias'`-only to
+ * Story 039 generalises `aliasDuplicate` from `kind: 'alias'`-only to
  * *every* action: every kind (`bind`, `alias`, `message`) is written under
  * `aliasNameFor`'s resolved name (`alias-render.ts`'s file doc comment — "every
  * action is written as one alias"), so a `bind` entry and a `message` entry can
- * collide on a name exactly as two `alias` entries can, now that D7 gives every
+ * collide on a name exactly as two `alias` entries can, now that the renderer gives every
  * entry a short, readable, collision-prone derived name instead of an id-suffixed
  * one. Downgraded from `error` to `warning` at the same time (the story's
  * Decisions): the collision is symmetric and last-definition-wins, not a broken
@@ -143,7 +143,7 @@
  * `validate-structure.ts`'s `aliasCycle`, which reports the same situation about
  * the rendered file rather than about the entry the user can edit.
  *
- * ## Story 041, D4 - an imported profile's reference shapes
+ * ## Story 041 - an imported profile's reference shapes
  *
  * The three shapes an import produces - a raw bind pointing at an entry by bare
  * name (`bind KP_END "drop_shotgun"`), one entry's body calling another's
@@ -152,15 +152,15 @@
  * `collectAliasReferences` (story 038) already scans every action's raw command
  * text, every `binds` value and every layer override, splitting each on `;`, and
  * every caller of `validateActions` passes `binds`/`layers` through. Widening the
- * graph again for D4 would have been a second copy of it (story 038 AC3), so the
+ * graph again would have been a second copy of it (story 038), so the
  * only change here is on the *definition* side: `definedKeys` used to be built
  * from `kind: 'alias'` entries alone, which made a bind calling an imported
  * `kind: 'message'` entry look like a call into nothing - see the comment at that
  * set for why `message` belongs in it and `bind` does not.
  *
- * ## Story 041, D4 fix - press/release pairing
+ * ## Story 041 fix - press/release pairing
  *
- * D4's Plan (the story's own requirements doc, step 4) named a second widening
+ * the Plan (the story's own requirements doc, step 4) named a second widening
  * this file shipped without: a `-x` release alias is never referenced by name
  * in any config text (the engine calls it itself on key-up whenever `+x` is
  * bound), so an imported `+slow`/`-slow` pair got a permanent, unfixable
@@ -172,17 +172,17 @@
  * genuinely matched pair - see the "referenced-by-anything" section below for
  * the pairing itself.
  *
- * Story 045, D10 folded the standalone `press-release.ts` pairing helper
+ * Story 0450 folded the standalone `press-release.ts` pairing helper
  * (`pressReleasePairs`) into this widening directly: it was written for
- * exactly this purpose (D5's own doc comment named `ControlsTab.tsx` as its
+ * exactly this purpose (its own doc comment named `ControlsTab.tsx` as its
  * *other*, UI-only caller, which story 045 gave a real `kind: 'press-release'`
  * entry and no longer needs name-pairing for), and this file's own copy of the
  * same `+`/`-` base-name match is the one remaining, still-necessary use -
- * a plain `kind: 'alias'` fallback pair (the shape D5-D7's recogniser declined
+ * a plain `kind: 'alias'` fallback pair (the shape the recogniser declined
  * to promote to a first-class entry) still needs this to avoid a permanent
  * false `aliasUnreferenced` on its release half.
  *
- * ## Story 044, D1 - one name space, two surfaces
+ * ## Story 044 - one name space, two surfaces
  *
  * None of the rules above change; where their answers come from does. The three
  * name-level rules (`aliasDuplicate`, `aliasUnreferenced`, `undefinedAlias`)
@@ -222,13 +222,13 @@ import {
 } from '../aliases/alias-references'
 import type { Finding } from './validation'
 
-/** Shared prefix of every message key this module emits, alongside D3/D4's own. */
+/** Shared prefix of every message key this module emits, alongside the sibling validators' own. */
 export const ACTIONS_MESSAGE_PREFIX = 'config.validation.actions.'
 
 /**
  * Every bare press/release command `action-catalog.ts`'s continuous
  * `MOVEMENT_ACTIONS` can ever render, both signs (`+forward`/`-forward`,
- * `+attack`/`-attack`, ...) - see the file doc comment's Finding 2 narrowing.
+ * `+attack`/`-attack`, ...) - see the file doc comment's second narrowing.
  * Built once at module load, not per call: the catalogue is a static
  * constant, not derived from any argument.
  */
@@ -246,7 +246,7 @@ const KNOWN_PRESS_RELEASE_COMMANDS = new Set<string>(
  * alongside `KNOWN_PRESS_RELEASE_COMMANDS` above (review fix, Finding: false
  * positives on the app's own hold-layer aliases).
  *
- * Read off the shared name-space index (story 044, D1) rather than by calling
+ * Read off the shared name-space index (story 044) rather than by calling
  * `generateLayerAliases` a second time here: that index already built its
  * `origin: 'layer'` rows with the real generator, so this stays the "never
  * re-derive a layer's slug/affix budget" rule it always was (S04 watch-out),
@@ -301,17 +301,17 @@ function isCandidateBinding(action: ConfigAction): boolean {
 }
 
 /**
- * Story 045, D8 - Care on the *fallback* shapes.
+ * Story 045 - Care on the *fallback* shapes.
  *
  * A first-class `kind: 'toggle'`/`'press-release'` entry cannot be cross-wired or
  * half-missing by construction (story 045's Decisions), so the three checks below
- * look at every *other* entry - the ones `entry-idioms.ts`'s recogniser (D5)
+ * look at every *other* entry - the ones `entry-idioms.ts`'s recogniser
  * declined to merge into one of the two new kinds, whether because the shape was
  * broken to begin with or because the user hand-edited a previously-recognised
  * trio/pair back apart.
  *
- * **Every other entry, not just the `kind: 'alias'` ones** (story-045 review,
- * finding 2). What an entry's *kind* records is whether the file also binds it to
+ * **Every other entry, not just the `kind: 'alias'` ones** (story 045).
+ * What an entry's *kind* records is whether the file also binds it to
  * a key, not what its alias body is wired like: a broken toggle's dispatch alias
  * comes back as `kind: 'bind'` precisely because it carries the `bind v "zoom"`
  * the player actually uses, and a broken pair's `+` half likewise. Scanning only
@@ -341,7 +341,7 @@ function isCandidateBinding(action: ConfigAction): boolean {
  * `.cfg` line).
  *
  * That question is asked **symmetrically**, over every state at once (story-045
- * review round 2, finding 1). Asking it by walking from the dispatch through
+ * story 045). Asking it by walking from the dispatch through
  * state 1 to state 2 could only ever report a broken *state 2*: any shape where
  * state 1 itself is what is wrong - it rewrites the dispatch to itself (the
  * story's Test Plan step 6: "both toggle states reassign to `zoom_s1`"), or to a
@@ -386,7 +386,7 @@ interface FallbackEntry {
  * and answering with *both* names rather than only the target.
  *
  * Both names, because the check below has to work from the states inwards as well as from the
- * dispatch outwards (story-045 review round 2, finding 1): a broken toggle is exactly the case where
+ * dispatch outwards: a broken toggle is exactly the case where
  * walking from the dispatch through state 1 does not reach state 2, so "which entries rewrite this
  * dispatch" has to be answerable without already knowing which entry state 2 is.
  */
@@ -403,13 +403,13 @@ function trailingReassignmentOf(segments: string[]): { dispatch: string; target:
 /**
  * Alias-wiring findings for `actions` - a binding calling an undefined alias,
  * an alias nobody calls, and a duplicate alias name. `engine` is carried on
- * every finding only to fit `Finding.engine` (same shape D3/D4 use); nothing
+ * every finding only to fit `Finding.engine` (same shape the sibling validators use); nothing
  * here reads engine facts or varies by engine - the caller runs this once per
- * assigned engine, same as `validateStructure`/`validateCvars` (D5's own
+ * assigned engine, same as `validateStructure`/`validateCvars` (its own
  * pattern), so the three checks appear once per engine section rather than as
  * a fourth kind of result the Validation panel would need to special-case.
  *
- * `references` (review fix, Finding 3) carries the profile's `binds` and
+ * `references` carries the profile's `binds` and
  * `layers`, both optional and defaulted to empty: a hand-typed `bind r "+test"`
  * on the raw Binds tab, or the same typed straight into a layer's `overrides`,
  * is exactly as real a reference to an alias as one typed into another
@@ -442,7 +442,7 @@ export function validateActions(
     })
   }
 
-  // The profile's whole alias name space, built once (story 044, D1) - the same graph the Aliases
+  // The profile's whole alias name space, built once (story 044) - the same graph the Aliases
   // tab reads, so the two surfaces can never disagree about what is defined or what is referenced.
   // Every rule below draws its names, its owners and its references from here; nothing in this file
   // walks the profile for references any more.
@@ -459,7 +459,7 @@ export function validateActions(
   })
   const aliasNames = allResolvedNames.filter((entry) => entry.action.kind === 'alias')
 
-  // --- duplicate alias names (generalised, D8: every action renders as an alias
+  // --- duplicate alias names (generalised: every action renders as an alias
   // under `aliasNameFor`, so the collision check runs over every action, not just
   // `kind: 'alias'` ones — see the file doc comment) --------------------------
   //
@@ -470,7 +470,7 @@ export function validateActions(
   // and the findings are emitted group by group, in first-appearance order of the name, which is
   // the order this rule has always produced them in.
   //
-  // Story-045 review, finding 3: the candidate rows are every row the index owns *for an entry*, not
+  // Story 045: the candidate rows are every row the index owns *for an entry*, not
   // only the one primary row per action. A two-part entry defines more names than it is called by -
   // a toggle's `<name>_s1`/`<name>_s2` states, a press/release entry's `-<base>` half - and the file
   // holds one definition per name, so a user alias colliding with one of those loses its body on the
@@ -517,7 +517,7 @@ export function validateActions(
     })
   }
 
-  // --- a derived name shadows a known engine command/cvar (D8) ----------------
+  // --- a derived name shadows a known engine command/cvar ----------------
   // Independent of the duplicate check just above: fires on an entry's own
   // resolved name alone, never suppressed by a collision also firing for it.
   //
@@ -587,7 +587,7 @@ export function validateActions(
     })
   }
 
-  // Every name this profile really defines as a callable alias (story 041, D4).
+  // Every name this profile really defines as a callable alias (story 041).
   //
   // Not `aliasNames` (the `kind: 'alias'` subset) any more: an imported
   // `alias +teamsay "say_team go go go"` becomes a `kind: 'message'` entry
@@ -614,7 +614,7 @@ export function validateActions(
   )
 
   // --- referenced-by-anything (lenient: shared reference graph, story 038; read
-  // off the shared index since story 044, D1) -------------------------------
+  // off the shared index since story 044) -------------------------------
   //
   // A row's `referrers` is built with no exclusions at all - an entry's own recursive body and its
   // own bind mirror count, exactly as `collectAliasReferences` (which this used to call) always
@@ -626,8 +626,8 @@ export function validateActions(
     if (entry.row.referrers.length > 0) referencedKeys.add(entry.row.key)
   }
 
-  // --- press/release pairing widens "referenced" one more step (story 041, D4
-  // fix; the story's own Plan named this and D4 shipped without it) --------
+  // --- press/release pairing widens "referenced" one more step (story 041
+  // fix; named in the story's Plan) --------
   //
   // A `-x` release alias is never called by name anywhere in the config text -
   // no bind, no alias body, no `;`-list ever literally says `-slow`. The
@@ -681,8 +681,8 @@ export function validateActions(
   // undefined alias reference and an ordinary, uncatalogued engine command are
   // indistinguishable from here, so this can never be an `error`-level "this
   // profile is broken" claim without an authoritative command list to confirm
-  // it against. Reporting it as a `warning` keeps AC 8's "undefined alias
-  // reference gets flagged" intact without asserting more certainty than the
+  // it against. Reporting it as a `warning` keeps the "undefined alias
+  // reference gets flagged" guarantee intact without asserting more certainty than the
   // available signal supports.
   const knownLayerCommands = knownLayerPressReleaseCommands(index)
   for (const action of actions) {
@@ -702,11 +702,11 @@ export function validateActions(
     add('aliasUnreferenced', 'warning', entry.action.name, { name: entry.name })
   }
 
-  // --- story 045, D8: broken toggle/press-release shapes on the fallback entries -----------------
+  // --- story 045: broken toggle/press-release shapes on the fallback entries -----------------
   // See the block comment above `bodySegmentsOf` for why these checks exist, why `toggleCrossWired`
   // is a standalone structural check rather than a reuse of `entry-idioms.ts#recognizeEntryIdioms`,
   // and why the candidate set is every entry whose body lives in `commands` rather than the
-  // `kind: 'alias'` subset (story-045 review, finding 2: a *bound* dispatch or `+` half restores as
+  // `kind: 'alias'` subset (story 045: a *bound* dispatch or `+` half restores as
   // `kind: 'bind'`, which is the normal case, and was invisible here).
   const fallbackEntries = new Map<string, FallbackEntry>()
   for (const entry of allResolvedNames) {
@@ -721,8 +721,8 @@ export function validateActions(
   // Every state the file wires onto a dispatch name, found from the *state* side: an entry whose
   // body ends in `alias <dispatch> <target>` is a toggle state of `<dispatch>`, whatever it hands
   // over to. Indexed once, by dispatch name, so the check below can ask "which states does this
-  // dispatch have" instead of walking from one state to the next (story-045 review round 2,
-  // finding 1: walking is what made a broken state 1 invisible - the walk stopped there).
+  // dispatch have" instead of walking from one state to the next (story 045:
+  // walking is what made a broken state 1 invisible - the walk stopped there).
   const statesByDispatch = new Map<string, { entry: FallbackEntry; target: string }[]>()
   for (const entry of fallbackEntries.values()) {
     const rewrite = trailingReassignmentOf(entry.segments)

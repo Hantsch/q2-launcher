@@ -39,7 +39,7 @@ const FOCUS_RING =
   'focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flame-500'
 
 /**
- * Story 184 D3: the expected timeline at this instant. While the demo plays in the window the
+ * Story 184: the expected timeline at this instant. While the demo plays in the window the
  * position moves between readbacks, so the component re-renders once per animation frame.
  */
 export function useExpectedTimeline(
@@ -62,7 +62,7 @@ export function useExpectedTimeline(
 }
 
 /**
- * Story 165 D3: the timeline strip docked at the bottom of the Demos view while a demo session
+ * Story 165: the timeline strip docked at the bottom of the Demos view while a demo session
  * exists. The seek bar is one `role="slider"` element (keyboard + click); without a known duration
  * it is `aria-disabled` and says why as visible text. Every action goes through `playbackTimeline`
  * as a fixed action object, never console text; a refusal or a rejected call shows inline.

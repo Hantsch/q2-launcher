@@ -33,7 +33,7 @@ import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { useProfileSave } from './lib/useProfileSave'
 
 export interface ControlsTabProps {
-  /** Story 044 D6: the owning action's id, when the Aliases tab's owner link for a `generated` row
+  /** The owning action's id, when the Aliases tab's owner link for a `generated` row
    * asked to land here - selects that action's own category and focuses its row. Handled once on
    * mount only (see the focus effect below): `ConfigView` only ever mounts this tab fresh when the
    * deep link fires, since the tab panel it lives in unmounts on every tab switch. */
@@ -41,11 +41,10 @@ export interface ControlsTabProps {
 }
 
 /**
- * Story 008 D6: category management plus a bare action list. This is
+ * category management plus a bare action list. This is
  * deliberately not a full action editor - `ConfigAction.commands`/`.key`
  * are never touched here, they stay whatever they were (`[]` for a freshly
- * created action). A later deliverable (D7) wires a row click to a
- * command/key editor, and another (D8) adds a message editor; both extend
+ * created action). Command/key and message editing extend
  * this file rather than replace it, which is why every action row is
  * rendered as a distinct, addressable list item even though nothing reacts
  * to clicking one yet.
@@ -63,11 +62,11 @@ const NO_ACTIONS: ConfigAction[] = []
 export function ControlsTab({ focusActionId }: ControlsTabProps) {
   const { profile, draft, patch, installations, save } = useProfileDraftContext()
   const { t, i18n } = useTranslation()
-  // Story 049 D8: the profile's pending change set, read once here so every
+  // the profile's pending change set, read once here so every
   // `ControlsEntryRow` can ask "is my action id in `keys.actions`" - same predicate the
   // save bar's badge and count use (`useProfileChanges`, `lib/profile-changes.tsx`).
   const changeSet = useProfileChanges()
-  // Story 167 D4: the engines this profile is assigned to, which decide whether a demo-playback
+  // the engines this profile is assigned to, which decide whether a demo-playback
   // row (`seek` / speed steps are Q2PRO verbs) can be bound at all - same read `SettingsTab` does.
   const assignedEngines = useMemo(
     () => assignedEngineKinds(profile, installations),
@@ -80,15 +79,14 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
     [assignedEngines],
   )
 
-  // Story 009 D6: `localCategories`/`localActions` used to live here as their
-  // own `useState`; they are now `draft.categories`/`draft.actions`, lifted
+  // `draft.categories`/`draft.actions` are lifted
   // into `ConfigView` so the Validation tab sees an edit immediately, with no
-  // debounce and no IPC round trip in between (AC 4).
+  // debounce and no IPC round trip in between.
   const categories = draft.categories ?? NO_CATEGORIES
   const actions = draft.actions ?? NO_ACTIONS
 
   /**
-   * Story 020 D7: the profile-wide conflict scan, computed once per relevant draft change (not
+   * the profile-wide conflict scan, computed once per relevant draft change (not
    * per category) - "the header conflict count is profile-wide, not per category" (sprint
    * decision). `indexBindConflicts` turns the flat scan result into an O(1) per-slot lookup so
    * every `ControlsEntryRow` slot and Options cell can ask "is my own key in here"
@@ -97,7 +95,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
   const conflicts = useMemo(() => findBindConflicts(draft), [draft])
   const conflictIndex = useMemo(() => indexBindConflicts(conflicts), [conflicts])
   const layers = draft.layers ?? []
-  // Story 052 D7: no category is special any more - the rail's initial selection is simply the
+  // no category is special - the rail's initial selection is simply the
   // profile's first category (in its own order), or '' for a freshly-created, still-empty profile
   // (the empty state below offers the template instead of a selectable category).
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
@@ -119,7 +117,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
   const [showCreateAction, setShowCreateAction] = useState(false)
   const [renamingAction, setRenamingAction] = useState<ConfigAction | null>(null)
   const [editingActionId, setEditingActionId] = useState<string | null>(null)
-  /** Story 020 D8: local, not persisted - the filter is a view concern, not a draft edit. Reset
+  /** local, not persisted - the filter is a view concern, not a draft edit. Reset
    * whenever the selected category changes so a filter typed in one category never silently hides
    * rows in the next one. */
   const [filterText, setFilterText] = useState('')
@@ -129,21 +127,20 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
     setSelectedCategoryId(categoryId)
     setFilterText('')
   }
-  /** Review fix (findings 4/5): which drop row's message `Modal` is open, or `null` for none.
-   * The editor reads its initial channel/text off `actions` itself (looked up by the entry's id,
-   * story 052 D8), so this only has to remember *which* row - plus the row's already-resolved i18n
-   * label, because a `CatalogRow` carries no `labelKey` and the modal's title needs one (029 D4).
-   * Story 055 D3: `row` is `undefined` for a drop entry that is not a catalogue row at all (a
+  /** which drop row's message `Modal` is open, or `null` for none.
+   * The editor reads its initial channel/text off `actions` itself (looked up by the entry's id), so this only has to remember *which* row - plus the row's already-resolved i18n
+   * label, because a `CatalogRow` carries no `labelKey` and the modal's title needs one.
+   * `row` is `undefined` for a drop entry that is not a catalogue row at all (a
    * `drop_` alias imported outside the catalogue) - there is then no catalogue body to fill in via
    * `catalogWriteBase` on save, only the message command itself to write (see the `onSave` below). */
   const [messageEditorRow, setMessageEditorRow] = useState<MessageEditorRow | null>(null)
   /**
-   * Story 029 D4: which drops rows have their inline message row revealed *without* a message
-   * being stored yet (AC 3/5). Local view state, not a draft edit - and deliberately not derived:
+   * which drops rows have their inline message row revealed *without* a message
+   * being stored yet. Local view state, not a draft edit - and deliberately not derived:
    * an empty message is never persisted (`applyMessage('')` removes the command), so a row the user
    * just checked has nothing in `actions` to read the checked state back from. The checkbox and the
    * sub-row are both rendered from "has a stored message OR is in this set", so the two can never
-   * disagree (story decision). Keyed by the entry's id, not its `catalogId` (story 052 D8): a row is
+   * disagree . Keyed by the entry's id, not its `catalogId`: a row is
    * an entry, and two entries could name the same catalogue row.
    */
   const [revealedMessageRows, setRevealedMessageRows] = useState<ReadonlySet<string>>(
@@ -151,8 +148,8 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
   )
 
   /**
-   * Story 056 D3: which rows' extra-key sub-rows are folded open, keyed by `action.id` - mirrors
-   * `revealedMessageRows` exactly (local view state, tab-lifetime persistence per AC 3, not a
+   * which rows' extra-key sub-rows are folded open, keyed by `action.id` - mirrors
+   * `revealedMessageRows` exactly (local view state, tab-lifetime persistence per not a
    * draft edit). Default fold state is collapsed (the sprint decision), so this starts empty
    * rather than pre-populated: a row is "open" whenever its id is in the set (two-or-more-extras
    * case), or unconditionally when it has exactly one extra (the fold rule's "always visible"
@@ -170,7 +167,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
     onDragFinished: handleDragFinished,
     onSpringLoad: handleSpringLoad,
   } = useControlsDrag({ isRowId: (id) => actions.some((action) => action.id === id) })
-  /** Story 054 D8: which row's "Move to…" picker is open - the entry's id plus its already-resolved
+  /** which row's "Move to…" picker is open - the entry's id plus its already-resolved
    * display label, since a catalogue row's label needs `t()` and the dialog only shows it. */
   const [movingEntry, setMovingEntry] = useState<{ actionId: string; label: string } | null>(null)
 
@@ -184,7 +181,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
   }, [])
 
   /**
-   * Story 044 D6: a deep link from the Aliases tab's owner column for a `generated` row - the
+   * a deep link from the Aliases tab's owner column for a `generated` row - the
    * owning action always exists (`AliasesTab`'s index is built from `draft.actions` itself), so this
    * only has to find it, select its category and queue it to be focused once its
    * row renders. Runs once on mount only - see `ControlsTabProps.focusActionId`'s own doc comment
@@ -214,10 +211,10 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
     focusAppliedRef.current = pendingFocusActionId
   })
 
-  /** Story 052 D1/D7: the renderer prefers a category's `nameKey` (a still-unrenamed template
+  /** the renderer prefers a category's `nameKey` (a still-unrenamed template
    * seed) over its stored `name`; a category the user has renamed, or one they typed themselves,
    * carries no `nameKey` and shows its stored prose verbatim. The rule itself (including the
-   * fallback for a `nameKey` this build does not know - review finding 9) is
+   * fallback for a `nameKey` this build does not know) is
    * `lib/category-display.ts`, so it can be tested without mounting the tab. */
   const categoryDisplayName = (category: ConfigActionCategory): string =>
     resolveCategoryDisplayName(category, {
@@ -226,7 +223,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
     })
 
   /**
-   * Story 054 D5: what the grid is showing *right now*, which is `selectedCategoryId` except while
+   * what the grid is showing *right now*, which is `selectedCategoryId` except while
    * a spring-load has provisionally carried the drag into another category.
    *
    * `viewActions` is the entry list that provisional view is rendered from: the real `actions` with
@@ -252,7 +249,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
   const editingAction = editingActionId
     ? (actions.find((action) => action.id === editingActionId) ?? null)
     : null
-  /** Story 053 D7: the category `editingAction` actually belongs to, looked up from `categories`
+  /** the category `editingAction` actually belongs to, looked up from `categories`
    * rather than assumed to be `selectedCategory` - a dangling `categoryId` (its category deleted
    * out from under it) falls back to a no-subcategories stand-in so `ActionEditor` still opens,
    * just without a sub-category control to offer. */
@@ -262,7 +259,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
         name: '',
       })
     : { id: '', name: '' }
-  /** Story 052 D8: the drops row whose message modal is open, resolved out of `actions` on every
+  /** the drops row whose message modal is open, resolved out of `actions` on every
    * render rather than captured into state - the editor then always opens on the entry as it is
    * now, and an entry that disappeared under it (its category deleted) closes the modal instead of
    * editing a stale copy. */
@@ -270,12 +267,11 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
     ? (actions.find((action) => action.id === messageEditorRow.actionId) ?? null)
     : null
 
-  // Story 052 D8: one rule for every category - a row is one of the profile's own entries, in the
-  // profile's own order, and no row is rendered for an entry the profile does not have (AC 3).
-  // movement/weapons/drops used to render one row per *catalogue* entry regardless (lazy
-  // materialisation); the catalogue now only says what an entry the profile already carries means
+  // one rule for every category - a row is one of the profile's own entries, in the
+  // profile's own order, and no row is rendered for an entry the profile does not have.
+  // the catalogue does not add rows (no lazy materialisation); it only says what an entry the profile already carries means
   // (`controls-row-entries.ts`).
-  // Story 054 D5: built from the *view* (see `viewActions` above), so a spring-loaded drag renders
+  // built from the *view* (see `viewActions` above), so a spring-loaded drag renders
   // the target category with the dragged row already in it - it has to stay a live sortable item,
   // or there would be no exact position in that category to drop it at.
   // The filter is scoped to the active category by construction (it runs over that category's
@@ -309,14 +305,14 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
   const filterQuery = filterText.trim().toLowerCase()
 
   /**
-   * Story 054's decision: dragging is off while the Controls filter narrows the list - a drop
+   * Decision: dragging is off while the Controls filter narrows the list - a drop
    * between two *visible* rows has no defined array position among the hidden ones, and order is
-   * array position (story 019). Every grip stays rendered and focusable, disabled with an
-   * explaining tooltip (`DragHandle`), and D8's row menu keeps offering move up/down/"Move to…".
+   * array position. Every grip stays rendered and focusable, disabled with an
+   * explaining tooltip (`DragHandle`), and the row menu keeps offering move up/down/"Move to…".
    */
   const dragDisabled = filterQuery.length > 0
 
-  /** Story 054 D7: the rail's own order - the id-space a chip drop resolves an index within, and
+  /** the rail's own order - the id-space a chip drop resolves an index within, and
    * (namespaced through `categoryDragId`) the chips' `SortableContext` item list. Derived from
    * `categories` rather than from `rowGroups`, which only ever covers the visible category. */
   const categoryOrder = categories.map((category) => category.id)
@@ -371,14 +367,14 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
   )
 
   return (
-    // Story 020 review fix: AC 2's ~1120px cap has to hold the whole tab body, not just the grid
+    // 's ~1120px cap has to hold the whole tab body, not just the grid
     // - an ultrawide window otherwise stretches the category rail and toolbar full-width while the
     // grid caps underneath them, which reads as broken. `ControlsGrid`'s own `.ctrl-stage` still
     // caps the table itself (harmless redundancy, both centre on the same 1120px), but this outer
     // wrapper is what actually caps the category rail and the filter toolbar.
     <div className="ctrl-stage space-y-6">
       {/*
-        Story 054 D5: exactly one `DndContext` for the whole tab, spanning the category rail *and*
+        exactly one `DndContext` for the whole tab, spanning the category rail *and*
         the grid - a row has to be draggable from the grid onto a chip in the rail, and one drag
         operation may only ever live in one context. `ControlsDragZone` renders no DOM of its own
         (see `SortableZone`), so wrapping both blocks here changes nothing structurally: the rail's
@@ -425,16 +421,16 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
         </div>
 
         {/*
-        Story 020 D3/D4: one grid for every category - `DualBindPanel`, `DropBindPanel` and the
-        old bare `<ul>` collapse into `ControlsGrid`. D5/D6 own the real slot surface and
+        one grid for every category - `DualBindPanel`, `DropBindPanel` and the
+        old bare `<ul>` collapse into `ControlsGrid`. the row components own the real slot surface and
         Options-cell content respectively - `ControlsEntryRow` wires
-        today's `BindSlot`/CRUD affordances into D4's `ControlsRow` shell.
+        today's `BindSlot`/CRUD affordances into the `ControlsRow` shell.
 
-        Story 052 D8: every category, catalogue-backed or not, shows exactly its persisted entries
+        every category, catalogue-backed or not, shows exactly its persisted entries
         (`rowEntries`) - the catalogue no longer contributes rows of its own, only what a row of the
         profile's means.
 
-        Story 052 D7: hidden entirely while the profile has no categories - the empty state above
+        hidden entirely while the profile has no categories - the empty state above
         already offers the only actions that make sense with nothing selected.
       */}
         {categories.length > 0 && (
@@ -451,7 +447,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
                   aria-label={t('config.controls.filter.placeholder')}
                   className="w-48"
                 />
-                {/* Story 020 review fix: AC 8/9 put the profile-wide conflict count in the header,
+                {/* put the profile-wide conflict count in the header,
                 not the footer (mirrors the prototype's toolbar: filter, conflict badge, Restore
                 defaults, in that order) - `ControlsGrid` no longer renders this itself. */}
                 {conflicts.length > 0 && (
@@ -460,7 +456,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
                     {t('config.controls.grid.conflictCount', { count: conflicts.length })}
                   </span>
                 )}
-                {/* Story 053 D6: create is the one sub-category operation that has no group header of
+                {/* create is the one sub-category operation that has no group header of
                 its own to sit on yet - mirrors "New category" living in the rail rather than on a
                 category chip. Scoped to `selectedCategory` (disabled instead of hidden while none
                 is selected, matching every other button in this toolbar). */}
@@ -491,7 +487,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
                 body={t('config.controls.actions.empty.body')}
               />
             ) : filteredCount === 0 ? (
-              // Story 020 D8 AC 10: a filter that matches nothing in this category still needs an
+              // A filter that matches nothing in this category still needs an
               // explanation, not a silently empty grid - distinct copy from the "category has zero
               // rows at all" EmptyState above so it reads as "narrow your search", not "add an action".
               <EmptyState
@@ -545,7 +541,7 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
         />
       )}
 
-      {/* Story 054 D8: the row menu's "Move to…" - the keyboard path for a cross-category or
+      {/* the row menu's "Move to…" - the keyboard path for a cross-category or
           cross-sub-category move. Gated on the entry still existing (it can be removed from under
           an open dialog), same rule `messageEditorAction` above already applies. */}
       {movingEntry && actions.some((action) => action.id === movingEntry.actionId) && (
@@ -595,10 +591,10 @@ export function ControlsTab({ focusActionId }: ControlsTabProps) {
         />
       )}
 
-      {/* Story 029 D4 (AC 4): a drops row opens the same rich editor a "Team messages" entry does
+      {/* A drops row opens the same rich editor a "Team messages" entry does
           - channel, macro bar, symbol picker, live preview - with key capture hidden, because a
           catalogue row's key belongs to the grid's `BindSlot`s and their collision/replace flow
-          (story decision; a second, collision-blind key field here would regress AC 7). The save
+          (a second, collision-blind key field here would regress ). The save
           merges through the same two write paths the message toggle uses, so only the row's own
           message command is added/replaced/removed: the `drop <item>` and ammo raw commands are
           carried over untouched. */}

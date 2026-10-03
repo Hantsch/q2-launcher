@@ -20,20 +20,20 @@ import {
 import type { RegexHost } from './watchlist-regex-host'
 
 /**
- * Story 131 D4: the watchlist service - the one stateful thing this deliverable owns. It is fed
+ * Story 131: the watchlist service - the one stateful thing this deliverable owns. It is fed
  * one row at a time through `onStage2Row` (wired fire-and-forget from `scan-service.ts`'s Part A
- * hook, story 131 D4), keeps its own in-memory match state (never persisted - rebuilt from the
+ * hook, story 131), keeps its own in-memory match state (never persisted - rebuilt from the
  * scan's own results, exactly like `scan-service.ts`'s `entries` map), and turns a mutation
  * (`add`/`update`/`remove`/`recheck`) into a fresh `WatchlistSnapshot` push.
  *
  * `rosterMatchesByAddress` is `address -> entryId -> matches at that address` rather than a flat
- * `entryId -> matches` map, so a name seen on two servers at once (AC4) keeps both hits without one
+ * `entryId -> matches` map, so a name seen on two servers at once keeps both hits without one
  * server's row overwriting the other's - `buildSnapshot()` flattens across addresses per entry only
  * when it hands the aggregate off to `buildWatchlistSnapshot`.
  *
  * CRITICAL, same rule as `watchlist-entries.ts`/`watchlist-matcher.ts`: a regex entry's pattern is
  * never run with `.test()`/`.exec()` anywhere in this file - every regex match goes through
- * `regexHost.match()` (story 131 D3's worker), and `onStage2Row` never awaits it inline (it kicks
+ * `regexHost.match()` (story 131's worker), and `onStage2Row` never awaits it inline (it kicks
  * the promise off and returns `void` synchronously, same fire-and-forget contract its caller in
  * `scan-service.ts` already relies on).
  */
@@ -177,7 +177,7 @@ export function createWatchlistService(options: CreateWatchlistServiceOptions): 
 
   /** Resolves a pending `recheck()` the moment the row for its address lands - found again (still
    * has a match anywhere) clears the recheck/left state, no longer found marks the entry `'left'`
-   * (AC9), and nothing further is queried either way. A no-op unless `entryId`'s pending recheck was
+   *, and nothing further is queried either way. A no-op unless `entryId`'s pending recheck was
    * actually waiting on `address`. */
   function resolveRecheckIfPending(entryId: string, address: string): void {
     if (pendingRecheckAddress.get(entryId) !== address) return

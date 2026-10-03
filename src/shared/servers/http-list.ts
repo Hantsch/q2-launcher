@@ -1,5 +1,5 @@
 /**
- * Codecs for q2servers.com's HTTP master list, story 109 D2.
+ * Codecs for q2servers.com's HTTP master list, story 109.
  *
  * The HTTP master source publishes the same address set the UDP master's `query` reply carries,
  * over two shapes selectable by a `?raw=` query parameter:
@@ -8,10 +8,10 @@
  *  - `?raw=2` — the bare packed binary records (see `./master-records`), with no out-of-band
  *    header at all — unlike the UDP reply, there is no `\xFF\xFF\xFF\xFFservers ` prefix to skip,
  *    so this codec is `readPackedRecords` called at offset 0 and nothing else (story 109
- *    Decisions: "AC1 and AC4 are proven against one implementation").
+ *    Decisions: "both are proven against one implementation").
  *
  * Pure, `src/shared` — no `node:*`, no Electron, no IPC — the actual HTTP fetch is a later
- * deliverable's transport seam (`src/main/modules/servers/http-list-source.ts`, D4); this module
+ * deliverable's transport seam (`src/main/modules/servers/http-list-source.ts`); this module
  * only ever turns bytes/text it is handed into an address list.
  *
  * Every address is produced by `parseServerAddress` (story 107), so a master-supplied address is
@@ -25,7 +25,7 @@
 import { parseServerAddress, type ParsedServerAddress } from './address'
 import { readPackedRecords, type MasterSourceFailure } from './master-records'
 
-/** Result shared by both HTTP list codecs — mirrors `readPackedRecords`'s shape (D1). */
+/** Result shared by both HTTP list codecs — mirrors `readPackedRecords`'s shape. */
 export type HttpListResult =
   | { ok: true; addresses: ParsedServerAddress[]; skipped: { value: string; reason: string }[] }
   | { ok: false; reason: MasterSourceFailure }
@@ -68,7 +68,7 @@ export function parseHttpListText(text: string): HttpListResult {
 
 /**
  * Parses the `?raw=2` binary shape: bare packed 6-byte records (4-byte IPv4 + 2-byte big-endian
- * port), with no header — `readPackedRecords` is called at offset 0 directly, reusing D1's
+ * port), with no header — `readPackedRecords` is called at offset 0 directly, reusing the
  * truncated-remainder check rather than reimplementing it.
  *
  * `readPackedRecords` treats a zero-length range as zero records (`{ ok: true, addresses: [] }`),

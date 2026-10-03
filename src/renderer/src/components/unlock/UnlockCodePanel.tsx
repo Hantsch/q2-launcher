@@ -16,7 +16,7 @@ const REJECT_KEYS: Record<Extract<RedeemResult, { ok: false }>['reason'], string
 }
 
 /**
- * Story 129 D2: the Settings panel that lets a user see their installation id, send a code
+ * Story 129: the Settings panel that lets a user see their installation id, send a code
  * through `unlock:redeem`, and see what they already have. Mirrors `ServersSettingsSection.tsx`'s
  * load-on-mount pattern and `FailureLogEntry.tsx`'s copy + transient confirmation pattern.
  *

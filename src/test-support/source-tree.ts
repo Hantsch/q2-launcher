@@ -35,35 +35,61 @@ export function readRepoFile(pathRepoRel: string): string {
 const REGEX_PRECEDER = /[(,=:[!&|?{};+\-*%<>~^]/
 const REGEX_PRECEDER_WORDS = /\b(return|typeof|case|do|else|in|of|void|yield|await)$/
 
-/**
- * `source` with every `//` and `/* *\/` comment replaced by a space. String, template and regex
- * literals are skipped intact, so a `//` inside a URL or a quote inside a regex does not derail the
- * scan.
- */
-export function stripComments(source: string): string {
+interface Lexed {
+  code: string
+  comments: { start: number; end: number }[]
+}
+
+// One lexer for both views: `code` is the source with each comment replaced by a space, `comments`
+// the [start, end) offsets of those comments. String, template and regex literals are skipped
+// intact, so a `//` inside a URL or a quote inside a regex does not derail the scan.
+function lex(source: string): Lexed {
   let out = ''
+  const comments: Lexed['comments'] = []
   let i = 0
   const n = source.length
+  // Open brace depth of each `${ … }` template expression being lexed as code.
+  const templateDepths: number[] = []
   while (i < n) {
     const c = source[i]
     const next = source[i + 1]
     if (c === '/' && next === '/') {
+      const start = i
       while (i < n && source[i] !== '\n') i++
+      comments.push({ start, end: i })
       out += ' '
       continue
     }
     if (c === '/' && next === '*') {
+      const start = i
       const end = source.indexOf('*/', i + 2)
       i = end === -1 ? n : end + 2
+      comments.push({ start, end: i })
       out += ' '
       continue
     }
-    if (c === '"' || c === "'" || c === '`') {
+    if (c === '"' || c === "'") {
       const start = i++
       while (i < n && source[i] !== c) i += source[i] === '\\' ? 2 : 1
       out += source.slice(start, ++i)
       continue
     }
+    const closesExpression = c === '}' && templateDepths[templateDepths.length - 1] === 0
+    if (c === '`' || closesExpression) {
+      // Template text runs to the closing backtick or to a `${`, whose expression is lexed as code.
+      if (closesExpression) templateDepths.pop()
+      const start = i++
+      while (i < n && source[i] !== '`' && !(source[i] === '$' && source[i + 1] === '{'))
+        i += source[i] === '\\' ? 2 : 1
+      if (source[i] === '$') {
+        i += 2
+        templateDepths.push(0)
+      } else i++
+      out += source.slice(start, Math.min(i, n))
+      continue
+    }
+    if (templateDepths.length > 0 && (c === '{' || c === '}'))
+      templateDepths[templateDepths.length - 1] += c === '{' ? 1 : -1
     if (c === '/' && startsRegex(out)) {
       const start = i++
       let inClass = false
@@ -79,7 +105,29 @@ export function stripComments(source: string): string {
     out += c
     i++
   }
-  return out
+  return { code: out, comments }
+}
+
+/** `source` with every `//` and `/* *\/` comment replaced by a space. */
+export function stripComments(source: string): string {
+  return lex(source).code
+}
+
+/** Every comment in `source` with its text and 1-based first and last line. */
+export function commentRanges(
+  source: string,
+): { text: string; startLine: number; endLine: number }[] {
+  const lineAt = (offset: number): number => {
+    let line = 1
+    for (let k = source.indexOf('\n'); k !== -1 && k < offset; k = source.indexOf('\n', k + 1))
+      line++
+    return line
+  }
+  return lex(source).comments.map(({ start, end }) => ({
+    text: source.slice(start, end),
+    startLine: lineAt(start),
+    endLine: lineAt(Math.max(start, end - 1)),
+  }))
 }
 
 function startsRegex(before: string): boolean {

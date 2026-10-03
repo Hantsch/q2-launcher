@@ -7,7 +7,7 @@ import { ErrorBoundary } from '../../../components/ui/ErrorBoundary'
 import { EmptyState, Spinner } from '../../../components/ui/primitives'
 
 /**
- * Story 087 D2. Content handed to the `empty` state - the same shape `EmptyState`
+ * Story 087. Content handed to the `empty` state - the same shape `EmptyState`
  * (`components/ui/primitives.tsx`) already takes, minus `className` (the frame owns that).
  */
 export interface DashboardTileFrameEmptyContent {
@@ -43,7 +43,7 @@ export type DashboardTileFrameProps = {
 } & DashboardTileFrameStateProps
 
 /**
- * Story 087 D2 (AC4): the ONE shared frame every dashboard tile body renders through. Four explicit,
+ * Story 087: the ONE shared frame every dashboard tile body renders through. Four explicit,
  * mutually exclusive states - loading, error (with a working retry), empty (a sentence and an
  * action, via the existing `EmptyState` primitive), filled (arbitrary children) - plus its own error
  * boundary around the filled path, so a throwing tile body cannot unmount the whole dashboard grid

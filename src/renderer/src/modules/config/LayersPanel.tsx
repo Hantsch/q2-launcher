@@ -18,10 +18,10 @@ import { useProfileDraftContext } from './lib/ProfileDraftProvider'
 import { useProfileSave } from './lib/useProfileSave'
 
 /**
- * Issue keys shown in D5's per-layer banner. `layer.plusbind` is now included:
- * D6 gives the key dialog a specific key to attach it to, and this panel
+ * Issue keys shown in the per-layer banner. `layer.plusbind` is now included:
+ * The key dialog gives a specific key to attach it to, and this panel
  * repeats it here as a per-layer aggregate banner. `layer.quote` is included
- * for completeness, but per D1 it is never actually pushed by the generator.
+ * for completeness, but it is never actually pushed by the generator.
  * `layer.noTrigger` (story 011) fires when a layer has overrides but no
  * trigger key assigned yet.
  */
@@ -36,9 +36,9 @@ const VISIBLE_ISSUE_KEYS: ReadonlySet<LayerIssue['key']> = new Set([
 
 /**
  * Layer CRUD (create/rename/delete) plus a per-layer collapsible preview of
- * the exact aliases `generateLayerAliases` (D1) would emit, and the
+ * the exact aliases `generateLayerAliases` would emit, and the
  * layer-level issues it detects. Self-contained: it does not yet drive the
- * keyboard board's edit state (D6's job) - it only manages the `layers`
+ * keyboard board's edit state (the job) - it only manages the `layers`
  * array and shows what each layer would generate.
  *
  * Every mutation is a full replace-whole-array save through
@@ -54,7 +54,7 @@ export function LayersPanel({
   const { t } = useTranslation()
   const { profile, save } = useProfileDraftContext()
   const layers = profile.layers ?? []
-  // Story 049 D8: same "is this in the pending change set" predicate the save bar and the
+  // Story 049: same "is this in the pending change set" predicate the save bar and the
   // Controls rows read (`useProfileChanges`, `lib/profile-changes.tsx`), applied to layers.
   const changeSet = useProfileChanges()
 
@@ -88,7 +88,7 @@ export function LayersPanel({
   }
 
   /**
-   * Story 016 D5 (AC 7): the mode select next to the layer's row, mirroring
+   * Story 016: the mode select next to the layer's row, mirroring
    * `handleRename`'s persist shape - a full replace-whole-array
    * `updateProfileLayers` call with everything but `mode` unchanged. No dialog
    * to close on success (unlike rename/create): the select's own `value` is
@@ -164,10 +164,10 @@ export function LayersPanel({
                   <div className="flex min-w-0 items-center gap-2">
                     <span className="min-w-0 truncate text-sm text-ink">{layer.name}</span>
                     {edited && (
-                      // Story 049 D8 / AC10: the left border alone is colour-only, so an edited
+                      // Story 0490: the left border alone is colour-only, so an edited
                       // layer also carries a shape-based glyph with its own translated
                       // `aria-label` - mirrors `CvarRow.tsx`/`ControlsRow.tsx`'s identical
-                      // treatment (story 049 D7/D8).
+                      // treatment (story 049).
                       <span
                         role="img"
                         aria-label={t('common.label.unsavedChange')}

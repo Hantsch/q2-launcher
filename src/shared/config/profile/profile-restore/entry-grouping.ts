@@ -42,32 +42,32 @@ import { type TwoPartMerge, recognizeTwoPartGroups } from './two-part'
 // ---------------------------------------------------------------------------
 
 /**
- * Every launcher-owned line, grouped into entries by what the config *text* says, in the order the
- * file itself puts those entries in (`orderGroupsByFile`), plus any `alias` definition that carries
- * no `[q2l` tag at all (`untaggedAliases`).
+ * Every launcher-owned line, grouped into entries by what the config text says, in the order the
+ * file puts those entries in (`orderGroupsByFile`), plus any `alias` definition with no `[q2l` tag
+ * (`untaggedAliases`).
  *
- * Identity comes out of the lines themselves - one shared `Map` keyed on alias names and bind
- * values, each **scoped to the category section the line sits in** (`groupKey`; story 050):
+ * Identity comes from the lines themselves - one shared `Map` keyed on alias names and bind values,
+ * each scoped to the category section the line sits in (`groupKey`;):
  *
- * - an alias line is keyed by its alias name; a chunk-split body (`alias <base>_p<n>`) folds onto
- *   the launcher-owned base alias of the *same* category that calls it, never onto an untagged one;
- * - a bind line is keyed by its bind value, so several `bind` lines running one command are one
- *   entry with several keys; a bind value equal to a grouped alias name joins that alias's group;
+ * - an alias line is keyed by its alias name; a chunk-split body (`alias <base>_p<n>`) folds onto the
+ *   launcher-owned base alias of the same category that calls it, never onto an untagged one;
+ * - a bind line is keyed by its bind value, so several `bind` lines running one command are one entry
+ *   with several keys; a bind value equal to a grouped alias name joins that alias's group;
  * - an anchor line is matched by `matchAnchor` (`cid`, then exact prose, within its category).
  *
- * The category scope is what keeps two entries the user named alike (`Fire` under Weapons and under
- * Movement, both rendering `alias fire`) apart. It cannot restore a body the engine's alias name
- * space already lost: every reader folds same-named `alias` lines (last definition wins) before this
- * runs, and that fold reports the loss (`entry-alias-duplicate`).
+ * The category scope keeps two entries the user named alike (`Fire` under Weapons and Movement, both
+ * rendering `alias fire`) apart. It cannot restore a body the engine's alias namespace already lost:
+ * every reader folds same-named `alias` lines (last wins) before this runs and reports the loss
+ * (`entry-alias-duplicate`).
  *
- * Tag *presence* is the whole launcher-owned signal: a code line with no `[q2l` is not an entry
- * line, and a line whose tag is present but unreadable is reported as `tag-malformed` and not
- * claimed. Either way its `bind`/`alias` line survives untouched in `profile.binds`.
+ * Tag presence is the whole launcher-owned signal: a code line with no `[q2l` is not an entry line,
+ * and one whose tag is present but unreadable is reported as `tag-malformed` and not claimed. Either
+ * way its `bind`/`alias` line survives untouched in `profile.binds`.
  *
- * An untagged `alias` line is not malformed, and dropping it would silently lose it (nothing
- * re-derives an `alias` line from `profile.binds`/`profile.cvars` on render), so it is returned in
- * `untaggedAliases` for the caller to infer an entry from; a *malformed* tag is excluded to avoid a
- * duplicate entry. A raw `bind` line legitimately carries no tag and is never warned about.
+ * An untagged `alias` line is not malformed, and dropping it would lose it (nothing re-derives an
+ * `alias` line on render), so it is returned in `untaggedAliases` for the caller to infer an entry
+ * from; a malformed tag is excluded to avoid a duplicate entry. A raw `bind` line legitimately
+ * carries no tag and is never warned about.
  */
 export function groupEntryLines(
   aliases: readonly RestoreAliasLine[],
@@ -80,7 +80,7 @@ export function groupEntryLines(
 ): { groups: EntryGroup[]; untaggedAliases: RestoreAliasLine[]; merges: TwoPartMerge[] } {
   // The phase order is load-bearing: the `_p<n>` fold needs every owned alias name before any alias
   // line is grouped, the two-part merge needs every alias and bind group, and the comment scan needs
-  // the merges - see each phase's own doc comment.
+  // the merges.
   const state = createEntryGroupingState(layerSections, sections, warnings, consumed)
   collectAliasLines(state, aliases)
   indexOwnedAliasNames(state)
@@ -98,9 +98,8 @@ export function groupEntryLines(
 
 /**
  * One code line's trailing comment, read once: its parsed tag, whether it carried a `[q2l` at all,
- * and whether this pass claims it for an entry. Reported here rather than at the two call sites,
- * so a malformed tag or an unknown key is warned about exactly once per line whatever becomes of
- * the line afterwards.
+ * and whether this pass claims it. Reported here rather than at the two call sites so a malformed
+ * tag or unknown key is warned about once per line whatever becomes of it.
  */
 export function readTag<T extends RestoreSourcePosition & { comment: string }>(
   state: EntryGroupingState,
@@ -119,9 +118,9 @@ export function readTag<T extends RestoreSourcePosition & { comment: string }>(
       subject: parsed.unknownKeys.join(','),
     })
   }
-  // A tag with one garbled token among good ones still identifies its line as the launcher's -
-  // only a tag nothing at all could be read out of does not. `claimsEntryAnchor` says the same
-  // thing for a comment-only line, and the two predicates have to agree (see there).
+  // A tag with one garbled token among good ones still identifies the launcher's line; only a tag
+  // yielding nothing does not. `claimsEntryAnchor` says the same for comment-only lines and the two
+  // must agree.
   const readable = !parsed.malformed || Object.keys(parsed.fields).length > 0
   return {
     line: { item, fields: parsed.fields, prose: parsed.prose },
@@ -143,14 +142,11 @@ export function collectAliasLines(
       continue
     }
     if (tagged || insideLayer(state, item)) continue
-    // A switch-bind chain alias (story 007) is never a hand-added definition - it is
-    // `renderLoaderFile`'s own generated content, untagged by this story's own design (the Plan's
-    // "Not touched" list). Recovering it through 041's inference would file it as a real
-    // Controls-tab entry and warn about metadata that was never supposed to exist.
-    //
-    // Matches the exact shape `stepAliasName` in `switch-bind.ts` generates (prefix, then digits, then
-    // end of string), not `startsWith(STEP_ALIAS_PREFIX)`: a hand-added `alias q2l_sword "…"` must not
-    // be silently excluded - the data-loss class this exclusion exists to avoid.
+    // A switch-bind chain alias is `renderLoaderFile`'s own untagged content, never a hand-added
+    // definition; inferring it would file a bogus Controls-tab entry and warn about metadata that
+    // was never meant to exist. Matched by the exact `stepAliasName` shape, not
+    // `startsWith(STEP_ALIAS_PREFIX)`: a hand-added `alias q2l_sword "…"` must not be silently
+    // excluded.
     if (item.name === SWITCH_ALIAS || STEP_ALIAS_NAME.test(item.name)) continue
     state.untaggedAliases.push(item)
     state.warnings.push({ reason: 'tag-missing', file: item.file, line: item.line })
@@ -167,10 +163,9 @@ export function chain(
 }
 
 /**
- * The owned-names phase. The `_p<n>` fold needs every owned alias name up front, which is why the
- * alias lines were collected first rather than grouped as they were read. Scoped by category like
- * the group key itself: a chunk line and the base line that calls it are always emitted into one
- * alias section.
+ * The owned-names phase. The `_p<n>` fold needs every owned alias name up front, so alias lines are
+ * collected first rather than grouped as read. Scoped by category like the group key: a chunk line
+ * and the base line that calls it are always emitted into one alias section.
  */
 export function indexOwnedAliasNames(state: EntryGroupingState): void {
   for (const line of state.aliasLines) {
@@ -199,9 +194,8 @@ export function groupBindLines(state: EntryGroupingState, binds: readonly Restor
   for (const item of binds) {
     const { line, owned } = readTag(state, item)
     if (!owned) continue
-    // The bind value, straight into the same key space the alias names live in - see the join rule
-    // in `groupEntryLines`' doc comment. Two lines with one value therefore meet in one group without
-    // either of them having to say so.
+    // The bind value goes into the same key space as alias names (the join rule in
+    // `groupEntryLines`), so two lines with one value meet in one group unprompted.
     const group = groupFor(state, categoryKeyOf(state, item), item.command.trim())
     group.binds.push(line)
     chain(state, 'binds', group)
@@ -209,18 +203,16 @@ export function groupBindLines(state: EntryGroupingState, binds: readonly Restor
 }
 
 /**
- * The two-part idioms (story 045, D7), recognised here - after every alias and bind line has
- * found its group, before the anchor scan.
+ * The two-part idioms, recognised after every alias and bind line has found its group and before
+ * the anchor scan.
  *
- * The *position* matters, and it is the anchor scan that forces it. `render.ts` writes the
- * entry's one display prose on every line of its alias family, so a toggle's three groups carry
- * three *identical* proses - and `matchAnchor` demands exactly one candidate, which means a
- * toggle whose only key slot is a modified one (its claim lives on an anchor line, since a
- * modifier binding has no bind line at all - story 016) matched three candidates, matched none,
- * and its key came back as a separate, commandless entry of its own. Excluding the two half
- * groups from the candidate set leaves exactly the group the anchor is *for*: the dispatch alias
- * for a toggle, the `+` half for a pair - the same group `bindValueFor` mirrors onto, and the
- * same one `buildTwoPartEntry` reads the merged entry's slots off.
+ * The anchor scan forces that position: `render.ts` writes an entry's one display prose on every line
+ * of its alias family, so a toggle's three groups carry three identical proses, and `matchAnchor`
+ * demands exactly one candidate. A toggle whose only key slot is modified (its claim lives on an
+ * anchor line, since a modifier binding has no bind line) matched none and its key came
+ * back as a separate commandless entry. Excluding the two half groups leaves the group the anchor is
+ * for: the dispatch alias for a toggle, the `+` half for a pair - the group `bindValueFor` mirrors
+ * onto and `buildTwoPartEntry` reads the slots off.
  */
 export function recognizeMerges(state: EntryGroupingState): void {
   state.merges.push(...recognizeTwoPartGroups(allGroups(state), state.sections))
@@ -233,14 +225,13 @@ export function recognizeMerges(state: EntryGroupingState): void {
 }
 
 /**
- * The comment phase: the anchor lines (`render.ts#buildAnchorLines`) and unbound lines. Scanned
- * last, and in document order, so every entry that has a real config line already exists to be
- * matched against - and so an anchor-only entry's *second* anchor can match the group its first one
- * created.
+ * The comment phase: anchor lines (`render.ts#buildAnchorLines`) and unbound lines. Scanned last and
+ * in document order, so every entry with a real config line exists to match against and an
+ * anchor-only entry's second anchor can match the group its first created.
  *
- * `parseComment`, not `parseMetaTag`: a comment-only line may be a banner, whose tag sits inside
- * trailing decoration. Malformed tags and unknown keys are *not* reported here - `scanComments`
- * already walked every one of these lines and reported them once.
+ * `parseComment`, not `parseMetaTag`: a comment-only line may be a banner whose tag sits inside
+ * trailing decoration. Malformed tags and unknown keys are not reported here - `scanComments`
+ * already reported them once.
  */
 export function groupCommentLines(
   state: EntryGroupingState,
@@ -248,16 +239,15 @@ export function groupCommentLines(
 ): void {
   for (const item of comments) {
     const parsed = parseComment(item.text)
-    // A tagged comment inside a layer section belongs to the layer, which is positional and
-    // therefore stays here rather than moving into either predicate.
+    // A tagged comment inside a layer section belongs to the layer (positional), so the check stays
+    // here rather than in either predicate.
     if (insideLayer(state, item)) continue
 
     // `claimsEntryAnchor`/`claimsUnboundEntry` are the shared predicates: a section header or the
-    // header block's version marker is not an entry line even if someone hand-edited a `key` into
-    // it, and - the other way round - a line either of them claims is never read as a section header
-    // either (`claimedByEntryScan`, see there). The two are mutually exclusive, so the order of
-    // these two branches decides nothing; both run *here*, in the one pass that consumes a comment
-    // line, so a claimed line never reaches the import preview's `preserved` list.
+    // version marker is not an entry line even with a hand-edited `key`, and a claimed line is never
+    // read as a section header (`claimedByEntryScan`). They are mutually exclusive, so branch order
+    // decides nothing; both run in the one pass that consumes a comment line, so a claimed line never
+    // reaches the preview's `preserved` list.
     if (claimsEntryAnchor(parsed)) {
       if (!parsed.malformed) state.consumed.push({ file: item.file, line: item.line })
       const anchor: TaggedLine<RestoreCommentLine> = {
@@ -265,10 +255,9 @@ export function groupCommentLines(
         fields: parsed.fields,
         prose: parsed.prose,
       }
-      // An unmatched anchor becomes its own entry, created *inside its own category scope* so a
-      // later anchor of the same (anchor-only) entry can still find it - `anchor:<file>:<line>` is
-      // unique per line, so its own second anchor never lands here at all: it matches by `cid`/prose
-      // above.
+      // An unmatched anchor becomes its own entry inside its own category scope. The key
+      // `anchor:<file>:<line>` is unique per line, so a second anchor of the same entry matches by
+      // `cid`/prose above instead.
       const owner =
         matchAnchor(state, anchor) ??
         groupFor(state, categoryKeyOf(state, item), `anchor:${item.file}:${item.line}`)
@@ -281,20 +270,17 @@ export function groupCommentLines(
     if (!parsed.malformed) state.consumed.push({ file: item.file, line: item.line })
     const { command, prose } = unboundLineParts(parsed)
     const unbound: UnboundEntryLine = { item, fields: parsed.fields, prose, command }
-    // The alias line of the same entry when the file names one (story 063 D2 - a keyless bodied
-    // `bind`/`message` entry has both lines since D1, and they are one entry), else a group of this
-    // line's own: before D2 that was unconditional, because the writer only ever wrote this line for
-    // an entry with no other line at all, and a merge it cannot vouch for could only fold two rows
-    // into one (see `matchUnbound` and `EntryGroup.unbounds`). Filed in the line's own category scope
-    // either way, so an unjoined entry lands in the `Entries: <cat>` section it sits under, exactly
-    // as an anchor does.
+    // The alias line of the same entry when the file names one (a keyless bodied `bind`/`message`
+    // entry has both lines and they are one entry), else a group of its own: a merge the
+    // file cannot vouch for could only fold two rows into one (`matchUnbound`,
+    // `EntryGroup.unbounds`). Filed in the line's own category scope either way, so an unjoined
+    // entry lands in its `Entries: <cat>` section as an anchor does.
     const owner =
       matchUnbound(state, unbound) ??
       groupFor(state, categoryKeyOf(state, item), `unbound:${item.file}:${item.line}`)
     owner.unbounds.push(unbound)
-    // The same chain the anchors use: unbound lines and anchor lines are siblings in one `Entries:`
-    // section, emitted in one merged `profile.actions` order (`render.ts#buildEntrySectionItems`),
-    // so they are one subsequence of that order rather than two.
+    // Same chain as the anchors: both are siblings in one `Entries:` section, emitted in one merged
+    // `profile.actions` order (`render.ts#buildEntrySectionItems`), so one subsequence, not two.
     chain(state, 'anchors', owner)
   }
 }
@@ -302,26 +288,23 @@ export function groupCommentLines(
 /**
  * The groups in an order the file's own line order can vouch for.
  *
- * Why this is not just "sorted by first line": the writer does not lay an entry's lines out in one
- * run. `renderProfileFile` emits *every* category's alias section, then every category's bind
- * section, then the anchor sections - and sorts each of those independently by the owning action's
- * index (`compareOwnedBinds`). So the file carries the action order three times over, once per line
- * kind, each as a *subsequence* of it, and nothing else. Grouping in map-insertion order ignored all
- * three: groups were created from the alias lines before any bind line was read, so an aliasless
- * entry (a continuous catalogue row bound to its bare `+command`) always sorted *after* every
- * alias-backed entry of its category no matter where its bind line actually sat. `compareOwnedBinds`
- * then re-sorted that category's bind lines by the new index on the next render and the two key
- * lines swapped places - a byte difference on a file nobody had touched, which is exactly what
- * story 042's fixed point forbids.
+ * Not simply "sorted by first line": the writer does not lay an entry's lines out in one run.
+ * `renderProfileFile` emits every category's alias section, then every category's bind section, then
+ * the anchor sections, each sorted independently by the owning action's index (`compareOwnedBinds`).
+ * So the file carries the action order three times, once per line kind, each a subsequence of it.
+ * Map-insertion order ignored all three: groups were created from alias lines before any bind line
+ * was read, so an aliasless entry (a continuous catalogue row bound to its bare `+command`) always
+ * sorted after every alias-backed entry of its category. `compareOwnedBinds` then re-sorted that
+ * category's bind lines on the next render and the two key lines swapped - a byte difference on an
+ * untouched file, which the fixed point forbids.
  *
- * So the answer is the one order consistent with all three subsequences at once: a topological sort
- * over the chains, tie-broken by creation order for the pairs the file genuinely does not order (an
- * alias-only entry and a bind-only entry never share a section, so their relative order cannot be
- * read off the file - and cannot matter either, since no section re-renders them side by side).
+ * So the answer is the one order consistent with all three subsequences: a topological sort over the
+ * chains, tie-broken by creation order for pairs the file does not order (an alias-only and a
+ * bind-only entry never share a section, so no section re-renders them side by side).
  *
  * A cycle can only come from a hand-edited file whose sections were physically reordered against
- * each other; it is resolved by taking the earliest-created group still left and dropping its
- * incoming edges, so this always terminates and always returns every group exactly once.
+ * each other; it is resolved by taking the earliest-created group left and dropping its incoming
+ * edges, so this terminates and returns every group exactly once.
  */
 export function orderGroupsByFile(
   all: readonly EntryGroup[],
@@ -361,25 +344,21 @@ export function orderGroupsByFile(
 }
 
 /**
- * Story 053 D4: promotes the sections `scanComments`'s repeated-decoration heuristic detected into
- * the actions `buildImportedActions` (story 041) already produced, for a wholly foreign file (no
- * `[q2l …]` tag anywhere) whose own untagged headers happen to state a real category + sub-category
- * pair (a `dm.cfg`-shaped file: `.: Main Key's :.` with `##### 1st row #####` blocks beneath).
+ * Promotes the sections `scanComments`'s repeated-decoration heuristic detected into the actions
+ * `buildImportedActions` already produced, for a wholly foreign file (no `[q2l …]` tag) whose own
+ * untagged headers state a category + sub-category pair (a `dm.cfg`-shaped file: `.: Main Key's :.`
+ * with `##### 1st row #####` blocks beneath).
  *
- * Deliberately additive rather than a parallel entry-builder: `buildImportedActions` already turns
- * every `alias` definition into a `ConfigAction` (AC8 - a foreign config still imports exactly as
- * story 041 leaves it), complete with its own content-guessed `categoryId` (`guessCategoryKey`). This
- * function only *overrides* that guess, and only for an action whose defining `alias` line's own
- * position falls inside a section the heuristic actually recognised - every other action, and every
- * file with no heuristic pair at all (the overwhelming majority; AC8's own pinned fixture included,
- * since its two banners each use a decoration seen only once and so never clears the "recurs on at
- * least two lines" gate), comes back untouched, categories and all.
+ * Additive rather than a parallel entry-builder: `buildImportedActions` already turns every `alias`
+ * definition into a `ConfigAction` with a content-guessed `categoryId` (`guessCategoryKey`), so a
+ * foreign config still imports as it did before. This only overrides that guess for an action
+ * whose defining `alias` line sits inside a section the heuristic recognised; every other action,
+ * and every file with no heuristic pair (the overwhelming majority, including decoration seen only
+ * once, which never clears the "recurs on two lines" gate), comes back untouched.
  *
- * A raw bind with no alias line of its own is not reachable here - `buildImportedActions` never
- * builds a `ConfigAction` for one at all (`profile.binds` carries it directly, independent of this
- * whole restore), so it stays exactly as unowned as it always was; only
- * an alias-backed entry, which is what a foreign author's own `bind key aliasname` + `alias aliasname
- * …` pair always is, can be re-homed.
+ * A raw bind with no alias line is out of reach: `buildImportedActions` builds no `ConfigAction` for
+ * it (`profile.binds` carries it directly), so only an alias-backed entry - what a foreign author's
+ * `bind key aliasname` + `alias aliasname …` pair always is - can be re-homed.
  */
 export function applyForeignSubcategoryHeuristic(
   delegated: Pick<ImportedActionsResult, 'actions' | 'categories'>,
@@ -395,9 +374,8 @@ export function applyForeignSubcategoryHeuristic(
   if (heuristicSections.length === 0)
     return { actions: [...delegated.actions], categories: [...delegated.categories] }
 
-  // Last definition of a name wins - the same fold every reader of this format applies before a body
-  // ever reaches here; `aliases` is already that folded array, so "the" position
-  // of a name is unambiguous.
+  // Last definition of a name wins - the fold every reader applies before a body reaches here, so
+  // `aliases` is already folded and a name's position is unambiguous.
   const positionByName = new Map(aliases.map((alias) => [alias.name, alias]))
   const registry = categoryRegistry(newId, sections)
 
@@ -415,11 +393,10 @@ export function applyForeignSubcategoryHeuristic(
     return { ...action, categoryId, ...(subcategoryId ? { subcategoryId } : {}) }
   })
 
-  // Only the categories an action still points at survive: a category `guessCategoryKey` minted for
-  // an action this pass just re-homed would otherwise linger in the result with nothing in it,
-  // contradicting "one category with sub-categories" (D4's own Accept). Every category this registry
-  // itself mints *is* referenced, by construction (`idFor` only ever runs for an action being
-  // re-homed onto it), so the filter only ever drops `delegated.categories` entries, never its own.
+  // Only categories an action still points at survive: one `guessCategoryKey` minted for an action
+  // just re-homed would linger empty, contradicting "one category with sub-categories". Every
+  // category this registry mints is referenced by construction (`idFor` runs only for a re-homed
+  // action), so the filter only ever drops `delegated.categories` entries.
   const usedIds = new Set(actions.map((action) => action.categoryId))
   const categories = [...registry.created(), ...delegated.categories].filter((category) =>
     usedIds.has(category.id),

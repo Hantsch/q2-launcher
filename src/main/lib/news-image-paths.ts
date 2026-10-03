@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /**
- * Story 084 D1: where a cached slide image lives, and what makes its file name trustworthy.
+ * Story 084: where a cached slide image lives, and what makes its file name trustworthy.
  *
  * ```
  * userData/cache/news-images/<sha256-of-source-url>.<ext>

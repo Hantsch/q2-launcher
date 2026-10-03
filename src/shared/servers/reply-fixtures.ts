@@ -5,7 +5,7 @@
  * (GB-A5, story 108): a well-formed sample plus a small builder so a test can assemble its own
  * variant without hand-rolling the connectionless envelope itself.
  *
- * This file is `info`-reply-only for now (deliverable D3). Deliverable D4 (`status-reply.ts` /
+ * This file is `info`-reply-only for now (so far). The status-reply deliverable (`status-reply.ts` /
  * `status-reply.test.ts`) extends this same module with its own `status`-reply builder/samples
  * (e.g. `buildStatusReplyBytes` / `SAMPLE_STATUS_REPLY`) — names below are deliberately prefixed
  * `Info`/`INFO` so the two sets of exports never collide.

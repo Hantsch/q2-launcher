@@ -36,7 +36,7 @@ import { InstallationWriteGuard } from './services/write-guard'
 const log = scopedLogger('context')
 
 /**
- * Story 128 D4: which public key `UnlockService` verifies codes against.
+ * Story 128: which public key `UnlockService` verifies codes against.
  *
  * `UNLOCK_PUBLIC_KEY_PEM` (the real, embedded production key) is the answer for every real user.
  * The one override - reading a different PEM from `Q2L_UNLOCK_PUBLIC_KEY_FILE` - exists only so a
@@ -95,22 +95,22 @@ export interface AppContext {
   jobRunner: JobRunner
   modules: MainModuleRegistry
   broadcast: Broadcaster
-  /** Story 066 D4: the config-file picker modules reach through `ModuleSetup.app`, never `dialog` directly. */
+  /** Story 066: the config-file picker modules reach through `ModuleSetup.app`, never `dialog` directly. */
   dialog: DialogService
   /** Open/reveal/copy/record - the only path to `shell` and `clipboard`; harness-aware. */
   os: OsService
   /** Display list and DIP-to-screen conversion - the only path to electron's `screen`. */
   displays: DisplaysService
-  /** Story 171 D2: the main window's bounds/state and its move/resize/minimize/restore/focus/blur
+  /** Story 171: the main window's bounds/state and its move/resize/minimize/restore/focus/blur
    * events, read-only - how a module follows the window without touching the `BrowserWindow`. */
   mainWindow: MainWindowObserver
-  /** Story 187 D4: the cinema overlay window (open/close/isOpen/onClosed) - a shell service, modules
+  /** Story 187: the cinema overlay window (open/close/isOpen/onClosed) - a shell service, modules
    * never touch the BrowserWindow. */
   cinemaWindow: CinemaWindow
   /** Story 097: the update-check service - a shell service, not a module (it has no per-installation
    * data and nothing renderer-writable to validate), constructed here like `launch`/`jobs` above. */
   update: UpdateService
-  /** Story 128 D4: the unlock-code service - a shell service, same reasoning as `update` above.
+  /** Story 128: the unlock-code service - a shell service, same reasoning as `update` above.
    * `init()` is awaited before `registerModules(context)` runs, so every module sees a settled
    * unlock state (the resolved installation id and the redeemed codes' current verdicts) from the
    * moment it is constructed. */
@@ -135,7 +135,7 @@ export async function createAppContext(options: {
    * calls `DialogService.pickConfigFiles()`.
    */
   getMainWindow: () => BrowserWindow | null
-  /** Story 171 D2: fed by `window.ts` (via `index.ts`), which owns the window's event wiring. */
+  /** Story 171: fed by `window.ts` (via `index.ts`), which owns the window's event wiring. */
   mainWindow: MainWindowObserver
   /** Electron's `screen`, injected so the displays service stays testable. */
   screen: ScreenLike
@@ -151,7 +151,7 @@ export async function createAppContext(options: {
   })
   await state.load()
 
-  // Story 094 D2: `InstallationsService` is constructed before `LaunchService`/`writeGuard` exist
+  // Story 094: `InstallationsService` is constructed before `LaunchService`/`writeGuard` exist
   // (that construction needs `installations` already built - see `writeGuard`'s own comment below),
   // so `isRunning` cannot be a plain closure over the guard yet. Same late-binding shape as
   // `writeGuard`/`getWriteGuard` just below: a mutable binding assigned once the guard exists, read
@@ -177,7 +177,7 @@ export async function createAppContext(options: {
     isRegistered: (key) => installations.isRegistered(key),
   })
 
-  // Story 091 D2: the guard is built *from* `launch` and asked *by* it, so the two
+  // Story 091: the guard is built *from* `launch` and asked *by* it, so the two
   // cannot both be constructor arguments. `launch` gets a getter over this
   // binding - the same late-binding shape `getMainWindow` uses above - which is
   // resolved long before any launch can happen.
@@ -207,7 +207,7 @@ export async function createAppContext(options: {
     currentVersion: electronApp.getVersion(),
     check: createUpdateChecker({ log: scopedLogger('update') }),
     backend: createUpdateBackend({ log: scopedLogger('update') }),
-    // Story 098 AC6: the restart guard reads the two things main already tracks and cancels
+    // Story 098: the restart guard reads the two things main already tracks and cancels
     // neither. Both are passed as getters over the live services rather than snapshots, or the
     // guard would answer a question from whenever the context was built.
     isGameRunning: () => launch.isRunning(),
@@ -224,7 +224,7 @@ export async function createAppContext(options: {
     log: scopedLogger('unlock'),
   })
 
-  // Story 128 D4: resolved and re-verified before any module is constructed, so every module sees a
+  // Story 128: resolved and re-verified before any module is constructed, so every module sees a
   // settled unlock state (the resolved installation id and each stored code's current verdict) from
   // the moment it exists - the same "state ready before registerModules" ordering `state.load()`
   // above already establishes.

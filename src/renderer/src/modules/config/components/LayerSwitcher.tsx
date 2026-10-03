@@ -5,7 +5,7 @@ import { Button } from '../../../components/ui/Button'
 
 /**
  * Base/alt-layer segmented switcher, lifted out of `LayersPanel` (story
- * 013 D2) into a standalone control so the keyboard overview's header can
+ * 013) into a standalone control so the keyboard overview's header can
  * host it directly instead of the layer-management panel below the board.
  * Renders nothing when there are no layers - same "nothing to switch"
  * behavior the inline block had.

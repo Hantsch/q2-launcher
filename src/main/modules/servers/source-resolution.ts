@@ -1,6 +1,6 @@
 /**
- * Story 114 D4: resolving the configured source list into one address set, source by source,
- * isolated (AC3).
+ * Story 114: resolving the configured source list into one address set, source by source,
+ * isolated.
  *
  * This is the seam between the source list (`MasterSource[]`, story 111) and the two transport
  * seams that already know how to talk to a single source (`resolveUdpMasterSource`,
@@ -105,7 +105,7 @@ async function resolveOneSource(
  * Resolves every enabled source in `sources` independently and merges the results: every address
  * every source contributed (order preserved, no cross-source dedupe — that is the scan's job, not
  * this seam's), and one `ScanSourceFailure` per source that failed, whether by returning a failure
- * result or by its resolve call rejecting outright (AC3). A disabled source is skipped entirely —
+ * result or by its resolve call rejecting outright. A disabled source is skipped entirely —
  * no resolve call, no failure entry.
  */
 export async function resolveSources(

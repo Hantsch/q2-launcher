@@ -33,7 +33,7 @@ export class ContentRepoHttpError extends Error {
  * Joins `baseUrl` (`CONTENT_REPO_RAW_BASE` unless told otherwise) with `path`, avoiding a double
  * or missing slash.
  *
- * `baseUrl` is a parameter as of story 074 D8, so the UI-verification harness can point manifest
+ * `baseUrl` is a parameter as of story 074, so the UI-verification harness can point manifest
  * traffic at its own `127.0.0.1` fixture server. It is **not** read from the environment here:
  * the only producer of a non-default value is `resolveDownloadSource()`
  * (`src/main/services/content/source.ts`), which is gated on `Q2L_UI_HARNESS === '1'` alone

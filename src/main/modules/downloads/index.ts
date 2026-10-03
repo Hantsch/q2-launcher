@@ -13,7 +13,7 @@ import {
   type StartRepairResult,
   type StartRetailUpgradeResult,
 } from '@shared/modules/downloads'
-// `StartEngineUpdateResult` is reused for `engineRollbackStart` too - D1's own doc comment on it
+// `StartEngineUpdateResult` is reused for `engineRollbackStart` too - its own doc comment on it
 // already states "what `engineUpdateStart`/`engineRollbackStart` answer on success", so there is no
 // separate `StartEngineRollbackResult` to import.
 import { fail, isJobActive, ok, type Job, type Outcome } from '@shared/types'
@@ -83,7 +83,7 @@ import { downloadsState } from './persisted'
 const BYTES_PER_GB = 1024 * 1024 * 1024
 
 /**
- * The downloads module - story 070 D4.
+ * The downloads module - story 070.
  *
  * Mirrors `../config/index.ts`'s shape: a `MainModule` whose `setup` registers handlers on the
  * shell's `module:invoke` channel and does nothing else.
@@ -101,23 +101,23 @@ export const downloadsModule: MainModule = {
     const persisted = downloadsState(app.state)
     const manifestService = app.content.manifest
 
-    // Story 073 D2: start observing job changes before any handler is registered, so no failure
+    // Story 073: start observing job changes before any handler is registered, so no failure
     // can slip past between setup and the first renderer call.
     onDispose(observeFailedJobs(app, log))
 
     /**
-     * Story 074 D1 (AC1): lists the engines the bootstrap wizard can offer - only the ones both
+     * Story 074: lists the engines the bootstrap wizard can offer - only the ones both
      * pinned by the manifest and named in `BOOTSTRAP_SUPPORTED_ENGINES`. No failure mode of its
      * own (like `getSettings` below): a manifest that cannot be fetched, or that pins nothing for
      * any bootstrap-supported engine, is legitimately "no options yet", not an error the caller
      * needs to unwrap - the wizard step (a later deliverable) is expected to handle an empty list.
      *
-     * Story 100 D7: answers a `BootstrapEngineOptionsResult` rather than the bare `options` array -
+     * Story 100: answers a `BootstrapEngineOptionsResult` rather than the bare `options` array -
      * `emptyReason` tells an empty `options` apart between "the manifest pins nothing at all"
      * (`'none-pinned'`, which also covers `ManifestUnavailableError`: nothing fetched and nothing
      * cached is, from this handler's point of view, the same "nothing known" state) and "the
      * manifest pins something, just not for this host's platform" (`'none-for-platform'`, the
-     * Linux-with-a-Windows-only-manifest case D5/D6 made possible).
+     * Linux-with-a-Windows-only-manifest case now possible).
      */
     handle(
       DOWNLOADS_HANDLERS.bootstrapEngineOptions,
@@ -154,7 +154,7 @@ export const downloadsModule: MainModule = {
     )
 
     /**
-     * Story 074 D4 (AC3): the verdict for one candidate target folder. A thin wrapper around D2's
+     * Story 074: the verdict for one candidate target folder. A thin wrapper around
      * `computeTargetVerdict` - no failure mode of its own (like `getSettings` below), because
      * "this folder is blocked" is a verdict the wizard renders, not an error it unwraps.
      */
@@ -165,7 +165,7 @@ export const downloadsModule: MainModule = {
     )
 
     /**
-     * Story 074 D4 (AC4): what the confirm step states before anything is downloaded. Fails when
+     * Story 074: what the confirm step states before anything is downloaded. Fails when
      * the manifest cannot resolve all three packages - the wizard has nothing truthful to show in
      * that case, so this is a real failure rather than an empty summary.
      */
@@ -176,7 +176,7 @@ export const downloadsModule: MainModule = {
         buildBootstrapSummary(
           {
             manifest: manifestSourceFrom(manifestService, log),
-            // Story 088 D4 (AC5): the same lister the job re-verifies against, so the store name
+            // Story 088: the same lister the job re-verifies against, so the store name
             // the confirm step shows and the source the run accepts come from one list.
             retailSources: () => detectedRetailSourcesFor(app),
           },
@@ -185,13 +185,13 @@ export const downloadsModule: MainModule = {
     )
 
     /**
-     * Story 088 D2 (AC1/AC2): the detected Steam/GOG/Epic sources the game-data step can offer to
+     * Story 088: the detected Steam/GOG/Epic sources the game-data step can offer to
      * copy from - a fast-pass-only `app.detection.scan({})` filtered to store sources and already
      * inspected (`listDetectedRetailSources`). No failure mode of its own (like
      * `bootstrapEngineOptions` above): an empty array is "nothing detected", which the wizard
-     * renders by not offering the option at all (AC1).
+     * renders by not offering the option at all.
      *
-     * Story 088 D2's harness override (`resolveDetectedRetailSourcesOverride`) lets a UI-
+     * Story 088's harness override (`resolveDetectedRetailSourcesOverride`) lets a UI-
      * verification flow substitute fixture sources for the real scan, under the same double gate as
      * `resolveDownloadSource` above - resolved fresh on every call, unlike that source (which is
      * resolved once at `setup()`), because a flow needs to change its fixture between wizard runs
@@ -202,7 +202,7 @@ export const downloadsModule: MainModule = {
     )
 
     /**
-     * Story 089 D3 (AC2): what the wizard's game-data step found in the folder the user browsed to.
+     * Story 089: what the wizard's game-data step found in the folder the user browsed to.
      * A thin wrapper around `inspectGameDataSource`, with no failure mode of its own - like
      * `bootstrapTargetVerdict` above, "this folder holds nothing usable" is a verdict the wizard
      * renders, not an error it unwraps. The path is re-judged again, independently, when the run
@@ -215,7 +215,7 @@ export const downloadsModule: MainModule = {
     )
 
     /**
-     * Story 074 D4 (AC5/AC6): starts the bootstrap job and answers its id. Deliberately does not
+     * Story 074: starts the bootstrap job and answers its id. Deliberately does not
      * await the job - `startBootstrap` returns as soon as the installation is registered and the
      * job exists, so the wizard can switch to the progress
      * step instead of blocking on a several-hundred-megabyte download.
@@ -231,13 +231,13 @@ export const downloadsModule: MainModule = {
     )
 
     /**
-     * Story 090 D1/D2 (INST-D4): upgrades one already-registered demo installation with
+     * Story 090 : upgrades one already-registered demo installation with
      * `pak0.pak`/`pak1.pak` copied out of a store installation main itself detected. A thin wrapper
-     * around D2's `startRetailUpgrade` (`retail/upgrade-job.ts`), which owns the whole order -
+     * around `startRetailUpgrade` (`retail/upgrade-job.ts`), which owns the whole order -
      * resolve the installation, re-verify the renderer's source against main's own fresh list
-     * (AC6), copy through [[088]]'s routine behind [[091]]'s write guard (which defers the copy
+     *, copy through [[088]]'s routine behind [[091]]'s write guard (which defers the copy
      * while that installation's game runs, where [[090]] refused it outright), then
-     * `InstallationsService.validate()` (AC5).
+     * `InstallationsService.validate()`.
      *
      * Like `bootstrapStart` above, this deliberately does not await the job: it answers as soon as
      * the job exists, so the dialog can switch to the progress state instead of blocking on ~197 MB
@@ -255,7 +255,7 @@ export const downloadsModule: MainModule = {
     )
 
     /**
-     * Story 092 D3 (AC1), D4 (AC4/AC5): one installation's `EngineUpdateStatus` - a thin wrapper
+     * Story 092: one installation's `EngineUpdateStatus` - a thin wrapper
      * around `computeEngineUpdateStatus`, which owns the comparison itself. No failure mode of its
      * own (like `bootstrapTargetVerdict` above): an installation id the library no longer has
      * answers `undefined`, which the renderer is expected to treat like any other vanished
@@ -264,7 +264,7 @@ export const downloadsModule: MainModule = {
      * `target` is resolved here, not inside `computeEngineUpdateStatus` - `resolveEngineUpdateTarget`
      * below picks the manifest's pinned build for `channel: 'pinned'`, or a fresh bleeding-edge probe
      * for `channel: 'bleeding-edge'`, based on this installation's own recorded
-     * `InstallationEngineState.bleedingEdge` flag ([[092]] D4's seam, exactly as D3 designed it:
+     * `InstallationEngineState.bleedingEdge` flag ([[092]]'s seam, as originally designed:
      * `computeEngineUpdateStatus` itself never changes).
      */
     handle(
@@ -289,7 +289,7 @@ export const downloadsModule: MainModule = {
     )
 
     /**
-     * Story 092 D5 (AC2/AC6/AC7/AC8): starts the engine-update job. A thin wrapper around
+     * Story 092: starts the engine-update job. A thin wrapper around
      * `startEngineUpdate` (`engine/update-job.ts`), which owns the whole order - resolve the
      * installation and the target build, download/verify/extract outside the installation, then
      * back up and replace the engine files behind [[091]]'s write guard, and finally
@@ -313,7 +313,7 @@ export const downloadsModule: MainModule = {
     )
 
     /**
-     * Story 092 D6 (AC3/AC6/AC7): starts the engine-rollback job. A thin wrapper around
+     * Story 092: starts the engine-rollback job. A thin wrapper around
      * `startEngineRollback` (`engine/rollback-job.ts`), which owns the whole order - resolve the
      * installation and its recorded backup (refusing with `downloads.error.engineNoBackup` and no
      * job at all when there is none), then restore the backed-up files behind [[091]]'s write guard
@@ -334,7 +334,7 @@ export const downloadsModule: MainModule = {
     )
 
     /**
-     * Story 092 D4 (AC4/AC5): flips one installation's bleeding-edge opt-in. Refuses with
+     * Story 092: flips one installation's bleeding-edge opt-in. Refuses with
      * `downloads.error.bleedingEdgeUnsupported` when turning the channel *on* for an engine kind
      * that does not offer it (every engine but Q2PRO this sprint) - turning it *off* is always
      * allowed, whatever the engine kind, since it can only ever undo a flag that was itself refused
@@ -363,7 +363,7 @@ export const downloadsModule: MainModule = {
     )
 
     /**
-     * Story 093 D2 (AC7): one installation's `RepairPlan`, built from a *fresh* `inspectInstallation`
+     * Story 093: one installation's `RepairPlan`, built from a *fresh* `inspectInstallation`
      * run every single time - never `Installation.checks`, the stored snapshot the library card
      * itself renders from. A thin wrapper around `resolveRepairPlan` (`repair/plan.ts`), which owns
      * the fresh-inspect-then-map order; `buildRepairPlan` underneath it is pure. No failure mode of
@@ -389,7 +389,7 @@ export const downloadsModule: MainModule = {
     })
 
     /**
-     * Story 093 D4 (AC1/AC2/AC7/AC8/AC9): starts the repair job. A thin wrapper around `startRepair`
+     * Story 093: starts the repair job. A thin wrapper around `startRepair`
      * (`repair/job.ts`), which owns the whole order - re-inspect the installation itself (the plan
      * the dialog rendered is never trusted as evidence), resolve every package before a byte is
      * fetched, download/extract outside the installation, copy exactly the allowlisted files in
@@ -410,20 +410,20 @@ export const downloadsModule: MainModule = {
       },
     )
 
-    // Story 072 D4: reads the persisted settings verbatim - no failure mode of its own.
+    // Story 072: reads the persisted settings verbatim - no failure mode of its own.
     handle(DOWNLOADS_HANDLERS.getSettings, downloadsNoInputSchema, () =>
       ok(persisted.settings.get()),
     )
 
     /**
-     * Story 072 D4: validates and persists a partial `DownloadsSettings` patch (AC2). An
+     * Story 072: validates and persists a partial `DownloadsSettings` patch. An
      * out-of-range `concurrentJobs` or an `archiveCacheBudgetGB` outside
      * `ARCHIVE_CACHE_BUDGET_CHOICES_GB` never reaches this handler at all -
      * `patchDownloadsSettingsInputSchema` already rejects it at the registry, which answers
      * `fail('ipc.error.invalidPayload')` before this function is entered (`MainModuleRegistry.
      * invoke()`), so there is nothing left for this handler itself to validate.
      *
-     * Budget enforcement (AC5, Decisions (Sprint): "runs when the budget is lowered and after a
+     * Budget enforcement ("runs when the budget is lowered and after a
      * clear") only fires when the patch actually *lowers* `archiveCacheBudgetGB` below the
      * previously persisted value - raising it or leaving the other two fields alone never evicts
      * anything. Best-effort: a failed eviction is logged, not surfaced as a failed patch - the
@@ -453,20 +453,20 @@ export const downloadsModule: MainModule = {
       return ok(merged)
     })
 
-    // Story 072 D4 (AC3): the archive cache's current size/count - a thin pass-through to D3's
+    // Story 072: the archive cache's current size/count - a thin pass-through to
     // `cache.status`, which already owns the "what counts as evictable" rule.
     handle(DOWNLOADS_HANDLERS.cacheStatus, downloadsNoInputSchema, async () =>
       ok(await status({ userDataPath: userDataDir(), log })),
     )
 
-    // Story 072 D4 (AC4): deletes every evictable cache entry and reports exactly what went -
-    // D3's `cache.clear` already guarantees the report matches the deletion, so this does not
+    // Story 072: deletes every evictable cache entry and reports exactly what went -
+    // `cache.clear` already guarantees the report matches the deletion, so this does not
     // reshape or recompute its result.
     handle(DOWNLOADS_HANDLERS.clearCache, downloadsNoInputSchema, async () =>
       ok(await clear({ userDataPath: userDataDir(), isInUse: NOTHING_IN_USE, log })),
     )
 
-    // Story 073 D2 (AC2): the failure log. All three handlers read through
+    // Story 073: the failure log. All three handlers read through
     // `persisted.failures.get()`, which prunes on the way out, and write through
     // `persisted.failures.update()`, which prunes again on the way in - so retention is applied
     // whichever of them a call goes through, and none of them re-implements it.
@@ -488,7 +488,7 @@ export const downloadsModule: MainModule = {
 }
 
 /**
- * Story 073 D2: the failure reason recorded for a `downloads` job that reached `failed` without
+ * Story 073: the failure reason recorded for a `downloads` job that reached `failed` without
  * carrying one. `JobsService.finish()` allows a terminal status with no `error`, and the acceptance
  * is "a `downloads` job finishing `failed` produces exactly one log entry" - so an entry is written
  * either way, with this key standing in for the missing reason rather than the entry being dropped
@@ -504,7 +504,7 @@ export const downloadsModule: MainModule = {
 export { UNKNOWN_DOWNLOAD_FAILURE_KEY }
 
 /**
- * Story 073 D2 (AC2): appends one failure-log entry per job of any module that reaches `failed`
+ * Story 073: appends one failure-log entry per job of any module that reaches `failed`
  * (Decisions (Sprint): "the downloads main module observes job transitions ... so the log is
  * truthful for any producer").
  *
@@ -521,7 +521,7 @@ export { UNKNOWN_DOWNLOAD_FAILURE_KEY }
  * The set forgets ids that have left the job list, so a long session cannot grow it without bound;
  * job ids are UUIDs, so a forgotten id can never come back and be logged twice.
  *
- * Story 075 D2: also drops the job's `diagnostics.ts` registry entry (if any) on *any* terminal
+ * Story 075: also drops the job's `diagnostics.ts` registry entry (if any) on *any* terminal
  * status, not just `failed` - a succeeded or cancelled job leaves nothing behind either, so the
  * registry cannot grow unbounded across a session. This runs after `failureFor()` has had its
  * chance to read the entry for a job failing in this same tick, never before.
@@ -558,7 +558,7 @@ function observeFailedJobs(app: AppContext, log: Logger): () => void {
  * copied field by field rather than by reference, so the persisted entry cannot be changed by
  * whoever still holds the job.
  *
- * Story 075 D2: also attaches whatever `diagnostics.ts`'s registry holds for this job id -
+ * Story 075: also attaches whatever `diagnostics.ts`'s registry holds for this job id -
  * `undefined` for any failure not produced by an instrumented job (the pipeline stays
  * uninstrumented this sprint), which simply omits the `diagnostics` field rather than sending an
  * empty one.
@@ -578,8 +578,8 @@ function failureFor(job: Job): Omit<DownloadFailure, 'id' | 'createdAt' | 'dismi
 }
 
 /**
- * Story 092 D4: resolves `engineUpdateStatus`'s `target` - the manifest's pinned build for
- * `channel: 'pinned'` (D3's original, unconditional behaviour), or a fresh `probeBleedingEdge()`
+ * Story 092: resolves `engineUpdateStatus`'s `target` - the manifest's pinned build for
+ * `channel: 'pinned'` (the original, unconditional behaviour), or a fresh `probeBleedingEdge()`
  * result for `channel: 'bleeding-edge'`, chosen by this installation's own recorded
  * `InstallationEngineState.bleedingEdge` flag rather than by anything the caller passes in -
  * "turning bleeding edge off makes the next check compare against the pin again" (Decisions
@@ -596,7 +596,7 @@ function failureFor(job: Job): Omit<DownloadFailure, 'id' | 'createdAt' | 'dismi
  * `pinnedEnginePackage()` only answers from the snapshot a `getManifest()` call served, so without
  * this warm-up a fresh session would report `target: undefined` / `updateAvailable: false` for a
  * genuinely out-of-date installation whenever nothing else had happened to fetch the manifest first
- * (AC1). `ManifestUnavailableError` (no fetch, no cached copy) is not a failure of this read: it
+ *. `ManifestUnavailableError` (no fetch, no cached copy) is not a failure of this read: it
  * leaves the pin unresolved, which is the honest "nothing to update to" both channels degrade to.
  */
 async function resolveEngineUpdateTarget(
@@ -633,7 +633,7 @@ async function resolveEngineUpdateTarget(
 }
 
 /**
- * Story 074 D4: the production wiring for the bootstrap job (`bootstrap/job.ts`). Built per call:
+ * Story 074: the production wiring for the bootstrap job (`bootstrap/job.ts`). Built per call:
  * a bootstrap job owns no cross-call state, so there is nothing to keep alive between two of them.
  *
  * The extractor is resolved per extraction with the real `electron.app`. `app.installations` is
@@ -650,7 +650,7 @@ function bootstrapDepsFor(
     runner: app.jobRunner,
     installations: withEngineState(app.installations),
     manifest: manifestSourceFrom(manifestService, log),
-    // Story 088 D4: main's own list, re-derived per run - never anything the renderer sent.
+    // Story 088: main's own list, re-derived per run - never anything the renderer sent.
     retailSources: () => detectedRetailSourcesFor(app),
     fetcher: realPackageFetcher,
     extractor: realExtractor,
@@ -670,7 +670,7 @@ function bootstrapDepsFor(
         isPackaged: app.isPackaged,
         resourcesPath: process.resourcesPath,
       }),
-    // Story 075 D3: a factory, not a collector - the registry is keyed by the job id, which
+    // Story 075: a factory, not a collector - the registry is keyed by the job id, which
     // `startBootstrap` only has once it has created the `Job` (`ports.ts`'s
     // `BootstrapDiagnosticsSource`). `observeFailedJobs` above drops the entry again on any
     // terminal status, so an instrumented job leaves nothing behind either way.
@@ -680,7 +680,7 @@ function bootstrapDepsFor(
 }
 
 /**
- * Story 093 D2: the production wiring for `resolveRepairPlan` (`repair/plan.ts`). Built per call,
+ * Story 093: the production wiring for `resolveRepairPlan` (`repair/plan.ts`). Built per call,
  * like the other `*DepsFor` factories in this file - `inspectInstallation` is a free function with
  * no state of its own, and `manifestSourceFrom` already resolves lazily against whatever
  * `manifestService.getManifest()` last served.
@@ -694,7 +694,7 @@ function repairPlanDepsFor(manifestService: ManifestService, log: Logger): Repai
 }
 
 /**
- * Story 093 D4: the production wiring for the repair job (`repair/job.ts`). Built per call, like
+ * Story 093: the production wiring for the repair job (`repair/job.ts`). Built per call, like
  * every other `*DepsFor` factory here and for the same reason - the job owns no queue and no
  * cross-call state.
  *
@@ -720,7 +720,7 @@ function repairDepsFor(app: AppContext, manifestService: ManifestService, log: L
 }
 
 /**
- * Story 090 D2: the production wiring for the retail-upgrade job (`retail/upgrade-job.ts`). Built
+ * Story 090: the production wiring for the retail-upgrade job (`retail/upgrade-job.ts`). Built
  * per call, like `bootstrapDepsFor` above and for the same reason - the job owns no queue and no
  * cross-call state.
  *
@@ -745,7 +745,7 @@ function retailUpgradeDepsFor(app: AppContext, log: Logger): RetailUpgradeDeps {
 }
 
 /**
- * Story 092 D5: the production wiring for the engine-update job (`engine/update-job.ts`). Built per
+ * Story 092: the production wiring for the engine-update job (`engine/update-job.ts`). Built per
  * call, like `bootstrapDepsFor`/`retailUpgradeDepsFor` above and for the same reason - the job owns
  * no queue and no cross-call state.
  *
@@ -779,7 +779,7 @@ function engineUpdateDepsFor(
 }
 
 /**
- * Story 092 D6: the production wiring for the engine-rollback job (`engine/rollback-job.ts`). Built
+ * Story 092: the production wiring for the engine-rollback job (`engine/rollback-job.ts`). Built
  * per call, like `engineUpdateDepsFor` above and for the same reason - the job owns no queue and no
  * cross-call state.
  *

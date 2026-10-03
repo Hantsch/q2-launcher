@@ -9,8 +9,8 @@ import { formatBytes } from '../../../lib/format'
 import { PathPicker } from '../../../components/ui/controls'
 
 /**
- * Story 088 fix cycle (review F3): the AC3 mitigation for the unresolved 2023 re-release pak-size
- * question ("the AC3 message names the file and its actual size, so the first affected user report
+ * The mitigation for the unresolved 2023 re-release pak-size
+ * question ("the message names the file and its actual size, so the first affected user report
  * yields the number a later story needs") only holds if the actual byte count reaches the string -
  * `RetailSourceInspection.pak0`/`pak1` already carry it, but only these two `unverifiedReason` keys
  * are a size mismatch (as opposed to "missing entirely"), so only these two get the actual size
@@ -22,31 +22,31 @@ const SIZE_MISMATCH_REASON_TO_PAK = {
 } as const
 
 /**
- * Story 088 D5, the wizard's new step between `EngineStep` and `TargetStep`: choose whether the
+ * Story 088, the wizard's new step between `EngineStep` and `TargetStep`: choose whether the
  * game data comes from [[074]]'s free download or a copy of a detected Steam/GOG/Epic
- * installation (AC1/AC2). Mirrors `EngineStep`'s button-choice shape for the two data-source
+ * installation. Mirrors `EngineStep`'s button-choice shape for the two data-source
  * choices, and adds a second-level picker for the detected sources themselves.
  *
- * Story 089 D4 adds a third choice, `'existing-folder'` (AC1): a hand-picked folder, always
+ * Story 089 adds a third choice, `'existing-folder'`: a hand-picked folder, always
  * offered regardless of whether any store source was detected. Picking it reveals a browse button
- * and, once a folder is chosen, the `GameDataSourceVerdict` for it (AC2) - `kind: 'retail'` names
- * the paks found, `kind: 'demo'` still lets the user proceed (AC4), and `kind: 'unusable'` shows
- * `reason` and blocks Next (AC5); `BootstrapWizard`'s `canProceed.gameData` is what actually
+ * and, once a folder is chosen, the `GameDataSourceVerdict` for it - `kind: 'retail'` names
+ * the paks found, `kind: 'demo'` still lets the user proceed, and `kind: 'unusable'` shows
+ * `reason` and blocks Next; `BootstrapWizard`'s `canProceed.gameData` is what actually
  * enforces that gate, this component only renders the verdict it is handed.
  *
- * AC1's "absent, not disabled" rule: the `store-copy` choice row is only rendered at all when
+ * The "absent, not disabled" rule: the `store-copy` choice row is only rendered at all when
  * `sources` is non-empty - there is no disabled placeholder for the empty case. The existing-folder
  * row has no such condition; it is always rendered.
  *
- * AC3's "listed but not selectable": every detected entry renders, including an unverified one,
+ * "Listed but not selectable": every detected entry renders, including an unverified one,
  * but only a `verified` entry's row is clickable; an unverified one shows
  * `inspection.unverifiedReason` underneath instead.
  *
- * `data-testid`s (D6's e2e depends on these): `bootstrap-gamedata-choice-free-download`,
+ * `data-testid`s (the e2e flow depends on these): `bootstrap-gamedata-choice-free-download`,
  * `bootstrap-gamedata-choice-store-copy` (present only when `sources.length > 0`),
  * `bootstrap-gamedata-choice-existing-folder`, `bootstrap-gamedata-source-<index>` (one row per
  * detected entry, store + path in its text content), `bootstrap-gamedata-source-<index>-unverified`
- * (the AC3 reason line, present only for an unverified entry), `bootstrap-gamedata-folder-browse`,
+ * (the reason line, present only for an unverified entry), `bootstrap-gamedata-folder-browse`,
  * `bootstrap-gamedata-folder-path`, `bootstrap-gamedata-folder-checking`,
  * `bootstrap-gamedata-folder-verdict-retail`/`-demo`/`-unusable` (exactly one, once a verdict has
  * resolved).
@@ -67,7 +67,7 @@ export function GameDataStep({
   onDataSourceChange: (next: BootstrapDataSource) => void
   copySourcePath: string | null
   onCopySourcePathChange: (next: string | null) => void
-  /** Story 089 D4: the hand-picked folder path for the `'existing-folder'` choice, or `null`
+  /** Story 089: the hand-picked folder path for the `'existing-folder'` choice, or `null`
    * before the user has browsed for one. */
   folderPath: string | null
   onBrowseFolder: () => void
@@ -104,7 +104,7 @@ export function GameDataStep({
             onClick={() => onDataSourceChange('store-copy')}
           />
         )}
-        {/* Story 089 D4 (AC1): always offered, unlike `store-copy` above - it never depends on
+        {/* Story 089: always offered, unlike `store-copy` above - it never depends on
             whether anything was detected. */}
         <ChoiceRow
           testId="bootstrap-gamedata-choice-existing-folder"
@@ -193,9 +193,9 @@ export function GameDataStep({
   )
 }
 
-/** Story 089 D4 (AC2/AC4/AC5): renders the resolved `GameDataSourceVerdict` for the hand-picked
+/** Story 089: renders the resolved `GameDataSourceVerdict` for the hand-picked
  * folder - a positive line naming the paks found for `retail`, a demo-is-fine notice for `demo`
- * (AC4: not a rejection), and the translated `reason` for `unusable` (AC5), which is also what
+ * (not a rejection), and the translated `reason` for `unusable`, which is also what
  * `BootstrapWizard`'s `canProceed.gameData` keys off to keep Next disabled. */
 function FolderVerdict({ verdict }: { verdict: GameDataSourceVerdict }) {
   const { t } = useTranslation()

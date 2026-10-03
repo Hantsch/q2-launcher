@@ -5,7 +5,7 @@ import { Checkbox } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
 
 /**
- * Story 180 D3 / 182 D2: asks before playing a demo whose mod the installation does not fully have -
+ * Story 180 / 182: asks before playing a demo whose mod the installation does not fully have -
  * the only place that warning lives. "Don't ask again" is reported with the confirmation only;
  * Cancel reports nothing whatever the box says. Purely local, no IPC.
  */
@@ -19,7 +19,7 @@ export function ModMissingConfirmDialog({
   onConfirm,
 }: {
   gameDir: string
-  /** Story 193 D1: the mods catalog has this mod - offers installing it instead of playing. */
+  /** Story 193: the mods catalog has this mod - offers installing it instead of playing. */
   installOffer?: { name: string }
   onInstall?: () => void
   installError?: string

@@ -5,7 +5,7 @@ import { Switch } from '../../../components/ui/controls'
 import type { EngineScopeStatus } from '../lib/engine-scope'
 
 /**
- * Story 168 D2: the "record every map automatically" switch. The recipes live in
+ * Story 168: the "record every map automatically" switch. The recipes live in
  * `@shared/config/catalog/autorecord`; this only reads the state, renders it and hands the caller the next
  * cvar map. When the recipe cannot apply the switch stays visible and disabled, with the reason as
  * visible text (platform/engine parity rule), never only a tooltip.

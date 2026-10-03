@@ -10,7 +10,7 @@ import type { QuickFilterRefusalKey, QuickFiltersResult } from '@shared/modules/
 import { refuse } from '@shared/types'
 
 /**
- * Story 197 D2: the saved quick filters' three operations, pure functions over
+ * Story 197: the saved quick filters' three operations, pure functions over
  * `ServersState['quickFilters']` - no I/O, mirroring `watchlist-entries.ts`: an injectable `mintId`
  * and a `{ ok: true; list } | { ok: false; reasonKey }` result instead of a thrown error.
  */

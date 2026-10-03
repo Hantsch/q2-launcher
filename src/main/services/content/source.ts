@@ -7,14 +7,14 @@ import {
 
 /**
  * Re-exported so nothing that already imports the env var name from this module (e.g.
- * `harness.test.ts`) has to change: story 082 D4 moved the constant itself to
+ * `harness.test.ts`) has to change: story 082 moved the constant itself to
  * `src/main/lib/ui-harness.ts` (shared with `home/news/harness.ts`), this file's own public API is
  * unchanged.
  */
 export { HARNESS_CONTENT_REPO_BASE_ENV }
 
 /**
- * Story 074 D8: the ONE place that can point this module's manifest/package traffic somewhere
+ * Story 074: the ONE place that can point this module's manifest/package traffic somewhere
  * other than the curated public content repo.
  *
  * ## Why this exists at all

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  commentRanges,
   isNodeOrElectron,
   isTestFile,
   listSourceFiles,
@@ -58,6 +59,35 @@ describe('scanImports', () => {
 
   it('does not lose an import after a regex literal that contains a quote', () => {
     expect(scanImports(`const q = /["']/g\nimport x from './after'`)).toEqual(['./after'])
+  })
+})
+
+describe('commentRanges', () => {
+  it('commentRanges finds comments, not comment-like text in literals', () => {
+    const source = [
+      "const url = 'https://x.test' // real",
+      String.raw`const re = /a\/*b/`,
+      'const el = <div>{/* jsx */}</div>',
+      '/* first',
+      '   second',
+      '   third */',
+      'const z = 1',
+    ].join('\n')
+    expect(commentRanges(source)).toEqual([
+      { text: '// real', startLine: 1, endLine: 1 },
+      { text: '/* jsx */', startLine: 3, endLine: 3 },
+      { text: '/* first\n   second\n   third */', startLine: 4, endLine: 6 },
+    ])
+  })
+
+  it('lexes a ${ } template expression as code: its comments count, its strings stay literal', () => {
+    const source = [
+      'const a = `x ${ f({ k: 1 }) /* in expr */ + `n ${ "// str" }` } // text`',
+      '// after',
+    ].join('\n')
+    expect(commentRanges(source).map((range) => range.text)).toEqual(['/* in expr */', '// after'])
+    expect(stripComments(source)).toContain('// str')
+    expect(stripComments(source)).toContain('} // text`')
   })
 })
 

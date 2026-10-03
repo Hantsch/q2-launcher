@@ -1,5 +1,5 @@
 /**
- * Colour cvars (story 041, D8).
+ * Colour cvars (story 041).
  *
  * Quake II's alternate console charset (`q2-charset.ts`) is what makes the classic
  * "glowing"/coloured chat text: every byte has its high bit set (>= 0x80), and the

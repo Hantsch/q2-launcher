@@ -60,7 +60,7 @@ function abortReason(signal: AbortSignal): Error {
 /**
  * Story 091: no job writes into an installation while that installation's own
  * Quake II process is running - and, in the inverse direction, that process
- * cannot be started while a job is writing (AC1/AC5, INST-J7).
+ * cannot be started while a job is writing (INST-J7).
  *
  * It sits between two shell services rather than inside a module because it
  * arbitrates between them: `LaunchService` owns the process, `JobsService` owns
@@ -80,7 +80,7 @@ function abortReason(signal: AbortSignal): Error {
  *  - **resume then success** - lock taken, `fn` awaited, lock released;
  *  - **resume then failure** - same, and the error propagates unswallowed;
  *  - **abort while waiting** - `fn` is never called and no lock was ever taken,
- *    so there is nothing to release (AC6);
+ *    so there is nothing to release;
  *  - **immediate path** - no observer is ever created.
  *
  * A leaked subscription or an unreleased lock would deadlock every writing job
@@ -122,7 +122,7 @@ export class InstallationWriteGuard implements WriteLockReader {
    * as that installation's game is running.
    *
    * Wrapped around the write phase only: downloading, verifying and extracting
-   * into `userData/cache/downloads/` stay outside it, which is what AC4 asks for.
+   * into `userData/cache/downloads/` stay outside it, as intended.
    */
   async runWrite(
     installationId: string,
@@ -147,7 +147,7 @@ export class InstallationWriteGuard implements WriteLockReader {
     if (signal.aborted) throw abortReason(signal)
 
     this.acquire(installationId, jobId)
-    // Also the transition out of `'waiting'` (D1): the reason no longer applies.
+    // Also the transition out of `'waiting'`: the reason no longer applies.
     this.jobs.setWriteLock(jobId, true)
     try {
       await fn()

@@ -134,11 +134,11 @@ function latin1ByteLength(text: string): number {
 }
 
 /**
- * Make a command safe to place inside an alias body — or, since D6, safe to
+ * Make a command safe to place inside an alias body — or, now, safe to
  * store as a base bind at all: the raw-command field the keybinding editor
  * saves through is otherwise unsanitised on the way to `render.ts`, which
  * would nest a user-typed `"` and produce exactly the broken syntax this
- * module exists to avoid (review finding, story 006). Exported so
+ * module exists to avoid. Exported so
  * `KeyBindDialog` can apply the identical rule before saving a base bind,
  * instead of only ever sanitising inside a layer body.
  *
@@ -190,7 +190,7 @@ function lineFits(name: string, body: string): boolean {
  * handled here — that needs to know about the other layers, which a pure
  * per-layer generator does not. Disambiguating is the caller's job.
  *
- * `fallback` (story 039, D1) defaults to `'layer'` for this module's own
+ * `fallback` (story 039) defaults to `'layer'` for this module's own
  * callers (an alt-layer whose name slugs to nothing). `alias-render.ts` passes
  * `'entry'` instead, so an action whose name slugs to nothing reads as an
  * action, not a layer.

@@ -5,7 +5,7 @@ import { previewUpdate, updateMod } from './client'
 import { UpdateModDialog } from './components/UpdateModDialog'
 
 /**
- * Story 194 D4: the Update click. Asks main what the update would touch; with nothing changed it
+ * Story 194: the Update click. Asks main what the update would touch; with nothing changed it
  * starts straight away (overwrite), otherwise it opens the changed-files dialog. A refusal from
  * either call goes to `onFailed`, so it shows as visible text next to the mod.
  */

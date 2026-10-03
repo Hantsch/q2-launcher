@@ -7,7 +7,7 @@ export interface KeyCaptureResult {
 }
 
 /**
- * Story 015 D4: the reusable keydown-capture primitive extracted from
+ * Story 015: the reusable keydown-capture primitive extracted from
  * `ActionEditor`'s inline capture effect (decision 12) - listener shape and
  * ordering mirror it exactly (resolve first, `preventDefault` +
  * `stopPropagation` on every handled keydown, *then* check `event.repeat`,
@@ -21,7 +21,7 @@ export interface KeyCaptureResult {
  * Deliberate difference from `ActionEditor`: here `Escape` cancels the
  * capture instead of being reported as a bindable key, even though
  * `resolveQuakeKeyName` resolves it to `'ESCAPE'` and `ActionEditor` DOES let
- * you bind Escape. That is this hook's own contract for D4's use case (its
+ * you bind Escape. That is this hook's own contract for the use case (its
  * own acceptance text says "cancels on Escape"), not a claim that
  * `ActionEditor`'s behaviour is wrong - `ActionEditor` is not built on this
  * hook and keeps its own inline effect (decision 12: the four existing
@@ -31,7 +31,7 @@ export interface KeyCaptureResult {
  * `OverviewKeyboardPanel`, `SwitchBindControl`) stay exactly as they are -
  * this hook is new, additive plumbing for `BindSlot` only.
  *
- * Review-fix (post-D3): `onKeyUp` is optional plumbing added for
+ * `onKeyUp` is optional plumbing added for
  * `resolveModifierRelease` (`modifier-capture.ts`) - `BindSlot` needs to know
  * when a *held* key is released, not just when one goes down, to tell "the
  * user is mid-gesture, holding a modifier before the real key" apart from

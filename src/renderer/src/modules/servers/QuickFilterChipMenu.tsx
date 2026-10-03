@@ -5,7 +5,7 @@ import { IconButton } from '../../components/ui/Button'
 import { Menu, type MenuItem } from '../../components/ui/Menu'
 
 /**
- * Story 197 D4: the per-chip kebab of a saved quick filter, a mirror of the Controls category
+ * Story 197: the per-chip kebab of a saved quick filter, a mirror of the Controls category
  * rail's `ControlsCategoryMenu`. *Rename* opens the name dialog in rename mode; *Delete* removes
  * the entry only - it never touches the current filter (the caller wires `onDelete` to the
  * persistence call, not to the filter state).

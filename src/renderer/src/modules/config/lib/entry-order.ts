@@ -2,12 +2,12 @@ import type { ConfigAction, ConfigActionCategory } from '@shared/modules/config'
 import type { ControlsRowGroup } from './controls-row-groups'
 
 /**
- * Story 019 D3: order is array position, not an explicit `order` field
+ * Story 019: order is array position, not an explicit `order` field
  * (Decisions (Sprint)). Reordering therefore means swapping two elements of
  * the one flat `actions` array, mirroring `ActionEditor.tsx`'s `moveCommand`
  * idiom (splice-out, splice-in).
  *
- * Story 052 review (finding 4): which two elements is no longer derived here.
+ * Story 052: which two elements is no longer derived here.
  * This used to be `moveEntryWithinCategory(actions, id, direction)`, which
  * walked the array for the nearest entry sharing the moved one's `categoryId`
  * - but the grid does not render a category as one flat run any more. It
@@ -44,7 +44,7 @@ export interface EntryMoveTarget {
 }
 
 /**
- * The move target per row, read off the grid's *rendered* structure (story 052 review, finding 4).
+ * The move target per row, read off the grid's *rendered* structure (story 052.
  *
  * `groups` is what `ControlsGrid` actually draws: one category's entries, filtered, bucketed into
  * catalogue groups, each group keeping its entries' relative order. Taking both the neighbour and
@@ -74,7 +74,7 @@ export function buildMoveTargets(
 }
 
 /**
- * Story 054 D2: where a dragged/moved entry lands - immediately before another entry named by
+ * Story 054: where a dragged/moved entry lands - immediately before another entry named by
  * id, or at the end of whatever list it is being moved within/into. `string | 'end'` rather than
  * `string | undefined` so "append" is a value the caller states, not the absence of one (an
  * unrecognised id is a no-op below, which would otherwise be indistinguishable from "append").
@@ -94,7 +94,7 @@ function resolveInsertIndex(
 }
 
 /**
- * Story 054 D2: move `id` to sit immediately before `target` (or to the end), within the same
+ * Story 054: move `id` to sit immediately before `target` (or to the end), within the same
  * `actions` array - no `categoryId`/`subcategoryId` change. Mirrors `swapEntries`'s pure,
  * no-op-on-unknown-id contract: an unknown `id` or a `target` that names nothing in the array
  * (after `id` is removed - so "before itself" also resolves to unknown) returns the original
@@ -119,12 +119,12 @@ export function moveEntryToPosition(
 }
 
 /**
- * Story 054 D2: move `id` into a different sub-category of the same category (or the ungrouped
+ * Story 054: move `id` into a different sub-category of the same category (or the ungrouped
  * bucket, when the caller passes a `targetSubcategoryId` that matches nothing - same "no id is
  * special" rule the model already gives `subcategoryId`), landing before `target` or at the end.
  * No-op on an unknown `id` or an unresolvable `target`, same as `moveEntryToPosition`.
  *
- * Story 054 D4: `undefined` is the explicit "the ungrouped run" target and *removes* the entry's
+ * Story 054: `undefined` is the explicit "the ungrouped run" target and *removes* the entry's
  * `subcategoryId` rather than storing a value that matches nothing - a row dropped above the first
  * sub-category header has to become genuinely ungrouped, the way `moveEntryToCategory` already
  * drops the field when an entry leaves its category. Storing `''` instead would render identically
@@ -152,7 +152,7 @@ export function moveEntryToSubcategory(
 }
 
 /**
- * Story 054 D4: where a dragged Controls row was dropped, in the grid's own terms - which row it
+ * Story 054: where a dragged Controls row was dropped, in the grid's own terms - which row it
  * landed in front of, and which sub-category run it landed in. Produced by `ControlsGrid` (the only
  * place that knows the rendered grouping) and applied here, so the index math stays in this pure,
  * tested module instead of being spelled out again inside a drag handler.
@@ -189,7 +189,7 @@ export function moveEntryToDropTarget(
 }
 
 /**
- * Story 054 D2: move `id` to a different top-level category, appended at the end of that
+ * Story 054: move `id` to a different top-level category, appended at the end of that
  * category's run in the array. The entry's old `subcategoryId` (if any) belonged to its old
  * category, so it is dropped rather than carried over as a value the new category may not even
  * recognise - the moved entry lands ungrouped in its new category, same as a freshly created one
@@ -234,7 +234,7 @@ function moveByIndex<T extends { id: string }>(list: T[], id: string, toIndex: n
   return next
 }
 
-/** One selectable target for the row menu's "Move to…" picker (story 054 D8): a category's own
+/** One selectable target for the row menu's "Move to…" picker (story 054): a category's own
  * run, then each of its sub-categories, in profile order - mirrors `cvar-sections.ts`'s
  * `CvarPlacementOption`/`cvarPlacementOptions` almost verbatim, one level of nesting shallower. */
 export interface EntryPlacementOption {
@@ -269,7 +269,7 @@ export function entryPlacementOptions(
 }
 
 /**
- * Story 054 D2: reorder the top-level `categories` array by index (the category rail). No-op on
+ * Story 054: reorder the top-level `categories` array by index (the category rail). No-op on
  * an unknown `id`.
  */
 export function moveCategory(
@@ -281,7 +281,7 @@ export function moveCategory(
 }
 
 /**
- * Story 054 D2: reorder one category's `subcategories` array by index. Returns a new category
+ * Story 054: reorder one category's `subcategories` array by index. Returns a new category
  * object (never mutates `category`); a category with no `subcategories` (or an unknown `id`) is
  * returned unchanged.
  */

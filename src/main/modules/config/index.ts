@@ -71,13 +71,13 @@ import { configState } from './persisted'
 import { createProfileWrites, profileWritesFileIo } from './profile-writes'
 
 /**
- * Story 066 D5: which folder the config-file picker opens in - the selected installation's
+ * Story 066: which folder the config-file picker opens in - the selected installation's
  * `baseq2`, or the last registered installation's when nothing is selected, so the common "just
  * read my baseq2" case costs two clicks (story decision "file import replaces the installation/
  * gamedir import").
  *
  * Returns `{}` - no `defaultPath` at all, letting the OS pick its own default - when the launcher
- * has no installation registered: the flow must not need one (AC9). This is a *starting folder*
+ * has no installation registered: the flow must not need one. This is a *starting folder*
  * for the dialog and never a path that gets read; only what the user actually selects reaches the
  * picked-files registry, so a stale or vanished folder here can at worst make the dialog open
  * somewhere unhelpful.
@@ -137,7 +137,7 @@ export const configModule: MainModule = {
       )
 
     /**
-     * Story 043 D4: the tail every *content* mutation now ends in, in place of `syncAndPersist`.
+     * Story 043: the tail every *content* mutation now ends in, in place of `syncAndPersist`.
      *
      * This is the inversion of story 022 decision 8 ("every mutation writes immediately"), decided
      * with the user in story 043: the file is the source of truth, so the launcher may not keep
@@ -156,7 +156,7 @@ export const configModule: MainModule = {
     )
 
     /**
-     * Story 043 D4: a rename changes what the file is *called* as well as what it says, so it is
+     * Story 043: a rename changes what the file is *called* as well as what it says, so it is
      * still a content mutation as far as the file goes - and it stops touching disk like the rest.
      * Until the user saves, the canonical file keeps its old name (its sentinel still identifies the
      * profile, which is how `save` and the sync engine find it again); the rename of the file, and
@@ -179,7 +179,7 @@ export const configModule: MainModule = {
       return ok(markUnsaved(input.profileId))
     })
 
-    // Story 175 D1; its contract is documented on `profile-writes.ts#commitCvars`.
+    // Story 175; its contract is documented on `profile-writes.ts#commitCvars`.
     handle(CONFIG_HANDLERS.commitCvars, commitProfileCvarsInputSchema, (input) =>
       writes.commitCvars(input),
     )
@@ -204,28 +204,28 @@ export const configModule: MainModule = {
       return ok(markUnsaved(input.profileId))
     })
 
-    // Story 040 D4: a dedicated setter for one boolean, not routed through the whole-field
+    // Story 040: a dedicated setter for one boolean, not routed through the whole-field
     // replace setters above - same "genuinely new handler" shape as `setPlayedMods`/
     // `setSwitchBind` further down, but this one is write-affecting (it changes what
     // `renderProfileFile` emits), so it is a content mutation exactly like
     // `setCvars`/`setBinds`/`setLayers`/`setActions` and takes the same `markUnsaved` tail (story
-    // 043 D4) rather than the plain state write those two use.
+    // 043) rather than the plain state write those two use.
     handle(CONFIG_HANDLERS.setWriteUnbindall, setWriteUnbindallInputSchema, (input) => {
       profiles.setWriteUnbindall(input)
       return ok(markUnsaved(input.profileId))
     })
 
-    // Story 059 D9: mirrors `setWriteUnbindall` right above exactly - a dedicated setter for one
+    // Story 059: mirrors `setWriteUnbindall` right above exactly - a dedicated setter for one
     // boolean, write-affecting (it changes whether `buildCvarSections` writes unplaced catalogue
-    // cvars into the reserved `Defaults` section, D1/D2), so it takes the same `markUnsaved` tail.
+    // cvars into the reserved `Defaults` section), so it takes the same `markUnsaved` tail.
     handle(CONFIG_HANDLERS.setWriteCatalogDefaults, setWriteCatalogDefaultsInputSchema, (input) => {
       profiles.setWriteCatalogDefaults(input)
       return ok(markUnsaved(input.profileId))
     })
 
-    // Story 042 D7: mirrors `setWriteUnbindall` right above exactly - a dedicated setter for one
+    // Story 042: mirrors `setWriteUnbindall` right above exactly - a dedicated setter for one
     // field, write-affecting (it changes which decoration `renderProfileFile` draws around every
-    // section banner), so it takes the same `markUnsaved` tail. Story 043 D4's acceptance list does
+    // section banner), so it takes the same `markUnsaved` tail. Story 043's acceptance list does
     // not name this handler, but its being write-affecting is the whole reason it went through
     // `syncAndPersist` before; leaving it as the one content setter that still stamps the file
     // immediately would be an inconsistency the plan clearly did not intend.
@@ -235,7 +235,7 @@ export const configModule: MainModule = {
     })
 
     /**
-     * Story 049 D3: discard - restores a profile's pending edits to its last-saved/loaded baseline,
+     * Story 049: discard - restores a profile's pending edits to its last-saved/loaded baseline,
      * without touching any file. Deliberately does NOT go through `markUnsaved`/`syncAndPersist`:
      * discard writes nothing to disk (the story's explicit requirement - "It never writes to the
      * file"), so it needs neither the dirty-marking tail every content setter above ends in (the
@@ -298,25 +298,25 @@ export const configModule: MainModule = {
       },
     )
 
-    // Story 079 D4: a running game defers nothing, so no installation is ever pending a write any
+    // Story 079: a running game defers nothing, so no installation is ever pending a write any
     // more - this channel's shared contract (`WriteState`, a later deliverable's concern) is kept
     // alive by always answering "nothing pending" rather than by persisting a map that can never
     // gain an entry.
     handle(CONFIG_HANDLERS.writeState, writeStateInputSchema, () => ok<WriteState>({}))
 
-    // Story 022 D7 / 023 D1: read-only reports; their contracts are on `profile-writes.ts`.
+    // Story 022 / 023: read-only reports; their contracts are on `profile-writes.ts`.
     handle(CONFIG_HANDLERS.syncState, syncStateInputSchema, (input) => writes.syncState(input))
     handle(CONFIG_HANDLERS.rawFiles, rawFilesInputSchema, (input) => writes.rawFiles(input))
 
     /**
-     * Story 023 D2: hand one of this profile's files to the OS - the default
+     * Story 023: hand one of this profile's files to the OS - the default
      * application for `.cfg` (`mode: 'open'`) or the file manager with the file
      * selected (`mode: 'reveal'`). Mirrors `app:revealPath`
      * (`src/main/ipc/app.ts`), minus its directory branch: the target here is
      * always a file.
      *
      * This is the module's one privileged path, so the order below is the whole
-     * point of it (AC 8):
+     * point of it:
      *
      * 1. The payload carries ids only - no path field exists to be trusted. The
      *    path is resolved here, from main's own profile list and installation
@@ -409,7 +409,7 @@ export const configModule: MainModule = {
       writes.setSwitchBind(input),
     )
 
-    // Story 005 / 066 D5: read-only import of hand-written config FILES into a new profile.
+    // Story 005 / 066: read-only import of hand-written config FILES into a new profile.
     // `import.ts` holds the fs-touching logic so it stays testable without booting this module;
     // these handlers only validate the payload shape, supply the picker's starting folder and
     // (for commit) reconcile live assignments the same way every other profile-list-returning
@@ -449,7 +449,7 @@ export const configModule: MainModule = {
 
     // Story 010: find and remove mod-folder `.cfg` copies that duplicate a
     // same-named `baseq2` file. `cleanup.ts` holds the fs-touching logic
-    // (D1/D2, already tested against a real temp tree there); these handlers
+    // (already tested against a real temp tree there); these handlers
     // only validate the payload, resolve the real installation and - for
     // `apply`/`restore` only, never for the read-only `scan` (decision 12) -
     // refuse a currently-running installation the same way `write` does.
@@ -487,7 +487,7 @@ export const configModule: MainModule = {
       },
     )
 
-    // Story 025 D3; its contract is documented on `profile-writes.ts#tidyUpApply`.
+    // Story 025; its contract is documented on `profile-writes.ts#tidyUpApply`.
     handle(CONFIG_HANDLERS.tidyUpApply, tidyUpApplyInputSchema, (input) =>
       writes.tidyUpApply(input),
     )

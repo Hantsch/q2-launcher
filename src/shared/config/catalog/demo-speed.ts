@@ -1,5 +1,5 @@
 /**
- * Story 167 D2: bindable "demo speed up / down" commands that step through the timeline's own
+ * Story 167: bindable "demo speed up / down" commands that step through the timeline's own
  * speed steps (`SPEED_STEPS`, story 165) one step per key press, clamped at both ends.
  *
  * Q2PRO has no "next timescale" verb, so each command is a chain of `if` checks in one body:

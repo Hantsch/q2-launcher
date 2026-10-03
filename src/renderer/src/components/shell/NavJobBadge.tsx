@@ -4,8 +4,8 @@ const MAX_DISPLAY_COUNT = 99
 
 /**
  * Corner badge for the number of active jobs (currently downloads) on a nav
- * button. Renders nothing at 0 - story 032 D2. Wiring this into a specific
- * button (aria-label, TitleBar placement) belongs to D3.
+ * button. Renders nothing at 0 - story 032. Wiring this into a specific
+ * button (aria-label, TitleBar placement) is separate work.
  */
 export function NavJobBadge({ count, testId }: { count: number; testId?: string }) {
   if (count <= 0) return null

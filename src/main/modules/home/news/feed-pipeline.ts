@@ -1,16 +1,16 @@
 /**
- * Story 082 D3: the pure feed pipeline - the whole of AC2-AC6 in one place.
+ * Story 082: the pure feed pipeline - validation and visibility in one place.
  *
  * `buildFeed({ index, documents, now })` takes the already-`JSON.parse`d
  * `news/index.json`, the raw text of the `.md` documents it references, and the
  * caller's notion of "now", and answers the delivered slides plus a warning per
  * genuinely invalid thing it had to drop. No filesystem, no network, no logger and
- * no reading of the clock - fetching is D5's job, logging the warnings is D6's, and
- * `now` is a parameter so the visibility window is testable (AC10).
+ * no reading of the clock - fetching is the fetcher's job, logging the warnings is the service's, and
+ * `now` is a parameter so the visibility window is testable.
  *
  * Foreign network data reaches the launcher here, so every step is defensive:
  * a bad entry is dropped, never thrown on, and the rest of the feed still
- * arrives (AC2).
+ * arrives.
  *
  * The decision order per entry matters, because the drop rules interact - an
  * entry with an unknown template AND no image AND no title must fold into one
@@ -73,7 +73,7 @@ export interface NewsIndex {
 
 /**
  * One dropped-something-invalid note. Deliberately flat prose plus the ids it
- * concerns: D6 iterates and hands `reason` to `log.warn`, it does not pattern-match
+ * concerns: the news service iterates and hands `reason` to `log.warn`, it does not pattern-match
  * on the fields.
  */
 export interface NewsFeedWarning {
@@ -102,7 +102,7 @@ export interface BuildFeedResult {
   schemaAhead: boolean
 }
 
-/** AC6: at most this many buttons per entry reach the renderer. */
+/** at most this many buttons per entry reach the renderer. */
 export const MAX_BUTTONS_PER_SLIDE = 3
 
 /** Shape check only - the entries themselves are validated one by one, so a single
@@ -138,7 +138,7 @@ function isNewsTemplate(value: unknown): value is NewsTemplate {
 }
 
 /** Templates that render nothing sensible without an image, so a missing image falls back to
- * `text` rather than being delivered as-is (AC5). `banner` is "optionally backed by an image" per
+ * `text` rather than being delivered as-is. `banner` is "optionally backed by an image" per
  * the contract and stays a banner without one, so it is deliberately not in this set. */
 const TEMPLATES_REQUIRING_IMAGE: ReadonlySet<NewsTemplate> = new Set(['split', 'cover'])
 
@@ -175,7 +175,7 @@ function parseBound(value: string | undefined): { at: number | undefined; malfor
 }
 
 /**
- * AC6, in this order: drop malformed buttons, then drop off-allowlist hosts, then
+ * Button rules, in this order: drop malformed buttons, then drop off-allowlist hosts, then
  * cap what is left at three. Filter-then-cap, so an entry with five buttons of which
  * two point somewhere off-allowlist still delivers three - counting the rejected ones
  * against the cap would silently swallow a valid button as well.
@@ -369,7 +369,7 @@ export function resolveFeed({ index, documents }: ResolveFeedInput): BuildFeedRe
 }
 
 /**
- * `resolveFeed()` plus AC3's visibility window and AC4's `order` sort, both against `now`. Kept as a
+ * `resolveFeed()` plus the visibility window and the `order` sort, both against `now`. Kept as a
  * thin wrapper for callers that want a fully-filtered-and-sorted feed in one call (this pipeline's
  * own tests, and any one-off use); `news-service.ts`'s cached-refresh path calls `resolveFeed()`
  * directly instead, precisely so the cache does not inherit this function's filtering.
@@ -380,7 +380,7 @@ export function buildFeed({ index, documents, now }: BuildFeedInput): BuildFeedR
 }
 
 /**
- * AC3 + AC4 over already-valid slides: drop anything outside `now`'s visibility window, then sort
+ * The visibility window and `order` sort over already-valid slides: drop anything outside `now`'s visibility window, then sort
  * what is left by `order` ascending, stable on the slides' own incoming order (which is why this
  * function must not reorder before filtering). Exported so `news-service.ts` can re-apply both
  * rules on every delivery against the *current* `now`, not just once at build time - a slide cached

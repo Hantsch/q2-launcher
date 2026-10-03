@@ -1,7 +1,7 @@
 import type { ConfigActionCategory } from '@shared/modules/config'
 
 /**
- * How a category is named on screen (story 052 D1/D7).
+ * How a category is named on screen (story 052).
  *
  * `name` is the ground truth: real prose, written into the profile and into the user's file. A
  * template seed and the migration additionally attach `nameKey`, a *display hint* naming the
@@ -9,7 +9,7 @@ import type { ConfigActionCategory } from '@shared/modules/config'
  * (`ControlsTab#handleRenameCategory`). Main therefore never has to send prose across IPC
  * (CLAUDE.md) and the file still carries a real name.
  *
- * Story 052 review (finding 9): the hint is only trusted when the renderer actually has that key.
+ * Story 052: the hint is only trusted when the renderer actually has that key.
  * The persisted/IPC schema validates `nameKey` as a non-empty string, not as a key this build
  * knows, so a hint from an older build or a hand-edited `state.json` reaches here as an unknown
  * key - and i18next's missing-key handler returns the key itself (`i18n/index.ts`), which would
@@ -32,9 +32,9 @@ export function categoryDisplayName(
 
 /**
  * The same rule for anything else the profile owns that carries user prose plus an optional
- * seed-only `nameKey` hint - story 059 D1 gives `ConfigCvarSection` exactly that pair, for exactly
+ * seed-only `nameKey` hint - story 059 gives `ConfigCvarSection` exactly that pair, for exactly
  * 052's reasons, so the Settings tab resolves its section names through this rather than growing a
- * second copy of the "only trust a hint this build actually has" check (story 052 review, finding 9).
+ * second copy of the "only trust a hint this build actually has" check (story 052.
  * A `ConfigCvarSubsection` has no `nameKey` at all and simply always falls through to `name`.
  */
 export function namedDisplayName(

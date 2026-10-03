@@ -21,8 +21,8 @@ import {
 } from './assemble'
 
 /**
- * Story 088 D1: fact-gathering pass over a candidate "I already own retail Quake II" source folder
- * (AC3) - the bootstrap wizard's other install path than the download flow. Fs-only and import-free
+ * Story 088: fact-gathering pass over a candidate "I already own retail Quake II" source folder
+ * - the bootstrap wizard's other install path than the download flow. Fs-only and import-free
  * of `electron`, same discipline as `target.ts`'s `computeTargetVerdict`: this function only reports
  * facts, it never judges what the wizard should do with them.
  *
@@ -93,8 +93,8 @@ async function hasChildDir(dir: string, name: string): Promise<boolean> {
 }
 
 /**
- * Story 088 D2: the one store `InstallationSource` values a detected candidate must carry to
- * become a `DetectedRetailSource` (AC1/Decisions (Sprint): "offered only if it is a store source").
+ * Story 088: the one store `InstallationSource` values a detected candidate must carry to
+ * become a `DetectedRetailSource` ("offered only if it is a store source").
  * A `manual`/`unknown` hit, or any other `InstallationSource`, is [[089]]'s existing-folder source,
  * not this one, and is silently dropped here rather than surfaced as a rejected candidate.
  */
@@ -112,8 +112,8 @@ export interface RetailSourceDetection {
 }
 
 /**
- * Story 088 D2: the detection half of the bootstrap wizard's "copy from a detected installation"
- * data source (AC1/AC2). Reaches the store detection the launcher already has through the module
+ * Story 088: the detection half of the bootstrap wizard's "copy from a detected installation"
+ * data source. Reaches the store detection the launcher already has through the module
  * seam (`deps.detection.scan`, `app.detection` in production) - a fast pass only (`{}`, no
  * `deepScan`, no `drives`), since offering the copy option must never trigger the slow, opt-in
  * whole-drive walk. Every surviving `steam`/`gog`/`epic` candidate is re-inspected with
@@ -137,13 +137,13 @@ export async function listDetectedRetailSources(deps: {
 }
 
 /**
- * Story 088 D4: the one comparison "is this the folder main detected?" is ever decided by -
+ * Story 088: the one comparison "is this the folder main detected?" is ever decided by -
  * `canonicalizePath` + `pathKey` (`lib/fs-utils.ts`), the same pair `InstallationsService`'s
  * duplicate guard and `findByRootPath` use. So junction/symlink spellings, a trailing separator and
  * (on Windows/macOS) case cannot make a detected source look like a different folder, and cannot
  * make an undetected one look like a detected one either.
  *
- * Story 090 D2: lifted out of `bootstrap/job.ts` (where 088 D4 wrote it as a private helper) into
+ * Story 090: lifted out of `bootstrap/job.ts` (where it was a private helper) into
  * this file, because the retail-upgrade job (`retail/upgrade-job.ts`) has to admit a source by
  * *exactly* the same rule the bootstrap job does. A second copy of this predicate is the one way
  * the two could come to disagree about which folder the renderer just named, so there is one - here,
@@ -161,11 +161,11 @@ export async function findDetectedRetailSource(
 }
 
 /**
- * Story 088 D3: copies a detected (or manually chosen, per [[089]]) retail installation's game data
+ * Story 088: copies a detected (or manually chosen, per [[089]]) retail installation's game data
  * into `targetRoot` - `baseq2/pak0.pak`+`pak1.pak` (+`pak2.pak` when it size-matches
  * `RETAIL_PAK_SIZES`), and `baseq2/video`+`baseq2/players` when `includeVideoAndPlayers` is on.
  * Reuses `assemble.ts`'s allowlist copier (`assembleInstallation`) rather than a second copier
- * (Decisions (Sprint): "reuses the allowlist that already makes AC7 a property of the code") - the
+ * ("reuses the allowlist that already makes "baseq2 only" a property of the code") - the
  * same mechanism that already guarantees a demo/point-release run never leaks `ctf`/`xatrix`/
  * `rogue` guarantees this run produces `baseq2` only, from `sourceRoot`'s own tree. `cp` (used by
  * `assembleInstallation`) copies real bytes, never a symlink or hardlink, whatever the source's

@@ -6,14 +6,14 @@ import type { ModifierTrigger } from '@shared/config/aliases/modifier-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 
 /**
- * The profile-wide conflict scan (story 020 D7): every key that is claimed more than once,
+ * The profile-wide conflict scan (story 020): every key that is claimed more than once,
  * anywhere in `profile` - "a key bound twice is a conflict no matter which drawer you happen to
  * be looking at" (the story's sprint decision). Mirrors `@shared/config/validation/bind-collision.ts`'s
  * notion of what counts as a "claim" (`findBindCollision`'s three sources: `profile.binds`, an
  * action's key/secondary slot when it is not modifier-carrying, and a layer's own `overrides`),
  * but that file answers "does THIS one candidate key collide with anything" for an interactive
  * capture; this one scans the *whole* profile once and reports every group of 2+ claimants, for
- * the header's conflict count and the per-slot/per-row markers D5/D6 already built the surface
+ * the header's conflict count and the per-slot/per-row markers already built the surface
  * for.
  *
  * Two independent scan channels, per decision 14 in `bind-collision.ts`'s doc comment ("layers

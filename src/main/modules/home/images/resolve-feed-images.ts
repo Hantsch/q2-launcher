@@ -19,10 +19,10 @@ import {
 } from '../../../lib/news-image-paths'
 
 /**
- * Story 084 D4: the pipeline step between 082's validated feed and its IPC delivery. Turns each
+ * Story 084: the pipeline step between 082's validated feed and its IPC delivery. Turns each
  * slide's frontmatter-declared `image` (a relative path under `news/`, foreign content) into a
  * `q2launcher://` `imageUrl` - or drops the image entirely - and never lets the raw `image` value
- * itself reach the slide this returns. That is what makes AC1's "no renderer request to a remote
+ * itself reach the slide this returns. That is what makes "no renderer request to a remote
  * origin" true by construction rather than by convention (Decisions (Sprint), and
  * `shared/modules/home.ts`'s `NewsSlide` doc comment).
  *
@@ -40,15 +40,15 @@ import {
  *  1. no `image` declared -> no `imageUrl` on the resolved slide.
  *  2. the image is already on disk under its content-addressed name (one of
  *     `SAFE_NEWS_IMAGE_EXTENSIONS`) -> `imageUrl` resolves to it, `fetchImpl` is never called
- *     (AC4) - checked via the injected `fileExists`, never via `fetchImage`.
+ *     (no network) - checked via the injected `fileExists`, never via `fetchImage`.
  *  3. not on disk, and this is a network-reaching cycle (`networkReached: true`) -> `fetchImage()`
- *     (D2) is called; `'cached'` resolves `imageUrl`, anything else (`'rejected'`/`'gone'`/
+ *     is called; `'cached'` resolves `imageUrl`, anything else (`'rejected'`/`'gone'`/
  *     `'unavailable'`) leaves the slide without one - never thrown, never aborts the rest.
  *  4. not on disk, and this is not a network-reaching cycle -> no `imageUrl` (nothing to fetch
- *     from, and fetching would violate AC4's "no network attempt" for a cache miss it cannot serve
+ *     from, and fetching would violate "no network attempt" for a cache miss it cannot serve
  *     anyway).
  *
- * After every slide is resolved, `enforceKeepSet()` (D1) evicts cached images this feed's own
+ * After every slide is resolved, `enforceKeepSet()` evicts cached images this feed's own
  * resolved file names do not cover - the current feed's images are the entire keep-set, exactly
  * per Decisions (Sprint): "scoped to the current feed's slides, evicted on feed refresh".
  */

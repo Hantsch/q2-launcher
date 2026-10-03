@@ -5,7 +5,7 @@ import { fail, ok, type Outcome } from '@shared/types/common'
 import { listZipEntries, readZipEntry, type ZipDeps } from '../../lib/zip-entries'
 
 /**
- * Story 160 D1: Q2PRO's `demo` only loads from the Quake FS, so a demo that lives elsewhere gets a
+ * Story 160: Q2PRO's `demo` only loads from the Quake FS, so a demo that lives elsewhere gets a
  * temporary copy in `<gamedir>/demos/_launcher/`. The original is never opened for writing and a
  * `.gz` is never decompressed here.
  */

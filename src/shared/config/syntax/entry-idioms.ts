@@ -1,6 +1,6 @@
 /**
  * Recognising the three config idioms story 045 turns into first-class entries -
- * out of nothing but a list of `alias <name> <body>` definitions (story 045, D5).
+ * out of nothing but a list of `alias <name> <body>` definitions (story 045).
  *
  * Two readers must agree, byte for byte, about what a group of alias definitions
  * *is*: `alias-import.ts` (a foreign, hand-written config - story 041) and
@@ -11,7 +11,7 @@
  * "one table, not two" reason `configCommandFor`/`entryKindFor` are shared.
  *
  * Pure data in, plain data out. No `node:*`, no DOM, no electron, no ids, no
- * `ConfigAction`: building entries out of what was recognised is D6's and D7's
+ * `ConfigAction`: building entries out of what was recognised is the importer's
  * job, and keeping this file down to "which definitions form which shape" is
  * what lets both of them use it without either one's entry-building rules
  * leaking into the other's.
@@ -22,7 +22,7 @@
  * below rejects the *whole* group on any deviation - an extra segment in the
  * dispatch body, a third state, both states pointing at the same one, a `bind`
  * segment anywhere in a body - and the definitions fall back to the plain alias
- * entries they import as today (AC4's "rather than guessing").
+ * entries they import as today (the "rather than guessing").
  *
  * The asymmetry is deliberate: a missed recognition costs a user one nicer UI
  * row, while a loose match silently *retypes* a hand-written alias family into
@@ -86,9 +86,9 @@
  * the same shared tokenizer primitives (`command-tokenizer.ts`).
  *
  * It is a local copy rather than an import purely to keep the dependency
- * direction right: D6 makes `alias-import.ts` call *into* this file, so an
+ * direction right: the import step makes `alias-import.ts` call *into* this file, so an
  * import back the other way would be a cycle. The two copies want to become one
- * shared primitive in `command-tokenizer.ts` when D6 wires the import path up.
+ * shared primitive in `command-tokenizer.ts` when the import step wires the import path up.
  */
 
 import {
@@ -276,7 +276,7 @@ function commandWord(segment: string): string {
  * over a whole body.
  *
  * A body with a top-level `bind` is the key-rebinding alias construct story 045
- * AC8 puts explicitly out of scope and story 041's ambiguous-rebind path owns.
+ * the story puts explicitly out of scope and story 041's ambiguous-rebind path owns.
  * It disqualifies the whole group it appears in - a toggle trio or a `+`/`-`
  * pair one of whose halves rebinds keys is exactly the ambiguity neither story
  * wants guessed at, and half-recognising it would take that decision away from
@@ -386,7 +386,7 @@ function pairHalf(entry: IndexedAlias): RecognizedHalf {
  * lookup is not (it is a name). A `+x` with no `-x` - or a lone `-x`, which
  * never gets here because only `+` names are offered as candidates - is not a
  * pair: both fall back to the plain alias entries `alias-import.ts` already
- * imports them as, sign kept, and Care reports the half-missing shape (D8).
+ * imports them as, sign kept, and Care reports the half-missing shape.
  */
 function pressReleaseCandidate(
   press: IndexedAlias,
@@ -558,7 +558,7 @@ function buildIndex(definitions: readonly AliasLike[]): AliasIndex {
  *  - **Two grouping candidates that overlap on any name cancel each other out.**
  *    Neither claims anything and every definition involved falls back. The
  *    story does not specify a tie-break, and picking one candidate over the
- *    other would be exactly the guess AC4 rules out - a definition that is
+ *    other would be exactly the guess the story rules out - a definition that is
  *    readable as two different entry kinds is ambiguous, and the fallback is the
  *    behaviour the launcher has today. The reachable case is cross-idiom: a
  *    `+x`/`-x` pair whose halves are *also* wired as the two states of a toggle

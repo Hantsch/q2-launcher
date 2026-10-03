@@ -50,7 +50,7 @@ export interface InstallationsDeps {
    */
   onRemoved?: (id: string) => Promise<void>
   /**
-   * Story 094 D2: true while `installationId`'s own game process is starting or running - the
+   * Story 094: true while `installationId`'s own game process is starting or running - the
    * refusal `remove({ deleteFromDisk: true })` uses instead of story 091's `runWrite` wait, since a
    * destructive one-shot delete is refused outright rather than deferred (see the story's Decisions
    * section). Optional and a callback, not a direct `InstallationWriteGuard` dependency, for the
@@ -172,13 +172,13 @@ export class InstallationsService {
         ? { executablePath: input.executablePath ?? result.executables[0] }
         : {}),
       ...(result.detectedVersion ? { detectedVersion: result.detectedVersion } : {}),
-      // Story 103 D2: absent on Windows, where no header is read - so the key only ever appears on
+      // Story 103: absent on Windows, where no header is read - so the key only ever appears on
       // a record whose executable was actually identified by its first bytes.
       ...(result.executableKind ? { executableKind: result.executableKind } : {}),
-      // Story 104 D2: same additive convention - only present when the root was actually found
+      // Story 104: same additive convention - only present when the root was actually found
       // inside a Steam library.
       ...(result.steamAppId ? { steamAppId: result.steamAppId } : {}),
-      // AC1 fix: a fresh inspection of a folder the user already has is a positive identification -
+      // A fresh inspection of a folder the user already has is a positive identification -
       // record it once, so a later missing executable (which drops `engineKind` to `'unknown'`, see
       // `Installation.recordedEngineKind`'s doc comment) does not also erase this memory.
       ...(result.engineKind !== 'unknown' ? { recordedEngineKind: result.engineKind } : {}),
@@ -254,7 +254,7 @@ export class InstallationsService {
       updatedAt: now,
       lastValidatedAt: result.checkedAt,
       totalPlaytimeSeconds: 0,
-      // AC1 fix: `input.engineKind` is the caller's own choice (the bootstrap wizard's engine pick),
+      // `input.engineKind` is the caller's own choice (the bootstrap wizard's engine pick),
       // authoritative the moment the installation is created - see `Installation.recordedEngineKind`.
       ...(input.engineKind !== 'unknown' ? { recordedEngineKind: input.engineKind } : {}),
     }
@@ -286,7 +286,7 @@ export class InstallationsService {
     if (input.favorite !== undefined) userPatch.favorite = input.favorite
     if (input.activeGameDir !== undefined) userPatch.activeGameDir = input.activeGameDir
     if (input.executablePath !== undefined) userPatch.executablePath = input.executablePath
-    // Story 103 D6: the runner choice `resolveRunner` (src/main/services/runners.ts) reads. Does
+    // Story 103: the runner choice `resolveRunner` (src/main/services/runners.ts) reads. Does
     // not trigger revalidation below - it changes nothing an inspection checks.
     if (input.runner !== undefined) userPatch.runner = input.runner
     if (input.steamClient !== undefined) userPatch.steamClient = input.steamClient
@@ -359,7 +359,7 @@ export class InstallationsService {
   }
 
   /**
-   * Story 077 D1: records (or clears) the installation's last bootstrap failure - same shape as
+   * Story 077: records (or clears) the installation's last bootstrap failure - same shape as
    * `setIcon()` right above, its own field, its own `commit()` write.
    *
    * `null` removes the field entirely, the same "absent means none" convention `setIcon` uses for
@@ -394,7 +394,7 @@ export class InstallationsService {
   }
 
   /**
-   * Story 093 finding fix (AC1): records the engine a completed `reinstall-engine` repair just put
+   * Story 093 finding fix: records the engine a completed `reinstall-engine` repair just put
    * back - same shape as `setIcon()`/`setLastFailure()` above, its own field, its own `commit()`
    * write. Keeps `Installation.recordedEngineKind` accurate for a *future* repair, the same reason
    * it is set at creation time in `create()`/`addExisting()` above.
@@ -437,7 +437,7 @@ export class InstallationsService {
   }
 
   /**
-   * Story 094 D2: `deleteFromDisk` deletes the installation's folder before dropping its library
+   * Story 094: `deleteFromDisk` deletes the installation's folder before dropping its library
    * entry - files first, entry second - so a refused or failed delete leaves the entry, the active
    * installation and the icon exactly as they were, rather than an entry with no files behind it.
    * The `false`/absent path is untouched: entry-only removal, exactly as before this story.
@@ -456,7 +456,7 @@ export class InstallationsService {
       if (this.isRunning?.(input.id)) {
         return fail('installations.error.deleteFromDiskRunning')
       }
-      // Review fix: `userDataDir`/`homeDir` are the safety fence's own anchors (AC3) - a caller
+      // Review fix: `userDataDir`/`homeDir` are the safety fence's own anchors - a caller
       // that forgot to wire them would otherwise fall back to `''`, which `canonicalizePath`
       // resolves to `process.cwd()` and silently turns the fence into a wrong-but-plausible guard
       // instead of a loud failure. Checked here, not in the constructor, so every other test
@@ -647,7 +647,7 @@ function applyInspectionResult(installation: Installation, result: ValidationRes
     updatedAt: new Date().toISOString(),
   }
 
-  // Story 077 D1: a playable verdict retires any stale failure record - same "playable" predicate
+  // Story 077: a playable verdict retires any stale failure record - same "playable" predicate
   // `bootstrap/job.ts`'s `markPlayableIfReady` uses. An `invalid`/`missing` verdict leaves
   // `lastFailure` exactly as it was; this is the only place other than `setLastFailure(id, null)`
   // that clears it.
@@ -656,16 +656,16 @@ function applyInspectionResult(installation: Installation, result: ValidationRes
   }
 
   // A user-chosen engine kind is never overwritten by detection.
-  // Story 077 (review fix, AC1/AC8): an empty/unrecognizable folder inspects as `unknown` - for a
+  // Story 077 : an empty/unrecognizable folder inspects as `unknown` - for a
   // *failed* installation (the folder this story's cleanup just emptied - Decisions (Sprint), Q1)
   // that must not clobber the wizard's engine choice, or a restart would show "Unknown engine"
   // next to a name and path it otherwise preserved exactly. Deliberately scoped to
   // `installation.lastFailure`, the one field only a bootstrap failure ever sets: an *ordinary*
-  // installation (no `lastFailure` - AC8's "an installation without the new field") keeps today's
+  // installation (no `lastFailure` - an installation without the new field) keeps today's
   // unconditional overwrite, engineKind included, so this story changes nothing about how an
   // untouched installation's engine badge behaves when its folder empties out for any other
-  // reason. A too-broad version of this guard (no `lastFailure` scoping) was caught in review:
-  // it silently changed the engine badge on installations that carry no `lastFailure` at all.
+  // reason. Without the `lastFailure` scoping the guard would change the engine badge:
+  // on installations that carry no `lastFailure` at all.
   const preserveKnownEngine =
     result.engineKind === 'unknown' &&
     installation.engineKind !== 'unknown' &&
@@ -679,13 +679,13 @@ function applyInspectionResult(installation: Installation, result: ValidationRes
     next.executablePath = result.executables[0]
   }
 
-  // Story 103 D2: record what the chosen executable turned out to be. Written only when the
-  // inspection actually read a header (never on Windows - AC8: a revalidation there must leave
+  // Story 103: record what the chosen executable turned out to be. Written only when the
+  // inspection actually read a header (never on Windows: a revalidation there must leave
   // the record exactly as it found it), so a kind read on another platform is kept rather than
   // erased by a Windows run over the same state file.
   if (result.executableKind) next.executableKind = result.executableKind
 
-  // Story 104 D2 (review fix, AC1): the Steam appid is *not* merged like `executableKind` above.
+  // Story 104 : the Steam appid is *not* merged like `executableKind` above.
   // It is derived purely from the root path, on every platform, so the new inspection's answer is
   // the whole truth: an installation relocated out of a Steam library must lose its appid, or the
   // Steam runner would stay selectable for a folder Steam does not own. The stored `steamClient`

@@ -1,8 +1,8 @@
 /**
- * The renderer-side handle onto story 049's change set (D4): a `ProfileChangeSet`
+ * The renderer-side handle onto story 049's change set: a `ProfileChangeSet`
  * (`@shared/config/profile/profile-diff`) computed once per selected profile and shared, through React
- * context, with every tab and the save bar - so the bar's badge, the before/after list (D5) and
- * every row's "unsaved" indicator (D7/D8) can never disagree about what is pending.
+ * context, with every tab and the save bar - so the bar's badge, the before/after list and
+ * every row's "unsaved" indicator can never disagree about what is pending.
  *
  * Computed from the **server** profile (`ConfigView`'s `selected`, the same object
  * `isProfileDirty`/`ProfileSaveActions` already read), never from `useProfileDraft`'s locally patched

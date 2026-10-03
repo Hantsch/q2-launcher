@@ -5,7 +5,7 @@ import { JsonStore } from '../../lib/json-store'
 import { userDataDir } from '../../lib/paths'
 
 /**
- * Story 097 D2: the update-check service's own file under `userData`.
+ * Story 097: the update-check service's own file under `userData`.
  *
  * `update-check.json`, its own file via `JsonStore` and deliberately **not** part of `state.json`
  * (Decisions (Sprint)): a regenerable record derived from foreign content (a GitHub release) has
@@ -19,7 +19,7 @@ import { userDataDir } from '../../lib/paths'
  *    service can hand a loaded record straight to the renderer without reshaping it.
  *  - `lastCheckedAt` - when the last check attempt (success or failure) completed.
  *  - `lastSuccessAt` - when the last *successful* check completed; this is what the service's 24h
- *    window (AC4) is measured from, so a failed attempt never burns it.
+ *    window is measured from, so a failed attempt never burns it.
  *
  * ## A damaged file degrades to "nothing known", never to an exception
  *
@@ -28,7 +28,7 @@ import { userDataDir } from '../../lib/paths'
  * JSON, from another cache version, or does not satisfy the schema below. This is a file on disk:
  * it can be hand-edited, truncated by a full disk, or left over from an older launcher. "Nothing
  * known" costs one wasted check; a throw on a cache read would break app start, which is precisely
- * what AC8 says must stay quiet. `JsonStore` already sets an unparseable file aside as
+ * what must stay quiet. `JsonStore` already sets an unparseable file aside as
  * `<file>.corrupt-<n>` and falls back to `<file>.bak`, so the degradation is not silent to a
  * developer reading the log either.
  */

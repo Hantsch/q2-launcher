@@ -307,3 +307,43 @@
 - 2026-10-03 16:09 · 228 · review 1 · started
 - 2026-10-03 16:11 · 228 · review 1 · done
 - 2026-10-03 16:11 · 228 · story · done
+- 2026-10-03 16:11 · 230 · build · started
+- 2026-10-03 16:12 · 230 · D1 scanner+guard+diag · started
+- 2026-10-03 16:13 · 230 · D1 scanner+guard+diag · done
+- 2026-10-03 16:13 · 230 · D2 six headers · started
+- 2026-10-03 16:15 · 230 · D2 six headers · done
+- 2026-10-03 16:15 · 230 · D3 id codemod · started
+- 2026-10-03 16:17 · 230 · D3 id codemod · done
+- 2026-10-03 16:18 · 230 · D4 shared contracts sweep · started
+- 2026-10-03 16:24 · 230 · D4 shared contracts sweep · done
+- 2026-10-03 16:24 · 230 · D5 shared/config sweep · started
+- 2026-10-03 16:44 · 230 · D5 shared/config sweep · done
+- 2026-10-03 16:44 · 230 · D6 main sweep · started
+- 2026-10-03 16:46 · 230 · D6 main sweep · done
+- 2026-10-03 16:46 · 230 · D7 renderer sweep · started
+- 2026-10-03 16:52 · 230 · D7 renderer sweep · done
+- 2026-10-03 16:52 · 230 · D8 residual ids · started
+- 2026-10-03 16:52 · 230 · D9 residual ids · started
+- 2026-10-03 16:52 · 230 · D10 residual ids · started
+- 2026-10-03 16:52 · 230 · D11 residual ids · started
+- 2026-10-03 16:56 · 230 · D8 residual ids · done
+- 2026-10-03 16:56 · 230 · D9 residual ids · done
+- 2026-10-03 16:56 · 230 · D10 residual ids · done
+- 2026-10-03 16:56 · 230 · D11 residual ids · done
+- 2026-10-03 16:57 · 230 · verify · started
+- 2026-10-03 16:58 · 230 · verify · done
+- 2026-10-03 16:58 · 230 · review 1 · started
+- 2026-10-03 17:01 · 230 · review 1 · done
+- 2026-10-03 17:01 · 230 · fix A guards+variants · started
+- 2026-10-03 17:01 · 230 · fix B restore invariants · started
+- 2026-10-03 17:04 · 230 · fix A guards+variants · done
+- 2026-10-03 17:04 · 230 · fix B restore invariants · done
+- 2026-10-03 17:04 · 230 · verify 2 · started
+- 2026-10-03 17:05 · 230 · verify 2 · done
+- 2026-10-03 17:05 · 230 · review 2 · started
+- 2026-10-03 17:08 · 230 · review 2 · done
+- 2026-10-03 17:08 · 230 · fix C config.ts invariants+diag regex · started
+- 2026-10-03 17:09 · 230 · fix C config.ts invariants+diag regex · done
+- 2026-10-03 17:09 · 230 · verify 3 · started
+- 2026-10-03 17:10 · 230 · verify 3 · done
+- 2026-10-03 17:12 · 230 · story · done

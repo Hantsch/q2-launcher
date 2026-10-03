@@ -10,7 +10,7 @@ import type { BootstrapLog } from './bootstrap/ports'
 import { isCaseInsensitiveFs } from '../../lib/platform'
 
 /**
- * Story 075 D2: redaction, the collector that builds up one job's `DownloadDiagnostics` while it
+ * Story 075: redaction, the collector that builds up one job's `DownloadDiagnostics` while it
  * runs, and the module-scoped registry that hands the finished record to `failureFor()`
  * (`index.ts`).
  *
@@ -24,12 +24,12 @@ import { isCaseInsensitiveFs } from '../../lib/platform'
 /** Placeholder a redacted home-directory prefix is replaced with. Never a real account name. */
 export const HOME_PLACEHOLDER = '<home>'
 
-/** Bounds `tee()`'s in-memory ring - "the tail of the job's own log lines" (AC3), not the whole
+/** Bounds `tee()`'s in-memory ring - "the tail of the job's own log lines", not the whole
  * log. Oldest lines fall off the front as new ones arrive. */
 export const DIAGNOSTICS_LOG_TAIL_LINES = 200
 
 /**
- * Story 078 D3 (AC8): the most top-level names one package's `contents` listing may carry. The
+ * Story 078: the most top-level names one package's `contents` listing may carry. The
  * listing exists to make a wrapper directory (`Install/`) visible, not to reproduce a file tree in
  * `state.json` - so the bound lives here, next to the ring's, and is applied again in
  * `recordPackage` even though the caller already applies it: a listing that arrives longer than
@@ -52,7 +52,7 @@ function stripTrailingSeparators(value: string): string {
 
 /**
  * Replaces a leading `homeDir` segment of `value` with `HOME_PLACEHOLDER`, so a captured path
- * never carries a real account name (AC4). Redaction happens at capture time, in main
+ * never carries a real account name. Redaction happens at capture time, in main
  * (Decisions (Refine)) - callers redact before anything reaches the registry, not later when a
  * report is assembled.
  *
@@ -69,7 +69,7 @@ function stripTrailingSeparators(value: string): string {
  * - Because those lines are arbitrary prose, the boundary is *anything* that cannot continue the
  *   segment, not just a separator or the end of the string: a home path followed directly by
  *   `:`, `)`, `,`, `.` or a newline is still redacted. Erring towards over-redaction here is
- *   deliberate - AC4 is a privacy guarantee, and an over-redacted sibling costs a reader nothing
+ *   deliberate - this is a privacy guarantee, and an over-redacted sibling costs a reader nothing
  *   while an under-redacted one ships a real Windows account name into a public issue.
  * - Separators inside `homeDir` match any run of `\` or `/`, so the same home directory is found
  *   in its forward-slash form (`C:/Users/bob/...`) and in a JSON-escaped log line
@@ -103,7 +103,7 @@ interface DiagnosticsEntry {
   kind: string
   packages: DownloadDiagnosticsPackage[]
   target?: DownloadDiagnosticsTarget
-  /** Story 078 D3 (AC7): absent until the job's first assemble pass has run - see `recordAssembly`. */
+  /** Story 078: absent until the job's first assemble pass has run - see `recordAssembly`. */
   assembly?: DownloadDiagnosticsAssemblyEntry[]
   logTail: string[]
 }
@@ -118,13 +118,13 @@ const registry = new Map<string, DiagnosticsEntry>()
 export interface DiagnosticsCollector {
   /** Records one package the job touched, in the order it processed them. `pkg.url` and every
    * `pkg.contents` name are redacted before they are stored, and `contents` is capped at
-   * `EXTRACTION_LISTING_CAP` (story 078 D3, AC8/AC9). */
+   * `EXTRACTION_LISTING_CAP` (story 078). */
   recordPackage(pkg: DownloadDiagnosticsPackage): void
-  /** Records the install target the job reached (AC2). `target.targetPath` is redacted before it
+  /** Records the install target the job reached. `target.targetPath` is redacted before it
    * is stored. Calling this again replaces the previous target. */
   recordTarget(target: DownloadDiagnosticsTarget): void
   /**
-   * Story 078 D3 (AC7/AC1): records what assembly looked for and what served it - every entry of
+   * Story 078: records what assembly looked for and what served it - every entry of
    * every assemble pass this job ran, in call order. Each entry's paths are redacted before they
    * are stored.
    *
@@ -171,7 +171,7 @@ export function createDiagnosticsCollector(
       entry.packages.push({
         ...pkg,
         url: redactHome(pkg.url, homeDir),
-        // A package whose extraction failed has no listing at all (AC8) - `undefined` stays
+        // A package whose extraction failed has no listing at all - `undefined` stays
         // `undefined` rather than becoming an empty array, which would read as "it produced
         // nothing" instead of "it never got that far".
         ...(listed
@@ -253,7 +253,7 @@ export function diagnosticsFor(job: Job): DownloadDiagnostics | undefined {
     errorKey: job.error?.key ?? UNKNOWN_DOWNLOAD_FAILURE_KEY,
     packages: entry.packages,
     ...(entry.target ? { target: entry.target } : {}),
-    // Absent, not empty, for a job that failed before its first assemble pass (story 078 D3).
+    // Absent, not empty, for a job that failed before its first assemble pass (story 078).
     ...(entry.assembly ? { assembly: entry.assembly } : {}),
     logTail: entry.logTail,
   }

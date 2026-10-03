@@ -1,5 +1,5 @@
 /**
- * Story 057 D5: the renderer-local raw-text draft - what the Raw file tab's editor currently holds
+ * Story 057: the renderer-local raw-text draft - what the Raw file tab's editor currently holds
  * that is not on disk yet - shared through React context the same way `ProfileChangesProvider`
  * (`lib/profile-changes.tsx`) shares the structured `ProfileChangeSet`, and mounted right next to it
  * in `ConfigView`.
@@ -9,7 +9,7 @@
  * through typing has no place in it. So the detail screen has exactly two possible sources of
  * "unsaved", and this file is the second one.
  *
- * The two are mutually exclusive by construction, not by convention (AC7 - "the two never
+ * The two are mutually exclusive by construction, not by convention ("the two never
  * coexist"):
  *
  *  - `rawEditingMode` refuses `'editable'` while the profile carries structured unsaved changes, so
@@ -48,7 +48,7 @@ import { isProfileDirty } from './save-bar'
  * - `'noFile'`: the canonical file has never been written, so there is no text to edit and no
  *   baseline for the conflict guard to compare against (story Decisions).
  * - `'lockedByChanges'`: the profile has structured unsaved changes; those have to be saved or
- *   discarded first (the user-facing half of AC7).
+ *   discarded first (the user-facing half of that).
  * - `'editable'`: typing is allowed. Note the deliberate asymmetry: a profile that went `dirty`
  *   *while* a draft was already open stays editable, because dropping the typed text would be the
  *   silent edit loss this whole context exists to prevent.
@@ -91,7 +91,7 @@ export type RawSaveAction =
 /**
  * Turns a `saveConfigProfileRawText` outcome into exactly one action.
  *
- * The transport-level `Outcome` failing covers both "profile not found" and D4's two *content*
+ * The transport-level `Outcome` failing covers both "profile not found" and the two *content*
  * rejections (`config.error.rawTextNotOwned`, `config.error.rawTextNotLatin1`) - all of them keep
  * the draft exactly as it was, since nothing on this branch clears it. `'unreadable'` reuses the
  * structured save bar's own two message keys rather than declaring look-alikes: the situation on
@@ -120,8 +120,8 @@ export function resolveRawSaveOutcome(outcome: Outcome<SaveRawTextResult>): RawS
 
 /**
  * What the last raw save's read-back reported. Kept here (rather than in `RawFileTab`'s local state)
- * so it survives the tab's own re-fetch of the freshly written file, and so story 057 D6's inline
- * result panel has one place to read it from - this context is that panel's only data source; D5
+ * so it survives the tab's own re-fetch of the freshly written file, and so story 057's inline
+ * result panel has one place to read it from - this context is that panel's only data source; the result panel
  * itself renders nothing from it.
  */
 export interface RawSaveReadBack {
@@ -137,12 +137,12 @@ export interface RawDraftHandle {
   /** The typed text, or `null` when there is no draft. */
   text: string | null
   saving: boolean
-  /** The last raw save's read-back result, cleared as soon as a new draft is started (D6). */
+  /** The last raw save's read-back result, cleared as soon as a new draft is started. */
   lastResult: RawSaveReadBack | null
   /**
    * Bumped whenever the draft is dropped or adopted. `RawFileTab` folds it into the editor's React
    * `key`: `ConfigCodeView`'s editable mode seeds its `<textarea>` from `text` exactly once (story
-   * 057 D1's own doc comment says a caller that needs a reset should remount), so this is what makes
+   * 057's own doc comment says a caller that needs a reset should remount), so this is what makes
    * Discard actually clear the visible text rather than only the context's copy of it.
    */
   resetToken: number
@@ -154,7 +154,7 @@ export interface RawDraftHandle {
   setText: (text: string, baseline: string) => void
   /** Throws the typed text away. Writes nothing, touches no file. */
   discard: () => void
-  /** Writes the typed text through `config:saveRawText` (D4). Shared verbatim by the save bar's
+  /** Writes the typed text through `config:saveRawText`. Shared verbatim by the save bar's
    * Save button and the editor's Ctrl+S - there is exactly one save path for a raw draft. */
   save: () => void
 }
@@ -173,7 +173,7 @@ interface DraftState {
  * triggers (the bar's Save button and Ctrl+S in the editor) - mounting it at the one place that
  * performs the save keeps a conflict from depending on which of the two the user reached for.
  * `ConfigConflictDialog`'s "Overwrite with my version" is redirected through `onOverwrite` so it
- * force-saves *the typed text* (D4's `force`) instead of the cached profile's render; its "Take the
+ * force-saves *the typed text* (`force`) instead of the cached profile's render; its "Take the
  * file" keeps its own meaning and, since it adopts whatever is on disk, drops the draft with it.
  *
  * `onSaved` is `ConfigView`'s existing single-profile merge (`handleProfileUpdated`), the same one
@@ -189,7 +189,7 @@ export function RawDraftProvider({
   onSaved: (profile: ConfigProfile) => void
   /**
    * Review fix (story 057): the one way `active` reaches a consumer that cannot read the context
-   * because it sits *above* this provider - `ConfigView`'s `useFileSourceRefresh` (story 043 D7),
+   * because it sits *above* this provider - `ConfigView`'s `useFileSourceRefresh` (story 043),
    * which must not re-read the file from disk while a draft is open. Every other consumer
    * (`ProfileSaveActions`, `RawFileTab`, `StructuredTabsGuard`, `RenameHeaderButton`) renders below and
    * reads `useRawDraft()` instead; nothing else should reach for this.

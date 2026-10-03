@@ -134,7 +134,7 @@ export const KNOWN_META_KEYS = [
   'layer',
   'mode',
   'trigger',
-  // A toggle/press-release state's own display label (story 045, D4) - appended rather than slotted
+  // A toggle/press-release state's own display label (story 045) - appended rather than slotted
   // in near `an`/`key`/`mod` even though it is also a per-line, entry-scoped field, because insertion
   // order here is the format's determinism guarantee (this file's own doc comment) and every key
   // above already shipped in earlier stories. Only ever emitted on the one rendered alias line that
@@ -149,18 +149,18 @@ export const KNOWN_META_KEYS = [
   // a comparable pair - see `render.ts#categoryOrdinals`. Its absence is not an error: a file from
   // an older build simply has its order read off the section layout alone, exactly as before.
   'ord',
-  // A second-level section header's own sub-category id (story 053 D2) - appended for the same
+  // A second-level section header's own sub-category id (story 053) - appended for the same
   // reason `ord` was: emission order here is the format's determinism guarantee and every key
   // above it already shipped. Only a sub-category banner carries it; its parent category is
   // derivable from the section the banner sits in (the header, story 050's "minimum tag" rule),
   // so no `cat`/`ord` rides alongside it here.
   'sub',
-  // A cvar section header's own id (story 059 D2) - a distinct namespace from `cat` (a cvar
+  // A cvar section header's own id (story 059) - a distinct namespace from `cat` (a cvar
   // section and a bind category are unrelated groupings; sharing a key would let the reader adopt
   // one as the other). Appended for the same reason `sub` was: emission order here is the
   // format's determinism guarantee and every key above it already shipped.
   'cvs',
-  // A cvar-sub-section header's own id (story 059 D2), the `cvsub` counterpart of `sub` - the
+  // A cvar-sub-section header's own id (story 059), the `cvsub` counterpart of `sub` - the
   // parent cvar section is derivable from the section the banner sits in, so no `cvs` rides
   // alongside it here either.
   'cvsub',
@@ -319,7 +319,7 @@ export function formatMetaTag(fields: Record<string, string | undefined>): strin
  * where the tag's mere presence is the ownership signal - composes it the other way round, from
  * `formatMetaTag({})`: `render.ts#entryTag` returns that `[q2l]` and `cfg-layout.ts#fitProseAndTag`
  * joins it to the prose under the line's own byte budget, which this function knows nothing about.
- * D1 originally gave this function a `{ marker: true }` mode for that job; it never acquired a
+ * It originally had this function a `{ marker: true }` mode for that job; it never acquired a
  * caller (the writer needs the two halves separately, precisely so prose can give way to the tag
  * under budget pressure), and an option no production path exercises is a second, untested way to
  * spell the format - so the story-050 review took it back out.

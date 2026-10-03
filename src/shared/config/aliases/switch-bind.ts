@@ -148,7 +148,7 @@ export function sanitizeEchoName(name: string, fallbackId: string): string {
  * then the bind. Empty when nothing should be emitted:
  *
  * - fewer than 2 profiles — there is nothing to cycle, and emitting no chain is
- *   the on-disk half of AC 5: unassigning a profile removes the bind from the
+ *   the on-disk half of that: unassigning a profile removes the bind from the
  *   game, not just the control from the UI (story 007 decision 11);
  * - no usable key — a `bind` with no key name would print the current binding
  *   instead of setting one, so "no key configured" means "no chain".

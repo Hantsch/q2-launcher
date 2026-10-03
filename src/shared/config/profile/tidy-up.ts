@@ -1,6 +1,6 @@
 /**
  * Tidy-up operations — the pure applier behind the Care tab's "fix this for me"
- * actions (story 025 D3).
+ * actions (story 025).
  *
  * Every other write path in this codebase mutates a profile because the *user*
  * edited that exact field: `setCvars` replaces the map the cvar editor was
@@ -64,7 +64,7 @@
  * (`findBindConflicts`), which `src/shared` may not import. Its claim rules are
  * mirrored here for the one key an op names, and a divergence between the two
  * can only ever produce a *rejected* op, never a wrong mutation - see
- * `bindClaimsFor`'s own comment. It is exported for D4's analyzer
+ * `bindClaimsFor`'s own comment. It is exported for the analyzer
  * (`renderer/.../lib/tidy-up-findings.ts`), which builds the
  * `removeShadowedBind` ops: sharing this one function is what makes the claim
  * an op names, and the claim this module re-checks it against, the same claim
@@ -90,7 +90,7 @@ import type { ModifierTrigger } from '../aliases/modifier-layers'
  * Which of a profile's two independent bind channels a claim lives in -
  * the base layer, or one specific `AltLayer`. Shape-identical to
  * `BindConflict['scope']` (renderer's `bind-conflicts.ts`) on purpose: the
- * analyzer that emits these ops (D4) reads that scan's `scope` and passes it
+ * analyzer that emits these ops reads that scan's `scope` and passes it
  * straight through.
  */
 export type TidyUpBindScope = 'base' | { layerId: string }
@@ -124,7 +124,7 @@ export type TidyUpBindClaim =
  * What a re-classified preserved line becomes. Named by the `ConfigProfile`
  * field it is written into, so an op says literally which field it touches.
  *
- * The *decision* is the analyzer's (D4), never this applier's: nothing here
+ * The *decision* is the analyzer's, never this applier's: nothing here
  * parses `text` or guesses what a line meant. The op carries the finished
  * entry - a cvar name+value, a key+command, or a whole `ConfigAction` - and
  * this module only checks that writing it is still safe and writes it.
@@ -422,7 +422,7 @@ function applyRemoveShadowedBind(
   // modifier would put the row in a state the editor has no way to render.
   //
   // Written **in place** (`withKeySlot` with an empty key, never `clearKeySlot`),
-  // story-050 review finding 2 (third round): this is the one slot-clearing path
+  // story 050: this is the one slot-clearing path
   // that still removed the array entry, and removing it shifts every later slot
   // down by one - which breaks *this* function's own contract on a batch. Every
   // op in an `applyTidyUpOps` batch is re-checked against the draft the previous
@@ -556,7 +556,7 @@ function applyDropPreservedLine(
  * under - i.e. one this profile carries? An action filed under a category that
  * does not exist is invisible, which is not a tidy-up.
  *
- * Story 052 D4: this used to answer "yes" for the three built-in ids whatever
+ * Story 052: this used to answer "yes" for the three built-in ids whatever
  * the profile held, because those categories were a fixture the Controls tab
  * always rendered. They are ordinary, deletable, profile-owned data now, so a
  * `movement` that the user deleted is exactly as invisible as any other missing

@@ -15,12 +15,12 @@ const manifestPackageContentEntrySchema: z.ZodType<ManifestPackageContentEntry> 
 })
 
 /**
- * Fields common to both package kinds - AC2/AC3's "a package without size,
+ * Fields common to both package kinds - "a package without size,
  * sha256 or mirrors is not a valid package" lives here: each is required and
  * strictly typed, so a row missing (or malforming) any one of them fails this
  * schema and is dropped by `parseManifestFile`, not defaulted.
  *
- * Story 074 D8 made the URL rule a parameter so the two schemas below differ in exactly that one
+ * Story 074 made the URL rule a parameter so the two schemas below differ in exactly that one
  * field and in nothing else - a hand-copied second field list is how the harness variant would
  * quietly stop enforcing something the production one still does.
  */
@@ -34,7 +34,7 @@ function manifestPackageBaseSchemaWith(urlSchema: z.ZodType<string>) {
     mirrors: z.array(urlSchema),
     contents: z.array(manifestPackageContentEntrySchema).min(1),
     /**
-     * Story 100 D5: the host platforms this package's payload can actually run on, spelled the
+     * Story 100: the host platforms this package's payload can actually run on, spelled the
      * way the Node platform string spells them (`'win32'`, `'linux'`, `'darwin'`).
      *
      * **Optional, and deliberately not defaulted here** - the "absent reads as `['win32']`" rule
@@ -52,7 +52,7 @@ function manifestPackageBaseSchemaWith(urlSchema: z.ZodType<string>) {
 }
 
 /**
- * Story 100 D5: `ManifestPackage` plus the manifest-only `platforms` tag above. Kept as a
+ * Story 100: `ManifestPackage` plus the manifest-only `platforms` tag above. Kept as a
  * main-local intersection rather than widening the shared wire type, because the renderer has no
  * business resolving platforms - the pin it is handed (`ManifestSnapshot.pinned`) is already
  * resolved for the running platform by `manifest-parse.ts`.
@@ -67,7 +67,7 @@ function manifestPackageSchemaWith(
     base.extend({
       kind: z.literal('engine'),
       engine: engineKindSchema,
-      /** Story 190 D1: the CPU architecture this engine build is (optional; absent = read the binary). */
+      /** Story 190: the CPU architecture this engine build is (optional; absent = read the binary). */
       arch: z.enum(['x86', 'x86_64']).optional(),
     }),
     base.extend({ kind: z.literal('gamedata'), role: z.enum(['demo', 'point-release']) }),
@@ -79,7 +79,7 @@ function manifestPackageSchemaWith(
  * so this schema and the wire type cannot drift apart - same convention as
  * `configCvarSectionSchema` in `main/modules/config/schemas.ts`.
  *
- * **This is the production schema and it is https-only.** Story 074 D8 did not touch that rule;
+ * **This is the production schema and it is https-only.** Story 074 did not touch that rule;
  * see `harnessLoopbackManifestPackageSchema` below for the harness-only variant and `harness.ts`
  * for the gate that is the only thing able to select it.
  */
@@ -87,7 +87,7 @@ export const manifestPackageSchema: z.ZodType<PlatformTaggedManifestPackage> =
   manifestPackageSchemaWith(httpsUrlSchema)
 
 /**
- * Story 074 D8, harness only - identical to `manifestPackageSchema` except that a package/mirror
+ * Story 074, harness only - identical to `manifestPackageSchema` except that a package/mirror
  * URL may also be a plain-http `127.0.0.1` loopback URL (see `harnessLoopbackUrlSchema`). Selected
  * exclusively by `parseManifestFile`'s `httpsOnly: false` option, which only
  * `resolveDownloadSource()` (`harness.ts`) can produce, and only under its double gate.
@@ -96,7 +96,7 @@ export const harnessLoopbackManifestPackageSchema: z.ZodType<PlatformTaggedManif
   manifestPackageSchemaWith(harnessLoopbackUrlSchema)
 
 /**
- * Story 100 D5: what one `pinned` entry may be. **Both shapes are valid, on purpose:**
+ * Story 100: what one `pinned` entry may be. **Both shapes are valid, on purpose:**
  *
  *  - a bare string - the shape every manifest published before this field grew a platform
  *    dimension uses, including the live remote one. It reads as `{ win32: id }`

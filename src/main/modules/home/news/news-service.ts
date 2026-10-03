@@ -9,7 +9,7 @@ import { NewsFeedCache, type NewsFeedCacheData } from './feed-cache'
 import type { PersistenceRegistry } from '../../../services/persistence'
 
 /**
- * Story 082 D6: the module's own service - the only thing in `home` that decides *when* the news
+ * Story 082: the module's own service - the only thing in `home` that decides *when* the news
  * feed is fetched and *what* the renderer is handed back. `news-service.test.ts` "only start and
  * refresh trigger a fetch" is the acceptance test for the sentence that matters most here: there is
  * no timer and no focus hook anywhere in this file. The only two callers of `refreshNews()` are
@@ -29,7 +29,7 @@ import type { PersistenceRegistry } from '../../../services/persistence'
  * `getNews()`/`refreshNews()` delivery, so a slide ages in or out of view purely from the cached data
  * and the current `now`, never from whether a fetch happened to run recently.
  *
- * `schemaAhead` has the same shape of gap: `NewsFeedCacheData` (D5, merged) does not persist it, so
+ * `schemaAhead` has the same shape of gap: `NewsFeedCacheData` does not persist it, so
  * a cold start that only has the on-disk cache (no in-memory state yet) cannot know whether the
  * feed that produced it was schema-ahead - this service defaults that case to `false` rather than
  * guessing. Once a refresh has run in this process, the in-memory state carries the real flag.
@@ -44,7 +44,7 @@ export type NewsServiceLog = NewsFetchLog
  * slides themselves. */
 interface NewsServiceState extends NewsFeedCacheData {
   schemaAhead: boolean
-  /** Story 083 D4: true once a refresh attempt has failed against an existing feed, until the next
+  /** Story 083: true once a refresh attempt has failed against an existing feed, until the next
    * successful refresh clears it. See `deliver()`/`refreshNews()`'s `'failed'` branch below. */
   lastRefreshFailed: boolean
 }
@@ -61,7 +61,7 @@ export interface NewsServiceOptions {
   persistence?: PersistenceRegistry
   log: NewsServiceLog
   /** Called only when a refresh delivers a feed whose content differs from what was last
-   * delivered (AC9). Never called for an `unchanged` fetch result, a `failed`/`skipped` one, or a
+   * delivered. Never called for an `unchanged` fetch result, a `failed`/`skipped` one, or a
    * `changed` one that happens to rebuild to identical content. */
   onChanged: (feed: NewsFeed) => void
   /** Injection seams for the tests below; all default to the real implementations. Typed as the
@@ -73,7 +73,7 @@ export interface NewsServiceOptions {
   now?: () => Date
   timeoutMs?: number
   retries?: number
-  /** Story 084 D4: `userData` root passed to `resolveFeedImages()`. Defaults to `userDataDir()`
+  /** Story 084: `userData` root passed to `resolveFeedImages()`. Defaults to `userDataDir()`
    * (Electron's `app.getPath('userData')`), resolved lazily on first actual use for the same reason
    * `cache()` below is deferred - `createNewsService()` runs before Electron is necessarily ready,
    * and this file's own tests construct the service with no Electron runtime at all. */
@@ -85,11 +85,11 @@ export interface NewsService {
    * in this process, otherwise the on-disk cache, otherwise an empty feed. Never throws. */
   getNews(): Promise<NewsFeed>
   /** Re-fetches the feed. Never throws and never rejects: a failed or skipped fetch resolves with
-   * the last-known-good feed, with its original `retrievedAt` left untouched (AC7/AC8). */
+   * the last-known-good feed, with its original `retrievedAt` left untouched. */
   refreshNews(): Promise<NewsFeed>
 }
 
-/** AC3 + AC4, re-applied on every delivery per the Decision quoted in the module comment: filters
+/** The visibility window and `order` sort, re-applied on every delivery per the Decision quoted in the module comment: filters
  * by visibility window against `deliveredAt`, then sorts by `order` ascending. */
 function deliverSlides(slides: NewsSlide[], deliveredAt: Date): NewsSlide[] {
   return filterAndSortSlides(slides, deliveredAt)
@@ -113,7 +113,7 @@ function deliver(state: NewsServiceState | undefined, deliveredAt: Date): NewsFe
 }
 
 /** Whether two states would be delivered with different content - ignores `retrievedAt`, which is
- * exactly the field a same-content refresh is allowed to change without anyone being told (AC9:
+ * exactly the field a same-content refresh is allowed to change without anyone being told (
  * "an identical one does not" emit). Compared at the same `deliveredAt` so a visibility-window
  * difference between the two calls can never masquerade as a content change. */
 function sameContent(
@@ -174,7 +174,7 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
       // comment) - it defaults to `false` until a refresh in this process learns the real value. A
       // cache file a running app writes on its own only ever holds a feed from a *successful*
       // retrieval (`NewsFeedCache.write()` is never called after a failure), so `false` is also the
-      // accurate answer there, not just a safe guess. `lastRefreshFailed` is different: story 083 D6
+      // accurate answer there, not just a safe guess. `lastRefreshFailed` is different: story 083
       // lets a cache file carry it explicitly (defaulting to `false` when absent, `feed-cache.ts`) so
       // a harness-seeded, already-aged-and-failed fixture can be told apart from a normal cache with
       // no in-process refresh required to prove it.
@@ -197,7 +197,7 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
     const source = resolveNewsSource(options.harness)
 
     if (source.kind === 'skip') {
-      // AC10/D4: no request at all when the harness gate is open but names no fixture base.
+      // No request at all when the harness gate is open but names no fixture base.
       return deliver(before, now())
     }
 
@@ -215,10 +215,10 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
     }
 
     if (result.kind === 'failed') {
-      // AC7/AC8: keep serving the last-known-good feed with its ORIGINAL retrievedAt - a failed
+      // keep serving the last-known-good feed with its ORIGINAL retrievedAt - a failed
       // refresh must not look fresher, or staler, than it actually is. Never throws.
       options.log.warn(`news: refresh failed (${result.reason}); serving the cached feed`)
-      // Story 083 D4: mark the in-memory state so the renderer can show a "stale" chip instead of
+      // Story 083: mark the in-memory state so the renderer can show a "stale" chip instead of
       // silently pretending this refresh succeeded. Only meaningful when there is an existing feed
       // to call stale in the first place - `deliver(undefined, ...)` already answers `false`.
       if (before !== undefined) state = { ...before, lastRefreshFailed: true }
@@ -252,7 +252,7 @@ export function createNewsService(options: NewsServiceOptions): NewsService {
       options.log.warn(`news: ${warning.reason}${location ? ` (${location})` : ''}`)
     }
 
-    // Story 084 D4: image resolution runs exactly here, and nowhere else - this is the one branch
+    // Story 084: image resolution runs exactly here, and nowhere else - this is the one branch
     // that means "this cycle actually reached the network" (see `resolve-feed-images.ts`'s module
     // comment), which is why `networkReached` below is `true` unconditionally rather than derived
     // from anything. An `'unchanged'`/`'failed'`/`'skipped'` cycle never calls this at all and simply

@@ -1,8 +1,8 @@
 /**
- * Constructed `ConfigProfile` fixtures for the story 042 D9 round-trip property test
+ * Constructed `ConfigProfile` fixtures for the story 042 round-trip property test
  * (`src/main/modules/config/round-trip.test.ts`) and its adversarial-mangling pass.
  *
- * Story 050 D8 re-verified that property against the reduced `[q2l …]` tag and the uncapped
+ * Story 050 re-verified that property against the reduced `[q2l …]` tag and the uncapped
  * key-slot model: every fixture's keys moved from the four `key`/`secondaryKey`/`keyModifier`/
  * `secondaryKeyModifier` fields onto `keys: ActionKeySlot[]` (same content, one field), and the
  * corpus gained the shapes only the new model can express - see the story-050 block further down.
@@ -40,7 +40,7 @@ function nextId(prefix: string): () => string {
  * The categories `actions` actually file entries under, in first-use order - the default for a
  * fixture that does not name its own.
  *
- * Story 052 D4: the file's category sections are `profile.categories` in that array's order, and
+ * Story 052: the file's category sections are `profile.categories` in that array's order, and
  * the three former built-ins are no longer prepended by the writer. A fixture whose entries sit in
  * `movement`/`weapons`/`drops` (the `action()` helper's default is `movement`) therefore has to
  * *carry* those categories to render a named section at all; without them the whole corpus would
@@ -79,12 +79,12 @@ export interface FixtureProfileInput {
    * modifier slots). */
   layers?: AltLayer[]
   cvars?: Record<string, string>
-  /** Story 059 D1/D2: the profile's own cvar sections. Passed straight through - unlike `binds` and
+  /** Story 059: the profile's own cvar sections. Passed straight through - unlike `binds` and
    * a modifier layer's `overrides`, nothing derives this from anything else, so a fixture states it
    * verbatim and `render.ts#buildCvarSections` reads exactly what is written here (dangling names
-   * and duplicate placements included, which is the point of the D4 fixtures below). */
+   * and duplicate placements included, which is the point of the fixtures below). */
   cvarSections?: ConfigCvarSection[]
-  /** Story 059 D1/D2. Left absent unless a fixture states it, so every pre-059 fixture keeps the
+  /** Story 059. Left absent unless a fixture states it, so every pre-059 fixture keeps the
    * exact object shape it had - `render.ts` reads it as `!== false`, so absent behaves as `true`. */
   writeCatalogDefaults?: boolean
   writeUnbindall?: boolean
@@ -135,7 +135,7 @@ function action(
 
 // ---------------------------------------------------------------------------
 // Individual fixtures, each named for the one thing it is deliberately built
-// to exercise (see the D9 requirement list).
+// to exercise (see the story's requirement list).
 // ---------------------------------------------------------------------------
 
 /**
@@ -146,7 +146,7 @@ function action(
  * Rebuilt for exactly that (story 042 review fix). The original version of this fixture used
  * `kind: 'alias'` and an unmodified key, which meant nothing at all was mirrored anywhere: the
  * profile rendered to a bare header plus `unbindall`, so the file it produced could not exercise the
- * "no alias line and no base bind line" case its own doc comment claimed, and the D9 fixed-point
+ * "no alias line and no base bind line" case its own doc comment claimed, and the fixed-point
  * property held over an empty file. What keeps this entry's identity now is the anchor line
  * `render.ts#buildAnchorLines` emits for its modified slot.
  */
@@ -239,7 +239,7 @@ export const twoSlotTwoModifierLayersReversedProfile: ConfigProfile = (() => {
 })()
 
 /**
- * Story 042 review round 2, NEW-2: an entry that **keeps its alias line** (it carries an own alias
+ * Story 042: an entry that **keeps its alias line** (it carries an own alias
  * name, so its mirror goes through the alias) while **both** its key slots are modified - `t`/CTRL as
  * the primary, `r`/ALT as the secondary, no base bind for either.
  *
@@ -303,7 +303,7 @@ export const ownAliasBothSlotsModifiedLayersReversedProfile: ConfigProfile = {
 }
 
 /**
- * Story 042 review round 2, NEW-3: an entry whose alias line is dropped as a self-mirror (story 039)
+ * Story 042: an entry whose alias line is dropped as a self-mirror (story 039)
  * and whose only key slot is modified, so its **own alias name** has no line anywhere to be read off.
  *
  * Reachable through the Care tab (`tidy-up.ts`), and before the fix the second render was a
@@ -326,7 +326,7 @@ export const ownAliasAnchoredProfile: ConfigProfile = buildFixtureProfile({
 })
 
 /**
- * Story 042 review round 3: an anchor line whose **display name contains a banner rule** (`---`),
+ * Story 042: an anchor line whose **display name contains a banner rule** (`---`),
  * followed by a second anchor in the same category section.
  *
  * `profile-restore.ts#scanComments` used to decide "is this comment-only line a section header?" by
@@ -370,11 +370,11 @@ export const anchorProseWithBannerRuleProfile: ConfigProfile = buildFixtureProfi
  * It gets no alias line (a continuous row mirrors as its own bare `+moveleft`, so story 034/038
  * drops it) and no bind line (no key to bind). Until story 052 that left **no trace in the file at
  * all** and the entry was dropped on re-import - the accepted answer at the time, because story 042
- * review round 2's entry anchor brought the identity back *without* its command (`commands: []`),
+ * the entry anchor brought the identity back *without* its command (`commands: []`),
  * which `catalog-binds.ts#applySlot` would then reuse as the base of the next bind of that row,
  * producing a key pointing at an alias nothing defines.
  *
- * Story 052 D2/D3 gives exactly this shape a line that carries the command as well as the identity
+ * Story 052 gives exactly this shape a line that carries the command as well as the identity
  * (`render.ts#unboundLine`, read back by `profile-restore.ts#claimsUnboundEntry`), so the row now
  * survives the round trip whole - which is what `round-trip.test.ts` and
  * `file-source-pipeline.test.ts` assert on this fixture.
@@ -433,7 +433,7 @@ export const pressReleaseAndEmptyAliasProfile: ConfigProfile = buildFixtureProfi
 // Order matters here in a way that is worth spelling out (see this D's report): "Forward" is a
 // catalogue-backed continuous command, so `actionsWithAliasLine` drops its alias line entirely
 // (story 034/038 - it mirrors as its own `+forward`, never through an alias), while "My macro" keeps
-// one. `groupByEntryRef` (D4) discovers every entry that HAS an alias line before it discovers any
+// one. `groupByEntryRef` discovers every entry that HAS an alias line before it discovers any
 // entry that only has a bind line - a scan-order choice, not a document-order one - so an
 // alias-less entry's position relative to an aliased one is NOT guaranteed to survive a round trip.
 // Listing the aliased entry ("My macro") first sidesteps that reordering for this fixture (whose own
@@ -548,7 +548,7 @@ export const markerTagOnlyPairProfile: ConfigProfile = buildFixtureProfile({
 
 /**
  * An **aliasless** entry ordered *before* an alias-backed one inside the same category (story-050
- * review, finding 3).
+ * story 045).
  *
  * `Attack` is a continuous catalogue row, so it mirrors as its own bare `+attack` and gets no alias
  * line at all; `SSG + SG` gets one. The rendered file therefore holds a `Aliases: Weapons` section
@@ -633,7 +633,7 @@ export const toggleLayerNoTriggerProfile: ConfigProfile = buildFixtureProfile({
 /**
  * A real two-slot, two-modifier entry combined with a hold layer override, so the layer's own
  * modifier slot (ALT) and the entry's *other* slot (a plain, unmodified key) both exist at once -
- * exercising D2/D4's "layer overrides have no per-line tag, attribution is positional" path for an
+ * exercising the "layer overrides have no per-line tag, attribution is positional" path for an
  * entry that is not purely a modifier-only row.
  */
 export const layeredTwoSlotEntryProfile: ConfigProfile = buildFixtureProfile({
@@ -656,7 +656,7 @@ export const layeredTwoSlotEntryProfile: ConfigProfile = buildFixtureProfile({
 // ---------------------------------------------------------------------------
 
 /**
- * Story 050 AC3: a **hand-added third key**. Three plain slots on one catalogue-backed entry, which
+ * Story 050: a **hand-added third key**. Three plain slots on one catalogue-backed entry, which
  * renders as three `bind` lines all running the same value - the shape a user produces by copying an
  * entry's `bind` line in Notepad and changing the key.
  *
@@ -734,7 +734,7 @@ export const modifiedFirstPlainSecondProfile: ConfigProfile = buildFixtureProfil
 })
 
 /**
- * Story 050 AC4, in its purest form: **two `bind` lines running one command**, with no alias line
+ * Story 050, in its purest form: **two `bind` lines running one command**, with no alias line
  * anywhere to pair them through.
  *
  * A catalogue-backed continuous row mirrors as its own bare `+forward` (story 034/038 drops the
@@ -802,11 +802,11 @@ export const unownedBindProfile: ConfigProfile = (() => {
  * An entry whose `categoryId` matches neither a built-in category nor any of `profile.categories`
  * - the "Other" bucket a deleted custom category leaves behind (`render.ts`'s own `categoryTag`
  * doc comment). One fixture per `sectionHeaderStyle`, because this is exactly the case story-042-
- * review round 5 found uncovered: `plain` style's "Other" banner (`// Aliases: Other`) carries no
+ * once found uncovered: `plain` style's "Other" banner (`// Aliases: Other`) carries no
  * decoration at all, so nothing before this fixture ever drove that banner through `BANNER_RULE`'s
  * detection at all, and `dashes`/`brackets` need their own coverage too - an earlier version of the
  * fix minted a real, persisted "Other" category for this entry, which is itself a category the
- * original profile never had and stopped matching nothing on the very next render (an AC2
+ * original profile never had and stopped matching nothing on the very next render (a
  * regression a `latin1CategoryNameProfile`-shaped fixture would never have caught, since every
  * other fixture's categories are either built-in or genuinely present in `profile.categories`).
  */
@@ -861,7 +861,7 @@ export const sectionHeaderStyleProfiles: ConfigProfile[] = (
 
 /**
  * Two entries in **one** category whose different display names slug to the **same** derived alias
- * name (story-050 review, finding 4, second round).
+ * name.
  *
  * `Fire` and `fire!` both derive `fire` (`alias-render.ts#derivedAliasName` - a sign-free slug of
  * the display name with no id suffix, story 039's own decision: the name is the user's contract with
@@ -873,7 +873,7 @@ export const sectionHeaderStyleProfiles: ConfigProfile[] = (
  * fold itself (`main/modules/config/file-source.ts#foldConfig`).
  *
  * **Deliberately not in `ROUND_TRIP_FIXTURES`.** This is the one shape the launcher can write that
- * is genuinely lossy, so the D8 fixed-point property (`render(parse(render(p))) === render(p)`) does
+ * is genuinely lossy, so the fixed-point property (`render(parse(render(p))) === render(p)`) does
  * not and must not hold for it - a second render has only one `fire` entry left to write. It is a
  * fixture rather than an inline literal because two test files drive it: the unit pass over the fold
  * (`file-source.test.ts`) and the end-to-end pass over the real save/reload pipeline
@@ -912,7 +912,7 @@ export const collidingAliasNameProfile: ConfigProfile = buildFixtureProfile({
 // ---------------------------------------------------------------------------
 
 /**
- * Story 045 AC1/AC6 - the story's own `zoom` shape: a `kind: 'toggle'` entry with two labelled
+ * Story 045 - the story's own `zoom` shape: a `kind: 'toggle'` entry with two labelled
  * states, bound to one key. Four lines in the file (`zoom_s1`, `zoom_s2`, the `zoom` dispatch and
  * one `bind v "zoom"` mirror), which have to come back as *one* entry with two `parts`, both `lbl`
  * labels, and its key.
@@ -947,13 +947,13 @@ export const toggleEntryProfile: ConfigProfile = buildFixtureProfile({
 })
 
 /**
- * Story 045 AC3/AC6 - a `kind: 'press-release'` entry: two alias lines under `+slow`/`-slow` and
+ * Story 045 - a `kind: 'press-release'` entry: two alias lines under `+slow`/`-slow` and
  * one `bind SHIFT "+slow"` (the `+` half verbatim, `bindValueFor`'s own rule, because the engine
  * only sends the `-` half on key-up when the bind string itself starts with `+`).
  *
  * Next to it, on purpose, an ordinary `kind: 'alias'` entry named `+zoom` with **no** `-zoom` next
- * to it: a lone `+` half is not a pair (D5's all-or-nothing rule), so it has to stay the plain
- * alias entry it is - which is what D8's `pressWithoutRelease` will report - rather than get
+ * to it: a lone `+` half is not a pair (the all-or-nothing rule), so it has to stay the plain
+ * alias entry it is - which is what the `pressWithoutRelease` will report - rather than get
  * dragged into the recognised pair beside it.
  */
 export const pressReleaseEntryProfile: ConfigProfile = buildFixtureProfile({
@@ -990,7 +990,7 @@ export const pressReleaseEntryProfile: ConfigProfile = buildFixtureProfile({
 })
 
 /**
- * Story 045 AC5/AC6 - a `{ kind: 'wait', frames }` command *inside* an ordinary entry's body, twice
+ * Story 045 - a `{ kind: 'wait', frames }` command *inside* an ordinary entry's body, twice
  * and with different frame counts, with raw commands on both sides of each.
  *
  * `commandLineFor` writes a wait as `frames` literal `wait` segments, and only a run of literal
@@ -1020,7 +1020,7 @@ export const waitChainProfile: ConfigProfile = buildFixtureProfile({
 
 /**
  * Story 045's Plan step 5, "a `wait` at the chunk boundary" - the adversarial case the second
- * review round found still open (round-2 finding 3).
+ * review found still open.
  *
  * `commandLineFor` expands one `{ kind: 'wait', frames }` command into `frames` literal `wait`
  * segments *inside one string*, and `renderActionAlias` chunks the list of those strings, never the
@@ -1030,7 +1030,7 @@ export const waitChainProfile: ConfigProfile = buildFixtureProfile({
  * second. Read back, the chunk fold rejoins the two chunk bodies into one body of five consecutive
  * literal `wait` segments, and a wait-run collapse that ran over the folded text saw one
  * `wait(5)` - which re-renders as one 28-character atomic string that no longer fits where the
- * three-`wait` one did, moving the chunk boundary and breaking AC6's fixed point on a file nobody
+ * three-`wait` one did, moving the chunk boundary and breaking the fixed point on a file nobody
  * had touched.
  *
  * The commands on both sides are asserted as objects in `round-trip.test.ts`, not just as bytes:
@@ -1107,7 +1107,7 @@ export const chunkedToggleStateProfile: ConfigProfile = buildFixtureProfile({
 })
 
 /**
- * The second adversarial one, and the case that found a real defect while D7 was being built: a
+ * The second adversarial one, and the case that found a real defect while the feature was being built: a
  * toggle whose **only** key slot carries a modifier.
  *
  * A modifier binding is not a bind line anywhere - it lives as an override inside the ALT layer
@@ -1137,7 +1137,7 @@ export const modifiedSlotToggleProfile: ConfigProfile = buildFixtureProfile({
 })
 
 /**
- * Story-045 review, finding 1: **a two-part entry whose two halves are cut differently.**
+ * Story 045: **a two-part entry whose two halves are cut differently.**
  *
  * `attachTaggedComment` fits `<code>  // <prose> <tag>` into one line budget and cuts the *prose*
  * when the three do not fit - and how much room is left over is decided by that line's own code. A
@@ -1145,7 +1145,7 @@ export const modifiedSlotToggleProfile: ConfigProfile = buildFixtureProfile({
  * a long half carries a truncated name while the short half beside it carries the whole one. Both
  * merge gates in `profile-restore.ts` used to demand the two proses be *equal*, so exactly this
  * entry came back as two or three plain alias entries: kind, `parts` and labels gone, and the next
- * render different from the last - AC6's fixed point, lost on a file nobody touched.
+ * render different from the last - the fixed point, lost on a file nobody touched.
  *
  * The name below is deliberately long, and the body deliberately sized just under the chunk
  * threshold (`alias-render.ts#lineFits`), so the *whole* body stays on one line and that one line is
@@ -1212,7 +1212,7 @@ export const budgetCutToggleProfile: ConfigProfile = buildFixtureProfile({
 })
 
 /**
- * Story-045 review round 2, finding 4: **a plain entry whose own alias line eats its display name
+ * Story 045: **a plain entry whose own alias line eats its display name
  * while its bind line keeps it whole.**
  *
  * The same budget arithmetic as the two fixtures above, on the shape that has nothing to do with the
@@ -1238,7 +1238,7 @@ export const budgetCutSingleBodyProfile: ConfigProfile = buildFixtureProfile({
 })
 
 /**
- * Story-045 review round 2, finding 2: **three real, distinct entries whose names are prefixes of
+ * Story 045: **three real, distinct entries whose names are prefixes of
  * each other, wired like a toggle trio.**
  *
  * `slow` calls `slow_a`, `slow_a` hands the dispatch to `slow_b` and `slow_b` hands it back - the
@@ -1249,7 +1249,7 @@ export const budgetCutSingleBodyProfile: ConfigProfile = buildFixtureProfile({
  * What makes it adversarial is that the three names are prefixes of each other and the two state
  * lines are deliberately sized so that the longest of the three (`Slow motion walk`, 16 characters)
  * would *not* have fitted on them - 15 characters of room, one short. A merge gate that accepts "a
- * prefix, on a line the long name could not have fitted on" (the first review round's rule) collapses
+ * prefix, on a line the long name could not have fitted on" (the earlier rule) collapses
  * all three into one toggle named `Slow motion walk` and loses two display names with no warning at
  * all. The exact rule reproduces the cut the writer would have made (`Slow motion wal`), sees that
  * neither line carries it, and keeps the three entries apart.
@@ -1292,10 +1292,10 @@ export const prefixNamedTrioProfile: ConfigProfile = buildFixtureProfile({
 })
 
 // ---------------------------------------------------------------------------
-// Story 052 D5: the adversarial pass over the shapes this story invents.
+// Story 052: the adversarial pass over the shapes this story invents.
 //
-// D2 gave an entry that would otherwise leave no trace a commented-out `bind`
-// line, D3 reads it back, and D4 made every category ordinary, profile-owned
+// An entry gets that would otherwise leave no trace a commented-out `bind`
+// line, the reader reads it back, and every category ordinary, profile-owned
 // data whose array order *is* the file's section order. Both changes put
 // user-typed prose in places that the reader has to tell from its own
 // structural markers - a comment-only line that is really a code line, and a
@@ -1311,7 +1311,7 @@ export const prefixNamedTrioProfile: ConfigProfile = buildFixtureProfile({
 /**
  * **Unbound entries with no commands at all**, one on either side of an unbound entry that does
  * carry one - the `//bind ""` shape `render.ts#unboundCommand` writes for `STANDARD_TEMPLATE`'s
- * seeded-but-unbound rows (story 052 D1), which is most of a template profile's file.
+ * seeded-but-unbound rows (story 052), which is most of a template profile's file.
  *
  * `keylessCatalogueProfile` above covers the single, command-carrying unbound line. What this adds
  * is the empty body *and* the neighbourhood: three unbound lines in one `Entries: Movement` section,
@@ -1340,14 +1340,14 @@ export const unboundNoCommandsProfile: ConfigProfile = buildFixtureProfile({
  *
  * `render.ts` opens every category section with one of exactly three literal prefixes
  * (`Aliases: `, `Binds: `, `Entries: ` - `profile-restore.ts#TITLE_PREFIXES`), and story-042-review
- * round 5/6 made the reader treat *both* that prefix and the reserved `Other`/`Other binds` bucket
+ * the reader treats treat *both* that prefix and the reserved `Other`/`Other binds` bucket
  * titles as section signals in their own right, on top of `BANNER_RULE`'s decoration test. Every one
  * of those signals is now aimed at user-typed prose:
  *
  * - the category is literally named `Binds: Movement`, so its own alias section reads
  *   `// --- Aliases: Binds: Movement [q2l cat=…] ---` - one prefix must come off on read-back, not
  *   two, or the category comes back renamed and the file stops being a fixed point;
- * - the first entry is an *unbound* line (D2/D3) whose display name is `Binds: Other` - a reserved
+ * - the first entry is an *unbound* line whose display name is `Binds: Other` - a reserved
  *   bucket title behind a reserved prefix, on a comment-only line. Only `claimsUnboundEntry`
  *   stands between that and `scanComments` reading it as an `Other`-bucket section boundary that
  *   re-files every entry below it;
@@ -1445,7 +1445,7 @@ export const duplicateCategoryNamesProfile: ConfigProfile = buildFixtureProfile(
  * a real user category would silently disappear and its entry would land in a drawer the rail does
  * not show; if the untagged one were minted into a real category named `Other`, the profile would
  * gain a category it never had and the orphan would stop matching nothing on the very next render -
- * the AC2 regression story-042-review round 5 found and `categoryRegistry`'s `'other'` case exists
+ * the regression story 042 found and `categoryRegistry`'s `'other'` case exists
  * to prevent, now with a real `Other` in the same file to confuse it with.
  *
  * `sectionHeaderStyle: 'plain'` deliberately: that is the style where the untagged banner has
@@ -1495,7 +1495,7 @@ export const literalOtherCategoryProfile: ConfigProfile = buildFixtureProfile({
  * template order, with the three former built-ins interleaved among two custom ones and one of them
  * renamed away from its template default.
  *
- * D4's own case (`round-trip.test.ts`, "category sections follow the profile, not a built-in list")
+ * its own case (`round-trip.test.ts`, "category sections follow the profile, not a built-in list")
  * uses three; this one is wide enough that any of the plausible wrong orders - template first,
  * alphabetical, first-encountered-entry - produces a visibly different file, and it carries the two
  * shapes that reach the reader through different paths at once: a template id (minted with its id
@@ -1507,7 +1507,7 @@ export const literalOtherCategoryProfile: ConfigProfile = buildFixtureProfile({
  * The defect it was written for is closed. `profile-restore.ts` used to return the restored
  * `categories` in **mint** order - a category is minted the first time an *entry* asks for it, so the
  * array came back in entry-discovery order (every alias-line entry, then every bind-line-only one,
- * then anchors and unbound lines) rather than in the file's own section order, and since D4 made
+ * then anchors and unbound lines) rather than in the file's own section order, and since
  * `render.ts#orderedCategoryIds` follow `profile.categories`, the next render moved sections nobody
  * had touched. `orderByFileSections` orders by the file's sections now, so this fixture is in
  * `ROUND_TRIP_FIXTURES` like every other: the generic fixed-point loop and
@@ -1572,7 +1572,7 @@ export const scrambledCategoryOrderProfile: ConfigProfile = buildFixtureProfile(
 
 /**
  * **Two categories that share no section block**, in an order the file's section layout alone
- * contradicts (story 052, review finding F3).
+ * contradicts (story 052).
  *
  * `Alpha` comes first in the profile and its entries are *all* unbound, so its only section is an
  * `Entries: Alpha` one (block 6b). `Bravo` comes second and its one entry is a catalogue-backed
@@ -1599,7 +1599,7 @@ export const blockDisjointCategoryOrderProfile: ConfigProfile = buildFixtureProf
   ],
   actions: [
     // No commands at all: `render.ts#unboundCommand` writes `//bind ""` for it and no alias line -
-    // exactly what `STANDARD_TEMPLATE` seeds a row as (story 052 D1), and the reason a whole
+    // exactly what `STANDARD_TEMPLATE` seeds a row as (story 052), and the reason a whole
     // category can legitimately have nothing but an `Entries:` section.
     action({ name: 'Alpha unbound', kind: 'bind', commands: [], categoryId: 'cat-alpha' }),
     action({ name: 'Alpha empty', kind: 'bind', commands: [], categoryId: 'cat-alpha' }),
@@ -1618,7 +1618,7 @@ export const blockDisjointCategoryOrderProfile: ConfigProfile = buildFixtureProf
 
 /**
  * **Non-ASCII names within latin-1**, on every surface this story's new line shape put prose on: a
- * category name, an ordinary bound entry, an *unbound* entry (D2's `//bind` line) and an
+ * category name, an ordinary bound entry, an *unbound* entry (the `//bind` line) and an
  * anchor-carrying one.
  *
  * `latin1CategoryNameProfile` above covers the category banner alone. What this adds is the same
@@ -1672,7 +1672,7 @@ export const nonAsciiLatin1NamesProfile: ConfigProfile = buildFixtureProfile({
  * the ASCII parts below are distinct).
  *
  * Pre-existing and out of story 052's scope: the rule predates it (story 040's latin-1 decision) and
- * none of D1-D4 changed it. It is fixtured here because D2's unbound line is a *new* place for a
+ * none of that story's changes touched it. It is fixtured here because the unbound line is a *new* place for a
  * display name to live, and it had to be shown that the new line kind behaves the same way the old
  * ones do rather than, say, truncating at the first dropped character.
  */
@@ -1693,7 +1693,7 @@ export const beyondLatin1NamesProfile: ConfigProfile = buildFixtureProfile({
 
 /**
  * **Unbound entries whose derived alias name collides with another entry's** - twice, once against a
- * bound entry and once against a second unbound one, covering both of D2's line bodies.
+ * bound entry and once against a second unbound one, covering both of the line bodies.
  *
  * `derivedAliasName` slugs the display name with no id suffix (story 039's decision: the name is the
  * user's contract with whatever calls it), so `Strafe left` and `Strafe left!` both derive
@@ -1707,7 +1707,7 @@ export const beyondLatin1NamesProfile: ConfigProfile = buildFixtureProfile({
  *
  * `collidingAliasNameProfile` above is the genuinely **lossy** version of a slug collision - two
  * entries that each *emit* an `alias <name>` line, of which the engine keeps only the last. This
- * profile deliberately is not that, and the difference is what makes it a fair test of D2/D3 rather
+ * profile deliberately is not that, and the difference is what makes it a fair test of it rather
  * than a restatement of story 039's known loss: not one of these four entries emits an alias line at
  * all. A catalogue-backed continuous row mirrors as its own bare command, so `actionsWithAliasLine`
  * drops its line (story 034/038), and an entry with no commands has no body to render one from. The
@@ -1748,9 +1748,9 @@ export const collidingSlugWithUnboundProfile: ConfigProfile = buildFixtureProfil
 })
 
 // ---------------------------------------------------------------------------
-// Story 053 D3: the second level (category -> sub-category).
+// Story 053: the second level (category -> sub-category).
 //
-// `render.ts#withSubcategoryBuckets` (D2) writes a category's ungrouped run
+// `render.ts#withSubcategoryBuckets` writes a category's ungrouped run
 // first, then one `[q2l sub=<id>]` banner per sub-category in
 // `category.subcategories` order - the empty ones included. These fixtures are
 // what holds the reader to reading exactly that back: the fixed-point loop fails
@@ -1933,7 +1933,7 @@ export const twoCategoriesWithSubcategoriesProfile: ConfigProfile = buildFixture
  * reader has is style-specific: `DASHES_PREFIX`/`DASHES_SUFFIX`, `BRACKETS_PREFIX`/
  * `BRACKETS_SUFFIX`, and - for `plain`, which draws no decoration at all - nothing but the `sub=`
  * tag itself. `plain` is the one that would have caught a reader relying on `BANNER_RULE` to notice
- * a second-level header, exactly as it did for the "Other" bucket in story 042's round 5.
+ * a second-level header, exactly as it did for the "Other" bucket (story 042).
  */
 export const subcategoryHeaderStyleProfiles: ConfigProfile[] = (
   ['dashes', 'brackets', 'plain'] as const
@@ -1974,7 +1974,7 @@ export const subcategoryHeaderStyleProfiles: ConfigProfile[] = (
 )
 
 // ---------------------------------------------------------------------------
-// Story 051 D6: the shapes the four-line banner header puts at risk.
+// Story 051: the shapes the four-line banner header puts at risk.
 //
 // The header is the one block of a profile file that is written from the
 // *profile's own* name and id rather than from its entries, and story 051 moved
@@ -1983,14 +1983,14 @@ export const subcategoryHeaderStyleProfiles: ConfigProfile[] = (
 // now emitted `trimEnd()`ed. Each fixture below is one profile-level value that
 // the new shape can only get wrong in the header - so unlike almost everything
 // else in this file, what they are about is the first four lines of the render,
-// not a line kind further down. The hand-*mangled* half of D6 (a deleted tag
+// not a line kind further down. The hand-*mangled* half (a deleted tag
 // line, deleted rules, a renamed name line, a legacy-shape file) cannot live
 // here at all: those are texts, not profiles, and they are built by editing a
 // real render in `round-trip.test.ts`.
 // ---------------------------------------------------------------------------
 
 /**
- * **A profile whose name is whitespace only** - D2's `trimEnd()` decision, stated as a corpus
+ * **A profile whose name is whitespace only** - the `trimEnd()` decision, stated as a corpus
  * fixture rather than as a writer-side unit case.
  *
  * `banner()` writes `//  <name>`, so a blank name used to leave `//  ` - a line whose only content
@@ -2077,16 +2077,16 @@ export const bodyProseWithIdProfile: ConfigProfile = buildFixtureProfile({
 })
 
 // ---------------------------------------------------------------------------
-// Story 063 D3: the adversarial round-trip pass over D1 (the writer's unbound
-// line no longer excludes a bodied entry that also has an alias line) and D2
+// Story 063: the adversarial round-trip pass over the unbound-line change (the writer's unbound
+// line no longer excludes a bodied entry that also has an alias line) and the reader merge
 // (the reader merges that pair into one `kind: 'bind'`/`'message'` entry
-// instead of misreading it as `kind: 'alias'`). See the story's own D2
-// `round-trip.test.ts` block (`story 063 D2: a keyless entry with a body keeps
+// instead of misreading it as `kind: 'alias'`). See the story's own
+// `round-trip.test.ts` block (`story 063: a keyless entry with a body keeps
 // its empty bind slot`) for the headline repro this pass generalises from.
 // ---------------------------------------------------------------------------
 
 /**
- * Six keyless-or-referenced entries in one category, chosen to stress the edges D1/D2 touch at
+ * Six keyless-or-referenced entries in one category, chosen to stress the edges the change touches at
  * once - each is a different reason an entry can end up with *both* an alias line and an unbound
  * line, or with neither, right next to entries that legitimately have only one:
  *
@@ -2096,7 +2096,7 @@ export const bodyProseWithIdProfile: ConfigProfile = buildFixtureProfile({
  *   the alias line beside it rather than repeating a bare command, and the reader has to fold that
  *   pair into one entry's `commands`, not one segment per line.
  * - `Explicit alias pin` - the same shape, but with an **explicit `aliasName`** set before the very
- *   first render. This is `unboundLine`'s own guard (story 063 D3, the writer's second gap): before
+ *   first render. This is `unboundLine`'s own guard (story 063, the writer's second gap): before
  *   that fix, a bodied keyless entry reaching this shape *without* an explicit name got one pinned
  *   onto it by the very first restore (`profile-restore.ts` pins the name it read off the alias
  *   line), and the tag `unboundLine` wrote for it differed between the first and second render - a
@@ -2108,7 +2108,7 @@ export const bodyProseWithIdProfile: ConfigProfile = buildFixtureProfile({
  *   equals its alias name, same as `Grenade multi-throw` - `alias-references.ts#actionsWithAliasLine`'s
  *   second guard keeps its alias line on its own merits) and, on top of that, called by name from
  *   `Relay caller`'s own body right after it. This is the "referenced by another entry's body" case
- *   story 063 D3 asks for: the reference and the referenced entry both have to survive the round
+ *   story 063 asks for: the reference and the referenced entry both have to survive the round
  *   trip intact, side by side with a caller whose own body is exactly the text that names it.
  * - `Relay caller` - the entry that calls `Relay macro`'s alias name in its own body; both have to
  *   come back whole, and `Relay caller`'s own command list has to keep naming it by that exact text.
@@ -2121,9 +2121,9 @@ export const bodyProseWithIdProfile: ConfigProfile = buildFixtureProfile({
  *   it is correctly omitted for the two multi-command entries above.
  * - `Deliberate macro` - a genuine `kind: 'alias'` entry: never bound, no unbound line by design
  *   (story 019, restated by `isUnboundEntry`'s own kind guard), sitting right beside entries that
- *   all *do* get one now. If D1/D2's new signal ever leaked onto a `kind: 'alias'` entry, this is
+ *   all *do* get one now. If the new signal ever leaked onto a `kind: 'alias'` entry, this is
  *   the neighbour that would catch it turning bindable on the next read.
- * - `Continuous relay` + `Continuous relay caller` (story 063 D3 review) - the shape D3's Plan item 3
+ * - `Continuous relay` + `Continuous relay caller` (story 063 review) - the shape the Plan item 3
  *   actually asks for and the two entries above only approximate: keyless, catalogue-backed, a
  *   **single continuous** command *and* referenced by another body. That combination is the one place
  *   where the file's two statements of the join are two different strings - `bindValueFor`'s fast
@@ -2223,7 +2223,7 @@ export const keylessBodiedAdversarialProfile: ConfigProfile = buildFixtureProfil
 })
 
 /**
- * Story 063 AC4's own repro shape: both grenade `use` rows (`Hand grenades`, `Grenade Launcher` -
+ * Story 063's own repro shape: both grenade `use` rows (`Hand grenades`, `Grenade Launcher` -
  * the only weapon-select command with two words after the verb) and both `drop grenades` rows
  * (`Drop hand grenades`, `Drop grenade ammo`) in one profile, all four keyless.
  *
@@ -2279,10 +2279,10 @@ export const grenadeAndDropRowsProfile: ConfigProfile = buildFixtureProfile({
 })
 
 // ---------------------------------------------------------------------------
-// Story 059 D4: the adversarial pass over the cvar-section writer (D2) and
-// reader (D3).
+// Story 059: the adversarial pass over the cvar-section writer and
+// reader.
 //
-// The seam these eight fixtures attack is the same one story 052 D5 attacked
+// The seam these eight fixtures attack is the same one story 052 attacked
 // one namespace over, and it is hostile for the same two reasons: a cvar
 // section's banner title is now user-typed prose sitting in a line the reader
 // has to tell from its own structural markers, and the writer emits two
@@ -2299,7 +2299,7 @@ export const grenadeAndDropRowsProfile: ConfigProfile = buildFixtureProfile({
 // `set sensitivity "4"` (false for `unplacedCatalogueDefaultsOffProfile`, whose
 // whole point is that the toggle suppresses those lines) and
 // `file-source-pipeline.test.ts`'s "nothing is lost" loop is about binds,
-// entries, categories and layers, which most of these carry none of. So D4
+// entries, categories and layers, which most of these carry none of. So
 // re-runs 042's fixed-point property over `CVAR_SECTION_ADVERSARIAL_FIXTURES`
 // explicitly in `round-trip.test.ts` - the same `normalize`, the same
 // `reimportProfile`, the same assertion - rather than weakening a property four
@@ -2350,7 +2350,7 @@ export const literalOtherCvarSectionProfile: ConfigProfile = buildFixtureProfile
 /**
  * **A cvar section and a bind category with the same name**, in one file.
  *
- * `cvs=` and `cat=` are separate namespaces (D3's decision - "cvar and bind namespaces don't
+ * `cvs=` and `cat=` are separate namespaces (the decision - "cvar and bind namespaces don't
  * cross-mint"), and nothing but the tag says which of the two a banner opens. A reader keying either
  * registry on the banner's *title* would fuse the two into one section, so the `set` line would come
  * back filed under the bind category (or the entry under the cvar section), and the next render
@@ -2412,7 +2412,7 @@ export const cvarInTwoSectionsProfile: ConfigProfile = buildFixtureProfile({
  * empty value.
  *
  * Deliberately a *non-catalogue* name: a catalogue name listed but unstored is not dangling at all,
- * it renders at `writeValueFor`'s catalogue default (D3's own fixture already covers that with
+ * it renders at `writeValueFor`'s catalogue default (its own fixture already covers that with
  * `m_pitch`). Only a name the catalogue has never heard of and the profile does not store has
  * nothing behind it whatsoever.
  */
@@ -2423,7 +2423,7 @@ export const danglingCvarReferenceProfile: ConfigProfile = buildFixtureProfile({
   cvarSections: [{ id: 'cvs-ghosts', name: 'Has a ghost', cvars: ['zz_ghost', 'zz_real'] }],
 })
 
-/** Exactly 120 characters - `configCvarSectionSchema`'s own `name` cap (story 059 D1), so this is
+/** Exactly 120 characters - `configCvarSectionSchema`'s own `name` cap (story 059), so this is
  * the longest section name that can reach the model through IPC at all. Padded with `.` rather than
  * `-` or a space: `-` is `bannerTitle`'s `DASHES_SUFFIX` character (a name ending in one would be
  * indistinguishable from the banner's own fill for an untagged banner) and a trailing space would
@@ -2460,7 +2460,7 @@ export const hostileCvarSectionNamesProfile: ConfigProfile = buildFixtureProfile
  * *no* section holds, and `zz_stray` is the same case for a non-catalogue name. With
  * `writeCatalogDefaults: false` the writer emits no `Defaults` bucket at all, so `cl_gun` produces
  * no line anywhere - not even under `Other`, which is only ever the non-catalogue leftovers bucket
- * (`render.ts#buildCvarSections`, D2's documented rule and the story's "what Settings shows is what
+ * (`render.ts#buildCvarSections`, the documented rule and the story's "what Settings shows is what
  * the file gets"). `zz_stray` is unaffected by the toggle and still lands under `Other`.
  *
  * The consequence that makes this worth a fixture rather than a line in a doc comment is stated
@@ -2495,7 +2495,7 @@ export const mixedCatalogueCvarSectionProfile: ConfigProfile = buildFixtureProfi
 })
 
 /**
- * Story 054 D11: **a scrambled sub-category order**, the D6 (drag-reorder) counterpart of
+ * Story 0541: **a scrambled sub-category order**, the drag-reorder counterpart of
  * `scrambledCategoryOrderProfile` above one level down - a category whose `subcategories` array is
  * deliberately not in file-discovery, alphabetical or id order, so a reader that fell back to
  * "the order the sub-banners are first seen in" rather than `category.subcategories` itself would
@@ -2559,11 +2559,11 @@ export const scrambledSubcategoryOrderProfile: ConfigProfile = buildFixtureProfi
 })
 
 /**
- * Story 054 D11: **a scrambled cvar section AND sub-section order**, the D10 (Settings drag)
+ * Story 0541: **a scrambled cvar section AND sub-section order**, the Settings-drag
  * counterpart of `scrambledCategoryOrderProfile` - `Network` is declared before `Player` (not
  * alphabetical, not id order) and `Player`'s own two sub-sections are declared `Look` before `Move`,
  * the same "deliberately not the obvious order" discipline. `render.ts#buildCvarSections` writes
- * `profile.cvarSections` in that array's own order (D2's rule, one namespace over from
+ * `profile.cvarSections` in that array's own order (the rule, one namespace over from
  * `categories`), so a reader that recovered the sections in banner-discovery order rather than
  * preserving the array position itself would still fix-point the text while reordering Settings'
  * own section list on every reload.
@@ -2586,7 +2586,7 @@ export const scrambledCvarSectionOrderProfile: ConfigProfile = buildFixtureProfi
   ],
 })
 
-/** Story 059 D4's own corpus - see the block comment above for why these are not in
+/** Story 059's own corpus - see the block comment above for why these are not in
  * `ROUND_TRIP_FIXTURES`. `round-trip.test.ts` holds every one of them to story 042's fixed-point
  * property and to "no cvar duplicated, moved or lost", and each additionally has its own case
  * pinning the thing byte-equality cannot see. */
@@ -2601,7 +2601,7 @@ export const CVAR_SECTION_ADVERSARIAL_FIXTURES: ConfigProfile[] = [
   mixedCatalogueCvarSectionProfile,
 ]
 
-/** Every fixture the D9 round-trip property test iterates over. */
+/** Every fixture the round-trip property test iterates over. */
 export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   selfMirroringAliasProfile,
   modifierOnlyCatalogueProfile,
@@ -2641,7 +2641,7 @@ export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   prefixNamedTrioProfile,
   ...sectionHeaderStyleProfiles,
   ...orphanedCategoryProfiles,
-  // Story 052 D5's adversarial pass, plus the two category-order shapes its review added. One of
+  // Story 052's adversarial pass, plus the two category-order shapes its review added. One of
   // its seven shapes is deliberately absent, for the reason stated in its own doc comment:
   // `beyondLatin1NamesProfile` (lossy by design at write time).
   unboundNoCommandsProfile,
@@ -2652,21 +2652,21 @@ export const ROUND_TRIP_FIXTURES: ConfigProfile[] = [
   collidingSlugWithUnboundProfile,
   scrambledCategoryOrderProfile,
   blockDisjointCategoryOrderProfile,
-  // Story 053 D3's second level.
+  // Story 053's second level.
   subcategoryProfile,
   emptySubcategoryProfile,
   twoCategoriesWithSubcategoriesProfile,
   ...subcategoryHeaderStyleProfiles,
-  // Story 054 D11: the drag-reorder dimensions D6/D10 added, one level below `scrambledCategoryOrderProfile`.
+  // Story 0541: the drag-reorder dimensions the drag-reorder added, one level below `scrambledCategoryOrderProfile`.
   scrambledSubcategoryOrderProfile,
   scrambledCvarSectionOrderProfile,
-  // Story 051 D6's header shapes. All three are ordinary, losslessly renderable profiles - what is
+  // Story 051's header shapes. All three are ordinary, losslessly renderable profiles - what is
   // adversarial about them is the header their *profile-level* fields produce - so unlike the two
   // deliberate exclusions above they belong in the corpus loops in full.
   blankProfileNameProfile,
   forgedTagProfileNameProfile,
   bodyProseWithIdProfile,
-  // Story 063 D3: the adversarial pass over D1's unbound-line change and D2's reader merge.
+  // Story 063: the adversarial pass over the unbound-line change and the reader merge.
   keylessBodiedAdversarialProfile,
   grenadeAndDropRowsProfile,
 ]

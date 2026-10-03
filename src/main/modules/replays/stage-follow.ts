@@ -2,7 +2,7 @@ import type { ReplaysStageRect } from '@shared/modules/replays'
 import type { Outcome } from '@shared/types'
 
 /**
- * Story 171 D1: the stage follower. The launcher's stage rect (and window) moves; the game window
+ * Story 171: the stage follower. The launcher's stage rect (and window) moves; the game window
  * follows it by console lines. While the launcher is being dragged/resized, minimized or has no
  * stage, the game window is parked off the virtual desktop (immediately, once); otherwise it is
  * placed at the stage geometry after 250 ms without a new input. Pure logic: the clock and the
@@ -42,7 +42,7 @@ export interface StageFollowInput {
 export interface StageFollower {
   update(input: StageFollowInput): void
   /**
-   * Story 187 D2: pin the game window to `geometry` (cinema). While pinned only that geometry is sent,
+   * Story 187: pin the game window to `geometry` (cinema). While pinned only that geometry is sent,
    * the always-on-top flag is frozen and focus/blur/move inputs are ignored. `null` unpins and re-sends
    * the current stage geometry.
    */

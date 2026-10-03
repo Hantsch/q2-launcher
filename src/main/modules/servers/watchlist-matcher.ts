@@ -2,7 +2,7 @@ import type { ServerPlayer } from '@shared/servers/status-reply'
 import type { WatchlistEntry, WatchlistMatch, WatchlistSnapshot } from '@shared/modules/servers'
 
 /**
- * Story 131 D2: the watchlist's pure matching/snapshot functions. Nothing here does IPC or
+ * Story 131: the watchlist's pure matching/snapshot functions. Nothing here does IPC or
  * `node:dgram` I/O - the roster data (a server's `status` reply players) and the pre-computed
  * match/left/recheck maps are supplied by the caller (a later deliverable's service).
  */
@@ -51,7 +51,7 @@ export function matchPlainEntry(
 
 /**
  * Matches a regex `pattern` against every one of `names`, case-insensitively, returning one
- * boolean per name in the same order. Story 131's ReDoS-avoidance mechanism (D3) works by
+ * boolean per name in the same order. Story 131's ReDoS-avoidance mechanism works by
  * serializing this function's *source* via `.toString()` and running it inside a Worker via
  * `eval` - so this function must stay fully self-contained: no imports, no closures over anything
  * outside its own body, nothing but its own parameters and locals. Do not "clean this up" by

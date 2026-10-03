@@ -33,7 +33,7 @@ export function Dialogs() {
     case 'installationIcon':
       return <SetInstallationIconDialog installationId={dialog.installationId} />
     case 'module': {
-      // Story 074 D5: the generic seam - the shell never imports a module's own dialog
+      // Story 074: the generic seam - the shell never imports a module's own dialog
       // component, it only resolves the module and mounts whatever `Dialogs` it registers.
       const mod = rendererModule(dialog.moduleId)
       const ModuleDialogs = mod?.Dialogs

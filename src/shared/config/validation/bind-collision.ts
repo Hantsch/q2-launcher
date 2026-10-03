@@ -11,7 +11,7 @@
  *   that layer is active — see `alt-layers.ts`).
  *
  * The first two are the *base* level (decision 13): a real conflict, blocking
- * until the user picks Cancel or Replace (that dialog is D7, not here).
+ * until the user picks Cancel or Replace (that dialog lives elsewhere).
  * The third is the *layer* level (decision 14): layers legitimately coexist
  * with the base bind they temporarily override, so it is a non-blocking
  * warning and never something `releaseKey` acts on.
@@ -53,7 +53,7 @@ export type BindCollision =
 
 /**
  * A slot's key, but only when it is actually a base-layer claim. Story 016/050: a slot that
- * carries a `modifier` is never mirrored onto `profile.binds` at all (AC 4) - its key lives only
+ * carries a `modifier` is never mirrored onto `profile.binds` at all - its key lives only
  * inside that modifier's layer override - so such a slot must be invisible here, exactly as
  * invisible as it is to the real base-bind mirror `setActions` writes. Without this check, an
  * action on `Alt+R` would falsely appear to own the *plain* key `r`, blocking (and, via
@@ -119,8 +119,8 @@ export function findBindCollision(
   const actions = profile.actions ?? []
   const ignoredAction = ignore ? actions.find((action) => action.id === ignore.actionId) : undefined
 
-  // 1. Another action's slot — checked *before* base binds (review finding,
-  // story 015 D7: an action's own key is mirrored into `profile.binds` by
+  // 1. Another action's slot — checked *before* base binds (
+  // story 015: an action's own key is mirrored into `profile.binds` by
   // `setActions`, so if the base-bind check ran first it would catch that
   // mirror and report the collision as `baseBind` with the alias name as the
   // "command" - naming the wrong owner, and worse, `releaseKey`'s `baseBind`
@@ -137,7 +137,7 @@ export function findBindCollision(
   for (const action of actions) {
     // An alias entry is never bound (story 019) - it has no key slot in the UI at all, so it can
     // never legitimately own a collision even if a migrated/in-memory row still carries stale
-    // key data (review fix, Finding 4).
+    // key data.
     if (action.kind === 'alias') continue
     for (let slot = 0; slot < actionKeySlots(action).length; slot += 1) {
       if (ignore && ignore.actionId === action.id && ignore.slot === slot) continue
@@ -192,7 +192,7 @@ export function findBindCollision(
  *   keeps `actions` and `binds` consistent with each other immediately after
  *   one `releaseKey` call, which is what a caller checking either map right
  *   away needs. (The full persistence round-trip through `setActions` is
- *   D1's job, not this function's — this is just keeping the two in-memory
+ *   the job, not this function's — this is just keeping the two in-memory
  *   maps from disagreeing in the meantime.)
  * - `layerOverride`: both maps are returned unchanged — decision 14 makes
  *   this a non-blocking warning, not something to act on, and layer writes
@@ -218,7 +218,7 @@ export function releaseKey(
     // invariant true regardless of how this branch is reached.
     //
     // Written **in place** (`withKeySlot` with an empty key, never `clearKeySlot`), story-050
-    // review finding 5: this is a release-so-something-else-can-take-the-key step, and every other
+    // this is a release-so-something-else-can-take-the-key step, and every other
     // one of them (`bind-slot-collision.ts#applyModifierReplace`/`applyPlainModifierReplace`, and
     // `catalog-binds.ts#applySlot`'s own clear) writes the empty slot at its index rather than
     // removing the array entry. Removing it shifted every later slot down by one, so which UI

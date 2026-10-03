@@ -9,7 +9,7 @@ import { useModuleQuery } from '../../../lib/useModuleQuery'
 import { previewRemoval, removeMod } from '../client'
 
 /**
- * Story 191 D3: confirms removing a mod the launcher installed. Opens by asking main what removal
+ * Story 191: confirms removing a mod the launcher installed. Opens by asking main what removal
  * would touch (nothing is deleted yet); recorded files the user changed are listed and default to
  * being kept. A refusal - from the preview or from the remove itself - is shown in place.
  */

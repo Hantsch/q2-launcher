@@ -30,7 +30,7 @@ function sameName(a: string, b: string): boolean {
  *
  * Never throws: a folder outside `steamapps/common`, an unreadable/missing
  * `steamapps` folder, a malformed manifest, a non-digit appid, or no matching
- * installdir all yield `undefined`. Story 104 D1.
+ * installdir all yield `undefined`. Story 104.
  */
 export async function readSteamAppId(installRoot: string): Promise<string | undefined> {
   const commonDir = dirname(installRoot)

@@ -2,12 +2,12 @@ import { z } from 'zod'
 import type { EngineBackupInfo } from '@shared/modules/downloads'
 
 /**
- * Story 092 D2: the recorded engine version an installation carries, persisted in
+ * Story 092: the recorded engine version an installation carries, persisted in
  * `Installation.moduleData['downloads']` (Decisions (Sprint): "that is the slot the concept §4
- * reserves for per-installation module data"). `version` pins the update check (D3) against the
+ * reserves for per-installation module data"). `version` pins the update check against the
  * manifest's pinned build, `packageId` is what a future update/rollback job records having
- * installed, `bleedingEdge` is the per-installation opt-in (AC4/AC5, not read by this deliverable),
- * and `backup` is the single backup slot's metadata (AC3/D5/D6 populate it; D2 only reserves the
+ * installed, `bleedingEdge` is the per-installation opt-in (not read yet),
+ * and `backup` is the single backup slot's metadata (later jobs populate it; the bootstrap only reserves the
  * field so `setEngineState` can write it).
  *
  * Every field is optional: an installation that has never had its engine version recorded (every
@@ -72,7 +72,7 @@ export function readEngineState(
  * only the `'downloads'` key is replaced wholesale with the merged state.
  *
  * The patch is shallow-merged over whatever `readEngineState` could make of the existing value, so
- * a caller updating just `version`/`packageId` (the bootstrap job's own call, D2) never has to read
+ * a caller updating just `version`/`packageId` (the bootstrap job's own call) never has to read
  * back the current `bleedingEdge`/`backup` first.
  */
 export function writeEngineState(

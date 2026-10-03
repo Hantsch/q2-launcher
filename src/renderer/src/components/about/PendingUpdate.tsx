@@ -6,7 +6,7 @@ import { Badge } from '../ui/primitives'
 import { ReleaseNotes } from './ReleaseNotes'
 
 /**
- * Story 099 D4: when 097/098's update state names a known release (`update.update !== null`), its
+ * Story 099: when 097/098's update state names a known release (`update.update !== null`), its
  * notes render marked "not yet installed" and paired with the same phase-based `UpdateAction` the
  * titlebar's `UpdatePopover` uses - so "download this update" is one component, driven identically
  * from either surface. Lives in `AppVersionCard.tsx`, right under the running version, so an

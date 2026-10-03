@@ -3,8 +3,8 @@ import { dirname, join } from 'node:path'
 import { executableFileName } from '../platform'
 
 /**
- * Story 071 D3: resolves the absolute path to the vendored 7-Zip binary.
- * Story 100 D9: the binary name is platform-conditional - `7za.exe` on Windows, the official
+ * Story 071: resolves the absolute path to the vendored 7-Zip binary.
+ * Story 100: the binary name is platform-conditional - `7za.exe` on Windows, the official
  * 7-Zip Linux console build `7zz` everywhere else - vendored by the matching branch in
  * `scripts/fetch-7za.mjs`. Everything else about the resolution is unchanged.
  *
@@ -45,7 +45,7 @@ export interface ExtractorPathResult {
 }
 
 /**
- * Story 100 D9: read live rather than cached at module scope, so a test can stub
+ * Story 100: read live rather than cached at module scope, so a test can stub
  * the Node platform string (via `src/test-support/platform.ts`'s `stubPlatform`) and see it reflected
  * without needing to reload the module.
  */

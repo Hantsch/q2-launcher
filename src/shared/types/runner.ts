@@ -1,10 +1,10 @@
 /**
- * Story 103 D4. What can execute a game's binary off Windows: the OS itself (`native`), or one of
+ * Story 103. What can execute a game's binary off Windows: the OS itself (`native`), or one of
  * the Windows-compatibility layers a Linux host may have installed - plain Wine, Steam's `umu-run`
- * launcher script, or a Proton build under a Steam library. D5 decides which of these applies to a
+ * launcher script, or a Proton build under a Steam library. The runner resolver decides which of these applies to a
  * given executable; this file only names the possibilities.
  *
- * Story 104 D3 adds `steam`: not a wrapper around the executable but a handoff - the Steam client
+ * Story 104 adds `steam`: not a wrapper around the executable but a handoff - the Steam client
  * is asked to start the game itself (`steam://launch/...`), on Windows as well as Linux. It is
  * never a default; only an installation whose stored choice is `'steam'` ever resolves to it.
  */
@@ -17,7 +17,7 @@ export type RunnerKind = 'native' | 'wine' | 'umu' | 'proton' | 'steam'
  * of that kind ever exists, so `id` just equals `kind`.
  */
 /**
- * Story 103 D5: what an installation stores as its runner choice - a `DetectedRunner.id` (`wine`,
+ * Story 103: what an installation stores as its runner choice - a `DetectedRunner.id` (`wine`,
  * `umu`, a Proton slug), or `'native'` for "run the executable directly". A plain string rather
  * than a closed union because the Proton ids are derived from folder names at detection time, and
  * a stored id whose runner is not installed right now must still round-trip through `state.json`
@@ -29,7 +29,7 @@ export type RunnerChoice = string
 /** The `RunnerChoice` meaning "no wrapper - run the executable itself", i.e. `NATIVE_RUNNER.id`. */
 export const NATIVE_RUNNER_CHOICE = 'native'
 
-/** Story 104 D3: the `RunnerChoice` meaning "hand the launch to Steam", i.e. the Steam runner's id. */
+/** Story 104: the `RunnerChoice` meaning "hand the launch to Steam", i.e. the Steam runner's id. */
 export const STEAM_RUNNER_CHOICE = 'steam'
 
 export interface DetectedRunner {

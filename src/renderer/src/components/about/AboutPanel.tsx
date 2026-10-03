@@ -10,17 +10,17 @@ import { Divider, KeyValue, SectionLabel } from '../ui/primitives'
 import { ReleaseNotes } from './ReleaseNotes'
 
 /**
- * Story 099 D3: the Settings > About section's inner content - extracted out of
+ * Story 099: the Settings > About section's inner content - extracted out of
  * `SettingsView.tsx`, which keeps only the surrounding section chrome, the same split
  * `DownloadsSettingsSection` uses for its contributed section.
  *
- * Fetches the running version's release notes over `app:getReleaseNotes` on mount (D2's channel)
- * and renders them first; a `null` response (AC5 - no changelog section for this build) renders a
+ * Fetches the running version's release notes over `app:getReleaseNotes` on mount
+ * and renders them first; a `null` response (no changelog section for this build) renders a
  * one-line empty sentence instead. Two external links follow: the project repository and the full
  * changelog, both routed through the same `app:openExternal` channel as every other external link
  * in this view - never `window.open`, never in-app navigation.
  *
- * The running version, the update check (D5) and a pending update's notes (D4) live in
+ * The running version, the update check and a pending update's notes live in
  * `AppVersionCard.tsx` at the top of Settings instead, so they are visible without scrolling.
  */
 export function AboutPanel() {

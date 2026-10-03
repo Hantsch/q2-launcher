@@ -7,7 +7,7 @@ import {
 import { OOB_PREFIX, encodeLatin1 } from '@shared/servers/protocol'
 
 /**
- * Story 109 D3: collecting a UDP master's `query` reply off a live socket and handing back the
+ * Story 109: collecting a UDP master's `query` reply off a live socket and handing back the
  * address set it reported.
  *
  * The codec half (unpacking one datagram, unioning several) is pure and lives in

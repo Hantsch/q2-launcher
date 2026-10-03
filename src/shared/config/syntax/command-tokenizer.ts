@@ -3,7 +3,7 @@
  * renderer.
  *
  * Extracted out of `src/main/modules/config/core/config-parser.ts` (story
- * 041 D1) because alias-body splitting needs to use the exact same
+ * 041) because alias-body splitting needs to use the exact same
  * comment/`;`/quoting rules the import parser uses, and alias bodies are
  * split by shared code (`src/shared/config/aliases/alias-import.ts`), not by main.
  * No `node:*`, no Electron, no DOM - this file only ever sees a string and

@@ -3,7 +3,7 @@ import type { EngineKind } from '@shared/types/engine'
 import { fetchWithPolicy, type FetchImpl } from '../../../lib/http'
 
 /**
- * Story 092 D4 (AC4/AC5): probes Q2PRO's own nightly-build feed for "what does bleeding-edge
+ * Story 092: probes Q2PRO's own nightly-build feed for "what does bleeding-edge
  * currently mean" - a `version.txt` published next to the pinned package's moving-target asset
  * (Decisions (Sprint): "Fetch Q2PRO's version.txt next to the nightly release asset ... not the
  * GitHub Releases API - no rate limit, simpler parsing").
@@ -27,7 +27,7 @@ const PROBE_TIMEOUT_MS = 10_000
 /** A version string; anything bigger is not a `version.txt`. */
 const MAX_VERSION_BYTES = 64 * 1024
 
-/** `probeBleedingEdge`'s answer (AC5): what "latest" currently resolves to, and its size. */
+/** `probeBleedingEdge`'s answer: what "latest" currently resolves to, and its size. */
 export interface BleedingEdgeProbe {
   /** The version `version.txt` reported, trimmed. */
   version: string
@@ -79,7 +79,7 @@ function versionTxtUrlFor(assetUrl: string): string {
 }
 
 /**
- * Story 092 D4 (AC4): probes the bleeding-edge channel for `engine` - Q2PRO only. `pinnedPackage`
+ * Story 092: probes the bleeding-edge channel for `engine` - Q2PRO only. `pinnedPackage`
  * is the caller's own `manifestService.pinnedEnginePackage(engine)` result: this function makes no
  * manifest call of its own (Decisions (Sprint), INST-M1) and never chooses a host by itself.
  *

@@ -45,7 +45,7 @@ import { readEngineState, type InstallationEngineState } from '../../../services
 import { computeEngineUpdateStatus } from './update-status'
 
 /**
- * Story 092 D5 (AC2/AC6/AC7/AC8): the engine-update job - "replace this already-playable
+ * Story 092: the engine-update job - "replace this already-playable
  * installation's engine files with the build it should be on, and keep the ones it had".
  *
  * Shaped after `bootstrap/job.ts`'s download/verify/extract path, run on the shared `JobRunner`
@@ -53,13 +53,13 @@ import { computeEngineUpdateStatus } from './update-status'
  * scaffolding: it is the *order* of the file moves, because this is the first job in the launcher
  * that overwrites files a user's working installation is already made of.
  *
- * ## The order is the acceptance criterion (AC8)
+ * ## The order is the acceptance criterion
  *
  * 1. **Resolve the installation and the target build.** Both are reads, both happen before
  *    `jobs.create`, so every refusal (`installations.error.notFound`,
  *    `downloads.error.packageUnavailable`, `downloads.error.engineUpdateUnavailable`, the two
  *    bleeding-edge keys) leaves no job, no progress bar and nothing on disk. "Is there an update?"
- *    is decided by D3's `computeEngineUpdateStatus`, not by a second comparison of this file's own.
+ *    is decided by `computeEngineUpdateStatus`, not by a second comparison of this file's own.
  * 2. **Download** into `userData/cache/downloads/`, **verify** it - size + SHA256 against the
  *    manifest's pin (INST-V1-V3) for `channel: 'pinned'`, size-only against what the probe reported
  *    for `'bleeding-edge'` (Decisions (Sprint): "no SHA256, since there is no pinned hash for a
@@ -67,15 +67,15 @@ import { computeEngineUpdateStatus } from './update-status'
  * 3. **Extract** into `userData/cache/downloads/extract/<jobId>` - a staging directory *outside* the
  *    installation. Nothing inside the installation has been touched at this point, and nothing will
  *    be until step 4 has passed: a failed download, a failed verification or a failed extraction
- *    ends the job with every engine file exactly as it was (AC8's first half).
+ *    ends the job with every engine file exactly as it was (the first half of the rollback guarantee).
  * 4. **Completeness check** against the engine allowlist: every *required* `role: 'engine'` entry of
  *    `buildAssemblePlan({ engine })` has to be present in that staging tree, or the run fails here -
  *    still before the first move.
- * 5. **Back up, inside `ctx.write`** (AC6): the current engine files - the same
+ * 5. **Back up, inside `ctx.write`**: the current engine files - the same
  *    allowlist, resolved case-insensitively against the installation as it really is - are `rename`d
  *    into `<root>/.q2launcher-engine-backup/`, the single slot (Decisions (Sprint)).
  * 6. **Copy** the new files out of staging onto those same paths.
- * 7. **Record** the new version and the backup pointer (`setEngineState`, D2) - AC7.
+ * 7. **Record** the new version and the backup pointer (`setEngineState`).
  * 8. **`installations.validate()`**, outside the guard: the status is re-derived by the inspector,
  *    never hand-set, which is why `EngineUpdateInstallationsHost` has no `update` (the same
  *    reasoning as `RetailUpgradeInstallationsHost`).
@@ -83,7 +83,7 @@ import { computeEngineUpdateStatus } from './update-status'
  * **A failure anywhere in 5-7 restores** (`restoreBackup` below): every file that was moved into the
  * backup goes back to where it came from, and every file this run *created* where the installation
  * had none is removed again. The user is left with the complete previous engine, never a mix
- * (AC8's second half). The restore is best-effort *per file* and deliberately does not stop at the
+ * (the second half of the rollback guarantee). The restore is best-effort *per file* and deliberately does not stop at the
  * first failure: getting eight of nine files back is strictly better than getting one. It stops
  * being best-effort at exactly one point - the backup slot is only deleted once *every* file made
  * it back; otherwise it is kept, because for the files that did not, the backup is the only copy
@@ -116,7 +116,7 @@ export const ENGINE_UPDATE_JOB_LABEL_KEY = 'downloads.job.engineUpdate'
 
 /**
  * The single backup slot, relative to the installation root (Decisions (Sprint)). Also a member of
- * `NON_GAME_DIRS` (`@shared/constants`, story 092 D2), so it can never surface as a selectable game
+ * `NON_GAME_DIRS` (`@shared/constants`, story 092), so it can never surface as a selectable game
  * directory - the literal is repeated there because that list is a plain shared constant and this
  * module may not be imported from the shared layer.
  */
@@ -150,7 +150,7 @@ export const UNKNOWN_BACKUP_VERSION = 'unknown'
 
 /**
  * File-name prefix the bleeding-edge asset is cached under. It shares its *URL* with the pinned
- * package (D4 derives the probe from that very URL), but not its bytes - so it must not land on the
+ * package (the probe derives from that very URL), but not its bytes - so it must not land on the
  * pinned archive's cache entry, where a later pinned run would find a file whose name promises the
  * pinned build and whose contents are a nightly.
  */
@@ -180,7 +180,7 @@ export type StartedEngineUpdate = StartedJob<DownloadsErrorKey, UpdateSuccess>
  * `RetailUpgradeInstallationsHost` has none: the installation's *status* is re-derived by the
  * inspector, never hand-set, and this type is what makes that checkable by reading the type rather
  * than the whole flow. `setEngineState` is the one thing this job writes that the retail upgrade
- * does not - AC7's record of what is actually on disk (story 092 D2).
+ * does not - the record of what is actually on disk (story 092).
  */
 export interface EngineUpdateInstallationsHost {
   find(id: string): Installation | undefined
@@ -207,7 +207,7 @@ export interface EngineUpdateDeps {
   runner: JobRunnerHost
   installations: EngineUpdateInstallationsHost
   /** The manifest, through `bootstrap/ports.ts`'s existing port - the pinned build, and the URL
-   * D4's bleeding-edge probe derives itself from (INST-M1: no download URL in launcher code). */
+   * the bleeding-edge probe derives itself from (INST-M1: no download URL in launcher code). */
   manifest: ManifestSource
   extractor: Extractor
   /** `app.getPath('userData')`; the download cache and the staging directory are built from it. */
@@ -220,7 +220,7 @@ export interface EngineUpdateDeps {
    * below *is* the production implementation, so there is no wiring in which this goes unchecked.
    */
   download?: StageDownloadFn
-  /** D4's `probeBleedingEdge` unless a test substitutes one - same reasoning as `download`. */
+  /** The `probeBleedingEdge` unless a test substitutes one - same reasoning as `download`. */
   probeBleedingEdge?: (
     engine: EngineKind,
     pinnedPackage: ManifestPackage | undefined,
@@ -281,7 +281,7 @@ function downloadFileNameFor(url: string, prefix = ''): string | undefined {
 
 /**
  * Which build this installation would be updated to, and where its bytes come from - the manifest's
- * pin, or D4's bleeding-edge probe when the installation has opted in. Reads only.
+ * pin, or the bleeding-edge probe when the installation has opted in. Reads only.
  */
 async function resolveEngineTarget(
   deps: EngineUpdateDeps,
@@ -352,8 +352,8 @@ export async function startEngineUpdate(
   }
   const target = resolved.value
 
-  // D3 owns "is there an update?" - asking it here rather than comparing versions again is what
-  // keeps the dialog's answer (AC1) and the job's refusal from ever disagreeing.
+  // `computeEngineUpdateStatus` owns "is there an update?" - asking it here rather than comparing versions again is what
+  // keeps the dialog's answer and the job's refusal from ever disagreeing.
   const status = computeEngineUpdateStatus(installation.id, installation.engineKind, recorded, {
     channel: target.channel,
     version: target.version,
@@ -413,7 +413,7 @@ async function runUpdate(
 
     // 2-3. Download + verify, then extract into a directory outside the installation - see the
     // module comment. Outside the write guard, always: reading and downloading are never gated,
-    // only the mutation of the installation's own files is (AC6).
+    // only the mutation of the installation's own files is.
     const stagedArchive = await stagePackage({
       source: {
         fileName: target.fileName,
@@ -516,7 +516,7 @@ async function runUpdate(
       // only window this leaves is the harmless direction - the record says "no backup" while the
       // old files are still physically there - never the dangerous one, where a pointer names a
       // version that a half-written slot no longer holds and `rollback-job.ts` would restore
-      // whatever happens to be sitting in it under the old pointer's version (AC7/AC8).
+      // whatever happens to be sitting in it under the old pointer's version.
       const dropped = deps.installations.setEngineState(installation.id, { backup: undefined })
       if (!dropped.ok) {
         throw new SwapFailed(
@@ -536,7 +536,7 @@ async function runUpdate(
       const swaps: PlannedSwap[] = []
 
       /**
-       * AC8. Puts back everything this run has moved or created, in the reverse sense of what it
+       * Puts back everything this run has moved or created, in the reverse sense of what it
        * did - and never stops at the first failure: each file returned is one less hole in the
        * engine the user is left with. Best-effort by construction, so it can be called from any of
        * the exits below without adding a failure mode of its own.
@@ -545,7 +545,7 @@ async function runUpdate(
        * removed once every backed-up file is verifiably back where it came from. A move-back that
        * failed (`EPERM`/`EBUSY` on a just-written binary an antivirus still holds is the realistic
        * case) would otherwise cost the user that file twice over - missing from the installation
-       * *and* deleted from the backup - which is strictly worse than the half-replaced state AC8
+       * *and* deleted from the backup - which is strictly worse than the half-replaced state the rollback guarantee
        * forbids. So the slot, with whatever is left in it, is kept for a later manual recovery.
        * The pointer stays cleared either way (it was cleared before the old slot was emptied): a
        * partial slot is not a rollback target, and `engineNoBackup` is the honest answer to a
@@ -631,7 +631,7 @@ async function runUpdate(
         }
       }
 
-      // 7. AC7: what is now actually on disk. `setEngineState` (D2) also mirrors the version into
+      // 7. What is now actually on disk. `setEngineState` also mirrors the version into
       // `Installation.detectedVersion`, so this is the only write needed for the record.
       const backedUpAnything = swaps.some((planned) => planned.backedUp)
       if (!backedUpAnything) {
@@ -682,7 +682,7 @@ async function runUpdate(
     }
     if (revalidated.value.status === 'invalid' || revalidated.value.status === 'missing') {
       // The new engine is in place and the inspector still says this is not a usable installation.
-      // The files stay - rolling back is `engine.rollbackStart`'s job (D6), and the backup this run
+      // The files stay - rolling back is `engine.rollbackStart`'s job, and the backup this run
       // just took is exactly what it needs; succeeding here would claim an update that did not work.
       return ctx.fail(
         NOT_PLAYABLE,

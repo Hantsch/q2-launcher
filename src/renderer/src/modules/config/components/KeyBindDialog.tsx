@@ -23,12 +23,12 @@ import { updateProfileBinds, updateProfileLayers } from '../client'
 const DOUBLY_PLACED_KEYS = new Set(['SHIFT', 'CTRL', 'ALT'])
 
 /**
- * Edits one key's bind (story 006 D4): the current command, a filterable
+ * Edits one key's bind (story 006): the current command, a filterable
  * pick list drawn from `COMMAND_CATALOG`, and the raw-command field that
  * actually gets saved - picking a catalog entry only populates that field,
  * since not every real bind (`use blaster`, `weapon 3`, chained commands) has
  * a catalog entry. Mirrors `RenameProfileDialog`'s shape; saves through the
- * same `updateProfileBinds` replace-whole-map client D2 added, same as
+ * same `updateProfileBinds` replace-whole-map client added, same as
  * `SettingsTab`'s `updateProfileCvars` flow but committed on a click
  * (Assign/Clear) rather than debounced.
  */
@@ -43,7 +43,7 @@ export function KeyBindDialog({
   profile: ConfigProfile
   keyName: string
   keyLabel: string
-  /** Set when editing a layer's own override instead of the base bind (story 006 D6). `null`/omitted = base layer, D4's original behavior. */
+  /** Set when editing a layer's own override instead of the base bind (story 006). `null`/omitted = base layer, the original behavior. */
   layer?: AltLayer | null
   onClose: () => void
   /** The full, updated profile list, per this module's save-through-client contract. */
@@ -74,7 +74,7 @@ export function KeyBindDialog({
     )
   }, [layer, profile.binds, keyName, command])
 
-  // --- layer trigger (story 011 D5) ---------------------------------------
+  // --- layer trigger (story 011) ---------------------------------------
   //
   // Only on the base-layer view: a trigger *is* a base-layer bind (`render.ts`
   // emits it in the bind block), so offering it while a layer's own overrides
@@ -168,7 +168,7 @@ export function KeyBindDialog({
    * Whether Assign is currently allowed to fire at all - shared by the
    * button's `disabled` and the raw-command field's Enter handler, so the
    * keyboard path can never bypass a check the pointer path enforces
-   * (review finding, story 006: Enter used to call `save` unconditionally,
+   * (story 006: Enter used to call `save` unconditionally,
    * which let a layer's own trigger key be remapped through the text field
    * even though decision 12 makes that a *blocking* error, not a warning).
    */
@@ -179,8 +179,8 @@ export function KeyBindDialog({
     // `bind <key> "<value>"` unquoted-content-wise, so a user-typed quote
     // would nest and break on load - the exact class of bug this module's
     // alias generator exists to avoid, just on the base-bind path instead of
-    // a layer body (review finding, story 006). Sanitizing here keeps both
-    // paths honouring the same "no in-quote escaping" rule (AC5).
+    // a layer body (story 006). Sanitizing here keeps both
+    // paths honouring the same "no in-quote escaping" rule.
     const sanitized = sanitizeCommand(next)
     const result = await run(() =>
       layer

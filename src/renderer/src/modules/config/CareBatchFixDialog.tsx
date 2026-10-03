@@ -12,7 +12,7 @@ import { applyTidyUp } from './client'
 import type { TidyUpFinding } from './lib/tidy-up-findings'
 
 /**
- * D6's "fix all safe findings" batch dialog: the one preview a per-row Apply
+ * The "fix all safe findings" batch dialog: the one preview a per-row Apply
  * cannot serve, because the whole point of the batch button is sending every
  * `auto` finding's ops in a single `tidyUp.apply` call (decision 13) rather
  * than one call per finding.
@@ -23,7 +23,7 @@ import type { TidyUpFinding } from './lib/tidy-up-findings'
  * groups its rows, and each op gets the same before/after preview
  * (`opPreview`, exported from `CareItemRow` rather than duplicated) so
  * this dialog never shows a coarser preview than the individual rows already
- * do - AC 6 requires nothing be applied without a preview, and "N operations"
+ * do - nothing is ever applied without a preview, and "N operations"
  * would not be one.
  *
  * Owns the IPC call itself. It stays a Modal rather than a ConfirmDialog because it

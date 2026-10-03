@@ -90,7 +90,7 @@ const MIME_TYPES: Record<string, string> = {
   '.avif': 'image/avif',
   '.ico': 'image/vnd.microsoft.icon',
   '.json': 'application/json',
-  // Story 084 D3: the remaining extensions the news-image cache is ever allowed to hold
+  // Story 084: the remaining extensions the news-image cache is ever allowed to hold
   // (`SAFE_NEWS_IMAGE_EXTENSIONS` in `lib/news-image-paths.ts`; `.png` is already above).
   // Cached slide images are served through the same content-type inference as the bundle.
   '.jpg': 'image/jpeg',
@@ -140,14 +140,14 @@ function resolveWithinRoot(root: string, requestPath: string): string | null {
 }
 
 /**
- * Story 084 D3: the path prefix cached slide images are served under - `q2launcher://app` +
+ * Story 084: the path prefix cached slide images are served under - `q2launcher://app` +
  * this + a bare file name. Deliberately a second *path* on the existing host, not a second host:
  * another host would be another origin, and `img-src 'self'` would then need widening, which
- * story 084 AC2 (the production CSP is byte-for-byte unchanged) forbids.
+ * story 084 (the production CSP is byte-for-byte unchanged) forbids.
  */
 export const NEWS_IMAGE_PATH_PREFIX = '/news-image/'
 
-/** The news-image cache as far as serving it is concerned (story 084 D3). */
+/** The news-image cache as far as serving it is concerned (story 084). */
 export interface NewsImageSource {
   /** Absolute path to the cache directory (`getNewsImagesCacheDir()`, `userData/cache/news-images`). */
   root: string
@@ -163,7 +163,7 @@ export interface CreateRendererProtocolHandlerInput {
   /** Injectable file reader so tests can supply an in-memory implementation. */
   readFile: (path: string) => Promise<Buffer>
   /**
-   * Second, separate root for cached feed images (story 084 D3). Optional: a handler built
+   * Second, separate root for cached feed images (story 084). Optional: a handler built
    * without it answers every `/news-image/` request with a 404 - the feature is then absent, not
    * broken. Foreign bytes get their own root on purpose; putting them under the renderer root
    * would mean downloaded content living inside `out/renderer`.
@@ -188,7 +188,7 @@ export function createRendererProtocolHandler(
     new Response(null, { status: 404, headers: { 'Content-Security-Policy': csp } })
 
   /**
-   * Story 084 D3: serves one cached slide image, given the decoded path *after* the
+   * Story 084: serves one cached slide image, given the decoded path *after* the
    * `/news-image/` prefix. This branch never falls through to the renderer root - every failure
    * returns a 404 here - and it accepts nothing but a bare file name: `isSafeNewsImageFileName`
    * (the one owner of what the cache may ever contain, `lib/news-image-paths.ts`) matches
@@ -245,7 +245,7 @@ export function createRendererProtocolHandler(
       return notFound()
     }
 
-    // Story 084 D3: the news-image route is decided here, on the *decoded* path and before the
+    // Story 084: the news-image route is decided here, on the *decoded* path and before the
     // renderer root is consulted at all - so a cached image can never be looked up inside
     // `out/renderer`, and a `/news-image/...` request can never reach `resolveWithinRoot(root,
     // ...)` to be resolved against the renderer root. Deciding it on the decoded path (rather

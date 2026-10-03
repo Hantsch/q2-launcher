@@ -3,7 +3,7 @@ import { ok } from '@shared/types'
 import { useModuleQuery } from '../../../lib/useModuleQuery'
 
 /**
- * Story 087 D2. The one hook every dashboard tile body (Playtime, Config profiles, ...) uses to
+ * Story 087. The one hook every dashboard tile body (Playtime, Config profiles, ...) uses to
  * fetch its own data, independently of every other tile - `DashboardTileFrame.tsx` (same directory)
  * is the frame those tiles render through once they have this.
  *

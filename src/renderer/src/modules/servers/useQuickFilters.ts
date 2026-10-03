@@ -24,7 +24,7 @@ const TRANSPORT_FAILED: QuickFiltersResult = {
 }
 
 /**
- * Story 197 D3: the saved quick filters. A one-shot read on mount (a failed read leaves `[]` and
+ * Story 197: the saved quick filters. A one-shot read on mount (a failed read leaves `[]` and
  * never toasts - the chips are an extra, not the list); each mutation applies its own successful
  * list immediately and returns the result so the caller can show a refusal's reason key.
  */

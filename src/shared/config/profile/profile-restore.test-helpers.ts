@@ -15,7 +15,7 @@ export function idFactory(): () => string {
 }
 
 /**
- * A document builder that produces exactly the shapes D3's parser hands over for a file D2 wrote:
+ * A document builder that produces exactly the shapes the parser hands over for a file the writer wrote:
  * comment-only lines with their line numbers, and cvar/bind/alias lines carrying the raw text after
  * their `//` marker (leading space included, as `config-parser.ts` slices it).
  *
@@ -55,7 +55,7 @@ export function doc(file = 'q2l-profile-src.cfg'): DocBuilder {
       self.comment(` q2-launcher profile ${profileId} - generated, do not edit`),
     /** One `=`-rule line of the header block, from `banner`'s own `fill: '='` output. */
     headerRule: (): void => self.comment(banner([''], { fill: '=' })[0]!.slice(2)),
-    /** The header block's tag-only last line (story 051 D2, `render.ts#headerTagLine`): the tag
+    /** The header block's tag-only last line (story 051, `render.ts#headerTagLine`): the tag
      * alone, right-aligned so its closing `]` lands on `BANNER_WIDTH`. */
     headerTag: (fields: Record<string, string>): void => {
       const tag = formatMetaTag(fields)

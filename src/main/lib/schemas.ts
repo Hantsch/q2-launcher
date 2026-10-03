@@ -40,7 +40,7 @@ const checkSchema = z.object({
   // `'info'` was missing here, which silently discarded a persisted `ValidationCheck` array (the
   // whole array, via `.catch([])` below) on the very first load of any installation whose only
   // check was info-severity (e.g. `validation.pak0NotRetail`, the demo-data marker `inspector.ts`
-  // has produced since story 074 D7).
+  // has produced).
   severity: z.enum(['ok', 'info', 'warn', 'error']),
   messageKey: z.string(),
   params: paramsSchema.optional(),
@@ -56,24 +56,26 @@ const installationSchema = z.object({
   writeDirPath: z.string().optional(),
   engineKind: engineKindSchema.catch('unknown'),
   executablePath: z.string().optional(),
-  // Story 103 D2: additive and optional, same convention as `executablePath` right above and as
+  // Additive and optional, same convention as `executablePath` right above and as
   // `icon`/`lastFailure` below - a record predating this field (or written on Windows, where the
   // header is never read) simply lacks the key, and a mangled value degrades to "kind not known"
   // rather than dropping the whole installation. No migration step: `migrations.ts`'s own rule is
-  // that a new optional field needs none.
+  // that a new optional field needs none (story 103)
   executableKind: z.enum(['pe', 'elf', 'script', 'unknown']).optional().catch(undefined),
-  // Story 103 D5: the user's runner choice, a `DetectedRunner.id` or `'native'`. Same additive,
+  // The user's runner choice, a `DetectedRunner.id` or `'native'`. Same additive,
   // forgiving convention as `executableKind` right above - a record predating this field simply
   // lacks the key, and a mangled value degrades to "never chosen" (the default cascade decides)
   // rather than dropping the whole installation. Deliberately an open string, not an enum: Proton
-  // ids are derived from folder names at detection time, so no fixed list can be checked here.
+  // ids are derived from folder names at detection time, so no fixed list can be checked here
+  // (story 103)
   runner: z.string().min(1).optional().catch(undefined),
-  // Story 104 D2: the Steam appid recovered from disk layout, same additive/forgiving convention
+  // The Steam appid recovered from disk layout, same additive/forgiving convention
   // as `executableKind` above - a record predating this field simply lacks the key, and a mangled
-  // value degrades to "appid not known" rather than dropping the whole installation.
+  // value degrades to "appid not known" rather than dropping the whole installation (story 104)
   steamAppId: z.string().optional().catch(undefined),
-  // Story 104 D2: the user's chosen `STEAM_APP_CLIENTS` entry index. Same convention as
-  // `steamAppId` right above - absent means "never chosen" (the table's own default decides).
+  // The user's chosen `STEAM_APP_CLIENTS` entry index. Same convention as
+  // `steamAppId` right above - absent means "never chosen" (the table's own default decides)
+  // (story 104)
   steamClient: z.number().optional().catch(undefined),
   launchArgs: z.array(z.string()).catch([]),
   activeGameDir: z.string().catch(''),
@@ -84,9 +86,9 @@ const installationSchema = z.object({
   checks: z.array(checkSchema).catch([]),
   gameDirs: z.array(z.string()).catch([]),
   favorite: z.boolean().catch(false),
-  // Story 067 D3: additive and forgiving, same convention as `moduleData` below - a record
+  // Additive and forgiving, same convention as `moduleData` below - a record
   // predating this field simply lacks the key, and a hand-mangled value degrades to "no icon set"
-  // (the default fallback icon) rather than dropping the whole installation.
+  // (the default fallback icon) rather than dropping the whole installation (story 067)
   icon: z
     .union([
       z.object({ kind: z.literal('shipped'), id: z.string().min(1) }),
@@ -94,16 +96,16 @@ const installationSchema = z.object({
     ])
     .optional()
     .catch(undefined),
-  // Story 077 D1: the last bootstrap failure, same additive/forgiving convention as `icon` right
-  // above - a record predating this story simply lacks the key, and a hand-mangled value degrades
+  // The last bootstrap failure, same additive/forgiving convention as `icon` right
+  // above - a record predating this field simply lacks the key, and a hand-mangled value degrades
   // to "no failure on record" (the default, playable-looking state) rather than dropping the whole
-  // installation row.
+  // installation row (story 077)
   lastFailure: z
     .object({
       errorKey: z.string().min(1),
       at: z.number().finite(),
       jobId: z.string().min(1),
-      // Story 077 finding fix: the interpolation values a templated `errorKey` needs. Forgiving one
+      // The interpolation values a templated `errorKey` needs. Forgiving one
       // level deeper than the field it sits in - a mangled `params` degrades to "no params" (the
       // sentence then renders with its placeholders unresolved, which is what an installation
       // written before this field already does) rather than taking the whole `lastFailure` with it.
@@ -160,6 +162,6 @@ export function parseInstallations(raw: unknown): Installation[] {
   return parseForgivingRows(installationSchema, raw)
 }
 
-// IPC-payload schemas moved to `src/shared/ipc-schemas.ts` (story 036, D1) -
+// IPC-payload schemas live in `src/shared/ipc-schemas.ts` -
 // they are strict (a bad payload is a bug, not a state to repair) and shared
-// needs them for the preload/renderer side too.
+// needs them for the preload/renderer side too (story 036)

@@ -1,5 +1,5 @@
 /**
- * The file-read layer for story 043 ("the cfg file is the source of truth"), D2: reads a profile's
+ * The file-read layer for story 043 ("the cfg file is the source of truth"): reads a profile's
  * canonical file (`canonical.ts`'s `<baseDir>/<fileName>`), hashes it and classifies it against a
  * previously cached hash - the read half of the pair `writeCanonicalProfileFile` (`canonical.ts`)
  * is the write half of. Pure read/classify: nothing here writes to disk, rebuilds a full
@@ -129,7 +129,7 @@ interface FoldedConfig {
    * file re-defines, in file order. `[]` for every healthy file.
    *
    * Collected rather than dropped because this is the exact point at which a whole entry can
-   * disappear from a profile (story-050 review, finding 4, second round). Two entries whose display
+   * disappear from a profile (story 050). Two entries whose display
    * names derive to one alias name (`alias-render.ts#derivedAliasName` has no id suffix by story
    * 039's own decision - the name is the user's contract with whatever binding calls it, so it is
    * reported as a duplicate, never silently renamed) render two `alias fire` lines; the engine keeps
@@ -186,7 +186,7 @@ function discardedAliasWarnings(file: string, discarded: readonly ParsedAlias[])
  * live only in the persisted profile and that this module has no business inventing.
  */
 export interface ParsedCanonicalProfile extends RestoredProfileFields {
-  /** `cvarSections`: the cvar sections the file's own banners state (story 059 D3) - the Settings-tab counterpart
+  /** `cvarSections`: the cvar sections the file's own banners state (story 059) - the Settings-tab counterpart
    * of `categories` above, carried through here for the same two consumers: `rebuild.ts`'s rebuilt
    * record and `ProfilesStore.adoptFromFile`'s overlay. Never carries the writer's reserved
    * `Defaults`/`Other` buckets, so the cvars under those read back as plain values in `cvars` and
@@ -198,11 +198,11 @@ export interface ParsedCanonicalProfile extends RestoredProfileFields {
    * Never fatal to the parse itself (see `readFileState`'s doc comment). */
   warnings: RestoreWarning[]
   /**
-   * Story 057 D4: the file's lines that carry no command this reader understands - what the parser
+   * Story 057: the file's lines that carry no command this reader understands - what the parser
    * itself buckets as `preserved`, minus every comment-only line.
    *
    * The subtraction is the whole point of the field. `parseConfigText`'s own `preserved` deliberately
-   * also carries comment-only lines (story 042 D3, AC8), and a launcher-written file is full of
+   * also carries comment-only lines (story 042), and a launcher-written file is full of
    * banner comments the writer regenerates from the profile on the next render - so the unfiltered
    * bucket reports a dozen "preserved lines" for a perfectly round-tripping file and says nothing
    * about the one case a caller cares about: a line that is in the FILE but not in the PROFILE, and
@@ -269,14 +269,14 @@ function parseCanonicalProfile(file: string, content: string): ParsedCanonicalPr
  *
  * A byte in this set is not a config line this parser should try to make sense of - it is the
  * signature of a file that was truncated by an interrupted write, of one filled with binary
- * garbage, or of one that is simply not a text file at all. Story 043 D10 found why this check has
+ * garbage, or of one that is simply not a text file at all. Story 0430 found why this check has
  * to exist here rather than being left to the parser: `parseConfigText`/`restoreProfileParts`
  * degrade rather than throw (story 042's rule, and the right rule for *text*), so a NUL-truncated
  * or binary file came back as an ordinary `changedOnDisk` carrying an almost-empty profile - which
  * `refreshFromFiles` then adopted, replacing the last good cache with nothing. That is exactly what
- * AC4 ("a file that is unparseable, or that fails to parse into a valid profile, does not take the
+ * The rule ("a file that is unparseable, or that fails to parse into a valid profile, does not take the
  * profile down") exists to prevent, and it is also what makes the `unparseable` branch below a real
- * outcome rather than the unreachable defensive boundary D2 documented it as.
+ * outcome rather than the unreachable defensive boundary it was first documented as.
  *
  * Deliberately narrow: anything that *is* text stays on the degrade-with-warnings path. A file with
  * a hand-deleted metadata comment, a hand-reordered section, an unterminated quote or hand-typed
@@ -287,7 +287,7 @@ function parseCanonicalProfile(file: string, content: string): ParsedCanonicalPr
  * about never have to appear literally in this source file. `content` is read as latin1, so
  * `charCodeAt` IS the byte on disk.
  *
- * Story 057 D4 exports it: `saveRawText` has to answer the same question about text it is about to
+ * Story 057 exports it: `saveRawText` has to answer the same question about text it is about to
  * WRITE, before it writes it - a raw save that put such a byte on disk would leave the profile's own
  * file classified `unparseable` by the very next read, which is precisely the state this function
  * exists to keep the launcher out of. One definition, so the write side can never accept bytes the
@@ -309,7 +309,7 @@ function isCorruptByte(code: number): boolean {
  *
  * The line number is real - counted from the actual offending byte's position, not the `line: 1`
  * placeholder the previously-unreachable branch below had to use - because "the file and line" is
- * what AC4 promises the user and what D7 renders.
+ * what the user is promised and what the UI renders.
  */
 export function corruptContentDiagnostic(
   fileName: string,
@@ -348,7 +348,7 @@ export function corruptContentDiagnostic(
  * caller that always stores whatever this function last returned never has to special-case "the
  * hash did not change, keep the old value".
  *
- * `content` is the file's raw latin1 text, exactly the bytes `hash` was taken over (story 043 D4).
+ * `content` is the file's raw latin1 text, exactly the bytes `hash` was taken over (story 043).
  * Carried rather than left for the caller to re-read: the whole-file conflict the story decided on
  * ("UI-edit vs. disk-edit conflicts are shown as whole-file old-vs-new") needs the disk side as
  * *text*, and a second `readFile` after this one could return different bytes than the ones this
@@ -373,7 +373,7 @@ export type FileReadResult =
  * because a caller that treated the two the same could go on to "recreate" a file it actually just
  * failed to read, destroying whatever the permissions problem was hiding.
  *
- * `unparseable` has exactly two sources, and story 043 D10's adversarial pass is why the first one
+ * `unparseable` has exactly two sources, and story 0430's adversarial pass is why the first one
  * exists at all:
  *
  * 1. **The content is not text** (`corruptContentDiagnostic` above) - a NUL-truncated or binary
@@ -381,7 +381,7 @@ export type FileReadResult =
  *    `restoreProfileParts`) is designed to never throw: a malformed or hand-stripped `[q2l ...]`
  *    tag degrades to a warning (story 042's own rule; see both functions' doc comments), and so
  *    does binary garbage - it "parses" into an almost-empty profile, which a caller then adopts
- *    over the last good cache. That silent loss is what AC4 forbids, and this branch is what makes
+ *    over the last good cache. That silent loss is what that rule forbids, and this branch is what makes
  *    the promise real. It carries the offending byte's actual line, not a placeholder.
  * 2. **A thrown error from the parse itself** - a defensive boundary for a genuine bug in this
  *    module's own fold, not a path either function is documented to take. There is no positioned

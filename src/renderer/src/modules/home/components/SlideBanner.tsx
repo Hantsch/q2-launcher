@@ -2,7 +2,7 @@ import { SlideButtons } from './SlideButtons'
 import type { SlideTemplateProps } from './SlideText'
 
 /**
- * `banner` template (story 083 D2, concept §6.3; story 084 D5): image strip across the top,
+ * `banner` template (story 083, concept §6.3; story 084): image strip across the top,
  * title/body/buttons below - full width, single column, no side-by-side pane like `SlideSplit`.
  *
  * Same `imageUrl`-only, full-width-fallback behaviour as `SlideSplit` (see its doc comment) - a

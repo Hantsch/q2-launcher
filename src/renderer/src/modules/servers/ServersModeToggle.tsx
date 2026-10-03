@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button'
 
 const MODES: readonly ServersBrowseMode[] = ['online', 'lan']
 
-/** Story 196 D4: Online / LAN segmented switch for the server browser (mirrors `LayerSwitcher`). */
+/** Story 196: Online / LAN segmented switch for the server browser (mirrors `LayerSwitcher`). */
 export function ServersModeToggle({
   mode,
   onChange,

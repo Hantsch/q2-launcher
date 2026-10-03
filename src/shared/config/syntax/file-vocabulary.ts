@@ -16,14 +16,14 @@ const ENGINES_WITH_LINE_LIMITS: readonly EngineKind[] = ['r1q2', 'q2pro', 'vanil
  * smaller line budget is picked up automatically; currently 1024 on all three
  * (`engine-limits.ts`'s `CBUF_LINE_BYTES`). Cvar `set` lines carry no trailing comment in this
  * deliverable, so nothing here calls `attachComment` with it yet - it exists for the bind/alias
- * sections story 040 D3 adds on top of this file.
+ * sections story 040 adds on top of this file.
  */
 export const STRICTEST_LINE_BUDGET = Math.min(
   ...ENGINES_WITH_LINE_LIMITS.map((engine) => limitsFor(engine)!.maxLineBytes),
 )
 
 /**
- * The budget `attachComment` is actually given for a trailing `// <label>` (story 040 D3).
+ * The budget `attachComment` is actually given for a trailing `// <label>` (story 040).
  *
  * One byte below `STRICTEST_LINE_BUDGET`, because `maxLineBytes` is an *exclusive* bound
  * everywhere else in this codebase: `validate-structure.ts` reports `lineTooLong` at
@@ -69,7 +69,7 @@ export const COMMENT_PREFIX = '  // '
  * flag it as a section on its own, and even where a style's decoration lets `BANNER_RULE` notice it
  * (`dashes`/`brackets`), the generic untagged-section path would otherwise *mint* a brand new,
  * really-existing category named "Other" - which is a real category the original profile never
- * had, and a categoryId that no longer matches nothing on the next render, breaking AC2's
+ * had, and a categoryId that no longer matches nothing on the next render, breaking the
  * fixed point. Recognising the label lets the reconstruction hand the entry a
  * fresh, never-registered id instead (see `profile-restore.ts#categoryRegistry`), which continues
  * to match nothing on the very next render, exactly like the original orphaned id it stands in for.
@@ -82,10 +82,10 @@ export const OTHER_CATEGORY_LABEL = 'Other'
  * the same reason `OTHER_CATEGORY_LABEL` is. */
 export const UNOWNED_BINDS_LABEL = 'Other binds'
 
-/** Reserved id for the auto-generated `Defaults` bucket (story 059 D2's "ON writes them into one
+/** Reserved id for the auto-generated `Defaults` bucket (story 059's "ON writes them into one
  * trailing, reserved auto-section 'Defaults'") - never a real entry in `profile.cvarSections`, and
- * never minted as one on read (that reader-side rule is D3's job; this constant only has to exist
- * so the writer's tag and D3's special-case agree on the same string). Exported for that reason -
+ * never minted as one on read (that reader-side rule is the job; this constant only has to exist
+ * so the writer's tag and the special-case agree on the same string). Exported for that reason -
  * a future `profile-restore.ts` has to recognise exactly this id, not a re-derived copy of it. */
 export const CVAR_DEFAULTS_SECTION_ID = 'defaults'
 

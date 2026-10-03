@@ -9,9 +9,9 @@ import { WatchlistRow } from './WatchlistRow'
 const RELATIVE_TIME_REFRESH_MS = 30_000
 
 export interface WatchlistPanelProps {
-  /** Renders the join/open-detail actions for one match - a later deliverable (D3) wires
+  /** Renders the join/open-detail actions for one match - a later deliverable wires
    * this to the real server-list actions. Defaults to nothing, keeping this panel free of any
-   * join/spectate concept of its own (AC4). */
+   * join/spectate concept of its own. */
   renderMatchActions?: (match: WatchlistMatch) => ReactNode
   /** The server list's live row for an address, shown as a match's server stats - defaults to
    * knowing no server, in which case every stat renders `—`. */
@@ -21,7 +21,7 @@ export interface WatchlistPanelProps {
 }
 
 /**
- * Story 132 D2: the watchlist panel - not yet wired into `ServersView.tsx` (that's D3). Composes
+ * Story 132: the watchlist panel - not yet wired into `ServersView.tsx` (a later step). Composes
  * the add form and one `WatchlistRow` per entry from `useWatchlist()`'s live snapshot.
  */
 export function WatchlistPanel({

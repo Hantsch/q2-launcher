@@ -26,7 +26,7 @@ import type { TimelineAction } from '@shared/replays/timeline'
 import type { Outcome } from '@shared/types'
 import { callModule, onModuleEvent } from '../moduleClient'
 
-/** Typed client for the replays module's handlers (story 135 D3). One function per handler in its
+/** Typed client for the replays module's handlers (story 135). One function per handler in its
  * contract - mirrors `modules/servers/client.ts`. */
 export function getReplaysOverview(): Promise<Outcome<ReplaysOverview>> {
   return callModule<ReplaysOverview>('replays', REPLAYS_HANDLERS.overviewRead)
@@ -77,7 +77,7 @@ export function restoreNameTemplates(): Promise<Outcome<NameTemplatesView>> {
 }
 
 /**
- * Story 142 D4: the `extraFolders.*` handlers' renderer-side transport, mirroring
+ * Story 142: the `extraFolders.*` handlers' renderer-side transport, mirroring
  * `servers/client.ts`'s `listMasterSources`/`addMasterSource`/`removeMasterSource` exactly -
  * `listExtraFolders` always succeeds and answers the list directly, `add`/`remove` resolve to an
  * `ExtraFoldersResult` (its own ok/refusal union) at the domain level, nested under `Outcome`'s own
@@ -96,7 +96,7 @@ export function removeExtraFolder(id: string): Promise<Outcome<ExtraFoldersResul
 }
 
 /**
- * Story 156 D2: the `demos.reveal`/`demos.copyPath` handlers' renderer-side transport - a demo id
+ * Story 156: the `demos.reveal`/`demos.copyPath` handlers' renderer-side transport - a demo id
  * in, a `DemoFileActionResult` out (never a path either way, per CLAUDE.md's "paths from the
  * renderer are never trusted"), mirroring `addExtraFolder`/`removeExtraFolder` above exactly.
  */
@@ -115,7 +115,7 @@ export function playDemo(payload: {
   return callModule<ReplaysDemoPlayResult>('replays', REPLAYS_HANDLERS.demoPlay, payload)
 }
 
-/** Story 170 D5: re-places the running demo's window after the stage picture's box changed. */
+/** Story 170: re-places the running demo's window after the stage picture's box changed. */
 export function sendStageRect(rect: ReplaysStageRect | null): Promise<Outcome<void>> {
   return callModule<void>('replays', REPLAYS_HANDLERS.playbackStage, { rect })
 }
@@ -130,12 +130,12 @@ export function playbackCinema(enter: boolean): Promise<Outcome<void>> {
   return callModule<void>('replays', REPLAYS_HANDLERS.playbackCinema, { enter })
 }
 
-/** Story 187 D6: the current display state, read once when a session begins. */
+/** Story 187: the current display state, read once when a session begins. */
 export function playbackDisplayRead(): Promise<Outcome<ReplaysPlaybackDisplay>> {
   return callModule<ReplaysPlaybackDisplay>('replays', REPLAYS_HANDLERS.playbackDisplayRead, {})
 }
 
-/** Story 164 D4 events, mirroring `onScanProgress`. */
+/** Story 164 events, mirroring `onScanProgress`. */
 export function onPlaybackPosition(
   listener: (payload: ReplaysPlaybackPosition) => void,
 ): () => void {
@@ -175,7 +175,7 @@ export function playbackStop(): Promise<Outcome<void>> {
 }
 
 /**
- * Story 144 D4: the index scan's renderer-side transport, mirroring `servers/client.ts`'s
+ * Story 144: the index scan's renderer-side transport, mirroring `servers/client.ts`'s
  * `startScan`/`readScan`/`onScanChanged` triad. `scanStart` kicks off a background scan
  * (single-flight - `started: false` means one was already running); `indexRead` is a one-shot
  * catch-up read of the current index (cached rows before this process's first scan finishes, the
@@ -194,7 +194,7 @@ export function onScanProgress(listener: (payload: ReplaysScanProgress) => void)
 }
 
 /**
- * Story 152 D3: the persisted list-sort's renderer-side transport, mirroring `servers/client.ts`'s
+ * Story 152: the persisted list-sort's renderer-side transport, mirroring `servers/client.ts`'s
  * `getListSort`/`setListSort` exactly. `getListSort` resolves to the current `DemoListSort | null`
  * (`null` meaning the default favourites-first order); `setListSort` persists a new one (or clears
  * it back to the default with `null`) and resolves to what was actually persisted.
@@ -208,13 +208,13 @@ export function setListSort(sort: DemoListSort | null): Promise<Outcome<DemoList
 }
 
 /**
- * Story 153 D5: the persisted list-filter's renderer-side transport, mirroring `getListSort`/
+ * Story 153: the persisted list-filter's renderer-side transport, mirroring `getListSort`/
  * `setListSort` right above exactly. `getListFilter` resolves to the current `DemoListFilter`
  * (`EMPTY_DEMO_LIST_FILTER` when nothing stored); `setListFilter` persists a full-replacement
  * filter and resolves to what was actually persisted.
  */
 /**
- * Story 155 D1: the sidecar's renderer-side transport for a single demo, mirroring `indexRead`'s
+ * Story 155: the sidecar's renderer-side transport for a single demo, mirroring `indexRead`'s
  * `callModule` pattern exactly. `sidecarRead` resolves to the current on-disk state (`'none'`/
  * `'ok'`/`'error'` with itemized `issues`) plus whatever fields it could parse - this is the only
  * place the detail panel can see specific sidecar issues, since `DemoRow.sidecar.state` (from

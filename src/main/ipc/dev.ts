@@ -19,7 +19,7 @@ export function registerDevIpc(app: AppContext): void {
 
     if (scenario === 'writing') {
       // A job that takes the *real* write lock for `installationId` through
-      // the shared runner and holds it until cancelled - AC5's Play-button refusal
+      // the shared runner and holds it until cancelled - the Play-button refusal
       // (`launch.error.installationBusy`) and the runner's own busy refusal have to be exercised
       // through the real guard and runner, not faked, or the e2e flows would prove nothing.
       const { installationId } = payload
@@ -96,7 +96,7 @@ export function registerDevIpc(app: AppContext): void {
       return ok(null)
     }
 
-    // scenario === 'success': the pre-D5 behaviour, unchanged - progresses to
+    // scenario === 'success': the earlier behaviour, unchanged - progresses to
     // completion on a timer, then finishes `succeeded`.
     let ratio = 0
 
@@ -119,7 +119,7 @@ export function registerDevIpc(app: AppContext): void {
     return ok(null)
   })
 
-  // Story 090 D5: lets the e2e flow put one installation into `running`/`idle`
+  // Story 090: lets the e2e flow put one installation into `running`/`idle`
   // through a real IPC surface - see `devSimulateLaunchSchema` and
   // `LaunchService.simulate` for why this exists instead of a real launch.
   handle('dev:simulateLaunch', devSimulateLaunchSchema, ({ installationId, phase }) => {
@@ -127,8 +127,8 @@ export function registerDevIpc(app: AppContext): void {
     return ok(null)
   })
 
-  // Story 098 D4: offline simulation of the whole update flow - see `UpdateService.simulate()`'s
-  // doc comment for why no real check or download is involved. AC6's restart guard is deliberately
+  // Story 098: offline simulation of the whole update flow - see `UpdateService.simulate()`'s
+  // doc comment for why no real check or download is involved. the restart guard is deliberately
   // not one of these scenarios: it is exercised through the real `update:installAndRestart` channel
   // once `'downloaded'` has staged a release, same as `dev:simulateJob('writing')`'s "real guard,
   // faked work" precedent.

@@ -46,7 +46,7 @@ import { normalizeBindKey } from '@shared/config/syntax/key-names'
  * `validate-actions.ts` already warns about the press/release case).
  */
 export function bindValueFor(action: ConfigAction): string {
-  // Story 045, D3. Both two-part kinds are spelled out here rather than left to fall through:
+  // Story 045. Both two-part kinds are spelled out here rather than left to fall through:
   // their commands live in `parts`, so `action.commands` is `[]` and the catalogue fast path below
   // could not fire anyway - but "could not fire because another field happens to be empty" is not
   // a guarantee a reader of this function can see, and this is the function that decides which

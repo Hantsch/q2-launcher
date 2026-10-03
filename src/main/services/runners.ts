@@ -21,18 +21,18 @@ const PROTON_FOLDER = /^proton/i
 const NATIVE_RUNNER: DetectedRunner = { kind: 'native', id: 'native', path: '', available: true }
 
 /**
- * Story 103 D4. Reports every runner found on the host: the OS itself, plus whichever
+ * Story 103. Reports every runner found on the host: the OS itself, plus whichever
  * Windows-compatibility layers (Wine, Steam's `umu-run`, Proton) are actually installed. Nothing
- * here decides which runner an installation should use - D5 does that at resolve time - this is
+ * here decides which runner an installation should use - the launch planner does that at resolve time - this is
  * just an inventory.
  *
  * On `win32` Wine/umu-run/Proton have no meaning, so neither `PATH` nor the Steam libraries are
- * touched on that branch. Story 104 D3 adds the one runner that does exist there too: Steam
+ * touched on that branch. Story 104 adds the one runner that does exist there too: Steam
  * (`<steam root>/steam.exe`). Listing it changes nothing about how anything launches - only an
  * installation whose stored choice is `'steam'` ever resolves to it (see `resolveRunner`), and
  * `LaunchService.plan()` does not even call this function on Windows.
  *
- * Story 105 D3: a harness-launched run can seed this whole list via `Q2L_UI_DETECTED_RUNNERS`
+ * Story 105: a harness-launched run can seed this whole list via `Q2L_UI_DETECTED_RUNNERS`
  * (`uiHarnessDetectedRunners`, `src/main/lib/ui-harness.ts`) - same double gate as
  * `Q2L_UI_STEAM_EXECUTABLE` above. When set, it is returned verbatim and none of the real detection
  * below runs; everything downstream (`toRunnerOption`, collapse, IPC, renderer) stays unaware this
@@ -61,7 +61,7 @@ export type SteamUnavailableReason =
   | 'runner.unavailable.steamUnknownApp'
 
 /**
- * Story 104 D3: whether the Steam runner is usable for this installation, and if not, why - the one
+ * Story 104: whether the Steam runner is usable for this installation, and if not, why - the one
  * judgement both `installations:listRunners` (what the UI offers) and `resolveRunner` (what
  * actually launches) read, so the two cannot disagree. First failing check wins:
  *
@@ -97,23 +97,23 @@ export type RunnerRelevantInstallation = Pick<
 >
 
 /**
- * Story 103 D5: whether this installation's executable cannot be run by the OS itself and therefore
+ * Story 103: whether this installation's executable cannot be run by the OS itself and therefore
  * needs a compatibility runner. True only off Windows and only for a binary whose header actually
- * said `MZ` (D1/D2's `executableKind`) - "absent" means "kind not known", never "not native", so an
+ * said `MZ` (its `executableKind`) - "absent" means "kind not known", never "not native", so an
  * installation recorded before that field existed keeps launching exactly as it does today.
  *
- * On `win32` this is the single branch that keeps AC8's promise: nothing below it ever runs there.
+ * On `win32` this is the single branch that keeps the no-runner-on-Windows promise: nothing below it ever runs there.
  */
 export function needsCompatRunner(installation: RunnerRelevantInstallation): boolean {
   return !isWindows() && installation.executableKind === 'pe'
 }
 
 /**
- * Story 103 D5, AC4: which runner this installation's executable should be launched through -
+ * Story 103: which runner this installation's executable should be launched through -
  * `undefined` when nothing on this machine can run it (which is what makes `LaunchService.plan()`
- * refuse, AC7).
+ * refuse).
  *
- * Story 104 D3 puts one guard in front of the cascade: a stored `'steam'` choice wins - on every
+ * Story 104 puts one guard in front of the cascade: a stored `'steam'` choice wins - on every
  * platform, whatever the executable's kind - but only while `steamUnavailableReason` finds nothing
  * wrong. Any other stored choice, no choice at all, or a `'steam'` choice Steam cannot serve right
  * now falls straight through to the cascade below, unchanged from story 103. Steam is never a
@@ -122,7 +122,7 @@ export function needsCompatRunner(installation: RunnerRelevantInstallation): boo
  * The cascade, in order:
  *
  *  1. native, whenever the executable does not need a wrapper at all - always the answer on
- *     `win32` (AC8), and off Windows for an ELF/script/unknown binary;
+ *     `win32`, and off Windows for an ELF/script/unknown binary;
  *  2. the user's own choice, when they made one and it is a wrapping runner that is installed
  *     right now. A choice of `'native'` for a Windows PE is *not* honoured: native is exactly what
  *     cannot run it (that is the bug this story fixes), so it falls through like an unavailable
@@ -165,7 +165,7 @@ export function resolveRunner(
 /**
  * Searches every directory on `PATH`, in order, for an executable file named `executableName`.
  * Always returns an entry for `kind` - `available: false` with an empty path when nothing was
- * found - so wine/umu-run are still listed as "not detected" rather than silently omitted (D7
+ * found - so wine/umu-run are still listed as "not detected" rather than silently omitted (the
  * renders that; this just supplies the shape).
  */
 async function findOnPath(
@@ -182,7 +182,7 @@ async function findOnPath(
 }
 
 /**
- * Story 104 D3: the Steam client's executable. Always returns an entry - `available: false` with an
+ * Story 104: the Steam client's executable. Always returns an entry - `available: false` with an
  * empty path when none was found - like `findOnPath` does for wine/umu-run.
  *
  *  - harness override (`Q2L_UI_STEAM_EXECUTABLE`, only behind `UiHarness.enabled`) on any
@@ -211,7 +211,7 @@ function steamRunner(path: string | undefined): DetectedRunner {
 /**
  * Proton builds under each Steam library's `steamapps/common/`. Unlike wine/umu-run, only builds
  * that are actually found are reported - there is no single well-known "the Proton" to report as
- * missing, and the story's AC3 ("nothing is assumed present") applies here too.
+ * missing, and "nothing is assumed present" applies here too.
  */
 async function findProtonBuilds(): Promise<DetectedRunner[]> {
   const steamRoot = await findSteamRoot()

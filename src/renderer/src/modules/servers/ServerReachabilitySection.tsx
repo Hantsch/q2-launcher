@@ -39,7 +39,7 @@ function SampleLine({ sample, t }: { sample: RttSample; t: TFunction }) {
 }
 
 /**
- * Story 124 D2: the detail pane's "how this server has answered" section - built from
+ * Story 124: the detail pane's "how this server has answered" section - built from
  * `ServerListEntry.status`/`lastSeenAt`/`rttHistory`, all already maintained by the scan service
  * (never re-derived here). History is rendered newest first without mutating `entry.rttHistory`
  * (oldest-first is the storage order, `RTT_HISTORY_LIMIT`-capped by `scan-merge.ts`). Every line

@@ -1,6 +1,6 @@
 /**
  * The catalogue row model - one row per `action-catalog.ts` entry, identified
- * by a stable `catalogId` (story 015 D3; moved out of the renderer's
+ * by a stable `catalogId` (story 015; moved out of the renderer's
  * `modules/config/lib/catalog-binds.ts` by story 034).
  *
  * It lives in `src/shared` because both sides need the *same* row identity
@@ -50,12 +50,12 @@ export const DROP_CATALOG_ROW_KINDS: ReadonlySet<string> = new Set([
 /**
  * Is this catalogue row a drop row - *regardless of what its entry's body currently says*?
  *
- * Story 055 review, finding 1: `drop-entries.ts#isDropEntry` needs an actual `drop <item>` command
+ * Story 055: `drop-entries.ts#isDropEntry` needs an actual `drop <item>` command
  * in the body, and a freshly-seeded template drop row starts with `commands: []`
  * (`migrations.ts#materialiseTemplateCategories`), so on a brand-new profile every one of the
  * template's drop rows would show no options at all. The row itself still knows what it is, from
  * its `catalogId`'s kind prefix - the same signal `alias-render.ts` reads - so the Options cell
- * gates on `isDropEntry(action) || isDropCatalogRow(row)` and gets the pre-D3 behaviour back for a
+ * gates on `isDropEntry(action) || isDropCatalogRow(row)` and gets the earlier behaviour back for a
  * row whose body has not been written yet.
  */
 export function isDropCatalogRow(row: CatalogRow): boolean {
@@ -120,7 +120,7 @@ export function buildDemoRows(): CatalogRow[] {
     catalogId: makeCatalogId('demo', action.id),
     categoryId: 'demo',
     name: action.label,
-    // Speed rows (D2) carry their `if` checks as separate commands, like a drop row's pair.
+    // Speed rows carry their `if` checks as separate commands, like a drop row's pair.
     commands: action.commands ? [...action.commands] : [action.command],
   }))
 }
@@ -181,7 +181,7 @@ export function allCatalogRows(): CatalogRow[] {
 /** Plain, non-translated, stable text for a catalogue row with no other display name yet - the
  * row's own raw command, the same "unbound row" name lazy materialisation already uses for these
  * rows (`catalog-binds.ts`'s `nameForRow`, `bind-adoption.ts`'s `materialise`). Exposed here so
- * `STANDARD_TEMPLATE` (`@shared/modules/config`, story 052 D1) can seed the same name for a
+ * `STANDARD_TEMPLATE` (`@shared/modules/config`, story 052) can seed the same name for a
  * still-unbound row without a third, potentially-drifting copy of the rule. */
 export function nameForCatalogRow(row: CatalogRow): string {
   return row.name ?? row.commands[0] ?? row.catalogId

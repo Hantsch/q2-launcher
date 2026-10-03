@@ -32,7 +32,7 @@ export interface UseWatchlistResult {
 }
 
 /**
- * Story 132 D1. Mirrors `ServersView.tsx`'s own `readScan`/`onScanChanged` idiom: a one-shot read
+ * Story 132. Mirrors `ServersView.tsx`'s own `readScan`/`onScanChanged` idiom: a one-shot read
  * on mount followed by a live subscription to the pushed snapshot (`watchlist.changed`) - nothing
  * here polls. `add`/`update`/`remove` additionally apply their own successful result's snapshot
  * immediately (not waiting for the round-trip event) so the caller's UI reflects its own edit

@@ -6,7 +6,7 @@ import type { ServerQueryResult } from './server-query'
 import { type ScanService } from './scan-service'
 
 /**
- * Story 114 D6. The service is the one thing in this story that is genuinely stateful, so these
+ * Story 114. The service is the one thing in this story that is genuinely stateful, so these
  * tests drive it through its public surface only (`start`/`read`/`overview`/`dispose`) with a fake
  * `queryServer` - never a real socket, never a real `fetch` - and assert on the emitted event
  * sequence and on `read()`/`overview()` snapshots, the same way `scan-runner.test.ts` asserts on
@@ -19,7 +19,7 @@ import { type ScanService } from './scan-service'
 
 export type RecordedEvent = { type: string; payload: unknown }
 
-/** Story 116 D3: a controllable `LaunchHost`, mirroring `write-guard.test.ts`'s `fakeLaunch` -
+/** Story 116: a controllable `LaunchHost`, mirroring `write-guard.test.ts`'s `fakeLaunch` -
  * `set()` updates `getState()` first and then notifies, the same order `LaunchService.setState` uses. */
 export function fakeLaunch(initial: LaunchState = IDLE_LAUNCH_STATE): {
   host: LaunchHost

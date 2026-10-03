@@ -12,9 +12,9 @@ export interface VirtualDemoListProps {
   rows: DemoRowData[]
   selectedId: string | null
   onSelect: (id: string) => void
-  /** Story 155 D6: forwarded straight to each `DemoRow` for its favourite/rating quick edit. */
+  /** Story 155: forwarded straight to each `DemoRow` for its favourite/rating quick edit. */
   onRowPatched?: RowPatcher
-  /** The demos list's current column sort (story 152 D3), or `null` for the default
+  /** The demos list's current column sort (story 152), or `null` for the default
    * favourites-first order - forwarded straight through to `DemoListHeader`. */
   sort: DemoListSort | null
   onSort: (column: DemoSortColumn) => void
@@ -28,7 +28,7 @@ export interface VirtualDemoListProps {
 }
 
 /**
- * Story 158/159 D4: the demos list's virtualised, selectable body - one scroll container holding a
+ * Story 158/159: the demos list's virtualised, selectable body - one scroll container holding a
  * sticky `DemoListHeader` and a full-height spacer, with only the rows the current scroll position
  * and viewport can actually show ever mounted as `DemoRow`s. Mirrors the windowing shape used by
  * other dense lists in this codebase, but built directly on `visibleRange` (kept pure and separately

@@ -1,5 +1,5 @@
 /**
- * Story 168 D1: the "record every map automatically" recipes, as pure logic over a profile's cvar
+ * Story 168: the "record every map automatically" recipes, as pure logic over a profile's cvar
  * map. r1q2 has a native cvar (`cl_autorecord`); Q2PRO has none, so the recipe is a
  * `cl_beginmapcmd` command that runs `record` with macro-built names.
  *

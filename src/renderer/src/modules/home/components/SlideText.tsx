@@ -7,7 +7,7 @@ export interface SlideTemplateProps {
 }
 
 /**
- * `text` template (story 083 D2, concept §6.3): title, body and buttons only - no image slot at
+ * `text` template (story 083, concept §6.3): title, body and buttons only - no image slot at
  * all. Also the fallback layout `SlideSplit`/`SlideBanner` render through when their slide has no
  * usable image, and what an unrecognised template value resolves to (`resolveSlideTemplate.ts`).
  *

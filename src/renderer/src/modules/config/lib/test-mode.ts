@@ -1,5 +1,5 @@
 /**
- * Test-mode press resolution and layer-switch reducer — story 018 D1.
+ * Test-mode press resolution and layer-switch reducer — story 018.
  *
  * Test mode answers "what happens when I press this key". Before this module
  * existed, the readout only ever looked at `profile.binds`, so a layer's
@@ -46,7 +46,7 @@ export type TestPress = { key: string } & (
 /**
  * Resolve what pressing `key` means. A layer's trigger key outranks
  * everything else — it is what puts the layer on the board in the first
- * place, exactly the precedence 014 D3 already established for the keycap's
+ * place, exactly the precedence 014 already established for the keycap's
  * own appearance — so every layer's `triggerKey` is checked before the
  * displayed layer's overrides or the base binds.
  *
@@ -111,7 +111,7 @@ export interface TestModeSwitchState {
  * A `hold` layer's trigger puts that layer on the board and remembers what
  * was displayed before, so release can restore it; a second hold press
  * (whichever layer it belongs to) replaces the currently held trigger rather
- * than stacking — Q2 has no nested layers (016 D1 already refuses two held
+ * than stacking — Q2 has no nested layers (016 already refuses two held
  * modifiers), so a stack would model something the engine cannot do.
  *
  * A `toggle` layer's trigger flips between its own layer and base via

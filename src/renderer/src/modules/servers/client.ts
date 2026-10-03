@@ -28,14 +28,14 @@ import { createModuleClient } from '../moduleClient'
 
 const client = createModuleClient<ServersContract>('servers')
 
-/** Typed client for the servers module's handlers (story 106 D3). One function per handler in its
+/** Typed client for the servers module's handlers (story 106). One function per handler in its
  * contract - mirrors `modules/downloads/client.ts`. */
 export function getServersOverview(): Promise<Outcome<ServersOverview>> {
   return client.call(SERVERS_HANDLERS.overviewRead)
 }
 
 /**
- * Story 111 D4: the five `sources.*` handlers. Each resolves to `Outcome<T>` at the transport
+ * Story 111: the five `sources.*` handlers. Each resolves to `Outcome<T>` at the transport
  * level (`callModule`'s own contract - a schema/handler-registry failure) wrapping the *domain*
  * result underneath: `sourcesList` always succeeds and answers the list directly, the four
  * mutations answer a `MasterSourcesResult` (its own `ok`/`reason` - a refusal, not a thrown
@@ -80,9 +80,9 @@ export function reorderMasterSources(ids: string[]): Promise<Outcome<MasterSourc
 }
 
 /**
- * Story 114 D7: the scan's renderer-side transport. No component, no store, no i18n string lives
+ * Story 114: the scan's renderer-side transport. No component, no store, no i18n string lives
  * here (D-M) - `startScan`/`readScan` are one-shot calls and `onScanChanged`/`onScanServer` are
- * subscriptions; nothing here polls `scan.read` on a timer, per AC5 ("nothing in the renderer
+ * subscriptions; nothing here polls `scan.read` on a timer ("nothing in the renderer
  * polls for progress" - the scan's own doc, D-C). [[118]] builds its store and view on top of
  * these.
  *
@@ -98,9 +98,9 @@ export function reorderMasterSources(ids: string[]): Promise<Outcome<MasterSourc
  * `scanStartInputSchema` (`@shared/modules/servers`) accepts it omitted entirely, same as every
  * other optional-only handler payload in this module.
  *
- * Story 117 D4: `scope` is required here and not defaulted - this file is a thin transport layer,
+ * Story 117: `scope` is required here and not defaulted - this file is a thin transport layer,
  * so the choice of "all"/"favourites"/"server" stays visible at each call site (the three Servers
- * view controls, D5) rather than being baked in as a client-side default.
+ * view controls) rather than being baked in as a client-side default.
  */
 export function startScan(
   scope: ScanScope,
@@ -127,7 +127,7 @@ export function readScan(): Promise<Outcome<ScanSnapshot>> {
   return client.call(SERVERS_HANDLERS.scanRead)
 }
 
-/** Story 196 D4: switches the browser's mode in main (in memory, never aborts a running scan). */
+/** Story 196: switches the browser's mode in main (in memory, never aborts a running scan). */
 export function setMode(mode: ServersBrowseMode): Promise<Outcome<void>> {
   return client.call(SERVERS_HANDLERS.scanSetMode, { mode })
 }
@@ -143,7 +143,7 @@ export function onScanServer(listener: (row: ScanServerPush) => void): () => voi
 }
 
 /**
- * Story 115 D4: the scan's settings handlers. `getScanSettings` resolves to the full persisted
+ * Story 115: the scan's settings handlers. `getScanSettings` resolves to the full persisted
  * `ServersScanSettings`; `patchScanSettings` validates and persists a partial patch and resolves to
  * the full merged+persisted settings - the section that calls it re-syncs from this returned value
  * rather than merging the patch locally (`ServersSettingsSection.tsx`'s own discipline).
@@ -159,7 +159,7 @@ export function patchScanSettings(
 }
 
 /**
- * Story 115 D5: tells main whether the Servers view is currently mounted (`true`) or just
+ * Story 115: tells main whether the Servers view is currently mounted (`true`) or just
  * unmounted (`false`) - `scanCadence.onViewActive()`'s (`main/modules/servers/scan-cadence.ts`)
  * own signal for auto-scan-on-open/auto-refresh timing. The handler itself resolves to nothing
  * (`main/modules/servers/index.ts`'s `scanSetViewActive` handler returns `undefined`), so this
@@ -170,7 +170,7 @@ export function setScanViewActive(active: boolean): Promise<Outcome<void>> {
 }
 
 /**
- * Story 119 D3: the persisted list-sort's renderer-side transport, mirroring
+ * Story 119: the persisted list-sort's renderer-side transport, mirroring
  * `getScanSettings`/`patchScanSettings` exactly. `getListSort` resolves to the current
  * `ServerListSort | null` (`null` meaning the default order); `setListSort` persists a new one (or
  * clears it back to the default with `null`) and resolves to what was actually persisted.
@@ -184,7 +184,7 @@ export function setListSort(sort: ServerListSort | null): Promise<Outcome<Server
 }
 
 /**
- * Story 122 D3: reads one server's detail - the row plus its last-known `serverinfo`, or `null` for
+ * Story 122: reads one server's detail - the row plus its last-known `serverinfo`, or `null` for
  * an address the scan has no row for at all. `address` is passed through as the bare payload,
  * mirroring `favouritesAdd`/`favouritesRemove`'s `serverAddressSchema` convention (not a `{ address
  * }` wrapper) - `detailReadInputSchema` is that same bare schema.
@@ -194,7 +194,7 @@ export function readServerDetail(address: string): Promise<Outcome<ServerDetail 
 }
 
 /**
- * Story 132 D1: the watchlist's own renderer-side transport, mirroring the scan's
+ * Story 132: the watchlist's own renderer-side transport, mirroring the scan's
  * `startScan`/`readScan`/`onScanChanged` triad above. `add`/`update`/`remove` resolve at the
  * transport level to `Outcome<WatchlistMutationResult>` - a schema/handler-registry failure is
  * `Outcome`'s own concern, while a refused mutation (name too long, duplicate, ...) is the
@@ -235,7 +235,7 @@ export function onWatchlistChanged(listener: (snapshot: WatchlistSnapshot) => vo
   return client.on(SERVERS_EVENTS.watchlistChanged, listener)
 }
 
-/** Story 197 D3: the four `quickFilters.*` handlers. `list` answers the plain list; the three
+/** Story 197: the four `quickFilters.*` handlers. `list` answers the plain list; the three
  * mutations answer a `QuickFiltersResult` (a refusal carries a reason key, not a thrown error). */
 export function listQuickFilters(): Promise<Outcome<QuickFilter[]>> {
   return client.call(SERVERS_HANDLERS.quickFiltersList)

@@ -1,7 +1,7 @@
 /**
- * Cvar checks — story 009 D4.
+ * Cvar checks — story 009.
  *
- * Runs a profile's raw `cvars` map (never a rendered file, that is D3's job)
+ * Runs a profile's raw `cvars` map (never a rendered file, that is the job)
  * through story 003's resolver (`cvar-facts.ts`) for every `CvarDef` in the
  * catalog (`cvar-catalog.ts`): a cvar the engine does not know, a value the
  * engine treats specially, a numeric value outside the engine's clamp range,
@@ -11,8 +11,8 @@
  * (`src/core/validator.ts`'s cvar block), adapted to this codebase's
  * `CvarDef`/`ResolvedCvar` shapes instead of upstream's `Setting`/`Profile`.
  * Two things upstream has that this deliverable deliberately drops (story
- * decision D5): the "foreign engine notes" / portability block (info-level
- * findings about what *other* assigned engines think of this value — D5 runs
+ * decision): the "foreign engine notes" / portability block (info-level
+ * findings about what *other* assigned engines think of this value — the aggregation runs
  * this function once per assigned engine instead, so each engine's own run
  * already covers that ground) and the r1q2-specific `cl_async`/`r_maxfps`/
  * `cl_maxfps` mirroring special case.
@@ -89,7 +89,7 @@ export function validateCvars(cvars: Record<string, string>, engine: EngineKind)
           // The note's OWN message key, not a generic wrapper: `cvar-facts.ts`
           // documents `EngineValueNote.messageKey` as "what the engine
           // actually does with it, in full sentences" (e.g. the exact
-          // "R1Q2 does not read 0 as unlimited..." text) - a review finding
+          // "R1Q2 does not read 0 as unlimited..." text) -
           // caught an earlier version of this file discarding that specific
           // explanation in favour of generic prose that pointed at a note
           // the Validation tab never renders (that note is `CvarRow`'s own,

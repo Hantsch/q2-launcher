@@ -11,7 +11,7 @@ export const log = scopedLogger('config-index-test')
 /**
  * The fake `handle` every harness in this file uses.
  *
- * Story 036 D5: `ModuleSetup.handle` takes the payload schema and
+ * Story 036: `ModuleSetup.handle` takes the payload schema and
  * `MainModuleRegistry.invoke()` validates against it before entering the
  * handler. A harness that took the schema and dropped it would leave every test
  * in this file green while validation was off in the tests and on in production,
@@ -31,14 +31,14 @@ export function collectHandlers(handlers: Map<string, ModuleHandler>): ModuleSet
 }
 
 /**
- * Story 022 D7: the mutating handlers resolve the canonical profile directory through
+ * Story 022: the mutating handlers resolve the canonical profile directory through
  * `lib/paths`' `userDataDir()`, i.e. `app.getPath('userData')`. Each test file mocks `electron`
  * with this box (a real mock, pointed at a per-test temp folder).
  */
 export const userDataBox = { current: '' }
 
 /**
- * Story 023 D2: the `openFile` handler is the module's one privileged path, so `shell` is mocked
+ * Story 023: the `openFile` handler is the module's one privileged path, so `shell` is mocked
  * rather than left out of the `electron` mock - a test must be able to assert that nothing was
  * handed to the OS on a rejected call.
  */
@@ -86,7 +86,7 @@ export function installation(overrides: Partial<Installation> = {}): Installatio
 }
 
 /**
- * Story 059 D2: the writer's cvar sections now come from `profile.cvarSections`, not from
+ * Story 059: the writer's cvar sections now come from `profile.cvarSections`, not from
  * `CvarDef.group` directly - without one, every catalogue cvar in this file's fixtures would fall
  * into the single reserved `Defaults` bucket, whose name-column alignment spans *every* catalogue
  * cvar (not just one group's) and would pad `set sensitivity`/`set crosshair` differently from what

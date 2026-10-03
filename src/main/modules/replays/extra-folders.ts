@@ -11,7 +11,7 @@ import { canonicalizePath, pathKey } from '../../lib/fs-utils'
 export type ResolvedExtraFolder = DomainResult<{ canonical: string }, ExtraFoldersRefusalKey>
 
 /**
- * Story 142 D2: validates a user-picked extra demo folder. This is the one place a
+ * Story 142: validates a user-picked extra demo folder. This is the one place a
  * renderer-supplied path is ever trusted (CLAUDE.md's own documented exception, mirrored in
  * `REPLAYS_PATH_PAYLOAD_HANDLERS`'s doc comment) - and even here it is never taken at face value.
  * Four checks, split across this function (1-3, async) and `appendExtraFolder` (4, pure):

@@ -52,7 +52,7 @@ function Statement({
 }
 
 /**
- * Story 192 D3: what the server's mod and map mean for the active installation - do I have the mod,
+ * Story 192: what the server's mod and map mean for the active installation - do I have the mod,
  * do I have the map. The mod statement is pure (names in `installation.gameDirs`); the map statement
  * comes from the main process (`mods:map.presence`) and stays absent until a lookup for exactly this
  * server has answered, so a stale or failed answer never shows a wrong state. Server-supplied names

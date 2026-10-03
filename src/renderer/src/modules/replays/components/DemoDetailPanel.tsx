@@ -20,7 +20,7 @@ export interface DemoDetailPanelProps {
   onClose: () => void
   /** Patches this row's `sidecar` part in the view's list after a save - never a rescan. */
   onRowPatched: RowPatcher
-  /** Story 157 D4: a rename swapped this row's id (and file name) out from under the selection -
+  /** Story 157: a rename swapped this row's id (and file name) out from under the selection -
    * threaded straight through to `DemoFileActions`/`RenameDemoDialog`. */
   onRenamed: (oldId: string, newRow: DemoRow) => void
   /** Every other demo's sidecar tags, threaded down to the notes editor's tag-suggestion input. */
@@ -64,7 +64,7 @@ function fieldValueText(
 }
 
 /**
- * Story 155 D1: the read-only facts panel for a selected demo - sticky header
+ * Story 155: the read-only facts panel for a selected demo - sticky header
  * (mirrors `ServerDetailView.tsx`'s), two `<dl>`s of `buildDemoDetail`'s fields (file facts, match facts), and the sidecar's specific issues (when its live state is `'error'`) - the
  * row's own `sidecar.state` only ever says `'error'`, never which problem, so this panel calls
  * `sidecarRead(row.id)` itself to get the itemized `issues` (story 147's `replays.sidecar.issue.*`

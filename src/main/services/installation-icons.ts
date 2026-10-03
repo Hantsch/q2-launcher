@@ -14,8 +14,8 @@ const log = scopedLogger('installation-icons')
  *
  * The bytes are copied into `userData/installation-icons/<installationId>.png` and the record only
  * ever says `{ kind: 'custom' }` - no renderer-supplied path is trusted, persisted or re-read, and
- * moving, renaming or deleting the file the user picked from cannot affect the stored icon (AC4).
- * Every failure leaves both the record and the stored file exactly as they were (AC6).
+ * moving, renaming or deleting the file the user picked from cannot affect the stored icon.
+ * Every failure leaves both the record and the stored file exactly as they were.
  */
 
 /** Subdirectory of `userData` that holds one `<installationId>.png` per custom icon. */
@@ -94,7 +94,7 @@ export class InstallationIconsService {
     return result
   }
 
-  /** Removes the icon entirely - the tile falls back to the engine/initials code (AC5). */
+  /** Removes the icon entirely - the tile falls back to the engine/initials code. */
   async clear(installationId: string): Promise<Outcome<Installation>> {
     const result = this.installations.setIcon(installationId, null)
     if (result.ok) await deleteStoredIcon(installationId)
@@ -170,7 +170,7 @@ export class InstallationIconsService {
   /**
    * The stored icon as a `data:` URL, or `null` when there is none - the common case for the
    * majority of installations, hence not an error. `data:` images are already allowed by
-   * `PRODUCTION_CSP`'s `img-src`, so delivering icons this way needs no CSP change (AC7).
+   * `PRODUCTION_CSP`'s `img-src`, so delivering icons this way needs no CSP change.
    */
   async dataUrl(installationId: string): Promise<string | null> {
     const path = storedIconPath(installationId)

@@ -6,7 +6,7 @@ import { FULLSCREEN_REASON_KEY, NO_STAGE_REASON_KEY } from './cinema'
 import { NO_SESSION } from './playback-control'
 
 /**
- * Story 187 D5: the single owner of "cinema is open" for the running demo.
+ * Story 187: the single owner of "cinema is open" for the running demo.
  *
  * The follower must never send `win_alwaysontop` while the overlay is up - opening the overlay takes
  * focus from the main window, and a follower that reacted to that blur would drop (or, on the way

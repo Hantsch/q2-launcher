@@ -51,7 +51,7 @@ const STATE_TONE: Record<CareSyncState, BadgeTone> = {
 }
 
 /**
- * Story 087 D4 (AC2/AC4): the dashboard's config profiles tile. Composes `useTileData`'s
+ * Story 087: the dashboard's config profiles tile. Composes `useTileData`'s
  * loading/error/success with its own "zero profiles" empty check into `DashboardTileFrame`'s
  * four-way state - same shape as `PlaytimeTile.tsx`.
  *
@@ -99,7 +99,7 @@ export function ConfigProfilesTile() {
     )
   }
 
-  // Story 087 D5 (AC2): the clicked profile's id rides along as the shell's one-shot route focus,
+  // Story 087: the clicked profile's id rides along as the shell's one-shot route focus,
   // which `ConfigView` consumes on mount to land in that profile's editor rather than on the list.
   const onOpenProfile = (profileId: string): void => setRoute('/config', profileId)
 

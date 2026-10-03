@@ -6,18 +6,18 @@ import { formatBytes, formatSpeed } from '../../lib/format'
 import { useLauncher } from '../../store/useLauncher'
 
 /**
- * Story 099 D4: the phase-based primary update action, extracted out of `UpdatePopover.tsx` (R7)
+ * Story 099: the phase-based primary update action, extracted out of `UpdatePopover.tsx` (R7)
  * so the titlebar's popover and About's pending-update block (099) drive the exact same
  * download/cancel/restart logic instead of two independent copies of it. Takes no props and reads
  * `update` from the store itself - same convention `UpdatePopover` used before this extraction -
  * since both call sites need identical store-driven behaviour.
  *
  * Exactly one primary action per phase (098 Decisions):
- *  - `available` -> "Download" (a carried-over download failure, AC7, shows its reason above the
+ *  - `available` -> "Download" (a carried-over download failure, shows its reason above the
  *    button - the update stays offerable, so the button is never replaced by the error).
  *  - `downloading` -> the shared `ProgressBar` + "Cancel".
  *  - `downloaded` -> "Restart and install", unless the *last* attempt in this component instance
- *    was refused (AC6) - then the refusal reason replaces the button rather than sitting next to
+ *    was refused - then the refusal reason replaces the button rather than sitting next to
  *    it. Local-only state: unmounting (e.g. the popover closing) clears it, so a fresh mount always
  *    offers a fresh attempt.
  *  - `error` -> the check-failure reason, no action (there is nothing known to offer).

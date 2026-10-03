@@ -1,7 +1,7 @@
 /**
- * Imported `alias` definitions -> catalogue entries (story 041, D3).
+ * Imported `alias` definitions -> catalogue entries (story 041).
  *
- * D1 taught the parser to recognise `alias <name> <body>` and D2 folded those
+ * The parser recognises `alias <name> <body>` and the importer folds those
  * definitions across files and `exec` depth. Both stop at "a name and a body
  * string". This is the stage that decides what a body *is*: a chat message, a
  * multi-command alias entry, or - when the body rebinds keys - a construct the
@@ -15,7 +15,7 @@
  *
  * ## Body splitting
  *
- * `splitAliasBody` reuses the shared tokenizer (`command-tokenizer.ts`, D1) so
+ * `splitAliasBody` reuses the shared tokenizer (`command-tokenizer.ts`) so
  * the `"`/`;`/`//` rules are the parser's own, not a second set: split on
  * top-level `;` FIRST, then strip a `//` comment from each segment. That order is
  * the engine's: `Cbuf_Execute` cuts the buffer at the first unquoted `;`, and
@@ -75,7 +75,7 @@
  *    weapons (`"mouse "` contains `"use "`).
  *
  * Every category a guess lands on is created on first use and returned in `categories` (story 052
- * D4): an import produces exactly the categories the file gave it, and no others.
+ * ): an import produces exactly the categories the file gave it, and no others.
  * `messages`/`sounds`/`imported` are the importer's own inventions and get a `newId()`;
  * `movement`/`weapons`/`drops` name a template category and keep that id, with the template's
  * English default name and `nameKey`. Before 052 the latter three were referenced by their constant
@@ -89,7 +89,7 @@
  * real configs, since the engine resolves an alias body when it *runs*, not when
  * it is defined. A body's reference to another alias is plain command text and
  * is preserved verbatim either way; deciding whether that reference resolves is
- * the reference graph's job (D4), not this function's.
+ * the reference graph's job, not this function's.
  *
  * The fold is last-definition-wins by name, keeping the first-seen position -
  * the same rule and the same `Map#set` idiom `import-reader.ts#applyAlias` uses,
@@ -193,7 +193,7 @@ export interface ImportedActionsResult {
   /** One entry per alias definition, minus the ones that became layers. */
   actions: ConfigAction[]
   /** Every category the conversion filed an entry into, in first-use order - each one created here
-   * (story 052 D4), because a profile only has the categories it carries. */
+   * (story 052), because a profile only has the categories it carries. */
   categories: ConfigActionCategory[]
   /** One toggle layer per name in `layerAliases` that really did rebind keys. */
   layers: AltLayer[]
@@ -241,7 +241,7 @@ const IMPORT_CATEGORY_NAMES: Record<'messages' | 'sounds' | 'imported', string> 
  * Splits an alias body into its top-level command segments: `;` first, then a
  * `//` comment off each segment, then drop what is left empty - see the file
  * doc comment for why that order is the engine's. Exported because the reference
- * graph (D4) has to walk the same segments this conversion produced.
+ * graph has to walk the same segments this conversion produced.
  */
 export function splitAliasBody(body: string): string[] {
   return splitTopLevelSemicolons(body)
@@ -287,7 +287,7 @@ function unquoteMessage(text: string): string {
  * which needs no code of its own precisely because only the top-level `aliases`
  * list defines entries.
  *
- * Exported (story 042, D4) for `profile-restore.ts`, which reads a *launcher-written* alias body
+ * Exported (story 042) for `profile-restore.ts`, which reads a *launcher-written* alias body
  * back and has to classify its segments by the identical rule - `say`/`say_team` with an argument is
  * a message, everything else is raw, one surrounding quote pair stripped. Two implementations of
  * that table would be two answers to "is this line a chat message", which is exactly the drift the
@@ -310,7 +310,7 @@ function isLiteralWaitCommand(command: ConfigCommand): boolean {
 }
 
 /**
- * Collapses every maximal run of consecutive literal `wait` commands (story 045, D2) into one
+ * Collapses every maximal run of consecutive literal `wait` commands (story 045) into one
  * or more `{ kind: 'wait', frames }` commands, capped at `MAX_WAIT_FRAMES` each so a body never
  * resolves to a `wait` command longer than the launcher's own cap - a run of 120 becomes
  * `wait(50), wait(50), wait(20)`, not one `wait(50)` that silently drops 70 frames. Everything
@@ -319,7 +319,7 @@ function isLiteralWaitCommand(command: ConfigCommand): boolean {
  * Has to run over the whole list rather than per-segment (unlike `configCommandFor`, which turns
  * one segment into one command) because a run of several segments becomes one command - the
  * inverse of what `commandLineFor` expands one `wait` command back into. Exported for the same
- * reason `configCommandFor`/`entryKindFor` are (story 042, D4): `profile-restore.ts` reads a
+ * reason `configCommandFor`/`entryKindFor` are (story 042): `profile-restore.ts` reads a
  * launcher-written alias body back with the identical rule, and two implementations of "how many
  * literal waits collapse into one command" would be two answers.
  */
@@ -350,7 +350,7 @@ export function collapseWaitRuns(commands: readonly ConfigCommand[]): ConfigComm
   return result
 }
 
-/** Exactly one message command and nothing else, or anything else at all. Exported (story 042, D4)
+/** Exactly one message command and nothing else, or anything else at all. Exported (story 042)
  * for `profile-restore.ts`'s kind inference, for the same reason `configCommandFor` is: the
  * "message vs. everything else" test is one table, not two. */
 export function entryKindFor(commands: readonly ConfigCommand[]): 'message' | 'alias' {
@@ -387,13 +387,13 @@ function guessCategoryKey(commands: readonly ConfigCommand[]): CategoryKey {
 }
 
 /**
- * Hands out category ids, creating every category it files an entry into (story 052 D4) and
+ * Hands out category ids, creating every category it files an entry into (story 052) and
  * remembering it, so twenty imported aliases share one `imported` drawer instead of getting twenty.
  *
  * Until 052 the three built-in keys returned their id verbatim and created *nothing*: the Controls
  * tab showed Movement/Weapons/Weapon dropping whether or not the profile carried them, and the
  * writer emitted their sections regardless, so a category record would have been redundant. Both of
- * those are gone - an import now produces exactly the categories the file gave it (AC 7), and an
+ * those are gone - an import now produces exactly the categories the file gave it, and an
  * entry filed under a category the profile does not carry would be invisible in the rail and land in
  * the file's trailing "other" bucket.
  *
@@ -573,7 +573,7 @@ function waitAliasEntry(
  * Independent of the order the definitions arrive in, and of everything in
  * `binds` except a layer's trigger - see the file doc comment.
  *
- * Story 045, D6: before the per-definition loop below, `entry-idioms.ts`'s
+ * Story 045: before the per-definition loop below, `entry-idioms.ts`'s
  * shared recogniser runs once over this same de-duplicated, last-definition-
  * wins set and finds the toggle/press-release/`waitN` idioms. A name it claims
  * is skipped in the loop - never converted twice - and instead produces exactly
@@ -582,8 +582,8 @@ function waitAliasEntry(
  * half, the wait alias's own name) so the result stays in the same document
  * order the untouched per-definition path already produces. A name a
  * recognised idiom did not claim falls through to the loop exactly as before -
- * AC4's "falls back to plain alias entries" - including every rebind/ambiguous
- * check (D5's recogniser never claims a body with a top-level `bind` segment,
+ * the "falls back to plain alias entries" - including every rebind/ambiguous
+ * check (the recogniser never claims a body with a top-level `bind` segment,
  * so a consumed name could never have reached that check anyway).
  */
 export function buildImportedActions(input: ImportedActionsInput): ImportedActionsResult {
@@ -652,9 +652,9 @@ export function buildImportedActions(input: ImportedActionsInput): ImportedActio
       kind,
       commands,
       aliasName: definition.name,
-      // Story 041, D3 ("Decided in refine"): an empty-body alias (`alias blaster_settings ""`) is a
+      // Story 041 ("Decided in refine"): an empty-body alias (`alias blaster_settings ""`) is a
       // user-authored hook, not a generated action with nothing left to say - the writer's "no
-      // usable commands -> no alias line" rule (story 038 AC6) must not swallow it. `kind` is always
+      // usable commands -> no alias line" rule (story 038) must not swallow it. `kind` is always
       // 'alias' here (an empty body can never satisfy `entryKindFor`'s one-message-command test), but
       // the check is spelled out rather than assumed, since only a `kind: 'alias'` entry's own name
       // is what `alias-render.ts` would otherwise silently drop.

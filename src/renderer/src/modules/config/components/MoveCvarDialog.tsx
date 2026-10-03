@@ -7,7 +7,7 @@ import { useSubmitting } from '../../../components/ui/useSubmitting'
 import type { CvarPlacementOption } from '../lib/cvar-sections'
 
 /**
- * "Move to..." picker for one cvar (story 059 D8): drag and drop itself is story 054's job, out of
+ * "Move to..." picker for one cvar (story 059): drag and drop itself is story 054's job, out of
  * scope here - this is the non-drag mechanism the deliverable asks for instead, a `Select` naming
  * every section and sub-section in profile order, mirroring `DeleteCategoryDialog`'s own target
  * `Select` one level up.

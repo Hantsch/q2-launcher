@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /**
- * Story 071 D2: where a downloaded package lives while it is being fetched, and where it lives
+ * Story 071: where a downloaded package lives while it is being fetched, and where it lives
  * once it has been verified (Decisions (Sprint), "Paths"):
  *
  * ```
@@ -18,10 +18,10 @@ import { join } from 'node:path'
  *  - a scattered `app.getPath(...)` call is how a cache path quietly becomes two slightly
  *    different cache paths. There is exactly one place here that knows the layout.
  *
- * The caller for the real app is `src/main/lib/paths.ts`'s `userDataDir()` (D4).
+ * The caller for the real app is `src/main/lib/paths.ts`'s `userDataDir()`.
  *
  * The `extract/<jobId>/` sibling directory named in the same decision belongs to the extraction
- * lifecycle (D3/D4) and is deliberately not built here.
+ * lifecycle and is deliberately not built here.
  */
 
 /** Under `userData`, so the whole cache can be dropped without touching `state.json`. */

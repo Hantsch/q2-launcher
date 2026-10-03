@@ -1,7 +1,7 @@
 import type { ValidationCheck } from '@shared/types'
 
 /**
- * Truth source for the "Demo" marker (story 074 D7): an installation is demo
+ * Truth source for the "Demo" marker (story 074): an installation is demo
  * data exactly when its checks contain the inspector's
  * `validation.pak0NotRetail` warning (`src/main/services/inspector.ts` ~line
  * 196) - derived at read time, no stored flag, no migration. This also labels

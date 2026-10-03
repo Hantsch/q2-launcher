@@ -29,9 +29,9 @@ import type { AppContext } from '../../context'
 import { replaysState } from './persisted'
 
 /**
- * Story 140 D2: the `nameTemplates.*` handler bodies. Each op follows the same three steps -
+ * Story 140: the `nameTemplates.*` handler bodies. Each op follows the same three steps -
  * reconcile the persisted `NameTemplatesState` against the currently shipped pattern list
- * (`mergeWithShipped`, story 140 D1), apply the pure op the caller asked for, persist the result -
+ * (`mergeWithShipped`, story 140), apply the pure op the caller asked for, persist the result -
  * mirroring `src/main/modules/servers/index.ts`'s `mutate()` helper for `sources.*`: read the
  * current slice live, run a pure function over it, and only ever persist on success.
  *
@@ -106,7 +106,7 @@ export function nameTemplatesUpdate(
 }
 
 /**
- * Removes a template (a user entry outright, a shipped one tombstoned - story 140 D1's
+ * Removes a template (a user entry outright, a shipped one tombstoned - story 140's
  * `removeTemplate`). Refused when `id` names no current entry.
  */
 export function nameTemplatesRemove(
@@ -170,7 +170,7 @@ export function nameTemplatesRestore(app: AppContext): Outcome<NameTemplatesView
 /**
  * The ordered, resolved template strings plus their fingerprint - what a later deliverable's demo
  * scan (story 144) consumes to decide whether a cached demo's name-derived facts need
- * re-deriving (`needsNameFactsRederive`, story 140 D1). Read-only, like `nameTemplatesList`.
+ * re-deriving (`needsNameFactsRederive`, story 140). Read-only, like `nameTemplatesList`.
  */
 export function currentNameTemplates(app: AppContext): {
   templates: string[]

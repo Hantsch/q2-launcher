@@ -4,7 +4,7 @@ import { validateConsoleLine } from '@shared/replays/console-line'
 import { NO_SESSION, type PlaybackControl } from './playback-control'
 
 /**
- * Story 166 D2: `playback.consoleSend` - re-validates a user-typed console line in main (the renderer
+ * Story 166: `playback.consoleSend` - re-validates a user-typed console line in main (the renderer
  * is never trusted), then hands the trimmed line to the running demo's playback channel. A refused
  * line never reaches the channel; the channel's no-session error becomes the console's own typed
  * `noSession`; any other channel failure passes through unchanged.

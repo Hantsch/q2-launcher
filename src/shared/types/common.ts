@@ -25,7 +25,7 @@ export interface AppInfo {
  *
  * `null` - not a separate error shape - is the honest answer whenever the version in question has
  * no section in the changelog it was resolved from: a development build, a build from before
- * releases were published, or a version bump whose changelog entry isn't written yet. AC5 renders
+ * releases were published, or a version bump whose changelog entry isn't written yet. The About view renders
  * that as an empty state, so it is a normal outcome rather than a failure.
  */
 export type ReleaseNotes = {

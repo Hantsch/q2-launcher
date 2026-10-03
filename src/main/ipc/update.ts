@@ -10,12 +10,12 @@ import type { AppContext } from '../context'
 import { handle, handleOutcome } from './index'
 
 /**
- * Story 097 D5: the update-check channels. Both resolve with the service's `UpdateState` directly
+ * Story 097: the update-check channels. Both resolve with the service's `UpdateState` directly
  * (never an `Outcome`), per the shared contract - `handle`, not `handleOutcome`, is the right
  * wrapper here, same as `launch:getState` in `launch.ts`. Neither handler needs its own try/catch:
  * `service.ts`'s `getState()`/`checkNow()` are both documented to never reject.
  *
- * Story 098 D1: the four staged actions. These *can* be refused - a download with nothing to
+ * Story 098: the four staged actions. These *can* be refused - a download with nothing to
  * download, a restart while a game runs - so they resolve with an `Outcome` and go through
  * `handleOutcome`, the same guard-then-`fail(key)` shape `launch:start` uses for
  * `launch.error.installationBusy`. Every refusal is decided in the service, in main: this file

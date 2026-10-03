@@ -3,10 +3,10 @@ import { fetchWithPolicy, type FetchImpl } from '../../../lib/http'
 import type { NewsSource } from './harness'
 
 /**
- * Story 082 D5, first half: retrieve `news/index.json` and the `.md` documents it references -
+ * Story 082, first half: retrieve `news/index.json` and the `.md` documents it references -
  * conditionally, with a 5s budget and one retry per request - and hand the raw material to the
- * caller. Validation is `feed-pipeline.ts`'s job (D3), persistence is `feed-cache.ts`'s, deciding
- * when to fetch and what to emit is the news service's (D6). Nothing here parses frontmatter,
+ * caller. Validation is `feed-pipeline.ts`'s job, persistence is `feed-cache.ts`'s, deciding
+ * when to fetch and what to emit is the news service's. Nothing here parses frontmatter,
  * touches the disk or reads the clock.
  *
  * ## The 304 path is the risky part, so it is spelled out
@@ -31,7 +31,7 @@ import type { NewsSource } from './harness'
  *  - **the index could not be retrieved, or nothing changed but something failed** -
  *    `{ kind: 'failed' }`. The caller keeps its cached feed *and its old `retrievedAt`*: a feed
  *    whose documents 500ed was not successfully retrieved, and dressing it up as fresh would hide
- *    exactly the staleness AC7/AC8 want visible.
+ *    exactly the staleness that must stay visible.
  *
  * The second trap is the ETag map that comes back. `etags` on a `changed` result contains an entry
  * **only** for documents whose text is in `documents` - a document that failed has its previous
@@ -45,7 +45,7 @@ import type { NewsSource } from './harness'
  *
  * The global `fetch` (Node/Electron built-in), like `src/main/lib/content-repo.ts` uses for
  * manifests - not `net.fetch`, which would need an Electron runtime for a JSON GET. `fetchImpl` is
- * an injection seam for D6's service tests; this module's own tests use the real `fetch` pointed at
+ * an injection seam for the news service's tests; this module's own tests use the real `fetch` pointed at
  * a `node:http` server on `127.0.0.1`, so no test mocks the global.
  *
  * The retry budget is exactly one extra request, immediately, and only for a timeout, a network
@@ -120,7 +120,7 @@ export interface ChangedNewsFetch {
   /** `refreshed` when the index answered `304` and was re-requested for its body. */
   indexStatus: 'fetched' | 'refreshed'
   /** Documents the index references that could not be retrieved. Not fatal: the rest of the feed
-   * still arrives (AC2), and the pipeline drops the entries whose text is missing. */
+   * still arrives, and the pipeline drops the entries whose text is missing. */
   failures: NewsDocumentFailure[]
 }
 
@@ -148,7 +148,7 @@ export type FetchNewsResult =
   ChangedNewsFetch | UnchangedNewsFetch | FailedNewsFetch | SkippedNewsFetch
 
 export interface FetchNewsDocumentsOptions {
-  /** From `resolveNewsSource()` (D4). `skip` answers `{ kind: 'skipped' }` without a request. */
+  /** From `resolveNewsSource()`. `skip` answers `{ kind: 'skipped' }` without a request. */
   source: NewsSource
   /** The cache's ETag map: `NEWS_INDEX_DOCUMENT` plus one key per known document. */
   etags?: Readonly<Record<string, string>>
@@ -271,8 +271,8 @@ export async function fetchNewsDocuments(
 ): Promise<FetchNewsResult> {
   const previous: Record<string, string> = { ...(options.etags ?? {}) }
 
-  // Defensive: D6 is expected not to call this at all under a `skip` source, but "the news fetch
-  // makes no outbound request in a harness run" (AC10) is a promise worth keeping in the one place
+  // Defensive: the news service is expected not to call this at all under a `skip` source, but "the news fetch
+  // makes no outbound request in a harness run" is a promise worth keeping in the one place
   // that would make the request, not only in the one place that decides to.
   if (options.source.kind === 'skip') {
     options.log?.info('news: fetch skipped (ui-harness gate open, no loopback base named)')

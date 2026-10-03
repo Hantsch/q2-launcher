@@ -1,5 +1,5 @@
 /**
- * Pure Tab / Shift+Tab indent-dedent helpers for the Raw File editor overlay (story 057 D1).
+ * Pure Tab / Shift+Tab indent-dedent helpers for the Raw File editor overlay (story 057).
  *
  * Both functions take a text buffer and a selection range and return the new buffer plus a
  * recomputed selection range that keeps the same logical lines selected - the caller

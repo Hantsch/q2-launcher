@@ -4,15 +4,15 @@ import type { DownloadDiagnostics, DownloadDiagnosticsPackage } from '@shared/mo
 import { statusTone } from '../../../lib/status'
 
 /**
- * Story 078 D5 (AC1/AC2/AC3/AC6): the shared, collapsed "what went wrong" detail for a failed
- * download - mounted by both the Downloads tab's `FailureLogEntry` (D6) and the bootstrap
- * wizard's `RunningStep` (D7), so a user reads the same cause in either place (Decisions
+ * Story 078: the shared, collapsed "what went wrong" detail for a failed
+ * download - mounted by both the Downloads tab's `FailureLogEntry` and the bootstrap
+ * wizard's `RunningStep`, so a user reads the same cause in either place (Decisions
  * (Sprint), Q2). A native `<details>`/`<summary>` mirroring `DownloadsView.tsx`'s existing
- * dismissed-failures disclosure (lines 203-220) - closed by default satisfies AC3 without JS
+ * dismissed-failures disclosure (lines 203-220) - closed by default needs no JS
  * state, and the body genuinely leaves the accessible tree until opened (browser behaviour, not
  * something this component has to implement).
  *
- * Renders `null` outright when there is nothing to show (AC6) - a failure entry written before
+ * Renders `null` outright when there is nothing to show - a failure entry written before
  * this story, or from the single-package pipeline, carries no `diagnostics` at all.
  *
  * Deliberately does not render `diagnostics.assembly` or any package's `contents` - (User) Q1:
@@ -21,7 +21,7 @@ import { statusTone } from '../../../lib/status'
 export interface FailureCauseDetailProps {
   diagnostics: DownloadDiagnostics | undefined
   /** Optional slot rendered inside the opened body, below the cause content - the reveal-log
-   * action lands here (D6/D7), demoting it out of the card's always-visible cluster (AC5). */
+   * action lands here, demoting it out of the card's always-visible cluster. */
   footer?: ReactNode
 }
 
@@ -29,11 +29,11 @@ export interface FailureCauseDetailProps {
  * The furthest pipeline step a package's booleans show it reaching, in the order the bootstrap
  * pipeline actually runs them: fetched (implicit - the package is in the list at all) → verified
  * → extracted → contributed. Stops at the first step that is not true, so a package that
- * verified and extracted but never contributed reads as having reached "extracted" (AC1's
+ * verified and extracted but never contributed reads as having reached "extracted" (the
  * "every package downloaded, nothing reached the installation" case) rather than being credited
  * with a step it never actually cleared.
  *
- * `contributed` carries a third state review finding M3 (078) exists to distinguish:
+ * `contributed` carries a third state (story 078) that exists to distinguish:
  * `diagnostics.ts`'s `recordAssembly` sets it to an explicit `true`/`false` for every package on
  * every package on every call, but only ever calls it when assembly actually ran - so `undefined`
  * means "assembly never ran for this job" (e.g. a run that failed downloading a *later* package,

@@ -7,9 +7,9 @@ import { useSubmitting } from '../../../components/ui/useSubmitting'
 import type { EntryPlacementOption } from '../lib/entry-order'
 
 /**
- * "Move to…" picker for one Controls row (story 054 D8), reached from the row's kebab menu
+ * "Move to…" picker for one Controls row (story 054), reached from the row's kebab menu
  * (`ControlsRowMenu`) - the keyboard path for a cross-category/cross-sub-category move now that
- * drag (story 054 D4/D5) is the mouse one. Mirrors `MoveCvarDialog.tsx`'s shape almost verbatim: a
+ * drag (story 054) is the mouse one. Mirrors `MoveCvarDialog.tsx`'s shape almost verbatim: a
  * `Select` naming every category and sub-category in profile order (`entryPlacementOptions`).
  */
 export function MoveEntryDialog({

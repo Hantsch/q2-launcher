@@ -72,7 +72,7 @@ import type {
 import { computeTargetVerdict } from './target'
 
 /**
- * Story 074 D4: the bootstrap job - "download Q2PRO plus the free demo data plus the 3.20 point
+ * Story 074: the bootstrap job - "download Q2PRO plus the free demo data plus the 3.20 point
  * release, verify them, extract them, and assemble one playable `baseq2` installation".
  *
  * ## One job, three packages
@@ -94,39 +94,39 @@ import { computeTargetVerdict } from './target'
  *    `computeTargetVerdict` even though the wizard's target step already showed a verdict - "paths
  *    from the renderer are never trusted" (CLAUDE.md). A `blocked` verdict stops everything before
  *    a single byte or directory exists. The canonical path from the verdict is what gets used.
- * 1b. **Re-verify the copy source** (story 088 D4, `store-copy` runs only). The wizard's *other*
+ * 1b. **Re-verify the copy source** (story 088, `store-copy` runs only). The wizard's *other*
  *    renderer-supplied path, re-judged the same way and for the same reason: main re-lists the
  *    detected retail sources itself (`deps.retailSources`, which re-inspects each one) and refuses
  *    the run with `downloads.error.retailSourceUnverified` unless the chosen path is among them and
  *    still verifies as retail. Placed here, before step 2, so a refusal registers nothing, creates
  *    no folder and leaves no half-built installation - and what is copied from afterwards is the
  *    `rootPath` off main's own list entry, never the string the renderer sent.
- * 1c. **Re-verify the picked folder** (story 089 D3, `existing-folder` runs only). The same step for
+ * 1c. **Re-verify the picked folder** (story 089, `existing-folder` runs only). The same step for
  *    the third data source, in the same place and for the same reason - but with no detected list to
  *    resolve against, because the whole point of this source is that the launcher never found it on
  *    its own. What stands in for that list is `inspectGameDataSource` (`game-data-source.ts`)
  *    re-reading the folder here and now, plus a containment test against the target: "copying a
  *    folder into itself" is the one way this source could destroy the user's data (Decisions
  *    (Sprint)). Either refusal ends the whole `startBootstrap` call with
- *    `downloads.error.gameDataSourceUnusable` (AC5), before a package is resolved, an installation
+ *    `downloads.error.gameDataSourceUnusable`, before a package is resolved, an installation
  *    is registered or a directory is created.
  * 2. **Resolve the packages**: the pinned engine build, plus - for a `free-download` run only -
  *    `role: 'demo'` and `role: 'point-release'`. Missing any one of them fails *before* anything is
  *    created, on disk or in the library. A `store-copy` run downloads the engine and nothing else
- *    (088 AC4): its game data is copied from the verified source instead.
+ *    (story 088): its game data is copied from the verified source instead.
  * 3. **Register the installation** (`InstallationsService.create()`), whose status comes from
  *    `inspectInstallation` reading the freshly created, still empty skeleton - so the library shows
- *    a real entry with a real verdict from the very first moment (Decisions (Sprint)). Story 077 D3:
+ *    a real entry with a real verdict from the very first moment (Decisions (Sprint)). Story 077:
  *    unless a *failed* installation of ours is already registered at that exact canonical path, in
- *    which case this run adopts it instead of creating a second one (AC7) - see the predicate at
+ *    which case this run adopts it instead of creating a second one - see the predicate at
  *    that call site, which is the whole safety of the change.
  * 4. **Only now create the `Job`.** Before this point there is nothing to cancel and no job to
  *    cancel it with, which is why steps 1-3 answer a plain failed `Outcome` instead.
  * 5. Per package, in order: download (verified by the fetcher) then extract, each into its own
  *    `<cache>/extract/<jobId>/<packageId>` directory - one per package, since a single job now
  *    holds three archives.
- * 6. **Assemble core** - `assembleInstallation({ scope: 'core' })`, D3's allowlist.
- *    Story 088 D4: a `store-copy` run adds the verified retail root to `sources` as a plain
+ * 6. **Assemble core** - `assembleInstallation({ scope: 'core' })`, the fixed allowlist.
+ *    Story 088: a `store-copy` run adds the verified retail root to `sources` as a plain
  *    `AssembleSource` with `role: 'retail'` (Decisions (Sprint): "the retail install root is just
  *    another assemble source") and passes `dataSource: 'store-copy'`, so this one pass copies the
  *    engine payload out of the downloaded archive *and* pak0/pak1(+pak2) out of that root - in the
@@ -134,12 +134,12 @@ import { computeTargetVerdict } from './target'
  *    therefore still strictly before step 7's first playability revalidation. `copyRetailGameData`
  *    (`retail-source.ts`) is that same call with the engine half omitted; the job needs both halves
  *    in one pass, or `missingRequired` and the assembly diagnostics would each see half a plan.
- *    Story 076 D3: if that pass reports a *required* entry no source dir could satisfy, the job
+ *    Story 076: if that pass reports a *required* entry no source dir could satisfy, the job
  *    fails here with `downloads.error.packageIncomplete` naming the package - before the first
  *    revalidation, so the report says which archive came up empty instead of only that the result
  *    is unplayable.
  * 7. **Revalidate** through `InstallationsService.validate()`, and record `playableAtRatio` the
- *    first time that verdict is neither `invalid` nor `missing` (AC6). The *trigger* is the real
+ *    first time that verdict is neither `invalid` nor `missing`. The *trigger* is the real
  *    inspector verdict; only the ratio value itself is this file's (see `PLAYABLE_AT_RATIO`).
  * 8. **Assemble auxiliary** (`video/*`, `players/*`) when the user asked for it - after the
  *    installation is already playable, which is the whole point of the marker in step 7.
@@ -155,22 +155,22 @@ import { computeTargetVerdict } from './target'
  * installation pointing at files that are gone - the confusing failure of the two.
  *
  * The cleanup removes exactly the files this job copied plus the directories it created, and
- * **never** `rm -rf`s the target root: D2's verdict treats a non-empty target as a *warning*, not a
+ * **never** `rm -rf`s the target root: the verdict treats a non-empty target as a *warning*, not a
  * blocker, so the user may well have pointed the wizard at a folder that already held something of
  * theirs. `rmdir` (not `rm -r`) on the directories we may have created succeeds only while they are
  * empty, which is precisely the "we made it, so we may remove it" test.
  *
- * Story 077 D2 makes the two callers differ for the first time, through one `CleanUpMode`:
+ * Story 077 makes the two callers differ for the first time, through one `CleanUpMode`:
  *
  *  - **Cancel** is `{ unregister: !wasAdopted, removeRoot: !targetPreexisted }` (finding fix after
- *    D3 landed). The user said "never mind" about *this run*, so a freshly-created installation and
+ *    the allowlist landed). The user said "never mind" about *this run*, so a freshly-created installation and
  *    the folder this job made go away exactly as in 074 - but a retry that adopted a pre-existing
  *    failed installation must not delete a registration that predates this job, or cancelling a
  *    retry would recreate the empty-library problem this story exists to fix. That same adopted
- *    case puts the `lastFailure` D3 cleared on adoption back (second finding fix), so a cancelled
+ *    case puts the `lastFailure` that was cleared on adoption back, so a cancelled
  *    retry returns the installation to exactly the state it had before the user clicked retry.
  *  - **Failure** passes `{ unregister: false, removeRoot: false }`. The user's name, folder and
- *    engine were real decisions and a failed download is no reason to throw them away (077 AC1), so
+ *    engine were real decisions and a failed download is no reason to throw them away (story 077), so
  *    the registration survives and the target root stays on disk - which is what makes the surviving
  *    installation honestly `invalid` (an empty folder that exists) rather than `missing`. The
  *    assembled files and the extract cache still go: the retry re-downloads from scratch rather than
@@ -187,7 +187,7 @@ import { computeTargetVerdict } from './target'
  * installation that already carries a `lastFailure`, which for a *first* failure is only true once
  * this write has landed - see the comment at the call site.)
  *
- * ## What a failure leaves behind instead (story 075 D3)
+ * ## What a failure leaves behind instead (story 075)
  *
  * Nothing above changes, but the job now *tells* the optional diagnostics collector
  * (`../diagnostics.ts`, entering through `BootstrapDeps.diagnostics`) what it already knows as it
@@ -197,7 +197,7 @@ import { computeTargetVerdict } from './target'
  * `failed()`/`cleanUp()` it describes, so what gets deleted and when is exactly what it was - the
  * collector observes this file, it never steers it. A job with no collector records nothing.
  *
- * Story 078 D3 adds the two records that were missing on 2026-09-08, when every package verified
+ * Story 078 adds the two records that were missing on 2026-09-08, when every package verified
  * and extracted and the target was still not playable: **what assembly looked for and what served
  * it** (`recordAssembly`, after each assemble pass) and **what each extraction actually produced**
  * (a bounded, top-level `readdir` on the success path of the package loop). Both follow the same
@@ -206,7 +206,7 @@ import { computeTargetVerdict } from './target'
  * best-effort and can only ever record less, never fail the job.
  *
  * Verified archives stay in the download cache on purpose (`fetcher.ts` promoted them there):
- * AC6's "no partial files" is about partial ones, and the cache is what makes a retry cheap. The
+ * "No partial files" is about partial ones, and the cache is what makes a retry cheap. The
  * extracted trees do not - they have either been copied into the installation or abandoned.
  */
 
@@ -238,7 +238,7 @@ const DOWNLOAD_SHARE = 0.8
 export const ASSEMBLE_CORE_RATIO = 0.9
 
 /**
- * The ratio recorded as `playableAtRatio` (AC6). It is the job's own progress coordinate at the
+ * The ratio recorded as `playableAtRatio`. It is the job's own progress coordinate at the
  * moment the core assemble pass is done, which is exactly where the first non-`invalid` verdict can
  * occur - the point of the marker is to tell the user "from here the game is playable while the
  * rest continues", and that is a position on this job's bar, not a second opinion about the
@@ -259,7 +259,7 @@ const ASSEMBLE_AUX_RATIO = 0.97
 const SAFE_PATH_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
 
 /**
- * Story 088 D4: the `AssembleSource.packageId` a `store-copy` run's retail root enters assembly
+ * Story 088: the `AssembleSource.packageId` a `store-copy` run's retail root enters assembly
  * under. Not a `ManifestPackage.id` - nothing was downloaded for it - but the field is what the
  * assembly diagnostics attribute a copied file to, so it gets the same pseudo-id
  * `copyRetailGameData` (`retail-source.ts`) already uses for the identical source.
@@ -267,7 +267,7 @@ const SAFE_PATH_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
 const RETAIL_SOURCE_PACKAGE_ID = 'retail-source'
 
 /**
- * Story 089 D3: the same pseudo-id for the *other* copy source - the folder the user hand-picked.
+ * Story 089: the same pseudo-id for the *other* copy source - the folder the user hand-picked.
  * Distinct from `RETAIL_SOURCE_PACKAGE_ID` so the assembly diagnostics attribute a copied pak to the
  * source it actually came from; a run only ever has one of the two.
  */
@@ -284,14 +284,14 @@ const PRUNABLE_TARGET_DIRS = [
  * Story 074 finding fix (Decisions (Sprint): "default (existing) icon assigned automatically").
  * One of the shipped icon ids under `src/renderer/src/assets/installations/`
  * (`installation-icons.ts`'s `SHIPPED_ICONS`) - the Q2PRO logo, the fallback for every
- * bootstrap-supported engine that has no icon of its own. Story 080 D3: R1Q2 gets its own shipped
+ * bootstrap-supported engine that has no icon of its own. Story 080: R1Q2 gets its own shipped
  * icon instead (`iconIdForEngine` below). Not a new asset (CLAUDE.md's "no image assets" rule):
  * this only references icons that already ship.
  */
 const DEFAULT_BOOTSTRAP_ICON_ID = 'q2pro-logo'
 
 /**
- * Story 080 D3 (AC6): which shipped icon a freshly-registered bootstrap installation gets, keyed
+ * Story 080: which shipped icon a freshly-registered bootstrap installation gets, keyed
  * by the engine the wizard installed - `r1q2-logo` for R1Q2 (already shipped under
  * `src/renderer/src/assets/installations/`, discovered by `installation-icons.ts`'s glob),
  * `DEFAULT_BOOTSTRAP_ICON_ID` for everything else.
@@ -322,7 +322,7 @@ export interface StartedBootstrap extends StartedJob<DownloadsErrorKey, Bootstra
 export interface BootstrapInstallationsHost {
   create(input: CreateInstallationInput): Promise<Outcome<Installation>>
   /**
-   * Story 077 D3 (AC7): the retry-adoption lookup. Deliberately the *same* comparison
+   * Story 077: the retry-adoption lookup. Deliberately the *same* comparison
    * `create()`'s duplicate check uses (canonicalize, then compare `pathKey`s), so "would `create()`
    * refuse this path as a duplicate?" and "did this lookup find something?" can never disagree -
    * which is what makes the adoption predicate below a narrowing of that guard rather than a second
@@ -333,7 +333,7 @@ export interface BootstrapInstallationsHost {
   remove(input: RemoveInstallationInput): Promise<Outcome<null>>
   /**
    * Story 074 finding fix: the only path that ever writes `Installation.writeDirPath` - reused
-   * here, right after `create()`, for AC2's Program-Files remedy so this file never invents a
+   * here, right after `create()`, for the Program-Files remedy so this file never invents a
    * second way to persist that field. Mirrors `ChecksList.tsx`'s existing `set-write-dir` remedy.
    */
   update(input: UpdateInstallationInput): Promise<Outcome<Installation>>
@@ -344,16 +344,16 @@ export interface BootstrapInstallationsHost {
    */
   setIcon(id: string, icon: InstallationIcon | null): Outcome<Installation>
   /**
-   * Story 077 D1/D2: records this job's failure on the installation that survives it (AC3).
+   * Story 077: records this job's failure on the installation that survives it.
    * Synchronous, mirroring `InstallationsService.setLastFailure`'s own signature - and the only
    * writer of that field in this file, which is what keeps the record and the `Job.error` the same
    * key.
    */
   setLastFailure(id: string, failure: InstallationLastFailure | null): Outcome<Installation>
   /**
-   * Story 092 D2 (Decisions (Sprint)): "the bootstrap job records the engine version it just
+   * Story 092 (Decisions (Sprint)): "the bootstrap job records the engine version it just
    * installed" - so a freshly bootstrapped installation never starts in the "no recorded engine
-   * version" unknown state 092's own update check (D3) would otherwise treat as "differs".
+   * version" unknown state 092's own update check would otherwise treat as "differs".
    * Synchronous, mirroring `InstallationsService.setEngineState`'s own signature.
    */
   setEngineState(id: string, patch: Partial<InstallationEngineState>): Outcome<Installation>
@@ -368,7 +368,7 @@ export interface BootstrapDeps {
   installations: BootstrapInstallationsHost
   manifest: ManifestSource
   /**
-   * Story 088 D4: main's own, freshly computed list of detected retail sources -
+   * Story 088: main's own, freshly computed list of detected retail sources -
    * `listDetectedRetailSources` (`retail-source.ts`) in production, through the same resolution the
    * `bootstrap.retailSources` handler uses (`../index.ts`), so the wizard and the job can never be
    * looking at two different lists.
@@ -380,7 +380,7 @@ export interface BootstrapDeps {
    */
   retailSources: () => Promise<DetectedRetailSource[]>
   /**
-   * Story 089 D3: how an `existing-folder` run's picked folder is re-judged before anything is
+   * Story 089: how an `existing-folder` run's picked folder is re-judged before anything is
    * registered - `inspectGameDataSource` (`game-data-source.ts`) unless a test substitutes a
    * verdict.
    *
@@ -402,8 +402,8 @@ export interface BootstrapDeps {
   /** Handed to the fetcher; the real client unless overridden. */
   fetchImpl?: FetchImpl
   /**
-   * Story 080 D3: R1Q2's own setup/runtime checks (`r1q2-setup.ts`) - the x86 VC++ runtime probe
-   * (AC5), the `vid_ref "r1gl"` config seed (AC4) and the license-notice install (AC8). Reached
+   * Story 080: R1Q2's own setup/runtime checks (`r1q2-setup.ts`) - the x86 VC++ runtime probe
+   *, the `vid_ref "r1gl"` config seed and the license-notice install. Reached
    * only through this port, never imported directly, so the job can be tested with fakes.
    */
   r1q2Setup: R1q2SetupPort
@@ -418,7 +418,7 @@ export interface BootstrapDeps {
    */
   resolveR1q2LicensePath: () => string
   /**
-   * Story 075 D3: makes this job's diagnostics collector once the job id exists (`ports.ts`).
+   * Story 075: makes this job's diagnostics collector once the job id exists (`ports.ts`).
    * Absent means "record nothing" - every failure then behaves exactly as it did before 075.
    */
   diagnostics?: BootstrapDiagnosticsSource
@@ -432,7 +432,7 @@ interface BootstrapPackage {
   source: PackageSource
 }
 
-/** `userData/cache/downloads/extract/<jobId>` - the job's own directory, one level up from D1's. */
+/** `userData/cache/downloads/extract/<jobId>` - the job's own directory, one level up from the per-archive directories. */
 export function getBootstrapExtractRoot(userDataPath: string, jobId: string): string {
   return getExtractDir(userDataPath, jobId)
 }
@@ -480,7 +480,7 @@ export function toPackageSource(pkg: ManifestPackage): PackageSource | undefined
  * two archives both contain - the engine build for its own payload, the demo for `baseq2/pak0.pak`,
  * and the point release only for what neither of the first two brought.
  *
- * Story 088 D4 (AC4): a `store-copy` run resolves the **engine package only**. Its `baseq2` comes
+ * Story 088: a `store-copy` run resolves the **engine package only**. Its `baseq2` comes
  * out of a retail installation the user already owns, so resolving (let alone downloading) the demo
  * or the point release would be both pointless and a way for an unrelated manifest gap to fail a run
  * that needs nothing from it.
@@ -520,7 +520,7 @@ async function resolvePackages(
 }
 
 /**
- * Story 088 D4: re-resolves the renderer's chosen copy source against main's own, freshly listed
+ * Story 088: re-resolves the renderer's chosen copy source against main's own, freshly listed
  * detected sources (Decisions (Sprint): "main re-lists the detected sources and re-inspects the path
  * before copying; a path that is not among them - or no longer verifies - fails with a
  * `downloads.error.*` key").
@@ -555,7 +555,7 @@ async function verifyCopySource(
 }
 
 /**
- * Story 089 D3: `verifyCopySource`'s counterpart for the third data source - the same refusal shape
+ * Story 089: `verifyCopySource`'s counterpart for the third data source - the same refusal shape
  * (a failed `Outcome`, answered before anything is created), the same "the renderer's path is
  * re-judged in main" rule, and the same "what is used afterwards is what main itself just
  * inspected" discipline: callers copy from the returned verdict's `rootPath` and its `paks` list,
@@ -572,7 +572,7 @@ async function verifyCopySource(
  *  3. **a usable verdict** - `kind: 'unusable'` (no `baseq2/pak0.pak`, or a path
  *     `isUnsafeAbsolutePath` refuses, which `inspectGameDataSource` checks first) ends the run.
  *     `'demo'` is *not* a refusal: a demo folder installs as a demo installation, marker and all
- *     (AC4).
+ *     (story 088).
  *
  * The failure carries `params: { reason }` as data for the log - the verdict's own i18n key where
  * there is one, never prose, and never a second opinion about why the folder is unusable.
@@ -605,19 +605,19 @@ export interface BuildBootstrapSummaryInput {
   /** Echoed into the summary; the confirm step shows the path the target step already resolved. */
   targetPath: string
   includeVideoAndPlayers: boolean
-  /** Story 088 D4: see `StartBootstrapInput.dataSource` - same default, same meaning. */
+  /** Story 088: see `StartBootstrapInput.dataSource` - same default, same meaning. */
   dataSource?: BootstrapDataSource
-  /** Story 088 D4: see `StartBootstrapInput.copySourcePath`. */
+  /** Story 088: see `StartBootstrapInput.copySourcePath`. */
   copySourcePath?: string
 }
 
 /**
- * Story 074 AC4: what the wizard's confirm step states before anything is downloaded - the
+ * Story 074: what the wizard's confirm step states before anything is downloaded - the
  * packages and their summed size. Resolves through the same `ManifestSource` port and the same
  * `resolvePackages` the job itself uses, so the confirm step can never name a different set of
  * packages (or a different total) than the job goes on to fetch.
  *
- * Story 088 D4 (AC5): for a `store-copy` run that is the engine package *alone* - the same thing
+ * Story 088: for a `store-copy` run that is the engine package *alone* - the same thing
  * `resolvePackages` tells the job - plus the copy source it would read from. The store name is
  * looked up in main's own detected-source list rather than taken from the wizard; a path that list
  * no longer holds simply yields no store here, since refusing the run is `startBootstrap`'s job and
@@ -626,7 +626,7 @@ export interface BuildBootstrapSummaryInput {
 export async function buildBootstrapSummary(
   deps: {
     manifest: ManifestSource
-    /** Story 088 D4: as on `BootstrapDeps`, but optional - a caller that only ever summarises
+    /** Story 088: as on `BootstrapDeps`, but optional - a caller that only ever summarises
      * free-download runs has no list to consult and needs none. */
     retailSources?: () => Promise<DetectedRetailSource[]>
   },
@@ -653,7 +653,7 @@ export async function buildBootstrapSummary(
     }
   } else if (dataSource === 'existing-folder') {
     /**
-     * Story 089 D3 (AC6): the folder the user picked, named as the data source. No detected-source
+     * Story 089: the folder the user picked, named as the data source. No detected-source
      * lookup, because a hand-picked folder is by definition not on that list - so `store` stays
      * absent, which is exactly what it means ("main did not detect this; the user pointed at it").
      * Like the `store-copy` branch, the summary only *reports*: whether this folder holds anything
@@ -688,7 +688,7 @@ export async function buildBootstrapSummary(
 }
 
 /**
- * Story 078 D3 (AC8): what one package's extraction actually produced, at its top level only -
+ * Story 078: what one package's extraction actually produced, at its top level only -
  * names, sorted, capped at `EXTRACTION_LISTING_CAP`. Enough to see that a self-extracting installer
  * nested its payload under an `Install/` wrapper (the 2026-09-08 failure), and it never descends, so
  * it cannot become a file tree in `state.json`.
@@ -740,13 +740,13 @@ async function removeAssembled(
 }
 
 /**
- * Story 077 D2: how much of this job to undo. The copied files and the extract cache always go;
+ * Story 077: how much of this job to undo. The copied files and the extract cache always go;
  * these two are what a cancel and a failure now disagree about (see the module comment).
  */
 interface CleanUpMode {
   /**
    * Remove the library entry this job registered. Cancel: only when this job created the
-   * installation rather than adopting a pre-existing one (finding fix). Failure: no (AC1).
+   * installation rather than adopting a pre-existing one (finding fix). Failure: no.
    */
   unregister: boolean
   /** `rmdir` the target root itself, once emptied. Only ever true when this job created it. */
@@ -779,7 +779,7 @@ export async function startBootstrap(
     return fail(TARGET_BLOCKED_KEY, { reason: verdict.blockedReason ?? 'unsafePath' })
   }
 
-  // 1b. Story 088 D4: the wizard's other renderer-supplied path, re-judged the same way - and
+  // 1b. Story 088: the wizard's other renderer-supplied path, re-judged the same way - and
   // first, before a package is resolved, an installation is registered or a directory is created,
   // so a refusal leaves the library and the disk exactly as they were. Everything downstream uses
   // `copySource.rootPath` (main's own list entry), never `input.copySourcePath`.
@@ -794,9 +794,9 @@ export async function startBootstrap(
     copySource = verified.value
   }
 
-  // 1c. Story 089 D3: the third data source's own path, re-judged in exactly the same place and
+  // 1c. Story 089: the third data source's own path, re-judged in exactly the same place and
   // with exactly the same consequence - a refusal here registers nothing, creates no folder and
-  // downloads nothing (AC5). The verdict is *kept*, not re-derived later: what the assemble phase
+  // downloads nothing. The verdict is *kept*, not re-derived later: what the assemble phase
   // copies is the pak list main just read off this folder, so the run cannot end up copying a set
   // of files the refusal check never saw.
   let folderSource: GameDataSourceVerdict | undefined
@@ -828,13 +828,13 @@ export async function startBootstrap(
   const targetPreexisted = existsSync(verdict.targetPath)
 
   /**
-   * Story 088 D4 (Decisions (Sprint)): a `store-copy` run installs *retail* data, so
-   * `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` ("Q2PRO Demo") would be a lie outliving the badge AC6
+   * Story 088 (Decisions (Sprint)): a `store-copy` run installs *retail* data, so
+   * `DEFAULT_BOOTSTRAP_INSTALLATION_NAME` ("Q2PRO Demo") would be a lie outliving the badge
    * says the result must not carry. Its default is the engine's own product label (`engineLabel`,
    * `@shared/types/engine` - the same table the rest of the UI names engines from), never a second
    * hardcoded string. A name the user typed still wins, exactly as before.
    *
-   * Story 089 D3: the condition is "not the free download" rather than "is a store copy", because
+   * Story 089: the condition is "not the free download" rather than "is a store copy", because
    * neither copy source has a demo identity to draw a name from - an `existing-folder` run may well
    * be copying a retail folder, and even a demo-verdict one was named by the user pointing at their
    * own folder, not by this launcher fetching the free demo. The Demo marker, where it applies, is
@@ -845,7 +845,7 @@ export async function startBootstrap(
   const name = input.name?.trim() || defaultName
 
   /**
-   * Story 077 D3 (AC7). The predicate that decides "this is my own leftover, safe to reuse", and
+   * Story 077. The predicate that decides "this is my own leftover, safe to reuse", and
    * the only thing standing between a retry and `create()`'s duplicate guard - which exists to stop
    * this wizard from writing into an installation the user already owns. It is exactly two
    * conditions, both required, and neither is widened:
@@ -853,8 +853,8 @@ export async function startBootstrap(
    *  1. **the same canonical path**, decided by `findByRootPath` - literally the comparison
    *     `create()` would refuse the path with a moment later, so nothing can be adopted that
    *     `create()` would not have called a duplicate; and
-   *  2. **`lastFailure` is set** - a field only this file's `failed()` ever writes (D2), and one the
-   *     service clears again the moment any inspection finds the installation playable (D1's
+   *  2. **`lastFailure` is set** - a field only this file's `failed()` ever writes, and one the
+   *     service clears again the moment any inspection finds the installation playable (the
    *     clear-on-playable rule). So a hit here is an installation *this launcher* marked as its own
    *     failed bootstrap and that was not playable as of its last verdict.
    *
@@ -907,7 +907,7 @@ export async function startBootstrap(
       if (renamed.ok) adopted = renamed.value
       else log?.warn(`bootstrap could not rename the adopted ${adopted.id}: ${renamed.error.key}`)
 
-      // AC4: the previous failure goes as soon as the retry *starts*, not only if it succeeds - the
+      // the previous failure goes as soon as the retry *starts*, not only if it succeeds - the
       // installation is being worked on again, so a red mark on it is already stale. A failure of
       // this run writes a fresh record through `failed()` below, on this same id. `previousFailure`
       // is what a *cancelled* retry puts back, or the installation is left registered with no
@@ -952,7 +952,7 @@ export async function startBootstrap(
   // The service canonicalised the path again on the way in; its copy is the authoritative one.
   const targetRoot = installation.rootPath
 
-  // AC2's remedy, persisted the same way `ChecksList.tsx`'s existing `set-write-dir` remedy does -
+  // The Program-Files remedy, persisted the same way `ChecksList.tsx`'s existing `set-write-dir` remedy does -
   // best-effort: a failure here must not fail the whole bootstrap, since the installation is
   // already registered and playable regardless of this field.
   const applyWriteDir = async (): Promise<void> => {
@@ -979,7 +979,7 @@ export async function startBootstrap(
     }
 
     /**
-     * Story 075 D3: this job's diagnostics collector - created here because the registry is keyed by
+     * Story 075: this job's diagnostics collector - created here because the registry is keyed by
      * the job id, which exists only now, and the job's log teed into it: every line written from
      * this point on still reaches `deps.log` exactly as before *and* lands (redacted) in the
      * diagnostics ring (Decisions (Refine)).
@@ -997,7 +997,7 @@ export async function startBootstrap(
     const safeTotal = Math.max(1, totalBytes)
 
     /** Target-relative paths this job copied, for the cleanup. A set: the auxiliary pass re-copies
-     * the fixed allowlist (D3's `buildAssemblePlan` always includes it), and a path is removed once. */
+     * the fixed allowlist (`buildAssemblePlan` always includes it), and a path is removed once. */
     const copied = new Set<string>()
     let playableMarked = false
 
@@ -1006,7 +1006,7 @@ export async function startBootstrap(
       clamp01(((bytesBefore + packageBytes * clamp01(within)) / safeTotal) * PACKAGES_RATIO)
 
     /**
-     * AC6: the marker is recorded the first time a *real* verdict is neither `invalid` nor `missing`
+     * the marker is recorded the first time a *real* verdict is neither `invalid` nor `missing`
      * - `'ok'` and `'warning'` both mean playable (a warning is "playable, but something is off",
      * `InstallationStatus`). Marked before the call, like `observeFailedJobs`'s seen-set discipline,
      * so nothing can fire it twice.
@@ -1022,7 +1022,7 @@ export async function startBootstrap(
      * Files first, registration second - see the module comment. Best-effort throughout: cleanup
      * that fails must not turn a cancelled job into a failed one, or a failed one into a hang.
      *
-     * Story 077 D2: the two callers no longer want the same thing, so both halves that are *not*
+     * Story 077: the two callers no longer want the same thing, so both halves that are *not*
      * "undo this job's own file writes" are passed in rather than assumed. The extracted trees go
      * either way - they are this job's scratch space and are of no use to anyone afterwards.
      */
@@ -1044,16 +1044,16 @@ export async function startBootstrap(
 
     /**
      * The job is already `cancelled` in `JobsService` (`cancel()` finishes it); the leftovers are
-     * ours. Story 077 D2 (AC2): unchanged from 074 for a freshly-created installation - the user's
+     * ours. Story 077: unchanged from 074 for a freshly-created installation - the user's
      * explicit "never mind" takes the library entry with it, and takes the target root too when this
      * job is the reason it exists.
      *
      * Finding fix: `unregister` now mirrors `removeRoot`'s own "did this job bring it into being?"
      * test rather than firing unconditionally. A cancelled retry that *adopted* a pre-existing failed
-     * installation (D3) must not delete a registration that predates this job - that would put the
+     * installation must not delete a registration that predates this job - that would put the
      * user back at the empty-library problem story 077 exists to fix.
      *
-     * Second finding fix (F2): the adopted case also *restores* the `lastFailure` D3 cleared when the
+     * The adopted case also *restores* the `lastFailure` cleared when the
      * retry started. A cancel is the user's own "never mind" about this run, so the installation goes
      * back to exactly the state it was in before they clicked retry - same badge, same sentence -
      * rather than being left registered with no failure on record. That in-between state is the one
@@ -1063,7 +1063,7 @@ export async function startBootstrap(
      * its own installation has no `previousFailure` and is unregistered outright anyway.
      *
      * `validate()` runs after the restore (so a - here impossible - playable verdict would retire the
-     * record it just put back, per D1's clear-on-playable rule) and only for the adopted case: the
+     * record it just put back, per the clear-on-playable rule) and only for the adopted case: the
      * non-adopted branch unregisters the installation outright, so there is nothing left to revalidate.
      */
     const cancelledOutcome = async (): Promise<BootstrapOutcome> => {
@@ -1089,7 +1089,7 @@ export async function startBootstrap(
     }
 
     /**
-     * `params` (story 076 D3) is the *data* half of a failure - a manifest package id, not prose -
+     * `params` (story 076) is the *data* half of a failure - a manifest package id, not prose -
      * and is the only thing besides the key that crosses to the renderer, where `en.json`'s sentence
      * interpolates it. Optional and last, so every existing call site keeps its two-argument shape,
      * and attached only when present so a plain failure's `Job.error` stays exactly `{ key }`.
@@ -1104,20 +1104,20 @@ export async function startBootstrap(
       // same line is teed into the diagnostics ring, which is developer-facing by design and where
       // the reason is exactly what a bug report needs.
       jobLog?.warn(`bootstrap of ${installation.name} failed with ${key}: ${reason}`)
-      // Story 077 D2. The four steps below are one atom, and their order is the acceptance criterion:
+      // Story 077. The four steps below are one atom, and their order is the acceptance criterion:
       //
-      // 1. The files this job wrote go - but not the registration and not the target root (AC1, and
+      // 1. The files this job wrote go - but not the registration and not the target root (and
       //    Decisions (Sprint) Q1: an honest empty folder beats a half-built one).
-      // 2. The failure is recorded on the surviving installation (AC3) with the *same* key the
+      // 2. The failure is recorded on the surviving installation with the *same* key the
       //    `Job.error` below carries, so the library and the Downloads tab can never disagree. This
       //    has to precede step 3, not follow it (review fix): `applyInspectionResult`'s engine-preservation
       //    guard is scoped to "does this installation already carry a `lastFailure`" so it cannot
-      //    touch an ordinary, never-failed installation (AC8) - for a first failure that is only true
+      //    touch an ordinary, never-failed installation - for a first failure that is only true
       //    once this write lands, and step 3 is what reads it.
       // 3. `validate()` re-derives `status`/`checks` from the folder as it now is - nothing in this
       //    file ever writes a status. It cannot see a playable folder here (its files were just
-      //    deleted), but if it somehow did, D1's clear-on-playable rule would drop the record it just
-      //    wrote, which is the right answer rather than a stale red mark (AC4).
+      //    deleted), but if it somehow did, the clear-on-playable rule would drop the record it just
+      //    wrote, which is the right answer rather than a stale red mark.
       // 4. Only then does the job flip to `failed`. That is what still guarantees "no observer sees a
       //    `failed` job next to a half-built installation" now that the installation survives. A
       //    renderer subscribed between steps 2 and 3 can observe the failure record next to a
@@ -1132,7 +1132,7 @@ export async function startBootstrap(
       // Deliberately *before* `validate()` below, even though that briefly lets a renderer observe
       // the record next to a not-yet-revalidated status: `applyInspectionResult`'s engine-preservation guard
       // (review fix, installations.ts) is scoped to "does this installation already carry a
-      // `lastFailure`" so it never touches an installation that isn't a bootstrap failure (AC8) - and
+      // `lastFailure`" so it never touches an installation that isn't a bootstrap failure - and
       // for a *first* failure that is only true once this write has landed. Recording first is what
       // lets the very `validate()` call below preserve the wizard's engine choice instead of resetting
       // it to `unknown` when the emptied folder inspects with no detectable engine.
@@ -1170,7 +1170,7 @@ export async function startBootstrap(
       // downloads sharing one cancel, one progress bar and one disk, and the wall-clock difference
       // is bounded by the mirror's bandwidth either way.
       //
-      // Story 078 D2/D3: each extraction is carried with the id of the package that produced it, so
+      // Story 078: each extraction is carried with the id of the package that produced it, so
       // the assembly record can say *which archive* served a file rather than only that some source
       // did. The order is unchanged (engine, demo, point release) and it is still the order
       // `assembleInstallation` searches in, so who wins a file two archives both contain is exactly
@@ -1179,12 +1179,12 @@ export async function startBootstrap(
       let doneBytes = 0
 
       /**
-       * Story 078 D3 (AC7): both assemble passes' entries, concatenated in call order, so the copied
+       * Story 078: both assemble passes' entries, concatenated in call order, so the copied
        * report reads as one table. Handed over after each pass rather than once at the end because a
        * run can *fail between them* - `missingRequired` below is the 2026-09-08 failure's own exit,
        * and it is precisely the run whose assembly record has to survive. `recordAssembly` replaces
        * rather than appends (see its doc comment), so the collector ends up with one record either
-       * way, and it re-derives each package's `contributed` from it (AC1).
+       * way, and it re-derives each package's `contributed` from it.
        *
        * Pure bookkeeping over values already in hand: it is never awaited and never sits between a
        * failure and its `cleanUp()`.
@@ -1203,14 +1203,14 @@ export async function startBootstrap(
         const extractDir = getBootstrapExtractDir(deps.userDataPath, jobId, entry.pkg.id)
 
         /**
-         * Story 075 D3 (AC1): what this package contributed. Called at each of this iteration's
+         * Story 075: what this package contributed. Called at each of this iteration's
          * exits - the fetch failure, the `mkdir` failure, the extraction failure and the success -
          * rather than once at the top or the bottom of the loop, because those exits are the whole
          * point: the 2026-09-08 run got all the way past this loop, and the report still has to name
          * the package that brought nothing. Pure bookkeeping over values already in hand; it is
          * never awaited and never sits between a failure and its `cleanUp()`.
          *
-         * Story 078 D3 (AC8): `listing` is what the extraction produced, and is passed only by the
+         * Story 078: `listing` is what the extraction produced, and is passed only by the
          * one exit that has an extraction to describe - every other exit leaves `contents` absent
          * rather than empty, which is the difference between "it produced nothing" and "it never got
          * that far".
@@ -1305,7 +1305,7 @@ export async function startBootstrap(
             : failed(staged.key, `extracting ${entry.pkg.id} failed`)
         }
 
-        // Story 078 D3 (AC8): the only `await` this story adds to the loop, and deliberately on the
+        // Story 078: the only `await` this story adds to the loop, and deliberately on the
         // success path only - the failed-extraction exits above have already returned. It cannot
         // change the job's fate (`listExtraction` never throws) and it cannot move a `cleanUp()`: the
         // next thing that reads `cancelled` is the loop's own top-of-iteration check, exactly as it
@@ -1330,8 +1330,8 @@ export async function startBootstrap(
       if (ctx.signal.aborted) return cancelledOutcome()
 
       /**
-       * Story 088 D4 (AC4): the verified retail root joins `sources` as one more `AssembleSource`,
-       * with the `'retail'` role D3's allowlist block is keyed by - so the core pass below copies
+       * Story 088: the verified retail root joins `sources` as one more `AssembleSource`,
+       * with the `'retail'` role the allowlist block is keyed by - so the core pass below copies
        * pak0/pak1(+pak2) out of it in exactly the place a free-download run copies them out of the
        * demo/point-release extractions, and therefore strictly before the first revalidation. It is
        * *main's* path (`copySource.rootPath`, off the list main itself just produced), never the
@@ -1347,7 +1347,7 @@ export async function startBootstrap(
       }
 
       /**
-       * Story 089 D3 (AC3/AC4/AC7): the picked folder joins `sources` the same way, with the
+       * Story 089: the picked folder joins `sources` the same way, with the
        * `'folder'` role, and its *plan* is the pak list the pre-`create()` inspection found there
        * (`folderPakNames` below) - so a demo folder is planned with the one pak it has and a retail
        * folder with two or three, without this file re-deciding what "retail" means. Everything else
@@ -1368,11 +1368,11 @@ export async function startBootstrap(
       }
       const folderPakNames = folderSource?.paks.map((pak) => pak.name)
 
-      // 6. Assemble core - the engine payload and the baseq2 paks, allowlisted by 074 D3 and
-      // corrected against the real archives by 076 D1. Declared outside the `try` only so its
+      // 6. Assemble core - the engine payload and the baseq2 paks, allowlisted by story 074 and
+      // corrected against the real archives by story 076. Declared outside the `try` only so its
       // `missingRequired` can be read below; a *thrown* assemble is still the local failure it was.
-      // Story 091 D6: the write into the installation's own folder, gated on the guard - deferred for
-      // as long as this installation's own game is running (AC4). `core` escapes the closure the same
+      // Story 091: the write into the installation's own folder, gated on the guard - deferred for
+      // as long as this installation's own game is running. `core` escapes the closure the same
       // way as in `retail/upgrade-job.ts`: `ctx.write` answers no value, and TypeScript's flow
       // analysis does not follow an assignment made inside the callback.
       let core: AssembleInstallationResult | undefined
@@ -1399,7 +1399,7 @@ export async function startBootstrap(
       ctx.report({ ratio: ASSEMBLE_CORE_RATIO, bytesDone: totalBytes, bytesTotal: totalBytes })
 
       /**
-       * Story 076 D3 (AC5). A package can download, verify and extract perfectly and still contain
+       * Story 076. A package can download, verify and extract perfectly and still contain
        * none of the paths one of its *required* allowlist entries accepts - the 2026-09-08 failure,
        * where the run got all the way to step 9 and reported only "not playable", naming no archive.
        * Checked here, straight after the pass that knows it and before the first revalidation, so the
@@ -1421,7 +1421,7 @@ export async function startBootstrap(
         // Story 088 fix cycle (review F1): a `store-copy` run has no manifest package behind its
         // `'retail'` role - `packages` only ever resolves `engine` (plus `demo`/`point-release` for a
         // `free-download` run, see `resolvePackages`) - so a `'retail'` miss here means the detected
-        // source verified at the D4 pre-check and then came up empty during the actual copy (moved or
+        // source verified at the pre-check and then came up empty during the actual copy (moved or
         // deleted in between). That gets its own key and no `packageId` param, rather than
         // `PACKAGE_INCOMPLETE` falling back to the literal string `'retail'` and claiming a download
         // happened when nothing was fetched.
@@ -1432,12 +1432,12 @@ export async function startBootstrap(
           )
         }
 
-        // Story 089 D3: the same argument for the other copy source. A `'folder'` miss means the
+        // Story 089: the same argument for the other copy source. A `'folder'` miss means the
         // folder `inspectGameDataSource` read a moment ago no longer holds a pak it reported (edited
         // or emptied out from under the wizard), which is what `GAME_DATA_SOURCE_UNUSABLE` names -
         // and nothing was downloaded for this role either, so the generic branch below would fall
         // back to the literal string `'folder'` as a `packageId` and claim a download that never
-        // happened. There is no new pre-job refusal here: AC5's refusal is step 1c's, and this is the
+        // happened. There is no new pre-job refusal here: the refusal is step 1c's, and this is the
         // narrow window after it.
         if (firstMissing.role === 'folder') {
           return failed(
@@ -1456,7 +1456,7 @@ export async function startBootstrap(
       }
 
       /**
-       * Story 080 D3 (AC5). R1Q2's pinned build imports the x86 VC++ runtime and the archive carries
+       * Story 080. R1Q2's pinned build imports the x86 VC++ runtime and the archive carries
        * none of it - a fresh machine without that redistributable installed can have every file on
        * disk and still be unable to run `r1q2.exe`. Checked here, after the files exist and before
        * the first revalidation (which cannot see this at all - the files are present, so
@@ -1472,7 +1472,7 @@ export async function startBootstrap(
         }
 
         /**
-         * AC4/AC8, right after the runtime check passes: force `vid_ref "r1gl"` on a fresh install
+         * Right after the runtime check passes: force `vid_ref "r1gl"` on a fresh install
          * (the pinned package ships `ref_r1gl.dll`, not `ref_gl.dll`, so R1Q2's own `gl` default
          * would leave a first launch without a renderer) and install the GPLv3 license text
          * alongside the game files. Both best-effort, like every other piece of bookkeeping in this
@@ -1514,7 +1514,7 @@ export async function startBootstrap(
       // 8. The optional extras, only now - after the installation is already playable.
       if (includeVideoAndPlayers) {
         if (ctx.signal.aborted) return cancelledOutcome()
-        // Story 091 D6: the second write, gated the same way as step 6's.
+        // Story 091: the second write, gated the same way as step 6's.
         try {
           const written = await ctx.write(installation.id, async () => {
             const auxiliary = await assembleInstallation({
@@ -1552,7 +1552,7 @@ export async function startBootstrap(
       if (ctx.signal.aborted) return cancelledOutcome()
 
       /**
-       * Story 075 D3 (AC2): the inspector's last word on the target, recorded *before* the branch
+       * Story 075: the inspector's last word on the target, recorded *before* the branch
        * that acts on it - so the not-playable failure and the success record the same thing and no
        * later edit to that branch can quietly stop recording it. `severity !== 'ok'` rather than
        * only `'error'`: a warning ("no write access", "missing mission packs") is exactly the kind
@@ -1582,7 +1582,7 @@ export async function startBootstrap(
       }
 
       /**
-       * Story 092 D2: records the engine build this run just installed - version and manifest
+       * Story 092: records the engine build this run just installed - version and manifest
        * package id only; `bleedingEdge`/`backup` stay unset (there is no per-installation opt-in or
        * backup yet at bootstrap time). Best-effort like every other piece of bookkeeping in this file
        * (`setIcon` above): a write that fails here leaves the installation exactly as playable as it
