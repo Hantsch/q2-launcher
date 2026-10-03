@@ -365,13 +365,25 @@ worked on without a real download.
 
 ## Renderer
 
-One Zustand store (`store/useLauncher.ts`) mirrors main-process state; main owns
-it and the store only ever applies what main pushes. Selectors are plain hooks so
-components subscribe to the narrowest slice they need.
+The shell store (`store/useLauncher.ts`, Zustand) mirrors the main-process state
+the shell needs; main owns it and the store only ever applies what main pushes.
+Selectors are plain hooks so components subscribe to the narrowest slice they need.
 
 Routing is a `switch` in `AppShell.tsx`, not a router. There are a handful of
 top-level destinations, no URLs, no nesting and no history worth the name. If deep
 links (`quake2launcher://`) arrive later, `resolveView` is the one place to change.
+
+### State
+
+Four kinds of renderer state, picked in this order:
+
+- **Main-owned data** (lists and values main holds): `useModuleQuery` /
+  `useModuleMutation` (`lib/useModuleQuery.ts`) — one hook for cancellation, error
+  mapping, applying main's returned value and subscribing to pushes — or the shell
+  store's mirror for what the shell itself shows.
+- **Cross-view renderer state of one module**: a module Zustand store.
+- **A handle a subtree shares**: a React context.
+- **Everything else**: component state.
 
 ### Design system
 

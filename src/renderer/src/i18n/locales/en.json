@@ -24,6 +24,12 @@
     }
   },
 
+  "ipc": {
+    "error": {
+      "unreachable": "The launcher could not complete this request."
+    }
+  },
+
   "common": {
     "cancel": "Cancel",
     "close": "Close",

@@ -9,7 +9,7 @@ import type {
   ServerListEntry,
   ServersScanState,
 } from '@shared/modules/servers'
-import type { ServerListSort } from '@shared/servers/list-sort'
+import { sortServerRows, type ServerListSort } from '@shared/servers/list-sort'
 import { initI18n } from '../../i18n'
 import { mockClient } from '../../test-support/mock-client'
 
@@ -76,6 +76,11 @@ vi.mock('./client', (importOriginal) =>
     setMode: setModeMock,
   }),
 )
+
+vi.mock('@shared/servers/list-sort', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@shared/servers/list-sort')>()
+  return { ...actual, sortServerRows: vi.fn(actual.sortServerRows) }
+})
 
 let ServersView: typeof import('./ServersView').ServersView
 
@@ -625,5 +630,20 @@ describe('ServersView - Online/LAN toggle (story 196 D4)', () => {
       'No local network connection found.',
     )
     expect(screen.getByTestId('servers-mode-lan').hasAttribute('disabled')).toBe(false)
+  })
+})
+
+describe('ServersView - render cost', () => {
+  it('an unrelated re-render does not re-sort the rows', async () => {
+    await renderView(snapshot({ entries: [SELECTED_ENTRY] }))
+    // Saving a quick filter needs a criterion; a filter change alone never re-sorts.
+    fireEvent.click(screen.getByTestId('servers-filter-hide-bots'))
+    const sorts = vi.mocked(sortServerRows).mock.calls.length
+    expect(sorts).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByTestId('servers-quickfilter-save'))
+    await screen.findByTestId('servers-quickfilter-dialog')
+
+    expect(vi.mocked(sortServerRows).mock.calls.length).toBe(sorts)
   })
 })

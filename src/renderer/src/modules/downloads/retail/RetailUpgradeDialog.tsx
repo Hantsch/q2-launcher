@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Check } from 'lucide-react'
 import type { DetectedRetailSource } from '@shared/modules/downloads'
 import { formatBytes } from '../../../lib/format'
+import { useModuleQuery } from '../../../lib/useModuleQuery'
 import { useLauncher } from '../../../store/useLauncher'
 import { Button } from '../../../components/ui/Button'
 import { Modal } from '../../../components/ui/Modal'
@@ -48,7 +49,8 @@ export function RetailUpgradeDialog({ installationId }: { installationId: string
   const { t } = useTranslation()
   const closeDialog = useLauncher((state) => state.closeDialog)
 
-  const [sources, setSources] = useState<DetectedRetailSource[] | null>(null)
+  const sourcesQuery = useModuleQuery(getDetectedRetailSources)
+  const sources = sourcesQuery.data ?? (sourcesQuery.state === 'error' ? [] : null)
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
 
   const [starting, setStarting] = useState(false)
@@ -56,25 +58,13 @@ export function RetailUpgradeDialog({ installationId }: { installationId: string
   const [jobId, setJobId] = useState<string | null>(null)
   const job = useLauncher((state) => state.jobs.find((candidate) => candidate.id === jobId))
 
+  // Zero-click convenience, same default-selection convention as `BootstrapWizard`'s
+  // `selectDataSource`: pick the first verified source so a single-source case needs no click
+  // at all, but never overwrite a choice the user already made.
   useEffect(() => {
-    let cancelled = false
-    void getDetectedRetailSources().then((result) => {
-      if (cancelled) return
-      const list = result.ok ? result.value : []
-      setSources(list)
-      // Zero-click convenience, same default-selection convention as `BootstrapWizard`'s
-      // `selectDataSource`: pick the first verified source so a single-source case needs no click
-      // at all, but never overwrite a choice the user already made.
-      if (selectedPath === null) {
-        const firstVerified = list.find((candidate) => candidate.inspection.verified)
-        if (firstVerified) setSelectedPath(firstVerified.rootPath)
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- the source scan runs once on mount.
-  }, [])
+    const firstVerified = sourcesQuery.data?.find((candidate) => candidate.inspection.verified)
+    if (firstVerified) setSelectedPath((chosen) => chosen ?? firstVerified.rootPath)
+  }, [sourcesQuery.data])
 
   const selectedSource = sources?.find((candidate) => candidate.rootPath === selectedPath)
   const canConfirm = !!selectedSource?.inspection.verified && !starting

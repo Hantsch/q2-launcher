@@ -315,3 +315,4 @@ second roadmap.
 - 210 — the config module's main side is handlers, not business logic · S33 · write path moved to profile-writes service, startup.ts, index.ts 501 lines with a line-cap test
 - 214 — profile-restore is a folder of named stages · S33 · stage files under shared/config/profile/profile-restore, closures lifted, shared/config grouped by dependency direction
 - 212 — saving a profile edit is one hook and a new alias lands in a real category · S33 · useProfileSave hook for five surfaces, alias in first category, main refuses new orphan categories
+- 215 — main-owned data is read through one query hook · S33 · useModuleQuery/useModuleMutation + useListSort + useServerScan, three-wave migration (flag count 9), ServersView 345 lines, State docs

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   CopyX,
@@ -14,11 +14,11 @@ import {
   Star,
   Trash2,
 } from 'lucide-react'
-import type { LibraryStats } from '@shared/modules/library'
 import type { Installation } from '@shared/types'
 import { isStoreManaged } from '@shared/types'
 import { cn } from '../lib/cn'
 import { invoke } from '../lib/bridge'
+import { useModuleQuery } from '../lib/useModuleQuery'
 import { isDemoData } from '../lib/demo-data'
 import { formatDuration, formatRelativeTime } from '../lib/format'
 import { isPlayable, statusTone } from '../lib/status'
@@ -46,18 +46,8 @@ export function LibraryView() {
   const installations = useLauncher((state) => state.installations)
   const openDialog = useLauncher((state) => state.openDialog)
   const validateAll = useLauncher((state) => state.validateAll)
-  const [stats, setStats] = useState<LibraryStats | null>(null)
+  const stats = useModuleQuery(getLibraryStats, { deps: [installations] }).data ?? null
   const [checking, setChecking] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    void getLibraryStats().then((result) => {
-      if (!cancelled && result.ok) setStats(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [installations])
 
   return (
     <div className="h-full overflow-y-auto scrollbar-gutter-stable">

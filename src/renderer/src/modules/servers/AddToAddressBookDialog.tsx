@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ConfigProfile } from '@shared/modules/config'
 import { parseServerAddress, serverAddressRejectionKey } from '@shared/servers/address'
+import { ok } from '@shared/types'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { Button } from '../../components/ui/Button'
 import { Select } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
@@ -49,6 +51,10 @@ export function AddToAddressBookDialog({
   const [submitting, setSubmitting] = useState(false)
 
   // Initial load, on every open: fetch the profile list fresh and preselect profile + slot.
+  const listQuery = useModuleQuery<ConfigProfile[] | null>(
+    async () => (open ? listConfigProfiles() : ok(null)),
+    { deps: [open] },
+  )
   useEffect(() => {
     if (!open) return
     setProfiles(null)
@@ -56,30 +62,27 @@ export function AddToAddressBookDialog({
     setProfileId(undefined)
     setSlot(undefined)
     setError(null)
-
-    let cancelled = false
-    void (async () => {
-      const result = await listConfigProfiles()
-      if (cancelled) return
-      if (!result.ok) {
-        setError(result.error.key)
-        setProfiles([])
-        return
-      }
-      setProfiles(result.value)
-      const preselectedProfileId = pickPreselectedProfileId(result.value, activeInstallationId)
-      setProfileId(preselectedProfileId)
-      const preselectedProfile = result.value.find((p) => p.id === preselectedProfileId)
-      const preselectedSlots = readAddressBookSlots(preselectedProfile?.cvars ?? {})
-      setSlots(preselectedSlots)
-      setSlot(pickPreselectedSlot(preselectedSlots, address))
-    })()
-
-    return () => {
-      cancelled = true
-    }
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- the list is re-read each time the dialog opens, not when other closure values change.
   }, [open])
+
+  // Keyed on the query's value identity, so a stale value from the previous open is never applied.
+  useEffect(() => {
+    if (!open) return
+    if (listQuery.state === 'error') {
+      setError(listQuery.error?.key ?? null)
+      setProfiles([])
+      return
+    }
+    const list = listQuery.state === 'success' ? listQuery.data : null
+    if (!list) return
+    setProfiles(list)
+    const preselectedProfileId = pickPreselectedProfileId(list, activeInstallationId)
+    setProfileId(preselectedProfileId)
+    const preselectedProfile = list.find((p) => p.id === preselectedProfileId)
+    const preselectedSlots = readAddressBookSlots(preselectedProfile?.cvars ?? {})
+    setSlots(preselectedSlots)
+    setSlot(pickPreselectedSlot(preselectedSlots, address))
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- preselection runs per delivered list only
+  }, [listQuery.state, listQuery.data])
 
   // Story AC5: switching profiles re-reads fresh rather than trusting the list already in state -
   // guards against another surface (or another window) having changed the profile's cvars in the

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import type { LocalizedMessage, Outcome } from '@shared/types'
@@ -13,6 +13,7 @@ import {
   type MasterSourceType,
   type ServersScanSettings,
 } from '@shared/modules/servers'
+import { useModuleMutation, useModuleQuery } from '../../lib/useModuleQuery'
 import { SortableList } from '../../components/dnd'
 import { Button } from '../../components/ui/Button'
 import { Select, Switch } from '../../components/ui/controls'
@@ -63,59 +64,29 @@ export function ServersSettingsSection() {
   const { t } = useTranslation()
   const typeOptions = TYPE_OPTIONS.map(({ value, labelKey }) => ({ value, label: t(labelKey) }))
 
-  const [sources, setSources] = useState<MasterSource[] | null>(null)
-  const [error, setError] = useState<LocalizedMessage | null>(null)
-  const [saving, setSaving] = useState(false)
+  const sourcesQuery = useModuleQuery(listMasterSources)
+  const scanQuery = useModuleQuery(getScanSettings)
+  const sources = sourcesQuery.data ?? null
+  const scanSettings = scanQuery.data ?? null
+  const [patchError, setPatchError] = useState<LocalizedMessage | null>(null)
+  const scanError = patchError ?? (scanQuery.state === 'error' ? scanQuery.error : null)
+  const { setData: setSources } = sourcesQuery
+  const { setData: setScanSettings } = scanQuery
 
   const [addType, setAddType] = useState<MasterSourceType>('udp-master')
   const [addAddress, setAddAddress] = useState('')
 
-  const [scanSettings, setScanSettings] = useState<ServersScanSettings | null>(null)
-  const [scanError, setScanError] = useState<LocalizedMessage | null>(null)
+  const mutation = useModuleMutation((action: () => Promise<Outcome<MasterSourcesResult>>) =>
+    action(),
+  )
+  const saving = mutation.busy
+  const error = mutation.error ?? (sourcesQuery.state === 'error' ? sourcesQuery.error : null)
 
-  useEffect(() => {
-    let cancelled = false
-    void listMasterSources().then((result) => {
-      if (cancelled) return
-      if (result.ok) setSources(result.value)
-      else setError(result.error)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    void getScanSettings().then((result) => {
-      if (cancelled) return
-      if (result.ok) setScanSettings(result.value)
-      else setScanError(result.error)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  /** Every `sources.*` mutation goes through here: clears the previous error, runs the action, and
-   * either applies main's returned full list (success) or renders the refusal's reason - transport
-   * failure (`result.ok === false`) and domain refusal (`result.value.ok === false`) are two
-   * different shapes but both become the same `error` state, never raw prose (CLAUDE.md). */
+  /** Every `sources.*` mutation goes through here: main's returned full list replaces the view;
+   * a refusal or transport failure becomes the shown error, never raw prose (CLAUDE.md). */
   const mutate = async (action: () => Promise<Outcome<MasterSourcesResult>>): Promise<void> => {
-    setError(null)
-    setSaving(true)
-    const result = await action()
-    setSaving(false)
-    if (!result.ok) {
-      setError(result.error)
-      return
-    }
-    const domain = result.value
-    if (!domain.ok) {
-      setError({ key: domain.reasonKey, ...(domain.params ? { params: domain.params } : {}) })
-      return
-    }
-    setSources(domain.sources)
+    const result = await mutation.run(action)
+    if (result?.ok) setSources(result.sources)
   }
 
   const handleAdd = (): void => {
@@ -141,14 +112,13 @@ export function ServersSettingsSection() {
     void mutate(() => reorderMasterSources(nextSources.map((source) => source.id)))
   }
 
-  /** Every scan-settings change goes through here: main's returned, merged+persisted settings
-   * replace the whole local `scanSettings` state - never a locally-merged patch (this story's own
-   * Decisions: "the section renders from main's truth"), same discipline as `mutate` above. */
+  /** Main's returned, merged+persisted settings replace the whole local state - never a
+   * locally-merged patch. */
   const applyScanPatch = async (patch: Partial<ServersScanSettings>): Promise<void> => {
-    setScanError(null)
+    setPatchError(null)
     const result = await patchScanSettings(patch)
     if (!result.ok) {
-      setScanError(result.error)
+      setPatchError(result.error)
       return
     }
     setScanSettings(result.value)

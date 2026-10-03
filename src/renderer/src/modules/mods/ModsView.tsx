@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Boxes } from 'lucide-react'
 import type { ModActiveInstall, ModCatalogState, ModGameDir } from '@shared/modules/mods'
-import { isJobActive, type LocalizedMessage } from '@shared/types'
+import { isJobActive, type LocalizedMessage, type Outcome } from '@shared/types'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { InstallationTile } from '../../components/installations/InstallationTile'
 import { EmptyState } from '../../components/ui/primitives'
 import { useActiveInstallation, useLauncher } from '../../store/useLauncher'
@@ -16,15 +17,7 @@ import { getCatalog, installMod, listMods, onInstallDecision } from './client'
 import { mergeModTiles } from './merge-mod-tiles'
 import { useModUpdate } from './useModUpdate'
 
-type ListState =
-  | { kind: 'loading' }
-  | {
-      kind: 'ready'
-      installationId: string
-      gameDirs: ModGameDir[]
-      activeInstalls: ModActiveInstall[]
-    }
-  | { kind: 'error'; installationId: string; error: LocalizedMessage }
+type ModList = { gameDirs: ModGameDir[]; activeInstalls: ModActiveInstall[] }
 
 /** The game directories of the active installation, read through `mods/list` (never the store). */
 export function ModsView() {
@@ -33,8 +26,6 @@ export function ModsView() {
   const installationId = installation?.id ?? null
   // Re-list when the installation's directories change (rescan, add, remove).
   const dirsKey = installation ? installation.gameDirs.join('\n') : ''
-  const [loaded, setState] = useState<ListState>({ kind: 'loading' })
-  const [reloadKey, setReloadKey] = useState(0)
   // Installs this view started (catalogId -> jobId), refusals, and the decision a job waits on.
   const [started, setStarted] = useState<Record<string, string>>({})
   const [failures, setFailures] = useState<Record<string, LocalizedMessage>>({})
@@ -42,34 +33,33 @@ export function ModsView() {
   const [answered, setAnswered] = useState<string[]>([])
   const [removeStarted, setRemoveStarted] = useState<string[]>([])
   const jobs = useLauncher((s) => s.jobs)
-  // A result for another installation is not this one's: treat it as still loading.
-  const state: ListState = useMemo(
-    () =>
-      loaded.kind !== 'loading' && loaded.installationId !== installationId
-        ? { kind: 'loading' }
-        : loaded,
-    [loaded, installationId],
+  // The value carries the installation it was read for, so a stale result can be told apart.
+  const listQuery = useModuleQuery(
+    async (): Promise<Outcome<ModList & { installationId: string | null }>> => {
+      if (!installationId)
+        return { ok: true, value: { installationId, gameDirs: [], activeInstalls: [] } }
+      const outcome = await listMods(installationId)
+      return outcome.ok ? { ok: true, value: { ...outcome.value, installationId } } : outcome
+    },
+    { deps: [installationId, dirsKey] },
   )
+  const { reload } = listQuery
+  // A result for another installation is not this one's: treat it as still loading.
+  const listed = listQuery.data
+  const ready = listed && listed.installationId === installationId ? listed : null
+  const failed = listQuery.state === 'error' ? listQuery.error : null
 
   // The catalog is fetched once per view; `unavailable` also covers a failed call.
-  const [catalog, setCatalog] = useState<ModCatalogState | null>(null)
-  useEffect(() => {
-    let stale = false
+  const catalogQuery = useModuleQuery<ModCatalogState>(() =>
     getCatalog()
-      .then((outcome) => (outcome.ok ? outcome.value : ({ status: 'unavailable' } as const)))
-      .catch(() => ({ status: 'unavailable' }) as const)
-      .then((next) => {
-        if (!stale) setCatalog(next)
-      })
-    return () => {
-      stale = true
-    }
-  }, [])
-  const activeInstalls = useMemo(
-    () => (state.kind === 'ready' ? state.activeInstalls : []),
-    [state],
+      .then((outcome) =>
+        outcome.ok ? outcome : { ok: true as const, value: { status: 'unavailable' as const } },
+      )
+      .catch(() => ({ ok: true as const, value: { status: 'unavailable' as const } })),
   )
-  const gameDirs = state.kind === 'ready' ? state.gameDirs : null
+  const catalog = catalogQuery.data ?? null
+  const activeInstalls = useMemo(() => ready?.activeInstalls ?? [], [ready])
+  const gameDirs = ready?.gameDirs ?? null
   const tiles = useMemo(
     () =>
       gameDirs ? mergeModTiles(catalog?.status === 'ok' ? catalog.entries : [], gameDirs) : [],
@@ -112,7 +102,7 @@ export function ModsView() {
       return job !== undefined && !isJobActive(job)
     })
     if (done.length === 0) return
-    setReloadKey((n) => n + 1)
+    reload()
     setFailures((prev) => {
       const next = { ...prev }
       for (const [catalogId, jobId] of done) {
@@ -126,7 +116,7 @@ export function ModsView() {
       for (const [catalogId] of done) delete next[catalogId]
       return next
     })
-  }, [started, jobs])
+  }, [started, jobs, reload])
 
   // A removal this view started that ends is final too: refetch the list.
   useEffect(() => {
@@ -135,9 +125,9 @@ export function ModsView() {
       return job !== undefined && !isJobActive(job)
     })
     if (done.length === 0) return
-    setReloadKey((n) => n + 1)
+    reload()
     setRemoveStarted((prev) => prev.filter((id) => !done.includes(id)))
-  }, [removeStarted, jobs])
+  }, [removeStarted, jobs, reload])
   const removeJobFor = (catalogId: string | undefined) =>
     (catalogId &&
       jobs.find(
@@ -171,18 +161,21 @@ export function ModsView() {
       const outcome = await installMod(installationId, catalogId, version)
       if (outcome.ok) {
         setStarted((prev) => ({ ...prev, [catalogId]: outcome.value.jobId }))
-        setReloadKey((n) => n + 1)
+        reload()
       } else {
         setFailures((prev) => ({ ...prev, [catalogId]: outcome.error }))
       }
     },
-    [installationId],
+    [installationId, reload],
   )
-  const onUpdateStarted = useCallback((catalogId: string, jobId: string) => {
-    setFailures(({ [catalogId]: _dropped, ...rest }) => rest)
-    setStarted((prev) => ({ ...prev, [catalogId]: jobId }))
-    setReloadKey((n) => n + 1)
-  }, [])
+  const onUpdateStarted = useCallback(
+    (catalogId: string, jobId: string) => {
+      setFailures(({ [catalogId]: _dropped, ...rest }) => rest)
+      setStarted((prev) => ({ ...prev, [catalogId]: jobId }))
+      reload()
+    },
+    [reload],
+  )
   const onUpdateFailed = useCallback((catalogId: string, error: LocalizedMessage) => {
     setFailures((prev) => ({ ...prev, [catalogId]: error }))
   }, [])
@@ -202,27 +195,6 @@ export function ModsView() {
         isJobActive(j),
     )
   const closePanel = useCallback(() => setSelectedRaw(null), [])
-
-  useEffect(() => {
-    if (!installationId) return
-    let stale = false
-    void listMods(installationId).then((outcome) => {
-      if (stale) return
-      setState(
-        outcome.ok
-          ? {
-              kind: 'ready',
-              installationId,
-              gameDirs: outcome.value.gameDirs,
-              activeInstalls: outcome.value.activeInstalls,
-            }
-          : { kind: 'error', installationId, error: outcome.error },
-      )
-    })
-    return () => {
-      stale = true
-    }
-  }, [installationId, dirsKey, reloadKey])
 
   return (
     <div className="flex h-full flex-col">
@@ -261,11 +233,11 @@ export function ModsView() {
                 body={t('mods.noInstallation.body')}
               />
             </div>
-          ) : state.kind === 'error' ? (
+          ) : failed ? (
             <p role="alert" className="text-sm text-danger" data-testid="mods-error">
-              {t(state.error.key, state.error.params)}
+              {t(failed.key, failed.params)}
             </p>
-          ) : state.kind === 'ready' ? (
+          ) : ready ? (
             <div className="space-y-3">
               {catalog?.status === 'unavailable' && (
                 <p className="text-sm text-ink-dim" data-testid="mods-catalog-unavailable">

@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import type { NewsFeed } from '@shared/modules/home'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { getNews, onNewsChanged, refreshNews } from './client'
 import { Dashboard } from './dashboard/Dashboard'
 import { NewsHero } from './NewsHero'
@@ -29,21 +28,7 @@ import { NewsHero } from './NewsHero'
  * announcing that news "will live" here only cost vertical space.
  */
 export function HomeView() {
-  const [feed, setFeed] = useState<NewsFeed | undefined>(undefined)
-
-  useEffect(() => {
-    let cancelled = false
-    void getNews().then((result) => {
-      if (!cancelled && result.ok) setFeed(result.value)
-    })
-    const unsubscribe = onNewsChanged((next) => {
-      if (!cancelled) setFeed(next)
-    })
-    return () => {
-      cancelled = true
-      unsubscribe()
-    }
-  }, [])
+  const { data: feed, setData: setFeed } = useModuleQuery(getNews, { subscribe: onNewsChanged })
 
   function handleRefresh() {
     void refreshNews().then((result) => {

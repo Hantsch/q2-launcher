@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { RepairOffer, RepairOfferKind, RepairPlan } from '@shared/modules/downloads'
 import { useFixAction } from '../../../components/installations/ChecksList'
 import { useInstallationById, useLauncher } from '../../../store/useLauncher'
+import { useModuleQuery } from '../../../lib/useModuleQuery'
 import { Button } from '../../../components/ui/Button'
 import { Modal } from '../../../components/ui/Modal'
 import { getRepairPlan, startRepair } from '../client'
@@ -48,34 +49,21 @@ export function RepairDialog({ installationId }: { installationId: string }) {
   const installation = useInstallationById(installationId)
   const runFix = useFixAction()
 
-  const [plan, setPlan] = useState<RepairPlan | null>(null)
-  const [fetchError, setFetchError] = useState<string | null>(null)
+  const planQuery = useModuleQuery<RepairPlan | undefined>(() => getRepairPlan(installationId), {
+    deps: [installationId],
+  })
+  const plan = planQuery.data ?? null
+  const fetchError =
+    planQuery.state === 'error' && planQuery.error
+      ? t(planQuery.error.key, planQuery.error.params ?? {})
+      : planQuery.state === 'success' && !planQuery.data
+        ? t('repair.notFound')
+        : null
 
   const [starting, setStarting] = useState<RepairOfferKind | null>(null)
   const [startError, setStartError] = useState<string | null>(null)
   const [jobId, setJobId] = useState<string | null>(null)
   const job = useLauncher((state) => state.jobs.find((candidate) => candidate.id === jobId))
-
-  useEffect(() => {
-    let cancelled = false
-    void getRepairPlan(installationId).then((result) => {
-      if (cancelled) return
-      if (!result.ok) {
-        setFetchError(t(result.error.key, result.error.params ?? {}))
-        return
-      }
-      if (!result.value) {
-        setFetchError(t('repair.notFound'))
-        return
-      }
-      setFetchError(null)
-      setPlan(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- the scan runs once per installation; the rest of the closure is read as of that run.
-  }, [installationId])
 
   async function startOffer(kind: RepairOfferKind): Promise<void> {
     setStarting(kind)

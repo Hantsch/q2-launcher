@@ -99,3 +99,29 @@
 - 2026-10-03 11:09 · 212 · review 1 · started
 - 2026-10-03 11:13 · 212 · review 1 · done
 - 2026-10-03 11:13 · 212 · story · done
+- 2026-10-03 11:13 · 215 · build · started
+- 2026-10-03 11:13 · 215 · D1 useModuleQuery + useModuleMutation · started
+- 2026-10-03 11:15 · 215 · D1 useModuleQuery + useModuleMutation · done
+- 2026-10-03 11:15 · 215 · D2 servers first wave · started
+- 2026-10-03 11:18 · 215 · D2 servers first wave · done
+- 2026-10-03 11:18 · 215 · D3 replays + home first wave · started
+- 2026-10-03 11:21 · 215 · D3 replays + home first wave · done
+- 2026-10-03 11:21 · 215 · D4 useListSort · started
+- 2026-10-03 11:23 · 215 · D4 useListSort · done
+- 2026-10-03 11:23 · 215 · D5 useServerScan + slim ServersView · started
+- 2026-10-03 11:34 · 215 · D5 useServerScan + slim ServersView · done
+- 2026-10-03 11:34 · 215 · D6 mods + downloads second wave · started
+- 2026-10-03 11:39 · 215 · D6 mods + downloads second wave · done
+- 2026-10-03 11:39 · 215 · D7 third wave shell/home/downloads settings · started
+- 2026-10-03 11:43 · 215 · D7 third wave shell/home/downloads settings · done
+- 2026-10-03 11:43 · 215 · D8 dialogs + flag budget · started
+- 2026-10-03 11:47 · 215 · D8 dialogs + flag budget · done
+- 2026-10-03 11:47 · 215 · D9 docs · started
+- 2026-10-03 11:48 · 215 · D9 docs · done
+- 2026-10-03 11:48 · 215 · verify · started
+- 2026-10-03 12:03 · 215 · verify · done
+- 2026-10-03 12:03 · 215 · review 1 · started
+- 2026-10-03 12:06 · 215 · review 1 · done
+- 2026-10-03 12:06 · 215 · review-fix 1 · started
+- 2026-10-03 12:11 · 215 · review-fix 1 · done
+- 2026-10-03 12:11 · 215 · story · done

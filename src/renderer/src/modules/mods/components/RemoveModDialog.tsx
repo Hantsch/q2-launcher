@@ -1,15 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ModRemovalPreview, ModRemoveChangedFiles } from '@shared/modules/mods'
+import type { ModRemoveChangedFiles } from '@shared/modules/mods'
 import type { LocalizedMessage } from '@shared/types'
 import { Button } from '../../../components/ui/Button'
 import { Modal } from '../../../components/ui/Modal'
+import { useModuleQuery } from '../../../lib/useModuleQuery'
 import { previewRemoval, removeMod } from '../client'
-
-type Loaded =
-  | { kind: 'loading' }
-  | { kind: 'ready'; preview: ModRemovalPreview }
-  | { kind: 'refused'; error: LocalizedMessage }
 
 /**
  * Story 191 D3: confirms removing a mod the launcher installed. Opens by asking main what removal
@@ -31,28 +27,16 @@ export function RemoveModDialog({
   onStarted: (jobId: string) => void
 }) {
   const { t } = useTranslation()
-  const [loaded, setLoaded] = useState<Loaded>({ kind: 'loading' })
   const [choice, setChoice] = useState<ModRemoveChangedFiles>('keep')
   const [busy, setBusy] = useState(false)
   const [refusal, setRefusal] = useState<LocalizedMessage | null>(null)
 
-  useEffect(() => {
-    let stale = false
-    void previewRemoval(installationId, modId).then((outcome) => {
-      if (stale) return
-      setLoaded(
-        outcome.ok
-          ? { kind: 'ready', preview: outcome.value }
-          : { kind: 'refused', error: outcome.error },
-      )
-    })
-    return () => {
-      stale = true
-    }
-  }, [installationId, modId])
+  const previewQuery = useModuleQuery(() => previewRemoval(installationId, modId), {
+    deps: [installationId, modId],
+  })
 
-  const preview = loaded.kind === 'ready' ? loaded.preview : null
-  const error = loaded.kind === 'refused' ? loaded.error : refusal
+  const preview = previewQuery.state === 'success' ? (previewQuery.data ?? null) : null
+  const error = previewQuery.state === 'error' ? previewQuery.error : refusal
   const changed = preview?.changedFiles ?? []
 
   const confirm = async (): Promise<void> => {

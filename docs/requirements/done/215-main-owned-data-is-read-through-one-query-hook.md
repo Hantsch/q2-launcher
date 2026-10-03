@@ -1,7 +1,7 @@
 ---
 id: 215
 title: main-owned data is read through one query hook
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -29,23 +29,23 @@ Depends on story 206 (refusal shape) for the mutation hook's error mapping.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `src/renderer/src/lib/useModuleQuery.ts` exports
+- [x] **AC1** — `src/renderer/src/lib/useModuleQuery.ts` exports
       `useModuleQuery<T>(read, { subscribe?, deps? })` → `{ state, data, error, reload }` and
       `useModuleMutation<T, R>(apply, toKey)` → `{ run, busy, error }`; both are unit-tested for
       unmount-before-resolve, StrictMode double mount, a refused mutation and a transport failure.
-- [ ] **AC2** — First wave migrated: `useWatchlist`, `useQuickFilters`, both `*SettingsSection`
+- [x] **AC2** — First wave migrated: `useWatchlist`, `useQuickFilters`, both `*SettingsSection`
       list blocks, `NameTemplatesList`, and `useTileData` (which becomes a thin alias or is
       deleted); second wave: `ServersView`, `ModsView`, `DownloadsView`. The count of
       `let cancelled = false` in `src/renderer/src` (non-test) drops below 10, with the remaining
       sites listed in the story's Done section with a reason each.
-- [ ] **AC3** — `ServersView` memoises `sortedRows`/`visible`; `useServerScan()` and a shared
+- [x] **AC3** — `ServersView` memoises `sortedRows`/`visible`; `useServerScan()` and a shared
       `useListSort(get, set)` (used by servers and replays) are extracted with their own tests;
       `ServersView` is under 350 lines.
-- [ ] **AC4** — docs/ARCHITECTURE.md's renderer section gets a "State" paragraph: main-owned data
+- [x] **AC4** — docs/ARCHITECTURE.md's renderer section gets a "State" paragraph: main-owned data
       → `useModuleQuery` or the mirrored store; cross-view renderer state → a module Zustand
       store; subtree handles → context; otherwise component state. The "one Zustand store"
       sentence is corrected.
-- [ ] **AC5** — Every servers, replays, mods and downloads flow stays green.
+- [x] **AC5** — Every servers, replays, mods and downloads flow stays green.
 
 ## Decisions (Sprint)
 
@@ -93,7 +93,7 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
 
 ## Deliverables
 
-- [ ] **D1 — `useModuleQuery` + `useModuleMutation`.** New `src/renderer/src/lib/useModuleQuery.ts`,
+- [x] **D1 — `useModuleQuery` + `useModuleMutation`.** New `src/renderer/src/lib/useModuleQuery.ts`,
       test `src/renderer/src/lib/useModuleQuery.test.tsx`, one key in
       `src/renderer/src/i18n/locales/en.json` (`ipc.error.unreachable`: "The launcher could not
       complete this request."). Reuse `Outcome`/`LocalizedMessage`/`Refusal` from
@@ -123,7 +123,7 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
         "mutation: a refused mutation sets the mapped error and resolves the refusal", "mutation: a
         transport failure sets the outcome error and resolves undefined", "mutation: busy is true while
         in flight", "mutation: unmount before resolve sets no state".
-- [ ] **D2 — servers first wave.** Rewrite on D1's hooks (`src/renderer/src/lib/useModuleQuery.ts`):
+- [x] **D2 — servers first wave.** Rewrite on D1's hooks (`src/renderer/src/lib/useModuleQuery.ts`):
       `src/renderer/src/modules/servers/useQuickFilters.ts` (query `listQuickFilters`; mutations
       save/rename/remove via `useModuleMutation`, `setData(result.list)` on `ok`; public
       `UseQuickFiltersResult` unchanged, transport failure still returns `TRANSPORT_FAILED`),
@@ -136,7 +136,7 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
       new `src/renderer/src/modules/servers/useQuickFilters.test.ts` › "a saved filter replaces the
       list and a refusal leaves it". Flows: `servers-quick-filters`, `servers-watchlist`,
       `servers-master-sources`, `servers-scan-settings`.
-- [ ] **D3 — replays + home first wave.** On D1's hooks:
+- [x] **D3 — replays + home first wave.** On D1's hooks:
       `src/renderer/src/modules/replays/ReplaysSettingsSection.tsx` (both list blocks: read →
       `useModuleQuery`, each `mutate` → `useModuleMutation` with the action thunk as input,
       `setData` on success, controls disabled while `busy` — the extra-folders block did not do this
@@ -148,7 +148,7 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
       controls are disabled while a mutation runs". Flows: `replays-extra-folders`,
       `replays-name-templates`, `home-tile-states` (`replays-mod-warning` is quarantined, run it but
       a red there is not this story's).
-- [ ] **D4 — `useListSort`.** New `src/renderer/src/lib/useListSort.ts` +
+- [x] **D4 — `useListSort`.** New `src/renderer/src/lib/useListSort.ts` +
       `src/renderer/src/lib/useListSort.test.ts`:
       `useListSort<S>(get: () => Promise<Outcome<S | null>>, set: (next: S | null) => Promise<Outcome<S | null>>)`
       → `{ sort: S | null; setSort: (next: S | null) => void }`; built on `useModuleQuery(get)`
@@ -163,7 +163,7 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
       "a failed read yields null", "setSort applies at once then adopts main's echo", "a failed set
       falls back to null"; existing `ReplaysView.test.tsx`, `ServersView.test.tsx` green. Flows:
       `servers-sort-order`, `replays-sort-order`, `replays-filter-search`, `replays-date-filter`.
-- [ ] **D5 — `useServerScan` + slim `ServersView`.** New
+- [x] **D5 — `useServerScan` + slim `ServersView`.** New
       `src/renderer/src/modules/servers/useServerScan.ts` + `useServerScan.test.ts`, new
       `src/renderer/src/modules/servers/ServersToolbar.tsx`, edit
       `src/renderer/src/modules/servers/ServersView.tsx`, `ServersView.test.tsx`, new
@@ -191,7 +191,7 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
       `servers-lan-empty`, `servers-scoped-refresh`, `servers-no-scan-while-playing`,
       `servers-filter-search`, `servers-quoted-search`, `servers-detail`, `servers-actionbar-join`,
       `servers-module-shell`.
-- [ ] **D6 — mods + downloads second wave.** On D1's hooks:
+- [x] **D6 — mods + downloads second wave.** On D1's hooks:
       `src/renderer/src/modules/mods/ModsView.tsx` (catalog read → `useModuleQuery`, failure maps to
       `{ status: 'unavailable' }`; `listMods` → `useModuleQuery(…, { deps: [installationId] })`,
       every `setReloadKey(n+1)` → `reload()`; the "result for another installation counts as
@@ -203,7 +203,7 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
       `mods-catalog`, `mods-detail`, `mods-install`, `mods-remove`, `mod-update`, `downloads-tab`,
       `downloads-badge-count` (`mods-view` is quarantined, run it but a red there is not this
       story's).
-- [ ] **D7 — third wave: shell, home, downloads settings.** Replace the hand-rolled read effect with
+- [x] **D7 — third wave: shell, home, downloads settings.** Replace the hand-rolled read effect with
       `useModuleQuery` (`src/renderer/src/lib/useModuleQuery.ts`) in:
       `src/renderer/src/views/LibraryView.tsx` (`deps: [installations]`),
       `src/renderer/src/components/unlock/UnlockCodePanel.tsx`,
@@ -218,7 +218,7 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
       the user has not chosen". Tests: existing tests of these files green. Flows:
       `home-tile-states`, `home-dashboard-arrange`, `home-hero-carousel`,
       `settings-downloads-section`.
-- [ ] **D8 — third wave: dialogs + flag budget.** Same replacement in
+- [x] **D8 — third wave: dialogs + flag budget.** Same replacement in
       `src/renderer/src/modules/downloads/repair/RepairDialog.tsx`,
       `src/renderer/src/modules/downloads/bootstrap/BootstrapWizard.tsx` (engine options, detected
       retail sources, target verdict with `deps: [targetPath]`; the job-keyed failure lookup and the
@@ -229,7 +229,7 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
       `/let (cancelled|stale|ignore|disposed|alive|active|mounted|aborted)\s*=\s*(true|false)/g` over
       non-test `src/renderer/src/**/*.{ts,tsx}` and expects ≤ 9 (create the file if D5 has not).
       Flows: `servers-detail-local-content`, `servers-address-book`.
-- [ ] **D9 — docs.** `docs/ARCHITECTURE.md` § Renderer: replace "One Zustand store
+- [x] **D9 — docs.** `docs/ARCHITECTURE.md` § Renderer: replace "One Zustand store
       (`store/useLauncher.ts`) mirrors…" with the shell-store sentence (`useLauncher` is the shell
       store mirroring what main pushes for the shell) and add a `### State` paragraph: main-owned data
       → `useModuleQuery`/`useModuleMutation` (`lib/useModuleQuery.ts`) or the shell store's mirror;
@@ -283,4 +283,14 @@ Gate per D: its unit tests + its named flows (`npm run ui:flow -- <name>`).
 
 ## Done
 
-<!-- Filled by /build 215. -->
+Added `useModuleQuery`/`useModuleMutation` (`lib/useModuleQuery.ts`) and `useListSort`, migrated the three waves of one-shot reads, extracted `useServerScan` + `ServersToolbar` (ServersView 721 → 345 lines, memoised rows), and wrote the ARCHITECTURE.md "State" paragraph.
+
+Commit message: `215: useModuleQuery/useModuleMutation hooks, three-wave migration, useListSort, useServerScan, State docs`
+
+Verification (narrow gate): `npm run build`, `typecheck`, `lint` green; `npx vitest run --changed HEAD` 124 files / 997 tests green; 32 story flows green one by one (`npm run ui:flow -- <name>`; downloads-tab needed a `ui:verify` reseed first). After the review fix: `npx vitest run src/renderer src/renderer-health.test.ts` 1444 green, typecheck/lint clean, 9 affected flows re-run green. Known red not ours: `settings-downloads-section` (4 vs 2 archives), `shell-layering` test. AC → test: AC1 `useModuleQuery.test.tsx`; AC2 `renderer-health.test.ts` flag budget (= 9) + `useQuickFilters.test.ts`, `ReplaysSettingsSection.test.tsx`; AC3 `ServersView.test.tsx`, `useServerScan.test.ts`, `useListSort.test.ts`, health line cap; AC4 health "four state kinds"; AC5 flows above. No manual residue.
+
+Remaining hand-rolled flag sites (9, budget ≤ 9): `lib/useModuleQuery.ts:48` (the hook itself); config `ConfigView.tsx`, `ImportProfileDialog.tsx`, `InstallationProfilesPanel.tsx`, `RawFileTab.tsx` (stories 212/218 rewrite those reads); `BootstrapWizard.tsx` ×2 (job-keyed failure lookup, summary); `EngineUpdateAction.tsx` (module-level first-check throttle); `useServerScan.ts:106` (coalesced streaming read).
+
+Decisions: no changelog entry (internal; only side effect is the replays extra-folder controls disabling while busy). Review 1 FAIL fixed: ModsView/RunnerSection stale-data gating, useListSort `set` ref, NameTemplatesList rejection, ReplaysView filterLoaded, `setData` beats pending read (own `applied` counter), tautological unmount tests made falsifiable, stale comments. Deliberately unfixed: `BootstrapWizard` one-render stale verdict after `targetPath` change; `useServerScan` `noteState` before generation check (both narrow, no observable effect). D6 agent returned PARTIAL only for a stale-fixture flow failure (not code); accepted after reseed re-run. D9 docs edit done by the orchestrator directly (tiny). StrictMode in tests runs effects once, so the StrictMode test asserts invariants. `useServerScan` now sets `scanState` from every read and shows snapshot rows only when their mode matches.
+
+tiers: D 9 / hard 1 · review default · cycles 1 · agents 12

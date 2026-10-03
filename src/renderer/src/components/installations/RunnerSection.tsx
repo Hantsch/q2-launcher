@@ -1,15 +1,10 @@
-import { useEffect, useId, useState } from 'react'
+import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { RunnerOption } from '@shared/ipc'
-import {
-  NATIVE_RUNNER_CHOICE,
-  STEAM_APP_CLIENTS,
-  type Installation,
-  type LaunchPlan,
-  type Outcome,
-} from '@shared/types'
+import { NATIVE_RUNNER_CHOICE, STEAM_APP_CLIENTS, type Installation } from '@shared/types'
 import { cn } from '../../lib/cn'
 import { invoke } from '../../lib/bridge'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { useLauncher } from '../../store/useLauncher'
 import { Select } from '../ui/controls'
 import { SectionLabel } from '../ui/primitives'
@@ -32,9 +27,6 @@ export function RunnerSection({ installation }: { installation: Installation }) 
   const updateInstallation = useLauncher((state) => state.updateInstallation)
   const steamClientSelectId = useId()
 
-  const [runnersResult, setRunnersResult] = useState<Outcome<RunnerOption[]> | null>(null)
-  const [planResult, setPlanResult] = useState<Outcome<LaunchPlan> | null>(null)
-
   // `installation.runner` and `installation.steamClient` are both dependencies (not just
   // `installation.id`) so the preview re-fetches whenever the effective runner choice OR the
   // chosen Steam client changes: `updateInstallation` writes either via `installations:update`,
@@ -43,27 +35,19 @@ export function RunnerSection({ installation }: { installation: Installation }) 
   // component from `state.installations`). Without `steamClient` here, picking a different Steam
   // client (D5's "refreshes the preview") would leave the previous client's URL on screen until
   // something unrelated remounted the component.
-  useEffect(() => {
-    let cancelled = false
-    setRunnersResult(null)
-    setPlanResult(null)
-
-    void invoke('installations:listRunners', installation.id).then((result) => {
-      if (!cancelled) setRunnersResult(result)
-    })
-    void invoke('launch:plan', { installationId: installation.id }).then((result) => {
-      if (!cancelled) setPlanResult(result)
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [installation.id, installation.runner, installation.steamClient])
+  const deps = [installation.id, installation.runner, installation.steamClient]
+  const runnersQuery = useModuleQuery(() => invoke('installations:listRunners', installation.id), {
+    deps,
+  })
+  const planQuery = useModuleQuery(
+    () => invoke('launch:plan', { installationId: installation.id }),
+    { deps },
+  )
 
   // Platform unknown (appInfo not loaded yet): render nothing rather than guessing.
   if (platform === undefined) return null
 
-  const runners = runnersResult?.ok ? runnersResult.value : []
+  const runners = runnersQuery.data ?? []
   // Mirrors `resolveRunner()`'s own default (`src/main/services/runners.ts`) ONLY on win32: a
   // fresh Windows installation has no stored `runner` until a user actively picks one, and that
   // "no choice yet" state resolves to native there. Off win32, `resolveRunner()`'s unset-choice
@@ -87,13 +71,15 @@ export function RunnerSection({ installation }: { installation: Installation }) 
     >
       <SectionLabel>{t('runner.heading')}</SectionLabel>
 
-      {runnersResult && !runnersResult.ok && (
+      {runnersQuery.state === 'error' && runnersQuery.error && (
         <p className="text-xs text-danger">
-          {t(runnersResult.error.key, runnersResult.error.params ?? {})}
+          {t(runnersQuery.error.key, runnersQuery.error.params ?? {})}
         </p>
       )}
 
-      {!runnersResult && <p className="text-xs text-ink-muted">{t('common.loading')}</p>}
+      {runnersQuery.state === 'loading' && (
+        <p className="text-xs text-ink-muted">{t('common.loading')}</p>
+      )}
 
       {runners.length > 0 && (
         <>
@@ -180,27 +166,27 @@ export function RunnerSection({ installation }: { installation: Installation }) 
         </div>
       )}
 
-      {planResult?.ok && (
+      {planQuery.state === 'success' && planQuery.data && (
         <p
           className="numeric text-xs text-ink-muted"
           data-testid="installation-runner-preview"
           data-selectable
         >
           <span className="text-ink-faint">{t('runner.preview.label')}: </span>
-          {planResult.value.preview}
+          {planQuery.data.preview}
         </p>
       )}
 
       {/* AC7's headline case (no runner available for a PE executable) surfaces here: a failed
           `launch:plan` is exactly as visible as a failed `installations:listRunners` above, not
           silently dropped. */}
-      {planResult && !planResult.ok && (
+      {planQuery.state === 'error' && planQuery.error && (
         <p
           className="text-xs text-danger"
           data-testid="installation-runner-preview"
           data-selectable
         >
-          {t(planResult.error.key, planResult.error.params ?? {})}
+          {t(planQuery.error.key, planQuery.error.params ?? {})}
         </p>
       )}
     </div>

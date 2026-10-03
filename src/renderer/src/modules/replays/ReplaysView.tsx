@@ -17,6 +17,8 @@ import {
 } from '@shared/replays/list-filter'
 import { Button } from '../../components/ui/Button'
 import { cn } from '../../lib/cn'
+import { useListSort } from '../../lib/useListSort'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { usePrimaryActionContribution, type ContributedAction } from '../../lib/primary-action'
 import { findCatalogEntryByGameDir } from '@shared/mods/server-local-content'
 import { ROUTE_SETTINGS, useActiveInstallation, useLauncher } from '../../store/useLauncher'
@@ -131,11 +133,8 @@ export function ReplaysView() {
   const drafts = useDemoEditorStore((state) => state.drafts)
   const editingId = useDemoEditorStore((state) => state.editingId)
   const cancelReplace = useDemoEditorStore((state) => state.cancelReplace)
-  const [sort, setSort] = useState<DemoListSort | null>(null)
+  const { sort, setSort } = useListSort<DemoListSort>(getListSort, setListSort)
   const [filter, setFilter] = useState<DemoListFilter>(EMPTY_DEMO_LIST_FILTER)
-  // Story 153 D5: rows only render once both the index (`demos !== null`) and the persisted filter
-  // have resolved - until then the view stays in 151's existing loading state.
-  const [filterLoaded, setFilterLoaded] = useState(false)
   const cancelledRef = useRef(false)
   // Debounces `setListFilter` writes by 300ms - `filterDebounceRef` holds the pending timeout,
   // `pendingFilterRef` the latest not-yet-persisted value, so an unmount can flush it immediately
@@ -148,33 +147,16 @@ export function ReplaysView() {
   // the user does something that supersedes the pin (picks a different filter, or another row).
   const pinnedRowIdRef = useRef<string | null>(null)
 
-  // Story 152 D3: loads the persisted list sort once on mount - a failed read or no value
-  // persisted both fall back to `null`, the default favourites-first order.
+  // The persisted filter seeds `filter` once; a failed read keeps the empty default.
+  const filterQuery = useModuleQuery(getListFilter)
+  const [filterLoaded, setFilterLoaded] = useState(false)
+  const filterSeeded = useRef(false)
   useEffect(() => {
-    let cancelled = false
-    void getListSort().then((result) => {
-      if (cancelled) return
-      setSort(result.ok ? result.value : null)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Story 153 D5: loads the persisted list filter once on mount, alongside the sort above - a
-  // failed read falls back to `EMPTY_DEMO_LIST_FILTER`, same "nothing restricts the list" default
-  // as `EMPTY_DEMO_LIST_FILTER` itself.
-  useEffect(() => {
-    let cancelled = false
-    void getListFilter().then((result) => {
-      if (cancelled) return
-      setFilter(result.ok ? result.value : EMPTY_DEMO_LIST_FILTER)
-      setFilterLoaded(true)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    if (filterSeeded.current || filterQuery.state === 'loading') return
+    filterSeeded.current = true
+    if (filterQuery.data !== undefined) setFilter(filterQuery.data)
+    setFilterLoaded(true)
+  }, [filterQuery.state, filterQuery.data])
 
   // Story 153 D5: flushes a still-pending debounced write on unmount, so navigating away right
   // after a filter change never drops it.
@@ -192,11 +174,7 @@ export function ReplaysView() {
   }, [])
 
   const handleSort = (column: DemoSortColumn): void => {
-    const next = nextSort(sort, column)
-    setSort(next)
-    void setListSort(next).then((result) => {
-      setSort(result.ok ? result.value : null)
-    })
+    setSort(nextSort(sort, column))
   }
 
   const handleFilterChange = (next: DemoListFilter): void => {

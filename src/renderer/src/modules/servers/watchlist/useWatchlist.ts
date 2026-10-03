@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import type { Outcome } from '@shared/types'
 import type {
   ScanStartResult,
@@ -14,6 +14,7 @@ import {
   removeWatchlistEntry,
   updateWatchlistEntry,
 } from '../client'
+import { useModuleQuery } from '../../../lib/useModuleQuery'
 
 export interface UseWatchlistResult {
   snapshot: WatchlistSnapshot | null
@@ -41,31 +42,14 @@ export interface UseWatchlistResult {
  * `scanStart`/`scan.changed`.
  */
 export function useWatchlist(): UseWatchlistResult {
-  const [snapshot, setSnapshot] = useState<WatchlistSnapshot | null>(null)
+  const { data, setData } = useModuleQuery(readWatchlist, { subscribe: onWatchlistChanged })
 
-  useEffect(() => {
-    let cancelled = false
-
-    void readWatchlist().then((result) => {
-      if (!cancelled && result.ok) setSnapshot(result.value)
-    })
-
-    const unsubscribe = onWatchlistChanged((next) => {
-      if (cancelled) return
-      setSnapshot(next)
-    })
-
-    return () => {
-      cancelled = true
-      unsubscribe()
-    }
-  }, [])
-
-  const applyMutationResult = useCallback((result: Outcome<WatchlistMutationResult>): void => {
-    if (result.ok && result.value.ok) {
-      setSnapshot(result.value.snapshot)
-    }
-  }, [])
+  const applyMutationResult = useCallback(
+    (result: Outcome<WatchlistMutationResult>): void => {
+      if (result.ok && result.value.ok) setData(result.value.snapshot)
+    },
+    [setData],
+  )
 
   const add = useCallback(
     async (input: {
@@ -105,5 +89,5 @@ export function useWatchlist(): UseWatchlistResult {
     return recheckWatchlistEntry(id)
   }, [])
 
-  return { snapshot, add, update, remove, recheck }
+  return { snapshot: data ?? null, add, update, remove, recheck }
 }

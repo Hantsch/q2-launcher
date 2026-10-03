@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ARCHIVE_CACHE_BUDGET_CHOICES_GB,
   MAX_CONCURRENT_DOWNLOAD_JOBS,
   MIN_CONCURRENT_DOWNLOAD_JOBS,
   type ArchiveCacheBudgetGB,
-  type ArchiveCacheStatus,
   type ClearArchiveCacheResult,
   type DownloadsSettings,
 } from '@shared/modules/downloads'
@@ -13,6 +12,7 @@ import { Button } from '../../components/ui/Button'
 import { Select, Switch } from '../../components/ui/controls'
 import { Modal } from '../../components/ui/Modal'
 import { formatBytes } from '../../lib/format'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import {
   clearArchiveCache,
   getArchiveCacheStatus,
@@ -37,8 +37,12 @@ const CONCURRENCY_CHOICES = Array.from(
 export function DownloadsSettingsSection() {
   const { t } = useTranslation()
 
-  const [settings, setSettings] = useState<DownloadsSettings | null>(null)
-  const [cacheStatus, setCacheStatus] = useState<ArchiveCacheStatus | null>(null)
+  const settingsQuery = useModuleQuery(getDownloadsSettings)
+  const cacheQuery = useModuleQuery(getArchiveCacheStatus)
+  const settings = settingsQuery.data ?? null
+  const cacheStatus = cacheQuery.data ?? null
+  const { setData: setSettings } = settingsQuery
+  const { setData: setCacheStatus } = cacheQuery
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [lastClearResult, setLastClearResult] = useState<ClearArchiveCacheResult | null>(null)
@@ -50,19 +54,6 @@ export function DownloadsSettingsSection() {
     const result = await getArchiveCacheStatus()
     if (result.ok) setCacheStatus(result.value)
   }
-
-  useEffect(() => {
-    let cancelled = false
-    void getDownloadsSettings().then((result) => {
-      if (!cancelled && result.ok) setSettings(result.value)
-    })
-    void getArchiveCacheStatus().then((result) => {
-      if (!cancelled && result.ok) setCacheStatus(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const applyPatch = async (patch: Partial<DownloadsSettings>): Promise<void> => {
     const result = await patchDownloadsSettings(patch)

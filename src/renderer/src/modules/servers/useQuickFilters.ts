@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
 import type { QuickFiltersResult } from '@shared/modules/servers'
 import type { QuickFilter, QuickFilterCriteria } from '@shared/servers/quick-filters'
 import type { Outcome } from '@shared/types'
+import { useModuleMutation, useModuleQuery } from '../../lib/useModuleQuery'
 import { listQuickFilters, removeQuickFilter, renameQuickFilter, saveQuickFilter } from './client'
 
 export interface UseQuickFiltersResult {
@@ -15,6 +16,8 @@ export interface UseQuickFiltersResult {
   remove: (id: string) => Promise<QuickFiltersResult>
 }
 
+const EMPTY: QuickFilter[] = []
+
 const TRANSPORT_FAILED: QuickFiltersResult = {
   ok: false,
   reasonKey: 'servers.quickFilter.error.failed',
@@ -26,34 +29,33 @@ const TRANSPORT_FAILED: QuickFiltersResult = {
  * list immediately and returns the result so the caller can show a refusal's reason key.
  */
 export function useQuickFilters(): UseQuickFiltersResult {
-  const [list, setList] = useState<QuickFilter[]>([])
+  const query = useModuleQuery(listQuickFilters)
+  const { setData } = query
+  const mutation = useModuleMutation((action: () => Promise<Outcome<QuickFiltersResult>>) =>
+    action(),
+  )
+  const { run } = mutation
 
-  useEffect(() => {
-    let cancelled = false
-    void listQuickFilters().then((result) => {
-      if (!cancelled && result.ok) setList(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const settle = useCallback((outcome: Outcome<QuickFiltersResult>): QuickFiltersResult => {
-    if (!outcome.ok) return TRANSPORT_FAILED
-    if (outcome.value.ok) setList(outcome.value.list)
-    return outcome.value
-  }, [])
+  const settle = useCallback(
+    async (action: () => Promise<Outcome<QuickFiltersResult>>): Promise<QuickFiltersResult> => {
+      const result = await run(action)
+      if (!result) return TRANSPORT_FAILED
+      if (result.ok) setData(result.list)
+      return result
+    },
+    [run, setData],
+  )
 
   const save = useCallback(
-    async (input: { name: string; criteria: QuickFilterCriteria; overwrite: boolean }) =>
-      settle(await saveQuickFilter(input)),
+    (input: { name: string; criteria: QuickFilterCriteria; overwrite: boolean }) =>
+      settle(() => saveQuickFilter(input)),
     [settle],
   )
   const rename = useCallback(
-    async (input: { id: string; name: string }) => settle(await renameQuickFilter(input)),
+    (input: { id: string; name: string }) => settle(() => renameQuickFilter(input)),
     [settle],
   )
-  const remove = useCallback(async (id: string) => settle(await removeQuickFilter(id)), [settle])
+  const remove = useCallback((id: string) => settle(() => removeQuickFilter(id)), [settle])
 
-  return { list, save, rename, remove }
+  return { list: query.data ?? EMPTY, save, rename, remove }
 }

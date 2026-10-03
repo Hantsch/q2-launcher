@@ -226,6 +226,51 @@ describe('replays extra folders', () => {
     expect(alert.textContent).not.toContain('replays.extraFolders.error.notAFolder')
   })
 
+  it('extra-folder controls are disabled while a mutation runs', async () => {
+    const folders: ReplaysExtraFolder[] = [{ id: 'f1', path: 'C:/demos', addedAt: '2026-01-01' }]
+    let release: (value: unknown) => void = () => {}
+
+    invokeMock().mockImplementation((channel: string, payload: { type?: string }) => {
+      if (payload?.type === 'extraFolders.list') {
+        return Promise.resolve({ ok: true, value: folders })
+      }
+      if (payload?.type === 'extraFolders.remove') {
+        return new Promise((resolve) => {
+          release = resolve
+        })
+      }
+      return defaultInvoke(channel, payload)
+    })
+
+    render(createElement(ReplaysSettingsSection))
+
+    const remove = await screen.findByTestId('replays-extra-folder-remove')
+    await act(async () => {
+      remove.click()
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect((screen.getByTestId('replays-extra-folders-add') as HTMLButtonElement).disabled).toBe(
+        true,
+      )
+      expect(
+        (screen.getByTestId('replays-extra-folder-remove') as HTMLButtonElement).disabled,
+      ).toBe(true)
+    })
+
+    await act(async () => {
+      release({ ok: true, value: { ok: true, folders: [] } })
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect((screen.getByTestId('replays-extra-folders-add') as HTMLButtonElement).disabled).toBe(
+        false,
+      )
+    })
+  })
+
   it('a cancelled pick adds nothing', async () => {
     const folders: ReplaysExtraFolder[] = [{ id: 'f1', path: 'C:/demos', addedAt: '2026-01-01' }]
 

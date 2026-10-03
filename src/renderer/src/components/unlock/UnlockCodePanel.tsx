@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Copy } from 'lucide-react'
-import type { RedeemResult, UnlockState } from '@shared/types'
+import { ok, type RedeemResult } from '@shared/types'
 import { invoke } from '../../lib/bridge'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { Button, IconButton } from '../ui/Button'
 
 const REJECT_KEYS: Record<Extract<RedeemResult, { ok: false }>['reason'], string> = {
@@ -25,21 +26,14 @@ const REJECT_KEYS: Record<Extract<RedeemResult, { ok: false }>['reason'], string
 export function UnlockCodePanel() {
   const { t, i18n } = useTranslation()
 
-  const [state, setState] = useState<UnlockState | null>(null)
+  const { data, setData: setState } = useModuleQuery(async () =>
+    ok(await invoke('unlock:getState')),
+  )
+  const state = data ?? null
   const [copied, setCopied] = useState(false)
   const [code, setCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [result, setResult] = useState<RedeemResult | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    void invoke('unlock:getState').then((next) => {
-      if (!cancelled) setState(next)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   function handleCopy() {
     if (!state || state.installationId === '') return

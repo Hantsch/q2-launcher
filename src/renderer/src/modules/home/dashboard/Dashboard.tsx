@@ -25,6 +25,7 @@ import {
   type HomeLayout,
   type TilePlacement,
 } from '@shared/modules/home'
+import { useModuleQuery } from '../../../lib/useModuleQuery'
 import { getHomeLayout, resetHomeLayout, setHomeLayout } from '../client'
 import { useElementWidth } from './useElementWidth'
 import { DashboardGrid } from './DashboardGrid'
@@ -140,20 +141,11 @@ export function Dashboard() {
     useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE_PX } }),
   )
 
+  // Seeds once: a layout the user already committed (`layoutRef` set) outranks a late first read.
+  const loadedLayout = useModuleQuery(async () => getHomeLayout()).data
   useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      try {
-        const result = await getHomeLayout()
-        if (!cancelled && result.ok) applyLayout(result.value)
-      } catch {
-        // Leave the dashboard empty rather than throwing - see the doc comment above.
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    if (loadedLayout && layoutRef.current === undefined) applyLayout(loadedLayout)
+  }, [loadedLayout])
 
   /** The only place `layout` is written - state for rendering, ref for the handlers that cannot
    * wait for a render (see `layoutRef`). Everything that commits a layout goes through here. */

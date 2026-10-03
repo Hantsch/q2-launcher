@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ExternalLink, FolderOpen } from 'lucide-react'
 import { APP_CHANGELOG_URL, APP_REPO_URL } from '@shared/constants'
-import type { ReleaseNotes as ReleaseNotesResponse } from '@shared/types'
+import { ok } from '@shared/types'
 import { invoke } from '../../lib/bridge'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { useLauncher } from '../../store/useLauncher'
 import { Button } from '../ui/Button'
 import { Divider, KeyValue, SectionLabel } from '../ui/primitives'
@@ -26,17 +26,8 @@ import { ReleaseNotes } from './ReleaseNotes'
 export function AboutPanel() {
   const { t } = useTranslation()
   const appInfo = useLauncher((state) => state.appInfo)
-  const [releaseNotes, setReleaseNotes] = useState<ReleaseNotesResponse>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    void invoke('app:getReleaseNotes').then((result) => {
-      if (!cancelled) setReleaseNotes(result ?? null)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const releaseNotes =
+    useModuleQuery(async () => ok(await invoke('app:getReleaseNotes'))).data ?? null
 
   return (
     <>

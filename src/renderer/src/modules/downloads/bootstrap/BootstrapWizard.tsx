@@ -11,7 +11,9 @@ import type {
   DownloadFailure,
   GameDataSourceVerdict,
 } from '@shared/modules/downloads'
+import { ok } from '@shared/types'
 import { invoke } from '../../../lib/bridge'
+import { useModuleQuery } from '../../../lib/useModuleQuery'
 import { useLauncher } from '../../../store/useLauncher'
 import { Button } from '../../../components/ui/Button'
 import { Modal } from '../../../components/ui/Modal'
@@ -66,17 +68,24 @@ export function BootstrapWizard() {
 
   const [step, setStep] = useState<Step>('engine')
 
-  const [engineOptions, setEngineOptions] = useState<BootstrapEngineOption[] | null>(null)
+  const engineQuery = useModuleQuery(getBootstrapEngineOptions)
+  // A failed read means "no options, no reason to give" (same as an empty list); `null` = loading.
+  const engineOptions: BootstrapEngineOption[] | null =
+    engineQuery.data?.options ?? (engineQuery.state === 'loading' ? null : [])
   // Story 100 D7/D8: why `engineOptions` came back empty - `null` whenever it is non-empty (or
   // still loading). Rendered by `EngineStep`'s own empty state; never read for anything else.
-  const [engineOptionsEmptyReason, setEngineOptionsEmptyReason] =
-    useState<BootstrapEngineOptionsEmptyReason>(null)
-  const [engine, setEngine] = useState<EngineKind | null>(null)
-  // Whether the user has made an explicit choice - once true, the default-selection effect below
-  // must never overwrite it, even if `engineOptions` itself changes identity on a later render.
-  const userPickedEngine = useRef(false)
+  const engineOptionsEmptyReason: BootstrapEngineOptionsEmptyReason =
+    engineQuery.data?.emptyReason ?? null
+  // Defaults to the first option so a single-choice wizard (today's Q2PRO-only reality) needs zero
+  // extra clicks - derived, so it is there in the same render as the options; a pick always wins.
+  const [pickedEngine, setPickedEngine] = useState<EngineKind | null>(null)
+  const engine: EngineKind | null = pickedEngine ?? engineQuery.data?.options[0]?.engine ?? null
 
-  const [detectedSources, setDetectedSources] = useState<DetectedRetailSource[] | null>(null)
+  const sourcesQuery = useModuleQuery(getDetectedRetailSources)
+  // An empty list makes the copy choice absent rather than disabled (`GameDataStep` reads
+  // `sources.length`, never a loading placeholder, to decide that).
+  const detectedSources: DetectedRetailSource[] | null =
+    sourcesQuery.data ?? (sourcesQuery.state === 'loading' ? null : [])
   const [dataSource, setDataSource] = useState<BootstrapDataSource>('free-download')
   const [copySourcePath, setCopySourcePath] = useState<string | null>(null)
 
@@ -91,8 +100,13 @@ export function BootstrapWizard() {
   const [checkingGameDataFolder, setCheckingGameDataFolder] = useState(false)
 
   const [targetPath, setTargetPath] = useState('')
-  const [verdict, setVerdict] = useState<BootstrapTargetVerdict | null>(null)
-  const [checkingTarget, setCheckingTarget] = useState(false)
+  const verdictQuery = useModuleQuery<BootstrapTargetVerdict | null>(
+    async () => (targetPath ? getBootstrapTargetVerdict(targetPath) : ok(null)),
+    { deps: [targetPath] },
+  )
+  const verdict =
+    targetPath && verdictQuery.state === 'success' ? (verdictQuery.data ?? null) : null
+  const checkingTarget = targetPath !== '' && verdictQuery.state === 'loading'
   const [ackProgramFiles, setAckProgramFiles] = useState(false)
   const [ackNonEmpty, setAckNonEmpty] = useState(false)
   const [ackNotWritable, setAckNotWritable] = useState(false)
@@ -133,46 +147,9 @@ export function BootstrapWizard() {
     }
   }, [job])
 
-  useEffect(() => {
-    let cancelled = false
-    void getBootstrapEngineOptions().then((result) => {
-      if (cancelled) return
-      // Story 100 D7/D8: the handler answers `{ options, emptyReason }` - `emptyReason` is `null`
-      // for a failed call too (`Outcome` failure), same "no options, no reason to give" reading as
-      // an empty `options` array on its own always got before this field existed.
-      const options = result.ok ? result.value.options : []
-      setEngineOptions(options)
-      setEngineOptionsEmptyReason(result.ok ? result.value.emptyReason : null)
-      // Defaults the selection to the first option so a single-choice wizard (today's Q2PRO-only
-      // reality, and any future single-option case) still needs zero extra clicks - but never
-      // overwrites a choice the user already made, even on a later options fetch.
-      if (!userPickedEngine.current && options.length > 0) {
-        setEngine(options[0].engine)
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   function selectEngine(next: EngineKind): void {
-    userPickedEngine.current = true
-    setEngine(next)
+    setPickedEngine(next)
   }
-
-  // Story 088 D5: the detected-source list, fetched once on mount - an empty array is what makes
-  // AC1's copy choice absent rather than disabled (`GameDataStep` reads `sources.length`, never a
-  // loading placeholder, to decide that).
-  useEffect(() => {
-    let cancelled = false
-    void getDetectedRetailSources().then((result) => {
-      if (cancelled) return
-      setDetectedSources(result.ok ? result.value : [])
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   function selectDataSource(next: BootstrapDataSource): void {
     setDataSource(next)
@@ -227,10 +204,7 @@ export function BootstrapWizard() {
   // Reset the acknowledges whenever the target folder itself changes - an acknowledge for one
   // folder must never silently carry over to a different one.
   useEffect(() => {
-    if (!targetPath) {
-      setVerdict(null)
-      return
-    }
+    if (!targetPath) return
     setAckProgramFiles(false)
     setAckNonEmpty(false)
     setAckNotWritable(false)
@@ -238,16 +212,6 @@ export function BootstrapWizard() {
     // re-picking a different target must not silently carry it over onto the new one (review
     // finding, story 074 fix cycle 2).
     setWriteDirPath(null)
-    setCheckingTarget(true)
-    let cancelled = false
-    void getBootstrapTargetVerdict(targetPath).then((result) => {
-      if (cancelled) return
-      setCheckingTarget(false)
-      setVerdict(result.ok ? result.value : null)
-    })
-    return () => {
-      cancelled = true
-    }
   }, [targetPath])
 
   useEffect(() => {

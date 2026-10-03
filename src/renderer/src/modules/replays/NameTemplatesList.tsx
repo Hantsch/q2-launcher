@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { compileNameTemplate } from '@shared/replays/name-template'
 import type { NameTemplateEntry, NameTemplatesView } from '@shared/replays/name-templates'
 import type { LocalizedMessage, Outcome } from '@shared/types'
+import { useModuleMutation, useModuleQuery } from '../../lib/useModuleQuery'
 import { SortableList, DragHandle, type SortableItemRenderState } from '../../components/dnd'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Badge, SectionLabel } from '../../components/ui/primitives'
@@ -42,9 +43,15 @@ function validateText(text: string): ValidationResult {
 export function NameTemplatesList() {
   const { t } = useTranslation()
 
-  const [view, setView] = useState<NameTemplatesView | null>(null)
-  const [listError, setListError] = useState<LocalizedMessage | null>(null)
-  const [saving, setSaving] = useState(false)
+  const query = useModuleQuery(listNameTemplates)
+  const mutation = useModuleMutation((action: () => Promise<Outcome<NameTemplatesView>>) =>
+    action(),
+  )
+  const view = query.data ?? null
+  const saving = mutation.busy
+  const { setData: setView } = query
+  const [mutationError, setListError] = useState<LocalizedMessage | null>(null)
+  const listError = mutationError ?? (query.state === 'error' ? query.error : null)
 
   const [addText, setAddText] = useState('')
   const [addError, setAddError] = useState<LocalizedMessage | null>(null)
@@ -54,21 +61,6 @@ export function NameTemplatesList() {
   const [editText, setEditText] = useState('')
   const [editError, setEditError] = useState<LocalizedMessage | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    void listNameTemplates().then((result) => {
-      if (cancelled) return
-      if (!result.ok) {
-        setListError(result.error)
-        return
-      }
-      setView(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
   /** Every `nameTemplates.*` mutation goes through here: runs the action, and either applies main's
    * returned full view (success) or hands the refusal to whichever error slot the caller names -
    * the add field's, the edit field's, or the list's own, depending which action failed. Transport
@@ -77,14 +69,19 @@ export function NameTemplatesList() {
     action: () => Promise<Outcome<NameTemplatesView>>,
     onError: (error: LocalizedMessage) => void,
   ): Promise<boolean> => {
-    setSaving(true)
-    const result = await action()
-    setSaving(false)
-    if (!result.ok) {
-      onError(result.error)
-      return false
-    }
-    setView(result.value)
+    const result = await mutation.run(async () => {
+      let outcome: Outcome<NameTemplatesView>
+      try {
+        outcome = await action()
+      } catch (caught) {
+        onError({ key: 'ipc.error.unreachable' })
+        throw caught
+      }
+      if (!outcome.ok) onError(outcome.error)
+      return outcome
+    })
+    if (!result) return false
+    setView(result)
     return true
   }
 

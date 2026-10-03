@@ -6,9 +6,10 @@ import {
   serverModStatus,
   type CatalogGameDirEntry,
 } from '@shared/mods/server-local-content'
-import { isJobActive, type LocalizedMessage } from '@shared/types'
+import { isJobActive, ok, type LocalizedMessage } from '@shared/types'
 import { Button } from '../../components/ui/Button'
 import { cn } from '../../lib/cn'
+import { useModuleQuery } from '../../lib/useModuleQuery'
 import { useActiveInstallation, useLauncher } from '../../store/useLauncher'
 import {
   InstallDecisionDialog,
@@ -66,23 +67,15 @@ export function ServerLocalContentSection({ mod, map }: ServerLocalContentSectio
   const jobs = useLauncher((s) => s.jobs)
 
   // The catalog is read once; unavailable, failed or rejected all mean "no catalog" (no Install).
-  const [catalogEntries, setCatalogEntries] = useState<CatalogGameDirEntry[] | null>(null)
-  useEffect(() => {
-    let stale = false
-    getCatalog()
-      .then((outcome) =>
-        outcome.ok && outcome.value.status === 'ok'
-          ? outcome.value.entries.map((e) => ({ id: e.id, gameDir: e.gamedir }))
-          : null,
-      )
-      .catch(() => null)
-      .then((entries) => {
-        if (!stale) setCatalogEntries(entries)
-      })
-    return () => {
-      stale = true
-    }
-  }, [])
+  const catalogQuery = useModuleQuery<CatalogGameDirEntry[] | null>(async () => {
+    const outcome = await getCatalog()
+    return ok(
+      outcome.ok && outcome.value.status === 'ok'
+        ? outcome.value.entries.map((e) => ({ id: e.id, gameDir: e.gamedir }))
+        : null,
+    )
+  })
+  const catalogEntries = catalogQuery.data ?? null
 
   // Installs started here (installation + catalog id -> job id), refusals, and a pending decision.
   const [started, setStarted] = useState<{
@@ -93,10 +86,6 @@ export function ServerLocalContentSection({ mod, map }: ServerLocalContentSectio
   const [failure, setFailure] = useState<LocalizedMessage | null>(null)
   const [decision, setDecision] = useState<InstallDecisionRequest | null>(null)
   const [answered, setAnswered] = useState<string[]>([])
-  // An install of this mod running from elsewhere (e.g. the Mods view) also keeps the button busy.
-  const [elsewhere, setElsewhere] = useState<{ installationId: string; jobIds: string[] } | null>(
-    null,
-  )
 
   useEffect(
     () =>
@@ -117,22 +106,21 @@ export function ServerLocalContentSection({ mod, map }: ServerLocalContentSectio
   )
   const installCatalogId = status.kind === 'missing' ? status.catalogId : null
 
-  useEffect(() => {
-    if (installationId === null || installCatalogId === null) return
-    let stale = false
-    void listMods(installationId).then((outcome) => {
-      if (stale || !outcome.ok) return
-      setElsewhere({
+  const elsewhereQuery = useModuleQuery<{ installationId: string; jobIds: string[] } | null>(
+    async () => {
+      if (installationId === null || installCatalogId === null) return ok(null)
+      const outcome = await listMods(installationId)
+      if (!outcome.ok) return outcome
+      return ok({
         installationId,
         jobIds: outcome.value.activeInstalls
           .filter((a) => a.catalogId === installCatalogId)
           .map((a) => a.jobId),
       })
-    })
-    return () => {
-      stale = true
-    }
-  }, [installationId, installCatalogId])
+    },
+    { deps: [installationId, installCatalogId] },
+  )
+  const elsewhere = elsewhereQuery.data ?? null
 
   const trackedJobIds = [
     ...(started &&
@@ -142,6 +130,7 @@ export function ServerLocalContentSection({ mod, map }: ServerLocalContentSectio
       : []),
     ...(elsewhere && elsewhere.installationId === installationId ? elsewhere.jobIds : []),
   ]
+  // An install of this mod running from elsewhere (e.g. the Mods view) also keeps the button busy.
   const installing = jobs.some((j) => trackedJobIds.includes(j.id) && isJobActive(j))
 
   const startInstall = async (): Promise<void> => {
@@ -159,21 +148,17 @@ export function ServerLocalContentSection({ mod, map }: ServerLocalContentSectio
       ? JSON.stringify([installationId, target.gameDir ?? null, target.map])
       : null
 
-  const [answer, setAnswer] = useState<{ key: string; available: boolean } | null>(null)
-
-  useEffect(() => {
-    if (installationId === null || target === null || lookupKey === null) return
-    let cancelled = false
-    void getMapPresence({ installationId, ...target }).then((result) => {
-      if (cancelled || !result.ok) return
-      setAnswer({ key: lookupKey, available: result.value.available })
-    })
-    return () => {
-      cancelled = true
-    }
-    // `target` is derived from exactly these inputs; `lookupKey` stands for it.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `target` is derived from these inputs; its identity would refetch needlessly.
-  }, [installationId, gameDirsKey, statusGameDir, map, lookupKey])
+  // `target` is derived from exactly these deps; `lookupKey` stands for it.
+  const presenceQuery = useModuleQuery<{ key: string; available: boolean } | null>(
+    async () => {
+      if (installationId === null || target === null || lookupKey === null) return ok(null)
+      const result = await getMapPresence({ installationId, ...target })
+      if (!result.ok) return result
+      return ok({ key: lookupKey, available: result.value.available })
+    },
+    { deps: [installationId, gameDirsKey, statusGameDir, map, lookupKey] },
+  )
+  const answer = presenceQuery.data ?? null
 
   if (installation === null) {
     return (

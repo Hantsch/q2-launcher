@@ -4,6 +4,7 @@ import { Download } from 'lucide-react'
 import type { Job } from '@shared/types'
 import type { DownloadFailure } from '@shared/modules/downloads'
 import { useLauncher } from '../../store/useLauncher'
+import { useModuleMutation, useModuleQuery } from '../../lib/useModuleQuery'
 import { formatBytes } from '../../lib/format'
 import { EmptyState, KeyValue, Panel, SectionLabel } from '../../components/ui/primitives'
 import {
@@ -44,45 +45,29 @@ export function DownloadsView() {
   // D6 (AC5): `appInfo` is fetched once at store bootstrap - reused here rather than a second
   // fetch, mirroring `SettingsView.tsx`'s reveal-log-path pattern (`null` until it resolves).
   const appInfo = useLauncher((state) => state.appInfo)
-  const [cacheStatus, setCacheStatus] = useState<{ totalBytes: number; itemCount: number } | null>(
-    null,
-  )
+  const cacheQuery = useModuleQuery(getArchiveCacheStatus)
+  const cacheStatus = cacheQuery.data ?? null
   const [fadingIds, setFadingIds] = useState<ReadonlySet<string>>(new Set())
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(new Set())
-  const [failures, setFailures] = useState<DownloadFailure[]>([])
-
-  useEffect(() => {
-    let cancelled = false
-    void getArchiveCacheStatus().then((result) => {
-      if (!cancelled && result.ok) setCacheStatus(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   // D4: the failure log has no push channel - it is refetched on mount and whenever the `jobs`
   // store slice changes, since a failure always coincides with a `jobs:changed` broadcast
   // (Decisions (Sprint)).
-  useEffect(() => {
-    let cancelled = false
-    void getDownloadFailures().then((result) => {
-      if (!cancelled && result.ok) setFailures(result.value)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [jobs])
+  const failuresQuery = useModuleQuery(getDownloadFailures, { deps: [jobs] })
+  const failures: DownloadFailure[] = failuresQuery.data ?? []
+  const { setData: setFailures } = failuresQuery
+  const dismissMutation = useModuleMutation(dismissDownloadFailure)
+  const restoreMutation = useModuleMutation(restoreDownloadFailure)
 
   function handleDismissFailure(id: string) {
-    void dismissDownloadFailure(id).then((result) => {
-      if (result.ok) setFailures(result.value)
+    void dismissMutation.run(id).then((list) => {
+      if (list) setFailures(list)
     })
   }
 
   function handleRestoreFailure(id: string) {
-    void restoreDownloadFailure(id).then((result) => {
-      if (result.ok) setFailures(result.value)
+    void restoreMutation.run(id).then((list) => {
+      if (list) setFailures(list)
     })
   }
 
