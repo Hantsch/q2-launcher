@@ -18,7 +18,7 @@ available over IPC, plus its cache. The hero that renders it is story 083.
 
 Foreign content from the network reaches the launcher here for the first time. It is data, never
 instruction: nothing in a feed is executed, and nothing unvalidated reaches the renderer. See
-[concepts/home-screen.md](../../concepts/home-screen.md) §2 (non-goals), §6 and §10.
+[systems/home-screen.md](../../systems/home-screen.md) §2 (non-goals), §6 and §10.
 
 ## Acceptance Criteria
 

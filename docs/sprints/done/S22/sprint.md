@@ -24,7 +24,7 @@ master-source codecs) is written as pure, unit-tested code with no live network 
 ## Notes
 
 This is the first of 7 sprints (9.1–9.7, stories 106–132) building the game-browser milestone
-described in full in `docs/concepts/game-browser.md`. 106 goes first because 107–109 need the module
+described in full in `docs/systems/game-browser.md`. 106 goes first because 107–109 need the module
 shell (main/renderer halves, IPC namespace) to land their code into, even though none of the three
 protocol/validation stories depend on 106's _content_ — they are pure modules that could in principle
 be built standalone. 107 goes before 108/109 because both later stories' "reject malformed input"

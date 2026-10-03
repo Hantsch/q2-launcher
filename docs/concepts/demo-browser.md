@@ -1,7 +1,7 @@
 # Demo Browser — Library, Metadata and Remote-Controlled Playback — Concept
 
-Status: **Draft** (vision + requirements; v1 cut into stories 133–167 under
-`docs/requirements/`, no sprint yet). This document fixes what the launcher's
+Status: **Implemented** (v1 shipped in S26-S30, Phase 10 done; section 9.2 browser playback deferred; stories 133–167 under
+`docs/requirements/`). This document fixes what the launcher's
 demo browser becomes: a new top-level module that finds Quake II demo files across every
 installation, every game directory and any extra folders the user adds, derives what it can from the
 file name and the demo content, lets the user annotate each demo with a **sidecar file next to it**,
@@ -19,7 +19,7 @@ on the existing launch path ([launch-plan.ts](../../src/main/services/launch-pla
 and game-dir discovery ([inspector.ts](../../src/main/services/inspector.ts)), the `config` module
 ([config-module.md](../systems/config-module.md)) for the in-game demo key binds, the game
 browser's shared filter engine ([list-filter.ts](../../src/shared/servers/list-filter.ts)) and its
-concept ([game-browser.md](game-browser.md)), whose planned 2D live observer shares parser code with
+concept ([game-browser.md](../systems/game-browser.md)), whose planned 2D live observer shares parser code with
 this module's 2D analyser.
 
 ---

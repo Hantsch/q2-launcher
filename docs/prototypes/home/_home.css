@@ -4,7 +4,7 @@
    Loaded on top of ../bindings/_proto.css, which owns the tokens, the panel,
    the buttons and the badges. Only home-screen specifics live here.
 
-   Concept: docs/concepts/home-screen.md
+   Concept: docs/systems/home-screen.md
    The three variants differ in ONE dimension - the hero <-> dashboard
    composition - which is set per page via the body class (v-a / v-b / v-c)
    and read from --hero-h below. Everything else is deliberately identical

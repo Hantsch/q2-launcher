@@ -152,3 +152,5 @@ Keep this short — it is pasted into every subagent prompt.
 This repo's CHANGELOG.md uses Keep-a-Changelog category headings (`### Added`/`### Changed`/`### Fixed`/`### Removed`/`### Security`), not the `changelog-path` comment's suggested `# Features`/`# Fixes` shape.
 
 Regression gate attribution and the sprint review judge a red flow against docs/UI-VERIFICATION.md#what-a-flow-may-assert — a flow asserting another story's incidental detail is fixed in the flow, not in the product.
+
+The sprint review (phase 3) checks that every story touching `src/main/modules/<id>/` or `src/renderer/src/modules/<id>/` also touched that module's doc under `docs/systems/`, and lists a miss as a finding.

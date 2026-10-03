@@ -46,6 +46,8 @@ docs/
 - Once a concept is fully implemented (all stories done): `git mv` it to `systems/` and update
   its status line — checked in the `/sprint` review (phase 3) and
   `/roadmap check`.
+- A story that changes a shipped module updates its systems doc (`systems/<id>-module.md`); the
+  `/sprint` review checks it.
 - Status tables do not belong in this index — only in the roadmap.
 - The roadmap is compacted, not archived: `/roadmap check` removes done follow-ups and
   collapses finished phases to one row per milestone. Git and the sprint reviews are the

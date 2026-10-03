@@ -31,7 +31,7 @@ debt has one home with an ageing rule.
 - [x] 231 — i18n keys are referenced, not duplicated, and live with their module
 - [x] 198 — the staged game stays on top on X11
 - [x] 227 — the docs describe the launcher as built
-- [ ] 228 — every shipped module has a system doc
+- [x] 228 — every shipped module has a system doc
 - [ ] 230 — comments state invariants, not sprint history
 - [ ] 229 — tech debt has one home and an ageing rule
 

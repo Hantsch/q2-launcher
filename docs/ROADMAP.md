@@ -28,10 +28,10 @@ S28–S30 and [S32](sprints/done/S32/testplan.md) testplans, 102's Q1–Q4, and 
 
 Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-10-01-codebase-review.md).
 
-| #    | Milestone                                                  | Status  | Sprint(s)                    | Note                                                              |
-| ---- | ---------------------------------------------------------- | ------- | ---------------------------- | ----------------------------------------------------------------- |
+| #    | Milestone                                                  | Status          | Sprint(s)                         | Note                                                                 |
+| ---- | ---------------------------------------------------------- | --------------- | --------------------------------- | -------------------------------------------------------------------- |
 | 11.1 | A green gate, safe foundations, one module bus             | done 2026-10-02 | [S32](sprints/done/S32/review.md) | 18 stories, main side and infra; merge into `dev` waits on the user. |
-| 11.2 | Config module and renderer on shared layers, docs as built | planned | [S33](sprints/S33/sprint.md) | 16 stories incl. X11 stage story 198; starts after S32 is merged. |
+| 11.2 | Config module and renderer on shared layers, docs as built | planned         | [S33](sprints/S33/sprint.md)      | 16 stories incl. X11 stage story 198; starts after S32 is merged.    |
 
 ## Open / unprioritised
 
@@ -71,9 +71,6 @@ Phase 11 — codebase health, source [codebase review 2026-10-01](reviews/2026-1
   recorded engine, slightly stricter than the plan's offer gate — latent today since the shipped
   manifest only pins the two engines both paths already require; worth re-checking once a third
   engine is added. [S20 review](sprints/done/S20/review.md)
-- `docs/concepts/home-screen.md` §6 still says the content repository holds "only a LICENSE" —
-  story 080 added `engines/` and `gamedata/`. A small doc correction, next time that concept is
-  touched. [S18 review](sprints/done/S18/review.md)
 - `scripts/fetch-7za.mjs` (071) has never run end-to-end in this environment (no network access
   to 7-zip.org) — the wiring is correct but unverified against a real download; three tests stay
   `it.skipIf`-gated until someone with network access runs it once. [S16 review](sprints/done/S16/review.md)

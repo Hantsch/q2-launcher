@@ -24,7 +24,7 @@ one server instead of always reloading everything.
 ## Notes
 
 Sprint 3 of 7 for the game-browser milestone (9.1–9.7, stories 106–132; concept at
-`docs/concepts/game-browser.md`). Depends on S22 (106–109: module scaffold, address validator,
+`docs/systems/game-browser.md`). Depends on S22 (106–109: module scaffold, address validator,
 protocol codecs, master codecs) and S23 (110–113: state schema, source settings, favourites, manual
 servers + history) being built first — this sprint's scheduler reads the address set and codecs
 those sprints produce and has nothing to sweep without them.

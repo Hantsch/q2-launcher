@@ -107,7 +107,7 @@ files are written, not published: no commit, no push, no release — publishing 
 
 None open. Noted for the sprint review, not blocking: the checkout already contains `engines/` and
 `gamedata/` (added by story 080's manifest work), which
-[concepts/home-screen.md](../../concepts/home-screen.md) §6 still describes as "today it contains only
+[systems/home-screen.md](../../systems/home-screen.md) §6 still describes as "today it contains only
 a LICENSE" — the concept's repo-layout listing is stale and its `news/`-only sketch should be
 updated once this story's README exists.
 

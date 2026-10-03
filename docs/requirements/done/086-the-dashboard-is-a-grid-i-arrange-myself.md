@@ -18,7 +18,7 @@ and the app tells me what happened while I do it. What I arrange is saved as it 
 a restart, and can be put back to the default in one step.
 
 This story is the grid, the mode and the persistence — the tiles that go in it are story 087. See
-[concepts/home-screen.md](../../concepts/home-screen.md) §8.
+[systems/home-screen.md](../../systems/home-screen.md) §8.
 
 ## Acceptance Criteria
 

@@ -18,7 +18,7 @@ content. That behaviour lives in the tile frame, once, so a failing data source 
 way everywhere.
 
 Fresh installs start on the composition the prototype decided: the two tiles side by side under
-the 320px hero. See [concepts/home-screen.md](../../concepts/home-screen.md) §8.4 and §11.
+the 320px hero. See [systems/home-screen.md](../../systems/home-screen.md) §8.4 and §11.
 
 ## Acceptance Criteria
 

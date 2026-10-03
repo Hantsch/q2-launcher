@@ -291,3 +291,19 @@
 - 2026-10-03 15:50 · 227 · review 1 · started
 - 2026-10-03 15:54 · 227 · review 1 · done
 - 2026-10-03 15:55 · 227 · story · done
+- 2026-10-03 15:55 · 228 · build · started
+- 2026-10-03 15:56 · 228 · D1 config-module.md as-built · started
+- 2026-10-03 16:00 · 228 · D1 config-module.md as-built · done
+- 2026-10-03 16:00 · 228 · D2 servers+replays docs · started
+- 2026-10-03 16:02 · 228 · D2 servers+replays docs · done
+- 2026-10-03 16:02 · 228 · D3 home+mods docs · started
+- 2026-10-03 16:04 · 228 · D3 home+mods docs · done
+- 2026-10-03 16:04 · 228 · D4 placement + links · started
+- 2026-10-03 16:08 · 228 · D4 placement + links · done
+- 2026-10-03 16:08 · 228 · D5 process rule · started
+- 2026-10-03 16:08 · 228 · D5 process rule · done
+- 2026-10-03 16:08 · 228 · verify · started
+- 2026-10-03 16:09 · 228 · verify · done
+- 2026-10-03 16:09 · 228 · review 1 · started
+- 2026-10-03 16:11 · 228 · review 1 · done
+- 2026-10-03 16:11 · 228 · story · done

@@ -10,7 +10,7 @@ created: 2026-09-24
 A user opens the launcher and sees a "Servers" entry in the primary navigation, at the same level
 as Library and Config — a dedicated place to find out where something is going on, distinct from
 managing an installation. Today that place does not exist; the game browser concept
-(`docs/concepts/game-browser.md`) describes everything it will eventually do, but nothing is
+(`docs/systems/game-browser.md`) describes everything it will eventually do, but nothing is
 registered with the app yet.
 
 This story does none of that content. It is the foundation the other three stories in this sprint,

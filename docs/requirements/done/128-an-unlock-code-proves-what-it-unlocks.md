@@ -8,7 +8,7 @@ created: 2026-09-24
 ## Requirement
 
 The watchlist ([[131]], [[132]]) ships hidden — the concept is explicit that it "ships behind a
-signed unlock code" (`docs/concepts/game-browser.md` TL;DR, §13). This story is not really about
+signed unlock code" (`docs/systems/game-browser.md` TL;DR, §13). This story is not really about
 the game browser at all: it is the launcher-wide mechanism that makes an unfinished feature
 non-discoverable until someone hands the user a code naming it, with the watchlist as its first
 and, for now, only consumer (§13, opening line). [[129]] builds the Settings surface on top of

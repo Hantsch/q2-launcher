@@ -1,6 +1,6 @@
 # Home Screen — News Hero + Customizable Dashboard — Concept
 
-Status: **Draft** (vision + requirements, no stories yet). This document fixes what the launcher's
+Status: **Implemented.** Phase 3 shipped; this document is the design reference, the as-built reference is [home-module.md](home-module.md). This document fixes what the launcher's
 home screen becomes: a fixed news carousel at the top, fed from the public
 `Hantsch/q2_community_content` repository, and below it a free grid of dashboard modules the user
 arranges and resizes themselves. It also fixes the contract of that content repository (layout,
@@ -235,7 +235,7 @@ _theirs_ and the launcher never rearranges it.
 ## 6. The content repository
 
 Repository: `https://github.com/Hantsch/q2_community_content`, branch `main`, public. Today it
-contains only a LICENSE — the layout below is created by this concept's stories.
+contains `engines/`, `gamedata/` and `news/` (plus reserved `packs/`, `mods/`, `config_templates/`).
 
 ```
 news/

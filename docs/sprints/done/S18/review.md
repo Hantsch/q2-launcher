@@ -87,7 +87,7 @@ real tiles. Both are done — all 8 stories shipped, none blocked.
   `npm run ui:seed` between flows that mutate shared fixture state (documented in `flow.mjs`'s own
   header comment) — this is a reminder of that rule, not a new one.
 - **Doc drift noted by story 085's own refine pass, not fixed this sprint:**
-  `docs/concepts/home-screen.md` §6 still says the content repository holds "only a LICENSE"; it
+  `docs/systems/home-screen.md` §6 still says the content repository holds "only a LICENSE"; it
   now also has `engines/` and `gamedata/` from story 080. Worth a small correction next time that
   concept doc is touched.
 - Three new `CLAUDE.md` deviation rows were added (084's feed-image bitmap exception; 086/087's

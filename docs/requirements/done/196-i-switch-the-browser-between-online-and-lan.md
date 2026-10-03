@@ -16,7 +16,7 @@ LAN is an option, not the default: the browser opens on Online, and nothing is b
 network unless the user chose LAN.
 
 Idea taken from a review of ozy24/q2connect (LAN discovery by UDP broadcast).
-Concept: [game-browser.md](../../concepts/game-browser.md) §7 (discovery and scanning).
+Concept: [game-browser.md](../../systems/game-browser.md) §7 (discovery and scanning).
 
 ## Acceptance Criteria
 

@@ -17,7 +17,7 @@ focus it, and there is a pause I can latch. If I have no feed yet, it welcomes m
 showing an empty box. If the feed is old because the fetch failed, it says so quietly. A slide's
 buttons open in my browser — the launcher never navigates itself somewhere.
 
-See [concepts/home-screen.md](../../concepts/home-screen.md) §7 and §11 (variant A is the reference).
+See [systems/home-screen.md](../../systems/home-screen.md) §7 and §11 (variant A is the reference).
 
 ## Acceptance Criteria
 

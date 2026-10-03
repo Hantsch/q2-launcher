@@ -25,7 +25,7 @@ builds on the shell's existing, unused job pipeline
 inspector ([inspector.ts](../../src/main/services/inspector.ts)), the store detection service
 ([detection/](../../src/main/services/detection/)), the engine table
 ([engine.ts](../../src/shared/types/engine.ts)) and the content repository whose layout and
-transport the [home-screen concept](../concepts/home-screen.md) already fixed.
+transport the [home-screen concept](home-screen.md) already fixed.
 
 ---
 
@@ -178,16 +178,16 @@ asset packs and config templates belong to their own modules.
 
 ## 4. Tech decisions
 
-| Area                     | Choice                                                                                                                                                                                         | Rationale                                                                                                                       |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP                     | Main-process only, Node/Electron built-in `fetch` with range requests; no new HTTP dependency unless resume forces one                                                                         | The repo has no network code and only three runtime dependencies; the production CSP is `connect-src 'self'` and stays that way |
-| Archive extraction       | A bundled 7-Zip CLI binary behind one `Extractor` interface in main, invoked with a fixed absolute path and a fixed argument shape                                                             | Self-extracting `.exe` installers cannot be read by a JS ZIP library; the interface keeps the door open for other platforms     |
-| Hashing                  | `node:crypto` SHA256, streamed while writing the download                                                                                                                                      | Already used in the config module; no dependency                                                                                |
-| Manifest format          | JSON with `schemaVersion`, validated with zod in main; unvalidated data never reaches the renderer                                                                                             | The repo's validation convention                                                                                                |
-| Job state                | The existing `JobsService` and `Job`/`JobProgress` types; the module is their first producer                                                                                                   | Built for exactly this, unused so far                                                                                           |
-| Module state             | A new top-level key in `state.json` with its own zod schema and defensive parse (the `configProfiles` precedent) for the module's settings, the failure log and resumable-download bookkeeping | `LauncherSettings` is a closed shape                                                                                            |
-| Installation-scoped data | `Installation.moduleData['downloads']` for what belongs to one installation (pinned engine version, bleeding-edge flag, backup pointer)                                                        | The slot the model reserves for exactly this, with a migration step in the owner's `persisted-migrations.ts` when its shape changes                                |
-| Cache location           | `userData/cache/downloads/` for archives, partial files as `<name>.part` plus a sidecar with URL, size, hash and offset                                                                        | Not in `state.json`; a cache is files                                                                                           |
+| Area                     | Choice                                                                                                                                                                                         | Rationale                                                                                                                           |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP                     | Main-process only, Node/Electron built-in `fetch` with range requests; no new HTTP dependency unless resume forces one                                                                         | The repo has no network code and only three runtime dependencies; the production CSP is `connect-src 'self'` and stays that way     |
+| Archive extraction       | A bundled 7-Zip CLI binary behind one `Extractor` interface in main, invoked with a fixed absolute path and a fixed argument shape                                                             | Self-extracting `.exe` installers cannot be read by a JS ZIP library; the interface keeps the door open for other platforms         |
+| Hashing                  | `node:crypto` SHA256, streamed while writing the download                                                                                                                                      | Already used in the config module; no dependency                                                                                    |
+| Manifest format          | JSON with `schemaVersion`, validated with zod in main; unvalidated data never reaches the renderer                                                                                             | The repo's validation convention                                                                                                    |
+| Job state                | The existing `JobsService` and `Job`/`JobProgress` types; the module is their first producer                                                                                                   | Built for exactly this, unused so far                                                                                               |
+| Module state             | A new top-level key in `state.json` with its own zod schema and defensive parse (the `configProfiles` precedent) for the module's settings, the failure log and resumable-download bookkeeping | `LauncherSettings` is a closed shape                                                                                                |
+| Installation-scoped data | `Installation.moduleData['downloads']` for what belongs to one installation (pinned engine version, bleeding-edge flag, backup pointer)                                                        | The slot the model reserves for exactly this, with a migration step in the owner's `persisted-migrations.ts` when its shape changes |
+| Cache location           | `userData/cache/downloads/` for archives, partial files as `<name>.part` plus a sidecar with URL, size, hash and offset                                                                        | Not in `state.json`; a cache is files                                                                                               |
 
 ## 5. Core terms & model
 
@@ -263,7 +263,7 @@ site currently carries the note that the skuller Q2PRO download is offline and l
 ## 7. The manifest
 
 One curated JSON file per content type in `Hantsch/q2_community_content`, fetched over
-`raw.githubusercontent` on `main` — the transport the [home-screen concept](../concepts/home-screen.md)
+`raw.githubusercontent` on `main` — the transport the [home-screen concept](home-screen.md)
 already fixed for `news/`. The install module adds `engines/` and `gamedata/` next to the
 `packs/`, `mods/` and `config_templates/` directories that concept reserved.
 
@@ -592,3 +592,10 @@ which today only navigates to the Downloads tab — do something.
     reasons is not enumerated yet.
 20. **Whether the failure log is per installation or global**, and how long a dismissed failure
     stays recoverable.
+
+## Library module
+
+The `library` module (`src/main/modules/library/`) serves the installation library's summary.
+
+- `stats` — counts installations by state (ok, needs attention, missing, favourites), by engine
+  kind, their total playtime and the most recently played one; derived from the shell's own state.

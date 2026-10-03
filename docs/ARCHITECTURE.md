@@ -419,9 +419,9 @@ The shell never needs editing to add a module. The steps, walked through `replay
 10. **Layering allowlist** — a module imports no other module; an edge that cannot be avoided is
     an `ALLOWED` entry in `src/architecture.test.ts` with its story number and reason (see
     [Layering and security guards](#layering-and-security-guards)).
-11. **Docs** — the module's line in [Modules as built](#modules-as-built) and its system doc in
-    `docs/systems/<id>.md` (planned in story 228; today `config` and `downloads` have one, as
-    `config-module.md` and `install-module.md`).
+11. **Docs** — the module's line in [Modules as built](#modules-as-built), and create or update
+    `docs/systems/<id>-module.md` (purpose, map, persisted state, handlers, external inputs,
+    limitations). Every later story that changes the module updates it.
 
 Until the module's renderer half exists (step 8), the route renders `PlannedModuleView`, which states what the module will do
 and which capabilities it needs. The roadmap lives in the product rather than only in a file.

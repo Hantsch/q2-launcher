@@ -1,6 +1,6 @@
 # Mods — Game Directories, Catalog and Install — Concept
 
-Status: **Draft** (vision + requirements, stories cut). This document fixes what the launcher's
+Status: **Partly implemented** (milestone 5.1 shipped, 5.2 open). This document fixes what the launcher's
 `mods` module becomes in v1: a tile catalog of curated multiplayer mods, installed from their
 original sources into one installation, next to the game directories already on disk. The
 server detail and the demo browser offer that install where a mod is missing. Everything here
@@ -13,7 +13,7 @@ written first, every renderer-supplied payload carries a zod schema, a feature t
 a platform stays visible with a visible reason, and no bundled image assets enter the UI. It builds
 on the install module ([install-module.md](../systems/install-module.md)): curated manifest,
 download pipeline, verification, archive cache, write guard. It also builds on the game browser
-([game-browser.md](game-browser.md), GB-D5) and the demo browser's mod-missing warning (story 182).
+([game-browser.md](../systems/game-browser.md), GB-D5) and the demo browser's mod-missing warning (story 182).
 
 ---
 

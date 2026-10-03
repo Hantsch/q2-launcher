@@ -1,7 +1,7 @@
 ---
 id: 228
 title: every shipped module has a system doc
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -12,7 +12,7 @@ to find an as-built reference for every shipped module, and concepts to say they
 once they are, so that binding decisions are clear and the real config pipeline is not
 recoverable only from 2,000 lines of in-code comments.
 
-Today ([review 2026-10-01](../reviews/2026-10-01-codebase-review.md), F35; a roadmap follow-up
+Today ([review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), F35; a roadmap follow-up
 since S18): `docs/systems/config-module.md` was last touched 2026-09-10 while the module gained
 stories up to 175; it says the status "moves off planned once the renderer view is registered",
 lists four resolved "open points", references `src/core/engines.ts`/`src/core/settings.ts` and
@@ -28,18 +28,18 @@ Depends on story 227 (link checker, placement of the as-built architecture secti
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `docs/systems/config-module.md` is an as-built reference: component map,
+- [x] **AC1** — `docs/systems/config-module.md` is an as-built reference: component map,
       parse → fold → restore → store → render → sync flow, the handler table with each handler's
       write rule, the startup sequence, known limitations; vision and interview history move to
       `docs/concepts/` or are dropped; no reference to a file that does not exist.
-- [ ] **AC2** — `game-browser.md` and `home-screen.md` are moved to `docs/systems/` with an
+- [x] **AC2** — `game-browser.md` and `home-screen.md` are moved to `docs/systems/` with an
       as-built status line (and the §6 content-repository correction applied); `demo-browser.md`
       carries its real status; `docs/README.md`'s concept/system rule holds for every file.
-- [ ] **AC3** — `docs/systems/` has a short as-built doc for servers, replays, home and mods
+- [x] **AC3** — `docs/systems/` has a short as-built doc for servers, replays, home and mods
       (each ≤ 150 lines: purpose, main/shared/renderer map, persisted state, handlers, external
       inputs, limitations).
-- [ ] **AC4** — `scripts/check-docs.mjs` (story 227) is green: no broken links under `docs/`.
-- [ ] **AC5** — The module story checklist in docs/ARCHITECTURE.md includes "update the module's
+- [x] **AC4** — `scripts/check-docs.mjs` (story 227) is green: no broken links under `docs/`.
+- [x] **AC5** — The module story checklist in docs/ARCHITECTURE.md includes "update the module's
       systems doc" and `/sprint`'s review step checks it.
 
 ## Decisions (Sprint)
@@ -208,4 +208,21 @@ No CHANGELOG entry (nothing user-visible).
 
 ## Done
 
-<!-- Filled by /build 228. -->
+Config, servers, replays, home and mods now have as-built system docs written from the code; game-browser and
+home-screen moved to `docs/systems/` (status lines, §6 content-repository correction, every inbound link
+rewritten); demo-browser/mods status lines corrected; install-module.md gained a Library section; the module
+checklist, docs/README.md and `.claude/ai-scrum.md` require the systems doc.
+
+Commit message: `228: as-built system docs for config/servers/replays/home/mods, game-browser+home-screen moved to systems, systems-docs test`
+
+Verification (narrow gate): `npm run build`, `lint`, `typecheck`, `npx vitest run --changed HEAD` (23 tests), `node scripts/check-docs.mjs` all green. No e2e (docs only). AC → test as run:
+AC1 "config-module.md" ×3; AC2 "docs placement" ×5; AC3 "short module docs" (4 docs ×3) + "every registered module has a systems doc";
+AC4 `scripts/check-docs.test.mjs` (5/5) + check-docs exit 0; AC5 "process rule" ×2. No manual residue. Review (default): PASS.
+
+Decisions:
+- Handler write rules and startup order taken from the code (index.ts, profile-writes.ts, startup.ts); reviewer spot-checked 12 handlers, all accurate.
+- Runtime files (state.json, replays-index.json, news-feed.json, catalog-cache.json) are written without backticks since the doc test resolves backticked `.json` to source files.
+- Reviewer minor findings left unfixed: non-rooted path check is basename-only; handler check has no reverse (stale handler) check; AC5 test is loose; story numbers in config Binding decisions are pointers, not narrative; prettier re-padded tables in ROADMAP.md/install-module.md (cosmetic); demo-browser.md says Implemented but stays in concepts/ per D-e.
+- Possible product bug found while writing (not fixed, recorded as a limitation in config-module.md): `setSwitchBind` writes the default profile's live record straight through `writeInstallationFiles`, bypassing `syncAndPersist`, so unsaved default-profile edits reach the installation and the external-edit guard is skipped. Candidate for story 229's triage.
+
+tiers: D 5 / hard 1 · review default · cycles 0 · agents 7

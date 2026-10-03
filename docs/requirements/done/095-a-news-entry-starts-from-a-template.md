@@ -20,7 +20,7 @@ render their image as a _framed box beside or above the text_ — a 45% column, 
 image _behind_ the text. An announcement slide built around one wide artwork — text over the quiet
 left half, the subject pinned to the right edge so it survives every window width — cannot be
 expressed with any of them. That is a launcher change, never a content change (concept
-`docs/concepts/home-screen.md` §6.3: "A new template is a change **in the launcher**").
+`docs/systems/home-screen.md` §6.3: "A new template is a change **in the launcher**").
 
 **Second, the content repository is missing its starter kit.** Every template the launcher offers —
 the new one included — should have a folder in `Hantsch/q2_community_content` holding a

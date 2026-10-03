@@ -18,7 +18,7 @@ it, the home route is rendered by a registered `home` module, the shell no longe
 it, and the surfaces that are about to be replaced (the dead hero with its four wired-to-nothing
 carousel dots, and the planned-module cards) are gone rather than half-alive.
 
-See [concepts/home-screen.md](../../concepts/home-screen.md) §9 and §10 — the ownership move is a
+See [systems/home-screen.md](../../systems/home-screen.md) §9 and §10 — the ownership move is a
 recorded rule decision, not an incidental refactor.
 
 ## Acceptance Criteria

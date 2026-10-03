@@ -18,7 +18,7 @@ online. The cache must not grow without a bound.
 
 This is also the one place where a bitmap legitimately enters the UI: feed images are foreign
 content, never a shipped asset. That deviation from the "no image assets" rule is recorded, not
-bent quietly. See [concepts/home-screen.md](../../concepts/home-screen.md) §9 and §10.
+bent quietly. See [systems/home-screen.md](../../systems/home-screen.md) §9 and §10.
 
 ## Acceptance Criteria
 

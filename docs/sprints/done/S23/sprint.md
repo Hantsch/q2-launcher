@@ -58,7 +58,7 @@ flagged in `review.md` and the roadmap's follow-ups.
 ## Notes
 
 This is sprint 2 of 7 (9.1–9.7, stories 106–132) building the game-browser milestone described in
-full in `docs/concepts/game-browser.md`. It depends on sprint 9.1 (S22, stories 106–109) already
+full in `docs/systems/game-browser.md`. It depends on sprint 9.1 (S22, stories 106–109) already
 being built: 110 lands inside the `servers` module [[106]] registered, 111 and 113 validate
 addresses through the validator [[107]] built, and 111 stores sources in the shape [[109]]'s codecs
 will later read.

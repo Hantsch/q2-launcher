@@ -323,3 +323,4 @@ second roadmap.
 - 231 — i18n keys are referenced, not duplicated, and live with their module · S33 · key-usage and duplicate-value tests, common.action/label consolidation, per-module locale files
 - 198 — the staged game stays on top on X11 · S33 · hand-written X11 keeper sets above/borderless by X-Resource PID, with a visible reason on failure
 - 227 — the docs describe the launcher as built · S33 · ARCHITECTURE/CLAUDE.md/README current, check-docs link+version guard in npm test, log.caught
+- 228 — every shipped module has a system doc · S33 · as-built docs for config/servers/replays/home/mods, concepts moved to systems, process rule + systems-docs test
