@@ -4,9 +4,9 @@ import {
   MOVEMENT_ACTIONS,
   WEAPON_ACTIONS,
   WEAPON_EXTRA_ACTIONS,
-} from '@shared/config/action-catalog'
-import { actionKeySlots, keySlotAt, keySlotCount } from '@shared/config/action-slots'
-import { aliasNameFor } from '@shared/config/alias-render'
+} from '@shared/config/catalog/action-catalog'
+import { actionKeySlots, keySlotAt, keySlotCount } from '@shared/config/catalog/action-slots'
+import { aliasNameFor } from '@shared/config/aliases/alias-render'
 import type { ConfigAction } from '@shared/modules/config'
 import {
   appendKeySlot,
@@ -230,7 +230,7 @@ describe('deriveRowState', () => {
   })
 
   // Story 055 review, finding 2: displays the FIRST message command, matching
-  // `@shared/config/drop-entries#withDropMessage`'s removal (its `dropStateFor` locks onto the first
+  // `@shared/config/aliases/drop-entries#withDropMessage`'s removal (its `dropStateFor` locks onto the first
   // `say`/`say_team` command it sees) - so a body with two message commands never shows text here
   // that turning the message toggle off then fails to delete.
   it('shows the FIRST message when the body carries two', () => {

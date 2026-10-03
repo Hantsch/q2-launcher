@@ -7,7 +7,7 @@ import {
   generateLayerAliases,
   sanitizeCommand,
   type AltLayer,
-} from '@shared/config/alt-layers'
+} from '@shared/config/aliases/alt-layers'
 import { Button } from '../../../components/ui/Button'
 import { Field, Input, Select } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'

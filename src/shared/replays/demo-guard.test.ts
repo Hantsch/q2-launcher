@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createCbufSim } from '../../test-support/q2-cbuf-sim'
-import { DEMO_ACTIONS } from '@shared/config/action-catalog'
+import { DEMO_ACTIONS } from '@shared/config/catalog/action-catalog'
 import { ARMPOS_CVAR, BACK_TO_WINDOW_COMMAND, guardDemoCommand } from './demo-guard'
 
 /** Define the action the way a cfg does (`alias <name> "<body>"`), then press its key. */

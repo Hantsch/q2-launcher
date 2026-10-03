@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { TidyUpOp } from '@shared/config/tidy-up'
+import type { TidyUpOp } from '@shared/config/profile/tidy-up'
 import type { ConfigProfile, TidyUpApplyResult } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
 import { Button } from '../../components/ui/Button'

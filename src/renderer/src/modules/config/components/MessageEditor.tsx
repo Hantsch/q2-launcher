@@ -6,15 +6,15 @@ import {
   MESSAGE_SUGGESTIONS,
   findSingleDollarLocMistakes,
   tokenizeMessage,
-} from '@shared/config/chat-macros'
+} from '@shared/config/catalog/chat-macros'
 import {
   fromAltCharset,
   hasAltCharset,
   toAltCharset,
   toDisplaySegments,
-} from '@shared/config/q2-charset'
-import { keySlotAt } from '@shared/config/action-slots'
-import { colorCvarTokens } from '@shared/config/color-cvars'
+} from '@shared/config/syntax/q2-charset'
+import { keySlotAt } from '@shared/config/catalog/action-slots'
+import { colorCvarTokens } from '@shared/config/syntax/color-cvars'
 import { Button } from '../../../components/ui/Button'
 import { Field, Select } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
@@ -99,7 +99,7 @@ export function MessageEditor({
   titleName?: string
   /**
    * Story 041 D8: the profile's own cvars, so the preview can recognise a `$name` reference in
-   * the message as a colour cvar (`@shared/config/color-cvars`) and render its actual glyph
+   * the message as a colour cvar (`@shared/config/syntax/color-cvars`) and render its actual glyph
    * instead of dead literal text. Defaults to `{}` - a caller that has no cvars on hand (there is
    * none today) just gets the pre-D8 literal-text behaviour back.
    */

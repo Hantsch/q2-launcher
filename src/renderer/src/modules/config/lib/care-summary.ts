@@ -15,7 +15,7 @@
  *    `tidyUpFindings.length` counts those rows twice. The dedup key is the
  *    finding id itself, EXCEPT for alias-wiring ids
  *    (`${engine}:actions:${rule}:${sequence}`, minted by `validateActions` in
- *    `@shared/config/validate-actions.ts`): that rule family "carries no
+ *    `@shared/config/validation/validate-actions.ts`): that rule family "carries no
  *    engine-specific facts" (that module's own doc comment), so the same
  *    underlying problem mints an id tagged with whichever engine happened to
  *    validate it - `q2pro:actions:aliasUnreferenced:0` in the report for a
@@ -75,7 +75,7 @@
  * IPC itself, same discipline as `validation-scope.ts`.
  */
 
-import type { Finding } from '@shared/config/validation'
+import type { Finding } from '@shared/config/validation/validation'
 import { engineLabel } from '@shared/types/engine'
 import type { CareItem, CareItemGroup } from './care-items'
 import { canonicalOutOfSyncReason, type CareSyncRow } from './care-sync'
@@ -102,7 +102,7 @@ function worseLevel(a: 'error' | 'warning', b: 'error' | 'warning'): 'error' | '
 }
 
 /** Matches only alias-wiring finding ids (`${engine}:actions:${rule}:${sequence}`,
- * `@shared/config/validate-actions.ts`) — never the tidy-up-only minted ids
+ * `@shared/config/validation/validate-actions.ts`) — never the tidy-up-only minted ids
  * (`bindConflict:...`, `layerEmpty:...`, `preserved:...`), which do not start
  * with an engine kind followed by `:actions:`. */
 const ACTIONS_FINDING_ID = /^[^:]+:actions:/

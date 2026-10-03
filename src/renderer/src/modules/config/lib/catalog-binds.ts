@@ -29,7 +29,7 @@
  * Story 016 D9: a modifier held during a capture ("Alt+R") is an ordinary
  * property of the row's action - the `modifier` of the key slot it was captured
  * for (`ActionKeySlot`, story 050: one entry of `action.keys`, read through
- * `@shared/config/action-slots`) - so `RowState` carries it and `applySlot`
+ * `@shared/config/catalog/action-slots`) - so `RowState` carries it and `applySlot`
  * writes it, and that is the whole of the renderer's involvement. Nothing here
  * touches `layers`: main derives every modifier layer's `overrides` from the
  * actions array on save (`applyActionLayerMirror`, called inside `setActions`).
@@ -51,16 +51,16 @@ import {
   keySlotAt,
   keySlotCount,
   withKeySlot,
-} from '@shared/config/action-slots'
-import { aliasNameFor } from '@shared/config/alias-render'
-import { commandsForRow, type CatalogRow } from '@shared/config/catalog-rows'
-import { withDropAmmo, withDropMessage } from '@shared/config/drop-entries'
-import type { ModifierTrigger } from '@shared/config/modifier-layers'
+} from '@shared/config/catalog/action-slots'
+import { aliasNameFor } from '@shared/config/aliases/alias-render'
+import { commandsForRow, type CatalogRow } from '@shared/config/catalog/catalog-rows'
+import { withDropAmmo, withDropMessage } from '@shared/config/aliases/drop-entries'
+import type { ModifierTrigger } from '@shared/config/aliases/modifier-layers'
 import type { ActionKeySlot, ConfigAction, ConfigCommand } from '@shared/modules/config'
 
 /**
  * Story 034: the row model itself (`CatalogRow`, the three builders, the
- * `catalogId` format) moved to `@shared/config/catalog-rows` - main's bind
+ * `catalogId` format) moved to `@shared/config/catalog/catalog-rows` - main's bind
  * adoption has to mint the identical `catalogId` for a raw bind it recognises,
  * and two implementations of that id format would drift. Re-exported here so
  * this module stays the one place the rest of the renderer imports the row
@@ -72,7 +72,7 @@ export {
   buildWeaponRows,
   type CatalogRow,
   type CatalogRowKind,
-} from '@shared/config/catalog-rows'
+} from '@shared/config/catalog/catalog-rows'
 
 export interface RowState {
   /**
@@ -184,7 +184,7 @@ export function rawKeyIndex(action: ConfigAction, compactedIndex: number): numbe
 }
 
 export function deriveRowState(action: ConfigAction, row: CatalogRow): RowState {
-  // First occurrence, not last: `@shared/config/drop-entries#withDropMessage` removes the FIRST
+  // First occurrence, not last: `@shared/config/aliases/drop-entries#withDropMessage` removes the FIRST
   // `say`/`say_team` command it finds (`dropStateFor`'s `messageIndex` locks onto the first match
   // and never overwrites it), so a body with two message commands - an edge case this story's own
   // entries never produce, but an imported/hand-written one could - has to show the same one here
@@ -205,7 +205,7 @@ export function deriveRowState(action: ConfigAction, row: CatalogRow): RowState 
 
   return {
     // Story 056: the whole slot list, minus the empty-key ones (see `RowState.keys`). Read through
-    // `@shared/config/action-slots` like every other access to `action.keys` in this codebase, and
+    // `@shared/config/catalog/action-slots` like every other access to `action.keys` in this codebase, and
     // a straight passthrough of each slot - the `modifier` is stored on the slot, so there is
     // nothing to look up in `layers` and no command text to parse (story 016 D9).
     keys: actionKeySlots(action).filter((slot) => hasKey(slot)),
@@ -431,7 +431,7 @@ export function applyMessage(
 
 /**
  * Story 055 D3: `applyAmmo`'s action-based sibling - toggles the ammo command of the entry
- * `actionId` names by delegating to D1's `withDropAmmo` (`@shared/config/drop-entries`), which
+ * `actionId` names by delegating to D1's `withDropAmmo` (`@shared/config/aliases/drop-entries`), which
  * splices the command in or out by index rather than rebuilding the row from `commandsForRow`.
  *
  * Needed because `isDropEntry` now recognises a drop wherever it sits - a `drop_` alias imported

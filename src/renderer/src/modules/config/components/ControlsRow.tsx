@@ -72,7 +72,7 @@ export interface ControlsRowProps {
   odd?: boolean
   /**
    * Story 049 D8: whether this row (a catalogue row's action, or a plain action) is in the
-   * profile's pending change set (`useProfileChanges()`, `@shared/config/profile-diff`) - "edited
+   * profile's pending change set (`useProfileChanges()`, `@shared/config/profile/profile-diff`) - "edited
    * and unsaved," the same predicate `CvarRow`'s `edited` prop reads. Computed by the caller
    * (`ControlsTab`'s two render functions), not here, mirroring D7's split: this component only
    * renders the marker, it never decides what counts as edited.

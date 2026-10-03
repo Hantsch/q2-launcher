@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigActionCategory, ConfigProfile } from '@shared/modules/config'
-import { renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import {
   buildMoveTargets,
   entryPlacementOptions,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AliasIndexRow } from '@shared/config/alias-references'
+import type { AliasIndexRow } from '@shared/config/aliases/alias-references'
 import {
   filterAliasRows,
   isDuplicateAliasRow,

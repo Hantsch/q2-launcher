@@ -333,7 +333,7 @@ export function restoreCleanup(input: CleanupRestoreInput): Promise<Outcome<Clea
 
 /**
  * Tidy-up (story 025 D3/D5): applies one atomic batch of `TidyUpOp`s
- * (`@shared/config/tidy-up`) to a profile and returns the committed profile
+ * (`@shared/config/profile/tidy-up`) to a profile and returns the committed profile
  * plus which ops applied vs. were rejected as stale.
  */
 export function applyTidyUp(input: TidyUpApplyInput): Promise<Outcome<TidyUpApplyResult>> {

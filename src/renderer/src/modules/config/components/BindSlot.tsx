@@ -2,8 +2,8 @@ import { createContext, useCallback, useContext, useState, type ReactNode } from
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Plus, TriangleAlert } from 'lucide-react'
-import type { BindCollision } from '@shared/config/bind-collision'
-import type { ModifierTrigger } from '@shared/config/modifier-layers'
+import type { BindCollision } from '@shared/config/validation/bind-collision'
+import type { ModifierTrigger } from '@shared/config/aliases/modifier-layers'
 import { Button } from '../../../components/ui/Button'
 import type { ModifierSlotCollision, SlotCollision } from '../lib/bind-slot-collision'
 import {

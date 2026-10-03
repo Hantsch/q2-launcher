@@ -5,7 +5,7 @@ import { closestCenter, type CollisionDetection, type UniqueIdentifier } from '@
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { ConfigCvarSection, ConfigCvarSubsection, ConfigProfile } from '@shared/modules/config'
 import type { EngineKind } from '@shared/types/engine'
-import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render'
+import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render/render'
 import { Button, IconButton } from '../../components/ui/Button'
 import { Input, Switch } from '../../components/ui/controls'
 import { DragHandle, SortableItem, SortableZone, type SortableDropMeta } from '../../components/dnd'
@@ -208,7 +208,7 @@ export interface SettingsTabProps {
  *
  * Story 049 D7: the "edited"/"unsaved" signal for the row border, the filter and both counters comes
  * from `useProfileChanges()` - the main-process-computed diff of the live profile against its own
- * `profile.baseline` (`@shared/config/profile-diff`) - not from a renderer-local baseline snapshot
+ * `profile.baseline` (`@shared/config/profile/profile-diff`) - not from a renderer-local baseline snapshot
  * (the old `savedCvars` mechanism, story 048 D6, since removed from `useProfileDraft` for having no
  * consumer left). That renderer-local baseline lagged an external file adopt or a conflict-dialog
  * resolution because it only reseeded on this hook's own effect; the change set is reseeded

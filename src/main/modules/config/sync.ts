@@ -6,9 +6,9 @@ import type {
   ProfileInstallationSync,
   ProfileSyncState,
 } from '@shared/modules/config'
-import { resolveProfileFileNames } from '@shared/config/profile-files'
-import { renderLoaderFile, renderProfileFile } from '@shared/config/render'
-import type { SwitchBindProfile } from '@shared/config/switch-bind'
+import { resolveProfileFileNames } from '@shared/config/profile/profile-files'
+import { renderLoaderFile, renderProfileFile } from '@shared/config/render/render'
+import type { SwitchBindProfile } from '@shared/config/aliases/switch-bind'
 import type { Installation, LaunchState } from '@shared/types'
 import type { Logger } from '../../lib/logger'
 import {

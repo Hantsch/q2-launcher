@@ -38,7 +38,7 @@
  *    the badge and the list can never disagree about what "one finding" is.
  */
 
-import type { TidyUpOp } from '@shared/config/tidy-up'
+import type { TidyUpOp } from '@shared/config/profile/tidy-up'
 import { engineLabel } from '@shared/types/engine'
 import {
   canonicalOutOfSyncReason,
@@ -144,7 +144,7 @@ export interface CareItem {
    * through from the tidy-up finding it was built from (`tidyItems` below);
    * neither Config health nor Files ever set it. */
   actionId?: string
-  /** `Finding.fixKey` (`@shared/config/validation.ts`), carried straight through for a health item -
+  /** `Finding.fixKey` (`@shared/config/validation/validation.ts`), carried straight through for a health item -
    * a row with no action button (nothing here is fixable from a list, see the doc comment below)
    * still owes the user the fix hint when the validator emitted one; `ValidationPanel`'s (deleted)
    * `FindingRow` rendered this as a second line. Config health sets it from the finding; Tidy-up
@@ -153,7 +153,7 @@ export interface CareItem {
    * the exact file Sync now is about to overwrite (`params.path`), which is what "Sync now says
    * which file it will overwrite" means as the user reads the row. */
   fixKey?: string
-  /** `Finding.source` (`@shared/config/validation.ts`), same precedent - a literal engine citation,
+  /** `Finding.source` (`@shared/config/validation/validation.ts`), same precedent - a literal engine citation,
    * never translated. Only Config health ever sets it. */
   source?: string
 }

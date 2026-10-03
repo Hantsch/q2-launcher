@@ -24,10 +24,10 @@ import { RETAIL_PAK_SIZES, writeSizedFile } from './bootstrap.mjs'
 // --- config.ts ConfigProfile shape ------------------------------------------
 // Mirrors src/shared/modules/config.ts:181 (`ConfigProfile`), `:45`
 // (`ProfileAssignment`) and `:56` (`UnrecognizedConfigLine`).
-// AltLayer mirrors src/shared/config/alt-layers.ts:55 (`AltLayer`).
+// AltLayer mirrors src/shared/config/aliases/alt-layers.ts:55 (`AltLayer`).
 //
 // Story 038 D4: `plain.actions` below (+ its `binds` mirror) makes the
-// writer's dead-alias-line fix (`src/shared/config/alias-references.ts`)
+// writer's dead-alias-line fix (`src/shared/config/aliases/alias-references.ts`)
 // visible on the `config-raw`/`config-write-preview` screens. This file
 // cannot import `aliasNameFor`/`bindValueFor` (plain Node ESM outside both TS
 // projects - see the file doc comment), so `binds.q` below is that
@@ -42,11 +42,11 @@ export function populatedConfigProfiles() {
     createdAt: FIXED_TIMESTAMP,
     updatedAt: FIXED_TIMESTAMP,
     // Story 047 D2: `r` is a `$r`-style colour cvar (mirrors
-    // src/shared/config/color-cvars.ts:33 `isColorCvar` - every byte is 0x7f
+    // src/shared/config/syntax/color-cvars.ts:33 `isColorCvar` - every byte is 0x7f
     // or 0x80-0xff) so the message editor's colour-cvar badge has a real
     // token to resolve for the two message actions below.
     //
-    // Story 059 D10: `q2l_fixture_note` is a name `ALL_CVARS` (src/shared/config/cvar-catalog.ts)
+    // Story 059 D10: `q2l_fixture_note` is a name `ALL_CVARS` (src/shared/config/catalog/cvar-catalog.ts)
     // does not know - it exists purely so the Settings tab has a real `PlainCvarRow` to show
     // (D7's "the catalogue does not know this name" row), placed into `PLAIN_FIXTURE_SECTION_ID`
     // below alongside a real catalogue cvar so the `config-settings` screen's screenshot shows a
@@ -88,7 +88,7 @@ export function populatedConfigProfiles() {
       { installationId: INSTALL_TWO_ID, isDefault: false },
     ],
     // Actions 1-3 exercise the writer's three alias-line outcomes
-    // (`actionsWithAliasLine`, `src/shared/config/alias-references.ts`);
+    // (`actionsWithAliasLine`, `src/shared/config/aliases/alias-references.ts`);
     // actions 4-5 (story 047 D2) give the message editor something to show.
     actions: [
       // 1. Catalogue row whose single command is a bare `+attack` (story
@@ -311,8 +311,8 @@ alias q2l_fixture_layer "bind e +use"
 
 // --- own-file ("restore") importable fixture -------------------------------
 // Story 042 D6: fixed-content config carrying the `OWNERSHIP_MARKER` sentinel
-// (`@shared/config/render.ts`) plus a well-formed `[q2l v=1]` header tag
-// (`@shared/config/profile-metadata.ts`), written under `INSTALL_TWO_ID`'s
+// (`@shared/config/render/render.ts`) plus a well-formed `[q2l v=1]` header tag
+// (`@shared/config/profile/profile-metadata.ts`), written under `INSTALL_TWO_ID`'s
 // `RESTORE_GAME_DIR` gamedir - used by the `config-import-restore` screen to
 // exercise `ImportPreviewResult.ownWrittenFile`/`sourceProfileId`/
 // `metadataWarnings`.
@@ -333,9 +333,9 @@ alias q2l_fixture_layer "bind e +use"
 //   profile would restore to (`actions`/`categories`/`layers` all empty).
 // - Line 1's trailing clause is deliberately the OLD (pre-story-043) sentinel wording, not the
 //   current one - a live exercise of the wording-tolerant ownership check
-//   (`ownedProfileId`/`findOwnCanonicalFile`, `@shared/config/render.ts` + `canonical.ts`) rather
+//   (`ownedProfileId`/`findOwnCanonicalFile`, `@shared/config/render/render.ts` + `canonical.ts`) rather
 //   than a copy/paste that happened to go stale. Line 4, in contrast, must stay byte-identical to
-//   `HAND_EDIT_SENTENCE` (`@shared/config/render.ts`) - `profile-restore.ts`'s
+//   `HAND_EDIT_SENTENCE` (`@shared/config/render/render.ts`) - `profile-restore.ts`'s
 //   `consumeHeaderDecoration` matches it exactly so this line is recognised as understood header
 //   decoration and folded out of the import dialog's "unrecognised leftovers" list; letting it
 //   drift out of sync (as it did across story 043's D1 wording change) reintroduces the exact
@@ -399,8 +399,8 @@ const TEMPLATE_CATEGORIES = [
 ]
 
 /**
- * Mirrors src/shared/config/catalog-rows.ts's `allCatalogRows()` (in turn built from
- * src/shared/config/action-catalog.ts's `MOVEMENT_ACTIONS`/`WEAPONS`/`WEAPON_ACTIONS`/
+ * Mirrors src/shared/config/catalog/catalog-rows.ts's `allCatalogRows()` (in turn built from
+ * src/shared/config/catalog/action-catalog.ts's `MOVEMENT_ACTIONS`/`WEAPONS`/`WEAPON_ACTIONS`/
  * `WEAPON_EXTRA_ACTIONS`/`DROPPABLES`), in the exact order the real function produces them:
  * movement, `use <weapon>`, weapon cycling, then the three drop groups (weapon/ammo/misc). Each
  * tuple is `[kind, id, categoryId, command]`; `catalogId` is `${kind}:${id}` (`makeCatalogId`) and
@@ -629,7 +629,7 @@ function importedOnlyConfigProfile() {
     updatedAt: FIXED_TIMESTAMP,
     cvars: {},
     // No `binds` mirror for the "Use item" action below: unlike a catalogue-backed row,
-    // `bindValueFor` (@shared/config/action-mirror.ts) only passes a bare `+command` through
+    // `bindValueFor` (@shared/config/aliases/action-mirror.ts) only passes a bare `+command` through
     // verbatim when the action carries a `catalogId` - a free-form action's mirror is always its
     // alias name, so a hand-authored `binds.e: '+use'` here would read as a *second*, independent
     // claimant on `e` to `bind-conflicts.ts`'s scan and raise a spurious conflict badge that has

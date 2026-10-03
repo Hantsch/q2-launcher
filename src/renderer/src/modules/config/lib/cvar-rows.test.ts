@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import type { CvarDef } from '@shared/config/cvar-facts'
-import { CVAR_GROUP_ORDER } from '@shared/config/cvar-facts'
-import { ALL_CVARS, GRAPHICS_CVARS, PLAYER_CVARS, findCvar } from '@shared/config/cvar-catalog'
-import { cvarChangeKey } from '@shared/config/profile-diff'
+import type { CvarDef } from '@shared/config/catalog/cvar-facts'
+import { CVAR_GROUP_ORDER } from '@shared/config/catalog/cvar-facts'
+import {
+  ALL_CVARS,
+  GRAPHICS_CVARS,
+  PLAYER_CVARS,
+  findCvar,
+} from '@shared/config/catalog/cvar-catalog'
+import { cvarChangeKey } from '@shared/config/profile/profile-diff'
 import { STANDARD_TEMPLATE, type ConfigCvarSection } from '@shared/modules/config'
 import {
   buildCvarSectionGroups,

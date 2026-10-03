@@ -12,7 +12,7 @@ import {
   type WriteState,
 } from '@shared/modules/config'
 import { reconcileAssignments } from './assignments'
-import { resolveProfileFileNames } from '@shared/config/profile-files'
+import { resolveProfileFileNames } from '@shared/config/profile/profile-files'
 import { fail, ok, type Outcome } from '@shared/types'
 import type { AppContext } from '../../context'
 import { isFile } from '../../lib/fs-utils'

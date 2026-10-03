@@ -8,7 +8,7 @@ import {
   type ConfigActionCategory,
   type ConfigProfile,
 } from '@shared/modules/config'
-import type { AltLayer } from '@shared/config/alt-layers'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import { fail, type Installation } from '@shared/types'
 import { scopedLogger } from '../../lib/logger'
 import type { AppContext } from '../../context'
@@ -22,7 +22,7 @@ import {
   previewImportFiles,
 } from './import'
 import { PickedFilesRegistry } from './picked-files'
-import { renderLoaderFile, renderProfileFile } from '@shared/config/render'
+import { renderLoaderFile, renderProfileFile } from '@shared/config/render/render'
 import { configState } from './persisted'
 
 /**

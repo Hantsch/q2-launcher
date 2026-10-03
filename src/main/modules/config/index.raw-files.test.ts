@@ -12,7 +12,7 @@ import { pathExists } from '../../lib/fs-utils'
 import { type AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { type ModuleHandler } from '../types'
-import { sentinelLine } from '@shared/config/render'
+import { sentinelLine } from '@shared/config/render/render'
 import { MAX_RAW_CONFIG_TEXT_LENGTH } from './schemas'
 import { configModule } from './index'
 import {

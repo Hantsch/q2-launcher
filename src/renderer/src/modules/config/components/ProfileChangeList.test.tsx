@@ -2,7 +2,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import type { ProfileChange, ProfileChangeSet } from '@shared/config/profile-diff'
+import type { ProfileChange, ProfileChangeSet } from '@shared/config/profile/profile-diff'
 import { initI18n } from '../../../i18n'
 import { ProfileChangeList } from './ProfileChangeList'
 

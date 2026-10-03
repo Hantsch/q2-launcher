@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { allCatalogRows } from '@shared/config/catalog-rows'
+import { allCatalogRows } from '@shared/config/catalog/catalog-rows'
 import { STANDARD_TEMPLATE } from '@shared/modules/config'
 import type { ConfigAction } from '@shared/modules/config'
 import {

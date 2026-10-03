@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest'
 import { fakeSectionState } from '../../../test-support/state-sections'
 import { configProfileSchema, configState, parseConfigProfiles } from './persisted'
 import { setProfileActionsInputSchema } from './schemas'
-import { legacyAliasNameFor } from '@shared/config/alias-render'
-import { bindValueFor } from '@shared/config/action-mirror'
-import { captureBaseline } from '@shared/config/profile-baseline'
-import { validateActions } from '@shared/config/validate-actions'
+import { legacyAliasNameFor } from '@shared/config/aliases/alias-render'
+import { bindValueFor } from '@shared/config/aliases/action-mirror'
+import { captureBaseline } from '@shared/config/profile/profile-baseline'
+import { validateActions } from '@shared/config/validation/validate-actions'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 
 /**
@@ -610,7 +610,7 @@ describe('configProfileSchema - entry kind derived on read', () => {
    *
    * `legacyAliasNameFor`, not `aliasNameFor` (story 039, D7): this row's stale entry was written by
    * a mirror pass that ran *before* the readable-name flip, so it is necessarily in the legacy
-   * format - the same reasoning `staleAliasSyntheticName` (`@shared/config/modifier-layers.ts`)
+   * format - the same reasoning `staleAliasSyntheticName` (`@shared/config/aliases/modifier-layers.ts`)
    * documents for its own, otherwise-identical helper.
    */
   it('strips a stale binds entry and layer override for a legacy alias-turned entry that carried a key', () => {

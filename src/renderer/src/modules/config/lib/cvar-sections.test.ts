@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigCvarSection, ConfigProfile } from '@shared/modules/config'
-import { renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import { buildCvarSectionGroups } from './cvar-rows'
 import {
   createCvarSection,

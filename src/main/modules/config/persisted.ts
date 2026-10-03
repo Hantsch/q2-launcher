@@ -3,10 +3,13 @@ import { z } from 'zod'
 import { parseForgivingRows } from '../../lib/forgiving'
 import { migrateLegacyAliasReferences, normalizeLegacyActionKeys } from './persisted-migrations'
 import type { StateSection, StateSectionSpec, StateStore } from '../../services/state'
-import type { AltLayer } from '@shared/config/alt-layers'
-import { adoptRawBinds } from '@shared/config/bind-adoption'
-import { stripAliasActionBinds, stripAliasActionOverrides } from '@shared/config/modifier-layers'
-import type { ProfileBaseline } from '@shared/config/profile-baseline'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
+import { adoptRawBinds } from '@shared/config/profile/bind-adoption'
+import {
+  stripAliasActionBinds,
+  stripAliasActionOverrides,
+} from '@shared/config/aliases/modifier-layers'
+import type { ProfileBaseline } from '@shared/config/profile/profile-baseline'
 import {
   actionEntryKindSchema,
   actionKeySlotObjectSchema,
@@ -17,7 +20,7 @@ import {
   configCvarSectionObjectSchema,
   configCvarSubsectionObjectSchema,
   refineActionParts,
-} from '@shared/config/profile-schema'
+} from '@shared/config/aliases/profile-schema'
 import type {
   ActionEntryKind,
   ConfigAction,
@@ -29,7 +32,7 @@ import type {
 const nowIso = (): string => new Date().toISOString()
 
 /*
- * The persisted twins of `@shared/config/profile-schema`'s shapes. Each extends the shared object
+ * The persisted twins of `@shared/config/aliases/profile-schema`'s shapes. Each extends the shared object
  * and overrides only the fields that are forgiving on disk; every other field - and its position in
  * the output - is the shared one. Two kinds of forgiveness, chosen per field:
  * - `.catch()` on the field degrades just that value, keeping the row;
@@ -321,7 +324,7 @@ export type PersistedConfigProfile = ConfigProfile & {
  * outside `setActions`'s own strip-then-rewrite mirrors - so once every action's `kind` is settled,
  * this also strips any `binds` entry and any layer `overrides` entry that mirrors one of the
  * resulting alias actions (`stripAliasActionBinds`/`stripAliasActionOverrides`,
- * `@shared/config/modifier-layers`), the exact same value-based exclusion `setActions` and
+ * `@shared/config/aliases/modifier-layers`), the exact same value-based exclusion `setActions` and
  * `applyActionLayerMirror` already apply on the write path - not a second, divergent rule.
  *
  * Story 039 (D6): the pass order on this path is now, and must stay,

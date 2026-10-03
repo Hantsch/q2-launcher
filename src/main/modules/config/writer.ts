@@ -1,7 +1,7 @@
 import { readdir, readFile, rename, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Installation } from '@shared/types'
-import { isLauncherOwnedFile, readOwnershipStamp } from '@shared/config/file-ownership'
+import { isLauncherOwnedFile, readOwnershipStamp } from '@shared/config/render/file-ownership'
 import { pathKey, writeFileAtomic } from '../../lib/fs-utils'
 import { BACKUP_SUFFIX, backupOnce } from './backup'
 
@@ -221,7 +221,7 @@ export async function writeInstallationFiles(
 /**
  * The profile id carried by a file's ownership stamp, or null when the file is
  * not one of ours - delegates to `readOwnershipStamp`
- * (`@shared/config/file-ownership`, story 051 D3), which is the one place both
+ * (`@shared/config/render/file-ownership`, story 051 D3), which is the one place both
  * ownership shapes (banner and legacy sentinel) are read, scanning the whole
  * file's first `HEADER_SCAN_LINES` lines rather than only the first, since
  * that is the only way to recognise a banner-shape header (its `id` field

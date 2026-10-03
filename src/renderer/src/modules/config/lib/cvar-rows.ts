@@ -35,16 +35,16 @@
  * The effective default follows the same honesty rule story 009 already
  * established for `CvarRow`: an engine only contributes a default when it is
  * in scope *and* the catalog has source-cited facts for it
- * (`hasEngineFacts`/`resolveCvar` from `@shared/config/cvar-facts`). No
+ * (`hasEngineFacts`/`resolveCvar` from `@shared/config/catalog/cvar-facts`). No
  * fallback engine is substituted here - `effectiveDefaultFor` reuses those
  * two primitives instead of re-deriving the "which engine, if any" question.
  */
 
-import type { CvarDef } from '@shared/config/cvar-facts'
-import { hasEngineFacts, resolveCvar } from '@shared/config/cvar-facts'
-import { ALL_CVARS, findCvar } from '@shared/config/cvar-catalog'
-import { cvarChangeKey } from '@shared/config/profile-diff'
-import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render'
+import type { CvarDef } from '@shared/config/catalog/cvar-facts'
+import { hasEngineFacts, resolveCvar } from '@shared/config/catalog/cvar-facts'
+import { ALL_CVARS, findCvar } from '@shared/config/catalog/cvar-catalog'
+import { cvarChangeKey } from '@shared/config/profile/profile-diff'
+import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render/render'
 import type { ConfigCvarSection, ConfigCvarSubsection } from '@shared/modules/config'
 import type { EngineKind } from '@shared/types/engine'
 
@@ -217,7 +217,7 @@ export interface BuildCvarSectionGroupsOptions {
   values: Record<string, string>
   /**
    * Story 049 D7: the current profile's pending change set, scoped to cvars
-   * (`useProfileChanges().changeSet.keys.cvars`, `@shared/config/profile-diff`'s
+   * (`useProfileChanges().changeSet.keys.cvars`, `@shared/config/profile/profile-diff`'s
    * `ProfileChangeSet.keys.cvars`) - a set of `cvarChangeKey`-shaped keys. A row is "edited"
    * (unsaved) exactly when its key is in this set, replacing story 048 D6's renderer-local
    * `baseline`/`isEdited` comparison: the change set is computed main-side from `profile.baseline`

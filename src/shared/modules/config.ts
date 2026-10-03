@@ -1,16 +1,16 @@
-import type { AltLayer } from '../config/alt-layers'
-import type { AmbiguousRebindAlias } from '../config/alias-import'
+import type { AltLayer } from '../config/aliases/alt-layers'
+import type { AmbiguousRebindAlias } from '../config/aliases/alias-import'
 // `catalog-rows.ts` imports `ConfigCommand` back from this file, but only as an `import type` -
 // erased at compile time, so this is a value import into a type-only cycle, not a runtime one.
-import { allCatalogRows, commandsForRow, nameForCatalogRow } from '../config/catalog-rows'
-import { ALL_CVARS } from '../config/cvar-catalog'
-import { CVAR_GROUP_LABELS, CVAR_GROUP_ORDER, type CvarDef } from '../config/cvar-facts'
-import type { ModifierTrigger } from '../config/modifier-layers'
+import { allCatalogRows, commandsForRow, nameForCatalogRow } from '../config/catalog/catalog-rows'
+import { ALL_CVARS } from '../config/catalog/cvar-catalog'
+import { CVAR_GROUP_LABELS, CVAR_GROUP_ORDER, type CvarDef } from '../config/catalog/cvar-facts'
+import type { ModifierTrigger } from '../config/aliases/modifier-layers'
 // Type-only both ways: `profile-baseline.ts` needs `ConfigProfile` to describe what it snapshots,
 // this file needs its result type. Both imports are erased at compile time, so the cycle exists in
 // the type graph only - there is no runtime import between the two modules.
-import type { ProfileBaseline } from '../config/profile-baseline'
-import type { TidyUpOp } from '../config/tidy-up'
+import type { ProfileBaseline } from '../config/profile/profile-baseline'
+import type { TidyUpOp } from '../config/profile/tidy-up'
 
 /**
  * The config module's contract.
@@ -251,7 +251,7 @@ export type ConfigCommand =
   /**
    * Story 045: a `wait <frames>` step - the engine defers the rest of the alias body by `frames`
    * client frames. `frames` is validated against `MAX_WAIT_FRAMES`
-   * (`@shared/config/engine-limits`), a launcher sanity cap, not an engine one.
+   * (`@shared/config/syntax/engine-limits`), a launcher sanity cap, not an engine one.
    */
   | { kind: 'wait'; frames: number }
 
@@ -272,7 +272,7 @@ export type ConfigCommand =
  * "secondary" bind, so an N-slot row is N `binds` entries (or layer `overrides` entries, for a
  * modified slot) pointing at one alias rather than N duplicate actions. Slot identity comes from
  * the order entries appear in this array, not from a stable id or field name, so the sole access
- * point is `@shared/config/action-slots.ts` (`actionKeySlots`/`keySlotAt`/`withKeySlot`/
+ * point is `@shared/config/catalog/action-slots.ts` (`actionKeySlots`/`keySlotAt`/`withKeySlot`/
  * `clearKeySlot`/`keySlotCount`) - nothing in this codebase reads or writes `keys` directly.
  * Optional and purely additive: an action with no bound key simply omits it, same as an empty array
  * would mean. A pre-050 persisted row instead carries the four fields this array replaced -
@@ -303,7 +303,7 @@ export type ConfigCommand =
  * `aliasName` (story 039, D1) is the human-readable alias name the user typed for this action -
  * `+slow`, not `q2l_a_slow_9a2f`. Optional and additive like `catalogId`: an action without it
  * still renders under the machine-generated `q2l_a_<slug>_<id4>` name
- * (`@shared/config/alias-render.ts#aliasNameFor`) exactly as before this field existed; only once
+ * (`@shared/config/aliases/alias-render.ts#aliasNameFor`) exactly as before this field existed; only once
  * set does the alias render under this name verbatim (sign kept).
  *
  * `keepEmptyAlias` (story 041, D3, "Decided in refine": "Empty-body aliases are entries") marks a
@@ -312,7 +312,7 @@ export type ConfigCommand =
  * `alias-render.ts#renderActionAlias`'s "no usable commands -> no alias line" rule (story 038 AC6)
  * would drop it on the first save, which is exactly the silent data loss the story's Decisions rule
  * out. Optional and additive like every other field here: it is only ever set by the importer
- * (`@shared/config/alias-import.ts#buildImportedActions`) on an empty-body `kind: 'alias'` entry, so
+ * (`@shared/config/aliases/alias-import.ts#buildImportedActions`) on an empty-body `kind: 'alias'` entry, so
  * a generated action alias with no usable commands - the case story 038 AC6 is actually about -
  * simply omits it and keeps producing no line.
  *
@@ -366,7 +366,7 @@ export interface ActionEntryPart {
  * One key slot on a `ConfigAction` - the engine key this action's generated alias is bound to
  * (`key`), plus the modifier (`modifier`) that was held while capturing it, if any. See
  * `ConfigAction.keys`'s doc comment above for what an array of these represents and why nothing
- * outside `@shared/config/action-slots.ts` reads or writes it directly.
+ * outside `@shared/config/catalog/action-slots.ts` reads or writes it directly.
  */
 export interface ActionKeySlot {
   key: string
@@ -405,7 +405,7 @@ export interface ActionKeySlot {
  * `.catch()` `layers` uses) so one malformed row does not wipe the rest.
  *
  * `writeUnbindall` (story 040 D4) is whether the rendered `.cfg` opens with a bare `unbindall`
- * line, directly after the header block (`@shared/config/render.ts#renderProfileFile`). Optional
+ * line, directly after the header block (`@shared/config/render/render.ts#renderProfileFile`). Optional
  * and defaults to **on** - a profile with no stored value (every profile predating this story)
  * behaves exactly as `true`, via `.catch(true)` in the persisted schema
  * (`main/lib/schemas.ts`) and the same `!== false` read at render time, so there is no migration
@@ -432,7 +432,7 @@ export interface ActionKeySlot {
  * profile predating this story simply has none of the four fields.
  *
  * `baseline` (story 049 D1) is the render-relevant subset of this profile as it stood the last time
- * the launcher and its `.cfg` agreed - `captureBaseline` (`@shared/config/profile-baseline`), whose
+ * the launcher and its `.cfg` agreed - `captureBaseline` (`@shared/config/profile/profile-baseline`), whose
  * own doc comment covers what is in the subset and why it is a subset of the record rather than the
  * file's text. It is what "unsaved change" is measured against, and what a discard restores.
  *
@@ -549,7 +549,7 @@ export interface ConfigProfileTemplate {
  * to show even before `nameKey` resolves to anything (CLAUDE.md's "main never sends bare prose
  * disguised as a key" rule cuts the other way too: an i18n key alone is not a valid `name`).
  *
- * `actions` is one `ConfigAction` per `allCatalogRows()` row (`@shared/config/catalog-rows`) -
+ * `actions` is one `ConfigAction` per `allCatalogRows()` row (`@shared/config/catalog/catalog-rows`) -
  * "every catalogue row becomes an action, unbound" (story 052 AC4) - except the six rows this
  * template's own `binds` above already names (the five continuous movement commands plus
  * `+attack`), which keep that row's own command as their `commands` so the profile's first
@@ -572,7 +572,7 @@ export interface ConfigProfileTemplate {
  * for one of these six catalogIds the same real `commandsForRow(row, false)` command
  * `buildTemplateActions` writes, instead of `commands: []` - a migrated action for a row the profile
  * has *always* had a matching raw bind for must look identical to what a fresh `from: 'template'`
- * profile gets, or `adoptRawBinds`' signature match (`@shared/config/bind-adoption.ts`) cannot
+ * profile gets, or `adoptRawBinds`' signature match (`@shared/config/profile/bind-adoption.ts`) cannot
  * recognise the raw bind as this row and the Controls tab shows it as unbound despite the key
  * working in-game.
  */
@@ -1093,7 +1093,7 @@ export interface SetSectionHeaderStyleInput {
 
 /**
  * Story 049 D3: `discard`'s input - a profile id, nothing else. What is restored is always
- * `profile.baseline` (`@shared/config/profile-baseline`), never something the caller chooses, so
+ * `profile.baseline` (`@shared/config/profile/profile-baseline`), never something the caller chooses, so
  * there is nothing more to carry: discard is "go back to what I last saved", never a partial or
  * targeted undo (the story's own Decisions: "Discard exists on the profile-wide bar only
  * (all-or-nothing)").
@@ -1245,7 +1245,7 @@ export interface OpenProfileFileInput {
  * One thing `restoreProfileParts` (story 042 D4) had to say about a launcher-written file's
  * metadata, carried across the module boundary as an i18n key plus a `file`/`line` locator -
  * never prose (CLAUDE.md: main sends keys, not sentences). Mirrors `RestoreWarning`
- * (`@shared/config/profile-restore`) field-for-field; `key` is `reason` mapped to
+ * (`@shared/config/profile/profile-restore`) field-for-field; `key` is `reason` mapped to
  * `config.import.warning.<reasonCode>` (story 042 D5) - the actual translation strings are D6's
  * job, this only has to be a well-formed, stable key.
  */
@@ -1291,7 +1291,7 @@ export interface ImportPreviewResult {
    */
   ambiguousRebindAliases: AmbiguousRebindAlias[]
   /**
-   * Story 042 D5: true when the OWNERSHIP_MARKER sentinel (`@shared/config/render`) was found on
+   * Story 042 D5: true when the OWNERSHIP_MARKER sentinel (`@shared/config/render/render`) was found on
    * any file this import read - including a profile file reached only through the loader's `exec`
    * chain (e.g. the user points at `autoexec.cfg`, which `exec`s the actual launcher-written
    * profile file). Computed from `restoreProfileParts`'s own `sourceProfileId` (non-null exactly
@@ -1444,7 +1444,7 @@ export interface CleanupRestoreResult {
 
 /**
  * One atomic tidy-up batch: whatever the Care tab's fixable findings resolved to
- * (`TidyUpOp`, `@shared/config/tidy-up`), applied to one profile.
+ * (`TidyUpOp`, `@shared/config/profile/tidy-up`), applied to one profile.
  *
  * Deliberately *not* the four whole-field setters (`setCvars`/`setBinds`/
  * `setLayers`/`setActions`, decision 10): a re-classify touches `unrecognized`

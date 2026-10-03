@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { AltLayerMode } from '@shared/config/alt-layers'
+import type { AltLayerMode } from '@shared/config/aliases/alt-layers'
 import type { ConfigAction } from '@shared/modules/config'
 import { resolveCommandLabel } from '../lib/command-catalog'
 import { resolveAliasChain } from '../lib/keyboard-layout'

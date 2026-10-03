@@ -17,7 +17,7 @@
  *
  * ## Result shape
  *
- * Mirrors `src/shared/config/validation.ts`'s convention: a rejection carries a reason *code* (a
+ * Mirrors `src/shared/config/validation/validation.ts`'s convention: a rejection carries a reason *code* (a
  * string-literal union), never a literal English message. A caller resolves the code to an i18n key
  * via `serverAddressRejectionKey()`; the actual `en.json` entries are a separate deliverable (story
  * 107, D3).

@@ -3,13 +3,13 @@ import { createElement, type ReactNode } from 'react'
 import { cleanup, render, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
-import { captureBaseline } from '@shared/config/profile-baseline'
-import { diffProfileAgainstBaseline } from '@shared/config/profile-diff'
+import { captureBaseline } from '@shared/config/profile/profile-baseline'
+import { diffProfileAgainstBaseline } from '@shared/config/profile/profile-diff'
 import { ProfileChangesProvider, useProfileChanges } from './profile-changes'
 
 /**
  * Story 049 D4. `useProfileChanges`/`ProfileChangesProvider` only wire `diffProfileAgainstBaseline`
- * (tested on its own merits in `@shared/config/profile-diff.test.ts`) into React context, so these
+ * (tested on its own merits in `@shared/config/profile/profile-diff.test.ts`) into React context, so these
  * tests cover the wiring - what the hook returns, when it recomputes, and what happens without a
  * provider - not the diff logic itself.
  */

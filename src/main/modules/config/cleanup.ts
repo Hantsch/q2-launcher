@@ -1,7 +1,7 @@
 import { copyFile, readFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
-import { isLauncherOwnedFile } from '@shared/config/file-ownership'
+import { isLauncherOwnedFile } from '@shared/config/render/file-ownership'
 import type { CleanupApplyResult } from '@shared/modules/config'
 import { fail, ok, type Installation, type LaunchState, type Outcome } from '@shared/types'
 import { fileSize, isFile, listDir, pathExists } from '../../lib/fs-utils'

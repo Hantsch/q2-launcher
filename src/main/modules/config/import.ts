@@ -30,7 +30,7 @@ import {
   restoredToProfileFields,
   toRestoreInput as sharedToRestoreInput,
   type RestoredProfileFields,
-} from '@shared/config/profile-restore-input'
+} from '@shared/config/profile/profile-restore-input'
 import {
   foreignBannerCommentText,
   restoreProfileParts,
@@ -38,7 +38,7 @@ import {
   type RestoreCommentLine,
   type RestoreProfilePartsInput,
   type RestoreWarningReason,
-} from '@shared/config/profile-restore'
+} from '@shared/config/profile/profile-restore'
 import {
   type ConfigProfile,
   type ImportFilesCommitInput,
@@ -403,7 +403,7 @@ export async function previewImportFiles(
  * launcher-written file (`restored.sourceProfileId !== null`, the same
  * ownership check `previewImportFiles` reports as `ownWrittenFile` - the header
  * tag's `id` field, or the legacy sentinel, read either way through
- * `scanComments` in `@shared/config/profile-restore`)
+ * `scanComments` in `@shared/config/profile/profile-restore`)
  * reconstructs entries/categories/layers from its `[q2l ...]` metadata
  * instead. `restoreProfileParts` always reports an empty `ambiguous` list on
  * that path (D4: "there is nothing to guess"), so the `layerAliases` review

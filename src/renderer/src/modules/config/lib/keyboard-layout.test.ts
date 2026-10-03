@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction } from '@shared/modules/config'
-import { aliasNameFor } from '@shared/config/alias-render'
+import { aliasNameFor } from '@shared/config/aliases/alias-render'
 import { resolveAliasChain } from './keyboard-layout'
 
 /**

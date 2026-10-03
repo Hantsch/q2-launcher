@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { renderProfileFile } from '@shared/config/render'
-import { restoreProfileParts } from '@shared/config/profile-restore'
+import { renderProfileFile } from '@shared/config/render/render'
+import { restoreProfileParts } from '@shared/config/profile/profile-restore'
 import {
   restoredToProfileFields,
   type RestoredProfileFields,
-} from '@shared/config/profile-restore-input'
+} from '@shared/config/profile/profile-restore-input'
 import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
 import { toRestoreInput } from '../import'
 import { readFileState } from '../file-source'

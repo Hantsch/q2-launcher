@@ -188,7 +188,7 @@ async function waitScanIdle(page) {
 
 /**
  * Story 043 D8: `Plain Profile`'s canonical file name, as `resolveProfileFileNames`
- * (`@shared/config/profile-files.ts`) actually resolves it - the sanitizer maps the space to `-`,
+ * (`@shared/config/profile/profile-files.ts`) actually resolves it - the sanitizer maps the space to `-`,
  * so this is NOT `Plain Profile.cfg`. Used only by the `config-conflict-dialog` screen below to
  * hand-edit the file from the Node side.
  */

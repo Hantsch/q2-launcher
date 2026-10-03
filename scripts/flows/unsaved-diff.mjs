@@ -1,7 +1,7 @@
 // Story 064 D3 acceptance flow: dirty three sections through the real UI (Raw tab's "Section
 // header style" select for `settings`, a Settings-tab plain cvar for `cvars`, a Controls-row key
 // for `actions`/`binds`) and read the Unsaved tab back - the surface D1 (shared diff model,
-// `src/shared/config/profile-diff.ts`) and D2 (`ProfileChangeList.tsx`) already built, checked
+// `src/shared/config/profile/profile-diff.ts`) and D2 (`ProfileChangeList.tsx`) already built, checked
 // against real testids/DOM rather than a screenshot alone. Mirrors
 // `scripts/flows/raw-inline-edit.mjs`'s shape (`shot`/`step`, real testids, real assertions, no
 // mocked state) and reuses the Raw tab's idempotent "Section header style" setter the same way

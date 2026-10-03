@@ -133,6 +133,31 @@ function offenders(predicate: (edge: Edge) => boolean): string[] {
   return PRODUCTION_EDGES.filter(predicate).map((edge) => `${edge.from} -> ${edge.to}`)
 }
 
+/** Dependency order of the `src/shared/config` folders; aliases and validation share a tier. */
+const CONFIG_ROOT = 'src/shared/config'
+const CONFIG_RANK: Readonly<Record<string, number>> = {
+  syntax: 0,
+  catalog: 1,
+  aliases: 2,
+  validation: 2,
+  profile: 3,
+  render: 4,
+}
+
+const configGroupOf = (path: string): string | undefined =>
+  under(path, CONFIG_ROOT) ? path.slice(CONFIG_ROOT.length + 1).split('/')[0] : undefined
+
+/** Edges between two ranked config groups that point at a higher rank than their source. */
+function rightwardConfigEdges(edges: readonly Edge[]): string[] {
+  return edges
+    .filter((edge) => {
+      const from = CONFIG_RANK[configGroupOf(edge.from) ?? '']
+      const to = CONFIG_RANK[configGroupOf(edge.to) ?? '']
+      return from !== undefined && to !== undefined && to > from
+    })
+    .map((edge) => `${edge.from} -> ${edge.to}`)
+}
+
 const MAIN_MODULES = 'src/main/modules'
 const RENDERER_MODULES = 'src/renderer/src/modules'
 
@@ -458,5 +483,67 @@ describe('architecture', () => {
       .map((edge) => edge.to)
       .filter((to) => forbidden.has(to))
     expect(bad).toEqual([])
+  })
+
+  it('profile-restore/index.ts opens with a pipeline overview of at most 40 lines', () => {
+    const source = readRepoFile('src/shared/config/profile/profile-restore/index.ts')
+    const overview = /^\/\*\*[\s\S]*?\*\//.exec(source)?.[0] ?? ''
+    expect(overview.split(/\r?\n/).length).toBeLessThanOrEqual(40)
+    for (const stage of ['parse', 'fold', 'restore', 'store', 'render', 'sync'])
+      expect(overview.toLowerCase()).toContain(stage)
+  })
+
+  it('no profile-restore stage file exceeds 800 lines and no function exceeds 150', () => {
+    const dir = 'src/shared/config/profile/profile-restore'
+    // A text scan, not a parser: a top-level declaration runs to the next column-0 `}`, which is
+    // where prettier puts the closing brace of every top-level function body.
+    const declaration =
+      /^(?:export\s+)?(?:(?:async\s+)?function\b|const\s+\w+\s*(?::[^=]*)?=\s*(?:async\s*)?(?:<[^>]*>)?\()/
+    const offenders: string[] = []
+    for (const name of readdirSync(join(REPO_ROOT, dir))) {
+      if (!name.endsWith('.ts') || isTestFile(name)) continue
+      const lines = readRepoFile(`${dir}/${name}`)
+        .replace(/\r?\n$/, '')
+        .split(/\r?\n/)
+      if (lines.length > 800) offenders.push(`${name}: ${lines.length} lines`)
+      let start = -1
+      lines.forEach((line, index) => {
+        if (declaration.test(line)) start = index
+        else if (start >= 0 && line.startsWith('}')) {
+          const span = index - start + 1
+          if (span > 150) offenders.push(`${name}:${start + 1}: function spans ${span} lines`)
+          start = -1
+        }
+      })
+    }
+    expect(offenders).toEqual([])
+  })
+  it('src/shared/config groups import only leftward: syntax → catalog → aliases/validation → profile → render', () => {
+    // Test files and fixtures/ are exempt: they sit above every group and may import any of them.
+    const prod = PRODUCTION_EDGES.filter((edge) => !under(edge.from, `${CONFIG_ROOT}/fixtures`))
+    expect(rightwardConfigEdges(prod)).toEqual([])
+
+    const loose = PRODUCTION.filter(
+      (file) => under(file, CONFIG_ROOT) && !file.slice(CONFIG_ROOT.length + 1).includes('/'),
+    )
+    expect(loose).toEqual([])
+
+    // The check must bite: a syntax file importing a render file is rightward.
+    expect(
+      rightwardConfigEdges([
+        { from: `${CONFIG_ROOT}/syntax/a.ts`, to: `${CONFIG_ROOT}/render/b` },
+        { from: `${CONFIG_ROOT}/aliases/a.ts`, to: `${CONFIG_ROOT}/validation/b` },
+        { from: `${CONFIG_ROOT}/render/a.ts`, to: `${CONFIG_ROOT}/syntax/b` },
+      ]),
+    ).toEqual([`${CONFIG_ROOT}/syntax/a.ts -> ${CONFIG_ROOT}/render/b`])
+  })
+
+  it('config-module.md states the shared/config dependency direction', () => {
+    const configDoc = readRepoFile('docs/systems/config-module.md')
+    expect(configDoc).toContain('syntax → catalog → aliases/validation → profile → render')
+    const flatPath = /src\/shared\/config\/[\w.-]+\.tsx?/
+    for (const doc of ['docs/systems/config-module.md', 'docs/systems/profile-file-format.md']) {
+      expect(readRepoFile(doc), doc).not.toMatch(flatPath)
+    }
   })
 })

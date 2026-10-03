@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MAX_WAIT_FRAMES } from '@shared/config/engine-limits'
+import { MAX_WAIT_FRAMES } from '@shared/config/syntax/engine-limits'
 import { ROUND_TRIP_FIXTURES, toggleEntryProfile } from '@shared/config/fixtures/profiles'
 import { configProfileSchema } from './persisted'
 import {

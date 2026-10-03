@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto'
-import type { AltLayer } from '@shared/config/alt-layers'
-import { bindValueFor } from '@shared/config/action-mirror'
-import { LEGACY_ACTION_ALIAS_PREFIX, legacyAliasNameFor } from '@shared/config/alias-render'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
+import { bindValueFor } from '@shared/config/aliases/action-mirror'
+import { LEGACY_ACTION_ALIAS_PREFIX, legacyAliasNameFor } from '@shared/config/aliases/alias-render'
 import {
   allCatalogRows,
   buildDemoRows,
   commandsForRow,
   nameForCatalogRow,
-} from '@shared/config/catalog-rows'
-import { findCvar } from '@shared/config/cvar-catalog'
+} from '@shared/config/catalog/catalog-rows'
+import { findCvar } from '@shared/config/catalog/cvar-catalog'
 import {
   buildTemplateCvarSections,
   TEMPLATE_ACTION_CATEGORIES,

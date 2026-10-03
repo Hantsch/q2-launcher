@@ -1,6 +1,6 @@
 import { join } from 'node:path'
-import { renderLoaderFile, renderProfileFile } from '@shared/config/render'
-import { resolveProfileFileNames } from '@shared/config/profile-files'
+import { renderLoaderFile, renderProfileFile } from '@shared/config/render/render'
+import { resolveProfileFileNames } from '@shared/config/profile/profile-files'
 import type { ConfigProfile, PreviewFile } from '@shared/modules/config'
 import type { Installation, LaunchState } from '@shared/types'
 import { BASE_GAME_DIR, LOADER_FILE_NAME } from './writer'

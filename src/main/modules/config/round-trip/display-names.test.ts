@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { actionKeySlots } from '@shared/config/action-slots'
-import { aliasNameFor } from '@shared/config/alias-render'
-import { renderProfileFile } from '@shared/config/render'
+import { actionKeySlots } from '@shared/config/catalog/action-slots'
+import { aliasNameFor } from '@shared/config/aliases/alias-render'
+import { renderProfileFile } from '@shared/config/render/render'
 import { beyondLatin1NamesProfile } from '@shared/config/fixtures/profiles'
 import {
   normalize,

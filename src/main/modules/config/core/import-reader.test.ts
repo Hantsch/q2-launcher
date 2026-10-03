@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { restoreProfileParts } from '@shared/config/profile-restore'
+import { restoreProfileParts } from '@shared/config/profile/profile-restore'
 import { toRestoreInput } from '../import'
 import {
   ALIAS_LOOP_COUNT,

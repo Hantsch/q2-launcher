@@ -1,27 +1,27 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
-import { keySlotAt, withKeySlot } from '@shared/config/action-slots'
+import { keySlotAt, withKeySlot } from '@shared/config/catalog/action-slots'
 import type {
   ActionEntryPart,
   ConfigAction,
   ConfigActionCategory,
   ConfigCommand,
 } from '@shared/modules/config'
-import { sanitizeCommand } from '@shared/config/alt-layers'
+import { sanitizeCommand } from '@shared/config/aliases/alt-layers'
 import {
   commandLineFor,
   renderActionAlias,
   type RenderedActionAliases,
-} from '@shared/config/alias-render'
-import { MAX_WAIT_FRAMES } from '@shared/config/engine-limits'
+} from '@shared/config/aliases/alias-render'
+import { MAX_WAIT_FRAMES } from '@shared/config/syntax/engine-limits'
 import {
   DEMO_ACTIONS,
   DROP_ACTIONS,
   MOVEMENT_ACTIONS,
   WEAPON_ACTIONS,
   WEAPON_EXTRA_ACTIONS,
-} from '@shared/config/action-catalog'
+} from '@shared/config/catalog/action-catalog'
 import { Button, IconButton } from '../../../components/ui/Button'
 import { Field, Input, Select } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'
@@ -278,7 +278,7 @@ function CommandListSection({
  * Story 045 D9 adds the other two kinds:
  * - `toggle`/`press-release`: two independent command lists (`ConfigAction.parts`, always exactly
  *   two), rendered via two `CommandListSection`s instead of the single-list branch above. Both
- *   kinds ARE bindable (`@shared/config/action-mirror.ts#bindValueFor` handles both), so the key
+ *   kinds ARE bindable (`@shared/config/aliases/action-mirror.ts#bindValueFor` handles both), so the key
  *   section still shows for them - only `alias` has none.
  *
  * Mirrors `KeyBindDialog`'s shape (a `Modal`, a local draft, an explicit
@@ -362,7 +362,7 @@ export function ActionEditor({
   const [part2Label, setPart2Label] = useState(action.parts?.[1]?.label ?? '')
 
   // Story 050: this editor only ever edits slot 0 of `action.keys` (there is no secondary-slot
-  // capture here, unlike the Controls grid's `BindSlot`s) - `@shared/config/action-slots`'s
+  // capture here, unlike the Controls grid's `BindSlot`s) - `@shared/config/catalog/action-slots`'s
   // accessor is the sole place `keys` is read/written.
   const [key, setKey] = useState<string | undefined>(keySlotAt(action, 0)?.key || undefined)
   const [capturingKey, setCapturingKey] = useState(false)

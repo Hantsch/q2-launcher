@@ -12,8 +12,8 @@
  */
 
 import type { ConfigAction } from '@shared/modules/config'
-import { aliasNameFor, commandLineFor } from '@shared/config/alias-render'
-import { bindValueFor } from '@shared/config/action-mirror'
+import { aliasNameFor, commandLineFor } from '@shared/config/aliases/alias-render'
+import { bindValueFor } from '@shared/config/aliases/action-mirror'
 
 export interface KeyDef {
   /** The exact token used as a `profile.binds` key. */

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Q2_GLYPHS } from '@shared/config/q2-charset'
+import { Q2_GLYPHS } from '@shared/config/syntax/q2-charset'
 import { Button } from '../../../components/ui/Button'
 
 /**

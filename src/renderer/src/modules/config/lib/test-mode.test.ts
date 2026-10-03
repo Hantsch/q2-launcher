@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { AltLayer } from '@shared/config/alt-layers'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import {
   applyTriggerPress,
   applyTriggerRelease,
@@ -15,8 +15,8 @@ import {
 // back null for a matched layer (e.g. a future alias-generation issue), so
 // that specific case is exercised by mocking the generator for one call
 // rather than by contorting a real layer into an unreachable state.
-vi.mock('@shared/config/alt-layers', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@shared/config/alt-layers')>()
+vi.mock('@shared/config/aliases/alt-layers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@shared/config/aliases/alt-layers')>()
   return { ...actual, generateLayerAliases: vi.fn(actual.generateLayerAliases) }
 })
 
@@ -88,7 +88,7 @@ describe('resolveTestPress', () => {
   })
 
   it('resolves a layer whose triggerBind is null as kind trigger with alias null, never unbound', async () => {
-    const { generateLayerAliases } = await import('@shared/config/alt-layers')
+    const { generateLayerAliases } = await import('@shared/config/aliases/alt-layers')
     vi.mocked(generateLayerAliases).mockReturnValueOnce({
       aliases: [],
       triggerBind: null,

@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
-import { renderProfileFile } from '@shared/config/render'
-import { formatMetaTag } from '@shared/config/profile-metadata'
-import { restoreProfileParts } from '@shared/config/profile-restore'
+import { renderProfileFile } from '@shared/config/render/render'
+import { formatMetaTag } from '@shared/config/profile/profile-metadata'
+import { restoreProfileParts } from '@shared/config/profile/profile-restore'
 import {
   CVAR_SECTION_ADVERSARIAL_FIXTURES,
   LONG_CVAR_SECTION_NAME,

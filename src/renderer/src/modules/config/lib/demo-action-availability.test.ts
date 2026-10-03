@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { EngineKind } from '@shared/types/engine'
-import { DEMO_ACTIONS } from '@shared/config/action-catalog'
+import { DEMO_ACTIONS } from '@shared/config/catalog/action-catalog'
 import { demoActionUnavailableReason } from './demo-action-availability'
 
 const SEEK = 'config.controls.demo.seekNeedsQ2pro'

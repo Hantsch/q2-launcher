@@ -181,7 +181,7 @@ central, assigned to installations) and the UI (launcher design system) change.
   (`src/main/modules/config/persisted-migrations.ts`, run by `src/main/services/migrations.ts`) — not `Installation.moduleData`, since a profile is not
   owned by one installation. `Installation` gains `assignedProfiles` (profile id + `isDefault`)
   and `playedMods`.
-- **Profile sub-shapes are declared once** in `src/shared/config/profile-schema.ts` (story 211):
+- **Profile sub-shapes are declared once** in `src/shared/config/aliases/profile-schema.ts` (story 211):
   the rules both readers share, each as an extendable `z.object` plus a contract-typed schema. The
   IPC schemas add caps (`.max(n)`, extra `.min(1)`); `persisted.ts` adds forgiveness (`.catch()`,
   row-level drops, legacy fields) by `.extend()`ing only the fields that are forgiving on disk.
@@ -201,7 +201,7 @@ central, assigned to installations) and the UI (launcher design system) change.
   2. **Rebuild-on-missing-record**, every start: every launcher-owned `.cfg` in the canonical
      directory whose ownership id has no record in `state.json` gets a record rebuilt from that
      file, **keeping that file's own id**. Since story 051, a profile file's ownership id is read
-     through `src/shared/config/file-ownership.ts`'s `readOwnershipStamp`, which recognises both the
+     through `src/shared/config/render/file-ownership.ts`'s `readOwnershipStamp`, which recognises both the
      current header-block shape (the id lives in the header's `[q2l v=1 id=…]` tag,
      `docs/systems/profile-file-format.md#header-block`) and a pre-051 file's legacy sentinel line —
      the id is always on the _file_, never derived from `state.json`. That is the deliberate opposite
@@ -279,6 +279,20 @@ central, assigned to installations) and the UI (launcher design system) change.
 - **Engine data**: `src/core/engines.ts` / `src/core/settings.ts` from q2-config-manager (cvar
   defaults, clamps, buffer sizes, all source-cited) are the factual basis to port into this
   module's core logic — the citations, not the original file structure, are what must survive.
+
+- **`src/shared/config` is grouped by direction.** Its groups are `syntax/` (the file format's
+  written vocabulary and tokenizing), `catalog/` (cvar and action facts), `aliases/` (alias, bind
+  and layer logic, profile schema), `validation/`, `profile/` (restore, diff, metadata, files) and
+  `render/` (profile to text). A file imports only from its own group or leftward:
+  `syntax → catalog → aliases/validation → profile → render`; `src/architecture.test.ts` enforces
+  it. `profile/profile-restore/` is a folder of named stages behind the one-line facade
+  `profile/profile-restore.ts`: `types.ts` (shared restore shapes), `comment-parse.ts` (one
+  `[q2l ...]` comment to a tag), `comment-scan.ts` (all comments to sections, version marker and
+  diagnostics), `categories.ts` (mint or adopt category ids), `cvar-sections.ts` (mint or adopt
+  cvar section ids), `entry-build.ts` (fold `_p<n>`/`_c<n>` chunks and build an action),
+  `two-part.ts` (merge the toggle trio and `+x`/`-x` pairs), `layers.ts` (rebuild layers and
+  modifier overrides), `entry-grouping.ts` (group alias/bind lines per entry), `entry-matching.ts`
+  (match lines to their tags) and `index.ts` (drives the stages).
 
 ## 7. Requirements
 

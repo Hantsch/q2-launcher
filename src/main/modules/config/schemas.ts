@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { NAMED_KEYS, normalizeBindKey } from '@shared/config/key-names'
+import { NAMED_KEYS, normalizeBindKey } from '@shared/config/syntax/key-names'
 import {
   actionEntryKindSchema,
   actionEntryPartObjectSchema,
@@ -13,8 +13,8 @@ import {
   configCvarSectionObjectSchema,
   configCvarSubsectionObjectSchema,
   refineActionParts,
-} from '@shared/config/profile-schema'
-import type { TidyUpOp } from '@shared/config/tidy-up'
+} from '@shared/config/aliases/profile-schema'
+import type { TidyUpOp } from '@shared/config/profile/tidy-up'
 import type { ConfigCvarSection, TidyUpApplyInput } from '@shared/modules/config'
 
 /**
@@ -436,7 +436,7 @@ export const cleanupRestoreInputSchema = cleanupApplyInputSchema
 
 /**
  * Story 025 D3: `tidyUp.apply`'s payload - one profile id plus a batch of
- * `TidyUpOp` descriptors (`@shared/config/tidy-up`).
+ * `TidyUpOp` descriptors (`@shared/config/profile/tidy-up`).
  *
  * Structural validation only, and deliberately so: this schema's job is to keep
  * a garbage *shape* out of the applier, not to decide whether an op is

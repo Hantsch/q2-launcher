@@ -12,7 +12,7 @@
  *    path here would silently mint a new id and orphan every installation assignment pointing at
  *    the old one. A `.cfg` that carries neither recognised ownership shape - the legacy sentinel
  *    line nor story 051's banner-tag `id` field, both read via `readOwnershipStamp`/
- *    `isLauncherOwnedFile` (`@shared/config/file-ownership`) - is never adopted:
+ *    `isLauncherOwnedFile` (`@shared/config/render/file-ownership`) - is never adopted:
  *    `readCanonicalOwnership` reports no owner for it, so it is not even a candidate.
  *
  * 2. **The one-time format migration** (`migrateCanonicalFiles`, AC8, gated by
@@ -43,11 +43,14 @@
 import { readFile, stat } from 'node:fs/promises'
 import type { Stats } from 'node:fs'
 import { join } from 'node:path'
-import { resolveProfileFileNames, sanitizeProfileFileBase } from '@shared/config/profile-files'
-import { HAND_EDIT_SENTENCE, renderProfileFile } from '@shared/config/render'
-import { HEADER_SCAN_LINES } from '@shared/config/file-ownership'
-import { stripCatalogDefaults } from '@shared/config/cvar-defaults'
-import { captureBaseline } from '@shared/config/profile-baseline'
+import {
+  resolveProfileFileNames,
+  sanitizeProfileFileBase,
+} from '@shared/config/profile/profile-files'
+import { HAND_EDIT_SENTENCE, renderProfileFile } from '@shared/config/render/render'
+import { HEADER_SCAN_LINES } from '@shared/config/render/file-ownership'
+import { stripCatalogDefaults } from '@shared/config/catalog/cvar-defaults'
+import { captureBaseline } from '@shared/config/profile/profile-baseline'
 import type { ConfigProfile } from '@shared/modules/config'
 import type { Logger } from '../../lib/logger'
 import { readCanonicalOwnership, writeCanonicalProfileFile } from './canonical'
@@ -100,7 +103,7 @@ const HEADER_RULE = /^\/\/\s*={3,}\s*\r?$/
 const TRAILING_META_TAG = /\s*\[q2l[^\]]*\]\s*$/
 
 // How far into the file the header block can possibly reach is `HEADER_SCAN_LINES`, imported above
-// from `@shared/config/file-ownership` - the same bound that module uses to scan for an ownership
+// from `@shared/config/render/file-ownership` - the same bound that module uses to scan for an ownership
 // stamp, so the two never diverge over how much of a hand-edited file's head counts as "header".
 
 /**
@@ -422,7 +425,7 @@ async function migrateCanonicalFiles(
  * Ownership is `readCanonicalOwnership`'s answer and nothing else, which is what keeps a foreign
  * file out: a `.cfg` recognised by neither ownership shape - the legacy sentinel line nor story
  * 051's banner-tag `id` field, both read via `readOwnershipStamp`/`isLauncherOwnedFile`
- * (`@shared/config/file-ownership`) - a hand-written config, or another tool's file with its own
+ * (`@shared/config/render/file-ownership`) - a hand-written config, or another tool's file with its own
  * marker, has no owner in that map and is therefore never a candidate here. That map is keyed by
  * profile id, so two files claiming the same id yield
  * at most one rebuild, and a record that already exists is skipped before anything is read, so this

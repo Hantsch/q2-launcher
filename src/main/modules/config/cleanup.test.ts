@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { Installation } from '@shared/types'
 import { pathExists } from '../../lib/fs-utils'
 import type { ConfigProfile } from '@shared/modules/config'
-import { OWNERSHIP_MARKER, renderProfileFile } from '@shared/config/render'
+import { OWNERSHIP_MARKER, renderProfileFile } from '@shared/config/render/render'
 import { BACKUP_SUFFIX } from './backup'
 import { idleState, runningState } from './index.test-helpers'
 import {

@@ -403,7 +403,7 @@ function TidyUpGroup({
   }
 
   // `unreferencedAlias`/`duplicateAlias` name the alias as `params.name`, `undefinedAlias` as
-  // `params.alias` (`@shared/config/validate-actions.ts`'s own param shapes) - the only three kinds
+  // `params.alias` (`@shared/config/validation/validate-actions.ts`'s own param shapes) - the only three kinds
   // this action ever appears on (`lib/care-items.ts`'s `ALIAS_LINK_KINDS`), so reading either is
   // enough without threading the finding kind through the item as well.
   const handleAction = async (action: CareItemAction, item: CareItem): Promise<void> => {

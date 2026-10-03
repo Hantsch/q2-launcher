@@ -1,6 +1,6 @@
 /**
  * The renderer-side handle onto story 049's change set (D4): a `ProfileChangeSet`
- * (`@shared/config/profile-diff`) computed once per selected profile and shared, through React
+ * (`@shared/config/profile/profile-diff`) computed once per selected profile and shared, through React
  * context, with every tab and the save bar - so the bar's badge, the before/after list (D5) and
  * every row's "unsaved" indicator (D7/D8) can never disagree about what is pending.
  *
@@ -18,7 +18,10 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import type { ConfigProfile } from '@shared/modules/config'
-import { diffProfileAgainstBaseline, type ProfileChangeSet } from '@shared/config/profile-diff'
+import {
+  diffProfileAgainstBaseline,
+  type ProfileChangeSet,
+} from '@shared/config/profile/profile-diff'
 
 const ProfileChangesContext = createContext<ProfileChangeSet | null>(null)
 

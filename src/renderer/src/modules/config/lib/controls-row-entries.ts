@@ -28,8 +28,8 @@ import {
   MOVEMENT_ACTIONS,
   WEAPON_ACTIONS,
   WEAPON_EXTRA_ACTIONS,
-} from '@shared/config/action-catalog'
-import { buildDemoRows } from '@shared/config/catalog-rows'
+} from '@shared/config/catalog/action-catalog'
+import { buildDemoRows } from '@shared/config/catalog/catalog-rows'
 import type { ConfigAction } from '@shared/modules/config'
 import {
   buildDropGroups,

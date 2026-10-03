@@ -19,12 +19,12 @@ import {
   type UnrecognizedConfigLine,
 } from '@shared/modules/config'
 import type { StateSection, StateStore } from '../../services/state'
-import { applyActionBindMirror } from '@shared/config/action-mirror'
-import { adoptRawBinds } from '@shared/config/bind-adoption'
-import { stripCatalogDefaults } from '@shared/config/cvar-defaults'
-import type { RestoredProfileFields } from '@shared/config/profile-restore-input'
-import { applyActionLayerMirror } from '@shared/config/modifier-layers'
-import { captureBaseline } from '@shared/config/profile-baseline'
+import { applyActionBindMirror } from '@shared/config/aliases/action-mirror'
+import { adoptRawBinds } from '@shared/config/profile/bind-adoption'
+import { stripCatalogDefaults } from '@shared/config/catalog/cvar-defaults'
+import type { RestoredProfileFields } from '@shared/config/profile/profile-restore-input'
+import { applyActionLayerMirror } from '@shared/config/aliases/modifier-layers'
+import { captureBaseline } from '@shared/config/profile/profile-baseline'
 import {
   assign as assignProfile,
   unassign as unassignProfile,
@@ -126,7 +126,7 @@ export class ProfilesStore {
    * one of these alias entries by name is left as a raw bind pointing at it
    * (decision from story 041), which is exactly what `commit`'s
    * `adoptProfileBinds` pass already guarantees: `adoptRawBinds`'s
-   * `isAliasReference` check (`@shared/config/bind-adoption`) skips any raw
+   * `isAliasReference` check (`@shared/config/profile/bind-adoption`) skips any raw
    * entry whose value is some action's own alias name - imported or not -
    * before it ever consults the catalogue, so this call cannot end up with two
    * entries for one bare-token bind.
@@ -314,7 +314,7 @@ export class ProfilesStore {
    * entirely) is untouched.
    *
    * Story 015 (decision 1), story 050: "every key an action carries" is every
-   * slot of `action.keys` (read through `@shared/config/action-slots`, no cap of
+   * slot of `action.keys` (read through `@shared/config/catalog/action-slots`, no cap of
    * two), all of them pointing at the same `aliasNameFor(action)` - the alias is
    * per action, not per slot, so an N-slot row costs one alias and N bind lines. The consequences fall out of that single rule rather than needing
    * their own branches: clearing one slot drops only that key's bind (the whole
@@ -574,7 +574,7 @@ export class ProfilesStore {
    * Known limitation: `writeCatalogDefaults` is a render-relevant field that `captureBaseline` does
    * not snapshot, so a pending catalog-defaults toggle is rendered from the live value and would
    * land on disk with the commit. Follow-up: add the field to `captureBaseline` in
-   * `src/shared/config/profile-baseline.ts`.
+   * `src/shared/config/profile/profile-baseline.ts`.
    */
   commitSavedCvars(
     profileId: string,
@@ -701,7 +701,7 @@ export class ProfilesStore {
    * A tidy-up batch mutates several fields at once (a re-classify writes
    * `unrecognized` plus one of `cvars`/`binds`/`actions`; `unrecognized` has no
    * setter at all otherwise), and it computes the whole next profile in one pure
-   * pass (`applyTidyUpOps`, `@shared/config/tidy-up`) precisely so that batch
+   * pass (`applyTidyUpOps`, `@shared/config/profile/tidy-up`) precisely so that batch
    * lands as one commit with one `updatedAt`. So this method takes the finished
    * object and does the one thing the four setters above all end in - swap it
    * into the list and `commit` - rather than re-deriving any field logic.
@@ -726,7 +726,7 @@ export class ProfilesStore {
    * enforced rather than merely intended.
    *
    * Every profile about to be persisted goes through `adoptRawBinds`
-   * (`@shared/config/bind-adoption`): a raw `bind w "+forward"` - hand-bound on
+   * (`@shared/config/profile/bind-adoption`): a raw `bind w "+forward"` - hand-bound on
    * the Overview keyboard, seeded from `STANDARD_TEMPLATE`, or read out of an
    * imported `config.cfg` - becomes the Movement row's own `ConfigAction`, so
    * the keyboard and the Controls grid can no longer show two different answers

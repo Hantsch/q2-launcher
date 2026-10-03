@@ -6,8 +6,8 @@ display name, category, entry kind, key-slot pairing, layer membership — none 
 Quake II config syntax has a place for. Story 050 then cut the tag down to the fields the file
 genuinely cannot say itself: entry identity and key-slot order come from the file's own text and
 line order instead of from a hash or an index. This document is the grammar reference; the
-implementation is `src/shared/config/profile-metadata.ts` (grammar), `src/shared/config/render.ts`
-(what each line writes) and `src/shared/config/profile-restore.ts` (how a line is read back), and
+implementation is `src/shared/config/profile/profile-metadata.ts` (grammar), `src/shared/config/render/render.ts`
+(what each line writes) and `src/shared/config/profile/profile-restore.ts` (how a line is read back), and
 their tests.
 
 ## Where it lives
@@ -81,7 +81,7 @@ A profile file written before this story carries a different, five-line header i
 
 A sentinel comment line naming the profile's id in prose, an `=` rule, the name with an inline
 `[q2l v=1]` tag (no `id`), a fixed hand-edit sentence (`HAND_EDIT_SENTENCE`), then a closing `=`
-rule. This shape is still **read** — `src/shared/config/file-ownership.ts`'s
+rule. This shape is still **read** — `src/shared/config/render/file-ownership.ts`'s
 `readOwnershipStamp`/`isLauncherOwnedFile` recognise it as launcher-owned exactly as before, so a
 profile from before this story is not orphaned or reported as "changed outside the launcher" — but
 it is never **written** any more: the very next time that profile is saved, its header is rewritten
@@ -163,7 +163,7 @@ expose one for that kind.
 
 An entry's `keys` is `ConfigAction.keys?: readonly ActionKeySlot[]` — an arbitrary number of
 `{ key, modifier? }` slots, not capped at two, read and written through one accessor module,
-`src/shared/config/action-slots.ts` (`actionKeySlots`, `keySlotAt`, `withKeySlot`, `clearKeySlot`,
+`src/shared/config/catalog/action-slots.ts` (`actionKeySlots`, `keySlotAt`, `withKeySlot`, `clearKeySlot`,
 `keySlotCount`).
 
 On read, an entry's slot claims are simply taken **in the order the claiming lines appear in the

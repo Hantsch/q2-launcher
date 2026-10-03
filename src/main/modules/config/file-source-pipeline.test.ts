@@ -9,10 +9,10 @@ import {
   type RefreshFromFilesResult,
   type SaveProfileResult,
 } from '@shared/modules/config'
-import { actionKeySlots } from '@shared/config/action-slots'
-import { resolveProfileFileNames } from '@shared/config/profile-files'
-import { neutralizeProse } from '@shared/config/profile-metadata'
-import { readOwnershipStamp } from '@shared/config/file-ownership'
+import { actionKeySlots } from '@shared/config/catalog/action-slots'
+import { resolveProfileFileNames } from '@shared/config/profile/profile-files'
+import { neutralizeProse } from '@shared/config/profile/profile-metadata'
+import { readOwnershipStamp } from '@shared/config/render/file-ownership'
 import {
   ROUND_TRIP_FIXTURES,
   collidingAliasNameProfile,
@@ -28,7 +28,7 @@ import { scopedLogger } from '../../lib/logger'
 import { StateStore } from '../../services/state'
 import type { ModuleHandler, ModuleSetup } from '../types'
 import { hashCanonicalFileContent, readFileState } from './file-source'
-import { renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import { configModule } from './index'
 import { seedConfigProfiles } from '../../../test-support/config-state'
 import { configState } from './persisted'
@@ -52,7 +52,7 @@ import { configState } from './persisted'
  * styles. A `{ cvars: {}, actions: [] }` toy profile would hide exactly the bugs this pass exists to
  * find.
  *
- * Note on the story's own D10 file list: it names `src/shared/config/render-invariants.test.ts` and
+ * Note on the story's own D10 file list: it names `src/shared/config/render/render-invariants.test.ts` and
  * `src/shared/config/fixtures/profile-fixtures.ts` as new files for this deliverable. Both already existed
  * (stories 038-040) and have nothing to do with 043, so this pipeline pass lives here instead, next
  * to the main-process code it exercises.

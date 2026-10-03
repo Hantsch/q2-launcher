@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ALL_CVARS } from '@shared/config/cvar-catalog'
+import { ALL_CVARS } from '@shared/config/catalog/cvar-catalog'
 import { Button } from '../../../components/ui/Button'
 import { Field, Input } from '../../../components/ui/controls'
 import { Modal } from '../../../components/ui/Modal'

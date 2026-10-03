@@ -11,7 +11,7 @@
  * that renders it.
  */
 
-import type { AltLayer } from '@shared/config/alt-layers'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 
 /** One resolved trigger key: which layer it activates, and whether that layer is the one currently shown. */
 export interface TriggerInfo {

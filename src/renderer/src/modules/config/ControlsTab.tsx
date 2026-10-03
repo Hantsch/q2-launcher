@@ -11,10 +11,10 @@ import {
   X,
 } from 'lucide-react'
 import { horizontalListSortingStrategy, SortableContext } from '@dnd-kit/sortable'
-import { actionKeySlots, withKeySlot } from '@shared/config/action-slots'
-import { isDropCatalogRow, nameForCatalogRow } from '@shared/config/catalog-rows'
-import { dropStateFor, isDropEntry } from '@shared/config/drop-entries'
-import type { ModifierTrigger } from '@shared/config/modifier-layers'
+import { actionKeySlots, withKeySlot } from '@shared/config/catalog/action-slots'
+import { isDropCatalogRow, nameForCatalogRow } from '@shared/config/catalog/catalog-rows'
+import { dropStateFor, isDropEntry } from '@shared/config/aliases/drop-entries'
+import type { ModifierTrigger } from '@shared/config/aliases/modifier-layers'
 import {
   STANDARD_TEMPLATE,
   TEMPLATE_ACTION_CATEGORIES,

@@ -20,7 +20,7 @@
 import type { EngineKind } from '@shared/types/engine'
 import type { Installation } from '@shared/types/installation'
 import type { ConfigProfile } from '@shared/modules/config'
-import { hasEngineFacts } from '@shared/config/cvar-facts'
+import { hasEngineFacts } from '@shared/config/catalog/cvar-facts'
 
 /**
  * Why there is (or is not) an engine to show facts for.

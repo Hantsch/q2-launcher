@@ -68,7 +68,7 @@ const TIMEOUT_MS = 8_000
 const LAUNCH_TIMEOUT_MS = 15_000
 
 /** Mirrors `raw-inline-edit.mjs`'s own `PLAIN_PROFILE_FILE_NAME` - `resolveProfileFileNames`
- * (`@shared/config/profile-files.ts`) sanitizes "Plain Profile"'s space to `-`. */
+ * (`@shared/config/profile/profile-files.ts`) sanitizes "Plain Profile"'s space to `-`. */
 const PLAIN_PROFILE_FILE_NAME = 'Plain-Profile.cfg'
 
 const RUN_SUFFIX = Date.now().toString(36)

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { AltLayer } from '@shared/config/alt-layers'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import { cn } from '../../../lib/cn'
 import { Button } from '../../../components/ui/Button'
 

@@ -27,7 +27,7 @@
  * `set` / `seta` / `setu` / `sets` (case-insensitive command name) assign a
  * cvar: `<cmd> <name> <value>`. `bind` assigns a key: `bind <key>
  * <command>`. `unbind <key>` and `unbindall` remove bindings - both run the
- * key token through `normalizeBindKey` (`@shared/config/key-names`), since
+ * key token through `normalizeBindKey` (`@shared/config/syntax/key-names`), since
  * hand-written configs mix casing (`ctrl`/`CTRL`) that would otherwise never
  * match the keyboard overview's canonical spelling. `exec <file>`
  * names another file to load - this parser only records the target string;
@@ -92,12 +92,12 @@
  * re-scanning `preserved` for lines that merely look unrecognized.
  */
 
-import { normalizeBindKey } from '@shared/config/key-names'
+import { normalizeBindKey } from '@shared/config/syntax/key-names'
 import {
   splitTopLevelSemicolons,
   stripLineComment,
   tokenize,
-} from '@shared/config/command-tokenizer'
+} from '@shared/config/syntax/command-tokenizer'
 
 /**
  * `comment` is the raw text following the line's trailing `//` marker (the

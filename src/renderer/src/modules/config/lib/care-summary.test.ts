@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Finding } from '@shared/config/validation'
+import type { Finding } from '@shared/config/validation/validation'
 import { buildCareItems, type CareItem } from './care-items'
 import type { CareSyncRow } from './care-sync'
 import { careSummary, dedupedFindingCounts, type CareSyncStatus } from './care-summary'

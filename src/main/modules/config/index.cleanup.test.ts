@@ -6,7 +6,7 @@ import { type Installation, type Outcome } from '@shared/types'
 import { type AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { type ModuleHandler } from '../types'
-import { renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import { configModule } from './index'
 import {
   collectHandlers,

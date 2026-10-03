@@ -32,12 +32,12 @@ import {
   type BindCollision,
   type BindCollisionIgnore,
   type BindSlot,
-} from '@shared/config/bind-collision'
-import { actionKeySlots, withKeySlot } from '@shared/config/action-slots'
-import { isMirroredValue } from '@shared/config/action-mirror'
-import { MODIFIER_LAYER_NAME, type ModifierTrigger } from '@shared/config/modifier-layers'
-import { normalizeBindKey } from '@shared/config/key-names'
-import type { AltLayer } from '@shared/config/alt-layers'
+} from '@shared/config/validation/bind-collision'
+import { actionKeySlots, withKeySlot } from '@shared/config/catalog/action-slots'
+import { isMirroredValue } from '@shared/config/aliases/action-mirror'
+import { MODIFIER_LAYER_NAME, type ModifierTrigger } from '@shared/config/aliases/modifier-layers'
+import { normalizeBindKey } from '@shared/config/syntax/key-names'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
 import { applySlot } from './catalog-binds'
 
@@ -334,7 +334,7 @@ export function applyModifierReplace({
   //   the compacted index the Controls tab passes as `slotIndex`. Removing at a raw index is the
   //   one operation here that could shift a slot the scan had already accounted for.
   // - This is the same "release so something else can take the key" step as the shared
-  //   `releaseKey` (`applyReplace`'s path, `@shared/config/bind-collision`), which blanks in place
+  //   `releaseKey` (`applyReplace`'s path, `@shared/config/validation/bind-collision`), which blanks in place
   //   and cannot be changed from here (`src/shared/**` is out of this story's scope). Compacting in
   //   one of the two release paths and not the other is exactly the split that story 050's review
   //   finding 5 was about.

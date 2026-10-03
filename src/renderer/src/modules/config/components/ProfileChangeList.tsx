@@ -4,7 +4,7 @@ import type {
   ProfileChangeDetail,
   ProfileChangeSection,
   ProfileChangeSet,
-} from '@shared/config/profile-diff'
+} from '@shared/config/profile/profile-diff'
 import { Badge, type BadgeTone, SectionLabel } from '../../../components/ui/primitives'
 
 /**

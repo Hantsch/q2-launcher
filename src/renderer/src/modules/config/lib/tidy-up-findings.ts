@@ -3,7 +3,7 @@
  *
  * One pure function, `analyzeTidyUp`, that turns a profile into the flat
  * maintenance list the Care tab's tidy-up section shows: every finding carries
- * the machine-readable `TidyUpOp`s (D3, `@shared/config/tidy-up`) that would fix
+ * the machine-readable `TidyUpOp`s (D3, `@shared/config/profile/tidy-up`) that would fix
  * it, so the UI (D5/D6) only ever renders findings and posts ops back - it never
  * derives a fix itself.
  *
@@ -43,7 +43,7 @@
  * property of the *rendered file*, and the engine's rule is simply that the last
  * `bind <key>` it reads for a key wins:
  *
- * - **base scope**: `renderProfileFile` (`@shared/config/render`) emits
+ * - **base scope**: `renderProfileFile` (`@shared/config/render/render`) emits
  *   `profile.binds` as `bind <key> "<command>"` in `Object.keys(binds).sort()`
  *   order and nothing else ever emits a base bind. So the winning command for a
  *   key is the value of the *last-sorted* `binds` entry that normalizes to it -
@@ -69,29 +69,29 @@
  * instead: `'auto'`'s entire basis is that removing a loser is provably inert,
  * and that proof does not exist without a known winner.
  *
- * The claim list itself is `bindClaimsFor` (`@shared/config/tidy-up`), the same
+ * The claim list itself is `bindClaimsFor` (`@shared/config/profile/tidy-up`), the same
  * function D3's applier re-checks against, so the claim an op names cannot drift
  * from the claim that op is validated against - the one thing a third copy of
  * "who claims this key" would have risked.
  */
 
-import { bindValueFor } from '@shared/config/action-mirror'
-import { actionKeySlots } from '@shared/config/action-slots'
-import { buildAliasIndex } from '@shared/config/alias-references'
-import { sanitizeCommand, generateLayerAliases } from '@shared/config/alt-layers'
-import { findBindCollision } from '@shared/config/bind-collision'
-import { tokenizeConfigText, type ConfigSyntaxToken } from '@shared/config/config-syntax'
-import { findCvar } from '@shared/config/cvar-catalog'
-import { normalizeBindKey } from '@shared/config/key-names'
+import { bindValueFor } from '@shared/config/aliases/action-mirror'
+import { actionKeySlots } from '@shared/config/catalog/action-slots'
+import { buildAliasIndex } from '@shared/config/aliases/alias-references'
+import { sanitizeCommand, generateLayerAliases } from '@shared/config/aliases/alt-layers'
+import { findBindCollision } from '@shared/config/validation/bind-collision'
+import { tokenizeConfigText, type ConfigSyntaxToken } from '@shared/config/syntax/config-syntax'
+import { findCvar } from '@shared/config/catalog/cvar-catalog'
+import { normalizeBindKey } from '@shared/config/syntax/key-names'
 import {
   bindClaimsFor,
   type TidyUpBindClaim,
   type TidyUpBindScope,
   type TidyUpOp,
   type TidyUpReclassifyTarget,
-} from '@shared/config/tidy-up'
-import { ACTIONS_MESSAGE_PREFIX, validateActions } from '@shared/config/validate-actions'
-import type { Finding } from '@shared/config/validation'
+} from '@shared/config/profile/tidy-up'
+import { ACTIONS_MESSAGE_PREFIX, validateActions } from '@shared/config/validation/validate-actions'
+import type { Finding } from '@shared/config/validation/validation'
 import type { ConfigProfile, UnrecognizedConfigLine } from '@shared/modules/config'
 import type { EngineKind } from '@shared/types/engine'
 import { findBindConflicts, type BindConflict } from './bind-conflicts'
@@ -591,7 +591,7 @@ function wordText(token: ConfigSyntaxToken): string {
  * line is preserved precisely because that parser could not classify it, so the
  * only lines this can promote are ones whose shape that parser's own rules
  * recognise but its command list does not. Tokenizing is
- * `tokenizeConfigText` (`@shared/config/config-syntax`), which is the same
+ * `tokenizeConfigText` (`@shared/config/syntax/config-syntax`), which is the same
  * quote/`;`/`//` handling as the parser's and is the one tokenizer the renderer
  * is allowed to reach (the parser itself lives in `main`).
  *

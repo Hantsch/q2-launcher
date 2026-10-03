@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
-import { aliasNameFor, derivedAliasName } from '@shared/config/alias-render'
+import { aliasNameFor, derivedAliasName } from '@shared/config/aliases/alias-render'
 import {
   HAND_EDIT_SENTENCE,
   OWNERSHIP_MARKER,
   renderProfileFile,
   sentinelLine,
-} from '@shared/config/render'
-import { isLauncherOwnedFile, readOwnershipStamp } from '@shared/config/file-ownership'
-import { META_FORMAT_VERSION, formatMetaTag } from '@shared/config/profile-metadata'
+} from '@shared/config/render/render'
+import { isLauncherOwnedFile, readOwnershipStamp } from '@shared/config/render/file-ownership'
+import { META_FORMAT_VERSION, formatMetaTag } from '@shared/config/profile/profile-metadata'
 import {
   blankProfileNameProfile,
   bodyProseWithIdProfile,

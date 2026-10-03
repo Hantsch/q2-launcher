@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { bindValueFor } from '@shared/config/action-mirror'
+import { bindValueFor } from '@shared/config/aliases/action-mirror'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -10,16 +10,16 @@ import {
   type ConfigAction,
   type ConfigActionCategory,
 } from '@shared/modules/config'
-import { allCatalogRows } from '@shared/config/catalog-rows'
-import { ALL_CVARS } from '@shared/config/cvar-catalog'
-import type { AltLayer } from '@shared/config/alt-layers'
+import { allCatalogRows } from '@shared/config/catalog/catalog-rows'
+import { ALL_CVARS } from '@shared/config/catalog/cvar-catalog'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import { StateStore } from '../../services/state'
-import { aliasNameFor } from '@shared/config/alias-render'
-import { captureBaseline } from '@shared/config/profile-baseline'
-import { keySlotAt } from '@shared/config/action-slots'
-import { diffProfileAgainstBaseline } from '@shared/config/profile-diff'
+import { aliasNameFor } from '@shared/config/aliases/alias-render'
+import { captureBaseline } from '@shared/config/profile/profile-baseline'
+import { keySlotAt } from '@shared/config/catalog/action-slots'
+import { diffProfileAgainstBaseline } from '@shared/config/profile/profile-diff'
 import { ProfilesStore } from './profiles'
-import { renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import { configState } from './persisted'
 
 /**

@@ -1,4 +1,4 @@
-import type { ConfigSyntaxLine } from '@shared/config/config-syntax'
+import type { ConfigSyntaxLine } from '@shared/config/syntax/config-syntax'
 
 /**
  * Find-in-file support for `ConfigCodeView` (story 024 D3): a pure, DOM-free

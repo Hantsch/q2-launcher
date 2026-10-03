@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { collidingAliasNameProfile, holdLayerProfile } from '@shared/config/fixtures/profiles'
-import { renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import { writeCanonicalProfileFile } from './canonical'
 import { hashCanonicalFileContent, readFileState } from './file-source'
 

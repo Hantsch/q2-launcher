@@ -63,3 +63,21 @@
 - 2026-10-03 10:19 · 210 · review 1 · started
 - 2026-10-03 10:21 · 210 · review 1 · done
 - 2026-10-03 10:21 · 210 · story · done
+- 2026-10-03 10:22 · 214 · build · started
+- 2026-10-03 10:22 · 214 · D1 lower stages into profile-restore/ · started
+- 2026-10-03 10:26 · 214 · D1 lower stages into profile-restore/ · done
+- 2026-10-03 10:26 · 214 · D2 upper stages, index, facade · started
+- 2026-10-03 10:31 · 214 · D2 upper stages, index, facade · done
+- 2026-10-03 10:31 · 214 · D3 groupEntryLines named functions (hard) · started
+- 2026-10-03 10:36 · 214 · D3 groupEntryLines named functions (hard) · done
+- 2026-10-03 10:36 · 214 · D4 group src/shared/config (codemod) · started
+- 2026-10-03 10:43 · 214 · D4 group src/shared/config (codemod) · done
+- 2026-10-03 10:43 · 214 · D5 systems doc direction note · started
+- 2026-10-03 10:44 · 214 · D5 systems doc direction note · done
+- 2026-10-03 10:44 · 214 · verify · started
+- 2026-10-03 10:45 · 214 · verify · done
+- 2026-10-03 10:45 · 214 · review 1 · started
+- 2026-10-03 10:46 · 214 · review 1 · done (PASS, comment-history findings to fix)
+- 2026-10-03 10:46 · 214 · fix comment history · started
+- 2026-10-03 10:49 · 214 · fix comment history · done
+- 2026-10-03 10:49 · 214 · story · done

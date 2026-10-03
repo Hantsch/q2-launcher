@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AltLayer } from '@shared/config/alt-layers'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import { resolveTriggerLayer, triggerSelectTarget, type TriggerInfo } from './trigger-keys'
 
 function layer(overrides: Partial<AltLayer> = {}): AltLayer {

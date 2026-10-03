@@ -1,8 +1,8 @@
 import { readdir, readFile, rename, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ConfigProfile } from '@shared/modules/config'
-import { isLauncherOwnedFile } from '@shared/config/file-ownership'
-import { renderProfileFile } from '@shared/config/render'
+import { isLauncherOwnedFile } from '@shared/config/render/file-ownership'
+import { renderProfileFile } from '@shared/config/render/render'
 import { backupOnce } from './backup'
 import { ownedProfileIdFromContent, writeTargetFile } from './writer'
 import type { WriteFileOutcome } from './writer'
@@ -19,7 +19,7 @@ import type { WriteFileOutcome } from './writer'
  * reading a `*.cfg` file's whole content and running it through `writer.ts`'s
  * `ownedProfileIdFromContent` - the same forgiving ownership reader every
  * other ownership check in this codebase uses (banner or legacy sentinel,
- * `@shared/config/file-ownership`) - and comparing the id it returns to
+ * `@shared/config/render/file-ownership`) - and comparing the id it returns to
  * `profileId`. This is deliberately stricter than plain
  * `isLauncherOwnedFile` matching (`writer.ts`, `cleanup.ts`): a file that is
  * launcher-owned but for a *different* profile id is still one of ours,

@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, isAbsolute, join } from 'node:path'
 import { z } from 'zod'
-import { limitsFor } from '@shared/config/engine-limits'
+import { limitsFor } from '@shared/config/syntax/engine-limits'
 import {
   effectiveWriteDirs,
   type DiscoverableInstallation,

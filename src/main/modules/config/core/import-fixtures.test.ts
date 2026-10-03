@@ -2,15 +2,15 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import type { AltLayer } from '@shared/config/alt-layers'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import type {
   ConfigAction,
   ConfigActionCategory,
   ConfigProfile,
   UnrecognizedConfigLine,
 } from '@shared/modules/config'
-import { aliasNameFor } from '@shared/config/alias-render'
-import { isDropEntry } from '@shared/config/drop-entries'
+import { aliasNameFor } from '@shared/config/aliases/alias-render'
+import { isDropEntry } from '@shared/config/aliases/drop-entries'
 import { scopedLogger } from '../../../lib/logger'
 import { commitImportFiles, previewImportFiles, type CreateProfileFromImport } from '../import'
 import { PickedFilesRegistry } from '../picked-files'

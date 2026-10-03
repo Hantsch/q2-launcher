@@ -1,8 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
-import { COMMENT_LINE_BUDGET, COMMENT_PREFIX, renderProfileFile } from '@shared/config/render'
-import { restoreProfileParts } from '@shared/config/profile-restore'
-import { validateActions } from '@shared/config/validate-actions'
+import {
+  COMMENT_LINE_BUDGET,
+  COMMENT_PREFIX,
+  renderProfileFile,
+} from '@shared/config/render/render'
+import { restoreProfileParts } from '@shared/config/profile/profile-restore'
+import { validateActions } from '@shared/config/validation/validate-actions'
 import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
 import { toRestoreInput } from '../import'
 import {

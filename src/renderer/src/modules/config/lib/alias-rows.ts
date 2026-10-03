@@ -8,7 +8,7 @@
  * so the tab never has to unwrap-then-rewrap its own list to use these.
  */
 
-import type { AliasIndexRow } from '@shared/config/alias-references'
+import type { AliasIndexRow } from '@shared/config/aliases/alias-references'
 
 /** Anything the sort/filter helpers below need: the underlying index row, nested the same way
  * `AliasesTab.tsx`'s `DisplayRow` already carries it (`{ row: AliasIndexRow, ... }`). Generic so a

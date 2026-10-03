@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Play, Square } from 'lucide-react'
-import type { AltLayer } from '@shared/config/alt-layers'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
 import type { ConfigProfile } from '@shared/modules/config'
 import { cn } from '../../lib/cn'
 import { Button } from '../../components/ui/Button'

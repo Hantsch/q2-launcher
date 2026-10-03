@@ -9,7 +9,7 @@ import {
 } from './address'
 // A static import, not a runtime `fs.readFile`: `src/shared` may never import `node:*`
 // (docs/ARCHITECTURE.md), even in a test, since this file type-checks under `tsconfig.web.json`
-// too (which carries no node types at all). See `src/shared/config/comment-labels.test.ts` for the
+// too (which carries no node types at all). See `src/shared/config/render/comment-labels.test.ts` for the
 // same pattern.
 import en from '../../renderer/src/i18n/locales/en.json'
 

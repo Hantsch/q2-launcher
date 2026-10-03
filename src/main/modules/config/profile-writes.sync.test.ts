@@ -9,9 +9,9 @@ import type {
   SaveRawTextResult,
   TidyUpApplyResult,
 } from '@shared/modules/config'
-import type { TidyUpOp } from '@shared/config/tidy-up'
+import type { TidyUpOp } from '@shared/config/profile/tidy-up'
 import type { Outcome } from '@shared/types'
-import { renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import { pathExists } from '../../lib/fs-utils'
 import { seedConfigProfiles } from '../../../test-support/config-state'
 import { unwrapOk } from '../../../test-support/outcome'

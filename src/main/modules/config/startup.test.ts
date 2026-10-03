@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderProfileFile } from '@shared/config/render'
+import { renderProfileFile } from '@shared/config/render/render'
 import type { ConfigProfile } from '@shared/modules/config'
 import { installTempDir } from '../../../test-support/temp-dir'
 import { seedConfigProfiles } from '../../../test-support/config-state'

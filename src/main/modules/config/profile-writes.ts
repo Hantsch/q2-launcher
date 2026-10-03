@@ -27,12 +27,12 @@ import type {
   WriteProfileInput,
   WriteTargetResult,
 } from '@shared/modules/config'
-import { applyTidyUpOps } from '@shared/config/tidy-up'
-import { isLatin1Text } from '@shared/config/q2-charset'
-import { restoredToProfileFields } from '@shared/config/profile-restore-input'
-import type { RestoreWarning } from '@shared/config/profile-restore'
-import { resolveProfileFileNames } from '@shared/config/profile-files'
-import { renderLoaderFile, renderProfileFile } from '@shared/config/render'
+import { applyTidyUpOps } from '@shared/config/profile/tidy-up'
+import { isLatin1Text } from '@shared/config/syntax/q2-charset'
+import { restoredToProfileFields } from '@shared/config/profile/profile-restore-input'
+import type { RestoreWarning } from '@shared/config/profile/profile-restore'
+import { resolveProfileFileNames } from '@shared/config/profile/profile-files'
+import { renderLoaderFile, renderProfileFile } from '@shared/config/render/render'
 import { fail, ok, type Installation, type LaunchState, type Outcome } from '@shared/types'
 import type { Logger } from '../../lib/logger'
 import { reconcileAssignments } from './assignments'
@@ -1051,7 +1051,7 @@ async function cleanupRemoved(deps: ProfileWritesDeps, profileId: string): Promi
  * Known limitation: `writeCatalogDefaults` is a render-relevant field that `captureBaseline`
  * does not snapshot, so a pending catalog-defaults toggle is rendered from the live value and
  * would land on disk with the commit. Follow-up: add the field to `captureBaseline` in
- * `src/shared/config/profile-baseline.ts`.
+ * `src/shared/config/profile/profile-baseline.ts`.
  */
 async function commitCvars(
   deps: ProfileWritesDeps,
@@ -1308,7 +1308,7 @@ async function setSwitchBind(
  *
  * The shape it enforces:
  *
- * - `applyTidyUpOps` (pure, `@shared/config/tidy-up`) re-checks every op
+ * - `applyTidyUpOps` (pure, `@shared/config/profile/tidy-up`) re-checks every op
  *   against the *current* profile and returns stale ones in `rejected`
  *   rather than throwing (decision 11) - so this has no per-op error
  *   path at all, only a payload-shape one.

@@ -583,7 +583,7 @@ export const sourcesReorderInputSchema = z.object({
 /**
  * What every `sources.*` mutation resolves to: the domain refusal is a returned result, not a
  * thrown error (mirrors `MasterSourceFailure`-shaped results in `src/main/modules/servers/` and
- * `AliasNameRejectReason` in `src/shared/config/alias-names.ts`). `sources.list` itself always
+ * `AliasNameRejectReason` in `src/shared/config/aliases/alias-names.ts`). `sources.list` itself always
  * succeeds (it's a read), so it resolves to `MasterSource[]` directly, not this union - see the
  * handler's own payload schema/JSDoc, not this type.
  */

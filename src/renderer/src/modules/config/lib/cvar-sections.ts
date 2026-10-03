@@ -1,4 +1,4 @@
-import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render'
+import { CVAR_DEFAULTS_SECTION_ID } from '@shared/config/render/render'
 import type { ConfigCvarSection, ConfigCvarSubsection } from '@shared/modules/config'
 
 /**

@@ -6,7 +6,7 @@ import {
   type AltLayer,
   type AltLayerMode,
   type LayerIssue,
-} from '@shared/config/alt-layers'
+} from '@shared/config/aliases/alt-layers'
 import type { ConfigProfile } from '@shared/modules/config'
 import { cn } from '../../lib/cn'
 import { Button, IconButton } from '../../components/ui/Button'

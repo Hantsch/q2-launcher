@@ -3,14 +3,14 @@ import { useTranslation } from 'react-i18next'
 import { PencilLine } from 'lucide-react'
 import type { EngineKind } from '@shared/types/engine'
 import { engineLabel } from '@shared/types/engine'
-import type { CvarDef, EngineDisagreement, ResolvedCvar } from '@shared/config/cvar-facts'
+import type { CvarDef, EngineDisagreement, ResolvedCvar } from '@shared/config/catalog/cvar-facts'
 import {
   engineDisagreement,
   hasEngineFacts,
   isCvarSupported,
   noteForValue,
   resolveCvar,
-} from '@shared/config/cvar-facts'
+} from '@shared/config/catalog/cvar-facts'
 import { effectiveDefaultFor, isChanged, normalizeCvarValue } from '../lib/cvar-rows'
 import { cn } from '../../../lib/cn'
 import { Input, Select } from '../../../components/ui/controls'
@@ -77,7 +77,7 @@ export interface CvarRowProps {
   value: string
   /**
    * Story 049 D7: whether this row's key is in the profile's pending change set
-   * (`useProfileChanges().keys.cvars`, `@shared/config/profile-diff`) - "edited and unsaved," not
+   * (`useProfileChanges().keys.cvars`, `@shared/config/profile/profile-diff`) - "edited and unsaved," not
    * "differs from the catalogue default" (that stays `isChanged`, used below only for the
    * default-value text). Computed by the caller (`SettingsTab`'s `buildCvarSectionGroups` call), not here,
    * so the filter/counters/this border/the glyph below always read the exact same predicate rather

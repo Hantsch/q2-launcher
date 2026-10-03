@@ -14,8 +14,8 @@
  * Pure by contract, like `trigger-keys.ts`: no React, no DOM, no electron.
  */
 
-import type { AltLayer, AltLayerMode } from '@shared/config/alt-layers'
-import { generateLayerAliases } from '@shared/config/alt-layers'
+import type { AltLayer, AltLayerMode } from '@shared/config/aliases/alt-layers'
+import { generateLayerAliases } from '@shared/config/aliases/alt-layers'
 import type { ConfigAction } from '@shared/modules/config'
 import { triggerSelectTarget } from './trigger-keys'
 

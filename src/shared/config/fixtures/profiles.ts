@@ -19,9 +19,9 @@
  * Pure, like every other file under `src/shared`: no `node:*`, no DOM, no electron.
  */
 
-import type { AltLayer } from '@shared/config/alt-layers'
-import { applyActionBindMirror } from '@shared/config/action-mirror'
-import { applyActionLayerMirror } from '@shared/config/modifier-layers'
+import type { AltLayer } from '@shared/config/aliases/alt-layers'
+import { applyActionBindMirror } from '@shared/config/aliases/action-mirror'
+import { applyActionLayerMirror } from '@shared/config/aliases/modifier-layers'
 import type {
   ConfigAction,
   ConfigActionCategory,

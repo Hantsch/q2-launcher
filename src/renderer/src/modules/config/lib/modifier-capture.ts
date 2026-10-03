@@ -2,7 +2,7 @@
  * Modifier-aware capture resolution for the dual-bind editor (story 016,
  * acceptance criterion 1).
  *
- * Quake II has no real modifier keys (see `src/shared/config/alt-layers.ts`'s
+ * Quake II has no real modifier keys (see `src/shared/config/aliases/alt-layers.ts`'s
  * doc comment): the engine sees ALT and R as two unrelated keys, so there is
  * no `bind` that means "ALT+R". What the dual-bind editor actually wants from
  * a capture slot is a *decision*: is the user asking for a plain key, or for a

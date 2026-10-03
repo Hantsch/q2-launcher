@@ -1,5 +1,5 @@
 import type { ConfigAction } from '@shared/modules/config'
-import { aliasNameFor } from '@shared/config/alias-render'
+import { aliasNameFor } from '@shared/config/aliases/alias-render'
 
 /**
  * Story 019 D6: the names a binding's raw-command field can offer while the

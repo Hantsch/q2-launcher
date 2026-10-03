@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import type { ConfigAction, ConfigProfile } from '@shared/modules/config'
-import { renderProfileFile } from '@shared/config/render'
-import { restoreProfileParts } from '@shared/config/profile-restore'
+import { renderProfileFile } from '@shared/config/render/render'
+import { restoreProfileParts } from '@shared/config/profile/profile-restore'
 import {
   blockDisjointCategoryOrderProfile,
   buildFixtureProfile,

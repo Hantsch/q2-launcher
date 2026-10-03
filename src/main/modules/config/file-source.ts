@@ -9,7 +9,7 @@
  * Reuses, rather than reimplements, two existing pipelines:
  *  - the tokenizer (`core/config-parser.ts#parseConfigText`) that turns raw config text into
  *    cvar/bind/alias/comment lines - the same one `import-reader.ts` uses for a whole installation;
- *  - the reconstruction pass (`@shared/config/profile-restore.ts#restoreProfileParts`) that turns
+ *  - the reconstruction pass (`@shared/config/profile/profile-restore.ts#restoreProfileParts`) that turns
  *    those lines into entries/categories/layers, tolerant of a hand-edited or metadata-stripped
  *    file (story 042's own degrade-with-warnings rule).
  *
@@ -30,12 +30,12 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { restoreProfileParts, type RestoreWarning } from '@shared/config/profile-restore'
+import { restoreProfileParts, type RestoreWarning } from '@shared/config/profile/profile-restore'
 import {
   restoredToProfileFields,
   toRestoreInput,
   type RestoredProfileFields,
-} from '@shared/config/profile-restore-input'
+} from '@shared/config/profile/profile-restore-input'
 import type { UnrecognizedConfigLine } from '@shared/modules/config'
 import {
   parseConfigText,
