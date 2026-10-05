@@ -35,6 +35,7 @@ version section when a release actually ships.
 - **Demos** — On Linux X11 the staged demo stays on top of the launcher, borderless.
 - An unexpected launcher error now shows a translated message instead of raw system text.
 - **Downloads** — A failed mod install now shows up in the Downloads failure log.
+- **Downloads** — A retry that broke while starting now shows its failure and can be retried.
 - Bleeding-edge engine downloads now time out, retry and refuse oversized files.
 - Your last change before quitting is saved, and a failed settings write now tells you.
 - **Config** — A refused profile save now shows its reason on every tab; a new alias lands in your first category.

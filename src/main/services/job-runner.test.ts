@@ -1,9 +1,12 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { Job } from '@shared/types'
 import { makeJobRunner } from '../../test-support/job-runner'
 import type { RunJobSpec } from './job-runner'
+import { StateStore } from './state'
 
 const INSTALLATION = 'inst-1'
 
@@ -322,6 +325,42 @@ describe('module jobs', () => {
     settling.resolve()
     await settled
     expect(jobById(jobs, jobId)?.status).toBe('succeeded')
+  })
+
+  it("a job's state write is on disk when the job turns terminal", async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'q2-job-state-'))
+    try {
+      const file = join(dir, 'state.json')
+      const store = new StateStore(file, { migrations: 'none' })
+      await store.load()
+      const marker = store.section<{ marker: string }>({
+        key: 'jobMarker',
+        parse: () => ({ marker: 'none' }),
+        defaults: () => ({ marker: 'none' }),
+      })
+      const { runner, jobs } = makeJobRunner({ state: store })
+      let onDiskAtTerminal: string | undefined
+      jobs.onChange((list) => {
+        if (onDiskAtTerminal !== undefined) return
+        if (list.some((job) => job.status === 'succeeded')) {
+          onDiskAtTerminal = existsSync(file) ? readFileSync(file, 'utf8') : ''
+        }
+      })
+
+      const { settled } = started(
+        runner.run(SPEC, async (ctx) => {
+          await ctx.write(INSTALLATION, async () => {
+            marker.update(() => ({ marker: 'written-by-job' }))
+          })
+          return { status: 'succeeded' }
+        }),
+      )
+      await settled
+
+      expect(onDiskAtTerminal).toContain('written-by-job')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 
   it('a job that never wrote does not wait for state', async () => {

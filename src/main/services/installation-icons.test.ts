@@ -106,7 +106,7 @@ beforeEach(async () => {
   decodeCalls.length = 0
   resizeCalls.length = 0
 
-  state = new StateStore(join(userData, 'state.json'))
+  state = new StateStore(join(userData, 'state.json'), { migrations: 'none' })
   await state.load()
   state.setInstallations([installation()])
 

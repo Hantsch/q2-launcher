@@ -52,7 +52,7 @@ export async function writesHarness(
   dir: string,
   options: WritesHarnessOptions = {},
 ): Promise<WritesHarness> {
-  const state = new StateStore(join(dir, 'state.json'))
+  const state = new StateStore(join(dir, 'state.json'), { migrations: 'none' })
   await state.load()
   const profiles = new ProfilesStore(state)
   const installations = options.installations ?? []

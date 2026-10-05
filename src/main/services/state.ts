@@ -82,11 +82,11 @@ export class StateStore {
       onPersistError?: () => void
       /**
        * The modules' migration steps, validated against `STATE_SCHEMA_VERSION` on every load.
-       * Omitted only by tests that never read an older file: the document is then taken as
-       * current and no step runs.
+       * `'none'` is for tests that never read an older file: the document is then taken as
+       * current and no step runs. Production code always states real steps.
        */
-      migrations?: readonly MigrationStep[]
-    } = {},
+      migrations: readonly MigrationStep[] | 'none'
+    },
   ) {
     // One notice per session: a disk that fails once usually keeps failing, and the user needs
     // to hear it once, not on every debounced retry.
@@ -101,11 +101,12 @@ export class StateStore {
       },
       defaults: () => ({ ...defaults() }),
       parse: (raw) => {
-        const doc = options.migrations
-          ? migrateStateDocument(raw, options.migrations).doc
-          : typeof raw === 'object' && raw !== null
-            ? (raw as Record<string, unknown>)
-            : {}
+        const doc =
+          options.migrations !== 'none'
+            ? migrateStateDocument(raw, options.migrations).doc
+            : typeof raw === 'object' && raw !== null
+              ? (raw as Record<string, unknown>)
+              : {}
         const owned: LauncherStateDocument = {
           schemaVersion: STATE_SCHEMA_VERSION,
           settings: parseSettings(doc['settings']),

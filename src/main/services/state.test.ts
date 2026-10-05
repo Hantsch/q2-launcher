@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
@@ -11,6 +11,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 import { STATE_SCHEMA_VERSION } from '@shared/constants'
 import { DEFAULT_SETTINGS, type Installation } from '@shared/types'
 import { rename } from 'node:fs/promises'
+import { readdirSync, readFileSync } from 'node:fs'
 import { StateStore, type StateSectionSpec } from './state'
 import { installTempDir } from '../../test-support/temp-dir'
 
@@ -43,7 +44,7 @@ describe('StateStore persistence', () => {
   })
 
   it('a burst of ten updates produces one write', async () => {
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     for (let i = 1; i <= 10; i += 1) jobs(state).update(() => downloads(i))
 
@@ -54,7 +55,7 @@ describe('StateStore persistence', () => {
   })
 
   it('settle() forces a pending debounced write to disk at once', async () => {
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     jobs(state).update(() => downloads(4))
     expect(renameSpy).not.toHaveBeenCalled()
@@ -62,7 +63,7 @@ describe('StateStore persistence', () => {
     const result = await state.settle()
 
     expect(result).toEqual({ ok: true })
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
     expect(jobs(reloaded).get().concurrentJobs).toBe(4)
   })
@@ -72,7 +73,7 @@ describe('StateStore persistence', () => {
     // up front would never reach it.
     vi.useRealTimers()
     const onPersistError = vi.fn()
-    const state = new StateStore(filePath, { onPersistError })
+    const state = new StateStore(filePath, { migrations: 'none', onPersistError })
     await state.load()
     renameSpy.mockRejectedValue(new Error('disk full'))
 
@@ -91,7 +92,7 @@ describe('StateStore updateSlice', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-update-slice-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     await state.settle()
     vi.mocked(rename).mockClear()
@@ -160,7 +161,7 @@ describe('StateStore sections', () => {
 
   it('a registered section parses its key and update writes it', async () => {
     await writeState({ notes: { items: ['a', 42] } })
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     const notes = state.section(notesSpec())
 
@@ -175,7 +176,7 @@ describe('StateStore sections', () => {
 
   it('a parsed section is written in its parsed form by the next save, even when unchanged', async () => {
     await writeState({ notes: { items: ['a', 42] } })
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     state.section(notesSpec()).get()
     await state.settle()
@@ -189,7 +190,7 @@ describe('StateStore sections', () => {
 
   it('an absent key reads as the spec defaults, without parsing', async () => {
     await writeState({})
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     const parse = vi.fn(notesSpec().parse)
 
@@ -199,7 +200,7 @@ describe('StateStore sections', () => {
 
   it('a section registered before load reads the loaded value', async () => {
     await writeState({ notes: { items: ['on disk'] } })
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     const notes = state.section(notesSpec())
     await state.load()
 
@@ -209,7 +210,7 @@ describe('StateStore sections', () => {
   it('an unknown top-level key survives load and save verbatim', async () => {
     const future = { nested: { list: [1, 'two', null], flag: true }, other: 'x' }
     await writeState({ futureModule: future, notes: { items: ['a', 42] } })
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
 
     state.patchSettings({})
@@ -223,7 +224,7 @@ describe('StateStore sections', () => {
 
   it('a section registered after a save still parses the raw value that save kept', async () => {
     await writeState({ notes: { items: ['kept'] } })
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     state.patchSettings({})
     await state.settle()
@@ -233,7 +234,7 @@ describe('StateStore sections', () => {
 
   it('update returning the same reference schedules no write', async () => {
     await writeState({ notes: { items: ['a'] } })
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     const notes = state.section(notesSpec())
 
@@ -245,7 +246,7 @@ describe('StateStore sections', () => {
   })
 
   it('registering a second spec for a key throws', async () => {
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     const spec = notesSpec()
     const notes = state.section(spec)
@@ -255,7 +256,7 @@ describe('StateStore sections', () => {
   })
 
   it('a key the store owns itself cannot be registered as a section', async () => {
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
 
     for (const key of ['schemaVersion', 'settings', 'installations']) {
@@ -266,7 +267,7 @@ describe('StateStore sections', () => {
   it('recovering from the backup keeps its unknown keys verbatim', async () => {
     await writeState({ futureModule: { from: 'backup' } }, `${filePath}.bak`)
     await writeFile(filePath, '{ truncated')
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
 
     expect(state.recoveredFrom).toBe('backup')
@@ -276,7 +277,7 @@ describe('StateStore sections', () => {
 
   it('recovering to defaults invents no unknown keys', async () => {
     await writeFile(filePath, '{ truncated "futureModule": {} ')
-    const state = new StateStore(filePath)
+    const state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     state.patchSettings({})
     await state.settle()
@@ -295,5 +296,40 @@ describe('architecture doc', () => {
 
     expect(section).toContain('updateSlice')
     expect(section).toMatch(/Never read\s+->\s+spread\s+->\s+set/)
+  })
+})
+
+describe('a StateStore without migrations does not compile', () => {
+  it('rejects a construction that omits the migrations option', () => {
+    // Never called: only the type check matters.
+    const omitted = (path: string): unknown => [
+      // @ts-expect-error migrations must be stated
+      new StateStore(path),
+      // @ts-expect-error migrations must be stated
+      new StateStore(path, {}),
+    ]
+    expect(omitted).toBeTypeOf('function')
+  })
+})
+
+describe("migrations 'none' is stated only by tests", () => {
+  const srcDir = join(__dirname, '..', '..')
+  const allowed = /\.test(-helpers)?\.ts$/
+
+  function sources(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) return sources(path)
+      return /\.tsx?$/.test(entry.name) ? [path] : []
+    })
+  }
+
+  it('production sources never pass migrations none', () => {
+    const offenders = sources(srcDir).filter((path) => {
+      const rel = path.split(sep).join('/')
+      if (allowed.test(rel) || rel.includes('/src/test-support/')) return false
+      return /migrations:\s*'none'/.test(readFileSync(path, 'utf8'))
+    })
+    expect(offenders).toEqual([])
   })
 })

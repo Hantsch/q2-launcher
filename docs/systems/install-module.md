@@ -341,7 +341,8 @@ downloads run one at a time":
 - **Bleeding edge** is a per-installation opt-in: instead of the pinned version, the launcher asks
   upstream what the newest build is. The exact probe and its trust model are open (§15). A
   bleeding-edge update uses the same downloader as a pinned one (stall timer, retry/mirror loop,
-  size cap) with a size-only check instead of sha256.
+  size cap) with a size-only check instead of sha256. A transport failure ends as "every download
+  source failed", like a pinned download.
 - The installation's recorded engine version is a natural candidate to finally populate
   `detectedVersion`, which is defined in the model but never written today.
 

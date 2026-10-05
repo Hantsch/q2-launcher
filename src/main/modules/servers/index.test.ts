@@ -160,7 +160,7 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-sources-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     registry = new MainModuleRegistry()
     await registry.register(serversModule, fakeAppContext({ state }))
@@ -180,7 +180,7 @@ describe('servers module sources.* handlers (story 111 D3)', () => {
   /** What `state.json` actually holds, read back through a second store - not the in-memory copy. */
   async function reloaded(): Promise<ServersState> {
     await state.settle()
-    const store = new StateStore(filePath)
+    const store = new StateStore(filePath, { migrations: 'none' })
     await store.load()
     return serversState(store).get()
   }
@@ -302,7 +302,7 @@ describe('servers module favourites handlers (story 112 D3)', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-servers-favourites-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
   })
 
@@ -366,7 +366,7 @@ describe('servers module favourites handlers (story 112 D3)', () => {
     expect(outcome.ok).toBe(true)
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     expect(serversState(reloaded).get().favourites).toEqual(serversState(state).get().favourites)
@@ -384,7 +384,7 @@ describe('servers module history.read handler', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-servers-history-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     registry = new MainModuleRegistry()
     await registry.register(serversModule, fakeAppContext({ state }))
@@ -430,7 +430,7 @@ describe('servers module overview.read reflects the scan service (story 114 D6)'
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-servers-scan-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     serversState(state).update((s) => ({
       ...s,
@@ -503,7 +503,7 @@ describe('servers module scan.* settings handlers (story 115 D2)', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-servers-scan-settings-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     registry = new MainModuleRegistry()
     await registry.register(serversModule, fakeAppContext({ state }))
@@ -539,7 +539,7 @@ describe('servers module scan.* settings handlers (story 115 D2)', () => {
     })
 
     await state.settle()
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
     const persisted = serversState(reloaded).get()
 
@@ -571,7 +571,7 @@ describe('servers module list.*Sort handlers (story 119 D2)', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-servers-list-sort-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     registry = new MainModuleRegistry()
     await registry.register(serversModule, fakeAppContext({ state }))
@@ -600,7 +600,7 @@ describe('servers module list.*Sort handlers (story 119 D2)', () => {
     expect(await invoke(SERVERS_HANDLERS.listGetSort)).toEqual({ ok: true, value: sort })
 
     await state.settle()
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
     expect(serversState(reloaded).get().listSort).toEqual(sort)
   })
@@ -613,7 +613,7 @@ describe('servers module list.*Sort handlers (story 119 D2)', () => {
     expect(await invoke(SERVERS_HANDLERS.listGetSort)).toEqual({ ok: true, value: null })
 
     await state.settle()
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
     expect(serversState(reloaded).get().listSort).toBeNull()
   })
@@ -633,7 +633,7 @@ describe('servers module quick filter handlers (story 197 D2)', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-servers-quick-filters-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     registry = new MainModuleRegistry()
     await registry.register(serversModule, fakeAppContext({ state }))
@@ -672,7 +672,7 @@ describe('servers module quick filter handlers (story 197 D2)', () => {
 
     await invoke(SERVERS_HANDLERS.quickFiltersRename, { id, name: 'Capture' })
     await state.settle()
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
     expect(serversState(reloaded).get().quickFilters).toEqual([{ id, name: 'Capture', criteria }])
 
@@ -714,7 +714,7 @@ describe('servers module scan.start is guarded and single-flight per scope (stor
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-servers-scan-scope-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     serversState(state).update((s) => ({
       ...s,
@@ -788,7 +788,7 @@ describe('servers module records a history visit on a successful join (story 125
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-servers-join-history-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
   })
 
@@ -823,7 +823,7 @@ describe('servers module records a history visit on a successful join (story 125
     ])
 
     await state.settle()
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
     expect(serversState(reloaded).get().history).toEqual(serversState(state).get().history)
   })
@@ -860,7 +860,7 @@ describe('servers module watchlist.* handlers are feature-gated (story 131 D5)',
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-servers-watchlist-gate-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
   })
 

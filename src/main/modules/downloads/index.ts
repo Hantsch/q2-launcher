@@ -52,7 +52,6 @@ import { computeEngineUpdateStatus } from './engine/update-status'
 import { startEngineUpdate, type EngineUpdateDeps } from './engine/update-job'
 import { startEngineRollback, type EngineRollbackDeps } from './engine/rollback-job'
 import { readEngineState, type InstallationEngineState } from '../../services/engine-state'
-import { setEngineState, withEngineState } from './engine/record-engine-state'
 import { appendFailure, dismissFailure, restoreFailure } from './failure-log'
 import {
   type ManifestService,
@@ -327,7 +326,7 @@ export const downloadsModule: MainModule = {
           return fail('downloads.error.bleedingEdgeUnsupported')
         }
 
-        const updated = setEngineState(app.installations, installationId, { bleedingEdge: enabled })
+        const updated = app.installations.setEngineState(installationId, { bleedingEdge: enabled })
         if (!updated.ok) return updated
         return ok(undefined)
       },
@@ -613,7 +612,7 @@ function bootstrapDepsFor(
 ): BootstrapDeps {
   return {
     runner: app.jobRunner,
-    installations: withEngineState(app.installations),
+    installations: app.installations,
     manifest: manifestSourceFrom(manifestService, log),
     // Story 088: main's own list, re-derived per run - never anything the renderer sent.
     retailSources: () => detectedRetailSourcesFor(app),
@@ -730,7 +729,7 @@ function engineUpdateDepsFor(
 ): EngineUpdateDeps {
   return {
     runner: app.jobRunner,
-    installations: withEngineState(app.installations),
+    installations: app.installations,
     manifest: manifestSourceFrom(manifestService, log),
     extractor: realExtractor,
     userDataPath: userDataDir(),
@@ -756,7 +755,7 @@ function engineUpdateDepsFor(
 function engineRollbackDepsFor(app: AppContext, log: Logger): EngineRollbackDeps {
   return {
     runner: app.jobRunner,
-    installations: withEngineState(app.installations),
+    installations: app.installations,
     log,
   }
 }

@@ -3,7 +3,13 @@ import type { ConfigProfile } from '@shared/modules/config'
 import { generateLayerAliases } from '@shared/config/aliases/alt-layers'
 import { renderProfileFile } from '@shared/config/render/render'
 import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
-import { normalize, slotsOf, reimportProfile, findFixture, installRoundTripRoot } from './helpers'
+import {
+  normalize,
+  slotsOf,
+  reimportProfile,
+  findFixture,
+  installRoundTripRoot,
+} from './helpers.test-helpers'
 
 installRoundTripRoot()
 

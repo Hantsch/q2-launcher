@@ -1,7 +1,7 @@
 ---
 id: 235
 title: shutdown, state-store and job edge cases are closed
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -26,16 +26,16 @@ foundations of S32 carry no silent assumptions.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — After `dispose`, a cinema `set(true)` does nothing, and a module-level test proves
+- [x] **AC1** — After `dispose`, a cinema `set(true)` does nothing, and a module-level test proves
       that cinema and stage-follow listeners are released on dispose.
-- [ ] **AC2** — A test drives the `quitAndInstall` update path through the held `before-quit` and
+- [x] **AC2** — A test drives the `quitAndInstall` update path through the held `before-quit` and
       shows state is settled before the app exits.
-- [ ] **AC3** — A `StateStore` cannot be constructed without stating its migrations (required option),
+- [x] **AC3** — A `StateStore` cannot be constructed without stating its migrations (required option),
       and the installations service exposes engine-state writes without a prototype view.
-- [ ] **AC4** — A throw in `commitAdoption` ends the bootstrap job as a failure with a cause and
+- [x] **AC4** — A throw in `commitAdoption` ends the bootstrap job as a failure with a cause and
       frees the installation.
-- [ ] **AC5** — A test fails when `state.settle` is removed before `jobs.finish` (the debounce race).
-- [ ] **AC6** — A bleeding-edge transport failure shows the cause the user can act on (decided in
+- [x] **AC5** — A test fails when `state.settle` is removed before `jobs.finish` (the debounce race).
+- [x] **AC6** — A bleeding-edge transport failure shows the cause the user can act on (decided in
       refine: `network` or `allMirrorsFailed`), pinned by a test and a failure-log rendering.
 
 ## Open Questions
@@ -274,3 +274,19 @@ only user-visible fix: a crashed retry now shows its failure and can be retried.
   behaviour, so `ui:flow` is not the level. The existing flows stay the regression net.
 
 ## Done
+
+Closed seven lifecycle edges: a disposed cinema stays closed, quitAndInstall and the debounce race are pinned by tests, `StateStore` requires its migrations, engine-state writes are a service method, a `commitAdoption` throw is a recorded failure, bleeding-edge transport failures are pinned as `allMirrorsFailed`.
+
+Commit message: `235: close shutdown/state-store/job edges (cinema dispose, required migrations, setEngineState, commitAdoption failure, race + quitAndInstall pins)`
+
+Verification (narrow gate): typecheck, lint, build green; `npx vitest run --changed HEAD` green (60 files, 1214 tests); `src/comments.test.ts` + `src/architecture.test.ts` green; `rg "withEngineState|record-engine-state" src` empty. No e2e line in the story (lifecycle/main-process only); full gate is the sprint's. AC → test, all ran and passed: AC1 cinema-controller.test + replays index.test; AC2 service.actions.test; AC3 state.test (2) + installations.test setEngineState (5); AC4 job.failure-and-retry.test (fails on old code: no `lastFailure` recorded); AC5 job-runner.test; AC6 update-job.test (`it.each`: 5xx and refused connection) + FailureLogEntry.test. No manual residue.
+AC5 proof: with `await state?.settle()` removed the test fails (`expected '' to contain 'written-by-job'`); green with it restored, job-runner.ts unchanged vs HEAD.
+
+Decisions:
+- `config/round-trip/helpers.ts` renamed to `helpers.test-helpers.ts` so it fits the allowed 'none' file patterns.
+- AC6 stays `allMirrorsFailed` (no product change); no D2 defect found, shutdown.ts untouched.
+- Follower counting in the replays test wraps `createStageFollower` via `vi.mock('./stage-follow')` because index.ts passes no follower factory port.
+- No doc line added to replays-module.md or for adoption in install-module.md: neither describes cinema teardown or adoption.
+- Review 1 (default) PASS. Unfixed minor findings: the 'none' guard test has no sanity assertion that its walk found files and matches only single-quoted `'none'`; the AC2 install-before-quit order is only implicit; prettier reflow noise in replays index.test.ts.
+
+tiers: D 7 / hard 1 · review default · cycles 0 · agents 9

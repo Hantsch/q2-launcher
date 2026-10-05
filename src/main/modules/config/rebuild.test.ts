@@ -44,7 +44,7 @@ let profiles: ProfilesStore
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'q2-launcher-rebuild-'))
   await mkdir(join(dir, 'userData'), { recursive: true })
-  state = new StateStore(join(dir, 'state.json'))
+  state = new StateStore(join(dir, 'state.json'), { migrations: 'none' })
   await state.load()
   profiles = new ProfilesStore(state)
 })

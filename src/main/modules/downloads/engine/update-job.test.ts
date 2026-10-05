@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BASE_GAME_DIR } from '@shared/constants'
 import type { EngineBackupInfo, ManifestPackage } from '@shared/modules/downloads'
 import type { Installation, Job } from '@shared/types'
+import { downloadPackage } from '../../../lib/net/fetcher'
 import type { StageDownloadFn } from '../../../services/package-staging'
 import { InstallationsService } from '../../../services/installations'
 import { JobRunner } from '../../../services/job-runner'
@@ -23,7 +24,6 @@ import { makeJobRunner } from '../../../../test-support/job-runner'
 import type { ManifestSource } from '../bootstrap/ports'
 import { fakeExtractor, fakeState } from '../test-support'
 import { readEngineState } from '../../../services/engine-state'
-import { setEngineState } from './record-engine-state'
 import {
   ENGINE_BACKUP_DIR_NAME,
   ENGINE_UPDATE_JOB_KIND,
@@ -229,7 +229,7 @@ async function harness(
     })
   }
   const recordedVersion = options.recordedVersion ?? '1.0'
-  const recorded = setEngineState(service, added.value.id, {
+  const recorded = service.setEngineState(added.value.id, {
     version: recordedVersion,
     packageId: `q2pro-${recordedVersion}`,
     ...(options.bleedingEdgeSize !== undefined ? { bleedingEdge: true } : {}),
@@ -240,8 +240,8 @@ async function harness(
   const installations = {
     find: (id: string) => service.find(id),
     validate: harnessRunner.installations.validate,
-    setEngineState: (id: string, patch: Parameters<typeof setEngineState>[2]) =>
-      setEngineState(service, id, patch),
+    setEngineState: (id: string, patch: Parameters<typeof service.setEngineState>[1]) =>
+      service.setEngineState(id, patch),
   }
 
   const manifest: ManifestSource = {
@@ -460,6 +460,36 @@ describe('the engine update job', () => {
     })
     expect(received[0]).not.toHaveProperty('source.sha256')
   })
+
+  it.each([
+    ['answers 5xx', () => Promise.resolve(new Response('unavailable', { status: 503 }))],
+    ['refuses the connection', () => Promise.reject(new TypeError('fetch failed'))],
+  ])(
+    'a bleeding-edge transport failure ends as downloads.error.allMirrorsFailed (%s)',
+    async (_name, answer) => {
+      const requests: string[] = []
+      const test = await harness({
+        bleedingEdgeSize: 1234,
+        download: (source, options) =>
+          downloadPackage(source, {
+            ...options,
+            retryDelayMs: 0,
+            fetchImpl: (url) => {
+              requests.push(String(url))
+              return answer()
+            },
+          }),
+      })
+
+      const started = await startEngineUpdate(test.deps, { installationId: test.installation.id })
+      expect(started.ok).toBe(true)
+      if (!started.ok) return
+      const settled = await started.value.settled
+
+      expect(requests.length).toBeGreaterThan(0)
+      expect(settled).toEqual({ status: 'failed', key: 'downloads.error.allMirrorsFailed' })
+    },
+  )
 
   it('a failure during the copy restores the backup, leaving a complete previous engine', async () => {
     // Sabotage after the completeness check has passed and inside the write phase: the second

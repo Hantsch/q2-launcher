@@ -29,7 +29,7 @@ import {
   cvarNames,
   KNOWN_UNWRITTEN_CVARS,
   installRoundTripRoot,
-} from './helpers'
+} from './helpers.test-helpers'
 
 installRoundTripRoot()
 

@@ -8,7 +8,13 @@ import { readAutorecord } from '@shared/config/catalog/autorecord'
 import { buildDemoRows } from '@shared/config/catalog/catalog-rows'
 import { renderProfileFile } from '@shared/config/render/render'
 import { buildFixtureProfile } from '@shared/config/fixtures/profiles'
-import { reimport, normalize, slotsOf, reimportProfile, installRoundTripRoot } from './helpers'
+import {
+  reimport,
+  normalize,
+  slotsOf,
+  reimportProfile,
+  installRoundTripRoot,
+} from './helpers.test-helpers'
 
 installRoundTripRoot()
 

@@ -43,7 +43,7 @@ describe('CONFIG_HANDLERS.rawFiles handler', () => {
   async function boot(
     installations: Installation[] = [],
   ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
-    const state = new StateStore(join(dir, 'state.json'))
+    const state = new StateStore(join(dir, 'state.json'), { migrations: 'none' })
     await state.load()
     const handlers = new Map<string, ModuleHandler>()
     await configModule.setup({
@@ -97,7 +97,7 @@ describe('CONFIG_HANDLERS.openFile handler', () => {
   async function boot(
     installations: Installation[] = [],
   ): Promise<{ handlers: Map<string, ModuleHandler>; state: StateStore }> {
-    const state = new StateStore(join(dir, 'state.json'))
+    const state = new StateStore(join(dir, 'state.json'), { migrations: 'none' })
     await state.load()
     const handlers = new Map<string, ModuleHandler>()
     await configModule.setup({
@@ -322,7 +322,7 @@ describe('CONFIG_HANDLERS.openFile handler', () => {
  */
 describe('CONFIG_HANDLERS.saveRawText handler', () => {
   async function boot(): Promise<Map<string, ModuleHandler>> {
-    const state = new StateStore(join(dir, 'state.json'))
+    const state = new StateStore(join(dir, 'state.json'), { migrations: 'none' })
     await state.load()
     const handlers = new Map<string, ModuleHandler>()
     await configModule.setup({

@@ -89,7 +89,7 @@ describe('homeState', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-home-layout-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
   })
 
@@ -114,7 +114,7 @@ describe('homeState', () => {
     const written = homeState(state).update(() => custom)
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     expect(homeState(reloaded).get()).toEqual(written)
@@ -140,7 +140,7 @@ describe('homeState', () => {
       'utf-8',
     )
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     expect(homeState(reloaded).get().tiles).toEqual([

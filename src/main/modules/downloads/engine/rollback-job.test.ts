@@ -9,7 +9,6 @@ import { InstallationsService } from '../../../services/installations'
 import { makeJobRunner, type JobRunnerHarness } from '../../../../test-support/job-runner'
 import { fakeState } from '../test-support'
 import { readEngineState } from '../../../services/engine-state'
-import { setEngineState } from './record-engine-state'
 import { ENGINE_BACKUP_DIR_NAME } from './update-job'
 import {
   ENGINE_ROLLBACK_JOB_KIND,
@@ -109,7 +108,7 @@ async function harness(options: { withBackup?: boolean } = {}): Promise<Harness>
   const added = await service.addExisting({ rootPath: installRoot, source: 'manual' })
   if (!added.ok) throw new Error(`fixture installation was rejected: ${added.error.key}`)
 
-  const recorded = setEngineState(service, added.value.id, {
+  const recorded = service.setEngineState(added.value.id, {
     version: '2.0',
     packageId: 'q2pro-2.0',
     ...(withBackup
@@ -121,8 +120,8 @@ async function harness(options: { withBackup?: boolean } = {}): Promise<Harness>
   const installations = {
     find: (id: string) => service.find(id),
     validate: (id: string) => service.validate(id),
-    setEngineState: (id: string, patch: Parameters<typeof setEngineState>[2]) =>
-      setEngineState(service, id, patch),
+    setEngineState: (id: string, patch: Parameters<typeof service.setEngineState>[1]) =>
+      service.setEngineState(id, patch),
   }
 
   return {

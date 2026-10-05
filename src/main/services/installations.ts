@@ -20,6 +20,7 @@ import {
 } from '@shared/types'
 import { canonicalizePath, isDirectory, pathKey } from '../lib/fs-utils'
 import { scopedLogger } from '../lib/logger'
+import { readEngineState, writeEngineState, type InstallationEngineState } from './engine-state'
 import { deleteInstallationFolder } from './installation-removal'
 import { inspectInstallation, looksLikeQuake2, suggestName } from './inspector'
 import type { StateStore } from './state'
@@ -377,6 +378,20 @@ export class InstallationsService {
 
     this.commit(this.state.installations().map((i) => (i.id === next.id ? next : i)))
     return ok(next)
+  }
+
+  /**
+   * Records (or extends) the installation's engine state under `moduleData['downloads']` and mirrors
+   * the merged `version` onto `detectedVersion` in the same single write. A merged state without a
+   * version passes `undefined`, which removes the field - it is never left stale.
+   */
+  setEngineState(id: string, patch: Partial<InstallationEngineState>): Outcome<Installation> {
+    const current = this.find(id)
+    if (!current) return fail('installations.error.notFound')
+
+    const moduleData = writeEngineState(current.moduleData, patch)
+    const merged = readEngineState(moduleData)
+    return this.patch(id, { moduleData, detectedVersion: merged.version || undefined })
   }
 
   /** Replaces one module's slice of `moduleData` (story 190); every other module's key is untouched. */

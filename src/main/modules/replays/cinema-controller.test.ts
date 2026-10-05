@@ -123,6 +123,16 @@ describe('cinema controller', () => {
     expect(none.calls).toEqual([])
   })
 
+  it('set(true) after dispose opens nothing and pins nothing', async () => {
+    const t = setup()
+    t.controller.dispose()
+    expect(await t.controller.set(true)).toEqual(ok(undefined))
+    expect(await t.controller.set(false)).toEqual(ok(undefined))
+    expect(t.calls).toEqual([])
+    expect(t.liveClosedListeners()).toBe(0)
+    expect(t.controller.isOpen()).toBe(false)
+  })
+
   it('enter refuses when there is no follower to pin', async () => {
     const t = setup({ follower: false })
     expect(await t.controller.set(true)).toEqual(fail('replays.cinema.unavailable.noStage'))

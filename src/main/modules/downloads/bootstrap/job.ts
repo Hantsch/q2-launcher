@@ -972,11 +972,6 @@ export async function startBootstrap(
     ctx: JobContext<DownloadsErrorKey, BootstrapSuccess>,
   ): Promise<BootstrapOutcome> => {
     const jobId = ctx.jobId
-    try {
-      await commitAdoption?.()
-    } finally {
-      markAdoptionCommitted()
-    }
 
     /**
      * Story 075: this job's diagnostics collector - created here because the registry is keyed by
@@ -1610,6 +1605,20 @@ export async function startBootstrap(
         installationId: installation.id,
         installationStatus: afterAll.value.status,
       }
+    }
+
+    // The adoption runs inside the body so a throw in it ends through `failed()` like any other
+    // local failure: the record it may already have cleared is rewritten, and the folder stays
+    // adoptable instead of dead-ending later retries at `installations.error.duplicate`. The
+    // `finally` releases `startBootstrap`'s `await adoptionCommitted` on every path, including a
+    // `failed()` that itself throws; on a failure only once the new record has landed (story 235).
+    try {
+      await commitAdoption?.()
+    } catch (error) {
+      if (ctx.signal.aborted) return await cancelledOutcome()
+      return await failed(LOCAL_FAILURE, `adopting ${installation.id} failed: ${String(error)}`)
+    } finally {
+      markAdoptionCommitted()
     }
 
     try {

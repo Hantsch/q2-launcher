@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { fail } from '@shared/types'
 import { inspectInstallation } from '../../../services/inspector'
+import { LOCAL_FAILURE } from './errors'
 import { startBootstrap } from './job'
 import {
   DEMO_PACKAGE,
@@ -472,6 +473,45 @@ describe('startBootstrap retry adoption', () => {
     // A *new* record, naming the retry's own job - not the one the first run left behind.
     expect(failure?.jobId).toBe(retry.value.jobId)
     expect(failure?.jobId).not.toBe(first.jobId)
+    expect(box.installations.list()).toHaveLength(1)
+  })
+
+  it('a throw in commitAdoption ends the job failed with a cause and frees the installation', async () => {
+    const box = harness()
+    const first = await runFailingFirstPass(box)
+    vi.restoreAllMocks()
+    // The adoption's rename is the first write the retry makes; a throw there (not a refused
+    // `Outcome`, which adoption shrugs off) is the path that used to bypass `failed()`.
+    vi.spyOn(box.installations, 'update').mockRejectedValueOnce(new Error('disk gone'))
+
+    const retry = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      name: RETRY_NAME,
+      includeVideoAndPlayers: false,
+    })
+    if (!retry.ok) throw new Error(`the retry was refused with ${retry.error.key}`)
+    expect(retry.value.installationId).toBe(first.installationId)
+    const outcome = await retry.value.settled
+    expect(outcome.status).toBe('failed')
+    const job = box.jobs.list().find((entry) => entry.id === retry.value.jobId)
+    expect(job?.error?.key).toBe(LOCAL_FAILURE)
+
+    const failure = box.installations.find(first.installationId)?.lastFailure
+    expect(failure?.errorKey).toBe(LOCAL_FAILURE)
+    expect(failure?.jobId).toBe(retry.value.jobId)
+    expect(box.deps.runner.isInstallationBusy(first.installationId)).toBe(false)
+
+    // The folder is still adoptable: the next retry takes the same installation over again.
+    const again = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      name: RETRY_NAME,
+      includeVideoAndPlayers: false,
+    })
+    if (!again.ok) throw new Error(`the second retry was refused with ${again.error.key}`)
+    expect(again.value.installationId).toBe(first.installationId)
+    expect((await again.value.settled).status).toBe('succeeded')
     expect(box.installations.list()).toHaveLength(1)
   })
 

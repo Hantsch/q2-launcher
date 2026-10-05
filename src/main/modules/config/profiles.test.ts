@@ -40,7 +40,7 @@ describe('ProfilesStore', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-config-profiles-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     profiles = new ProfilesStore(state)
   })
@@ -522,7 +522,7 @@ describe('ProfilesStore', () => {
       })
       await state.settle()
 
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       const reloadedProfiles = new ProfilesStore(reloaded)
 
@@ -1216,7 +1216,7 @@ describe('ProfilesStore', () => {
       profiles.setBinds({ profileId: created!.id, binds: { q: 'use railgun' } })
       await state.settle()
 
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       const persisted = new ProfilesStore(reloaded).find(created!.id)!
 
@@ -1308,7 +1308,7 @@ describe('ProfilesStore', () => {
       expect(rebuilt.baseline).toEqual(captureBaseline(rebuilt))
       await state.settle()
 
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       const persisted = new ProfilesStore(reloaded).find('rebuilt-1')!
       expect(persisted.baseline).toEqual(rebuilt.baseline)

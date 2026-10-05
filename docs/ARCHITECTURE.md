@@ -154,7 +154,8 @@ taking the file with it. Row-level dropping, dedupe and envelope fallback all go
 through `src/main/lib/forgiving.ts`. The runner lives in `src/main/services/migrations.ts` and takes its steps as an argument;
 each module owns its steps (`config/persisted-migrations.ts`) and `MODULE_MIGRATIONS` in
 `src/main/modules/index.ts` concatenates them for the `StateStore`, which `src/main/context.ts`
-builds with `{ migrations }`.
+builds with `{ migrations }`. `migrations` is a required option of the `StateStore` constructor;
+`'none'` (state taken as current, no step runs) is stated only by tests.
 
 A module owns its persisted keys in `src/main/modules/<id>/persisted.ts` (unlock, a shell service,
 in `src/main/services/unlock/persisted.ts`): the schema, the forgiving parse, the defaults and a

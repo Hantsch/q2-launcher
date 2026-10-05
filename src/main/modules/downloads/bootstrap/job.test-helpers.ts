@@ -12,7 +12,6 @@ import {
 } from '@shared/modules/downloads'
 import { isWindows } from '../../../lib/platform'
 import { InstallationsService } from '../../../services/installations'
-import { withEngineState } from '../engine/record-engine-state'
 import type { JobsService } from '../../../services/jobs'
 import { makeJobRunner, type ControllableLaunch } from '../../../../test-support/job-runner'
 import { fakeManifest, fakeState } from '../test-support'
@@ -378,7 +377,7 @@ export function harness(
     retailSourceCalls,
     deps: {
       runner,
-      installations: withEngineState(installations),
+      installations: installations,
       manifest,
       retailSources: () => {
         retailSourceCalls.count += 1

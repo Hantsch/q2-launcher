@@ -11,7 +11,7 @@ import {
   expectEveryLineSurvivesRerender,
   restoreFromText,
   installRoundTripRoot,
-} from './helpers'
+} from './helpers.test-helpers'
 
 installRoundTripRoot()
 

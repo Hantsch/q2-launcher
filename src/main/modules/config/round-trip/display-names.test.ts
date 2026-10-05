@@ -10,7 +10,7 @@ import {
   sortedEntryShapes,
   categoryNames,
   installRoundTripRoot,
-} from './helpers'
+} from './helpers.test-helpers'
 
 installRoundTripRoot()
 

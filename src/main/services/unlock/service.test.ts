@@ -46,7 +46,7 @@ describe('UnlockService (story 128 D4)', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-unlock-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
   })
 

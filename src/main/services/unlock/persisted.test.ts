@@ -40,7 +40,7 @@ describe('unlockState', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-unlock-section-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
   })
 
@@ -60,7 +60,7 @@ describe('unlockState', () => {
     }))
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
     expect(unlockState(reloaded).get()).toEqual(written)
   })
@@ -74,7 +74,7 @@ describe('unlockState', () => {
       }),
       'utf-8',
     )
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
     expect(
       unlockState(reloaded)

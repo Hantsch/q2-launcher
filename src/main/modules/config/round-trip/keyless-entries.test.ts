@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { actionKeySlots } from '@shared/config/catalog/action-slots'
 import { renderProfileFile } from '@shared/config/render/render'
 import { buildFixtureProfile } from '@shared/config/fixtures/profiles'
-import { normalize, slotsOf, reimportProfile, findFixture, installRoundTripRoot } from './helpers'
+import {
+  normalize,
+  slotsOf,
+  reimportProfile,
+  findFixture,
+  installRoundTripRoot,
+} from './helpers.test-helpers'
 
 installRoundTripRoot()
 

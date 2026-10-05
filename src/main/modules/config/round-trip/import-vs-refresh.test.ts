@@ -10,7 +10,7 @@ import {
 import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
 import { toRestoreInput } from '../import'
 import { readFileState } from '../file-source'
-import { getRoundTripRoot, installRoundTripRoot, reimport } from './helpers'
+import { getRoundTripRoot, installRoundTripRoot, reimport } from './helpers.test-helpers'
 
 installRoundTripRoot()
 

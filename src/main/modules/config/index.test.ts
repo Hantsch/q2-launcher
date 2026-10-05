@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   CONFIG_HANDLERS,
   type ConfigAction,
-  type ConfigProfile, type RawFilesResult } from '@shared/modules/config'
+  type ConfigProfile,
+  type RawFilesResult,
+} from '@shared/modules/config'
 import type { Installation, Outcome } from '@shared/types'
 import { seedConfigProfiles } from '../../../test-support/config-state'
 import { unwrapOk } from '../../../test-support/outcome'
@@ -49,7 +51,7 @@ async function boot(): Promise<Booted> {
   const pickFile = join(dir, 'pick.cfg')
   await writeFile(pickFile, 'set sensitivity "3"\nbind a "+forward"\n', 'latin1')
 
-  const state = new StateStore(join(dir, 'state.json'))
+  const state = new StateStore(join(dir, 'state.json'), { migrations: 'none' })
   await state.load()
   const handlers = new Map<string, ModuleHandler>()
   await configModule.setup({

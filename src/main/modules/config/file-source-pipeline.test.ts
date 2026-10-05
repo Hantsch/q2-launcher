@@ -135,7 +135,7 @@ async function boot(
   installations: Installation[] = [],
   seed?: (state: StateStore) => void | Promise<void>,
 ): Promise<Booted> {
-  const state = new StateStore(join(dir, 'state.json'))
+  const state = new StateStore(join(dir, 'state.json'), { migrations: 'none' })
   stores.push(state)
   await state.load()
   await seed?.(state)

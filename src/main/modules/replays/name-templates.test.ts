@@ -40,7 +40,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-name-templates-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
     userDataDirPath = await mkdtemp(join(tmpdir(), 'q2-launcher-name-templates-userdata-'))
     userDataBox.current = userDataDirPath
@@ -75,7 +75,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
     const beforeTemplates = added.value.entries.map((entry) => entry.template)
 
     await state.settle()
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
     const reloadedRegistry = new MainModuleRegistry()
     await reloadedRegistry.register(replaysModule, fakeAppContext({ state: reloaded }))
@@ -186,7 +186,7 @@ describe('replays module nameTemplates.* handlers (story 140 D2)', () => {
 
     // Persisted, not just in-memory.
     await state.settle()
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
     expect(replaysState(reloaded).get().nameTemplates.removedShippedIds).toEqual([])
   })

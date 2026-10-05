@@ -18,7 +18,7 @@ refinements from the latest user feedback.
 
 - [x] 232 — every module's handlers are typed from a contract
 - [x] 236 — the layer and error-key rules have no known holes
-- [ ] 235 — shutdown, state store and job edge cases are closed
+- [x] 235 — shutdown, state store and job edge cases are closed
 - [ ] 233 — the flow gate has no quarantined flows and catches cross-story breakage
 - [ ] 234 — release verification and CI rehearsals run before a merge to main
 - [ ] 245 — the demo detail lists players by team

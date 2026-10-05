@@ -28,7 +28,7 @@ import {
   preservedLines,
   rerenderFromFile,
   installRoundTripRoot,
-} from './helpers'
+} from './helpers.test-helpers'
 
 installRoundTripRoot()
 

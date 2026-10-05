@@ -49,3 +49,23 @@
 - 2026-10-05 08:59 · 236 · review 1 · started
 - 2026-10-05 09:01 · 236 · review 1 · done
 - 2026-10-05 09:01 · 236 · story · done
+- 2026-10-05T09:02:02 · 235 · build · started
+- 2026-10-05 09:02 · 235 · D1 cinema dispose · started
+- 2026-10-05 09:04 · 235 · D1 cinema dispose · done
+- 2026-10-05 09:04 · 235 · D2 quitAndInstall test · started
+- 2026-10-05 09:04 · 235 · D2 quitAndInstall test · done
+- 2026-10-05 09:04 · 235 · D3 StateStore migrations required · started
+- 2026-10-05 09:06 · 235 · D3 StateStore migrations required · done
+- 2026-10-05 09:06 · 235 · D4 setEngineState on service · started
+- 2026-10-05 09:07 · 235 · D4 setEngineState on service · done
+- 2026-10-05 09:07 · 235 · D5 commitAdoption failure (hard) · started
+- 2026-10-05 09:10 · 235 · D5 commitAdoption failure (hard) · done
+- 2026-10-05 09:10 · 235 · D6 debounce race test · started
+- 2026-10-05 09:10 · 235 · D7 bleeding-edge pin · started
+- 2026-10-05 09:11 · 235 · D6 debounce race test · done
+- 2026-10-05 09:11 · 235 · D7 bleeding-edge pin · done
+- 2026-10-05 09:11 · 235 · verify · started
+- 2026-10-05 09:12 · 235 · verify · done
+- 2026-10-05 09:12 · 235 · review 1 · started
+- 2026-10-05 09:13 · 235 · review 1 · done
+- 2026-10-05 09:14 · 235 · story · done

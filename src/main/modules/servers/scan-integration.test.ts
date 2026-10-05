@@ -144,7 +144,7 @@ describe('servers scan real-socket integration (story 114 D8)', () => {
     deadAddress = `127.0.0.1:${dead.port}`
 
     filePath = join(tmpdir(), `q2-launcher-state-servers-scan-integration-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
 
     const nowIso = new Date().toISOString()

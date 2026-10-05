@@ -260,7 +260,7 @@ describe('demo.play with a trusted mod (story 182 D1)', () => {
     // The trust list is renderer-side convenience: main never reads it, so a stored trust entry
     // cannot turn a mod-missing play into an unacknowledged one.
     const stateFile = join(tmp, 'trusted-state.json')
-    const store = new StateStore(stateFile)
+    const store = new StateStore(stateFile, { migrations: 'none' })
     await store.load()
     replaysState(store).update((live) => ({
       ...live,

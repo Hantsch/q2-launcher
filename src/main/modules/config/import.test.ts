@@ -179,7 +179,7 @@ async function bootModule(
   const { configModule } = await import('./index')
   const insts = options.installations ?? []
   const picker = fakePicker(options.pickedPaths ?? [])
-  const state = new StateStore(join(root, 'state.json'))
+  const state = new StateStore(join(root, 'state.json'), { migrations: 'none' })
   await state.load()
 
   const handlers = new Map<string, ModuleHandler>()

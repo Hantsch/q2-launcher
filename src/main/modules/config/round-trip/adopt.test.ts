@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { ConfigProfile } from '@shared/modules/config'
 import { renderProfileFile } from '@shared/config/render/render'
 import { ROUND_TRIP_FIXTURES } from '@shared/config/fixtures/profiles'
-import { adoptRendered, setLines, installRoundTripRoot } from './helpers'
+import { adoptRendered, setLines, installRoundTripRoot } from './helpers.test-helpers'
 
 installRoundTripRoot()
 

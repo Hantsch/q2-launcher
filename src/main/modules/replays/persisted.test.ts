@@ -224,7 +224,7 @@ describe('replays state section (story 142 D1)', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-replays-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
   })
 
@@ -243,7 +243,7 @@ describe('replays state section (story 142 D1)', () => {
     replaysState(state).update((live) => ({ ...live, extraFolders }))
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     const after = await reloaded.load()
 
     expect(replaysState(reloaded).get().extraFolders).toEqual(extraFolders)
@@ -260,7 +260,7 @@ describe('replays state section (story 142 D1)', () => {
       'utf-8',
     )
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     const doc = await reloaded.load()
 
     expect(replaysState(reloaded).get().extraFolders).toEqual([])

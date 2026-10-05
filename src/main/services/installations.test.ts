@@ -67,7 +67,7 @@ beforeEach(async () => {
   await mkdir(userData, { recursive: true })
   await mkdir(home, { recursive: true })
 
-  state = new StateStore(join(userData, 'state.json'))
+  state = new StateStore(join(userData, 'state.json'), { migrations: 'none' })
   await state.load()
 
   removedIds = []
@@ -185,6 +185,75 @@ describe('setLastFailure', () => {
     })
 
     expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
+  })
+})
+
+describe('setEngineState', () => {
+  it('records the engine state and mirrors detectedVersion in one write', () => {
+    state.setInstallations([installation()])
+    const patch = vi.spyOn(installations, 'patch')
+
+    const result = installations.setEngineState(INSTALLATION_ID, {
+      version: '2.34',
+      packageId: 'q2pro-win64',
+    })
+
+    expect(result.ok).toBe(true)
+    expect(patch).toHaveBeenCalledTimes(1)
+    expect(installations.find(INSTALLATION_ID)?.moduleData?.downloads).toEqual({
+      version: '2.34',
+      packageId: 'q2pro-win64',
+    })
+    expect(installations.find(INSTALLATION_ID)?.detectedVersion).toBe('2.34')
+  })
+
+  it('shallow-merges a second patch over the first', () => {
+    state.setInstallations([installation()])
+    installations.setEngineState(INSTALLATION_ID, { version: '2.34', packageId: 'q2pro-win64' })
+
+    installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true })
+
+    expect(installations.find(INSTALLATION_ID)?.moduleData?.downloads).toEqual({
+      version: '2.34',
+      packageId: 'q2pro-win64',
+      bleedingEdge: true,
+    })
+    expect(installations.find(INSTALLATION_ID)?.detectedVersion).toBe('2.34')
+  })
+
+  it('a patch without a version removes detectedVersion', () => {
+    state.setInstallations([installation({ detectedVersion: '1.0' })])
+
+    installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true })
+
+    const found = installations.find(INSTALLATION_ID)
+    expect(found?.detectedVersion).toBeUndefined()
+    expect('detectedVersion' in (found ?? {})).toBe(false)
+  })
+
+  it('parses a garbage moduleData back to "unknown" rather than throwing, and does not set detectedVersion', () => {
+    state.setInstallations([
+      installation({ moduleData: { downloads: { version: 42, backup: 'nope' } } }),
+    ])
+
+    expect(() =>
+      installations.setEngineState(INSTALLATION_ID, { bleedingEdge: true }),
+    ).not.toThrow()
+
+    expect(installations.find(INSTALLATION_ID)?.moduleData?.downloads).toEqual({
+      bleedingEdge: true,
+    })
+    expect(installations.find(INSTALLATION_ID)?.detectedVersion).toBeUndefined()
+  })
+
+  it('reports an unknown installation instead of writing anything', () => {
+    state.setInstallations([installation()])
+    const patch = vi.spyOn(installations, 'patch')
+
+    const result = installations.setEngineState('nope', { version: '2.34' })
+
+    expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
+    expect(patch).not.toHaveBeenCalled()
   })
 })
 

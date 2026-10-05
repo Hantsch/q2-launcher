@@ -45,7 +45,7 @@ beforeEach(() => {
  */
 describe('CONFIG_HANDLERS.preview handler', () => {
   async function previewHandlerFor(inst: Installation): Promise<ModuleHandler> {
-    const state = new StateStore(join(dir, 'state.json'))
+    const state = new StateStore(join(dir, 'state.json'), { migrations: 'none' })
     await state.load()
     const handlers = new Map<string, ModuleHandler>()
     await configModule.setup({
@@ -102,7 +102,7 @@ describe('CONFIG_HANDLERS.preview handler', () => {
  */
 describe('CONFIG_HANDLERS.setActions / list round trip', () => {
   it('returns the actions array from list in the exact order sent through setActions', async () => {
-    const state = new StateStore(join(dir, 'state.json'))
+    const state = new StateStore(join(dir, 'state.json'), { migrations: 'none' })
     await state.load()
     const handlers = new Map<string, ModuleHandler>()
     await configModule.setup({

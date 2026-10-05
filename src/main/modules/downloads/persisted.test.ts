@@ -199,7 +199,7 @@ describe('StateStore downloads settings (story 072 D2)', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-downloads-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
   })
 
@@ -221,7 +221,7 @@ describe('StateStore downloads settings (story 072 D2)', () => {
     }))
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     expect(downloadsState(reloaded).settings.get()).toEqual(written)
@@ -240,7 +240,7 @@ describe('StateStore downloads settings (story 072 D2)', () => {
     }))
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     const settings = downloadsState(reloaded).settings.get()
@@ -258,7 +258,7 @@ describe('StateStore downloads settings (story 072 D2)', () => {
     }))
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     const settings = downloadsState(reloaded).settings.get()
@@ -276,7 +276,7 @@ describe('StateStore downloadFailures (story 073 D1)', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-download-failures-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
   })
 
@@ -308,7 +308,7 @@ describe('StateStore downloadFailures (story 073 D1)', () => {
     ])
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     expect(downloadsState(reloaded).failures.get()).toEqual(written)
@@ -337,7 +337,7 @@ describe('StateStore downloadFailures (story 073 D1)', () => {
       'utf-8',
     )
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     // The whole file survived (installations/settings still readable) and only the garbage row is
@@ -365,7 +365,7 @@ describe('StateStore downloadFailures (story 073 D1)', () => {
     ])
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     const jobIds = downloadsState(reloaded)

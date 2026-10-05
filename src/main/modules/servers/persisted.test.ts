@@ -356,7 +356,6 @@ describe('parseServersState (story 110 D2)', () => {
 
     expect(parseServersState(undefined).listSort).toBeNull()
   })
-
 })
 
 describe('serversState', () => {
@@ -365,7 +364,7 @@ describe('serversState', () => {
 
   beforeEach(async () => {
     filePath = join(tmpdir(), `q2-launcher-state-servers-${randomUUID()}.json`)
-    state = new StateStore(filePath)
+    state = new StateStore(filePath, { migrations: 'none' })
     await state.load()
   })
 
@@ -416,13 +415,13 @@ describe('serversState', () => {
     const sort = { column: 'players', direction: 'desc' } as const
     serversState(state).update((current) => ({ ...current, listSort: sort }))
     await state.settle()
-    const afterSet = new StateStore(filePath)
+    const afterSet = new StateStore(filePath, { migrations: 'none' })
     await afterSet.load()
     expect(serversState(afterSet).get().listSort).toEqual(sort)
 
     serversState(afterSet).update((current) => ({ ...current, listSort: null }))
     await afterSet.settle()
-    const afterClear = new StateStore(filePath)
+    const afterClear = new StateStore(filePath, { migrations: 'none' })
     await afterClear.load()
     expect(serversState(afterClear).get().listSort).toBeNull()
   })
@@ -455,7 +454,7 @@ describe('serversState', () => {
     const written = serversState(state).update(() => custom)
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     expect(serversState(reloaded).get()).toEqual(written)
@@ -481,7 +480,7 @@ describe('serversState', () => {
     serversState(state).update((s) => ({ ...s, manualServers, history }))
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     expect(serversState(reloaded).get().manualServers).toEqual(manualServers)
@@ -500,7 +499,7 @@ describe('serversState', () => {
       'utf-8',
     )
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     const doc = await reloaded.load()
 
     expect(serversState(reloaded).get()).toEqual(DEFAULT_SERVERS_STATE)
@@ -523,7 +522,7 @@ describe('serversState', () => {
     serversState(state).update((s) => ({ ...s, watchlist }))
     await state.settle()
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     expect(serversState(reloaded).get().watchlist).toEqual(watchlist)
@@ -545,7 +544,7 @@ describe('serversState', () => {
       'utf-8',
     )
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     expect(serversState(reloaded).get().watchlist).toEqual([
@@ -569,7 +568,7 @@ describe('serversState', () => {
       'utf-8',
     )
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     expect(serversState(reloaded).get().watchlist).toEqual([])
@@ -588,7 +587,7 @@ describe('serversState', () => {
       'utf-8',
     )
 
-    const reloaded = new StateStore(filePath)
+    const reloaded = new StateStore(filePath, { migrations: 'none' })
     await reloaded.load()
 
     expect(serversState(reloaded).get()).toEqual(DEFAULT_SERVERS_STATE)

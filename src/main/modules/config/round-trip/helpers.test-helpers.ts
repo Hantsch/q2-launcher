@@ -255,7 +255,9 @@ export async function adoptRendered(
   const result = await reimport(text1)
   const restored = restoreProfileParts(toRestoreInput(result, [], randomUUID))
 
-  const store = new StateStore(join(getRoot(), `state-${openStores.length}.json`))
+  const store = new StateStore(join(getRoot(), `state-${openStores.length}.json`), {
+    migrations: 'none',
+  })
   await store.load()
   openStores.push(store)
   const profiles = new ProfilesStore(store)

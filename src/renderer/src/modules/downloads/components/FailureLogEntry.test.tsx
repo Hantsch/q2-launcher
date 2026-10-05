@@ -223,4 +223,18 @@ describe('FailureLogEntry failure reasons', () => {
       expect(screen.queryByText(i18next.t('downloads.error.unknown'))).toBeNull()
     },
   )
+
+  it('a failed bleeding-edge update shows the all-sources-failed sentence', () => {
+    renderEntry(
+      makeFailure({
+        labelKey: 'downloads.job.engineUpdate',
+        error: { key: 'downloads.error.allMirrorsFailed' },
+      }),
+    )
+
+    const expected = i18next.t('downloads.error.allMirrorsFailed')
+    expect(expected).toBe('Every download source failed. Check your connection and try again.')
+    expect(screen.getByText(expected)).toBeTruthy()
+    expect(screen.queryByText(i18next.t('downloads.error.unknown'))).toBeNull()
+  })
 })

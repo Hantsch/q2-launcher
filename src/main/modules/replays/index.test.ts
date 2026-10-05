@@ -21,7 +21,6 @@ import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { discoveryHomeDir, replaysModule, scanHoldMs } from './index'
 import { replaysState } from './persisted'
 
-
 /** Lets a test hold `canonicalizePath` (the last await in `extraFolders.add`) open. */
 const canonicalizeGate = vi.hoisted(() => ({ wait: null as Promise<void> | null }))
 
@@ -36,6 +35,27 @@ vi.mock('../../lib/fs-utils', async (importOriginal) => {
     },
   }
 })
+/** Counts the stage followers the module's own wiring creates and disposes. */
+const followerCount = vi.hoisted(() => ({ created: 0, disposed: 0 }))
+
+vi.mock('./stage-follow', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./stage-follow')>()
+  return {
+    ...actual,
+    createStageFollower: (deps: Parameters<typeof actual.createStageFollower>[0]) => {
+      const follower = actual.createStageFollower(deps)
+      followerCount.created++
+      return {
+        ...follower,
+        dispose: () => {
+          followerCount.disposed++
+          follower.dispose()
+        },
+      }
+    },
+  }
+})
+
 /**
  * Story 135 D2: the replays module gets its main half - a single handler, `overview.read`,
  * answering a hardcoded zeroed overview. Mirrors
@@ -205,7 +225,7 @@ describe('replays module', () => {
 
     beforeEach(async () => {
       filePath = join(tmpdir(), `q2-launcher-replays-index-state-${randomUUID()}.json`)
-      state = new StateStore(filePath)
+      state = new StateStore(filePath, { migrations: 'none' })
       await state.load()
       dir = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-index-extra-'))
     })
@@ -234,7 +254,7 @@ describe('replays module', () => {
       expect(outcome.ok).toBe(true)
       await state.settle()
 
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       const expectedCanonical = await canonicalizePath(dir)
       expect(replaysState(reloaded).get().extraFolders).toEqual([
@@ -273,7 +293,7 @@ describe('replays module', () => {
       }
       await state.settle()
 
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       expect(replaysState(reloaded).get().listSort).toEqual({
         column: 'players',
@@ -297,7 +317,7 @@ describe('replays module', () => {
 
     beforeEach(async () => {
       filePath = join(tmpdir(), `q2-launcher-replays-index-list-sort-${randomUUID()}.json`)
-      state = new StateStore(filePath)
+      state = new StateStore(filePath, { migrations: 'none' })
       await state.load()
       registry = new MainModuleRegistry()
       const appContext = fakeAppContext({
@@ -330,7 +350,7 @@ describe('replays module', () => {
       expect(await invoke(REPLAYS_HANDLERS.listGetSort)).toEqual({ ok: true, value: sort })
 
       await state.settle()
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       expect(replaysState(reloaded).get().listSort).toEqual(sort)
       expect(replaysState(reloaded).get().extraFolders).toEqual(before.extraFolders)
@@ -359,7 +379,7 @@ describe('replays module', () => {
 
     beforeEach(async () => {
       filePath = join(tmpdir(), `q2-launcher-replays-index-list-filter-${randomUUID()}.json`)
-      state = new StateStore(filePath)
+      state = new StateStore(filePath, { migrations: 'none' })
       await state.load()
       registry = new MainModuleRegistry()
       const appContext = fakeAppContext({
@@ -395,7 +415,7 @@ describe('replays module', () => {
       expect(await invoke(REPLAYS_HANDLERS.listGetFilter)).toEqual({ ok: true, value: filter })
 
       await state.settle()
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       expect(replaysState(reloaded).get().listFilter).toEqual(filter)
       expect(replaysState(reloaded).get().extraFolders).toEqual(before.extraFolders)
@@ -416,7 +436,7 @@ describe('replays module', () => {
       })
 
       await state.settle()
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       expect(replaysState(reloaded).get().listFilter?.date).toBeNull()
     })
@@ -429,13 +449,16 @@ describe('replays module', () => {
 
     beforeEach(async () => {
       filePath = join(tmpdir(), `q2-launcher-replays-index-mod-warning-${randomUUID()}.json`)
-      state = new StateStore(filePath)
+      state = new StateStore(filePath, { migrations: 'none' })
       await state.load()
       registry = new MainModuleRegistry()
-      await registry.register(replaysModule, fakeAppContext({
-        installations: installationsOf([]),
-        state,
-      }))
+      await registry.register(
+        replaysModule,
+        fakeAppContext({
+          installations: installationsOf([]),
+          state,
+        }),
+      )
     })
 
     afterEach(async () => {
@@ -468,7 +491,7 @@ describe('replays module', () => {
       })
 
       await state.settle()
-      const reloaded = new StateStore(filePath)
+      const reloaded = new StateStore(filePath, { migrations: 'none' })
       await reloaded.load()
       expect(replaysState(reloaded).get().modWarning).toEqual({
         enabled: false,
@@ -505,7 +528,7 @@ describe('replays module', () => {
     beforeEach(async () => {
       dir = await mkdtemp(join(tmpdir(), 'q2-launcher-replays-sidecar-'))
       filePath = join(tmpdir(), `q2-launcher-replays-sidecar-state-${randomUUID()}.json`)
-      state = new StateStore(filePath)
+      state = new StateStore(filePath, { migrations: 'none' })
       await state.load()
     })
 
@@ -552,7 +575,10 @@ describe('replays module', () => {
       const appContext = fakeAppContext({
         installations: installationsOf([installation]),
         state,
-        launch: { isRunning: () => false, isPlaybackRunning: () => false } as unknown as AppContext['launch'],
+        launch: {
+          isRunning: () => false,
+          isPlaybackRunning: () => false,
+        } as unknown as AppContext['launch'],
         userDataDir: dir,
       })
 
@@ -630,7 +656,10 @@ describe('replays module', () => {
         const appContext = fakeAppContext({
           installations: installationsOf([installation]),
           state,
-          launch: { isRunning: () => false, isPlaybackRunning: () => false } as unknown as AppContext['launch'],
+          launch: {
+            isRunning: () => false,
+            isPlaybackRunning: () => false,
+          } as unknown as AppContext['launch'],
           userDataDir: dir,
         })
 
@@ -698,7 +727,10 @@ describe('replays module', () => {
       const appContext = fakeAppContext({
         installations: installationsOf([installation]),
         state,
-        launch: { isRunning: () => false, isPlaybackRunning: () => false } as unknown as AppContext['launch'],
+        launch: {
+          isRunning: () => false,
+          isPlaybackRunning: () => false,
+        } as unknown as AppContext['launch'],
         userDataDir: dir,
       })
 
@@ -869,11 +901,14 @@ describe('replays module lifecycle', () => {
   })
 
   /** A context whose launch service and main window count the listeners still subscribed. */
-  async function countingContext(overrides: Partial<AppContext> = {}) {
+  async function countingContext(
+    overrides: Partial<AppContext> = {},
+    snapshot: AppContext['mainWindow']['snapshot'] = () => null,
+  ) {
     const demosDir = join(dir, 'baseq2', 'demos')
     await mkdir(demosDir, { recursive: true })
     await writeFile(join(demosDir, 'x.dm2'), 'x')
-    const state = new StateStore(join(dir, 'state.json'))
+    const state = new StateStore(join(dir, 'state.json'), { migrations: 'none' })
     await state.load()
     state.patchSettings({ activeInstallationId: 'inst-1' })
     const installation = makeInstallation({
@@ -886,7 +921,10 @@ describe('replays module lifecycle', () => {
     const releaseListeners = new Set<unknown>()
     const playback = { running: false }
     const launchArgs: string[][] = []
+    // `keepRunning` makes a started game stay running, so its stage session is not ended at once.
+    const game = { keepRunning: false, started: false }
     const windowListeners = new Set<unknown>()
+    const cinemaClosedListeners = new Set<unknown>()
     const subscribe = (set: Set<unknown>) => (listener: unknown) => {
       set.add(listener)
       return () => void set.delete(listener)
@@ -896,25 +934,26 @@ describe('replays module lifecycle', () => {
       userDataDir: dir,
       installations: installationsOf([installation]),
       launch: {
-        isRunning: () => false,
+        isRunning: () => game.keepRunning && game.started,
         isPlaybackRunning: () => playback.running,
         terminatePlayback: () => false,
         start: async (input: { extraArgs?: string[] }) => {
           launchArgs.push(input.extraArgs ?? [])
+          game.started = true
           return ok({ phase: 'running', installationId: 'inst-1' })
         },
         onStateChange: subscribe(stateListeners),
         onBeforePlaybackRelease: subscribe(releaseListeners),
       } as unknown as AppContext['launch'],
       mainWindow: {
-        snapshot: () => null,
+        snapshot,
         on: subscribe(windowListeners),
       } as unknown as AppContext['mainWindow'],
       cinemaWindow: {
         open: async () => undefined,
         close: () => undefined,
         isOpen: () => false,
-        onClosed: () => () => undefined,
+        onClosed: subscribe(cinemaClosedListeners),
       } as unknown as AppContext['cinemaWindow'],
       ...overrides,
     })
@@ -923,7 +962,11 @@ describe('replays module lifecycle', () => {
       playbackRelease: releaseListeners.size,
       mainWindow: windowListeners.size,
     })
-    return { app, live, playback, launchArgs }
+    const liveCinemaAndStage = () => ({
+      cinemaClosed: cinemaClosedListeners.size,
+      followers: followerCount.created - followerCount.disposed,
+    })
+    return { app, live, liveCinemaAndStage, playback, launchArgs, game }
   }
 
   /** Scans, then plays the one demo, so every lazily-taken subscription is live. */
@@ -981,6 +1024,32 @@ describe('replays module lifecycle', () => {
     expect(live()).toEqual(none)
   })
 
+  it('disposing the module releases cinema and stage-follow listeners', async () => {
+    followerCount.created = 0
+    followerCount.disposed = 0
+    // A window that reports its listeners and sits on the primary display, so cinema is available.
+    const { app, live, liveCinemaAndStage, game } = await countingContext(
+      { displays: mixedDpiDisplays },
+      windowOn(1).snapshot,
+    )
+    game.keepRunning = true
+    const registry = await registerAndPlay(app, { x: 10, y: 20, width: 640, height: 360 })
+
+    const entered = await registry.invoke({
+      moduleId: 'replays',
+      type: REPLAYS_HANDLERS.playbackCinema,
+      payload: { enter: true },
+    })
+    expect(entered).toEqual(ok(undefined))
+    // The observer plus the stage follower's own subscription.
+    expect(live().mainWindow).toBe(2)
+    expect(liveCinemaAndStage()).toEqual({ cinemaClosed: 1, followers: 1 })
+
+    await registry.disposeAll()
+    expect(live().mainWindow).toBe(0)
+    expect(liveCinemaAndStage()).toEqual({ cinemaClosed: 0, followers: 0 })
+  })
+
   /** DIP rect scaled by `scale` - a stand-in for a display's DIP-to-physical conversion. */
   const scaled = (r: { x: number; y: number; width: number; height: number }, scale: number) => ({
     x: r.x * scale,
@@ -988,7 +1057,11 @@ describe('replays module lifecycle', () => {
     width: r.width * scale,
     height: r.height * scale,
   })
-  const primaryDisplay = { id: 1, bounds: { x: 0, y: 0, width: 1920, height: 1080 }, scaleFactor: 2 }
+  const primaryDisplay = {
+    id: 1,
+    bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+    scaleFactor: 2,
+  }
   /** A mixed-DPI desktop: the main window's display scales by 1.5, the primary display by 2. */
   const mixedDpiDisplays: AppContext['displays'] = {
     primary: () => primaryDisplay,
