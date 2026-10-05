@@ -1,8 +1,1 @@
-[
-  {
-    "flow": "mods-view",
-    "reason": "pre-existing: ModsView.tsx uppercases the installation name (story 188); the flow asserts the untransformed text",
-    "story": "188",
-    "since": "S32"
-  }
-]
+[]

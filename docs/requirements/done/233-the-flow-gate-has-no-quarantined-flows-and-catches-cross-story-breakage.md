@@ -1,7 +1,7 @@
 ---
 id: 233
 title: the flow gate has no quarantined flows and catches cross-story breakage
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -20,17 +20,17 @@ and a per-story gate that is hard to blind to a neighbouring flow.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `mods-view` passes with its quarantine entry removed. The flow asserts the displayed
+- [x] **AC1** — `mods-view` passes with its quarantine entry removed. The flow asserts the displayed
       installation name per `docs/UI-VERIFICATION.md#what-a-flow-may-assert`, or the product's
       `uppercase` styling (story 188) is changed; which of the two is decided in refine.
-- [ ] **AC2** — `replays-mod-warning` passes its step "resetting remembered mods asks again" in 20
+- [x] **AC2** — `replays-mod-warning` passes its step "resetting remembered mods asks again" in 20
       consecutive runs, and its quarantine entry is removed.
-- [ ] **AC3** — `downloads-tab` and `settings-downloads-section` report the same archive counts
+- [x] **AC3** — `downloads-tab` and `settings-downloads-section` report the same archive counts
       whatever flows ran before them, with no manual `npm run ui:seed`.
-- [ ] **AC4** — A story's narrow gate includes the flows that exercise the shared code it changed,
+- [x] **AC4** — A story's narrow gate includes the flows that exercise the shared code it changed,
       derived from the diff rather than named by hand; a test shows that a change to `bootEnv` selects
       `bootstrap-wizard`.
-- [ ] **AC5** — `npm run ui:flows` on the sprint branch ends green with `quarantine.json` empty.
+- [x] **AC5** — `npm run ui:flows` on the sprint branch ends green with `quarantine.json` empty.
 
 ## Open Questions
 
@@ -177,3 +177,28 @@ Order: D1 -> D2 -> D3 -> D4 -> D5 (D5 depends on D4; D2 and D5 both edit `flows-
 Coverage: AC1 D1 · AC2 D2 · AC3 D3 · AC4 D4+D5 · AC5 D1 (empty list) + sprint gate.
 
 ## Done
+
+Quarantine list is empty, `ui:flows` gained `--repeat=<n>`, flow-file arguments and `--affected[=<ref>]`
+(changed files -> flows via testid derivation + `scripts/flows/areas.json`), and the fixture owns
+`cache/downloads/`. The profile's `e2e-story` is now `npm run ui:flows -- --affected {files}`.
+
+Commit message: `233: empty flow quarantine, --repeat, fixture-owned downloads cache, --affected flow selection`
+
+Verification (narrow gate): build, typecheck, lint green; `npx vitest run --changed HEAD` + the three new/changed
+scripts test files green; comments + architecture tests green; `npm run ui:flows -- mods-view downloads-tab
+settings-downloads-section bootstrap-wizard quit-persists-state` 5/5; `replays-mod-warning --repeat=20` 20/20.
+AC1 mods-view e2e · AC2 flow-gate "--repeat…" + 20/20 · AC3 fixture-layout test + downloads-tab +
+settings-downloads-section · AC4 five flow-select tests + flow-gate "flow file paths and --affected…" ·
+AC5 quarantine `[]` (full `ui:flows` is the sprint gate, pending). No manual residue.
+Pre-existing/open: `scripts/check-docs.test.mjs` link check red on docs/ROADMAP.md (S33 review/testplan, stories
+232/235/236 links) and docs/sprints/done/S32/review.md — unrelated to this diff.
+
+Decisions: no replays-mod-warning race seen in 20 runs, so no flow/product change. Verification used named flows,
+not `--affected`, because this diff touches `scripts/lib/**` and selects ~130 flows (beyond the 10-min ceiling);
+a helper change selecting every importing flow is by design. `--affected` with nothing selected and nothing named
+prints a message and exits 0. Review low findings fixed: git calls use `--no-renames` and `core.quotepath=false`.
+Unfixed (accepted): flow-select test "every flow resolves" accepts one resolving id per flow; header usage comment
+in flows-all.mjs omits `--repeat` (minor). Extra: `scripts/lib/flow-tree.mjs` extracted so test and gate share
+tree assembly.
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 7

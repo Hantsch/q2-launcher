@@ -1,0 +1,981 @@
+[
+  {
+    "area": "boot",
+    "paths": [
+      "src/main/lib/boot-env.ts",
+      "src/main/context.ts",
+      "src/main/index.ts",
+      "src/main/shutdown.ts",
+      "src/main/lib/ui-harness.ts",
+      "src/main/lib/renderer-source.ts",
+      "src/main/services/migrations.ts",
+      "src/main/services/persistence.ts",
+      "src/main/services/state.ts",
+      "src/renderer/index.html",
+      "src/renderer/src/main.tsx",
+      "src/renderer/src/App.tsx",
+      "src/renderer/src/store/**",
+      "src/renderer/src/assets/boot-hero.avif",
+      "src/renderer/src/components/shell/BootSplash.tsx"
+    ],
+    "flows": [
+      "bootstrap-wizard",
+      "bootstrap-r1q2",
+      "bootstrap-existing-folder",
+      "bootstrap-failure",
+      "harness-offscreen",
+      "quit-persists-state",
+      "home-route-roundtrip",
+      "home-tile-states",
+      "linux-user-journey",
+      "mods-view",
+      "servers-module-shell",
+      "replays-module-shell"
+    ],
+    "why": "Startup wiring and persisted state: a broken boot env or context stops every flow before its first screen, and the wizard is the first-run path."
+  },
+  {
+    "area": "shell-window",
+    "paths": [
+      "src/main/window.ts",
+      "src/main/window-shared.ts",
+      "src/main/main-window-observer.ts",
+      "src/main/lib/chrome-state.ts",
+      "src/main/ipc/window.ts",
+      "src/main/ipc/dev.ts",
+      "src/renderer/src/components/shell/**",
+      "src/renderer/src/views/**"
+    ],
+    "flows": [
+      "harness-offscreen",
+      "home-route-roundtrip",
+      "tabs-keyboard",
+      "action-bar-view",
+      "config-header-geometry",
+      "replays-fullscreen",
+      "replays-cinema-fullscreen",
+      "about-release-notes",
+      "unlock-code",
+      "downloads-badge-count",
+      "home-tile-states",
+      "servers-module-shell"
+    ],
+    "why": "The main window, its chrome and the app shell frame every screen; these flows cover navigation, geometry and fullscreen."
+  },
+  {
+    "area": "ipc-contract",
+    "paths": [
+      "src/shared/ipc.ts",
+      "src/shared/ipc-schemas.ts",
+      "src/shared/schemas.ts",
+      "src/shared/constants.ts",
+      "src/shared/modules/**",
+      "src/shared/types/**",
+      "src/preload/**",
+      "src/main/modules/*.ts",
+      "src/main/ipc/index.ts",
+      "src/main/ipc/modules.ts",
+      "src/main/ipc/app.ts",
+      "src/main/services/broadcast.ts",
+      "src/main/types/**",
+      "src/renderer/src/lib/bridge.ts",
+      "src/renderer/src/lib/useModuleQuery.ts",
+      "src/renderer/src/modules/index.ts",
+      "src/renderer/src/modules/moduleClient.ts"
+    ],
+    "flows": [
+      "bootstrap-wizard",
+      "home-tile-states",
+      "quit-persists-state",
+      "mods-install",
+      "servers-join",
+      "replays-demo-rows",
+      "raw-save-cascades",
+      "downloads-tab",
+      "unlock-code",
+      "app-update",
+      "installation-icon-pick",
+      "settings-section-rename-add-cvar"
+    ],
+    "why": "The IPC contract, its schemas and the bridge carry every call; one flow per module catches a broken channel."
+  },
+  {
+    "area": "fixture-constants",
+    "paths": ["src/shared/fixture-constants.json"],
+    "flows": [
+      "bootstrap-wizard",
+      "mods-catalog",
+      "servers-list-states",
+      "replays-demo-rows",
+      "news-feed",
+      "home-tile-states",
+      "raw-inline-edit",
+      "downloads-tab",
+      "engine-update",
+      "installation-icon-tile",
+      "steam-handoff",
+      "unlock-code"
+    ],
+    "why": "Shared with the flow fixtures in scripts/lib/fixture, so a changed constant changes what every seeded flow sees."
+  },
+  {
+    "area": "main-lib-core",
+    "paths": [
+      "src/main/lib/fs-utils.ts",
+      "src/main/lib/json-store.ts",
+      "src/main/lib/schemas.ts",
+      "src/main/lib/paths.ts",
+      "src/main/lib/platform.ts",
+      "src/main/lib/logger.ts",
+      "src/main/lib/listeners.ts",
+      "src/main/lib/math.ts",
+      "src/main/lib/forgiving.ts",
+      "src/main/lib/win-registry.ts",
+      "src/main/lib/http.ts"
+    ],
+    "flows": [
+      "quit-persists-state",
+      "bootstrap-wizard",
+      "bootstrap-existing-folder",
+      "repair",
+      "installation-remove-from-disk",
+      "raw-save-cascades",
+      "external-edit-cascades",
+      "linux-user-journey",
+      "windows-build-on-linux",
+      "mods-install",
+      "replays-copy-in",
+      "servers-address-book"
+    ],
+    "why": "Filesystem, JSON store, path and platform helpers sit under every write and every persisted read."
+  },
+  {
+    "area": "archives",
+    "paths": [
+      "src/main/lib/archive/**",
+      "src/main/lib/zip-entries.ts",
+      "src/main/lib/pak-directory.ts",
+      "src/main/lib/content-repo.ts"
+    ],
+    "flows": [
+      "bootstrap-r1q2",
+      "bootstrap-wizard",
+      "bootstrap-incomplete-package",
+      "bootstrap-retail-import",
+      "bootstrap-existing-folder",
+      "retail-upgrade",
+      "engine-update",
+      "mod-update",
+      "mods-install",
+      "mods-install-content-only",
+      "replays-zip-entries",
+      "servers-detail-local-content"
+    ],
+    "why": "Archive extraction and pak/zip reading sit behind every package install and every zipped demo."
+  },
+  {
+    "area": "features-unlock",
+    "paths": [
+      "src/main/features/**",
+      "src/main/ipc/features.ts",
+      "src/main/ipc/unlock.ts",
+      "src/main/services/unlock/**",
+      "src/shared/features.ts",
+      "src/shared/unlock.ts",
+      "src/renderer/src/components/features/**",
+      "src/renderer/src/components/unlock/**"
+    ],
+    "flows": [
+      "unlock-code",
+      "replays-stage",
+      "replays-stage-unavailable",
+      "replays-cinema",
+      "replays-cinema-unavailable",
+      "replays-stage-x11-unreachable",
+      "about-release-notes",
+      "linux-user-journey"
+    ],
+    "why": "Feature gates and the unlock code decide which surfaces render as available or locked."
+  },
+  {
+    "area": "update-about",
+    "paths": [
+      "src/main/ipc/update.ts",
+      "src/main/services/update/**",
+      "src/main/lib/release-notes.ts",
+      "src/shared/release-notes.ts",
+      "src/renderer/src/components/about/**"
+    ],
+    "flows": ["app-update", "about-release-notes"],
+    "why": "App update checks and the release notes shown under Settings > About."
+  },
+  {
+    "area": "settings",
+    "paths": [
+      "src/main/ipc/settings.ts",
+      "src/main/services/dialog.ts",
+      "src/renderer/src/components/settings/**"
+    ],
+    "flows": [
+      "settings-downloads-section",
+      "autorecord-setting",
+      "replays-extra-folders",
+      "import-from-files",
+      "bootstrap-existing-folder",
+      "about-release-notes",
+      "unlock-code",
+      "servers-scan-settings",
+      "servers-master-sources",
+      "replays-name-templates",
+      "harness-offscreen"
+    ],
+    "why": "Settings sections and the native dialogs they open for folders and files."
+  },
+  {
+    "area": "installations",
+    "paths": [
+      "src/main/ipc/installations.ts",
+      "src/main/ipc/detection.ts",
+      "src/main/services/installations.ts",
+      "src/main/services/installation-removal.ts",
+      "src/main/services/installation-icons.ts",
+      "src/main/services/inspector.ts",
+      "src/main/services/detection/**",
+      "src/main/modules/library/**",
+      "src/renderer/src/modules/library/**",
+      "src/renderer/src/components/installations/**",
+      "src/renderer/src/assets/installations/**",
+      "src/renderer/src/lib/installation-icons.ts",
+      "src/renderer/src/lib/engine-display.ts",
+      "src/renderer/src/lib/primary-action.ts"
+    ],
+    "flows": [
+      "installation-icon-pick",
+      "installation-icon-tile",
+      "installation-remove-from-disk",
+      "import-from-files",
+      "engine-badge-surfaces",
+      "engine-not-client",
+      "care-duplicate-name",
+      "bootstrap-existing-folder",
+      "bootstrap-existing-folder-demo",
+      "action-bar-view",
+      "runner-choice-compact",
+      "linux-user-journey"
+    ],
+    "why": "Installation records, detection, icons and removal sit behind the rail, the library and the action bar."
+  },
+  {
+    "area": "launch",
+    "paths": [
+      "src/main/ipc/launch.ts",
+      "src/main/services/launch.ts",
+      "src/main/services/launch-plan.ts",
+      "src/main/services/runners.ts",
+      "src/main/services/steam.ts",
+      "src/main/services/os.ts",
+      "src/main/services/displays.ts",
+      "src/main/services/playback-session.ts",
+      "src/main/services/engine-state.ts",
+      "src/shared/launch/**"
+    ],
+    "flows": [
+      "steam-handoff",
+      "runner-choice-compact",
+      "servers-join",
+      "servers-actionbar-join",
+      "replays-play-q2pro",
+      "replays-play-mvd2",
+      "replays-stop",
+      "job-waits-for-running-game",
+      "servers-no-scan-while-playing",
+      "servers-lan-no-scan-while-playing",
+      "action-bar-view",
+      "windows-build-on-linux"
+    ],
+    "why": "Launch planning, runners, Steam and the running-game state that gates scans and jobs."
+  },
+  {
+    "area": "jobs",
+    "paths": [
+      "src/main/ipc/jobs.ts",
+      "src/main/services/jobs.ts",
+      "src/main/services/job-runner.ts",
+      "src/main/services/write-guard.ts",
+      "src/main/services/package-staging.ts",
+      "src/renderer/src/components/jobs/**"
+    ],
+    "flows": [
+      "jobs-installation-busy",
+      "job-waits-for-running-game",
+      "mods-install-waits",
+      "downloads-badge-count",
+      "downloads-tab",
+      "engine-update",
+      "repair",
+      "mod-update",
+      "mods-install",
+      "bootstrap-r1q2",
+      "retail-upgrade",
+      "installation-remove-from-disk"
+    ],
+    "why": "The job runner, the write guard and package staging sit under every install, update and repair."
+  },
+  {
+    "area": "ui-kit",
+    "paths": [
+      "src/renderer/src/components/ui/**",
+      "src/renderer/src/components/dnd/**",
+      "src/renderer/src/lib/anchor-rect.ts",
+      "src/renderer/src/lib/cn.ts",
+      "src/renderer/src/lib/overlay-registry.ts",
+      "src/renderer/src/lib/toast.ts",
+      "src/renderer/src/lib/status.ts",
+      "src/renderer/src/lib/format.ts",
+      "src/renderer/src/lib/id.ts",
+      "src/shared/date-range.ts"
+    ],
+    "flows": [
+      "name-dialog-enter-once",
+      "tabs-keyboard",
+      "open-keycap-dialog",
+      "alias-rename-dialog",
+      "controls-drag-reorder",
+      "home-dashboard-arrange",
+      "replays-date-filter",
+      "replays-row-quick-rating",
+      "installation-remove-from-disk",
+      "mods-install-refused",
+      "servers-detail",
+      "config-header-geometry"
+    ],
+    "why": "Shared primitives, drag and drop, overlays and toasts are used by every module; these flows drive dialogs, menus, tabs, drag lists and pickers."
+  },
+  {
+    "area": "styles-i18n",
+    "paths": [
+      "src/renderer/src/styles/**",
+      "src/renderer/src/i18n/**",
+      "src/renderer/src/modules/locales.ts"
+    ],
+    "flows": [
+      "home-tile-states",
+      "home-hero-carousel",
+      "config-header-geometry",
+      "controls-drag-reorder",
+      "raw-inline-edit",
+      "servers-list-states",
+      "replays-demo-rows",
+      "mods-view",
+      "downloads-tab",
+      "bootstrap-wizard",
+      "action-bar-view",
+      "settings-section-rename-add-cvar"
+    ],
+    "why": "Global styles and the i18n bundle render every screen; a spread of screen-heavy flows, one or two per module."
+  },
+  {
+    "area": "list-search",
+    "paths": ["src/shared/list/**", "src/renderer/src/lib/useListSort.ts"],
+    "flows": [
+      "replays-filter-search",
+      "replays-quoted-search",
+      "replays-sort-order",
+      "replays-date-filter",
+      "servers-filter-search",
+      "servers-quoted-search",
+      "servers-sort-order",
+      "servers-quick-filters",
+      "servers-list-states",
+      "replays-demo-rows",
+      "servers-row-markers"
+    ],
+    "why": "List search, sort and filter logic shared by the servers and the replays lists."
+  },
+  {
+    "area": "config-files",
+    "paths": [
+      "src/main/modules/config/core/**",
+      "src/main/modules/config/round-trip/**",
+      "src/main/modules/config/canonical.ts",
+      "src/main/modules/config/writer.ts",
+      "src/main/modules/config/write-plan.ts",
+      "src/main/modules/config/write-failures.ts",
+      "src/main/modules/config/file-source.ts",
+      "src/main/modules/config/sync.ts",
+      "src/main/modules/config/rebuild.ts",
+      "src/main/modules/config/cleanup.ts",
+      "src/main/modules/config/backup.ts",
+      "src/main/modules/config/import.ts",
+      "src/main/modules/config/picked-files.ts",
+      "src/main/modules/config/startup.ts",
+      "src/shared/config/*.ts",
+      "src/shared/config/syntax/**",
+      "src/shared/config/render/**",
+      "src/shared/config/validation/**"
+    ],
+    "flows": [
+      "raw-inline-edit",
+      "raw-save-cascades",
+      "external-edit-cascades",
+      "unsaved-diff",
+      "settings-section-rename-add-cvar",
+      "controls-extra-keys",
+      "custom-action-row",
+      "care-drift-sync-now",
+      "care-fix-item",
+      "import-from-files",
+      "alias-new-lands-in-first-category",
+      "grenade-rows-take-a-key"
+    ],
+    "why": "Config file parsing, rendering, writing and sync: the config flows that save, reload or import a file."
+  },
+  {
+    "area": "config-profiles",
+    "paths": [
+      "src/main/modules/config/profiles.ts",
+      "src/main/modules/config/profile-writes.ts",
+      "src/main/modules/config/assignments.ts",
+      "src/main/modules/config/orphan-category.ts",
+      "src/main/modules/config/persisted*.ts",
+      "src/main/modules/config/index.ts",
+      "src/shared/config/profile/**",
+      "src/renderer/src/modules/config/ConfigView.tsx",
+      "src/renderer/src/modules/config/Care*",
+      "src/renderer/src/modules/config/Cleanup*",
+      "src/renderer/src/modules/config/Layers*",
+      "src/renderer/src/modules/config/Profile*",
+      "src/renderer/src/modules/config/InstallationProfilesPanel.tsx",
+      "src/renderer/src/modules/config/DeleteProfileDialog.tsx",
+      "src/renderer/src/modules/config/DiscardChangesDialog.tsx",
+      "src/renderer/src/modules/config/RenameProfileDialog.tsx",
+      "src/renderer/src/modules/config/AssignmentsMenu.tsx",
+      "src/renderer/src/modules/config/client.ts",
+      "src/renderer/src/modules/config/config-profiles-store.ts",
+      "src/renderer/src/modules/config/locale/**",
+      "src/renderer/src/modules/config/components/ConfigTabContent.tsx",
+      "src/renderer/src/modules/config/components/LayerSwitcher.tsx",
+      "src/renderer/src/modules/config/components/ProfileFileBanners.tsx",
+      "src/renderer/src/modules/config/lib/care-*",
+      "src/renderer/src/modules/config/lib/use-care-sync.ts",
+      "src/renderer/src/modules/config/lib/use-drift-state.ts",
+      "src/renderer/src/modules/config/lib/tidy-up-findings.ts",
+      "src/renderer/src/modules/config/lib/profile-changes.tsx",
+      "src/renderer/src/modules/config/lib/ProfileDraftProvider.tsx",
+      "src/renderer/src/modules/config/lib/useProfile*",
+      "src/renderer/src/modules/config/lib/unsaved-state.ts",
+      "src/renderer/src/modules/config/lib/save-bar.ts",
+      "src/renderer/src/modules/config/lib/file-source-refresh.ts",
+      "src/renderer/src/modules/config/lib/useFileSourceRefresh.ts"
+    ],
+    "flows": [
+      "care-duplicate-name",
+      "care-drift-sync-now",
+      "care-fix-item",
+      "controls-category-rename-reorder",
+      "home-tile-states",
+      "home-dashboard-arrange",
+      "quit-persists-state",
+      "unsaved-diff",
+      "raw-save-cascades",
+      "tabs-keyboard",
+      "config-header-geometry",
+      "external-edit-cascades"
+    ],
+    "why": "Config profiles, their assignments, care checks, the profile draft and the config view frame."
+  },
+  {
+    "area": "config-controls",
+    "paths": [
+      "src/renderer/src/modules/config/ControlsTab.tsx",
+      "src/renderer/src/modules/config/SwitchBindControl.tsx",
+      "src/renderer/src/modules/config/components/Controls*",
+      "src/renderer/src/modules/config/components/BindSlot.tsx",
+      "src/renderer/src/modules/config/components/KeyBindDialog.tsx",
+      "src/renderer/src/modules/config/components/*Category*",
+      "src/renderer/src/modules/config/components/*Subcategory*",
+      "src/renderer/src/modules/config/components/*Action*",
+      "src/renderer/src/modules/config/components/MoveEntryDialog.tsx",
+      "src/renderer/src/modules/config/components/SymbolPicker.tsx",
+      "src/renderer/src/modules/config/components/DropToggles.tsx",
+      "src/renderer/src/modules/config/components/TestModeReadout.tsx",
+      "src/renderer/src/modules/config/lib/controls-*",
+      "src/renderer/src/modules/config/lib/useControls*",
+      "src/renderer/src/modules/config/lib/bind-*",
+      "src/renderer/src/modules/config/lib/catalog-binds.ts",
+      "src/renderer/src/modules/config/lib/keyboard-layout.ts",
+      "src/renderer/src/modules/config/lib/trigger-keys.ts",
+      "src/renderer/src/modules/config/lib/modifier-capture.ts",
+      "src/renderer/src/modules/config/lib/useKeyCapture.ts",
+      "src/renderer/src/modules/config/lib/category-display.ts",
+      "src/renderer/src/modules/config/lib/entry-order.ts",
+      "src/renderer/src/modules/config/lib/delete-category.ts",
+      "src/renderer/src/modules/config/lib/demo-action-availability.ts",
+      "src/renderer/src/modules/config/lib/test-mode.ts",
+      "src/renderer/src/modules/config/lib/command-catalog.ts",
+      "src/shared/config/catalog/**"
+    ],
+    "flows": [
+      "controls-category-rename-reorder",
+      "controls-drag-reorder",
+      "controls-extra-keys",
+      "controls-subcategory",
+      "custom-action-row",
+      "demo-actions-bind",
+      "drop-message-checkbox",
+      "grenade-rows-take-a-key",
+      "open-keycap-dialog",
+      "name-dialog-enter-once",
+      "unsaved-diff",
+      "alias-new-lands-in-first-category"
+    ],
+    "why": "The Controls tab: binds, categories, actions, the command catalog and key capture."
+  },
+  {
+    "area": "config-settings",
+    "paths": [
+      "src/renderer/src/modules/config/SettingsTab.tsx",
+      "src/renderer/src/modules/config/AliasesTab.tsx",
+      "src/renderer/src/modules/config/components/*Cvar*",
+      "src/renderer/src/modules/config/components/ConfigCodeView.tsx",
+      "src/renderer/src/modules/config/components/EngineScopeSelect.tsx",
+      "src/renderer/src/modules/config/lib/cvar-*",
+      "src/renderer/src/modules/config/lib/alias-*",
+      "src/renderer/src/modules/config/lib/raw-draft.tsx",
+      "src/renderer/src/modules/config/lib/textarea-indent.ts",
+      "src/renderer/src/modules/config/lib/config-search.ts",
+      "src/renderer/src/modules/config/lib/engine-scope.ts",
+      "src/renderer/src/modules/config/lib/validation-scope.ts",
+      "src/renderer/src/modules/config/lib/useDraftValidation.ts",
+      "src/shared/config/aliases/**"
+    ],
+    "flows": [
+      "settings-section-rename-add-cvar",
+      "settings-downloads-section",
+      "alias-new-lands-in-first-category",
+      "alias-rename-dialog",
+      "raw-inline-edit",
+      "raw-save-cascades",
+      "external-edit-cascades",
+      "unsaved-diff",
+      "autorecord-setting",
+      "drop-message-checkbox",
+      "tabs-keyboard",
+      "config-header-geometry"
+    ],
+    "why": "The Settings, Aliases and Raw file tabs: cvar rows, alias rows and the raw editor."
+  },
+  {
+    "area": "downloads-core",
+    "paths": [
+      "src/main/modules/downloads/*.ts",
+      "src/main/services/content/**",
+      "src/main/lib/net/**",
+      "src/renderer/src/modules/downloads/*",
+      "src/renderer/src/modules/downloads/components/**",
+      "src/renderer/src/modules/downloads/locale/**"
+    ],
+    "flows": [
+      "downloads-tab",
+      "downloads-badge-count",
+      "settings-downloads-section",
+      "bootstrap-wizard",
+      "bootstrap-failure",
+      "bootstrap-failure-retry",
+      "bootstrap-incomplete-package",
+      "engine-update",
+      "repair",
+      "retail-upgrade",
+      "mod-update",
+      "mods-install"
+    ],
+    "why": "The downloads module, its cache and failure log, and the content manifest every package job reads."
+  },
+  {
+    "area": "downloads-bootstrap",
+    "paths": [
+      "src/main/modules/downloads/bootstrap/**",
+      "src/renderer/src/modules/downloads/bootstrap/**"
+    ],
+    "flows": ["bootstrap-*", "downloads-tab", "linux-user-journey", "windows-build-on-linux"],
+    "why": "The first-run bootstrap: package choice, existing folders, retail import and failure recovery."
+  },
+  {
+    "area": "downloads-engine",
+    "paths": [
+      "src/main/modules/downloads/engine/**",
+      "src/renderer/src/modules/downloads/engine/**"
+    ],
+    "flows": [
+      "engine-update",
+      "engine-badge-surfaces",
+      "engine-not-client",
+      "bootstrap-no-engine-for-platform",
+      "bootstrap-r1q2",
+      "downloads-tab",
+      "windows-build-on-linux",
+      "linux-user-journey"
+    ],
+    "why": "Engine installs and updates, and which engine counts as a client on the platform."
+  },
+  {
+    "area": "downloads-repair",
+    "paths": [
+      "src/main/modules/downloads/repair/**",
+      "src/renderer/src/modules/downloads/repair/**"
+    ],
+    "flows": ["repair", "care-fix-item", "care-drift-sync-now", "downloads-tab"],
+    "why": "Installation repair and the care items that offer it."
+  },
+  {
+    "area": "downloads-retail",
+    "paths": [
+      "src/main/modules/downloads/retail/**",
+      "src/renderer/src/modules/downloads/retail/**"
+    ],
+    "flows": ["retail-upgrade", "bootstrap-retail-import", "steam-handoff", "downloads-tab"],
+    "why": "Retail data import and upgrade, including the Steam path."
+  },
+  {
+    "area": "home-news",
+    "paths": [
+      "src/main/modules/home/news/**",
+      "src/main/modules/home/images/**",
+      "src/main/modules/home/open-slide-url.ts",
+      "src/main/lib/native-image.ts",
+      "src/main/lib/news-image-paths.ts",
+      "src/renderer/src/modules/home/carousel.ts",
+      "src/renderer/src/modules/home/feedState.ts",
+      "src/renderer/src/modules/home/useReducedMotion.ts",
+      "src/renderer/src/modules/home/components/Slide*",
+      "src/renderer/src/modules/home/components/resolveSlideTemplate.ts"
+    ],
+    "flows": [
+      "news-feed",
+      "news-cover-template",
+      "home-hero-carousel",
+      "home-route-roundtrip",
+      "installation-icon-pick",
+      "installation-icon-tile"
+    ],
+    "why": "The news feed, its slide templates and the image cache that serves slide and installation images."
+  },
+  {
+    "area": "home-dashboard",
+    "paths": [
+      "src/main/modules/home/index.ts",
+      "src/main/modules/home/persisted.ts",
+      "src/renderer/src/modules/home/HomeView.tsx",
+      "src/renderer/src/modules/home/client.ts",
+      "src/renderer/src/modules/home/locale/**",
+      "src/renderer/src/modules/home/dashboard/**",
+      "src/renderer/src/modules/home/components/useTileData.ts"
+    ],
+    "flows": [
+      "home-dashboard-arrange",
+      "home-dashboard-keyboard",
+      "home-tile-states",
+      "home-route-roundtrip",
+      "home-hero-carousel",
+      "quit-persists-state",
+      "news-feed",
+      "harness-offscreen"
+    ],
+    "why": "The home module and its dashboard tiles and layout."
+  },
+  {
+    "area": "mods",
+    "paths": ["src/main/modules/mods/**", "src/shared/mods/**", "src/renderer/src/modules/mods/**"],
+    "flows": ["mods-*", "mod-update", "replays-mod-install"],
+    "why": "The mods module end to end: catalog, install, update and removal."
+  },
+  {
+    "area": "replays-shell",
+    "paths": [
+      "src/main/modules/replays/index.ts",
+      "src/main/modules/replays/persisted.ts",
+      "src/renderer/src/modules/replays/client.ts",
+      "src/renderer/src/modules/replays/locale/**",
+      "src/renderer/src/lib/demo-data.ts"
+    ],
+    "flows": [
+      "replays-module-shell",
+      "replays-demo-rows",
+      "replays-demo-detail",
+      "replays-play-q2pro",
+      "replays-copy-in",
+      "replays-stage",
+      "replays-timeline",
+      "replays-filter-search",
+      "replays-rename",
+      "replays-list-empty",
+      "replays-cinema",
+      "replays-extra-folders"
+    ],
+    "why": "The replays module frame, its client and persisted state."
+  },
+  {
+    "area": "replays-scan",
+    "paths": [
+      "src/main/modules/replays/discovery.ts",
+      "src/main/modules/replays/scan-service.ts",
+      "src/main/modules/replays/incremental-scan.ts",
+      "src/main/modules/replays/index-cache.ts",
+      "src/main/modules/replays/zip-demos.ts",
+      "src/main/modules/replays/extra-folders.ts",
+      "src/main/modules/replays/demo-rows.ts",
+      "src/main/lib/demo-bytes.ts",
+      "src/shared/demos/**",
+      "src/shared/replays/**"
+    ],
+    "flows": [
+      "replays-discovered-list",
+      "replays-incremental-scan",
+      "replays-zip-entries",
+      "replays-extra-folders",
+      "replays-demo-rows",
+      "replays-list-empty",
+      "replays-list-error",
+      "replays-list-loading",
+      "replays-list-scale",
+      "replays-archive-readonly",
+      "replays-module-shell",
+      "replays-copy-in-sweep"
+    ],
+    "why": "Demo discovery, the scan index, zipped demos and demo parsing behind the replays list."
+  },
+  {
+    "area": "replays-files",
+    "paths": [
+      "src/main/modules/replays/demo-rename.ts",
+      "src/main/modules/replays/file-actions.ts",
+      "src/main/modules/replays/name-templates.ts",
+      "src/main/modules/replays/sidecar-*.ts",
+      "src/renderer/src/modules/replays/demo-editor-store.ts",
+      "src/renderer/src/modules/replays/components/ReplaceSidecarDialog.tsx"
+    ],
+    "flows": [
+      "replays-rename",
+      "replays-name-templates",
+      "replays-demo-file-actions",
+      "replays-edit-sidecar",
+      "replays-edit-sides-tags",
+      "replays-detail-quick-edit",
+      "replays-row-quick-rating",
+      "replays-copy-in",
+      "replays-copy-in-not-writable",
+      "replays-copy-in-sweep",
+      "replays-archive-readonly",
+      "replays-demo-detail"
+    ],
+    "why": "Demo file actions: rename, name templates, sidecars, copy-in and the demo editor."
+  },
+  {
+    "area": "replays-playback",
+    "paths": [
+      "src/main/modules/replays/demo-play.ts",
+      "src/main/modules/replays/demo-staging.ts",
+      "src/main/modules/replays/playback-*",
+      "src/main/modules/replays/playback-channel/**",
+      "src/main/modules/replays/session-cvar-restore.ts",
+      "src/renderer/src/modules/replays/playback-store.ts",
+      "src/renderer/src/modules/replays/useDemoPlay.ts",
+      "src/renderer/src/modules/replays/useDemoStop.ts",
+      "src/renderer/src/modules/replays/optimistic-timeline.ts"
+    ],
+    "flows": [
+      "replays-play-q2pro",
+      "replays-play-mvd2",
+      "replays-stop",
+      "replays-console-command",
+      "replays-timeline",
+      "replays-timeline-burst",
+      "replays-timeline-optimistic",
+      "replays-mod-warning",
+      "replays-mod-install",
+      "demo-actions-bind",
+      "autorecord-setting",
+      "job-waits-for-running-game"
+    ],
+    "why": "Demo playback: staging, the playback channel, console, timeline and stop."
+  },
+  {
+    "area": "replays-stage",
+    "paths": [
+      "src/main/modules/replays/stage*.ts",
+      "src/main/modules/replays/geometry.ts",
+      "src/main/modules/replays/x11/**",
+      "src/renderer/src/modules/replays/stage-fit.ts",
+      "src/renderer/src/modules/replays/useStageReport.ts"
+    ],
+    "flows": [
+      "replays-stage",
+      "replays-stage-follow",
+      "replays-stage-overlays",
+      "replays-stage-unavailable",
+      "replays-stage-view-leave",
+      "replays-stage-x11-unreachable",
+      "replays-fullscreen",
+      "replays-cinema-unavailable"
+    ],
+    "why": "The embedded stage: geometry, follow mode and the X11 reachability probe."
+  },
+  {
+    "area": "replays-cinema",
+    "paths": [
+      "src/main/cinema-window.ts",
+      "src/main/modules/replays/cinema*.ts",
+      "src/renderer/cinema.html",
+      "src/renderer/src/cinema/**",
+      "src/renderer/src/modules/replays/cinema/**"
+    ],
+    "flows": [
+      "replays-cinema",
+      "replays-cinema-enter",
+      "replays-cinema-fullscreen",
+      "replays-cinema-unavailable",
+      "replays-stage",
+      "replays-fullscreen"
+    ],
+    "why": "The cinema window: its own window and renderer entry, its controller and the idle fade."
+  },
+  {
+    "area": "replays-list",
+    "paths": [
+      "src/renderer/src/modules/replays/list-*.ts",
+      "src/renderer/src/modules/replays/visible-range.ts",
+      "src/renderer/src/modules/replays/row-*.ts",
+      "src/renderer/src/modules/replays/unreadable-reason.ts"
+    ],
+    "flows": [
+      "replays-demo-rows",
+      "replays-list-scale",
+      "replays-sort-order",
+      "replays-filter-search",
+      "replays-quoted-search",
+      "replays-date-filter",
+      "replays-list-empty",
+      "replays-list-error",
+      "replays-list-loading",
+      "replays-row-quick-rating",
+      "replays-discovered-list",
+      "replays-fullscreen"
+    ],
+    "why": "Replays list layout, row formatting and virtualisation."
+  },
+  {
+    "area": "servers-shell",
+    "paths": [
+      "src/main/modules/servers/index.ts",
+      "src/main/modules/servers/persisted.ts",
+      "src/shared/servers/**",
+      "src/renderer/src/modules/servers/client.ts",
+      "src/renderer/src/modules/servers/locale/**"
+    ],
+    "flows": [
+      "servers-module-shell",
+      "servers-list-states",
+      "servers-detail",
+      "servers-join",
+      "servers-watchlist",
+      "servers-lan-mode",
+      "servers-master-sources",
+      "servers-address-book",
+      "servers-scan-settings",
+      "servers-filter-search",
+      "servers-actionbar-join",
+      "servers-quick-filters"
+    ],
+    "why": "The servers module frame, its client and persisted state, and the shared server types."
+  },
+  {
+    "area": "servers-scan",
+    "paths": [
+      "src/main/modules/servers/scan-*.ts",
+      "src/main/modules/servers/server-query.ts",
+      "src/main/modules/servers/address-set.ts",
+      "src/main/modules/servers/history-log.ts",
+      "src/main/modules/servers/source-resolution.ts",
+      "src/main/modules/servers/http-list-source.ts",
+      "src/main/modules/servers/udp-master-source.ts",
+      "src/main/modules/servers/master-sources.ts"
+    ],
+    "flows": [
+      "servers-list-states",
+      "servers-master-sources",
+      "servers-scan-settings",
+      "servers-scoped-refresh",
+      "servers-no-scan-while-playing",
+      "servers-row-markers",
+      "servers-detail-reachability",
+      "servers-module-shell",
+      "servers-address-book",
+      "servers-sort-order",
+      "servers-detail",
+      "servers-watchlist"
+    ],
+    "why": "Master sources, server queries and the scan runner behind the servers list."
+  },
+  {
+    "area": "servers-lan",
+    "paths": ["src/main/modules/servers/lan-discovery.ts"],
+    "flows": ["servers-lan-*", "servers-list-states"],
+    "why": "LAN discovery and its unavailable state."
+  },
+  {
+    "area": "servers-lists",
+    "paths": [
+      "src/main/modules/servers/favourites.ts",
+      "src/main/modules/servers/watchlist-*.ts",
+      "src/main/modules/servers/quick-filter-entries.ts",
+      "src/renderer/src/modules/servers/useQuickFilters.ts",
+      "src/renderer/src/modules/servers/lib/**",
+      "src/renderer/src/modules/servers/watchlist/**"
+    ],
+    "flows": [
+      "servers-watchlist",
+      "servers-quick-filters",
+      "servers-address-book",
+      "servers-row-markers",
+      "servers-module-shell",
+      "servers-filter-search",
+      "quit-persists-state"
+    ],
+    "why": "Favourites, the address book, quick filters and the watchlist."
+  },
+  {
+    "area": "servers-list",
+    "paths": [
+      "src/renderer/src/modules/servers/list-*.ts",
+      "src/renderer/src/modules/servers/server-format.ts",
+      "src/renderer/src/modules/servers/useServerScan.ts",
+      "src/renderer/src/modules/servers/ServerDetailSection.tsx"
+    ],
+    "flows": [
+      "servers-list-states",
+      "servers-sort-order",
+      "servers-filter-search",
+      "servers-quoted-search",
+      "servers-row-markers",
+      "servers-scoped-refresh",
+      "servers-quick-filters",
+      "servers-detail",
+      "servers-detail-local-content",
+      "servers-detail-reachability",
+      "servers-detail-rules",
+      "servers-lan-mode"
+    ],
+    "why": "Servers list layout, renderer scan state and the server detail section."
+  },
+  {
+    "area": "servers-join",
+    "paths": ["src/renderer/src/modules/servers/join/**"],
+    "flows": [
+      "servers-join",
+      "servers-actionbar-join",
+      "servers-detail-local-content",
+      "steam-handoff"
+    ],
+    "why": "Joining a server from the list, the detail panel and the action bar."
+  }
+]

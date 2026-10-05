@@ -1,5 +1,6 @@
 import { join } from 'node:path'
-import { mkdirSync, utimesSync, writeFileSync } from 'node:fs'
+import { utimesSync, writeFileSync } from 'node:fs'
+import { resetOwnedDir } from './core.mjs'
 
 // --- downloads.ts DownloadsSettings shape + archive-cache fixture ----------
 // Mirrors src/shared/modules/downloads.ts's `DownloadsSettings`/
@@ -46,7 +47,7 @@ export const DOWNLOADS_CACHE_ITEM_COUNT = 2
  * distinct mtime (`fs.utimesSync` - the only way to backdate a file Node itself just wrote). */
 export function writeDownloadsCacheArchives(userDataDir) {
   const cacheDir = join(userDataDir, 'cache', 'downloads')
-  mkdirSync(cacheDir, { recursive: true })
+  resetOwnedDir(cacheDir)
   for (const archive of [DOWNLOADS_CACHE_ARCHIVE_ONE, DOWNLOADS_CACHE_ARCHIVE_TWO]) {
     const path = join(cacheDir, archive.fileName)
     writeFileSync(path, Buffer.alloc(archive.sizeBytes, 0))

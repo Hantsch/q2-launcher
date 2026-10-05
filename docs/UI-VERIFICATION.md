@@ -1503,9 +1503,20 @@ Each screen's `navigate()` opens the Servers view and waits for `servers-scan-st
 
 ### The flow gate: quarantine, shards, timeout
 
-`npm run ui:flows [-- <flow>... --shard=i/n --timeout=<seconds>]`
+`npm run ui:flows [-- <flow>... --affected[=<ref>] --shard=i/n --timeout=<seconds> --repeat=<n>]`
 (`scripts/flows-all.mjs`, decisions in `scripts/lib/flow-gate.mjs`) reseeds
 and runs every flow, or only the named ones.
+
+- `<flow>` is a name or a `scripts/flows/<name>.mjs` path (either separator).
+  An unknown name or path is a usage error, exit 1, never an empty run.
+- `--affected[=<ref>]` adds the flows `selectAffected`
+  (`scripts/lib/flow-select.mjs`) picks for `git diff --name-only <ref>`
+  (default `HEAD`) plus untracked files, deduplicated with the named ones, and
+  prints each added flow with its reason first. With `--affected`, only named
+  and affected flows run; if there are none the run says so and exits 0,
+  because no changed file reaches a flow.
+- `--repeat=<n>` (n >= 1) runs each selected flow n times in a row, each on a
+  fresh seed, to expose a flaky flow.
 
 - `--shard=i/n` runs the i-th of n slices, 1-based and round robin (flow k
   goes to shard `k % n + 1`), so slow neighbouring flows spread out.
@@ -1526,6 +1537,14 @@ wrote the entry) and `since` (a sprint like `S32`), plus an optional `platform`
   fails the run — remove the entry;
 - passes once, then fails on the re-run: reported as flaky only, the run is
   not failed.
+
+`scripts/flows/areas.json` maps source areas to flows for changes no testid
+reveals. A flow is also picked by its own file, a helper it imports, and a
+changed renderer file declaring one of its testids. A row is
+`{ area, paths: [globs], flows: [...] }` and selects at most 12 flows. A new
+`src/` file fails the exhaustiveness test in `scripts/flow-select.test.mjs`
+until a flow testid or an area row reaches it: add the file to the row of the
+area it belongs to.
 
 Entries are validated: missing fields, a malformed `since`, an unknown
 `platform` or an unknown flow name are errors, and while the list is invalid

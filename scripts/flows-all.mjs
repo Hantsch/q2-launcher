@@ -6,14 +6,27 @@
 // Flows listed in scripts/flows/quarantine.json are expected to fail and do not break the run; see
 // lib/flow-gate.mjs for the rules.
 //
-// Usage: `npm run ui:flows [-- <flow>... --shard=i/n --timeout=<seconds>]`
-//   <flow>...         run only these flows
+// Usage: `npm run ui:flows [-- <flow>... --affected[=<ref>] --shard=i/n --timeout=<seconds>]`
+//   <flow>...         run only these flows; a name or a scripts/flows/<name>.mjs path
+//   --affected[=<ref>] also run the flows the diff against <ref> (default HEAD) plus untracked
+//                     files can break; with nothing named and nothing affected, nothing runs
 //   --shard=i/n      run the i-th of n round-robin slices of the (selected) flows
 //   --timeout=<s>    kill a flow that runs longer than s seconds (default 300) and count it failed
+//   --repeat=<n>     run every selected flow n times in a row (default 1), each on a fresh seed
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { currentSprint, parseShard, runGate, selectShard, summaryLines } from './lib/flow-gate.mjs'
+import {
+  currentSprint,
+  parseFlowArgs,
+  planFlows,
+  repeatFlows,
+  runGate,
+  selectShard,
+  summaryLines,
+} from './lib/flow-gate.mjs'
+import { selectAffected } from './lib/flow-select.mjs'
+import { loadFlowTree } from './lib/flow-tree.mjs'
 import { REPO_ROOT } from './lib/paths.mjs'
 
 function run(script, args) {
@@ -25,7 +38,7 @@ function run(script, args) {
 
 const DEFAULT_TIMEOUT_SECONDS = 300
 const USAGE =
-  'usage: npm run ui:flows [-- <flow>... --shard=i/n --timeout=<seconds>]  (1 <= i <= n, timeout > 0)'
+  'usage: npm run ui:flows [-- <flow|scripts/flows/<flow>.mjs>... --affected[=<ref>] --shard=i/n --timeout=<seconds> --repeat=<n>]  (1 <= i <= n, timeout > 0, n >= 1)'
 
 // A surviving Electron would make the next flow fail with "another instance is already running",
 // so the whole tree goes, and the caller awaits it.
@@ -70,9 +83,16 @@ function runTimed(script, args, timeoutSeconds) {
   })
 }
 
-function usageError() {
+function usageError(problems = []) {
+  for (const problem of problems) console.error(problem)
   console.error(USAGE)
   process.exit(1)
+}
+
+function gitLines(args) {
+  const result = spawnSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8' })
+  if (result.status !== 0) usageError([`git ${args.join(' ')} failed: ${result.stderr.trim()}`])
+  return result.stdout.split(/\r?\n/).filter((line) => line !== '')
 }
 
 function listDirs(dir) {
@@ -85,20 +105,38 @@ async function main() {
     .filter((file) => file.endsWith('.mjs'))
     .map((file) => file.slice(0, -'.mjs'.length))
     .sort()
-  const args = process.argv.slice(2)
-  const requested = args.filter((arg) => !arg.startsWith('--'))
-  const selected = requested.length > 0 ? requested : known
-  let shard = null
-  let timeoutSeconds = DEFAULT_TIMEOUT_SECONDS
-  for (const flag of args.filter((arg) => arg.startsWith('--'))) {
-    const [key, value = ''] = flag.split('=')
-    if (key === '--shard') shard = parseShard(value)
-    else if (key === '--timeout') timeoutSeconds = /^\d+(\.\d+)?$/.test(value) ? Number(value) : 0
-    else usageError()
-    if (shard === null && key === '--shard') usageError()
-    if (!(timeoutSeconds > 0)) usageError()
+  const parsed = parseFlowArgs(process.argv.slice(2), known, DEFAULT_TIMEOUT_SECONDS)
+  if (parsed.errors.length > 0) usageError(parsed.errors)
+  const { timeoutSeconds, repeat, shard } = parsed
+  let picks = []
+  if (parsed.affected) {
+    const ref = parsed.affected.ref ?? 'HEAD'
+    const changedFiles = [
+      ...gitLines(['-c', 'core.quotepath=false', 'diff', '--name-only', '--no-renames', ref]),
+      ...gitLines(['-c', 'core.quotepath=false', 'ls-files', '--others', '--exclude-standard']),
+    ]
+    const tree = loadFlowTree()
+    picks = selectAffected({
+      changedFiles,
+      flows: tree.flows,
+      rendererFiles: tree.rendererFiles,
+      areas: tree.areas,
+    })
   }
-  const names = shard ? selectShard(selected, shard.index, shard.count) : selected
+  const plan = planFlows({ named: parsed.named, affected: parsed.affected, picks, known })
+  for (const pick of plan.added) {
+    console.log(`affected: ${pick.flow} (${pick.reasons.join('; ')})`)
+  }
+  if (plan.names.length === 0) {
+    console.log(
+      'no flows named and none affected by the change: nothing a flow can break, nothing to run (exit 0)',
+    )
+    return
+  }
+  const names = repeatFlows(
+    shard ? selectShard(plan.names, shard.index, shard.count) : plan.names,
+    repeat,
+  )
   const entries = JSON.parse(readFileSync(join(flowsDir, 'quarantine.json'), 'utf8'))
   const sprintsDir = join(REPO_ROOT, 'docs', 'sprints')
   const current = currentSprint(listDirs(sprintsDir), listDirs(join(sprintsDir, 'done')))

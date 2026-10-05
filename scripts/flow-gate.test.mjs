@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'vitest'
 import {
   currentSprint,
+  flowNameOf,
+  parseFlowArgs,
+  parseRepeat,
   parseShard,
+  planFlows,
+  repeatFlows,
   runGate,
   selectShard,
   validateQuarantine,
@@ -92,6 +97,19 @@ describe('flow gate quarantine', () => {
   })
 })
 
+describe('flow repeat', () => {
+  test('--repeat runs each selected flow n times in a row', async () => {
+    expect(repeatFlows(['a', 'b'], 3)).toEqual(['a', 'a', 'a', 'b', 'b', 'b'])
+    expect(repeatFlows(['a', 'b'], 1)).toEqual(['a', 'b'])
+    expect(parseRepeat('20')).toBe(20)
+    for (const bad of ['0', '-1', '1.5', 'x', '', '2e1', ' 3']) {
+      expect(parseRepeat(bad)).toBeNull()
+    }
+    const result = await gate({ a: [true, true] }, [], { names: repeatFlows(['a'], 2) })
+    expect(result.calls).toEqual(['a', 'a'])
+  })
+})
+
 describe('flow sharding', () => {
   const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
 
@@ -113,5 +131,67 @@ describe('flow sharding', () => {
     for (const bad of ['0/3', '4/3', '1/0', '1.5/3', 'a/b', '1', '1/', '-1/3', '', '1/2/3']) {
       expect(parseShard(bad)).toBeNull()
     }
+  })
+})
+
+describe('flow arguments', () => {
+  const known = ['a', 'b', 'c']
+
+  test('flow file paths and --affected are parsed into flow names', () => {
+    for (const arg of [
+      'a',
+      'scripts/flows/a.mjs',
+      String.raw`scripts\flows\a.mjs`,
+      './scripts/flows/a.mjs',
+    ]) {
+      expect(flowNameOf(arg), arg).toBe('a')
+    }
+    const paths = parseFlowArgs(
+      [String.raw`scripts\flows\b.mjs`, 'a', 'scripts/flows/b.mjs'],
+      known,
+    )
+    expect(paths.errors).toEqual([])
+    expect(paths.named).toEqual(['b', 'a'])
+
+    for (const bad of ['nope', 'scripts/flows/nope.mjs', 'scripts/flows/a.txt', 'src/a.mjs']) {
+      expect(parseFlowArgs([bad], known).errors, bad).toHaveLength(1)
+    }
+
+    expect(parseFlowArgs([], known).affected).toBeNull()
+    expect(parseFlowArgs(['--affected'], known).affected).toEqual({ ref: null })
+    expect(parseFlowArgs(['--affected=main~3'], known).affected).toEqual({ ref: 'main~3' })
+    expect(parseFlowArgs(['--affected='], known).errors).toHaveLength(1)
+    expect(parseFlowArgs(['--bogus'], known).errors).toHaveLength(1)
+
+    const combined = parseFlowArgs(
+      ['a', '--affected', '--shard=2/2', '--repeat=3', '--timeout=9'],
+      known,
+    )
+    expect(combined).toMatchObject({
+      errors: [],
+      named: ['a'],
+      affected: { ref: null },
+      shard: { index: 2, count: 2 },
+      repeat: 3,
+      timeoutSeconds: 9,
+    })
+    expect(parseFlowArgs(['--shard=3/2', '--repeat=0', '--timeout=0'], known).errors).toHaveLength(
+      3,
+    )
+
+    const picks = [
+      { flow: 'a', reasons: ['x'] },
+      { flow: 'c', reasons: ['y'] },
+    ]
+    const plan = planFlows({ named: ['b', 'a'], affected: { ref: null }, picks, known })
+    expect(plan.names).toEqual(['b', 'a', 'c'])
+    expect(plan.added).toEqual([{ flow: 'c', reasons: ['y'] }])
+    expect(planFlows({ named: [], affected: null, known }).names).toEqual(known)
+    expect(planFlows({ named: ['b'], affected: null, picks, known }).names).toEqual(['b'])
+    expect(planFlows({ named: [], affected: { ref: null }, picks: [], known }).names).toEqual([])
+    expect(planFlows({ named: ['b'], affected: { ref: null }, picks: [], known }).names).toEqual([
+      'b',
+    ])
+    expect(repeatFlows(selectShard(plan.names, 1, 2), 2)).toEqual(['b', 'b', 'c', 'c'])
   })
 })

@@ -329,3 +329,4 @@ second roadmap.
 - 232 — every module's handlers are typed from a contract · S34 · all seven modules use defineModule/createModuleClient with shared request schemas; coverage gates have no escapes
 - 236 — the layer and error-key rules have no known holes · S34 · electron-backed edges allowlisted, one builtin list, literal key records, comment paths and nested-Outcome checks, translated unknown-feature fallback
 - 235 — shutdown, state-store and job edge cases are closed · S34 · cinema dispose, quitAndInstall and debounce race pinned, StateStore migrations required, service setEngineState, commitAdoption failures recorded
+- 233 — the flow gate has no quarantined flows and catches cross-story breakage · S34 · quarantine empty, --repeat/--affected flow selection, fixture-owned downloads cache

@@ -48,7 +48,8 @@ export default async function modsView({ page, shot, step }) {
     .getByRole('button', { name: WRITEDIR_NAME, exact: true })
     .click({ timeout: TIMEOUT_MS })
   await page.getByTestId('mods-tile-ctf').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const name = await page.getByTestId('mods-installation-name').innerText()
+  // textContent, not innerText: the flow asserts the DOM text, not the CSS-transformed (uppercase) text.
+  const name = (await page.getByTestId('mods-installation-name').textContent()) ?? ''
   if (!name.includes(WRITEDIR_NAME)) {
     throw new Error(`mods-view: expected the header to name "${WRITEDIR_NAME}", got "${name}"`)
   }

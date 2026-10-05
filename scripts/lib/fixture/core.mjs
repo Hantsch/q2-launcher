@@ -123,6 +123,13 @@ export function writeJson(path, value) {
  */
 const RM_RETRY_OPTIONS = { recursive: true, force: true, maxRetries: 20, retryDelay: 500 }
 
+/** Empties and recreates a directory the fixture owns outright. Unlike `rmDirBestEffort` it
+ * throws on failure: seeding over a half-deleted directory would silently seed a wrong state. */
+export function resetOwnedDir(path) {
+  rmSync(path, RM_RETRY_OPTIONS)
+  mkdirSync(path, { recursive: true })
+}
+
 export function rmDirBestEffort(path) {
   try {
     rmSync(path, RM_RETRY_OPTIONS)

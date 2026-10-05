@@ -69,3 +69,19 @@
 - 2026-10-05 09:12 · 235 · review 1 · started
 - 2026-10-05 09:13 · 235 · review 1 · done
 - 2026-10-05 09:14 · 235 · story · done
+- 2026-10-05T09:14:14 · 233 · build · started
+- 2026-10-05 09:14 · 233 · D1 mods-view name assertion · started
+- 2026-10-05 09:15 · 233 · D1 mods-view name assertion · done
+- 2026-10-05 09:15 · 233 · D2 --repeat · started
+- 2026-10-05 09:24 · 233 · D2 --repeat · done
+- 2026-10-05 09:24 · 233 · D3 fixture downloads cache · started
+- 2026-10-05 09:25 · 233 · D3 fixture downloads cache · done
+- 2026-10-05 09:25 · 233 · D4 flow-select lib (hard) · started
+- 2026-10-05 09:37 · 233 · D4 flow-select lib (hard) · done
+- 2026-10-05 09:37 · 233 · D5 wire --affected · started
+- 2026-10-05 09:49 · 233 · D5 wire --affected · done
+- 2026-10-05 09:49 · 233 · verify · started
+- 2026-10-05 09:53 · 233 · verify · done
+- 2026-10-05 09:53 · 233 · review 1 · started
+- 2026-10-05 09:54 · 233 · review 1 · done
+- 2026-10-05 09:54 · 233 · story · done

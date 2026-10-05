@@ -26,6 +26,78 @@ export function selectShard(names, index, count) {
   return names.filter((_, k) => k % count === index - 1)
 }
 
+/** Parses `--repeat`'s value (integer >= 1); `null` when malformed. */
+export function parseRepeat(text) {
+  if (!/^\d+$/.test(String(text))) return null
+  const count = Number(text)
+  return count >= 1 ? count : null
+}
+
+/** Each flow n times in a row, so a flaky flow shows up as consecutive runs of one name. */
+export function repeatFlows(names, count) {
+  return names.flatMap((name) => Array.from({ length: count }, () => name))
+}
+
+const FLOW_PATH = /^(?:.*\/)?scripts\/flows\/([^/]+)\.mjs$/
+
+/** A flow argument as a name: `scripts/flows/<name>.mjs` (either separator) or a bare name. */
+export function flowNameOf(arg) {
+  const text = String(arg).replace(/\\/g, '/')
+  const match = FLOW_PATH.exec(text)
+  return match ? match[1] : text
+}
+
+/**
+ * Parses the gate's arguments against the known flow names. `errors` is non-empty on any
+ * malformed flag or unknown flow; `affected` is `null` without `--affected`, else `{ ref }`
+ * (`ref` is `null` for the bare flag, meaning HEAD).
+ */
+export function parseFlowArgs(args, known, defaultTimeoutSeconds = 300) {
+  const errors = []
+  const named = []
+  let affected = null
+  let shard = null
+  let timeoutSeconds = defaultTimeoutSeconds
+  let repeat = 1
+  for (const arg of args) {
+    if (!arg.startsWith('--')) {
+      const name = flowNameOf(arg)
+      if (!known.includes(name)) errors.push(`unknown flow: ${arg}`)
+      else if (!named.includes(name)) named.push(name)
+      continue
+    }
+    const eq = arg.indexOf('=')
+    const key = eq === -1 ? arg : arg.slice(0, eq)
+    const value = eq === -1 ? '' : arg.slice(eq + 1)
+    if (key === '--shard') {
+      shard = parseShard(value)
+      if (shard === null) errors.push(`malformed ${arg}`)
+    } else if (key === '--timeout') {
+      timeoutSeconds = /^\d+(\.\d+)?$/.test(value) ? Number(value) : 0
+      if (!(timeoutSeconds > 0)) errors.push(`malformed ${arg}`)
+    } else if (key === '--repeat') {
+      repeat = parseRepeat(value)
+      if (repeat === null) errors.push(`malformed ${arg}`)
+    } else if (key === '--affected' && (eq === -1 || value !== '')) {
+      affected = { ref: eq === -1 ? null : value }
+    } else {
+      errors.push(`unknown option: ${arg}`)
+    }
+  }
+  return { errors, named, affected, shard, timeoutSeconds, repeat }
+}
+
+/**
+ * The flows to run: the named ones, then those `--affected` adds (`picks` from selectAffected),
+ * each once. Without `--affected` and without names that is every known flow; with `--affected`
+ * and nothing named or picked it is empty, because nothing a change can break was found.
+ */
+export function planFlows({ named, affected, picks = [], known }) {
+  const added = affected ? picks.filter((pick) => !named.includes(pick.flow)) : []
+  const names = affected || named.length > 0 ? [...named, ...added.map((pick) => pick.flow)] : known
+  return { names, added }
+}
+
 /** Problems with the quarantine list itself, each message naming the offending entry. */
 export function validateQuarantine(entries, knownFlows) {
   if (!Array.isArray(entries)) return ['quarantine list: expected an array of entries']
