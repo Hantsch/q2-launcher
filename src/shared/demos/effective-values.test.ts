@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { SidecarFields } from '../replays/sidecar'
 import type { NameFacts } from '../replays/name-template'
 import type { Dm2Header } from './dm2-header'
+import type { DemoRoster } from './dm2-roster'
 import {
   effectiveFileTime,
   hasValue,
@@ -11,7 +12,7 @@ import {
   type ResolveEffectiveValuesInputs,
 } from './effective-values'
 
-function header(overrides: Partial<Dm2Header> = {}): Dm2Header {
+function header(overrides: Partial<Dm2Header> & { roster?: DemoRoster | null } = {}): Dm2Header {
   return {
     ok: true,
     protocol: 34,
@@ -148,6 +149,40 @@ describe('resolveEffectiveValues', () => {
       baseInputs({ header: header({ players: [] }), nameFacts: { ...NAME_FACTS, players: [] } }),
     )
     expect(noPlayers.sides).toEqual({ value: null, source: null })
+  })
+
+  const ROSTER = {
+    teams: [
+      { name: 'Red', players: ['A', 'B'] },
+      { name: 'Blue', players: ['C'] },
+    ],
+    spectators: ['Watcher'],
+  }
+
+  it('a roster becomes team sides', () => {
+    const r = resolveEffectiveValues(baseInputs({ header: header({ roster: ROSTER }) }))
+    expect(r.sides).toEqual({
+      value: [
+        { team: 'Red', players: ['A', 'B'] },
+        { team: 'Blue', players: ['C'] },
+      ],
+      source: 'demo',
+    })
+  })
+
+  it('sidecar sides win over the demo roster', () => {
+    const r = resolveEffectiveValues(
+      baseInputs({
+        sidecar: { sides: [{ players: ['Z'] }] },
+        header: header({ roster: ROSTER }),
+      }),
+    )
+    expect(r.sides).toEqual({ value: [{ players: ['Z'] }], source: 'sidecar' })
+  })
+
+  it('no roster falls back to the header players', () => {
+    const r = resolveEffectiveValues(baseInputs({ header: header({ roster: null }) }))
+    expect(r.sides).toEqual({ value: [{ players: ['Ranger', 'Slayer'] }], source: 'demo' })
   })
 
   it('a demo with no reported gamemode but an effective ctf game dir is guessed as ctf', () => {

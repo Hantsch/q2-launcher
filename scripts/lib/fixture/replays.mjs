@@ -563,14 +563,15 @@ export const REPLAYS_FILTER_FUN_TAG = 'fun'
 
 /** Known dropdown option sets (AC2) - deterministic from the sidecar overrides below plus the two
  * real fixture files' own confirmed header facts (`zip-demos.test.ts`): both real files' `gameDir`
- * is `'opentdm'`, which every un-overridden row's mod falls back to, and both report exactly two
- * header players, so `resolveGamemode`'s "exactly two players" heuristic guesses `'duel'` for every
- * un-overridden row (ahead of the looser opentdm/`'tdm'` rule - see `GAMEMODE_HEURISTICS`). The
- * header-only demo's own real embedded map (`test.dm2`, never overridden - it has no sidecar) is
- * `'q2rdm2'`. */
+ * is `'opentdm'`, which every un-overridden row's mod falls back to. The mvd2 copies report exactly
+ * two header players, so `resolveGamemode`'s "exactly two players" heuristic guesses `'duel'` for
+ * them (ahead of the looser opentdm/`'tdm'` rule - see `GAMEMODE_HEURISTICS`). `test.dm2` has one
+ * team player (its other header player is a spectator, which does not count), so it falls to the
+ * opentdm rule and guesses `'tdm'`. The header-only demo's own real embedded map (`test.dm2`, never
+ * overridden - it has no sidecar) is `'q2rdm2'`. */
 export const REPLAYS_FILTER_MOD_OPTIONS = ['ctf', 'opentdm']
 
-export const REPLAYS_FILTER_GAMEMODE_OPTIONS = ['ctf', 'duel']
+export const REPLAYS_FILTER_GAMEMODE_OPTIONS = ['ctf', 'duel', 'tdm']
 
 export const REPLAYS_FILTER_HEADERONLY_MAP = 'q2rdm2'
 
@@ -986,4 +987,69 @@ export function writeReplaysListErrorFixture() {
   )
 
   return result
+}
+
+// --- story 245: the demo detail's players panel e2e fixture -------------------------------------
+
+export const REPLAYS_TEAMS_VARIANT = 'replays-teams'
+
+const REPLAYS_TEAMS_FOLDER_ID = 'fixture-replays-teams-folder'
+
+function replaysTeamsFolderPath() {
+  return join(variantUserDataDir(REPLAYS_TEAMS_VARIANT), 'demos-fixture')
+}
+
+/** File names `scripts/flows/replays-detail-teams.mjs` asserts against. The example demo carries
+ * a Home/Away roster, a POV and spectators in its own bytes; the header demo is `test.dm2`, whose
+ * header names no decisive grouping; the sidecar demo is a second copy of the example whose
+ * sidecar overrides its sides. */
+export const REPLAYS_TEAMS_EXAMPLE_DEMO = 'shad-maq_PFDE3_q2rdm2_20260922-161521.dm2'
+
+export const REPLAYS_TEAMS_HEADER_DEMO = 'teams-header.dm2'
+
+export const REPLAYS_TEAMS_SIDECAR_DEMO = 'teams-sidecar.dm2'
+
+const REPLAYS_TEAMS_SIDECAR = {
+  schemaVersion: 1,
+  sides: [{ team: 'Wolves', players: ['maq'] }],
+}
+
+/**
+ * Deletes and rewrites the `replays-teams` variant: an empty `state.json` plus one extra folder under
+ * this variant's own userData dir (never `gameRoot()`, which every variant shares) holding the
+ * example demo, `test.dm2`, and a sidecar-carrying copy of the example.
+ */
+export function writeReplaysTeamsFixture() {
+  const userDataDir = variantUserDataDir(REPLAYS_TEAMS_VARIANT)
+  rmDirBestEffort(userDataDir)
+  mkdirSync(userDataDir, { recursive: true })
+
+  writeJson(join(userDataDir, STATE_FILE), {
+    ...emptyStateDocument(),
+    replays: {
+      extraFolders: [
+        { id: REPLAYS_TEAMS_FOLDER_ID, path: replaysTeamsFolderPath(), addedAt: FIXED_TIMESTAMP },
+      ],
+    },
+  })
+  writeJson(join(userDataDir, WINDOW_STATE_FILE), windowStateDocument())
+
+  const folder = replaysTeamsFolderPath()
+  rmDirBestEffort(folder)
+  mkdirSync(folder, { recursive: true })
+
+  const example = join(REPO_ROOT, 'docs', 'fixtures', 'demos', REPLAYS_TEAMS_EXAMPLE_DEMO)
+  copyFileSync(example, join(folder, REPLAYS_TEAMS_EXAMPLE_DEMO))
+  copyFileSync(
+    join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2'),
+    join(folder, REPLAYS_TEAMS_HEADER_DEMO),
+  )
+  copyFileSync(example, join(folder, REPLAYS_TEAMS_SIDECAR_DEMO))
+  writeFileSync(
+    join(folder, `${REPLAYS_TEAMS_SIDECAR_DEMO}.json`),
+    JSON.stringify(REPLAYS_TEAMS_SIDECAR, null, 2) + '\n',
+    'utf8',
+  )
+
+  return { userDataDir, installations: 0, configProfiles: 0 }
 }

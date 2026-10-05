@@ -95,3 +95,22 @@
 - 2026-10-05 10:03 · 234 · verify · started
 - 2026-10-05 10:04 · 234 · verify · done
 - 2026-10-05 10:04 · 234 · story · blocked: Docker daemon down, D2 not runnable
+- 2026-10-05T10:04:25 · 245 · build · started
+- 2026-10-05 10:04 · 245 · D1 Roster collector · started
+- 2026-10-05 10:10 · 245 · D1 Roster collector · done
+- 2026-10-05 10:10 · 245 · D2 Roster in index · started
+- 2026-10-05 10:13 · 245 · D2 Roster in index · done
+- 2026-10-05 10:13 · 245 · D3 Effective sides · started
+- 2026-10-05 10:15 · 245 · D3 Effective sides · done
+- 2026-10-05 10:15 · 245 · D4 Search and detail model · started
+- 2026-10-05 10:16 · 245 · D4 Search and detail model · done
+- 2026-10-05 10:16 · 245 · D5 Players panel · started
+- 2026-10-05 10:24 · 245 · D5 Players panel · done
+- 2026-10-05 10:24 · 245 · verify · started
+- 2026-10-05 10:36 · 245 · verify · blocked: typecheck:web error DemoDetailEditor.test.tsx, e2e selection too wide
+- 2026-10-05 10:41 · 245 · verify · done
+- 2026-10-05 10:41 · 245 · review 1 · started
+- 2026-10-05 10:42 · 245 · review 1 · done
+- 2026-10-05 10:42 · 245 · review 1 fixes · started
+- 2026-10-05 10:43 · 245 · review 1 fixes · done
+- 2026-10-05 10:43 · 245 · story · done

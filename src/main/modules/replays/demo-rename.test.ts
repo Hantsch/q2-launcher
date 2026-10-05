@@ -44,6 +44,7 @@ const FACTS: DemoHeaderFacts = {
   pov: null,
   players: [],
   durationMs: null,
+  roster: null,
 }
 const HOUR_AGO_S = (Date.now() - 60 * 60 * 1000) / 1000
 const AUTORECORD = '{year}-{month}-{day}-{hour}{min}-{map}.dm2'

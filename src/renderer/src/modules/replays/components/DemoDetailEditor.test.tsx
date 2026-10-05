@@ -53,6 +53,7 @@ const ROW: DemoRow = {
   gameDir: null,
   pov: null,
   players: [],
+  roster: null,
   durationMs: 65_000,
   fileTime: { birthtimeMs: 0, mtimeMs: 0 },
   nameFacts: null,

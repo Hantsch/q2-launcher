@@ -34,9 +34,21 @@ export interface DemoDetailSidecarState {
   state: DemoRow['sidecar']['state']
 }
 
+export interface DemoDetailPlayer {
+  name: string
+  pov: boolean
+}
+
+export interface DemoDetailPlayerGroup {
+  /** `null` for the single, team-less side: its players are listed ungrouped. */
+  heading: { team?: string; result?: string; index: number } | null
+  players: DemoDetailPlayer[]
+}
+
 export interface DemoDetail {
   fields: DemoDetailField[]
   knownPlayers: { demo: string[]; name: string[] }
+  playerGroups: { groups: DemoDetailPlayerGroup[]; spectators: DemoDetailPlayer[] }
   sidecarIssues: DemoDetailSidecarState
 }
 
@@ -53,6 +65,31 @@ function cleanPlayerList(players: string[] | undefined): string[] {
     result.push(trimmed)
   }
   return result
+}
+
+function buildPlayerGroups(row: DemoRow): DemoDetail['playerGroups'] {
+  const pov = row.effective.pov.value?.trim() ?? null
+  const toPlayer = (name: string): DemoDetailPlayer => ({ name, pov: name === pov })
+  const sides = row.effective.sides.value ?? []
+
+  const groups = sides.map((side, i): DemoDetailPlayerGroup => {
+    const team = side.team?.trim() || undefined
+    const result = side.result?.trim() || undefined
+    const unnamed = team === undefined && result === undefined
+    let heading: DemoDetailPlayerGroup['heading'] = null
+    if (!(unnamed && sides.length === 1)) {
+      heading = { index: i + 1 }
+      if (team !== undefined) heading.team = team
+      if (result !== undefined) heading.result = result
+    }
+    return { heading, players: cleanPlayerList(side.players).map(toPlayer) }
+  })
+
+  const shown = new Set(groups.flatMap((g) => g.players.map((p) => p.name)))
+  const spectators = cleanPlayerList(row.roster?.spectators)
+    .filter((name) => !shown.has(name))
+    .map(toPlayer)
+  return { groups, spectators }
 }
 
 // `_sidecar` is unused: the sidecar's values already reach the row through `row.effective`.
@@ -89,6 +126,7 @@ export function buildDemoDetail(row: DemoRow, _sidecar: Partial<SidecarFields>):
       demo: cleanPlayerList(row.players),
       name: cleanPlayerList(row.nameFacts?.players),
     },
+    playerGroups: buildPlayerGroups(row),
     sidecarIssues: { state: row.sidecar.state },
   }
 }

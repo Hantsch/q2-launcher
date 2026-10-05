@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { createDm2FrameCounter } from './dm2-frames'
@@ -308,6 +310,42 @@ describe('createDm2FrameCounter', () => {
     for (const bytes of streams) {
       const whole = count(bytes)
       for (const size of [1, 7, 65_536]) expect(count(bytes, size), `chunk ${size}`).toEqual(whole)
+    }
+  })
+
+  it('an observer sees configstrings, layouts and serverdata without changing the count', () => {
+    const recordingCount = (bytes: Uint8Array): { result: FrameCountResult; seen: string[] } => {
+      const seen: string[] = []
+      const counter = createDm2FrameCounter({
+        onServerdata: (protocol) => seen.push(`serverdata ${protocol}`),
+        onConfigstring: (index, value) => seen.push(`cs ${index} ${value}`),
+        onLayout: (text) => seen.push(`layout ${text}`),
+      })
+      counter.push(bytes)
+      return { result: counter.finish(), seen }
+    }
+    for (const name of ['test.dm2', 'shad-maq_PFDE3_q2rdm2_20260922-161521.dm2']) {
+      const bytes = new Uint8Array(
+        readFileSync(resolve(__dirname, '../../../docs/fixtures/demos', name)),
+      )
+      const observed = recordingCount(bytes)
+      expect(observed.result, name).toEqual(count(bytes))
+      expect(observed.result.ok, name).toBe(true)
+      expect(observed.seen.length, name).toBeGreaterThan(0)
+    }
+    for (const protocol of PROTOCOLS) {
+      const bytes = buildDm2Stream({
+        protocol,
+        blocks: [[...everySizedMessage(), dm2Msg.frame(1)], [dm2Msg.frame(2)]],
+        terminate: true,
+      })
+      const observed = recordingCount(bytes)
+      expect(observed.result, `protocol ${protocol}`).toEqual(count(bytes))
+      expect(observed.seen).toEqual([
+        `serverdata ${protocol}`,
+        'cs 33 maps/q2dm1.bsp',
+        'layout xv 32 yv 8 string "hi"',
+      ])
     }
   })
 

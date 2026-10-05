@@ -7,7 +7,7 @@ import { buildDm2 } from '../../shared/demos/dm2-writer'
 import { buildMvd2 } from '../../shared/demos/mvd2-writer'
 import { buildDm2Stream, dm2Msg } from '../../shared/demos/dm2-frames-writer'
 import { DM2_HEADER_MAX_BYTES } from '../../shared/demos/dm2-header'
-import { readDm2Header, readDemoHeader, readDemoDuration } from './demo-bytes'
+import { readDm2Header, readDemoHeader, readDemoFullPass } from './demo-bytes'
 
 // Tracks bytes actually emitted by the gunzip decompressor - i.e. real decompressed output,
 // not `result.bytes.length` - so the "bounded work" test below cannot be satisfied by an
@@ -27,6 +27,10 @@ vi.mock('node:zlib', async (importOriginal) => {
   }
 })
 
+const OPENTDM_FIXTURE_PATH = join(
+  __dirname,
+  '../../../docs/fixtures/demos/shad-maq_PFDE3_q2rdm2_20260922-161521.dm2',
+)
 const FIXTURE_PATH = join(__dirname, '../../../docs/fixtures/demos/test.dm2')
 
 let dir: string
@@ -310,7 +314,7 @@ function buildMvd2FrameBlock(frameCount: number): Uint8Array {
 
 const MVD2_TERMINATOR = new Uint8Array([0, 0])
 
-describe('readDemoDuration', () => {
+describe('a demo is read in one full pass', () => {
   it('every demo the header parsers accept gets a duration (AC1)', async () => {
     for (const protocol of [34, 3434, 3435, 3436] as const) {
       const stream = buildDm2Stream({
@@ -324,7 +328,7 @@ describe('readDemoDuration', () => {
       const header = await readDemoHeader(path)
       expect(header.ok, `protocol ${protocol} header`).toBe(true)
 
-      const duration = await readDemoDuration(path)
+      const duration = (await readDemoFullPass(path)).duration
       expect(duration.ok, `protocol ${protocol} duration`).toBe(true)
       if (duration.ok) expect(duration.frames).toBeGreaterThan(0)
     }
@@ -344,33 +348,33 @@ describe('readDemoDuration', () => {
       const header = await readDemoHeader(path)
       expect(header.ok, `version ${version} header`).toBe(true)
 
-      const duration = await readDemoDuration(path)
+      const duration = (await readDemoFullPass(path)).duration
       expect(duration.ok, `version ${version} duration`).toBe(true)
       if (duration.ok) expect(duration.frames).toBeGreaterThan(0)
     }
   })
 
   it('the real test.dm2 lasts 410 frames and the real PFAU mvd2 6201 frames, plain and gzipped', async () => {
-    const dm2Result = await readDemoDuration(FIXTURE_PATH)
+    const dm2Result = (await readDemoFullPass(FIXTURE_PATH)).duration
     expect(dm2Result).toEqual({ ok: true, frames: 410, durationMs: 41000, complete: true })
 
-    const mvd2Result = await readDemoDuration(MVD2_FIXTURE_PATH)
+    const mvd2Result = (await readDemoFullPass(MVD2_FIXTURE_PATH)).duration
     expect(mvd2Result).toEqual({ ok: true, frames: 6201, durationMs: 620100, complete: true })
 
     const dm2Raw = await readFile(FIXTURE_PATH)
     const dm2GzPath = join(dir, 'test.dm2.gz')
     await writeFile(dm2GzPath, gzipSync(dm2Raw))
-    expect(await readDemoDuration(dm2GzPath)).toEqual(dm2Result)
+    expect((await readDemoFullPass(dm2GzPath)).duration).toEqual(dm2Result)
 
     const mvd2Raw = await readFile(MVD2_FIXTURE_PATH)
     const mvd2GzPath = join(dir, 'pfau.mvd2.gz')
     await writeFile(mvd2GzPath, gzipSync(mvd2Raw))
-    expect(await readDemoDuration(mvd2GzPath)).toEqual(mvd2Result)
+    expect((await readDemoFullPass(mvd2GzPath)).duration).toEqual(mvd2Result)
 
     // Format is sniffed from content, not the file extension.
     const mvd2NamedDm2Path = join(dir, 'pfau-mislabeled.dm2')
     await writeFile(mvd2NamedDm2Path, mvd2Raw)
-    expect(await readDemoDuration(mvd2NamedDm2Path)).toEqual(mvd2Result)
+    expect((await readDemoFullPass(mvd2NamedDm2Path)).duration).toEqual(mvd2Result)
   })
 
   it('the dm2 frame count equals the serverframe span of the real fixture (AC2)', async () => {
@@ -415,13 +419,29 @@ describe('readDemoDuration', () => {
     expect(last).not.toBeNull()
     const expectedFrames = (last as number) - (first as number) + 1
 
-    const duration = await readDemoDuration(FIXTURE_PATH)
+    const duration = (await readDemoFullPass(FIXTURE_PATH)).duration
     expect(duration.ok).toBe(true)
     if (duration.ok) expect(duration.frames).toBe(expectedFrames)
   })
 
+  it('an OpenTDM demo yields Home [maq] and Away [shad], plain and gzipped', async () => {
+    const expected = [
+      { name: 'Home', players: ['maq'] },
+      { name: 'Away', players: ['shad'] },
+    ]
+    expect((await readDemoFullPass(OPENTDM_FIXTURE_PATH)).roster?.teams).toEqual(expected)
+
+    const gzPath = join(dir, 'opentdm.dm2.gz')
+    await writeFile(gzPath, gzipSync(await readFile(OPENTDM_FIXTURE_PATH)))
+    expect((await readDemoFullPass(gzPath)).roster?.teams).toEqual(expected)
+  })
+
+  it('an mvd2 demo has no roster', async () => {
+    expect((await readDemoFullPass(MVD2_FIXTURE_PATH)).roster).toBeNull()
+  })
+
   it('a missing path is unreadable', async () => {
-    const result = await readDemoDuration(join(dir, 'does-not-exist.demo'))
-    expect(result).toEqual({ ok: false, reason: 'unreadable' })
+    const result = await readDemoFullPass(join(dir, 'does-not-exist.demo'))
+    expect(result).toEqual({ duration: { ok: false, reason: 'unreadable' }, roster: null })
   })
 })

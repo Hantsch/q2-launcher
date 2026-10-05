@@ -64,6 +64,7 @@ const BASE_ROW: DemoRow = {
   pov: null,
   players: [],
   durationMs: 65_000,
+  roster: null,
   fileTime: { birthtimeMs: 0, mtimeMs: 0 },
   nameFacts: null,
   sidecar: { state: 'ok', values: { favourite: true, rating: 7 } },
@@ -134,7 +135,8 @@ describe('DemoDetailPanel', () => {
 
     expect(screen.getByTestId('replays-detail-field-map').textContent).toContain('q2dm1')
     expect(screen.getByTestId('replays-detail-field-gamemode').textContent).toContain('CTF')
-    expect(screen.getByTestId('replays-detail-field-sides').textContent).toContain('Red vs Blue')
+    expect(screen.getByTestId('replays-detail-field-sides').textContent).toContain('Red')
+    expect(screen.getByTestId('replays-detail-field-sides').textContent).toContain('Blue')
     expect(screen.getByTestId('replays-detail-facts-file')).toBeTruthy()
     expect(screen.getByTestId('replays-detail-facts-match')).toBeTruthy()
 

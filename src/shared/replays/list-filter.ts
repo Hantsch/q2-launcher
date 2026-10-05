@@ -43,6 +43,8 @@ export interface DemoFilterSubject {
   headerPlayers: readonly string[]
   /** Player names carried by the file-name-template facts (`DemoRow.nameFacts`); empty when none. */
   namePlayers: readonly string[]
+  /** Roster team names, team players and spectators (`DemoRow.roster`); empty when none. */
+  rosterTerms: readonly string[]
   /** Effective date, as epoch ms, or null when unresolved. */
   date: number | null
 }
@@ -118,7 +120,7 @@ export function normalizeDemoListFilter(f: DemoListFilter): DemoListFilter {
  * Whether `s` matches a free-text search term: an empty (or whitespace-only) term always matches.
  * Otherwise matches case-insensitively against the subject's name, file name, map, sidecar
  * description, every sidecar tag, every player of every sidecar side, every header player, and
- * every name-fact player. Never throws.
+ * every name-fact player, and every roster team name, team player and spectator. Never throws.
  *
  * Quoted mode (see `matchesTerm`): a term wrapped in double quotes (`"q2ctf5"`) must equal the
  * whole value of any of those fields instead.
@@ -133,6 +135,7 @@ export function matchesDemoSearch(s: DemoFilterSubject, term: string): boolean {
     ...(s.sidecar?.sides ?? []).flatMap((side) => side.players),
     ...s.headerPlayers,
     ...s.namePlayers,
+    ...s.rosterTerms,
   ])
 }
 
@@ -254,6 +257,13 @@ export function demoFilterSubject(row: DemoRow): DemoFilterSubject {
     sidecar: row.sidecar.state === 'none' ? null : row.sidecar.values,
     headerPlayers: row.players,
     namePlayers: row.nameFacts?.players ?? [],
+    rosterTerms:
+      row.roster === null
+        ? []
+        : [
+            ...row.roster.teams.flatMap((t) => [t.name, ...t.players]),
+            ...row.roster.spectators,
+          ],
     date: row.effective.date.value,
   }
 }

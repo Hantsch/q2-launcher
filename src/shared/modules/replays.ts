@@ -272,6 +272,13 @@ export const discoveredDemoSchema = z.object({
   players: z.array(z.string()),
   /** Playback duration from the demo's frame count, or null when it could not be counted. */
   durationMs: z.number().int().nonnegative().nullable(),
+  /** Teams and spectators by name from the demo's configstrings; null when unknown (mvd2, no teams). */
+  roster: z
+    .object({
+      teams: z.array(z.object({ name: z.string(), players: z.array(z.string()) })),
+      spectators: z.array(z.string()),
+    })
+    .nullable(),
   /** `fs.stat`'s own timestamps for this file - present whether the row is readable or not. */
   fileTime: fileTimeSchema,
   /**

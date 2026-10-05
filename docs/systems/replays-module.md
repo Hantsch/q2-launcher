@@ -51,9 +51,21 @@ This document describes the module as built. `replays` is a registered module; i
   `DemoListFilterBar.tsx`, `ReplaysListStatus.tsx` — the list.
 - `components/DemoDetailPanel.tsx`, `components/DemoDetailEditor.tsx`,
   `components/SidesEditor.tsx`, `RenameDemoDialog.tsx` — detail and editing.
+- `components/DemoPlayersPanel.tsx` — the detail's players panel: players grouped by side, POV marked, spectators in a closed disclosure.
 - `components/DemoStage.tsx`, `components/DemoTimeline.tsx`, `cinema/CinemaOverlay.tsx`,
   `playback-store.ts`, `useDemoPlay.ts` — playback.
 - `ReplaysSettingsSection.tsx`, `NameTemplatesList.tsx`, `client.ts`, `locale/en.json`.
+
+**Parser and index facts**
+
+- Each index row carries `roster`: `{ teams: { name, players }[], spectators }`, or `null` when
+  unknown. It is collected by `shared/demos/dm2-roster.ts` in the one existing frame-count pass
+  (`readDemoFullPass` for a loose file, `zip-demos.ts` for an archive entry), never a second read.
+- OpenTDM: a player's team comes from the slot string `name (team)` while it still names the slot's
+  current player; the last scoreboard layout's `Spectators` section overrides it.
+- CTF: when no slot string assigns a team, the `ctf_r` / `ctf_b` skins give Red and Blue.
+- A change to the cached row shape bumps `REPLAYS_INDEX_CACHE_VERSION` (now 3): old caches are
+  discarded and re-read.
 
 ## Persisted state
 
@@ -125,3 +137,5 @@ and `playbackDisplay`.
   decompressed by the launcher.
 - Stage placement depends on the platform's window system.
 - Nested archives are not expanded.
+- An `.mvd2` demo has no roster.
+- An OpenTDM 1v1 demo cut off before the match ends has no teams.

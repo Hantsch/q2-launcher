@@ -1,7 +1,7 @@
 ---
 id: 245
 title: the demo detail lists players by team
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -29,18 +29,18 @@ from `CS_PLAYERSKINS`, with no team, and the detail shows sides as one line of t
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The detail shows players as a table/list in the server browser's style, without score
+- [x] **AC1** — The detail shows players as a table/list in the server browser's style, without score
       and ping columns.
-- [ ] **AC2** — For the example OpenTDM demo, players are grouped under "Home" and "Away" with `maq`
+- [x] **AC2** — For the example OpenTDM demo, players are grouped under "Home" and "Away" with `maq`
       in Home and `shad` in Away; spectators are not listed as players.
-- [ ] **AC3** — Team names come from the demo; a team renamed in the match shows its final name.
-- [ ] **AC4** — A demo without recognisable teams (duel/FFA, unknown mod) shows one ungrouped list of
+- [x] **AC3** — Team names come from the demo; a team renamed in the match shows its final name.
+- [x] **AC4** — A demo without recognisable teams (duel/FFA, unknown mod) shows one ungrouped list of
       its players, as today's header players.
-- [ ] **AC5** — Sides the user entered in the sidecar still win over the extracted teams.
-- [ ] **AC6** — The POV player is marked in the list (icon plus text, not colour alone).
-- [ ] **AC7** — Extraction stays within the existing scan budget: parsing a 1 MB demo for teams does
+- [x] **AC5** — Sides the user entered in the sidecar still win over the extracted teams.
+- [x] **AC6** — The POV player is marked in the list (icon plus text, not colour alone).
+- [x] **AC7** — Extraction stays within the existing scan budget: parsing a 1 MB demo for teams does
       not make the list scan noticeably slower (measured in refine).
-- [ ] **AC8** — The example demo (or a trimmed copy) is a test fixture.
+- [x] **AC8** — The example demo (or a trimmed copy) is a test fixture.
 
 ## Open Questions
 
@@ -146,7 +146,7 @@ Order D1 → D2 → D3 → D4 → D5. Each D builds on the previous one's types.
 
 ## Deliverables
 
-- **D1 — Roster collector in the frame pass (shared).** Copy the example demo from
+- [x] **D1 — Roster collector in the frame pass (shared).** Copy the example demo from
   `C:\Games\Q2Pro\opentdm\demos\shad-maq_PFDE3_q2rdm2_20260922-161521.dm2` to
   `docs/fixtures/demos/` under the same name. New pure file `src/shared/demos/dm2-roster.ts` exports
   `type DemoRoster = { teams: { name: string; players: string[] }[]; spectators: string[] }` and
@@ -179,7 +179,7 @@ Order D1 → D2 → D3 → D4 → D5. Each D builds on the previous one's types.
     is the median of 20 runs.
   - In `src/shared/demos/dm2-frames.test.ts`, a case showing that the counts with and without an
     observer are equal on `docs/fixtures/demos/test.dm2` and on the new fixture.
-- **D2 — Roster in the index (main + shared schema).**
+- [x] **D2 — Roster in the index (main + shared schema).**
   - `src/main/lib/demo-bytes.ts`: `readDemoDuration` becomes
     `readDemoFullPass(path): Promise<{ duration: FrameCountResult; roster: DemoRoster | null }>`. The
     same single stream feeds `createDm2FrameCounter(collector)` for `.dm2`; `.mvd2` gives
@@ -198,7 +198,7 @@ Order D1 → D2 → D3 → D4 → D5. Each D builds on the previous one's types.
   - Tests: in `src/main/lib/demo-bytes.test.ts`, the fixture gives Home `[maq]` and Away `[shad]`,
     also for a gzipped copy. In `src/main/modules/replays/scan-service.test.ts`, a case asserting that
     `readDemoFacts` opens a loose demo for one full pass, not two (AC7, structural).
-- **D3 — Effective sides from the teams (shared + callers).** The `headerFromRow` shape exists three
+- [x] **D3 — Effective sides from the teams (shared + callers).** The `headerFromRow` shape exists three
   times: `src/main/modules/replays/demo-rows.ts:29`, `src/main/modules/replays/demo-rename.ts:66` and
   `src/renderer/src/modules/replays/row-patch.ts:14`. Extract it into
   `src/shared/replays/row-header.ts` as `headerFromRow(row: DiscoveredDemo)`, now including `roster`,
@@ -213,7 +213,7 @@ Order D1 → D2 → D3 → D4 → D5. Each D builds on the previous one's types.
   `src/shared/demos/effective-values.test.ts`: a roster becomes team sides, sidecar sides still win
   over the roster (AC5), and no roster falls back to header players (AC4). Add a test for
   `row-header.ts`.
-- **D4 — Search and detail model (shared).**
+- [x] **D4 — Search and detail model (shared).**
   - `src/shared/replays/list-filter.ts`: `DemoFilterSubject` gains
     `rosterTerms: readonly string[]` (team names, team players, spectators). `demoFilterSubject` fills
     it from `row.roster`, and `matchesDemoSearch` includes it. Test in
@@ -226,7 +226,7 @@ Order D1 → D2 → D3 → D4 → D5. Each D builds on the previous one's types.
     `name === row.effective.pov.value` (exact match after trimming).
   - Tests in `src/shared/replays/demo-detail.test.ts` cover the grouped roster, the ungrouped
     fallback, sidecar override with spectators kept, and the POV flag.
-- **D5 — Players panel in the detail (renderer + e2e).**
+- [x] **D5 — Players panel in the detail (renderer + e2e).**
   - New `src/renderer/src/modules/replays/components/DemoPlayersPanel.tsx` with props
     `{ groups: DemoDetail['playerGroups'] }`. Copy the markup of
     `src/renderer/src/modules/servers/ServerPlayersPanel.tsx` (the `PanelTitle` with `Users` icon and
@@ -276,8 +276,8 @@ Order D1 → D2 → D3 → D4 → D5. Each D builds on the previous one's types.
   name".
 - AC4 → unit `src/shared/demos/dm2-roster.test.ts` › "a duel without team strings has no roster" and
   `src/shared/demos/effective-values.test.ts` › "no roster falls back to the header players"; e2e
-  `scripts/flows/replays-detail-teams.mjs` › "replays-detail-teams" (component fallback in
-  `DemoPlayersPanel.test.tsx` › "a single unnamed side renders as one ungrouped list").
+  component `DemoPlayersPanel.test.tsx` › "a single unnamed side renders as one ungrouped list"
+  (no fixture demo yields a roster-less row, so the flow does not cover the fallback).
 - AC5 → unit `src/shared/demos/effective-values.test.ts` › "sidecar sides win over the demo roster";
   e2e `scripts/flows/replays-detail-teams.mjs` › "replays-detail-teams" (the sidecar copy shows Wolves
   with maq).
@@ -292,3 +292,19 @@ Order D1 → D2 → D3 → D4 → D5. Each D builds on the previous one's types.
   `docs/fixtures/demos/shad-maq_PFDE3_q2rdm2_20260922-161521.dm2`).
 
 ## Done
+
+Roster (teams, spectators) is collected inside the existing `.dm2` frame-count pass and stored on the index row (cache v3). Effective `sides` become one side per team (sidecar still first), search matches team names and roster players, and the detail shows a name-only players panel per team with an Eye+"POV" mark and a closed spectators group.
+
+Commit message: `245: demo detail lists players by team (roster from the dm2 frame pass, OpenTDM + CTF, spectators group)`
+
+Verification (narrow gate): `npm run build`, `lint`, `typecheck` green; `npx vitest run --changed HEAD` 1596 tests green; comments/architecture tests green. e2e: the `--affected` selection pulled 123 flows and exceeded the 10-minute call (stopped, INCONCLUSIVE), so the story's named flow plus the touched areas ran instead: `npm run ui:flows -- replays-detail-teams replays-demo-detail replays-filter-search replays-edit-sides-tags replays-detail-quick-edit replays-demo-rows replays-discovered-list replays-edit-sidecar replays-quoted-search replays-zip-entries replays-sort-order replays-rename` 12/12 passed. Review: one default-tier cycle, PASS; findings fixed (flow asserts Home/Away exactly, panel test asserts Blue too, AC4 mapping corrected). Full regression gate pending (sprint's).
+AC -> test: AC1/AC6 flow + DemoPlayersPanel.test.tsx; AC2/AC3/AC8 dm2-roster.test.ts + flow; AC4 dm2-roster.test.ts, effective-values.test.ts, DemoPlayersPanel.test.tsx (component level only); AC5 effective-values.test.ts + flow; AC7 dm2-roster.test.ts budget + scan-service.test.ts one-pass. No manual residue.
+
+Decisions:
+- `OkHeader.roster` is optional (`roster?: DemoRoster | null`) because `Dm2Header`/`Mvd2Header` are in the same union and carry no roster.
+- `dm2-roster.test.ts` and `dm2-frames.test.ts` read fixtures via `node:fs`, so they were added to `tsconfig.web.json` exclude and the list pinned in `architecture.test.ts` (as `fixture-constants.test.ts`).
+- `replays-teams` fixture puts the demos in an extra folder under the variant's userData, not an installation demos folder, because the shared `gameRoot()` would leak them into other flows. The scan covers both.
+- `areas.json` gets a `replays-detail` area (every replays row was at the 12-flow cap); `replays-demo-detail.mjs` dropped `sides` from `MATCH_IDS` (the field now sits outside the match facts); `field.sides` i18n key removed; gamemode filter options in the flow fixture now include `tdm` (test.dm2 has a team player).
+- Not fixed (low): `demo-detail.ts` still builds a `sides` entry in `fields` that the panel filters out; AC4 has no e2e step (no roster-less fixture row).
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 9

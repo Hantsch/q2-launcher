@@ -26,6 +26,7 @@ function demo(overrides: Partial<DiscoveredDemo> = {}): DiscoveredDemo {
     pov: 'Recorder',
     players: ['Alice', 'Bob'],
     durationMs: 60000,
+    roster: null,
     fileTime: { birthtimeMs: 1000, mtimeMs: 2000 },
     nameFacts: null,
     ...overrides,

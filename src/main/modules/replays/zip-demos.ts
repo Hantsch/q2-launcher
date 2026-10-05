@@ -3,6 +3,7 @@ import { Readable } from 'node:stream'
 import { createGunzip } from 'node:zlib'
 import { parseDemoHeader } from '@shared/demos/demo-header'
 import { createDm2FrameCounter } from '@shared/demos/dm2-frames'
+import { createDm2RosterCollector, type DemoRoster } from '@shared/demos/dm2-roster'
 import { createMvd2FrameCounter } from '@shared/demos/mvd2-frames'
 import { demoReadability } from '@shared/demos/readability'
 import type { DemoUnreadable } from '@shared/demos/readability'
@@ -92,13 +93,21 @@ function gunzipBounded(
 /**
  * Story 150: a zip entry's duration, from the same in-memory (already gunzipped) bytes its
  * header was parsed from - the entry is never read a second time. `null` when the frame count
- * fails, same as a loose file's `readDemoDuration` failure.
+ * fails, same as a loose file's `readDemoFullPass` failure.
  */
-function durationOf(bytes: Uint8Array, format: DemoFormat): number | null {
-  const counter = format === 'mvd2' ? createMvd2FrameCounter() : createDm2FrameCounter()
+function durationOf(
+  bytes: Uint8Array,
+  format: DemoFormat,
+): { durationMs: number | null; roster: DemoRoster | null } {
+  const collector = format === 'mvd2' ? null : createDm2RosterCollector()
+  const counter =
+    format === 'mvd2' ? createMvd2FrameCounter() : createDm2FrameCounter(collector ?? undefined)
   counter.push(bytes)
   const result = counter.finish()
-  return result.ok ? result.durationMs : null
+  return {
+    durationMs: result.ok ? result.durationMs : null,
+    roster: collector?.finish() ?? null,
+  }
 }
 
 /**
@@ -144,6 +153,7 @@ export async function expandZip(
       pov: null,
       players: [],
       durationMs: null,
+      roster: null,
       fileTime,
       nameFacts: null,
     })
@@ -204,7 +214,7 @@ export async function expandZip(
       gameDir: header.gameDir,
       pov: header.pov,
       players: header.players,
-      durationMs: durationOf(finalBytes, header.format),
+      ...durationOf(finalBytes, header.format),
       fileTime,
       nameFacts: null,
     })

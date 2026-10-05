@@ -100,8 +100,8 @@ describe('ReplaysIndexCache', () => {
   })
 
   it('a version-1 cache is discarded', async () => {
-    // Story 150 D1: version-1 rows predate gameDir/pov/players/durationMs - never reused.
-    expect(REPLAYS_INDEX_CACHE_VERSION).toBe(2)
+    // Version-1 rows predate gameDir/pov/players/durationMs - never reused.
+    expect(REPLAYS_INDEX_CACHE_VERSION).toBe(3)
     await writeRawCacheFile(JSON.stringify({ cacheVersion: 1, entries: { 'entry-1': demoA } }))
     await expect(new ReplaysIndexCache().read()).resolves.toEqual(new Map())
   })

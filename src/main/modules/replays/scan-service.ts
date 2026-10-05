@@ -1,5 +1,6 @@
 import type { BoundModule } from '../define-module'
 import { stat } from 'node:fs/promises'
+import type { DemoRoster } from '@shared/demos/dm2-roster'
 import { demoReadability } from '@shared/demos/readability'
 import type { DemoUnreadable } from '@shared/demos/readability'
 import {
@@ -19,7 +20,7 @@ import {
   matchNameTemplate,
   type NameFacts,
 } from '@shared/replays/name-template'
-import { readDemoDuration, readDemoHeader } from '../../lib/demo-bytes'
+import { readDemoFullPass, readDemoHeader } from '../../lib/demo-bytes'
 import { demoIdForPath, type DiscoveredDemoFile } from './discovery'
 import type { CachedDemo, ReplaysIndexCache } from './index-cache'
 import { runIncrementalScan, type IncrementalScanSource } from './incremental-scan'
@@ -68,6 +69,8 @@ export interface DemoHeaderFacts {
   pov: string | null
   players: string[]
   durationMs: number | null
+  /** Teams and spectators from the same frame-count pass; null for mvd2 or when none was read. */
+  roster: DemoRoster | null
 }
 
 /** A discovered demo plus the identity the incremental scan compares against the cache. For a zip entry, `size`,
@@ -163,6 +166,7 @@ function toRow(file: ReplaysScanFile, facts: DemoHeaderFacts): DiscoveredDemo {
     pov: facts.pov,
     players: facts.players,
     durationMs: facts.durationMs,
+    roster: facts.roster,
     fileTime:
       file.archiveEntry !== null
         ? file.fileTime
@@ -241,6 +245,7 @@ export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFa
       pov: file.pov,
       players: file.players,
       durationMs: file.durationMs,
+      roster: file.roster,
     }
   }
   const header = await readDemoHeader(file.absolutePath)
@@ -258,9 +263,10 @@ export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFa
       pov: null,
       players: [],
       durationMs: null,
+      roster: null,
     }
   }
-  const duration = await readDemoDuration(file.absolutePath)
+  const { duration, roster } = await readDemoFullPass(file.absolutePath)
   return {
     map: header.map,
     unparsableReason: null,
@@ -270,6 +276,7 @@ export async function readDemoFacts(file: ReplaysScanFile): Promise<DemoHeaderFa
     pov: header.pov,
     players: header.players,
     durationMs: duration.ok ? duration.durationMs : null,
+    roster,
   }
 }
 

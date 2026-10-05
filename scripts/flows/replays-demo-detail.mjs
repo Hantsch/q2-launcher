@@ -12,7 +12,7 @@
 //   replays-detail                 DemoDetailPanel.tsx - the panel itself
 //   replays-detail-title           DemoDetailPanel.tsx - the `<h2>` carrying the demo's name
 //   replays-detail-facts-file      DemoDetailPanel.tsx - `<dl>` of file facts (fileName, duration, date)
-//   replays-detail-facts-match     DemoDetailPanel.tsx - `<dl>` of match facts (map, mod, gamemode, sides, pov)
+//   replays-detail-facts-match     DemoDetailPanel.tsx - `<dl>` of match facts (map, mod, gamemode, pov)
 //   replays-detail-field-<id>      DemoDetailPanel.tsx - one wrapper per rendered `DetailFieldId`
 //   demo-detail-mvd2-note          DemoDetailPanel.tsx - the mvd2 camera note
 //   replays-detail-close           DemoDetailPanel.tsx - the panel's close IconButton
@@ -35,7 +35,7 @@ export default async function replaysDemoDetail({ page, shot, step }) {
 
   const PROVENANCE = ['set by you', 'from the demo', 'from the file name', 'file time', 'guessed']
   const FILE_IDS = ['fileName', 'duration', 'date']
-  const MATCH_IDS = ['map', 'mod', 'gamemode', 'sides', 'pov']
+  const MATCH_IDS = ['map', 'mod', 'gamemode', 'pov']
   const ORDER = [...FILE_IDS, ...MATCH_IDS]
   const detail = page.getByTestId('replays-detail')
 

@@ -19,6 +19,7 @@ import {
 } from '../../shared/demos/dm2-header'
 import { parseDemoHeader, type DemoHeaderResult } from '../../shared/demos/demo-header'
 import { createDm2FrameCounter } from '../../shared/demos/dm2-frames'
+import { createDm2RosterCollector, type DemoRoster } from '../../shared/demos/dm2-roster'
 import { createMvd2FrameCounter } from '../../shared/demos/mvd2-frames'
 import type { FrameCounter, FrameCountResult } from '../../shared/demos/frame-count'
 
@@ -129,19 +130,20 @@ const FORMAT_SNIFF_BYTES = MVD2_MAGIC.length
 function streamDemoDuration(
   source: Readable,
   rawStream: Readable | null,
-): Promise<FrameCountResult> {
+): Promise<DemoFullPass> {
   return new Promise((resolve) => {
     let resolved = false
     let counter: FrameCounter | null = null
+    let collector: ReturnType<typeof createDm2RosterCollector> | null = null
     let sniffChunks: Uint8Array[] = []
     let sniffBytes = 0
 
-    const settle = (result: FrameCountResult): void => {
+    const settle = (duration: FrameCountResult): void => {
       if (resolved) return
       resolved = true
       source.destroy()
       rawStream?.destroy()
-      resolve(result)
+      resolve({ duration, roster: collector?.finish() ?? null })
     }
 
     const chooseCounter = (): FrameCounter => {
@@ -152,7 +154,9 @@ function streamDemoDuration(
           head[offset++] = chunk[i]!
       }
       const isMvd2 = offset === FORMAT_SNIFF_BYTES && MVD2_MAGIC.every((b, i) => head[i] === b)
-      return isMvd2 ? createMvd2FrameCounter() : createDm2FrameCounter()
+      if (isMvd2) return createMvd2FrameCounter()
+      collector = createDm2RosterCollector()
+      return createDm2FrameCounter(collector)
     }
 
     const ensureCounter = (force: boolean): void => {
@@ -193,14 +197,16 @@ function streamDemoDuration(
   })
 }
 
+export type DemoFullPass = { duration: FrameCountResult; roster: DemoRoster | null }
+
 /**
- * Counts a demo file's server frames and derives its playback duration — `.dm2` or `.mvd2`, chosen
- * from the (decompressed, if gzipped) bytes themselves, transparently handling gzip compression the
- * same way `readDemoPrefix` does. Unlike the header readers, this reads the whole file: there is no
- * byte budget short of the actual end-of-stream marker, since the frame count is exact. Never
- * rejects.
+ * Reads a demo file once, front to back, and returns its playback duration (exact server-frame
+ * count) and, for `.dm2`, its roster collected in that same pass - `.mvd2` has none. `.dm2` or
+ * `.mvd2` is chosen from the (decompressed, if gzipped) bytes themselves, transparently handling
+ * gzip compression the same way `readDemoPrefix` does. Unlike the header readers, this reads the
+ * whole file. Never rejects.
  */
-export async function readDemoDuration(path: string): Promise<FrameCountResult> {
+export async function readDemoFullPass(path: string): Promise<DemoFullPass> {
   try {
     const handle = await open(path, 'r')
     let isGzip: boolean
@@ -221,6 +227,6 @@ export async function readDemoDuration(path: string): Promise<FrameCountResult> 
     const gunzip = createGunzip()
     return await streamDemoDuration(gunzip, readStream)
   } catch {
-    return { ok: false, reason: 'unreadable' }
+    return { duration: { ok: false, reason: 'unreadable' }, roster: null }
   }
 }

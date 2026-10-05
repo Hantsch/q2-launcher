@@ -351,11 +351,15 @@
         "star_other": "{{count}} stars"
       },
       "mvd2Note": "Server-side demo with every player. Q2PRO chooses whom the camera follows — switch in game with invnext / invprev or cmd chase <player>.",
+      "players": {
+        "side": "Side {{n}}",
+        "pov": "POV",
+        "spectators": "Spectators ({{count}})"
+      },
       "field": {
         "map": "Map",
         "mod": "Mod",
         "gamemode": "Gamemode",
-        "sides": "Players",
         "date": "Recorded",
         "pov": "Point of view",
         "description": "Description",

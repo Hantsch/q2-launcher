@@ -10,11 +10,9 @@
  * at once so a large index never opens thousands of file handles at the same time.
  */
 
-import {
-  resolveEffectiveValues,
-  type ResolveEffectiveValuesInputs,
-} from '@shared/demos/effective-values'
+import { resolveEffectiveValues } from '@shared/demos/effective-values'
 import type { DemoRow, DiscoveredDemo, SidecarState } from '@shared/modules/replays'
+import { headerFromRow } from '@shared/replays/row-header'
 import type { SidecarFields } from '@shared/replays/sidecar'
 
 /** What a sidecar read answers with, once its `Outcome` (or archive-entry/unknown-id shortcut) has
@@ -22,22 +20,6 @@ import type { SidecarFields } from '@shared/replays/sidecar'
  * failed read) exactly like `sidecar-store.ts`'s own `{ state: 'none' }` answer for an archive
  * entry - the row ends up the same either way. */
 export type DemoSidecarInput = { state: SidecarState; values: Partial<SidecarFields> } | null
-
-/** The `ResolveEffectiveValuesInputs['header']` shape, built straight from the row: only when the
- * row parsed (`readable`) and actually carries a game dir - a readable row with no game dir has no
- * header worth resolving against. */
-function headerFromRow(demo: DiscoveredDemo): ResolveEffectiveValuesInputs['header'] {
-  if (!demo.readable || demo.gameDir === null) return null
-  // Only the fields `resolveEffectiveValues` actually reads (`okHeader`'s narrowed shape) - never a
-  // real `Dm2Header`/`Mvd2Header`, which a composed row has no reason to carry.
-  return {
-    ok: true,
-    gameDir: demo.gameDir,
-    map: demo.map,
-    pov: demo.pov,
-    players: demo.players,
-  } as ResolveEffectiveValuesInputs['header']
-}
 
 /** Builds one `DemoRow` from a discovered demo and its (already-read) sidecar. Pure, synchronous,
  * never throws. */

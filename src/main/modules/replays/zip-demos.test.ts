@@ -270,6 +270,7 @@ describe('expandZip (real 7za binary)', () => {
       pov: null,
       players: [],
       durationMs: null,
+      roster: null,
       fileTime: { birthtimeMs: 0, mtimeMs: 0 },
       nameFacts: null,
     }

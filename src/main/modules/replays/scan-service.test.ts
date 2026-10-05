@@ -2,6 +2,20 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from '
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// Counts whole-file stream opens: a bounded header read uses a positioned `read()`, only a full pass
+// streams the file.
+const streamOpens = vi.hoisted(() => ({ paths: [] as string[] }))
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  return {
+    ...actual,
+    createReadStream: (...args: Parameters<typeof actual.createReadStream>) => {
+      streamOpens.paths.push(String(args[0]))
+      return actual.createReadStream(...args)
+    },
+  }
+})
 import {
   REPLAYS_EVENTS,
   discoveredDemoSchema,
@@ -39,6 +53,7 @@ const FACTS: DemoHeaderFacts = {
   pov: null,
   players: [],
   durationMs: null,
+  roster: null,
 }
 const HOUR_AGO_S = (Date.now() - 60 * 60 * 1000) / 1000
 
@@ -208,6 +223,7 @@ describe('replays scan service (story 144 D3)', () => {
       pov: null,
       players: [],
       durationMs: null,
+      roster: null,
       fileTime: { birthtimeMs: 0, mtimeMs: 0 },
       nameFacts: null,
     }
@@ -626,6 +642,18 @@ describe('header facts and duration on the index row (story 150 D1)', () => {
     expect(rows).toHaveLength(1)
     expect(pickFacts(rows[0])).toEqual(EXPECTED)
     expect(discoveredDemoSchema.safeParse(rows[0]).success).toBe(true)
+  })
+
+  it('a loose demo is read for one full pass, not two', async () => {
+    const dir = await fixtureFolder()
+    const path = join(dir, 'good.dm2')
+    streamOpens.paths.length = 0
+
+    const h = harness([dir], { parse: readDemoFacts })
+    h.service.start()
+    await h.waitIdle(1)
+
+    expect(streamOpens.paths.filter((p) => p === path)).toHaveLength(1)
   })
 
   it('a cache hit keeps gameDir, pov, players and durationMs', async () => {

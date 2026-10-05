@@ -21,6 +21,7 @@ function subject(overrides: Partial<DemoFilterSubject> = {}): DemoFilterSubject 
     sidecar: null,
     headerPlayers: [],
     namePlayers: [],
+    rosterTerms: [],
     date: null,
     ...overrides,
   }
@@ -31,6 +32,13 @@ function filter(overrides: Partial<DemoListFilter> = {}): DemoListFilter {
 }
 
 describe('matchesDemoSearch', () => {
+  it('search finds a demo by its team name', () => {
+    const s = subject({ rosterTerms: ['Home', 'Away', 'Zed', 'Watcher'] })
+    expect(matchesDemoSearch(s, 'Away')).toBe(true)
+    expect(matchesDemoSearch(s, 'watcher')).toBe(true)
+    expect(matchesDemoSearch(subject(), 'Away')).toBe(false)
+  })
+
   it('matches every field case-insensitively', () => {
     const s = subject({
       name: 'Grudge Match',

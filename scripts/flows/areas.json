@@ -864,6 +864,16 @@
     "why": "Replays list layout, row formatting and virtualisation."
   },
   {
+    "area": "replays-detail",
+    "paths": [
+      "src/renderer/src/modules/replays/components/DemoDetailPanel.tsx",
+      "src/renderer/src/modules/replays/components/DemoPlayersPanel.tsx",
+      "src/shared/replays/demo-detail.ts"
+    ],
+    "flows": ["replays-demo-detail", "replays-detail-teams"],
+    "why": "The demo detail panel: facts and the players panel."
+  },
+  {
     "area": "servers-shell",
     "paths": [
       "src/main/modules/servers/index.ts",

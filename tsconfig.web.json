@@ -15,8 +15,11 @@
   // `tsconfig.node.json` only.
   // `lib/toast.test.ts` scans the renderer sources with `node:fs` (node-only), so it is excluded here
   // too. `modules/config/config-structure.test.ts` and `i18n/keys.test.ts` do the same through
-  // `src/test-support/source-tree.ts`.
+  // `src/test-support/source-tree.ts`. `demos/dm2-frames.test.ts` and `demos/dm2-roster.test.ts`
+  // read the real demo fixtures with `node:fs` (story 245).
   "exclude": [
+    "src/shared/demos/dm2-frames.test.ts",
+    "src/shared/demos/dm2-roster.test.ts",
     "src/shared/replays/demo-guard.test.ts",
     "src/shared/fixture-constants.test.ts",
     "src/shared/types/common.test.ts",

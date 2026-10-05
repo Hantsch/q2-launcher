@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DemoRow } from '../modules/replays'
+import type { SidecarFields } from './sidecar'
 import type { Dm2Header } from '../demos/dm2-header'
 import { resolveEffectiveValues } from '../demos/effective-values'
 import { buildDemoDetail } from './demo-detail'
@@ -59,6 +60,7 @@ function baseRow(overrides: Partial<DemoRow> = {}): DemoRow {
     pov: 'Ranger',
     players: ['Ranger', 'Reaper'],
     durationMs: 12_345,
+    roster: null,
     fileTime: { birthtimeMs: 1_000, mtimeMs: 2_000 },
     nameFacts,
     sidecar: { state: 'ok', values: sidecarValues },
@@ -170,5 +172,83 @@ describe('buildDemoDetail', () => {
     const row = baseRow({ sidecar: { state: 'error', values: {} } })
     const detail = buildDemoDetail(row, row.sidecar.values)
     expect(detail.sidecarIssues).toEqual({ state: 'error' })
+  })
+
+  describe('player groups', () => {
+    const roster = {
+      teams: [
+        { name: 'Home', players: ['Ranger', 'Reaper'] },
+        { name: 'Away', players: ['Zed'] },
+      ],
+      spectators: ['Watcher'],
+    }
+
+    function rosterRow(sidecar: Partial<SidecarFields> = {}, pov = 'Ranger'): DemoRow {
+      const sidecarValues = sidecar
+      return baseRow({
+        roster,
+        sidecar: { state: 'ok', values: sidecarValues },
+        effective: resolveEffectiveValues({
+          fileName: 'final.dm2',
+          sidecar: sidecarValues,
+          header: { ...header({ pov }), roster },
+          nameFacts: null,
+          fileTime: { birthtimeMs: 1_000, mtimeMs: 2_000 },
+        }),
+      })
+    }
+
+    it('a roster demo is grouped by team with its spectators apart', () => {
+      const row = rosterRow()
+      const { playerGroups } = buildDemoDetail(row, row.sidecar.values)
+      expect(playerGroups.groups).toEqual([
+        {
+          heading: { team: 'Home', index: 1 },
+          players: [
+            { name: 'Ranger', pov: true },
+            { name: 'Reaper', pov: false },
+          ],
+        },
+        { heading: { team: 'Away', index: 2 }, players: [{ name: 'Zed', pov: false }] },
+      ])
+      expect(playerGroups.spectators).toEqual([{ name: 'Watcher', pov: false }])
+    })
+
+    it('a demo without a roster lists its players ungrouped', () => {
+      const row = baseRow()
+      const { playerGroups } = buildDemoDetail(row, row.sidecar.values)
+      expect(playerGroups.groups).toHaveLength(1)
+      expect(playerGroups.groups[0]?.heading).toBeNull()
+      expect(playerGroups.spectators).toEqual([])
+    })
+
+    it('an unnamed side among several is headed by its number', () => {
+      const row = rosterRow({
+        sides: [{ team: 'Red', result: 'win', players: ['Zed'] }, { players: ['Ranger'] }],
+      })
+      const { playerGroups } = buildDemoDetail(row, row.sidecar.values)
+      expect(playerGroups.groups.map((g) => g.heading)).toEqual([
+        { team: 'Red', result: 'win', index: 1 },
+        { index: 2 },
+      ])
+    })
+
+    it('sidecar sides override the roster but spectators already shown are not repeated', () => {
+      const row = rosterRow({ sides: [{ team: 'Red', players: ['Zed', 'Watcher'] }] })
+      const { playerGroups } = buildDemoDetail(row, row.sidecar.values)
+      expect(playerGroups.groups.map((g) => g.players.map((p) => p.name))).toEqual([
+        ['Zed', 'Watcher'],
+      ])
+      expect(playerGroups.spectators).toEqual([])
+    })
+
+    it('only the exact point-of-view name is flagged', () => {
+      const row = rosterRow({ sides: [{ team: 'Red', players: ['Zed', 'zed2'] }] }, ' Zed ')
+      const { playerGroups } = buildDemoDetail(row, row.sidecar.values)
+      expect(playerGroups.groups[0]?.players).toEqual([
+        { name: 'Zed', pov: true },
+        { name: 'zed2', pov: false },
+      ])
+    })
   })
 })

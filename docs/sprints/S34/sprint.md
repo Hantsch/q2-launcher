@@ -21,7 +21,7 @@ refinements from the latest user feedback.
 - [x] 235 — shutdown, state store and job edge cases are closed
 - [x] 233 — the flow gate has no quarantined flows and catches cross-story breakage
 - [ ] 234 — release verification and CI rehearsals run before a merge to main (blocked: Docker daemon down, D2 rehearsal not run)
-- [ ] 245 — the demo detail lists players by team
+- [x] 245 — the demo detail lists players by team
 - [ ] 243 — the demo detail is edited in place and saves itself
 - [ ] 242 — I browse my demos in their folders
 - [ ] 238 — the demo list shows the selected installation's demos

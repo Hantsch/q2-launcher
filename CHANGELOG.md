@@ -23,6 +23,7 @@ version section when a release actually ships.
 - **Servers** — Put a search term in quotes to match it exactly.
 - **Servers** — Switch between Online and LAN to find servers on your local network.
 - **Servers** — Save your server filter as a named quick filter and reapply it with one click.
+- **Demos** — Demo detail lists players by team, spectators tucked away.
 
 ### Changed
 

@@ -48,6 +48,7 @@ const BASE_ROW: DemoRowData = {
   pov: null,
   players: [],
   durationMs: null,
+  roster: null,
   fileTime: { birthtimeMs: 0, mtimeMs: 0 },
   nameFacts: null,
   sidecar: { state: 'none', values: {} },

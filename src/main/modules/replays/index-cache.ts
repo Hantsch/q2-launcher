@@ -19,7 +19,7 @@ import { userDataDir } from '../../lib/paths'
 
 /** Bump whenever any cached fact shape changes - parsed facts, name facts - a bump discards,
  * never migrates, exactly like `NEWS_CACHE_VERSION` in feed-cache.ts. */
-export const REPLAYS_INDEX_CACHE_VERSION = 2
+export const REPLAYS_INDEX_CACHE_VERSION = 3
 
 export const REPLAYS_INDEX_CACHE_FILE = 'replays-index.json'
 

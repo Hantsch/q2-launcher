@@ -74,6 +74,7 @@ describe('replays module contract (story 135 D1)', () => {
       pov: null,
       players: [],
       durationMs: null,
+      roster: null,
       fileTime: { birthtimeMs: 0, mtimeMs: 0 },
       nameFacts: null,
     })

@@ -1,12 +1,10 @@
 import { readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import {
-  resolveEffectiveValues,
-  type ResolveEffectiveValuesInputs,
-} from '@shared/demos/effective-values'
+import { resolveEffectiveValues } from '@shared/demos/effective-values'
 import type { DiscoveredDemo } from '@shared/modules/replays'
 import { validateDemoRename } from '@shared/replays/demo-rename'
 import type { NameFacts } from '@shared/replays/name-template'
+import { headerFromRow } from '@shared/replays/row-header'
 import { sidecarFileName, type SidecarFields } from '@shared/replays/sidecar'
 import { fail, ok, type Outcome } from '@shared/types/common'
 import { pathKey } from '../../lib/fs-utils'
@@ -59,19 +57,6 @@ const defaultFs: DemoRenameFs = {
   readFile: (path) => readFile(path),
   writeFile: (path, data) => writeFile(path, data),
   rm: (path, opts) => rm(path, opts),
-}
-
-/** Same header shape `demo-rows.ts`'s `headerFromRow` builds for `index.read` - kept in step with
- * it so "what the row shows" and "what a rename would lose" are resolved identically. */
-function headerFromRow(row: DiscoveredDemo): ResolveEffectiveValuesInputs['header'] {
-  if (!row.readable || row.gameDir === null) return null
-  return {
-    ok: true,
-    gameDir: row.gameDir,
-    map: row.map,
-    pov: row.pov,
-    players: row.players,
-  } as ResolveEffectiveValuesInputs['header']
 }
 
 // Not fs-utils' pathExists: goes through the injected DemoRenameFs seam so tests can fake the filesystem.

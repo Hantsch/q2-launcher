@@ -2662,10 +2662,14 @@
         "mod": "Mod",
         "pov": "Point of view",
         "rating": "Rating",
-        "sides": "Players",
         "tags": "Tags"
       },
       "mvd2Note": "Server-side demo with every player. Q2PRO chooses whom the camera follows — switch in game with invnext / invprev or cmd chase <player>.",
+      "players": {
+        "pov": "POV",
+        "side": "Side {{n}}",
+        "spectators": "Spectators ({{count}})"
+      },
       "rating": {
         "label": "Rating",
         "none": "Not rated",

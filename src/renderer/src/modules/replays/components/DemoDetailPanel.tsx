@@ -3,13 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { Pencil, Star, X } from 'lucide-react'
 import type { DemoRow, SidecarState } from '@shared/modules/replays'
 import { buildDemoDetail, type DemoDetailField } from '@shared/replays/demo-detail'
-import type { SidecarSide } from '@shared/replays/sidecar'
 import { describeGamemode } from '@shared/demos/gamemode'
 import { IconButton } from '../../../components/ui/Button'
 import { cn } from '../../../lib/cn'
 import { sidecarRead } from '../client'
-import { sidesText, formatDemoDate } from '../row-format'
+import { formatDemoDate } from '../row-format'
 import { DemoFileActions } from './DemoFileActions'
+import { DemoPlayersPanel } from './DemoPlayersPanel'
 import { StarRating } from './StarRating'
 import { DemoDetailEditor, DemoDetailNameInput } from './DemoDetailEditor'
 import { DiscardDemoNotesDialog } from './DiscardDemoNotesDialog'
@@ -30,16 +30,14 @@ export interface DemoDetailPanelProps {
 const NO_OTHER_TAGS: string[][] = []
 
 /** Renders one `DemoDetailField`'s value as text - mirrors each field's own natural formatting
- * (`sidesText` for `sides`, a localised date for `date`) rather than a
- * generic `String(value)`, which would print `[object Object]` for a `sides` array. */
+ * (a localised date for `date`) rather than a generic `String(value)`. `sides` never reaches here:
+ * `DemoPlayersPanel` renders it. */
 function fieldValueText(
   field: DemoDetailField,
   t: (key: string, params?: Record<string, unknown>) => string,
   locale: string,
 ): string {
   switch (field.id) {
-    case 'sides':
-      return sidesText((field.value as SidecarSide[]).map((side) => ({ ...side })))
     case 'gamemode': {
       const { labelKey, text } = describeGamemode({
         value: field.value as string | null,
@@ -223,7 +221,9 @@ export function DemoDetailPanel({
         ) : (
           <div className="space-y-5">
             {(['file', 'match'] as const).map((group) => {
-              const fields = detail.fields.filter((field) => field.group === group)
+              const fields = detail.fields.filter(
+                (field) => field.group === group && field.id !== 'sides',
+              )
               if (fields.length === 0) return null
               return (
                 <dl key={group} className="space-y-2" data-testid={`replays-detail-facts-${group}`}>
@@ -242,6 +242,12 @@ export function DemoDetailPanel({
                 </dl>
               )
             })}
+            {(detail.playerGroups.groups.length > 0 ||
+              detail.playerGroups.spectators.length > 0) && (
+              <div data-testid="replays-detail-field-sides">
+                <DemoPlayersPanel groups={detail.playerGroups} />
+              </div>
+            )}
             {description !== undefined && description !== '' && (
               <p
                 className="whitespace-pre-wrap wrap-break-word text-sm text-ink"
