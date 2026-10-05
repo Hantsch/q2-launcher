@@ -325,6 +325,8 @@ import {
   writeReplaysTimelineFixture,
 } from './fixture/replays-play.mjs'
 import { writeReplaysModInstallFixture } from './fixture/mods.mjs'
+export { writeEngineChoiceFixture } from './fixture/engine-choice.mjs'
+import { writeEngineChoiceFixture } from './fixture/engine-choice.mjs'
 
 /** Every variant name -> its writer; key order is the `ui:seed` order. Variants without a screen
  * of their own (only a flow) are listed too: `ui:verify` reseeds only the variants its screens
@@ -353,6 +355,7 @@ export const VARIANTS = {
   'replays-list-loading': writeReplaysListLoadingFixture,
   'replays-list-error': writeReplaysListErrorFixture,
   'replays-scope-none-selected': writeReplaysScopeNoneSelectedFixture,
+  'engine-choice': writeEngineChoiceFixture,
 }
 
 export function writeFixture(variant) {

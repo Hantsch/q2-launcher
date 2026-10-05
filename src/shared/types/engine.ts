@@ -221,6 +221,27 @@ export function isEngineSupported(kind: EngineKind): boolean {
   return getEngineDefinition(kind)?.supported ?? false
 }
 
+/** A client executable of a known engine found in an installation root. */
+export interface DetectedEngine {
+  kind: EngineKind
+  executablePath: string
+  supported: boolean
+}
+
+/**
+ * The engine an installation defaults to: Q2PRO when present, else the first other supported
+ * engine in table order, else whatever was found first, else what marker classification said.
+ */
+export function defaultEngineKind(
+  engines: readonly DetectedEngine[],
+  classified: EngineKind,
+): EngineKind {
+  if (engines.some((e) => e.kind === 'q2pro')) return 'q2pro'
+  const supported = ENGINE_DEFINITIONS.find((d) => d.supported && engines.some((e) => e.kind === d.kind))
+  if (supported) return supported.kind
+  return engines[0]?.kind ?? classified
+}
+
 export function engineLabel(kind: EngineKind): string {
   if (kind === 'custom') return 'Custom'
   if (kind === 'unknown') return 'Unknown engine'

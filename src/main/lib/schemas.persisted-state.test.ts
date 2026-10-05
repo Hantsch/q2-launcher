@@ -117,3 +117,58 @@ describe('installationSchema - checks severity: info (regression)', () => {
     expect(parsed?.checks).toEqual([infoCheck])
   })
 })
+
+describe('installationSchema - detectedEngines', () => {
+  const baseRow = {
+    id: 'install-1',
+    rootPath: 'C:\\Games\\Quake2',
+    name: 'Quake II',
+    engineKind: 'r1q2',
+    executablePath: 'C:\\Games\\Quake2\\r1q2.exe',
+    launchArgs: [],
+    activeGameDir: '',
+    source: 'manual',
+    status: 'ok',
+    checks: [],
+    gameDirs: [],
+    favorite: false,
+    sortOrder: 0,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    totalPlaytimeSeconds: 0,
+  }
+
+  it('a record without detectedEngines still loads', () => {
+    const parsed = parseInstallation(baseRow)
+
+    expect(parsed).not.toBeNull()
+    expect(parsed && 'detectedEngines' in parsed).toBe(false)
+    expect(parsed?.engineKind).toBe('r1q2')
+    expect(parsed?.executablePath).toBe('C:\\Games\\Quake2\\r1q2.exe')
+  })
+
+  it('detected engines round-trip and a mangled list drops only the field', () => {
+    const detectedEngines = [
+      { kind: 'r1q2', executablePath: 'C:\\Games\\Quake2\\r1q2.exe', supported: true },
+      { kind: 'q2pro', executablePath: 'C:\\Games\\Quake2\\q2pro.exe', supported: true },
+    ]
+
+    expect(parseInstallation({ ...baseRow, detectedEngines })?.detectedEngines).toEqual(
+      detectedEngines,
+    )
+    const mangled = parseInstallation({ ...baseRow, detectedEngines: 'nope' })
+    expect(mangled?.id).toBe('install-1')
+    expect(mangled?.detectedEngines).toBeUndefined()
+  })
+
+  it('keeps a choose-engine check rather than dropping the whole checks array', () => {
+    const check = {
+      id: 'executable',
+      severity: 'warn',
+      messageKey: 'validation.executableMissing',
+      fix: 'choose-engine',
+    }
+
+    expect(parseInstallation({ ...baseRow, checks: [check] })?.checks).toEqual([check])
+  })
+})

@@ -33,7 +33,14 @@ import { expandZip } from './zip-demos'
 /** The subset of `Installation` this scan actually needs - keeps fixtures small in tests. */
 export type DiscoverableInstallation = Pick<
   Installation,
-  'id' | 'name' | 'rootPath' | 'gameDirs' | 'engineKind' | 'recordedEngineKind' | 'writeDirPath'
+  | 'id'
+  | 'name'
+  | 'rootPath'
+  | 'gameDirs'
+  | 'engineKind'
+  | 'recordedEngineKind'
+  | 'writeDirPath'
+  | 'detectedEngines'
 >
 
 export interface DiscoverContext {
@@ -84,7 +91,10 @@ export function effectiveWriteDirs(
   installation: DiscoverableInstallation,
   { platform, homeDir }: DiscoverContext,
 ): string[] {
-  const isQ2pro = installation.engineKind === 'q2pro' || installation.recordedEngineKind === 'q2pro'
+  const isQ2pro =
+    installation.engineKind === 'q2pro' ||
+    installation.recordedEngineKind === 'q2pro' ||
+    (installation.detectedEngines ?? []).some((e) => e.kind === 'q2pro' && e.supported)
   if (platform === 'linux' && isQ2pro) return [join(homeDir, '.q2pro')]
   return []
 }

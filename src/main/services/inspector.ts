@@ -1,9 +1,16 @@
 import { basename, join } from 'node:path'
 import { BASE_GAME_DIR, KNOWN_GAME_DIRS, NON_GAME_DIRS, RETAIL_PAK_SIZES } from '@shared/constants'
-import { ENGINE_DEFINITIONS, type EngineDefinition, type EngineKind } from '@shared/types'
+import {
+  defaultEngineKind,
+  ENGINE_DEFINITIONS,
+  getEngineDefinition,
+  type EngineDefinition,
+  type EngineKind,
+} from '@shared/types'
 import type {
   BinaryKind,
   CheckSeverity,
+  DetectedEngine,
   InstallationStatus,
   ValidationCheck,
   ValidationResult,
@@ -61,21 +68,32 @@ function statusFrom(checks: ValidationCheck[], rootMissing: boolean): Installati
   return 'ok'
 }
 
+async function markersMatch(
+  rootPath: string,
+  rootFileNames: Set<string>,
+  definition: EngineDefinition,
+): Promise<boolean> {
+  for (const marker of definition.markers) {
+    // Markers may be nested (`baseq2/game.dll`) or a bare directory (`rerelease`).
+    if (marker.includes('/')) {
+      if (await resolveRelaxed(rootPath, marker)) return true
+    } else if (rootFileNames.has(marker.toLowerCase())) {
+      return true
+    } else if (await isDirectory(join(rootPath, marker))) {
+      return true
+    }
+  }
+  return false
+}
+
 /** Matches an engine by its marker files first, falling back to executable names. */
 async function classifyEngine(
   rootPath: string,
   rootFileNames: Set<string>,
 ): Promise<{ kind: EngineKind; definition?: EngineDefinition }> {
   for (const definition of ENGINE_DEFINITIONS) {
-    for (const marker of definition.markers) {
-      // Markers may be nested (`baseq2/game.dll`) or a bare directory (`rerelease`).
-      if (marker.includes('/')) {
-        if (await resolveRelaxed(rootPath, marker)) return { kind: definition.kind, definition }
-      } else if (rootFileNames.has(marker.toLowerCase())) {
-        return { kind: definition.kind, definition }
-      } else if (await isDirectory(join(rootPath, marker))) {
-        return { kind: definition.kind, definition }
-      }
+    if (await markersMatch(rootPath, rootFileNames, definition)) {
+      return { kind: definition.kind, definition }
     }
   }
 
@@ -86,6 +104,46 @@ async function classifyEngine(
   }
 
   return { kind: 'unknown' }
+}
+
+/**
+ * Every known engine client in the root, in table order. A name several definitions list
+ * (`quake2.exe`, `quake2`) is credited to the first of them whose markers match, so it never
+ * yields two engines; dedicated-server binaries never count.
+ */
+async function detectEngines(
+  rootPath: string,
+  rootListing: Awaited<ReturnType<typeof listDir>>,
+): Promise<DetectedEngine[]> {
+  const rootFileNames = new Set(rootListing.files.map((f) => f.toLowerCase()))
+  const engines: DetectedEngine[] = []
+  for (const definition of ENGINE_DEFINITIONS) {
+    for (const exe of definition.executables) {
+      const onDisk = rootListing.byLowerName.get(exe.toLowerCase())
+      if (!onDisk || !rootListing.files.includes(onDisk)) continue
+      if (!(await looksExecutable(rootPath, onDisk))) continue
+      const owners = ENGINE_DEFINITIONS.filter((d) =>
+        d.executables.some((e) => e.toLowerCase() === exe.toLowerCase()),
+      )
+      if (owners.length > 1) {
+        let credited: EngineDefinition | undefined
+        for (const owner of owners) {
+          if (await markersMatch(rootPath, rootFileNames, owner)) {
+            credited = owner
+            break
+          }
+        }
+        if (credited !== definition) continue
+      }
+      engines.push({
+        kind: definition.kind,
+        executablePath: join(rootPath, onDisk),
+        supported: definition.supported,
+      })
+      break
+    }
+  }
+  return engines
 }
 
 /**
@@ -194,6 +252,7 @@ export async function inspectInstallation(
       gameDirs: [],
       executables: [],
       engineKind: 'unknown',
+      engines: [],
       checkedAt,
     }
   }
@@ -201,7 +260,11 @@ export async function inspectInstallation(
   const rootListing = await listDir(rootPath)
   const rootFileNames = new Set(rootListing.files.map((f) => f.toLowerCase()))
 
-  const { kind: engineKind, definition } = await classifyEngine(rootPath, rootFileNames)
+  const classified = await classifyEngine(rootPath, rootFileNames)
+  const engines = await detectEngines(rootPath, rootListing)
+  const engineKind = defaultEngineKind(engines, classified.kind)
+  const definition =
+    engineKind === classified.kind ? classified.definition : getEngineDefinition(engineKind)
   if (engineKind === 'unknown') {
     checks.push(
       check('engine-identified', 'warn', 'validation.engineUnknown', { fix: 'select-executable' }),
@@ -284,7 +347,7 @@ export async function inspectInstallation(
     checks.push(
       check('executable', 'warn', 'validation.executableMissing', {
         params: { path: options.executablePath },
-        fix: 'select-executable',
+        fix: engines.length > 0 ? 'choose-engine' : 'select-executable',
       }),
     )
   }
@@ -337,6 +400,7 @@ export async function inspectInstallation(
     gameDirs,
     executables: executables.map((name) => join(rootPath, name)),
     engineKind,
+    engines,
     ...(executableKind ? { executableKind } : {}),
     ...(steamAppId ? { steamAppId } : {}),
     checkedAt,

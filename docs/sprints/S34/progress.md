@@ -321,3 +321,23 @@
 - 2026-10-05 21:10 · 249 · review fixes · started
 - 2026-10-05 21:11 · 249 · review fixes · done
 - 2026-10-05 21:11 · 249 · story · done
+- 2026-10-05T21:11:52 · 246 · build · started
+- 2026-10-05 21:12 · 246 · D1 inspector reports every engine · started
+- 2026-10-05 21:14 · 246 · D1 inspector reports every engine · done
+- 2026-10-05 21:14 · 246 · D2 installation stores/chooses engine (hard) · started
+- 2026-10-05 21:19 · 246 · D2 installation stores/chooses engine (hard) · done
+- 2026-10-05 21:19 · 246 · D3 library card engine choice · started
+- 2026-10-05 21:25 · 246 · D3 library card engine choice · done
+- 2026-10-05 21:25 · 246 · D4 launch engine override · started
+- 2026-10-05 21:27 · 246 · D4 launch engine override · done
+- 2026-10-05 21:27 · 246 · D5 demos play with detected Q2PRO · started
+- 2026-10-05 21:29 · 246 · D5 demos play with detected Q2PRO · done
+- 2026-10-05 21:29 · 246 · D6 replays view note + flow · started
+- 2026-10-05 21:33 · 246 · D6 replays view note + flow · done
+- 2026-10-05 21:33 · 246 · verify · started
+- 2026-10-05 21:53 · 246 · verify · done
+- 2026-10-05 21:53 · 246 · review 1 · started
+- 2026-10-05 21:57 · 246 · review 1 · done
+- 2026-10-05 21:57 · 246 · verify · started
+- 2026-10-05 22:00 · 246 · verify · done
+- 2026-10-05 22:00 · 246 · story · done

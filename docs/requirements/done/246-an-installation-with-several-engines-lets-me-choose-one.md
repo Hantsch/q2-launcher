@@ -1,7 +1,7 @@
 ---
 id: 246
 title: an installation with several engines lets me choose one
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -26,20 +26,20 @@ That explains the report: q2pro.exe was present but shadowed by r1q2.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Detection reports every known engine whose executable is in the installation root,
+- [x] **AC1** — Detection reports every known engine whose executable is in the installation root,
       not only the first match.
-- [ ] **AC2** — A folder with both `r1q2.exe` and `q2pro.exe` lists both engines on the installation.
-- [ ] **AC3** — With more than one engine detected, the installation offers an engine choice (library
+- [x] **AC2** — A folder with both `r1q2.exe` and `q2pro.exe` lists both engines on the installation.
+- [x] **AC3** — With more than one engine detected, the installation offers an engine choice (library
       card/installation settings); choosing one changes what Play starts, and the choice persists.
-- [ ] **AC4** — The installation's engine badge, the config module's engine-specific settings and the
+- [x] **AC4** — The installation's engine badge, the config module's engine-specific settings and the
       launch arguments follow the chosen engine.
-- [ ] **AC5** — An engine added to the folder later appears after the next revalidation; the user's
+- [x] **AC5** — An engine added to the folder later appears after the next revalidation; the user's
       choice is not changed by it.
-- [ ] **AC6** — If the chosen engine's executable disappears, the installation reports it and offers
+- [x] **AC6** — If the chosen engine's executable disappears, the installation reports it and offers
       the other detected engines, instead of silently switching.
-- [ ] **AC7** — Unsupported engines (yquake2, kmquake2 …) are listed as detected but cannot be
+- [x] **AC7** — Unsupported engines (yquake2, kmquake2 …) are listed as detected but cannot be
       chosen; the reason shows as visible text.
-- [ ] **AC8** — Existing installations keep their current engine after the update.
+- [x] **AC8** — Existing installations keep their current engine after the update.
 
 ## Open Questions
 
@@ -101,7 +101,7 @@ Order D1 → D2 → D3, then D4 → D5 → D6. Files: `src/shared/types/{engine,
 
 ## Deliverables
 
-- [ ] **D1 — the inspector reports every engine in the root.**
+- [x] **D1 — the inspector reports every engine in the root.**
   `src/shared/types/engine.ts`: add `export interface DetectedEngine { kind: EngineKind; executablePath: string; supported: boolean }`
   and `export function defaultEngineKind(engines: readonly DetectedEngine[], classified: EngineKind): EngineKind`
   — `q2pro` if detected, else the first other `supported` engine in `ENGINE_DEFINITIONS` order, else
@@ -123,7 +123,7 @@ Order D1 → D2 → D3, then D4 → D5 → D6. Files: `src/shared/types/{engine,
   "quake2.exe counts once", "a missing chosen executable with another engine offers choose-engine".
   Fix any existing inspector test that asserted r1q2 wins over q2pro, and say so in the D's report.
 
-- [ ] **D2 — the installation stores detected engines, keeps the chosen one and lets the user change it.**
+- [x] **D2 — the installation stores detected engines, keeps the chosen one and lets the user change it.**
   `src/main/services/installations.ts` `applyInspectionResult`: always write
   `next.detectedEngines = result.engines`. Then decide `engineKind` in this order: (a) the stored
   `executablePath` equals (`pathKey` compare) a detected engine's path → `engineKind` = that kind;
@@ -151,7 +151,7 @@ Order D1 → D2 → D3, then D4 → D5 → D6. Files: `src/shared/types/{engine,
   "an existing r1q2 installation keeps r1q2 when q2pro is present"; in `src/main/lib/schemas.persisted-state.test.ts`:
   "a record without detectedEngines still loads".
 
-- [ ] **D3 — the library card offers the engine choice.**
+- [x] **D3 — the library card offers the engine choice.**
   New `src/renderer/src/components/installations/EngineSection.tsx`, rendered in
   `src/renderer/src/views/LibraryView.tsx` directly above `<RunnerSection>`. Mirror `RunnerSection.tsx`'s
   structure: root `id={`installation-engine-${installation.id}`}`, `tabIndex={-1}`, `data-testid="installation-engine"`,
@@ -176,7 +176,7 @@ Order D1 → D2 → D3, then D4 → D5 → D6. Files: `src/shared/types/{engine,
   — see Acceptance Tests for its steps. Unit test `src/renderer/src/modules/config/lib/engine-scope.test.ts`:
   "a profile follows its installation's chosen engine".
 
-- [ ] **D4 — launch can start a detected engine other than the chosen one.**
+- [x] **D4 — launch can start a detected engine other than the chosen one.**
   `src/shared/types/launch.ts`: `LaunchInput.engine?: EngineKind` (doc: main-internal, set by demo playback
   only; `launch:start`'s payload schema in `src/shared/ipc-schemas.ts` stays unchanged). `src/main/services/launch.ts`
   `plan()`: with `input.engine` set and different from `installation.engineKind`, use the `executablePath` of
@@ -187,7 +187,7 @@ Order D1 → D2 → D3, then D4 → D5 → D6. Files: `src/shared/types/{engine,
   `src/main/services/launch.test.ts` › "an engine override starts the detected executable" and
   "an override for an engine that is not detected is refused".
 
-- [ ] **D5 — demos play with the installation's Q2PRO when another engine is chosen.**
+- [x] **D5 — demos play with the installation's Q2PRO when another engine is chosen.**
   `src/shared/replays/demo-play.ts`: an installation is Q2PRO-capable when `engineKind === 'q2pro'` or its
   `detectedEngines` holds a supported `q2pro`. Use it for the Linux check and the active check (widen the `Pick` by
   `'detectedEngines'`). On success, add `engine: 'q2pro'` to the result exactly when the active installation's `engineKind`
@@ -198,7 +198,7 @@ Order D1 → D2 → D3, then D4 → D5 → D6. Files: `src/shared/types/{engine,
   "an r1q2 installation with a detected Q2PRO plays with Q2PRO" and "an r1q2 installation without Q2PRO is refused";
   `src/main/modules/replays/demo-play.test.ts` › "playback passes the q2pro engine override to launch".
 
-- [ ] **D6 — the replays view says the demo plays with Q2PRO.**
+- [x] **D6 — the replays view says the demo plays with Q2PRO.**
   `src/renderer/src/modules/replays/ReplaysView.tsx` `viewAction`: when `eligibility.ok && eligibility.engine === 'q2pro'`,
   set `reason: { key: 'replays.play.withInstallationQ2pro' }` (shown by the action bar's note line as
   `data-testid="actionbar-action-reason"`); add the key ("Plays with this installation's Q2PRO.") next to
@@ -243,3 +243,14 @@ Order D1 → D2 → D3, then D4 → D5 → D6. Files: `src/shared/types/{engine,
   Demos tab shows `actionbar-action-reason` "Plays with this installation's Q2PRO." with View enabled.
 
 ## Done
+
+**Summary.** The inspector now reports every engine in the root (q2pro-first default); the installation stores `detectedEngines`, keeps the chosen executable/engine across revalidation and accepts `update({ engine })`; the library card shows an Engine radiogroup (unsupported engines disabled with visible reason, missing chosen engine flagged with a `choose-engine` fix); launch takes a main-internal `engine` override, which demo playback uses to play with a detected Q2PRO while r1q2 is chosen, noted in the replays action bar.
+
+**Commit message:** `246: engine choice per installation — inspector lists all engines, chosen engine persisted, Engine chips on the library card, demos play with detected Q2PRO`
+
+**Verification (narrow gate).** build, typecheck, lint green; `npx vitest run --changed HEAD` green (314 files); `src/comments.test.ts` + `src/architecture.test.ts` green. `--affected` selected ~100 flows (scripts/lib touched) and exceeded the 10-minute call, so flows ran by name: installation-engine-choice, replays-play-detected-q2pro, engine-badge-surfaces, engine-not-client, installation-icon-pick, bootstrap-existing-folder and others (engine-update, replays-play-mvd2, bootstrap-wizard, ...) all green. AC → test as verified: AC1-AC8 and both (User) playback decisions → the named unit tests (all ran, passed) plus flows `installation-engine-choice` / `replays-play-detected-q2pro` (passed). No manual residue.
+Pre-existing reds, not this story: flows `replays-play-q2pro` (expects no `+set s_volume 0.7`, story 237), `runner-choice-compact`, `linux-user-journey`, `add-installation-one-flow` (library header "Add existing" removed in 239).
+
+**Decisions.** Chosen engine = `executablePath`, `engineKind` derived from it; `custom` guard checked before that rule and `update({engine})` also patches `engineKind`; adopted/relocated/added-existing executables set the kind from the executable; i18n keys `installation.engineChoice.*` (vocabulary tests); launch override failure reuses `installations.error.engineNotDetected`; for an override off Windows the runner (wine) decision follows the override executable (`readBinaryKind`); `custom`/`unknown` installations show no "missing" chip. Review finding left unfixed: `recordedEngineKind` (story 093 repair offer) is not changed by an engine switch — it records the installed engine, not the played one.
+
+tiers: D 6 / hard 1 · review default · cycles 1 · agents 10

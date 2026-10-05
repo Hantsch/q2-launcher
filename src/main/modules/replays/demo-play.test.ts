@@ -122,6 +122,7 @@ interface Setup {
   contextPlatform?: NodeJS.Platform
   /** Engine of the active installation (`q2pro-a`); defaults to q2pro. */
   activeEngine?: Installation['engineKind']
+  activeDetectedEngines?: Installation['detectedEngines']
   /** Story 164 D4: the platform `demo.play` runs on, and an optional playback control. */
   platform?: string
   playback?: PlaybackControl
@@ -146,6 +147,7 @@ function harness({
   running = false,
   contextPlatform = 'win32',
   activeEngine = 'q2pro',
+  activeDetectedEngines,
   platform = 'win32',
   playback,
   stageAvail = { available: true },
@@ -157,7 +159,12 @@ function harness({
   const fake = fakeLaunch(running)
   const sessions = { begin: vi.fn(), end: vi.fn() }
   const installations = [
-    installation({ id: 'q2pro-a', rootPath: q2proRoot, engineKind: activeEngine }),
+    installation({
+      id: 'q2pro-a',
+      rootPath: q2proRoot,
+      engineKind: activeEngine,
+      detectedEngines: activeDetectedEngines,
+    }),
     installation({ id: 'q2pro-other', rootPath: siblingRoot }),
     installation({ id: 'r1q2-b', rootPath: r1q2Root, engineKind: 'r1q2' }),
   ]
@@ -338,6 +345,35 @@ describe('demo.play engine guard (story 161 D1)', () => {
         false,
       )
       expect(h.sessions.begin, engineKind).not.toHaveBeenCalled()
+    }
+  })
+
+  it('playback passes the q2pro engine override to launch', async () => {
+    const outsider = demo({
+      id: 'evil',
+      fileName: 'evil.dm2',
+      source: {
+        kind: 'installation',
+        installationId: 'q2pro-other',
+        installationName: 'Other',
+        gameDir: 'baseq2',
+      },
+    })
+    for (const id of ['base', 'evil']) {
+      const h = harness({
+        demos: [BASE_DEMO, outsider],
+        files: {
+          ...ctfFiles(),
+          evil: {
+            absolutePath: join(siblingRoot, 'baseq2', 'demos', 'evil.dm2'),
+            archiveEntry: null,
+          },
+        },
+        activeEngine: 'r1q2',
+        activeDetectedEngines: [{ kind: 'q2pro', executablePath: 'q2pro.exe', supported: true }],
+      })
+      expect((await h.play(id, 'q2pro-a')).ok, id).toBe(true)
+      expect(h.launch.start.mock.calls[0][0].engine, id).toBe('q2pro')
     }
   })
 

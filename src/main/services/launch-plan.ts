@@ -95,14 +95,14 @@ export function buildLaunchArgs(
   installation: Installation,
   input: Pick<
     LaunchInput,
-    'gameDir' | 'connect' | 'extraArgs' | 'userinfo' | 'spectate' | 'map' | 'gameType'
+    'gameDir' | 'connect' | 'extraArgs' | 'userinfo' | 'spectate' | 'map' | 'gameType' | 'engine'
   > = {},
 ): BuildLaunchArgsResult {
   const args: string[] = []
   const dropped: BuildLaunchArgsResult['dropped'] = []
 
   // Engine switches first, by convention.
-  const engine = getEngineDefinition(installation.engineKind)
+  const engine = getEngineDefinition(input.engine ?? installation.engineKind)
   args.push(...(engine?.defaultArgs ?? []))
 
   // Mod / mission pack. `baseq2` is the default and must never be set.

@@ -45,7 +45,14 @@ const checkSchema = z.object({
   messageKey: z.string(),
   params: paramsSchema.optional(),
   fix: z
-    .enum(['locate-root', 'select-executable', 'set-write-dir', 'revalidate', 'install-game-files'])
+    .enum([
+      'locate-root',
+      'select-executable',
+      'set-write-dir',
+      'revalidate',
+      'install-game-files',
+      'choose-engine',
+    ])
     .optional(),
 })
 
@@ -62,6 +69,13 @@ const installationSchema = z.object({
   // rather than dropping the whole installation. No migration step: `migrations.ts`'s own rule is
   // that a new optional field needs none (story 103)
   executableKind: z.enum(['pe', 'elf', 'script', 'unknown']).optional().catch(undefined),
+  // Every engine client the last inspection found. Same additive/forgiving convention as
+  // `executableKind` right above: a record predating this field lacks the key until the startup
+  // revalidation fills it, and a mangled value degrades to "not inspected yet" (story 246)
+  detectedEngines: z
+    .array(z.object({ kind: engineKindSchema, executablePath: z.string(), supported: z.boolean() }))
+    .optional()
+    .catch(undefined),
   // The user's runner choice, a `DetectedRunner.id` or `'native'`. Same additive,
   // forgiving convention as `executableKind` right above - a record predating this field simply
   // lacks the key, and a mangled value degrades to "never chosen" (the default cascade decides)

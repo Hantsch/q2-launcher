@@ -102,6 +102,27 @@ describe('demoPlayEligibility', () => {
     expect(keyOf(r)).toBe(P + 'notQ2pro')
   })
 
+  it('an r1q2 installation with a detected Q2PRO plays with Q2PRO', () => {
+    const r = run({
+      installations: [
+        {
+          ...inst('a', 'r1q2'),
+          detectedEngines: [{ kind: 'q2pro', executablePath: 'q2pro.exe', supported: true }],
+        },
+      ],
+    })
+    expect(r).toMatchObject({ ok: true, installationId: 'a', engine: 'q2pro' })
+    expect(run().ok && 'engine' in run()).toBe(false)
+  })
+
+  it('an r1q2 installation without Q2PRO is refused', () => {
+    const unsupported = [{ kind: 'q2pro' as const, executablePath: 'q2pro.exe', supported: false }]
+    expect(keyOf(run({ installations: [inst('a', 'r1q2')] }))).toBe(P + 'notQ2pro')
+    expect(
+      keyOf(run({ installations: [{ ...inst('a', 'r1q2'), detectedEngines: unsupported }] })),
+    ).toBe(P + 'notQ2pro')
+  })
+
   it('no installation with the game dir gives an acknowledgeable modMissing warning with the dir', () => {
     const r = run({ demo: demo({ gameDir: 'zaero' }) })
     expect(r).toEqual({

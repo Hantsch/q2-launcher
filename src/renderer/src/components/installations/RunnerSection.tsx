@@ -35,7 +35,12 @@ export function RunnerSection({ installation }: { installation: Installation }) 
   // component from `state.installations`). Without `steamClient` here, picking a different Steam
   // client (the preview must refresh) would leave the previous client's URL on screen until
   // something unrelated remounted the component.
-  const deps = [installation.id, installation.runner, installation.steamClient]
+  const deps = [
+    installation.id,
+    installation.runner,
+    installation.steamClient,
+    installation.executablePath,
+  ]
   const runnersQuery = useModuleQuery(() => invoke('installations:listRunners', installation.id), {
     deps,
   })

@@ -41,7 +41,7 @@ export const REPLAYS_PLAY_MISSING_MOD = 'opentdm'
 
 /** Returns `test.dm2` with its serverdata block's game dir rewritten to `gameDir` (block 0 =
  * `int32 length`, then `svc_serverdata`: 1 + 4 + 4 + 1 bytes, then the null-terminated game dir). */
-function demoBytesWithGameDir(gameDir) {
+export function demoBytesWithGameDir(gameDir) {
   const src = readFileSync(join(REPO_ROOT, 'docs', 'fixtures', 'demos', 'test.dm2'))
   const blockLength = src.readUInt32LE(0)
   const dirStart = 4 + 10

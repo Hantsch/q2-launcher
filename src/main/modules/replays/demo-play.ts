@@ -445,6 +445,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
       // Eligibility no longer cares where the demo is; whether it is a candidate for in-place play is
       // `inPlace`, and main still verifies containment below. Everything else is played from a copy.
       if (!eligibility.ok) return fail(eligibility.reasonKey, eligibility.params)
+      const engineOverride = eligibility.engine ? { engine: eligibility.engine } : {}
       const target = {
         installationId: eligibility.installationId,
         gameDir: eligibility.gameDir,
@@ -485,6 +486,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
               installationId: target.installationId,
               gameDir: target.gameDir,
               extraArgs: target.inPlaceArgs,
+              ...engineOverride,
             },
             null,
             playbackInfo,
@@ -514,6 +516,7 @@ export function createDemoPlay(deps: DemoPlayDeps): DemoPlay {
           installationId: target.installationId,
           gameDir: target.gameDir,
           extraArgs: ['+demo', staged.value.relativePath],
+          ...engineOverride,
         },
         staged.value.copyPath,
         playbackInfo,

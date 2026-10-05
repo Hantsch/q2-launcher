@@ -118,6 +118,7 @@ describe('resolveRepairPlan', () => {
       checks: [check('validation.noExecutable', { id: 'executable', severity: 'error' })],
       gameDirs: [],
       executables: [],
+      engines: [],
       engineKind: 'q2pro',
       checkedAt: new Date().toISOString(),
     }
@@ -157,6 +158,7 @@ describe('resolveRepairPlan', () => {
       checks: [check('validation.noExecutable', { id: 'executable', severity: 'error' })],
       gameDirs: [],
       executables: [],
+      engines: [],
       engineKind: 'unknown',
       checkedAt: new Date().toISOString(),
     }
@@ -185,6 +187,7 @@ describe('resolveRepairPlan', () => {
       checks: [check('validation.noExecutable', { id: 'executable', severity: 'error' })],
       gameDirs: [],
       executables: [],
+      engines: [],
       engineKind: 'unknown',
       checkedAt: new Date().toISOString(),
     }
@@ -213,6 +216,7 @@ describe('resolveRepairPlan', () => {
       checks: [],
       gameDirs: [],
       executables: [],
+      engines: [],
       engineKind: 'r1q2',
       checkedAt: new Date().toISOString(),
     }

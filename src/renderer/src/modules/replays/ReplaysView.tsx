@@ -518,6 +518,9 @@ export function ReplaysView() {
       ...(hasSelection && eligibility !== null && !eligibility.ok && !askFirst
         ? { reason: { key: eligibility.reasonKey, params: eligibility.params } }
         : {}),
+      ...(hasSelection && eligibility?.ok && eligibility.engine === 'q2pro'
+        ? { reason: { key: 'replays.play.withInstallationQ2pro' } }
+        : {}),
       ...(playError ? { error: playError } : {}),
       run: runPlay,
     }),

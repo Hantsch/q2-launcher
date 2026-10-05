@@ -29,6 +29,7 @@ import { FailureBadge } from '../components/ui/FailureBadge'
 import { EngineBadge } from '../components/ui/EngineBadge'
 import { Badge, EmptyState, Panel, SectionLabel, StatusDot } from '../components/ui/primitives'
 import { ChecksList } from '../components/installations/ChecksList'
+import { EngineSection } from '../components/installations/EngineSection'
 import { RunnerSection } from '../components/installations/RunnerSection'
 import { InstallationTile } from '../components/installations/InstallationTile'
 import { useAddInstallationEntries } from '../components/installations/useAddInstallationEntries'
@@ -410,6 +411,7 @@ function InstallationRow({ installation }: { installation: Installation }) {
         </div>
       )}
 
+      <EngineSection installation={installation} />
       <RunnerSection installation={installation} />
     </Panel>
   )

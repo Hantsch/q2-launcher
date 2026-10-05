@@ -1,4 +1,4 @@
-import type { EngineKind } from './engine'
+import type { DetectedEngine, EngineKind } from './engine'
 import type { RunnerChoice } from './runner'
 
 /** How an installation got into the launcher. Also tells the UI where it came from. */
@@ -58,6 +58,8 @@ export type ValidationFix =
   | 'install-game-files'
   /** Story 103: the executable is a Windows PE off Windows - focuses the runner section. */
   | 'choose-runner'
+  /** The chosen executable is gone but other engines were found in the root. */
+  | 'choose-engine'
 
 export interface ValidationCheck {
   id: ValidationCheckId
@@ -85,6 +87,8 @@ export interface ValidationResult {
   /** Client executables found in the root, in preference order. */
   executables: string[]
   engineKind: EngineKind
+  /** Every known engine client found in the root, in `ENGINE_DEFINITIONS` order. */
+  engines: DetectedEngine[]
   detectedVersion?: string
   /**
    * Story 103: the header kind of the executable this verdict settled on (the caller's own
@@ -164,6 +168,8 @@ export interface Installation {
    * bootstrapped/imported through a path that sets it.
    */
   recordedEngineKind?: EngineKind
+  /** Written by every inspection verdict; absent on records predating story 246. */
+  detectedEngines?: DetectedEngine[]
   /** Absolute path of the client executable to launch. */
   executablePath?: string
   /**
@@ -257,6 +263,11 @@ export interface UpdateInstallationInput {
   runner?: RunnerChoice
   /** Story 104: sets `Installation.steamClient`, the chosen `STEAM_APP_CLIENTS` entry index. */
   steamClient?: number
+  /**
+   * Chooses one of `Installation.detectedEngines` by kind; main resolves the executable path
+   * from its own detection, never from the renderer (story 246).
+   */
+  engine?: EngineKind
 }
 
 export interface RemoveInstallationInput {

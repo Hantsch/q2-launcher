@@ -2221,6 +2221,10 @@
       "view": "View",
       "writeLocked": "Writing…"
     },
+    "engineChoice": {
+      "missing": "{{executable}} is missing from the folder",
+      "unsupported": "Not supported by the launcher yet"
+    },
     "failedBadge": "Failed",
     "lastPlayed": "Last played",
     "mods_one": "{{count}} game directory",
@@ -2255,6 +2259,8 @@
       "deleteFromDiskStoreManaged": "Nothing was deleted: this installation's files are managed by its store. Uninstall it from there instead.",
       "deleteFromDiskUserData": "Nothing was deleted: {{path}} is the launcher’s own data folder, or holds it.",
       "duplicate": "That folder is already in your library as “{{name}}”.",
+      "engineNotDetected": "{{engine}} was not found in this installation's folder.",
+      "engineUnsupported": "{{engine}} is not supported by the launcher yet.",
       "iconPickCancelled": "No image was chosen. The icon was left as it was.",
       "iconStoreFailed": "The icon could not be saved. Check that the launcher can write to its own data folder.",
       "iconTooLarge": "That image is too large. Choose a file smaller than {{limit}} MB.",
@@ -3014,7 +3020,8 @@
         "needsDirectLaunch": "This installation launches through Steam — switch it to a direct launch to play demos.",
         "notQ2pro": "The selected installation is not Q2PRO — demo playback needs Q2PRO. Pick a Q2PRO installation in the left rail.",
         "unsafeName": "This file name has characters the game console can't take — rename the demo (letters, digits, dot, dash and underscore only)."
-      }
+      },
+      "withInstallationQ2pro": "Plays with this installation's Q2PRO."
     },
     "playback": {
       "error": {
@@ -3638,6 +3645,7 @@
     "executableMissing": "The selected executable is gone: {{path}}",
     "executableRunnable": "{{executable}} is a Windows program and needs a runner to play on Linux.",
     "fix": {
+      "choose-engine": "Choose engine…",
       "choose-runner": "Choose a runner",
       "install-game-files": "Get game files",
       "locate-root": "Locate folder…",

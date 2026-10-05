@@ -136,6 +136,13 @@ export function useFixAction(): (installation: Installation, fix: ValidationFix)
         target?.focus()
         return
       }
+
+      case 'choose-engine': {
+        const target = document.getElementById(`installation-engine-${installation.id}`)
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        target?.focus()
+        return
+      }
     }
   }
 }

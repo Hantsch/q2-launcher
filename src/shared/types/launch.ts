@@ -1,4 +1,5 @@
 import type { LaunchUserinfo } from '../launch/userinfo'
+import type { EngineKind } from './engine'
 
 /**
  * State of the game process the launcher started.
@@ -46,6 +47,11 @@ export interface LaunchInput {
    * anyway. Story 126.
    */
   spectate?: true
+  /**
+   * Starts this detected engine instead of the installation's chosen one. Main-internal, set by
+   * demo playback only: `launch:start`'s payload schema does not accept it (story 246).
+   */
+  engine?: EngineKind
 }
 
 /**

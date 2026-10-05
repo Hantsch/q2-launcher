@@ -3,11 +3,13 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import {
+  engineLabel,
   fail,
   isStoreManaged,
   ok,
   type AddExistingInstallationInput,
   type CreateInstallationInput,
+  type DetectedEngine,
   type EngineKind,
   type Installation,
   type InstallationIcon,
@@ -152,26 +154,30 @@ export class InstallationsService {
     }
 
     const now = new Date().toISOString()
+    const executablePath = input.executablePath ?? result.executables[0]
+    // The engine follows the executable: a caller-chosen client of another detected engine must
+    // not be badged as the folder's default engine (story 246).
+    const engineKind =
+      (executablePath && engineOwning(result.engines, executablePath)?.kind) || result.engineKind
     const installation: Installation = {
       id: randomUUID(),
       name: input.name?.trim() || suggestName(rootPath),
       rootPath,
-      engineKind: result.engineKind,
+      engineKind,
       launchArgs: [],
       activeGameDir: '',
       source: input.source ?? 'manual',
       status: result.status,
       checks: result.checks,
       gameDirs: result.gameDirs,
+      detectedEngines: result.engines,
       favorite: false,
       sortOrder: this.nextSortOrder(),
       createdAt: now,
       updatedAt: now,
       lastValidatedAt: result.checkedAt,
       totalPlaytimeSeconds: 0,
-      ...(input.executablePath || result.executables[0]
-        ? { executablePath: input.executablePath ?? result.executables[0] }
-        : {}),
+      ...(executablePath ? { executablePath } : {}),
       ...(result.detectedVersion ? { detectedVersion: result.detectedVersion } : {}),
       // Story 103: absent on Windows, where no header is read - so the key only ever appears on
       // a record whose executable was actually identified by its first bytes.
@@ -182,7 +188,7 @@ export class InstallationsService {
       // A fresh inspection of a folder the user already has is a positive identification -
       // record it once, so a later missing executable (which drops `engineKind` to `'unknown'`, see
       // `Installation.recordedEngineKind`'s doc comment) does not also erase this memory.
-      ...(result.engineKind !== 'unknown' ? { recordedEngineKind: result.engineKind } : {}),
+      ...(engineKind !== 'unknown' ? { recordedEngineKind: engineKind } : {}),
     }
 
     this.commit([...this.state.installations(), installation])
@@ -276,7 +282,18 @@ export class InstallationsService {
    * icon, a play session) survives the edit.
    */
   async update(input: UpdateInstallationInput): Promise<Outcome<Installation>> {
-    if (!this.find(input.id)) return fail('installations.error.notFound')
+    const current = this.find(input.id)
+    if (!current) return fail('installations.error.notFound')
+
+    // The renderer names an engine kind, never a path: the executable comes from main's own
+    // detection, so only a client actually found in the folder can be chosen (story 246).
+    let chosenEngine: DetectedEngine | undefined
+    if (input.engine !== undefined) {
+      const engine = engineLabel(input.engine)
+      chosenEngine = current.detectedEngines?.find((e) => e.kind === input.engine)
+      if (!chosenEngine) return fail('installations.error.engineNotDetected', { engine })
+      if (!chosenEngine.supported) return fail('installations.error.engineUnsupported', { engine })
+    }
 
     const userPatch: InstallationPatch = { updatedAt: new Date().toISOString() }
 
@@ -312,8 +329,16 @@ export class InstallationsService {
       if (input.executablePath === undefined) userPatch.executablePath = undefined
     }
 
+    if (chosenEngine) {
+      userPatch.executablePath = chosenEngine.executablePath
+      // An explicit choice is the one thing that may replace a `custom` badge, which detection
+      // never overwrites on its own.
+      userPatch.engineKind = chosenEngine.kind
+    }
+
     // Anything that can change the verdict triggers a fresh inspection.
     const revalidate =
+      chosenEngine !== undefined ||
       input.executablePath !== undefined ||
       input.writeDirPath !== undefined ||
       input.rootPath !== undefined
@@ -658,6 +683,7 @@ function applyInspectionResult(installation: Installation, result: ValidationRes
     status: result.status,
     checks: result.checks,
     gameDirs: result.gameDirs,
+    detectedEngines: result.engines,
     lastValidatedAt: result.checkedAt,
     updatedAt: new Date().toISOString(),
   }
@@ -670,29 +696,18 @@ function applyInspectionResult(installation: Installation, result: ValidationRes
     delete next.lastFailure
   }
 
-  // A user-chosen engine kind is never overwritten by detection.
-  // Story 077 : an empty/unrecognizable folder inspects as `unknown` - for a
-  // *failed* installation (the folder this story's cleanup just emptied - Decisions (Sprint), Q1)
-  // that must not clobber the wizard's engine choice, or a restart would show "Unknown engine"
-  // next to a name and path it otherwise preserved exactly. Deliberately scoped to
-  // `installation.lastFailure`, the one field only a bootstrap failure ever sets: an *ordinary*
-  // installation (no `lastFailure` - an installation without the new field) keeps today's
-  // unconditional overwrite, engineKind included, so this story changes nothing about how an
-  // untouched installation's engine badge behaves when its folder empties out for any other
-  // reason. Without the `lastFailure` scoping the guard would change the engine badge:
-  // on installations that carry no `lastFailure` at all.
-  const preserveKnownEngine =
-    result.engineKind === 'unknown' &&
-    installation.engineKind !== 'unknown' &&
-    installation.lastFailure !== undefined
-  if (installation.engineKind !== 'custom' && !preserveKnownEngine) {
-    next.engineKind = result.engineKind
+  // Adopt a working executable if the stored one is gone - the installation's own engine first, so
+  // a relocation or a finished bootstrap does not quietly switch it to the folder's default
+  // engine (story 246).
+  if (!installation.executablePath) {
+    const adopted =
+      result.engines.find((e) => e.kind === installation.engineKind) ??
+      result.engines.find((e) => e.kind === result.engineKind)
+    const executablePath = adopted?.executablePath ?? result.executables[0]
+    if (executablePath) next.executablePath = executablePath
   }
 
-  // Adopt a working executable if the stored one is gone.
-  if (!installation.executablePath && result.executables[0]) {
-    next.executablePath = result.executables[0]
-  }
+  next.engineKind = inspectedEngineKind(installation, next.executablePath, result)
 
   // Story 103: record what the chosen executable turned out to be. Written only when the
   // inspection actually read a header (never on Windows: a revalidation there must leave
@@ -714,6 +729,52 @@ function applyInspectionResult(installation: Installation, result: ValidationRes
   }
 
   return next
+}
+
+/** The detected engine whose client is `executablePath`, compared the way paths are everywhere. */
+function engineOwning(
+  engines: readonly DetectedEngine[],
+  executablePath: string,
+): DetectedEngine | undefined {
+  const key = pathKey(executablePath)
+  return engines.find((engine) => pathKey(engine.executablePath) === key)
+}
+
+/**
+ * The engine badge after an inspection. The engine follows the executable the record launches;
+ * a chosen executable that vanished while other engines remain keeps its badge, so the missing
+ * engine is reported (`choose-engine`) rather than silently swapped for the folder's default
+ * (story 246).
+ */
+function inspectedEngineKind(
+  installation: Installation,
+  executablePath: string | undefined,
+  result: ValidationResult,
+): EngineKind {
+  // A user-chosen engine kind is never overwritten by detection.
+  if (installation.engineKind === 'custom') return 'custom'
+
+  if (executablePath) {
+    const owner = engineOwning(result.engines, executablePath)
+    if (owner) return owner.kind
+    if (installation.executablePath && result.engines.length > 0) return installation.engineKind
+  }
+
+  // Story 077 : an empty/unrecognizable folder inspects as `unknown` - for a
+  // *failed* installation (the folder this story's cleanup just emptied - Decisions (Sprint), Q1)
+  // that must not clobber the wizard's engine choice, or a restart would show "Unknown engine"
+  // next to a name and path it otherwise preserved exactly. Deliberately scoped to
+  // `installation.lastFailure`, the one field only a bootstrap failure ever sets: an *ordinary*
+  // installation (no `lastFailure` - an installation without the new field) keeps today's
+  // unconditional overwrite, engineKind included, so this story changes nothing about how an
+  // untouched installation's engine badge behaves when its folder empties out for any other
+  // reason. Without the `lastFailure` scoping the guard would change the engine badge:
+  // on installations that carry no `lastFailure` at all.
+  const preserveKnownEngine =
+    result.engineKind === 'unknown' &&
+    installation.engineKind !== 'unknown' &&
+    installation.lastFailure !== undefined
+  return preserveKnownEngine ? installation.engineKind : result.engineKind
 }
 
 /** Same rule the detection scan uses, so both agree on what counts as a game folder. */

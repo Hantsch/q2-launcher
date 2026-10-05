@@ -322,6 +322,10 @@
   },
   "installation": {
     "failedBadge": "Failed",
+    "engineChoice": {
+      "unsupported": "Not supported by the launcher yet",
+      "missing": "{{executable}} is missing from the folder"
+    },
     "source": {
       "manual": "Added manually",
       "steam": "Steam",
@@ -374,6 +378,8 @@
       "deleteFromDiskFailed": "The folder {{path}} could not be fully deleted. Some files may still be there — check that the game is closed and that you have permission to delete them.",
       "deleteFromDiskMisconfigured": "Removal from disk is not available right now.",
       "nothingImported": "Nothing was imported.",
+      "engineNotDetected": "{{engine}} was not found in this installation's folder.",
+      "engineUnsupported": "{{engine}} is not supported by the launcher yet.",
       "iconPickCancelled": "No image was chosen. The icon was left as it was.",
       "iconUnsupportedFormat": "Only PNG and JPEG images can be used as an icon.",
       "iconTooLarge": "That image is too large. Choose a file smaller than {{limit}} MB.",
@@ -410,7 +416,8 @@
       "set-write-dir": "Choose write folder…",
       "revalidate": "Check again",
       "install-game-files": "Get game files",
-      "choose-runner": "Choose a runner"
+      "choose-runner": "Choose a runner",
+      "choose-engine": "Choose engine…"
     }
   },
   "engine": {

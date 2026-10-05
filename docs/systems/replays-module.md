@@ -143,7 +143,8 @@ Events: `scanProgress`, `playbackPosition` (every 250 ms), `playbackState`, `pla
 - Window system: placement on Windows; X11 (X-Resource PID) on Linux. Network: none.
 
 ## Limitations
-- Playback needs Q2PRO; other clients are not eligible. A demo outside the Quake filesystem is played
+- Playback needs Q2PRO; other clients are not eligible. An installation whose own engine is another
+  one still plays when it has a detected, supported Q2PRO: the launch then runs that Q2PRO. A demo outside the Quake filesystem is played
   from a temporary copy; a `.gz` is not decompressed by the launcher.
 - Stage placement depends on the platform's window system; nested archives are not expanded. An `.mvd2`
   demo has no roster; an OpenTDM 1v1 demo cut off before the match ends has no teams.

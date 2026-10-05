@@ -43,6 +43,13 @@ describe('buildLaunchArgs', () => {
     expect(buildLaunchArgs(installation({ engineKind: 'vanilla' })).args).toEqual([])
   })
 
+  it("an engine override uses that engine's default args", () => {
+    expect(buildLaunchArgs(installation(), { engine: 'vanilla' }).args).toEqual([])
+    expect(
+      buildLaunchArgs(installation({ engineKind: 'vanilla' }), { engine: 'r1q2' }).args,
+    ).toEqual(['-nopathcheck'])
+  })
+
   it('never sets the base game directory', () => {
     expect(buildLaunchArgs(installation({ activeGameDir: 'baseq2' })).args).not.toContain('+set')
     expect(buildLaunchArgs(installation({ activeGameDir: 'BASEQ2' })).args).not.toContain('+set')

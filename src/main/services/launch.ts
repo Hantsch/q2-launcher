@@ -8,6 +8,7 @@ import {
   IDLE_LAUNCH_STATE,
   STEAM_APP_CLIENTS,
   STEAM_RUNNER_CHOICE,
+  engineLabel,
   fail,
   ok,
   steamLaunchUrl,
@@ -18,9 +19,10 @@ import {
   type LaunchState,
   type Outcome,
 } from '@shared/types'
-import { isFile } from '../lib/fs-utils'
+import { isFile, readBinaryKind } from '../lib/fs-utils'
 import { createListenerSet } from '../lib/listeners'
 import { scopedLogger } from '../lib/logger'
+import { isWindows } from '../lib/platform'
 import {
   buildLaunchArgs,
   execsConnectCfg,
@@ -189,11 +191,27 @@ export class LaunchService {
     const installation = this.installations.find(input.installationId)
     if (!installation) return fail('installations.error.notFound')
 
-    if (!installation.executablePath) {
+    // An engine override (demo playback) runs a detected client other than the chosen one; its
+    // path always comes from main's own detection, never from the input.
+    let baseExecutable = installation.executablePath
+    // The runner decision follows the executable actually started, not the stored chosen one.
+    let runnerSubject: Installation = installation
+    if (input.engine && input.engine !== installation.engineKind) {
+      const detectedEngine = installation.detectedEngines?.find((e) => e.kind === input.engine)
+      if (!detectedEngine) {
+        return fail('installations.error.engineNotDetected', { engine: engineLabel(input.engine) })
+      }
+      baseExecutable = detectedEngine.executablePath
+      if (!isWindows()) {
+        runnerSubject = { ...installation, executableKind: await readBinaryKind(baseExecutable) }
+      }
+    }
+
+    if (!baseExecutable) {
       return fail('launch.error.noExecutable', { name: installation.name })
     }
-    if (!(await isFile(installation.executablePath))) {
-      return fail('launch.error.executableMissing', { path: installation.executablePath })
+    if (!(await isFile(baseExecutable))) {
+      return fail('launch.error.executableMissing', { path: baseExecutable })
     }
 
     // Story 104: a stored Steam choice is checked *before* `needsCompatRunner` below, because
@@ -236,10 +254,10 @@ export class LaunchService {
     // ones this function has always returned. Off Windows, a Windows PE is wrapped:
     // `<runner> <exe> <the same generated args>`, still an argv array, never a shell string, and
     // with no `env` of our own - Q2's machine-default wine prefix.
-    let executablePath = installation.executablePath
+    let executablePath = baseExecutable
     let commandArgs = args
-    if (needsCompatRunner(installation)) {
-      const runner = resolveRunner(installation, detected ?? (await this.detectRunners()))
+    if (needsCompatRunner(runnerSubject)) {
+      const runner = resolveRunner(runnerSubject, detected ?? (await this.detectRunners()))
       if (!runner) {
         log.warn(`refused to plan ${installation.id}: no runner can run ${executablePath}`)
         return fail('launch.error.noRunner', { executable: basename(executablePath) })

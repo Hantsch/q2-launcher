@@ -34,7 +34,9 @@ vi.mock('node:child_process', () => ({ spawn: vi.fn() }))
 // providers), which import two more helpers from this module. They are stubbed rather than left
 // out because a mocked module has only the exports its factory returns - the real runner detection
 // is never reached from here, since every test below hands `LaunchService` its own runner list.
+const readBinaryKindMock = vi.hoisted(() => vi.fn())
 vi.mock('../lib/fs-utils', () => ({
+  readBinaryKind: readBinaryKindMock,
   isFile: () => Promise.resolve(true),
   isDirectory: () => Promise.resolve(false),
   listDir: () => Promise.resolve({ files: [], dirs: [] }),
@@ -264,6 +266,68 @@ describe('LaunchService.plan with a runner', () => {
     })
     // No runner detection happens on Windows at all - not even the cheap, injected one.
     expect(detectRunners).not.toHaveBeenCalled()
+  })
+})
+
+describe('LaunchService.plan with an engine override', () => {
+  const withEngines = {
+    ...installation,
+    activeGameDir: 'rogue',
+    launchArgs: ['+set', 'cl_maxfps', '60'],
+    detectedEngines: [
+      { kind: 'r1q2', executablePath: 'C:\\Games\\Quake2\\r1q2.exe', supported: true },
+      { kind: 'q2pro', executablePath: 'C:\\Games\\Quake2\\q2pro.exe', supported: true },
+    ],
+  } as unknown as Installation
+
+  it('an engine override starts the detected executable', async () => {
+    const { launch } = service({ installation: withEngines })
+
+    const planned = await launch.plan({ installationId: INSTALLATION, engine: 'q2pro' })
+    if (!planned.ok) throw new Error(`expected a plan, got ${planned.error.key}`)
+
+    expect(planned.value.executablePath).toBe('C:\\Games\\Quake2\\q2pro.exe')
+    expect(planned.value.args).toEqual(expect.arrayContaining(['rogue', 'cl_maxfps', '60']))
+    expect(planned.value.args).not.toContain('C:\\Games\\Quake2\\r1q2.exe')
+  })
+
+  it('an override for an engine that is not detected is refused', async () => {
+    const { launch } = service({ installation: withEngines })
+
+    const planned = await launch.plan({ installationId: INSTALLATION, engine: 'yquake2' })
+
+    expect(planned).toEqual({
+      ok: false,
+      error: {
+        key: 'installations.error.engineNotDetected',
+        params: { engine: 'Yamagi Quake II' },
+      },
+    })
+  })
+
+  it('the runner follows the override executable, not the chosen one', async () => {
+    restorePlatform = stubPlatform('linux')
+    const linuxEngines = {
+      ...withEngines,
+      rootPath: '/games/q2',
+      executablePath: '/games/q2/r1q2.exe',
+      executableKind: 'pe',
+      detectedEngines: [
+        { kind: 'r1q2', executablePath: '/games/q2/r1q2.exe', supported: true },
+        { kind: 'q2pro', executablePath: '/games/q2/q2pro', supported: true },
+      ],
+    } as unknown as Installation
+    const { launch } = service({ installation: linuxEngines, runners: [NATIVE, WINE] })
+
+    const chosen = await launch.plan({ installationId: INSTALLATION })
+    if (!chosen.ok) throw new Error(`expected a plan, got ${chosen.error.key}`)
+    expect(chosen.value.executablePath).toBe(WINE.path)
+
+    readBinaryKindMock.mockResolvedValue('elf')
+    const override = await launch.plan({ installationId: INSTALLATION, engine: 'q2pro' })
+    if (!override.ok) throw new Error(`expected a plan, got ${override.error.key}`)
+    expect(override.value.executablePath).toBe('/games/q2/q2pro')
+    expect(override.value.args).not.toContain('/games/q2/q2pro')
   })
 })
 

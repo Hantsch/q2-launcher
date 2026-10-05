@@ -34,6 +34,8 @@ export type DemoPlayEligibility =
           /** True when the demo may be played by its own name from the installation (`extraArgs`); else a copy is staged. */
           inPlace: boolean
           extraArgs: string[]
+          /** Set when the installation's own engine is not Q2PRO: the launch must use its detected Q2PRO. */
+          engine?: 'q2pro'
         },
         DemoPlayReasonKey
       >,
@@ -43,7 +45,10 @@ export type DemoPlayEligibility =
 
 export interface DemoPlayInput {
   demo: DiscoveredDemo
-  installations: readonly Pick<Installation, 'id' | 'engineKind' | 'gameDirs' | 'runner'>[]
+  installations: readonly Pick<
+    Installation,
+    'id' | 'engineKind' | 'detectedEngines' | 'gameDirs' | 'runner'
+  >[]
   activeInstallationId: string | null
   platform: string
   gameRunning: boolean
@@ -77,6 +82,13 @@ export function demoGameDir(demo: DiscoveredDemo): string {
   return demo.gameDir === null || demo.gameDir === '' ? DEMO_BASE_GAME_DIR : demo.gameDir
 }
 
+function isQ2proCapable(i: Pick<Installation, 'engineKind' | 'detectedEngines'>): boolean {
+  return (
+    i.engineKind === 'q2pro' ||
+    (i.detectedEngines ?? []).some((e) => e.kind === 'q2pro' && e.supported)
+  )
+}
+
 function hasGameDir(gameDirs: readonly string[], dir: string): boolean {
   return sameDir(dir, DEMO_BASE_GAME_DIR) || gameDirs.some((d) => sameDir(d, dir))
 }
@@ -85,7 +97,7 @@ export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
   const { demo, installations, activeInstallationId, platform, gameRunning } = input
   const gameDir = demoGameDir(demo)
 
-  if (platform === 'linux' && !installations.some((i) => i.engineKind === 'q2pro')) {
+  if (platform === 'linux' && !installations.some(isQ2proCapable)) {
     return refuse('replays.play.unavailable.linuxNoQ2pro')
   }
 
@@ -93,7 +105,7 @@ export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
     activeInstallationId === null
       ? undefined
       : installations.find((i) => i.id === activeInstallationId)
-  if (!active || active.engineKind !== 'q2pro') return refuse('replays.play.unavailable.notQ2pro')
+  if (!active || !isQ2proCapable(active)) return refuse('replays.play.unavailable.notQ2pro')
   if (active.runner === STEAM_RUNNER_CHOICE)
     return refuse('replays.play.unavailable.needsDirectLaunch')
   if (gameRunning) return refuse('replays.play.unavailable.gameRunning')
@@ -125,5 +137,6 @@ export function demoPlayEligibility(input: DemoPlayInput): DemoPlayEligibility {
     gameDir,
     inPlace,
     extraArgs: inPlace ? ['+demo', demo.fileName] : [],
+    ...(active.engineKind !== 'q2pro' ? { engine: 'q2pro' as const } : {}),
   }
 }

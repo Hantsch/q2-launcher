@@ -2,7 +2,7 @@ import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { fail, ok, type Installation, type InstallationSource } from '@shared/types'
+import { engineLabel, fail, ok, type Installation, type InstallationSource } from '@shared/types'
 import { InstallationsService } from './installations'
 import { deleteInstallationFolder } from './installation-removal'
 import { inspectInstallation } from './inspector'
@@ -697,5 +697,172 @@ describe('remove({ deleteFromDisk: true }) (story 094 D2)', () => {
 
     expect(result).toEqual({ ok: false, error: { key: 'installations.error.notFound' } })
     expect(deleteInstallationFolderMock).not.toHaveBeenCalled()
+  })
+})
+
+/** An engine client's file name as `looksExecutable` accepts it on this host. */
+function client(name: string): string {
+  return process.platform === 'win32' ? `${name}.exe` : name
+}
+
+async function writeClient(rootPath: string, name: string): Promise<string> {
+  const path = join(rootPath, client(name))
+  await writeFile(path, 'stand-in executable')
+  if (process.platform !== 'win32') await chmod(path, 0o755)
+  return path
+}
+
+/** A playable `baseq2` plus one stand-in client per engine name. */
+async function writeEnginesRoot(rootPath: string, engines: readonly string[]): Promise<void> {
+  await mkdir(join(rootPath, 'baseq2'), { recursive: true })
+  await writeFile(join(rootPath, 'baseq2', 'pak0.pak'), 'not a real pak, just needs to exist')
+  for (const engine of engines) await writeClient(rootPath, engine)
+}
+
+describe('an installation with several engines', () => {
+  it('a folder with r1q2 and q2pro lists both engines', async () => {
+    const rootPath = join(dir, 'both')
+    await writeEnginesRoot(rootPath, ['r1q2', 'q2pro'])
+
+    const result = await installations.addExisting({ rootPath })
+
+    if (!result.ok) throw new Error(`fixture installation was rejected: ${result.error.key}`)
+    expect(result.value.detectedEngines).toEqual([
+      { kind: 'r1q2', executablePath: join(rootPath, client('r1q2')), supported: true },
+      { kind: 'q2pro', executablePath: join(rootPath, client('q2pro')), supported: true },
+    ])
+    expect(result.value.engineKind).toBe('q2pro')
+    expect(result.value.executablePath).toBe(join(rootPath, client('q2pro')))
+  })
+
+  it('choosing q2pro changes executable and engine and survives a reload', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2', 'q2pro'])
+    state.setInstallations([
+      installation({ engineKind: 'r1q2', executablePath: join(rootPath, client('r1q2')) }),
+    ])
+    await installations.validate(INSTALLATION_ID)
+
+    const result = await installations.update({ id: INSTALLATION_ID, engine: 'q2pro' })
+
+    expect(result.ok === true && result.value.engineKind).toBe('q2pro')
+    expect(result.ok === true && result.value.executablePath).toBe(join(rootPath, client('q2pro')))
+
+    await state.settle()
+    const reloaded = new StateStore(join(userData, 'state.json'), { migrations: 'none' })
+    await reloaded.load()
+    const restarted = new InstallationsService({
+      state: reloaded,
+      onChange: () => {},
+      onSettingsChange: () => {},
+    })
+    await restarted.validateAll()
+    expect(restarted.find(INSTALLATION_ID)?.engineKind).toBe('q2pro')
+    expect(restarted.find(INSTALLATION_ID)?.executablePath).toBe(join(rootPath, client('q2pro')))
+    await reloaded.settle()
+  })
+
+  it('an engine added later appears and the choice stays', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2'])
+    const r1q2 = join(rootPath, client('r1q2'))
+    state.setInstallations([installation({ engineKind: 'r1q2', executablePath: r1q2 })])
+    await installations.validate(INSTALLATION_ID)
+    expect(installations.find(INSTALLATION_ID)?.detectedEngines?.map((e) => e.kind)).toEqual([
+      'r1q2',
+    ])
+
+    await writeClient(rootPath, 'q2pro')
+    const result = await installations.validate(INSTALLATION_ID)
+
+    if (!result.ok) throw new Error(result.error.key)
+    expect(result.value.detectedEngines?.map((e) => e.kind)).toEqual(['r1q2', 'q2pro'])
+    expect(result.value.engineKind).toBe('r1q2')
+    expect(result.value.executablePath).toBe(r1q2)
+  })
+
+  it('a missing chosen engine is reported, not switched', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2', 'q2pro'])
+    const q2pro = join(rootPath, client('q2pro'))
+    state.setInstallations([
+      installation({ engineKind: 'q2pro', executablePath: q2pro, recordedEngineKind: 'q2pro' }),
+    ])
+
+    await rm(q2pro)
+    const result = await installations.validate(INSTALLATION_ID)
+
+    if (!result.ok) throw new Error(result.error.key)
+    expect(result.value.engineKind).toBe('q2pro')
+    expect(result.value.executablePath).toBe(q2pro)
+    expect(result.value.recordedEngineKind).toBe('q2pro')
+    expect(result.value.detectedEngines?.map((e) => e.kind)).toEqual(['r1q2'])
+    expect(result.value.checks).toContainEqual(
+      expect.objectContaining({ id: 'executable', fix: 'choose-engine' }),
+    )
+  })
+
+  it('an unsupported engine cannot be chosen', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2', 'kmquake2'])
+    const r1q2 = join(rootPath, client('r1q2'))
+    state.setInstallations([installation({ engineKind: 'r1q2', executablePath: r1q2 })])
+    await installations.validate(INSTALLATION_ID)
+    expect(installations.find(INSTALLATION_ID)?.detectedEngines?.map((e) => e.kind)).toContain(
+      'kmquake2',
+    )
+
+    const result = await installations.update({ id: INSTALLATION_ID, engine: 'kmquake2' })
+
+    expect(result).toEqual(
+      fail('installations.error.engineUnsupported', { engine: engineLabel('kmquake2') }),
+    )
+    expect(installations.find(INSTALLATION_ID)?.engineKind).toBe('r1q2')
+    expect(installations.find(INSTALLATION_ID)?.executablePath).toBe(r1q2)
+  })
+
+  it('an engine not in the folder cannot be chosen', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2'])
+    const r1q2 = join(rootPath, client('r1q2'))
+    state.setInstallations([installation({ engineKind: 'r1q2', executablePath: r1q2 })])
+    await installations.validate(INSTALLATION_ID)
+
+    const result = await installations.update({ id: INSTALLATION_ID, engine: 'q2pro' })
+
+    expect(result).toEqual(
+      fail('installations.error.engineNotDetected', { engine: engineLabel('q2pro') }),
+    )
+    expect(installations.find(INSTALLATION_ID)?.executablePath).toBe(r1q2)
+  })
+
+  it('an existing r1q2 installation keeps r1q2 when q2pro is present', async () => {
+    const rootPath = join(dir, 'game', INSTALLATION_ID)
+    await writeEnginesRoot(rootPath, ['r1q2', 'q2pro'])
+    const r1q2 = join(rootPath, client('r1q2'))
+    // A record written before engines were listed: no `detectedEngines` key at all.
+    state.setInstallations([
+      installation({ engineKind: 'r1q2', executablePath: r1q2, recordedEngineKind: 'r1q2' }),
+    ])
+
+    await installations.validateAll()
+
+    const kept = installations.find(INSTALLATION_ID)
+    expect(kept?.engineKind).toBe('r1q2')
+    expect(kept?.executablePath).toBe(r1q2)
+    expect(kept?.recordedEngineKind).toBe('r1q2')
+    expect(kept?.detectedEngines?.map((e) => e.kind)).toEqual(['r1q2', 'q2pro'])
+  })
+
+  it('a relocated installation adopts the client of its own engine', async () => {
+    state.setInstallations([installation({ engineKind: 'r1q2' })])
+    const moved = join(dir, 'moved')
+    await writeEnginesRoot(moved, ['r1q2', 'q2pro'])
+
+    const result = await installations.update({ id: INSTALLATION_ID, rootPath: moved })
+
+    if (!result.ok) throw new Error(result.error.key)
+    expect(result.value.engineKind).toBe('r1q2')
+    expect(result.value.executablePath).toBe(join(moved, client('r1q2')))
   })
 })

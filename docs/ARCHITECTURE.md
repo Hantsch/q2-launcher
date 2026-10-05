@@ -203,6 +203,15 @@ with a severity, an i18n key and an optional `ValidationFix` — and every fix i
 wired to a real flow in `ChecksList.tsx`. That is what keeps a broken installation
 from being a dead end.
 
+A folder can hold several engine clients. Every inspection records all of them as
+`detectedEngines`; the engine the installation _uses_ is its `executablePath`, and
+`engineKind` is derived from the detected engine owning that path — never from the
+folder's default (Q2PRO first). If the chosen client disappears while others remain,
+the badge is kept and the check offers `choose-engine` instead of switching silently.
+The renderer chooses by engine kind (`installations:update` `{ engine }`); main
+resolves the path from its own `detectedEngines` and refuses an engine that is not
+there or not supported (story 246).
+
 Detection (`src/main/services/detection/`) runs in two passes:
 
 1. **fast** — Steam (registry → `libraryfolders.vdf` → every library's

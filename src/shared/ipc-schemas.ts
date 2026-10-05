@@ -5,6 +5,7 @@ import type { InstallationIcon } from './types'
 import { MODULE_MANIFESTS, type ModuleId } from './types/module'
 import {
   absolutePathSchema,
+  engineKindSchema,
   launchUserinfoValueSchema,
   serverAddressSchema,
   settingsObjectSchema,
@@ -108,6 +109,7 @@ export const updateInstallationInputSchema: z.ZodType<IpcInvokeMap['installation
     // resolving whether the installation's `steamAppId` even has a client table is not this schema's
     // job, same division of labour as `runner` right above.
     steamClient: z.number().int().positive().optional(),
+    engine: engineKindSchema.optional(),
   })
 
 export const removeInstallationInputSchema: z.ZodType<IpcInvokeMap['installations:remove']['req']> =

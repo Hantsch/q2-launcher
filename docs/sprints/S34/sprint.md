@@ -31,7 +31,7 @@ refinements from the latest user feedback.
 - [x] 239 — adding an installation is one flow wherever I start it
 - [x] 240 — the install folder is created for me and shown before install
 - [x] 249 — I pick mod and map when I start an installation
-- [ ] 246 — an installation with several engines lets me choose one
+- [x] 246 — an installation with several engines lets me choose one
 - [ ] 247 — I filter servers by maximum ping
 - [ ] 250 — scan now refreshes only the servers my filter shows
 - [ ] 248 — I filter servers by several mods at once
