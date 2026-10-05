@@ -17,6 +17,8 @@ export const DOWNLOADS_HANDLERS = {
   bootstrapEngineOptions: 'bootstrap.engineOptions',
   /** The `BootstrapTargetVerdict` for one candidate target folder. */
   bootstrapTargetVerdict: 'bootstrap.targetVerdict',
+  /** The folder a bootstrap installs into, proposed from a parent folder and an installation name. */
+  bootstrapProposeTarget: 'bootstrap.proposeTarget',
   /** The packages a bootstrap would download and their summed size. */
   bootstrapSummary: 'bootstrap.summary',
   /** Starts the bootstrap job and answers its `Job.id` immediately. */
@@ -264,6 +266,16 @@ export type BootstrapEngineOptionsEmptyReason = 'none-for-platform' | 'none-pinn
 export interface BootstrapEngineOptionsResult {
   options: BootstrapEngineOption[]
   emptyReason: BootstrapEngineOptionsEmptyReason
+}
+
+/**
+ * `installHere` means the parent itself is the install folder (missing or empty), so `folderName`
+ * is empty; otherwise `targetPath` is `parent/folderName`. (story 240)
+ */
+export interface BootstrapTargetProposal {
+  targetPath: string
+  folderName: string
+  installHere: boolean
 }
 
 /** The verdict `computeTargetVerdict` produces; the wizard renders it, never judges paths. */
@@ -572,6 +584,15 @@ export const bootstrapTargetVerdictInputSchema = z
   .object({ targetPath: absolutePathSchema })
   .strict()
 
+/** `bootstrap.proposeTarget` payload; `userTyped` freezes the folder name against auto-numbering. (story 240) */
+export const bootstrapProposeTargetInputSchema = z
+  .object({
+    parentPath: absolutePathSchema,
+    folderName: z.string().max(255),
+    userTyped: z.boolean(),
+  })
+  .strict()
+
 /**
  * The eventual `bootstrap.gameDataSource` handler's payload (a later stage wires the handler) -
  * one absolute path, the folder the wizard's game-data step is asking about. Same
@@ -786,6 +807,7 @@ export const DOWNLOADS_HANDLER_SCHEMAS = {
   [DOWNLOADS_HANDLERS.restoreFailure]: restoreFailureInputSchema,
   [DOWNLOADS_HANDLERS.bootstrapEngineOptions]: bootstrapEngineOptionsInputSchema,
   [DOWNLOADS_HANDLERS.bootstrapTargetVerdict]: bootstrapTargetVerdictInputSchema,
+  [DOWNLOADS_HANDLERS.bootstrapProposeTarget]: bootstrapProposeTargetInputSchema,
   [DOWNLOADS_HANDLERS.bootstrapSummary]: bootstrapSummaryInputSchema,
   [DOWNLOADS_HANDLERS.bootstrapStart]: startBootstrapInputSchema,
   [DOWNLOADS_HANDLERS.bootstrapRetailSources]: bootstrapRetailSourcesInputSchema,
@@ -839,6 +861,10 @@ export type DownloadsContract = {
     [DOWNLOADS_HANDLERS.bootstrapTargetVerdict]: {
       req: z.infer<DownloadsSchemas['bootstrap.targetVerdict']>
       res: BootstrapTargetVerdict
+    }
+    [DOWNLOADS_HANDLERS.bootstrapProposeTarget]: {
+      req: z.infer<DownloadsSchemas['bootstrap.proposeTarget']>
+      res: BootstrapTargetProposal
     }
     [DOWNLOADS_HANDLERS.bootstrapSummary]: {
       req: z.infer<DownloadsSchemas['bootstrap.summary']>

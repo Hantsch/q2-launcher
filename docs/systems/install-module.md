@@ -296,11 +296,18 @@ Launched from "New installation…" in the rail "+" and the Library's add menu. 
 2. **Game data.** Three ways: download the free parts, copy from a detected store installation
    (the detection service already finds Steam/GOG/Epic), or point at a folder that already has
    data. The free path produces a **demo installation** unless retail paks are supplied.
-3. **Target folder.** Free choice; the step also takes the installation's name, defaulting to
-   `defaultBootstrapInstallationName`. Under `Program Files` the wizard shows a hard warning that
-   names the consequence — Quake II writes into its own directory — and offers the existing
-   `set-write-dir` remedy; the user can acknowledge and continue. A non-empty folder produces a
-   warning listing what is in there, with "continue anyway".
+3. **Target folder.** The user picks a location; the step proposes a subfolder of it named after
+   the installation (`Quake II (2)` when a non-empty folder of that name exists) and always shows
+   the final path. The subfolder name is free to edit; an empty picked folder is used as is
+   ("install here"). The step also takes the installation's name, defaulting to
+   `defaultBootstrapInstallationName`. Every check is judged on the final path: under
+   `Program Files` the wizard shows a hard warning that names the consequence � Quake II writes
+   into its own directory � and offers the existing `set-write-dir` remedy; the user can
+   acknowledge and continue. A non-empty final folder produces a warning listing what is in there,
+   with "continue anyway". The job creates the final folder when it starts. On failure the
+   registration and `lastFailure` survive; the folder the job created is removed when it is empty
+   (a pre-existing folder never is), so the installation shows `missing`, and a retry recreates it
+   via the start mkdir and adopts the installation by path.
 4. **Confirm.** What will be downloaded, how large it is, where it goes.
 
 Then one job runs the pipeline of §5. The Play button lights up the moment `inspectInstallation`

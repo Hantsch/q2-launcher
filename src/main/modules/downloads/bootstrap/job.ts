@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { readdir, rmdir } from 'node:fs/promises'
+import { mkdir, readdir, rmdir } from 'node:fs/promises'
 import { join, win32 } from 'node:path'
 import { BASE_GAME_DIR } from '@shared/constants'
 import {
@@ -168,17 +168,19 @@ import { computeTargetVerdict } from './target'
  *    retry would recreate the empty-library problem this story exists to fix. That same adopted
  *    case puts the `lastFailure` that was cleared on adoption back, so a cancelled
  *    retry returns the installation to exactly the state it had before the user clicked retry.
- *  - **Failure** passes `{ unregister: false, removeRoot: false }`. The user's name, folder and
- *    engine were real decisions and a failed download is no reason to throw them away (story 077), so
- *    the registration survives and the target root stays on disk - which is what makes the surviving
- *    installation honestly `invalid` (an empty folder that exists) rather than `missing`. The
- *    assembled files and the extract cache still go: the retry re-downloads from scratch rather than
- *    building on a half-built folder (Decisions (Sprint), Q1).
+ *  - **Failure** passes `{ unregister: false, removeRoot: !targetPreexisted }`. The user's name,
+ *    folder and engine were real decisions and a failed download is no reason to throw them away
+ *    (story 077), so the registration and its `lastFailure` survive. The folder this job created
+ *    goes once it is empty again - a folder the user already had never does - so the surviving
+ *    installation shows `missing`. A retry recreates the folder with the `mkdir` at the start of
+ *    `startBootstrap` and adopts the installation by its canonical path (story 240). The assembled
+ *    files and the extract cache go either way: the retry re-downloads from scratch rather than
+ *    building on a half-built folder.
  *
  * The invariant the old un-registration protected ("no observer sees a `failed` job next to a
  * still-registered half-built installation") is preserved in the only form still available once the
  * registration survives, by `failed()`'s fixed order: delete the files, record the failure, let
- * `InstallationsService.validate()` re-derive the status from the now-empty folder, and only then
+ * `InstallationsService.validate()` re-derive the status from the emptied or removed folder, and only then
  * flip the job to `failed`. By the time anything can look, the installation is registered *and*
  * says it is not playable. (Review considered reversing "record the failure" and "validate" to
  * close the still-narrower window between those two writes, but that order is required elsewhere:
@@ -819,12 +821,27 @@ export async function startBootstrap(
   }
   const packages = resolved.value
 
-  // Taken before `create()` runs: whether the target folder itself already existed on disk (the
-  // user pointed the wizard at an existing, possibly-empty folder) as opposed to `create()`'s own
-  // `mkdir(rootPath, { recursive: true })` chain having created it. Threaded into the cleanup path
+  // Taken before the `mkdir` below: whether the target folder itself already existed on disk (the
+  // user pointed the wizard at an existing, possibly-empty folder) as opposed to this job having
+  // created it. Threaded into the cleanup path
   // below so a cancel/failure never removes a top-level directory this job did not itself make -
   // see the module comment's cleanup note.
   const targetPreexisted = existsSync(verdict.targetPath)
+
+  // The job makes the folder itself, before anything looks it up: a failed run removes the folder it
+  // created, and `canonicalizePath` falls back to a plain `resolve` for a path that does not exist,
+  // so a retry must recreate it *before* `findByRootPath` for the adoption match to compare the same
+  // canonical form `create()` stored (story 240).
+  try {
+    await mkdir(verdict.targetPath, { recursive: true })
+  } catch (error) {
+    log?.warn(`bootstrap could not create ${verdict.targetPath}: ${String(error)}`)
+    return fail('installations.error.createFailed', { path: verdict.targetPath })
+  }
+  /** A refusal before the job exists leaves the disk as it found it - only an empty folder this call made goes. */
+  const undoTargetCreation = async (): Promise<void> => {
+    if (!targetPreexisted) await rmdir(verdict.targetPath).catch(() => {})
+  }
 
   /**
    * Story 088 (Decisions (Sprint)): a `store-copy` run installs *retail* data, so
@@ -885,7 +902,10 @@ export async function startBootstrap(
   let markAdoptionCommitted = (): void => {}
   if (adoptable) {
     // Early refusal; the runner's exclusive admission below is the one that cannot race.
-    if (deps.runner.isInstallationBusy(adoptable.id)) return fail(JOB_INSTALLATION_BUSY)
+    if (deps.runner.isInstallationBusy(adoptable.id)) {
+      await undoTargetCreation()
+      return fail(JOB_INSTALLATION_BUSY)
+    }
     wasAdopted = true
     previousFailure = adoptable.lastFailure
     installation = { ...adoptable, name }
@@ -930,6 +950,7 @@ export async function startBootstrap(
       // Carries the installations service's own key (`duplicate`, `alreadyContainsGame`,
       // `createFailed`) - already an i18n key, and more specific than any downloads key would be.
       log?.warn(`bootstrap could not register ${verdict.targetPath}: ${created.error.key}`)
+      await undoTargetCreation()
       return created
     }
     installation = created.value
@@ -1098,8 +1119,8 @@ export async function startBootstrap(
       jobLog?.warn(`bootstrap of ${installation.name} failed with ${key}: ${reason}`)
       // Story 077. The four steps below are one atom, and their order is the acceptance criterion:
       //
-      // 1. The files this job wrote go - but not the registration and not the target root (and
-      //    Decisions (Sprint) Q1: an honest empty folder beats a half-built one).
+      // 1. The files this job wrote go, and the target root with them when this job created it and
+      //    it is empty again - but never the registration (story 240).
       // 2. The failure is recorded on the surviving installation with the *same* key the
       //    `Job.error` below carries, so the library and the Downloads tab can never disagree. This
       //    has to precede step 3, not follow it (review fix): `applyInspectionResult`'s engine-preservation
@@ -1115,7 +1136,7 @@ export async function startBootstrap(
       //    renderer subscribed between steps 2 and 3 can observe the failure record next to a
       //    not-yet-revalidated status for one commit; accepted as a narrower window than the one this
       //    ordering closes, and still bounded by step 4 - the *job* never reports `failed` early.
-      await cleanUp({ unregister: false, removeRoot: false })
+      await cleanUp({ unregister: false, removeRoot: !targetPreexisted })
       // Finding fix: the *same* `params` object this exit returns as the failed outcome, not a second
       // one computed here - `downloads.error.packageIncomplete`'s sentence reads `{{packageId}}`, and
       // the library card and the Downloads tab render that same sentence. Attached only when present,
@@ -1639,8 +1660,12 @@ export async function startBootstrap(
     wasAdopted ? { ...spec, exclusive: 'installation' } : spec,
     body,
   )
-  // A refusal happened before the body ran, so the record was never touched.
-  if (!started.ok) return started
+  // A refusal happened before the body ran, so the record was never touched. A refused adoption
+  // also puts the disk back - a fresh registration keeps the folder `create()` registered.
+  if (!started.ok) {
+    if (wasAdopted) await undoTargetCreation()
+    return started
+  }
   await adoptionCommitted
   return ok({ ...started.value, installationId: installation.id })
 }

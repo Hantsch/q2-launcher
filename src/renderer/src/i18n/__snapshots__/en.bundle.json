@@ -151,6 +151,10 @@
         "alreadyInstalled": "This folder already contains a Quake II installation. Add it as an existing installation instead.",
         "unsafePath": "This folder cannot be used for a new installation."
       },
+      "finalPathLabel": "Installs into",
+      "folderNameLabel": "Folder name",
+      "installHere": "Installs directly into this empty folder",
+      "locationLabel": "Location",
       "nonEmpty": {
         "acknowledge": "Continue anyway",
         "body": "This folder is not empty. It already contains:"
@@ -158,7 +162,7 @@
       "notWritable": {
         "body": "This folder is not writable. The installation may not be able to save configuration or downloaded updates there."
       },
-      "pickTitle": "Choose the installation folder",
+      "pickTitle": "Choose where to install",
       "placeholder": "Choose a folder…",
       "programFiles": {
         "body": "This folder is under Program Files. Windows restricts write access there, which can prevent later updates or config changes without elevation.",

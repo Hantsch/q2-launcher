@@ -33,6 +33,7 @@ import { KeyValue, Panel, SectionLabel } from '../../../components/ui/primitives
  */
 export function ConfirmStep({
   summary,
+  targetPath,
   loading,
   includeVideoAndPlayers,
   onIncludeVideoAndPlayersChange,
@@ -40,6 +41,7 @@ export function ConfirmStep({
   hideIncludeExtras,
 }: {
   summary: BootstrapSummary | null
+  targetPath: string
   loading: boolean
   includeVideoAndPlayers: boolean
   onIncludeVideoAndPlayersChange: (next: boolean) => void
@@ -89,8 +91,8 @@ export function ConfirmStep({
           </span>
         </KeyValue>
         <KeyValue label={t('bootstrapWizard.confirm.targetLabel')}>
-          <span data-testid="bootstrap-confirm-target-path" title={summary.targetPath}>
-            {summary.targetPath}
+          <span data-testid="bootstrap-confirm-target-path" title={targetPath}>
+            {targetPath}
           </span>
         </KeyValue>
       </Panel>

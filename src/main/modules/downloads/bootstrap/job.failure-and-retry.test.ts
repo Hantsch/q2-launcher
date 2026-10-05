@@ -1,4 +1,4 @@
-import { readdir, realpath } from 'node:fs/promises'
+import { mkdir, readdir, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { fail } from '@shared/types'
@@ -115,14 +115,15 @@ describe('startBootstrap failure and cancel', () => {
       expect(list).toHaveLength(1)
       expect(list[0]?.id).toBe(installationId)
       expect(list[0]?.name).toBe(WIZARD_NAME)
-      expect(list[0]?.rootPath).toBe(await realpath(root))
+      // `dir` is already a realpath, and `root` no longer exists to resolve again.
+      expect(list[0]?.rootPath).toBe(root)
       // `applyInspectionResult` re-derives `engineKind` on every `validate()` for anything but a `custom`
       // kind ([installations.ts:433](../../../../services/installations.ts)), and an emptied folder
       // classifies as `unknown` - but it keeps a previously-known engine kind rather than clobbering
       // it with `unknown`, so the wizard's choice survives the failure path.
       expect(list[0]?.engineKind).toBe('q2pro')
-      // The folder the user picked is still there for the retry to point at - empty, not half-built.
-      expect(await exists(root)).toBe(true)
+      // The folder this job created is gone again; a retry recreates it (story 240).
+      expect(await exists(root)).toBe(false)
       vi.restoreAllMocks()
     }
   })
@@ -169,10 +170,8 @@ describe('startBootstrap failure and cancel', () => {
 
     const { installationId, jobId } = await startFailing(box, targetPath)
 
-    // Assembled files gone, and the directories the job made with them - but the root the user
-    // picked survives, so the surviving installation points at something that exists.
-    expect(await exists(targetPath)).toBe(true)
-    expect(await readdir(targetPath)).toEqual([])
+    // Assembled files gone, and the directories the job made with them - the job-created root too.
+    expect(await exists(targetPath)).toBe(false)
     // The extract cache is gone too; the verified archives stay for a cheap retry.
     expect(await exists(join(userDataPath, 'cache', 'downloads', 'extract', jobId))).toBe(false)
     expect(await readdir(join(userDataPath, 'cache', 'downloads'))).toContain('q2-314-demo-x86.exe')
@@ -334,6 +333,8 @@ describe('startBootstrap retry adoption', () => {
     expect(list).toHaveLength(1)
     expect(list[0]?.id).toBe(first.installationId)
     expect(list[0]?.name).toBe(WIZARD_NAME)
+    // The folder the refused call recreated goes again: the disk is left as the call found it.
+    expect(await exists(targetPath)).toBe(false)
   })
 
   it('a retry into an installation another job is writing is refused as busy', async () => {
@@ -374,6 +375,7 @@ describe('startBootstrap retry adoption', () => {
     expect(after?.lastFailure).toEqual(failureBefore)
     // The refusal happens before the adoption rewrites the record: the name is still the first run's.
     expect(after?.name).toBe(WIZARD_NAME)
+    expect(await exists(targetPath)).toBe(false)
 
     release.resolve()
     await other.value.settled
@@ -416,6 +418,7 @@ describe('startBootstrap retry adoption', () => {
     expect(retry.error.key).toBe('jobs.error.installationBusy')
     expect(box.jobs.list()).toHaveLength(jobsBefore)
     expect(box.installations.find(first.installationId)).toEqual(before)
+    expect(await exists(targetPath)).toBe(false)
 
     release.resolve()
     await other.value.settled
@@ -556,11 +559,9 @@ describe('startBootstrap retry adoption', () => {
     const list = box.installations.list()
     expect(list).toHaveLength(1)
     expect(list[0]?.id).toBe(first.installationId)
-    // Files/root cleaned exactly like an ordinary cancel: the target pre-existed (it is the
-    // surviving folder from the first failed run), so `removeRoot` stays false and only the
-    // (here: none yet copied) files go, matching `removeAssembled`'s cancel behaviour elsewhere.
-    expect(await exists(targetPath)).toBe(true)
-    expect(await readdir(targetPath)).toEqual([])
+    // Files/root cleaned exactly like an ordinary cancel: the first failure removed the folder and
+    // this retry recreated it, so the cancel removes it again - back to the state before retry.
+    expect(await exists(targetPath)).toBe(false)
     // Finding fix (F2): a cancel is the user's "never mind" about *this run*, not a verdict that the
     // installation is now failure-free - so the failure D3 cleared when the retry started is put
     // back, restoring exactly the state the installation was in before the user clicked retry (same
@@ -601,5 +602,81 @@ describe('startBootstrap retry adoption', () => {
     // Unregistered, and the job-created root removed entirely - byte-for-byte the pre-fix behaviour.
     expect(box.installations.list()).toEqual([])
     expect(await exists(targetPath)).toBe(false)
+  })
+})
+
+/**
+ * A failure keeps the registration but not a folder the job made: the installation shows `missing`,
+ * and a retry recreates the folder before the adoption lookup so the canonical path still matches.
+ * A folder the user already had is never removed, empty or not.
+ */
+describe("a failed install's target folder", () => {
+  const start = (box: Harness, name: string) =>
+    startBootstrap(box.deps, { engine: 'q2pro', targetPath, name, includeVideoAndPlayers: false })
+
+  it('a failed install removes the empty folder it created', async () => {
+    const box = harness()
+    breakTargetBeforeValidate(box)
+
+    const started = await start(box, 'First')
+    if (!started.ok) throw new Error(`refused to start: ${started.error.key}`)
+    expect((await started.value.settled).status).toBe('failed')
+
+    expect(await exists(targetPath)).toBe(false)
+    const installation = box.installations.find(started.value.installationId)
+    expect(installation?.status).toBe('missing')
+    expect(installation?.engineKind).toBe('q2pro')
+    expect(installation?.lastFailure?.errorKey).toBe('downloads.error.installationNotPlayable')
+  })
+
+  it('a failed install keeps a folder that existed before', async () => {
+    // Empty on purpose: an empty folder is the one `rmdir` *would* remove, so only the
+    // "did this job create it" guard keeps it.
+    await mkdir(targetPath, { recursive: true })
+    const box = harness()
+    breakTargetBeforeValidate(box)
+
+    const started = await start(box, 'First')
+    if (!started.ok) throw new Error(`refused to start: ${started.error.key}`)
+    expect((await started.value.settled).status).toBe('failed')
+
+    expect(await readdir(targetPath)).toEqual([])
+    const installation = box.installations.find(started.value.installationId)
+    expect(installation?.status).toBe('invalid')
+    expect(installation?.lastFailure).toBeDefined()
+  })
+
+  it('a retry after a removed folder adopts the failed installation and recreates the folder', async () => {
+    let holdRetry: Deferred | undefined
+    let folderAtFirstFetch: boolean | undefined
+    const box = harness({
+      onFetch: async () => {
+        if (!holdRetry) return
+        folderAtFirstFetch ??= await exists(targetPath)
+        await holdRetry.promise
+      },
+    })
+    breakTargetBeforeValidate(box)
+    const first = await start(box, 'First')
+    if (!first.ok) throw new Error(`refused to start: ${first.error.key}`)
+    expect((await first.value.settled).status).toBe('failed')
+    expect(await exists(targetPath)).toBe(false)
+    vi.restoreAllMocks()
+
+    const createSpy = vi.spyOn(box.installations, 'create')
+    holdRetry = deferred()
+    const retry = await start(box, 'Second')
+    if (!retry.ok) throw new Error(`the retry was refused with ${retry.error.key}`)
+
+    expect(createSpy).not.toHaveBeenCalled()
+    expect(retry.value.installationId).toBe(first.value.installationId)
+    holdRetry.resolve()
+    expect((await retry.value.settled).status).toBe('succeeded')
+    expect(folderAtFirstFetch).toBe(true)
+
+    const list = box.installations.list()
+    expect(list).toHaveLength(1)
+    expect(list[0]?.rootPath).toBe(await realpath(targetPath))
+    expect(list[0]?.lastFailure).toBeUndefined()
   })
 })

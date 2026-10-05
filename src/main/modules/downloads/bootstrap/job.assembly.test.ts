@@ -170,9 +170,9 @@ describe('startBootstrap', () => {
     expect(markPlayable).not.toHaveBeenCalled()
     expect(box.jobs.list()[0]?.status).toBe('failed')
     expect(box.jobs.list()[0]?.error).toEqual({ key: 'downloads.error.installationNotPlayable' })
-    // Story 077 D2: the half-built files are gone (the target root is empty again), and the library
-    // entry the user made in the wizard is not - see the AC1/AC2 suite below.
-    expect(await readdir(targetPath)).toEqual([])
+    // The half-built files are gone, and with them the target root this job created; the library
+    // entry the user made in the wizard is not (story 240).
+    expect(await exists(targetPath)).toBe(false)
     expect(box.installations.list()).toHaveLength(1)
   })
 
@@ -204,10 +204,9 @@ describe('startBootstrap', () => {
     // before the late failure - otherwise this test would pass even with the stale path.
     expect(observed.auxCopiedBeforeSecondValidate).toBe(true)
     // Everything inside the target, `baseq2/players` included, must be gone - not just the files,
-    // leaving an empty directory tree behind. Since story 077 D2 the target root itself survives a
-    // failure, so an empty root is what the stale-path bug would still fail: `rmdir` refuses a
-    // non-empty directory, so an unpruned `baseq2/players` would leave `baseq2` here.
-    expect(await readdir(targetPath)).toEqual([])
+    // leaving an empty directory tree behind. `rmdir` refuses a non-empty directory, so an unpruned
+    // `baseq2/players` would keep `baseq2` and with it the job-created root on disk.
+    expect(await exists(targetPath)).toBe(false)
   })
 
   it('a package that contributes no required file fails the job naming that package', async () => {
@@ -250,9 +249,9 @@ describe('startBootstrap', () => {
     expect(record?.errorKey).toBe('downloads.error.packageIncomplete')
     expect(record?.logTail.some((line) => line.includes('Install/Data/baseq2/pak0.pak'))).toBe(true)
 
-    // Cleanup is what every other failure path does: no half-built files, and (story 077 D2) the
-    // library entry kept, carrying this exit's own key.
-    expect(await readdir(targetPath)).toEqual([])
+    // Cleanup is what every other failure path does: no half-built files and no job-created root,
+    // and the library entry kept, carrying this exit's own key.
+    expect(await exists(targetPath)).toBe(false)
     expect(box.installations.list()[0]?.lastFailure?.errorKey).toBe(
       'downloads.error.packageIncomplete',
     )
@@ -351,6 +350,34 @@ describe('startBootstrap', () => {
     expect(box.jobs.list()).toEqual([])
     expect(box.installations.list()).toEqual([])
     expect(await exists(targetPath)).toBe(false)
+  })
+
+  it('the job creates the target folder before writing', async () => {
+    // Before the adoption lookup and the registration, not as a side effect of `create()`: a retry
+    // whose failed run removed the folder must canonicalise the same existing path it registered.
+    const box = harness()
+    const seen: Record<string, boolean> = {}
+    const findByRootPath = box.installations.findByRootPath.bind(box.installations)
+    vi.spyOn(box.installations, 'findByRootPath').mockImplementation(async (path) => {
+      seen.lookup = existsSync(targetPath)
+      return findByRootPath(path)
+    })
+    const create = box.installations.create.bind(box.installations)
+    vi.spyOn(box.installations, 'create').mockImplementation(async (input) => {
+      seen.register = existsSync(targetPath)
+      return create(input)
+    })
+    expect(existsSync(targetPath)).toBe(false)
+
+    const started = await startBootstrap(box.deps, {
+      engine: 'q2pro',
+      targetPath,
+      includeVideoAndPlayers: false,
+    })
+    if (!started.ok) throw new Error(`refused to start: ${started.error.key}`)
+    expect((await started.value.settled).status).toBe('succeeded')
+
+    expect(seen).toEqual({ lookup: true, register: true })
   })
 
   it('persists a picked write-dir remedy path onto the created installation (AC2)', async () => {
@@ -644,7 +671,7 @@ describe('startBootstrap', () => {
       params: { packageId: R1Q2_ENGINE_PACKAGE.id },
     })
     expect(markPlayable).not.toHaveBeenCalled()
-    expect(await readdir(targetPath)).toEqual([])
+    expect(await exists(targetPath)).toBe(false)
     expect(box.installations.list()[0]?.lastFailure?.errorKey).toBe(
       'downloads.error.packageIncomplete',
     )
@@ -691,9 +718,9 @@ describe('startBootstrap', () => {
       params: { packageId: R1Q2_ENGINE_PACKAGE.id },
     })
     expect(markPlayable).not.toHaveBeenCalled()
-    // Never installed via the wrong-role source: the target ends up empty, not holding the point
-    // release's gamex86.dll under the guise of R1Q2's own required file.
-    expect(await readdir(targetPath)).toEqual([])
+    // Never installed via the wrong-role source: the job-created target is gone again, not holding
+    // the point release's gamex86.dll under the guise of R1Q2's own required file.
+    expect(await exists(targetPath)).toBe(false)
   })
 
   /**

@@ -1,7 +1,7 @@
 ---
 id: 240
 title: the install folder is created for me and shown before I install
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -23,19 +23,19 @@ Concept: [install-module.md](../systems/install-module.md).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The target step asks for a parent location and proposes a new subfolder in it,
+- [x] **AC1** — The target step asks for a parent location and proposes a new subfolder in it,
       named after the installation (e.g. `D:\Games\Quake II`), which the user can edit.
-- [ ] **AC2** — The full final path is shown as text in the target step and again on the confirm
+- [x] **AC2** — The full final path is shown as text in the target step and again on the confirm
       step, before anything is written.
-- [ ] **AC3** — The launcher creates the folder when the install starts; the user never has to create
+- [x] **AC3** — The launcher creates the folder when the install starts; the user never has to create
       it in the file dialog.
-- [ ] **AC4** — If the proposed subfolder already exists and is not empty, the launcher proposes a
+- [x] **AC4** — If the proposed subfolder already exists and is not empty, the launcher proposes a
       free name (`Quake II (2)`) instead of warning about a non-empty target.
-- [ ] **AC5** — Choosing a folder that is already an empty folder still works: the user can say
+- [x] **AC5** — Choosing a folder that is already an empty folder still works: the user can say
       "install right here" and the subfolder is not added.
-- [ ] **AC6** — Unsafe or blocked targets (Program Files, not writable, already an installation) are
+- [x] **AC6** — Unsafe or blocked targets (Program Files, not writable, already an installation) are
       still judged — on the final path, not the parent.
-- [ ] **AC7** — A cancelled or failed install removes the folder the launcher created, if it is
+- [x] **AC7** — A cancelled or failed install removes the folder the launcher created, if it is
       still empty.
 
 ## Open Questions
@@ -219,3 +219,19 @@ Review: → default
   folder"; e2e `scripts/flows/bootstrap-failure.mjs` › "bootstrap-failure"
 
 ## Done
+
+**Summary.** The target step now asks for a parent location plus an editable folder name (follows the installation name until edited), proposes a free `<name> (2)` subfolder, treats an empty or missing folder as install-here, and shows the final path on target and confirm step. The job `mkdir`s the final target at start and removes it again on failure/cancel when it created it and it is empty (registration + `lastFailure` survive, installation shows `missing`, retry adopts by path).
+
+**Commit message:** `240: install folder created for me and shown before install — bootstrap.proposeTarget, subfolder + free name, install-here, job mkdir + empty-root cleanup on failure`
+
+**Verification (narrow gate).** build, lint, typecheck green; `npx vitest run --changed HEAD` green (1596 passed, 1 skipped); `src/comments.test.ts` + `src/architecture.test.ts` green. `ui:flows --affected` selected effectively every flow and exceeded the 10-minute call, so it was stopped; ran by name instead: bootstrap-target-subfolder, bootstrap-wizard, bootstrap-failure (batch 1) and bootstrap-incomplete-package, -failure-retry, -existing-folder, -existing-folder-demo, -r1q2, -retail-import, -no-engine-for-platform (batch 2) — all green; after the review fix bootstrap-target-subfolder + bootstrap-wizard re-run green. Full regression gate is the sprint's.
+AC -> test (all ran and passed): AC1/AC4/AC5 target.test.ts + flow bootstrap-target-subfolder; AC2 BootstrapWizard.test.tsx "the confirm step states the final path" + flow; AC3 job.assembly.test.ts "the job creates the target folder before writing" + flow; AC6 target.test.ts (Program Files, registered-installation) + flow bootstrap-wizard; AC7 job.failure-and-retry.test.ts (3 tests) + flow bootstrap-failure. Open point: "a subfolder of a non-writable parent is not writable" is `skipIf` on Windows/root (chmod), same pattern as the existing extractor tests — not run on this host.
+
+**Decisions.**
+- Default folder name for an existing-folder source is the engine label (e.g. `Q2PRO`), following the installation name; flow fixtures use that name.
+- The job also removes a folder it created on pre-job refusals (busy, duplicate, refused adoption) — a refused start must not leave an empty folder; non-recursive `rmdir` only.
+- Review finding fixed: the wizard held the previous proposal while the next loads, so Next/Start could use a stale path; the held proposal now carries its key and gates Next/Start, and an error drops it (two tests added; one existing 239 name test now waits for the proposal to settle).
+- `bootstrapProposeTargetInputSchema` lives in `src/shared/modules/downloads.ts` (no `schemas.ts` in main); new flow not registered in `scripts/flows/areas.json`.
+- Format-only churn from agents in unrelated files was reverted.
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 8

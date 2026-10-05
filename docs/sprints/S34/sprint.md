@@ -29,7 +29,7 @@ refinements from the latest user feedback.
 - [x] 241 — I comment a moment on the demo timeline
 - [x] 237 — I set the demo volume with a slider
 - [x] 239 — adding an installation is one flow wherever I start it
-- [ ] 240 — the install folder is created for me and shown before install
+- [x] 240 — the install folder is created for me and shown before install
 - [ ] 249 — I pick mod and map when I start an installation
 - [ ] 246 — an installation with several engines lets me choose one
 - [ ] 247 — I filter servers by maximum ping

@@ -26,6 +26,7 @@
 // `Q2L_UI_PICK_FOLDER` queues a single entry (the real fixture target) rather than two, since AC2's
 // Program Files warning is not part of this walk.
 import {
+  bootstrapTargetDir,
   startBootstrapFixtureServer,
   vendoredExtractorExists,
   writeBootstrapTargetDir,
@@ -82,6 +83,7 @@ export async function teardown() {
 }
 
 export default async function bootstrapIncompletePackage({ page, shot, step }) {
+  const targetPath = bootstrapTargetDir()
   const demoPackageId = server.packages.find((pkg) => pkg.role === 'demo')?.id
   if (!demoPackageId) {
     throw new Error('the fixture server reported no "demo" package - cannot assert its id (D6)')
@@ -101,22 +103,28 @@ export default async function bootstrapIncompletePackage({ page, shot, step }) {
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByRole('button', { name: 'Next' }).click({ timeout: TIMEOUT_MS })
 
-  step('pick the fixture target and acknowledge the non-empty warning')
+  step('pick the non-empty fixture folder; the wizard proposes a subfolder of it')
   const browse = page
     .getByTestId('bootstrap-target-path-input')
     .getByRole('button', { name: 'Browse…' })
   const next = page.getByRole('button', { name: 'Next' })
   await browse.click({ timeout: TIMEOUT_MS })
 
-  const nonEmptyWarning = page.getByTestId('bootstrap-target-nonempty-warning')
-  await nonEmptyWarning.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  // `Checkbox` (`components/ui/controls.tsx`) hides its real `<input type="checkbox">` with
-  // `sr-only` and paints a visible `<span>` - the click has to land on the wrapping `<label>`,
-  // same pattern as `bootstrap-wizard.mjs`.
-  await page
-    .getByTestId('bootstrap-target-nonempty-acknowledge')
-    .locator('label')
-    .click({ timeout: TIMEOUT_MS })
+  const finalPathField = page.getByTestId('bootstrap-target-final-path')
+  await finalPathField.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.waitForFunction(
+    (picked) => {
+      const text = document
+        .querySelector('[data-testid="bootstrap-target-final-path"]')
+        ?.textContent?.trim()
+      return Boolean(text) && text !== picked && text.startsWith(picked)
+    },
+    targetPath,
+    { timeout: TIMEOUT_MS },
+  )
+  if (await page.getByTestId('bootstrap-target-nonempty-warning').count()) {
+    throw new Error('the proposed subfolder was reported as non-empty')
+  }
   await next.click({ timeout: TIMEOUT_MS })
 
   step('start the job')

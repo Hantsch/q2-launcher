@@ -1,9 +1,9 @@
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { stubPlatform } from '../../../../test-support/platform'
-import { computeTargetVerdict, MAX_TARGET_VERDICT_ENTRIES } from './target'
+import { computeTargetVerdict, MAX_TARGET_VERDICT_ENTRIES, proposeBootstrapTarget } from './target'
 
 /**
  * Story 074 D2. Covers the four scenarios the acceptance criterion names: a `ProgramFiles`-
@@ -161,5 +161,121 @@ describe('computeTargetVerdict', () => {
 
     expect(verdict.blocked).toBe(true)
     expect(verdict.blockedReason).toBe('unsafePath')
+  })
+})
+
+describe('proposeBootstrapTarget', () => {
+  async function filledParent(): Promise<string> {
+    const parent = join(dir, 'games')
+    await mkdir(parent, { recursive: true })
+    await writeFile(join(parent, 'other.txt'), 'x')
+    return parent
+  }
+
+  it('proposes a subfolder named after the installation', async () => {
+    const parent = await filledParent()
+
+    const proposal = await proposeBootstrapTarget(parent, 'My Quake II', { userTyped: false })
+
+    expect(proposal).toEqual({
+      targetPath: join(parent, 'My Quake II'),
+      folderName: 'My Quake II',
+      installHere: false,
+    })
+  })
+
+  it('a non-empty existing subfolder gets a free name', async () => {
+    const parent = await filledParent()
+    await mkdir(join(parent, 'Quake'), { recursive: true })
+    await writeFile(join(parent, 'Quake', 'a.txt'), 'x')
+    await writeFile(join(parent, 'Quake (2)'), 'a file blocks the name too')
+
+    const proposal = await proposeBootstrapTarget(parent, 'Quake', { userTyped: false })
+
+    expect(proposal.folderName).toBe('Quake (3)')
+    expect(proposal.targetPath).toBe(join(parent, 'Quake (3)'))
+  })
+
+  it('an existing empty subfolder is reused', async () => {
+    const parent = await filledParent()
+    await mkdir(join(parent, 'Quake'), { recursive: true })
+
+    const proposal = await proposeBootstrapTarget(parent, 'Quake', { userTyped: false })
+
+    expect(proposal.folderName).toBe('Quake')
+  })
+
+  it('a typed folder name is not renumbered', async () => {
+    const parent = await filledParent()
+    await mkdir(join(parent, 'Quake'), { recursive: true })
+    await writeFile(join(parent, 'Quake', 'a.txt'), 'x')
+
+    const proposal = await proposeBootstrapTarget(parent, 'Quake', { userTyped: true })
+
+    expect(proposal.folderName).toBe('Quake')
+    expect(proposal.installHere).toBe(false)
+  })
+
+  it('an empty or missing parent installs right here', async () => {
+    const empty = join(dir, 'empty')
+    await mkdir(empty, { recursive: true })
+    const missing = join(dir, 'missing')
+
+    for (const parent of [empty, missing]) {
+      expect(await proposeBootstrapTarget(parent, 'Quake', { userTyped: false })).toEqual({
+        targetPath: parent,
+        folderName: '',
+        installHere: true,
+      })
+    }
+  })
+
+  it('a not-yet-existing subfolder under Program Files is warned', async () => {
+    const programFilesRoot = join(dir, 'Program Files')
+    await mkdir(programFilesRoot, { recursive: true })
+    await writeFile(join(programFilesRoot, 'other.txt'), 'x')
+    const proposal = await proposeBootstrapTarget(programFilesRoot, 'Quake', { userTyped: false })
+
+    const verdict = await computeTargetVerdict(proposal.targetPath, {
+      env: { ProgramFiles: programFilesRoot },
+      protectedDirs: [],
+    })
+
+    expect(verdict.programFiles).toBe(true)
+    expect(verdict.blocked).toBe(false)
+  })
+
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'a subfolder of a non-writable parent is not writable',
+    async () => {
+      const parent = join(dir, 'readonly')
+      await mkdir(parent, { recursive: true })
+      await writeFile(join(parent, 'other.txt'), 'x')
+      await chmod(parent, 0o555)
+      try {
+        const proposal = await proposeBootstrapTarget(parent, 'Quake', { userTyped: false })
+
+        const verdict = await computeTargetVerdict(proposal.targetPath, {
+          env: {},
+          protectedDirs: [],
+        })
+
+        expect(verdict.notWritable).toBe(true)
+      } finally {
+        await chmod(parent, 0o755)
+      }
+    },
+  )
+
+  it('the final path of a registered installation is blocked', async () => {
+    const parent = await filledParent()
+    const baseq2 = join(parent, 'Quake', 'baseq2')
+    await mkdir(baseq2, { recursive: true })
+    await writeFile(join(baseq2, 'pak0.pak'), Buffer.alloc(1024))
+
+    const proposal = await proposeBootstrapTarget(parent, 'Quake', { userTyped: true })
+    const verdict = await computeTargetVerdict(proposal.targetPath, { env: {}, protectedDirs: [] })
+
+    expect(verdict.blockedReason).toBe('alreadyInstalled')
   })
 })

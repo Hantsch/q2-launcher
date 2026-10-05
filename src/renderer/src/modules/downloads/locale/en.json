@@ -161,7 +161,11 @@
     },
     "target": {
       "placeholder": "Choose a folder…",
-      "pickTitle": "Choose the installation folder",
+      "pickTitle": "Choose where to install",
+      "locationLabel": "Location",
+      "folderNameLabel": "Folder name",
+      "finalPathLabel": "Installs into",
+      "installHere": "Installs directly into this empty folder",
       "blocked": {
         "alreadyInstalled": "This folder already contains a Quake II installation. Add it as an existing installation instead.",
         "unsafePath": "This folder cannot be used for a new installation."

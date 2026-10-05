@@ -35,7 +35,7 @@
 //   installation-failure-reason         views/LibraryView.tsx (story 077 D4) - the translated
 //                                        `t(installation.lastFailure.errorKey)` sentence
 //   installation-tile-failed-tag        components/installations/InstallationTile.tsx (story 077 D4)
-import { readdirSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import {
   bootstrapFailureRetryTargetDir,
   resetBootstrapFailureRetryTargetDir,
@@ -173,6 +173,17 @@ async function pickFreshTarget(page, expectedTargetPath) {
     )
   }
 
+  await page.getByTestId('bootstrap-target-install-here').waitFor({
+    state: 'visible',
+    timeout: TIMEOUT_MS,
+  })
+  const finalPathText = (await page.getByTestId('bootstrap-target-final-path').innerText()).trim()
+  if (finalPathText !== expectedTargetPath) {
+    throw new Error(
+      `expected the final path ${JSON.stringify(expectedTargetPath)} for a missing folder, got ${JSON.stringify(finalPathText)}`,
+    )
+  }
+
   const deadline = Date.now() + TIMEOUT_MS
   while (Date.now() < deadline && !(await next.isEnabled())) {
     await new Promise((resolve) => setTimeout(resolve, 50))
@@ -267,11 +278,10 @@ export default async function bootstrapFailureRetry({ page, shot, step }) {
   }
   await shot('library-after-run1-failure')
 
-  step('assert the target folder on disk is empty after the failure (AC1)')
-  const entriesAfterFailure = readdirSync(targetPath)
-  if (entriesAfterFailure.length !== 0) {
+  step('assert the folder the job created is gone after the failure (AC1)')
+  if (existsSync(targetPath)) {
     throw new Error(
-      `expected ${targetPath} to be empty after the failed run, found: ${JSON.stringify(entriesAfterFailure)}`,
+      `expected ${targetPath} to be removed after the failed run, found: ${JSON.stringify(readdirSync(targetPath))}`,
     )
   }
 

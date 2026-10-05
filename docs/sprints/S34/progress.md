@@ -279,3 +279,21 @@
 - 2026-10-05 20:06 · 239 · verify 2 · started
 - 2026-10-05 20:07 · 239 · verify 2 · done
 - 2026-10-05 20:08 · 239 · story · done
+- 2026-10-05T20:08:17 · 240 · build · started
+- 2026-10-05 20:08 · 240 · D1 target proposal in main · started
+- 2026-10-05 20:10 · 240 · D1 target proposal in main · done
+- 2026-10-05 20:10 · 240 · D2 job creates and removes folder · started
+- 2026-10-05 20:14 · 240 · D2 job creates and removes folder · done
+- 2026-10-05 20:14 · 240 · D3 renderer target step · started
+- 2026-10-05 20:18 · 240 · D3 renderer target step · done
+- 2026-10-05 20:18 · 240 · D4 subfolder flow and doc · started
+- 2026-10-05 20:20 · 240 · D4 subfolder flow and doc · done
+- 2026-10-05 20:20 · 240 · D5 bootstrap flows sweep · started
+- 2026-10-05 20:26 · 240 · D5 bootstrap flows sweep · done
+- 2026-10-05 20:26 · 240 · verify · started
+- 2026-10-05 20:41 · 240 · verify · done
+- 2026-10-05 20:41 · 240 · review 1 · started
+- 2026-10-05 20:42 · 240 · review 1 · done
+- 2026-10-05 20:42 · 240 · review 1 fixes · started
+- 2026-10-05 20:45 · 240 · review 1 fixes · done
+- 2026-10-05 20:45 · 240 · story · done

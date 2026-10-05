@@ -6,6 +6,7 @@ import type {
   BootstrapEngineOption,
   BootstrapEngineOptionsEmptyReason,
   BootstrapSummary,
+  BootstrapTargetProposal,
   BootstrapTargetVerdict,
   DetectedRetailSource,
   DownloadFailure,
@@ -25,6 +26,7 @@ import {
   getDetectedRetailSources,
   getDownloadFailures,
   getGameDataSourceVerdict,
+  proposeBootstrapTarget,
   startBootstrapInstall,
 } from '../client'
 import { EngineStep } from './EngineStep'
@@ -62,6 +64,8 @@ const STEP_ORDER: Step[] = ['engine', 'gameData', 'target', 'confirm', 'running'
  * call itself, right after `create()`. The write-dir remedy also remains available afterwards from
  * the created installation's own checks list, same as any other installation.
  */
+type HeldProposal = { key: string; proposal: BootstrapTargetProposal }
+
 export function BootstrapWizard() {
   const { t } = useTranslation()
   const closeDialog = useLauncher((state) => state.closeDialog)
@@ -104,7 +108,34 @@ export function BootstrapWizard() {
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const name = nameDraft ?? (engine ? defaultBootstrapInstallationName(engine, dataSource) : '')
 
-  const [targetPath, setTargetPath] = useState('')
+  // The folder name follows the installation name until the user types one of their own.
+  const [parentPath, setParentPath] = useState('')
+  const [folderNameDraft, setFolderNameDraft] = useState('')
+  const [folderNameEdited, setFolderNameEdited] = useState(false)
+  const folderName = folderNameEdited ? folderNameDraft : name
+  const proposalKey = `${parentPath}|${folderName}|${folderNameEdited}`
+  const proposalQuery = useModuleQuery<HeldProposal | null>(
+    async () => {
+      if (!parentPath) return ok(null)
+      const result = await proposeBootstrapTarget({
+        parentPath,
+        folderName,
+        userTyped: folderNameEdited,
+      })
+      return result.ok ? ok({ key: proposalKey, proposal: result.value }) : result
+    },
+    { deps: [parentPath, folderName, folderNameEdited] },
+  )
+  // The last answer stays on screen while the next one loads, so typing never unmounts the field;
+  // it is only ever accepted for advancing while it was produced for the current key.
+  const [held, setHeld] = useState<HeldProposal | null>(null)
+  useEffect(() => {
+    if (proposalQuery.state === 'success') setHeld(proposalQuery.data ?? null)
+    else if (proposalQuery.state === 'error') setHeld(null)
+  }, [proposalQuery.state, proposalQuery.data])
+  const proposal = parentPath ? (held?.proposal ?? null) : null
+  const proposalCurrent = parentPath !== '' && held?.key === proposalKey
+  const targetPath = proposal?.targetPath ?? ''
   const verdictQuery = useModuleQuery<BootstrapTargetVerdict | null>(
     async () => (targetPath ? getBootstrapTargetVerdict(targetPath) : ok(null)),
     { deps: [targetPath] },
@@ -265,7 +296,10 @@ export function BootstrapWizard() {
       title: t('bootstrapWizard.target.pickTitle'),
       buttonLabel: t('common.action.useThisFolder'),
     })
-    if (picked) setTargetPath(picked)
+    if (picked) {
+      setHeld(null)
+      setParentPath(picked)
+    }
   }
 
   // Story 089: browsing for the `'existing-folder'` game-data source - same `installations:
@@ -322,7 +356,10 @@ export function BootstrapWizard() {
         (dataSource === 'existing-folder' &&
           !!gameDataFolderVerdict &&
           gameDataFolderVerdict.kind !== 'unusable')),
-    target: name.trim().length > 0 && !!verdict && !verdict.blocked && targetWarningsAcknowledged,
+    target:
+      proposalCurrent &&
+      name.trim().length > 0 &&
+      !!verdict && !verdict.blocked && targetWarningsAcknowledged,
     confirm: !!summary && !starting,
     running: false,
   }
@@ -338,7 +375,7 @@ export function BootstrapWizard() {
   }
 
   async function start(): Promise<void> {
-    if (!engine || !summary) return
+    if (!engine || !summary || !proposalCurrent) return
     setStarting(true)
     setStartError(null)
     const result = await startBootstrapInstall({
@@ -438,7 +475,13 @@ export function BootstrapWizard() {
         <TargetStep
           name={name}
           onNameChange={setNameDraft}
-          targetPath={targetPath}
+          parentPath={parentPath}
+          proposal={proposal}
+          folderName={folderNameEdited ? folderNameDraft : (proposal?.folderName ?? name)}
+          onFolderNameChange={(next) => {
+            setFolderNameDraft(next)
+            setFolderNameEdited(true)
+          }}
           onBrowse={() => void pickTargetFolder()}
           verdict={verdict}
           checking={checkingTarget}
@@ -456,6 +499,7 @@ export function BootstrapWizard() {
         <div className="space-y-3">
           <ConfirmStep
             summary={summary}
+            targetPath={targetPath}
             loading={summaryLoading}
             includeVideoAndPlayers={includeVideoAndPlayers}
             onIncludeVideoAndPlayersChange={setIncludeVideoAndPlayers}

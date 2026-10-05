@@ -338,3 +338,4 @@ second roadmap.
 - 241 — I comment a moment on the demo timeline · S34 · comments live in the sidecar, show as marks on the timeline that seek, and are listed, edited and deleted in the detail; zip demos are read-only.
 - 237 — I set the demo's game volume with a slider · S34 · timeline speaker button + 0-100 slider, coalesced s_volume, restored after the session, last level remembered
 - 239 — adding an installation is one flow wherever I start it · S34 · rail and Library share one entry list; New installation… opens the wizard, which names the installation; empty-create path removed
+- 240 — the install folder is created for me and shown before install · S34 · location + editable subfolder with free name, install-here for an empty folder, final path shown before install; job creates the folder and removes it again on failure when empty

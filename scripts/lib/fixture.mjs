@@ -220,6 +220,8 @@ export {
   bootstrapExistingFolderSourceDir,
   writeBootstrapExistingFolderSource,
   writeBootstrapExistingFolderUnusableSource,
+  bootstrapSubfolderDirs,
+  writeBootstrapSubfolderDirs,
 } from './fixture/bootstrap.mjs'
 export {
   REPLAYS_PLAY_Q2PRO_ID,

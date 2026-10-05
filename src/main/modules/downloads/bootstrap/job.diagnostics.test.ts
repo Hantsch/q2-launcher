@@ -1,4 +1,3 @@
-import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { EXTRACTION_LISTING_CAP } from '../diagnostics'
@@ -278,19 +277,18 @@ describe('startBootstrap diagnostics', () => {
       key: 'downloads.error.packageIncomplete',
       params: { packageId: DEMO_PACKAGE.id },
     })
-    expect(await readdir(targetPath)).toEqual([])
+    expect(await exists(targetPath)).toBe(false)
     expect(withCollector.installations.list()).toHaveLength(1)
     expect(instrumented.record).toBeDefined()
 
-    // The second run re-uses the same (now empty, cleaned) target folder, which is exactly the
-    // state story 077 D2 leaves behind - and `computeTargetVerdict` must still let a run start
-    // there, since that is what a retry does.
+    // The second run points at the same target path, which the first failure removed again - and
+    // `computeTargetVerdict` must still let a run start there, since that is what a retry does.
     const plain = harness({ contents: {} })
     delete plain.deps.diagnostics
     const bare = await run(plain)
 
     expect(bare.outcome).toEqual(instrumented.outcome)
-    expect(await readdir(targetPath)).toEqual([])
+    expect(await exists(targetPath)).toBe(false)
     expect(plain.installations.list()).toHaveLength(1)
     expect(await exists(join(userDataPath, 'cache', 'downloads', 'extract', bare.jobId))).toBe(
       false,

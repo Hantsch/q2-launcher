@@ -4,6 +4,7 @@ import {
   type BootstrapDataSource,
   type BootstrapEngineOptionsResult,
   type BootstrapSummary,
+  type BootstrapTargetProposal,
   type BootstrapTargetVerdict,
   type ClearArchiveCacheResult,
   type DetectedRetailSource,
@@ -87,6 +88,15 @@ export function getBootstrapTargetVerdict(
   targetPath: string,
 ): Promise<Outcome<BootstrapTargetVerdict>> {
   return client.call(DOWNLOADS_HANDLERS.bootstrapTargetVerdict, { targetPath })
+}
+
+/** Where an install into the picked parent lands: the parent itself, or a subfolder of it. */
+export function proposeBootstrapTarget(input: {
+  parentPath: string
+  folderName: string
+  userTyped: boolean
+}): Promise<Outcome<BootstrapTargetProposal>> {
+  return client.call(DOWNLOADS_HANDLERS.bootstrapProposeTarget, input)
 }
 
 /**

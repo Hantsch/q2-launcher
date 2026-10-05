@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { rm, writeFile } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, sep } from 'node:path'
-import type { BootstrapTargetVerdict } from '@shared/modules/downloads'
-import { canonicalizePath, isDirectory, isInside, listDir } from '../../../lib/fs-utils'
+import { basename, dirname, isAbsolute, join, sep } from 'node:path'
+import type { BootstrapTargetProposal, BootstrapTargetVerdict } from '@shared/modules/downloads'
+import { isReservedDeviceStem, toFolderName } from '@shared/modules/downloads-folder-name'
+import { canonicalizePath, isDirectory, isInside, listDir, pathExists } from '../../../lib/fs-utils'
 import { inspectInstallation, looksLikeQuake2 } from '../../../services/inspector'
 
 /**
@@ -14,36 +15,6 @@ import { inspectInstallation, looksLikeQuake2 } from '../../../services/inspecto
 
 /** How many directory entries `entries[]` carries at most - just enough for the warning list. */
 export const MAX_TARGET_VERDICT_ENTRIES = 20
-
-/**
- * Windows reserved device names, checked against the target's final path segment without its
- * extension (`NUL.txt` is exactly as unusable as `NUL`). Case-insensitive, like every other check
- * here - Windows paths are.
- */
-const RESERVED_DEVICE_NAMES = new Set([
-  'con',
-  'prn',
-  'aux',
-  'nul',
-  'com1',
-  'com2',
-  'com3',
-  'com4',
-  'com5',
-  'com6',
-  'com7',
-  'com8',
-  'com9',
-  'lpt1',
-  'lpt2',
-  'lpt3',
-  'lpt4',
-  'lpt5',
-  'lpt6',
-  'lpt7',
-  'lpt8',
-  'lpt9',
-])
 
 /** Matches a `\\.\...` or `\\?\...` device/verbatim path, never a real directory a wizard writes to. */
 const DEVICE_PATH_RE = /^\\\\[.?]\\/
@@ -71,7 +42,7 @@ function isUnderProgramFiles(canonicalTarget: string, env: NodeJS.ProcessEnv): b
 
 function isReservedDeviceName(canonicalTarget: string): boolean {
   const stem = basename(canonicalTarget).split('.')[0]?.toLowerCase() ?? ''
-  return RESERVED_DEVICE_NAMES.has(stem)
+  return isReservedDeviceStem(stem)
 }
 
 /**
@@ -170,4 +141,40 @@ export async function computeTargetVerdict(
     blocked: alreadyInstalled,
     ...(alreadyInstalled ? { blockedReason: 'alreadyInstalled' as const } : {}),
   }
+}
+
+const MAX_FOLDER_SUFFIX = 99
+
+/**
+ * Proposes where a bootstrap installs: the parent itself when it is missing or empty, otherwise a
+ * subfolder named after the installation. A typed name is the user's decision and is never
+ * renumbered; an existing empty folder is reused rather than numbered past. (story 240)
+ */
+export async function proposeBootstrapTarget(
+  parentPath: string,
+  folderName: string,
+  options: { userTyped: boolean },
+): Promise<BootstrapTargetProposal> {
+  const parentExists = await isDirectory(parentPath)
+  if (!parentExists || (await listDir(parentPath)).names.length === 0) {
+    return { targetPath: parentPath, folderName: '', installHere: true }
+  }
+
+  const base = toFolderName(folderName)
+  let chosen = base
+  if (!options.userTyped) {
+    for (let n = 1; n <= MAX_FOLDER_SUFFIX; n++) {
+      const name = n === 1 ? base : `${base} (${n})`
+      if (await isFreeOrEmptyDir(join(parentPath, name))) {
+        chosen = name
+        break
+      }
+    }
+  }
+  return { targetPath: join(parentPath, chosen), folderName: chosen, installHere: false }
+}
+
+async function isFreeOrEmptyDir(path: string): Promise<boolean> {
+  if (await isDirectory(path)) return (await listDir(path)).names.length === 0
+  return !(await pathExists(path))
 }

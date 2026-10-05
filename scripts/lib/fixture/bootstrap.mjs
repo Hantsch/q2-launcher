@@ -1041,3 +1041,26 @@ export function writeBootstrapExistingFolderUnusableSource() {
   mkdirSync(root, { recursive: true })
   return root
 }
+
+// --- story 240: the subfolder-proposal fixture ----------------------------------------------------
+
+/** The two folders `scripts/flows/bootstrap-target-subfolder.mjs` picks as a target location. */
+export function bootstrapSubfolderDirs() {
+  const root = join(bootstrapFixtureRoot(), 'target', 'Subfolder')
+  return { parent: join(root, 'parent'), empty: join(root, 'empty') }
+}
+
+/**
+ * A parent holding a NON-empty `<occupiedName>` subfolder (so the proposal has to pick the
+ * ` (2)` name) plus a separate empty directory (the install-here case). Recreated on every run.
+ */
+export function writeBootstrapSubfolderDirs(occupiedName) {
+  const { parent, empty } = bootstrapSubfolderDirs()
+  for (const dir of [parent, empty]) {
+    rmDirBestEffort(assertInside(UI_VERIFY_ROOT, dir, 'bootstrap subfolder fixture'))
+  }
+  mkdirSync(join(parent, occupiedName), { recursive: true })
+  writeFileSync(join(parent, occupiedName, 'user-notes.txt'), 'already here\n', 'utf8')
+  mkdirSync(empty, { recursive: true })
+  return { parent, empty }
+}

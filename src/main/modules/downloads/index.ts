@@ -35,7 +35,7 @@ import {
   createR1q2Setup,
 } from './bootstrap/ports'
 import { resolveR1q2LicensePath } from './bootstrap/r1q2-setup'
-import { computeTargetVerdict } from './bootstrap/target'
+import { computeTargetVerdict, proposeBootstrapTarget } from './bootstrap/target'
 import { clear, enforceBudget, NOTHING_IN_USE, status } from './cache'
 import {
   createDiagnosticsCollector,
@@ -146,6 +146,12 @@ export const downloadsModule: MainModule = {
      */
     handle(DOWNLOADS_HANDLERS.bootstrapTargetVerdict, async ({ targetPath }) =>
       ok(await computeTargetVerdict(targetPath, { env: app.env })),
+    )
+
+    handle(
+      DOWNLOADS_HANDLERS.bootstrapProposeTarget,
+      async ({ parentPath, folderName, userTyped }) =>
+        ok(await proposeBootstrapTarget(parentPath, folderName, { userTyped })),
     )
 
     /**

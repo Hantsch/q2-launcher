@@ -8,6 +8,7 @@ import type {
   BootstrapEngineOption,
   BootstrapEngineOptionsEmptyReason,
   BootstrapSummary,
+  BootstrapTargetProposal,
   BootstrapTargetVerdict,
   DetectedRetailSource,
   DownloadFailure,
@@ -115,8 +116,33 @@ const getGameDataSourceVerdict = vi.fn(
   }),
 )
 
+// Defaults to an empty picked folder (install right there); the folder-name tests override it.
+const installHereProposal = async (input: {
+  parentPath: string
+  folderName: string
+  userTyped: boolean
+}): Promise<{ ok: true; value: BootstrapTargetProposal }> => ({
+  ok: true as const,
+  value: { targetPath: input.parentPath, folderName: '', installHere: true },
+})
+const proposeBootstrapTarget = vi.fn(installHereProposal)
+
+/** Models a non-empty parent: the install goes into `parent\<folderName>`. */
+function proposeSubfolder(): void {
+  proposeBootstrapTarget.mockImplementation(async (input) => ({
+    ok: true as const,
+    value: {
+      targetPath: `${input.parentPath}\\${input.folderName}`,
+      folderName: input.folderName,
+      installHere: false,
+    },
+  }))
+}
+
 vi.mock('../client', (importOriginal) =>
   mockClient<typeof import('../client')>(importOriginal, {
+    proposeBootstrapTarget: (...args: unknown[]) =>
+      proposeBootstrapTarget(...(args as [Parameters<typeof proposeBootstrapTarget>[0]])),
     getBootstrapEngineOptions: (...args: unknown[]) => getBootstrapEngineOptions(...(args as [])),
     getBootstrapTargetVerdict: vi.fn(async () => ({ ok: true as const, value: verdict })),
     getBootstrapSummary: (...args: unknown[]) => getBootstrapSummary(...(args as [])),
@@ -207,6 +233,7 @@ beforeAll(async () => {
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  proposeBootstrapTarget.mockImplementation(installHereProposal)
   useLauncher.setState({ jobs: [] })
 })
 
@@ -421,6 +448,16 @@ describe('BootstrapWizard installation name', () => {
     expect(input.value).toBe('Q2PRO Demo')
 
     fireEvent.change(input, { target: { value: '  My Quake  ' } })
+    await waitFor(() =>
+      expect(proposeBootstrapTarget).toHaveBeenLastCalledWith(
+        expect.objectContaining({ folderName: '  My Quake  ' }),
+      ),
+    )
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
 
     await screen.findByTestId('bootstrap-confirm-total-size')
@@ -444,6 +481,163 @@ describe('BootstrapWizard installation name', () => {
     fireEvent.change(input, { target: { value: '   ' } })
 
     expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('BootstrapWizard install location', () => {
+  async function walkToTargetStep(): Promise<void> {
+    render(createElement(BootstrapWizard))
+    await screen.findByTestId('bootstrap-engine-q2pro')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByTestId('bootstrap-gamedata-choice-free-download')
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await screen.findByTestId('bootstrap-target-path-input')
+    fireEvent.click(screen.getByRole('button', { name: 'Browse…' }))
+  }
+
+  it('the target step shows the proposed final path', async () => {
+    proposeSubfolder()
+    await walkToTargetStep()
+
+    await waitFor(() =>
+      expect(screen.getByTestId('bootstrap-target-final-path').textContent).toBe(
+        'D:\\Games\\Quake II\\Q2PRO Demo',
+      ),
+    )
+    expect((screen.getByTestId('bootstrap-target-folder-name') as HTMLInputElement).value).toBe(
+      'Q2PRO Demo',
+    )
+  })
+
+  it('editing the folder name updates the final path and stops following the name', async () => {
+    proposeSubfolder()
+    await walkToTargetStep()
+    await screen.findByTestId('bootstrap-target-folder-name')
+
+    fireEvent.change(screen.getByTestId('bootstrap-target-folder-name'), {
+      target: { value: 'quake-two' },
+    })
+    await waitFor(() =>
+      expect(screen.getByTestId('bootstrap-target-final-path').textContent).toBe(
+        'D:\\Games\\Quake II\\quake-two',
+      ),
+    )
+    expect(proposeBootstrapTarget).toHaveBeenLastCalledWith(
+      expect.objectContaining({ folderName: 'quake-two', userTyped: true }),
+    )
+
+    fireEvent.change(screen.getByTestId('bootstrap-name-input'), { target: { value: 'Renamed' } })
+    await waitFor(() =>
+      expect(screen.getByTestId('bootstrap-target-final-path').textContent).toBe(
+        'D:\\Games\\Quake II\\quake-two',
+      ),
+    )
+  })
+
+  it('Next stays disabled while the proposal for an edited folder name is loading', async () => {
+    proposeSubfolder()
+    await walkToTargetStep()
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+
+    let resolveProposal: (value: Awaited<ReturnType<typeof installHereProposal>>) => void = () => {}
+    proposeBootstrapTarget.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveProposal = resolve
+        }),
+    )
+    fireEvent.change(screen.getByTestId('bootstrap-target-folder-name'), {
+      target: { value: 'quake-two' },
+    })
+
+    await waitFor(() => expect(proposeBootstrapTarget).toHaveBeenCalledTimes(2))
+    expect(screen.getByTestId('bootstrap-target-folder-name')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(true)
+
+    act(() =>
+      resolveProposal({
+        ok: true,
+        value: {
+          targetPath: 'D:\\Games\\Quake II\\quake-two',
+          folderName: 'quake-two',
+          installHere: false,
+        },
+      }),
+    )
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+  })
+
+  it('a failed proposal does not leave Next enabled', async () => {
+    proposeSubfolder()
+    await walkToTargetStep()
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+
+    proposeBootstrapTarget.mockImplementationOnce((async () => ({
+      ok: false as const,
+      error: { key: 'common.error.unknown' },
+    })) as unknown as typeof installHereProposal)
+    fireEvent.change(screen.getByTestId('bootstrap-target-folder-name'), {
+      target: { value: 'broken' },
+    })
+
+    await waitFor(() => expect(proposeBootstrapTarget).toHaveBeenCalledTimes(2))
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        true,
+      ),
+    )
+  })
+
+  it('an empty folder installs right here without a folder-name field', async () => {
+    await walkToTargetStep()
+
+    await screen.findByTestId('bootstrap-target-install-here')
+    expect(screen.getByTestId('bootstrap-target-install-here').textContent).toBe(
+      'Installs directly into this empty folder',
+    )
+    expect(screen.getByTestId('bootstrap-target-final-path').textContent).toBe(
+      'D:\\Games\\Quake II',
+    )
+    expect(screen.queryByTestId('bootstrap-target-folder-name')).toBeNull()
+  })
+
+  it('the confirm step states the final path', async () => {
+    proposeSubfolder()
+    await walkToTargetStep()
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: 'Next' }) as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+
+    await screen.findByTestId('bootstrap-confirm-total-size')
+    expect(screen.getByTestId('bootstrap-confirm-target-path').textContent).toBe(
+      'D:\\Games\\Quake II\\Q2PRO Demo',
+    )
+    await waitFor(() =>
+      expect((screen.getByTestId('bootstrap-confirm-start') as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    )
+    fireEvent.click(screen.getByTestId('bootstrap-confirm-start'))
+    await waitFor(() =>
+      expect(startBootstrapInstall).toHaveBeenCalledWith(
+        expect.objectContaining({ targetPath: 'D:\\Games\\Quake II\\Q2PRO Demo' }),
+      ),
+    )
   })
 })
 

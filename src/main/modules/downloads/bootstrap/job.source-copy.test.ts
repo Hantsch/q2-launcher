@@ -475,9 +475,8 @@ describe('startBootstrap from an existing folder', () => {
     expect(outcome).toEqual({ status: 'failed', key: 'downloads.error.diskWrite' })
 
     // The copied paks are in `copied` like any downloaded file, so the generic cleanup takes them
-    // and then prunes the `baseq2` it made - the root the user picked survives, empty (077 AC1).
-    expect(await exists(targetPath)).toBe(true)
-    expect(await readdir(targetPath)).toEqual([])
+    // and then prunes the `baseq2` it made and the root it created (story 240).
+    expect(await exists(targetPath)).toBe(false)
     // And the user's own folder is untouched: the cleanup deletes copies, never originals.
     expect((await readdir(join(sourceRoot, 'baseq2'))).sort()).toEqual([
       'config.cfg',

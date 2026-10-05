@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TriangleAlert } from 'lucide-react'
-import type { BootstrapTargetVerdict } from '@shared/modules/downloads'
+import type { BootstrapTargetProposal, BootstrapTargetVerdict } from '@shared/modules/downloads'
 import { Checkbox, Field, Input, PathPicker } from '../../../components/ui/controls'
 
 /**
@@ -11,7 +11,11 @@ import { Checkbox, Field, Input, PathPicker } from '../../../components/ui/contr
  * never re-derives "safe to proceed" from the raw fields, `BootstrapWizard` owns that gate and
  * this component only reports which acknowledges are checked.
  *
+ * The picker chooses the location; the final path is the main process's proposal for it (the
+ * location itself when empty or missing, else a named subfolder) and is always shown as text.
+ *
  * `data-testid`s (the e2e flow depends on these): `bootstrap-name-input`, `bootstrap-target-path-input`,
+ * `bootstrap-target-folder-name`, `bootstrap-target-final-path`, `bootstrap-target-install-here`,
  * `bootstrap-target-blocked`, `bootstrap-target-programfiles-warning`,
  * `bootstrap-target-programfiles-acknowledge`, `bootstrap-target-nonempty-warning`,
  * `bootstrap-target-nonempty-acknowledge`, `bootstrap-target-notwritable-warning`,
@@ -20,7 +24,10 @@ import { Checkbox, Field, Input, PathPicker } from '../../../components/ui/contr
 export function TargetStep({
   name,
   onNameChange,
-  targetPath,
+  parentPath,
+  proposal,
+  folderName,
+  onFolderNameChange,
   onBrowse,
   verdict,
   checking,
@@ -34,7 +41,10 @@ export function TargetStep({
 }: {
   name: string
   onNameChange: (next: string) => void
-  targetPath: string
+  parentPath: string
+  proposal: BootstrapTargetProposal | null
+  folderName: string
+  onFolderNameChange: (next: string) => void
   onBrowse: () => void
   verdict: BootstrapTargetVerdict | null
   checking: boolean
@@ -60,16 +70,49 @@ export function TargetStep({
         />
       </Field>
 
-      <Field label={t('common.label.installationFolder')}>
+      <Field label={t('bootstrapWizard.target.locationLabel')}>
         <div data-testid="bootstrap-target-path-input">
           <PathPicker
-            value={targetPath}
+            value={parentPath}
             placeholder={t('bootstrapWizard.target.placeholder')}
             onBrowse={onBrowse}
             browseLabel={t('common.label.browse')}
           />
         </div>
       </Field>
+
+      {proposal && !proposal.installHere && (
+        <Field
+          label={t('bootstrapWizard.target.folderNameLabel')}
+          htmlFor="bootstrap-target-folder-name"
+        >
+          <Input
+            id="bootstrap-target-folder-name"
+            value={folderName}
+            maxLength={255}
+            onChange={(event) => onFolderNameChange(event.target.value)}
+            data-testid="bootstrap-target-folder-name"
+          />
+        </Field>
+      )}
+
+      {proposal && (
+        <div className="space-y-1 text-xs">
+          <p className="text-ink-muted">{t('bootstrapWizard.target.finalPathLabel')}</p>
+          <p
+            className="break-all text-ink"
+            title={proposal.targetPath}
+            data-testid="bootstrap-target-final-path"
+          >
+            {proposal.targetPath}
+          </p>
+          {proposal.installHere && (
+            <p className="text-ink-muted" data-testid="bootstrap-target-install-here">
+              {t('bootstrapWizard.target.installHere')}
+            </p>
+          )}
+        </div>
+      )}
 
       {checking && <p className="text-xs text-ink-muted">{t('common.label.checkingFolder')}</p>}
 

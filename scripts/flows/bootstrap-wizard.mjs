@@ -68,7 +68,7 @@
 // fail at step "start" rather than prove anything. `setup()` therefore reseeds `populated` and
 // recreates the target folder, which is what makes the flow re-runnable.
 import { existsSync, readdirSync, statSync } from 'node:fs'
-import { delimiter, join } from 'node:path'
+import { basename, delimiter, dirname, join } from 'node:path'
 import {
   BOOTSTRAP_FIXTURE_LAYOUT,
   BOOTSTRAP_TARGET_LOOSE_FILE,
@@ -126,9 +126,10 @@ export async function setup() {
     env: {
       Q2L_UI_CONTENT_REPO_BASE: server.baseUrl,
       // In call order: the Program Files path AC2 needs a warning for (never created), then the
-      // real fixture target everything after step 2 uses. The second entry repeats for any further
+      // parent of the real fixture target - the flow types the target's own name into the
+      // folder-name field to land on it. The second entry repeats for any further
       // pick, so the write-dir remedy button cannot exhaust the list.
-      Q2L_UI_PICK_FOLDER: [bootstrapProgramFilesProbePath(), targetPath].join(delimiter),
+      Q2L_UI_PICK_FOLDER: [bootstrapProgramFilesProbePath(), dirname(targetPath)].join(delimiter),
     },
   }
 }
@@ -217,6 +218,13 @@ export default async function bootstrapWizard({ page, shot, step }) {
     )
   }
 
+  const shownFinalPath = (await page.getByTestId('bootstrap-target-final-path').innerText()).trim()
+  if (shownFinalPath !== programFilesPath) {
+    throw new Error(
+      `expected the warning to apply to the final path ${JSON.stringify(programFilesPath)}, got ${JSON.stringify(shownFinalPath)}`,
+    )
+  }
+
   const programFilesText = await programFilesWarning.innerText()
   if (!/write access/i.test(programFilesText)) {
     throw new Error(
@@ -264,18 +272,41 @@ export default async function bootstrapWizard({ page, shot, step }) {
   await shot('target-programfiles-warning')
 
   // --- AC3: a non-empty target lists its contents and can be continued ---------------------------
-  step('re-pick the real fixture target (second stubbed folder pick)')
+  step('pick the parent of the real fixture target (second stubbed folder pick)')
   await browse.click({ timeout: TIMEOUT_MS })
 
-  step('assert the non-empty warning lists what is already in the folder (AC3)')
+  step('assert the non-empty folder is not installed into: a subfolder is proposed')
+  const finalPathField = page.getByTestId('bootstrap-target-final-path')
+  const parentDir = dirname(targetPath)
+  await page.waitForFunction(
+    (picked) => {
+      const text = document
+        .querySelector('[data-testid="bootstrap-target-final-path"]')
+        ?.textContent?.trim()
+      return Boolean(text) && text !== picked && text.startsWith(picked)
+    },
+    parentDir,
+    { timeout: TIMEOUT_MS },
+  )
+  const shownPath = await pathField.inputValue()
+  if (shownPath !== parentDir) {
+    throw new Error(
+      `expected the target field to show ${JSON.stringify(parentDir)}, got ${JSON.stringify(shownPath)}`,
+    )
+  }
+  if (await page.getByTestId('bootstrap-target-nonempty-warning').count()) {
+    throw new Error('the proposed subfolder was reported as non-empty')
+  }
+
+  step('type the existing folder name into the folder-name field (AC3)')
+  await page
+    .getByTestId('bootstrap-target-folder-name')
+    .fill(basename(targetPath), { timeout: TIMEOUT_MS })
   const nonEmptyWarning = page.getByTestId('bootstrap-target-nonempty-warning')
   await nonEmptyWarning.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-
-  const shownPath = await pathField.inputValue()
-  if (shownPath !== targetPath) {
-    throw new Error(
-      `expected the target field to show ${JSON.stringify(targetPath)}, got ${JSON.stringify(shownPath)}`,
-    )
+  const typedFinalPath = (await finalPathField.innerText()).trim()
+  if (typedFinalPath !== targetPath) {
+    throw new Error(`expected the typed name to yield ${targetPath}, got ${typedFinalPath}`)
   }
   const nonEmptyText = await nonEmptyWarning.innerText()
   if (!nonEmptyText.includes(BOOTSTRAP_TARGET_LOOSE_FILE)) {
