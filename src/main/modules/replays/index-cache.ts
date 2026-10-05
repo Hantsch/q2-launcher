@@ -22,7 +22,7 @@ import type { DemoRootDir } from './discovery'
 
 /** Bump whenever any cached fact shape changes - parsed facts, name facts - a bump discards,
  * never migrates, exactly like `NEWS_CACHE_VERSION` in feed-cache.ts. */
-export const REPLAYS_INDEX_CACHE_VERSION = 5
+export const REPLAYS_INDEX_CACHE_VERSION = 6
 
 export const REPLAYS_INDEX_CACHE_FILE = 'replays-index.json'
 

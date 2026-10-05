@@ -1,4 +1,5 @@
 import type { ReplaysScanProgress } from '@shared/modules/replays'
+import type { DemoListScope } from '@shared/replays/list-scope'
 
 /**
  * Story 151: pure derivation of the demo list's own display state - mirrors
@@ -7,20 +8,28 @@ import type { ReplaysScanProgress } from '@shared/modules/replays'
  *
  * `'loading'` wins over everything else while a scan is running - even if rows already exist from
  * a previous round (the panel above the rows communicates progress, the rows themselves keep
- * showing whatever they last had). `'empty'` only applies once a scan is not running and there are
- * no rows; `'populated'` otherwise.
+ * showing whatever they last had). Once a scan is not running and there are no rows, the empty
+ * state says why: no installation registered, none selected, the selected one has no demos, or (with
+ * every installation shown) nothing anywhere. `'populated'` otherwise. (story 238)
  */
-export type ReplaysListState = 'loading' | 'empty' | 'populated'
+export type ReplaysListState =
+  'loading' | 'empty' | 'noInstallation' | 'noneSelected' | 'emptyForInstallation' | 'populated'
 
 export function deriveReplaysListState({
   scanning,
   rowCount,
+  scope,
+  installationCount,
 }: {
   scanning: boolean
   rowCount: number
+  scope: DemoListScope['kind']
+  installationCount: number
 }): ReplaysListState {
   if (scanning) return 'loading'
   if (rowCount > 0) return 'populated'
+  if (scope === 'none') return installationCount === 0 ? 'noInstallation' : 'noneSelected'
+  if (scope === 'installation') return 'emptyForInstallation'
   return 'empty'
 }
 

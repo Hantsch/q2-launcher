@@ -62,7 +62,7 @@ export const SESSION_RESTORE_CVARS = [
 const NOT_FOUND = 'replays.play.error.notFound'
 const FILE_MISSING = 'replays.play.error.fileMissing'
 /** The payload named an installation other than the active Q2PRO one: the same "not the Q2PRO to play in" reason. */
-const WRONG_INSTALLATION = 'replays.play.unavailable.notQ2pro'
+export const WRONG_INSTALLATION = 'replays.play.unavailable.notQ2pro'
 const UNSAFE_NAME = 'replays.play.unavailable.unsafeName'
 
 /** Same rule as the eligibility check's file-name guard: what the game console can take. */

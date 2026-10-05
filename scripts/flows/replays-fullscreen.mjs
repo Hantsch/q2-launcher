@@ -19,7 +19,7 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { sleep } from '../lib/flow-common.mjs'
-import { commands, openDemos, openFolder } from '../lib/replays-copy-in.mjs'
+import { commands, openAllDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -89,8 +89,8 @@ export default async function replaysFullscreen({ page, step, shot }) {
   )
 
   step('start the demo')
-  await openDemos(page)
-  await openFolder(page, '/ ctf')
+  await openAllDemos(page)
+  await openFolder(page, 'ctf')
   await page
     .getByTestId('replays-demo-row')
     .filter({ hasText: REPLAYS_PLAY_CTF_DEMO })

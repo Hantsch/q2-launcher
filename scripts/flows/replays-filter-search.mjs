@@ -33,7 +33,11 @@ import {
   removeReplaysFilterFixture,
   writeReplaysFilterFixture,
 } from '../lib/fixture.mjs'
-import { openDemosRoot, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import {
+  openDemosRoot,
+  showAllInstallations,
+  waitForDemosScanToFinish,
+} from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 const POLL_INTERVAL_MS = 100
@@ -315,6 +319,7 @@ export default async function replaysFilterSearch({ page, step, shot }) {
 
   await page.getByTestId('nav-settings').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
+  await showAllInstallations(page)
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForDemosScanToFinish(page)
   if ((await page.getByTestId('replays-breadcrumb').count()) === 0) await openDemosRoot(page)

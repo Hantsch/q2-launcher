@@ -26,7 +26,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { INSTALL_ONE_ID, installationConfigFilePath } from '../lib/fixture.mjs'
-import { openDemos, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
+import { openAllDemos, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -67,7 +67,7 @@ export async function teardown() {
 
 export default async function replaysRename({ page, shot, step }) {
   step('an invalid name shows its reason and blocks saving')
-  await openDemos(page)
+  await openAllDemos(page)
   await openFolder(page, 'Fixture Favorite Install')
 
   // The demo list is virtualized (VirtualDemoList.tsx) - narrow it via the search filter to bring

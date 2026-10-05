@@ -1,5 +1,5 @@
 import type { ReplaysStageRect } from '@shared/modules/replays'
-import { ok, type LaunchState } from '@shared/types'
+import { fail, ok, type LaunchState } from '@shared/types'
 import { randomUUID } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
 import { homedir, hostname } from 'node:os'
@@ -15,13 +15,13 @@ import type { UiHarness } from '../../lib/ui-harness'
 import { defineModule } from '../define-module'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../../lib/archive/7za-path'
-import { SESSION_RESTORE_CVARS, createDemoPlay, launcherSweepDirs } from './demo-play'
+import { SESSION_RESTORE_CVARS, WRONG_INSTALLATION, createDemoPlay, launcherSweepDirs } from './demo-play'
 import { createDemoFolders } from './demo-folders'
 import { createDemoMove } from './demo-move'
 import { createDemoRename } from './demo-rename'
 import { sweepLauncherDirs } from './demo-staging'
 import { composeDemoRows } from './demo-rows'
-import { discoverDemos, type DiscoverContext } from './discovery'
+import { demoFolderPaths, discoverDemos, type DiscoverContext } from './discovery'
 import { appendExtraFolder, removeExtraFolder, resolveExtraFolder } from './extra-folders'
 import { createDemoFileActions } from './file-actions'
 import { REPLAYS_INDEX_CACHE_FILE, ReplaysIndexCache } from './index-cache'
@@ -453,6 +453,11 @@ export const replaysModule: MainModule = {
     handle(REPLAYS_HANDLERS.folderRename, (payload) =>
       demoFolders.rename(payload.folder, payload.name),
     )
+    handle(REPLAYS_HANDLERS.demoFoldersRead, (payload) => {
+      const installation = app.installations.list().find((i) => i.id === payload.installationId)
+      if (!installation) return fail(WRONG_INSTALLATION)
+      return ok({ folders: demoFolderPaths(installation, discoveryContext()) })
+    })
     handle(REPLAYS_HANDLERS.demoPlay, (payload) =>
       demoPlay.play(payload.demoId, payload.installationId, {
         acknowledgeModMissing: payload.acknowledgeModMissing === true,

@@ -18,7 +18,7 @@ import {
   vendoredExtractorExists,
   writeReplaysPlayFixture,
 } from '../lib/fixture.mjs'
-import { openDemos, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
+import { openAllDemos, openFolder, rowFor } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-play'
 
@@ -59,7 +59,7 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
 
   step('open Demos; the fixture lists three demos')
   await page.getByTestId('nav-replays').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await openDemos(page)
+  await openAllDemos(page)
   await openFolder(page, 'ctf')
 
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
@@ -178,9 +178,11 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
   )
 
   step('selecting the r1q2 installation disables View with the notQ2pro reason')
-  await selectDemo(page, REPLAYS_PLAY_BASE_DEMO)
-  // The rail lists installations by sortOrder: q2pro first, r1q2 second.
+  // The rail lists installations by sortOrder: q2pro first, r1q2 second. Switching it returns the
+  // list to its root, so the demo is picked again from the q2pro folder (story 238).
   await page.getByTestId('installation-tile').nth(1).click({ timeout: TIMEOUT_MS })
+  await openFolder(page, 'Fixture Play Q2PRO · baseq2')
+  await selectDemo(page, REPLAYS_PLAY_BASE_DEMO)
   await page
     .getByTestId('actionbar-action-reason')
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })

@@ -16,7 +16,7 @@ import {
   vendoredExtractorExists,
   writeReplaysFoldersFixture,
 } from '../lib/fixture.mjs'
-import { openDemos, openFolder, poll, rowFor, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
+import { openAllDemos, openFolder, poll, rowFor, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_FOLDERS_VARIANT
 
@@ -59,7 +59,7 @@ export default async function replaysFolders({ page, shot, step }) {
   }
 
   step('the top level lists only root folders, never a demo row')
-  await openDemos(page)
+  await openAllDemos(page)
   await page.getByTestId('replays-folder-row').first().waitFor({ timeout: TIMEOUT_MS })
   const roots = await folderNames(page)
   expect(

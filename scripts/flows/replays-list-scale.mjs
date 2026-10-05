@@ -13,7 +13,11 @@
 //   replays-demo-name       DemoRow.tsx - the row's file name text
 
 import { REPLAYS_SCALE_LAST_FILE_NAME } from '../lib/fixture.mjs'
-import { openDemosRoot, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import {
+  openDemosRoot,
+  showAllInstallations,
+  waitForDemosScanToFinish,
+} from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 /** However many rows the virtualised list may ever mount at once - well above the actual window
@@ -26,6 +30,7 @@ export const variant = 'replays-scale'
 export default async function replaysListScale({ page, shot, step }) {
   step('navigating to the Demos view renders the discovered list')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
+  await showAllInstallations(page)
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForDemosScanToFinish(page, { timeout: TIMEOUT_MS * 4 })
   await openDemosRoot(page)

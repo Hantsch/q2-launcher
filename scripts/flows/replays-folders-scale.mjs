@@ -7,7 +7,7 @@ import {
   REPLAYS_FOLDER_SCALE_ROOT_LABEL,
   REPLAYS_FOLDER_SCALE_VARIANT,
 } from '../lib/fixture.mjs'
-import { openDemos, openFolder, poll, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
+import { openAllDemos, openFolder, poll, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_FOLDER_SCALE_VARIANT
 
@@ -42,7 +42,7 @@ async function assertFewRows(page, where) {
 
 export default async function replaysFoldersScale({ page, shot, step }) {
   step('the scan finishes despite the junction loop')
-  await openDemos(page)
+  await openAllDemos(page)
   const rows = page.getByTestId('replays-folder-row')
   await rows.first().waitFor({ timeout: TIMEOUT_MS })
   await assertFewRows(page, 'top level')

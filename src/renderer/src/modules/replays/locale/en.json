@@ -253,6 +253,14 @@
       },
       "refresh": "Refresh"
     },
+    "scope": {
+      "installation": "{{name}}'s demos",
+      "all": "All installations",
+      "extraGroup": "Extra folders",
+      "noInstallation": "No installation yet — add one to see its demos.",
+      "noneSelected": "Select an installation in the rail to see its demos.",
+      "emptyFor": "No demos in {{name}} yet. It looks in:"
+    },
     "source": {
       "extraFolder": "extra folder: {{path}}"
     },

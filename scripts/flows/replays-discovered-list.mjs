@@ -18,7 +18,7 @@
 // assertions to match, not merely delete it.
 
 import { REPLAYS_FIXTURE_DEMOS } from '../lib/fixture.mjs'
-import { openDemos, openFolder } from '../lib/replays-copy-in.mjs'
+import { openDemos, openFolder, showAllInstallations } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -26,8 +26,9 @@ export default async function replaysDiscoveredList({ page, shot, step }) {
   step('navigating to the Demos view renders the discovered list')
   await openDemos(page)
 
+  await showAllInstallations(page)
   step('exactly the five fixture demo files are listed - no decoys')
-  const rootLabel = (demo) => `${demo.installationName} / ${demo.gameDir}`
+  const rootLabel = (demo) => `${demo.installationName} · ${demo.gameDir}`
   const roots = [...new Set(REPLAYS_FIXTURE_DEMOS.map(rootLabel))]
   const names = []
   for (const root of roots) {

@@ -14,7 +14,7 @@ import {
   vendoredExtractorExists,
   writeReplaysModInstallFixture,
 } from '../lib/fixture.mjs'
-import { openDemos, openFolder } from '../lib/replays-copy-in.mjs'
+import { openAllDemos, openFolder } from '../lib/replays-copy-in.mjs'
 import { readLog } from '../lib/flow-common.mjs'
 
 export const variant = REPLAYS_MOD_INSTALL_VARIANT
@@ -68,8 +68,8 @@ export default async function replaysModInstall({ page, step, shot }) {
   }
 
   await page.getByTestId('nav-replays').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await openDemos(page)
-  await openFolder(page, '/ baseq2')
+  await openAllDemos(page)
+  await openFolder(page, 'baseq2')
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
   const play = page.locator('[data-testid="actionbar-play"][data-action="view"]')
   const dialog = page.getByTestId('replays-mod-missing-dialog')

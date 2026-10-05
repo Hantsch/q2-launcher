@@ -12,7 +12,9 @@ import { DemoFolderRow } from './DemoFolderRow'
 
 /** What the list renders: folders first, then demos, one fixed row height for both. */
 export type DemoListItem =
-  { kind: 'folder'; folder: FolderEntry } | { kind: 'demo'; row: DemoRowData; folderText?: string }
+  | { kind: 'folder'; folder: FolderEntry }
+  | { kind: 'demo'; row: DemoRowData; folderText?: string }
+  | { kind: 'heading'; labelKey: string; testId: string }
 
 export interface VirtualDemoListProps {
   items: DemoListItem[]
@@ -101,12 +103,22 @@ export function VirtualDemoList({
               key={
                 item.kind === 'folder'
                   ? `folder:${item.folder.ref.sourceKey}:${item.folder.ref.path.join('/')}`
-                  : item.row.id
+                  : item.kind === 'heading'
+                    ? `heading:${item.testId}`
+                    : item.row.id
               }
               aria-setsize={items.length}
               aria-posinset={start + index + 1}
             >
-              {item.kind === 'folder' ? (
+              {item.kind === 'heading' ? (
+                <div
+                  className="flex items-end px-3 pb-1 text-xs font-medium tracking-wide text-ink-muted uppercase"
+                  style={{ height: DEMO_ROW_HEIGHT }}
+                  data-testid={item.testId}
+                >
+                  {t(item.labelKey)}
+                </div>
+              ) : item.kind === 'folder' ? (
                 <DemoFolderRow
                   folder={item.folder}
                   onOpen={onOpenFolder}

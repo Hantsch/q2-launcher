@@ -19,12 +19,27 @@ export async function poll(what, fn, timeoutMs = 15_000) {
   }
 }
 
-export async function openDemos(page) {
+export async function openDemos(page, { all = false } = {}) {
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
+  if (all) await showAllInstallations(page)
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const refresh = page.getByTestId('replays-refresh')
   await refresh.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await poll('the demo scan to finish', async () => !(await refresh.isDisabled()), TIMEOUT_MS)
+}
+
+/** `openDemos` with every installation shown: the scope defaults to the rail's installation, which
+ * hides fixture demos of other installations and lists nothing when no installation is active
+ * (story 238). */
+export const openAllDemos = (page) => openDemos(page, { all: true })
+
+/** Turns the "All installations" scope on so folders of every installation are listed; their roots
+ * are then labelled "<installation> · <game dir>". */
+export async function showAllInstallations(page) {
+  const toggle = page.getByTestId('replays-scope-all')
+  await toggle.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  if ((await toggle.getAttribute('aria-checked')) !== 'true')
+    await toggle.click({ timeout: TIMEOUT_MS })
 }
 
 /** Opens the folder rows named by `names`, one level per name (root labels match by substring).
@@ -50,7 +65,7 @@ export async function openFolder(page, ...names) {
 
 /** `openDemos` plus opening the only root folder; throws unless exactly one root exists. */
 export async function openDemosRoot(page) {
-  await openDemos(page)
+  await openAllDemos(page)
   const roots = page.getByTestId('replays-folder-row')
   await roots.first().waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const count = await roots.count()

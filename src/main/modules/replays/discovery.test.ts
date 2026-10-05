@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ZipDeps } from '../../lib/zip-entries'
 import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import type { DiscoverableInstallation } from './discovery'
-import { discoverDemos, effectiveWriteDirs, recogniseDemoFile } from './discovery'
+import { discoverDemos, demoFolderPaths, effectiveWriteDirs, recogniseDemoFile } from './discovery'
 
 /** No zip fixtures in most tests here - `extractorExists: false` fails closed, harmlessly. */
 const ZIP_DEPS: ZipDeps = { extractorPath: 'unused', extractorExists: false }
@@ -72,6 +72,27 @@ describe('recogniseDemoFile', () => {
     expect(recogniseDemoFile('x.dm2.json')).toBeNull()
     expect(recogniseDemoFile('a.zip')).toBeNull()
     expect(recogniseDemoFile('notes.txt')).toBeNull()
+  })
+})
+
+describe('demoFolderPaths', () => {
+  it("demo folders list every game dir's demos folder and, on Linux Q2PRO, the write dir's", () => {
+    const inst = installation({
+      rootPath: join('/games', 'q2'),
+      gameDirs: ['baseq2', 'ctf'],
+      engineKind: 'q2pro',
+    })
+    const linux = { platform: 'linux' as const, homeDir: '/home/x', zipDeps: ZIP_DEPS }
+    expect(demoFolderPaths(inst, linux)).toEqual([
+      join('/games', 'q2', 'baseq2', 'demos'),
+      join('/games', 'q2', 'ctf', 'demos'),
+      join('/home/x', '.q2pro', 'baseq2', 'demos'),
+      join('/home/x', '.q2pro', 'ctf', 'demos'),
+    ])
+    expect(demoFolderPaths(inst, { ...linux, platform: 'win32' })).toEqual([
+      join('/games', 'q2', 'baseq2', 'demos'),
+      join('/games', 'q2', 'ctf', 'demos'),
+    ])
   })
 })
 
@@ -320,6 +341,104 @@ describe('discoverDemos', () => {
       expect(zipRows.map((d) => d.fileName).sort()).toEqual(['a.dm2', 'b.mvd2'])
     })
   })
+})
+
+describe('discoverDemos - which installations reach a row', () => {
+  const linux = (home: string, zipDeps: ZipDeps = ZIP_DEPS) => ({
+    platform: 'linux' as const,
+    homeDir: home,
+    zipDeps,
+  })
+  const twoQ2pro = () => [
+    installation({ id: 'inst-a', name: 'A', rootPath: join(dir, 'a'), engineKind: 'q2pro' }),
+    installation({ id: 'inst-b', name: 'B', rootPath: join(dir, 'b'), engineKind: 'q2pro' }),
+  ]
+
+  it('a Q2PRO write dir shared by two installations is reached by both', async () => {
+    const home = join(dir, 'home')
+    await writeDemo(join(home, '.q2pro', 'baseq2', 'demos'), 'x.dm2')
+
+    const result = await discoverDemos(twoQ2pro(), [], linux(home))
+
+    expect(result.demos).toHaveLength(1)
+    expect(result.demos[0].source).toMatchObject({ installationId: 'inst-a' })
+    expect(result.demos[0].reachedBy).toEqual(['inst-a', 'inst-b'])
+  })
+
+  it('a demo nested in a shared write dir is reached by both installations', async () => {
+    const home = join(dir, 'home')
+    await writeDemo(join(home, '.q2pro', 'baseq2', 'demos', 'cup', 'final'), 'deep.dm2')
+
+    const result = await discoverDemos(twoQ2pro(), [], linux(home))
+
+    expect(result.demos).toHaveLength(1)
+    expect(result.demos[0].folder).toEqual(['cup', 'final'])
+    expect(result.demos[0].reachedBy).toEqual(['inst-a', 'inst-b'])
+  })
+
+  it('a file reached once lists only its own installation', async () => {
+    await writeDemo(join(dir, 'a', 'baseq2', 'demos'), 'only-a.dm2')
+    await writeDemo(join(dir, 'b', 'baseq2', 'demos'), 'only-b.dm2')
+
+    const result = await discoverDemos(twoQ2pro(), [], linux(join(dir, 'home')))
+
+    expect(result.demos.map((d) => [d.fileName, d.reachedBy])).toEqual([
+      ['only-a.dm2', ['inst-a']],
+      ['only-b.dm2', ['inst-b']],
+    ])
+  })
+
+  it('a write-dir demo shadowing a root demo is still reached by its installation', async () => {
+    const home = join(dir, 'home')
+    await writeDemo(join(dir, 'b', 'baseq2', 'demos'), 'x.dm2', 'root-bytes')
+    await writeDemo(join(home, '.q2pro', 'baseq2', 'demos'), 'x.dm2', 'writedir-bytes')
+
+    const [, b] = twoQ2pro()
+    const result = await discoverDemos([b], [], linux(home))
+
+    expect(result.demos).toHaveLength(1)
+    expect(result.demos[0].absolutePath).toBe(join(home, '.q2pro', 'baseq2', 'demos', 'x.dm2'))
+    expect(result.demos[0].reachedBy).toEqual(['inst-b'])
+  })
+
+  it('an extra-folder row is reached by no installation', async () => {
+    const extra = join(dir, 'extra')
+    await writeDemo(extra, 'e.dm2')
+
+    const result = await discoverDemos(twoQ2pro(), [extraFolder(extra)], linux(join(dir, 'home')))
+
+    expect(result.demos).toHaveLength(1)
+    expect(result.demos[0].reachedBy).toEqual([])
+  })
+
+  const realBinary = resolveExtractorPath({ isPackaged: false })
+
+  it.skipIf(!realBinary.exists)(
+    'a zip in a shared write dir has its entries reached by both installations',
+    async () => {
+      const home = join(dir, 'home')
+      const demosDir = join(home, '.q2pro', 'baseq2', 'demos')
+      await mkdir(demosDir, { recursive: true })
+      const zipSrc = join(dir, 'zip-src')
+      await mkdir(zipSrc, { recursive: true })
+      await writeFile(join(zipSrc, 'a.dm2'), 'a-bytes')
+      execFileSync(
+        realBinary.path,
+        ['a', '-tzip', '-y', '-spd', '--', join(demosDir, 'pack.zip'), 'a.dm2'],
+        { cwd: zipSrc },
+      )
+
+      const result = await discoverDemos(
+        twoQ2pro(),
+        [],
+        linux(home, { extractorPath: realBinary.path, extractorExists: true }),
+      )
+
+      expect(result.demos).toHaveLength(1)
+      expect(result.demos[0].archiveEntry).not.toBeNull()
+      expect(result.demos[0].reachedBy).toEqual(['inst-a', 'inst-b'])
+    },
+  )
 })
 
 describe('discoverDemos - subfolders', () => {

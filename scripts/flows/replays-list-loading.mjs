@@ -19,7 +19,7 @@ import {
   REPLAYS_FIXTURE_SCANNED_TOTAL,
   writeReplaysListLoadingFixture,
 } from '../lib/fixture.mjs'
-import { openFolder } from '../lib/replays-copy-in.mjs'
+import { openFolder, showAllInstallations } from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-list-loading'
 
@@ -82,8 +82,9 @@ export default async function replaysListLoading({ page, shot, step }) {
     .first()
     .waitFor({ state: 'visible', timeout: SETTLE_TIMEOUT_MS })
   await loading.waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  await showAllInstallations(page)
   let rowCount = 0
-  const rootLabel = (demo) => `${demo.installationName} / ${demo.gameDir}`
+  const rootLabel = (demo) => `${demo.installationName} · ${demo.gameDir}`
   for (const root of new Set(REPLAYS_FIXTURE_DEMOS.map(rootLabel))) {
     await openFolder(page, root)
     await page

@@ -6,15 +6,37 @@ function progress(overrides: Partial<ReplaysScanProgress> = {}): ReplaysScanProg
   return { running: false, sources: [], sourceErrors: [], ...overrides }
 }
 
-describe('deriveReplaysListState (story 151 D3)', () => {
+describe('deriveReplaysListState', () => {
+  const base = { scanning: false, rowCount: 0, scope: 'all', installationCount: 2 } as const
+
   it('loading wins while a scan runs, even with rows', () => {
-    expect(deriveReplaysListState({ scanning: true, rowCount: 5 })).toBe('loading')
+    expect(deriveReplaysListState({ ...base, scanning: true, rowCount: 5 })).toBe('loading')
+    expect(deriveReplaysListState({ ...base, scanning: true, scope: 'none' })).toBe('loading')
   })
 
-  it('empty only after the scan finished with no rows', () => {
-    expect(deriveReplaysListState({ scanning: false, rowCount: 0 })).toBe('empty')
-    expect(deriveReplaysListState({ scanning: true, rowCount: 0 })).toBe('loading')
-    expect(deriveReplaysListState({ scanning: false, rowCount: 3 })).toBe('populated')
+  it('a list with rows is populated whatever the scope', () => {
+    expect(deriveReplaysListState({ ...base, rowCount: 3 })).toBe('populated')
+    expect(deriveReplaysListState({ ...base, rowCount: 3, scope: 'installation' })).toBe(
+      'populated',
+    )
+  })
+
+  it('every installation shown and nothing found is the plain empty state', () => {
+    expect(deriveReplaysListState(base)).toBe('empty')
+  })
+
+  it('no installation registered says so', () => {
+    expect(deriveReplaysListState({ ...base, scope: 'none', installationCount: 0 })).toBe(
+      'noInstallation',
+    )
+  })
+
+  it('installations registered but none selected says so', () => {
+    expect(deriveReplaysListState({ ...base, scope: 'none' })).toBe('noneSelected')
+  })
+
+  it('a selected installation without demos is empty for that installation', () => {
+    expect(deriveReplaysListState({ ...base, scope: 'installation' })).toBe('emptyForInstallation')
   })
 })
 

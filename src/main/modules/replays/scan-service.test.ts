@@ -687,6 +687,33 @@ describe('header facts and duration on the index row (story 150 D1)', () => {
     expect(rows).toHaveLength(1)
     expect(pickFacts(rows[0])).toEqual(EXPECTED)
   })
+
+  it("a cache hit takes reachedBy from this scan's discovery, never the cached row", async () => {
+    const dir = await demoFolder('demos', ['a.dm2'])
+    const discoverReachedBy = (reachedBy: string[]) => async () => {
+      const found = await discoverDemos([], extraFolders([dir]), {
+        platform: process.platform,
+        homeDir: root,
+        zipDeps: { extractorPath: '', extractorExists: false },
+      })
+      return { ...found, demos: found.demos.map((d) => ({ ...d, reachedBy })) }
+    }
+
+    const first = harness([dir], { discover: discoverReachedBy(['inst-a']) })
+    first.service.start()
+    await first.waitIdle(1)
+    expect((await first.service.read())[0].reachedBy).toEqual(['inst-a'])
+
+    const parse = vi.fn(async (): Promise<DemoHeaderFacts> => {
+      throw new Error('a cache hit must not be re-parsed')
+    })
+    const second = harness([dir], { parse, discover: discoverReachedBy(['inst-a', 'inst-b']) })
+    second.service.start()
+    await second.waitIdle(1)
+
+    expect(parse).not.toHaveBeenCalled()
+    expect((await second.service.read())[0].reachedBy).toEqual(['inst-a', 'inst-b'])
+  })
 })
 
 describe('applyRelocate (story 157)', () => {

@@ -75,6 +75,8 @@ export const REPLAYS_HANDLERS = {
   folderCreate: 'folder.create',
   /** Renames a folder of a demo source (its demos and sidecars move with it), ref-addressed. */
   folderRename: 'folder.rename',
+  /** The absolute `demos` folders of one installation (display only), installation-id-addressed. */
+  demoFoldersRead: 'demoFolders.read',
   /** Plays a demo in Q2PRO (`+demo <file>`), id-addressed. */
   demoPlay: 'demo.play',
   /** Steers the running demo (pause, jump, seek, speed). */
@@ -297,6 +299,12 @@ export const discoveredDemoSchema = z.object({
    * Name-template match facts for this file's name, or null when no template matched (story 139)
    */
   nameFacts: nameFactsSchema.nullable(),
+  /**
+   * Ids of every installation whose scan reaches this file, in precedence order - more than one
+   * when installations share a folder (a Linux Q2PRO write dir). Absent = reached only by
+   * `source.installationId`; empty for an extra-folder row (story 238)
+   */
+  reachedBy: z.array(z.string()).optional(),
 })
 
 export type DemoFormat = z.infer<typeof demoFormatSchema>
@@ -538,6 +546,11 @@ export interface ReplaysDemoPlayResult {
   stage: ReplaysStageResult | null
 }
 
+/** `demoFolders.read`'s payload: the installation whose demo folders are wanted - never a path. */
+export const replaysDemoFoldersReadSchema = z
+  .object({ installationId: z.string().min(1).max(512) })
+  .strict()
+
 /**
  * `demo.play`'s payload: the demo id plus the installation the renderer believes it is playing in -
  * never a path.
@@ -641,6 +654,7 @@ export const REPLAYS_HANDLER_SCHEMAS = {
   [REPLAYS_HANDLERS.demoMove]: replaysDemoMoveSchema,
   [REPLAYS_HANDLERS.folderCreate]: replaysFolderCreateSchema,
   [REPLAYS_HANDLERS.folderRename]: replaysFolderRenameSchema,
+  [REPLAYS_HANDLERS.demoFoldersRead]: replaysDemoFoldersReadSchema,
   [REPLAYS_HANDLERS.demoPlay]: replaysDemoPlaySchema,
   [REPLAYS_HANDLERS.playbackTimeline]: timelineActionSchema,
   [REPLAYS_HANDLERS.playbackStage]: replaysPlaybackStageSchema,
@@ -765,6 +779,7 @@ export type ReplaysContract = {
     [REPLAYS_HANDLERS.demoMove]: ReplaysHandler<'demo.move', { demo: DiscoveredDemo }>
     [REPLAYS_HANDLERS.folderCreate]: ReplaysHandler<'folder.create', { folder: FolderRef }>
     [REPLAYS_HANDLERS.folderRename]: ReplaysHandler<'folder.rename', ReplaysFolderRenameResult>
+    [REPLAYS_HANDLERS.demoFoldersRead]: ReplaysHandler<'demoFolders.read', { folders: string[] }>
     [REPLAYS_HANDLERS.demoPlay]: ReplaysHandler<'demo.play', ReplaysDemoPlayResult>
     [REPLAYS_HANDLERS.playbackTimeline]: ReplaysHandler<'playback.timeline', void>
     [REPLAYS_HANDLERS.playbackConsoleSend]: ReplaysHandler<'playback.consoleSend', void>

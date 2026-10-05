@@ -22,7 +22,7 @@ import {
   vendoredExtractorExists,
   writeReplaysZipPackArchive,
 } from '../lib/fixture.mjs'
-import { openDemos, openFolder } from '../lib/replays-copy-in.mjs'
+import { openAllDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -53,7 +53,7 @@ export default async function replaysZipEntries({ page, shot, step }) {
   }
 
   step('opening the demos root renders the discovered list')
-  await openDemos(page)
+  await openAllDemos(page)
   await openFolder(page, 'Fixture Favorite Install')
 
   step('a loose fixture file carries no data-archive-entry attribute')

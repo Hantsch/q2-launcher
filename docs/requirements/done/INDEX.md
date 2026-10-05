@@ -333,3 +333,4 @@ second roadmap.
 - 245 — the demo detail lists players by team · S34 · Demo detail groups players by team (OpenTDM/CTF) with POV mark and collapsed spectators, teams also feed search and sides.
 - 243 — the demo detail is edited in place and saves itself · S34 · one detail view whose fields, tags and sides save themselves through one queued write path.
 - 242 — I browse my demos in their folders · S34 · Demos find subfolders at any depth and browse as folders with breadcrumb, search across folders, create/rename folder and drag-move of a demo.
+- 238 — the demo list shows the selected installation's demos · S34 · the Demos view scopes to the rail's installation (plus extra folders) with an All-installations toggle and empty states that name the folders.

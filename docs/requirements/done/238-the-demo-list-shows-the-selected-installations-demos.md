@@ -1,7 +1,7 @@
 ---
 id: 238
 title: the demo list shows the selected installation's demos
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -20,16 +20,16 @@ Concept: [replays-module.md](../systems/replays-module.md).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The list shows only demos found in the active installation's folders (all its game
+- [x] **AC1** — The list shows only demos found in the active installation's folders (all its game
       dirs, and on Linux its Q2PRO write dir).
-- [ ] **AC2** — Switching the active installation in the rail switches the list, without a manual
+- [x] **AC2** — Switching the active installation in the rail switches the list, without a manual
       rescan and without losing the filter.
-- [ ] **AC3** — The view says whose demos it shows (installation name in the list header).
-- [ ] **AC4** — With no installation selected or none registered, the list shows an empty state
+- [x] **AC3** — The view says whose demos it shows (installation name in the list header).
+- [x] **AC4** — With no installation selected or none registered, the list shows an empty state
       that says why, not demos from elsewhere.
-- [ ] **AC5** — An empty list for the selected installation says so and names its demo folders,
+- [x] **AC5** — An empty list for the selected installation says so and names its demo folders,
       rather than looking like a scan error.
-- [ ] **AC6** — Favourites, ratings, tags and other sidecar data are unaffected by the scoping — a
+- [x] **AC6** — Favourites, ratings, tags and other sidecar data are unaffected by the scoping — a
       demo shows the same data whichever way it is reached.
 
 ## Open Questions
@@ -224,3 +224,23 @@ Order D1 → D2 → D3 → D4. Systems doc `docs/systems/replays-module.md` is u
 Coverage: AC1 → D1+D3 · AC2 → D3 · AC3 → D3 · AC4 → D4 · AC5 → D2+D4 · AC6 → D1+D3.
 
 ## Done
+
+**Summary.** The scan stays global; rows carry `reachedBy` (every installation whose scan reached the file, shared Linux write dir included) and the Demos view scopes by it to the rail's installation plus the extra-folder group, with a header label, an "All installations" toggle (view state, off by default) and empty states that say why (no installation, none selected, empty installation listing its demo folders via `demoFoldersRead`).
+
+**Commit message:** `238: demo list scoped to the selected installation — reachedBy, All-installations toggle, empty states, demoFolders.read`
+
+**Verification** (narrow gate; `test-story` = `npx vitest run --changed HEAD`, green 175 files/1512 tests; comments + architecture green; build/typecheck/lint green).
+- e2e: `--affected` selected 132 flows (too many for one call, `scripts/lib` touched), so the 3 new flows plus every `replays-*` flow (56) ran in batches: all green on a freshly seeded fixture (two fix rounds). Non-replays flows selected by `--affected` were not run; the sprint's full gate covers them.
+- AC1: flow replays-installation-scope + discovery.test "a Q2PRO write dir shared by two installations is reached by both" + list-scope.test; AC2/AC3: flow + ReplaysView.test; AC4: flows replays-list-empty, replays-scope-empty, replays-scope-none-selected + list-state.test; AC5: flow replays-scope-empty + ReplaysListStatus.test + discovery.test (demo folders); AC6: flow + list-scope.test + demo-rename.test. All passed. No manual residue.
+- Flows share the `populated` fixture; run in a loop without reseed, `replays-rename`/`demo-file-actions` leave a persisted search that reds later flows (pre-existing hygiene issue; `ui:flows` reseeds per flow).
+
+**Decisions.**
+- D1 also reuses the first walk of a root already scanned (`scannedRoots`): story 242's visited-set made the second installation sharing `~/.q2pro` see only top-level files.
+- `scan-service.toRow` takes `reachedBy` from fresh discovery on cache hits; index cache version bumped.
+- Flows needing the union list use `openAllDemos` / `showAllInstallations` (shared helper in `replays-copy-in.mjs`); with the toggle on, roots read "<installation> · <gameDir>".
+- Toggling "All installations" also returns the folder view to the root (review finding).
+- `demoFoldersRead` answers an unknown installation with `WRONG_INSTALLATION`, the key `demoPlay` uses.
+- `docs/systems/replays-module.md` condensed to stay within its 150-line cap.
+- Known, not fixed (predates story): on Linux, installation B with a root demo at the same relative path as a shared write-dir demo A already listed yields two rows with one id, visible only with the toggle on.
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 10

@@ -24,7 +24,7 @@ refinements from the latest user feedback.
 - [x] 245 — the demo detail lists players by team
 - [x] 243 — the demo detail is edited in place and saves itself
 - [x] 242 — I browse my demos in their folders
-- [ ] 238 — the demo list shows the selected installation's demos
+- [x] 238 — the demo list shows the selected installation's demos
 - [ ] 244 — I select several demos and delete, tag or move them
 - [ ] 241 — I comment a moment on the demo timeline
 - [ ] 237 — I set the demo volume with a slider

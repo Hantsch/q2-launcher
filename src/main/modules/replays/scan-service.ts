@@ -209,6 +209,9 @@ function toRow(file: ReplaysScanFile, facts: DemoHeaderFacts): DiscoveredDemo {
         : { birthtimeMs: file.birthtimeMs, mtimeMs: file.mtimeMs },
     folder: file.folder,
     nameFacts: null,
+    // From this scan's discovery, never the cached row: which installations share a folder can
+    // change without the file itself changing (story 238)
+    reachedBy: file.reachedBy,
   }
 }
 

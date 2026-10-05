@@ -18,7 +18,11 @@ import {
   replaysListErrorMissingFolderPath,
   writeReplaysListErrorFixture,
 } from '../lib/fixture.mjs'
-import { openFolder, waitForDemosScanToFinish } from '../lib/replays-copy-in.mjs'
+import {
+  openFolder,
+  waitForDemosScanToFinish,
+  showAllInstallations,
+} from '../lib/replays-copy-in.mjs'
 
 export const variant = 'replays-list-error'
 
@@ -79,8 +83,9 @@ export default async function replaysListError({ page, shot, step }) {
     )
   }
   step('every fixture demo is still listed despite the two failing sources')
+  await showAllInstallations(page)
   const names = []
-  const rootLabel = (demo) => `${demo.installationName} / ${demo.gameDir}`
+  const rootLabel = (demo) => `${demo.installationName} · ${demo.gameDir}`
   for (const root of new Set(REPLAYS_FIXTURE_DEMOS.map(rootLabel))) {
     await openFolder(page, root)
     names.push(...(await page.getByTestId('replays-demo-name').allTextContents()))

@@ -18,7 +18,7 @@ import {
   replaysFoldersFixturePath,
   writeReplaysFoldersFixture,
 } from '../lib/fixture.mjs'
-import { openDemos, openFolder, poll, rowFor, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
+import { openAllDemos, openFolder, poll, rowFor, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_FOLDERS_VARIANT
 
@@ -89,7 +89,7 @@ export default async function replaysFolderDragMove({ page, shot, step }) {
   const crumbRoot = () => page.getByTestId('replays-crumb').filter({ hasText: ROOT_LABEL })
 
   step('dragging a demo onto a breadcrumb crumb moves it and its sidecar there')
-  await openDemos(page)
+  await openAllDemos(page)
   await page.getByTestId('replays-folder-row').first().waitFor({ timeout: TIMEOUT_MS })
   await openFolder(page, ROOT_LABEL)
   await openFolder(page, 'a')

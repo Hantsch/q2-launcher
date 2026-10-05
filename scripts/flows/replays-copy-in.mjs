@@ -18,7 +18,7 @@ import {
   assertUnchanged,
   copiesIn,
   launchLines,
-  openDemos,
+  openAllDemos,
   openFolder,
   poll,
   selectDemo,
@@ -41,7 +41,7 @@ export default async function replaysCopyIn({ page, step, shot }) {
   const folder = replaysCopyInExtraFolder(variant)
   await page.getByTestId('nav-replays').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const { logPath } = await page.evaluate(() => window.q2.invoke('app:getInfo'))
-  await openDemos(page)
+  await openAllDemos(page)
   const topLevel = () => page.getByTestId('replays-crumb').first().click({ timeout: TIMEOUT_MS })
 
   async function playAndObserve(label, fileName, originalPath) {

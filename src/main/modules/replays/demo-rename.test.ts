@@ -91,6 +91,8 @@ async function setup(
     templates?: string[]
     fs?: Partial<DemoRenameFs>
     scanOverride?: (real: ReplaysScanService) => Partial<ReplaysScanService>
+    /** Stamped onto every discovered row, as if several installations shared the folder. */
+    reachedBy?: string[]
   } = {},
 ): Promise<Setup> {
   for (const [name, content] of Object.entries(files)) {
@@ -101,12 +103,20 @@ async function setup(
   const scan = createReplaysScanService({
     emit: () => {},
     cache: new ReplaysIndexCache({ filePath: join(root, 'replays-index.json') }),
-    discover: async () =>
-      discoverDemos([], [{ id: 'extra-0', path: dir, addedAt: '2026-01-01T00:00:00.000Z' }], {
-        platform: process.platform,
-        homeDir: root,
-        zipDeps: { extractorPath: '', extractorExists: false },
-      }),
+    discover: async () => {
+      const found = await discoverDemos(
+        [],
+        [{ id: 'extra-0', path: dir, addedAt: '2026-01-01T00:00:00.000Z' }],
+        {
+          platform: process.platform,
+          homeDir: root,
+          zipDeps: { extractorPath: '', extractorExists: false },
+        },
+      )
+      const { reachedBy } = opts
+      if (reachedBy === undefined) return found
+      return { ...found, demos: found.demos.map((d) => ({ ...d, reachedBy })) }
+    },
     parse: async () => FACTS,
     nameMatcher,
     isGameRunning: () => false,
@@ -325,6 +335,35 @@ describe('demo rename (story 157)', () => {
     expect(outcome.value.demo.fileName).toBe('Other.dm2')
     expect(outcome.value.demo.id).toBe(demoIdForPath(join(dir, 'Other.dm2')))
     expect(await listDir()).toEqual(['Other.dm2'])
+  })
+
+  describe('a renamed row keeps its reachedBy', () => {
+    const reachedBy = ['inst-a', 'inst-b']
+
+    it('through the re-keyed index', async () => {
+      const t = await setup({ 'Final.dm2': 'demo' }, { reachedBy })
+
+      const outcome = await t.rename(await t.idOf('Final.dm2'), 'Other')
+
+      expect(outcome.ok).toBe(true)
+      if (!outcome.ok) return
+      expect(outcome.value.demo.reachedBy).toEqual(reachedBy)
+      const indexed = (await t.scan.read()).find((r) => r.id === outcome.value.demo.id)
+      expect(indexed?.reachedBy).toEqual(reachedBy)
+    })
+
+    it('when a scan swap leaves only the best-effort row', async () => {
+      const t = await setup(
+        { 'Final.dm2': 'demo' },
+        { reachedBy, scanOverride: () => ({ applyRelocate: async () => undefined }) },
+      )
+
+      const outcome = await t.rename(await t.idOf('Final.dm2'), 'Other')
+
+      expect(outcome.ok).toBe(true)
+      if (!outcome.ok) return
+      expect(outcome.value.demo.reachedBy).toEqual(reachedBy)
+    })
   })
 
   describe('guards', () => {

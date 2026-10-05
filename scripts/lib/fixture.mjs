@@ -191,6 +191,7 @@ export {
   replaysListErrorBrokenArchiveFolderPath,
   REPLAYS_LIST_ERROR_BROKEN_ARCHIVE_NAME,
   writeReplaysListErrorFixture,
+  writeReplaysScopeNoneSelectedFixture,
 } from './fixture/replays.mjs'
 export {
   bootstrapProgramFilesProbePath,
@@ -309,6 +310,7 @@ import {
   writeReplaysDateFilterFixture,
   writeReplaysListLoadingFixture,
   writeReplaysListErrorFixture,
+  writeReplaysScopeNoneSelectedFixture,
 } from './fixture/replays.mjs'
 import {
   REPLAYS_TIMELINE_VARIANT,
@@ -343,6 +345,7 @@ export const VARIANTS = {
   [REPLAYS_DATE_FILTER_VARIANT]: writeReplaysDateFilterFixture,
   'replays-list-loading': writeReplaysListLoadingFixture,
   'replays-list-error': writeReplaysListErrorFixture,
+  'replays-scope-none-selected': writeReplaysScopeNoneSelectedFixture,
 }
 
 export function writeFixture(variant) {

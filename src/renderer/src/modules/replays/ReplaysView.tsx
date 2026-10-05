@@ -25,7 +25,9 @@ import {
   isDemoFilterActive,
   type DemoListFilter,
 } from '@shared/replays/list-filter'
+import { scopeDemoRows, type DemoListScope } from '@shared/replays/list-scope'
 import { Button } from '../../components/ui/Button'
+import { Switch } from '../../components/ui/controls'
 import { cn } from '../../lib/cn'
 import { toastOutcomeError } from '../../lib/toast'
 import { useListSort } from '../../lib/useListSort'
@@ -116,6 +118,30 @@ function sourceLabel(row: DemoRow): string {
     : row.source.path
 }
 
+const EXTRA_KEY_PREFIX = 'extraFolder:'
+
+/** The top level of a scoped list: the installation's roots, then - when extra folders exist - a
+ * heading over them. Inside a folder, or with every installation shown, folders come as built. */
+function rootListItems(
+  folders: FolderEntry[],
+  demos: { demo: DemoRow }[],
+  grouped: boolean,
+): DemoListItem[] {
+  const items = (list: FolderEntry[]): DemoListItem[] =>
+    list.map((folder): DemoListItem => ({ kind: 'folder', folder }))
+  const demoItems = demos.map((entry): DemoListItem => ({ kind: 'demo', row: entry.demo }))
+  if (!grouped) return [...items(folders), ...demoItems]
+  const extra = folders.filter((f) => f.ref.sourceKey.startsWith(EXTRA_KEY_PREFIX))
+  if (extra.length === 0) return [...items(folders), ...demoItems]
+  const own = folders.filter((f) => !f.ref.sourceKey.startsWith(EXTRA_KEY_PREFIX))
+  return [
+    ...items(own),
+    { kind: 'heading', labelKey: 'replays.scope.extraGroup', testId: 'replays-extra-group' },
+    ...items(extra),
+    ...demoItems,
+  ]
+}
+
 /** A scan that hasn't reported anything yet - the placeholder before the first `scan.progress`
  * push arrives, so `ReplaysListStatus` always has something to render while `scanning` starts
  * `true` on mount. */
@@ -150,6 +176,20 @@ export function ReplaysView() {
   const pushToast = useLauncher((state) => state.pushToast)
   const [demos, setDemos] = useState<DemoRow[] | null>(null)
   const [folders, setFolders] = useState<DiscoveredFolder[] | null>(null)
+  const activeInstallation = useActiveInstallation()
+  const activeInstallationId = activeInstallation?.id ?? null
+  const installations = useLauncher((state) => state.installations)
+  // View state, not persisted: the scan is global and scope only narrows what is shown.
+  const [showAll, setShowAll] = useState(false)
+  const scope = useMemo<DemoListScope>(
+    () =>
+      showAll
+        ? { kind: 'all' }
+        : activeInstallationId === null
+          ? { kind: 'none' }
+          : { kind: 'installation', installationId: activeInstallationId },
+    [showAll, activeInstallationId],
+  )
   const currentFolder = useFolderStore((state) => state.current)
   const openFolder = useFolderStore((state) => state.open)
   const [folderDialog, setFolderDialog] = useState<
@@ -352,11 +392,8 @@ export function ReplaysView() {
     return outcome
   }
 
-  const rowCount = demos?.length ?? 0
-  const listState = deriveReplaysListState({
-    scanning,
-    rowCount: rowCount + (folders?.length ?? 0),
-  })
+  const scopedDemos = useMemo(() => scopeDemoRows(demos ?? [], scope), [demos, scope])
+  const rowCount = scopedDemos.length
   const selected = demos?.find((demo) => demo.id === selectedId) ?? null
 
   // Story 180: the action bar's primary button on this tab is "View" - it plays the selected
@@ -374,8 +411,6 @@ export function ReplaysView() {
   // Story 193: the catalog entry offered for install in the mod-missing dialog, if any.
   const [modOffer, setModOffer] = useState<{ id: string; name: string } | null>(null)
   const [installError, setInstallError] = useState<string | null>(null)
-  const activeInstallation = useActiveInstallation()
-  const activeInstallationId = activeInstallation?.id ?? null
   const [decision, setDecision] = useState<InstallDecisionRequest | null>(null)
   const [answeredDecisions, setAnsweredDecisions] = useState<string[]>([])
   useEffect(
@@ -461,18 +496,21 @@ export function ReplaysView() {
     [hasSelection, eligibility, askFirst, playBusy, playError, runPlay],
   )
   usePrimaryActionContribution('/replays', viewAction)
-  const sortedDemos = useMemo(() => sortDemoRows(demos ?? [], sort, toSortFields), [demos, sort])
+  const sortedDemos = useMemo(
+    () => sortDemoRows(scopedDemos, sort, toSortFields),
+    [scopedDemos, sort],
+  )
   // Story 153: filtered AFTER sort, never touching sort state itself - filtering only narrows
   // the already-sorted list. Options are computed over the whole index, not the filtered subset.
   const filterOptions = useMemo(
-    () => demoFilterOptions((demos ?? []).map(demoFilterSubject)),
-    [demos],
+    () => demoFilterOptions(scopedDemos.map(demoFilterSubject)),
+    [scopedDemos],
   )
   // Story 155: every demo's own sidecar tags, for the notes editor's tag-suggestion input -
   // `suggestTags` excludes the current draft's own tags itself, so duplicates here are harmless.
   const otherDemosTags = useMemo(
-    () => (demos ?? []).map((demo) => demo.sidecar.values.tags ?? []),
-    [demos],
+    () => scopedDemos.map((demo) => demo.sidecar.values.tags ?? []),
+    [scopedDemos],
   )
   const visibleDemos = useMemo(() => {
     const filtered = filterDemos(sortedDemos, filter, demoFilterSubject, Date.now())
@@ -489,19 +527,73 @@ export function ReplaysView() {
 
   // Folders sort before demos and ignore the column sort; the demos keep it. The view is built
   // over the filtered, sorted rows, so a folder's count is what survives the filter.
+  const rootLabels = useMemo(() => {
+    const labels = new Map<string, { name: string; gameDir: string }>()
+    for (const demo of demos ?? []) {
+      if (demo.source.kind === 'installation') {
+        labels.set(demoSourceKey(demo.source), {
+          name: demo.source.installationName,
+          gameDir: demo.source.gameDir,
+        })
+      }
+    }
+    return labels
+  }, [demos])
+  // Scoped, a root is named by its game dir alone; with every installation shown it also names
+  // the installation. Roots no demo reached yet fall back to the installation list.
+  const rootLabel = useCallback(
+    (sourceKey: string, fallback: string | undefined): string | undefined => {
+      let found = rootLabels.get(sourceKey)
+      if (found === undefined) {
+        for (const installation of installations) {
+          const prefix = `installation:${installation.id}:`
+          if (sourceKey.startsWith(prefix)) {
+            found = { name: installation.name, gameDir: sourceKey.slice(prefix.length) }
+            break
+          }
+        }
+      }
+      if (found === undefined) return fallback
+      return showAll
+        ? t('replays.list.source', { installation: found.name, gameDir: found.gameDir })
+        : found.gameDir
+    },
+    [rootLabels, installations, showAll, t],
+  )
+  const scopedFolders = useMemo(() => {
+    const reached = new Set(scopedDemos.map((demo) => demoSourceKey(demo.source)))
+    const own = activeInstallationId === null ? null : `installation:${activeInstallationId}:`
+    return (folders ?? [])
+      .filter(
+        (folder) =>
+          scope.kind === 'all' ||
+          (scope.kind === 'installation' &&
+            (reached.has(folder.sourceKey) ||
+              folder.sourceKey.startsWith(EXTRA_KEY_PREFIX) ||
+              (own !== null && folder.sourceKey.startsWith(own)))),
+      )
+      .map((folder) => {
+        const source = rootLabel(folder.sourceKey, folder.source)
+        return source === undefined ? folder : { ...folder, source }
+      })
+  }, [folders, scopedDemos, scope, activeInstallationId, rootLabel])
   const folderView = useMemo(
     () =>
       buildFolderView({
-        rows: visibleDemos.map((demo) => ({
-          demo,
-          sourceKey: demoSourceKey(demo.source),
-          source: sourceLabel(demo),
-          folder: demo.folder,
-        })),
-        folders: folders ?? [],
+        rows: visibleDemos.map((demo) => {
+          const sourceKey = demoSourceKey(demo.source)
+          const source = rootLabel(sourceKey, sourceLabel(demo))
+          return {
+            demo,
+            sourceKey,
+            ...(source === undefined ? {} : { source }),
+            folder: demo.folder,
+          }
+        }),
+        folders: scopedFolders,
         current: currentFolder,
       }),
-    [visibleDemos, folders, currentFolder],
+    [visibleDemos, scopedFolders, currentFolder, rootLabel],
   )
   // An active filter searches every folder below the open one, flat; clearing it returns to the
   // folder view of the unchanged `current`.
@@ -532,15 +624,33 @@ export function ReplaysView() {
             row: entry.demo,
             folderText: [sourceLabel(entry.demo), ...entry.folder].join(' / '),
           }))
-        : [
-            ...folderView.folders.map((folder): DemoListItem => ({ kind: 'folder', folder })),
-            ...folderView.demos.map((entry): DemoListItem => ({ kind: 'demo', row: entry.demo })),
-          ],
-    [searching, searchRows, folderView],
+        : rootListItems(
+            folderView.folders,
+            folderView.demos,
+            currentFolder === null && scope.kind === 'installation',
+          ),
+    [searching, searchRows, folderView, currentFolder, scope.kind],
   )
   // Empty folders count: a library of only folders still shows its folders and "New folder".
-  const libraryHasEntries = rowCount > 0 || (folders?.length ?? 0) > 0
+  const libraryHasEntries = rowCount > 0 || scopedFolders.length > 0
+  const listState = deriveReplaysListState({
+    scanning,
+    rowCount: rowCount + scopedFolders.length,
+    scope: scope.kind,
+    installationCount: installations.length,
+  })
   const noMatch = searching ? searchRows.length === 0 : listItems.length === 0
+
+  // A different installation or scope starts at the tree root (the breadcrumb must not point into
+  // an out-of-scope folder); the filter is left as it is.
+  const previousScope = useRef({ activeInstallationId, showAll })
+  useEffect(() => {
+    const previous = previousScope.current
+    if (previous.activeInstallationId === activeInstallationId && previous.showAll === showAll)
+      return
+    previousScope.current = { activeInstallationId, showAll }
+    openFolder(null)
+  }, [activeInstallationId, showAll, openFolder])
 
   // The open folder vanished in a rescan: fall back to its nearest surviving ancestor.
   useEffect(() => {
@@ -575,20 +685,35 @@ export function ReplaysView() {
           <h1 className="font-display text-2xl tracking-[0.06em] text-ink uppercase">
             {t('common.label.demos')}
           </h1>
+          <p className="text-xs text-ink-muted" data-testid="replays-scope-label">
+            {scope.kind === 'installation' && activeInstallation !== null
+              ? t('replays.scope.installation', { name: activeInstallation.name })
+              : t('replays.scope.all')}
+          </p>
         </div>
-        <Button
-          variant="neutral"
-          onClick={() => void scanStart()}
-          disabled={scanning}
-          data-testid="replays-refresh"
-        >
-          {scanning ? t('common.action.scanning') : t('replays.list.refresh')}
-        </Button>
+        <div className="flex items-center gap-4">
+          <Switch
+            checked={showAll}
+            onChange={setShowAll}
+            label={t('replays.scope.all')}
+            testId="replays-scope-all"
+          />
+          <Button
+            variant="neutral"
+            onClick={() => void scanStart()}
+            disabled={scanning}
+            data-testid="replays-refresh"
+          >
+            {scanning ? t('common.action.scanning') : t('replays.list.refresh')}
+          </Button>
+        </div>
       </header>
 
       <ReplaysListStatus
         listState={listState}
         progress={progress}
+        scope={scope}
+        installationName={activeInstallation?.name ?? null}
         onOpenSettings={handleOpenSettings}
       />
 

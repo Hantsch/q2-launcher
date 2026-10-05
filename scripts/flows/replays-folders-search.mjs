@@ -11,7 +11,7 @@ import {
   removeReplaysFoldersFixture,
   writeReplaysFoldersFixture,
 } from '../lib/fixture.mjs'
-import { openDemos, openFolder, poll, rowFor, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
+import { openAllDemos, openFolder, poll, rowFor, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_FOLDERS_VARIANT
 
@@ -56,7 +56,7 @@ async function waitForListed(page, present, absent) {
 
 export default async function replaysFoldersSearch({ page, shot, step }) {
   step('at the top level a search lists matches from nested folders with their folder')
-  await openDemos(page)
+  await openAllDemos(page)
   await page.getByTestId('replays-folder-row').first().waitFor({ timeout: TIMEOUT_MS })
   await search(page, 'folders-')
   await waitForListed(

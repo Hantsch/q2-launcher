@@ -18,7 +18,7 @@
 
 import { copyFileSync, existsSync, rmSync } from 'node:fs'
 import { REPLAYS_FIXTURE_DEMOS, installationRootFilePath } from '../lib/fixture.mjs'
-import { openFolder } from '../lib/replays-copy-in.mjs'
+import { openFolder, showAllInstallations } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -71,8 +71,9 @@ export default async function replaysIncrementalScan({ page, shot, step }) {
   )
   await openDemosView(page)
 
+  await showAllInstallations(page)
   const expectedNames = REPLAYS_FIXTURE_DEMOS.map((demo) => demo.fileName)
-  const rootLabel = (demo) => `${demo.installationName} / ${demo.gameDir}`
+  const rootLabel = (demo) => `${demo.installationName} · ${demo.gameDir}`
   const namesAfterFirstOpen = []
   for (const root of new Set(REPLAYS_FIXTURE_DEMOS.map(rootLabel))) {
     await openFolder(page, root)

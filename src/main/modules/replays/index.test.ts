@@ -18,6 +18,8 @@ import type { AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { MainModuleRegistry } from '../registry'
 import { resolveExtractorPath } from '../../lib/archive/7za-path'
+import { fail } from '@shared/types/common'
+import { WRONG_INSTALLATION } from './demo-play'
 import { discoveryHomeDir, replaysModule, scanHoldMs } from './index'
 import { replaysState } from './persisted'
 
@@ -215,6 +217,41 @@ describe('replays module', () => {
       const second = new MainModuleRegistry()
       await second.register(replaysModule, broken as unknown as AppContext)
       expect(second.registered()).toContain('replays')
+    })
+  })
+
+  describe('demoFolders.read handler', () => {
+    const installation = {
+      id: 'a',
+      name: 'a',
+      rootPath: join(tmpdir(), 'q2-launcher-demo-folders-root'),
+      gameDirs: ['baseq2'],
+      engineKind: 'q2pro',
+      recordedEngineKind: undefined,
+      writeDirPath: undefined,
+    }
+
+    async function invokeRead(installationId: string): Promise<unknown> {
+      const registry = new MainModuleRegistry()
+      await registry.register(
+        replaysModule,
+        fakeAppContext({ state: stubState, installations: installationsOf([installation]) }),
+      )
+      return registry.invoke({
+        moduleId: 'replays',
+        type: REPLAYS_HANDLERS.demoFoldersRead,
+        payload: { installationId },
+      })
+    }
+
+    it('a known installation answers the demos folders of its game dirs', async () => {
+      const outcome = (await invokeRead('a')) as { ok: boolean; value: { folders: string[] } }
+      expect(outcome.ok).toBe(true)
+      expect(outcome.value.folders).toContain(join(installation.rootPath, 'baseq2', 'demos'))
+    })
+
+    it('an unknown installation id is refused with the wrong-installation key', async () => {
+      expect(await invokeRead('nope')).toEqual(fail(WRONG_INSTALLATION))
     })
   })
 
@@ -766,6 +803,7 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.demoMove]: { id: 'nope', target: { sourceKey: 'x', path: [] } },
         [REPLAYS_HANDLERS.folderCreate]: { parent: { sourceKey: 'x', path: [] }, name: 'new' },
         [REPLAYS_HANDLERS.folderRename]: { folder: { sourceKey: 'x', path: ['a'] }, name: 'b' },
+        [REPLAYS_HANDLERS.demoFoldersRead]: { installationId: 'nope' },
         [REPLAYS_HANDLERS.demoPlay]: { demoId: 'nope', installationId: 'nope' },
         [REPLAYS_HANDLERS.playbackTimeline]: { kind: 'togglePause' },
         [REPLAYS_HANDLERS.playbackConsoleSend]: { line: 'echo hi' },

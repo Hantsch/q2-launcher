@@ -89,6 +89,22 @@ export function effectiveWriteDirs(
   return []
 }
 
+/**
+ * Every `demos` folder an installation can hold demos in, for display: each game dir's under the
+ * root, then each effective write dir's (story 238).
+ */
+export function demoFolderPaths(
+  installation: DiscoverableInstallation,
+  ctx: DiscoverContext,
+): string[] {
+  return [
+    ...installation.gameDirs.map((gameDir) => join(installation.rootPath, gameDir, 'demos')),
+    ...effectiveWriteDirs(installation, ctx).flatMap((writeDir) =>
+      installation.gameDirs.map((gameDir) => join(writeDir, gameDir, 'demos')),
+    ),
+  ]
+}
+
 /** Case-insensitive lookup of a `demos` child folder; null if there is none (or the parent can't be read). */
 async function findDemosDir(gameDirPath: string): Promise<string | null> {
   const listing = await listDir(gameDirPath)
@@ -185,9 +201,17 @@ export function demoIdForPath(absolutePath: string): string {
   return idFor(pathKey(absolutePath))
 }
 interface Entry extends DiscoveredDemoFile {
+  reachedBy: string[]
   _instIndex: number
   _gameDirOrder: number
   _key: string
+}
+
+/** Records that `installationId` reaches `entry` too; extra folders (null) never count. */
+function reach(entry: Entry, installationId: string | null): void {
+  if (installationId !== null && !entry.reachedBy.includes(installationId)) {
+    entry.reachedBy.push(installationId)
+  }
 }
 
 function sourceLabel(source: DemoSource): string {
@@ -220,13 +244,15 @@ function createFolderSink(): {
  * Expands every zip archive found in one scanned folder into `entries`, tagging each row with the
  * same `_instIndex`/`_gameDirOrder` its sibling loose-file entries from that same folder get.
  * Dedup is via `seenKeys` alone (`archivePath\0entryPath`) - no shadow-by-filename handling, that
- * only applies to loose demo files. A zip `expandZip` can't even list is recorded in
- * `sourceErrors` (with the zip's own file name) instead of contributing rows. An expanded zip is
- * reported as an archive folder, plus one per inner directory of its entries.
+ * only applies to loose demo files; an entry already seen is reached by `installationId` too. A
+ * zip `expandZip` can't even list is recorded in `sourceErrors` (with the zip's own file name)
+ * instead of contributing rows. An expanded zip is reported as an archive folder, plus one per
+ * inner directory of its entries. `installationId` is null for an extra folder.
  */
 async function expandZipsInto(
   entries: Entry[],
-  seenKeys: Set<string>,
+  seenKeys: Map<string, number>,
+  installationId: string | null,
   sourceErrors: ReplaysSourceError[],
   folders: ReturnType<typeof createFolderSink>,
   demosDir: string,
@@ -257,10 +283,15 @@ async function expandZipsInto(
         folders.add(source, row.folder.slice(0, len), true)
       }
       const key = pathKey(absoluteZipPath) + '\u0000' + row.archiveEntry!.entryPath
-      if (seenKeys.has(key)) continue
-      seenKeys.add(key)
+      const seen = seenKeys.get(key)
+      if (seen !== undefined) {
+        reach(entries[seen], installationId)
+        continue
+      }
+      seenKeys.set(key, entries.length)
       entries.push({
         ...row,
+        reachedBy: installationId === null ? [] : [installationId],
         absolutePath: absoluteZipPath,
         _instIndex: instIndex,
         _gameDirOrder: gameDirOrder,
@@ -333,7 +364,8 @@ async function planInstallationRoots(
  * Scans every installation's game dirs (and, where applicable, its write dir), plus every
  * user-added extra demo folder (story 142), for demo files, at any depth below each `demos` folder.
  * `installations`' order is precedence order: the same resolved file reachable through two
- * installations is only ever reported once, under the first installation that finds it. Within one
+ * installations is only ever reported once, under the first installation that finds it; its
+ * `reachedBy` lists that one and every later installation that reaches it too. Within one
  * installation and game dir, a write-dir file shadows a root-dir file of the same relative path.
  * This never throws: a game dir with no `demos` folder at all (or a write dir the engine never
  * created) simply contributes nothing and is not an error (story 151) - but a `demos` folder
@@ -364,7 +396,9 @@ export async function discoverDemos(
   folders: DiscoveredFolder[]
   roots: DemoRootDir[]
 }> {
-  const seenKeys = new Set<string>()
+  // Dedup key -> index into `entries`; a shadow replaces in place, so indices stay valid.
+  const seenKeys = new Map<string, number>()
+  const scannedRoots = new Map<string, Awaited<ReturnType<typeof scanDemosDir>>>()
   const rootDirs: DemoRootDir[] = []
   const entries: Entry[] = []
   const sourceErrors: ReplaysSourceError[] = []
@@ -398,7 +432,15 @@ export async function discoverDemos(
         installationName: installation.name,
         gameDir,
       }
-      const scanned = await scanDemosDir(demosDir, visited, true)
+      // A root another installation already walked (a shared Linux Q2PRO write dir) reuses that
+      // walk: its subfolders are in `visited` now, so a second walk would see only its top-level
+      // files, and this installation would not reach the nested ones (story 238)
+      const rootKey = pathKey(canonicalDemosDir)
+      let scanned = scannedRoots.get(rootKey)
+      if (!scanned) {
+        scanned = await scanDemosDir(demosDir, visited, true)
+        scannedRoots.set(rootKey, scanned)
+      }
       if (!scanned.ok) {
         sourceErrors.push({ source, archiveName: null, reason: scanned.reason })
         continue
@@ -421,6 +463,7 @@ export async function discoverDemos(
           const rootEntryIndex = rootIndex.get(gameDir)?.get(relative)
           if (rootEntryIndex !== undefined) {
             // Shadow: this write-dir file replaces the root-dir entry with the same relative path.
+            // It keeps the root-dir entry's `reachedBy`, the same list object, accumulated so far.
             const old = entries[rootEntryIndex]
             seenKeys.delete(old._key)
             entries[rootEntryIndex] = {
@@ -431,18 +474,24 @@ export async function discoverDemos(
               _gameDirOrder: order,
               _key: key,
             }
-            seenKeys.add(key)
+            seenKeys.set(key, rootEntryIndex)
+            reach(entries[rootEntryIndex], installation.id)
             continue
           }
         }
 
-        if (seenKeys.has(key)) continue
-        seenKeys.add(key)
+        const seen = seenKeys.get(key)
+        if (seen !== undefined) {
+          reach(entries[seen], installation.id)
+          continue
+        }
+        seenKeys.set(key, entries.length)
         entries.push({
           ...blankFacts(file),
           id: idFor(key),
           fileName: file.fileName,
           source,
+          reachedBy: [installation.id],
           absolutePath: join(demosDir, ...file.folder, file.fileName),
           _instIndex: instIndex,
           _gameDirOrder: order,
@@ -461,6 +510,7 @@ export async function discoverDemos(
       await expandZipsInto(
         entries,
         seenKeys,
+        installation.id,
         sourceErrors,
         folders,
         demosDir,
@@ -494,12 +544,13 @@ export async function discoverDemos(
     for (const file of files) {
       const fileKey = pathKey(join(canonical, ...file.folder, file.fileName))
       if (seenKeys.has(fileKey)) continue
-      seenKeys.add(fileKey)
+      seenKeys.set(fileKey, entries.length)
       entries.push({
         ...blankFacts(file),
         id: idFor(fileKey),
         fileName: file.fileName,
         source,
+        reachedBy: [],
         absolutePath: join(canonical, ...file.folder, file.fileName),
         _instIndex: installations.length + i,
         _gameDirOrder: 0,
@@ -510,6 +561,7 @@ export async function discoverDemos(
     await expandZipsInto(
       entries,
       seenKeys,
+      null,
       sourceErrors,
       folders,
       canonical,

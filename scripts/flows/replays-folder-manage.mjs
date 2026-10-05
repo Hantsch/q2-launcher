@@ -16,7 +16,7 @@ import {
   vendoredExtractorExists,
   writeReplaysFoldersFixture,
 } from '../lib/fixture.mjs'
-import { openDemos, openFolder, poll, rowFor, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
+import { openAllDemos, openFolder, poll, rowFor, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_FOLDERS_VARIANT
 
@@ -55,7 +55,7 @@ export default async function replaysFolderManage({ page, shot, step }) {
   const root = replaysFoldersFixturePath()
 
   step('at the top level New folder is visible but disabled, with its reason as text')
-  await openDemos(page)
+  await openAllDemos(page)
   await page.getByTestId('replays-folder-row').first().waitFor({ timeout: TIMEOUT_MS })
   const newButton = page.getByTestId('replays-folder-new')
   expect(await newButton.isDisabled(), 'New folder should be disabled at the top level')

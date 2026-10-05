@@ -4,6 +4,7 @@ import { REPO_ROOT } from '../paths.mjs'
 import { execFileSync } from 'node:child_process'
 import { variantUserDataDir } from '../harness.mjs'
 import {
+  DEFAULT_SETTINGS,
   FIXED_TIMESTAMP,
   INSTALL_ONE_ID,
   INSTALL_TWO_ID,
@@ -1072,6 +1073,15 @@ export function writeReplaysListErrorFixture() {
   )
 
   return result
+}
+
+/** The populated fixture with registered installations but none active, so the Demos list has
+ * nothing to scope to (story 238). */
+export function writeReplaysScopeNoneSelectedFixture() {
+  return writePopulatedFixture({
+    variant: 'replays-scope-none-selected',
+    stateOverrides: { settings: { ...DEFAULT_SETTINGS, activeInstallationId: null } },
+  })
 }
 
 // --- story 245: the demo detail's players panel e2e fixture -------------------------------------

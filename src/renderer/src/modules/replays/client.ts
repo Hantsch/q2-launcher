@@ -203,6 +203,11 @@ export function foldersRead(): Promise<Outcome<DiscoveredFolder[]>> {
   return client.call(REPLAYS_HANDLERS.foldersRead)
 }
 
+/** The demo folders an installation's scan looks in (its game dirs' `demos`), as display paths. */
+export function demoFoldersRead(installationId: string): Promise<Outcome<{ folders: string[] }>> {
+  return client.call(REPLAYS_HANDLERS.demoFoldersRead, { installationId })
+}
+
 /** Creates a folder under `parent`; a refusal is a `replays.folder.error.*` key. */
 export function folderCreate(
   parent: FolderRef,

@@ -2948,6 +2948,14 @@
       },
       "ratingValue": "{{rating}}/10"
     },
+    "scope": {
+      "all": "All installations",
+      "emptyFor": "No demos in {{name}} yet. It looks in:",
+      "extraGroup": "Extra folders",
+      "installation": "{{name}}'s demos",
+      "noInstallation": "No installation yet — add one to see its demos.",
+      "noneSelected": "Select an installation in the rail to see its demos."
+    },
     "settings": {
       "description": "Where the launcher looks for demos and how it names them."
     },

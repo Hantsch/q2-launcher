@@ -170,3 +170,25 @@
 - 2026-10-05 13:49 · 242 · verify 2 · started
 - 2026-10-05 14:12 · 242 · verify 2 · done
 - 2026-10-05 14:12 · 242 · story · done
+- 2026-10-05T14:13:10 · 238 · build · started
+- 2026-10-05 14:13 · 238 · D1 reachedBy in discovery · started
+- 2026-10-05 14:18 · 238 · D1 reachedBy in discovery · done
+- 2026-10-05 14:18 · 238 · D2 demoFoldersRead · started
+- 2026-10-05 14:19 · 238 · D2 demoFoldersRead · done
+- 2026-10-05 14:19 · 238 · D3 scoped list view · started
+- 2026-10-05 14:29 · 238 · D3 scoped list view · done
+- 2026-10-05 14:29 · 238 · D4 empty states · started
+- 2026-10-05 14:36 · 238 · D4 empty states · done
+- 2026-10-05 14:36 · 238 · verify · started
+- 2026-10-05 15:08 · 238 · verify · blocked: 3 vitest + 27 replays flows red, fix D dispatched
+- 2026-10-05 15:08 · 238 · D5 fix red verify · started
+- 2026-10-05 15:47 · 238 · D5 fix red verify · done
+- 2026-10-05 15:47 · 238 · verify 2 · started
+- 2026-10-05 15:53 · 238 · verify 2 · done
+- 2026-10-05 15:53 · 238 · review 1 · started
+- 2026-10-05 15:55 · 238 · review 1 · done
+- 2026-10-05 15:55 · 238 · D6 review 1 fixes · started
+- 2026-10-05 15:59 · 238 · D6 review 1 fixes · done
+- 2026-10-05 15:59 · 238 · verify 3 · started
+- 2026-10-05 15:59 · 238 · verify 3 · done
+- 2026-10-05 15:59 · 238 · story · done
