@@ -26,6 +26,7 @@ version section when a release actually ships.
 - **Demos** — Demo detail lists players by team, spectators tucked away.
 - **Demos** — The demo list shows the selected installation's demos; a toggle shows all.
 - **Demos** — Browse your demo subfolders — breadcrumb, new/rename folder, drag a demo to move it.
+- **Demos** — Select several demos to delete, tag or move them at once; right-click for a menu.
 
 ### Changed
 

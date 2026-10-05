@@ -4,6 +4,7 @@ import { demoUnreadableSchema } from '../demos/readability'
 import { type DiscoveredFolder, type FolderRef } from '../replays/demo-folders'
 import { demoListFilterSchema, type DemoListFilter } from '../replays/list-filter'
 import { DEMO_SORT_COLUMNS, type DemoListSort } from '../replays/list-sort'
+import type { BulkOutcome } from '../replays/bulk'
 import type { NameFacts } from '../replays/name-template'
 import type { NameTemplatesView } from '../replays/name-templates'
 import { sidecarFieldsSchema, type SidecarFields } from '../replays/sidecar'
@@ -71,6 +72,14 @@ export const REPLAYS_HANDLERS = {
   demoRename: 'demo.rename',
   /** Moves a demo (and its sidecar, if any) into another folder of a demo source, id-addressed. */
   demoMove: 'demo.move',
+  /** Moves several demos to the OS trash, id-addressed; answers one `BulkOutcome` item per demo. */
+  demosDelete: 'demos.delete',
+  /** Moves several demos into a tree folder or a folder the user picks; `{ cancelled: true }` on a cancelled pick. */
+  demosMove: 'demos.move',
+  /** Adds and removes tags on several demos, id-addressed. */
+  demosTag: 'demos.tag',
+  /** Moves a whole folder of a demo source to the OS trash, ref-addressed. */
+  demoFolderDelete: 'demoFolder.delete',
   /** Creates a folder inside a folder of a demo source, ref-addressed. */
   folderCreate: 'folder.create',
   /** Renames a folder of a demo source (its demos and sidecars move with it), ref-addressed. */
@@ -493,6 +502,40 @@ export const replaysDemoMoveSchema = z
   .object({ id: replaysDemoIdSchema, target: replaysFolderRefSchema })
   .strict()
 
+/** Upper bounds of a bulk payload: how many demos, and how many tags per list. */
+export const BULK_DEMO_IDS_MAX = 10_000
+export const BULK_TAGS_MAX = 50
+
+const bulkDemoIdsSchema = z.array(replaysDemoIdSchema).min(1).max(BULK_DEMO_IDS_MAX)
+const bulkTagListSchema = z.array(z.string().min(1).max(40)).max(BULK_TAGS_MAX)
+
+/** `demos.delete`'s payload: demo ids only - never a path. */
+export const replaysDemosDeleteSchema = z.object({ demoIds: bulkDemoIdsSchema }).strict()
+
+/** `demos.move`'s payload: a tree folder by ref, or `pick` to have main open a folder dialog. */
+export const replaysDemosMoveSchema = z
+  .object({
+    demoIds: bulkDemoIdsSchema,
+    target: z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('folder'), folderId: replaysFolderRefSchema }).strict(),
+      z.object({ kind: z.literal('pick') }).strict(),
+    ]),
+  })
+  .strict()
+
+/** `demos.tag`'s payload: tags to add and to remove on every named demo. */
+export const replaysDemosTagSchema = z
+  .object({ demoIds: bulkDemoIdsSchema, add: bulkTagListSchema, remove: bulkTagListSchema })
+  .strict()
+
+/** `demoFolder.delete`'s payload. */
+export const replaysDemoFolderDeleteSchema = z
+  .object({ folderId: replaysFolderRefSchema })
+  .strict()
+
+/** `demos.move`'s answer: the user dismissed the folder dialog, or one outcome per demo. */
+export type ReplaysDemosMoveResult = { cancelled: true } | BulkOutcome
+
 /** `folder.create`'s payload. `name` is loosely capped here; main's `validateFolderName` is the
  * authority, so a refusal comes back as its i18n key. */
 export const replaysFolderCreateSchema = z
@@ -652,6 +695,10 @@ export const REPLAYS_HANDLER_SCHEMAS = {
   [REPLAYS_HANDLERS.demosCopyPath]: replaysDemoFileActionSchema,
   [REPLAYS_HANDLERS.demoRename]: replaysDemoRenameSchema,
   [REPLAYS_HANDLERS.demoMove]: replaysDemoMoveSchema,
+  [REPLAYS_HANDLERS.demosDelete]: replaysDemosDeleteSchema,
+  [REPLAYS_HANDLERS.demosMove]: replaysDemosMoveSchema,
+  [REPLAYS_HANDLERS.demosTag]: replaysDemosTagSchema,
+  [REPLAYS_HANDLERS.demoFolderDelete]: replaysDemoFolderDeleteSchema,
   [REPLAYS_HANDLERS.folderCreate]: replaysFolderCreateSchema,
   [REPLAYS_HANDLERS.folderRename]: replaysFolderRenameSchema,
   [REPLAYS_HANDLERS.demoFoldersRead]: replaysDemoFoldersReadSchema,
@@ -777,6 +824,10 @@ export type ReplaysContract = {
     [REPLAYS_HANDLERS.demosCopyPath]: ReplaysHandler<'demos.copyPath', DemoFileActionResult>
     [REPLAYS_HANDLERS.demoRename]: ReplaysHandler<'demo.rename', { demo: DiscoveredDemo }>
     [REPLAYS_HANDLERS.demoMove]: ReplaysHandler<'demo.move', { demo: DiscoveredDemo }>
+    [REPLAYS_HANDLERS.demosDelete]: ReplaysHandler<'demos.delete', BulkOutcome>
+    [REPLAYS_HANDLERS.demosMove]: ReplaysHandler<'demos.move', ReplaysDemosMoveResult>
+    [REPLAYS_HANDLERS.demosTag]: ReplaysHandler<'demos.tag', BulkOutcome>
+    [REPLAYS_HANDLERS.demoFolderDelete]: ReplaysHandler<'demoFolder.delete', { demoCount: number }>
     [REPLAYS_HANDLERS.folderCreate]: ReplaysHandler<'folder.create', { folder: FolderRef }>
     [REPLAYS_HANDLERS.folderRename]: ReplaysHandler<'folder.rename', ReplaysFolderRenameResult>
     [REPLAYS_HANDLERS.demoFoldersRead]: ReplaysHandler<'demoFolders.read', { folders: string[] }>

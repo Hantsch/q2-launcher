@@ -58,42 +58,43 @@ function writeFailure(err: unknown, name: string, folder: string): Outcome<never
   return fail('replays.folder.error.failed', { code: typeof code === 'string' ? code : 'unknown' })
 }
 
+/** The scanned, non-archive folder `ref` names and its directory, contained in its root. */
+export async function locateDemoFolder(
+  scan: Pick<ReplaysScanService, 'readFolders' | 'resolveFolder' | 'isScanning'>,
+  ref: FolderRef,
+): Promise<Outcome<{ known: DiscoveredFolder; absolutePath: string }>> {
+  if (scan.isScanning()) return fail('replays.folder.error.scanning')
+  const known = (await scan.readFolders()).find(
+    (f) =>
+      f.sourceKey === ref.sourceKey &&
+      f.path.length === ref.path.length &&
+      isPrefix(f.path, ref.path),
+  )
+  if (known === undefined) return fail('replays.folder.error.unknownFolder')
+  if (known.archive) return fail('replays.folder.error.archive')
+  const resolved = await scan.resolveFolder(ref)
+  if (resolved === undefined || !(await isDirectory(resolved.absolutePath))) {
+    return fail('replays.folder.error.unknownFolder')
+  }
+  if (
+    !isInside(
+      await canonicalizePath(resolved.rootPath),
+      await canonicalizePath(resolved.absolutePath),
+    )
+  ) {
+    return fail('replays.folder.error.outsideSource')
+  }
+  return ok({ known, absolutePath: resolved.absolutePath })
+}
+
 export function createDemoFolders(options: CreateDemoFoldersOptions): DemoFoldersService {
   const { scan, sessions } = options
   const fs = options.fs ?? defaultFs
 
-  /** The scanned, non-archive folder `ref` names and its directory, contained in its root. */
-  async function locate(
-    ref: FolderRef,
-  ): Promise<Outcome<{ known: DiscoveredFolder; absolutePath: string }>> {
-    if (scan.isScanning()) return fail('replays.folder.error.scanning')
-    const known = (await scan.readFolders()).find(
-      (f) =>
-        f.sourceKey === ref.sourceKey &&
-        f.path.length === ref.path.length &&
-        isPrefix(f.path, ref.path),
-    )
-    if (known === undefined) return fail('replays.folder.error.unknownFolder')
-    if (known.archive) return fail('replays.folder.error.archive')
-    const resolved = await scan.resolveFolder(ref)
-    if (resolved === undefined || !(await isDirectory(resolved.absolutePath))) {
-      return fail('replays.folder.error.unknownFolder')
-    }
-    if (
-      !isInside(
-        await canonicalizePath(resolved.rootPath),
-        await canonicalizePath(resolved.absolutePath),
-      )
-    ) {
-      return fail('replays.folder.error.outsideSource')
-    }
-    return ok({ known, absolutePath: resolved.absolutePath })
-  }
-
   async function create(parent: FolderRef, name: string): Promise<Outcome<{ folder: FolderRef }>> {
     const checked = validateFolderName(name)
     if (!checked.ok) return fail(checked.reasonKey, checked.params)
-    const located = await locate(parent)
+    const located = await locateDemoFolder(scan, parent)
     if (!located.ok) return located
     const { known, absolutePath } = located.value
 
@@ -118,7 +119,7 @@ export function createDemoFolders(options: CreateDemoFoldersOptions): DemoFolder
     if (folder.path.length === 0) return fail('replays.folder.error.root')
     const checked = validateFolderName(name)
     if (!checked.ok) return fail(checked.reasonKey, checked.params)
-    const located = await locate(folder)
+    const located = await locateDemoFolder(scan, folder)
     if (!located.ok) return located
     const oldDir = located.value.absolutePath
     if (checked.name === folder.path[folder.path.length - 1]) return ok({ ids: [] })

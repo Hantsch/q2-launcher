@@ -25,7 +25,7 @@ refinements from the latest user feedback.
 - [x] 243 — the demo detail is edited in place and saves itself
 - [x] 242 — I browse my demos in their folders
 - [x] 238 — the demo list shows the selected installation's demos
-- [ ] 244 — I select several demos and delete, tag or move them
+- [x] 244 — I select several demos and delete, tag or move them
 - [ ] 241 — I comment a moment on the demo timeline
 - [ ] 237 — I set the demo volume with a slider
 - [ ] 239 — adding an installation is one flow wherever I start it

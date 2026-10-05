@@ -153,6 +153,12 @@ export interface ReplaysScanService {
     folder: string[],
     source?: DemoSource,
   ) => Promise<DiscoveredDemo | undefined>
+  /** Applies a batch of demo moves and deletions in place, without a re-scan, persisting the index
+   * once. `newPath: null` - deleted - drops the row, and so does a path outside every scanned root,
+   * where the next scan would not find it either; any other path re-ids the row the way discovery
+   * would, with the `folder` and `source` of the root now holding it. Ids no successful scan has
+   * seen are ignored (story 244) */
+  applyMoves: (moves: { id: string; newPath: string | null }[]) => Promise<void>
   /** The absolute directory a folder ref names: its root's recorded directory (the last scan's,
    * the cached ones before that) plus `ref.path`. Of a source's roots, the one holding the demo
    * `near` comes first, then the first in scan order where the directory exists; `undefined` only
@@ -161,6 +167,9 @@ export interface ReplaysScanService {
   /** Adds a just-created folder to the folder list (persisted alongside the index), without a
    * re-scan; a no-op when the list already has it. */
   addFolder: (folder: DiscoveredFolder) => Promise<void>
+  /** Drops a just-deleted folder and every folder below it from the folder list (persisted
+   * alongside the index), without a re-scan (story 244) */
+  removeFolder: (folder: FolderRef) => Promise<void>
   /** Re-keys everything below a renamed directory in place, without a re-scan or re-parse: every
    * row whose file lies under `oldDir` (segment-wise, case-folded where the filesystem is) gets its
    * new path, `folder`, id and - for a zip entry - archive path, in `snapshot`, `fileById` and the
@@ -552,6 +561,44 @@ export function createReplaysScanService(
     return newRow
   }
 
+  async function applyMoves(moves: { id: string; newPath: string | null }[]): Promise<void> {
+    if (snapshot === null || moves.length === 0) return
+    const roots = await readRoots()
+    const rowById = new Map(snapshot.map((row) => [row.id, row]))
+    const byOldId = new Map<string, DiscoveredDemo | null>()
+    for (const { id, newPath } of moves) {
+      const oldFile = fileById.get(id)
+      const oldRow = rowById.get(id)
+      if (!oldFile || !oldRow) continue
+      const root = newPath === null ? undefined : deepestRootHolding(roots, newPath)
+      fileById.delete(id)
+      const oldCached = lastCache?.get(id)
+      lastCache?.delete(id)
+      if (newPath === null || root === undefined) {
+        byOldId.set(id, null)
+        continue
+      }
+      const newId = looseIdFor(root, newPath)
+      const folder = segments(newPath).slice(segments(root.dir).length, -1)
+      const newRow: DiscoveredDemo = { ...oldRow, id: newId, folder, source: root.source }
+      byOldId.set(id, newRow)
+      fileById.set(newId, {
+        ...oldFile,
+        id: newId,
+        absolutePath: newPath,
+        folder,
+        source: root.source,
+      })
+      if (oldCached) lastCache?.set(newId, { ...oldCached, parsed: newRow })
+    }
+    snapshot = snapshot.flatMap((row) => {
+      const moved = byOldId.get(row.id)
+      if (moved === undefined) return [row]
+      return moved === null ? [] : [moved]
+    })
+    await persist()
+  }
+
   async function resolveFolder(ref: FolderRef, near?: string): Promise<ResolvedFolder | undefined> {
     const roots = (await readRoots()).filter((r) => r.sourceKey === ref.sourceKey)
     const nearPath = near === undefined ? undefined : fileById.get(near)?.absolutePath
@@ -578,6 +625,14 @@ export function createReplaysScanService(
       isPrefix(f.path, folder.path)
     if (folders.some(same)) return
     foldersSnapshot = [...folders, folder]
+    await persist()
+  }
+
+  async function removeFolder(ref: FolderRef): Promise<void> {
+    const folders = await readFolders()
+    const kept = folders.filter((f) => f.sourceKey !== ref.sourceKey || !isPrefix(ref.path, f.path))
+    if (kept.length === folders.length) return
+    foldersSnapshot = kept
     await persist()
   }
 
@@ -655,8 +710,10 @@ export function createReplaysScanService(
     overview,
     resolveFile,
     applyRelocate,
+    applyMoves,
     resolveFolder,
     addFolder,
+    removeFolder,
     applyFolderRelocate,
     isScanning,
   }

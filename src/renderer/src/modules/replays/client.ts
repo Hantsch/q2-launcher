@@ -7,6 +7,7 @@ import {
   type DiscoveredDemo,
   type ExtraFoldersResult,
   type ReplaysDemoPlayResult,
+  type ReplaysDemosMoveResult,
   type ReplaysModWarning,
   type ReplaysStageRect,
   type ReplaysExtraFolder,
@@ -20,6 +21,7 @@ import {
   type SidecarSaveResult,
   type SidecarState,
 } from '@shared/modules/replays'
+import type { BulkOutcome } from '@shared/replays/bulk'
 import type { DiscoveredFolder, FolderRef } from '@shared/replays/demo-folders'
 import type { NameTemplatesView } from '@shared/replays/name-templates'
 import type { SidecarFields } from '@shared/replays/sidecar'
@@ -170,6 +172,33 @@ export function moveDemo(
   target: FolderRef,
 ): Promise<Outcome<{ demo: DiscoveredDemo }>> {
   return client.call(REPLAYS_HANDLERS.demoMove, { id, target })
+}
+
+/** `demos.delete`: several demos to the OS trash; one item per demo, in request order. */
+export function deleteDemos(demoIds: string[]): Promise<Outcome<BulkOutcome>> {
+  return client.call(REPLAYS_HANDLERS.demosDelete, { demoIds })
+}
+
+/** `demos.move`: into a tree folder, or `{ kind: 'pick' }` for a folder dialog (`cancelled` on dismiss). */
+export function moveDemos(
+  demoIds: string[],
+  target: { kind: 'folder'; folderId: FolderRef } | { kind: 'pick' },
+): Promise<Outcome<ReplaysDemosMoveResult>> {
+  return client.call(REPLAYS_HANDLERS.demosMove, { demoIds, target })
+}
+
+/** `demos.tag`: adds and removes tags on several demos. */
+export function tagDemos(
+  demoIds: string[],
+  add: string[],
+  remove: string[],
+): Promise<Outcome<BulkOutcome>> {
+  return client.call(REPLAYS_HANDLERS.demosTag, { demoIds, add, remove })
+}
+
+/** `demoFolder.delete`: a source folder and everything below it to the OS trash. */
+export function deleteDemoFolder(folderId: FolderRef): Promise<Outcome<{ demoCount: number }>> {
+  return client.call(REPLAYS_HANDLERS.demoFolderDelete, { folderId })
 }
 
 /** Sends one console line to the running demo's engine; a refusal is `replays.console.error.*`. */

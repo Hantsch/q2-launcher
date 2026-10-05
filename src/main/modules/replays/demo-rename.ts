@@ -10,6 +10,7 @@ import { fail, ok, type Outcome } from '@shared/types/common'
 import { pathKey } from '../../lib/fs-utils'
 import { demoIdForPath } from './discovery'
 import { relocateDemo } from './demo-relocate'
+import { errnoCode, exists } from './fs-steps'
 import type { PlaybackSessions } from './playback-sessions'
 import type { ReplaysNameMatcher, ReplaysScanService } from './scan-service'
 import type { SidecarStore } from './sidecar-store'
@@ -58,21 +59,6 @@ const defaultFs: DemoRenameFs = {
   readFile: (path) => readFile(path),
   writeFile: (path, data) => writeFile(path, data),
   rm: (path, opts) => rm(path, opts),
-}
-
-// Not fs-utils' pathExists: goes through the injected DemoRenameFs seam so tests can fake the filesystem.
-async function exists(fs: DemoRenameFs, path: string): Promise<boolean> {
-  try {
-    await fs.stat(path)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function errnoCode(err: unknown): string | undefined {
-  const code = (err as NodeJS.ErrnoException | null)?.code
-  return typeof code === 'string' ? code : undefined
 }
 
 export function createDemoRename(options: CreateDemoRenameOptions): DemoRenameService {

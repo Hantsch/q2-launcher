@@ -32,6 +32,8 @@ export const DYNAMIC_KEY_PREFIXES: readonly string[] = [
   // t(`settings.unlock.feature.${feature}`) in src/renderer/src/components/unlock/UnlockCodePanel.tsx
   'settings.unlock.feature.',
 
+  // `replays.bulk.reason.${key}` in src/main/modules/replays/demo-file-ops.ts and demo-bulk-tags.ts
+  'replays.bulk.reason.',
   // `servers.source.error.${reason}` in src/shared/servers/master-records.ts
   'servers.source.error.',
   // t(`servers.gamemode.${row.gamemode}`) in src/renderer/src/modules/servers/ServerRow.tsx

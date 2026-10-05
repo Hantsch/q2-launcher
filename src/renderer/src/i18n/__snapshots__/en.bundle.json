@@ -2621,10 +2621,73 @@
   "replays": {
     "archive": {
       "readOnly": {
+        "change": "Demos inside an archive can't be moved or deleted — the archive is read-only.",
         "edit": "Demos inside an archive are read-only — extract it to annotate it.",
         "rename": "Demos inside an archive can't be renamed — the archive is read-only.",
         "row": "Read-only (in an archive)"
       }
+    },
+    "bulk": {
+      "action": {
+        "delete": "Delete selected",
+        "deleteMenu": "Delete {{count}} demos…",
+        "moveMenu": "Move {{count}} demos…",
+        "tag": "Tag"
+      },
+      "busy": "Working on the selection…",
+      "delete": {
+        "body_one": "The demo and its notes file move to the trash.",
+        "body_other": "The demos and their notes files move to the trash.",
+        "title_one": "Delete {{count}} demo?",
+        "title_other": "Delete {{count}} demos?"
+      },
+      "error": {
+        "notAFolder": "That is not a folder.",
+        "scanning": "Demos can't be changed while a scan is running."
+      },
+      "move": {
+        "current": "Current folder",
+        "pick": "Choose folder…",
+        "title_one": "Move {{count}} demo to…",
+        "title_other": "Move {{count}} demos to…"
+      },
+      "reason": {
+        "alreadyThere": "Already in that folder.",
+        "archiveEntry": "Inside a zip, so read-only.",
+        "exists": "A demo named {{name}} is already there.",
+        "inUse": "In use by another program.",
+        "moveFailed": "Could not be moved ({{code}}).",
+        "notWritable": "{{folder}} is not writable.",
+        "playing": "Playing right now.",
+        "rollbackFailed": "Move failed and could not be fully undone: check {{demo}} and {{sidecar}}.",
+        "sidecarBroken": "Fix or replace its notes file first.",
+        "sidecarExists": "A notes file named {{name}} is already there.",
+        "sidecarTrashFailed": "The demo was trashed, but its notes file {{name}} could not be.",
+        "sidecarWriteFailed": "Its notes file could not be written.",
+        "tagLimit": "Would exceed the tag limit.",
+        "trashFailed": "Could not be moved to the trash.",
+        "unknownDemo": "No longer in the demo list."
+      },
+      "summary": {
+        "deleted": "{{count}} deleted",
+        "failed": "{{count}} failed",
+        "moved": "{{count}} moved",
+        "skipped": "{{count}} skipped",
+        "tagged": "{{count}} tagged"
+      },
+      "tag": {
+        "addLabel": "Add to every selected demo",
+        "apply": "Apply",
+        "carried": "Tags on the selection",
+        "carriedBy": "{{count}} of {{total}}",
+        "description": "Changes apply to every selected demo when you press Apply.",
+        "keep": "Keep tag {{tag}}",
+        "none": "None of the selected demos has a tag.",
+        "title_one": "Tag {{count}} demo",
+        "title_other": "Tag {{count}} demos"
+      },
+      "zipSkipped_one": "{{count}} zip entry is skipped: demos inside a zip are read-only.",
+      "zipSkipped_other": "{{count}} zip entries are skipped: demos inside a zip are read-only."
     },
     "cinema": {
       "unavailable": {
@@ -2734,6 +2797,7 @@
     },
     "fileActions": {
       "copyPath": "Copy path",
+      "move": "Move…",
       "pathCopied": "Path copied",
       "reveal": "Reveal in file manager"
     },
@@ -2755,6 +2819,13 @@
       "archive": "Archive — read-only",
       "breadcrumb": "Demo folder path",
       "create": "Create",
+      "delete": {
+        "action": "Delete folder…",
+        "body_one": "The folder and the {{count}} demo in it move to the trash.",
+        "body_other": "The folder and the {{count}} demos in it move to the trash.",
+        "confirm": "Move to trash",
+        "title": "Delete folder {{name}}?"
+      },
       "demoCount_one": "{{count}} demo",
       "demoCount_other": "{{count}} demos",
       "dragHint": "Press Ctrl+Space to pick up this demo, the arrow keys to choose a folder, Enter to drop it, Escape to cancel.",
@@ -2766,6 +2837,7 @@
         "exists": "A folder named \"{{name}}\" already exists here.",
         "failed": "The folder couldn't be changed ({{code}}).",
         "invalidChar": "A folder name can't contain \"{{char}}\".",
+        "isRoot": "A demo source's own folder can't be deleted.",
         "notWritable": "The launcher can't write to {{folder}}.",
         "outsideSource": "This folder links outside its demo source and can't be changed here.",
         "playing": "A demo in this folder is playing. Stop it first.",
@@ -2775,6 +2847,7 @@
         "separator": "A folder name can't contain / or \\.",
         "tooLong": "A folder name has at most {{max}} characters.",
         "trailingDotOrSpace": "A folder name can't end with a dot or space.",
+        "trashFailed": "The folder could not be moved to the trash.",
         "unknownFolder": "That folder is no longer there. Refresh the list and try again."
       },
       "newDisabledTop": "Open a folder first",
@@ -2843,6 +2916,12 @@
         "unknownDemo": "This demo is no longer in the index, so it can't be moved.",
         "unknownFolder": "That folder no longer exists."
       }
+    },
+    "multi": {
+      "count_one": "{{count}} demo selected",
+      "count_other": "{{count}} demos selected",
+      "zip_one": "{{count}} zip entry (read-only)",
+      "zip_other": "{{count}} zip entries (read-only)"
     },
     "nameTemplate": {
       "error": {
@@ -2946,7 +3025,11 @@
         "favouriteAriaLabel": "Toggle favourite for {{name}}",
         "ratingAriaLabel": "Rating for {{name}}"
       },
-      "ratingValue": "{{rating}}/10"
+      "ratingValue": "{{rating}}/10",
+      "select": "Select {{name}}"
+    },
+    "rowMenu": {
+      "label": "Demo actions"
     },
     "scope": {
       "all": "All installations",

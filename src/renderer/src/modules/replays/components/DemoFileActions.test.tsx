@@ -49,13 +49,14 @@ afterEach(() => {
   useLauncher.setState({ toasts: [] })
 })
 
+const NOOP = { onRename: vi.fn(), onMove: vi.fn(), onDelete: vi.fn() }
 const BASE_DEMO = { id: 'demo-1', fileName: 'demo-1.dm2', archiveEntry: null } as unknown as DemoRow
 
 describe('DemoFileActions (story 156 D2)', () => {
   it('a successful copy shows the path-copied toast (AC2)', async () => {
     copyDemoPath.mockResolvedValue({ ok: true, value: { ok: true } })
 
-    render(createElement(DemoFileActions, { demo: BASE_DEMO, onRenamed: vi.fn() }))
+    render(createElement(DemoFileActions, { demo: BASE_DEMO, ...NOOP }))
     screen.getByTestId('replays-demo-copy-path').click()
 
     await vi.waitFor(() => {
@@ -75,7 +76,7 @@ describe('DemoFileActions (story 156 D2)', () => {
       value: { ok: false, reasonKey: 'replays.play.error.fileMissing' },
     })
 
-    render(createElement(DemoFileActions, { demo: BASE_DEMO, onRenamed: vi.fn() }))
+    render(createElement(DemoFileActions, { demo: BASE_DEMO, ...NOOP }))
     screen.getByTestId('replays-demo-copy-path').click()
 
     const alert = await screen.findByTestId('replays-demo-file-action-error')
@@ -89,7 +90,7 @@ describe('DemoFileActions (story 156 D2)', () => {
       archiveEntry: { archivePath: 'pack.zip', entryPath: 'test.dm2' },
     } as unknown as DemoRow
 
-    render(createElement(DemoFileActions, { demo: archiveDemo, onRenamed: vi.fn() }))
+    render(createElement(DemoFileActions, { demo: archiveDemo, ...NOOP }))
 
     const rename = screen.getByTestId('demo-rename') as HTMLButtonElement
     expect(rename.disabled).toBe(true)
@@ -97,7 +98,7 @@ describe('DemoFileActions (story 156 D2)', () => {
   })
 
   it('a loose demo leaves rename enabled with no read-only notice', () => {
-    render(createElement(DemoFileActions, { demo: BASE_DEMO, onRenamed: vi.fn() }))
+    render(createElement(DemoFileActions, { demo: BASE_DEMO, ...NOOP }))
 
     const rename = screen.getByTestId('demo-rename') as HTMLButtonElement
     expect(rename.disabled).toBe(false)
@@ -105,7 +106,7 @@ describe('DemoFileActions (story 156 D2)', () => {
   })
 
   it('offers Reveal, Copy path and Rename as labelled icon buttons', () => {
-    render(createElement(DemoFileActions, { demo: BASE_DEMO, onRenamed: vi.fn() }))
+    render(createElement(DemoFileActions, { demo: BASE_DEMO, ...NOOP }))
     for (const [id, label] of [
       ['replays-demo-reveal', 'Reveal'],
       ['replays-demo-copy-path', 'Copy path'],
@@ -114,6 +115,32 @@ describe('DemoFileActions (story 156 D2)', () => {
       const button = screen.getByTestId(id)
       expect(button.getAttribute('aria-label')).toContain(label)
       expect(button.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+    }
+  })
+  it('Move and Delete call back with the demo shown', () => {
+    const onMove = vi.fn()
+    const onDelete = vi.fn()
+    render(createElement(DemoFileActions, { demo: BASE_DEMO, ...NOOP, onMove, onDelete }))
+
+    screen.getByTestId('demo-move').click()
+    screen.getByTestId('demo-delete').click()
+
+    expect(onMove).toHaveBeenCalledWith(BASE_DEMO)
+    expect(onDelete).toHaveBeenCalledWith(BASE_DEMO)
+  })
+
+  it('an archive-entry demo disables Move and Delete and points them at the visible reason', () => {
+    const archiveDemo = {
+      ...BASE_DEMO,
+      archiveEntry: { archivePath: 'pack.zip', entryPath: 'test.dm2' },
+    } as unknown as DemoRow
+
+    render(createElement(DemoFileActions, { demo: archiveDemo, ...NOOP }))
+
+    for (const id of ['demo-move', 'demo-delete']) {
+      const button = screen.getByTestId(id) as HTMLButtonElement
+      expect(button.disabled).toBe(true)
+      expect(button.getAttribute('aria-describedby')).toBe('replays-archive-readonly-change')
     }
   })
 })

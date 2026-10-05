@@ -28,6 +28,7 @@ import {
 import { scopeDemoRows, type DemoListScope } from '@shared/replays/list-scope'
 import { Button } from '../../components/ui/Button'
 import { Switch } from '../../components/ui/controls'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { cn } from '../../lib/cn'
 import { toastOutcomeError } from '../../lib/toast'
 import { useListSort } from '../../lib/useListSort'
@@ -46,6 +47,14 @@ import { DemoDragZone } from './components/DemoDragZone'
 import { FolderNameDialog } from './FolderNameDialog'
 import { useFolderStore } from './folder-store'
 import { DemoDetailPanel } from './components/DemoDetailPanel'
+import { BulkActionBar } from './components/BulkActionBar'
+import { SelectionSummary } from './components/SelectionSummary'
+import { TagDemosDialog } from './components/TagDemosDialog'
+import { MoveDemosDialog } from './components/MoveDemosDialog'
+import { useBulkActions } from './useBulkActions'
+import { DemoRowMenu, type RowMenuTarget } from './components/DemoRowMenu'
+import { RenameDemoDialog } from './RenameDemoDialog'
+import type { MenuPoint } from './row-menu'
 import { ConsoleCommandField } from './components/ConsoleCommandField'
 import { DemoStage } from './components/DemoStage'
 import { DemoTimeline } from './components/DemoTimeline'
@@ -60,6 +69,10 @@ import {
   getListFilter,
   folderCreate,
   folderRename,
+  deleteDemoFolder,
+  deleteDemos,
+  moveDemos,
+  tagDemos,
   foldersRead,
   getListSort,
   indexRead,
@@ -202,6 +215,10 @@ export function ReplaysView() {
   const [progress, setProgress] = useState<ReplaysScanProgress>(IDLE_SCAN_PROGRESS)
   const stageMode = usePlaybackStore((state) => state.stageArmed || state.session !== null)
   const selectedId = useDemoEditorStore((state) => state.selectedId)
+  const selectedIds = useDemoEditorStore((state) => state.selectedIds)
+  const toggleDemo = useDemoEditorStore((state) => state.toggleSelect)
+  const selectRange = useDemoEditorStore((state) => state.selectRange)
+  const selectAll = useDemoEditorStore((state) => state.selectAll)
   const selectDemo = useDemoEditorStore((state) => state.select)
   const closeDemo = useDemoEditorStore((state) => state.close)
   const drafts = useDemoEditorStore((state) => state.drafts)
@@ -395,6 +412,12 @@ export function ReplaysView() {
   const scopedDemos = useMemo(() => scopeDemoRows(demos ?? [], scope), [demos, scope])
   const rowCount = scopedDemos.length
   const selected = demos?.find((demo) => demo.id === selectedId) ?? null
+  const multiSelected = selectedIds.length > 1
+  const selectedRows = useMemo(() => {
+    const chosen = new Set(selectedIds)
+    return (demos ?? []).filter((demo) => chosen.has(demo.id))
+  }, [demos, selectedIds])
+  const zipCount = selectedRows.filter((demo) => demo.archiveEntry !== null).length
 
   // Story 180: the action bar's primary button on this tab is "View" - it plays the selected
   // demo. The published object must stay stable (the contribution effect republishes on every new
@@ -496,6 +519,48 @@ export function ReplaysView() {
     [hasSelection, eligibility, askFirst, playBusy, playError, runPlay],
   )
   usePrimaryActionContribution('/replays', viewAction)
+  const bulk = useBulkActions({ rows: demos ?? [], reread: rereadLists })
+  // The one delete confirmation: the bulk bar, the detail panel and the row menu all set its ids.
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null)
+  const [renaming, setRenaming] = useState<DemoRow | null>(null)
+  const [deletingFolder, setDeletingFolder] = useState<FolderEntry | null>(null)
+  const [rowMenu, setRowMenu] = useState<{ at: MenuPoint; target: RowMenuTarget } | null>(null)
+  const folderDeleteBusy = useRef(false)
+  // The ids the open dialog acts on, so a context menu can open it for one demo.
+  const [bulkDialog, setBulkDialog] = useState<{ kind: 'tag' | 'move'; ids: string[] } | null>(null)
+  const selectedRowsOf = (ids: readonly string[]): DemoRow[] =>
+    (demos ?? []).filter((demo) => ids.includes(demo.id))
+  const deletableCount = selectedRowsOf(deleteIds ?? []).filter(
+    (demo) => demo.archiveEntry === null,
+  ).length
+  const openDemoMenu = (id: string, at: MenuPoint): void => {
+    const demo = (demos ?? []).find((row) => row.id === id)
+    if (demo === undefined) return
+    const inSelection = selectedIds.length > 1 && selectedIds.includes(id)
+    if (!inSelection) {
+      if (id !== pinnedRowIdRef.current) pinnedRowIdRef.current = null
+      selectDemo(id)
+    }
+    setRowMenu({
+      at,
+      target: { kind: 'demo', demo, selection: inSelection ? selectedRowsOf(selectedIds) : [demo] },
+    })
+  }
+  // The folder's demos leave the list with it; a refusal (playing, scanning, ...) is a toast.
+  const handleFolderDelete = async (folder: FolderEntry): Promise<void> => {
+    if (folderDeleteBusy.current) return
+    folderDeleteBusy.current = true
+    try {
+      const outcome = await deleteDemoFolder(folder.ref)
+      if (!outcome.ok) {
+        toastOutcomeError(pushToast, outcome)
+        return
+      }
+      await rereadLists()
+    } finally {
+      folderDeleteBusy.current = false
+    }
+  }
   const sortedDemos = useMemo(
     () => sortDemoRows(scopedDemos, sort, toSortFields),
     [scopedDemos, sort],
@@ -559,6 +624,11 @@ export function ReplaysView() {
         : found.gameDir
     },
     [rootLabels, installations, showAll, t],
+  )
+  const allFoldersLabelled = useMemo(
+    () =>
+      (folders ?? []).map((f) => ({ ...f, source: rootLabel(f.sourceKey, f.source) ?? f.source })),
+    [folders, rootLabel],
   )
   const scopedFolders = useMemo(() => {
     const reached = new Set(scopedDemos.map((demo) => demoSourceKey(demo.source)))
@@ -742,7 +812,7 @@ export function ReplaysView() {
           )}
           data-testid="replays-list-detail"
         >
-          <div className={detailSplit(selected !== null, stageMode)}>
+          <div className={detailSplit(selected !== null || multiSelected, stageMode)}>
             <div className={cn('flex min-h-0 flex-col p-5', stageMode && 'hidden')}>
               {demos !== null && filterLoaded && rowCount > 0 && noMatch && (
                 <div
@@ -759,6 +829,17 @@ export function ReplaysView() {
                     {t('common.action.clearFilters')}
                   </Button>
                 </div>
+              )}
+              {(multiSelected || bulk.outcome !== null) && (
+                <BulkActionBar
+                  count={selectedIds.length}
+                  zipCount={zipCount}
+                  busy={bulk.busy}
+                  outcome={bulk.outcome}
+                  onDelete={() => setDeleteIds([...selectedIds])}
+                  onTag={() => setBulkDialog({ kind: 'tag', ids: [...selectedIds] })}
+                  onMove={() => setBulkDialog({ kind: 'move', ids: [...selectedIds] })}
+                />
               )}
               <DemoDragZone onMove={(id, target) => void handleDemoMove(id, target)}>
                 {demos !== null && folders !== null && filterLoaded && libraryHasEntries && (
@@ -778,10 +859,31 @@ export function ReplaysView() {
                     items={listItems}
                     onOpenFolder={(folder) => openFolder(folder.ref)}
                     onRenameFolder={(folder) => setFolderDialog({ mode: 'rename', folder })}
-                    selectedId={selectedId}
+                    onDemoMenu={openDemoMenu}
+                    onFolderMenu={(folder, at) =>
+                      setRowMenu({ at, target: { kind: 'folder', folder } })
+                    }
+                    selectedIds={selectedIds}
                     onSelect={(id) => {
                       if (id !== pinnedRowIdRef.current) pinnedRowIdRef.current = null
                       selectDemo(id)
+                    }}
+                    onToggle={(id) => {
+                      pinnedRowIdRef.current = null
+                      toggleDemo(id)
+                    }}
+                    onRange={(id, order) => {
+                      pinnedRowIdRef.current = null
+                      selectRange(id, order)
+                    }}
+                    onSelectAll={(order) => {
+                      pinnedRowIdRef.current = null
+                      selectAll(order)
+                    }}
+                    onClearSelection={() => {
+                      pinnedRowIdRef.current = null
+                      closeDemo()
+                      bulk.dismiss()
                     }}
                     onRowPatched={handleRowPatched}
                     sort={sort}
@@ -790,6 +892,18 @@ export function ReplaysView() {
                 )}
               </DemoDragZone>
             </div>
+
+            {multiSelected && (
+              <div
+                className={cn(
+                  DETAIL_PANE,
+                  stageMode ? 'border-l' : 'border-t @4xl:border-t-0 @4xl:border-l',
+                )}
+                data-testid="replays-multi-selection"
+              >
+                <SelectionSummary count={selectedIds.length} zipCount={zipCount} />
+              </div>
+            )}
 
             {selected && (
               <div
@@ -806,7 +920,9 @@ export function ReplaysView() {
                     closeDemo()
                   }}
                   onRowPatched={handleRowPatched}
-                  onRenamed={handleRenamed}
+                  onRename={setRenaming}
+                  onMove={(demo) => setBulkDialog({ kind: 'move', ids: [demo.id] })}
+                  onDelete={(demo) => setDeleteIds([demo.id])}
                   otherDemosTags={otherDemosTags}
                 />
               </div>
@@ -839,6 +955,91 @@ export function ReplaysView() {
           initialName={folderDialog.folder.name}
           onSubmit={(name) => handleFolderRename(folderDialog.folder, name)}
           onClose={() => setFolderDialog(null)}
+        />
+      )}
+
+      {bulkDialog?.kind === 'tag' && (
+        <TagDemosDialog
+          rows={selectedRowsOf(bulkDialog.ids)}
+          allTags={otherDemosTags}
+          onSubmit={(add, remove) => {
+            const ids = bulkDialog.ids
+            setBulkDialog(null)
+            void bulk.run('tag', ids, (all) => tagDemos(all, add, remove))
+          }}
+          onClose={() => setBulkDialog(null)}
+        />
+      )}
+      {bulkDialog?.kind === 'move' && (
+        <MoveDemosDialog
+          folders={allFoldersLabelled}
+          current={currentFolder}
+          count={bulkDialog.ids.length}
+          onMove={(target) => {
+            const ids = bulkDialog.ids
+            setBulkDialog(null)
+            void bulk.run('move', ids, (all) => moveDemos(all, target))
+          }}
+          onClose={() => setBulkDialog(null)}
+        />
+      )}
+
+      {deleteIds !== null && (
+        <ConfirmDialog
+          title={t('replays.bulk.delete.title', { count: deletableCount })}
+          body={t('replays.bulk.delete.body', { count: deletableCount })}
+          confirmLabel={t('replays.bulk.action.delete')}
+          tone="danger"
+          onConfirm={() => {
+            const ids = deleteIds
+            setDeleteIds(null)
+            void bulk.run('delete', ids, deleteDemos)
+          }}
+          onClose={() => setDeleteIds(null)}
+          testIds={{ confirm: 'replays-bulk-delete-confirm', cancel: 'replays-bulk-delete-cancel' }}
+        />
+      )}
+
+      {deletingFolder !== null && (
+        <ConfirmDialog
+          title={t('replays.folder.delete.title', { name: deletingFolder.name })}
+          body={t('replays.folder.delete.body', { count: deletingFolder.demoCount })}
+          confirmLabel={t('replays.folder.delete.confirm')}
+          tone="danger"
+          onConfirm={() => {
+            const folder = deletingFolder
+            setDeletingFolder(null)
+            void handleFolderDelete(folder)
+          }}
+          onClose={() => setDeletingFolder(null)}
+          testIds={{
+            confirm: 'replays-folder-delete-confirm',
+            cancel: 'replays-folder-delete-cancel',
+          }}
+        />
+      )}
+
+      {renaming !== null && (
+        <RenameDemoDialog
+          demo={renaming}
+          onClose={() => setRenaming(null)}
+          onRenamed={handleRenamed}
+        />
+      )}
+
+      {rowMenu !== null && (
+        <DemoRowMenu
+          at={rowMenu.at}
+          target={rowMenu.target}
+          actions={{
+            onRename: setRenaming,
+            onMove: (ids) => setBulkDialog({ kind: 'move', ids }),
+            onDelete: setDeleteIds,
+            onTag: (ids) => setBulkDialog({ kind: 'tag', ids }),
+            onRenameFolder: (folder) => setFolderDialog({ mode: 'rename', folder }),
+            onDeleteFolder: setDeletingFolder,
+          }}
+          onClose={() => setRowMenu(null)}
         />
       )}
 

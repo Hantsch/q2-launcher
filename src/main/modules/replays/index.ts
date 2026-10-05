@@ -16,7 +16,11 @@ import { defineModule } from '../define-module'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { SESSION_RESTORE_CVARS, WRONG_INSTALLATION, createDemoPlay, launcherSweepDirs } from './demo-play'
-import { createDemoFolders } from './demo-folders'
+import { isDirectory } from '../../lib/fs-utils'
+import { createDemoBulkTags } from './demo-bulk-tags'
+import { createDemoFileOps } from './demo-file-ops'
+import { createDemoFolderDelete } from './demo-folder-delete'
+import { createDemoFolders, locateDemoFolder } from './demo-folders'
 import { createDemoMove } from './demo-move'
 import { createDemoRename } from './demo-rename'
 import { sweepLauncherDirs } from './demo-staging'
@@ -235,6 +239,18 @@ export const replaysModule: MainModule = {
     })
     const demoMove = createDemoMove({ scan: scanService, sessions: playbackSessions })
     const demoFolders = createDemoFolders({ scan: scanService, sessions: playbackSessions })
+    // Bulk delete/move/tag and folder delete take ids and folder refs, never paths; main resolves them (story 244)
+    const demoFileOps = createDemoFileOps({
+      scan: scanService,
+      sessions: playbackSessions,
+      os: app.os,
+    })
+    const demoBulkTags = createDemoBulkTags({ scan: scanService, sidecars: sidecarStore })
+    const demoFolderDelete = createDemoFolderDelete({
+      scan: scanService,
+      sessions: playbackSessions,
+      os: app.os,
+    })
 
     // Story 159: demo playback - id + installation id in, main re-runs eligibility on its own
     // data, contains the file in that installation's demos folder, then starts the launch and
@@ -447,6 +463,30 @@ export const replaysModule: MainModule = {
     )
     handle(REPLAYS_HANDLERS.demoRename, (payload) => demoRename.rename(payload.id, payload.name))
     handle(REPLAYS_HANDLERS.demoMove, (payload) => demoMove.move(payload.id, payload.target))
+    handle(REPLAYS_HANDLERS.demosDelete, (payload) => demoFileOps.delete(payload.demoIds))
+    handle(REPLAYS_HANDLERS.demosMove, async (payload) => {
+      const { target } = payload
+      let targetDir: string
+      if (target.kind === 'folder') {
+        // A tree target must be a folder inside a scanned root.
+        const located = await locateDemoFolder(scanService, target.folderId)
+        if (!located.ok) return located
+        targetDir = located.value.absolutePath
+      } else {
+        const picked = await app.dialog.pickFolder()
+        if (picked === null) return ok({ cancelled: true as const })
+        // A picked folder is any directory; it may lie outside every root.
+        if (!(await isDirectory(picked))) return fail('replays.bulk.error.notAFolder')
+        targetDir = picked
+      }
+      return demoFileOps.move(payload.demoIds, targetDir)
+    })
+    handle(REPLAYS_HANDLERS.demosTag, (payload) =>
+      demoBulkTags.tag(payload.demoIds, payload.add, payload.remove),
+    )
+    handle(REPLAYS_HANDLERS.demoFolderDelete, (payload) =>
+      demoFolderDelete.deleteFolder(payload.folderId),
+    )
     handle(REPLAYS_HANDLERS.folderCreate, (payload) =>
       demoFolders.create(payload.parent, payload.name),
     )

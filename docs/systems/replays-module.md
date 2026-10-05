@@ -23,9 +23,8 @@ holds the rail's installation, so a folder shared by two installations lists in 
 suggestions and counts follow the scoped rows; the filter value survives an installation switch.
 
 An empty list says why (`deriveReplaysListState`): no installation registered, none selected, or the
-selected one has no demos - that line names the folders it looks in (`demoFolders.read`) as plain
-text, not a warning. The source-error strip shows only in-scope sources (`scopeSourceErrors`)
-unless the toggle is on.
+selected one has no demos (naming the folders it looks in, `demoFolders.read`). The source-error
+strip shows only in-scope sources (`scopeSourceErrors`) unless the toggle is on.
 
 ## Map
 
@@ -41,8 +40,7 @@ unless the toggle is on.
   under `<gamedir>/demos/_launcher/`.
 - `playback-sessions.ts` / `playback-control.ts` / `playback-timeline.ts` /
   `playback-console.ts` / `playback-stop.ts` / `session-cvar-restore.ts` — the live session.
-- `playback-channel/windows-channel.ts`, `playback-channel/linux-channel.ts`,
-  `playback-channel/protocol.ts` — how the launcher talks to the running engine.
+- `playback-channel/` — how the launcher talks to the running engine.
 - `stage.ts` / `stage-follow.ts` / `stage-follow-session.ts` / `geometry.ts` /
   `x11/stage-window.ts` — placing the game window over the stage; `cinema.ts` /
   `cinema-controller.ts` — cinema mode; `persisted.ts` — the forgiving state parse.
@@ -63,8 +61,7 @@ unless the toggle is on.
   one view, edited in place: every text fact is an `InPlaceField` saving per field (Enter or leaving
   it; Escape reverts) through the editor store's single `edit` write path; the roster opens
   `SidesEditor` and saves when focus leaves it; an archive entry is read-only.
-- `components/DemoPlayersPanel.tsx` — players grouped by side, POV marked, spectators closed.
-- `components/DemoStage.tsx`, `components/DemoTimeline.tsx`, `cinema/CinemaOverlay.tsx`,
+- `components/DemoPlayersPanel.tsx` — players by side; `components/DemoStage.tsx`, `components/DemoTimeline.tsx`, `cinema/CinemaOverlay.tsx`,
   `playback-store.ts`, `useDemoPlay.ts` — playback.
 - `ReplaysSettingsSection.tsx`, `NameTemplatesList.tsx`, `client.ts`, `locale/en.json`.
 
@@ -73,11 +70,9 @@ unless the toggle is on.
 - Each index row carries `roster`: `{ teams: { name, players }[], spectators }`, or `null` when
   unknown. It is collected by `shared/demos/dm2-roster.ts` in the one existing frame-count pass
   (`readDemoFullPass` for a loose file, `zip-demos.ts` for an archive entry), never a second read.
-- Teams: OpenTDM takes a player's team from the slot string `name (team)` while it still names the
-  slot's current player (the last scoreboard's `Spectators` section overrides); CTF falls back to
-  the `ctf_r` / `ctf_b` skins.
-- A change to the cached row shape bumps `REPLAYS_INDEX_CACHE_VERSION` (in `index-cache.ts`): old caches are
-  discarded and re-read.
+- Teams: OpenTDM takes a player's team from the slot string `name (team)` while it names the slot's
+  current player (the last scoreboard's `Spectators` section overrides); CTF uses `ctf_r` / `ctf_b` skins.
+- A change to the cached row shape bumps `REPLAYS_INDEX_CACHE_VERSION` (`index-cache.ts`).
 
 ## Persisted state
 
@@ -88,8 +83,7 @@ unless the toggle is on.
 - `listSort` — the chosen sort, `null` for the default favourites-first order; `listFilter` — the
   list filter, empty meaning none.
 - `modWarning` — whether the missing-mod warning is asked and the lower-cased game dirs trusted.
-
-Elsewhere on disk: the index cache replays-index.json (regenerable) and one sidecar per demo.
+- Elsewhere: the index cache replays-index.json (regenerable) and one sidecar per demo.
 
 ## Handlers
 
@@ -109,17 +103,23 @@ Elsewhere on disk: the index cache replays-index.json (regenerable) and one side
   switch, trust a game dir, clear the trusted dirs.
 - `demosReveal` / `demosCopyPath` / `demoRename` — reveal the file, copy its resolved path, rename a
   demo and its sidecar.
-- `demoMove` — moves a loose demo and its sidecar into another folder of a source; the target ref
-  resolves against the last scan and its real path must lie inside the root. Refuses archive
-  entries and folders, a playing demo, a running scan and a name clash.
-- `folderCreate` — creates a folder inside a source folder (non-recursive `mkdir`), listed without a
-  rescan; returns the folder ref. Refuses an invalid or existing name, archive folders, a folder
-  whose real path leaves the source root and a running scan.
-- `folderRename` — renames a source folder in one directory rename, then re-keys every row, id and
-  folder below it without re-parsing; returns the `{ from, to }` id pairs. Refuses a source root, an
-  invalid or clashing name (case-only is allowed), archive folders, a folder outside the root, a
-  playing demo below it and a running scan. Refs resolve against each root's directory, recorded by
-  discovery and persisted by the index cache.
+- `demoMove` — moves a loose demo and its sidecar into another folder of a source (target real path
+  inside the root). Refuses archive entries and folders, a playing demo, a running scan, a clash.
+- `folderCreate` — creates a folder inside a source folder, listed without a rescan; returns the ref.
+  Refuses an invalid or existing name, archive folders, a folder outside the root, a running scan.
+- `folderRename` — renames a source folder in one directory rename, then re-keys every row below it
+  without re-parsing; returns the `{ from, to }` id pairs. Refuses a source root, an invalid or
+  clashing name (case-only is allowed), archive folders, a folder outside the root, a playing demo
+  below it and a running scan. Refs resolve against each root's recorded directory.
+- `demosDelete` / `demosMove` / `demosTag` / `demoFolderDelete` — bulk file actions
+  (`demo-file-ops.ts`, `demo-bulk-tags.ts`, `demo-folder-delete.ts`), id- or ref-addressed, never a
+  path; one outcome per demo (done, failed or skipped, with an i18n reason). Delete goes to the OS
+  trash only, never retried as a permanent removal; `demoFolderDelete` never deletes a source root.
+  Move never replaces a file in the target and puts the demo back when its sidecar cannot follow;
+  the target is a tree folder (contained in a scanned root) or `{ kind: 'pick' }` (a folder dialog,
+  any directory, `{ cancelled: true }` on dismiss) - a demo moved outside every root leaves the
+  index. Tag never overwrites a sidecar that does not parse. Skipped: archive entries, a playing
+  demo, a demo already in the target. All four refuse while a scan runs.
 - `demoFoldersRead` — an installation's absolute `demos` folders (game dirs, plus the Linux Q2PRO
   write dir's), display only; `demoPlay` — plays a demo in Q2PRO.
 - `playbackTimeline` / `playbackConsoleSend` / `playbackStage` / `playbackStop` / `playbackCinema` /

@@ -1,3 +1,4 @@
+import { isContextMenuKey, menuPointOf, type MenuPoint } from '../row-menu'
 import {
   useRef,
   type KeyboardEvent,
@@ -24,9 +25,15 @@ export interface DemoRowProps {
   row: DemoRowData
   selected: boolean
   onSelect: (id: string) => void
+  /** Ctrl/Cmd-click and the row checkbox. */
+  onToggle: (id: string) => void
+  /** Shift-click. */
+  onRange: (id: string) => void
   /** Patches this row's `sidecar` part in the view's list after a quick edit - same patcher the
    * detail panel's own save uses (`ReplaysView`'s `handleRowPatched`). */
   onRowPatched?: RowPatcher
+  /** Right-click, Shift+F10 or the context-menu key on the row. */
+  onContextMenu?: (id: string, at: MenuPoint) => void
   /** Search mode only: `root label / folder / folder`, shown in place of the source text. */
   folderText?: string
 }
@@ -59,7 +66,16 @@ function UnknownValue() {
  * name - status is never colour-only. Mirrors `../../servers/ServerRow.tsx`'s shape and
  * conventions.
  */
-export function DemoRow({ row, selected, onSelect, onRowPatched, folderText }: DemoRowProps) {
+export function DemoRow({
+  row,
+  selected,
+  onSelect,
+  onToggle,
+  onRange,
+  onRowPatched,
+  onContextMenu,
+  folderText,
+}: DemoRowProps) {
   const { t, i18n } = useTranslation()
   const dragData: DemoDragData = { fileName: row.fileName }
   const {
@@ -121,11 +137,19 @@ export function DemoRow({ row, selected, onSelect, onRowPatched, folderText }: D
   const rating = row.sidecar.values.rating
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
-    // A keyboard drag owns Enter (drop) and the arrows while it runs; Ctrl+Space picks the row up.
-    if (isDragging || event.ctrlKey) return
+    // A keyboard drag owns Enter (drop) and the arrows while it runs; Ctrl+Space picks the row up,
+    // so only Ctrl+Enter toggles with Ctrl held.
+    if (isDragging || (event.ctrlKey && event.key !== 'Enter')) return
+    if (isContextMenuKey(event) && onContextMenu !== undefined) {
+      event.preventDefault()
+      onContextMenu(row.id, menuPointOf(event.currentTarget))
+      return
+    }
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
-      onSelect(row.id)
+      if (event.shiftKey) onRange(row.id)
+      else if (event.metaKey || event.ctrlKey) onToggle(row.id)
+      else onSelect(row.id)
     } else if (event.key === 'ArrowRight') {
       event.preventDefault()
       favouriteRef.current?.focus()
@@ -165,7 +189,16 @@ export function DemoRow({ row, selected, onSelect, onRowPatched, folderText }: D
       onPointerDown={
         dragListeners?.onPointerDown as PointerEventHandler<HTMLDivElement> | undefined
       }
-      onClick={() => onSelect(row.id)}
+      onClick={(event) => {
+        if (event.ctrlKey || event.metaKey) onToggle(row.id)
+        else if (event.shiftKey) onRange(row.id)
+        else onSelect(row.id)
+      }}
+      onContextMenu={(event) => {
+        if (onContextMenu === undefined) return
+        event.preventDefault()
+        onContextMenu(row.id, { x: event.clientX, y: event.clientY })
+      }}
       data-testid="replays-demo-row"
       data-demo-id={row.id}
       {...(row.archiveEntry !== null ? { 'data-archive-entry': 'true' } : {})}
@@ -186,6 +219,9 @@ export function DemoRow({ row, selected, onSelect, onRowPatched, folderText }: D
         aria-describedby={dragAttributes['aria-describedby']}
         className="col-span-full row-start-1 grid grid-cols-subgrid items-center"
       >
+        {/* The checkbox itself is the outer div's sibling below (a control cannot sit inside the
+          row's role="button"); this placeholder keeps the subgrid's columns lined up. */}
+        <span aria-hidden="true" />
         <div className="min-w-0">
           <p className="flex min-w-0 items-center gap-1.5 text-sm text-ink">
             <span className="min-w-0 flex-1 truncate" data-testid="replays-demo-name">
@@ -265,7 +301,20 @@ export function DemoRow({ row, selected, onSelect, onRowPatched, folderText }: D
         <span aria-hidden="true" />
       </div>
 
-      <span className="col-start-7 row-start-1 flex items-center justify-end gap-1.5">
+      <label className="col-start-1 row-start-1 flex size-6 cursor-pointer items-center justify-center">
+        <input
+          type="checkbox"
+          checked={selected}
+          tabIndex={-1}
+          aria-label={t('replays.row.select', { name: name ?? row.fileName })}
+          data-testid="replays-row-select"
+          className="size-4 cursor-pointer accent-flame-500"
+          onClick={(event) => event.stopPropagation()}
+          onChange={() => onToggle(row.id)}
+        />
+      </label>
+
+      <span className="col-start-8 row-start-1 flex items-center justify-end gap-1.5">
         {favourite && (
           <span
             data-testid="replays-demo-favourite"

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { DemoRow as DemoRowData } from '@shared/modules/replays'
 import type { FolderEntry } from '@shared/replays/demo-folders'
 import type { DemoListSort, DemoSortColumn } from '@shared/replays/list-sort'
 import { DEMO_ROW_HEIGHT } from '../list-grid'
 import { visibleRange } from '../visible-range'
+import type { MenuPoint } from '../row-menu'
 import type { RowPatcher } from '../demo-editor-store'
 import { DemoListHeader } from './DemoListHeader'
 import { DemoRow } from './DemoRow'
@@ -20,8 +21,17 @@ export interface VirtualDemoListProps {
   items: DemoListItem[]
   onOpenFolder: (folder: FolderEntry) => void
   onRenameFolder: (folder: FolderEntry) => void
-  selectedId: string | null
+  /** A row asked for its context menu: the pointer's point, or the focused row's for the keyboard. */
+  onDemoMenu: (id: string, at: MenuPoint) => void
+  onFolderMenu: (folder: FolderEntry, at: MenuPoint) => void
+  selectedIds: readonly string[]
   onSelect: (id: string) => void
+  onToggle: (id: string) => void
+  /** Shift-click: `visibleOrder` is every demo of the current view, in list order. */
+  onRange: (id: string, visibleOrder: readonly string[]) => void
+  onSelectAll: (visibleOrder: readonly string[]) => void
+  /** Escape: also dismisses a shown bulk outcome, so it runs when nothing is selected. */
+  onClearSelection: () => void
   /** Story 155: forwarded straight to each `DemoRow` for its favourite/rating quick edit. */
   onRowPatched?: RowPatcher
   /** The demos list's current column sort (story 152), or `null` for the default
@@ -49,8 +59,14 @@ export function VirtualDemoList({
   items,
   onOpenFolder,
   onRenameFolder,
-  selectedId,
+  onDemoMenu,
+  onFolderMenu,
+  selectedIds,
   onSelect,
+  onToggle,
+  onRange,
+  onSelectAll,
+  onClearSelection,
   onRowPatched,
   sort,
   onSort,
@@ -82,6 +98,28 @@ export function VirtualDemoList({
     overscan,
   })
   const visibleItems = items.slice(start, end)
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds])
+  // Every demo of the view (not just the rendered window), in list order; folders and headings
+  // are never part of a selection.
+  const visibleOrder = useMemo(
+    () => items.flatMap((item) => (item.kind === 'demo' ? [item.row.id] : [])),
+    [items],
+  )
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    // React events bubble through portals: a dialog opened from a row must not drive the list.
+    const target = event.target as HTMLElement
+    if (!event.currentTarget.contains(target)) return
+    // The row checkbox keeps focus after a click, so it must not swallow the list's chords.
+    const field = target.closest('input, textarea, select, [contenteditable="true"]')
+    if (field !== null && field.getAttribute('data-testid') !== 'replays-row-select') return
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+      event.preventDefault()
+      onSelectAll(visibleOrder)
+    } else if (event.key === 'Escape') {
+      onClearSelection()
+    }
+  }
 
   return (
     <div
@@ -90,6 +128,7 @@ export function VirtualDemoList({
       tabIndex={0}
       className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-stable"
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+      onKeyDown={handleKeyDown}
     >
       <DemoListHeader sort={sort} onSort={onSort} />
       <div style={{ position: 'relative', height: items.length * DEMO_ROW_HEIGHT }}>
@@ -123,14 +162,18 @@ export function VirtualDemoList({
                   folder={item.folder}
                   onOpen={onOpenFolder}
                   onRename={onRenameFolder}
+                  onContextMenu={onFolderMenu}
                 />
               ) : (
                 <DemoRow
                   row={item.row}
                   folderText={item.folderText}
-                  selected={item.row.id === selectedId}
+                  selected={selectedSet.has(item.row.id)}
                   onSelect={onSelect}
+                  onToggle={onToggle}
+                  onRange={(id) => onRange(id, visibleOrder)}
                   onRowPatched={onRowPatched}
+                  onContextMenu={onDemoMenu}
                 />
               )}
             </li>

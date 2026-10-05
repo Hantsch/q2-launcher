@@ -30,9 +30,10 @@ export interface DemoDetailPanelProps {
   onClose: () => void
   /** Patches this row's `sidecar` part in the view's list after a save - never a rescan. */
   onRowPatched: RowPatcher
-  /** Story 157: a rename swapped this row's id (and file name) out from under the selection -
-   * threaded straight through to `DemoFileActions`/`RenameDemoDialog`. */
-  onRenamed: (oldId: string, newRow: DemoRow) => void
+  /** Rename, move and delete open the list's own dialogs; threaded straight to `DemoFileActions`. */
+  onRename: (row: DemoRow) => void
+  onMove: (row: DemoRow) => void
+  onDelete: (row: DemoRow) => void
   /** Every other demo's sidecar tags, threaded down to the notes editor's tag-suggestion input. */
   otherDemosTags?: string[][]
 }
@@ -105,7 +106,9 @@ export function DemoDetailPanel({
   row,
   onClose,
   onRowPatched,
-  onRenamed,
+  onRename,
+  onMove,
+  onDelete,
   otherDemosTags = NO_OTHER_TAGS,
 }: DemoDetailPanelProps) {
   const { t, i18n } = useTranslation()
@@ -162,9 +165,7 @@ export function DemoDetailPanel({
         onCommit={async (text): Promise<CommitResult> => {
           const parsed = fieldPatchFromText(id, text)
           if (!parsed.ok) return 'failed'
-          return useDemoEditorStore
-            .getState()
-            .edit(row.id, setFields(parsed.patch), onRowPatched)
+          return useDemoEditorStore.getState().edit(row.id, setFields(parsed.patch), onRowPatched)
         }}
         testId={`replays-detail-input-${id}`}
       />
@@ -224,7 +225,7 @@ export function DemoDetailPanel({
               aria-hidden="true"
             />
           </IconButton>
-          <DemoFileActions demo={row} onRenamed={onRenamed} />
+          <DemoFileActions demo={row} onRename={onRename} onMove={onMove} onDelete={onDelete} />
           <IconButton
             label={t('common.action.close')}
             size="sm"
@@ -244,6 +245,9 @@ export function DemoDetailPanel({
             </p>
             <p id="replays-archive-readonly-rename" data-testid="replays-archive-readonly-rename">
               {t('replays.archive.readOnly.rename')}
+            </p>
+            <p id="replays-archive-readonly-change" data-testid="replays-archive-readonly-change">
+              {t('replays.archive.readOnly.change')}
             </p>
           </div>
         )}
@@ -292,7 +296,9 @@ export function DemoDetailPanel({
           )}
           {(!archived || (values.description ?? '').trim() !== '') && (
             <div className="space-y-1" data-testid="replays-detail-field-description">
-              <span className="text-sm text-ink-muted">{t('replays.detail.field.description')}</span>
+              <span className="text-sm text-ink-muted">
+                {t('replays.detail.field.description')}
+              </span>
               {textField('description', true)}
             </div>
           )}

@@ -6,6 +6,7 @@ import type { LocalizedMessage } from '@shared/types/common'
 import { toastOutcomeError } from '../../lib/toast'
 import { useLauncher } from '../../store/useLauncher'
 import { sidecarRead, sidecarWrite } from './client'
+import * as selection from './selection'
 
 /** What a save hands back to the view so it can patch that one row's `sidecar` part in place -
  * straight from a fresh `sidecar.read`, never from the fields that were just sent. */
@@ -77,15 +78,25 @@ export interface DemoDraftEntry {
  * a field with unsaved text commits itself when it unmounts.
  */
 export interface DemoEditorState {
+  /** The one demo the detail panel shows: set only while exactly one demo is selected. */
   selectedId: string | null
+  /** Every selected demo (the multi-selection); `selectedId` is derived from it. */
+  selectedIds: readonly string[]
+  /** The row a Shift-click range grows from. */
+  anchor: string | null
   drafts: Record<string, DemoDraftEntry>
   /** Story 179: the optimistic favourite/rating overlay per demo - set the moment a quick edit is
    * clicked, dropped when that demo's write queue drains (success or failure). Read it through
    * `effectiveQuickValues`. */
   quickPending: Record<string, QuickPatch>
   select(id: string): void
+  /** Ctrl/Cmd-click or the row checkbox. */
+  toggleSelect(id: string): void
+  /** Shift-click: the rows between the anchor and `id` in `visibleOrder`. */
+  selectRange(id: string, visibleOrder: readonly string[]): void
+  selectAll(visibleOrder: readonly string[]): void
   close(): void
-  /** Clears the selection if it no longer names a row in `ids` - the "row vanished on a re-read or
+  /** Drops every selected demo that is no longer in `ids` - the "row vanished on a re-read or
    * a filter change" guard. */
   deselectIfMissing(ids: readonly string[]): void
   /**
@@ -267,16 +278,30 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
     settleParked(id, 'cancelled')
   }
 
+  const currentSelection = (): selection.Selection => ({
+    ids: get().selectedIds,
+    anchor: get().anchor,
+  })
+  const setSelection = (next: selection.Selection): void =>
+    set({ selectedIds: next.ids, anchor: next.anchor, selectedId: selection.single(next) })
+
   return {
     selectedId: null,
+    selectedIds: [],
+    anchor: null,
     drafts: {},
     quickPending: {},
-    select: (id) => set({ selectedId: id }),
-    close: () => set({ selectedId: null }),
+    select: (id) => setSelection(selection.only(id)),
+    toggleSelect: (id) => setSelection(selection.toggle(currentSelection(), id)),
+    selectRange: (id, visibleOrder) =>
+      setSelection(selection.range(currentSelection(), id, visibleOrder)),
+    selectAll: (visibleOrder) =>
+      setSelection(selection.all(visibleOrder, currentSelection().anchor)),
+    close: () => setSelection(selection.clear()),
     deselectIfMissing: (ids) => {
-      const current = get().selectedId
-      if (current === null) return
-      if (!ids.includes(current)) set({ selectedId: null })
+      const current = currentSelection()
+      const next = selection.prune(current, ids)
+      if (next !== current) setSelection(next)
     },
     edit: (id, change, onRowPatched) =>
       new Promise<EditResult>((resolve) => {

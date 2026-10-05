@@ -732,11 +732,6 @@
       "replays-discovered-list",
       "replays-incremental-scan",
       "replays-zip-entries",
-      "replays-folders",
-      "replays-folders-search",
-      "replays-folder-manage",
-      "replays-folder-drag-move",
-      "replays-folders-scale",
       "replays-extra-folders",
       "replays-demo-rows",
       "replays-list-empty",
@@ -750,31 +745,79 @@
     "why": "Demo discovery, the scan index, zipped demos and demo parsing behind the replays list."
   },
   {
+    "area": "replays-folders",
+    "paths": [
+      "src/main/modules/replays/demo-folders.ts",
+      "src/main/modules/replays/demo-folder-delete.ts",
+      "src/main/modules/replays/demo-move.ts",
+      "src/main/modules/replays/demo-relocate.ts",
+      "src/renderer/src/modules/replays/folder-store.ts",
+      "src/renderer/src/modules/replays/components/DemoDragZone.tsx"
+    ],
+    "flows": [
+      "replays-folders",
+      "replays-folders-search",
+      "replays-folder-manage",
+      "replays-folder-drag-move",
+      "replays-folders-scale",
+      "replays-demo-rows"
+    ],
+    "why": "Folder view of the demo list: browsing, managing folders and moving demos between them."
+  },
+  {
+    "area": "replays-bulk",
+    "paths": [
+      "src/main/modules/replays/demo-bulk-tags.ts",
+      "src/main/modules/replays/demo-file-ops.ts",
+      "src/main/modules/replays/fs-steps.ts",
+      "src/renderer/src/modules/replays/components/DemoRowMenu.tsx",
+      "src/renderer/src/modules/replays/selection.ts",
+      "src/renderer/src/modules/replays/useBulkActions.ts"
+    ],
+    "flows": [
+      "replays-multi-select",
+      "replays-bulk-delete",
+      "replays-bulk-tag-move",
+      "replays-demo-context-menu",
+      "replays-demo-rows"
+    ],
+    "why": "Selecting several demos and deleting, tagging or moving them, plus the row context menu."
+  },
+  {
     "area": "replays-files",
     "paths": [
       "src/main/modules/replays/demo-rename.ts",
       "src/main/modules/replays/file-actions.ts",
-      "src/main/modules/replays/name-templates.ts",
-      "src/main/modules/replays/sidecar-*.ts",
-      "src/renderer/src/modules/replays/demo-editor-store.ts",
-      "src/renderer/src/modules/replays/components/ReplaceSidecarDialog.tsx"
+      "src/main/modules/replays/name-templates.ts"
     ],
     "flows": [
       "replays-rename",
       "replays-name-templates",
       "replays-demo-file-actions",
+      "replays-copy-in",
+      "replays-copy-in-not-writable",
+      "replays-copy-in-sweep",
+      "replays-archive-readonly"
+    ],
+    "why": "Demo file actions: rename, name templates and copy-in."
+  },
+  {
+    "area": "replays-editor",
+    "paths": [
+      "src/main/modules/replays/sidecar-*.ts",
+      "src/renderer/src/modules/replays/demo-editor-store.ts",
+      "src/renderer/src/modules/replays/components/ReplaceSidecarDialog.tsx",
+      "src/renderer/src/modules/replays/components/InPlaceField.tsx"
+    ],
+    "flows": [
       "replays-edit-sidecar",
       "replays-edit-sides-tags",
       "replays-edit-unreadable-sidecar",
       "replays-detail-quick-edit",
       "replays-row-quick-rating",
-      "replays-copy-in",
-      "replays-copy-in-not-writable",
-      "replays-copy-in-sweep",
-      "replays-archive-readonly",
       "replays-demo-detail"
     ],
-    "why": "Demo file actions: rename, name templates, sidecars, copy-in and the demo editor."
+    "why": "Demo sidecars and the in-place demo editor."
   },
   {
     "area": "replays-playback",

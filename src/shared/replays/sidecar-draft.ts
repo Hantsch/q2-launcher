@@ -262,16 +262,38 @@ export function movePlayer(
   return { ...draft, sides }
 }
 
+/**
+ * Removes then adds tags to a tag list under the sidecar's rules: trimmed, at most 40 characters,
+ * case-insensitive duplicates ignored, at most 50 tags. `overflow` is true when a valid new tag
+ * was dropped because the list was full.
+ */
+export function mergeTags(
+  tags: readonly string[],
+  add: readonly string[],
+  remove: readonly string[],
+): { tags: string[]; overflow: boolean } {
+  const removed = new Set(remove.map((t) => t.toLowerCase()))
+  const out = tags.filter((t) => !removed.has(t.toLowerCase()))
+  let overflow = false
+  for (const tag of add) {
+    const trimmed = tag.trim()
+    if (trimmed === '' || trimmed.length > SIDECAR_LIMITS.tag) continue
+    if (out.some((t) => t.toLowerCase() === trimmed.toLowerCase())) continue
+    if (out.length >= SIDECAR_LIMITS.tags) {
+      overflow = true
+      continue
+    }
+    out.push(trimmed)
+  }
+  return { tags: out, overflow }
+}
+
 export function addTag(draft: SidecarDraft, tag: string): SidecarDraft {
-  const trimmed = tag.trim()
-  if (trimmed === '' || trimmed.length > SIDECAR_LIMITS.tag) return draft
-  if (draft.tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) return draft
-  if (draft.tags.length >= SIDECAR_LIMITS.tags) return draft
-  return { ...draft, tags: [...draft.tags, trimmed] }
+  return { ...draft, tags: mergeTags(draft.tags, [tag], []).tags }
 }
 
 export function removeTag(draft: SidecarDraft, tag: string): SidecarDraft {
-  return { ...draft, tags: draft.tags.filter((t) => t.toLowerCase() !== tag.toLowerCase()) }
+  return { ...draft, tags: mergeTags(draft.tags, [], [tag]).tags }
 }
 
 /**

@@ -30,9 +30,8 @@ export function DemoListHeader({ sort, onSort }: DemoListHeaderProps) {
         'sticky top-0 z-10 h-9 border-b border-l-transparent border-b-line bg-panel',
       )}
     >
-      <span className="stencil flex h-9 items-center justify-start">
-        {t('common.label.demo')}
-      </span>
+      <span aria-hidden="true" />
+      <span className="stencil flex h-9 items-center justify-start">{t('common.label.demo')}</span>
       {DEMO_SORT_COLUMNS.map((column) => {
         const isActive = sort?.column === column
         return (

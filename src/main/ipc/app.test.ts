@@ -54,6 +54,7 @@ async function setup(
       showItemInFolder: vi.fn(),
       openExternal: shellOpenExternal,
       copyText: clipboardWriteText,
+      trashItem: vi.fn(),
     },
   })
   registerAppIpc(app)

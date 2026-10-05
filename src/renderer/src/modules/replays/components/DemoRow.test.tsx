@@ -71,8 +71,14 @@ const BASE_ROW: DemoRowData = {
   },
 }
 
-function renderRow(row: DemoRowData, selected = false, onSelect: (id: string) => void = () => {}) {
-  render(createElement(DemoRow, { row, selected, onSelect }))
+function renderRow(
+  row: DemoRowData,
+  selected = false,
+  onSelect: (id: string) => void = () => {},
+  onToggle: (id: string) => void = () => {},
+  onRange: (id: string) => void = () => {},
+) {
+  render(createElement(DemoRow, { row, selected, onSelect, onToggle, onRange }))
 }
 
 describe('DemoRow', () => {
@@ -238,5 +244,61 @@ describe('DemoRow', () => {
     expect(innerButton).toBeTruthy()
     expect(innerButton.getAttribute('aria-pressed')).toBe('false')
     expect(rowEl.contains(innerButton)).toBe(true)
+  })
+
+  it('Ctrl-click toggles, Shift-click ranges and a plain click selects just the row', () => {
+    const calls: string[] = []
+    renderRow(
+      BASE_ROW,
+      false,
+      (id) => calls.push(`select:${id}`),
+      (id) => calls.push(`toggle:${id}`),
+      (id) => calls.push(`range:${id}`),
+    )
+    const row = screen.getByTestId('replays-demo-row')
+    fireEvent.click(row, { ctrlKey: true })
+    fireEvent.click(row, { shiftKey: true })
+    fireEvent.click(row)
+    expect(calls).toEqual([
+      `toggle:${BASE_ROW.id}`,
+      `range:${BASE_ROW.id}`,
+      `select:${BASE_ROW.id}`,
+    ])
+  })
+
+  it('Ctrl+Enter and Meta+Enter toggle a focused row while Shift+Enter ranges', () => {
+    const calls: string[] = []
+    renderRow(
+      BASE_ROW,
+      false,
+      (id) => calls.push(`select:${id}`),
+      (id) => calls.push(`toggle:${id}`),
+      (id) => calls.push(`range:${id}`),
+    )
+    const selectableRow = screen
+      .getByTestId('replays-demo-row')
+      .querySelector('[role="button"]') as HTMLElement
+    fireEvent.keyDown(selectableRow, { key: 'Enter', ctrlKey: true })
+    fireEvent.keyDown(selectableRow, { key: ' ', metaKey: true })
+    fireEvent.keyDown(selectableRow, { key: 'Enter', shiftKey: true })
+    expect(calls).toEqual([
+      `toggle:${BASE_ROW.id}`,
+      `toggle:${BASE_ROW.id}`,
+      `range:${BASE_ROW.id}`,
+    ])
+  })
+
+  it('the row checkbox toggles without selecting just the row', () => {
+    const calls: string[] = []
+    renderRow(
+      BASE_ROW,
+      true,
+      (id) => calls.push(`select:${id}`),
+      (id) => calls.push(`toggle:${id}`),
+    )
+    const box = screen.getByTestId('replays-row-select') as HTMLInputElement
+    expect(box.checked).toBe(true)
+    fireEvent.click(box)
+    expect(calls).toEqual([`toggle:${BASE_ROW.id}`])
   })
 })

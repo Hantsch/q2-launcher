@@ -4,6 +4,7 @@ import { useDroppable } from '@dnd-kit/core'
 import type { FolderEntry } from '@shared/replays/demo-folders'
 import { cn } from '../../../lib/cn'
 import { DEMO_ROW_HEIGHT } from '../list-grid'
+import { isContextMenuKey, menuPointOf, type MenuPoint } from '../row-menu'
 import type { FolderDropData } from './DemoDragZone'
 
 export interface DemoFolderRowProps {
@@ -11,6 +12,8 @@ export interface DemoFolderRowProps {
   onOpen: (folder: FolderEntry) => void
   /** Absent on roots: a source's own folder can't be renamed. */
   onRename?: (folder: FolderEntry) => void
+  /** Right-click, Shift+F10 or the context-menu key on the row. */
+  onContextMenu?: (folder: FolderEntry, at: MenuPoint) => void
 }
 
 function FolderGlyph() {
@@ -47,7 +50,7 @@ function RenameGlyph() {
 }
 
 /** One folder of the list: single click only focuses, Enter or double-click opens it. */
-export function DemoFolderRow({ folder, onOpen, onRename }: DemoFolderRowProps) {
+export function DemoFolderRow({ folder, onOpen, onRename, onContextMenu }: DemoFolderRowProps) {
   const { t } = useTranslation()
   const reasonId = useId()
   const dropData: FolderDropData = { ref: folder.ref }
@@ -58,6 +61,11 @@ export function DemoFolderRow({ folder, onOpen, onRename }: DemoFolderRowProps) 
   })
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
+    if (isContextMenuKey(event) && onContextMenu !== undefined) {
+      event.preventDefault()
+      onContextMenu(folder, menuPointOf(event.currentTarget))
+      return
+    }
     if (event.key === 'Enter') {
       event.preventDefault()
       onOpen(folder)
@@ -70,6 +78,11 @@ export function DemoFolderRow({ folder, onOpen, onRename }: DemoFolderRowProps) 
       data-testid="replays-folder-row"
       data-drop-over={isOver ? 'true' : undefined}
       onDoubleClick={() => onOpen(folder)}
+      onContextMenu={(event) => {
+        if (onContextMenu === undefined) return
+        event.preventDefault()
+        onContextMenu(folder, { x: event.clientX, y: event.clientY })
+      }}
       onKeyDown={handleKeyDown}
       className={cn(
         'flex w-full cursor-default items-center gap-3 border-b border-l-2 border-b-line/60 border-l-transparent pr-4 pl-3 text-xs text-ink-dim transition-colors duration-[--dur-fast] hover:bg-hover',

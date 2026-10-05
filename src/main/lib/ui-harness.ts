@@ -29,10 +29,11 @@
  * is frozen once per `UiHarness`; fixture variables are read live through `UiHarness.read`.
  */
 
-import { readFile, writeFile } from 'node:fs/promises'
-import { delimiter, join } from 'node:path'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { basename, delimiter, join } from 'node:path'
 import { z } from 'zod'
 import type { DetectedRunner } from '@shared/types'
+import { moveFile } from './fs-utils'
 import { userDataDir } from './paths'
 import { scopedLogger } from './logger'
 
@@ -306,6 +307,42 @@ async function readHarnessJsonArray(filePath: string): Promise<string[]> {
   } catch {
     return []
   }
+}
+
+/**
+ * The harness's stand-in for the OS trash: a scripted run must not fill the test machine's real
+ * Recycle Bin, yet a trashed file has to leave its folder the way it would for a user. Each file is
+ * moved under a numbered name, so two trashed demos of the same name never collide, and its original
+ * path is appended to `HARNESS_TRASHED_PATHS_FILE` (story 244)
+ */
+export const HARNESS_TRASH_DIR = 'harness-trash'
+export const HARNESS_TRASHED_PATHS_FILE = 'ui-harness-trashed.json'
+
+/** `userData/harness-trash/`. */
+export function harnessTrashDir(): string {
+  return join(userDataDir(), HARNESS_TRASH_DIR)
+}
+
+export interface TrashHarnessItemOptions {
+  /** Defaults to `harnessTrashDir()`; a parameter so a test trashes into a temp dir. */
+  trashDir?: string
+  /** Defaults to `userData/ui-harness-trashed.json`. */
+  filePath?: string
+}
+
+export async function trashHarnessItem(
+  harness: UiHarness,
+  path: string,
+  options: TrashHarnessItemOptions = {},
+): Promise<void> {
+  if (!harness.enabled) return
+  const trashDir = options.trashDir ?? harnessTrashDir()
+  const filePath = options.filePath ?? join(userDataDir(), HARNESS_TRASHED_PATHS_FILE)
+  const paths = await readHarnessJsonArray(filePath)
+  await mkdir(trashDir, { recursive: true })
+  await moveFile(path, join(trashDir, `${paths.length}-${basename(path)}`))
+  paths.push(path)
+  await writeFile(filePath, JSON.stringify(paths), 'utf8')
 }
 
 /**

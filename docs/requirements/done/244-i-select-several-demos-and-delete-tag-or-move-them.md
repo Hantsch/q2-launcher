@@ -1,7 +1,7 @@
 ---
 id: 244
 title: I select several demos and delete, tag or move them
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -18,26 +18,26 @@ rename.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Demos can be multi-selected: Ctrl/Cmd-click toggles, Shift-click selects a range,
+- [x] **AC1** — Demos can be multi-selected: Ctrl/Cmd-click toggles, Shift-click selects a range,
       Ctrl+A selects all visible, Escape clears; each row also has a checkbox.
-- [ ] **AC2** — With two or more demos selected, a bulk bar shows the count and the actions Delete,
+- [x] **AC2** — With two or more demos selected, a bulk bar shows the count and the actions Delete,
       Tag and Move, and the detail panel shows a summary instead of one demo.
-- [ ] **AC3** — Delete asks for confirmation naming the count, then moves the demos and their
+- [x] **AC3** — Delete asks for confirmation naming the count, then moves the demos and their
       sidecars to the system trash/recycle bin.
-- [ ] **AC4** — Tag adds one or more tags to every selected demo, and can remove a tag that some of
+- [x] **AC4** — Tag adds one or more tags to every selected demo, and can remove a tag that some of
       them carry; demos without a sidecar get one.
-- [ ] **AC5** — Move asks for a target folder and moves the demos with their sidecars; a name clash
+- [x] **AC5** — Move asks for a target folder and moves the demos with their sidecars; a name clash
       in the target is reported per demo and never overwrites a file.
-- [ ] **AC6** — A bulk action reports its outcome ("12 deleted, 1 failed: in use") and leaves the
+- [x] **AC6** — A bulk action reports its outcome ("12 deleted, 1 failed: in use") and leaves the
       failed demos selected.
-- [ ] **AC7** — Zip entries in the selection are skipped for delete, move and tag, and the bar says
+- [x] **AC7** — Zip entries in the selection are skipped for delete, move and tag, and the bar says
       how many and why, as visible text.
-- [ ] **AC8** — A demo that is currently playing is not deleted or moved; it is reported as skipped.
-- [ ] **AC9** — Delete and move work on Windows and Linux (trash on Linux via the desktop's trash).
-- [ ] **AC10** — A folder (not a demo root, not a zip) can be deleted from its row's menu after a
+- [x] **AC8** — A demo that is currently playing is not deleted or moved; it is reported as skipped.
+- [x] **AC9** — Delete and move work on Windows and Linux (trash on Linux via the desktop's trash).
+- [x] **AC10** — A folder (not a demo root, not a zip) can be deleted from its row's menu after a
       confirmation naming the folder and how many demos it holds; it goes to the trash with everything
       inside, and a folder holding a playing demo is refused. (decision on [[242]])
-- [ ] **AC11** — A single demo can be deleted or moved from the detail panel and from its row's
+- [x] **AC11** — A single demo can be deleted or moved from the detail panel and from its row's
       context menu, with the same confirmation, skip rules and outcome report as a bulk action.
 
 ## Open Questions
@@ -267,3 +267,22 @@ own ui:flow.
 - AC11 → e2e `scripts/flows/replays-demo-context-menu.mjs` › "replays-demo-context-menu"
 
 ## Done
+
+Select several demos (Ctrl/Cmd-click, Shift-range, Ctrl+A, Escape, row checkbox), then delete (to trash), tag
+or move them from a bulk bar with a per-demo outcome; single demos and folders get the same actions from
+the detail panel and a row context menu. Main services never overwrite, skip zips and playing demos, refuse while scanning.
+
+Commit message: `244: multi-select demos, bulk delete/tag/move, folder delete, row context menu`
+
+Verification (narrow gate): build, typecheck, lint green; `npx vitest run --changed HEAD` green (1996 passed); comments + architecture tests green. e2e: `--affected` selected 145 flows (too many for one call), so the 4 story flows plus all 60 `replays-*` flows ran in batches: 58 passed. Red: `replays-filter-search`, `replays-mod-warning` (identical on bare HEAD, pre-existing, not touched here). `scripts/flow-helper-duplication.test.mjs` red on bare HEAD too (pre-existing); `check-docs.test.mjs` known red.
+AC -> test, all ran and passed: AC1 replays-multi-select + selection.test.ts; AC2/AC3/AC6/AC7 replays-bulk-delete + demo-file-ops.test.ts; AC4/AC5 replays-bulk-tag-move + demo-bulk-tags/demo-file-ops tests; AC8 demo-file-ops.test.ts; AC9 os.test.ts + demo-file-ops.test.ts (manual residue: real Windows Recycle Bin / Linux trash); AC10/AC11 replays-demo-context-menu + demo-folder-delete.test.ts. Review 1 (default): PASS with findings, fixed (checkbox focus vs Ctrl+A/Escape, keyboard toggle, stale comment, trailing story pointers, EOPNOTSUPP/ENOSYS copy fallback, failed-stay-selected test, "0 selected" bar, changelog); re-verified by unit tests + the two flows.
+
+Decisions:
+- `demos.move` takes a main-resolved absolute folder; reason keys are `replays.bulk.reason.<x>` (dynamic prefix allowlisted in the i18n keys test); whole-call refusals are toasts.
+- Single-demo delete/move go through the same `useBulkActions` pipeline and one confirmation path; rename dialog lifted into ReplaysView so panel and menu share it.
+- Folder rows had no menu: added one with Rename and "Delete folder…" (disabled with visible reason for roots and zip folders); `scan.removeFolder` prunes the folder list.
+- Selection summary shows count and zip count but no total size: rows carry no size (not an AC; would need a schema field).
+- Ctrl+Space does not toggle (dnd-kit's drag chord); Ctrl+Enter, Meta+Enter, Meta+Space do. `Menu.tsx` gained onClose/focusOnOpen/arrow keys for the context menu.
+- Unfixed, deliberate: `docs/systems/replays-module.md` was condensed to stay under its 150-line cap; `areas.json` rows were split (replays-folders/-bulk/-editor) to keep each under 12 flows; `dialog.ts` repeats the Q2L_UI_PICK_FOLDER counter walk of `ipc/installations.ts` (TECH-DEBT candidate); `demo-move.ts` still uses a plain rename behind its check; `pick` opens the dialog before the scanning refusal.
+
+tiers: D 8 / hard 1 · review default · cycles 1 · agents 13

@@ -7,6 +7,7 @@ import { fail, ok, type Outcome } from '@shared/types/common'
 import { canonicalizePath, isDirectory, isInside, moveFile, pathKey } from '../../lib/fs-utils'
 import { demoIdForPath } from './discovery'
 import { relocateDemo, type RelocateFs } from './demo-relocate'
+import { errnoCode } from './fs-steps'
 import type { PlaybackSessions } from './playback-sessions'
 import type { ReplaysScanService } from './scan-service'
 
@@ -36,11 +37,6 @@ export interface DemoMoveService {
 const defaultFs: RelocateFs = {
   stat: (path) => stat(path),
   rename: (from, to) => moveFile(from, to),
-}
-
-function errnoCode(err: unknown): string | undefined {
-  const code = (err as NodeJS.ErrnoException | null)?.code
-  return typeof code === 'string' ? code : undefined
 }
 
 export function createDemoMove(options: CreateDemoMoveOptions): DemoMoveService {

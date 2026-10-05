@@ -276,7 +276,6 @@ describe('one queued write path for every detail edit', () => {
     })
     expect(onRowPatched).not.toHaveBeenCalled()
   })
-
 })
 
 describe('demo-editor-store', () => {

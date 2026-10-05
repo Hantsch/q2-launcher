@@ -192,3 +192,28 @@
 - 2026-10-05 15:59 · 238 · verify 3 · started
 - 2026-10-05 15:59 · 238 · verify 3 · done
 - 2026-10-05 15:59 · 238 · story · done
+- 2026-10-05T16:00:17 · 244 · build · started
+- 2026-10-05 16:00 · 244 · D1 demo delete/move service · started
+- 2026-10-05 16:07 · 244 · D1 demo delete/move service · done
+- 2026-10-05 16:07 · 244 · D2 bulk tag service · started
+- 2026-10-05 16:07 · 244 · D3 folder delete service · started
+- 2026-10-05 16:09 · 244 · D2 bulk tag service · done
+- 2026-10-05 16:09 · 244 · D3 folder delete service · done
+- 2026-10-05 16:09 · 244 · D4 contract handlers client docs · started
+- 2026-10-05 16:14 · 244 · D4 contract handlers client docs · done
+- 2026-10-05 16:14 · 244 · D5 multi-select renderer · started
+- 2026-10-05 16:18 · 244 · D5 multi-select renderer · done
+- 2026-10-05 16:18 · 244 · D6 bulk bar summary delete outcome · started
+- 2026-10-05 16:31 · 244 · D6 bulk bar summary delete outcome · done
+- 2026-10-05 16:31 · 244 · D7 tag and move dialogs · started
+- 2026-10-05 16:37 · 244 · D7 tag and move dialogs · done
+- 2026-10-05 16:37 · 244 · D8 single-demo menu folder delete changelog · started
+- 2026-10-05 16:49 · 244 · D8 single-demo menu folder delete changelog · done
+- 2026-10-05 16:49 · 244 · verify · started
+- 2026-10-05 17:16 · 244 · verify · blocked: replays-filter-search, replays-mod-warning red (attribution pending)
+- 2026-10-05 17:19 · 244 · verify · done
+- 2026-10-05 17:19 · 244 · review 1 · started
+- 2026-10-05 17:22 · 244 · review 1 · done
+- 2026-10-05 17:22 · 244 · review 1 fixes · started
+- 2026-10-05 17:25 · 244 · review 1 fixes · done
+- 2026-10-05 17:25 · 244 · story · done

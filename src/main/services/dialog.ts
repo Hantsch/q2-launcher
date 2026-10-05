@@ -2,6 +2,7 @@ import { delimiter } from 'node:path'
 import { dialog, type BrowserWindow } from 'electron'
 import { canonicalizePath } from '../lib/fs-utils'
 import { scopedLogger } from '../lib/logger'
+import { resolveUiHarness, uiHarnessPickedFolders } from '../lib/ui-harness'
 
 const log = scopedLogger('dialog')
 
@@ -34,6 +35,7 @@ export interface DialogServiceOptions {
  */
 export class DialogService {
   private readonly getMainWindow: () => BrowserWindow | null
+  private harnessFolderPicks = 0
 
   constructor(options: DialogServiceOptions) {
     this.getMainWindow = options.getMainWindow
@@ -79,6 +81,29 @@ export class DialogService {
 
     if (result.canceled || result.filePaths.length === 0) return []
     return Promise.all(result.filePaths.map((path) => canonicalizePath(path)))
+  }
+
+  /**
+   * Opens a native folder picker; `null` on cancel. Under the UI harness no dialog opens:
+   * `Q2L_UI_PICK_FOLDER` is a list, one entry per call with the last repeating, and an empty list
+   * is a cancel.
+   */
+  async pickFolder(): Promise<string | null> {
+    const stubbed = uiHarnessPickedFolders(resolveUiHarness(process.env))
+    if (stubbed !== undefined) {
+      if (stubbed.length === 0) return null
+      const picked = stubbed[Math.min(this.harnessFolderPicks, stubbed.length - 1)]
+      this.harnessFolderPicks += 1
+      return canonicalizePath(picked)
+    }
+
+    const window = this.getMainWindow()
+    const options: Electron.OpenDialogOptions = { properties: ['openDirectory', 'createDirectory'] }
+    const result = window
+      ? await dialog.showOpenDialog(window, options)
+      : await dialog.showOpenDialog(options)
+    if (result.canceled || result.filePaths.length === 0) return null
+    return canonicalizePath(result.filePaths[0])
   }
 }
 

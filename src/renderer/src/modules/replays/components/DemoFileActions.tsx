@@ -3,14 +3,16 @@ import { useTranslation } from 'react-i18next'
 import type { DemoRow } from '@shared/modules/replays'
 import type { LocalizedMessage } from '@shared/types'
 import { useLauncher } from '../../../store/useLauncher'
-import { Copy, FilePen, FolderOpen } from 'lucide-react'
+import { Copy, FilePen, FolderInput, FolderOpen, Trash2 } from 'lucide-react'
 import { IconButton } from '../../../components/ui/Button'
 import { copyDemoPath, revealDemo } from '../client'
-import { RenameDemoDialog } from '../RenameDemoDialog'
 
 export interface DemoFileActionsProps {
   demo: DemoRow
-  onRenamed: (oldId: string, newRow: DemoRow) => void
+  /** Rename, move and delete run where the list's dialogs and bulk pipeline live. */
+  onRename: (demo: DemoRow) => void
+  onMove: (demo: DemoRow) => void
+  onDelete: (demo: DemoRow) => void
 }
 
 /** One failed file action's message: either one of this module's own two i18n keys (a domain
@@ -19,7 +21,7 @@ export interface DemoFileActionsProps {
 type FileActionError = { kind: 'domain' | 'transport'; message: LocalizedMessage }
 
 /**
- * Story 156 / 178: "Reveal in file manager" / "Copy path" / "Rename" for one demo as icon
+ * Story 156 / 178: "Reveal in file manager" / "Copy path" / "Rename" / "Move…" / "Delete…" for one demo as icon
  * buttons, mounted into `DemoDetailPanel`'s header (the rename button's archive reason is rendered
  * by the panel, not here). Both buttons call the `demos.reveal`/`demos.copyPath` handlers by this demo's
  * id - the actual path never crosses IPC in either direction (CLAUDE.md: "paths from the renderer
@@ -27,11 +29,10 @@ type FileActionError = { kind: 'domain' | 'transport'; message: LocalizedMessage
  * `handleCopyAddress`); any failure - transport-level or a domain refusal - shows a persistent
  * inline alert instead, which stays until a new action is taken or `demoId` changes.
  */
-export function DemoFileActions({ demo, onRenamed }: DemoFileActionsProps) {
+export function DemoFileActions({ demo, onRename, onMove, onDelete }: DemoFileActionsProps) {
   const { t } = useTranslation()
   const pushToast = useLauncher((state) => state.pushToast)
   const [error, setError] = useState<FileActionError | null>(null)
-  const [renaming, setRenaming] = useState(false)
   const demoId = demo.id
 
   useEffect(() => {
@@ -94,12 +95,32 @@ export function DemoFileActions({ demo, onRenamed }: DemoFileActionsProps) {
         <IconButton
           label={t('replays.rename.title')}
           size="sm"
-          onClick={() => setRenaming(true)}
+          onClick={() => onRename(demo)}
           disabled={archived}
           aria-describedby={archived ? 'replays-archive-readonly-rename' : undefined}
           data-testid="demo-rename"
         >
           <FilePen className="size-3.5" aria-hidden="true" />
+        </IconButton>
+        <IconButton
+          label={t('replays.fileActions.move')}
+          size="sm"
+          onClick={() => onMove(demo)}
+          disabled={archived}
+          aria-describedby={archived ? 'replays-archive-readonly-change' : undefined}
+          data-testid="demo-move"
+        >
+          <FolderInput className="size-3.5" aria-hidden="true" />
+        </IconButton>
+        <IconButton
+          label={t('common.action.deleteEllipsis')}
+          size="sm"
+          onClick={() => onDelete(demo)}
+          disabled={archived}
+          aria-describedby={archived ? 'replays-archive-readonly-change' : undefined}
+          data-testid="demo-delete"
+        >
+          <Trash2 className="size-3.5" aria-hidden="true" />
         </IconButton>
       </div>
       {error && (
@@ -110,9 +131,6 @@ export function DemoFileActions({ demo, onRenamed }: DemoFileActionsProps) {
         >
           {t(error.message.key, error.message.params)}
         </p>
-      )}
-      {renaming && (
-        <RenameDemoDialog demo={demo} onClose={() => setRenaming(false)} onRenamed={onRenamed} />
       )}
     </>
   )

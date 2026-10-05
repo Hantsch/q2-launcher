@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { anchorRect } from '../../lib/anchor-rect'
 import { cn } from '../../lib/cn'
@@ -37,18 +43,48 @@ export function Menu({
   children,
   side = 'right',
   label,
+  onClose,
+  focusOnOpen = false,
 }: {
   items: MenuItem[]
   /** Render prop for the trigger; receives the open state. */
   children: (props: { open: boolean; toggle: () => void }) => ReactNode
   side?: 'right' | 'below'
   label: string
+  /** Called once each time an open menu closes, whichever way it closed. */
+  onClose?: () => void
+  /** Moves focus to the first enabled item on open and lets the arrow keys walk the items: for
+   * menus opened from the keyboard or at a point, where no trigger holds focus. */
+  focusOnOpen?: boolean
 }) {
   const anchorRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const [placement, setPlacement] = useState<Placement | null>(null)
   const open = placement !== null
   useOverlayRegistration(open, menuRef)
+
+  const wasOpenRef = useRef(false)
+  useEffect(() => {
+    if (wasOpenRef.current && !open) onClose?.()
+    wasOpenRef.current = open
+  }, [open, onClose])
+
+  useEffect(() => {
+    if (!open || !focusOnOpen) return
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus()
+  }, [open, focusOnOpen])
+
+  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (!focusOnOpen || (event.key !== 'ArrowDown' && event.key !== 'ArrowUp')) return
+    const items = [
+      ...event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled)'),
+    ]
+    if (items.length === 0) return
+    event.preventDefault()
+    const step = event.key === 'ArrowDown' ? 1 : -1
+    const at = items.indexOf(document.activeElement as HTMLElement)
+    items[(at + step + items.length) % items.length]?.focus()
+  }
 
   const toggle = (): void => {
     if (open) {
@@ -111,6 +147,7 @@ export function Menu({
             ref={menuRef}
             role="menu"
             aria-label={label}
+            onKeyDown={onMenuKeyDown}
             style={{
               left: placement.left,
               ...(placement.top !== undefined ? { top: placement.top } : {}),

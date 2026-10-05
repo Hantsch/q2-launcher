@@ -135,6 +135,9 @@ describe('sidecar read path never writes', () => {
         // deliberate second writer, given the store by index.ts (it never constructs one itself).
         'src/main/modules/replays/demo-rename.ts',
         'src/main/modules/replays/demo-rename.test.ts',
+        // Bulk tagging writes each demo's sidecar through the store index.ts hands it (story 244)
+        'src/main/modules/replays/demo-bulk-tags.ts',
+        'src/main/modules/replays/demo-bulk-tags.test.ts',
       ])
 
       const importSpecifierRe = /from\s+['"]([^'"]*sidecar-store)['"]/g

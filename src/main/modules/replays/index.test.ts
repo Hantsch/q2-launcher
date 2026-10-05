@@ -801,6 +801,13 @@ describe('replays module', () => {
         [REPLAYS_HANDLERS.demosCopyPath]: { demoId: 'nope' },
         [REPLAYS_HANDLERS.demoRename]: { id: 'nope', name: 'renamed' },
         [REPLAYS_HANDLERS.demoMove]: { id: 'nope', target: { sourceKey: 'x', path: [] } },
+        [REPLAYS_HANDLERS.demosDelete]: { demoIds: ['nope'] },
+        [REPLAYS_HANDLERS.demosMove]: {
+          demoIds: ['nope'],
+          target: { kind: 'folder', folderId: { sourceKey: 'x', path: [] } },
+        },
+        [REPLAYS_HANDLERS.demosTag]: { demoIds: ['nope'], add: ['a'], remove: [] },
+        [REPLAYS_HANDLERS.demoFolderDelete]: { folderId: { sourceKey: 'x', path: ['a'] } },
         [REPLAYS_HANDLERS.folderCreate]: { parent: { sourceKey: 'x', path: [] }, name: 'new' },
         [REPLAYS_HANDLERS.folderRename]: { folder: { sourceKey: 'x', path: ['a'] }, name: 'b' },
         [REPLAYS_HANDLERS.demoFoldersRead]: { installationId: 'nope' },
@@ -1154,5 +1161,27 @@ describe('replays module lifecycle', () => {
       },
     })
     await registry.disposeAll()
+  })
+})
+
+describe('replays bulk channels', () => {
+  it('bulk channels reject a payload carrying a path', async () => {
+    const registry = new MainModuleRegistry()
+    await registry.register(replaysModule, fakeAppContext({ state: stubState }))
+    const folderId = { sourceKey: 'extraFolder:/demos', path: [] }
+    const payloads: [string, unknown][] = [
+      [REPLAYS_HANDLERS.demosDelete, { demoIds: ['a'], path: '/etc' }],
+      [REPLAYS_HANDLERS.demosMove, { demoIds: ['a'], target: { kind: 'pick' }, path: '/etc' }],
+      [REPLAYS_HANDLERS.demosMove, { demoIds: ['a'], target: { kind: 'folder', folderId, path: '/etc' } }],
+      [REPLAYS_HANDLERS.demosMove, { demoIds: ['a'], target: { kind: 'path', path: '/etc' } }],
+      [REPLAYS_HANDLERS.demosTag, { demoIds: ['a'], add: [], remove: [], path: '/etc' }],
+      [REPLAYS_HANDLERS.demoFolderDelete, { folderId, path: '/etc' }],
+      [REPLAYS_HANDLERS.demoFolderDelete, { folderId: { ...folderId, path: ['..'] } }],
+      [REPLAYS_HANDLERS.demosDelete, { demoIds: [] }],
+    ]
+    for (const [type, payload] of payloads) {
+      const outcome = await registry.invoke({ moduleId: 'replays', type, payload })
+      expect(outcome, type).toEqual({ ok: false, error: { key: 'ipc.error.invalidPayload' } })
+    }
   })
 })

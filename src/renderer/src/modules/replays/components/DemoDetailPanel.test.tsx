@@ -89,7 +89,14 @@ const BASE_ROW: DemoRow = {
 
 function renderPanel(row: DemoRow = BASE_ROW, onClose: () => void = () => {}) {
   render(
-    createElement(DemoDetailPanel, { row, onClose, onRowPatched: () => {}, onRenamed: () => {} }),
+    createElement(DemoDetailPanel, {
+      row,
+      onClose,
+      onRowPatched: () => {},
+      onRename: () => {},
+      onMove: () => {},
+      onDelete: () => {},
+    }),
   )
 }
 
@@ -263,7 +270,9 @@ describe('DemoDetailPanel', () => {
         row: { ...BASE_ROW, sidecar: { state: 'ok', values } },
         onClose: () => {},
         onRowPatched,
-        onRenamed: () => {},
+        onRename: () => {},
+        onMove: () => {},
+        onDelete: () => {},
       }),
     )
     const mod = screen.getByTestId('replays-detail-input-mod')

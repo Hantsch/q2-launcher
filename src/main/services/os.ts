@@ -2,6 +2,7 @@ import type { Clipboard, Shell } from 'electron'
 import {
   recordHarnessExternalUrl,
   recordHarnessRevealedPath,
+  trashHarnessItem,
   type UiHarness,
 } from '../lib/ui-harness'
 
@@ -16,11 +17,14 @@ export interface OsService {
   showItemInFolder(path: string): void | Promise<void>
   openExternal(url: string): Promise<void>
   copyText(text: string): void
+  /** Moves `path` to the OS trash; rejects when the OS refuses. Never deletes permanently in its
+   * place - a refused trash leaves the file where it was (story 244) */
+  trashItem(path: string): Promise<void>
 }
 
 export function createOsService(deps: {
   harness: UiHarness
-  shell: Pick<Shell, 'openPath' | 'showItemInFolder' | 'openExternal'>
+  shell: Pick<Shell, 'openPath' | 'showItemInFolder' | 'openExternal' | 'trashItem'>
   clipboard: Pick<Clipboard, 'writeText'>
 }): OsService {
   const { harness, shell, clipboard } = deps
@@ -41,5 +45,9 @@ export function createOsService(deps: {
       await shell.openExternal(url)
     },
     copyText: (text) => clipboard.writeText(text),
+    async trashItem(path) {
+      if (harness.enabled) return trashHarnessItem(harness, path)
+      await shell.trashItem(path)
+    },
   }
 }

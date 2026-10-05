@@ -334,3 +334,4 @@ second roadmap.
 - 243 — the demo detail is edited in place and saves itself · S34 · one detail view whose fields, tags and sides save themselves through one queued write path.
 - 242 — I browse my demos in their folders · S34 · Demos find subfolders at any depth and browse as folders with breadcrumb, search across folders, create/rename folder and drag-move of a demo.
 - 238 — the demo list shows the selected installation's demos · S34 · the Demos view scopes to the rail's installation (plus extra folders) with an All-installations toggle and empty states that name the folders.
+- 244 — I select several demos and delete, tag or move them · S34 · multi-select with a bulk bar for delete (trash), tag and move, plus single-demo and folder delete via the detail panel and a row context menu.

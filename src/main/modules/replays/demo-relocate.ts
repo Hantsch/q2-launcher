@@ -1,4 +1,5 @@
 import { pathKey } from '../../lib/fs-utils'
+import { exists } from './fs-steps'
 
 /**
  * The demo-plus-sidecar move shared by rename (same folder, new name) and move (new folder, same
@@ -8,7 +9,7 @@ import { pathKey } from '../../lib/fs-utils'
 
 export interface RelocateFs {
   /** Only needs to reject when the path does not exist; the result is unused. */
-  stat: (path: string) => Promise<{ size: number }>
+  stat: (path: string) => Promise<unknown>
   rename: (oldPath: string, newPath: string) => Promise<void>
 }
 
@@ -21,15 +22,6 @@ export type RelocateResult =
   | { ok: false; kind: 'failed'; error: unknown }
   /** The sidecar move failed and so did putting the demo back: the demo is at `to`. */
   | { ok: false; kind: 'stuck' }
-
-async function exists(fs: RelocateFs, path: string): Promise<boolean> {
-  try {
-    await fs.stat(path)
-    return true
-  } catch {
-    return false
-  }
-}
 
 export async function relocateDemo(
   fs: RelocateFs,
