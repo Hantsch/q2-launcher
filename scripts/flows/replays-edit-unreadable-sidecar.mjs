@@ -9,8 +9,9 @@
 //   replays-replace-confirm           ReplaceSidecarDialog.tsx
 
 import { readFileSync, writeFileSync } from 'node:fs'
+import { makeFail } from '../lib/flow-common.mjs'
 import { REPLAYS_ROWS_MVD_DEMO, replaysRowsSidecarPath } from '../lib/fixture.mjs'
-import { rowFor, openDemosRoot } from '../lib/replays-copy-in.mjs'
+import { rowFor, openDemosRoot, makeSidecarWaiter } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -23,24 +24,13 @@ export async function setup() {
   writeFileSync(replaysRowsSidecarPath(REPLAYS_ROWS_MVD_DEMO), '{ this is not json', 'utf8')
 }
 
-async function waitForSidecar(predicate, why) {
-  const deadline = Date.now() + TIMEOUT_MS
-  for (;;) {
-    let parsed = null
-    try {
-      parsed = JSON.parse(readFileSync(replaysRowsSidecarPath(REPLAYS_ROWS_MVD_DEMO), 'utf8'))
-    } catch {
-      // still unreadable
-    }
-    if (parsed !== null && predicate(parsed)) return parsed
-    if (Date.now() > deadline) {
-      throw new Error(
-        `replays-edit-unreadable-sidecar: ${why} - sidecar is ${JSON.stringify(parsed)}`,
-      )
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100))
+const waitForSidecar = makeSidecarWaiter(() => {
+  try {
+    return JSON.parse(readFileSync(replaysRowsSidecarPath(REPLAYS_ROWS_MVD_DEMO), 'utf8'))
+  } catch {
+    return null // still unreadable
   }
-}
+}, makeFail('replays-edit-unreadable-sidecar'))
 
 export default async function replaysEditUnreadableSidecar({ page, shot, step }) {
   await openDemosRoot(page)

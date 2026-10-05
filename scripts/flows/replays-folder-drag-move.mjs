@@ -18,7 +18,14 @@ import {
   replaysFoldersFixturePath,
   writeReplaysFoldersFixture,
 } from '../lib/fixture.mjs'
-import { openAllDemos, openFolder, poll, rowFor, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
+import {
+  openAllDemos,
+  openFolder,
+  poll,
+  rowFor,
+  TIMEOUT_MS,
+  makeExpect,
+} from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_FOLDERS_VARIANT
 
@@ -40,9 +47,7 @@ export async function teardown() {
 
 const ROOT_LABEL = 'folders-demos'
 
-function expect(cond, message) {
-  if (!cond) throw new Error(`replays-folder-drag-move: ${message}`)
-}
+const expect = makeExpect('replays-folder-drag-move')
 
 function folderRowFor(page, name) {
   return page

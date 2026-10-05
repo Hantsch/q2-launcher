@@ -322,7 +322,7 @@ export default async function replaysFilterSearch({ page, step, shot }) {
   await showAllInstallations(page)
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForDemosScanToFinish(page)
-  if ((await page.getByTestId('replays-breadcrumb').count()) === 0) await openDemosRoot(page)
+  // The restored search lists matches from every folder, so no folder needs opening here.
 
   const restoredSearch = await page.getByTestId('replays-filter-search').inputValue()
   if (restoredSearch !== REPLAYS_FILTER_DESCRIPTION_WORD) {
@@ -345,6 +345,8 @@ export default async function replaysFilterSearch({ page, step, shot }) {
   await shot('persisted-after-navigation')
 
   await clearFilters(page)
+  // Leaving the search returns to the folder view, which opens at the roots after navigating away.
+  if ((await page.getByTestId('replays-breadcrumb').count()) === 0) await openDemosRoot(page)
   await waitForVisibleSet(page, ALL_NAMES, 'cleared at the end of the run')
 
   console.log(

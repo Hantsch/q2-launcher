@@ -14,7 +14,7 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { makeFail, sleep } from '../lib/flow-common.mjs'
-import { commands, openDemos, openFolder } from '../lib/replays-copy-in.mjs'
+import { commands, openDemos, openFolder, positionS } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -53,8 +53,6 @@ async function at(t0, ms) {
   if (wait > 0) await sleep(wait)
 }
 
-const positionS = async (page) =>
-  Number(await page.getByTestId('replays-timeline-seek').getAttribute('aria-valuenow'))
 const positionMs = async (page) =>
   Number(await page.getByTestId('replays-timeline-seek').getAttribute('data-position-ms'))
 const toggleLabel = (page) => page.getByTestId('replays-timeline-toggle').getAttribute('aria-label')

@@ -15,12 +15,13 @@
 //   [role="status"]                     the toast region
 
 import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { makeFail } from '../lib/flow-common.mjs'
 import {
   REPLAYS_ROWS_DUEL_DEMO,
   REPLAYS_ROWS_MVD_DEMO,
   replaysRowsSidecarPath,
 } from '../lib/fixture.mjs'
-import { rowFor, openDemosRoot } from '../lib/replays-copy-in.mjs'
+import { rowFor, openDemosRoot, makeSidecarWaiter } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -68,18 +69,10 @@ async function expectReason(page, field, expected) {
   }
 }
 
-async function waitForSidecar(predicate, why) {
-  const deadline = Date.now() + TIMEOUT_MS
-  for (;;) {
-    const text = sidecarText()
-    const parsed = text === null ? {} : JSON.parse(text)
-    if (predicate(parsed)) return parsed
-    if (Date.now() > deadline) {
-      throw new Error(`replays-edit-sidecar: ${why} - sidecar is ${JSON.stringify(parsed)}`)
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-}
+const waitForSidecar = makeSidecarWaiter(
+  () => JSON.parse(sidecarText() ?? '{}'),
+  makeFail('replays-edit-sidecar'),
+)
 
 export default async function replaysEditSidecar({ page, shot, step }) {
   await openDemosRoot(page)

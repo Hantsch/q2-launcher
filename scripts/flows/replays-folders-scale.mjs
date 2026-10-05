@@ -7,16 +7,14 @@ import {
   REPLAYS_FOLDER_SCALE_ROOT_LABEL,
   REPLAYS_FOLDER_SCALE_VARIANT,
 } from '../lib/fixture.mjs'
-import { openAllDemos, openFolder, poll, TIMEOUT_MS } from '../lib/replays-copy-in.mjs'
+import { openAllDemos, openFolder, poll, TIMEOUT_MS, makeExpect } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_FOLDER_SCALE_VARIANT
 
 const MAX_MOUNTED_ROWS = 100
 const MAX_NAVIGATION_MS = 1_000
 
-function expect(cond, message) {
-  if (!cond) throw new Error(`replays-folders-scale: ${message}`)
-}
+const expect = makeExpect('replays-folders-scale')
 
 async function mountedRows(page) {
   return (

@@ -17,9 +17,10 @@
 
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { makeFail } from '../lib/flow-common.mjs'
 import { REPO_ROOT } from '../lib/paths.mjs'
 import { REPLAYS_ROWS_MVD_DEMO, replaysRowsSidecarPath } from '../lib/fixture.mjs'
-import { rowFor, openDemosRoot } from '../lib/replays-copy-in.mjs'
+import { rowFor, openDemosRoot, makeSidecarWaiter } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -46,22 +47,13 @@ export async function setup() {
   )
 }
 
-async function waitForSidecar(predicate, why) {
-  const deadline = Date.now() + TIMEOUT_MS
-  for (;;) {
-    let parsed = {}
-    try {
-      parsed = JSON.parse(readFileSync(knownPlayersDemoPath() + '.json', 'utf8'))
-    } catch {
-      // not written yet
-    }
-    if (predicate(parsed)) return parsed
-    if (Date.now() > deadline) {
-      throw new Error(`replays-edit-sides-tags: ${why} - sidecar is ${JSON.stringify(parsed)}`)
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100))
+const waitForSidecar = makeSidecarWaiter(() => {
+  try {
+    return JSON.parse(readFileSync(knownPlayersDemoPath() + '.json', 'utf8'))
+  } catch {
+    return {} // not written yet
   }
-}
+}, makeFail('replays-edit-sides-tags'))
 
 export default async function replaysEditSidesTags({ page, shot, step }) {
   await openDemosRoot(page)

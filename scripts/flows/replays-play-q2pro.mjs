@@ -104,8 +104,10 @@ export default async function replaysPlayQ2pro({ page, step, shot }) {
   const geometryAt = trimmed.search(/ \+set vid_geometry \d+x\d+\+-?\d+\+-?\d+ /)
   const okOrder =
     trimmed.includes(
-      ` +set game ctf ${head} +set q2l_session 1 +set con_notifylines 0 +set scr_chathud 1 +set in_grab 2 +set vid_fullscreen 0 `,
+      ` +set game ctf ${head} +set q2l_session 1 +set con_notifylines 0 +set scr_chathud 1 +set in_grab 2 `,
     ) &&
+    // The session may carry the remembered `s_volume` before the window args. (story 237)
+    /\+set in_grab 2 (?:\+set s_volume [\d.]+ )?\+set vid_fullscreen 0 /.test(trimmed) &&
     geometryAt !== -1 &&
     trimmed.endsWith(` ${tail}`) &&
     trimmed.indexOf('+set vid_geometry') < trimmed.indexOf('+demo ')

@@ -17,7 +17,7 @@ Today the detail has a read mode (`DemoDetailPanel.tsx`) and an edit mode behind
 (`DemoDetailEditor.tsx`) with Cancel/Save, a draft store and a discard dialog. Only favourite and
 rating are already "quick edits" that save at once through `quickEdit`.
 
-Concept: [replays-module.md](../systems/replays-module.md).
+Concept: [replays-module.md](../../systems/replays-module.md).
 
 ## Acceptance Criteria
 

@@ -47,6 +47,7 @@
 // installation, same as those files' own `row`. `installation-header`/`installation-checks`
 // (`LibraryView.tsx`, added by this deliverable) are scoped the same way.
 import { writePopulatedFixture, writeWindowsBuildFixture } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 /** Mirrors `scripts/lib/fixture.mjs`'s own (module-private) `INSTALL_FAILED_ID` constant - not
  * exported there, and this deliverable's own scope does not extend to that file, so the literal is
@@ -60,7 +61,7 @@ const TIMEOUT_MS = 8_000
  * navigate-away-and-back remount (AC6's "stays picked" step). */
 const RUNNER_REFRESH_TIMEOUT_MS = 8_000
 
-const ADD_EXISTING_BUTTON_LABEL = 'Add existing'
+const ADD_EXISTING_ENTRY_LABEL = 'Add existing installation…'
 const BROWSE_LABEL = 'Browse…'
 const SUBMIT_LABEL = 'Add installation'
 
@@ -148,10 +149,7 @@ export default async function runnerChoiceCompact({ page, step, shot }) {
 
 async function addReportedSetupInstallation({ page, step }) {
   step('open the library and start "Add existing" for the reported setup')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page
-    .getByRole('button', { name: ADD_EXISTING_BUTTON_LABEL, exact: true })
-    .click({ timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, ADD_EXISTING_ENTRY_LABEL, TIMEOUT_MS)
 
   const dialog = page.getByRole('dialog')
   await dialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })

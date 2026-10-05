@@ -19,7 +19,7 @@ returns a folder and the wizard installs **directly into it**. Users pick `D:\Ga
 "folder not empty" warning they do not understand, or end up with Quake II files spread over
 `D:\Games`.
 
-Concept: [install-module.md](../systems/install-module.md).
+Concept: [install-module.md](../../systems/install-module.md).
 
 ## Acceptance Criteria
 

@@ -16,7 +16,7 @@ playback channel already sends console commands (`pause`, `seek`, `timescale`), 
 known cvar (Q2PRO default 0.7). "Only ingame sound" means the game's own volume — not the launcher's,
 not the system mixer, and not the volume the user plays the game with normally.
 
-Concept: [replays-module.md](../systems/replays-module.md), [demo-browser.md](../concepts/demo-browser.md).
+Concept: [replays-module.md](../../systems/replays-module.md), [demo-browser.md](../../concepts/demo-browser.md).
 
 ## Acceptance Criteria
 

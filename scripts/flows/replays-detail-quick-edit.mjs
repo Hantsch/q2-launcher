@@ -8,8 +8,9 @@
 //   replays-demo-favourite     DemoRow.tsx - the row's favourite marker
 
 import { readFileSync } from 'node:fs'
+import { makeFail } from '../lib/flow-common.mjs'
 import { REPLAYS_ROWS_DUEL_DEMO, replaysRowsSidecarPath } from '../lib/fixture.mjs'
-import { openDemosRoot, rowFor } from '../lib/replays-copy-in.mjs'
+import { openDemosRoot, rowFor, makeSidecarWaiter } from '../lib/replays-copy-in.mjs'
 
 const TIMEOUT_MS = 8_000
 
@@ -97,18 +98,7 @@ function readSidecar() {
   return JSON.parse(readFileSync(replaysRowsSidecarPath(REPLAYS_ROWS_DUEL_DEMO), 'utf8'))
 }
 
-async function waitForSidecar(predicate, describe) {
-  const deadline = Date.now() + TIMEOUT_MS
-  let current = readSidecar()
-  while (Date.now() < deadline) {
-    current = readSidecar()
-    if (predicate(current)) return current
-    await new Promise((resolve) => setTimeout(resolve, 100))
-  }
-  throw new Error(
-    `replays-detail-quick-edit: timed out waiting for ${describe}; sidecar is ${JSON.stringify(current)}`,
-  )
-}
+const waitForSidecar = makeSidecarWaiter(readSidecar, makeFail('replays-detail-quick-edit'))
 
 async function expectText(locator, expected, what) {
   const deadline = Date.now() + TIMEOUT_MS

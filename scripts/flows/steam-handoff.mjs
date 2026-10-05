@@ -42,6 +42,7 @@ import {
   writeSteamStub,
   writeWindowsBuildFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** A real handoff process spawn/exit, end to end - generous, but this is never a download job. */
@@ -49,7 +50,7 @@ const LAUNCH_TIMEOUT_MS = 15_000
 /** How long to poll for the Runner section to pick up a freshly-changed PATH/steamClient. */
 const RUNNER_REFRESH_TIMEOUT_MS = 8_000
 
-const ADD_EXISTING_BUTTON_LABEL = 'Add existing'
+const ADD_EXISTING_ENTRY_LABEL = 'Add existing installation…'
 const BROWSE_LABEL = 'Browse…'
 const SUBMIT_LABEL = 'Add installation'
 
@@ -154,10 +155,7 @@ export default async function steamHandoff({ page, app, step, shot }) {
 
 async function addInstallation({ page, step, folderRoot, name }) {
   step(`open the library and start "Add existing" for "${name}"`)
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page
-    .getByRole('button', { name: ADD_EXISTING_BUTTON_LABEL, exact: true })
-    .click({ timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, ADD_EXISTING_ENTRY_LABEL, TIMEOUT_MS)
 
   const dialog = page.getByRole('dialog')
   await dialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })

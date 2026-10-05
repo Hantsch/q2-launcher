@@ -16,16 +16,19 @@ import {
   replaysTimelineEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
-import { sleep } from '../lib/flow-common.mjs'
-import { commands, openDemos, openFolder } from '../lib/replays-copy-in.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import {
+  makeEngineCommandsExpecter,
+  openDemos,
+  openFolder,
+  positionS,
+} from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
 const TIMEOUT_MS = 8_000
 /** Control cfg poll (~5 frames) + ACK + logfile tail (50 ms) + position push (250 ms), with headroom. */
 const ENGINE_TIMEOUT_MS = 5_000
-/** Long enough that a seq guard failing would have re-run a command several loop ticks over. */
-const SETTLE_MS = 700
 
 const files = replaysTimelineEngineFiles()
 
@@ -37,26 +40,8 @@ export async function setup() {
   }
 }
 
-/** Waits until the engine has executed exactly `count` commands, then checks none repeats. */
-async function expectCommands(count, label) {
-  const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (commands(files.commandLog).length < count) {
-    if (Date.now() >= deadline) {
-      throw new Error(
-        `replays-timeline: ${label}: engine ran ${JSON.stringify(commands(files.commandLog))}, expected ${count}`,
-      )
-    }
-    await sleep(50)
-  }
-  await sleep(SETTLE_MS)
-  const ran = commands(files.commandLog)
-  if (ran.length !== count) {
-    throw new Error(
-      `replays-timeline: ${label}: engine ran ${JSON.stringify(ran)} - expected exactly ${count}`,
-    )
-  }
-  return ran
-}
+const fail = makeFail('replays-timeline')
+const expectCommands = makeEngineCommandsExpecter(files.commandLog, fail)
 
 async function expectLast(count, expected, label) {
   const ran = await expectCommands(count, label)
@@ -67,10 +52,6 @@ async function expectLast(count, expected, label) {
       `replays-timeline: ${label}: engine's last command was ${JSON.stringify(last)}, expected ${expected}`,
     )
   return last
-}
-
-async function positionS(page) {
-  return Number(await page.getByTestId('replays-timeline-seek').getAttribute('aria-valuenow'))
 }
 
 /** Waits for the strip's position (whole seconds) to satisfy `predicate`. */

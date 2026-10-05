@@ -34,9 +34,9 @@ blur lowering, overlay above the game) needs a real X server and WM. Decision Q5
 - Step 5: the overlay is shown above the game and keeps mouse and keyboard.
 - Step 6 (park geometry, left open by design): the game is parked off-screen and returns to the stage;
   note whether the window manager clamps the parked window back on screen. A clamp is a finding for a
-  follow-up, not a failure of this walk ([TD-023](../../TECH-DEBT.md)).
+  follow-up, not a failure of this walk ([TD-023](../../../TECH-DEBT.md)).
 - If cinema is entered before the game window was found, the game may end up above the overlay once;
-  note it as a finding (also [TD-023](../../TECH-DEBT.md)).
+  note it as a finding (also [TD-023](../../../TECH-DEBT.md)).
 - If the window cannot be found or the X server cannot be reached, the demo still plays and the Demos view
   shows the visible "could not keep the game on top" reason (already proven by flow
   `replays-stage-x11-unreachable`; only mention it if seen here).

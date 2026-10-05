@@ -215,6 +215,12 @@ export default async function replaysModWarning({ page, step, shot }) {
     await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
     if ((await page.getByTestId('replays-breadcrumb').count()) === 0)
       await openFolder(page, 'Fixture Play Q2PRO')
+    // Coming back from another view does not keep the demo selected.
+    await page
+      .getByTestId('replays-demo-row')
+      .filter({ hasText: REPLAYS_PLAY_MISSING_MOD_DEMO })
+      .first()
+      .click({ timeout: TIMEOUT_MS })
     await play.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   }
   const viewPlaysWithoutDialog = async (why) => {

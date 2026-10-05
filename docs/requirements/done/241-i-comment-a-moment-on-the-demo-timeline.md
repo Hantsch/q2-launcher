@@ -18,7 +18,7 @@ Today the launcher knows the playback position (0.1 s resolution, pushed every 2
 state; the timeline (`DemoTimeline.tsx`) has no marks, and the sidecar (`<demo>.json`, schema v1) has
 nothing time-anchored.
 
-Concept: [replays-module.md](../systems/replays-module.md), [demo-browser.md](../concepts/demo-browser.md).
+Concept: [replays-module.md](../../systems/replays-module.md), [demo-browser.md](../../concepts/demo-browser.md).
 
 ## Acceptance Criteria
 

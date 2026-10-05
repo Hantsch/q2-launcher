@@ -11,6 +11,7 @@ import {
   setMultiFilter,
   waitForFinishedAtChange,
   multiRoot,
+  makeVisibleLabels,
 } from '../lib/servers-flow.mjs'
 
 export const variant = 'servers-multi-filter'
@@ -110,21 +111,12 @@ export async function teardown() {
   await Promise.all(responders.map((responder) => closeResponder(responder)))
 }
 
-async function visibleLabels(page) {
-  const labels = [
-    ['A', serverA],
-    ['B', serverB],
-    ['C', serverC],
-    ['D', serverD],
-  ]
-  const visible = []
-  for (const [label, responder] of labels) {
-    if ((await page.getByTestId(`servers-row-${responder.address}`).count()) > 0) {
-      visible.push(label)
-    }
-  }
-  return visible.sort()
-}
+const visibleLabels = makeVisibleLabels(() => [
+  ['A', serverA],
+  ['B', serverB],
+  ['C', serverC],
+  ['D', serverD],
+])
 
 function assertEq(actual, expected, label) {
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {

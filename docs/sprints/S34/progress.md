@@ -382,3 +382,18 @@
 - 2026-10-05 23:14 · 248 · D5 review fixes · started
 - 2026-10-05 23:16 · 248 · D5 review fixes · done
 - 2026-10-05 23:16 · 248 · story · done
+- 2026-10-05T23:17:02 · gate · short suites · started
+- 2026-10-05T23:21:47 · gate · short suites · done (npm test 4 red, ui:verify red: 14 replays screens unreachable)
+- 2026-10-05T23:21:47 · gate · e2e-all · started
+- 2026-10-06T00:27:14 · gate · e2e-all · done (161/169, 8 red)
+- 2026-10-06T00:27:14 · gate · attribution · started
+- 2026-10-06T00:27:51 · gate-fix · docs links (check-docs --fix to done/ paths) · done
+- 2026-10-06T00:28:28 · gate-fix · areas.json split (downloads-bootstrap, replays-playback rows) · done
+- 2026-10-06T00:31:01 · gate-fix · flow-helper duplication moved to scripts/lib (replays-copy-in, servers-flow) · done
+- 2026-10-06T00:31:50 · gate-fix · Add-existing flows (linux-user-journey, runner-choice-compact, steam-handoff, windows-build-on-linux) use openLibraryAddEntry · done
+- 2026-10-06T00:33:01 · gate-fix · add-installation-one-flow follows 240 (picks parent, proposed subfolder) · done
+- 2026-10-06T00:36:19 · gate-fix · replays-play-q2pro (237 s_volume arg), replays-filter-search (242 folder view) flows adapted · done
+- 2026-10-06T00:38:01 · gate-fix · replays-mod-warning reselects the demo after the scope reset (238) · done
+- 2026-10-06T00:39:16 · gate-fix · 8 flows re-run green; ui:verify screens next
+- 2026-10-06T00:46:12 · gate-fix · screens.mjs replays screens show all installations (238) + flat filter view (242) · done
+- 2026-10-06T00:57:11 · gate-fix · re-verified: 4 unit files, typecheck, lint, comments+architecture, 21 helper/changed flows, ui:verify exit 0 (116 shots, 0 unreachable) · done

@@ -13,7 +13,7 @@ tag them or move them to another folder in one action.
 User feedback 2026-10-04: bulk actions in the demo list — multi-select, then delete, tag or move.
 
 Today selection is a single demo, and there is no delete or move at all (left out of v1 on purpose,
-[demo-browser.md](../concepts/demo-browser.md) §2); the only file actions are reveal, copy path and
+[demo-browser.md](../../concepts/demo-browser.md) §2); the only file actions are reveal, copy path and
 rename.
 
 ## Acceptance Criteria

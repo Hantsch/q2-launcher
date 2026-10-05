@@ -16,15 +16,21 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { sleep } from '../lib/flow-common.mjs'
-import { commands, openDemos, openFolder, rowFor, waitForScan } from '../lib/replays-copy-in.mjs'
+import {
+  commands,
+  makeEngineCommandsExpecter,
+  openDemos,
+  openFolder,
+  positionS,
+  rowFor,
+  waitForScan,
+} from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
 const TIMEOUT_MS = 8_000
 /** Control cfg poll + ACK + logfile tail + position push, with headroom. */
 const ENGINE_TIMEOUT_MS = 5_000
-/** Long enough that a double-fired command would have reached the engine. */
-const SETTLE_MS = 700
 // The row shows the sidecar's name, not the file name.
 const DEMO_NAME = 'Comment night'
 const LEGACY_SIDECAR = { schemaVersion: 1, name: DEMO_NAME, tags: ['ctf'], rating: 6 }
@@ -59,23 +65,10 @@ async function waitFor(what, read, predicate) {
   return value
 }
 
-/** Waits until the engine ran exactly `count` commands in all, and returns the last one. */
-async function expectCommands(count, label) {
-  await waitFor(
-    `${label} (${count} engine commands)`,
-    () => commands(files.commandLog),
-    (ran) => ran.length >= count,
-  )
-  await sleep(SETTLE_MS)
-  const ran = commands(files.commandLog)
-  if (ran.length !== count)
-    fail(`${label}: engine ran ${JSON.stringify(ran)}, expected exactly ${count}`)
-  return ran[ran.length - 1]
-}
+const expectCommands = makeEngineCommandsExpecter(files.commandLog, fail)
 
-async function positionS(page) {
-  return Number(await page.getByTestId('replays-timeline-seek').getAttribute('aria-valuenow'))
-}
+/** Waits until the engine ran exactly `count` commands in all, and returns the last one. */
+const lastCommand = async (count, label) => (await expectCommands(count, label)).at(-1)
 
 async function waitForPosition(page, predicate, label) {
   const deadline = Date.now() + ENGINE_TIMEOUT_MS
@@ -122,7 +115,7 @@ export default async function replaysDemoComments({ page, step, shot }) {
   step('Add comment pauses the demo and opens a field at the current position')
   const clickedS = await positionS(page)
   await page.getByTestId('replays-timeline-add-comment').click({ timeout: TIMEOUT_MS })
-  if ((await expectCommands(++n, 'Add comment')) !== 'pause')
+  if ((await lastCommand(++n, 'Add comment')) !== 'pause')
     fail('Add comment did not pause the engine')
   await field.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   const formText = (await page.getByTestId('replays-timeline-comment-form').textContent()) ?? ''
@@ -196,17 +189,17 @@ export default async function replaysDemoComments({ page, step, shot }) {
   const markS = Math.floor(comment.atMs / 1000)
   // Move away from the comment first, so the seek is visible in the position too.
   await page.mouse.click(bar.x + bar.width * 0.9, bar.y + bar.height / 2)
-  const away = await expectCommands(++n, 'bar click away from the comment')
+  const away = await lastCommand(++n, 'bar click away from the comment')
   if (!/^seek \d+$/.test(away)) fail(`the bar click ran ${away}`)
   await waitForPosition(page, (s) => s >= durationS * 0.8, 'seeking away from the comment')
   await mark.focus()
   await page.keyboard.press('Enter')
-  if ((await expectCommands(++n, 'mark by Enter')) !== `seek ${markS}`)
+  if ((await lastCommand(++n, 'mark by Enter')) !== `seek ${markS}`)
     fail(`Enter on the mark did not run seek ${markS}`)
   await waitForPosition(page, (s) => Math.abs(s - markS) <= 1, 'the mark seeking by Enter')
   await mark.click({ timeout: TIMEOUT_MS })
   // Exactly one more command: the mark's seek, and not also the bar's own click seek.
-  if ((await expectCommands(++n, 'mark by click')) !== `seek ${markS}`)
+  if ((await lastCommand(++n, 'mark by click')) !== `seek ${markS}`)
     fail(`clicking the mark did not run seek ${markS}`)
 
   step('Play from here starts the demo and seeks to the comment')
@@ -221,7 +214,7 @@ export default async function replaysDemoComments({ page, step, shot }) {
   }
   await playHere.click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-timeline').waitFor({ state: 'visible', timeout: 15_000 })
-  if ((await expectCommands(before + 1, 'Play from here')) !== `seek ${markS}`)
+  if ((await lastCommand(before + 1, 'Play from here')) !== `seek ${markS}`)
     fail(`Play from here did not seek to ${markS} s`)
   await waitForPosition(page, (s) => s >= markS && s <= markS + 3, 'starting at the comment')
   await shot('play-from-here')

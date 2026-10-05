@@ -13,6 +13,7 @@ import {
   readMultiFilter,
   setMultiFilter,
   waitForFinishedAtChange,
+  makeVisibleLabels,
 } from '../lib/servers-flow.mjs'
 
 export const variant = 'servers-filter-search'
@@ -104,20 +105,12 @@ export async function teardown() {
 
 /** Reads the set of visible row addresses (as their bound loopback port suffix) among A-D, by
  * checking which of the four `servers-row-<address>` testids are currently attached. */
-async function visibleLabels(page) {
-  const labels = {
-    [serverA.address]: 'A',
-    [serverB.address]: 'B',
-    [serverC.address]: 'C',
-    [serverD.address]: 'D',
-  }
-  const visible = []
-  for (const responder of [serverA, serverB, serverC, serverD]) {
-    const count = await page.getByTestId(`servers-row-${responder.address}`).count()
-    if (count > 0) visible.push(labels[responder.address])
-  }
-  return visible.sort()
-}
+const visibleLabels = makeVisibleLabels(() => [
+  ['A', serverA],
+  ['B', serverB],
+  ['C', serverC],
+  ['D', serverD],
+])
 
 function assertSet(actual, expected, label) {
   const a = [...actual].sort()

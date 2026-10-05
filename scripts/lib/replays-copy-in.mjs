@@ -170,3 +170,57 @@ export async function launchGeometry(logPath, { fail = defaultFail } = {}) {
 }
 
 const defaultFail = makeFail('replays')
+
+/** `expect(cond, message)` that throws `<flow>: <message>`. */
+export const makeExpect = (flow) => {
+  const fail = makeFail(flow)
+  return (cond, message) => {
+    if (!cond) fail(message)
+  }
+}
+
+/** The timeline strip's position in whole seconds. */
+export const positionS = async (page) =>
+  Number(await page.getByTestId('replays-timeline-seek').getAttribute('aria-valuenow'))
+
+/**
+ * `expectCommands(expected, label)` for a flow's engine command log: waits until the stub ran
+ * `expected` (a list, or a count) commands, lets a double-fired command reach the log during the
+ * settle window, then requires exactly that. Resolves to the commands run. `timeoutMs` covers the
+ * control cfg poll + ACK + logfile tail + position push; `settleMs` is long enough that a failing seq
+ * guard would have re-run a command several loop ticks over.
+ */
+export const makeEngineCommandsExpecter =
+  (logPath, fail, { timeoutMs = 5_000, settleMs = 700 } = {}) =>
+  async (expected, label) => {
+    const count = Array.isArray(expected) ? expected.length : expected
+    const want = JSON.stringify(expected)
+    const deadline = Date.now() + timeoutMs
+    while (commands(logPath).length < count) {
+      if (Date.now() >= deadline) {
+        fail(`${label}: engine ran ${JSON.stringify(commands(logPath))}, expected ${want}`)
+      }
+      await sleep(50)
+    }
+    await sleep(settleMs)
+    const ran = commands(logPath)
+    const exact = Array.isArray(expected) ? JSON.stringify(ran) === want : ran.length === count
+    if (!exact) fail(`${label}: engine ran ${JSON.stringify(ran)}, expected exactly ${want}`)
+    return ran
+  }
+
+/**
+ * `waitForSidecar(predicate, why)` over `read()` (the sidecar as parsed so far, or null while it
+ * is not readable): resolves to the first value `predicate` accepts.
+ */
+export const makeSidecarWaiter =
+  (read, fail, { timeoutMs = TIMEOUT_MS } = {}) =>
+  async (predicate, why) => {
+    const deadline = Date.now() + timeoutMs
+    for (;;) {
+      const current = read()
+      if (current !== null && predicate(current)) return current
+      if (Date.now() > deadline) fail(`${why} - sidecar is ${JSON.stringify(current)}`)
+      await sleep(100)
+    }
+  }

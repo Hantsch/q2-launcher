@@ -19,7 +19,7 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { sleep } from '../lib/flow-common.mjs'
-import { commands, openAllDemos, openFolder } from '../lib/replays-copy-in.mjs'
+import { commands, openAllDemos, openFolder, positionS } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -62,10 +62,6 @@ async function waitForCount(command, n, label) {
     }
     await sleep(50)
   }
-}
-
-async function positionS(page) {
-  return Number(await page.getByTestId('replays-timeline-seek').getAttribute('aria-valuenow'))
 }
 
 async function waitForPosition(page, predicate, label) {

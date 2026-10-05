@@ -12,15 +12,12 @@ import {
   replaysTimelineEngineFiles,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
-import { sleep } from '../lib/flow-common.mjs'
-import { commands, openDemos, openFolder } from '../lib/replays-copy-in.mjs'
+import { makeFail } from '../lib/flow-common.mjs'
+import { makeEngineCommandsExpecter, openDemos, openFolder } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
 const TIMEOUT_MS = 8_000
-const ENGINE_TIMEOUT_MS = 5_000
-/** Long enough that a seq guard failing would have re-run a command several loop ticks over. */
-const SETTLE_MS = 700
 
 const files = replaysTimelineEngineFiles()
 
@@ -31,24 +28,8 @@ export async function setup() {
   }
 }
 
-async function expectCommands(expected, label) {
-  const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (commands(files.commandLog).length < expected.length) {
-    if (Date.now() >= deadline) {
-      throw new Error(
-        `replays-console-command: ${label}: engine ran ${JSON.stringify(commands(files.commandLog))}, expected ${JSON.stringify(expected)}`,
-      )
-    }
-    await sleep(50)
-  }
-  await sleep(SETTLE_MS)
-  const ran = commands(files.commandLog)
-  if (JSON.stringify(ran) !== JSON.stringify(expected)) {
-    throw new Error(
-      `replays-console-command: ${label}: engine ran ${JSON.stringify(ran)}, expected exactly ${JSON.stringify(expected)}`,
-    )
-  }
-}
+const fail = makeFail('replays-console-command')
+const expectCommands = makeEngineCommandsExpecter(files.commandLog, fail)
 
 export default async function replaysConsoleCommand({ page, step, shot }) {
   const input = page.getByTestId('replays-console-input')

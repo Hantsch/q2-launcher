@@ -135,7 +135,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { variantUserDataDir } from './harness.mjs'
 import { openLibraryAddEntry } from './flow-common.mjs'
-import { waitForDemosScanToFinish } from './replays-copy-in.mjs'
+import { showAllInstallations, waitForDemosScanToFinish } from './replays-copy-in.mjs'
 import {
   REPLAYS_DATE_FILTER_VARIANT,
   REPLAYS_FIXTURE_SCANNED_TOTAL,
@@ -152,8 +152,10 @@ import {
  * (the first whose label contains `rootText`, when given). */
 async function openFirstReplaysRoot(page, rootText) {
   await waitForDemosScanToFinish(page, { timeout: SCAN_SETTLE_TIMEOUT_MS })
-  // The second viewport shares the launch, so the folder is usually still open.
+  // The second viewport shares the launch, so the folder is usually still open, or an active
+  // filter lists matching demos from every folder without folder rows.
   if ((await page.getByTestId('replays-breadcrumb').count()) > 0) return
+  if ((await page.getByTestId('replays-demo-row').count()) > 0) return
   const roots = page.getByTestId('replays-folder-row')
   await (rootText ? roots.filter({ hasText: rootText }) : roots)
     .first()
@@ -1354,6 +1356,7 @@ export const SCREENS = [
     // (`DemoDetailPanel.tsx`) is the panel this screen captures.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -1375,6 +1378,7 @@ export const SCREENS = [
     // `replays-detail`; the field's reason is on screen.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -1447,6 +1451,7 @@ export const SCREENS = [
     // then an impossible date so the inline field error is on screen too.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -1477,6 +1482,7 @@ export const SCREENS = [
     // same way `replays-list` does, since the list is fetched once on mount.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -1511,9 +1517,12 @@ export const SCREENS = [
     variant: 'empty',
     viewports: BOTH_VIEWPORTS,
     // Story 151 D4: the Demos view's empty state - the `empty` fixture variant seeds zero
-    // installations and no extra folders, so a scan genuinely finds nothing.
+    // installations and no extra folders, so a scan genuinely finds nothing; with every installation
+    // shown (the default scope names the missing installation instead) the plain empty state is on
+    // screen. (story 238)
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await click(page, 'replays-scope-all')
       await page
         .getByTestId('replays-list-empty')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -1547,6 +1556,7 @@ export const SCREENS = [
     // (`scripts/lib/fixture.mjs`) four demos give the picker something real to narrow.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
@@ -1563,6 +1573,7 @@ export const SCREENS = [
     // Story 154 D5: the date filter's from-after-to error state.
     navigate: async (page) => {
       await click(page, 'nav-replays')
+      await showAllInstallations(page)
       await page
         .getByTestId('replays-demo-list')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })

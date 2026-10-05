@@ -81,6 +81,7 @@ import {
   writeUmuStub,
   writeWineStub,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** A real process launch/exit, end to end - generous, but this is never a download job. */
@@ -88,7 +89,7 @@ const LAUNCH_TIMEOUT_MS = 15_000
 /** How long to poll for the Runner section to pick up the freshly-added wine/umu-run stubs (AC4). */
 const RUNNER_REFRESH_TIMEOUT_MS = 8_000
 
-const ADD_EXISTING_BUTTON_LABEL = 'Add existing'
+const ADD_EXISTING_ENTRY_LABEL = 'Add existing installation…'
 const BROWSE_LABEL = 'Browse…'
 const SUBMIT_LABEL = 'Add installation'
 
@@ -148,10 +149,7 @@ export default async function windowsBuildOnLinux({ page, app, step, shot }) {
 
 async function addFixtureInstallation({ page, step, shot }) {
   step('open the library and start "Add existing"')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  await page
-    .getByRole('button', { name: ADD_EXISTING_BUTTON_LABEL, exact: true })
-    .click({ timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, ADD_EXISTING_ENTRY_LABEL, TIMEOUT_MS)
 
   const dialog = page.getByRole('dialog')
   await dialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })

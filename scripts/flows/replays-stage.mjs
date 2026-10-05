@@ -15,12 +15,16 @@ import {
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
 import { makeFail, sleep } from '../lib/flow-common.mjs'
-import { commands, openDemos, openFolder } from '../lib/replays-copy-in.mjs'
+import {
+  commands,
+  makeEngineCommandsExpecter,
+  openDemos,
+  openFolder,
+} from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
 const TIMEOUT_MS = 8_000
-const ENGINE_TIMEOUT_MS = 5_000
 const SETTLE_MS = 700
 
 const files = replaysTimelineEngineFiles()
@@ -33,24 +37,7 @@ export async function setup() {
 }
 
 const fail = makeFail('replays-stage')
-
-async function expectCommands(expected, label) {
-  const deadline = Date.now() + ENGINE_TIMEOUT_MS
-  while (commands(files.commandLog).length < expected.length) {
-    if (Date.now() >= deadline)
-      fail(
-        `${label}: engine ran ${JSON.stringify(commands(files.commandLog))}, expected ${JSON.stringify(expected)}`,
-      )
-    await sleep(50)
-  }
-  await sleep(SETTLE_MS)
-  const ran = commands(files.commandLog)
-  if (JSON.stringify(ran) !== JSON.stringify(expected)) {
-    fail(
-      `${label}: engine ran ${JSON.stringify(ran)}, expected exactly ${JSON.stringify(expected)}`,
-    )
-  }
-}
+const expectCommands = makeEngineCommandsExpecter(files.commandLog, fail)
 
 async function launchLine(logPath) {
   const deadline = Date.now() + 10_000

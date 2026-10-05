@@ -2,6 +2,7 @@
 // "empty" wording - and "New installation…" is the one wizard, from the rail and from the Library,
 // ending in a named, playable installation. Runs the REAL bootstrap job against the loopback
 // fixture server, so it reseeds `populated` and recreates its target like `bootstrap-wizard.mjs`.
+import { dirname } from 'node:path'
 import {
   bootstrapTargetDir,
   startBootstrapFixtureServer,
@@ -30,7 +31,7 @@ export async function setup() {
   return {
     env: {
       Q2L_UI_CONTENT_REPO_BASE: server.baseUrl,
-      Q2L_UI_PICK_FOLDER: targetPath,
+      Q2L_UI_PICK_FOLDER: dirname(targetPath),
     },
   }
 }
@@ -129,18 +130,26 @@ export default async function addInstallationOneFlow({ page, shot, step }) {
     .getByTestId('bootstrap-target-path-input')
     .getByRole('button', { name: 'Browse…' })
     .click({ timeout: TIMEOUT_MS })
-  await page
-    .getByTestId('bootstrap-target-nonempty-warning')
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  // The picked location is only the parent: the wizard proposes a new subfolder inside it and
+  // shows the final path before anything is installed.
+  const parentDir = dirname(bootstrapTargetDir())
+  const finalPath = page.getByTestId('bootstrap-target-final-path')
+  await finalPath.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.waitForFunction(
+    (picked) => {
+      const text = document
+        .querySelector('[data-testid="bootstrap-target-final-path"]')
+        ?.textContent?.trim()
+      return Boolean(text) && text !== picked && text.startsWith(picked)
+    },
+    parentDir,
+    { timeout: TIMEOUT_MS },
+  )
   const shownPath = await page
     .getByTestId('bootstrap-target-path-input')
     .locator('input')
     .inputValue()
-  if (shownPath !== bootstrapTargetDir()) throw new Error(`target field shows ${shownPath}`)
-  await page
-    .getByTestId('bootstrap-target-nonempty-acknowledge')
-    .locator('label')
-    .click({ timeout: TIMEOUT_MS })
+  if (shownPath !== parentDir) throw new Error(`target field shows ${shownPath}`)
   await shot('target-step')
   await next.click({ timeout: TIMEOUT_MS })
 

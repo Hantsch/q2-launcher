@@ -17,7 +17,7 @@ Today Scan now always runs a full round (`ScanScope 'all'`): master query, `info
 then `status` to every non-empty server. Other scopes are favourites and one server; there is no
 scope for an arbitrary set of addresses. Filtering happens only in the renderer.
 
-Concept: [servers-module.md](../systems/servers-module.md), [game-browser.md](../systems/game-browser.md).
+Concept: [servers-module.md](../../systems/servers-module.md), [game-browser.md](../../systems/game-browser.md).
 
 ## Acceptance Criteria
 

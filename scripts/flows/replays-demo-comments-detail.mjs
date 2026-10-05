@@ -11,8 +11,8 @@ import {
   REPLAYS_TIMELINE_VARIANT,
   writeReplaysTimelineFixture,
 } from '../lib/fixture.mjs'
-import { sleep } from '../lib/flow-common.mjs'
-import { openDemos, openFolder, selectDemo } from '../lib/replays-copy-in.mjs'
+import { makeFail, sleep } from '../lib/flow-common.mjs'
+import { openDemos, openFolder, selectDemo, makeSidecarWaiter } from '../lib/replays-copy-in.mjs'
 
 export const variant = REPLAYS_TIMELINE_VARIANT
 
@@ -44,18 +44,7 @@ export async function setup() {
 
 const readSidecar = () => JSON.parse(readFileSync(sidecarPath, 'utf8'))
 
-async function waitForSidecar(predicate, describe) {
-  const deadline = Date.now() + TIMEOUT_MS
-  let current = readSidecar()
-  while (Date.now() < deadline) {
-    current = readSidecar()
-    if (predicate(current)) return current
-    await sleep(100)
-  }
-  throw new Error(
-    `replays-demo-comments-detail: timed out waiting for ${describe}; sidecar is ${JSON.stringify(current)}`,
-  )
-}
+const waitForSidecar = makeSidecarWaiter(readSidecar, makeFail('replays-demo-comments-detail'))
 
 async function listed(page) {
   return page

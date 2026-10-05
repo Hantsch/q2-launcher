@@ -10,7 +10,7 @@ import {
   buildStatusReplyBytes,
   closeResponder,
 } from '../lib/servers-stub.mjs'
-import { readFinishedAt, waitForFinishedAtChange } from '../lib/servers-flow.mjs'
+import { readFinishedAt, waitForFinishedAtChange, makeVisibleLabels } from '../lib/servers-flow.mjs'
 
 export const variant = 'servers-ping-filter'
 
@@ -101,18 +101,11 @@ async function refresh(page) {
   await waitForFinishedAtChange(page, before, SCAN_SETTLE_TIMEOUT_MS)
 }
 
-async function visibleLabels(page) {
-  const visible = []
-  for (const [label, responder] of [
-    ['A', serverA],
-    ['B', serverB],
-    ['C', serverC],
-  ]) {
-    if ((await page.getByTestId(`servers-row-${responder.address}`).count()) > 0)
-      visible.push(label)
-  }
-  return visible
-}
+const visibleLabels = makeVisibleLabels(() => [
+  ['A', serverA],
+  ['B', serverB],
+  ['C', serverC],
+])
 
 async function assertVisible(page, expected, label) {
   const actual = await visibleLabels(page)

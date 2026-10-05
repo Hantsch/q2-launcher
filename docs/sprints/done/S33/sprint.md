@@ -37,8 +37,8 @@ debt has one home with an ageing rule.
 
 ## Notes
 
-- Source: [codebase review 2026-10-01](../../reviews/2026-10-01-codebase-review.md), second half of
-  the two-sprint cut (see [S32](../done/S32/sprint.md) for why two). Builds on S32's contract (envelope,
+- Source: [codebase review 2026-10-01](../../../reviews/2026-10-01-codebase-review.md), second half of
+  the two-sprint cut (see [S32](../S32/sprint.md) for why two). Builds on S32's contract (envelope,
   refusal shape, typed handlers); start only after S32 is merged into `dev`.
 - **Order.** 224 goes first so the shared fixture gates every later flow change. The config main
   side comes next (211 → 210 → 214), then the renderer layers (212, 215, 216, 217), then their

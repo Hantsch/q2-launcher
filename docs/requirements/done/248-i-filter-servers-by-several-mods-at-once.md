@@ -16,7 +16,7 @@ ctf.
 Today the mod filter is a single select (`ServerListFilter.mod: string | null`), filled from the
 `gamename` values of the current rows.
 
-Concept: [game-browser.md](../systems/game-browser.md).
+Concept: [game-browser.md](../../systems/game-browser.md).
 
 ## Acceptance Criteria
 

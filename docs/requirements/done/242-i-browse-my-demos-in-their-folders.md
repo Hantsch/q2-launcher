@@ -17,7 +17,7 @@ browser should allow that too, "Google Drive style".
 Today discovery reads each `demos/` folder one level deep only ("never recursive", `discovery.ts`),
 so demos in subfolders are not found at all, and the list is flat.
 
-Concept: [replays-module.md](../systems/replays-module.md), [demo-browser.md](../concepts/demo-browser.md).
+Concept: [replays-module.md](../../systems/replays-module.md), [demo-browser.md](../../concepts/demo-browser.md).
 
 ## Acceptance Criteria
 

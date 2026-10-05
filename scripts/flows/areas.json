@@ -597,8 +597,17 @@
       "src/main/modules/downloads/bootstrap/**",
       "src/renderer/src/modules/downloads/bootstrap/**"
     ],
-    "flows": ["bootstrap-*", "downloads-tab", "linux-user-journey", "windows-build-on-linux"],
+    "flows": ["bootstrap-*", "downloads-tab"],
     "why": "The first-run bootstrap: package choice, existing folders, retail import and failure recovery."
+  },
+  {
+    "area": "downloads-bootstrap-journeys",
+    "paths": [
+      "src/main/modules/downloads/bootstrap/**",
+      "src/renderer/src/modules/downloads/bootstrap/**"
+    ],
+    "flows": ["linux-user-journey", "windows-build-on-linux"],
+    "why": "The first-run bootstrap seen end to end: the Linux user journey and the Windows build reached from Linux."
   },
   {
     "area": "downloads-engine",
@@ -845,14 +854,31 @@
       "replays-timeline",
       "replays-timeline-burst",
       "replays-timeline-optimistic",
-      "replays-volume",
+      "replays-volume"
+    ],
+    "why": "Demo playback: staging, the playback channel, console, timeline, volume and stop."
+  },
+  {
+    "area": "replays-playback-launch",
+    "paths": [
+      "src/main/modules/replays/demo-play.ts",
+      "src/main/modules/replays/demo-staging.ts",
+      "src/main/modules/replays/playback-*",
+      "src/main/modules/replays/playback-channel/**",
+      "src/main/modules/replays/session-cvar-restore.ts",
+      "src/renderer/src/modules/replays/playback-store.ts",
+      "src/renderer/src/modules/replays/useDemoPlay.ts",
+      "src/renderer/src/modules/replays/useDemoStop.ts",
+      "src/renderer/src/modules/replays/optimistic-timeline.ts"
+    ],
+    "flows": [
       "replays-mod-warning",
       "replays-mod-install",
       "demo-actions-bind",
       "autorecord-setting",
       "job-waits-for-running-game"
     ],
-    "why": "Demo playback: staging, the playback channel, console, timeline and stop."
+    "why": "What a demo play launch depends on: mod warning and install, bound demo actions, autorecord and the running-game job wait."
   },
   {
     "area": "replays-stage",

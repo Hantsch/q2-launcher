@@ -16,7 +16,7 @@ on servers where I have a good ping".
 Today ping is measured per server on every scan (`rttMs`) and the list can be sorted by ping, but
 `ServerListFilter` has no ping field.
 
-Concept: [game-browser.md](../systems/game-browser.md), [servers-module.md](../systems/servers-module.md).
+Concept: [game-browser.md](../../systems/game-browser.md), [servers-module.md](../../systems/servers-module.md).
 
 ## Acceptance Criteria
 

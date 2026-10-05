@@ -104,7 +104,7 @@ stories) and 95522d3 (the regression fixes found by the gate, see Regression gat
 
 **Found by the gate, fixed** (see Regression gate): four regressions across stories that the narrow gates did not
 see (224, 215, 227, 231) and one flaky pre-existing flow fixed at its cause in product (atomic-write rename
-retry). The pattern is the one [233](../../requirements/233-the-flow-gate-has-no-quarantined-flows-and-catches-cross-story-breakage.md)
+retry). The pattern is the one [233](../../../requirements/done/233-the-flow-gate-has-no-quarantined-flows-and-catches-cross-story-breakage.md)
 already describes. Several stories also reported flows red in their narrow runs (`unsaved-diff`,
 `controls-extra-keys`, `drop-message-checkbox`, `external-edit-cascades`, `grenade-rows-take-a-key`,
 `controls-drag-reorder`, `settings-downloads-section`, `config-header-geometry`) that were green in the gate; the
@@ -121,12 +121,12 @@ stated cause was a polluted `.ui-verify` fixture cache, which is the same findin
 - The progress trail is shell-generated and carries no typed timestamps; it holds a duplicated
   `217 · story · done` line.
 - 229's triage ledger recorded "213: no unfixed findings" although 213's Done section has an Open item; it is
-  now [TD-032](../../TECH-DEBT.md).
+  now [TD-032](../../../TECH-DEBT.md).
 - 227 left story 205's typed-contract gap documented as "planned in story 232" (draft, undecided).
 
 **Deliberately unfixed or open, with where each went**
 
-Review findings left unfixed in the S33 stories were triaged by story 229 into [TECH-DEBT.md](../../TECH-DEBT.md)
+Review findings left unfixed in the S33 stories were triaged by story 229 into [TECH-DEBT.md](../../../TECH-DEBT.md)
 (rows TD-017, TD-022 to TD-028 and TD-031 carry S33 as `since`) or deleted with a reason in 229's ledger; this
 review added two rows that the ledger had missed. Per story:
 
@@ -231,7 +231,7 @@ Every criterion below has a named automated test (listed in full in each story's
 - 211, 213, 214, 215, 218, 230 — structural criteria (line caps, "grep-zero", import direction, one slot path) are
   proven by source-scanning tests; their flows are regression proof, not acceptance of a user action.
 - 227, 228, 229 — doc criteria are proven by structural doc tests (handler names present, files exist, sections
-  exist); whether a doc is accurate prose is a reviewer judgement ([TD-027](../../TECH-DEBT.md)).
+  exist); whether a doc is accurate prose is a reviewer judgement ([TD-027](../../../TECH-DEBT.md)).
 - 216 AC1 — the unit test for Enter/Space selection uses a click (no `user-event` in the repo); the real Enter is
   proven by flow `tabs-keyboard`.
 - 211 AC5 — "byte-identical" is a characterization test over parse outputs and verdicts, not a diff of two builds.

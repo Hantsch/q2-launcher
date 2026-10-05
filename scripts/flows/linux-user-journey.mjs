@@ -47,9 +47,7 @@
 //
 // ## Selectors, not guesses
 //
-// `common.action.addExisting` ("Add existing", `LibraryView.tsx`'s own header button - not to be
-// confused with the sidebar's longer `common.action.addExistingInstallation`, "Add existing installation…", which
-// opens the identical dialog from a different trigger), the real `AddExistingDialog.tsx` (a
+// The Library's "Add an installation" menu entry "Add existing installation…" (`useAddInstallationEntries.tsx`), the real `AddExistingDialog.tsx` (a
 // `role="dialog"` with no dedicated testids - its `Field`/`Input` controls have real accessible
 // labels via `Field`'s `htmlFor`, so `getByLabel` finds them; its engine verdict is `EngineBadge`'s
 // own `engine-badge` testid), and every testid `raw-inline-edit.mjs`/
@@ -62,6 +60,7 @@ import {
   writeLinuxJourneyInstallRoot,
   writePopulatedFixture,
 } from '../lib/fixture.mjs'
+import { openLibraryAddEntry } from '../lib/flow-common.mjs'
 
 const TIMEOUT_MS = 8_000
 /** A real process launch/exit, end to end - generous, but this is never a download job. */
@@ -74,11 +73,7 @@ const PLAIN_PROFILE_FILE_NAME = 'Plain-Profile.cfg'
 const RUN_SUFFIX = Date.now().toString(36)
 const TYPED_LINE = `// q2l_flow_linux_journey_${RUN_SUFFIX}`
 
-/** Mirrors `src/renderer/src/i18n/locales/en.json`'s real strings - this flow drives the real
- * `AddExistingDialog`, which carries no dedicated testids of its own. `common.action.addExisting` (the
- * library header's own button) is the SHORT "Add existing" - not to be confused with
- * `common.action.addExistingInstallation`'s longer "Add existing installation…", used by the sidebar's own trigger. */
-const ADD_EXISTING_BUTTON_LABEL = 'Add existing'
+const ADD_EXISTING_ENTRY_LABEL = 'Add existing installation…'
 const BROWSE_LABEL = 'Browse…'
 const SUBMIT_LABEL = 'Add installation'
 
@@ -116,13 +111,7 @@ export async function setup() {
 export default async function linuxUserJourney({ page, step, shot }) {
   // --- add an existing installation, through the real folder-pick stub ---------------------------
   step('open the library and start "Add existing"')
-  await page.getByTestId('nav-library').click({ timeout: TIMEOUT_MS })
-  // `exact: true`: the rail's own trigger is labelled "Add existing installation…"
-  // (`common.action.addExistingInstallation`), which contains this button's own "Add existing" (`common.action.addExisting`)
-  // as a substring - Playwright's default name match is substring, so both would otherwise match.
-  await page
-    .getByRole('button', { name: ADD_EXISTING_BUTTON_LABEL, exact: true })
-    .click({ timeout: TIMEOUT_MS })
+  await openLibraryAddEntry(page, ADD_EXISTING_ENTRY_LABEL, TIMEOUT_MS)
 
   const dialog = page.getByRole('dialog')
   await dialog.waitFor({ state: 'visible', timeout: TIMEOUT_MS })

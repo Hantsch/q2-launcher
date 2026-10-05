@@ -91,3 +91,18 @@ export async function setMultiFilter(page, testId, values) {
   }
   await closeMulti(page, testId)
 }
+
+/**
+ * `visibleLabels(page)` for flows with a few labelled fixture servers: the sorted labels whose
+ * `servers-row-<address>` is attached. `servers()` yields `[[label, responder], ...]` lazily,
+ * because the responders are bound in `setup`.
+ */
+export const makeVisibleLabels = (servers) => async (page) => {
+  const visible = []
+  for (const [label, responder] of servers()) {
+    if ((await page.getByTestId(`servers-row-${responder.address}`).count()) > 0) {
+      visible.push(label)
+    }
+  }
+  return visible.sort()
+}

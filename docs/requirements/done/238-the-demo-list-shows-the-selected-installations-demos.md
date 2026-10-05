@@ -16,7 +16,7 @@ Today the list is a union of every installation's `demos/` folders plus the extr
 Settings (`discovery.ts`); each row only says where it came from. Playback, on the other hand, is
 already tied to the active installation — a demo from elsewhere plays from a temporary copy.
 
-Concept: [replays-module.md](../systems/replays-module.md).
+Concept: [replays-module.md](../../systems/replays-module.md).
 
 ## Acceptance Criteria
 
