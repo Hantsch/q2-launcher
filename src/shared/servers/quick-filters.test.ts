@@ -20,8 +20,8 @@ const q = (id: string, name: string): QuickFilter => ({
 
 describe('quick filter criteria', () => {
   it('criteriaOf drops the search and keeps the rest', () => {
-    const c = criteriaOf({ ...EMPTY_SERVER_LIST_FILTER, search: 'x', mod: 'ctf', empty: true })
-    expect(c).toEqual({ ...none, mod: 'ctf', empty: true })
+    const c = criteriaOf({ ...EMPTY_SERVER_LIST_FILTER, search: 'x', mod: ['ctf'], empty: true })
+    expect(c).toEqual({ ...none, mod: ['ctf'], empty: true })
     expect('search' in c).toBe(false)
   })
 
@@ -35,31 +35,45 @@ describe('quick filter criteria', () => {
 
   it('hasCriteria is true for any select or toggle and false for none', () => {
     expect(hasCriteria(none)).toBe(false)
-    expect(hasCriteria({ ...none, mod: 'a' })).toBe(true)
+    expect(hasCriteria({ ...none, mod: ['a'] })).toBe(true)
     expect(hasCriteria({ ...none, gamemode: 'coop' })).toBe(true)
-    expect(hasCriteria({ ...none, map: 'q2dm1' })).toBe(true)
+    expect(hasCriteria({ ...none, map: ['q2dm1'] })).toBe(true)
     expect(hasCriteria({ ...none, empty: true })).toBe(true)
     expect(hasCriteria({ ...none, hideBotsOnly: true })).toBe(true)
     expect(hasCriteria({ ...none, waitingForOpponent: true })).toBe(true)
   })
 
+  it('sameCriteria compares mod and map as case-insensitive sets', () => {
+    expect(
+      sameCriteria(
+        { ...none, mod: ['CTF', 'baseq2', 'ctf'], map: ['A', 'b'] },
+        { ...none, mod: ['BASEQ2', 'ctf'], map: ['B', 'a'] },
+      ),
+    ).toBe(true)
+    expect(sameCriteria({ ...none, mod: ['ctf', 'x'] }, { ...none, mod: ['ctf'] })).toBe(false)
+    expect(sameCriteria({ ...none, map: ['a'] }, { ...none, map: [] })).toBe(false)
+  })
+
   it('sameCriteria compares mod and map case-insensitively and the rest exactly', () => {
     expect(
-      sameCriteria({ ...none, mod: 'CTF', map: 'Q2DM1' }, { ...none, mod: 'ctf', map: 'q2dm1' }),
+      sameCriteria(
+        { ...none, mod: ['CTF'], map: ['Q2DM1'] },
+        { ...none, mod: ['ctf'], map: ['q2dm1'] },
+      ),
     ).toBe(true)
-    expect(sameCriteria({ ...none, mod: 'ctf' }, none)).toBe(false)
+    expect(sameCriteria({ ...none, mod: ['ctf'] }, none)).toBe(false)
     expect(sameCriteria({ ...none, gamemode: 'ctf' }, { ...none, gamemode: 'team' })).toBe(false)
     expect(sameCriteria({ ...none, hideBotsOnly: true }, none)).toBe(false)
   })
 
   it('applyCriteria replaces the criteria and keeps the search', () => {
-    const f = { ...EMPTY_SERVER_LIST_FILTER, search: 'foo', mod: 'old', empty: true }
-    const r = applyCriteria(f, { ...none, map: 'q2dm1' })
-    expect(r).toEqual({ ...EMPTY_SERVER_LIST_FILTER, search: 'foo', map: 'q2dm1' })
+    const f = { ...EMPTY_SERVER_LIST_FILTER, search: 'foo', mod: ['old'], empty: true }
+    const r = applyCriteria(f, { ...none, map: ['q2dm1'] })
+    expect(r).toEqual({ ...EMPTY_SERVER_LIST_FILTER, search: 'foo', map: ['q2dm1'] })
   })
 
   it('clearCriteria resets every criterion and keeps the search', () => {
-    const f = { ...EMPTY_SERVER_LIST_FILTER, search: 'foo', mod: 'old', hideBotsOnly: true }
+    const f = { ...EMPTY_SERVER_LIST_FILTER, search: 'foo', mod: ['old'], hideBotsOnly: true }
     expect(clearCriteria(f)).toEqual({ ...EMPTY_SERVER_LIST_FILTER, search: 'foo' })
   })
 })

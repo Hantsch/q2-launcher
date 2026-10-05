@@ -22,9 +22,9 @@ export type QuickFilterNameProblem = 'empty' | 'tooLong' | 'taken'
 /** The criteria part of `f` - everything except the free-text search. */
 export function criteriaOf(f: ServerListFilter): QuickFilterCriteria {
   return {
-    mod: f.mod,
+    mod: [...f.mod],
     gamemode: f.gamemode,
-    map: f.map,
+    map: [...f.map],
     maxPingMs: f.maxPingMs,
     empty: f.empty,
     hideBotsOnly: f.hideBotsOnly,
@@ -35,9 +35,9 @@ export function criteriaOf(f: ServerListFilter): QuickFilterCriteria {
 /** Whether any select is set or any toggle is on. */
 export function hasCriteria(c: QuickFilterCriteria): boolean {
   return (
-    c.mod !== null ||
+    c.mod.length > 0 ||
     c.gamemode !== null ||
-    c.map !== null ||
+    c.map.length > 0 ||
     c.maxPingMs !== null ||
     c.empty ||
     c.hideBotsOnly ||
@@ -45,16 +45,17 @@ export function hasCriteria(c: QuickFilterCriteria): boolean {
   )
 }
 
-function sameText(a: string | null, b: string | null): boolean {
-  if (a === null || b === null) return a === b
-  return a.toLowerCase() === b.toLowerCase()
+function sameSet(a: readonly string[], b: readonly string[]): boolean {
+  const x = new Set(a.map((s) => s.toLowerCase()))
+  const y = new Set(b.map((s) => s.toLowerCase()))
+  return x.size === y.size && [...x].every((s) => y.has(s))
 }
 
-/** Field-wise equality; mod and map compare case-insensitively, like the filter's own matching. */
+/** Field-wise equality; mod and map compare as case-insensitive sets, like the filter's own matching. */
 export function sameCriteria(a: QuickFilterCriteria, b: QuickFilterCriteria): boolean {
   return (
-    sameText(a.mod, b.mod) &&
-    sameText(a.map, b.map) &&
+    sameSet(a.mod, b.mod) &&
+    sameSet(a.map, b.map) &&
     a.gamemode === b.gamemode &&
     a.maxPingMs === b.maxPingMs &&
     a.empty === b.empty &&
@@ -65,7 +66,7 @@ export function sameCriteria(a: QuickFilterCriteria, b: QuickFilterCriteria): bo
 
 /** `c` replaces every criterion of `f`; the search is kept. */
 export function applyCriteria(f: ServerListFilter, c: QuickFilterCriteria): ServerListFilter {
-  return { ...c, search: f.search }
+  return { ...c, mod: [...c.mod], map: [...c.map], search: f.search }
 }
 
 /** Clears every criterion of `f`; the search is kept. */

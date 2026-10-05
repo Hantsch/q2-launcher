@@ -8,7 +8,12 @@
 // pattern verbatim (copied, not imported - `scripts/*.mjs` never imports another flow file).
 import { SERVERS_DISABLED_SOURCES, writePopulatedFixture } from '../lib/fixture.mjs'
 import { makeResponderBinder, closeResponder } from '../lib/servers-stub.mjs'
-import { readFinishedAt, waitForFinishedAtChange } from '../lib/servers-flow.mjs'
+import {
+  readFinishedAt,
+  readMultiFilter,
+  setMultiFilter,
+  waitForFinishedAtChange,
+} from '../lib/servers-flow.mjs'
 
 export const variant = 'servers-filter-search'
 
@@ -169,7 +174,7 @@ export default async function serversFilterSearch({ page, step, shot }) {
   await shot('no-filter')
 
   step('AC1: mod=baseq2 shows B, C and D')
-  await page.getByTestId('servers-filter-mod').selectOption('baseq2')
+  await setMultiFilter(page, 'servers-filter-mod', ['baseq2'])
   assertSet(await visibleLabels(page), ['B', 'C', 'D'], 'mod=baseq2')
   await shot('filter-mod')
   await clearFilters(page)
@@ -190,14 +195,14 @@ export default async function serversFilterSearch({ page, step, shot }) {
   await clearFilters(page)
 
   step('AC1: map=q2dm1 shows A and B')
-  await page.getByTestId('servers-filter-map').selectOption('q2dm1')
+  await setMultiFilter(page, 'servers-filter-map', ['q2dm1'])
   assertSet(await visibleLabels(page), ['A', 'B'], 'map=q2dm1')
   await clearFilters(page)
   await shot('filter-toggles')
 
   step('AC2: mod=baseq2 + map=q2dm1 combine to just B')
-  await page.getByTestId('servers-filter-mod').selectOption('baseq2')
-  await page.getByTestId('servers-filter-map').selectOption('q2dm1')
+  await setMultiFilter(page, 'servers-filter-mod', ['baseq2'])
+  await setMultiFilter(page, 'servers-filter-map', ['q2dm1'])
   assertSet(await visibleLabels(page), ['B'], 'mod=baseq2 + map=q2dm1')
 
   step('AC2: adding "Empty" too leaves an empty set, with the no-match line visible')
@@ -221,7 +226,7 @@ export default async function serversFilterSearch({ page, step, shot }) {
   await clearFilters(page)
 
   step('AC6: filter + sort combine without disturbing each other')
-  await page.getByTestId('servers-filter-mod').selectOption('baseq2')
+  await setMultiFilter(page, 'servers-filter-mod', ['baseq2'])
   assertSet(await visibleLabels(page), ['B', 'C', 'D'], 'mod=baseq2 (pre-sort)')
   // Default sort: favourites first (none here), then occupancy descending - B (2 players) above C (0).
   const rowsBeforeSort = await page
@@ -235,10 +240,10 @@ export default async function serversFilterSearch({ page, step, shot }) {
 
   await page.getByTestId('servers-sort-map').click({ timeout: TIMEOUT_MS })
   assertSet(await visibleLabels(page), ['B', 'C', 'D'], 'mod=baseq2 (post-sort, still same set)')
-  const modAfterSort = await page.getByTestId('servers-filter-mod').inputValue()
-  if (modAfterSort !== 'baseq2') {
+  const modAfterSort = await readMultiFilter(page, 'servers-filter-mod')
+  if (modAfterSort.join(',') !== 'baseq2') {
     throw new Error(
-      `expected the mod filter to keep its value after sorting, got "${modAfterSort}"`,
+      `expected the mod filter to keep its value after sorting, got "${modAfterSort.join(',')}"`,
     )
   }
   await shot('filter-plus-sort')

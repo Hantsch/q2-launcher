@@ -37,6 +37,7 @@ version section when a release actually ships.
 
 ### Changed
 
+- **Servers** — Filter by several mods or maps at once.
 - New installation… in the rail and Library is one wizard that ends with a playable, named installation.
 - **Downloads** — Settings now say which options are not available yet.
 - **Mods** — A second job on an installation that is already busy is now refused with an explanation.

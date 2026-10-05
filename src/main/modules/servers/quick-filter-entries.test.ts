@@ -9,15 +9,15 @@ import {
 import { removeQuickFilter, renameQuickFilter, saveQuickFilter } from './quick-filter-entries'
 
 const NONE: QuickFilterCriteria = {
-  mod: null,
+  mod: [],
   gamemode: null,
-  map: null,
+  map: [],
   maxPingMs: null,
   empty: false,
   hideBotsOnly: false,
   waitingForOpponent: false,
 }
-const CTF: QuickFilterCriteria = { ...NONE, mod: 'ctf' }
+const CTF: QuickFilterCriteria = { ...NONE, mod: ['ctf'] }
 const EMPTY_ONLY: QuickFilterCriteria = { ...NONE, empty: true }
 
 function ids(): () => string {

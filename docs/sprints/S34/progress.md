@@ -366,3 +366,19 @@
 - 2026-10-05 22:41 · 250 · review 1 · started
 - 2026-10-05 22:42 · 250 · review 1 · done
 - 2026-10-05 22:42 · 250 · story · done
+- 2026-10-05T22:42:59 · 248 · build · started
+- 2026-10-05 22:43 · 248 · D1 MultiSelect primitive · started
+- 2026-10-05 22:44 · 248 · D1 MultiSelect primitive · done
+- 2026-10-05 22:44 · 248 · D2 shared model sets · started
+- 2026-10-05 22:46 · 248 · D2 shared model sets · done
+- 2026-10-05 22:46 · 248 · D3 filter bar MultiSelect · started
+- 2026-10-05 22:47 · 248 · D3 filter bar MultiSelect · done
+- 2026-10-05 22:47 · 248 · D4 flows and docs · started
+- 2026-10-05 22:51 · 248 · D4 flows and docs · done
+- 2026-10-05 22:51 · 248 · verify · started
+- 2026-10-05 23:13 · 248 · verify · done
+- 2026-10-05 23:13 · 248 · review 1 · started
+- 2026-10-05 23:14 · 248 · review 1 · done
+- 2026-10-05 23:14 · 248 · D5 review fixes · started
+- 2026-10-05 23:16 · 248 · D5 review fixes · done
+- 2026-10-05 23:16 · 248 · story · done

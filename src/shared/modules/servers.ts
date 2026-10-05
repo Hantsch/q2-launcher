@@ -431,11 +431,17 @@ const maxPingMsSchema = z.union([
   z.literal(200),
 ]) satisfies z.ZodType<MaxPingMs>
 
+// A pre-set quick filter stored one mod/map as a string or null. (story 248)
+const legacyScalarToSet = z.preprocess(
+  (v) => (typeof v === 'string' ? [v] : v === null ? [] : v),
+  z.array(z.string()),
+)
+
 export const quickFilterCriteriaSchema = z
   .object({
-    mod: z.string().nullable(),
+    mod: legacyScalarToSet,
     gamemode: serverGamemodeSchema.nullable(),
-    map: z.string().nullable(),
+    map: legacyScalarToSet,
     maxPingMs: maxPingMsSchema.nullable().default(null),
     empty: z.boolean(),
     hideBotsOnly: z.boolean(),

@@ -651,9 +651,9 @@ describe('servers module quick filter handlers (story 197 D2)', () => {
   }
 
   const criteria = {
-    mod: 'ctf',
+    mod: ['ctf'],
     gamemode: null,
-    map: null,
+    map: [],
     empty: false,
     hideBotsOnly: true,
     waitingForOpponent: false,

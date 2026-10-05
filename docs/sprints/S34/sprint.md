@@ -34,7 +34,7 @@ refinements from the latest user feedback.
 - [x] 246 — an installation with several engines lets me choose one
 - [x] 247 — I filter servers by maximum ping
 - [x] 250 — scan now refreshes only the servers my filter shows
-- [ ] 248 — I filter servers by several mods at once
+- [x] 248 — I filter servers by several mods at once
 
 ## Notes
 

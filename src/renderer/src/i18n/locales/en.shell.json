@@ -110,6 +110,7 @@
       "saved": "Saved",
       "search": "Search",
       "sectionHeaderStyle": "Section header style",
+      "selectedCount": "{{count}} selected",
       "servers": "Servers",
       "settings": "Settings",
       "showingCount": "Showing {{shown}} of {{total}}",

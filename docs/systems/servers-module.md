@@ -11,8 +11,8 @@ This document describes the module as built. `servers` is a registered module; i
 
 - Build the address set (master sources, favourites, manual servers) and query every address in
   two stages (`info`, then `status` on demand), streaming one row per result.
-- Show the rows in a sortable, filterable list with a detail view (players, rules, reachability,
-  local content) and one-click join.
+- Show the rows in a sortable, filterable list (mod and map are sets: a row matches any checked
+  value) with a detail view (players, rules, reachability, local content) and one-click join.
 - Persist the user's sources, favourites, history, scan settings, sort, watchlist and quick
   filters.
 
@@ -62,7 +62,7 @@ This document describes the module as built. `servers` is a registered module; i
   falls back to its own default.
 - `listSort` — the chosen sort, `null` for the default order.
 - `watchlist` — entries keyed by id.
-- `quickFilters` — named filters, unique by lower-cased name, capped. Criteria include the ping limit; entries saved before it load as Any.
+- `quickFilters` — named filters, unique by lower-cased name, capped. Criteria include the ping limit; entries saved before it load as Any. Mod and map criteria are sets (any-of); a legacy scalar loads as a set of one.
 
 ## Handlers
 

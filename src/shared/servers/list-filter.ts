@@ -16,9 +16,9 @@ export type MaxPingMs = (typeof MAX_PING_STEPS)[number]
 
 export interface ServerListFilter {
   search: string
-  mod: string | null
+  mod: string[]
   gamemode: ServerGamemode | null
-  map: string | null
+  map: string[]
   /** Strict "below" this many ms; only online rows with a measured ping match. */
   maxPingMs: MaxPingMs | null
   /** Only servers known to have nobody on them. */
@@ -31,9 +31,9 @@ export interface ServerListFilter {
 /** The filter with every criterion cleared — `filterServers` returns every row unchanged for this. */
 export const EMPTY_SERVER_LIST_FILTER: ServerListFilter = {
   search: '',
-  mod: null,
+  mod: [],
   gamemode: null,
-  map: null,
+  map: [],
   maxPingMs: null,
   empty: false,
   hideBotsOnly: false,
@@ -44,9 +44,9 @@ export const EMPTY_SERVER_LIST_FILTER: ServerListFilter = {
  * not count, matching `matchesSearch`'s own empty-term behaviour. */
 export function isFilterActive(f: ServerListFilter): boolean {
   return (
-    f.mod !== null ||
+    f.mod.length > 0 ||
     f.gamemode !== null ||
-    f.map !== null ||
+    f.map.length > 0 ||
     f.maxPingMs !== null ||
     f.empty ||
     f.hideBotsOnly ||
@@ -87,8 +87,8 @@ function matchesText(value: string | undefined, filterValue: string): boolean {
 export function matchesFilter(row: ServerListRow, f: ServerListFilter): boolean {
   if (!matchesSearch(row, f.search)) return false
 
-  if (f.mod !== null && !matchesText(row.mod, f.mod)) return false
-  if (f.map !== null && !matchesText(row.map, f.map)) return false
+  if (f.mod.length > 0 && !f.mod.some((m) => matchesText(row.mod, m))) return false
+  if (f.map.length > 0 && !f.map.some((m) => matchesText(row.map, m))) return false
   if (f.gamemode !== null && row.gamemode !== f.gamemode) return false
   if (
     f.maxPingMs !== null &&

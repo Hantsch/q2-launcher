@@ -20,6 +20,7 @@ import {
 import type { ServerGamemode } from '@shared/servers/row-markers'
 import { Button } from '../../components/ui/Button'
 import { Field, Input, Select, type SelectOption } from '../../components/ui/controls'
+import { MultiSelect } from '../../components/ui/MultiSelect'
 import { SectionLabel } from '../../components/ui/primitives'
 import { cn } from '../../lib/cn'
 
@@ -40,22 +41,6 @@ export interface ServerListFilterBarProps {
  * `servers.gamemode.<mode>` keys, just enumerated here since `ServerGamemode` itself has no
  * canonical ordered list export. */
 const GAMEMODE_OPTIONS: readonly ServerGamemode[] = ['ctf', 'team', 'deathmatch', 'coop', 'single']
-
-/** Builds a `<Select>`'s option list for a nullable string filter field: "Any" first, mapped to the
- * empty value, then every known option, plus the currently selected value appended if it isn't
- * already among them — so the control never silently shows nothing for a value it can't display
- * (e.g. a mod/map that dropped out of the list after a rescan). */
-function nullableOptions(
-  known: string[],
-  current: string | null,
-  t: (key: string) => string,
-): SelectOption[] {
-  const values = current !== null && !known.includes(current) ? [...known, current] : known
-  return [
-    { value: '', label: t('common.label.any') },
-    ...values.map((value) => ({ value, label: value })),
-  ]
-}
 
 /** One quick-filter toggle: a full-width chip with an icon, pressed state as a flame edge plus a
  * check mark (never colour-only), `aria-pressed` for assistive tech. */
@@ -117,8 +102,6 @@ export function ServerListFilterBar({
 }: ServerListFilterBarProps) {
   const { t } = useTranslation()
 
-  const modOptions = nullableOptions(options.mods, filter.mod, t)
-  const mapOptions = nullableOptions(options.maps, filter.map, t)
   const gamemodeOptions: SelectOption[] = [
     { value: '', label: t('common.label.any') },
     ...GAMEMODE_OPTIONS.map((gamemode) => ({
@@ -224,12 +207,12 @@ export function ServerListFilterBar({
 
       <div className="space-y-3">
         <Field label={t('common.label.mod')}>
-          <Select
-            value={filter.mod ?? ''}
-            options={modOptions}
-            onChange={(event) =>
-              onChange({ ...filter, mod: event.target.value === '' ? null : event.target.value })
-            }
+          <MultiSelect
+            label={t('common.label.mod')}
+            options={options.mods}
+            value={filter.mod}
+            onChange={(mod) => onChange({ ...filter, mod })}
+            summaryCount={(count) => t('servers.filter.modsCount', { count })}
             data-testid="servers-filter-mod"
           />
         </Field>
@@ -249,12 +232,12 @@ export function ServerListFilterBar({
         </Field>
 
         <Field label={t('common.label.map')}>
-          <Select
-            value={filter.map ?? ''}
-            options={mapOptions}
-            onChange={(event) =>
-              onChange({ ...filter, map: event.target.value === '' ? null : event.target.value })
-            }
+          <MultiSelect
+            label={t('common.label.map')}
+            options={options.maps}
+            value={filter.map}
+            onChange={(map) => onChange({ ...filter, map })}
+            summaryCount={(count) => t('servers.filter.mapsCount', { count })}
             data-testid="servers-filter-map"
           />
         </Field>

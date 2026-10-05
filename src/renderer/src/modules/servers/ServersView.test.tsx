@@ -145,6 +145,17 @@ const SELECTED_ENTRY: ServerListEntry = {
   lastSeenAt: 'x',
 }
 
+/** Opens the mod multi-select if closed, then toggles one option by name. */
+function toggleMod(name: string): void {
+  const trigger = screen.getByTestId('servers-filter-mod')
+  if (trigger.getAttribute('aria-expanded') !== 'true') fireEvent.click(trigger)
+  const option = screen
+    .getAllByTestId('servers-filter-mod-option')
+    .find((el) => el.textContent === name)
+  if (!option) throw new Error(`no mod option ${name}`)
+  fireEvent.click(option)
+}
+
 async function renderView(initial: ScanSnapshot): Promise<void> {
   readScanMock.mockResolvedValue({ ok: true, value: initial })
   onScanChangedMock.mockImplementation(() => () => {})
@@ -406,7 +417,7 @@ describe('ServersView - list filter (story 120 D2)', () => {
     fireEvent.click(screen.getByTestId('servers-sort-name'))
     await screen.findAllByRole('button', { name: /Alpha|Bravo/ })
 
-    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'ctf' } })
+    toggleMod('ctf')
 
     const rows = await screen.findAllByRole('button', { name: /Alpha|Bravo/ })
     expect(rows.map((row) => row.getAttribute('data-testid'))).toEqual(['servers-row-a:1'])
@@ -443,7 +454,7 @@ describe('ServersView - list filter (story 120 D2)', () => {
     fireEvent.click(rowA)
     expect(rowA.getAttribute('data-selected')).toBe('true')
 
-    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'baseq2' } })
+    toggleMod('baseq2')
 
     await screen.findAllByRole('button', { name: /Bravo/ })
     expect(screen.queryByTestId('servers-row-a:1')).toBeNull()
@@ -662,7 +673,7 @@ describe('ServersView - refresh the shown servers (story 250)', () => {
   it('with a filter active the button reads Refresh N shown and starts the addresses scope with the visible rows', async () => {
     await renderView(snapshot({ entries: [CTF, BASEQ2] }))
 
-    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'ctf' } })
+    toggleMod('ctf')
     await screen.findByTestId('servers-row-a:1')
 
     const button = screen.getByTestId('servers-refresh')
@@ -671,6 +682,24 @@ describe('ServersView - refresh the shown servers (story 250)', () => {
 
     expect(startScanMock).toHaveBeenCalledWith({ kind: 'addresses', addresses: ['a:1'] }, undefined)
     expect(startScanMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('checking two mods shows the servers of either, unchecking all shows every row', async () => {
+    const third: ServerListEntry = { ...CTF, address: 'c:1', name: 'Charlie', mod: 'opentdm' }
+    await renderView(snapshot({ entries: [CTF, BASEQ2, third] }))
+
+    toggleMod('ctf')
+    toggleMod('opentdm')
+    await screen.findByTestId('servers-row-c:1')
+    expect(screen.getByTestId('servers-row-a:1')).toBeTruthy()
+    expect(screen.queryByTestId('servers-row-b:1')).toBeNull()
+
+    toggleMod('ctf')
+    toggleMod('opentdm')
+    await screen.findByTestId('servers-row-b:1')
+    expect(screen.getByTestId('servers-row-a:1')).toBeTruthy()
+    expect(screen.getByTestId('servers-row-c:1')).toBeTruthy()
+    expect(screen.getByTestId('servers-filter-mod').textContent).toBe('Any')
   })
 
   it('with no filter the button reads Scan now, has no options menu and starts the all scope', async () => {
@@ -686,7 +715,7 @@ describe('ServersView - refresh the shown servers (story 250)', () => {
 
   it('Scan all in the options menu starts the all scope while a filter is active', async () => {
     await renderView(snapshot({ entries: [CTF, BASEQ2] }))
-    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'ctf' } })
+    toggleMod('ctf')
     await screen.findByTestId('servers-row-a:1')
 
     const options = screen.getByTestId('servers-refresh-options')
@@ -701,7 +730,7 @@ describe('ServersView - refresh the shown servers (story 250)', () => {
 
   it('a row that stops matching the filter after a scan.server push leaves the list', async () => {
     await renderView(snapshot({ entries: [CTF, BASEQ2] }))
-    fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'ctf' } })
+    toggleMod('ctf')
     await screen.findByTestId('servers-row-a:1')
 
     readScanMock.mockResolvedValue({
@@ -735,7 +764,7 @@ describe('ServersView - refresh the shown servers (story 250)', () => {
   it('the refresh-shown button and the options menu are disabled while a scan runs or the game blocks it', async () => {
     for (const state of [{ running: true }, { blockedReason: 'game-running' as const }]) {
       await renderView(snapshot({ state, entries: [CTF, BASEQ2] }))
-      fireEvent.change(screen.getByTestId('servers-filter-mod'), { target: { value: 'ctf' } })
+      toggleMod('ctf')
       await screen.findByTestId('servers-row-a:1')
 
       expect((screen.getByTestId('servers-refresh') as HTMLButtonElement).disabled).toBe(true)

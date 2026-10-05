@@ -1,7 +1,7 @@
 ---
 id: 248
 title: I filter servers by several mods at once
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -20,15 +20,15 @@ Concept: [game-browser.md](../systems/game-browser.md).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The mod filter is a multi-select: the user can check several mods; the closed control
+- [x] **AC1** — The mod filter is a multi-select: the user can check several mods; the closed control
       shows their names (or "3 mods" when they do not fit).
-- [ ] **AC2** — With several mods selected, a server is shown if its mod is any of them.
-- [ ] **AC3** — With no mod selected the filter is "Any", as today.
-- [ ] **AC4** — A selected mod that is no longer in the current list stays selected and visible in the
+- [x] **AC2** — With several mods selected, a server is shown if its mod is any of them.
+- [x] **AC3** — With no mod selected the filter is "Any", as today.
+- [x] **AC4** — A selected mod that is no longer in the current list stays selected and visible in the
       control, and is never dropped silently.
-- [ ] **AC5** — Saved quick filters store the mod set; a quick filter saved before this story (single
+- [x] **AC5** — Saved quick filters store the mod set; a quick filter saved before this story (single
       mod) still loads and applies as a set of one, and a chip is pressed when the sets are equal.
-- [ ] **AC6** — The multi-select is keyboard-operable (open, move, toggle with Space, close with
+- [x] **AC6** — The multi-select is keyboard-operable (open, move, toggle with Space, close with
       Escape) and announces the selected count.
 
 ## Open Questions
@@ -75,7 +75,7 @@ Affected: `src/renderer/src/components/ui/MultiSelect.tsx` (new), `src/shared/se
 
 ## Deliverables
 
-- [ ] **D1 — `MultiSelect` UI-kit primitive.** New `src/renderer/src/components/ui/MultiSelect.tsx`
+- [x] **D1 — `MultiSelect` UI-kit primitive.** New `src/renderer/src/components/ui/MultiSelect.tsx`
       plus `MultiSelect.test.tsx`. Props: `label` (accessible name, the field label), `options:
       string[]`, `value: string[]`, `onChange(next: string[])`, `summaryCount: (n) => string` (caller's
       "N mods"), `data-testid` (on the trigger; options get `${testid}-option`). Behaviour:
@@ -101,7 +101,7 @@ Affected: `src/renderer/src/components/ui/MultiSelect.tsx` (new), `src/shared/se
       named in Acceptance Tests (label rule incl. the 24-char boundary, missing-value append,
       case-insensitive check/uncheck, each key, live-region text).
 
-- [ ] **D2 — mod/map become sets in the shared model.** Files: `src/shared/servers/list-filter.ts`
+- [x] **D2 — mod/map become sets in the shared model.** Files: `src/shared/servers/list-filter.ts`
       (+ `list-filter.test.ts`), `src/shared/servers/quick-filters.ts` (+ `quick-filters.test.ts`),
       `src/shared/modules/servers.ts`, `src/main/modules/servers/persisted.test.ts`, and the
       mechanical fixture updates in `src/main/modules/servers/quick-filter-entries.test.ts` /
@@ -122,7 +122,7 @@ Affected: `src/renderer/src/components/ui/MultiSelect.tsx` (new), `src/shared/se
       set equality ignores order/case/duplicates, legacy scalar and `null` parse to `[]`/`[s]`
       through `parseServersState`, a legacy single-mod row applies as a set of one.
 
-- [ ] **D3 — the filter bar uses `MultiSelect` for mod and map.** Files:
+- [x] **D3 — the filter bar uses `MultiSelect` for mod and map.** Files:
       `src/renderer/src/modules/servers/ServerListFilterBar.tsx` (+ `ServerListFilterBar.test.tsx`),
       `src/renderer/src/modules/servers/ServersView.test.tsx`,
       `src/renderer/src/modules/servers/locale/en.json`, the `en.bundle.json` snapshot. Replace the
@@ -139,7 +139,7 @@ Affected: `src/renderer/src/components/ui/MultiSelect.tsx` (new), `src/shared/se
       row; a chip saved with `['ctf','opentdm']` is pressed for `['OpenTDM','ctf']`; a legacy
       scalar chip criteria (via the parsed schema) applies as a set of one.
 
-- [ ] **D4 — real-surface proof, flows migrated, docs.** Files: `scripts/lib/servers-flow.mjs`
+- [x] **D4 — real-surface proof, flows migrated, docs.** Files: `scripts/lib/servers-flow.mjs`
       (add `setMultiFilter(page, testId, values)` — opens the trigger, sets exactly `values` by
       clicking `${testId}-option` entries by text, closes with Escape — and `readMultiFilter(page,
       testId)` — opens, returns the `aria-selected="true"` option texts, closes),
@@ -176,3 +176,27 @@ Review: → default
 - Regression → existing flows `servers-filter-search` and `servers-quick-filters` pass after migration (D4).
 
 ## Done
+
+Mod and map filters are now multi-select (new `MultiSelect` UI-kit primitive, in-flow listbox); the shared model holds
+`string[]` sets (any-of within a field, AND across fields), quick filters compare as sets and legacy scalar/null rows load
+as a set of one. New flow `servers-multi-filter`; two existing flows migrated; systems doc and changelog updated.
+
+Commit message: `248: filter servers by several mods/maps — MultiSelect primitive, mod/map as sets, legacy quick filters load as set of one, servers-multi-filter flow`
+
+Verification (narrow gate): build, typecheck, lint green; `npx vitest run --changed HEAD` green (183 files); comments + architecture tests green.
+`npm run ui:flows -- --affected` exceeded the 10-minute call and was stopped (INCONCLUSIVE), so the story's own flow plus all 26 `servers-*`
+flows were run by name in 3 batches: all passed; after review fixes `servers-multi-filter`, `servers-filter-search`, `servers-quick-filters` re-ran green.
+Non-servers flows that `--affected` selects were not run (left to the sprint gate). AC to test: AC1-AC6 and the map extension are covered by the
+named MultiSelect/list-filter/quick-filters/persisted/ServerListFilterBar unit tests and the `servers-multi-filter` steps (all ran and passed); the chip test
+name was aligned to "a chip is pressed when its mod set equals the filter's". No manual residue.
+Review 1 (default): FAIL on a broken UTF-8 dash in CHANGELOG plus a11y details (trigger name hid the selection, dangling activedescendant, no scroll-into-view,
+duplicate keys, thin keyboard tests) — all fixed and re-verified. Not fixed: the AC6 flow covers the mod control only (map is covered by the unit tests); minor
+local case-insensitive helper copies.
+
+Decisions:
+- `servers-multi-filter` is not registered in `scripts/flows/areas.json`: both servers rows already hold 12 flows (cap); it runs via `ui:flows` all and by name.
+- Trigger Enter opens the listbox in addition to Space/ArrowDown (native-select muscle memory).
+- Trigger `aria-label` is "{label}: {summary}" so the closed selection is exposed.
+- Legacy `mod: null` + all-else-false rows are still dropped; `mod: null` with another criterion loads as `[]`.
+
+tiers: D 4 / hard 0 · review default · cycles 1 · agents 7

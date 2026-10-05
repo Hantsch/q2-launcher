@@ -13,7 +13,7 @@ import { Check, ChevronDown, FolderOpen } from 'lucide-react'
 import { cn } from '../../lib/cn'
 import { Button } from './Button'
 
-const FIELD_BASE =
+export const FIELD_BASE =
   'h-9 w-full rounded-sm border border-line-strong bg-void/60 px-2.5 text-sm text-ink ' +
   'placeholder:text-ink-faint focus:border-flame-600 focus:outline-none ' +
   'transition-colors duration-[--dur-fast] disabled:opacity-50'

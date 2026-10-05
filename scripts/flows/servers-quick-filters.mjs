@@ -5,7 +5,12 @@ import { variantUserDataDir } from '../lib/harness.mjs'
 import { waitForStateJson } from '../lib/state-json.mjs'
 import { SERVERS_DISABLED_SOURCES, writePopulatedFixture } from '../lib/fixture.mjs'
 import { makeResponderBinder, closeResponder } from '../lib/servers-stub.mjs'
-import { readFinishedAt, waitForFinishedAtChange } from '../lib/servers-flow.mjs'
+import {
+  readFinishedAt,
+  readMultiFilter,
+  setMultiFilter,
+  waitForFinishedAtChange,
+} from '../lib/servers-flow.mjs'
 
 export const variant = 'servers-quick-filters'
 
@@ -154,7 +159,7 @@ export default async function serversQuickFilters({ page, step, shot }) {
   await page.getByTestId('servers-filter-search').fill('')
 
   step('AC1: picking a mod enables save, and the dialog asks for a name')
-  await page.getByTestId('servers-filter-mod').selectOption('baseq2')
+  await setMultiFilter(page, 'servers-filter-mod', ['baseq2'])
   if (await save.isDisabled()) throw new Error('save should be enabled once a mod is picked')
   if ((await page.getByTestId('servers-quickfilter-save-reason').count()) !== 0) {
     throw new Error('the save reason should be gone once save is enabled')
@@ -190,18 +195,18 @@ export default async function serversQuickFilters({ page, step, shot }) {
   ).servers.quickFilters
   assertEq(
     persisted.filter((q) => q.name === 'Base duels').map((q) => q.criteria.mod),
-    ['baseq2'],
+    [['baseq2']],
     'persisted Base duels',
   )
 
   step('AC2: change the filter, then clicking the chip restores exactly the saved criteria')
-  await page.getByTestId('servers-filter-mod').selectOption('ctf')
+  await setMultiFilter(page, 'servers-filter-mod', ['ctf'])
   await page.getByTestId('servers-filter-empty').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('servers-filter-search').fill('keepme')
   if (await pressed(chipNamed(page, 'Base duels')))
     throw new Error('chip should not be pressed after changing the filter')
   await chipNamed(page, 'Base duels').click({ timeout: TIMEOUT_MS })
-  assertEq(await page.getByTestId('servers-filter-mod').inputValue(), 'baseq2', 'mod restored')
+  assertEq(await readMultiFilter(page, 'servers-filter-mod'), ['baseq2'], 'mod restored')
   assertEq(await pressed(page.getByTestId('servers-filter-empty')), false, 'empty restored off')
   assertEq(await page.getByTestId('servers-filter-search').inputValue(), 'keepme', 'search kept')
 
@@ -220,10 +225,10 @@ export default async function serversQuickFilters({ page, step, shot }) {
     0,
     'no check icon when off',
   )
-  assertEq(await page.getByTestId('servers-filter-mod').inputValue(), '', 'mod cleared')
+  assertEq(await readMultiFilter(page, 'servers-filter-mod'), [], 'mod cleared')
 
   step('AC5: a taken name shows the reason plus Overwrite; overwriting keeps a single chip')
-  await page.getByTestId('servers-filter-mod').selectOption('ctf')
+  await setMultiFilter(page, 'servers-filter-mod', ['ctf'])
   await saveAs(page, 'base DUELS')
   await page
     .getByTestId('servers-quickfilter-overwrite')
@@ -243,11 +248,7 @@ export default async function serversQuickFilters({ page, step, shot }) {
   if (!(await pressed(chipNamed(page, 'Base duels'))))
     throw new Error('overwritten chip should equal the current filter (ctf)')
   await chipNamed(page, 'Base duels').click({ timeout: TIMEOUT_MS })
-  assertEq(
-    await page.getByTestId('servers-filter-mod').inputValue(),
-    '',
-    'cleared via overwritten chip',
-  )
+  assertEq(await readMultiFilter(page, 'servers-filter-mod'), [], 'cleared via overwritten chip')
 
   step('AC9: the built-in toggles still toggle with custom chips present')
   for (const id of ['servers-filter-waiting', 'servers-filter-empty', 'servers-filter-hide-bots']) {
@@ -275,8 +276,8 @@ export default async function serversQuickFilters({ page, step, shot }) {
   )
   await chipNamed(page, 'Ghost mod').click({ timeout: TIMEOUT_MS })
   assertEq(
-    await page.getByTestId('servers-filter-mod').inputValue(),
-    'nosuchmod',
+    await readMultiFilter(page, 'servers-filter-mod'),
+    ['nosuchmod'],
     'mod select shows the value',
   )
   await page
@@ -318,8 +319,8 @@ export default async function serversQuickFilters({ page, step, shot }) {
   await page.getByRole('menuitem', { name: 'Delete' }).click({ timeout: TIMEOUT_MS })
   await chipNamed(page, 'Phantom').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
   assertEq(
-    await page.getByTestId('servers-filter-mod').inputValue(),
-    'nosuchmod',
+    await readMultiFilter(page, 'servers-filter-mod'),
+    ['nosuchmod'],
     'filter untouched by delete',
   )
   await page

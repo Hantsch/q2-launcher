@@ -105,8 +105,31 @@ describe('parseServersState (story 110 D2)', () => {
     }
     const parsed = parseServersState({ quickFilters: [{ id: 'a', name: 'Old', criteria }] })
     expect(parsed.quickFilters).toEqual([
-      { id: 'a', name: 'Old', criteria: { ...criteria, maxPingMs: null } },
+      { id: 'a', name: 'Old', criteria: { ...criteria, mod: ['ctf'], map: [], maxPingMs: null } },
     ])
+  })
+
+  it('a legacy single-mod quick filter loads as a set of one', () => {
+    const legacy = {
+      mod: 'x',
+      gamemode: null,
+      map: null,
+      maxPingMs: null,
+      empty: false,
+      hideBotsOnly: false,
+      waitingForOpponent: false,
+    }
+    const parsed = parseServersState({
+      quickFilters: [
+        { id: 'a', name: 'One', criteria: legacy },
+        { id: 'b', name: 'None', criteria: { ...legacy, mod: null, empty: true } },
+        { id: 'c', name: 'Blank', criteria: { ...legacy, mod: null } },
+      ],
+    })
+    expect(parsed.quickFilters.map((q) => q.name)).toEqual(['One', 'None'])
+    expect(parsed.quickFilters[0].criteria.mod).toEqual(['x'])
+    expect(parsed.quickFilters[0].criteria.map).toEqual([])
+    expect(parsed.quickFilters[1].criteria.mod).toEqual([])
   })
 
   it('a quick filter with an unknown ping step is dropped', () => {

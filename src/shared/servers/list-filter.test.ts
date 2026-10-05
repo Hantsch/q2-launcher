@@ -147,8 +147,40 @@ const allRows: ServerListRow[] = [
 
 describe('each filter applied alone keeps exactly the rows that satisfy it', () => {
   it('mod, case-insensitive, excludes rows with an unknown mod', () => {
-    const result = filterServers(allRows, filter({ mod: 'ctf' }))
+    const result = filterServers(allRows, filter({ mod: ['ctf'] }))
     expect(result).toEqual([rocket, stale])
+  })
+
+  it('a server passes when its mod is any of the selected mods', () => {
+    const result = filterServers(allRows, filter({ mod: ['CTF', 'baseq2'] }))
+    const expected = allRows.filter((r) => ['ctf', 'baseq2'].includes(r.mod?.toLowerCase() ?? ''))
+    expect(result).toEqual(expected)
+    expect(result.length).toBeGreaterThan(filterServers(allRows, filter({ mod: ['ctf'] })).length)
+  })
+
+  it('a server passes when its map is any of the selected maps', () => {
+    const result = filterServers(allRows, filter({ map: ['Q2DM1', 'q2dm4'] }))
+    const expected = allRows.filter((r) => ['q2dm1', 'q2dm4'].includes(r.map?.toLowerCase() ?? ''))
+    expect(result).toEqual(expected)
+    expect(result.length).toBeGreaterThan(filterServers(allRows, filter({ map: ['q2dm1'] })).length)
+  })
+
+  it('an empty mod or map set does not restrict the list', () => {
+    expect(filterServers(allRows, filter({ mod: [], map: [] }))).toEqual(allRows)
+  })
+
+  it('mod set, map set and another field all have to hold together', () => {
+    const f = filter({ mod: ['ctf', 'baseq2'], map: ['q2dm1', 'q2dm4'], gamemode: 'ctf' })
+    const result = filterServers(allRows, f)
+    expect(result.length).toBeGreaterThan(0)
+    for (const r of result) {
+      expect(['ctf', 'baseq2']).toContain(r.mod?.toLowerCase())
+      expect(['q2dm1', 'q2dm4']).toContain(r.map?.toLowerCase())
+      expect(r.gamemode).toBe('ctf')
+    }
+    expect(result.length).toBeLessThan(
+      filterServers(allRows, filter({ mod: ['ctf', 'baseq2'] })).length,
+    )
   })
 
   it('gamemode excludes rows with an unknown gamemode', () => {
@@ -187,21 +219,21 @@ describe('each filter applied alone keeps exactly the rows that satisfy it', () 
   })
 
   it('map, case-insensitive, matches the stale row on its last-known value', () => {
-    const result = filterServers(allRows, filter({ map: 'q2dm1' }))
+    const result = filterServers(allRows, filter({ map: ['q2dm1'] }))
     expect(result).toEqual([rocket, empty])
   })
 
   it('a stale row filters on its last-known field values like any other', () => {
-    const result = filterServers(allRows, filter({ mod: 'ctf', gamemode: 'ctf' }))
+    const result = filterServers(allRows, filter({ mod: ['ctf'], gamemode: 'ctf' }))
     expect(result).toContainEqual(stale)
   })
 })
 
 describe('active filters intersect', () => {
   it('two filters combined give the intersection of what each alone would give', () => {
-    const byMod = filterServers(allRows, filter({ mod: 'baseq2' }))
+    const byMod = filterServers(allRows, filter({ mod: ['baseq2'] }))
     const byGamemode = filterServers(allRows, filter({ gamemode: 'deathmatch' }))
-    const combined = filterServers(allRows, filter({ mod: 'baseq2', gamemode: 'deathmatch' }))
+    const combined = filterServers(allRows, filter({ mod: ['baseq2'], gamemode: 'deathmatch' }))
 
     const expected = allRows.filter((r) => byMod.includes(r) && byGamemode.includes(r))
     expect(combined).toEqual(expected)
@@ -211,7 +243,7 @@ describe('active filters intersect', () => {
   it('an unsatisfiable combination yields an empty result', () => {
     const combined = filterServers(
       allRows,
-      filter({ gamemode: 'deathmatch', mod: 'does-not-exist' }),
+      filter({ gamemode: 'deathmatch', mod: ['does-not-exist'] }),
     )
     expect(combined).toEqual([])
   })
@@ -354,12 +386,12 @@ describe('filtering preserves the input order', () => {
       waiting,
       unknownFields,
     ]
-    const result = filterServers(shuffled, filter({ mod: 'baseq2' }))
+    const result = filterServers(shuffled, filter({ mod: ['baseq2'] }))
 
     const indices = result.map((r) => shuffled.indexOf(r))
     const sortedIndices = [...indices].sort((a, b) => a - b)
     expect(indices).toEqual(sortedIndices)
-    expect(result.every((r) => matchesFilter(r, filter({ mod: 'baseq2' })))).toBe(true)
+    expect(result.every((r) => matchesFilter(r, filter({ mod: ['baseq2'] })))).toBe(true)
   })
 })
 

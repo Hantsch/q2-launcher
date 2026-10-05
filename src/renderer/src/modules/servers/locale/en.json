@@ -222,6 +222,10 @@
       "waiting": "Waiting for an opponent",
       "maxPing": "Max ping",
       "pingBelow": "< {{ms}} ms",
+      "modsCount_one": "{{count}} mod",
+      "modsCount_other": "{{count}} mods",
+      "mapsCount_one": "{{count}} map",
+      "mapsCount_other": "{{count}} maps",
       "noMatch": "No servers match your filters."
     },
     "source": {
