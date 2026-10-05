@@ -1010,7 +1010,7 @@ function headerTagLine(tag: string): string {
 /**
  * The `unbindall` line: a per-profile setting, default on. `!== false`, not `=== true`:
  * `profile.writeUnbindall` is optional and a profile with no stored value (persisted before the
- * setting, or built in a test without `main/lib/schemas.ts`'s `.catch(true)`) must behave as `true`.
+ * setting, or built in a test without `src/main/modules/config/persisted.ts`'s `.catch(true)`) must behave as `true`.
  *
  * A bare single line, not wrapped in `section()`: nothing to banner or comment. Omitted (an empty
  * block) when `false`, so `joinBlocks` adds no stray blank line.
@@ -1244,7 +1244,7 @@ export function renderProfileFile(profile: ConfigProfile): string {
   const layerResults = layers.map((layer) => generateLayerAliases(layer, profile.binds))
 
   // `?? 'dashes'` mirrors `writeUnbindall`'s `!== false` read: a profile with no stored value
-  // (persisted before the setting, or built without `main/lib/schemas.ts`'s `.catch('dashes')`) must
+  // (persisted before the setting, or built without `src/main/modules/config/persisted.ts`'s `.catch('dashes')`) must
   // render exactly as `'dashes'`, byte-identical to before the setting existed.
   const sectionHeaderStyle: SectionHeaderStyle = profile.sectionHeaderStyle ?? 'dashes'
 

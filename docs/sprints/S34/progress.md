@@ -31,3 +31,21 @@
 - 2026-10-05 08:49 · 232 · review 1 · started
 - 2026-10-05 08:52 · 232 · review 1 · done
 - 2026-10-05 08:53 · 232 · story · done
+- 2026-10-05T08:53:13 · 236 · build · started
+- 2026-10-05 08:53 · 236 · D1 electron-backed shell lib rule · started
+- 2026-10-05 08:54 · 236 · D1 electron-backed shell lib rule · done
+- 2026-10-05 08:54 · 236 · D2 oxlint builtin list · started
+- 2026-10-05 08:55 · 236 · D2 oxlint builtin list · done
+- 2026-10-05 08:55 · 236 · D3 literal key records · started
+- 2026-10-05 08:55 · 236 · D4 nested Outcome check · started
+- 2026-10-05 08:55 · 236 · D6 unlock feature fallback · started
+- 2026-10-05 08:57 · 236 · D3 literal key records · done
+- 2026-10-05 08:57 · 236 · D4 nested Outcome check · done
+- 2026-10-05 08:57 · 236 · D6 unlock feature fallback · done
+- 2026-10-05 08:57 · 236 · D5 comment paths exist · started
+- 2026-10-05 08:58 · 236 · D5 comment paths exist · done
+- 2026-10-05 08:58 · 236 · verify · started
+- 2026-10-05 08:59 · 236 · verify · done
+- 2026-10-05 08:59 · 236 · review 1 · started
+- 2026-10-05 09:01 · 236 · review 1 · done
+- 2026-10-05 09:01 · 236 · story · done

@@ -11,7 +11,10 @@ import type {
   sourcesUpdateInputSchema,
 } from '@shared/modules/servers'
 import { refuse } from '@shared/types'
-import { validateMasterSourceAddress } from '@shared/servers/master-source-address'
+import {
+  MASTER_SOURCE_ADDRESS_REJECTION_KEYS,
+  validateMasterSourceAddress,
+} from '@shared/servers/master-source-address'
 
 /**
  * Story 111: the master-source list's four mutations, as pure functions over a `MasterSource[]`.
@@ -45,23 +48,7 @@ export type MintSourceId = () => string
 
 /** Visible literals so a key scan sees every refusal key; a new reason without an entry fails the build. */
 export const MASTER_SOURCES_REFUSAL_KEYS = {
-  empty: 'servers.sources.reject.empty',
-  'extra-tokens': 'servers.address.reject.extra-tokens',
-  'forbidden-character': 'servers.address.reject.forbidden-character',
-  'argument-token': 'servers.address.reject.argument-token',
-  'missing-port': 'servers.sources.reject.missing-port',
-  'port-not-numeric': 'servers.address.reject.port-not-numeric',
-  'port-out-of-range': 'servers.address.reject.port-out-of-range',
-  'too-many-colons': 'servers.address.reject.too-many-colons',
-  'ipv6-not-supported': 'servers.address.reject.ipv6-not-supported',
-  'host-empty': 'servers.address.reject.host-empty',
-  'host-too-long': 'servers.address.reject.host-too-long',
-  'host-label-invalid': 'servers.address.reject.host-label-invalid',
-  'ipv4-octet-out-of-range': 'servers.address.reject.ipv4-octet-out-of-range',
-  'url-too-long': 'servers.sources.reject.url-too-long',
-  'invalid-url': 'servers.sources.reject.invalid-url',
-  'unsupported-protocol': 'servers.sources.reject.unsupported-protocol',
-  'credentials-not-allowed': 'servers.sources.reject.credentials-not-allowed',
+  ...MASTER_SOURCE_ADDRESS_REJECTION_KEYS,
   'not-found': 'servers.sources.reject.not-found',
   'duplicate-address': 'servers.sources.reject.duplicate-address',
   'invalid-reorder': 'servers.sources.reject.invalid-reorder',

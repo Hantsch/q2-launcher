@@ -46,7 +46,9 @@ export interface ModuleSetup {
   /**
    * Access to the shell's services: installations, jobs, settings, ... A module reaches the OS,
    * the screen and the harness only through `app.os`, `app.displays`, `app.harness`, `app.env`,
-   * `app.isPackaged` and `app.userDataDir` - never `electron` or `process.env` itself (narrow shell libs such as `lib/paths` are the only other route).
+   * `app.isPackaged` and `app.userDataDir` - never `electron` or `process.env` itself
+   * (the narrow shell libs `lib/paths`, `lib/net/fetcher` and `lib/native-image` are the only other
+   * route, one edge each, listed in `ALLOWED` in `src/architecture.test.ts`).
    */
   app: AppContext
   log: Logger

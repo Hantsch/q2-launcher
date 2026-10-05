@@ -163,7 +163,7 @@ export function RawFileTab() {
           in this spot: two one-line rows cost a whole extra row of chrome that 30 visible code lines
           at 1280x800 cannot spare. Wraps at the narrower viewport instead of clipping. */}
       {/* Story 061: this row is one of the two levers the header's new line budget funds itself
-          out of (`docs/requirements/061-profile-header-is-one-row.md`'s Decisions). Its two
+          out of (story 061's Decisions). Its two
           `IconButton`s and the section-header-style `Select` below are forced to 24px (`size-6`/
           `h-6`, CLAUDE.md's deviation table) - one size step below the app's usual 28px dense
           floor - because 28px alone (plus the `.cfg-code--fill` padding cut in `config-syntax.css`)

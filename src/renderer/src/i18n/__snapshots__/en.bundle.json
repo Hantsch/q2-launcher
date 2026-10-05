@@ -3408,6 +3408,10 @@
         "submit": "Redeem"
       },
       "expired": "This code expired on {{date}} — its features are no longer available.",
+      "feature": {
+        "unknown": "Unknown feature ({{id}})",
+        "watchlist": "Server watchlist"
+      },
       "installationId": {
         "copied": "Copied",
         "copy": "Copy installation id",

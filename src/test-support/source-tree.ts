@@ -1,5 +1,4 @@
 import { readFileSync, statSync } from 'node:fs'
-import { builtinModules } from 'node:module'
 import { join, posix, relative, resolve, sep } from 'node:path'
 import { sourceFiles } from './source-files'
 
@@ -130,6 +129,13 @@ export function commentRanges(
   }))
 }
 
+/** All comment text of `source`, one comment per line. */
+export function commentsOf(source: string): string {
+  return commentRanges(source)
+    .map((range) => range.text)
+    .join('\n')
+}
+
 function startsRegex(before: string): boolean {
   const trimmed = before.trimEnd()
   if (trimmed === '') return true
@@ -183,13 +189,23 @@ export function resolveSpecifier(fromFile: string, spec: string): string {
   return isDirectory(path) ? `${path}/index` : path
 }
 
-const NODE_BUILTINS = new Set(builtinModules)
+/** The bare builtin names `.oxlintrc.json` forbids in shared and renderer; one list for lint and tests. */
+export const FORBIDDEN_NODE_BUILTINS: ReadonlySet<string> = readForbiddenBuiltins()
+
+function readForbiddenBuiltins(): Set<string> {
+  const config = JSON.parse(
+    stripComments(readRepoFile('.oxlintrc.json')).replace(/,(\s*[}\]])/g, '$1'),
+  ) as { overrides: { files: string[]; rules: Record<string, unknown> }[] }
+  const override = config.overrides.find((entry) => entry.files.includes('src/shared/**'))
+  const rule = override?.rules['no-restricted-imports'] as [string, { paths: string[] }]
+  return new Set(rule[1].paths)
+}
 
 /** Whether `resolved` (a `resolveSpecifier` result) is a Node builtin (bare or `node:`) or electron. */
 export function isNodeOrElectron(resolved: string): boolean {
   return (
     resolved.startsWith('node:') ||
-    NODE_BUILTINS.has(resolved) ||
+    FORBIDDEN_NODE_BUILTINS.has(resolved) ||
     resolved === 'electron' ||
     resolved.startsWith('electron/')
   )

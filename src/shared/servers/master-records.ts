@@ -68,11 +68,21 @@ export type MasterSourceFailure =
   | 'transport-error'
   | 'http-status'
 
-/** Maps a source failure reason to its i18n key, `servers.source.error.<reason>`, mirroring
- * `serverAddressRejectionKey` (story 107) — the matching `en.json` entries live under
- * `servers.source.error.*`. */
-export function masterSourceFailureKey(reason: MasterSourceFailure): string {
-  return `servers.source.error.${reason}`
+/** Every failure's i18n key as a visible literal; a new `MasterSourceFailure` without an entry fails the build. */
+export const MASTER_SOURCE_FAILURE_KEYS = {
+  'too-short': 'servers.source.error.too-short',
+  'bad-header': 'servers.source.error.bad-header',
+  truncated: 'servers.source.error.truncated',
+  'empty-body': 'servers.source.error.empty-body',
+  'no-reply': 'servers.source.error.no-reply',
+  'transport-error': 'servers.source.error.transport-error',
+  'http-status': 'servers.source.error.http-status',
+} as const satisfies Record<MasterSourceFailure, `servers.source.error.${string}`>
+
+export function masterSourceFailureKey(
+  reason: MasterSourceFailure,
+): (typeof MASTER_SOURCE_FAILURE_KEYS)[MasterSourceFailure] {
+  return MASTER_SOURCE_FAILURE_KEYS[reason]
 }
 
 /** A record dropped from `addresses` without failing the whole payload — currently only a `0` port

@@ -1,8 +1,11 @@
-import { readdirSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
+import { builtinModules } from 'node:module'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  FORBIDDEN_NODE_BUILTINS,
   REPO_ROOT,
+  commentsOf,
   isNodeOrElectron,
   isTestFile,
   listSourceFiles,
@@ -103,6 +106,65 @@ const ALLOWED: ReadonlyArray<AllowedEdge> = [
     to: 'src/renderer/src/modules/config/client',
     story: '175',
     reason: 'the address book is a config cvar, saved through the config client',
+  },
+  ...(
+    [
+      'config/index.ts',
+      'downloads/index.ts',
+      'home/news/news-service.ts',
+      'home/news/feed-cache.ts',
+      'mods/catalog-service.ts',
+      'replays/index-cache.ts',
+    ] as const
+  ).map((file) => ({
+    from: `src/main/modules/${file}`,
+    to: 'src/main/lib/paths',
+    story: '236',
+    reason: 'reads the user-data dir through the narrow shell lib',
+  })),
+  ...(['downloads/bootstrap/ports.ts', 'servers/scan-service.ts'] as const).map((file) => ({
+    from: `src/main/modules/${file}`,
+    to: 'src/main/lib/net/fetcher',
+    story: '236',
+    reason: "uses the shell's electron.net fetch",
+  })),
+  ...(
+    [
+      'downloads/repair/job.ts',
+      'downloads/bootstrap/job.ts',
+      'downloads/engine/update-job.ts',
+      'downloads/bootstrap/job.test-helpers.ts',
+    ] as const
+  ).map((file) => ({
+    from: `src/main/modules/${file}`,
+    to: 'src/main/lib/net/fetcher',
+    story: '236',
+    reason: 'type only: FetchImpl is the injected fetch seam',
+  })),
+  ...(
+    [
+      'config/index.ts',
+      'downloads/index.ts',
+      'downloads/retail/sources.ts',
+      'replays/name-templates.ts',
+    ] as const
+  ).map((file) => ({
+    from: `src/main/modules/${file}`,
+    to: 'src/main/context',
+    story: '236',
+    reason: 'type only: AppContext is the contract a module receives',
+  })),
+  {
+    from: 'src/main/modules/replays/cinema-controller.ts',
+    to: 'src/main/cinema-window',
+    story: '236',
+    reason: 'type only: CinemaWindow is the shell window the controller drives',
+  },
+  {
+    from: 'src/main/modules/home/images/fetch-image.ts',
+    to: 'src/main/lib/native-image',
+    story: '236',
+    reason: "decodes a news image through the shell's nativeImage",
   },
 ]
 
@@ -322,6 +384,31 @@ describe('architecture', () => {
     expect(offenders((edge) => crossModule(RENDERER_MODULES, edge) && !isAllowed(edge))).toEqual([])
   })
 
+  it('a main module reaches an electron-backed shell lib only through an allowlisted edge', () => {
+    const stripExt = (path: string): string => path.replace(/\.tsx?$/, '')
+    const electronBacked = new Set(
+      PRODUCTION.filter(
+        (file) =>
+          under(file, 'src/main') &&
+          !under(file, MAIN_MODULES) &&
+          scanImports(TEXT.get(file) ?? '').some(
+            (spec) => spec === 'electron' || spec.startsWith('electron/'),
+          ),
+      ).map(stripExt),
+    )
+    for (const lib of ['paths', 'net/fetcher', 'native-image']) {
+      expect(electronBacked).toContain(`src/main/lib/${lib}`)
+    }
+    expect(
+      offenders(
+        (edge) =>
+          moduleOf(edge.from, MAIN_MODULES) !== undefined &&
+          electronBacked.has(stripExt(edge.to)) &&
+          !isAllowed(edge),
+      ),
+    ).toEqual([])
+  })
+
   it('every allowlist entry names an existing story', () => {
     const stories = ['docs/requirements', 'docs/requirements/done'].flatMap((dir) =>
       readdirSync(join(REPO_ROOT, dir)).filter((name) => /^\d{3}-.*\.md$/.test(name)),
@@ -449,6 +536,21 @@ describe('architecture', () => {
       expect(rule, glob).toContain('"electron"')
       expect(rule, glob).toContain('"node:*"')
     }
+  })
+
+  it('oxlint forbids exactly the node builtins the architecture test forbids', () => {
+    const config = JSON.parse(
+      stripComments(readRepoFile('.oxlintrc.json')).replace(/,(\s*[}\]])/g, '$1'),
+    ) as { overrides: { files: string[]; rules: Record<string, [string, { paths: string[] }]> }[] }
+    const pathsOf = (glob: string): string[] =>
+      config.overrides.find((entry) => entry.files.includes(glob))!.rules[
+        'no-restricted-imports'
+      ][1].paths
+    const forbidden = [...FORBIDDEN_NODE_BUILTINS].sort()
+    expect([...new Set(pathsOf('src/shared/**'))].sort()).toEqual(forbidden)
+    expect([...new Set(pathsOf('src/renderer/**'))].sort()).toEqual(forbidden)
+    for (const name of builtinModules.filter((entry) => !entry.startsWith('node:')))
+      expect(FORBIDDEN_NODE_BUILTINS.has(name), `builtin "${name}" is not forbidden`).toBe(true)
   })
 
   it('no eslint-disable comment survives and every oxlint-disable carries a reason', () => {
@@ -629,5 +731,48 @@ describe('architecture', () => {
     const source = readRepoFile('src/renderer/src/modules/config/ControlsTab.tsx')
     expect(source.split(/\r?\n/).length).toBeLessThan(800)
     expect((source.match(/useState[(<]/g) ?? []).length).toBeLessThan(12)
+  })
+
+  it('no renderer file unwraps a nested Outcome', () => {
+    // Only an Outcome inside Outcome.value has error/value; a DomainResult has ok/reasonKey.
+    const nestedRead = /\.value\.(?:error|value)\b/
+    const flags = (text: string): boolean => nestedRead.test(stripComments(text))
+    expect(flags('if (!r.value.ok) show(r.value.error)')).toBe(true)
+    expect(flags('if (!r.value.ok) show(r.value.reasonKey)')).toBe(false)
+
+    const renderer = PRODUCTION.filter((file) => under(file, 'src/renderer'))
+    expect(renderer.length).toBeGreaterThan(0)
+    expect(renderer.filter((file) => flags(TEXT.get(file) ?? ''))).toEqual([])
+    expect(
+      PRODUCTION.filter((file) => /Outcome<Outcome/.test(stripComments(TEXT.get(file) ?? ''))),
+    ).toEqual([])
+  })
+
+  it('every repo path named in a source comment exists', () => {
+    const rooted =
+      /(?<![\w@./:-])((?:src\/(?:main|renderer|shared|preload|test-support)|docs|scripts)\/[\w./-]+\.(?:tsx?|mjs|json|md|yml))/g
+    const underSrc = /(?<![\w@./:-])((?:main|renderer|shared)\/[\w./-]+\.(?:tsx?|json))/g
+    const exists = (path: string): boolean => existsSync(join(REPO_ROOT, path))
+    const identified = /`((?:src|docs|scripts)\/[\w./-]+\.\w+)`'s `([\w$]+)`/g
+
+    const missing: string[] = []
+    for (const file of PRODUCTION) {
+      const comments = commentsOf(TEXT.get(file) ?? '')
+      const named = (pattern: RegExp): string[] =>
+        [...comments.matchAll(pattern)].map((m) => m[1]).filter((t) => !t.includes('...'))
+      for (const token of named(rooted)) if (!exists(token)) missing.push(`${file}: ${token}`)
+      for (const token of named(underSrc)) {
+        const candidates = [
+          `src/${token}`,
+          ...(token.startsWith('renderer/') ? [`src/renderer/src/${token.slice(9)}`] : []),
+        ]
+        if (!candidates.some(exists)) missing.push(`${file}: ${token}`)
+      }
+      for (const [, path, identifier] of comments.matchAll(identified)) {
+        if (exists(path) && !readRepoFile(path).includes(identifier))
+          missing.push(`${file}: ${path} has no ${identifier}`)
+      }
+    }
+    expect(missing).toEqual([])
   })
 })

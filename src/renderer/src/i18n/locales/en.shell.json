@@ -623,6 +623,10 @@
         "redeem-window-elapsed": "This code's redemption window has passed.",
         "feature-expired": "This code's features have already expired."
       },
+      "feature": {
+        "watchlist": "Server watchlist",
+        "unknown": "Unknown feature ({{id}})"
+      },
       "noExpiry": "Does not expire",
       "expired": "This code expired on {{date}} — its features are no longer available.",
       "takesEffectNextStart": "This takes effect the next time the launcher starts."

@@ -24,7 +24,7 @@ export type BannerFill = '-' | '='
  * regardless of this setting; only category/cvar/layer section banners honour it).
  *
  * - `'dashes'` - today's only format, and the implicit default (`.catch('dashes')` in
- *   `main/lib/schemas.ts`): `// --- <line> ---...` padded with `-` out to `width`. Renders
+ *   `src/main/modules/config/persisted.ts`): `// --- <line> ---...` padded with `-` out to `width`. Renders
  *   byte-identical to every banner this file emitted before this style existed.
  * - `'brackets'` - the User's literal sketch, `// ----- [ <line> ] -----`: a fixed five-dash
  *   rule on each side of a bracketed title, independent of `width`.

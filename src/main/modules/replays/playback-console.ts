@@ -1,6 +1,6 @@
 import type { Outcome } from '@shared/types'
 import { fail } from '@shared/types'
-import { validateConsoleLine } from '@shared/replays/console-line'
+import { CONSOLE_LINE_ERROR_KEYS, validateConsoleLine } from '@shared/replays/console-line'
 import { NO_SESSION, type PlaybackControl } from './playback-control'
 
 /**
@@ -19,7 +19,7 @@ export function createPlaybackConsole(deps: {
   return {
     send(line) {
       const checked = validateConsoleLine(line)
-      if (!checked.ok) return fail(`replays.console.error.${checked.reason}`)
+      if (!checked.ok) return fail(CONSOLE_LINE_ERROR_KEYS[checked.reason])
       const result = deps.playback.send(checked.line)
       if (!result.ok && result.error.key === NO_SESSION)
         return fail('replays.console.error.noSession')

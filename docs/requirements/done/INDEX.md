@@ -327,3 +327,4 @@ second roadmap.
 - 230 — comments state invariants, not sprint history · S33 · ids and sprint narrative swept from ~440 files, headers rewritten, guarded by src/comments.test.ts
 - 229 — tech debt has one home and an ageing rule · S33 · TECH-DEBT.md + check-docs validator, ageing rule in README/ai-scrum Notes, follow-ups triaged
 - 232 — every module's handlers are typed from a contract · S34 · all seven modules use defineModule/createModuleClient with shared request schemas; coverage gates have no escapes
+- 236 — the layer and error-key rules have no known holes · S34 · electron-backed edges allowlisted, one builtin list, literal key records, comment paths and nested-Outcome checks, translated unknown-feature fallback

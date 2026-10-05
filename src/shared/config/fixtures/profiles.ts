@@ -1,6 +1,6 @@
 /**
  * Constructed `ConfigProfile` fixtures for the story 042 round-trip property test
- * (`src/main/modules/config/round-trip.test.ts`) and its adversarial-mangling pass.
+ * (`src/main/modules/config/round-trip/`) and its adversarial-mangling pass.
  *
  * Story 050 re-verified that property against the reduced `[q2l …]` tag and the uncapped
  * key-slot model: every fixture's keys moved from the four `key`/`secondaryKey`/`keyModifier`/

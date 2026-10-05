@@ -7,7 +7,12 @@ import { RESTORE_WARNING_KEYS } from '../shared/config/profile/profile-restore'
 import { DOWNLOADS_ERROR_KEYS } from '../shared/modules/downloads'
 import { MODS_ERROR_KEYS } from '../shared/modules/mods'
 import { NAME_TEMPLATE_ERROR } from '../shared/replays/name-template'
+import { USERINFO_REJECTION_KEYS } from '../shared/launch/userinfo'
+import { CONSOLE_LINE_ERROR_KEYS } from '../shared/replays/console-line'
 import { SERVER_ADDRESS_REJECTION_KEYS } from '../shared/servers/address'
+import { MASTER_SOURCE_ADDRESS_REJECTION_KEYS } from '../shared/servers/master-source-address'
+import { MASTER_SOURCE_FAILURE_KEYS } from '../shared/servers/master-records'
+import { RUNNER_UNAVAILABLE_KEYS } from '../shared/types/runner'
 import { MASTER_SOURCES_REFUSAL_KEYS } from './modules/servers/master-sources'
 import { APP_UPDATE_ERROR_KEYS, UPDATE_ERROR_KEYS } from './services/update/service'
 
@@ -77,6 +82,7 @@ describe('main error keys', () => {
 
   it('every exported *_ERROR_KEYS member resolves', () => {
     const lists: Record<string, readonly string[]> = {
+      CONSOLE_LINE_ERROR_KEYS: Object.values(CONSOLE_LINE_ERROR_KEYS),
       DOWNLOADS_ERROR_KEYS,
       MODS_ERROR_KEYS,
       UPDATE_ERROR_KEYS,
@@ -109,6 +115,10 @@ describe('main error keys', () => {
       /^NAME_PROBLEM_KEYS\[/,
       /^serverAddressRejectionKey\(/,
       /^masterSourceFailureKey\(/,
+      /^masterSourceAddressRejectionKey\(/,
+      /^userinfoRejectionKey\(/,
+      /^CONSOLE_LINE_ERROR_KEYS\[/,
+      /^RUNNER_UNAVAILABLE_KEYS\[/,
       /^reasonKey\b/,
       /^availability\.reason\.key\b/,
       /^(?:R|string)\b/,
@@ -117,6 +127,9 @@ describe('main error keys', () => {
       /\b[A-Z][A-Z_]*_REASON_KEY\b\s*(?::[^=\n]+)?=\s*(?:'([^'\n]*)'|"([^"\n]*)")/g,
       /\breturn\s+(?:'([a-z][\w-]*(?:\.[\w-]+)+)'|"([a-z][\w-]*(?:\.[\w-]+)+)")/g,
     ]
+
+    /** A `fail(` argument or a returned key-shaped string built from a template. */
+    const TEMPLATE_KEY_PATTERN = /\bfail\(\s*`|\breturn\s+`[a-z][\w-]*\.[^`$]*\$\{/g
 
     // Sent with a `count` param, so they resolve through `_other`, not a bare leaf.
     const PLURAL_REASON_KEYS = new Set(['runner.unavailable.protonNotDriven'])
@@ -151,6 +164,7 @@ describe('main error keys', () => {
         else if (rest.startsWith('`')) out.templates += 1
         else if (!COVERED_ARGUMENTS.some((p) => p.test(rest))) out.unknown.push(rest.split('\n')[0])
       }
+      out.templates += [...source.matchAll(TEMPLATE_KEY_PATTERN)].length
       out.literals.push(...scanKeys(source, DEFINITION_PATTERNS))
       for (const block of source.matchAll(/\bNAME_PROBLEM_KEYS\b[^=\n]*=\s*\{([^}]*)\}/g)) {
         out.literals.push(...scanKeys(block[1], [/'([^'\n]*)'/g]))
@@ -162,15 +176,17 @@ describe('main error keys', () => {
       file,
       ...scanRefusals(readFileSync(file, 'utf8')),
     }))
-    const scopedToModules = scanned.filter(
-      (s) => s.file.startsWith(join(here, 'modules')) || s.file.startsWith(sharedDir),
-    )
 
     it('every reasonKey and refuse() literal resolves in en.json', () => {
       const keys = [
         ...scanned.flatMap((s) => s.literals),
         ...Object.values(MASTER_SOURCES_REFUSAL_KEYS),
         ...Object.values(SERVER_ADDRESS_REJECTION_KEYS),
+        ...Object.values(MASTER_SOURCE_ADDRESS_REJECTION_KEYS),
+        ...Object.values(MASTER_SOURCE_FAILURE_KEYS),
+        ...Object.values(USERINFO_REJECTION_KEYS),
+        ...Object.values(CONSOLE_LINE_ERROR_KEYS),
+        ...Object.values(RUNNER_UNAVAILABLE_KEYS),
         ...Object.values(NAME_TEMPLATE_ERROR),
       ]
       expect(new Set(keys).size).toBeGreaterThanOrEqual(40)
@@ -178,8 +194,8 @@ describe('main error keys', () => {
       expect(scanned.flatMap((s) => s.unknown.map((u) => `${s.file}: ${u}`))).toEqual([])
     })
 
-    it('no refusal key is built from a template', () => {
-      expect(scopedToModules.filter((s) => s.templates > 0).map((s) => s.file)).toEqual([])
+    it('no fail() or refusal key is built from a template', () => {
+      expect(scanned.filter((s) => s.templates > 0).map((s) => s.file)).toEqual([])
     })
 
     it('a misspelled reasonKey literal fails the scan', () => {
@@ -187,6 +203,8 @@ describe('main error keys', () => {
       expect(missingRefusals(scan.literals)).toEqual(['mods.error.dsikWrite'])
       expect(scanRefusals('x = { reasonKey: computeKey(a) }').unknown).toHaveLength(1)
       expect(scanRefusals('reasonKey: `a.${b}`').templates).toBe(1)
+      expect(scanRefusals('fail(`a.${b}`)').templates).toBe(1)
+      expect(scanRefusals('return `a.b.${c}`').templates).toBe(1)
     })
   })
 })

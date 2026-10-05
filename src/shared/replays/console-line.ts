@@ -12,6 +12,15 @@ export const CONSOLE_LINE_MAX = 255
 
 export type ConsoleLineReason = 'empty' | 'multiline' | 'control' | 'nonAscii' | 'tooLong'
 
+/** Each reason's i18n key as a visible literal; a new `ConsoleLineReason` without an entry fails the build. */
+export const CONSOLE_LINE_ERROR_KEYS = {
+  empty: 'replays.console.error.empty',
+  multiline: 'replays.console.error.multiline',
+  control: 'replays.console.error.control',
+  nonAscii: 'replays.console.error.nonAscii',
+  tooLong: 'replays.console.error.tooLong',
+} as const satisfies Record<ConsoleLineReason, `replays.console.error.${string}`>
+
 export type ValidateConsoleLineResult =
   { ok: true; line: string } | { ok: false; reason: ConsoleLineReason }
 

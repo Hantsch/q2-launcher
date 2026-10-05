@@ -1,5 +1,11 @@
 import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
-import { fail, ok, type DetectedRunner, type Installation } from '@shared/types'
+import {
+  fail,
+  ok,
+  RUNNER_UNAVAILABLE_KEYS,
+  type DetectedRunner,
+  type Installation,
+} from '@shared/types'
 import type { RunnerOption } from '@shared/ipc'
 import { canonicalizePath } from '../lib/fs-utils'
 import { uiHarnessPickedFolders } from '../lib/ui-harness'
@@ -134,10 +140,9 @@ export function registerInstallationsIpc(app: AppContext): void {
     return showOpenDialog(event, {
       title: options.title,
       properties: ['openFile'],
-      filters:
-        isWindows()
-          ? [{ name: 'Executables', extensions: ['exe'] }]
-          : [{ name: 'All files', extensions: ['*'] }],
+      filters: isWindows()
+        ? [{ name: 'Executables', extensions: ['exe'] }]
+        : [{ name: 'All files', extensions: ['*'] }],
       ...(options.buttonLabel ? { buttonLabel: options.buttonLabel } : {}),
       ...(options.defaultPath ? { defaultPath: options.defaultPath } : {}),
     })
@@ -207,7 +212,7 @@ function toRunnerOption(runner: DetectedRunner, installation: Installation): Run
     id: runner.id,
     labelKey: `runner.kind.${runner.kind}`,
     available: runner.available,
-    ...(runner.available ? {} : { reasonKey: `runner.unavailable.${runner.kind}` }),
+    ...(runner.available ? {} : { reasonKey: RUNNER_UNAVAILABLE_KEYS[runner.kind] }),
   }
 }
 

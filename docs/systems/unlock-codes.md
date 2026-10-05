@@ -20,7 +20,9 @@ Operator guide: set up the signing key, issue codes, redeem them. Background: st
 | `watchlist`  | _Watchlist_ tab in the Servers view (marked experimental) |
 
 Feature names are plain strings; a new gated feature is added in code (`<FeatureGate feature="…">`
-in the renderer, `{ feature: '…' }` on the module's IPC handlers).
+in the renderer, `{ feature: '…' }` on the module's IPC handlers). A gated feature also gets a
+`settings.unlock.feature.<name>` label in the locale bundle; a name without one is shown as
+"Unknown feature (<name>)".
 
 ## One-time setup: SSH key from Bitwarden
 

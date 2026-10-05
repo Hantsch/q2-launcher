@@ -32,7 +32,7 @@ export const HOME_HANDLERS = {
    * `downloads.getSettings`. */
   getLayout: 'layout.get',
   /** Story 086: validates and persists a whole `HomeLayout`, returning the persisted value. An
-   * unknown `moduleId` is dropped server-side by `parseHomeLayout` (`main/lib/schemas.ts`), not
+   * unknown `moduleId` is dropped server-side by `parseHomeLayout` (`src/main/modules/home/persisted.ts`), not
    * rejected at this IPC boundary - see `setLayoutInputSchema`'s own doc comment. */
   setLayout: 'layout.set',
   /** Story 086: resets the layout to `DEFAULT_HOME_LAYOUT` and returns it. */
@@ -128,7 +128,7 @@ export const homeLayoutNoInputSchema = newsNoInputSchema
  * "an array of tiles, each with a string moduleId and four numbers", never that `moduleId` is one
  * of `DASHBOARD_MODULE_IDS`. A tile naming an id this build doesn't recognise (e.g. a layout saved
  * by a newer launcher, or hand-edited state) is dropped server-side by `parseHomeLayout`
- * (`main/lib/schemas.ts`), not rejected at this IPC boundary - so a renderer that still has one
+ * (`src/main/modules/home/persisted.ts`), not rejected at this IPC boundary - so a renderer that still has one
  * stale tile in memory can save the rest of a layout instead of failing the whole call.
  */
 export const tilePlacementInputSchema = z.object({

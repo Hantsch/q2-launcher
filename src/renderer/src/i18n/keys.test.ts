@@ -29,6 +29,8 @@ export const DYNAMIC_KEY_PREFIXES: readonly string[] = [
   'launch.userinfo.reject.',
   // `home.dashboard.tiles.configProfiles.state.${row.own}` in src/renderer/src/modules/home/dashboard/ConfigProfilesTile.tsx
   'home.dashboard.tiles.configProfiles.state.',
+  // t(`settings.unlock.feature.${feature}`) in src/renderer/src/components/unlock/UnlockCodePanel.tsx
+  'settings.unlock.feature.',
 
   // `servers.source.error.${reason}` in src/shared/servers/master-records.ts
   'servers.source.error.',

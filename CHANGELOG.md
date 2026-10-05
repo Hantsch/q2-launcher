@@ -40,6 +40,7 @@ version section when a release actually ships.
 - **Config** — A refused profile save now shows its reason on every tab; a new alias lands in your first category.
 - Name dialogs submit once on Enter; tabs work with the arrow keys.
 - **Servers** — A stalled or oversized server-list source no longer hangs a scan.
+- **Settings** — Unlock codes name their features instead of showing an internal id.
 
 ### Security
 

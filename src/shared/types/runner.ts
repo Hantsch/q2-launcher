@@ -10,6 +10,14 @@
  */
 export type RunnerKind = 'native' | 'wine' | 'umu' | 'proton' | 'steam'
 
+/** Reason keys of the kinds whose unavailability needs no per-installation judgement; `steam` and
+ * `proton` carry their own reasons, so they have no entry here. */
+export const RUNNER_UNAVAILABLE_KEYS = {
+  native: 'runner.unavailable.native',
+  wine: 'runner.unavailable.wine',
+  umu: 'runner.unavailable.umu',
+} as const satisfies Record<Exclude<RunnerKind, 'steam' | 'proton'>, `runner.unavailable.${string}`>
+
 /**
  * One runner `detectRunners()` (`src/main/services/runners.ts`) found - or looked for and did not
  * find - on the host. `id` is stable and distinguishes multiple runners of the same `kind` (several

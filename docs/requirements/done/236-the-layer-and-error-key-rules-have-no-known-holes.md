@@ -1,7 +1,7 @@
 ---
 id: 236
 title: the layer and error-key rules have no known holes
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -26,15 +26,15 @@ neighbours, so a future change cannot reopen a hole unnoticed.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — Either modules reach user-data dir, fetcher and native-image only through `app`, or
+- [x] **AC1** — Either modules reach user-data dir, fetcher and native-image only through `app`, or
       `src/architecture.test.ts` lists them as an allowlisted edge with a reason per entry.
-- [ ] **AC2** — The set of node builtins forbidden by `.oxlintrc.json` equals the architecture test's,
+- [x] **AC2** — The set of node builtins forbidden by `.oxlintrc.json` equals the architecture test's,
       checked by a test that compares the two.
-- [ ] **AC3** — No `fail()` or refusal key is built from a template; the error-key scan covers
+- [x] **AC3** — No `fail()` or refusal key is built from a template; the error-key scan covers
       `fail(\`...\`)` and the five remaining `${reason}` sites use literal key records.
-- [ ] **AC4** — The `.value.ok` check covers all of `src/renderer`, not a listed set of files, and no
+- [x] **AC4** — The `.value.ok` check covers all of `src/renderer`, not a listed set of files, and no
       comment points at a path that no longer exists.
-- [ ] **AC5** — An unknown unlock feature id renders through a translated fallback (decided in
+- [x] **AC5** — An unknown unlock feature id renders through a translated fallback (decided in
       refine), with a unit test.
 
 ## Open Questions
@@ -229,3 +229,25 @@ Review: → default
 No criterion describes a user action through the UI; no manual residue.
 
 ## Done
+
+Summary: modules reaching electron-backed shell libs are now an allowlisted, tested edge (D1); oxlint and the
+architecture test share one full node-builtin list with an equality test (D2); five `${reason}` key templates became
+literal records and the scan bans `fail(\`…\`)`/key-shaped templates across main + shared (D3); renderer-wide nested-Outcome
+check (D4); comment-path existence test with stale comments fixed (D5); unknown unlock feature ids render a translated fallback (D6).
+
+Commit message: `236: close layer/error-key rule holes (electron-backed edges, builtin list, literal key records, comment paths, unlock feature fallback)`
+
+Verification: narrow gate — `npm run build`, `lint`, `typecheck` green; `npx vitest run --changed HEAD` 4377 passed, 1 failed:
+`src/comments.test.ts` (story-pointer rule, `src/shared/modules/downloads.ts`) — pre-existing, identical on bare HEAD, not touched here.
+No e2e (no criterion is a UI action). Review: clean agent PASS; formatting findings fixed (prettier), re-checked typecheck/lint/targeted tests green.
+AC → test (all ran, passed): AC1 architecture.test.ts "a main module reaches an electron-backed shell lib only through an allowlisted edge";
+AC2 "oxlint forbids exactly the node builtins the architecture test forbids"; AC3 error-keys.test.ts "no fail() or refusal key is built from a template" + "a misspelled reasonKey literal fails the scan" + "every reasonKey and refuse() literal resolves in en.json";
+AC4 "no renderer file unwraps a nested Outcome" + "every repo path named in a source comment exists"; AC5 UnlockCodePanel.test.tsx "an unknown feature id renders the translated fallback" + "a known feature id renders its label". No manual residue.
+
+Decisions:
+- D1 allowlist also holds type-only `main/context` and `main/cinema-window` edges and `downloads/bootstrap/job.test-helpers.ts` (not exempted by `isTestFile`): the generic direct-edge rule found them; kept as listed edges rather than narrowing the rule.
+- D3 `MASTER_SOURCE_ADDRESS_REJECTION_KEYS`: 11 reasons now map to `servers.address.reject.*` (the old `servers.sources.reject.<reason>` keys did not exist in en.json; only tests called it); `MASTER_SOURCES_REFUSAL_KEYS` spreads the shared record. `RUNNER_UNAVAILABLE_KEYS` lives in `shared/types/runner.ts` (error-keys test cannot import electron-pulling main files).
+- D6 added `settings.unlock.feature.` to `DYNAMIC_KEY_PREFIXES` in `src/renderer/src/i18n/keys.test.ts` (key built dynamically). Changelog line added under existing `### Fixed`.
+- Unfixed minor review notes: `master-source-address.test.ts` compares the function to its own record (covers 8 of 17 reasons); AC2 shared-override comparison is partly circular by design (list is the single source), renderer + `builtinModules` checks are independent.
+
+tiers: D 6 / hard 0 · review default · cycles 1 · agents 8

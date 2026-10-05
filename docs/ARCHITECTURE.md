@@ -391,7 +391,8 @@ The shell never needs editing to add a module. The steps, walked through `replay
    `Q2L_UI_*` gate), `app.env` (a frozen environment copy), `app.isPackaged` and
    `app.userDataDir`; `src/architecture.test.ts` enforces it. The only other electron-backed
    paths are the narrow shell libs a module may import (`lib/paths`, `lib/net/fetcher`,
-   `lib/native-image`), which are not a general electron handle.
+   `lib/native-image`), which are not a general electron handle; each importing edge is an entry
+   in `ALLOWED` in `src/architecture.test.ts`.
 5. **Strings** — `src/renderer/src/modules/<id>/locale/en.json`, added to `MODULE_LOCALES_EN` in
    `src/renderer/src/modules/locales.ts` (replays keeps its keys under `replays.`); shell strings
    live in `src/renderer/src/i18n/locales/en.shell.json`. Main sends keys, never prose.

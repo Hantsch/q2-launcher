@@ -65,6 +65,12 @@ export function UnlockCodePanel() {
     return new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(featureExpiry)
   }
 
+  function featureLabel(feature: string): string {
+    return t(`settings.unlock.feature.${feature}`, {
+      defaultValue: t('settings.unlock.feature.unknown', { id: feature }),
+    })
+  }
+
   return (
     <div className="space-y-3">
       <div className="space-y-1">
@@ -136,7 +142,7 @@ export function UnlockCodePanel() {
         >
           <ul className="list-disc pl-4">
             {result.code.features.map((feature) => (
-              <li key={feature}>{t(`unlock.feature.${feature}`, { defaultValue: feature })}</li>
+              <li key={feature}>{featureLabel(feature)}</li>
             ))}
           </ul>
           <p className="text-ink-muted">{formatExpiry(result.code.featureExpiry)}</p>
@@ -154,11 +160,7 @@ export function UnlockCodePanel() {
             >
               <div className="flex flex-wrap items-center gap-1.5 text-ink">
                 {entry.label && <span className="font-medium">{entry.label}</span>}
-                <span>
-                  {entry.features
-                    .map((feature) => t(`unlock.feature.${feature}`, { defaultValue: feature }))
-                    .join(', ')}
-                </span>
+                <span>{entry.features.map(featureLabel).join(', ')}</span>
               </div>
               {entry.status === 'expired' ? (
                 <p className="text-ink-muted">

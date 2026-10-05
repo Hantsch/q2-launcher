@@ -260,7 +260,7 @@ function staleAliasSyntheticName(action: ConfigAction): string {
  * that action while it was still a plain bind. `setActions`'s own rebuild of
  * `binds` already gets this right by construction (it only re-adds a mirror
  * for a non-alias action), but the persisted-schema read
- * (`src/main/lib/schemas.ts`'s `normalizeConfigProfile`) derives a legacy
+ * (`src/main/modules/config/persisted.ts`'s `normalizeConfigProfile`) derives a legacy
  * row's `kind` in a step `setActions` never runs through - so a `state.json`
  * whose action carried a key while it was still a plain bind, and only became
  * `kind: 'alias'` because this read reinterpreted its category's old

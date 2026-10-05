@@ -677,8 +677,7 @@ export type ScanPhase = 'idle' | 'stage1' | 'stage2'
 /**
  * Why a scan is currently refused/held back from starting - a closed union so a later reason (if
  * any) is a compile-time-visible addition, unlike `ScanStartResult`'s/ `ManualServerAddResult`'s
- * free-text `reasonKey`. Currently only one member: the game is running
- * (docs/requirements/116-no-scan-runs-while-the-game-does.md).
+ * free-text `reasonKey`. Currently only one member: the game is running (story 116)
  */
 export type ScanBlockedReason = 'game-running'
 
