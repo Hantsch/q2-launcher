@@ -1,4 +1,6 @@
+import { z } from 'zod'
 import type { EngineKind } from '../types/engine'
+import { isSafeGameName } from '../mods/server-local-content'
 
 /**
  * The mods module's contract.
@@ -186,3 +188,117 @@ export const MODS_ERROR_KEYS = [
 ] as const
 
 export type ModsErrorKey = (typeof MODS_ERROR_KEYS)[number]
+
+// IPC payload validation for the mods module's handlers (strict, like the config module's).
+
+export const listInputSchema = z.object({ installationId: z.string().min(1) })
+
+export const catalogGetInputSchema = z.object({ refresh: z.boolean().optional() }).strict()
+export const revealInputSchema = listInputSchema.extend({
+  // A game dir is a single folder name, never a path - this blocks traversal
+  // (same rule as `activeGameDir` in `src/shared/ipc-schemas.ts`).
+  gameDir: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_.-]+$/, 'invalid game directory'),
+})
+
+/** Story 190: both ids are looked up in main (installation library, catalog); neither is a path. */
+export const installInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    catalogId: z.string().min(1).max(128),
+    version: z.string().min(1).max(64).optional(),
+  })
+  .strict()
+
+export const resolveInstallInputSchema = z
+  .object({
+    jobId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/, 'invalid job id'),
+    choice: z.enum(['overwrite', 'keep', 'cancel']),
+  })
+  .strict()
+
+/** Story 191: the mod is named by its catalog id (the install record's key), never by a path. */
+const modIdSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9_.-]+$/, 'invalid mod id')
+
+export const removalPreviewInputSchema = z
+  .object({ installationId: z.string().min(1), modId: modIdSchema })
+  .strict()
+
+/** Story 192: `gameDir` and `map` come from a game server - single safe names, never paths. */
+const safeGameNameSchema = z.string().refine(isSafeGameName, 'invalid name')
+
+export const mapPresenceInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    gameDir: safeGameNameSchema.optional(),
+    map: safeGameNameSchema,
+  })
+  .strict()
+
+export const updatePreviewInputSchema = z
+  .object({ installationId: z.string().min(1), catalogId: modIdSchema })
+  .strict()
+
+export const updateInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    catalogId: modIdSchema,
+    changedPolicy: z.enum(['overwrite', 'keep']),
+  })
+  .strict()
+
+export const removeInputSchema = z
+  .object({
+    installationId: z.string().min(1),
+    modId: modIdSchema,
+    changedFiles: z.enum(['delete', 'keep']),
+  })
+  .strict()
+
+/** Every `mods` handler paired with its payload schema. */
+export const MODS_HANDLER_SCHEMAS = {
+  [MODS_HANDLERS.list]: listInputSchema,
+  [MODS_HANDLERS.reveal]: revealInputSchema,
+  [MODS_HANDLERS.catalogGet]: catalogGetInputSchema,
+  [MODS_HANDLERS.install]: installInputSchema,
+  [MODS_HANDLERS.resolveInstall]: resolveInstallInputSchema,
+  [MODS_HANDLERS.removalPreview]: removalPreviewInputSchema,
+  [MODS_HANDLERS.remove]: removeInputSchema,
+  [MODS_HANDLERS.mapPresence]: mapPresenceInputSchema,
+  [MODS_HANDLERS.updatePreview]: updatePreviewInputSchema,
+  [MODS_HANDLERS.update]: updateInputSchema,
+} satisfies Record<(typeof MODS_HANDLERS)[keyof typeof MODS_HANDLERS], z.ZodTypeAny>
+
+type ModsSchemas = typeof MODS_HANDLER_SCHEMAS
+
+/** The mods module's typed contract; `req` is each schema's parsed output. */
+export type ModsContract = {
+  handlers: {
+    [MODS_HANDLERS.list]: { req: z.infer<ModsSchemas['list']>; res: ModsListResult }
+    [MODS_HANDLERS.reveal]: { req: z.infer<ModsSchemas['reveal']>; res: null }
+    [MODS_HANDLERS.catalogGet]: { req: z.infer<ModsSchemas['catalog.get']>; res: ModCatalogState }
+    [MODS_HANDLERS.install]: { req: z.infer<ModsSchemas['install']>; res: { jobId: string } }
+    [MODS_HANDLERS.resolveInstall]: { req: z.infer<ModsSchemas['install.resolve']>; res: null }
+    [MODS_HANDLERS.removalPreview]: {
+      req: z.infer<ModsSchemas['removal.preview']>
+      res: ModRemovalPreview
+    }
+    [MODS_HANDLERS.remove]: { req: z.infer<ModsSchemas['remove']>; res: { jobId: string } }
+    [MODS_HANDLERS.mapPresence]: { req: z.infer<ModsSchemas['map.presence']>; res: ModMapPresence }
+    [MODS_HANDLERS.updatePreview]: {
+      req: z.infer<ModsSchemas['update.preview']>
+      res: ModUpdatePreview
+    }
+    [MODS_HANDLERS.update]: { req: z.infer<ModsSchemas['update']>; res: { jobId: string } }
+  }
+  events: {
+    [MODS_EVENTS.installDecision]: ModInstallDecisionEvent
+  }
+}

@@ -1,11 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import type { z } from 'zod'
 import {
+  MODS_HANDLERS,
+  MODS_HANDLER_SCHEMAS,
+  type ModsContract,
   removalPreviewInputSchema,
   removeInputSchema,
   revealInputSchema,
   updateInputSchema,
   updatePreviewInputSchema,
-} from './schemas'
+} from './mods'
 
 describe('mods schemas', () => {
   it('reveal input rejects a gamedir with a path separator', () => {
@@ -48,5 +52,24 @@ describe('mods schemas', () => {
       false,
     )
     expect(updatePreviewInputSchema.safeParse({ ...base, extra: 1 }).success).toBe(false)
+  })
+})
+
+describe('ModsContract', () => {
+  it('ModsContract req types are derived from MODS_HANDLER_SCHEMAS', () => {
+    type Schemas = typeof MODS_HANDLER_SCHEMAS
+    expectTypeOf<ModsContract['handlers']['list']['req']>().toEqualTypeOf<
+      z.infer<Schemas['list']>
+    >()
+    expectTypeOf<ModsContract['handlers']['install']['req']>().toEqualTypeOf<
+      z.infer<Schemas['install']>
+    >()
+    expectTypeOf<ModsContract['handlers']['catalog.get']['req']>().toEqualTypeOf<
+      z.infer<Schemas['catalog.get']>
+    >()
+  })
+
+  it('MODS_HANDLER_SCHEMAS has exactly one schema per MODS_HANDLERS value', () => {
+    expect(Object.keys(MODS_HANDLER_SCHEMAS).sort()).toEqual(Object.values(MODS_HANDLERS).sort())
   })
 })

@@ -1,3 +1,33 @@
 - 2026-10-05T08:00:17 · clarification · started
 - 2026-10-05T08:11:45 · refine · 232-250 · started
 - 2026-10-05T08:22:32 · refine · 232-250 · done
+- 2026-10-05T08:22:32 · 232 · build · started
+- 2026-10-05 08:22 · 232 · D1 library convert · started
+- 2026-10-05 08:23 · 232 · D1 library convert · done
+- 2026-10-05 08:23 · 232 · D2 mods contract+main · started
+- 2026-10-05 08:24 · 232 · D2 mods contract+main · done
+- 2026-10-05 08:24 · 232 · D3 mods client · started
+- 2026-10-05 08:25 · 232 · D3 mods client · done
+- 2026-10-05 08:25 · 232 · D4 downloads contract+main · started
+- 2026-10-05 08:27 · 232 · D4 downloads contract+main · done
+- 2026-10-05 08:27 · 232 · D5 downloads client · started
+- 2026-10-05 08:27 · 232 · D5 downloads client · done
+- 2026-10-05 08:27 · 232 · D6 config schemas move · started
+- 2026-10-05 08:28 · 232 · D6 config schemas move · done
+- 2026-10-05 08:28 · 232 · D7 config contract+main (hard) · started
+- 2026-10-05 08:31 · 232 · D7 config contract+main (hard) · done
+- 2026-10-05 08:31 · 232 · D8 config client · started
+- 2026-10-05 08:32 · 232 · D8 config client · done
+- 2026-10-05 08:32 · 232 · D9 replays contract+main · started
+- 2026-10-05 08:33 · 232 · D9 replays contract+main · done
+- 2026-10-05 08:33 · 232 · D10 replays client · started
+- 2026-10-05 08:34 · 232 · D10 replays client · done
+- 2026-10-05 08:34 · 232 · D11 close gates+docs · started
+- 2026-10-05 08:35 · 232 · D11 close gates+docs · done
+- 2026-10-05 08:35 · 232 · verify · started
+- 2026-10-05 08:44 · 232 · verify · blocked: systems-docs mods-module.md Handlers; 4 flows red (possible overlap)
+- 2026-10-05 08:44 · 232 · verify (rerun) · started
+- 2026-10-05 08:49 · 232 · verify (rerun) · done
+- 2026-10-05 08:49 · 232 · review 1 · started
+- 2026-10-05 08:52 · 232 · review 1 · done
+- 2026-10-05 08:53 · 232 · story · done

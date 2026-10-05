@@ -123,8 +123,7 @@ The module seam (`ModuleSetup.handle` in `src/main/modules/types.ts`) mirrors th
 same required-schema idea one level down, for `module:invoke`'s per-module-handler
 payloads. A module's request schemas live in its shared contract map
 (`<MODULE>_HANDLER_SCHEMAS` in `src/shared/modules/<id>.ts`, see `home.ts`), never exposed
-as paths to trust. A main-only `schemas.ts` (`config`, `downloads`, `mods`) is the
-not-yet-converted state and moves to shared (planned in story 232).
+as paths to trust. Main keeps only persisted-state and manifest schemas.
 
 **Paths are never trusted.** `app:revealPath` only opens folders belonging to a
 registered installation or the launcher's own data directories. A mod directory is
@@ -370,8 +369,7 @@ The shell never needs editing to add a module. The steps, walked through `replay
    satisfying `ModuleContract` (`src/shared/modules/contract.ts`): `handlers` as `{ req, res }`
    per name (`req` via `z.infer` of the schema map, `res` the value inside `Outcome`) and
    `events` as name to payload — see `HomeContract` in `home.ts` and `ServersContract` in
-   `servers.ts`. `library`, `config`, `downloads`, `mods` and `replays` do not have a contract
-   type yet (planned in story 232).
+   `servers.ts`. Every built module is contract-typed.
 2. **`ModuleId` + manifest** — add the id to `ModuleId` and an entry to `MODULE_MANIFESTS` in
    `src/shared/types/module.ts`: title/description i18n keys, icon, route, nav placement,
    `status`, capabilities, `ipcNamespace`.
@@ -408,8 +406,7 @@ The shell never needs editing to add a module. The steps, walked through `replay
    `src/renderer/src/modules/index.ts` (replays: `ReplaysView`, `ReplaysSettingsSection`), and
    `src/renderer/src/modules/<id>/client.ts` over `moduleClient.ts`: a contract-typed module uses
    `createModuleClient<XContract>(id)`, whose `call` infers `Promise<Outcome<Res>>` and `on` the
-   event payload; replays' client still calls `callModule`/`onModuleEvent` (planned in story
-   232). Add the handler map to `GROUPS` in `src/renderer/src/modules/handler-coverage.test.ts`.
+   event payload. Add the handler map to `GROUPS` in `src/renderer/src/modules/handler-coverage.test.ts`.
 9. **Flows and screens** — the module's user-facing behaviour is proven by flows in
    `scripts/flows/` (`replays-cinema.mjs`, `replays-copy-in.mjs`, ...), run with
    `npm run ui:flow -- <name>`, and every screen it adds is an entry in `SCREENS` in

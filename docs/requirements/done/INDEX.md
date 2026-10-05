@@ -326,3 +326,4 @@ second roadmap.
 - 228 — every shipped module has a system doc · S33 · as-built docs for config/servers/replays/home/mods, concepts moved to systems, process rule + systems-docs test
 - 230 — comments state invariants, not sprint history · S33 · ids and sprint narrative swept from ~440 files, headers rewritten, guarded by src/comments.test.ts
 - 229 — tech debt has one home and an ageing rule · S33 · TECH-DEBT.md + check-docs validator, ageing rule in README/ai-scrum Notes, follow-ups triaged
+- 232 — every module's handlers are typed from a contract · S34 · all seven modules use defineModule/createModuleClient with shared request schemas; coverage gates have no escapes

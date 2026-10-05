@@ -2,8 +2,14 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { fakeSectionState } from '../../../test-support/state-sections'
-import { configProfileSchema, configState, parseConfigProfiles } from './persisted'
-import { setProfileActionsInputSchema } from './schemas'
+import {
+  configProfileSchema,
+  configState,
+  configWriteFailuresSchema,
+  parseConfigProfiles,
+  parseConfigWriteFailures,
+} from './persisted'
+import { setProfileActionsInputSchema } from '@shared/modules/config-schemas'
 import { legacyAliasNameFor } from '@shared/config/aliases/alias-render'
 import { bindValueFor } from '@shared/config/aliases/action-mirror'
 import { captureBaseline } from '@shared/config/profile/profile-baseline'
@@ -911,5 +917,54 @@ describe('configState fileSourceMigratedAt', () => {
       '2026-01-01T00:00:00.000Z',
     )
     expect(fileSourceMigratedAt.get()).toBe('2026-01-01T00:00:00.000Z')
+  })
+})
+
+/**
+ * Story 022 (D5): the persisted map of write failures survived across a restart -
+ * `<profileId>|<installationId|'own'>` -> the last failed/deferred write attempt. No engine logic
+ * yet, just the round-trip and the forgiving-on-bad-data behavior described in
+ * `main/modules/config/persisted.ts`'s doc comment on `configWriteFailuresSchema`.
+ */
+describe('configWriteFailuresSchema / parseConfigWriteFailures', () => {
+  it('round-trips a well-formed map unchanged', () => {
+    const value = {
+      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
+      'p1|i1': { messageKey: 'config.sync.error.permission', at: '2026-08-20T12:00:00.000Z' },
+    }
+    expect(parseConfigWriteFailures(value)).toEqual(value)
+  })
+
+  it('parses undefined/missing input to {}', () => {
+    expect(parseConfigWriteFailures(undefined)).toEqual({})
+  })
+
+  it('parses a totally malformed value (a string) to {}', () => {
+    expect(parseConfigWriteFailures('not a map')).toEqual({})
+  })
+
+  it('parses a totally malformed value (an array) to {}', () => {
+    expect(parseConfigWriteFailures(['p1|own'])).toEqual({})
+  })
+
+  /**
+   * Decision: a single malformed entry is dropped on its own rather than wiping the whole map -
+   * there is no sensible fallback value for one corrupt failure entry (unlike, say,
+   * `configPlayedModsSchema`'s per-entry `.catch(() => [])`), so it is filtered out before the
+   * record schema ever sees it instead of being defaulted to a placeholder.
+   */
+  it('drops a single malformed entry, keeping the rest of an otherwise-valid map', () => {
+    const value = {
+      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
+      'p1|i1': { messageKey: 42, at: '2026-08-20T12:00:00.000Z' },
+      'p1|i2': 'not an object',
+    }
+    expect(parseConfigWriteFailures(value)).toEqual({
+      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
+    })
+  })
+
+  it('exposes the same behavior via configWriteFailuresSchema directly', () => {
+    expect(configWriteFailuresSchema.parse(null)).toEqual({})
   })
 })

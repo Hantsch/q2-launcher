@@ -1,3 +1,4 @@
+import type { BoundModule } from '../define-module'
 import { stat } from 'node:fs/promises'
 import { demoReadability } from '@shared/demos/readability'
 import type { DemoUnreadable } from '@shared/demos/readability'
@@ -11,6 +12,7 @@ import {
   type ReplaysScanProgress,
   type ReplaysScanStartResult,
   type ReplaysSourceError,
+  type ReplaysContract,
 } from '@shared/modules/replays'
 import {
   compileNameTemplate,
@@ -87,7 +89,7 @@ export interface ReplaysScanLog {
 }
 
 export interface CreateReplaysScanServiceOptions {
-  emit: (type: string, payload: unknown) => void
+  emit: BoundModule<ReplaysContract>['emit']
   cache: Pick<ReplaysIndexCache, 'read' | 'write'>
   /** Runs discovery fresh; read at scan time, never captured once. */
   discover: () => Promise<{ demos: DiscoveredDemoFile[]; sourceErrors: ReplaysSourceError[] }>

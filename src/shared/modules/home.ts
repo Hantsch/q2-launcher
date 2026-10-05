@@ -50,7 +50,7 @@ export const HOME_EVENTS = {
 /**
  * `news.get`/`news.refresh` both take no payload - the feed is not parameterised by the caller.
  * Kept as one named schema (mirrors `downloadsNoInputSchema`,
- * `src/main/modules/downloads/schemas.ts`) so both handlers share the exact same schema instance.
+ * `src/shared/modules/downloads.ts`) so both handlers share the exact same schema instance.
  */
 export const newsNoInputSchema = z.void()
 

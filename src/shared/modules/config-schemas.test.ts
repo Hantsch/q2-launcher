@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest'
-import { configWriteFailuresSchema, parseConfigWriteFailures } from './persisted'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import type { z } from 'zod'
+import { CONFIG_HANDLERS, type ConfigContract, type TidyUpApplyInput } from './config'
 import {
   actionTextSchema,
+  CONFIG_HANDLER_SCHEMAS,
   commitProfileCvarsInputSchema,
   configActionSchema,
   importFilesCommitInputSchema,
@@ -13,7 +15,7 @@ import {
   setSwitchBindInputSchema,
   syncStateInputSchema,
   writeProfileInputSchema,
-} from './schemas'
+} from './config-schemas'
 
 /**
  * Story 007's IPC payload schema for `setSwitchBind`. `configModule`'s handler
@@ -543,60 +545,11 @@ describe('writeProfileInputSchema', () => {
 })
 
 /**
- * Story 022 (D5): the persisted map of write failures survived across a restart -
- * `<profileId>|<installationId|'own'>` -> the last failed/deferred write attempt. No engine logic
- * yet, just the round-trip and the forgiving-on-bad-data behavior described in
- * `main/modules/config/persisted.ts`'s doc comment on `configWriteFailuresSchema`.
- */
-describe('configWriteFailuresSchema / parseConfigWriteFailures', () => {
-  it('round-trips a well-formed map unchanged', () => {
-    const value = {
-      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
-      'p1|i1': { messageKey: 'config.sync.error.permission', at: '2026-08-20T12:00:00.000Z' },
-    }
-    expect(parseConfigWriteFailures(value)).toEqual(value)
-  })
-
-  it('parses undefined/missing input to {}', () => {
-    expect(parseConfigWriteFailures(undefined)).toEqual({})
-  })
-
-  it('parses a totally malformed value (a string) to {}', () => {
-    expect(parseConfigWriteFailures('not a map')).toEqual({})
-  })
-
-  it('parses a totally malformed value (an array) to {}', () => {
-    expect(parseConfigWriteFailures(['p1|own'])).toEqual({})
-  })
-
-  /**
-   * Decision: a single malformed entry is dropped on its own rather than wiping the whole map -
-   * there is no sensible fallback value for one corrupt failure entry (unlike, say,
-   * `configPlayedModsSchema`'s per-entry `.catch(() => [])`), so it is filtered out before the
-   * record schema ever sees it instead of being defaulted to a placeholder.
-   */
-  it('drops a single malformed entry, keeping the rest of an otherwise-valid map', () => {
-    const value = {
-      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
-      'p1|i1': { messageKey: 42, at: '2026-08-20T12:00:00.000Z' },
-      'p1|i2': 'not an object',
-    }
-    expect(parseConfigWriteFailures(value)).toEqual({
-      'p1|own': { messageKey: 'config.sync.error.locked', at: '2026-08-21T00:00:00.000Z' },
-    })
-  })
-
-  it('exposes the same behavior via configWriteFailuresSchema directly', () => {
-    expect(configWriteFailuresSchema.parse(null)).toEqual({})
-  })
-})
-
-/**
  * Story 066 D3's own acceptance test: the `fileIds` shape shared by `import.previewFiles`'s and
  * `import.commitFiles`' payloads (`ImportFilesPreviewInput`/`ImportFilesCommitInput`,
  * `@shared/modules/config`) - the ordered list of `PickedConfigFile` ids to fold left-to-right.
  * Whether an id actually names a file the session's picker registry knows about is not a shape
- * question (see `importFilesPreviewInputSchema`'s own doc comment in `schemas.ts`) - only structural
+ * question (see `importFilesPreviewInputSchema`'s own doc comment in `config-schemas.ts`) - only structural
  * validity is this schema's job, and that is what these cases pin.
  */
 describe('importFilesPreviewInputSchema (fileIds)', () => {
@@ -658,5 +611,36 @@ describe('importFilesCommitInputSchema (fileIds)', () => {
   it('rejects a fileIds value that is not an array of strings', () => {
     expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: [1, 2] }).success).toBe(false)
     expect(importFilesCommitInputSchema.safeParse({ ...base, fileIds: 'a1' }).success).toBe(false)
+  })
+})
+
+describe('config contract', () => {
+  it('ConfigContract req types are derived from CONFIG_HANDLER_SCHEMAS', () => {
+    type Handlers = ConfigContract['handlers']
+    expectTypeOf<Handlers['list']['req']>().toEqualTypeOf<void>()
+    expectTypeOf<Handlers['import.pickFiles']['req']>().toEqualTypeOf<void>()
+    // The key schema normalises string -> string, so the parsed output keeps the input's shape.
+    expectTypeOf<Handlers['setSwitchBind']['req']>().toEqualTypeOf<{
+      installationId: string
+      key: string | null
+    }>()
+    expectTypeOf<Handlers['tidyUp.apply']['req']>().toEqualTypeOf<TidyUpApplyInput>()
+    expectTypeOf<Handlers['save']['req']>().toEqualTypeOf<
+      z.infer<(typeof CONFIG_HANDLER_SCHEMAS)['save']>
+    >()
+    expectTypeOf<Handlers['cleanup.apply']['req']>().toEqualTypeOf<
+      z.infer<(typeof CONFIG_HANDLER_SCHEMAS)['cleanup.apply']>
+    >()
+    expectTypeOf<Handlers['setActions']['req']['profileId']>().toEqualTypeOf<string>()
+    // The contract keeps `SetProfileActionsInput` (readonly slot arrays); the schema output must stay assignable to it.
+    expectTypeOf<
+      z.infer<(typeof CONFIG_HANDLER_SCHEMAS)[typeof CONFIG_HANDLERS.setActions]>
+    >().toExtend<Handlers[typeof CONFIG_HANDLERS.setActions]['req']>()
+  })
+
+  it('CONFIG_HANDLER_SCHEMAS has exactly one schema per CONFIG_HANDLERS value', () => {
+    expect(Object.keys(CONFIG_HANDLER_SCHEMAS).sort()).toEqual(
+      Object.values(CONFIG_HANDLERS).sort(),
+    )
   })
 })

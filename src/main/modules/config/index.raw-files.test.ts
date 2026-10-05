@@ -13,7 +13,7 @@ import { type AppContext } from '../../context'
 import { StateStore } from '../../services/state'
 import { type ModuleHandler } from '../types'
 import { sentinelLine } from '@shared/config/render/render'
-import { MAX_RAW_CONFIG_TEXT_LENGTH } from './schemas'
+import { MAX_RAW_CONFIG_TEXT_LENGTH } from '@shared/modules/config-schemas'
 import { configModule } from './index'
 import {
   collectHandlers,

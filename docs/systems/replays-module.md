@@ -40,7 +40,7 @@ This document describes the module as built. `replays` is a registered module; i
 
 **Shared** (`src/shared/`, pure)
 
-- `modules/replays.ts` — handler map, events, schemas.
+- `modules/replays.ts` — handler map, events, schemas and the typed `ReplaysContract`.
 - `replays/` — `sidecar.ts`, `list-sort.ts`, `list-filter.ts`, `name-template.ts`,
   `name-templates.ts`, `demo-rename.ts`, `demo-play.ts`, `demo-control.ts`, `timeline.ts`,
   `console-line.ts`, `cinema.ts`; `demos/` — header, frame and readability readers.

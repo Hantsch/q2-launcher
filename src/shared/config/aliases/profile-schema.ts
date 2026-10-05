@@ -17,7 +17,7 @@ import type {
  * The config profile's sub-shapes, declared once (story 211).
  *
  * Each shape carries exactly the rules that *both* readers enforce - the strict IPC payload schemas
- * (`main/modules/config/schemas.ts`) and the forgiving persisted-state schemas
+ * (`shared/modules/config-schemas.ts`) and the forgiving persisted-state schemas
  * (`main/modules/config/persisted.ts`). The IPC side adds its caps (`.max(n)`, extra `.min(1)`) on
  * top; the persisted side adds its forgiveness (`.catch()`, row-level drops, legacy fields) on top.
  * A rule added here therefore tightens *both*: on the persisted side that means a stored row that

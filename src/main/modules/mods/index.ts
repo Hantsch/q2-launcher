@@ -2,6 +2,8 @@ import { join } from 'node:path'
 import {
   MODS_EVENTS,
   MODS_HANDLERS,
+  MODS_HANDLER_SCHEMAS,
+  type ModsContract,
   type ModActiveInstall,
   type ModCatalogState,
   type ModGameDir,
@@ -13,6 +15,7 @@ import {
 import type { ModsErrorKey } from '@shared/modules/mods'
 import { fail, ok, type Installation, type Outcome } from '@shared/types'
 import { readBinaryArch } from '../../lib/fs-utils'
+import { defineModule } from '../define-module'
 import type { MainModule } from '../types'
 import { readModsState, recordedGameDirs } from './install-records'
 import { resolveDownloadSource } from '../../services/content/source'
@@ -24,18 +27,6 @@ import { previewModRemoval, startModRemove } from './remove-job'
 import { previewModUpdate, startModUpdate } from './update-job'
 import { computeModUpdateStatus } from './update-status'
 import { startModInstall, type ModInstallDecision } from './install-job'
-import {
-  catalogGetInputSchema,
-  installInputSchema,
-  listInputSchema,
-  mapPresenceInputSchema,
-  removalPreviewInputSchema,
-  removeInputSchema,
-  resolveInstallInputSchema,
-  revealInputSchema,
-  updateInputSchema,
-  updatePreviewInputSchema,
-} from './schemas'
 
 /** The mods module only ever answers with keys from its closed set. */
 const failMods = (key: ModsErrorKey, params?: Record<string, string | number>): Outcome<never> =>
@@ -102,7 +93,9 @@ interface RunningInstall {
 export const modsModule: MainModule = {
   id: 'mods',
 
-  setup({ handle, emit, app, log }) {
+  setup(setup) {
+    const { app, log } = setup
+    const { handle, emit } = defineModule<ModsContract>('mods', MODS_HANDLER_SCHEMAS).bind(setup)
     // Resolved once, as in the downloads module; httpsOnly follows the harness result.
     const source = resolveDownloadSource(app.harness)
     const catalog = new CatalogService({ log, source })
@@ -122,81 +115,73 @@ export const modsModule: MainModule = {
           ...(r.decision ? { decision: r.decision } : {}),
         }))
 
-    handle(
-      MODS_HANDLERS.catalogGet,
-      catalogGetInputSchema,
-      async (input): Promise<Outcome<ModCatalogState>> => {
-        const snapshot = await catalog.getCatalog({ refresh: input.refresh })
-        if (snapshot.status === 'unavailable') return ok({ status: 'unavailable' })
-        return ok({
-          status: 'ok',
-          entries: snapshot.entries.map(toCatalogEntryDto),
-          fetchedAt: snapshot.fetchedAt,
-          fromCache: snapshot.fromCache,
-          ageMs: snapshot.ageMs,
-        })
-      },
-    )
+    handle(MODS_HANDLERS.catalogGet, async (input): Promise<Outcome<ModCatalogState>> => {
+      const snapshot = await catalog.getCatalog({ refresh: input.refresh })
+      if (snapshot.status === 'unavailable') return ok({ status: 'unavailable' })
+      return ok({
+        status: 'ok',
+        entries: snapshot.entries.map(toCatalogEntryDto),
+        fetchedAt: snapshot.fetchedAt,
+        fromCache: snapshot.fromCache,
+        ageMs: snapshot.ageMs,
+      })
+    })
 
-    handle(
-      MODS_HANDLERS.install,
-      installInputSchema,
-      async (input): Promise<Outcome<{ jobId: string }>> => {
-        // `askDecision` runs only after staging (async), by which time `running.set` below has run.
-        const started = await startModInstall(
-          {
-            runner: app.jobRunner,
-            jobs: app.jobs,
-            installations: app.installations,
-            catalog,
-            enginePackages: async () => {
-              try {
-                return (await manifest.getManifest()).packages
-              } catch {
-                return []
-              }
-            },
-            stage: stagePackage,
-            resolveExtractor: () => resolveVendoredExtractor(app.isPackaged),
-            readArch: readBinaryArch,
-            userDataPath: app.userDataDir,
-            askDecision: (jobId, request) =>
-              new Promise<ModInstallDecision>((resolve) => {
-                const entry = running.get(jobId) ?? {
-                  installationId: input.installationId,
-                  catalogId: input.catalogId,
-                }
-                running.set(jobId, entry)
-                entry.decision = request
-                pending.set(jobId, resolve)
-                emit(MODS_EVENTS.installDecision, {
-                  jobId,
-                  installationId: entry.installationId,
-                  catalogId: entry.catalogId,
-                  folder: request.folder,
-                  conflicts: request.conflicts,
-                })
-              }),
-            log,
+    handle(MODS_HANDLERS.install, async (input): Promise<Outcome<{ jobId: string }>> => {
+      // `askDecision` runs only after staging (async), by which time `running.set` below has run.
+      const started = await startModInstall(
+        {
+          runner: app.jobRunner,
+          jobs: app.jobs,
+          installations: app.installations,
+          catalog,
+          enginePackages: async () => {
+            try {
+              return (await manifest.getManifest()).packages
+            } catch {
+              return []
+            }
           },
-          input,
-        )
-        if (!started.ok) return started
-        const { jobId, settled } = started.value
-        if (!running.has(jobId)) {
-          running.set(jobId, { installationId: input.installationId, catalogId: input.catalogId })
-        }
-        void settled.then(() => {
-          // A job cancelled from the Downloads tab never gets an answer: settle it as cancel and drop it.
-          pending.get(jobId)?.('cancel')
-          pending.delete(jobId)
-          running.delete(jobId)
-        })
-        return ok({ jobId })
-      },
-    )
+          stage: stagePackage,
+          resolveExtractor: () => resolveVendoredExtractor(app.isPackaged),
+          readArch: readBinaryArch,
+          userDataPath: app.userDataDir,
+          askDecision: (jobId, request) =>
+            new Promise<ModInstallDecision>((resolve) => {
+              const entry = running.get(jobId) ?? {
+                installationId: input.installationId,
+                catalogId: input.catalogId,
+              }
+              running.set(jobId, entry)
+              entry.decision = request
+              pending.set(jobId, resolve)
+              emit(MODS_EVENTS.installDecision, {
+                jobId,
+                installationId: entry.installationId,
+                catalogId: entry.catalogId,
+                folder: request.folder,
+                conflicts: request.conflicts,
+              })
+            }),
+          log,
+        },
+        input,
+      )
+      if (!started.ok) return started
+      const { jobId, settled } = started.value
+      if (!running.has(jobId)) {
+        running.set(jobId, { installationId: input.installationId, catalogId: input.catalogId })
+      }
+      void settled.then(() => {
+        // A job cancelled from the Downloads tab never gets an answer: settle it as cancel and drop it.
+        pending.get(jobId)?.('cancel')
+        pending.delete(jobId)
+        running.delete(jobId)
+      })
+      return ok({ jobId })
+    })
 
-    handle(MODS_HANDLERS.resolveInstall, resolveInstallInputSchema, (input): Outcome<null> => {
+    handle(MODS_HANDLERS.resolveInstall, (input): Outcome<null> => {
       const resolve = pending.get(input.jobId)
       if (!resolve) return failMods('mods.error.noPendingDecision')
       pending.delete(input.jobId)
@@ -213,13 +198,11 @@ export const modsModule: MainModule = {
       log,
     }
 
-    handle(
-      MODS_HANDLERS.removalPreview,
-      removalPreviewInputSchema,
-      (input): Promise<Outcome<ModRemovalPreview>> => previewModRemoval(removeDeps, input),
+    handle(MODS_HANDLERS.removalPreview, (input): Promise<Outcome<ModRemovalPreview>> =>
+      previewModRemoval(removeDeps, input),
     )
 
-    handle(MODS_HANDLERS.remove, removeInputSchema, (input): Outcome<{ jobId: string }> => {
+    handle(MODS_HANDLERS.remove, (input): Outcome<{ jobId: string }> => {
       const started = startModRemove(removeDeps, input)
       if (!started.ok) return started
       return ok({ jobId: started.value.jobId })
@@ -253,30 +236,22 @@ export const modsModule: MainModule = {
       return hasRecord ? ok(null) : fail('mods.update.refused.noRecord')
     }
 
-    handle(
-      MODS_HANDLERS.updatePreview,
-      updatePreviewInputSchema,
-      async (input): Promise<Outcome<ModUpdatePreview>> => {
-        const checked = checkUpdatable(input.installationId, input.catalogId)
-        if (!checked.ok) return checked
-        return previewModUpdate(updateDeps, input)
-      },
-    )
+    handle(MODS_HANDLERS.updatePreview, async (input): Promise<Outcome<ModUpdatePreview>> => {
+      const checked = checkUpdatable(input.installationId, input.catalogId)
+      if (!checked.ok) return checked
+      return previewModUpdate(updateDeps, input)
+    })
 
-    handle(
-      MODS_HANDLERS.update,
-      updateInputSchema,
-      async (input): Promise<Outcome<{ jobId: string }>> => {
-        const checked = checkUpdatable(input.installationId, input.catalogId)
-        if (!checked.ok) return checked
-        // Like 190's install: the jobs list and the post-job revalidation are the refresh signal.
-        const started = await startModUpdate(updateDeps, input)
-        if (!started.ok) return started
-        return ok({ jobId: started.value.jobId })
-      },
-    )
+    handle(MODS_HANDLERS.update, async (input): Promise<Outcome<{ jobId: string }>> => {
+      const checked = checkUpdatable(input.installationId, input.catalogId)
+      if (!checked.ok) return checked
+      // Like 190's install: the jobs list and the post-job revalidation are the refresh signal.
+      const started = await startModUpdate(updateDeps, input)
+      if (!started.ok) return started
+      return ok({ jobId: started.value.jobId })
+    })
 
-    handle(MODS_HANDLERS.list, listInputSchema, async (input): Promise<Outcome<ModsListResult>> => {
+    handle(MODS_HANDLERS.list, async (input): Promise<Outcome<ModsListResult>> => {
       const installation = app.installations.find(input.installationId)
       if (!installation) return failMods('mods.error.installationNotFound')
       // Only the catalog (never the gamedir, never a package) is consulted, and only when a record exists.
@@ -297,23 +272,19 @@ export const modsModule: MainModule = {
       })
     })
 
-    handle(
-      MODS_HANDLERS.mapPresence,
-      mapPresenceInputSchema,
-      async (input): Promise<Outcome<ModMapPresence>> => {
-        const installation = app.installations.find(input.installationId)
-        if (!installation) return failMods('mods.error.installationNotFound')
-        const extractor = resolveVendoredExtractor(app.isPackaged)
-        // The root comes from the installation record; only the two safe names come from the payload.
-        const presence = await mapPresence(
-          { rootPath: installation.rootPath, gameDir: input.gameDir, map: input.map },
-          { zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists } },
-        )
-        return ok(presence)
-      },
-    )
+    handle(MODS_HANDLERS.mapPresence, async (input): Promise<Outcome<ModMapPresence>> => {
+      const installation = app.installations.find(input.installationId)
+      if (!installation) return failMods('mods.error.installationNotFound')
+      const extractor = resolveVendoredExtractor(app.isPackaged)
+      // The root comes from the installation record; only the two safe names come from the payload.
+      const presence = await mapPresence(
+        { rootPath: installation.rootPath, gameDir: input.gameDir, map: input.map },
+        { zipDeps: { extractorPath: extractor.path, extractorExists: extractor.exists } },
+      )
+      return ok(presence)
+    })
 
-    handle(MODS_HANDLERS.reveal, revealInputSchema, async (input): Promise<Outcome<null>> => {
+    handle(MODS_HANDLERS.reveal, async (input): Promise<Outcome<null>> => {
       const installation = app.installations.find(input.installationId)
       if (!installation) return failMods('mods.error.installationNotFound')
       const wanted = input.gameDir.toLowerCase()

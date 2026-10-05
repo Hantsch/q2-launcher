@@ -6,36 +6,13 @@ import { homedir, hostname } from 'node:os'
 import { join } from 'node:path'
 import {
   REPLAYS_HANDLERS,
-  extraFoldersAddSchema,
-  extraFoldersRemoveSchema,
-  listGetFilterInputSchema,
-  listGetSortInputSchema,
-  listSetFilterInputSchema,
-  listSetSortInputSchema,
-  modWarningReadInputSchema,
-  modWarningResetTrustedInputSchema,
-  modWarningSetEnabledInputSchema,
-  modWarningTrustModInputSchema,
-  nameTemplatesAddSchema,
-  nameTemplatesRemoveSchema,
-  nameTemplatesReorderSchema,
-  nameTemplatesResetSchema,
-  nameTemplatesUpdateSchema,
-  replaysDemoFileActionSchema,
-  replaysDemoPlaySchema,
-  replaysDemoRenameSchema,
-  replaysPlaybackCinemaSchema,
-  replaysPlaybackDisplayReadSchema,
-  replaysPlaybackStageSchema,
-  replaysConsoleSendSchema,
-  replaysNoInputSchema,
-  replaysSidecarReadSchema,
-  replaysSidecarWriteSchema,
+  REPLAYS_HANDLER_SCHEMAS,
+  type ReplaysContract,
   type ExtraFoldersResult,
 } from '@shared/modules/replays'
-import { timelineActionSchema } from '@shared/replays/timeline'
 import { EMPTY_DEMO_LIST_FILTER, normalizeDemoListFilter } from '@shared/replays/list-filter'
 import type { UiHarness } from '../../lib/ui-harness'
+import { defineModule } from '../define-module'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { SESSION_RESTORE_CVARS, createDemoPlay, launcherSweepDirs } from './demo-play'
@@ -159,7 +136,11 @@ export async function scanHoldMs({ harness, userData }: ScanHoldMsOptions): Prom
 export const replaysModule: MainModule = {
   id: 'replays',
 
-  setup({ handle, emit, app, log, onDispose }) {
+  setup(setupContext) {
+    const { app, log, onDispose } = setupContext
+    const { handle, emit } = defineModule<ReplaysContract>('replays', REPLAYS_HANDLER_SCHEMAS).bind(
+      setupContext,
+    )
     const discoveryContext = (): DiscoverContext => {
       const extractor = resolveExtractorPath({
         isPackaged: app.isPackaged,
@@ -434,16 +415,12 @@ export const replaysModule: MainModule = {
         x11Keeper ? beginKeptSession(start, stageFollow.begin) : stageFollow.begin(start),
     })
 
-    handle(REPLAYS_HANDLERS.overviewRead, replaysNoInputSchema, async () =>
-      ok(await scanService.overview()),
-    )
-    handle(REPLAYS_HANDLERS.scanStart, replaysNoInputSchema, async () =>
-      ok(await scanService.start()),
-    )
+    handle(REPLAYS_HANDLERS.overviewRead, async () => ok(await scanService.overview()))
+    handle(REPLAYS_HANDLERS.scanStart, async () => ok(await scanService.start()))
     // `index.read` answers composed rows - each demo plus its sidecar and resolved effective
     // values. A failed sidecar read (the store's own `Outcome` came back `ok: false`) becomes a
     // `null` sidecar input, same as an archive entry or an id the index doesn't know about.
-    handle(REPLAYS_HANDLERS.indexRead, replaysNoInputSchema, async () =>
+    handle(REPLAYS_HANDLERS.indexRead, async () =>
       ok(
         await composeDemoRows(await scanService.read(), async (id) => {
           const outcome = await sidecarStore.read(id)
@@ -452,32 +429,26 @@ export const replaysModule: MainModule = {
       ),
     )
 
-    handle(REPLAYS_HANDLERS.sidecarRead, replaysSidecarReadSchema, (payload) =>
-      sidecarStore.read(payload.demoId),
-    )
-    handle(REPLAYS_HANDLERS.sidecarWrite, replaysSidecarWriteSchema, (payload) =>
+    handle(REPLAYS_HANDLERS.sidecarRead, (payload) => sidecarStore.read(payload.demoId))
+    handle(REPLAYS_HANDLERS.sidecarWrite, (payload) =>
       sidecarStore.write(payload.demoId, payload.fields, payload.confirmReplace),
     )
 
-    handle(REPLAYS_HANDLERS.demosReveal, replaysDemoFileActionSchema, async (payload) =>
+    handle(REPLAYS_HANDLERS.demosReveal, async (payload) =>
       ok(await demoFileActions.reveal(payload.demoId)),
     )
-    handle(REPLAYS_HANDLERS.demosCopyPath, replaysDemoFileActionSchema, async (payload) =>
+    handle(REPLAYS_HANDLERS.demosCopyPath, async (payload) =>
       ok(await demoFileActions.copyPath(payload.demoId)),
     )
-    handle(REPLAYS_HANDLERS.demoRename, replaysDemoRenameSchema, (payload) =>
-      demoRename.rename(payload.id, payload.name),
-    )
-    handle(REPLAYS_HANDLERS.demoPlay, replaysDemoPlaySchema, (payload) =>
+    handle(REPLAYS_HANDLERS.demoRename, (payload) => demoRename.rename(payload.id, payload.name))
+    handle(REPLAYS_HANDLERS.demoPlay, (payload) =>
       demoPlay.play(payload.demoId, payload.installationId, {
         acknowledgeModMissing: payload.acknowledgeModMissing === true,
         stage: payload.stage,
       }),
     )
 
-    handle(REPLAYS_HANDLERS.playbackStage, replaysPlaybackStageSchema, (payload) =>
-      stageFollow.report(payload.rect),
-    )
+    handle(REPLAYS_HANDLERS.playbackStage, (payload) => stageFollow.report(payload.rect))
 
     // Story 187: fullscreen goes through the cinema controller, so leaving cinema for it keeps the pin.
     const playbackTimeline = createPlaybackTimeline({
@@ -488,50 +459,28 @@ export const replaysModule: MainModule = {
         setSpeed: (speed) => playbackControl.setSpeed(speed),
       },
     })
-    handle(REPLAYS_HANDLERS.playbackTimeline, timelineActionSchema, (payload) =>
-      playbackTimeline.run(payload),
-    )
+    handle(REPLAYS_HANDLERS.playbackTimeline, (payload) => playbackTimeline.run(payload))
     const playbackConsole = createPlaybackConsole({ playback: playbackControl })
-    handle(REPLAYS_HANDLERS.playbackConsoleSend, replaysConsoleSendSchema, (payload) =>
-      playbackConsole.send(payload.line),
-    )
+    handle(REPLAYS_HANDLERS.playbackConsoleSend, (payload) => playbackConsole.send(payload.line))
     const playbackStop = createPlaybackStop({ playback: playbackControl, launch: app.launch })
     onDispose(() => playbackStop.dispose())
-    handle(REPLAYS_HANDLERS.playbackStop, replaysNoInputSchema, () => playbackStop.stop())
-    handle(REPLAYS_HANDLERS.playbackCinema, replaysPlaybackCinemaSchema, (payload) =>
-      cinema.set(payload.enter),
-    )
-    handle(REPLAYS_HANDLERS.playbackDisplayRead, replaysPlaybackDisplayReadSchema, () =>
-      ok(playbackControl.display()),
-    )
+    handle(REPLAYS_HANDLERS.playbackStop, () => playbackStop.stop())
+    handle(REPLAYS_HANDLERS.playbackCinema, (payload) => cinema.set(payload.enter))
+    handle(REPLAYS_HANDLERS.playbackDisplayRead, () => ok(playbackControl.display()))
 
-    handle(REPLAYS_HANDLERS.nameTemplatesList, replaysNoInputSchema, () => nameTemplatesList(app))
-    handle(REPLAYS_HANDLERS.nameTemplatesAdd, nameTemplatesAddSchema, (payload) =>
-      nameTemplatesAdd(app, payload),
-    )
-    handle(REPLAYS_HANDLERS.nameTemplatesUpdate, nameTemplatesUpdateSchema, (payload) =>
-      nameTemplatesUpdate(app, payload),
-    )
-    handle(REPLAYS_HANDLERS.nameTemplatesRemove, nameTemplatesRemoveSchema, (payload) =>
-      nameTemplatesRemove(app, payload),
-    )
-    handle(REPLAYS_HANDLERS.nameTemplatesReorder, nameTemplatesReorderSchema, (payload) =>
-      nameTemplatesReorder(app, payload),
-    )
-    handle(REPLAYS_HANDLERS.nameTemplatesReset, nameTemplatesResetSchema, (payload) =>
-      nameTemplatesReset(app, payload),
-    )
-    handle(REPLAYS_HANDLERS.nameTemplatesRestore, replaysNoInputSchema, () =>
-      nameTemplatesRestore(app),
-    )
+    handle(REPLAYS_HANDLERS.nameTemplatesList, () => nameTemplatesList(app))
+    handle(REPLAYS_HANDLERS.nameTemplatesAdd, (payload) => nameTemplatesAdd(app, payload))
+    handle(REPLAYS_HANDLERS.nameTemplatesUpdate, (payload) => nameTemplatesUpdate(app, payload))
+    handle(REPLAYS_HANDLERS.nameTemplatesRemove, (payload) => nameTemplatesRemove(app, payload))
+    handle(REPLAYS_HANDLERS.nameTemplatesReorder, (payload) => nameTemplatesReorder(app, payload))
+    handle(REPLAYS_HANDLERS.nameTemplatesReset, (payload) => nameTemplatesReset(app, payload))
+    handle(REPLAYS_HANDLERS.nameTemplatesRestore, () => nameTemplatesRestore(app))
 
     // Story 142: the `extraFolders.*` handlers. Every write runs on the live slice inside
     // `updateSlice`; a refusal returns the live slice unchanged (nothing persisted), and what comes
     // back is what `updateSlice` actually stored, not the local candidate.
-    handle(REPLAYS_HANDLERS.extraFoldersList, replaysNoInputSchema, () =>
-      ok(replaysState(app.state).get().extraFolders),
-    )
-    handle(REPLAYS_HANDLERS.extraFoldersAdd, extraFoldersAddSchema, async (payload) => {
+    handle(REPLAYS_HANDLERS.extraFoldersList, () => ok(replaysState(app.state).get().extraFolders))
+    handle(REPLAYS_HANDLERS.extraFoldersAdd, async (payload) => {
       // The awaits come first: the dedupe below must see the list as it is when it writes.
       const resolved = await resolveExtraFolder(payload.path)
       if (!resolved.ok) return ok<ExtraFoldersResult>(resolved)
@@ -548,7 +497,7 @@ export const replaysModule: MainModule = {
       if (!result || !result.ok) return ok(result as ExtraFoldersResult)
       return ok({ ok: true, folders: persisted.extraFolders } as ExtraFoldersResult)
     })
-    handle(REPLAYS_HANDLERS.extraFoldersRemove, extraFoldersRemoveSchema, (payload) => {
+    handle(REPLAYS_HANDLERS.extraFoldersRemove, (payload) => {
       const persisted = replaysState(app.state).update((live) => ({
         ...live,
         extraFolders: removeExtraFolder(live.extraFolders, payload.id),
@@ -563,10 +512,8 @@ export const replaysModule: MainModule = {
      * `ReplaysState` key over from the live slice untouched; `null` clears it and is stored as
      * `null`. What's returned is what `updateSlice` actually stored.
      */
-    handle(REPLAYS_HANDLERS.listGetSort, listGetSortInputSchema, () =>
-      ok(replaysState(app.state).get().listSort),
-    )
-    handle(REPLAYS_HANDLERS.listSetSort, listSetSortInputSchema, (payload) =>
+    handle(REPLAYS_HANDLERS.listGetSort, () => ok(replaysState(app.state).get().listSort))
+    handle(REPLAYS_HANDLERS.listSetSort, (payload) =>
       ok(replaysState(app.state).update((live) => ({ ...live, listSort: payload.sort })).listSort),
     )
 
@@ -575,10 +522,10 @@ export const replaysModule: MainModule = {
      * `listGetSort`/`listSetSort` right above. `listFilter` is never absent on `ReplaysState` (unlike
      * `listSort`), so there is no clear-to-null case to model here.
      */
-    handle(REPLAYS_HANDLERS.listGetFilter, listGetFilterInputSchema, () =>
+    handle(REPLAYS_HANDLERS.listGetFilter, () =>
       ok(replaysState(app.state).get().listFilter ?? EMPTY_DEMO_LIST_FILTER),
     )
-    handle(REPLAYS_HANDLERS.listSetFilter, listSetFilterInputSchema, (payload) => {
+    handle(REPLAYS_HANDLERS.listSetFilter, (payload) => {
       // Normalizes the same way `parseReplaysState` does on read, so a structurally-valid but
       // semantically-invalid `date` (e.g. `from > to`, or both ends open) sent from the renderer
       // never round-trips through `state.json` un-normalized - paths/payloads from the renderer are
@@ -593,10 +540,8 @@ export const replaysModule: MainModule = {
 
     // Story 182: the `modWarning.*` handlers - same live-slice discipline as `listFilter`;
     // every one returns what `updateSlice` actually stored.
-    handle(REPLAYS_HANDLERS.modWarningRead, modWarningReadInputSchema, () =>
-      ok(replaysState(app.state).get().modWarning),
-    )
-    handle(REPLAYS_HANDLERS.modWarningSetEnabled, modWarningSetEnabledInputSchema, (payload) =>
+    handle(REPLAYS_HANDLERS.modWarningRead, () => ok(replaysState(app.state).get().modWarning))
+    handle(REPLAYS_HANDLERS.modWarningSetEnabled, (payload) =>
       ok(
         replaysState(app.state).update((live) => ({
           ...live,
@@ -604,7 +549,7 @@ export const replaysModule: MainModule = {
         })).modWarning,
       ),
     )
-    handle(REPLAYS_HANDLERS.modWarningTrustMod, modWarningTrustModInputSchema, (payload) => {
+    handle(REPLAYS_HANDLERS.modWarningTrustMod, (payload) => {
       const dir = payload.gameDir.toLowerCase()
       return ok(
         replaysState(app.state).update((live) => {
@@ -615,7 +560,7 @@ export const replaysModule: MainModule = {
         }).modWarning,
       )
     })
-    handle(REPLAYS_HANDLERS.modWarningResetTrusted, modWarningResetTrustedInputSchema, () =>
+    handle(REPLAYS_HANDLERS.modWarningResetTrusted, () =>
       ok(
         replaysState(app.state).update((live) => ({
           ...live,

@@ -7,7 +7,7 @@ import {
   setProfileActionsInputSchema,
   setProfileCvarsInputSchema,
   setProfileLayersInputSchema,
-} from './schemas'
+} from '@shared/modules/config-schemas'
 
 // Bind adoption mints ids on read; a counter keeps the snapshot reproducible.
 let uuidCounter = 0

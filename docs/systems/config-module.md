@@ -38,9 +38,9 @@ This document describes the module as built. It follows the architecture rules i
 - `profiles.ts` / `assignments.ts` / `orphan-category.ts` — `ProfilesStore` (the only writer of
   `configProfiles`), the pure one-default-per-installation assignment rules, the
   unknown-category guard for `setActions`.
-- `persisted.ts` / `persisted-migrations.ts` / `write-failures.ts` / `schemas.ts` — the module's
-  state.json sections and their forgiving parse, its migration steps, the failure-map merge, the
-  strict IPC payload schemas.
+- `persisted.ts` / `persisted-migrations.ts` / `write-failures.ts` — the module's
+  state.json sections and their forgiving parse, its migration steps, the failure-map merge.
+  Its strict IPC request schemas live in shared at `src/shared/modules/config-schemas.ts`.
 - `cleanup.ts` — redundant mod-folder copy scan, backed-up removal and restore.
 
 **Shared** (`src/shared/config/`, pure — no node, no DOM, no electron)

@@ -1,9 +1,11 @@
+import type { BoundModule } from '../define-module'
 import {
   REPLAYS_EVENTS,
   type DemoFormat,
   type ReplaysPlaybackDisplay,
   type ReplaysPlaybackPosition,
   type ReplaysPlaybackState,
+  type ReplaysContract,
 } from '@shared/modules/replays'
 import type { CinemaAvailability } from '@shared/replays/cinema'
 import { fail, type LaunchState, type Outcome } from '@shared/types'
@@ -35,7 +37,7 @@ export interface PlaybackControlLaunch {
 }
 
 export interface PlaybackControlDeps {
-  emit: (type: string, payload: unknown) => void
+  emit: BoundModule<ReplaysContract>['emit']
   launch: PlaybackControlLaunch
   platform?: string
   makeWindows?: (options: WindowsChannelOptions) => PlaybackChannel

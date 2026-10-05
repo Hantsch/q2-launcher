@@ -312,7 +312,7 @@ function materialiseCvarSections(raw: Record<string, unknown>): Record<string, u
 
 /**
  * Story 050: `configActionSchema`'s `normalizeActionKeys`
- * (`main/modules/config/schemas.ts`), but forgiving - this is the persisted-state mirror, so a
+ * (`shared/modules/config-schemas.ts`), but forgiving - this is the persisted-state mirror, so a
  * pre-050 row (every row on a dev machine's disk before this story) keeps its up-to-two slots
  * intact instead of being dropped for a shape the row-level schema no longer recognises. Input
  * already carrying `keys` passes through untouched.

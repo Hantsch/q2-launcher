@@ -3,7 +3,7 @@ import {
   setProfileActionsInputSchema,
   setProfileBindsInputSchema,
   setProfileLayersInputSchema,
-} from './schemas'
+} from '@shared/modules/config-schemas'
 
 describe('setProfileBindsInputSchema / setProfileLayersInputSchema (IPC payload validation)', () => {
   it('rejects a binds payload whose value is not a map of strings', () => {

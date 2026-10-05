@@ -10,6 +10,10 @@ import type { ModifierTrigger } from '../config/aliases/modifier-layers'
 // this file needs its result type.
 import type { ProfileBaseline } from '../config/profile/profile-baseline'
 import type { TidyUpOp } from '../config/profile/tidy-up'
+import type { z } from 'zod'
+// Type-only back-reference: `config-schemas.ts` imports `CONFIG_HANDLERS` from here as a value, so
+// a value import in this direction would be a runtime cycle.
+import type { CONFIG_HANDLER_SCHEMAS } from './config-schemas'
 
 /** The config module's contract. */
 export const CONFIG_HANDLERS = {
@@ -945,4 +949,80 @@ export interface TidyUpApplyResult {
   profile: ConfigProfile
   applied: TidyUpOp[]
   rejected: TidyUpOp[]
+}
+
+type ConfigSchemas = typeof CONFIG_HANDLER_SCHEMAS
+type ConfigReq<K extends keyof ConfigSchemas> = z.infer<ConfigSchemas[K]>
+
+/**
+ * The config module's typed contract; `req` is each schema's parsed output. In-band results such
+ * as `SaveProfileResult`'s `'conflict'` are part of `res`, not failures. Config emits no events.
+ */
+export type ConfigContract = {
+  handlers: {
+    [CONFIG_HANDLERS.list]: { req: ConfigReq<'list'>; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.create]: { req: ConfigReq<'create'>; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.rename]: { req: ConfigReq<'rename'>; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.remove]: { req: ConfigReq<'remove'>; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.assign]: { req: ConfigReq<'assign'>; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.unassign]: { req: ConfigReq<'unassign'>; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.setDefault]: { req: ConfigReq<'setDefault'>; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.setCvars]: { req: ConfigReq<'setCvars'>; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.commitCvars]: { req: ConfigReq<'commitCvars'>; res: ConfigProfile }
+    [CONFIG_HANDLERS.setBinds]: { req: ConfigReq<'setBinds'>; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.setLayers]: { req: ConfigReq<'setLayers'>; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.setActions]: { req: SetProfileActionsInput; res: ConfigProfile[] }
+    [CONFIG_HANDLERS.write]: { req: ConfigReq<'write'>; res: WriteTargetResult[] }
+    [CONFIG_HANDLERS.save]: { req: ConfigReq<'save'>; res: SaveProfileResult }
+    [CONFIG_HANDLERS.saveRawText]: { req: ConfigReq<'saveRawText'>; res: SaveRawTextResult }
+    [CONFIG_HANDLERS.refreshFromFiles]: {
+      req: ConfigReq<'refreshFromFiles'>
+      res: RefreshFromFilesResult
+    }
+    [CONFIG_HANDLERS.preview]: { req: ConfigReq<'preview'>; res: PreviewProfileResult }
+    [CONFIG_HANDLERS.writeState]: { req: ConfigReq<'writeState'>; res: WriteState }
+    [CONFIG_HANDLERS.syncState]: { req: ConfigReq<'syncState'>; res: ProfileSyncState }
+    [CONFIG_HANDLERS.rawFiles]: { req: ConfigReq<'rawFiles'>; res: RawFilesResult }
+    [CONFIG_HANDLERS.openFile]: { req: ConfigReq<'openFile'>; res: null }
+    [CONFIG_HANDLERS.setPlayedMods]: { req: ConfigReq<'setPlayedMods'>; res: string[] }
+    /** installationId -> switch key. */
+    [CONFIG_HANDLERS.switchBinds]: { req: ConfigReq<'switchBinds'>; res: Record<string, string> }
+    [CONFIG_HANDLERS.setSwitchBind]: {
+      req: ConfigReq<'setSwitchBind'>
+      res: Record<string, string>
+    }
+    [CONFIG_HANDLERS.setWriteUnbindall]: {
+      req: ConfigReq<'setWriteUnbindall'>
+      res: ConfigProfile[]
+    }
+    [CONFIG_HANDLERS.setWriteCatalogDefaults]: {
+      req: ConfigReq<'setWriteCatalogDefaults'>
+      res: ConfigProfile[]
+    }
+    [CONFIG_HANDLERS.setSectionHeaderStyle]: {
+      req: ConfigReq<'setSectionHeaderStyle'>
+      res: ConfigProfile[]
+    }
+    [CONFIG_HANDLERS.discard]: { req: ConfigReq<'discard'>; res: DiscardProfileResult }
+    [CONFIG_HANDLERS.importPickFiles]: {
+      req: ConfigReq<'import.pickFiles'>
+      res: PickedConfigFile[]
+    }
+    [CONFIG_HANDLERS.importPreviewFiles]: {
+      req: ConfigReq<'import.previewFiles'>
+      res: ImportPreviewResult
+    }
+    [CONFIG_HANDLERS.importCommitFiles]: {
+      req: ConfigReq<'import.commitFiles'>
+      res: ConfigProfile[]
+    }
+    [CONFIG_HANDLERS.cleanupScan]: { req: ConfigReq<'cleanup.scan'>; res: CleanupScanResult }
+    [CONFIG_HANDLERS.cleanupApply]: { req: ConfigReq<'cleanup.apply'>; res: CleanupApplyResult }
+    [CONFIG_HANDLERS.cleanupRestore]: {
+      req: ConfigReq<'cleanup.restore'>
+      res: CleanupRestoreResult
+    }
+    [CONFIG_HANDLERS.tidyUpApply]: { req: ConfigReq<'tidyUp.apply'>; res: TidyUpApplyResult }
+  }
+  events: {}
 }

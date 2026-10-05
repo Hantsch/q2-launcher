@@ -4,7 +4,7 @@ import type { ManifestPackage, ManifestPackageContentEntry } from '@shared/modul
 
 /**
  * Runtime validation for the manifest files (`engines/manifest.json`, `gamedata/manifest.json`,
- * fetched from a public GitHub content repo). Mirrors `src/main/modules/config/schemas.ts`'s
+ * fetched from a public GitHub content repo). Mirrors `src/shared/modules/config-schemas.ts`'s
  * conventions: strict, structural validation only, no attempt to repair a bad value - a bad *row*
  * is dropped by `manifest-parse.ts`, not softened here.
  */
@@ -77,7 +77,7 @@ function manifestPackageSchemaWith(
 /**
  * One package row, typed against `ManifestPackage` (`@shared/modules/downloads`)
  * so this schema and the wire type cannot drift apart - same convention as
- * `configCvarSectionSchema` in `main/modules/config/schemas.ts`.
+ * `configCvarSectionSchema` in `shared/modules/config-schemas.ts`.
  *
  * **This is the production schema and it is https-only.** Story 074 did not touch that rule;
  * see `harnessLoopbackManifestPackageSchema` below for the harness-only variant and `harness.ts`

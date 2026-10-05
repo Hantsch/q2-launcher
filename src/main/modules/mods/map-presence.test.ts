@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { ZipDeps } from '../../lib/zip-entries'
 import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { mapPresence } from './map-presence'
-import { mapPresenceInputSchema } from './schemas'
+import { mapPresenceInputSchema } from '@shared/modules/mods'
 
 /** Header + directory only (file data is never read, so entries may all point at offset 12). */
 function pakWith(names: string[]): Buffer {

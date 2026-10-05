@@ -1,7 +1,7 @@
 ---
 id: 232
 title: every module's handlers are typed from a contract
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-02
 ---
 
@@ -19,15 +19,15 @@ modules. The user sees no change.
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — `config`, `downloads`, `mods`, `replays` and `library` each have a shared contract
+- [x] **AC1** — `config`, `downloads`, `mods`, `replays` and `library` each have a shared contract
       type and a `*_HANDLER_SCHEMAS` map; request types are derived from the schemas.
-- [ ] **AC2** — Each of those modules registers its handlers through `defineModule` and its renderer
+- [x] **AC2** — Each of those modules registers its handlers through `defineModule` and its renderer
       client is built with `createModuleClient`; no `callModule<` generic remains in any client.
-- [ ] **AC3** — The bus-wide "registered handlers equal declared handlers" and "every handler constant
+- [x] **AC3** — The bus-wide "registered handlers equal declared handlers" and "every handler constant
       is referenced by its client" tests cover all modules, without the `Partial` escape for modules
       that were not converted.
-- [ ] **AC4** — Persisted and manifest schemas stay in main; only request schemas move to shared.
-- [ ] **AC5** — Every existing flow that exercises these modules stays green, and the renderer sees
+- [x] **AC4** — Persisted and manifest schemas stay in main; only request schemas move to shared.
+- [x] **AC5** — Every existing flow that exercises these modules stays green, and the renderer sees
       the same `Outcome` envelope as before.
 
 ## Open Questions
@@ -106,7 +106,7 @@ flows listed under Acceptance Tests.
 
 ## Deliverables
 
-- **D1 — Convert `library` (shared + main + client).**
+- [x] **D1 — Convert `library` (shared + main + client).**
   `src/shared/modules/library.ts`: add `LIBRARY_HANDLER_SCHEMAS = { [LIBRARY_HANDLERS.stats]: z.void() }
 satisfies Record<…, ZodTypeAny>` and `LibraryContract` (`stats` → `res: LibraryStats`, events `{}`).
   `src/main/modules/library/index.ts`: `defineModule<LibraryContract>('library',
@@ -117,7 +117,7 @@ LIBRARY_HANDLER_SCHEMAS).bind(setup)`; drop the inline `z.void()`. `src/renderer
   `home.test.ts`) and › "LIBRARY_HANDLER_SCHEMAS has exactly one schema per LIBRARY_HANDLERS value";
   existing `src/main/modules/library/stats.test.ts` stays green.
 
-- **D2 — `mods` contract + main half.**
+- [x] **D2 — `mods` contract + main half.**
   Move every export of `src/main/modules/mods/schemas.ts` into `src/shared/modules/mods.ts` and
   delete the main file (its only import, `isSafeGameName`, is already shared). Add
   `MODS_HANDLER_SCHEMAS` (`satisfies`) for all 10 `MODS_HANDLERS` and `ModsContract` (`res` = the
@@ -132,14 +132,14 @@ MODS_HANDLER_SCHEMAS).bind(setup)`; drop the schema imports. `catalog-schema.ts`
   derived from MODS_HANDLER_SCHEMAS" and › "MODS_HANDLER_SCHEMAS has exactly one schema per
   MODS_HANDLERS value"; existing `src/main/modules/mods/*.test.ts` stay green.
 
-- **D3 — `mods` client.**
+- [x] **D3 — `mods` client.**
   `src/renderer/src/modules/mods/client.ts`: `createModuleClient<ModsContract>('mods')`; every
   `callModule<…>` → `client.call(MODS_HANDLERS.x, …)`, `onModuleEvent<…>` → `client.on(MODS_EVENTS.installDecision, …)`;
   keep passing the handler constants. Exported names/signatures unchanged; a signature the inferred
   type proves wrong is corrected at its callers, never cast. Mirror `src/renderer/src/modules/home/client.ts`.
   Tests: existing mods renderer tests (`src/renderer/src/modules/mods/**/*.test.ts*`) stay green.
 
-- **D4 — `downloads` contract + main half.**
+- [x] **D4 — `downloads` contract + main half.**
   Move every export of `src/main/modules/downloads/schemas.ts` into `src/shared/modules/downloads.ts`
   (it already imports only `@shared/schemas` and constants from that same file — drop the
   self-import) and delete the main file. Manifest schemas (`src/main/services/content/manifest-schemas.ts`)
@@ -153,13 +153,13 @@ MODS_HANDLER_SCHEMAS).bind(setup)`; drop the schema imports. `catalog-schema.ts`
   DOWNLOADS_HANDLER_SCHEMAS" and › "DOWNLOADS_HANDLER_SCHEMAS has exactly one schema per
   DOWNLOADS_HANDLERS value"; existing `src/main/modules/downloads/**/*.test.ts` stay green.
 
-- **D5 — `downloads` client.**
+- [x] **D5 — `downloads` client.**
   `src/renderer/src/modules/downloads/client.ts`: `createModuleClient<DownloadsContract>('downloads')`;
   all 20 `callModule<…>` → `client.call(DOWNLOADS_HANDLERS.x, …)`. Same rules as D3 (names and
   signatures unchanged, no cast, mirror `home/client.ts`). Tests: existing downloads renderer tests
   and `src/renderer/src/views/**` tests that use these functions stay green.
 
-- **D6 — Move config's request schemas to shared (mechanical, no contract yet).**
+- [x] **D6 — Move config's request schemas to shared (mechanical, no contract yet).**
   `git mv src/main/modules/config/schemas.ts src/shared/modules/config-schemas.ts`; its imports are
   already all `@shared/...` (the `@shared/modules/config` import stays `import type`). No schema
   body changes. Re-point imports: `src/main/modules/config/index.ts`,
@@ -171,7 +171,7 @@ MODS_HANDLER_SCHEMAS).bind(setup)`; drop the schema imports. `catalog-schema.ts`
   Tests: `schema-parity.test.ts` snapshot unchanged (proves no schema behaviour moved), all
   `src/main/modules/config/**` and `config-schemas.test.ts` green.
 
-- **D7 — `config` contract + main half.**
+- [x] **D7 — `config` contract + main half.**
   In `src/shared/modules/config-schemas.ts` add `CONFIG_HANDLER_SCHEMAS` (`satisfies Record<…,
 ZodTypeAny>`, one entry per `CONFIG_HANDLERS` value — 35) importing `CONFIG_HANDLERS` as a value
   from `./config`. In `src/shared/modules/config.ts` add `ConfigContract` with
@@ -187,12 +187,12 @@ CONFIG_HANDLER_SCHEMAS).bind(setup)`, drop the per-handler schema imports; it mu
   "CONFIG_HANDLER_SCHEMAS has exactly one schema per CONFIG_HANDLERS value"; existing
   `src/main/modules/config/**/*.test.ts` stay green.
 
-- **D8 — `config` client.**
+- [x] **D8 — `config` client.**
   `src/renderer/src/modules/config/client.ts`: `createModuleClient<ConfigContract>('config')`; all
   35 `callModule<…>` → `client.call(CONFIG_HANDLERS.x, …)`. Same rules as D3. Tests: existing
   config renderer tests (`src/renderer/src/modules/config/**/*.test.ts*`) stay green.
 
-- **D9 — `replays` contract + main half.**
+- [x] **D9 — `replays` contract + main half.**
   `src/shared/modules/replays.ts`: `REPLAYS_HANDLER_SCHEMAS` annotation → `satisfies`; add
   `ReplaysContract` for all 33 handlers (`res` from `src/main/modules/replays/index.ts`) and the 4
   `REPLAYS_EVENTS` payloads (`ReplaysPlaybackPosition`, `ReplaysPlaybackState`,
@@ -205,13 +205,13 @@ CONFIG_HANDLER_SCHEMAS).bind(setup)`, drop the per-handler schema imports; it mu
   types are derived from REPLAYS_HANDLER_SCHEMAS"; existing `src/main/modules/replays/**/*.test.ts`
   (incl. `stage.test.ts`'s schema identity check) stay green.
 
-- **D10 — `replays` client.**
+- [x] **D10 — `replays` client.**
   `src/renderer/src/modules/replays/client.ts`: `createModuleClient<ReplaysContract>('replays')`;
   every `callModule<…>` → `client.call(REPLAYS_HANDLERS.x, …)`, the four `onModuleEvent<…>` →
   `client.on(REPLAYS_EVENTS.x, …)`. Same rules as D3. Tests: existing replays renderer tests stay
   green.
 
-- **D11 — Close the gates + docs.**
+- [x] **D11 — Close the gates + docs.**
   `src/renderer/src/modules/handler-coverage.test.ts`: delete `CONVERTED`; rename the second case
   to › "every module client is built with createModuleClient" — for every `./*/client.ts` in the
   glob: contains `createModuleClient<`, does not match `/\bcallModule\b/`, `/\bonModuleEvent\b/`
@@ -288,3 +288,20 @@ No user-facing criterion: the story changes no surface, so the e2e lines are reg
 not acceptance of a user action. No manual residue.
 
 ## Done
+
+All five remaining modules (`library`, `mods`, `downloads`, `config`, `replays`) now declare a shared contract + `*_HANDLER_SCHEMAS` map, register through `defineModule` and call through `createModuleClient`. Request schemas moved to `src/shared/modules/`; persisted/manifest schemas stay in main. The bus-wide coverage tests have no `CONVERTED`/`Partial` escape any more.
+
+Commit message: `232: type every module's handlers from a shared contract (defineModule + createModuleClient)`
+
+Verification (narrow gate): `npm run build`, `lint`, `typecheck` green; `npx vitest run --changed HEAD` 218 files / 3064 tests green; flows via `npm run ui:flow -- <name>` green for all 23 listed (downloads-tab, settings-downloads-section, controls-drag-reorder, unsaved-diff only after `npm run ui:seed`: flows do not reseed and an earlier run had left stale fixture state, so the first red was fixture pollution, not a regression).
+AC -> test as verified: AC1 the Contract/"exactly one schema per" tests in library/mods/downloads/config-schemas/replays shared test files; AC2 main "every module's main half binds defineModule" + renderer "every module client is built with createModuleClient"; AC3 "every module registers exactly its declared handlers" + "every handler constant is referenced by its module's client"; AC4 "request schemas live in shared, persisted and manifest schemas in main" + unchanged schema-parity snapshot; AC5 flows + typecheck. No manual residue. D11 doc test "the module seam has no unconverted-module remnants" passed.
+
+Decisions:
+- `ConfigContract.setActions.req` is `SetProfileActionsInput` (readonly slots), not `z.infer`: typecheck rejected the mutable inferred type; a `toExtend` assertion pins schema output as assignable to it.
+- Removed `expect(markers.length).toBeGreaterThan(0)` in architecture-doc.test.ts: no `planned in story` markers remain, so it could never pass.
+- A persisted-schema describe block moved from config-schemas.test.ts into main persisted.test.ts (shared cannot import main).
+- Replays got no extra "exactly one schema" test: replays.test.ts already checks both directions, and `satisfies` enforces keys.
+- Review found the main-half regex could never match; replaced by two negative matches on `handle` taken outside `defineModule`.
+- The agent that converted the mods doc left CRLF endings; restored to LF.
+
+tiers: D 11 / hard 1 · review default · cycles 1 · agents 16

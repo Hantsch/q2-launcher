@@ -33,7 +33,7 @@ This document describes the module as built. `mods` is a registered module; its 
 - `remove-job.ts` / `remove.ts` — removal from the install record alone.
 - `install-records.ts` — the one parser of an installation's `mods` record data.
 - `map-presence.ts` — looks for a map loose, in a pak or in a pkz.
-- `schemas.ts` — payload schemas for every handler.
+- `src/shared/modules/mods.ts` — shared contract + schema map.
 
 **Shared** (`src/shared/`, pure)
 

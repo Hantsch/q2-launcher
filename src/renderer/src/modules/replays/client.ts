@@ -1,6 +1,7 @@
 import {
   REPLAYS_EVENTS,
   REPLAYS_HANDLERS,
+  type ReplaysContract,
   type DemoFileActionResult,
   type DemoRow,
   type DiscoveredDemo,
@@ -24,22 +25,24 @@ import type { DemoListSort } from '@shared/replays/list-sort'
 import type { DemoListFilter } from '@shared/replays/list-filter'
 import type { TimelineAction } from '@shared/replays/timeline'
 import type { Outcome } from '@shared/types'
-import { callModule, onModuleEvent } from '../moduleClient'
+import { createModuleClient } from '../moduleClient'
+
+const client = createModuleClient<ReplaysContract>('replays')
 
 /** Typed client for the replays module's handlers (story 135). One function per handler in its
  * contract - mirrors `modules/servers/client.ts`. */
 export function getReplaysOverview(): Promise<Outcome<ReplaysOverview>> {
-  return callModule<ReplaysOverview>('replays', REPLAYS_HANDLERS.overviewRead)
+  return client.call(REPLAYS_HANDLERS.overviewRead)
 }
 
 /** The `nameTemplates.*` handlers answer their own `Outcome<NameTemplatesView>` (a refusal for an
  * invalid template, an unknown id, ...); the registry passes it through, so one envelope arrives. */
 export function listNameTemplates(): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesList)
+  return client.call(REPLAYS_HANDLERS.nameTemplatesList)
 }
 
 export function addNameTemplate(template: string): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesAdd, {
+  return client.call(REPLAYS_HANDLERS.nameTemplatesAdd, {
     template,
   })
 }
@@ -48,32 +51,32 @@ export function updateNameTemplate(
   id: string,
   template: string,
 ): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesUpdate, {
+  return client.call(REPLAYS_HANDLERS.nameTemplatesUpdate, {
     id,
     template,
   })
 }
 
 export function removeNameTemplate(id: string): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesRemove, {
+  return client.call(REPLAYS_HANDLERS.nameTemplatesRemove, {
     id,
   })
 }
 
 export function reorderNameTemplates(ids: string[]): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesReorder, {
+  return client.call(REPLAYS_HANDLERS.nameTemplatesReorder, {
     ids,
   })
 }
 
 export function resetNameTemplate(id: string): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesReset, {
+  return client.call(REPLAYS_HANDLERS.nameTemplatesReset, {
     id,
   })
 }
 
 export function restoreNameTemplates(): Promise<Outcome<NameTemplatesView>> {
-  return callModule<NameTemplatesView>('replays', REPLAYS_HANDLERS.nameTemplatesRestore)
+  return client.call(REPLAYS_HANDLERS.nameTemplatesRestore)
 }
 
 /**
@@ -84,15 +87,15 @@ export function restoreNameTemplates(): Promise<Outcome<NameTemplatesView>> {
  * transport-level ok/error.
  */
 export function listExtraFolders(): Promise<Outcome<ReplaysExtraFolder[]>> {
-  return callModule<ReplaysExtraFolder[]>('replays', REPLAYS_HANDLERS.extraFoldersList)
+  return client.call(REPLAYS_HANDLERS.extraFoldersList)
 }
 
 export function addExtraFolder(path: string): Promise<Outcome<ExtraFoldersResult>> {
-  return callModule<ExtraFoldersResult>('replays', REPLAYS_HANDLERS.extraFoldersAdd, { path })
+  return client.call(REPLAYS_HANDLERS.extraFoldersAdd, { path })
 }
 
 export function removeExtraFolder(id: string): Promise<Outcome<ExtraFoldersResult>> {
-  return callModule<ExtraFoldersResult>('replays', REPLAYS_HANDLERS.extraFoldersRemove, { id })
+  return client.call(REPLAYS_HANDLERS.extraFoldersRemove, { id })
 }
 
 /**
@@ -101,7 +104,7 @@ export function removeExtraFolder(id: string): Promise<Outcome<ExtraFoldersResul
  * renderer are never trusted"), mirroring `addExtraFolder`/`removeExtraFolder` above exactly.
  */
 export function revealDemo(demoId: string): Promise<Outcome<DemoFileActionResult>> {
-  return callModule<DemoFileActionResult>('replays', REPLAYS_HANDLERS.demosReveal, { demoId })
+  return client.call(REPLAYS_HANDLERS.demosReveal, { demoId })
 }
 
 /** `demo.play` - plays one demo in the active Q2PRO installation; refusals arrive as the handler's
@@ -112,66 +115,62 @@ export function playDemo(payload: {
   acknowledgeModMissing?: boolean
   stage?: ReplaysStageRect
 }): Promise<Outcome<ReplaysDemoPlayResult>> {
-  return callModule<ReplaysDemoPlayResult>('replays', REPLAYS_HANDLERS.demoPlay, payload)
+  return client.call(REPLAYS_HANDLERS.demoPlay, payload)
 }
 
 /** Story 170: re-places the running demo's window after the stage picture's box changed. */
 export function sendStageRect(rect: ReplaysStageRect | null): Promise<Outcome<void>> {
-  return callModule<void>('replays', REPLAYS_HANDLERS.playbackStage, { rect })
+  return client.call(REPLAYS_HANDLERS.playbackStage, { rect })
 }
 
 /** Steers the running demo; the typed no-session error arrives as a `fail`. */
 export function playbackTimeline(action: TimelineAction): Promise<Outcome<void>> {
-  return callModule<void>('replays', REPLAYS_HANDLERS.playbackTimeline, action)
+  return client.call(REPLAYS_HANDLERS.playbackTimeline, action)
 }
 
 /** Enters or leaves cinema mode. */
 export function playbackCinema(enter: boolean): Promise<Outcome<void>> {
-  return callModule<void>('replays', REPLAYS_HANDLERS.playbackCinema, { enter })
+  return client.call(REPLAYS_HANDLERS.playbackCinema, { enter })
 }
 
 /** Story 187: the current display state, read once when a session begins. */
 export function playbackDisplayRead(): Promise<Outcome<ReplaysPlaybackDisplay>> {
-  return callModule<ReplaysPlaybackDisplay>('replays', REPLAYS_HANDLERS.playbackDisplayRead, {})
+  return client.call(REPLAYS_HANDLERS.playbackDisplayRead, {})
 }
 
 /** Story 164 events, mirroring `onScanProgress`. */
 export function onPlaybackPosition(
   listener: (payload: ReplaysPlaybackPosition) => void,
 ): () => void {
-  return onModuleEvent<ReplaysPlaybackPosition>(
-    'replays',
-    REPLAYS_EVENTS.playbackPosition,
-    listener,
-  )
+  return client.on(REPLAYS_EVENTS.playbackPosition, listener)
 }
 
 export function onPlaybackState(listener: (payload: ReplaysPlaybackState) => void): () => void {
-  return onModuleEvent<ReplaysPlaybackState>('replays', REPLAYS_EVENTS.playbackState, listener)
+  return client.on(REPLAYS_EVENTS.playbackState, listener)
 }
 
 export function onPlaybackDisplay(listener: (payload: ReplaysPlaybackDisplay) => void): () => void {
-  return onModuleEvent<ReplaysPlaybackDisplay>('replays', REPLAYS_EVENTS.playbackDisplay, listener)
+  return client.on(REPLAYS_EVENTS.playbackDisplay, listener)
 }
 
 export function copyDemoPath(demoId: string): Promise<Outcome<DemoFileActionResult>> {
-  return callModule<DemoFileActionResult>('replays', REPLAYS_HANDLERS.demosCopyPath, { demoId })
+  return client.call(REPLAYS_HANDLERS.demosCopyPath, { demoId })
 }
 
 /** The `demos.rename` handler: a demo id and the user's typed stem in, the freshly discovered demo out. */
 export function renameDemo(id: string, name: string): Promise<Outcome<{ demo: DiscoveredDemo }>> {
-  return callModule<{ demo: DiscoveredDemo }>('replays', REPLAYS_HANDLERS.demoRename, { id, name })
+  return client.call(REPLAYS_HANDLERS.demoRename, { id, name })
 }
 
 /** Sends one console line to the running demo's engine; a refusal is `replays.console.error.*`. */
 export function consoleSend(line: string): Promise<Outcome<void>> {
-  return callModule<void>('replays', REPLAYS_HANDLERS.playbackConsoleSend, { line })
+  return client.call(REPLAYS_HANDLERS.playbackConsoleSend, { line })
 }
 
 /** Ends the running demo (quit, then terminate - main owns the timeout); no running launch is
  * `replays.playback.error.noSession`. */
 export function playbackStop(): Promise<Outcome<void>> {
-  return callModule<void>('replays', REPLAYS_HANDLERS.playbackStop, undefined)
+  return client.call(REPLAYS_HANDLERS.playbackStop)
 }
 
 /**
@@ -182,15 +181,15 @@ export function playbackStop(): Promise<Outcome<void>> {
  * last successful scan's rows after); `onScanProgress` subscribes to the scan's own push.
  */
 export function scanStart(): Promise<Outcome<ReplaysScanStartResult>> {
-  return callModule<ReplaysScanStartResult>('replays', REPLAYS_HANDLERS.scanStart)
+  return client.call(REPLAYS_HANDLERS.scanStart)
 }
 
 export function indexRead(): Promise<Outcome<DemoRow[]>> {
-  return callModule<DemoRow[]>('replays', REPLAYS_HANDLERS.indexRead)
+  return client.call(REPLAYS_HANDLERS.indexRead)
 }
 
 export function onScanProgress(listener: (payload: ReplaysScanProgress) => void): () => void {
-  return onModuleEvent<ReplaysScanProgress>('replays', REPLAYS_EVENTS.scanProgress, listener)
+  return client.on(REPLAYS_EVENTS.scanProgress, listener)
 }
 
 /**
@@ -200,11 +199,11 @@ export function onScanProgress(listener: (payload: ReplaysScanProgress) => void)
  * it back to the default with `null`) and resolves to what was actually persisted.
  */
 export function getListSort(): Promise<Outcome<DemoListSort | null>> {
-  return callModule<DemoListSort | null>('replays', REPLAYS_HANDLERS.listGetSort)
+  return client.call(REPLAYS_HANDLERS.listGetSort)
 }
 
 export function setListSort(sort: DemoListSort | null): Promise<Outcome<DemoListSort | null>> {
-  return callModule<DemoListSort | null>('replays', REPLAYS_HANDLERS.listSetSort, { sort })
+  return client.call(REPLAYS_HANDLERS.listSetSort, { sort })
 }
 
 /**
@@ -215,7 +214,7 @@ export function setListSort(sort: DemoListSort | null): Promise<Outcome<DemoList
  */
 /**
  * Story 155: the sidecar's renderer-side transport for a single demo, mirroring `indexRead`'s
- * `callModule` pattern exactly. `sidecarRead` resolves to the current on-disk state (`'none'`/
+ * `client.call` pattern exactly. `sidecarRead` resolves to the current on-disk state (`'none'`/
  * `'ok'`/`'error'` with itemized `issues`) plus whatever fields it could parse - this is the only
  * place the detail panel can see specific sidecar issues, since `DemoRow.sidecar.state` (from
  * `index.read`) drops them. `sidecarWrite` is unused by this read-only deliverable but added
@@ -224,11 +223,7 @@ export function setListSort(sort: DemoListSort | null): Promise<Outcome<DemoList
 export function sidecarRead(
   demoId: string,
 ): Promise<Outcome<{ state: SidecarState; values: Partial<SidecarFields> }>> {
-  return callModule<{ state: SidecarState; values: Partial<SidecarFields> }>(
-    'replays',
-    REPLAYS_HANDLERS.sidecarRead,
-    { demoId },
-  )
+  return client.call(REPLAYS_HANDLERS.sidecarRead, { demoId })
 }
 
 export function sidecarWrite(
@@ -236,7 +231,7 @@ export function sidecarWrite(
   fields: Partial<SidecarFields>,
   confirmReplace?: string,
 ): Promise<Outcome<SidecarSaveResult>> {
-  return callModule<SidecarSaveResult>('replays', REPLAYS_HANDLERS.sidecarWrite, {
+  return client.call(REPLAYS_HANDLERS.sidecarWrite, {
     demoId,
     fields,
     confirmReplace,
@@ -244,27 +239,27 @@ export function sidecarWrite(
 }
 
 export function getListFilter(): Promise<Outcome<DemoListFilter>> {
-  return callModule<DemoListFilter>('replays', REPLAYS_HANDLERS.listGetFilter)
+  return client.call(REPLAYS_HANDLERS.listGetFilter)
 }
 
 export function setListFilter(filter: DemoListFilter): Promise<Outcome<DemoListFilter>> {
-  return callModule<DemoListFilter>('replays', REPLAYS_HANDLERS.listSetFilter, { filter })
+  return client.call(REPLAYS_HANDLERS.listSetFilter, { filter })
 }
 
 export function readModWarning(): Promise<Outcome<ReplaysModWarning>> {
-  return callModule<ReplaysModWarning>('replays', REPLAYS_HANDLERS.modWarningRead)
+  return client.call(REPLAYS_HANDLERS.modWarningRead)
 }
 
 export function setModWarningEnabled(enabled: boolean): Promise<Outcome<ReplaysModWarning>> {
-  return callModule<ReplaysModWarning>('replays', REPLAYS_HANDLERS.modWarningSetEnabled, {
+  return client.call(REPLAYS_HANDLERS.modWarningSetEnabled, {
     enabled,
   })
 }
 
 export function trustModWarningMod(gameDir: string): Promise<Outcome<ReplaysModWarning>> {
-  return callModule<ReplaysModWarning>('replays', REPLAYS_HANDLERS.modWarningTrustMod, { gameDir })
+  return client.call(REPLAYS_HANDLERS.modWarningTrustMod, { gameDir })
 }
 
 export function resetModWarningTrusted(): Promise<Outcome<ReplaysModWarning>> {
-  return callModule<ReplaysModWarning>('replays', REPLAYS_HANDLERS.modWarningResetTrusted)
+  return client.call(REPLAYS_HANDLERS.modWarningResetTrusted)
 }

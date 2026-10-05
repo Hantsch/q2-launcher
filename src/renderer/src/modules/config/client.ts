@@ -1,5 +1,6 @@
 import {
   CONFIG_HANDLERS,
+  type ConfigContract,
   type AssignProfileInput,
   type CleanupApplyInput,
   type CleanupApplyResult,
@@ -49,37 +50,39 @@ import {
   type WriteTargetResult,
 } from '@shared/modules/config'
 import type { Outcome } from '@shared/types'
-import { callModule } from '../moduleClient'
+import { createModuleClient } from '../moduleClient'
+
+const client = createModuleClient<ConfigContract>('config')
 
 /** Typed client for the config module. One function per handler in its contract. */
 export function listConfigProfiles(): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.list)
+  return client.call(CONFIG_HANDLERS.list)
 }
 
 /** Creates a profile and returns the full, updated profile list. */
 export function createConfigProfile(
   input: CreateConfigProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.create, input)
+  return client.call(CONFIG_HANDLERS.create, input)
 }
 
 /** Renames a profile and returns the full, updated profile list. */
 export function renameConfigProfile(
   input: RenameConfigProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.rename, input)
+  return client.call(CONFIG_HANDLERS.rename, input)
 }
 
 /** Removes a profile and returns the full, updated profile list. */
 export function removeConfigProfile(
   input: RemoveConfigProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.remove, input)
+  return client.call(CONFIG_HANDLERS.remove, input)
 }
 
 /** Replaces a profile's cvars map and returns the full, updated profile list. */
 export function updateProfileCvars(input: SetProfileCvarsInput): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setCvars, input)
+  return client.call(CONFIG_HANDLERS.setCvars, input)
 }
 
 /**
@@ -89,26 +92,26 @@ export function updateProfileCvars(input: SetProfileCvarsInput): Promise<Outcome
 export function commitProfileCvars(
   input: CommitProfileCvarsInput,
 ): Promise<Outcome<ConfigProfile>> {
-  return callModule<ConfigProfile>('config', CONFIG_HANDLERS.commitCvars, input)
+  return client.call(CONFIG_HANDLERS.commitCvars, input)
 }
 
 /** Replaces a profile's binds map and returns the full, updated profile list. */
 export function updateProfileBinds(input: SetProfileBindsInput): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setBinds, input)
+  return client.call(CONFIG_HANDLERS.setBinds, input)
 }
 
 /** Replaces a profile's layers array and returns the full, updated profile list. */
 export function updateProfileLayers(
   input: SetProfileLayersInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setLayers, input)
+  return client.call(CONFIG_HANDLERS.setLayers, input)
 }
 
 /** Replaces a profile's categories+actions wholesale and returns the full, updated profile list. */
 export function updateProfileActions(
   input: SetProfileActionsInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setActions, input)
+  return client.call(CONFIG_HANDLERS.setActions, input)
 }
 
 /**
@@ -120,7 +123,7 @@ export function updateProfileActions(
 export function updateProfileWriteUnbindall(
   input: SetWriteUnbindallInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setWriteUnbindall, input)
+  return client.call(CONFIG_HANDLERS.setWriteUnbindall, input)
 }
 
 /**
@@ -131,7 +134,7 @@ export function updateProfileWriteUnbindall(
 export function updateProfileWriteCatalogDefaults(
   input: SetWriteCatalogDefaultsInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setWriteCatalogDefaults, input)
+  return client.call(CONFIG_HANDLERS.setWriteCatalogDefaults, input)
 }
 
 /**
@@ -142,7 +145,7 @@ export function updateProfileWriteCatalogDefaults(
 export function updateProfileSectionHeaderStyle(
   input: SetSectionHeaderStyleInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setSectionHeaderStyle, input)
+  return client.call(CONFIG_HANDLERS.setSectionHeaderStyle, input)
 }
 
 /**
@@ -155,32 +158,32 @@ export function updateProfileSectionHeaderStyle(
 export function discardConfigProfile(
   input: DiscardProfileInput,
 ): Promise<Outcome<DiscardProfileResult>> {
-  return callModule<DiscardProfileResult>('config', CONFIG_HANDLERS.discard, input)
+  return client.call(CONFIG_HANDLERS.discard, input)
 }
 
 export function assignConfigProfile(input: AssignProfileInput): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.assign, input)
+  return client.call(CONFIG_HANDLERS.assign, input)
 }
 
 /** Unassigns a profile from an installation and returns the full, updated profile list. */
 export function unassignConfigProfile(
   input: UnassignProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.unassign, input)
+  return client.call(CONFIG_HANDLERS.unassign, input)
 }
 
 /** Marks a profile as an installation's default and returns the full, updated profile list. */
 export function setDefaultConfigProfile(
   input: SetDefaultProfileInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.setDefault, input)
+  return client.call(CONFIG_HANDLERS.setDefault, input)
 }
 
 /** Writes a profile's content to every installation it is assigned to. */
 export function writeConfigProfile(
   input: WriteProfileInput,
 ): Promise<Outcome<WriteTargetResult[]>> {
-  return callModule<WriteTargetResult[]>('config', CONFIG_HANDLERS.write, input)
+  return client.call(CONFIG_HANDLERS.write, input)
 }
 
 /**
@@ -190,7 +193,7 @@ export function writeConfigProfile(
 
  */
 export function saveConfigProfile(input: SaveProfileInput): Promise<Outcome<SaveProfileResult>> {
-  return callModule<SaveProfileResult>('config', CONFIG_HANDLERS.save, input)
+  return client.call(CONFIG_HANDLERS.save, input)
 }
 
 /**
@@ -202,7 +205,7 @@ export function saveConfigProfile(input: SaveProfileInput): Promise<Outcome<Save
 export function saveConfigProfileRawText(
   input: SaveRawTextInput,
 ): Promise<Outcome<SaveRawTextResult>> {
-  return callModule<SaveRawTextResult>('config', CONFIG_HANDLERS.saveRawText, input)
+  return client.call(CONFIG_HANDLERS.saveRawText, input)
 }
 
 /**
@@ -216,7 +219,7 @@ export function saveConfigProfileRawText(
 export function refreshProfilesFromFiles(
   input: RefreshFromFilesInput,
 ): Promise<Outcome<RefreshFromFilesResult>> {
-  return callModule<RefreshFromFilesResult>('config', CONFIG_HANDLERS.refreshFromFiles, input)
+  return client.call(CONFIG_HANDLERS.refreshFromFiles, input)
 }
 
 /**
@@ -226,12 +229,12 @@ export function refreshProfilesFromFiles(
 export function previewConfigProfile(
   input: PreviewProfileInput,
 ): Promise<Outcome<PreviewProfileResult>> {
-  return callModule<PreviewProfileResult>('config', CONFIG_HANDLERS.preview, input)
+  return client.call(CONFIG_HANDLERS.preview, input)
 }
 
 /** Installations currently waiting for a retry, keyed by installation id. */
 export function getWriteState(): Promise<Outcome<WriteState>> {
-  return callModule<WriteState>('config', CONFIG_HANDLERS.writeState)
+  return client.call(CONFIG_HANDLERS.writeState)
 }
 
 /**
@@ -242,7 +245,7 @@ export function getWriteState(): Promise<Outcome<WriteState>> {
 export function getProfileSyncState(
   input: SyncProfileStateInput,
 ): Promise<Outcome<ProfileSyncState>> {
-  return callModule<ProfileSyncState>('config', CONFIG_HANDLERS.syncState, input)
+  return client.call(CONFIG_HANDLERS.syncState, input)
 }
 
 /**
@@ -251,7 +254,7 @@ export function getProfileSyncState(
 
  */
 export function getRawFiles(input: RawFilesInput): Promise<Outcome<RawFilesResult>> {
-  return callModule<RawFilesResult>('config', CONFIG_HANDLERS.rawFiles, input)
+  return client.call(CONFIG_HANDLERS.rawFiles, input)
 }
 
 /**
@@ -265,7 +268,7 @@ export function getRawFiles(input: RawFilesInput): Promise<Outcome<RawFilesResul
 
  */
 export function openProfileFile(input: OpenProfileFileInput): Promise<Outcome<null>> {
-  return callModule<null>('config', CONFIG_HANDLERS.openFile, input)
+  return client.call(CONFIG_HANDLERS.openFile, input)
 }
 
 /**
@@ -273,17 +276,17 @@ export function openProfileFile(input: OpenProfileFileInput): Promise<Outcome<nu
 
  */
 export function setPlayedMods(input: SetPlayedModsInput): Promise<Outcome<string[]>> {
-  return callModule<string[]>('config', CONFIG_HANDLERS.setPlayedMods, input)
+  return client.call(CONFIG_HANDLERS.setPlayedMods, input)
 }
 
 /** installationId -> the key bound to cycle its assigned profiles in-session, if configured. */
 export function getSwitchBinds(): Promise<Outcome<Record<string, string>>> {
-  return callModule<Record<string, string>>('config', CONFIG_HANDLERS.switchBinds)
+  return client.call(CONFIG_HANDLERS.switchBinds)
 }
 
 /** Sets or clears (key: null) the in-session profile-switch key for one installation. */
 export function setSwitchBind(input: SetSwitchBindInput): Promise<Outcome<Record<string, string>>> {
-  return callModule<Record<string, string>>('config', CONFIG_HANDLERS.setSwitchBind, input)
+  return client.call(CONFIG_HANDLERS.setSwitchBind, input)
 }
 
 /**
@@ -295,14 +298,14 @@ export function setSwitchBind(input: SetSwitchBindInput): Promise<Outcome<Record
 
 /** Opens the native multi-select config-file picker and registers what came back. */
 export function pickImportFiles(): Promise<Outcome<PickedConfigFile[]>> {
-  return callModule<PickedConfigFile[]>('config', CONFIG_HANDLERS.importPickFiles)
+  return client.call(CONFIG_HANDLERS.importPickFiles)
 }
 
 /** Previews what importing the given, ordered picked files would produce, without writing anything. */
 export function previewImportFiles(
   input: ImportFilesPreviewInput,
 ): Promise<Outcome<ImportPreviewResult>> {
-  return callModule<ImportPreviewResult>('config', CONFIG_HANDLERS.importPreviewFiles, input)
+  return client.call(CONFIG_HANDLERS.importPreviewFiles, input)
 }
 
 /**
@@ -313,22 +316,22 @@ export function previewImportFiles(
 export function commitImportFiles(
   input: ImportFilesCommitInput,
 ): Promise<Outcome<ConfigProfile[]>> {
-  return callModule<ConfigProfile[]>('config', CONFIG_HANDLERS.importCommitFiles, input)
+  return client.call(CONFIG_HANDLERS.importCommitFiles, input)
 }
 
 /** Mod-folder `.cfg` files on an installation that duplicate a same-named `baseq2` file. Always safe to call, even while the installation is running. */
 export function scanCleanupFindings(input: CleanupScanInput): Promise<Outcome<CleanupScanResult>> {
-  return callModule<CleanupScanResult>('config', CONFIG_HANDLERS.cleanupScan, input)
+  return client.call(CONFIG_HANDLERS.cleanupScan, input)
 }
 
 /** Backs up and removes the given redundant copies. Fails with `config.error.installationRunning` while the installation is running. */
 export function applyCleanup(input: CleanupApplyInput): Promise<Outcome<CleanupApplyResult>> {
-  return callModule<CleanupApplyResult>('config', CONFIG_HANDLERS.cleanupApply, input)
+  return client.call(CONFIG_HANDLERS.cleanupApply, input)
 }
 
 /** Restores the given entries from their backup. Fails with `config.error.installationRunning` while the installation is running. */
 export function restoreCleanup(input: CleanupRestoreInput): Promise<Outcome<CleanupRestoreResult>> {
-  return callModule<CleanupRestoreResult>('config', CONFIG_HANDLERS.cleanupRestore, input)
+  return client.call(CONFIG_HANDLERS.cleanupRestore, input)
 }
 
 /**
@@ -337,5 +340,5 @@ export function restoreCleanup(input: CleanupRestoreInput): Promise<Outcome<Clea
  * plus which ops applied vs. were rejected as stale.
  */
 export function applyTidyUp(input: TidyUpApplyInput): Promise<Outcome<TidyUpApplyResult>> {
-  return callModule<TidyUpApplyResult>('config', CONFIG_HANDLERS.tidyUpApply, input)
+  return client.call(CONFIG_HANDLERS.tidyUpApply, input)
 }

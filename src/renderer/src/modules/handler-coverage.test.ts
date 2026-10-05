@@ -35,8 +35,6 @@ const GROUPS: Group[] = [
 // Handlers with no renderer client call; read by `scripts/flows/servers-join.mjs`.
 const FLOW_ONLY: Record<string, string[]> = { servers: ['historyRead'] }
 
-const CONVERTED = ['home', 'servers']
-
 describe('renderer module clients', () => {
   it("every handler constant is referenced by its module's client", () => {
     const missing: string[] = []
@@ -55,12 +53,14 @@ describe('renderer module clients', () => {
     expect(missing).toEqual([])
   })
 
-  it("a converted module's client has no callModule generic", () => {
-    for (const module of CONVERTED) {
-      const source = sourceOf(module)
-      expect(source, `${module} client.ts`).toBeDefined()
-      expect(source).not.toMatch(/callModule</)
-      expect(source).not.toMatch(/onModuleEvent</)
+  it('every module client is built with createModuleClient', () => {
+    const entries = Object.entries(clients)
+    expect(entries.length).toBeGreaterThan(0)
+    for (const [path, source] of entries) {
+      expect(source, path).toContain('createModuleClient<')
+      expect(source, path).not.toMatch(/callModule/)
+      expect(source, path).not.toMatch(/onModuleEvent/)
+      expect(source, path).not.toMatch(/as Outcome/)
     }
   })
 })

@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import type { EngineKind } from '../types'
 
 /**
@@ -11,6 +12,21 @@ import type { EngineKind } from '../types'
 export const LIBRARY_HANDLERS = {
   stats: 'stats',
 } as const
+
+/** `stats` derives everything from the shell's own state, so it takes no payload. */
+export const LIBRARY_HANDLER_SCHEMAS = {
+  [LIBRARY_HANDLERS.stats]: z.void(),
+} satisfies Record<(typeof LIBRARY_HANDLERS)[keyof typeof LIBRARY_HANDLERS], z.ZodTypeAny>
+
+type LibrarySchemas = typeof LIBRARY_HANDLER_SCHEMAS
+
+/** The library module's typed contract; `req` is each schema's parsed output. */
+export type LibraryContract = {
+  handlers: {
+    [LIBRARY_HANDLERS.stats]: { req: z.infer<LibrarySchemas['stats']>; res: LibraryStats }
+  }
+  events: {}
+}
 
 export interface LibraryStats {
   total: number

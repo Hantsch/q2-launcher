@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, expectTypeOf, it } from 'vitest'
 import { z } from 'zod'
 import { absolutePathSchema } from '../schemas'
 import {
@@ -7,6 +7,8 @@ import {
   REPLAYS_HANDLERS,
   REPLAYS_HANDLER_SCHEMAS,
   REPLAYS_PATH_PAYLOAD_HANDLERS,
+  type ReplaysContract,
+  type ReplaysStageRect,
 } from './replays'
 
 describe('replays module contract (story 135 D1)', () => {
@@ -158,5 +160,21 @@ describe('no replays handler payload carries a filesystem path', () => {
       }),
     })
     expect(findPathLeak(dirty)).toBeDefined()
+  })
+})
+
+describe('ReplaysContract', () => {
+  it('ReplaysContract req types are derived from REPLAYS_HANDLER_SCHEMAS', () => {
+    type Schemas = typeof REPLAYS_HANDLER_SCHEMAS
+    type Handlers = ReplaysContract['handlers']
+    expectTypeOf<Handlers['overview.read']['req']>().toEqualTypeOf<void>()
+    expectTypeOf<Handlers['extraFolders.add']['req']>().toEqualTypeOf<{ path: string }>()
+    expectTypeOf<Handlers['demo.play']['req']>().toEqualTypeOf<z.infer<Schemas['demo.play']>>()
+    expectTypeOf<
+      Handlers['playback.stage']['req']['rect']
+    >().toEqualTypeOf<ReplaysStageRect | null>()
+    expectTypeOf<Handlers['playback.timeline']['req']>().toEqualTypeOf<
+      z.infer<Schemas['playback.timeline']>
+    >()
   })
 })

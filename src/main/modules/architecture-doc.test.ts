@@ -84,12 +84,16 @@ describe('ARCHITECTURE.md', () => {
   it('every planned-in-story marker points at an open story', () => {
     const done = readdirSync(resolve(repo, 'docs/requirements/done'))
     const markers = [...doc.matchAll(/\(planned in story\s+(\d{3})/g)].map((m) => m[1] as string)
-    expect(markers.length).toBeGreaterThan(0)
     for (const story of markers) {
       expect(
         done.filter((file) => file.startsWith(`${story}-`)),
         `story ${story} is done`,
       ).toEqual([])
     }
+  })
+
+  it('the module seam has no unconverted-module remnants', () => {
+    expect(doc).not.toContain('planned in story 232')
+    expect(doc).not.toContain('not-yet-converted')
   })
 })

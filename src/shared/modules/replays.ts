@@ -1,10 +1,11 @@
 import { z } from 'zod'
 import { VALUE_SOURCES } from '../demos/effective-values'
 import { demoUnreadableSchema } from '../demos/readability'
-import { demoListFilterSchema } from '../replays/list-filter'
-import { DEMO_SORT_COLUMNS } from '../replays/list-sort'
+import { demoListFilterSchema, type DemoListFilter } from '../replays/list-filter'
+import { DEMO_SORT_COLUMNS, type DemoListSort } from '../replays/list-sort'
 import type { NameFacts } from '../replays/name-template'
-import { sidecarFieldsSchema } from '../replays/sidecar'
+import type { NameTemplatesView } from '../replays/name-templates'
+import { sidecarFieldsSchema, type SidecarFields } from '../replays/sidecar'
 import { timelineActionSchema } from '../replays/timeline'
 import { absolutePathSchema } from '../schemas'
 import type { CinemaAvailability } from '../replays/cinema'
@@ -544,10 +545,7 @@ export const modWarningTrustModInputSchema = z
   .strict()
 
 /** Every `replays` handler paired with its payload schema. */
-export const REPLAYS_HANDLER_SCHEMAS: Record<
-  (typeof REPLAYS_HANDLERS)[keyof typeof REPLAYS_HANDLERS],
-  z.ZodTypeAny
-> = {
+export const REPLAYS_HANDLER_SCHEMAS = {
   [REPLAYS_HANDLERS.overviewRead]: replaysNoInputSchema,
   [REPLAYS_HANDLERS.nameTemplatesList]: replaysNoInputSchema,
   [REPLAYS_HANDLERS.nameTemplatesAdd]: nameTemplatesAddSchema,
@@ -581,7 +579,7 @@ export const REPLAYS_HANDLER_SCHEMAS: Record<
   [REPLAYS_HANDLERS.playbackStop]: replaysNoInputSchema,
   [REPLAYS_HANDLERS.playbackCinema]: replaysPlaybackCinemaSchema,
   [REPLAYS_HANDLERS.playbackDisplayRead]: replaysPlaybackDisplayReadSchema,
-}
+} satisfies Record<(typeof REPLAYS_HANDLERS)[keyof typeof REPLAYS_HANDLERS], z.ZodTypeAny>
 
 /** Handlers whose payload is allowed to carry a filesystem path/dir/folder/file value. */
 export const REPLAYS_PATH_PAYLOAD_HANDLERS: readonly string[] = ['extraFolders.add']
@@ -635,3 +633,80 @@ export type SidecarState =
 export type SidecarSaveResult =
   | { status: 'saved'; state: 'written' | 'deleted' | 'unchanged' }
   | { status: 'needsConfirmation'; fileName: string; issues: SidecarIssue[]; fingerprint: string }
+
+type ReplaysSchemas = typeof REPLAYS_HANDLER_SCHEMAS
+
+/** One handler's contract entry; `req` is the schema's parsed output. */
+type ReplaysHandler<K extends keyof ReplaysSchemas, Res> = {
+  req: z.infer<ReplaysSchemas[K]>
+  res: Res
+}
+
+/** The replays module's typed contract. */
+export type ReplaysContract = {
+  handlers: {
+    [REPLAYS_HANDLERS.overviewRead]: ReplaysHandler<'overview.read', ReplaysOverview>
+    [REPLAYS_HANDLERS.nameTemplatesList]: ReplaysHandler<'nameTemplates.list', NameTemplatesView>
+    [REPLAYS_HANDLERS.nameTemplatesAdd]: ReplaysHandler<'nameTemplates.add', NameTemplatesView>
+    [REPLAYS_HANDLERS.nameTemplatesUpdate]: ReplaysHandler<
+      'nameTemplates.update',
+      NameTemplatesView
+    >
+    [REPLAYS_HANDLERS.nameTemplatesRemove]: ReplaysHandler<
+      'nameTemplates.remove',
+      NameTemplatesView
+    >
+    [REPLAYS_HANDLERS.nameTemplatesReorder]: ReplaysHandler<
+      'nameTemplates.reorder',
+      NameTemplatesView
+    >
+    [REPLAYS_HANDLERS.nameTemplatesReset]: ReplaysHandler<'nameTemplates.reset', NameTemplatesView>
+    [REPLAYS_HANDLERS.nameTemplatesRestore]: ReplaysHandler<
+      'nameTemplates.restore',
+      NameTemplatesView
+    >
+    [REPLAYS_HANDLERS.extraFoldersList]: ReplaysHandler<'extraFolders.list', ReplaysExtraFolder[]>
+    [REPLAYS_HANDLERS.extraFoldersAdd]: ReplaysHandler<'extraFolders.add', ExtraFoldersResult>
+    [REPLAYS_HANDLERS.extraFoldersRemove]: ReplaysHandler<'extraFolders.remove', ExtraFoldersResult>
+    [REPLAYS_HANDLERS.scanStart]: ReplaysHandler<'scan.start', ReplaysScanStartResult>
+    [REPLAYS_HANDLERS.indexRead]: ReplaysHandler<'index.read', DemoRow[]>
+    [REPLAYS_HANDLERS.sidecarRead]: ReplaysHandler<
+      'sidecar.read',
+      { state: SidecarState; values: Partial<SidecarFields> }
+    >
+    [REPLAYS_HANDLERS.sidecarWrite]: ReplaysHandler<'sidecar.write', SidecarSaveResult>
+    [REPLAYS_HANDLERS.listGetSort]: ReplaysHandler<'list.getSort', DemoListSort | null>
+    [REPLAYS_HANDLERS.listSetSort]: ReplaysHandler<'list.setSort', DemoListSort | null>
+    [REPLAYS_HANDLERS.listGetFilter]: ReplaysHandler<'listFilter.read', DemoListFilter>
+    [REPLAYS_HANDLERS.listSetFilter]: ReplaysHandler<'listFilter.write', DemoListFilter>
+    [REPLAYS_HANDLERS.modWarningRead]: ReplaysHandler<'modWarning.read', ReplaysModWarning>
+    [REPLAYS_HANDLERS.modWarningSetEnabled]: ReplaysHandler<
+      'modWarning.setEnabled',
+      ReplaysModWarning
+    >
+    [REPLAYS_HANDLERS.modWarningTrustMod]: ReplaysHandler<'modWarning.trustMod', ReplaysModWarning>
+    [REPLAYS_HANDLERS.modWarningResetTrusted]: ReplaysHandler<
+      'modWarning.resetTrusted',
+      ReplaysModWarning
+    >
+    [REPLAYS_HANDLERS.demosReveal]: ReplaysHandler<'demos.reveal', DemoFileActionResult>
+    [REPLAYS_HANDLERS.demosCopyPath]: ReplaysHandler<'demos.copyPath', DemoFileActionResult>
+    [REPLAYS_HANDLERS.demoRename]: ReplaysHandler<'demo.rename', { demo: DiscoveredDemo }>
+    [REPLAYS_HANDLERS.demoPlay]: ReplaysHandler<'demo.play', ReplaysDemoPlayResult>
+    [REPLAYS_HANDLERS.playbackTimeline]: ReplaysHandler<'playback.timeline', void>
+    [REPLAYS_HANDLERS.playbackConsoleSend]: ReplaysHandler<'playback.consoleSend', void>
+    [REPLAYS_HANDLERS.playbackStage]: ReplaysHandler<'playback.stage', void>
+    [REPLAYS_HANDLERS.playbackStop]: ReplaysHandler<'playback.stop', void>
+    [REPLAYS_HANDLERS.playbackCinema]: ReplaysHandler<'playback.cinema', void>
+    [REPLAYS_HANDLERS.playbackDisplayRead]: ReplaysHandler<
+      'playback.display.read',
+      ReplaysPlaybackDisplay
+    >
+  }
+  events: {
+    [REPLAYS_EVENTS.scanProgress]: ReplaysScanProgress
+    [REPLAYS_EVENTS.playbackPosition]: ReplaysPlaybackPosition
+    [REPLAYS_EVENTS.playbackState]: ReplaysPlaybackState
+    [REPLAYS_EVENTS.playbackDisplay]: ReplaysPlaybackDisplay
+  }
+}

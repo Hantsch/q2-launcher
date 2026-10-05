@@ -53,7 +53,7 @@ const FILE_ENCODING: BufferEncoding = 'latin1'
 
 /**
  * Cap on a name recovered from a file header, matching the 120-character cap the *IPC* payload
- * schemas put on a profile name (`main/modules/config/schemas.ts`). The persisted schema caps
+ * schemas put on a profile name (`shared/modules/config-schemas.ts`). The persisted schema caps
  * nothing, and the header banner itself allows up to `BANNER_TEXT_CAP` (256) characters, so a
  * hand-edited header could otherwise seed a name no path through the UI could ever have produced.
  */

@@ -36,7 +36,7 @@ import type { PickedConfigFile } from '@shared/modules/config'
  * still be holding, and an evicted id degrades to the ordinary "unknown id" rejection - never to a
  * wrong path.
  *
- * Note this is a *different* bound from `MAX_IMPORT_FILE_IDS` (`schemas.ts`), which caps how many
+ * Note this is a *different* bound from `MAX_IMPORT_FILE_IDS` (`src/shared/modules/config-schemas.ts`), which caps how many
  * ids ONE request may carry.
  */
 export const MAX_REGISTERED_PICKED_FILES = 512

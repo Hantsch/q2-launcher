@@ -787,7 +787,7 @@ export const scanGetSettingsInputSchema = serversNoInputSchema
 
 /**
  * `scan.patchSettings`'s payload - a partial `ServersScanSettings`, mirroring
- * `patchDownloadsSettingsInputSchema` (`main/modules/downloads/schemas.ts`) exactly: each present
+ * `patchDownloadsSettingsInputSchema` (`shared/modules/downloads.ts`) exactly: each present
  * numeric field is validated against its own `SCAN_*_CHOICES` list above via `.refine()` (not a
  * bare `.min()/.max()` range, which would accept an in-range value with no matching `<Select>`
  * option, or a non-integer like `0.5`), each present boolean field is just `z.boolean()`, every

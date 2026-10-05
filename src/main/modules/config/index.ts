@@ -4,6 +4,7 @@ import {
   type CleanupApplyResult,
   type CleanupRestoreResult,
   type CleanupScanResult,
+  type ConfigContract,
   type ConfigProfile,
   type DiscardProfileResult,
   type ImportPreviewResult,
@@ -28,43 +29,8 @@ import { introducesOrphanCategory } from './orphan-category'
 import { PickedFilesRegistry } from './picked-files'
 import { ProfilesStore } from './profiles'
 import { runConfigStartup } from './startup'
-import {
-  assignProfileInputSchema,
-  cleanupApplyInputSchema,
-  cleanupRestoreInputSchema,
-  cleanupScanInputSchema,
-  commitProfileCvarsInputSchema,
-  createConfigProfileInputSchema,
-  discardProfileInputSchema,
-  importFilesCommitInputSchema,
-  importFilesPreviewInputSchema,
-  importPickFilesInputSchema,
-  listInputSchema,
-  openFileInputSchema,
-  previewProfileInputSchema,
-  rawFilesInputSchema,
-  refreshFromFilesInputSchema,
-  removeConfigProfileInputSchema,
-  renameConfigProfileInputSchema,
-  saveProfileInputSchema,
-  saveRawTextInputSchema,
-  setDefaultProfileInputSchema,
-  setPlayedModsInputSchema,
-  setProfileActionsInputSchema,
-  setProfileBindsInputSchema,
-  setProfileCvarsInputSchema,
-  setProfileLayersInputSchema,
-  setSectionHeaderStyleInputSchema,
-  setSwitchBindInputSchema,
-  setWriteCatalogDefaultsInputSchema,
-  setWriteUnbindallInputSchema,
-  switchBindsInputSchema,
-  syncStateInputSchema,
-  tidyUpApplyInputSchema,
-  unassignProfileInputSchema,
-  writeProfileInputSchema,
-  writeStateInputSchema,
-} from './schemas'
+import { CONFIG_HANDLER_SCHEMAS } from '@shared/modules/config-schemas'
+import { defineModule } from '../define-module'
 import { previewProfileFiles, validatePlayedMods } from './write-plan'
 import { BASE_GAME_DIR, ownedProfileIdFromContent, readExisting } from './writer'
 import { configState } from './persisted'
@@ -109,7 +75,9 @@ function importPickerStartFolder(app: AppContext): { defaultPath?: string } {
 export const configModule: MainModule = {
   id: 'config',
 
-  async setup({ handle, app, log }) {
+  async setup(setup) {
+    const { app, log } = setup
+    const { handle } = defineModule<ConfigContract>('config', CONFIG_HANDLER_SCHEMAS).bind(setup)
     const profiles = new ProfilesStore(app.state)
     const writes = createProfileWrites({
       profiles,
@@ -149,9 +117,9 @@ export const configModule: MainModule = {
     const markUnsaved = (profileId: string): ConfigProfile[] =>
       withLiveAssignments(profiles.setDirty(profileId, true))
 
-    handle(CONFIG_HANDLERS.list, listInputSchema, () => ok(withLiveAssignments(profiles.list())))
+    handle(CONFIG_HANDLERS.list, () => ok(withLiveAssignments(profiles.list())))
 
-    handle(CONFIG_HANDLERS.create, createConfigProfileInputSchema, (input) =>
+    handle(CONFIG_HANDLERS.create, (input) =>
       writes.syncAppended(withLiveAssignments(profiles.create(input))),
     )
 
@@ -162,39 +130,37 @@ export const configModule: MainModule = {
      * profile, which is how `save` and the sync engine find it again); the rename of the file, and
      * the cascade for any sibling this displaces, happen inside that save.
      */
-    handle(CONFIG_HANDLERS.rename, renameConfigProfileInputSchema, (input) => {
+    handle(CONFIG_HANDLERS.rename, (input) => {
       // A rename cannot remove the profile, so it is always in the new list.
       profiles.rename(input)
       return ok(markUnsaved(input.id))
     })
 
-    handle(CONFIG_HANDLERS.remove, removeConfigProfileInputSchema, async (input) => {
+    handle(CONFIG_HANDLERS.remove, async (input) => {
       const list = withLiveAssignments(profiles.remove(input))
       await writes.cleanupRemoved(input.id)
       return ok(list)
     })
 
-    handle(CONFIG_HANDLERS.setCvars, setProfileCvarsInputSchema, (input) => {
+    handle(CONFIG_HANDLERS.setCvars, (input) => {
       profiles.setCvars(input)
       return ok(markUnsaved(input.profileId))
     })
 
     // Story 175; its contract is documented on `profile-writes.ts#commitCvars`.
-    handle(CONFIG_HANDLERS.commitCvars, commitProfileCvarsInputSchema, (input) =>
-      writes.commitCvars(input),
-    )
+    handle(CONFIG_HANDLERS.commitCvars, (input) => writes.commitCvars(input))
 
-    handle(CONFIG_HANDLERS.setBinds, setProfileBindsInputSchema, (input) => {
+    handle(CONFIG_HANDLERS.setBinds, (input) => {
       profiles.setBinds(input)
       return ok(markUnsaved(input.profileId))
     })
 
-    handle(CONFIG_HANDLERS.setLayers, setProfileLayersInputSchema, (input) => {
+    handle(CONFIG_HANDLERS.setLayers, (input) => {
       profiles.setLayers(input)
       return ok(markUnsaved(input.profileId))
     })
 
-    handle(CONFIG_HANDLERS.setActions, setProfileActionsInputSchema, (input) => {
+    handle(CONFIG_HANDLERS.setActions, (input) => {
       const stored = profiles.find(input.profileId)
       if (!stored) return fail('config.error.profileNotFound')
       if (introducesOrphanCategory(stored.actions ?? [], input.actions, input.categories)) {
@@ -210,7 +176,7 @@ export const configModule: MainModule = {
     // `renderProfileFile` emits), so it is a content mutation exactly like
     // `setCvars`/`setBinds`/`setLayers`/`setActions` and takes the same `markUnsaved` tail (story
     // 043) rather than the plain state write those two use.
-    handle(CONFIG_HANDLERS.setWriteUnbindall, setWriteUnbindallInputSchema, (input) => {
+    handle(CONFIG_HANDLERS.setWriteUnbindall, (input) => {
       profiles.setWriteUnbindall(input)
       return ok(markUnsaved(input.profileId))
     })
@@ -218,7 +184,7 @@ export const configModule: MainModule = {
     // Story 059: mirrors `setWriteUnbindall` right above exactly - a dedicated setter for one
     // boolean, write-affecting (it changes whether `buildCvarSections` writes unplaced catalogue
     // cvars into the reserved `Defaults` section), so it takes the same `markUnsaved` tail.
-    handle(CONFIG_HANDLERS.setWriteCatalogDefaults, setWriteCatalogDefaultsInputSchema, (input) => {
+    handle(CONFIG_HANDLERS.setWriteCatalogDefaults, (input) => {
       profiles.setWriteCatalogDefaults(input)
       return ok(markUnsaved(input.profileId))
     })
@@ -229,7 +195,7 @@ export const configModule: MainModule = {
     // not name this handler, but its being write-affecting is the whole reason it went through
     // `syncAndPersist` before; leaving it as the one content setter that still stamps the file
     // immediately would be an inconsistency the plan clearly did not intend.
-    handle(CONFIG_HANDLERS.setSectionHeaderStyle, setSectionHeaderStyleInputSchema, (input) => {
+    handle(CONFIG_HANDLERS.setSectionHeaderStyle, (input) => {
       profiles.setSectionHeaderStyle(input)
       return ok(markUnsaved(input.profileId))
     })
@@ -245,7 +211,7 @@ export const configModule: MainModule = {
      * "no baseline to discard from" case is a typed result, not an error, and is reported as such
      * rather than mapped onto `fail(...)`.
      */
-    handle(CONFIG_HANDLERS.discard, discardProfileInputSchema, (input) => {
+    handle(CONFIG_HANDLERS.discard, (input) => {
       const outcome = profiles.discard(input.profileId)
       if (outcome.outcome === 'noBaseline')
         return ok<DiscardProfileResult>({ status: 'noBaseline' })
@@ -255,58 +221,48 @@ export const configModule: MainModule = {
       })
     })
 
-    handle(CONFIG_HANDLERS.assign, assignProfileInputSchema, (input) => writes.assign(input))
-    handle(CONFIG_HANDLERS.unassign, unassignProfileInputSchema, (input) => writes.unassign(input))
-    handle(CONFIG_HANDLERS.setDefault, setDefaultProfileInputSchema, (input) =>
-      writes.setDefault(input),
-    )
-    handle(CONFIG_HANDLERS.write, writeProfileInputSchema, (input) => writes.write(input))
+    handle(CONFIG_HANDLERS.assign, (input) => writes.assign(input))
+    handle(CONFIG_HANDLERS.unassign, (input) => writes.unassign(input))
+    handle(CONFIG_HANDLERS.setDefault, (input) => writes.setDefault(input))
+    handle(CONFIG_HANDLERS.write, (input) => writes.write(input))
 
     // The explicit save; its read-before-write contract is documented on `profile-writes.ts#save`.
-    handle(CONFIG_HANDLERS.save, saveProfileInputSchema, (input) => writes.save(input))
+    handle(CONFIG_HANDLERS.save, (input) => writes.save(input))
 
     // Raw text save; its contract is documented on `profile-writes.ts#saveRawText`.
-    handle(CONFIG_HANDLERS.saveRawText, saveRawTextInputSchema, (input) =>
-      writes.saveRawText(input),
-    )
+    handle(CONFIG_HANDLERS.saveRawText, (input) => writes.saveRawText(input))
 
     // Refresh from files; its contract is documented on `profile-writes.ts#refreshFromFiles`.
-    handle(CONFIG_HANDLERS.refreshFromFiles, refreshFromFilesInputSchema, (input) =>
-      writes.refreshFromFiles(input),
-    )
+    handle(CONFIG_HANDLERS.refreshFromFiles, (input) => writes.refreshFromFiles(input))
 
-    handle(
-      CONFIG_HANDLERS.preview,
-      previewProfileInputSchema,
-      async (input): Promise<Outcome<PreviewProfileResult>> => {
-        const profile = profiles.find(input.profileId)
-        if (!profile) return fail('config.error.profileNotFound')
-        const installation = app.installations.find(input.installationId)
-        if (!installation) return fail('installations.error.notFound')
+    handle(CONFIG_HANDLERS.preview, async (input): Promise<Outcome<PreviewProfileResult>> => {
+      const profile = profiles.find(input.profileId)
+      if (!profile) return fail('config.error.profileNotFound')
+      const installation = app.installations.find(input.installationId)
+      if (!installation) return fail('installations.error.notFound')
 
-        const files = previewProfileFiles(
-          profile,
-          profiles.list(),
-          installation,
-          configState(app.state).switchBinds.get()[installation.id],
-        )
-        return ok({
-          files: await Promise.all(
-            files.map(async (file) => ({ ...file, onDisk: await isFile(file.path) })),
-          ),
-        })
-      },
-    )
+      const files = previewProfileFiles(
+        profile,
+        profiles.list(),
+        installation,
+        configState(app.state).switchBinds.get()[installation.id],
+      )
+      return ok({
+        files: await Promise.all(
+          files.map(async (file) => ({ ...file, onDisk: await isFile(file.path) })),
+        ),
+      })
+    })
 
     // Story 079: a running game defers nothing, so no installation is ever pending a write any
     // more - this channel's shared contract (`WriteState`, a later deliverable's concern) is kept
     // alive by always answering "nothing pending" rather than by persisting a map that can never
     // gain an entry.
-    handle(CONFIG_HANDLERS.writeState, writeStateInputSchema, () => ok<WriteState>({}))
+    handle(CONFIG_HANDLERS.writeState, () => ok<WriteState>({}))
 
     // Story 022 / 023: read-only reports; their contracts are on `profile-writes.ts`.
-    handle(CONFIG_HANDLERS.syncState, syncStateInputSchema, (input) => writes.syncState(input))
-    handle(CONFIG_HANDLERS.rawFiles, rawFilesInputSchema, (input) => writes.rawFiles(input))
+    handle(CONFIG_HANDLERS.syncState, (input) => writes.syncState(input))
+    handle(CONFIG_HANDLERS.rawFiles, (input) => writes.rawFiles(input))
 
     /**
      * Story 023: hand one of this profile's files to the OS - the default
@@ -337,7 +293,7 @@ export const configModule: MainModule = {
      *
      * Only then is the OS touched at all.
      */
-    handle(CONFIG_HANDLERS.openFile, openFileInputSchema, async (input): Promise<Outcome<null>> => {
+    handle(CONFIG_HANDLERS.openFile, async (input): Promise<Outcome<null>> => {
       const { profileId, installationId, mode } = input
 
       const allProfiles = profiles.list()
@@ -386,7 +342,7 @@ export const configModule: MainModule = {
       return ok(null)
     })
 
-    handle(CONFIG_HANDLERS.setPlayedMods, setPlayedModsInputSchema, (input): Outcome<string[]> => {
+    handle(CONFIG_HANDLERS.setPlayedMods, (input): Outcome<string[]> => {
       const installation = app.installations.find(input.installationId)
       if (!installation) return fail('installations.error.notFound')
 
@@ -401,13 +357,9 @@ export const configModule: MainModule = {
     // Story 007: which key (if any) cycles an installation's assigned
     // profiles in-session. Per-installation, not part of a profile (decision
     // 1) - see `SetSwitchBindInput`'s doc comment.
-    handle(CONFIG_HANDLERS.switchBinds, switchBindsInputSchema, () =>
-      ok(configState(app.state).switchBinds.get()),
-    )
+    handle(CONFIG_HANDLERS.switchBinds, () => ok(configState(app.state).switchBinds.get()))
 
-    handle(CONFIG_HANDLERS.setSwitchBind, setSwitchBindInputSchema, (input) =>
-      writes.setSwitchBind(input),
-    )
+    handle(CONFIG_HANDLERS.setSwitchBind, (input) => writes.setSwitchBind(input))
 
     // Story 005 / 066: read-only import of hand-written config FILES into a new profile.
     // `import.ts` holds the fs-touching logic so it stays testable without booting this module;
@@ -421,31 +373,22 @@ export const configModule: MainModule = {
     // and the only thing that can turn a renderer-supplied id into a path.
     const pickedFiles = new PickedFilesRegistry()
 
-    handle(
-      CONFIG_HANDLERS.importPickFiles,
-      importPickFilesInputSchema,
-      (): Promise<Outcome<PickedConfigFile[]>> =>
-        pickImportFiles(app.dialog, pickedFiles, log, importPickerStartFolder(app)),
+    handle(CONFIG_HANDLERS.importPickFiles, (): Promise<Outcome<PickedConfigFile[]>> =>
+      pickImportFiles(app.dialog, pickedFiles, log, importPickerStartFolder(app)),
     )
 
-    handle(
-      CONFIG_HANDLERS.importPreviewFiles,
-      importFilesPreviewInputSchema,
-      (input): Promise<Outcome<ImportPreviewResult>> => previewImportFiles(pickedFiles, log, input),
+    handle(CONFIG_HANDLERS.importPreviewFiles, (input): Promise<Outcome<ImportPreviewResult>> =>
+      previewImportFiles(pickedFiles, log, input),
     )
 
-    handle(
-      CONFIG_HANDLERS.importCommitFiles,
-      importFilesCommitInputSchema,
-      async (input): Promise<Outcome<ConfigProfile[]>> => {
-        const result = await commitImportFiles(pickedFiles, log, input, (seed) =>
-          profiles.createFromImport(seed),
-        )
-        // Nothing was created, so there is nothing to sync.
-        if (!result.ok) return result
-        return writes.syncAppended(withLiveAssignments(result.value))
-      },
-    )
+    handle(CONFIG_HANDLERS.importCommitFiles, async (input): Promise<Outcome<ConfigProfile[]>> => {
+      const result = await commitImportFiles(pickedFiles, log, input, (seed) =>
+        profiles.createFromImport(seed),
+      )
+      // Nothing was created, so there is nothing to sync.
+      if (!result.ok) return result
+      return writes.syncAppended(withLiveAssignments(result.value))
+    })
 
     // Story 010: find and remove mod-folder `.cfg` copies that duplicate a
     // same-named `baseq2` file. `cleanup.ts` holds the fs-touching logic
@@ -453,32 +396,23 @@ export const configModule: MainModule = {
     // only validate the payload, resolve the real installation and - for
     // `apply`/`restore` only, never for the read-only `scan` (decision 12) -
     // refuse a currently-running installation the same way `write` does.
-    handle(
-      CONFIG_HANDLERS.cleanupScan,
-      cleanupScanInputSchema,
-      async (input): Promise<Outcome<CleanupScanResult>> => {
-        const installation = app.installations.find(input.installationId)
-        if (!installation) return fail('installations.error.notFound')
+    handle(CONFIG_HANDLERS.cleanupScan, async (input): Promise<Outcome<CleanupScanResult>> => {
+      const installation = app.installations.find(input.installationId)
+      if (!installation) return fail('installations.error.notFound')
 
-        const findings = await scanRedundantCopies(installation)
-        return ok({ findings })
-      },
-    )
+      const findings = await scanRedundantCopies(installation)
+      return ok({ findings })
+    })
 
-    handle(
-      CONFIG_HANDLERS.cleanupApply,
-      cleanupApplyInputSchema,
-      async (input): Promise<Outcome<CleanupApplyResult>> => {
-        const installation = app.installations.find(input.installationId)
-        if (!installation) return fail('installations.error.notFound')
+    handle(CONFIG_HANDLERS.cleanupApply, async (input): Promise<Outcome<CleanupApplyResult>> => {
+      const installation = app.installations.find(input.installationId)
+      if (!installation) return fail('installations.error.notFound')
 
-        return applyCleanupIfNotRunning(installation, input.entries, app.launch.getState())
-      },
-    )
+      return applyCleanupIfNotRunning(installation, input.entries, app.launch.getState())
+    })
 
     handle(
       CONFIG_HANDLERS.cleanupRestore,
-      cleanupRestoreInputSchema,
       async (input): Promise<Outcome<CleanupRestoreResult>> => {
         const installation = app.installations.find(input.installationId)
         if (!installation) return fail('installations.error.notFound')
@@ -488,9 +422,7 @@ export const configModule: MainModule = {
     )
 
     // Story 025; its contract is documented on `profile-writes.ts#tidyUpApply`.
-    handle(CONFIG_HANDLERS.tidyUpApply, tidyUpApplyInputSchema, (input) =>
-      writes.tidyUpApply(input),
-    )
+    handle(CONFIG_HANDLERS.tidyUpApply, (input) => writes.tidyUpApply(input))
 
     // Awaited on purpose: boot blocks here so the first `list` call already sees profiles rebuilt
     // from disk, while handler registration above is not delayed by this disk I/O.

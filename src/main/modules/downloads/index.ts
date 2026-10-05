@@ -1,6 +1,8 @@
 import {
   BOOTSTRAP_SUPPORTED_ENGINES,
   DOWNLOADS_HANDLERS,
+  DOWNLOADS_HANDLER_SCHEMAS,
+  type DownloadsContract,
   type BootstrapEngineOption,
   type BootstrapEngineOptionsResult,
   type BootstrapSummary,
@@ -21,6 +23,7 @@ import type { EngineKind } from '@shared/types/engine'
 import type { Logger } from '../../lib/logger'
 import { userDataDir } from '../../lib/paths'
 import type { AppContext } from '../../context'
+import { defineModule } from '../define-module'
 import type { MainModule } from '../types'
 import { resolveExtractorPath } from '../../lib/archive/7za-path'
 import { buildBootstrapSummary, startBootstrap, type BootstrapDeps } from './bootstrap/job'
@@ -51,31 +54,15 @@ import { startEngineRollback, type EngineRollbackDeps } from './engine/rollback-
 import { readEngineState, type InstallationEngineState } from '../../services/engine-state'
 import { setEngineState, withEngineState } from './engine/record-engine-state'
 import { appendFailure, dismissFailure, restoreFailure } from './failure-log'
-import { type ManifestService, ManifestUnavailableError } from '../../services/content/manifest-service'
+import {
+  type ManifestService,
+  ManifestUnavailableError,
+} from '../../services/content/manifest-service'
 import { startRepair, type RepairDeps } from './repair/job'
 import { resolveRepairPlan, type RepairPlanDeps } from './repair/plan'
 import { detectedRetailSourcesFor } from './retail/sources'
 import { startRetailUpgrade, type RetailUpgradeDeps } from './retail/upgrade-job'
 import { inspectInstallation } from '../../services/inspector'
-import {
-  bootstrapEngineOptionsInputSchema,
-  bootstrapGameDataSourceInputSchema,
-  bootstrapRetailSourcesInputSchema,
-  bootstrapSummaryInputSchema,
-  bootstrapTargetVerdictInputSchema,
-  dismissFailureInputSchema,
-  downloadsNoInputSchema,
-  engineUpdateStatusInputSchema,
-  patchDownloadsSettingsInputSchema,
-  repairPlanInputSchema,
-  restoreFailureInputSchema,
-  setBleedingEdgeInputSchema,
-  startBootstrapInputSchema,
-  startEngineRollbackInputSchema,
-  startEngineUpdateInputSchema,
-  startRepairInputSchema,
-  startRetailUpgradeInputSchema,
-} from './schemas'
 import { downloadsState } from './persisted'
 
 /** `DownloadsSettings.archiveCacheBudgetGB` is denominated in GB; `cache.ts` wants bytes. One
@@ -97,7 +84,11 @@ const BYTES_PER_GB = 1024 * 1024 * 1024
 export const downloadsModule: MainModule = {
   id: 'downloads',
 
-  setup({ handle, app, log, onDispose }) {
+  setup(setup) {
+    const { app, log, onDispose } = setup
+    const { handle } = defineModule<DownloadsContract>('downloads', DOWNLOADS_HANDLER_SCHEMAS).bind(
+      setup,
+    )
     const persisted = downloadsState(app.state)
     const manifestService = app.content.manifest
 
@@ -119,49 +110,43 @@ export const downloadsModule: MainModule = {
      * manifest pins something, just not for this host's platform" (`'none-for-platform'`, the
      * Linux-with-a-Windows-only-manifest case now possible).
      */
-    handle(
-      DOWNLOADS_HANDLERS.bootstrapEngineOptions,
-      bootstrapEngineOptionsInputSchema,
-      async () => {
-        try {
-          await manifestService.getManifest()
-        } catch (error) {
-          if (error instanceof ManifestUnavailableError) {
-            return ok<BootstrapEngineOptionsResult>({ options: [], emptyReason: 'none-pinned' })
-          }
-          throw error
+    handle(DOWNLOADS_HANDLERS.bootstrapEngineOptions, async () => {
+      try {
+        await manifestService.getManifest()
+      } catch (error) {
+        if (error instanceof ManifestUnavailableError) {
+          return ok<BootstrapEngineOptionsResult>({ options: [], emptyReason: 'none-pinned' })
         }
+        throw error
+      }
 
-        const options: BootstrapEngineOption[] = []
-        for (const engine of BOOTSTRAP_SUPPORTED_ENGINES) {
-          const pkg = manifestService.pinnedEnginePackage(engine)
-          if (pkg === undefined) continue
-          options.push({
-            engine,
-            packageId: pkg.id,
-            version: pkg.version,
-            sizeBytes: pkg.sizeBytes,
-          })
-        }
-
-        if (options.length > 0)
-          return ok<BootstrapEngineOptionsResult>({ options, emptyReason: null })
-        return ok<BootstrapEngineOptionsResult>({
-          options,
-          emptyReason: manifestService.hasAnyPinnedEntries() ? 'none-for-platform' : 'none-pinned',
+      const options: BootstrapEngineOption[] = []
+      for (const engine of BOOTSTRAP_SUPPORTED_ENGINES) {
+        const pkg = manifestService.pinnedEnginePackage(engine)
+        if (pkg === undefined) continue
+        options.push({
+          engine,
+          packageId: pkg.id,
+          version: pkg.version,
+          sizeBytes: pkg.sizeBytes,
         })
-      },
-    )
+      }
+
+      if (options.length > 0)
+        return ok<BootstrapEngineOptionsResult>({ options, emptyReason: null })
+      return ok<BootstrapEngineOptionsResult>({
+        options,
+        emptyReason: manifestService.hasAnyPinnedEntries() ? 'none-for-platform' : 'none-pinned',
+      })
+    })
 
     /**
      * Story 074: the verdict for one candidate target folder. A thin wrapper around
      * `computeTargetVerdict` - no failure mode of its own (like `getSettings` below), because
      * "this folder is blocked" is a verdict the wizard renders, not an error it unwraps.
      */
-    handle(
-      DOWNLOADS_HANDLERS.bootstrapTargetVerdict,
-      bootstrapTargetVerdictInputSchema,
-      async ({ targetPath }) => ok(await computeTargetVerdict(targetPath, { env: app.env })),
+    handle(DOWNLOADS_HANDLERS.bootstrapTargetVerdict, async ({ targetPath }) =>
+      ok(await computeTargetVerdict(targetPath, { env: app.env })),
     )
 
     /**
@@ -169,19 +154,16 @@ export const downloadsModule: MainModule = {
      * the manifest cannot resolve all three packages - the wizard has nothing truthful to show in
      * that case, so this is a real failure rather than an empty summary.
      */
-    handle(
-      DOWNLOADS_HANDLERS.bootstrapSummary,
-      bootstrapSummaryInputSchema,
-      (input): Promise<Outcome<BootstrapSummary>> =>
-        buildBootstrapSummary(
-          {
-            manifest: manifestSourceFrom(manifestService, log),
-            // Story 088: the same lister the job re-verifies against, so the store name
-            // the confirm step shows and the source the run accepts come from one list.
-            retailSources: () => detectedRetailSourcesFor(app),
-          },
-          input,
-        ),
+    handle(DOWNLOADS_HANDLERS.bootstrapSummary, (input): Promise<Outcome<BootstrapSummary>> =>
+      buildBootstrapSummary(
+        {
+          manifest: manifestSourceFrom(manifestService, log),
+          // Story 088: the same lister the job re-verifies against, so the store name
+          // the confirm step shows and the source the run accepts come from one list.
+          retailSources: () => detectedRetailSourcesFor(app),
+        },
+        input,
+      ),
     )
 
     /**
@@ -197,7 +179,7 @@ export const downloadsModule: MainModule = {
      * resolved once at `setup()`), because a flow needs to change its fixture between wizard runs
      * within the same launch.
      */
-    handle(DOWNLOADS_HANDLERS.bootstrapRetailSources, bootstrapRetailSourcesInputSchema, async () =>
+    handle(DOWNLOADS_HANDLERS.bootstrapRetailSources, async () =>
       ok(await detectedRetailSourcesFor(app)),
     )
 
@@ -208,10 +190,8 @@ export const downloadsModule: MainModule = {
      * renders, not an error it unwraps. The path is re-judged again, independently, when the run
      * starts (`startBootstrap`, step 1c): this answer is a report, never an authorisation.
      */
-    handle(
-      DOWNLOADS_HANDLERS.bootstrapGameDataSource,
-      bootstrapGameDataSourceInputSchema,
-      async ({ rootPath }) => ok(await inspectGameDataSource(rootPath)),
+    handle(DOWNLOADS_HANDLERS.bootstrapGameDataSource, async ({ rootPath }) =>
+      ok(await inspectGameDataSource(rootPath)),
     )
 
     /**
@@ -222,7 +202,6 @@ export const downloadsModule: MainModule = {
      */
     handle(
       DOWNLOADS_HANDLERS.bootstrapStart,
-      startBootstrapInputSchema,
       async (input): Promise<Outcome<{ jobId: string; installationId: string }>> => {
         const started = await startBootstrap(bootstrapDepsFor(app, manifestService, log), input)
         if (!started.ok) return started
@@ -246,7 +225,6 @@ export const downloadsModule: MainModule = {
      */
     handle(
       DOWNLOADS_HANDLERS.retailUpgradeStart,
-      startRetailUpgradeInputSchema,
       async (input): Promise<Outcome<StartRetailUpgradeResult>> => {
         const started = await startRetailUpgrade(retailUpgradeDepsFor(app, log), input)
         if (!started.ok) return started
@@ -267,26 +245,22 @@ export const downloadsModule: MainModule = {
      * `InstallationEngineState.bleedingEdge` flag ([[092]]'s seam, as originally designed:
      * `computeEngineUpdateStatus` itself never changes).
      */
-    handle(
-      DOWNLOADS_HANDLERS.engineUpdateStatus,
-      engineUpdateStatusInputSchema,
-      async ({ installationId }) => {
-        const installation = app.installations.find(installationId)
-        if (!installation) return ok<EngineUpdateStatus | undefined>(undefined)
+    handle(DOWNLOADS_HANDLERS.engineUpdateStatus, async ({ installationId }) => {
+      const installation = app.installations.find(installationId)
+      if (!installation) return ok<EngineUpdateStatus | undefined>(undefined)
 
-        const recorded = readEngineState(installation.moduleData)
-        const target = await resolveEngineUpdateTarget(
-          installation.engineKind,
-          recorded,
-          manifestService,
-          log,
-        )
+      const recorded = readEngineState(installation.moduleData)
+      const target = await resolveEngineUpdateTarget(
+        installation.engineKind,
+        recorded,
+        manifestService,
+        log,
+      )
 
-        return ok<EngineUpdateStatus | undefined>(
-          computeEngineUpdateStatus(installationId, installation.engineKind, recorded, target),
-        )
-      },
-    )
+      return ok<EngineUpdateStatus | undefined>(
+        computeEngineUpdateStatus(installationId, installation.engineKind, recorded, target),
+      )
+    })
 
     /**
      * Story 092: starts the engine-update job. A thin wrapper around
@@ -301,7 +275,6 @@ export const downloadsModule: MainModule = {
      */
     handle(
       DOWNLOADS_HANDLERS.engineUpdateStart,
-      startEngineUpdateInputSchema,
       async (input): Promise<Outcome<StartEngineUpdateResult>> => {
         const started = await startEngineUpdate(
           engineUpdateDepsFor(app, manifestService, log),
@@ -325,7 +298,6 @@ export const downloadsModule: MainModule = {
      */
     handle(
       DOWNLOADS_HANDLERS.engineRollbackStart,
-      startEngineRollbackInputSchema,
       async (input): Promise<Outcome<StartEngineUpdateResult>> => {
         const started = await startEngineRollback(engineRollbackDepsFor(app, log), input)
         if (!started.ok) return started
@@ -347,7 +319,6 @@ export const downloadsModule: MainModule = {
      */
     handle(
       DOWNLOADS_HANDLERS.engineSetBleedingEdge,
-      setBleedingEdgeInputSchema,
       ({ installationId, enabled }): Outcome<void> => {
         const installation = app.installations.find(installationId)
         if (!installation) return fail('installations.error.notFound')
@@ -370,7 +341,7 @@ export const downloadsModule: MainModule = {
      * its own (same convention as `engineUpdateStatus` above): an installation id the library no
      * longer has answers `undefined`.
      */
-    handle(DOWNLOADS_HANDLERS.repairPlan, repairPlanInputSchema, async ({ installationId }) => {
+    handle(DOWNLOADS_HANDLERS.repairPlan, async ({ installationId }) => {
       const installation = app.installations.find(installationId)
       if (!installation) return ok<RepairPlan | undefined>(undefined)
 
@@ -400,20 +371,14 @@ export const downloadsModule: MainModule = {
      * progress state. `settled` stays in main - the job is the renderer's progress and outcome
      * surface, over `jobs:changed`.
      */
-    handle(
-      DOWNLOADS_HANDLERS.repairStart,
-      startRepairInputSchema,
-      async (input): Promise<Outcome<StartRepairResult>> => {
-        const started = await startRepair(repairDepsFor(app, manifestService, log), input)
-        if (!started.ok) return started
-        return ok({ jobId: started.value.jobId })
-      },
-    )
+    handle(DOWNLOADS_HANDLERS.repairStart, async (input): Promise<Outcome<StartRepairResult>> => {
+      const started = await startRepair(repairDepsFor(app, manifestService, log), input)
+      if (!started.ok) return started
+      return ok({ jobId: started.value.jobId })
+    })
 
     // Story 072: reads the persisted settings verbatim - no failure mode of its own.
-    handle(DOWNLOADS_HANDLERS.getSettings, downloadsNoInputSchema, () =>
-      ok(persisted.settings.get()),
-    )
+    handle(DOWNLOADS_HANDLERS.getSettings, () => ok(persisted.settings.get()))
 
     /**
      * Story 072: validates and persists a partial `DownloadsSettings` patch. An
@@ -429,7 +394,7 @@ export const downloadsModule: MainModule = {
      * anything. Best-effort: a failed eviction is logged, not surfaced as a failed patch - the
      * settings themselves were already persisted successfully, and the next lower/clear retries it.
      */
-    handle(DOWNLOADS_HANDLERS.patchSettings, patchDownloadsSettingsInputSchema, async (patch) => {
+    handle(DOWNLOADS_HANDLERS.patchSettings, async (patch) => {
       const previous = persisted.settings.get()
       const merged: DownloadsSettings = { ...previous, ...patch }
       persisted.settings.update(() => merged)
@@ -455,14 +420,14 @@ export const downloadsModule: MainModule = {
 
     // Story 072: the archive cache's current size/count - a thin pass-through to
     // `cache.status`, which already owns the "what counts as evictable" rule.
-    handle(DOWNLOADS_HANDLERS.cacheStatus, downloadsNoInputSchema, async () =>
+    handle(DOWNLOADS_HANDLERS.cacheStatus, async () =>
       ok(await status({ userDataPath: userDataDir(), log })),
     )
 
     // Story 072: deletes every evictable cache entry and reports exactly what went -
     // `cache.clear` already guarantees the report matches the deletion, so this does not
     // reshape or recompute its result.
-    handle(DOWNLOADS_HANDLERS.clearCache, downloadsNoInputSchema, async () =>
+    handle(DOWNLOADS_HANDLERS.clearCache, async () =>
       ok(await clear({ userDataPath: userDataDir(), isInUse: NOTHING_IN_USE, log })),
     )
 
@@ -470,16 +435,16 @@ export const downloadsModule: MainModule = {
     // `persisted.failures.get()`, which prunes on the way out, and write through
     // `persisted.failures.update()`, which prunes again on the way in - so retention is applied
     // whichever of them a call goes through, and none of them re-implements it.
-    handle(DOWNLOADS_HANDLERS.failures, downloadsNoInputSchema, () => ok(persisted.failures.get()))
+    handle(DOWNLOADS_HANDLERS.failures, () => ok(persisted.failures.get()))
 
     // Both mutating handlers answer the *new* list rather than nothing, so the renderer's dismiss/
     // restore call is also its refetch - one round trip, and no window in which the tab shows a
     // list main has already moved past.
-    handle(DOWNLOADS_HANDLERS.dismissFailure, dismissFailureInputSchema, ({ id }) =>
+    handle(DOWNLOADS_HANDLERS.dismissFailure, ({ id }) =>
       ok(persisted.failures.update((live) => dismissFailure(live, id))),
     )
 
-    handle(DOWNLOADS_HANDLERS.restoreFailure, restoreFailureInputSchema, ({ id }) =>
+    handle(DOWNLOADS_HANDLERS.restoreFailure, ({ id }) =>
       ok(persisted.failures.update((live) => restoreFailure(live, id))),
     )
 

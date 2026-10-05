@@ -15,7 +15,11 @@ import {
   refineActionParts,
 } from '@shared/config/aliases/profile-schema'
 import type { TidyUpOp } from '@shared/config/profile/tidy-up'
-import type { ConfigCvarSection, TidyUpApplyInput } from '@shared/modules/config'
+import {
+  CONFIG_HANDLERS,
+  type ConfigCvarSection,
+  type TidyUpApplyInput,
+} from '@shared/modules/config'
 
 /**
  * IPC payload validation for the config module's own handlers.
@@ -504,3 +508,42 @@ export const tidyUpApplyInputSchema: z.ZodType<TidyUpApplyInput> = z.object({
   profileId: z.string().min(1),
   ops: z.array(tidyUpOpSchema).max(200),
 })
+
+/** Every `config` handler paired with its payload schema. */
+export const CONFIG_HANDLER_SCHEMAS = {
+  [CONFIG_HANDLERS.list]: listInputSchema,
+  [CONFIG_HANDLERS.create]: createConfigProfileInputSchema,
+  [CONFIG_HANDLERS.rename]: renameConfigProfileInputSchema,
+  [CONFIG_HANDLERS.remove]: removeConfigProfileInputSchema,
+  [CONFIG_HANDLERS.assign]: assignProfileInputSchema,
+  [CONFIG_HANDLERS.unassign]: unassignProfileInputSchema,
+  [CONFIG_HANDLERS.setDefault]: setDefaultProfileInputSchema,
+  [CONFIG_HANDLERS.setCvars]: setProfileCvarsInputSchema,
+  [CONFIG_HANDLERS.commitCvars]: commitProfileCvarsInputSchema,
+  [CONFIG_HANDLERS.setBinds]: setProfileBindsInputSchema,
+  [CONFIG_HANDLERS.setLayers]: setProfileLayersInputSchema,
+  [CONFIG_HANDLERS.setActions]: setProfileActionsInputSchema,
+  [CONFIG_HANDLERS.write]: writeProfileInputSchema,
+  [CONFIG_HANDLERS.save]: saveProfileInputSchema,
+  [CONFIG_HANDLERS.saveRawText]: saveRawTextInputSchema,
+  [CONFIG_HANDLERS.refreshFromFiles]: refreshFromFilesInputSchema,
+  [CONFIG_HANDLERS.preview]: previewProfileInputSchema,
+  [CONFIG_HANDLERS.writeState]: writeStateInputSchema,
+  [CONFIG_HANDLERS.syncState]: syncStateInputSchema,
+  [CONFIG_HANDLERS.rawFiles]: rawFilesInputSchema,
+  [CONFIG_HANDLERS.openFile]: openFileInputSchema,
+  [CONFIG_HANDLERS.setPlayedMods]: setPlayedModsInputSchema,
+  [CONFIG_HANDLERS.switchBinds]: switchBindsInputSchema,
+  [CONFIG_HANDLERS.setSwitchBind]: setSwitchBindInputSchema,
+  [CONFIG_HANDLERS.setWriteUnbindall]: setWriteUnbindallInputSchema,
+  [CONFIG_HANDLERS.setWriteCatalogDefaults]: setWriteCatalogDefaultsInputSchema,
+  [CONFIG_HANDLERS.setSectionHeaderStyle]: setSectionHeaderStyleInputSchema,
+  [CONFIG_HANDLERS.discard]: discardProfileInputSchema,
+  [CONFIG_HANDLERS.importPickFiles]: importPickFilesInputSchema,
+  [CONFIG_HANDLERS.importPreviewFiles]: importFilesPreviewInputSchema,
+  [CONFIG_HANDLERS.importCommitFiles]: importFilesCommitInputSchema,
+  [CONFIG_HANDLERS.cleanupScan]: cleanupScanInputSchema,
+  [CONFIG_HANDLERS.cleanupApply]: cleanupApplyInputSchema,
+  [CONFIG_HANDLERS.cleanupRestore]: cleanupRestoreInputSchema,
+  [CONFIG_HANDLERS.tidyUpApply]: tidyUpApplyInputSchema,
+} satisfies Record<(typeof CONFIG_HANDLERS)[keyof typeof CONFIG_HANDLERS], z.ZodTypeAny>
