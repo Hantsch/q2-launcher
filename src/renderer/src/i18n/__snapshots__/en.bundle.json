@@ -2675,16 +2675,17 @@
         "none": "Not rated",
         "star_one": "{{count}} star",
         "star_other": "{{count}} stars"
+      },
+      "sides": {
+        "edit": "Edit sides",
+        "refused": "These sides were not saved. Fix them, or press Escape to discard them."
       }
     },
     "editor": {
-      "discardDialog": {
-        "body": "This demo's notes have changes you haven't saved. Discard them and move on?",
-        "title": "Discard your unsaved notes?"
-      },
       "error": {
         "date": "Enter a real date and time as YYYY-MM-DD HH:MM.",
-        "rating": "Rating must be a whole number from 1 to 10."
+        "rating": "Rating must be a whole number from 1 to 10.",
+        "tooLong": "Too long — at most {{max}} characters."
       },
       "placeholder": {
         "date": "YYYY-MM-DD HH:MM",
@@ -2698,7 +2699,6 @@
         "confirm": "Replace it",
         "title": "Replace the broken notes file?"
       },
-      "saveFailed": "Not saved: {{reason}}",
       "sides": {
         "addPlayerPlaceholder": "Add a player…",
         "addSide": "Add side",

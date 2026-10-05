@@ -1,7 +1,7 @@
 ---
 id: 243
 title: the demo detail is edited in place and saves itself
-status: ready # draft -> ready -> in-progress -> done
+status: done # draft -> ready -> in-progress -> done
 created: 2026-10-04
 ---
 
@@ -21,21 +21,21 @@ Concept: [replays-module.md](../systems/replays-module.md).
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — The detail has a single view; there is no Edit button, no Cancel/Save and no discard
+- [x] **AC1** — The detail has a single view; there is no Edit button, no Cancel/Save and no discard
       dialog.
-- [ ] **AC2** — Name, description, date, map, mod, gamemode and sides are edited in place: a field
+- [x] **AC2** — Name, description, date, map, mod, gamemode and sides are edited in place: a field
       looks like text until hovered/focused, and is an input when focused.
-- [ ] **AC3** — A text change is saved when the field loses focus or Enter is pressed (Escape reverts
+- [x] **AC3** — A text change is saved when the field loses focus or Enter is pressed (Escape reverts
       the field); a failed save shows a toast and the field keeps the user's text.
-- [ ] **AC4** — Tags are added by typing and Enter (with the existing suggestions) and removed with
+- [x] **AC4** — Tags are added by typing and Enter (with the existing suggestions) and removed with
       the chip's ×; each add/remove is saved at once.
-- [ ] **AC5** — A saved change is visible in the list row without a rescan.
-- [ ] **AC6** — An invalid value (e.g. a too-long name) is refused at the field with a visible reason
+- [x] **AC5** — A saved change is visible in the list row without a rescan.
+- [x] **AC6** — An invalid value (e.g. a too-long name) is refused at the field with a visible reason
       and is not saved.
-- [ ] **AC7** — If the demo's existing sidecar is unreadable, the first edit still asks before
+- [x] **AC7** — If the demo's existing sidecar is unreadable, the first edit still asks before
       replacing it, as today.
-- [ ] **AC8** — Zip entries show the same view read-only, with the reason as visible text.
-- [ ] **AC9** — Saves to one demo are queued so that quick successive edits never overwrite each
+- [x] **AC8** — Zip entries show the same view read-only, with the reason as visible text.
+- [x] **AC9** — Saves to one demo are queued so that quick successive edits never overwrite each
       other.
 
 ## Open Questions
@@ -220,7 +220,7 @@ Order D1 → D2 → D3 → D4 → D5. Between D4 and D5 sides are display-only; 
 - AC1 → e2e `scripts/flows/replays-edit-sidecar.mjs` › "the detail is one view: no Edit, Save, Cancel
   or discard dialog" (asserts `replays-detail-edit`, `replays-editor-save`, `replays-editor-cancel`
   absent; selecting another demo after typing shows no `replays-discard-dialog`) + unit
-  `DemoDetailPanel.test.tsx` › "renders a single view without edit controls".
+  `DemoDetailPanel.test.tsx` › "the detail is one view: no Edit, Save, Cancel or discard dialog".
 - AC2 → e2e `scripts/flows/replays-edit-sidecar.mjs` › "every text field is an input in place" (name,
   description, date, map, mod, gamemode inputs present in the panel) + unit `InPlaceField.test.tsx` ›
   "looks like text at rest and an input on focus" (quiet classes at rest, focus class on focus);
@@ -249,3 +249,31 @@ Order D1 → D2 → D3 → D4 → D5. Between D4 and D5 sides are display-only; 
   (name Enter, tag add and favourite click without waiting; sidecar holds all three).
 
 ## Done
+
+Story 243 replaced the read/edit split with one detail view: `InPlaceField` per text field, always-live
+`TagInput`, `SidesField` for sides; every edit goes through one queued `edit(id, change)` in
+`demo-editor-store.ts` (fresh read, apply, write, re-read). Draft/edit-mode/discard API and
+`DemoDetailEditor` are gone; one replace dialog in `ReplaysView` serves every demo; TD-018 closed.
+
+Commit message: `243: demo detail edited in place, every field saves itself (queued fresh-read edits, InPlaceField, SidesField)`
+
+Verification (narrow gate): build, lint, typecheck green; `vitest --changed HEAD` green (1444 tests);
+comments + architecture tests green. `ui:flows --affected` selected 45 flows and exceeded the 10-minute
+call limit (stopped; 29 observed, all OK, incl. the four story flows). Instead run by name, all OK: the story's
+flows (`replays-edit-sidecar`, `-edit-sides-tags`, `-edit-unreadable-sidecar`, `replays-archive-readonly`) plus
+every other `replays-*` flow except `replays-play-mvd2` onward (not run). After review fixes
+`replays-edit-sidecar` and `replays-edit-sides-tags` re-ran OK.
+AC -> test: AC1-AC9 as mapped in Acceptance Tests, all ran and passed; the AC1 unit test is named
+"the detail is one view: no Edit, Save, Cancel or discard dialog" (mapping aligned). No manual residue.
+Review: default stage, PASS with findings; fixed sides refusal visible, InPlaceField revert/in-flight/unmount, stale comments, blur test.
+
+Decisions:
+- Editor's own replace dialog removed (would have duplicated the view's one dialog).
+- Old draft `cancelEdit` renamed `cancelDraftEdit` in D2, deleted in D4 with the draft API.
+- Name field is a large title-size `InPlaceField` (`size="title"`); `replays-demo-detail` flow now measures the name input.
+- `DemoDetailPanel` keyed by demo id so field drafts never leak across demos.
+- Sides block always renders for non-archive entries so sides can be added to a demo with none.
+- A refused or failed sides save keeps the sides editor open with the reason.
+- Unfixed (accepted): `addTagChange` silently ignores duplicates and tags beyond the 50-tag limit; SidesField also commits on window blur; `FieldError`/`FieldReason` types declared three times.
+
+tiers: D 5 / hard 1 · review default · cycles 1 · agents 9

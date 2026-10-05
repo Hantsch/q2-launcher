@@ -23,7 +23,7 @@ const MAX_SIDES = 16
 const MAX_PLAYERS = 64
 
 /**
- * Story 155: the sides/teams/players editor mounted inside `DemoDetailEditor.tsx`. Every mutation
+ * Story 155: the sides/teams/players editor mounted inside `SidesField.tsx`. Every mutation
  * goes through `sidecar-draft.ts`'s pure ops (never a direct object mutation) - this component only
  * reads `draft.sides` and calls `onChange` with the op's result.
  */

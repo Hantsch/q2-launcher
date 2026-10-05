@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { addTagChange, setFields } from '@shared/replays/sidecar-draft'
 import { mockClient } from '../../test-support/mock-client'
 
 const sidecarRead = vi.fn()
 const sidecarWrite = vi.fn()
 const scanStart = vi.fn()
 const indexRead = vi.fn()
+const pushToast = vi.fn()
 
 vi.mock('./client', (importOriginal) =>
   mockClient<typeof import('./client')>(importOriginal, {
@@ -14,6 +16,10 @@ vi.mock('./client', (importOriginal) =>
     indexRead: (...args: unknown[]) => indexRead(...args),
   }),
 )
+
+vi.mock('../../store/useLauncher', () => ({
+  useLauncher: { getState: () => ({ pushToast: (...args: unknown[]) => pushToast(...args) }) },
+}))
 
 const { effectiveQuickValues, findRowReplaceId, useDemoEditorStore } =
   await import('./demo-editor-store')
@@ -30,12 +36,11 @@ beforeEach(() => {
   sidecarWrite.mockReset()
   scanStart.mockReset()
   indexRead.mockReset()
+  pushToast.mockReset()
   useDemoEditorStore.setState({
     selectedId: null,
-    editingId: null,
     drafts: {},
     quickPending: {},
-    pendingLeave: null,
   })
 })
 
@@ -101,38 +106,6 @@ describe('quick edits never lose a write (story 179)', () => {
     await sidecar.settle(Promise.all([favourite, rating]))
 
     expect(sidecar.disk.values).toEqual({ name: 'x', favourite: true, rating: 7 })
-  })
-
-  it('a quick edit during an edit-mode save waits for it and is not dropped', async () => {
-    const sidecar = fakeSidecar({ name: 'Old' })
-    store().select(A)
-    store().startEdit(A, { name: 'Old' })
-    store().updateDraft(A, { name: 'New' })
-
-    const save = store().save(A, vi.fn())
-    const quick = store().quickEdit(A, { favourite: true }, vi.fn())
-    await sidecar.settle(Promise.all([save, quick]))
-
-    expect(sidecar.disk.values).toEqual({ name: 'New', favourite: true })
-    expect(store().drafts[A]?.saving).toBeFalsy()
-  })
-
-  it("a quick edit keeps an open draft's unsaved changes and patches only favourite and rating", async () => {
-    const sidecar = fakeSidecar({ name: 'Old' })
-    store().select(A)
-    store().startEdit(A, { name: 'Old' })
-    store().updateDraft(A, { name: 'Unsaved' })
-
-    await sidecar.settle(store().quickEdit(A, { favourite: true, rating: 5 }, vi.fn()))
-
-    const entry = store().drafts[A]!
-    expect(entry.draft).toMatchObject({ name: 'Unsaved', favourite: true, rating: '5' })
-    expect(entry.baseline).toMatchObject({ name: 'Old', favourite: true, rating: '5' })
-    expect(store().editingId).toBe(A)
-
-    // The edit-mode save afterwards writes the unsaved change without undoing the quick edit.
-    await sidecar.settle(store().save(A, vi.fn()))
-    expect(sidecar.disk.values).toEqual({ name: 'Unsaved', favourite: true, rating: 5 })
   })
 
   it('quick edits during a pending replace confirmation are merged into the retry', async () => {
@@ -209,53 +182,129 @@ describe('quick edits never lose a write (story 179)', () => {
     expect(sidecar.disk.values).toEqual({ rating: 7, favourite: true })
   })
 
-  it('a failed save drops quick edits merged for the replace dialog, so a retry cannot carry them', async () => {
+  it('a failed confirmed replace drops quick edits merged for the dialog, so a retry cannot carry them', async () => {
     const sidecar = fakeSidecar({}, { broken: true })
     await sidecar.settle(store().quickEdit(A, { favourite: true }, vi.fn()))
-    expect(store().drafts[A]?.pendingQuickEdit).toEqual({ favourite: true })
-
-    // Dialog still open: the pending patch stays.
+    expect(store().drafts[A]?.pendingChange).toBeDefined()
     expect(store().drafts[A]?.replace).toBeDefined()
 
     sidecarWrite.mockReset()
     sidecarWrite.mockResolvedValueOnce({ ok: false, error: { key: 'replays.sidecar.error.write' } })
-    await store().save(A, vi.fn())
-    expect(store().drafts[A]?.pendingQuickEdit).toBeUndefined()
+    await store().confirmEdit(A, vi.fn())
+    expect(store().drafts[A]?.pendingChange).toBeUndefined()
   })
 })
 
-describe('demo-editor-store', () => {
-  it('a save patches the row from sidecar.read without a scan', async () => {
-    store().startEdit(A, {})
-    store().updateDraft(A, { name: '  Final  ', rating: '8' })
-    sidecarWrite.mockResolvedValue({ ok: true, value: { status: 'saved', state: 'written' } })
-    // What is on disk differs from what was sent - the store must reflect disk, not the draft.
-    const onDisk = { name: 'Final (disk)', rating: 8 }
-    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: onDisk } })
+describe('one queued write path for every detail edit', () => {
+  /** Releases every write the fake holds back, letting queued turns run in between. */
+  async function drain(sidecar: ReturnType<typeof fakeSidecar>): Promise<void> {
+    for (let i = 0; i < 10; i++) {
+      await flush()
+      sidecar.waiting.shift()?.()
+    }
+  }
+
+  it('quick successive edits to one demo never overwrite each other', async () => {
+    const sidecar = fakeSidecar({ map: 'q2dm1' })
+    const name = store().edit(A, setFields({ name: 'Final' }), vi.fn())
+    const tag = store().edit(A, addTagChange('ctf'), vi.fn())
+    const favourite = store().quickEdit(A, { favourite: true }, vi.fn())
+
+    await sidecar.settle(Promise.all([name, tag, favourite]))
+
+    expect(await name).toBe('saved')
+    expect(await tag).toBe('saved')
+    const all = { map: 'q2dm1', name: 'Final', tags: ['ctf'], favourite: true }
+    expect(sidecarWrite).toHaveBeenLastCalledWith(A, all)
+    expect(sidecar.disk.values).toEqual(all)
+  })
+
+  it('an unreadable sidecar parks the edit until the replace is confirmed', async () => {
+    const sidecar = fakeSidecar({}, { broken: true })
+    const onRowPatched = vi.fn()
+    let nameResult: string | undefined
+    const name = store().edit(A, setFields({ name: 'Mine' }), onRowPatched)
+    void name.then((result) => (nameResult = result))
+    await drain(sidecar)
+    expect(store().drafts[A]?.replace).toBeDefined()
+
+    // The dialog is open: a second edit joins the parked one instead of writing.
+    const tag = store().edit(A, addTagChange('duel'), onRowPatched)
+    await drain(sidecar)
+    expect(nameResult).toBeUndefined()
+    expect(sidecarWrite).toHaveBeenCalledTimes(1)
+
+    await sidecar.settle(Promise.all([store().confirmEdit(A, onRowPatched), name, tag]))
+
+    expect(await name).toBe('saved')
+    expect(await tag).toBe('saved')
+    expect(sidecarWrite).toHaveBeenLastCalledWith(A, { name: 'Mine', tags: ['duel'] }, 'f1')
+    expect(sidecar.disk.values).toEqual({ name: 'Mine', tags: ['duel'] })
+    expect(onRowPatched).toHaveBeenCalledTimes(1)
+    expect(store().drafts[A]?.replace).toBeUndefined()
+  })
+
+  it('cancelling the replace writes nothing and resolves cancelled', async () => {
+    const sidecar = fakeSidecar({}, { broken: true })
+    const name = store().edit(A, setFields({ name: 'Mine' }), vi.fn())
+    await drain(sidecar)
+
+    store().cancelEdit(A)
+
+    expect(await name).toBe('cancelled')
+    expect(store().drafts[A]?.replace).toBeUndefined()
+    expect(store().drafts[A]?.pendingChange).toBeUndefined()
+    await store().confirmEdit(A, vi.fn())
+    // Only the write that was answered with the replace question ever reached main.
+    expect(sidecarWrite).toHaveBeenCalledTimes(1)
+    expect(sidecar.disk.values).toEqual({})
+  })
+
+  it('a failed write toasts and resolves failed', async () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values: {} } })
+    const error = { key: 'replays.sidecar.error.write', params: { reason: 'EACCES' } }
+    sidecarWrite.mockResolvedValue({ ok: false, error })
     const onRowPatched = vi.fn()
 
-    await store().save(A, onRowPatched)
+    expect(await store().edit(A, setFields({ name: 'x' }), onRowPatched)).toBe('failed')
+
+    expect(pushToast).toHaveBeenCalledWith({
+      level: 'error',
+      messageKey: 'replays.sidecar.error.write',
+      timeoutMs: 0,
+      params: { reason: 'EACCES' },
+    })
+    expect(onRowPatched).not.toHaveBeenCalled()
+  })
+
+})
+
+describe('demo-editor-store', () => {
+  it('an edit patches the row from sidecar.read without a scan', async () => {
+    sidecarRead.mockResolvedValueOnce({
+      ok: true,
+      value: { state: { state: 'ok' }, values: { rating: 8 } },
+    })
+    sidecarWrite.mockResolvedValue({ ok: true, value: { status: 'saved', state: 'written' } })
+    // What is on disk differs from what was sent - the store must reflect disk.
+    const onDisk = { name: 'Final (disk)', rating: 8 }
+    sidecarRead.mockResolvedValueOnce({
+      ok: true,
+      value: { state: { state: 'ok' }, values: onDisk },
+    })
+    const onRowPatched = vi.fn()
+
+    expect(await store().edit(A, setFields({ name: 'Final' }), onRowPatched)).toBe('saved')
 
     expect(sidecarWrite).toHaveBeenCalledTimes(1)
     expect(sidecarWrite).toHaveBeenCalledWith(A, { name: 'Final', rating: 8 })
-    expect(sidecarRead).toHaveBeenCalledWith(A)
     expect(onRowPatched).toHaveBeenCalledWith(A, { state: { state: 'ok' }, values: onDisk })
     expect(scanStart).not.toHaveBeenCalled()
     expect(indexRead).not.toHaveBeenCalled()
-    const entry = store().drafts[A]!
-    expect(entry.draft.name).toBe('Final (disk)')
-    expect(entry.baseline).toEqual(entry.draft)
-    expect(entry.fingerprint).toBeUndefined()
-
-    // An invalid draft makes no IPC call at all.
-    store().updateDraft(A, { rating: '11' })
-    await store().save(A, onRowPatched)
-    expect(sidecarWrite).toHaveBeenCalledTimes(1)
+    expect(store().drafts[A]).toBeUndefined()
   })
 
-  it('a save over a broken sidecar asks before replacing it', async () => {
-    store().startEdit(A, {})
-    store().updateDraft(A, { name: 'Mine' })
+  it('an edit over a broken sidecar asks before replacing it, and confirm writes with the fingerprint', async () => {
     const issues = [
       {
         kind: 'invalidJson',
@@ -263,80 +312,34 @@ describe('demo-editor-store', () => {
         params: { line: 1, column: 2 },
       },
     ]
+    sidecarRead.mockResolvedValue({
+      ok: true,
+      value: { state: { state: 'ok' }, values: { name: 'Mine' } },
+    })
     sidecarWrite.mockResolvedValueOnce({
       ok: true,
       value: { status: 'needsConfirmation', fileName: 'x.dm2.json', issues, fingerprint: 'f1' },
     })
     const onRowPatched = vi.fn()
 
-    await store().save(A, onRowPatched)
-    expect(sidecarWrite).toHaveBeenLastCalledWith(A, { name: 'Mine' })
+    const result = store().edit(A, setFields({ name: 'Mine' }), onRowPatched)
+    await flush()
+    await flush()
     expect(store().drafts[A]!.replace).toEqual({ fileName: 'x.dm2.json', issues })
-    expect(sidecarRead).not.toHaveBeenCalled()
     expect(onRowPatched).not.toHaveBeenCalled()
 
-    // Cancel closes the dialog and forgets the fingerprint - the next save asks again.
-    store().cancelReplace(A)
-    expect(store().drafts[A]!.replace).toBeUndefined()
-    sidecarWrite.mockResolvedValueOnce({
-      ok: true,
-      value: { status: 'needsConfirmation', fileName: 'x.dm2.json', issues, fingerprint: 'f2' },
-    })
-    await store().save(A, onRowPatched)
-    expect(sidecarWrite).toHaveBeenLastCalledWith(A, { name: 'Mine' })
-    expect(sidecarWrite).toHaveBeenCalledTimes(2)
-
-    // Confirm re-saves with the fingerprint from the latest round.
     sidecarWrite.mockResolvedValueOnce({ ok: true, value: { status: 'saved', state: 'written' } })
-    sidecarRead.mockResolvedValue({
-      ok: true,
-      value: { state: { state: 'ok' }, values: { name: 'Mine' } },
-    })
-    await store().save(A, onRowPatched)
-    expect(sidecarWrite).toHaveBeenLastCalledWith(A, { name: 'Mine' }, 'f2')
-    expect(onRowPatched).toHaveBeenCalledTimes(1)
+    await store().confirmEdit(A, onRowPatched)
+    expect(await result).toBe('saved')
+    expect(sidecarWrite).toHaveBeenLastCalledWith(A, { name: 'Mine' }, 'f1')
     expect(store().drafts[A]!.replace).toBeUndefined()
     expect(store().drafts[A]!.fingerprint).toBeUndefined()
   })
 
-  it('leaving a dirty draft asks, a clean one does not', () => {
+  it('selecting or closing switches directly', () => {
     store().select(A)
-    store().startEdit(A, { name: 'Old' })
-
-    // Clean: switching is immediate.
     store().select(B)
     expect(store().selectedId).toBe(B)
-    expect(store().pendingLeave).toBeNull()
-
-    store().select(A)
-    store().startEdit(A, { name: 'Old' })
-    store().updateDraft(A, { name: 'Edited' })
-
-    store().select(B)
-    expect(store().selectedId).toBe(A)
-    expect(store().pendingLeave).toEqual({ kind: 'select', targetId: B })
-
-    store().keepEditing()
-    expect(store().selectedId).toBe(A)
-    expect(store().pendingLeave).toBeNull()
-    expect(store().drafts[A]!.draft.name).toBe('Edited')
-
-    // A re-open from the row's values never clobbers a dirty draft.
-    store().startEdit(A, { name: 'Old' })
-    expect(store().drafts[A]!.draft.name).toBe('Edited')
-
-    store().close()
-    expect(store().pendingLeave).toEqual({ kind: 'close', targetId: null })
-    store().discardAndLeave()
-    expect(store().selectedId).toBeNull()
-    expect(store().drafts[A]).toBeUndefined()
-
-    // Cancel resets to the baseline and makes leaving free again.
-    store().select(A)
-    store().startEdit(A, { name: 'Old' })
-    store().updateDraft(A, { name: 'Again' })
-    store().cancelDraft(A)
-    expect(store().drafts[A]!.draft.name).toBe('Old')
     store().close()
     expect(store().selectedId).toBeNull()
   })
@@ -362,81 +365,8 @@ describe('demo-editor-store', () => {
   })
 })
 
-describe('edit mode', () => {
-  it('startEdit opens a draft and sets editingId', () => {
-    store().select(A)
-    store().startEdit(A, { name: 'Old' })
-    expect(store().editingId).toBe(A)
-    expect(store().drafts[A]!.draft.name).toBe('Old')
-    expect(store().drafts[A]!.baseline).toEqual(store().drafts[A]!.draft)
-  })
-
-  it('cancelEdit drops the draft and writes nothing', () => {
-    store().select(A)
-    store().startEdit(A, { name: 'Old' })
-    store().updateDraft(A, { name: 'Edited' })
-    store().cancelEdit(A)
-    expect(store().editingId).toBeNull()
-    expect(store().drafts[A]).toBeUndefined()
-    expect(sidecarWrite).not.toHaveBeenCalled()
-  })
-
-  it('a successful save ends edit mode', async () => {
-    store().select(A)
-    store().startEdit(A, {})
-    store().updateDraft(A, { name: 'New' })
-    sidecarWrite.mockResolvedValue({ ok: true, value: { status: 'saved', state: 'written' } })
-    sidecarRead.mockResolvedValue({
-      ok: true,
-      value: { state: { state: 'ok' }, values: { name: 'New' } },
-    })
-    await store().save(A, vi.fn())
-    expect(store().editingId).toBeNull()
-  })
-
-  it('leaving a dirty edit parks pendingLeave', () => {
-    store().select(A)
-    store().startEdit(A, { name: 'Old' })
-    store().updateDraft(A, { name: 'Edited' })
-    store().select(B)
-    expect(store().selectedId).toBe(A)
-    expect(store().editingId).toBe(A)
-    expect(store().pendingLeave).toEqual({ kind: 'select', targetId: B })
-  })
-
-  it('leaving a clean edit leaves and ends edit mode', () => {
-    store().select(A)
-    store().startEdit(A, { name: 'Old' })
-    store().select(B)
-    expect(store().selectedId).toBe(B)
-    expect(store().editingId).toBeNull()
-    expect(store().pendingLeave).toBeNull()
-    expect(store().drafts[A]).toBeUndefined()
-  })
-
-  it('discardAndLeave ends edit mode', () => {
-    store().select(A)
-    store().startEdit(A, { name: 'Old' })
-    store().updateDraft(A, { name: 'Edited' })
-    store().close()
-    store().discardAndLeave()
-    expect(store().selectedId).toBeNull()
-    expect(store().editingId).toBeNull()
-    expect(store().drafts[A]).toBeUndefined()
-  })
-
-  it('editingId survives a simulated remount', () => {
-    store().select(A)
-    store().startEdit(A, { name: 'Old' })
-    store().updateDraft(A, { name: 'Edited' })
-    // Remount: nothing clears the store; a fresh read sees the same state.
-    const again = useDemoEditorStore.getState()
-    expect(again.editingId).toBe(A)
-    expect(again.selectedId).toBe(A)
-    expect(again.drafts[A]!.draft.name).toBe('Edited')
-  })
-
-  it("a selected row's quick-edit confirmation shows outside edit mode", async () => {
+describe('replace confirmation', () => {
+  it("a demo's replace confirmation shows in the view whether or not its panel is open", async () => {
     const issues = [
       {
         kind: 'invalidJson',
@@ -456,13 +386,8 @@ describe('edit mode', () => {
     await store().quickEdit(A, { favourite: true }, vi.fn())
     expect(store().drafts[A]!.replace).toBeDefined()
 
-    // Selected but reading: the view shows the dialog - no editor is on screen to do it.
-    expect(findRowReplaceId(store().drafts, store().selectedId, store().editingId)).toBe(A)
-    // In edit mode the open editor shows it itself, so the view must not show a second one.
-    useDemoEditorStore.setState({ editingId: A })
-    expect(findRowReplaceId(store().drafts, store().selectedId, store().editingId)).toBeUndefined()
-    // A stale edit flag for a demo that is no longer selected hides nothing.
-    useDemoEditorStore.setState({ selectedId: B })
-    expect(findRowReplaceId(store().drafts, store().selectedId, store().editingId)).toBe(A)
+    expect(findRowReplaceId(store().drafts)).toBe(A)
+    store().close()
+    expect(findRowReplaceId(store().drafts)).toBe(A)
   })
 })

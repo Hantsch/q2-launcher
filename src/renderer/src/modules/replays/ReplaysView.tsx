@@ -131,8 +131,7 @@ export function ReplaysView() {
   const selectDemo = useDemoEditorStore((state) => state.select)
   const closeDemo = useDemoEditorStore((state) => state.close)
   const drafts = useDemoEditorStore((state) => state.drafts)
-  const editingId = useDemoEditorStore((state) => state.editingId)
-  const cancelReplace = useDemoEditorStore((state) => state.cancelReplace)
+  const cancelEdit = useDemoEditorStore((state) => state.cancelEdit)
   const { sort, setSort } = useListSort<DemoListSort>(getListSort, setListSort)
   const [filter, setFilter] = useState<DemoListFilter>(EMPTY_DEMO_LIST_FILTER)
   const cancelledRef = useRef(false)
@@ -401,11 +400,9 @@ export function ReplaysView() {
     useDemoEditorStore.getState().deselectIfMissing(visibleDemos.map((demo) => demo.id))
   }, [demos, visibleDemos])
 
-  // Story 155: a quick edit from the row (favourite/rating) reuses the very same
-  // `entry.replace`/`ReplaceSidecarDialog` mechanism the open editor's own Save uses - this only
-  // renders it for a demo whose editor isn't the one already showing it (`DemoDetailEditor` renders
-  // it itself while that demo is in edit mode, story 178).
-  const rowReplaceId = findRowReplaceId(drafts, selectedId, editingId)
+  // The only replace dialog: every write that met a broken sidecar (row toggle or detail edit)
+  // parks behind it, whether or not that demo's detail is open (story 243).
+  const rowReplaceId = findRowReplaceId(drafts)
   const rowReplaceEntry = rowReplaceId !== undefined ? drafts[rowReplaceId] : undefined
 
   return (
@@ -498,6 +495,7 @@ export function ReplaysView() {
                 )}
               >
                 <DemoDetailPanel
+                  key={selected.id}
                   row={selected}
                   onClose={() => {
                     pinnedRowIdRef.current = null
@@ -556,9 +554,9 @@ export function ReplaysView() {
           fileName={rowReplaceEntry.replace.fileName}
           issues={rowReplaceEntry.replace.issues}
           onConfirm={() =>
-            void useDemoEditorStore.getState().confirmQuickEdit(rowReplaceId, handleRowPatched)
+            void useDemoEditorStore.getState().confirmEdit(rowReplaceId, handleRowPatched)
           }
-          onCancel={() => cancelReplace(rowReplaceId)}
+          onCancel={() => cancelEdit(rowReplaceId)}
         />
       )}
     </div>

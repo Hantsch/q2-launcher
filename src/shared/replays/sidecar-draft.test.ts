@@ -3,6 +3,11 @@ import { sidecarFieldsSchema } from './sidecar'
 import {
   addPlayer,
   addSide,
+  addTagChange,
+  composeChanges,
+  fieldPatchFromText,
+  setFields,
+  TOO_LONG_ERROR_KEY,
   draftFromSidecar,
   draftToFields,
   isDraftDirty,
@@ -197,5 +202,33 @@ describe('sidecar-draft', () => {
     // Capped at 8 results.
     const many = [Array.from({ length: 12 }, (_, i) => `tag${i}`)]
     expect(suggestTags(many, '', [])).toHaveLength(8)
+  })
+})
+
+describe('sidecar changes', () => {
+  it('a too-long name is refused with its maximum', () => {
+    const result = fieldPatchFromText('name', 'x'.repeat(201))
+    expect(result).toEqual({
+      ok: false,
+      error: { key: TOO_LONG_ERROR_KEY, params: { max: 200 } },
+    })
+    expect(fieldPatchFromText('name', 'x'.repeat(200)).ok).toBe(true)
+  })
+
+  it('an emptied field removes the override', () => {
+    const result = fieldPatchFromText('map', '   ')
+    expect(result).toEqual({ ok: true, patch: { map: undefined } })
+    expect(setFields({ map: undefined })({ map: 'q2dm1', name: 'a' })).toEqual({ name: 'a' })
+  })
+
+  it('a change leaves fields it does not name untouched', () => {
+    const before = { name: ' padded ', tags: ['A', 'a'], sides: [{ players: [' x '] }] }
+    const after = setFields({ map: 'q2dm1' })(before)
+    expect(after).toEqual({ ...before, map: 'q2dm1' })
+  })
+
+  it('two composed tag adds keep both', () => {
+    const change = composeChanges(addTagChange('one'), addTagChange('Two'))
+    expect(change({ tags: ['zero'] }).tags).toEqual(['zero', 'one', 'Two'])
   })
 })

@@ -11,6 +11,12 @@ import { initI18n } from '../../../i18n'
 const sidecarRead = vi.fn()
 const sidecarWrite = vi.fn()
 
+// The editor store toasts a failed write through `useLauncher`, whose module graph needs the
+// preload bridge; this suite never reaches a toast.
+vi.mock('../../../store/useLauncher', () => ({
+  useLauncher: { getState: () => ({ pushToast: vi.fn() }) },
+}))
+
 vi.mock('../client', (importOriginal) =>
   mockClient<typeof import('../client')>(importOriginal, {
     sidecarRead: (...args: unknown[]) => sidecarRead(...args),

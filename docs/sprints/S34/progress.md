@@ -114,3 +114,21 @@
 - 2026-10-05 10:42 · 245 · review 1 fixes · started
 - 2026-10-05 10:43 · 245 · review 1 fixes · done
 - 2026-10-05 10:43 · 245 · story · done
+- 2026-10-05T10:43:46 · 243 · build · started
+- 2026-10-05 10:44 · 243 · D1 Field validation and sidecar changes · started
+- 2026-10-05 10:44 · 243 · D1 Field validation and sidecar changes · done
+- 2026-10-05 10:44 · 243 · D2 One queued write path (hard) · started
+- 2026-10-05 10:52 · 243 · D2 One queued write path (hard) · done
+- 2026-10-05 10:52 · 243 · D3 InPlaceField and tag refusal · started
+- 2026-10-05 10:54 · 243 · D3 InPlaceField and tag refusal · done
+- 2026-10-05 10:54 · 243 · D4 The detail is one view · started
+- 2026-10-05 11:00 · 243 · D4 The detail is one view · done
+- 2026-10-05 11:00 · 243 · D5 Sides in place and replace flow · started
+- 2026-10-05 11:04 · 243 · D5 Sides in place and replace flow · done
+- 2026-10-05 11:04 · 243 · verify · started
+- 2026-10-05 11:31 · 243 · verify · done
+- 2026-10-05 11:31 · 243 · review 1 · started
+- 2026-10-05 11:33 · 243 · review 1 · done
+- 2026-10-05 11:33 · 243 · review 1 fixes · started
+- 2026-10-05 11:35 · 243 · review 1 fixes · done
+- 2026-10-05 11:35 · 243 · story · done

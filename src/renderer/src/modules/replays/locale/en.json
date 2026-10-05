@@ -257,12 +257,8 @@
       },
       "error": {
         "rating": "Rating must be a whole number from 1 to 10.",
-        "date": "Enter a real date and time as YYYY-MM-DD HH:MM."
-      },
-      "saveFailed": "Not saved: {{reason}}",
-      "discardDialog": {
-        "title": "Discard your unsaved notes?",
-        "body": "This demo's notes have changes you haven't saved. Discard them and move on?"
+        "date": "Enter a real date and time as YYYY-MM-DD HH:MM.",
+        "tooLong": "Too long — at most {{max}} characters."
       },
       "replaceDialog": {
         "title": "Replace the broken notes file?",
@@ -341,6 +337,10 @@
       "archive": "Inside an archive"
     },
     "detail": {
+      "sides": {
+        "edit": "Edit sides",
+        "refused": "These sides were not saved. Fix them, or press Escape to discard them."
+      },
       "favourite": {
         "ariaLabel": "Favourite {{name}}"
       },

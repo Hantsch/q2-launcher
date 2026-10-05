@@ -49,8 +49,10 @@ This document describes the module as built. `replays` is a registered module; i
 
 - `ReplaysView.tsx`, `components/VirtualDemoList.tsx`, `components/DemoRow.tsx`,
   `DemoListFilterBar.tsx`, `ReplaysListStatus.tsx` — the list.
-- `components/DemoDetailPanel.tsx`, `components/DemoDetailEditor.tsx`,
-  `components/SidesEditor.tsx`, `RenameDemoDialog.tsx` — detail and editing.
+- `components/DemoDetailPanel.tsx`, `components/InPlaceField.tsx`, `components/TagInput.tsx`,
+  `components/SidesField.tsx`, `components/SidesEditor.tsx`, `RenameDemoDialog.tsx` — the detail is one view, edited in place:
+  every text fact is an `InPlaceField` and saves per field (Enter or leaving it; Escape reverts)
+  through the editor store's single `edit` write path; the roster opens `SidesEditor` on click and saves when focus leaves it (Escape reverts); an archive entry shows it read-only.
 - `components/DemoPlayersPanel.tsx` — the detail's players panel: players grouped by side, POV marked, spectators in a closed disclosure.
 - `components/DemoStage.tsx`, `components/DemoTimeline.tsx`, `cinema/CinemaOverlay.tsx`,
   `playback-store.ts`, `useDemoPlay.ts` — playback.

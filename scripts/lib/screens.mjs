@@ -1353,8 +1353,8 @@ export const SCREENS = [
     id: 'replays-detail-edit',
     variant: 'replays-rows',
     viewports: BOTH_VIEWPORTS,
-    // Story 178 D4: the demo detail in edit mode (`DemoDetailEditor.tsx`) - same path as
-    // `replays-detail`, then Edit; waits for the editor's Save button.
+    // The demo detail with an impossible date typed into its in-place date field - same path as
+    // `replays-detail`; the field's reason is on screen.
     navigate: async (page) => {
       await click(page, 'nav-replays')
       await page
@@ -1367,12 +1367,12 @@ export const SCREENS = [
       await page
         .getByTestId('replays-detail')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
-      // The editor store outlives a screen and a viewport, so the demo may already be in edit mode.
-      if ((await page.getByTestId('replays-editor-save').count()) === 0) {
-        await click(page, 'replays-detail-edit')
-      }
       await page
-        .getByTestId('replays-editor-save')
+        .getByTestId('replays-detail-input-date')
+        .fill('2026-02-30 10:00', { timeout: CLICK_TIMEOUT_MS })
+      await page.getByTestId('replays-detail-input-date').blur()
+      await page
+        .getByTestId('replays-detail-input-date-error')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },
@@ -1423,8 +1423,8 @@ export const SCREENS = [
     id: 'replays-editor',
     variant: 'replays-rows',
     viewports: BOTH_VIEWPORTS,
-    // Stories 155/178: the demo detail in edit mode (`DemoDetailEditor.tsx`) - same path as
-    // `replays-detail`, then Edit, then an impossible date so the inline field error is on screen too.
+    // The demo detail's in-place fields (`DemoDetailPanel.tsx`) - same path as `replays-detail`,
+    // then an impossible date so the inline field error is on screen too.
     navigate: async (page) => {
       await click(page, 'nav-replays')
       await page
@@ -1437,15 +1437,12 @@ export const SCREENS = [
       await page
         .getByTestId('replays-detail')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
-      // The editor store outlives a screen and a viewport, so the demo may already be in edit mode.
-      if ((await page.getByTestId('replays-editor-save').count()) === 0) {
-        await click(page, 'replays-detail-edit')
-      }
       await page
-        .getByTestId('replays-editor-date')
+        .getByTestId('replays-detail-input-date')
         .fill('2026-02-30 10:00', { timeout: CLICK_TIMEOUT_MS })
+      await page.getByTestId('replays-detail-input-date').blur()
       await page
-        .getByTestId('replays-editor-error-date')
+        .getByTestId('replays-detail-input-date-error')
         .waitFor({ state: 'visible', timeout: CLICK_TIMEOUT_MS })
     },
   },

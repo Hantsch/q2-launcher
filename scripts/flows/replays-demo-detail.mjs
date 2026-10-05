@@ -71,13 +71,14 @@ export default async function replaysDemoDetail({ page, shot, step }) {
   await detail
     .getByTestId('replays-detail-field-map')
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const titleText = await title.textContent()
+  const nameInput = detail.getByTestId('replays-detail-input-name')
+  const titleText = await nameInput.inputValue()
   if (!titleText.includes('Fixture TDM Match')) {
     throw new Error(
       `replays-demo-detail: tdm title expected "Fixture TDM Match", got "${titleText}"`,
     )
   }
-  const titleSize = await title.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
+  const titleSize = await nameInput.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))
   const valueSize = await detail
     .getByTestId('replays-detail-field-map')
     .locator('dd')

@@ -8,7 +8,12 @@
  * `Buffer`, no IPC, no electron.
  */
 
-import { normalizeSidecarFields, sidecarFieldsSchema, type SidecarFields } from './sidecar'
+import {
+  SIDECAR_LIMITS,
+  normalizeSidecarFields,
+  sidecarFieldsSchema,
+  type SidecarFields,
+} from './sidecar'
 
 export type SidecarDraft = {
   name: string
@@ -26,6 +31,7 @@ export type SidecarDraft = {
 
 export const RATING_ERROR_KEY = 'replays.editor.error.rating' as const
 export const DATE_ERROR_KEY = 'replays.editor.error.date' as const
+export const TOO_LONG_ERROR_KEY = 'replays.editor.error.tooLong' as const
 
 /** Renders an ISO datetime string (with offset) into the local `YYYY-MM-DD HH:MM:SS` draft text. */
 export function isoToDraftText(iso: string): string {
@@ -258,9 +264,9 @@ export function movePlayer(
 
 export function addTag(draft: SidecarDraft, tag: string): SidecarDraft {
   const trimmed = tag.trim()
-  if (trimmed === '' || trimmed.length > 40) return draft
+  if (trimmed === '' || trimmed.length > SIDECAR_LIMITS.tag) return draft
   if (draft.tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) return draft
-  if (draft.tags.length >= 50) return draft
+  if (draft.tags.length >= SIDECAR_LIMITS.tags) return draft
   return { ...draft, tags: [...draft.tags, trimmed] }
 }
 
@@ -343,4 +349,79 @@ export function withQuickEdit(
   }
 
   return out
+}
+
+export type FieldError = { key: string; params?: Record<string, string | number> }
+
+export type SidecarField = 'name' | 'description' | 'date' | 'map' | 'mod' | 'gamemode'
+
+/**
+ * Turns one text field's typed text into a patch for that key alone: empty text removes the
+ * override (key set to `undefined`), over-long or unparsable text is refused with its reason.
+ */
+export function fieldPatchFromText(
+  field: SidecarField,
+  text: string,
+): { ok: true; patch: Partial<SidecarFields> } | { ok: false; error: FieldError } {
+  const trimmed = text.trim()
+  if (field === 'date') {
+    const date = convertDate({ date: trimmed, originalDate: null })
+    if (date === 'error') return { ok: false, error: { key: DATE_ERROR_KEY } }
+    return { ok: true, patch: { date } }
+  }
+  const max = SIDECAR_LIMITS[field]
+  if (trimmed.length > max) {
+    return { ok: false, error: { key: TOO_LONG_ERROR_KEY, params: { max } } }
+  }
+  return { ok: true, patch: { [field]: trimmed === '' ? undefined : trimmed } }
+}
+
+/** The reason a tag cannot be added, or null when it is acceptable. */
+export function validateTag(text: string): FieldError | null {
+  if (text.trim().length > SIDECAR_LIMITS.tag) {
+    return { key: TOO_LONG_ERROR_KEY, params: { max: SIDECAR_LIMITS.tag } }
+  }
+  return null
+}
+
+/** A pure edit of the on-disk fields; it never normalises or drops a field it does not name. */
+export type SidecarChange = (values: Partial<SidecarFields>) => SidecarFields
+
+export function setFields(patch: Partial<SidecarFields>): SidecarChange {
+  return (values) => {
+    const out: SidecarFields = { ...values }
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) delete (out as Record<string, unknown>)[key]
+      else (out as Record<string, unknown>)[key] = value
+    }
+    return out
+  }
+}
+
+export function addTagChange(tag: string): SidecarChange {
+  return (values) => {
+    const trimmed = tag.trim()
+    const tags = values.tags ?? []
+    if (trimmed === '' || validateTag(trimmed) !== null) return { ...values }
+    if (tags.some((t) => t.toLowerCase() === trimmed.toLowerCase())) return { ...values }
+    if (tags.length >= SIDECAR_LIMITS.tags) return { ...values }
+    return { ...values, tags: [...tags, trimmed] }
+  }
+}
+
+export function removeTagChange(tag: string): SidecarChange {
+  return (values) => {
+    if (values.tags === undefined) return { ...values }
+    const tags = values.tags.filter((t) => t.toLowerCase() !== tag.toLowerCase())
+    const { tags: _dropped, ...rest } = values
+    return tags.length === 0 ? rest : { ...rest, tags }
+  }
+}
+
+export function quickChange(patch: { favourite?: boolean; rating?: number | null }): SidecarChange {
+  return (values) => withQuickEdit(values, patch)
+}
+
+export function composeChanges(...changes: SidecarChange[]): SidecarChange {
+  return (values) => changes.reduce<SidecarFields>((acc, change) => change(acc), { ...values })
 }

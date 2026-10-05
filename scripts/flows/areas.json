@@ -760,6 +760,7 @@
       "replays-demo-file-actions",
       "replays-edit-sidecar",
       "replays-edit-sides-tags",
+      "replays-edit-unreadable-sidecar",
       "replays-detail-quick-edit",
       "replays-row-quick-rating",
       "replays-copy-in",

@@ -61,7 +61,7 @@ export const DYNAMIC_KEY_PREFIXES: readonly string[] = [
   'replays.sort.column.',
   // t(`replays.sort.direction.${sort.direction}`) in src/renderer/src/modules/replays/components/DemoListHeader.tsx
   'replays.sort.direction.',
-  // t(`replays.editor.placeholder.${field}`) in src/renderer/src/modules/replays/components/DemoDetailEditor.tsx
+  // t(`replays.editor.placeholder.${field}`) in src/renderer/src/modules/replays/components/DemoDetailPanel.tsx
   'replays.editor.placeholder.',
   // t(`replays.timeline.waiting.${waitingChain}`) in src/renderer/src/modules/replays/components/DemoTimeline.tsx
   'replays.timeline.waiting.',

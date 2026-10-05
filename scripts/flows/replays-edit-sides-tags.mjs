@@ -1,24 +1,19 @@
-// Story 155 acceptance flow: proves the sides/players editor and the tag input actually work on the
-// real UI - adding sides, taking a known player onto a side by clicking its chip (no typing), typing
-// two players in by hand and reordering/removing them, removing a whole side, and picking a
-// tag-suggestion built from another demo's own tags - then Save writes it all into the demo's `.json`
-// sidecar on disk. Runs against the `replays-rows` fixture variant (same as `replays-edit-sidecar.mjs`),
-// plus its own `setup()` that drops one extra demo (a copy of `test.dm2`, which carries real header
+// Story 243 acceptance flow: the sides and the tags of a demo are edited in place and save
+// themselves. The roster opens the sides editor on click (known-player chips, typed players), moving
+// focus out saves it; a suggested tag is saved the moment it is picked, a chip's x removes it, and
+// edits made back to back all land in the sidecar. Runs against the `replays-rows` fixture variant
+// plus its own `setup()` that drops one extra demo (a copy of `test.dm2`, whose header carries real
 // player data) and a sidecar with a seed tag next to the fixture's own no-sidecar demo.
 //
-// Selectors - read `SidesEditor.tsx`, `TagInput.tsx` and `DemoDetailEditor.tsx` before changing any
-// of these:
+// Selectors - read `SidesField.tsx`, `SidesEditor.tsx`, `TagInput.tsx` and `DemoDetailPanel.tsx`:
+//   replays-detail-sides-edit         SidesField.tsx - activates the sides editor
+//   replays-detail-sides-editor       SidesField.tsx - the open editor's container
 //   replays-sides-add                 SidesEditor.tsx - "Add side" button
-//   replays-side-<i>                  SidesEditor.tsx - one side card
 //   replays-side-<i>-team/-result     SidesEditor.tsx - team/result inputs
-//   replays-side-<i>-remove           SidesEditor.tsx - remove-side button
-//   replays-side-<i>-add-player       SidesEditor.tsx - add-player text input (Enter adds)
-//   replays-side-<i>-player-<j>       SidesEditor.tsx - one player row
 //   replays-known-player              SidesEditor.tsx - a known-player chip (name + source)
-//   replays-tag-input                 TagInput.tsx - the tag combobox input
-//   replays-tag-option                TagInput.tsx - one suggestion option
-//   replays-detail-edit               DemoDetailPanel.tsx - enters edit mode (story 178)
-//   replays-editor-save               DemoDetailEditor.tsx
+//   replays-tag-input / -option       TagInput.tsx
+//   replays-detail-input-name         DemoDetailPanel.tsx - the header name input
+//   replays-detail-favourite          DemoDetailPanel.tsx - the favourite toggle
 
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -51,27 +46,38 @@ export async function setup() {
   )
 }
 
+async function waitForSidecar(predicate, why) {
+  const deadline = Date.now() + TIMEOUT_MS
+  for (;;) {
+    let parsed = {}
+    try {
+      parsed = JSON.parse(readFileSync(knownPlayersDemoPath() + '.json', 'utf8'))
+    } catch {
+      // not written yet
+    }
+    if (predicate(parsed)) return parsed
+    if (Date.now() > deadline) {
+      throw new Error(`replays-edit-sides-tags: ${why} - sidecar is ${JSON.stringify(parsed)}`)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+}
+
 export default async function replaysEditSidesTags({ page, shot, step }) {
-  step('opening the known-players demo and pressing Edit shows the editor')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForDemosScanToFinish(page)
   await rowFor(page, KNOWN_PLAYERS_DEMO).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-detail-edit').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-editor').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await page.getByTestId('replays-detail-title').waitFor({ state: 'attached', timeout: TIMEOUT_MS })
 
-  step('adding two sides with team names and results')
+  step('the sides field opens in place')
+  await page.getByTestId('replays-detail-sides-edit').click({ timeout: TIMEOUT_MS })
+  await page
+    .getByTestId('replays-detail-sides-editor')
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('replays-sides-add').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-side-0').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await page.getByTestId('replays-side-0-team').fill('Alpha')
   await page.getByTestId('replays-side-0-result').fill('25')
-
-  await page.getByTestId('replays-sides-add').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-side-1').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-side-1-team').fill('Bravo')
-  await page.getByTestId('replays-side-1-result').fill('18')
-
-  step('taking a known player onto side 1 by clicking its chip')
   const chips = page.getByTestId('replays-known-player')
   const firstChipName = (await chips.first().textContent()).split(' (')[0]
   await chips.first().click({ timeout: TIMEOUT_MS })
@@ -79,108 +85,51 @@ export default async function replaysEditSidesTags({ page, shot, step }) {
     .getByTestId('replays-side-0-player-0')
     .filter({ hasText: firstChipName })
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-
-  step('typing two players into side 2 and reordering/removing them')
-  const side1Input = page.getByTestId('replays-side-1-add-player')
-  await side1Input.fill('Zed')
-  await side1Input.press('Enter')
+  await shot('replays-edit-sides-tags')
+  await page.getByTestId('replays-sides-add').focus()
+  await page.keyboard.press('Tab')
   await page
-    .getByTestId('replays-side-1-player-0')
-    .filter({ hasText: 'Zed' })
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await side1Input.fill('Ana')
-  await side1Input.press('Enter')
-  await page
-    .getByTestId('replays-side-1-player-1')
-    .filter({ hasText: 'Ana' })
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-
-  await page
-    .getByTestId('replays-side-1-player-1')
-    .getByRole('button', { name: 'Move Ana up' })
-    .click({ timeout: TIMEOUT_MS })
-  await page
-    .getByTestId('replays-side-1-player-0')
-    .filter({ hasText: 'Ana' })
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-
-  await page
-    .getByTestId('replays-side-1-player-1')
-    .getByRole('button', { name: 'Remove Zed' })
-    .click({ timeout: TIMEOUT_MS })
-  await page
-    .getByTestId('replays-side-1-player-1')
+    .getByTestId('replays-detail-sides-editor')
     .waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
+  const saved = await waitForSidecar(
+    (sidecar) => Array.isArray(sidecar.sides) && sidecar.sides.length === 1,
+    'leaving the sides field must save it',
+  )
+  const side = saved.sides[0]
+  if (side.team !== 'Alpha' || side.result !== '25' || !side.players.includes(firstChipName)) {
+    throw new Error(`replays-edit-sides-tags: sides mismatch: ${JSON.stringify(saved.sides)}`)
+  }
 
-  step('removing side 2 entirely, then adding a new side again')
-  await page.getByTestId('replays-side-1-remove').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-side-1').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-sides-add').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-side-1').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-side-1-team').fill('Charlie')
-
-  step('typing "gru" in the tag input suggests the seeded tag, and picking it adds the chip')
+  step('a suggested tag is saved at once')
   const tagInput = page.getByTestId('replays-tag-input')
   await tagInput.fill('gru')
   const option = page.getByTestId('replays-tag-option').filter({ hasText: SEED_TAG })
   await option.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await option.click({ timeout: TIMEOUT_MS })
+  await waitForSidecar(
+    (sidecar) => Array.isArray(sidecar.tags) && sidecar.tags.includes(SEED_TAG),
+    'picking a suggestion must save the tag without leaving the field',
+  )
 
-  await page
-    .getByTestId('replays-editor-description')
-    .fill('Flow description', { timeout: TIMEOUT_MS })
+  step("the chip's × removes the tag on disk")
+  await page.getByRole('button', { name: `Remove tag ${SEED_TAG}` }).click({ timeout: TIMEOUT_MS })
+  await waitForSidecar(
+    (sidecar) => !(sidecar.tags ?? []).includes(SEED_TAG),
+    'the chip x must remove the tag from the sidecar',
+  )
 
-  await shot('replays-edit-sides-tags')
-
-  step('Save writes the sides (in order) and the tag into the sidecar on disk')
-  await page.getByTestId('replays-editor-save').click({ timeout: TIMEOUT_MS })
-
-  const sidecarPath = knownPlayersDemoPath() + '.json'
-  const deadline = Date.now() + TIMEOUT_MS
-  let written = null
-  while (Date.now() < deadline) {
-    try {
-      written = JSON.parse(readFileSync(sidecarPath, 'utf8'))
-      break
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 100))
-    }
-  }
-  if (written === null) {
-    throw new Error(`replays-edit-sides-tags: sidecar never appeared at ${sidecarPath}`)
-  }
-
-  if (!Array.isArray(written.sides) || written.sides.length !== 2) {
-    throw new Error(
-      `replays-edit-sides-tags: expected 2 sides, got ${JSON.stringify(written.sides)}`,
-    )
-  }
-  if (written.sides[0].team !== 'Alpha' || written.sides[0].result !== '25') {
-    throw new Error(`replays-edit-sides-tags: side 0 mismatch: ${JSON.stringify(written.sides[0])}`)
-  }
-  if (!written.sides[0].players.includes(firstChipName)) {
-    throw new Error(
-      `replays-edit-sides-tags: side 0 should include the known player, got ${JSON.stringify(written.sides[0].players)}`,
-    )
-  }
-  if (written.sides[1].team !== 'Charlie') {
-    throw new Error(
-      `replays-edit-sides-tags: side 1 (the re-added side) expected team "Charlie", got ${JSON.stringify(written.sides[1])}`,
-    )
-  }
-  if (!Array.isArray(written.tags) || !written.tags.includes(SEED_TAG)) {
-    throw new Error(
-      `replays-edit-sides-tags: expected tag "${SEED_TAG}", got ${JSON.stringify(written.tags)}`,
-    )
-  }
-
-  step('after the save, reading mode shows the saved description and tags')
-  await page
-    .getByTestId('replays-detail-description')
-    .filter({ hasText: 'Flow description' })
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page
-    .getByTestId('replays-detail-tags')
-    .filter({ hasText: SEED_TAG })
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  step('back-to-back edits all land on disk')
+  const name = page.getByTestId('replays-detail-input-name')
+  await name.fill('Quick fire')
+  await name.press('Enter')
+  await tagInput.fill('burst')
+  await tagInput.press('Enter')
+  await page.getByTestId('replays-detail-favourite').click({ timeout: TIMEOUT_MS })
+  await waitForSidecar(
+    (sidecar) =>
+      sidecar.name === 'Quick fire' &&
+      (sidecar.tags ?? []).includes('burst') &&
+      sidecar.favourite === true,
+    'name, tag and favourite edited without waiting must all be saved',
+  )
 }

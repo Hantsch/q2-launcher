@@ -331,3 +331,4 @@ second roadmap.
 - 235 — shutdown, state-store and job edge cases are closed · S34 · cinema dispose, quitAndInstall and debounce race pinned, StateStore migrations required, service setEngineState, commitAdoption failures recorded
 - 233 — the flow gate has no quarantined flows and catches cross-story breakage · S34 · quarantine empty, --repeat/--affected flow selection, fixture-owned downloads cache
 - 245 — the demo detail lists players by team · S34 · Demo detail groups players by team (OpenTDM/CTF) with POV mark and collapsed spectators, teams also feed search and sides.
+- 243 — the demo detail is edited in place and saves itself · S34 · one detail view whose fields, tags and sides save themselves through one queued write path.

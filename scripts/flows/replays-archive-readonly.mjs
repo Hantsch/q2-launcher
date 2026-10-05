@@ -7,9 +7,9 @@
 // and `DemoFileActions.tsx` before changing any of these:
 //   nav-replays                     TitleBar.tsx - primary nav entry
 //   replays-demo-row / -name        ReplaysView.tsx - one row per demo / its file name text
-//   replays-detail-edit             DemoDetailPanel.tsx - the header Edit button, disabled for an
-//                                    archive entry
-//   replays-archive-readonly-edit   DemoDetailPanel.tsx - visible reason Edit is disabled
+//   replays-detail-input-name       DemoDetailPanel.tsx - the in-place name field (a plain text span
+//                                    for an archive entry)
+//   replays-archive-readonly-edit   DemoDetailPanel.tsx - visible reason the entry is read-only
 //   demo-rename                     DemoFileActions.tsx - the rename button, disabled for an
 //                                    archive entry
 //   replays-archive-readonly-rename DemoDetailPanel.tsx - visible reason rename is disabled
@@ -50,18 +50,21 @@ export default async function replaysArchiveReadonly({ page, shot, step }) {
   const list = page.getByTestId('replays-demo-list')
   await list.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
-  step('opening the pack.zip archive entry disables notes and rename, with visible reasons')
+  step('a zip entry shows the same view read-only with its reason')
   const dm2Row = page
     .getByTestId('replays-demo-row')
     .filter({ has: page.getByTestId('replays-demo-name').filter({ hasText: 'test.dm2' }) })
   await dm2Row.click({ timeout: TIMEOUT_MS })
 
-  const editButton = page.getByTestId('replays-detail-edit')
-  await editButton.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  if (!(await editButton.isDisabled())) {
-    throw new Error(
-      'replays-archive-readonly: the Edit button must be disabled for an archive entry',
-    )
+  const name = page.getByTestId('replays-detail-input-name')
+  await name.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  for (const field of ['name', 'date', 'map', 'mod', 'gamemode']) {
+    const tag = await page
+      .getByTestId(`replays-detail-input-${field}`)
+      .evaluate((element) => element.tagName)
+    if (tag === 'INPUT' || tag === 'TEXTAREA') {
+      throw new Error(`replays-archive-readonly: ${field} must not be editable for an archive entry`)
+    }
   }
 
   for (const id of [

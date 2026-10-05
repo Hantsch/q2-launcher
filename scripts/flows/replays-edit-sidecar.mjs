@@ -1,26 +1,20 @@
-// Stories 155/178 acceptance flow: a user edits a demo's details where they read them. Before Edit
-// there is no notes form at all; Edit turns the facts into inputs in place (the name in the header),
-// an impossible date is refused with its reason as text, Save writes the `.json` sidecar on disk and
-// puts the panel back in reading mode showing the saved values - while the list patches that one row
-// in place without a rescan. Cancel restores the saved values and writes nothing; leaving a dirty edit
-// asks first, the edit survives a module switch, and Discard throws it away without writing. Runs
-// against the `replays-rows` fixture variant, same as `replays-demo-detail.mjs`, so this flow needs no
+// Story 243 acceptance flow: a demo's details are edited where they are read. The detail is one view
+// with no Edit, Save or Cancel - every text fact is an input in place that saves itself (Enter or
+// leaving the field), Escape reverts, a refused text stays with its reason, a failed save toasts and
+// keeps the text, and the list patches that one row without a rescan. Runs against the
+// `replays-rows` fixture variant, same as `replays-demo-detail.mjs`, so this flow needs no
 // `setup()`/`teardown()` of its own.
 //
-// Selectors - read `DemoDetailPanel.tsx`, `DemoDetailEditor.tsx`, `DiscardDemoNotesDialog.tsx`,
-// `DemoListFilterBar.tsx` and `ReplaysListStatus.tsx` before changing any of these:
-//   replays-detail-edit / -close      DemoDetailPanel.tsx - header icon buttons
-//   replays-detail-header             DemoDetailPanel.tsx - the sticky header (title slot + buttons)
-//   replays-detail-title              DemoDetailPanel.tsx - reading mode's name title
-//   replays-detail-field-<id>         DemoDetailPanel.tsx - one reading-mode fact
-//   replays-editor-<field>            DemoDetailEditor.tsx - one control per field (name in the header)
-//   replays-editor-error-<field>      DemoDetailEditor.tsx - inline date error
-//   replays-editor-save / -cancel     DemoDetailEditor.tsx
-//   replays-discard-dialog / -keep / -confirm   DiscardDemoNotesDialog.tsx
-//   replays-filter-mod / -clear       DemoListFilterBar.tsx
-//   replays-list-loading              ReplaysListStatus.tsx - the scan-progress strip
+// Selectors - read `DemoDetailPanel.tsx`, `InPlaceField.tsx`, `DemoListFilterBar.tsx` and
+// `ReplaysListStatus.tsx` before changing any of these:
+//   replays-detail-edit / replays-editor-save / -cancel   must not exist any more
+//   replays-detail-input-<field>        DemoDetailPanel.tsx - one in-place input per text fact
+//   replays-detail-input-<field>-error  InPlaceField.tsx - the refusal reason
+//   replays-discard-dialog              must not exist any more
+//   replays-list-loading                ReplaysListStatus.tsx - the scan-progress strip
+//   [role="status"]                     the toast region
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
 import {
   REPLAYS_ROWS_DUEL_DEMO,
   REPLAYS_ROWS_MVD_DEMO,
@@ -34,36 +28,28 @@ export const variant = 'replays-rows'
 
 const NAME = 'Edited MVD final'
 const MOD = 'lithium'
-const DATE_TEXT = '2030-06-15 20:30'
+const GONE_TEXT = 'The demo file is gone, so its notes were not saved.'
 
-async function expectInlineError(page, field) {
-  await page
-    .getByTestId(`replays-editor-error-${field}`)
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  if (!(await page.getByTestId('replays-editor-save').isDisabled())) {
-    throw new Error(`replays-edit-sidecar: Save must be disabled while ${field} is invalid`)
-  }
-}
-
-function sidecarText() {
+function sidecarText(demo = REPLAYS_ROWS_MVD_DEMO) {
   try {
-    return readFileSync(replaysRowsSidecarPath(REPLAYS_ROWS_MVD_DEMO), 'utf8')
+    return readFileSync(replaysRowsSidecarPath(demo), 'utf8')
   } catch {
     return null
   }
 }
 
-async function expectText(page, testId, expected, why) {
-  const actual = (await page.getByTestId(testId).textContent()) ?? ''
-  if (!actual.includes(expected)) {
-    throw new Error(
-      `replays-edit-sidecar: ${why} - ${testId} expected to contain "${expected}", got "${actual}"`,
-    )
+const input = (page, field) => page.getByTestId(`replays-detail-input-${field}`)
+
+async function expectNone(page, testIds, why) {
+  for (const id of testIds) {
+    if ((await page.getByTestId(id).count()) !== 0) {
+      throw new Error(`replays-edit-sidecar: ${why} - ${id} must not exist`)
+    }
   }
 }
 
 async function expectValue(page, field, expected, why) {
-  const actual = await page.getByTestId(`replays-editor-${field}`).inputValue()
+  const actual = await input(page, field).inputValue()
   if (actual !== expected) {
     throw new Error(
       `replays-edit-sidecar: ${why} - ${field} expected "${expected}", got "${actual}"`,
@@ -71,153 +57,122 @@ async function expectValue(page, field, expected, why) {
   }
 }
 
+async function expectReason(page, field, expected) {
+  const reason = page.getByTestId(`replays-detail-input-${field}-error`)
+  await reason.waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  const text = (await reason.textContent()) ?? ''
+  if (!text.includes(expected)) {
+    throw new Error(
+      `replays-edit-sidecar: the ${field} reason expected to contain "${expected}", got "${text}"`,
+    )
+  }
+}
+
+async function waitForSidecar(predicate, why) {
+  const deadline = Date.now() + TIMEOUT_MS
+  for (;;) {
+    const text = sidecarText()
+    const parsed = text === null ? {} : JSON.parse(text)
+    if (predicate(parsed)) return parsed
+    if (Date.now() > deadline) {
+      throw new Error(`replays-edit-sidecar: ${why} - sidecar is ${JSON.stringify(parsed)}`)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+}
+
 export default async function replaysEditSidecar({ page, shot, step }) {
-  step('opening a sidecar-less loose demo shows its facts, with no notes form')
   await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
   await page.getByTestId('replays-demo-list').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   await waitForDemosScanToFinish(page)
   await rowFor(page, REPLAYS_ROWS_MVD_DEMO).click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-detail-title').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const editorBits = await page.locator('[data-testid^="replays-editor"]').count()
-  if (editorBits !== 0 || (await page.getByTestId('replays-notes-slot').count()) !== 0) {
-    throw new Error(
-      `replays-edit-sidecar: no notes form may render before Edit, found ${editorBits} replays-editor-* elements`,
-    )
-  }
+  await page.getByTestId('replays-detail-title').waitFor({ state: 'attached', timeout: TIMEOUT_MS })
 
-  step('the favourite is set with the header button before editing')
-  await page.getByTestId('replays-detail-favourite').click({ timeout: TIMEOUT_MS })
-  await page.waitForFunction(
-    () =>
-      document
-        .querySelector('[data-testid="replays-detail-favourite"]')
-        ?.getAttribute('aria-pressed') === 'true',
-    undefined,
-    { timeout: TIMEOUT_MS },
+  step('the detail is one view: no Edit, Save, Cancel or discard dialog')
+  await expectNone(
+    page,
+    ['replays-detail-edit', 'replays-editor-save', 'replays-editor-cancel'],
+    'the detail is always editable',
+  )
+  await input(page, 'description').fill('A note typed and then left behind')
+  await rowFor(page, REPLAYS_ROWS_DUEL_DEMO).click({ timeout: TIMEOUT_MS })
+  await expectNone(page, ['replays-discard-dialog'], 'selecting another demo never asks')
+  await rowFor(page, REPLAYS_ROWS_MVD_DEMO).click({ timeout: TIMEOUT_MS })
+  await waitForSidecar(
+    (sidecar) => sidecar.description === 'A note typed and then left behind',
+    'leaving a demo must save the text typed in its field',
   )
 
-  step('Edit turns the facts into inputs in place, the name in the header')
-  await page.getByTestId('replays-detail-edit').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-editor').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  if (
-    (await page.getByTestId('replays-editor-favourite').count()) !== 0 ||
-    (await page.getByTestId('replays-editor-rating').count()) !== 0
-  ) {
-    throw new Error(
-      'replays-edit-sidecar: edit mode must offer neither a favourite nor a rating input',
-    )
+  step('every text field is an input in place')
+  for (const field of ['name', 'description', 'date', 'map', 'mod', 'gamemode']) {
+    await input(page, field).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   }
   await page
     .getByTestId('replays-detail-header')
-    .getByTestId('replays-editor-name')
+    .getByTestId('replays-detail-input-name')
     .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  if ((await page.getByTestId('replays-detail-title').count()) !== 0) {
-    throw new Error(
-      'replays-edit-sidecar: the name title must give way to the name input in edit mode',
-    )
-  }
-  await page.getByTestId('replays-editor-name').fill(NAME)
-  await page.getByTestId('replays-editor-mod').fill(MOD)
-  await page.getByTestId('replays-editor-date').fill(DATE_TEXT)
 
-  step('an impossible date is refused with its reason as text and Save is disabled')
-  await page.getByTestId('replays-editor-date').fill('2026-02-30 10:00')
-  await expectInlineError(page, 'date')
-  await expectText(
-    page,
-    'replays-editor-error-date',
-    'YYYY-MM-DD HH:MM',
-    'the date reason must be visible text',
-  )
-  await page.getByTestId('replays-editor-date').fill(DATE_TEXT)
-  await page
-    .getByTestId('replays-editor-error-date')
-    .waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
-
-  step('Save writes the sidecar and puts the panel back in reading mode showing the values')
-  await page.getByTestId('replays-editor-save').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-editor').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
+  step('Enter saves the name, blur saves the mod, Escape reverts')
+  await input(page, 'name').fill(NAME)
+  await input(page, 'name').press('Enter')
   await rowFor(page, NAME).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  const savedText = sidecarText()
-  const written = JSON.parse(savedText ?? '{}')
-  if (written.name !== NAME || written.mod !== MOD) {
-    throw new Error(
-      `replays-edit-sidecar: sidecar expected name/mod ${NAME}/${MOD}, got ${JSON.stringify(written)}`,
-    )
-  }
-  if (written.favourite !== true) {
-    throw new Error(
-      `replays-edit-sidecar: Save must keep the favourite set before editing, got ${JSON.stringify(written)}`,
-    )
-  }
-  if (typeof written.date !== 'string' || !written.date.startsWith('2030-06-15T20:30:00')) {
-    throw new Error(
-      `replays-edit-sidecar: sidecar date expected 2030-06-15T20:30:00 plus offset, got ${JSON.stringify(written.date)}`,
-    )
-  }
-  await expectText(page, 'replays-detail-title', NAME, 'reading mode must show the saved name')
-  await expectText(page, 'replays-detail-field-mod', MOD, 'reading mode must show the saved mod')
-  await expectText(
-    page,
-    'replays-detail-field-date',
-    '2030',
-    'reading mode must show the saved date',
-  )
+  await waitForSidecar((sidecar) => sidecar.name === NAME, 'Enter must save the name')
 
-  step('the row is patched in place and no rescan ran')
+  await input(page, 'mod').fill(MOD)
+  await input(page, 'name').focus()
+  await waitForSidecar((sidecar) => sidecar.mod === MOD, 'leaving the field must save the mod')
+
+  await input(page, 'map').fill('q2dm-escaped')
+  await input(page, 'map').press('Escape')
+  await input(page, 'name').focus()
+  if ((await input(page, 'map').inputValue()) === 'q2dm-escaped') {
+    throw new Error('replays-edit-sidecar: Escape must revert the typed map')
+  }
+  const afterEscape = JSON.parse(sidecarText() ?? '{}')
+  if (afterEscape.map !== undefined || afterEscape.name !== NAME || afterEscape.mod !== MOD) {
+    throw new Error(
+      `replays-edit-sidecar: Escape must write nothing, got ${JSON.stringify(afterEscape)}`,
+    )
+  }
+  await shot('replays-edit-sidecar')
+
+  step('a failed save toasts and keeps the text')
+  await rowFor(page, REPLAYS_ROWS_DUEL_DEMO).click({ timeout: TIMEOUT_MS })
+  await page.getByTestId('replays-detail-title').waitFor({ state: 'attached', timeout: TIMEOUT_MS })
+  const gone = replaysRowsSidecarPath(REPLAYS_ROWS_DUEL_DEMO).replace(/\.json$/, '')
+  if (!existsSync(gone)) {
+    throw new Error(`replays-edit-sidecar: expected the duel demo file at ${gone}`)
+  }
+  rmSync(gone)
+  await input(page, 'mod').fill('typed-after-delete')
+  await input(page, 'mod').press('Enter')
+  await page
+    .locator('[role="status"]')
+    .filter({ hasText: GONE_TEXT })
+    .first()
+    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
+  await expectValue(page, 'mod', 'typed-after-delete', 'a failed save must keep the typed text')
+
+  step('the row shows the saved name without a rescan')
+  await rowFor(page, NAME).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
   if ((await page.getByTestId('replays-list-loading').count()) !== 0) {
     throw new Error('replays-edit-sidecar: a save must not show the scan-progress strip')
   }
   if (await page.getByTestId('replays-refresh').isDisabled()) {
     throw new Error('replays-edit-sidecar: a save must not start a scan')
   }
-  await page.getByTestId('replays-filter-mod').selectOption(MOD, { timeout: TIMEOUT_MS })
-  await rowFor(page, NAME).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await shot('replays-edit-sidecar')
-  await page.getByTestId('replays-filter-clear').click({ timeout: TIMEOUT_MS })
-  await rowFor(page, REPLAYS_ROWS_DUEL_DEMO).waitFor({ state: 'visible', timeout: TIMEOUT_MS })
 
-  step('Cancel restores the saved values and writes nothing')
-  await page.getByTestId('replays-detail-edit').click({ timeout: TIMEOUT_MS })
-  await expectValue(page, 'name', NAME, 'Edit must start from the saved value')
-  await page.getByTestId('replays-editor-name').fill('Typed but not kept')
-  await page.getByTestId('replays-editor-cancel').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-editor').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
-  await expectText(page, 'replays-detail-title', NAME, 'Cancel must leave the saved name')
-  if (sidecarText() !== savedText)
-    throw new Error('replays-edit-sidecar: Cancel must not write the sidecar')
-
-  step('leaving a dirty edit asks first, and Keep editing keeps it')
-  await page.getByTestId('replays-detail-edit').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-editor-name').fill('Unsaved edit')
-  await rowFor(page, REPLAYS_ROWS_DUEL_DEMO).click({ timeout: TIMEOUT_MS })
-  await page
-    .getByTestId('replays-discard-dialog')
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-discard-keep').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-discard-dialog').waitFor({ state: 'hidden', timeout: TIMEOUT_MS })
-  await expectValue(page, 'name', 'Unsaved edit', 'Keep editing must keep the draft')
-
-  step('the edit survives a module switch')
-  await page.getByTestId('nav-home').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-detail').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
-  await page.getByTestId('nav-replays').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-editor').waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await waitForDemosScanToFinish(page)
-  await expectValue(
-    page,
-    'name',
-    'Unsaved edit',
-    'a module switch must keep edit mode and the draft',
-  )
-
-  step('Close asks first, and Discard throws the edit away without writing')
-  await page.getByTestId('replays-detail-close').click({ timeout: TIMEOUT_MS })
-  await page
-    .getByTestId('replays-discard-dialog')
-    .waitFor({ state: 'visible', timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-discard-confirm').click({ timeout: TIMEOUT_MS })
-  await page.getByTestId('replays-detail').waitFor({ state: 'detached', timeout: TIMEOUT_MS })
-  if (sidecarText() !== savedText)
-    throw new Error('replays-edit-sidecar: Discard must not write the sidecar')
+  step('an impossible date and a too-long name are refused with their reason')
+  await rowFor(page, NAME).click({ timeout: TIMEOUT_MS })
+  await expectValue(page, 'name', NAME, 'the demo opens on its saved name')
+  const before = sidecarText()
+  await input(page, 'date').fill('2026-02-30 10:00')
+  await input(page, 'date').press('Enter')
+  await expectReason(page, 'date', 'YYYY-MM-DD HH:MM')
+  await input(page, 'name').fill('x'.repeat(201))
+  await input(page, 'name').press('Enter')
+  await expectReason(page, 'name', 'Too long')
+  if (sidecarText() !== before) {
+    throw new Error('replays-edit-sidecar: a refused text must not change the sidecar')
+  }
 }

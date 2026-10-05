@@ -13,6 +13,8 @@ export interface TagInputProps {
   onAddTag: (tag: string) => void
   onRemoveTag: (tag: string) => void
   onInputChange: (text: string) => void
+  /** A refused tag stays in the input with the returned reason shown beneath it. */
+  validate?: (tag: string) => { key: string; params?: Record<string, string | number> } | null
 }
 
 /**
@@ -28,15 +30,27 @@ export function TagInput({
   onAddTag,
   onRemoveTag,
   onInputChange,
+  validate,
 }: TagInputProps) {
   const { t } = useTranslation()
   const [text, setText] = useState('')
   const [open, setOpen] = useState(false)
   const [highlighted, setHighlighted] = useState(-1)
+  const [reason, setReason] = useState<{ key: string; params?: Record<string, string | number> }>()
+  const reasonId = useId()
   const listboxId = useId()
 
   const commit = (value: string): void => {
     const trimmed = value.trim()
+    const refused = trimmed === '' ? null : validate?.(trimmed)
+    if (refused) {
+      setText(value)
+      setReason(refused)
+      setOpen(false)
+      setHighlighted(-1)
+      return
+    }
+    setReason(undefined)
     setText('')
     onInputChange('')
     setOpen(false)
@@ -83,6 +97,8 @@ export function TagInput({
           aria-expanded={open && suggestions.length > 0}
           aria-controls={listboxId}
           aria-autocomplete="list"
+          aria-invalid={reason !== undefined}
+          aria-describedby={reason !== undefined ? reasonId : undefined}
           aria-activedescendant={
             open && highlighted >= 0 ? `${listboxId}-option-${highlighted}` : undefined
           }
@@ -102,6 +118,7 @@ export function TagInput({
               return
             }
             setText(value)
+            setReason(undefined)
             setOpen(true)
             setHighlighted(-1)
             onInputChange(value)
@@ -154,6 +171,11 @@ export function TagInput({
           </ul>
         )}
       </div>
+      {reason !== undefined && (
+        <p id={reasonId} className="text-xs text-danger" data-testid="replays-tag-error">
+          {t(reason.key, reason.params)}
+        </p>
+      )}
     </div>
   )
 }

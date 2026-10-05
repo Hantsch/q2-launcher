@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createElement } from 'react'
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { mockClient } from '../../../test-support/mock-client'
 import type { DemoRow } from '@shared/modules/replays'
@@ -46,7 +46,7 @@ afterEach(() => {
   cleanup()
   sidecarRead.mockReset()
   sidecarWrite.mockReset()
-  useDemoEditorStore.setState({ selectedId: null, editingId: null, drafts: {}, pendingLeave: null })
+  useDemoEditorStore.setState({ selectedId: null, drafts: {}, quickPending: {} })
 })
 
 const BASE_ROW: DemoRow = {
@@ -133,8 +133,10 @@ describe('DemoDetailPanel', () => {
       expect(panelText).not.toContain(provenance)
     }
 
-    expect(screen.getByTestId('replays-detail-field-map').textContent).toContain('q2dm1')
-    expect(screen.getByTestId('replays-detail-field-gamemode').textContent).toContain('CTF')
+    expect((screen.getByTestId('replays-detail-input-map') as HTMLInputElement).value).toBe('q2dm1')
+    expect((screen.getByTestId('replays-detail-input-gamemode') as HTMLInputElement).value).toBe(
+      'CTF',
+    )
     expect(screen.getByTestId('replays-detail-field-sides').textContent).toContain('Red')
     expect(screen.getByTestId('replays-detail-field-sides').textContent).toContain('Blue')
     expect(screen.getByTestId('replays-detail-facts-file')).toBeTruthy()
@@ -179,22 +181,18 @@ describe('DemoDetailPanel', () => {
     expect(screen.queryByTestId('demo-detail-mvd2-note')).toBeNull()
   })
 
-  it('reading mode shows description and tags when set', () => {
+  it('shows the description and tags that are set', () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
     renderPanel({
       ...BASE_ROW,
-      sidecar: { state: 'ok', values: { description: '  Great match  ', tags: ['clutch', 'ctf'] } },
+      sidecar: { state: 'ok', values: { description: 'Great match', tags: ['clutch', 'ctf'] } },
     })
-    expect(screen.getByTestId('replays-detail-description').textContent).toBe('Great match')
+    const description = screen.getByTestId(
+      'replays-detail-input-description',
+    ) as HTMLTextAreaElement
+    expect(description.value).toBe('Great match')
     expect(screen.getByTestId('replays-detail-tags').textContent).toContain('clutch')
     expect(screen.getByTestId('replays-detail-tags').textContent).toContain('ctf')
-  })
-
-  it('reading mode omits empty description and tags', () => {
-    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
-    renderPanel({ ...BASE_ROW, sidecar: { state: 'ok', values: { description: '   ', tags: [] } } })
-    expect(screen.queryByTestId('replays-detail-description')).toBeNull()
-    expect(screen.queryByTestId('replays-detail-tags')).toBeNull()
   })
 
   it('close calls onClose', () => {
@@ -205,164 +203,152 @@ describe('DemoDetailPanel', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
-  it('the header offers Edit, Reveal, Copy path and Rename as icon buttons', () => {
+  it('the detail is one view: no Edit, Save, Cancel or discard dialog', () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
+    useDemoEditorStore.getState().select(BASE_ROW.id)
     renderPanel()
-    for (const id of [
-      'replays-detail-edit',
-      'replays-demo-reveal',
-      'replays-demo-copy-path',
-      'demo-rename',
-    ]) {
-      const button = screen.getByTestId(id) as HTMLButtonElement
-      expect(button.disabled).toBe(false)
-      expect(button.getAttribute('aria-label')).toBeTruthy()
+    for (const id of ['replays-detail-edit', 'replays-editor-save', 'replays-editor-cancel']) {
+      expect(screen.queryByTestId(id)).toBeNull()
     }
-    expect(screen.getByTestId('replays-detail-edit').getAttribute('aria-label')).toBe('Edit')
+    for (const id of ['replays-demo-reveal', 'replays-demo-copy-path', 'demo-rename']) {
+      expect((screen.getByTestId(id) as HTMLButtonElement).disabled).toBe(false)
+    }
     expect(screen.queryByTestId('replays-archive-readonly-edit')).toBeNull()
+    expect(screen.getByTestId('replays-detail').querySelector('form')).toBeNull()
   })
 
-  it('an archive entry shows Edit disabled with the read-only reason as visible text', () => {
+  it('an archive entry shows the same view read-only with its reason as visible text', () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
     renderPanel({
       ...BASE_ROW,
       archiveEntry: { archivePath: 'pack.zip', entryPath: 'test.dm2' },
+      sidecar: { state: 'ok', values: { tags: ['clutch'] } },
     } as DemoRow)
-    const edit = screen.getByTestId('replays-detail-edit') as HTMLButtonElement
-    expect(edit.disabled).toBe(true)
-    const reason = screen.getByTestId('replays-archive-readonly-edit')
-    expect(reason.textContent).toContain('read-only')
-    expect(edit.getAttribute('aria-describedby')).toBe(reason.id)
-    expect((screen.getByTestId('demo-rename') as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByTestId('replays-archive-readonly-edit').textContent).toContain('read-only')
     expect(screen.getByTestId('replays-archive-readonly-rename').textContent).toContain(
       "can't be renamed",
     )
-    // An archive entry cannot enter edit mode at all.
-    fireEvent.click(edit)
-    expect(screen.queryByTestId('replays-editor')).toBeNull()
-    expect(screen.getByTestId('replays-detail-title')).toBeTruthy()
+    expect((screen.getByTestId('demo-rename') as HTMLButtonElement).disabled).toBe(true)
+    for (const field of ['name', 'date', 'map', 'mod', 'gamemode']) {
+      expect(screen.getByTestId(`replays-detail-input-${field}`).tagName).toBe('SPAN')
+    }
+    expect(screen.getByTestId('replays-detail-tags').textContent).toContain('clutch')
+    expect(screen.getByTestId('replays-detail-tags').querySelector('input')).toBeNull()
   })
 
-  it('no separate notes form is rendered', () => {
+  it('every text field is an input in place and the name sits in the header', () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
+    renderPanel({
+      ...BASE_ROW,
+      sidecar: { state: 'ok', values: { name: 'Grand final', gamemode: 'ctf' } },
+    })
+    const name = screen.getByTestId('replays-detail-input-name') as HTMLInputElement
+    expect(screen.getByTestId('replays-detail-header').contains(name)).toBe(true)
+    expect(name.value).toBe('Grand final')
+    for (const field of ['date', 'map', 'mod', 'gamemode']) {
+      expect(screen.getByTestId(`replays-detail-input-${field}`).tagName).toBe('INPUT')
+    }
+    expect(screen.getByTestId('replays-detail-input-description').tagName).toBe('TEXTAREA')
+    expect(screen.getByTestId('replays-detail-field-fileName').textContent).toContain('demo1.dm2')
+  })
+
+  it('leaving a field saves only that field and keeps favourite and rating', async () => {
+    const values = { favourite: true, rating: 6 }
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values } })
+    sidecarWrite.mockResolvedValue({ ok: true, value: { status: 'saved', state: 'written' } })
+    const onRowPatched = vi.fn()
+    render(
+      createElement(DemoDetailPanel, {
+        row: { ...BASE_ROW, sidecar: { state: 'ok', values } },
+        onClose: () => {},
+        onRowPatched,
+        onRenamed: () => {},
+      }),
+    )
+    const mod = screen.getByTestId('replays-detail-input-mod')
+    fireEvent.change(mod, { target: { value: 'lithium' } })
+    fireEvent.blur(mod)
+
+    await waitFor(() => expect(sidecarWrite).toHaveBeenCalledTimes(1))
+    expect(sidecarWrite.mock.calls[0][1]).toEqual({ ...values, mod: 'lithium' })
+    await waitFor(() => expect(onRowPatched).toHaveBeenCalled())
+  })
+
+  it('Escape reverts the typed text and writes nothing', () => {
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
+    renderPanel({ ...BASE_ROW, sidecar: { state: 'ok', values: { mod: 'lithium' } } })
+    const mod = screen.getByTestId('replays-detail-input-mod') as HTMLInputElement
+    fireEvent.change(mod, { target: { value: 'typed but not kept' } })
+    fireEvent.keyDown(mod, { key: 'Escape' })
+    fireEvent.blur(mod)
+    expect(mod.value).not.toBe('typed but not kept')
+    expect(sidecarWrite).not.toHaveBeenCalled()
+  })
+
+  it('an impossible date is refused with its reason and writes nothing', () => {
     sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
     renderPanel()
-    expect(screen.queryByTestId('replays-notes-slot')).toBeNull()
-    expect(document.querySelector('[data-testid^="replays-editor"]')).toBeNull()
-    expect(screen.getByTestId('replays-detail').querySelector('form, input, textarea')).toBeNull()
-    expect(screen.getByTestId('replays-detail').textContent).not.toContain('Your notes')
+    const date = screen.getByTestId('replays-detail-input-date')
+    fireEvent.change(date, { target: { value: '2024-13-45 99:99' } })
+    fireEvent.blur(date)
+    expect(screen.getByTestId('replays-detail-input-date-error').textContent).toContain('real date')
+    expect(sidecarWrite).not.toHaveBeenCalled()
   })
 
-  it('Edit turns the facts into inputs in place, name in the header', () => {
-    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
-    const row: DemoRow = {
-      ...BASE_ROW,
-      sidecar: {
-        state: 'ok',
-        values: { name: 'Grand final', gamemode: 'ctf', favourite: true, rating: 7 },
-      },
-    }
-    useDemoEditorStore.getState().select(row.id)
-    renderPanel(row)
-    fireEvent.click(screen.getByTestId('replays-detail-edit'))
-
-    // The header: the name input in the title slot, and Close - nothing else.
-    const header = screen.getByTestId('replays-detail-header')
-    const name = screen.getByTestId('replays-editor-name') as HTMLInputElement
-    expect(header.contains(name)).toBe(true)
-    expect(name.value).toBe('Grand final')
-    expect(screen.queryByTestId('replays-detail-title')).toBeNull()
-    expect(
-      Array.from(header.querySelectorAll('button')).map((b) => b.getAttribute('data-testid')),
-    ).toEqual(['replays-detail-favourite', 'replays-detail-close'])
-
-    // The facts list became the form, in the same place: no reading-mode facts left.
-    expect(screen.queryByTestId('replays-detail-facts-file')).toBeNull()
-    expect(screen.queryByTestId('replays-detail-facts-match')).toBeNull()
-    expect(screen.getByTestId('replays-editor-facts-file').textContent).toContain('demo1.dm2')
-    expect((screen.getByTestId('replays-editor-gamemode') as HTMLInputElement).value).toBe('ctf')
-    expect((screen.getByTestId('replays-editor-map') as HTMLInputElement).value).toBe('')
-    expect((screen.getByTestId('replays-editor-map') as HTMLInputElement).placeholder).toBe('q2dm1')
+  it('the sides field saves when focus leaves it', async () => {
+    const values = { sides: [{ team: 'Red', players: ['Alice'] }] }
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values } })
+    sidecarWrite.mockResolvedValue({ ok: true, value: { status: 'saved', state: 'written' } })
+    renderPanel({ ...BASE_ROW, sidecar: { state: 'ok', values } })
+    fireEvent.click(screen.getByTestId('replays-detail-sides-edit'))
+    fireEvent.change(screen.getByTestId('replays-side-0-team'), { target: { value: 'Crimson' } })
+    fireEvent.blur(screen.getByTestId('replays-side-0-team'), { relatedTarget: document.body })
+    await waitFor(() => expect(sidecarWrite).toHaveBeenCalledTimes(1))
+    expect(sidecarWrite.mock.calls[0][1]).toEqual({
+      sides: [{ team: 'Crimson', players: ['Alice'] }],
+    })
+    expect(screen.queryByTestId('replays-detail-sides-editor')).toBeNull()
   })
 
-  it('edit mode shows no favourite or rating input', () => {
-    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
-    useDemoEditorStore.getState().select(BASE_ROW.id)
-    renderPanel(BASE_ROW)
-    fireEvent.click(screen.getByTestId('replays-detail-edit'))
-
-    const editor = screen.getByTestId('replays-editor')
-    expect(screen.queryByTestId('replays-editor-favourite')).toBeNull()
-    expect(screen.queryByTestId('replays-editor-rating')).toBeNull()
-    expect(editor.querySelector('input[type="checkbox"]')).toBeNull()
-    expect(editor.textContent).not.toMatch(/favourite|rating/i)
+  it('a refused sides save keeps the editor open with its reason, and Escape discards it', async () => {
+    const values = { sides: [{ team: 'Red', players: ['Alice'] }] }
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values } })
+    sidecarWrite.mockResolvedValue({ ok: false, error: { key: 'replays.sidecar.error.write' } })
+    renderPanel({ ...BASE_ROW, sidecar: { state: 'ok', values } })
+    fireEvent.click(screen.getByTestId('replays-detail-sides-edit'))
+    const team = screen.getByTestId('replays-side-0-team') as HTMLInputElement
+    fireEvent.change(team, { target: { value: 'Crimson' } })
+    fireEvent.blur(team, { relatedTarget: document.body })
+    await waitFor(() => expect(screen.getByTestId('replays-detail-sides-error')).toBeTruthy())
+    expect((screen.getByTestId('replays-side-0-team') as HTMLInputElement).value).toBe('Crimson')
+    fireEvent.keyDown(screen.getByTestId('replays-side-0-team'), { key: 'Escape' })
+    expect(screen.queryByTestId('replays-detail-sides-editor')).toBeNull()
   })
 
-  it("saving edit mode keeps the demo's favourite and rating", async () => {
+  it('Escape reverts the sides field', () => {
+    const values = { sides: [{ team: 'Red', players: ['Alice'] }] }
+    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'ok' }, values } })
+    renderPanel({ ...BASE_ROW, sidecar: { state: 'ok', values } })
+    fireEvent.click(screen.getByTestId('replays-detail-sides-edit'))
+    const team = screen.getByTestId('replays-side-0-team')
+    fireEvent.change(team, { target: { value: 'Crimson' } })
+    fireEvent.keyDown(team, { key: 'Escape' })
+    expect(screen.queryByTestId('replays-detail-sides-editor')).toBeNull()
+    expect(sidecarWrite).not.toHaveBeenCalled()
+  })
+
+  it('adding a tag writes it through the store', async () => {
     sidecarRead.mockResolvedValue({
       ok: true,
-      value: { state: { state: 'ok' }, values: { favourite: true, rating: 6 } },
+      value: { state: { state: 'ok' }, values: { tags: ['old'] } },
     })
     sidecarWrite.mockResolvedValue({ ok: true, value: { status: 'saved', state: 'written' } })
-    const row: DemoRow = {
-      ...BASE_ROW,
-      sidecar: { state: 'ok', values: { favourite: true, rating: 6 } },
-    }
-    useDemoEditorStore.getState().select(row.id)
-    renderPanel(row)
-    fireEvent.click(screen.getByTestId('replays-detail-edit'))
-    fireEvent.change(screen.getByTestId('replays-editor-description'), {
-      target: { value: 'Edited note' },
-    })
-    fireEvent.click(screen.getByTestId('replays-editor-save'))
-
-    await waitFor(() => expect(sidecarWrite).toHaveBeenCalled())
-    const fields = sidecarWrite.mock.calls[0][1] as Record<string, unknown>
-    expect(fields.description).toBe('Edited note')
-    expect(fields.favourite).toBe(true)
-    expect(fields.rating).toBe(6)
-  })
-
-  it('Cancel restores the values and writes nothing', () => {
-    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
-    const row: DemoRow = { ...BASE_ROW, sidecar: { state: 'ok', values: { mod: 'lithium' } } }
-    useDemoEditorStore.getState().select(row.id)
-    renderPanel({
-      ...row,
-      effective: { ...row.effective, mod: { value: 'lithium', source: 'sidecar' } },
-    })
-
-    fireEvent.click(screen.getByTestId('replays-detail-edit'))
-    fireEvent.change(screen.getByTestId('replays-editor-mod'), {
-      target: { value: 'typed but not kept' },
-    })
-    fireEvent.click(screen.getByTestId('replays-editor-cancel'))
-
-    expect(screen.queryByTestId('replays-editor')).toBeNull()
-    expect(screen.getByTestId('replays-detail-field-mod').textContent).toContain('lithium')
-    expect(sidecarWrite).not.toHaveBeenCalled()
-
-    fireEvent.click(screen.getByTestId('replays-detail-edit'))
-    expect((screen.getByTestId('replays-editor-mod') as HTMLInputElement).value).toBe('lithium')
-  })
-
-  it('leaving a dirty edit asks first - the panel owns the discard dialog', () => {
-    sidecarRead.mockResolvedValue({ ok: true, value: { state: { state: 'none' }, values: {} } })
-    useDemoEditorStore.getState().select(BASE_ROW.id)
-    renderPanel()
-    fireEvent.click(screen.getByTestId('replays-detail-edit'))
-    fireEvent.change(screen.getByTestId('replays-editor-mod'), { target: { value: 'lithium' } })
-
-    act(() => useDemoEditorStore.getState().select('fedcba9876543210'))
-    expect(screen.getByTestId('replays-discard-dialog')).toBeTruthy()
-    fireEvent.click(screen.getByTestId('replays-discard-keep'))
-    expect(screen.queryByTestId('replays-discard-dialog')).toBeNull()
-    expect((screen.getByTestId('replays-editor-mod') as HTMLInputElement).value).toBe('lithium')
-
-    act(() => useDemoEditorStore.getState().close())
-    fireEvent.click(screen.getByTestId('replays-discard-confirm'))
-    expect(useDemoEditorStore.getState().selectedId).toBeNull()
-    expect(useDemoEditorStore.getState().drafts[BASE_ROW.id]).toBeUndefined()
-    expect(sidecarWrite).not.toHaveBeenCalled()
+    renderPanel({ ...BASE_ROW, sidecar: { state: 'ok', values: { tags: ['old'] } } })
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: 'clutch' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    await waitFor(() => expect(sidecarWrite).toHaveBeenCalledTimes(1))
+    expect((sidecarWrite.mock.calls[0][1] as { tags: string[] }).tags).toEqual(['old', 'clutch'])
   })
 
   it('the header favourite toggle reports aria-pressed and calls quickEdit with the flipped value', () => {

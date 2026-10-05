@@ -1,14 +1,10 @@
 import { create } from 'zustand'
 import type { SidecarIssue, SidecarState } from '@shared/modules/replays'
 import type { SidecarFields } from '@shared/replays/sidecar'
-import {
-  draftFromSidecar,
-  draftToFields,
-  isDraftDirty,
-  withQuickEdit,
-  type SidecarDraft,
-} from '@shared/replays/sidecar-draft'
+import { composeChanges, quickChange, type SidecarChange } from '@shared/replays/sidecar-draft'
 import type { LocalizedMessage } from '@shared/types/common'
+import { toastOutcomeError } from '../../lib/toast'
+import { useLauncher } from '../../store/useLauncher'
 import { sidecarRead, sidecarWrite } from './client'
 
 /** What a save hands back to the view so it can patch that one row's `sidecar` part in place -
@@ -47,101 +43,78 @@ export function effectiveQuickValues(
  * the previous one for the same demo, so a read-merge-write always reads what the last write left. */
 const queues = new Map<string, Promise<void>>()
 
-/** One demo's open draft. `baseline` is what is on disk as far as the editor knows; `fingerprint`
- * is only ever set by a `needsConfirmation` answer and only ever sent back after the user confirmed
- * the replace dialog (`replace` is that dialog's content while it is open). */
-export interface DemoDraftEntry {
-  draft: SidecarDraft
-  baseline: SidecarDraft
-  fingerprint?: string
-  replace?: { fileName: string; issues: SidecarIssue[] }
-  saving?: boolean
-  saveError?: LocalizedMessage
-  /** Set only while a quick edit (row-level favourite/rating toggle) is waiting on a
-   * `needsConfirmation` reply - the patch to retry once the replace dialog is confirmed. Never set
-   * by the full editor's own `save`. */
-  pendingQuickEdit?: QuickPatch
+/** How one `edit` ended. `cancelled` only ever comes from the replace dialog's Cancel. */
+export type EditResult = 'saved' | 'failed' | 'cancelled'
+
+/** Per demo, the settle functions of every `edit` parked behind the open replace dialog - all of
+ * them are settled together by whatever finally writes (or drops) `pendingChange`. */
+const parked = new Map<string, Array<(result: EditResult) => void>>()
+
+function settleParked(id: string, result: EditResult): void {
+  const waiting = parked.get(id)
+  parked.delete(id)
+  waiting?.forEach((settle) => settle(result))
 }
 
-export interface PendingLeave {
-  kind: 'select' | 'close'
-  targetId: string | null
+/** One demo's pending replace confirmation. `fingerprint` is only ever set by a `needsConfirmation`
+ * answer and only ever sent back after the user confirmed the replace dialog (`replace` is that
+ * dialog's content while it is open). */
+export interface DemoDraftEntry {
+  fingerprint?: string
+  replace?: { fileName: string; issues: SidecarIssue[] }
+  /** Set only while a replace dialog is open: every `edit` for this demo that hit it, composed in
+   * arrival order - written once with `fingerprint` on confirm, dropped on cancel (story 243). */
+  pendingChange?: SidecarChange
+  /** The favourite/rating part of `pendingChange`, so a confirm can restore the row's optimistic
+   * overlay for the retry. */
+  pendingOverlay?: QuickPatch
 }
 
 /**
- * Story 155: which demo's detail panel is open, plus every demo's notes draft. Module-level (a
- * zustand store survives `ReplaysView` unmount/remount), so switching module never loses a draft -
- * nothing here is cleared on unmount.
- *
- * Leaving a demo with a dirty draft (`select` another / `close`) never happens directly: it parks
- * the request in `pendingLeave` for the discard dialog, which either `keepEditing()`s or
- * `discardAndLeave()`s.
+ * Which demo's detail panel is open, plus every demo's pending replace confirmation. Module-level
+ * (a zustand store survives `ReplaysView` unmount/remount), so switching module never loses an
+ * open replace dialog - nothing here is cleared on unmount. Selecting or closing switches directly:
+ * a field with unsaved text commits itself when it unmounts.
  */
 export interface DemoEditorState {
   selectedId: string | null
-  /** The demo whose details are in edit mode (story 178). Survives unmount like `drafts`. */
-  editingId: string | null
   drafts: Record<string, DemoDraftEntry>
   /** Story 179: the optimistic favourite/rating overlay per demo - set the moment a quick edit is
    * clicked, dropped when that demo's write queue drains (success or failure). Read it through
    * `effectiveQuickValues`. */
   quickPending: Record<string, QuickPatch>
-  pendingLeave: PendingLeave | null
   select(id: string): void
   close(): void
   /** Clears the selection if it no longer names a row in `ids` - the "row vanished on a re-read or
-   * a filter change" guard. Not guarded by the dirty check: the draft itself stays in `drafts`. */
+   * a filter change" guard. */
   deselectIfMissing(ids: readonly string[]): void
-  /** Enters edit mode for a demo: a fresh draft from its sidecar values (a dirty or saving entry is kept). */
-  startEdit(id: string, values: Partial<SidecarFields>): void
-  /** Leaves edit mode without writing: drops the draft (unless a save is running). */
+  /**
+   * The one write path for every detail edit. Queued behind any running or queued write
+   * for the same demo; when it runs it re-reads the sidecar fresh, applies `change` to what is on
+   * disk, writes it and hands a second fresh read to `onRowPatched`. A failed read or write toasts
+   * and resolves `failed`. A `needsConfirmation` answer - or a replace dialog already open for the
+   * demo - parks the change in the entry (composed with any other parked one) and leaves the promise
+   * pending until `confirmEdit` writes it (`saved`/`failed`) or `cancelEdit` drops it (`cancelled`).
+   * (story 243)
+   */
+  edit(id: string, change: SidecarChange, onRowPatched: RowPatcher): Promise<EditResult>
+  /** The replace dialog's Confirm: writes every parked change with the fingerprint the dialog was
+   * opened for. Resolves when that write's turn in the queue is over. */
+  confirmEdit(id: string, onRowPatched: RowPatcher): Promise<void>
+  /** The replace dialog's Cancel: drops every parked change (each resolves `cancelled`) and the
+   * fingerprint, so the next write asks again. */
   cancelEdit(id: string): void
-  updateDraft(
-    id: string,
-    patch: Partial<SidecarDraft> | ((draft: SidecarDraft) => SidecarDraft),
-  ): void
-  /** The editor's Cancel: back to the baseline, the entry itself stays. */
-  cancelDraft(id: string): void
-  discardDraft(id: string): void
-  keepEditing(): void
-  discardAndLeave(): void
-  save(id: string, onRowPatched: RowPatcher): Promise<void>
-  /** The replace dialog's Cancel: closes it and forgets the fingerprint, so the next Save asks again. */
-  cancelReplace(id: string): void
-  /** Story 155 / 179: a favourite/rating toggle from the row itself, without opening the panel.
-   * The patch lands in `quickPending` at once; the write itself is queued behind any running or
-   * queued write (quick edit or `save`) for the same demo - never dropped. When it runs it re-reads
-   * the sidecar fresh, merges just the patch via `withQuickEdit` and writes it back, reusing
-   * `sidecarWrite`'s `needsConfirmation` flow (`entry.replace`/`ReplaceSidecarDialog`) and
-   * `onRowPatched` for the row. While a replace dialog is open for the demo the patch is merged into
-   * `pendingQuickEdit` instead of written - `confirmQuickEdit` (or the editor's `save`) writes it.
-   * An open draft gets only its `favourite`/`rating` refreshed (draft and baseline), so unsaved
-   * edit-mode changes survive. Never calls `select`, `scanStart` or `indexRead`. The promise
-   * resolves when this edit's turn in the queue is over. */
+  /** Story 155 / 179: a favourite/rating toggle from the row itself, without opening the panel - an
+   * `edit` with `quickChange(patch)`. The patch lands in `quickPending` at once. Never calls
+   * `select`, `scanStart` or `indexRead`. The promise resolves when this edit's turn in the queue is
+   * over, not when a parked edit is finally confirmed. */
   quickEdit(id: string, patch: QuickPatch, onRowPatched: RowPatcher): Promise<void>
-  /** The row-level replace dialog's Confirm: writes every quick edit merged into `pendingQuickEdit`
-   * with the fingerprint the dialog was opened for. */
   confirmQuickEdit(id: string, onRowPatched: RowPatcher): Promise<void>
 }
 
-/**
- * Story 178: which demo's pending `replace` (a row-level quick edit that needs confirmation) the view
- * itself has to show. The only entry left out is the one whose editor is actually on screen - the
- * selected demo while it is in edit mode - since `DemoDetailEditor` renders that dialog itself. A
- * selected demo outside edit mode (or a stale `editingId` that no longer names the selection) still
- * gets its dialog here.
- */
-export function findRowReplaceId(
-  drafts: Record<string, DemoDraftEntry>,
-  selectedId: string | null,
-  editingId: string | null,
-): string | undefined {
-  const onScreen = editingId !== null && editingId === selectedId ? editingId : null
-  return Object.keys(drafts).find((id) => id !== onScreen && drafts[id]?.replace !== undefined)
-}
-
-function isEntryDirty(entry: DemoDraftEntry | undefined): boolean {
-  return entry !== undefined && isDraftDirty(entry.draft, entry.baseline)
+/** Which demo's pending `replace` the view shows - the view renders the only replace dialog. */
+export function findRowReplaceId(drafts: Record<string, DemoDraftEntry>): string | undefined {
+  return Object.keys(drafts).find((id) => drafts[id]?.replace !== undefined)
 }
 
 export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
@@ -151,14 +124,10 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
     set({ drafts: { ...get().drafts, [id]: { ...entry, ...patch } } })
   }
 
-  /** Like `patchEntry`, but creates the entry from `fallback` when none is open yet - the quick-edit
-   * "needs confirmation" case has to remember a fingerprint/replace dialog even with no panel open. */
-  const upsertEntry = (
-    id: string,
-    patch: Partial<DemoDraftEntry>,
-    fallback: () => Pick<DemoDraftEntry, 'draft' | 'baseline'>,
-  ): void => {
-    const entry = get().drafts[id] ?? fallback()
+  /** Like `patchEntry`, but creates the entry when none exists yet - a "needs confirmation" answer
+   * has to remember its fingerprint/replace dialog even with no panel open. */
+  const upsertEntry = (id: string, patch: Partial<DemoDraftEntry>): void => {
+    const entry = get().drafts[id] ?? {}
     set({ drafts: { ...get().drafts, [id]: { ...entry, ...patch } } })
   }
 
@@ -196,238 +165,149 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
     return run
   }
 
-  /** One quick write. `fingerprint` is set only for a confirmed replace - captured when the user
-   * confirmed, never picked up from whatever the entry holds by the time the task runs. */
-  const quickWrite = async (
+  const showOverlay = (id: string, patch: QuickPatch): void =>
+    set({ quickPending: { ...get().quickPending, [id]: { ...get().quickPending[id], ...patch } } })
+
+  /** Parks `change` behind the open replace dialog. The entry exists: `replace` is set on it. */
+  const park = (
     id: string,
-    patch: QuickPatch,
+    change: SidecarChange,
+    overlay: QuickPatch | undefined,
+    settle: (result: EditResult) => void,
+  ): void => {
+    const entry = get().drafts[id]
+    patchEntry(id, {
+      pendingChange:
+        entry?.pendingChange === undefined ? change : composeChanges(entry.pendingChange, change),
+      pendingOverlay:
+        overlay === undefined ? entry?.pendingOverlay : { ...entry?.pendingOverlay, ...overlay },
+    })
+    parked.set(id, [...(parked.get(id) ?? []), settle])
+  }
+
+  const failEdit = (
+    failure: { ok: false; error: LocalizedMessage },
+    settle: (result: EditResult) => void,
+  ): void => {
+    toastOutcomeError(useLauncher.getState().pushToast, failure)
+    settle('failed')
+  }
+
+  /** One queued edit write. `fingerprint` is set only for a confirmed replace - captured when the
+   * user confirmed, never picked up from whatever the entry holds by the time the task runs. It
+   * never waits on the dialog itself: a parked edit ends its turn at once, so the confirm's own
+   * write can queue behind it. */
+  const editWrite = async (
+    id: string,
+    change: SidecarChange,
     onRowPatched: RowPatcher,
     fingerprint: string | undefined,
+    overlay: QuickPatch | undefined,
+    settle: (result: EditResult) => void,
   ): Promise<void> => {
-    const entry = get().drafts[id]
     // A replace dialog is open (possibly opened by the write queued just before this one): the
-    // user has not confirmed overwriting the file yet, so remember the click for the retry.
-    if (fingerprint === undefined && entry?.replace !== undefined) {
-      patchEntry(id, { pendingQuickEdit: { ...entry.pendingQuickEdit, ...patch } })
+    // user has not confirmed overwriting the file yet, so keep the change for the retry.
+    if (fingerprint === undefined && get().drafts[id]?.replace !== undefined) {
+      park(id, change, overlay, settle)
       return
     }
 
     // Never trust the row's own (possibly stale) values - always re-read the sidecar fresh.
     const fresh = await sidecarRead(id)
-    if (!fresh.ok) return
-    const fields = withQuickEdit(fresh.value.values, patch)
+    if (!fresh.ok) return failEdit(fresh, settle)
+    const fields = change(fresh.value.values)
 
     const outcome =
       fingerprint === undefined
         ? await sidecarWrite(id, fields)
         : await sidecarWrite(id, fields, fingerprint)
-    if (!outcome.ok) return
+    if (!outcome.ok) return failEdit(outcome, settle)
 
     if (outcome.value.status === 'needsConfirmation') {
       const { fileName, issues } = outcome.value
-      const draft = draftFromSidecar(fresh.value.values)
-      upsertEntry(
-        id,
-        {
-          fingerprint: outcome.value.fingerprint,
-          replace: { fileName, issues },
-          pendingQuickEdit: { ...get().drafts[id]?.pendingQuickEdit, ...patch },
-        },
-        () => ({ draft, baseline: draft }),
-      )
-      return
-    }
-
-    // Written: reflect what is actually on disk now - same as `save`.
-    const after = await sidecarRead(id)
-    if (!after.ok) return
-    onRowPatched(id, after.value)
-
-    // An open draft must never be left holding pre-quick-edit favourite/rating - but only those two
-    // fields are refreshed, so unsaved edit-mode changes to the rest survive.
-    const open = get().drafts[id]
-    if (open !== undefined) {
-      const { favourite, rating } = draftFromSidecar(after.value.values)
-      patchEntry(id, {
-        draft: { ...open.draft, favourite, rating },
-        baseline: { ...open.baseline, favourite, rating },
-        replace: undefined,
-        fingerprint: undefined,
-        pendingQuickEdit: undefined,
-      })
-    }
-  }
-
-  const startQuick = (
-    id: string,
-    patch: QuickPatch,
-    onRowPatched: RowPatcher,
-    fingerprint: string | undefined,
-  ): Promise<void> => {
-    set({ quickPending: { ...get().quickPending, [id]: { ...get().quickPending[id], ...patch } } })
-    return enqueue(id, () => quickWrite(id, patch, onRowPatched, fingerprint))
-  }
-
-  /** `save`'s queued part. Reads the draft only now, so a quick edit queued ahead of it (which
-   * refreshes the draft's favourite/rating) is carried along instead of written back over. */
-  const saveWrite = async (
-    id: string,
-    fingerprint: string | undefined,
-    onRowPatched: RowPatcher,
-  ): Promise<void> => {
-    const entry = get().drafts[id]
-    if (entry === undefined) return
-    const converted = draftToFields(entry.draft)
-    if (!converted.ok) {
-      patchEntry(id, { saving: false })
-      return
-    }
-    // Quick edits merged while a replace dialog was open ride along with the confirmed save.
-    const fields =
-      entry.pendingQuickEdit === undefined
-        ? converted.fields
-        : withQuickEdit(converted.fields, entry.pendingQuickEdit)
-    const outcome =
-      fingerprint === undefined
-        ? await sidecarWrite(id, fields)
-        : await sidecarWrite(id, fields, fingerprint)
-
-    if (!outcome.ok) {
-      // The merged quick edits were part of this failed write: drop them so a retry can't carry stale ones.
-      patchEntry(id, {
-        saving: false,
-        saveError: outcome.error,
-        fingerprint: undefined,
-        pendingQuickEdit: undefined,
-      })
-      return
-    }
-    if (outcome.value.status === 'needsConfirmation') {
-      const { fileName, issues } = outcome.value
-      patchEntry(id, {
-        saving: false,
-        fingerprint: outcome.value.fingerprint,
-        replace: { fileName, issues },
-      })
+      upsertEntry(id, { fingerprint: outcome.value.fingerprint, replace: { fileName, issues } })
+      park(id, change, overlay, settle)
       return
     }
 
     // Written: reflect what is actually on disk now, not what was sent.
-    const fresh = await sidecarRead(id)
-    if (!fresh.ok) {
-      patchEntry(id, {
-        saving: false,
-        saveError: fresh.error,
-        fingerprint: undefined,
-        pendingQuickEdit: undefined,
-      })
-      return
-    }
-    const baseline = draftFromSidecar(fresh.value.values)
-    set({
-      drafts: { ...get().drafts, [id]: { draft: baseline, baseline } },
-      ...(get().editingId === id ? { editingId: null } : {}),
-    })
-    onRowPatched(id, fresh.value)
+    const after = await sidecarRead(id)
+    if (!after.ok) return failEdit(after, settle)
+    onRowPatched(id, after.value)
+
+    settle('saved')
   }
 
-  const leave = (request: PendingLeave): void => {
-    const { selectedId, editingId, drafts } = get()
-    if (selectedId !== null && editingId === selectedId && isEntryDirty(drafts[selectedId])) {
-      set({ pendingLeave: request })
-      return
-    }
-    const left = selectedId === null ? undefined : drafts[selectedId]
-    if (
-      selectedId !== null &&
-      left !== undefined &&
-      !isEntryDirty(left) &&
-      !left.saving &&
-      left.replace === undefined
-    ) {
-      const rest = { ...drafts }
-      delete rest[selectedId]
-      set({ drafts: rest })
-    }
-    set({ selectedId: request.targetId, editingId: null, pendingLeave: null })
+  const queueEdit = (
+    id: string,
+    change: SidecarChange,
+    onRowPatched: RowPatcher,
+    fingerprint: string | undefined,
+    overlay: QuickPatch | undefined,
+    settle: (result: EditResult) => void,
+  ): Promise<void> =>
+    enqueue(id, async () => {
+      try {
+        await editWrite(id, change, onRowPatched, fingerprint, overlay, settle)
+      } catch (error) {
+        // A rejected IPC call must not leave the edit's promise pending forever.
+        settle('failed')
+        throw error
+      }
+    })
+
+  /** Closes the replace dialog and settles every change parked behind it as `cancelled`. */
+  const dropReplace = (id: string): void => {
+    patchEntry(id, {
+      replace: undefined,
+      fingerprint: undefined,
+      pendingChange: undefined,
+      pendingOverlay: undefined,
+    })
+    settleParked(id, 'cancelled')
   }
 
   return {
     selectedId: null,
-    editingId: null,
     drafts: {},
     quickPending: {},
-    pendingLeave: null,
-    select: (id) => {
-      if (get().selectedId === id) return
-      leave({ kind: 'select', targetId: id })
-    },
-    close: () => leave({ kind: 'close', targetId: null }),
+    select: (id) => set({ selectedId: id }),
+    close: () => set({ selectedId: null }),
     deselectIfMissing: (ids) => {
       const current = get().selectedId
       if (current === null) return
-      if (!ids.includes(current)) set({ selectedId: null, pendingLeave: null })
+      if (!ids.includes(current)) set({ selectedId: null })
     },
-    startEdit: (id, values) => {
-      const existing = get().drafts[id]
-      if (isEntryDirty(existing) || existing?.saving) {
-        set({ editingId: id })
-        return
-      }
-      const draft = draftFromSidecar(values)
-      set({ drafts: { ...get().drafts, [id]: { draft, baseline: draft } }, editingId: id })
-    },
-    cancelEdit: (id) => {
-      if (get().drafts[id]?.saving) return
-      const rest = { ...get().drafts }
-      delete rest[id]
-      set({ drafts: rest, ...(get().editingId === id ? { editingId: null } : {}) })
-    },
-    updateDraft: (id, patch) => {
-      const entry = get().drafts[id]
-      if (entry === undefined || entry.saving) return
-      const draft = typeof patch === 'function' ? patch(entry.draft) : { ...entry.draft, ...patch }
-      patchEntry(id, { draft, saveError: undefined })
-    },
-    cancelDraft: (id) => {
-      const entry = get().drafts[id]
-      if (entry === undefined || entry.saving) return
-      patchEntry(id, { draft: entry.baseline, saveError: undefined })
-    },
-    discardDraft: (id) => {
-      const rest = { ...get().drafts }
-      delete rest[id]
-      set({ drafts: rest })
-    },
-    keepEditing: () => set({ pendingLeave: null }),
-    discardAndLeave: () => {
-      const { pendingLeave, selectedId } = get()
-      if (pendingLeave === null) return
-      if (selectedId !== null) get().discardDraft(selectedId)
-      set({ selectedId: pendingLeave.targetId, editingId: null, pendingLeave: null })
-    },
-    save: (id, onRowPatched) => {
-      const entry = get().drafts[id]
-      if (entry === undefined || entry.saving) return Promise.resolve()
-      // Invalid rating/date: the editor already shows the inline errors - no IPC at all.
-      if (!draftToFields(entry.draft).ok) return Promise.resolve()
-
-      // The fingerprint the user confirmed (if any) - taken now, not from whatever a quick edit
-      // queued ahead of this save leaves in the entry.
-      const fingerprint = entry.fingerprint
-      patchEntry(id, { saving: true, saveError: undefined, replace: undefined })
-      return enqueue(id, () => saveWrite(id, fingerprint, onRowPatched))
-    },
-    cancelReplace: (id) =>
-      patchEntry(id, { replace: undefined, fingerprint: undefined, pendingQuickEdit: undefined }),
-    quickEdit: (id, patch, onRowPatched) => startQuick(id, patch, onRowPatched, undefined),
-    confirmQuickEdit: (id, onRowPatched) => {
+    edit: (id, change, onRowPatched) =>
+      new Promise<EditResult>((resolve) => {
+        void queueEdit(id, change, onRowPatched, undefined, undefined, resolve).catch(
+          () => undefined,
+        )
+      }),
+    confirmEdit: (id, onRowPatched) => {
       const entry = get().drafts[id]
       if (entry?.replace === undefined) return Promise.resolve()
-      const patch = entry.pendingQuickEdit ?? {}
-      const fingerprint = entry.fingerprint
-      patchEntry(id, { replace: undefined, pendingQuickEdit: undefined })
-      return startQuick(id, patch, onRowPatched, fingerprint)
+      const { fingerprint, pendingOverlay } = entry
+      const change = entry.pendingChange ?? composeChanges()
+      // Taken now: an edit arriving after this confirm queues behind the confirmed write instead.
+      const waiting = parked.get(id) ?? []
+      parked.delete(id)
+      patchEntry(id, {
+        replace: undefined,
+        fingerprint: undefined,
+        pendingChange: undefined,
+        pendingOverlay: undefined,
+      })
+      if (pendingOverlay !== undefined) showOverlay(id, pendingOverlay)
+      return queueEdit(id, change, onRowPatched, fingerprint, pendingOverlay, (result) =>
+        waiting.forEach((settle) => settle(result)),
+      )
     },
+    cancelEdit: (id) => dropReplace(id),
+    quickEdit: (id, patch, onRowPatched) => {
+      showOverlay(id, patch)
+      return queueEdit(id, quickChange(patch), onRowPatched, undefined, patch, () => undefined)
+    },
+    confirmQuickEdit: (id, onRowPatched) => get().confirmEdit(id, onRowPatched),
   }
 })
