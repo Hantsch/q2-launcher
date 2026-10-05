@@ -331,6 +331,11 @@ export function ReplaysView() {
     })
   }
 
+  // The playing demo's row from the full list (not the scoped view), for the strip's comments.
+  const sessionDemoId = usePlaybackStore((state) => state.session?.demoId ?? null)
+  const sessionDemo =
+    sessionDemoId === null ? null : (demos?.find((demo) => demo.id === sessionDemoId) ?? null)
+
   // Story 155: a notes save patches just that one row from its fresh `sidecar.read` - no rescan,
   // no `index.read`, so the list keeps its place and no loading strip flashes.
   const handleRowPatched: RowPatcher = (demoId, sidecar) => {
@@ -935,7 +940,7 @@ export function ReplaysView() {
         className={cn(stageMode && 'h-32 shrink-0 overflow-hidden')}
         data-testid="replays-timeline-slot"
       >
-        <DemoTimeline />
+        <DemoTimeline demo={sessionDemo} onRowPatched={handleRowPatched} />
       </div>
       {stageMode && <ConsoleCommandField />}
 

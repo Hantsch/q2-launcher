@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { SidecarIssue, SidecarState } from '@shared/modules/replays'
 import type { SidecarFields } from '@shared/replays/sidecar'
+import { applyCommentOp, type CommentOp } from '@shared/replays/demo-comments'
 import { composeChanges, quickChange, type SidecarChange } from '@shared/replays/sidecar-draft'
 import type { LocalizedMessage } from '@shared/types/common'
 import { toastOutcomeError } from '../../lib/toast'
@@ -56,6 +57,22 @@ function settleParked(id: string, result: EditResult): void {
   parked.delete(id)
   waiting?.forEach((settle) => settle(result))
 }
+
+/** How one `commentEdit` ended: `refused` carries the i18n key of why the op did not apply to the
+ * sidecar as it is on disk now; `failed` is a read/write error (already toasted). */
+export type CommentEditResult =
+  { status: 'saved' | 'cancelled' | 'failed' } | { status: 'refused'; key: string }
+
+/** Thrown by a comment change when its op does not apply to the freshly read comments - ends that
+ * queued write without touching the file. */
+class ChangeRefused extends Error {
+  constructor(readonly key: string) {
+    super(key)
+  }
+}
+
+/** The refusal key of a change that threw `ChangeRefused`, by the settle function it was queued with. */
+const refusals = new WeakMap<(result: EditResult) => void, string>()
 
 /** One demo's pending replace confirmation. `fingerprint` is only ever set by a `needsConfirmation`
  * answer and only ever sent back after the user confirmed the replace dialog (`replace` is that
@@ -121,6 +138,9 @@ export interface DemoEditorState {
    * over, not when a parked edit is finally confirmed. */
   quickEdit(id: string, patch: QuickPatch, onRowPatched: RowPatcher): Promise<void>
   confirmQuickEdit(id: string, onRowPatched: RowPatcher): Promise<void>
+  /** Adds, edits or removes one comment through the same queued fresh-read write as `edit`: the op
+   * is applied to the comments on disk when its turn comes, never to the row's list. */
+  commentEdit(id: string, op: CommentOp, onRowPatched: RowPatcher): Promise<CommentEditResult>
 }
 
 /** Which demo's pending `replace` the view shows - the view renders the only replace dialog. */
@@ -226,7 +246,17 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
     // Never trust the row's own (possibly stale) values - always re-read the sidecar fresh.
     const fresh = await sidecarRead(id)
     if (!fresh.ok) return failEdit(fresh, settle)
-    const fields = change(fresh.value.values)
+    let fields: SidecarFields
+    try {
+      fields = change(fresh.value.values)
+    } catch (error) {
+      if (error instanceof ChangeRefused) {
+        refusals.set(settle, error.key)
+        settle('failed')
+        return
+      }
+      throw error
+    }
 
     const outcome =
       fingerprint === undefined
@@ -334,5 +364,20 @@ export const useDemoEditorStore = create<DemoEditorState>((set, get) => {
       return queueEdit(id, quickChange(patch), onRowPatched, undefined, patch, () => undefined)
     },
     confirmQuickEdit: (id, onRowPatched) => get().confirmEdit(id, onRowPatched),
+    commentEdit: (id, op, onRowPatched) =>
+      new Promise<CommentEditResult>((resolve) => {
+        const settle = (result: EditResult): void => {
+          const key = refusals.get(settle)
+          resolve(key === undefined ? { status: result } : { status: 'refused', key })
+        }
+        const change: SidecarChange = (values) => {
+          const applied = applyCommentOp(values.comments, op)
+          if (!applied.ok) throw new ChangeRefused(applied.key)
+          return { ...values, comments: applied.comments }
+        }
+        void queueEdit(id, change, onRowPatched, undefined, undefined, settle).catch(
+          () => undefined,
+        )
+      }),
   }
 })

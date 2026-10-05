@@ -18,6 +18,7 @@ import { IconButton } from '../../../components/ui/Button'
 import { cn } from '../../../lib/cn'
 import { sidecarRead } from '../client'
 import { formatDemoDate } from '../row-format'
+import { DemoCommentsList } from './DemoCommentsList'
 import { DemoFileActions } from './DemoFileActions'
 import { SidesField } from './SidesField'
 import { StarRating } from './StarRating'
@@ -328,6 +329,7 @@ export function DemoDetailPanel({
               />
             </div>
           )}
+          <DemoCommentsList row={row} onRowPatched={onRowPatched} />
         </div>
 
         {row.format === 'mvd2' && (

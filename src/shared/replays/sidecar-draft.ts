@@ -10,6 +10,7 @@
 
 import {
   SIDECAR_LIMITS,
+  type SidecarComment,
   normalizeSidecarFields,
   sidecarFieldsSchema,
   type SidecarFields,
@@ -26,6 +27,7 @@ export type SidecarDraft = {
   favourite: boolean
   tags: string[]
   sides: Array<{ team: string; result: string; players: string[] }>
+  comments: SidecarComment[]
   originalDate: string | null
 }
 
@@ -66,6 +68,7 @@ export function draftFromSidecar(values: Partial<SidecarFields>): SidecarDraft {
             players: [...s.players],
           }))
         : [],
+    comments: values.comments !== undefined ? values.comments.map((c) => ({ ...c })) : [],
     originalDate: values.date ?? null,
   }
 }
@@ -164,6 +167,7 @@ function rawFieldsFromDraftBase(draft: SidecarDraft): SidecarFields {
   }
   if (draft.tags.length > 0) out.tags = [...draft.tags]
   if (draft.favourite) out.favourite = true
+  if (draft.comments.length > 0) out.comments = draft.comments.map((c) => ({ ...c }))
   return out
 }
 

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import {
   AppWindow,
   Maximize2,
+  MessageSquarePlus,
   MonitorPlay,
   Pause,
   Play,
@@ -11,6 +12,8 @@ import {
   Square,
 } from 'lucide-react'
 import type { LocalizedMessage } from '@shared/types'
+import type { DemoRow } from '@shared/modules/replays'
+import { SIDECAR_LIMITS } from '@shared/replays/sidecar'
 import {
   JUMP_STEP_S,
   PAGE_STEP_S,
@@ -24,6 +27,8 @@ import { Select } from '../../../components/ui/controls'
 import { useOverlayRegistration } from '../../../lib/overlay-registry'
 import { cn } from '../../../lib/cn'
 import { usePlaybackStore } from '../playback-store'
+import type { RowPatcher } from '../demo-editor-store'
+import { CommentField, CommentMarks } from './TimelineComments'
 import {
   createTimeline,
   expected,
@@ -61,13 +66,19 @@ export function useExpectedTimeline(
   return current
 }
 
+export interface DemoTimelineProps {
+  /** The session's demo row, when the list holds it; without it the strip offers no comments. */
+  demo?: DemoRow | null
+  onRowPatched?: RowPatcher
+}
+
 /**
  * Story 165: the timeline strip docked at the bottom of the Demos view while a demo session
  * exists. The seek bar is one `role="slider"` element (keyboard + click); without a known duration
  * it is `aria-disabled` and says why as visible text. Every action goes through `playbackTimeline`
  * as a fixed action object, never console text; a refusal or a rejected call shows inline.
  */
-export function DemoTimeline() {
+export function DemoTimeline({ demo = null, onRowPatched }: DemoTimelineProps) {
   const { t } = useTranslation()
   const session = usePlaybackStore((state) => state.session)
   const sendTimeline = usePlaybackStore((state) => state.sendTimeline)
@@ -80,6 +91,9 @@ export function DemoTimeline() {
   useOverlayRegistration(speedOpen, noElement, true)
   const waitingId = useId()
   const cinemaReasonId = useId()
+  const commentReasonId = useId()
+  const [composing, setComposing] = useState<{ demoId: string; atMs: number } | null>(null)
+  const addCommentRef = useRef<HTMLButtonElement>(null)
   const optimistic = session?.optimistic
   const shown = useExpectedTimeline(
     optimistic ?? createEmpty,
@@ -126,6 +140,32 @@ export function DemoTimeline() {
         : null
   const busy = (chain: 'pause' | 'seek' | 'speed') =>
     waitingChain === chain ? { 'aria-busy': true as const, 'aria-describedby': waitingId } : {}
+
+  const comments = demo?.sidecar.values.comments ?? []
+  const commentReason =
+    demo === null
+      ? null
+      : session.archived
+        ? 'replays.comments.archiveReadOnly'
+        : comments.length >= SIDECAR_LIMITS.comments
+          ? 'replays.comments.error.limit'
+          : null
+  const canComment = demo !== null && onRowPatched !== undefined && session.demoId === demo.id
+  const showMarks = canComment && hasDuration && !fullscreen && comments.length > 0
+
+  async function startComment(): Promise<void> {
+    if (!canComment || fullscreen || commentReason !== null) return
+    // Pinned to what the strip shows at the click, before the pause round-trip moves the clock.
+    const clicked = hasDuration ? Math.min(durationMs, displayedMs) : displayedMs
+    const atMs = Math.max(0, Math.round(clicked))
+    if (!paused && !ended && !(await send({ kind: 'togglePause' }))) return
+    setComposing({ demoId: demo.id, atMs })
+  }
+
+  function closeComment(): void {
+    setComposing(null)
+    addCommentRef.current?.focus()
+  }
 
   async function stop(): Promise<void> {
     setError(null)
@@ -195,42 +235,60 @@ export function DemoTimeline() {
     >
       {/* YouTube-style: the seek bar spans the full strip above the controls; the element itself is
           a taller hit area around a thin track that thickens on hover. */}
-      <div
-        role="slider"
-        tabIndex={0}
-        aria-label={t('replays.timeline.seek')}
-        aria-valuemin={0}
-        aria-valuemax={durationS}
-        aria-valuenow={positionS}
-        aria-valuetext={t('replays.timeline.seekValueText', {
-          position: positionText,
-          duration: durationText,
-        })}
-        aria-disabled={!hasDuration || fullscreen}
-        onClick={handleSeekClick}
-        onKeyDown={handleSeekKey}
-        className={cn(
-          'group relative flex h-5 items-center rounded-sm',
-          hasDuration && !fullscreen ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
-          FOCUS_RING,
-        )}
-        data-testid="replays-timeline-seek"
-        data-position-ms={Math.round(displayedMs)}
-        {...busy('seek')}
-      >
-        <div className="pointer-events-none relative h-1.5 w-full rounded-full bg-line-strong transition-[height] group-hover:h-2.5">
-          <div
-            className="h-full rounded-full bg-flame-500"
-            style={{ width: `${fullscreen ? 0 : fraction * 100}%` }}
-          />
-          {hasDuration && !fullscreen && (
-            <div
-              className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-flame-500 opacity-0 transition-opacity group-hover:opacity-100"
-              style={{ left: `${fraction * 100}%` }}
-            />
+      <div className="relative">
+        <div
+          role="slider"
+          tabIndex={0}
+          aria-label={t('replays.timeline.seek')}
+          aria-valuemin={0}
+          aria-valuemax={durationS}
+          aria-valuenow={positionS}
+          aria-valuetext={t('replays.timeline.seekValueText', {
+            position: positionText,
+            duration: durationText,
+          })}
+          aria-disabled={!hasDuration || fullscreen}
+          onClick={handleSeekClick}
+          onKeyDown={handleSeekKey}
+          className={cn(
+            'group relative flex h-5 items-center rounded-sm',
+            hasDuration && !fullscreen ? 'cursor-pointer' : 'cursor-not-allowed opacity-60',
+            FOCUS_RING,
           )}
+          data-testid="replays-timeline-seek"
+          data-position-ms={Math.round(displayedMs)}
+          {...busy('seek')}
+        >
+          <div className="pointer-events-none relative h-1.5 w-full rounded-full bg-line-strong transition-[height] group-hover:h-2.5">
+            <div
+              className="h-full rounded-full bg-flame-500"
+              style={{ width: `${fullscreen ? 0 : fraction * 100}%` }}
+            />
+            {hasDuration && !fullscreen && (
+              <div
+                className="absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-flame-500 opacity-0 transition-opacity group-hover:opacity-100"
+                style={{ left: `${fraction * 100}%` }}
+              />
+            )}
+          </div>
         </div>
+        {showMarks && (
+          <CommentMarks
+            comments={comments}
+            durationMs={durationMs}
+            onSeek={(seconds) => void send({ kind: 'seekTo', seconds })}
+            focusRing={FOCUS_RING}
+          />
+        )}
       </div>
+      {canComment && composing !== null && composing.demoId === demo.id && !fullscreen && (
+        <CommentField
+          demoId={demo.id}
+          atMs={composing.atMs}
+          onRowPatched={onRowPatched}
+          onClose={closeComment}
+        />
+      )}
       <div className="flex items-center gap-1">
         <IconButton
           size="lg"
@@ -314,6 +372,22 @@ export function DemoTimeline() {
           data-testid="replays-timeline-speed"
           {...busy('speed')}
         />
+        {canComment && (
+          <IconButton
+            ref={addCommentRef}
+            size="lg"
+            label={t('replays.comments.add')}
+            disabled={fullscreen}
+            // Stays focusable when refused so its reason is reachable.
+            aria-disabled={commentReason !== null || undefined}
+            aria-describedby={commentReason !== null ? commentReasonId : undefined}
+            onClick={() => void startComment()}
+            className={cn(FOCUS_RING, commentReason !== null && 'cursor-not-allowed opacity-45')}
+            data-testid="replays-timeline-add-comment"
+          >
+            <MessageSquarePlus className="size-6" />
+          </IconButton>
+        )}
         {/* Story 187: YouTube-style view buttons - cinema (theater) and fullscreen; none once fullscreen. */}
         {!fullscreen && (
           <>
@@ -369,6 +443,15 @@ export function DemoTimeline() {
           data-testid="replays-timeline-cinema-reason"
         >
           {t(cinemaReason.key)}
+        </p>
+      )}
+      {canComment && commentReason !== null && !fullscreen && (
+        <p
+          id={commentReasonId}
+          className="text-xs text-ink-muted"
+          data-testid="replays-timeline-comment-reason"
+        >
+          {t(commentReason)}
         </p>
       )}
       {!hasDuration && !fullscreen && (

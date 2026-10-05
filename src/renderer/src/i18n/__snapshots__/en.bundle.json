@@ -2696,6 +2696,25 @@
         "notPrimaryDisplay": "Not available: the launcher is not on the primary display. Move it there to watch in cinema mode."
       }
     },
+    "comments": {
+      "add": "Add comment",
+      "archiveReadOnly": "Demos inside a zip cannot carry comments",
+      "delete": "Delete comment at {{time}}",
+      "edit": "Edit comment at {{time}}",
+      "empty": "No comments yet.",
+      "error": {
+        "empty": "A comment cannot be empty.",
+        "failed": "The comment could not be saved.",
+        "limit": "A demo holds at most 200 comments.",
+        "notFound": "That comment changed meanwhile and could not be found.",
+        "tooLong": "A comment can be at most 500 characters."
+      },
+      "fieldLabel": "Comment at {{time}}",
+      "heading": "Comments",
+      "markLabel": "Comment at {{time}}: {{text}}",
+      "playFromHere": "Play from {{time}}",
+      "save": "Save comment"
+    },
     "console": {
       "error": {
         "control": "The command contains control characters.",

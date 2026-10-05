@@ -168,3 +168,34 @@ describe('the sidecar name is the full demo file name plus .json', () => {
     expect(sidecarFileName('FINAL.DM2')).toBe('FINAL.DM2.json')
   })
 })
+
+describe('sidecar comments', () => {
+  it('comments are normalised: trimmed, empties dropped, sorted by time', () => {
+    const out = normalizeSidecarFields({
+      comments: [
+        { atMs: 5000, text: '  second  ' },
+        { atMs: 100, text: 'first' },
+        { atMs: 300, text: '   ' },
+      ],
+    })
+    expect(out.comments).toEqual([
+      { atMs: 100, text: 'first' },
+      { atMs: 5000, text: 'second' },
+    ])
+    expect(Object.keys(JSON.parse(serializeSidecar({ ...fullFields, ...out })))).toEqual([
+      'schemaVersion',
+      'name',
+      'description',
+      'mod',
+      'gamemode',
+      'map',
+      'sides',
+      'tags',
+      'favourite',
+      'rating',
+      'date',
+      'comments',
+    ])
+    expect(normalizeSidecarFields({ comments: [{ atMs: 1, text: ' ' }] })).toEqual({})
+  })
+})

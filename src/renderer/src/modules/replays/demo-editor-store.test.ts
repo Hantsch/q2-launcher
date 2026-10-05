@@ -390,3 +390,45 @@ describe('replace confirmation', () => {
     expect(findRowReplaceId(store().drafts)).toBe(A)
   })
 })
+
+describe('comment ops', () => {
+  it('a comment op is applied to the freshly read sidecar inside the queue', async () => {
+    const sidecar = fakeSidecar({ name: 'x', comments: [{ atMs: 5000, text: 'first' }] })
+    // Queued ahead of the edit: adds a comment the caller's row never saw.
+    const other = store().commentEdit(A, { kind: 'add', atMs: 1000, text: 'early' }, vi.fn())
+    const onRowPatched = vi.fn()
+    const edit = store().commentEdit(
+      A,
+      { kind: 'edit', atMs: 5000, text: 'first', newText: 'changed' },
+      onRowPatched,
+    )
+
+    await sidecar.settle(Promise.all([other, edit]))
+
+    expect(sidecar.disk.values).toEqual({
+      name: 'x',
+      comments: [
+        { atMs: 1000, text: 'early' },
+        { atMs: 5000, text: 'changed' },
+      ],
+    })
+    expect(onRowPatched).toHaveBeenCalledWith(
+      A,
+      expect.objectContaining({ values: sidecar.disk.values }),
+    )
+  })
+
+  it('a comment op that no longer applies is refused without writing', async () => {
+    const sidecar = fakeSidecar({ comments: [{ atMs: 5000, text: 'first' }] })
+
+    const result = await store().commentEdit(
+      A,
+      { kind: 'remove', atMs: 9000, text: 'gone' },
+      vi.fn(),
+    )
+
+    expect(result).toEqual({ status: 'refused', key: 'replays.comments.error.notFound' })
+    expect(sidecarWrite).not.toHaveBeenCalled()
+    expect(sidecar.disk.values.comments).toHaveLength(1)
+  })
+})

@@ -27,6 +27,8 @@ export const SIDECAR_LIMITS = {
   player: 64,
   players: 64,
   sides: 16,
+  comment: 500,
+  comments: 200,
 } as const
 
 export const sidecarSideSchema = z
@@ -34,6 +36,13 @@ export const sidecarSideSchema = z
     team: z.string().max(SIDECAR_LIMITS.sideTeam).optional(),
     result: z.string().max(SIDECAR_LIMITS.result).optional(),
     players: z.array(z.string().max(SIDECAR_LIMITS.player)).max(SIDECAR_LIMITS.players),
+  })
+  .strict()
+
+export const sidecarCommentSchema = z
+  .object({
+    atMs: z.number().int().min(0),
+    text: z.string().min(1).max(SIDECAR_LIMITS.comment),
   })
   .strict()
 
@@ -49,10 +58,12 @@ export const sidecarFieldsSchema = z
     favourite: z.boolean().optional(),
     rating: z.number().int().min(1).max(10).optional(),
     date: z.iso.datetime({ offset: true }).optional(),
+    comments: z.array(sidecarCommentSchema).max(SIDECAR_LIMITS.comments).optional(),
   })
   .strict()
 
 export type SidecarSide = z.infer<typeof sidecarSideSchema>
+export type SidecarComment = z.infer<typeof sidecarCommentSchema>
 export type SidecarFields = z.infer<typeof sidecarFieldsSchema>
 
 export const sidecarFileSchema = sidecarFieldsSchema
@@ -84,6 +95,14 @@ function normalizeStringList(values: string[] | undefined): string[] | undefined
     result.push(trimmed)
   }
   return result.length === 0 ? undefined : result
+}
+
+/** Trims each text, drops blank ones and orders by time; equal times keep their given order. */
+export function normalizeComments(comments: SidecarComment[]): SidecarComment[] {
+  return comments
+    .map((c) => ({ atMs: c.atMs, text: c.text.trim() }))
+    .filter((c) => c.text !== '')
+    .sort((a, b) => a.atMs - b.atMs)
 }
 
 function normalizeSide(side: SidecarSide): SidecarSide | undefined {
@@ -138,6 +157,11 @@ export function normalizeSidecarFields(f: SidecarFields): SidecarFields {
 
   if (f.date !== undefined) out.date = f.date
 
+  if (f.comments !== undefined) {
+    const comments = normalizeComments(f.comments)
+    if (comments.length > 0) out.comments = comments
+  }
+
   return out
 }
 
@@ -172,6 +196,8 @@ export function serializeSidecar(f: SidecarFields): string {
   if (f.favourite !== undefined) out.favourite = f.favourite
   if (f.rating !== undefined) out.rating = f.rating
   if (f.date !== undefined) out.date = f.date
+  if (f.comments !== undefined)
+    out.comments = f.comments.map((c) => ({ atMs: c.atMs, text: c.text }))
 
   return JSON.stringify(out, null, 2) + '\n'
 }

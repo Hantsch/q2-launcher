@@ -281,4 +281,20 @@ describe('sidecar store', () => {
     }
     expect(result.value.values).toEqual({ name: 'good name' })
   })
+
+  it('comments round-trip through write and read', async () => {
+    const finalPath = await writeDemo('final.dm2')
+    const store = storeFor({ final: { kind: 'file', absolutePath: finalPath } })
+    const comments = [
+      { atMs: 100, text: 'first' },
+      { atMs: 5000, text: 'second' },
+    ]
+    const outcome = await store.write('final', { name: 'GF', comments })
+    expect(outcome.ok).toBe(true)
+
+    const read = await store.read('final')
+    expect(read.ok).toBe(true)
+    if (!read.ok) throw new Error('expected ok')
+    expect(read.value.values).toEqual({ name: 'GF', comments })
+  })
 })

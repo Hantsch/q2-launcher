@@ -262,6 +262,29 @@ export function writeReplaysTimelineFixture() {
   }
 }
 
+export const REPLAYS_COMMENTS_ZIP = 'pack-play.zip'
+
+export const REPLAYS_COMMENTS_ZIP_ENTRY = 'zipped.dm2'
+
+/** The timeline fixture plus `baseq2/demos/pack-play.zip` holding one playable demo; the archive is
+ * skipped (never a crash) when the 7za extractor was not vendored locally. */
+export function writeReplaysCommentsArchiveFixture() {
+  const fixture = writeReplaysTimelineFixture()
+  if (!vendoredExtractorExists()) return fixture
+  const staging = join(bootstrapStagingDir(), 'replays-comments-zip')
+  rmSync(staging, { recursive: true, force: true })
+  mkdirSync(staging, { recursive: true })
+  writeFileSync(join(staging, REPLAYS_COMMENTS_ZIP_ENTRY), demoBytesWithGameDir('baseq2'))
+  const archivePath = join(fixture.installRoot, 'baseq2', 'demos', REPLAYS_COMMENTS_ZIP)
+  rmSync(archivePath, { force: true })
+  execFileSync(
+    vendoredSevenZaPath(),
+    ['a', '-tzip', '-mx1', '-bso0', '-bse0', '-bd', archivePath, REPLAYS_COMMENTS_ZIP_ENTRY],
+    { cwd: staging, windowsHide: true },
+  )
+  return fixture
+}
+
 // Story 162 D1: the `replays-play` install plus an `.mvd2` and an `.mvd2.gz` in its `baseq2/demos/`
 // (names reuse `REPLAYS_FIXTURE_DEMOS`' literals; the gz is the same PFAU fixture, gzipped here).
 export const REPLAYS_PLAY_MVD2_DEMO = 'team_q2dm3.mvd2'

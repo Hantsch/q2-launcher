@@ -16,8 +16,11 @@ export interface DemoPlay {
   eligibility: DemoPlayEligibility | null
   busy: boolean
   error: LocalizedMessage | null
-  /** Plays the demo this hook was rendered with; `acknowledgeModMissing` plays past the mod warning. */
-  play(acknowledgeModMissing?: boolean): Promise<void>
+  /**
+   * Plays the demo this hook was rendered with; `acknowledgeModMissing` plays past the mod warning,
+   * `startAtS` seeks there once the engine reports its first position.
+   */
+  play(acknowledgeModMissing?: boolean, startAtS?: number): Promise<void>
 }
 
 /**
@@ -51,7 +54,7 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
     [demo, installations, activeInstallationId, platform, gameRunning],
   )
 
-  async function play(acknowledgeModMissing = false): Promise<void> {
+  async function play(acknowledgeModMissing = false, startAtS?: number): Promise<void> {
     if (demo === null || eligibility === null) return
     const target = acknowledgeModMissing
       ? demoPlayEligibility({
@@ -110,7 +113,11 @@ export function useDemoPlay(demo: DemoRow | null): DemoPlay {
         setError(result.error)
       } else {
         const placement = result.value.stage
-        playback.beginSession(demo.fileName, demo.durationMs)
+        playback.beginSession(demo.fileName, demo.durationMs, {
+          id: demo.id,
+          archived: demo.archiveEntry !== null,
+          ...(startAtS !== undefined ? { startAtS } : {}),
+        })
         playback.setStageReason(placement && !placement.ok ? { key: placement.reasonKey } : null)
       }
     } finally {

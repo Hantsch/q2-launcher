@@ -131,6 +131,9 @@ describe('ActionBar', () => {
       requestStop,
       session: {
         demoName: 'a.dm2',
+        demoId: null,
+        archived: false,
+        pendingSeekS: null,
         knownDurationMs: null,
         view: null,
         speed: 1,

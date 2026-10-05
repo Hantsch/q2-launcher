@@ -94,3 +94,24 @@ describe('readSidecarDefensively', () => {
     expect(values.name).toBe('kept')
   })
 })
+
+describe('readSidecarDefensively comments', () => {
+  it('a pre-comment v1 sidecar reads as ok with every field', () => {
+    const old = {
+      name: 'n',
+      tags: ['a'],
+      favourite: true,
+      rating: 4,
+      date: '2026-01-02T03:04:05Z',
+    }
+    const { values, state } = readSidecarDefensively(JSON.stringify({ schemaVersion: 1, ...old }))
+    expect(state).toEqual({ state: 'ok' })
+    expect(values).toEqual(old)
+
+    const withComments = readSidecarDefensively(
+      JSON.stringify({ schemaVersion: 1, comments: [{ atMs: 10, text: 'hi' }] }),
+    )
+    expect(withComments.state).toEqual({ state: 'ok' })
+    expect(withComments.values.comments).toEqual([{ atMs: 10, text: 'hi' }])
+  })
+})

@@ -44,6 +44,15 @@ export type PlaybackMode = 'preview' | 'cinema' | 'fullscreen'
 
 export interface PlaybackSession {
   demoName: string
+  /** The playing demo's row id, or null when the session was not started from a demo row (cinema). */
+  demoId: string | null
+  /** The playing demo sits inside a zip - it cannot carry comments. */
+  archived: boolean
+  /**
+   * Where to seek once the engine reports its first position; null when none is due. Sent at most
+   * once per session: before the first position the engine may not take commands yet. (story 241)
+   */
+  pendingSeekS: number | null
   /** The playing demo's 138 `durationMs`; wins over the engine's own figure in the reducer. */
   knownDurationMs: number | null
   /** Null until the first position sample arrives. */
@@ -85,7 +94,7 @@ interface PlaybackStoreState {
   disarmStage: () => void
   setStageRect: (rect: StageRect | null) => void
   setStageReason: (reason: { key: string } | null) => void
-  beginSession: (demoName: string, knownDurationMs: number | null) => void
+  beginSession: (demoName: string, knownDurationMs: number | null, demo?: SessionDemo) => void
   endSession: () => void
   /** Asks main to end the demo; resolves to the refusal to show, or null when the request was accepted. */
   requestStop: () => Promise<LocalizedMessage | null>
@@ -101,6 +110,13 @@ interface PlaybackStoreState {
   /** Story 187: asks main to enter or leave cinema; resolves to the refusal to show, or null. */
   setCinema: (enter: boolean) => Promise<LocalizedMessage | null>
   applyDisplay: (p: DisplayUpdate) => void
+}
+
+/** The demo row a session plays, and an optional start position in whole seconds. */
+export interface SessionDemo {
+  id: string
+  archived: boolean
+  startAtS?: number
 }
 
 /** The display event; `cinema`, `speed` and `cinemaAvailability` are optional for older callers. */
@@ -175,13 +191,16 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       return { stageRect: rect }
     }),
   setStageReason: (reason) => set({ stageReason: reason, stageReasonIsNotice: false }),
-  beginSession: (demoName, knownDurationMs) => {
+  beginSession: (demoName, knownDurationMs, demo) => {
     unsubscribeAll()
     clearTimers()
     const optimistic = createTimeline({ view: null, durationMs: knownDurationMs }, Date.now())
     set({
       session: {
         demoName,
+        demoId: demo?.id ?? null,
+        archived: demo?.archived ?? false,
+        pendingSeekS: demo?.startAtS ?? null,
         knownDurationMs,
         view: null,
         speed: 1,
@@ -262,9 +281,12 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
     return null
   },
   setSpeed: (speed) => set((s) => (s.session === null ? s : { session: { ...s.session, speed } })),
-  applyPosition: (positionMs, engineDurationMs, enginePaused = null) =>
+  applyPosition: (positionMs, engineDurationMs, enginePaused = null) => {
+    // Read inside `set`, so a position racing another one cannot send the seek twice.
+    let seekS = null as number | null
     set((s) => {
       if (s.session === null || positionMs === null) return s
+      seekS = s.session.pendingSeekS
       const view = reducePlaybackView(s.session.view, {
         positionMs,
         engineDurationMs,
@@ -274,8 +296,18 @@ export const usePlaybackStore = create<PlaybackStoreState>((set, get) => ({
       })
       const now = Date.now()
       const optimistic = applyReadback(s.session.optimistic, view, now)
-      return { session: { ...s.session, view, optimistic, waiting: waiting(optimistic, now) } }
-    }),
+      return {
+        session: {
+          ...s.session,
+          view,
+          optimistic,
+          waiting: waiting(optimistic, now),
+          pendingSeekS: null,
+        },
+      }
+    })
+    if (seekS !== null) void get().sendTimeline({ kind: 'seekTo', seconds: seekS })
+  },
   setCinema: async (enter) => {
     try {
       const result = await playbackCinema(enter)

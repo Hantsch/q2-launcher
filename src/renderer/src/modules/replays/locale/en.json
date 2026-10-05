@@ -475,6 +475,25 @@
       "sidecarError": "Notes have a problem",
       "archive": "Inside an archive"
     },
+    "comments": {
+      "heading": "Comments",
+      "empty": "No comments yet.",
+      "archiveReadOnly": "Demos inside a zip cannot carry comments",
+      "edit": "Edit comment at {{time}}",
+      "delete": "Delete comment at {{time}}",
+      "add": "Add comment",
+      "save": "Save comment",
+      "playFromHere": "Play from {{time}}",
+      "markLabel": "Comment at {{time}}: {{text}}",
+      "fieldLabel": "Comment at {{time}}",
+      "error": {
+        "limit": "A demo holds at most 200 comments.",
+        "tooLong": "A comment can be at most 500 characters.",
+        "empty": "A comment cannot be empty.",
+        "notFound": "That comment changed meanwhile and could not be found.",
+        "failed": "The comment could not be saved."
+      }
+    },
     "detail": {
       "sides": {
         "edit": "Edit sides",

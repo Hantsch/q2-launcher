@@ -27,6 +27,7 @@ version section when a release actually ships.
 - **Demos** — The demo list shows the selected installation's demos; a toggle shows all.
 - **Demos** — Browse your demo subfolders — breadcrumb, new/rename folder, drag a demo to move it.
 - **Demos** — Select several demos to delete, tag or move them at once; right-click for a menu.
+- **Demos** — Comment a moment of a demo on its timeline; comments show as marks and in the detail.
 
 ### Changed
 

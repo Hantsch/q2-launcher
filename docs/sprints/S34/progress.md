@@ -217,3 +217,22 @@
 - 2026-10-05 17:22 · 244 · review 1 fixes · started
 - 2026-10-05 17:25 · 244 · review 1 fixes · done
 - 2026-10-05 17:25 · 244 · story · done
+- 2026-10-05T17:25:49 · 241 · build · started
+- 2026-10-05 17:26 · 241 · D1 sidecar comments + ops · started
+- 2026-10-05 17:27 · 241 · D1 sidecar comments + ops · done
+- 2026-10-05 17:27 · 241 · D2 comments in detail · started
+- 2026-10-05 17:34 · 241 · D2 comments in detail · done
+- 2026-10-05 17:34 · 241 · D3 timeline comments (hard) · started
+- 2026-10-05 17:43 · 241 · D3 timeline comments (hard) · done
+- 2026-10-05 17:43 · 241 · D4 zip demos no comments · started
+- 2026-10-05 17:45 · 241 · D4 zip demos no comments · done
+- 2026-10-05 17:45 · 241 · verify · started
+- 2026-10-05 18:13 · 241 · verify · blocked: 4 unit reds (error-keys, systems-docs length, i18n bundle snapshot, duplicate Cancel)
+- 2026-10-05 18:13 · 241 · fix unit reds · started
+- 2026-10-05 18:16 · 241 · fix unit reds · done
+- 2026-10-05 18:17 · 241 · verify · done
+- 2026-10-05 18:17 · 241 · review 1 · started
+- 2026-10-05 18:18 · 241 · review 1 · done
+- 2026-10-05 18:18 · 241 · review 1 fixes · started
+- 2026-10-05 18:22 · 241 · review 1 fixes · done
+- 2026-10-05 18:23 · 241 · story · done

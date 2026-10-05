@@ -232,3 +232,17 @@ describe('sidecar changes', () => {
     expect(change({ tags: ['zero'] }).tags).toEqual(['zero', 'one', 'Two'])
   })
 })
+
+describe('comments in a draft', () => {
+  it("a draft save keeps the sidecar's comments", () => {
+    const comments = [
+      { atMs: 100, text: 'first' },
+      { atMs: 5000, text: 'second' },
+    ]
+    const draft = draftFromSidecar({ name: 'x', comments })
+    const result = draftToFields({ ...draft, name: 'renamed' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected ok')
+    expect(result.fields.comments).toEqual(comments)
+  })
+})

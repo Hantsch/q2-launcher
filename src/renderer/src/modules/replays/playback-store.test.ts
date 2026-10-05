@@ -241,3 +241,31 @@ describe('optimistic timeline in the store (story 184 D2)', () => {
     expect(sess().optimistic.nextId).toBe(1)
   })
 })
+
+describe('start position', () => {
+  it('a pending start seek is sent once after the first position', () => {
+    usePlaybackStore
+      .getState()
+      .beginSession('a.dm2', 90_000, { id: 'd1', archived: false, startAtS: 41 })
+    expect(usePlaybackStore.getState().session).toMatchObject({ demoId: 'd1', pendingSeekS: 41 })
+
+    // A sample without a position says nothing about the engine taking commands yet.
+    handlers.position?.({ positionMs: null, durationMs: null })
+    expect(handlers.timeline).not.toHaveBeenCalled()
+
+    handlers.position?.({ positionMs: 0, durationMs: 90_000 })
+    handlers.position?.({ positionMs: 250, durationMs: 90_000 })
+
+    expect(handlers.timeline).toHaveBeenCalledTimes(1)
+    expect(handlers.timeline).toHaveBeenCalledWith({ kind: 'seekTo', seconds: 41 })
+    expect(usePlaybackStore.getState().session?.pendingSeekS).toBeNull()
+  })
+
+  it('a session without a start position sends nothing on its positions', () => {
+    usePlaybackStore.getState().beginSession('a.dm2', 90_000, { id: 'd1', archived: true })
+    handlers.position?.({ positionMs: 0, durationMs: 90_000 })
+
+    expect(handlers.timeline).not.toHaveBeenCalled()
+    expect(usePlaybackStore.getState().session).toMatchObject({ demoId: 'd1', archived: true })
+  })
+})

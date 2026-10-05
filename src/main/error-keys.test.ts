@@ -9,6 +9,7 @@ import { MODS_ERROR_KEYS } from '../shared/modules/mods'
 import { NAME_TEMPLATE_ERROR } from '../shared/replays/name-template'
 import { USERINFO_REJECTION_KEYS } from '../shared/launch/userinfo'
 import { CONSOLE_LINE_ERROR_KEYS } from '../shared/replays/console-line'
+import { COMMENT_ERROR_KEYS } from '../shared/replays/demo-comments'
 import { SERVER_ADDRESS_REJECTION_KEYS } from '../shared/servers/address'
 import { MASTER_SOURCE_ADDRESS_REJECTION_KEYS } from '../shared/servers/master-source-address'
 import { MASTER_SOURCE_FAILURE_KEYS } from '../shared/servers/master-records'
@@ -82,6 +83,7 @@ describe('main error keys', () => {
 
   it('every exported *_ERROR_KEYS member resolves', () => {
     const lists: Record<string, readonly string[]> = {
+      COMMENT_ERROR_KEYS: Object.values(COMMENT_ERROR_KEYS),
       CONSOLE_LINE_ERROR_KEYS: Object.values(CONSOLE_LINE_ERROR_KEYS),
       DOWNLOADS_ERROR_KEYS,
       MODS_ERROR_KEYS,

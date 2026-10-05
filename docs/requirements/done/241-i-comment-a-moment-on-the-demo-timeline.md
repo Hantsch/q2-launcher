@@ -1,7 +1,7 @@
 ---
 id: 241
 title: I comment a moment on the demo timeline
-status: ready # draft -> ready -> in-progress -> done
+status: done
 created: 2026-10-04
 ---
 
@@ -22,19 +22,19 @@ Concept: [replays-module.md](../systems/replays-module.md), [demo-browser.md](..
 
 ## Acceptance Criteria
 
-- [ ] **AC1** — While a demo is paused, the timeline offers "Add comment", which opens a text field
+- [x] **AC1** — While a demo is paused, the timeline offers "Add comment", which opens a text field
       anchored at the current position.
-- [ ] **AC2** — A saved comment is written to the demo's sidecar with its time and text, and survives
+- [x] **AC2** — A saved comment is written to the demo's sidecar with its time and text, and survives
       a restart.
-- [ ] **AC3** — Each comment shows as a mark on the timeline's seek bar at its time; hovering or
+- [x] **AC3** — Each comment shows as a mark on the timeline's seek bar at its time; hovering or
       focusing the mark shows the text.
-- [ ] **AC4** — Activating a mark seeks the playing demo to that time.
-- [ ] **AC5** — The demo detail lists all comments sorted by time, each with its `mm:ss` time and
+- [x] **AC4** — Activating a mark seeks the playing demo to that time.
+- [x] **AC5** — The demo detail lists all comments sorted by time, each with its `mm:ss` time and
       text, also when no demo is playing.
-- [ ] **AC6** — A comment can be edited and deleted from the detail list.
-- [ ] **AC7** — Demos inside a zip cannot carry comments; the action is disabled and says why as
+- [x] **AC6** — A comment can be edited and deleted from the detail list.
+- [x] **AC7** — Demos inside a zip cannot carry comments; the action is disabled and says why as
       visible text.
-- [ ] **AC8** — Sidecars written before this story still load unchanged; adding the first comment
+- [x] **AC8** — Sidecars written before this story still load unchanged; adding the first comment
       keeps every existing field.
 
 ## Open Questions
@@ -162,3 +162,19 @@ Order: D1 → D2 → D3 → D4. Builds after 243 (in-place detail, save queue), 
 - AC8 → e2e `scripts/flows/replays-demo-comments.mjs` › "adding the first comment keeps every existing sidecar field"
 
 ## Done
+
+Comments are an optional `comments` array in sidecar v1 (normalised, ops applied to the freshly read sidecar in the per-demo queue). The detail lists, edits and deletes them (`DemoCommentsList`, "Play from here"); the timeline has Add comment, marks that seek, and a field inside the strip. Zip demos are read-only with a visible reason.
+
+Commit message: `241: comment a moment on the demo timeline — sidecar comments, detail list, timeline marks, play from here`
+
+Verification (narrow gate): build, typecheck, lint green; `npx vitest run --changed HEAD` 189 files / 1646 tests green; `src/comments.test.ts` + `src/architecture.test.ts` green. `--affected` selected nearly every flow (scripts/lib changed), too many for one call: ran the 3 story flows plus all 60 other `replays-*` flows in batches — all green except the known reds `replays-filter-search`, `replays-mod-warning` (not ours). After the review fixes the 3 story flows + `replays-timeline` re-ran green. Not run: `scripts/check-docs.test.mjs`, `scripts/flow-helper-duplication.test.mjs`.
+AC → test: all 18 lines of Acceptance Tests exist, ran and passed (e2e `step:` lines in the flows, unit by name). No manual residue.
+Review: default tier PASS with minor findings, all fixed (misplaced comments, duplicate limit constant, non-unique React keys + test, systems doc re-expanded to 150 lines). Unit reds found in verify (error-keys list, systems-doc length, i18n snapshot, duplicate "Cancel" value) fixed in-product.
+
+Decisions:
+- Add comment uses `aria-disabled` (focusable) so the reason is reachable; fullscreen keeps `disabled`; it only shows when the strip has the session's demo row and sits after the speed select (tab order unchanged).
+- `beginSession` demo argument also takes optional `startAtS`; `commentEdit` goes through the existing `queueEdit`/`editWrite` queue, refusals return `{status:'refused', key}` and write nothing.
+- Duplicate comments (same time + text) get unique keys via an occurrence counter; `replays.comments.cancel` dropped in favour of `common.action.cancel`.
+- Known gap: a refusal on a replace-dialog confirm retry surfaces as `failed`, not `refused`.
+
+tiers: D 4 / hard 1 · review default · cycles 1 · agents 9
